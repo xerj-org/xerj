@@ -9288,13 +9288,15 @@ async fn process_bulk_body(
     // bulk pipeline sees a doc with _ignored already populated and any
     // malformed values stripped, matching the path taken by the single-
     // doc PUT _doc/{id} / POST _doc routes.
-    // NOTE: an attempted TSDB last-wins `_id` rewrite (rewrite_bulk_time_series_ids,
-    // retained below but UNUSED) over-merged documents with DISTINCT `_tsid`s —
-    // it regressed smoke/20_tsdb_consistency (8 unique-tsid docs collapsed to 4).
-    // Disabled until the dimension/_tsid derivation is exact; the normal path
-    // leaves bulk bodies byte-for-byte unchanged.
-    let _ = rewrite_bulk_time_series_ids;
-    let base_text: &str = text;
+    // TSDB last-wins `_id` rewrite: for `time_series`-mode indices, inject a
+    // deterministic `_id` derived from the COMPLETE `_tsid` (all dimension
+    // fields — mapping-declared `time_series_dimension:true` AND every
+    // `routing_path` entry, nested paths resolved) plus the normalized
+    // `@timestamp`. Two docs collapse (later overwrites earlier) ONLY when all
+    // dimensions and the instant are identical, matching ES. Returns `None`
+    // when no action targets a TSDB index, so normal bulk bodies are unchanged.
+    let ts_rewritten = rewrite_bulk_time_series_ids(state, default_index, text);
+    let base_text: &str = ts_rewritten.as_deref().unwrap_or(text);
 
     let rewritten_body;
     let text_ref: &str = if state.engine.index_mappings.is_empty() {
@@ -19098,7 +19100,39 @@ fn time_series_dimension_fields(state: &AppState, index: &str) -> Option<Vec<Str
     if mode != Some("time_series") {
         return None;
     }
-    let mut dims: Vec<String> = Vec::new();
+    // The full `_tsid` is the COMPLETE set of dimension fields: every mapping
+    // field (recursively, by dotted path) flagged `time_series_dimension:true`
+    // UNIONed with every field named in `index.routing_path`. A BTreeSet keeps
+    // them sorted and de-duplicated. Two docs collapse only when ALL of these
+    // (plus the timestamp) are identical, so missing a single nested dimension
+    // (e.g. `k8s.pod.uid`) would wrongly over-merge distinct series.
+    let mut dims: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+
+    // 1. Mapping-declared dimensions, recursing into nested `properties`
+    //    so nested fields contribute their full dotted path.
+    fn collect_dims(
+        props: &serde_json::Map<String, Value>,
+        prefix: &str,
+        out: &mut std::collections::BTreeSet<String>,
+    ) {
+        for (name, fm) in props {
+            let full = if prefix.is_empty() {
+                name.clone()
+            } else {
+                format!("{prefix}.{name}")
+            };
+            if fm
+                .get("time_series_dimension")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+            {
+                out.insert(full.clone());
+            }
+            if let Some(sub) = fm.get("properties").and_then(Value::as_object) {
+                collect_dims(sub, &full, out);
+            }
+        }
+    }
     if let Some(mapping) = state.engine.index_mappings.get(index) {
         let props = mapping
             .get("mappings")
@@ -19106,41 +19140,37 @@ fn time_series_dimension_fields(state: &AppState, index: &str) -> Option<Vec<Str
             .or_else(|| mapping.get("properties"))
             .and_then(Value::as_object);
         if let Some(props_obj) = props {
-            for (name, fm) in props_obj {
-                if fm
-                    .get("time_series_dimension")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(false)
-                {
-                    dims.push(name.clone());
-                }
-            }
+            collect_dims(props_obj, "", &mut dims);
         }
     }
-    if dims.is_empty() {
-        // Fall back to the routing_path (the dimension subset used for
-        // shard routing) when the mapping doesn't flag dimensions.
-        let rp = settings
-            .get("index")
-            .and_then(|ix| ix.get("routing_path"))
-            .or_else(|| settings.get("routing_path"));
-        match rp {
-            Some(Value::Array(a)) => {
-                for v in a {
-                    if let Some(s) = v.as_str() {
-                        dims.push(s.to_string());
+
+    // 2. Union in every field named in `index.routing_path` (the dimension
+    //    subset used for shard routing). Wildcard patterns are skipped — they
+    //    aren't concrete field names to read from the document.
+    let rp = settings
+        .get("index")
+        .and_then(|ix| ix.get("routing_path"))
+        .or_else(|| settings.get("routing_path"));
+    match rp {
+        Some(Value::Array(a)) => {
+            for v in a {
+                if let Some(s) = v.as_str() {
+                    if !s.contains('*') {
+                        dims.insert(s.to_string());
                     }
                 }
             }
-            Some(Value::String(s)) => dims.push(s.clone()),
-            _ => {}
         }
+        Some(Value::String(s)) if !s.contains('*') => {
+            dims.insert(s.clone());
+        }
+        _ => {}
     }
+
     if dims.is_empty() {
         return None;
     }
-    dims.sort();
-    Some(dims)
+    Some(dims.into_iter().collect())
 }
 
 /// Compute a deterministic `_id` for a time_series (TSDB) document from its
@@ -19159,10 +19189,13 @@ fn time_series_doc_id(doc: &Value, dim_fields: &[String]) -> Option<String> {
     for f in dim_fields {
         composite.push_str(f);
         composite.push('\u{1}');
-        match obj.get(f) {
-            Some(Value::String(s)) => composite.push_str(s),
+        // Dimension fields may be nested (e.g. `k8s.pod.uid`); resolve the
+        // full dotted path against the source document, not just top-level
+        // keys, so every dimension actually contributes to the `_tsid`.
+        match get_source_value_by_path(doc, f) {
+            Some(Value::String(s)) => composite.push_str(&s),
+            Some(Value::Null) | None => {}
             Some(other) => composite.push_str(&other.to_string()),
-            None => {}
         }
         composite.push('\u{2}');
     }

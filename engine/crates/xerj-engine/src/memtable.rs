@@ -580,7 +580,13 @@ impl ShardedFtsMemtable {
         let q_tokens = analyzer.analyze(query);
         if q_tokens.is_empty() { return Vec::new(); }
 
-        let global_doc_count: u64 = self.doc_count() as u64;
+        // Delete-aware BM25 collection statistics (Lucene/ES parity): the
+        // scoring N counts both live docs AND tombstoned/superseded versions
+        // that have not yet been merged away.  NOTE: this is *only* the N fed
+        // to the BM25 IDF — hits.total and pagination still use the live
+        // `doc_count()`, so a search over an index that has never had an
+        // update/delete scores bit-for-bit identically to before.
+        let mut global_doc_count: u64 = self.doc_count() as u64;
         // Aggregate (per-field global avg_field_len, per-(field,term) doc_freq).
         let mut field_total_len: std::collections::HashMap<String, (f64, u64)> =
             std::collections::HashMap::new();
@@ -588,13 +594,21 @@ impl ShardedFtsMemtable {
             std::collections::HashMap::new();
         for shard in &self.shards {
             let g = shard.read();
-            // Field length sums.
+            // Live N is already in `global_doc_count`; add tombstoned versions.
+            global_doc_count += g.ghost_docs;
+            // Field length sums (live).
             for (fname, (sum, n)) in &g.avg_field_lengths {
                 let entry = field_total_len.entry(fname.clone()).or_insert((0.0, 0));
                 entry.0 += sum;
                 entry.1 += n;
             }
-            // Per-term doc_freq across shards.
+            // Field length sums (tombstoned versions retained for avgdl).
+            for (fname, (sum, n)) in &g.ghost_field_len {
+                let entry = field_total_len.entry(fname.clone()).or_insert((0.0, 0));
+                entry.0 += sum;
+                entry.1 += n;
+            }
+            // Per-term doc_freq across shards (live postings).
             for (fname, postings) in &g.index {
                 if !fields.is_empty() && !fields.iter().any(|f| f == fname) {
                     continue;
@@ -603,6 +617,18 @@ impl ShardedFtsMemtable {
                     if let Some(pl) = postings.get(&token.text) {
                         *term_global_df.entry((fname.clone(), token.text.clone()))
                             .or_insert(0) += pl.len() as u64;
+                    }
+                }
+            }
+            // Per-term doc_freq from tombstoned versions (delete-aware df).
+            for (fname, terms) in &g.ghost_doc_freq {
+                if !fields.is_empty() && !fields.iter().any(|f| f == fname) {
+                    continue;
+                }
+                for token in &q_tokens {
+                    if let Some(df) = terms.get(&token.text) {
+                        *term_global_df.entry((fname.clone(), token.text.clone()))
+                            .or_insert(0) += *df;
                     }
                 }
             }
@@ -857,6 +883,10 @@ impl ShardedFtsMemtable {
             g.field_lengths = HashMap::new();
             g.avg_field_lengths = HashMap::new();
             g.doc_id_index = HashMap::new();
+            // Flush == merge: purge delete-aware ghost collection stats.
+            g.ghost_docs = 0;
+            g.ghost_field_len = HashMap::new();
+            g.ghost_doc_freq = HashMap::new();
             g.docs.shrink_to_fit();
             d
         };
@@ -937,6 +967,11 @@ impl FtsMemtable {
         self.field_lengths = HashMap::new();
         self.avg_field_lengths = HashMap::new();
         self.doc_id_index = HashMap::new();
+        // Flush is the equivalent of a Lucene merge: tombstone contributions
+        // are purged, so delete-aware ghost statistics reset to empty.
+        self.ghost_docs = 0;
+        self.ghost_field_len = HashMap::new();
+        self.ghost_doc_freq = HashMap::new();
         self.docs.shrink_to_fit();
         result
     }
@@ -958,6 +993,11 @@ impl FtsMemtable {
         self.field_lengths = HashMap::new();
         self.avg_field_lengths = HashMap::new();
         self.doc_id_index = HashMap::new();
+        // Flush is the equivalent of a Lucene merge: tombstone contributions
+        // are purged, so delete-aware ghost statistics reset to empty.
+        self.ghost_docs = 0;
+        self.ghost_field_len = HashMap::new();
+        self.ghost_doc_freq = HashMap::new();
         self.docs.shrink_to_fit();
         result
     }
@@ -990,6 +1030,23 @@ pub struct FtsMemtable {
     avg_field_lengths: HashMap<String, (f64, u64)>,
     /// doc_id → position in self.docs for O(1) lookup
     doc_id_index: HashMap<String, usize>,
+    /// Delete-aware BM25 collection statistics (Lucene/ES parity).
+    ///
+    /// When a document is superseded by an update (remove + re-insert) or
+    /// explicitly deleted, Lucene keeps that document's contribution to the
+    /// collection statistics (N, total field length, per-term doc_freq)
+    /// until the segment is actually merged.  We mirror that: `remove()`
+    /// strips the old version from the LIVE structures (so it no longer
+    /// matches or counts toward hits.total) but folds its contribution into
+    /// these "ghost" accumulators, which are added back ONLY for BM25
+    /// scoring.  They reset to empty on every drain/flush — the moral
+    /// equivalent of a Lucene merge purging tombstones.
+    ///
+    /// A document that was never removed contributes nothing here, so its
+    /// BM25 score is bit-for-bit identical to before this feature existed.
+    ghost_docs: u64,
+    ghost_field_len: HashMap<String, (f64, u64)>,
+    ghost_doc_freq: HashMap<String, HashMap<String, u64>>,
 }
 
 impl FtsMemtable {
@@ -1004,6 +1061,9 @@ impl FtsMemtable {
             field_lengths: HashMap::new(),
             avg_field_lengths: HashMap::new(),
             doc_id_index: HashMap::new(),
+            ghost_docs: 0,
+            ghost_field_len: HashMap::new(),
+            ghost_doc_freq: HashMap::new(),
         }
     }
 
@@ -1022,6 +1082,9 @@ impl FtsMemtable {
             field_lengths: HashMap::new(),
             avg_field_lengths: HashMap::new(),
             doc_id_index: HashMap::new(),
+            ghost_docs: 0,
+            ghost_field_len: HashMap::new(),
+            ghost_doc_freq: HashMap::new(),
         }
     }
 
@@ -1378,21 +1441,47 @@ impl FtsMemtable {
         if !self.doc_id_index.contains_key(doc_id) {
             return;
         }
-        // Remove from inverted index.
-        for field_index in self.index.values_mut() {
-            for posting_list in field_index.values_mut() {
-                posting_list.remove(doc_id);
+        // Remove from inverted index.  Capture every (field, term) this doc
+        // actually contributed to so we can preserve its delete-aware
+        // doc_freq contribution (Lucene keeps tombstoned postings counted
+        // until a merge).  Two-phase to avoid borrowing `self.index` and
+        // `self.ghost_doc_freq` mutably at once.
+        let mut ghosted_terms: Vec<(String, String)> = Vec::new();
+        for (field_name, field_index) in self.index.iter_mut() {
+            for (term, posting_list) in field_index.iter_mut() {
+                if posting_list.remove(doc_id).is_some() {
+                    ghosted_terms.push((field_name.clone(), term.clone()));
+                }
             }
         }
+        for (field_name, term) in ghosted_terms {
+            *self
+                .ghost_doc_freq
+                .entry(field_name)
+                .or_default()
+                .entry(term)
+                .or_insert(0) += 1;
+        }
         // Remove from field length caches and update running averages.
+        // Retain the removed doc's field-length contribution as a ghost so
+        // avgdl stays delete-aware (total_field_length / N counts tombstones).
+        let mut ghosted_lengths: Vec<(String, u32)> = Vec::new();
         for (field_name, lengths) in &mut self.field_lengths {
             if let Some(token_count) = lengths.remove(doc_id) {
                 if let Some(entry) = self.avg_field_lengths.get_mut(field_name) {
                     entry.0 -= token_count as f64;
                     entry.1 = entry.1.saturating_sub(1);
                 }
+                ghosted_lengths.push((field_name.clone(), token_count));
             }
         }
+        for (field_name, token_count) in ghosted_lengths {
+            let g = self.ghost_field_len.entry(field_name).or_insert((0.0, 0));
+            g.0 += token_count as f64;
+            g.1 += 1;
+        }
+        // One more document is now a tombstone for collection-stats purposes.
+        self.ghost_docs += 1;
         // Remove from docs list AND the parallel DocValues columns.
         if let Some(pos) = self.doc_id_index.remove(doc_id) {
             let entry = self.docs.remove(pos);
@@ -1619,6 +1708,11 @@ impl FtsMemtable {
         self.field_lengths = HashMap::new();
         self.avg_field_lengths = HashMap::new();
         self.doc_id_index = HashMap::new();
+        // Flush is the equivalent of a Lucene merge: tombstone contributions
+        // are purged, so delete-aware ghost statistics reset to empty.
+        self.ghost_docs = 0;
+        self.ghost_field_len = HashMap::new();
+        self.ghost_doc_freq = HashMap::new();
         // `self.docs` was drained in place; its Vec backing is kept (cheap).
         self.docs.shrink_to_fit();
         result
@@ -1663,6 +1757,11 @@ impl FtsMemtable {
         self.field_lengths = HashMap::new();
         self.avg_field_lengths = HashMap::new();
         self.doc_id_index = HashMap::new();
+        // Flush is the equivalent of a Lucene merge: tombstone contributions
+        // are purged, so delete-aware ghost statistics reset to empty.
+        self.ghost_docs = 0;
+        self.ghost_field_len = HashMap::new();
+        self.ghost_doc_freq = HashMap::new();
         self.docs.shrink_to_fit();
         result
     }
