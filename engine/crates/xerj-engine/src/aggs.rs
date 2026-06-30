@@ -1556,31 +1556,44 @@ fn holt_winters(values: &[f64], alpha: f64, beta: f64, gamma: f64, period: usize
     }
     let n = values.len();
     let padding = if multiplicative { 1e-10 } else { 0.0 };
-    let s1: f64 = values[..period].iter().sum::<f64>() / period as f64;
-    let s2: f64 = values[period..2 * period].iter().sum::<f64>() / period as f64;
-    let mut s = s1;
-    let mut b = (s2 - s1) / period as f64;
-    let mut seasonal: Vec<f64> = vec![0.0; n];
+    // Faithful port of ES HoltWintersModel: vs[i] = values[i] + padding.
+    let vs: Vec<f64> = values.iter().map(|v| v + padding).collect();
+    // Initial level = mean of first season; initial trend is computed but ES
+    // keeps `last_b` at 0, so the seed trend is discarded on the first step.
+    let mut s = 0.0f64;
+    let mut b = 0.0f64;
     for i in 0..period {
-        seasonal[i] = if multiplicative { values[i] / s1 } else { values[i] - s1 };
+        s += vs[i];
+        b += (vs[i + period] - vs[i]) / period as f64;
+    }
+    s /= period as f64;
+    b /= period as f64;
+    let mut last_s = s;
+    let mut last_b = 0.0f64;
+    // First-season seasonal indices: ES ALWAYS divides here (even additive).
+    let mut seasonal: Vec<f64> = vec![0.0; n];
+    if s != 0.0 {
+        for i in 0..period {
+            seasonal[i] = vs[i] / s;
+        }
     }
     for i in period..n {
-        let s_prev = s;
         if multiplicative {
-            s = alpha * (values[i] / (seasonal[i - period] + padding))
-                + (1.0 - alpha) * (s_prev + b);
-            seasonal[i] = gamma * (values[i] / (s + padding))
-                + (1.0 - gamma) * seasonal[i - period];
+            s = alpha * (vs[i] / seasonal[i - period]) + (1.0 - alpha) * (last_s + last_b);
         } else {
-            s = alpha * (values[i] - seasonal[i - period])
-                + (1.0 - alpha) * (s_prev + b);
-            seasonal[i] = gamma * (values[i] - s)
-                + (1.0 - gamma) * seasonal[i - period];
+            s = alpha * (vs[i] - seasonal[i - period]) + (1.0 - alpha) * (last_s + last_b);
         }
-        b = beta * (s - s_prev) + (1.0 - beta) * b;
+        b = beta * (s - last_s) + (1.0 - beta) * last_b;
+        if multiplicative {
+            seasonal[i] = gamma * (vs[i] / (last_s + last_b)) + (1.0 - gamma) * seasonal[i - period];
+        } else {
+            seasonal[i] = gamma * (vs[i] - (last_s - last_b)) + (1.0 - gamma) * seasonal[i - period];
+        }
+        last_s = s;
+        last_b = b;
     }
-    let next_season = seasonal[n - period];
-    let out = if multiplicative { (s + b) * next_season } else { (s + b) + next_season };
+    let idx = n - period;
+    let out = if multiplicative { (s + b) * seasonal[idx] } else { s + b + seasonal[idx] };
     Some(out)
 }
 

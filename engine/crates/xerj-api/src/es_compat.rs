@@ -3889,12 +3889,8 @@ pub async fn search(
     body: OptionalJson<EsSearchBody>,
 ) -> impl IntoResponse {
     let started = Instant::now();
-    // A closed index rejects read/search ops with ES index_closed_exception.
-    // Strict membership only — frozen/open indices are unaffected (ES allows
-    // search on frozen indices).
-    if state.engine.closed_indices.contains_key(&index) {
-        return closed_index_error(&index);
-    }
+    // Closed-index handling is deferred to after index resolution below so
+    // `ignore_unavailable` / `expand_wildcards` are honored per ES semantics.
 
     // Strict: empty body → defaults (ES match-all). Malformed body → 400
     // via OptionalJsonRejection, NOT a silent fallback to match-all that
@@ -4189,6 +4185,55 @@ pub async fn search(
         }).collect()
     };
     let index_names: Vec<&str> = index_names.iter().map(|s| s.as_str()).collect();
+    // ── Closed-index resolution (ES expand_wildcards / ignore_unavailable) ──
+    // A closed index cannot be searched. ES rules:
+    //   * named explicitly   → index_closed_exception (400), unless
+    //                           ignore_unavailable=true (then skip → empty).
+    //   * matched by wildcard → silently dropped unless expand_wildcards
+    //                           includes "closed"/"all" (default "open"); when
+    //                           explicitly included, surface the exception.
+    let index_names: Vec<&str> = {
+        let iu = params.ignore_unavailable.as_deref() == Some("true");
+        let ew = params.expand_wildcards.as_deref().unwrap_or("open");
+        let include_closed = ew.split(',').any(|t| {
+            let t = t.trim();
+            t == "closed" || t == "all"
+        });
+        let concrete_tokens: Vec<&str> = raw_names
+            .iter()
+            .copied()
+            .filter(|p| *p != "_all" && !p.contains('*'))
+            .collect();
+        let mut kept: Vec<&str> = Vec::with_capacity(index_names.len());
+        for name in &index_names {
+            if !state.engine.closed_indices.contains_key(*name) {
+                kept.push(*name);
+                continue;
+            }
+            if concrete_tokens.iter().any(|t| t == name) {
+                if iu {
+                    continue;
+                } // explicit + ignore_unavailable → skip
+                return closed_index_error(name); // explicit closed → 400
+            } else if include_closed {
+                return closed_index_error(name); // wildcard + expand_wildcards=closed → 400
+            }
+            // wildcard + default open → drop silently
+        }
+        kept
+    };
+    // allow_no_indices=false with nothing left after dropping closed → 404
+    if index_names.is_empty() {
+        let allow_no = params
+            .allow_no_indices
+            .as_deref()
+            .map(|v| v == "true")
+            .unwrap_or(true);
+        let iu = params.ignore_unavailable.as_deref() == Some("true");
+        if !allow_no && !iu {
+            return ApiError::new(xerj_common::XerjError::index_not_found(&index)).into_response();
+        }
+    }
 
     // PIT index_filter: AND it with body.query so every PIT search
     // respects the filter chosen at PIT-open time.
