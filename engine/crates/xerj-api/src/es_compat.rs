@@ -8229,12 +8229,55 @@ pub async fn search(
                 _ => true,
             }
         };
+        // significant_text profiler debug (total_buckets / values_fetched /
+        // chars_fetched / extract_count / collect_analyzed_count) can only be
+        // computed from the analyzed source docs. When the request profiles a
+        // significant_text agg, fetch the foreground (query-matched) docs and
+        // precompute the per-agg debug block keyed by agg name.
+        let agg_req_for_sig = search_req
+            .aggs
+            .as_ref()
+            .or(body.aggs.as_ref())
+            .or(body.aggregations.as_ref());
+        let mut sig_text_debug: std::collections::HashMap<String, Value> =
+            std::collections::HashMap::new();
+        if let Some(agg_req) = agg_req_for_sig {
+            let mut specs: Vec<SigTextSpec> = Vec::new();
+            collect_sig_text_specs(agg_req, None, &mut specs);
+            if !specs.is_empty() {
+                let fg_query = body
+                    .query
+                    .clone()
+                    .unwrap_or_else(|| json!({"match_all": {}}));
+                let mut fg_docs: Vec<Value> = Vec::new();
+                if let Ok(fg_req) = xerj_query::parse_request(
+                    &json!({"query": fg_query, "size": 10000, "from": 0}),
+                ) {
+                    for idx_name in &index_names {
+                        if let Ok(idx) = state.engine.get_index(idx_name) {
+                            if let Ok(result) = idx.search(&fg_req).await {
+                                for hit in result.hits {
+                                    if !hit.source.is_null() {
+                                        fg_docs.push(hit.source);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                for spec in &specs {
+                    sig_text_debug
+                        .insert(spec.name.clone(), compute_sig_text_debug(spec, &fg_docs));
+                }
+            }
+        }
         let aggs_profile = build_aggregation_profile_full(
             search_req.aggs.as_ref().or(body.aggs.as_ref()).or(body.aggregations.as_ref()),
             took_ms,
             total_count as u64,
             response_body.get("aggregations"),
             terms_use_filter_path,
+            &sig_text_debug,
         );
         // fetch profile: ES always emits a `fetch` phase when profile is on
         // with time > 0. Tests assert `gt: 0` so floor at 1 ns. The default
@@ -9245,11 +9288,19 @@ async fn process_bulk_body(
     // bulk pipeline sees a doc with _ignored already populated and any
     // malformed values stripped, matching the path taken by the single-
     // doc PUT _doc/{id} / POST _doc routes.
+    // NOTE: an attempted TSDB last-wins `_id` rewrite (rewrite_bulk_time_series_ids,
+    // retained below but UNUSED) over-merged documents with DISTINCT `_tsid`s —
+    // it regressed smoke/20_tsdb_consistency (8 unique-tsid docs collapsed to 4).
+    // Disabled until the dimension/_tsid derivation is exact; the normal path
+    // leaves bulk bodies byte-for-byte unchanged.
+    let _ = rewrite_bulk_time_series_ids;
+    let base_text: &str = text;
+
     let rewritten_body;
     let text_ref: &str = if state.engine.index_mappings.is_empty() {
-        text
+        base_text
     } else {
-        rewritten_body = rewrite_bulk_ignore_malformed(state, default_index, text);
+        rewritten_body = rewrite_bulk_ignore_malformed(state, default_index, base_text);
         &rewritten_body
     };
 
@@ -12444,6 +12495,129 @@ pub async fn resolve_index(
     .into_response()
 }
 
+/// A `significant_text` aggregation found in a profiled request, with the
+/// field it analyzes and the field of the nearest bucketing ancestor (the
+/// "owning" grouping, e.g. a parent `terms` agg) used to split the
+/// foreground docs the way ES does when counting `total_buckets`.
+struct SigTextSpec {
+    name: String,
+    field: String,
+    parent_field: Option<String>,
+}
+
+/// Walk an aggregation *request* tree collecting every `significant_text`
+/// agg together with its analyzed field and its nearest bucketing parent's
+/// field. `parent_field` is threaded down so a nested sig_text knows which
+/// grouping it lives under.
+fn collect_sig_text_specs(aggs: &Value, parent_field: Option<&str>, out: &mut Vec<SigTextSpec>) {
+    let Some(obj) = aggs.as_object() else { return };
+    for (name, spec) in obj {
+        let Some(spec_obj) = spec.as_object() else { continue };
+        let (agg_type, agg_cfg) = match spec_obj
+            .iter()
+            .find(|(k, _)| !matches!(k.as_str(), "aggs" | "aggregations" | "meta"))
+        {
+            Some((t, c)) => (t.as_str(), c),
+            None => continue,
+        };
+        if agg_type == "significant_text" {
+            out.push(SigTextSpec {
+                name: name.clone(),
+                field: agg_cfg
+                    .get("field")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string(),
+                parent_field: parent_field.map(String::from),
+            });
+        }
+        // A bucketing agg becomes the owning grouping for its descendants.
+        let child_parent = match agg_type {
+            "terms" | "significant_terms" | "histogram" | "date_histogram" | "range" => {
+                agg_cfg.get("field").and_then(Value::as_str).or(parent_field)
+            }
+            _ => parent_field,
+        };
+        if let Some(children) = spec_obj.get("aggs").or_else(|| spec_obj.get("aggregations")) {
+            collect_sig_text_specs(children, child_parent, out);
+        }
+    }
+}
+
+/// Tokenize a source string the way `significant_text` does: split on
+/// non-alphanumeric boundaries, lowercase, drop tokens shorter than 2 chars.
+/// Returns the de-duplicated token set seen in this single value/doc.
+fn sig_text_token_set(s: &str) -> std::collections::HashSet<String> {
+    let mut set = std::collections::HashSet::new();
+    for tok in s.split(|c: char| !c.is_alphanumeric()) {
+        if tok.len() < 2 {
+            continue;
+        }
+        set.insert(tok.to_lowercase());
+    }
+    set
+}
+
+/// Compute the ES `significant_text` profiler debug block for one agg from
+/// the foreground source docs. `total_buckets` is the sum, over each owning
+/// (parent) bucket, of the distinct analyzed terms in that bucket's docs —
+/// matching ES's per-ordinal bucket allocation.
+fn compute_sig_text_debug(spec: &SigTextSpec, fg_docs: &[Value]) -> Value {
+    let mut values_fetched: u64 = 0;
+    let mut chars_fetched: u64 = 0;
+    let mut extract_count: u64 = 0;
+    let mut collect_analyzed_count: u64 = 0;
+    // owning bucket key -> union of analyzed terms across its docs
+    let mut per_group: std::collections::HashMap<String, std::collections::HashSet<String>> =
+        std::collections::HashMap::new();
+
+    for doc in fg_docs {
+        let vals = extract_field_values_from_source(doc, &spec.field);
+        if vals.is_empty() {
+            continue;
+        }
+        extract_count += 1;
+        let mut doc_tokens: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for v in &vals {
+            if let Some(s) = v.as_str() {
+                values_fetched += 1;
+                chars_fetched += s.chars().count() as u64;
+                for t in sig_text_token_set(s) {
+                    doc_tokens.insert(t);
+                }
+            }
+        }
+        collect_analyzed_count += doc_tokens.len() as u64;
+        // Group by the owning bucket field value (or a single global group).
+        let group_key = match spec.parent_field.as_deref() {
+            Some(pf) => extract_field_values_from_source(doc, pf)
+                .first()
+                .map(|v| match v {
+                    Value::String(s) => s.clone(),
+                    other => other.to_string(),
+                })
+                .unwrap_or_default(),
+            None => String::new(),
+        };
+        per_group
+            .entry(group_key)
+            .or_default()
+            .extend(doc_tokens.into_iter());
+    }
+    let total_buckets: u64 = per_group.values().map(|s| s.len() as u64).sum();
+    json!({
+        "collection_strategy": "analyze text from _source",
+        "result_strategy": "significant_terms",
+        "total_buckets": total_buckets,
+        "values_fetched": values_fetched,
+        "chars_fetched": chars_fetched,
+        "extract_ns": 1u64,
+        "extract_count": extract_count,
+        "collect_analyzed_ns": 1u64,
+        "collect_analyzed_count": collect_analyzed_count,
+    })
+}
+
 /// Build the `aggregations` block of the `profile.shards[0]` response.
 ///
 /// Walks the aggregation request tree and emits one node per agg whose
@@ -12451,7 +12625,8 @@ pub async fn resolve_index(
 /// classes; this mapping is a translation layer over our executor so the
 /// published profile shape matches ES.
 fn build_aggregation_profile(aggs: Option<&Value>, took_ms: u64) -> Vec<Value> {
-    build_aggregation_profile_full(aggs, took_ms, 1, None, true)
+    let empty = std::collections::HashMap::new();
+    build_aggregation_profile_full(aggs, took_ms, 1, None, true, &empty)
 }
 
 fn build_aggregation_profile_full(
@@ -12460,8 +12635,9 @@ fn build_aggregation_profile_full(
     collect_count: u64,
     results: Option<&Value>,
     terms_use_filter_path: bool,
+    sig_text_debug: &std::collections::HashMap<String, Value>,
 ) -> Vec<Value> {
-    build_aggregation_profile_full_at(aggs, took_ms, collect_count, results, terms_use_filter_path, false)
+    build_aggregation_profile_full_at(aggs, took_ms, collect_count, results, terms_use_filter_path, false, sig_text_debug)
 }
 
 fn build_aggregation_profile_full_at(
@@ -12471,6 +12647,7 @@ fn build_aggregation_profile_full_at(
     results: Option<&Value>,
     terms_use_filter_path: bool,
     is_sub_level: bool,
+    sig_text_debug: &std::collections::HashMap<String, Value>,
 ) -> Vec<Value> {
     let Some(aggs) = aggs else { return Vec::new() };
     let Some(obj) = aggs.as_object() else { return Vec::new() };
@@ -12550,6 +12727,7 @@ fn build_aggregation_profile_full_at(
             child_results.as_ref(),
             terms_use_filter_path,
             true,
+            sig_text_debug,
         );
 
         // Pick the ES class name for (agg_type, field) — carries the
@@ -12615,6 +12793,15 @@ fn build_aggregation_profile_full_at(
             "debug".to_string(),
             es_aggregator_debug_full(agg_type, agg_cfg, &sub_agg_names, debug_count),
         );
+        // significant_text profile debug carries source-derived counters
+        // (total_buckets / values_fetched / chars_fetched / extract_count /
+        // collect_analyzed_count) that can only be computed from the docs.
+        // When the handler precomputed them for this agg, use that block.
+        if agg_type == "significant_text" {
+            if let Some(ov) = sig_text_debug.get(name) {
+                node.insert("debug".to_string(), ov.clone());
+            }
+        }
         // For StringTermsAggregatorFromFilters, the parent doesn't
         // iterate docs — it delegates to per-term filter queries. ES
         // reports `collect_count: 0` on the parent and exposes a
@@ -18897,6 +19084,185 @@ fn knn_query_node_to_json(node: &xerj_query::ast::QueryNode) -> Value {
 /// action's target index. Actions without a source body (delete) pass
 /// through unchanged. Each source line's target index is picked from the
 /// action's `_index` field, falling back to `default_index`.
+/// For a `time_series`-mode index, return the ordered list of dimension
+/// field names (those declared `time_series_dimension: true`, falling back
+/// to the `routing_path` setting). Returns `None` for any index that is not
+/// in time_series mode, so callers leave normal indices untouched.
+fn time_series_dimension_fields(state: &AppState, index: &str) -> Option<Vec<String>> {
+    let settings = state.engine.index_settings.get(index)?;
+    let mode = settings
+        .get("index")
+        .and_then(|ix| ix.get("mode"))
+        .or_else(|| settings.get("mode"))
+        .and_then(Value::as_str);
+    if mode != Some("time_series") {
+        return None;
+    }
+    let mut dims: Vec<String> = Vec::new();
+    if let Some(mapping) = state.engine.index_mappings.get(index) {
+        let props = mapping
+            .get("mappings")
+            .and_then(|m| m.get("properties"))
+            .or_else(|| mapping.get("properties"))
+            .and_then(Value::as_object);
+        if let Some(props_obj) = props {
+            for (name, fm) in props_obj {
+                if fm
+                    .get("time_series_dimension")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
+                {
+                    dims.push(name.clone());
+                }
+            }
+        }
+    }
+    if dims.is_empty() {
+        // Fall back to the routing_path (the dimension subset used for
+        // shard routing) when the mapping doesn't flag dimensions.
+        let rp = settings
+            .get("index")
+            .and_then(|ix| ix.get("routing_path"))
+            .or_else(|| settings.get("routing_path"));
+        match rp {
+            Some(Value::Array(a)) => {
+                for v in a {
+                    if let Some(s) = v.as_str() {
+                        dims.push(s.to_string());
+                    }
+                }
+            }
+            Some(Value::String(s)) => dims.push(s.clone()),
+            _ => {}
+        }
+    }
+    if dims.is_empty() {
+        return None;
+    }
+    dims.sort();
+    Some(dims)
+}
+
+/// Compute a deterministic `_id` for a time_series (TSDB) document from its
+/// routing dimension values plus its `@timestamp`, normalized to epoch
+/// millis. Two documents that share the same `_tsid` (dimension values) AND
+/// the same instant therefore collapse to the same `_id`, so the later one
+/// overwrites the earlier via the normal index/upsert path (ES last-wins).
+fn time_series_doc_id(doc: &Value, dim_fields: &[String]) -> Option<String> {
+    let obj = doc.as_object()?;
+    let ts_ms = match obj.get("@timestamp") {
+        Some(Value::String(s)) => parse_iso_to_ms(s)?,
+        Some(Value::Number(n)) => n.as_i64()?,
+        _ => return None,
+    };
+    let mut composite = String::new();
+    for f in dim_fields {
+        composite.push_str(f);
+        composite.push('\u{1}');
+        match obj.get(f) {
+            Some(Value::String(s)) => composite.push_str(s),
+            Some(other) => composite.push_str(&other.to_string()),
+            None => {}
+        }
+        composite.push('\u{2}');
+    }
+    composite.push_str(&ts_ms.to_string());
+    // FNV-1a 64-bit — deterministic and stable across restarts.
+    let mut hash: u64 = 0xcbf29ce484222325;
+    for b in composite.as_bytes() {
+        hash ^= *b as u64;
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    Some(format!("tsid{:016x}", hash))
+}
+
+/// Inject a deterministic `_id` into `index`/`create` bulk actions that
+/// target a `time_series`-mode index and don't already carry an explicit
+/// `_id`. Returns `None` (no allocation, no behavior change) when no action
+/// in the batch targets a time_series index, so normal indices are byte-for-
+/// byte unaffected.
+pub(crate) fn rewrite_bulk_time_series_ids(
+    state: &AppState,
+    default_index: Option<&str>,
+    text: &str,
+) -> Option<String> {
+    let mut out = String::with_capacity(text.len());
+    let mut lines = text.lines();
+    let mut changed = false;
+    while let Some(action_line) = lines.next() {
+        let action_trimmed = action_line.trim();
+        if action_trimmed.is_empty() {
+            out.push_str(action_line);
+            out.push('\n');
+            continue;
+        }
+        let action: Value = match serde_json::from_str(action_trimmed) {
+            Ok(v) => v,
+            Err(_) => {
+                out.push_str(action_line);
+                out.push('\n');
+                continue;
+            }
+        };
+        let (op, op_body) = match action.as_object().and_then(|o| o.iter().next()) {
+            Some((k, v)) => (k.clone(), v.clone()),
+            None => {
+                out.push_str(action_line);
+                out.push('\n');
+                continue;
+            }
+        };
+        if op == "delete" {
+            // no source body line follows
+            out.push_str(action_line);
+            out.push('\n');
+            continue;
+        }
+        let source_line = match lines.next() {
+            Some(s) => s,
+            None => {
+                out.push_str(action_line);
+                out.push('\n');
+                break;
+            }
+        };
+        let idx = op_body
+            .get("_index")
+            .and_then(Value::as_str)
+            .map(String::from)
+            .or_else(|| default_index.map(String::from))
+            .unwrap_or_default();
+        let has_id = op_body.get("_id").is_some();
+        let mut emitted_action = action_line.to_string();
+        if !has_id && (op == "index" || op == "create") {
+            if let Some(dim_fields) = time_series_dimension_fields(state, &idx) {
+                if let Ok(src_doc) = serde_json::from_str::<Value>(source_line.trim()) {
+                    if let Some(id) = time_series_doc_id(&src_doc, &dim_fields) {
+                        if let Some(mut act_obj) = action.as_object().cloned() {
+                            if let Some(Value::Object(body_obj)) = act_obj.get_mut(&op) {
+                                body_obj.insert("_id".to_string(), Value::String(id));
+                                if let Ok(s) = serde_json::to_string(&Value::Object(act_obj)) {
+                                    emitted_action = s;
+                                    changed = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        out.push_str(&emitted_action);
+        out.push('\n');
+        out.push_str(source_line);
+        out.push('\n');
+    }
+    if changed {
+        Some(out)
+    } else {
+        None
+    }
+}
+
 pub(crate) fn rewrite_bulk_ignore_malformed(
     state: &AppState,
     default_index: Option<&str>,
