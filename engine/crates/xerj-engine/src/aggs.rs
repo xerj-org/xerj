@@ -6409,9 +6409,17 @@ fn run_top_hits(params: &Value, docs: &[Value]) -> Value {
             let track_scores_flag = params.get("track_scores").and_then(Value::as_bool).unwrap_or(false);
             let emit_score = normalized_sort.is_empty() || sort_includes_score || track_scores_flag;
             if emit_score {
-                if let Some(score) = doc.get("_score").cloned() {
-                    if !score.is_null() {
+                // A scored top_hits hit always carries a non-null _score. When
+                // the corpus doc has no usable score (e.g. a random_sampler
+                // sub-agg where the doc never went through the scored window),
+                // fall back to the default match score 1.0 rather than omitting
+                // the key — ES always surfaces a numeric _score here.
+                match doc.get("_score").cloned() {
+                    Some(score) if !score.is_null() => {
                         hit_obj.insert("_score".to_string(), score);
+                    }
+                    _ => {
+                        hit_obj.insert("_score".to_string(), json!(1.0));
                     }
                 }
             } else {
@@ -6591,6 +6599,11 @@ fn run_top_hits(params: &Value, docs: &[Value]) -> Value {
                 src_obj.remove("_version");
                 src_obj.remove("_nested");
                 src_obj.remove("_matched_queries");
+                // Metadata injected onto corpus docs for sub-agg ordering must
+                // not leak into the emitted `_source`.
+                src_obj.remove("_seq_no");
+                src_obj.remove("_primary_term");
+                src_obj.remove("_ignored");
             }
             // When the caller set `_source: false` we skip emitting
             // `_source` entirely (ES omits the key rather than sending

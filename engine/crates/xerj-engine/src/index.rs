@@ -4806,6 +4806,47 @@ impl Index {
                     }
                 }
             }
+            // Enrich corpus docs with hit-level metadata so score/seq-sensitive
+            // sub-aggs reproduce ES semantics: `top_hits` default-sorts by
+            // `_score` desc then `_seq_no` asc and surfaces `_index`/`_score`/
+            // `matched_queries`; `diversified_sampler` keeps the top
+            // max_docs_per_value per field value BY SCORE. Raw stored sources
+            // carry none of these, so without this top_hits returns docs in
+            // arbitrary corpus order (and Null index/score/matched_queries) and
+            // the sampler keeps the wrong doc. `_score`/`matched_queries` come
+            // from the already-scored hit window (`final_hits`).
+            {
+                let hit_meta: std::collections::HashMap<&str, &Hit> =
+                    final_hits.iter().map(|h| (h.id.as_str(), h)).collect();
+                for d in docs.iter_mut() {
+                    if let Some(o) = d.as_object_mut() {
+                        o.entry("_index".to_string())
+                            .or_insert_with(|| Value::String(self.name.to_string()));
+                        let id = o.get("_id").and_then(Value::as_str).map(str::to_string);
+                        if let Some(id) = id {
+                            if let Some(seq) = self.lookup_seq_no(&id) {
+                                o.entry("_seq_no".to_string())
+                                    .or_insert_with(|| serde_json::json!(seq));
+                            }
+                            if let Some(h) = hit_meta.get(id.as_str()) {
+                                o.insert("_score".to_string(), serde_json::json!(h.score));
+                                if !h.matched_queries.is_empty() {
+                                    o.insert(
+                                        "_matched_queries".to_string(),
+                                        Value::Array(
+                                            h.matched_queries
+                                                .iter()
+                                                .cloned()
+                                                .map(Value::String)
+                                                .collect(),
+                                        ),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             docs
         } else {
             vec![]
@@ -4876,6 +4917,28 @@ impl Index {
                             .cloned()
                             .collect();
                         &fg_owned[..]
+                    };
+                    // `doc_matches_query` is a boolean matcher and ignores
+                    // scoring, so when `min_score` is set the agg foreground
+                    // must additionally drop docs whose score fell below it.
+                    // `final_hits` is already min_score-filtered (above), so
+                    // intersect by `_id`.
+                    let fg_min: Vec<Value>;
+                    let fg: &[Value] = if request.min_score.is_some() {
+                        let keep: std::collections::HashSet<&str> =
+                            final_hits.iter().map(|h| h.id.as_str()).collect();
+                        fg_min = fg
+                            .iter()
+                            .filter(|d| {
+                                d.get("_id")
+                                    .and_then(Value::as_str)
+                                    .map_or(false, |id| keep.contains(id))
+                            })
+                            .cloned()
+                            .collect();
+                        &fg_min[..]
+                    } else {
+                        fg
                     };
                     let bg = if all_docs.is_empty() { fg } else { &all_docs[..] };
                     run_aggs_with_all(aggs_def, fg, bg)
@@ -11034,6 +11097,13 @@ fn query_node_to_fts(q: &QueryNode, text_fields: &[String]) -> Option<FtsQuery> 
                 if let Some(fq) = query_node_to_fts(sub, text_fields) {
                     bool_q = bool_q.should(fq);
                     projected_any = true;
+                } else {
+                    // A `should` clause that can't be projected to FTS (e.g.
+                    // MatchPhrase over indexed phrases) must NOT be silently
+                    // dropped — dropping it makes the bool LESS permissive and
+                    // loses docs that match only via that clause. Fall back to
+                    // the stored-doc scan, which handles every child shape.
+                    return None;
                 }
             }
             // `must_not` children that don't project are similar: dropping

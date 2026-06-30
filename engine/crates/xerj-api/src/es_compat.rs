@@ -8008,7 +8008,7 @@ pub async fn search(
         }
         let fetch_profile = Value::Object(fetch_map);
 
-        let profile_node_id = "xerj_default_node_id2";
+        let profile_node_id = "xerj_default_node_id22";
         let profile_index = index_names.first().copied().unwrap_or("_any");
         // dfs_query_then_fetch search_type adds a `dfs.statistics`
         // section per shard; top-level `knn` also auto-routes through
