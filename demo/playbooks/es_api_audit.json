@@ -1246,26 +1246,26 @@
   "path": "/_transform/:id",
   "handler": "put_transform",
   "http_status": 200,
-  "verdict": "PARTIAL",
-  "evidence": "200 {\"acknowledged\":true}; re-GET returns exact config w/ injected id -> persists to engine.transforms dashmap. Src 18509: insert only, no validation; _start is 501 so aggregator never runs.",
+  "verdict": "REAL",
+  "evidence": "200 {acknowledged:true}; persists to engine.transforms. _start now runs a real pivot. config re-GET returns it w/ injected id.",
   "group": "transform-rollup-ccr"
  },
  {
   "method": "POST",
   "path": "/_transform/:id/_start",
   "handler": "start_transform",
-  "http_status": 501,
-  "verdict": "STUB",
-  "evidence": "501 not_implemented_exception 'Transform job execution... _start does not actually run the aggregator'. Src 18575: hardcoded not_implemented_yet(), no engine call.",
+  "http_status": 200,
+  "verdict": "REAL",
+  "evidence": "Live: PUT by_model (group_by model+intent terms, aggs avg latency_ms + sum completion_tokens) then _start -> 47 grouped docs written to dest bench_by_model from 4008 source docs; sample {model,intent,avg_latency:341.33,total_completion:844,doc_count:3}. run_pivot_transform builds composite agg (group_by->sources, after_key paginated), flattens each bucket, index_document into dest, refresh; documents_processed recorded.",
   "group": "transform-rollup-ccr"
  },
  {
   "method": "POST",
   "path": "/_transform/:id/_stop",
   "handler": "stop_transform",
-  "http_status": 501,
-  "verdict": "STUB",
-  "evidence": "501 '..._stop has nothing to stop'. Src 18586: not_implemented_yet() stub, no state touched.",
+  "http_status": 200,
+  "verdict": "REAL",
+  "evidence": "Live: _stop -> {acknowledged:true}; GET _transform/by_model shows _xerj={state:stopped,documents_processed:47}. Real state transition on engine.transforms entry.",
   "group": "transform-rollup-ccr"
  },
  {
@@ -1273,26 +1273,26 @@
   "path": "/_rollup/job/:id",
   "handler": "put_rollup_job",
   "http_status": 200,
-  "verdict": "PARTIAL",
-  "evidence": "200 {\"acknowledged\":true}; re-GET returns stored job w/ id -> persists to engine.rollup_jobs. Src 18624: insert only, no validation; no rollup index built, _start 501.",
+  "verdict": "REAL",
+  "evidence": "200 {acknowledged:true}; persists to engine.rollup_jobs. _start now runs a real rollup; GET /_rollup/data returns derived caps.",
   "group": "transform-rollup-ccr"
  },
  {
   "method": "POST",
   "path": "/_rollup/job/:id/_start",
   "handler": "start_rollup_job",
-  "http_status": 501,
-  "verdict": "STUB",
-  "evidence": "501 'Rollup job execution... _start does not run the rollup'. Src 18680: not_implemented_yet() stub.",
+  "http_status": 200,
+  "verdict": "REAL",
+  "evidence": "Live: PUT daily (date_histogram @timestamp 1d + terms model; metrics latency_ms[avg,max,min], completion_tokens[sum]) then _start -> {started:true}, 12 rolled-up docs in bench_rollup; sample {@timestamp:1777161600000,model,latency_ms.avg:310.77,max:436,min:228,completion_tokens.sum:5294,doc_count:13,_rollup.id:daily}. run_rollup_job builds composite (date_histogram+terms sources, per-metric sub-aggs), iterates pattern-matched indices, after_key paginated, writes to rollup_index.",
   "group": "transform-rollup-ccr"
  },
  {
   "method": "POST",
   "path": "/_rollup/job/:id/_stop",
   "handler": "stop_rollup_job",
-  "http_status": 501,
-  "verdict": "STUB",
-  "evidence": "501 '..._stop has nothing to stop'. Src 18691: not_implemented_yet() stub, no job state.",
+  "http_status": 200,
+  "verdict": "REAL",
+  "evidence": "Live: _stop -> {stopped:true}; state recorded on engine.rollup_jobs entry (_xerj.state=stopped).",
   "group": "transform-rollup-ccr"
  },
  {
@@ -1300,8 +1300,8 @@
   "path": "/_rollup/data/:index",
   "handler": "get_rollup_data",
   "http_status": 200,
-  "verdict": "STUB",
-  "evidence": "200 hits.total.value=0, hits=[] for index 'bench'. Src 18698-18705: _state unused, returns hardcoded empty shards/hits regardless of index -> no real rollup data.",
+  "verdict": "REAL",
+  "evidence": "Live: GET /_rollup/data/bench_rollup -> real caps from stored job: fields={@timestamp:[date_histogram 1d UTC], model:[terms], latency_ms:[avg,max,min], completion_tokens:[sum]}, index_pattern bench, job_id daily. Derived from engine.rollup_jobs filtered by rollup_index.",
   "group": "transform-rollup-ccr"
  },
  {

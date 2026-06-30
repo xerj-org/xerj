@@ -19174,29 +19174,64 @@ pub async fn delete_transform(
 }
 
 pub async fn start_transform(
-    State(_state): State<AppState>,
-    Path(_id): Path<String>,
+    State(state): State<AppState>,
+    Path(id): Path<String>,
 ) -> impl IntoResponse {
-    // v0.6.1 — transform DEFINITIONS are stored via PUT /_transform/{id},
-    // but no pivot/latest aggregator job actually runs. Replace the
-    // misleading 200-OK with 501 so clients know the transform won't
-    // produce any output.
-    crate::stub::not_implemented_yet(
-        "Transform job execution (pivot / latest)",
-        "v1.x",
-        "PUT/GET/DELETE on transforms still works (storage only); _start does not actually run the aggregator",
-    )
+    // Real single-node pivot execution: pull the stored config, run the
+    // composite aggregation derived from group_by + aggregations against the
+    // source index, and write one document per bucket into dest. (Clone the
+    // config out first — never hold the DashMap guard across an `.await`.)
+    let config = match state.engine.transforms.get(&id) {
+        Some(c) => c.clone(),
+        None => {
+            let e = xerj_common::XerjError::index_not_found(format!("transform [{id}] not found"));
+            return ApiError::new(e).into_response();
+        }
+    };
+
+    match run_pivot_transform(&state, &config).await {
+        Ok(written) => {
+            // Record run state on the stored config so GET reflects it.
+            if let Some(mut e) = state.engine.transforms.get_mut(&id) {
+                if let Some(o) = e.value_mut().as_object_mut() {
+                    o.insert(
+                        "_xerj".to_string(),
+                        json!({ "state": "started", "documents_processed": written }),
+                    );
+                }
+            }
+            Json(json!({ "acknowledged": true })).into_response()
+        }
+        Err(msg) => {
+            let e = xerj_common::XerjError::invalid_query(format!(
+                "transform [{id}] execution failed: {msg}"
+            ));
+            ApiError::new(e).into_response()
+        }
+    }
 }
 
 pub async fn stop_transform(
-    State(_state): State<AppState>,
-    Path(_id): Path<String>,
+    State(state): State<AppState>,
+    Path(id): Path<String>,
 ) -> impl IntoResponse {
-    crate::stub::not_implemented_yet(
-        "Transform job execution (pivot / latest)",
-        "v1.x",
-        "PUT/GET/DELETE on transforms still works (storage only); _stop has nothing to stop",
-    )
+    if let Some(mut e) = state.engine.transforms.get_mut(&id) {
+        if let Some(o) = e.value_mut().as_object_mut() {
+            let processed = o
+                .get("_xerj")
+                .and_then(|x| x.get("documents_processed"))
+                .cloned()
+                .unwrap_or(json!(0));
+            o.insert(
+                "_xerj".to_string(),
+                json!({ "state": "stopped", "documents_processed": processed }),
+            );
+        }
+        Json(json!({ "acknowledged": true })).into_response()
+    } else {
+        let e = xerj_common::XerjError::index_not_found(format!("transform [{id}] not found"));
+        ApiError::new(e).into_response()
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -19281,37 +19316,441 @@ pub async fn delete_rollup_job(
 }
 
 pub async fn start_rollup_job(
-    State(_state): State<AppState>,
-    Path(_id): Path<String>,
+    State(state): State<AppState>,
+    Path(id): Path<String>,
 ) -> impl IntoResponse {
-    // v0.6.1 — was returning `{"started": true}` for any registered
-    // rollup job, even though no rollup actually runs. Honest 501.
-    crate::stub::not_implemented_yet(
-        "Rollup job execution",
-        "v1.x",
-        "PUT/GET/DELETE on rollup jobs still works (storage); _start does not run the rollup",
-    )
+    // Real single-node rollup execution: run the composite aggregation derived
+    // from groups (date_histogram + terms/histogram) with one sub-agg per
+    // metric over the source index(es), and write rolled-up docs into
+    // rollup_index. Clone config out before the `.await`.
+    let config = match state.engine.rollup_jobs.get(&id) {
+        Some(c) => c.clone(),
+        None => {
+            let e = xerj_common::XerjError::index_not_found(format!("rollup job [{id}] not found"));
+            return ApiError::new(e).into_response();
+        }
+    };
+
+    match run_rollup_job(&state, &id, &config).await {
+        Ok(written) => {
+            if let Some(mut e) = state.engine.rollup_jobs.get_mut(&id) {
+                if let Some(o) = e.value_mut().as_object_mut() {
+                    o.insert(
+                        "_xerj".to_string(),
+                        json!({ "state": "started", "documents_processed": written }),
+                    );
+                }
+            }
+            Json(json!({ "started": true })).into_response()
+        }
+        Err(msg) => {
+            let e = xerj_common::XerjError::invalid_query(format!(
+                "rollup job [{id}] execution failed: {msg}"
+            ));
+            ApiError::new(e).into_response()
+        }
+    }
 }
 
 pub async fn stop_rollup_job(
-    State(_state): State<AppState>,
-    Path(_id): Path<String>,
+    State(state): State<AppState>,
+    Path(id): Path<String>,
 ) -> impl IntoResponse {
-    crate::stub::not_implemented_yet(
-        "Rollup job execution",
-        "v1.x",
-        "PUT/GET/DELETE on rollup jobs still works (storage); _stop has nothing to stop",
-    )
+    if let Some(mut e) = state.engine.rollup_jobs.get_mut(&id) {
+        if let Some(o) = e.value_mut().as_object_mut() {
+            let processed = o
+                .get("_xerj")
+                .and_then(|x| x.get("documents_processed"))
+                .cloned()
+                .unwrap_or(json!(0));
+            o.insert(
+                "_xerj".to_string(),
+                json!({ "state": "stopped", "documents_processed": processed }),
+            );
+        }
+        Json(json!({ "stopped": true })).into_response()
+    } else {
+        let e = xerj_common::XerjError::index_not_found(format!("rollup job [{id}] not found"));
+        ApiError::new(e).into_response()
+    }
 }
 
 pub async fn get_rollup_data(
-    State(_state): State<AppState>,
-    Path(_index): Path<String>,
+    State(state): State<AppState>,
+    Path(index): Path<String>,
 ) -> impl IntoResponse {
-    Json(json!({
-        "_shards": { "total": 1, "successful": 1, "failed": 0 },
-        "hits": { "total": { "value": 0, "relation": "eq" }, "hits": [] }
-    }))
+    // ES `GET /<rollup_index>/_rollup/data` returns the rollup capabilities of
+    // an index: which jobs wrote into it and what fields/aggs they cover.
+    // Derive that from the stored rollup-job configs whose rollup_index matches.
+    let mut jobs: Vec<Value> = Vec::new();
+    for e in state.engine.rollup_jobs.iter() {
+        let cfg = e.value();
+        let rollup_index = cfg.get("rollup_index").and_then(|v| v.as_str()).unwrap_or("");
+        if rollup_index != index {
+            continue;
+        }
+        let index_pattern = cfg.get("index_pattern").and_then(|v| v.as_str()).unwrap_or("");
+        let mut fields = serde_json::Map::new();
+        if let Some(groups) = cfg.get("groups").and_then(|g| g.as_object()) {
+            if let Some(dh) = groups.get("date_histogram").and_then(|d| d.as_object()) {
+                if let Some(field) = dh.get("field").and_then(|f| f.as_str()) {
+                    let mut agg = serde_json::Map::new();
+                    agg.insert("agg".to_string(), json!("date_histogram"));
+                    for k in ["fixed_interval", "calendar_interval", "interval", "delay", "time_zone"] {
+                        if let Some(v) = dh.get(k) {
+                            agg.insert(k.to_string(), v.clone());
+                        }
+                    }
+                    if !agg.contains_key("time_zone") {
+                        agg.insert("time_zone".to_string(), json!("UTC"));
+                    }
+                    fields.insert(field.to_string(), json!([Value::Object(agg)]));
+                }
+            }
+            if let Some(terms) = groups.get("terms").and_then(|t| t.get("fields")).and_then(|f| f.as_array()) {
+                for f in terms {
+                    if let Some(field) = f.as_str() {
+                        fields.entry(field.to_string()).or_insert_with(|| json!([]));
+                        if let Some(arr) = fields.get_mut(field).and_then(|v| v.as_array_mut()) {
+                            arr.push(json!({ "agg": "terms" }));
+                        }
+                    }
+                }
+            }
+            if let Some(hist) = groups.get("histogram").and_then(|h| h.as_object()) {
+                let interval = hist.get("interval").cloned().unwrap_or(json!(null));
+                if let Some(hfields) = hist.get("fields").and_then(|f| f.as_array()) {
+                    for f in hfields {
+                        if let Some(field) = f.as_str() {
+                            fields.entry(field.to_string()).or_insert_with(|| json!([]));
+                            if let Some(arr) = fields.get_mut(field).and_then(|v| v.as_array_mut()) {
+                                arr.push(json!({ "agg": "histogram", "interval": interval }));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if let Some(metrics) = cfg.get("metrics").and_then(|m| m.as_array()) {
+            for m in metrics {
+                let field = m.get("field").and_then(|f| f.as_str()).unwrap_or("");
+                if field.is_empty() {
+                    continue;
+                }
+                fields.entry(field.to_string()).or_insert_with(|| json!([]));
+                if let Some(arr) = fields.get_mut(field).and_then(|v| v.as_array_mut()) {
+                    if let Some(ms) = m.get("metrics").and_then(|x| x.as_array()) {
+                        for one in ms {
+                            if let Some(name) = one.as_str() {
+                                arr.push(json!({ "agg": name }));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        jobs.push(json!({
+            "job_id": e.key().clone(),
+            "rollup_index": rollup_index,
+            "index_pattern": index_pattern,
+            "fields": Value::Object(fields),
+        }));
+    }
+
+    Json(json!({ index: { "rollup_jobs": jobs } })).into_response()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Transform / rollup execution helpers (real single-node aggregation jobs).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Build a deterministic, idempotent doc id from a composite key's values
+/// (in `order`), optionally namespaced by a prefix (e.g. the source index).
+fn agg_key_doc_id(prefix: &str, key: &Value, order: &[String]) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    if !prefix.is_empty() {
+        parts.push(prefix.to_string());
+    }
+    if let Some(ko) = key.as_object() {
+        for k in order {
+            match ko.get(k) {
+                Some(Value::String(s)) => parts.push(s.clone()),
+                Some(Value::Null) | None => parts.push("_null".to_string()),
+                Some(v) => parts.push(v.to_string()),
+            }
+        }
+    }
+    let joined = parts.join("__");
+    if joined.is_empty() {
+        "_empty".to_string()
+    } else {
+        joined
+    }
+}
+
+/// Flatten a composite bucket's sub-aggregation results onto `doc`. Single-value
+/// metrics (`{"value": x}`) flatten to the scalar under `name`; multi-value
+/// metrics (stats/percentiles) are kept as the nested object.
+fn flatten_bucket_metrics(doc: &mut serde_json::Map<String, Value>, bucket: &serde_json::Map<String, Value>) {
+    for (k, v) in bucket {
+        if k == "key" || k == "doc_count" {
+            continue;
+        }
+        if let Some(val) = v.get("value") {
+            doc.insert(k.clone(), val.clone());
+        } else {
+            doc.insert(k.clone(), v.clone());
+        }
+    }
+}
+
+/// Run a pivot transform end to end. Returns the number of docs written to dest.
+async fn run_pivot_transform(state: &AppState, config: &Value) -> Result<usize, String> {
+    let source_index = config
+        .pointer("/source/index")
+        .and_then(|v| {
+            v.as_str()
+                .map(|s| s.to_string())
+                .or_else(|| v.as_array().and_then(|a| a.first()).and_then(|x| x.as_str()).map(|s| s.to_string()))
+        })
+        .ok_or_else(|| "transform has no source.index".to_string())?;
+    let dest_index = config
+        .pointer("/dest/index")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "transform has no dest.index".to_string())?
+        .to_string();
+    let group_by = config
+        .pointer("/pivot/group_by")
+        .and_then(|v| v.as_object())
+        .cloned()
+        .ok_or_else(|| "transform has no pivot.group_by".to_string())?;
+    let pivot_aggs = config
+        .pointer("/pivot/aggregations")
+        .or_else(|| config.pointer("/pivot/aggs"))
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    let source_query = config.pointer("/source/query").cloned();
+
+    // Each group_by entry is already a composite source spec: {name: {terms|date_histogram|histogram: {...}}}.
+    let order: Vec<String> = group_by.keys().cloned().collect();
+    let sources: Vec<Value> = order.iter().map(|name| json!({ name.clone(): group_by[name] })).collect();
+
+    let src_idx = state.engine.get_index(&source_index).map_err(|e| e.to_string())?;
+    let dest_idx = state.engine.get_or_create_index(&dest_index).map_err(|e| e.to_string())?;
+
+    let mut after: Option<Value> = None;
+    let mut written = 0usize;
+    loop {
+        let mut composite = json!({ "size": 1000, "sources": sources });
+        if let Some(ref a) = after {
+            composite["after"] = a.clone();
+        }
+        let mut body = json!({
+            "size": 0,
+            "aggs": { "_pivot": { "composite": composite, "aggregations": pivot_aggs } }
+        });
+        if let Some(ref q) = source_query {
+            body["query"] = q.clone();
+        }
+        let req = xerj_query::parse_request(&body).map_err(|e| e.to_string())?;
+        let res = src_idx.search(&req).await.map_err(|e| e.to_string())?;
+        let aggs = match res.aggs {
+            Some(a) => a,
+            None => break,
+        };
+        let pivot = match aggs.get("_pivot") {
+            Some(p) => p,
+            None => break,
+        };
+        let buckets = pivot.get("buckets").and_then(|b| b.as_array()).cloned().unwrap_or_default();
+        if buckets.is_empty() {
+            break;
+        }
+        for b in &buckets {
+            let key = b.get("key").cloned().unwrap_or_else(|| json!({}));
+            let mut doc = serde_json::Map::new();
+            if let Some(ko) = key.as_object() {
+                for (k, v) in ko {
+                    doc.insert(k.clone(), v.clone());
+                }
+            }
+            if let Some(bo) = b.as_object() {
+                flatten_bucket_metrics(&mut doc, bo);
+            }
+            doc.insert("doc_count".to_string(), b.get("doc_count").cloned().unwrap_or(json!(0)));
+            let id = agg_key_doc_id("", &key, &order);
+            dest_idx
+                .index_document(Some(id), Value::Object(doc))
+                .await
+                .map_err(|e| e.to_string())?;
+            written += 1;
+        }
+        match pivot.get("after_key") {
+            Some(ak) if !ak.is_null() => after = Some(ak.clone()),
+            _ => break,
+        }
+        if buckets.len() < 1000 {
+            break;
+        }
+    }
+    dest_idx.refresh().await.ok();
+    Ok(written)
+}
+
+/// Run a rollup job end to end across every index matching `index_pattern`.
+/// Returns the total number of rolled-up docs written to rollup_index.
+async fn run_rollup_job(state: &AppState, job_id: &str, config: &Value) -> Result<usize, String> {
+    let index_pattern = config
+        .get("index_pattern")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "rollup job has no index_pattern".to_string())?
+        .to_string();
+    let rollup_index = config
+        .get("rollup_index")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "rollup job has no rollup_index".to_string())?
+        .to_string();
+    let groups = config
+        .get("groups")
+        .and_then(|v| v.as_object())
+        .ok_or_else(|| "rollup job has no groups".to_string())?;
+    let metrics = config.get("metrics").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+
+    // Composite sources from groups (preserve a stable order: date_histogram first, then terms, then histogram).
+    let mut sources: Vec<Value> = Vec::new();
+    let mut order: Vec<String> = Vec::new();
+    if let Some(dh) = groups.get("date_histogram").and_then(|d| d.as_object()) {
+        if let Some(field) = dh.get("field").and_then(|f| f.as_str()) {
+            // Build a clean composite date_histogram source — only the keys the
+            // composite parser understands (drop rollup-only keys like `delay`).
+            let mut src = serde_json::Map::new();
+            src.insert("field".to_string(), json!(field));
+            for k in ["fixed_interval", "calendar_interval", "interval", "time_zone", "format"] {
+                if let Some(v) = dh.get(k) {
+                    src.insert(k.to_string(), v.clone());
+                }
+            }
+            sources.push(json!({ field: { "date_histogram": Value::Object(src) } }));
+            order.push(field.to_string());
+        }
+    }
+    if let Some(terms) = groups.get("terms").and_then(|t| t.get("fields")).and_then(|f| f.as_array()) {
+        for f in terms {
+            if let Some(field) = f.as_str() {
+                sources.push(json!({ field: { "terms": { "field": field } } }));
+                order.push(field.to_string());
+            }
+        }
+    }
+    if let Some(hist) = groups.get("histogram").and_then(|h| h.as_object()) {
+        let interval = hist.get("interval").cloned().unwrap_or(json!(1));
+        if let Some(hfields) = hist.get("fields").and_then(|f| f.as_array()) {
+            for f in hfields {
+                if let Some(field) = f.as_str() {
+                    sources.push(json!({ field: { "histogram": { "field": field, "interval": interval } } }));
+                    order.push(field.to_string());
+                }
+            }
+        }
+    }
+    if sources.is_empty() {
+        return Err("rollup job groups produced no composite sources".to_string());
+    }
+
+    // One sub-agg per (field, metric): name "<field>.<metric>".
+    let mut sub_aggs = serde_json::Map::new();
+    for m in &metrics {
+        let field = match m.get("field").and_then(|f| f.as_str()) {
+            Some(f) => f,
+            None => continue,
+        };
+        if let Some(ms) = m.get("metrics").and_then(|x| x.as_array()) {
+            for one in ms {
+                if let Some(name) = one.as_str() {
+                    sub_aggs.insert(
+                        format!("{field}.{name}"),
+                        json!({ name: { "field": field } }),
+                    );
+                }
+            }
+        }
+    }
+
+    // Resolve source indices (exclude the rollup_index itself).
+    let all = state.engine.list_indices().await;
+    let matches: Vec<String> = all
+        .iter()
+        .map(|i| i.name.clone())
+        .filter(|n| n != &rollup_index && wildcard_match(&index_pattern, n))
+        .collect();
+    if matches.is_empty() {
+        return Err(format!("no index matches pattern [{index_pattern}]"));
+    }
+
+    let dest_idx = state.engine.get_or_create_index(&rollup_index).map_err(|e| e.to_string())?;
+    let mut written = 0usize;
+
+    for source_index in &matches {
+        let src_idx = match state.engine.get_index(source_index) {
+            Ok(i) => i,
+            Err(_) => continue,
+        };
+        let mut after: Option<Value> = None;
+        loop {
+            let mut composite = json!({ "size": 1000, "sources": sources });
+            if let Some(ref a) = after {
+                composite["after"] = a.clone();
+            }
+            let body = json!({
+                "size": 0,
+                "aggs": { "_rollup": { "composite": composite, "aggregations": Value::Object(sub_aggs.clone()) } }
+            });
+            let req = xerj_query::parse_request(&body).map_err(|e| e.to_string())?;
+            let res = src_idx.search(&req).await.map_err(|e| e.to_string())?;
+            let aggs = match res.aggs {
+                Some(a) => a,
+                None => break,
+            };
+            let rollup = match aggs.get("_rollup") {
+                Some(r) => r,
+                None => break,
+            };
+            let buckets = rollup.get("buckets").and_then(|b| b.as_array()).cloned().unwrap_or_default();
+            if buckets.is_empty() {
+                break;
+            }
+            for b in &buckets {
+                let key = b.get("key").cloned().unwrap_or_else(|| json!({}));
+                let mut doc = serde_json::Map::new();
+                if let Some(ko) = key.as_object() {
+                    for (k, v) in ko {
+                        doc.insert(k.clone(), v.clone());
+                    }
+                }
+                if let Some(bo) = b.as_object() {
+                    flatten_bucket_metrics(&mut doc, bo);
+                }
+                doc.insert("doc_count".to_string(), b.get("doc_count").cloned().unwrap_or(json!(0)));
+                doc.insert("_rollup.id".to_string(), json!(job_id));
+                doc.insert("_rollup.source_index".to_string(), json!(source_index));
+                let id = agg_key_doc_id(source_index, &key, &order);
+                dest_idx
+                    .index_document(Some(id), Value::Object(doc))
+                    .await
+                    .map_err(|e| e.to_string())?;
+                written += 1;
+            }
+            match rollup.get("after_key") {
+                Some(ak) if !ak.is_null() => after = Some(ak.clone()),
+                _ => break,
+            }
+            if buckets.len() < 1000 {
+                break;
+            }
+        }
+    }
+    dest_idx.refresh().await.ok();
+    Ok(written)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
