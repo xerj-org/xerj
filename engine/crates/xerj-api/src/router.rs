@@ -45,6 +45,10 @@ use crate::{auth::auth_middleware, es_compat, native, state::AppState};
 /// POST   /v1/indices/:name/search           search
 /// POST   /v1/indices/:name/_flush           flush_index
 /// GET    /v1/health                         health
+/// GET    /v1/health/ready                   readiness probe (200 unless red)
+/// GET    /v1/cluster/health                 cluster_health
+/// POST   /v1/admin/flush                    admin_flush (flush all indices)
+/// POST   /v1/admin/backup                   admin_backup (snapshot to disk)
 /// GET    /v1/metrics                        metrics (Prometheus text)
 /// GET    /v1/schema/:name                   get_schema
 /// POST   /v1/schema/:name/evolve            evolve_schema
@@ -92,10 +96,15 @@ pub fn build_native_router(state: AppState) -> Router {
         .route("/v1/indices/:name/_flush", post(native::flush_index))
         // Cluster / observability
         .route("/v1/health", get(native::health))
+        .route("/v1/health/ready", get(native::readiness))
+        .route("/v1/cluster/health", get(native::cluster_health))
         // k8s probes — v0.8 8-P4 — see comment in `native.rs::liveness`.
         .route("/health/live", get(native::liveness))
         .route("/health/ready", get(native::readiness))
         .route("/v1/metrics", get(native::metrics))
+        // Admin: cluster-wide flush + backup (snapshot to disk)
+        .route("/v1/admin/flush", post(native::admin_flush))
+        .route("/v1/admin/backup", post(native::admin_backup))
         // Admin: slow query log — v0.8 8-P6
         .route("/v1/admin/slow_queries", get(native::admin_slow_queries).delete(native::admin_slow_queries_clear))
         .route("/v1/admin/slow_queries/threshold/:ms", put(native::admin_slow_queries_set_threshold))

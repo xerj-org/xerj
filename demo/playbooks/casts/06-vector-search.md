@@ -36,10 +36,10 @@ curl -s -XPOST "http://localhost:9200/vstore/_bulk" \
   "items": [
     {
       "index": {
-        "_id": "f11a9068-5187-409d-ace8-75612532fe81",
+        "_id": "0c76d9b1-ff4f-4124-9388-d448b41654eb",
         "_index": "vstore",
         "_primary_term": 1,
-        "_seq_no": 1782796632941008,
+        "_seq_no": 1782797512123266,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -52,10 +52,10 @@ curl -s -XPOST "http://localhost:9200/vstore/_bulk" \
     },
     {
       "index": {
-        "_id": "07c6f744-6e83-4bee-97ed-a258df49532d",
+        "_id": "bdb1d421-1b1a-421f-bf3e-a1f6d5acaae8",
         "_index": "vstore",
         "_primary_term": 1,
-        "_seq_no": 1782796632941008,
+        "_seq_no": 1782797512123267,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -68,10 +68,10 @@ curl -s -XPOST "http://localhost:9200/vstore/_bulk" \
     },
     {
       "index": {
-        "_id": "34647d96-e2fa-4dcb-952f-182cc70bacd8",
+        "_id": "02d1eaaf-581c-4505-bcf2-05c289508bb2",
         "_index": "vstore",
         "_primary_term": 1,
-        "_seq_no": 1782796632941008,
+        "_seq_no": 1782797512123267,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -126,7 +126,7 @@ curl -s -XPOST "http://localhost:9200/vstore/_search" \
   "hits": {
     "hits": [
       {
-        "_id": "f11a9068-5187-409d-ace8-75612532fe81",
+        "_id": "0c76d9b1-ff4f-4124-9388-d448b41654eb",
         "_index": "vstore",
         "_score": 1,
         "_source": {
@@ -140,7 +140,7 @@ curl -s -XPOST "http://localhost:9200/vstore/_search" \
         }
       },
       {
-        "_id": "07c6f744-6e83-4bee-97ed-a258df49532d",
+        "_id": "bdb1d421-1b1a-421f-bf3e-a1f6d5acaae8",
         "_index": "vstore",
         "_score": 0.608433723449707,
         "_source": {
@@ -154,7 +154,7 @@ curl -s -XPOST "http://localhost:9200/vstore/_search" \
         }
       },
       {
-        "_id": "34647d96-e2fa-4dcb-952f-182cc70bacd8",
+        "_id": "02d1eaaf-581c-4505-bcf2-05c289508bb2",
         "_index": "vstore",
         "_score": 0.5120481848716736,
         "_source": {

@@ -18,10 +18,10 @@ curl -s -XPOST "http://localhost:9200/logs-2026-04/_bulk" \
   "items": [
     {
       "index": {
-        "_id": "b91fb60d-4139-4f60-b77f-f8fd8f7b1b08",
+        "_id": "fffdf0fd-e76f-4eda-9fee-bf1defcb0fd1",
         "_index": "logs-2026-04",
         "_primary_term": 1,
-        "_seq_no": 1782796633012746,
+        "_seq_no": 1782797512195670,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -34,10 +34,10 @@ curl -s -XPOST "http://localhost:9200/logs-2026-04/_bulk" \
     },
     {
       "index": {
-        "_id": "68a7e704-14b3-49b7-8fff-6360046c5b93",
+        "_id": "133a0e30-3416-43d2-8849-3d98da564a53",
         "_index": "logs-2026-04",
         "_primary_term": 1,
-        "_seq_no": 1782796633012746,
+        "_seq_no": 1782797512195671,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -50,10 +50,10 @@ curl -s -XPOST "http://localhost:9200/logs-2026-04/_bulk" \
     },
     {
       "index": {
-        "_id": "6bb266ed-93fe-41ce-9d66-136ab8fe87ba",
+        "_id": "6950e233-9fbb-43fa-9bbb-c8da2c706128",
         "_index": "logs-2026-04",
         "_primary_term": 1,
-        "_seq_no": 1782796633012746,
+        "_seq_no": 1782797512195671,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -66,10 +66,10 @@ curl -s -XPOST "http://localhost:9200/logs-2026-04/_bulk" \
     },
     {
       "index": {
-        "_id": "39294ad5-3bc2-4f8a-94b4-4a318573d130",
+        "_id": "07a21f89-3f86-4f4e-95e8-38c1eb1cff33",
         "_index": "logs-2026-04",
         "_primary_term": 1,
-        "_seq_no": 1782796633012746,
+        "_seq_no": 1782797512195671,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -116,7 +116,7 @@ curl -s -XPOST "http://localhost:9200/logs-2026-04/_search" \
   "hits": {
     "hits": [
       {
-        "_id": "68a7e704-14b3-49b7-8fff-6360046c5b93",
+        "_id": "133a0e30-3416-43d2-8849-3d98da564a53",
         "_index": "logs-2026-04",
         "_score": 1.6931471824645996,
         "_source": {
@@ -127,7 +127,7 @@ curl -s -XPOST "http://localhost:9200/logs-2026-04/_search" \
         }
       },
       {
-        "_id": "6bb266ed-93fe-41ce-9d66-136ab8fe87ba",
+        "_id": "6950e233-9fbb-43fa-9bbb-c8da2c706128",
         "_index": "logs-2026-04",
         "_score": 1.6931471824645996,
         "_source": {

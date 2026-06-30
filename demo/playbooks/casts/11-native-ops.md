@@ -1,8 +1,8 @@
-# Native ops API (:8080) — health & metrics
+# Native ops API (:8080) — health, metrics, flush, backup
 
 _Use case doc: metrics / operations / api-native_
 
-The native v1 surface for ops. NOTE: this binary implements health + metrics; the rest of the documented /v1 API is not yet live (captured as gaps).
+The native v1 ops surface: health + readiness probes, prometheus metrics, cluster health, a cluster-wide flush, and an on-disk backup (snapshot).
 
 ### ✅ native health
 
@@ -19,8 +19,20 @@ curl -s "http://localhost:8080/v1/health"
     "version": "1.0.0-rc.1"
   },
   "took_ms": 0,
-  "request_id": "d64f1a4e-098c-4b04-8e97-586c978341c2"
+  "request_id": "5cdfecab-cb65-4485-abeb-ccf5ac92b38d"
 }
+```
+
+_HTTP 200_
+
+### ✅ readiness probe
+
+```bash
+curl -s "http://localhost:8080/v1/health/ready"
+```
+
+```json
+ready
 ```
 
 _HTTP 200_
@@ -61,48 +73,74 @@ xerj_flush_duration_seconds_bucket{le="0.32"} 0
 xerj_flush_duration_seconds_bucket{le="0.64"} 0
 xerj_flush_duration_seconds_bucket{le="1.28"} 0
 xerj_flush_duration_seconds_bucket{le="2
-… (5150 more bytes)
+… (5146 more bytes)
 ```
 
 _HTTP 200_
 
-### ❌ DOC GAP: /v1/health/ready
-
-```bash
-curl -s "http://localhost:8080/v1/health/ready"
-```
-
-```json
-
-```
-
-_HTTP 404_
-
-### ❌ DOC GAP: /v1/cluster/health
+### ✅ cluster health
 
 ```bash
 curl -s "http://localhost:8080/v1/cluster/health"
 ```
 
 ```json
-
+{
+  "data": {
+    "cluster_name": "xerj",
+    "index_count": 17,
+    "number_of_data_nodes": 1,
+    "number_of_nodes": 1,
+    "status": "yellow",
+    "total_docs": 11,
+    "version": "1.0.0-rc.1"
+  },
+  "took_ms": 0,
+  "request_id": "401a3bfa-5151-4585-ba88-b6eea7fb8b70"
+}
 ```
 
-_HTTP 404_
+_HTTP 200_
 
-### ❌ DOC GAP: /v1/admin/flush
+### ✅ cluster-wide flush
 
 ```bash
 curl -s -XPOST "http://localhost:8080/v1/admin/flush"
 ```
 
 ```json
-
+{
+  "data": {
+    "failed": [],
+    "flushed": 17,
+    "indices": [
+      ".xerj_users",
+      ".xerj_prefs",
+      ".xerj_connections",
+      ".xerj_magic_links",
+      ".xerj_sessions",
+      ".xerj_views",
+      "articles",
+      ".xerj_api_tokens",
+      "vstore",
+      "logs-2026-04",
+      ".xerj_idp_config",
+      ".xerj_alert_fires",
+      ".xerj_passkeys",
+      ".xerj_dashboards",
+      ".xerj_alert_rules",
+      ".xerj_audit",
+      ".xerj_cluster_state"
+    ]
+  },
+  "took_ms": 6,
+  "request_id": "2bbde9cd-e4a8-4905-a778-06d71a2ec32b"
+}
 ```
 
-_HTTP 404_
+_HTTP 200_
 
-### ❌ DOC GAP: /v1/admin/backup
+### ✅ backup (snapshot to disk)
 
 ```bash
 curl -s -XPOST "http://localhost:8080/v1/admin/backup" \
@@ -111,8 +149,50 @@ curl -s -XPOST "http://localhost:8080/v1/admin/backup" \
 ```
 
 ```json
-
+{
+  "data": {
+    "backup": "backup-4c0811fe-c67e-4343-988d-7f89817ab3d9",
+    "manifest": {
+      "duration_in_millis": 0,
+      "end_time_in_millis": 1782797512303,
+      "failures": [],
+      "index_files": [
+        {
+          "files": [
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "000000000000
+… (37169 more bytes)
 ```
 
-_HTTP 404_
+_HTTP 201_
 

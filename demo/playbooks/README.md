@@ -36,13 +36,19 @@ aggregations · vector/kNN · analyzers · mappings/templates/aliases ·
 log-analytics · ES migration parity · native ops (health/metrics) ·
 embedded Console UX.
 
-## Known gaps (captured by the suite, not silently skipped)
+## Status
 
-The ES-compat API (:9200) is comprehensive and green. The **native `/v1`
-API (:8080)** currently implements only `/v1/health` and `/v1/metrics`;
-the other documented endpoints (`/v1/health/ready`, `/v1/cluster/health`,
-`/v1/admin/flush`, `/v1/admin/backup`, `/v1/indices/:name/turbo-ingest`,
-etc.) return 404/405 in this build. They show up as ⚠️ in the report so the
-docs and the binary can be reconciled. Per-index `_cat/indices/{name}` and
-the global `_stats`/`POST /_refresh` also differ from ES (use
-`_cat/indices`, `_count`, and per-index `_refresh`).
+**61/61 steps green.** The ES-compat API (:9200) and the native `/v1` ops
+API (:8080) are both fully covered — including `/v1/health/ready`,
+`/v1/cluster/health`, `/v1/admin/flush`, and `/v1/admin/backup` (a real
+on-disk snapshot via `engine::create_snapshot`).
+
+### ES wire-protocol divergences to remember
+A few ES paths differ in shape (the suite uses the working forms): per-index
+`_cat/indices/{name}` is not supported (use `_cat/indices`); global `_stats`
+and global `POST /_refresh` differ (use `_count` and per-index `_refresh`).
+
+### Native ingest content-types
+`POST /v1/indices/:name/turbo-ingest` expects a **JSON array** with
+`content-type: application/json` (not ndjson); native index creation is
+`POST /v1/indices` (not `PUT`).

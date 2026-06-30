@@ -25,7 +25,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
       {
         "_id": "1",
         "_index": "articles",
-        "_score": 0.6099694967269897,
+        "_score": 0.28768211603164673,
         "_source": {
           "body": "one binary for search",
           "tag": "intro",
@@ -34,7 +34,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "118126af-ff27-4207-9dd4-8f92a18e963e",
+        "_id": "ac27e975-0932-45cf-92b1-3075721203a8",
         "_index": "articles",
         "_score": 0.28768211603164673,
         "_source": {
@@ -45,7 +45,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       }
     ],
-    "max_score": 0.6099694967269897,
+    "max_score": 0.28768211603164673,
     "total": {
       "relation": "eq",
       "value": 2
@@ -77,7 +77,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
   "hits": {
     "hits": [
       {
-        "_id": "aab064f6-eecd-4b53-a75c-bf507f99edae",
+        "_id": "6e505def-8b8b-4048-a7bb-449a149f8af5",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -120,7 +120,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
   "hits": {
     "hits": [
       {
-        "_id": "aab064f6-eecd-4b53-a75c-bf507f99edae",
+        "_id": "6e505def-8b8b-4048-a7bb-449a149f8af5",
         "_index": "articles",
         "_score": 1.6931471824645996,
         "_source": {
@@ -131,7 +131,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "93f7e5c2-629e-4cc2-a884-7c09d50f07f0",
+        "_id": "ccbacb35-a75d-4486-a030-177c5cb00ac5",
         "_index": "articles",
         "_score": 1.6931471824645996,
         "_source": {
@@ -174,7 +174,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
   "hits": {
     "hits": [
       {
-        "_id": "aab064f6-eecd-4b53-a75c-bf507f99edae",
+        "_id": "6e505def-8b8b-4048-a7bb-449a149f8af5",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -185,7 +185,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "118126af-ff27-4207-9dd4-8f92a18e963e",
+        "_id": "ac27e975-0932-45cf-92b1-3075721203a8",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -196,7 +196,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "93f7e5c2-629e-4cc2-a884-7c09d50f07f0",
+        "_id": "ccbacb35-a75d-4486-a030-177c5cb00ac5",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -207,7 +207,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "b4adabc9-73d7-4c67-a166-2b8c29556617",
+        "_id": "f73700d7-04b1-4a58-9ea2-2eff09af1c66",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -261,7 +261,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "118126af-ff27-4207-9dd4-8f92a18e963e",
+        "_id": "ac27e975-0932-45cf-92b1-3075721203a8",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -272,7 +272,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "93f7e5c2-629e-4cc2-a884-7c09d50f07f0",
+        "_id": "ccbacb35-a75d-4486-a030-177c5cb00ac5",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -283,7 +283,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "b4adabc9-73d7-4c67-a166-2b8c29556617",
+        "_id": "f73700d7-04b1-4a58-9ea2-2eff09af1c66",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -326,7 +326,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
   "hits": {
     "hits": [
       {
-        "_id": "93f7e5c2-629e-4cc2-a884-7c09d50f07f0",
+        "_id": "ccbacb35-a75d-4486-a030-177c5cb00ac5",
         "_index": "articles",
         "_score": 0.9741763472557068,
         "_source": {
@@ -369,7 +369,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
   "hits": {
     "hits": [
       {
-        "_id": "aab064f6-eecd-4b53-a75c-bf507f99edae",
+        "_id": "6e505def-8b8b-4048-a7bb-449a149f8af5",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -423,7 +423,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "118126af-ff27-4207-9dd4-8f92a18e963e",
+        "_id": "ac27e975-0932-45cf-92b1-3075721203a8",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -477,7 +477,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "aab064f6-eecd-4b53-a75c-bf507f99edae",
+        "_id": "6e505def-8b8b-4048-a7bb-449a149f8af5",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -488,7 +488,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "118126af-ff27-4207-9dd4-8f92a18e963e",
+        "_id": "ac27e975-0932-45cf-92b1-3075721203a8",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -499,7 +499,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "93f7e5c2-629e-4cc2-a884-7c09d50f07f0",
+        "_id": "ccbacb35-a75d-4486-a030-177c5cb00ac5",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -510,7 +510,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "b4adabc9-73d7-4c67-a166-2b8c29556617",
+        "_id": "f73700d7-04b1-4a58-9ea2-2eff09af1c66",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -546,7 +546,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
   "hits": {
     "hits": [
       {
-        "_id": "aab064f6-eecd-4b53-a75c-bf507f99edae",
+        "_id": "6e505def-8b8b-4048-a7bb-449a149f8af5",
         "_index": "articles",
         "_score": 0.28768211603164673,
         "_source": {
@@ -565,7 +565,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
     }
   },
   "timed_out": false,
-  "took": 1
+  "took": 0
 }
 ```
 

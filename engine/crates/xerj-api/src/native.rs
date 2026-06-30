@@ -544,6 +544,131 @@ pub async fn readiness(State(state): State<AppState>) -> impl IntoResponse {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Handler: GET /v1/cluster/health — native cluster health summary
+//
+// Mirrors the data the ES-compat `_cluster/health` exposes, in the native
+// `{ data, took_ms, request_id }` envelope. Single-node by design (Xerj is one
+// binary), so node counts are 1.
+// ─────────────────────────────────────────────────────────────────────────────
+
+pub async fn cluster_health(State(state): State<AppState>) -> impl IntoResponse {
+    let started = Instant::now();
+    let request_id = Uuid::new_v4().to_string();
+
+    let h = state.engine.health().await;
+    let took_ms = started.elapsed().as_millis() as u64;
+    let resp = NativeResponse::new(
+        serde_json::json!({
+            "cluster_name": "xerj",
+            "status": h.status,
+            "number_of_nodes": 1,
+            "number_of_data_nodes": 1,
+            "index_count": h.index_count,
+            "total_docs": h.total_docs,
+            "version": h.version,
+        }),
+        took_ms,
+        &request_id,
+    );
+    Json(resp).into_response()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Handler: POST /v1/admin/flush — flush every index's memtable to disk
+//
+// Cluster-wide counterpart of `POST /v1/indices/:name/_flush`. Walks every
+// index, flushes its memtable to a durable segment, and reports per-index
+// success so an operator can force a checkpoint before a backup or upgrade.
+// ─────────────────────────────────────────────────────────────────────────────
+
+pub async fn admin_flush(State(state): State<AppState>) -> impl IntoResponse {
+    let started = Instant::now();
+    let request_id = Uuid::new_v4().to_string();
+
+    let indices = state.engine.list_indices().await;
+    let mut flushed: Vec<String> = Vec::new();
+    let mut failed: Vec<String> = Vec::new();
+    for info in &indices {
+        match state.engine.flush_index(&info.name).await {
+            Ok(()) => flushed.push(info.name.clone()),
+            Err(_) => failed.push(info.name.clone()),
+        }
+    }
+
+    let took_ms = started.elapsed().as_millis() as u64;
+    let resp = NativeResponse::new(
+        serde_json::json!({
+            "flushed": flushed.len(),
+            "indices": flushed,
+            "failed": failed,
+        }),
+        took_ms,
+        &request_id,
+    );
+    Json(resp).into_response()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Handler: POST /v1/admin/backup — snapshot the whole cluster to disk
+//
+// Optional JSON body: { "repo_path"?: string, "name"?: string,
+// "indices"?: [string] }. Defaults: repo_path = "<data_dir>/_backups",
+// name = "backup-<uuid>", indices = all. Flushes each index then copies its
+// WAL + segments + schema and writes a manifest (engine::create_snapshot).
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Default, Deserialize)]
+pub struct BackupRequest {
+    #[serde(default)]
+    pub repo_path: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub indices: Option<Vec<String>>,
+}
+
+pub async fn admin_backup(State(state): State<AppState>, body: Bytes) -> impl IntoResponse {
+    let started = Instant::now();
+    let request_id = Uuid::new_v4().to_string();
+
+    // Body is optional and lenient — `{}` or empty both mean "defaults".
+    let req: BackupRequest = if body.is_empty() {
+        BackupRequest::default()
+    } else {
+        serde_json::from_slice(&body).unwrap_or_default()
+    };
+
+    let data_dir = state.engine.config().server.data_dir.clone();
+    let repo_path = req
+        .repo_path
+        .unwrap_or_else(|| format!("{data_dir}/_backups"));
+    let name = req
+        .name
+        .unwrap_or_else(|| format!("backup-{}", Uuid::new_v4()));
+
+    match state.engine.create_snapshot(&repo_path, &name, req.indices).await {
+        Ok(manifest) => {
+            let took_ms = started.elapsed().as_millis() as u64;
+            let resp = NativeResponse::new(
+                serde_json::json!({
+                    "backup": name,
+                    "repo_path": repo_path,
+                    "manifest": manifest,
+                }),
+                took_ms,
+                &request_id,
+            );
+            (StatusCode::CREATED, Json(resp)).into_response()
+        }
+        Err(e) => {
+            let xerj_err: xerj_common::XerjError = e.into();
+            native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
+                .into_response()
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Admin: slow query log — v0.8 8-P6
 //
 // `GET /v1/admin/slow_queries` returns the last N slow queries.

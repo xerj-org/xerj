@@ -170,15 +170,15 @@ const PB = [
       { label: '_delete_by_query', method: 'POST', url: `${ES}/articles/_delete_by_query`, json: { query: { term: { tag: 'b' } } }, expect: { body: /"deleted"/ } },
     ] },
 
-  { id: '11-native-ops', doc: 'metrics / operations / api-native', title: 'Native ops API (:8080) — health & metrics',
-    intro: 'The native v1 surface for ops. NOTE: this binary implements health + metrics; the rest of the documented /v1 API is not yet live (captured as gaps).',
+  { id: '11-native-ops', doc: 'metrics / operations / api-native', title: 'Native ops API (:8080) — health, metrics, flush, backup',
+    intro: 'The native v1 ops surface: health + readiness probes, prometheus metrics, cluster health, a cluster-wide flush, and an on-disk backup (snapshot).',
     steps: [
       { label: 'native health', url: `${NATIVE}/v1/health`, expect: { body: /"status"/ } },
+      { label: 'readiness probe', url: `${NATIVE}/v1/health/ready`, expect: { status: 200 } },
       { label: 'prometheus scrape', url: `${NATIVE}/v1/metrics`, expect: { body: /xerj_/ } },
-      { label: 'DOC GAP: /v1/health/ready', url: `${NATIVE}/v1/health/ready`, expect: { status: 200 } },
-      { label: 'DOC GAP: /v1/cluster/health', url: `${NATIVE}/v1/cluster/health`, expect: { status: 200 } },
-      { label: 'DOC GAP: /v1/admin/flush', method: 'POST', url: `${NATIVE}/v1/admin/flush`, expect: { status: 200 } },
-      { label: 'DOC GAP: /v1/admin/backup', method: 'POST', url: `${NATIVE}/v1/admin/backup`, json: {}, expect: { status: 200 } },
+      { label: 'cluster health', url: `${NATIVE}/v1/cluster/health`, expect: { body: /"status"/ } },
+      { label: 'cluster-wide flush', method: 'POST', url: `${NATIVE}/v1/admin/flush`, expect: { body: /"flushed"/ } },
+      { label: 'backup (snapshot to disk)', method: 'POST', url: `${NATIVE}/v1/admin/backup`, json: {}, expect: { body: /"backup"/ } },
     ] },
 
   { id: '12-console-ux', doc: 'Xerj Console (xerj-ux)', title: 'Embedded Console UX',
