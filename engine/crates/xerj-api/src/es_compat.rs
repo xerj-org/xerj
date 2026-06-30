@@ -4150,6 +4150,30 @@ pub async fn search(
     // profile builder still needs to know whether this was a knn search.
     let original_knn: Option<Value> = body.knn.clone();
 
+    // ES knn semantics: a pure (non-hybrid) `knn` search returns at most `k`
+    // nearest neighbours, further bounded by the request `size`, and reports
+    // `hits.total` as the number of candidates actually returned — NOT the
+    // brute-force match count over the whole index. Capture that cap here,
+    // before the knn query is folded into a `bool` and `body.size` is bumped.
+    // Hybrid knn (knn + a sibling `query`) keeps normal scoring/counting.
+    let knn_total_cap: Option<usize> = body
+        .knn
+        .as_ref()
+        .filter(|_| body.query.is_none())
+        .map(|knn_val| {
+            let num_candidates = knn_val
+                .get("num_candidates")
+                .and_then(Value::as_u64)
+                .map(|n| n as usize);
+            let k = knn_val
+                .get("k")
+                .and_then(Value::as_u64)
+                .map(|n| n as usize)
+                .or(num_candidates)
+                .unwrap_or(10);
+            k.min(body.size)
+        });
+
     // If top-level "knn" is present, synthesise a Knn query and merge with any "query".
     let effective_body: EsSearchBody = if let Some(ref knn_val) = body.knn {
         let knn_query = knn_body_to_query_node(knn_val);
@@ -5528,6 +5552,16 @@ pub async fn search(
             let start = from.min(merged_hits.len());
             merged_hits = merged_hits[start..end].to_vec();
         }
+    }
+
+    // ── kNN result capping (ES knn semantics) ──────────────────────────────
+    // Pure-knn search: trim the brute-force candidate set to `k` (already
+    // bounded by `size` above) and report `hits.total` as the number of
+    // candidates actually returned, rather than the whole-index match count.
+    if let Some(cap) = knn_total_cap {
+        merged_hits.truncate(cap);
+        total_count = merged_hits.len() as u64;
+        total_relation = "eq".to_string();
     }
 
     let took_ms = started.elapsed().as_millis() as u64;
@@ -9415,6 +9449,14 @@ pub struct EsUpdateBody {
     pub doc_as_upsert: bool,
     /// Creation body used when the document does not exist (and `doc_as_upsert` is false).
     pub upsert: Option<Value>,
+    /// Painless script that mutates `ctx._source` in place. Accepted as the
+    /// short string form (`"ctx._source.x = 1"`) or the object form
+    /// (`{ "source": "...", "lang": "painless", "params": { ... } }`).
+    pub script: Option<Value>,
+    /// When true (default), an update that produces no source change reports
+    /// `result: "noop"`. Currently informational — writes are always applied.
+    #[serde(default)]
+    pub detect_noop: Option<bool>,
 }
 
 /// Query parameters for the `_update` endpoint.
@@ -9435,6 +9477,56 @@ pub async fn update_doc(
         Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
     };
 
+    // ── Scripted update path ────────────────────────────────────────────────
+    // When the body carries a `script`, load the current document, evaluate
+    // the painless script against `ctx._source`, and re-index the mutated
+    // source under the SAME id (an in-place update, not an append).
+    if let Some(script_val) = body.script.as_ref() {
+        let (src, params) = extract_update_script(script_val);
+        if src.is_empty() {
+            return update_script_bad_request("script source is required".to_string());
+        }
+        match idx.get_document(&id).await {
+            Ok(Some(mut current)) => {
+                if let Err(e) = apply_painless_update(&mut current, &src, &params) {
+                    return update_script_bad_request(e);
+                }
+                return match idx.index_document(Some(id.clone()), current).await {
+                    Ok(resp) => {
+                        state.metrics.record_doc_indexed(&index);
+                        let er = crate::responses::EsDocResponse::updated(
+                            &index, &resp.id, resp.version, resp.seq_no,
+                        );
+                        Json(er).into_response()
+                    }
+                    Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
+                };
+            }
+            Ok(None) => {
+                // Document missing: honour `upsert` / `doc_as_upsert` by
+                // indexing the upsert body as a new document. The script is
+                // not run against the upsert body (matches ES default,
+                // scripted_upsert=false).
+                let upsert_body = body.upsert.clone().or_else(|| {
+                    if body.doc_as_upsert { body.doc.clone() } else { None }
+                });
+                if let Some(up) = upsert_body {
+                    return match idx.index_document(Some(id.clone()), up).await {
+                        Ok(resp) => {
+                            state.metrics.record_doc_indexed(&index);
+                            let er = crate::responses::EsDocResponse::created(&index, &resp.id, resp.seq_no);
+                            Json(er).into_response()
+                        }
+                        Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
+                    };
+                }
+                let e = xerj_common::XerjError::document_not_found(&id, &index);
+                return ApiError::new(e).into_response();
+            }
+            Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
+        }
+    }
+
     match idx.update_document_with_upsert(
         &id,
         body.doc,
@@ -9452,6 +9544,295 @@ pub async fn update_doc(
         }
         Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scripted-update helpers (shared by `_update` and `_update_by_query`)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// ES-shaped 400 for a malformed / unsupported update script.
+fn update_script_bad_request(reason: String) -> axum::response::Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(json!({
+            "error": {
+                "root_cause": [{ "type": "script_exception", "reason": reason.clone() }],
+                "type": "script_exception",
+                "reason": reason,
+            },
+            "status": 400,
+        })),
+    )
+        .into_response()
+}
+
+/// Pull the `(source, params)` out of an ES `script` value. Accepts the short
+/// string form and the object form `{ source, lang, params }`.
+fn extract_update_script(script: &Value) -> (String, Value) {
+    match script {
+        Value::String(s) => (s.trim().to_string(), json!({})),
+        Value::Object(_) => {
+            let src = script
+                .get("source")
+                .or_else(|| script.get("inline"))
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            let params = script.get("params").cloned().unwrap_or_else(|| json!({}));
+            (src, params)
+        }
+        _ => (String::new(), json!({})),
+    }
+}
+
+/// Consume a `ctx._source` accessor path (`.a.b`, `['a']["b"]`) from the start
+/// of `rest`, returning the parsed path segments and the number of bytes
+/// consumed. Stops at the first byte that is not part of the path.
+fn consume_source_path(rest: &str) -> (Vec<String>, usize) {
+    let mut path: Vec<String> = Vec::new();
+    let b = rest.as_bytes();
+    let mut i = 0;
+    loop {
+        if i < b.len() && b[i] == b'.' {
+            let start = i + 1;
+            let mut k = start;
+            while k < b.len() && (b[k].is_ascii_alphanumeric() || b[k] == b'_') {
+                k += 1;
+            }
+            if k == start {
+                break;
+            }
+            path.push(rest[start..k].to_string());
+            i = k;
+        } else if i < b.len() && b[i] == b'[' {
+            if let Some(rel) = rest[i..].find(']') {
+                let close = i + rel;
+                let inner = rest[i + 1..close]
+                    .trim()
+                    .trim_matches(|c| c == '\'' || c == '"');
+                path.push(inner.to_string());
+                i = close + 1;
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+    (path, i)
+}
+
+/// Rewrite `ctx._source.<path>` / `ctx._source['<path>']` references inside an
+/// expression into the `doc['<path>'].value` form understood by the painless
+/// evaluator, so the right-hand side of an update assignment can read the
+/// document's current source.
+fn rewrite_source_refs(s: &str) -> String {
+    const PREFIX: &str = "ctx._source";
+    let mut out = String::with_capacity(s.len());
+    let mut i = 0;
+    while i < s.len() {
+        if s[i..].starts_with(PREFIX) {
+            let after = &s[i + PREFIX.len()..];
+            let (path, consumed) = consume_source_path(after);
+            if !path.is_empty() {
+                out.push_str(&format!("doc['{}'].value", path.join(".")));
+                i += PREFIX.len() + consumed;
+                continue;
+            }
+        }
+        let ch = s[i..].chars().next().unwrap();
+        out.push(ch);
+        i += ch.len_utf8();
+    }
+    out
+}
+
+/// `doc['a.b'].value` form for a parsed source path (used to desugar compound
+/// assignment operators).
+fn source_path_as_doc_ref(path: &[String]) -> String {
+    format!("doc['{}'].value", path.join("."))
+}
+
+fn get_source_path(source: &Value, path: &[String]) -> Value {
+    let mut cur = source;
+    for p in path {
+        match cur.get(p) {
+            Some(v) => cur = v,
+            None => return Value::Null,
+        }
+    }
+    cur.clone()
+}
+
+fn set_source_path(source: &mut Value, path: &[String], value: Value) {
+    if path.is_empty() {
+        return;
+    }
+    if !source.is_object() {
+        *source = json!({});
+    }
+    let obj = source.as_object_mut().expect("ensured object above");
+    if path.len() == 1 {
+        obj.insert(path[0].clone(), value);
+    } else {
+        let child = obj.entry(path[0].clone()).or_insert_with(|| json!({}));
+        set_source_path(child, &path[1..], value);
+    }
+}
+
+/// Integer-preserving conversion of a painless result into JSON (whole numbers
+/// stay integers so `ctx._source.x = 42` stores `42`, not `42.0`).
+fn painless_update_value(v: xerj_engine::painless::PainlessValue) -> Value {
+    use xerj_engine::painless::PainlessValue as P;
+    match v {
+        P::Number(n) if n.is_finite() && n.fract() == 0.0 && n.abs() < 9.007_199_254_740_992e15 => {
+            Value::Number((n as i64).into())
+        }
+        other => painless_to_json(other),
+    }
+}
+
+/// Parse a self-contained RHS literal (number / string / bool / null / array /
+/// object) so its JSON type is preserved exactly. Returns `None` when the RHS
+/// is an expression that must be evaluated.
+fn parse_rhs_literal(rhs: &str) -> Option<Value> {
+    let t = rhs.trim();
+    if t.len() >= 2 && t.starts_with('\'') && t.ends_with('\'') && !t[1..t.len() - 1].contains('\'') {
+        return Some(Value::String(t[1..t.len() - 1].to_string()));
+    }
+    serde_json::from_str::<Value>(t).ok()
+}
+
+/// Evaluate an expression against the document's current source using the same
+/// painless evaluator that backs `/_scripts/painless/_execute`.
+fn eval_update_expr(expr: &str, source: &Value, params: &Value) -> Result<Value, String> {
+    let ctx = xerj_engine::painless::PainlessCtx::new(source, params, 0.0);
+    let pv = xerj_engine::painless::eval_painless(expr, &ctx)?;
+    Ok(painless_update_value(pv))
+}
+
+/// Apply a painless update script to `source` in place. Supports the common
+/// `ctx._source.*` mutation forms: assignment (`=`), compound assignment
+/// (`+= -= *= /=`), increment / decrement (`++ --`), and `remove(...)`.
+fn apply_painless_update(source: &mut Value, script_src: &str, params: &Value) -> Result<(), String> {
+    for raw in split_update_statements(script_src) {
+        let stmt = raw.trim();
+        if stmt.is_empty() {
+            continue;
+        }
+        apply_one_update_stmt(source, stmt, params)?;
+    }
+    Ok(())
+}
+
+/// Split a script into top-level statements on `;`, ignoring separators inside
+/// single- or double-quoted string literals.
+fn split_update_statements(src: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let mut cur = String::new();
+    let mut quote: Option<char> = None;
+    for ch in src.chars() {
+        match quote {
+            Some(q) => {
+                cur.push(ch);
+                if ch == q {
+                    quote = None;
+                }
+            }
+            None => {
+                if ch == '\'' || ch == '"' {
+                    quote = Some(ch);
+                    cur.push(ch);
+                } else if ch == ';' {
+                    out.push(std::mem::take(&mut cur));
+                } else {
+                    cur.push(ch);
+                }
+            }
+        }
+    }
+    if !cur.trim().is_empty() {
+        out.push(cur);
+    }
+    out
+}
+
+fn apply_one_update_stmt(source: &mut Value, stmt: &str, params: &Value) -> Result<(), String> {
+    let s = stmt.trim();
+    let Some(rest) = s.strip_prefix("ctx._source") else {
+        // Tolerate other `ctx.*` statements (e.g. `ctx.op = 'noop'`) as no-ops;
+        // reject anything we genuinely don't understand so it surfaces as 400.
+        if s.starts_with("ctx.") || s.starts_with("ctx[") {
+            return Ok(());
+        }
+        return Err(format!("unsupported update script statement: {s}"));
+    };
+
+    // ctx._source.remove('field') / ctx._source.remove("field")
+    if let Some(after) = rest.strip_prefix(".remove") {
+        let after = after.trim_start();
+        if let Some(inner) = after.strip_prefix('(') {
+            let key = inner
+                .trim_end_matches(')')
+                .trim()
+                .trim_matches(|c| c == '\'' || c == '"');
+            if let Some(obj) = source.as_object_mut() {
+                obj.remove(key);
+            }
+            return Ok(());
+        }
+    }
+
+    let (path, consumed) = consume_source_path(rest);
+    if path.is_empty() {
+        return Err(format!("invalid update script target: {s}"));
+    }
+    let opr = rest[consumed..].trim_start();
+
+    // Increment / decrement.
+    if opr == "++" || opr == "--" {
+        let cur = get_source_path(source, &path).as_f64().unwrap_or(0.0);
+        let nv = if opr == "++" { cur + 1.0 } else { cur - 1.0 };
+        set_source_path(source, &path, painless_update_value(
+            xerj_engine::painless::PainlessValue::Number(nv),
+        ));
+        return Ok(());
+    }
+
+    // Assignment (plain or compound).
+    let (compound, rhs) = if let Some(r) = opr.strip_prefix("+=") {
+        (Some('+'), r)
+    } else if let Some(r) = opr.strip_prefix("-=") {
+        (Some('-'), r)
+    } else if let Some(r) = opr.strip_prefix("*=") {
+        (Some('*'), r)
+    } else if let Some(r) = opr.strip_prefix("/=") {
+        (Some('/'), r)
+    } else if let Some(r) = opr.strip_prefix('=') {
+        (None, r)
+    } else {
+        return Err(format!("unsupported update script statement: {s}"));
+    };
+    let rhs = rhs.trim();
+
+    let new_value = match compound {
+        Some(op) => {
+            let expr = format!(
+                "({}) {} ({})",
+                source_path_as_doc_ref(&path),
+                op,
+                rewrite_source_refs(rhs)
+            );
+            eval_update_expr(&expr, source, params)?
+        }
+        None => match parse_rhs_literal(rhs) {
+            Some(v) => v,
+            None => eval_update_expr(&rewrite_source_refs(rhs), source, params)?,
+        },
+    };
+    set_source_path(source, &path, new_value);
+    Ok(())
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -9691,6 +10072,86 @@ pub async fn mget(
                     "found": false,
                 }));
             }
+        }
+    }
+
+    Json(json!({ "docs": docs })).into_response()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET|POST /{index}/_mget
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Index-scoped multi-get. The path index is the default for any entry that
+/// omits `_index`. Accepts both the `{"ids": [...]}` short form and the
+/// `{"docs": [{"_id": ..., "_index"?: ...}]}` long form.
+pub async fn mget_index(
+    State(state): State<AppState>,
+    Path(index): Path<String>,
+    Json(body): Json<Value>,
+) -> impl IntoResponse {
+    // Collect (index, id) entries, defaulting the index to the path index.
+    let mut entries: Vec<(String, String)> = Vec::new();
+    if let Some(ids) = body.get("ids").and_then(Value::as_array) {
+        for id in ids {
+            if let Some(s) = id.as_str() {
+                entries.push((index.clone(), s.to_string()));
+            }
+        }
+    } else if let Some(docs) = body.get("docs").and_then(Value::as_array) {
+        for d in docs {
+            let i = d
+                .get("_index")
+                .and_then(Value::as_str)
+                .unwrap_or(&index)
+                .to_string();
+            let id = d.get("_id").and_then(Value::as_str).unwrap_or("").to_string();
+            entries.push((i, id));
+        }
+    }
+
+    let max = state.config.limits.max_mget_docs;
+    if entries.len() > max {
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "type": "illegal_argument_exception",
+                    "reason": format!(
+                        "mget request contains {} docs, exceeds limits.max_mget_docs of {max}",
+                        entries.len()
+                    ),
+                },
+                "status": 400,
+            })),
+        )
+            .into_response();
+    }
+
+    let mut docs: Vec<Value> = Vec::with_capacity(entries.len());
+    for (ix, id) in &entries {
+        match state.engine.get_index(ix) {
+            Ok(idx) => match idx.get_document(id).await {
+                Ok(Some(source)) => docs.push(json!({
+                    "_index": ix,
+                    "_id": id,
+                    "_version": 1,
+                    "_seq_no": 0,
+                    "_primary_term": 1,
+                    "found": true,
+                    "_source": source,
+                })),
+                _ => docs.push(json!({
+                    "_index": ix,
+                    "_id": id,
+                    "found": false,
+                })),
+            },
+            Err(_) => docs.push(json!({
+                "_index": ix,
+                "_id": id,
+                "found": false,
+            })),
         }
     }
 
@@ -12773,18 +13234,36 @@ pub async fn update_by_query(
     let mut updated = 0u64;
     let mut failures: Vec<Value> = Vec::new();
 
-    // Re-index each matching document (no script execution for now); both
-    // `total` and `updated` are derived from the real matched/re-written set.
+    // Optional painless script — when present, each matched hit's source is
+    // mutated by the script and re-indexed under its EXISTING `_id`, so the
+    // update happens in place (no duplicate-`_id` docs are appended).
+    let script = body.script.as_ref().map(extract_update_script);
+
     for hit in results.hits {
-        if !hit.source.is_null() {
-            match idx.index_document(Some(hit.id.clone()), hit.source).await {
-                Ok(_) => updated += 1,
-                Err(e) => {
+        if hit.source.is_null() {
+            continue;
+        }
+        let mut source = hit.source;
+        if let Some((src, params)) = script.as_ref() {
+            if !src.is_empty() {
+                if let Err(e) = apply_painless_update(&mut source, src, params) {
                     failures.push(json!({
                         "id": hit.id,
-                        "cause": { "reason": e.to_string() },
+                        "cause": { "reason": e },
                     }));
+                    continue;
                 }
+            }
+        }
+        // Re-index in place: same `_id`, mutated source → an update, not an
+        // append (verified: `index_document(Some(existing_id), source)`).
+        match idx.index_document(Some(hit.id.clone()), source).await {
+            Ok(_) => updated += 1,
+            Err(e) => {
+                failures.push(json!({
+                    "id": hit.id,
+                    "cause": { "reason": e.to_string() },
+                }));
             }
         }
     }
@@ -18643,7 +19122,7 @@ pub async fn async_search_submit(
         "_score": h.score,
         "_source": h.source,
     })).collect();
-    let search_response = json!({
+    let mut search_response = json!({
         "took": took_ms,
         "timed_out": result.timed_out,
         "_shards": { "total": 1, "successful": 1, "skipped": 0, "failed": 0 },
@@ -18653,6 +19132,13 @@ pub async fn async_search_submit(
             "hits": hits,
         }
     });
+    // Include aggregations in the completed payload, same shape as `_search`
+    // (internal tracking + type tags stripped). Without this the `aggs` the
+    // caller requested are silently dropped from the async response.
+    if let Some(mut aggs) = result.aggs {
+        strip_internal_tracking(&mut aggs);
+        search_response["aggregations"] = strip_type_tags(aggs);
+    }
 
     let async_id = Uuid::new_v4().to_string();
     let stored = json!({
@@ -20569,4 +21055,50 @@ async fn real_index_totals(state: &AppState) -> (usize, u64, u64) {
         }
     }
     (indices.len(), total_docs, store_bytes)
+}
+
+#[cfg(test)]
+mod scripted_update_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn assign_int_literal_preserves_integer() {
+        let mut src = json!({ "probe": 0 });
+        apply_painless_update(&mut src, "ctx._source.probe=42", &json!({})).unwrap();
+        assert_eq!(src["probe"], json!(42));
+    }
+
+    #[test]
+    fn compound_increment_from_params() {
+        let mut src = json!({ "counter": 5 });
+        apply_painless_update(
+            &mut src,
+            "ctx._source.counter += params.count",
+            &json!({ "count": 3 }),
+        )
+        .unwrap();
+        assert_eq!(src["counter"], json!(8));
+    }
+
+    #[test]
+    fn post_increment_and_remove_and_new_field() {
+        let mut src = json!({ "likes": 1, "stale": true });
+        apply_painless_update(
+            &mut src,
+            "ctx._source.likes++; ctx._source.remove('stale'); ctx._source.tag = 'x'",
+            &json!({}),
+        )
+        .unwrap();
+        assert_eq!(src["likes"], json!(2));
+        assert!(src.get("stale").is_none());
+        assert_eq!(src["tag"], json!("x"));
+    }
+
+    #[test]
+    fn read_other_source_field_in_rhs() {
+        let mut src = json!({ "a": 10, "b": 4 });
+        apply_painless_update(&mut src, "ctx._source.c = ctx._source.a - ctx._source.b", &json!({})).unwrap();
+        assert_eq!(src["c"], json!(6));
+    }
 }

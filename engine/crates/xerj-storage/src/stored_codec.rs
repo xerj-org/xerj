@@ -212,7 +212,10 @@ pub fn encode_stored_v2(stored_docs_json: &[u8]) -> Vec<u8> {
         .iter()
         .enumerate()
         .map(|(cix, col)| {
-            if !col_is_numeric(col) { return None; }
+            // Only integer columns may use the lossy i64 cross-dep path;
+            // float columns fall through to the lossless dict / raw path so
+            // fractional values (e.g. `0.010127`) survive intact.
+            if !col_is_all_integer(col) { return None; }
             best_cross_dep_source(&dict_encoded, cix, col)
         })
         .collect();
@@ -402,11 +405,24 @@ fn decode_stored_v2(body: &[u8]) -> Result<Vec<u8>> {
 
 // ── Column-level helpers ─────────────────────────────────────────────────
 
-fn col_is_numeric(col: &[serde_json::Value]) -> bool {
+/// True iff every non-null value in the column is a numeric *integer*
+/// (`as_i64`/`as_u64`), i.e. nothing would be lost by routing it through
+/// the i64 mode-table / cross-dependency path.
+///
+/// The cross-dep codec models the column as `i64` mode values plus i64
+/// exceptions, so any value carrying a fractional component (`0.010127`)
+/// would be truncated to its integer part and silently corrupt the stored
+/// `_source`.  A column that contains even one non-integer float must skip
+/// the numeric optimization entirely and fall back to the lossless dict /
+/// raw-JSON path, which preserves the exact `serde_json::Value`.
+fn col_is_all_integer(col: &[serde_json::Value]) -> bool {
     let mut saw_num = false;
     for v in col {
         if v.is_null() { continue; }
-        if !v.is_number() { return false; }
+        // Only true JSON integers qualify; floats (even integer-valued
+        // ones like `10.0`) are left for the lossless path so their exact
+        // representation round-trips.
+        if v.as_i64().is_none() && v.as_u64().is_none() { return false; }
         saw_num = true;
     }
     saw_num
@@ -913,6 +929,50 @@ mod tests {
         let encoded = encode_stored_v2(raw);
         // Small input: should fall back to v1 LZ4 magic.
         assert_eq!(&encoded[..4], STORED_LZ4_MAGIC);
+    }
+
+    #[test]
+    fn v2_preserves_float_column_at_scale() {
+        // Regression for the silent-data-loss defect: a float column that is
+        // strongly determined by a low-cardinality keyword column used to be
+        // routed through the i64 cross-dep optimization, which truncated
+        // every `f64` to its integer part (0.010127 -> 0) once the segment
+        // was large enough for the optimization to kick in.  The float column
+        // must now round-trip exactly while a sibling integer column stays a
+        // genuine integer (cross-dep still allowed for integers).
+        let categories = ["a", "b", "c", "d", "e"];
+        let costs = [0.0017_f64, 0.019, 0.5, 0.010127, 12.3456];
+        let counts = [1_i64, 2, 3, 4, 5];
+
+        let mut docs = Vec::new();
+        for i in 0..5000usize {
+            let c = i % categories.len();
+            docs.push(json!({
+                "_id": format!("doc-{}", i),
+                "_seq_no": i as u64,
+                "_source": {
+                    "category": categories[c],
+                    "cost_usd": costs[c],
+                    "count": counts[c],
+                }
+            }));
+        }
+        let raw = serde_json::to_vec(&docs).unwrap();
+        let encoded = encode_stored_v2(&raw);
+        let decoded = decode_stored(&encoded).unwrap();
+        let round: Vec<serde_json::Value> = serde_json::from_slice(&decoded).unwrap();
+        assert_eq!(round.len(), docs.len());
+
+        for i in 0..docs.len() {
+            let c = i % categories.len();
+            // Exact f64 fidelity — no truncation to integer.
+            let got = round[i]["_source"]["cost_usd"].as_f64().unwrap();
+            assert_eq!(got, costs[c], "cost_usd corrupted at row {i}");
+            // The integer sibling stays a genuine integer (not promoted to float).
+            let cnt = &round[i]["_source"]["count"];
+            assert!(cnt.is_i64() || cnt.is_u64(), "count became non-integer at row {i}: {cnt}");
+            assert_eq!(cnt.as_i64().unwrap(), counts[c], "count value wrong at row {i}");
+        }
     }
 
     #[test]

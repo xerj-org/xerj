@@ -194,6 +194,11 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         .route("/_cat/shards", get(es_compat::cat_shards))
         .route("/_bulk", post(es_compat::global_bulk))
         .route("/_mget", post(es_compat::mget))
+        // Index-scoped multi-get — the path index defaults entries that omit `_index`.
+        .route(
+            "/:index/_mget",
+            get(es_compat::mget_index).post(es_compat::mget_index),
+        )
         // ── Index management ───────────────────────────────────────────────
         .route(
             "/:index",

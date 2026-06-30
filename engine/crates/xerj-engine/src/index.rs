@@ -4066,14 +4066,40 @@ impl Index {
                             .map(|f| reader.field_stats(f).is_some())
                             .unwrap_or(true);
 
-                        let limit = if count_only { usize::MAX } else { fetch_limit };
+                        // Counting is DECOUPLED from materialisation on the
+                        // scored FTS path.  `FtsSearcher::execute` builds the
+                        // FULL hit set regardless of `limit` (it only sorts and
+                        // truncates afterwards), so requesting `usize::MAX`
+                        // costs nothing extra over `fetch_limit` and yields the
+                        // EXACT segment match count.  Previously the size>0 path
+                        // passed `fetch_limit` and tallied `total_count` per
+                        // materialised hit, so `hits.total` was capped at the
+                        // ~256 materialisation limit while size:0 (which used
+                        // `usize::MAX`) was exact — DEFECT #3.  Now both paths
+                        // add the full `seg_hits.len()` so the count agrees, and
+                        // we materialise *sources* for only the top
+                        // `materialisation_limit` hits.  The held-in-full list
+                        // is just the lightweight (doc_id, score) `ScoredHit`s
+                        // — no source is materialised beyond the page, so the
+                        // capped-RAM OOM guard is preserved.
+                        let limit = usize::MAX;
                         if fts_has_field {
                         if let Ok(seg_hits) = searcher.search(&fq, limit, false) {
-                            if count_only {
-                                fts_handled = true;
-                                total_count += seg_hits.len() as u64;
-                            } else if !seg_hits.is_empty() {
-                                fts_handled = true;
+                            // FTS is authoritative for this segment (field
+                            // present + searcher ran) — mark handled the same
+                            // way for count-only and size>0 so the fall-through
+                            // decision (and thus the count) agrees.
+                            fts_handled = true;
+                            // Exact count — identical for count_only and size>0.
+                            total_count += seg_hits.len() as u64;
+                            // Materialise sources for the top hits only.
+                            // `seg_hits` is score-sorted descending, so taking
+                            // the prefix that fits under `materialisation_limit`
+                            // preserves top-k ordering/scoring.
+                            if !count_only
+                                && !seg_hits.is_empty()
+                                && all_hits.len() < materialisation_limit
+                            {
                                 if let Ok(seg_reader) = self.store.open_segment_arc(&seg_id) {
                                     if let Ok(Some(stored_bytes_raw)) =
                                         seg_reader.section(SectionType::Stored)
@@ -4089,6 +4115,13 @@ impl Index {
                                             serde_json::from_slice::<Vec<Value>>(&stored_bytes)
                                         {
                                             for sh in &seg_hits {
+                                                // Page full — the rest are
+                                                // already counted in
+                                                // `total_count`, so stop
+                                                // decoding sources.
+                                                if all_hits.len() >= materialisation_limit {
+                                                    break;
+                                                }
                                                 let doc = match docs.get(sh.doc_id as usize) {
                                                     Some(d) => d,
                                                     None => continue,
@@ -4105,11 +4138,19 @@ impl Index {
                                                         continue;
                                                     }
                                                 }
+                                                // Dedup against memtable/earlier
+                                                // segments WITHOUT touching
+                                                // `total_count` (already tallied
+                                                // above via `seg_hits.len()`).
+                                                if seen_ids.contains(&id) {
+                                                    continue;
+                                                }
                                                 let source = doc
                                                     .get("_source")
                                                     .cloned()
                                                     .unwrap_or(Value::Null);
-                                                admit_hit!(Hit {
+                                                seen_ids.insert(id.clone());
+                                                all_hits.push(Hit {
                                                     id,
                                                     score: sh.score,
                                                     source,
@@ -4123,8 +4164,6 @@ impl Index {
                                         }
                                     }
                                 }
-                            } else {
-                                // seg_hits empty and count_only false: nothing to push.
                             }
                         }
                     }
@@ -4527,6 +4566,16 @@ impl Index {
                 b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal)
                     .then_with(|| a.id.cmp(&b.id))
             });
+        }
+
+        // --- match_all total = authoritative live doc count ---
+        // The size>0 segment scan tallies stored doc-versions (and the
+        // count-shortcut/precomputed paths use the version-doubling atomic), so
+        // an UPDATE would inflate hits.total. For an unfiltered match_all the
+        // true total is the live doc count (one entry per `_id`). min_score
+        // below still adjusts from this corrected base if present.
+        if is_match_all {
+            total_count = self.live_doc_count();
         }
 
         // --- Apply min_score threshold ---
@@ -5043,6 +5092,17 @@ impl Index {
     // ── Stats ─────────────────────────────────────────────────────────────────
 
     /// Return statistics for this index.
+    /// Authoritative live document count: one entry per `_id` in the version
+    /// map, excluding tombstones. The `doc_count` atomic doubles as the version
+    /// generator (bumped on every write, so an UPDATE inflates it by 1), and
+    /// summing per-segment `doc_count` includes superseded versions until a
+    /// merge — both over-count after updates. The version map holds exactly one
+    /// live entry per `_id`, so this is the true count ES clients expect.
+    #[inline]
+    pub fn live_doc_count(&self) -> u64 {
+        self.store.version_map.live_count() as u64
+    }
+
     pub async fn stats(&self) -> IndexStats {
         let snap = self.store.snapshot();
         let segment_count = snap.segments.len();
@@ -5095,7 +5155,7 @@ impl Index {
 
         IndexStats {
             name: self.name.to_string(),
-            doc_count: self.doc_count.load(Ordering::Relaxed),
+            doc_count: self.live_doc_count(),
             segment_count,
             memtable_doc_count: self.memtable.doc_count(),
             memtable_size_bytes: self.memtable.size_bytes(),
@@ -5792,11 +5852,13 @@ impl Index {
         }
 
         if is_match_all {
-            // Use the engine-level atomic counter so flushes in flight
-            // between the snapshot-read and the mem-read don't cause
-            // an undercount.  `self.doc_count` is bumped at insert and
-            // decremented at delete; it's the same value `_count` uses.
-            return Some(self.doc_count.load(Ordering::Relaxed));
+            // Live doc count from the version map (one non-deleted entry per
+            // `_id`). The `doc_count` atomic doubles as the version generator
+            // and is bumped on every write, so an UPDATE would inflate `_count`
+            // by 1 per update — the version map is the authoritative source and
+            // is stable across in-flight flushes (a flush re-points an `_id` to
+            // its new segment without changing which ids are live).
+            return Some(self.live_doc_count());
         }
 
         // Range query shortcut (M2 G4-ext): walk segment `.dv` sorted
