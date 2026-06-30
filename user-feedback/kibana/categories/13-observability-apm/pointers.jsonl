@@ -1,0 +1,740 @@
+{"id":"disc-925634","source":"discourse","score":4,"posted_at":"2021-02-01T09:38:56.295Z","tags":["apm"],"title":"Kibana is slow","_secondary":true}
+{"id":"disc-1108247","source":"discourse","score":3,"posted_at":"2022-08-23T02:37:32.826Z","tags":["apm"],"title":"Kibana terribly slow on /apm/traces"}
+{"id":"disc-1108246","source":"discourse","score":2,"posted_at":"2022-08-23T02:35:05.581Z","tags":["apm"],"title":"Kibana terribly slow on /apm/traces","_secondary":true}
+{"id":"disc-246675","source":"discourse","score":4,"posted_at":"2017-03-09T12:56:20.073Z","tags":[],"title":"Date histogram in Kibana is very slow","_secondary":true}
+{"id":"disc-777563","source":"discourse","score":10,"posted_at":"2020-02-24T02:58:05.619Z","tags":["apm"],"title":"Kibana APM App pages are TOO SLOW","_secondary":true}
+{"id":"disc-882726","source":"discourse","score":2,"posted_at":"2020-10-04T04:04:25.795Z","tags":["apm"],"title":"3 ESXi virtual machines, versus 3 dockers on a single ESXi virtual machine"}
+{"id":"disc-857688","source":"discourse","score":4,"posted_at":"2020-08-05T21:37:46.448Z","tags":[],"title":"'Kibana server is not ready' after 7.7.1-7.8.1","_secondary":true}
+{"id":"disc-275578","source":"discourse","score":13,"posted_at":"2017-05-18T17:46:53.395Z","tags":[],"title":"Is heapCurrent reflective of performance","_secondary":true}
+{"id":"disc-368936","source":"discourse","score":5,"posted_at":"2017-09-14T16:49:47.520Z","tags":[],"title":"Elastic Search Plugin Red - Kibana Timeout error request","_secondary":true}
+{"id":"disc-708998","source":"discourse","score":12,"posted_at":"2019-09-13T18:14:52.490Z","tags":["kql"],"title":"KQL-related performance issue","_secondary":true}
+{"id":"disc-676778","source":"discourse","score":6,"posted_at":"2019-07-13T02:44:04.727Z","tags":["apm"],"title":"How to use less storage space for APM index?"}
+{"id":"disc-1438962","source":"discourse","score":5,"posted_at":"2025-09-26T13:39:49.305Z","tags":[],"title":"How to reference another column value in metricFont expression?","_secondary":true}
+{"id":"disc-945417","source":"discourse","score":4,"posted_at":"2021-03-26T17:56:26.129Z","tags":[],"title":"How to create SLA breach graph"}
+{"id":"disc-1388186","source":"discourse","score":4,"posted_at":"2024-07-29T20:46:42.738Z","tags":["fleet"],"title":"Fleet slow opening issue","_secondary":true}
+{"id":"disc-787788","source":"discourse","score":22,"posted_at":"2020-03-16T01:17:32.456Z","tags":["apm"],"title":"APM UI Kibana Internal Server Error"}
+{"id":"disc-782035","source":"discourse","score":13,"posted_at":"2020-03-04T05:41:44.388Z","tags":["apm"],"title":"APM queue is full"}
+{"id":"disc-927972","source":"discourse","score":14,"posted_at":"2021-02-08T04:46:36.077Z","tags":["apm"],"title":"Whether to allow the profile to be opened on every query request"}
+{"id":"disc-1387234","source":"discourse","score":1,"posted_at":"2024-07-23T14:25:19.088Z","tags":["apm"],"title":"APM Slowness while in UI","_secondary":true}
+{"id":"disc-556856","source":"discourse","score":4,"posted_at":"2018-11-02T02:04:56.684Z","tags":[],"title":"Filebeat inside Kubernetes setup questions","_secondary":true}
+{"id":"disc-360067","source":"discourse","score":23,"posted_at":"2017-08-23T11:46:17.111Z","tags":[],"title":"Logstash get data but Kibana can't show it!","_secondary":true}
+{"id":"disc-599671","source":"discourse","score":3,"posted_at":"2019-02-10T07:42:22.146Z","tags":[],"title":"Kibana --> ES master vs ES Coordinating Nodes in Cluster Question","_secondary":true}
+{"id":"disc-698800","source":"discourse","score":6,"posted_at":"2019-08-23T13:58:11.821Z","tags":["apm"],"title":"What does Impact mean in APM Transactions on Kibana?"}
+{"id":"disc-627819","source":"discourse","score":6,"posted_at":"2019-04-09T14:21:13.810Z","tags":["apm"],"title":"APM viewer in kibana broken when transaction name has a slash in it"}
+{"id":"disc-774661","source":"discourse","score":3,"posted_at":"2020-02-17T10:25:27.931Z","tags":["apm"],"title":"APM UI query bar broken"}
+{"id":"disc-1295718","source":"discourse","score":7,"posted_at":"2023-05-29T17:42:58.927Z","tags":["apm"],"title":"Elastic Agent is installed but currently broken: service exists but installation path is missing"}
+{"id":"disc-1017705","source":"discourse","score":3,"posted_at":"2021-10-25T17:27:16.786Z","tags":[],"title":"RUM dashboard showing same data for all environments","_secondary":true}
+{"id":"disc-1014161","source":"discourse","score":6,"posted_at":"2021-10-13T20:15:25.736Z","tags":["apm"],"title":"Link to trace no longer working if trace occurred more than 15 minutes ago after upgrade from 7.12.1 to 7.15.0","_secondary":true}
+{"id":"disc-689050","source":"discourse","score":5,"posted_at":"2019-08-05T17:44:49.838Z","tags":[],"title":"[ELK 7.3.0] Visual Builder Gauge not visualizing data if different timespan","_secondary":true}
+{"id":"disc-181325","source":"discourse","score":4,"posted_at":"2016-08-12T14:01:45.100Z","tags":[],"title":"Can you configure filebeat to exit as soon as eof is reached?"}
+{"id":"disc-1088868","source":"discourse","score":19,"posted_at":"2022-06-16T11:10:48.355Z","tags":["apm"],"title":"Uploading sourcemaps from AIX webserver"}
+{"id":"gh-kibana-98912","source":"github","score":0,"posted_at":"2021-04-30T13:24:04Z","tags":["alerting","apm"],"title":"[RAC] RFC: Index naming and hierarchy","_secondary":true}
+{"id":"gh-kibana-43994","source":"github","score":0,"posted_at":"2019-08-26T14:24:13Z","tags":["alerting","saved-objects"],"title":"Alerting feature controls","_secondary":true}
+{"id":"gh-kibana-183248","source":"github","score":1,"posted_at":"2024-05-13T09:41:31Z","tags":["kql","apm","anomaly"],"title":"[Observability] [AAD] Streamline the method of saving group information in alert document"}
+{"id":"gh-kibana-78792","source":"github","score":0,"posted_at":"2020-09-29T14:57:51Z","tags":["apm"],"title":"Measure APM agent impact on the platform performance "}
+{"id":"gh-kibana-108456","source":"github","score":1,"posted_at":"2021-08-12T21:05:25Z","tags":["apm","fleet"],"title":"[Fleet] Remove default integrations"}
+{"id":"gh-kibana-97108","source":"github","score":0,"posted_at":"2021-04-14T12:58:14Z","tags":["apm"],"title":"[Observability UIs] How are we going to share components, methods, etc?"}
+{"id":"gh-kibana-107682","source":"github","score":0,"posted_at":"2021-08-04T18:28:29Z","tags":["apm","fleet"],"title":"Empty state suggestions for ingest"}
+{"id":"gh-kibana-120377","source":"github","score":0,"posted_at":"2021-12-03T16:51:46Z","tags":["apm"],"title":"[Infra Monitoring UI] Create infra metrics shared component in storybook"}
+{"id":"gh-kibana-29510","source":"github","score":0,"posted_at":"2019-01-29T15:20:05Z","tags":["apm"],"title":"7.0 migration notifications","_secondary":true}
+{"id":"gh-kibana-22329","source":"github","score":0,"posted_at":"2018-08-23T19:17:49Z","tags":["apm"],"title":"[APM] Add `error.exception.type` to Errors pages"}
+{"id":"gh-kibana-143455","source":"github","score":1,"posted_at":"2022-07-28T13:55:59Z","tags":["apm","fleet"],"title":"[Fleet] Replace unenrollment timeout with UI-only inactivity timeout"}
+{"id":"gh-kibana-117492","source":"github","score":1,"posted_at":"2021-11-04T11:34:41Z","tags":["apm"],"title":"Default APM Configurations for monitoring of kibana clusters "}
+{"id":"gh-kibana-102008","source":"github","score":0,"posted_at":"2021-06-11T20:10:55Z","tags":["apm"],"title":"[test-failed]: X-Pack API Integration Tests1.x-pack/test/api_integration/apis/monitoring/apm/instances·js - apis Monitoring APM list should load multiple cluste","_secondary":true}
+{"id":"gh-kibana-49467","source":"github","score":0,"posted_at":"2019-10-28T12:06:43Z","tags":["apm"],"title":"[APM] Language specific stack frame formatting"}
+{"id":"gh-kibana-158986","source":"github","score":2,"posted_at":"2023-06-03T08:03:57Z","tags":["apm"],"title":"[APM] Search bar is disabled until _fields_for_wildcards has loaded","_secondary":true}
+{"id":"gh-kibana-137759","source":"github","score":0,"posted_at":"2022-08-01T17:33:22Z","tags":["apm","fleet"],"title":"[Fleet] Support stack-aligned versioning scheme for bundled APM package"}
+{"id":"gh-kibana-43247","source":"github","score":0,"posted_at":"2019-08-14T07:36:04Z","tags":["apm"],"title":"[APM] UI changes to trace summary (above waterfall/timeline)","_secondary":true}
+{"id":"gh-kibana-179915","source":"github","score":0,"posted_at":"2023-10-24T04:32:22Z","tags":["apm","fleet"],"title":"Support data tagging/add_field in Agent Policy"}
+{"id":"gh-kibana-82851","source":"github","score":0,"posted_at":"2020-11-06T16:00:09Z","tags":["apm","fleet"],"title":"Fleet system package installs 15 Dashboards, 120+ Visualizations and 2 Kibana index-patterns","_secondary":true}
+{"id":"gh-kibana-98420","source":"github","score":0,"posted_at":"2021-04-26T22:18:00Z","tags":["apm","license"],"title":"[test-failed]: X-Pack API Integration Tests1.x-pack/test/api_integration/apis/monitoring/standalone_cluster/cluster·js - apis Monitoring Standalone Cluster clus"}
+{"id":"gh-kibana-43765","source":"github","score":0,"posted_at":"2019-08-22T12:57:29Z","tags":["apm"],"title":"[APM] JVM list and individual JVM metrics page","_secondary":true}
+{"id":"gh-kibana-157266","source":"github","score":0,"posted_at":"2023-05-10T12:58:41Z","tags":[],"title":"[Kibana Core] Allow configuration to specify an array of \"disabled routes\" for server AND UI","_secondary":true}
+{"id":"gh-kibana-67611","source":"github","score":6,"posted_at":"2020-05-28T12:44:05Z","tags":["apm"],"title":"[APM] Display related trace logs in the trace sample content"}
+{"id":"gh-kibana-39741","source":"github","score":0,"posted_at":"2019-06-26T21:01:11Z","tags":["apm"],"title":"Runtime APM UI index configuration"}
+{"id":"gh-kibana-95558","source":"github","score":0,"posted_at":"2021-03-26T17:44:43Z","tags":["discover"],"title":"Apply context filters when retrieving list of fields in application","_secondary":true}
+{"id":"gh-kibana-89584","source":"github","score":4,"posted_at":"2021-01-28T15:43:16Z","tags":["lens","alerting","apm","fleet","license"],"title":"By default, a plugin should not be disable-able","_secondary":true}
+{"id":"gh-kibana-23315","source":"github","score":0,"posted_at":"2018-09-19T12:16:32Z","tags":["apm"],"title":"[APM] Link `hostname` to Infra UI "}
+{"id":"gh-kibana-179229","source":"github","score":0,"posted_at":"2024-03-22T09:49:15Z","tags":["apm"],"title":"[APM] Service map request fails when searching outside of the boost window"}
+{"id":"gh-kibana-144418","source":"github","score":7,"posted_at":"2022-11-02T13:25:32Z","tags":["ml","license"],"title":"[Dashboard] Redesign Add Panel Experience","_secondary":true}
+{"id":"gh-kibana-112831","source":"github","score":0,"posted_at":"2021-09-22T13:42:23Z","tags":["apm","fleet"],"title":"[7.16] [Fleet] Enable auto-upgrades for Stack-aligned packages during Fleet setup"}
+{"id":"gh-kibana-98010","source":"github","score":0,"posted_at":"2021-04-22T13:38:27Z","tags":[],"title":"[Logs UI] Handle log threshold alert grouping fields with large cardinalities more robustly"}
+{"id":"gh-kibana-110758","source":"github","score":0,"posted_at":"2021-09-01T07:14:55Z","tags":[],"title":"[RAC] Alerts view in Observability UI performance"}
+{"id":"gh-kibana-7801","source":"github","score":6,"posted_at":"2016-07-22T08:24:19Z","tags":["discover"],"title":"Search box in Discover is overridden by typeahead in Chrome 52","_secondary":true}
+{"id":"gh-kibana-175831","source":"github","score":12,"posted_at":"2024-01-29T18:17:47Z","tags":["saved-objects","fleet"],"title":"[Fleet] Known limitations with Fleet/Integrations in multi-space environments","_secondary":true}
+{"id":"gh-kibana-175254","source":"github","score":2,"posted_at":"2024-01-22T18:28:04Z","tags":["apm","fleet"],"title":"[Fleet] Potential breaking change with APM data streams (maybe others) and Fleet ingest pipeline customization hooks"}
+{"id":"gh-kibana-115235","source":"github","score":0,"posted_at":"2021-10-15T17:15:41Z","tags":["kql","apm"],"title":"[Epic] Create re-usable component for infrastructure metrics"}
+{"id":"gh-kibana-32640","source":"github","score":0,"posted_at":"2019-03-07T11:29:08Z","tags":["apm"],"title":"[APM] Transaction names ending in a \"/\" shows no transactions details"}
+{"id":"gh-kibana-141206","source":"github","score":0,"posted_at":"2022-09-21T10:34:38Z","tags":["discover","fleet"],"title":"[Fleet] Agent activity enhancements","_secondary":true}
+{"id":"gh-kibana-105356","source":"github","score":0,"posted_at":"2021-07-12T21:37:36Z","tags":["apm"],"title":"[test-failed]: X-Pack API Integration Tests1.x-pack/test/api_integration/apis/monitoring/apm/instance_mb·js - apis Monitoring APM instance detail mb should get "}
+{"id":"gh-kibana-105355","source":"github","score":0,"posted_at":"2021-07-12T21:37:20Z","tags":["apm"],"title":"[test-failed]: X-Pack API Integration Tests1.x-pack/test/api_integration/apis/monitoring/apm/instances_mb·js - apis Monitoring APM list mb should load multiple "}
+{"id":"gh-kibana-96568","source":"github","score":1,"posted_at":"2021-04-08T13:00:02Z","tags":[],"title":"Observability alerts flyout navigation / pagination"}
+{"id":"gh-kibana-138394","source":"github","score":0,"posted_at":"2022-08-09T13:47:13Z","tags":["apm"],"title":"[APM] Add Experimental Mode for APM UI"}
+{"id":"gh-kibana-133368","source":"github","score":0,"posted_at":"2022-06-02T08:52:22Z","tags":["apm"],"title":"[APM] Link to top erroneous transactions"}
+{"id":"gh-kibana-124785","source":"github","score":0,"posted_at":"2022-02-07T09:23:52Z","tags":["apm","fleet"],"title":"Upgrade fails from 7.17.0 to 8.0.0 when APM integration name is changed under Elastic Cloud Agent policy"}
+{"id":"gh-kibana-94879","source":"github","score":6,"posted_at":"2021-03-18T01:13:07Z","tags":["discover"],"title":"[Observability] Query bar should, by default, only show relevant fields","_secondary":true}
+{"id":"gh-kibana-80311","source":"github","score":0,"posted_at":"2020-10-13T11:29:41Z","tags":["apm"],"title":"[Metrics UI] Enhanced host details - APM"}
+{"id":"gh-kibana-77966","source":"github","score":0,"posted_at":"2020-09-19T01:31:47Z","tags":["apm"],"title":"[APM] Agent API Key Management","_secondary":true}
+{"id":"gh-kibana-46054","source":"github","score":5,"posted_at":"2019-09-18T17:27:37Z","tags":["kql","siem","apm"],"title":"The KQL autocomplete values can take long time","_secondary":true}
+{"id":"gh-kibana-40375","source":"github","score":0,"posted_at":"2019-07-04T17:05:16Z","tags":["alerting","apm"],"title":"[APM] Display multiple chained exceptions ","_secondary":true}
+{"id":"gh-kibana-26544","source":"github","score":3,"posted_at":"2018-12-03T16:29:41Z","tags":["apm"],"title":"[APM] Idea: Alternative transaction navigation for RUM"}
+{"id":"gh-kibana-245408","source":"github","score":0,"posted_at":"2025-12-05T15:31:07Z","tags":["discover","apm"],"title":"[PoC] Show RED metrics charts for mixed schema situations (otel/apm)"}
+{"id":"gh-kibana-203017","source":"github","score":1,"posted_at":"2024-12-04T21:13:16Z","tags":["saved-objects"],"title":"[Meta] Verify efficient usage of createPointInTimeFinder","_secondary":true}
+{"id":"gh-kibana-192050","source":"github","score":1,"posted_at":"2024-09-03T23:53:28Z","tags":["ml"],"title":"Implement new navigation hierarchy for stateful cloud and serverless Kibana","_secondary":true}
+{"id":"gh-kibana-189923","source":"github","score":0,"posted_at":"2024-08-05T18:46:16Z","tags":["apm"],"title":"Service entity overview only shows logs that have `log.level` present."}
+{"id":"gh-kibana-121934","source":"github","score":0,"posted_at":"2021-12-23T07:46:29Z","tags":["apm"],"title":"APM switch to Elastic Agent fails with cryptic error"}
+{"id":"gh-kibana-103915","source":"github","score":0,"posted_at":"2021-06-30T15:50:17Z","tags":[],"title":"Remove deprecated Core settings","_secondary":true}
+{"id":"gh-kibana-83968","source":"github","score":0,"posted_at":"2020-11-20T19:13:56Z","tags":["apm"],"title":"[Metrics UI] Enhanced host details - Processes - Additional Features"}
+{"id":"gh-kibana-45503","source":"github","score":0,"posted_at":"2019-09-12T09:49:02Z","tags":["apm"],"title":"[APM] Design improvements for UI Filters"}
+{"id":"gh-kibana-20664","source":"github","score":0,"posted_at":"2018-07-11T11:54:08Z","tags":["apm"],"title":"[APM] Show `error.exception[0].attributes` object in Metadata tab on Errors detail page"}
+{"id":"gh-kibana-17544","source":"github","score":43,"posted_at":"2018-04-04T14:22:01Z","tags":[],"title":"Add bucket_selector aggregation to visualizations","_secondary":true}
+{"id":"gh-kibana-153777","source":"github","score":0,"posted_at":"2023-03-27T13:48:17Z","tags":["discover","apm","anomaly","fleet"],"title":"[Observability] Serverless navigation"}
+{"id":"gh-kibana-117697","source":"github","score":0,"posted_at":"2021-11-05T16:45:21Z","tags":["anomaly"],"title":"[RAC] Review readability of Alert Reason Messages","_secondary":true}
+{"id":"gh-kibana-112095","source":"github","score":3,"posted_at":"2021-09-14T13:16:12Z","tags":["apm","fleet"],"title":"[Fleet] Add support for bundling Stack-version aligned packages with Kibana","_secondary":true}
+{"id":"gh-kibana-101016","source":"github","score":0,"posted_at":"2021-05-31T16:20:50Z","tags":["alerting","siem","apm","saved-objects"],"title":"[RAC][Meta] Consolidate the two indexing implementations in rule_registry plugin","_secondary":true}
+{"id":"gh-kibana-98246","source":"github","score":8,"posted_at":"2021-04-25T08:54:51Z","tags":["apm","saved-objects","ml"],"title":"Best practices for rule executions","_secondary":true}
+{"id":"gh-kibana-58487","source":"github","score":1,"posted_at":"2020-02-25T15:47:42Z","tags":[],"title":"[Logs UI] view log line in context","_secondary":true}
+{"id":"gh-es-69973","source":"github","score":0,"posted_at":"2021-03-04T15:17:45Z","tags":[],"title":"MixedClusterClientYamlTestSuiteIT times out more frequently lately","_secondary":true}
+{"id":"gh-es-71205","source":"github","score":32,"posted_at":"2021-04-01T22:46:25Z","tags":[],"title":"Deprecate and remove Multiple Data Paths","_secondary":true}
+{"id":"gh-es-19415","source":"github","score":0,"posted_at":"2016-07-13T12:28:24Z","tags":[],"title":"Can't use Java client due to NoClassDefFoundError: org/apache/log4j/Priority","_secondary":true}
+{"id":"gh-es-1203","source":"github","score":4,"posted_at":"2011-08-03T22:17:49Z","tags":[],"title":"Provide online Javadocs","_secondary":true}
+{"id":"gh-es-18972","source":"github","score":0,"posted_at":"2016-06-20T10:19:20Z","tags":[],"title":"Corrupt index after disk full, unclean shutdown / Possible to avoid translog recovery at all?","_secondary":true}
+{"id":"gh-es-7386","source":"github","score":0,"posted_at":"2014-08-21T18:34:53Z","tags":[],"title":"Internal: Upgrade caused shard data to stay on nodes","_secondary":true}
+{"id":"gh-es-8786","source":"github","score":22,"posted_at":"2014-12-04T23:02:18Z","tags":[],"title":"Support JSON logging formatting"}
+{"id":"gh-es-96134","source":"github","score":0,"posted_at":"2023-05-16T09:15:39Z","tags":["apm"],"title":"main - java fips compatibility matrix openjdk17 bwcTestSnapshots general-purpose ccs-rolling-upgrade-remote-cluster","_secondary":true}
+{"id":"gh-es-18294","source":"github","score":0,"posted_at":"2016-05-12T16:18:02Z","tags":[],"title":"Cluster will not automatically assign shards","_secondary":true}
+{"id":"gh-es-93651","source":"github","score":0,"posted_at":"2023-02-09T14:00:48Z","tags":[],"title":"[CI] amazon-2&&immutable failing multiple times","_secondary":true}
+{"id":"gh-es-27748","source":"github","score":5,"posted_at":"2017-12-10T23:14:23Z","tags":[],"title":"Avoid file cache trashing on Linux with mmapfs by using madvise() ?","_secondary":true}
+{"id":"gh-es-26513","source":"github","score":0,"posted_at":"2017-09-05T20:57:26Z","tags":[],"title":"java.lang.SecurityException: access denied (\"java.lang.reflect.ReflectPermission\" \"suppressAccessChecks\") for :Plugin Repository HDFS","_secondary":true}
+{"id":"gh-es-3145","source":"github","score":0,"posted_at":"2013-06-06T18:30:10Z","tags":["discover"],"title":"Replication fails with indeterminate error in basic configuration","_secondary":true}
+{"id":"gh-es-26525","source":"github","score":0,"posted_at":"2017-09-06T20:55:52Z","tags":["oom"],"title":"[o.e.b.ElasticsearchUncaughtExceptionHandler] [node01-es-dev] fatal error in thread [elasticsearch[node01-es-dev][search][T#6]], exiting java.lang.OutOfMemoryEr","_secondary":true}
+{"id":"gh-es-28349","source":"github","score":1,"posted_at":"2018-01-24T03:47:27Z","tags":[],"title":"Can't running elasticsearch after update ubuntu and java ","_secondary":true}
+{"id":"gh-es-25878","source":"github","score":0,"posted_at":"2017-07-25T10:27:08Z","tags":[],"title":"NullPointerException when getting list of snapshots on S3","_secondary":true}
+{"id":"gh-es-18317","source":"github","score":0,"posted_at":"2016-05-13T06:21:54Z","tags":[],"title":"\"thread stack size not set\" on Elasticsearch-5.0.0-alpha2 Windows","_secondary":true}
+{"id":"gh-es-11170","source":"github","score":0,"posted_at":"2015-05-14T19:30:10Z","tags":[],"title":"Cluster startup deadlock involving Lucene static initialization bits","_secondary":true}
+{"id":"gh-es-54415","source":"github","score":0,"posted_at":"2020-03-30T12:29:25Z","tags":[],"title":"[CI] Failure in BWC on debian 8 tests with `_cat/nodes`. Error: Values less than -1 bytes are not supported","_secondary":true}
+{"id":"gh-es-1985","source":"github","score":0,"posted_at":"2012-05-29T06:54:27Z","tags":[],"title":"using bulk API with update (using scripts) in elasticsearch"}
+{"id":"gh-es-49072","source":"github","score":0,"posted_at":"2019-11-14T10:14:13Z","tags":[],"title":"Array Index Out of Bounds Exception - Elastic 6.8.2","_secondary":true}
+{"id":"gh-es-97664","source":"github","score":18,"posted_at":"2023-07-13T16:40:43Z","tags":["apm","fleet"],"title":"Allow customizing managed data streams at different levels of granularity"}
+{"id":"gh-es-43911","source":"github","score":3,"posted_at":"2019-07-03T11:19:37Z","tags":[],"title":"OpenJDK 64-Bit Server VM warning: Option UseConcMarkSweepGC was deprecated in version 9.0 and will likely be removed in a future release.","_secondary":true}
+{"id":"gh-es-23796","source":"github","score":5,"posted_at":"2017-03-29T13:44:01Z","tags":[],"title":"source filtering on nested properties no longer returning empty[] when no nested documents.","_secondary":true}
+{"id":"gh-es-13351","source":"github","score":17,"posted_at":"2015-09-04T16:01:39Z","tags":[],"title":"Distance from [lon,lat] to geo_shape","_secondary":true}
+{"id":"gh-es-7592","source":"github","score":0,"posted_at":"2014-09-04T12:49:11Z","tags":[],"title":"~28k threads on es java client","_secondary":true}
+{"id":"gh-es-77505","source":"github","score":0,"posted_at":"2021-09-09T14:35:29Z","tags":["apm","fleet"],"title":"Provide a bulk API for creating ingest assets","_secondary":true}
+{"id":"gh-es-109335","source":"github","score":1,"posted_at":"2024-06-04T07:45:56Z","tags":["apm"],"title":"Replace apm-java-agent with OTEL SDK in Elasticsearch"}
+{"id":"gh-es-51840","source":"github","score":6,"posted_at":"2020-02-04T00:07:26Z","tags":[],"title":"Consider support for an optional 'fallback query'.","_secondary":true}
+{"id":"gh-es-29186","source":"github","score":0,"posted_at":"2018-03-21T09:59:22Z","tags":[],"title":"Functionality to pass request context in performRequestAsync and retrieve it from the listener's response","_secondary":true}
+{"id":"gh-es-26868","source":"github","score":0,"posted_at":"2017-10-03T18:29:39Z","tags":[],"title":"java.lang.SecurityException: \"putProviderProperty.SaslPlainServer\" and \"insertProvider.SaslPlainServer\" for :Plugin Repository HDFS"}
+{"id":"gh-es-22493","source":"github","score":0,"posted_at":"2017-01-09T04:14:13Z","tags":[],"title":"Elasticsearch fails to start with selinux enforcing","_secondary":true}
+{"id":"gh-es-21375","source":"github","score":3,"posted_at":"2016-11-07T16:58:54Z","tags":[],"title":"Can't remove integer element from array with Painless","_secondary":true}
+{"id":"gh-es-122546","source":"github","score":0,"posted_at":"2025-02-13T21:35:52Z","tags":["apm"],"title":"[CI] ApmAgentSettingsIT class failing"}
+{"id":"gh-es-26339","source":"github","score":0,"posted_at":"2017-08-23T10:12:21Z","tags":[],"title":"Indexing performance degradation in 6.0.0-beta1","_secondary":true}
+{"id":"gh-es-19983","source":"github","score":0,"posted_at":"2016-08-13T09:38:27Z","tags":["license"],"title":"Numeric field distance aggregation","_secondary":true}
+{"id":"gh-es-18892","source":"github","score":30,"posted_at":"2016-06-15T12:08:52Z","tags":[],"title":"Decay functions should allow to specify a value in case a field is missing ","_secondary":true}
+{"id":"gh-es-17418","source":"github","score":0,"posted_at":"2016-03-30T18:52:17Z","tags":[],"title":"Block new index creation","_secondary":true}
+{"id":"gh-es-14999","source":"github","score":0,"posted_at":"2015-11-25T09:00:15Z","tags":[],"title":"Highlight not working in elasticsearch 2.1","_secondary":true}
+{"id":"gh-es-6482","source":"github","score":0,"posted_at":"2014-06-12T12:08:20Z","tags":[],"title":"write consistency levels -- quorum of two is two","_secondary":true}
+{"id":"gh-es-3480","source":"github","score":0,"posted_at":"2013-08-10T23:22:05Z","tags":[],"title":"Shard allocation to take into account free disk space"}
+{"id":"gh-es-2531","source":"github","score":0,"posted_at":"2013-01-10T14:14:51Z","tags":[],"title":"Percolator responses become inconsistent with cluster after forceful reboot of a node","_secondary":true}
+{"id":"gh-es-50631","source":"github","score":0,"posted_at":"2020-01-04T20:57:57Z","tags":[],"title":"RPM update to 7.5.1 prevents start of elasticsearch","_secondary":true}
+{"id":"gh-es-41543","source":"github","score":41,"posted_at":"2019-04-25T17:09:58Z","tags":[],"title":"Primary shard balancing","_secondary":true}
+{"id":"gh-es-36771","source":"github","score":0,"posted_at":"2018-12-18T13:58:30Z","tags":[],"title":"Common Grams filter should have configuration option","_secondary":true}
+{"id":"gh-es-18799","source":"github","score":0,"posted_at":"2016-06-09T12:36:29Z","tags":[],"title":"es5 alpha fails to make progress","_secondary":true}
+{"id":"gh-es-9248","source":"github","score":0,"posted_at":"2015-01-12T10:13:58Z","tags":[],"title":"total_shards_per_node may lead to unassigned shards"}
+{"id":"gh-es-5401","source":"github","score":0,"posted_at":"2014-03-12T14:13:58Z","tags":[],"title":"NPE when TransportClient times out"}
+{"id":"gh-es-64047","source":"github","score":0,"posted_at":"2020-10-22T09:24:16Z","tags":["apm"],"title":"Mimimal template for the APM indexing strategy"}
+{"id":"gh-es-51341","source":"github","score":1,"posted_at":"2020-01-23T06:55:28Z","tags":["apm"],"title":"Feature request: structural object type matching in dynamic templates","_secondary":true}
+{"id":"gh-es-46350","source":"github","score":0,"posted_at":"2019-09-04T21:31:52Z","tags":[],"title":"shouldStoreResult is not set correctly","_secondary":true}
+{"id":"gh-es-42133","source":"github","score":0,"posted_at":"2019-05-14T04:02:21Z","tags":[],"title":"Low-level REST client status error:ava.lang.IllegalStateException: Request cannot be executed; I/O reactor status: STOPPED ","_secondary":true}
+{"id":"gh-es-33376","source":"github","score":0,"posted_at":"2018-09-04T12:35:03Z","tags":["anomaly"],"title":"[ML] Allow users to annotate ML anomaly results"}
+{"id":"gh-es-6907","source":"github","score":0,"posted_at":"2014-07-17T14:50:53Z","tags":[],"title":"Random score order changes on doc updates","_secondary":true}
+{"id":"gh-es-1954","source":"github","score":0,"posted_at":"2012-05-16T08:35:27Z","tags":[],"title":"Delete child documents when parent is deleted."}
+{"id":"gh-es-128097","source":"github","score":0,"posted_at":"2025-05-16T09:58:08Z","tags":["alerting","apm","fleet"],"title":"Losing working secure settings of s3-repository client during runtime","_secondary":true}
+{"id":"gh-es-120272","source":"github","score":0,"posted_at":"2025-01-16T12:24:22Z","tags":[],"title":"ESQL: No rows with JOIN/ENRICH/SAMPLE + EVAL + KEEP"}
+{"id":"gh-es-53233","source":"github","score":0,"posted_at":"2020-03-06T16:14:47Z","tags":[],"title":"low disk watermark [85%] exceeded - wrong count?","_secondary":true}
+{"id":"gh-es-46641","source":"github","score":0,"posted_at":"2019-09-11T23:46:38Z","tags":[],"title":"Feature Request - query/fetch/scroll failure count stats","_secondary":true}
+{"id":"gh-eui-111","source":"github","score":0,"posted_at":"2017-11-06T18:19:59Z","tags":[],"title":"EUI titling","_secondary":true}
+{"id":"gh-eui-3490","source":"github","score":0,"posted_at":"2020-05-15T18:40:52Z","tags":["saved-objects"],"title":"Create navigational/header search solution","_secondary":true}
+{"id":"gh-eui-5014","source":"github","score":1,"posted_at":"2021-08-10T17:50:48Z","tags":["apm"],"title":"EuiBasicTable blocks any action while isLoading is true"}
+{"id":"gh-eui-9410","source":"github","score":0,"posted_at":"2026-01-15T15:28:57Z","tags":[],"title":"1️⃣ Child Flyout History"}
+{"id":"gh-eui-5346","source":"github","score":0,"posted_at":"2021-11-02T18:20:13Z","tags":[],"title":"[EuiDataGrid] Toolbar layout configuration API","_secondary":true}
+{"id":"gh-eui-287","source":"github","score":2,"posted_at":"2018-01-11T10:51:50Z","tags":["discover"],"title":"[EuiFlyout] Allow resizing","_secondary":true}
+{"id":"gh-eui-7612","source":"github","score":0,"posted_at":"2024-03-22T14:50:20Z","tags":[],"title":"[EuiFlexGroup][EuiFlexItem] Add polimorphism support for ReactHTML elements","_secondary":true}
+{"id":"gh-eui-5305","source":"github","score":2,"posted_at":"2021-10-21T00:28:07Z","tags":[],"title":"ts(7016) error when trying to import icons","_secondary":true}
+{"id":"gh-eui-4797","source":"github","score":0,"posted_at":"2021-05-13T22:43:22Z","tags":[],"title":"[EuiButton] Better communicate `isLoading` to assistive tech","_secondary":true}
+{"id":"gh-eui-3858","source":"github","score":0,"posted_at":"2020-08-04T09:24:39Z","tags":[],"title":"[EuiListGroup] Add `external` prop"}
+{"id":"gh-eui-3606","source":"github","score":0,"posted_at":"2020-06-15T14:53:51Z","tags":[],"title":"[EuiStat] Allow for customization of colors","_secondary":true}
+{"id":"gh-eui-3564","source":"github","score":6,"posted_at":"2020-06-05T10:55:04Z","tags":["apm","license"],"title":"[Spec] Empty states pattern"}
+{"id":"gh-eui-2085","source":"github","score":0,"posted_at":"2019-07-02T14:43:24Z","tags":["discover"],"title":"EuiMark for highlighting text content","_secondary":true}
+{"id":"gh-eui-875","source":"github","score":2,"posted_at":"2018-05-25T08:49:37Z","tags":[],"title":"EUI doesn't transpile bundle to ES5","_secondary":true}
+{"id":"gh-eui-7883","source":"github","score":0,"posted_at":"2024-07-11T13:35:41Z","tags":[],"title":"[a11y] [EuiBasicTable] actions - overrides `aria-label` for multi-action button"}
+{"id":"gh-eui-7349","source":"github","score":0,"posted_at":"2023-11-08T09:26:38Z","tags":[],"title":"[EuiBreadcrumb] Allow to configure max-width for truncation","_secondary":true}
+{"id":"gh-eui-6909","source":"github","score":0,"posted_at":"2023-07-06T14:59:51Z","tags":[],"title":"css-1pvk794-","_secondary":true}
+{"id":"gh-eui-5943","source":"github","score":0,"posted_at":"2022-06-01T22:57:23Z","tags":["discover"],"title":"[EUIDataGrid] Discuss - Extendable column rendering for EUIDataGrid"}
+{"id":"gh-eui-5873","source":"github","score":0,"posted_at":"2022-05-05T09:14:03Z","tags":[],"title":"[EuiComboBox] Enter badge is not centered","_secondary":true}
+{"id":"gh-eui-5453","source":"github","score":0,"posted_at":"2021-12-07T17:56:24Z","tags":[],"title":"[EuiTooltip] [EuiContextMenu] Allowing tooltips to be hoverable"}
+{"id":"gh-eui-4636","source":"github","score":0,"posted_at":"2021-03-11T14:50:03Z","tags":[],"title":"[EuiDataGrid] Grouped rows and summary rows","_secondary":true}
+{"id":"gh-eui-3940","source":"github","score":1,"posted_at":"2020-08-19T12:55:28Z","tags":[],"title":"[Docs] Remove window.alert and links from demos","_secondary":true}
+{"id":"gh-eui-3146","source":"github","score":0,"posted_at":"2020-03-22T14:49:45Z","tags":["apm"],"title":"Interoperability of `EuiBottomBar` and `EuiNavDrawer`"}
+{"id":"gh-eui-2225","source":"github","score":0,"posted_at":"2019-08-14T10:45:13Z","tags":[],"title":"EuiSuperDatePicker leaves unnecessary margin on right side when used in FlexGroup","_secondary":true}
+{"id":"gh-eui-1923","source":"github","score":0,"posted_at":"2019-05-07T16:13:07Z","tags":[],"title":"Always set a title attribute when truncating text via CSS","_secondary":true}
+{"id":"gh-eui-1747","source":"github","score":0,"posted_at":"2019-03-19T10:02:18Z","tags":["apm"],"title":"Timepicker closes when selecting text and releasing mouse outside - Chrome 73 click event target"}
+{"id":"gh-eui-1002","source":"github","score":0,"posted_at":"2018-07-11T17:31:31Z","tags":["apm"],"title":"EuiBasicTable header names should be node propType"}
+{"id":"gh-eui-6285","source":"github","score":0,"posted_at":"2022-10-04T16:11:32Z","tags":[],"title":"[EuiDescriptionList] Add option to `type` prop to support horizontal layouts"}
+{"id":"gh-eui-6200","source":"github","score":0,"posted_at":"2022-09-01T12:08:33Z","tags":[],"title":"Breadcrumbs and navigation link dont change into popover","_secondary":true}
+{"id":"gh-eui-5741","source":"github","score":0,"posted_at":"2022-03-23T12:20:20Z","tags":["apm"],"title":"[EuiIcon] Custom SVG slows down the rendering "}
+{"id":"gh-eui-4719","source":"github","score":0,"posted_at":"2021-04-15T16:18:42Z","tags":[],"title":"[EuiHeaderBreadcrumbs] Amsterdam has visual issue with focus state","_secondary":true}
+{"id":"gh-eui-3743","source":"github","score":2,"posted_at":"2020-07-15T12:46:04Z","tags":["security-app"],"title":"Add support for common layout pattern often used in Kibana","_secondary":true}
+{"id":"gh-eui-3676","source":"github","score":0,"posted_at":"2020-07-01T13:45:16Z","tags":[],"title":"[EuiStat] Allow customizing the render of the title and description HTML tags","_secondary":true}
+{"id":"gh-eui-2196","source":"github","score":0,"posted_at":"2019-08-02T15:14:53Z","tags":[],"title":"[EuiPagination] Accessibility issues","_secondary":true}
+{"id":"gh-eui-314","source":"github","score":0,"posted_at":"2018-01-17T19:14:29Z","tags":["apm"],"title":"APM Logo naming"}
+{"id":"gh-eui-9319","source":"github","score":2,"posted_at":"2026-01-15T12:25:46Z","tags":[],"title":"[Enhancement] [Purple Color Palette] Add a purple palette to EUI","_secondary":true}
+{"id":"gh-eui-9000","source":"github","score":0,"posted_at":"2025-09-08T14:16:24Z","tags":["discover"],"title":"[EuiDataGrid] Create headerless option","_secondary":true}
+{"id":"gh-eui-8974","source":"github","score":1,"posted_at":"2025-08-21T12:54:45Z","tags":[],"title":"[Documentation] Add more context to documentation search results","_secondary":true}
+{"id":"gh-eui-8191","source":"github","score":0,"posted_at":"2022-05-31T08:27:57Z","tags":[],"title":"Color Picker - possibility to show only accessible colors in color spectrum"}
+{"id":"gh-eui-6623","source":"github","score":0,"posted_at":"2023-02-22T18:36:32Z","tags":[],"title":"(Accessibility) Sitewide app search links have color contrast ratio below 4.5:1","_secondary":true}
+{"id":"gh-eui-5252","source":"github","score":0,"posted_at":"2021-10-07T15:36:06Z","tags":[],"title":"[EuiSwitch][SCREEN READER]: Can we combine aria-labelledby IDs when EuiSwitch is wrapped in a FormRow ?","_secondary":true}
+{"id":"gh-eui-3182","source":"github","score":0,"posted_at":"2020-03-27T15:04:08Z","tags":[],"title":"[EuiToken] `aria-label` gets applied to `span` because of `{...rest}`","_secondary":true}
+{"id":"gh-eui-1539","source":"github","score":0,"posted_at":"2019-02-06T21:44:27Z","tags":[],"title":"[EuiFilterButton] Using with EuiI18n creates wide space","_secondary":true}
+{"id":"gh-eui-1178","source":"github","score":0,"posted_at":"2018-09-10T16:44:44Z","tags":["apm"],"title":"Search bar: shift+click on a filter option should add it negated","_secondary":true}
+{"id":"gh-eui-9074","source":"github","score":0,"posted_at":"2025-10-03T14:21:11Z","tags":["kql"],"title":"Facet Search improvements","_secondary":true}
+{"id":"gh-eui-8464","source":"github","score":0,"posted_at":"2025-03-19T12:17:02Z","tags":[],"title":"[Docs] Prop table links in the description are broken","_secondary":true}
+{"id":"gh-eui-8305","source":"github","score":0,"posted_at":"2025-02-03T17:22:11Z","tags":[],"title":"[EuiListGroupItem] Reduce font weight on `s` and `xs`","_secondary":true}
+{"id":"gh-eui-7366","source":"github","score":0,"posted_at":"2023-11-14T22:25:33Z","tags":["apm"],"title":"[EuiBreadcrumb] Finalize new visual design direction"}
+{"id":"gh-eui-7330","source":"github","score":2,"posted_at":"2023-10-31T13:03:16Z","tags":[],"title":"[EuiBreadcrumbs] Not visually clear if a breadcrumb has a link","_secondary":true}
+{"id":"gh-eui-6960","source":"github","score":0,"posted_at":"2023-07-18T16:21:52Z","tags":[],"title":"[Form controls] Ability to express a shared width for the append/prepend props","_secondary":true}
+{"id":"gh-eui-6204","source":"github","score":0,"posted_at":"2022-09-05T08:47:48Z","tags":[],"title":"Breadcrumbs and navigation link dont change into popover","_secondary":true}
+{"id":"gh-eui-5025","source":"github","score":1,"posted_at":"2021-08-12T20:16:07Z","tags":["apm"],"title":"Add ability to append any element on a EuiSideNav"}
+{"id":"gh-eui-3925","source":"github","score":0,"posted_at":"2020-08-16T14:36:35Z","tags":[],"title":"EuiSwitch label does not show title popup","_secondary":true}
+{"id":"gh-eui-2860","source":"github","score":0,"posted_at":"2020-02-14T13:52:47Z","tags":[],"title":"EuiFieldSearch doesn't shows a button that quickly clears any input"}
+{"id":"gh-eui-2393","source":"github","score":0,"posted_at":"2019-10-01T19:34:11Z","tags":[],"title":"EuiBasicTable Loading should not clear all rows"}
+{"id":"gh-eui-2200","source":"github","score":0,"posted_at":"2019-08-06T09:06:14Z","tags":["apm"],"title":"EUI Selectable: multiple items can have a focus state instead of single item"}
+{"id":"gh-eui-2034","source":"github","score":0,"posted_at":"2019-06-12T12:18:16Z","tags":[],"title":"[EuiSuperDatePicker] Use date math intervals for previous and next time windows","_secondary":true}
+{"id":"gh-eui-1390","source":"github","score":0,"posted_at":"2018-12-20T01:36:23Z","tags":[],"title":"`EuiHeaderSection side='right'` now seems to rely on the presence of `EuiHeaderBreadcrumbs`","_secondary":true}
+{"id":"gh-eui-956","source":"github","score":0,"posted_at":"2018-06-29T13:41:16Z","tags":["anomaly"],"title":"Headings don't apply EuiTextColor when set on EuiText","_secondary":true}
+{"id":"gh-eui-108","source":"github","score":1,"posted_at":"2017-11-02T18:45:26Z","tags":["discover","apm"],"title":"Near term EUI roadmap","_secondary":true}
+{"id":"gh-eui-80","source":"github","score":0,"posted_at":"2017-10-28T17:55:16Z","tags":[],"title":"EuiFormHelpText adds a lot of padding when below EuiProgress","_secondary":true}
+{"id":"gh-eui-9120","source":"github","score":0,"posted_at":"2025-10-16T09:04:52Z","tags":[],"title":"[EuiProgress] `-moz-progress-bar` style throws an error during `insertRule` in non-firefox browsers"}
+{"id":"gh-eui-8986","source":"github","score":0,"posted_at":"2025-08-28T21:19:41Z","tags":["apm"],"title":"[EuiSuperDatePicker] Allow viewing UTC of time to be entered versus browser / configured timezone"}
+{"id":"gh-eui-8936","source":"github","score":0,"posted_at":"2025-08-01T08:39:59Z","tags":["discover"],"title":"[EuiDataGrid] Rows overlap each over","_secondary":true}
+{"id":"gh-eui-7791","source":"github","score":0,"posted_at":"2024-05-28T09:12:53Z","tags":[],"title":"[EuiTabs ][A11Y] - Using `EuiBetaBadge` within `EuiTab`"}
+{"id":"gh-eui-7550","source":"github","score":0,"posted_at":"2024-03-05T13:31:04Z","tags":[],"title":"[EuiHeaderBreadcrumbs] Breadcrumb changes announcement","_secondary":true}
+{"id":"gh-eui-6612","source":"github","score":0,"posted_at":"2023-02-22T18:03:06Z","tags":[],"title":"[EuiDatePicker][SCREEN READER]: Date picker range needs to identify itself as invalid and offer text instructions","_secondary":true}
+{"id":"gh-eui-5937","source":"github","score":0,"posted_at":"2022-05-31T19:05:07Z","tags":[],"title":"[EuiDatePicker][COGNITION]: Consider adding screen reader only text to the calendar day labels","_secondary":true}
+{"id":"gh-eui-5637","source":"github","score":0,"posted_at":"2022-02-15T13:45:19Z","tags":[],"title":"[EuiMarkdownEditor] Emojis a11y and disabled states ","_secondary":true}
+{"id":"gh-eui-4646","source":"github","score":0,"posted_at":"2021-03-17T08:06:42Z","tags":["apm"],"title":"[Amsterdam] `EuiFlyout` and `EuiCollapsibleNav` position is a few pixels off the expected alignment"}
+{"id":"gh-eui-4323","source":"github","score":0,"posted_at":"2020-11-30T14:02:30Z","tags":[],"title":"[EuiTreeView] [EuiTreeViewNode] Allow for label types other than string","_secondary":true}
+{"id":"gh-eui-3932","source":"github","score":0,"posted_at":"2020-08-18T11:01:13Z","tags":["apm"],"title":"[Discuss] EuiHealth: Allowing for badged version or document that EuiBadge can be used."}
+{"id":"gh-eui-3687","source":"github","score":0,"posted_at":"2020-07-02T16:02:19Z","tags":[],"title":"EuiBreadcrumbs breaks SSR","_secondary":true}
+{"id":"gh-eui-1252","source":"github","score":0,"posted_at":"2018-10-19T12:56:24Z","tags":[],"title":"Adding {...rest} to DOM elements can make React angry","_secondary":true}
+{"id":"gh-eui-839","source":"github","score":0,"posted_at":"2018-05-17T08:52:41Z","tags":[],"title":"EuiTooltip fails to attach events to inner component","_secondary":true}
+{"id":"gh-eui-497","source":"github","score":0,"posted_at":"2018-03-12T16:19:18Z","tags":[],"title":"EUISideNav: Ability to force nav subtree to be open even when not selected.","_secondary":true}
+{"id":"gh-eui-493","source":"github","score":0,"posted_at":"2018-03-10T15:02:37Z","tags":[],"title":"Implement table footer in `BasicTable` and maybe `MemoryTable`","_secondary":true}
+{"id":"gh-eui-9519","source":"github","score":0,"posted_at":"2026-03-20T15:33:16Z","tags":[],"title":"[EuiListGroup] Adding `showTooltips` to items affects extraAction button alignment","_secondary":true}
+{"id":"gh-eui-9374","source":"github","score":0,"posted_at":"2026-02-10T12:10:04Z","tags":["anomaly"],"title":"[EuiIcon] Replace deprecated and renamed icons in Kibana"}
+{"id":"gh-eui-9371","source":"github","score":0,"posted_at":"2026-02-09T23:52:48Z","tags":["anomaly"],"title":"[EuiIcon] Replace internal usages of deprecated icons","_secondary":true}
+{"id":"gh-eui-8781","source":"github","score":0,"posted_at":"2025-06-11T12:28:48Z","tags":[],"title":"[EuiInlineEditText] Option to not truncate text"}
+{"id":"gh-eui-8463","source":"github","score":0,"posted_at":"2025-03-19T11:24:13Z","tags":[],"title":"[Meta] Improve documentation examples","_secondary":true}
+{"id":"gh-eui-8350","source":"github","score":0,"posted_at":"2025-02-26T08:49:36Z","tags":[],"title":"[ESLint] Resolve deprecation warnings","_secondary":true}
+{"id":"gh-eui-7783","source":"github","score":0,"posted_at":"2024-05-22T17:04:59Z","tags":[],"title":"FlexItem does not accept HTMLAttributes like title anymore","_secondary":true}
+{"id":"gh-eui-7561","source":"github","score":1,"posted_at":"2024-03-07T19:25:27Z","tags":[],"title":"[Emotion] Memoize all generated styles","_secondary":true}
+{"id":"gh-eui-6778","source":"github","score":0,"posted_at":"2023-05-16T15:59:24Z","tags":[],"title":"[EuiInlineEdit] Implement `EuiInlineEdit` in Kibana"}
+{"id":"gh-eui-6338","source":"github","score":0,"posted_at":"2022-11-02T01:58:50Z","tags":[],"title":"[Icons] Icon request: \"Case\" or \"Issue\"","_secondary":true}
+{"id":"gh-eui-5737","source":"github","score":0,"posted_at":"2022-03-21T15:29:28Z","tags":[],"title":"[EuiContextMenu][COGNITION]: Consider refactoring the EUI Context Menu to WAI spec for navigation menu button","_secondary":true}
+{"id":"gh-eui-5596","source":"github","score":2,"posted_at":"2022-02-03T19:13:38Z","tags":[],"title":"[Epic] Convert enzyme tests to react testing library","_secondary":true}
+{"id":"gh-eui-5355","source":"github","score":0,"posted_at":"2021-11-05T19:36:05Z","tags":[],"title":"[EuiFieldText] custom icon in EuiFieldText causes errors in console","_secondary":true}
+{"id":"gh-eui-4635","source":"github","score":2,"posted_at":"2021-03-11T14:45:29Z","tags":[],"title":"[EuiDataGrid]: Support hierarchical columns","_secondary":true}
+{"id":"gh-eui-4512","source":"github","score":0,"posted_at":"2021-02-11T10:36:27Z","tags":[],"title":"[EuiBadge] Update the docs to exemplify the HTTP status color codes used in Observability"}
+{"id":"gh-eui-3761","source":"github","score":0,"posted_at":"2020-07-17T07:10:19Z","tags":[],"title":"EuiCard description <p> wrapper causes descendant of <p> browser warning","_secondary":true}
+{"id":"gh-eui-3618","source":"github","score":3,"posted_at":"2020-06-16T16:48:15Z","tags":[],"title":"[EuiProgress] Allow for customization of colors"}
+{"id":"gh-eui-3243","source":"github","score":0,"posted_at":"2020-04-03T13:54:13Z","tags":[],"title":"Insufficient color contrast in EuiCodeBlock","_secondary":true}
+{"id":"gh-eui-1875","source":"github","score":0,"posted_at":"2019-04-23T16:50:20Z","tags":[],"title":"EuiBreadcrumbs centers last breadcrumb, creating awkward spacing when text is short","_secondary":true}
+{"id":"gh-eui-1535","source":"github","score":0,"posted_at":"2019-02-06T17:52:58Z","tags":[],"title":"Proposal: First class support for React Router","_secondary":true}
+{"id":"gh-eui-2","source":"github","score":1,"posted_at":"2017-10-23T14:43:39Z","tags":[],"title":"Table cells should have a way to turn off text mode","_secondary":true}
+{"id":"gh-eui-9539","source":"github","score":0,"posted_at":"2026-03-27T17:37:41Z","tags":["discover"],"title":"[EuiFlyoutManager] `onClose`: expose close-source context to distinguish tab-switch cascades from back-button navigation","_secondary":true}
+{"id":"gh-eui-9384","source":"github","score":1,"posted_at":"2026-02-15T17:07:13Z","tags":[],"title":"Support `color` on `DefaultItemAction` in collapsed overflow menu","_secondary":true}
+{"id":"gh-eui-9019","source":"github","score":0,"posted_at":"2025-09-15T15:57:33Z","tags":[],"title":"[EuiInMemoryTable] `search.onChange` callback not firing when `searchFormat=\"text\"`","_secondary":true}
+{"id":"gh-eui-8815","source":"github","score":2,"posted_at":"2025-06-20T13:44:57Z","tags":["apm"],"title":"[EuiBadge] Cannot use `href` together with `onClick`"}
+{"id":"gh-eui-7975","source":"github","score":0,"posted_at":"2024-08-22T15:35:11Z","tags":[],"title":"Allow EuiText to generate a different element than div","_secondary":true}
+{"id":"gh-eui-7577","source":"github","score":0,"posted_at":"2024-03-13T14:02:39Z","tags":[],"title":"EuiHeaderBreadcrumbs popover arrow","_secondary":true}
+{"id":"gh-eui-7514","source":"github","score":0,"posted_at":"2024-02-06T14:45:09Z","tags":["dark-mode"],"title":"[EuiHeader][COLOR CONTRAST]: Header breadcrumbs with blue background have color contrast ratio below 4.5:1","_secondary":true}
+{"id":"gh-eui-7368","source":"github","score":0,"posted_at":"2023-11-14T22:49:05Z","tags":[],"title":"[EuiBreadcrumb] Capture decisions in MADR format for posterity","_secondary":true}
+{"id":"gh-eui-7365","source":"github","score":0,"posted_at":"2023-11-14T22:20:13Z","tags":[],"title":"[META] `EuiBreadcrumb` design and UX review ","_secondary":true}
+{"id":"gh-eui-6732","source":"github","score":1,"posted_at":"2023-04-25T22:20:04Z","tags":[],"title":"Not working properly on react and react-dom v-18","_secondary":true}
+{"id":"gh-eui-5731","source":"github","score":0,"posted_at":"2022-03-18T13:32:46Z","tags":["apm"],"title":"Popover on the EuiTour component doesn't respect the anchorPosition prop"}
+{"id":"gh-eui-5576","source":"github","score":4,"posted_at":"2022-01-28T18:01:14Z","tags":[],"title":"[EuiTour] Allow attaching tour steps via DOM selector","_secondary":true}
+{"id":"gh-eui-4792","source":"github","score":0,"posted_at":"2021-05-11T15:52:11Z","tags":[],"title":"[EuiColorPicker] data-test-subj is ignored on rendering","_secondary":true}
+{"id":"gh-eui-3523","source":"github","score":0,"posted_at":"2020-05-28T20:17:31Z","tags":[],"title":"ControlBar TypeScript error:  No overload matches this call","_secondary":true}
+{"id":"gh-eui-2293","source":"github","score":0,"posted_at":"2019-09-05T19:51:50Z","tags":[],"title":"Responsive Breadcrumbs","_secondary":true}
+{"id":"gh-eui-1159","source":"github","score":0,"posted_at":"2018-08-31T14:47:13Z","tags":[],"title":"apply width:  100% to tooltip euiToolTipAnchor element","_secondary":true}
+{"id":"gh-eui-1121","source":"github","score":0,"posted_at":"2018-08-17T13:16:46Z","tags":["apm"],"title":"EUI affecting react-vis styles"}
+{"id":"gh-eui-623","source":"github","score":0,"posted_at":"2018-04-02T19:40:49Z","tags":[],"title":"Version Link should read \"version\" before version number","_secondary":true}
+{"id":"gh-eui-9561","source":"github","score":0,"posted_at":"2026-04-07T08:16:54Z","tags":["anomaly"],"title":"[EuiIcon] Remove deprecated icons"}
+{"id":"gh-eui-9488","source":"github","score":0,"posted_at":"2026-03-12T09:51:21Z","tags":[],"title":"[EuiContextMenu] Migrate from class to function component","_secondary":true}
+{"id":"gh-eui-9141","source":"github","score":0,"posted_at":"2025-10-23T20:43:16Z","tags":[],"title":"Flyout mask should not cover Kibana header","_secondary":true}
+{"id":"gh-eui-8826","source":"github","score":0,"posted_at":"2025-06-27T11:33:12Z","tags":[],"title":"[EuiComboBox][A11y] Passing custom option ids breaks accessibility"}
+{"id":"gh-eui-8235","source":"github","score":0,"posted_at":"2024-12-13T07:22:24Z","tags":["discover"],"title":"[EuiPagination] Each child in a list should have a unique \"key\" prop","_secondary":true}
+{"id":"gh-eui-7478","source":"github","score":0,"posted_at":"2024-01-24T10:48:19Z","tags":[],"title":"[New docs] Create stories for components starting with the letter H","_secondary":true}
+{"id":"gh-eui-7384","source":"github","score":0,"posted_at":"2023-11-22T22:07:35Z","tags":[],"title":"[EuiBreadcrumb] Revise CSS to adopt new visual design","_secondary":true}
+{"id":"gh-eui-7367","source":"github","score":0,"posted_at":"2023-11-14T22:36:43Z","tags":[],"title":"[EuiBreadcrumb] Document best practices for user experience and information architecture","_secondary":true}
+{"id":"gh-eui-7015","source":"github","score":0,"posted_at":"2023-08-01T04:14:50Z","tags":[],"title":"[EuiBreadcrumbs] Add optional popover-style menu","_secondary":true}
+{"id":"gh-eui-5292","source":"github","score":0,"posted_at":"2021-10-20T18:50:12Z","tags":[],"title":"[EuiSuperSelect][AXE-CORE]: Super select listbox must have an accessible label","_secondary":true}
+{"id":"gh-eui-5290","source":"github","score":0,"posted_at":"2021-10-20T15:38:23Z","tags":[],"title":"[EuiKeyPadMenu][AXE-CORE]: Nested elements that can take focus will not be announced by screen readers","_secondary":true}
+{"id":"gh-eui-4251","source":"github","score":0,"posted_at":"2020-11-11T16:52:50Z","tags":[],"title":"[EuiHeaderBreadcrumbs] Support secondary action for (last) breadcrumb","_secondary":true}
+{"id":"gh-eui-3624","source":"github","score":0,"posted_at":"2020-06-17T16:39:49Z","tags":[],"title":"[EuiBreadcrumbs] Accessibility","_secondary":true}
+{"id":"gh-eui-2816","source":"github","score":0,"posted_at":"2020-02-01T19:55:53Z","tags":[],"title":"[EuiDatePicker] Display error for minDate and maxDate","_secondary":true}
+{"id":"gh-eui-2604","source":"github","score":0,"posted_at":"2019-12-09T09:27:23Z","tags":["apm"],"title":"Popover doesn't clean up immediately after unmount "}
+{"id":"gh-eui-801","source":"github","score":0,"posted_at":"2018-05-07T19:35:55Z","tags":[],"title":"[EuiHeaderBreadcrumb] isActive makes it very hard to read with dark theme","_secondary":true}
+{"id":"gh-eui-568","source":"github","score":0,"posted_at":"2018-03-23T17:14:27Z","tags":[],"title":"<span> inside EuiFormLabel breaks font-weight","_secondary":true}
+{"id":"gh-eui-466","source":"github","score":0,"posted_at":"2018-03-04T22:08:26Z","tags":[],"title":"Add support for expanded rows on EuiTable","_secondary":true}
+{"id":"gh-eui-330","source":"github","score":0,"posted_at":"2018-01-22T09:52:12Z","tags":[],"title":"Cannot set colspan using EuiTable","_secondary":true}
+{"id":"gh-eui-87","source":"github","score":0,"posted_at":"2017-10-30T19:19:37Z","tags":[],"title":"`euiHeader__notification` needs to be a component?","_secondary":true}
+{"id":"gh-osd-7367","source":"github","score":4,"posted_at":"2024-07-19T08:01:30Z","tags":["discover"],"title":"[BUG] - OpenSearch Dashboard V2.15.0  - JSON.parse: bad escaped character","_secondary":true}
+{"id":"gh-osd-1583","source":"github","score":2,"posted_at":"2022-05-13T15:04:15Z","tags":[],"title":"[UX] Redesigned Global Header","_secondary":true}
+{"id":"gh-osd-4330","source":"github","score":0,"posted_at":"2023-06-20T01:35:10Z","tags":["dark-mode"],"title":"Updates to Advanced Settings for theme `Next`","_secondary":true}
+{"id":"gh-osd-2996","source":"github","score":0,"posted_at":"2022-11-30T20:19:07Z","tags":["alerting","anomaly"],"title":"OpenSearch Dashboards map hoverover broken [BUG]","_secondary":true}
+{"id":"gh-osd-1164","source":"github","score":3,"posted_at":"2022-01-19T12:46:49Z","tags":["alerting","anomaly"],"title":"[BUG] Custom branding fails for SSL enabled because certs aren't passed in the verification","_secondary":true}
+{"id":"gh-osd-7029","source":"github","score":0,"posted_at":"2024-06-14T07:24:42Z","tags":[],"title":"[RFC][Navigation] Introduce `group` in chrome service to group applications and categories."}
+{"id":"gh-osd-10460","source":"github","score":0,"posted_at":"2025-08-28T05:56:13Z","tags":["alerting","anomaly"],"title":"[BUG] Shared Links do cause an error when opened in a different browser session","_secondary":true}
+{"id":"gh-osd-5993","source":"github","score":2,"posted_at":"2024-03-01T08:15:34Z","tags":["alerting","anomaly"],"title":"[BUG] opensearch-with-long-numerals runs into timeout","_secondary":true}
+{"id":"gh-osd-5507","source":"github","score":6,"posted_at":"2023-11-18T00:39:22Z","tags":["canvas","discover"],"title":"[Proposal] Unified Data Exploration in OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-10524","source":"github","score":0,"posted_at":"2025-09-15T22:26:52Z","tags":["discover","time-picker"],"title":"RFC: OpenSearch Dashboards 4.0 — OUI 2.0 and Minimal Feature Set","_secondary":true}
+{"id":"gh-osd-3277","source":"github","score":0,"posted_at":"2023-01-16T06:59:38Z","tags":["alerting","anomaly"],"title":"[BUG] Fetch calls pass custom headers for every 302 request causing CORS ","_secondary":true}
+{"id":"gh-osd-2126","source":"github","score":0,"posted_at":"2022-08-11T12:09:37Z","tags":["discover","alerting","anomaly"],"title":"[BUG] After change url of saved query, new url go to saved query without chages","_secondary":true}
+{"id":"gh-osd-10439","source":"github","score":1,"posted_at":"2025-08-22T13:10:40Z","tags":["alerting","anomaly"],"title":"[BUG] OpenSearch Dashboards 500 error","_secondary":true}
+{"id":"gh-osd-6017","source":"github","score":0,"posted_at":"2024-03-04T15:07:34Z","tags":["alerting","anomaly"],"title":"[BUG] JSON.parse: expected ',' or '}' with long numeral comma-separated keyword string","_secondary":true}
+{"id":"gh-osd-10767","source":"github","score":1,"posted_at":"2025-10-20T23:15:58Z","tags":["alerting"],"title":"[RFC] OpenTelemetry Metrics Support for OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-6285","source":"github","score":0,"posted_at":"2024-03-28T03:28:44Z","tags":[],"title":"[Vega] Clicking on an internal url (href redirection) doesn't work","_secondary":true}
+{"id":"gh-osd-3674","source":"github","score":0,"posted_at":"2023-03-23T17:02:58Z","tags":[],"title":"2.7.0 Platform Upgrades for Plugins (O11y, MDS, Geospatial,+)","_secondary":true}
+{"id":"gh-osd-10490","source":"github","score":4,"posted_at":"2025-09-05T17:54:19Z","tags":["discover","saved-objects"],"title":"[RFC] Enable **Workspaces**, New Discover with PPL, and PPL Visualization Framework by default in OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-5504","source":"github","score":0,"posted_at":"2023-11-17T20:26:42Z","tags":["discover"],"title":"[Feature] Unified query language selection in Data Explorer","_secondary":true}
+{"id":"gh-osd-3391","source":"github","score":0,"posted_at":"2023-02-06T16:01:35Z","tags":["alerting","anomaly"],"title":"[BUG] Not able to see the predefined-role in Opensearch Dashboard role list \"opensearch_dashboards_read_only\" and \"opensearch_dashboards_user\"","_secondary":true}
+{"id":"gh-osd-10576","source":"github","score":0,"posted_at":"2025-09-26T04:12:17Z","tags":["apm"],"title":"CVE-2025-57319 (High) detected in fast-redact-3.5.0.tgz - autoclosed"}
+{"id":"gh-osd-9572","source":"github","score":4,"posted_at":"2025-03-19T01:05:43Z","tags":["alerting","anomaly","slow-dashboard"],"title":"[BUG] OpenSearch-Dashboards is slow to initialize as cookie sizes grow","_secondary":true}
+{"id":"gh-osd-9535","source":"github","score":5,"posted_at":"2025-03-12T21:46:38Z","tags":["discover","alerting"],"title":"[RFC] Prometheus as a first class datasource","_secondary":true}
+{"id":"gh-osd-8645","source":"github","score":3,"posted_at":"2024-10-18T06:19:39Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Discover Saved Search filters are not populated","_secondary":true}
+{"id":"gh-osd-6156","source":"github","score":0,"posted_at":"2024-03-15T09:56:48Z","tags":[],"title":"[Feature Request] Dashboard-plugin to view logs","_secondary":true}
+{"id":"gh-osd-4121","source":"github","score":0,"posted_at":"2023-05-23T07:18:48Z","tags":["discover","alerting","anomaly"],"title":"[BUG] SAML nextUrl is empty when clicking on the Button Log in with single sign-on","_secondary":true}
+{"id":"gh-osd-3817","source":"github","score":0,"posted_at":"2023-04-10T19:15:02Z","tags":["saved-objects"],"title":"[Bug] Failure when upgrading from ElasticSearch/Kibana OSS 7.9.1 to OpenSearch OSS 2.4.1","_secondary":true}
+{"id":"gh-osd-1435","source":"github","score":0,"posted_at":"2022-04-08T07:38:57Z","tags":["apm"],"title":"Cannot find module ‘@osd/apm-config-loader’ while run npm run start"}
+{"id":"gh-osd-1166","source":"github","score":0,"posted_at":"2022-01-19T16:04:16Z","tags":["discover","alerting","saved-objects","anomaly"],"title":"[BUG] Maximum upload size for saved objects cannot exceed 1MB","_secondary":true}
+{"id":"gh-osd-10411","source":"github","score":0,"posted_at":"2025-08-14T09:53:06Z","tags":["alerting","anomaly"],"title":"[BUG] basePath added twice when using the globalsearch menu","_secondary":true}
+{"id":"gh-osd-10320","source":"github","score":0,"posted_at":"2025-08-01T18:21:09Z","tags":["tsvb","alerting","anomaly"],"title":"[BUG] tsvb count aggregation errors on 3.1","_secondary":true}
+{"id":"gh-osd-9898","source":"github","score":2,"posted_at":"2025-06-13T23:49:55Z","tags":["license"],"title":"[RFC] Introduce React Flow Library in OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-5654","source":"github","score":0,"posted_at":"2024-01-03T20:50:43Z","tags":["alerting","anomaly","slow-dashboard"],"title":"[BUG] Dev Tools tries to load every mapping in the cluster when running any command","_secondary":true}
+{"id":"gh-osd-3334","source":"github","score":0,"posted_at":"2023-01-26T18:24:16Z","tags":[],"title":"Design and Features Review For Observability Integration Framework"}
+{"id":"gh-osd-2100","source":"github","score":0,"posted_at":"2022-08-09T17:36:12Z","tags":[],"title":"[Feature-Proposal] Enable Multiple Authentication for OpenSearch Dashboard","_secondary":true}
+{"id":"gh-osd-11017","source":"github","score":1,"posted_at":"2025-12-03T12:20:06Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Dashboard sometimes blows up with React error, if filter is added via \"Add filter\" button","_secondary":true}
+{"id":"gh-osd-10883","source":"github","score":1,"posted_at":"2025-11-07T17:57:23Z","tags":["discover"],"title":"[BUG] Blank Screen in OpenSearch Discover Due to Malformed Saved Query","_secondary":true}
+{"id":"gh-osd-10603","source":"github","score":7,"posted_at":"2025-09-30T01:31:18Z","tags":["discover"],"title":"RFC: Create New OpenSearch Dashboards Traces Repository"}
+{"id":"gh-osd-9106","source":"github","score":0,"posted_at":"2024-12-20T16:10:02Z","tags":["discover","alerting","anomaly"],"title":"[BUG] The time filter is ignored when using the SQL query engine","_secondary":true}
+{"id":"gh-osd-8699","source":"github","score":0,"posted_at":"2024-10-24T09:40:43Z","tags":["alerting","anomaly"],"title":"[BUG] Application Not found on observability-logs","_secondary":true}
+{"id":"gh-osd-8428","source":"github","score":2,"posted_at":"2024-10-01T23:41:01Z","tags":["apm"],"title":"OSD Optimizer: Improve strategy for detecting stale compilation targets"}
+{"id":"gh-osd-5750","source":"github","score":0,"posted_at":"2024-01-27T14:46:35Z","tags":["alerting","anomaly"],"title":"[BUG] Scripted Field Editing Issue: White Space Appears After Saving in OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-3840","source":"github","score":0,"posted_at":"2023-04-13T08:58:40Z","tags":["alerting","anomaly"],"title":"[BUG] Blank Page when Editing Monitor with SNS Integration","_secondary":true}
+{"id":"gh-osd-3709","source":"github","score":0,"posted_at":"2023-03-27T20:49:18Z","tags":[],"title":"[Discuss] Improve \"New visualization\" menu to differentiate between types of visualization building methods","_secondary":true}
+{"id":"gh-osd-3565","source":"github","score":0,"posted_at":"2023-03-08T22:06:47Z","tags":["alerting","anomaly"],"title":"href not working in Vega Visualization","_secondary":true}
+{"id":"gh-osd-3412","source":"github","score":0,"posted_at":"2023-02-09T21:56:40Z","tags":["discover"],"title":"[RFC] Integrations Design","_secondary":true}
+{"id":"gh-osd-2517","source":"github","score":0,"posted_at":"2022-10-05T22:12:55Z","tags":[],"title":"[CHORE] Leftover X Pack references"}
+{"id":"gh-osd-1256","source":"github","score":0,"posted_at":"2022-02-17T11:44:27Z","tags":["discover","alerting","anomaly"],"title":"[BUG] List of Available fields on Discover page is not correctly refreshed","_secondary":true}
+{"id":"gh-osd-11545","source":"github","score":0,"posted_at":"2026-03-18T21:02:27Z","tags":["siem"],"title":"RFC: Icon-based Side Navigation for OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-9926","source":"github","score":2,"posted_at":"2025-06-18T11:48:29Z","tags":[],"title":"[BUG] Enabling data-sources results in Observability Logs missing","_secondary":true}
+{"id":"gh-osd-9496","source":"github","score":0,"posted_at":"2025-03-06T00:26:55Z","tags":["alerting","anomaly"],"title":"[BUG] Wildcard behavior mismatch between user/group in workspace collaborator vs Security Plugin Roles","_secondary":true}
+{"id":"gh-osd-9221","source":"github","score":0,"posted_at":"2025-01-19T01:05:23Z","tags":["alerting","anomaly"],"title":"[BUG] OpenSearch Dashboard - 2.18.0 | Prometheus Data Source cannot be added","_secondary":true}
+{"id":"gh-osd-9110","source":"github","score":0,"posted_at":"2024-12-20T16:19:43Z","tags":["discover","alerting","anomaly"],"title":"[BUG] The Recent Queries button for Lucene performs no action when clicked","_secondary":true}
+{"id":"gh-osd-9087","source":"github","score":0,"posted_at":"2024-12-20T15:37:41Z","tags":["discover","alerting","anomaly"],"title":"[BUG] DQL term search doesn’t always yield all possible results","_secondary":true}
+{"id":"gh-osd-7631","source":"github","score":0,"posted_at":"2024-08-06T18:55:06Z","tags":["discover","alerting","anomaly"],"title":"[BUG] autocomplete not working when defining a filter","_secondary":true}
+{"id":"gh-osd-7002","source":"github","score":0,"posted_at":"2024-06-11T05:46:54Z","tags":["discover","alerting","anomaly"],"title":"Problem with discover in dashboards","_secondary":true}
+{"id":"gh-osd-5314","source":"github","score":0,"posted_at":"2023-10-17T17:25:45Z","tags":["discover","alerting","anomaly"],"title":"[BUG] New Discover view - Refresh button does not work","_secondary":true}
+{"id":"gh-osd-4553","source":"github","score":0,"posted_at":"2023-07-12T03:48:33Z","tags":["saved-objects"],"title":"[Feature] Adding `metadata` attributes to the `savedObject` interface","_secondary":true}
+{"id":"gh-osd-4482","source":"github","score":0,"posted_at":"2023-07-03T13:21:12Z","tags":["discover","alerting"],"title":"UX proposal for an improved data source picker (v1)","_secondary":true}
+{"id":"gh-osd-3852","source":"github","score":2,"posted_at":"2023-04-15T09:03:00Z","tags":[],"title":"Stack Monitoring Tab in Opensearch Dashboards","_secondary":true}
+{"id":"gh-osd-3016","source":"github","score":0,"posted_at":"2022-12-03T00:55:27Z","tags":["alerting","anomaly"],"title":"[BUG] How to install a plugin on Openbsd ? => \"Plugins are only available for Linux\"","_secondary":true}
+{"id":"gh-osd-2958","source":"github","score":0,"posted_at":"2022-11-30T01:03:01Z","tags":["saved-objects"],"title":"[Feature Anywhere] Introduce a new Feature-Anywhere plugin","_secondary":true}
+{"id":"gh-osd-1858","source":"github","score":1,"posted_at":"2022-07-07T17:49:28Z","tags":[],"title":"[UX] Restyle global breadcrumbs","_secondary":true}
+{"id":"gh-osd-975","source":"github","score":0,"posted_at":"2021-11-23T20:47:15Z","tags":[],"title":"[Feature] How to enable cypress coverage for plugins"}
+{"id":"gh-osd-652","source":"github","score":0,"posted_at":"2021-07-15T18:07:36Z","tags":[],"title":"[BUG] Default pattern resetting (transient) ","_secondary":true}
+{"id":"gh-osd-10520","source":"github","score":4,"posted_at":"2025-09-12T08:09:32Z","tags":[],"title":"[RFC] Expand Trace views in Observability plugin with database capabilities"}
+{"id":"gh-osd-10461","source":"github","score":0,"posted_at":"2025-08-28T13:58:14Z","tags":["alerting","anomaly"],"title":"[BUG] \"convert_index_to_remote\" is not supported (in Visual editor)","_secondary":true}
+{"id":"gh-osd-9859","source":"github","score":0,"posted_at":"2025-06-09T07:44:07Z","tags":["discover","alerting"],"title":"[RFC] Introducing Assistant Core Module","_secondary":true}
+{"id":"gh-osd-9740","source":"github","score":0,"posted_at":"2025-04-30T09:46:51Z","tags":["alerting","anomaly"],"title":"Migrating Dashboards from Kibana to OpensearchDashboard","_secondary":true}
+{"id":"gh-osd-9721","source":"github","score":1,"posted_at":"2025-04-24T21:45:23Z","tags":[],"title":"[RFC] Support for Exemplars in OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-9600","source":"github","score":0,"posted_at":"2025-03-25T06:36:15Z","tags":[],"title":"Internal Server Error, Error while fetching metric list for from prometheus: Failed to parse server certificates","_secondary":true}
+{"id":"gh-osd-9104","source":"github","score":0,"posted_at":"2024-12-20T16:05:57Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Invalid handling of time filter in PPL","_secondary":true}
+{"id":"gh-osd-9102","source":"github","score":0,"posted_at":"2024-12-20T16:02:42Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Auto-completion selects equals operator when multiple options are available","_secondary":true}
+{"id":"gh-osd-9101","source":"github","score":0,"posted_at":"2024-12-20T16:01:38Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Some PPL queries, slightly more complex than the default, fail","_secondary":true}
+{"id":"gh-osd-9100","source":"github","score":0,"posted_at":"2024-12-20T16:00:34Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Auto-completion is not fully command aware","_secondary":true}
+{"id":"gh-osd-9099","source":"github","score":0,"posted_at":"2024-12-20T15:58:48Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Values are only suggested in certain circumstances and for certain types","_secondary":true}
+{"id":"gh-osd-9094","source":"github","score":0,"posted_at":"2024-12-20T15:49:02Z","tags":["discover","alerting","anomaly"],"title":"[BUG] DQL-searching using wildcards for field names and values fail ","_secondary":true}
+{"id":"gh-osd-9092","source":"github","score":0,"posted_at":"2024-12-20T15:44:36Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Inconsistent behavior when doing a CROSS JOIN of two different indexes in SQL","_secondary":true}
+{"id":"gh-osd-9071","source":"github","score":4,"posted_at":"2024-12-18T06:54:04Z","tags":["alerting","anomaly"],"title":"Bundle refs optimization not applied when building plugins separately","_secondary":true}
+{"id":"gh-osd-8690","source":"github","score":0,"posted_at":"2024-10-23T17:47:49Z","tags":["alerting","anomaly"],"title":"[BUG] tag cloud visualization incorrectly reports \"too small to display the entire cloud\" in Firefox","_secondary":true}
+{"id":"gh-osd-8256","source":"github","score":0,"posted_at":"2024-09-20T00:14:06Z","tags":["discover"],"title":"[BUG] Redirection issue for direct query datasource in dashboards management","_secondary":true}
+{"id":"gh-osd-8242","source":"github","score":0,"posted_at":"2024-09-19T11:37:51Z","tags":["alerting","anomaly"],"title":"[BUG] Maximum table cell height setting doesn't work properly","_secondary":true}
+{"id":"gh-osd-7260","source":"github","score":0,"posted_at":"2024-07-16T14:36:44Z","tags":["alerting","anomaly"],"title":"[BUG] Geospatial field name only works without a dot","_secondary":true}
+{"id":"gh-osd-7004","source":"github","score":0,"posted_at":"2024-06-11T18:38:15Z","tags":["alerting","anomaly"],"title":"[BUG] As of Version 2.14.0 it is not possible to add Actions to Monitors in the Alerting section.","_secondary":true}
+{"id":"gh-osd-6040","source":"github","score":1,"posted_at":"2024-03-05T19:57:52Z","tags":["apm"],"title":"[PPL] Vega support with PPL","_secondary":true}
+{"id":"gh-osd-6039","source":"github","score":0,"posted_at":"2024-03-05T19:35:23Z","tags":[],"title":"[RFC] Disambiguous datasource for OSD developer and OSD plugin developer"}
+{"id":"gh-osd-5870","source":"github","score":2,"posted_at":"2024-02-14T06:03:53Z","tags":["saved-objects","anomaly"],"title":"[Meta][2.14] Support Multiple Data Source in OpenSearch Dashboards Plugins","_secondary":true}
+{"id":"gh-osd-5689","source":"github","score":0,"posted_at":"2024-01-16T15:00:35Z","tags":["apm"],"title":"[BUG] EOL package async-cache used in Opensearch-dashboards","_secondary":true}
+{"id":"gh-osd-5249","source":"github","score":0,"posted_at":"2023-10-09T11:14:48Z","tags":["alerting","anomaly"],"title":"[BUG] [Dashboard 2.10] - plugins.dataExplorer is undefined","_secondary":true}
+{"id":"gh-osd-4794","source":"github","score":0,"posted_at":"2023-08-22T15:46:17Z","tags":[],"title":"[BUG] Duplicate message IDs with default messages","_secondary":true}
+{"id":"gh-osd-4605","source":"github","score":0,"posted_at":"2023-07-20T21:39:57Z","tags":[],"title":"[Dashboard De-Angular] Dashboard listing to use viewItem"}
+{"id":"gh-osd-4510","source":"github","score":0,"posted_at":"2023-07-06T18:18:36Z","tags":[],"title":"[BUG] Dashboard List Search should cover Type field"}
+{"id":"gh-osd-4457","source":"github","score":0,"posted_at":"2023-06-30T17:16:32Z","tags":[],"title":"[Look & Feel] Refactor breadcrumb styling to use OUI-defined styling","_secondary":true}
+{"id":"gh-osd-4274","source":"github","score":0,"posted_at":"2023-06-09T18:23:43Z","tags":[],"title":"[BUG] How to use `core.http.registerRouteHandlerContext` without breaking types?"}
+{"id":"gh-osd-3916","source":"github","score":0,"posted_at":"2023-04-21T15:18:55Z","tags":["alerting","anomaly"],"title":"[BUG] Play/Wrench Button Regression in Dev Tools","_secondary":true}
+{"id":"gh-osd-2614","source":"github","score":0,"posted_at":"2022-10-19T17:57:25Z","tags":[],"title":"[MD] Datasource experimental callout wording","_secondary":true}
+{"id":"gh-osd-2555","source":"github","score":0,"posted_at":"2022-10-12T08:51:38Z","tags":["alerting","anomaly"],"title":"[BUG] Suggestion list cutoff","_secondary":true}
+{"id":"gh-osd-2275","source":"github","score":0,"posted_at":"2022-09-06T20:24:55Z","tags":["alerting","anomaly"],"title":"[BUG] 'admin' can't see Security tab in GUI","_secondary":true}
+{"id":"gh-osd-2060","source":"github","score":0,"posted_at":"2022-08-03T17:48:52Z","tags":[],"title":"[MD] Fix breadcrumb"}
+{"id":"gh-osd-1962","source":"github","score":0,"posted_at":"2022-07-27T01:13:52Z","tags":[],"title":"[D&D] Provide link to experimental feature feedback forum/poll/issue"}
+{"id":"gh-osd-380","source":"github","score":1,"posted_at":"2021-05-26T17:28:06Z","tags":[],"title":"Multi layer maps","_secondary":true}
+{"id":"gh-osd-37","source":"github","score":0,"posted_at":"2021-03-03T07:05:51Z","tags":["discover","apm"],"title":"[RENAME] Renaming from kibana -> opensearch Dashboards","_secondary":true}
+{"id":"gh-osd-11683","source":"github","score":0,"posted_at":"2026-04-05T22:06:34Z","tags":["anomaly"],"title":"RFC: Metrics Explorer — Queryless Metric Exploration for OpenSearch Dashboards"}
+{"id":"gh-osd-11639","source":"github","score":0,"posted_at":"2026-03-31T20:31:54Z","tags":["kql","discover"],"title":"[BUG] PPL Queries in Explore are unindented","_secondary":true}
+{"id":"gh-osd-11364","source":"github","score":0,"posted_at":"2026-02-19T23:00:06Z","tags":[],"title":"[BUG] Table columns can no longer be resized, and tables now span past full screen width","_secondary":true}
+{"id":"gh-osd-11202","source":"github","score":0,"posted_at":"2026-01-20T22:08:30Z","tags":["discover"],"title":"Discover Traces – Truncate error messages on RED Metrics Viz","_secondary":true}
+{"id":"gh-osd-10881","source":"github","score":0,"posted_at":"2025-11-07T14:00:49Z","tags":[],"title":"[BUG]","_secondary":true}
+{"id":"gh-osd-10620","source":"github","score":0,"posted_at":"2025-10-01T19:50:17Z","tags":["discover"],"title":"[New Repository] Request for dashboards-traces repository","_secondary":true}
+{"id":"gh-osd-10441","source":"github","score":0,"posted_at":"2025-08-22T17:02:40Z","tags":["tsvb","alerting","anomaly"],"title":"[BUG] TSVB Table Item URL Generates Invalid Filter When {{key}} Values Contain Special Characters","_secondary":true}
+{"id":"gh-osd-10304","source":"github","score":0,"posted_at":"2025-07-30T23:24:49Z","tags":["discover","alerting","anomaly"],"title":"[BUG] PPL queries in Discover always returns null fields","_secondary":true}
+{"id":"gh-osd-10052","source":"github","score":0,"posted_at":"2025-07-02T04:20:24Z","tags":["alerting","anomaly"],"title":"[BUG]Teams alert getting into Ignored State","_secondary":true}
+{"id":"gh-osd-9918","source":"github","score":1,"posted_at":"2025-06-17T20:56:05Z","tags":[],"title":"[BUG] Prometheus Data source index is not created","_secondary":true}
+{"id":"gh-osd-9629","source":"github","score":0,"posted_at":"2025-03-31T04:13:00Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Plugins discovery and setup order is not consistent","_secondary":true}
+{"id":"gh-osd-9544","source":"github","score":0,"posted_at":"2025-03-14T09:29:37Z","tags":["alerting","anomaly"],"title":"[BUG] HTTP REST API hangs with Accept-Encoding zstd","_secondary":true}
+{"id":"gh-osd-9477","source":"github","score":0,"posted_at":"2025-03-03T03:39:12Z","tags":["alerting","anomaly"],"title":"[BUG][Immediate] OpenSearch Assistant showing error as Failed to find config with the provided config id","_secondary":true}
+{"id":"gh-osd-9169","source":"github","score":0,"posted_at":"2025-01-10T08:51:50Z","tags":[],"title":"[Vega] Vega visualization with PPL should support %timefield%","_secondary":true}
+{"id":"gh-osd-9109","source":"github","score":0,"posted_at":"2024-12-20T16:18:27Z","tags":["discover","alerting","anomaly"],"title":"[BUG] The Recent Queries button for DQL performs no action when clicked","_secondary":true}
+{"id":"gh-osd-9108","source":"github","score":0,"posted_at":"2024-12-20T16:15:40Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Invalid handling of time filter in PPL histogram","_secondary":true}
+{"id":"gh-osd-9107","source":"github","score":0,"posted_at":"2024-12-20T16:11:42Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Auto-completion suggestions differ between field list and search box","_secondary":true}
+{"id":"gh-osd-9105","source":"github","score":0,"posted_at":"2024-12-20T16:08:00Z","tags":["discover","alerting","anomaly"],"title":"[BUG] No auto-completion for indices in SQL mode","_secondary":true}
+{"id":"gh-osd-9103","source":"github","score":1,"posted_at":"2024-12-20T16:04:38Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Suggested fields cannot be used","_secondary":true}
+{"id":"gh-osd-9098","source":"github","score":0,"posted_at":"2024-12-20T15:54:43Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Invalid handling of DESCRIBE TABLES queries with the SQL search engine","_secondary":true}
+{"id":"gh-osd-9093","source":"github","score":2,"posted_at":"2024-12-20T15:46:03Z","tags":["discover","alerting","anomaly"],"title":"[BUG] PPL queries do not respect the time range","_secondary":true}
+{"id":"gh-osd-9091","source":"github","score":0,"posted_at":"2024-12-20T15:43:53Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Environment resets when searching","_secondary":true}
+{"id":"gh-osd-9086","source":"github","score":0,"posted_at":"2024-12-20T15:35:02Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Results from filtering with PPL/SQL are not highlighted","_secondary":true}
+{"id":"gh-osd-9085","source":"github","score":1,"posted_at":"2024-12-20T15:33:01Z","tags":["discover","alerting","anomaly"],"title":"[BUG] PPL and SQL queries produces seemingly incorrect results","_secondary":true}
+{"id":"gh-osd-9019","source":"github","score":0,"posted_at":"2024-12-09T04:39:52Z","tags":["discover","alerting","saved-objects","anomaly"],"title":"[BUG] The behavior of the saved object navigation is inconsistent across different tabs","_secondary":true}
+{"id":"gh-osd-8813","source":"github","score":0,"posted_at":"2024-11-05T21:36:17Z","tags":["discover"],"title":"[Feedback Capture] Discover Enhancements","_secondary":true}
+{"id":"gh-osd-8776","source":"github","score":0,"posted_at":"2024-10-31T11:29:13Z","tags":["discover"],"title":"[BUG] Unable to choose custom time for snapshot policies in Snapshot schedule","_secondary":true}
+{"id":"gh-osd-8775","source":"github","score":0,"posted_at":"2024-10-31T11:04:08Z","tags":["alerting","anomaly"],"title":"[BUG] Time settings in snapshot policy don't seem to be working well","_secondary":true}
+{"id":"gh-osd-8546","source":"github","score":0,"posted_at":"2024-10-10T11:23:10Z","tags":["discover"],"title":"[BUG] text field not expanding correctly when writing large search queries","_secondary":true}
+{"id":"gh-osd-8295","source":"github","score":0,"posted_at":"2024-09-23T15:18:44Z","tags":[],"title":"Be able to collapse spans in trace view"}
+{"id":"gh-osd-8243","source":"github","score":0,"posted_at":"2024-09-19T16:53:28Z","tags":["alerting","anomaly"],"title":"[BUG] Dev Tools Get _nodes with YAML crashes Dashboards","_secondary":true}
+{"id":"gh-osd-8240","source":"github","score":0,"posted_at":"2024-09-19T10:04:31Z","tags":["discover"],"title":"On clicking Discover breadcrumb it is not navigating from the saved search to default discover.","_secondary":true}
+{"id":"gh-osd-8134","source":"github","score":0,"posted_at":"2024-09-11T05:21:44Z","tags":[],"title":"[Proposal] [query-assistant] Move query assistant feature to dashboards-assistant plugin","_secondary":true}
+{"id":"gh-osd-8114","source":"github","score":0,"posted_at":"2024-09-10T22:33:53Z","tags":["discover"],"title":"[BUG] No truncation callout for Discover when query default record count isn't exactly 500","_secondary":true}
+{"id":"gh-osd-7760","source":"github","score":0,"posted_at":"2024-08-20T00:16:41Z","tags":["apm"],"title":"[BUG] Opensearch Dashboards using docvalue_fields when it's not needed","_secondary":true}
+{"id":"gh-osd-7578","source":"github","score":2,"posted_at":"2024-07-30T16:08:04Z","tags":["saved-objects"],"title":"[Meta][2.17] Support Multiple Data Source in OpenSearch Dashboards Plugins","_secondary":true}
+{"id":"gh-osd-7132","source":"github","score":0,"posted_at":"2024-07-01T07:20:31Z","tags":[],"title":"[Navigation-Next] prepend current nav group into breadcrumbs"}
+{"id":"gh-osd-7118","source":"github","score":1,"posted_at":"2024-06-27T04:29:49Z","tags":[],"title":"[Navigation-Next] Support nested items in left navigation.","_secondary":true}
+{"id":"gh-osd-7098","source":"github","score":0,"posted_at":"2024-06-24T20:00:47Z","tags":[],"title":"[BUG] The line chart might clip or fail to display points at the top of the range","_secondary":true}
+{"id":"gh-osd-6530","source":"github","score":0,"posted_at":"2024-04-18T06:15:17Z","tags":["alerting","anomaly"],"title":"[BUG] 20s slower Loading with an LDAP User compared to a local User","_secondary":true}
+{"id":"gh-osd-6177","source":"github","score":0,"posted_at":"2024-03-18T07:29:48Z","tags":["saved-objects"],"title":"[Multiple Datasource] [Plugins Version Decoupling] Fetch and include DataSource version in the data-source saved object when creating a new data source in MDS","_secondary":true}
+{"id":"gh-osd-6087","source":"github","score":0,"posted_at":"2024-03-08T01:35:50Z","tags":["discover"],"title":"[Proposal] - Contextual Data Exploration","_secondary":true}
+{"id":"gh-osd-6080","source":"github","score":0,"posted_at":"2024-03-07T21:59:10Z","tags":["discover"],"title":"[Proposal] - Patterns ","_secondary":true}
+{"id":"gh-osd-6068","source":"github","score":0,"posted_at":"2024-03-07T21:04:08Z","tags":["discover"],"title":"[Proposal] - Advanced Data Selector","_secondary":true}
+{"id":"gh-osd-5845","source":"github","score":0,"posted_at":"2024-02-08T18:01:03Z","tags":["alerting","anomaly"],"title":"[BUG] Problem with narrowing the list of records if the number of hits increases","_secondary":true}
+{"id":"gh-osd-5681","source":"github","score":0,"posted_at":"2024-01-11T10:22:00Z","tags":["discover"],"title":"[BUG] Unable to search for index patterns on Discover Menu through keywords","_secondary":true}
+{"id":"gh-osd-5628","source":"github","score":0,"posted_at":"2023-12-19T00:38:15Z","tags":[],"title":"[Data Explorer] Adding PPL to query selector cleanup"}
+{"id":"gh-osd-5336","source":"github","score":0,"posted_at":"2023-10-19T18:41:03Z","tags":[],"title":"[Enhancement] Publish minimum snapshot builds to artifacts.opensearch.org","_secondary":true}
+{"id":"gh-osd-4883","source":"github","score":0,"posted_at":"2023-08-31T21:29:12Z","tags":["discover"],"title":"[2.10][Data Explorer][Discover 2.0] Lose BreadScrumb when switch from legacy Discover to Discover 2.0","_secondary":true}
+{"id":"gh-osd-4842","source":"github","score":0,"posted_at":"2023-08-28T17:28:15Z","tags":["discover"],"title":"[Data Explorer][Discover][BUG] Fail to re-route to discover from single/surrounding doc due to lost history","_secondary":true}
+{"id":"gh-osd-4417","source":"github","score":0,"posted_at":"2023-06-27T23:46:18Z","tags":["discover"],"title":"[BUG] Discover tab searching any field using Lucene syntax causes Bad Request","_secondary":true}
+{"id":"gh-osd-4030","source":"github","score":0,"posted_at":"2023-05-15T17:51:46Z","tags":["alerting","anomaly"],"title":"Creating index-pattern via API with ansible [BUG]","_secondary":true}
+{"id":"gh-osd-3659","source":"github","score":0,"posted_at":"2023-03-22T21:53:29Z","tags":["apm"],"title":"[Tech Debt] Update `js-yaml` dependency to >= 4","_secondary":true}
+{"id":"gh-osd-3038","source":"github","score":0,"posted_at":"2022-12-07T13:34:48Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Cannot generate CSV reports from query with leading wildcard","_secondary":true}
+{"id":"gh-osd-2823","source":"github","score":0,"posted_at":"2022-11-08T00:01:28Z","tags":[],"title":"[Discuss] Separate out data source configurations from existing visualization types","_secondary":true}
+{"id":"gh-osd-2586","source":"github","score":0,"posted_at":"2022-10-17T18:42:46Z","tags":[],"title":"[Research] Document visualization color palettes and theming implementations in use"}
+{"id":"gh-osd-2029","source":"github","score":0,"posted_at":"2022-08-01T04:55:51Z","tags":[],"title":"[MD] Fix Breadcrumbs for data source management "}
+{"id":"gh-osd-1887","source":"github","score":0,"posted_at":"2022-07-12T01:53:16Z","tags":[],"title":"[D&D] Add saved d&d visualizations to the visualization list","_secondary":true}
+{"id":"gh-osd-1138","source":"github","score":0,"posted_at":"2022-01-12T16:38:13Z","tags":["discover","alerting","anomaly"],"title":"[BUG]disableWelcomeScreen settings ignored","_secondary":true}
+{"id":"gh-osd-864","source":"github","score":0,"posted_at":"2021-10-11T15:27:02Z","tags":[],"title":"OSD plugin: get user information from request on server side","_secondary":true}
+{"id":"gh-osd-11742","source":"github","score":0,"posted_at":"2026-04-13T07:31:28Z","tags":[],"title":"CVE-2026-40190 (Medium) detected in langsmith-0.4.7.tgz","_secondary":true}
+{"id":"gh-osd-11655","source":"github","score":0,"posted_at":"2026-04-02T21:34:06Z","tags":[],"title":"[BUG] Agent Traces: Token count in trace summary is 2x actual — double-counts root and child spans"}
+{"id":"gh-osd-11648","source":"github","score":0,"posted_at":"2026-04-01T15:56:49Z","tags":["discover","apm"],"title":"[BUG] Discover Traces - State issue causing to show no trace detail after clicking a span"}
+{"id":"gh-osd-11600","source":"github","score":0,"posted_at":"2026-03-26T19:57:21Z","tags":["alerting","apm"],"title":"CVE-2026-33671 (High) detected in multiple libraries","_secondary":true}
+{"id":"gh-osd-11599","source":"github","score":0,"posted_at":"2026-03-26T19:57:19Z","tags":["alerting","apm"],"title":"CVE-2026-33672 (Medium) detected in multiple libraries","_secondary":true}
+{"id":"gh-osd-11451","source":"github","score":0,"posted_at":"2026-03-05T04:12:51Z","tags":["discover","apm"],"title":"[BUG] Traces - Discover: Time column blank when using PPL fields projection on span index"}
+{"id":"gh-osd-11345","source":"github","score":5,"posted_at":"2026-02-13T18:38:15Z","tags":["apm"],"title":"[RFC] Agent Traces: Agent Observability for OpenSearch Dashboards"}
+{"id":"gh-osd-11227","source":"github","score":0,"posted_at":"2026-01-23T19:33:04Z","tags":[],"title":"[Enhancement][MDS] Data time range selection for initial fetch of Zero-ETL Integration Creation Flow"}
+{"id":"gh-osd-10617","source":"github","score":0,"posted_at":"2025-10-01T14:25:43Z","tags":["apm"],"title":"[Feature] Folder structure for dashboards, visualizations, saved queries, ..."}
+{"id":"gh-osd-10616","source":"github","score":0,"posted_at":"2025-10-01T06:40:28Z","tags":[],"title":"[BUG] execute_ppl_query context provider tool returns 200 OK despite query validation errors"}
+{"id":"gh-osd-10615","source":"github","score":0,"posted_at":"2025-10-01T06:09:48Z","tags":[],"title":"[Feature] Enable AI Assistant to Debug Query Errors by Including Error Context","_secondary":true}
+{"id":"gh-osd-10585","source":"github","score":4,"posted_at":"2025-09-26T18:42:09Z","tags":[],"title":"[RFC] AI Assistant Framework for OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-10382","source":"github","score":4,"posted_at":"2025-08-08T22:29:29Z","tags":["discover"],"title":"[RFC] Discover Traces / Trace Details","_secondary":true}
+{"id":"gh-osd-9806","source":"github","score":0,"posted_at":"2025-05-21T10:23:40Z","tags":[],"title":"[Discussion] Establishing Criteria for Core vs Non-Core Components"}
+{"id":"gh-osd-9802","source":"github","score":0,"posted_at":"2025-05-20T06:47:35Z","tags":["discover"],"title":"[RFC] Introduce a Core Notebook Plugin in OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-9736","source":"github","score":0,"posted_at":"2025-04-28T06:33:01Z","tags":[],"title":"Word wrap in tooltip","_secondary":true}
+{"id":"gh-osd-9235","source":"github","score":0,"posted_at":"2025-01-21T09:00:27Z","tags":["alerting","anomaly"],"title":"[BUG] Console error appears when loading data source with an empty description","_secondary":true}
+{"id":"gh-osd-8972","source":"github","score":0,"posted_at":"2024-11-27T02:26:18Z","tags":[],"title":"Reduce javascript file sizes for faster initial page loading","_secondary":true}
+{"id":"gh-osd-8605","source":"github","score":0,"posted_at":"2024-10-16T08:36:19Z","tags":[],"title":"[BUG] Observability overview render dashboard not correctly","_secondary":true}
+{"id":"hn-42117970","source":"hackernews","score":125,"posted_at":"2024-11-12T18:04:19Z","tags":[],"title":"Show HN: Open-source Kibana alternative for logs and traces in ClickHouse","_secondary":true}
+{"id":"hn-40016130","source":"hackernews","score":1,"posted_at":"2024-04-12T18:29:48Z","tags":[],"title":"Seeking Project – DevOps – Cloud"}
+{"id":"hn-38902042","source":"hackernews","score":145,"posted_at":"2024-01-07T15:35:39Z","tags":[],"title":"Show HN: Quickwit – OSS Alternative to Elasticsearch, Splunk, Datadog"}
+{"id":"hn-33120365","source":"hackernews","score":1,"posted_at":"2022-10-07T12:36:19Z","tags":[],"title":"Ask HN: Instant Observability for Graph Data"}
+{"id":"hn-22300793","source":"hackernews","score":1,"posted_at":"2020-02-11T18:06:17Z","tags":["apm"],"title":"Ask HN: Source of truth for Devops, because GitHub is just not enough"}
+{"id":"hn-16447092","source":"hackernews","score":2,"posted_at":"2018-02-23T15:58:34Z","tags":["apm"],"title":"Ask HN: How are you deploying Rails + Sidekiq on AWS?","_secondary":true}
+{"id":"hn-11655366","source":"hackernews","score":4,"posted_at":"2016-05-08T19:28:15Z","tags":[],"title":"Ask HN: Visualize / categorize exception logs","_secondary":true}
+{"id":"hn-47603748","source":"hackernews","score":0,"posted_at":"2026-04-01T17:18:10Z","tags":[],"title":"Ask HN: Who wants to be hired? (April 2026)"}
+{"id":"hn-47603741","source":"hackernews","score":0,"posted_at":"2026-04-01T17:17:41Z","tags":[],"title":"Ask HN: Freelancer? Seeking freelancer? (April 2026)"}
+{"id":"hn-47238713","source":"hackernews","score":0,"posted_at":"2026-03-03T20:45:37Z","tags":[],"title":"Ask HN: Who wants to be hired? (March 2026)"}
+{"id":"hn-46859083","source":"hackernews","score":0,"posted_at":"2026-02-02T18:04:42Z","tags":[],"title":"Ask HN: Who wants to be hired? (February 2026)"}
+{"id":"hn-46228000","source":"hackernews","score":0,"posted_at":"2025-12-11T05:30:50Z","tags":[],"title":"Tool for analyzing GitLab SOS bundles without Elasticsearch","_secondary":true}
+{"id":"hn-45963212","source":"hackernews","score":0,"posted_at":"2025-11-18T09:54:56Z","tags":["slow-dashboard"],"title":"I can't recommend Grafana anymore","_secondary":true}
+{"id":"hn-45935163","source":"hackernews","score":0,"posted_at":"2025-11-15T04:59:42Z","tags":[],"title":"I can't recommend Grafana anymore","_secondary":true}
+{"id":"hn-45847488","source":"hackernews","score":0,"posted_at":"2025-11-07T15:36:42Z","tags":[],"title":"OpenTelemetry: Escape Hatch from the Observability Cartel"}
+{"id":"hn-45804760","source":"hackernews","score":0,"posted_at":"2025-11-03T21:38:11Z","tags":[],"title":"Ask HN: Who wants to be hired? (November 2025)"}
+{"id":"hn-45143707","source":"hackernews","score":0,"posted_at":"2025-09-05T21:15:33Z","tags":["alerting"],"title":"Show HN: OpsiMate – From on-call chaos to a single control panel","_secondary":true}
+{"id":"hn-43834862","source":"hackernews","score":0,"posted_at":"2025-04-29T16:35:03Z","tags":[],"title":"Beyond Elk: Lightweight and Scalable Cloud-Native Log Monitoring"}
+{"id":"hn-43790866","source":"hackernews","score":0,"posted_at":"2025-04-25T06:48:12Z","tags":[],"title":"Observability 2.0 and the Database for It"}
+{"id":"hn-43547513","source":"hackernews","score":0,"posted_at":"2025-04-01T14:53:10Z","tags":[],"title":"Self-Hosting like it's 2025","_secondary":true}
+{"id":"hn-43115445","source":"hackernews","score":0,"posted_at":"2025-02-20T14:57:37Z","tags":[],"title":"Agent-Less System Monitoring with Elixir Broadway","_secondary":true}
+{"id":"hn-42902099","source":"hackernews","score":0,"posted_at":"2025-02-01T20:47:41Z","tags":[],"title":"[dead]","_secondary":true}
+{"id":"hn-42902086","source":"hackernews","score":0,"posted_at":"2025-02-01T20:46:25Z","tags":[],"title":"[dead]","_secondary":true}
+{"id":"hn-42662898","source":"hackernews","score":0,"posted_at":"2025-01-11T02:58:06Z","tags":[],"title":"Datadog acquires Quickwit"}
+{"id":"hn-42633144","source":"hackernews","score":0,"posted_at":"2025-01-08T11:33:00Z","tags":[],"title":"Ask HN: Who wants to be hired? (January 2025)","_secondary":true}
+{"id":"hn-42126574","source":"hackernews","score":0,"posted_at":"2024-11-13T14:56:14Z","tags":[],"title":"Show HN: Open-source Kibana alternative for logs and traces in ClickHouse"}
+{"id":"hn-42122734","source":"hackernews","score":0,"posted_at":"2024-11-13T03:51:02Z","tags":[],"title":"Show HN: Open-source Kibana alternative for logs and traces in ClickHouse"}
+{"id":"hn-42121836","source":"hackernews","score":0,"posted_at":"2024-11-13T01:04:42Z","tags":[],"title":"Show HN: Open-source Kibana alternative for logs and traces in ClickHouse"}
+{"id":"hn-42121640","source":"hackernews","score":0,"posted_at":"2024-11-13T00:35:20Z","tags":[],"title":"Show HN: Open-source Kibana alternative for logs and traces in ClickHouse","_secondary":true}
+{"id":"hn-42121190","source":"hackernews","score":0,"posted_at":"2024-11-12T23:34:28Z","tags":[],"title":"Show HN: Open-source Kibana alternative for logs and traces in ClickHouse","_secondary":true}
+{"id":"hn-42121166","source":"hackernews","score":0,"posted_at":"2024-11-12T23:31:04Z","tags":[],"title":"Show HN: Open-source Kibana alternative for logs and traces in ClickHouse","_secondary":true}
+{"id":"hn-42120848","source":"hackernews","score":0,"posted_at":"2024-11-12T23:01:26Z","tags":[],"title":"Show HN: Open-source Kibana alternative for logs and traces in ClickHouse","_secondary":true}
+{"id":"hn-42120769","source":"hackernews","score":0,"posted_at":"2024-11-12T22:55:42Z","tags":["license"],"title":"Show HN: Open-source Kibana alternative for logs and traces in ClickHouse"}
+{"id":"hn-42120681","source":"hackernews","score":0,"posted_at":"2024-11-12T22:49:26Z","tags":["discover"],"title":"Show HN: Open-source Kibana alternative for logs and traces in ClickHouse","_secondary":true}
+{"id":"hn-42119762","source":"hackernews","score":0,"posted_at":"2024-11-12T21:12:59Z","tags":[],"title":"Show HN: Open-source Kibana alternative for logs and traces in ClickHouse"}
+{"id":"hn-40861945","source":"hackernews","score":0,"posted_at":"2024-07-03T01:10:59Z","tags":[],"title":"Ask HN: Who wants to be hired? (July 2024)"}
+{"id":"hn-39899299","source":"hackernews","score":0,"posted_at":"2024-04-01T21:03:02Z","tags":[],"title":"Ask HN: Who wants to be hired? (April 2024)"}
+{"id":"hn-39862022","source":"hackernews","score":0,"posted_at":"2024-03-29T09:16:27Z","tags":[],"title":"The race to replace Redis","_secondary":true}
+{"id":"hn-39827170","source":"hackernews","score":0,"posted_at":"2024-03-26T12:47:37Z","tags":[],"title":"[dead]","_secondary":true}
+{"id":"hn-39549218","source":"hackernews","score":0,"posted_at":"2024-02-29T13:47:31Z","tags":[],"title":"All you need is Wide Events, not \"Metrics, Logs and Traces\"","_secondary":true}
+{"id":"hn-39531717","source":"hackernews","score":0,"posted_at":"2024-02-27T23:32:19Z","tags":[],"title":"All you need is Wide Events, not \"Metrics, Logs and Traces\"","_secondary":true}
+{"id":"hn-39520688","source":"hackernews","score":0,"posted_at":"2024-02-27T06:12:16Z","tags":[],"title":"Apache Superset"}
+{"id":"hn-39275652","source":"hackernews","score":0,"posted_at":"2024-02-06T15:50:00Z","tags":[],"title":"[dead]","_secondary":true}
+{"id":"hn-38964486","source":"hackernews","score":0,"posted_at":"2024-01-12T05:58:05Z","tags":[],"title":"Ask HN: Who wants to be hired? (January 2024)"}
+{"id":"hn-38905212","source":"hackernews","score":0,"posted_at":"2024-01-07T21:15:53Z","tags":[],"title":"Show HN: Quickwit – OSS Alternative to Elasticsearch, Splunk, Datadog","_secondary":true}
+{"id":"hn-37587389","source":"hackernews","score":0,"posted_at":"2023-09-20T17:53:55Z","tags":[],"title":"Tracing: Structured logging, but better"}
+{"id":"hn-37586572","source":"hackernews","score":0,"posted_at":"2023-09-20T16:51:54Z","tags":["apm"],"title":"Tracing: Structured logging, but better"}
+{"id":"hn-37352418","source":"hackernews","score":0,"posted_at":"2023-09-01T15:55:42Z","tags":["fleet"],"title":"Ask HN: Who wants to be hired? (September 2023)"}
+{"id":"hn-36961058","source":"hackernews","score":0,"posted_at":"2023-08-01T19:15:18Z","tags":["fleet"],"title":"Ask HN: Who wants to be hired? (August 2023)"}
+{"id":"hn-36575950","source":"hackernews","score":0,"posted_at":"2023-07-03T17:11:41Z","tags":["fleet"],"title":"Ask HN: Who wants to be hired? (July 2023)"}
+{"id":"hn-36575750","source":"hackernews","score":0,"posted_at":"2023-07-03T16:59:46Z","tags":["fleet"],"title":"Ask HN: Who wants to be hired? (July 2023)"}
+{"id":"hn-36232164","source":"hackernews","score":0,"posted_at":"2023-06-07T19:27:36Z","tags":["license"],"title":"Show HN: Homelab Monitoring Setup with Grafana"}
+{"id":"hn-36164711","source":"hackernews","score":0,"posted_at":"2023-06-02T13:22:42Z","tags":["fleet"],"title":"Ask HN: Who wants to be hired? (June 2023)"}
+{"id":"hn-36152762","source":"hackernews","score":0,"posted_at":"2023-06-01T15:43:56Z","tags":[],"title":"Ask HN: Who wants to be hired? (June 2023)"}
+{"id":"hn-36152198","source":"hackernews","score":0,"posted_at":"2023-06-01T15:11:07Z","tags":["fleet"],"title":"Ask HN: Who wants to be hired? (June 2023)"}
+{"id":"hn-35868772","source":"hackernews","score":0,"posted_at":"2023-05-09T00:27:09Z","tags":[],"title":"A cryptocurrency company had a $65M bill, per Datadog’s Q1 earnings call"}
+{"id":"hn-35775492","source":"hackernews","score":0,"posted_at":"2023-05-01T16:49:00Z","tags":["fleet"],"title":"Ask HN: Who wants to be hired? (May 2023)"}
+{"id":"hn-35774269","source":"hackernews","score":0,"posted_at":"2023-05-01T15:33:24Z","tags":["fleet"],"title":"Ask HN: Who wants to be hired? (May 2023)"}
+{"id":"hn-35522018","source":"hackernews","score":0,"posted_at":"2023-04-11T07:37:48Z","tags":["apm"],"title":"Supabase Logs: open-source logging server"}
+{"id":"hn-35312057","source":"hackernews","score":0,"posted_at":"2023-03-26T07:42:19Z","tags":[],"title":"systemd 100% cpu hang? – Proxmox Support Forum","_secondary":true}
+{"id":"hn-33985633","source":"hackernews","score":0,"posted_at":"2022-12-14T16:15:40Z","tags":[],"title":"Golink: A private shortlink service for tailnets"}
+{"id":"hn-33687284","source":"hackernews","score":0,"posted_at":"2022-11-21T00:43:46Z","tags":[],"title":"The Modern Observability Problem"}
+{"id":"hn-33449339","source":"hackernews","score":0,"posted_at":"2022-11-03T11:04:43Z","tags":[],"title":"Ask HN: Who wants to be hired? (November 2022)","_secondary":true}
+{"id":"hn-32939275","source":"hackernews","score":0,"posted_at":"2022-09-22T14:30:58Z","tags":[],"title":"ZincSearch – lightweight alternative to Elasticsearch written in Go","_secondary":true}
+{"id":"hn-32629180","source":"hackernews","score":0,"posted_at":"2022-08-28T15:33:43Z","tags":["apm"],"title":"Canonical joins the OpenSearch community (AWS-led fork of Elasticsearch)"}
+{"id":"hn-31948198","source":"hackernews","score":0,"posted_at":"2022-07-01T15:52:37Z","tags":[],"title":"Ask HN: Who wants to be hired? (July 2022)","_secondary":true}
+{"id":"hn-31849888","source":"hackernews","score":0,"posted_at":"2022-06-23T14:50:25Z","tags":[],"title":"Hardening the registers: A cascading failure of edge induced fault tolerance","_secondary":true}
+{"id":"hn-31276852","source":"hackernews","score":0,"posted_at":"2022-05-05T18:25:09Z","tags":[],"title":"Ask HN: Who wants to be hired? (May 2022)"}
+{"id":"hn-31276845","source":"hackernews","score":0,"posted_at":"2022-05-05T18:24:41Z","tags":[],"title":"Ask HN: Freelancer? Seeking freelancer? (May 2022)"}
+{"id":"hn-29189174","source":"hackernews","score":0,"posted_at":"2021-11-11T15:46:34Z","tags":[],"title":"Logs and tracing: not just for production, local development too"}
+{"id":"hn-29073531","source":"hackernews","score":0,"posted_at":"2021-11-01T21:41:56Z","tags":[],"title":"Ask HN: Who is hiring? (November 2021)","_secondary":true}
+{"id":"hn-28684501","source":"hackernews","score":0,"posted_at":"2021-09-28T16:16:51Z","tags":["apm","ml"],"title":"I don't think Elasticsearch is a good logging system"}
+{"id":"hn-28048861","source":"hackernews","score":0,"posted_at":"2021-08-03T13:26:25Z","tags":["ml"],"title":"Ask HN: Who wants to be hired? (August 2021)","_secondary":true}
+{"id":"hn-27391977","source":"hackernews","score":0,"posted_at":"2021-06-04T09:27:51Z","tags":[],"title":"Ask HN: Who is hiring? (June 2021)"}
+{"id":"hn-27034582","source":"hackernews","score":0,"posted_at":"2021-05-04T06:22:30Z","tags":[],"title":"Ask HN: Who is hiring? (May 2021)","_secondary":true}
+{"id":"hn-26809561","source":"hackernews","score":0,"posted_at":"2021-04-14T16:41:55Z","tags":["apm"],"title":"Show HN: Encore – Go framework for building distributed systems"}
+{"id":"hn-25837962","source":"hackernews","score":0,"posted_at":"2021-01-19T19:51:47Z","tags":["siem","apm","ml","license"],"title":"Amazon: Not OK – Why we had to change Elastic licensing"}
+{"id":"hn-25343448","source":"hackernews","score":0,"posted_at":"2020-12-08T09:32:45Z","tags":[],"title":"Ask HN: Freelancer? Seeking freelancer? (December 2020)","_secondary":true}
+{"id":"hn-25273963","source":"hackernews","score":0,"posted_at":"2020-12-02T07:15:29Z","tags":[],"title":"Ask HN: Who wants to be hired? (December 2020)","_secondary":true}
+{"id":"hn-24281491","source":"hackernews","score":0,"posted_at":"2020-08-26T11:38:39Z","tags":[],"title":"A log/event processing pipeline you can't have (2019)"}
+{"id":"hn-24087687","source":"hackernews","score":0,"posted_at":"2020-08-07T23:53:56Z","tags":["apm"],"title":"Infinity: open-source search engine"}
+{"id":"hn-23391187","source":"hackernews","score":0,"posted_at":"2020-06-02T14:12:01Z","tags":[],"title":"A simple way to get more value from tracing","_secondary":true}
+{"id":"hn-23387290","source":"hackernews","score":0,"posted_at":"2020-06-02T04:00:17Z","tags":[],"title":"A simple way to get more value from tracing","_secondary":true}
+{"id":"hn-22755936","source":"hackernews","score":0,"posted_at":"2020-04-02T03:18:28Z","tags":[],"title":"Ask HN: Freelancer? Seeking freelancer? (April 2020)"}
+{"id":"hn-22512111","source":"hackernews","score":0,"posted_at":"2020-03-07T15:47:25Z","tags":[],"title":"Show HN: An 'offline' reverse-geocoder API written in Go","_secondary":true}
+{"id":"hn-22190941","source":"hackernews","score":0,"posted_at":"2020-01-30T12:48:00Z","tags":[],"title":"Command-line tools can be faster than a Hadoop cluster (2014)","_secondary":true}
+{"id":"hn-21492976","source":"hackernews","score":0,"posted_at":"2019-11-09T17:55:40Z","tags":["fleet"],"title":"Show HN: Go Micro – A Go microservices development framework","_secondary":true}
+{"id":"hn-21349670","source":"hackernews","score":0,"posted_at":"2019-10-24T22:04:54Z","tags":[],"title":"Grafana Labs raises $24M","_secondary":true}
+{"id":"hn-20837900","source":"hackernews","score":0,"posted_at":"2019-08-30T12:34:42Z","tags":[],"title":"Ask HN: How do you handle logging?"}
+{"id":"hn-20825197","source":"hackernews","score":0,"posted_at":"2019-08-28T23:38:39Z","tags":[],"title":"Ask HN: How do you handle logging?","_secondary":true}
+{"id":"hn-20824320","source":"hackernews","score":0,"posted_at":"2019-08-28T21:45:30Z","tags":["apm"],"title":"Ask HN: How do you handle logging?"}
+{"id":"hn-20818226","source":"hackernews","score":0,"posted_at":"2019-08-28T09:44:03Z","tags":["apm"],"title":"Ask HN: How do you handle logging?"}
+{"id":"hn-20519591","source":"hackernews","score":0,"posted_at":"2019-07-24T20:55:44Z","tags":[],"title":"Robinhood Stored Passwords in Plaintext"}
+{"id":"hn-19799925","source":"hackernews","score":0,"posted_at":"2019-05-01T18:07:33Z","tags":["apm"],"title":"Ask HN: Who is hiring? (May 2019)"}
+{"id":"hn-19362604","source":"hackernews","score":0,"posted_at":"2019-03-11T20:41:07Z","tags":["canvas","alerting","apm","license"],"title":"Open Distro for Elasticsearch"}
+{"id":"hn-18592075","source":"hackernews","score":0,"posted_at":"2018-12-03T19:27:54Z","tags":["apm"],"title":"Ask HN: Who is hiring? (December 2018)"}
+{"id":"hn-18356183","source":"hackernews","score":0,"posted_at":"2018-11-01T17:14:08Z","tags":["apm"],"title":"Ask HN: Who is hiring? (November 2018)"}
+{"id":"hn-18118003","source":"hackernews","score":0,"posted_at":"2018-10-02T00:51:39Z","tags":["apm"],"title":"Ask HN: Who is hiring? (October 2018)"}
+{"id":"hn-17933335","source":"hackernews","score":0,"posted_at":"2018-09-07T11:04:57Z","tags":["alerting"],"title":"The Servers Are Burning","_secondary":true}
+{"id":"hn-17932384","source":"hackernews","score":0,"posted_at":"2018-09-07T07:01:45Z","tags":["apm"],"title":"Ask HN: Who wants to be hired? (September 2018)"}
+{"id":"hn-17932086","source":"hackernews","score":0,"posted_at":"2018-09-07T05:31:33Z","tags":["apm"],"title":"Ask HN: Freelancer? Seeking freelancer? (September 2018)"}
+{"id":"hn-17904704","source":"hackernews","score":0,"posted_at":"2018-09-03T20:26:35Z","tags":["apm"],"title":"Ask HN: Who is hiring? (September 2018)"}
+{"id":"hn-17669083","source":"hackernews","score":0,"posted_at":"2018-08-02T03:34:35Z","tags":[],"title":"Ask HN: Who wants to be hired? (August 2018)","_secondary":true}
+{"id":"hn-17444844","source":"hackernews","score":0,"posted_at":"2018-07-02T19:56:09Z","tags":["apm"],"title":"Ask HN: Who is hiring? (July 2018)"}
+{"id":"hn-17443154","source":"hackernews","score":0,"posted_at":"2018-07-02T16:40:32Z","tags":[],"title":"Ask HN: Who wants to be hired? (July 2018)","_secondary":true}
+{"id":"hn-9011563","source":"hackernews","score":0,"posted_at":"2015-02-06T21:09:45Z","tags":[],"title":"Working with the ELK stack","_secondary":true}
+{"id":"hn-16736865","source":"hackernews","score":0,"posted_at":"2018-04-02T17:34:47Z","tags":[],"title":"Ask HN: Who is hiring? (April 2018)","_secondary":true}
+{"id":"hn-16688298","source":"hackernews","score":0,"posted_at":"2018-03-27T13:49:46Z","tags":[],"title":"I usually run 'w' first when troubleshooting unknown machines","_secondary":true}
+{"id":"hn-13163725","source":"hackernews","score":0,"posted_at":"2016-12-13T01:25:33Z","tags":[],"title":"How Discord handles over a million requests per minute with Elixir’s GenStage"}
+{"id":"hn-9938889","source":"hackernews","score":0,"posted_at":"2015-07-23T22:27:49Z","tags":[],"title":"Compose Is Joining IBM","_secondary":true}
+{"id":"hn-16491016","source":"hackernews","score":0,"posted_at":"2018-03-01T10:48:27Z","tags":[],"title":"Opening the code of our X-Pack features"}
+{"id":"hn-7767482","source":"hackernews","score":0,"posted_at":"2014-05-19T14:12:19Z","tags":[],"title":"Examining ssh login requests"}
+{"id":"reddit-1oq9r42","source":"reddit","score":0,"posted_at":"2025-11-06T20:20:17.000Z","tags":[],"title":"Kibana is Blind to My PHP Errors! How to Fix FrankenPHP's stderr Log Problem?"}
+{"id":"reddit-1bdvapd","source":"reddit","score":2,"posted_at":"2024-03-13T16:09:46.000Z","tags":["discover","fleet"],"title":"Elasticsearch AD Realm users Kibana errors","_secondary":true}
+{"id":"reddit-1akdjmb","source":"reddit","score":3,"posted_at":"2024-02-06T16:18:04.000Z","tags":["license"],"title":"\"Kibana server is not ready yet. \" after trial license expiry"}
+{"id":"reddit-17atfvs","source":"reddit","score":1,"posted_at":"2023-10-18T15:26:22.000Z","tags":["data-views"],"title":"No Infrastructure data in Kibana","_secondary":true}
+{"id":"reddit-1cmfli4","source":"reddit","score":3,"posted_at":"2024-05-07T16:08:49.000Z","tags":["apm"],"title":"Angular Logs to Elastic and Kibana"}
+{"id":"reddit-slcdom","source":"reddit","score":2,"posted_at":"2022-02-05T17:32:25.000Z","tags":["lens","canvas","discover","alerting","apm","fleet","license"],"title":"Trying to get elasticsearch and kibana working with docker-compose","_secondary":true}
+{"id":"reddit-vi19de","source":"reddit","score":3,"posted_at":"2022-06-22T09:36:31.000Z","tags":[],"title":"How to visualize particular log stream table for different dashboard on kibana","_secondary":true}
+{"id":"reddit-q6ub21","source":"reddit","score":2,"posted_at":"2021-10-12T19:57:07.000Z","tags":["fleet"],"title":"I can't figure out how to install Fleet on Elastic+Kibana","_secondary":true}
+{"id":"reddit-4r452a","source":"reddit","score":195,"posted_at":"2016-07-03T22:22:43.000Z","tags":[],"title":"Can I share a Wi-Fi project with you all?","_secondary":true}
+{"id":"reddit-1p6w0w","source":"reddit","score":11,"posted_at":"2013-10-25T13:19:15.000Z","tags":[],"title":"handling output of NAT logging","_secondary":true}
+{"id":"reddit-1j0boz7","source":"reddit","score":0,"posted_at":"2025-02-28T16:27:15.000Z","tags":[],"title":"Struggling to move Kibana dashboards between environments?","_secondary":true}
+{"id":"reddit-1qi8w8n","source":"reddit","score":38,"posted_at":"2026-01-20T18:19:54.000Z","tags":[],"title":"Migrating a large Elasticsearch cluster in production (100M+ docs). Looking for DevOps lessons and monitoring advice.","_secondary":true}
+{"id":"reddit-1q88ulk","source":"reddit","score":27,"posted_at":"2026-01-09T13:54:44.000Z","tags":["alerting","anomaly"],"title":"Is building a full centralized observability system (Prometheus + Grafana + Loki + network/DB/security monitoring) realistically a Junior-level task if doing it","_secondary":true}
+{"id":"reddit-1fi05mp","source":"reddit","score":162,"posted_at":"2024-09-16T09:16:54.000Z","tags":["license"],"title":"OpenSearch (Elasticsearch open source fork) joins the Linux Foundation ","_secondary":true}
+{"id":"reddit-1hayrmp","source":"reddit","score":2,"posted_at":"2024-12-10T10:23:38.000Z","tags":[],"title":"Are there any observability-as-a-service product? Like how vercel provides frontend-as-a-service."}
+{"id":"reddit-1jl8hsf","source":"reddit","score":0,"posted_at":"2025-03-27T16:48:24.000Z","tags":[],"title":"Bespoke Observability Solutions by Skedler Experts"}
+{"id":"reddit-qq5wm8","source":"reddit","score":19,"posted_at":"2021-11-09T15:19:21.000Z","tags":[],"title":"Observability and monitoring stack","_secondary":true}
+{"id":"reddit-slrao0","source":"reddit","score":13,"posted_at":"2022-02-06T07:48:26.000Z","tags":[],"title":"How do you deliver logs from ELK to users?"}
+{"id":"reddit-v42dw5","source":"reddit","score":3,"posted_at":"2022-06-03T15:52:20.000Z","tags":[],"title":"Logging/Events history for kubernetes to know why a node and it's pods became unhealthy","_secondary":true}
+{"id":"reddit-x0phde","source":"reddit","score":0,"posted_at":"2022-08-29T13:59:21.000Z","tags":["apm"],"title":"Where to start with Observability"}
+{"id":"reddit-f2c5h6","source":"reddit","score":12,"posted_at":"2020-02-11T18:02:40.000Z","tags":["apm"],"title":"Source of truth for Devops, because Github is just not enough!"}
+{"id":"reddit-iot3hv","source":"reddit","score":8,"posted_at":"2020-09-08T12:59:44.000Z","tags":["apm"],"title":"Elastic Stack vs Prometheus"}
+{"id":"reddit-g9sqgf","source":"reddit","score":10,"posted_at":"2020-04-28T18:34:29.000Z","tags":[],"title":"Self-hosting a cloud-native microservice project","_secondary":true}
+{"id":"reddit-ghrznn","source":"reddit","score":11,"posted_at":"2020-05-11T17:24:24.000Z","tags":["kql","apm"],"title":"Improving the observability of multiple aws accounts with datadog or possibly Elastic Cloud","_secondary":true}
+{"id":"reddit-ne740z","source":"reddit","score":8,"posted_at":"2021-05-17T04:54:49.000Z","tags":["alerting"],"title":"Log (Observability) Overview","_secondary":true}
+{"id":"reddit-b2pqwg","source":"reddit","score":3,"posted_at":"2019-03-18T23:28:16.000Z","tags":["apm"],"title":"Recs for in-office dashboarding on monitors/tvs/whatever"}
+{"id":"reddit-aq69dz","source":"reddit","score":0,"posted_at":"2019-02-13T12:50:04.000Z","tags":[],"title":"Unified, self-hosted, GUI for metrics, logs, and traces","_secondary":true}
+{"id":"reddit-bkz9z5","source":"reddit","score":3,"posted_at":"2019-05-05T15:51:54.000Z","tags":["alerting","apm"],"title":"How to bring monitoring costs down with a managed service?","_secondary":true}
+{"id":"reddit-69fi8a","source":"reddit","score":1,"posted_at":"2017-05-05T15:52:51.000Z","tags":[],"title":"Handling stack traces in Elasticsearch Logstash Kibana (ELK)"}
+{"id":"reddit-1cb6rf3","source":"reddit","score":16,"posted_at":"2024-04-23T14:58:39.000Z","tags":[],"title":"After years of random outages, I finally set up some uptime monitors using Elasticsearch/Kibana Synthetic Monitors. Last night it notified me of a Plex outage w","_secondary":true}
+{"id":"reddit-1e4y1g3","source":"reddit","score":0,"posted_at":"2024-07-16T19:50:56.000Z","tags":[],"title":"Traefik HTTPS Swarm Dashboard access.","_secondary":true}
+{"id":"reddit-ga73ml","source":"reddit","score":2,"posted_at":"2020-04-29T10:37:46.000Z","tags":[],"title":"Self-hosting a cloud-native microservice project","_secondary":true}
+{"id":"reddit-9phcm9","source":"reddit","score":14,"posted_at":"2018-10-19T06:50:26.000Z","tags":[],"title":"Homelab monitoring project"}
+{"id":"reddit-6aorms","source":"reddit","score":5,"posted_at":"2017-05-12T02:42:14.000Z","tags":["license"],"title":"Dual Intel E5-2670 Virtualization Server - Power Consumption Concerns","_secondary":true}
+{"id":"reddit-1rz6tth","source":"reddit","score":0,"posted_at":"2026-03-20T20:08:51.000Z","tags":[],"title":"built a log ingestion pipeline in Go, should I make custom dashboard or just use Grafana? need some advice","_secondary":true}
+{"id":"reddit-1sa7fb7","source":"reddit","score":1,"posted_at":"2026-04-02T04:22:14.000Z","tags":["alerting","siem"],"title":"Kubernetes Observability","_secondary":true}
+{"id":"reddit-1sge9ae","source":"reddit","score":0,"posted_at":"2026-04-09T03:22:57.000Z","tags":[],"title":"Production Support Engineer (6.9 yrs) | Observability | Monitoring | SRE / Platform Support | Open to Opportunities"}
+{"id":"reddit-1rn4s29","source":"reddit","score":3,"posted_at":"2026-03-07T08:30:21.000Z","tags":[],"title":"DoorDash style QA Engineer interview question on \"Wait Strategies and Test Synchronization\"","_secondary":true}
+{"id":"reddit-1rgcwd5","source":"reddit","score":2,"posted_at":"2026-02-27T17:22:41.000Z","tags":["discover","apm","license"],"title":"Agentic Observability Copilot for Media and Streaming Platforms Using Elastic Cloud and Hybrid Retrieval"}
+{"id":"reddit-1qir7k3","source":"reddit","score":3,"posted_at":"2026-01-21T07:11:20.000Z","tags":[],"title":"OpenTelemetry Collector Contrib v0.144.0 – breaking Kafka &amp; Elasticsearch changes","_secondary":true}
+{"id":"reddit-1o4pnq0","source":"reddit","score":0,"posted_at":"2025-10-12T13:53:36.000Z","tags":["time-picker"],"title":"How would you build an open-source Kubernetes “Command Center” (logs + events + advanced metrics) — tool &amp; design suggestions?","_secondary":true}
+{"id":"reddit-1px0vsg","source":"reddit","score":10,"posted_at":"2025-12-27T15:47:43.000Z","tags":[],"title":"Seeking Part-Time Remote Work – Application Support / Linux / Monitoring"}
+{"id":"reddit-1pydhh6","source":"reddit","score":2,"posted_at":"2025-12-29T05:13:49.000Z","tags":["alerting"],"title":"How to Build an AI Logging Agent From Scratch (Stop manually searching logs)","_secondary":true}
+{"id":"reddit-1p79qek","source":"reddit","score":1,"posted_at":"2025-11-26T14:53:51.000Z","tags":[],"title":"Hi, can somebody tell me what exactly these guys are looking for?"}
+{"id":"reddit-1gprr1g","source":"reddit","score":23,"posted_at":"2024-11-12T18:32:51.000Z","tags":[],"title":"Open-source Kibana alternative for logs and traces in ClickHouse"}
+{"id":"reddit-1gpvion","source":"reddit","score":1,"posted_at":"2024-11-12T21:07:07.000Z","tags":[],"title":"Show HN: Open-source Kibana alternative for logs and traces in ClickHouse"}
+{"id":"reddit-1li7gj1","source":"reddit","score":8,"posted_at":"2025-06-23T04:24:18.000Z","tags":["apm"],"title":"Looking for VPS for Dockerized ElasticStack (currently on DigitalOcean)"}
+{"id":"reddit-1ok8t8d","source":"reddit","score":5,"posted_at":"2025-10-30T19:13:16.000Z","tags":["apm","fleet","license"],"title":"Self-hosted license for APM"}
+{"id":"reddit-1elqyob","source":"reddit","score":90,"posted_at":"2024-08-06T19:35:42.000Z","tags":[],"title":"Metrics, traces &amp; logs?","_secondary":true}
+{"id":"reddit-1943cn4","source":"reddit","score":24,"posted_at":"2024-01-11T14:45:18.000Z","tags":[],"title":"Quickwit: OSS Alternative to Elasticsearch"}
+{"id":"reddit-17m7izl","source":"reddit","score":3,"posted_at":"2023-11-02T16:32:41.000Z","tags":[],"title":"Elasticsearch: development environment with ECK (Elastic Cloud on Kubernetes)"}
+{"id":"reddit-4n7wso","source":"reddit","score":52,"posted_at":"2016-06-08T23:00:27.000Z","tags":[],"title":"How To Avoid Design By Committee - Developing an effective product design process","_secondary":true}
+{"id":"reddit-1jk5eyx","source":"reddit","score":41,"posted_at":"2025-03-26T06:26:31.000Z","tags":["alerting"],"title":"DevOps/SRE market is cooked","_secondary":true}
+{"id":"reddit-ldzvxy","source":"reddit","score":88,"posted_at":"2021-02-06T15:35:32.000Z","tags":[],"title":"Docker for Windows doesn’t work for large projects, even for development, so disappointing","_secondary":true}
+{"id":"reddit-1jh5h5c","source":"reddit","score":9,"posted_at":"2025-03-22T10:26:43.000Z","tags":[],"title":"Has anyone experienced log loss in Logstash?","_secondary":true}
+{"id":"reddit-dky7hd","source":"reddit","score":8,"posted_at":"2019-10-21T09:56:05.000Z","tags":[],"title":"Visualisation tools to check performance of search function","_secondary":true}
+{"id":"so-25156517","source":"stackoverflow","score":28,"posted_at":"2014-08-06T09:17:00.000Z","tags":[],"title":"Logstash date parsing as timestamp using the date filter","_secondary":true}
+{"id":"so-28717543","source":"stackoverflow","score":16,"posted_at":"2015-02-25T11:13:34.000Z","tags":[],"title":"Kibana and fixed time spans","_secondary":true}
+{"id":"so-47193270","source":"stackoverflow","score":12,"posted_at":"2017-11-09T03:12:26.000Z","tags":[],"title":"AWS Elasticsearch &amp; VPC - configuring network access from my fixed IP","_secondary":true}
+{"id":"so-54623543","source":"stackoverflow","score":10,"posted_at":"2019-02-11T03:21:28.000Z","tags":["apm","oom"],"title":"Elastic APM HTTP error (503): queue is full","_secondary":true}
+{"id":"so-57097245","source":"stackoverflow","score":9,"posted_at":"2019-07-18T14:45:13.000Z","tags":[],"title":"Kibana FATAL Error: [elasticsearch.url]: definition for this key is missing"}
+{"id":"so-33976989","source":"stackoverflow","score":9,"posted_at":"2015-11-28T22:09:11.000Z","tags":[],"title":"Kibana: searching for a specific phrase, returns without results, while another search returns the phrase","_secondary":true}
+{"id":"so-21030276","source":"stackoverflow","score":7,"posted_at":"2014-01-09T20:18:19.000Z","tags":[],"title":"How to create value over time chart with Kibana 3?","_secondary":true}
+{"id":"so-33265399","source":"stackoverflow","score":7,"posted_at":"2015-10-21T17:14:50.000Z","tags":[],"title":"Kibana + Logstash + Elastic group exceptions by stacktrace"}
+{"id":"so-44069040","source":"stackoverflow","score":6,"posted_at":"2017-05-19T11:36:34.000Z","tags":[],"title":"Kibana closes HTTP connection after 120 seconds","_secondary":true}
+{"id":"so-62282986","source":"stackoverflow","score":6,"posted_at":"2020-06-09T12:47:44.000Z","tags":[],"title":"Can’t able to access kibana dashboard","_secondary":true}
+{"id":"so-65113934","source":"stackoverflow","score":5,"posted_at":"2020-12-02T18:23:57.000Z","tags":["apm"],"title":"How to get password for Kibana (ECK) APM operator in kubernetes?"}
+{"id":"so-40138608","source":"stackoverflow","score":4,"posted_at":"2016-10-19T18:05:50.000Z","tags":[],"title":"Kibana logs to Syslog in JSON format","_secondary":true}
+{"id":"so-25037576","source":"stackoverflow","score":4,"posted_at":"2014-07-30T13:03:38.000Z","tags":[],"title":"PHP-FPM breaks up stack trace log into separate events","_secondary":true}
+{"id":"so-52212228","source":"stackoverflow","score":4,"posted_at":"2018-09-06T21:13:27.000Z","tags":["discover"],"title":"In Logstash, how do I limit the depth of JSON properties in my logs that are turned into Index fields in Elasticsearch?","_secondary":true}
+{"id":"so-66946925","source":"stackoverflow","score":4,"posted_at":"2021-04-05T00:09:19.000Z","tags":["license"],"title":"Kibana server is not ready yet - [security_exception] unable to authenticate user [elastic]"}
+{"id":"so-55406128","source":"stackoverflow","score":4,"posted_at":"2019-03-28T20:12:53.000Z","tags":[],"title":"Logging .net Core with Elastic stack","_secondary":true}
+{"id":"so-61584838","source":"stackoverflow","score":4,"posted_at":"2020-05-04T03:44:56.000Z","tags":[],"title":"Filebeat unable to send data to logstash which results in empty data in elastic &amp; kibana","_secondary":true}
+{"id":"so-71912140","source":"stackoverflow","score":4,"posted_at":"2022-04-18T13:00:17.000Z","tags":["lens","canvas","discover","alerting","apm","saved-objects","fleet","license"],"title":"Server Not Started Yet (Kibana 8.1.2)","_secondary":true}
+{"id":"so-61716962","source":"stackoverflow","score":4,"posted_at":"2020-05-10T18:35:17.000Z","tags":["apm"],"title":"Sending HTTP error with captureError from Angular shows error.custom.&lt;name&gt; in Kibana"}
+{"id":"so-59002414","source":"stackoverflow","score":3,"posted_at":"2019-11-22T22:10:49.000Z","tags":["apm"],"title":"Kibana and Elasticsearch in Docker, coexist with standard install","_secondary":true}
+{"id":"so-63496718","source":"stackoverflow","score":3,"posted_at":"2020-08-20T00:27:52.000Z","tags":["apm"],"title":"Kibana shows The data you are seeing might be incomplete or wrong"}
+{"id":"so-56465589","source":"stackoverflow","score":3,"posted_at":"2019-06-05T17:47:31.000Z","tags":["canvas","alerting","apm","license"],"title":"Kibana - Request Timeout after 30000ms at /usr/share/kibana/node_modules/elasticsearch/src/lib/transport.js:355:15","_secondary":true}
+{"id":"so-76220733","source":"stackoverflow","score":3,"posted_at":"2023-05-10T16:31:10.000Z","tags":[],"title":"SpanNot Lucene Query being either too strict or too permissive","_secondary":true}
+{"id":"so-54387027","source":"stackoverflow","score":3,"posted_at":"2019-01-27T10:13:30.000Z","tags":[],"title":"How to find equal values in different fields in Elasticsearch via Python Query?","_secondary":true}
+{"id":"so-51414985","source":"stackoverflow","score":3,"posted_at":"2018-07-19T05:31:28.000Z","tags":["apm"],"title":"Install ElasticSearch APM","_secondary":true}
+{"id":"so-54744030","source":"stackoverflow","score":3,"posted_at":"2019-02-18T09:26:52.000Z","tags":[],"title":"Importing PCAP into Elasticsearch","_secondary":true}
+{"id":"so-66895295","source":"stackoverflow","score":3,"posted_at":"2021-03-31T21:05:13.000Z","tags":["apm"],"title":"How to change queue.mem.events in Kibana ECK operator APM server?"}
+{"id":"so-59180313","source":"stackoverflow","score":3,"posted_at":"2019-12-04T16:14:01.000Z","tags":["apm"],"title":"What is the best practice to measure the performance of an Angular app?","_secondary":true}
+{"id":"so-51825629","source":"stackoverflow","score":3,"posted_at":"2018-08-13T15:20:33.000Z","tags":[],"title":"Change elasticsearch serilog sink http content header","_secondary":true}
+{"id":"so-39620509","source":"stackoverflow","score":3,"posted_at":"2016-09-21T15:17:32.000Z","tags":[],"title":"Sending rabbitmq events to logstash and elastic","_secondary":true}
+{"id":"so-53810267","source":"stackoverflow","score":2,"posted_at":"2018-12-17T06:58:11.000Z","tags":[],"title":"ELK parse json field as seperate fields","_secondary":true}
+{"id":"so-22931715","source":"stackoverflow","score":2,"posted_at":"2014-04-08T08:34:29.000Z","tags":[],"title":"Elasticsearch - Limiting allocation of shards","_secondary":true}
+{"id":"so-66882290","source":"stackoverflow","score":2,"posted_at":"2021-03-31T05:44:36.000Z","tags":[],"title":"Observability in Laravel Applications"}
+{"id":"so-60617782","source":"stackoverflow","score":2,"posted_at":"2020-03-10T12:33:39.000Z","tags":["canvas","siem","saved-objects"],"title":"Kibana unabe to connect to elasticsearch on windows","_secondary":true}
+{"id":"so-52538117","source":"stackoverflow","score":2,"posted_at":"2018-09-27T13:25:44.000Z","tags":[],"title":"Log4J2 JsonLayout printing out class, method and line and @timestamp override"}
+{"id":"so-57696669","source":"stackoverflow","score":2,"posted_at":"2019-08-28T16:31:21.000Z","tags":["apm"],"title":"Set (custom) fields in Elastic APM for Python with Flask","_secondary":true}
+{"id":"so-54157370","source":"stackoverflow","score":2,"posted_at":"2019-01-12T06:46:19.000Z","tags":[],"title":"How to use Helm to install Kibana with the Logtrail plugin enabled?","_secondary":true}
+{"id":"so-20681396","source":"stackoverflow","score":2,"posted_at":"2013-12-19T12:07:07.000Z","tags":[],"title":"LogStash: kibana Alert - No results There were no results because no indices were found that match your selected time span","_secondary":true}
+{"id":"so-76405519","source":"stackoverflow","score":2,"posted_at":"2023-06-05T10:27:29.000Z","tags":["apm"],"title":"How to do elastic apm transaction for golang lambda"}
+{"id":"so-75513775","source":"stackoverflow","score":2,"posted_at":"2023-02-20T20:17:57.000Z","tags":["apm","fleet"],"title":"In the Elastic stack, how can we automatically generate and apply an enrollment token for kibana through docker-compose?"}
+{"id":"so-75232538","source":"stackoverflow","score":2,"posted_at":"2023-01-25T10:23:35.000Z","tags":["apm","fleet","license"],"title":"Elastic Agent with Fleet Server in Docker fails with &quot;Error: request to get security token from Kibana failed: Forbidden: %!w(&lt;nil&gt;)&quot;"}
+{"id":"so-66760339","source":"stackoverflow","score":2,"posted_at":"2021-03-23T09:21:49.000Z","tags":["apm"],"title":"How can I create traceId and start/end time when using elastic APM API?"}
+{"id":"so-59246670","source":"stackoverflow","score":2,"posted_at":"2019-12-09T10:14:55.000Z","tags":[],"title":"ELK(elasticsearch, logstash, kibana, filbeat for agent) Turkish character problem","_secondary":true}
+{"id":"so-56738411","source":"stackoverflow","score":2,"posted_at":"2019-06-24T14:10:10.000Z","tags":["apm"],"title":"APM tags/labels not showing up in Kibana"}
+{"id":"so-43340483","source":"stackoverflow","score":2,"posted_at":"2017-04-11T08:22:54.000Z","tags":[],"title":"Kibana is not coming up when i have AWS Elasticsearch service with 5.1 version with separate installation of kibana 5.1.1 with x-pack","_secondary":true}
+{"id":"so-34888521","source":"stackoverflow","score":2,"posted_at":"2016-01-19T22:56:07.000Z","tags":[],"title":"Handling JSON+ Stack Traces using logstash+ FileBeat","_secondary":true}
+{"id":"so-30637954","source":"stackoverflow","score":2,"posted_at":"2015-06-04T07:48:17.000Z","tags":[],"title":"How to trigger a ticket on kibanahud from python code","_secondary":true}
+{"id":"so-62309373","source":"stackoverflow","score":1,"posted_at":"2020-06-10T17:16:22.000Z","tags":["apm"],"title":"Configure Filebeat hints-based Autodiscover with Elastic Common Schema","_secondary":true}
+{"id":"so-50282965","source":"stackoverflow","score":1,"posted_at":"2018-05-10T23:40:57.000Z","tags":["apm"],"title":"Elastic APM Stack on Docker"}
+{"id":"so-67796347","source":"stackoverflow","score":1,"posted_at":"2021-06-01T21:42:00.000Z","tags":["apm"],"title":"How can you correlate logs with APM?","_secondary":true}
+{"id":"so-59925539","source":"stackoverflow","score":1,"posted_at":"2020-01-27T05:30:04.000Z","tags":[],"title":"Not able to send filebeat output to mongodb","_secondary":true}
+{"id":"so-44615115","source":"stackoverflow","score":1,"posted_at":"2017-06-18T12:46:40.000Z","tags":["anomaly"],"title":"Number of Anomalies generated in Bucket Span [X-PACK]"}
+{"id":"so-79406844","source":"stackoverflow","score":1,"posted_at":"2025-02-02T15:26:24.000Z","tags":["apm"],"title":"Sending custom metrics to Elasticsearch in Spring Boot","_secondary":true}
+{"id":"so-76112168","source":"stackoverflow","score":1,"posted_at":"2023-04-26T14:50:16.000Z","tags":["apm","fleet"],"title":"There is no data in Elastic APM using fleet"}
+{"id":"so-72451514","source":"stackoverflow","score":1,"posted_at":"2022-05-31T16:50:33.000Z","tags":["apm"],"title":"elasticsearch warning : this request accesses system indices but in a future major version, direct access to system indices will be prevented"}
+{"id":"so-72335415","source":"stackoverflow","score":1,"posted_at":"2022-05-22T06:54:10.000Z","tags":["apm","saved-objects"],"title":"Getting &quot;Kibana server is not ready yet&quot; when running from docker","_secondary":true}
+{"id":"so-67610942","source":"stackoverflow","score":1,"posted_at":"2021-05-19T21:09:31.000Z","tags":[],"title":"Searching by ID with Elasticsearch not returning","_secondary":true}
+{"id":"so-65953106","source":"stackoverflow","score":1,"posted_at":"2021-01-29T10:54:56.000Z","tags":["alerting"],"title":"failed to authenticate user [elastic]","_secondary":true}
+{"id":"so-65779689","source":"stackoverflow","score":1,"posted_at":"2021-01-18T17:54:35.000Z","tags":["apm"],"title":"How to get only one field from elasticsearch in the output?"}
+{"id":"so-65320986","source":"stackoverflow","score":1,"posted_at":"2020-12-16T09:57:58.000Z","tags":["apm"],"title":"How to view post/put/patch data"}
+{"id":"so-45383195","source":"stackoverflow","score":1,"posted_at":"2017-07-28T22:22:55.000Z","tags":[],"title":"How to install newrelic in kibana","_secondary":true}
+{"id":"so-33840418","source":"stackoverflow","score":1,"posted_at":"2015-11-21T06:25:01.000Z","tags":[],"title":"When an index is deleted, is it totally flushed from elasticsearch or it doesn&#39;t display only in kibana?"}
+{"id":"so-33488736","source":"stackoverflow","score":1,"posted_at":"2015-11-02T23:13:37.000Z","tags":[],"title":"Kibana: Duration between logs and Calculated fields","_secondary":true}
+{"id":"so-31673509","source":"stackoverflow","score":1,"posted_at":"2015-07-28T10:19:20.000Z","tags":[],"title":"Kibana 4 querying on .Net Timespan Field","_secondary":true}
+{"id":"so-79552614","source":"stackoverflow","score":1,"posted_at":"2025-04-03T10:09:26.000Z","tags":["apm"],"title":"Span details not visible in trace waterfall view of Elastic Kibana APM"}
+{"id":"so-78851831","source":"stackoverflow","score":1,"posted_at":"2024-08-09T08:29:51.000Z","tags":["discover","alerting","apm"],"title":"Not getting APM logs after enabling xpack security","_secondary":true}
+{"id":"so-78545283","source":"stackoverflow","score":1,"posted_at":"2024-05-28T16:04:10.000Z","tags":["apm"],"title":"Annotation API in elastic search"}
+{"id":"so-78107019","source":"stackoverflow","score":1,"posted_at":"2024-03-05T10:33:52.000Z","tags":["apm"],"title":"Kibana Dashboard Throws Internal Server Error 500 After Few Days of Deployment","_secondary":true}
+{"id":"so-77998716","source":"stackoverflow","score":1,"posted_at":"2024-02-15T06:14:32.000Z","tags":["apm"],"title":"Getting {“statusCode”:500,”error”:”Internal Server Error”,”message”:”An internal server error occurred.”} when accessing kibana dashboard","_secondary":true}
+{"id":"so-77967457","source":"stackoverflow","score":1,"posted_at":"2024-02-09T10:28:23.000Z","tags":["apm"],"title":"Elastic Cloud APM showing &quot;failed to find message&quot; in Transactions log Page"}
+{"id":"so-75447287","source":"stackoverflow","score":1,"posted_at":"2023-02-14T11:38:45.000Z","tags":["apm"],"title":"Kibana search in JSON field as string in APM logs"}
+{"id":"so-75394972","source":"stackoverflow","score":1,"posted_at":"2023-02-09T06:27:40.000Z","tags":["apm"],"title":"APM is not connecting to Kibana through angular"}
+{"id":"so-74728150","source":"stackoverflow","score":1,"posted_at":"2022-12-08T09:33:47.000Z","tags":["apm"],"title":"Serilog does not send log to Elasticsearch asp.net core"}
+{"id":"so-74557205","source":"stackoverflow","score":1,"posted_at":"2022-11-24T07:41:55.000Z","tags":["alerting","apm"],"title":"Alerting on application log errors k8s","_secondary":true}
+{"id":"so-73735487","source":"stackoverflow","score":1,"posted_at":"2022-09-15T17:50:45.000Z","tags":[],"title":"Problem in ILM rollover alias in elastic stack"}
+{"id":"so-70901303","source":"stackoverflow","score":1,"posted_at":"2022-01-28T23:16:38.000Z","tags":["apm"],"title":"logback elasticsearch appender missing index in Elasticsearch"}
+{"id":"so-68374858","source":"stackoverflow","score":1,"posted_at":"2021-07-14T08:46:45.000Z","tags":["discover"],"title":"Find all entries on a list within Kibana via Elasticserach Query DSL","_secondary":true}
+{"id":"so-67787520","source":"stackoverflow","score":1,"posted_at":"2021-06-01T10:53:14.000Z","tags":["canvas","apm"],"title":"Elasticsearch Logstash and Kibana (ELK) stack docker-compose on EC2 failed status checks"}
+{"id":"so-67750050","source":"stackoverflow","score":1,"posted_at":"2021-05-29T10:00:24.000Z","tags":["apm"],"title":"Kibana is not acessible locally"}
+{"id":"so-67279980","source":"stackoverflow","score":1,"posted_at":"2021-04-27T09:00:22.000Z","tags":["apm"],"title":"How to enable actuator health for kibana and apm-server"}
+{"id":"so-66551238","source":"stackoverflow","score":1,"posted_at":"2021-03-09T16:47:49.000Z","tags":[],"title":"How to display multi-value field containing unique field values in Kibana","_secondary":true}
+{"id":"so-62880845","source":"stackoverflow","score":1,"posted_at":"2020-07-13T17:11:04.000Z","tags":["apm"],"title":"Elastisearch queries that are used for APM UI are slow","_secondary":true}
+{"id":"so-62550643","source":"stackoverflow","score":1,"posted_at":"2020-06-24T08:18:16.000Z","tags":[],"title":"Error in kibana &quot;Expect plugin &quot;id&quot; in camelCase, but found: apm_oss&quot;","_secondary":true}
+{"id":"so-60993863","source":"stackoverflow","score":1,"posted_at":"2020-04-02T14:24:04.000Z","tags":["apm"],"title":"APM Server has still not connected to Elasticsearch"}
+{"id":"so-60269571","source":"stackoverflow","score":1,"posted_at":"2020-02-17T19:58:05.000Z","tags":["apm"],"title":"Not able to start kibana on mac. Setup lifecycle of &quot;apm&quot; plugin wasn&#39;t completed in 30sec"}
+{"id":"so-59877838","source":"stackoverflow","score":1,"posted_at":"2020-01-23T11:46:50.000Z","tags":["apm"],"title":"Low performance of Elastic APM server"}
+{"id":"so-57848639","source":"stackoverflow","score":1,"posted_at":"2019-09-09T06:08:48.000Z","tags":["apm"],"title":"Elastic Search APM server setup for NodeJs","_secondary":true}
+{"id":"so-57817284","source":"stackoverflow","score":1,"posted_at":"2019-09-06T07:08:30.000Z","tags":["apm"],"title":"ElasticSearch APM Agents setup to Node Application"}
+{"id":"so-32032601","source":"stackoverflow","score":4,"posted_at":"2015-08-16T06:50:40.000Z","tags":[],"title":"ELK: How to group stacktraces by exception class in Kibana","_secondary":true}
+{"id":"so-31348131","source":"stackoverflow","score":4,"posted_at":"2015-07-10T18:45:37.000Z","tags":[],"title":"Drawing &quot;opened count&quot; over time given open-event and close-event documents","_secondary":true}
+{"id":"so-30450806","source":"stackoverflow","score":3,"posted_at":"2015-05-26T06:16:56.000Z","tags":[],"title":"How to do a minus operation on time-stamps in elasticsearch?","_secondary":true}
+{"id":"so-30455566","source":"stackoverflow","score":1,"posted_at":"2015-05-26T10:11:47.000Z","tags":[],"title":"Uncaught Error: Load timeout for modules: kibana","_secondary":true}
+{"id":"so-35308677","source":"stackoverflow","score":0,"posted_at":"2016-02-10T06:53:38.000Z","tags":[],"title":"How to convert elastic search queries from Kibana 3 to Kibana 4","_secondary":true}
+{"id":"so-42057433","source":"stackoverflow","score":7,"posted_at":"2017-02-05T21:19:56.000Z","tags":["discover"],"title":"Unable to Discover data on Kibana 5","_secondary":true}
+{"id":"so-40804036","source":"stackoverflow","score":0,"posted_at":"2016-11-25T11:30:34.000Z","tags":[],"title":"Kibana not populating results","_secondary":true}
+{"id":"so-51516103","source":"stackoverflow","score":0,"posted_at":"2018-07-25T10:01:02.000Z","tags":["alerting","apm","license"],"title":"Kibana dashboard 5601 port issue","_secondary":true}
+{"id":"so-49134703","source":"stackoverflow","score":0,"posted_at":"2018-03-06T15:41:28.000Z","tags":[],"title":"Can Kibana visualizations display custom text highlighting?","_secondary":true}
+{"id":"so-64860666","source":"stackoverflow","score":0,"posted_at":"2020-11-16T15:19:38.000Z","tags":["apm"],"title":"Couldn&#39;t find any Elasticsearch data","_secondary":true}
+{"id":"so-62636195","source":"stackoverflow","score":0,"posted_at":"2020-06-29T10:30:42.000Z","tags":["lens","canvas","discover","alerting","siem","apm","saved-objects","license"],"title":"Run kibana in k8s but get `Module not found: Error: Can&#39;t resolve &#39;plugins/kibana/local_application_service&#39;`","_secondary":true}
+{"id":"so-63817825","source":"stackoverflow","score":0,"posted_at":"2020-09-09T18:49:24.000Z","tags":["lens","canvas","siem","apm"],"title":"Kibana failure during &quot;Optimizing&quot; step","_secondary":true}

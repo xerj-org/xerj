@@ -1,0 +1,1006 @@
+//! # XERJ server entry point
+//!
+//! Parses CLI arguments, loads configuration, initialises observability,
+//! auto-generates secrets and TLS credentials on first run, then starts
+//! three concurrent TCP listeners:
+//!
+//! - Native REST  — default :8080
+//! - ES-compat    — default :9200
+//! - gRPC         — default :8081 (placeholder in v0.1)
+//!
+//! Shuts down gracefully on SIGTERM or SIGINT.
+//!
+//! ## Subcommands
+//!
+//! The binary also supports a `index` subcommand that ingests an NDJSON
+//! file directly into the engine without going through HTTP.  This is the
+//! fastest possible ingest path — it bypasses axum, hyper, tokio request
+//! scheduling, and the bulk response serialiser entirely.
+//!
+//! ```text
+//! xerj index --index <name> --file <path.ndjson> [--batch 5000] [--workers N]
+//! ```
+
+// ── Global allocator ─────────────────────────────────────────────────────────
+// Use jemalloc instead of the system (glibc) malloc.  Under the heavy
+// ingest-flush churn produced by log workloads, glibc malloc retains freed
+// heap pages and never returns them to the OS, which causes RSS to grow
+// monotonically until the cgroup OOM-kills the process.  jemalloc handles
+// fragmentation actively and madvise()'s freed regions back.
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
+use std::net::SocketAddr;
+use std::path::{Path, PathBuf};
+
+use anyhow::{Context, Result};
+use axum::Router;
+use tokio::signal;
+use tokio::net::TcpListener;
+use tracing::{error, info, warn};
+use tracing_subscriber::EnvFilter;
+
+use xerj_api::{build_es_compat_router, build_native_router, AppState};
+use xerj_cluster::{ClusterNode, ClusterRunner, transport::TcpTransport};
+use xerj_common::{config::Config, metrics::Metrics};
+use xerj_engine::Engine;
+use xerj_console_api::{state::ClusterMode, ConsoleState};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CLI
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[derive(Debug)]
+struct CliArgs {
+    config: Option<PathBuf>,
+    data_dir: Option<String>,
+    insecure: bool,
+}
+
+fn parse_args() -> CliArgs {
+    let mut args = std::env::args().skip(1);
+    let mut config = None;
+    let mut data_dir = None;
+    let mut insecure = false;
+
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--config" | "-c" => {
+                config = args.next().map(PathBuf::from);
+            }
+            "--data-dir" | "-d" => {
+                data_dir = args.next();
+            }
+            "--insecure" | "-k" => {
+                insecure = true;
+            }
+            "--help" | "-h" => {
+                print_help();
+                std::process::exit(0);
+            }
+            "--version" | "-V" => {
+                println!("xerj v{}", env!("CARGO_PKG_VERSION"));
+                std::process::exit(0);
+            }
+            other => {
+                eprintln!("unknown argument: {other}. Use --help for usage.");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    CliArgs { config, data_dir, insecure }
+}
+
+fn print_help() {
+    println!(
+        "xerj v{} — byte-perfect from design to code\n\
+         \n\
+         USAGE:\n\
+             xerj [OPTIONS]\n\
+         \n\
+         OPTIONS:\n\
+             --config,   -c <PATH>  Path to TOML config file\n\
+             --data-dir, -d <PATH>  Override data directory\n\
+             --insecure, -k         Disable TLS\n\
+             --help,     -h         Show this help\n\
+             --version,  -V         Print version and exit\n\
+         \n\
+         ENVIRONMENT:\n\
+             XERJ_LOG     Log level filter (default: info)\n\
+             XERJ_CONFIG  Config file path\n",
+        env!("CARGO_PKG_VERSION")
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Startup banner
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn print_banner(cfg: &Config, startup_ms: u128) {
+    let tls = if cfg.tls.enabled { "TLS " } else { "plain" };
+    println!();
+    println!(" ▀▄▀  ▄▀█  █▄█  ▄▀█  █ █");
+    println!(" █ █  █▀█   █   █▀█  █▀█  · ai   v{}", env!("CARGO_PKG_VERSION"));
+    println!();
+    println!(" byte-perfect from design to code");
+    println!();
+    println!(" Native REST  :{} [{}]", cfg.server.rest_port, tls);
+    println!(" ES-compat    :{} [{}]", cfg.server.es_compat_port, tls);
+    println!(" gRPC         :{} [placeholder]", cfg.server.grpc_port);
+    println!(" Data dir     {}", cfg.server.data_dir);
+    println!(" Started in   {}ms", startup_ms);
+    println!();
+    println!(
+        " Xerj Console UI    http://localhost:{}/_xerj-console/  ({} files bundled)",
+        cfg.server.es_compat_port,
+        xerj_console_api::spa::asset_count(),
+    );
+    println!();
+
+    // ── Honesty banner: surface deployment-security expectations ──────────
+    //
+    // The 2026-04-25 fairness review found the brief implies more
+    // engine-level security than ships today. Print the actual posture so
+    // an operator sees it on every start. Suppress nothing — these lines
+    // map 1:1 to items on the path-to-100% plan.
+    println!(" ┌─ Deployment posture (see PATH_TO_100_PCT_v0.6.0_to_v1.0.md) ──");
+    if !cfg.tls.enabled {
+        println!(" │ ⚠  TLS:    listener is plain TCP — terminate TLS at a reverse proxy");
+        println!(" │           (in-process TLS on the roadmap for v0.9)");
+    } else {
+        println!(" │ ⚠  TLS:    cert configured but in-process TLS is not yet wired");
+        println!(" │           (v0.9 ships rustls integration into the Axum listener)");
+    }
+    if !cfg.auth.enabled {
+        println!(" │ ⚠  Auth:   DISABLED (--insecure) — anyone on the network can write");
+    } else {
+        println!(" │ ✓  Auth:   single API-key (no RBAC; per-doc / per-field controls roadmap v0.9)");
+    }
+    println!(" │ ⚠  Audit:  request tracing only — tamper-evident WORM audit log v0.9");
+    println!(" │ ⚠  Encryption-at-rest: not engine-level — use OS FDE or S3 SSE for now");
+    println!(" └────────────────────────────────────────────────────────────────");
+    println!();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Config loading
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn load_config(args: &CliArgs) -> Result<Config> {
+    let config_path = args
+        .config
+        .clone()
+        .or_else(|| std::env::var("XERJ_CONFIG").ok().map(PathBuf::from));
+
+    let mut cfg = if let Some(path) = config_path {
+        info!("loading config from {}", path.display());
+        Config::load(&path)
+            .with_context(|| format!("load config from {}", path.display()))?
+    } else {
+        info!("no config file — using defaults");
+        Config::default()
+    };
+
+    if let Some(dir) = &args.data_dir {
+        cfg.server.data_dir = dir.clone();
+    }
+
+    if args.insecure {
+        warn!("--insecure: TLS and auth disabled");
+        cfg.tls.enabled = false;
+        cfg.auth.enabled = false;
+    }
+
+    Ok(cfg)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin API key
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn ensure_admin_key(cfg: &mut Config) -> Result<()> {
+    if !cfg.auth.enabled || !cfg.auth.admin_api_key.is_empty() {
+        return Ok(());
+    }
+
+    // Generate 32 random bytes → 64-char hex string
+    let raw: Vec<u8> = (0..32).map(|_| rand::random::<u8>()).collect();
+    let key: String = raw.iter().map(|b| format!("{b:02x}")).collect();
+
+    println!();
+    println!("╔══════════════════════════════════════════════════╗");
+    println!("║  First-run: admin API key auto-generated         ║");
+    println!("║                                                  ║");
+    println!("║  {:<48} ║", &key);
+    println!("║                                                  ║");
+    println!("║  Keep this secret. Written to:                   ║");
+    println!("║  {:<48} ║", format!("{}/admin.key", cfg.server.data_dir));
+    println!("╚══════════════════════════════════════════════════╝");
+    println!();
+
+    let data_dir = Path::new(&cfg.server.data_dir);
+    if std::fs::create_dir_all(data_dir).is_ok() {
+        let _ = std::fs::write(data_dir.join("admin.key"), &key);
+    }
+
+    cfg.auth.admin_api_key = key;
+    Ok(())
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TLS auto-generation
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn ensure_tls_cert(cfg: &mut Config) -> Result<()> {
+    if !cfg.tls.enabled {
+        return Ok(());
+    }
+
+    let cert_exists = !cfg.tls.cert_path.is_empty() && Path::new(&cfg.tls.cert_path).exists();
+    let key_exists = !cfg.tls.key_path.is_empty() && Path::new(&cfg.tls.key_path).exists();
+
+    if cert_exists && key_exists {
+        info!(
+            "using TLS cert from {} / {}",
+            cfg.tls.cert_path, cfg.tls.key_path
+        );
+        return Ok(());
+    }
+
+    info!("generating self-signed TLS certificate for localhost");
+
+    let cert = rcgen::generate_simple_self_signed(vec!["localhost".to_owned()])
+        .context("generate self-signed cert")?;
+
+    let data_dir = Path::new(&cfg.server.data_dir);
+    std::fs::create_dir_all(data_dir).context("create data dir for TLS cert")?;
+
+    let cert_path = data_dir.join("xerj.crt");
+    let key_path = data_dir.join("xerj.key");
+
+    std::fs::write(&cert_path, cert.cert.pem())
+        .with_context(|| format!("write cert to {}", cert_path.display()))?;
+    std::fs::write(&key_path, cert.key_pair.serialize_pem())
+        .with_context(|| format!("write key to {}", key_path.display()))?;
+
+    cfg.tls.cert_path = cert_path.to_string_lossy().into_owned();
+    cfg.tls.key_path = key_path.to_string_lossy().into_owned();
+
+    warn!("self-signed certificate generated — replace with a real cert for production");
+    Ok(())
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Observability
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn init_tracing() {
+    let filter = EnvFilter::try_from_env("XERJ_LOG")
+        .or_else(|_| EnvFilter::try_from_env("RUST_LOG"))
+        .unwrap_or_else(|_| EnvFilter::new("info"));
+
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_target(true)
+        .with_thread_ids(false)
+        .compact()
+        .init();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Graceful shutdown
+// ─────────────────────────────────────────────────────────────────────────────
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let sigterm = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let sigterm = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c  => { info!("SIGINT received — shutting down"); }
+        _ = sigterm => { info!("SIGTERM received — shutting down"); }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Server runners
+// ─────────────────────────────────────────────────────────────────────────────
+
+async fn serve(router: Router, addr: SocketAddr, name: &'static str) -> Result<()> {
+    let listener = TcpListener::bind(addr)
+        .await
+        .with_context(|| format!("{name}: bind {addr}"))?;
+
+    info!("{name} listening on {addr}");
+
+    axum::serve(listener, router)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .with_context(|| format!("{name} serve error"))?;
+
+    info!("{name} shut down cleanly");
+    Ok(())
+}
+
+/// gRPC is a placeholder in v0.1 — binds the port and immediately closes
+/// connections so clients receive a clean "connection refused" alternative
+/// rather than no response.
+async fn serve_grpc_placeholder(addr: SocketAddr) {
+    match TcpListener::bind(addr).await {
+        Ok(listener) => {
+            info!("gRPC placeholder bound on {addr} (not yet implemented)");
+            // The placeholder exits on the same SIGTERM/SIGINT signals that
+            // shut the REST listeners down — without this, the accept loop
+            // is infinite and the parent `tokio::join!(rest, es, grpc)` in
+            // main never returns, so the engine's `flush_all_force` shutdown
+            // hook never runs.  Caught by the durability bench at
+            // 2026-04-25 (regression alongside B-2b's flush hook).
+            loop {
+                tokio::select! {
+                    accepted = listener.accept() => match accepted {
+                        Ok(_conn) => {} // drop immediately
+                        Err(e) => {
+                            warn!("gRPC placeholder accept error: {e}");
+                            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                        }
+                    },
+                    _ = shutdown_signal() => {
+                        info!("gRPC placeholder shut down cleanly");
+                        return;
+                    }
+                }
+            }
+        }
+        Err(e) => warn!("gRPC placeholder: could not bind {addr}: {e}"),
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CLI `index` subcommand — direct file → engine ingest (bypasses HTTP)
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[derive(Debug)]
+struct IndexCmdArgs {
+    index: String,
+    file: PathBuf,
+    batch: usize,
+    workers: usize,
+    limit: usize,
+    config: Option<PathBuf>,
+    data_dir: Option<String>,
+}
+
+fn parse_index_args() -> IndexCmdArgs {
+    // Skip argv[0] (binary) + argv[1] ("index").
+    let mut args = std::env::args().skip(2);
+    let mut index = None;
+    let mut file = None;
+    let mut batch = 5000usize;
+    let mut workers = 0usize; // 0 = num_cpus
+    let mut limit = 0usize; // 0 = all lines
+    let mut config = None;
+    let mut data_dir = None;
+
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--index" | "-i" => index = args.next(),
+            "--file" | "-f" => file = args.next().map(PathBuf::from),
+            "--batch" | "-b" => {
+                batch = args
+                    .next()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(5000);
+            }
+            "--workers" | "-w" => {
+                workers = args
+                    .next()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0);
+            }
+            "--limit" | "-l" => {
+                limit = args
+                    .next()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0);
+            }
+            "--config" | "-c" => config = args.next().map(PathBuf::from),
+            "--data-dir" | "-d" => data_dir = args.next(),
+            "--help" | "-h" => {
+                print_index_help();
+                std::process::exit(0);
+            }
+            other => {
+                eprintln!("unknown argument: {other}. Use --help for usage.");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    let index = index.unwrap_or_else(|| {
+        eprintln!("error: --index <name> is required");
+        std::process::exit(2);
+    });
+    let file = file.unwrap_or_else(|| {
+        eprintln!("error: --file <path> is required");
+        std::process::exit(2);
+    });
+
+    IndexCmdArgs { index, file, batch, workers, limit, config, data_dir }
+}
+
+fn print_index_help() {
+    println!(
+        "xerj index — ingest an NDJSON file directly into the engine\n\
+         \n\
+         USAGE:\n\
+             xerj index --index <name> --file <ndjson> [OPTIONS]\n\
+         \n\
+         OPTIONS:\n\
+             --index,    -i <NAME>  Target index name (required)\n\
+             --file,     -f <PATH>  Path to NDJSON file (required)\n\
+             --batch,    -b <N>     Docs per batch (default 5000)\n\
+             --workers,  -w <N>     Parallel ingest workers (default = num_cpus)\n\
+             --limit,    -l <N>     Ingest only the first N lines (default: all)\n\
+             --config,   -c <PATH>  Path to TOML config file\n\
+             --data-dir, -d <PATH>  Override data directory\n\
+             --help,     -h         Show this help\n\
+         \n\
+         Bypasses HTTP/axum entirely. Bytes are pushed straight into\n\
+         index_batch_turbo_raw via rayon workers. Use this for maximum\n\
+         single-node ingest throughput — it's the xerj equivalent of\n\
+         Lucene's IndexWriter fed from a file."
+    );
+}
+
+/// Run the `xerj index` subcommand — direct NDJSON → engine ingest.
+///
+/// Memory-maps the file, finds newline boundaries in parallel via rayon,
+/// chunks into batches of `batch` complete NDJSON lines, then dispatches
+/// batches concurrently to `index_batch_turbo_raw`.  Zero HTTP overhead,
+/// zero axum/hyper, zero per-item response JSON serialisation, and zero
+/// file-reader thread contention — the whole file is `&[u8]` in memory and
+/// all 32 cores can scan chunks of it in parallel.
+async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
+    use std::sync::Arc as StdArc;
+    use tokio::sync::Semaphore;
+
+    init_tracing();
+
+    // Load config but override to a minimal in-process shape.
+    let fake_cli = CliArgs {
+        config: cmd.config.clone(),
+        data_dir: cmd.data_dir.clone(),
+        insecure: true,
+    };
+    let mut cfg = load_config(&fake_cli)?;
+    cfg.tls.enabled = false;
+    cfg.auth.enabled = false;
+    cfg.cluster.enabled = false;
+
+    std::fs::create_dir_all(&cfg.server.data_dir)
+        .with_context(|| format!("create data dir {}", cfg.server.data_dir))?;
+
+    info!(
+        index = cmd.index.as_str(),
+        file = %cmd.file.display(),
+        batch = cmd.batch,
+        workers = cmd.workers,
+        "xerj CLI index: starting"
+    );
+
+    // Open the engine.  This replays any WAL and opens existing segments.
+    let engine = Engine::new(cfg.clone()).context("initialise engine")?;
+    let index = engine
+        .get_or_create_index(&cmd.index)
+        .with_context(|| format!("get_or_create_index({})", cmd.index))?;
+
+    let batch_size = cmd.batch.max(1);
+    let workers = if cmd.workers == 0 {
+        std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(8)
+    } else {
+        cmd.workers
+    };
+
+    // Semaphore bounds in-flight ingest work so we don't balloon memory
+    // with pre-built batches on a slow engine.
+    let sem = StdArc::new(Semaphore::new(workers * 2));
+
+    // M5.14 — memory-map the NDJSON file and let rayon scan chunks of
+    // it in parallel to find newline boundaries.  This replaces the
+    // pre-M5.14 BufReader::lines() loop that was pinned to one thread
+    // at ~400 MB/s and became the hot-path bottleneck once xerj was
+    // doing 900k docs/s peak.
+    let file = std::fs::File::open(&cmd.file)
+        .with_context(|| format!("open {}", cmd.file.display()))?;
+    let file_size = file.metadata().map(|m| m.len()).unwrap_or(0);
+    let mmap: memmap2::Mmap = unsafe { memmap2::Mmap::map(&file) }
+        .with_context(|| format!("mmap {}", cmd.file.display()))?;
+    // Advise the kernel that we'll read sequentially and that we plan
+    // to need the whole thing — lets it pre-fetch aggressively.
+    #[cfg(target_os = "linux")]
+    {
+        let _ = mmap.advise(memmap2::Advice::Sequential);
+        let _ = mmap.advise(memmap2::Advice::WillNeed);
+    }
+    let data: &'static [u8] = unsafe {
+        // SAFETY: we keep `mmap` alive for the rest of this function
+        // so the 'static promise holds for the duration of the batches
+        // we dispatch from it.  We join all JoinHandles before dropping
+        // the mmap.
+        std::slice::from_raw_parts(mmap.as_ptr(), mmap.len())
+    };
+
+    let start = std::time::Instant::now();
+    let total_sent = StdArc::new(std::sync::atomic::AtomicU64::new(0));
+    let total_errs = StdArc::new(std::sync::atomic::AtomicU64::new(0));
+
+    // Progress reporter — prints every 5 s.
+    let report_sent = StdArc::clone(&total_sent);
+    let report_errs = StdArc::clone(&total_errs);
+    let reporter = tokio::spawn(async move {
+        let t0 = std::time::Instant::now();
+        let mut last_sent = 0u64;
+        let mut last_t = t0;
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            let now = std::time::Instant::now();
+            let sent = report_sent.load(std::sync::atomic::Ordering::Relaxed);
+            let errs = report_errs.load(std::sync::atomic::Ordering::Relaxed);
+            let win_rate = (sent - last_sent) as f64 / (now - last_t).as_secs_f64();
+            let avg_rate = sent as f64 / (now - t0).as_secs_f64();
+            eprintln!(
+                "[{:6.1}s] sent={sent:>12} errs={errs} win_rate={win_rate:>10.0}/s avg_rate={avg_rate:>10.0}/s",
+                (now - t0).as_secs_f64()
+            );
+            last_sent = sent;
+            last_t = now;
+        }
+    });
+
+    // M9 — fully synchronous ingest path.
+    //
+    // Pre-M9, rayon workers called `rt_handle.block_on(submit_batch)`
+    // to cross into tokio and invoke the async `index_batch_turbo_raw`.
+    // strace profiling showed 84 % of syscall time was futex, ~40 % of
+    // which was this rayon↔tokio crossing (2-4 wake/wait pairs per
+    // batch).  Now rayon workers call `idx.index_batch_sync_raw` — a
+    // pure synchronous function — with zero tokio involvement.  Back-
+    // pressure is expressed inside the engine via `parking_lot::Condvar`
+    // (one futex pair per wait) and flush scheduling is owned by a
+    // dedicated OS thread (`xerj-flusher-<name>`).
+    //
+    // The per-batch CLI semaphore that used to bound in-flight work is
+    // gone: the engine's Condvar back-pressure already caps memtable
+    // size at `3 × flush_threshold`.
+
+    let n_scanners = workers;
+    let chunk_size = (data.len() / n_scanners).max(1);
+
+    let mut boundaries: Vec<usize> = Vec::with_capacity(n_scanners + 1);
+    boundaries.push(0);
+    for i in 1..n_scanners {
+        let approx = i * chunk_size;
+        if approx >= data.len() {
+            break;
+        }
+        let mut pos = approx;
+        while pos < data.len() && data[pos] != b'\n' {
+            pos += 1;
+        }
+        if pos < data.len() {
+            pos += 1;
+        }
+        boundaries.push(pos);
+    }
+    boundaries.push(data.len());
+    boundaries.dedup();
+
+    let _ = &sem; // keep sem in scope for name-shadowing parity; unused on sync path.
+    let limit = cmd.limit;
+    let idx_for_rayon: std::sync::Arc<xerj_engine::Index> = std::sync::Arc::clone(&index);
+    let sent_for_rayon = StdArc::clone(&total_sent);
+    let errs_for_rayon = StdArc::clone(&total_errs);
+
+    let scan_result = tokio::task::spawn_blocking(move || {
+        use rayon::prelude::*;
+        let pairs: Vec<(usize, usize)> = boundaries
+            .windows(2)
+            .map(|w| (w[0], w[1]))
+            .collect();
+
+        let seen = std::sync::atomic::AtomicU64::new(0);
+
+        pairs
+            .par_iter()
+            .enumerate()
+            .for_each(|(scanner_idx, &(start, end))| {
+                if limit > 0
+                    && seen.load(std::sync::atomic::Ordering::Relaxed)
+                        >= limit as u64
+                {
+                    return;
+                }
+                let chunk = &data[start..end];
+                let mut cursor = 0usize;
+                let mut current: Vec<(String, StdArc<[u8]>)> =
+                    Vec::with_capacity(batch_size);
+
+                // Synchronous submit with back-pressure retry.  The engine
+                // returns ResourceExhausted only when memtable > 3× flush
+                // threshold (after the internal Condvar wait has already
+                // let the flusher drain).  Clone the batch up-front because
+                // a successful call consumes it; retry uses a sibling clone.
+                let submit = |batch: Vec<(String, StdArc<[u8]>)>| {
+                    let n = batch.len() as u64;
+                    let mut retry: Vec<(String, StdArc<[u8]>)> = batch
+                        .iter()
+                        .map(|(id, b)| (id.clone(), StdArc::clone(b)))
+                        .collect();
+                    let mut current_batch = Some(batch);
+                    let mut attempts: u32 = 0;
+                    loop {
+                        let b = current_batch.take().unwrap();
+                        match idx_for_rayon.index_batch_sync_raw(b) {
+                            Ok(_) => {
+                                sent_for_rayon.fetch_add(
+                                    n,
+                                    std::sync::atomic::Ordering::Relaxed,
+                                );
+                                return;
+                            }
+                            Err(xerj_engine::EngineError::Common(
+                                xerj_common::XerjError::ResourceExhausted { .. },
+                            )) if attempts < 240 => {
+                                attempts += 1;
+                                // The engine's Condvar already waited up to
+                                // 50 ms; add a tiny thread::sleep to avoid
+                                // a tight busy-loop on persistent back-
+                                // pressure (flusher is clearly saturated).
+                                std::thread::sleep(
+                                    std::time::Duration::from_millis(5),
+                                );
+                                let reclone: Vec<(String, StdArc<[u8]>)> = retry
+                                    .iter()
+                                    .map(|(id, b)| (id.clone(), StdArc::clone(b)))
+                                    .collect();
+                                current_batch =
+                                    Some(std::mem::replace(&mut retry, reclone));
+                            }
+                            Err(e) => {
+                                error!("batch ingest error: {e}");
+                                errs_for_rayon.fetch_add(
+                                    n,
+                                    std::sync::atomic::Ordering::Relaxed,
+                                );
+                                return;
+                            }
+                        }
+                    }
+                };
+
+                while cursor < chunk.len() {
+                    let nl_rel = memchr::memchr(b'\n', &chunk[cursor..])
+                        .unwrap_or(chunk.len() - cursor);
+                    let line_end = cursor + nl_rel;
+                    let line = &chunk[cursor..line_end];
+                    cursor = line_end + 1;
+                    if line.is_empty() {
+                        continue;
+                    }
+
+                    let seq =
+                        seen.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if limit > 0 && seq >= limit as u64 {
+                        break;
+                    }
+
+                    let bytes: StdArc<[u8]> = StdArc::from(line);
+                    let doc_id = format!("{scanner_idx}_{seq}");
+                    current.push((doc_id, bytes));
+
+                    if current.len() >= batch_size {
+                        let batch = std::mem::replace(
+                            &mut current,
+                            Vec::with_capacity(batch_size),
+                        );
+                        submit(batch);
+                    }
+                }
+                if !current.is_empty() {
+                    submit(current);
+                }
+            });
+    });
+
+    scan_result.await.context("mmap scan task")?;
+
+    // Capture ingest-only time (WAL + memtable, durable) BEFORE the
+    // final drain-to-disk kicks in.
+    let ingest_elapsed = start.elapsed();
+    let sent_at_ingest = total_sent.load(std::sync::atomic::Ordering::Relaxed);
+
+    reporter.abort();
+
+    // Force a final flush UNCONDITIONALLY so every run finishes
+    // segment-durable (not memtable-only).  `flush_all_if_needed`
+    // skips the drain when the memtable is below the configured
+    // threshold, which made some runs falsely look faster because
+    // they left data in memtable instead of on disk.
+    let flush_start = std::time::Instant::now();
+    if let Err(e) = index.flush().await {
+        error!("final flush error: {e}");
+    }
+    let flush_elapsed = flush_start.elapsed();
+
+    let elapsed = start.elapsed();
+    let sent = total_sent.load(std::sync::atomic::Ordering::Relaxed);
+    let errs = total_errs.load(std::sync::atomic::Ordering::Relaxed);
+    let total_rate = sent as f64 / elapsed.as_secs_f64();
+    let ingest_rate = sent_at_ingest as f64 / ingest_elapsed.as_secs_f64();
+
+    println!();
+    println!("═══════════════════════════════════════════════════════════");
+    println!(" xerj index: complete");
+    println!("═══════════════════════════════════════════════════════════");
+    println!(" index          : {}", cmd.index);
+    println!(" file           : {}", cmd.file.display());
+    println!(" file size      : {} MB", file_size / (1024 * 1024));
+    println!(" docs sent      : {}", sent);
+    println!(" errors         : {}", errs);
+    println!(" ingest time    : {:.2} s", ingest_elapsed.as_secs_f64());
+    println!(" ingest rate    : {:.0} docs/s  (WAL-durable, in-memtable)", ingest_rate);
+    println!(" final flush    : {:.2} s", flush_elapsed.as_secs_f64());
+    println!(" total elapsed  : {:.2} s", elapsed.as_secs_f64());
+    println!(" total rate     : {:.0} docs/s  (fully segment-durable)", total_rate);
+    println!(" workers        : {}", workers);
+    println!(" batch size     : {}", batch_size);
+    println!("═══════════════════════════════════════════════════════════");
+
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Subcommand dispatch — check argv[1] before any other parsing.
+    let argv1 = std::env::args().nth(1);
+    if matches!(argv1.as_deref(), Some("index")) {
+        let cmd = parse_index_args();
+        return run_cli_index(cmd).await;
+    }
+
+    // 0. Record startup time as early as possible.
+    let startup_start = std::time::Instant::now();
+
+    // 1. CLI args
+    let args = parse_args();
+
+    // 2. Tracing (must be first so startup is logged)
+    init_tracing();
+
+    info!("xerj v{} starting", env!("CARGO_PKG_VERSION"));
+
+    // 3. Config
+    let mut cfg = load_config(&args)?;
+
+    // 4. Data directory
+    std::fs::create_dir_all(&cfg.server.data_dir)
+        .with_context(|| format!("create data dir {}", cfg.server.data_dir))?;
+
+    // 5. Admin key (first-run)
+    ensure_admin_key(&mut cfg)?;
+
+    // 6. TLS certificate
+    if let Err(e) = ensure_tls_cert(&mut cfg) {
+        error!("TLS setup failed ({e:#}) — falling back to plain HTTP");
+        cfg.tls.enabled = false;
+    }
+
+    // 7. Metrics
+    let metrics = Metrics::new().context("initialise metrics")?;
+
+    // 8. Engine (opens existing indices from disk)
+    let engine = Engine::new(cfg.clone()).context("initialise engine")?;
+
+    // 8b. Cluster runner (if cluster mode is enabled)
+    let _cluster_shutdown = if cfg.cluster.enabled {
+        let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+
+        // Parse peer list: "node_id=host:port" entries.
+        let mut peers = std::collections::HashMap::new();
+        for peer_str in &cfg.cluster.peers {
+            if let Some((id, addr_str)) = peer_str.split_once('=') {
+                match addr_str.parse::<std::net::SocketAddr>() {
+                    Ok(addr) => { peers.insert(id.to_string(), addr); }
+                    Err(e) => warn!("cluster: ignoring invalid peer {peer_str}: {e}"),
+                }
+            } else {
+                warn!("cluster: ignoring malformed peer entry {peer_str} (expected id=host:port)");
+            }
+        }
+
+        // Derive this node's listen address from the server bind address + cluster port.
+        let node_id = format!(
+            "{}:{}",
+            cfg.server.bind_address, cfg.cluster.port
+        );
+        let listen_addr: std::net::SocketAddr = format!(
+            "{}:{}",
+            cfg.server.bind_address, cfg.cluster.port
+        )
+        .parse()
+        .context("parse cluster listen address")?;
+
+        let tick = std::time::Duration::from_millis(cfg.cluster.tick_ms);
+
+        match TcpTransport::new(node_id.clone(), listen_addr, peers).await {
+            Ok(transport) => {
+                let peer_ids: Vec<String> = cfg
+                    .cluster
+                    .peers
+                    .iter()
+                    .filter_map(|p| p.split_once('=').map(|(id, _)| id.to_string()))
+                    .collect();
+
+                let node = ClusterNode::new(node_id.clone(), peer_ids, Box::new(transport));
+                let mut runner = ClusterRunner::new(node, tick, shutdown_rx);
+
+                info!(node = %node_id, "Starting cluster runner (Raft mode)");
+                tokio::spawn(async move { runner.run().await });
+            }
+            Err(e) => {
+                error!("Failed to start cluster TCP transport: {e:#}");
+                warn!("Continuing in degraded single-node mode");
+            }
+        }
+
+        Some(shutdown_tx)
+    } else {
+        info!("Cluster mode disabled — running in single-node mode");
+        None
+    };
+
+    // 9. Xerj Console bootstrap.  Creates `.xerj_*` system indices on first
+    //    boot, persists a 32-byte master key under data_dir/.xerj_master_key
+    //    (mode 0600), and prints the first-launch magic-link banner to
+    //    stderr if no active user exists yet.  Idempotent on reboot.
+    let xerj_console_bind_url = format!(
+        "http://{}:{}",
+        if cfg.server.bind_address == "0.0.0.0" || cfg.server.bind_address == "::" {
+            "localhost"
+        } else {
+            cfg.server.bind_address.as_str()
+        },
+        cfg.server.es_compat_port,
+    );
+    let xerj_console_outcome = xerj_console_api::bootstrap::run(
+        &engine,
+        Path::new(&cfg.server.data_dir),
+        &xerj_console_bind_url,
+    )
+    .await
+    .context("xerj-console bootstrap")?;
+
+    let xerj_console_node_id: String = if cfg.cluster.enabled {
+        format!("{}:{}", cfg.server.bind_address, cfg.cluster.port)
+    } else {
+        "local".to_string()
+    };
+    let xerj_console_cluster_mode = if cfg.cluster.enabled {
+        ClusterMode::Raft
+    } else {
+        ClusterMode::Standalone
+    };
+    let xerj_console_state = ConsoleState::new(
+        engine.clone(),
+        xerj_console_node_id,
+        xerj_console_outcome.master_key,
+        xerj_console_cluster_mode,
+    );
+
+    // 9b. Application state
+    let state = AppState::new(cfg.clone(), engine, metrics);
+
+    // 9c. Routers — engine and Xerj Console are *peer* surfaces.  Each crate
+    //     builds a complete Router (routes + its own auth + its own
+    //     middleware) and `xerj-server` merges them onto the same TCP
+    //     listeners.  Engine layers (admin Bearer auth) apply only to
+    //     engine routes; Xerj Console's session-cookie auth applies only to
+    //     /_xerj-console/api/v1/* routes.  Yanking xerj-console-api out of this
+    //     merge would leave xerj-api compiling and serving on its own
+    //     — a property worth preserving.
+    let xerj_console_router = xerj_console_api::xerj_console_router(xerj_console_state);
+    let native_router =
+        build_native_router(state.clone()).merge(xerj_console_router.clone());
+    let es_router =
+        build_es_compat_router(state.clone()).merge(xerj_console_router);
+
+    // 10. Banner (includes total startup time)
+    let startup_ms = startup_start.elapsed().as_millis();
+    info!("startup complete in {}ms", startup_ms);
+    print_banner(&cfg, startup_ms);
+
+    // 11. Bind addresses
+    let bind = &cfg.server.bind_address;
+    let rest_addr: SocketAddr = format!("{}:{}", bind, cfg.server.rest_port)
+        .parse()
+        .context("parse REST bind address")?;
+    let es_addr: SocketAddr = format!("{}:{}", bind, cfg.server.es_compat_port)
+        .parse()
+        .context("parse ES-compat bind address")?;
+    let grpc_addr: SocketAddr = format!("{}:{}", bind, cfg.server.grpc_port)
+        .parse()
+        .context("parse gRPC bind address")?;
+
+    // 12. Background flush timer
+    let flush_interval = std::time::Duration::from_secs(cfg.storage.flush_interval_secs);
+    let flush_engine = state.engine.clone();
+    let flusher = tokio::spawn(async move {
+        let mut interval = tokio::time::interval(flush_interval);
+        interval.tick().await; // skip the immediate first tick
+        loop {
+            interval.tick().await;
+            flush_engine.flush_all_if_needed().await;
+        }
+    });
+
+    // 13. Start servers concurrently
+    let rest = tokio::spawn(async move {
+        if let Err(e) = serve(native_router, rest_addr, "native REST").await {
+            error!("native REST: {e:#}");
+        }
+    });
+
+    let es = tokio::spawn(async move {
+        if let Err(e) = serve(es_router, es_addr, "ES-compat").await {
+            error!("ES-compat: {e:#}");
+        }
+    });
+
+    let grpc = tokio::spawn(async move {
+        serve_grpc_placeholder(grpc_addr).await;
+    });
+
+    // 14. Wait for all servers (they exit together on shutdown)
+    flusher.abort(); // flusher runs until servers stop
+    let _ = tokio::join!(rest, es, grpc);
+
+    // 15. Final synchronous flush across every index.
+    //
+    // The graceful-shutdown future fires on SIGTERM/SIGINT and stops axum
+    // from accepting new connections, but it does NOT drain the engine's
+    // in-memory memtables to durable segments.  Without this final pass,
+    // any docs that were bulk-ingested after the last auto-flush threshold
+    // crossing live only in the WAL until the next startup — and an index
+    // whose memtable never reached that threshold (small batches, brief
+    // sessions) loses 100 % of its data on restart because startup index
+    // discovery looks for segment-bearing directories first.  See POV
+    // report 2026-04-24T23-58-00 (B-2) for the full failure mode.
+    info!("flushing in-memory state before exit…");
+    let flush_started = std::time::Instant::now();
+    state.engine.flush_all_force().await;
+    info!("final flush complete in {:.0?}", flush_started.elapsed());
+
+    info!("xerj v{} stopped. Goodbye.", env!("CARGO_PKG_VERSION"));
+    Ok(())
+}

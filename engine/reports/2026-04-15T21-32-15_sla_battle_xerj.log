@@ -1,0 +1,294 @@
+SLA Battle Tests against xerj @ localhost:9800
+Date: Wed Apr 15 09:32:15 PM MDT 2026
+---
+xerj Battle SLA Test Suite
+Output → /home/claude/ai/zeebb.ai/engine/BATTLE_SLA_RESULTS_2026-04-15_21-32-15.md
+
+[21:32:15] 
+[21:32:15] === BUILD ===
+[21:32:15]   PASS: Binary found: /home/claude/ai/zeebb.ai/engine/target/release/xerj
+[21:32:15] 
+[21:32:15] === SERVER STARTUP ===
+[21:32:15]   CMD : /home/claude/ai/zeebb.ai/engine/target/release/xerj --config /tmp/tmp.tEl8hU5y8b.toml --insecure
+[21:32:15]   INFO: PID 616773 — waiting for port 19200...
+
+  ██████╗ ███████╗███████╗██████╗ ██████╗ 
+ ╚════██╗██╔════╝██╔════╝██╔══██╗██╔══██╗
+  █████╔╝█████╗  █████╗  ██████╔╝██████╔╝
+  ╚═══██╗██╔══╝  ██╔══╝  ██╔══██╗██╔══██╗
+ ██████╔╝███████╗███████╗██████╔╝██████╔╝ 
+ ╚═════╝ ╚══════╝╚══════╝╚═════╝ ╚═════╝  v0.1.0
+
+ byte-perfect from design to code
+
+ Native REST  :19080 [plain]
+ ES-compat    :19200 [plain]
+ gRPC         :19081 [placeholder]
+ Data dir     /tmp/tmp.6wMhdZquUO
+ Started in   1ms
+
+[21:32:15]   PASS: Server listening on :19200 (PID 616773)
+[21:32:15]   INFO: RSS at startup (empty): 16036 kB (15 MiB)
+[21:32:15] 
+[21:32:15] === TEST 01 — Operational Complexity (feedback/01) ===
+[21:32:15] Scenario: Deploy, create index, bulk-index 10 docs, search — all under 60 seconds
+[21:32:15] ES comparison: requires Java install, JVM heap tuning, security config, 60+ sec startup
+[21:32:15] 
+[21:32:15]   CMD : curl -s http://localhost:19200/
+[21:32:15]   PASS: Root / returns ES 8.x-compatible response
+[21:32:15]   CMD : curl -sf -X PUT http://localhost:19200/ops-test
+[21:32:15]   PASS: PUT /ops-test → 200 OK
+[21:32:15]   CMD : POST http://localhost:19200/_bulk  (10 docs)
+[21:32:15]   PASS: POST /_bulk 10 docs → 200 OK
+[21:32:15]   CMD : POST http://localhost:19200/ops-test/_search  {"query":{"match_all":{}}}
+[21:32:15]   PASS: Search returned 10 hits
+[21:32:15]   PASS: Total scenario time: 58ms (well under 60 s)
+[21:32:15]   INFO: Equivalent ES commands (port 9200): PUT /ops-test, POST /_bulk, POST /ops-test/_search
+[21:32:15] 
+[21:32:15] === TEST 02 — Cost and Pricing (feedback/02) ===
+[21:32:15] Scenario: Measure actual RSS memory while actively serving requests
+[21:32:15] ES comparison: JVM minimum heap is 1 GiB; large deployments need 64–256 GiB
+[21:32:15] 
+[21:32:16]   CMD : POST http://localhost:19200/_bulk (1 000 docs)
+[21:32:16]   PASS: 1 000 docs indexed → 200
+[21:32:16]   INFO: RSS after 1 000 docs: 25728 kB (25 MiB)
+[21:32:16]   PASS: RSS 25 MiB < 512 MiB threshold
+[21:32:16]   INFO: Cost delta: xerj self-hosted on 2 GiB VM ≈ $20/month vs Elastic Cloud basic ≈ $95/month/node
+[21:32:16] 
+[21:32:16] === TEST 03 — JVM and Memory (feedback/03) ===
+[21:32:16] Scenario: Measure RSS at startup, after 1 K docs, after 10 K docs
+[21:32:16] ES comparison: default JVM heap = 1 GiB reserved at start; typical prod = 30+ GiB
+[21:32:16] 
+[21:32:16]   INFO: RSS at startup (recorded earlier): 16036 kB (15 MiB)
+[21:32:16]   PASS: Startup RSS 15 MiB < 512 MiB
+[21:32:43]   CMD : POST http://localhost:19200/_bulk (9 000 docs for mem-test, total 10 K)
+[21:32:43]   PASS: 9 000 more docs indexed
+[21:32:43]   INFO: RSS after ~10 K docs: 39824 kB (38 MiB) — grew 23 MiB
+[21:32:43]   PASS: RSS 38 MiB < 1 GiB after 10 K docs
+[21:32:43]   INFO: ES starts with 1 GiB pre-allocated heap before the first document is indexed
+[21:32:43] 
+[21:32:43] === TEST 04 — Scaling and Shards (feedback/04) ===
+[21:32:43] Scenario: Create 100 indices in rapid succession — measure total time
+[21:32:43] ES comparison: each index creates N shards; cluster rebalances after every PUT
+[21:32:43] 
+[21:32:44]   PASS: All 100 indices created (0 failures)
+[21:32:44]   PASS: 100 indices created in 411ms (< 10 s)
+[21:32:44]   CMD : GET http://localhost:19200/_cat/indices
+[21:32:44]   INFO: _cat/indices returned 103 index lines total
+[21:32:44]   PASS: _cat/indices lists ≥ 100 entries
+[21:32:44]   INFO: ES: 100 indices × 1 shard = 100 Lucene directories; reassignment triggers cluster rebalance
+[21:32:44] 
+[21:32:44] === TEST 05 — Licensing and Trust (feedback/05) ===
+[21:32:44] Scenario: Verify license file exists and contains OSS terms; no feature-gate headers
+[21:32:44] ES comparison: SSPL is not OSI-approved; core features gated behind subscription tiers
+[21:32:44] 
+[21:32:44]   FAIL: No LICENSE file found at /home/claude/ai/zeebb.ai/engine/LICENSE
+[21:32:44]   INFO: Cargo.toml license field: Apache-2.0
+[21:32:44]   PASS: Cargo.toml declares license: Apache-2.0
+[21:32:44]   CMD : curl -sI http://localhost:19200/_cluster/health
+[21:32:44]   PASS: No license-gate headers — all endpoints freely accessible
+[21:32:44]   INFO: Reproducible check against ES: curl -sI http://localhost:9200/_cluster/health | grep -i license
+[21:32:44] 
+[21:32:44] === TEST 06 — Upgrades and Migrations (feedback/06) ===
+[21:32:44] Scenario: Index data → kill server → restart → verify data intact (WAL persistence)
+[21:32:44] ES comparison: major-version upgrades require full reindex or rolling restarts
+[21:32:44] 
+[21:32:44]   CMD : POST http://localhost:19200/_bulk (50 pre-upgrade docs)
+[21:32:44]   PASS: 50 docs indexed before simulated upgrade
+[21:32:44]   CMD : POST http://localhost:19200/upgrade-test/_refresh
+[21:32:44]   INFO: Killing server (PID 616773)...
+[21:38:14]   INFO: Restarting server (simulate upgrade)...
+
+  ██████╗ ███████╗███████╗██████╗ ██████╗ 
+ ╚════██╗██╔════╝██╔════╝██╔══██╗██╔══██╗
+  █████╔╝█████╗  █████╗  ██████╔╝██████╔╝
+  ╚═══██╗██╔══╝  ██╔══╝  ██╔══██╗██╔══██╗
+ ██████╔╝███████╗███████╗██████╔╝██████╔╝ 
+ ╚═════╝ ╚══════╝╚══════╝╚═════╝ ╚═════╝  v0.1.0
+
+ byte-perfect from design to code
+
+ Native REST  :19080 [plain]
+ ES-compat    :19200 [plain]
+ gRPC         :19081 [placeholder]
+ Data dir     /tmp/tmp.6wMhdZquUO
+ Started in   47ms
+
+[21:38:14]   PASS: Server restarted successfully (PID 618719)
+[21:38:14]   CMD : GET http://localhost:19200/upgrade-test/_count
+[21:38:14]   INFO: Doc count after restart: 50 (expected 50)
+[21:38:14]   PASS: All 50 docs survived restart (WAL replay succeeded)
+[21:38:14]   INFO: ES: index data persists across restarts but requires fsync settings; major upgrades need migration
+[21:38:14] 
+[21:38:14] === TEST 07 — Query and Performance (feedback/07) ===
+[21:38:14] Scenario: deep pagination via search_after, bool/range/aggs, measure p99 latency
+[21:38:14] ES comparison: from+size capped at 10 000; search_after works but cursors expire
+[21:38:14] 
+[21:38:14]   CMD : POST http://localhost:19200/_bulk (500 docs for perf-test)
+[21:38:14]   PASS: 500 docs indexed for perf tests
+[21:38:14]   CMD : POST http://localhost:19200/perf-test/_search  bool+range query
+[21:38:14]   FAIL: bool+range returned 0 (expected 100)
+[21:38:14]   CMD : POST http://localhost:19200/perf-test/_search  terms agg on category
+[21:38:14]   FAIL: terms aggregation returned 0 buckets (expected ≥ 1)
+[21:38:14]   CMD : POST http://localhost:19200/perf-test/_search  search_after page 1 (size 50)
+[21:38:14]   CMD : POST http://localhost:19200/perf-test/_search  search_after page 2 (cursor=None)
+[21:38:14]   PASS: search_after page 2: 10 hits (no 10 K limit)
+[21:38:14]   INFO: Average search latency over 20 sequential calls: 3ms
+[21:38:14]   PASS: Average search latency 3ms < 100ms
+[21:38:14] 
+[21:38:14] === TEST 08 — Data Model Limitations (feedback/08) ===
+[21:38:14] Scenario: dynamic mapping — add new fields across docs without reindex
+[21:38:14] ES comparison: adding a new field to a closed mapping requires full reindex
+[21:38:14] 
+[21:38:14]   CMD : PUT http://localhost:19200/schema-test/_doc/1  {"name":"alice","age":30}
+[21:38:14]   FAIL: Doc 1 → 201
+[21:38:14]   CMD : PUT http://localhost:19200/schema-test/_doc/2  {"name":"bob","age":25,"email":"bob@example.com"}
+[21:38:14]   FAIL: Doc 2 → 201
+[21:38:14]   CMD : PUT http://localhost:19200/schema-test/_doc/3  {"name":"carol","score":99.5,"tags":["admin","dev"]}
+[21:38:14]   FAIL: Doc 3 → 201
+[21:38:14]   CMD : POST http://localhost:19200/schema-test/_search  {"query":{"exists":{"field":"email"}}}
+[21:38:14]   PASS: exists query on new field 'email' returned 1 hit
+[21:38:14]   CMD : GET http://localhost:19200/schema-test/_mapping
+[21:38:14]   INFO: Mapping now has 5 top-level properties
+[21:38:14]   PASS: Dynamic mapping grew to 5 fields (no reindex required)
+[21:38:14]   INFO: ES: requires PUT /index/_mapping + potential conflicts resolved only via reindex
+[21:38:14] 
+[21:38:15] === TEST 09 — Security (feedback/09) ===
+[21:38:15] Scenario: start xerj WITHOUT --insecure; verify unauthenticated requests are rejected
+[21:38:15] ES comparison: ES 7.x shipped with security OFF by default; 8.x finally enabled it
+[21:38:15] 
+[21:38:15]   CMD : /home/claude/ai/zeebb.ai/engine/target/release/xerj --config /tmp/tmp.HJOD54pWzE.toml  (secure mode — auth enabled, no --insecure)
+
+  ██████╗ ███████╗███████╗██████╗ ██████╗ 
+ ╚════██╗██╔════╝██╔════╝██╔══██╗██╔══██╗
+  █████╔╝█████╗  █████╗  ██████╔╝██████╔╝
+  ╚═══██╗██╔══╝  ██╔══╝  ██╔══██╗██╔══██╗
+ ██████╔╝███████╗███████╗██████╔╝██████╔╝ 
+ ╚═════╝ ╚══════╝╚══════╝╚═════╝ ╚═════╝  v0.1.0
+
+ byte-perfect from design to code
+
+ Native REST  :19082 [plain]
+ ES-compat    :19201 [plain]
+ gRPC         :19083 [placeholder]
+ Data dir     /tmp/tmp.kUNxJAOvoh
+ Started in   1ms
+
+[21:38:29]   FAIL: Secure server did not start within 15 s
+[21:38:29]   CMD : curl -sf -o /dev/null -w '%{http_code}' http://localhost:19201/_cluster/health  (no auth)
+[21:38:29]   INFO: Unauthenticated response code: 401000
+[21:38:29]   FAIL: Unauthenticated request returned 401000 (expected 401)
+[21:38:29]   CMD : curl with wrong ApiKey
+[21:38:29]   FAIL: Wrong API key returned 401000 (expected 401)
+[21:38:29]   CMD : curl with correct ApiKey
+[21:38:29]   PASS: Correct API key accepted → 200 OK
+[21:38:29]   INFO: ES 7.x: auth was disabled by default; anyone on the network could read/delete all data
+[21:38:29]   INFO: Verify against ES: curl http://localhost:9200/_cluster/health (should return 401 on ES 8.x)
+[21:38:29] 
+[21:38:29] === TEST 10 — Documentation and UX (feedback/10) ===
+[21:38:29] Scenario: count user-facing config settings in xerj.default.toml
+[21:38:29] ES comparison: elasticsearch.yml has 3000+ documented properties
+[21:38:29] 
+[21:38:29]   INFO: Total key=value lines in xerj.default.toml: 43
+[21:38:29]   PASS: Config has 43 settings (Elasticsearch has 3000+)
+[21:38:29]   INFO: Documentation comment lines: 206
+[21:38:29]   PASS: Every setting has inline documentation (206 comment lines)
+[21:38:29]   INFO: Config sections: 12
+[21:38:29]   PASS: Config organised into 12 named sections
+[21:38:29]   INFO: ES: elasticsearch.yml has 3000+ properties; finding the right one requires expert knowledge
+[21:38:29] 
+[21:38:29] === TEST 11 — AI and Vector Search (feedback/11) ===
+[21:38:29] Scenario: index docs with 4-dim vectors, run KNN search, measure latency
+[21:38:29] ES comparison: limited to 4096 dims; dense_vector requires explicit mapping
+[21:38:29] 
+[21:38:29]   CMD : PUT http://localhost:19200/vector-test
+[21:38:29]   PASS: Vector index created with explicit dense_vector mapping
+[21:38:30]   CMD : POST http://localhost:19200/_bulk  (20 docs with 4-dim vectors)
+[21:38:30]   PASS: 20 docs with embeddings indexed
+[21:38:30]   CMD : POST http://localhost:19200/vector-test/_search  knn:{query_vector:[0.1,0.2,0.3,0.4],k:5}
+[21:38:30]   FAIL: KNN search returned 0 (expected ≥ 1)
+[21:38:30]   INFO: KNN search latency: 6ms
+[21:38:30]   PASS: KNN latency 6ms < 500ms
+[21:38:30]   CMD : POST http://localhost:19200/vector-test/_analyze  {"analyzer":"standard","text":"Hello World"}
+[21:38:30]   PASS: _analyze returns 2 tokens for 'Hello World'
+[21:38:30]   INFO: xerj supports up to 16 384 dimensions — 4× ES's 4 096 limit
+[21:38:30]   INFO: ES comparison: PUT /vector-test/_mapping requires explicit mapping before first doc
+[21:38:30] 
+[21:38:30] === TEST 12 — Log Analytics (feedback/12) ===
+[21:38:30] Scenario: index 10 000 log entries, measure on-disk size
+[21:38:30] ES comparison: inverted index + doc-values + stored fields ≈ 5–8× raw data
+[21:38:30] 
+..........
+[21:38:34]   PASS: 10 000 log entries indexed
+[21:38:34]   CMD : POST http://localhost:19200/logs-test/_refresh
+[21:38:34]   INFO: On-disk size for 10 000 log docs: 1930 kB (1976900 bytes)
+[21:38:34]   INFO: Approximate storage ratio vs raw JSON: 1.9×
+[21:38:34]   PASS: Storage ≤ 50 MiB for 10 K log docs
+[21:38:34]   CMD : POST http://localhost:19200/logs-test/_search  range on @timestamp
+[21:38:34]   FAIL: Time-range query returned 0 (expected ≥ 1)
+[21:38:34]   INFO: ES: Lucene inverted index + doc-values + stored-fields = 5–8× raw size before snapshots
+[21:38:34] 
+[21:38:34] === TEST 13 — Vendor and Support (feedback/13) ===
+[21:38:34] Scenario: verify all operational endpoints respond quickly (< 200ms each)
+[21:38:34] ES comparison: _cluster/health can hang during recovery; _nodes/stats requires auth
+[21:38:34] 
+[21:38:34]   CMD : GET $ES/_cluster/health
+[21:38:34]   PASS: health → 200 in 7ms
+[21:38:34]   CMD : GET $ES/_cluster/stats
+[21:38:34]   PASS: stats → 200 in 6ms
+[21:38:34]   CMD : GET $ES/_cat/indices
+[21:38:34]   PASS: indices → 200 in 6ms
+[21:38:34]   CMD : GET $ES/_cat/health
+[21:38:34]   PASS: health → 200 in 6ms
+[21:38:34]   CMD : GET $ES/_cat/nodes
+[21:38:34]   PASS: nodes → 200 in 6ms
+[21:38:34]   CMD : GET $ES/_nodes/stats
+[21:38:34]   PASS: stats → 200 in 6ms
+[21:38:34]   CMD : GET http://localhost:19200/_tasks
+[21:38:34]   PASS: _tasks → 200
+[21:38:34]   INFO: ES: _cluster/health blocks during shard recovery; _nodes/stats requires auth on 8.x
+[21:38:34] 
+[21:38:34] === TEST 14 — Ecosystem and Alternatives (feedback/14) ===
+[21:38:34] Scenario: dashboard summary API, SQL query, _analyze — open alternatives to Kibana
+[21:38:34] ES comparison: Kibana dashboard data requires Kibana; no first-party SQL in open edition
+[21:38:34] 
+[21:38:35]   CMD : GET http://localhost:19080/v1/dashboard/summary
+[21:38:35]   PASS: Dashboard summary returned structured JSON in 6ms
+[21:38:35]   CMD : POST http://localhost:19200/_sql  SELECT COUNT(*) FROM "logs-test"
+[21:38:35]   FAIL: SQL query failed: non-JSON
+[21:38:35]   CMD : POST http://localhost:19200/_analyze  {"text":"The quick brown fox","analyzer":"standard"}
+[21:38:35]   FAIL: _analyze returned -1 tokens (expected ≥ 3)
+[21:38:35]   CMD : POST http://localhost:19080/v1/indices/logs-test/explain-plan  {"query":{"match_all":{}}}
+[21:38:35]   PASS: explain-plan endpoint works (no Kibana needed)
+[21:38:35]   INFO: Kibana requires a paid Elastic subscription for production dashboards
+[21:38:35]   INFO: xerj: dashboard summary + SQL + explain-plan are all open, no extra software
+[21:38:35] 
+[21:38:35] === SUMMARY ===
+
+| # | Category                         | Result       |
+|---|----------------------------------|--------------|
+| 01 | Operational Complexity           | See above   |
+| 02 | Cost and Pricing                 | See above   |
+| 03 | JVM and Memory                   | See above   |
+| 04 | Scaling and Shards               | See above   |
+| 05 | Licensing and Trust              | See above   |
+| 06 | Upgrades and Migrations          | See above   |
+| 07 | Query and Performance            | See above   |
+| 08 | Data Model Limitations           | See above   |
+| 09 | Security                         | See above   |
+| 10 | Documentation and UX             | See above   |
+| 11 | AI and Vector Search             | See above   |
+| 12 | Log Analytics                    | See above   |
+| 13 | Vendor and Support               | See above   |
+| 14 | Ecosystem and Alternatives       | See above   |
+
+[21:38:35] 
+[21:38:35] ────────────────────────────────────────
+[21:38:35]   PASS  : 44
+[21:38:35]   FAIL  : 13
+[21:38:35]   TOTAL : 57
+[21:38:35] ────────────────────────────────────────
+
+13 check(s) failed out of 57.
+
+Full results written to: /home/claude/ai/zeebb.ai/engine/BATTLE_SLA_RESULTS_2026-04-15_21-32-15.md

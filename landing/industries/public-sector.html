@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ.ai — Public Sector</title>
+<meta name="description" content="XERJ for government, defense, and intelligence. Air-gap-capable, FedRAMP/IL5 track, 13 MB binary, SBOM.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<nav class="nav" aria-label="Primary">
+  <a href="/index.html" class="brand">XERJ.AI</a>
+  <a href="/index.html">HOME</a>
+  <a href="/product.html">PRODUCT</a>
+  <a href="/solutions/index.html">SOLUTIONS</a>
+  <a href="/industries/index.html" class="active">INDUSTRIES</a>
+  <a href="/security/index.html">SECURITY</a>
+  <a href="/pricing/index.html">PRICING</a>
+  <span class="spacer"></span>
+  <a href="/docs/index.html">DOCS</a>
+  <a href="/resources/index.html">RESOURCES</a>
+  <a href="/playground.html">DASHBOARDS</a>
+  <span class="theme">
+    <button type="button" data-theme="day">DAY</button>
+    <span class="dash">·</span>
+    <button type="button" data-theme="night" class="active">NIGHT</button>
+  </span>
+</nav>
+
+<nav class="uc-subnav" aria-label="Industries">
+  <a href="/industries/index.html">ALL INDUSTRIES</a>
+  <a href="/industries/finserv.html">FINANCIAL SERVICES</a>
+  <a href="/industries/public-sector.html" class="active">PUBLIC SECTOR</a>
+  <a href="/industries/healthcare.html">HEALTHCARE</a>
+  <a href="/industries/retail.html">RETAIL</a>
+</nav>
+
+<section class="scene-section" style="border-top:0; padding-top:0;">
+  <div class="kicker"><span>INDUSTRY 02</span><span class="dash">·</span><span>FOR CIO · CISO · CTO · CCIO</span></div>
+  <h1 class="hero" style="font-size: var(--fs-96);">GOVERNMENT<br>AI.<br><span class="accent">SOVEREIGN.</span></h1>
+  <p class="lead" style="max-width:720px;">
+    Public-sector AI cannot depend on a retrieval vendor reachable
+    over the commercial internet. XERJ is a 13 MB static binary
+    that runs inside a sealed rack, a SCIF, or a national-cloud
+    enclave — zero telemetry egress when air-gap mode is on.
+  </p>
+</section>
+
+<!-- DEPLOYMENT MODE PICKER · live tabs -->
+<section class="scene-section" style="border-top:0;">
+  <div class="kicker"><span>DEPLOYMENT MODE</span><span class="dash">·</span><span>PICK YOUR ENCLAVE</span></div>
+  <h2 class="scene">SEALED RACK.<br>SCIF.<br><span class="accent">NATIONAL CLOUD.</span></h2>
+
+  <div class="tabs" data-tabs="ps-mode">
+    <button class="tab active" data-pane="airgap">AIR-GAPPED</button>
+    <button class="tab" data-pane="gov-cloud">GOV CLOUD</button>
+    <button class="tab" data-pane="onprem">ON-PREM</button>
+  </div>
+
+  <div class="pane active" data-group="ps-mode" data-pane="airgap">
+    <svg class="diagram" viewBox="0 0 960 440" role="img" aria-label="Air-gapped deployment">
+      <rect x="20" y="20" width="920" height="400" class="dashed mute"/>
+      <text x="40" y="44" class="label mute">CLASSIFIED ENCLAVE · NO INTERNET · SIGNED MEDIA · PHYSICAL ACCESS CONTROL</text>
+
+      <g class="node"><rect x="60" y="70" width="380" height="60"/>
+        <text x="76" y="92" class="label">DATA SOURCES</text>
+        <text x="76" y="112" class="small">ops logs · sensor feeds · mission docs · archival</text>
+      </g>
+      <line x1="250" y1="130" x2="250" y2="156"/><polygon points="246,152 254,152 250,160"/>
+
+      <g class="node"><rect x="60" y="160" width="380" height="60"/>
+        <text x="76" y="182" class="label">OTEL COLLECTOR + VECTOR</text>
+        <text x="76" y="202" class="small">on-prem build · no external dependencies</text>
+      </g>
+      <line x1="250" y1="220" x2="250" y2="246"/><polygon points="246,242 254,242 250,250"/>
+
+      <g class="node accent"><rect x="60" y="250" width="380" height="96"/>
+        <text x="76" y="272" class="label">XERJ CLUSTER · 3-NODE HA · AIRGAP=1</text>
+        <text x="76" y="294" class="small">FTS · VECTOR · COLUMNAR · AGENT MEMORY</text>
+        <text x="76" y="312" class="small">AES-256-GCM at rest · BYOK · TLS 1.3 in transit</text>
+        <text x="76" y="332" class="small mute">no outbound · no telemetry · no license ping</text>
+      </g>
+      <line x1="250" y1="346" x2="250" y2="372"/><polygon points="246,368 254,368 250,376"/>
+
+      <g class="node"><rect x="60" y="376" width="380" height="30"/>
+        <text x="76" y="396" class="small">mission analysts · dashboards · AI agents · approved model weights</text>
+      </g>
+
+      <g class="node mute"><rect x="500" y="160" width="420" height="186" class="dashed"/>
+        <text x="516" y="184" class="label">OFFLINE UPDATE CHANNEL</text>
+        <text x="516" y="208" class="small">signed release bundle · delivered via data-diode</text>
+        <text x="516" y="228" class="small">SBOM + SLSA provenance per release</text>
+        <text x="516" y="248" class="small">manifest verified before install</text>
+        <text x="516" y="278" class="small">one-minor-version rollback window</text>
+        <text x="516" y="320" class="small mute">inbound only · no outbound update probe</text>
+      </g>
+      <line x1="498" y1="298" x2="446" y2="298" class="mute"/>
+      <polygon class="mute" points="450,294 450,302 442,298"/>
+    </svg>
+  </div>
+
+  <div class="pane" data-group="ps-mode" data-pane="gov-cloud">
+    <svg class="diagram" viewBox="0 0 960 380" role="img" aria-label="Gov Cloud deployment">
+      <text x="30" y="38" class="label mute">GOV CLOUD · CUSTOMER TENANCY · AWS GOVCLOUD · AZURE GOV · GCP ASSURED · ORACLE GOV</text>
+
+      <g class="node"><rect x="60" y="60" width="380" height="60"/>
+        <text x="76" y="82" class="label">AGENCY IDENTITY</text>
+        <text x="76" y="102" class="small">PIV / CAC via OIDC bridge · SAML · enterprise AD</text>
+      </g>
+      <line x1="440" y1="92" x2="520" y2="92"/><polygon points="516,88 516,96 524,92"/>
+
+      <g class="node accent"><rect x="520" y="60" width="380" height="60"/>
+        <text x="536" y="82" class="label">XERJ CLUSTER · 3-NODE HA</text>
+        <text x="536" y="102" class="small">inside customer tenancy · region-pinned · BYOK</text>
+      </g>
+
+      <line x1="710" y1="120" x2="710" y2="156"/><polygon points="706,152 714,152 710,160"/>
+
+      <g class="node"><rect x="60" y="160" width="840" height="70"/>
+        <text x="76" y="184" class="label">MISSION WORKLOADS</text>
+        <text x="76" y="206" class="small">citizen-services RAG · federal / state SOC · legislative &amp; policy research · case-worker copilots</text>
+      </g>
+
+      <g class="node mute"><rect x="60" y="250" width="840" height="90" class="dashed"/>
+        <text x="76" y="274" class="label">GOVERNANCE &amp; AUDIT</text>
+        <text x="76" y="296" class="small">per-query explain-plan · tenant isolation · retention by regulation</text>
+        <text x="76" y="316" class="small">audit shipped to GovCloud-native tooling · no cross-region egress</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="pane" data-group="ps-mode" data-pane="onprem">
+    <svg class="diagram" viewBox="0 0 960 380" role="img" aria-label="On-prem deployment">
+      <text x="30" y="38" class="label mute">ON-PREM · AGENCY DATA CENTER · SOVEREIGN NATIONAL CLOUD</text>
+
+      <g class="node"><rect x="60" y="60" width="260" height="60"/>
+        <text x="76" y="82" class="label">APPROVED OS / HW</text>
+        <text x="76" y="102" class="small">RHEL · Oracle · Ubuntu LTS · amd64 + aarch64</text>
+      </g>
+      <g class="node"><rect x="340" y="60" width="260" height="60"/>
+        <text x="356" y="82" class="label">IDENTITY</text>
+        <text x="356" y="102" class="small">PIV / CAC · SAML · agency IdP</text>
+      </g>
+      <g class="node"><rect x="620" y="60" width="280" height="60"/>
+        <text x="636" y="82" class="label">KMS / HSM</text>
+        <text x="636" y="102" class="small">Thales Luna · CloudHSM · Vault (FIPS)</text>
+      </g>
+
+      <line x1="190" y1="120" x2="190" y2="168"/><polygon points="186,164 194,164 190,172"/>
+      <line x1="470" y1="120" x2="470" y2="168"/><polygon points="466,164 474,164 470,172"/>
+      <line x1="760" y1="120" x2="760" y2="168"/><polygon points="756,164 764,164 760,172"/>
+
+      <g class="node accent"><rect x="60" y="170" width="840" height="72"/>
+        <text x="76" y="194" class="label">XERJ CLUSTER · 3-NODE HA · ON APPROVED HARDWARE</text>
+        <text x="76" y="216" class="small">FTS · VECTOR · COLUMNAR · AGENT MEMORY · AES-256-GCM + BYOK</text>
+        <text x="76" y="234" class="small mute">Helm chart · Kubernetes Operator · Terraform module (roadmap Q2)</text>
+      </g>
+
+      <line x1="480" y1="242" x2="480" y2="280"/><polygon points="476,276 484,276 480,284"/>
+
+      <g class="node"><rect x="60" y="284" width="840" height="54"/>
+        <text x="76" y="308" class="label">OBSERVABILITY</text>
+        <text x="76" y="328" class="small">Prometheus · OTLP export · SIEM-integrated · air-gap-compatible</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- WORKLOAD MATRIX · filterable -->
+<section class="scene-section">
+  <div class="kicker"><span>MISSION WORKLOADS</span><span class="dash">·</span><span>PICK WHAT APPLIES</span></div>
+  <div class="card-grid cols-3" style="padding-top: var(--sp-8);">
+    <div class="card">
+      <span class="card-k">CITIZEN SERVICES</span>
+      <span class="card-t">BENEFITS · TAX<br><span class="accent">LICENSING</span></span>
+      <span class="card-b">Sovereign RAG over agency knowledge bases · case-worker copilot · per-agency RBAC · audit trail queryable as an index.</span>
+    </div>
+    <div class="card">
+      <span class="card-k">DEFENSE · INTEL</span>
+      <span class="card-t">CLASSIFIED<br><span class="accent">RETRIEVAL</span></span>
+      <span class="card-b">Semantic search over reports, OSINT, sensor feeds. Air-gap mandatory. Session-scoped agent memory. Approved model weights only.</span>
+    </div>
+    <div class="card">
+      <span class="card-k">CYBER SOC</span>
+      <span class="card-t">FEDERAL / STATE<br><span class="accent">SOC</span></span>
+      <span class="card-b">Log fleet · 74× faster SIEM battery · NIST AI RMF aligned · STIG-compatible config.</span>
+    </div>
+    <div class="card">
+      <span class="card-k">LEGISLATIVE</span>
+      <span class="card-t">BILL · PRECEDENT<br><span class="accent">POLICY</span></span>
+      <span class="card-b">Bill text · precedent case law · policy documents · hybrid BM25 + vector search for research staff and committees.</span>
+    </div>
+    <div class="card">
+      <span class="card-k">EMERGENCY RESPONSE</span>
+      <span class="card-t">C2 +<br><span class="accent">SITUATIONAL</span></span>
+      <span class="card-b">Real-time ingest of sensor + situational data + responder comms. Unified retrieval for command-and-control agents.</span>
+    </div>
+    <div class="card">
+      <span class="card-k">BIOMEDICAL</span>
+      <span class="card-t">GRANTS ·<br><span class="accent">PUBS · TRIALS</span></span>
+      <span class="card-b">NIH / NSF grant portfolios · publication corpus · clinical-trial registries · RAG for research-officer productivity.</span>
+    </div>
+  </div>
+</section>
+
+<!-- COMPLIANCE MATRIX -->
+<section class="scene-section">
+  <div class="kicker"><span>COMPLIANCE</span><span class="dash">·</span><span>ATO-READY CONTROLS</span></div>
+  <h2 class="scene">BUILDING BLOCKS<br>FOR <span class="accent">ATO.</span></h2>
+
+  <div class="matrix-row"><span class="mk">NIST 800-53 REV5</span><span class="mv">Controls cross-walk available · security control implementation summary template</span><span class="mstatus ga">GA</span></div>
+  <div class="matrix-row"><span class="mk">NIST AI RMF</span><span class="mv">Per-query explain-plan + audit trail aligns with "measure" + "manage" functions</span><span class="mstatus ga">GA</span></div>
+  <div class="matrix-row"><span class="mk">CJIS</span><span class="mv">Tenant isolation + audit trail + encryption at rest + access control</span><span class="mstatus yes">INHERITED</span></div>
+  <div class="matrix-row"><span class="mk">CMMC Lvl 2</span><span class="mv">DFARS 252.204-7012 · self-hosted inherits organizational controls</span><span class="mstatus yes">INHERITED</span></div>
+  <div class="matrix-row"><span class="mk">SBOM · SLSA</span><span class="mv">Every release ships an SBOM · SLSA-compliant provenance roadmap · reproducible builds</span><span class="mstatus road">ROAD Q3</span></div>
+  <div class="matrix-row"><span class="mk">FedRAMP MODERATE</span><span class="mv">Commercial SaaS offering track</span><span class="mstatus road">ROAD 2027</span></div>
+  <div class="matrix-row"><span class="mk">FedRAMP HIGH</span><span class="mv">Higher-impact workloads · planning phase</span><span class="mstatus road">ROAD 2027+</span></div>
+  <div class="matrix-row"><span class="mk">DoD IL5</span><span class="mv">BYOK + FIPS-validated crypto + air-gap · engineering scope ready · accreditation roadmap</span><span class="mstatus road">ROAD 2027</span></div>
+  <div class="matrix-row"><span class="mk">FIPS 140-2</span><span class="mv">AES-256-GCM · TLS 1.3 · validation roadmap 2027</span><span class="mstatus road">ROAD 2027</span></div>
+</section>
+
+<!-- MEASURED OUTCOMES -->
+<section class="scene-section">
+  <div class="kicker"><span>MEASURED</span><span class="dash">·</span><span>vs LEGACY STACK</span></div>
+  <h2 class="scene">FITS INSIDE<br><span class="accent">ATO ENVELOPES.</span></h2>
+  <div class="cmp">
+    <div class="head"><span class="cell">METRIC</span><span class="cell xy">XERJ</span><span class="cell es">LEGACY</span></div>
+    <div class="row"><span class="cell name">Binary footprint</span><span class="cell xy">13 MB</span><span class="cell es">~620 MB · JAR + JRE · 56×</span></div>
+    <div class="row"><span class="cell name">Cold start</span><span class="cell xy">50 ms</span><span class="cell es">~15 s JVM warm-up · 300×</span></div>
+    <div class="row"><span class="cell name">Idle memory</span><span class="cell xy">400 MB</span><span class="cell es">8.5 GB · 4-node · 21×</span></div>
+    <div class="row"><span class="cell name">SIEM agg p95 · 1 M events</span><span class="cell xy">0.4 ms</span><span class="cell es">29.8 ms · 74×</span></div>
+    <div class="row"><span class="cell name">Network dependencies</span><span class="cell xy">0 external</span><span class="cell es">varies</span></div>
+    <div class="row"><span class="cell name">Offline-install time</span><span class="cell xy">&lt; 5 min</span><span class="cell es">hours (JRE · deps)</span></div>
+    <div class="row"><span class="cell name">Audit artifact per query</span><span class="cell xy">explain-plan native</span><span class="cell es">application plumbing</span></div>
+  </div>
+</section>
+
+<section class="lead-capture" id="demo">
+  <div class="kicker"><span>PILOT · PUBLIC SECTOR</span></div>
+  <h3>PROVE IT<br><span class="accent">IN YOUR LAB.</span></h3>
+  <p>Unclassified-lab pilot. Offline-install bundle. Reproduction scripts for battle reports on open data. Architecture review with your CISO / accreditation body.</p>
+  <form class="lead-form" id="leadForm" action="#" method="post" novalidate>
+    <input type="email" name="email" placeholder="you@agency.gov" required aria-label="Work email" autocomplete="email" />
+    <button type="submit" class="demo">REQUEST LAB KIT <span class="arrow">→</span></button>
+    <span class="note">We reply within one business day · <a href="/resources/index.html" class="accent">DOWNLOAD THE PUBLIC-SECTOR BRIEF (PDF)</a></span>
+    <span class="ok">✓ THANKS. WE WILL REACH OUT.</span>
+  </form>
+</section>
+
+<footer class="footer">
+  <span>XERJ.AI · PUBLIC SECTOR · V1</span>
+  <span>AI ON YOUR DATA</span>
+  <span><a href="/industries/index.html">INDUSTRIES</a> · <a href="/solutions/index.html">SOLUTIONS</a> · <a href="/resources/index.html">RESOURCES</a> · <a href="/docs/index.html">DOCS</a></span>
+</footer>
+
+<script src="/interact.js"></script>
+<script>
+  (function(){
+    const form = document.getElementById('leadForm');
+    if (!form) return;
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const email = form.querySelector('input[type=email]').value.trim();
+      if (!email || !email.includes('@')) return;
+      form.classList.add('sent');
+    });
+  })();
+</script>
+</body>
+</html>

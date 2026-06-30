@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  build-test:
+    name: Build + Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/cache
+            ~/.cargo/registry/index
+            ~/.cargo/git/db
+            engine/target
+          key: ci-cargo-${{ hashFiles('engine/Cargo.lock') }}
+          restore-keys: ci-cargo-
+
+      - name: Build (release)
+        working-directory: engine
+        run: cargo build --release --workspace
+
+      - name: Unit + integration tests
+        working-directory: engine
+        run: cargo test --release --workspace -- --test-threads=2

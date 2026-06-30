@@ -1,0 +1,78 @@
+syntax = "proto3";
+package xerj.v1;
+
+service XerjSearch {
+  rpc Search(SearchRequest) returns (SearchResponse);
+  rpc Index(IndexRequest) returns (IndexResponse);
+  rpc BulkIndex(stream IndexRequest) returns (BulkResponse);
+  rpc GetDocument(GetRequest) returns (GetResponse);
+  rpc DeleteDocument(DeleteRequest) returns (DeleteResponse);
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+message SearchRequest {
+  string index = 1;
+  string query_json = 2;  // ES-compatible query DSL as JSON
+  int32 size = 3;
+  int32 from = 4;
+}
+
+message SearchResponse {
+  int64 total_hits = 1;
+  repeated Hit hits = 2;
+  int64 took_ms = 3;
+  bool timed_out = 4;
+}
+
+message Hit {
+  string id = 1;
+  float score = 2;
+  string source_json = 3;
+  string index = 4;
+}
+
+message IndexRequest {
+  string index = 1;
+  string id = 2;
+  string source_json = 3;
+}
+
+message IndexResponse {
+  string id = 1;
+  int64 version = 2;
+  string result = 3;
+}
+
+message BulkResponse {
+  int64 took_ms = 1;
+  bool errors = 2;
+  int32 indexed = 3;
+}
+
+message GetRequest {
+  string index = 1;
+  string id = 2;
+}
+
+message GetResponse {
+  bool found = 1;
+  string id = 2;
+  string source_json = 3;
+  int64 version = 4;
+}
+
+message DeleteRequest {
+  string index = 1;
+  string id = 2;
+}
+
+message DeleteResponse {
+  string result = 1;
+}
+
+message HealthRequest {}
+message HealthResponse {
+  string status = 1;
+  int32 num_indices = 2;
+  int64 total_docs = 3;
+}

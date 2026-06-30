@@ -1,0 +1,1542 @@
+/* ============================================================
+   XERJ.ai — Base styles
+   Only typographic roles and layout. Zero decoration.
+   ============================================================ */
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  background: var(--z-paper);
+  color: var(--z-ink);
+  min-height: 100vh;
+}
+
+body {
+  font-family: var(--font-prose);
+  font-size: var(--fs-13);
+  font-weight: 400;
+  line-height: 1.45;
+  font-feature-settings: 'kern', 'ss01', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  padding: var(--page-y) var(--page-x);
+  max-width: 1680px;
+  margin: 0 auto;
+}
+
+::selection { background: var(--z-accent); color: var(--z-paper); }
+
+a {
+  color: inherit;
+  text-decoration: none;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+}
+a:hover { text-decoration: underline; }
+
+button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+/* ---- Typographic roles ----------------------------------- */
+
+.h-scene {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: var(--fs-96);
+  line-height: 0.88;
+  letter-spacing: var(--track-tight);
+  text-transform: uppercase;
+}
+@media (max-width: 1200px) { .h-scene { font-size: 72px; } }
+
+.h-section {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--fs-32);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.key {
+  font-family: var(--font-prose);
+  font-weight: 600;
+  font-size: var(--fs-11);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--z-mute);
+}
+
+.hint {
+  font-family: var(--font-data);
+  font-size: var(--fs-11);
+  color: var(--z-mute);
+  letter-spacing: 0.04em;
+}
+
+.mono {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.num-big {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--fs-56);
+  line-height: 0.92;
+  letter-spacing: var(--track-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+.num-md {
+  font-family: var(--font-data);
+  font-weight: 700;
+  font-size: var(--fs-32);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.num-unit {
+  font-family: var(--font-prose);
+  font-weight: 500;
+  font-size: 0.28em;
+  color: var(--z-mute);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-left: 0.4em;
+  vertical-align: 0.6em;
+}
+
+.accent  { color: var(--z-accent); }
+.faint   { color: var(--z-mute); }
+.dim     { color: var(--z-mute); }
+
+/* ---- Layout grid ----------------------------------------- */
+
+.canvas {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  column-gap: var(--gap-x);
+  row-gap: var(--gap-y);
+  align-items: start;
+  position: relative;
+}
+/* Edit mode: uniform cells so drag/drop feels like a real grid. */
+.canvas.edit {
+  align-items: stretch;
+  grid-auto-rows: minmax(140px, auto);
+}
+
+.panel { min-width: 0; }
+.panel > .key { margin-bottom: 12px; }
+.panel > .h-section { margin-bottom: 16px; }
+
+.stack { display: flex; flex-direction: column; gap: var(--sp-1); }
+.stack-2 { display: flex; flex-direction: column; gap: var(--sp-2); }
+.stack-3 { display: flex; flex-direction: column; gap: var(--sp-3); }
+.row-flex { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* ---- Charts ---------------------------------------------- */
+
+.chart {
+  display: block;
+  color: var(--z-ink);
+  shape-rendering: geometricPrecision;
+  overflow: visible;
+}
+.chart line, .chart polyline {
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: butt;
+  stroke-linejoin: round;
+}
+/* Horizontal 1px bars need pixel snapping; diagonals need AA. */
+.chart line { shape-rendering: crispEdges; }
+.chart polyline { shape-rendering: geometricPrecision; }
+
+/* ---- Top-N row ------------------------------------------- */
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 88px 1fr 56px;
+  gap: var(--sp-2);
+  align-items: baseline;
+  padding: 5px 0;
+  font-family: var(--font-data);
+  font-size: var(--fs-13);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+.row__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row__val { text-align: right; font-weight: 700; }
+.row__pct { text-align: right; color: var(--z-mute); font-size: var(--fs-11); }
+.row__bar { min-width: 0; display: flex; align-items: center; }
+.row__bar svg { width: 100%; }
+.row.clickable { cursor: pointer; }
+.row.clickable:hover .row__label { color: var(--z-accent); }
+
+/* ---- Distribution ---------------------------------------- */
+
+.dist-bar { width: 100%; height: 10px; margin-bottom: var(--sp-2); }
+.dist-legend {
+  display: flex;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+.dist-legend > * { min-width: 140px; }
+
+/* ---- Flowband -------------------------------------------- */
+
+/* Horizontal allocation band. Labels sit in an HTML flex layer
+   where each item's grow factor equals the raw value, so label
+   widths match segment widths exactly. min-width:0 + overflow
+   hidden ensures tiny slices don't push big ones out of line. */
+.flowband-wrap { margin: var(--sp-2) 0 var(--sp-4); color: var(--z-ink); }
+.flowband-svg  { color: var(--z-ink); }
+.flowband-labels { gap: var(--sp-2); }
+.flowband-labels .fb-seg {
+  overflow: hidden;
+  padding-right: var(--sp-2);
+}
+.flowband-labels .fb-label {
+  font-family: var(--font-prose);
+  font-size: var(--fs-11);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--z-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.flowband-labels .fb-value {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  color: var(--z-mute);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Heatmap --------------------------------------------- */
+
+/* Heatmap uses monospace so the inline `width: Xch` cell spans
+   actually align — `ch` == character width only for monospace.
+   Proportional fonts make $-prefixed cells overflow the slot. */
+.heatmap {
+  font-family: var(--font-mono);
+  font-size: var(--fs-13);
+  line-height: 1.55;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.heatmap-row { display: block; white-space: nowrap; }
+.heatmap-row .row-label {
+  display: inline-block;
+  width: 5ch;
+  color: var(--z-mute);
+  margin-right: 1.5ch;
+  font-size: var(--fs-13);
+  letter-spacing: 0;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+
+/* ---- Series (full-width line) ---------------------------- */
+
+.series { width: 100%; }
+.series-legend {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--sp-1);
+  font-family: var(--font-data);
+  font-size: var(--fs-11);
+  color: var(--z-mute);
+  letter-spacing: 0.06em;
+}
+.series-legend .mid { flex: 1; text-align: center; }
+
+/* ---- Multiples ------------------------------------------- */
+
+.multiples {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--sp-3) var(--sp-4);
+}
+.mult {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-data);
+  font-size: var(--fs-11);
+  min-width: 0;
+}
+.mult-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  color: var(--z-mute);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.mult-head .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: var(--sp-1);
+}
+.mult-head .val { color: var(--z-ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ---- Chrome: nav + scene + time ------------------------- */
+
+.nav {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-8);
+  font-family: var(--font-prose);
+  font-size: var(--fs-11);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+.nav .brand {
+  color: var(--z-ink);
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: var(--fs-13);
+  letter-spacing: 0.24em;
+  margin-right: var(--sp-3);
+}
+.nav a { color: var(--z-mute); }
+.nav a:hover { color: var(--z-ink); }
+.nav a.active { color: var(--z-ink); }
+.nav .spacer { flex: 1; }
+.nav .status { color: var(--z-mute); font-family: var(--font-data); font-weight: 500; letter-spacing: 0.1em; margin-left: var(--sp-3); }
+
+/* Secondary nav row — dashboards list, visible only when
+ * activeSection === 'dashboards'. Slightly smaller than primary,
+ * mono font to distinguish from product-level sections. */
+.nav-sub {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  margin-top: -22px; /* pull up closer to the primary row */
+  margin-bottom: var(--sp-8);
+  /* No left padding — align with the brand/primary nav column. */
+  font-family: var(--font-data);
+  font-size: var(--fs-11);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  flex-wrap: wrap;
+}
+.nav-sub a {
+  color: var(--z-mute);
+  padding: 2px 0;
+}
+.nav-sub a:hover { color: var(--z-ink); }
+.nav-sub a.active { color: var(--z-accent); }
+
+/* Grouped sub-nav — folders / dropdowns. A group is either "open"
+   (its dashboards render inline next to the label) or collapsed
+   (just the label, click to switch groups). Typography-only — no
+   boxes or borders. */
+.nav-sub .group {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin-right: var(--sp-4);
+}
+.nav-sub .group-label {
+  background: none;
+  border: 0;
+  padding: 2px 0;
+  font: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--z-mute);
+  cursor: pointer;
+}
+.nav-sub .group-label:hover { color: var(--z-ink); }
+.nav-sub .group.open .group-label {
+  color: var(--z-ink);
+  font-weight: 700;
+}
+.nav-sub .group.open .group-label::after {
+  content: ' :';
+  color: var(--z-mute);
+  margin-left: 2px;
+  font-weight: 400;
+}
+.nav-sub .group .members {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+}
+
+/* Theme toggle — text only, matches .time button styling */
+.theme {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-data);
+  font-size: var(--fs-11);
+  font-weight: 500;
+  letter-spacing: var(--track-ui);
+  text-transform: uppercase;
+}
+.theme .dash { color: var(--z-faint); }
+.theme button { color: var(--z-mute); }
+.theme button:hover { color: var(--z-ink); }
+.theme button.active { color: var(--z-accent); }
+
+.scene {
+  margin-bottom: var(--sp-6);
+}
+.scene .kicker {
+  margin-bottom: var(--sp-2);
+  display: flex;
+  gap: var(--sp-2);
+  align-items: baseline;
+}
+.scene .kicker .dash { color: var(--z-faint); }
+
+.time, .refresh {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  font-family: var(--font-data);
+  font-size: var(--fs-11);
+  font-weight: 500;
+  letter-spacing: var(--track-ui);
+  text-transform: uppercase;
+}
+.time .key, .refresh .key { margin: 0 var(--sp-2) 0 0; color: var(--z-mute); }
+.time button, .refresh button { color: var(--z-mute); background: none; border: 0; font: inherit; cursor: pointer; }
+.time button:hover, .refresh button:hover { color: var(--z-ink); }
+.time button.active, .refresh button.active { color: var(--z-accent); }
+
+/* Absolute time range inputs, only shown when RANGE = CUSTOM. */
+.time .custom-range {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin-left: var(--sp-3);
+}
+.time .custom-range input[type="datetime-local"] {
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--z-line);
+  color: var(--z-ink);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--fs-11);
+  padding: 2px 0;
+  color-scheme: dark;
+  outline: none;
+}
+.time .custom-range input[type="datetime-local"]:focus { border-bottom-color: var(--z-accent); }
+.time .custom-range .dash { color: var(--z-mute); }
+
+/* Row wrapping the time + refresh controls at the top of a dashboard. */
+.dash-ctrls {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-8);
+  margin-bottom: var(--sp-6);
+  flex-wrap: wrap;
+}
+
+/* -----------------------------------------------------------
+ * Filter bar — global dashboard filters. Two rows:
+ *   .kql   — a frameless text input for KQL-lite expressions
+ *   .pills — the current filter pills + CLEAR ALL
+ * Corpus evidence: top Kibana pain is filters scoped to
+ * visualizations, not the dashboard. OR filter support is
+ * GH#3693, the 41-score multi-select (OR) ask.
+ * ----------------------------------------------------------- */
+.filter-bar {
+  display: block;
+  margin-bottom: var(--sp-6);
+  font-family: var(--font-data);
+  font-size: var(--fs-11);
+  font-weight: 500;
+  letter-spacing: var(--track-ui);
+  text-transform: uppercase;
+}
+.filter-bar .key { color: var(--z-mute); margin-right: var(--sp-2); }
+.filter-bar .hint { font-weight: 400; }
+
+.filter-bar .kql {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.filter-bar .kql input {
+  flex: 1;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--z-line);
+  font-family: var(--font-mono);
+  font-size: var(--fs-13);
+  color: var(--z-ink);
+  padding: 4px 0;
+  text-transform: none;
+  letter-spacing: 0;
+  outline: none;
+  min-width: 0;
+}
+.filter-bar .kql input:focus { border-bottom-color: var(--z-accent); }
+.filter-bar .kql input::placeholder { color: var(--z-mute); opacity: 0.6; }
+
+.filter-bar .pills {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.filter-bar .pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  color: var(--z-accent);
+}
+.filter-bar .pill .field { opacity: 0.72; }
+.filter-bar .pill .eq    { opacity: 0.5; margin: 0 2px; }
+.filter-bar .pill .or    { opacity: 0.45; margin: 0 4px; font-size: 10px; }
+.filter-bar .pill .chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 0;
+  color: inherit;
+  background: none;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+.filter-bar .pill .chip .value { font-weight: 600; }
+.filter-bar .pill .chip .x     { margin-left: 4px; opacity: 0.55; }
+.filter-bar .pill .chip:hover .x { opacity: 1; color: var(--z-ink); }
+.filter-bar .clear {
+  color: var(--z-mute);
+  background: none;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  margin-left: auto;
+}
+.filter-bar .clear:hover { color: var(--z-ink); }
+
+/* Small arrow hint on a panel eyebrow that signals a drilldown target. */
+.drill-hint {
+  margin-left: var(--sp-3);
+  color: var(--z-accent);
+  font-size: var(--fs-11);
+}
+
+/* Typography-first empty state used when a panel's data is blank. */
+.panel-empty {
+  padding: var(--sp-6) 0;
+  font-size: var(--fs-11);
+  letter-spacing: var(--track-ui);
+  text-transform: uppercase;
+}
+
+/* Retry button on dashboard-level error. */
+.text-btn {
+  background: none;
+  border: 0;
+  font: inherit;
+  color: var(--z-accent);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: var(--track-ui);
+  font-size: var(--fs-13);
+}
+.text-btn:hover { color: var(--z-ink); }
+
+/* Saved views row — pinnable named snapshots per dashboard. */
+.saved-views {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-6);
+  font-family: var(--font-data);
+  font-size: var(--fs-11);
+  font-weight: 500;
+  letter-spacing: var(--track-ui);
+  text-transform: uppercase;
+  flex-wrap: wrap;
+}
+.saved-views .key { color: var(--z-mute); margin-right: var(--sp-2); }
+.saved-views .hint { font-weight: 400; }
+.saved-views .view { color: var(--z-accent); background: none; border: 0; font: inherit; cursor: pointer; }
+.saved-views .view:hover { color: var(--z-ink); }
+.saved-views .sep { color: var(--z-mute); opacity: 0.4; }
+.saved-views .x { background: none; border: 0; font: inherit; color: var(--z-mute); cursor: pointer; opacity: 0.5; }
+.saved-views .x:hover { color: var(--z-accent); opacity: 1; }
+.saved-views .save { margin-left: auto; color: var(--z-mute); background: none; border: 0; font: inherit; cursor: pointer; }
+.saved-views .save:hover { color: var(--z-accent); }
+
+/* Cluster selector. */
+.cluster-ctrl {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  font-family: var(--font-data);
+  font-size: var(--fs-11);
+  font-weight: 500;
+  letter-spacing: var(--track-ui);
+  text-transform: uppercase;
+}
+.cluster-ctrl .key { color: var(--z-mute); margin-right: var(--sp-2); }
+.cluster-ctrl button { color: var(--z-mute); background: none; border: 0; font: inherit; cursor: pointer; }
+.cluster-ctrl button:hover { color: var(--z-ink); }
+.cluster-ctrl button.active { color: var(--z-accent); }
+
+.footer {
+  margin-top: var(--sp-12);
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-data);
+  font-size: var(--fs-11);
+  color: var(--z-mute);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ---- Delta arrows ---------------------------------------- */
+
+.delta {
+  font-family: var(--font-data);
+  font-size: var(--fs-13);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+.delta.good { color: var(--z-accent); }
+.delta.bad  { color: var(--z-ink); }
+.delta.meh  { color: var(--z-mute); }
+
+/* ---- Text utility ---------------------------------------- */
+
+.u-right { text-align: right; }
+.u-mute  { color: var(--z-mute); }
+
+/* ---- Recent / event list --------------------------------- */
+
+.events {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--font-data);
+  font-size: var(--fs-13);
+  font-variant-numeric: tabular-nums;
+}
+.events .ev {
+  display: grid;
+  grid-template-columns: 14ch 8ch 1fr;
+  gap: var(--sp-2);
+  padding: 3px 0;
+  white-space: nowrap;
+}
+.events .ev .when { color: var(--z-mute); font-size: var(--fs-11); }
+.events .ev .sev  { font-weight: 700; }
+.events .ev .sev.err { color: var(--z-accent); }
+.events .ev .msg  { overflow: hidden; text-overflow: ellipsis; }
+
+/* ---- Stacked rows ---------------------------------------- */
+
+.stacked { display: flex; flex-direction: column; }
+.stk-row {
+  display: grid;
+  grid-template-columns: 14ch 1fr 10ch;
+  gap: var(--sp-2);
+  align-items: baseline;
+  padding: 5px 0;
+  font-family: var(--font-data);
+  font-size: var(--fs-13);
+}
+.stk-bar { width: 100%; }
+
+/* ---- Data table ------------------------------------------ */
+
+.tbl {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-data);
+  font-size: var(--fs-13);
+  font-variant-numeric: tabular-nums;
+}
+.tbl-row {
+  display: grid;
+  grid-template-columns: repeat(var(--tbl-cols, 3), minmax(0, 1fr));
+  gap: var(--sp-2);
+  padding: 6px 0;
+}
+.tbl-row.tbl-head {
+  color: var(--z-mute);
+  font-family: var(--font-prose);
+  font-size: var(--fs-11);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+/* ---- SearchBox / Hits / Facets / QueryDSL / Plan --------- */
+
+.sbox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.sbox-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-family: var(--font-data);
+  font-size: var(--fs-11);
+  letter-spacing: var(--track-ui);
+  text-transform: uppercase;
+}
+.sbox-row .spacer { flex: 1; }
+.sbox-row .sep { color: var(--z-faint); }
+.sbox-row button { color: var(--z-mute); padding: 0 2px; }
+.sbox-row button:hover { color: var(--z-ink); }
+.sbox-row button.active { color: var(--z-accent); }
+.sbox-input {
+  font-family: var(--font-data);
+  font-size: var(--fs-32);
+  letter-spacing: 0;
+  text-transform: none;
+  gap: var(--sp-2);
+  padding-top: var(--sp-2);
+}
+.sbox-input .prompt { font-weight: 700; }
+.sbox-input input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--z-ink);
+  font: inherit;
+  padding: 0;
+  caret-color: var(--z-accent);
+  font-variant-numeric: tabular-nums;
+}
+.sbox-input input::placeholder { color: var(--z-faint); }
+
+/* Hits list */
+.hits-meta {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: var(--sp-3);
+  gap: var(--sp-2);
+}
+.hits-meta .hits-action {
+  font-family: var(--font-prose);
+  font-size: var(--fs-11);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--z-mute);
+  margin-left: var(--sp-2);
+}
+.hits-meta .hits-action:hover { color: var(--z-accent); }
+.hits-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+.hit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
+  font-family: var(--font-data);
+  font-size: var(--fs-13);
+}
+.hit-head {
+  display: grid;
+  grid-template-columns: 14ch 16ch 8ch 14ch 1fr;
+  gap: var(--sp-2);
+  font-size: var(--fs-11);
+  font-variant-numeric: tabular-nums;
+}
+.hit-head.no-time { grid-template-columns: 14ch 16ch 8ch 1fr; }
+.hit-headrow {
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  font-family: var(--font-prose);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--z-mute);
+}
+.hit-headrow .col-sort {
+  text-align: left;
+  color: var(--z-mute);
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+.hit-headrow .col-sort:hover { color: var(--z-ink); }
+.hit-headrow .col-sort.active { color: var(--z-accent); }
+.hit-cell-clickable {
+  text-align: left;
+  font: inherit;
+  color: var(--z-mute);
+  padding: 0;
+  cursor: pointer;
+}
+.hit-cell-clickable:hover { color: var(--z-accent); }
+.hit-body {
+  color: var(--z-ink);
+  font-size: var(--fs-13);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Filter pills inside SearchBox */
+.sbox-pills {
+  flex-wrap: wrap;
+  gap: 6px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--fs-13);
+}
+.sbox-pills .key {
+  text-transform: uppercase;
+  letter-spacing: var(--track-label);
+  font-size: var(--fs-11);
+}
+.pill {
+  font-family: var(--font-data);
+  font-size: var(--fs-13);
+  color: var(--z-mute);
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.pill .pill-field { color: var(--z-mute); }
+.pill .pill-eq    { color: var(--z-faint); }
+.pill .pill-val   { color: var(--z-ink); font-weight: 700; }
+.pill .pill-x     { color: var(--z-mute); margin-left: 4px; font-size: var(--fs-11); }
+.pill:hover { color: var(--z-accent); }
+.pill:hover .pill-x { color: var(--z-accent); }
+.pill-clear {
+  font-family: var(--font-prose);
+  font-size: var(--fs-11);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--z-mute);
+  padding: 0 4px;
+  margin-left: var(--sp-2);
+}
+.pill-clear:hover { color: var(--z-accent); }
+
+/* Facet filter rows */
+.facet { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--sp-4); }
+.facet-row {
+  display: grid;
+  grid-template-columns: 1fr 70px 180px;
+  gap: var(--sp-2);
+  align-items: baseline;
+  padding: 4px 0;
+  font-family: var(--font-data);
+  font-size: var(--fs-13);
+  color: var(--z-mute);
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.facet-row:hover { color: var(--z-ink); }
+.facet-row.active { color: var(--z-accent); }
+.facet-count { text-align: right; }
+.facet-bar { width: 100%; }
+.facet-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Query DSL block */
+.qdsl {
+  font-family: var(--font-data);
+  font-size: var(--fs-13);
+  line-height: 1.55;
+  color: var(--z-mute);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+.qdsl .tok-key { color: var(--z-mute); }
+.qdsl .tok-str { color: var(--z-ink); }
+.qdsl .tok-num { color: var(--z-accent); font-weight: 700; }
+.qdsl .tok-kw  { color: var(--z-accent); }
+
+/* Query plan tree */
+.plan-row {
+  font-family: var(--font-data);
+  font-size: var(--fs-13);
+  line-height: 1.55;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 0;
+}
+.plan-op { font-weight: 700; letter-spacing: 0.04em; }
+
+/* Citations — link panels back to real user feedback artifacts */
+.cites { display: flex; flex-direction: column; }
+.cite {
+  display: grid;
+  grid-template-columns: 8ch 6ch 1fr 2ch;
+  gap: var(--sp-2);
+  align-items: baseline;
+  padding: 5px 0;
+  font-family: var(--font-data);
+  font-size: var(--fs-13);
+  color: var(--z-mute);
+  text-decoration: none;
+  border: none;
+}
+.cite:hover { color: var(--z-ink); text-decoration: none; }
+.cite-src   { font-size: var(--fs-11); letter-spacing: 0.08em; }
+.cite-score { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cite-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cite-arrow { text-align: right; }
+
+/* MetricTile dense grid */
+.mtiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--sp-3) var(--sp-4);
+}
+.mtile { display: flex; flex-direction: column; gap: 4px; }
+.mtile-head { display: flex; justify-content: space-between; align-items: baseline; }
+.mtile-val { font-size: var(--fs-20); font-weight: 700; color: var(--z-ink); font-variant-numeric: tabular-nums; }
+
+/* Caption under scene header */
+.caption {
+  font-family: var(--font-prose);
+  font-size: var(--fs-13);
+  color: var(--z-mute);
+  max-width: 92ch;
+  margin-bottom: var(--sp-6);
+}
+
+/* Inline-editable scene title (h1.editable in edit mode) */
+.h-scene.editable {
+  outline: none;
+  cursor: text;
+  caret-color: var(--z-accent);
+}
+.h-scene.editable:hover {
+  text-shadow: 0 1px 0 var(--z-accent);
+}
+.h-scene.editable:focus {
+  color: var(--z-accent);
+}
+
+/* -------- MANAGE view ---------------------------------- */
+
+/* Dashboard list table */
+.mg-table {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-data);
+  font-size: var(--fs-13);
+  font-variant-numeric: tabular-nums;
+}
+.mg-row {
+  display: grid;
+  grid-template-columns: 3ch 1fr 10ch 16ch minmax(380px, auto);
+  gap: var(--sp-2);
+  align-items: baseline;
+  padding: 6px 0;
+}
+.mg-row.mg-head {
+  color: var(--z-mute);
+  font-family: var(--font-prose);
+  font-size: var(--fs-11);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  padding-bottom: 8px;
+}
+.mg-row[draggable="true"] { cursor: grab; }
+.mg-row[draggable="true"]:hover { color: var(--z-ink); }
+.mg-row.mg-row-hidden .mg-name { color: var(--z-mute); text-decoration: line-through; text-decoration-thickness: 1px; }
+.mg-row .mg-order { color: var(--z-mute); }
+.mg-row .mg-name  { color: var(--z-ink); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mg-row .mg-kind  { font-size: var(--fs-11); }
+.mg-row .mg-src   { font-size: var(--fs-11); color: var(--z-mute); }
+.mg-row .mg-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+/* Generic small text button used across the MANAGE view */
+.mg-btn {
+  font-family: var(--font-prose);
+  font-size: var(--fs-11);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--z-mute);
+  padding: 2px 6px;
+}
+.mg-btn:hover { color: var(--z-ink); }
+.mg-btn.mg-btn-danger { color: var(--z-mute); }
+.mg-btn.mg-btn-danger:hover { color: var(--z-accent); }
+.mg-btn.mg-btn-disabled { color: var(--z-faint); cursor: default; }
+.mg-btn.mg-btn-disabled:hover { color: var(--z-faint); }
+
+/* + NEW DASHBOARD row */
+.mg-new-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-family: var(--font-prose);
+  font-size: var(--fs-11);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  padding-top: var(--sp-3);
+}
+.mg-new-row .sep { color: var(--z-faint); margin: 0 4px; }
+.mg-new-row .mg-new-templates { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+
+/* Clusters (cards as text rows, no frames) */
+.mg-clusters {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-data);
+  font-size: var(--fs-13);
+  font-variant-numeric: tabular-nums;
+}
+.mg-cluster {
+  display: grid;
+  grid-template-columns: 3ch 14ch minmax(26ch, 1fr) 10ch 14ch 10ch;
+  gap: var(--sp-2);
+  padding: 6px 0;
+  align-items: baseline;
+  font: inherit;
+  text-align: left;
+  color: var(--z-mute);
+}
+.mg-cluster:hover { color: var(--z-ink); }
+.mg-cluster.mg-cluster-active { color: var(--z-ink); }
+.mg-cluster.mg-cluster-active .mg-cluster-name { color: var(--z-accent); }
+
+/* Indices + fields sub-tables */
+.mg-idx-table, .mg-fld-table {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-data);
+  font-size: var(--fs-13);
+  font-variant-numeric: tabular-nums;
+}
+.mg-idx-row, .mg-fld-row {
+  display: grid;
+  gap: var(--sp-2);
+  padding: 4px 0;
+}
+.mg-idx-row { grid-template-columns: minmax(20ch, 1fr) 8ch 10ch 8ch 10ch; }
+.mg-idx-head, .mg-fld-head {
+  color: var(--z-mute);
+  font-family: var(--font-prose);
+  font-size: var(--fs-11);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+.mg-fld-row { grid-template-columns: minmax(18ch, 1fr) 8ch 12ch 14ch 6ch; }
+.mg-idx-btn {
+  text-align: left;
+  font: inherit;
+  color: var(--z-mute);
+  padding: 0;
+}
+.mg-idx-btn:hover { color: var(--z-ink); }
+.mg-idx-btn.active { color: var(--z-accent); }
+
+/* Settings rows */
+.mg-settings { display: flex; flex-direction: column; gap: var(--sp-2); font-family: var(--font-data); font-size: var(--fs-13); }
+.mg-setting {
+  display: grid;
+  grid-template-columns: 22ch minmax(20ch, 1fr) 1fr;
+  gap: var(--sp-3);
+  align-items: baseline;
+}
+.mg-setting .key { margin: 0; }
+
+/* ---- Edit mode ------------------------------------------- */
+/*
+ * Edit-mode affordances (dashed outlines, drop guides, handles)
+ * are the ONE place in the UX system where we allow decorative
+ * 1px lines that are not data. They are transient: visible only
+ * while editing, gone the moment you exit edit mode.
+ *
+ * The "police strip" frame is a fixed-position overlay that lives
+ * INSIDE the page's existing 56px y / 64px x margins, so entering
+ * edit mode does NOT shift content. Pixel-perfect parity between
+ * view and edit mode: the only thing that changes is the frame.
+ */
+
+.edit-ctrl {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-right: var(--sp-3);
+  font-family: var(--font-data);
+  font-size: var(--fs-11);
+  letter-spacing: var(--track-ui);
+  text-transform: uppercase;
+}
+.edit-ctrl .dash { color: var(--z-faint); }
+.edit-ctrl button { color: var(--z-mute); }
+.edit-ctrl button:hover { color: var(--z-ink); }
+.edit-ctrl button.active { color: var(--z-accent); }
+
+/* The 1px dashed accent frame around the viewport edge. */
+.edit-frame {
+  position: fixed;
+  /* Start below the nav + sub-nav so EDIT clearly belongs to the
+     dashboard content, not the main menu. 150px covers the primary
+     nav row (56..75) + sub-nav (117..137) + a small gap. */
+  top: 150px;
+  right: 14px;
+  bottom: 14px;
+  left: 14px;
+  border: 1px dashed var(--z-accent);
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* Top strip — EDIT MODE label + drag/resize/remove tips. Lives in the
+   page's top padding, never overlaps content. */
+.edit-strip-top {
+  position: fixed;
+  /* Sit just inside the top edge of the .edit-frame (top: 150px). */
+  top: 158px;
+  left: 28px;
+  right: 28px;
+  display: flex;
+  gap: var(--sp-3);
+  align-items: baseline;
+  font-family: var(--font-data);
+  font-size: var(--fs-11);
+  letter-spacing: var(--track-ui);
+  text-transform: uppercase;
+  pointer-events: none;
+  z-index: 51;
+  padding: 0 8px;
+  background: var(--z-paper);
+}
+.edit-strip-top .marker {
+  color: var(--z-accent);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+.edit-strip-top .tips {
+  color: var(--z-mute);
+  flex: 1;
+}
+.edit-strip-top .tips .key-bind {
+  color: var(--z-ink);
+}
+.edit-strip-top .meta {
+  color: var(--z-mute);
+}
+
+/* Bottom strip — numbered column header, aligned to the canvas grid so
+   you can read which column a panel sits in. */
+.edit-strip-bottom {
+  position: fixed;
+  bottom: 22px;
+  left: var(--page-x);
+  right: var(--page-x);
+  max-width: calc(1680px - var(--page-x) * 2);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  column-gap: var(--gap-x);
+  font-family: var(--font-data);
+  font-size: var(--fs-11);
+  letter-spacing: 0.08em;
+  color: var(--z-mute);
+  text-transform: uppercase;
+  pointer-events: none;
+  z-index: 51;
+  padding: 4px 8px;
+  background: var(--z-paper);
+}
+.edit-strip-bottom span {
+  border-left: 1px solid var(--z-faint);
+  padding-left: 6px;
+}
+.edit-strip-bottom span:last-child {
+  border-right: 1px solid var(--z-faint);
+  padding-right: 6px;
+}
+
+.panel.edit {
+  outline: 1px dashed var(--z-mute);
+  outline-offset: 10px;
+  position: relative;
+  z-index: 1;
+  transition: outline-color 120ms;
+}
+.panel.edit:hover { outline-color: var(--z-ink); }
+.panel.edit.dragging { opacity: 0.35; }
+.panel.edit.drop-before { outline-color: var(--z-accent); }
+.panel.edit.drop-after  { outline-color: var(--z-accent); }
+
+/* (legacy inline grid header removed; now lives in .edit-strip-bottom) */
+
+/* Full-canvas 12-column overlay inside the grid */
+.edit-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  column-gap: var(--gap-x);
+  z-index: 0;
+}
+.edit-grid span {
+  border-left: 1px dashed var(--z-faint);
+}
+.edit-grid span:last-child {
+  border-right: 1px dashed var(--z-faint);
+}
+
+.panel-edit {
+  position: absolute;
+  top: -30px;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: var(--sp-3);
+  align-items: baseline;
+  font-family: var(--font-data);
+  font-size: var(--fs-11);
+  letter-spacing: var(--track-ui);
+  text-transform: uppercase;
+  z-index: 3;
+  pointer-events: none;
+}
+.panel-edit > * { pointer-events: auto; }
+.panel-edit .colsLabel {
+  color: var(--z-accent);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.panel-edit .colsLabel .slash { color: var(--z-mute); margin: 0 2px; font-weight: 400; }
+.panel-edit .colsLabel .max   { color: var(--z-mute); font-weight: 400; }
+.panel-edit .meter {
+  display: inline-block;
+  width: 96px;
+  height: 6px;
+}
+.panel-edit .meter line { vector-effect: non-scaling-stroke; }
+.panel-edit .sizes { display: inline-flex; gap: 4px; }
+.panel-edit .sizes .sep { color: var(--z-faint); }
+.panel-edit .sizes button { color: var(--z-mute); padding: 0 2px; }
+.panel-edit .sizes button:hover { color: var(--z-ink); }
+.panel-edit .sizes button.active { color: var(--z-accent); font-weight: 700; }
+.panel-edit .remove {
+  margin-left: auto;
+  color: var(--z-mute);
+  font-family: var(--font-data);
+  font-size: var(--fs-13);
+}
+.panel-edit .remove:hover { color: var(--z-accent); }
+
+/* The +ADD picker at the bottom of the canvas */
+.add-picker {
+  margin-top: var(--sp-8);
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  font-family: var(--font-data);
+  font-size: var(--fs-11);
+  letter-spacing: var(--track-ui);
+  text-transform: uppercase;
+  padding-top: var(--sp-3);
+  border-top: 1px dashed var(--z-faint);
+}
+.add-picker .types { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.add-picker .types .sep { color: var(--z-faint); }
+.add-picker .types button {
+  color: var(--z-mute);
+  padding: 2px 0;
+}
+.add-picker .types button:hover { color: var(--z-accent); }
+
+/* ============================================================
+   Mobile / tablet responsive rules
+   Desktop-first product: the dashboards were designed for wide
+   screens. On narrow screens we collapse the 12-col canvas to
+   a single column, tighten gutters, and give every wide data
+   block its own horizontal scroll so the page never side-scrolls.
+   ============================================================ */
+
+@media (max-width: 1100px) {
+  :root { --page-x: 40px; --gap-x: 28px; }
+  .h-scene { font-size: 64px; }
+}
+
+@media (max-width: 900px) {
+  :root {
+    --page-x: 20px;
+    --page-y: 32px;
+    --gap-x: 16px;
+    --gap-y: 32px;
+  }
+  html, body { overflow-x: hidden; }
+
+  .h-scene { font-size: 48px; line-height: 0.92; }
+  .h-section { font-size: var(--fs-20); }
+  .num-big { font-size: var(--fs-32); }
+  .num-md  { font-size: var(--fs-20); }
+
+  /* Nav wraps to multiple rows. Status hides on tightest width. */
+  .nav {
+    flex-wrap: wrap;
+    row-gap: 8px;
+    column-gap: var(--sp-2);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+  .nav .brand { flex: 1 0 100%; font-size: var(--fs-13); margin-right: 0; }
+  .nav .spacer { display: none; }
+  .nav .status { margin-left: auto; }
+  .nav-sub { margin-top: 0; }
+
+  /* Time / refresh / filter rows wrap. */
+  .dash-ctrls { gap: var(--sp-3) var(--sp-4); }
+  .time, .refresh, .theme { font-size: 10px; }
+
+  /* Canvas collapses from 12 columns to 1. We also need to
+     override any inline `grid-column: span N` that the dashboard
+     renderer writes per-panel. */
+  .canvas {
+    grid-template-columns: 1fr;
+    column-gap: 0;
+    row-gap: var(--sp-6);
+  }
+  .canvas > * { grid-column: 1 / -1 !important; }
+  .canvas.edit { grid-auto-rows: auto; }
+
+  .panel { min-width: 0; max-width: 100%; }
+
+  /* Wide data blocks: scroll inside their panel. */
+  .heatmap,
+  .multiples,
+  .chart,
+  .panel svg {
+    max-width: 100%;
+  }
+  .heatmap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .multiples { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+
+  /* Top-N row: shorten the bar column so labels + values fit. */
+  .row {
+    grid-template-columns: 1fr 64px 56px 40px;
+    font-size: var(--fs-11);
+    gap: 6px;
+  }
+
+  /* Add picker wraps neatly. */
+  .add-picker { font-size: 10px; }
+}
+
+@media (max-width: 480px) {
+  :root { --page-x: 14px; }
+  .h-scene { font-size: 36px; }
+  .nav .status { display: none; }
+  .row { grid-template-columns: 1fr 56px 40px; }
+  .row .row__bar { display: none; }
+}
+
+/* ============================================================
+   Mobile preview — iPhone device frame with single-column layout.
+   Toggled by the MOBILE button in the nav chrome. The `.mobile-preview`
+   class on `<html>` activates everything below.
+   ============================================================ */
+
+.mobile-ctrl button {
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: var(--z-mute);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 0;
+}
+.mobile-ctrl button:hover { color: var(--z-ink); }
+.mobile-ctrl button.active { color: var(--z-accent); }
+
+/* iPhone 15 Pro frame — realistic proportions and details.
+   393×852 CSS px mapped to a centered fixed-width container.
+   The frame is purely decorative (border-radius + shadows). */
+
+.iphone-frame {
+  display: none;
+}
+
+html.mobile-preview .iphone-frame {
+  display: block;
+  position: relative;
+  width: 393px;
+  margin: var(--sp-6) auto var(--sp-8);
+  background: #1a1a1a;
+  border-radius: 48px;
+  padding: 14px;
+  box-shadow:
+    0 0 0 2px #333,
+    0 0 0 4px #111,
+    0 20px 60px rgba(0,0,0,0.5);
+}
+
+/* Notch / Dynamic Island */
+.iphone-notch {
+  width: 120px;
+  height: 28px;
+  background: #1a1a1a;
+  border-radius: 14px;
+  margin: 0 auto 0;
+  position: relative;
+  z-index: 10;
+}
+
+/* Screen area */
+.iphone-screen {
+  background: var(--z-paper);
+  border-radius: 36px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 760px;
+  padding: 8px 16px 16px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.iphone-screen::-webkit-scrollbar { display: none; }
+
+/* Home bar indicator */
+.iphone-home-bar {
+  width: 140px;
+  height: 5px;
+  background: var(--z-mute);
+  border-radius: 3px;
+  margin: 10px auto 0;
+  opacity: 0.5;
+}
+
+/* Inside the phone frame — force single-column, scale down type */
+html.mobile-preview .iphone-screen .h-scene {
+  font-size: 36px;
+  line-height: 0.92;
+}
+html.mobile-preview .iphone-screen .h-section {
+  font-size: var(--fs-16);
+}
+html.mobile-preview .iphone-screen .canvas {
+  grid-template-columns: 1fr !important;
+  column-gap: 0;
+  row-gap: var(--sp-4);
+}
+html.mobile-preview .iphone-screen .canvas > * {
+  grid-column: 1 / -1 !important;
+}
+html.mobile-preview .iphone-screen .panel {
+  min-width: 0;
+  max-width: 100%;
+}
+html.mobile-preview .iphone-screen .num-big {
+  font-size: var(--fs-32);
+}
+html.mobile-preview .iphone-screen .num-md {
+  font-size: var(--fs-20);
+}
+html.mobile-preview .iphone-screen .key {
+  font-size: 10px;
+}
+html.mobile-preview .iphone-screen .hint {
+  font-size: 10px;
+}
+html.mobile-preview .iphone-screen .heatmap {
+  overflow-x: auto;
+  font-size: 10px;
+}
+html.mobile-preview .iphone-screen .row {
+  grid-template-columns: 1fr 48px 40px;
+  font-size: var(--fs-11);
+  gap: 4px;
+}
+html.mobile-preview .iphone-screen .row .row__bar { display: none; }
+html.mobile-preview .iphone-screen .multiples {
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+html.mobile-preview .iphone-screen .chart {
+  max-width: 100%;
+}
+html.mobile-preview .iphone-screen .series-legend {
+  font-size: 9px;
+}
+html.mobile-preview .iphone-screen .scene {
+  margin-bottom: var(--sp-3);
+}
+html.mobile-preview .iphone-screen .scene .kicker {
+  font-size: 9px;
+}
+html.mobile-preview .iphone-screen .time,
+html.mobile-preview .iphone-screen .refresh,
+html.mobile-preview .iphone-screen .filter-bar {
+  font-size: 9px;
+}
+html.mobile-preview .iphone-screen .dash-ctrls {
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+html.mobile-preview .iphone-screen .dist-legend {
+  gap: var(--sp-2) var(--sp-3);
+}
+html.mobile-preview .iphone-screen .dist-legend > * {
+  min-width: 80px;
+}
+
+/* Hide nav-sub inside the phone (too wide). Show a compact
+   dashboard name instead via the scene header. */
+html.mobile-preview .nav-sub {
+  display: none;
+}
+
+/* Status bar simulation inside the screen */
+.iphone-screen::before {
+  content: '9:41';
+  display: block;
+  text-align: center;
+  font-family: var(--font-prose);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--z-ink);
+  padding: 4px 0 8px;
+  letter-spacing: 0.02em;
+}

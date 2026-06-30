@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ.ai — Playground</title>
+<meta name="description" content="XERJ.ai interactive product playground. Leave a work email to unlock the live dashboards.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- NAV                                                          -->
+<!-- ============================================================ -->
+<nav class="nav" aria-label="Primary">
+  <a href="index.html" class="brand">XERJ.AI</a>
+  <a href="index.html">HOME</a>
+  <a href="product.html">PRODUCT</a>
+  <a href="/docs/index.html">DOCS</a>
+  <a href="brand.html">BRAND</a>
+  <a href="playground.html" class="active">DASHBOARDS</a>
+  <a href="https://github.com/" rel="external">GITHUB</a>
+  <span class="spacer"></span>
+  <span class="theme">
+    <button type="button" data-theme="day">DAY</button>
+    <span class="dash">·</span>
+    <button type="button" data-theme="night" class="active">NIGHT</button>
+  </span>
+</nav>
+
+<!-- ============================================================ -->
+<!-- PLAYGROUND GATE                                              -->
+<!-- ============================================================ -->
+<section class="playground" id="playground">
+  <div class="kicker">
+    <span>PLAYGROUND</span>
+    <span class="dash">·</span>
+    <span>LIVE PRODUCT DEMO</span>
+    <span class="dash">·</span>
+    <span>NO LOGIN</span>
+  </div>
+
+  <h1 class="hero">SEE IT<br><span class="accent">RUNNING.</span></h1>
+
+  <p class="gate-lead">
+    The dashboards on the other side of this page are the live
+    product running on seeded data — click filters, drill through
+    panels, edit layouts, save views. It's not a screenshot deck
+    and it's not a sales call. Leave a work email once and we'll
+    unlock it for this browser.
+  </p>
+
+  <!-- GATED FORM -->
+  <form class="gate-form" id="gateForm" action="#" method="post" novalidate>
+    <input
+      type="email"
+      name="email"
+      placeholder="you@company.com"
+      required
+      aria-label="Work email"
+      autocomplete="email"
+    />
+    <button type="submit">
+      UNLOCK PLAYGROUND
+      <span class="arrow">→</span>
+    </button>
+  </form>
+
+  <p class="fine">
+    WE ONLY STORE THIS IN YOUR BROWSER · NO PASSWORD · NO FUNNEL · CLEAR IT ANY TIME WITH <code class="inline">localStorage.clear()</code>
+  </p>
+
+  <!-- UNLOCKED STATE · revealed once gate is cleared -->
+  <div class="unlocked" aria-live="polite">
+    <div class="kicker"><span>UNLOCKED</span></div>
+    <p>
+      You're in. The live dashboards render real interactions —
+      click a <span class="mono accent">TOP N</span> row to drill,
+      pick a time range, try an absolute <span class="mono accent">CUSTOM</span>
+      window, save a view, enter edit mode and resize panels on
+      the 12-column grid. Everything you do persists in this
+      browser's <span class="mono">localStorage</span>.
+    </p>
+    <!-- Anchor so js-auth's SPA router intercepts it and loads
+         playground/index.html from the encrypted IndexedDB bundle. -->
+    <a href="/playground/index.html" class="launch">
+      LAUNCH DASHBOARDS
+      <span class="arrow">→</span>
+    </a>
+    <div class="inbox">SIGNED IN AS · <strong id="gateWho">—</strong></div>
+    <p class="fine" style="margin-top:var(--sp-6);">
+      <button type="button" id="gateReset" class="text-btn" style="color:var(--z-mute);">RESET PLAYGROUND GATE</button>
+    </p>
+  </div>
+</section>
+
+<footer class="footer">
+  <span>XERJ.AI · PLAYGROUND · V0.1</span>
+  <span>TYPE IS THE UI</span>
+  <span><a href="index.html">HOME</a> · <a href="product.html">PRODUCT</a> · <a href="/docs/index.html">DOCS</a> · <a href="brand.html">BRAND</a></span>
+</footer>
+
+<script>
+  // IIFE — when js-auth navigates between decrypted pages via
+  // document.write in the same JS realm, `const` declarations from
+  // prior pages are still in the current lexical scope. Wrapping
+  // the whole inline block keeps them isolated.
+  (function () {
+  // Theme toggle (shared).
+  const root = document.documentElement;
+  for (const btn of document.querySelectorAll('[data-theme]')) {
+    btn.addEventListener('click', () => {
+      const t = btn.getAttribute('data-theme');
+      root.setAttribute('data-theme', t);
+      for (const b of document.querySelectorAll('[data-theme]')) {
+        b.classList.toggle('active', b.getAttribute('data-theme') === t);
+      }
+    });
+  }
+
+  // ---------- playground gate ----------
+  // Persist in localStorage so returning visitors skip the form.
+  // In production this also POSTs to /api/leads (CF Pages Function)
+  // or a Formspree endpoint — the stub just stores the email.
+  const GATE_KEY = 'xerj.playground.email';
+  const section = document.getElementById('playground');
+  const form = document.getElementById('gateForm');
+  const whoEl = document.getElementById('gateWho');
+  const resetBtn = document.getElementById('gateReset');
+
+  function unlock(email) {
+    section.classList.add('is-unlocked');
+    if (whoEl) whoEl.textContent = email;
+  }
+
+  const existing = localStorage.getItem(GATE_KEY);
+  if (existing) unlock(existing);
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const email = form.querySelector('input[type=email]').value.trim();
+    if (!email || !email.includes('@')) return;
+    localStorage.setItem(GATE_KEY, email);
+    console.log('[xerj playground gate]', email);
+    unlock(email);
+    // Don't auto-redirect — let the user click LAUNCH so the
+    // unlocked state is visible (and so back-button behaviour
+    // from /playground/ lands them here, not on an empty nav redirect).
+  });
+
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      localStorage.removeItem(GATE_KEY);
+      section.classList.remove('is-unlocked');
+      form.querySelector('input[type=email]').value = '';
+      form.querySelector('input[type=email]').focus();
+    });
+  }
+  })();
+</script>
+
+</body>
+</html>

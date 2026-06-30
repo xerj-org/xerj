@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ.ai · Docs · Query types</title>
+<meta name="description" content="Query types — XERJ.ai documentation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+
+<nav class="nav" aria-label="Primary">
+  <a href="/index.html" class="brand">XERJ.AI</a>
+  <a href="/index.html">HOME</a>
+  <a href="/product.html">PRODUCT</a>
+  <span class="nav-drop">
+    <a href="/use-cases.html">USE CASES</a>
+  </span>
+  <span class="spacer"></span>
+  <a href="/docs/index.html" class="active">DOCS</a>
+  <a href="/playground.html">DASHBOARDS</a>
+  <a href="https://github.com/" rel="external">GITHUB</a>
+  <span class="spacer"></span>
+  <span class="theme">
+    <button type="button" data-theme="day">DAY</button>
+    <span class="dash">·</span>
+    <button type="button" data-theme="night" class="active">NIGHT</button>
+  </span>
+</nav>
+
+<div class="docs-search" id="docsSearch">
+  <input type="text" id="docsSearchInput" placeholder="Search docs · keys, flags, endpoints, playbooks…" aria-label="Search docs" autocomplete="off" spellcheck="false">
+  <span class="hint">⌘ K</span>
+  <div class="results" id="docsSearchResults" aria-live="polite"></div>
+</div>
+
+<div class="docs-shell">
+<nav class="docs-nav" aria-label="Docs">  <div class="group">
+    <span class="label">START</span>
+    <a href="/docs/index.html" class=""><span class="eyebrow">01</span>Overview</a>
+      <a href="/docs/quickstart.html" class=""><span class="eyebrow">02</span>Quickstart</a>
+      <a href="/docs/install.html" class=""><span class="eyebrow">03</span>Install</a>
+      <a href="/docs/migration-from-es.html" class=""><span class="eyebrow">04</span>Migrate from ES</a>
+  </div>
+  <div class="group">
+    <span class="label">REFERENCE</span>
+    <a href="/docs/cli.html" class=""><span class="eyebrow">01</span>CLI</a>
+      <a href="/docs/config.html" class=""><span class="eyebrow">02</span>Config TOML</a>
+      <a href="/docs/env.html" class=""><span class="eyebrow">03</span>Environment</a>
+      <a href="/docs/api-native.html" class=""><span class="eyebrow">04</span>Native REST API</a>
+      <a href="/docs/api-es-compat.html" class=""><span class="eyebrow">05</span>ES-compat API</a>
+  </div>
+  <div class="group">
+    <span class="label">DATA MODEL</span>
+    <a href="/docs/queries.html" class="active"><span class="eyebrow">01</span>Query types</a>
+      <a href="/docs/aggregations.html" class=""><span class="eyebrow">02</span>Aggregations</a>
+      <a href="/docs/analyzers.html" class=""><span class="eyebrow">03</span>Analyzers</a>
+      <a href="/docs/vectors.html" class=""><span class="eyebrow">04</span>Vectors & HNSW</a>
+  </div>
+  <div class="group">
+    <span class="label">ENGINE</span>
+    <a href="/docs/ingest.html" class=""><span class="eyebrow">01</span>Ingest pipelines</a>
+      <a href="/docs/storage.html" class=""><span class="eyebrow">02</span>Storage & WAL</a>
+      <a href="/docs/compression.html" class=""><span class="eyebrow">03</span>Compression</a>
+      <a href="/docs/clustering.html" class=""><span class="eyebrow">04</span>Clustering</a>
+      <a href="/docs/metrics.html" class=""><span class="eyebrow">05</span>Metrics</a>
+      <a href="/docs/security.html" class=""><span class="eyebrow">06</span>Auth & TLS</a>
+  </div>
+  <div class="group">
+    <span class="label">OPERATIONS</span>
+    <a href="/docs/operations.html" class=""><span class="eyebrow">01</span>Running in production</a>
+      <a href="/docs/backup-restore.html" class=""><span class="eyebrow">02</span>Backup & restore</a>
+      <a href="/docs/upgrades.html" class=""><span class="eyebrow">03</span>Upgrades</a>
+      <a href="/docs/troubleshooting.html" class=""><span class="eyebrow">04</span>Troubleshooting</a>
+  </div>
+  <div class="group">
+    <span class="label">PLAYBOOKS</span>
+    <a href="/docs/playbooks/siem.html" class=""><span class="eyebrow">01</span>SIEM</a>
+      <a href="/docs/playbooks/log-analytics.html" class=""><span class="eyebrow">02</span>Log analytics</a>
+      <a href="/docs/playbooks/vector-search.html" class=""><span class="eyebrow">03</span>Vector · RAG</a>
+      <a href="/docs/playbooks/full-text.html" class=""><span class="eyebrow">04</span>Full-text search</a>
+      <a href="/docs/playbooks/observability.html" class=""><span class="eyebrow">05</span>Observability</a>
+  </div>
+</nav>
+
+<main class="docs-content">
+  <!-- Print-only branded header (hidden on screen, visible in PDF) -->
+  <div class="print-header" style="display:none;">XERJ.AI</div>
+
+  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span>DATA MODEL<span class="sep">·</span>QUERIES
+    <button class="pdf-btn" onclick="window.print()" title="Save this page as PDF">
+      <svg viewBox="0 0 24 24"><path d="M12 3v12M12 15l-4-4M12 15l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+      PDF
+    </button>
+  </div>
+  <div class="kicker"><span>01 · DATA MODEL</span></div>
+  <h1>Query types</h1>
+
+
+  <p>Every supported query is a variant of a single <code class="inline">QueryNode</code> enum. They all compile to the same execution plan, so mixing and matching them under a <code class="inline">bool</code> wrapper is free — there's no orchestrator round trip.</p>
+
+  <h2>Structural</h2>
+  <div class="enum-list">
+    <div class="item" id="match-all">match_all<span class="dsc">Everything in the index.</span></div>
+    <div class="item">match_none<span class="dsc">Nothing. Useful inside bool branches.</span></div>
+    <div class="item" id="bool">bool<span class="dsc">must · should · must_not · filter</span></div>
+    <div class="item">constant_score<span class="dsc">Wrap a filter with a fixed score.</span></div>
+    <div class="item">boosted<span class="dsc">Multiply the score of a sub-query.</span></div>
+  </div>
+
+  <h2>Term-level</h2>
+  <div class="enum-list">
+    <div class="item">term<span class="dsc">Exact-value keyword match.</span></div>
+    <div class="item">terms<span class="dsc">OR of many term values.</span></div>
+    <div class="item">range<span class="dsc">Numeric / date range filter.</span></div>
+    <div class="item">prefix<span class="dsc">Keyword prefix match.</span></div>
+    <div class="item">wildcard<span class="dsc">Glob-style keyword match.</span></div>
+    <div class="item">exists<span class="dsc">Field has a non-null value.</span></div>
+    <div class="item">ids<span class="dsc">Fetch docs by id.</span></div>
+  </div>
+
+  <h2>Full-text</h2>
+  <div class="enum-list">
+    <div class="item">match<span class="dsc">Analyzed full-text query.</span></div>
+    <div class="item">match_phrase<span class="dsc">Phrase with positional match.</span></div>
+    <div class="item">match_phrase_prefix<span class="dsc">Phrase + prefix on last term.</span></div>
+    <div class="item">multi_match<span class="dsc">Match across multiple fields.</span></div>
+    <div class="item">query_string<span class="dsc">Lucene-style mini-DSL.</span></div>
+    <div class="item">simple_query_string<span class="dsc">Safe subset for end-user input.</span></div>
+  </div>
+
+  <h2>Extended</h2>
+  <div class="enum-list">
+    <div class="item">fuzzy<span class="dsc">Edit-distance match.</span></div>
+    <div class="item">regexp<span class="dsc">Regular expression term match.</span></div>
+    <div class="item">span_term<span class="dsc">Positional anchor for span queries.</span></div>
+    <div class="item">span_near<span class="dsc">Terms within N positions.</span></div>
+    <div class="item">span_or<span class="dsc">Union of span queries.</span></div>
+    <div class="item">span_not<span class="dsc">Exclusion within span windows.</span></div>
+    <div class="item">span_first<span class="dsc">Anchor near the start of a field.</span></div>
+  </div>
+
+  <h2>AI-native</h2>
+  <div class="enum-list">
+    <div class="item" id="knn">knn<span class="dsc">Vector kNN with per-query ef_search.</span></div>
+    <div class="item" id="semantic-search">semantic_search<span class="dsc">Embed the query at query time.</span></div>
+    <div class="item" id="hybrid">hybrid<span class="dsc">RRF / linear / learned fusion of queries.</span></div>
+  </div>
+
+  <h2>Specialized</h2>
+  <div class="enum-list">
+    <div class="item">geo_distance<span class="dsc">Distance-from-point filter.</span></div>
+    <div class="item">geo_bounding_box<span class="dsc">Bounding-box filter.</span></div>
+    <div class="item">nested<span class="dsc">Query inside a nested field.</span></div>
+    <div class="item">more_like_this<span class="dsc">Find similar docs by text fingerprint.</span></div>
+    <div class="item">pinned<span class="dsc">Boost specific docs to the top.</span></div>
+    <div class="item">function_score<span class="dsc">Rewrite scores with functions.</span></div>
+    <div class="item">dis_max<span class="dsc">Max-score across disjuncts.</span></div>
+    <div class="item">boosting<span class="dsc">Positive / negative branches.</span></div>
+  </div>
+
+  <p class="source-note">Source · engine/crates/query/src/ast.rs · enum QueryNode</p>
+  
+
+<div class="next">
+      <div class="step"><span class="dir">◀ PREV</span><a href="/docs/api-es-compat.html">ES-compat API</a></div>
+      <div class="step right"><span class="dir">NEXT ▶</span><a href="/docs/aggregations.html">Aggregations</a></div>
+    </div>
+
+  <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
+  <div class="print-footer" style="display:none;">
+    <span>XERJ.AI · V0.1 · 2026-04-16</span>
+    <a href="https://xerj.dev/docs/">https://xerj.dev/docs/</a>
+    <span>Query types</span>
+  </div>
+</main>
+</div>
+
+<footer class="footer">
+  <span>XERJ.AI · DOCS · V0.1</span>
+  <span>READ THE SOURCE</span>
+  <span><a href="/index.html">HOME</a> · <a href="/product.html">PRODUCT</a> · <a href="/brand.html">BRAND</a> · <a href="/playground.html">DASHBOARDS</a></span>
+</footer>
+
+<script type="application/json" id="docs-index">[{"title":"Overview","slug":"/docs/index.html","kicker":"START","snip":""},{"title":"Quickstart","slug":"/docs/quickstart.html","kicker":"START","snip":""},{"title":"Install","slug":"/docs/install.html","kicker":"START","snip":""},{"title":"Migrate from ES","slug":"/docs/migration-from-es.html","kicker":"START","snip":""},{"title":"CLI","slug":"/docs/cli.html","kicker":"REFERENCE","snip":""},{"title":"Config TOML","slug":"/docs/config.html","kicker":"REFERENCE","snip":""},{"title":"Environment","slug":"/docs/env.html","kicker":"REFERENCE","snip":""},{"title":"Native REST API","slug":"/docs/api-native.html","kicker":"REFERENCE","snip":""},{"title":"ES-compat API","slug":"/docs/api-es-compat.html","kicker":"REFERENCE","snip":""},{"title":"Query types","slug":"/docs/queries.html","kicker":"DATA MODEL","snip":""},{"title":"Aggregations","slug":"/docs/aggregations.html","kicker":"DATA MODEL","snip":""},{"title":"Analyzers","slug":"/docs/analyzers.html","kicker":"DATA MODEL","snip":""},{"title":"Vectors & HNSW","slug":"/docs/vectors.html","kicker":"DATA MODEL","snip":""},{"title":"Ingest pipelines","slug":"/docs/ingest.html","kicker":"ENGINE","snip":""},{"title":"Storage & WAL","slug":"/docs/storage.html","kicker":"ENGINE","snip":""},{"title":"Compression","slug":"/docs/compression.html","kicker":"ENGINE","snip":""},{"title":"Clustering","slug":"/docs/clustering.html","kicker":"ENGINE","snip":""},{"title":"Metrics","slug":"/docs/metrics.html","kicker":"ENGINE","snip":""},{"title":"Auth & TLS","slug":"/docs/security.html","kicker":"ENGINE","snip":""},{"title":"Running in production","slug":"/docs/operations.html","kicker":"OPERATIONS","snip":""},{"title":"Backup & restore","slug":"/docs/backup-restore.html","kicker":"OPERATIONS","snip":""},{"title":"Upgrades","slug":"/docs/upgrades.html","kicker":"OPERATIONS","snip":""},{"title":"Troubleshooting","slug":"/docs/troubleshooting.html","kicker":"OPERATIONS","snip":""},{"title":"SIEM","slug":"/docs/playbooks/siem.html","kicker":"PLAYBOOKS","snip":""},{"title":"Log analytics","slug":"/docs/playbooks/log-analytics.html","kicker":"PLAYBOOKS","snip":""},{"title":"Vector · RAG","slug":"/docs/playbooks/vector-search.html","kicker":"PLAYBOOKS","snip":""},{"title":"Full-text search","slug":"/docs/playbooks/full-text.html","kicker":"PLAYBOOKS","snip":""},{"title":"Observability","slug":"/docs/playbooks/observability.html","kicker":"PLAYBOOKS","snip":""},{"title":"CLI · --config","slug":"/docs/cli.html#config-flag","kicker":"CLI","snip":"-c, --config <PATH>  Path to the TOML config file."},{"title":"CLI · --data-dir","slug":"/docs/cli.html#data-dir-flag","kicker":"CLI","snip":"-d, --data-dir <PATH>  Override [server] data_dir at the command line."},{"title":"CLI · --insecure","slug":"/docs/cli.html#insecure-flag","kicker":"CLI","snip":"-k, --insecure  Disable TLS and API-key auth. Dev only."},{"title":"[server] rest_port","slug":"/docs/config.html#server","kicker":"CONFIG","snip":"u16 · default 8080 · Native REST API listener port."},{"title":"[server] es_compat_port","slug":"/docs/config.html#server","kicker":"CONFIG","snip":"u16 · default 9200 · Elasticsearch-wire-format port. 0 to disable."},{"title":"[storage] wal_sync","slug":"/docs/config.html#storage","kicker":"CONFIG","snip":"enum · default batched · sync · batched · async. Durability knob."},{"title":"[vector] hnsw_ef_search","slug":"/docs/config.html#vector","kicker":"CONFIG","snip":"u32 · default 100 · Beam width at query time. Per-query override."},{"title":"[vector] default_quantization","slug":"/docs/config.html#vector","kicker":"CONFIG","snip":"enum · none · scalar8 · scalar4 · binary."},{"title":"GET /v1/health","slug":"/docs/api-native.html#health","kicker":"NATIVE API","snip":"Liveness + readiness. {status, uptime_s, version}."},{"title":"GET /v1/metrics","slug":"/docs/api-native.html#metrics","kicker":"NATIVE API","snip":"Prometheus text format. Scrape-friendly."},{"title":"POST /v1/indices/:name/turbo-ingest","slug":"/docs/api-native.html#turbo-ingest","kicker":"NATIVE API","snip":"NDJSON bulk path with parallel tokenization."},{"title":"POST /v1/indices/:name/search","slug":"/docs/api-native.html#search","kicker":"NATIVE API","snip":"Unified query endpoint — full-text, term, range, KNN, hybrid."},{"title":"POST /:index/_bulk","slug":"/docs/api-es-compat.html#bulk","kicker":"ES API","snip":"NDJSON bulk. Actions: index, create, update, delete."},{"title":"POST /:index/_search","slug":"/docs/api-es-compat.html#search","kicker":"ES API","snip":"ES query DSL. Drop-in migration path."},{"title":"match_all","slug":"/docs/queries.html#match-all","kicker":"QUERY","snip":"Everything in the index."},{"title":"bool","slug":"/docs/queries.html#bool","kicker":"QUERY","snip":"must / should / must_not / filter clauses."},{"title":"knn","slug":"/docs/queries.html#knn","kicker":"QUERY","snip":"Vector kNN with per-query ef_search."},{"title":"semantic_search","slug":"/docs/queries.html#semantic-search","kicker":"QUERY","snip":"Embed the query at query time."},{"title":"hybrid","slug":"/docs/queries.html#hybrid","kicker":"QUERY","snip":"RRF / linear / learned fusion of sub-queries."},{"title":"terms aggregation","slug":"/docs/aggregations.html#terms","kicker":"AGG","snip":"Exact, pre-computed histogram. 74× faster on SIEM top-IP."},{"title":"date_histogram","slug":"/docs/aggregations.html#date-histogram","kicker":"AGG","snip":"Time-bucketed counts."},{"title":"HNSW","slug":"/docs/vectors.html#hnsw","kicker":"VECTORS","snip":"Hierarchical graph index. m, ef_construction, ef_search."},{"title":"SQ8 quantization","slug":"/docs/vectors.html#quantization","kicker":"VECTORS","snip":"8-bit scalar quantization. 4× memory reduction."},{"title":"turbo-ingest","slug":"/docs/ingest.html#turbo","kicker":"INGEST","snip":"NDJSON bulk path. Parallel tokenization across cores."},{"title":"delta-of-delta","slug":"/docs/compression.html#delta-of-delta","kicker":"COMPRESSION","snip":"Timestamp encoding. Apache/Nginx/ISO auto-detect."},{"title":"dictionary encoding","slug":"/docs/compression.html#dictionary","kicker":"COMPRESSION","snip":"Up to 256 unique strings per column."},{"title":"api_key","slug":"/docs/security.html#api-key","kicker":"SECURITY","snip":"Static admin key. Auto-generated on first run."},{"title":"SIEM playbook","slug":"/docs/playbooks/siem.html","kicker":"PLAYBOOK","snip":"Terms agg, top-source-IPs, 74× faster than ES. Detection rules."},{"title":"RAG playbook","slug":"/docs/playbooks/vector-search.html","kicker":"PLAYBOOK","snip":"Embeddings, HNSW, hybrid search, BM25 + kNN fusion."},{"title":"[cluster] enabled","slug":"/docs/config.html#cluster","kicker":"CONFIG","snip":"bool · default false · Enable multi-node Raft cluster mode."},{"title":"[cluster] peers","slug":"/docs/config.html#cluster","kicker":"CONFIG","snip":"array · \"node_id=host:port\" · At least one peer per node."},{"title":"[cluster] port","slug":"/docs/config.html#cluster","kicker":"CONFIG","snip":"u16 · default 9300 · Intra-cluster Raft + search port."},{"title":"[embedding] default_endpoint","slug":"/docs/config.html#embedding","kicker":"CONFIG","snip":"string · OpenAI-compatible embeddings URL for auto-embedding on ingest."},{"title":"[embedding] default_model","slug":"/docs/config.html#embedding","kicker":"CONFIG","snip":"string · Model name (e.g. text-embedding-3-small, nomic-embed-text)."},{"title":"Raft","slug":"/docs/clustering.html","kicker":"CLUSTER","snip":"Embedded Raft — leader election, log replication, metadata only."},{"title":"Node draining","slug":"/docs/clustering.html","kicker":"CLUSTER","snip":"POST /v1/cluster/nodes/:id/drain before maintenance."},{"title":"Region split/merge","slug":"/docs/clustering.html","kicker":"CLUSTER","snip":"Range partitions auto-split at byte threshold, merge back when small."},{"title":"Systemd unit","slug":"/docs/operations.html","kicker":"OPS","snip":"Production unit file with hardening directives."},{"title":"Readiness probe","slug":"/docs/operations.html","kicker":"OPS","snip":"GET /v1/health/ready — only 200 once WAL replay is complete."},{"title":"Config reload","slug":"/docs/operations.html","kicker":"OPS","snip":"SIGHUP reloads most keys without restart."},{"title":"Hot backup","slug":"/docs/backup-restore.html","kicker":"OPS","snip":"rsync the data dir after POST /v1/admin/flush."},{"title":"S3 backup","slug":"/docs/backup-restore.html","kicker":"OPS","snip":"POST /v1/admin/backup → any S3-compatible endpoint."},{"title":"Rolling upgrade","slug":"/docs/upgrades.html","kicker":"OPS","snip":"Drain → stop → upgrade → start → activate, per node."},{"title":"Merge pressure","slug":"/docs/troubleshooting.html","kicker":"OPS","snip":"Segment count climbing → raise merge.max_concurrent + io_rate."},{"title":"Cluster flapping","slug":"/docs/troubleshooting.html","kicker":"OPS","snip":"Leader changes every few seconds → raise cluster.tick_ms."},{"title":"WAL replay failed","slug":"/docs/troubleshooting.html","kicker":"OPS","snip":"xerj verify --repair-wal truncates at last valid entry."}]</script>
+
+<script>
+  // IIFE — js-auth navigates between decrypted pages in the same
+  // JS realm, so const bindings must be lexically scoped.
+  (function () {
+    const root = document.documentElement;
+    for (const btn of document.querySelectorAll('[data-theme]')) {
+      btn.addEventListener('click', () => {
+        const t = btn.getAttribute('data-theme');
+        root.setAttribute('data-theme', t);
+        for (const b of document.querySelectorAll('[data-theme]')) {
+          b.classList.toggle('active', b.getAttribute('data-theme') === t);
+        }
+      });
+    }
+
+    // Client-side docs search — filters the inline JSON index.
+    const searchEl    = document.getElementById('docsSearch');
+    const inputEl     = document.getElementById('docsSearchInput');
+    const resultsEl   = document.getElementById('docsSearchResults');
+    const indexJson   = document.getElementById('docs-index');
+    if (searchEl && inputEl && resultsEl && indexJson) {
+      let index = [];
+      try { index = JSON.parse(indexJson.textContent || '[]'); } catch {}
+      const render = (q) => {
+        const query = q.trim().toLowerCase();
+        if (!query) { searchEl.classList.remove('active'); resultsEl.innerHTML = ''; return; }
+        const scored = [];
+        for (const e of index) {
+          const hay = (e.title + ' ' + (e.kicker || '') + ' ' + (e.snip || '')).toLowerCase();
+          if (hay.includes(query)) {
+            let score = 0;
+            if (e.title.toLowerCase().includes(query)) score += 10;
+            if ((e.kicker || '').toLowerCase() === query.toUpperCase()) score += 5;
+            if ((e.snip || '').toLowerCase().includes(query)) score += 1;
+            scored.push({ e, score });
+          }
+        }
+        scored.sort((a, b) => b.score - a.score);
+        const top = scored.slice(0, 20);
+        if (top.length === 0) {
+          resultsEl.innerHTML = '<div class="no-results">NO MATCHES — TRY A SHORTER QUERY</div>';
+        } else {
+          resultsEl.innerHTML = top.map(({e}) => {
+            const kicker = e.kicker || '';
+            const snip = e.snip ? '<div class="snip">' + escHtml(e.snip) + '</div>' : '';
+            return '<a href="' + e.slug + '">' +
+              '<span class="kicker">' + escHtml(kicker) + '</span>' +
+              '<span class="title">' + escHtml(e.title) + '</span>' +
+              snip + '</a>';
+          }).join('');
+        }
+        searchEl.classList.add('active');
+      };
+      const escHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      inputEl.addEventListener('input', (e) => render(e.target.value));
+      inputEl.addEventListener('focus', () => { if (inputEl.value) render(inputEl.value); });
+      document.addEventListener('keydown', (e) => {
+        if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          inputEl.focus();
+          inputEl.select();
+        }
+        if (e.key === 'Escape' && document.activeElement === inputEl) {
+          inputEl.value = '';
+          searchEl.classList.remove('active');
+          resultsEl.innerHTML = '';
+          inputEl.blur();
+        }
+      });
+    }
+  })();
+</script>
+
+</body>
+</html>

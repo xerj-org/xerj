@@ -1,0 +1,165 @@
+
+<svg class="arch-svg" viewBox="0 0 1400 580" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:auto;">
+  <defs>
+    <style>
+      .lbl    { font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; fill: currentColor; }
+      .lbl-s  { font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.10em; fill: currentColor; opacity: 0.62; }
+      .lbl-x  { font-family: 'IBM Plex Sans', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.18em; fill: currentColor; opacity: 0.48; text-transform: uppercase; }
+      .lbl-a  { font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.10em; fill: #ffc400; }
+      .lbl-m  { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.04em; fill: currentColor; opacity: 0.55; }
+      .ln     { stroke: currentColor; stroke-width: 1; fill: none; stroke-linecap: square; }
+      .ln-a   { stroke: #ffc400; stroke-width: 1; fill: none; stroke-linecap: square; }
+      .ln-d   { stroke: currentColor; stroke-width: 1; fill: none; stroke-linecap: square; stroke-dasharray: 3 4; opacity: 0.5; }
+      .bx     { stroke: currentColor; stroke-width: 1; fill: none; }
+      .bx-a   { stroke: #ffc400; stroke-width: 1; fill: none; }
+      .pt     { stroke: currentColor; stroke-width: 1; fill: none; opacity: 0.7; }
+      .pt-a   { stroke: #ffc400; stroke-width: 1; fill: none; }
+    </style>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="1399" height="579" class="bx" opacity="0.18"/>
+
+  <!-- HEADER columns -->
+  <text x="40"   y="42" class="lbl-x">QUERY VECTOR</text>
+  <text x="380"  y="42" class="lbl-x">HNSW GRAPH · LAYERED</text>
+  <text x="980"  y="42" class="lbl-x">QUANTIZE · RE-RANK · RETURN</text>
+  <line x1="40" y1="56" x2="1360" y2="56" class="ln" opacity="0.30"/>
+
+  <!-- query box -->
+  <rect x="40" y="80" width="240" height="74" class="bx-a"/>
+  <text x="60" y="112" class="lbl-a">QUERY VECTOR</text>
+  <text x="60" y="132" class="lbl-s">N-dim float32 · max 4096</text>
+  <text x="60" y="148" class="lbl-m">distance ∈ {cos, l2, dot}</text>
+
+  <line x1="280" y1="116" x2="370" y2="116" class="ln-a"/>
+  <polyline points="362,106 372,116 362,126" class="ln-a"/>
+
+  <!-- HNSW illustration: 3 stacked layers with nodes connected -->
+  <!-- Layer 2 (top, sparsest) -->
+  <text x="380" y="80" class="lbl-x">LAYER 2 · SPARSE</text>
+  <line x1="380" y1="92" x2="940" y2="92" class="ln" opacity="0.20"/>
+  <g class="ln" opacity="0.7">
+    <line x1="430" y1="115" x2="640" y2="115"/>
+    <line x1="640" y1="115" x2="850" y2="115"/>
+    <line x1="430" y1="115" x2="540" y2="135"/>
+    <line x1="850" y1="115" x2="740" y2="135"/>
+  </g>
+  <circle cx="430" cy="115" r="3" fill="currentColor"/>
+  <circle cx="640" cy="115" r="3" fill="currentColor"/>
+  <circle cx="850" cy="115" r="3" fill="currentColor"/>
+
+  <!-- Layer 1 -->
+  <text x="380" y="170" class="lbl-x">LAYER 1 · MEDIUM</text>
+  <line x1="380" y1="180" x2="940" y2="180" class="ln" opacity="0.20"/>
+  <g class="ln" opacity="0.65">
+    <line x1="430" y1="205" x2="540" y2="205"/>
+    <line x1="540" y1="205" x2="640" y2="205"/>
+    <line x1="640" y1="205" x2="740" y2="205"/>
+    <line x1="740" y1="205" x2="850" y2="205"/>
+    <line x1="430" y1="205" x2="500" y2="235"/>
+    <line x1="540" y1="205" x2="600" y2="235"/>
+    <line x1="640" y1="205" x2="700" y2="235"/>
+    <line x1="740" y1="205" x2="800" y2="235"/>
+  </g>
+  <circle cx="430" cy="205" r="3" fill="currentColor"/>
+  <circle cx="540" cy="205" r="3" fill="currentColor"/>
+  <circle cx="640" cy="205" r="3" fill="currentColor"/>
+  <circle cx="740" cy="205" r="3" fill="currentColor"/>
+  <circle cx="850" cy="205" r="3" fill="currentColor"/>
+
+  <!-- Layer 0 (bottom, densest) -->
+  <text x="380" y="250" class="lbl-x">LAYER 0 · ALL VECTORS</text>
+  <line x1="380" y1="260" x2="940" y2="260" class="ln" opacity="0.20"/>
+  <g class="ln" opacity="0.55">
+    <line x1="420" y1="295" x2="500" y2="285"/>
+    <line x1="500" y1="285" x2="580" y2="305"/>
+    <line x1="580" y1="305" x2="640" y2="290"/>
+    <line x1="640" y1="290" x2="720" y2="300"/>
+    <line x1="720" y1="300" x2="800" y2="285"/>
+    <line x1="800" y1="285" x2="870" y2="305"/>
+    <line x1="500" y1="285" x2="560" y2="320"/>
+    <line x1="640" y1="290" x2="690" y2="325"/>
+    <line x1="800" y1="285" x2="860" y2="320"/>
+    <line x1="420" y1="295" x2="470" y2="330"/>
+  </g>
+  <g fill="currentColor" opacity="0.85">
+    <circle cx="420" cy="295" r="2.5"/>
+    <circle cx="470" cy="330" r="2.5"/>
+    <circle cx="500" cy="285" r="2.5"/>
+    <circle cx="560" cy="320" r="2.5"/>
+    <circle cx="580" cy="305" r="2.5"/>
+    <circle cx="640" cy="290" r="2.5"/>
+    <circle cx="690" cy="325" r="2.5"/>
+    <circle cx="720" cy="300" r="2.5"/>
+    <circle cx="800" cy="285" r="2.5"/>
+    <circle cx="860" cy="320" r="2.5"/>
+    <circle cx="870" cy="305" r="2.5"/>
+  </g>
+
+  <!-- Highlighted top-K candidate ring -->
+  <g class="pt-a" stroke-width="1" fill="none" opacity="1">
+    <circle cx="640" cy="290" r="6"/>
+    <circle cx="690" cy="325" r="6"/>
+    <circle cx="720" cy="300" r="6"/>
+    <circle cx="580" cy="305" r="6"/>
+  </g>
+
+  <!-- traversal path (entry on layer 2 → down) -->
+  <g class="ln-a">
+    <line x1="640" y1="115" x2="640" y2="205"/>
+    <line x1="640" y1="205" x2="640" y2="290"/>
+  </g>
+  <text x="650" y="160" class="lbl-a">DESCENT</text>
+
+  <!-- HNSW caption -->
+  <text x="380" y="365" class="lbl-x">M = 16 BIDIRECTIONAL CONNECTIONS · EF_CONSTRUCTION = 200 · EF_SEARCH RUNTIME-TUNABLE</text>
+
+  <!-- Right column: candidate set + quantization -->
+  <line x1="940" y1="80" x2="940" y2="360" class="ln" opacity="0.30"/>
+  <line x1="940" y1="290" x2="980" y2="290" class="ln-a"/>
+  <polyline points="972,280 982,290 972,300" class="ln-a"/>
+
+  <rect x="980" y="260" width="280" height="64" class="bx-a"/>
+  <text x="1000" y="290" class="lbl-a">TOP-K CANDIDATES</text>
+  <text x="1000" y="310" class="lbl-s">quantized distances</text>
+
+  <line x1="1120" y1="324" x2="1120" y2="360" class="ln"/>
+  <polyline points="1110,352 1120,362 1130,352" class="ln"/>
+
+  <rect x="980" y="360" width="280" height="62" class="bx" stroke-dasharray="3 4"/>
+  <text x="1000" y="388" class="lbl">FLOAT32 RE-RANK</text>
+  <text x="1000" y="408" class="lbl-s">optional · final precision</text>
+
+  <line x1="1120" y1="422" x2="1120" y2="458" class="ln"/>
+  <polyline points="1110,450 1120,460 1130,450" class="ln"/>
+
+  <rect x="980" y="458" width="280" height="58" class="bx"/>
+  <text x="1000" y="484" class="lbl">RANKED RESULT</text>
+  <text x="1000" y="504" class="lbl-s">final top-K · for fusion</text>
+
+  <!-- Quantization legend on the LEFT (under HNSW) -->
+  <text x="40" y="400" class="lbl-x">QUANTIZATION</text>
+  <line x1="40" y1="412" x2="900" y2="412" class="ln" opacity="0.30"/>
+
+  <rect x="40"  y="425" width="200" height="80" class="bx"/>
+  <text x="60"  y="455" class="lbl">FLOAT 32</text>
+  <text x="60"  y="475" class="lbl-s">baseline</text>
+  <text x="60"  y="494" class="lbl-m">1×  ·  full precision</text>
+
+  <rect x="260" y="425" width="200" height="80" class="bx-a"/>
+  <text x="280" y="455" class="lbl-a">SCALAR · U8</text>
+  <text x="280" y="475" class="lbl-s">8-bit per dim</text>
+  <text x="280" y="494" class="lbl-m">4×  ·  recommended</text>
+
+  <rect x="480" y="425" width="200" height="80" class="bx"/>
+  <text x="500" y="455" class="lbl">NIBBLE</text>
+  <text x="500" y="475" class="lbl-s">4-bit per dim</text>
+  <text x="500" y="494" class="lbl-m">8×  ·  max compression</text>
+
+  <rect x="700" y="425" width="200" height="80" class="bx" stroke-dasharray="3 4"/>
+  <text x="720" y="455" class="lbl">RE-RANK PASS</text>
+  <text x="720" y="475" class="lbl-s">on top-K · float32</text>
+  <text x="720" y="494" class="lbl-m">accuracy restoration</text>
+
+  <text x="40" y="558" class="lbl-x">QUERY-TIME PARAMETER · TRADE RECALL FOR LATENCY · NO INDEX REBUILD</text>
+</svg>

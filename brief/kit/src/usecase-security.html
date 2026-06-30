@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>XERJ — Security Analytics at Scale — Use Case Brief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../common.css">
+</head>
+<body>
+
+<!-- P1 · COVER -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>USE CASE · SECURITY ANALYTICS · V1 · 2026-04</span>
+  </div>
+  <div class="grow flex col between">
+    <div class="sp-10"></div>
+    <div>
+      <div class="kicker" style="margin-bottom:20px;">
+        <span>USE CASE 01</span>
+        <span class="dash">·</span>
+        <span>FOR CISO · SECOPS · SOC LEADS</span>
+      </div>
+      <div class="cover-hero">
+        SIEM AT<br>
+        <span class="accent">AI SPEED.</span><br>
+        ON YOUR<br>
+        DATA.
+      </div>
+      <div class="sp-8"></div>
+      <p class="lead" style="max-width:6in;">
+        Enterprise security teams already have the telemetry. What
+        they don't have is a platform where SIEM queries, threat
+        models, and AI-augmented triage share one retrieval layer.
+        XERJ collapses the SIEM store, the vector index, and the
+        agent memory into one self-hosted data plane — Elasticsearch
+        wire-protocol compatible, deterministic at the tail.
+      </p>
+    </div>
+    <div class="kicker">
+      <span>74× FASTER SIEM QUERIES</span>
+      <span class="dash">·</span>
+      <span>MTTD IN MILLISECONDS</span>
+      <span class="dash">·</span>
+      <span>ONE DATA PLANE</span>
+    </div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · SECURITY ANALYTICS · USE CASE BRIEF</span>
+    <span class="num">01 / 10</span>
+  </div>
+</section>
+
+<!-- P2 · AI TRANSFORMATION PROBLEM -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>02 · THE AI-TRANSFORMATION PROBLEM</span>
+  </div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>02</span><span class="dash">·</span><span>WHY THIS MATTERS NOW</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">THE SOC IS<br>THE FIRST AI<br><span class="accent">WORKLOAD.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">
+      Every enterprise AI roadmap names the SOC — alert triage,
+      enrichment, report generation, detection authoring — as a
+      year-one use case. It is where agents earn the budget. It is
+      also where most SOCs stall: the legacy SIEM cannot be queried
+      at agent cadence, and adding a vector store next to it
+      doubles the bill without closing the loop.
+    </p>
+    <div class="sp-6"></div>
+    <div class="kv-row">
+      <div class="k">QUERY LATENCY</div>
+      <div class="v">Agents iterate through evidence. A 30 ms p95 on <span class="mono">top_source_ips</span> is fine for a human; it is intolerable for an agent that needs 10 lookups per turn. SIEM vendors charge for the data and for the latency.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">FRAGMENTED STORES</div>
+      <div class="v">Threat intel in one store, logs in another, embeddings in a third, agent memory in a fourth. An incident investigation crosses three or four stores in one Python notebook. Each hop is a failure mode.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">COST OF CORRELATION</div>
+      <div class="v">Detection engineers are blocked on data model reconciliation rather than on writing detections. Every new data source takes weeks to land; every new detection requires a schema reconciliation meeting.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">AUDIT SURFACE</div>
+      <div class="v">Three stores means three RBAC models, three audit trails, three backup stories. The CISO's job is to explain risk; the data layer makes that job adversarial.</div>
+    </div>
+    <div class="grow"></div>
+    <div class="kicker"><span>THE SOC NEEDS ONE DATA PLANE</span><span class="dash">·</span><span>NOT THREE SUBSYSTEMS</span></div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · SECURITY ANALYTICS · USE CASE BRIEF</span>
+    <span class="num">02 / 10</span>
+  </div>
+</section>
+
+<!-- P3 · XERJ THESIS -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>03 · XERJ POSITIONING</span>
+  </div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>03</span><span class="dash">·</span><span>UNIFIED AI DATA STACK</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">SIEM.<br>VECTORS.<br><span class="accent">ONE ENGINE.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">
+      XERJ is a self-hosted data platform that runs all four AI-era
+      retrieval primitives in one Rust process: BM25 full-text,
+      HNSW vector, columnar log store, and session-scoped agent
+      memory. Drop-in for existing Elasticsearch 8.13 clients —
+      your Beats, Logstash, Filebeat, Wazuh integration keep working.
+    </p>
+    <div class="sp-6"></div>
+    <div class="quad-grid">
+      <div class="cell">
+        <span class="k">RETRIEVAL</span>
+        <span class="v">74×</span>
+        <span class="t">SIEM TOP-SOURCE-IPS<br><span class="accent">VS ES 8.13</span></span>
+        <span class="b">0.4 ms p95 on 1 M events · pre-computed term paths · deterministic at the tail.</span>
+      </div>
+      <div class="cell">
+        <span class="k">FOOTPRINT</span>
+        <span class="v">21×</span>
+        <span class="t">LESS IDLE<br><span class="accent">MEMORY</span></span>
+        <span class="b">400 MB vs 8.5 GB for a 4-node ES cluster. One binary, no JVM heap reservation, jemalloc returns pages to the OS.</span>
+      </div>
+      <div class="cell">
+        <span class="k">CONSOLIDATION</span>
+        <span class="v">4 → 1</span>
+        <span class="t">STORES INTO<br><span class="accent">ONE PROCESS</span></span>
+        <span class="b">SIEM + vector + log + agent memory on one segment cache, one WAL, one RBAC, one audit log.</span>
+      </div>
+      <div class="cell">
+        <span class="k">SOVEREIGNTY</span>
+        <span class="v">100 %</span>
+        <span class="t">SELF-HOSTED<br><span class="accent">BY DEFAULT</span></span>
+        <span class="b">Your cloud, your VPC, your metal. Air-gapped supported. No telemetry egress when <span class="mono">XERJ_AIRGAP=1</span>.</span>
+      </div>
+    </div>
+    <div class="grow"></div>
+    <div class="kicker"><span>DROP-IN ES 8.13 WIRE PROTOCOL</span><span class="dash">·</span><span>ZERO CLIENT REWRITE</span></div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · SECURITY ANALYTICS · USE CASE BRIEF</span>
+    <span class="num">03 / 10</span>
+  </div>
+</section>
+
+<!-- P4 · REFERENCE ARCHITECTURE -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>04 · REFERENCE ARCHITECTURE</span>
+  </div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>04</span><span class="dash">·</span><span>REFERENCE ARCHITECTURE</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">SOC BLUEPRINT.<br><span class="accent">ONE PLATFORM.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">
+      A typical three-node XERJ SOC deployment. Named upstreams,
+      named consumers, documented retention. Every component except
+      XERJ is something the team already runs.
+    </p>
+    <div class="sp-4"></div>
+    <div class="arch-pre"><span class="accent">INGEST</span>
+  Endpoints · firewall · IdP · cloud-trail · network · app logs
+     │
+     ▼  <span class="mute">TLS · ES _bulk · OTLP (beta) · syslog (roadmap)</span>
+  Filebeat · Vector · Fluentd · Wazuh · Otel Collector
+     │
+     ▼
+<span class="accent">XERJ DATA PLANE</span> · 3-node HA cluster
+  ┌─────────────────────────────────────────────────────────────┐
+  │ WAL (LZ4 · CRC32C) → memtable → segment (mmap-shared cache) │
+  │                                                             │
+  │ FTS index    │  VECTOR index   │  COLUMNS   │  AGENT MEMORY │
+  │ BM25         │  HNSW + SQ8     │  log data  │  session scoped│
+  └─────────────────────────────────────────────────────────────┘
+     │
+     ▼  <span class="mute">ES 8.13 wire · explain-plan · /metrics</span>
+<span class="accent">CONSUMERS</span>
+  Kibana dashboards · SOC analysts                 <span class="mute">keyword queries</span>
+  Detection-as-code engine                         <span class="mute">scheduled aggregations</span>
+  Triage agent · enrichment LLM · case-summary LLM <span class="mute">hybrid retrieval</span>
+  SIEM-connected SOAR · ticketing                  <span class="mute">webhook out</span>
+
+<span class="accent">RETENTION</span>
+  Hot (SSD)     30 d  · interactive queries · full fidelity
+  Warm (HDD)    90 d  · aggregated queries · segment-level tiering
+  Cold (S3)     1 y   · snapshot + restore · incremental, encrypted</div>
+    <div class="grow"></div>
+    <div class="kicker"><span>SIZING</span><span class="dash">·</span><span>3 NODES · ~50 M EVENTS/NODE/DAY · ~2.5 TB/NODE · 10 GBPS NET</span></div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · SECURITY ANALYTICS · USE CASE BRIEF</span>
+    <span class="num">04 / 10</span>
+  </div>
+</section>
+
+<!-- P5 · TECHNICAL BENEFITS -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>05 · TECHNICAL BENEFITS</span>
+  </div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>05</span><span class="dash">·</span><span>TECHNICAL BENEFITS</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">WHY THIS<br>SCALES IN<br><span class="accent">THE SOC.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">
+      Five engineering choices that matter for a security workload.
+      Each produces a measurable property of the SOC data plane —
+      not a marketing bullet.
+    </p>
+    <div class="sp-6"></div>
+    <div class="kv-row">
+      <div class="k">PRE-COMPUTED TERMS</div>
+      <div class="v">Top-source-IPs, auth-failure histograms, port distributions — aggregations read a pre-built histogram at query time instead of scanning postings. This is where the <span class="accent">74×</span> comes from. <span class="pill road">Q2</span></div>
+    </div>
+    <div class="kv-row">
+      <div class="k">DETERMINISTIC TAIL</div>
+      <div class="v">No JVM garbage collector, no JIT deopt. p99.9 tracks p50 plus cache-miss and disk. Alert triage queries have predictable budgets.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">HYBRID NATIVE</div>
+      <div class="v">One query combines a keyword filter (source-ip, user-agent), a time-range, an aggregation, and a semantic clause against similar-incident embeddings. Reciprocal rank fusion merges in-process.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">EXPLAIN-PLAN</div>
+      <div class="v"><span class="mono">POST /v1/indices/siem/explain-plan</span> returns the plan tree with cost + rows per node. Detection engineers debug query plans without a profiler. Audit teams see the plan the SOC sees.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">LOCK-FREE READERS</div>
+      <div class="v">ArcSwap segment view · DashMap version map. Flush never blocks analyst queries; analysts never block ingest. A 24 h surge writes through without stalling the dashboard.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">ENCRYPTED SEGMENTS</div>
+      <div class="v">AES-256-GCM on segment and WAL files. Customer KMS (BYOK <span class="pill road">Q2</span>). Air-gapped install verified by signed release manifest.</div>
+    </div>
+    <div class="grow"></div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · SECURITY ANALYTICS · USE CASE BRIEF</span>
+    <span class="num">05 / 10</span>
+  </div>
+</section>
+
+<!-- P6 · KEY OUTCOMES -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>06 · MEASURED OUTCOMES</span>
+  </div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>06</span><span class="dash">·</span><span>MEASURED OUTCOMES</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">SIEM QUERY<br>BATTERY.<br><span class="accent">VS ES 8.13.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">
+      Eight canonical SIEM queries. 1 M events. p95 latency. XERJ
+      on one node · Elasticsearch on four. Source:
+      <span class="mono">SIEM_BATTLE_2026-04-14_184900_UTC.md</span>.
+    </p>
+    <div class="sp-6"></div>
+    <div class="versus">
+      <div class="h">QUERY</div>
+      <div class="h a">XERJ</div>
+      <div class="h">ES 8.13 (4-NODE)</div>
+
+      <div class="dim">Top source IPs · triage</div>
+      <div><span class="accent">0.4 ms</span></div>
+      <div>29.8 ms <span class="mute">— 74.5×</span></div>
+
+      <div class="dim">Auth failures / hour</div>
+      <div><span class="accent">0.3 ms</span></div>
+      <div>18.2 ms <span class="mute">— 60.7×</span></div>
+
+      <div class="dim">Lateral movement</div>
+      <div><span class="accent">1.2 ms</span></div>
+      <div>45.1 ms <span class="mute">— 37.6×</span></div>
+
+      <div class="dim">DNS tunneling detection</div>
+      <div><span class="accent">0.8 ms</span></div>
+      <div>32.7 ms <span class="mute">— 40.9×</span></div>
+
+      <div class="dim">Process-tree anomaly</div>
+      <div><span class="accent">2.1 ms</span></div>
+      <div>89.3 ms <span class="mute">— 42.5×</span></div>
+
+      <div class="dim">Brute-force detection</div>
+      <div><span class="accent">0.5 ms</span></div>
+      <div>41.0 ms <span class="mute">— 82.0×</span></div>
+
+      <div class="dim">Geo-impossible login</div>
+      <div><span class="accent">1.8 ms</span></div>
+      <div>67.2 ms <span class="mute">— 37.3×</span></div>
+
+      <div class="dim">Data-exfil &gt; 10 MB</div>
+      <div><span class="accent">0.6 ms</span></div>
+      <div>22.4 ms <span class="mute">— 37.3×</span></div>
+    </div>
+    <div class="sp-6"></div>
+    <div class="kv-row">
+      <div class="k">MTTD IMPACT</div>
+      <div class="v">Analysts iterate in-thought at sub-millisecond latency. Enrichment agents complete a 10-lookup chain in under 15 ms. The p99.9 is deterministic because there is no GC.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">INFRA TCO</div>
+      <div class="v">1 node replaces 4. Idle memory 400 MB vs 8.5 GB. Disk 85 MB vs 240 MB per 1 M SIEM events. Board-reportable TCO reduction on infrastructure line items.</div>
+    </div>
+    <div class="grow"></div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · SECURITY ANALYTICS · USE CASE BRIEF</span>
+    <span class="num">06 / 10</span>
+  </div>
+</section>
+
+<!-- P7 · INTEGRATION ECOSYSTEM -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>07 · INTEGRATION ECOSYSTEM</span>
+  </div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>07</span><span class="dash">·</span><span>INTEGRATES WITH WHAT YOU RUN</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">YOUR SOC STACK.<br><span class="accent">UNCHANGED.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">
+      XERJ speaks the Elasticsearch 8.13 wire protocol. Every SOC
+      tool that already ships to ES (or is compatible with it) works
+      out of the box.
+    </p>
+    <div class="sp-6"></div>
+    <div class="matrix m3">
+      <div class="h">CATEGORY</div>
+      <div class="h">TOOLS</div>
+      <div class="h">STATUS</div>
+
+      <div class="k">LOG SHIPPERS</div>
+      <div>Filebeat · Winlogbeat · Auditbeat · Vector · Fluentd · Fluent Bit · Logstash</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">SIEM ENGINES</div>
+      <div>Wazuh · Elastic Security · Sigma rules via SIEM converters · custom detection-as-code pipelines</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">SOAR / TICKETING</div>
+      <div>Splunk Phantom · IBM SOAR · ServiceNow · Jira · PagerDuty · via webhook or ES-query polling</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">THREAT INTEL</div>
+      <div>MISP · OpenCTI · commercial TI feeds · load via _bulk or scheduled enrichment job</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">AGENTS / LLMS</div>
+      <div>LangChain ES retriever · LlamaIndex ES backend · Anthropic · OpenAI via custom embedder</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">DASHBOARDS</div>
+      <div>Kibana (community-validated) · Grafana (ES datasource) · custom via ES query API</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">IDENTITY</div>
+      <div>OIDC · SAML 2.0 · AWS IAM / Azure AD / Okta · SCIM for tenant provisioning</div>
+      <div class="status road">ROAD Q2</div>
+
+      <div class="k">OTLP</div>
+      <div>OpenTelemetry Collector · direct OTLP/HTTP ingest for unified obs + security</div>
+      <div class="status beta">BETA</div>
+
+      <div class="k">KAFKA SOURCE</div>
+      <div>Pull-based ingest · exactly-once via consumer-group offsets · high-throughput pipelines</div>
+      <div class="status road">ROAD Q3</div>
+    </div>
+    <div class="grow"></div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · SECURITY ANALYTICS · USE CASE BRIEF</span>
+    <span class="num">07 / 10</span>
+  </div>
+</section>
+
+<!-- P8 · SECURITY POSTURE -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>08 · SECURITY POSTURE</span>
+  </div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>08</span><span class="dash">·</span><span>SECURITY POSTURE</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">ZERO-TRUST.<br><span class="accent">AUDIT-GRADE.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">
+      A SIEM data plane that the CISO can actually defend. Mutual
+      TLS between services, per-request authorization, structured
+      audit of every privileged operation.
+    </p>
+    <div class="sp-6"></div>
+    <h4>CONTROLS</h4>
+    <div class="sp-2"></div>
+    <div class="matrix m3">
+      <div class="h">CONTROL</div>
+      <div class="h">IMPLEMENTATION</div>
+      <div class="h">STATUS</div>
+
+      <div class="k">TLS IN TRANSIT</div>
+      <div>TLS 1.3 everywhere · modern AEAD ciphers · zero-downtime cert rotation</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">ENCRYPTION AT REST</div>
+      <div>AES-256-GCM on segments and WAL · keys in external KMS (AWS KMS · GCP KMS · Vault)</div>
+      <div class="status beta">BETA</div>
+
+      <div class="k">BYOK</div>
+      <div>Customer-managed keys · no XERJ-side plaintext · rotation documented</div>
+      <div class="status road">ROAD Q2</div>
+
+      <div class="k">RBAC</div>
+      <div>Cluster · index · field-level. Built-in + custom roles. OIDC-group mapping</div>
+      <div class="status road">ROAD Q2</div>
+
+      <div class="k">AUDIT TRAIL</div>
+      <div>Structured log of query · schema change · role assignment · snapshot. Replayable.</div>
+      <div class="status beta">BETA</div>
+
+      <div class="k">AIR-GAPPED</div>
+      <div>Offline bundle + signed release manifest · <span class="mono">XERJ_AIRGAP=1</span> disables all telemetry egress</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">MULTI-TENANCY</div>
+      <div>Per-tenant index isolation · per-tenant quotas · physical isolation via separate clusters</div>
+      <div class="status ga">GA</div>
+    </div>
+    <div class="sp-6"></div>
+    <div class="kv-row">
+      <div class="k">REGULATORY</div>
+      <div class="v">Self-hosted = customer chooses region · data never leaves perimeter · SOC 2 Type I in progress (target Q3 2026) · ISO 27001 target Q4 2026 · HIPAA BAA on Enterprise tier.</div>
+    </div>
+    <div class="grow"></div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · SECURITY ANALYTICS · USE CASE BRIEF</span>
+    <span class="num">08 / 10</span>
+  </div>
+</section>
+
+<!-- P9 · IMPLEMENTATION PATH -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>09 · IMPLEMENTATION PATH</span>
+  </div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>09</span><span class="dash">·</span><span>FROM POC TO PRODUCTION</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">FIVE PHASES.<br><span class="accent">ONE YEAR.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">
+      A reversible, measured rollout. No big-bang migration. The
+      shadow-deploy pattern keeps the existing SIEM primary until
+      XERJ has a dated comparison report on your actual data.
+    </p>
+    <div class="sp-6"></div>
+    <div class="road-rail">
+      <div class="q">01</div>
+      <div class="t">PILOT<br><span class="accent">WEEKS 1–2</span></div>
+      <div>Deploy single node · reproduce the SIEM_BATTLE report on a seeded 1 M-event corpus · smoke-test with one log source · first analyst runs Kibana unchanged.</div>
+
+      <div class="q">02</div>
+      <div class="t">SHADOW<br><span class="accent">WEEKS 3–6</span></div>
+      <div>3-node HA cluster · dual-write from the ingest pipeline · XERJ reads in parallel with the existing SIEM · compare latency, recall, detection coverage on production traffic. No user impact.</div>
+
+      <div class="q">03</div>
+      <div class="t">CUT OVER ONE WORKLOAD<br><span class="accent">QUARTER 2</span></div>
+      <div>Pick the hot workload (typically auth-log SIEM or network-flow analytics) · route analysts to XERJ · decommission the shadowed subset of the legacy SIEM. First line removed from the monthly bill.</div>
+
+      <div class="q">04</div>
+      <div class="t">ADD AI / RAG<br><span class="accent">QUARTER 3</span></div>
+      <div>Enable the vector index · embed threat-intel corpus + past-incident notes · deploy a triage agent over XERJ's hybrid retrieval · MTTD drops as agents handle tier-1 correlation.</div>
+
+      <div class="q">05</div>
+      <div class="t">CONSOLIDATE<br><span class="accent">QUARTER 4</span></div>
+      <div>Migrate remaining SIEM workloads · retire the legacy SIEM · collapse vector-store contract. One platform, one contract, one on-call, one audit surface.</div>
+    </div>
+    <div class="grow"></div>
+    <div class="kicker"><span>REVERSIBLE</span><span class="dash">·</span><span>ES WIRE PROTOCOL MEANS NO LOCK-IN AT ANY PHASE</span></div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · SECURITY ANALYTICS · USE CASE BRIEF</span>
+    <span class="num">09 / 10</span>
+  </div>
+</section>
+
+<!-- P10 · CONTACT -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>10 · GET STARTED</span>
+  </div>
+  <div class="grow flex col">
+    <div class="sp-10"></div>
+    <div class="kicker"><span>10</span><span class="dash">·</span><span>NEXT STEPS</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">RUN THE BATTLE.<br><span class="accent">ON YOUR LOGS.</span></h2>
+    <div class="sp-6"></div>
+    <p class="body">
+      A two-week shadow pilot on real SIEM traffic. We bring the
+      binary and the reproduction scripts for every number in this
+      brief. You bring one log source and your current p95
+      dashboard.
+    </p>
+    <div class="sp-10"></div>
+    <div style="padding: 28px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);">
+      <div class="kicker"><span>SOC / CISO CONTACT</span></div>
+      <div class="sp-3"></div>
+      <div style="font-family: var(--font-display); font-weight: 900; font-size: 42pt; line-height:1; letter-spacing: 0.01em;">
+        HELLO<span class="accent">@</span>XERJ.AI
+      </div>
+      <div class="sp-3"></div>
+      <div style="font-family: var(--font-data); font-size: 9pt; letter-spacing: var(--track-ui); text-transform: uppercase; color: var(--mute);">
+        XERJ.AI · XERJ.COM · XERJ.DEV
+      </div>
+    </div>
+    <div class="sp-6"></div>
+    <div class="kv-row">
+      <div class="k">WHAT YOU GET</div>
+      <div class="v">Private binary · SIEM_BATTLE reproduction scripts · seeded 1 M-event corpus · Kibana dashboard JSON · detection-as-code starter kit.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">WHAT YOU BRING</div>
+      <div class="v">One log source (syslog / Windows event / cloud-trail) and a current SIEM query with its latency baseline.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">COMPANION BRIEFS</div>
+      <div class="v"><span class="mono">xerj-exec-brief.pdf</span> (C-suite) · <span class="mono">xerj-tech-brief.pdf</span> (architect) · <span class="mono">xerj-industry-finserv.pdf</span> for regulated verticals</div>
+    </div>
+    <div class="grow"></div>
+    <div class="kicker">
+      <span>XERJ.AI · SECURITY ANALYTICS · USE CASE BRIEF</span>
+      <span class="dash">·</span>
+      <span>V1 · 2026-04</span>
+    </div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · SECURITY ANALYTICS · USE CASE BRIEF</span>
+    <span class="num">10 / 10</span>
+  </div>
+</section>
+
+</body>
+</html>

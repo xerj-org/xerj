@@ -1,0 +1,30 @@
+# Cloudflare Pages headers — applied to all routes.
+/*
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: interest-cohort=()
+  Content-Security-Policy: default-src 'self' blob:; style-src 'self' blob: https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' blob: https://fonts.gstatic.com; img-src 'self' blob: data:; script-src 'self' blob: 'unsafe-inline' https://static.cloudflareinsights.com; connect-src 'self' blob: https://cloudflareinsights.com; frame-ancestors 'self';
+
+# Long-cache static assets that are content-addressed or rarely change.
+/style.css
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+
+# Playground JS/CSS change on every deploy — must revalidate.
+/playground/*.js
+  Cache-Control: no-cache
+/playground/*.css
+  Cache-Control: no-cache
+/playground/*.html
+  Cache-Control: no-cache
+# Playground static assets (fonts, images) can cache longer.
+/playground/assets/*.woff2
+  Cache-Control: public, max-age=86400
+
+# The root index.html IS the encrypted payload — it changes every
+# deploy and must never be served stale. no-cache forces the browser
+# to revalidate with the server on every navigation.
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache

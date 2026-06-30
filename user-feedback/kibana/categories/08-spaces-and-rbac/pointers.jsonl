@@ -1,0 +1,787 @@
+{"id":"disc-698376","source":"discourse","score":3,"posted_at":"2019-08-22T23:07:57.169Z","tags":["saved-objects"],"title":"Saved Objects & Spaces Slow - Kibana 7.3","_secondary":true}
+{"id":"disc-963266","source":"discourse","score":6,"posted_at":"2021-05-17T15:20:59.585Z","tags":[],"title":"My kibana instance has randomly slow performace","_secondary":true}
+{"id":"disc-980776","source":"discourse","score":3,"posted_at":"2021-07-05T09:11:11.212Z","tags":["slow-dashboard"],"title":"Kibana running slowly","_secondary":true}
+{"id":"disc-792709","source":"discourse","score":16,"posted_at":"2020-03-25T22:05:35.458Z","tags":[],"title":"No logs in Kibana logs app","_secondary":true}
+{"id":"disc-1118634","source":"discourse","score":5,"posted_at":"2022-09-29T13:10:06.309Z","tags":["data-views","slow-dashboard"],"title":"Sharing resources (Data views and Dashboards) across Spaces","_secondary":true}
+{"id":"disc-904917","source":"discourse","score":4,"posted_at":"2020-11-30T22:24:11.756Z","tags":[],"title":"Filebeat ingestion pipeline for ElasticSearch slow logs","_secondary":true}
+{"id":"disc-442461","source":"discourse","score":5,"posted_at":"2018-03-04T21:49:55.805Z","tags":[],"title":"7 seconds to index document once i get close to 2million documents"}
+{"id":"disc-1375868","source":"discourse","score":10,"posted_at":"2024-05-16T07:39:21.969Z","tags":["license"],"title":"Slow Metricbeats dashboard","_secondary":true}
+{"id":"disc-558486","source":"discourse","score":2,"posted_at":"2018-11-06T18:35:11.879Z","tags":[],"title":"Elastic Stack 6.4.3 and 5.6.13 security update"}
+{"id":"disc-437267","source":"discourse","score":5,"posted_at":"2018-02-21T15:53:07.054Z","tags":["upgrade-break","saved-objects"],"title":"Kibana 5 Visualisations broken after Upgrade to 6","_secondary":true}
+{"id":"disc-462897","source":"discourse","score":3,"posted_at":"2018-04-13T07:18:15.825Z","tags":[],"title":"Apache Proxy broken after upgrading to Kibana 6","_secondary":true}
+{"id":"disc-1444471","source":"discourse","score":9,"posted_at":"2025-12-16T16:27:55.878Z","tags":[],"title":"Kibana - API key search results broken"}
+{"id":"disc-1067935","source":"discourse","score":4,"posted_at":"2022-04-06T04:34:02.320Z","tags":[],"title":"When setting environment variable to `I18N_LOCALE: zh-CN`, Kibana's Security icon is broken"}
+{"id":"disc-1304431","source":"discourse","score":8,"posted_at":"2023-06-30T00:02:49.911Z","tags":["fleet"],"title":"Elastic Integrations fail to install and lead to broken Dashboards when used with multiple Kibana Spaces"}
+{"id":"disc-1431706","source":"discourse","score":4,"posted_at":"2025-06-30T13:57:05.303Z","tags":[],"title":"Kibanas in my Elasticsearch Engineer Lab (on-demand) are broken, I can't continue with labs"}
+{"id":"disc-1389965","source":"discourse","score":3,"posted_at":"2024-08-08T21:06:44.590Z","tags":[],"title":"How to eliminate gaps in a Bar Vertical chart that's broken down by a number?","_secondary":true}
+{"id":"disc-697377","source":"discourse","score":4,"posted_at":"2019-08-21T14:36:53.597Z","tags":["upgrade-break"],"title":"User Impersonation broken after upgrade: 6.8 -> 7.3","_secondary":true}
+{"id":"disc-1289321","source":"discourse","score":6,"posted_at":"2023-05-04T21:18:56.350Z","tags":["saved-objects"],"title":"Importing dashboards into multiple spaces through the kibana api","_secondary":true}
+{"id":"disc-646248","source":"discourse","score":3,"posted_at":"2019-05-16T16:35:32.171Z","tags":[],"title":"Visualizations Broken After Deleting Index Pattern (Resolved) \"The index pattern associated with this object no longer exists.\"","_secondary":true}
+{"id":"disc-1106248","source":"discourse","score":6,"posted_at":"2022-08-15T14:56:51.440Z","tags":[],"title":"How to embed dashboard into website with auto login user?","_secondary":true}
+{"id":"disc-1304609","source":"discourse","score":12,"posted_at":"2023-06-30T11:27:34.278Z","tags":["fleet"],"title":"Kibana Fleet high CPU Load on Elasticsearch when adding Integrations"}
+{"id":"disc-1095681","source":"discourse","score":5,"posted_at":"2022-07-09T04:41:33.047Z","tags":[],"title":"Username or password is incorrect. Please try again. / HTTP/1.1 401 Unauthorized","_secondary":true}
+{"id":"disc-1091810","source":"discourse","score":12,"posted_at":"2022-06-26T12:57:00.291Z","tags":[],"title":"Elastic search(8.2) and Kibana Authentication Error"}
+{"id":"disc-1105866","source":"discourse","score":5,"posted_at":"2022-08-12T20:12:31.837Z","tags":[],"title":"Kibana to Elastic Search Communication Not Working with Wildcard Certificate"}
+{"id":"gh-kibana-17298","source":"github","score":11,"posted_at":"2018-03-21T13:44:16Z","tags":[],"title":"Customizable Header and Footer Banners"}
+{"id":"gh-kibana-98912","source":"github","score":0,"posted_at":"2021-04-30T13:24:04Z","tags":["alerting","apm"],"title":"[RAC] RFC: Index naming and hierarchy","_secondary":true}
+{"id":"gh-kibana-3904","source":"github","score":0,"posted_at":"2015-05-20T23:32:45Z","tags":[],"title":"Authentication","_secondary":true}
+{"id":"gh-kibana-1559","source":"github","score":0,"posted_at":"2014-10-07T11:55:35Z","tags":[],"title":"Authentication and access control support","_secondary":true}
+{"id":"gh-kibana-93728","source":"github","score":0,"posted_at":"2021-03-05T02:57:22Z","tags":["siem","license"],"title":"[RAC] Alerts as Data Schema Definition","_secondary":true}
+{"id":"gh-kibana-151898","source":"github","score":0,"posted_at":"2023-02-22T16:25:14Z","tags":["fleet"],"title":"[Fleet] Support for document-based routing via ingest pipelines"}
+{"id":"gh-kibana-9583","source":"github","score":10,"posted_at":"2016-12-21T05:40:38Z","tags":[],"title":"Kibana sometimes sends HTTP requests to Elasticsearch without credentials","_secondary":true}
+{"id":"gh-kibana-143324","source":"github","score":1,"posted_at":"2022-10-13T21:14:10Z","tags":["fleet"],"title":"[Fleet] Implement Kafka output form UI","_secondary":true}
+{"id":"gh-kibana-74571","source":"github","score":4,"posted_at":"2020-08-06T17:41:55Z","tags":["canvas","discover","saved-objects","ml"],"title":"[Meta] Saved Object Tagging","_secondary":true}
+{"id":"gh-kibana-50266","source":"github","score":5,"posted_at":"2019-11-12T02:35:06Z","tags":["alerting","saved-objects"],"title":"Import / export of rules and connectors as Kibana saved object Export/Import","_secondary":true}
+{"id":"gh-kibana-6719","source":"github","score":0,"posted_at":"2016-03-31T18:32:51Z","tags":[],"title":"[resolved] Courier Fetch Error: unhandled courier request error: Authorization Exception in Chrome/Safari on Kibana 4.5.0","_secondary":true}
+{"id":"gh-kibana-41216","source":"github","score":17,"posted_at":"2019-07-16T05:53:23Z","tags":[],"title":"vendors.bundle.dll.js is not cached and often redownloaded several times during a kibana session"}
+{"id":"gh-kibana-104986","source":"github","score":2,"posted_at":"2021-07-08T20:48:48Z","tags":["fleet"],"title":"[Fleet] Support for Remote Elasticsearch cluster"}
+{"id":"gh-kibana-120377","source":"github","score":0,"posted_at":"2021-12-03T16:51:46Z","tags":["apm"],"title":"[Infra Monitoring UI] Create infra metrics shared component in storybook","_secondary":true}
+{"id":"gh-kibana-143459","source":"github","score":0,"posted_at":"2022-10-17T17:04:31Z","tags":["fleet"],"title":"[Fleet] Create file upload index templates during Fleet setup","_secondary":true}
+{"id":"gh-kibana-88956","source":"github","score":4,"posted_at":"2021-01-21T12:22:15Z","tags":["fleet"],"title":"[Fleet] Configure Fleet packages and integrations through config file"}
+{"id":"gh-kibana-82020","source":"github","score":0,"posted_at":"2020-10-29T14:43:58Z","tags":[],"title":"Removing legacy multitenancy","_secondary":true}
+{"id":"gh-kibana-143455","source":"github","score":1,"posted_at":"2022-07-28T13:55:59Z","tags":["apm","fleet"],"title":"[Fleet] Replace unenrollment timeout with UI-only inactivity timeout","_secondary":true}
+{"id":"gh-kibana-6153","source":"github","score":0,"posted_at":"2016-02-08T20:58:09Z","tags":["oom"],"title":"Node ignoring --max-old-space-size","_secondary":true}
+{"id":"gh-kibana-94017","source":"github","score":0,"posted_at":"2021-02-25T21:46:23Z","tags":["fleet"],"title":"[Fleet] System integration gets added to a policy with empty default values, causing agent to show processor errors"}
+{"id":"gh-kibana-34557","source":"github","score":0,"posted_at":"2019-04-04T15:27:24Z","tags":[],"title":"Development Experience","_secondary":true}
+{"id":"gh-kibana-20277","source":"github","score":18,"posted_at":"2018-06-27T20:51:45Z","tags":["ml","license"],"title":"RBAC - Phase 3 - Feature Controls"}
+{"id":"gh-kibana-154715","source":"github","score":1,"posted_at":"2023-04-11T11:12:19Z","tags":["fleet"],"title":"[Fleet] Secrets storage phase 1 -  Remove Kibana's ability to read secrets"}
+{"id":"gh-kibana-100133","source":"github","score":2,"posted_at":"2021-05-14T15:35:30Z","tags":[],"title":"[Stack Monitoring] Change out of the box alerts to be opt-in, rather than auto-created","_secondary":true}
+{"id":"gh-kibana-74353","source":"github","score":0,"posted_at":"2020-08-05T11:27:55Z","tags":["saved-objects","fleet"],"title":"[Fleet] Package assets should not break when installed within a space","_secondary":true}
+{"id":"gh-kibana-39741","source":"github","score":0,"posted_at":"2019-06-26T21:01:11Z","tags":["apm"],"title":"Runtime APM UI index configuration","_secondary":true}
+{"id":"gh-kibana-27919","source":"github","score":0,"posted_at":"2019-01-02T20:23:27Z","tags":[],"title":"apis SAML security SAML authentication API access with expired access token. expired access token should be automatically refreshed"}
+{"id":"gh-kibana-17970","source":"github","score":0,"posted_at":"2017-03-30T01:48:34Z","tags":["apm","saved-objects"],"title":"Kibana Spaces","_secondary":true}
+{"id":"gh-kibana-81970","source":"github","score":0,"posted_at":"2020-10-29T01:43:38Z","tags":["saved-objects"],"title":"Add bulk assign to saved object tagging","_secondary":true}
+{"id":"gh-kibana-188377","source":"github","score":0,"posted_at":"2024-04-24T00:20:29Z","tags":[],"title":"all: secrets cannot contain `$$` or `${SOMETEXT}`","_secondary":true}
+{"id":"gh-kibana-6877","source":"github","score":32,"posted_at":"2016-04-12T19:03:55Z","tags":[],"title":"\"Latest\" metric agg","_secondary":true}
+{"id":"gh-kibana-175831","source":"github","score":12,"posted_at":"2024-01-29T18:17:47Z","tags":["saved-objects","fleet"],"title":"[Fleet] Known limitations with Fleet/Integrations in multi-space environments"}
+{"id":"gh-kibana-175254","source":"github","score":2,"posted_at":"2024-01-22T18:28:04Z","tags":["apm","fleet"],"title":"[Fleet] Potential breaking change with APM data streams (maybe others) and Fleet ingest pipeline customization hooks","_secondary":true}
+{"id":"gh-kibana-18473","source":"github","score":15,"posted_at":"2018-03-14T18:49:08Z","tags":["saved-objects"],"title":"RBAC, OLS and Spaces","_secondary":true}
+{"id":"gh-kibana-11389","source":"github","score":0,"posted_at":"2017-04-24T14:11:16Z","tags":[],"title":"Create Redux Style Guide","_secondary":true}
+{"id":"gh-kibana-3040","source":"github","score":0,"posted_at":"2015-02-14T15:57:31Z","tags":[],"title":"Invalid protocol: localhost"}
+{"id":"gh-kibana-2782","source":"github","score":0,"posted_at":"2015-01-28T06:56:52Z","tags":["discover"],"title":"Ability to disable fields from default highlighting","_secondary":true}
+{"id":"gh-kibana-129344","source":"github","score":1,"posted_at":"2022-04-04T13:23:56Z","tags":["fleet"],"title":"[Fleet] dynamic_template mappings for wildcard field names are not installed","_secondary":true}
+{"id":"gh-kibana-115235","source":"github","score":0,"posted_at":"2021-10-15T17:15:41Z","tags":["kql","apm"],"title":"[Epic] Create re-usable component for infrastructure metrics","_secondary":true}
+{"id":"gh-kibana-22905","source":"github","score":3,"posted_at":"2018-09-10T21:14:45Z","tags":[],"title":"Kibana throws internal server error when auth fails due to missing saml token"}
+{"id":"gh-kibana-3112","source":"github","score":1,"posted_at":"2015-02-20T11:13:12Z","tags":[],"title":"Kibana 4 can't connect to local Elasticsearch"}
+{"id":"gh-kibana-96568","source":"github","score":1,"posted_at":"2021-04-08T13:00:02Z","tags":[],"title":"Observability alerts flyout navigation / pagination","_secondary":true}
+{"id":"gh-kibana-166135","source":"github","score":0,"posted_at":"2023-09-11T07:43:52Z","tags":["fleet"],"title":"[Fleet]: No data under Dynamic topic processor if added the key values with quotes."}
+{"id":"gh-kibana-124715","source":"github","score":0,"posted_at":"2022-02-04T17:01:10Z","tags":["saved-objects","license"],"title":"[RAM] Bulk update on rules","_secondary":true}
+{"id":"gh-kibana-92933","source":"github","score":1,"posted_at":"2021-02-25T23:00:05Z","tags":["fleet"],"title":"[Discuss] Too many saved-objects + migrations == 💥","_secondary":true}
+{"id":"gh-kibana-77966","source":"github","score":0,"posted_at":"2020-09-19T01:31:47Z","tags":["apm"],"title":"[APM] Agent API Key Management"}
+{"id":"gh-kibana-75867","source":"github","score":5,"posted_at":"2020-08-25T12:14:03Z","tags":["fleet"],"title":"[Fleet] Reusable integration policies","_secondary":true}
+{"id":"gh-kibana-52125","source":"github","score":5,"posted_at":"2019-12-03T21:16:09Z","tags":[],"title":"[Meta] Audit Logging","_secondary":true}
+{"id":"gh-kibana-35061","source":"github","score":7,"posted_at":"2019-04-15T08:13:56Z","tags":[],"title":"Kibana: mapping set to strict, dynamic introduction of [references] within [doc] is not allowed","_secondary":true}
+{"id":"gh-kibana-8818","source":"github","score":6,"posted_at":"2016-10-24T22:02:39Z","tags":[],"title":"Permission errors in packages after server optimizing"}
+{"id":"gh-kibana-68849","source":"github","score":0,"posted_at":"2020-06-11T02:41:58Z","tags":["discover"],"title":"[test-failed]: Chrome X-Pack UI Functional Tests1.x-pack/test/functional/apps/discover/feature_controls/discover_spaces·ts - discover feature controls spaces sp","_secondary":true}
+{"id":"gh-kibana-62263","source":"github","score":0,"posted_at":"2020-04-02T07:58:02Z","tags":[],"title":"[meta] Kibana loading performances optimizations ","_secondary":true}
+{"id":"gh-es-664","source":"github","score":1,"posted_at":"2011-02-01T13:41:51Z","tags":[],"title":"Add HTTPS and basic authentication support to elasticsearch","_secondary":true}
+{"id":"gh-es-4978","source":"github","score":2,"posted_at":"2014-01-31T22:52:05Z","tags":[],"title":"sysctl: permission denied on key 'vm.max_map_count'  - OpenVZ Elasticsearch 0.90.9 compatibility issue"}
+{"id":"gh-es-5359","source":"github","score":19,"posted_at":"2014-03-06T18:20:06Z","tags":[],"title":"Add a method to compute alias names for index templates"}
+{"id":"gh-es-81168","source":"github","score":0,"posted_at":"2021-11-30T18:57:48Z","tags":[],"title":"Introduce an unauthenticated endpoint for readiness checks","_secondary":true}
+{"id":"gh-es-47678","source":"github","score":0,"posted_at":"2019-10-07T17:16:55Z","tags":[],"title":"Rest only High Level APIs completeness","_secondary":true}
+{"id":"gh-es-3138","source":"github","score":1,"posted_at":"2013-06-05T08:13:29Z","tags":[],"title":"Alias to an alias","_secondary":true}
+{"id":"gh-es-30295","source":"github","score":0,"posted_at":"2018-05-01T09:31:49Z","tags":["alerting"],"title":"[CI] Packaging tests fail with connection failure on opensuse and sles","_secondary":true}
+{"id":"gh-es-14573","source":"github","score":0,"posted_at":"2015-11-06T01:17:02Z","tags":[],"title":"elasticsearch fails to start tribe node","_secondary":true}
+{"id":"gh-es-30290","source":"github","score":0,"posted_at":"2018-05-01T08:07:59Z","tags":["alerting"],"title":"[CI] AssertionError: Accounting breaker not reset","_secondary":true}
+{"id":"gh-es-14441","source":"github","score":3,"posted_at":"2015-11-02T16:04:17Z","tags":[],"title":"Unicast hostname failing to resolve blocks cluster from starting","_secondary":true}
+{"id":"gh-es-109191","source":"github","score":0,"posted_at":"2024-05-29T21:58:38Z","tags":[],"title":"[CI] UberModuleClassLoaderTests testServiceLoadingWithModuleInfo failing","_secondary":true}
+{"id":"gh-es-30456","source":"github","score":0,"posted_at":"2018-05-08T13:34:54Z","tags":[],"title":"UpgradeClusterClientYamlTestSuiteIT fails intermittently ","_secondary":true}
+{"id":"gh-es-55065","source":"github","score":0,"posted_at":"2020-04-10T14:34:20Z","tags":[],"title":"SQL: Implement DATE_FORMAT function"}
+{"id":"gh-es-13245","source":"github","score":4,"posted_at":"2015-09-01T13:07:31Z","tags":[],"title":"When JNA is not found, leave the warning but don't show the stracktrace","_secondary":true}
+{"id":"gh-es-93651","source":"github","score":0,"posted_at":"2023-02-09T14:00:48Z","tags":[],"title":"[CI] amazon-2&&immutable failing multiple times","_secondary":true}
+{"id":"gh-es-50071","source":"github","score":38,"posted_at":"2019-12-11T10:24:52Z","tags":[],"title":"Enrich processor: allow scheduling of policy executions","_secondary":true}
+{"id":"gh-es-29467","source":"github","score":0,"posted_at":"2018-04-11T09:50:42Z","tags":[],"title":"Support for highlighting extracted entities.","_secondary":true}
+{"id":"gh-es-22156","source":"github","score":0,"posted_at":"2016-12-14T06:13:56Z","tags":[],"title":"ES-v5.0.1 throw java.lang.SecurityException while snapshot"}
+{"id":"gh-es-16938","source":"github","score":5,"posted_at":"2016-03-03T18:52:43Z","tags":[],"title":"Fingerprinting Ingest Processor","_secondary":true}
+{"id":"gh-es-15951","source":"github","score":3,"posted_at":"2016-01-13T12:42:18Z","tags":[],"title":"Allowing dots in field names","_secondary":true}
+{"id":"gh-es-91081","source":"github","score":0,"posted_at":"2022-10-24T12:31:51Z","tags":[],"title":"[CI] DocsClientYamlTestSuiteIT test {yaml=reference/cluster/nodes-stats/line_2751} failing"}
+{"id":"gh-es-56507","source":"github","score":0,"posted_at":"2020-05-11T11:19:59Z","tags":[],"title":"KerberosAuthenticationIT authentication test failures","_secondary":true}
+{"id":"gh-es-112694","source":"github","score":0,"posted_at":"2024-09-10T09:13:03Z","tags":[],"title":"An error occurred while calling the create inference API in the ES cluster upgraded from version 8.9 to 8.15.","_secondary":true}
+{"id":"gh-es-22671","source":"github","score":0,"posted_at":"2017-01-18T10:41:01Z","tags":[],"title":"Dependency on org.apache.logging.log4j:log4j-api can't be optional","_secondary":true}
+{"id":"gh-es-94319","source":"github","score":0,"posted_at":"2023-03-06T10:11:45Z","tags":[],"title":"SMILE support for the _bulk API"}
+{"id":"gh-es-104620","source":"github","score":0,"posted_at":"2024-01-22T14:16:36Z","tags":[],"title":"[CI] CcrRollingUpgradeIT testCannotFollowLeaderInUpgradedCluster failing","_secondary":true}
+{"id":"gh-es-89324","source":"github","score":0,"posted_at":"2022-08-12T17:36:59Z","tags":[],"title":"[CI] KerberosAuthenticationIT testLoginByUsernamePassword failing","_secondary":true}
+{"id":"gh-es-85697","source":"github","score":0,"posted_at":"2022-04-05T13:58:24Z","tags":[],"title":"[CI] TokenAuthIntegTests testRefreshingMultipleTimesWithinWindowSucceeds failing","_secondary":true}
+{"id":"gh-es-68468","source":"github","score":1,"posted_at":"2021-02-03T16:30:09Z","tags":[],"title":"Generic threads deadlock related to ILMHistoryStore indexing"}
+{"id":"gh-es-15225","source":"github","score":0,"posted_at":"2015-12-03T22:24:39Z","tags":[],"title":"Indexing rate is ~10X lower in Elasticsearch 2.1","_secondary":true}
+{"id":"gh-es-6614","source":"github","score":0,"posted_at":"2014-06-25T17:08:43Z","tags":[],"title":"size:1 on a query applied to _all indexes only returns from the newest index, size:2 returns from all. ","_secondary":true}
+{"id":"gh-es-29714","source":"github","score":0,"posted_at":"2017-02-10T17:35:16Z","tags":[],"title":"Log REST target with 403"}
+{"id":"gh-es-25861","source":"github","score":4,"posted_at":"2017-07-24T13:13:27Z","tags":[],"title":"Remove the coerce option on numeric fields."}
+{"id":"gh-es-99720","source":"github","score":3,"posted_at":"2023-09-20T19:11:41Z","tags":[],"title":"Ability to change settings on system indices","_secondary":true}
+{"id":"gh-es-97664","source":"github","score":18,"posted_at":"2023-07-13T16:40:43Z","tags":["apm","fleet"],"title":"Allow customizing managed data streams at different levels of granularity","_secondary":true}
+{"id":"gh-es-90353","source":"github","score":0,"posted_at":"2022-09-26T13:27:27Z","tags":[],"title":"[CI] SnapshotRepoTestKitClientYamlTestSuiteIT test {p0=/10_analyze/Timeout with large blobs} failing","_secondary":true}
+{"id":"gh-es-34396","source":"github","score":0,"posted_at":"2018-10-11T10:17:56Z","tags":[],"title":"Support for proxied PKI authentication"}
+{"id":"gh-es-31396","source":"github","score":0,"posted_at":"2018-06-18T14:47:33Z","tags":[],"title":"OME while reading Completion Suggester Stats in /_cat/indices","_secondary":true}
+{"id":"gh-es-15630","source":"github","score":0,"posted_at":"2015-12-23T12:29:38Z","tags":[],"title":"cloud-azure plugin not working "}
+{"id":"gh-es-75515","source":"github","score":21,"posted_at":"2021-07-20T07:27:22Z","tags":[],"title":"Custom keep-alive strategy for outgoing OIDC connections"}
+{"id":"gh-es-72120","source":"github","score":0,"posted_at":"2021-04-22T17:26:03Z","tags":[],"title":"[CI] KerberosAuthenticationIT testLoginByUsernamePassword failing","_secondary":true}
+{"id":"gh-es-48716","source":"github","score":0,"posted_at":"2019-10-30T19:58:58Z","tags":["alerting"],"title":"Allow creation of API keys on behalf of other users","_secondary":true}
+{"id":"gh-es-37107","source":"github","score":1,"posted_at":"2019-01-03T13:16:46Z","tags":[],"title":"Geoip not able to use IPv6 address with zone ID"}
+{"id":"gh-es-29880","source":"github","score":0,"posted_at":"2018-03-19T18:45:54Z","tags":[],"title":"MonitoringIT testMonitoringService fails in CI","_secondary":true}
+{"id":"gh-es-29790","source":"github","score":0,"posted_at":"2017-07-27T17:41:45Z","tags":["license"],"title":"Security exception in ES logs on 6.0.0-beta1","_secondary":true}
+{"id":"gh-es-106158","source":"github","score":0,"posted_at":"2024-03-11T08:38:40Z","tags":[],"title":"[CI] DocsClientYamlTestSuiteIT test {yaml=reference/sql/endpoints/rest/line_574} failing","_secondary":true}
+{"id":"gh-es-82044","source":"github","score":0,"posted_at":"2021-12-22T18:58:59Z","tags":["discover"],"title":"Document Field Level Security on Frozen Tier not working correctly","_secondary":true}
+{"id":"gh-es-62676","source":"github","score":0,"posted_at":"2020-09-20T13:16:10Z","tags":[],"title":"Bulk insert operations might be block thread When a node is disconnected from cluster","_secondary":true}
+{"id":"gh-es-60470","source":"github","score":14,"posted_at":"2020-07-30T16:56:43Z","tags":[],"title":"Can not access _ingest metadata from painless scripting"}
+{"id":"gh-es-49742","source":"github","score":0,"posted_at":"2019-12-02T06:18:10Z","tags":["discover"],"title":"SamlAuthenticatorTests fail on zulu8 runtime","_secondary":true}
+{"id":"gh-es-32124","source":"github","score":0,"posted_at":"2018-07-17T12:31:59Z","tags":[],"title":"[CI] SSLConfigurationReloaderTests fail on Java 11","_secondary":true}
+{"id":"gh-es-31786","source":"github","score":6,"posted_at":"2018-07-04T09:57:51Z","tags":[],"title":"KV Ingest Processor splitting on whitespace in message"}
+{"id":"gh-es-31230","source":"github","score":0,"posted_at":"2018-06-09T18:56:52Z","tags":[],"title":"Upgrade to Gradle 4.8 and enable JDK 11 in CI","_secondary":true}
+{"id":"gh-es-26868","source":"github","score":0,"posted_at":"2017-10-03T18:29:39Z","tags":[],"title":"java.lang.SecurityException: \"putProviderProperty.SaslPlainServer\" and \"insertProvider.SaslPlainServer\" for :Plugin Repository HDFS","_secondary":true}
+{"id":"gh-es-25741","source":"github","score":8,"posted_at":"2017-07-16T12:22:57Z","tags":[],"title":"create-elasticsearch-client-throws-a-netty-illegalstateexception"}
+{"id":"gh-es-9582","source":"github","score":0,"posted_at":"2015-02-05T11:52:58Z","tags":[],"title":"ES crash on OpenVZ "}
+{"id":"gh-es-106206","source":"github","score":0,"posted_at":"2024-03-11T20:53:16Z","tags":[],"title":"[ML] ELSER crashes in local serverless setup","_secondary":true}
+{"id":"gh-es-103595","source":"github","score":0,"posted_at":"2023-12-19T22:19:40Z","tags":[],"title":"[CI] SamlAuthenticationIT testLoginWithWrongRealmFails failing"}
+{"id":"gh-es-93852","source":"github","score":0,"posted_at":"2023-02-16T09:01:43Z","tags":[],"title":"[CI] MixedClusterClientYamlTestSuiteIT test {p0=tsdb/25_id_generation/delete over _bulk} failing","_secondary":true}
+{"id":"gh-es-91964","source":"github","score":0,"posted_at":"2022-11-28T12:24:24Z","tags":[],"title":" Elasticsearch ingest attachment node crashes","_secondary":true}
+{"id":"gh-es-81839","source":"github","score":0,"posted_at":"2021-12-16T21:20:58Z","tags":["fleet"],"title":"New .monitoring-8 templates need to be automatically cleaned over time","_secondary":true}
+{"id":"gh-es-61185","source":"github","score":20,"posted_at":"2020-08-17T07:00:33Z","tags":[],"title":"Specify multiple ingest pipelines for a data stream","_secondary":true}
+{"id":"gh-es-50235","source":"github","score":1,"posted_at":"2019-12-16T14:32:42Z","tags":[],"title":"[API Key] Return base64 encoded API key when creating API key"}
+{"id":"gh-es-48182","source":"github","score":4,"posted_at":"2019-10-17T08:47:29Z","tags":[],"title":"Metadata for API keys"}
+{"id":"gh-es-39284","source":"github","score":0,"posted_at":"2019-02-22T02:36:17Z","tags":["alerting"],"title":"Running Kibana Upgrade assistant from 6 to 7 makes security index non-restricted","_secondary":true}
+{"id":"gh-es-36872","source":"github","score":2,"posted_at":"2018-12-20T00:20:49Z","tags":["canvas"],"title":"Allow token refresh for multiple requests in a small window","_secondary":true}
+{"id":"gh-es-32699","source":"github","score":0,"posted_at":"2018-08-08T04:17:34Z","tags":[],"title":"Unexpected basic auth prompt with SPNEGO (kerberos) enabled in browser"}
+{"id":"gh-es-32506","source":"github","score":0,"posted_at":"2018-07-31T16:42:39Z","tags":[],"title":"IndexStatsIT#testFilterCacheStats fails","_secondary":true}
+{"id":"gh-es-21585","source":"github","score":1,"posted_at":"2016-11-15T23:00:17Z","tags":[],"title":"Index Partitioning with Custom Routing","_secondary":true}
+{"id":"gh-es-14524","source":"github","score":0,"posted_at":"2015-11-04T14:40:24Z","tags":[],"title":"[CI failure] DateHistogramTests, \"The datetime zone id 'CET' is not recognised\""}
+{"id":"gh-es-7798","source":"github","score":0,"posted_at":"2014-09-19T09:40:06Z","tags":[],"title":"Delete Index failed - not acked","_secondary":true}
+{"id":"gh-es-100502","source":"github","score":0,"posted_at":"2023-10-09T11:13:16Z","tags":[],"title":"[CI] MixedClusterClientYamlTestSuiteIT test {p0=search.vectors/60_dense_vector_dynamic_mapping/Fields with float arrays within the threshold map as dense_vector","_secondary":true}
+{"id":"gh-es-97101","source":"github","score":0,"posted_at":"2023-06-26T10:58:55Z","tags":[],"title":"Transform incorrectly calculates date bucket after updating older data"}
+{"id":"gh-es-92058","source":"github","score":0,"posted_at":"2022-12-02T09:56:04Z","tags":[],"title":"[CI] MixedClusterClientYamlTestSuiteIT test {p0=search/140_pre_filter_search_shards/pre_filter_shard_size with shards that have no hit} failing","_secondary":true}
+{"id":"gh-es-80335","source":"github","score":0,"posted_at":"2021-11-04T10:29:12Z","tags":[],"title":"[CI] MixedClusterClientYamlTestSuiteIT test {p0=field_caps/10_basic/Get object and nested field caps} failing","_secondary":true}
+{"id":"gh-es-79074","source":"github","score":0,"posted_at":"2021-10-13T14:17:12Z","tags":[],"title":"[CI] GeoIpDownloaderIT testStartWithNoDatabases failing","_secondary":true}
+{"id":"gh-es-72060","source":"github","score":2,"posted_at":"2021-04-22T05:07:42Z","tags":[],"title":"JWT support","_secondary":true}
+{"id":"gh-es-41814","source":"github","score":0,"posted_at":"2019-05-04T00:48:08Z","tags":[],"title":"Snapshot error with minio trailing / in the base_path of the repository gives FileAlreadyExistsException for recursive snapshots of the same index","_secondary":true}
+{"id":"gh-es-21534","source":"github","score":0,"posted_at":"2016-11-14T12:17:53Z","tags":[],"title":"Breaking FilePermission changes in JDK 9 b140+ and performance impact","_secondary":true}
+{"id":"gh-es-14733","source":"github","score":0,"posted_at":"2015-11-13T09:35:08Z","tags":["alerting"],"title":"link to scripts: java.security.AccessControlException: access denied (\"java.io.FilePermission\"...","_secondary":true}
+{"id":"gh-es-133153","source":"github","score":0,"posted_at":"2025-08-19T17:10:50Z","tags":[],"title":"Document, test, and potentially improve numeric conversions in the `convert` ingest processor","_secondary":true}
+{"id":"gh-es-131404","source":"github","score":0,"posted_at":"2025-07-17T04:14:57Z","tags":[],"title":"Deadlock on ingest attachment nodes during log rollover ","_secondary":true}
+{"id":"gh-es-105122","source":"github","score":0,"posted_at":"2024-02-05T10:00:25Z","tags":[],"title":"[CI] IndexRecoveryIT testDoNotInfinitelyWaitForMapping failing","_secondary":true}
+{"id":"gh-es-102294","source":"github","score":0,"posted_at":"2023-11-16T13:17:38Z","tags":[],"title":"[CI] S3SnapshotRepoTestKitIT testRepositoryAnalysis failing","_secondary":true}
+{"id":"gh-es-85582","source":"github","score":0,"posted_at":"2022-03-31T22:32:37Z","tags":[],"title":"Deprecation log indexing increases JVM pressure on coordinator nodes consuming all heap","_secondary":true}
+{"id":"gh-es-84231","source":"github","score":0,"posted_at":"2022-02-22T14:48:18Z","tags":[],"title":"[CI] AzureStorageCleanupThirdPartyTests failing, possibly needs new set of credentials","_secondary":true}
+{"id":"gh-es-79803","source":"github","score":0,"posted_at":"2021-10-26T12:09:28Z","tags":[],"title":"[CI] DockerYmlTestSuiteIT test {p0=/11_nodes/Test cat nodes output with full_id set} (and 1 more) failing","_secondary":true}
+{"id":"gh-es-75221","source":"github","score":0,"posted_at":"2021-07-12T09:28:02Z","tags":["discover","license"],"title":"[CI] GeoIpDownloaderCliIT.testInvalidTimestamp failure","_secondary":true}
+{"id":"gh-es-70442","source":"github","score":1,"posted_at":"2021-03-16T09:04:44Z","tags":[],"title":"[Ingest pipelines] Adding descriptions for ingest processors"}
+{"id":"gh-es-60329","source":"github","score":3,"posted_at":"2020-07-28T18:33:58Z","tags":[],"title":"Make truncation of keyword field values easier","_secondary":true}
+{"id":"gh-es-41543","source":"github","score":41,"posted_at":"2019-04-25T17:09:58Z","tags":[],"title":"Primary shard balancing"}
+{"id":"gh-es-37608","source":"github","score":2,"posted_at":"2019-01-18T13:25:17Z","tags":[],"title":"Be more lenient when remotely hosted SAML IdP metadata is unavailable"}
+{"id":"gh-es-29097","source":"github","score":1,"posted_at":"2018-03-15T19:31:15Z","tags":[],"title":"Elasticsearch 6.2.2 nodes crash after reaching ulimit setting","_secondary":true}
+{"id":"gh-es-14647","source":"github","score":0,"posted_at":"2015-11-10T08:09:39Z","tags":[],"title":"[Ingest] Add comparison processor for supporting conditionals in pipeline definition","_secondary":true}
+{"id":"gh-es-101608","source":"github","score":0,"posted_at":"2023-10-31T14:03:32Z","tags":[],"title":"[CI] S3BlobStoreRepositoryTests testMetrics failing","_secondary":true}
+{"id":"gh-es-99929","source":"github","score":0,"posted_at":"2023-09-26T19:10:53Z","tags":[],"title":"[CI] SearchCancellationIT testCancelFailedSearchWhenPartialResultDisallowed failing","_secondary":true}
+{"id":"gh-es-85946","source":"github","score":0,"posted_at":"2022-04-16T10:12:01Z","tags":[],"title":"Keyword tokenizer + keep_types filter causing empty string to be returned as only token","_secondary":true}
+{"id":"gh-es-80305","source":"github","score":0,"posted_at":"2021-11-03T18:39:48Z","tags":["discover"],"title":"SearchGroupsResolverInMemoryTests leaking threads","_secondary":true}
+{"id":"gh-es-47609","source":"github","score":0,"posted_at":"2019-10-04T21:13:27Z","tags":[],"title":"Support invalidating multiple API keys by their ID"}
+{"id":"gh-es-46646","source":"github","score":0,"posted_at":"2019-09-12T08:35:00Z","tags":["alerting","fleet"],"title":"Remove API key name uniqueness constraint across active API keys","_secondary":true}
+{"id":"gh-es-38461","source":"github","score":15,"posted_at":"2019-02-05T20:56:42Z","tags":[],"title":"Snapshot lifecycle management","_secondary":true}
+{"id":"gh-es-26596","source":"github","score":0,"posted_at":"2017-09-12T09:18:45Z","tags":[],"title":"transportclient  BulkProcessor lost header !!! threadPool().getThreadContext().getHeader","_secondary":true}
+{"id":"gh-es-23792","source":"github","score":1,"posted_at":"2017-03-29T11:43:43Z","tags":[],"title":"Slow bulk updates","_secondary":true}
+{"id":"gh-es-14989","source":"github","score":0,"posted_at":"2015-11-24T22:47:22Z","tags":[],"title":"After upgrade 2.0.0 -> 2.1.0 NoSuchFileException while deleting tlog files on *every* shard","_secondary":true}
+{"id":"gh-es-95944","source":"github","score":0,"posted_at":"2023-05-09T12:09:00Z","tags":[],"title":"[CI] MixedClusterClientYamlTestSuiteIT test {p0=indices.stats/13_fields/Fields - blank} failing","_secondary":true}
+{"id":"gh-es-84700","source":"github","score":0,"posted_at":"2022-03-07T12:45:53Z","tags":["alerting"],"title":"[CI] FullClusterRestartIT testWatcherWithApiKey failing","_secondary":true}
+{"id":"gh-es-80480","source":"github","score":0,"posted_at":"2021-11-08T10:54:02Z","tags":[],"title":"elasticsearch-plugin install hang without any reason (no high cpu, nothing)","_secondary":true}
+{"id":"gh-es-64602","source":"github","score":0,"posted_at":"2020-11-04T17:22:01Z","tags":[],"title":"Can not use the GetTransform API with the RestHighLevelClient","_secondary":true}
+{"id":"gh-es-50035","source":"github","score":0,"posted_at":"2019-12-10T14:52:08Z","tags":[],"title":"Test Failure org.elasticsearch.xpack.sql.qa.single_node.JdbcResultSetIT.testGettingDateWithoutCalendar","_secondary":true}
+{"id":"gh-es-42997","source":"github","score":0,"posted_at":"2019-06-07T17:21:46Z","tags":[],"title":"Add null check for ParentJoinFieldMapper in ChildrenAggregationBuilder.joinFieldResolveConfig","_secondary":true}
+{"id":"gh-es-39331","source":"github","score":0,"posted_at":"2019-02-22T23:09:16Z","tags":[],"title":"CcrRetentionLeaseIT#testRetentionLeasesAreNotBeingRenewedAfterRecoveryCompletes is flaky","_secondary":true}
+{"id":"gh-es-34383","source":"github","score":1,"posted_at":"2018-10-10T15:16:55Z","tags":[],"title":"Long lived api keys/tokens"}
+{"id":"gh-es-33753","source":"github","score":0,"posted_at":"2018-09-17T10:15:27Z","tags":["alerting"],"title":"testWatcherRestart occasionally fails in REST tests","_secondary":true}
+{"id":"gh-eui-6561","source":"github","score":0,"posted_at":"2023-01-27T21:07:06Z","tags":["discover"],"title":"[EuiDataGrid] Add support for copying the focused cell's value with keyboard shortcut only","_secondary":true}
+{"id":"gh-eui-3626","source":"github","score":1,"posted_at":"2020-06-17T17:47:02Z","tags":[],"title":"404 & 403 pages as components","_secondary":true}
+{"id":"gh-eui-4500","source":"github","score":0,"posted_at":"2021-02-08T19:31:01Z","tags":["saved-objects"],"title":"[EuiAvatar] Add support for isDisabled property","_secondary":true}
+{"id":"gh-eui-4766","source":"github","score":3,"posted_at":"2021-04-29T13:15:06Z","tags":["lens"],"title":"Rename positive/negative palettes to be culturally inclusive","_secondary":true}
+{"id":"gh-eui-5540","source":"github","score":3,"posted_at":"2022-01-14T17:58:11Z","tags":[],"title":"[Meta] Monorepo and package-based publishing"}
+{"id":"gh-eui-4024","source":"github","score":0,"posted_at":"2020-09-09T17:18:12Z","tags":[],"title":"[EuiDragDrop] Inefficiencies for specific use-case","_secondary":true}
+{"id":"gh-eui-2841","source":"github","score":0,"posted_at":"2020-02-10T18:55:22Z","tags":[],"title":"[EuiComboBox] Rebuild with EuiSelectable","_secondary":true}
+{"id":"gh-eui-2000","source":"github","score":0,"posted_at":"2019-06-05T14:32:38Z","tags":[],"title":"Explore automated changelog file updates","_secondary":true}
+{"id":"gh-eui-805","source":"github","score":0,"posted_at":"2018-05-08T14:44:46Z","tags":[],"title":"EuiAccordion initialIsOpen doesn't work correctly"}
+{"id":"gh-eui-4000","source":"github","score":0,"posted_at":"2020-09-03T00:36:02Z","tags":[],"title":"[EuiKeyPadMenu] Add selection state ","_secondary":true}
+{"id":"gh-eui-8783","source":"github","score":0,"posted_at":"2025-06-12T09:00:03Z","tags":[],"title":"Change token `borderBaseFormsControl` to a more generic one and use it for Files uploader and Dashboards","_secondary":true}
+{"id":"gh-eui-3489","source":"github","score":0,"posted_at":"2020-05-15T18:32:01Z","tags":[],"title":"Create a stacked header solution","_secondary":true}
+{"id":"gh-eui-9060","source":"github","score":0,"posted_at":"2025-09-25T15:19:25Z","tags":["discover","alerting"],"title":"Icon request for Parsing","_secondary":true}
+{"id":"gh-eui-7019","source":"github","score":1,"posted_at":"2023-08-01T14:48:20Z","tags":["siem"],"title":"Column shake in EuiDataGrid in the security alert view","_secondary":true}
+{"id":"gh-eui-4391","source":"github","score":0,"posted_at":"2020-12-16T15:43:18Z","tags":[],"title":"[EuiComboBox] Improve prefix match with groups","_secondary":true}
+{"id":"gh-eui-6159","source":"github","score":0,"posted_at":"2022-08-23T15:22:00Z","tags":["canvas"],"title":"EuiIconClass re-rendering issue","_secondary":true}
+{"id":"gh-eui-5757","source":"github","score":0,"posted_at":"2022-04-04T08:15:19Z","tags":[],"title":"[EuiModal] Google Places Autocomplete API not rendering properly in the modal","_secondary":true}
+{"id":"gh-eui-4761","source":"github","score":0,"posted_at":"2021-04-27T13:49:38Z","tags":["lens"],"title":"[EuiColorStops] Step value must be greater or equal to 1","_secondary":true}
+{"id":"gh-eui-3218","source":"github","score":0,"posted_at":"2020-04-01T20:41:30Z","tags":[],"title":"[EuiFormRow] With difficult components"}
+{"id":"gh-eui-1456","source":"github","score":0,"posted_at":"2019-01-18T15:42:41Z","tags":[],"title":"[EuiComboBox] Allow any objects as options","_secondary":true}
+{"id":"gh-eui-1160","source":"github","score":0,"posted_at":"2018-08-31T20:18:57Z","tags":[],"title":"Exact match operator for EuiSearchBar","_secondary":true}
+{"id":"gh-eui-1061","source":"github","score":0,"posted_at":"2018-07-30T21:06:26Z","tags":[],"title":"Chart automatic margins vs fixed margins","_secondary":true}
+{"id":"gh-eui-4431","source":"github","score":0,"posted_at":"2021-01-19T09:18:26Z","tags":[],"title":"wrong height for superdatepicker button "}
+{"id":"gh-eui-4358","source":"github","score":1,"posted_at":"2020-12-07T01:55:11Z","tags":[],"title":"Jest tests become extremely slow after adding EUI","_secondary":true}
+{"id":"gh-eui-4315","source":"github","score":0,"posted_at":"2020-11-27T23:04:53Z","tags":[],"title":"[EuiSelectable] type expects undefined `searchProps` with boolean type value for `searchable` prop","_secondary":true}
+{"id":"gh-eui-3887","source":"github","score":0,"posted_at":"2020-08-11T12:19:33Z","tags":[],"title":"EuiComboBox not setting selected value to associated html input field"}
+{"id":"gh-eui-1703","source":"github","score":0,"posted_at":"2019-03-08T15:50:23Z","tags":["dark-mode"],"title":"Increase visibility and consistency of EuiBottomBar","_secondary":true}
+{"id":"gh-eui-1378","source":"github","score":0,"posted_at":"2018-12-14T22:47:49Z","tags":[],"title":"EuiTableHeaderCell should read aloud text content instead of aria-label","_secondary":true}
+{"id":"gh-eui-7101","source":"github","score":1,"posted_at":"2023-08-20T17:21:45Z","tags":[],"title":"[a11y] `EuiButtonGroup` should not be a radio group per recent industry discussion"}
+{"id":"gh-eui-5685","source":"github","score":5,"posted_at":"2022-03-03T17:14:11Z","tags":[],"title":"[Meta][CSS-in-JS] Component conversions","_secondary":true}
+{"id":"gh-eui-5038","source":"github","score":0,"posted_at":"2021-08-17T14:57:31Z","tags":[],"title":"[Data Grid] Columns list needs to be virtualized / allow for categorization","_secondary":true}
+{"id":"gh-eui-4953","source":"github","score":0,"posted_at":"2021-07-15T18:41:19Z","tags":["lens"],"title":"[EuiDataGrid] Cells are not aligned correctly until user interaction","_secondary":true}
+{"id":"gh-eui-4774","source":"github","score":0,"posted_at":"2021-04-30T20:07:43Z","tags":[],"title":"[Docs] Use `htmlIdGenerator()()` in EuiFlyout examples for `aria-labelledby`"}
+{"id":"gh-eui-3999","source":"github","score":0,"posted_at":"2020-09-02T20:08:39Z","tags":[],"title":"[EuiColorPicker] Accessibility violations (in manage spaces page)"}
+{"id":"gh-eui-3881","source":"github","score":0,"posted_at":"2020-08-10T12:40:29Z","tags":[],"title":"EuiAccordion does not respect `arrowDisplay=\"right\"` when `extraAction` is configured","_secondary":true}
+{"id":"gh-eui-3711","source":"github","score":0,"posted_at":"2020-07-08T18:02:50Z","tags":["siem"],"title":"Add Outlined Security Icon to EUI","_secondary":true}
+{"id":"gh-eui-2300","source":"github","score":0,"posted_at":"2019-09-06T16:24:19Z","tags":["saved-objects"],"title":"[EuiSelectable] Needs a checkbox","_secondary":true}
+{"id":"gh-eui-1915","source":"github","score":0,"posted_at":"2019-05-03T12:11:28Z","tags":[],"title":"Column names are duplicated in every cell"}
+{"id":"gh-eui-693","source":"github","score":0,"posted_at":"2018-04-23T20:50:35Z","tags":[],"title":"[Avatar] requires more customization","_secondary":true}
+{"id":"gh-eui-9336","source":"github","score":0,"posted_at":"2026-01-26T10:29:30Z","tags":[],"title":"[EuiFlyout] Title is not announced in VoiceOver on Chrome"}
+{"id":"gh-eui-8337","source":"github","score":0,"posted_at":"2025-02-20T15:13:31Z","tags":[],"title":"[EuiText] Remove all caps from h6 elements","_secondary":true}
+{"id":"gh-eui-7350","source":"github","score":1,"posted_at":"2023-11-08T11:59:51Z","tags":[],"title":"[EuiTabbedContent] TypeError: Cannot read property 'content' of undefined","_secondary":true}
+{"id":"gh-eui-6682","source":"github","score":0,"posted_at":"2023-04-04T14:53:13Z","tags":[],"title":"Establish a baseline GPG key type for signing commits","_secondary":true}
+{"id":"gh-eui-5529","source":"github","score":0,"posted_at":"2022-01-11T16:50:43Z","tags":[],"title":"[EuiFlexGroup] When `direction=\"column\"` we should set `responsive={false}` or adjust the styling to ignore responsive css"}
+{"id":"gh-eui-5162","source":"github","score":0,"posted_at":"2021-09-09T19:57:52Z","tags":[],"title":"[EuiDataGrid] Changing the size of columns to change the set that are currently viewable triggers many, many calls to tabble","_secondary":true}
+{"id":"gh-eui-3037","source":"github","score":0,"posted_at":"2020-03-10T21:14:13Z","tags":[],"title":"[EuiFormRow] doesn't always wire up the label and input","_secondary":true}
+{"id":"gh-eui-545","source":"github","score":0,"posted_at":"2018-03-20T18:10:17Z","tags":[],"title":"Tooltip popover screen edge avoidance","_secondary":true}
+{"id":"gh-eui-9062","source":"github","score":0,"posted_at":"2025-09-29T08:28:23Z","tags":[],"title":"[Docs] Empty states use cases don't render","_secondary":true}
+{"id":"gh-eui-8064","source":"github","score":0,"posted_at":"2024-10-07T14:07:12Z","tags":[],"title":"Badge is inaccessible for keyboard, screen reader users","_secondary":true}
+{"id":"gh-eui-6778","source":"github","score":0,"posted_at":"2023-05-16T15:59:24Z","tags":[],"title":"[EuiInlineEdit] Implement `EuiInlineEdit` in Kibana","_secondary":true}
+{"id":"gh-eui-6619","source":"github","score":0,"posted_at":"2023-02-24T18:55:16Z","tags":[],"title":"[All Form Controls][SCREEN READER]: `prepend` and `append` labels are not announced when main control receives focus","_secondary":true}
+{"id":"gh-eui-6164","source":"github","score":0,"posted_at":"2022-08-23T20:05:58Z","tags":[],"title":"[Backport] Stack release 8.5","_secondary":true}
+{"id":"gh-eui-5259","source":"github","score":0,"posted_at":"2021-10-11T18:34:06Z","tags":[],"title":"[EuiTable] Weird wrapping with `truncateText` set to `true`","_secondary":true}
+{"id":"gh-eui-5156","source":"github","score":0,"posted_at":"2021-09-08T15:44:38Z","tags":[],"title":"[EuiSuperSelect] doesn't allow arrow/keyboard nav in Safari"}
+{"id":"gh-eui-4232","source":"github","score":0,"posted_at":"2020-11-05T22:00:39Z","tags":[],"title":"[EuiPopover] Unpredictable behavior with `buffer`","_secondary":true}
+{"id":"gh-eui-4016","source":"github","score":0,"posted_at":"2020-09-07T19:39:24Z","tags":[],"title":"Combobox scroll behavior","_secondary":true}
+{"id":"gh-eui-3482","source":"github","score":0,"posted_at":"2020-05-14T19:22:49Z","tags":[],"title":"Change webpack cache directory when configuration changes","_secondary":true}
+{"id":"gh-eui-3248","source":"github","score":0,"posted_at":"2020-04-03T15:51:57Z","tags":[],"title":"`EUIRadio` with a `label` and no `id` behaves unexpectedly","_secondary":true}
+{"id":"gh-eui-2927","source":"github","score":0,"posted_at":"2020-02-25T22:25:18Z","tags":[],"title":"Module import is not done in correct manner"}
+{"id":"gh-eui-2917","source":"github","score":0,"posted_at":"2020-02-24T23:42:10Z","tags":[],"title":"EuiFilePicker prompt text should be read by screen readers","_secondary":true}
+{"id":"gh-eui-2332","source":"github","score":0,"posted_at":"2019-09-11T19:49:22Z","tags":[],"title":"anchor EuiPopover to location instead of element","_secondary":true}
+{"id":"gh-eui-2221","source":"github","score":0,"posted_at":"2019-08-13T00:26:28Z","tags":[],"title":"EuiCheckbox doesn't support aria-labelledby"}
+{"id":"gh-eui-1766","source":"github","score":0,"posted_at":"2019-03-25T22:17:58Z","tags":["canvas"],"title":"Make long modal titles wrap","_secondary":true}
+{"id":"gh-eui-1518","source":"github","score":0,"posted_at":"2019-02-04T20:07:34Z","tags":[],"title":"EuiSwitch doesn't announce its label"}
+{"id":"gh-eui-1043","source":"github","score":0,"posted_at":"2018-07-23T19:29:18Z","tags":[],"title":"EuiInMemoryTable's \"Rows per page\" won't stay open in Popover","_secondary":true}
+{"id":"gh-eui-15","source":"github","score":0,"posted_at":"2017-10-23T20:39:08Z","tags":[],"title":"<KuiCheckbox> mask property is broken","_secondary":true}
+{"id":"gh-eui-9029","source":"github","score":1,"posted_at":"2025-09-17T10:02:36Z","tags":["fleet"],"title":"[Strict Mode] EuiAccordion doesn't display within EuiFlyout"}
+{"id":"gh-eui-8635","source":"github","score":0,"posted_at":"2025-04-25T11:00:50Z","tags":[],"title":"[Watch mode] Theme workspaces","_secondary":true}
+{"id":"gh-eui-8087","source":"github","score":0,"posted_at":"2024-10-18T12:01:15Z","tags":["ml"],"title":"[A11y] [EuiTable] Improve accessibility on table headers","_secondary":true}
+{"id":"gh-eui-7829","source":"github","score":0,"posted_at":"2024-06-11T20:21:48Z","tags":[],"title":"[Docs] EuiProvider custom breakpoints example no longer works","_secondary":true}
+{"id":"gh-eui-7661","source":"github","score":0,"posted_at":"2024-04-08T13:22:24Z","tags":["lens"],"title":"[EuiCombobox] Improve searching through combobox options by adding wildcards and fuzzy search","_secondary":true}
+{"id":"gh-eui-4863","source":"github","score":0,"posted_at":"2021-06-06T13:02:18Z","tags":[],"title":"[EuiDataGrid] Unable to get property columns","_secondary":true}
+{"id":"gh-eui-4097","source":"github","score":0,"posted_at":"2020-10-02T09:47:23Z","tags":[],"title":"[EuiFieldNumber] Accepts whitespaces as valid in Firefox and Safari"}
+{"id":"gh-eui-3319","source":"github","score":0,"posted_at":"2020-04-15T05:11:59Z","tags":[],"title":"Unify the date typing for `ReactDatePickerProps` in `EuiDatePicker` Typescript","_secondary":true}
+{"id":"gh-eui-2023","source":"github","score":0,"posted_at":"2019-06-10T21:27:05Z","tags":[],"title":"Allow disabling of buttons in EuiConfirmModal"}
+{"id":"gh-eui-2018","source":"github","score":0,"posted_at":"2019-06-10T21:01:29Z","tags":[],"title":"EuiBadge should have `pointer: default`","_secondary":true}
+{"id":"gh-eui-1754","source":"github","score":0,"posted_at":"2019-03-21T18:18:01Z","tags":[],"title":"EuiCodeBlock suffers with long strings in confined spaces"}
+{"id":"gh-eui-1166","source":"github","score":0,"posted_at":"2018-09-06T01:27:27Z","tags":[],"title":"eui should change its @types/react dependency to be dev+peer and rely on users to provide one","_secondary":true}
+{"id":"gh-eui-860","source":"github","score":0,"posted_at":"2018-05-21T16:30:53Z","tags":[],"title":"Make table sorting deterministic","_secondary":true}
+{"id":"gh-eui-858","source":"github","score":0,"posted_at":"2018-05-21T14:26:13Z","tags":[],"title":"Page size control not working in EuiInMemoryTable","_secondary":true}
+{"id":"gh-eui-832","source":"github","score":0,"posted_at":"2018-05-15T19:56:51Z","tags":[],"title":"App Icon Request: Spaces"}
+{"id":"gh-eui-9098","source":"github","score":0,"posted_at":"2025-10-14T09:42:00Z","tags":[],"title":"[EuiButton] Implement focusable disabled state behavior","_secondary":true}
+{"id":"gh-eui-8826","source":"github","score":0,"posted_at":"2025-06-27T11:33:12Z","tags":[],"title":"[EuiComboBox][A11y] Passing custom option ids breaks accessibility","_secondary":true}
+{"id":"gh-eui-8437","source":"github","score":0,"posted_at":"2025-03-13T13:51:25Z","tags":[],"title":"[EUI+] Clean-up the README and scripts"}
+{"id":"gh-eui-8104","source":"github","score":0,"posted_at":"2024-10-29T10:20:00Z","tags":[],"title":"[EuiComboBox] Remove `Pill` delete button is not accessible from the keyboard","_secondary":true}
+{"id":"gh-eui-8088","source":"github","score":0,"posted_at":"2024-10-18T13:08:25Z","tags":["ml"],"title":"[A11y] [SearchBar] Filters: WCAG 3.2.2 On Input does not cause a change of context","_secondary":true}
+{"id":"gh-eui-7794","source":"github","score":0,"posted_at":"2024-05-28T14:51:52Z","tags":[],"title":"Spike: Explore switching to Yarn Berry","_secondary":true}
+{"id":"gh-eui-6857","source":"github","score":0,"posted_at":"2023-06-21T14:19:58Z","tags":[],"title":"[EuiInlineEdit] Create `placeholder` prop for Inline Edit compoents","_secondary":true}
+{"id":"gh-eui-6648","source":"github","score":0,"posted_at":"2023-03-20T16:19:42Z","tags":[],"title":"[EuiContextMenu][SCREEN READER]: Add prop to announce selected item on single choice panels like pagination","_secondary":true}
+{"id":"gh-eui-6611","source":"github","score":1,"posted_at":"2023-02-20T19:21:45Z","tags":[],"title":"[EuiText] Update ordered list styles ","_secondary":true}
+{"id":"gh-eui-6249","source":"github","score":1,"posted_at":"2022-09-20T11:22:58Z","tags":[],"title":"Avatar component mutates style prop","_secondary":true}
+{"id":"gh-eui-6011","source":"github","score":1,"posted_at":"2022-06-29T15:47:42Z","tags":[],"title":"[EuiFilterButton] ARIA attribute not allowed for badge with no role","_secondary":true}
+{"id":"gh-eui-5435","source":"github","score":0,"posted_at":"2021-12-02T18:13:09Z","tags":[],"title":"[EuiPopover] `positionPopoverFixed` memory leak"}
+{"id":"gh-eui-5292","source":"github","score":0,"posted_at":"2021-10-20T18:50:12Z","tags":[],"title":"[EuiSuperSelect][AXE-CORE]: Super select listbox must have an accessible label","_secondary":true}
+{"id":"gh-eui-5183","source":"github","score":1,"posted_at":"2021-09-14T22:07:23Z","tags":[],"title":"[EuiComboBox] Unique ID is not passed through to label for prepend or append props "}
+{"id":"gh-eui-3112","source":"github","score":3,"posted_at":"2020-03-17T22:52:24Z","tags":[],"title":"Replace `makeId` with `htmlIdGenerator`","_secondary":true}
+{"id":"gh-eui-2490","source":"github","score":0,"posted_at":"2019-10-25T07:59:20Z","tags":[],"title":"[EuiSuperDatePicker] requires two clicks into inputs within EuiPopovers after clicking non-input components within the TabPanel","_secondary":true}
+{"id":"gh-eui-2335","source":"github","score":0,"posted_at":"2019-09-12T15:58:34Z","tags":[],"title":"Improve accessibility of EuiTableRowCell"}
+{"id":"gh-eui-2183","source":"github","score":0,"posted_at":"2019-07-31T16:48:45Z","tags":[],"title":"[Docs] Searching in the sidebar then clicking an item doesn't navigate in IE"}
+{"id":"gh-eui-2039","source":"github","score":0,"posted_at":"2019-06-13T12:54:41Z","tags":[],"title":"(Accessibility) euiNavDrawerFlyout uses `<h5>` and breaks the structure heading hierachy","_secondary":true}
+{"id":"gh-eui-1498","source":"github","score":0,"posted_at":"2019-01-30T17:07:55Z","tags":[],"title":"Create a pattern for search within popover","_secondary":true}
+{"id":"gh-eui-1230","source":"github","score":0,"posted_at":"2018-10-03T12:51:11Z","tags":[],"title":"EuiAvatar does not handle a `name` composed entirely of whitespace"}
+{"id":"gh-eui-1063","source":"github","score":1,"posted_at":"2018-07-30T21:36:18Z","tags":[],"title":"Add spaces app logo to EUI"}
+{"id":"gh-eui-762","source":"github","score":0,"posted_at":"2018-05-02T22:51:37Z","tags":[],"title":"Improve EuiDescribedFormGroup accessiblity "}
+{"id":"gh-eui-692","source":"github","score":0,"posted_at":"2018-04-20T15:46:52Z","tags":[],"title":"Row expansion not working across table with multiple pages","_secondary":true}
+{"id":"gh-osd-1405","source":"github","score":26,"posted_at":"2022-03-30T20:05:27Z","tags":[],"title":"OpenSearch Dashboards 2022 Initiatives"}
+{"id":"gh-osd-4859","source":"github","score":2,"posted_at":"2023-08-30T20:28:08Z","tags":["discover"],"title":"[Data Explorer][Discover 2.0] Dynamic adjustable row heights based on field data","_secondary":true}
+{"id":"gh-osd-1215","source":"github","score":3,"posted_at":"2022-02-07T04:50:55Z","tags":["discover","alerting","ml"],"title":"[feature-proposal] Dashboards security out of box","_secondary":true}
+{"id":"gh-osd-1756","source":"github","score":4,"posted_at":"2022-06-16T16:50:46Z","tags":[],"title":"[MD] Research on encryption / decryption strategies","_secondary":true}
+{"id":"gh-osd-7821","source":"github","score":0,"posted_at":"2024-08-23T07:52:24Z","tags":["saved-objects"],"title":"[RFC] User level settings","_secondary":true}
+{"id":"gh-osd-6320","source":"github","score":0,"posted_at":"2024-04-03T00:06:09Z","tags":[],"title":"[BUG][NewHomePage] Avoid Requiring Index Write Permission for the New Homepage Loading","_secondary":true}
+{"id":"gh-osd-3277","source":"github","score":0,"posted_at":"2023-01-16T06:59:38Z","tags":["alerting","anomaly"],"title":"[BUG] Fetch calls pass custom headers for every 302 request causing CORS ","_secondary":true}
+{"id":"gh-osd-6379","source":"github","score":6,"posted_at":"2024-04-09T06:54:09Z","tags":["saved-objects"],"title":"[BUG] Share button lose search criteria","_secondary":true}
+{"id":"gh-osd-10767","source":"github","score":1,"posted_at":"2025-10-20T23:15:58Z","tags":["alerting"],"title":"[RFC] OpenTelemetry Metrics Support for OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-7171","source":"github","score":1,"posted_at":"2024-07-03T18:46:04Z","tags":[],"title":"[RFC] Data Source Tracking across Nav Changes","_secondary":true}
+{"id":"gh-osd-3065","source":"github","score":0,"posted_at":"2022-12-12T21:41:28Z","tags":[],"title":"[Feature]  Easier developer environment setup","_secondary":true}
+{"id":"gh-osd-3046","source":"github","score":0,"posted_at":"2022-12-07T21:19:22Z","tags":["alerting"],"title":"Support red dot icons on buttons with call backs","_secondary":true}
+{"id":"gh-osd-1881","source":"github","score":0,"posted_at":"2022-07-12T01:22:16Z","tags":[],"title":"[Vis Builder] Add validation steps between serialization/deserialization and state sync","_secondary":true}
+{"id":"gh-osd-5952","source":"github","score":0,"posted_at":"2024-02-26T17:07:18Z","tags":[],"title":"[BUG] Dashboards fails to come up on main ","_secondary":true}
+{"id":"gh-osd-5694","source":"github","score":0,"posted_at":"2024-01-16T20:32:31Z","tags":[],"title":"Hide/Show authentication method in multi data source plugin based on configuration","_secondary":true}
+{"id":"gh-osd-4044","source":"github","score":0,"posted_at":"2023-05-16T19:05:02Z","tags":["saved-objects"],"title":"[Feature Anywhere] Cleanup of dangling `augment-vis` saved objs","_secondary":true}
+{"id":"gh-osd-3833","source":"github","score":0,"posted_at":"2023-04-12T00:45:35Z","tags":[],"title":"[Feature Anywhere] Performance test the new feature anywhere integration across OSD and plugins.","_secondary":true}
+{"id":"gh-osd-1642","source":"github","score":1,"posted_at":"2022-05-31T03:32:01Z","tags":[],"title":"API Status redaction","_secondary":true}
+{"id":"gh-osd-873","source":"github","score":0,"posted_at":"2021-08-03T23:26:32Z","tags":[],"title":"[BUG] Read only user seeing 403 error when viewing Dashboards","_secondary":true}
+{"id":"gh-osd-4944","source":"github","score":1,"posted_at":"2023-09-06T09:56:03Z","tags":["saved-objects"],"title":"[Feature][META]Workspace","_secondary":true}
+{"id":"gh-osd-4797","source":"github","score":0,"posted_at":"2023-07-28T12:49:35Z","tags":[],"title":"Secret management for monitor webhooks","_secondary":true}
+{"id":"gh-osd-4121","source":"github","score":0,"posted_at":"2023-05-23T07:18:48Z","tags":["discover","alerting","anomaly"],"title":"[BUG] SAML nextUrl is empty when clicking on the Button Log in with single sign-on","_secondary":true}
+{"id":"gh-osd-3634","source":"github","score":0,"posted_at":"2023-03-19T15:25:24Z","tags":[],"title":"[Multiple Datasource] Pass through user authentication","_secondary":true}
+{"id":"gh-osd-3534","source":"github","score":6,"posted_at":"2023-02-28T17:23:03Z","tags":[],"title":"[FEATURE] API endpoint for liveness & readiness probes","_secondary":true}
+{"id":"gh-osd-2594","source":"github","score":0,"posted_at":"2022-10-18T03:28:19Z","tags":[],"title":"Create Data source with roles of no relevant permission - should render proper error state","_secondary":true}
+{"id":"gh-osd-1815","source":"github","score":0,"posted_at":"2022-06-29T16:07:29Z","tags":[],"title":"Improve permission denied message","_secondary":true}
+{"id":"gh-osd-1044","source":"github","score":0,"posted_at":"2021-12-27T11:11:58Z","tags":[],"title":"[New Feature] Workspaces","_secondary":true}
+{"id":"gh-osd-494","source":"github","score":1,"posted_at":"2021-06-18T09:32:44Z","tags":[],"title":"[BUG] Theme version references v7 and v8","_secondary":true}
+{"id":"gh-osd-5392","source":"github","score":0,"posted_at":"2023-10-27T23:32:35Z","tags":[],"title":"[RFC] Moving future tests out of Functional Test Repo","_secondary":true}
+{"id":"gh-osd-3361","source":"github","score":0,"posted_at":"2023-01-31T21:26:15Z","tags":["saved-objects"],"title":"[Feature Anywhere] Advanced settings to soft limit on number of anywhere saved objects on a single visualization","_secondary":true}
+{"id":"gh-osd-2100","source":"github","score":0,"posted_at":"2022-08-09T17:36:12Z","tags":[],"title":"[Feature-Proposal] Enable Multiple Authentication for OpenSearch Dashboard"}
+{"id":"gh-osd-1368","source":"github","score":0,"posted_at":"2022-03-22T17:12:04Z","tags":[],"title":"Custom branding colors"}
+{"id":"gh-osd-686","source":"github","score":4,"posted_at":"2021-07-30T13:58:51Z","tags":["alerting","anomaly"],"title":"[BUG] FATAL  ValidationError: child \"plugins\" fails because [\"security\" is not allowed]","_secondary":true}
+{"id":"gh-osd-10890","source":"github","score":3,"posted_at":"2025-11-08T22:40:17Z","tags":[],"title":"[BUG] Previous visualization and dashboards are gone after enabling Workspaces","_secondary":true}
+{"id":"gh-osd-10883","source":"github","score":1,"posted_at":"2025-11-07T17:57:23Z","tags":["discover"],"title":"[BUG] Blank Screen in OpenSearch Discover Due to Malformed Saved Query","_secondary":true}
+{"id":"gh-osd-8722","source":"github","score":1,"posted_at":"2024-10-28T20:29:02Z","tags":[],"title":"[BUG] Visualization Field dropdown list not loading all index pattern aggregatable fields","_secondary":true}
+{"id":"gh-osd-5615","source":"github","score":0,"posted_at":"2023-12-14T21:28:27Z","tags":[],"title":"[BUG] [TableVis] Individual data grid components don't grow to fit all their rows when filtering increases the number of rows per table","_secondary":true}
+{"id":"gh-osd-5243","source":"github","score":0,"posted_at":"2023-10-07T05:56:02Z","tags":["saved-objects"],"title":"[RFC][Workspace]Add workspace id into url to indicate current visiting workspace","_secondary":true}
+{"id":"gh-osd-3513","source":"github","score":0,"posted_at":"2023-03-02T04:21:22Z","tags":[],"title":"Unable to change Timezone for date formatting","_secondary":true}
+{"id":"gh-osd-3132","source":"github","score":0,"posted_at":"2022-12-23T01:47:23Z","tags":[],"title":"Add json worker and language implementation in @osd/monaco","_secondary":true}
+{"id":"gh-osd-3047","source":"github","score":0,"posted_at":"2022-12-07T21:29:26Z","tags":["alerting"],"title":"Support aggregated view of all events that are associated to a paticular ","_secondary":true}
+{"id":"gh-osd-2459","source":"github","score":0,"posted_at":"2022-09-29T22:56:05Z","tags":[],"title":"[Test] local unit tests failed "}
+{"id":"gh-osd-1587","source":"github","score":1,"posted_at":"2022-05-17T13:38:57Z","tags":["discover"],"title":"[BUG] CREATE INDEX keeps repeating ","_secondary":true}
+{"id":"gh-osd-1250","source":"github","score":6,"posted_at":"2022-02-15T09:55:38Z","tags":[],"title":"Custom branding v2","_secondary":true}
+{"id":"gh-osd-1020","source":"github","score":0,"posted_at":"2021-12-12T17:57:56Z","tags":[],"title":"[BUG] Cannot log in with admin/admin with security disabled","_secondary":true}
+{"id":"gh-osd-9257","source":"github","score":0,"posted_at":"2025-01-23T01:23:32Z","tags":[],"title":"[BUG] DQC can not be assigned to a workspace due to validation"}
+{"id":"gh-osd-7308","source":"github","score":1,"posted_at":"2024-07-16T09:38:27Z","tags":["alerting","anomaly"],"title":"[BUG][opensearch-dashboards] opensearch_security.auth.type not a valid key","_secondary":true}
+{"id":"gh-osd-5838","source":"github","score":0,"posted_at":"2024-02-07T19:22:56Z","tags":[],"title":"[Meta] Refactoring data source plugin to support add-on authentication method with plug-in module","_secondary":true}
+{"id":"gh-osd-1446","source":"github","score":0,"posted_at":"2022-04-12T09:39:55Z","tags":[],"title":"[BUG] 403 error while building osd.","_secondary":true}
+{"id":"gh-osd-975","source":"github","score":0,"posted_at":"2021-11-23T20:47:15Z","tags":[],"title":"[Feature] How to enable cypress coverage for plugins","_secondary":true}
+{"id":"gh-osd-11006","source":"github","score":0,"posted_at":"2025-12-02T17:44:03Z","tags":[],"title":"[BUG] too_long_http_header_exception - HTTP header is larger than 8192 bytes.","_secondary":true}
+{"id":"gh-osd-10967","source":"github","score":0,"posted_at":"2025-11-20T14:09:42Z","tags":[],"title":"[BUG] OpenSearch Dashboards Permission Issue with Remote Data Source - Admin Privileges Instead of User Roles","_secondary":true}
+{"id":"gh-osd-10938","source":"github","score":2,"posted_at":"2025-11-19T15:54:37Z","tags":[],"title":"Separate application settings per workspace"}
+{"id":"gh-osd-10821","source":"github","score":2,"posted_at":"2025-10-28T19:50:56Z","tags":[],"title":"[BUG] New Dashboards Experience - Installing sample data should create workspaces."}
+{"id":"gh-osd-8891","source":"github","score":0,"posted_at":"2024-11-19T08:27:16Z","tags":["discover"],"title":"[BUG] [Discover] index pattern fetch error in discover dataset modal ","_secondary":true}
+{"id":"gh-osd-7604","source":"github","score":4,"posted_at":"2024-08-01T08:33:38Z","tags":[],"title":"[Feature Request] Respect session TTL values when using Azure as IDP","_secondary":true}
+{"id":"gh-osd-7483","source":"github","score":0,"posted_at":"2024-07-25T08:58:02Z","tags":[],"title":"[BUG] The hamburger icon will always pop up tooltip when switching app","_secondary":true}
+{"id":"gh-osd-6517","source":"github","score":0,"posted_at":"2024-04-17T22:22:41Z","tags":[],"title":"Validation for Endpoint URL when creating a dataSource"}
+{"id":"gh-osd-6314","source":"github","score":0,"posted_at":"2024-04-02T14:56:22Z","tags":["saved-objects"],"title":"[BUG] saved object can't be created when permissions provided","_secondary":true}
+{"id":"gh-osd-6142","source":"github","score":0,"posted_at":"2024-03-14T04:30:40Z","tags":[],"title":"[MDS]Typo in data_source_management plugin","_secondary":true}
+{"id":"gh-osd-5563","source":"github","score":1,"posted_at":"2023-09-18T09:02:22Z","tags":[],"title":"Multiple Opensearch Dashboards instances support multi-tenant feature","_secondary":true}
+{"id":"gh-osd-5163","source":"github","score":0,"posted_at":"2023-09-30T03:01:01Z","tags":["saved-objects"],"title":"[Workspace] Optional workspaces params in repository","_secondary":true}
+{"id":"gh-osd-5043","source":"github","score":0,"posted_at":"2023-09-16T01:10:48Z","tags":[],"title":"[AUTOCUT] Integration Test failed for OpenSearch-Dashboards: 2.10.0 tar distribution","_secondary":true}
+{"id":"gh-osd-4966","source":"github","score":0,"posted_at":"2023-09-07T16:54:59Z","tags":["dark-mode"],"title":"[Look and Feel] New Home Page Experience","_secondary":true}
+{"id":"gh-osd-4878","source":"github","score":0,"posted_at":"2023-08-31T17:40:56Z","tags":[],"title":"[Theme: Next] Left menu background doesn't stretch all the way to the bottom","_secondary":true}
+{"id":"gh-osd-4755","source":"github","score":0,"posted_at":"2023-08-16T21:52:21Z","tags":[],"title":"[RFC] No-code designer for AI-augmented workflows","_secondary":true}
+{"id":"gh-osd-4217","source":"github","score":0,"posted_at":"2023-06-03T01:01:18Z","tags":[],"title":"[Data Explorer] Create `data_explorer` branch and associated plugin structure"}
+{"id":"gh-osd-3696","source":"github","score":0,"posted_at":"2023-03-27T13:20:19Z","tags":[],"title":"[BUG] It's possible to login to Opensearch Dashboards without any Opensearch roles."}
+{"id":"gh-osd-3671","source":"github","score":0,"posted_at":"2023-03-23T08:37:33Z","tags":[],"title":"[BUG] incorrect opensearch cluster:monitor/tasks/list permission instead of cluster:monitor/tasks/lists","_secondary":true}
+{"id":"gh-osd-3231","source":"github","score":0,"posted_at":"2023-01-09T23:33:52Z","tags":[],"title":"[UI/UX] Error boundaries","_secondary":true}
+{"id":"gh-osd-3122","source":"github","score":0,"posted_at":"2022-12-22T21:18:57Z","tags":["canvas","saved-objects"],"title":"[Feature Anywhere] Collect `VisLayer`s when rendering visualization line charts","_secondary":true}
+{"id":"gh-osd-3060","source":"github","score":0,"posted_at":"2022-12-10T00:43:00Z","tags":[],"title":"[MD] Feature test connection follow up"}
+{"id":"gh-osd-1812","source":"github","score":0,"posted_at":"2022-06-28T13:01:39Z","tags":[],"title":"Error: no handler found for uri [/_plugins/_security/authinfo] and method [GET]","_secondary":true}
+{"id":"gh-osd-1748","source":"github","score":0,"posted_at":"2022-06-15T02:35:15Z","tags":[],"title":"[Build] Build amd64 for rpm","_secondary":true}
+{"id":"gh-osd-1161","source":"github","score":0,"posted_at":"2022-01-17T09:24:27Z","tags":[],"title":"Create Index pattern for each user saml","_secondary":true}
+{"id":"gh-osd-903","source":"github","score":0,"posted_at":"2021-11-02T16:58:26Z","tags":[],"title":"[Feature] Create log parsers easily from UI","_secondary":true}
+{"id":"gh-osd-842","source":"github","score":0,"posted_at":"2021-10-05T15:17:48Z","tags":[],"title":"[BUG] SAML endpoint still using _opendistro instead of _plugins"}
+{"id":"gh-osd-416","source":"github","score":0,"posted_at":"2021-06-03T06:28:49Z","tags":[],"title":"[BUG] “Remember my selection next time I log in from this device.” doesn’t work"}
+{"id":"gh-osd-294","source":"github","score":1,"posted_at":"2021-04-15T05:16:02Z","tags":[],"title":"Proposal: [Discuss] [Core] Remove custom Package manager from osd-pm","_secondary":true}
+{"id":"gh-osd-11640","source":"github","score":0,"posted_at":"2026-03-31T20:35:48Z","tags":[],"title":"Request: Multi-line visualizations","_secondary":true}
+{"id":"gh-osd-11304","source":"github","score":0,"posted_at":"2026-02-05T05:53:47Z","tags":["discover"],"title":"[BUG] Discover show time field as empty","_secondary":true}
+{"id":"gh-osd-10525","source":"github","score":0,"posted_at":"2025-09-15T22:46:22Z","tags":["discover","saved-objects","data-views"],"title":"RFC: OpenSearch Dashboards MCP Server (OSD-MCP)","_secondary":true}
+{"id":"gh-osd-10279","source":"github","score":1,"posted_at":"2025-07-28T08:32:26Z","tags":["saved-objects"],"title":"[Workspace] Enable workspace by default for future OpenSearch-Dashboards distribution","_secondary":true}
+{"id":"gh-osd-9905","source":"github","score":0,"posted_at":"2025-06-16T23:22:35Z","tags":[],"title":"[BUG] Unit Tests failing on Amazon Linux 2 docker image due to OS-level or Docker-related wording difference","_secondary":true}
+{"id":"gh-osd-9438","source":"github","score":1,"posted_at":"2025-02-24T18:37:29Z","tags":[],"title":"Workspaces Read_Only Mode"}
+{"id":"gh-osd-8960","source":"github","score":0,"posted_at":"2024-11-27T01:07:44Z","tags":["discover"],"title":"[Saved Searches in Dashboards (Using saved searches)] TESTID-115: Load a Saved Search ","_secondary":true}
+{"id":"gh-osd-8950","source":"github","score":0,"posted_at":"2024-11-27T00:42:19Z","tags":["discover"],"title":"[Search Management (Managing saved searches)] TESTID-114: Update an existing Saved Search ","_secondary":true}
+{"id":"gh-osd-8948","source":"github","score":0,"posted_at":"2024-11-27T00:36:38Z","tags":["discover"],"title":"[Search Management (Managing saved searches)] TESTID-113: Loading a Saved Search ","_secondary":true}
+{"id":"gh-osd-8942","source":"github","score":0,"posted_at":"2024-11-26T22:51:22Z","tags":["discover"],"title":"[Data Selector and Time Ranges Testing] TESTID-119: Test advanced dataset selector","_secondary":true}
+{"id":"gh-osd-8941","source":"github","score":0,"posted_at":"2024-11-26T22:50:18Z","tags":[],"title":"[Data Selector and Time Ranges Testing] TESTID-56: Test selecting different time ranges","_secondary":true}
+{"id":"gh-osd-8940","source":"github","score":0,"posted_at":"2024-11-26T22:48:50Z","tags":["filter-bar"],"title":"[Data Selector and Time Ranges Testing] TESTID-117: Test simple dataset selector","_secondary":true}
+{"id":"gh-osd-8939","source":"github","score":0,"posted_at":"2024-11-26T22:45:31Z","tags":[],"title":"[Data Selector and Time Ranges Testing] TESTID-53: Test selecting recent data from the data selector ","_secondary":true}
+{"id":"gh-osd-8362","source":"github","score":2,"posted_at":"2024-09-26T23:42:16Z","tags":["discover"],"title":"[Discover] Support selecting multiple datasets","_secondary":true}
+{"id":"gh-osd-7520","source":"github","score":0,"posted_at":"2024-07-26T15:59:36Z","tags":["saved-objects"],"title":"[Workspace] Optimize Performance by Caching Workspace Saved Objects During Permission Validation","_secondary":true}
+{"id":"gh-osd-7176","source":"github","score":0,"posted_at":"2024-07-04T17:17:12Z","tags":["discover"],"title":"[BUG] Discover no longer truncates long text fields","_secondary":true}
+{"id":"gh-osd-7127","source":"github","score":0,"posted_at":"2024-06-28T15:50:04Z","tags":["saved-objects"],"title":"[Workspace] Restrict saved objects finding for non dashboard admin","_secondary":true}
+{"id":"gh-osd-6653","source":"github","score":1,"posted_at":"2024-04-26T14:51:07Z","tags":["discover"],"title":"URL template support for Map tooltips"}
+{"id":"gh-osd-6345","source":"github","score":0,"posted_at":"2024-04-04T17:44:34Z","tags":[],"title":"[BUG] Opening SuperDatePicker shows an unrelated tooltip","_secondary":true}
+{"id":"gh-osd-6153","source":"github","score":0,"posted_at":"2024-03-15T07:19:31Z","tags":[],"title":"[Workspace] Filter left nav menu according to the current workspace","_secondary":true}
+{"id":"gh-osd-6149","source":"github","score":0,"posted_at":"2024-03-15T01:50:41Z","tags":[],"title":"[Workspace] Add a dropdown menu in left nav bar to switch the current workspace by selecting from the list","_secondary":true}
+{"id":"gh-osd-6027","source":"github","score":0,"posted_at":"2024-03-05T02:55:18Z","tags":["saved-objects"],"title":"[Workspace] Consume workspace in saved objects client.","_secondary":true}
+{"id":"gh-osd-6016","source":"github","score":0,"posted_at":"2024-03-04T09:06:39Z","tags":["saved-objects"],"title":"[Workspace] Support delete saved objects by workspace","_secondary":true}
+{"id":"gh-osd-5700","source":"github","score":0,"posted_at":"2024-01-17T00:55:23Z","tags":[],"title":"[BUG] Multiple datasource UI fixes","_secondary":true}
+{"id":"gh-osd-5439","source":"github","score":0,"posted_at":"2023-11-07T15:40:17Z","tags":[],"title":"[BUG]","_secondary":true}
+{"id":"gh-osd-5209","source":"github","score":0,"posted_at":"2023-10-04T14:18:49Z","tags":[],"title":"Permissions for external data source index","_secondary":true}
+{"id":"gh-osd-5068","source":"github","score":0,"posted_at":"2023-09-19T21:19:41Z","tags":["discover"],"title":"[BUG][Data Explorer] Large string error on data explorer","_secondary":true}
+{"id":"gh-osd-5041","source":"github","score":0,"posted_at":"2023-09-15T23:23:48Z","tags":[],"title":"[AUTOCUT] Integration Test failed for OpenSearch-Dashboards: 2.10.0 tar distribution","_secondary":true}
+{"id":"gh-osd-4839","source":"github","score":0,"posted_at":"2023-08-28T17:06:44Z","tags":["discover"],"title":"[Data Explorer][Discover 2.0] Surrouding docs table should disable sort functionality","_secondary":true}
+{"id":"gh-osd-4180","source":"github","score":0,"posted_at":"2023-05-31T00:03:44Z","tags":[],"title":"[Feature Anywhere] Support more plugin control in `VisLayer` flyouts","_secondary":true}
+{"id":"gh-osd-4019","source":"github","score":0,"posted_at":"2023-05-12T17:15:33Z","tags":[],"title":"[META] CI Improvement Plan","_secondary":true}
+{"id":"gh-osd-3945","source":"github","score":0,"posted_at":"2023-04-25T03:26:27Z","tags":[],"title":"[Research] OUI Usage Audit Example `home` plugin","_secondary":true}
+{"id":"gh-osd-3836","source":"github","score":0,"posted_at":"2023-04-12T21:48:10Z","tags":["saved-objects"],"title":"[Feature Anywhere] Add server-side API to track feature usage","_secondary":true}
+{"id":"gh-osd-2595","source":"github","score":0,"posted_at":"2022-10-18T03:30:53Z","tags":[],"title":"After save the data source updates, should stay on current page","_secondary":true}
+{"id":"gh-osd-2320","source":"github","score":0,"posted_at":"2022-09-12T17:58:29Z","tags":[],"title":"[BUG] When a call to OpenSearch back-end times out, Dashboards fails with an Access Denied (403)","_secondary":true}
+{"id":"gh-osd-970","source":"github","score":0,"posted_at":"2021-11-19T11:24:20Z","tags":[],"title":"Support JWT for service to service (Dashboards to OpenSearch) communication","_secondary":true}
+{"id":"gh-osd-854","source":"github","score":3,"posted_at":"2021-10-08T21:20:13Z","tags":[],"title":"Add proxy option on Router","_secondary":true}
+{"id":"gh-osd-11695","source":"github","score":0,"posted_at":"2026-04-07T15:03:21Z","tags":[],"title":"Add OAuth2 / OIDC authentication support for Prometheus data source"}
+{"id":"gh-osd-11612","source":"github","score":0,"posted_at":"2026-03-27T02:19:24Z","tags":[],"title":"CVE-2026-33895 (High) detected in node-forge-1.3.3.tgz","_secondary":true}
+{"id":"gh-osd-11162","source":"github","score":0,"posted_at":"2026-01-13T01:23:29Z","tags":[],"title":"[Rspack] test failed due to .gz file generated","_secondary":true}
+{"id":"gh-osd-11081","source":"github","score":0,"posted_at":"2025-12-18T20:51:50Z","tags":[],"title":"RFC: Redesign Math Expression Calculation Architecture for Enhanced Security","_secondary":true}
+{"id":"gh-osd-10329","source":"github","score":0,"posted_at":"2025-08-04T03:46:23Z","tags":["discover"],"title":"Implementation of RBAC in OpenSearch dashboards user interface"}
+{"id":"gh-osd-9877","source":"github","score":0,"posted_at":"2025-06-12T05:28:34Z","tags":[],"title":"Display Index Pattern in Duplicate Visualization Title Warning","_secondary":true}
+{"id":"gh-osd-9858","source":"github","score":0,"posted_at":"2025-06-09T04:14:36Z","tags":["discover","alerting","anomaly"],"title":"[BUG] role not working as expected in OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-9826","source":"github","score":1,"posted_at":"2025-05-28T17:53:30Z","tags":["discover"],"title":"[RFC] New Discover experience for Observability Workspaces","_secondary":true}
+{"id":"gh-osd-9706","source":"github","score":0,"posted_at":"2025-04-24T05:28:14Z","tags":[],"title":"[BUG] Association modal data sources list would not filter opensearch connections if open through Direct query data sources","_secondary":true}
+{"id":"gh-osd-9621","source":"github","score":1,"posted_at":"2025-03-28T10:02:35Z","tags":[],"title":"[Data Source] Add Schema Validation to CustomApiSchemaRegistry to Prevent Method Overrides","_secondary":true}
+{"id":"gh-osd-9578","source":"github","score":0,"posted_at":"2025-03-20T16:58:41Z","tags":["discover"],"title":"[Enhancement] Add Cross Cluster Search Support in OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-8676","source":"github","score":2,"posted_at":"2024-10-22T08:34:09Z","tags":[],"title":"Supporting dynamic paths for application launch"}
+{"id":"hn-46900787","source":"hackernews","score":2,"posted_at":"2026-02-05T15:34:38Z","tags":["discover"],"title":"Show HN: ClickLens modern web UI for ClickHouse management","_secondary":true}
+{"id":"hn-46356369","source":"hackernews","score":5,"posted_at":"2025-12-22T17:35:46Z","tags":["alerting","slow-dashboard","license"],"title":"Show HN: Logchef – Open-source schema-agnostic log viewer for ClickHouse","_secondary":true}
+{"id":"hn-43915744","source":"hackernews","score":1,"posted_at":"2025-05-07T13:55:23Z","tags":[],"title":"Lessons learned from upgrading testing-lib's user-event to v14 in Kibana"}
+{"id":"hn-25200866","source":"hackernews","score":2,"posted_at":"2020-11-24T17:47:20Z","tags":[],"title":"Distributed Systems with Node.js: Building Enterprise-Ready Back End Services"}
+{"id":"hn-25040913","source":"hackernews","score":1,"posted_at":"2020-11-09T22:48:40Z","tags":[],"title":"Using Kibana’s Painless Lab (Beta) to test an ingest processor script"}
+{"id":"hn-46942078","source":"hackernews","score":0,"posted_at":"2026-02-09T06:10:01Z","tags":["discover"],"title":"Ask HN: What are you working on? (February 2026)","_secondary":true}
+{"id":"hn-41398738","source":"hackernews","score":0,"posted_at":"2024-08-30T08:20:45Z","tags":[],"title":"Elasticsearch is open source, again","_secondary":true}
+{"id":"hn-41395138","source":"hackernews","score":0,"posted_at":"2024-08-29T20:52:03Z","tags":[],"title":"Elasticsearch is open source, again"}
+{"id":"hn-41077086","source":"hackernews","score":0,"posted_at":"2024-07-26T09:22:17Z","tags":[],"title":"[dead]","_secondary":true}
+{"id":"hn-40748097","source":"hackernews","score":0,"posted_at":"2024-06-21T10:35:40Z","tags":[],"title":"[dead]","_secondary":true}
+{"id":"hn-40566474","source":"hackernews","score":0,"posted_at":"2024-06-03T19:21:03Z","tags":[],"title":"Ask HN: Who is hiring? (June 2024)"}
+{"id":"hn-36363077","source":"hackernews","score":0,"posted_at":"2023-06-16T20:06:55Z","tags":[],"title":"11 years of hosting a SaaS","_secondary":true}
+{"id":"hn-32063489","source":"hackernews","score":0,"posted_at":"2022-07-11T23:23:05Z","tags":[],"title":"Postgres full-text search: A search engine in a database (2021)","_secondary":true}
+{"id":"hn-30943770","source":"hackernews","score":0,"posted_at":"2022-04-07T12:52:48Z","tags":["license"],"title":"Ask HN: Have you ever switched cloud?"}
+{"id":"hn-30883482","source":"hackernews","score":0,"posted_at":"2022-04-01T21:27:06Z","tags":[],"title":"Ask HN: Who is hiring? (April 2022)","_secondary":true}
+{"id":"hn-29134229","source":"hackernews","score":0,"posted_at":"2021-11-06T22:03:48Z","tags":["license"],"title":"[dead]"}
+{"id":"hn-27897060","source":"hackernews","score":0,"posted_at":"2021-07-20T18:03:32Z","tags":[],"title":"We don’t use Kubernetes","_secondary":true}
+{"id":"hn-25836558","source":"hackernews","score":0,"posted_at":"2021-01-19T18:10:29Z","tags":["license"],"title":"Amazon: Not OK – Why we had to change Elastic licensing","_secondary":true}
+{"id":"hn-24716781","source":"hackernews","score":0,"posted_at":"2020-10-08T07:30:17Z","tags":[],"title":"Service Oriented Problems","_secondary":true}
+{"id":"hn-24352645","source":"hackernews","score":0,"posted_at":"2020-09-02T12:44:33Z","tags":[],"title":"Why I Actively Discourage Online Tooling like jwt.io and Online JSON Validators"}
+{"id":"hn-23859554","source":"hackernews","score":0,"posted_at":"2020-07-16T14:51:53Z","tags":[],"title":"Everything you need to know about OAuth 2.0"}
+{"id":"hn-23856763","source":"hackernews","score":0,"posted_at":"2020-07-16T07:47:37Z","tags":[],"title":"Everything you need to know about OAuth 2.0"}
+{"id":"hn-23854502","source":"hackernews","score":0,"posted_at":"2020-07-16T00:59:58Z","tags":[],"title":"Everything you need to know about OAuth 2.0"}
+{"id":"hn-21280929","source":"hackernews","score":0,"posted_at":"2019-10-17T11:39:04Z","tags":[],"title":"Algolia raises $110M for its search-as-a-service"}
+{"id":"hn-20825197","source":"hackernews","score":0,"posted_at":"2019-08-28T23:38:39Z","tags":[],"title":"Ask HN: How do you handle logging?","_secondary":true}
+{"id":"hn-20086392","source":"hackernews","score":0,"posted_at":"2019-06-03T18:22:00Z","tags":[],"title":"Ask HN: Who is hiring? (June 2019)"}
+{"id":"hn-20018644","source":"hackernews","score":0,"posted_at":"2019-05-27T00:49:41Z","tags":[],"title":"Scrum is fragile, not Agile","_secondary":true}
+{"id":"hn-19968456","source":"hackernews","score":0,"posted_at":"2019-05-21T08:34:17Z","tags":[],"title":"Security for Elasticsearch is now free"}
+{"id":"hn-13813903","source":"hackernews","score":0,"posted_at":"2017-03-07T19:38:05Z","tags":[],"title":"Ask HN: Who is hiring? (March 2017)","_secondary":true}
+{"id":"hn-9812334","source":"hackernews","score":0,"posted_at":"2015-07-01T15:13:43Z","tags":[],"title":"Ask HN: Who is hiring? (July 2015)"}
+{"id":"hn-6501606","source":"hackernews","score":0,"posted_at":"2013-10-05T18:53:13Z","tags":["ml"],"title":"Ask HN: Going back to programming","_secondary":true}
+{"id":"hn-11284594","source":"hackernews","score":0,"posted_at":"2016-03-14T18:37:47Z","tags":[],"title":"Lessons Learned from a Year of Elasticsearch in Production","_secondary":true}
+{"id":"hn-15187988","source":"hackernews","score":0,"posted_at":"2017-09-06T23:32:23Z","tags":[],"title":"Serverless dev practices questions"}
+{"id":"hn-15350060","source":"hackernews","score":0,"posted_at":"2017-09-27T17:22:26Z","tags":[],"title":"Show HN: Log in to AWS Kibana with IAM User"}
+{"id":"hn-14247785","source":"hackernews","score":0,"posted_at":"2017-05-02T16:26:05Z","tags":[],"title":"Red Hat OpenShift.io – Free, end-to-end, cloud-native development"}
+{"id":"hn-14073972","source":"hackernews","score":0,"posted_at":"2017-04-09T19:36:06Z","tags":[],"title":"Ops in the serverless world: monitoring, logging, config management","_secondary":true}
+{"id":"hn-9442085","source":"hackernews","score":0,"posted_at":"2015-04-26T15:44:11Z","tags":[],"title":"Rkt 0.5.4 – Repository authentication, port forwarding and more","_secondary":true}
+{"id":"hn-10706470","source":"hackernews","score":0,"posted_at":"2015-12-09T20:26:31Z","tags":[],"title":"InfluxDB is now InfluxData, a platform for time series data","_secondary":true}
+{"id":"hn-16504561","source":"hackernews","score":0,"posted_at":"2018-03-02T18:54:43Z","tags":[],"title":"Opening the code of our X-Pack features","_secondary":true}
+{"id":"hn-14413811","source":"hackernews","score":0,"posted_at":"2017-05-24T21:59:45Z","tags":[],"title":"I wrote the SQL query in 5 mins. Why does my engineer say it will take a month?","_secondary":true}
+{"id":"hn-13464924","source":"hackernews","score":0,"posted_at":"2017-01-23T19:08:42Z","tags":[],"title":"Ask HN: Any great product onboarding experiences you've had lately?"}
+{"id":"reddit-1rvkqdl","source":"reddit","score":3,"posted_at":"2026-03-16T20:11:41.000Z","tags":[],"title":"Kibana issue with curl to get DataViews"}
+{"id":"reddit-1ltnxo6","source":"reddit","score":1,"posted_at":"2025-07-07T07:29:00.000Z","tags":[],"title":"Kibana SSO – \"Cannot find OpenID Connect realm with name [oidc1]\""}
+{"id":"reddit-1ihjfoe","source":"reddit","score":0,"posted_at":"2025-02-04T14:54:07.000Z","tags":[],"title":"Need help for dashboard Kibana","_secondary":true}
+{"id":"reddit-1gi5uvu","source":"reddit","score":3,"posted_at":"2024-11-02T20:39:20.000Z","tags":[],"title":"Auditbeat-* index in kibana not showing any data","_secondary":true}
+{"id":"reddit-1ddfz1y","source":"reddit","score":5,"posted_at":"2024-06-11T14:48:45.000Z","tags":[],"title":"Best way to secure access to elastic and kibana on free ELv2 version of the stack?"}
+{"id":"reddit-1fqowv6","source":"reddit","score":1,"posted_at":"2024-09-27T14:22:39.000Z","tags":[],"title":"Problems with Add field in kibana","_secondary":true}
+{"id":"reddit-1e1w5m8","source":"reddit","score":1,"posted_at":"2024-07-12T23:42:08.000Z","tags":[],"title":"Where do I find grok fields/patterns in Kibana (8.14.2)"}
+{"id":"reddit-1fp8jn2","source":"reddit","score":1,"posted_at":"2024-09-25T16:22:18.000Z","tags":[],"title":"Elasticsearch 8.15 with SSL &amp; User authentication Adding Kibana  ","_secondary":true}
+{"id":"reddit-1em3hl2","source":"reddit","score":3,"posted_at":"2024-08-07T05:08:41.000Z","tags":["fleet"],"title":"Preconfiguring Agent Policies in Kibana"}
+{"id":"reddit-1ckm1n0","source":"reddit","score":2,"posted_at":"2024-05-05T07:48:35.000Z","tags":[],"title":"Syslog - Apache Nifi to Elasticsearch (kibana)","_secondary":true}
+{"id":"reddit-1bdvapd","source":"reddit","score":2,"posted_at":"2024-03-13T16:09:46.000Z","tags":["discover","fleet"],"title":"Elasticsearch AD Realm users Kibana errors"}
+{"id":"reddit-1678cho","source":"reddit","score":2,"posted_at":"2023-09-01T14:15:13.000Z","tags":["fleet"],"title":"Elasticsearch and Kibana running on Docker - Issues using LetsEncrypt Certificate - unable to get issuer certificate"}
+{"id":"reddit-zk4nec","source":"reddit","score":4,"posted_at":"2022-12-12T17:01:50.000Z","tags":[],"title":"Problem with kibana :("}
+{"id":"reddit-14rlb9j","source":"reddit","score":1,"posted_at":"2023-07-05T19:50:25.000Z","tags":[],"title":"Socket Hang Up Error with Kibana Login","_secondary":true}
+{"id":"reddit-16j9jxr","source":"reddit","score":1,"posted_at":"2023-09-15T10:27:52.000Z","tags":[],"title":"What permissions does a Lambda need to write data to Elastic/Kibana?","_secondary":true}
+{"id":"reddit-13fmjgc","source":"reddit","score":2,"posted_at":"2023-05-12T14:19:40.000Z","tags":[],"title":"Processor condition in Kibana"}
+{"id":"reddit-137cbwx","source":"reddit","score":1,"posted_at":"2023-05-04T06:36:18.000Z","tags":[],"title":"How to remove trailing or leading spaces showing up in log lines in kibana logs coming from filebeat"}
+{"id":"reddit-uqsyv0","source":"reddit","score":2,"posted_at":"2022-05-16T10:42:16.000Z","tags":[],"title":"How to restrict index pattern list view for a particular role in kibana?"}
+{"id":"reddit-dav28y","source":"reddit","score":8,"posted_at":"2019-09-29T13:23:49.000Z","tags":[],"title":"Installing Elasticsearch Kibana with Docker","_secondary":true}
+{"id":"reddit-jojy4e","source":"reddit","score":7,"posted_at":"2020-11-05T14:44:57.000Z","tags":[],"title":"SSO for Elasticsearch and Kibana"}
+{"id":"reddit-ndnek0","source":"reddit","score":2,"posted_at":"2021-05-16T12:34:19.000Z","tags":[],"title":"Needed a docker-compose.yml that create elastic search and kibana with username and password"}
+{"id":"reddit-oyj89s","source":"reddit","score":1,"posted_at":"2021-08-05T14:25:06.000Z","tags":["discover"],"title":"Open Distro/Kibana Permissions Help"}
+{"id":"reddit-jg18nd","source":"reddit","score":3,"posted_at":"2020-10-22T15:00:57.000Z","tags":[],"title":"Kibana Authentication Accounts","_secondary":true}
+{"id":"reddit-4zogvf","source":"reddit","score":1,"posted_at":"2016-08-26T13:00:34.000Z","tags":[],"title":"Kibana/ES not showing new data half way through the day.","_secondary":true}
+{"id":"reddit-q1vzm5","source":"reddit","score":5,"posted_at":"2021-10-05T13:05:53.000Z","tags":[],"title":"ignoring windows disk in kibana view","_secondary":true}
+{"id":"reddit-pucn4t","source":"reddit","score":1,"posted_at":"2021-09-24T04:48:55.000Z","tags":[],"title":"Just-in-time provisioning for Saml authentication in Kibana"}
+{"id":"reddit-cw3jc6","source":"reddit","score":1602,"posted_at":"2019-08-27T12:08:58.000Z","tags":["discover"],"title":"Tools &amp; Info for Sysadmins - Mega List of Tips, Tools, Books, Blogs &amp; More","_secondary":true}
+{"id":"reddit-qewdp0","source":"reddit","score":5,"posted_at":"2021-10-24T17:08:49.000Z","tags":["license"],"title":"Have you bought platinum license of elastic/kibana or other enterprise license just because of SSO?","_secondary":true}
+{"id":"reddit-rf04va","source":"reddit","score":14,"posted_at":"2021-12-12T22:33:46.000Z","tags":[],"title":"Log4j2 Impact Analysis on Datastores: Kafka, Elastic, Hadoop, Spark, Kibana","_secondary":true}
+{"id":"reddit-1yxouf","source":"reddit","score":675,"posted_at":"2014-02-25T23:05:04.000Z","tags":[],"title":"What's your OMGTHANKYOU freeware list?","_secondary":true}
+{"id":"reddit-445o8n","source":"reddit","score":6,"posted_at":"2016-02-04T15:17:34.000Z","tags":[],"title":"Restrict access to Kibana"}
+{"id":"reddit-bzb2ts","source":"reddit","score":552,"posted_at":"2019-06-11T11:07:16.000Z","tags":[],"title":"Tools &amp; Info for Sysadmins - Windows Shortcut, Cisco Podcast, Network Tools &amp; More","_secondary":true}
+{"id":"reddit-g13994","source":"reddit","score":400,"posted_at":"2020-04-14T10:41:00.000Z","tags":[],"title":"Tools &amp; Info for Sysadmins - NAC Solution, Tech Library, SSH Client &amp; More","_secondary":true}
+{"id":"reddit-e206ps","source":"reddit","score":13,"posted_at":"2019-11-26T16:20:15.000Z","tags":[],"title":"Cheap hardware for learning to administer linux server environment","_secondary":true}
+{"id":"reddit-aq7jus","source":"reddit","score":9,"posted_at":"2019-02-13T15:13:32.000Z","tags":[],"title":"Facing problems with ELK stack: keep pushing on or find something simpler for our small environment?","_secondary":true}
+{"id":"reddit-10mvf75","source":"reddit","score":0,"posted_at":"2023-01-27T20:40:01.000Z","tags":[],"title":"Interview for SysOps position - need help !"}
+{"id":"reddit-pbd3ez","source":"reddit","score":5,"posted_at":"2021-08-25T15:05:01.000Z","tags":["alerting"],"title":"Anybody uses Fluentd + ElasticSearch + Grafana for syslogs?","_secondary":true}
+{"id":"reddit-1dshhz","source":"reddit","score":8,"posted_at":"2013-05-06T13:35:27.000Z","tags":[],"title":"Syslog Gathering and Parsing with FortiGate Firewalls","_secondary":true}
+{"id":"reddit-hqf6fa","source":"reddit","score":1,"posted_at":"2020-07-13T13:23:25.000Z","tags":[],"title":"Elastic stack - visualize json logs","_secondary":true}
+{"id":"reddit-3ipnuv","source":"reddit","score":10,"posted_at":"2015-08-28T10:55:25.000Z","tags":["alerting"],"title":"Renewing monitoring system","_secondary":true}
+{"id":"reddit-fgju38","source":"reddit","score":3,"posted_at":"2020-03-10T19:51:13.000Z","tags":[],"title":"Elastic Stack XPack Security Setup Help"}
+{"id":"reddit-belb13","source":"reddit","score":9,"posted_at":"2019-04-18T13:03:53.000Z","tags":[],"title":"Must watch (IMHO) Securing Vendor Webapps - A Vulnerability Assessment on HELK"}
+{"id":"reddit-i1rlft","source":"reddit","score":2,"posted_at":"2020-08-01T12:41:51.000Z","tags":[],"title":"Auditbeat encryption and dashboards"}
+{"id":"reddit-3tms96","source":"reddit","score":8,"posted_at":"2015-11-21T00:02:03.000Z","tags":[],"title":"What do you log?","_secondary":true}
+{"id":"reddit-46i1ta","source":"reddit","score":14,"posted_at":"2016-02-19T00:58:11.000Z","tags":[],"title":"Elasticsearch, Logstash, Kibana alternatives?","_secondary":true}
+{"id":"reddit-sulzs0","source":"reddit","score":5,"posted_at":"2022-02-17T10:48:57.000Z","tags":[],"title":"Why only elasticsearch container starts and kibana and filebeat containers are not getting up?","_secondary":true}
+{"id":"reddit-pkx8f6","source":"reddit","score":38,"posted_at":"2021-09-09T12:54:12.000Z","tags":[],"title":"AWS Opensearch vs Running Own ELK Stack"}
+{"id":"reddit-10mvzyz","source":"reddit","score":18,"posted_at":"2023-01-27T21:03:37.000Z","tags":[],"title":"Interview for DevOps / SysOps position - need help !"}
+{"id":"reddit-12rqzds","source":"reddit","score":2,"posted_at":"2023-04-19T12:05:27.000Z","tags":[],"title":"Is there a way to track who's messing with Pods/Namespaces"}
+{"id":"reddit-76mhrm","source":"reddit","score":37,"posted_at":"2017-10-15T23:18:50.000Z","tags":[],"title":"What does everyone do for login/single sign-on (SSO) to their developer services?"}
+{"id":"reddit-mucth7","source":"reddit","score":12,"posted_at":"2021-04-19T22:55:02.000Z","tags":[],"title":"Easiest way to manage firewall and network in a secure (+compliance)","_secondary":true}
+{"id":"reddit-k5y3y2","source":"reddit","score":25,"posted_at":"2020-12-03T14:24:35.000Z","tags":[],"title":"Elasticsearch on Docker - file permission issues","_secondary":true}
+{"id":"reddit-g8qnhh","source":"reddit","score":2,"posted_at":"2020-04-27T01:07:55.000Z","tags":["alerting"],"title":"Monitoring &amp; logging - how to navigate current situation with 143 different tools?","_secondary":true}
+{"id":"reddit-5n6viw","source":"reddit","score":21,"posted_at":"2017-01-10T18:55:43.000Z","tags":["license"],"title":"ELK 5.x without a license (= no x-pack)"}
+{"id":"reddit-fccaub","source":"reddit","score":2,"posted_at":"2020-03-02T13:47:59.000Z","tags":[],"title":"AWS Elasticsearch Service Security"}
+{"id":"reddit-9lmco1","source":"reddit","score":4,"posted_at":"2018-10-05T13:38:07.000Z","tags":[],"title":"Elastic and Influx for metrics","_secondary":true}
+{"id":"reddit-hqf6b7","source":"reddit","score":2,"posted_at":"2020-07-13T13:23:12.000Z","tags":[],"title":"Elastic stack - visualize json logs","_secondary":true}
+{"id":"reddit-en8m29","source":"reddit","score":3,"posted_at":"2020-01-11T15:18:58.000Z","tags":[],"title":"How to effectively monitor and respond to events in Openshift?","_secondary":true}
+{"id":"reddit-7wt6uw","source":"reddit","score":2,"posted_at":"2018-02-11T14:57:03.000Z","tags":[],"title":"Job Description"}
+{"id":"reddit-b0662q","source":"reddit","score":2,"posted_at":"2019-03-12T10:24:32.000Z","tags":[],"title":"log4j SocketAppender and fluentd","_secondary":true}
+{"id":"reddit-15vb4as","source":"reddit","score":1,"posted_at":"2023-08-19T09:05:11.000Z","tags":[],"title":"Configuring HTTPS for Local ELK Stack with Nginx Reverse Proxy","_secondary":true}
+{"id":"reddit-fj242r","source":"reddit","score":36,"posted_at":"2020-03-15T14:29:20.000Z","tags":[],"title":"Treafik + SSO with Nextcloud","_secondary":true}
+{"id":"reddit-jpqqjv","source":"reddit","score":6,"posted_at":"2020-11-07T13:21:56.000Z","tags":[],"title":"My Kibana dashboard","_secondary":true}
+{"id":"reddit-8o4rws","source":"reddit","score":723,"posted_at":"2018-06-03T00:11:29.000Z","tags":[],"title":"The Honeypot Writeup - What they are, why you would want one, and how to set it up","_secondary":true}
+{"id":"reddit-1qmn66a","source":"reddit","score":0,"posted_at":"2026-01-25T16:09:13.000Z","tags":[],"title":"Need suggestion on buying lenovo thinkcentre m90q gen 6 core ultra 5 with npu for homelab"}
+{"id":"reddit-5lrnt6","source":"reddit","score":55,"posted_at":"2017-01-03T12:25:20.000Z","tags":[],"title":"Question about some interesting firewall logs I noticed today","_secondary":true}
+{"id":"reddit-1521ncx","source":"reddit","score":15,"posted_at":"2023-07-17T13:13:52.000Z","tags":[],"title":"My Kubernetes Homelab"}
+{"id":"reddit-wuqnb2","source":"reddit","score":1,"posted_at":"2022-08-22T11:06:00.000Z","tags":[],"title":"Some advice for an upgrade"}
+{"id":"reddit-erz5r3","source":"reddit","score":0,"posted_at":"2020-01-21T18:57:32.000Z","tags":["license"],"title":"Replacing my Dell Kubernetes cluster","_secondary":true}
+{"id":"reddit-lx2pmq","source":"reddit","score":1,"posted_at":"2021-03-03T19:51:20.000Z","tags":[],"title":"Distributed GlusterFS w/ ODroid HC2 -- Anything I should consider?","_secondary":true}
+{"id":"reddit-35qr36","source":"reddit","score":1,"posted_at":"2015-05-12T19:03:34.000Z","tags":[],"title":"What to do with a beast of a server?"}
+{"id":"reddit-ng6azu","source":"reddit","score":0,"posted_at":"2021-05-19T13:46:49.000Z","tags":[],"title":"ELK stack with pfSense syslog and auth","_secondary":true}
+{"id":"reddit-6aorms","source":"reddit","score":5,"posted_at":"2017-05-12T02:42:14.000Z","tags":["license"],"title":"Dual Intel E5-2670 Virtualization Server - Power Consumption Concerns","_secondary":true}
+{"id":"reddit-9ijobk","source":"reddit","score":4,"posted_at":"2018-09-24T16:58:36.000Z","tags":[],"title":"Looking for virtualization home lab server equivalent to Supermicro 5028D-TNT4"}
+{"id":"reddit-57wtc6","source":"reddit","score":8,"posted_at":"2016-10-17T11:25:41.000Z","tags":[],"title":"Homelab Network Security Monitoring started - Xeon D","_secondary":true}
+{"id":"reddit-1sa7fb7","source":"reddit","score":1,"posted_at":"2026-04-02T04:22:14.000Z","tags":["alerting","siem"],"title":"Kubernetes Observability","_secondary":true}
+{"id":"reddit-1jxr4jc","source":"reddit","score":15,"posted_at":"2025-04-12T20:52:50.000Z","tags":["alerting","siem"],"title":"SIEM for SMB with low requirements to functionality","_secondary":true}
+{"id":"reddit-1ru9e2w","source":"reddit","score":1,"posted_at":"2026-03-15T09:09:29.000Z","tags":[],"title":"Udemy Free Courses for 15 March 2026","_secondary":true}
+{"id":"reddit-1ru9dx9","source":"reddit","score":3,"posted_at":"2026-03-15T09:09:15.000Z","tags":[],"title":"Udemy Free Courses for 15 March 2026","_secondary":true}
+{"id":"reddit-1p2usxk","source":"reddit","score":2,"posted_at":"2025-11-21T10:04:19.000Z","tags":["discover"],"title":"How to create a true read-only RBAC user in Wazuh 4.12 + hide menu items?"}
+{"id":"reddit-1ngx0mh","source":"reddit","score":1,"posted_at":"2025-09-14T17:17:12.000Z","tags":[],"title":"Need help integrating ELK stack into my virtual SOC lab","_secondary":true}
+{"id":"reddit-1ojit6p","source":"reddit","score":13,"posted_at":"2025-10-29T22:33:19.000Z","tags":[],"title":"Simple AR visualisation - IoT sensor data","_secondary":true}
+{"id":"reddit-np1a8f","source":"reddit","score":140,"posted_at":"2021-05-31T11:32:05.000Z","tags":[],"title":"Building my home intrusion detection system (Suricata &amp; ELK on a Pi4)","_secondary":true}
+{"id":"reddit-1ok8t8d","source":"reddit","score":5,"posted_at":"2025-10-30T19:13:16.000Z","tags":["apm","fleet","license"],"title":"Self-hosted license for APM","_secondary":true}
+{"id":"reddit-1lp0q00","source":"reddit","score":1,"posted_at":"2025-07-01T12:45:35.000Z","tags":["security-app"],"title":"Mastering the Craft: A Deep Dive into Network API Development","_secondary":true}
+{"id":"reddit-cw3gx8","source":"reddit","score":132,"posted_at":"2019-08-27T12:03:08.000Z","tags":["discover"],"title":"Tools &amp; Info for MSPs #1 - Mega List of Tips, Tools, Books, Blogs &amp; More","_secondary":true}
+{"id":"reddit-19etwkw","source":"reddit","score":5,"posted_at":"2024-01-24T22:53:32.000Z","tags":[],"title":"How do I convert a string type field to a datetime field?","_secondary":true}
+{"id":"reddit-s8bkj9","source":"reddit","score":4,"posted_at":"2022-01-20T05:46:12.000Z","tags":[],"title":"Top 17 web scraping tools for data extraction in 2022","_secondary":true}
+{"id":"reddit-pvtvoz","source":"reddit","score":3,"posted_at":"2021-09-26T13:30:49.000Z","tags":["license"],"title":"Password strength/enforcement?"}
+{"id":"reddit-cw3drt","source":"reddit","score":35,"posted_at":"2019-08-27T11:55:03.000Z","tags":["discover"],"title":"IT Pro Tuesday #64 (part 1) - Mega List of Tips, Tools, Books, Blogs &amp; More","_secondary":true}
+{"id":"reddit-1p6z93t","source":"reddit","score":1,"posted_at":"2025-11-26T05:13:22.000Z","tags":[],"title":"Remote Job - 1Password - Customer Support Agent - Android","_secondary":true}
+{"id":"reddit-m1caod","source":"reddit","score":6,"posted_at":"2021-03-09T18:04:41.000Z","tags":[],"title":"Looking for resources for making dashboards/visualizations","_secondary":true}
+{"id":"so-30138936","source":"stackoverflow","score":43,"posted_at":"2015-05-09T10:42:20.000Z","tags":[],"title":"How to set authentication in kibana","_secondary":true}
+{"id":"so-22048179","source":"stackoverflow","score":37,"posted_at":"2014-02-26T17:00:22.000Z","tags":[],"title":"Location of custom Kibana dashboards in ElasticSearch","_secondary":true}
+{"id":"so-22717832","source":"stackoverflow","score":18,"posted_at":"2014-03-28T16:06:12.000Z","tags":[],"title":"Wildcard search doesn&#39;t work in Kibana","_secondary":true}
+{"id":"so-71890575","source":"stackoverflow","score":17,"posted_at":"2022-04-16T02:18:03.000Z","tags":[],"title":"Kibana unable to retrieve version information from Elasticsearch nodes: missing authentication credentials for REST request","_secondary":true}
+{"id":"so-19867663","source":"stackoverflow","score":16,"posted_at":"2013-11-08T20:06:21.000Z","tags":["license"],"title":"How and where to implement basic authentication in Kibana 3","_secondary":true}
+{"id":"so-38735514","source":"stackoverflow","score":12,"posted_at":"2016-08-03T05:58:14.000Z","tags":[],"title":"ElasticSearch entered &quot;read only&quot; mode, node cannot be altered","_secondary":true}
+{"id":"so-52628605","source":"stackoverflow","score":8,"posted_at":"2018-10-03T13:51:49.000Z","tags":[],"title":"How do I setup ingress for Kibana in Kubernetes","_secondary":true}
+{"id":"so-50627095","source":"stackoverflow","score":8,"posted_at":"2018-05-31T14:49:15.000Z","tags":[],"title":"Authenticating embedded Kibana iframe with AWS Cognito","_secondary":true}
+{"id":"so-63657746","source":"stackoverflow","score":7,"posted_at":"2020-08-30T13:07:56.000Z","tags":[],"title":"Query Kibana logs where message contains a substring","_secondary":true}
+{"id":"so-29604851","source":"stackoverflow","score":7,"posted_at":"2015-04-13T12:02:53.000Z","tags":[],"title":"How to setup Kibana SSO (through OAuth)?"}
+{"id":"so-16500599","source":"stackoverflow","score":7,"posted_at":"2013-05-11T18:52:11.000Z","tags":[],"title":"Multitenant setup with Kibana and Elasticsearch"}
+{"id":"so-65371714","source":"stackoverflow","score":6,"posted_at":"2020-12-19T16:01:15.000Z","tags":[],"title":"Getting &quot;Elastic did not load properly. Check the server output for more information.&quot; when accessing through gatekeeper","_secondary":true}
+{"id":"so-53067005","source":"stackoverflow","score":6,"posted_at":"2018-10-30T14:49:50.000Z","tags":[],"title":"Kibana with nginx ingress controller in Kubernetes","_secondary":true}
+{"id":"so-38182682","source":"stackoverflow","score":6,"posted_at":"2016-07-04T10:39:03.000Z","tags":[],"title":"Kibana 4 setting up passportjs Ldap Authentication"}
+{"id":"so-64810048","source":"stackoverflow","score":5,"posted_at":"2020-11-12T18:54:38.000Z","tags":[],"title":"403 Error when indexing data from AWS Lambda to Elasticsearch using Sig v4: &#39;no permissions for [indices:data/write/bulk] &#39;"}
+{"id":"so-73508356","source":"stackoverflow","score":5,"posted_at":"2022-08-27T04:27:52.000Z","tags":[],"title":"Cannot Setup Elasticsearch/Kibana from Docker: Kibana &quot;missing authentication credentials for REST request&quot;","_secondary":true}
+{"id":"so-23090578","source":"stackoverflow","score":5,"posted_at":"2014-04-15T17:29:52.000Z","tags":[],"title":"Showing Different Document Types in Kibana from ElasticSearch","_secondary":true}
+{"id":"so-57649473","source":"stackoverflow","score":5,"posted_at":"2019-08-25T20:27:07.000Z","tags":[],"title":"Kibana {&quot;statusCode&quot;:403,&quot;error&quot;:&quot;Forbidden&quot;,&quot;message&quot;:&quot;Forbidden&quot;}"}
+{"id":"so-26937570","source":"stackoverflow","score":5,"posted_at":"2014-11-14T19:36:45.000Z","tags":[],"title":"Logstash + Kibana terms panel without breaking words","_secondary":true}
+{"id":"so-31140682","source":"stackoverflow","score":5,"posted_at":"2015-06-30T14:11:24.000Z","tags":[],"title":"How to Test ElasticSearch Logstash and Kibana","_secondary":true}
+{"id":"so-66345473","source":"stackoverflow","score":5,"posted_at":"2021-02-24T06:00:27.000Z","tags":[],"title":"why does Kibana forward the url to `/spaces/enter`?","_secondary":true}
+{"id":"so-40740694","source":"stackoverflow","score":4,"posted_at":"2016-11-22T11:29:05.000Z","tags":["alerting"],"title":"X-pack failed to initialize a TrustManagerFactory","_secondary":true}
+{"id":"so-23909960","source":"stackoverflow","score":4,"posted_at":"2014-05-28T11:07:57.000Z","tags":[],"title":"Elasticsearch : Connection refused while connecting to upstream"}
+{"id":"so-58911548","source":"stackoverflow","score":4,"posted_at":"2019-11-18T09:33:53.000Z","tags":[],"title":"Elasticsearch - Enable fulltext search of field"}
+{"id":"so-29142531","source":"stackoverflow","score":4,"posted_at":"2015-03-19T10:48:05.000Z","tags":[],"title":"Getting Logstash _grokparsefailure though Grok Debugger throws no errors"}
+{"id":"so-68119473","source":"stackoverflow","score":4,"posted_at":"2021-06-24T16:26:28.000Z","tags":[],"title":"Kibana OIDC Okta Integration redirecting straight to ${KIBANA_URL}/auth/openid/login with 401"}
+{"id":"so-53085983","source":"stackoverflow","score":4,"posted_at":"2018-10-31T14:41:18.000Z","tags":[],"title":"Embed Kibana visualizations but not give users control?","_secondary":true}
+{"id":"so-48304577","source":"stackoverflow","score":4,"posted_at":"2018-01-17T15:27:38.000Z","tags":[],"title":"Fluentd Posting to stdout but not to Elasticsearch","_secondary":true}
+{"id":"so-23248698","source":"stackoverflow","score":4,"posted_at":"2014-04-23T15:21:39.000Z","tags":[],"title":"How to create own x-axis and y-axis in Kibana?","_secondary":true}
+{"id":"so-71259086","source":"stackoverflow","score":3,"posted_at":"2022-02-24T22:40:32.000Z","tags":[],"title":"Elasticsearch on Docker - Failed to create enrollment token when generating API key","_secondary":true}
+{"id":"so-50931623","source":"stackoverflow","score":3,"posted_at":"2018-06-19T15:05:55.000Z","tags":[],"title":"Multi-line logs into ES from filebeat deployed as Kubernetes Daemonset"}
+{"id":"so-37140333","source":"stackoverflow","score":3,"posted_at":"2016-05-10T13:41:21.000Z","tags":[],"title":"Kibana : How to dissociate a visualization from timepicker","_secondary":true}
+{"id":"so-68399721","source":"stackoverflow","score":3,"posted_at":"2021-07-15T19:23:00.000Z","tags":["discover"],"title":"How to get more than 10K logs/results in Elasticsearch","_secondary":true}
+{"id":"so-35969920","source":"stackoverflow","score":3,"posted_at":"2016-03-13T11:57:00.000Z","tags":[],"title":"Install shield on kibana gives PEM error","_secondary":true}
+{"id":"so-56247909","source":"stackoverflow","score":3,"posted_at":"2019-05-22T00:37:36.000Z","tags":[],"title":"Connecting filebeat to elasticsearch","_secondary":true}
+{"id":"so-55237120","source":"stackoverflow","score":3,"posted_at":"2019-03-19T09:07:25.000Z","tags":[],"title":"Kibana did not load properly. Check the server output for more information","_secondary":true}
+{"id":"so-43900856","source":"stackoverflow","score":3,"posted_at":"2017-05-10T19:08:01.000Z","tags":[],"title":"Search Guard Kibana clientcert authentication"}
+{"id":"so-63144494","source":"stackoverflow","score":3,"posted_at":"2020-07-29T00:08:19.000Z","tags":[],"title":"Kibana redirects back to login after successful auth on AWS Elasticsearch Service when accessing remotely via an NGINX reverse proxy","_secondary":true}
+{"id":"so-55867183","source":"stackoverflow","score":3,"posted_at":"2019-04-26T11:59:32.000Z","tags":[],"title":"Open Distro Elasticsearch - Authenticate to Kibana with JWT","_secondary":true}
+{"id":"so-55407384","source":"stackoverflow","score":3,"posted_at":"2019-03-28T21:51:01.000Z","tags":[],"title":"Granular permission in Kibana on AWS","_secondary":true}
+{"id":"so-47191377","source":"stackoverflow","score":3,"posted_at":"2017-11-08T23:19:18.000Z","tags":[],"title":"ElasticSearch / Kibana: read-only user privileges","_secondary":true}
+{"id":"so-66298405","source":"stackoverflow","score":3,"posted_at":"2021-02-21T01:55:46.000Z","tags":[],"title":"Python Elasticsearch: BulkIndexError: &#39;not_x_content_exception&#39; while trying to use helpers.bulk","_secondary":true}
+{"id":"so-62527187","source":"stackoverflow","score":3,"posted_at":"2020-06-23T04:09:49.000Z","tags":[],"title":"Logging to elastic search with serilog and ILogger"}
+{"id":"so-55032068","source":"stackoverflow","score":3,"posted_at":"2019-03-06T21:02:10.000Z","tags":[],"title":"Kibana Windows 10 : EACCES permission denied"}
+{"id":"so-54080817","source":"stackoverflow","score":3,"posted_at":"2019-01-07T19:45:45.000Z","tags":[],"title":"How to filter out blank messages using Kibana and ElasticSearch?"}
+{"id":"so-57034190","source":"stackoverflow","score":2,"posted_at":"2019-07-15T06:23:58.000Z","tags":[],"title":"unknown key [High] for create index","_secondary":true}
+{"id":"so-74360864","source":"stackoverflow","score":2,"posted_at":"2022-11-08T12:34:57.000Z","tags":[],"title":"Kibana error: Unable to retrieve version information from Elasticsearch nodes. socket hang up","_secondary":true}
+{"id":"so-64660944","source":"stackoverflow","score":2,"posted_at":"2020-11-03T10:24:08.000Z","tags":[],"title":"Unable to access Kibana behind NginX reverse proxy on Docker","_secondary":true}
+{"id":"so-31198339","source":"stackoverflow","score":2,"posted_at":"2015-07-03T04:13:34.000Z","tags":[],"title":"Elasticsearch cluster health: yellow (131 of 262) unassigned shards"}
+{"id":"so-59354380","source":"stackoverflow","score":2,"posted_at":"2019-12-16T10:07:48.000Z","tags":[],"title":"Do we need X-Pack to enable security in Elasticsearch and kibana?","_secondary":true}
+{"id":"so-58643484","source":"stackoverflow","score":2,"posted_at":"2019-10-31T12:35:54.000Z","tags":[],"title":"The SAML Request AssertionConsumerServiceURL is invalid - Auth0, SAML, Kibana"}
+{"id":"so-57723133","source":"stackoverflow","score":2,"posted_at":"2019-08-30T08:22:27.000Z","tags":[],"title":"Elastic search cluster on Kubernetes Cluster vs VM"}
+{"id":"so-54957616","source":"stackoverflow","score":2,"posted_at":"2019-03-02T10:41:57.000Z","tags":[],"title":"Can&#39;t connect elasticsearch and kibana on kubernetes single mode","_secondary":true}
+{"id":"so-77071832","source":"stackoverflow","score":2,"posted_at":"2023-09-09T10:37:53.000Z","tags":[],"title":"elasticsearch installation failure - cannot generate (1) password and (2) enrollment token for Kibana","_secondary":true}
+{"id":"so-65479519","source":"stackoverflow","score":2,"posted_at":"2020-12-28T14:53:43.000Z","tags":[],"title":"Docker Filebeat Nginx Logs","_secondary":true}
+{"id":"so-56055538","source":"stackoverflow","score":2,"posted_at":"2019-05-09T08:44:30.000Z","tags":[],"title":"(kibana) mapper_parsing_exception","_secondary":true}
+{"id":"so-52869271","source":"stackoverflow","score":2,"posted_at":"2018-10-18T07:44:53.000Z","tags":[],"title":"Nginx reverse proxy using auth_request module and external authentication API - error 404","_secondary":true}
+{"id":"so-51861134","source":"stackoverflow","score":2,"posted_at":"2018-08-15T14:54:05.000Z","tags":[],"title":"Heap size of AWS ElasticSearch cluster","_secondary":true}
+{"id":"so-50368220","source":"stackoverflow","score":2,"posted_at":"2018-05-16T10:18:16.000Z","tags":[],"title":"Role based access control for Kibana and Elastic Search"}
+{"id":"so-47612356","source":"stackoverflow","score":2,"posted_at":"2017-12-02T20:38:56.000Z","tags":[],"title":"Elasticsearch Kibana logback","_secondary":true}
+{"id":"so-55170033","source":"stackoverflow","score":2,"posted_at":"2019-03-14T18:52:01.000Z","tags":[],"title":"Resend old logs from filebeat to logstash","_secondary":true}
+{"id":"so-48846941","source":"stackoverflow","score":2,"posted_at":"2018-02-17T23:29:31.000Z","tags":["alerting"],"title":"ES index not appearing in Kibana &quot;Create index pattern&quot;","_secondary":true}
+{"id":"so-37741249","source":"stackoverflow","score":2,"posted_at":"2016-06-10T06:24:47.000Z","tags":["discover"],"title":"Compare two fields in kibana search","_secondary":true}
+{"id":"so-32401822","source":"stackoverflow","score":2,"posted_at":"2015-09-04T15:38:18.000Z","tags":[],"title":"setting up nginx ldap authentication for Kibana 4","_secondary":true}
+{"id":"so-26269415","source":"stackoverflow","score":2,"posted_at":"2014-10-09T02:36:25.000Z","tags":[],"title":"customize kibana histogram","_secondary":true}
+{"id":"so-71509166","source":"stackoverflow","score":2,"posted_at":"2022-03-17T08:30:23.000Z","tags":[],"title":"Is it possible to write delayed_jobs.log to log in Openshift pod?"}
+{"id":"so-40551973","source":"stackoverflow","score":2,"posted_at":"2016-11-11T16:12:54.000Z","tags":[],"title":"How to regexp a Kibana filter?","_secondary":true}
+{"id":"so-70606206","source":"stackoverflow","score":2,"posted_at":"2022-01-06T11:10:07.000Z","tags":[],"title":"Elasticsearch index refresh from kibana giving 403 error on kubernetes (ECK cluster)","_secondary":true}
+{"id":"so-69871816","source":"stackoverflow","score":2,"posted_at":"2021-11-07T10:57:12.000Z","tags":[],"title":"oauth2_proxy for basic auth login"}
+{"id":"so-69477648","source":"stackoverflow","score":2,"posted_at":"2021-10-07T08:14:42.000Z","tags":[],"title":"fluentbit conf help for stacktrace in k8s logs"}
+{"id":"so-68223060","source":"stackoverflow","score":2,"posted_at":"2021-07-02T09:47:39.000Z","tags":[],"title":"Kibana API Action and connector APIs returning 404","_secondary":true}
+{"id":"so-66904461","source":"stackoverflow","score":2,"posted_at":"2021-04-01T12:26:20.000Z","tags":[],"title":"Setting JWT authentication in Kibana Opendistro","_secondary":true}
+{"id":"so-64291369","source":"stackoverflow","score":2,"posted_at":"2020-10-10T08:14:00.000Z","tags":[],"title":"how the custom fields can be viewed in Kibana as a standard type instead of unknown type?","_secondary":true}
+{"id":"so-62787726","source":"stackoverflow","score":2,"posted_at":"2020-07-08T04:46:30.000Z","tags":[],"title":"Unexpected end-of-input error in Kibana POST request","_secondary":true}
+{"id":"so-61147247","source":"stackoverflow","score":2,"posted_at":"2020-04-10T19:21:40.000Z","tags":[],"title":"Kibana, anonymous access, dashboards only","_secondary":true}
+{"id":"so-59271957","source":"stackoverflow","score":2,"posted_at":"2019-12-10T16:46:23.000Z","tags":[],"title":"Integration between ELK and LDAP"}
+{"id":"so-59246670","source":"stackoverflow","score":2,"posted_at":"2019-12-09T10:14:55.000Z","tags":[],"title":"ELK(elasticsearch, logstash, kibana, filbeat for agent) Turkish character problem"}
+{"id":"so-57149569","source":"stackoverflow","score":2,"posted_at":"2019-07-22T15:47:23.000Z","tags":[],"title":"Filebeat 7.2 - Save logs from Docker containers to Logstash","_secondary":true}
+{"id":"so-56221852","source":"stackoverflow","score":2,"posted_at":"2019-05-20T13:21:07.000Z","tags":[],"title":"ElasticSearch Kibana version 7 not displaying dashboard because of browser security or other issue","_secondary":true}
+{"id":"so-55843989","source":"stackoverflow","score":2,"posted_at":"2019-04-25T07:27:55.000Z","tags":[],"title":"How to set keycloak authentication in kibana","_secondary":true}
+{"id":"so-52778209","source":"stackoverflow","score":2,"posted_at":"2018-10-12T11:05:40.000Z","tags":[],"title":"Error while accessing Kibana UI using RBAC"}
+{"id":"so-51233226","source":"stackoverflow","score":2,"posted_at":"2018-07-08T15:01:23.000Z","tags":[],"title":"Data not showing up in Kibana dashboard but is being sent by filebeat","_secondary":true}
+{"id":"so-48303125","source":"stackoverflow","score":2,"posted_at":"2018-01-17T14:11:04.000Z","tags":[],"title":"Import Kibana Dashboard in separate webapp","_secondary":true}
+{"id":"so-41570023","source":"stackoverflow","score":2,"posted_at":"2017-01-10T13:28:33.000Z","tags":[],"title":"Authentication for Kibana server"}
+{"id":"so-39767326","source":"stackoverflow","score":2,"posted_at":"2016-09-29T10:05:47.000Z","tags":[],"title":"How to set authentication only in Kibana"}
+{"id":"so-25286713","source":"stackoverflow","score":2,"posted_at":"2014-08-13T12:51:36.000Z","tags":[],"title":"Web app authentication and securing a separate web API (elasticsearch and kibana)","_secondary":true}
+{"id":"so-17552266","source":"stackoverflow","score":2,"posted_at":"2013-07-09T15:31:31.000Z","tags":[],"title":"How to authenticate in order to access Kibana 2.0?"}
+{"id":"so-72911440","source":"stackoverflow","score":2,"posted_at":"2022-07-08T12:28:50.000Z","tags":["saved-objects"],"title":"Action failed with &#39;security_exception: [security_exception] Reason: action [indices:admin/create] is unauthorized for user","_secondary":true}
+{"id":"so-44169546","source":"stackoverflow","score":2,"posted_at":"2017-05-24T22:34:55.000Z","tags":[],"title":"Search special characters in Kibana search bar","_secondary":true}
+{"id":"so-59288423","source":"stackoverflow","score":1,"posted_at":"2019-12-11T14:51:53.000Z","tags":["license"],"title":"Unable to connect Kibana to Elasticsearch","_secondary":true}
+{"id":"so-54413885","source":"stackoverflow","score":1,"posted_at":"2019-01-29T04:32:10.000Z","tags":[],"title":"Kibana deployed to kubernetes cluster returns 404","_secondary":true}
+{"id":"so-53778099","source":"stackoverflow","score":1,"posted_at":"2018-12-14T10:40:50.000Z","tags":[],"title":"How not to have sensitive data in Elastic search?"}
+{"id":"so-62575068","source":"stackoverflow","score":1,"posted_at":"2020-06-25T12:12:57.000Z","tags":["license"],"title":"OAuth Token API Not Working In Elastic Search","_secondary":true}
+{"id":"so-62247571","source":"stackoverflow","score":1,"posted_at":"2020-06-07T15:25:23.000Z","tags":[],"title":"How Bypass login in Kibana dashboard inside Iframe","_secondary":true}
+{"id":"so-68458853","source":"stackoverflow","score":1,"posted_at":"2021-07-20T17:07:56.000Z","tags":[],"title":"Is there a kibana rest API to get and set default-route of a space?"}
+{"id":"so-64118134","source":"stackoverflow","score":1,"posted_at":"2020-09-29T10:52:35.000Z","tags":[],"title":"Docker Volume - Unhandled exception: Access is denied. (Exception from HRESULT: 0x80070005 (E_ACCESSDENIED))","_secondary":true}
+{"id":"so-63108849","source":"stackoverflow","score":1,"posted_at":"2020-07-27T04:47:37.000Z","tags":["siem"],"title":"Can elasticsearch support both http and https access at the same time？"}
+{"id":"so-57497526","source":"stackoverflow","score":1,"posted_at":"2019-08-14T15:12:51.000Z","tags":[],"title":"How to secure Kibana dashboard using keycloak-gatekeeper?","_secondary":true}
+{"id":"so-50235125","source":"stackoverflow","score":1,"posted_at":"2018-05-08T13:42:48.000Z","tags":[],"title":"What is URL for Kibana UI","_secondary":true}
+{"id":"so-36017883","source":"stackoverflow","score":1,"posted_at":"2016-03-15T17:15:32.000Z","tags":[],"title":"How to load Kibana Visualizations with python script using REST requests","_secondary":true}
+{"id":"so-34735059","source":"stackoverflow","score":1,"posted_at":"2016-01-12T03:23:15.000Z","tags":[],"title":"CSV filter in logstash throwing &quot;_csvparsefailure&quot; error","_secondary":true}
+{"id":"so-24197595","source":"stackoverflow","score":1,"posted_at":"2014-06-13T04:14:25.000Z","tags":[],"title":"Query multiple strings in a field in kibana3?","_secondary":true}
+{"id":"so-75783345","source":"stackoverflow","score":1,"posted_at":"2023-03-19T16:15:27.000Z","tags":["license"],"title":"Kibana behaves different when run on different host than running on same host","_secondary":true}
+{"id":"so-74867390","source":"stackoverflow","score":1,"posted_at":"2022-12-20T18:25:09.000Z","tags":[],"title":"Unable to open Kibana What should I do? Unable to retrieve version information from Elasticsearch nodes","_secondary":true}
+{"id":"so-64650764","source":"stackoverflow","score":1,"posted_at":"2020-11-02T17:55:37.000Z","tags":[],"title":"i am not able to see logs on kibana dashboard"}
+{"id":"so-55090808","source":"stackoverflow","score":1,"posted_at":"2019-03-10T18:12:05.000Z","tags":["license"],"title":"Basic authentication for elasticsearch pod running in kubernetes cluster"}
+{"id":"so-45464994","source":"stackoverflow","score":1,"posted_at":"2017-08-02T15:27:07.000Z","tags":[],"title":"how to index a file with elasticsearch 5.5.1","_secondary":true}
+{"id":"so-44782332","source":"stackoverflow","score":1,"posted_at":"2017-06-27T14:02:16.000Z","tags":[],"title":"Grok configuration ELK"}
+{"id":"so-73818221","source":"stackoverflow","score":1,"posted_at":"2022-09-22T16:51:21.000Z","tags":[],"title":"Kibana keep showing error unable to authenticate user [elastic] for REST request","_secondary":true}
+{"id":"so-71874622","source":"stackoverflow","score":1,"posted_at":"2022-04-14T16:09:15.000Z","tags":[],"title":"Cannot write log info in log file in Docker","_secondary":true}
+{"id":"so-70997554","source":"stackoverflow","score":1,"posted_at":"2022-02-05T11:25:07.000Z","tags":[],"title":"Authenticate AWS Opensearch dashboard using LDAP via keycloak"}
+{"id":"so-67987641","source":"stackoverflow","score":1,"posted_at":"2021-06-15T13:53:10.000Z","tags":[],"title":"Use Open Distro security plugin in regular Elastic stack"}
+{"id":"so-67610942","source":"stackoverflow","score":1,"posted_at":"2021-05-19T21:09:31.000Z","tags":[],"title":"Searching by ID with Elasticsearch not returning","_secondary":true}
+{"id":"so-65953106","source":"stackoverflow","score":1,"posted_at":"2021-01-29T10:54:56.000Z","tags":["alerting"],"title":"failed to authenticate user [elastic]","_secondary":true}
+{"id":"so-65556144","source":"stackoverflow","score":1,"posted_at":"2021-01-03T23:52:51.000Z","tags":[],"title":"Permission Denied when trying to change to Kibana directory","_secondary":true}
+{"id":"so-65031965","source":"stackoverflow","score":1,"posted_at":"2020-11-27T04:06:39.000Z","tags":[],"title":"How To Remove Quotation Marks (&quot; &quot;) In Geo Coordinates On Logstash Conf File","_secondary":true}
+{"id":"so-64754425","source":"stackoverflow","score":1,"posted_at":"2020-11-09T15:23:56.000Z","tags":["saved-objects"],"title":"Open Kibana Console with queries from JSON file?","_secondary":true}
+{"id":"so-63525171","source":"stackoverflow","score":1,"posted_at":"2020-08-21T14:52:34.000Z","tags":[],"title":"Can&#39;t acces to AWS Kibana VPC-Based with nginx using Cognito","_secondary":true}
+{"id":"so-62078911","source":"stackoverflow","score":1,"posted_at":"2020-05-29T04:47:13.000Z","tags":[],"title":"How to get value in nested field using Kibana scripted field?","_secondary":true}
+{"id":"so-60426689","source":"stackoverflow","score":1,"posted_at":"2020-02-27T05:20:21.000Z","tags":["discover"],"title":"Unable to update UI setting Request failed with status code: 403 Kibana","_secondary":true}
+{"id":"so-58397278","source":"stackoverflow","score":1,"posted_at":"2019-10-15T14:44:20.000Z","tags":[],"title":"Impossible connect to elasticsearch in kubernetes(bare metal)"}
+{"id":"so-56799746","source":"stackoverflow","score":1,"posted_at":"2019-06-28T00:33:54.000Z","tags":[],"title":"How to setup kibana Single sign on with keycloak","_secondary":true}
+{"id":"so-55027038","source":"stackoverflow","score":1,"posted_at":"2019-03-06T15:47:13.000Z","tags":["canvas"],"title":"Elasticsearch SQL query in Canvas : it doesn&#39;t work like SQL?","_secondary":true}
+{"id":"so-51419072","source":"stackoverflow","score":1,"posted_at":"2018-07-19T09:30:55.000Z","tags":[],"title":"EFK with Searchguard"}
+{"id":"so-48660933","source":"stackoverflow","score":1,"posted_at":"2018-02-07T10:04:22.000Z","tags":[],"title":"Elastic search - how to check if index is used in kibana","_secondary":true}
+{"id":"so-42623461","source":"stackoverflow","score":1,"posted_at":"2017-03-06T10:41:13.000Z","tags":["discover"],"title":"How to block selected Kibana subpages using nginx?","_secondary":true}
+{"id":"so-41949532","source":"stackoverflow","score":1,"posted_at":"2017-01-31T04:14:40.000Z","tags":[],"title":"installing x-pack stops elasticsearch from running"}
+{"id":"so-41520289","source":"stackoverflow","score":1,"posted_at":"2017-01-07T10:16:41.000Z","tags":[],"title":"Config Elasticsearch and Kibana with docker","_secondary":true}
+{"id":"so-34060278","source":"stackoverflow","score":1,"posted_at":"2015-12-03T07:39:18.000Z","tags":[],"title":"User level access control in Kibana dashboard","_secondary":true}
+{"id":"so-33511435","source":"stackoverflow","score":1,"posted_at":"2015-11-04T00:01:50.000Z","tags":[],"title":"Kibana -&gt; SSL enabled nginx&#39;ed proxied ElasticsSearch w/basic Authentication Enabled","_secondary":true}
+{"id":"so-30195241","source":"stackoverflow","score":1,"posted_at":"2015-05-12T15:24:10.000Z","tags":[],"title":"can&#39;t force GROK parser to enforce integer/float types on haproxy logs","_secondary":true}
+{"id":"so-19697813","source":"stackoverflow","score":1,"posted_at":"2013-10-31T03:11:11.000Z","tags":[],"title":"can&#39;t connect elasticsearch to logstash","_secondary":true}
+{"id":"so-79806943","source":"stackoverflow","score":1,"posted_at":"2025-11-02T05:29:18.000Z","tags":["siem","fleet"],"title":"Logs not showing in Kibana","_secondary":true}
+{"id":"so-78263947","source":"stackoverflow","score":1,"posted_at":"2024-04-02T20:38:37.000Z","tags":[],"title":"particular phrase to be associated/mapped with a keyword in elastic search"}
+{"id":"so-78018027","source":"stackoverflow","score":1,"posted_at":"2024-02-19T01:39:55.000Z","tags":["discover","license"],"title":"Simple Docker Filebeat Elasticsearch Composition does not Log out Docker Logs","_secondary":true}
+{"id":"so-76890051","source":"stackoverflow","score":1,"posted_at":"2023-08-12T15:52:04.000Z","tags":[],"title":"Is there a way to convert relative time like &quot;now-1d&quot; to absolute time in elasticsearch?","_secondary":true}
+{"id":"so-76582595","source":"stackoverflow","score":1,"posted_at":"2023-06-29T15:38:04.000Z","tags":["license"],"title":"Docker Compose : Elasticsearch + kibana + traefik can&#39;t work with two network","_secondary":true}
+{"id":"so-75731910","source":"stackoverflow","score":1,"posted_at":"2023-03-14T10:26:48.000Z","tags":[],"title":"How to connect elastic docker agent correctly in a docker-compose","_secondary":true}
+{"id":"so-75162421","source":"stackoverflow","score":1,"posted_at":"2023-01-18T16:35:18.000Z","tags":[],"title":"Kibana 7.17.3 - serverBasePath result in 404 Status","_secondary":true}
+{"id":"so-74728150","source":"stackoverflow","score":1,"posted_at":"2022-12-08T09:33:47.000Z","tags":["apm"],"title":"Serilog does not send log to Elasticsearch asp.net core","_secondary":true}
+{"id":"so-72546574","source":"stackoverflow","score":1,"posted_at":"2022-06-08T13:30:34.000Z","tags":[],"title":"How to solve elastic error of &quot;Readiness probe failed: Error: Got HTTP code 503 but expected a 200&quot; in GKE?","_secondary":true}
+{"id":"so-71494264","source":"stackoverflow","score":1,"posted_at":"2022-03-16T09:05:22.000Z","tags":[],"title":"Viewing index data in multiple kibana spaces"}
+{"id":"so-71257168","source":"stackoverflow","score":1,"posted_at":"2022-02-24T19:19:28.000Z","tags":[],"title":"Injest Pipeline Script for nested list of array - retrieve and copy data data from old field to new field in Kibana","_secondary":true}
+{"id":"so-69676887","source":"stackoverflow","score":1,"posted_at":"2021-10-22T12:27:22.000Z","tags":[],"title":"How to configure Filebeat to read log files, using ELK stack?","_secondary":true}
+{"id":"so-69530361","source":"stackoverflow","score":1,"posted_at":"2021-10-11T17:35:57.000Z","tags":[],"title":"Auto Authentication in Embedded link (AWS Opensearch)","_secondary":true}
+{"id":"so-69482620","source":"stackoverflow","score":1,"posted_at":"2021-10-07T14:06:18.000Z","tags":["license"],"title":"Module not found: Error: Can&#39;t resolve &#39;spdx-exceptions&#39;","_secondary":true}
+{"id":"so-68581876","source":"stackoverflow","score":1,"posted_at":"2021-07-29T19:28:28.000Z","tags":[],"title":"How to use PKI Authentication to use the Opensearch Dashboards API?","_secondary":true}
+{"id":"so-67920042","source":"stackoverflow","score":1,"posted_at":"2021-06-10T11:16:27.000Z","tags":["discover"],"title":"AWS ElasticSearch - Kibana dashboard not loading","_secondary":true}
+{"id":"so-67495218","source":"stackoverflow","score":1,"posted_at":"2021-05-11T22:42:31.000Z","tags":[],"title":"Nginx proxy server receiving dynamic proxy_pass in one location but unsure how to provide it in subsequent locations","_secondary":true}
+{"id":"so-67365090","source":"stackoverflow","score":1,"posted_at":"2021-05-03T07:34:39.000Z","tags":[],"title":"Fluentd JSON logs truncate/splitting after 16385 characters- How to concate?","_secondary":true}
+{"id":"so-66687540","source":"stackoverflow","score":1,"posted_at":"2021-03-18T08:43:22.000Z","tags":["discover"],"title":"Large field values are not visible in Kibana dashboard","_secondary":true}
+{"id":"so-66369747","source":"stackoverflow","score":1,"posted_at":"2021-02-25T13:45:31.000Z","tags":[],"title":"Reverse proxy Kibana 7 with ARR in IIS","_secondary":true}
+{"id":"so-66274105","source":"stackoverflow","score":1,"posted_at":"2021-02-19T08:30:20.000Z","tags":[],"title":"FileBeat Setup Error : Payload content length greater than maximum allowed: 1048576","_secondary":true}
+{"id":"so-66211760","source":"stackoverflow","score":1,"posted_at":"2021-02-15T16:28:08.000Z","tags":[],"title":"Kibana grok formating of date timestamp"}
+{"id":"so-65677508","source":"stackoverflow","score":1,"posted_at":"2021-01-12T03:07:36.000Z","tags":[],"title":"Azure AD - Keycloak - Kibana Single-Sign on (SSO) User/Group Role mapping"}
+{"id":"so-65572168","source":"stackoverflow","score":1,"posted_at":"2021-01-05T01:46:56.000Z","tags":[],"title":"change Filebeat config to add fields","_secondary":true}
+{"id":"so-64690517","source":"stackoverflow","score":1,"posted_at":"2020-11-05T02:48:15.000Z","tags":[],"title":"Cannot login to Kibana via Amazon Cognito","_secondary":true}
+{"id":"so-64648488","source":"stackoverflow","score":1,"posted_at":"2020-11-02T15:31:14.000Z","tags":[],"title":"AWS ADFS does not redirect back to Kibana after authentication"}
+{"id":"so-64553371","source":"stackoverflow","score":1,"posted_at":"2020-10-27T11:21:44.000Z","tags":[],"title":"How to show the JSON spring boot logs as a seperate fields out of the messages in the table format"}
+{"id":"so-63293141","source":"stackoverflow","score":1,"posted_at":"2020-08-06T23:32:25.000Z","tags":[],"title":"Elasticsearch / Kibana: Subtraction across pre-aggregated time-series data","_secondary":true}
+{"id":"so-63221579","source":"stackoverflow","score":1,"posted_at":"2020-08-02T22:22:30.000Z","tags":[],"title":"How to remove Management Menu on Kibana 7.8.1 Spaces and to make Dashboards page as principal?","_secondary":true}
+{"id":"so-63127809","source":"stackoverflow","score":1,"posted_at":"2020-07-28T05:49:01.000Z","tags":["license"],"title":"Kibana is redirecting me to 302. Not able to curl from the machine"}
+{"id":"so-62880845","source":"stackoverflow","score":1,"posted_at":"2020-07-13T17:11:04.000Z","tags":["apm"],"title":"Elastisearch queries that are used for APM UI are slow","_secondary":true}
+{"id":"so-60146596","source":"stackoverflow","score":1,"posted_at":"2020-02-10T08:30:14.000Z","tags":[],"title":"Serilog sink on ElasticSearch cloud with Kibana not receiving the messages","_secondary":true}
+{"id":"so-59172317","source":"stackoverflow","score":1,"posted_at":"2019-12-04T09:04:49.000Z","tags":[],"title":"How to resolve Blocked a frame with origin(SecurityError) from kibana iframe"}
+{"id":"so-57615536","source":"stackoverflow","score":1,"posted_at":"2019-08-22T18:53:38.000Z","tags":[],"title":"Local kibana AWS Signature v4"}
+{"id":"so-57512008","source":"stackoverflow","score":1,"posted_at":"2019-08-15T15:22:51.000Z","tags":[],"title":"Kibana health status is RED","_secondary":true}
+{"id":"so-55292396","source":"stackoverflow","score":1,"posted_at":"2019-03-22T03:14:48.000Z","tags":[],"title":"Obtaining a specific field in Elastic search using Kibana and Java","_secondary":true}
+{"id":"so-55167154","source":"stackoverflow","score":1,"posted_at":"2019-03-14T16:06:25.000Z","tags":[],"title":"Why is Kibana unable to create index pattern? (ELBK)","_secondary":true}
+{"id":"so-52851781","source":"stackoverflow","score":1,"posted_at":"2018-10-17T09:41:48.000Z","tags":[],"title":"Loading WSO2 IS in an iframe for Kibana Dashboard","_secondary":true}
+{"id":"so-52652857","source":"stackoverflow","score":1,"posted_at":"2018-10-04T18:00:49.000Z","tags":[],"title":"Can&#39;t nginx proxy pass to kibana in kubernetes","_secondary":true}
+{"id":"so-52423451","source":"stackoverflow","score":1,"posted_at":"2018-09-20T10:51:45.000Z","tags":[],"title":"Transfer httpenpoinds metrics using http module-metricbeat","_secondary":true}
+{"id":"so-32489305","source":"stackoverflow","score":35,"posted_at":"2015-09-09T21:17:05.000Z","tags":["discover"],"title":"elasticsearch / kibana 4: field exists but is not equal to a value","_secondary":true}
+{"id":"so-32503809","source":"stackoverflow","score":5,"posted_at":"2015-09-10T13:53:08.000Z","tags":[],"title":"Logstash input jdbc is duplicating results","_secondary":true}
+{"id":"so-32992330","source":"stackoverflow","score":5,"posted_at":"2015-10-07T12:32:36.000Z","tags":[],"title":"How to access Kibana dashboard via HAproxy","_secondary":true}
+{"id":"so-46240924","source":"stackoverflow","score":4,"posted_at":"2017-09-15T13:36:24.000Z","tags":[],"title":"Not able to proxy pass AWS Kibana to nginx"}
+{"id":"so-31864962","source":"stackoverflow","score":3,"posted_at":"2015-08-06T20:14:19.000Z","tags":[],"title":"Can someone please explain how to use Kibana dashboards from a .Net web application without viewing other users&#39; data?","_secondary":true}
+{"id":"so-35856884","source":"stackoverflow","score":2,"posted_at":"2016-03-08T00:40:23.000Z","tags":[],"title":"Grok for parsing log4j log","_secondary":true}
+{"id":"so-36793033","source":"stackoverflow","score":2,"posted_at":"2016-04-22T11:47:49.000Z","tags":[],"title":"Kibana is not connecting with elasticsearch shield SSL","_secondary":true}
+{"id":"so-37212165","source":"stackoverflow","score":1,"posted_at":"2016-05-13T14:07:54.000Z","tags":[],"title":"How to find out the visits made in elasticsearch","_secondary":true}
+{"id":"so-34939890","source":"stackoverflow","score":1,"posted_at":"2016-01-22T05:52:55.000Z","tags":[],"title":"Elasticsearch authorization failed with shield","_secondary":true}
+{"id":"so-31729199","source":"stackoverflow","score":1,"posted_at":"2015-07-30T16:25:04.000Z","tags":[],"title":"How to encrypt a Kibana URL for the dashboard?","_secondary":true}
+{"id":"so-35852295","source":"stackoverflow","score":0,"posted_at":"2016-03-07T19:28:35.000Z","tags":[],"title":"Kibana - socket hang up error"}
+{"id":"so-39336280","source":"stackoverflow","score":0,"posted_at":"2016-09-05T18:56:52.000Z","tags":[],"title":"Kibana not working after removing shield plugin","_secondary":true}
+{"id":"so-38370948","source":"stackoverflow","score":0,"posted_at":"2016-07-14T09:49:48.000Z","tags":[],"title":"how to use tilemap in kibana with key &amp; token","_secondary":true}
+{"id":"so-34898446","source":"stackoverflow","score":0,"posted_at":"2016-01-20T11:11:16.000Z","tags":[],"title":"ElasticSearch Security and Ports","_secondary":true}
+{"id":"so-31011824","source":"stackoverflow","score":0,"posted_at":"2015-06-23T19:30:17.000Z","tags":[],"title":"C# nest elasticsearch geo point array index not shown in kibana","_secondary":true}
+{"id":"so-44386260","source":"stackoverflow","score":0,"posted_at":"2017-06-06T09:29:15.000Z","tags":[],"title":"Kibana 4.6.x not starting on Google compute Engine","_secondary":true}
+{"id":"so-42859796","source":"stackoverflow","score":0,"posted_at":"2017-03-17T14:13:02.000Z","tags":[],"title":"In Kibana, how do I regex a field for a value with spaces?"}
+{"id":"so-39153012","source":"stackoverflow","score":0,"posted_at":"2016-08-25T19:09:05.000Z","tags":[],"title":"Kibana stops showing data after a while. Logs too big?","_secondary":true}
+{"id":"so-34931354","source":"stackoverflow","score":0,"posted_at":"2016-01-21T18:19:15.000Z","tags":[],"title":"Kibana reverse proxy with Active Directory Authentication"}
+{"id":"so-33848654","source":"stackoverflow","score":0,"posted_at":"2015-11-21T21:14:52.000Z","tags":[],"title":"Using Zuul as reverse proxy for Kibana"}
+{"id":"so-33718922","source":"stackoverflow","score":0,"posted_at":"2015-11-15T10:59:35.000Z","tags":[],"title":"Kibana proxy pass not working"}
+{"id":"so-32371673","source":"stackoverflow","score":0,"posted_at":"2015-09-03T09:21:02.000Z","tags":[],"title":"Not getting each error email alert from logstash 1.5.4","_secondary":true}
+{"id":"so-31730576","source":"stackoverflow","score":0,"posted_at":"2015-07-30T17:41:24.000Z","tags":[],"title":"Is it possible to expose Kibana (for ElasticSearch) features to users of a web application?","_secondary":true}
+{"id":"so-30641214","source":"stackoverflow","score":0,"posted_at":"2015-06-04T10:20:10.000Z","tags":[],"title":"Securing Kibana with Nginx"}
+{"id":"so-28993311","source":"stackoverflow","score":0,"posted_at":"2015-03-11T17:24:34.000Z","tags":[],"title":"Graphing Metrics in Kibana4","_secondary":true}
+{"id":"so-46951599","source":"stackoverflow","score":1,"posted_at":"2017-10-26T10:09:53.000Z","tags":[],"title":"sum count and max elastic"}
+{"id":"so-46859806","source":"stackoverflow","score":1,"posted_at":"2017-10-21T03:37:10.000Z","tags":[],"title":"Securing Kibana for an internet facing startup"}
+{"id":"so-45570317","source":"stackoverflow","score":0,"posted_at":"2017-08-08T13:54:55.000Z","tags":[],"title":"Experimental data organization - would Elastic Search work?","_secondary":true}
+{"id":"so-44024690","source":"stackoverflow","score":0,"posted_at":"2017-05-17T12:19:49.000Z","tags":[],"title":"Httpbeat Metrics not showing up in Kibana","_secondary":true}
+{"id":"so-51783270","source":"stackoverflow","score":0,"posted_at":"2018-08-10T09:26:21.000Z","tags":[],"title":"Anonymous access to Kibana Dashboard (K8s Cluster)"}
+{"id":"so-51196914","source":"stackoverflow","score":0,"posted_at":"2018-07-05T17:22:47.000Z","tags":["discover"],"title":"Kibana dashboard - user authentication","_secondary":true}
+{"id":"so-47392741","source":"stackoverflow","score":0,"posted_at":"2017-11-20T13:04:18.000Z","tags":[],"title":"Size of the circles in the Kibana Tile map visualization","_secondary":true}
+{"id":"so-45994272","source":"stackoverflow","score":0,"posted_at":"2017-09-01T06:16:57.000Z","tags":[],"title":"How to achieve authentication in kibana?"}
+{"id":"so-44035867","source":"stackoverflow","score":0,"posted_at":"2017-05-17T22:43:11.000Z","tags":["discover"],"title":"How to pass http credentials to Elasticsearch from Kibana","_secondary":true}
+{"id":"so-51893982","source":"stackoverflow","score":3,"posted_at":"2018-08-17T11:03:48.000Z","tags":[],"title":"Elasticsearch time-range query and data","_secondary":true}
+{"id":"so-52709379","source":"stackoverflow","score":3,"posted_at":"2018-10-08T20:05:44.000Z","tags":[],"title":"Elasticsearch tried to parse field [null] as object, but found a concrete value","_secondary":true}
+{"id":"so-55095149","source":"stackoverflow","score":1,"posted_at":"2019-03-11T04:14:35.000Z","tags":[],"title":"Docker ELKv6.6.1 Authentication","_secondary":true}
+{"id":"so-64282736","source":"stackoverflow","score":0,"posted_at":"2020-10-09T15:12:40.000Z","tags":[],"title":"Kibana/Elasticsearch 6.8 - delete_by_query returns reason &quot;blocked by: [FORBIDDEN/8/index write (api)];&quot;","_secondary":true}
+{"id":"so-64462703","source":"stackoverflow","score":0,"posted_at":"2020-10-21T11:37:07.000Z","tags":[],"title":"How to search for a nested key in kibana","_secondary":true}
+{"id":"so-54459612","source":"stackoverflow","score":0,"posted_at":"2019-01-31T11:29:18.000Z","tags":[],"title":"how to get selected fields from the index in kibana","_secondary":true}
+{"id":"so-52851672","source":"stackoverflow","score":0,"posted_at":"2018-10-17T09:36:07.000Z","tags":[],"title":"Authentication error while connecting to remote elastic search using kibana?","_secondary":true}
+{"id":"so-59866016","source":"stackoverflow","score":4,"posted_at":"2020-01-22T18:20:02.000Z","tags":["discover","license"],"title":"Missing authentication credentials for REST request when using sniffing when Kibana starts","_secondary":true}
+{"id":"so-64861226","source":"stackoverflow","score":1,"posted_at":"2020-11-16T15:52:39.000Z","tags":[],"title":"Elasticsearch ingest pipeline script processor fails to cast","_secondary":true}
+{"id":"so-67572695","source":"stackoverflow","score":1,"posted_at":"2021-05-17T15:29:28.000Z","tags":[],"title":"Kibana has randomly slow performance","_secondary":true}
+{"id":"so-61900546","source":"stackoverflow","score":1,"posted_at":"2020-05-19T20:50:37.000Z","tags":["license"],"title":"Kibana 7.7.0 Basic version: management tab missing Security panel when started from docker","_secondary":true}
+{"id":"so-58026128","source":"stackoverflow","score":1,"posted_at":"2019-09-20T10:02:05.000Z","tags":[],"title":"Kibana user forbidden error {&quot;statusCode&quot;:403,&quot;error&quot;:&quot;Forbidden&quot;,&quot;message&quot;:&quot;Forbidden&quot;}","_secondary":true}
+{"id":"so-64860666","source":"stackoverflow","score":0,"posted_at":"2020-11-16T15:19:38.000Z","tags":["apm"],"title":"Couldn&#39;t find any Elasticsearch data","_secondary":true}
+{"id":"so-56231701","source":"stackoverflow","score":0,"posted_at":"2019-05-21T05:37:51.000Z","tags":[],"title":"Security Option is Disabled in Kibana 7"}
+{"id":"so-78098601","source":"stackoverflow","score":0,"posted_at":"2024-03-04T01:48:48.000Z","tags":[],"title":"Can kibana enable automatic monthly auto-creation of indexes for different spaces?"}
+{"id":"so-76480301","source":"stackoverflow","score":0,"posted_at":"2023-06-15T07:58:04.000Z","tags":[],"title":"Upgrading Elasticsearch and Kibana running on Kubernetes from 7.12.0 to 7.17.10","_secondary":true}
+{"id":"so-76096748","source":"stackoverflow","score":0,"posted_at":"2023-04-24T23:28:53.000Z","tags":[],"title":"Can&#39;t get Enterprise Search 8.6.2 to run","_secondary":true}
+{"id":"so-75866240","source":"stackoverflow","score":0,"posted_at":"2023-03-28T12:25:08.000Z","tags":[],"title":"Why Kibana is not able authenticate Elasticsearch server because of security?","_secondary":true}
+{"id":"so-72275228","source":"stackoverflow","score":0,"posted_at":"2022-05-17T13:49:09.000Z","tags":["discover"],"title":"Access to query&#39;s permalinks for users with other roles/spaces","_secondary":true}
+{"id":"so-63419877","source":"stackoverflow","score":0,"posted_at":"2020-08-14T20:51:27.000Z","tags":["license"],"title":"How to have a read only dashboard for a particular user in Kibana","_secondary":true}
+{"id":"so-57611196","source":"stackoverflow","score":0,"posted_at":"2019-08-22T14:04:34.000Z","tags":[],"title":"Query from Kibana To Python?","_secondary":true}
+{"id":"so-67428119","source":"stackoverflow","score":-1,"posted_at":"2021-05-07T02:05:50.000Z","tags":["anomaly"],"title":"Nested JSON messages are not getting parsed correctly through logstash","_secondary":true}
+{"id":"so-78341071","source":"stackoverflow","score":0,"posted_at":"2024-04-17T12:43:54.000Z","tags":[],"title":"Kibana [version 8.*] status is showing as : Unable to retrieve version information from Elasticsearch nodes","_secondary":true}
+{"id":"so-69897449","source":"stackoverflow","score":1,"posted_at":"2021-11-09T11:37:47.000Z","tags":[],"title":"Enable SAML authentication for Dashboards of private AWS OpenSearch cluster running in VPC"}
+{"id":"so-76820487","source":"stackoverflow","score":0,"posted_at":"2023-08-02T13:39:53.000Z","tags":[],"title":"How to connect opensearch dashboard to elasticsearch cluster?","_secondary":true}
+{"id":"so-71512963","source":"stackoverflow","score":0,"posted_at":"2022-03-17T13:16:11.000Z","tags":["discover"],"title":"No permission for custom backend role in Opensearch dashboard (kibana)","_secondary":true}

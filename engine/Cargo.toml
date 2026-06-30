@@ -1,0 +1,95 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/xerj-server",
+    "crates/xerj-common",
+    "crates/xerj-storage",
+    "crates/xerj-fts",
+    "crates/xerj-vector",
+    "crates/xerj-logs",
+    "crates/xerj-query",
+    "crates/xerj-api",
+    "crates/xerj-ai",
+    "crates/xerj-compress",
+    "crates/xerj-engine",
+    "crates/xerj-wasm",
+    "crates/xerj-cluster",
+    "crates/xerj-console-api",
+    "tests/es-compat-yaml",
+]
+
+[workspace.package]
+version = "1.0.0-rc.1"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["xerj Contributors"]
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+# HTTP
+axum = { version = "0.7", features = ["macros"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace", "limit"] }
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["raw_value"] }
+simd-json = "0.14"
+# SIMD-accelerated byte search
+memchr = "2"
+# Config
+toml = "0.8"
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+# Parallel compute
+rayon = "1.10"
+# Concurrent data structures
+dashmap = "6"
+arc-swap = "1"
+crossbeam = "0.8"
+# Data structures
+roaring = "0.10"
+fst = "0.4"
+bitpacking = "0.9"
+# Compression
+lz4_flex = "0.11"
+zstd = "0.13"
+# Hashing
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+crc32fast = "1"
+# Crypto/Random
+rand = "0.8"
+# Bytes
+bytes = "1"
+memmap2 = "0.9"
+byteorder = "1"
+# Error handling
+thiserror = "2"
+anyhow = "1"
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+# UUID
+uuid = { version = "1", features = ["v4", "serde"] }
+# S3
+aws-sdk-s3 = "1"
+aws-config = "1"
+# TLS
+rustls = "0.23"
+rcgen = "0.13"
+# Metrics
+prometheus = "0.13"
+# HTTP client (for embedding proxy)
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "http2", "charset"] }
+# Testing
+tempfile = "3"
+# Benchmarking
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
+panic = "abort"
+

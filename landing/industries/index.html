@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ.ai — Industries</title>
+<meta name="description" content="XERJ by industry — Financial Services, Public Sector, Healthcare, Retail. Self-hosted AI data plane for regulated enterprises.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<nav class="nav" aria-label="Primary">
+  <a href="/index.html" class="brand">XERJ.AI</a>
+  <a href="/index.html">HOME</a>
+  <a href="/product.html">PRODUCT</a>
+  <a href="/solutions/index.html">SOLUTIONS</a>
+  <a href="/industries/index.html" class="active">INDUSTRIES</a>
+  <a href="/security/index.html">SECURITY</a>
+  <a href="/pricing/index.html">PRICING</a>
+  <span class="spacer"></span>
+  <a href="/docs/index.html">DOCS</a>
+  <a href="/resources/index.html">RESOURCES</a>
+  <a href="/playground.html">DASHBOARDS</a>
+  <span class="theme">
+    <button type="button" data-theme="day">DAY</button>
+    <span class="dash">·</span>
+    <button type="button" data-theme="night" class="active">NIGHT</button>
+  </span>
+</nav>
+
+<!-- SECONDARY NAV · sub-items right under primary nav, not down the page -->
+<nav class="uc-subnav" aria-label="Industries">
+  <a href="/industries/index.html" class="active">ALL INDUSTRIES</a>
+  <a href="/industries/finserv.html">FINANCIAL SERVICES</a>
+  <a href="/industries/public-sector.html">PUBLIC SECTOR</a>
+  <a href="/industries/healthcare.html">HEALTHCARE</a>
+  <a href="/industries/retail.html">RETAIL</a>
+</nav>
+
+<section class="scene-section" style="border-top:0; padding-top:0;">
+  <div class="kicker"><span>INDUSTRIES</span><span class="dash">·</span><span>FOR ENTERPRISE ARCHITECTS · CIO · CDO · CISO</span></div>
+  <h1 class="hero" style="font-size: var(--fs-96);">AI ON YOUR<br><span class="accent">DATA.</span></h1>
+  <p class="lead" style="max-width:720px;">
+    Regulated enterprises deploy XERJ inside their perimeter. Same
+    13 MB binary — different compliance posture per industry. Pick
+    a vertical below. Every page is a real deployment pattern, the
+    compliance matrix that goes with it, and the measured outcomes.
+  </p>
+</section>
+
+<!-- INDUSTRY CARDS · clean 2-up grid, no filter overload -->
+<section class="scene-section" style="border-top:0;">
+  <div class="kicker"><span>FOUR VERTICALS</span><span class="dash">·</span><span>ONE PLATFORM</span></div>
+
+  <div class="card-grid">
+
+    <a class="card" href="/industries/finserv.html">
+      <span class="card-k">01 · FINANCIAL SERVICES</span>
+      <span class="card-t">BANKS · INSURERS ·<br><span class="accent">ASSET MANAGERS</span></span>
+      <span class="card-b">
+        SR&nbsp;11-7 model-risk evidence. DORA data residency.
+        Fraud similarity inside the payment-authorization budget.
+        Analyst RAG over research corpora. All on one platform,
+        inside your VPC.
+      </span>
+      <span class="card-facts">
+        SELF-HOSTED · BYOK · SR 11-7 ALIGNED<br>
+        74× FASTER SIEM AGG vs ES 8.13<br>
+        PCI · GDPR · DORA INHERITED FROM SELF-HOSTED
+      </span>
+      <span class="card-cta">EXPLORE FINSERV  →</span>
+    </a>
+
+    <a class="card" href="/industries/public-sector.html">
+      <span class="card-k">02 · PUBLIC SECTOR</span>
+      <span class="card-t">GOVERNMENT ·<br>DEFENSE ·<br><span class="accent">INTELLIGENCE</span></span>
+      <span class="card-b">
+        Air-gapped enclaves. Signed offline updates. 13 MB binary
+        fits inside ATO envelopes that reject JVM stacks. FedRAMP +
+        IL5 on the roadmap · SBOM shipped per release today.
+      </span>
+      <span class="card-facts">
+        AIR-GAP MODE · NO TELEMETRY EGRESS<br>
+        SBOM + SLSA PROVENANCE (ROADMAP Q3)<br>
+        NIST 800-53 / AI RMF CROSS-WALK
+      </span>
+      <span class="card-cta">EXPLORE PUBLIC SECTOR  →</span>
+    </a>
+
+    <a class="card" href="/industries/healthcare.html">
+      <span class="card-k">03 · HEALTHCARE &amp; LIFE SCIENCES</span>
+      <span class="card-t">HEALTH SYSTEMS ·<br><span class="accent">PHARMA RESEARCH</span></span>
+      <span class="card-b">
+        PHI never leaves the perimeter. HIPAA BAA available on
+        Enterprise. Ambient-scribe retrieval &lt; 40 ms keeps up with
+        the clinical workflow. Imaging-similarity embeddings live
+        alongside metadata. Trial-matching native.
+      </span>
+      <span class="card-facts">
+        HIPAA-READY · BYOK · TENANT-ISOLATED<br>
+        HYBRID P95 &lt; 40 MS · CLINICAL BUDGET<br>
+        PER-QUERY PHI-ACCESS AUDIT BUILT IN
+      </span>
+      <span class="card-cta">EXPLORE HEALTHCARE  →</span>
+    </a>
+
+    <a class="card" href="/industries/retail.html">
+      <span class="card-k">04 · RETAIL &amp; CONSUMER</span>
+      <span class="card-t">COMMERCE ·<br>CATALOG ·<br><span class="accent">SHOPPING AGENTS</span></span>
+      <span class="card-b">
+        Hybrid catalog search + conversational shopping agents +
+        fraud + observability on one data plane. Drop-in for the
+        Elasticsearch already backing your commerce stack today.
+      </span>
+      <span class="card-facts">
+        10 M SKUs ON ONE NODE · SQ8<br>
+        HYBRID SEARCH &lt; 40 MS · PAGE-RENDER BUDGET<br>
+        PCI · GDPR · CCPA · LGPD INHERITED
+      </span>
+      <span class="card-cta">EXPLORE RETAIL  →</span>
+    </a>
+
+  </div>
+</section>
+
+<!-- COMMON PLATFORM · what applies across every industry -->
+<section class="scene-section">
+  <div class="kicker"><span>ACROSS EVERY INDUSTRY</span><span class="dash">·</span><span>ONE PLATFORM</span></div>
+  <h2 class="scene">SAME BINARY.<br><span class="accent">DIFFERENT POSTURE.</span></h2>
+
+  <p class="wide">
+    XERJ ships one 13 MB binary. What varies by vertical is the
+    deployment topology, the compliance matrix, and the audit
+    expectations. The engine is identical. The runbooks are shared.
+  </p>
+
+  <div class="row">
+    <div class="k">SELF-HOSTED</div>
+    <div class="v">Your cloud · your VPC · your metal · your SCIF. No outbound data path unless you configure one. <strong>No vendor in your data path.</strong></div>
+  </div>
+  <div class="row">
+    <div class="k">DROP-IN ES 8.13</div>
+    <div class="v">Same client libraries. Same query DSL. Same _bulk API. Your existing ingest pipelines and dashboards work unchanged.</div>
+  </div>
+  <div class="row">
+    <div class="k">PER-QUERY AUDIT</div>
+    <div class="v">Every retrieval produces a structured <span class="mono">explain-plan</span> — principal, query, rows, cost. Queryable as a regular index. <strong>Model-risk evidence for free.</strong></div>
+  </div>
+  <div class="row">
+    <div class="k">BYOK</div>
+    <div class="v">Customer-managed keys via AWS KMS · GCP KMS · Azure Key Vault · HashiCorp Vault · Thales Luna HSM. No XERJ-side plaintext access.</div>
+  </div>
+  <div class="row">
+    <div class="k">AIR-GAP</div>
+    <div class="v"><span class="mono">XERJ_AIRGAP=1</span> disables all telemetry egress · offline bundle · signed release manifest. <strong>Deployable into a SCIF or a sealed rack.</strong></div>
+  </div>
+</section>
+
+<a href="/solutions/index.html" class="cta">
+  <span>OR BROWSE BY SOLUTION</span>
+  <span class="arrow">→</span>
+</a>
+
+<footer class="footer">
+  <span>XERJ.AI · INDUSTRIES · V1</span>
+  <span>ENTERPRISE AI · ON YOUR DATA</span>
+  <span><a href="/index.html">HOME</a> · <a href="/product.html">PRODUCT</a> · <a href="/solutions/index.html">SOLUTIONS</a> · <a href="/docs/index.html">DOCS</a></span>
+</footer>
+
+<script src="/interact.js"></script>
+</body>
+</html>

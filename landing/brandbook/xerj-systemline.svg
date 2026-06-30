@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 100" width="800" height="100">
+  <rect width="800" height="100" fill="#0b0b0d"/>
+  <!-- system line · offset dual rules · faint color · aligned with XERJ.AI · OBSERVE split -->
+  <line x1="210" y1="78" x2="450" y2="78" stroke="#3a3836" stroke-width="1" stroke-linecap="square"/>
+  <line x1="450" y1="22" x2="600" y2="22" stroke="#ffc400" stroke-width="1" stroke-linecap="square"/>
+  <text x="400" y="58" font-family="'IBM Plex Sans','Inter',sans-serif" font-weight="600" font-size="20" letter-spacing="4.8" text-anchor="middle" fill="#f4f2ec">XERJ.AI · OBSERVE</text>
+</svg>

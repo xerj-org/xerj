@@ -1,0 +1,18 @@
+[package]
+name = "xerj-compress"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Compression engine for xerj — block, dictionary, and streaming compression"
+
+[dependencies]
+xerj-common = { path = "../xerj-common" }
+lz4_flex.workspace = true
+zstd.workspace = true
+bytes.workspace = true
+byteorder.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

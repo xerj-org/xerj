@@ -1,0 +1,301 @@
+warning: unused import: `rayon::prelude`
+  --> crates/xerj-vector/src/hnsw.rs:17:5
+   |
+17 | use rayon::prelude::*;
+   |     ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable `curr_dist` is assigned to, but never used
+   --> crates/xerj-vector/src/hnsw.rs:166:13
+    |
+166 |         let mut curr_dist = {
+    |             ^^^^^^^^^^^^^
+    |
+    = note: consider using `_curr_dist` instead
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `curr_dist` is never read
+   --> crates/xerj-vector/src/hnsw.rs:225:17
+    |
+225 |                 curr_dist = candidates[0].0;
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `curr_dist` is never read
+   --> crates/xerj-vector/src/hnsw.rs:175:13
+    |
+175 |             curr_dist = new_dist;
+    |             ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: field `id` is never read
+  --> crates/xerj-vector/src/hnsw.rs:61:5
+   |
+60 | struct Node {
+   |        ---- field in this struct
+61 |     id: u64,
+   |     ^^
+   |
+   = note: `Node` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `bucket` is never read
+   --> crates/xerj-storage/src/backend.rs:194:5
+    |
+193 | pub struct S3Backend {
+    |            --------- field in this struct
+194 |     bucket: String,
+    |     ^^^^^^
+    |
+    = note: `S3Backend` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `depth` is never read
+   --> crates/xerj-storage/src/backend.rs:281:9
+    |
+278 |     pub struct Entry {
+    |                ----- field in this struct
+...
+281 |         depth: usize,
+    |         ^^^^^
+
+warning: constant `CHKPT_LEN` is never used
+  --> crates/xerj-storage/src/wal.rs:60:7
+   |
+60 | const CHKPT_LEN: u64 = 28; // generation(8) + offset(8) + max_seq(8) + crc(4)
+   |       ^^^^^^^^^
+
+warning: `xerj-vector` (lib) generated 5 warnings
+warning: `xerj-storage` (lib) generated 3 warnings
+warning: unused import: `Write`
+  --> crates/xerj-logs/src/columnar.rs:10:29
+   |
+10 | use std::io::{Cursor, Read, Write};
+   |                             ^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `ColumnType`, `ColumnValue`, and `Column`
+  --> crates/xerj-logs/src/ingest.rs:14:23
+   |
+14 | use crate::columnar::{Column, ColumnType, ColumnValue};
+   |                       ^^^^^^  ^^^^^^^^^^  ^^^^^^^^^^^
+
+warning: field `bucket` is never read
+   --> crates/xerj-logs/src/ingest.rs:166:5
+    |
+165 | struct Memtable {
+    |        -------- field in this struct
+166 |     bucket: HourBucket,
+    |     ^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `xerj-logs` (lib) generated 3 warnings (run `cargo fix --lib -p xerj-logs` to apply 2 suggestions)
+warning: unused variable: `negative`
+    --> crates/xerj-engine/src/index.rs:3351:41
+     |
+3351 |         QueryNode::Boosting { positive, negative, .. } => {
+     |                                         ^^^^^^^^ help: try ignoring the field: `negative: _`
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `pos` is never read
+   --> crates/xerj-engine/src/sql.rs:344:65
+    |
+344 |             Some(Token::Num(n)) => { limit = Some(*n as usize); pos += 1; }
+    |                                                                 ^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `execute_agg` is never used
+   --> crates/xerj-engine/src/aggs.rs:391:4
+    |
+391 | fn execute_agg(name: &str, body: &Value, docs: &[Value]) -> Value {
+    |    ^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `execute_agg_with_all` is never used
+   --> crates/xerj-engine/src/aggs.rs:395:4
+    |
+395 | fn execute_agg_with_all(name: &str, body: &Value, docs: &[Value], all_docs: &[Value]) -> Value {
+    |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `hash_doc_id` is never used
+    --> crates/xerj-engine/src/index.rs:4362:4
+     |
+4362 | fn hash_doc_id(doc_id: &str) -> u32 {
+     |    ^^^^^^^^^^^
+
+warning: `xerj-engine` (lib) generated 5 warnings (run `cargo fix --lib -p xerj-engine` to apply 1 suggestion)
+    Finished `release` profile [optimized] target(s) in 0.06s
+     Running tests/chaos_tests.rs (target/release/deps/chaos_tests-00e3caecdbf0e260)
+
+running 10 tests
+
+┌─────────────────────────────────────────────────────────────────┐
+
+┌─────────────────────────────────────────────────────────────────┐
+│  [01:19:50Z]  Test 7: Delete Under Load                           │
+
+┌─────────────────────────────────────────────────────────────────┐
+
+│  [01:19:50Z]  Test 6: Flush Under Load                            │
+└─────────────────────────────────────────────────────────────────┘
+│  [01:19:50Z]  Test 10: Data Integrity Verification (checksum round-trip + WAL replay)│
+└─────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+┌─────────────────────────────────────────────────────────────────┐
+│  [01:19:50Z]  Test 4: Concurrent Read/Write Stress (8 writers × 8 readers)│
+│  [01:19:50Z]  Test 1: SIGKILL During Active Writes (crash resilience)│
+└─────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│  [01:19:50Z]  Test 5: Large Document Stress                       │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+
+┌─────────────────────────────────────────────────────────────────┐
+│  [01:19:50Z]  Test 8: Memory Pressure Simulation (~50MB data, 100 concurrent queries)│
+│  [01:19:50Z]  Test 3: Rapid Restart Stability (100x restart loop) │
+└─────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│  [01:19:50Z]  Test 2: WAL Corruption Recovery                     │
+
+└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  [01:19:50Z]  Test 9: Schema Evolution Under Load                 │
+└─────────────────────────────────────────────────────────────────┘
+  Indexing 50000 docs (~1KB each = ~48MB total)…
+  Spawning 8 writers (1000 docs each) + 8 readers (500 searches each)…
+  [01:19:50Z] size=1KB     bytes=     1024  index_ms=     0  get_ms=    0  source_verified=true  PASS
+  Phase 1: indexing 2000 initial docs…
+  Batch 1: 500 docs with fields {a, b, c}…
+  [01:19:50Z] size=10KB    bytes=    10240  index_ms=     0  get_ms=    0  source_verified=true  PASS
+  [01:19:50Z] size=100KB   bytes=   102400  index_ms=     0  get_ms=    0  source_verified=true  PASS
+  Phase 1: indexing 1000 docs and verifying checksums pre-restart…
+  [01:19:50Z] iter= 1  crash_after=  100  round=0  recovered=100  rate=100.0%  elapsed=2ms  PASS
+  [01:19:50Z] iter= 2  crash_after=  100  round=1  recovered=100  rate=100.0%  elapsed=1ms  PASS
+  [01:19:50Z] iter=1  corruption=last-10-bytes         opened=true  recovered=199/200  loss=0.5%  elapsed=4ms  PASS
+  [01:19:50Z] iter=2  corruption=middle-64-bytes       opened=true  recovered=101/200  loss=49.5%  elapsed=2ms  PASS
+  Batch 2: 500 docs with fields {a, b, c, d, e}…
+  [01:19:50Z] iter=3  corruption=header-magic          opened=true  recovered=0/200  loss=100.0%  elapsed=1ms  PASS
+  [01:19:50Z] size=1MB     bytes=  1048576  index_ms=     7  get_ms=    0  source_verified=true  PASS
+  [01:19:50Z] flush # 1  docs_indexed=  500  searchable=  500  flush_ms=3
+  Seeded 500 docs (flushed to segment). Beginning 100 rapid restarts…
+  [01:19:50Z] iter=4  corruption=truncate-50pct        opened=true  recovered=101/200  loss=49.5%  elapsed=2ms  PASS
+  [01:19:50Z] restart=  1/100  doc_count=500  search_works=true  restart_ms=2  PASS
+  [01:19:50Z] iter=5  corruption=zero-4kb-block        opened=true  recovered=51/200  loss=74.5%  elapsed=2ms  PASS
+
+  RESULT: 5/5 passed  duration=0.0s
+test chaos_wal_corruption ... ok
+  [01:19:50Z] iter= 3  crash_after=  500  round=0  recovered=500  rate=100.0%  elapsed=11ms  PASS
+  [01:19:50Z] flush # 2  docs_indexed= 1000  searchable= 1000  flush_ms=4
+  [01:19:50Z] iter= 4  crash_after=  500  round=1  recovered=500  rate=100.0%  elapsed=10ms  PASS
+  Batch 3: 500 docs with fields {a, f, g}…
+  [01:19:50Z] flush # 3  docs_indexed= 1500  searchable= 1500  flush_ms=4
+  [01:19:50Z] restart= 11/100  doc_count=500  search_works=true  restart_ms=2  PASS
+  [01:19:50Z] flush # 4  docs_indexed= 2000  searchable= 2000  flush_ms=5
+  [01:19:50Z] pre-restart: verified=1000/1000  mismatches=0
+  Phase 2: reopening engine (WAL replay) and re-verifying checksums…
+  Phase 2: deleting odd-numbered originals + indexing 500 new docs…
+  [01:19:50Z] size=5MB     bytes=  5242880  index_ms=    39  get_ms=    0  source_verified=true  PASS
+  [01:19:50Z] cross-search total=5  expected=5
+
+  RESULT: 5/5 passed  duration=0.1s
+  [01:19:50Z] flush # 5  docs_indexed= 2500  searchable= 2500  flush_ms=7
+test chaos_large_documents ... ok
+  [01:19:50Z] restart= 21/100  doc_count=500  search_works=true  restart_ms=2  PASS
+  [01:19:50Z] field=a    hits=  101  PASS
+  [01:19:50Z] iter= 5  crash_after= 1000  round=0  recovered=1000  rate=100.0%  elapsed=36ms  PASS
+  [01:19:50Z] field=b    hits=  105  PASS
+  [01:19:50Z] flush # 6  docs_indexed= 3000  searchable= 3000  flush_ms=6
+  [01:19:50Z] field=c    hits=  729  PASS
+  [01:19:50Z] field=d    hits=  105  PASS
+  [01:19:50Z] field=e    hits=   26  PASS
+  [01:19:50Z] field=f    hits=  105  PASS
+  [01:19:50Z] field=g    hits=    7  PASS
+
+  [01:19:50Z] schema_fields_found=7/7  total_docs=1500  index_field_count=7
+  RESULT: PASS  duration=0.1s
+test chaos_schema_evolution ... ok
+
+  [01:19:50Z] post-restart: verified=1000/1000  mismatches=0  missing=0
+  RESULT: PASS  duration=0.1s
+
+╔══════════════════════════════════════════════════════════════════╗
+║  CHAOS TEST RESULTS — xerj SLA & Durability                   ║
+╠══════════════════════════════════════════════════════════════════╣
+║  Test                     │ Iterations │ Pass │ Fail │ Duration  ║
+║  ──────────────────────── │ ────────── │ ──── │ ──── │ ───────── ║
+║  WAL corruption           │          5 │    5 │    0 │ 0.0s      ║
+║  Large documents          │          5 │    5 │    0 │ 0.1s      ║
+║  Schema evolution         │          7 │    7 │    0 │ 0.1s      ║
+║  Data integrity           │       1000 │ 1000 │    0 │ 0.1s      ║
+╚══════════════════════════════════════════════════════════════════╝
+  TOTAL: 1017/1017 iterations passed  (0 failed)
+  ALL CHAOS TESTS PASSED
+
+test chaos_data_integrity ... ok
+  [01:19:50Z] flush # 7  docs_indexed= 3500  searchable= 3500  flush_ms=7
+  [01:19:50Z] restart= 31/100  doc_count=500  search_works=true  restart_ms=2  PASS
+  [01:19:50Z] flush # 8  docs_indexed= 4000  searchable= 4000  flush_ms=8
+  [01:19:50Z] iter= 6  crash_after= 1000  round=1  recovered=1000  rate=100.0%  elapsed=35ms  PASS
+  [01:19:50Z] restart= 41/100  doc_count=500  search_works=true  restart_ms=2  PASS
+  [01:19:50Z] flush # 9  docs_indexed= 4500  searchable= 4500  flush_ms=8
+
+  [01:19:50Z] total_ops=3500  deleted_count=1000  remaining_docs=1500
+  [01:19:50Z] even_spot_check=5/5  odd_absent=5/5  new_doc_ok=true
+  RESULT: PASS  duration=0.1s
+test chaos_delete_during_writes ... ok
+  [01:19:50Z] flush #10  docs_indexed= 5000  searchable= 5000  flush_ms=9
+  [01:19:50Z] restart= 51/100  doc_count=500  search_works=true  restart_ms=2  PASS
+
+  [01:19:50Z] docs_indexed=5000  flushes=10  before_restart=5000  after_restart=5000
+  RESULT: PASS  duration=0.1s
+test chaos_flush_during_writes ... ok
+  [01:19:50Z] restart= 61/100  doc_count=500  search_works=true  restart_ms=2  PASS
+  [01:19:50Z] restart= 71/100  doc_count=500  search_works=true  restart_ms=2  PASS
+  [01:19:50Z] restart= 81/100  doc_count=500  search_works=true  restart_ms=2  PASS
+  [01:19:50Z] restart= 91/100  doc_count=500  search_works=true  restart_ms=2  PASS
+
+  RESULT: 100/100 restarts passed  duration=0.2s
+test chaos_rapid_restart_loop ... ok
+  [01:19:51Z] iter= 7  crash_after= 5000  round=0  recovered=5000  rate=100.0%  elapsed=1046ms  PASS
+  [01:19:51Z] ingested 10000/50000  rss=147MB
+  [01:19:52Z] iter= 8  crash_after= 5000  round=1  recovered=5000  rate=100.0%  elapsed=1037ms  PASS
+  [01:19:52Z] iter= 9  crash_after=    50  recovered=50  elapsed=0ms  PASS
+  [01:19:53Z] ingested 20000/50000  rss=158MB
+  [01:19:55Z] iter=10  crash_after= 10000  recovered=9995  elapsed=2441ms  PASS
+
+  RESULT: 10/10 passed  duration=4.6s
+test chaos_crash_during_writes ... ok
+  [01:19:55Z] ingested 30000/50000  rss=243MB
+  [01:19:57Z] ingested 40000/50000  rss=251MB
+  [01:19:59Z] ingest complete in 8832ms
+  [01:19:59Z] peak_rss_mb=258
+  [01:20:04Z] total_writes=8000  actual_docs=8000  write_errors=0
+  [01:20:04Z] reads_ok=4000  read_errors=0  duration=13.8s
+  [01:20:04Z] write_throughput=578 docs/s  read_throughput=289 searches/s
+
+  RESULT: PASS  duration=13.8s
+test chaos_concurrent_readwrite_stress ... ok
+
+  [01:20:27Z] docs=50000  peak_rss_mb=258  queries_ok=100/100  errors=0  duration=36.8s
+  RESULT: PASS  duration=36.8s
+test chaos_memory_pressure ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 36.82s
+

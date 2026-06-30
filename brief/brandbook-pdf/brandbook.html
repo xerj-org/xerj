@@ -1,0 +1,1915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>XERJ.AI — Brand Book · V1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+@page {
+  size: 8.5in 11in;
+  margin: 0;
+  background: #0b0b0d;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: #0b0b0d;
+  color: #f4f2ec;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 11pt;
+  line-height: 1.5;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+:root {
+  --z-bg:     #0b0b0d;
+  --z-ink:    #f4f2ec;
+  --z-mute:   #8a8680;
+  --z-faint:  #2b2a28;
+  --z-line:   #3a3836;
+  --z-accent: #ffc400;
+  --font-display: 'Big Shoulders Display', 'Inter', system-ui, sans-serif;
+  --font-prose:   'Inter', system-ui, sans-serif;
+  --font-data:    'IBM Plex Sans', 'Inter', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', 'IBM Plex Mono', monospace;
+  --track-ui: 0.14em;
+}
+
+.page {
+  width: 8.5in;
+  height: 11in;
+  padding: 0.6in 0.7in;
+  page-break-after: always;
+  page-break-inside: avoid;
+  break-after: page;
+  break-inside: avoid;
+  background: #0b0b0d;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.page:last-child { page-break-after: auto; }
+
+/* page header/footer — tiny signature bars */
+.phead {
+  display: flex; justify-content: space-between;
+  font-family: var(--font-data);
+  font-size: 8pt;
+  letter-spacing: var(--track-ui);
+  text-transform: uppercase;
+  color: var(--z-mute);
+  padding-bottom: 8pt;
+  border-bottom: 1px solid var(--z-line);
+  margin-bottom: 18pt;
+}
+.phead .right { color: var(--z-mute); }
+.pfoot {
+  margin-top: auto;
+  padding-top: 10pt;
+  border-top: 1px solid var(--z-line);
+  display: flex; justify-content: space-between;
+  font-family: var(--font-data);
+  font-size: 8pt;
+  letter-spacing: var(--track-ui);
+  text-transform: uppercase;
+  color: var(--z-mute);
+}
+.pfoot .pgnum { color: var(--z-ink); font-weight: 600; }
+
+/* typography scale */
+h1.cover-title {
+  font-family: var(--font-display); font-weight: 900;
+  font-size: 72pt; line-height: 0.9; letter-spacing: -0.01em;
+  margin: 0;
+}
+h1.ch-num {
+  font-family: var(--font-display); font-weight: 900;
+  font-size: 260pt; line-height: 1; letter-spacing: -0.03em;
+  margin: 0; color: var(--z-accent);
+}
+h1.ch-title {
+  font-family: var(--font-display); font-weight: 900;
+  font-size: 60pt; line-height: 0.9; letter-spacing: -0.01em;
+  margin: 0 0 6pt;
+}
+h2.scene {
+  font-family: var(--font-display); font-weight: 900;
+  font-size: 32pt; line-height: 0.95; letter-spacing: -0.005em;
+  margin: 0 0 10pt;
+}
+h3 {
+  font-family: var(--font-display); font-weight: 900;
+  font-size: 18pt; line-height: 1.1; letter-spacing: 0.005em;
+  margin: 14pt 0 8pt;
+}
+h4 {
+  font-family: var(--font-data); font-weight: 700;
+  font-size: 9pt; letter-spacing: var(--track-ui);
+  text-transform: uppercase; color: var(--z-mute);
+  margin: 10pt 0 6pt;
+}
+p { margin: 0 0 8pt; font-size: 10.5pt; line-height: 1.55; max-width: 6.8in; }
+p.lead { font-size: 13pt; line-height: 1.45; max-width: 6.2in; }
+.kicker {
+  font-family: var(--font-data); font-weight: 700;
+  font-size: 8pt; letter-spacing: var(--track-ui);
+  text-transform: uppercase; color: var(--z-mute);
+  display: flex; gap: 8pt; align-items: center; flex-wrap: wrap;
+}
+.kicker .dash { color: var(--z-faint); }
+.kicker.big { font-size: 10pt; color: var(--z-ink); letter-spacing: 0.18em; }
+
+.accent { color: var(--z-accent); }
+.mute   { color: var(--z-mute); }
+.mono   { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.faint  { color: var(--z-mute); }
+
+.rule { border-bottom: 1px solid var(--z-line); margin: 14pt 0; }
+
+/* LOGO DISPLAY FRAMES */
+.lockup {
+  border: 1px solid var(--z-line);
+  padding: 24pt;
+  margin: 12pt 0;
+  position: relative;
+}
+.lockup[data-bg="day"]   { background: #f6f4ee; color: #11120f; }
+.lockup[data-bg="paper"] { background: #f4f2ec; color: #0b0b0d; }
+.lockup .cap {
+  position: absolute; top: 6pt; left: 10pt;
+  font-family: var(--font-data); font-size: 7.5pt;
+  letter-spacing: var(--track-ui); color: var(--z-mute);
+  text-transform: uppercase;
+}
+.lockup[data-bg="day"] .cap, .lockup[data-bg="paper"] .cap { color: #696762; }
+
+/* 2-up / 4-up grids */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12pt; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12pt; }
+
+/* CHART TOKENS */
+.chart-card {
+  padding: 12pt 0;
+  border-top: 1px solid var(--z-line);
+  border-bottom: 1px solid var(--z-line);
+  color: var(--z-ink);
+  margin-top: 10pt;
+}
+.legend {
+  display: flex; justify-content: space-between;
+  font-family: var(--font-data); font-size: 9pt;
+  letter-spacing: var(--track-ui);
+  text-transform: uppercase;
+  color: var(--z-mute);
+  margin-top: 8pt;
+}
+.legend .mid { flex: 1; text-align: center; }
+.legend .mono { color: var(--z-ink); text-transform: none; letter-spacing: 0; font-family: var(--font-mono); }
+
+/* Top-N */
+.topn-list .row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 70pt minmax(0, 1fr) 44pt;
+  gap: 8pt; align-items: baseline;
+  padding: 5pt 0;
+  border-bottom: 1px solid var(--z-faint);
+  font-family: var(--font-data);
+  font-size: 9.5pt;
+  font-variant-numeric: tabular-nums;
+}
+.topn-list .row__label { color: var(--z-ink); overflow:hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topn-list .row__val   { text-align: right; font-weight: 700; color: var(--z-ink); }
+.topn-list .row__bar   { color: var(--z-accent); }
+.topn-list .row__bar svg { width: 100%; height: 4pt; }
+.topn-list .row__pct   { text-align: right; color: var(--z-mute); font-size: 8pt; }
+
+/* Dist legend */
+.dist-legend {
+  display: flex; flex-wrap: wrap; gap: 14pt 26pt; margin-top: 10pt;
+}
+.dist-legend .stack { display: flex; flex-direction: column; gap: 2pt; min-width: 64pt; }
+.dist-legend .key   { font-family: var(--font-data); font-size: 8pt; letter-spacing: var(--track-ui); color: var(--z-mute); text-transform: uppercase; }
+.dist-legend .mono  { font-family: var(--font-mono); color: var(--z-ink); }
+.dist-legend .mono.big { font-size: 15pt; font-weight: 700; }
+.dist-legend .mono.faint { color: var(--z-mute); font-size: 9pt; }
+
+/* Heatmap */
+.heatmap {
+  font-family: var(--font-mono); font-size: 8.5pt; line-height: 1.7;
+  white-space: nowrap;
+}
+.heatmap-row { display: block; white-space: nowrap; }
+.heatmap-row .row-label {
+  display: inline-block; width: 70pt;
+  font-family: var(--font-data); font-size: 7.5pt;
+  letter-spacing: var(--track-ui); color: var(--z-mute);
+  text-transform: uppercase;
+}
+.heatmap-row .hc {
+  display: inline-block; width: 28pt; text-align: right;
+}
+.heatmap-row.heatmap-head .hc { color: var(--z-mute); }
+
+/* Multiples grid */
+.mult-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12pt 14pt;
+  margin-top: 8pt;
+}
+.mult-cell { color: var(--z-ink); }
+.mult-cell .mult-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 3pt;
+  font-family: var(--font-data); font-size: 8pt;
+  letter-spacing: var(--track-ui);
+  text-transform: uppercase; color: var(--z-mute);
+}
+.mult-cell svg { width: 100%; height: 22px; display: block; }
+
+/* Stacked */
+.stk-wrap .stk-row {
+  display: grid; grid-template-columns: 40pt 1fr 60pt;
+  gap: 12pt; align-items: center;
+  padding: 5pt 0;
+  border-bottom: 1px solid var(--z-faint);
+  font-family: var(--font-data); font-size: 9pt;
+}
+.stk-lbl { color: var(--z-mute); letter-spacing: var(--track-ui); }
+.stk-legend {
+  margin-top: 6pt;
+  font-family: var(--font-data); font-size: 7.5pt;
+  letter-spacing: var(--track-ui); color: var(--z-mute);
+  text-transform: uppercase;
+}
+
+/* Events */
+.ev-list {}
+.ev-row {
+  display: grid; grid-template-columns: 80pt 40pt 1fr;
+  gap: 10pt; padding: 4pt 0;
+  border-bottom: 1px solid var(--z-faint);
+  font-family: var(--font-mono); font-size: 8.5pt;
+  font-variant-numeric: tabular-nums;
+}
+.ev-at { color: var(--z-mute); }
+.ev-sev { font-family: var(--font-data); font-size: 7.5pt; letter-spacing: var(--track-ui); text-transform: uppercase; }
+.ev-msg { color: var(--z-ink); overflow:hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Flowband */
+.fb-grid {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8pt 14pt; margin-top: 8pt;
+}
+.fb-lbl .fb-name {
+  font-family: var(--font-data); font-size: 8pt;
+  letter-spacing: var(--track-ui); text-transform: uppercase;
+}
+
+/* Attention */
+.attn {
+  font-family: var(--font-data); font-size: 13pt; line-height: 1.85;
+  max-width: 6.6in;
+  color: var(--z-ink);
+}
+.attn .accent { color: var(--z-accent); }
+
+/* Color swatches */
+.swatch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16pt; margin-top: 10pt; }
+.swatch {
+  display: grid; grid-template-columns: 60pt 1fr 80pt;
+  gap: 10pt; align-items: center;
+  padding: 6pt 0;
+  border-bottom: 1px solid var(--z-faint);
+}
+.swatch .chip {
+  width: 60pt; height: 36pt;
+  border: 1px solid var(--z-line);
+}
+.swatch .name { color: var(--z-ink); font-family: var(--font-data); font-size: 9pt; letter-spacing: var(--track-ui); text-transform: uppercase; }
+.swatch .hex  { color: var(--z-mute); font-family: var(--font-mono); font-size: 9pt; text-align: right; }
+
+/* Typeface rows */
+.tf-row { padding: 10pt 0; border-bottom: 1px solid var(--z-faint); }
+.tf-row .tf-name { font-family: var(--font-data); font-size: 8pt; letter-spacing: var(--track-ui); color: var(--z-mute); text-transform: uppercase; margin-bottom: 4pt; }
+
+/* Scale ladder */
+.scale-row { display: grid; grid-template-columns: 60pt 1fr 120pt; gap: 14pt; align-items: baseline; padding: 6pt 0; border-bottom: 1px solid var(--z-faint); }
+.scale-row .px { font-family: var(--font-mono); font-size: 9pt; color: var(--z-mute); }
+.scale-row .use { font-family: var(--font-data); font-size: 8pt; letter-spacing: var(--track-ui); text-transform: uppercase; color: var(--z-mute); text-align: right; }
+
+/* Do/Dont */
+.verdict { display: grid; grid-template-columns: 50pt 1fr; gap: 12pt; padding: 8pt 0; border-bottom: 1px solid var(--z-faint); }
+.verdict .tag { font-family: var(--font-data); font-size: 8pt; letter-spacing: var(--track-ui); text-transform: uppercase; }
+.verdict .tag.yes { color: var(--z-accent); }
+.verdict .tag.no  { color: var(--z-mute); }
+.verdict .body    { font-family: var(--font-prose); font-size: 10pt; color: var(--z-ink); line-height: 1.5; }
+
+/* Size ladder cell for logo */
+.ladder-row { display: grid; grid-template-columns: 80pt 1fr 120pt; gap: 14pt; align-items: center; padding: 6pt 0; border-bottom: 1px solid var(--z-faint); }
+.ladder-row .px { font-family: var(--font-mono); font-size: 8pt; color: var(--z-mute); }
+.ladder-row .use { font-family: var(--font-data); font-size: 8pt; letter-spacing: var(--track-ui); text-transform: uppercase; color: var(--z-mute); text-align: right; }
+.ladder-row .ex { display: flex; align-items: baseline; }
+
+/* Contents */
+.toc-row {
+  display: grid; grid-template-columns: 32pt 1fr 40pt;
+  gap: 14pt; align-items: baseline;
+  padding: 10pt 0;
+  border-bottom: 1px solid var(--z-faint);
+}
+.toc-num { font-family: var(--font-mono); color: var(--z-accent); font-size: 11pt; font-weight: 700; }
+.toc-title { font-family: var(--font-display); font-weight: 900; font-size: 22pt; letter-spacing: 0.005em; }
+.toc-page { font-family: var(--font-mono); color: var(--z-mute); font-size: 10pt; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Narrative */
+.three-principles {
+  display: grid; grid-template-columns: 1fr; gap: 14pt;
+}
+.principle {
+  padding-top: 14pt;
+  border-top: 1px solid var(--z-line);
+}
+
+/* 6-row dashboard infographic */
+.infog {
+  border-top: 1px solid var(--z-line);
+  border-bottom: 1px solid var(--z-line);
+  margin-top: 12pt;
+}
+.infog .row {
+  display: grid; grid-template-columns: 1fr 80pt 60pt;
+  gap: 12pt; align-items: baseline;
+  padding: 7pt 0; border-bottom: 1px solid var(--z-faint);
+  font-family: var(--font-data); font-size: 9pt;
+  letter-spacing: var(--track-ui); text-transform: uppercase;
+}
+.infog .row:last-child { border-bottom: 0; }
+.infog .row .k { color: var(--z-mute); }
+.infog .row .v { font-family: var(--font-mono); color: var(--z-ink); text-align: right; letter-spacing: 0; text-transform: none; }
+.infog .row .gold { color: var(--z-accent); text-align: right; font-family: var(--font-mono); }
+
+/* Download table */
+.dl-list {}
+.dl-row {
+  display: grid; grid-template-columns: 120pt 1fr 80pt;
+  gap: 12pt; align-items: baseline;
+  padding: 7pt 0;
+  border-bottom: 1px solid var(--z-faint);
+  font-family: var(--font-data); font-size: 9pt;
+  letter-spacing: var(--track-ui); text-transform: uppercase;
+}
+.dl-row .name { color: var(--z-ink); }
+.dl-row .desc { color: var(--z-mute); text-transform: none; letter-spacing: 0; font-family: var(--font-prose); font-size: 9pt; }
+.dl-row .get  { color: var(--z-accent); text-align: right; }
+
+/* Rule diagram (clear space) */
+.cs-demo {
+  border: 1px solid var(--z-line);
+  padding: 36pt 24pt;
+  margin-top: 14pt;
+  background: var(--z-bg);
+}
+.cs-demo svg { width: 100%; height: auto; display: block; }
+</style>
+</head>
+<body>
+<div class="page" style="padding:0.7in; display:flex; flex-direction:column; justify-content:space-between;">
+  <!-- TOP ROW · kicker left · wordmark pinned top-right as the identifier -->
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:30pt;">
+    <div class="kicker big" style="padding-top:6pt;"><span>BRAND BOOK</span><span class="dash">·</span><span>V1</span><span class="dash">·</span><span>2026·04</span></div>
+    <div style="width:2.6in; flex-shrink:0;">
+      <svg viewBox="0 0 800 240" preserveAspectRatio="xMidYMid meet" style="width:100%; display:block;">
+  <rect width="800" height="240" fill="#0b0b0d"/>
+  <line x1="90" y1="200" x2="530" y2="200" stroke="#f4f2ec" stroke-width="1" stroke-linecap="square"/>
+  <line x1="530" y1="40" x2="710" y2="40" stroke="#ffc400" stroke-width="1" stroke-linecap="square"/>
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="end" fill="#f4f2ec">XERJ</text>
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="start" fill="#ffc400">.AI</text>
+</svg>
+    </div>
+  </div>
+
+  <!-- CENTER · the book title IS the cover -->
+  <div>
+    <h1 class="cover-title">BRAND<br>BOOK.</h1>
+    <p class="lead" style="color:var(--z-mute); max-width:4.6in; margin-top:18pt;">
+      The rules that carry the XERJ.AI identity across every
+      surface — logo, colour, typography, UX, voice — codified
+      in one place.
+    </p>
+  </div>
+
+  <!-- BOTTOM · issuance line -->
+  <div style="display:flex; justify-content:space-between; font-family:var(--font-data); font-size:9pt; letter-spacing:var(--track-ui); text-transform:uppercase; color:var(--z-mute); padding-top:10pt; border-top:1px solid var(--z-line);">
+    <span>ISSUED BY · XERJ.AI DESIGN</span>
+    <span>XERJ.AI · OBSERVE</span>
+  </div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">COLOPHON</span></div>
+  <div style="flex:1; display:flex; flex-direction:column; justify-content:center; max-width:5.8in;">
+    <h2 class="scene">THIS BOOK<br>CODIFIES THE<br><span class="accent">LANGUAGE.</span></h2>
+    <p class="lead">
+      XERJ is a storage system. It looks like a storage system.
+      The product is typography, negative space, and 1&thinsp;px
+      lines — and this document is the rulebook that keeps it that
+      way.
+    </p>
+    <p>
+      Seven chapters. Logo, colour, typography, UX and charts,
+      philosophy, voice, and resources. Every rule herein is
+      non-negotiable. A designer who wants to break one is welcome
+      to file a 500-word essay explaining why, and if we ship the
+      exception it becomes a new rule.
+    </p>
+    <div class="rule"></div>
+    <div class="kicker"><span>ISSUED BY</span><span class="dash">·</span><span>XERJ.AI DESIGN</span></div>
+    <div class="kicker"><span>VERSION</span><span class="dash">·</span><span>1.0 · 2026-04</span></div>
+    <div class="kicker"><span>REPLACES</span><span class="dash">·</span><span>—</span></div>
+    <div class="kicker"><span>OWNER</span><span class="dash">·</span><span>BRAND · XERJ.AI</span></div>
+  </div>
+  <div class="pfoot"><span>COLOPHON</span><span class="pgnum">02</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">CONTENTS</span></div>
+  <h2 class="scene" style="margin-bottom:14pt;">CONTENTS.</h2>
+    <div class="toc-row">
+    <span class="toc-num">01</span>
+    <span class="toc-title">LOGO<span style="font-family:var(--font-prose); font-weight:400; font-size:11pt; color:var(--z-mute); margin-left:10pt;">The word is the mark.</span></span>
+    <span class="toc-page">p. 04</span>
+  </div>
+  <div class="toc-row">
+    <span class="toc-num">02</span>
+    <span class="toc-title">COLOR<span style="font-family:var(--font-prose); font-weight:400; font-size:11pt; color:var(--z-mute); margin-left:10pt;">Gold is earned.</span></span>
+    <span class="toc-page">p. 13</span>
+  </div>
+  <div class="toc-row">
+    <span class="toc-num">03</span>
+    <span class="toc-title">TYPOGRAPHY<span style="font-family:var(--font-prose); font-weight:400; font-size:11pt; color:var(--z-mute); margin-left:10pt;">Four typefaces. Seven sizes.</span></span>
+    <span class="toc-page">p. 17</span>
+  </div>
+  <div class="toc-row">
+    <span class="toc-num">04</span>
+    <span class="toc-title">UX & DATA<span style="font-family:var(--font-prose); font-weight:400; font-size:11pt; color:var(--z-mute); margin-left:10pt;">Type is the infographic.</span></span>
+    <span class="toc-page">p. 21</span>
+  </div>
+  <div class="toc-row">
+    <span class="toc-num">05</span>
+    <span class="toc-title">PHILOSOPHY<span style="font-family:var(--font-prose); font-weight:400; font-size:11pt; color:var(--z-mute); margin-left:10pt;">Why it looks like this.</span></span>
+    <span class="toc-page">p. 33</span>
+  </div>
+  <div class="toc-row">
+    <span class="toc-num">06</span>
+    <span class="toc-title">VOICE<span style="font-family:var(--font-prose); font-weight:400; font-size:11pt; color:var(--z-mute); margin-left:10pt;">Solid. Quiet. Technical.</span></span>
+    <span class="toc-page">p. 37</span>
+  </div>
+  <div class="toc-row">
+    <span class="toc-num">07</span>
+    <span class="toc-title">RESOURCES<span style="font-family:var(--font-prose); font-weight:400; font-size:11pt; color:var(--z-mute); margin-left:10pt;">Downloads and references.</span></span>
+    <span class="toc-page">p. 39</span>
+  </div>
+  <div class="pfoot"><span>CONTENTS</span><span class="pgnum">03</span></div>
+</div>
+<div class="page" style="display:flex; flex-direction:column; justify-content:space-between;">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">CHAPTER 01 · LOGO</span></div>
+  <div style="flex:1; display:flex; flex-direction:column; justify-content:center;">
+    <h1 class="ch-num">01</h1>
+    <h1 class="ch-title">LOGO.</h1>
+    <p class="lead" style="max-width:5.6in; margin-top:6pt;">
+      The word is the mark. Two 1&thinsp;px rules carry the story —
+      a paper-coloured line under XERJ, a yellow line over .AI.
+      Storage on the bottom. AI on top.
+    </p>
+  </div>
+  <div class="pfoot"><span>CHAPTER 01 · LOGO</span><span class="pgnum">04</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">01 · LOGO · PRIMARY</span></div>
+  <div class="kicker"><span>01</span><span class="dash">·</span><span>PRIMARY WORDMARK</span></div>
+  <h2 class="scene">XERJ<span class="accent">.AI</span></h2>
+  <p>
+    The primary lockup. Root word set in paper (<span class="mono">#F4F2EC</span>)
+    on night (<span class="mono">#0B0B0D</span>). Suffix
+    <span class="accent">.AI</span> in accent (<span class="mono">#FFC400</span>).
+    Paper line under XERJ (the stored record). Yellow line over .AI
+    (the answer served back).
+  </p>
+
+  <div class="lockup" data-bg="night" style="padding:40pt;">
+    <span class="cap">01 · NIGHT · PRIMARY</span>
+    <div style="width:100%; max-width:5.4in; margin:0 auto;">
+      <svg viewBox="0 0 800 240" preserveAspectRatio="xMidYMid meet" style="width:100%; display:block;">
+  <rect width="800" height="240" fill="#0b0b0d"/>
+  <line x1="90" y1="200" x2="530" y2="200" stroke="#f4f2ec" stroke-width="1" stroke-linecap="square"/>
+  <line x1="530" y1="40" x2="710" y2="40" stroke="#ffc400" stroke-width="1" stroke-linecap="square"/>
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="end" fill="#f4f2ec">XERJ</text>
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="start" fill="#ffc400">.AI</text>
+</svg>
+    </div>
+  </div>
+
+  <h4>CONSTRUCTION</h4>
+  <p>
+    Typeface: <span class="mono">Big Shoulders Display 900</span>.
+    Tracking: <span class="mono">+0.24 em</span>. Both rules are
+    exactly <span class="mono">1&thinsp;px</span>, placed
+    <span class="mono">30&thinsp;px</span> from baseline
+    (<span class="mono">y=170</span>) and
+    <span class="mono">30&thinsp;px</span> from cap-top
+    (<span class="mono">y=70</span>). Measured, not optical.
+  </p>
+  <div class="pfoot"><span>CHAPTER 01 · LOGO</span><span class="pgnum">05</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">01 · LOGO · RULE OF COLOUR</span></div>
+  <div class="kicker"><span>01</span><span class="dash">·</span><span>RULE OF COLOUR</span></div>
+  <h2 class="scene">STORED <span style="color:var(--z-ink);">BELOW.</span><br>SERVED <span class="accent">ABOVE.</span></h2>
+  <p class="lead">
+    A rule always takes the colour of the text it touches.
+    The paper line under <span style="color:var(--z-ink);">XERJ</span> is paper.
+    The yellow line over <span class="accent">.AI</span> is yellow.
+    Never cross-colour. Never extend one rule past the boundary to
+    underline both halves.
+  </p>
+
+  <div class="lockup" data-bg="night">
+    <span class="cap">DETAIL · THE TWO RULES MEET AT THE DOT</span>
+    <div style="width:100%; max-width:5.6in; margin:14pt auto 0;">
+      <svg viewBox="0 0 800 240" preserveAspectRatio="xMidYMid meet" style="width:100%; display:block;">
+  <rect width="800" height="240" fill="#0b0b0d"/>
+  <line x1="90" y1="200" x2="530" y2="200" stroke="#f4f2ec" stroke-width="1" stroke-linecap="square"/>
+  <line x1="530" y1="40" x2="710" y2="40" stroke="#ffc400" stroke-width="1" stroke-linecap="square"/>
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="end" fill="#f4f2ec">XERJ</text>
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="start" fill="#ffc400">.AI</text>
+</svg>
+    </div>
+  </div>
+
+  <p>
+    Each rule owns exactly its half of the record. The offset
+    between them — one above, one below — reads as
+    "storage → retrieval" in a single glance. That diagonal motion
+    is the mark's identity.
+  </p>
+  <div class="pfoot"><span>CHAPTER 01 · LOGO</span><span class="pgnum">06</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">01 · LOGO · SHORTER FORMS</span></div>
+  <div class="kicker"><span>01</span><span class="dash">·</span><span>SHORTER FORMS</span></div>
+  <h2 class="scene">SHORT.<br><span class="accent">SHORTER.</span></h2>
+  <p>
+    When space is tight the wordmark drops the suffix. At favicon
+    scale only the X remains. The rule system simplifies: both
+    rules take the colour of whatever text is left.
+  </p>
+
+  <div class="grid-2">
+    <div class="lockup" data-bg="night">
+      <span class="cap">02A · SHORT FORM · PAPER RULES</span>
+      <div style="width:100%; max-width:3.6in; margin:14pt auto 0;">
+        <svg viewBox="0 0 600 240" preserveAspectRatio="xMidYMid meet" style="width:100%; display:block;">
+  <rect width="600" height="240" fill="#0b0b0d"/>
+  <line x1="90" y1="40" x2="510" y2="40" stroke="#f4f2ec" stroke-width="1" stroke-linecap="square"/>
+  <line x1="90" y1="200" x2="510" y2="200" stroke="#f4f2ec" stroke-width="1" stroke-linecap="square"/>
+  <text x="300" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="middle" fill="#f4f2ec">XERJ</text>
+</svg>
+      </div>
+    </div>
+    <div class="lockup" data-bg="night">
+      <span class="cap">02B · LETTER MARK · THE KEY</span>
+      <div style="width:1.6in; margin:14pt auto 0;">
+        <svg viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" style="width:100%; display:block;">
+  <rect width="200" height="200" fill="#0b0b0d"/>
+  <line x1="30" y1="24" x2="170" y2="24" stroke="#ffc400" stroke-width="1" stroke-linecap="square"/>
+  <line x1="30" y1="170" x2="170" y2="170" stroke="#ffc400" stroke-width="1" stroke-linecap="square"/>
+  <text x="100" y="140" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="120" text-anchor="middle" fill="#ffc400">X</text>
+</svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="lockup" data-bg="night" style="margin-top:14pt;">
+    <span class="cap">03 · SYSTEM LINE · TRACKED SIGNATURE</span>
+    <div style="width:100%; max-width:5.2in; margin:14pt auto 0;">
+      <svg viewBox="0 0 800 100" preserveAspectRatio="xMidYMid meet" style="width:100%; display:block;">
+  <rect width="800" height="100" fill="#0b0b0d"/>
+  <line x1="210" y1="78" x2="450" y2="78" stroke="#3a3836" stroke-width="1" stroke-linecap="square"/>
+  <line x1="450" y1="22" x2="600" y2="22" stroke="#ffc400" stroke-width="1" stroke-linecap="square"/>
+  <text x="400" y="58" font-family="'IBM Plex Sans','Inter',sans-serif" font-weight="600" font-size="20" letter-spacing="4.8" text-anchor="middle" fill="#f4f2ec">XERJ.AI · OBSERVE</text>
+</svg>
+    </div>
+  </div>
+
+  <p>
+    Approved second-tag variants:
+    <span class="mono">OBSERVE</span> (default),
+    <span class="mono">INDEX</span> (docs),
+    <span class="mono">EXPLAIN</span> (compliance),
+    <span class="mono">QUERY</span> (product dashboards).
+    One tag per surface. Never stacked.
+  </p>
+  <div class="pfoot"><span>CHAPTER 01 · LOGO</span><span class="pgnum">07</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">01 · LOGO · COLOUR TREATMENTS</span></div>
+  <div class="kicker"><span>01</span><span class="dash">·</span><span>COLOUR TREATMENTS</span></div>
+  <h2 class="scene">FOUR SURFACES.<br>ONE <span class="accent">MARK.</span></h2>
+
+  <div class="grid-2">
+    <div class="lockup" data-bg="night">
+      <span class="cap">04A · NIGHT · #0B0B0D</span>
+      <div style="width:100%; max-width:3.3in; margin:12pt auto 0;"><svg viewBox="0 0 800 240" preserveAspectRatio="xMidYMid meet" style="width:100%; display:block;">
+  <rect width="800" height="240" fill="#0b0b0d"/>
+  <line x1="90" y1="200" x2="530" y2="200" stroke="#f4f2ec" stroke-width="1" stroke-linecap="square"/>
+  <line x1="530" y1="40" x2="710" y2="40" stroke="#ffc400" stroke-width="1" stroke-linecap="square"/>
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="end" fill="#f4f2ec">XERJ</text>
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="start" fill="#ffc400">.AI</text>
+</svg></div>
+    </div>
+    <div class="lockup" data-bg="day">
+      <span class="cap">04B · DAY · #F6F4EE</span>
+      <div style="width:100%; max-width:3.3in; margin:12pt auto 0;"><svg viewBox="0 0 800 240" preserveAspectRatio="xMidYMid meet" style="width:100%; display:block;">
+  <rect width="800" height="240" fill="#f6f4ee"/>
+  <line x1="90" y1="200" x2="530" y2="200" stroke="#11120f" stroke-width="1" stroke-linecap="square"/>
+  <line x1="530" y1="40" x2="710" y2="40" stroke="#a06800" stroke-width="1" stroke-linecap="square"/>
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="end" fill="#11120f">XERJ</text>
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="start" fill="#a06800">.AI</text>
+</svg></div>
+    </div>
+    <div class="lockup" data-bg="paper">
+      <span class="cap">04C · PAPER · PRINT</span>
+      <div style="width:100%; max-width:3.3in; margin:12pt auto 0;"><svg viewBox="0 0 800 240" preserveAspectRatio="xMidYMid meet" style="width:100%; display:block;">
+  <rect width="800" height="240" fill="#f4f2ec"/>
+  <line x1="90" y1="200" x2="530" y2="200" stroke="#0b0b0d" stroke-width="1" stroke-linecap="square"/>
+  <line x1="530" y1="40" x2="710" y2="40" stroke="#a06800" stroke-width="1" stroke-linecap="square"/>
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="end" fill="#0b0b0d">XERJ</text>
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="start" fill="#a06800">.AI</text>
+</svg></div>
+    </div>
+    <div class="lockup" data-bg="night">
+      <span class="cap">04D · MONO · OUTLINE</span>
+      <div style="width:100%; max-width:3.3in; margin:12pt auto 0;"><svg viewBox="0 0 800 240" preserveAspectRatio="xMidYMid meet" style="width:100%; display:block;">
+  <rect width="800" height="240" fill="#0b0b0d"/>
+  <line x1="90" y1="200" x2="530" y2="200" stroke="currentColor" stroke-width="1" stroke-linecap="square"/>
+  <line x1="530" y1="40" x2="710" y2="40" stroke="currentColor" stroke-width="1" stroke-linecap="square"/>
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="end" fill="currentColor">XERJ</text>
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="start" fill="currentColor">.AI</text>
+</svg></div>
+    </div>
+  </div>
+
+  <p style="margin-top:10pt;">
+    Night is primary. Day is a courtesy. Paper is for print. Mono
+    (<span class="mono">currentColor</span>) is the fallback for
+    decks and partner surfaces we do not control — we do not ship
+    neon yellow on someone else's background.
+  </p>
+  <div class="pfoot"><span>CHAPTER 01 · LOGO</span><span class="pgnum">08</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">01 · LOGO · CLEAR SPACE</span></div>
+  <div class="kicker"><span>01</span><span class="dash">·</span><span>CLEAR SPACE</span></div>
+  <h2 class="scene">CLEAR SPACE<br>= HEIGHT OF <span class="accent">X.</span></h2>
+  <p>
+    Minimum padding around the wordmark on every side is equal to
+    the cap height of X at whatever size the mark is rendered.
+    Absolute — no edge of the wordmark ever sits closer than one X
+    to a container border, photo crop, another logo, or interface
+    chrome.
+  </p>
+
+  <div class="cs-demo">
+    <svg viewBox="0 0 680 320" preserveAspectRatio="xMidYMid meet" style="color: var(--z-line);">
+      <rect x="20" y="20" width="640" height="280" fill="none" stroke="currentColor" stroke-width="1"/>
+      <rect x="120" y="100" width="440" height="120" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="2 4"/>
+      <line x1="150" y1="210" x2="370" y2="210" stroke="var(--z-ink)" stroke-width="1" stroke-linecap="square"/>
+      <line x1="370" y1="130" x2="520" y2="130" stroke="var(--z-accent)" stroke-width="1" stroke-linecap="square"/>
+      <text x="370" y="190" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="86" letter-spacing="2" text-anchor="end" fill="var(--z-ink)">XERJ</text>
+      <text x="370" y="190" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="86" letter-spacing="2" text-anchor="start" fill="var(--z-accent)">.AI</text>
+      <line x1="20" y1="100" x2="120" y2="100" stroke="currentColor" stroke-width="1"/>
+      <line x1="20" y1="220" x2="120" y2="220" stroke="currentColor" stroke-width="1"/>
+      <line x1="70" y1="20"  x2="70" y2="100" stroke="currentColor" stroke-width="1"/>
+      <line x1="70" y1="220" x2="70" y2="300" stroke="currentColor" stroke-width="1"/>
+      <text x="50" y="62"  font-family="'JetBrains Mono',monospace" font-size="12" fill="var(--z-mute)">1 X</text>
+      <text x="50" y="266" font-family="'JetBrains Mono',monospace" font-size="12" fill="var(--z-mute)">1 X</text>
+      <text x="72" y="164" font-family="'JetBrains Mono',monospace" font-size="12" fill="var(--z-mute)">X HT</text>
+    </svg>
+  </div>
+  <div class="pfoot"><span>CHAPTER 01 · LOGO</span><span class="pgnum">09</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">01 · LOGO · SIZE LADDER</span></div>
+  <div class="kicker"><span>01</span><span class="dash">·</span><span>SIZE LADDER</span></div>
+  <h2 class="scene">THE LADDER.<br>WHAT FITS <span class="accent">WHERE.</span></h2>
+  <p>
+    Every surface has a pre-approved size. Below the minimum the
+    wordmark drops to short form, then to letter mark, then it is
+    removed. The mark is never rendered below 16&thinsp;px cap
+    height.
+  </p>
+
+  <div class="ladder-row"><span class="px">96 PT · DUAL RULES</span><span class="ex" style="font-family:var(--font-display); font-weight:900; font-size:60pt; letter-spacing:0.025em; line-height:1;">XERJ<span class="accent">.AI</span></span><span class="use">COVER · SLIDE TITLE</span></div>
+  <div class="ladder-row"><span class="px">56 PT · DUAL RULES</span><span class="ex" style="font-family:var(--font-display); font-weight:900; font-size:36pt; letter-spacing:0.03em; line-height:1;">XERJ<span class="accent">.AI</span></span><span class="use">SECTION · DOC HEAD</span></div>
+  <div class="ladder-row"><span class="px">32 PT · NO MARKS</span><span class="ex" style="font-family:var(--font-display); font-weight:900; font-size:22pt; letter-spacing:0.04em; line-height:1;">XERJ<span class="accent">.AI</span></span><span class="use">NAV · APP HEADER</span></div>
+  <div class="ladder-row"><span class="px">20 PT · NO MARKS</span><span class="ex" style="font-family:var(--font-display); font-weight:900; font-size:14pt; letter-spacing:0.05em; line-height:1;">XERJ<span class="accent">.AI</span></span><span class="use">FOOTER · SIGNATURE</span></div>
+  <div class="ladder-row"><span class="px">16 PT · MIN</span><span class="ex" style="font-family:var(--font-display); font-weight:900; font-size:11pt; letter-spacing:0.05em; line-height:1;">XERJ</span><span class="use">SHORT FORM ONLY</span></div>
+  <div class="ladder-row"><span class="px">&lt; 16 PT</span><span class="ex accent" style="font-family:var(--font-display); font-weight:900; font-size:11pt; line-height:1;">X</span><span class="use">LETTER MARK · FAVICON</span></div>
+
+  <p style="margin-top:10pt; color:var(--z-mute); font-size:9pt;">
+    The rules are drawn at a fixed 1&thinsp;px weight regardless
+    of wordmark size. Below 56&thinsp;pt the rules start to compete
+    with the letterforms and drop off entirely.
+  </p>
+  <div class="pfoot"><span>CHAPTER 01 · LOGO</span><span class="pgnum">10</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">01 · LOGO · DO</span></div>
+  <div class="kicker"><span>01</span><span class="dash">·</span><span>DO</span></div>
+  <h2 class="scene">WHAT <span class="accent">SHIPS.</span></h2>
+  <div class="verdict"><span class="tag yes">DO</span><span class="body">Set the wordmark in Big Shoulders Display 900, all caps, +0.24 em tracking. Accent the <span class="accent">.AI</span> suffix only.</span></div>
+  <div class="verdict"><span class="tag yes">DO</span><span class="body">Place on a solid night (<span class="mono">#0B0B0D</span>) or solid day (<span class="mono">#F6F4EE</span>) surface. Nothing in between.</span></div>
+  <div class="verdict"><span class="tag yes">DO</span><span class="body">Keep one full X-height of clear space on every side — including above and below.</span></div>
+  <div class="verdict"><span class="tag yes">DO</span><span class="body">Drop to the short form at 16&thinsp;pt, then to the letter mark, then omit the logo entirely rather than shrink it further.</span></div>
+  <div class="verdict"><span class="tag yes">DO</span><span class="body">Colour each rule to match the text it touches — paper under XERJ, yellow over .AI. The rule <em>is</em> an extension of the glyph colour, not a separate ornament.</span></div>
+  <div class="verdict"><span class="tag yes">DO</span><span class="body">Draw rules at true 1&thinsp;px with <span class="mono">stroke-linecap: square</span>. Position them 30&thinsp;px from baseline and 30&thinsp;px from cap-top — measured, not eyeballed.</span></div>
+  <div class="pfoot"><span>CHAPTER 01 · LOGO</span><span class="pgnum">11</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">01 · LOGO · DON'T</span></div>
+  <div class="kicker"><span>01</span><span class="dash">·</span><span>DON'T</span></div>
+  <h2 class="scene">WHAT <span class="accent">DOESN'T.</span></h2>
+  <div class="verdict"><span class="tag no">DON'T</span><span class="body">Outline, stroke, emboss, or add a drop shadow. The mark is a solid typographic form. One weight, zero effects.</span></div>
+  <div class="verdict"><span class="tag no">DON'T</span><span class="body">Tint the root word. <span class="mono">XERJ</span> is always paper-on-night or ink-on-day. Never yellow, never red, never blue.</span></div>
+  <div class="verdict"><span class="tag no">DON'T</span><span class="body">Place the wordmark on photography, gradients, screenshots, or any surface with more than 5&thinsp;% visual texture.</span></div>
+  <div class="verdict"><span class="tag no">DON'T</span><span class="body">Rotate, skew, stretch, condense, or redraw the letterforms. If it is not Big Shoulders 900 at +0.24&thinsp;em, it is not the wordmark.</span></div>
+  <div class="verdict"><span class="tag no">DON'T</span><span class="body">Lock the wordmark up with an icon, mascot, illustration, or partner logo without a full X-height gap between them.</span></div>
+  <div class="verdict"><span class="tag no">DON'T</span><span class="body">Extend one rule past the XERJ/.AI boundary to underline the whole wordmark — that collapses the two-colour story into a single underline.</span></div>
+  <div class="verdict"><span class="tag no">DON'T</span><span class="body">Cross-colour the rules (yellow line under XERJ, paper line over .AI). The rule always matches the text it connects to, never the opposite half.</span></div>
+  <div class="verdict"><span class="tag no">DON'T</span><span class="body">Put both rules on the same side of the wordmark. The rule over .AI must be above cap-top; the rule under XERJ must be below baseline. Never co-planar.</span></div>
+  <div class="pfoot"><span>CHAPTER 01 · LOGO</span><span class="pgnum">12</span></div>
+</div>
+<div class="page" style="display:flex; flex-direction:column; justify-content:space-between;">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">CHAPTER 02 · COLOR</span></div>
+  <div style="flex:1; display:flex; flex-direction:column; justify-content:center;">
+    <h1 class="ch-num">02</h1>
+    <h1 class="ch-title">COLOR.</h1>
+    <p class="lead" style="max-width:5.6in; margin-top:6pt;">
+      Five colours. One of them is yellow. It is a gold standard,
+      not a mood — it is applied only where something has earned it.
+    </p>
+  </div>
+  <div class="pfoot"><span>CHAPTER 02 · COLOR</span><span class="pgnum">13</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">02 · COLOR · NIGHT</span></div>
+  <div class="kicker"><span>02</span><span class="dash">·</span><span>NIGHT · PRIMARY</span></div>
+  <h2 class="scene">NIGHT<br>IS <span class="accent">PRIMARY.</span></h2>
+  <p>
+    Night is the working palette. The product is read in dim rooms
+    at 2&nbsp;am when something broke. Every shade below has been
+    tuned to print as 1&thinsp;px lines on ink bg and still hold
+    contrast without glow.
+  </p>
+  <div style="margin-top:14pt;">
+  <div class="swatch">
+    <span class="chip" style="background:#0B0B0D;"></span>
+    <span class="name">INK · BG</span>
+    <span class="hex">#0B0B0D</span>
+  </div>
+  <div class="swatch">
+    <span class="chip" style="background:#F4F2EC;"></span>
+    <span class="name">PAPER · INK</span>
+    <span class="hex">#F4F2EC</span>
+  </div>
+  <div class="swatch">
+    <span class="chip" style="background:#8A8680;"></span>
+    <span class="name">MUTE</span>
+    <span class="hex">#8A8680</span>
+  </div>
+  <div class="swatch">
+    <span class="chip" style="background:#2B2A28;"></span>
+    <span class="name">FAINT · HAIRLINES</span>
+    <span class="hex">#2B2A28</span>
+  </div>
+  <div class="swatch">
+    <span class="chip" style="background:#3A3836;"></span>
+    <span class="name">LINE</span>
+    <span class="hex">#3A3836</span>
+  </div>
+  <div class="swatch">
+    <span class="chip" style="background:#FFC400;"></span>
+    <span class="name">ACCENT · SOLID</span>
+    <span class="hex">#FFC400</span>
+  </div>
+  </div>
+  <div class="pfoot"><span>CHAPTER 02 · COLOR</span><span class="pgnum">14</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">02 · COLOR · DAY + ACCENT</span></div>
+  <div class="kicker"><span>02</span><span class="dash">·</span><span>DAY · COURTESY</span></div>
+  <h2 class="scene">DAY IS A<br><span class="accent">COURTESY.</span></h2>
+  <p>
+    Day exists because some surfaces insist on white backgrounds —
+    invoices, press releases, partner decks. Accent shifts to ochre
+    (<span class="mono">#A06800</span>) so the yellow stays
+    brand-adjacent while meeting AA body contrast on cream.
+  </p>
+  <div style="margin-top:10pt;">
+  <div class="swatch">
+    <span class="chip" style="background:#F6F4EE;"></span>
+    <span class="name">PAPER · BG</span>
+    <span class="hex">#F6F4EE</span>
+  </div>
+  <div class="swatch">
+    <span class="chip" style="background:#11120F;"></span>
+    <span class="name">INK · INK</span>
+    <span class="hex">#11120F</span>
+  </div>
+  <div class="swatch">
+    <span class="chip" style="background:#696762;"></span>
+    <span class="name">MUTE</span>
+    <span class="hex">#696762</span>
+  </div>
+  <div class="swatch">
+    <span class="chip" style="background:#CFCBBF;"></span>
+    <span class="name">FAINT · HAIRLINES</span>
+    <span class="hex">#CFCBBF</span>
+  </div>
+  <div class="swatch">
+    <span class="chip" style="background:#A06800;"></span>
+    <span class="name">ACCENT · DAY</span>
+    <span class="hex">#A06800</span>
+  </div>
+  </div>
+
+  <div class="rule" style="margin-top:16pt;"></div>
+  <h3>THE ACCENT IS EARNED.</h3>
+  <p>
+    Yellow (<span class="mono">#FFC400</span> on night,
+    <span class="mono">#A06800</span> on day) is reserved for
+    <em>three</em> things: the <span class="accent">.AI</span>
+    suffix in the wordmark, the single key number a chart is about,
+    and the one word a sentence is pointing to. A row-heading
+    painted yellow because it "looks nice" devalues the stamp for
+    the thing that actually deserves it.
+  </p>
+  <div class="pfoot"><span>CHAPTER 02 · COLOR</span><span class="pgnum">15</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">02 · COLOR · USAGE</span></div>
+  <div class="kicker"><span>02</span><span class="dash">·</span><span>USAGE</span></div>
+  <h2 class="scene">ONE GOLD<br>PER <span class="accent">ROW.</span></h2>
+  <p>
+    The block below is a product dashboard fragment rendered only
+    with the palette above — ink bg, paper text, mute labels, one
+    gold stamp per row on the number the reader is meant to look
+    at. No fills, no icons, no gradients.
+  </p>
+
+  <div class="infog">
+    <div class="row"><span class="k">HYBRID QUERY P95</span><span class="v">38&nbsp;MS</span><span class="gold">GOLD</span></div>
+    <div class="row"><span class="k">INGEST · SUSTAINED</span><span class="v">1.55&nbsp;M/S</span><span class="gold">GOLD</span></div>
+    <div class="row"><span class="k">SIEM AGG · 1 M EVENTS</span><span class="v">0.4&nbsp;MS</span><span class="gold">GOLD</span></div>
+    <div class="row"><span class="k">MEMORY · vs 4-NODE ES</span><span class="v">21×&nbsp;LESS</span><span class="gold">GOLD</span></div>
+    <div class="row"><span class="k">BINARY · STATIC</span><span class="v">13&nbsp;MB</span><span class="gold">GOLD</span></div>
+    <div class="row"><span class="k">COLD START · VS JVM</span><span class="v">300×&nbsp;FASTER</span><span class="gold">GOLD</span></div>
+  </div>
+
+  <p style="margin-top:10pt; color:var(--z-mute); font-size:9pt;">
+    Six numbers, six gold stamps, six 1&thinsp;px dividers, zero
+    decoration. Everything a reader needs to know about the product
+    is already here.
+  </p>
+  <div class="pfoot"><span>CHAPTER 02 · COLOR</span><span class="pgnum">16</span></div>
+</div>
+<div class="page" style="display:flex; flex-direction:column; justify-content:space-between;">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">CHAPTER 03 · TYPOGRAPHY</span></div>
+  <div style="flex:1; display:flex; flex-direction:column; justify-content:center;">
+    <h1 class="ch-num">03</h1>
+    <h1 class="ch-title">TYPE.</h1>
+    <p class="lead" style="max-width:5.6in; margin-top:6pt;">
+      Four typefaces. Seven sizes. Nothing outside this grid ships.
+      Type is the primary visual element, not a label next to a
+      "real" graphic.
+    </p>
+  </div>
+  <div class="pfoot"><span>CHAPTER 03 · TYPOGRAPHY</span><span class="pgnum">17</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">03 · TYPOGRAPHY · TYPEFACES</span></div>
+  <div class="kicker"><span>03</span><span class="dash">·</span><span>TYPEFACES</span></div>
+  <h2 class="scene">FOUR <span class="accent">TYPEFACES.</span></h2>
+
+  <div class="tf-row">
+    <div class="tf-name">DISPLAY · HEADLINES</div>
+    <div style="font-family:var(--font-display); font-weight:900; font-size:48pt; line-height:1; letter-spacing:-0.005em;">BIG SHOULDERS DISPLAY 900</div>
+    <p style="margin-top:6pt; color:var(--z-mute); font-size:9pt;">A condensed display face. All caps. Used only in headlines, the wordmark, and hero moments. Never body copy.</p>
+  </div>
+
+  <div class="tf-row">
+    <div class="tf-name">PROSE · BODY COPY</div>
+    <div style="font-family:var(--font-prose); font-weight:400; font-size:18pt; line-height:1.3;">Inter Regular. The working voice of the system — long-form reading, captions, documentation.</div>
+  </div>
+
+  <div class="tf-row">
+    <div class="tf-name">DATA · LABELS &amp; CHROME</div>
+    <div style="font-family:var(--font-data); font-weight:600; font-size:13pt; letter-spacing:0.14em; text-transform:uppercase;">IBM PLEX SANS 600 · EYEBROWS · KICKERS · UI CHROME</div>
+  </div>
+
+  <div class="tf-row">
+    <div class="tf-name">MONO · NUMBERS &amp; CODE</div>
+    <div class="mono" style="font-size:13pt;">JetBrains Mono — identifiers, hex, paths, tabular numerics, p95=38ms</div>
+  </div>
+  <div class="pfoot"><span>CHAPTER 03 · TYPOGRAPHY</span><span class="pgnum">18</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">03 · TYPOGRAPHY · SCALE</span></div>
+  <div class="kicker"><span>03</span><span class="dash">·</span><span>SCALE</span></div>
+  <h2 class="scene">SEVEN <span class="accent">SIZES.</span></h2>
+  <p>
+    Everything is built from seven sizes. An eighth requires a
+    500-word essay to the team defending the exception.
+  </p>
+
+  <div class="scale-row"><span class="px">11 PX</span><span style="font-size:11px; font-family:var(--font-data);">EYEBROW · KEY — "TYPE IS THE UI"</span><span class="use">Eyebrow · key</span></div>
+  <div class="scale-row"><span class="px">13 PX</span><span style="font-size:13px;">Data · row · legend · 13&thinsp;px</span><span class="use">Data · row</span></div>
+  <div class="scale-row"><span class="px">16 PX</span><span style="font-size:16px;">Body copy — reading text · 16&thinsp;px</span><span class="use">Body</span></div>
+  <div class="scale-row"><span class="px">20 PX</span><span style="font-size:20px;">Lead paragraph · 20&thinsp;px</span><span class="use">Lead</span></div>
+  <div class="scale-row"><span class="px">32 PX</span><span style="font-size:32px; font-family:var(--font-display); font-weight:900;">SECTION H4 · 32</span><span class="use">Section h4</span></div>
+  <div class="scale-row"><span class="px">56 PX</span><span style="font-size:48px; font-family:var(--font-display); font-weight:900; line-height:1;">SECTION H3</span><span class="use">Section h3</span></div>
+  <div class="scale-row"><span class="px">96 PX</span><span style="font-size:72px; font-family:var(--font-display); font-weight:900; line-height:1;">SCENE</span><span class="use">Scene h2</span></div>
+  <div class="pfoot"><span>CHAPTER 03 · TYPOGRAPHY</span><span class="pgnum">19</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">03 · TYPOGRAPHY · GRID</span></div>
+  <div class="kicker"><span>03</span><span class="dash">·</span><span>GRID &amp; HIERARCHY</span></div>
+  <h2 class="scene">12 COLUMNS.<br>24 PX <span class="accent">GUTTERS.</span></h2>
+
+  <div class="swatch"><span style="font-family:var(--font-data); font-size:9pt; color:var(--z-mute); letter-spacing:var(--track-ui); text-transform:uppercase;">COLUMNS</span><span style="font-family:var(--font-prose); color:var(--z-ink);">12 — same on marketing, brand, product</span><span class="mono" style="color:var(--z-mute);">12</span></div>
+  <div class="swatch"><span style="font-family:var(--font-data); font-size:9pt; color:var(--z-mute); letter-spacing:var(--track-ui); text-transform:uppercase;">GUTTER</span><span style="font-family:var(--font-prose); color:var(--z-ink);">24 px horizontal</span><span class="mono" style="color:var(--z-mute);">24 PX</span></div>
+  <div class="swatch"><span style="font-family:var(--font-data); font-size:9pt; color:var(--z-mute); letter-spacing:var(--track-ui); text-transform:uppercase;">VERTICAL RHYTHM</span><span style="font-family:var(--font-prose); color:var(--z-ink);">4 · 8 · 12 · 16 · 24 · 32 · 48 · 64 · 96 · 128</span><span class="mono" style="color:var(--z-mute);">8-STEP</span></div>
+  <div class="swatch"><span style="font-family:var(--font-data); font-size:9pt; color:var(--z-mute); letter-spacing:var(--track-ui); text-transform:uppercase;">MAX WIDTH</span><span style="font-family:var(--font-prose); color:var(--z-ink);">1680 px · centered above that</span><span class="mono" style="color:var(--z-mute);">1680</span></div>
+  <div class="swatch"><span style="font-family:var(--font-data); font-size:9pt; color:var(--z-mute); letter-spacing:var(--track-ui); text-transform:uppercase;">BREAKPOINT</span><span style="font-family:var(--font-prose); color:var(--z-ink);">Single — 960 px</span><span class="mono" style="color:var(--z-mute);">960</span></div>
+
+  <p style="margin-top:14pt; color:var(--z-mute); font-size:9pt;">
+    There is no tablet layout. The product does not have a tablet
+    user. Below 960&thinsp;px the hero folds to 96&thinsp;px and
+    metrics stack two-up — everything else collapses naturally.
+  </p>
+
+  <div class="rule" style="margin-top:14pt;"></div>
+  <h3>SCALE IS THE HIERARCHY.</h3>
+  <p>
+    Nothing bold, nothing italic, nothing larger than the next rung
+    on the ladder. If a designer wants emphasis, they pick a bigger
+    size — they do not bold the word. The scale carries meaning;
+    weight is reserved for the typefaces themselves.
+  </p>
+  <div class="pfoot"><span>CHAPTER 03 · TYPOGRAPHY</span><span class="pgnum">20</span></div>
+</div>
+<div class="page" style="display:flex; flex-direction:column; justify-content:space-between;">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">CHAPTER 04 · UX &amp; DATA</span></div>
+  <div style="flex:1; display:flex; flex-direction:column; justify-content:center;">
+    <h1 class="ch-num">04</h1>
+    <h1 class="ch-title">UX &amp; DATA.</h1>
+    <p class="lead" style="max-width:5.6in; margin-top:6pt;">
+      Seventeen chart primitives. All 1&thinsp;px. An AI data
+      company that cannot show a chart cleanly cannot sell storage
+      cleanly either. Type is the infographic.
+    </p>
+  </div>
+  <div class="pfoot"><span>CHAPTER 04 · UX &amp; DATA</span><span class="pgnum">21</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">04 · UX · PRIMITIVES 01-02</span></div>
+  <div class="kicker"><span>04</span><span class="dash">·</span><span>CORE PRIMITIVES</span></div>
+  <h2 class="scene">01 · METRIC.<br>02 · <span class="accent">SERIES.</span></h2>
+
+  <h4>01 · METRIC · HEADLINE + 1PX SPARK</h4>
+  <p>A number and its trend shape. No axis, no grid — the shape is the annotation.</p>
+  <div class="chart-card">
+    <div class="kicker"><span>INGEST · SUSTAINED</span></div>
+    <div style="display:grid; grid-template-columns: auto 1fr auto; gap:16pt; align-items:baseline; margin-top:6pt; color:var(--z-ink);">
+      <div style="font-family:var(--font-display); font-weight:900; font-size:60pt; line-height:0.9; color:var(--z-accent);">1.55<span style="font-family:var(--font-data); font-size:14pt; color:var(--z-mute); letter-spacing:var(--track-ui); margin-left:6pt;">M/S</span></div>
+      <div style="max-width:3.4in; color:var(--z-ink);"><svg viewBox="0 0 260 40" preserveAspectRatio="none" style="width:100%; height:40px;"><polyline points="0.0,11.9 5.5,2.0 11.1,3.0 16.6,5.7 22.1,0.5 27.7,3.5 33.2,5.9 38.7,0.0 44.3,3.8 49.8,9.8 55.3,9.9 60.9,20.4 66.4,31.1 71.9,31.7 77.4,37.2 83.0,38.4 88.5,27.4 94.0,22.6 99.6,17.5 105.1,5.5 110.6,4.4 116.2,5.7 121.7,0.1 127.2,3.4 132.8,6.3 138.3,0.2 143.8,2.8 149.4,6.9 154.9,4.9 160.4,13.8 166.0,24.4 171.5,26.6 177.0,35.1 182.6,40.0 188.1,32.2 193.6,29.2 199.1,24.2 204.7,10.8 210.2,7.5 215.7,6.8 221.3,0.0 226.8,3.0 232.3,6.3 237.9,0.6 243.4,2.9 248.9,5.7 254.5,1.6 260.0,8.4" fill="none" stroke="currentColor" stroke-width="1"/></svg></div>
+      <div style="text-align:right; font-family:var(--font-data); font-size:9pt; letter-spacing:var(--track-ui); text-transform:uppercase;">
+        <span class="accent">▲ 3.1 %</span><br>
+        <span style="color:var(--z-mute); font-size:8pt;">vs 24 H</span>
+      </div>
+    </div>
+  </div>
+
+  <h4 style="margin-top:18pt;">02 · SERIES · 1 PX TIME LINE</h4>
+  <p>One stroke across the panel. Endpoints called out beneath, never floating over the curve.</p>
+  <div class="chart-card">
+    <div class="kicker"><span>HYBRID QUERY P95</span><span class="dash">·</span><span>48 H</span></div>
+    <div style="margin-top:8pt;"><svg viewBox="0 0 1200 130" preserveAspectRatio="none" style="width:100%; height:130px;"><polyline points="0.0,26.7 25.5,10.4 51.1,0.0 76.6,11.5 102.1,8.5 127.7,23.2 153.2,19.2 178.7,12.6 204.3,20.5 229.8,9.4 255.3,15.6 280.9,6.8 306.4,2.4 331.9,20.9 357.4,28.0 383.0,57.2 408.5,71.7 434.0,85.7 459.6,113.2 485.1,117.1 510.6,130.0 536.2,117.0 561.7,96.4 587.2,87.6 612.8,59.2 638.3,48.9 663.8,25.0 689.4,6.4 714.9,11.1 740.4,3.7 766.0,17.2 791.5,14.7 817.0,11.5 842.6,23.2 868.1,14.8 893.6,21.5 919.1,10.1 944.7,0.2 970.2,11.2 995.7,10.1 1021.3,32.3 1046.8,42.5 1072.3,56.3 1097.9,88.1 1123.4,100.3 1148.9,124.2 1174.5,123.1 1200.0,113.5" fill="none" stroke="currentColor" stroke-width="1"/></svg></div>
+    <div class="legend">
+      <span>48 H AGO · <span class="mono">27.0 ms</span></span>
+      <span class="mid">min <span class="mono">15.0</span> · peak <span class="mono">30.1</span></span>
+      <span><span class="mono accent">16.9 ms</span> · NOW</span>
+    </div>
+  </div>
+  <div class="pfoot"><span>CHAPTER 04 · UX &amp; DATA</span><span class="pgnum">22</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">04 · UX · PRIMITIVES 03-04</span></div>
+  <div class="kicker"><span>04</span><span class="dash">·</span><span>CORE PRIMITIVES</span></div>
+  <h2 class="scene">03 · TOP-N.<br>04 · <span class="accent">DIST.</span></h2>
+
+  <h4>03 · TOP-N · RANKED WITH 1 PX BARS</h4>
+  <p>Replaces the horizontal-bar chart. A ranked list <em>is</em> one — label, value, bar, share.</p>
+  <div class="chart-card">
+    <div class="kicker"><span>TOP ENDPOINTS</span><span class="dash">·</span><span>1 M REQUESTS · 24 H</span></div>
+    <div class="topn-list" style="margin-top:6pt; color:var(--z-ink);">
+    <div class="row">
+      <span class="row__label mono">/v2/search</span>
+      <span class="row__val mono">4,230</span>
+      <span class="row__bar"><svg viewBox="0 0 1000 6" preserveAspectRatio="none"><line x1="0" y1="3" x2="1000.0" y2="3" stroke="currentColor" stroke-width="1"/></svg></span>
+      <span class="row__pct mono">27.7%</span>
+    </div>
+    <div class="row">
+      <span class="row__label mono">/v2/catalog</span>
+      <span class="row__val mono">3,180</span>
+      <span class="row__bar"><svg viewBox="0 0 1000 6" preserveAspectRatio="none"><line x1="0" y1="3" x2="751.8" y2="3" stroke="currentColor" stroke-width="1"/></svg></span>
+      <span class="row__pct mono">20.8%</span>
+    </div>
+    <div class="row">
+      <span class="row__label mono">/v2/cart</span>
+      <span class="row__val mono">2,564</span>
+      <span class="row__bar"><svg viewBox="0 0 1000 6" preserveAspectRatio="none"><line x1="0" y1="3" x2="606.1" y2="3" stroke="currentColor" stroke-width="1"/></svg></span>
+      <span class="row__pct mono">16.8%</span>
+    </div>
+    <div class="row">
+      <span class="row__label mono">/auth/session</span>
+      <span class="row__val mono">1,923</span>
+      <span class="row__bar"><svg viewBox="0 0 1000 6" preserveAspectRatio="none"><line x1="0" y1="3" x2="454.6" y2="3" stroke="currentColor" stroke-width="1"/></svg></span>
+      <span class="row__pct mono">12.6%</span>
+    </div>
+    <div class="row">
+      <span class="row__label mono">/billing/create</span>
+      <span class="row__val mono">1,340</span>
+      <span class="row__bar"><svg viewBox="0 0 1000 6" preserveAspectRatio="none"><line x1="0" y1="3" x2="316.8" y2="3" stroke="currentColor" stroke-width="1"/></svg></span>
+      <span class="row__pct mono">8.8%</span>
+    </div>
+    <div class="row">
+      <span class="row__label mono">/users/me</span>
+      <span class="row__val mono">912</span>
+      <span class="row__bar"><svg viewBox="0 0 1000 6" preserveAspectRatio="none"><line x1="0" y1="3" x2="215.6" y2="3" stroke="currentColor" stroke-width="1"/></svg></span>
+      <span class="row__pct mono">6.0%</span>
+    </div>
+    <div class="row">
+      <span class="row__label mono">/admin/logs</span>
+      <span class="row__val mono">680</span>
+      <span class="row__bar"><svg viewBox="0 0 1000 6" preserveAspectRatio="none"><line x1="0" y1="3" x2="160.8" y2="3" stroke="currentColor" stroke-width="1"/></svg></span>
+      <span class="row__pct mono">4.5%</span>
+    </div>
+    <div class="row">
+      <span class="row__label mono">/static/favicon</span>
+      <span class="row__val mono">445</span>
+      <span class="row__bar"><svg viewBox="0 0 1000 6" preserveAspectRatio="none"><line x1="0" y1="3" x2="105.2" y2="3" stroke="currentColor" stroke-width="1"/></svg></span>
+      <span class="row__pct mono">2.9%</span>
+    </div>
+    </div>
+  </div>
+
+  <h4 style="margin-top:18pt;">04 · DIST · 1 PX SEGMENTED BAR</h4>
+  <p>Replaces pie and donut. Opacity carries the segment identity; lengths carry the share.</p>
+  <div class="chart-card">
+    <div class="kicker"><span>HTTP STATUS</span><span class="dash">·</span><span>24 H</span></div>
+    <div style="margin-top:6pt; color:var(--z-ink);">
+      <svg class="chart dist-bar" viewBox="0 0 1200 10" preserveAspectRatio="none"><line x1="0.0" y1="5" x2="1124.3" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="1.00"/><line x1="1124.3" y1="5" x2="1172.2" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="0.80"/><line x1="1172.2" y1="5" x2="1194.4" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="0.60"/><line x1="1194.4" y1="5" x2="1200.0" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="0.40"/></svg>
+      <div class="dist-legend">
+      <div class="stack"><span class="key">2XX</span><span class="mono big">9,620</span><span class="mono faint">93.7%</span></div>
+      <div class="stack"><span class="key">3XX</span><span class="mono big">410</span><span class="mono faint">4.0%</span></div>
+      <div class="stack"><span class="key">4XX</span><span class="mono big">190</span><span class="mono faint">1.9%</span></div>
+      <div class="stack"><span class="key">5XX</span><span class="mono big">48</span><span class="mono faint">0.5%</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="pfoot"><span>CHAPTER 04 · UX &amp; DATA</span><span class="pgnum">23</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">04 · UX · PRIMITIVES 05-06</span></div>
+  <div class="kicker"><span>04</span><span class="dash">·</span><span>CORE PRIMITIVES</span></div>
+  <h2 class="scene">05 · HEATMAP.<br>06 · <span class="accent">GAUGE.</span></h2>
+
+  <h4>05 · HEATMAP · NUMBERS ARE THE VISUALISATION</h4>
+  <p>A grid where text opacity encodes magnitude. No cells, no boxes, no colour bands.</p>
+  <div class="chart-card">
+    <div class="kicker"><span>AGENT ACTIVITY</span><span class="dash">·</span><span>COHORT × HOUR</span></div>
+    <div style="margin-top:6pt; color:var(--z-ink);">
+      <div class="heatmap"><div class="heatmap-row heatmap-head"><span class="row-label">&nbsp;</span><span class="hc">00</span><span class="hc">02</span><span class="hc">04</span><span class="hc">06</span><span class="hc">08</span><span class="hc">10</span><span class="hc">12</span><span class="hc">14</span><span class="hc">16</span><span class="hc">18</span><span class="hc">20</span><span class="hc">22</span></div><div class="heatmap-row"><span class="row-label">COHORT A</span><span class="hc" style="opacity:0.23;">28</span><span class="hc" style="opacity:0.22;">27</span><span class="hc" style="opacity:0.25;">33</span><span class="hc" style="opacity:0.36;">53</span><span class="hc" style="opacity:0.51;">81</span><span class="hc" style="opacity:0.71;">118</span><span class="hc" style="opacity:0.82;">138</span><span class="hc" style="opacity:0.85;">144</span><span class="hc" style="opacity:0.80;">134</span><span class="hc" style="opacity:0.67;">110</span><span class="hc" style="opacity:0.55;">87</span><span class="hc" style="opacity:0.37;">55</span></div><div class="heatmap-row"><span class="row-label">COHORT B</span><span class="hc" style="opacity:0.26;">34</span><span class="hc" style="opacity:0.25;">33</span><span class="hc" style="opacity:0.29;">39</span><span class="hc" style="opacity:0.39;">59</span><span class="hc" style="opacity:0.55;">87</span><span class="hc" style="opacity:0.70;">115</span><span class="hc" style="opacity:0.85;">144</span><span class="hc" style="opacity:0.89;">150</span><span class="hc" style="opacity:0.83;">140</span><span class="hc" style="opacity:0.70;">116</span><span class="hc" style="opacity:0.58;">93</span><span class="hc" style="opacity:0.40;">61</span></div><div class="heatmap-row"><span class="row-label">COHORT C</span><span class="hc" style="opacity:0.29;">40</span><span class="hc" style="opacity:0.24;">30</span><span class="hc" style="opacity:0.32;">45</span><span class="hc" style="opacity:0.43;">65</span><span class="hc" style="opacity:0.58;">93</span><span class="hc" style="opacity:0.73;">121</span><span class="hc" style="opacity:0.89;">150</span><span class="hc" style="opacity:0.92;">156</span><span class="hc" style="opacity:0.86;">146</span><span class="hc" style="opacity:0.73;">122</span><span class="hc" style="opacity:0.56;">90</span><span class="hc" style="opacity:0.44;">67</span></div><div class="heatmap-row"><span class="row-label">COHORT D</span><span class="hc" style="opacity:0.32;">46</span><span class="hc" style="opacity:0.27;">36</span><span class="hc" style="opacity:0.35;">51</span><span class="hc" style="opacity:0.46;">71</span><span class="hc" style="opacity:0.61;">99</span><span class="hc" style="opacity:0.76;">127</span><span class="hc" style="opacity:0.87;">147</span><span class="hc" style="opacity:0.95;">162</span><span class="hc" style="opacity:0.90;">152</span><span class="hc" style="opacity:0.77;">128</span><span class="hc" style="opacity:0.59;">96</span><span class="hc" style="opacity:0.47;">73</span></div><div class="heatmap-row"><span class="row-label">COHORT E</span><span class="hc" style="opacity:0.36;">52</span><span class="hc" style="opacity:0.30;">42</span><span class="hc" style="opacity:0.33;">48</span><span class="hc" style="opacity:0.49;">77</span><span class="hc" style="opacity:0.64;">105</span><span class="hc" style="opacity:0.79;">133</span><span class="hc" style="opacity:0.90;">153</span><span class="hc" style="opacity:0.98;">168</span><span class="hc" style="opacity:0.93;">158</span><span class="hc" style="opacity:0.80;">134</span><span class="hc" style="opacity:0.63;">102</span><span class="hc" style="opacity:0.45;">70</span></div><div class="heatmap-row"><span class="row-label">COHORT F</span><span class="hc" style="opacity:0.39;">58</span><span class="hc" style="opacity:0.33;">48</span><span class="hc" style="opacity:0.37;">54</span><span class="hc" style="opacity:0.52;">83</span><span class="hc" style="opacity:0.67;">111</span><span class="hc" style="opacity:0.83;">139</span><span class="hc" style="opacity:0.94;">159</span><span class="hc" style="opacity:0.97;">165</span><span class="hc" style="opacity:0.96;">164</span><span class="hc" style="opacity:0.83;">140</span><span class="hc" style="opacity:0.66;">108</span><span class="hc" style="opacity:0.49;">76</span></div><div class="heatmap-row"><span class="row-label">COHORT G</span><span class="hc" style="opacity:0.42;">64</span><span class="hc" style="opacity:0.37;">54</span><span class="hc" style="opacity:0.40;">60</span><span class="hc" style="opacity:0.51;">80</span><span class="hc" style="opacity:0.71;">117</span><span class="hc" style="opacity:0.86;">145</span><span class="hc" style="opacity:0.97;">165</span><span class="hc" style="opacity:1.00;">171</span><span class="hc" style="opacity:0.99;">170</span><span class="hc" style="opacity:0.86;">146</span><span class="hc" style="opacity:0.69;">114</span><span class="hc" style="opacity:0.52;">82</span></div></div>
+    </div>
+  </div>
+
+  <h4 style="margin-top:18pt;">06 · GAUGE · 1 PX TRACK</h4>
+  <p>A bounded track that fills from zero to the reading. The threshold is a single 1&thinsp;px tick.</p>
+  <div class="chart-card">
+    <div class="kicker"><span>DISK PRESSURE · WAL VOLUME</span></div>
+    <div style="margin-top:6pt; color:var(--z-ink);">
+    <div style="display:flex; align-items:baseline; justify-content:space-between;">
+      <div style="font-family: var(--font-display); font-weight:900; font-size:72px; color:var(--z-accent); line-height:1;">73<span style="font-family:var(--font-data); font-size:20px; color:var(--z-mute); letter-spacing:var(--track-ui); margin-left:6px;">%</span></div>
+      <span class="kicker">THRESHOLD · 85%</span>
+    </div>
+    <svg viewBox="0 0 600 14" preserveAspectRatio="none" style="width:100%; height:14px; margin-top:10px;">
+      <line x1="0" y1="13" x2="600" y2="13" stroke="currentColor" stroke-width="1" stroke-opacity="0.2"/>
+      <line x1="0" y1="13" x2="438.0" y2="13" stroke="currentColor" stroke-width="1"/>
+      <line x1="510.0" y1="3" x2="510.0" y2="13" stroke="currentColor" stroke-width="1" stroke-opacity="0.5"/>
+    </svg>
+    <div style="display:flex; justify-content:space-between; margin-top:4px; font-family:var(--font-data); font-size:10px; letter-spacing:var(--track-ui); color:var(--z-mute);">
+      <span>0</span><span>100 %</span>
+    </div></div>
+  </div>
+  <div class="pfoot"><span>CHAPTER 04 · UX &amp; DATA</span><span class="pgnum">24</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">04 · UX · PRIMITIVES 07-08</span></div>
+  <div class="kicker"><span>04</span><span class="dash">·</span><span>EXPANDED</span></div>
+  <h2 class="scene">07 · MULTIPLES.<br>08 · <span class="accent">BAR.</span></h2>
+
+  <h4>07 · MULTIPLES · EIGHT SPARKS</h4>
+  <p>One sparkline per dimension. The reader scans for the one that broke ranks.</p>
+  <div class="chart-card">
+    <div class="kicker"><span>SERVICE LATENCIES</span><span class="dash">·</span><span>P95 · 24 H</span></div>
+    <div style="margin-top:6pt; color:var(--z-ink);"><div class="mult-grid">      <div class="mult-cell">
+        <div class="mult-head"><span>API GATEWAY</span><span class="mono" style="color:var(--z-ink); font-weight:700;">58</span></div>
+        <svg viewBox="0 0 180 22" preserveAspectRatio="none"><polyline points="0.0,4.8 7.8,1.5 15.7,0.0 23.5,2.0 31.3,1.8 39.1,1.1 47.0,2.3 54.8,0.9 62.6,0.2 70.4,3.5 78.3,6.2 86.1,10.3 93.9,17.1 101.7,20.4 109.6,21.4 117.4,22.0 125.2,17.6 133.0,11.8 140.9,8.3 148.7,3.5 156.5,0.5 164.3,1.6 172.2,1.3 180.0,1.0" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+      </div>
+      <div class="mult-cell">
+        <div class="mult-head"><span>AUTH</span><span class="mono" style="color:var(--z-ink); font-weight:700;">55</span></div>
+        <svg viewBox="0 0 180 22" preserveAspectRatio="none"><polyline points="0.0,2.0 7.8,0.0 15.7,2.0 23.5,3.2 31.3,4.7 39.1,7.9 47.0,8.2 54.8,8.1 62.6,10.2 70.4,10.9 78.3,12.7 86.1,17.3 93.9,19.6 101.7,20.8 109.6,22.0 117.4,18.9 125.2,13.8 133.0,10.1 140.9,4.8 148.7,1.0 156.5,1.4 164.3,1.5 172.2,2.8 180.0,6.4" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+      </div>
+      <div class="mult-cell">
+        <div class="mult-head"><span>BILLING</span><span class="mono" style="color:var(--z-ink); font-weight:700;">52</span></div>
+        <svg viewBox="0 0 180 22" preserveAspectRatio="none"><polyline points="0.0,0.0 7.8,1.6 15.7,3.2 23.5,6.2 31.3,11.4 39.1,13.7 47.0,14.7 54.8,16.9 62.6,16.5 70.4,16.2 78.3,18.8 86.1,19.7 93.9,20.3 101.7,22.0 109.6,19.8 117.4,15.6 125.2,12.3 133.0,6.5 140.9,1.8 148.7,1.3 156.5,1.1 164.3,3.0 172.2,8.2 180.0,11.2" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+      </div>
+      <div class="mult-cell">
+        <div class="mult-head"><span>CHECKOUT</span><span class="mono" style="color:var(--z-ink); font-weight:700;">47</span></div>
+        <svg viewBox="0 0 180 22" preserveAspectRatio="none"><polyline points="0.0,0.6 7.8,1.9 15.7,5.3 23.5,12.1 31.3,16.2 39.1,18.9 47.0,22.0 54.8,21.1 62.6,19.2 70.4,19.5 78.3,18.1 86.1,17.2 93.9,18.7 101.7,17.1 109.6,14.2 117.4,12.2 125.2,7.0 133.0,2.1 140.9,1.0 148.7,0.0 156.5,1.6 164.3,7.6 172.2,12.1 180.0,16.1" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+      </div>
+      <div class="mult-cell">
+        <div class="mult-head"><span>SEARCH</span><span class="mono" style="color:var(--z-ink); font-weight:700;">40</span></div>
+        <svg viewBox="0 0 180 22" preserveAspectRatio="none"><polyline points="0.0,1.0 7.8,3.6 15.7,9.9 23.5,14.4 31.3,18.1 39.1,22.0 47.0,21.5 54.8,19.0 62.6,17.7 70.4,14.1 78.3,11.3 86.1,11.5 93.9,10.1 101.7,8.6 109.6,8.6 117.4,5.6 125.2,2.2 133.0,1.4 140.9,0.0 148.7,0.7 156.5,5.7 164.3,9.9 172.2,14.4 180.0,20.0" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+      </div>
+      <div class="mult-cell">
+        <div class="mult-head"><span>CATALOG</span><span class="mono" style="color:var(--z-ink); font-weight:700;">38</span></div>
+        <svg viewBox="0 0 180 22" preserveAspectRatio="none"><polyline points="0.0,2.1 7.8,7.8 15.7,12.2 23.5,16.6 31.3,21.7 39.1,22.0 47.0,19.5 54.8,17.2 62.6,11.6 70.4,6.4 78.3,4.8 86.1,2.5 93.9,1.5 101.7,3.3 109.6,2.4 117.4,1.0 125.2,1.5 133.0,0.1 140.9,0.0 148.7,4.2 156.5,7.7 164.3,12.3 172.2,18.8 180.0,21.3" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+      </div>
+      <div class="mult-cell">
+        <div class="mult-head"><span>INGEST</span><span class="mono" style="color:var(--z-ink); font-weight:700;">38</span></div>
+        <svg viewBox="0 0 180 22" preserveAspectRatio="none"><polyline points="0.0,11.1 7.8,13.6 15.7,16.6 23.5,21.2 31.3,22.0 39.1,20.5 47.0,18.8 54.8,13.3 62.6,7.3 70.4,4.5 78.3,1.2 86.1,0.0 93.9,2.5 101.7,3.6 109.6,4.6 117.4,7.1 125.2,6.9 133.0,6.7 140.9,9.3 148.7,10.8 156.5,13.4 164.3,18.5 172.2,20.8 180.0,21.3" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+      </div>
+      <div class="mult-cell">
+        <div class="mult-head"><span>VECTORS</span><span class="mono" style="color:var(--z-ink); font-weight:700;">40</span></div>
+        <svg viewBox="0 0 180 22" preserveAspectRatio="none"><polyline points="0.0,16.5 7.8,17.5 15.7,20.9 23.5,21.6 31.3,20.8 39.1,20.1 47.0,15.4 54.8,9.6 62.6,6.1 70.4,2.0 78.3,0.0 86.1,2.5 93.9,4.6 101.7,7.3 109.6,11.9 117.4,13.3 125.2,13.7 133.0,15.6 140.9,15.5 148.7,16.0 156.5,19.2 164.3,20.5 172.2,21.0 180.0,22.0" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+      </div></div></div>
+  </div>
+
+  <h4 style="margin-top:18pt;">08 · BAR · VERTICAL 1 PX LINES</h4>
+  <p>A bar is a stroke from baseline to value. No fill, no cap, no outline.</p>
+  <div class="chart-card">
+    <div class="kicker"><span>QUERIES BY HOUR</span><span class="dash">·</span><span>LAST 24 H</span></div>
+    <div style="margin-top:6pt; color:var(--z-ink);">
+    <svg viewBox="0 0 1200 150" preserveAspectRatio="none" style="width:100%; height:150px;"><line x1="25.0" y1="150" x2="25.0" y2="28.3" stroke="currentColor" stroke-width="1"/><line x1="75.0" y1="150" x2="75.0" y2="16.9" stroke="currentColor" stroke-width="1"/><line x1="125.0" y1="150" x2="125.0" y2="7.5" stroke="currentColor" stroke-width="1"/><line x1="175.0" y1="150" x2="175.0" y2="0.0" stroke="currentColor" stroke-width="1"/><line x1="225.0" y1="150" x2="225.0" y2="8.8" stroke="currentColor" stroke-width="1"/><line x1="275.0" y1="150" x2="275.0" y2="4.8" stroke="currentColor" stroke-width="1"/><line x1="325.0" y1="150" x2="325.0" y2="1.9" stroke="currentColor" stroke-width="1"/><line x1="375.0" y1="150" x2="375.0" y2="14.3" stroke="currentColor" stroke-width="1"/><line x1="425.0" y1="150" x2="425.0" y2="12.6" stroke="currentColor" stroke-width="1"/><line x1="475.0" y1="150" x2="475.0" y2="10.9" stroke="currentColor" stroke-width="1"/><line x1="525.0" y1="150" x2="525.0" y2="9.1" stroke="currentColor" stroke-width="1"/><line x1="575.0" y1="150" x2="575.0" y2="21.3" stroke="currentColor" stroke-width="1"/><line x1="625.0" y1="150" x2="625.0" y2="18.8" stroke="currentColor" stroke-width="1"/><line x1="675.0" y1="150" x2="675.0" y2="16.0" stroke="currentColor" stroke-width="1"/><line x1="725.0" y1="150" x2="725.0" y2="27.6" stroke="currentColor" stroke-width="1"/><line x1="775.0" y1="150" x2="775.0" y2="25.0" stroke="currentColor" stroke-width="1"/><line x1="825.0" y1="150" x2="825.0" y2="22.9" stroke="currentColor" stroke-width="1"/><line x1="875.0" y1="150" x2="875.0" y2="21.7" stroke="currentColor" stroke-width="1"/><line x1="925.0" y1="150" x2="925.0" y2="36.1" stroke="currentColor" stroke-width="1"/><line x1="975.0" y1="150" x2="975.0" y2="37.2" stroke="currentColor" stroke-width="1"/><line x1="1025.0" y1="150" x2="1025.0" y2="39.6" stroke="currentColor" stroke-width="1"/><line x1="1075.0" y1="150" x2="1075.0" y2="57.5" stroke="currentColor" stroke-width="1"/><line x1="1125.0" y1="150" x2="1125.0" y2="61.7" stroke="currentColor" stroke-width="1"/><line x1="1175.0" y1="150" x2="1175.0" y2="66.3" stroke="currentColor" stroke-width="1"/></svg>
+    <div class="legend">
+      <span>00:00</span>
+      <span class="mid">min <span class="mono">41</span> · peak <span class="mono">73</span></span>
+      <span>23:00</span>
+    </div></div>
+  </div>
+  <div class="pfoot"><span>CHAPTER 04 · UX &amp; DATA</span><span class="pgnum">25</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">04 · UX · PRIMITIVES 09-10</span></div>
+  <div class="kicker"><span>04</span><span class="dash">·</span><span>EXPANDED</span></div>
+  <h2 class="scene">09 · SCATTER.<br>10 · <span class="accent">STACKED.</span></h2>
+
+  <h4>09 · SCATTER · DOTS ARE CHARACTERS</h4>
+  <p>The only chart with "point markers" — because the <span class="mono">·</span> <em>is</em> the datum.</p>
+  <div class="chart-card">
+    <div class="kicker"><span>LATENCY × THROUGHPUT</span><span class="dash">·</span><span>80 TENANTS</span></div>
+    <div style="margin-top:6pt; color:var(--z-ink);">
+    <div style="position:relative; width:100%; height:220px;"><span style="position:absolute; left:50.30%; top:52.42%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:29.25%; top:75.95%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:74.00%; top:26.09%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:0.73%; top:97.91%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:0.00%; top:93.74%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:46.27%; top:50.89%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:64.91%; top:21.40%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:62.45%; top:51.04%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:85.25%; top:30.62%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:20.52%; top:89.11%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:80.68%; top:29.91%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:87.59%; top:15.10%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:80.19%; top:17.96%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:59.83%; top:64.83%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:19.79%; top:93.93%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:16.06%; top:87.40%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:57.48%; top:49.81%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:17.67%; top:69.12%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:63.96%; top:54.88%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:61.28%; top:41.46%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:94.81%; top:13.54%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:72.35%; top:33.09%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:14.21%; top:86.57%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:21.58%; top:63.91%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:77.63%; top:20.26%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:48.41%; top:67.79%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:22.11%; top:75.91%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:29.38%; top:65.73%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:33.39%; top:50.87%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:40.28%; top:70.65%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:16.81%; top:82.19%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:31.96%; top:67.88%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:92.94%; top:0.21%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:69.56%; top:19.60%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:65.34%; top:49.02%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:52.35%; top:47.37%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:54.41%; top:49.93%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:27.59%; top:87.82%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:93.11%; top:28.13%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:63.16%; top:56.22%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:72.53%; top:26.29%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:40.13%; top:60.31%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:15.50%; top:87.30%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:73.52%; top:42.53%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:91.74%; top:37.67%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:37.72%; top:50.70%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:63.75%; top:35.35%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:47.69%; top:41.75%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:35.32%; top:62.93%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:62.19%; top:43.48%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:95.52%; top:16.71%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:41.66%; top:64.48%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:36.12%; top:79.80%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:14.29%; top:77.61%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:33.48%; top:69.82%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:4.78%; top:89.33%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:15.11%; top:68.75%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:54.15%; top:42.62%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:68.80%; top:43.41%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:40.70%; top:64.48%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:72.54%; top:22.84%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:10.85%; top:97.11%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:74.87%; top:35.86%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:42.21%; top:68.77%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:35.72%; top:80.85%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:81.51%; top:40.19%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:100.00%; top:0.00%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:93.84%; top:31.02%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:40.88%; top:61.80%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:6.81%; top:80.64%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:34.01%; top:79.15%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:51.77%; top:48.89%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:58.22%; top:63.34%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:40.87%; top:72.61%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:57.68%; top:67.52%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:55.97%; top:39.39%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:28.39%; top:100.00%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:22.82%; top:79.22%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:16.69%; top:68.33%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span><span style="position:absolute; left:28.14%; top:75.73%; transform:translate(-50%,-50%); font-family:var(--font-data); font-size:16px; color:var(--z-ink); line-height:1;">·</span></div>
+    <div class="legend">
+      <span>LATENCY <span class="mono">16..107 ms</span></span>
+      <span class="mid"><span class="mono">80</span> points</span>
+      <span>THROUGHPUT <span class="mono">11..92 rps</span></span>
+    </div></div>
+  </div>
+
+  <h4 style="margin-top:18pt;">10 · STACKED · HORIZONTAL DISTRIBUTIONS</h4>
+  <p>One <span class="mono">DIST</span> per row. Opacity carries the segment; lengths carry share.</p>
+  <div class="chart-card">
+    <div class="kicker"><span>HTTP STATUS BY REGION</span></div>
+    <div style="margin-top:6pt; color:var(--z-ink);"><div class="stk-wrap">      <div class="stk-row">
+        <span class="stk-lbl">US</span>
+        <svg viewBox="0 0 1200 10" preserveAspectRatio="none" style="width:100%; height:10px;"><line x1="0.0" y1="5" x2="1124.3" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="1.00"/><line x1="1124.3" y1="5" x2="1172.2" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="0.84"/><line x1="1172.2" y1="5" x2="1194.4" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="0.68"/><line x1="1194.4" y1="5" x2="1200.0" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="0.52"/></svg>
+        <span class="mono faint">10.3K</span>
+      </div>
+      <div class="stk-row">
+        <span class="stk-lbl">DE</span>
+        <svg viewBox="0 0 1200 10" preserveAspectRatio="none" style="width:100%; height:10px;"><line x1="0.0" y1="5" x2="1124.4" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="1.00"/><line x1="1124.4" y1="5" x2="1172.3" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="0.84"/><line x1="1172.3" y1="5" x2="1194.5" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="0.68"/><line x1="1194.5" y1="5" x2="1200.0" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="0.52"/></svg>
+        <span class="mono faint">6.2K</span>
+      </div>
+      <div class="stk-row">
+        <span class="stk-lbl">JP</span>
+        <svg viewBox="0 0 1200 10" preserveAspectRatio="none" style="width:100%; height:10px;"><line x1="0.0" y1="5" x2="1124.7" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="1.00"/><line x1="1124.7" y1="5" x2="1172.5" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="0.84"/><line x1="1172.5" y1="5" x2="1194.5" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="0.68"/><line x1="1194.5" y1="5" x2="1200.0" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="0.52"/></svg>
+        <span class="mono faint">4.6K</span>
+      </div>
+      <div class="stk-row">
+        <span class="stk-lbl">BR</span>
+        <svg viewBox="0 0 1200 10" preserveAspectRatio="none" style="width:100%; height:10px;"><line x1="0.0" y1="5" x2="1124.4" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="1.00"/><line x1="1124.4" y1="5" x2="1172.3" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="0.84"/><line x1="1172.3" y1="5" x2="1194.5" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="0.68"/><line x1="1194.5" y1="5" x2="1200.0" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="0.52"/></svg>
+        <span class="mono faint">3.1K</span>
+      </div></div><div class="stk-legend">2XX · 3XX · 4XX · 5XX</div></div>
+  </div>
+  <div class="pfoot"><span>CHAPTER 04 · UX &amp; DATA</span><span class="pgnum">26</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">04 · UX · PRIMITIVES 11-12</span></div>
+  <div class="kicker"><span>04</span><span class="dash">·</span><span>EXPANDED</span></div>
+  <h2 class="scene">11 · TREEMAP.<br>12 · <span class="accent">EVENTS.</span></h2>
+
+  <h4>11 · TREEMAP · INDENTED HIERARCHY</h4>
+  <p>Not D3 — no packed rectangles. An indented ranked list with 1&thinsp;px bars, one row per node.</p>
+  <div class="chart-card">
+    <div class="kicker"><span>REQUEST TREE</span><span class="dash">·</span><span>API GATEWAY</span></div>
+    <div style="margin-top:6pt; color:var(--z-ink);"><div class="topn-list">    <div class="row">
+      <span class="row__label mono"><span class="faint"></span>root</span>
+      <span class="row__val mono">13.0K</span>
+      <span class="row__bar"><svg viewBox="0 0 200 6" preserveAspectRatio="none"><line x1="0" y1="3" x2="200.0" y2="3" stroke="currentColor" stroke-width="1" stroke-opacity="1.00"/></svg></span>
+      <span class="row__pct mono">100.0%</span>
+    </div>
+    <div class="row">
+      <span class="row__label mono"><span class="faint">·&nbsp;&nbsp;</span>api-gateway</span>
+      <span class="row__val mono">5.1K</span>
+      <span class="row__bar"><svg viewBox="0 0 200 6" preserveAspectRatio="none"><line x1="0" y1="3" x2="200.0" y2="3" stroke="currentColor" stroke-width="1" stroke-opacity="0.80"/></svg></span>
+      <span class="row__pct mono">39.2%</span>
+    </div>
+    <div class="row">
+      <span class="row__label mono"><span class="faint">·&nbsp;&nbsp;·&nbsp;&nbsp;</span>/v2/search</span>
+      <span class="row__val mono">2.4K</span>
+      <span class="row__bar"><svg viewBox="0 0 200 6" preserveAspectRatio="none"><line x1="0" y1="3" x2="200.0" y2="3" stroke="currentColor" stroke-width="1" stroke-opacity="0.60"/></svg></span>
+      <span class="row__pct mono">47.1%</span>
+    </div>
+    <div class="row">
+      <span class="row__label mono"><span class="faint">·&nbsp;&nbsp;·&nbsp;&nbsp;</span>/v2/cart</span>
+      <span class="row__val mono">1.8K</span>
+      <span class="row__bar"><svg viewBox="0 0 200 6" preserveAspectRatio="none"><line x1="0" y1="3" x2="150.0" y2="3" stroke="currentColor" stroke-width="1" stroke-opacity="0.60"/></svg></span>
+      <span class="row__pct mono">35.3%</span>
+    </div>
+    <div class="row">
+      <span class="row__label mono"><span class="faint">·&nbsp;&nbsp;·&nbsp;&nbsp;</span>/v2/catalog</span>
+      <span class="row__val mono">900</span>
+      <span class="row__bar"><svg viewBox="0 0 200 6" preserveAspectRatio="none"><line x1="0" y1="3" x2="75.0" y2="3" stroke="currentColor" stroke-width="1" stroke-opacity="0.60"/></svg></span>
+      <span class="row__pct mono">17.6%</span>
+    </div>
+    <div class="row">
+      <span class="row__label mono"><span class="faint">·&nbsp;&nbsp;</span>auth-service</span>
+      <span class="row__val mono">2.4K</span>
+      <span class="row__bar"><svg viewBox="0 0 200 6" preserveAspectRatio="none"><line x1="0" y1="3" x2="94.1" y2="3" stroke="currentColor" stroke-width="1" stroke-opacity="0.80"/></svg></span>
+      <span class="row__pct mono">18.5%</span>
+    </div>
+    <div class="row">
+      <span class="row__label mono"><span class="faint">·&nbsp;&nbsp;</span>billing</span>
+      <span class="row__val mono">1.6K</span>
+      <span class="row__bar"><svg viewBox="0 0 200 6" preserveAspectRatio="none"><line x1="0" y1="3" x2="62.7" y2="3" stroke="currentColor" stroke-width="1" stroke-opacity="0.80"/></svg></span>
+      <span class="row__pct mono">12.3%</span>
+    </div>
+    <div class="row">
+      <span class="row__label mono"><span class="faint">·&nbsp;&nbsp;</span>checkout</span>
+      <span class="row__val mono">1.4K</span>
+      <span class="row__bar"><svg viewBox="0 0 200 6" preserveAspectRatio="none"><line x1="0" y1="3" x2="54.9" y2="3" stroke="currentColor" stroke-width="1" stroke-opacity="0.80"/></svg></span>
+      <span class="row__pct mono">10.8%</span>
+    </div></div></div>
+  </div>
+
+  <h4 style="margin-top:18pt;">12 · EVENTS · LIVE TAIL</h4>
+  <p>Time, severity, message. Errors take the gold accent; info stays mute.</p>
+  <div class="chart-card">
+    <div class="kicker"><span>LIVE TAIL</span><span class="dash">·</span><span>TENANT=acme</span></div>
+    <div style="margin-top:6pt; color:var(--z-ink);"><div class="ev-list">    <div class="ev-row">
+      <span class="ev-at">23:14:02.081</span>
+      <span class="ev-sev" style="color:var(--z-accent);">err</span>
+      <span class="ev-msg">upstream timed out while connecting to upstream · tenant=acme · req=a1f2…</span>
+    </div>
+    <div class="ev-row">
+      <span class="ev-at">23:13:51.602</span>
+      <span class="ev-sev" style="color:var(--z-ink);">warn</span>
+      <span class="ev-msg">slow query 842 ms · SELECT * FROM orders WHERE customer_id = ?</span>
+    </div>
+    <div class="ev-row">
+      <span class="ev-at">23:13:04.114</span>
+      <span class="ev-sev" style="color:var(--z-mute);">info</span>
+      <span class="ev-msg">batch 238 committed · 14,402 docs · 112 ms · lsn=0x3F A2 1C</span>
+    </div>
+    <div class="ev-row">
+      <span class="ev-at">23:12:48.771</span>
+      <span class="ev-sev" style="color:var(--z-ink);">warn</span>
+      <span class="ev-msg">rate limit approaching 85% for tenant=acme · 8,452/10,000 req/min</span>
+    </div>
+    <div class="ev-row">
+      <span class="ev-at">23:12:09.033</span>
+      <span class="ev-sev" style="color:var(--z-mute);">info</span>
+      <span class="ev-msg">segment merged · 3 → 1 · 412 MB → 386 MB · 640 ms</span>
+    </div>
+    <div class="ev-row">
+      <span class="ev-at">23:11:52.118</span>
+      <span class="ev-sev" style="color:var(--z-mute);">info</span>
+      <span class="ev-msg">ingest partition 4 caught up · lag 0 ms · commits/s 1,212</span>
+    </div>
+    <div class="ev-row">
+      <span class="ev-at">23:11:41.884</span>
+      <span class="ev-sev" style="color:var(--z-accent);">err</span>
+      <span class="ev-msg">chunk fetch 502 from storage-us-west-2 · retried once · succeeded</span>
+    </div></div></div>
+  </div>
+  <div class="pfoot"><span>CHAPTER 04 · UX &amp; DATA</span><span class="pgnum">27</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">04 · UX · AI PRIMITIVES</span></div>
+  <div class="kicker"><span>04</span><span class="dash">·</span><span>AI · RAG · AGENTS</span></div>
+  <h2 class="scene">SAME LINE.<br>SAME <span class="accent">RULE.</span></h2>
+  <p class="lead">
+    The charts that follow are specific to AI workloads — embedding
+    clusters, retrieval flows, token budgets, multi-dim agent runs,
+    attention. They are not a different language. The strokes are
+    still 1&thinsp;px, the type is still the label, the accent still
+    falls only where the reader is meant to look.
+  </p>
+  <div class="rule"></div>
+  <div class="kicker"><span>CHARTS · 13–17</span></div>
+  <ul style="padding-left:0; list-style:none; margin-top:10pt;">
+    <li style="padding:6pt 0; border-bottom:1px solid var(--z-faint); font-family:var(--font-data); font-size:10pt; letter-spacing:var(--track-ui); text-transform:uppercase; color:var(--z-ink);">13 · EMBEDSPACE — clusters · UMAP projection · 1 px convex hulls</li>
+    <li style="padding:6pt 0; border-bottom:1px solid var(--z-faint); font-family:var(--font-data); font-size:10pt; letter-spacing:var(--track-ui); text-transform:uppercase; color:var(--z-ink);">14 · CHORDARCS — connectivity · Bézier arcs · source → target</li>
+    <li style="padding:6pt 0; border-bottom:1px solid var(--z-faint); font-family:var(--font-data); font-size:10pt; letter-spacing:var(--track-ui); text-transform:uppercase; color:var(--z-ink);">15 · FLOWBAND — allocation · one horizontal strip · labelled</li>
+    <li style="padding:6pt 0; border-bottom:1px solid var(--z-faint); font-family:var(--font-data); font-size:10pt; letter-spacing:var(--track-ui); text-transform:uppercase; color:var(--z-ink);">16 · PARALLELCOORDS — multi-dim · N axes · 1 px per row</li>
+    <li style="padding:6pt 0; font-family:var(--font-data); font-size:10pt; letter-spacing:var(--track-ui); text-transform:uppercase; color:var(--z-ink);">17 · ATTENTIONMAP — tokens · per-token opacity · paragraph is the chart</li>
+  </ul>
+  <div class="pfoot"><span>CHAPTER 04 · UX &amp; DATA</span><span class="pgnum">28</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">04 · UX · 13 EMBEDSPACE</span></div>
+  <div class="kicker"><span>13</span><span class="dash">·</span><span>EMBEDSPACE · CLUSTERS</span></div>
+  <h2 class="scene">CLUSTERS.<br>WITH A <span class="accent">QUERY.</span></h2>
+  <p>
+    The iconic AI visualisation. 2&thinsp;D UMAP projection of
+    high-dimensional embeddings, with 1&thinsp;px convex hulls
+    around each cluster and centroid labels sitting outside the
+    cloud. Dots are <span class="mono">·</span> characters; the
+    gold crosshair is the current query's projected embedding. No
+    kmeans fuzz, no colour palette.
+  </p>
+
+  <div class="chart-card">
+    <div class="kicker"><span>EMBEDDING SPACE</span><span class="dash">·</span><span>UMAP</span></div>
+    <div style="margin-top:6pt; color:var(--z-ink);">
+    <svg viewBox="0 0 1200 360" preserveAspectRatio="none" style="width:100%; height:360px;">
+      <polyline points="253.0,128.6 253.2,147.3 271.2,154.7 424.7,162.9 472.8,140.7 526.4,87.6 412.2,88.3 309.9,92.4 263.2,121.4 253.0,128.6" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.55"/>
+<polyline points="867.6,171.3 914.5,225.3 1005.3,235.1 1141.2,228.2 1158.4,218.3 1160.0,190.2 1125.0,163.8 1119.8,161.8 916.6,158.0 890.8,161.9 867.6,171.3" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.48"/>
+<polyline points="488.8,314.2 691.8,320.0 732.2,319.5 740.4,315.2 743.3,290.6 712.3,260.5 570.8,263.6 489.1,276.9 488.8,314.2" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.41"/>
+<polyline points="40.0,224.7 66.0,251.6 114.9,270.3 188.4,258.0 190.2,257.3 234.0,237.9 104.5,228.8 40.0,224.7" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.34"/>
+<polyline points="851.7,77.5 898.7,93.5 1052.4,90.5 1045.0,49.1 963.4,40.0 871.7,63.5 851.7,77.5" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.27"/>
+<text x="355.4" y="119.1" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="385.9" y="92.3" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="291.9" y="109.0" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="302.1" y="133.4" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="429.9" y="140.7" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="324.9" y="106.2" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="253.0" y="128.6" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="526.4" y="87.6" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="253.2" y="147.3" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="309.9" y="92.4" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="491.7" y="96.5" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="340.7" y="151.5" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="477.8" y="109.9" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="412.2" y="88.3" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="424.7" y="162.9" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="472.8" y="140.7" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="427.5" y="92.0" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="271.2" y="154.7" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="263.2" y="121.4" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="312.0" y="117.4" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="443.5" y="148.0" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="418.8" y="143.4" fill="currentColor" opacity="1.00" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="1025.1" y="160.0" fill="currentColor" opacity="0.91" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="1141.2" y="228.2" fill="currentColor" opacity="0.91" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="1004.0" y="212.8" fill="currentColor" opacity="0.91" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="867.6" y="171.3" fill="currentColor" opacity="0.91" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="1073.3" y="214.0" fill="currentColor" opacity="0.91" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="1107.2" y="189.7" fill="currentColor" opacity="0.91" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="1005.3" y="235.1" fill="currentColor" opacity="0.91" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="890.8" y="161.9" fill="currentColor" opacity="0.91" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="1160.0" y="190.2" fill="currentColor" opacity="0.91" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="1137.5" y="187.1" fill="currentColor" opacity="0.91" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="914.5" y="225.3" fill="currentColor" opacity="0.91" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="966.5" y="160.6" fill="currentColor" opacity="0.91" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="1125.0" y="163.8" fill="currentColor" opacity="0.91" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="1158.4" y="218.3" fill="currentColor" opacity="0.91" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="947.5" y="227.3" fill="currentColor" opacity="0.91" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="1119.8" y="161.8" fill="currentColor" opacity="0.91" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="998.4" y="183.9" fill="currentColor" opacity="0.91" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="916.6" y="158.0" fill="currentColor" opacity="0.91" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="712.3" y="260.5" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="698.0" y="267.0" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="489.1" y="276.9" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="570.8" y="263.6" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="695.7" y="268.1" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="698.0" y="309.1" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="691.8" y="320.0" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="714.3" y="268.5" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="541.7" y="271.4" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="604.9" y="306.5" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="693.9" y="311.8" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="488.8" y="314.2" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="569.8" y="268.1" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="739.5" y="308.3" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="653.0" y="300.0" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="743.3" y="290.6" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="732.2" y="319.5" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="740.4" y="315.2" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="738.3" y="309.2" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="511.4" y="297.6" fill="currentColor" opacity="0.82" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="190.2" y="257.3" fill="currentColor" opacity="0.73" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="164.9" y="246.8" fill="currentColor" opacity="0.73" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="119.3" y="243.3" fill="currentColor" opacity="0.73" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="92.3" y="236.2" fill="currentColor" opacity="0.73" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="40.0" y="224.7" fill="currentColor" opacity="0.73" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="150.9" y="235.7" fill="currentColor" opacity="0.73" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="193.0" y="238.3" fill="currentColor" opacity="0.73" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="114.9" y="270.3" fill="currentColor" opacity="0.73" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="176.9" y="256.4" fill="currentColor" opacity="0.73" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="104.5" y="228.8" fill="currentColor" opacity="0.73" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="188.4" y="258.0" fill="currentColor" opacity="0.73" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="103.6" y="252.3" fill="currentColor" opacity="0.73" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="122.8" y="258.3" fill="currentColor" opacity="0.73" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="66.0" y="251.6" fill="currentColor" opacity="0.73" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="234.0" y="237.9" fill="currentColor" opacity="0.73" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="226.3" y="241.2" fill="currentColor" opacity="0.73" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="922.7" y="61.5" fill="currentColor" opacity="0.64" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="851.7" y="77.5" fill="currentColor" opacity="0.64" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="953.2" y="59.6" fill="currentColor" opacity="0.64" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="1006.3" y="66.6" fill="currentColor" opacity="0.64" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="956.1" y="81.9" fill="currentColor" opacity="0.64" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="963.4" y="40.0" fill="currentColor" opacity="0.64" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="1039.7" y="84.6" fill="currentColor" opacity="0.64" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="871.7" y="63.5" fill="currentColor" opacity="0.64" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="1001.2" y="74.5" fill="currentColor" opacity="0.64" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="1045.0" y="49.1" fill="currentColor" opacity="0.64" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="1010.6" y="81.3" fill="currentColor" opacity="0.64" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="898.7" y="93.5" fill="currentColor" opacity="0.64" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="909.5" y="66.0" fill="currentColor" opacity="0.64" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="1052.4" y="90.5" fill="currentColor" opacity="0.64" font-family="var(--font-data)" font-size="14" text-anchor="middle" dominant-baseline="middle">·</text>
+<text x="379.2" y="111.4" fill="currentColor" font-family="var(--font-prose)" font-size="11" font-weight="700" letter-spacing="1.5" text-anchor="middle">INVOICES</text>
+<text x="1028.8" y="180.0" fill="currentColor" font-family="var(--font-prose)" font-size="11" font-weight="700" letter-spacing="1.5" text-anchor="middle">CONTRACTS</text>
+<text x="615.4" y="279.1" fill="currentColor" font-family="var(--font-prose)" font-size="11" font-weight="700" letter-spacing="1.5" text-anchor="middle">CHAT·SUPPORT</text>
+<text x="143.0" y="233.4" fill="currentColor" font-family="var(--font-prose)" font-size="11" font-weight="700" letter-spacing="1.5" text-anchor="middle">CODE</text>
+<text x="969.8" y="50.5" fill="currentColor" font-family="var(--font-prose)" font-size="11" font-weight="700" letter-spacing="1.5" text-anchor="middle">POLICIES</text>
+<line x1="645.0" y1="0" x2="645.0" y2="360" stroke="var(--z-accent)" stroke-width="1" stroke-opacity="0.45"/>
+<line x1="0" y1="171.2" x2="1200" y2="171.2" stroke="var(--z-accent)" stroke-width="1" stroke-opacity="0.45"/>
+<text x="645.0" y="171.2" fill="var(--z-accent)" font-family="var(--font-data)" font-size="18" text-anchor="middle" dominant-baseline="middle">×</text>
+<text x="653.0" y="163.2" fill="var(--z-accent)" font-family="var(--font-data)" font-size="11" letter-spacing="0.08em">QUERY</text>
+    </svg>
+    <div class="legend">
+      <span class="mono faint">UMAP · 90 embeddings · 5 clusters</span>
+    </div></div>
+  </div>
+  <div class="pfoot"><span>CHAPTER 04 · UX &amp; DATA</span><span class="pgnum">29</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">04 · UX · 14 CHORDARCS</span></div>
+  <div class="kicker"><span>14</span><span class="dash">·</span><span>CHORDARCS · CONNECTIVITY</span></div>
+  <h2 class="scene">RETRIEVAL.<br>AS <span class="accent">ARCS.</span></h2>
+  <p>
+    Flow between two ordered sets — queries on the left, retrieved
+    chunks on the right, one 1&thinsp;px Bézier arc per retrieval.
+    Arc opacity is the relevance score. Replaces Sankey for RAG
+    pipelines because a Sankey wastes ninety percent of its ink on
+    colour-coded ribbons; we only need the line.
+  </p>
+
+  <div class="chart-card">
+    <div class="kicker"><span>RAG RETRIEVAL</span><span class="dash">·</span><span>TOP-K=2</span></div>
+    <div style="margin-top:6pt; color:var(--z-ink);">
+    <svg viewBox="0 0 1200 380" preserveAspectRatio="none" style="width:100%; height:380px; overflow:visible;">
+      <path d="M 240,57.2 C 513.6,57.2 686.4,51.7 960,51.7" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.85"/>
+<path d="M 240,57.2 C 513.6,57.2 686.4,328.3 960,328.3" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.49"/>
+<path d="M 240,123.6 C 513.6,123.6 686.4,107.0 960,107.0" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.82"/>
+<path d="M 240,123.6 C 513.6,123.6 686.4,328.3 960,328.3" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.31"/>
+<path d="M 240,190.0 C 513.6,190.0 686.4,162.3 960,162.3" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.79"/>
+<path d="M 240,190.0 C 513.6,190.0 686.4,107.0 960,107.0" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.38"/>
+<path d="M 240,256.4 C 513.6,256.4 686.4,217.7 960,217.7" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.81"/>
+<path d="M 240,256.4 C 513.6,256.4 686.4,51.7 960,51.7" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.27"/>
+<path d="M 240,322.8 C 513.6,322.8 686.4,273.0 960,273.0" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.73"/>
+<path d="M 240,322.8 C 513.6,322.8 686.4,328.3 960,328.3" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.36"/>
+      <text x="228.0" y="57.2" fill="currentColor" font-family="var(--font-data)" font-size="11" text-anchor="end" dominant-baseline="middle">q · "refund policy"</text>
+<text x="228.0" y="123.6" fill="currentColor" font-family="var(--font-data)" font-size="11" text-anchor="end" dominant-baseline="middle">q · "price breakdown"</text>
+<text x="228.0" y="190.0" fill="currentColor" font-family="var(--font-data)" font-size="11" text-anchor="end" dominant-baseline="middle">q · "SLA for enterprise"</text>
+<text x="228.0" y="256.4" fill="currentColor" font-family="var(--font-data)" font-size="11" text-anchor="end" dominant-baseline="middle">q · "data retention"</text>
+<text x="228.0" y="322.8" fill="currentColor" font-family="var(--font-data)" font-size="11" text-anchor="end" dominant-baseline="middle">q · "schema change"</text>
+      <text x="972.0" y="51.7" fill="currentColor" font-family="var(--font-data)" font-size="11" dominant-baseline="middle">doc · policy/refunds.md</text>
+<text x="972.0" y="107.0" fill="currentColor" font-family="var(--font-data)" font-size="11" dominant-baseline="middle">doc · pricing/tiers.md</text>
+<text x="972.0" y="162.3" fill="currentColor" font-family="var(--font-data)" font-size="11" dominant-baseline="middle">doc · contracts/sla.md</text>
+<text x="972.0" y="217.7" fill="currentColor" font-family="var(--font-data)" font-size="11" dominant-baseline="middle">doc · security/retention.md</text>
+<text x="972.0" y="273.0" fill="currentColor" font-family="var(--font-data)" font-size="11" dominant-baseline="middle">doc · runbooks/migrate.md</text>
+<text x="972.0" y="328.3" fill="currentColor" font-family="var(--font-data)" font-size="11" dominant-baseline="middle">doc · faq/common.md</text>
+      <text x="228.0" y="16.0" fill="currentColor" opacity="0.6" font-family="var(--font-prose)" font-size="11" font-weight="600" letter-spacing="2" text-anchor="end">QUERY</text>
+      <text x="972.0" y="16.0" fill="currentColor" opacity="0.6" font-family="var(--font-prose)" font-size="11" font-weight="600" letter-spacing="2">CHUNK</text>
+    </svg>
+    <div class="legend">
+      <span class="mono faint">10 flows · 5 → 6</span>
+    </div></div>
+  </div>
+  <div class="pfoot"><span>CHAPTER 04 · UX &amp; DATA</span><span class="pgnum">30</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">04 · UX · 15-16</span></div>
+  <div class="kicker"><span>04</span><span class="dash">·</span><span>AI · 15-16</span></div>
+  <h2 class="scene">15 · FLOWBAND.<br>16 · <span class="accent">PARALLELCOORDS.</span></h2>
+
+  <h4>15 · FLOWBAND · ALLOCATION</h4>
+  <p>Horizontal strip split into segments, each labelled directly beneath. Token budgets, context windows, cost attribution.</p>
+  <div class="chart-card">
+    <div class="kicker"><span>CONTEXT WINDOW</span><span class="dash">·</span><span>28 K TOKENS</span></div>
+    <div style="margin-top:6pt; color:var(--z-ink);">
+    <svg viewBox="0 0 1200 16" preserveAspectRatio="none" style="width:100%; height:16px; overflow:visible; display:block;"><line x1="0.0" y1="2" x2="0.0" y2="14" stroke="currentColor" stroke-width="1" stroke-opacity="0.4"/><line x1="0.0" y1="8" x2="51.4" y2="8" stroke="currentColor" stroke-width="2" stroke-opacity="1.00"/><line x1="51.4" y1="2" x2="51.4" y2="14" stroke="currentColor" stroke-width="1" stroke-opacity="0.4"/><line x1="51.4" y1="8" x2="325.7" y2="8" stroke="currentColor" stroke-width="2" stroke-opacity="0.84"/><line x1="325.7" y1="2" x2="325.7" y2="14" stroke="currentColor" stroke-width="1" stroke-opacity="0.4"/><line x1="325.7" y1="8" x2="934.3" y2="8" stroke="currentColor" stroke-width="2" stroke-opacity="0.68"/><line x1="934.3" y1="2" x2="934.3" y2="14" stroke="currentColor" stroke-width="1" stroke-opacity="0.4"/><line x1="934.3" y1="8" x2="1054.3" y2="8" stroke="currentColor" stroke-width="2" stroke-opacity="0.52"/><line x1="1054.3" y1="2" x2="1054.3" y2="14" stroke="currentColor" stroke-width="1" stroke-opacity="0.4"/><line x1="1054.3" y1="8" x2="1200.0" y2="8" stroke="currentColor" stroke-width="2" stroke-opacity="0.36"/><line x1="1200" y1="2" x2="1200" y2="14" stroke="currentColor" stroke-width="1" stroke-opacity="0.4"/></svg>
+    <div class="fb-grid">
+      <div class="fb-lbl">
+        <div class="fb-name" style="color:var(--z-mute);">SYSTEM</div>
+        <div class="mono" style="color:var(--z-ink); font-size:13px;">1.2K tok</div>
+        <div class="mono faint">4.3 %</div>
+      </div>
+      <div class="fb-lbl">
+        <div class="fb-name" style="color:var(--z-mute);">CONTEXT</div>
+        <div class="mono" style="color:var(--z-ink); font-size:13px;">6.4K tok</div>
+        <div class="mono faint">22.9 %</div>
+      </div>
+      <div class="fb-lbl">
+        <div class="fb-name" style="color:var(--z-accent);">RETRIEVAL</div>
+        <div class="mono" style="color:var(--z-ink); font-size:13px;">14.2K tok</div>
+        <div class="mono faint">50.7 %</div>
+      </div>
+      <div class="fb-lbl">
+        <div class="fb-name" style="color:var(--z-mute);">HISTORY</div>
+        <div class="mono" style="color:var(--z-ink); font-size:13px;">2.8K tok</div>
+        <div class="mono faint">10.0 %</div>
+      </div>
+      <div class="fb-lbl">
+        <div class="fb-name" style="color:var(--z-mute);">ANSWER</div>
+        <div class="mono" style="color:var(--z-ink); font-size:13px;">3.4K tok</div>
+        <div class="mono faint">12.1 %</div>
+      </div>
+    </div></div>
+  </div>
+
+  <h4 style="margin-top:18pt;">16 · PARALLELCOORDS</h4>
+  <p>N axes, N dimensions, one 1&thinsp;px polyline per row. Gold line = one highlighted run in the density cloud.</p>
+  <div class="chart-card">
+    <div class="kicker"><span>AGENT RUNS</span><span class="dash">·</span><span>24 ROWS · 5 DIMENSIONS</span></div>
+    <div style="margin-top:6pt; color:var(--z-ink);">
+    <svg viewBox="0 0 1200 260" preserveAspectRatio="none" style="width:100%; height:260px;">
+      <line x1="60.0" y1="36" x2="60.0" y2="224" stroke="currentColor" stroke-width="1" stroke-opacity="0.2"/>
+<line x1="330.0" y1="36" x2="330.0" y2="224" stroke="currentColor" stroke-width="1" stroke-opacity="0.2"/>
+<line x1="600.0" y1="36" x2="600.0" y2="224" stroke="currentColor" stroke-width="1" stroke-opacity="0.2"/>
+<line x1="870.0" y1="36" x2="870.0" y2="224" stroke="currentColor" stroke-width="1" stroke-opacity="0.2"/>
+<line x1="1140.0" y1="36" x2="1140.0" y2="224" stroke="currentColor" stroke-width="1" stroke-opacity="0.2"/>
+      <polyline points="60.0,142.9 330.0,110.5 600.0,176.0 870.0,100.5 1140.0,130.8" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,168.5 330.0,106.5 600.0,204.4 870.0,92.3 1140.0,89.4" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,189.2 330.0,141.3 600.0,178.7 870.0,61.1 1140.0,127.3" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,197.6 330.0,167.7 600.0,77.6 870.0,136.5 1140.0,84.7" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,104.8 330.0,56.6 600.0,115.6 870.0,62.3 1140.0,71.1" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,113.1 330.0,97.0 600.0,129.3 870.0,80.3 1140.0,122.8" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,70.3 330.0,93.4 600.0,133.8 870.0,166.2 1140.0,168.0" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,109.3 330.0,90.0 600.0,126.8 870.0,110.9 1140.0,163.9" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,193.5 330.0,162.2 600.0,164.3 870.0,157.1 1140.0,124.0" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,184.4 330.0,170.4 600.0,100.8 870.0,99.0 1140.0,195.5" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,143.9 330.0,123.6 600.0,142.7 870.0,174.1 1140.0,142.0" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,69.1 330.0,117.4 600.0,100.6 870.0,76.3 1140.0,90.1" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,148.0 330.0,204.3 600.0,152.3 870.0,91.9 1140.0,76.8" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,61.8 330.0,142.2 600.0,92.8 870.0,123.1 1140.0,114.5" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,172.0 330.0,172.2 600.0,139.7 870.0,200.8 1140.0,154.6" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,103.1 330.0,144.4 600.0,180.4 870.0,134.9 1140.0,186.0" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,111.6 330.0,201.1 600.0,145.9 870.0,120.3 1140.0,201.1" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,108.5 330.0,184.8 600.0,135.8 870.0,197.6 1140.0,148.2" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,173.4 330.0,156.0 600.0,90.7 870.0,148.2 1140.0,92.1" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,80.1 330.0,167.3 600.0,192.9 870.0,202.3 1140.0,124.1" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,54.8 330.0,152.6 600.0,107.4 870.0,87.7 1140.0,107.2" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,91.8 330.0,62.4 600.0,175.2 870.0,202.1 1140.0,182.3" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,186.2 330.0,104.5 600.0,120.4 870.0,172.4 1140.0,100.0" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+<polyline points="60.0,89.9 330.0,180.0 600.0,113.9 870.0,92.7 1140.0,188.0" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity="0.16"/>
+      <polyline points="60.0,137.2 330.0,134.1 600.0,83.8 870.0,49.0 1140.0,75.6" fill="none" stroke="var(--z-accent)" stroke-width="1" stroke-opacity="1"/>
+      <text x="60.0" y="22" fill="currentColor" font-family="var(--font-prose)" font-size="11" font-weight="700" letter-spacing="1.5" text-anchor="middle">LATENCY</text>
+<text x="60.0" y="244" fill="currentColor" opacity="0.55" font-family="var(--font-data)" font-size="10" text-anchor="middle">8</text>
+<text x="60.0" y="256" fill="currentColor" opacity="0.55" font-family="var(--font-data)" font-size="10" text-anchor="middle">60</text>
+<text x="330.0" y="22" fill="currentColor" font-family="var(--font-prose)" font-size="11" font-weight="700" letter-spacing="1.5" text-anchor="middle">TOKENS</text>
+<text x="330.0" y="244" fill="currentColor" opacity="0.55" font-family="var(--font-data)" font-size="10" text-anchor="middle">200</text>
+<text x="330.0" y="256" fill="currentColor" opacity="0.55" font-family="var(--font-data)" font-size="10" text-anchor="middle">4.8K</text>
+<text x="600.0" y="22" fill="currentColor" font-family="var(--font-prose)" font-size="11" font-weight="700" letter-spacing="1.5" text-anchor="middle">COST $</text>
+<text x="600.0" y="244" fill="currentColor" opacity="0.55" font-family="var(--font-data)" font-size="10" text-anchor="middle">0.0</text>
+<text x="600.0" y="256" fill="currentColor" opacity="0.55" font-family="var(--font-data)" font-size="10" text-anchor="middle">0.1</text>
+<text x="870.0" y="22" fill="currentColor" font-family="var(--font-prose)" font-size="11" font-weight="700" letter-spacing="1.5" text-anchor="middle">SCORE</text>
+<text x="870.0" y="244" fill="currentColor" opacity="0.55" font-family="var(--font-data)" font-size="10" text-anchor="middle">0.4</text>
+<text x="870.0" y="256" fill="currentColor" opacity="0.55" font-family="var(--font-data)" font-size="10" text-anchor="middle">1.0</text>
+<text x="1140.0" y="22" fill="currentColor" font-family="var(--font-prose)" font-size="11" font-weight="700" letter-spacing="1.5" text-anchor="middle">RETRIEVED</text>
+<text x="1140.0" y="244" fill="currentColor" opacity="0.55" font-family="var(--font-data)" font-size="10" text-anchor="middle">3</text>
+<text x="1140.0" y="256" fill="currentColor" opacity="0.55" font-family="var(--font-data)" font-size="10" text-anchor="middle">22</text>
+    </svg>
+    <div class="legend">
+      <span class="mono faint">24 rows · 5 dimensions · 1 highlighted</span>
+    </div></div>
+  </div>
+  <div class="pfoot"><span>CHAPTER 04 · UX &amp; DATA</span><span class="pgnum">31</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">04 · UX · 17 ATTENTIONMAP</span></div>
+  <div class="kicker"><span>17</span><span class="dash">·</span><span>ATTENTIONMAP</span></div>
+  <h2 class="scene">THE PARAGRAPH<br>IS THE <span class="accent">CHART.</span></h2>
+  <p>
+    Every token's opacity equals its attention weight; the peak
+    tokens cross into the gold accent. For a RAG system this is the
+    cleanest possible answer to <em>which tokens actually
+    mattered</em>. No heatmap overlay, no coloured highlights —
+    type rendered at the weight the model assigned.
+  </p>
+
+  <div class="chart-card" style="padding:20pt 0;">
+    <div class="kicker"><span>ATTENTION · ANSWER TOKENS</span><span class="dash">·</span><span>PROMPT="WHAT DOES XERJ DO?"</span></div>
+    <div style="margin-top:14pt;">
+    <div class="attn"><span style="opacity:0.20;">The</span> <span style="color:var(--z-accent); opacity:0.84;">XERJ</span> <span style="opacity:0.56;">engine</span> <span style="opacity:0.80;">stores</span> <span style="color:var(--z-accent); opacity:0.97;">billions</span> <span style="opacity:0.15;">of</span> <span style="color:var(--z-accent); opacity:0.90;">vectors</span> <span style="opacity:0.12;">in</span> <span style="opacity:0.08;">a</span> <span style="opacity:0.46;">single</span> <span style="opacity:0.73;">segment</span> <span style="opacity:0.69;">cache</span> <span style="opacity:0.14;">and</span> <span style="opacity:0.52;">returns</span> <span style="color:var(--z-accent); opacity:0.87;">hybrid</span> <span style="opacity:0.65;">results</span> <span style="opacity:0.10;">in</span> <span style="opacity:0.43;">under</span> <span style="color:var(--z-accent); opacity:1.00;">40</span> <span style="opacity:0.61;">milliseconds.</span></div>
+    <div class="legend">
+      <span class="mono faint">peak attention on <span class="accent">40 · billions · vectors</span></span>
+    </div></div>
+  </div>
+
+  <div class="rule" style="margin-top:18pt;"></div>
+  <h3>17 PRIMITIVES. ONE RULE.</h3>
+  <p>
+    Every chart in this chapter is a 1&thinsp;px stroke, a number,
+    or an opacity applied to a character. No fills, no colour bars,
+    no icons on axes, no legends floating over curves. The storage
+    is <em>for</em> the chart; the chart <em>is</em> the storage;
+    the rules are the same line.
+  </p>
+  <div class="pfoot"><span>CHAPTER 04 · UX &amp; DATA</span><span class="pgnum">32</span></div>
+</div>
+<div class="page" style="display:flex; flex-direction:column; justify-content:space-between;">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">CHAPTER 05 · PHILOSOPHY</span></div>
+  <div style="flex:1; display:flex; flex-direction:column; justify-content:center;">
+    <h1 class="ch-num">05</h1>
+    <h1 class="ch-title">PHILOSOPHY.</h1>
+    <p class="lead" style="max-width:5.6in; margin-top:6pt;">
+      Why the brand looks like this. Three decisions, none
+      decorative — a gold accent, a 1&thinsp;px stroke, typography
+      doing the work a chart would do.
+    </p>
+  </div>
+  <div class="pfoot"><span>CHAPTER 05 · PHILOSOPHY</span><span class="pgnum">33</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">05 · PHILOSOPHY · GOLD</span></div>
+  <div class="kicker"><span>05</span><span class="dash">·</span><span>GOLD</span></div>
+  <h2 class="scene">THE GOLD IS<br>A <span class="accent">STANDARD.</span></h2>
+
+  <p>
+    Every industry that has a reference calls it the <span class="accent">gold standard</span>.
+    A gold bar is 99.99&thinsp;% pure by defined assay. A gold medal
+    is the winner. A gold seal is notarised truth. The word holds
+    across centuries — the Roman <em>solidus</em>, the Arabic
+    <em>dinar</em>, gold leaf on Qur'anic manuscripts, gold trim on
+    a <em>thobe</em>, gold on any document that has to still mean
+    something ten years later. Gold earned the name because gold
+    does not tarnish.
+  </p>
+
+  <p>
+    XERJ takes its name from the Arabic word for life —
+    <span class="accent">ḥayāh</span>&nbsp;(حياة). In that
+    tradition, gold carries weight beyond wealth. A gift of gold
+    marks a milestone. Gold thread marks craft meant to outlast
+    the wearer. Gold ink on parchment marks a truth the writer
+    was willing to sign. Across all of it, gold is applied only to
+    things already good enough to carry its weight.
+    <em>Success, not material.</em>
+  </p>
+
+  <p>
+    We use the accent (<span class="mono">#FFC400</span>) the same
+    way. It marks the <em>one</em> number a chart is about, the
+    <em>one</em> word a sentence is pointing to, the p95 that says
+    we are shipping. If a designer paints a row heading yellow
+    because it "looks nice", they have devalued the stamp for the
+    thing that actually deserves it.
+  </p>
+  <div class="pfoot"><span>CHAPTER 05 · PHILOSOPHY</span><span class="pgnum">34</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">05 · PHILOSOPHY · 1 PX</span></div>
+  <div class="kicker"><span>05</span><span class="dash">·</span><span>1 PX</span></div>
+  <h2 class="scene">1 PX IS THE<br>MINIMUM THAT<br><span class="accent">CARRIES MEANING.</span></h2>
+
+  <p>
+    Any modern screen can render a 1&thinsp;px line. Most brands do
+    not trust that to be enough. They add a gradient to give it
+    depth. They add a shadow to give it weight. They widen it to
+    2&thinsp;px "for emphasis". Each addition is a concession that
+    the idea underneath was not strong enough to carry the line
+    alone.
+  </p>
+
+  <p>
+    Our rule is absolute. Every hairline, every axis tick, every
+    divider, every border, every bar in every chart:
+    <span class="accent">one pixel</span>. Never wider. Never
+    gradient. Never feathered. If a design needs a thicker stroke
+    to be legible, the design has a bigger problem that the
+    thicker stroke is covering up. Fix the idea, not the border.
+  </p>
+
+  <p>
+    This is engineering discipline, not aesthetic minimalism.
+    Engineers do not ship a thousand lines of code when ten will
+    do. Designers who have lived inside production systems do not
+    ship 3&thinsp;px borders when 1&thinsp;px is sufficient. The
+    narrowest line that still carries the information is the
+    correct line.
+  </p>
+  <div class="pfoot"><span>CHAPTER 05 · PHILOSOPHY</span><span class="pgnum">35</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">05 · PHILOSOPHY · TYPE</span></div>
+  <div class="kicker"><span>05</span><span class="dash">·</span><span>TYPE IS DATA</span></div>
+  <h2 class="scene">TYPE IS THE<br><span class="accent">INFOGRAPHIC.</span></h2>
+
+  <p>
+    An AI system outputs text. A log line is text. A query plan is
+    text. A vector is a sequence of numbers rendered as text. A
+    retrieval result is a snippet of text ranked against other
+    snippets of text. The entire observable surface of a language
+    model — prompt, response, embedding, audit trail — is plain
+    text.
+  </p>
+
+  <p>
+    Marketing designers usually translate that text into pictures:
+    illustrations, flowcharts, isometric servers with tiny humans
+    standing next to them. Every translation loses fidelity. A
+    query result drawn as a generic "document" icon tells you
+    nothing; the same result as monospaced JSON tells you
+    everything.
+  </p>
+
+  <p>
+    We do the opposite. Our dashboards are tables with good
+    typographic taste. Our charts are 1&thinsp;px strokes over a
+    typographic axis. Our marketing pages render the same numbers
+    our customers see on their consoles, at the same precision,
+    without stylisation. Type is the native format of an AI system.
+    Any other format is a translation <em>away</em> from the truth.
+    Typography is not a substitute for an infographic —
+    <span class="accent">it is the infographic</span>.
+  </p>
+  <div class="pfoot"><span>CHAPTER 05 · PHILOSOPHY</span><span class="pgnum">36</span></div>
+</div>
+<div class="page" style="display:flex; flex-direction:column; justify-content:space-between;">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">CHAPTER 06 · VOICE</span></div>
+  <div style="flex:1; display:flex; flex-direction:column; justify-content:center;">
+    <h1 class="ch-num">06</h1>
+    <h1 class="ch-title">VOICE.</h1>
+    <p class="lead" style="max-width:5.6in; margin-top:6pt;">
+      Solid. Quiet. Technical. We write for engineers paged at
+      2&nbsp;am. Every sentence earns its place.
+    </p>
+  </div>
+  <div class="pfoot"><span>CHAPTER 06 · VOICE</span><span class="pgnum">37</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">06 · VOICE</span></div>
+  <div class="kicker"><span>06</span><span class="dash">·</span><span>DO · DON'T · NEVER</span></div>
+  <h2 class="scene">SOLID.<br>QUIET.<br><span class="accent">TECHNICAL.</span></h2>
+
+  <div class="verdict"><span class="tag yes">DO</span><span class="body">"Hybrid query p95 is 38&thinsp;ms at 1&thinsp;B vectors on one box." · "One binary, no JVM heap tuning." · "Agents are the workload." · "Explain plan is first-class."</span></div>
+  <div class="verdict"><span class="tag no">DON'T</span><span class="body">"Revolutionary." · "Paradigm shift." · "Unleash the power of..." · "Next-generation AI-powered cloud-native..." · Anything with <em>journey</em>, <em>storytelling</em>, or <em>magic</em>.</span></div>
+  <div class="verdict"><span class="tag no">NEVER</span><span class="body">Emojis in marketing. Humour as the primary register. Cute mascots. "Fun" at the expense of precision. We ship storage. Storage is serious.</span></div>
+
+  <div class="rule"></div>
+  <h3>LEAD WITH A NUMBER, A CONSTRAINT, OR A NAME.</h3>
+  <p>
+    Copy is not a pitch deck. Every opening sentence should contain
+    at least one of: a measured value, a hard constraint, or a
+    specific system name. If a line could appear in a LinkedIn
+    influencer post, it does not ship.
+  </p>
+
+  <h3>BE <span class="accent">DIRECT</span>, NOT WARM.</h3>
+  <p>
+    We are not selling comfort. Warm copy reads as slick in our
+    context. An engineer reading at 2&nbsp;am does not want to be
+    charmed; they want to know what the p95 is and whether it can
+    take another tenant before the budget breaks. Answer that
+    question, end the sentence, move on.
+  </p>
+  <div class="pfoot"><span>CHAPTER 06 · VOICE</span><span class="pgnum">38</span></div>
+</div>
+<div class="page" style="display:flex; flex-direction:column; justify-content:space-between;">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">CHAPTER 07 · RESOURCES</span></div>
+  <div style="flex:1; display:flex; flex-direction:column; justify-content:center;">
+    <h1 class="ch-num">07</h1>
+    <h1 class="ch-title">RESOURCES.</h1>
+    <p class="lead" style="max-width:5.6in; margin-top:6pt;">
+      SVG downloads, cross-references, and links to the interactive
+      playground where the chart primitives render live.
+    </p>
+  </div>
+  <div class="pfoot"><span>CHAPTER 07 · RESOURCES</span><span class="pgnum">39</span></div>
+</div>
+<div class="page">
+  <div class="phead"><span>XERJ.AI · BRAND BOOK · V1</span><span class="right">07 · RESOURCES · DOWNLOADS</span></div>
+  <div class="kicker"><span>07</span><span class="dash">·</span><span>DOWNLOADS</span></div>
+  <h2 class="scene">VECTORS.<br><span class="accent">NO RASTERS.</span></h2>
+  <p>
+    Every asset ships as SVG. No PNG, no JPG variants — a raster of
+    the wordmark is either wrong size or wrong compression, and both
+    of those are easier to fix upstream by using the SVG.
+  </p>
+  <div class="dl-list" style="margin-top:10pt;">
+  <div class="dl-row">
+    <span class="name">WORDMARK · NIGHT</span>
+    <span class="desc">Primary lockup. Paper on night, yellow .AI. Use on every dark surface.</span>
+    <span class="get">SVG →</span>
+  </div>
+  <div class="dl-row">
+    <span class="name">WORDMARK · DAY</span>
+    <span class="desc">Courtesy treatment. Ink on cream, ochre .AI for AA contrast on paper.</span>
+    <span class="get">SVG →</span>
+  </div>
+  <div class="dl-row">
+    <span class="name">WORDMARK · MONO</span>
+    <span class="desc">currentColor fill for emails, third-party decks, unknown backgrounds.</span>
+    <span class="get">SVG →</span>
+  </div>
+  <div class="dl-row">
+    <span class="name">SHORT FORM</span>
+    <span class="desc">XERJ without .AI. App title bars, compact headers, system tray.</span>
+    <span class="get">SVG →</span>
+  </div>
+  <div class="dl-row">
+    <span class="name">LETTER MARK</span>
+    <span class="desc">Yellow X on night. Favicon, app icon, social avatar.</span>
+    <span class="get">SVG →</span>
+  </div>
+  <div class="dl-row">
+    <span class="name">LETTER MARK · INVERSE</span>
+    <span class="desc">Ink X on paper. Letterhead, print covers, debossed surfaces.</span>
+    <span class="get">SVG →</span>
+  </div>
+  <div class="dl-row">
+    <span class="name">SYSTEM LINE</span>
+    <span class="desc">XERJ.AI · OBSERVE tracked signature for footers and headers.</span>
+    <span class="get">SVG →</span>
+  </div>
+  </div>
+
+  <div class="rule"></div>
+  <h3>CROSS-REFERENCES.</h3>
+  <div class="dl-list">
+    <div class="dl-row"><span class="name">BRAND CONCEPT</span><span class="desc">/brand.html · the original five laws and voice spec.</span><span class="get">URL →</span></div>
+    <div class="dl-row"><span class="name">ARCHITECTURE</span><span class="desc">/architecture/index.html · 1 px SVG topologies of the platform.</span><span class="get">URL →</span></div>
+    <div class="dl-row"><span class="name">PLAYGROUND</span><span class="desc">/playground.html · every chart primitive in this chapter, live.</span><span class="get">URL →</span></div>
+  </div>
+  <div class="pfoot"><span>CHAPTER 07 · RESOURCES</span><span class="pgnum">40</span></div>
+</div>
+<div class="page" style="padding:0.7in; display:flex; flex-direction:column; justify-content:space-between;">
+  <div>
+    <div class="kicker big"><span>XERJ.AI</span><span class="dash">·</span><span>END OF BRAND BOOK</span></div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; justify-content:center; gap:28pt; padding:20pt 0;">
+    <div style="width:100%; max-width:5.2in;">
+      <svg viewBox="0 0 800 240" preserveAspectRatio="xMidYMid meet" style="width:100%; display:block;">
+  <rect width="800" height="240" fill="#0b0b0d"/>
+  <line x1="90" y1="200" x2="530" y2="200" stroke="#f4f2ec" stroke-width="1" stroke-linecap="square"/>
+  <line x1="530" y1="40" x2="710" y2="40" stroke="#ffc400" stroke-width="1" stroke-linecap="square"/>
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="end" fill="#f4f2ec">XERJ</text>
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="start" fill="#ffc400">.AI</text>
+</svg>
+    </div>
+
+    <p style="font-family: var(--font-display); font-weight:900; font-size: 34pt; line-height: 0.95; letter-spacing: -0.005em; max-width: 6in; margin:0;">
+      TYPE IS THE UI.<br>
+      <span class="accent">1 PX IS THE STANDARD.</span><br>
+      GOLD IS <span class="accent">EARNED</span>.
+    </p>
+
+    <p style="color: var(--z-mute); font-size: 10pt; font-family: var(--font-data); letter-spacing: var(--track-ui); text-transform: uppercase;">
+      7 CHAPTERS · 17 CHART PRIMITIVES · 14 DO/DON'T RULES · 5 COLOURS · 4 TYPEFACES · 7 DOWNLOADS
+    </p>
+  </div>
+
+  <div style="display:flex; justify-content:space-between; font-family:var(--font-data); font-size:9pt; letter-spacing:var(--track-ui); text-transform:uppercase; color:var(--z-mute); padding-top:10pt; border-top:1px solid var(--z-line);">
+    <span>XERJ.AI · OBSERVE</span>
+    <span>BRAND BOOK · V1 · 2026-04</span>
+  </div>
+</div>
+</body>
+</html>

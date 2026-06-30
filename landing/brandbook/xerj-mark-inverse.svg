@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect width="200" height="200" fill="#f4f2ec"/>
+  <line x1="30" y1="24" x2="170" y2="24" stroke="#0b0b0d" stroke-width="1" stroke-linecap="square"/>
+  <line x1="30" y1="170" x2="170" y2="170" stroke="#0b0b0d" stroke-width="1" stroke-linecap="square"/>
+  <text x="100" y="140" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="120" text-anchor="middle" fill="#0b0b0d">X</text>
+</svg>

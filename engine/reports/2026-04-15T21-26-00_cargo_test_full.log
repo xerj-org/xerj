@@ -1,0 +1,639 @@
+ Downloading crates ...
+  Downloaded clap v4.6.1
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.45
+   Compiling unicode-ident v1.0.24
+   Compiling libc v0.2.185
+   Compiling cfg-if v1.0.4
+   Compiling once_cell v1.21.4
+   Compiling serde_core v1.0.228
+   Compiling pin-project-lite v0.2.17
+   Compiling smallvec v1.15.1
+   Compiling memchr v2.8.0
+   Compiling itoa v1.0.18
+   Compiling parking_lot_core v0.9.12
+   Compiling log v0.4.29
+   Compiling bytes v1.11.1
+   Compiling serde v1.0.228
+   Compiling scopeguard v1.2.0
+   Compiling equivalent v1.0.2
+   Compiling hashbrown v0.17.0
+   Compiling zmij v1.0.21
+   Compiling serde_json v1.0.149
+   Compiling fnv v1.0.7
+   Compiling autocfg v1.5.0
+   Compiling getrandom v0.4.2
+   Compiling thiserror v1.0.69
+   Compiling protobuf v2.28.0
+   Compiling lazy_static v1.5.0
+   Compiling thiserror v2.0.18
+   Compiling winnow v0.7.15
+   Compiling toml_write v0.1.2
+   Compiling anyhow v1.0.102
+   Compiling prometheus v0.13.4
+   Compiling shlex v1.3.0
+   Compiling byteorder v1.5.0
+   Compiling find-msvc-tools v0.1.9
+   Compiling lock_api v0.4.14
+   Compiling iana-time-zone v0.1.65
+   Compiling bitflags v2.11.1
+   Compiling pkg-config v0.3.33
+   Compiling tracing-core v0.1.36
+   Compiling futures-core v0.3.32
+   Compiling crossbeam-utils v0.8.21
+   Compiling futures-sink v0.3.32
+   Compiling rustix v1.1.4
+   Compiling linux-raw-sys v0.12.1
+   Compiling slab v0.4.12
+   Compiling fastrand v2.4.1
+   Compiling futures-io v0.3.32
+   Compiling futures-channel v0.3.32
+   Compiling futures-task v0.3.32
+   Compiling zerocopy v0.8.48
+   Compiling stable_deref_trait v1.2.1
+   Compiling either v1.15.0
+   Compiling rayon-core v1.13.0
+   Compiling vcpkg v0.2.15
+   Compiling regex-syntax v0.8.10
+   Compiling twox-hash v2.1.2
+   Compiling crc32fast v1.5.0
+   Compiling zstd-safe v7.2.4
+   Compiling base64 v0.22.1
+   Compiling tower-service v0.3.3
+   Compiling litemap v0.8.2
+   Compiling writeable v0.6.3
+   Compiling lz4_flex v0.11.6
+   Compiling icu_normalizer_data v2.2.0
+   Compiling icu_properties_data v2.2.0
+   Compiling percent-encoding v2.3.2
+   Compiling utf8_iter v1.0.4
+   Compiling xxhash-rust v0.8.15
+   Compiling tower-layer v0.3.3
+   Compiling httparse v1.10.1
+   Compiling openssl v0.10.77
+   Compiling aho-corasick v1.1.4
+   Compiling num-traits v0.2.19
+   Compiling http v1.4.0
+   Compiling foreign-types-shared v0.1.1
+   Compiling atomic-waker v1.1.2
+   Compiling try-lock v0.2.5
+   Compiling indexmap v2.14.0
+   Compiling want v0.3.1
+   Compiling foreign-types v0.3.2
+   Compiling sync_wrapper v1.0.2
+   Compiling fst v0.4.7
+   Compiling native-tls v0.2.18
+   Compiling httpdate v1.0.3
+   Compiling rustversion v1.0.22
+   Compiling form_urlencoded v1.2.2
+   Compiling ipnet v2.12.0
+   Compiling openssl-probe v0.2.1
+   Compiling bytemuck v1.25.0
+   Compiling mime v0.3.17
+   Compiling crunchy v0.2.4
+   Compiling zeroize v1.8.2
+   Compiling ryu v1.0.23
+   Compiling iri-string v0.7.12
+   Compiling encoding_rs v0.8.35
+   Compiling hashbrown v0.14.5
+   Compiling unicode-segmentation v1.13.2
+   Compiling crossbeam-epoch v0.9.18
+   Compiling rustls-pki-types v1.14.0
+   Compiling crossbeam-channel v0.5.15
+   Compiling roaring v0.10.12
+   Compiling syn v2.0.117
+   Compiling crossbeam-queue v0.3.12
+   Compiling plotters-backend v0.3.7
+   Compiling anstyle v1.0.14
+   Compiling ciborium-io v0.2.2
+   Compiling bitpacking v0.9.3
+   Compiling clap_lex v1.1.0
+   Compiling itertools v0.10.5
+   Compiling cast v0.3.0
+   Compiling same-file v1.0.6
+   Compiling anes v0.1.6
+   Compiling oorandom v11.1.5
+   Compiling crossbeam-deque v0.8.6
+   Compiling plotters-svg v0.3.7
+   Compiling walkdir v2.5.0
+   Compiling clap_builder v4.6.0
+   Compiling tracing-log v0.2.0
+   Compiling sharded-slab v0.1.7
+   Compiling thread_local v1.1.9
+   Compiling nu-ansi-term v0.50.3
+   Compiling matchit v0.7.3
+   Compiling crossbeam v0.8.4
+   Compiling powerfmt v0.2.0
+   Compiling num-conv v0.2.1
+   Compiling time-core v0.1.8
+   Compiling http-body v1.0.1
+   Compiling untrusted v0.9.0
+   Compiling pem v3.0.6
+   Compiling jobserver v0.1.34
+   Compiling errno v0.3.14
+   Compiling socket2 v0.6.3
+   Compiling mio v1.2.0
+   Compiling getrandom v0.2.17
+   Compiling http-body-util v0.1.3
+   Compiling memmap2 v0.9.10
+   Compiling arc-swap v1.9.1
+   Compiling signal-hook-registry v1.4.8
+   Compiling plotters v0.3.7
+   Compiling is-terminal v0.4.17
+   Compiling deranged v0.5.8
+   Compiling parking_lot v0.12.5
+   Compiling rand_core v0.6.4
+   Compiling dashmap v6.1.0
+   Compiling cc v1.2.60
+   Compiling rayon v1.12.0
+   Compiling criterion-plot v0.5.0
+   Compiling tempfile v3.27.0
+   Compiling regex-automata v0.4.14
+   Compiling uuid v1.23.0
+   Compiling serde_path_to_error v0.1.20
+   Compiling time v0.3.47
+   Compiling zstd-sys v2.0.16+zstd.1.5.7
+   Compiling openssl-sys v0.9.113
+   Compiling ring v0.17.14
+   Compiling tikv-jemalloc-sys v0.6.1+5.3.0-1-ge13ca993e8ccb9ba9847cc330696e02839f328f7
+   Compiling clap v4.6.1
+   Compiling yasna v0.5.2
+   Compiling synstructure v0.13.2
+   Compiling serde_derive v1.0.228
+   Compiling tracing-attributes v0.1.31
+   Compiling thiserror-impl v1.0.69
+   Compiling thiserror-impl v2.0.18
+   Compiling tokio-macros v2.7.0
+   Compiling futures-macro v0.3.32
+   Compiling zerofrom-derive v0.1.7
+   Compiling zerocopy-derive v0.8.48
+   Compiling yoke-derive v0.8.2
+   Compiling zerovec-derive v0.11.3
+   Compiling displaydoc v0.2.5
+   Compiling async-trait v0.1.89
+   Compiling openssl-macros v0.1.1
+   Compiling axum-macros v0.4.2
+   Compiling regex v1.12.3
+   Compiling matchers v0.2.0
+   Compiling tokio v1.52.0
+   Compiling futures-util v0.3.32
+   Compiling zerofrom v0.1.7
+   Compiling yoke v0.8.2
+   Compiling tracing v0.1.44
+   Compiling zerovec v0.11.6
+   Compiling zerotrie v0.2.4
+   Compiling tower-http v0.5.2
+   Compiling tower v0.4.13
+   Compiling rcgen v0.13.2
+   Compiling zstd v0.13.3
+   Compiling tinystr v0.8.3
+   Compiling potential_utf v0.1.5
+   Compiling icu_collections v2.2.0
+   Compiling icu_locale_core v2.2.0
+   Compiling icu_provider v2.2.0
+   Compiling icu_properties v2.2.0
+   Compiling icu_normalizer v2.2.0
+   Compiling serde_spanned v0.6.9
+   Compiling toml_datetime v0.6.11
+   Compiling chrono v0.4.44
+   Compiling serde_urlencoded v0.7.1
+   Compiling rust-stemmers v1.2.0
+   Compiling tinytemplate v1.2.1
+   Compiling tracing-serde v0.2.0
+   Compiling tracing-subscriber v0.3.23
+   Compiling toml_edit v0.22.27
+   Compiling futures-executor v0.3.32
+   Compiling axum-core v0.4.5
+   Compiling futures v0.3.32
+   Compiling idna_adapter v1.2.1
+   Compiling idna v1.1.0
+   Compiling url v2.5.8
+   Compiling toml v0.8.23
+   Compiling ppv-lite86 v0.2.21
+   Compiling half v2.7.1
+   Compiling ciborium-ll v0.2.2
+   Compiling rand_chacha v0.3.1
+   Compiling xerj-common v0.1.0 (/home/claude/ai/zeebb.ai/engine/crates/xerj-common)
+   Compiling ciborium v0.2.2
+   Compiling tokio-util v0.7.18
+   Compiling tower v0.5.3
+   Compiling tokio-native-tls v0.3.1
+   Compiling rand v0.8.5
+   Compiling h2 v0.4.13
+   Compiling tower-http v0.6.8
+   Compiling criterion v0.5.1
+   Compiling xerj-cluster v0.1.0 (/home/claude/ai/zeebb.ai/engine/crates/xerj-cluster)
+   Compiling xerj-compress v0.1.0 (/home/claude/ai/zeebb.ai/engine/crates/xerj-compress)
+   Compiling xerj-wasm v0.1.0 (/home/claude/ai/zeebb.ai/engine/crates/xerj-wasm)
+   Compiling xerj-storage v0.1.0 (/home/claude/ai/zeebb.ai/engine/crates/xerj-storage)
+   Compiling xerj-query v0.1.0 (/home/claude/ai/zeebb.ai/engine/crates/xerj-query)
+   Compiling xerj-vector v0.1.0 (/home/claude/ai/zeebb.ai/engine/crates/xerj-vector)
+   Compiling xerj-fts v0.1.0 (/home/claude/ai/zeebb.ai/engine/crates/xerj-fts)
+warning: unused import: `Serialize`
+  --> crates/xerj-fts/src/index.rs:28:26
+   |
+28 | use serde::{Deserialize, Serialize};
+   |                          ^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `rayon::prelude`
+  --> crates/xerj-vector/src/hnsw.rs:17:5
+   |
+17 | use rayon::prelude::*;
+   |     ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Write`
+  --> crates/xerj-storage/src/stored_codec.rs:58:29
+   |
+58 | use std::io::{Cursor, Read, Write};
+   |                             ^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable `curr_dist` is assigned to, but never used
+   --> crates/xerj-vector/src/hnsw.rs:166:13
+    |
+166 |         let mut curr_dist = {
+    |             ^^^^^^^^^^^^^
+    |
+    = note: consider using `_curr_dist` instead
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `curr_dist` is never read
+   --> crates/xerj-vector/src/hnsw.rs:225:17
+    |
+225 |                 curr_dist = candidates[0].0;
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `curr_dist` is never read
+   --> crates/xerj-vector/src/hnsw.rs:175:13
+    |
+175 |             curr_dist = new_dist;
+    |             ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: field `id` is never read
+  --> crates/xerj-vector/src/hnsw.rs:61:5
+   |
+60 | struct Node {
+   |        ---- field in this struct
+61 |     id: u64,
+   |     ^^
+   |
+   = note: `Node` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling xerj-logs v0.1.0 (/home/claude/ai/zeebb.ai/engine/crates/xerj-logs)
+warning: unused import: `Write`
+  --> crates/xerj-logs/src/columnar.rs:10:29
+   |
+10 | use std::io::{Cursor, Read, Write};
+   |                             ^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `ColumnType`, `ColumnValue`, and `Column`
+  --> crates/xerj-logs/src/ingest.rs:14:23
+   |
+14 | use crate::columnar::{Column, ColumnType, ColumnValue};
+   |                       ^^^^^^  ^^^^^^^^^^  ^^^^^^^^^^^
+
+warning: `xerj-vector` (lib) generated 5 warnings
+warning: field `bucket` is never read
+   --> crates/xerj-logs/src/ingest.rs:166:5
+    |
+165 | struct Memtable {
+    |        -------- field in this struct
+166 |     bucket: HourBucket,
+    |     ^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Read`
+  --> crates/xerj-storage/src/stored_codec.rs:58:23
+   |
+58 | use std::io::{Cursor, Read, Write};
+   |                       ^^^^
+
+warning: `xerj-vector` (lib test) generated 5 warnings (5 duplicates)
+warning: associated function `from_u8` is never used
+  --> crates/xerj-cluster/src/raft_log.rs:72:8
+   |
+71 | impl EntryKind {
+   | -------------- associated function in this implementation
+72 |     fn from_u8(b: u8) -> Result<Self> {
+   |        ^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `xerj-logs` (lib) generated 3 warnings (run `cargo fix --lib -p xerj-logs` to apply 2 suggestions)
+warning: field `depth` is never read
+   --> crates/xerj-storage/src/backend.rs:384:9
+    |
+381 |     pub struct Entry {
+    |                ----- field in this struct
+...
+384 |         depth: usize,
+    |         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `CHKPT_LEN` is never used
+  --> crates/xerj-storage/src/wal.rs:63:7
+   |
+63 | const CHKPT_LEN: u64 = 28; // generation(8) + offset(8) + max_seq(8) + crc(4)
+   |       ^^^^^^^^^
+
+warning: `xerj-fts` (lib) generated 1 warning (run `cargo fix --lib -p xerj-fts` to apply 1 suggestion)
+warning: `xerj-logs` (lib test) generated 3 warnings (3 duplicates)
+warning: `xerj-cluster` (lib) generated 1 warning
+warning: `xerj-fts` (lib test) generated 1 warning (1 duplicate)
+   Compiling hyper v1.9.0
+warning: `xerj-storage` (lib) generated 4 warnings (run `cargo fix --lib -p xerj-storage` to apply 1 suggestion)
+   Compiling hyper-util v0.1.20
+warning: `xerj-cluster` (lib test) generated 1 warning (1 duplicate)
+warning: `xerj-storage` (lib test) generated 4 warnings (4 duplicates)
+   Compiling hyper-tls v0.6.0
+   Compiling axum v0.7.9
+   Compiling reqwest v0.12.28
+   Compiling xerj-ai v0.1.0 (/home/claude/ai/zeebb.ai/engine/crates/xerj-ai)
+   Compiling xerj-engine v0.1.0 (/home/claude/ai/zeebb.ai/engine/crates/xerj-engine)
+warning: unused import: `FtsIndexWriter`
+  --> crates/xerj-engine/src/index.rs:17:40
+   |
+17 | use xerj_fts::index::{FtsIndexReader, FtsIndexWriter};
+   |                                        ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `FastAggResult`, `run_agg_fast_filtered`, and `run_agg_fast`
+  --> crates/xerj-engine/src/index.rs:28:38
+   |
+28 | use crate::aggs::{run_aggs_with_all, run_agg_fast, run_agg_fast_filtered, FastAggResult};
+   |                                      ^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^
+
+warning: unused import: `crate::memtable::FtsMemtable`
+  --> crates/xerj-engine/src/index.rs:29:5
+   |
+29 | use crate::memtable::FtsMemtable;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `SegmentId`
+    --> crates/xerj-engine/src/index.rs:1402:51
+     |
+1402 |         use xerj_storage::segment::{SectionType, SegmentId, SegmentReader, SegmentWriter};
+     |                                                   ^^^^^^^^^
+
+warning: unused import: `rayon::prelude`
+  --> crates/xerj-engine/src/turbo_ingest.rs:31:5
+   |
+31 | use rayon::prelude::*;
+   |     ^^^^^^^^^^^^^^
+
+warning: value assigned to `fts_handled` is never read
+    --> crates/xerj-engine/src/index.rs:2772:33
+     |
+2772 | ...                   fts_handled = true;
+     |                       ^^^^^^^^^^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `negative`
+    --> crates/xerj-engine/src/index.rs:6209:41
+     |
+6209 |         QueryNode::Boosting { positive, negative, .. } => {
+     |                                         ^^^^^^^^ help: try ignoring the field: `negative: _`
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `pos` is never read
+   --> crates/xerj-engine/src/sql.rs:344:65
+    |
+344 |             Some(Token::Num(n)) => { limit = Some(*n as usize); pos += 1; }
+    |                                                                 ^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: function `execute_agg` is never used
+   --> crates/xerj-engine/src/aggs.rs:391:4
+    |
+391 | fn execute_agg(name: &str, body: &Value, docs: &[Value]) -> Value {
+    |    ^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `execute_agg_with_all` is never used
+   --> crates/xerj-engine/src/aggs.rs:395:4
+    |
+395 | fn execute_agg_with_all(name: &str, body: &Value, docs: &[Value], all_docs: &[Value]) -> Value {
+    |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: variant `Skip` is never constructed
+   --> crates/xerj-engine/src/bulk.rs:123:9
+    |
+120 |     enum ParseOutcome {
+    |          ------------ variant in this enum
+...
+123 |         Skip(usize /* extra item_index to pop, because we optimistically consumed a line */),
+    |         ^^^^
+
+warning: function `run_numeric_agg_with_segments_refs` is never used
+    --> crates/xerj-engine/src/index.rs:5479:4
+     |
+5479 | fn run_numeric_agg_with_segments_refs(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_value_count_with_segments_refs` is never used
+    --> crates/xerj-engine/src/index.rs:5544:4
+     |
+5544 | fn run_value_count_with_segments_refs(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_cardinality_with_segments_refs` is never used
+    --> crates/xerj-engine/src/index.rs:5576:4
+     |
+5576 | fn run_cardinality_with_segments_refs(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_terms_with_segments_refs` is never used
+    --> crates/xerj-engine/src/index.rs:5619:4
+     |
+5619 | fn run_terms_with_segments_refs(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_numeric_agg_with_segments` is never used
+    --> crates/xerj-engine/src/index.rs:5727:4
+     |
+5727 | fn run_numeric_agg_with_segments(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_value_count_with_segments` is never used
+    --> crates/xerj-engine/src/index.rs:5790:4
+     |
+5790 | fn run_value_count_with_segments(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_cardinality_with_segments` is never used
+    --> crates/xerj-engine/src/index.rs:5822:4
+     |
+5822 | fn run_cardinality_with_segments(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_terms_with_segments` is never used
+    --> crates/xerj-engine/src/index.rs:5872:4
+     |
+5872 | fn run_terms_with_segments(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `hash_doc_id` is never used
+    --> crates/xerj-engine/src/index.rs:7253:4
+     |
+7253 | fn hash_doc_id(doc_id: &str) -> u32 {
+     |    ^^^^^^^^^^^
+
+warning: constant `ANALYSIS_THRESHOLD` is never used
+  --> crates/xerj-engine/src/memtable.rs:90:7
+   |
+90 | const ANALYSIS_THRESHOLD: usize = 1000;
+   |       ^^^^^^^^^^^^^^^^^^
+
+warning: method `collect_sample` is never used
+   --> crates/xerj-engine/src/memtable.rs:188:8
+    |
+173 | impl DocValues {
+    | -------------- method in this implementation
+...
+188 |     fn collect_sample(&mut self, field: &str, value: &str) {
+    |        ^^^^^^^^^^^^^^
+
+warning: field `parallel` is never read
+   --> crates/xerj-engine/src/turbo_ingest.rs:245:5
+    |
+232 | pub struct TurboIngestPipeline {
+    |            ------------------- field in this struct
+...
+245 |     parallel: bool,
+    |     ^^^^^^^^
+
+warning: calls to `std::mem::drop` with a reference instead of an owned value does nothing
+    --> crates/xerj-engine/src/index.rs:1156:9
+     |
+1156 |         drop(mem);
+     |         ^^^^^---^
+     |              |
+     |              argument has type `&ShardedFtsMemtable`
+     |
+     = note: `#[warn(dropping_references)]` on by default
+help: use `let _ = ...` to ignore the expression or result
+     |
+1156 -         drop(mem);
+1156 +         let _ = mem;
+     |
+
+warning: variable `MERGE_PARALLELISM` should have a snake case name
+    --> crates/xerj-engine/src/index.rs:1506:13
+     |
+1506 |         let MERGE_PARALLELISM: usize = merge_parallelism;
+     |             ^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `merge_parallelism`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: calls to `std::mem::drop` with a reference instead of an owned value does nothing
+    --> crates/xerj-engine/src/index.rs:3409:9
+     |
+3409 |         drop(mem);
+     |         ^^^^^---^
+     |              |
+     |              argument has type `&ShardedFtsMemtable`
+     |
+help: use `let _ = ...` to ignore the expression or result
+     |
+3409 -         drop(mem);
+3409 +         let _ = mem;
+     |
+
+   Compiling xerj-api v0.1.0 (/home/claude/ai/zeebb.ai/engine/crates/xerj-api)
+warning: `xerj-engine` (lib test) generated 26 warnings (26 duplicates)
+warning: `xerj-engine` (lib) generated 26 warnings (run `cargo fix --lib -p xerj-engine` to apply 5 suggestions)
+warning: unused import: `SourceFilter`
+  --> crates/xerj-engine/tests/integration.rs:11:50
+   |
+11 | use xerj_query::ast::{QueryNode, SearchRequest, SourceFilter};
+   |                                                  ^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `QueryNode`
+    --> crates/xerj-engine/tests/integration.rs:2379:28
+     |
+2379 |     use xerj_query::ast::{QueryNode, SourceFilter};
+     |                            ^^^^^^^^^
+
+warning: unused import: `serde_json::Value`
+    --> crates/xerj-engine/tests/integration.rs:2416:9
+     |
+2416 |     use serde_json::Value;
+     |         ^^^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> crates/xerj-engine/tests/perf_benchmark.rs:576:36
+    |
+576 |                 .index_batch_turbo(b, /*parallel=*/ true, /*fast_analyzer=*/ false)
+    |                  ----------------- ^ expected a tuple with 3 elements, found one with 2 elements
+    |                  |
+    |                  arguments to this method are incorrect
+    |
+    = note: expected struct `Vec<(std::string::String, serde_json::Value, Arc<[u8]>)>`
+               found struct `Vec<(std::string::String, serde_json::Value)>`
+note: method defined here
+   --> crates/xerj-engine/src/index.rs:669:18
+    |
+669 |     pub async fn index_batch_turbo(
+    |                  ^^^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> crates/xerj-engine/tests/perf_benchmark.rs:585:32
+    |
+585 |             .index_batch_turbo(batch, true, false)
+    |              ----------------- ^^^^^ expected a tuple with 3 elements, found one with 2 elements
+    |              |
+    |              arguments to this method are incorrect
+    |
+    = note: expected struct `Vec<(std::string::String, serde_json::Value, Arc<[u8]>)>`
+               found struct `Vec<(std::string::String, serde_json::Value)>`
+note: method defined here
+   --> crates/xerj-engine/src/index.rs:669:18
+    |
+669 |     pub async fn index_batch_turbo(
+    |                  ^^^^^^^^^^^^^^^^^
+
+For more information about this error, try `rustc --explain E0308`.
+error: could not compile `xerj-engine` (test "perf_benchmark") due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...
+warning: unused variable: `engine`
+    --> crates/xerj-engine/tests/integration.rs:1603:9
+     |
+1603 |     let engine = make_engine(&dir);
+     |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_engine`
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+    --> crates/xerj-engine/tests/integration.rs:2399:9
+     |
+2399 |     let mut req = SearchRequest {
+     |         ----^^^
+     |         |
+     |         help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: `xerj-engine` (test "integration") generated 5 warnings (run `cargo fix --test "integration" -p xerj-engine` to apply 5 suggestions)

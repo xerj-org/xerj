@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ.ai — Architecture &amp; Deployment</title>
+<meta name="description" content="XERJ deployment topologies · single-node, HA cluster, multi-region, air-gapped · RTO/RPO targets by pattern.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<nav class="nav" aria-label="Primary">
+  <a href="/index.html" class="brand">XERJ.AI</a>
+  <a href="/index.html">HOME</a>
+  <a href="/product.html">PRODUCT</a>
+  <a href="/solutions/index.html">SOLUTIONS</a>
+  <a href="/industries/index.html">INDUSTRIES</a>
+  <a href="/security/index.html">SECURITY</a>
+  <a href="/pricing/index.html">PRICING</a>
+  <span class="spacer"></span>
+  <a href="/docs/index.html">DOCS</a>
+  <a href="/resources/index.html">RESOURCES</a>
+  <a href="/playground.html">DASHBOARDS</a>
+  <span class="theme">
+    <button type="button" data-theme="day">DAY</button>
+    <span class="dash">·</span>
+    <button type="button" data-theme="night" class="active">NIGHT</button>
+  </span>
+</nav>
+
+<section class="scene-section" style="border-top:0; padding-top:0;">
+  <div class="kicker"><span>ARCHITECTURE</span><span class="dash">·</span><span>DEPLOYMENT TOPOLOGIES</span></div>
+  <h1 class="hero" style="font-size: var(--fs-96);">ONE BINARY.<br><span class="accent">EVERY TOPOLOGY.</span></h1>
+  <p class="lead" style="max-width:720px;">
+    Same 13 MB binary ships every deployment pattern. What varies
+    by topology is the node count, the replication model, and the
+    RTO/RPO commitment. The engine is identical across all four.
+  </p>
+</section>
+
+<!-- INTERACTIVE TOPOLOGY PICKER -->
+<section class="scene-section" style="border-top:0;">
+  <div class="kicker"><span>PICK A TOPOLOGY</span><span class="dash">·</span><span>LIVE DIAGRAM + SLO TABLE</span></div>
+
+  <div class="tabs" data-tabs="topo">
+    <button class="tab active" data-pane="single">SINGLE-NODE</button>
+    <button class="tab" data-pane="ha">HA CLUSTER</button>
+    <button class="tab" data-pane="multi">MULTI-REGION</button>
+    <button class="tab" data-pane="airgap">AIR-GAPPED</button>
+    <button class="tab" data-pane="byok">BYOC K8S</button>
+  </div>
+
+  <!-- SINGLE -->
+  <div class="pane active" data-group="topo" data-pane="single">
+    <svg class="diagram" viewBox="0 0 960 300" role="img" aria-label="Single-node">
+      <text x="30" y="38" class="label mute">SINGLE-NODE · POC · DEV · CI · EDGE SITES</text>
+
+      <g class="node"><rect x="60" y="60" width="840" height="50"/>
+        <text x="76" y="82" class="label">ES 8.13 CLIENTS · :9200</text>
+        <text x="76" y="102" class="small">your existing Elasticsearch clients · drop-in · no code changes</text>
+      </g>
+      <line x1="480" y1="110" x2="480" y2="146"/><polygon points="476,142 484,142 480,150"/>
+
+      <g class="node accent"><rect x="60" y="150" width="840" height="104"/>
+        <text x="76" y="172" class="label">XERJ · 1 BINARY · 13 MB</text>
+        <text x="76" y="196" class="small">WAL → memtable → segment → mmap cache</text>
+        <text x="76" y="218" class="small">FTS · VECTOR · COLUMNS · AGENT MEMORY</text>
+        <text x="76" y="240" class="small mute">lock-free readers · jemalloc · no JVM</text>
+      </g>
+    </svg>
+    <div class="row"><div class="k">NODES</div><div class="v">1</div></div>
+    <div class="row"><div class="k">RTO</div><div class="v">Single point — restore from snapshot</div></div>
+    <div class="row"><div class="k">RPO</div><div class="v">WAL fsync (sub-second)</div></div>
+    <div class="row"><div class="k">AVAILABILITY</div><div class="v">Best effort</div></div>
+    <div class="row"><div class="k">USE WHEN</div><div class="v">POC · dev · CI · edge site · air-gapped lab · single-tenant small corpus</div></div>
+  </div>
+
+  <!-- HA -->
+  <div class="pane" data-group="topo" data-pane="ha">
+    <svg class="diagram" viewBox="0 0 960 340" role="img" aria-label="HA cluster">
+      <text x="30" y="38" class="label mute">HA CLUSTER · STANDARD ENTERPRISE PRODUCTION · ONE REGION</text>
+
+      <g class="node"><rect x="60" y="60" width="840" height="40"/>
+        <text x="76" y="85" class="small">clients · load balancer · :9200</text>
+      </g>
+
+      <line x1="480" y1="100" x2="480" y2="130"/><polygon points="476,126 484,126 480,134"/>
+
+      <g class="node accent"><rect x="360" y="136" width="240" height="60"/>
+        <text x="380" y="160" class="label">PRIMARY</text>
+        <text x="380" y="180" class="small">leader · writes · quorum</text>
+      </g>
+
+      <line x1="360" y1="166" x2="270" y2="220"/><polygon points="272,216 266,222 276,224"/>
+      <line x1="600" y1="166" x2="690" y2="220"/><polygon points="684,222 694,216 694,224"/>
+
+      <text x="270" y="212" class="small mute" text-anchor="middle">sync replication</text>
+      <text x="690" y="212" class="small mute" text-anchor="middle">sync replication</text>
+
+      <g class="node"><rect x="120" y="224" width="220" height="60"/>
+        <text x="140" y="248" class="label">REPLICA · 1</text>
+        <text x="140" y="268" class="small">read · failover candidate</text>
+      </g>
+      <g class="node"><rect x="620" y="224" width="220" height="60"/>
+        <text x="640" y="248" class="label">REPLICA · 2</text>
+        <text x="640" y="268" class="small">read · failover candidate</text>
+      </g>
+
+      <g class="node mute"><rect x="60" y="300" width="840" height="30" class="dashed"/>
+        <text x="76" y="320" class="small">gossip-based health · automatic replica promotion · bounded-latency failover</text>
+      </g>
+    </svg>
+    <div class="row"><div class="k">NODES</div><div class="v">3 · one region</div></div>
+    <div class="row"><div class="k">RTO</div><div class="v">&lt; 30 s · automatic replica promotion</div></div>
+    <div class="row"><div class="k">RPO</div><div class="v">0 (synchronous replication)</div></div>
+    <div class="row"><div class="k">AVAILABILITY</div><div class="v">99.95 %</div></div>
+    <div class="row"><div class="k">USE WHEN</div><div class="v">Standard production · typical enterprise footprint · 1–5 B docs</div></div>
+  </div>
+
+  <!-- MULTI -->
+  <div class="pane" data-group="topo" data-pane="multi">
+    <svg class="diagram" viewBox="0 0 960 340" role="img" aria-label="Multi-region active-active">
+      <text x="30" y="38" class="label mute">MULTI-REGION · ACTIVE-ACTIVE · GLOBAL · RESILIENT · ROADMAP Q3</text>
+
+      <!-- Region A -->
+      <g class="node"><rect x="40" y="60" width="410" height="170" class="dashed"/>
+        <text x="60" y="84" class="label">REGION A · 3-NODE HA</text>
+      </g>
+      <g class="node accent"><rect x="70" y="100" width="350" height="40"/>
+        <text x="88" y="124" class="small">XERJ primary</text>
+      </g>
+      <g class="node"><rect x="70" y="150" width="170" height="40"/>
+        <text x="88" y="174" class="small">replica 1</text>
+      </g>
+      <g class="node"><rect x="250" y="150" width="170" height="40"/>
+        <text x="268" y="174" class="small">replica 2</text>
+      </g>
+      <g class="node"><rect x="70" y="200" width="350" height="24"/>
+        <text x="88" y="217" class="small mute">regional clients</text>
+      </g>
+
+      <!-- Region B -->
+      <g class="node"><rect x="510" y="60" width="410" height="170" class="dashed"/>
+        <text x="530" y="84" class="label">REGION B · 3-NODE HA</text>
+      </g>
+      <g class="node accent"><rect x="540" y="100" width="350" height="40"/>
+        <text x="558" y="124" class="small">XERJ primary</text>
+      </g>
+      <g class="node"><rect x="540" y="150" width="170" height="40"/>
+        <text x="558" y="174" class="small">replica 1</text>
+      </g>
+      <g class="node"><rect x="720" y="150" width="170" height="40"/>
+        <text x="738" y="174" class="small">replica 2</text>
+      </g>
+      <g class="node"><rect x="540" y="200" width="350" height="24"/>
+        <text x="558" y="217" class="small mute">regional clients</text>
+      </g>
+
+      <!-- Async replication arrow -->
+      <line x1="420" y1="120" x2="540" y2="120" class="dashed"/>
+      <polygon points="536,116 536,124 544,120"/>
+      <polygon points="424,116 424,124 416,120"/>
+      <text x="480" y="106" class="small mute" text-anchor="middle">async replication</text>
+
+      <g class="node mute"><rect x="40" y="260" width="880" height="50" class="dashed"/>
+        <text x="60" y="282" class="label">DNS FAILOVER</text>
+        <text x="60" y="300" class="small">health-checked regional VIPs · both regions serve traffic · eventual consistency</text>
+      </g>
+    </svg>
+    <div class="row"><div class="k">NODES</div><div class="v">3 + 3 · two regions</div></div>
+    <div class="row"><div class="k">RTO</div><div class="v">&lt; 2 min · DNS failover</div></div>
+    <div class="row"><div class="k">RPO</div><div class="v">Sub-second (async)</div></div>
+    <div class="row"><div class="k">AVAILABILITY</div><div class="v">99.99 %</div></div>
+    <div class="row"><div class="k">USE WHEN</div><div class="v">Global enterprise · &gt; 10 B docs · region-of-choice compliance · disaster recovery scope</div></div>
+  </div>
+
+  <!-- AIRGAP -->
+  <div class="pane" data-group="topo" data-pane="airgap">
+    <svg class="diagram" viewBox="0 0 960 300" role="img" aria-label="Air-gapped deployment">
+      <rect x="20" y="20" width="920" height="260" class="dashed mute"/>
+      <text x="40" y="44" class="label mute">SEALED ENCLAVE · NO INTERNET · TARGET: GOV · DEFENSE · FIN</text>
+
+      <g class="node accent"><rect x="60" y="80" width="500" height="140"/>
+        <text x="76" y="104" class="label">XERJ CLUSTER · 3-NODE HA · AIRGAP=1</text>
+        <text x="76" y="128" class="small">FTS · VECTOR · COLUMNS · AGENT MEMORY</text>
+        <text x="76" y="150" class="small">encrypted segments · AES-256-GCM · BYOK</text>
+        <text x="76" y="176" class="small mute">RTO &lt; 30 s · RPO 0 (sync) · 99.95 % availability</text>
+        <text x="76" y="204" class="small mute">no outbound · no telemetry · no license ping</text>
+      </g>
+
+      <g class="node mute"><rect x="600" y="80" width="320" height="140" class="dashed"/>
+        <text x="616" y="104" class="label">OFFLINE UPDATE CHANNEL</text>
+        <text x="616" y="128" class="small">signed bundle via data-diode</text>
+        <text x="616" y="148" class="small">manifest verified before install</text>
+        <text x="616" y="168" class="small">SBOM + SLSA provenance</text>
+        <text x="616" y="196" class="small mute">inbound only</text>
+      </g>
+
+      <line x1="598" y1="150" x2="566" y2="150" class="mute"/>
+      <polygon class="mute" points="570,146 570,154 562,150"/>
+    </svg>
+    <div class="row"><div class="k">NODES</div><div class="v">1–N · offline</div></div>
+    <div class="row"><div class="k">RTO / RPO</div><div class="v">Same as HA cluster</div></div>
+    <div class="row"><div class="k">EGRESS</div><div class="v">Zero telemetry · zero update probe · zero license ping</div></div>
+    <div class="row"><div class="k">UPDATES</div><div class="v">Signed offline bundle · SBOM verified before install · reproducible-build manifest</div></div>
+    <div class="row"><div class="k">USE WHEN</div><div class="v">Classified enclaves · SCIFs · regulated on-prem with no internet · sovereign cloud</div></div>
+  </div>
+
+  <!-- BYOC K8S -->
+  <div class="pane" data-group="topo" data-pane="byok">
+    <svg class="diagram" viewBox="0 0 960 320" role="img" aria-label="BYOC Kubernetes">
+      <text x="30" y="38" class="label mute">BYOC KUBERNETES · CLOUD-NATIVE · CUSTOMER-MANAGED · EKS · GKE · AKS · OPENSHIFT</text>
+
+      <g class="node"><rect x="60" y="60" width="840" height="50"/>
+        <text x="76" y="82" class="label">HELM CHART + CRDs</text>
+        <text x="76" y="102" class="small">Kubernetes Operator (roadmap Q2) · Terraform module (roadmap Q2)</text>
+      </g>
+      <line x1="480" y1="110" x2="480" y2="140"/><polygon points="476,136 484,136 480,144"/>
+
+      <g class="node accent"><rect x="60" y="146" width="840" height="80"/>
+        <text x="76" y="170" class="label">XERJ STATEFULSET · PER DATA-PLANE ROLE</text>
+        <text x="76" y="192" class="small">pod-level audit · liveness + readiness probes · rolling restart</text>
+        <text x="76" y="214" class="small mute">HPA on CPU + ingest-queue depth · sharded ingest (roadmap Q3)</text>
+      </g>
+
+      <g class="node"><rect x="60" y="240" width="410" height="60"/>
+        <text x="76" y="262" class="label">STORAGE</text>
+        <text x="76" y="282" class="small">PVC · fast-SSD StorageClass for segments</text>
+      </g>
+      <g class="node"><rect x="490" y="240" width="410" height="60"/>
+        <text x="506" y="262" class="label">WAL</text>
+        <text x="506" y="282" class="small">local PV when available · low-latency fsync</text>
+      </g>
+    </svg>
+    <div class="row"><div class="k">DEPLOY</div><div class="v">Helm chart · Terraform module · K8s operator <span class="mono">(roadmap Q2)</span></div></div>
+    <div class="row"><div class="k">STORAGE</div><div class="v">StatefulSet · fast-SSD PVC · local PV for WAL where available</div></div>
+    <div class="row"><div class="k">SCALING</div><div class="v">HPA on CPU + ingest-queue depth · sharded ingest <span class="mono">(roadmap Q3)</span></div></div>
+    <div class="row"><div class="k">TARGETS</div><div class="v">EKS · GKE · AKS · OpenShift · self-managed k8s</div></div>
+    <div class="row"><div class="k">USE WHEN</div><div class="v">Existing k8s platform · GitOps discipline · need HPA + pod-level audit</div></div>
+  </div>
+</section>
+
+<!-- DATA FLOW · HOW ONE BINARY SERVES EVERY STORE -->
+<section class="scene-section">
+  <div class="kicker"><span>DATA FLOW</span><span class="dash">·</span><span>ONE BINARY · ONE WAL · ONE SEGMENT CACHE</span></div>
+  <h2 class="scene">INGEST TO<br><span class="accent">QUERY.</span></h2>
+
+  <svg class="diagram" viewBox="0 0 960 460" role="img" aria-label="Ingest to query pipeline">
+    <text x="30" y="38" class="label mute">INGEST PIPELINE · ONE BINARY · ONE WAL · ONE SEGMENT CACHE</text>
+
+    <g class="node"><rect x="60" y="60" width="840" height="44"/>
+      <text x="76" y="88" class="small"><tspan class="label">INGEST</tspan>  ES _bulk · OTLP · JSON · syslog (roadmap)</text>
+    </g>
+    <line x1="480" y1="104" x2="480" y2="132"/><polygon points="476,128 484,128 480,136"/>
+
+    <g class="node accent"><rect x="60" y="136" width="840" height="56"/>
+      <text x="76" y="160" class="label">WAL · APPEND-ONLY</text>
+      <text x="76" y="180" class="small">LZ4 · CRC32C · lock-free frame builder · fsync before ACK</text>
+    </g>
+    <line x1="480" y1="192" x2="480" y2="220"/><polygon points="476,216 484,216 480,224"/>
+
+    <g class="node"><rect x="60" y="224" width="840" height="52"/>
+      <text x="76" y="248" class="label">MEMTABLE</text>
+      <text x="76" y="268" class="small">time-partitioned · columnar · delta-ts · in-memory index</text>
+    </g>
+    <line x1="480" y1="276" x2="480" y2="304"/><polygon points="476,300 484,300 480,308"/>
+    <text x="500" y="294" class="small mute">flush</text>
+
+    <g class="node accent"><rect x="60" y="308" width="840" height="58"/>
+      <text x="76" y="332" class="label">SEGMENT · MMAP-CACHED</text>
+      <text x="76" y="352" class="small">FTS + VECTOR + COLUMNS + STORED + TOMBSTONES + POINTS</text>
+    </g>
+    <line x1="480" y1="366" x2="480" y2="394"/><polygon points="476,390 484,390 480,398"/>
+
+    <g class="node"><rect x="60" y="398" width="840" height="46"/>
+      <text x="76" y="422" class="label">QUERY</text>
+      <text x="76" y="440" class="small">parser → planner → executor → RRF merge → hits + explain-plan</text>
+    </g>
+  </svg>
+  <p class="body mute" style="text-align: center; font-size: var(--fs-13);">
+    lock-free readers · ArcSwap segment view · DashMap version map · flush never blocks reads · reads never block writes
+  </p>
+</section>
+
+<!-- CROSS-CUTTING -->
+<section class="scene-section">
+  <div class="kicker"><span>CROSS-CUTTING</span><span class="dash">·</span><span>INHERITED BY EVERY TOPOLOGY</span></div>
+  <h2 class="scene">SAME CONTROLS.<br><span class="accent">EVERY TOPOLOGY.</span></h2>
+
+  <div class="row"><div class="k">BACKUP</div><div class="v">Incremental · encrypted · restorable per segment. <span class="mono">xerj snapshot create|list|restore</span>. Targets: S3 / GCS / Azure Blob / local.</div></div>
+  <div class="row"><div class="k">HEALTH</div><div class="v"><span class="mono">/healthz</span> liveness · <span class="mono">/readyz</span> holds until WAL replay completes. Rolling restart fleet-safe by default.</div></div>
+  <div class="row"><div class="k">METRICS</div><div class="v">Prometheus on <span class="mono">/metrics</span>. 13 counters/histograms/gauges across ingest · query · flush · cache. Per-instance registry.</div></div>
+  <div class="row"><div class="k">CONFIG</div><div class="v">Single TOML · <span class="mono">XERJ_CONFIG</span> env · hot-reload via SIGHUP on non-structural changes. Schema validated on load.</div></div>
+  <div class="row"><div class="k">UPGRADES</div><div class="v">Rolling restart · segment + WAL formats forward-compatible across minor versions. One-minor rollback window.</div></div>
+</section>
+
+<a href="/security/index.html" class="cta">
+  <span>SEE THE SECURITY POSTURE</span>
+  <span class="arrow">→</span>
+</a>
+
+<footer class="footer">
+  <span>XERJ.AI · ARCHITECTURE · V1</span>
+  <span>ONE BINARY · EVERY TOPOLOGY</span>
+  <span><a href="/security/index.html">SECURITY</a> · <a href="/pricing/index.html">PRICING</a> · <a href="/docs/index.html">DOCS</a></span>
+</footer>
+
+<script src="/interact.js"></script>
+</body>
+</html>

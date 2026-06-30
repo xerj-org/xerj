@@ -1,0 +1,64 @@
+[package]
+name = "xerj-storage"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Storage engine for xerj: WAL, segment format, mmap reads, pluggable backends"
+
+[dependencies]
+xerj-common = { path = "../xerj-common" }
+
+# Async runtime
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Binary I/O
+bytes = { workspace = true }
+byteorder = { workspace = true }
+memmap2 = { workspace = true }
+
+# Concurrent data structures
+dashmap = { workspace = true }
+arc-swap = { workspace = true }
+crossbeam = { workspace = true }
+
+# Checksums
+crc32fast = { workspace = true }
+
+# Fast non-cryptographic hash — used to shard the memtable by doc_id
+# so that concurrent bulk ingest batches target different shards.
+xxhash-rust = { workspace = true }
+
+# Compression (WAL payload compression + stored-section codec v2)
+lz4_flex = { workspace = true }
+zstd = { workspace = true }
+
+# Compressed bitsets (tombstones, doc-value null masks)
+roaring = { workspace = true }
+
+# FST term dictionary (doc-values keyword columns)
+fst = { workspace = true }
+
+# IDs
+uuid = { workspace = true }
+
+# Observability
+tracing = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Testing helpers (also used in rate-limiter)
+tempfile = { workspace = true }
+
+# Async trait support
+async-trait = "0.1"
+
+[dev-dependencies]
+tokio = { workspace = true }
+tempfile = { workspace = true }

@@ -1,0 +1,99 @@
+
+<svg class="arch-svg" viewBox="0 0 1400 380" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:auto;">
+  <defs>
+    <style>
+      .lbl    { font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; fill: currentColor; }
+      .lbl-s  { font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.10em; fill: currentColor; opacity: 0.62; }
+      .lbl-x  { font-family: 'IBM Plex Sans', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.18em; fill: currentColor; opacity: 0.48; text-transform: uppercase; }
+      .lbl-a  { font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.10em; fill: #ffc400; }
+      .lbl-m  { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.04em; fill: currentColor; opacity: 0.55; }
+      .ln     { stroke: currentColor; stroke-width: 1; fill: none; stroke-linecap: square; }
+      .ln-a   { stroke: #ffc400; stroke-width: 1; fill: none; stroke-linecap: square; }
+      .ln-d   { stroke: currentColor; stroke-width: 1; fill: none; stroke-linecap: square; stroke-dasharray: 3 4; opacity: 0.5; }
+      .bx     { stroke: currentColor; stroke-width: 1; fill: none; }
+      .bx-a   { stroke: #ffc400; stroke-width: 1; fill: none; }
+    </style>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="1399" height="379" class="bx" opacity="0.18"/>
+
+  <text x="40" y="42" class="lbl-x">PRIVILEGED OPERATION · WRITES ONE JOURNAL ENTRY</text>
+  <line x1="40" y1="56" x2="1360" y2="56" class="ln" opacity="0.30"/>
+
+  <!-- 5 entries chained -->
+  <!-- Entry geometry -->
+  <g>
+    <!-- Entry 1 -->
+    <rect x="40" y="80" width="240" height="170" class="bx"/>
+    <text x="58" y="110" class="lbl-a">ENTRY · SEQ 1</text>
+    <text x="58" y="135" class="lbl-s">op · search</text>
+    <text x="58" y="153" class="lbl-s">subject · admin@</text>
+    <text x="58" y="171" class="lbl-s">resource · idx-orders</text>
+    <text x="58" y="189" class="lbl-s">outcome · ok</text>
+    <text x="58" y="215" class="lbl-x">PREV-HASH</text>
+    <text x="58" y="232" class="lbl-m">0000…0000</text>
+  </g>
+
+  <!-- chain link 1→2 -->
+  <line x1="280" y1="165" x2="320" y2="165" class="ln-a"/>
+  <polyline points="312,155 322,165 312,175" class="ln-a"/>
+
+  <g>
+    <rect x="320" y="80" width="240" height="170" class="bx"/>
+    <text x="338" y="110" class="lbl-a">ENTRY · SEQ 2</text>
+    <text x="338" y="135" class="lbl-s">op · index</text>
+    <text x="338" y="153" class="lbl-s">subject · ingest-svc</text>
+    <text x="338" y="171" class="lbl-s">resource · idx-logs</text>
+    <text x="338" y="189" class="lbl-s">outcome · ok</text>
+    <text x="338" y="215" class="lbl-x">PREV-HASH</text>
+    <text x="338" y="232" class="lbl-m">d4f3…ae21</text>
+  </g>
+
+  <line x1="560" y1="165" x2="600" y2="165" class="ln-a"/>
+  <polyline points="592,155 602,165 592,175" class="ln-a"/>
+
+  <g>
+    <rect x="600" y="80" width="240" height="170" class="bx"/>
+    <text x="618" y="110" class="lbl-a">ENTRY · SEQ 3</text>
+    <text x="618" y="135" class="lbl-s">op · admin.role.put</text>
+    <text x="618" y="153" class="lbl-s">subject · admin@</text>
+    <text x="618" y="171" class="lbl-s">resource · role/auditor</text>
+    <text x="618" y="189" class="lbl-s">outcome · ok</text>
+    <text x="618" y="215" class="lbl-x">PREV-HASH</text>
+    <text x="618" y="232" class="lbl-m">9b1c…77fe</text>
+  </g>
+
+  <line x1="840" y1="165" x2="880" y2="165" class="ln-a"/>
+  <polyline points="872,155 882,165 872,175" class="ln-a"/>
+
+  <g>
+    <rect x="880" y="80" width="240" height="170" class="bx"/>
+    <text x="898" y="110" class="lbl-a">ENTRY · SEQ 4</text>
+    <text x="898" y="135" class="lbl-s">op · delete</text>
+    <text x="898" y="153" class="lbl-s">subject · ops@</text>
+    <text x="898" y="171" class="lbl-s">resource · idx-orders</text>
+    <text x="898" y="189" class="lbl-s">outcome · denied</text>
+    <text x="898" y="215" class="lbl-x">PREV-HASH</text>
+    <text x="898" y="232" class="lbl-m">52a7…04c1</text>
+  </g>
+
+  <line x1="1120" y1="165" x2="1160" y2="165" class="ln-a"/>
+  <polyline points="1152,155 1162,165 1152,175" class="ln-a"/>
+
+  <g>
+    <rect x="1160" y="80" width="200" height="170" class="bx-a"/>
+    <text x="1178" y="110" class="lbl-a">CHAIN HEAD</text>
+    <text x="1178" y="135" class="lbl-s">verifier walks</text>
+    <text x="1178" y="153" class="lbl-s">top-to-bottom</text>
+    <text x="1178" y="171" class="lbl-s">stops on first</text>
+    <text x="1178" y="189" class="lbl-s">mismatch</text>
+    <text x="1178" y="215" class="lbl-x">EXPORT · ATTEST</text>
+    <text x="1178" y="232" class="lbl-m">/_audit/_verify</text>
+  </g>
+
+  <!-- bottom bracket showing tamper detection -->
+  <line x1="40" y1="290" x2="1360" y2="290" class="ln" opacity="0.30"/>
+  <text x="40" y="314" class="lbl-x">TAMPER MODEL</text>
+  <text x="40" y="340" class="lbl-s">EDITING ANY ENTRY · INVALIDATES THAT HASH · BREAKS EVERY SUBSEQUENT LINK · VERIFIER REPORTS THE FIRST BAD INDEX</text>
+  <text x="40" y="362" class="lbl-x">SHA-256 LINK · APPEND-ONLY · WORM SEMANTICS · AUDIT-READ PRIVILEGE GATED</text>
+</svg>

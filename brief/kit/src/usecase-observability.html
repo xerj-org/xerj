@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>XERJ — Unified Observability — Use Case Brief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../common.css">
+</head>
+<body>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>USE CASE · UNIFIED OBSERVABILITY · V1 · 2026-04</span></div>
+  <div class="grow flex col between">
+    <div class="sp-10"></div>
+    <div>
+      <div class="kicker" style="margin-bottom:20px;"><span>USE CASE 03</span><span class="dash">·</span><span>FOR OBSERVABILITY LEADS · SRE · PLATFORM</span></div>
+      <div class="cover-hero">SIX SYSTEMS.<br>ONE <span class="accent">BINARY.</span><br>ONE BILL.</div>
+      <div class="sp-8"></div>
+      <p class="lead" style="max-width:6in;">Logs, metrics, and traces arrive at the same data plane. One binary replaces the Splunk + Prometheus + Loki + Tempo + Mimir stack for teams that want unified observability without a multi-vendor bill.</p>
+    </div>
+    <div class="kicker"><span>6 → 1 SYSTEMS</span><span class="dash">·</span><span>80K DOCS/S SUSTAINED</span><span class="dash">·</span><span>OTLP NATIVE (BETA)</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · UNIFIED OBSERVABILITY · USE CASE BRIEF</span><span class="num">01 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>02 · WHY THIS MATTERS NOW</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>02</span><span class="dash">·</span><span>THE OBSERVABILITY STACK IS BROKEN</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">THREE PILLARS.<br>SIX SYSTEMS.<br><span class="accent">ONE ROOT CAUSE.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">Observability teams pay for three data stores to answer one question: what happened. Logs are in one cluster, metrics in another, traces in a third, and the correlation query is a tab-switch between three UIs. AI agents expected to help with on-call cannot traverse the same evidence a human would.</p>
+    <div class="sp-6"></div>
+    <div class="kv-row"><div class="k">COGNITIVE LOAD</div><div class="v">SPL for logs · PromQL for metrics · TraceQL for traces. Three dialects for one incident. Junior SREs spend their first year learning the query languages before they can contribute to postmortems.</div></div>
+    <div class="kv-row"><div class="k">FAN-OUT COST</div><div class="v">Ingest fans out to three stores. Three retention policies. Three compactors. Three backup schedules. The same event is stored three times in three shapes at three prices.</div></div>
+    <div class="kv-row"><div class="k">AGENT-UNFRIENDLY</div><div class="v">On-call agents need one query surface. Three APIs with three semantics means the agent either learns an orchestrator or defers to a human. Either way the MTTR story stalls.</div></div>
+    <div class="kv-row"><div class="k">OPERATIONAL SPRAWL</div><div class="v">12 config files. 6 Helm charts. 5 monthly bill lines. Every version upgrade touches three teams. On-call rotations split by telemetry type, not by ownership.</div></div>
+    <div class="grow"></div>
+    <div class="kicker"><span>OBSERVABILITY IS A UNIFICATION PROBLEM</span><span class="dash">·</span><span>NOT A TOOLING PROBLEM</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · UNIFIED OBSERVABILITY · USE CASE BRIEF</span><span class="num">02 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>03 · XERJ POSITIONING</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>03</span><span class="dash">·</span><span>UNIFIED AI DATA STACK</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">ONE ENGINE.<br>THREE PILLARS.<br><span class="accent">ONE QUERY.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">Logs, metrics, and traces into the same XERJ data plane. Prometheus remote_write on the metrics side (roadmap Q3), OTLP on the traces side (beta), ES Bulk on the logs side (GA). One query language across all three — ES DSL today, SQL roadmap Q4. Agents query the same surface humans do.</p>
+    <div class="sp-6"></div>
+    <div class="quad-grid">
+      <div class="cell"><span class="k">CONSOLIDATION</span><span class="v">6 → 1</span><span class="t">SYSTEMS<br><span class="accent">REPLACED</span></span><span class="b">Splunk · Prometheus · Tempo · Loki · Mimir · session store — one binary.</span></div>
+      <div class="cell"><span class="k">INGEST</span><span class="v">80 K</span><span class="t">DOCS/SEC<br><span class="accent">SUSTAINED</span></span><span class="b">Single-client, diurnal traffic, zero write-stalls. Scales horizontally on sharded ingest (roadmap Q3).</span></div>
+      <div class="cell"><span class="k">LANGUAGES</span><span class="v">3 → 1</span><span class="t">ES DSL<br><span class="accent">+ SQL ROADMAP</span></span><span class="b">One query dialect across logs + metrics + traces. Agents use one retriever.</span></div>
+      <div class="cell"><span class="k">COST</span><span class="v">5 → 1</span><span class="t">BILL LINES<br><span class="accent">PER MONTH</span></span><span class="b">One vendor, one contract, one SLA, one audit surface, one on-call rotation.</span></div>
+    </div>
+    <div class="grow"></div>
+    <div class="kicker"><span>OTLP IN · PROMETHEUS OUT · ES BULK IN</span><span class="dash">·</span><span>SAME BINARY</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · UNIFIED OBSERVABILITY · USE CASE BRIEF</span><span class="num">03 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>04 · REFERENCE ARCHITECTURE</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>04</span><span class="dash">·</span><span>OBSERVABILITY BLUEPRINT</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">ONE PIPELINE.<br><span class="accent">THREE PILLARS.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">A three-node XERJ cluster serving logs, metrics, and traces for a mid-size engineering org. Same platform, one ingest surface, one retention policy framework, one dashboard layer.</p>
+    <div class="sp-4"></div>
+    <div class="arch-pre"><span class="accent">SOURCES</span>
+  Application logs · infra metrics · traces · audit events · cloud events
+     │
+     ▼  <span class="mute">Otel Collector / Vector / Fluent Bit · one agent per host</span>
+  Unified ingest pipeline (OTLP / Prom / ES Bulk / syslog)
+     │
+     ▼
+<span class="accent">XERJ DATA PLANE</span>  3-node HA · hot-SSD · warm-HDD · cold-S3
+  ┌──────────────────────────────────────────────────────────────┐
+  │ LOGS        columnar · delta-ts · dictionary · ZSTD          │
+  │ METRICS     columnar · down-sampled rollups (roadmap Q3)     │
+  │ TRACES      span tree · service-graph join (roadmap Q4)      │
+  │ INDEXES     FTS + vector (for log-embedding similarity)      │
+  └──────────────────────────────────────────────────────────────┘
+     │
+     ▼  <span class="mute">ES wire · Prometheus remote_read · OTLP export</span>
+<span class="accent">CONSUMERS</span>
+  Grafana unified dashboards (logs + metrics + traces panel-per-type)
+  Kibana for log-centric workflows
+  On-call runbooks · alerting via threshold + anomaly (roadmap Q4)
+  SRE agents · runbook automation · RCA assistant
+
+<span class="accent">RETENTION</span>
+  Logs      hot 14 d  · warm 30 d · cold 90 d (object storage)
+  Metrics   raw 30 d  · downsampled 1 y · yearly rollups archived
+  Traces    full 7 d  · head-sampled 30 d · tail-sampled on error
+</div>
+    <div class="grow"></div>
+    <div class="kicker"><span>SIZING</span><span class="dash">·</span><span>3 NODES · 80K EVENTS/SEC SUSTAINED · MIXED LOGS + METRICS</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · UNIFIED OBSERVABILITY · USE CASE BRIEF</span><span class="num">04 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>05 · TECHNICAL BENEFITS</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>05</span><span class="dash">·</span><span>WHY THIS SCALES</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">ENGINEERING<br>CHOICES FOR<br><span class="accent">OBSERVABILITY.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">Six decisions that make a single platform viable for the three pillars. Each is a property of the data plane, not an integration story.</p>
+    <div class="sp-6"></div>
+    <div class="kv-row"><div class="k">COLUMNAR LOGS</div><div class="v">Delta-of-delta timestamps · dictionary keywords · varint integers · ZSTD block compression. 85 MB per 1 M events — 2.8× smaller than ES on the same corpus. Makes long retention affordable.</div></div>
+    <div class="kv-row"><div class="k">SINGLE-PROCESS INGEST</div><div class="v">Parsers live in the writer process. One fsync, one network hop, end-to-end back-pressure. No Kafka queue as a buffer, no Logstash pipeline to babysit, no separate ingest service to monitor.</div></div>
+    <div class="kv-row"><div class="k">LOCK-FREE READERS</div><div class="v">Flush never blocks analyst queries. A 24-hour ingest surge writes through without stalling the dashboard. ArcSwap segment view swaps atomically; in-flight queries finish on the old view.</div></div>
+    <div class="kv-row"><div class="k">NO GC TAIL</div><div class="v">Rust · jemalloc · no JVM. p99.9 tracks p50 plus cache-miss and disk I/O. Observability SLOs that require bounded latency become achievable without tuning.</div></div>
+    <div class="kv-row"><div class="k">EXPLAIN-PLAN</div><div class="v">Every query — log search, metric aggregation, trace fetch — returns per-node cost. Capacity planning and cost attribution share one JSON shape.</div></div>
+    <div class="kv-row"><div class="k">PROMETHEUS METRICS NATIVE</div><div class="v">XERJ's own <span class="mono">/metrics</span> endpoint is a first-class surface. Scrape XERJ with XERJ if the self-referential story appeals. Dogfooding is a demo, not a workaround.</div></div>
+    <div class="grow"></div>
+  </div>
+  <div class="foot-row"><span>XERJ · UNIFIED OBSERVABILITY · USE CASE BRIEF</span><span class="num">05 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>06 · MEASURED OUTCOMES</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>06</span><span class="dash">·</span><span>MEASURED OUTCOMES</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">OPERATIONAL<br>SURFACE.<br><span class="accent">COLLAPSED.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">Every axis that shows up in a procurement review. XERJ on one platform vs. a Splunk + Prometheus + Tempo reference stack doing the same job.</p>
+    <div class="sp-6"></div>
+    <div class="versus">
+      <div class="h">DIMENSION</div>
+      <div class="h a">XERJ</div>
+      <div class="h">SPLUNK + PROM + TEMPO</div>
+
+      <div class="dim">Binaries to deploy</div>
+      <div><span class="accent">1</span></div>
+      <div>6 <span class="mute">— 6×</span></div>
+
+      <div class="dim">Config files</div>
+      <div><span class="accent">1</span></div>
+      <div>12 <span class="mute">— 12×</span></div>
+
+      <div class="dim">Query languages</div>
+      <div><span class="accent">1</span> <span class="mute">(ES DSL)</span></div>
+      <div>3 (SPL + PromQL + TraceQL)</div>
+
+      <div class="dim">Storage backends</div>
+      <div><span class="accent">1</span></div>
+      <div>3 <span class="mute">— 3×</span></div>
+
+      <div class="dim">Retention policies</div>
+      <div><span class="accent">1 unified</span></div>
+      <div>3 separate</div>
+
+      <div class="dim">Monthly bill lines</div>
+      <div><span class="accent">1</span></div>
+      <div>5 <span class="mute">— 5×</span></div>
+
+      <div class="dim">Idle cluster memory</div>
+      <div><span class="accent">400 MB · 1 node</span></div>
+      <div>8.5 GB · 4-node ES baseline</div>
+
+      <div class="dim">Cold start</div>
+      <div><span class="accent">50 ms</span></div>
+      <div>~15 s JVM warm-up</div>
+    </div>
+    <div class="sp-6"></div>
+    <div class="kv-row"><div class="k">OPERATIONAL IMPACT</div><div class="v">One on-call rotation instead of three. Junior SREs productive in weeks, not quarters. One upgrade cycle instead of six.</div></div>
+    <div class="kv-row"><div class="k">COST IMPACT</div><div class="v">~80 % infrastructure cost reduction on consolidated log + search + vector workloads. Most of the saving is headcount: one team owns the data layer, not four.</div></div>
+    <div class="grow"></div>
+  </div>
+  <div class="foot-row"><span>XERJ · UNIFIED OBSERVABILITY · USE CASE BRIEF</span><span class="num">06 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>07 · INTEGRATION ECOSYSTEM</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>07</span><span class="dash">·</span><span>YOUR OBSERVABILITY STACK</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">OTEL.<br>PROMETHEUS.<br><span class="accent">DROP-IN.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">XERJ speaks the standard wire protocols. Every collector that already ships to ES or OpenTelemetry works as-is. Dashboards keep their queries.</p>
+    <div class="sp-6"></div>
+    <div class="matrix m3">
+      <div class="h">CATEGORY</div><div class="h">TOOLS</div><div class="h">STATUS</div>
+
+      <div class="k">COLLECTORS</div><div>OpenTelemetry Collector · Vector · Fluent Bit · Fluentd · Otel SDKs · Otel Operator</div><div class="status ga">GA</div>
+
+      <div class="k">METRICS IN</div><div>Prometheus remote_write · native pull scrape for ES metrics · Otel metrics via OTLP</div><div class="status road">ROAD Q3</div>
+
+      <div class="k">TRACES IN</div><div>OTLP/HTTP · OTLP/gRPC · Zipkin adapter (via Otel Collector) · Jaeger adapter</div><div class="status beta">BETA</div>
+
+      <div class="k">LOGS IN</div><div>ES _bulk · Filebeat · Vector · Fluentd · direct JSON over HTTP · syslog (roadmap)</div><div class="status ga">GA</div>
+
+      <div class="k">DASHBOARDS</div><div>Grafana · Kibana · custom · unified logs-metrics-traces panels via Grafana 10+ mixed datasources</div><div class="status ga">GA</div>
+
+      <div class="k">ALERTING</div><div>Alertmanager-compatible rules · Grafana alerting · webhooks · PagerDuty · Slack · anomaly detection (roadmap Q4)</div><div class="status ga">GA</div>
+
+      <div class="k">EXPORT</div><div>OTLP/HTTP export to downstream systems · Prometheus remote_read · ES search API · long-term S3 archives</div><div class="status ga">GA</div>
+
+      <div class="k">IDENTITY</div><div>OIDC · SAML · AWS IAM · Azure AD · per-team index isolation with quotas</div><div class="status road">ROAD Q2</div>
+
+      <div class="k">INCIDENT MGMT</div><div>PagerDuty · Opsgenie · Incident.io · ServiceNow · via webhook · runbook-aware alert enrichment (roadmap)</div><div class="status ga">GA</div>
+    </div>
+    <div class="grow"></div>
+  </div>
+  <div class="foot-row"><span>XERJ · UNIFIED OBSERVABILITY · USE CASE BRIEF</span><span class="num">07 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>08 · OPERATIONS</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>08</span><span class="dash">·</span><span>DAY-TWO OPERATIONS</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">ONE BINARY.<br><span class="accent">ONE RUNBOOK.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">Day-two operations are where observability platforms usually lose teams. XERJ is engineered for rolling restart, hot-reload config, and segment-level backup from day one.</p>
+    <div class="sp-6"></div>
+    <div class="kv-row"><div class="k">METRICS</div><div class="v">Prometheus on <span class="mono">/metrics</span>. 13 counters / histograms / gauges across ingest, query, flush, cache. Per-instance registry — no global-singleton label collisions in multi-tenant setups.</div></div>
+    <div class="kv-row"><div class="k">HEALTH / READINESS</div><div class="v"><span class="mono">GET /healthz</span> for liveness · <span class="mono">GET /readyz</span> holds until WAL replay completes — rolling restart fleet-safe by default.</div></div>
+    <div class="kv-row"><div class="k">LOGS</div><div class="v">Structured JSON to stdout. One event per line. Correlation ID on every request. Tail with <span class="mono">jq</span>, ship with any log-forwarding agent.</div></div>
+    <div class="kv-row"><div class="k">UPGRADES</div><div class="v">Rolling restart supported. Segment + WAL formats are forward-compatible across minor versions. One-minor-version window for rollback. Helm rolling update + HPA work out of the box.</div></div>
+    <div class="kv-row"><div class="k">BACKUP · RESTORE</div><div class="v">Snapshots to S3 / GCS / Azure Blob. Incremental · encrypted · restorable at segment granularity. <span class="mono">xerj snapshot create|list|restore</span>.</div></div>
+    <div class="kv-row"><div class="k">CAPACITY PLANNING</div><div class="v">~80 K events/sec sustained per node · diurnal pattern absorbed · write-stalls rare under documented sizing. Scale horizontally from 3 to 12 nodes as throughput grows.</div></div>
+    <div class="grow"></div>
+  </div>
+  <div class="foot-row"><span>XERJ · UNIFIED OBSERVABILITY · USE CASE BRIEF</span><span class="num">08 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>09 · IMPLEMENTATION PATH</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>09</span><span class="dash">·</span><span>FROM PILOT TO CONSOLIDATION</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">FIVE PHASES.<br><span class="accent">ONE YEAR.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">A reversible rollout that swaps each pillar one at a time. Logs first (highest volume, clearest cost win), then traces, then metrics.</p>
+    <div class="sp-6"></div>
+    <div class="road-rail">
+      <div class="q">01</div><div class="t">PILOT<br><span class="accent">WEEKS 1–2</span></div><div>Single node · route one log stream (NGINX / app logs) to XERJ via Vector · keep existing SIEM primary · compare ingest cost, query latency on Kibana side-by-side.</div>
+
+      <div class="q">02</div><div class="t">SHADOW<br><span class="accent">WEEKS 3–6</span></div><div>3-node HA cluster · dual-write all log streams · Grafana reads from both. Log dashboard A/B. OTLP traces beta testing on internal services.</div>
+
+      <div class="q">03</div><div class="t">MIGRATE LOGS<br><span class="accent">QUARTER 2</span></div><div>Cut over logs primary. Decommission Splunk / Loki log index. First bill line removed. Retention policies unified. Kibana or Grafana as single log UI.</div>
+
+      <div class="q">04</div><div class="t">MIGRATE TRACES<br><span class="accent">QUARTER 3</span></div><div>OTLP traces primary. Tempo decommissioned. Service-graph materialization lands. Runbook agents retrieve across logs + traces in one hybrid query.</div>
+
+      <div class="q">05</div><div class="t">MIGRATE METRICS<br><span class="accent">QUARTER 4</span></div><div>Prometheus remote_write in primary. Mimir / Thanos long-term store retired. Three pillars, one engine. Single alerting config. One on-call rotation.</div>
+    </div>
+    <div class="grow"></div>
+    <div class="kicker"><span>REVERSIBLE</span><span class="dash">·</span><span>ES + PROMETHEUS + OTLP MEAN NO LOCK-IN AT ANY PHASE</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · UNIFIED OBSERVABILITY · USE CASE BRIEF</span><span class="num">09 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>10 · GET STARTED</span></div>
+  <div class="grow flex col">
+    <div class="sp-10"></div>
+    <div class="kicker"><span>10</span><span class="dash">·</span><span>NEXT STEPS</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">RUN IT.<br><span class="accent">ON YOUR TELEMETRY.</span></h2>
+    <div class="sp-6"></div>
+    <p class="body">A two-week pilot on one log stream. We ship the binary, Grafana dashboard JSON, and the ingest + query scripts. You bring one log stream and a Grafana baseline p95.</p>
+    <div class="sp-10"></div>
+    <div style="padding: 28px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);">
+      <div class="kicker"><span>OBSERVABILITY CONTACT</span></div>
+      <div class="sp-3"></div>
+      <div style="font-family: var(--font-display); font-weight: 900; font-size: 42pt; line-height:1; letter-spacing: 0.01em;">HELLO<span class="accent">@</span>XERJ.AI</div>
+      <div class="sp-3"></div>
+      <div style="font-family: var(--font-data); font-size: 9pt; letter-spacing: var(--track-ui); text-transform: uppercase; color: var(--mute);">XERJ.AI · XERJ.COM · XERJ.DEV</div>
+    </div>
+    <div class="sp-6"></div>
+    <div class="kv-row"><div class="k">WHAT YOU GET</div><div class="v">Private binary · Otel Collector config · Vector config · Grafana dashboard JSON · Prometheus scrape examples · synthetic 24-hour ingest corpus.</div></div>
+    <div class="kv-row"><div class="k">WHAT YOU BRING</div><div class="v">One production log stream · one Grafana dashboard · a p95 latency baseline for at least one existing query.</div></div>
+    <div class="kv-row"><div class="k">COMPANION BRIEFS</div><div class="v"><span class="mono">xerj-tech-brief.pdf</span> (architect) · <span class="mono">xerj-usecase-security.pdf</span> for SIEM modernization · <span class="mono">xerj-usecase-ops-intel.pdf</span> for operational intelligence</div></div>
+    <div class="grow"></div>
+    <div class="kicker"><span>XERJ.AI · UNIFIED OBSERVABILITY · USE CASE BRIEF</span><span class="dash">·</span><span>V1 · 2026-04</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · UNIFIED OBSERVABILITY · USE CASE BRIEF</span><span class="num">10 / 10</span></div>
+</section>
+
+</body>
+</html>

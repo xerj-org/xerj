@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 240" width="800" height="240">
+  <rect width="800" height="240" fill="#f6f4ee"/>
+  <line x1="90" y1="200" x2="530" y2="200" stroke="#11120f" stroke-width="1" stroke-linecap="square"/>
+  <line x1="530" y1="40" x2="710" y2="40" stroke="#a06800" stroke-width="1" stroke-linecap="square"/>
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="end" fill="#11120f">XERJ</text>
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="start" fill="#a06800">.AI</text>
+</svg>

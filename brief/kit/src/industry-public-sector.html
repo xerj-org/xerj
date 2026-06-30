@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>XERJ — Public Sector — Industry Brief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../common.css">
+</head>
+<body>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>INDUSTRY · PUBLIC SECTOR · V1 · 2026-04</span></div>
+  <div class="grow flex col between">
+    <div class="sp-10"></div>
+    <div>
+      <div class="kicker" style="margin-bottom:20px;"><span>INDUSTRY BRIEF</span><span class="dash">·</span><span>FOR CIO · CISO · CTO · HEAD OF DATA · CCIO</span></div>
+      <div class="cover-hero">GOVERNMENT<br>AI.<br><span class="accent">AIR-GAPPED.</span><br>SOVEREIGN.</div>
+      <div class="sp-8"></div>
+      <p class="lead" style="max-width:6in;">Public-sector AI cannot depend on a retrieval vendor reachable over the commercial internet. XERJ is a single Rust binary that runs inside a sealed rack, a SCIF, or a national-cloud enclave — with every retrieval primitive an AI workload needs and zero telemetry egress when air-gap mode is on.</p>
+    </div>
+    <div class="kicker"><span>AIR-GAP-READY</span><span class="dash">·</span><span>SOVEREIGN DEPLOYMENT</span><span class="dash">·</span><span>SIGNED OFFLINE UPDATES</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · PUBLIC SECTOR · INDUSTRY BRIEF</span><span class="num">01 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>02 · PUBLIC SECTOR AI PROBLEM</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>02</span><span class="dash">·</span><span>WHY THIS MATTERS NOW</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">AI MANDATES<br>MEET THE<br><span class="accent">ATO REALITY.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">Every national government has published an AI strategy. Every agency has been told to adopt one. Every CIO has discovered the same constraint: the AI retrieval stack most commercial vendors ship cannot pass an ATO (Authority-to-Operate) review because it depends on infrastructure outside the perimeter.</p>
+    <div class="sp-6"></div>
+    <div class="kv-row"><div class="k">DATA SOVEREIGNTY</div><div class="v">Citizen data, classified material, and intelligence must not leave the national perimeter. A hosted vector DB in a commercial region fails before the conversation starts.</div></div>
+    <div class="kv-row"><div class="k">AIR-GAP REQUIREMENT</div><div class="v">Classified networks, SCIFs, and defence enclaves have no internet. Installing, updating, and operating the retrieval layer must work offline with signed artifacts.</div></div>
+    <div class="kv-row"><div class="k">LONG ATO CYCLES</div><div class="v">A new piece of infrastructure takes quarters to accredit. The less the retrieval stack is — binaries, network dependencies, third-party SaaS — the faster the ATO.</div></div>
+    <div class="kv-row"><div class="k">FedRAMP / IL5 / CJIS</div><div class="v">Controls frameworks vary by mission. The retrieval layer must produce audit artifacts in the shape regulators already accept. Custom logging pipelines delay everything.</div></div>
+    <div class="grow"></div>
+    <div class="kicker"><span>PUBLIC-SECTOR AI NEEDS A SOVEREIGN DATA PLANE</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · PUBLIC SECTOR · INDUSTRY BRIEF</span><span class="num">02 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>03 · XERJ POSITIONING</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>03</span><span class="dash">·</span><span>SOVEREIGN AI DATA STACK</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">ONE BINARY.<br>AIR-GAP MODE.<br><span class="accent">SIGNED UPDATES.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">13 MB static binary. Runs on Linux, on a sealed rack, in a SCIF. Offline install + signed release manifest. When <span class="mono">XERJ_AIRGAP=1</span> is set, zero telemetry egress — no phone-home, no update check, no license ping.</p>
+    <div class="sp-6"></div>
+    <div class="quad-grid">
+      <div class="cell"><span class="k">FOOTPRINT</span><span class="v">13 MB</span><span class="t">STATIC BINARY<br><span class="accent">OFFLINE-DEPLOYABLE</span></span><span class="b">Ship on media. Verify signed manifest. Run on any Linux box. No JVM, no JRE, no dependency graph.</span></div>
+      <div class="cell"><span class="k">AIR-GAP</span><span class="v">1 ENV VAR</span><span class="t">NO TELEMETRY<br><span class="accent">NO PHONE HOME</span></span><span class="b"><span class="mono">XERJ_AIRGAP=1</span> disables all egress. Offline-update channel · signed bundle · installable into a SCIF.</span></div>
+      <div class="cell"><span class="k">SOVEREIGNTY</span><span class="v">100 %</span><span class="t">ON YOUR<br><span class="accent">HARDWARE</span></span><span class="b">No commercial cloud dependency. National-cloud, on-prem, or classified enclave. Data never leaves the perimeter.</span></div>
+      <div class="cell"><span class="k">ACCREDITATION</span><span class="v">SBOM</span><span class="t">SIGNED BUILDS<br><span class="accent">SBOM + SLSA</span></span><span class="b">Every release ships an SBOM. SLSA-compliant provenance (roadmap Q3). Cross-walkable to FedRAMP Moderate + IL5 controls.</span></div>
+    </div>
+    <div class="grow"></div>
+    <div class="kicker"><span>ONE BINARY · ONE RUNBOOK</span><span class="dash">·</span><span>AUDITABLE TOP TO BOTTOM</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · PUBLIC SECTOR · INDUSTRY BRIEF</span><span class="num">03 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>04 · REFERENCE ARCHITECTURE</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>04</span><span class="dash">·</span><span>AIR-GAPPED BLUEPRINT</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">SEALED RACK.<br><span class="accent">ONE BINARY.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">A three-node XERJ cluster inside a classified enclave. No outbound connectivity. Offline-update channel through a data-diode. Same binary, same configuration surface as a commercial deployment.</p>
+    <div class="sp-4"></div>
+    <div class="arch-pre"><span class="accent">CLASSIFIED ENCLAVE</span>  no-internet · signed-media only · physical access control
+  ┌──────────────────────────────────────────────────────────────┐
+  │  DATA SOURCES (inside the perimeter)                        │
+  │    ops logs · sensor feeds · mission docs · archival data   │
+  │          │                                                  │
+  │          ▼                                                  │
+  │  OTEL COLLECTOR (on-prem build) + Vector / Fluent Bit       │
+  │          │                                                  │
+  │          ▼                                                  │
+  │  ┌────────────────────────────────────────────────────┐     │
+  │  │  XERJ CLUSTER  3-node HA  AIRGAP=1                │     │
+  │  │                                                    │     │
+  │  │   FTS · VECTOR · COLUMNAR · AGENT MEMORY           │     │
+  │  │   encrypted segments (AES-256-GCM · BYOK)          │     │
+  │  │   RBAC (roadmap Q2) · per-tenant isolation         │     │
+  │  └────────────────────────────────────────────────────┘     │
+  │          │                                                  │
+  │          ▼                                                  │
+  │  CONSUMERS                                                  │
+  │    mission analysts · internal dashboards                   │
+  │    AI agents running on approved model weights              │
+  │  ┌────────────────────────────────────────────────────┐     │
+  │  │  UPDATES                                           │     │
+  │  │    signed offline bundle delivered via data-diode  │     │
+  │  │    manifest verified before install                │     │
+  │  │    rollback supported across one-minor-version     │     │
+  │  └────────────────────────────────────────────────────┘     │
+  └──────────────────────────────────────────────────────────────┘
+
+  <span class="mute">no outbound · no telemetry · no license ping · no update probe</span></div>
+    <div class="grow"></div>
+    <div class="kicker"><span>SIZING</span><span class="dash">·</span><span>3-NODE HA · OFFLINE OPERATION · ONE-MINOR-VERSION ROLLBACK</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · PUBLIC SECTOR · INDUSTRY BRIEF</span><span class="num">04 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>05 · PUBLIC SECTOR USE CASES</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>05</span><span class="dash">·</span><span>WHERE XERJ APPLIES</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">MISSION.<br>OPERATIONS.<br><span class="accent">SERVICES.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">The AI workloads every public-sector CIO has on the 24-month roadmap. Each maps to one XERJ deployment pattern.</p>
+    <div class="sp-6"></div>
+    <div class="matrix m3">
+      <div class="h">WORKLOAD</div><div class="h">PATTERN</div><div class="h">STORE</div>
+
+      <div class="k">CITIZEN SERVICES</div><div>Retrieval-augmented case workers across benefits, tax, licensing. Sovereign RAG over agency knowledge bases. Per-agency RBAC.</div><div class="status ga">HYBRID</div>
+
+      <div class="k">DEFENCE INTEL</div><div>Semantic search over classified reports, OSINT, sensor feeds. Air-gap-mandatory. Agent memory for investigation sessions.</div><div class="status ga">VECTOR</div>
+
+      <div class="k">CYBER SOC</div><div>Federal / state SOC over log fleet. MTTD in milliseconds. SIEM battery 74× faster than legacy on 1 M events.</div><div class="status ga">LOGS</div>
+
+      <div class="k">LEGISLATIVE ANALYSIS</div><div>Bill text, precedent case law, policy documents · hybrid BM25 + vector search for research staff and committees.</div><div class="status ga">HYBRID</div>
+
+      <div class="k">AUDIT &amp; IG</div><div>Inspector-general workflows · retrieval across contract records, financial transactions, correspondence. Legal-hold markers.</div><div class="status ga">FTS</div>
+
+      <div class="k">EMERGENCY RESPONSE</div><div>Real-time ingest of sensor + situational data + responder comms. Unified retrieval for command-and-control agents.</div><div class="status ga">HYBRID</div>
+
+      <div class="k">BIOMEDICAL RESEARCH</div><div>Grant portfolios, publication corpus, clinical-trial registries. RAG for research-officer productivity. Per-agency quotas.</div><div class="status ga">VECTOR</div>
+    </div>
+    <div class="grow"></div>
+    <div class="kicker"><span>ALL SEVEN</span><span class="dash">·</span><span>ON ONE XERJ PLATFORM · AIR-GAP-CAPABLE</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · PUBLIC SECTOR · INDUSTRY BRIEF</span><span class="num">05 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>06 · ACCREDITATION POSTURE</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>06</span><span class="dash">·</span><span>ATO-READY CONTROLS</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">BUILDING<br>BLOCKS FOR<br><span class="accent">ATO.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">Self-hosted means most accreditation scope is inherited from agency controls. XERJ supplies the engineered-in controls the ATO body expects to see in the submission.</p>
+    <div class="sp-6"></div>
+    <h4>STANDARDS &amp; CERTIFICATIONS</h4>
+    <div class="sp-2"></div>
+    <div class="compliance">
+      <div class="h">STANDARD</div><div class="h">RELEVANCE</div><div class="h">STATUS</div>
+
+      <div class="k">FedRAMP MODERATE</div><div>Commercial SaaS offering; self-hosted inherits agency baseline</div><div class="status road">ROAD 2027</div>
+      <div class="k">FedRAMP HIGH</div><div>Higher-impact workloads · planning phase</div><div class="status road">ROAD 2027+</div>
+      <div class="k">DoD IL5</div><div>BYOK + FIPS-validated crypto + air-gap · engineering scope ready · accreditation roadmap</div><div class="status road">ROAD 2027</div>
+      <div class="k">CJIS</div><div>Tenant isolation + audit trail + encryption at rest + access control</div><div class="status yes">INHERITED (SELF-HOSTED)</div>
+      <div class="k">NIST 800-53 REV5</div><div>Controls cross-walk available · security control implementation summary (SCIS) template</div><div class="status ga">GA</div>
+      <div class="k">NIST AI RMF</div><div>Per-query explain-plan + audit trail aligns with "measure" + "manage" functions</div><div class="status ga">GA</div>
+      <div class="k">ISO 27001</div><div>ISMS scope · commercial track</div><div class="status road">ROAD Q4 2026</div>
+      <div class="k">CMMC Lvl 2</div><div>DFARS 252.204-7012 · self-hosted inherits organizational controls</div><div class="status yes">INHERITED</div>
+    </div>
+    <div class="sp-4"></div>
+    <div class="kv-row"><div class="k">SUPPLY CHAIN</div><div class="v">Every release ships an SBOM. SLSA-compliant provenance (roadmap Q3). Reproducible builds. Signed Git tags + signed artifact manifests.</div></div>
+    <div class="kv-row"><div class="k">CRYPTO</div><div class="v">AES-256-GCM at rest · TLS 1.3 in transit · FIPS 140-2 validation (roadmap 2027). BYOK via KMS / HSM · Thales Luna · CloudHSM · AWS KMS.</div></div>
+    <div class="grow"></div>
+  </div>
+  <div class="foot-row"><span>XERJ · PUBLIC SECTOR · INDUSTRY BRIEF</span><span class="num">06 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>07 · INTEGRATION ECOSYSTEM</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>07</span><span class="dash">·</span><span>GOVERNMENT STACK · INTEGRATED</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">YOUR STACK.<br><span class="accent">APPROVED.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">The tools agencies already run — ES-backed SIEMs, PIV / CAC authentication, Red Hat / Oracle Linux · air-gapped KMS — work out of the box.</p>
+    <div class="sp-6"></div>
+    <div class="matrix m3">
+      <div class="h">CATEGORY</div><div class="h">TOOLS</div><div class="h">STATUS</div>
+
+      <div class="k">OS / RUNTIME</div><div>RHEL · Oracle Linux · Ubuntu LTS · SUSE · amd64 + aarch64 · offline RPM / DEB bundle</div><div class="status ga">GA</div>
+
+      <div class="k">IDENTITY</div><div>PIV / CAC · smart-card via OIDC bridge · SAML 2.0 · Active Directory · Okta · agency IdP</div><div class="status road">ROAD Q2</div>
+
+      <div class="k">CLOUD</div><div>AWS GovCloud · Azure Gov · GCP Assured Workloads · Oracle Gov Cloud · VMware on-prem</div><div class="status ga">GA</div>
+
+      <div class="k">KMS / HSM</div><div>Thales Luna · AWS CloudHSM · Azure Dedicated HSM · HashiCorp Vault (FIPS) · BYOK</div><div class="status road">ROAD Q2</div>
+
+      <div class="k">SIEM</div><div>Wazuh · Elastic Security · commercial SIEMs via ES wire · Sigma rule conversion</div><div class="status ga">GA</div>
+
+      <div class="k">COLLECTORS</div><div>Otel Collector (on-prem) · Vector · Fluent Bit · Filebeat · syslog TCP/UDP listeners (roadmap)</div><div class="status ga">GA</div>
+
+      <div class="k">AGENT FRAMEWORKS</div><div>LangChain · LlamaIndex · Haystack · DSPy · local model weights · air-gapped RAG pipelines</div><div class="status ga">GA</div>
+
+      <div class="k">BACKUP / DR</div><div>Object storage (S3-compatible) · on-prem S3 appliances · incremental, encrypted, restorable per segment</div><div class="status ga">GA</div>
+
+      <div class="k">STIG / HARDENING</div><div>Config templates aligned with STIG controls · CIS benchmark · hardened container images (planned)</div><div class="status road">ROAD Q3</div>
+    </div>
+    <div class="grow"></div>
+  </div>
+  <div class="foot-row"><span>XERJ · PUBLIC SECTOR · INDUSTRY BRIEF</span><span class="num">07 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>08 · MEASURED OUTCOMES</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>08</span><span class="dash">·</span><span>OPERATIONAL MEASURED</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">NUMBERS.<br><span class="accent">REPRODUCIBLE.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">The performance profile an agency cares about is the one that fits inside a constrained deployment envelope. XERJ numbers on a single node against a 4-node ES baseline.</p>
+    <div class="sp-6"></div>
+    <div class="versus">
+      <div class="h">METRIC</div>
+      <div class="h a">XERJ</div>
+      <div class="h">LEGACY (ES 8.13)</div>
+
+      <div class="dim">Binary footprint</div>
+      <div><span class="accent">13 MB</span></div>
+      <div>~620 MB JAR + JRE <span class="mute">— 56×</span></div>
+
+      <div class="dim">Cold start</div>
+      <div><span class="accent">50 ms</span></div>
+      <div>~15 s JVM warm-up <span class="mute">— 300×</span></div>
+
+      <div class="dim">Idle memory</div>
+      <div><span class="accent">400 MB</span></div>
+      <div>8.5 GB (4-node) <span class="mute">— 21×</span></div>
+
+      <div class="dim">SIEM agg p95 · 1 M events</div>
+      <div><span class="accent">0.4 ms</span></div>
+      <div>29.8 ms <span class="mute">— 74×</span></div>
+
+      <div class="dim">Disk · 1 M events</div>
+      <div><span class="accent">85 MB</span></div>
+      <div>240 MB <span class="mute">— 2.8×</span></div>
+
+      <div class="dim">Network dependencies</div>
+      <div><span class="accent">0 external</span></div>
+      <div>varies</div>
+
+      <div class="dim">Offline-install time</div>
+      <div><span class="accent">&lt; 5 min</span></div>
+      <div>hours (JRE · deps · config)</div>
+
+      <div class="dim">Audit artifact per query</div>
+      <div><span class="accent">explain-plan built in</span></div>
+      <div>application-level plumbing</div>
+    </div>
+    <div class="sp-6"></div>
+    <div class="kv-row"><div class="k">MISSION IMPACT</div><div class="v">Smaller deploy footprint fits inside ATO boundaries that reject JVM-based stacks. Offline-operation capability means accreditation bodies approve the same binary deployed in commercial and classified enclaves.</div></div>
+    <div class="kv-row"><div class="k">SOURCES</div><div class="v"><span class="mono">SIEM_BATTLE_2026-04-14</span> · <span class="mono">CLUSTER_BATTLE_2026-04-14</span> · <span class="mono">CAPPED_RAM_BATTLE_2026-04-13</span> — all reproducible with scripts that ship with the binary.</div></div>
+    <div class="grow"></div>
+  </div>
+  <div class="foot-row"><span>XERJ · PUBLIC SECTOR · INDUSTRY BRIEF</span><span class="num">08 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>09 · IMPLEMENTATION PATH</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>09</span><span class="dash">·</span><span>FROM POC TO ATO</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">LAB.<br>UAT.<br><span class="accent">PRODUCTION.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">Public-sector deployments start in an unclassified lab, graduate to a low-side UAT, and finally cross into the production enclave once the ATO evidence is complete.</p>
+    <div class="sp-6"></div>
+    <div class="road-rail">
+      <div class="q">01</div><div class="t">UNCLASSIFIED LAB<br><span class="accent">WEEKS 1–4</span></div><div>Install on an unclass lab network · reproduce SIEM_BATTLE + RAG_BENCH on open data · architecture review with agency CISO · draft ATO package outline.</div>
+
+      <div class="q">02</div><div class="t">UAT · LOW-SIDE<br><span class="accent">MONTHS 2–4</span></div><div>Deploy in low-side staging · integrate with agency IdP · conduct vulnerability + penetration testing · finalize ATO package · interim authority considerations.</div>
+
+      <div class="q">03</div><div class="t">ATO AUTHORIZATION<br><span class="accent">MONTH 5</span></div><div>Submit accreditation package · respond to ARs · obtain ATO. NIST 800-53 crosswalk and SBOM accelerate review.</div>
+
+      <div class="q">04</div><div class="t">PRODUCTION ENCLAVE<br><span class="accent">MONTHS 6–9</span></div><div>Deploy to production perimeter · air-gap mode on · offline-update channel commissioned · first mission workload migrated · runbooks handed to ops team.</div>
+
+      <div class="q">05</div><div class="t">MULTI-MISSION<br><span class="accent">QUARTER 4</span></div><div>Additional mission workloads migrate onto the same data plane · tenant-isolated indices · shared RBAC and audit trail · consolidated ops surface.</div>
+    </div>
+    <div class="grow"></div>
+    <div class="kicker"><span>OFFLINE-OPERATION</span><span class="dash">·</span><span>SIGNED UPDATES · REVERSIBLE AT EVERY PHASE</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · PUBLIC SECTOR · INDUSTRY BRIEF</span><span class="num">09 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>10 · GET STARTED</span></div>
+  <div class="grow flex col">
+    <div class="sp-10"></div>
+    <div class="kicker"><span>10</span><span class="dash">·</span><span>NEXT STEPS</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">PROVE IT.<br><span class="accent">IN YOUR LAB.</span></h2>
+    <div class="sp-6"></div>
+    <p class="body">An unclassified lab pilot. Offline-install bundle. Reproduction scripts for the SIEM and RAG battle reports on open data. Architecture review with your CISO / accreditation body.</p>
+    <div class="sp-10"></div>
+    <div style="padding: 28px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);">
+      <div class="kicker"><span>PUBLIC SECTOR CONTACT</span></div>
+      <div class="sp-3"></div>
+      <div style="font-family: var(--font-display); font-weight: 900; font-size: 42pt; line-height:1; letter-spacing: 0.01em;">HELLO<span class="accent">@</span>XERJ.AI</div>
+      <div class="sp-3"></div>
+      <div style="font-family: var(--font-data); font-size: 9pt; letter-spacing: var(--track-ui); text-transform: uppercase; color: var(--mute);">XERJ.AI · XERJ.COM · XERJ.DEV</div>
+    </div>
+    <div class="sp-6"></div>
+    <div class="kv-row"><div class="k">LAB KIT</div><div class="v">Offline-install bundle · signed manifest · SBOM · NIST 800-53 crosswalk · SIEM_BATTLE + RAG_BENCH reproduction scripts.</div></div>
+    <div class="kv-row"><div class="k">COMPANION BRIEFS</div><div class="v"><span class="mono">xerj-tech-brief.pdf</span> (architect) · <span class="mono">xerj-usecase-security.pdf</span> (cyber SOC) · <span class="mono">xerj-usecase-rag.pdf</span> (research RAG)</div></div>
+    <div class="grow"></div>
+    <div class="kicker"><span>XERJ.AI · PUBLIC SECTOR · INDUSTRY BRIEF</span><span class="dash">·</span><span>V1 · 2026-04</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · PUBLIC SECTOR · INDUSTRY BRIEF</span><span class="num">10 / 10</span></div>
+</section>
+
+</body>
+</html>

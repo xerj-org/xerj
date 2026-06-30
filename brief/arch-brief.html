@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>XERJ — Architecture Brief — V1 — 2026-04</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:     #0b0b0d;
+    --ink:    #f4f2ec;
+    --mute:   #8a8680;
+    --faint:  #2b2a28;
+    --line:   #3a3836;
+    --accent: #ffc400;
+
+    --z-bg: var(--bg); --z-ink: var(--ink); --z-mute: var(--mute);
+    --z-line: var(--line); --z-accent: var(--accent); --z-faint: var(--faint);
+
+    --font-display: 'Big Shoulders Display', 'Inter', system-ui, sans-serif;
+    --font-prose:   'Inter', system-ui, sans-serif;
+    --font-data:    'IBM Plex Sans', 'Inter', system-ui, sans-serif;
+    --font-mono:    'JetBrains Mono', 'IBM Plex Mono', monospace;
+
+    --track-ui:    0.14em;
+    --track-label: 0.08em;
+  }
+
+  @page { size: Letter; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-prose);
+    font-size: 10.5pt;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .page {
+    width: 8.5in;
+    height: 11in;
+    padding: 0.55in 0.6in;
+    position: relative;
+    page-break-after: always;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  .kicker {
+    font-family: var(--font-data);
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+    display: flex;
+    gap: 0.5em;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .kicker .dash { color: var(--faint); }
+  .kicker .accent { color: var(--accent); }
+
+  .accent { color: var(--accent); }
+  .mute   { color: var(--mute); }
+  .mono   { font-family: var(--font-mono); }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    line-height: 0.92;
+  }
+
+  .hero  { font-size: 64pt; line-height: 0.92; }
+  .scene { font-size: 38pt; }
+  h3     { font-size: 18pt; }
+  h4     { font-size: 11pt; letter-spacing: var(--track-ui); color: var(--accent); }
+
+  p.lead { font-size: 12pt; line-height: 1.5; max-width: 6.5in; }
+  p.body { font-size: 9.5pt; line-height: 1.55; max-width: 6.5in; }
+  p.body.wide { max-width: 100%; }
+
+  em { font-style: italic; }
+  code, .code { font-family: var(--font-mono); font-size: 9pt; color: var(--ink); }
+
+  .sp-1 { height: 4px; }
+  .sp-2 { height: 8px; } .sp-3 { height: 12px; } .sp-4 { height: 16px; }
+  .sp-6 { height: 24px; } .sp-8 { height: 32px; } .sp-10 { height: 48px; }
+
+  .flex { display: flex; } .col { flex-direction: column; }
+  .grow { flex: 1 1 auto; min-height: 0; }
+  .between { justify-content: space-between; }
+
+  /* page frame */
+  .head-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--font-data);
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+  }
+  .head-row .brand { color: var(--ink); }
+  .head-row .brand .accent { color: var(--accent); }
+
+  .foot-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+    font-family: var(--font-data);
+    font-size: 8pt;
+    font-weight: 500;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+  }
+  .foot-row .num { color: var(--ink); }
+
+  /* key-value row */
+  .kv-row {
+    display: grid;
+    grid-template-columns: 1.3in 1fr;
+    gap: 0.25in;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--line);
+    align-items: baseline;
+  }
+  .kv-row .k {
+    font-family: var(--font-data);
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+  }
+  .kv-row .v { font-size: 9.5pt; line-height: 1.5; }
+  .kv-row .v .mono { font-size: 9pt; color: var(--ink); }
+
+  /* 4-up value quadrant */
+  .quad-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    border-top: 1px solid var(--line);
+    border-left: 1px solid var(--line);
+  }
+  .quad-grid > .cell {
+    padding: 16px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 1.7in;
+  }
+  .quad-grid .k {
+    font-family: var(--font-data);
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+  }
+  .quad-grid .t {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 18pt;
+    color: var(--ink);
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+  }
+  .quad-grid .t .accent { color: var(--accent); }
+  .quad-grid .b {
+    font-size: 9.5pt;
+    line-height: 1.45;
+    color: var(--ink);
+    margin-top: auto;
+  }
+
+  /* 3-column cards */
+  .topo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+  .topo-grid > .cell {
+    padding: 14px 16px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .topo-grid .k {
+    font-family: var(--font-data);
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+  }
+  .topo-grid .t {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 16pt;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+  }
+  .topo-grid .t .accent { color: var(--accent); }
+  .topo-grid .b { font-size: 9pt; line-height: 1.45; }
+  .topo-grid .facts {
+    font-family: var(--font-mono);
+    font-size: 8.5pt;
+    color: var(--mute);
+    line-height: 1.5;
+    margin-top: 6px;
+  }
+
+  /* feature / capability matrix */
+  .matrix {
+    display: grid;
+    grid-template-columns: 1.6in 1fr 0.7in;
+    gap: 0;
+  }
+  .matrix > div {
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--line);
+    font-size: 9pt;
+    line-height: 1.42;
+  }
+  .matrix .h {
+    font-family: var(--font-data);
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+    border-bottom: 1px solid var(--ink);
+  }
+  .matrix .k {
+    font-family: var(--font-mono);
+    font-size: 9pt;
+    color: var(--accent);
+  }
+  .matrix .status {
+    font-family: var(--font-data);
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: var(--track-label);
+    text-transform: uppercase;
+    text-align: right;
+  }
+  .matrix .status.ga    { color: var(--accent); }
+  .matrix .status.beta  { color: var(--ink); }
+  .matrix .status.road  { color: var(--mute); }
+
+  /* status pill */
+  .pill {
+    display: inline-block;
+    font-family: var(--font-data);
+    font-size: 7.5pt;
+    font-weight: 700;
+    letter-spacing: var(--track-label);
+    text-transform: uppercase;
+    padding: 1px 6px;
+    border: 1px solid;
+    margin-left: 4px;
+    vertical-align: 1px;
+  }
+  .pill.ga    { color: var(--accent); border-color: var(--accent); }
+  .pill.beta  { color: var(--ink);    border-color: var(--ink); }
+  .pill.road  { color: var(--mute);   border-color: var(--line); }
+
+  /* perf table */
+  .perf {
+    display: grid;
+    grid-template-columns: 1.6in repeat(4, 1fr);
+    width: 100%;
+  }
+  .perf > div {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--line);
+    font-size: 9pt;
+  }
+  .perf .h {
+    font-family: var(--font-data);
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+    border-bottom: 1px solid var(--ink);
+  }
+  .perf .n { font-family: var(--font-mono); text-align: right; color: var(--ink); }
+
+  /* architecture SVG block — preserves square geometry */
+  .arch {
+    width: 100%;
+    margin: 6px 0 0 0;
+    color: var(--ink);
+  }
+  .arch svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    color: var(--ink);
+  }
+  .arch .legend {
+    margin-top: 10px;
+    font-family: var(--font-data);
+    font-size: 8pt;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  .arch .legend .ink   { color: var(--ink); }
+  .arch .legend .yel   { color: var(--accent); }
+  .arch .legend .swatch {
+    display: inline-block;
+    width: 14px; height: 1px;
+    background: currentColor;
+    vertical-align: 3px;
+    margin-right: 6px;
+  }
+  .arch .legend .swatch.dashed {
+    height: 0;
+    border-top: 1px dashed currentColor;
+    background: transparent;
+  }
+
+  /* cover hero */
+  .cover-hero {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 72pt;
+    line-height: 0.9;
+    letter-spacing: 0.01em;
+  }
+
+  /* big stat row (used on perf page) */
+  .bigstat {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    border-top: 1px solid var(--line);
+  }
+  .bigstat > .b {
+    padding: 14px 12px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .bigstat > .b:last-child { border-right: 0; }
+  .bigstat .k {
+    font-family: var(--font-data);
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+  }
+  .bigstat .v {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 30pt;
+    line-height: 1;
+    color: var(--accent);
+    letter-spacing: 0.01em;
+  }
+  .bigstat .u {
+    font-family: var(--font-data);
+    font-size: 8pt;
+    color: var(--mute);
+    letter-spacing: var(--track-label);
+    text-transform: uppercase;
+  }
+
+  /* principle list */
+  .principle {
+    display: grid;
+    grid-template-columns: 0.55in 1fr;
+    gap: 18px;
+    padding: 10px 0;
+    border-top: 1px solid var(--line);
+    align-items: baseline;
+  }
+  .principle .num {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 22pt;
+    line-height: 1;
+    color: var(--accent);
+  }
+  .principle .head {
+    font-family: var(--font-data);
+    font-size: 9pt;
+    font-weight: 700;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--ink);
+    margin-bottom: 3px;
+  }
+  .principle .body {
+    font-size: 9pt;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+</style>
+</head>
+<body>
+
+<!-- =========================================================== -->
+<!-- P1 · COVER                                                  -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>ARCHITECTURE BRIEF · V1 · 2026-04</span>
+  </div>
+
+  <div class="grow flex col between">
+    <div class="sp-10"></div>
+
+    <div>
+      <div class="kicker" style="margin-bottom:20px;">
+        <span>FOR EXECUTIVES</span>
+        <span class="dash">·</span>
+        <span>ARCHITECTS</span>
+        <span class="dash">·</span>
+        <span>AI PROGRAM LEADS</span>
+      </div>
+
+      <div class="cover-hero">
+        THE AI-NATIVE<br>
+        DATA PLANE.<br>
+        <span class="accent">ONE ENGINE.</span><br>
+        <span class="accent">EVERY SIGNAL.</span>
+      </div>
+
+      <div class="sp-8"></div>
+
+      <p class="lead" style="max-width:6in;">
+        An architecture brief for the data platform that turns the
+        retrieval stack — full-text, vectors, columnar logs, and agent
+        memory — into a single Elasticsearch-compatible engine. Built
+        in Rust. Shipped as one binary. Deployed in your cloud, your
+        rack, or behind your air-gap.
+      </p>
+    </div>
+
+    <div class="flex between" style="gap:24px;">
+      <div class="kicker">
+        <span>RELEASE V1.0.0-RC.1</span>
+        <span class="dash">·</span>
+        <span>ES 8.13 WIRE-COMPATIBLE</span>
+        <span class="dash">·</span>
+        <span>SELF-HOSTED</span>
+        <span class="dash">·</span>
+        <span>AGENT-READY</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · ARCHITECTURE BRIEF</span>
+    <span class="num">01 / 14</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P2 · AI TRANSFORMATION THESIS                               -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>02 · AI TRANSFORMATION THESIS</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>02</span><span class="dash">·</span><span>WHY ARCHITECTURE MATTERS NOW</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">EVERY ENTERPRISE<br>IS BECOMING<br><span class="accent">A RETRIEVAL ENGINE.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      The shift from ten-blue-link search to agentic, retrieval-augmented
+      applications is not a UI change. It is an infrastructure change.
+      Every product team is now standing up the same primitive:
+      <em>find the right context, in the right form, fast enough for a
+      model to use it</em>. Today they assemble that primitive from four
+      vendors and a Python orchestrator. The result is a retrieval
+      stack that is brittle, expensive, and impossible to certify.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <div class="quad-grid">
+      <div class="cell">
+        <span class="k">FRAGMENTATION TAX</span>
+        <span class="t">FOUR STORES.<br><span class="accent">ONE QUERY.</span></span>
+        <span class="b">A typical agentic application reads from full-text, vector, columnar, and session-memory stores in a single turn — over four wire protocols, four vendors, and four bills.</span>
+      </div>
+      <div class="cell">
+        <span class="k">DATA GRAVITY</span>
+        <span class="t">CONTEXT IS<br><span class="accent">DATA-LOCAL.</span></span>
+        <span class="b">Logs, embeddings, metrics, and sessions describe the same events. Joining them in a Python orchestrator is an architecture mistake; the join belongs in storage.</span>
+      </div>
+      <div class="cell">
+        <span class="k">SOVEREIGNTY</span>
+        <span class="t">YOUR DATA.<br><span class="accent">YOUR PERIMETER.</span></span>
+        <span class="b">Enterprise data — security telemetry, customer records, regulated content — does not leave the customer's control. The retrieval engine has to be self-hostable, top to bottom.</span>
+      </div>
+      <div class="cell">
+        <span class="k">DETERMINISM</span>
+        <span class="t">SLOS THAT<br><span class="accent">HOLD.</span></span>
+        <span class="b">Agent loops amplify tail latency by the number of retrieval calls per turn. A 99th-percentile spike upstream is a user-visible stall downstream. Latency must be predictable, not average-good.</span>
+      </div>
+    </div>
+
+    <div class="grow"></div>
+
+    <h4>WHAT XERJ ARGUES</h4>
+    <div class="sp-2"></div>
+    <p class="body">
+      The right architectural answer is a unified data plane —
+      one engine that natively understands every retrieval modality,
+      speaks the wire protocol enterprises already use, and runs
+      inside the customer's security boundary.
+    </p>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · ARCHITECTURE BRIEF</span>
+    <span class="num">02 / 14</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P3 · SYSTEM AT A GLANCE                                     -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>03 · SYSTEM AT A GLANCE</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>03</span><span class="dash">·</span><span>SYSTEM AT A GLANCE</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">CONTROL PLANE.<br><span class="accent">DATA PLANE.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      Xerj is one binary that exposes one cluster as one engine.
+      The control plane carries cluster state, schema, identity, and
+      audit. The data plane carries ingest, storage, search, and
+      retrieval. Both are observable through one Prometheus endpoint.
+      Both speak the same wire protocols every existing client
+      already speaks.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <div class="arch">
+      {{SVG:arch_overview}}
+      <div class="legend">
+        <span><span class="swatch ink"></span><span class="ink">DATA PATH</span></span>
+        <span><span class="swatch yel"></span><span class="yel">PRIMARY API · :9200</span></span>
+        <span><span class="swatch dashed"></span><span>CONTROL PATH</span></span>
+      </div>
+    </div>
+
+    <div class="grow"></div>
+
+    <div class="kicker">
+      <span>KEY PROPERTY</span>
+      <span class="dash">·</span>
+      <span>DATA PLANE AND CONTROL PLANE SCALE INDEPENDENTLY</span>
+    </div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · ARCHITECTURE BRIEF</span>
+    <span class="num">03 / 14</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P4 · ARCHITECTURAL PRINCIPLES                               -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>04 · ARCHITECTURAL PRINCIPLES</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>04</span><span class="dash">·</span><span>ARCHITECTURAL PRINCIPLES</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">SIX RULES.<br><span class="accent">ONE ENGINE.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      The shape of the engine is a direct consequence of six commitments.
+      Every internal trade-off — sharded memtables, mmap-resident
+      segments, embedded consensus, in-process embedding proxy — is the
+      cheapest implementation of one of these principles.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <div class="principle">
+      <span class="num">01</span>
+      <div>
+        <div class="head">UNIFIED RETRIEVAL</div>
+        <div class="body">Full-text, dense-vector, columnar logs, and agent memory share a single segment cache, a single write-ahead log, and a single permission model. There is no cross-store orchestrator because there is no cross-store boundary.</div>
+      </div>
+    </div>
+    <div class="principle">
+      <span class="num">02</span>
+      <div>
+        <div class="head">DROP-IN COMPATIBILITY</div>
+        <div class="body">The primary API is the Elasticsearch 8.13 wire protocol. Existing clients, dashboards, and ingest collectors connect unchanged. Migration is a configuration change, not a rewrite.</div>
+      </div>
+    </div>
+    <div class="principle">
+      <span class="num">03</span>
+      <div>
+        <div class="head">DETERMINISTIC RUNTIME</div>
+        <div class="body">Rust, no garbage collector, no JVM warm-up. Cold start is single-digit milliseconds. Tail latency is governed by code paths, not heap pressure. SLOs measured at p99.9 mean what they say.</div>
+      </div>
+    </div>
+    <div class="principle">
+      <span class="num">04</span>
+      <div>
+        <div class="head">SOVEREIGN BY DEFAULT</div>
+        <div class="body">A single static binary. Air-gap installable. No mandatory cloud dependency. Identity, encryption keys, and audit data live wherever the customer's policy says they live.</div>
+      </div>
+    </div>
+    <div class="principle">
+      <span class="num">05</span>
+      <div>
+        <div class="head">EXPLAINABLE BY CONSTRUCTION</div>
+        <div class="body">Every query produces an explain-plan with cost and row counts. Every privileged action produces an audit entry. Every release ships with reproduction scripts for every published number.</div>
+      </div>
+    </div>
+    <div class="principle">
+      <span class="num">06</span>
+      <div>
+        <div class="head">ONE OPERATIONAL SURFACE</div>
+        <div class="body">One config file. One metrics endpoint. One audit trail. One backup story. The platform that runs SIEM also runs RAG, observability, and agent memory — same on-call rotation, same dashboards, same upgrade procedure.</div>
+      </div>
+    </div>
+
+    <div class="grow"></div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · ARCHITECTURE BRIEF</span>
+    <span class="num">04 / 14</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P5 · SYSTEM LAYERS                                          -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>05 · SYSTEM LAYERS</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>05</span><span class="dash">·</span><span>SYSTEM LAYERS</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">FROM WIRE<br>TO <span class="accent">SEGMENT.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      The engine is a stack of well-bounded layers. Wire protocols
+      live at the top. The query planner sits in the middle. The
+      storage substrate lives at the bottom. Each layer has one
+      responsibility and one downstream contract — which is what
+      makes the engine fast to read for a new architect and safe to
+      modify for a contributor.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <div class="arch">
+      {{SVG:arch_layers}}
+      <div class="legend">
+        <span><span class="swatch ink"></span><span class="ink">REQUEST PATH</span></span>
+        <span><span class="swatch yel"></span><span class="yel">CRITICAL HOT PATH</span></span>
+        <span><span class="swatch dashed"></span><span>DURABILITY · STATE</span></span>
+      </div>
+    </div>
+
+    <div class="grow"></div>
+
+    <div class="kicker">
+      <span>EVERY LAYER</span>
+      <span class="dash">·</span>
+      <span>OWNS ONE CONCERN · EXPOSES ONE CONTRACT</span>
+    </div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · ARCHITECTURE BRIEF</span>
+    <span class="num">05 / 14</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P6 · AI / RAG PLANE                                         -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>06 · AI &amp; RAG PLANE</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>06</span><span class="dash">·</span><span>AI &amp; RAG PLANE</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">CHUNK. EMBED.<br>RECALL. <span class="accent">REASON.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      The AI plane turns documents and conversations into retrievable
+      context. Three primitives — chunking, embedding, agent memory —
+      sit in-process with the retrieval engine, so the round trip
+      between the model and the right context is one network hop and
+      one cache.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <div class="arch">
+      {{SVG:arch_ai_plane}}
+      <div class="legend">
+        <span><span class="swatch ink"></span><span class="ink">DOCUMENT FLOW</span></span>
+        <span><span class="swatch yel"></span><span class="yel">RETRIEVAL FLOW</span></span>
+        <span><span class="swatch dashed"></span><span>EXTERNAL EMBEDDER</span></span>
+      </div>
+    </div>
+
+    <div class="sp-6"></div>
+
+    <h4>WHAT THIS BUYS THE BUSINESS</h4>
+    <div class="sp-2"></div>
+
+    <div class="kv-row">
+      <div class="k">CONTEXT QUALITY</div>
+      <div class="v">Chunking is sentence-aware with configurable overlap, so semantic boundaries survive the split. Recall draws from keyword and vector signals at once, then blends with recency for memory tasks.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">VENDOR INDEPENDENCE</div>
+      <div class="v">The embedding proxy speaks the OpenAI-compatible HTTP API. Use OpenAI today, Voyage tomorrow, an in-house model next quarter — without re-indexing, and without re-architecting the application.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">AGENT MEMORY</div>
+      <div class="v">An append-only memory store with semantic dedup and a recency-blended scoring function. Agents stop re-asking, stop forgetting, and stop drifting across sessions.</div>
+    </div>
+
+    <div class="grow"></div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · ARCHITECTURE BRIEF</span>
+    <span class="num">06 / 14</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P7 · HYBRID QUERY LIFECYCLE                                 -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>07 · HYBRID QUERY LIFECYCLE</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>07</span><span class="dash">·</span><span>HYBRID QUERY LIFECYCLE</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">PARSE. PLAN.<br>FAN OUT. <span class="accent">FUSE.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      A hybrid query is the default. One request can express a keyword
+      match, a vector neighbourhood, an aggregation, and a structured
+      filter. The planner decomposes that into independent passes,
+      runs them concurrently against the right index, and fuses the
+      results with reciprocal rank fusion in a single pass — no
+      external orchestrator, no cross-store HTTP calls.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <div class="arch">
+      {{SVG:arch_query_lifecycle}}
+      <div class="legend">
+        <span><span class="swatch ink"></span><span class="ink">REQUEST · RESPONSE</span></span>
+        <span><span class="swatch yel"></span><span class="yel">PARALLEL EXECUTION</span></span>
+        <span><span class="swatch dashed"></span><span>EXPLAIN · OBSERVABILITY</span></span>
+      </div>
+    </div>
+
+    <div class="grow"></div>
+
+    <div class="kicker">
+      <span>EVERY QUERY</span>
+      <span class="dash">·</span>
+      <span>RETURNS AN EXPLAIN-PLAN WITH COST AND ROW COUNTS</span>
+    </div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · ARCHITECTURE BRIEF</span>
+    <span class="num">07 / 14</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P8 · STORAGE &amp; DURABILITY                                -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>08 · STORAGE &amp; DURABILITY</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>08</span><span class="dash">·</span><span>STORAGE &amp; DURABILITY</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">SHARDED MEMTABLE.<br><span class="accent">SEALED SEGMENTS.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      Writes hit a sharded in-memory table to spread contention across
+      cores. Durability is anchored in a single write-ahead log with
+      monotonic sequence numbers, fsynced once per batch. Periodic
+      flushes drain the memtable into immutable segments — compressed,
+      memory-mapped, and merged in the background. Restart replays
+      the log; orphan segments are re-attached on open.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <div class="arch">
+      {{SVG:arch_storage}}
+      <div class="legend">
+        <span><span class="swatch ink"></span><span class="ink">WRITE PATH</span></span>
+        <span><span class="swatch yel"></span><span class="yel">DURABLE STATE</span></span>
+        <span><span class="swatch dashed"></span><span>BACKGROUND TASK</span></span>
+      </div>
+    </div>
+
+    <div class="sp-6"></div>
+
+    <div class="kv-row">
+      <div class="k">DURABILITY</div>
+      <div class="v">Every accepted batch is persisted to the WAL with fsync and a per-batch CRC before the client sees a 2xx. Crash recovery replays from the last checkpoint, idempotent per sequence number.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">BACK-PRESSURE</div>
+      <div class="v">When the WAL queue exceeds its watermark, ingest returns 429 with a structured retry hint. Producers slow down; the engine never silently drops.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">RECOVERY</div>
+      <div class="v">Open re-scans the data directory and re-attaches any orphan segments left by a concurrent flush and exit. Restart on a five-million-document workload preserves every accepted document.</div>
+    </div>
+
+    <div class="grow"></div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · ARCHITECTURE BRIEF</span>
+    <span class="num">08 / 14</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P9 · VECTOR SUBSYSTEM                                       -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>09 · VECTOR SUBSYSTEM</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>09</span><span class="dash">·</span><span>VECTOR SUBSYSTEM</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">HNSW.<br>QUANTIZED.<br><span class="accent">RE-RANKED.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      The vector engine is an in-process HNSW graph with three
+      distance metrics, three quantization levels, and an optional
+      full-precision re-ranking pass. Recall and latency are
+      runtime-tunable through a single parameter, so the same index
+      can serve a low-latency conversational lookup and a high-recall
+      offline batch from the same on-disk artifact.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <div class="arch">
+      {{SVG:arch_vector}}
+      <div class="legend">
+        <span><span class="swatch ink"></span><span class="ink">GRAPH TRAVERSAL</span></span>
+        <span><span class="swatch yel"></span><span class="yel">CANDIDATE SET</span></span>
+        <span><span class="swatch dashed"></span><span>OPTIONAL RE-RANK</span></span>
+      </div>
+    </div>
+
+    <div class="sp-6"></div>
+
+    <div class="kv-row">
+      <div class="k">QUANTIZATION</div>
+      <div class="v">Three modes: float32 baseline, scalar 8-bit (4× compression), nibble (8× compression). The HNSW traversal uses the quantized form; an optional float32 re-ranking pass restores precision on the final top-K.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">DISTANCE METRICS</div>
+      <div class="v">Cosine, L2, and dot product. Per-index choice. The metric is part of the on-disk format header; a loader rejects any index with a mismatched metric or format version.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">RECALL · LATENCY DIAL</div>
+      <div class="v">A single runtime parameter trades recall for latency without rebuilding the index. Low-latency UIs and high-recall analytics share one artifact.</div>
+    </div>
+
+    <div class="grow"></div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · ARCHITECTURE BRIEF</span>
+    <span class="num">09 / 14</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P10 · CLUSTER &amp; STATE                                    -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>10 · CLUSTER &amp; STATE</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>10</span><span class="dash">·</span><span>CLUSTER &amp; STATE</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">EMBEDDED CONSENSUS.<br><span class="accent">NO CO-PROCESS.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      Cluster metadata — index schemas, shard assignments, the node
+      roster — is replicated by an embedded Raft state machine. There
+      is no separate ZooKeeper, etcd, or Consul to deploy, license,
+      page on, or upgrade in lock-step with the engine. The data
+      plane stays out of the consensus path: only metadata changes
+      take a Raft round-trip.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <div class="arch">
+      {{SVG:arch_cluster}}
+      <div class="legend">
+        <span><span class="swatch ink"></span><span class="ink">DATA TRAFFIC</span></span>
+        <span><span class="swatch yel"></span><span class="yel">RAFT (METADATA)</span></span>
+        <span><span class="swatch dashed"></span><span>HEARTBEAT · GOSSIP</span></span>
+      </div>
+    </div>
+
+    <div class="sp-6"></div>
+
+    <div class="kv-row">
+      <div class="k">METADATA SCOPE</div>
+      <div class="v">Indices, schemas, shard placement, node membership. Replicated by Raft. Reads of metadata never block on consensus; the leader acknowledges, and followers serve.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">DATA SCOPE</div>
+      <div class="v">Documents, segments, vectors, and logs flow over the data ports. They are not Raft-replicated — replication for durability is per-index, governed by the metadata that Raft owns.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">FAILURE MODEL</div>
+      <div class="v">A leader loss costs one election round-trip on the metadata plane only. Reads and writes against existing indices continue uninterrupted.</div>
+    </div>
+
+    <div class="grow"></div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · ARCHITECTURE BRIEF</span>
+    <span class="num">10 / 14</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P11 · SECURITY · COMPLIANCE                                 -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>11 · SECURITY &amp; COMPLIANCE</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>11</span><span class="dash">·</span><span>SECURITY &amp; COMPLIANCE</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">TAMPER-EVIDENT.<br><span class="accent">RBAC-NATIVE.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      Every privileged operation is a journal entry in an append-only
+      audit log whose entries chain by SHA-256. Tampering with any
+      entry breaks the chain at that point and at every subsequent
+      entry. A single endpoint verifies the chain end-to-end;
+      operators pin known-good chain heads externally for
+      cross-restart attestation.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <div class="arch">
+      {{SVG:arch_audit_chain}}
+      <div class="legend">
+        <span><span class="swatch ink"></span><span class="ink">JOURNAL ENTRY</span></span>
+        <span><span class="swatch yel"></span><span class="yel">SHA-256 LINK</span></span>
+        <span><span class="swatch dashed"></span><span>VERIFY · EXPORT</span></span>
+      </div>
+    </div>
+
+    <div class="sp-6"></div>
+
+    <div class="matrix">
+      <div class="h">CONTROL</div>
+      <div class="h">IMPLEMENTATION</div>
+      <div class="h">STATUS</div>
+
+      <div class="k">API-KEY AUTH</div>
+      <div>Admin key generated on first start; subsequent keys minted under RBAC. Auth on every endpoint.</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">RBAC</div>
+      <div>Seven privileges; six seeded roles (admin, write, read, read-only-index, snapshot-admin, auditor). Per-pattern index scoping.</div>
+      <div class="status beta">BETA</div>
+
+      <div class="k">AUDIT LOG</div>
+      <div>Append-only, hash-chained, queryable. Verify endpoint walks the chain end-to-end.</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">TLS · TRANSIT</div>
+      <div>rustls-based listener, modern ciphers. In-process integration scaffolded; final wiring lands at v1.0.0.</div>
+      <div class="status beta">BETA</div>
+
+      <div class="k">ENCRYPTION AT REST</div>
+      <div>AES-GCM on segment + WAL files; keys held by an external KMS or BYOK-style integration.</div>
+      <div class="status road">ROAD V1.0</div>
+    </div>
+
+    <div class="grow"></div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · ARCHITECTURE BRIEF</span>
+    <span class="num">11 / 14</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P12 · OPERATIONS &amp; OBSERVABILITY                         -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>12 · OPERATIONS &amp; OBSERVABILITY</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>12</span><span class="dash">·</span><span>OPERATIONS &amp; OBSERVABILITY</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">ONE BINARY.<br><span class="accent">DAY-TWO READY.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      Day-two operations are baked in. Liveness and readiness probes
+      ship on both API ports for Kubernetes. A built-in slow-query
+      log surfaces regressions before they reach production. The
+      embedded admin UI gives an operator everything an SRE needs
+      without installing a second product.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <h4>OPERATIONAL SURFACE</h4>
+    <div class="sp-2"></div>
+
+    <div class="matrix">
+      <div class="h">CAPABILITY</div>
+      <div class="h">SHAPE</div>
+      <div class="h">STATUS</div>
+
+      <div class="k">LIVENESS · READINESS</div>
+      <div>Standard Kubernetes probes on both data-plane ports. Listeners only bind after WAL replay; readiness then tracks cluster health — rolling restart is fleet-safe by default.</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">METRICS</div>
+      <div>Prometheus exposition. Counters, histograms, and gauges across ingest, query, flush, cache. Per-instance registry — no global-singleton label collisions.</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">SLOW-QUERY LOG</div>
+      <div>Bounded ring buffer of slow queries, threshold runtime-tunable. List, clear, and re-threshold from a single admin endpoint.</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">EMBEDDED UI</div>
+      <div>The Xerj Console playground SPA is compiled into the binary and served at a reserved path. Zero external dependency to operate the cluster.</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">EXPLAIN PLAN</div>
+      <div>Per-query cost and row counts queryable as a first-class endpoint. Quotas and circuit breakers enforce per-tenant ceilings before execution.</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">HELM &amp; DOCKER</div>
+      <div>StatefulSet chart with PVC, headless service, non-root security context, multi-arch image, HEALTHCHECK wired to readiness.</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">SLOW · ADMIN APIS</div>
+      <div>List, clear, threshold-set on the slow-query buffer; audit search and verify; security role list and put.</div>
+      <div class="status ga">GA</div>
+    </div>
+
+    <div class="grow"></div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · ARCHITECTURE BRIEF</span>
+    <span class="num">12 / 14</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P13 · MEASURED PERFORMANCE                                  -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>13 · MEASURED PERFORMANCE</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>13</span><span class="dash">·</span><span>MEASURED PERFORMANCE</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">REAL HARDWARE.<br><span class="accent">REAL WORKLOAD.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      The numbers below come from the v1.0.0-rc.1 verification run on
+      a 32-core NVMe host against a real OpenSSH log corpus and a
+      thousand-vector RAG workload. Every comparison number against
+      Elasticsearch 8.13 was measured on the same host with identical
+      wire payloads — not extrapolated.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <div class="bigstat">
+      <div class="b">
+        <span class="k">COLD START</span>
+        <span class="v">4 ms</span>
+        <span class="u">vs ES 6.05 s · 863×</span>
+      </div>
+      <div class="b">
+        <span class="k">BURST INGEST</span>
+        <span class="v">5.97 M</span>
+        <span class="u">docs/sec · loghub OpenSSH</span>
+      </div>
+      <div class="b">
+        <span class="k">SUSTAINED</span>
+        <span class="v">1.43 M</span>
+        <span class="u">docs/sec · 5 M-doc run</span>
+      </div>
+      <div class="b">
+        <span class="k">BINARY</span>
+        <span class="v">19.6 MB</span>
+        <span class="u">single static · no JVM</span>
+      </div>
+    </div>
+
+    <div class="sp-6"></div>
+
+    <h4>HEAD-TO-HEAD vs ELASTICSEARCH 8.13</h4>
+    <div class="sp-2"></div>
+
+    <div class="perf">
+      <div class="h">DIMENSION</div>
+      <div class="h n">ES 8.13</div>
+      <div class="h n">XERJ</div>
+      <div class="h n">DELTA</div>
+      <div class="h n">SOURCE</div>
+
+      <div>Cold start</div>
+      <div class="n">6.05 s</div>
+      <div class="n">4 ms</div>
+      <div class="n accent">863×</div>
+      <div class="n">verify run</div>
+
+      <div>RSS · 1 K-vector index</div>
+      <div class="n">2,857 MB</div>
+      <div class="n">727 MB</div>
+      <div class="n accent">3.9×</div>
+      <div class="n">verify run</div>
+
+      <div>Index creation</div>
+      <div class="n">93.9 ms</div>
+      <div class="n">2.4 ms</div>
+      <div class="n accent">39×</div>
+      <div class="n">verify run</div>
+
+      <div>Term query · p50</div>
+      <div class="n">0.79 ms</div>
+      <div class="n">0.31 ms</div>
+      <div class="n accent">2.5×</div>
+      <div class="n">verify run</div>
+
+      <div>Match query · p50</div>
+      <div class="n">1.28 ms</div>
+      <div class="n">0.33 ms</div>
+      <div class="n accent">3.9×</div>
+      <div class="n">verify run</div>
+
+      <div>Top-K sort · p50</div>
+      <div class="n">4.28 ms</div>
+      <div class="n">0.34 ms</div>
+      <div class="n accent">12.6×</div>
+      <div class="n">verify run</div>
+
+      <div>Bulk · 1 K vectors</div>
+      <div class="n">10,219 d/s</div>
+      <div class="n">22,974 d/s</div>
+      <div class="n accent">2.25×</div>
+      <div class="n">verify run</div>
+    </div>
+
+    <div class="sp-6"></div>
+
+    <h4>WIRE COMPATIBILITY</h4>
+    <div class="sp-2"></div>
+
+    <div class="kv-row">
+      <div class="k">ES YAML CONFORMANCE</div>
+      <div class="v">1,305 / 1,329 cases pass — 98.2 % against the published Elasticsearch 8.13 REST conformance suite. Existing clients, dashboards, and ingest collectors connect unchanged.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">DURABILITY UNDER RESTART</div>
+      <div class="v">Five-million-document workload: every accepted document survives a process restart. Orphan-segment recovery on open closes the historical concurrent-flush-and-exit data-loss window.</div>
+    </div>
+
+    <div class="grow"></div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · ARCHITECTURE BRIEF</span>
+    <span class="num">13 / 14</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P14 · GET STARTED · CONTACT                                 -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>14 · GET STARTED</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-10"></div>
+    <div class="kicker"><span>14</span><span class="dash">·</span><span>GET STARTED</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">PROVE IT<br><span class="accent">ON YOUR DATA.</span></h2>
+
+    <div class="sp-6"></div>
+
+    <p class="body">
+      The fastest path is a two-week pilot on a real workload. We
+      send the binary, the Helm chart, and the reproduction scripts
+      for every number in this brief. You send one workload — SIEM,
+      RAG, observability, or agent memory. We meet again in two
+      weeks with your numbers, on your hardware, behind your
+      perimeter.
+    </p>
+
+    <div class="sp-8"></div>
+
+    <div style="padding: 28px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);">
+      <div class="kicker"><span>CONTACT</span></div>
+      <div class="sp-3"></div>
+      <div style="font-family: var(--font-display); font-weight: 900; font-size: 42pt; line-height:1; letter-spacing: 0.01em;">
+        HELLO<span class="accent">@</span>XERJ.AI
+      </div>
+      <div class="sp-3"></div>
+      <div style="font-family: var(--font-data); font-size: 9pt; letter-spacing: var(--track-ui); text-transform: uppercase; color: var(--mute);">
+        XERJ.AI · XERJ.COM · XERJ.DEV
+      </div>
+    </div>
+
+    <div class="sp-6"></div>
+
+    <h4>PILOT PROCESS</h4>
+    <div class="sp-2"></div>
+
+    <div class="kv-row">
+      <div class="k">WEEK 0</div>
+      <div class="v">Scoping call · pick workload · sign mutual NDA if needed (not required to receive the binary).</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">WEEK 1</div>
+      <div class="v">Deploy in your environment · reproduce the published numbers on sample data · smoke-test ES client compatibility.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">WEEK 2</div>
+      <div class="v">Shadow against your workload · compare latency, footprint, cost. Decision meeting: your numbers, your hardware, your call.</div>
+    </div>
+
+    <div class="grow"></div>
+
+    <div class="kicker">
+      <span>XERJ.AI</span>
+      <span class="dash">·</span>
+      <span>ARCHITECTURE BRIEF · V1</span>
+      <span class="dash">·</span>
+      <span>ENGINE V1.0.0-RC.1 · 2026-04</span>
+    </div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · ARCHITECTURE BRIEF</span>
+    <span class="num">14 / 14</span>
+  </div>
+</section>
+
+</body>
+</html>

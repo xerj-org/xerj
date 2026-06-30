@@ -1,0 +1,631 @@
+{"id":"disc-1000322","source":"discourse","score":4,"posted_at":"2021-09-01T17:07:28.662Z","tags":[],"title":"Setup Elasticsearch SlowLog Alerts in Elastic Cloud","_secondary":true}
+{"id":"disc-1106207","source":"discourse","score":2,"posted_at":"2022-08-15T12:52:03.469Z","tags":["data-views"],"title":"Kibana - Alert data viewer and Edit Rule are stuck and slow","_secondary":true}
+{"id":"disc-919070","source":"discourse","score":21,"posted_at":"2021-01-12T09:10:17.489Z","tags":[],"title":"High CPU (cgroup) usage/utilization","_secondary":true}
+{"id":"disc-984464","source":"discourse","score":7,"posted_at":"2021-07-15T14:39:44.075Z","tags":["alerting"],"title":"Healthcheck based on recent log entries"}
+{"id":"disc-955379","source":"discourse","score":47,"posted_at":"2021-04-23T23:36:56.908Z","tags":["alerting"],"title":"Watcher that counts the documents that arrive to an index in kibana"}
+{"id":"disc-1013947","source":"discourse","score":4,"posted_at":"2021-10-13T10:49:30.993Z","tags":[],"title":"Rule with Jira Connector cannot find parent issue"}
+{"id":"disc-1397517","source":"discourse","score":6,"posted_at":"2024-09-27T21:25:48.021Z","tags":["alerting","slow-dashboard"],"title":"Elasticsearch Watcher - socket_timeout_exception when trying to send a .pdf email attachment generated from a Dashboard","_secondary":true}
+{"id":"disc-1291040","source":"discourse","score":1,"posted_at":"2023-05-11T08:51:18.781Z","tags":[],"title":"Kibana alert result link seems to be broken"}
+{"id":"disc-1379398","source":"discourse","score":1,"posted_at":"2024-06-05T20:45:40.047Z","tags":["alerting"],"title":"Kibana 8.14.0 Security Update (ESA-2024-15)"}
+{"id":"disc-929281","source":"discourse","score":5,"posted_at":"2021-02-10T16:17:45.545Z","tags":["alerting"],"title":"[Alerting] My alerts are broken after upgrading Elastic Cloud to 7.10.2"}
+{"id":"disc-1100669","source":"discourse","score":4,"posted_at":"2022-07-26T13:25:08.722Z","tags":["alerting"],"title":"Long process notification"}
+{"id":"disc-1106615","source":"discourse","score":3,"posted_at":"2022-08-16T16:03:08.055Z","tags":["alerting"],"title":"Alerts on derivatives in elastic"}
+{"id":"disc-946468","source":"discourse","score":3,"posted_at":"2021-03-30T14:58:10.940Z","tags":[],"title":"Jira Action sending broken links on detection jobs"}
+{"id":"disc-1280233","source":"discourse","score":4,"posted_at":"2023-04-06T15:58:57.368Z","tags":["alerting","saved-objects"],"title":"Error in one alert rule object crashes the rule list"}
+{"id":"disc-939040","source":"discourse","score":5,"posted_at":"2021-03-09T13:34:59.931Z","tags":[],"title":"Getting Alerts and Actions to work"}
+{"id":"disc-1098990","source":"discourse","score":5,"posted_at":"2022-07-20T22:19:10.194Z","tags":["alerting"],"title":"Scheduled Email notifications (Alerts) with aggregated results in the form of excel sheets"}
+{"id":"disc-681171","source":"discourse","score":5,"posted_at":"2019-07-21T10:21:43.092Z","tags":["alerting"],"title":"Watcher PDF/PNG auto-generated attached report broken when sending through email ( version 7.2)"}
+{"id":"disc-588592","source":"discourse","score":6,"posted_at":"2019-01-15T15:57:46.677Z","tags":[],"title":"Nodes not linking up in cluster","_secondary":true}
+{"id":"gh-kibana-1011","source":"github","score":4,"posted_at":"2014-03-04T04:19:06Z","tags":["alerting"],"title":"integrate alerting system with kibana"}
+{"id":"gh-kibana-98912","source":"github","score":0,"posted_at":"2021-04-30T13:24:04Z","tags":["alerting","apm"],"title":"[RAC] RFC: Index naming and hierarchy"}
+{"id":"gh-kibana-93728","source":"github","score":0,"posted_at":"2021-03-05T02:57:22Z","tags":["siem","license"],"title":"[RAC] Alerts as Data Schema Definition","_secondary":true}
+{"id":"gh-kibana-43994","source":"github","score":0,"posted_at":"2019-08-26T14:24:13Z","tags":["alerting","saved-objects"],"title":"Alerting feature controls","_secondary":true}
+{"id":"gh-kibana-183248","source":"github","score":1,"posted_at":"2024-05-13T09:41:31Z","tags":["kql","apm","anomaly"],"title":"[Observability] [AAD] Streamline the method of saving group information in alert document","_secondary":true}
+{"id":"gh-kibana-9583","source":"github","score":10,"posted_at":"2016-12-21T05:40:38Z","tags":[],"title":"Kibana sometimes sends HTTP requests to Elasticsearch without credentials"}
+{"id":"gh-kibana-50213","source":"github","score":3,"posted_at":"2019-11-11T20:52:53Z","tags":["kql","alerting","saved-objects"],"title":"Make alert params searchable"}
+{"id":"gh-kibana-2706","source":"github","score":30,"posted_at":"2015-01-20T23:55:08Z","tags":[],"title":"Data annotations (aka Chart markers)","_secondary":true}
+{"id":"gh-kibana-50266","source":"github","score":5,"posted_at":"2019-11-12T02:35:06Z","tags":["alerting","saved-objects"],"title":"Import / export of rules and connectors as Kibana saved object Export/Import","_secondary":true}
+{"id":"gh-kibana-181808","source":"github","score":0,"posted_at":"2024-04-26T08:28:17Z","tags":["fleet","security-app"],"title":"[Security Solution] Should not require EPR access in air-gapped environments","_secondary":true}
+{"id":"gh-kibana-85841","source":"github","score":0,"posted_at":"2020-12-14T19:30:11Z","tags":["alerting","license"],"title":"[Stack Monitoring] [Test Scenario] Out of the box alerting","_secondary":true}
+{"id":"gh-kibana-29510","source":"github","score":0,"posted_at":"2019-01-29T15:20:05Z","tags":["apm"],"title":"7.0 migration notifications","_secondary":true}
+{"id":"gh-kibana-61313","source":"github","score":0,"posted_at":"2020-03-25T17:22:13Z","tags":["discover","alerting"],"title":"New \"search alert\" type based on ES dsl query and hit count"}
+{"id":"gh-kibana-71566","source":"github","score":7,"posted_at":"2020-07-13T23:13:20Z","tags":["discover","alerting"],"title":"[discuss] Move to domain-based directory structure"}
+{"id":"gh-kibana-177852","source":"github","score":0,"posted_at":"2024-02-29T06:33:08Z","tags":[],"title":"[Security Solution] Rule Update failure on 8.13 from 7.17.18","_secondary":true}
+{"id":"gh-kibana-100133","source":"github","score":2,"posted_at":"2021-05-14T15:35:30Z","tags":[],"title":"[Stack Monitoring] Change out of the box alerts to be opt-in, rather than auto-created","_secondary":true}
+{"id":"gh-kibana-89584","source":"github","score":4,"posted_at":"2021-01-28T15:43:16Z","tags":["lens","alerting","apm","fleet","license"],"title":"By default, a plugin should not be disable-able","_secondary":true}
+{"id":"gh-kibana-69611","source":"github","score":14,"posted_at":"2020-06-19T08:25:35Z","tags":["alerting"],"title":"Expand the context available within Kibana Alerting in ES 7.7"}
+{"id":"gh-kibana-67270","source":"github","score":3,"posted_at":"2020-05-25T12:42:44Z","tags":[],"title":"[toasts] Improved Error Toast Experience","_secondary":true}
+{"id":"gh-kibana-61885","source":"github","score":0,"posted_at":"2020-03-30T19:53:35Z","tags":["alerting"],"title":"Alerting TLS requirement should be a blocking action in the UI"}
+{"id":"gh-kibana-95618","source":"github","score":0,"posted_at":"2021-03-28T06:32:36Z","tags":[],"title":"[Security Solution] Sending Entire Detection Alert JSON to JIRA Service Desk Issue Output Doesn't Work","_secondary":true}
+{"id":"gh-kibana-98010","source":"github","score":0,"posted_at":"2021-04-22T13:38:27Z","tags":[],"title":"[Logs UI] Handle log threshold alert grouping fields with large cardinalities more robustly","_secondary":true}
+{"id":"gh-kibana-110758","source":"github","score":0,"posted_at":"2021-09-01T07:14:55Z","tags":[],"title":"[RAC] Alerts view in Observability UI performance","_secondary":true}
+{"id":"gh-kibana-159143","source":"github","score":0,"posted_at":"2023-06-06T16:58:43Z","tags":[],"title":"[Security Solution] Single alert may be hidden due to table height","_secondary":true}
+{"id":"gh-kibana-116636","source":"github","score":0,"posted_at":"2021-10-28T13:54:01Z","tags":["alerting","saved-objects","oom"],"title":"[7.16.0 BC2] Potential memory leak observed - possibly caused by perf_hooks usage"}
+{"id":"gh-kibana-64077","source":"github","score":1,"posted_at":"2020-04-21T14:25:08Z","tags":[],"title":"[Meta] UI ability to assign alert actions per action group"}
+{"id":"gh-kibana-50077","source":"github","score":1,"posted_at":"2019-11-07T03:53:28Z","tags":[],"title":"Ability to throttle alert instances until action group changes","_secondary":true}
+{"id":"gh-kibana-4161","source":"github","score":3,"posted_at":"2015-06-10T09:18:25Z","tags":["discover"],"title":"Indicate dashboard search panel limit of 500 results","_secondary":true}
+{"id":"gh-kibana-3112","source":"github","score":1,"posted_at":"2015-02-20T11:13:12Z","tags":[],"title":"Kibana 4 can't connect to local Elasticsearch","_secondary":true}
+{"id":"gh-kibana-96568","source":"github","score":1,"posted_at":"2021-04-08T13:00:02Z","tags":[],"title":"Observability alerts flyout navigation / pagination","_secondary":true}
+{"id":"gh-kibana-93072","source":"github","score":0,"posted_at":"2021-03-01T17:41:31Z","tags":["alerting","license"],"title":"[Stack Monitoring] [Test Scenario] Out of the box alerting","_secondary":true}
+{"id":"gh-kibana-90934","source":"github","score":0,"posted_at":"2021-02-10T13:19:04Z","tags":["alerting"],"title":"[8.0 only] Should the alerting services plugin always be enabled?"}
+{"id":"gh-kibana-39430","source":"github","score":0,"posted_at":"2019-06-21T11:49:35Z","tags":["alerting"],"title":"Scope-able elasticsearch clients"}
+{"id":"gh-kibana-124715","source":"github","score":0,"posted_at":"2022-02-04T17:01:10Z","tags":["saved-objects","license"],"title":"[RAM] Bulk update on rules"}
+{"id":"gh-kibana-77966","source":"github","score":0,"posted_at":"2020-09-19T01:31:47Z","tags":["apm"],"title":"[APM] Agent API Key Management","_secondary":true}
+{"id":"gh-kibana-40375","source":"github","score":0,"posted_at":"2019-07-04T17:05:16Z","tags":["alerting","apm"],"title":"[APM] Display multiple chained exceptions "}
+{"id":"gh-kibana-159462","source":"github","score":0,"posted_at":"2023-06-12T12:58:28Z","tags":[],"title":"Recover life-cycle alerts when rule is deleted/disabled"}
+{"id":"gh-kibana-87048","source":"github","score":0,"posted_at":"2020-12-30T14:51:57Z","tags":["alerting"],"title":"RuleTypes can't provide an AlertContext on recovery"}
+{"id":"gh-kibana-74393","source":"github","score":4,"posted_at":"2020-08-05T17:24:51Z","tags":["alerting","saved-objects"],"title":"[alerting] When you rotate/change/lose your encrypted saved object key, alerts should go from enabled to disabled  "}
+{"id":"gh-kibana-56403","source":"github","score":24,"posted_at":"2020-01-30T16:20:49Z","tags":[],"title":"OpsGenie action type"}
+{"id":"gh-kibana-162111","source":"github","score":0,"posted_at":"2023-07-18T07:57:26Z","tags":[],"title":"[Cloud Security] [Findings] [Misconfigurations] [Alerts] - Create detection rule with API","_secondary":true}
+{"id":"gh-kibana-117697","source":"github","score":0,"posted_at":"2021-11-05T16:45:21Z","tags":["anomaly"],"title":"[RAC] Review readability of Alert Reason Messages","_secondary":true}
+{"id":"gh-kibana-101016","source":"github","score":0,"posted_at":"2021-05-31T16:20:50Z","tags":["alerting","siem","apm","saved-objects"],"title":"[RAC][Meta] Consolidate the two indexing implementations in rule_registry plugin","_secondary":true}
+{"id":"gh-kibana-82027","source":"github","score":0,"posted_at":"2020-10-29T15:05:18Z","tags":["siem","saved-objects"],"title":"SavedObjects should support importing/exporting even if they're hidden from the API","_secondary":true}
+{"id":"gh-kibana-43673","source":"github","score":6,"posted_at":"2019-08-21T13:48:29Z","tags":["lens","canvas","alerting","siem","apm","saved-objects"],"title":"Don't index so many saved object fields","_secondary":true}
+{"id":"gh-es-1242","source":"github","score":330,"posted_at":"2011-08-13T15:45:14Z","tags":[],"title":"Changes API","_secondary":true}
+{"id":"gh-es-91159","source":"github","score":79,"posted_at":"2022-10-27T15:15:15Z","tags":[],"title":"Install elasticsearch with Homebrew on OSX Ventura","_secondary":true}
+{"id":"gh-es-52610","source":"github","score":0,"posted_at":"2020-02-21T00:08:20Z","tags":[],"title":"[CI] Builds failing due to Gradle test executor crash"}
+{"id":"gh-es-50032","source":"github","score":0,"posted_at":"2019-12-10T14:38:37Z","tags":["alerting"],"title":"Provide migration path for monitoring alerting from Watcher to Kibana alerting "}
+{"id":"gh-es-30295","source":"github","score":0,"posted_at":"2018-05-01T09:31:49Z","tags":["alerting"],"title":"[CI] Packaging tests fail with connection failure on opensuse and sles"}
+{"id":"gh-es-30290","source":"github","score":0,"posted_at":"2018-05-01T08:07:59Z","tags":["alerting"],"title":"[CI] AssertionError: Accounting breaker not reset"}
+{"id":"gh-es-48856","source":"github","score":0,"posted_at":"2019-11-05T09:33:08Z","tags":["alerting"],"title":"Add privilege for script actions"}
+{"id":"gh-es-30731","source":"github","score":0,"posted_at":"2018-05-18T15:13:21Z","tags":["alerting"],"title":"Enable rolling upgrades from default distribution prior to 6.3.0 to default distribution post 6.3.0"}
+{"id":"gh-es-30031","source":"github","score":0,"posted_at":"2017-02-10T18:08:28Z","tags":["alerting"],"title":"Internal indices consistent naming"}
+{"id":"gh-es-48381","source":"github","score":0,"posted_at":"2019-10-23T11:05:04Z","tags":["alerting"],"title":"[CI] FullClusterRestartIT#testWatcher failures"}
+{"id":"gh-es-34659","source":"github","score":40,"posted_at":"2018-10-19T22:15:15Z","tags":["alerting"],"title":"Add Timezone Configuration to Watcher"}
+{"id":"gh-es-118623","source":"github","score":0,"posted_at":"2024-12-12T21:38:03Z","tags":["alerting"],"title":"Performance degradation after upgrading from 8.6.1 to 8.16.1","_secondary":true}
+{"id":"gh-es-66820","source":"github","score":0,"posted_at":"2020-12-26T06:57:07Z","tags":["alerting"],"title":"Netty4HeadBodyIsEmptyIT.testTemplateExists fails in fips mode","_secondary":true}
+{"id":"gh-es-48716","source":"github","score":0,"posted_at":"2019-10-30T19:58:58Z","tags":["alerting"],"title":"Allow creation of API keys on behalf of other users"}
+{"id":"gh-es-25337","source":"github","score":0,"posted_at":"2017-06-21T15:14:22Z","tags":[],"title":"Cardinality on `_score` return incorrect results","_secondary":true}
+{"id":"gh-es-55477","source":"github","score":0,"posted_at":"2020-04-20T17:18:06Z","tags":[],"title":"Elasticsearch iNotify not being sent to systemctl / systemd"}
+{"id":"gh-es-62501","source":"github","score":0,"posted_at":"2020-09-16T21:00:11Z","tags":["alerting"],"title":"Stop accessing System Indices directly in REST tests"}
+{"id":"gh-es-41922","source":"github","score":0,"posted_at":"2019-05-07T21:48:50Z","tags":["alerting"],"title":"NullPointerException when creating a watch with Jira action"}
+{"id":"gh-es-40244","source":"github","score":0,"posted_at":"2019-03-20T08:44:47Z","tags":["alerting"],"title":"compound sub-files must have a valid codec header and footer: file is too small "}
+{"id":"gh-es-39284","source":"github","score":0,"posted_at":"2019-02-22T02:36:17Z","tags":["alerting"],"title":"Running Kibana Upgrade assistant from 6 to 7 makes security index non-restricted"}
+{"id":"gh-es-32737","source":"github","score":0,"posted_at":"2018-08-09T08:53:09Z","tags":["alerting"],"title":":x-pack:qa:full-cluster-restart fails with SecurityException: Keystore has been corrupted or tampered with on FIPS JVM"}
+{"id":"gh-es-16375","source":"github","score":3,"posted_at":"2016-02-02T15:27:57Z","tags":["alerting","license"],"title":"Output version when running bin/plugin list"}
+{"id":"gh-es-14733","source":"github","score":0,"posted_at":"2015-11-13T09:35:08Z","tags":["alerting"],"title":"link to scripts: java.security.AccessControlException: access denied (\"java.io.FilePermission\"..."}
+{"id":"gh-es-119259","source":"github","score":0,"posted_at":"2024-12-24T13:57:36Z","tags":["alerting"],"title":"[CI] FullClusterRestartIT testWatcher {cluster=UPGRADED} failing"}
+{"id":"gh-es-35361","source":"github","score":0,"posted_at":"2018-11-08T09:22:15Z","tags":["alerting"],"title":"CI: SmokeTestWatcherWithSecurityIT.testSearchTransformInsufficientPermissions fails","_secondary":true}
+{"id":"gh-es-31725","source":"github","score":0,"posted_at":"2018-07-02T11:19:09Z","tags":["alerting"],"title":"Elasticsearch X-Pack valid ssl certificate not trusted by client because ca chain not provided by server."}
+{"id":"gh-es-46646","source":"github","score":0,"posted_at":"2019-09-12T08:35:00Z","tags":["alerting","fleet"],"title":"Remove API key name uniqueness constraint across active API keys"}
+{"id":"gh-es-43194","source":"github","score":0,"posted_at":"2019-06-13T10:14:21Z","tags":[],"title":"[ML] Data frame silently fails to index if aggs return a string","_secondary":true}
+{"id":"gh-es-42508","source":"github","score":18,"posted_at":"2019-05-24T11:46:21Z","tags":["alerting"],"title":"Exclude system indices from matching index templates","_secondary":true}
+{"id":"gh-es-31032","source":"github","score":0,"posted_at":"2018-06-01T12:31:36Z","tags":["alerting"],"title":"Watcher: Add the ability to add Slack actions to Slack attachments"}
+{"id":"gh-es-29953","source":"github","score":0,"posted_at":"2017-06-19T11:38:51Z","tags":[],"title":"[CI] Netty3HandshakeWaitingHandlerTests testWriteBeforeHandshakePassesWithHandshakeWaitingHandler fails often","_secondary":true}
+{"id":"gh-es-128097","source":"github","score":0,"posted_at":"2025-05-16T09:58:08Z","tags":["alerting","apm","fleet"],"title":"Losing working secure settings of s3-repository client during runtime"}
+{"id":"gh-es-108628","source":"github","score":0,"posted_at":"2024-05-14T15:33:13Z","tags":["alerting"],"title":"[CI] DeprecationHttpIT testDeprecatedSettingsReturnWarnings failing","_secondary":true}
+{"id":"gh-es-84700","source":"github","score":0,"posted_at":"2022-03-07T12:45:53Z","tags":["alerting"],"title":"[CI] FullClusterRestartIT testWatcherWithApiKey failing"}
+{"id":"gh-es-65547","source":"github","score":0,"posted_at":"2020-11-26T12:23:02Z","tags":["alerting"],"title":"[CI] SmokeTestWatcherWithSecurityClientYamlTestSuiteIT.test {yaml=watcher/usage/10_basic/Test watcher usage stats output}"}
+{"id":"gh-es-43271","source":"github","score":0,"posted_at":"2019-06-17T10:06:40Z","tags":[],"title":"[CI] Internal data frame indices can cause unrelated docs tests to fail","_secondary":true}
+{"id":"gh-es-33753","source":"github","score":0,"posted_at":"2018-09-17T10:15:27Z","tags":["alerting"],"title":"testWatcherRestart occasionally fails in REST tests"}
+{"id":"gh-es-32299","source":"github","score":0,"posted_at":"2018-07-23T20:53:29Z","tags":["alerting"],"title":"[ci] SmokeTestWatcherTestSuiteIT.testMonitorClusterHealth"}
+{"id":"gh-eui-4257","source":"github","score":0,"posted_at":"2020-11-11T23:02:09Z","tags":[],"title":"Notifications Center Template","_secondary":true}
+{"id":"gh-eui-9410","source":"github","score":0,"posted_at":"2026-01-15T15:28:57Z","tags":[],"title":"1️⃣ Child Flyout History","_secondary":true}
+{"id":"gh-eui-9268","source":"github","score":0,"posted_at":"2025-12-11T15:09:18Z","tags":[],"title":"Enhance `EuiBadge` and deprecate `EuiBetaBadge`","_secondary":true}
+{"id":"gh-eui-6945","source":"github","score":0,"posted_at":"2023-07-13T14:05:23Z","tags":[],"title":"Clear All button and counter badge for the EuiGlobalToastList component"}
+{"id":"gh-eui-6277","source":"github","score":0,"posted_at":"2020-12-03T11:42:25Z","tags":[],"title":"[Security Solution] Text is not wrapped in the grey box for events under the resolver."}
+{"id":"gh-eui-5319","source":"github","score":0,"posted_at":"2021-10-25T20:43:55Z","tags":[],"title":"[EuiFormErrorText][SCREEN READER]: `aria-live=\"polite\"` should be changed to `role=\"alert\"` for improved awareness","_secondary":true}
+{"id":"gh-eui-5274","source":"github","score":0,"posted_at":"2021-10-15T08:32:06Z","tags":["discover","alerting"],"title":"[Icon Request] Non searchable field icon"}
+{"id":"gh-eui-9060","source":"github","score":0,"posted_at":"2025-09-25T15:19:25Z","tags":["discover","alerting"],"title":"Icon request for Parsing"}
+{"id":"gh-eui-8719","source":"github","score":1,"posted_at":"2025-05-28T22:36:54Z","tags":[],"title":"Widget to display relative / absolute time for an investigation","_secondary":true}
+{"id":"gh-eui-7019","source":"github","score":1,"posted_at":"2023-08-01T14:48:20Z","tags":["siem"],"title":"Column shake in EuiDataGrid in the security alert view","_secondary":true}
+{"id":"gh-eui-3940","source":"github","score":1,"posted_at":"2020-08-19T12:55:28Z","tags":[],"title":"[Docs] Remove window.alert and links from demos"}
+{"id":"gh-eui-3092","source":"github","score":0,"posted_at":"2020-03-16T15:00:59Z","tags":["alerting"],"title":"[EuiContextMenuItem] Text bottom is cut off when `href` prop is supplied"}
+{"id":"gh-eui-1376","source":"github","score":2,"posted_at":"2018-12-14T20:05:02Z","tags":[],"title":"EUI with a CRA standalone project","_secondary":true}
+{"id":"gh-eui-7785","source":"github","score":0,"posted_at":"2024-05-23T14:34:39Z","tags":[],"title":"EuiSteps unordered variant"}
+{"id":"gh-eui-1685","source":"github","score":0,"posted_at":"2019-03-06T09:35:51Z","tags":[],"title":"Popover doesn't work in modal"}
+{"id":"gh-eui-1623","source":"github","score":0,"posted_at":"2019-02-28T09:22:14Z","tags":[],"title":"Global EuiToast needs a way to change individual lifetime","_secondary":true}
+{"id":"gh-eui-8017","source":"github","score":0,"posted_at":"2024-09-11T15:38:00Z","tags":["ml"],"title":"[Tables] Improve tables at small resolutions","_secondary":true}
+{"id":"gh-eui-9074","source":"github","score":0,"posted_at":"2025-10-03T14:21:11Z","tags":["kql"],"title":"Facet Search improvements","_secondary":true}
+{"id":"gh-eui-8998","source":"github","score":0,"posted_at":"2025-09-08T09:45:39Z","tags":[],"title":"[EuiDataGrid] Removing width from last column to make it flexible breaks internal data grid state","_secondary":true}
+{"id":"gh-eui-8739","source":"github","score":0,"posted_at":"2025-06-04T09:23:36Z","tags":[],"title":"Remove `@testing-library/react-hooks` as a peer dependency","_secondary":true}
+{"id":"gh-eui-7366","source":"github","score":0,"posted_at":"2023-11-14T22:25:33Z","tags":["apm"],"title":"[EuiBreadcrumb] Finalize new visual design direction","_secondary":true}
+{"id":"gh-eui-5694","source":"github","score":0,"posted_at":"2022-03-07T15:54:31Z","tags":["security-app"],"title":"[Navigation] Secondary navigation flyout component","_secondary":true}
+{"id":"gh-eui-5352","source":"github","score":0,"posted_at":"2021-10-20T08:40:23Z","tags":[],"title":"[EuiDataGrid] [Chrome Only] UI focus is inconsistent on Column Clicking ","_secondary":true}
+{"id":"gh-eui-4992","source":"github","score":1,"posted_at":"2021-07-29T14:43:23Z","tags":[],"title":"[EuiNotificationBadge] The number inside badge looks not centred, corner radius value is different than in the design component"}
+{"id":"gh-eui-4660","source":"github","score":0,"posted_at":"2021-03-22T19:31:03Z","tags":[],"title":"[EuiCallOut] TypeScript requiring unnecessary prop `translate`","_secondary":true}
+{"id":"gh-eui-1947","source":"github","score":0,"posted_at":"2019-05-16T07:09:26Z","tags":[],"title":"[Accessibility] NVDA does announce toasts, => toast global list is not an aria live region","_secondary":true}
+{"id":"gh-eui-6612","source":"github","score":0,"posted_at":"2023-02-22T18:03:06Z","tags":[],"title":"[EuiDatePicker][SCREEN READER]: Date picker range needs to identify itself as invalid and offer text instructions","_secondary":true}
+{"id":"gh-eui-4469","source":"github","score":0,"posted_at":"2021-02-01T19:56:45Z","tags":["alerting"],"title":"[Docs] Table search error design pattern"}
+{"id":"gh-eui-4037","source":"github","score":0,"posted_at":"2020-09-15T18:27:18Z","tags":["alerting"],"title":"[EuiAccordion] Accept open/closed icon choices"}
+{"id":"gh-eui-4017","source":"github","score":0,"posted_at":"2020-09-08T08:30:52Z","tags":[],"title":"\"prop-types\" is a required dependency for this library","_secondary":true}
+{"id":"gh-eui-3201","source":"github","score":0,"posted_at":"2020-03-31T10:32:42Z","tags":[],"title":"Auto-focus on first item in EuiContextMenu should be optional","_secondary":true}
+{"id":"gh-eui-3000","source":"github","score":0,"posted_at":"2020-03-07T02:16:26Z","tags":["alerting"],"title":"EuiCodeEditor cannot be highlighted if it has an invalid value"}
+{"id":"gh-eui-718","source":"github","score":0,"posted_at":"2018-04-28T14:35:34Z","tags":[],"title":"Use patterns or icons in addition to colors to signify toast types","_secondary":true}
+{"id":"gh-eui-417","source":"github","score":0,"posted_at":"2018-02-15T22:42:11Z","tags":["alerting"],"title":"Allow for empty first option in EuiSelect"}
+{"id":"gh-eui-9399","source":"github","score":0,"posted_at":"2026-02-19T17:16:45Z","tags":[],"title":"[EuiBadge] Add iconColor prop","_secondary":true}
+{"id":"gh-eui-9374","source":"github","score":0,"posted_at":"2026-02-10T12:10:04Z","tags":["anomaly"],"title":"[EuiIcon] Replace deprecated and renamed icons in Kibana","_secondary":true}
+{"id":"gh-eui-8718","source":"github","score":0,"posted_at":"2025-05-28T20:29:47Z","tags":[],"title":"[EUI Guidance] Graph View in Security","_secondary":true}
+{"id":"gh-eui-8016","source":"github","score":0,"posted_at":"2024-09-11T10:41:48Z","tags":[],"title":"Horizontal timeline component","_secondary":true}
+{"id":"gh-eui-7405","source":"github","score":0,"posted_at":"2023-12-07T14:29:55Z","tags":[],"title":"[Meta] [New docs] Playground stories for all EUI components","_secondary":true}
+{"id":"gh-eui-6554","source":"github","score":0,"posted_at":"2023-01-26T18:42:10Z","tags":[],"title":"Alert & Error Icon Follow-up Considerations","_secondary":true}
+{"id":"gh-eui-6459","source":"github","score":0,"posted_at":"2022-12-05T21:22:37Z","tags":[],"title":"Add a Slack integration to notify on EUI docs a11y violations"}
+{"id":"gh-eui-6300","source":"github","score":0,"posted_at":"2022-10-06T21:00:33Z","tags":[],"title":"[META] Add Cypress `cy.checkAxe()` tests to components","_secondary":true}
+{"id":"gh-eui-6008","source":"github","score":1,"posted_at":"2022-06-28T20:07:00Z","tags":[],"title":"[EuiDataGrid] Page jumps to table header when initial focus is horizontal scroll","_secondary":true}
+{"id":"gh-eui-5945","source":"github","score":0,"posted_at":"2022-06-02T10:07:56Z","tags":[],"title":"[EuiGlobalToastList] Persistent toasts disappear immediately","_secondary":true}
+{"id":"gh-eui-3248","source":"github","score":0,"posted_at":"2020-04-03T15:51:57Z","tags":[],"title":"`EUIRadio` with a `label` and no `id` behaves unexpectedly","_secondary":true}
+{"id":"gh-eui-3052","source":"github","score":0,"posted_at":"2020-03-12T11:39:48Z","tags":[],"title":"EuiTreeView component issue - Uncaught Invariant Violation","_secondary":true}
+{"id":"gh-eui-8840","source":"github","score":0,"posted_at":"2025-07-03T13:37:33Z","tags":[],"title":"[EuiMarkdownFormat] Add max-width: 100% to images","_secondary":true}
+{"id":"gh-eui-6206","source":"github","score":0,"posted_at":"2022-09-06T08:17:20Z","tags":[],"title":"[EuiNotificationEvent] Can't set className in EuiNotificationEvent component","_secondary":true}
+{"id":"gh-eui-6138","source":"github","score":0,"posted_at":"2022-08-14T09:53:23Z","tags":[],"title":"EuiPageTemplate `NaN` is an invalid value for the `paddingBlockStart` css style property","_secondary":true}
+{"id":"gh-eui-4791","source":"github","score":0,"posted_at":"2021-05-11T10:13:56Z","tags":[],"title":"[EuiNotificationEvent] Read icon behaves as a button even though onRead is undefined","_secondary":true}
+{"id":"gh-eui-4462","source":"github","score":1,"posted_at":"2021-01-29T22:52:52Z","tags":["alerting"],"title":"[CI] File watcher limit reached"}
+{"id":"gh-eui-4119","source":"github","score":0,"posted_at":"2020-10-07T13:30:56Z","tags":[],"title":"[EuiHeaderSectionItemButton] Custom `notificationColor` colour","_secondary":true}
+{"id":"gh-eui-3390","source":"github","score":0,"posted_at":"2020-04-28T01:27:45Z","tags":[],"title":"EuiBadge iconOnClick makes badge text clickable"}
+{"id":"gh-eui-3281","source":"github","score":0,"posted_at":"2020-04-08T19:08:39Z","tags":[],"title":"EuiFeed/ EuiNotifications Component missing from library."}
+{"id":"gh-eui-1511","source":"github","score":0,"posted_at":"2019-02-02T23:40:48Z","tags":[],"title":"Make EuiFilterButton and EuiFacetButton behave the same","_secondary":true}
+{"id":"gh-eui-668","source":"github","score":0,"posted_at":"2018-04-12T19:58:47Z","tags":["kql","filter-bar"],"title":"Kibana chrome components","_secondary":true}
+{"id":"gh-eui-620","source":"github","score":0,"posted_at":"2018-04-02T19:12:09Z","tags":[],"title":"Return key does nothing in the search box","_secondary":true}
+{"id":"gh-eui-9084","source":"github","score":0,"posted_at":"2025-10-07T14:12:16Z","tags":[],"title":"[Theme] Remove legacy Amsterdam theme","_secondary":true}
+{"id":"gh-eui-8875","source":"github","score":0,"posted_at":"2025-07-17T00:09:21Z","tags":[],"title":"[Flyout System] Add support for resizing a grouped flyout","_secondary":true}
+{"id":"gh-eui-8825","source":"github","score":0,"posted_at":"2025-06-27T11:28:17Z","tags":[],"title":"[EuiDataGrid][EuiTable] Add \"marked\" token for row highlight"}
+{"id":"gh-eui-7478","source":"github","score":0,"posted_at":"2024-01-24T10:48:19Z","tags":[],"title":"[New docs] Create stories for components starting with the letter H","_secondary":true}
+{"id":"gh-eui-6915","source":"github","score":0,"posted_at":"2023-07-06T21:36:20Z","tags":[],"title":"[CHORE] Find the root cause for multiple GHA workflow run failures"}
+{"id":"gh-eui-5057","source":"github","score":0,"posted_at":"2021-08-20T13:07:20Z","tags":[],"title":"[EuiTab] Add option for secondary content like EuiNotificationBadge"}
+{"id":"gh-eui-2502","source":"github","score":0,"posted_at":"2019-10-29T19:31:48Z","tags":[],"title":"[EuiHeaderAlert] Updated to new styles for Kibana news feed","_secondary":true}
+{"id":"gh-eui-2485","source":"github","score":0,"posted_at":"2019-10-24T16:37:05Z","tags":[],"title":"Icon of Bell with slash through it for a 'disabled' or 'mute' state"}
+{"id":"gh-eui-727","source":"github","score":0,"posted_at":"2018-04-29T16:05:18Z","tags":[],"title":"Header Buttons Lacking Screen Reader Labels"}
+{"id":"gh-eui-723","source":"github","score":0,"posted_at":"2018-04-29T15:47:24Z","tags":[],"title":"Elastic UI Bottom Bar Considerations"}
+{"id":"gh-eui-715","source":"github","score":0,"posted_at":"2018-04-28T14:21:03Z","tags":[],"title":"Toast Messages Should Be Read by the Screen Reader on Display"}
+{"id":"gh-eui-87","source":"github","score":0,"posted_at":"2017-10-30T19:19:37Z","tags":[],"title":"`euiHeader__notification` needs to be a component?"}
+{"id":"gh-osd-1801","source":"github","score":0,"posted_at":"2022-06-24T22:13:49Z","tags":["alerting"],"title":"[PROPOSAL] Incorporate a generic build system (something like Gradle)."}
+{"id":"gh-osd-2996","source":"github","score":0,"posted_at":"2022-11-30T20:19:07Z","tags":["alerting","anomaly"],"title":"OpenSearch Dashboards map hoverover broken [BUG]"}
+{"id":"gh-osd-1164","source":"github","score":3,"posted_at":"2022-01-19T12:46:49Z","tags":["alerting","anomaly"],"title":"[BUG] Custom branding fails for SSL enabled because certs aren't passed in the verification"}
+{"id":"gh-osd-11470","source":"github","score":3,"posted_at":"2026-03-06T16:05:19Z","tags":["alerting","saved-objects"],"title":"[RFC] Legacy Elasticsearch Backend Support for OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-3303","source":"github","score":0,"posted_at":"2023-01-23T04:01:18Z","tags":["alerting"],"title":"Allow disabling context menu options"}
+{"id":"gh-osd-1215","source":"github","score":3,"posted_at":"2022-02-07T04:50:55Z","tags":["discover","alerting","ml"],"title":"[feature-proposal] Dashboards security out of box"}
+{"id":"gh-osd-11090","source":"github","score":1,"posted_at":"2025-12-22T03:52:51Z","tags":["discover","anomaly"],"title":"[BUG] Chatbot Activation Error: X-Opaque-Id Already Present","_secondary":true}
+{"id":"gh-osd-11566","source":"github","score":5,"posted_at":"2026-03-23T12:39:16Z","tags":["alerting","saved-objects"],"title":"RFC: Dashboards-as-Code for OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-10460","source":"github","score":0,"posted_at":"2025-08-28T05:56:13Z","tags":["alerting","anomaly"],"title":"[BUG] Shared Links do cause an error when opened in a different browser session"}
+{"id":"gh-osd-5993","source":"github","score":2,"posted_at":"2024-03-01T08:15:34Z","tags":["alerting","anomaly"],"title":"[BUG] opensearch-with-long-numerals runs into timeout"}
+{"id":"gh-osd-1866","source":"github","score":0,"posted_at":"2022-07-08T18:16:00Z","tags":["alerting","anomaly"],"title":"[FEATURE] Dashboards List Extensions"}
+{"id":"gh-osd-1388","source":"github","score":11,"posted_at":"2022-03-25T20:16:48Z","tags":["discover","alerting","saved-objects"],"title":"[RFC] Enable OpenSearch Dashboards to support multiple OpenSearch clusters","_secondary":true}
+{"id":"gh-osd-7677","source":"github","score":4,"posted_at":"2024-08-10T14:45:24Z","tags":["discover","alerting","anomaly","ml"],"title":"[BUG] Filters in URL of saved searches are lost while page loading","_secondary":true}
+{"id":"gh-osd-4058","source":"github","score":0,"posted_at":"2023-05-17T18:33:44Z","tags":["alerting","anomaly"],"title":"Upcoming Transition to Node.js v18: Plugin Compatibility Test Required Overall Issue"}
+{"id":"gh-osd-3277","source":"github","score":0,"posted_at":"2023-01-16T06:59:38Z","tags":["alerting","anomaly"],"title":"[BUG] Fetch calls pass custom headers for every 302 request causing CORS "}
+{"id":"gh-osd-2667","source":"github","score":6,"posted_at":"2022-10-25T18:25:00Z","tags":["discover","alerting","saved-objects","anomaly"],"title":"[PROPOSAL] Update OpenSearch Dashboards' Design Strategy","_secondary":true}
+{"id":"gh-osd-2223","source":"github","score":0,"posted_at":"2022-08-30T18:44:14Z","tags":["alerting"],"title":"[BUG] osd/optimizer takes too long(~5 min) to respond","_secondary":true}
+{"id":"gh-osd-2126","source":"github","score":0,"posted_at":"2022-08-11T12:09:37Z","tags":["discover","alerting","anomaly"],"title":"[BUG] After change url of saved query, new url go to saved query without chages"}
+{"id":"gh-osd-10439","source":"github","score":1,"posted_at":"2025-08-22T13:10:40Z","tags":["alerting","anomaly"],"title":"[BUG] OpenSearch Dashboards 500 error"}
+{"id":"gh-osd-6017","source":"github","score":0,"posted_at":"2024-03-04T15:07:34Z","tags":["alerting","anomaly"],"title":"[BUG] JSON.parse: expected ',' or '}' with long numeral comma-separated keyword string"}
+{"id":"gh-osd-2904","source":"github","score":0,"posted_at":"2022-11-20T05:53:21Z","tags":["alerting"],"title":"Add ability to create deeply nested context menus with grouping"}
+{"id":"gh-osd-2675","source":"github","score":0,"posted_at":"2022-10-26T18:00:14Z","tags":["tsvb","alerting","anomaly"],"title":"[BUG] Sorting is not working as expected in TSVB visualization","_secondary":true}
+{"id":"gh-osd-10767","source":"github","score":1,"posted_at":"2025-10-20T23:15:58Z","tags":["alerting"],"title":"[RFC] OpenTelemetry Metrics Support for OpenSearch Dashboards"}
+{"id":"gh-osd-3972","source":"github","score":1,"posted_at":"2023-05-03T09:25:04Z","tags":[],"title":"Self-monitoring - System health data in indices to make dashboards and alerts","_secondary":true}
+{"id":"gh-osd-3046","source":"github","score":0,"posted_at":"2022-12-07T21:19:22Z","tags":["alerting"],"title":"Support red dot icons on buttons with call backs"}
+{"id":"gh-osd-7568","source":"github","score":0,"posted_at":"2024-07-30T09:39:05Z","tags":["alerting"],"title":"[BUG] Version 2.11.1 doesn't support Alerts API"}
+{"id":"gh-osd-3391","source":"github","score":0,"posted_at":"2023-02-06T16:01:35Z","tags":["alerting","anomaly"],"title":"[BUG] Not able to see the predefined-role in Opensearch Dashboard role list \"opensearch_dashboards_read_only\" and \"opensearch_dashboards_user\""}
+{"id":"gh-osd-2862","source":"github","score":0,"posted_at":"2022-11-11T18:27:59Z","tags":[],"title":"[Docs] Update EUI doc site links to point to OUI doc site","_secondary":true}
+{"id":"gh-osd-866","source":"github","score":0,"posted_at":"2021-10-11T23:26:50Z","tags":["alerting","anomaly"],"title":"[BUG] Where is the Security tab ?"}
+{"id":"gh-osd-11352","source":"github","score":0,"posted_at":"2026-02-15T21:21:54Z","tags":[],"title":"[RFC] AI-Assisted Query Generation in Dev Tools Console","_secondary":true}
+{"id":"gh-osd-9819","source":"github","score":0,"posted_at":"2025-05-27T06:54:52Z","tags":["discover","alerting","saved-objects","anomaly"],"title":"[Proposal] Introduce extension points management module","_secondary":true}
+{"id":"gh-osd-9572","source":"github","score":4,"posted_at":"2025-03-19T01:05:43Z","tags":["alerting","anomaly","slow-dashboard"],"title":"[BUG] OpenSearch-Dashboards is slow to initialize as cookie sizes grow"}
+{"id":"gh-osd-9535","source":"github","score":5,"posted_at":"2025-03-12T21:46:38Z","tags":["discover","alerting"],"title":"[RFC] Prometheus as a first class datasource","_secondary":true}
+{"id":"gh-osd-8645","source":"github","score":3,"posted_at":"2024-10-18T06:19:39Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Discover Saved Search filters are not populated","_secondary":true}
+{"id":"gh-osd-5274","source":"github","score":0,"posted_at":"2023-10-11T14:10:20Z","tags":["alerting","anomaly"],"title":"[BUG] Blank \"dashboardViewport\""}
+{"id":"gh-osd-4797","source":"github","score":0,"posted_at":"2023-07-28T12:49:35Z","tags":[],"title":"Secret management for monitor webhooks"}
+{"id":"gh-osd-4121","source":"github","score":0,"posted_at":"2023-05-23T07:18:48Z","tags":["discover","alerting","anomaly"],"title":"[BUG] SAML nextUrl is empty when clicking on the Button Log in with single sign-on"}
+{"id":"gh-osd-10411","source":"github","score":0,"posted_at":"2025-08-14T09:53:06Z","tags":["alerting","anomaly"],"title":"[BUG] basePath added twice when using the globalsearch menu"}
+{"id":"gh-osd-10320","source":"github","score":0,"posted_at":"2025-08-01T18:21:09Z","tags":["tsvb","alerting","anomaly"],"title":"[BUG] tsvb count aggregation errors on 3.1","_secondary":true}
+{"id":"gh-osd-5654","source":"github","score":0,"posted_at":"2024-01-03T20:50:43Z","tags":["alerting","anomaly","slow-dashboard"],"title":"[BUG] Dev Tools tries to load every mapping in the cluster when running any command","_secondary":true}
+{"id":"gh-osd-5406","source":"github","score":0,"posted_at":"2023-10-30T14:50:46Z","tags":["alerting"],"title":"Header icon to load the Customized Default Route (Home)"}
+{"id":"gh-osd-4688","source":"github","score":0,"posted_at":"2023-08-07T09:36:47Z","tags":["discover","alerting"],"title":"[BUG] no menu on Dashboard View / saved search at Table","_secondary":true}
+{"id":"gh-osd-4331","source":"github","score":0,"posted_at":"2023-06-20T07:06:42Z","tags":["alerting","anomaly"],"title":"[Feature Anywhere] Add confirmation dialog on closing flyout for Create & Associate flows with unsaved changes"}
+{"id":"gh-osd-4291","source":"github","score":1,"posted_at":"2023-06-15T16:05:26Z","tags":["alerting","anomaly"],"title":"[META] OUI theme compliance for plugins - phase 1","_secondary":true}
+{"id":"gh-osd-3334","source":"github","score":0,"posted_at":"2023-01-26T18:24:16Z","tags":[],"title":"Design and Features Review For Observability Integration Framework","_secondary":true}
+{"id":"gh-osd-997","source":"github","score":0,"posted_at":"2021-12-06T21:28:53Z","tags":["alerting"],"title":"alerting-dashboards-plugin Node 14 upgrade"}
+{"id":"gh-osd-686","source":"github","score":4,"posted_at":"2021-07-30T13:58:51Z","tags":["alerting","anomaly"],"title":"[BUG] FATAL  ValidationError: child \"plugins\" fails because [\"security\" is not allowed]"}
+{"id":"gh-osd-465","source":"github","score":0,"posted_at":"2021-06-09T06:26:44Z","tags":["alerting","anomaly"],"title":"[BUG]cannot  remove securityDashboards  in opensearch-dashboards:1.0.0-rc1 "}
+{"id":"gh-osd-366","source":"github","score":0,"posted_at":"2021-05-23T06:39:17Z","tags":["alerting","anomaly"],"title":"Plugin artifacts should produce kebab-cased filenames that match plugin directory"}
+{"id":"gh-osd-11439","source":"github","score":3,"posted_at":"2026-03-04T20:29:26Z","tags":["discover","alerting","anomaly"],"title":"[RFC] Time Series Analysis & Monitoring in Discover Metrics","_secondary":true}
+{"id":"gh-osd-11017","source":"github","score":1,"posted_at":"2025-12-03T12:20:06Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Dashboard sometimes blows up with React error, if filter is added via \"Add filter\" button"}
+{"id":"gh-osd-9679","source":"github","score":0,"posted_at":"2025-04-14T17:30:19Z","tags":[],"title":"[BUG] Can't create index pattern against a SigV4 type of data source","_secondary":true}
+{"id":"gh-osd-9106","source":"github","score":0,"posted_at":"2024-12-20T16:10:02Z","tags":["discover","alerting","anomaly"],"title":"[BUG] The time filter is ignored when using the SQL query engine"}
+{"id":"gh-osd-9005","source":"github","score":0,"posted_at":"2024-12-04T12:25:08Z","tags":["alerting"],"title":"[BUG] Per Document Monitor"}
+{"id":"gh-osd-8699","source":"github","score":0,"posted_at":"2024-10-24T09:40:43Z","tags":["alerting","anomaly"],"title":"[BUG] Application Not found on observability-logs"}
+{"id":"gh-osd-5750","source":"github","score":0,"posted_at":"2024-01-27T14:46:35Z","tags":["alerting","anomaly"],"title":"[BUG] Scripted Field Editing Issue: White Space Appears After Saving in OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-4819","source":"github","score":0,"posted_at":"2023-08-25T15:37:51Z","tags":["discover","alerting"],"title":"[BUG] Dashboard URLs from Markdown visualizations are not loaded correctly","_secondary":true}
+{"id":"gh-osd-3840","source":"github","score":0,"posted_at":"2023-04-13T08:58:40Z","tags":["alerting","anomaly"],"title":"[BUG] Blank Page when Editing Monitor with SNS Integration"}
+{"id":"gh-osd-3565","source":"github","score":0,"posted_at":"2023-03-08T22:06:47Z","tags":["alerting","anomaly"],"title":"href not working in Vega Visualization","_secondary":true}
+{"id":"gh-osd-3171","source":"github","score":0,"posted_at":"2023-01-02T22:44:37Z","tags":["alerting"],"title":"Allow grouping context menus with only 2 children"}
+{"id":"gh-osd-3047","source":"github","score":0,"posted_at":"2022-12-07T21:29:26Z","tags":["alerting"],"title":"Support aggregated view of all events that are associated to a paticular "}
+{"id":"gh-osd-2880","source":"github","score":0,"posted_at":"2022-11-15T23:53:19Z","tags":["canvas","alerting","saved-objects","anomaly"],"title":"[Feature Anywhere] Enable plugins to augment visualizations with additional data and context","_secondary":true}
+{"id":"gh-osd-1256","source":"github","score":0,"posted_at":"2022-02-17T11:44:27Z","tags":["discover","alerting","anomaly"],"title":"[BUG] List of Available fields on Discover page is not correctly refreshed","_secondary":true}
+{"id":"gh-osd-665","source":"github","score":0,"posted_at":"2021-07-23T22:17:27Z","tags":["alerting"],"title":"[BUG] Not all default routes are translated correctly when upgrading to Dashboards"}
+{"id":"gh-osd-10473","source":"github","score":0,"posted_at":"2025-09-01T12:42:55Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Clarification needed regarding MDS limitations"}
+{"id":"gh-osd-9496","source":"github","score":0,"posted_at":"2025-03-06T00:26:55Z","tags":["alerting","anomaly"],"title":"[BUG] Wildcard behavior mismatch between user/group in workspace collaborator vs Security Plugin Roles"}
+{"id":"gh-osd-9221","source":"github","score":0,"posted_at":"2025-01-19T01:05:23Z","tags":["alerting","anomaly"],"title":"[BUG] OpenSearch Dashboard - 2.18.0 | Prometheus Data Source cannot be added"}
+{"id":"gh-osd-9110","source":"github","score":0,"posted_at":"2024-12-20T16:19:43Z","tags":["discover","alerting","anomaly"],"title":"[BUG] The Recent Queries button for Lucene performs no action when clicked","_secondary":true}
+{"id":"gh-osd-9087","source":"github","score":0,"posted_at":"2024-12-20T15:37:41Z","tags":["discover","alerting","anomaly"],"title":"[BUG] DQL term search doesn’t always yield all possible results","_secondary":true}
+{"id":"gh-osd-7631","source":"github","score":0,"posted_at":"2024-08-06T18:55:06Z","tags":["discover","alerting","anomaly"],"title":"[BUG] autocomplete not working when defining a filter"}
+{"id":"gh-osd-7308","source":"github","score":1,"posted_at":"2024-07-16T09:38:27Z","tags":["alerting","anomaly"],"title":"[BUG][opensearch-dashboards] opensearch_security.auth.type not a valid key"}
+{"id":"gh-osd-7002","source":"github","score":0,"posted_at":"2024-06-11T05:46:54Z","tags":["discover","alerting","anomaly"],"title":"Problem with discover in dashboards"}
+{"id":"gh-osd-6596","source":"github","score":0,"posted_at":"2024-04-22T20:43:30Z","tags":["alerting","saved-objects","anomaly"],"title":"[Meta][2.15] Support Multiple Data Source in OpenSearch Dashboards Plugins","_secondary":true}
+{"id":"gh-osd-5314","source":"github","score":0,"posted_at":"2023-10-17T17:25:45Z","tags":["discover","alerting","anomaly"],"title":"[BUG] New Discover view - Refresh button does not work"}
+{"id":"gh-osd-4930","source":"github","score":0,"posted_at":"2023-09-05T11:36:28Z","tags":["alerting"],"title":"[BUG] Unable to create monitor with custom analyzer"}
+{"id":"gh-osd-4482","source":"github","score":0,"posted_at":"2023-07-03T13:21:12Z","tags":["discover","alerting"],"title":"UX proposal for an improved data source picker (v1)","_secondary":true}
+{"id":"gh-osd-4127","source":"github","score":0,"posted_at":"2023-05-24T20:17:25Z","tags":["alerting"],"title":"[BUG] Acknowledging an alert leaves the checkbox checked and disabled"}
+{"id":"gh-osd-4073","source":"github","score":0,"posted_at":"2023-05-22T06:23:31Z","tags":["alerting"],"title":"Allow groups to be categorized within context menus"}
+{"id":"gh-osd-3824","source":"github","score":0,"posted_at":"2023-04-11T18:23:28Z","tags":[],"title":"Replace usage of `resize-observer-polyfill` dependency","_secondary":true}
+{"id":"gh-osd-3587","source":"github","score":4,"posted_at":"2023-03-10T08:57:17Z","tags":[],"title":"[Feature] notifications banner across all tenants"}
+{"id":"gh-osd-3280","source":"github","score":0,"posted_at":"2023-01-17T16:14:12Z","tags":[],"title":"Reuse of IndexPatternsService in Opensearch Dashboards plugins","_secondary":true}
+{"id":"gh-osd-3016","source":"github","score":0,"posted_at":"2022-12-03T00:55:27Z","tags":["alerting","anomaly"],"title":"[BUG] How to install a plugin on Openbsd ? => \"Plugins are only available for Linux\""}
+{"id":"gh-osd-2455","source":"github","score":1,"posted_at":"2022-09-29T18:05:44Z","tags":["alerting"],"title":"[MD] Onboard other plugins to multiple data source feature"}
+{"id":"gh-osd-2406","source":"github","score":0,"posted_at":"2022-09-22T18:41:13Z","tags":["alerting","anomaly"],"title":"Enabling the drag&drop wizard breaks OS dash[BUG]"}
+{"id":"gh-osd-2252","source":"github","score":0,"posted_at":"2022-09-01T16:24:42Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Document exists but search shows \"no results\" in Discover","_secondary":true}
+{"id":"gh-osd-11091","source":"github","score":3,"posted_at":"2025-12-23T10:53:14Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Embed mode causes incorrect height calculation for Discover layout, leaving empty space at bottom"}
+{"id":"gh-osd-10734","source":"github","score":0,"posted_at":"2025-10-16T01:17:27Z","tags":["alerting","anomaly"],"title":"[BUG] PPLTool"}
+{"id":"gh-osd-10461","source":"github","score":0,"posted_at":"2025-08-28T13:58:14Z","tags":["alerting","anomaly"],"title":"[BUG] \"convert_index_to_remote\" is not supported (in Visual editor)"}
+{"id":"gh-osd-9917","source":"github","score":0,"posted_at":"2025-06-17T20:07:06Z","tags":[],"title":"[BUG] Misleading Permission error is displayed when new data source is created","_secondary":true}
+{"id":"gh-osd-9859","source":"github","score":0,"posted_at":"2025-06-09T07:44:07Z","tags":["discover","alerting"],"title":"[RFC] Introducing Assistant Core Module","_secondary":true}
+{"id":"gh-osd-9740","source":"github","score":0,"posted_at":"2025-04-30T09:46:51Z","tags":["alerting","anomaly"],"title":"Migrating Dashboards from Kibana to OpensearchDashboard"}
+{"id":"gh-osd-9318","source":"github","score":0,"posted_at":"2025-01-31T22:25:25Z","tags":["alerting"],"title":"[BUG] [2.15]: Nested/Object Field Arrays Display Incorrectly","_secondary":true}
+{"id":"gh-osd-9104","source":"github","score":0,"posted_at":"2024-12-20T16:05:57Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Invalid handling of time filter in PPL"}
+{"id":"gh-osd-9102","source":"github","score":0,"posted_at":"2024-12-20T16:02:42Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Auto-completion selects equals operator when multiple options are available"}
+{"id":"gh-osd-9101","source":"github","score":0,"posted_at":"2024-12-20T16:01:38Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Some PPL queries, slightly more complex than the default, fail"}
+{"id":"gh-osd-9100","source":"github","score":0,"posted_at":"2024-12-20T16:00:34Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Auto-completion is not fully command aware"}
+{"id":"gh-osd-9099","source":"github","score":0,"posted_at":"2024-12-20T15:58:48Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Values are only suggested in certain circumstances and for certain types"}
+{"id":"gh-osd-9094","source":"github","score":0,"posted_at":"2024-12-20T15:49:02Z","tags":["discover","alerting","anomaly"],"title":"[BUG] DQL-searching using wildcards for field names and values fail ","_secondary":true}
+{"id":"gh-osd-9092","source":"github","score":0,"posted_at":"2024-12-20T15:44:36Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Inconsistent behavior when doing a CROSS JOIN of two different indexes in SQL"}
+{"id":"gh-osd-9090","source":"github","score":0,"posted_at":"2024-12-20T15:41:42Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Using suggested value results in a syntax error"}
+{"id":"gh-osd-9071","source":"github","score":4,"posted_at":"2024-12-18T06:54:04Z","tags":["alerting","anomaly"],"title":"Bundle refs optimization not applied when building plugins separately"}
+{"id":"gh-osd-8690","source":"github","score":0,"posted_at":"2024-10-23T17:47:49Z","tags":["alerting","anomaly"],"title":"[BUG] tag cloud visualization incorrectly reports \"too small to display the entire cloud\" in Firefox"}
+{"id":"gh-osd-8242","source":"github","score":0,"posted_at":"2024-09-19T11:37:51Z","tags":["alerting","anomaly"],"title":"[BUG] Maximum table cell height setting doesn't work properly"}
+{"id":"gh-osd-7292","source":"github","score":0,"posted_at":"2024-07-17T21:36:51Z","tags":["alerting"],"title":"[BUG] Popovers in VisBuilder do not clear when clicking away"}
+{"id":"gh-osd-7260","source":"github","score":0,"posted_at":"2024-07-16T14:36:44Z","tags":["alerting","anomaly"],"title":"[BUG] Geospatial field name only works without a dot"}
+{"id":"gh-osd-7004","source":"github","score":0,"posted_at":"2024-06-11T18:38:15Z","tags":["alerting","anomaly"],"title":"[BUG] As of Version 2.14.0 it is not possible to add Actions to Monitors in the Alerting section."}
+{"id":"gh-osd-6710","source":"github","score":0,"posted_at":"2024-05-03T10:45:31Z","tags":["alerting"],"title":"[BUG] SPAM from bucket monitor when number of results over 50"}
+{"id":"gh-osd-5755","source":"github","score":0,"posted_at":"2024-01-30T15:15:18Z","tags":["discover","alerting"],"title":"Creating OpenSearch Dashboard Plugin"}
+{"id":"gh-osd-5249","source":"github","score":0,"posted_at":"2023-10-09T11:14:48Z","tags":["alerting","anomaly"],"title":"[BUG] [Dashboard 2.10] - plugins.dataExplorer is undefined"}
+{"id":"gh-osd-4278","source":"github","score":0,"posted_at":"2023-06-12T19:22:22Z","tags":[],"title":"[MD] Data source client error handling","_secondary":true}
+{"id":"gh-osd-3916","source":"github","score":0,"posted_at":"2023-04-21T15:18:55Z","tags":["alerting","anomaly"],"title":"[BUG] Play/Wrench Button Regression in Dev Tools"}
+{"id":"gh-osd-3478","source":"github","score":1,"posted_at":"2023-02-21T18:40:31Z","tags":["alerting","anomaly"],"title":"[UX] Receive and review events on time series visualizations"}
+{"id":"gh-osd-2555","source":"github","score":0,"posted_at":"2022-10-12T08:51:38Z","tags":["alerting","anomaly"],"title":"[BUG] Suggestion list cutoff"}
+{"id":"gh-osd-2275","source":"github","score":0,"posted_at":"2022-09-06T20:24:55Z","tags":["alerting","anomaly"],"title":"[BUG] 'admin' can't see Security tab in GUI"}
+{"id":"gh-osd-1622","source":"github","score":0,"posted_at":"2022-05-24T21:14:27Z","tags":[],"title":"[FEATURE] Best Practices in application","_secondary":true}
+{"id":"gh-osd-806","source":"github","score":1,"posted_at":"2021-09-21T11:45:05Z","tags":["alerting"],"title":"[Feature Request] Embed Pipe Processing Language (PPL) to GUI"}
+{"id":"gh-osd-10919","source":"github","score":0,"posted_at":"2025-11-14T22:12:55Z","tags":[],"title":"[BUG] URL fragment not persisted after tenant selection","_secondary":true}
+{"id":"gh-osd-10488","source":"github","score":0,"posted_at":"2025-09-05T15:59:13Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Possible problem with restoring data streams from snapshots"}
+{"id":"gh-osd-10441","source":"github","score":0,"posted_at":"2025-08-22T17:02:40Z","tags":["tsvb","alerting","anomaly"],"title":"[BUG] TSVB Table Item URL Generates Invalid Filter When {{key}} Values Contain Special Characters","_secondary":true}
+{"id":"gh-osd-10304","source":"github","score":0,"posted_at":"2025-07-30T23:24:49Z","tags":["discover","alerting","anomaly"],"title":"[BUG] PPL queries in Discover always returns null fields"}
+{"id":"gh-osd-10052","source":"github","score":0,"posted_at":"2025-07-02T04:20:24Z","tags":["alerting","anomaly"],"title":"[BUG]Teams alert getting into Ignored State"}
+{"id":"gh-osd-9629","source":"github","score":0,"posted_at":"2025-03-31T04:13:00Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Plugins discovery and setup order is not consistent","_secondary":true}
+{"id":"gh-osd-9544","source":"github","score":0,"posted_at":"2025-03-14T09:29:37Z","tags":["alerting","anomaly"],"title":"[BUG] HTTP REST API hangs with Accept-Encoding zstd"}
+{"id":"gh-osd-9508","source":"github","score":0,"posted_at":"2025-03-10T05:44:16Z","tags":["alerting"],"title":"OpenSearch Dashboards Access Control Issue"}
+{"id":"gh-osd-9477","source":"github","score":0,"posted_at":"2025-03-03T03:39:12Z","tags":["alerting","anomaly"],"title":"[BUG][Immediate] OpenSearch Assistant showing error as Failed to find config with the provided config id"}
+{"id":"gh-osd-9109","source":"github","score":0,"posted_at":"2024-12-20T16:18:27Z","tags":["discover","alerting","anomaly"],"title":"[BUG] The Recent Queries button for DQL performs no action when clicked"}
+{"id":"gh-osd-9108","source":"github","score":0,"posted_at":"2024-12-20T16:15:40Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Invalid handling of time filter in PPL histogram"}
+{"id":"gh-osd-9107","source":"github","score":0,"posted_at":"2024-12-20T16:11:42Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Auto-completion suggestions differ between field list and search box"}
+{"id":"gh-osd-9105","source":"github","score":0,"posted_at":"2024-12-20T16:08:00Z","tags":["discover","alerting","anomaly"],"title":"[BUG] No auto-completion for indices in SQL mode"}
+{"id":"gh-osd-9103","source":"github","score":1,"posted_at":"2024-12-20T16:04:38Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Suggested fields cannot be used"}
+{"id":"gh-osd-9098","source":"github","score":0,"posted_at":"2024-12-20T15:54:43Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Invalid handling of DESCRIBE TABLES queries with the SQL search engine"}
+{"id":"gh-osd-9097","source":"github","score":0,"posted_at":"2024-12-20T15:52:59Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Field stats are not available for geo_point fields"}
+{"id":"gh-osd-9096","source":"github","score":0,"posted_at":"2024-12-20T15:50:47Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Changing index pattern and running a new query won't clear expanded results"}
+{"id":"gh-osd-9095","source":"github","score":0,"posted_at":"2024-12-20T15:49:31Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Invalid handling of geopoint field types when joining multiple indexes in SQL"}
+{"id":"gh-osd-9093","source":"github","score":2,"posted_at":"2024-12-20T15:46:03Z","tags":["discover","alerting","anomaly"],"title":"[BUG] PPL queries do not respect the time range"}
+{"id":"gh-osd-9091","source":"github","score":0,"posted_at":"2024-12-20T15:43:53Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Environment resets when searching"}
+{"id":"gh-osd-9089","source":"github","score":0,"posted_at":"2024-12-20T15:39:35Z","tags":["discover","alerting","anomaly"],"title":"[BUG] PPL and SQL results sorting do not sort the results (but DQL does)"}
+{"id":"gh-osd-9086","source":"github","score":0,"posted_at":"2024-12-20T15:35:02Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Results from filtering with PPL/SQL are not highlighted"}
+{"id":"gh-osd-9085","source":"github","score":1,"posted_at":"2024-12-20T15:33:01Z","tags":["discover","alerting","anomaly"],"title":"[BUG] PPL and SQL queries produces seemingly incorrect results"}
+{"id":"gh-osd-9019","source":"github","score":0,"posted_at":"2024-12-09T04:39:52Z","tags":["discover","alerting","saved-objects","anomaly"],"title":"[BUG] The behavior of the saved object navigation is inconsistent across different tabs","_secondary":true}
+{"id":"gh-osd-8924","source":"github","score":0,"posted_at":"2024-11-25T22:32:14Z","tags":["alerting"],"title":"[Vis Augmenter] Support filtering of the feature based on the selected data source"}
+{"id":"gh-osd-8873","source":"github","score":0,"posted_at":"2024-11-15T09:31:34Z","tags":["alerting"],"title":"[BUG] Importing from src/plugin/data/common cause commonJS module to get bundled with plugin"}
+{"id":"gh-osd-8810","source":"github","score":0,"posted_at":"2024-11-05T03:43:51Z","tags":["alerting"],"title":"[BUG][opensearch-dashboards] opensearch_security.cookie.secure is not a valid configuration option"}
+{"id":"gh-osd-8775","source":"github","score":0,"posted_at":"2024-10-31T11:04:08Z","tags":["alerting","anomaly"],"title":"[BUG] Time settings in snapshot policy don't seem to be working well"}
+{"id":"gh-osd-8511","source":"github","score":1,"posted_at":"2024-10-07T15:49:18Z","tags":["alerting","anomaly"],"title":"[BUG] OpenSearch errors should surface root_cause message ","_secondary":true}
+{"id":"gh-osd-8336","source":"github","score":0,"posted_at":"2024-09-25T11:26:59Z","tags":[],"title":"Custom role get overwritten without warning","_secondary":true}
+{"id":"gh-osd-8243","source":"github","score":0,"posted_at":"2024-09-19T16:53:28Z","tags":["alerting","anomaly"],"title":"[BUG] Dev Tools Get _nodes with YAML crashes Dashboards"}
+{"id":"gh-osd-8149","source":"github","score":0,"posted_at":"2024-09-11T20:49:20Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Discover Lucene Query Message Not Used","_secondary":true}
+{"id":"gh-osd-7582","source":"github","score":0,"posted_at":"2024-07-30T18:54:44Z","tags":["alerting"],"title":"[BUG] Link checker failed"}
+{"id":"gh-osd-6849","source":"github","score":0,"posted_at":"2024-05-29T00:01:43Z","tags":["anomaly"],"title":"[Meta][2.16] Support Version Decoupling in OpenSearch Dashboards Plugins","_secondary":true}
+{"id":"gh-osd-6530","source":"github","score":0,"posted_at":"2024-04-18T06:15:17Z","tags":["alerting","anomaly"],"title":"[BUG] 20s slower Loading with an LDAP User compared to a local User"}
+{"id":"gh-osd-6087","source":"github","score":0,"posted_at":"2024-03-08T01:35:50Z","tags":["discover"],"title":"[Proposal] - Contextual Data Exploration","_secondary":true}
+{"id":"gh-osd-5912","source":"github","score":0,"posted_at":"2024-02-21T22:45:57Z","tags":[],"title":"Enable Subsearch in PPL","_secondary":true}
+{"id":"gh-osd-5845","source":"github","score":0,"posted_at":"2024-02-08T18:01:03Z","tags":["alerting","anomaly"],"title":"[BUG] Problem with narrowing the list of records if the number of hits increases"}
+{"id":"gh-osd-5658","source":"github","score":0,"posted_at":"2024-01-05T15:20:51Z","tags":["alerting","anomaly"],"title":"[BUG] Dev Tools Console returns \"Request failed to get to the server (status code: 200)\" for some valid requests"}
+{"id":"gh-osd-5646","source":"github","score":0,"posted_at":"2023-12-28T21:43:34Z","tags":["alerting"],"title":"[BUG][VisBuilder Migration] Missing filter and query (_q state) when reload a saved legacy vis builder"}
+{"id":"gh-osd-4611","source":"github","score":0,"posted_at":"2023-07-24T17:46:03Z","tags":["alerting"],"title":"[Decouple] OSD plugin manifest to define semver compatible OS plugin"}
+{"id":"gh-osd-4576","source":"github","score":0,"posted_at":"2023-07-14T19:50:20Z","tags":[],"title":"[BUG] Flawed UI Settings handling causes 500 error","_secondary":true}
+{"id":"gh-osd-4134","source":"github","score":0,"posted_at":"2023-05-25T09:19:02Z","tags":["alerting"],"title":"[BUG] Cannot add data filter when creating monitor in alerting"}
+{"id":"gh-osd-4030","source":"github","score":0,"posted_at":"2023-05-15T17:51:46Z","tags":["alerting","anomaly"],"title":"Creating index-pattern via API with ansible [BUG]"}
+{"id":"gh-osd-3983","source":"github","score":0,"posted_at":"2023-05-05T07:10:42Z","tags":["alerting"],"title":"[BUG] unable to add data filter to an alerting monitor "}
+{"id":"gh-osd-3913","source":"github","score":0,"posted_at":"2023-04-21T13:25:25Z","tags":["alerting"],"title":"[BUG] Query Execute Error when creating Per Document Monitor"}
+{"id":"gh-osd-3761","source":"github","score":0,"posted_at":"2023-04-01T00:50:05Z","tags":["alerting"],"title":"[BUG] Percentiles aggregation is not working in monitor query"}
+{"id":"gh-osd-3038","source":"github","score":0,"posted_at":"2022-12-07T13:34:48Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Cannot generate CSV reports from query with leading wildcard","_secondary":true}
+{"id":"gh-osd-2893","source":"github","score":0,"posted_at":"2022-11-18T01:14:40Z","tags":["alerting","saved-objects","anomaly"],"title":"[Feature Anywhere] Add a `augment-vis` saved object type","_secondary":true}
+{"id":"gh-osd-2882","source":"github","score":0,"posted_at":"2022-11-16T00:10:39Z","tags":[],"title":"[Feature Anywhere] Add a generic interface for overlaying data on a Visualization","_secondary":true}
+{"id":"gh-osd-2819","source":"github","score":0,"posted_at":"2022-11-07T19:08:29Z","tags":["tsvb","alerting","anomaly"],"title":"[Epic] [Visualizations] Consolidate visualization-rendering to Vega-Lite","_secondary":true}
+{"id":"gh-osd-1569","source":"github","score":0,"posted_at":"2022-05-08T17:25:25Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Header's loading spinner is not shown properly in Firefox","_secondary":true}
+{"id":"gh-osd-1138","source":"github","score":0,"posted_at":"2022-01-12T16:38:13Z","tags":["discover","alerting","anomaly"],"title":"[BUG]disableWelcomeScreen settings ignored","_secondary":true}
+{"id":"gh-osd-471","source":"github","score":1,"posted_at":"2021-06-09T21:02:23Z","tags":["alerting"],"title":"Update semantic suggestion menu for new endpoints and plugins in Dev Tools"}
+{"id":"gh-osd-11730","source":"github","score":1,"posted_at":"2026-04-10T19:45:59Z","tags":["alerting","anomaly"],"title":"[Meta] TypeScript 6.0.2 Upgrade — Plugin Migration Tracker"}
+{"id":"gh-osd-11600","source":"github","score":0,"posted_at":"2026-03-26T19:57:21Z","tags":["alerting","apm"],"title":"CVE-2026-33671 (High) detected in multiple libraries"}
+{"id":"gh-osd-11599","source":"github","score":0,"posted_at":"2026-03-26T19:57:19Z","tags":["alerting","apm"],"title":"CVE-2026-33672 (Medium) detected in multiple libraries"}
+{"id":"gh-osd-11417","source":"github","score":0,"posted_at":"2026-02-28T22:48:49Z","tags":[],"title":"Alerte"}
+{"id":"gh-osd-11156","source":"github","score":0,"posted_at":"2026-01-12T02:43:37Z","tags":["alerting"],"title":"[META] Webpack to Rspack migration"}
+{"id":"gh-osd-9858","source":"github","score":0,"posted_at":"2025-06-09T04:14:36Z","tags":["discover","alerting","anomaly"],"title":"[BUG] role not working as expected in OpenSearch Dashboards"}
+{"id":"gh-osd-9235","source":"github","score":0,"posted_at":"2025-01-21T09:00:27Z","tags":["alerting","anomaly"],"title":"[BUG] Console error appears when loading data source with an empty description"}
+{"id":"hn-46356369","source":"hackernews","score":5,"posted_at":"2025-12-22T17:35:46Z","tags":["alerting","slow-dashboard","license"],"title":"Show HN: Logchef – Open-source schema-agnostic log viewer for ClickHouse"}
+{"id":"hn-22700880","source":"hackernews","score":1,"posted_at":"2020-03-27T06:57:37Z","tags":[],"title":"Connect Kibana to Azure Data Explorer with K2Bridge, a new open-source connector"}
+{"id":"hn-13655749","source":"hackernews","score":2,"posted_at":"2017-02-15T22:00:12Z","tags":[],"title":"Show HN: ElastAlert Kibana Plugin","_secondary":true}
+{"id":"hn-45503752","source":"hackernews","score":0,"posted_at":"2025-10-07T14:48:01Z","tags":[],"title":"Ask HN: Who wants to be hired? (October 2025)"}
+{"id":"hn-45143707","source":"hackernews","score":0,"posted_at":"2025-09-05T21:15:33Z","tags":["alerting"],"title":"Show HN: OpsiMate – From on-call chaos to a single control panel"}
+{"id":"hn-42902099","source":"hackernews","score":0,"posted_at":"2025-02-01T20:47:41Z","tags":[],"title":"[dead]"}
+{"id":"hn-42902086","source":"hackernews","score":0,"posted_at":"2025-02-01T20:46:25Z","tags":[],"title":"[dead]"}
+{"id":"hn-41764841","source":"hackernews","score":0,"posted_at":"2024-10-07T11:11:23Z","tags":["alerting"],"title":"[dead]"}
+{"id":"hn-39329651","source":"hackernews","score":0,"posted_at":"2024-02-10T19:58:17Z","tags":["alerting"],"title":"Almost every infrastructure decision I endorse or regret"}
+{"id":"hn-37352418","source":"hackernews","score":0,"posted_at":"2023-09-01T15:55:42Z","tags":["fleet"],"title":"Ask HN: Who wants to be hired? (September 2023)","_secondary":true}
+{"id":"hn-36961058","source":"hackernews","score":0,"posted_at":"2023-08-01T19:15:18Z","tags":["fleet"],"title":"Ask HN: Who wants to be hired? (August 2023)","_secondary":true}
+{"id":"hn-36575950","source":"hackernews","score":0,"posted_at":"2023-07-03T17:11:41Z","tags":["fleet"],"title":"Ask HN: Who wants to be hired? (July 2023)","_secondary":true}
+{"id":"hn-36575750","source":"hackernews","score":0,"posted_at":"2023-07-03T16:59:46Z","tags":["fleet"],"title":"Ask HN: Who wants to be hired? (July 2023)","_secondary":true}
+{"id":"hn-36363077","source":"hackernews","score":0,"posted_at":"2023-06-16T20:06:55Z","tags":[],"title":"11 years of hosting a SaaS","_secondary":true}
+{"id":"hn-36180460","source":"hackernews","score":0,"posted_at":"2023-06-03T20:57:15Z","tags":["alerting"],"title":"EBPFGuard: a Rust Library Mitigation of Threats Using LSM Hooks"}
+{"id":"hn-36164711","source":"hackernews","score":0,"posted_at":"2023-06-02T13:22:42Z","tags":["fleet"],"title":"Ask HN: Who wants to be hired? (June 2023)","_secondary":true}
+{"id":"hn-36152198","source":"hackernews","score":0,"posted_at":"2023-06-01T15:11:07Z","tags":["fleet"],"title":"Ask HN: Who wants to be hired? (June 2023)","_secondary":true}
+{"id":"hn-35775492","source":"hackernews","score":0,"posted_at":"2023-05-01T16:49:00Z","tags":["fleet"],"title":"Ask HN: Who wants to be hired? (May 2023)","_secondary":true}
+{"id":"hn-35774269","source":"hackernews","score":0,"posted_at":"2023-05-01T15:33:24Z","tags":["fleet"],"title":"Ask HN: Who wants to be hired? (May 2023)","_secondary":true}
+{"id":"hn-34137259","source":"hackernews","score":0,"posted_at":"2022-12-26T12:52:29Z","tags":[],"title":"General guidance when working as a cloud engineer"}
+{"id":"hn-33449339","source":"hackernews","score":0,"posted_at":"2022-11-03T11:04:43Z","tags":[],"title":"Ask HN: Who wants to be hired? (November 2022)"}
+{"id":"hn-30883482","source":"hackernews","score":0,"posted_at":"2022-04-01T21:27:06Z","tags":[],"title":"Ask HN: Who is hiring? (April 2022)"}
+{"id":"hn-30875893","source":"hackernews","score":0,"posted_at":"2022-04-01T07:08:18Z","tags":[],"title":"Ask HN: Does your team have runbooks for alerts?","_secondary":true}
+{"id":"hn-30757221","source":"hackernews","score":0,"posted_at":"2022-03-21T17:37:38Z","tags":["alerting"],"title":"Pegasii: Monitoring and Alerting as Code"}
+{"id":"hn-28048694","source":"hackernews","score":0,"posted_at":"2021-08-03T13:10:43Z","tags":["alerting"],"title":"Ask HN: Who is hiring? (August 2021)"}
+{"id":"hn-27715056","source":"hackernews","score":0,"posted_at":"2021-07-02T18:31:45Z","tags":["alerting"],"title":"Purelymail – cheap, no-nonsense email"}
+{"id":"hn-27711823","source":"hackernews","score":0,"posted_at":"2021-07-02T14:18:22Z","tags":["alerting"],"title":"Purelymail – cheap, no-nonsense email"}
+{"id":"hn-26957945","source":"hackernews","score":0,"posted_at":"2021-04-27T16:15:27Z","tags":[],"title":"Ask HN: If your bank had an API, what would you make?","_secondary":true}
+{"id":"hn-26887548","source":"hackernews","score":0,"posted_at":"2021-04-21T10:18:18Z","tags":["alerting","anomaly"],"title":"Netdata: Open-source real-time monitoring platform"}
+{"id":"hn-26782214","source":"hackernews","score":0,"posted_at":"2021-04-12T17:21:26Z","tags":["alerting","license"],"title":"OpenSearch: AWS fork of Elasticsearch and Kibana"}
+{"id":"hn-26771391","source":"hackernews","score":0,"posted_at":"2021-04-11T16:17:08Z","tags":[],"title":"Show HN: Squirrelbyte – a SQLite-based JSON document server"}
+{"id":"hn-26563156","source":"hackernews","score":0,"posted_at":"2021-03-24T03:14:25Z","tags":[],"title":"ZGC – What's new in JDK 16","_secondary":true}
+{"id":"hn-24219188","source":"hackernews","score":0,"posted_at":"2020-08-20T02:11:36Z","tags":["siem"],"title":"Elastic 7.9","_secondary":true}
+{"id":"hn-23907230","source":"hackernews","score":0,"posted_at":"2020-07-21T14:51:06Z","tags":["alerting"],"title":"Monitoring your own infrastructure using Grafana, InfluxDB, and CollectD"}
+{"id":"hn-23871676","source":"hackernews","score":0,"posted_at":"2020-07-17T15:37:45Z","tags":[],"title":"Ask HN: What is the best enterprise software you use every day?","_secondary":true}
+{"id":"hn-23228361","source":"hackernews","score":0,"posted_at":"2020-05-18T21:04:40Z","tags":["alerting"],"title":"Grafana 7.0"}
+{"id":"hn-23047326","source":"hackernews","score":0,"posted_at":"2020-05-01T22:50:33Z","tags":[],"title":"Red Hat releases new OpenShift CLI developer tool","_secondary":true}
+{"id":"hn-22469359","source":"hackernews","score":0,"posted_at":"2020-03-02T21:41:18Z","tags":["alerting"],"title":"Ask HN: Who wants to be hired? (March 2020)"}
+{"id":"hn-20637958","source":"hackernews","score":0,"posted_at":"2019-08-07T19:21:53Z","tags":["alerting"],"title":"Elasticsearch 7.1.1 Opendistro 1.1 with free SQL, Security and alerting released","_secondary":true}
+{"id":"hn-20586455","source":"hackernews","score":0,"posted_at":"2019-08-01T17:55:47Z","tags":["alerting","siem"],"title":"Ask HN: Who is hiring? (August 2019)","_secondary":true}
+{"id":"hn-19362604","source":"hackernews","score":0,"posted_at":"2019-03-11T20:41:07Z","tags":["canvas","alerting","apm","license"],"title":"Open Distro for Elasticsearch","_secondary":true}
+{"id":"hn-18957268","source":"hackernews","score":0,"posted_at":"2019-01-21T02:53:24Z","tags":["alerting"],"title":"Kubernetes Failure Stories"}
+{"id":"hn-18763204","source":"hackernews","score":0,"posted_at":"2018-12-26T17:11:04Z","tags":[],"title":"A Beginner's Guide to Scaling to 11M Users on Amazon's AWS (2016)"}
+{"id":"hn-18002066","source":"hackernews","score":0,"posted_at":"2018-09-17T00:00:40Z","tags":["alerting"],"title":"Ask HN: What topics/subjects are worth learning for a new software engineer?"}
+{"id":"hn-17933335","source":"hackernews","score":0,"posted_at":"2018-09-07T11:04:57Z","tags":["alerting"],"title":"The Servers Are Burning"}
+{"id":"hn-17516497","source":"hackernews","score":0,"posted_at":"2018-07-12T16:59:23Z","tags":["alerting"],"title":"Google Cloud Platform – The Good, Bad, and Ugly"}
+{"id":"hn-15774588","source":"hackernews","score":0,"posted_at":"2017-11-25T05:33:08Z","tags":[],"title":"Ask HN: How do you keep track of the components you develop and run?","_secondary":true}
+{"id":"hn-14210079","source":"hackernews","score":0,"posted_at":"2017-04-27T08:40:38Z","tags":["alerting"],"title":"Ask HN: Best practices for log format?"}
+{"id":"hn-13094450","source":"hackernews","score":0,"posted_at":"2016-12-03T05:17:04Z","tags":["alerting"],"title":"Grafana 4.0 with alerting is released"}
+{"id":"hn-13063851","source":"hackernews","score":0,"posted_at":"2016-11-29T16:03:37Z","tags":[],"title":"Cyclotron: A web application for constructing dashboards","_secondary":true}
+{"id":"hn-12935971","source":"hackernews","score":0,"posted_at":"2016-11-12T01:16:57Z","tags":[],"title":"Running Docker in production for 6 months","_secondary":true}
+{"id":"hn-8455879","source":"hackernews","score":0,"posted_at":"2014-10-14T21:17:52Z","tags":["alerting"],"title":"My Philosophy on Alerting: Observations of a Site Reliability Engineer at Google"}
+{"id":"hn-8450510","source":"hackernews","score":0,"posted_at":"2014-10-13T20:36:19Z","tags":["alerting"],"title":"My Philosophy on Alerting: Observations of a Site Reliability Engineer at Google"}
+{"id":"hn-6283976","source":"hackernews","score":0,"posted_at":"2013-08-27T15:22:03Z","tags":[],"title":"Logstash joins Elasticsearch","_secondary":true}
+{"id":"hn-9074540","source":"hackernews","score":0,"posted_at":"2015-02-19T15:37:56Z","tags":["anomaly"],"title":"Announcing Graylog v1.0 GA","_secondary":true}
+{"id":"hn-16945622","source":"hackernews","score":0,"posted_at":"2018-04-28T01:18:03Z","tags":["alerting"],"title":"How long does it take to linear search 200MB in memory?"}
+{"id":"hn-14023207","source":"hackernews","score":0,"posted_at":"2017-04-03T15:01:35Z","tags":["alerting","pdf-export","ml"],"title":"Ask HN: Who is hiring? (April 2017)","_secondary":true}
+{"id":"hn-13224641","source":"hackernews","score":0,"posted_at":"2016-12-20T22:12:02Z","tags":["alerting"],"title":"Learning from a Year of Security Breaches"}
+{"id":"hn-12506709","source":"hackernews","score":0,"posted_at":"2016-09-15T15:01:00Z","tags":["alerting"],"title":"Show HN: Logtrail – A Kibana plugin for logs that clones the Papertrail UI","_secondary":true}
+{"id":"hn-11074971","source":"hackernews","score":0,"posted_at":"2016-02-10T18:50:08Z","tags":["alerting"],"title":"Show HN: LogDNA – Easy logging in the cloud"}
+{"id":"hn-8451198","source":"hackernews","score":0,"posted_at":"2014-10-13T23:22:53Z","tags":["alerting"],"title":"My Philosophy on Alerting: Observations of a Site Reliability Engineer at Google"}
+{"id":"hn-17018746","source":"hackernews","score":0,"posted_at":"2018-05-08T04:07:10Z","tags":["discover"],"title":"Ask HN: How do you continuously monitor web logs for hack attempts?","_secondary":true}
+{"id":"hn-14655876","source":"hackernews","score":0,"posted_at":"2017-06-28T17:02:02Z","tags":[],"title":"Ask HN: DevOps learning resources","_secondary":true}
+{"id":"hn-13455854","source":"hackernews","score":0,"posted_at":"2017-01-22T16:35:46Z","tags":[],"title":"Service Canary – Detect and alert on changes within your infrastructure","_secondary":true}
+{"id":"hn-11212351","source":"hackernews","score":0,"posted_at":"2016-03-02T19:33:06Z","tags":[],"title":"How to Deploy Software"}
+{"id":"hn-9303870","source":"hackernews","score":0,"posted_at":"2015-04-01T14:33:59Z","tags":[],"title":"Ask HN: Who is hiring? (April 2015)"}
+{"id":"hn-8837320","source":"hackernews","score":0,"posted_at":"2015-01-05T04:42:02Z","tags":[],"title":"Ask HN: Who is hiring? (January 2015)"}
+{"id":"hn-8711439","source":"hackernews","score":0,"posted_at":"2014-12-07T06:21:15Z","tags":[],"title":"Ask HN: Are there any DC startups hiring?"}
+{"id":"hn-8682634","source":"hackernews","score":0,"posted_at":"2014-12-01T18:13:46Z","tags":[],"title":"Ask HN: Who is hiring? (December 2014)"}
+{"id":"hn-13563213","source":"hackernews","score":0,"posted_at":"2017-02-03T20:54:15Z","tags":[],"title":"Ask HN: Kibana, Grafana, Chatbots, SMS – How do you keep an eye on your product?"}
+{"id":"hn-12017209","source":"hackernews","score":0,"posted_at":"2016-07-01T15:58:48Z","tags":[],"title":"Ask HN: Who is hiring? (July 2016)"}
+{"id":"hn-7918505","source":"hackernews","score":0,"posted_at":"2014-06-19T21:53:14Z","tags":[],"title":"Call me maybe: Elasticsearch","_secondary":true}
+{"id":"hn-12521810","source":"hackernews","score":0,"posted_at":"2016-09-17T18:47:48Z","tags":[],"title":"Ask HN: How do you monitor server logs"}
+{"id":"hn-12320507","source":"hackernews","score":0,"posted_at":"2016-08-19T15:02:50Z","tags":[],"title":"Ask HN: How do you make logging consistent","_secondary":true}
+{"id":"hn-14856948","source":"hackernews","score":0,"posted_at":"2017-07-26T15:22:45Z","tags":[],"title":"Ask HN: Share Your Raspberry Pi Project"}
+{"id":"hn-11414288","source":"hackernews","score":0,"posted_at":"2016-04-03T00:31:15Z","tags":[],"title":"Ask HN: Who is hiring? (April 2016)"}
+{"id":"hn-9444835","source":"hackernews","score":0,"posted_at":"2015-04-27T07:39:12Z","tags":[],"title":"Ask HN: How do you log application events?"}
+{"id":"hn-9430728","source":"hackernews","score":0,"posted_at":"2015-04-24T00:08:55Z","tags":["anomaly"],"title":"Ask HN: What is more reliable, logstash or rsyslog?"}
+{"id":"reddit-1mdxf8f","source":"reddit","score":0,"posted_at":"2025-07-31T09:57:59.000Z","tags":["lens","canvas","alerting","license"],"title":"Any free way to get automated CSV reports via email from Kibana?","_secondary":true}
+{"id":"reddit-1mucyb4","source":"reddit","score":2,"posted_at":"2025-08-19T08:46:22.000Z","tags":[],"title":"How to create a Kibana role that can't create alerts?","_secondary":true}
+{"id":"reddit-1j4rw7c","source":"reddit","score":10,"posted_at":"2025-03-06T09:41:22.000Z","tags":["fleet"],"title":"Kibana Authenticated (Viewer) arbitrary code execution via prototype pollution - CVE-2025-25015","_secondary":true}
+{"id":"reddit-1hfeztm","source":"reddit","score":2,"posted_at":"2024-12-16T08:52:50.000Z","tags":[],"title":"Stuck on Kibana 413 Error Despite Increasing server.maxPayload","_secondary":true}
+{"id":"reddit-1fpf4eh","source":"reddit","score":10,"posted_at":"2024-09-25T20:57:27.000Z","tags":["alerting"],"title":"Seeking Kibana Alerting Product Manager"}
+{"id":"reddit-v3gaai","source":"reddit","score":5,"posted_at":"2022-06-02T19:05:29.000Z","tags":["alerting","license"],"title":"Can Kibana send alerts when certain thresholds are met to email without a license?"}
+{"id":"reddit-13lhedz","source":"reddit","score":2,"posted_at":"2023-05-19T01:39:42.000Z","tags":[],"title":"Help with Kibana! Do you know how I can do this?","_secondary":true}
+{"id":"reddit-tzazjq","source":"reddit","score":6,"posted_at":"2022-04-08T19:13:58.000Z","tags":[],"title":"Can elasticsearch/kibana poll a rest API for monitoring?"}
+{"id":"reddit-qk9enq","source":"reddit","score":2,"posted_at":"2021-11-01T08:17:37.000Z","tags":["alerting"],"title":"Email alerts in Kibana OR a replacement for Kibana"}
+{"id":"reddit-u2ul4r","source":"reddit","score":19,"posted_at":"2022-04-13T16:43:02.000Z","tags":["alerting","siem"],"title":"Is our proposed threat hunting enrichment &amp; automation pipeline a good idea, or is the counter-argument correct, that everything we propose could be done na","_secondary":true}
+{"id":"reddit-11ccwvi","source":"reddit","score":3,"posted_at":"2023-02-26T10:47:55.000Z","tags":[],"title":"[.kibana_task_manager] Action failed with 'search_phase_execution_exception"}
+{"id":"reddit-slcdom","source":"reddit","score":2,"posted_at":"2022-02-05T17:32:25.000Z","tags":["lens","canvas","discover","alerting","apm","fleet","license"],"title":"Trying to get elasticsearch and kibana working with docker-compose","_secondary":true}
+{"id":"reddit-ge4lkk","source":"reddit","score":5,"posted_at":"2020-05-05T19:44:32.000Z","tags":["alerting"],"title":"Elasticsearch, kibana, watcher alerts"}
+{"id":"reddit-wpubtg","source":"reddit","score":9,"posted_at":"2022-08-16T13:26:57.000Z","tags":[],"title":"I'm quite new to Elastic, we some MSS clients we manage their logs. They all have oracle linux logness box for their log collection. I want to write a simple ki","_secondary":true}
+{"id":"reddit-rwtdvd","source":"reddit","score":1,"posted_at":"2022-01-05T18:22:50.000Z","tags":[],"title":"Kibana query repository?","_secondary":true}
+{"id":"reddit-gdq096","source":"reddit","score":0,"posted_at":"2020-05-05T03:07:18.000Z","tags":[],"title":"Any opensource and free log managers like Graylog or logstash (with elasticsearch and kibana)?","_secondary":true}
+{"id":"reddit-kjyxb8","source":"reddit","score":1,"posted_at":"2020-12-25T13:20:53.000Z","tags":[],"title":"Kibana Alert Notifications"}
+{"id":"reddit-40yfex","source":"reddit","score":5,"posted_at":"2016-01-14T16:56:37.000Z","tags":[],"title":"Issue launching Kibana on ELK stack","_secondary":true}
+{"id":"reddit-172czbl","source":"reddit","score":1,"posted_at":"2023-10-07T18:17:25.000Z","tags":["alerting"],"title":"Looking for unusual kind of alert management/notification management tool"}
+{"id":"reddit-51yd1h","source":"reddit","score":54,"posted_at":"2016-09-09T16:45:26.000Z","tags":[],"title":"Once again, the guys who maintain our organization's ELK stack just erased all of my team's data","_secondary":true}
+{"id":"reddit-193bac7","source":"reddit","score":1,"posted_at":"2024-01-10T15:46:30.000Z","tags":[],"title":"Please, suggest a tool for log aggregation","_secondary":true}
+{"id":"reddit-1b8qfd3","source":"reddit","score":1,"posted_at":"2024-03-07T09:23:47.000Z","tags":[],"title":"Advise on a logging system please (ELK, Loki...)"}
+{"id":"reddit-rrun37","source":"reddit","score":1,"posted_at":"2021-12-30T06:23:20.000Z","tags":["license"],"title":"Email alerts for logs"}
+{"id":"reddit-23ohx7","source":"reddit","score":18,"posted_at":"2014-04-22T14:22:33.000Z","tags":["alerting"],"title":"To do Graphite or just stick with Elasticsearch"}
+{"id":"reddit-pbd3ez","source":"reddit","score":5,"posted_at":"2021-08-25T15:05:01.000Z","tags":["alerting"],"title":"Anybody uses Fluentd + ElasticSearch + Grafana for syslogs?"}
+{"id":"reddit-8ignbp","source":"reddit","score":10,"posted_at":"2018-05-10T17:32:52.000Z","tags":[],"title":"How are you guys leveraging your Elk/Elastic stack?"}
+{"id":"reddit-4m39yt","source":"reddit","score":9,"posted_at":"2016-06-01T20:12:51.000Z","tags":["alerting"],"title":"Graylog 2.0, ELK, or combine them?"}
+{"id":"reddit-erd4ec","source":"reddit","score":3,"posted_at":"2020-01-20T13:21:20.000Z","tags":["alerting"],"title":"Help with monitoring theory: alerting on both metrics and logs (or roughly state and events)"}
+{"id":"reddit-lvnsei","source":"reddit","score":0,"posted_at":"2021-03-01T23:21:24.000Z","tags":[],"title":"Network monitoring with ELK stack?"}
+{"id":"reddit-3ipnuv","source":"reddit","score":10,"posted_at":"2015-08-28T10:55:25.000Z","tags":["alerting"],"title":"Renewing monitoring system"}
+{"id":"reddit-5xczu6","source":"reddit","score":1,"posted_at":"2017-03-03T21:02:08.000Z","tags":[],"title":"Best front-end for elastic search in my use case?","_secondary":true}
+{"id":"reddit-9tbba5","source":"reddit","score":4,"posted_at":"2018-11-01T17:06:27.000Z","tags":["alerting"],"title":"ElasticSearch Alerting"}
+{"id":"reddit-2cq4kw","source":"reddit","score":0,"posted_at":"2014-08-05T21:11:39.000Z","tags":[],"title":"Help from my fellow Sysadmins needed!"}
+{"id":"reddit-1moe2i9","source":"reddit","score":639,"posted_at":"2025-08-12T16:51:29.000Z","tags":["alerting"],"title":"Planning to Become a DevOps Engineer in 2025? Here’s What Actually Matters"}
+{"id":"reddit-1qi8w8n","source":"reddit","score":38,"posted_at":"2026-01-20T18:19:54.000Z","tags":[],"title":"Migrating a large Elasticsearch cluster in production (100M+ docs). Looking for DevOps lessons and monitoring advice.","_secondary":true}
+{"id":"reddit-1q88ulk","source":"reddit","score":27,"posted_at":"2026-01-09T13:54:44.000Z","tags":["alerting","anomaly"],"title":"Is building a full centralized observability system (Prometheus + Grafana + Loki + network/DB/security monitoring) realistically a Junior-level task if doing it"}
+{"id":"reddit-1kcru5c","source":"reddit","score":0,"posted_at":"2025-05-02T03:51:54.000Z","tags":[],"title":"Asking for help in implementing a monitoring application?","_secondary":true}
+{"id":"reddit-1g3aubb","source":"reddit","score":0,"posted_at":"2024-10-14T08:08:29.000Z","tags":[],"title":"No calls in DevOps despite 1.5 YOE feels low","_secondary":true}
+{"id":"reddit-y6zy58","source":"reddit","score":42,"posted_at":"2022-10-18T07:24:26.000Z","tags":["alerting"],"title":"Super light monitoring and alerting stack for personal projects"}
+{"id":"reddit-h129wg","source":"reddit","score":22,"posted_at":"2020-06-11T16:11:28.000Z","tags":[],"title":"Tech stack around Kubernetes","_secondary":true}
+{"id":"reddit-11qavu6","source":"reddit","score":11,"posted_at":"2023-03-13T14:15:02.000Z","tags":[],"title":"how does prometheus monitor elasticSearch? e.g. if I want to alert on a host publishing a certain event"}
+{"id":"reddit-skd0me","source":"reddit","score":4,"posted_at":"2022-02-04T13:14:53.000Z","tags":["alerting"],"title":"Looking for feedback on infrastructure plan"}
+{"id":"reddit-50wf7b","source":"reddit","score":50,"posted_at":"2016-09-03T00:32:30.000Z","tags":["alerting"],"title":"Whether to use graylog vs ELK stack"}
+{"id":"reddit-lyitqz","source":"reddit","score":12,"posted_at":"2021-03-05T18:44:16.000Z","tags":["alerting"],"title":"Transitioning in to DevOps from being a QA Tester"}
+{"id":"reddit-oiqjgf","source":"reddit","score":6,"posted_at":"2021-07-12T12:46:19.000Z","tags":["alerting","anomaly"],"title":"Help me decide on a monitoring/log analysis stack - ELK vs. TICK vs. [Other]"}
+{"id":"reddit-g8qnhh","source":"reddit","score":2,"posted_at":"2020-04-27T01:07:55.000Z","tags":["alerting"],"title":"Monitoring &amp; logging - how to navigate current situation with 143 different tools?"}
+{"id":"reddit-liadg1","source":"reddit","score":6,"posted_at":"2021-02-12T12:48:55.000Z","tags":[],"title":"What do you use for service management?","_secondary":true}
+{"id":"reddit-ne740z","source":"reddit","score":8,"posted_at":"2021-05-17T04:54:49.000Z","tags":["alerting"],"title":"Log (Observability) Overview"}
+{"id":"reddit-alsksi","source":"reddit","score":1,"posted_at":"2019-01-31T18:32:40.000Z","tags":[],"title":"Need a Recommendation for Analyzing Nginx Logs?","_secondary":true}
+{"id":"reddit-bkz9z5","source":"reddit","score":3,"posted_at":"2019-05-05T15:51:54.000Z","tags":["alerting","apm"],"title":"How to bring monitoring costs down with a managed service?"}
+{"id":"reddit-87adq6","source":"reddit","score":2,"posted_at":"2018-03-26T16:19:18.000Z","tags":["alerting","license"],"title":"Monitoring and alerting for independent microservices?"}
+{"id":"reddit-1cb6rf3","source":"reddit","score":16,"posted_at":"2024-04-23T14:58:39.000Z","tags":[],"title":"After years of random outages, I finally set up some uptime monitors using Elasticsearch/Kibana Synthetic Monitors. Last night it notified me of a Plex outage w"}
+{"id":"reddit-ras1mg","source":"reddit","score":130,"posted_at":"2021-12-07T05:49:51.000Z","tags":[],"title":"Searching for a lightweight log server"}
+{"id":"reddit-1d4qh61","source":"reddit","score":13,"posted_at":"2024-05-31T08:10:00.000Z","tags":["alerting"],"title":"What is today a simple log aggregator similar to papertrail?"}
+{"id":"reddit-gkbq7l","source":"reddit","score":86,"posted_at":"2020-05-15T15:56:15.000Z","tags":[],"title":"How to centralize syslog event?"}
+{"id":"reddit-wvmlsg","source":"reddit","score":72,"posted_at":"2022-08-23T11:43:09.000Z","tags":[],"title":"I've fallen in love with Zabbix","_secondary":true}
+{"id":"reddit-1ebf967","source":"reddit","score":2,"posted_at":"2024-07-24T22:57:57.000Z","tags":["alerting"],"title":"Escape from ELK stack - but where?","_secondary":true}
+{"id":"reddit-xc6sgz","source":"reddit","score":7,"posted_at":"2022-09-12T07:57:04.000Z","tags":["alerting"],"title":"Searching for simple log checker tool with alerting system"}
+{"id":"reddit-ew9i7y","source":"reddit","score":0,"posted_at":"2020-01-30T18:03:12.000Z","tags":[],"title":"Healtcheck with Slack alert"}
+{"id":"reddit-14m44y9","source":"reddit","score":2,"posted_at":"2023-06-29T12:47:09.000Z","tags":[],"title":"OpenSearch ELK stack for analytics?","_secondary":true}
+{"id":"reddit-ue956r","source":"reddit","score":33,"posted_at":"2022-04-29T00:15:11.000Z","tags":[],"title":"You've Just Stood Up a Single Proxmox Instance as Your Homelab, What Now?","_secondary":true}
+{"id":"reddit-8uf82u","source":"reddit","score":9,"posted_at":"2018-06-28T01:29:42.000Z","tags":["alerting"],"title":"ELK, Prometheus + InfluxDB + Grafana... I'm a bit lost as to what does what and how they fit together for monitoring my servers"}
+{"id":"reddit-57wtc6","source":"reddit","score":8,"posted_at":"2016-10-17T11:25:41.000Z","tags":[],"title":"Homelab Network Security Monitoring started - Xeon D","_secondary":true}
+{"id":"reddit-45jitu","source":"reddit","score":13,"posted_at":"2016-02-13T09:04:07.000Z","tags":[],"title":"Stuff I've been trying: I'm a security guy"}
+{"id":"reddit-j8e22f","source":"reddit","score":2,"posted_at":"2020-10-10T04:18:27.000Z","tags":[],"title":"Some network traffic missing from Kibana dashboard.","_secondary":true}
+{"id":"reddit-hw5bpd","source":"reddit","score":1,"posted_at":"2020-07-23T00:04:43.000Z","tags":["discover","fleet"],"title":"[2.0] Kibana dashboards empty","_secondary":true}
+{"id":"reddit-1sa7fb7","source":"reddit","score":1,"posted_at":"2026-04-02T04:22:14.000Z","tags":["alerting","siem"],"title":"Kubernetes Observability"}
+{"id":"reddit-1sge9ae","source":"reddit","score":0,"posted_at":"2026-04-09T03:22:57.000Z","tags":[],"title":"Production Support Engineer (6.9 yrs) | Observability | Monitoring | SRE / Platform Support | Open to Opportunities","_secondary":true}
+{"id":"reddit-1lpos9w","source":"reddit","score":11,"posted_at":"2025-07-02T06:32:43.000Z","tags":["alerting","license"],"title":"Recommendations for telecom network monitoring tools (Open Source vs Vendor solutions)?"}
+{"id":"reddit-1jxr4jc","source":"reddit","score":15,"posted_at":"2025-04-12T20:52:50.000Z","tags":["alerting","siem"],"title":"SIEM for SMB with low requirements to functionality"}
+{"id":"reddit-1rht7cn","source":"reddit","score":0,"posted_at":"2026-03-01T09:39:24.000Z","tags":[],"title":"How would setup a tool to do Mongodb to dashboard?","_secondary":true}
+{"id":"reddit-1qvnv5f","source":"reddit","score":1,"posted_at":"2026-02-04T12:57:31.000Z","tags":["alerting"],"title":"Looking into using Elastic for Network monitoring"}
+{"id":"reddit-1rsdfin","source":"reddit","score":0,"posted_at":"2026-03-13T04:17:14.000Z","tags":[],"title":"help for my NIDS Dashboard","_secondary":true}
+{"id":"reddit-1rh6kgo","source":"reddit","score":2,"posted_at":"2026-02-28T16:13:36.000Z","tags":[],"title":"How would setup a tool to do Mongodb to dashboard?","_secondary":true}
+{"id":"reddit-1p3wls0","source":"reddit","score":4,"posted_at":"2025-11-22T15:55:18.000Z","tags":[],"title":"How do I pull Wazuh alerts (last 1 hour, level 15) in real-time via API for a custom public dashboard?","_secondary":true}
+{"id":"reddit-1qe94lh","source":"reddit","score":1,"posted_at":"2026-01-16T07:01:19.000Z","tags":[],"title":"Setting Up the ELK Stack: Configuring Elasticsearch, Logstash, and Kibana for Log Collection and Analysis on Servers","_secondary":true}
+{"id":"reddit-1pydhh6","source":"reddit","score":2,"posted_at":"2025-12-29T05:13:49.000Z","tags":["alerting"],"title":"How to Build an AI Logging Agent From Scratch (Stop manually searching logs)","_secondary":true}
+{"id":"reddit-1p2usxk","source":"reddit","score":2,"posted_at":"2025-11-21T10:04:19.000Z","tags":["discover"],"title":"How to create a true read-only RBAC user in Wazuh 4.12 + hide menu items?","_secondary":true}
+{"id":"reddit-1lhiez3","source":"reddit","score":7,"posted_at":"2025-06-22T07:46:18.000Z","tags":["siem"],"title":"Scaling Wazuh Integrations &amp; Using It as a Full SIEM – Need Help!","_secondary":true}
+{"id":"reddit-np1a8f","source":"reddit","score":140,"posted_at":"2021-05-31T11:32:05.000Z","tags":[],"title":"Building my home intrusion detection system (Suricata &amp; ELK on a Pi4)","_secondary":true}
+{"id":"reddit-182w6yr","source":"reddit","score":1,"posted_at":"2023-11-24T16:40:35.000Z","tags":["alerting"],"title":"Alerts Visualization in Kibana. Alternative to empty visualization"}
+{"id":"reddit-1o67062","source":"reddit","score":1,"posted_at":"2025-10-14T05:24:30.000Z","tags":["alerting"],"title":"Remote Job - Twilio - Messaging Operations Engineer 3"}
+{"id":"reddit-1n6j75c","source":"reddit","score":1,"posted_at":"2025-09-02T13:16:47.000Z","tags":[],"title":"Unlocking Performance: The Power of Real-time Network Monitoring APIs","_secondary":true}
+{"id":"reddit-1jetmrj","source":"reddit","score":1,"posted_at":"2025-03-19T10:12:11.000Z","tags":[],"title":"The wazuh Dashboard don't show alerts","_secondary":true}
+{"id":"reddit-jfgyvi","source":"reddit","score":2,"posted_at":"2020-10-21T17:07:35.000Z","tags":[],"title":"How to avoid issuing just one wildcard certificate in Openshift 4"}
+{"id":"reddit-mqnao1","source":"reddit","score":2,"posted_at":"2021-04-14T09:53:07.000Z","tags":[],"title":"Log solution that handles JSON logs?","_secondary":true}
+{"id":"reddit-ql76ts","source":"reddit","score":1,"posted_at":"2021-11-02T15:50:35.000Z","tags":[],"title":"Kibana versus Grafana. When to use what?","_secondary":true}
+{"id":"reddit-l0puu4","source":"reddit","score":1,"posted_at":"2021-01-19T18:28:09.000Z","tags":["siem"],"title":"SIEM Solution for MSP","_secondary":true}
+{"id":"reddit-1jk5eyx","source":"reddit","score":41,"posted_at":"2025-03-26T06:26:31.000Z","tags":["alerting"],"title":"DevOps/SRE market is cooked","_secondary":true}
+{"id":"reddit-gdpxl6","source":"reddit","score":30,"posted_at":"2020-05-05T03:02:10.000Z","tags":[],"title":"Any opensource and free log managers like graylog or elastic search and kibana","_secondary":true}
+{"id":"reddit-1kqduc0","source":"reddit","score":1,"posted_at":"2025-05-19T14:59:12.000Z","tags":["lens"],"title":"Update Broke Lens, help?","_secondary":true}
+{"id":"reddit-bvn5hd","source":"reddit","score":1,"posted_at":"2019-06-01T17:17:33.000Z","tags":[],"title":"[HELP] homelab newbie decode snort/squil alerts","_secondary":true}
+{"id":"so-35474441","source":"stackoverflow","score":98,"posted_at":"2016-02-18T06:33:01.000Z","tags":[],"title":"How to know elastic search installed version from kibana?","_secondary":true}
+{"id":"so-28265717","source":"stackoverflow","score":71,"posted_at":"2015-02-01T17:43:28.000Z","tags":[],"title":"worker_connections are not enough"}
+{"id":"so-22717832","source":"stackoverflow","score":18,"posted_at":"2014-03-28T16:06:12.000Z","tags":[],"title":"Wildcard search doesn&#39;t work in Kibana","_secondary":true}
+{"id":"so-23948695","source":"stackoverflow","score":11,"posted_at":"2014-05-30T06:49:57.000Z","tags":[],"title":"Alert/Notification using Kibana3?"}
+{"id":"so-54018645","source":"stackoverflow","score":8,"posted_at":"2019-01-03T08:24:30.000Z","tags":[],"title":"Elasticsearch / Kibana: NoShardsAvailableException","_secondary":true}
+{"id":"so-47171966","source":"stackoverflow","score":6,"posted_at":"2017-11-08T05:06:21.000Z","tags":["alerting"],"title":"Any open source alerting and reporting plugin for ELK stack is available?"}
+{"id":"so-24199283","source":"stackoverflow","score":5,"posted_at":"2014-06-13T06:47:51.000Z","tags":["alerting"],"title":"Email alert after threshold crossed, logstash?"}
+{"id":"so-47883832","source":"stackoverflow","score":5,"posted_at":"2017-12-19T09:32:17.000Z","tags":["alerting"],"title":"Restrict some kibana users in a particular dashboard","_secondary":true}
+{"id":"so-40740694","source":"stackoverflow","score":4,"posted_at":"2016-11-22T11:29:05.000Z","tags":["alerting"],"title":"X-pack failed to initialize a TrustManagerFactory"}
+{"id":"so-60520791","source":"stackoverflow","score":4,"posted_at":"2020-03-04T07:15:23.000Z","tags":[],"title":"How to use trigger variables in the message of the raised alert in Kibana ElasticSearch open distro"}
+{"id":"so-71912140","source":"stackoverflow","score":4,"posted_at":"2022-04-18T13:00:17.000Z","tags":["lens","canvas","discover","alerting","apm","saved-objects","fleet","license"],"title":"Server Not Started Yet (Kibana 8.1.2)","_secondary":true}
+{"id":"so-61039895","source":"stackoverflow","score":4,"posted_at":"2020-04-05T08:26:25.000Z","tags":[],"title":"Data not showing in Kibana Discovery Tab","_secondary":true}
+{"id":"so-60360774","source":"stackoverflow","score":4,"posted_at":"2020-02-23T09:23:27.000Z","tags":[],"title":"Count of Elastic Search index varying when querying through Presto","_secondary":true}
+{"id":"so-60306852","source":"stackoverflow","score":4,"posted_at":"2020-02-19T18:20:35.000Z","tags":["oom"],"title":"Kibana not sending alert on new data","_secondary":true}
+{"id":"so-56377142","source":"stackoverflow","score":3,"posted_at":"2019-05-30T11:10:41.000Z","tags":[],"title":"Adding Plugin to Kibana Image in docker-compose.yml","_secondary":true}
+{"id":"so-34725329","source":"stackoverflow","score":3,"posted_at":"2016-01-11T15:35:22.000Z","tags":[],"title":"JSON escaping in Logstash","_secondary":true}
+{"id":"so-56465589","source":"stackoverflow","score":3,"posted_at":"2019-06-05T17:47:31.000Z","tags":["canvas","alerting","apm","license"],"title":"Kibana - Request Timeout after 30000ms at /usr/share/kibana/node_modules/elasticsearch/src/lib/transport.js:355:15","_secondary":true}
+{"id":"so-64080428","source":"stackoverflow","score":3,"posted_at":"2020-09-26T17:05:09.000Z","tags":["alerting","saved-objects","fleet"],"title":"Kibana server is not ready yet and logs shows &quot;Unable to connect to Elasticsearch. Error: Request Timeout after 30000ms&quot;","_secondary":true}
+{"id":"so-62072910","source":"stackoverflow","score":3,"posted_at":"2020-05-28T19:22:32.000Z","tags":["alerting","anomaly"],"title":"kibana opendistro can&#39;t connect to ElasticSearch open distro container on Docker","_secondary":true}
+{"id":"so-50012758","source":"stackoverflow","score":3,"posted_at":"2018-04-25T01:23:46.000Z","tags":["alerting","license"],"title":"ENABLE user ROLES in KIBANA and Elasticsearch using DOCKER.compose?","_secondary":true}
+{"id":"so-33150013","source":"stackoverflow","score":2,"posted_at":"2015-10-15T13:33:55.000Z","tags":[],"title":"Kibana won&#39;t connect to Elasticsearch on Amazon&#39;s Elasticsearch Service","_secondary":true}
+{"id":"so-62185790","source":"stackoverflow","score":2,"posted_at":"2020-06-04T02:15:46.000Z","tags":["alerting","saved-objects","license"],"title":"Kibana server is not ready yet even started","_secondary":true}
+{"id":"so-61968823","source":"stackoverflow","score":2,"posted_at":"2020-05-23T07:28:36.000Z","tags":["alerting","license"],"title":"How to enable kibana or elasticsearch alerting or notification"}
+{"id":"so-60543473","source":"stackoverflow","score":2,"posted_at":"2020-03-05T10:40:28.000Z","tags":["alerting"],"title":"In which elastic stack version the watcher is introduced?"}
+{"id":"so-48846941","source":"stackoverflow","score":2,"posted_at":"2018-02-17T23:29:31.000Z","tags":["alerting"],"title":"ES index not appearing in Kibana &quot;Create index pattern&quot;"}
+{"id":"so-48604588","source":"stackoverflow","score":2,"posted_at":"2018-02-04T04:05:58.000Z","tags":["license"],"title":"Traefik with self-signed backend","_secondary":true}
+{"id":"so-42763672","source":"stackoverflow","score":2,"posted_at":"2017-03-13T12:28:59.000Z","tags":[],"title":"Mongodb compound index to Kibana elasticsearch","_secondary":true}
+{"id":"so-75518444","source":"stackoverflow","score":2,"posted_at":"2023-02-21T09:21:12.000Z","tags":["alerting"],"title":"Custom messages for Alert Rules in ElasticSearch, Kibana"}
+{"id":"so-74229113","source":"stackoverflow","score":2,"posted_at":"2022-10-27T22:59:17.000Z","tags":["alerting"],"title":"Logstash can&#39;t index into ES: `action [indices:admin/auto_create] is unauthorized for user`","_secondary":true}
+{"id":"so-20681396","source":"stackoverflow","score":2,"posted_at":"2013-12-19T12:07:07.000Z","tags":[],"title":"LogStash: kibana Alert - No results There were no results because no indices were found that match your selected time span"}
+{"id":"so-79429915","source":"stackoverflow","score":2,"posted_at":"2025-02-11T12:10:33.000Z","tags":[],"title":"Kibana alert on API endpoint"}
+{"id":"so-69477648","source":"stackoverflow","score":2,"posted_at":"2021-10-07T08:14:42.000Z","tags":[],"title":"fluentbit conf help for stacktrace in k8s logs","_secondary":true}
+{"id":"so-68223060","source":"stackoverflow","score":2,"posted_at":"2021-07-02T09:47:39.000Z","tags":[],"title":"Kibana API Action and connector APIs returning 404","_secondary":true}
+{"id":"so-65937921","source":"stackoverflow","score":2,"posted_at":"2021-01-28T13:19:56.000Z","tags":["alerting"],"title":"Kibana Error Alerting - Filter Similiar Error Messages | Similarity Query [Elastalert]"}
+{"id":"so-57312850","source":"stackoverflow","score":2,"posted_at":"2019-08-01T15:56:20.000Z","tags":[],"title":"Making timestamp field available in kibana via elasticsearch with kafka","_secondary":true}
+{"id":"so-33854145","source":"stackoverflow","score":2,"posted_at":"2015-11-22T11:17:45.000Z","tags":["alerting"],"title":"Kibana 3 - Extract the query automatically then use it in a watcher"}
+{"id":"so-30602731","source":"stackoverflow","score":1,"posted_at":"2015-06-02T17:28:00.000Z","tags":["alerting"],"title":"Is there any Email alerting feature for Elasticsearch?"}
+{"id":"so-67777260","source":"stackoverflow","score":1,"posted_at":"2021-05-31T16:18:21.000Z","tags":[],"title":"Unable configure Alerts and Actions in Kibana"}
+{"id":"so-70794717","source":"stackoverflow","score":1,"posted_at":"2022-01-20T23:39:35.000Z","tags":[],"title":"Filebeat multiline filter doesn&#39;t work with txt file","_secondary":true}
+{"id":"so-22080690","source":"stackoverflow","score":1,"posted_at":"2014-02-27T21:21:32.000Z","tags":[],"title":"unable to save kibana dashboards correctly","_secondary":true}
+{"id":"so-78141303","source":"stackoverflow","score":1,"posted_at":"2024-03-11T14:18:00.000Z","tags":[],"title":"Realtime data doesn&#39;t show up on elasticsearch, kibana","_secondary":true}
+{"id":"so-64118134","source":"stackoverflow","score":1,"posted_at":"2020-09-29T10:52:35.000Z","tags":[],"title":"Docker Volume - Unhandled exception: Access is denied. (Exception from HRESULT: 0x80070005 (E_ACCESSDENIED))","_secondary":true}
+{"id":"so-63567749","source":"stackoverflow","score":1,"posted_at":"2020-08-24T19:43:40.000Z","tags":[],"title":"AWS kibana/ES trying to create policy but getting &quot;authorization exception&quot;","_secondary":true}
+{"id":"so-59744247","source":"stackoverflow","score":1,"posted_at":"2020-01-15T02:03:55.000Z","tags":["alerting"],"title":"Need an elasticsearch query filter range which starts 5 minutes before scheduled time"}
+{"id":"so-35731660","source":"stackoverflow","score":1,"posted_at":"2016-03-01T19:24:39.000Z","tags":["alerting"],"title":"Any way to have kibana 4 send alerts or take action on specific conditions"}
+{"id":"so-26760498","source":"stackoverflow","score":1,"posted_at":"2014-11-05T15:10:08.000Z","tags":[],"title":"Change pie chart color in Kibana","_secondary":true}
+{"id":"so-60016538","source":"stackoverflow","score":1,"posted_at":"2020-02-01T11:43:54.000Z","tags":[],"title":"Connect Elastic Search Index with Google Data Studio","_secondary":true}
+{"id":"so-59534678","source":"stackoverflow","score":1,"posted_at":"2019-12-30T17:31:54.000Z","tags":[],"title":"Logstash sql_last_value is not updating","_secondary":true}
+{"id":"so-66344861","source":"stackoverflow","score":1,"posted_at":"2021-02-24T04:46:22.000Z","tags":["alerting"],"title":"proper set up of parsing custom logs with logstash to kibana, i see no errors and no data"}
+{"id":"so-44556529","source":"stackoverflow","score":1,"posted_at":"2017-06-15T00:06:55.000Z","tags":[],"title":"Python Curl To Elastic Search Issue","_secondary":true}
+{"id":"so-67523596","source":"stackoverflow","score":1,"posted_at":"2021-05-13T17:27:46.000Z","tags":["alerting"],"title":"Is Kibana Watcher part of AWS"}
+{"id":"so-65953106","source":"stackoverflow","score":1,"posted_at":"2021-01-29T10:54:56.000Z","tags":["alerting"],"title":"failed to authenticate user [elastic]"}
+{"id":"so-60963993","source":"stackoverflow","score":1,"posted_at":"2020-04-01T05:01:09.000Z","tags":["alerting"],"title":"Kibana Watcher query for searching text"}
+{"id":"so-50655931","source":"stackoverflow","score":1,"posted_at":"2018-06-02T10:27:51.000Z","tags":[],"title":"Importing data from mysql error - Pipeline has terminated"}
+{"id":"so-47800796","source":"stackoverflow","score":1,"posted_at":"2017-12-13T19:29:27.000Z","tags":["alerting"],"title":"Automatically generate and send kibana dashboard reports via an Email","_secondary":true}
+{"id":"so-45895733","source":"stackoverflow","score":1,"posted_at":"2017-08-26T13:09:07.000Z","tags":[],"title":"Nginx location /logs doesn&#39;t proxy pass correctly to Kibana leading to 404","_secondary":true}
+{"id":"so-35988912","source":"stackoverflow","score":1,"posted_at":"2016-03-14T13:29:39.000Z","tags":[],"title":"How to implement logging with Fluentd/Elasticsearch/Ikebana on Kubernetes 1.1?","_secondary":true}
+{"id":"so-33788276","source":"stackoverflow","score":1,"posted_at":"2015-11-18T19:05:10.000Z","tags":[],"title":"Use different time-field name with mutiple mappings in ElasticSearch index","_secondary":true}
+{"id":"so-19697813","source":"stackoverflow","score":1,"posted_at":"2013-10-31T03:11:11.000Z","tags":[],"title":"can&#39;t connect elasticsearch to logstash","_secondary":true}
+{"id":"so-78851831","source":"stackoverflow","score":1,"posted_at":"2024-08-09T08:29:51.000Z","tags":["discover","alerting","apm"],"title":"Not getting APM logs after enabling xpack security","_secondary":true}
+{"id":"so-78348070","source":"stackoverflow","score":1,"posted_at":"2024-04-18T14:03:29.000Z","tags":["alerting"],"title":"How to configure or ignore Kibana 8&#39;s Elastic enrollment token running on Docker for .Net 8 Logging","_secondary":true}
+{"id":"so-78346157","source":"stackoverflow","score":1,"posted_at":"2024-04-18T08:59:59.000Z","tags":[],"title":"Creating alert in kibana with Checking String pattern contains"}
+{"id":"so-77897188","source":"stackoverflow","score":1,"posted_at":"2024-01-29T02:34:24.000Z","tags":["alerting"],"title":"Alerting on any new error message in Kibana"}
+{"id":"so-74922813","source":"stackoverflow","score":1,"posted_at":"2022-12-26T17:56:56.000Z","tags":["alerting"],"title":"Unable to connect to MongoDB using URL mongodb://localhost:27017 using docker and monstache","_secondary":true}
+{"id":"so-74557205","source":"stackoverflow","score":1,"posted_at":"2022-11-24T07:41:55.000Z","tags":["alerting","apm"],"title":"Alerting on application log errors k8s"}
+{"id":"so-73325405","source":"stackoverflow","score":1,"posted_at":"2022-08-11T18:34:18.000Z","tags":["alerting"],"title":"Change the text color of notification to Google Chat to Red in Kibana"}
+{"id":"so-72898088","source":"stackoverflow","score":1,"posted_at":"2022-07-07T12:48:26.000Z","tags":["alerting"],"title":"Creation rules with kibana alerting"}
+{"id":"so-70988065","source":"stackoverflow","score":1,"posted_at":"2022-02-04T14:32:17.000Z","tags":["alerting"],"title":"Kibana Alerting - Monitors Disappearing and Alerts are not triggering automatically"}
+{"id":"so-70950807","source":"stackoverflow","score":1,"posted_at":"2022-02-02T05:18:38.000Z","tags":["alerting"],"title":"Forwarding Error logs from ElasticSearch to Slack"}
+{"id":"so-70752545","source":"stackoverflow","score":1,"posted_at":"2022-01-18T08:39:06.000Z","tags":["alerting"],"title":"Why is watcher giving errors?"}
+{"id":"so-68424972","source":"stackoverflow","score":1,"posted_at":"2021-07-17T23:26:50.000Z","tags":[],"title":"ElastAlert got 0 hits"}
+{"id":"so-68380004","source":"stackoverflow","score":1,"posted_at":"2021-07-14T14:30:48.000Z","tags":["lens","alerting"],"title":"Kibana - uptime monitor based on recent log entries","_secondary":true}
+{"id":"so-67800988","source":"stackoverflow","score":1,"posted_at":"2021-06-02T07:50:52.000Z","tags":["alerting"],"title":"kibana watcher to send array of json objects"}
+{"id":"so-66687540","source":"stackoverflow","score":1,"posted_at":"2021-03-18T08:43:22.000Z","tags":["discover"],"title":"Large field values are not visible in Kibana dashboard","_secondary":true}
+{"id":"so-63449815","source":"stackoverflow","score":1,"posted_at":"2020-08-17T11:21:43.000Z","tags":["discover","alerting"],"title":"Kibana Watcher showing incorrect results","_secondary":true}
+{"id":"so-62057271","source":"stackoverflow","score":1,"posted_at":"2020-05-28T04:52:33.000Z","tags":["alerting"],"title":"Kibana Watcher to Slack call resulting in 400"}
+{"id":"so-61922793","source":"stackoverflow","score":1,"posted_at":"2020-05-20T21:00:38.000Z","tags":[],"title":"How to integrate Kibana with nagios?"}
+{"id":"so-61641578","source":"stackoverflow","score":1,"posted_at":"2020-05-06T17:36:40.000Z","tags":["license"],"title":"Need to disable x-pack in ELK"}
+{"id":"so-61285593","source":"stackoverflow","score":1,"posted_at":"2020-04-18T07:24:26.000Z","tags":["alerting"],"title":"Elastic-search index not show in kibana using Jhipster","_secondary":true}
+{"id":"so-58819662","source":"stackoverflow","score":1,"posted_at":"2019-11-12T13:20:59.000Z","tags":["alerting"],"title":"Email log monitring using Watcher and Kibana to trigger every minute for duration last minute"}
+{"id":"so-57383817","source":"stackoverflow","score":1,"posted_at":"2019-08-06T20:49:50.000Z","tags":["alerting"],"title":"what is the least version of kibana that supports painless language"}
+{"id":"so-53832282","source":"stackoverflow","score":1,"posted_at":"2018-12-18T11:42:23.000Z","tags":["discover"],"title":"Objects in arrays are not well supported","_secondary":true}
+{"id":"so-30855522","source":"stackoverflow","score":49,"posted_at":"2015-06-15T21:47:23.000Z","tags":[],"title":"Where is the kibana error log? Is there a kibana error log?","_secondary":true}
+{"id":"so-33145382","source":"stackoverflow","score":4,"posted_at":"2015-10-15T09:55:00.000Z","tags":[],"title":"Cannot start kibana-4.1.2","_secondary":true}
+{"id":"so-30409035","source":"stackoverflow","score":1,"posted_at":"2015-05-23T04:57:46.000Z","tags":[],"title":"How to check if logstash receiving/parsing data from suricata to elasticsearch?","_secondary":true}
+{"id":"so-29033305","source":"stackoverflow","score":0,"posted_at":"2015-03-13T13:20:48.000Z","tags":[],"title":"Geo location from mongodb to elasticsearch","_secondary":true}
+{"id":"so-37935338","source":"stackoverflow","score":0,"posted_at":"2016-06-21T04:00:11.000Z","tags":[],"title":"plugin:elasticsearch service not available in kibana"}
+{"id":"so-32371673","source":"stackoverflow","score":0,"posted_at":"2015-09-03T09:21:02.000Z","tags":[],"title":"Not getting each error email alert from logstash 1.5.4"}
+{"id":"so-31730576","source":"stackoverflow","score":0,"posted_at":"2015-07-30T17:41:24.000Z","tags":[],"title":"Is it possible to expose Kibana (for ElasticSearch) features to users of a web application?","_secondary":true}
+{"id":"so-29541660","source":"stackoverflow","score":0,"posted_at":"2015-04-09T14:42:30.000Z","tags":[],"title":"kibana4 and suricata json filtering not showing up correct"}
+{"id":"so-47493776","source":"stackoverflow","score":3,"posted_at":"2017-11-26T06:59:29.000Z","tags":["alerting"],"title":"unable to run kibana and logstash with elasticsearch","_secondary":true}
+{"id":"so-40978324","source":"stackoverflow","score":1,"posted_at":"2016-12-05T16:02:18.000Z","tags":[],"title":"ElastAlert and Kibana 5.0"}
+{"id":"so-52999286","source":"stackoverflow","score":0,"posted_at":"2018-10-25T23:06:03.000Z","tags":[],"title":"How do I handle fields in elasticsearch that contain a &#39;_&#39;?","_secondary":true}
+{"id":"so-51802413","source":"stackoverflow","score":0,"posted_at":"2018-08-11T18:05:13.000Z","tags":["alerting","license"],"title":"ELK Docker -- Logstash not working properly"}
+{"id":"so-51516103","source":"stackoverflow","score":0,"posted_at":"2018-07-25T10:01:02.000Z","tags":["alerting","apm","license"],"title":"Kibana dashboard 5601 port issue","_secondary":true}
+{"id":"so-43466115","source":"stackoverflow","score":0,"posted_at":"2017-04-18T07:25:27.000Z","tags":[],"title":"custom fields in elastalert index created in elasticsearch","_secondary":true}
+{"id":"so-52908780","source":"stackoverflow","score":2,"posted_at":"2018-10-20T18:23:05.000Z","tags":[],"title":"Kibana using regex doesn&#39;t work as expected","_secondary":true}
+{"id":"so-52996233","source":"stackoverflow","score":2,"posted_at":"2018-10-25T18:52:13.000Z","tags":["alerting"],"title":"How do you get a single value and run conditional check in elasticsearch query syntax for percentages using sentinl plugin"}
+{"id":"so-55114723","source":"stackoverflow","score":1,"posted_at":"2019-03-12T05:32:09.000Z","tags":["alerting"],"title":"x-pack alert plugin in kibana 6.6.1"}
+{"id":"so-54887062","source":"stackoverflow","score":1,"posted_at":"2019-02-26T13:52:09.000Z","tags":["alerting"],"title":"Alert for script filled value"}
+{"id":"so-52520004","source":"stackoverflow","score":1,"posted_at":"2018-09-26T14:23:27.000Z","tags":["alerting"],"title":"Send Email Notifications from Kibana"}
+{"id":"so-51183395","source":"stackoverflow","score":0,"posted_at":"2018-07-05T04:27:51.000Z","tags":["canvas"],"title":"Kibana Canvas plugin doesn&#39;t works with SearchGuard","_secondary":true}
+{"id":"so-64140021","source":"stackoverflow","score":4,"posted_at":"2020-09-30T14:42:32.000Z","tags":["alerting","license"],"title":"Setting Alerting configuration on Kibana 7.9"}
+{"id":"so-60214037","source":"stackoverflow","score":2,"posted_at":"2020-02-13T18:08:02.000Z","tags":[],"title":"How to access specific log attributes in Kibana alert using mustache.js?"}
+{"id":"so-65785913","source":"stackoverflow","score":1,"posted_at":"2021-01-19T05:26:06.000Z","tags":[],"title":"How to automate the creation of elasticsearch index patterns for all days?","_secondary":true}
+{"id":"so-59040907","source":"stackoverflow","score":1,"posted_at":"2019-11-25T22:17:20.000Z","tags":["canvas","alerting"],"title":"Send email from Kibana Canvas"}
+{"id":"so-62636195","source":"stackoverflow","score":0,"posted_at":"2020-06-29T10:30:42.000Z","tags":["lens","canvas","discover","alerting","siem","apm","saved-objects","license"],"title":"Run kibana in k8s but get `Module not found: Error: Can&#39;t resolve &#39;plugins/kibana/local_application_service&#39;`","_secondary":true}
+{"id":"so-72784552","source":"stackoverflow","score":0,"posted_at":"2022-06-28T10:09:45.000Z","tags":["alerting"],"title":"Kibana Filter to detect exceptions in Java Application logs"}
+{"id":"so-67176132","source":"stackoverflow","score":0,"posted_at":"2021-04-20T09:27:27.000Z","tags":[],"title":"Failed to setup Alerts and Actions for ELK - You must enable Transport Layer Security"}
+{"id":"so-66847226","source":"stackoverflow","score":0,"posted_at":"2021-03-28T23:46:53.000Z","tags":[],"title":"kibana 7: using drill downs in tables","_secondary":true}
+{"id":"so-65128171","source":"stackoverflow","score":0,"posted_at":"2020-12-03T14:42:23.000Z","tags":["alerting","apm"],"title":"Kibana Server Not Ready 7.10","_secondary":true}
+{"id":"so-58763976","source":"stackoverflow","score":0,"posted_at":"2019-11-08T09:39:26.000Z","tags":["alerting","apm","saved-objects","license"],"title":"Kibana UI is not up but the container is up and running","_secondary":true}
+{"id":"so-67428119","source":"stackoverflow","score":-1,"posted_at":"2021-05-07T02:05:50.000Z","tags":["anomaly"],"title":"Nested JSON messages are not getting parsed correctly through logstash","_secondary":true}
+{"id":"so-63249258","source":"stackoverflow","score":0,"posted_at":"2020-08-04T14:40:38.000Z","tags":["alerting"],"title":"Creating a rule in elastalert kibana plugin for kibana dashboard","_secondary":true}

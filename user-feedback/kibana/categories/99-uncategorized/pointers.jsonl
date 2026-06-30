@@ -1,0 +1,356 @@
+{"id":"disc-1418021","source":"discourse","score":21,"posted_at":"2025-02-22T09:10:58.481Z","tags":[],"title":"How do I decide if i need co-ordinator nodes for my cluster?"}
+{"id":"disc-539605","source":"discourse","score":5,"posted_at":"2018-09-24T14:11:28.492Z","tags":[],"title":"Data replication from one ES to another using Logstash"}
+{"id":"disc-1411517","source":"discourse","score":16,"posted_at":"2025-01-01T09:36:58.389Z","tags":[],"title":"2024: The Year in Review"}
+{"id":"disc-1000568","source":"discourse","score":6,"posted_at":"2021-09-02T08:02:41.231Z","tags":[],"title":"Shard routing"}
+{"id":"disc-931465","source":"discourse","score":3,"posted_at":"2021-02-17T08:30:32.236Z","tags":[],"title":"High disk usage while docker container is recreating"}
+{"id":"disc-183142","source":"discourse","score":11,"posted_at":"2016-08-21T09:29:33.130Z","tags":[],"title":"Need lots of Help with ELK"}
+{"id":"disc-22982","source":"discourse","score":13,"posted_at":"2014-09-12T08:48:48.000Z","tags":[],"title":"Powerful cluster is not able to handle 1.5Tb of data, how to optimize?"}
+{"id":"disc-709403","source":"discourse","score":36,"posted_at":"2019-09-16T03:29:03.281Z","tags":[],"title":"Filebeat > Nginx Module"}
+{"id":"disc-958231","source":"discourse","score":7,"posted_at":"2021-05-01T21:57:22.177Z","tags":[],"title":"Is coordinate node useful in a cluster with 9 nodes?"}
+{"id":"disc-904337","source":"discourse","score":2,"posted_at":"2020-11-29T17:48:55.754Z","tags":[],"title":"Elasticsearch Shards problem"}
+{"id":"disc-579272","source":"discourse","score":6,"posted_at":"2018-12-21T00:08:32.503Z","tags":[],"title":"Which version is ready for production use?"}
+{"id":"disc-148573","source":"discourse","score":5,"posted_at":"2016-04-12T10:25:11.959Z","tags":[],"title":"ES 2.2.0 JVM overflow"}
+{"id":"disc-482725","source":"discourse","score":7,"posted_at":"2018-05-24T16:14:00.863Z","tags":[],"title":"Scaling and Optimisation advices"}
+{"id":"disc-1409698","source":"discourse","score":5,"posted_at":"2024-12-12T20:35:27.428Z","tags":[],"title":"Migrating from Elastic NEST v7 to .NET Elastic Client v8: Bulk indexing issue"}
+{"id":"disc-84729","source":"discourse","score":7,"posted_at":"2015-06-29T09:26:56.852Z","tags":[],"title":"Logstash using not_analyzed not working"}
+{"id":"disc-1324298","source":"discourse","score":7,"posted_at":"2023-09-20T08:01:43.687Z","tags":[],"title":"Closed indices in 8.5.3 break stack monitoring"}
+{"id":"disc-988980","source":"discourse","score":10,"posted_at":"2021-07-29T13:50:00.763Z","tags":[],"title":"How to define what data is sent to Elastic from Logstash?"}
+{"id":"disc-515854","source":"discourse","score":3,"posted_at":"2018-07-31T20:17:17.564Z","tags":[],"title":"What is the usage of the regression label"}
+{"id":"disc-341806","source":"discourse","score":5,"posted_at":"2017-07-11T06:53:23.035Z","tags":[],"title":"Convert Field Data to UTF8"}
+{"id":"gh-kibana-740","source":"github","score":26,"posted_at":"2013-11-29T11:39:47Z","tags":[],"title":"Total over time (integrals)"}
+{"id":"gh-kibana-16714","source":"github","score":4,"posted_at":"2018-02-13T19:56:21Z","tags":[],"title":"Ability to specify CORS accepted origins"}
+{"id":"gh-kibana-3998","source":"github","score":31,"posted_at":"2015-05-27T16:28:55Z","tags":[],"title":"Gantt chart widget"}
+{"id":"gh-kibana-1244","source":"github","score":17,"posted_at":"2014-05-20T19:13:39Z","tags":[],"title":"Histogram to show current and last week data"}
+{"id":"gh-kibana-199","source":"github","score":0,"posted_at":"2013-07-05T12:35:11Z","tags":[],"title":"Plot multiple fields in histogram mean mode?"}
+{"id":"gh-kibana-5049","source":"github","score":50,"posted_at":"2015-09-30T06:25:09Z","tags":[],"title":"Pivot table"}
+{"id":"gh-kibana-32798","source":"github","score":29,"posted_at":"2019-03-08T18:58:22Z","tags":[],"title":"[Localization] Support for German Language"}
+{"id":"gh-kibana-3221","source":"github","score":0,"posted_at":"2015-03-01T08:12:04Z","tags":[],"title":"Warning Courier Fetch:"}
+{"id":"gh-kibana-56406","source":"github","score":41,"posted_at":"2020-01-30T16:49:00Z","tags":[],"title":"Add a configuration setting for default \"Rows Per Page\" setting in Management"}
+{"id":"gh-kibana-16139","source":"github","score":14,"posted_at":"2018-01-18T20:52:39Z","tags":[],"title":"Console ESC prompt can be annoying"}
+{"id":"gh-kibana-237854","source":"github","score":0,"posted_at":"2025-10-07T13:54:50Z","tags":[],"title":"Investigate UX for adding survey link into Integration pages"}
+{"id":"gh-kibana-18084","source":"github","score":0,"posted_at":"2017-11-27T17:13:38Z","tags":[],"title":"[Graph] Re-enable Functional Tests"}
+{"id":"gh-kibana-3505","source":"github","score":6,"posted_at":"2015-04-02T01:43:13Z","tags":[],"title":"combine metrics with formula (or operators)"}
+{"id":"gh-es-9226","source":"github","score":0,"posted_at":"2015-01-09T23:10:42Z","tags":[],"title":"Shard stuck in relocating state with recovery stage=translog"}
+{"id":"gh-es-3022","source":"github","score":0,"posted_at":"2013-05-10T15:05:28Z","tags":[],"title":"Return matching nested inner objects per hit"}
+{"id":"gh-es-2917","source":"github","score":66,"posted_at":"2013-04-19T09:43:06Z","tags":[],"title":"Sorting based on parent/child relationship"}
+{"id":"gh-es-5100","source":"github","score":10,"posted_at":"2014-02-12T18:53:39Z","tags":[],"title":"multi-field terms aggregation"}
+{"id":"gh-es-56769","source":"github","score":91,"posted_at":"2020-05-14T13:23:10Z","tags":[],"title":"[Ingest Pipeline] Ability to split documents"}
+{"id":"gh-es-16838","source":"github","score":27,"posted_at":"2016-02-27T12:17:44Z","tags":[],"title":"Sort term aggregation with nested aggregation in order path"}
+{"id":"gh-es-67873","source":"github","score":0,"posted_at":"2021-01-24T20:47:03Z","tags":[],"title":"`node-left ... reason: disconnected` triggered by earlier `node-left` event rather than network issue"}
+{"id":"gh-es-81618","source":"github","score":20,"posted_at":"2021-12-10T02:42:35Z","tags":[],"title":"RCE 0-day exploit found in log4j, a popular Java logging package"}
+{"id":"gh-es-17614","source":"github","score":0,"posted_at":"2016-04-08T09:44:22Z","tags":[],"title":"Remove support for sorting terms aggregation by ascending count"}
+{"id":"gh-es-2867","source":"github","score":0,"posted_at":"2013-04-07T10:56:30Z","tags":[],"title":"Proximity BM25 ranking"}
+{"id":"gh-es-49124","source":"github","score":75,"posted_at":"2019-11-14T22:53:01Z","tags":[],"title":"LLRC should detect I/O Reactor failure and log the halting exception"}
+{"id":"gh-es-12880","source":"github","score":2,"posted_at":"2015-08-14T14:58:41Z","tags":[],"title":"Add Google Cloud Storage Repository"}
+{"id":"gh-es-20645","source":"github","score":1,"posted_at":"2016-09-23T17:58:56Z","tags":[],"title":"Caching of terms aggregation with stored script can cause stale results"}
+{"id":"gh-es-1776","source":"github","score":0,"posted_at":"2012-03-09T18:09:27Z","tags":[],"title":"Support \"size\": 0 for Term Facet"}
+{"id":"gh-es-54964","source":"github","score":0,"posted_at":"2020-04-08T16:21:34Z","tags":[],"title":"SQL: Implement to_char(date/time/datetime, pattern)"}
+{"id":"gh-es-2661","source":"github","score":4,"posted_at":"2013-02-18T16:22:54Z","tags":[],"title":"Short response for Bulk API"}
+{"id":"gh-es-2589","source":"github","score":0,"posted_at":"2013-01-25T05:04:13Z","tags":[],"title":"ArithmeticException during `stats?all`"}
+{"id":"gh-es-22406","source":"github","score":0,"posted_at":"2017-01-02T19:44:02Z","tags":[],"title":"fatal error on the network layer"}
+{"id":"gh-es-6788","source":"github","score":0,"posted_at":"2014-07-08T21:00:54Z","tags":[],"title":"Rescorer ignores track_score"}
+{"id":"gh-es-73248","source":"github","score":1,"posted_at":"2021-05-19T15:21:27Z","tags":[],"title":"API to return global state from a snapshot"}
+{"id":"gh-es-58257","source":"github","score":0,"posted_at":"2020-06-17T13:34:13Z","tags":[],"title":"RPM verification failure on RHEL 8 in FIPS mode"}
+{"id":"gh-es-19862","source":"github","score":58,"posted_at":"2016-08-08T12:17:45Z","tags":[],"title":"No easy way of creating index only if not exists"}
+{"id":"gh-es-18160","source":"github","score":0,"posted_at":"2016-05-05T18:18:03Z","tags":[],"title":"Convert all the docs to // CONSOLE"}
+{"id":"gh-es-13592","source":"github","score":0,"posted_at":"2015-09-15T20:17:09Z","tags":[],"title":"Allow binding to multiple addresses"}
+{"id":"gh-es-6299","source":"github","score":0,"posted_at":"2014-05-23T15:17:27Z","tags":[],"title":"Add `from` support to top_hits aggregator."}
+{"id":"gh-es-3482","source":"github","score":0,"posted_at":"2013-08-12T10:08:05Z","tags":[],"title":"Suggester: Phrase suggest option to limit suggestions to exising phrases"}
+{"id":"gh-es-93963","source":"github","score":0,"posted_at":"2023-02-21T10:11:48Z","tags":[],"title":"Refactor security uses of Version.transportVersion"}
+{"id":"gh-es-20367","source":"github","score":21,"posted_at":"2016-09-07T13:16:15Z","tags":[],"title":"Add support for date math on aliases name"}
+{"id":"gh-es-21463","source":"github","score":0,"posted_at":"2016-11-10T13:48:47Z","tags":[],"title":"Tests: RareClusterStateIT. testUnassignedShardAndEmptyNodesInRoutingTable failed"}
+{"id":"gh-es-12461","source":"github","score":0,"posted_at":"2015-07-25T18:52:16Z","tags":[],"title":"Deprecate `include_in_root` and `include_in_parent`?"}
+{"id":"gh-es-6297","source":"github","score":0,"posted_at":"2014-05-23T14:46:24Z","tags":[],"title":"_cat/nodes causes NullPointerException in 1.2.0"}
+{"id":"gh-es-31549","source":"github","score":36,"posted_at":"2018-06-25T08:21:54Z","tags":[],"title":"Consider adding support for OFFSET"}
+{"id":"gh-es-14348","source":"github","score":9,"posted_at":"2015-10-29T01:48:09Z","tags":[],"title":"jar hell in test classpath when running with JDK 1.8.0_66 on OS X (ant-javafx.jar, packager.jar)"}
+{"id":"gh-es-8823","source":"github","score":0,"posted_at":"2014-12-08T18:23:32Z","tags":[],"title":"Write index metadata on data nodes where shards allocated"}
+{"id":"gh-es-53607","source":"github","score":1,"posted_at":"2020-03-16T14:46:00Z","tags":[],"title":"Configure `search.allow_expensive_queries` per role"}
+{"id":"gh-es-31828","source":"github","score":19,"posted_at":"2018-07-05T14:01:55Z","tags":[],"title":"Add a new auto_histogram aggregation for numeric fields"}
+{"id":"gh-es-27572","source":"github","score":0,"posted_at":"2017-11-28T20:08:39Z","tags":[],"title":"Security policy always uses 'path.data' even when node.data:false"}
+{"id":"gh-es-26335","source":"github","score":0,"posted_at":"2017-08-23T05:04:16Z","tags":[],"title":"Should search preference _primary take primary relocation target into account?"}
+{"id":"gh-es-13462","source":"github","score":0,"posted_at":"2015-09-10T10:05:22Z","tags":[],"title":"Index last update date"}
+{"id":"gh-es-11594","source":"github","score":2,"posted_at":"2015-06-11T07:06:36Z","tags":[],"title":"Path to file elasticsearch.pid not exist after restart "}
+{"id":"gh-es-10259","source":"github","score":0,"posted_at":"2015-03-25T10:36:07Z","tags":[],"title":"Exception in thread \"main\" java.lang.NoClassDefFoundError: org/elasticsearch/bootstrap/Elasticsearch"}
+{"id":"gh-es-9062","source":"github","score":0,"posted_at":"2014-12-24T15:14:16Z","tags":[],"title":"Aggs: clean up `date_histogram`"}
+{"id":"gh-es-8493","source":"github","score":0,"posted_at":"2014-11-16T19:12:08Z","tags":[],"title":"Lack of systemd init files in deb package"}
+{"id":"gh-es-7980","source":"github","score":0,"posted_at":"2014-10-03T17:08:55Z","tags":[],"title":"Snapshot/Restore: snapshot with missing metadata file cannot be deleted"}
+{"id":"gh-es-2879","source":"github","score":0,"posted_at":"2013-04-09T17:28:10Z","tags":[],"title":"Failed to start shard (data loss?) on 0.20.6"}
+{"id":"gh-es-24319","source":"github","score":0,"posted_at":"2017-04-25T18:10:05Z","tags":[],"title":"v5.3.1 Entire Bulk request is rejected if containing a single invalid index request"}
+{"id":"gh-es-17511","source":"github","score":3,"posted_at":"2016-04-04T15:59:08Z","tags":[],"title":"Field Aliases"}
+{"id":"gh-es-7309","source":"github","score":0,"posted_at":"2014-08-18T09:51:45Z","tags":[],"title":"Enable HTTP compression by default"}
+{"id":"gh-es-5162","source":"github","score":0,"posted_at":"2014-02-18T12:53:59Z","tags":[],"title":"Reduce number of warnings throughout the code"}
+{"id":"gh-es-22573","source":"github","score":0,"posted_at":"2017-01-11T22:31:07Z","tags":[],"title":"Add took to update's response"}
+{"id":"gh-es-20537","source":"github","score":0,"posted_at":"2016-09-18T09:31:48Z","tags":[],"title":"Issues with APT repository?"}
+{"id":"gh-es-10925","source":"github","score":0,"posted_at":"2015-05-01T17:43:03Z","tags":[],"title":"securitymanager issue with windows temp dir: or at least for @Mpdreamz"}
+{"id":"gh-es-10345","source":"github","score":1,"posted_at":"2015-03-31T15:27:24Z","tags":[],"title":"Deprecating Rivers"}
+{"id":"gh-es-5594","source":"github","score":0,"posted_at":"2014-03-28T15:10:03Z","tags":[],"title":"Failover. Lost documents on process kill."}
+{"id":"gh-es-2863","source":"github","score":0,"posted_at":"2013-04-05T18:39:00Z","tags":[],"title":"Allow non numeric numbers in JsonParser"}
+{"id":"gh-es-106462","source":"github","score":2,"posted_at":"2024-03-19T09:52:47Z","tags":[],"title":"Introduce a new `logs` index mode"}
+{"id":"gh-es-64991","source":"github","score":0,"posted_at":"2020-11-12T12:12:07Z","tags":[],"title":"[Indexing Strategy] Prevent wrong dataset / namespace values"}
+{"id":"gh-es-32342","source":"github","score":0,"posted_at":"2018-07-24T18:48:25Z","tags":[],"title":"[CI] CorsNotSetIT.testThatOmittingCorsHeaderDoesNotReturnAnything fails with ByteBuf leak"}
+{"id":"gh-es-26026","source":"github","score":0,"posted_at":"2017-08-02T15:34:32Z","tags":[],"title":"Bulk API in High Level Rest Client does not support global parameters"}
+{"id":"gh-es-23981","source":"github","score":0,"posted_at":"2017-04-07T18:39:42Z","tags":[],"title":"default.path.data included as a data path when path.data configured as yaml array"}
+{"id":"gh-es-22899","source":"github","score":0,"posted_at":"2017-02-01T10:03:15Z","tags":[],"title":"SecComp fails on CentOS 6"}
+{"id":"gh-es-18819","source":"github","score":9,"posted_at":"2016-06-10T18:49:58Z","tags":[],"title":"Remove allocation commands from the `_reroute` API"}
+{"id":"gh-es-17631","source":"github","score":1,"posted_at":"2016-04-08T20:47:03Z","tags":[],"title":"doc_count metric agg"}
+{"id":"gh-es-15315","source":"github","score":0,"posted_at":"2015-12-08T15:45:54Z","tags":[],"title":"Log when cannot allocate memory."}
+{"id":"gh-es-2956","source":"github","score":0,"posted_at":"2013-04-30T14:29:06Z","tags":[],"title":"Timing problem with aliases and index status"}
+{"id":"gh-es-2149","source":"github","score":4,"posted_at":"2012-08-08T00:42:37Z","tags":[],"title":"URI Request that returns just the _source, without metadata"}
+{"id":"gh-es-41745","source":"github","score":0,"posted_at":"2019-05-02T12:35:21Z","tags":[],"title":"[CI] RemoteClusterClientTests#testConnectAndExecuteRequest fails"}
+{"id":"gh-es-35538","source":"github","score":1,"posted_at":"2018-11-14T12:09:33Z","tags":[],"title":"Create Rust client"}
+{"id":"gh-es-20264","source":"github","score":0,"posted_at":"2016-08-31T17:34:50Z","tags":[],"title":"Support assert in Painless"}
+{"id":"gh-es-16011","source":"github","score":0,"posted_at":"2016-01-15T08:41:12Z","tags":[],"title":"Limit request size"}
+{"id":"gh-es-15975","source":"github","score":29,"posted_at":"2016-01-14T06:41:08Z","tags":[],"title":"Show force merge/optimize progress"}
+{"id":"gh-es-9034","source":"github","score":0,"posted_at":"2014-12-22T16:53:23Z","tags":[],"title":"Better storage of `_source`"}
+{"id":"gh-es-2274","source":"github","score":1,"posted_at":"2012-09-21T00:47:06Z","tags":[],"title":"\"The system cannot find the path specified.\" when running bat file."}
+{"id":"gh-es-70108","source":"github","score":1,"posted_at":"2021-03-08T18:54:15Z","tags":[],"title":"top_metrics needs a test for flattened fields"}
+{"id":"gh-es-45243","source":"github","score":0,"posted_at":"2019-08-06T15:00:27Z","tags":[],"title":"Add vector functions to Sort Script Context"}
+{"id":"gh-es-41073","source":"github","score":0,"posted_at":"2019-04-10T12:27:49Z","tags":[],"title":"A cluster with no data nodes or indices reports YELLOW health when an index is created."}
+{"id":"gh-es-40005","source":"github","score":0,"posted_at":"2019-03-13T17:39:50Z","tags":[],"title":"Error upper bound may be wrong when performing incremental reductions"}
+{"id":"gh-es-35450","source":"github","score":0,"posted_at":"2018-11-12T13:08:31Z","tags":[],"title":"[CI] ClusterClientIT failure"}
+{"id":"gh-es-15876","source":"github","score":16,"posted_at":"2016-01-10T18:13:53Z","tags":[],"title":"Support for precise cardinality aggregation"}
+{"id":"gh-es-14928","source":"github","score":9,"posted_at":"2015-11-23T09:02:47Z","tags":[],"title":"Sort and truncate pipeline aggregation"}
+{"id":"gh-es-14266","source":"github","score":3,"posted_at":"2015-10-23T15:09:24Z","tags":[],"title":"Java api: move to ordinary getters and setters"}
+{"id":"gh-es-6069","source":"github","score":0,"posted_at":"2014-05-06T23:58:36Z","tags":[],"title":"Make cluster recovery near instantaneous if all shards are present and accounted for"}
+{"id":"gh-es-74163","source":"github","score":3,"posted_at":"2021-06-16T07:43:07Z","tags":[],"title":"Use ES_TMPDIR instead of java.io.tmpdir"}
+{"id":"gh-es-71303","source":"github","score":0,"posted_at":"2021-04-05T17:22:51Z","tags":[],"title":"Add closeTo assertion to yaml tests "}
+{"id":"gh-es-60668","source":"github","score":3,"posted_at":"2020-08-04T16:39:07Z","tags":[],"title":"Painless convenience function for matching IP addresses"}
+{"id":"gh-es-51964","source":"github","score":5,"posted_at":"2020-02-05T21:25:55Z","tags":[],"title":"Expose dense vector iterator in painless"}
+{"id":"gh-eui-3150","source":"github","score":0,"posted_at":"2020-03-23T15:23:24Z","tags":[],"title":"[DOCS] Convert examples to function components + hooks + Typescript"}
+{"id":"gh-eui-147","source":"github","score":1,"posted_at":"2017-11-14T17:25:36Z","tags":[],"title":"Align options API for checkbox, select, and radio"}
+{"id":"gh-eui-360","source":"github","score":2,"posted_at":"2018-02-01T14:40:27Z","tags":[],"title":"Say no - to lodash"}
+{"id":"gh-eui-6233","source":"github","score":0,"posted_at":"2022-09-13T10:42:31Z","tags":[],"title":"In 67.0.0,` locale` parameter is doesn't work"}
+{"id":"gh-eui-5543","source":"github","score":5,"posted_at":"2022-01-18T17:13:20Z","tags":[],"title":"Update remark-parse to newest version"}
+{"id":"gh-eui-3293","source":"github","score":0,"posted_at":"2020-04-09T23:01:34Z","tags":[],"title":"How to inline svg/icons into a webpack bundle"}
+{"id":"gh-eui-2907","source":"github","score":0,"posted_at":"2020-02-23T16:45:15Z","tags":[],"title":"No functionality to search among icons"}
+{"id":"gh-eui-7668","source":"github","score":0,"posted_at":"2024-04-10T08:17:42Z","tags":[],"title":"showWeekNumbers is missing in DatePicker"}
+{"id":"gh-eui-1806","source":"github","score":0,"posted_at":"2019-04-08T16:15:42Z","tags":[],"title":"Datepicker doesn't let you update the year without updating date/time"}
+{"id":"gh-eui-1523","source":"github","score":0,"posted_at":"2019-02-05T16:17:52Z","tags":[],"title":"Title legibility issues"}
+{"id":"gh-eui-8544","source":"github","score":0,"posted_at":"2025-04-03T17:26:15Z","tags":[],"title":"[Docs] Last tick mark of Range slider breaks into multiple lines"}
+{"id":"gh-eui-5859","source":"github","score":3,"posted_at":"2022-05-02T08:37:14Z","tags":[],"title":"Popover and ContextMenu do not support react 18"}
+{"id":"gh-eui-5074","source":"github","score":0,"posted_at":"2021-08-24T18:07:59Z","tags":[],"title":"[In-Memory Table] Filtered Row Count"}
+{"id":"gh-eui-2020","source":"github","score":0,"posted_at":"2019-06-10T21:15:01Z","tags":[],"title":"[Discuss] Don’t darken link colors on hover, reserve those for `:visited`"}
+{"id":"gh-eui-1046","source":"github","score":0,"posted_at":"2018-07-25T16:04:42Z","tags":[],"title":"Value Prop Type for Number and Range Inputs"}
+{"id":"gh-eui-480","source":"github","score":0,"posted_at":"2018-03-08T01:12:19Z","tags":[],"title":"Add linting rules"}
+{"id":"gh-eui-275","source":"github","score":0,"posted_at":"2018-01-09T19:27:38Z","tags":[],"title":"Steps component needs style for substeps"}
+{"id":"gh-eui-7093","source":"github","score":0,"posted_at":"2023-08-17T14:00:04Z","tags":[],"title":"[SSR] Replace htmlIdGenerator usages with useGeneratedHtmlId in all function components"}
+{"id":"gh-eui-6525","source":"github","score":0,"posted_at":"2023-01-13T13:33:06Z","tags":[],"title":"Flyout"}
+{"id":"gh-eui-4974","source":"github","score":1,"posted_at":"2021-07-21T14:07:48Z","tags":[],"title":"[ColorPalettes] Monochromatic palettes that start from \"no color\""}
+{"id":"gh-eui-3505","source":"github","score":0,"posted_at":"2020-05-21T19:04:42Z","tags":[],"title":"Is it possible to have more control over the MINIMUM_WIDTH_FOR_GRID_CONTROLS"}
+{"id":"gh-eui-3090","source":"github","score":0,"posted_at":"2020-03-16T13:46:19Z","tags":[],"title":"Facet_layout demo issue"}
+{"id":"gh-eui-3049","source":"github","score":0,"posted_at":"2020-03-12T08:18:45Z","tags":[],"title":"porps in condensed section don't show off"}
+{"id":"gh-eui-3005","source":"github","score":0,"posted_at":"2020-03-08T13:45:59Z","tags":[],"title":"Dimmer feature missing."}
+{"id":"gh-eui-2988","source":"github","score":0,"posted_at":"2020-03-05T08:42:03Z","tags":[],"title":"No copy to clipboard functionality in DemoJs"}
+{"id":"gh-eui-2915","source":"github","score":0,"posted_at":"2020-02-24T21:21:24Z","tags":[],"title":"No side drawer component"}
+{"id":"gh-eui-2495","source":"github","score":0,"posted_at":"2019-10-28T18:01:35Z","tags":[],"title":"Color stops negative value shows marker outside of range."}
+{"id":"gh-eui-1203","source":"github","score":0,"posted_at":"2018-09-21T10:22:33Z","tags":[],"title":"Tables not show index"}
+{"id":"gh-eui-1129","source":"github","score":0,"posted_at":"2018-08-21T14:23:55Z","tags":[],"title":"Readonly inputs don't look like inputs"}
+{"id":"gh-eui-55","source":"github","score":1,"posted_at":"2017-10-25T20:51:13Z","tags":[],"title":"Investigate CSS Grid as alternative to FlexGrid components"}
+{"id":"gh-eui-8855","source":"github","score":0,"posted_at":"2025-07-09T17:17:10Z","tags":[],"title":"[Docs] Button example mismatch with description"}
+{"id":"gh-eui-8665","source":"github","score":0,"posted_at":"2025-04-30T12:19:56Z","tags":[],"title":"[Docs] Investigate and document how to easily edit docs"}
+{"id":"gh-eui-6979","source":"github","score":0,"posted_at":"2023-07-20T10:08:53Z","tags":[],"title":"Fix DOM nesting issues reported by validateDOMNesting"}
+{"id":"gh-eui-6153","source":"github","score":2,"posted_at":"2022-08-22T18:02:36Z","tags":[],"title":"Datepicker refresh interval should not be allowed to go negative"}
+{"id":"gh-eui-5923","source":"github","score":1,"posted_at":"2022-05-24T07:30:24Z","tags":[],"title":"Range sliders is difficult to grab on mobile"}
+{"id":"gh-eui-4297","source":"github","score":0,"posted_at":"2020-11-20T22:46:43Z","tags":[],"title":"Updated Figma library"}
+{"id":"gh-eui-4167","source":"github","score":0,"posted_at":"2020-10-21T18:15:51Z","tags":[],"title":"Enhancement: resize columns on tables"}
+{"id":"gh-eui-3279","source":"github","score":0,"posted_at":"2020-04-08T12:20:39Z","tags":[],"title":"Data grid adapts to its container but not the pagination"}
+{"id":"gh-eui-3269","source":"github","score":0,"posted_at":"2020-04-07T02:29:08Z","tags":[],"title":"Scrolling with Flyout"}
+{"id":"gh-eui-3101","source":"github","score":0,"posted_at":"2020-03-17T07:41:46Z","tags":[],"title":"[DataGrid] Question on grabbing a selected row's column values in DataGrid"}
+{"id":"gh-eui-2476","source":"github","score":0,"posted_at":"2019-10-23T12:38:08Z","tags":[],"title":"Wide scrollbars in FF on Windows"}
+{"id":"gh-eui-1150","source":"github","score":0,"posted_at":"2018-08-28T20:26:56Z","tags":[],"title":"Reposition popover on resize"}
+{"id":"gh-eui-1055","source":"github","score":0,"posted_at":"2018-07-27T22:01:42Z","tags":[],"title":"Popovers are not keyboard accessible"}
+{"id":"gh-eui-854","source":"github","score":0,"posted_at":"2018-05-18T20:25:53Z","tags":[],"title":"Editable Select Field"}
+{"id":"gh-eui-641","source":"github","score":0,"posted_at":"2018-04-09T17:24:01Z","tags":[],"title":"New icons needed"}
+{"id":"gh-eui-635","source":"github","score":0,"posted_at":"2018-04-06T09:39:44Z","tags":[],"title":"`makeId` should prepend an alphabetical character for HTML4"}
+{"id":"gh-eui-274","source":"github","score":2,"posted_at":"2018-01-09T18:12:44Z","tags":[],"title":"Create a custom Button/Context Menu pattern that behaves like a Form Select"}
+{"id":"gh-eui-8700","source":"github","score":0,"posted_at":"2025-05-09T13:45:10Z","tags":[],"title":"Old by gold icons?"}
+{"id":"gh-eui-8574","source":"github","score":0,"posted_at":"2025-04-09T13:50:24Z","tags":[],"title":"[Docs] Remove the last line in the prop table"}
+{"id":"gh-eui-6527","source":"github","score":0,"posted_at":"2023-01-17T14:45:57Z","tags":[],"title":"stripes in DataGrid does not work correctly when `rowClasses` are supplied"}
+{"id":"gh-eui-5597","source":"github","score":1,"posted_at":"2022-02-03T19:17:48Z","tags":[],"title":"[Testing] enable react testing library in jest"}
+{"id":"gh-eui-5480","source":"github","score":0,"posted_at":"2021-12-16T14:20:06Z","tags":[],"title":"Modal outside click?"}
+{"id":"gh-eui-4182","source":"github","score":0,"posted_at":"2020-10-27T10:36:31Z","tags":[],"title":"datagrid sub row"}
+{"id":"gh-eui-3997","source":"github","score":0,"posted_at":"2020-09-02T16:24:41Z","tags":[],"title":"[minor] docs: icon names shifted"}
+{"id":"gh-eui-3976","source":"github","score":0,"posted_at":"2020-08-30T13:05:13Z","tags":[],"title":"`fullWidth` might not always work"}
+{"id":"gh-eui-3872","source":"github","score":0,"posted_at":"2020-08-06T13:50:36Z","tags":[],"title":"[DATA Grid] Switch Header columns focus handling to native"}
+{"id":"gh-eui-3384","source":"github","score":0,"posted_at":"2020-04-24T16:12:07Z","tags":[],"title":"forceState={trigger} not working prop for Accordion"}
+{"id":"gh-eui-3047","source":"github","score":0,"posted_at":"2020-03-12T01:33:48Z","tags":[],"title":"[AMSTERDAM] Filter group buttons have a break in border radius"}
+{"id":"gh-eui-2953","source":"github","score":0,"posted_at":"2020-02-29T18:33:01Z","tags":[],"title":"New error arises"}
+{"id":"gh-eui-2900","source":"github","score":0,"posted_at":"2020-02-22T05:40:07Z","tags":[],"title":"Carousel Slider missing feature."}
+{"id":"gh-eui-2893","source":"github","score":0,"posted_at":"2020-02-21T08:21:55Z","tags":[],"title":"Add husky and lint-staged"}
+{"id":"gh-eui-1282","source":"github","score":0,"posted_at":"2018-11-02T13:17:04Z","tags":[],"title":"Popup menu fatal error with keyboard navigation"}
+{"id":"gh-eui-1186","source":"github","score":0,"posted_at":"2018-09-12T21:28:13Z","tags":[],"title":"Don't show pagination rows dropdown when results are limited"}
+{"id":"gh-eui-1021","source":"github","score":0,"posted_at":"2018-07-17T01:15:21Z","tags":[],"title":"Toast header overflows the toast element"}
+{"id":"gh-eui-993","source":"github","score":0,"posted_at":"2018-07-10T20:43:49Z","tags":[],"title":"Flex bugs in IE"}
+{"id":"gh-eui-937","source":"github","score":1,"posted_at":"2018-06-20T20:50:53Z","tags":[],"title":"Get rid of negative margins on flex elements"}
+{"id":"gh-eui-793","source":"github","score":0,"posted_at":"2018-05-07T14:11:52Z","tags":[],"title":"Date picker accessibility"}
+{"id":"gh-eui-571","source":"github","score":0,"posted_at":"2018-03-23T20:04:21Z","tags":[],"title":"[Docs] Look for ways to take advantage of larger screens"}
+{"id":"gh-eui-461","source":"github","score":0,"posted_at":"2018-03-03T23:18:06Z","tags":[],"title":"Allow to set a different table-layout"}
+{"id":"gh-eui-448","source":"github","score":0,"posted_at":"2018-02-24T00:13:55Z","tags":[],"title":"Add prettier to our linting rules"}
+{"id":"gh-eui-358","source":"github","score":0,"posted_at":"2018-01-31T17:47:00Z","tags":[],"title":"Table: Option to have resizeable columns"}
+{"id":"gh-eui-357","source":"github","score":0,"posted_at":"2018-01-31T17:33:33Z","tags":[],"title":"Table: Option to have fixed headers"}
+{"id":"gh-eui-349","source":"github","score":0,"posted_at":"2018-01-29T22:30:53Z","tags":[],"title":"Disabled options in select"}
+{"id":"gh-eui-106","source":"github","score":0,"posted_at":"2017-11-02T12:32:23Z","tags":[],"title":"Use state updater functions where appropriate"}
+{"id":"gh-eui-78","source":"github","score":0,"posted_at":"2017-10-28T17:17:41Z","tags":[],"title":"Inputs should have `size` prop too"}
+{"id":"gh-eui-37","source":"github","score":0,"posted_at":"2017-10-24T21:20:13Z","tags":[],"title":"Disabled buttons should not jump up on hover"}
+{"id":"gh-eui-9185","source":"github","score":0,"posted_at":"2025-11-05T17:28:00Z","tags":[],"title":"[Form inputs] Remove shade fill from prepends/appends"}
+{"id":"gh-eui-8655","source":"github","score":0,"posted_at":"2025-04-29T05:08:33Z","tags":[],"title":"Source code request"}
+{"id":"gh-eui-8579","source":"github","score":0,"posted_at":"2025-04-09T16:33:44Z","tags":[],"title":"[Stub] React 19 Support"}
+{"id":"gh-eui-7385","source":"github","score":0,"posted_at":"2023-11-22T23:00:11Z","tags":[],"title":"[CHORE] Create an intake issue template for a11y reviews"}
+{"id":"gh-eui-7201","source":"github","score":0,"posted_at":"2023-09-19T21:22:23Z","tags":[],"title":"Test"}
+{"id":"gh-eui-6781","source":"github","score":0,"posted_at":"2023-05-16T21:00:58Z","tags":[],"title":"[React 18] Find and cancel async operations when components unmount"}
+{"id":"gh-eui-6335","source":"github","score":0,"posted_at":"2022-11-01T16:51:39Z","tags":[],"title":"[Backport] Elastic Stack 8.6"}
+{"id":"gh-eui-5170","source":"github","score":0,"posted_at":"2021-09-13T05:22:41Z","tags":[],"title":"npm 'latest' tag is incorrect"}
+{"id":"gh-eui-5037","source":"github","score":0,"posted_at":"2021-08-17T14:40:09Z","tags":[],"title":"[Data Grid] Pluralization of sort button"}
+{"id":"gh-eui-4143","source":"github","score":2,"posted_at":"2020-10-15T18:30:51Z","tags":[],"title":"Routable custom playgrounds"}
+{"id":"gh-eui-3162","source":"github","score":0,"posted_at":"2020-03-25T03:51:29Z","tags":[],"title":"The nav drawer demo toggle is not working in s,xs size"}
+{"id":"gh-eui-3159","source":"github","score":0,"posted_at":"2020-03-24T20:37:15Z","tags":[],"title":"Missing Carousel component"}
+{"id":"gh-eui-3110","source":"github","score":0,"posted_at":"2020-03-17T18:33:18Z","tags":[],"title":"console errors on Data grid schemas and Popovers"}
+{"id":"gh-eui-2899","source":"github","score":0,"posted_at":"2020-02-22T05:23:48Z","tags":[],"title":"Some relevant icons missing."}
+{"id":"gh-eui-2813","source":"github","score":0,"posted_at":"2020-01-31T14:55:38Z","tags":[],"title":"Add an announcement style icon"}
+{"id":"gh-eui-2617","source":"github","score":0,"posted_at":"2019-12-09T20:19:08Z","tags":[],"title":"[Data Grid] Top border missing when toolbar is disabled "}
+{"id":"gh-eui-2605","source":"github","score":0,"posted_at":"2019-12-09T13:52:53Z","tags":[],"title":"SelectableList: duplicate key error if there are two identical labels for `options`"}
+{"id":"gh-eui-2465","source":"github","score":0,"posted_at":"2019-10-21T23:23:38Z","tags":[],"title":"[DATA GRID] Sorting of numeric data only goes to first period"}
+{"id":"gh-eui-1989","source":"github","score":0,"posted_at":"2019-06-03T15:55:29Z","tags":[],"title":"Clean up icon <defs> and <use> usages"}
+{"id":"gh-eui-1963","source":"github","score":0,"posted_at":"2019-05-26T18:02:07Z","tags":[],"title":"Header separators"}
+{"id":"gh-eui-1748","source":"github","score":0,"posted_at":"2019-03-20T15:58:57Z","tags":[],"title":"[Icon] A bare plus sign icon would be desirable"}
+{"id":"gh-eui-1614","source":"github","score":0,"posted_at":"2019-02-27T09:33:09Z","tags":[],"title":"Installation issues"}
+{"id":"gh-eui-1303","source":"github","score":0,"posted_at":"2018-11-12T17:24:40Z","tags":[],"title":"Sass linting leftovers"}
+{"id":"gh-eui-1236","source":"github","score":0,"posted_at":"2018-10-04T23:32:04Z","tags":[],"title":"Table pagination popover needs repositionOnScroll"}
+{"id":"gh-eui-1072","source":"github","score":0,"posted_at":"2018-08-01T21:50:57Z","tags":[],"title":"Border colors need !default"}
+{"id":"gh-eui-995","source":"github","score":1,"posted_at":"2018-07-10T22:31:45Z","tags":[],"title":"Modal does not receive focus"}
+{"id":"gh-eui-841","source":"github","score":0,"posted_at":"2018-05-17T18:09:21Z","tags":[],"title":"Button Groups"}
+{"id":"gh-eui-822","source":"github","score":0,"posted_at":"2018-05-11T18:43:59Z","tags":[],"title":"ComboBox: add \"disabled\" or \"readOnly\" property"}
+{"id":"gh-eui-660","source":"github","score":0,"posted_at":"2018-04-11T17:35:44Z","tags":[],"title":"Code blocks or <code> elements don't inherit link coloring if inside an anchor tag"}
+{"id":"gh-eui-606","source":"github","score":0,"posted_at":"2018-03-30T19:43:20Z","tags":[],"title":"Compressed pagination could still use some numbering"}
+{"id":"gh-eui-605","source":"github","score":0,"posted_at":"2018-03-30T18:58:58Z","tags":[],"title":"Color palette doc is wrong for dark themes"}
+{"id":"gh-eui-548","source":"github","score":0,"posted_at":"2018-03-20T20:21:13Z","tags":[],"title":"Test Cases For Table Elements"}
+{"id":"gh-eui-440","source":"github","score":0,"posted_at":"2018-02-23T09:17:28Z","tags":[],"title":"Sorting issues in `InMemoryTable`"}
+{"id":"gh-eui-419","source":"github","score":0,"posted_at":"2018-02-16T16:07:52Z","tags":[],"title":"CLA status check"}
+{"id":"gh-eui-405","source":"github","score":0,"posted_at":"2018-02-14T20:10:04Z","tags":[],"title":"Code selection styles aren't usable"}
+{"id":"gh-eui-373","source":"github","score":0,"posted_at":"2018-02-07T19:48:38Z","tags":[],"title":"Allow ErrorBoundary content to line-wrap"}
+{"id":"gh-eui-313","source":"github","score":0,"posted_at":"2018-01-17T17:46:10Z","tags":[],"title":"Table: Option to have reorderable columns"}
+{"id":"gh-eui-217","source":"github","score":0,"posted_at":"2017-12-19T00:06:38Z","tags":[],"title":"Button - Disabled variant is almost invisible in Dark theme"}
+{"id":"gh-eui-99","source":"github","score":0,"posted_at":"2017-10-31T20:43:36Z","tags":[],"title":"Missing icons"}
+{"id":"gh-eui-88","source":"github","score":0,"posted_at":"2017-10-30T19:27:14Z","tags":[],"title":"Header example buttons fail with an error"}
+{"id":"gh-eui-66","source":"github","score":1,"posted_at":"2017-10-27T16:25:25Z","tags":[],"title":"Don't pass table cell's textOnly prop as an attribute"}
+{"id":"gh-eui-50","source":"github","score":0,"posted_at":"2017-10-25T16:24:46Z","tags":[],"title":"Sidenav styling needs some design love"}
+{"id":"gh-eui-33","source":"github","score":0,"posted_at":"2017-10-24T19:03:57Z","tags":[],"title":"Only allow squash commits"}
+{"id":"gh-eui-9180","source":"github","score":0,"posted_at":"2025-11-05T16:19:28Z","tags":[],"title":"[Long term] Use `content-visibility` for simple virtualization cases"}
+{"id":"gh-eui-8977","source":"github","score":1,"posted_at":"2025-08-22T12:11:27Z","tags":[],"title":"✨ Set up Copilot instructions"}
+{"id":"gh-eui-8893","source":"github","score":0,"posted_at":"2025-07-22T08:31:42Z","tags":[],"title":"[ESLint] Force `logicalCSS` for margins, paddings, widths"}
+{"id":"gh-eui-8892","source":"github","score":0,"posted_at":"2025-07-22T08:31:15Z","tags":[],"title":"[ESLint] Add prefer `background-color` to `background` rule"}
+{"id":"gh-eui-7560","source":"github","score":0,"posted_at":"2024-03-07T17:32:30Z","tags":[],"title":"[Storybook] Introduce categories for story prop controls"}
+{"id":"gh-eui-7078","source":"github","score":2,"posted_at":"2023-08-14T16:06:49Z","tags":[],"title":"Update useGeneratedHtmlId to use SSR-compatible useId hook when available"}
+{"id":"gh-eui-6921","source":"github","score":0,"posted_at":"2023-07-07T18:04:09Z","tags":[],"title":"[CHORE] Bump Docker and CI Node version to 18.16.1"}
+{"id":"gh-eui-6917","source":"github","score":1,"posted_at":"2023-07-07T15:25:18Z","tags":[],"title":"[CHORE] Update Cypress to current `v12`"}
+{"id":"gh-eui-6718","source":"github","score":0,"posted_at":"2023-04-18T16:23:17Z","tags":[],"title":"Bump Node one minor version to 16.19.1"}
+{"id":"gh-eui-6144","source":"github","score":0,"posted_at":"2022-08-16T16:16:48Z","tags":[],"title":"[Backport] `v62.2.2` & `v63.0.2`"}
+{"id":"gh-eui-5614","source":"github","score":0,"posted_at":"2022-02-09T17:31:07Z","tags":[],"title":"[Docs] Codesandbox env cannot use `css` prop"}
+{"id":"gh-eui-4700","source":"github","score":0,"posted_at":"2021-04-11T11:49:43Z","tags":[],"title":"Modal Scrolling"}
+{"id":"gh-eui-4666","source":"github","score":0,"posted_at":"2021-03-26T16:27:11Z","tags":[],"title":"[Portals][Doc] Props table not available for Portals"}
+{"id":"gh-eui-4519","source":"github","score":0,"posted_at":"2021-02-14T17:55:44Z","tags":[],"title":"[Docs] Invalid link in FAQ"}
+{"id":"gh-eui-3821","source":"github","score":0,"posted_at":"2020-07-29T18:17:30Z","tags":[],"title":"[Data Grid] Popover in in DataGrid overflowing with extra icons"}
+{"id":"gh-eui-3796","source":"github","score":0,"posted_at":"2020-07-23T17:01:19Z","tags":[],"title":"Placeholders of input fields in Safari are not vertically centered"}
+{"id":"gh-eui-3441","source":"github","score":1,"posted_at":"2020-05-07T17:21:36Z","tags":[],"title":"Apply an eslint rule to give forwardRef components a displayName"}
+{"id":"gh-eui-2950","source":"github","score":0,"posted_at":"2020-02-28T23:23:53Z","tags":[],"title":"DataGrid columns should be able to be marked as un-sortable"}
+{"id":"gh-eui-2693","source":"github","score":0,"posted_at":"2019-12-18T17:07:12Z","tags":[],"title":"[DATA GRID] when headers are focusable, resizing a header moves focus"}
+{"id":"gh-eui-2464","source":"github","score":0,"posted_at":"2019-10-21T23:13:39Z","tags":[],"title":"[DATA GRID] The grid head should respect scrolling similar to the toolbar"}
+{"id":"gh-eui-2460","source":"github","score":0,"posted_at":"2019-10-21T22:52:56Z","tags":[],"title":"[DATA GRID] Schema needs to respect user defined schema over the detector"}
+{"id":"gh-eui-2420","source":"github","score":0,"posted_at":"2019-10-11T15:38:47Z","tags":[],"title":"Mini switch focus styles aren't discernable"}
+{"id":"gh-eui-2281","source":"github","score":0,"posted_at":"2019-09-04T12:46:55Z","tags":[],"title":"Code doesn't match demo for Accordion example"}
+{"id":"gh-eui-2118","source":"github","score":0,"posted_at":"2019-07-12T18:40:16Z","tags":[],"title":"Expose pretty print date range functionality"}
+{"id":"gh-eui-2091","source":"github","score":0,"posted_at":"2019-07-05T20:53:52Z","tags":[],"title":"No sword icon"}
+{"id":"gh-eui-1949","source":"github","score":0,"posted_at":"2019-05-22T14:05:05Z","tags":[],"title":"Update Slack logo icon"}
+{"id":"gh-eui-1698","source":"github","score":1,"posted_at":"2019-03-07T19:10:49Z","tags":[],"title":"[Docs] Flyout props tab wigs out"}
+{"id":"gh-eui-1386","source":"github","score":0,"posted_at":"2018-12-19T16:39:30Z","tags":[],"title":"ComboBox with single selection should select current selection on open"}
+{"id":"gh-eui-1241","source":"github","score":0,"posted_at":"2018-10-15T09:33:48Z","tags":[],"title":"heartBeatApp instead of heartbeatApp icon name"}
+{"id":"gh-eui-1148","source":"github","score":0,"posted_at":"2018-08-28T16:49:00Z","tags":[],"title":"[deleted]"}
+{"id":"gh-eui-1107","source":"github","score":0,"posted_at":"2018-08-10T17:53:36Z","tags":[],"title":"Indeterminate checkboxes"}
+{"id":"gh-eui-1059","source":"github","score":0,"posted_at":"2018-07-30T20:34:14Z","tags":[],"title":"Close popover when scrolling outside of the popover"}
+{"id":"gh-eui-983","source":"github","score":0,"posted_at":"2018-07-09T20:10:47Z","tags":[],"title":"Toggle appearance at the bottom bar buttons are getting displayed on top of each other in IE"}
+{"id":"gh-eui-978","source":"github","score":0,"posted_at":"2018-07-09T17:46:20Z","tags":[],"title":"Customizable super select component"}
+{"id":"gh-eui-943","source":"github","score":0,"posted_at":"2018-06-22T14:25:33Z","tags":[],"title":"Text is not wrapping in inspector table on IE"}
+{"id":"gh-eui-678","source":"github","score":0,"posted_at":"2018-04-16T19:43:51Z","tags":[],"title":"Set nowrap on props definitions"}
+{"id":"gh-eui-604","source":"github","score":0,"posted_at":"2018-03-30T18:35:15Z","tags":[],"title":"Cluster health is indicated as Red  although the actual cluster status is yellow"}
+{"id":"gh-eui-481","source":"github","score":0,"posted_at":"2018-03-08T01:27:52Z","tags":[],"title":"Jenkins CI failing"}
+{"id":"gh-eui-460","source":"github","score":0,"posted_at":"2018-03-03T23:14:59Z","tags":[],"title":"Implement `compressed` on `InMemoryTable`"}
+{"id":"gh-eui-408","source":"github","score":0,"posted_at":"2018-02-15T05:25:50Z","tags":[],"title":"Centering gets screwy on cards with little text"}
+{"id":"gh-eui-383","source":"github","score":0,"posted_at":"2018-02-09T14:41:59Z","tags":[],"title":"Support readonly form elements"}
+{"id":"gh-eui-293","source":"github","score":0,"posted_at":"2018-01-11T19:25:36Z","tags":[],"title":"ButtonGroup component"}
+{"id":"gh-eui-266","source":"github","score":1,"posted_at":"2018-01-08T17:44:39Z","tags":[],"title":"Fix styling of checkboxes within a table"}
+{"id":"gh-eui-146","source":"github","score":0,"posted_at":"2017-11-14T16:07:59Z","tags":[],"title":"Loading status for inputs"}
+{"id":"gh-eui-115","source":"github","score":0,"posted_at":"2017-11-07T19:39:25Z","tags":[],"title":"Make SideNav compose itself in JS"}
+{"id":"gh-eui-48","source":"github","score":0,"posted_at":"2017-10-25T16:06:42Z","tags":[],"title":"Responsive modals"}
+{"id":"gh-eui-1","source":"github","score":0,"posted_at":"2017-10-20T20:41:36Z","tags":[],"title":"No Elasticsearch assets SVG"}
+{"id":"gh-osd-8302","source":"github","score":0,"posted_at":"2024-09-23T22:11:41Z","tags":[],"title":"We need to a 2.17.x branch which created from 2.17.0 tag for patch goes to 2.17"}
+{"id":"gh-osd-2699","source":"github","score":0,"posted_at":"2022-10-31T18:14:48Z","tags":[],"title":"[MD]Multi data source integration with Dev tool"}
+{"id":"gh-osd-2435","source":"github","score":0,"posted_at":"2022-09-28T20:55:03Z","tags":[],"title":"[MD] Support test connection for datasource"}
+{"id":"gh-osd-2110","source":"github","score":0,"posted_at":"2022-08-09T21:52:15Z","tags":[],"title":"[MD][Meta] Support SigV4 auth types for data source"}
+{"id":"gh-osd-5910","source":"github","score":0,"posted_at":"2024-02-21T09:04:02Z","tags":[],"title":"Logging on JSON format"}
+{"id":"gh-osd-3956","source":"github","score":0,"posted_at":"2023-04-28T13:42:44Z","tags":[],"title":"Size of columns in a table"}
+{"id":"gh-osd-2064","source":"github","score":0,"posted_at":"2022-08-03T18:23:39Z","tags":[],"title":"[MD][IP] Add config data source step"}
+{"id":"gh-osd-9576","source":"github","score":0,"posted_at":"2025-03-20T05:48:44Z","tags":[],"title":"How to prevent brute force password cracking"}
+{"id":"gh-osd-4664","source":"github","score":0,"posted_at":"2023-08-03T01:00:59Z","tags":[],"title":"[De angular] Remove the angular dependency"}
+{"id":"gh-osd-2061","source":"github","score":0,"posted_at":"2022-08-03T17:56:44Z","tags":[],"title":"[IP] Remove add sample data prompts page"}
+{"id":"gh-osd-683","source":"github","score":0,"posted_at":"2021-07-29T04:41:46Z","tags":[],"title":"[CI] Automatically run tests on Windows and macOs via github actions"}
+{"id":"gh-osd-247","source":"github","score":0,"posted_at":"2021-04-05T19:03:57Z","tags":[],"title":"[Tests] Ensure functional test cases pass"}
+{"id":"gh-osd-9517","source":"github","score":0,"posted_at":"2025-03-11T08:48:14Z","tags":[],"title":"[BUG] When doing \"View surrounding documents\" in modern interface the main document is not highlighted"}
+{"id":"gh-osd-4661","source":"github","score":0,"posted_at":"2023-08-03T00:40:36Z","tags":[],"title":"[De angular] CSS cleanup"}
+{"id":"gh-osd-4332","source":"github","score":0,"posted_at":"2023-06-20T12:28:44Z","tags":[],"title":"use customField data for timestamp range"}
+{"id":"gh-osd-4314","source":"github","score":0,"posted_at":"2023-06-19T20:08:00Z","tags":[],"title":"Add rule to check all font family definitions"}
+{"id":"gh-osd-3814","source":"github","score":0,"posted_at":"2023-04-10T08:52:52Z","tags":[],"title":"Customizing Advanced Settings on Docker environments"}
+{"id":"gh-osd-2889","source":"github","score":1,"posted_at":"2022-11-17T19:05:31Z","tags":[],"title":"Add Windows support to the future 1.x releases"}
+{"id":"gh-osd-2566","source":"github","score":0,"posted_at":"2022-10-13T16:02:27Z","tags":[],"title":"[MD] Add unit test coverage for Data source management"}
+{"id":"gh-osd-2434","source":"github","score":0,"posted_at":"2022-09-28T20:51:07Z","tags":[],"title":"[MD] Polish Header wording"}
+{"id":"gh-osd-2308","source":"github","score":0,"posted_at":"2022-09-09T16:40:34Z","tags":[],"title":"Add this repo to the manifest for the next developer iteration"}
+{"id":"gh-osd-2035","source":"github","score":0,"posted_at":"2022-08-01T23:05:22Z","tags":[],"title":"[MD] Add API level intercepter"}
+{"id":"gh-osd-1920","source":"github","score":0,"posted_at":"2022-07-20T18:02:31Z","tags":[],"title":"[D&D] Validate/optimize pane layout (responsive sizing, truncation, scrolling, centering, etc.)"}
+{"id":"gh-osd-1874","source":"github","score":0,"posted_at":"2022-07-11T16:10:14Z","tags":[],"title":"[OfficeHour] Understand De-Angularization work"}
+{"id":"gh-osd-1872","source":"github","score":0,"posted_at":"2022-07-10T02:57:43Z","tags":[],"title":"[MD]Best practice for credential import (Optional)"}
+{"id":"gh-osd-33","source":"github","score":0,"posted_at":"2021-02-21T20:42:45Z","tags":[],"title":"[DOCS] Clean up Docs directory."}
+{"id":"gh-osd-11637","source":"github","score":0,"posted_at":"2026-03-31T11:44:48Z","tags":[],"title":"Cleans up yarn.lock by removing duplicates"}
+{"id":"gh-osd-7679","source":"github","score":0,"posted_at":"2024-08-12T01:08:58Z","tags":[],"title":"[Look&Feel] All pages should have padding left and right paddingSize=\"m\" (default)"}
+{"id":"gh-osd-6941","source":"github","score":0,"posted_at":"2024-06-06T02:52:40Z","tags":[],"title":"[Meta] [2.15] Workspace features and enhancement"}
+{"id":"gh-osd-5793","source":"github","score":0,"posted_at":"2024-02-02T23:26:28Z","tags":[],"title":"w3.org/pubrules/api/"}
+{"id":"gh-osd-5684","source":"github","score":0,"posted_at":"2024-01-12T12:37:36Z","tags":[],"title":"Ebaoone "}
+{"id":"gh-osd-5120","source":"github","score":0,"posted_at":"2023-09-26T17:42:11Z","tags":[],"title":"Fix cigroup6 for data explorer"}
+{"id":"gh-osd-4646","source":"github","score":0,"posted_at":"2023-07-31T22:45:09Z","tags":[],"title":"2.x branch should get 1.3.x release notes"}
+{"id":"gh-osd-4571","source":"github","score":0,"posted_at":"2023-07-13T22:04:47Z","tags":[],"title":"[Data Explorer] Implement Histogram using expression"}
+{"id":"gh-osd-4464","source":"github","score":0,"posted_at":"2023-06-30T20:00:44Z","tags":[],"title":"[Vis Colors] Document how vis colors can be defined and customized"}
+{"id":"gh-osd-4258","source":"github","score":0,"posted_at":"2023-06-07T21:41:02Z","tags":[],"title":"[Research] Audit typography related customizations"}
+{"id":"gh-osd-4256","source":"github","score":0,"posted_at":"2023-06-07T18:46:44Z","tags":[],"title":"[Data Explorer] Replace Legacy Doc Table with Data Grid Proposal"}
+{"id":"gh-osd-4222","source":"github","score":0,"posted_at":"2023-06-03T01:04:53Z","tags":[],"title":"[Data Explorer] Research basic doc table"}
+{"id":"gh-osd-4221","source":"github","score":0,"posted_at":"2023-06-03T01:01:29Z","tags":[],"title":"[Data Explorer] Research feedback options"}
+{"id":"gh-osd-3969","source":"github","score":0,"posted_at":"2023-05-03T00:04:19Z","tags":[],"title":"[Feature Anywhere] Meta Issue tracker"}
+{"id":"gh-osd-2899","source":"github","score":0,"posted_at":"2022-11-18T21:20:03Z","tags":[],"title":"Persist agg data when you switch between vis types"}
+{"id":"gh-osd-2623","source":"github","score":0,"posted_at":"2022-10-19T18:31:21Z","tags":[],"title":"[MD] Meta issues from UX sign-off meeting"}
+{"id":"gh-osd-2426","source":"github","score":0,"posted_at":"2022-09-28T18:39:25Z","tags":[],"title":"[MD] Check data source name existence before creating"}
+{"id":"gh-osd-2047","source":"github","score":0,"posted_at":"2022-08-02T17:30:12Z","tags":[],"title":"[MD] CM pages localization"}
+{"id":"gh-osd-2021","source":"github","score":0,"posted_at":"2022-07-29T23:39:21Z","tags":[],"title":"[DSM] Data source detail page + UT"}
+{"id":"gh-osd-2019","source":"github","score":0,"posted_at":"2022-07-29T23:34:06Z","tags":[],"title":"[DSM] Landing page (List data sources) + UT"}
+{"id":"gh-osd-1985","source":"github","score":0,"posted_at":"2022-07-27T20:59:51Z","tags":[],"title":"Integrate global config to data source client module"}
+{"id":"gh-osd-1976","source":"github","score":0,"posted_at":"2022-07-27T19:59:01Z","tags":[],"title":"[MD] Add credential cache without crypto materials (optional)"}
+{"id":"gh-osd-1945","source":"github","score":0,"posted_at":"2022-07-25T21:45:59Z","tags":[],"title":"[MD] Support fine grained access control (Optional)"}
+{"id":"gh-osd-1926","source":"github","score":0,"posted_at":"2022-07-21T01:58:13Z","tags":[],"title":"[MD] Add fetch_and_decrypt()"}
+{"id":"gh-osd-1902","source":"github","score":0,"posted_at":"2022-07-15T01:29:45Z","tags":[],"title":"[MD] Optimize navigation UX"}
+{"id":"gh-osd-1868","source":"github","score":0,"posted_at":"2022-07-08T18:56:46Z","tags":[],"title":"[D&D] Handle routing for loading and updating a saved viz"}
+{"id":"gh-osd-1850","source":"github","score":0,"posted_at":"2022-07-06T03:51:22Z","tags":[],"title":"[MD]Refactor server side router with SavedObjectsClientWrapperFactory"}
+{"id":"gh-osd-1572","source":"github","score":0,"posted_at":"2022-05-09T18:39:20Z","tags":[],"title":"[Tests] Remove mocha dependencies and scaffolding"}
+{"id":"gh-osd-915","source":"github","score":0,"posted_at":"2021-11-05T17:47:45Z","tags":[],"title":"ZIM"}
+{"id":"gh-osd-573","source":"github","score":0,"posted_at":"2021-06-30T21:42:33Z","tags":[],"title":"Enforce backport workflows/PRs post-GA (1.0)"}
+{"id":"gh-osd-551","source":"github","score":0,"posted_at":"2021-06-25T16:37:10Z","tags":[],"title":"Replace `sass-lint`"}
+{"id":"gh-osd-256","source":"github","score":0,"posted_at":"2021-04-07T20:51:47Z","tags":[],"title":"Update README 'Getting started' section"}
+{"id":"gh-osd-229","source":"github","score":0,"posted_at":"2021-03-23T21:10:32Z","tags":[],"title":"Apply exisiting security and marketing patches"}
+{"id":"gh-osd-34","source":"github","score":0,"posted_at":"2021-02-22T23:29:20Z","tags":[],"title":"[PURIFY] Remove Issue / PR templates"}
+{"id":"gh-osd-32","source":"github","score":0,"posted_at":"2021-02-20T23:36:04Z","tags":[],"title":"[CI] Run all tasks and remove unused one."}
+{"id":"gh-osd-21","source":"github","score":0,"posted_at":"2021-02-08T02:25:37Z","tags":[],"title":"[CI] Cleanup CI directory"}
+{"id":"gh-osd-20","source":"github","score":0,"posted_at":"2021-02-08T02:23:06Z","tags":[],"title":"[PURIFY] Remove x-pack distribution and create only OSS distribution."}
+{"id":"gh-osd-4","source":"github","score":0,"posted_at":"2021-01-29T23:59:36Z","tags":[],"title":"[PURIFY] Fix broken / transient unit test cases"}
+{"id":"gh-osd-2","source":"github","score":0,"posted_at":"2021-01-29T23:57:59Z","tags":[],"title":"[PURIFY] Ensure all test cases are passing "}
+{"id":"gh-osd-9584","source":"github","score":0,"posted_at":"2025-03-20T23:09:21Z","tags":[],"title":"Refactor Automplete Providers"}
+{"id":"gh-osd-9577","source":"github","score":0,"posted_at":"2025-03-20T09:44:19Z","tags":[],"title":"Accessibility - have better focus marking when navigating with the keyboard"}
+{"id":"gh-osd-9207","source":"github","score":0,"posted_at":"2025-01-17T18:02:36Z","tags":[],"title":"test"}
+{"id":"gh-osd-9147","source":"github","score":0,"posted_at":"2025-01-06T19:56:40Z","tags":[],"title":"Platform enhancements meta issue"}
+{"id":"gh-osd-8989","source":"github","score":6,"posted_at":"2024-11-28T09:50:47Z","tags":[],"title":"2.15.0Terrible fonts and design"}
+{"id":"gh-osd-8903","source":"github","score":0,"posted_at":"2024-11-20T15:13:19Z","tags":[],"title":"Log fields do nto appear on the available fields section"}
+{"id":"gh-osd-8791","source":"github","score":0,"posted_at":"2024-11-01T20:51:45Z","tags":[],"title":"Add additional tests for various switches of src/dev/i18n/integrate_locale_files.ts"}

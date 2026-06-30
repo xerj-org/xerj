@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 240" width="800" height="240">
+  <rect width="800" height="240" fill="#0b0b0d"/>
+  <!-- Both rules anchor at x=530 · the exact start of the "." glyph -->
+  <!-- bottom rule · under XERJ · paper -->
+  <line x1="90" y1="200" x2="530" y2="200" stroke="#f4f2ec" stroke-width="1" stroke-linecap="square"/>
+  <!-- top rule · over .AI · accent -->
+  <line x1="530" y1="40" x2="710" y2="40" stroke="#ffc400" stroke-width="1" stroke-linecap="square"/>
+  <!-- XERJ · right-anchored at x=530 so its right edge = start of dot -->
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="end" fill="#f4f2ec">XERJ</text>
+  <!-- .AI · left-anchored at x=530 so its left edge = start of dot -->
+  <text x="530" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="start" fill="#ffc400">.AI</text>
+</svg>

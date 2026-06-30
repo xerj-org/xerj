@@ -1,0 +1,970 @@
+warning: associated function `from_u8` is never used
+  --> crates/xerj-cluster/src/raft_log.rs:72:8
+   |
+71 | impl EntryKind {
+   | -------------- associated function in this implementation
+72 |     fn from_u8(b: u8) -> Result<Self> {
+   |        ^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Write`
+  --> crates/xerj-storage/src/stored_codec.rs:58:29
+   |
+58 | use std::io::{Cursor, Read, Write};
+   |                             ^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Read`
+  --> crates/xerj-storage/src/stored_codec.rs:58:23
+   |
+58 | use std::io::{Cursor, Read, Write};
+   |                       ^^^^
+
+warning: field `depth` is never read
+   --> crates/xerj-storage/src/backend.rs:384:9
+    |
+381 |     pub struct Entry {
+    |                ----- field in this struct
+...
+384 |         depth: usize,
+    |         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `CHKPT_LEN` is never used
+  --> crates/xerj-storage/src/wal.rs:63:7
+   |
+63 | const CHKPT_LEN: u64 = 28; // generation(8) + offset(8) + max_seq(8) + crc(4)
+   |       ^^^^^^^^^
+
+warning: unused import: `Serialize`
+  --> crates/xerj-fts/src/index.rs:28:26
+   |
+28 | use serde::{Deserialize, Serialize};
+   |                          ^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `rayon::prelude`
+  --> crates/xerj-vector/src/hnsw.rs:17:5
+   |
+17 | use rayon::prelude::*;
+   |     ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable `curr_dist` is assigned to, but never used
+   --> crates/xerj-vector/src/hnsw.rs:166:13
+    |
+166 |         let mut curr_dist = {
+    |             ^^^^^^^^^^^^^
+    |
+    = note: consider using `_curr_dist` instead
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `curr_dist` is never read
+   --> crates/xerj-vector/src/hnsw.rs:225:17
+    |
+225 |                 curr_dist = candidates[0].0;
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `curr_dist` is never read
+   --> crates/xerj-vector/src/hnsw.rs:175:13
+    |
+175 |             curr_dist = new_dist;
+    |             ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: field `id` is never read
+  --> crates/xerj-vector/src/hnsw.rs:61:5
+   |
+60 | struct Node {
+   |        ---- field in this struct
+61 |     id: u64,
+   |     ^^
+   |
+   = note: `Node` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `xerj-cluster` (lib) generated 1 warning
+warning: `xerj-storage` (lib) generated 4 warnings (run `cargo fix --lib -p xerj-storage` to apply 1 suggestion)
+warning: `xerj-fts` (lib) generated 1 warning (run `cargo fix --lib -p xerj-fts` to apply 1 suggestion)
+warning: `xerj-vector` (lib) generated 5 warnings
+warning: `xerj-fts` (lib test) generated 1 warning (1 duplicate)
+warning: `xerj-storage` (lib test) generated 4 warnings (4 duplicates)
+warning: `xerj-cluster` (lib test) generated 1 warning (1 duplicate)
+warning: `xerj-vector` (lib test) generated 5 warnings (5 duplicates)
+warning: unused import: `Write`
+  --> crates/xerj-logs/src/columnar.rs:10:29
+   |
+10 | use std::io::{Cursor, Read, Write};
+   |                             ^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `ColumnType`, `ColumnValue`, and `Column`
+  --> crates/xerj-logs/src/ingest.rs:14:23
+   |
+14 | use crate::columnar::{Column, ColumnType, ColumnValue};
+   |                       ^^^^^^  ^^^^^^^^^^  ^^^^^^^^^^^
+
+warning: field `bucket` is never read
+   --> crates/xerj-logs/src/ingest.rs:166:5
+    |
+165 | struct Memtable {
+    |        -------- field in this struct
+166 |     bucket: HourBucket,
+    |     ^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `xerj-logs` (lib) generated 3 warnings (run `cargo fix --lib -p xerj-logs` to apply 2 suggestions)
+warning: `xerj-logs` (lib test) generated 3 warnings (3 duplicates)
+warning: unused import: `FtsIndexWriter`
+  --> crates/xerj-engine/src/index.rs:17:40
+   |
+17 | use xerj_fts::index::{FtsIndexReader, FtsIndexWriter};
+   |                                        ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `FastAggResult`, `run_agg_fast_filtered`, and `run_agg_fast`
+  --> crates/xerj-engine/src/index.rs:28:38
+   |
+28 | use crate::aggs::{run_aggs_with_all, run_agg_fast, run_agg_fast_filtered, FastAggResult};
+   |                                      ^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^
+
+warning: unused import: `crate::memtable::FtsMemtable`
+  --> crates/xerj-engine/src/index.rs:29:5
+   |
+29 | use crate::memtable::FtsMemtable;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `SegmentId`
+    --> crates/xerj-engine/src/index.rs:1402:51
+     |
+1402 |         use xerj_storage::segment::{SectionType, SegmentId, SegmentReader, SegmentWriter};
+     |                                                   ^^^^^^^^^
+
+warning: unused import: `rayon::prelude`
+  --> crates/xerj-engine/src/turbo_ingest.rs:31:5
+   |
+31 | use rayon::prelude::*;
+   |     ^^^^^^^^^^^^^^
+
+warning: value assigned to `fts_handled` is never read
+    --> crates/xerj-engine/src/index.rs:2772:33
+     |
+2772 | ...                   fts_handled = true;
+     |                       ^^^^^^^^^^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `negative`
+    --> crates/xerj-engine/src/index.rs:6209:41
+     |
+6209 |         QueryNode::Boosting { positive, negative, .. } => {
+     |                                         ^^^^^^^^ help: try ignoring the field: `negative: _`
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `pos` is never read
+   --> crates/xerj-engine/src/sql.rs:344:65
+    |
+344 |             Some(Token::Num(n)) => { limit = Some(*n as usize); pos += 1; }
+    |                                                                 ^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: function `execute_agg` is never used
+   --> crates/xerj-engine/src/aggs.rs:391:4
+    |
+391 | fn execute_agg(name: &str, body: &Value, docs: &[Value]) -> Value {
+    |    ^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `execute_agg_with_all` is never used
+   --> crates/xerj-engine/src/aggs.rs:395:4
+    |
+395 | fn execute_agg_with_all(name: &str, body: &Value, docs: &[Value], all_docs: &[Value]) -> Value {
+    |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: variant `Skip` is never constructed
+   --> crates/xerj-engine/src/bulk.rs:123:9
+    |
+120 |     enum ParseOutcome {
+    |          ------------ variant in this enum
+...
+123 |         Skip(usize /* extra item_index to pop, because we optimistically consumed a line */),
+    |         ^^^^
+
+warning: function `run_numeric_agg_with_segments_refs` is never used
+    --> crates/xerj-engine/src/index.rs:5479:4
+     |
+5479 | fn run_numeric_agg_with_segments_refs(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_value_count_with_segments_refs` is never used
+    --> crates/xerj-engine/src/index.rs:5544:4
+     |
+5544 | fn run_value_count_with_segments_refs(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_cardinality_with_segments_refs` is never used
+    --> crates/xerj-engine/src/index.rs:5576:4
+     |
+5576 | fn run_cardinality_with_segments_refs(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_terms_with_segments_refs` is never used
+    --> crates/xerj-engine/src/index.rs:5619:4
+     |
+5619 | fn run_terms_with_segments_refs(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_numeric_agg_with_segments` is never used
+    --> crates/xerj-engine/src/index.rs:5727:4
+     |
+5727 | fn run_numeric_agg_with_segments(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_value_count_with_segments` is never used
+    --> crates/xerj-engine/src/index.rs:5790:4
+     |
+5790 | fn run_value_count_with_segments(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_cardinality_with_segments` is never used
+    --> crates/xerj-engine/src/index.rs:5822:4
+     |
+5822 | fn run_cardinality_with_segments(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_terms_with_segments` is never used
+    --> crates/xerj-engine/src/index.rs:5872:4
+     |
+5872 | fn run_terms_with_segments(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `hash_doc_id` is never used
+    --> crates/xerj-engine/src/index.rs:7253:4
+     |
+7253 | fn hash_doc_id(doc_id: &str) -> u32 {
+     |    ^^^^^^^^^^^
+
+warning: constant `ANALYSIS_THRESHOLD` is never used
+  --> crates/xerj-engine/src/memtable.rs:90:7
+   |
+90 | const ANALYSIS_THRESHOLD: usize = 1000;
+   |       ^^^^^^^^^^^^^^^^^^
+
+warning: method `collect_sample` is never used
+   --> crates/xerj-engine/src/memtable.rs:188:8
+    |
+173 | impl DocValues {
+    | -------------- method in this implementation
+...
+188 |     fn collect_sample(&mut self, field: &str, value: &str) {
+    |        ^^^^^^^^^^^^^^
+
+warning: field `parallel` is never read
+   --> crates/xerj-engine/src/turbo_ingest.rs:245:5
+    |
+232 | pub struct TurboIngestPipeline {
+    |            ------------------- field in this struct
+...
+245 |     parallel: bool,
+    |     ^^^^^^^^
+
+warning: calls to `std::mem::drop` with a reference instead of an owned value does nothing
+    --> crates/xerj-engine/src/index.rs:1156:9
+     |
+1156 |         drop(mem);
+     |         ^^^^^---^
+     |              |
+     |              argument has type `&ShardedFtsMemtable`
+     |
+     = note: `#[warn(dropping_references)]` on by default
+help: use `let _ = ...` to ignore the expression or result
+     |
+1156 -         drop(mem);
+1156 +         let _ = mem;
+     |
+
+warning: variable `MERGE_PARALLELISM` should have a snake case name
+    --> crates/xerj-engine/src/index.rs:1506:13
+     |
+1506 |         let MERGE_PARALLELISM: usize = merge_parallelism;
+     |             ^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `merge_parallelism`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: calls to `std::mem::drop` with a reference instead of an owned value does nothing
+    --> crates/xerj-engine/src/index.rs:3409:9
+     |
+3409 |         drop(mem);
+     |         ^^^^^---^
+     |              |
+     |              argument has type `&ShardedFtsMemtable`
+     |
+help: use `let _ = ...` to ignore the expression or result
+     |
+3409 -         drop(mem);
+3409 +         let _ = mem;
+     |
+
+warning: `xerj-engine` (lib) generated 26 warnings (run `cargo fix --lib -p xerj-engine` to apply 5 suggestions)
+warning: `xerj-engine` (lib test) generated 26 warnings (26 duplicates)
+warning: unused import: `SourceFilter`
+  --> crates/xerj-engine/tests/integration.rs:11:50
+   |
+11 | use xerj_query::ast::{QueryNode, SearchRequest, SourceFilter};
+   |                                                  ^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `QueryNode`
+    --> crates/xerj-engine/tests/integration.rs:2379:28
+     |
+2379 |     use xerj_query::ast::{QueryNode, SourceFilter};
+     |                            ^^^^^^^^^
+
+warning: unused import: `serde_json::Value`
+    --> crates/xerj-engine/tests/integration.rs:2416:9
+     |
+2416 |     use serde_json::Value;
+     |         ^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `engine`
+    --> crates/xerj-engine/tests/integration.rs:1603:9
+     |
+1603 |     let engine = make_engine(&dir);
+     |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_engine`
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+    --> crates/xerj-engine/tests/integration.rs:2399:9
+     |
+2399 |     let mut req = SearchRequest {
+     |         ----^^^
+     |         |
+     |         help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: `xerj-engine` (test "integration") generated 5 warnings (run `cargo fix --test "integration" -p xerj-engine` to apply 5 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running unittests src/lib.rs (target/debug/deps/xerj_ai-794f756721cb77cc)
+
+running 16 tests
+test chunker::tests::empty_text_returns_empty ... ok
+test chunker::tests::chunk_indices_are_sequential ... ok
+test chunker::tests::chunks_cover_full_text ... ok
+test chunker::tests::short_text_produces_single_chunk ... ok
+test chunker::tests::unicode_text_handled ... ok
+test chunker::tests::overlap_creates_overlap_in_content ... ok
+test embed::tests::config_defaults ... ok
+test embed::tests::config_with_api_key ... ok
+test memory::tests::clear_resets_state ... ok
+test memory::tests::dedup_allows_distinct_entries ... ok
+test memory::tests::dedup_skips_near_duplicate ... ok
+test memory::tests::ids_are_unique ... ok
+test memory::tests::recall_empty_memory ... ok
+test memory::tests::store_and_recall_basic ... ok
+test memory::tests::recency_weight_affects_ordering ... ok
+test embed::tests::embed_empty_batch_returns_empty ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/debug/deps/xerj_api-341cdca583898203)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/debug/deps/xerj_api-06e4305b6744f2dc)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/xerj_cluster-4cb0610f6dba8daf)
+
+running 53 tests
+test coordinator::tests::test_coordinator_no_shards ... ok
+test coordinator::tests::test_coordinator_fan_out_call_count ... ok
+test coordinator::tests::test_coordinator_fan_out ... ok
+test coordinator::tests::test_coordinator_merge ... ok
+test coordinator::tests::test_coordinator_route_index_local ... ok
+test coordinator::tests::test_coordinator_route_index_remote ... ok
+test metadata::tests::test_create_and_delete_index ... ok
+test metadata::tests::test_add_remove_node ... ok
+test metadata::tests::test_idempotent_apply ... ok
+test metadata::tests::test_shard_assignment ... ok
+test metadata::tests::test_metadata_apply_from_raft_entries ... ok
+test node::tests::test_cluster_node_propose_and_apply ... ok
+test raft::tests::test_leader_failure_reelection ... ok
+test raft::tests::test_propose_command ... ok
+test node::tests::test_metadata_apply_full_pipeline ... ok
+test raft::tests::test_log_replication ... ok
+test raft::tests::test_propose_on_follower_fails ... ok
+test raft::tests::test_single_node_leader ... ok
+test raft::tests::test_leader_commit ... ok
+test raft::tests::test_three_node_election ... ok
+test raft_log::tests::commit_index_persists ... ok
+test raft_log::tests::truncate_drops_tail ... ok
+test regions::tests::test_initial_region_creation ... ok
+test raft_log::tests::corrupt_tail_is_ignored_on_reopen ... ok
+test regions::tests::test_initial_region_creation_single ... ok
+test regions::tests::test_jump_hash_routes_to_region ... ok
+test regions::tests::test_rebalance_plan_balanced ... ok
+test regions::tests::test_rebalance_plan ... ok
+test regions::tests::test_region_merge ... ok
+test regions::tests::test_region_merge_non_adjacent_fails ... ok
+test regions::tests::test_region_split ... ok
+test regions::tests::test_region_split_unbounded ... ok
+test regions::tests::test_update_region_stats ... ok
+test replication::tests::test_replication_entry_serialization ... ok
+test replication::tests::test_replication_mode_serialization ... ok
+test replication::tests::test_async_replication ... ok
+test replication::tests::test_quorum_replication ... ok
+test replication::tests::test_sync_replication_insufficient ... ok
+test replication::tests::test_sync_replication ... ok
+test router::tests::test_jump_hash_stability ... ok
+test router::tests::test_router_route_doc ... ok
+test router::tests::test_router_search_targets ... ok
+test router::tests::test_router_unassigned_shard ... ok
+test router::tests::test_router_update_from_metadata ... ok
+test search::tests::test_index_request_serde ... ok
+test search::tests::test_index_response_serde ... ok
+test search::tests::test_is_response ... ok
+test search::tests::test_merge_search_responses ... ok
+test search::tests::test_search_message_serde ... ok
+test search::tests::test_search_response_serde ... ok
+test raft_log::tests::append_and_reread ... ok
+test router::tests::test_jump_hash_distribution ... ok
+test router::tests::test_jump_hash_minimal_rebalancing ... ok
+
+test result: ok. 53 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/persistent_raft_test.rs (target/debug/deps/persistent_raft_test-6de8f284ebf0082d)
+
+running 1 test
+test single_node_persistent_roundtrip ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/region_tests.rs (target/debug/deps/region_tests-0a767057eaf09f49)
+
+running 15 tests
+test test_initial_region_creation ... ok
+test test_initial_region_creation_single ... ok
+test test_initial_region_creation_more_regions_than_nodes ... ok
+test test_jump_hash_routes_to_region ... ok
+test test_rebalance_plan_single_node ... ok
+test test_region_merge ... ok
+test test_rebalance_plan_balanced ... ok
+test test_rebalance_plan ... ok
+test test_region_merge_accumulates_stats ... ok
+test test_region_merge_non_adjacent_fails ... ok
+test test_region_split ... ok
+test test_region_split_by_doc_count ... ok
+test test_region_split_preserves_assignment ... ok
+test test_region_serialization ... ok
+test test_update_region_stats ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/replication_tests.rs (target/debug/deps/replication_tests-7b97277c5c6b360e)
+
+running 8 tests
+test test_replication_entry_serialization ... ok
+test test_replication_mode_serialization ... ok
+test test_async_replication ... ok
+test test_quorum_replication_fails_below_majority ... ok
+test test_quorum_replication ... ok
+test test_replication_no_replicas ... ok
+test test_sync_replication ... ok
+test test_sync_replication_insufficient_replicas ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/transport_tests.rs (target/debug/deps/transport_tests-0cd3d2a945f9388d)
+
+running 5 tests
+test test_merge_search_responses_ordering_and_pagination ... ok
+test test_single_node_cluster_via_runner ... ok
+test test_distributed_search_message ... ok
+test test_tcp_transport_send_recv ... ok
+test test_cluster_runner_election ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.50s
+
+     Running unittests src/lib.rs (target/debug/deps/xerj_common-d937a4ae1c32cdce)
+
+running 23 tests
+test config::tests::count_user_facing_settings ... ok
+test config::tests::default_config_is_valid ... ok
+test config::tests::duplicate_ports_rejected ... ok
+test config::tests::tls_disabled_no_paths_ok ... ok
+test config::tests::parse_minimal_toml ... ok
+test config::tests::tls_enabled_requires_paths ... ok
+test metrics::tests::active_search_guard_decrements_on_drop ... ok
+test metrics::tests::counter_increments ... ok
+test metrics::tests::metrics_init_succeeds ... ok
+test schema::tests::binary_field_cannot_be_indexed ... ok
+test metrics::tests::gather_text_is_valid_utf8 ... ok
+test schema::tests::dynamic_mapping_adds_fields ... ok
+test metrics::tests::isolated_registries_do_not_conflict ... ok
+test schema::tests::schema_compatibility_type_change_rejected ... ok
+test schema::tests::infer_types_from_json ... ok
+test schema::tests::field_limit_enforced ... ok
+test schema::tests::strict_mapping_rejects_unknown ... ok
+test schema::tests::vector_field_requires_dimensions ... ok
+test types::tests::document_get_nested_field ... ok
+test types::tests::field_types_round_trip_json ... ok
+test types::tests::index_name_invalid ... ok
+test types::tests::index_name_valid ... ok
+test types::tests::schema_field_add_dedup ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/xerj_compress-cc1af660231453ba)
+
+running 41 tests
+test block::tests::empty_finish_produces_no_bytes ... ok
+test block::tests::roundtrip_none_exact_block ... ok
+test block::tests::roundtrip_lz4_partial_block ... ok
+test codec::tests::lz4_reduces_size ... ok
+test codec::tests::lz4_roundtrip ... ok
+test codec::tests::none_roundtrip ... ok
+test codec::tests::zstd_balanced_roundtrip ... ok
+test codec::tests::get_codec_factory ... ok
+test block::tests::roundtrip_zstd_balanced ... ok
+test codec::tests::zstd_best_roundtrip ... ok
+test dictionary::tests::encode_or_insert_grows_dict ... ok
+test dictionary::tests::encode_decode_roundtrip ... ok
+test dictionary::tests::log_levels_realistic ... ok
+test dictionary::tests::serialize_deserialize ... ok
+test block::tests::roundtrip_lz4_multiple_blocks ... ok
+test field_codec::tests::test_apache_parse ... ok
+test field_codec::tests::test_bitset_enum_bitmap_correctness ... ok
+test field_codec::tests::test_decimal_scale ... ok
+test field_codec::tests::test_compression_ratio_vs_raw ... ok
+test field_codec::tests::test_boolean_encoding ... ok
+test field_codec::tests::test_delta_timestamp_regularity ... ok
+test field_codec::tests::test_float_encoding ... ok
+test field_codec::tests::test_http_method_encoding ... ok
+test field_codec::tests::test_ip_encoding ... ok
+test field_codec::tests::test_dictionary_medium_cardinality ... ok
+test field_codec::tests::test_ip_in_cidr ... ok
+test field_codec::tests::test_iso8601_parse ... ok
+test field_codec::tests::test_log_level_encoding ... ok
+test field_codec::tests::test_nginx_parse ... ok
+test field_codec::tests::test_parse_ipv4 ... ok
+test field_codec::tests::test_timestamp_apache ... ok
+test field_codec::tests::test_status_codes_bitset_enum ... ok
+test field_codec::tests::test_timestamp_iso8601 ... ok
+test field_codec::tests::test_unique_count ... ok
+test field_codec::tests::test_url_template_encoding ... ok
+test field_codec::tests::test_url_template_extraction ... ok
+test field_codec::tests::test_uuid_detection ... ok
+test field_codec::tests::test_varint_encoding ... ok
+test field_codec::tests::test_varint_sizing ... ok
+test field_codec::tests::test_raw_string_fallback ... ok
+test field_codec::tests::test_apache_log_compression_ratios ... ok
+
+test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src/lib.rs (target/debug/deps/xerj_engine-f2cc638c1c9ffe0c)
+
+running 22 tests
+test aggs::tests::test_min_max ... ok
+test aggs::tests::test_avg ... ok
+test aggs::tests::test_cardinality ... ok
+test aggs::tests::test_date_histogram ... ok
+test aggs::tests::test_stats ... ok
+test aggs::tests::test_nested_aggs ... ok
+test aggs::tests::test_terms ... ok
+test aggs::tests::test_value_count ... ok
+test aggs::tests::test_sum ... ok
+test sql::tests::test_select_star ... ok
+test sql::tests::test_order_by ... ok
+test turbo_ingest::tests::batch_wal_writer_roundtrip ... ok
+test sql::tests::test_basic_select ... ok
+test turbo_ingest::tests::fast_tokenizer_filters_short_and_long ... ok
+test turbo_ingest::tests::extract_and_tokenize_nested ... ok
+test turbo_ingest::tests::pipeline_auto_flushes_at_batch_size ... ok
+test turbo_ingest::tests::simd_lowercase_mixed_multibyte ... ok
+test turbo_ingest::tests::pipeline_explicit_flush ... ok
+test turbo_ingest::tests::simd_lowercase_pure_ascii ... ok
+test turbo_ingest::tests::word_boundaries_basic ... ok
+test turbo_ingest::tests::word_boundaries_punctuation ... ok
+test turbo_ingest::tests::pipeline_parallel_flush_matches_sequential ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/battle_test.rs (target/debug/deps/battle_test-a5dc46fd60ca2e97)
+
+running 10 tests
+test battle_access_log_analytics ... ignored
+test battle_aggregations ... ignored
+test battle_article_search_with_highlight ... ignored
+test battle_bulk_ingest_all ... ignored
+test battle_complex_bool_queries ... ignored
+test battle_concurrent_search_load ... ignored
+test battle_correctness_spot_checks ... ignored
+test battle_geo_distance_search ... ignored
+test battle_log_error_search ... ignored
+test battle_product_fulltext_search ... ignored
+
+test result: ok. 0 passed; 0 failed; 10 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/chaos_tests.rs (target/debug/deps/chaos_tests-f337eda61f71686a)
+
+running 10 tests
+test chaos_crash_during_writes ... FAILED
+test chaos_flush_during_writes ... FAILED
+test chaos_data_integrity ... ok
+test chaos_delete_during_writes ... FAILED
+test chaos_rapid_restart_loop ... FAILED
+test chaos_schema_evolution ... FAILED
+test chaos_wal_corruption ... FAILED
+test chaos_concurrent_readwrite_stress ... FAILED
+test chaos_large_documents ... FAILED
+test chaos_memory_pressure ... FAILED
+
+failures:
+
+---- chaos_crash_during_writes stdout ----
+
+┌─────────────────────────────────────────────────────────────────┐
+│  [03:28:52Z]  Test 1: SIGKILL During Active Writes (crash resilience)│
+└─────────────────────────────────────────────────────────────────┘
+
+thread 'chaos_crash_during_writes' (610001) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- chaos_flush_during_writes stdout ----
+
+┌─────────────────────────────────────────────────────────────────┐
+│  [03:28:52Z]  Test 6: Flush Under Load                            │
+└─────────────────────────────────────────────────────────────────┘
+
+thread 'chaos_flush_during_writes' (610004) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+---- chaos_delete_during_writes stdout ----
+
+┌─────────────────────────────────────────────────────────────────┐
+│  [03:28:52Z]  Test 7: Delete Under Load                           │
+└─────────────────────────────────────────────────────────────────┘
+  Phase 1: indexing 2000 initial docs…
+  Phase 2: deleting odd-numbered originals + indexing 500 new docs…
+
+thread 'chaos_delete_during_writes' (610003) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+---- chaos_rapid_restart_loop stdout ----
+
+┌─────────────────────────────────────────────────────────────────┐
+│  [03:28:52Z]  Test 3: Rapid Restart Stability (100x restart loop) │
+└─────────────────────────────────────────────────────────────────┘
+  Seeded 500 docs (flushed to segment). Beginning 100 rapid restarts…
+
+thread 'chaos_rapid_restart_loop' (610007) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+---- chaos_schema_evolution stdout ----
+
+┌─────────────────────────────────────────────────────────────────┐
+│  [03:28:52Z]  Test 9: Schema Evolution Under Load                 │
+└─────────────────────────────────────────────────────────────────┘
+  Batch 1: 500 docs with fields {a, b, c}…
+  Batch 2: 500 docs with fields {a, b, c, d, e}…
+  Batch 3: 500 docs with fields {a, f, g}…
+
+thread 'chaos_schema_evolution' (610010) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+---- chaos_wal_corruption stdout ----
+
+┌─────────────────────────────────────────────────────────────────┐
+│  [03:28:52Z]  Test 2: WAL Corruption Recovery                     │
+└─────────────────────────────────────────────────────────────────┘
+
+thread 'chaos_wal_corruption' (610011) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+---- chaos_concurrent_readwrite_stress stdout ----
+
+┌─────────────────────────────────────────────────────────────────┐
+│  [03:28:52Z]  Test 4: Concurrent Read/Write Stress (8 writers × 8 readers)│
+└─────────────────────────────────────────────────────────────────┘
+  Spawning 8 writers (1000 docs each) + 8 readers (500 searches each)…
+
+thread 'chaos_concurrent_readwrite_stress' (610000) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_concurrent_readwrite_stress' (610000) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_concurrent_readwrite_stress' (610000) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_concurrent_readwrite_stress' (610000) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_concurrent_readwrite_stress' (610000) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_concurrent_readwrite_stress' (610000) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_concurrent_readwrite_stress' (610000) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_concurrent_readwrite_stress' (610000) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_concurrent_readwrite_stress' (610000) panicked at crates/xerj-engine/tests/chaos_tests.rs:624:39:
+reader task panicked: JoinError::Panic(Id(12), "can call blocking only when running on the multi-threaded runtime", ...)
+
+---- chaos_large_documents stdout ----
+
+┌─────────────────────────────────────────────────────────────────┐
+│  [03:28:52Z]  Test 5: Large Document Stress                       │
+└─────────────────────────────────────────────────────────────────┘
+  [03:28:52Z] size=1KB     bytes=     1024  index_ms=     0  get_ms=    0  source_verified=true  PASS
+  [03:28:52Z] size=10KB    bytes=    10240  index_ms=     0  get_ms=    0  source_verified=true  PASS
+  [03:28:52Z] size=100KB   bytes=   102400  index_ms=     5  get_ms=    0  source_verified=true  PASS
+  [03:28:52Z] size=1MB     bytes=  1048576  index_ms=    57  get_ms=    0  source_verified=true  PASS
+  [03:28:52Z] size=5MB     bytes=  5242880  index_ms=   289  get_ms=    0  source_verified=true  PASS
+
+thread 'chaos_large_documents' (610005) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+---- chaos_memory_pressure stdout ----
+
+┌─────────────────────────────────────────────────────────────────┐
+│  [03:28:52Z]  Test 8: Memory Pressure Simulation (~50MB data, 100 concurrent queries)│
+└─────────────────────────────────────────────────────────────────┘
+  Indexing 50000 docs (~1KB each = ~48MB total)…
+  [03:28:53Z] ingested 10000/50000  rss=97MB
+  [03:28:54Z] ingested 20000/50000  rss=153MB
+  [03:28:54Z] ingested 30000/50000  rss=212MB
+  [03:28:55Z] ingested 40000/50000  rss=265MB
+  [03:28:56Z] ingest complete in 3918ms
+  [03:28:56Z] peak_rss_mb=317
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/src/index.rs:2253:13:
+can call blocking only when running on the multi-threaded runtime
+
+thread 'chaos_memory_pressure' (610006) panicked at crates/xerj-engine/tests/chaos_tests.rs:1058:32:
+query task panicked: JoinError::Panic(Id(65), "can call blocking only when running on the multi-threaded runtime", ...)
+
+
+failures:
+    chaos_concurrent_readwrite_stress
+    chaos_crash_during_writes
+    chaos_delete_during_writes
+    chaos_flush_during_writes
+    chaos_large_documents
+    chaos_memory_pressure
+    chaos_rapid_restart_loop
+    chaos_schema_evolution
+    chaos_wal_corruption
+
+test result: FAILED. 1 passed; 9 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.19s
+
+error: test failed, to rerun pass `-p xerj-engine --test chaos_tests`

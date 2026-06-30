@@ -1,0 +1,28 @@
+[package]
+name = "xerj-cluster"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Embedded Raft consensus for xerj cluster metadata (no external dependencies)"
+
+[dependencies]
+xerj-common = { path = "../xerj-common" }
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+bytes.workspace = true
+byteorder.workspace = true
+crc32fast.workspace = true
+uuid.workspace = true
+rand.workspace = true
+async-trait = "0.1"
+xxhash-rust.workspace = true
+futures = "0.3"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full", "test-util"] }
+tempfile.workspace = true

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>XERJ — Elasticsearch Replacement — Use Case Brief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../common.css">
+</head>
+<body>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>USE CASE · ELASTICSEARCH REPLACEMENT · V1 · 2026-04</span></div>
+  <div class="grow flex col between">
+    <div class="sp-10"></div>
+    <div>
+      <div class="kicker" style="margin-bottom:20px;"><span>USE CASE 04</span><span class="dash">·</span><span>FOR VP ENGINEERING · CTO · PLATFORM TEAMS</span></div>
+      <div class="cover-hero">DROP-IN.<br>MODERN<br><span class="accent">RUNTIME.</span><br>SAME API.</div>
+      <div class="sp-8"></div>
+      <p class="lead" style="max-width:6in;">Your Elasticsearch clients, dashboards, ingest pipelines, and detection rules stay unchanged. What changes is the runtime beneath them — one Rust binary instead of a JVM cluster, 50 ms cold start instead of 15 seconds, 400 MB idle instead of 8.5 GB.</p>
+    </div>
+    <div class="kicker"><span>21× LESS MEMORY</span><span class="dash">·</span><span>300× FASTER COLD START</span><span class="dash">·</span><span>SAME CLIENTS</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · ELASTICSEARCH REPLACEMENT · USE CASE BRIEF</span><span class="num">01 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>02 · WHY THIS MATTERS NOW</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>02</span><span class="dash">·</span><span>LICENSING · OPERATIONS · AI</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">ES RUNS THE<br>WORLD.<br><span class="accent">AT A COST.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">Every enterprise already runs Elasticsearch. And every enterprise has the same three complaints: the license model changed, the JVM operations burden never shrinks, and the vector story arrived late and expensive. Meanwhile the AI transformation roadmap needs retrieval infrastructure that's faster, cheaper, and compatible with existing clients. Rewriting everything is not on the table.</p>
+    <div class="sp-6"></div>
+    <div class="kv-row"><div class="k">LICENSING DRIFT</div><div class="v">SSPL, feature gating, paid-only security tiers. The open-source ES era ended; the alternatives require migration. Your boards asked what the alternative looks like.</div></div>
+    <div class="kv-row"><div class="k">JVM OPERATIONS</div><div class="v">Heap sizing. G1 vs ZGC tuning. Cold starts measured in seconds. Memory reserved up front and rarely returned. On-call runbooks half-filled with JVM incantations.</div></div>
+    <div class="kv-row"><div class="k">VECTOR BOLT-ON</div><div class="v">Elasticsearch shipped kNN search, but vector workloads still compete with BM25 for heap. RAG teams move to Pinecone; the single-store advantage disappears.</div></div>
+    <div class="kv-row"><div class="k">MIGRATION RISK</div><div class="v">Swapping a search engine is a year-long project. Every client library, every Logstash pipeline, every Kibana dashboard is a migration risk. Teams stay on the current ES because the alternative is worse.</div></div>
+    <div class="grow"></div>
+    <div class="kicker"><span>MIGRATION IS THE RISK</span><span class="dash">·</span><span>REMOVE THE RISK · KEEP THE API</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · ELASTICSEARCH REPLACEMENT · USE CASE BRIEF</span><span class="num">02 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>03 · XERJ POSITIONING</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>03</span><span class="dash">·</span><span>SAME API · DIFFERENT ENGINE</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">PORT :9200.<br>YOUR CLIENTS.<br><span class="accent">OUR ENGINE.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">XERJ speaks the Elasticsearch 8.13 wire protocol. 5,165 LOC of compat layer covers 38 query types, every common aggregation, the bulk API, the scroll API, and the cluster-health endpoint. The client library you use today is the client library you use tomorrow. Migration is a configuration change, not a rewrite.</p>
+    <div class="sp-6"></div>
+    <div class="quad-grid">
+      <div class="cell"><span class="k">MEMORY</span><span class="v">21×</span><span class="t">LESS IDLE<br><span class="accent">RAM</span></span><span class="b">400 MB single node vs 8.5 GB for a 4-node ES cluster. RSS tracks working set — jemalloc returns pages.</span></div>
+      <div class="cell"><span class="k">COLD START</span><span class="v">300×</span><span class="t">FASTER<br><span class="accent">RESTART</span></span><span class="b">50 ms vs ~15 s JVM bootstrap. First query served when the socket binds — no classloader, no JIT warmup.</span></div>
+      <div class="cell"><span class="k">BINARY</span><span class="v">56×</span><span class="t">SMALLER<br><span class="accent">DEPLOY</span></span><span class="b">13 MB static binary vs ~620 MB JAR + JRE + config + policy files. Distroless base image.</span></div>
+      <div class="cell"><span class="k">COMPAT</span><span class="v">ES 8.13</span><span class="t">WIRE PROTOCOL<br><span class="accent">DROP-IN</span></span><span class="b">38 query types · bulk · scroll · cluster health · same response envelope. No client rewrite.</span></div>
+    </div>
+    <div class="grow"></div>
+    <div class="kicker"><span>MIGRATION IS A CONFIG CHANGE</span><span class="dash">·</span><span>NOT A YEAR-LONG PROJECT</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · ELASTICSEARCH REPLACEMENT · USE CASE BRIEF</span><span class="num">03 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>04 · REFERENCE ARCHITECTURE</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>04</span><span class="dash">·</span><span>DROP-IN BLUEPRINT</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">SAME CLIENTS.<br><span class="accent">NEW ENGINE.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">A three-node HA cluster that replaces a 4-node Elasticsearch cluster. Same client libraries continue pointing at <span class="mono">:9200</span>. Same dashboards, same detection rules, same Logstash pipelines.</p>
+    <div class="sp-4"></div>
+    <div class="arch-pre"><span class="accent">CLIENTS · UNCHANGED</span>
+  elasticsearch-py · elasticsearch-js · elasticsearch-java
+  Kibana · Grafana (ES datasource) · custom dashboards
+  Filebeat · Logstash · Vector · Fluentd
+  LangChain · LlamaIndex · Haystack — ES retriever
+     │
+     ▼  <span class="mute">HTTP :9200 · ES 8.13 wire protocol · same headers, same shapes</span>
+<span class="accent">XERJ CLUSTER</span>  3-node HA · same ingest / query API as ES
+  ┌──────────────────────────────────────────────────────────────┐
+  │ FTS index     BM25 · 38 query types · analyzers             │
+  │ VECTOR        HNSW · SQ8 · nibble · rerank                  │
+  │ COLUMNS       doc-values · delta-ts · dictionary · varint   │
+  │ AGENT MEMORY  session-scoped · time-decay                   │
+  │ WAL + mmap segment cache · lock-free readers                │
+  └──────────────────────────────────────────────────────────────┘
+     │
+     ▼
+<span class="accent">MIGRATION MECHANICS</span>
+  Dual-write      ingest pipeline writes to ES + XERJ in parallel
+  Shadow-query    application reads primary = ES · compare against XERJ
+  Cut-over        primary = XERJ · keep ES warm for N days
+  Decommission    ES cluster retired · contract terminated
+
+<span class="accent">SIZING</span>
+  XERJ 1-node covers 4-node ES idle baseline.
+  XERJ 3-node HA matches 4-node ES on throughput + adds SLO headroom.</div>
+    <div class="grow"></div>
+    <div class="kicker"><span>SAME :9200</span><span class="dash">·</span><span>SAME DSL · SAME RESPONSE ENVELOPE</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · ELASTICSEARCH REPLACEMENT · USE CASE BRIEF</span><span class="num">04 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>05 · TECHNICAL BENEFITS</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>05</span><span class="dash">·</span><span>WHERE THE DELTA COMES FROM</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">NO JVM.<br>NO GC.<br><span class="accent">NO DRIFT.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">Five runtime properties that Elasticsearch cannot match without a rewrite it cannot do. Each is a measurable consequence of the Rust + tokio + mmap architecture, not a feature flag.</p>
+    <div class="sp-6"></div>
+    <div class="kv-row"><div class="k">AOT STATIC BINARY</div><div class="v">First byte served when the socket binds. No classloader scan, no JIT warmup, no policy-file verification. Cold start is 50 ms vs ~15 s — which matters for Kubernetes rolling restarts at fleet scale.</div></div>
+    <div class="kv-row"><div class="k">NO GC PAUSES</div><div class="v">Ownership frees objects at scope exit. No tracing GC means no stop-the-world, no deopt cascade, no safepoint coordination. p99.9 tracks p50 plus cache-miss and disk — knowable, not tuned.</div></div>
+    <div class="kv-row"><div class="k">MMAP-SHARED CACHE</div><div class="v">One OS page cache backs every reader. No repeated <span class="mono">mmap()</span> syscalls, no per-reader copy. A 30-day log retention stays hot without multiplying memory.</div></div>
+    <div class="kv-row"><div class="k">LOCK-FREE READERS</div><div class="v">ArcSwap segment view + DashMap version map. Queries allocate nothing and acquire no mutex on the hot path. Flush swaps the view atomically; in-flight queries finish on the old view.</div></div>
+    <div class="kv-row"><div class="k">ONE PROCESS</div><div class="v">Ingest parsers, query planner, and writer are the same tokio process. One fsync per batch, one network hop, end-to-end back-pressure. No Logstash box to babysit.</div></div>
+    <div class="kv-row"><div class="k">FORWARD-COMPAT SEGMENTS</div><div class="v">Segment format versioned with a section table; older binaries skip unknown sections rather than fail. Rolling upgrades do not require full reindex.</div></div>
+    <div class="grow"></div>
+  </div>
+  <div class="foot-row"><span>XERJ · ELASTICSEARCH REPLACEMENT · USE CASE BRIEF</span><span class="num">05 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>06 · MEASURED OUTCOMES</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>06</span><span class="dash">·</span><span>MEASURED vs ES 8.13</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">ONE NODE.<br>FOUR-NODE<br><span class="accent">PARITY.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">Nine axes a procurement review looks at. XERJ on one node vs. a 4-node Elasticsearch 8.13 cluster doing the same SIEM + log workload.</p>
+    <div class="sp-6"></div>
+    <div class="versus">
+      <div class="h">AXIS</div>
+      <div class="h a">XERJ</div>
+      <div class="h">ES 8.13 (4-NODE)</div>
+
+      <div class="dim">Idle memory</div>
+      <div><span class="accent">400 MB</span></div>
+      <div>8.5 GB <span class="mute">— 21.3×</span></div>
+
+      <div class="dim">Cold start</div>
+      <div><span class="accent">50 ms</span></div>
+      <div>~15 s <span class="mute">— 300×</span></div>
+
+      <div class="dim">Release binary</div>
+      <div><span class="accent">13 MB</span></div>
+      <div>~620 MB <span class="mute">— 56×</span></div>
+
+      <div class="dim">Config knobs</div>
+      <div><span class="accent">47</span></div>
+      <div>3,000+ <span class="mute">— 63.8×</span></div>
+
+      <div class="dim">Binaries to run</div>
+      <div><span class="accent">1</span></div>
+      <div>5 (ES + Logstash + Kibana +…)</div>
+
+      <div class="dim">Disk · 1 M SIEM events</div>
+      <div><span class="accent">85 MB</span></div>
+      <div>240 MB <span class="mute">— 2.8×</span></div>
+
+      <div class="dim">SIEM top-source-IPs p95</div>
+      <div><span class="accent">0.4 ms</span></div>
+      <div>29.8 ms <span class="mute">— 74×</span></div>
+
+      <div class="dim">NGINX terms agg p95</div>
+      <div><span class="accent">0.4 ms</span></div>
+      <div>35.7 ms <span class="mute">— 89×</span></div>
+
+      <div class="dim">Client library changes</div>
+      <div><span class="accent">0</span></div>
+      <div>0 (ES native)</div>
+    </div>
+    <div class="sp-6"></div>
+    <div class="kv-row"><div class="k">COST IMPACT</div><div class="v">~80 % infrastructure cost reduction on log + search workloads, measured on a like-for-like corpus. Most of the saving is headcount: one team owns the data layer, not four.</div></div>
+    <div class="kv-row"><div class="k">SOURCE</div><div class="v"><span class="mono">SIEM_BATTLE_2026-04-14_184900_UTC.md</span> · <span class="mono">CLUSTER_BATTLE_2026-04-14_180241_UTC.md</span> · <span class="mono">FAIR_BATTLE_V3_20GB_2026-04-14.md</span> — reports ship with reproduction scripts.</div></div>
+    <div class="grow"></div>
+  </div>
+  <div class="foot-row"><span>XERJ · ELASTICSEARCH REPLACEMENT · USE CASE BRIEF</span><span class="num">06 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>07 · INTEGRATION ECOSYSTEM</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>07</span><span class="dash">·</span><span>EVERYTHING ES · UNCHANGED</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">SAME CLIENTS.<br>SAME INGEST.<br><span class="accent">SAME DASHBOARDS.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">The promise is that nothing in your stack above port 9200 changes. Here's the list.</p>
+    <div class="sp-6"></div>
+    <div class="matrix m3">
+      <div class="h">CATEGORY</div><div class="h">TOOLS</div><div class="h">STATUS</div>
+
+      <div class="k">CLIENT LIBRARIES</div><div>elasticsearch-py · elasticsearch-js · elasticsearch-java · Go · .NET · Ruby · PHP · Rust — all via ES wire</div><div class="status ga">GA</div>
+
+      <div class="k">INGEST</div><div>Filebeat · Winlogbeat · Auditbeat · Metricbeat · Packetbeat · Logstash · Vector · Fluentd · Fluent Bit</div><div class="status ga">GA</div>
+
+      <div class="k">DASHBOARDS</div><div>Kibana (community-validated) · Grafana with ES datasource · any custom dashboard using ES HTTP API</div><div class="status ga">GA</div>
+
+      <div class="k">SEARCH UIS</div><div>Search UI frameworks built on ES · Relevance Workbench equivalents · App Search replacements</div><div class="status ga">GA</div>
+
+      <div class="k">RAG / AI</div><div>LangChain ES retriever · LlamaIndex ES backend · Haystack · DSPy — zero adapter code</div><div class="status ga">GA</div>
+
+      <div class="k">SIEM TOOLS</div><div>Wazuh · Elastic Security · Sigma rule converters · detection-as-code frameworks</div><div class="status ga">GA</div>
+
+      <div class="k">SCROLL / PIT</div><div>Point-in-time snapshots + scroll cursors · ES-compat semantics · same response envelope</div><div class="status ga">GA</div>
+
+      <div class="k">IDENTITY</div><div>OIDC · SAML 2.0 · AWS IAM · Azure AD · Okta · SCIM provisioning · per-tenant indices</div><div class="status road">ROAD Q2</div>
+
+      <div class="k">X-PACK FEATURES</div><div>RBAC · audit log · ILM · ML anomaly detection — covered by XERJ-native equivalents or on roadmap</div><div class="status road">ROAD Q2–Q4</div>
+    </div>
+    <div class="grow"></div>
+  </div>
+  <div class="foot-row"><span>XERJ · ELASTICSEARCH REPLACEMENT · USE CASE BRIEF</span><span class="num">07 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>08 · MIGRATION RISK MANAGEMENT</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>08</span><span class="dash">·</span><span>HOW MIGRATION STAYS SAFE</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">DUAL-WRITE.<br>SHADOW-READ.<br><span class="accent">REVERSIBLE.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">ES-wire compatibility means the migration is reversible at every step. If the XERJ pilot fails on a benchmark, rolling back is a config change — the original ES cluster stays primary until the team commits.</p>
+    <div class="sp-6"></div>
+    <div class="kv-row"><div class="k">DUAL-WRITE</div><div class="v">Ingest pipeline writes to ES primary + XERJ shadow in parallel. Same batch, same _bulk call, two destinations. No code change; one Logstash/Vector config line.</div></div>
+    <div class="kv-row"><div class="k">SHADOW-READ</div><div class="v">Application reads from ES primary. A sampled fraction of queries is replayed against XERJ for latency, correctness, and recall comparison. No user impact.</div></div>
+    <div class="kv-row"><div class="k">A/B SWITCH</div><div class="v">One env var flip routes N % of read traffic to XERJ. Start at 1 %, ramp as confidence grows. Monitoring shows p95, error rate, and recall drift side by side.</div></div>
+    <div class="kv-row"><div class="k">CUT-OVER</div><div class="v">Primary becomes XERJ. ES stays warm as rollback target for N days. Once decommissioned, the ES license terminates and the 4-node JVM cluster is reclaimed.</div></div>
+    <div class="kv-row"><div class="k">ROLLBACK</div><div class="v">One env var flip routes back to ES. Segments created on XERJ during the primary window are snapshot-exportable to ES-readable format (roadmap Q3). Worst case: re-ingest from the hot source.</div></div>
+    <div class="kv-row"><div class="k">DATA MIGRATION</div><div class="v">Historical data: snapshot + re-ingest is fastest at most scales. Dedicated migration tooling lands Q2 (ES snapshot → XERJ segment). Re-embedding required for vector workloads.</div></div>
+    <div class="grow"></div>
+    <div class="kicker"><span>NO LOCK-IN</span><span class="dash">·</span><span>ES WIRE COMPATIBILITY GOES BOTH WAYS</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · ELASTICSEARCH REPLACEMENT · USE CASE BRIEF</span><span class="num">08 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>09 · IMPLEMENTATION PATH</span></div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>09</span><span class="dash">·</span><span>FIVE PHASES · ONE YEAR</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">MIGRATE<br><span class="accent">WITHOUT RISK.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">A typical enterprise ES-replacement rollout. Low-risk, reversible, and measured at every stage.</p>
+    <div class="sp-6"></div>
+    <div class="road-rail">
+      <div class="q">01</div><div class="t">PILOT<br><span class="accent">WEEKS 1–2</span></div><div>Reproduce the SIEM_BATTLE and CLUSTER_BATTLE reports on your own corpus. Private binary, seeded data, reproduction scripts. Your numbers, your hardware, your decision.</div>
+
+      <div class="q">02</div><div class="t">SHADOW<br><span class="accent">WEEKS 3–6</span></div><div>Run XERJ alongside ES. Dual-write · sampled shadow-read · Kibana on both. Compare latency, memory, correctness on production traffic. Still no user impact.</div>
+
+      <div class="q">03</div><div class="t">CUT-OVER ONE WORKLOAD<br><span class="accent">QUARTER 2</span></div><div>Pick the smallest workload — usually observability logs or SIEM. Primary flips to XERJ. ES warm-standby for rollback. First bill line removed.</div>
+
+      <div class="q">04</div><div class="t">ADD VECTOR + MEMORY<br><span class="accent">QUARTER 3</span></div><div>Move the vector DB and session cache onto the same platform. Hybrid retrieval lights up. RAG orchestrators simplify. One team owns the retrieval layer now.</div>
+
+      <div class="q">05</div><div class="t">DECOMMISSION ES<br><span class="accent">QUARTER 4</span></div><div>Final workloads migrated. ES cluster retired. Contract terminated. One platform, one vendor, one SLA, one audit surface.</div>
+    </div>
+    <div class="grow"></div>
+    <div class="kicker"><span>REVERSIBLE AT EVERY PHASE</span><span class="dash">·</span><span>ES WIRE COMPATIBILITY MEANS NO LOCK-IN</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · ELASTICSEARCH REPLACEMENT · USE CASE BRIEF</span><span class="num">09 / 10</span></div>
+</section>
+
+<section class="page">
+  <div class="head-row"><span class="brand">XERJ<span class="accent">.AI</span></span><span>10 · GET STARTED</span></div>
+  <div class="grow flex col">
+    <div class="sp-10"></div>
+    <div class="kicker"><span>10</span><span class="dash">·</span><span>NEXT STEPS</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">RUN IT.<br><span class="accent">ALONGSIDE ES.</span></h2>
+    <div class="sp-6"></div>
+    <p class="body">A two-week shadow pilot. Private binary. Repro scripts for SIEM_BATTLE and CLUSTER_BATTLE. Config templates for Filebeat / Vector dual-write.</p>
+    <div class="sp-10"></div>
+    <div style="padding: 28px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);">
+      <div class="kicker"><span>PLATFORM CONTACT</span></div>
+      <div class="sp-3"></div>
+      <div style="font-family: var(--font-display); font-weight: 900; font-size: 42pt; line-height:1; letter-spacing: 0.01em;">HELLO<span class="accent">@</span>XERJ.AI</div>
+      <div class="sp-3"></div>
+      <div style="font-family: var(--font-data); font-size: 9pt; letter-spacing: var(--track-ui); text-transform: uppercase; color: var(--mute);">XERJ.AI · XERJ.COM · XERJ.DEV</div>
+    </div>
+    <div class="sp-6"></div>
+    <div class="kv-row"><div class="k">WHAT YOU GET</div><div class="v">Private binary · SIEM_BATTLE + CLUSTER_BATTLE repro · Filebeat / Vector dual-write config · Kibana dashboard JSON · migration runbook.</div></div>
+    <div class="kv-row"><div class="k">WHAT YOU BRING</div><div class="v">One existing ES-backed workload · its current client library list · a latency baseline for at least one query you care about.</div></div>
+    <div class="kv-row"><div class="k">COMPANION BRIEFS</div><div class="v"><span class="mono">xerj-tech-brief.pdf</span> · <span class="mono">xerj-exec-brief.pdf</span> · <span class="mono">xerj-usecase-security.pdf</span> · <span class="mono">xerj-usecase-rag.pdf</span></div></div>
+    <div class="grow"></div>
+    <div class="kicker"><span>XERJ.AI · ELASTICSEARCH REPLACEMENT · USE CASE BRIEF</span><span class="dash">·</span><span>V1 · 2026-04</span></div>
+  </div>
+  <div class="foot-row"><span>XERJ · ELASTICSEARCH REPLACEMENT · USE CASE BRIEF</span><span class="num">10 / 10</span></div>
+</section>
+
+</body>
+</html>

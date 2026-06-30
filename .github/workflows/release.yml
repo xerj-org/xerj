@@ -1,0 +1,214 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (e.g. v0.5.9)'
+        required: true
+
+permissions:
+  contents: write
+
+# Opt every JS action into Node 24 so the runner skips the Node 20
+# deprecation warning (removal date 2026-09-16). All the action
+# versions pinned here already ship a Node 24 entrypoint.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            # Same-arch musl: `musl-tools` is enough (musl-gcc wraps
+            # the host gcc with musl libc/headers — verified working
+            # in the previous run).
+            linker_pkgs: musl-tools
+            linker_env: |
+              CC_x86_64_unknown_linux_musl=musl-gcc
+              CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=musl-gcc
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            # `gcc-aarch64-linux-gnu` alone provides only the compiler;
+            # `libc6-dev-arm64-cross` ships the cross-libc headers
+            # (notably `bits/libc-header-start.h`) that `cc-rs` needs
+            # when it shells out to the cross-gcc to build C deps like
+            # `ring`. Without this, ring's build.rs aborts on `<stdint.h>`.
+            linker_pkgs: gcc-aarch64-linux-gnu libc6-dev-arm64-cross
+            linker_env: |
+              CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
+              CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            # musl.cc's prebuilt aarch64-linux-musl-cross toolchain is
+            # not reachable from GitHub-hosted runners (port 443
+            # connection drops). cargo-zigbuild ships zig's full musl
+            # cross-toolchain (libc + linker) and is fetched from
+            # crates.io / pypi, both of which are mirrored inside GHA.
+            use_zigbuild: true
+          # Both Apple targets cross-compile from macos-14 (Apple
+          # Silicon). Apple's clang+ld accept `-arch x86_64` and ship
+          # the matching SDK, so a single arm64 host can produce
+          # universal-quality binaries for both archs. Avoiding
+          # macos-13 also dodges the heavily-congested free-tier
+          # x86 macOS queue (often 30+ min wait).
+          - target: aarch64-apple-darwin
+            os: macos-14
+          - target: x86_64-apple-darwin
+            os: macos-14
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            windows: true
+          - target: aarch64-pc-windows-msvc
+            os: windows-latest
+            windows: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install linker packages (apt)
+        if: matrix.linker_pkgs && startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ${{ matrix.linker_pkgs }}
+
+      - name: Install zigbuild (musl targets)
+        if: matrix.use_zigbuild
+        shell: bash
+        run: |
+          set -euo pipefail
+          # `ziglang` PyPI package ships the zig compiler (~50 MB) — no
+          # external mirror, and pip is always available on the runner.
+          python3 -m pip install --user ziglang
+          # Expose `python -m ziglang` as a `zig` wrapper on PATH.
+          mkdir -p "$RUNNER_TEMP/bin"
+          cat > "$RUNNER_TEMP/bin/zig" <<'SH'
+          #!/usr/bin/env bash
+          exec python3 -m ziglang "$@"
+          SH
+          chmod +x "$RUNNER_TEMP/bin/zig"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          # cargo-zigbuild from crates.io. `--locked` keeps it
+          # reproducible across runs.
+          cargo install --locked cargo-zigbuild
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/cache
+            ~/.cargo/registry/index
+            ~/.cargo/git/db
+            engine/target
+          key: cargo-${{ matrix.target }}-${{ hashFiles('engine/Cargo.lock') }}
+          restore-keys: cargo-${{ matrix.target }}-
+
+      - name: Build xerj-server
+        shell: bash
+        working-directory: engine
+        run: |
+          # Export per-target linker env (cargo reads CARGO_TARGET_*_LINKER).
+          if [ -n '${{ matrix.linker_env }}' ]; then
+            while IFS= read -r line; do
+              [ -z "$line" ] && continue
+              export "$line"
+            done <<< '${{ matrix.linker_env }}'
+          fi
+          if [ "${{ matrix.use_zigbuild }}" = "true" ]; then
+            cargo zigbuild --release --locked --target ${{ matrix.target }} -p xerj-server
+          else
+            cargo build --release --locked --target ${{ matrix.target }} -p xerj-server
+          fi
+
+      - name: Stage artifacts (Unix)
+        if: matrix.windows != true
+        shell: bash
+        working-directory: engine
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          STAGE="xerj-${VERSION}-${{ matrix.target }}"
+          mkdir -p "../dist/${STAGE}"
+          cp "target/${{ matrix.target }}/release/xerj" "../dist/${STAGE}/xerj"
+          [ -f ../README.md ] && cp ../README.md "../dist/${STAGE}/" || true
+          [ -f ../LICENSE ]   && cp ../LICENSE   "../dist/${STAGE}/" || true
+          tar -C ../dist -czf "../dist/${STAGE}.tar.gz" "${STAGE}"
+          cd ../dist
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "${STAGE}.tar.gz" > "${STAGE}.tar.gz.sha256"
+          else
+            shasum -a 256 "${STAGE}.tar.gz" > "${STAGE}.tar.gz.sha256"
+          fi
+
+      - name: Stage artifacts (Windows)
+        if: matrix.windows == true
+        shell: pwsh
+        working-directory: engine
+        run: |
+          $Version = "${env:GITHUB_REF_NAME}".TrimStart('v')
+          $Stage = "xerj-${Version}-${{ matrix.target }}"
+          New-Item -ItemType Directory -Force -Path "..\dist\$Stage" | Out-Null
+          Copy-Item "target\${{ matrix.target }}\release\xerj.exe" "..\dist\$Stage\xerj.exe"
+          if (Test-Path "..\README.md") { Copy-Item "..\README.md" "..\dist\$Stage\" }
+          if (Test-Path "..\LICENSE")   { Copy-Item "..\LICENSE"   "..\dist\$Stage\" }
+          Push-Location ..\dist
+          Compress-Archive -Path $Stage -DestinationPath "$Stage.zip" -Force
+          $Hash = Get-FileHash -Algorithm SHA256 "$Stage.zip"
+          "$($Hash.Hash.ToLower())  $Stage.zip" | Out-File "$Stage.zip.sha256" -Encoding ascii
+          Pop-Location
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: xerj-${{ matrix.target }}
+          path: |
+            dist/xerj-*.tar.gz
+            dist/xerj-*.zip
+            dist/xerj-*.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la dist/
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: xerj ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.sha256

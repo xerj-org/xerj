@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Xerj Console · setup</title>
+<meta name="color-scheme" content="dark light">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/base.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-family='monospace' font-size='14' font-weight='900' fill='%23EEBB00'%3Ez%3C/text%3E%3C/svg%3E">
+<style>
+  body {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 2rem;
+  }
+  .auth-card {
+    background: var(--bg-surface, #15171a);
+    border: 1px solid var(--border, #2a2d33);
+    border-radius: 8px; padding: 2rem;
+    max-width: 480px; width: 100%;
+    color: var(--fg, #e6e8eb);
+  }
+  .auth-card h1 {
+    font-family: 'Big Shoulders Display', sans-serif;
+    font-weight: 900; font-size: 2.25rem; letter-spacing: -0.02em;
+    margin: 0 0 .5rem; color: #EEBB00;
+  }
+  .auth-card p.lead { color: var(--fg-mute, #8a8e95); margin: 0 0 1.5rem; }
+  .step { display: none; }
+  .step.active { display: block; }
+  label { display: block; font-weight: 500; margin: 1rem 0 .25rem; font-size: 0.875rem; }
+  input[type="email"], input[type="text"] {
+    width: 100%; padding: 0.625rem 0.75rem;
+    background: var(--bg, #0c0d10);
+    border: 1px solid var(--border, #2a2d33);
+    border-radius: 4px; color: var(--fg, #e6e8eb);
+    font-family: inherit; font-size: 0.9rem;
+  }
+  input:focus { outline: 2px solid #EEBB00; outline-offset: 1px; }
+  button {
+    background: #EEBB00; color: #0c0d10;
+    border: none; padding: 0.75rem 1.5rem;
+    font-weight: 600; border-radius: 4px;
+    cursor: pointer; margin-top: 1.5rem;
+    font-family: inherit; font-size: 0.9rem;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.secondary { background: transparent; color: var(--fg-mute); border: 1px solid var(--border); }
+  .err {
+    background: #3a1a1a; color: #ff8a8a;
+    padding: 0.75rem 1rem; border-radius: 4px;
+    margin: 1rem 0; font-size: 0.875rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .ok {
+    background: #1a3a1f; color: #8aff9c;
+    padding: 0.75rem 1rem; border-radius: 4px;
+    margin: 1rem 0; font-size: 0.875rem;
+  }
+  .role {
+    display: inline-block;
+    background: #EEBB00; color: #0c0d10;
+    padding: 0.125rem 0.5rem;
+    border-radius: 3px; font-size: 0.75rem;
+    font-weight: 700; letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+  <div class="auth-card">
+    <h1>XERJ CONSOLE</h1>
+    <p class="lead">First-launch setup — claim this server by enrolling a passkey.</p>
+
+    <div id="err" class="err" hidden></div>
+    <div id="ok" class="ok" hidden></div>
+
+    <!-- Step 1: collect email + display name (token already in URL fragment) -->
+    <div id="step-info" class="step active">
+      <p>You're claiming the role <span class="role" id="role-pill">owner</span> on this server.</p>
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="you@company.com" required autocomplete="email">
+
+      <label for="display">Display name</label>
+      <input id="display" type="text" placeholder="Your name" autocomplete="name">
+
+      <label for="pkname">Passkey name (visible to you only)</label>
+      <input id="pkname" type="text" value="My main key" autocomplete="off">
+
+      <button id="btn-enrol">Enrol passkey</button>
+    </div>
+
+    <!-- Step 2: in-flight WebAuthn ceremony -->
+    <div id="step-touch" class="step">
+      <p style="font-size: 1.05rem;">Touch your security key, biometric sensor, or platform passkey now…</p>
+      <p class="lead" style="margin-top: 1rem;">If your browser didn't prompt automatically, click <em>Try again</em>.</p>
+      <button id="btn-retry" class="secondary">Try again</button>
+    </div>
+
+    <!-- Step 3: done -->
+    <div id="step-done" class="step">
+      <p style="font-size: 1.05rem; color: #8aff9c;">✓ Passkey enrolled. Logging you in…</p>
+    </div>
+  </div>
+
+<script type="module">
+import { redeemMagic, beginEnrol, finishEnrol, b64uToBuf, bufToB64u } from './src/xerj-console-auth.js';
+
+const $err  = document.getElementById('err');
+const $ok   = document.getElementById('ok');
+const $rolePill = document.getElementById('role-pill');
+const $email = document.getElementById('email');
+const $display = document.getElementById('display');
+const $pkname = document.getElementById('pkname');
+const $btnEnrol = document.getElementById('btn-enrol');
+const $btnRetry = document.getElementById('btn-retry');
+
+function showStep(id) {
+  for (const el of document.querySelectorAll('.step')) el.classList.remove('active');
+  document.getElementById(id).classList.add('active');
+}
+function showError(msg) {
+  $err.textContent = msg; $err.hidden = false;
+  $ok.hidden = true;
+}
+function showOk(msg) {
+  $ok.textContent = msg; $ok.hidden = false;
+  $err.hidden = true;
+}
+
+// Pull token from URL fragment (#token=...). Hide it from history immediately.
+function tokenFromHash() {
+  const frag = window.location.hash.replace(/^#/, '');
+  const params = new URLSearchParams(frag);
+  return params.get('token');
+}
+function clearHash() {
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+}
+
+const token = tokenFromHash();
+if (!token) {
+  showError('No magic-link token in URL. The link must include #token=…');
+  $btnEnrol.disabled = true;
+}
+
+// Eagerly redeem the token on page load — it's single-use; we want
+// to consume it before the user does anything else.
+let enrollmentSession = null;
+(async () => {
+  if (!token) return;
+  try {
+    enrollmentSession = await redeemMagic(token);
+    clearHash();
+    if (enrollmentSession.role) $rolePill.textContent = enrollmentSession.role;
+    if (enrollmentSession.email) $email.value = enrollmentSession.email;
+  } catch (e) {
+    showError('Could not redeem link: ' + e.message);
+    $btnEnrol.disabled = true;
+  }
+})();
+
+async function enrol() {
+  $err.hidden = true;
+  if (!enrollmentSession) {
+    showError('Enrollment session missing — reload from the magic link.');
+    return;
+  }
+  const email = $email.value.trim();
+  const display = $display.value.trim() || email;
+  const pkname = $pkname.value.trim() || 'default';
+  if (!email) {
+    showError('Email is required.');
+    return;
+  }
+
+  showStep('step-touch');
+
+  try {
+    const begin = await beginEnrol(enrollmentSession.enrollment_session_id, email, display);
+    // Decode WebAuthn binary fields from base64url to ArrayBuffer.
+    const opts = JSON.parse(JSON.stringify(begin.creation_options.publicKey));
+    opts.challenge = b64uToBuf(opts.challenge);
+    opts.user.id = b64uToBuf(opts.user.id);
+    if (opts.excludeCredentials) {
+      for (const c of opts.excludeCredentials) c.id = b64uToBuf(c.id);
+    }
+
+    const cred = await navigator.credentials.create({ publicKey: opts });
+    if (!cred) throw new Error('Browser returned no credential.');
+
+    // Re-encode the credential response for transport.
+    const att = cred.response;
+    const credPayload = {
+      id: cred.id,
+      rawId: bufToB64u(cred.rawId),
+      type: cred.type,
+      response: {
+        clientDataJSON: bufToB64u(att.clientDataJSON),
+        attestationObject: bufToB64u(att.attestationObject),
+      },
+      extensions: cred.getClientExtensionResults ? cred.getClientExtensionResults() : {},
+    };
+
+    await finishEnrol(
+      enrollmentSession.enrollment_session_id,
+      begin.challenge_id,
+      credPayload,
+      pkname, email, display
+    );
+
+    showStep('step-done');
+    showOk('Enrolled. Redirecting…');
+    setTimeout(() => { window.location.href = '/_xerj-console/'; }, 800);
+  } catch (e) {
+    showStep('step-info');
+    showError(e.message || String(e));
+  }
+}
+
+$btnEnrol.addEventListener('click', enrol);
+$btnRetry.addEventListener('click', () => { showStep('step-info'); });
+</script>
+</body>
+</html>

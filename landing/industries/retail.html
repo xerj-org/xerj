@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ.ai — Retail &amp; Consumer</title>
+<meta name="description" content="XERJ for retail and consumer. Catalog search, shopping agents, session memory, and observability on one self-hosted data plane.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<nav class="nav" aria-label="Primary">
+  <a href="/index.html" class="brand">XERJ.AI</a>
+  <a href="/index.html">HOME</a>
+  <a href="/product.html">PRODUCT</a>
+  <a href="/solutions/index.html">SOLUTIONS</a>
+  <a href="/industries/index.html" class="active">INDUSTRIES</a>
+  <a href="/security/index.html">SECURITY</a>
+  <a href="/pricing/index.html">PRICING</a>
+  <span class="spacer"></span>
+  <a href="/docs/index.html">DOCS</a>
+  <a href="/resources/index.html">RESOURCES</a>
+  <a href="/playground.html">DASHBOARDS</a>
+  <span class="theme">
+    <button type="button" data-theme="day">DAY</button>
+    <span class="dash">·</span>
+    <button type="button" data-theme="night" class="active">NIGHT</button>
+  </span>
+</nav>
+
+<nav class="uc-subnav" aria-label="Industries">
+  <a href="/industries/index.html">ALL INDUSTRIES</a>
+  <a href="/industries/finserv.html">FINANCIAL SERVICES</a>
+  <a href="/industries/public-sector.html">PUBLIC SECTOR</a>
+  <a href="/industries/healthcare.html">HEALTHCARE</a>
+  <a href="/industries/retail.html" class="active">RETAIL</a>
+</nav>
+
+<section class="scene-section" style="border-top:0; padding-top:0;">
+  <div class="kicker"><span>INDUSTRY 04</span><span class="dash">·</span><span>FOR CIO · CTO · HEAD OF AI · HEAD OF DATA</span></div>
+  <h1 class="hero" style="font-size: var(--fs-96);">CATALOG +<br>AGENTS.<br><span class="accent">ONE STORE.</span></h1>
+  <p class="lead" style="max-width:720px;">
+    Retail AI lives at the seam between catalog, behavior, and
+    conversational commerce. XERJ runs the catalog search, the
+    semantic index, the session memory, and the observability data
+    plane in one self-hosted process — compatible with the
+    Elasticsearch your e-commerce stack already expects.
+  </p>
+</section>
+
+<!-- LIVE SLIDER: CATALOG SCALE -->
+<section class="scene-section" style="border-top:0;">
+  <div class="kicker"><span>LIVE</span><span class="dash">·</span><span>DRAG TO SIZE YOUR CATALOG</span></div>
+  <h2 class="scene">CATALOG SCALE.<br><span class="accent">ON ONE NODE.</span></h2>
+
+  <div class="slider-row">
+    <span class="label">CATALOG SIZE</span>
+    <input type="range" data-slider="catalog" min="1" max="5" value="3" step="1"
+           data-format="{value}× M SKUs"/>
+    <span class="value" data-slider-out="catalog">3× M SKUs</span>
+  </div>
+
+  <div class="row">
+    <div class="k">DIMENSION</div>
+    <div class="v" data-slider-update="catalog"
+         data-at-1="<strong>1 M</strong> SKUs · 768-dim"
+         data-at-2="<strong>2 M</strong> SKUs · 768-dim"
+         data-at-3="<strong>5 M</strong> SKUs · 768-dim"
+         data-at-4="<strong>10 M</strong> SKUs · 1024-dim"
+         data-at-5="<strong>25 M</strong> SKUs · 1536-dim">
+      <strong>5 M</strong> SKUs · 768-dim
+    </div>
+  </div>
+  <div class="row">
+    <div class="k">VECTOR MEM (SQ8)</div>
+    <div class="v" data-slider-update="catalog"
+         data-at-1="<strong>1.2 GB</strong>"
+         data-at-2="<strong>2.3 GB</strong>"
+         data-at-3="<strong>5.8 GB</strong>"
+         data-at-4="<strong>18 GB</strong>"
+         data-at-5="<strong>~60 GB</strong>"><strong>5.8 GB</strong></div>
+  </div>
+  <div class="row">
+    <div class="k">FLOAT32 BASELINE</div>
+    <div class="v" data-slider-update="catalog"
+         data-at-1="4.6 GB <span class='mute'>· 3.8× more than SQ8</span>"
+         data-at-2="9.2 GB <span class='mute'>· 4× more</span>"
+         data-at-3="23 GB <span class='mute'>· 4× more</span>"
+         data-at-4="92 GB <span class='mute'>· 5.1× more</span>"
+         data-at-5="~300 GB <span class='mute'>· cluster required</span>">23 GB <span class="mute">· 4× more</span></div>
+  </div>
+  <div class="row">
+    <div class="k">HYBRID P95</div>
+    <div class="v" data-slider-update="catalog"
+         data-at-1="<strong>&lt; 15 ms</strong>"
+         data-at-2="<strong>&lt; 25 ms</strong>"
+         data-at-3="<strong>&lt; 40 ms</strong>"
+         data-at-4="<strong>&lt; 60 ms</strong>"
+         data-at-5="<strong>&lt; 100 ms</strong> <span class='mute'>· multi-node</span>"><strong>&lt; 40 ms</strong></div>
+  </div>
+  <div class="row">
+    <div class="k">NODES NEEDED</div>
+    <div class="v" data-slider-update="catalog"
+         data-at-1="<strong>1</strong> node"
+         data-at-2="<strong>1</strong> node"
+         data-at-3="<strong>1</strong> node"
+         data-at-4="<strong>1</strong> node (edge of single-node)"
+         data-at-5="<strong>3</strong> node cluster (sharded)"><strong>1</strong> node</div>
+  </div>
+</section>
+
+<!-- RETAIL WORKLOADS · filterable -->
+<section class="scene-section">
+  <div class="card-grid cols-3" style="padding-top: var(--sp-8);">
+    <div class="card">
+      <span class="card-k">CATALOG SEARCH</span>
+      <span class="card-t">HYBRID<br><span class="accent">SEARCH</span></span>
+      <span class="card-b">BM25 + semantic + facets + inventory + geography + personalization in one query. Page-render budget. No orchestrator.</span>
+    </div>
+    <div class="card">
+      <span class="card-k">CONVERSATIONAL COMMERCE</span>
+      <span class="card-t">SHOPPING<br><span class="accent">AGENT</span></span>
+      <span class="card-b">Natural-language shopping agent. Session memory persists across channels. Time-decay on recent views · token-budget retrieval.</span>
+    </div>
+    <div class="card">
+      <span class="card-k">CUSTOMER SERVICE</span>
+      <span class="card-t">COPILOT<br><span class="accent">OVER ORDER +&nbsp;KB</span></span>
+      <span class="card-b">Agent retrieves order history, policy, KB, entitlements. One unified retrieval across customer / order / product / KB.</span>
+    </div>
+    <div class="card">
+      <span class="card-k">RECOMMENDATIONS</span>
+      <span class="card-t">REAL-TIME<br><span class="accent">PERSONALIZED</span></span>
+      <span class="card-b">Vector similarity to recent views + keyword filter on availability + personalization via metadata. Real-time, per-request.</span>
+    </div>
+    <div class="card">
+      <span class="card-k">FRAUD</span>
+      <span class="card-t">AUTH-<br><span class="accent">BUDGET</span></span>
+      <span class="card-b">Vector similarity to historical fraud patterns + keyword on card / merchant / geography. Retrieval inside auth budget.</span>
+    </div>
+    <div class="card">
+      <span class="card-k">OBSERVABILITY</span>
+      <span class="card-t">BACKEND<br><span class="accent">LOG FLEET</span></span>
+      <span class="card-b">E-commerce backend log fleet · MTTD in milliseconds · unified with application and identity logs.</span>
+    </div>
+  </div>
+</section>
+
+<!-- COMPLIANCE -->
+<section class="scene-section">
+  <div class="kicker"><span>COMPLIANCE</span><span class="dash">·</span><span>CONSUMER PRIVACY</span></div>
+  <h2 class="scene">TENANT-<br><span class="accent">ISOLATED.</span></h2>
+
+  <div class="matrix-row"><span class="mk">PCI-DSS v4.0</span><span class="mv">Segments + WAL encrypted at rest · BYOK · RBAC · audit · tenant isolation for card-adjacent data</span><span class="mstatus yes">INHERITED</span></div>
+  <div class="matrix-row"><span class="mk">GDPR</span><span class="mv">Self-hosted in-region · right-to-erasure via tombstone · consent-tagged retention</span><span class="mstatus ga">GA</span></div>
+  <div class="matrix-row"><span class="mk">CCPA · CPRA</span><span class="mv">Right-to-know / right-to-delete enforced at index level · tenant-scoped indices per market</span><span class="mstatus ga">GA</span></div>
+  <div class="matrix-row"><span class="mk">LGPD · PIPEDA</span><span class="mv">Same mechanics as GDPR · self-hosted in appropriate region</span><span class="mstatus ga">GA</span></div>
+  <div class="matrix-row"><span class="mk">CHILDREN'S DATA</span><span class="mv">Per-index RBAC + tenant isolation · age-gated-content tagging · COPPA alignment</span><span class="mstatus ga">GA</span></div>
+  <div class="matrix-row"><span class="mk">EU AI ACT</span><span class="mv">Per-query explain-plan · retrieval-layer audit artifact · supports traceability + transparency</span><span class="mstatus ga">GA</span></div>
+  <div class="matrix-row"><span class="mk">SOC 2 TYPE I</span><span class="mv">Platform controls · for commercial SaaS offering</span><span class="mstatus road">ROAD Q3 2026</span></div>
+</section>
+
+<!-- MEASURED -->
+<section class="scene-section">
+  <div class="kicker"><span>MEASURED</span><span class="dash">·</span><span>PAGE-RENDER + AGENT-TURN</span></div>
+  <h2 class="scene">NUMBERS THAT<br>MOVE <span class="accent">CONVERSION.</span></h2>
+  <div class="cmp">
+    <div class="head"><span class="cell">METRIC</span><span class="cell xy">XERJ</span><span class="cell es">LEGACY</span></div>
+    <div class="row"><span class="cell name">Catalog hybrid search p95</span><span class="cell xy">&lt; 40 ms</span><span class="cell es">100–250 ms · orchestrator</span></div>
+    <div class="row"><span class="cell name">Shopping-agent turn (10 hops)</span><span class="cell xy">~400 ms</span><span class="cell es">~2 s incl. LLM</span></div>
+    <div class="row"><span class="cell name">Vector memory · 10 M × 1.5 K</span><span class="cell xy">18 GB (SQ8)</span><span class="cell es">92 GB — 5.1×</span></div>
+    <div class="row"><span class="cell name">Behavioural log ingest</span><span class="cell xy">80 K/s sustained</span><span class="cell es">20–40 K typical</span></div>
+    <div class="row"><span class="cell name">Consent-driven delete</span><span class="cell xy">segment-level tombstone</span><span class="cell es">varies · tooling gaps</span></div>
+    <div class="row"><span class="cell name">Retrieval vendors</span><span class="cell xy">1</span><span class="cell es">3–4 (ES + vector + sessions + fraud)</span></div>
+  </div>
+</section>
+
+<section class="lead-capture" id="demo">
+  <div class="kicker"><span>PILOT · RETAIL</span></div>
+  <h3>RUN HYBRID<br><span class="accent">ON YOUR CATALOG.</span></h3>
+  <p>Two-week pilot on a real catalog corpus. Private binary · embedding pipeline · sample shopping-agent template.</p>
+  <form class="lead-form" id="leadForm" action="#" method="post" novalidate>
+    <input type="email" name="email" placeholder="you@brand.com" required aria-label="Work email" autocomplete="email" />
+    <button type="submit" class="demo">REQUEST PILOT <span class="arrow">→</span></button>
+    <span class="note">We reply within one business day · <a href="/resources/index.html" class="accent">DOWNLOAD THE RETAIL BRIEF (PDF)</a></span>
+    <span class="ok">✓ THANKS. WE WILL REACH OUT.</span>
+  </form>
+</section>
+
+<footer class="footer">
+  <span>XERJ.AI · RETAIL · V1</span>
+  <span>AI ON YOUR DATA</span>
+  <span><a href="/industries/index.html">INDUSTRIES</a> · <a href="/solutions/index.html">SOLUTIONS</a> · <a href="/resources/index.html">RESOURCES</a> · <a href="/docs/index.html">DOCS</a></span>
+</footer>
+
+<script src="/interact.js"></script>
+<script>
+  (function(){
+    const form = document.getElementById('leadForm');
+    if (!form) return;
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const email = form.querySelector('input[type=email]').value.trim();
+      if (!email || !email.includes('@')) return;
+      form.classList.add('sent');
+    });
+  })();
+</script>
+</body>
+</html>

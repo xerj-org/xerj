@@ -1,0 +1,44 @@
+# Per-target rustflags. Portable across all supported targets.
+#
+# `target-cpu=native` (previous global setting) was great for host-
+# local perf but poisoned cross-compiles: rustc baked the build
+# host's x86 features (e.g. `znver4`) into every invocation,
+# including aarch64 ones, which rejected the flag with "unknown
+# processor znver4". Release binaries must also be portable across
+# machines, so we pin to a generic mid-range baseline per-arch:
+#
+#   x86_64 → `x86-64-v3` (Haswell+, SSE4.2/AVX2/BMI1/BMI2/F16C) —
+#            the Rust portable baseline for modern (>=2013) x86.
+#   aarch64 → default (ARMv8-A) — universally available.
+#
+# To re-enable target-cpu=native locally:
+#   export RUSTFLAGS="-C target-cpu=native"
+# (env RUSTFLAGS takes precedence over this file.)
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=x86-64-v3"]
+
+[target.x86_64-unknown-linux-musl]
+rustflags = ["-C", "target-cpu=x86-64-v3"]
+
+[target.aarch64-unknown-linux-gnu]
+rustflags = []
+
+[target.aarch64-unknown-linux-musl]
+rustflags = []
+
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "target-cpu=x86-64-v3"]
+
+[target.aarch64-apple-darwin]
+# `ring 0.17.14` has a compile-time assertion
+# (`CAPS_STATIC == MIN_STATIC_FEATURES`) that fails on GitHub's
+# macos-14 runners when the target CPU is generic. Pinning to
+# `apple-m1` selects the exact feature set ring expects on Apple
+# Silicon (NEON + AES + SHA2 + PMULL) and the assertion passes.
+rustflags = ["-C", "target-cpu=apple-m1"]
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-cpu=x86-64-v3"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = []

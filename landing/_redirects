@@ -1,0 +1,20 @@
+# Cloudflare Pages redirects.
+#
+# Structure:
+#   /                   encrypted landing (js-auth)
+#   /product.html       product page (encrypted)
+#   /docs/              docs tree (encrypted, multi-page)
+#   /brand.html         brand book (encrypted)
+#   /playground.html    email-gate page (encrypted)
+#   /playground/        the dashboards app (NOT encrypted — gated by email)
+
+# Friendly short paths
+/demo         /playground.html    302
+/gate         /playground.html    302
+/dashboards   /playground.html    302
+/app          /playground/        302
+/bench        /product.html#bench 302
+/github       https://github.com/ 302
+
+# Trailing slash normalization
+/home         /                   301

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ.ai — Enterprise use cases</title>
+<meta name="description" content="Five enterprise workloads. One binary. Measured benchmarks vs ES 8.13.">
+<meta property="og:title" content="XERJ.ai — storage for the agent era">
+<meta property="og:description" content="One Rust binary. 74× faster on SIEM aggregations. Live product playground.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- nav -->
+<nav class="nav" aria-label="Primary">
+  <a href="/index.html" class="brand">XERJ.AI</a>
+  <a href="/index.html">HOME</a>
+  <a href="/product.html">PRODUCT</a>
+  <span class="nav-drop active">
+    <a href="/use-cases.html" class="active">USE CASES</a>
+  </span>
+  <span class="spacer"></span>
+  <a href="/docs/index.html">DOCS</a>
+  <a href="/playground.html">DASHBOARDS</a>
+  <a href="https://github.com/" rel="external">GITHUB</a>
+  <span class="theme">
+    <button type="button" data-theme="day">DAY</button>
+    <span class="dash">·</span>
+    <button type="button" data-theme="night" class="active">NIGHT</button>
+  </span>
+</nav>
+
+
+<nav class="uc-subnav" aria-label="Use cases">
+  <a href="/use-cases.html">ALL USE CASES</a>
+  <a href="/use-cases/security-analytics.html">SECURITY ANALYTICS</a>
+  <a href="/use-cases/operational-intelligence.html">OPERATIONAL INTELLIGENCE</a>
+  <a href="/use-cases/ai-search-retrieval.html">AI SEARCH</a>
+  <a href="/use-cases/elasticsearch-replacement.html">ES REPLACEMENT</a>
+  <a href="/use-cases/unified-observability.html" class="active">OBSERVABILITY</a>
+</nav>
+
+<div class="uc-hero">
+  <div class="uc-eyebrow">USE CASE · UNIFIED OBSERVABILITY</div>
+  <h1>UNIFIED<br><span class="accent">OBSERVABILITY.</span></h1>
+  <p class="uc-lead">Your observability stack has three separate storage backends: Loki or Splunk for logs, Prometheus for metrics, Tempo or Jaeger for traces. Three query languages, three retention policies, three scaling stories. XERJ stores all three signal types in one engine with one query language and one bill.</p>
+</div>
+
+<!-- Hero chart -->
+<section class="scene-section" style="border-top:0; padding-top:0;">
+  <div class="viz-block">
+    <div class="kicker"><span>SIGNAL VOLUME · LOGS + METRICS + TRACES · 24H</span></div>
+    
+  <div class="flowband-wrap">
+    <svg class="chart flowband-svg" viewBox="0 0 1200 16" preserveAspectRatio="none" style="width:100%; height:16px; overflow:visible; display:block;">
+      <line x1="0.0" y1="2" x2="0.0" y2="14" stroke="currentColor" stroke-width="1" stroke-opacity="0.4"/><line x1="0.0" y1="8" x2="654.5" y2="8" stroke="currentColor" stroke-width="2" stroke-opacity="1.00"/><line x1="654.5" y1="2" x2="654.5" y2="14" stroke="currentColor" stroke-width="1" stroke-opacity="0.4"/><line x1="654.5" y1="8" x2="981.8" y2="8" stroke="currentColor" stroke-width="2" stroke-opacity="0.84"/><line x1="981.8" y1="2" x2="981.8" y2="14" stroke="currentColor" stroke-width="1" stroke-opacity="0.4"/><line x1="981.8" y1="8" x2="1200.0" y2="8" stroke="currentColor" stroke-width="2" stroke-opacity="0.68"/><line x1="1200.0" y1="2" x2="1200.0" y2="14" stroke="currentColor" stroke-width="1" stroke-opacity="0.4"/>
+    </svg>
+    <div class="flowband-labels" style="display:flex; width:100%; margin-top:8px;">
+      <div class="fb-seg" style="flex:840000 0 0; min-width:0; opacity:1.00;">
+        <div class="fb-label">LOGS</div>
+        <div class="fb-value">840K events/day · 54.5%</div>
+      </div>
+      <div class="fb-seg" style="flex:420000 0 0; min-width:0; opacity:0.84;">
+        <div class="fb-label">METRICS</div>
+        <div class="fb-value">420K events/day · 27.3%</div>
+      </div>
+      <div class="fb-seg" style="flex:280000 0 0; min-width:0; opacity:0.68;">
+        <div class="fb-label">TRACES</div>
+        <div class="fb-value">280K events/day · 18.2%</div>
+      </div></div>
+  </div>
+  </div>
+</section>
+
+<div class="pain-solve">
+  <div class="pain">
+    <h3>THE THREE-SYSTEM PROBLEM</h3>
+    <ul><li><strong>Three systems means triple the ops.</strong> Prometheus needs compactors, Loki needs ingesters, Tempo needs compactors + ingesters. Each has its own storage, its own scaling model, its own failure modes.</li><li><strong>Correlation is manual.</strong> "Show me the trace for the log that fired the alert that breached the metric threshold" requires copy-pasting IDs across three UIs.</li><li><strong>Splunk pricing is unpredictable.</strong> Ingest-based pricing penalizes verbosity. Teams suppress logs to control cost, which defeats the purpose of observability.</li><li><strong>No unified retention.</strong> Metrics keep 15 days, logs keep 30, traces keep 7 — each configured differently, each with its own pruning bugs.</li></ul>
+  </div>
+  <div class="solve">
+    <h3>THE XERJ ANSWER</h3>
+    <ul><li><strong>One store for all three signals.</strong> Logs, metrics, and traces are just documents with different schemas. XERJ stores them in one engine with one WAL, one compression pipeline, one retention policy.</li><li><strong>OTLP in, Prometheus out.</strong> Native OTLP log/trace ingest + a Prometheus-compatible <code>/v1/metrics</code> scrape endpoint. Drop-in for existing collectors.</li><li><strong>Unified queries.</strong> Correlate across signal types with one query language. "Show me logs where trace_id = X and service = Y" is one <code>_search</code> call.</li><li><strong>One retention number.</strong> <code>[logs] retention_days = 30</code> applies to everything. No per-signal configuration.</li></ul>
+  </div>
+</div>
+
+<div class="proof-row">
+
+  <div class="stat">
+    <div class="num">3→1</div>
+    <div class="label">SYSTEMS REPLACED</div>
+    <div class="ctx">Splunk + Prometheus + Tempo → one xerj binary</div>
+  </div>
+
+  <div class="stat">
+    <div class="num">1</div>
+    <div class="label">QUERY LANGUAGE</div>
+    <div class="ctx">ES-compatible DSL for logs, metrics, and traces</div>
+  </div>
+
+  <div class="stat">
+    <div class="num">400 MB</div>
+    <div class="label">IDLE MEMORY</div>
+    <div class="ctx">vs multi-GB footprint of 3 separate backends</div>
+  </div>
+
+</div>
+
+
+<section class="scene-section">
+  <div class="viz-block">
+    <div class="kicker"><span>OPERATIONAL SURFACE · XERJ vs TRADITIONAL STACK</span></div>
+    <div class="cmp-bars">
+    <div class="cmp-bars-head">
+      <span></span>
+      <span class="cmp-a">XERJ</span>
+      <span class="cmp-b">SPLUNK + PROM + TEMPO</span>
+    </div>
+    <div class="cmp-bars-row">
+        <span class="cmp-label">Binaries</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:8.3%;"></span>
+          <span class="cmp-num">1</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:50.0%;"></span>
+          <span class="cmp-num">6 <span class="cmp-ratio">6.0×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Config files</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:8.3%;"></span>
+          <span class="cmp-num">1</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:100.0%;"></span>
+          <span class="cmp-num">12 <span class="cmp-ratio">12.0×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Query languages</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:8.3%;"></span>
+          <span class="cmp-num">1</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:25.0%;"></span>
+          <span class="cmp-num">3 <span class="cmp-ratio">3.0×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Storage backends</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:8.3%;"></span>
+          <span class="cmp-num">1</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:25.0%;"></span>
+          <span class="cmp-num">3 <span class="cmp-ratio">3.0×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Retention policies</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:8.3%;"></span>
+          <span class="cmp-num">1</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:25.0%;"></span>
+          <span class="cmp-num">3 <span class="cmp-ratio">3.0×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Monthly bill lines</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:8.3%;"></span>
+          <span class="cmp-num">1</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:41.7%;"></span>
+          <span class="cmp-num">5 <span class="cmp-ratio">5.0×</span></span>
+        </span>
+      </div>
+  </div>
+  </div>
+</section>
+
+
+<section class="scene-section">
+  <h2 class="scene" style="font-size:var(--fs-56);">SEE IT <span class="accent">LIVE.</span></h2>
+  <p class="wide">The playbook walks the full recipe — schema, ingest command, queries, and the dashboard. The playground runs on seeded data; benchmarks were measured against Elasticsearch 8.13 on 2026-04-14.</p>
+  <div style="display:flex; gap:var(--sp-6); margin-top:var(--sp-6); flex-wrap:wrap;">
+    <a href="/docs/playbooks/observability.html" class="cta" style="font-size:var(--fs-20); padding:var(--sp-4) 0; border-bottom:0; flex:1; min-width:280px;">
+      <span>OPEN THE PLAYBOOK</span>
+      <span class="arrow">→</span>
+    </a>
+    <a href="/playground.html" class="cta" style="font-size:var(--fs-20); padding:var(--sp-4) 0; border-bottom:0; flex:1; min-width:280px;">
+      <span>OPEN THE PLAYGROUND</span>
+      <span class="arrow">→</span>
+    </a>
+  </div>
+</section>
+
+<section class="lead-capture" id="demo">
+  <div class="kicker"><span>READY?</span><span class="dash">·</span><span>REQUEST ACCESS</span></div>
+  <h3>RUN IT ON<br><span class="accent">YOUR DATA.</span></h3>
+  <p>Send us a representative OTLP payload (logs + traces) and a Prometheus scrape config. We'll benchmark ingest and show a unified query across all three signal types.</p>
+  <form class="lead-form" id="leadForm" action="#" method="post" novalidate>
+    <input type="email" name="email" placeholder="you@company.com" required aria-label="Work email" autocomplete="email" />
+    <button type="submit" class="demo">SEE THE DEMO <span class="arrow">→</span></button>
+    <span class="note">We only use this email to send you the binary. Ever.</span>
+    <span class="ok">✓ THANKS. CHECK YOUR INBOX WITHIN 24 HOURS.</span>
+  </form>
+</section>
+
+<footer class="footer">
+  <span>XERJ.AI · USE CASES · V0.1</span>
+  <span>STORAGE FOR THE AGENT ERA</span>
+  <span><a href="/index.html">HOME</a> · <a href="/use-cases.html">ALL USE CASES</a> · <a href="/docs/index.html">DOCS</a> · <a href="/playground.html">DASHBOARDS</a></span>
+</footer>
+
+<script>
+  (function () {
+    const root = document.documentElement;
+    for (const btn of document.querySelectorAll('[data-theme]')) {
+      btn.addEventListener('click', () => {
+        const t = btn.getAttribute('data-theme');
+        root.setAttribute('data-theme', t);
+        for (const b of document.querySelectorAll('[data-theme]')) {
+          b.classList.toggle('active', b.getAttribute('data-theme') === t);
+        }
+      });
+    }
+    const form = document.getElementById('leadForm');
+    if (form) {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const email = form.querySelector('input[type=email]').value.trim();
+        if (!email || !email.includes('@')) return;
+        console.log('[xerj lead]', email);
+        form.classList.add('sent');
+      });
+    }
+  })();
+</script>
+
+</body>
+</html>

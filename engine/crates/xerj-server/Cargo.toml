@@ -1,0 +1,46 @@
+[package]
+name = "xerj-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Main server binary for the xerj search engine"
+
+[[bin]]
+name = "xerj"
+path = "src/main.rs"
+
+[dependencies]
+xerj-common  = { path = "../xerj-common" }
+xerj-engine  = { path = "../xerj-engine" }
+xerj-api     = { path = "../xerj-api" }
+xerj-storage = { path = "../xerj-storage" }
+xerj-fts     = { path = "../xerj-fts" }
+xerj-vector  = { path = "../xerj-vector" }
+xerj-logs    = { path = "../xerj-logs" }
+xerj-ai      = { path = "../xerj-ai" }
+xerj-compress = { path = "../xerj-compress" }
+xerj-cluster  = { path = "../xerj-cluster" }
+xerj-console-api     = { path = "../xerj-console-api" }
+
+tokio.workspace = true
+axum.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rcgen.workspace = true
+rand.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+memmap2 = { workspace = true }
+memchr = { workspace = true }
+rayon = { workspace = true }
+
+# Use jemalloc as the global allocator.  The default glibc malloc causes
+# pathological memory retention under heavy churn (ingest → flush → ingest)
+# because it never returns freed heap pages to the OS.  jemalloc is
+# fragmentation-friendly and actively madvise()'s freed ranges, which brings
+# RSS back down after each flush — critical under the 4 GB cgroup cap.
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+tikv-jemallocator = "0.6"

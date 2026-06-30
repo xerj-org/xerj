@@ -1,0 +1,328 @@
+# xerj Default Configuration
+# ============================================================
+# This file documents all 38 user-facing settings with their
+# production-ready defaults. Uncomment and edit any section
+# you want to override.
+#
+# To use: copy this file to xerj.toml and start the server:
+#   xerj --config /path/to/xerj.toml
+#
+# All settings are optional — an empty file is valid and uses
+# every default below.
+# ============================================================
+
+# ── Network & Data Directory (5 settings) ─────────────────────────────────────
+
+[server]
+
+# Port for the native xerj REST API.
+# The native API exposes all engine features including schema evolution,
+# vector search, and log ingestion.
+rest_port = 8080
+
+# Port for the gRPC API (reserved; protocol not yet finalized).
+grpc_port = 8081
+
+# Port for the Elasticsearch-compatible REST API (ES 8.x wire format).
+# Point existing ES clients, Kibana, or Logstash here.
+es_compat_port = 9200
+
+# Directory where all index data, WAL files, and segments are stored.
+# Ensure this path has sufficient disk space and fast I/O.
+data_dir = "./data"
+
+# IP address to bind all listeners to.
+# "0.0.0.0" listens on all interfaces; use "127.0.0.1" for localhost only.
+bind_address = "0.0.0.0"
+
+# ── Authentication (2 settings) ───────────────────────────────────────────────
+
+[auth]
+
+# Enable API-key authentication on all endpoints.
+# When true, every request must carry:
+#   Authorization: ApiKey <key>
+# On first startup, the admin key is written to <data_dir>/admin.key.
+# Set to false only in trusted private networks or development environments.
+enabled = true
+
+# Static admin API key (leave empty to auto-generate on first run).
+# If set, this key is used directly — no file is written.
+# WARNING: if you store this in a config file, protect the file with
+# filesystem permissions (chmod 600).
+admin_api_key = ""
+
+# ── TLS (3 settings) ──────────────────────────────────────────────────────────
+
+[tls]
+
+# Enable TLS on all listeners.
+# Requires cert_path and key_path to be set when true.
+# In production, always enable TLS. In Docker, you may terminate TLS at the
+# load balancer or proxy instead.
+enabled = false
+
+# Path to the PEM-encoded X.509 certificate file.
+# Use a certificate signed by a trusted CA in production.
+cert_path = ""
+
+# Path to the PEM-encoded private key file.
+# Permissions should be 600 (owner-readable only).
+key_path = ""
+
+# ── Storage & WAL (5 settings) ────────────────────────────────────────────────
+
+[storage]
+
+# WAL fsync strategy. Controls the durability/throughput trade-off.
+#
+#   "sync"    — fsync after every write. Maximum durability; lowest throughput.
+#               Use for financial or compliance workloads.
+#   "batched" — fsync every wal_batch_ms milliseconds. Good balance.
+#               Default and recommended for most workloads.
+#   "async"   — never fsync; OS decides when to flush. Maximum throughput.
+#               Risk of losing up to ~1 second of data on crash.
+wal_sync = "batched"
+
+# How often to fsync the WAL when wal_sync = "batched" (milliseconds).
+# Lower values reduce data loss window; higher values increase write throughput.
+# Range: 1 – 10000. Default: 100 ms.
+wal_batch_ms = 100
+
+# Maximum WAL file size before it is rolled over to a new segment (MiB).
+# After a rollover, the old WAL file is retained until a flush checkpoint
+# advances past it. Larger values reduce rollover overhead at the cost of
+# longer recovery times after a crash.
+wal_max_size_mb = 512
+
+# In-memory buffer size that triggers a segment flush to disk (MiB).
+# When the memtable for an index reaches this size, it is flushed to a
+# durable on-disk segment. Larger values improve write throughput but
+# increase recovery time and memory usage.
+flush_size_mb = 256
+
+# Maximum time between flushes, regardless of buffer size (seconds).
+# Ensures data is durable even during low-write periods.
+flush_interval_secs = 30
+
+# ── Segment Merging (5 settings) ──────────────────────────────────────────────
+
+[merge]
+
+# Merge strategy for combining small segments into larger ones.
+#
+#   "size_tiered"   — merges segments of similar size. Best for write-heavy
+#                     workloads with infrequent reads.
+#   "log_structured" — LSMT-style levelled merging. Better read performance
+#                      for mixed read/write workloads.
+strategy = "size_tiered"
+
+# Minimum number of segments that must exist before a merge is triggered.
+# Higher values delay merging (more write throughput, slower reads).
+# Must be >= 2. Default: 10.
+min_segments = 10
+
+# Maximum size of a merged segment (MiB). Segments larger than this are
+# never merged. 5120 MiB = 5 GiB.
+max_segment_mb = 5120
+
+# I/O rate cap for merge operations (MiB/s).
+# Throttle merges to prevent them from saturating disk I/O on shared storage.
+# Set to 0 to disable throttling (not recommended in production).
+io_rate_mb_per_sec = 100
+
+# Maximum number of concurrent merge operations.
+# Increase on systems with fast NVMe arrays. Lower on spinning disks.
+max_concurrent = 1
+
+# ── Compression (3 settings) ──────────────────────────────────────────────────
+
+[compression]
+
+# Enable block compression for stored document fields.
+# Disabling compression increases disk usage but reduces CPU overhead on read.
+enabled = true
+
+# Compression algorithm and level.
+#
+#   "fast"     — LZ4. Maximum throughput (~500 MB/s), moderate compression ratio.
+#                Best for hot indexes accessed frequently.
+#   "balanced" — Zstandard level 3. Good ratio (~3–4×) with low CPU overhead.
+#                Recommended for most workloads.
+#   "best"     — Zstandard level 19. Maximum ratio (~5–6×) at higher CPU cost.
+#                Best for cold storage or archival indexes.
+level = "balanced"
+
+# Number of documents grouped into a single compressed block.
+# Larger blocks compress better (more context) but increase read amplification
+# when fetching individual documents. Range: 16 – 4096.
+block_size_docs = 128
+
+# ── Full-Text Search (1 setting) ──────────────────────────────────────────────
+
+[fts]
+
+# Default analyzer applied to `text` fields when no per-field analyzer is set.
+#
+# Built-in analyzers:
+#   "standard"   — Unicode word boundaries + lowercase. Good for most languages.
+#   "whitespace" — Split on whitespace only; preserves case.
+#   "simple"     — Split on non-letter characters + lowercase.
+#   "english"    — Standard + English stemmer + stop-word removal.
+#
+# Custom analyzers (with tokenizer + filter chains) can be defined at index
+# creation time via the mappings API.
+default_analyzer = "standard"
+
+# ── Vector Search / HNSW (6 settings) ────────────────────────────────────────
+
+[vector]
+
+# Default similarity metric for dense vector fields.
+#
+#   "cosine"      — Cosine similarity (vectors normalised before indexing).
+#                   Best for text embeddings and semantic search.
+#   "dot_product" — Raw dot product. Fastest; requires unit-norm vectors.
+#   "euclidean"   — L2 (Euclidean) distance. Best for image/audio features.
+default_metric = "cosine"
+
+# HNSW M parameter — number of bi-directional edges per node per layer.
+# Higher M → better recall at the cost of more memory and slower index builds.
+# Typical range: 8 – 64. Default: 16.
+hnsw_m = 16
+
+# HNSW ef_construction — search beam width during index construction.
+# Higher values → better recall at the cost of slower inserts.
+# Must be >= hnsw_m. Typical range: 100 – 500. Default: 200.
+hnsw_ef_construction = 200
+
+# HNSW ef — search beam width at query time.
+# Higher values → better recall at the cost of slower queries.
+# Can be overridden per-query. Must be >= the number of neighbors requested (k).
+# Typical range: 50 – 1000. Default: 100.
+hnsw_ef_search = 100
+
+# Default quantization scheme for vector index storage.
+#
+#   "none"    — Full float32 (highest accuracy; highest memory usage).
+#   "scalar8" — 8-bit scalar quantization (~4× memory saving; ~1–2% accuracy loss).
+#               Recommended for most workloads.
+#   "scalar4" — 4-bit scalar quantization (~8× memory saving; ~2–4% accuracy loss).
+#               Use when vector count is very large and memory is constrained.
+#               xerj can also switch to scalar4 automatically when vector count
+#               exceeds `hnsw_offload_threshold` (see below).
+#   "binary"  — 1-bit binary quantization (~32× memory saving; ~10% accuracy loss).
+#               Best for extremely large vector collections.
+default_quantization = "scalar8"
+
+# Vector count threshold for automatic scalar4 quantization.
+# When the number of vectors in an index exceeds this value, xerj automatically
+# downgrades new vectors to 4-bit (scalar4) quantization to reduce RAM usage.
+# Set to 0 to disable automatic downgrade (default: 0 — disabled).
+# Typical value: 1_000_000 (1 million vectors).
+hnsw_offload_threshold = 0
+
+# Maximum supported vector dimensionality.
+# Vectors with more dimensions than this are rejected at ingest time.
+# xerj supports up to 16,384 dimensions — 4× Elasticsearch's limit of 4,096.
+# Common values: 384 (MiniLM), 768 (BERT), 1536 (OpenAI ada-002), 3072 (GPT-4o).
+max_dimensions = 16384
+
+# ── Log / Time-Series Retention (2 settings) ──────────────────────────────────
+
+[logs]
+
+# How many days to retain log index data before automatic deletion.
+# Set to 0 to disable automatic deletion (retain forever).
+retention_days = 90
+
+# Time-based partition granularity for log indices.
+# Log data is split into partitions of this width to enable efficient
+# time-range pruning during retention enforcement.
+#
+# Valid values: "1m", "5m", "15m", "1h", "6h", "1d"
+# Use "1h" or "6h" for high-volume streaming logs.
+# Use "1d" for lower-volume application logs.
+time_partition = "1h"
+
+# ── External Embedding Service (4 settings) ────────────────────────────────────
+#
+# NOTE: Token limits are model-specific, not xerj-specific.
+#
+# xerj delegates embedding generation to the configured external API.
+# Ensure your input text fits within the model's token window:
+#   - OpenAI text-embedding-ada-002:  8,191 tokens
+#   - OpenAI text-embedding-3-small:  8,191 tokens
+#   - OpenAI text-embedding-3-large:  8,191 tokens
+#   - Ollama nomic-embed-text:        model-dependent (typically 2,048–8,192)
+#
+# The xerj-ai chunker automatically splits long documents into windows that fit
+# the model's token limit before calling the embedding API.
+
+[embedding]
+
+# OpenAI-compatible endpoint URL for auto-embedding on ingest.
+# Leave empty to disable automatic embedding (vectors must be provided by client).
+# Example: "https://api.openai.com/v1/embeddings"
+# Example: "http://localhost:11434/v1/embeddings"  (local Ollama)
+default_endpoint = ""
+
+# Model name to request from the embedding endpoint.
+# Example: "text-embedding-ada-002"  (OpenAI)
+# Example: "nomic-embed-text"        (Ollama)
+default_model = ""
+
+# Maximum number of documents sent in a single embedding API call.
+# Larger batches reduce round-trip overhead; smaller batches reduce latency
+# for individual documents. Range: 1 – 2048.
+batch_size = 64
+
+# HTTP request timeout for embedding API calls (milliseconds).
+# If the embedding service does not respond within this window, the ingest
+# request fails with a timeout error.
+timeout_ms = 5000
+
+# ── Resource Limits (3 settings) ──────────────────────────────────────────────
+
+[limits]
+
+# Maximum memory a single query may allocate for intermediate results (MiB).
+# Queries that exceed this limit are cancelled with a resource-exceeded error.
+# Increase for aggregation-heavy workloads; decrease to protect shared nodes.
+max_query_memory_mb = 512
+
+# Maximum number of search queries executing concurrently across all indices.
+# Additional requests are queued. This prevents unbounded memory growth under
+# burst traffic. Range: 1 – 65535.
+max_concurrent_searches = 64
+
+# Maximum number of mapped fields per index (mapping explosion protection).
+# Indices that exceed this limit reject new field additions.
+# Elasticsearch uses 1000 as its default; 500 is intentionally stricter.
+max_fields_per_index = 500
+
+# ── Turbo Indexing (3 settings) — opt-in high-throughput mode ─────────────────
+#
+# Turbo mode is enabled per-request, not globally:
+#   - POST /v1/indices/{name}/turbo-ingest  (dedicated endpoint)
+#   - X-Turbo: true header on standard _bulk requests
+#
+# These settings control the behaviour when turbo mode is activated.
+
+[indexing]
+
+# Number of documents accumulated per batch in turbo mode.
+# Larger batches amortise WAL and fsync overhead across more documents,
+# increasing throughput at the cost of slightly higher per-batch latency.
+# Recommended range: 500 – 5000.
+turbo_batch_size = 1000
+
+# Enable parallel tokenisation in turbo mode using Rayon's thread pool.
+# Disabling this is useful only for debugging or on single-core machines.
+turbo_parallel = true
+
+# Skip stemming and stopword removal for maximum tokenisation speed.
+# When true, the FastTokenizer is used instead of the configured FTS analyzer.
+# This increases ingest throughput at the cost of reduced search recall
+# (e.g. "running" will not match "run").
+turbo_fast_analyzer = false

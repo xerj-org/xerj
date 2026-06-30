@@ -1,0 +1,20 @@
+apiVersion: v2
+name: xerj
+description: Xerj — single-binary, ES-compatible, JVM-free search engine
+type: application
+version: 1.0.0-rc.1
+appVersion: "1.0.0-rc.1"
+home: https://github.com/xerj-ai/xerj
+sources:
+  - https://github.com/xerj-ai/xerj
+maintainers:
+  - name: xerj-ai
+    url: https://github.com/xerj-ai
+keywords:
+  - search
+  - elasticsearch
+  - rust
+  - logs
+  - vector
+  - siem
+icon: https://xerj.ai/brand/icon.png

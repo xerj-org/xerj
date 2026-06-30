@@ -1,0 +1,136 @@
+
+<svg class="arch-svg" viewBox="0 0 1400 620" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:auto;">
+  <defs>
+    <style>
+      .lbl    { font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; fill: currentColor; }
+      .lbl-s  { font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.10em; fill: currentColor; opacity: 0.62; }
+      .lbl-x  { font-family: 'IBM Plex Sans', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.18em; fill: currentColor; opacity: 0.48; text-transform: uppercase; }
+      .lbl-a  { font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.10em; fill: #ffc400; }
+      .ln     { stroke: currentColor; stroke-width: 1; fill: none; stroke-linecap: square; }
+      .ln-a   { stroke: #ffc400; stroke-width: 1; fill: none; stroke-linecap: square; }
+      .ln-d   { stroke: currentColor; stroke-width: 1; fill: none; stroke-linecap: square; stroke-dasharray: 3 4; opacity: 0.5; }
+      .bx     { stroke: currentColor; stroke-width: 1; fill: none; }
+      .bx-a   { stroke: #ffc400; stroke-width: 1; fill: none; }
+    </style>
+  </defs>
+
+  <!-- frame -->
+  <rect x="0.5" y="0.5" width="1399" height="619" class="bx" opacity="0.18"/>
+
+  <!-- column headers -->
+  <text x="40"   y="42" class="lbl-x">INGEST · INDEX-TIME</text>
+  <text x="700"  y="42" class="lbl-x">RETRIEVAL · QUERY-TIME</text>
+  <line x1="40" y1="56" x2="1360" y2="56" class="ln" opacity="0.30"/>
+
+  <!-- ============== INGEST PATH (top half) ============== -->
+
+  <!-- documents -->
+  <rect x="40" y="80" width="200" height="64" class="bx"/>
+  <text x="60" y="112" class="lbl">DOCUMENTS</text>
+  <text x="60" y="132" class="lbl-s">policies · tickets · code · pdf</text>
+
+  <line x1="240" y1="112" x2="290" y2="112" class="ln"/>
+  <polyline points="282,102 292,112 282,122" class="ln"/>
+
+  <!-- chunker -->
+  <rect x="290" y="80" width="220" height="64" class="bx"/>
+  <text x="310" y="112" class="lbl">TEXT CHUNKER</text>
+  <text x="310" y="132" class="lbl-s">sentence-aware · overlap</text>
+
+  <line x1="510" y1="112" x2="560" y2="112" class="ln"/>
+  <polyline points="552,102 562,112 552,122" class="ln"/>
+
+  <!-- embedder -->
+  <rect x="560" y="80" width="240" height="64" class="bx"/>
+  <text x="580" y="112" class="lbl">EMBEDDING PROXY</text>
+  <text x="580" y="132" class="lbl-s">openai-compatible · retry</text>
+
+  <line x1="800" y1="112" x2="850" y2="112" class="ln"/>
+  <polyline points="842,102 852,112 842,122" class="ln"/>
+
+  <!-- vector index -->
+  <rect x="850" y="80" width="220" height="64" class="bx-a"/>
+  <text x="870" y="112" class="lbl-a">VECTOR · HNSW</text>
+  <text x="870" y="132" class="lbl-s">M=16 · quantized</text>
+
+  <line x1="1070" y1="112" x2="1120" y2="112" class="ln"/>
+  <polyline points="1112,102 1122,112 1112,122" class="ln"/>
+
+  <!-- ft index parallel -->
+  <rect x="1120" y="80" width="220" height="64" class="bx"/>
+  <text x="1140" y="112" class="lbl">FTS · BM25</text>
+  <text x="1140" y="132" class="lbl-s">postings · analyzers</text>
+
+  <!-- external embedder side note -->
+  <line x1="680" y1="160" x2="680" y2="200" class="ln-d"/>
+  <rect x="560" y="200" width="240" height="48" class="bx" opacity="0.7" stroke-dasharray="3 4"/>
+  <text x="580" y="222" class="lbl-s">EXTERNAL MODEL</text>
+  <text x="580" y="240" class="lbl-s">openai · voyage · in-house</text>
+
+  <!-- ============== DIVIDER ============== -->
+  <line x1="40" y1="300" x2="1360" y2="300" class="ln" opacity="0.30"/>
+
+  <!-- ============== RETRIEVAL PATH (bottom half) ============== -->
+
+  <!-- agent / model -->
+  <rect x="40" y="340" width="220" height="64" class="bx"/>
+  <text x="60"  y="372" class="lbl">AGENT · APP</text>
+  <text x="60"  y="392" class="lbl-s">user turn · tool call</text>
+
+  <line x1="260" y1="372" x2="310" y2="372" class="ln-a"/>
+  <polyline points="302,362 312,372 302,382" class="ln-a"/>
+
+  <!-- query -->
+  <rect x="310" y="340" width="240" height="64" class="bx-a"/>
+  <text x="330" y="372" class="lbl-a">HYBRID QUERY</text>
+  <text x="330" y="392" class="lbl-s">keyword + vector + filter</text>
+
+  <!-- planner / fusion -->
+  <line x1="550" y1="372" x2="600" y2="372" class="ln-a"/>
+  <polyline points="592,362 602,372 592,382" class="ln-a"/>
+
+  <rect x="600" y="340" width="280" height="64" class="bx"/>
+  <text x="620" y="372" class="lbl">PLANNER · RRF FUSION</text>
+  <text x="620" y="392" class="lbl-s">single pass · in-process</text>
+
+  <!-- fanout -->
+  <line x1="740" y1="404" x2="740" y2="440" class="ln"/>
+
+  <!-- 3 retrieval calls -->
+  <line x1="200" y1="440" x2="1280" y2="440" class="ln"/>
+  <line x1="200" y1="440" x2="200" y2="470" class="ln"/>
+  <line x1="500" y1="440" x2="500" y2="470" class="ln"/>
+  <line x1="800" y1="440" x2="800" y2="470" class="ln"/>
+  <line x1="1100" y1="440" x2="1100" y2="470" class="ln"/>
+  <polyline points="190,462 200,472 210,462" class="ln"/>
+  <polyline points="490,462 500,472 510,462" class="ln"/>
+  <polyline points="790,462 800,472 810,462" class="ln"/>
+  <polyline points="1090,462 1100,472 1110,462" class="ln"/>
+
+  <rect x="80"   y="475" width="240" height="58" class="bx"/>
+  <text x="100"  y="502" class="lbl">FTS</text>
+  <text x="100"  y="522" class="lbl-s">keyword recall</text>
+
+  <rect x="380"  y="475" width="240" height="58" class="bx"/>
+  <text x="400"  y="502" class="lbl">VECTOR</text>
+  <text x="400"  y="522" class="lbl-s">semantic neighbours</text>
+
+  <rect x="680"  y="475" width="240" height="58" class="bx"/>
+  <text x="700"  y="502" class="lbl">COLUMNAR</text>
+  <text x="700"  y="522" class="lbl-s">structured filters</text>
+
+  <rect x="980"  y="475" width="240" height="58" class="bx"/>
+  <text x="1000" y="502" class="lbl">AGENT MEMORY</text>
+  <text x="1000" y="522" class="lbl-s">recency-blended</text>
+
+  <!-- merge bracket -->
+  <line x1="200" y1="555" x2="1100" y2="555" class="ln-a"/>
+  <line x1="200" y1="533" x2="200" y2="555" class="ln"/>
+  <line x1="500" y1="533" x2="500" y2="555" class="ln"/>
+  <line x1="800" y1="533" x2="800" y2="555" class="ln"/>
+  <line x1="1100" y1="533" x2="1100" y2="555" class="ln"/>
+  <line x1="650" y1="555" x2="650" y2="582" class="ln-a"/>
+  <polyline points="640,574 650,584 660,574" class="ln-a"/>
+
+  <text x="500" y="606" class="lbl-a">FUSED RANKING · ONE RESPONSE</text>
+</svg>

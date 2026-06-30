@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ.ai — Healthcare &amp; Life Sciences</title>
+<meta name="description" content="XERJ for health systems and life sciences. PHI-sovereign, HIPAA BAA on Enterprise tier, ambient-scribe retrieval inside clinical budgets.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<nav class="nav" aria-label="Primary">
+  <a href="/index.html" class="brand">XERJ.AI</a>
+  <a href="/index.html">HOME</a>
+  <a href="/product.html">PRODUCT</a>
+  <a href="/solutions/index.html">SOLUTIONS</a>
+  <a href="/industries/index.html" class="active">INDUSTRIES</a>
+  <a href="/security/index.html">SECURITY</a>
+  <a href="/pricing/index.html">PRICING</a>
+  <span class="spacer"></span>
+  <a href="/docs/index.html">DOCS</a>
+  <a href="/resources/index.html">RESOURCES</a>
+  <a href="/playground.html">DASHBOARDS</a>
+  <span class="theme">
+    <button type="button" data-theme="day">DAY</button>
+    <span class="dash">·</span>
+    <button type="button" data-theme="night" class="active">NIGHT</button>
+  </span>
+</nav>
+
+<nav class="uc-subnav" aria-label="Industries">
+  <a href="/industries/index.html">ALL INDUSTRIES</a>
+  <a href="/industries/finserv.html">FINANCIAL SERVICES</a>
+  <a href="/industries/public-sector.html">PUBLIC SECTOR</a>
+  <a href="/industries/healthcare.html" class="active">HEALTHCARE</a>
+  <a href="/industries/retail.html">RETAIL</a>
+</nav>
+
+<section class="scene-section" style="border-top:0; padding-top:0;">
+  <div class="kicker"><span>INDUSTRY 03</span><span class="dash">·</span><span>FOR CIO · CMIO · CHIEF DIGITAL · CISO</span></div>
+  <h1 class="hero" style="font-size: var(--fs-96);">CLINICAL AI.<br>PHI-<br><span class="accent">SOVEREIGN.</span></h1>
+  <p class="lead" style="max-width:720px;">
+    Clinical AI lives or dies at the PHI boundary. XERJ is a
+    self-hosted data plane that holds logs, embeddings, and agent
+    memory inside a hospital VPC or a pharma research enclave —
+    drop-in for existing Elasticsearch clients, auditable per query,
+    HIPAA-BAA-ready on Enterprise tier.
+  </p>
+</section>
+
+<!-- PHI BOUNDARY SWITCHER -->
+<section class="scene-section" style="border-top:0;">
+  <div class="kicker"><span>PHI BOUNDARY</span><span class="dash">·</span><span>WHICH WORKLOAD LIVES WHERE</span></div>
+  <h2 class="scene">CLINICAL.<br><span class="accent">RESEARCH.</span></h2>
+
+  <div class="tabs" data-tabs="hc-boundary">
+    <button class="tab active" data-pane="clinical">DOMAIN A · CLINICAL · PHI</button>
+    <button class="tab" data-pane="research">DOMAIN B · RESEARCH · DE-ID</button>
+  </div>
+
+  <div class="pane active" data-group="hc-boundary" data-pane="clinical">
+    <svg class="diagram" viewBox="0 0 960 380" role="img" aria-label="Clinical Operations">
+      <rect x="20" y="20" width="920" height="340" class="dashed mute"/>
+      <text x="40" y="44" class="label mute">DOMAIN A · CLINICAL OPERATIONS · PHI · HOSPITAL VPC · HIPAA BAA SCOPE</text>
+
+      <g class="node"><rect x="60" y="70" width="840" height="60"/>
+        <text x="76" y="92" class="label">CLINICAL SOURCES</text>
+        <text x="76" y="114" class="small">Epic · Cerner · Meditech analytic extracts · HL7 · FHIR · device telemetry</text>
+      </g>
+      <line x1="480" y1="130" x2="480" y2="160"/><polygon points="476,156 484,156 480,164"/>
+
+      <g class="node accent"><rect x="60" y="164" width="840" height="90"/>
+        <text x="76" y="188" class="label">XERJ CLUSTER · 3-NODE HA · BAA-SCOPED</text>
+        <text x="76" y="210" class="small">BYOK via customer KMS · TLS 1.3 · per-tenant indices by service line</text>
+        <text x="76" y="228" class="small mute">every retrieval is a PHI-access audit event · replayable · exportable</text>
+        <text x="76" y="246" class="small mute">retention: encounter 7 y · audit 10 y · PHI tombstones tracked</text>
+      </g>
+      <line x1="480" y1="254" x2="480" y2="284"/><polygon points="476,280 484,280 480,288"/>
+
+      <g class="node"><rect x="60" y="288" width="840" height="60"/>
+        <text x="76" y="310" class="label">CLINICAL WORKLOADS</text>
+        <text x="76" y="332" class="small">ambient scribe · clinical decision support · care-gap detection · patient-portal copilot</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="pane" data-group="hc-boundary" data-pane="research">
+    <svg class="diagram" viewBox="0 0 960 380" role="img" aria-label="Research &amp; Operations">
+      <rect x="20" y="20" width="920" height="340" class="dashed mute"/>
+      <text x="40" y="44" class="label mute">DOMAIN B · RESEARCH &amp; OPERATIONS · DE-IDENTIFIED · RESEARCH ENCLAVE</text>
+
+      <g class="node"><rect x="60" y="70" width="580" height="60"/>
+        <text x="76" y="92" class="label">RESEARCH SOURCES</text>
+        <text x="76" y="114" class="small">genomics · imaging metadata · publication corpus · trial registries</text>
+      </g>
+      <g class="node mute"><rect x="660" y="70" width="240" height="60" class="dashed"/>
+        <text x="676" y="92" class="label">DE-ID PIPELINE</text>
+        <text x="676" y="114" class="small">Safe-Harbor / Expert-Det.</text>
+      </g>
+      <line x1="660" y1="100" x2="642" y2="100" class="mute"/>
+      <polygon class="mute" points="646,96 646,104 638,100"/>
+
+      <line x1="350" y1="130" x2="350" y2="160"/><polygon points="346,156 354,156 350,164"/>
+
+      <g class="node accent"><rect x="60" y="164" width="840" height="90"/>
+        <text x="76" y="188" class="label">XERJ CLUSTER · 3-NODE HA · DE-IDENTIFIED + CONSENTED</text>
+        <text x="76" y="210" class="small">consent-tagged indices · right-to-withdraw via segment-level tombstone</text>
+        <text x="76" y="228" class="small mute">hybrid BM25 + HNSW · SQ8 · float32 re-rank on top-K</text>
+        <text x="76" y="246" class="small mute">retention: research 10 y · trial lifecycle + regulatory minimums</text>
+      </g>
+      <line x1="480" y1="254" x2="480" y2="284"/><polygon points="476,280 484,280 480,288"/>
+
+      <g class="node"><rect x="60" y="288" width="840" height="60"/>
+        <text x="76" y="310" class="label">RESEARCH WORKLOADS</text>
+        <text x="76" y="332" class="small">researcher RAG · trial-matching · imaging similarity · cohort discovery</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- CLINICAL WORKLOADS · filterable cards -->
+<section class="scene-section">
+  <div class="card-grid cols-3" style="padding-top: var(--sp-8);">
+    <div class="card">
+      <span class="card-k">AMBIENT SCRIBE</span>
+      <span class="card-t">ENCOUNTER +<br><span class="accent">HISTORY</span></span>
+      <span class="card-b">Encounter transcripts + patient history retrieved in real time. Hybrid keyword + vector against chart data. Agent memory per encounter.</span>
+      <span class="card-facts">· &lt; 40 ms hybrid p95<br>· in-session retrieval<br>· per-encounter audit</span>
+    </div>
+    <div class="card">
+      <span class="card-k">CLINICAL DECISION</span>
+      <span class="card-t">GUIDELINE +<br><span class="accent">POLICY</span></span>
+      <span class="card-b">Retrieval at the order-entry moment. Latency inside EHR round-trip budget. Per-specialty RBAC.</span>
+    </div>
+    <div class="card">
+      <span class="card-k">PATIENT PORTAL</span>
+      <span class="card-t">PATIENT-<br><span class="accent">SCOPED</span></span>
+      <span class="card-b">Patient-scoped agent retrieves from their own chart + approved KB. Session-isolated memory. Time-decay for recency.</span>
+    </div>
+    <div class="card">
+      <span class="card-k">RESEARCHER RAG</span>
+      <span class="card-t">PUBMED +<br><span class="accent">INTERNAL</span></span>
+      <span class="card-b">PubMed mirror + internal corpus · hybrid retrieval for literature review. De-identified workspace. Re-embed on corpus refresh.</span>
+    </div>
+    <div class="card">
+      <span class="card-k">IMAGING</span>
+      <span class="card-t">RADIOLOGY<br><span class="accent">SIMILARITY</span></span>
+      <span class="card-b">Radiology-image embeddings stored alongside metadata. Hybrid: keyword filter (modality / anatomy) + vector nearest neighbors.</span>
+    </div>
+    <div class="card">
+      <span class="card-k">REVENUE CYCLE</span>
+      <span class="card-t">CLAIMS ·<br><span class="accent">DENIALS</span></span>
+      <span class="card-b">837/835 claim data · denial-reason clustering · retrieval-augmented appeal-letter generation.</span>
+    </div>
+  </div>
+</section>
+
+<!-- COMPLIANCE -->
+<section class="scene-section">
+  <div class="kicker"><span>COMPLIANCE</span><span class="dash">·</span><span>HIPAA &amp; BEYOND</span></div>
+  <h2 class="scene">PHI-GRADE.<br><span class="accent">BY DEFAULT.</span></h2>
+
+  <div class="matrix-row"><span class="mk">HIPAA · HITECH</span><span class="mv">BAA on Enterprise tier · self-hosted inherits customer Security Rule posture</span><span class="mstatus road">BAA 2027</span></div>
+  <div class="matrix-row"><span class="mk">PHI ENCRYPTION</span><span class="mv">AES-256-GCM on segments + WAL · keys in external KMS</span><span class="mstatus beta">BETA</span></div>
+  <div class="matrix-row"><span class="mk">BYOK</span><span class="mv">Customer-managed keys · no XERJ-side plaintext · rotation without downtime</span><span class="mstatus road">ROAD Q2</span></div>
+  <div class="matrix-row"><span class="mk">GDPR ART. 9</span><span class="mv">Explicit consent · right to erasure · cross-border transfer controls · self-hosted in region</span><span class="mstatus ga">GA</span></div>
+  <div class="matrix-row"><span class="mk">HITRUST CSF</span><span class="mv">Inherits agency controls · commercial roadmap 2027</span><span class="mstatus road">ROAD 2027</span></div>
+  <div class="matrix-row"><span class="mk">FDA GOOD ML</span><span class="mv">Per-query explain-plan aligns with change-control + audit-trail expectations</span><span class="mstatus ga">GA</span></div>
+  <div class="matrix-row"><span class="mk">SOC 2 TYPE I</span><span class="mv">Platform controls for SaaS offering</span><span class="mstatus road">ROAD Q3 2026</span></div>
+  <div class="matrix-row"><span class="mk">ISO 27001</span><span class="mv">ISMS for platform engineering</span><span class="mstatus road">ROAD Q4 2026</span></div>
+</section>
+
+<!-- MEASURED -->
+<section class="scene-section">
+  <div class="kicker"><span>MEASURED</span><span class="dash">·</span><span>INVISIBLE TO CLINICIANS</span></div>
+  <h2 class="scene">RETRIEVAL<br><span class="accent">CLINICIANS DON'T NOTICE.</span></h2>
+  <div class="cmp">
+    <div class="head"><span class="cell">METRIC</span><span class="cell xy">XERJ</span><span class="cell es">LEGACY STACK</span></div>
+    <div class="row"><span class="cell name">Hybrid retrieval p95 · 1 B vectors</span><span class="cell xy">38 ms</span><span class="cell es">100–250 ms</span></div>
+    <div class="row"><span class="cell name">Ambient-scribe lookup</span><span class="cell xy">&lt; 40 ms</span><span class="cell es">typically &gt; 150 ms</span></div>
+    <div class="row"><span class="cell name">Vector memory · 10 M × 1.5 K</span><span class="cell xy">18 GB (SQ8)</span><span class="cell es">92 GB (float32) — 5.1×</span></div>
+    <div class="row"><span class="cell name">Recall @ 10 vs float32</span><span class="cell xy">&lt; 0.5 pp loss</span><span class="cell es">baseline</span></div>
+    <div class="row"><span class="cell name">Per-query PHI audit</span><span class="cell xy">native · explain-plan</span><span class="cell es">application plumbing</span></div>
+    <div class="row"><span class="cell name">PHI data egress</span><span class="cell xy">0 · self-hosted</span><span class="cell es">varies by vendor</span></div>
+  </div>
+</section>
+
+<section class="lead-capture" id="demo">
+  <div class="kicker"><span>PILOT · HEALTHCARE</span></div>
+  <h3>PROVE IT<br><span class="accent">OUTSIDE PHI.</span></h3>
+  <p>Two-week non-PHI pilot on PubMed-subset data. BAA conversation opens day one if Enterprise tier is in scope.</p>
+  <form class="lead-form" id="leadForm" action="#" method="post" novalidate>
+    <input type="email" name="email" placeholder="you@healthsystem.org" required aria-label="Work email" autocomplete="email" />
+    <button type="submit" class="demo">REQUEST PILOT <span class="arrow">→</span></button>
+    <span class="note">We reply within one business day · <a href="/resources/index.html" class="accent">DOWNLOAD THE HEALTHCARE BRIEF (PDF)</a></span>
+    <span class="ok">✓ THANKS. WE WILL REACH OUT.</span>
+  </form>
+</section>
+
+<footer class="footer">
+  <span>XERJ.AI · HEALTHCARE · V1</span>
+  <span>AI ON YOUR DATA</span>
+  <span><a href="/industries/index.html">INDUSTRIES</a> · <a href="/solutions/index.html">SOLUTIONS</a> · <a href="/resources/index.html">RESOURCES</a> · <a href="/docs/index.html">DOCS</a></span>
+</footer>
+
+<script src="/interact.js"></script>
+<script>
+  (function(){
+    const form = document.getElementById('leadForm');
+    if (!form) return;
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const email = form.querySelector('input[type=email]').value.trim();
+      if (!email || !email.includes('@')) return;
+      form.classList.add('sent');
+    });
+  })();
+</script>
+</body>
+</html>

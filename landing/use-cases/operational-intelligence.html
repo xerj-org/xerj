@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ.ai — Enterprise use cases</title>
+<meta name="description" content="Five enterprise workloads. One binary. Measured benchmarks vs ES 8.13.">
+<meta property="og:title" content="XERJ.ai — storage for the agent era">
+<meta property="og:description" content="One Rust binary. 74× faster on SIEM aggregations. Live product playground.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- nav -->
+<nav class="nav" aria-label="Primary">
+  <a href="/index.html" class="brand">XERJ.AI</a>
+  <a href="/index.html">HOME</a>
+  <a href="/product.html">PRODUCT</a>
+  <span class="nav-drop active">
+    <a href="/use-cases.html" class="active">USE CASES</a>
+  </span>
+  <span class="spacer"></span>
+  <a href="/docs/index.html">DOCS</a>
+  <a href="/playground.html">DASHBOARDS</a>
+  <a href="https://github.com/" rel="external">GITHUB</a>
+  <span class="theme">
+    <button type="button" data-theme="day">DAY</button>
+    <span class="dash">·</span>
+    <button type="button" data-theme="night" class="active">NIGHT</button>
+  </span>
+</nav>
+
+
+<nav class="uc-subnav" aria-label="Use cases">
+  <a href="/use-cases.html">ALL USE CASES</a>
+  <a href="/use-cases/security-analytics.html">SECURITY ANALYTICS</a>
+  <a href="/use-cases/operational-intelligence.html" class="active">OPERATIONAL INTELLIGENCE</a>
+  <a href="/use-cases/ai-search-retrieval.html">AI SEARCH</a>
+  <a href="/use-cases/elasticsearch-replacement.html">ES REPLACEMENT</a>
+  <a href="/use-cases/unified-observability.html">OBSERVABILITY</a>
+</nav>
+
+<div class="uc-hero">
+  <div class="uc-eyebrow">USE CASE · OPERATIONAL INTELLIGENCE</div>
+  <h1>OPERATIONAL<br><span class="accent">INTELLIGENCE.</span></h1>
+  <p class="uc-lead">Your logging pipeline has more components than your application. Beats ships to Logstash, Logstash ships to ES, ES ships to cold storage, and you operate all four. XERJ replaces the pipeline with one ingest endpoint, one storage engine, and one retention number.</p>
+</div>
+
+<!-- Hero chart -->
+<section class="scene-section" style="border-top:0; padding-top:0;">
+  <div class="viz-block">
+    <div class="kicker"><span>INGEST THROUGHPUT · 24H · SINGLE CLIENT</span></div>
+    
+  <div class="series-wrap">
+    <svg class="chart series" height="180" viewBox="0 0 1200 180" preserveAspectRatio="none">
+      <polyline points="0.00,180.00 8.39,180.00 16.78,180.00 25.17,180.00 33.57,180.00 41.96,178.11 50.35,180.00 58.74,180.00 67.13,180.00 75.52,180.00 83.92,173.83 92.31,180.00 100.70,180.00 109.09,171.61 117.48,180.00 125.87,163.04 134.27,175.10 142.66,169.87 151.05,174.25 159.44,160.45 167.83,152.63 176.22,158.45 184.62,142.50 193.01,153.53 201.40,144.25 209.79,132.83 218.18,133.43 226.57,139.35 234.97,124.23 243.36,125.25 251.75,113.83 260.14,110.17 268.53,108.71 276.92,117.26 285.31,113.56 293.71,94.98 302.10,102.70 310.49,98.53 318.88,101.66 327.27,75.90 335.66,88.80 344.06,81.59 352.45,82.55 360.84,74.10 369.23,72.67 377.62,60.14 386.01,56.82 394.41,61.13 402.80,50.17 411.19,47.27 419.58,38.09 427.97,39.13 436.36,34.36 444.76,48.38 453.15,26.64 461.54,31.20 469.93,34.32 478.32,18.61 486.71,18.10 495.10,19.39 503.50,30.40 511.89,23.51 520.28,11.56 528.67,17.67 537.06,10.96 545.45,1.18 553.85,11.12 562.24,9.54 570.63,0.00 579.02,10.03 587.41,9.93 595.80,6.96 604.20,12.22 612.59,0.14 620.98,17.27 629.37,17.61 637.76,8.04 646.15,1.73 654.55,16.40 662.94,7.31 671.33,5.78 679.72,23.80 688.11,16.11 696.50,6.55 704.90,29.60 713.29,26.82 721.68,30.83 730.07,32.46 738.46,24.65 746.85,22.14 755.24,26.41 763.64,36.35 772.03,33.91 780.42,53.38 788.81,55.70 797.20,52.59 805.59,60.14 813.99,48.14 822.38,55.36 830.77,75.46 839.16,67.95 847.55,70.94 855.94,81.43 864.34,86.68 872.73,90.41 881.12,81.16 889.51,93.36 897.90,97.87 906.29,88.14 914.69,114.00 923.08,114.45 931.47,107.91 939.86,123.26 948.25,112.07 956.64,114.55 965.03,119.77 973.43,142.39 981.82,144.46 990.21,134.86 998.60,134.18 1006.99,135.42 1015.38,157.89 1023.78,156.42 1032.17,149.66 1040.56,166.21 1048.95,163.42 1057.34,174.02 1065.73,167.68 1074.13,176.24 1082.52,168.57 1090.91,180.00 1099.30,168.38 1107.69,180.00 1116.08,180.00 1124.48,172.28 1132.87,180.00 1141.26,180.00 1149.65,180.00 1158.04,180.00 1166.43,180.00 1174.83,180.00 1183.22,180.00 1191.61,180.00 1200.00,180.00" fill="none" stroke="currentColor" stroke-width="1"/>
+    </svg>
+    <div class="series-legend">
+      <span>00:00 · <span class="mono" style="color:var(--z-ink);">20K docs/s</span></span>
+      <span class="mid">min <span class="mono" style="color:var(--z-ink);">20K docs/s</span>   ·   peak <span class="mono" style="color:var(--z-ink);">82.51K docs/s</span></span>
+      <span><span class="mono" style="color:var(--z-ink);">20K docs/s</span> · 24:00</span>
+    </div>
+  </div>
+  </div>
+</section>
+
+<div class="pain-solve">
+  <div class="pain">
+    <h3>THE ELK STACK TAX</h3>
+    <ul><li><strong>Four services to run before you see a log.</strong> Filebeat → Logstash → Elasticsearch → Kibana. Each has its own config, its own memory footprint (Logstash alone: 500 MB–2 GB), and its own failure modes.</li><li><strong>ILM policies are fragile.</strong> Index lifecycle management in ES involves rollover aliases, warm/cold/frozen tiers, curator scripts, and a naming convention that breaks when someone creates an index manually.</li><li><strong>Cold start kills your morning.</strong> After a restart, ES takes ~15 seconds of JVM warm-up before the first query returns. In an incident, 15 seconds is a lifetime.</li><li><strong>Shard tuning is a full-time job.</strong> Too many shards per index → master bottleneck. Too few → uneven distribution. The "right" number changes with data volume, and there's no undo button.</li></ul>
+  </div>
+  <div class="solve">
+    <h3>THE XERJ ANSWER</h3>
+    <ul><li><strong>One binary, four ingest paths.</strong> turbo-ingest, structured logs, syslog, and OTLP — all in-process. No Logstash, no Beats.</li><li><strong>Retention is one number.</strong> <code>[logs] retention_days = 30</code>. Time-partitioned internally so pruning is O(partitions), not O(documents).</li><li><strong>300× faster cold start.</strong> 50 ms to first query vs ~15 seconds ES JVM warm-up. WAL replay is fast because it's append-only and the format is simple.</li><li><strong>No shard tuning.</strong> XERJ manages segments internally — you never configure shard count, replica count, or allocation rules for log data.</li></ul>
+  </div>
+</div>
+
+<div class="proof-row">
+
+  <div class="stat">
+    <div class="num">300×</div>
+    <div class="label">FASTER COLD START</div>
+    <div class="ctx">50 ms xerj vs ~15 s ES JVM warm-up</div>
+  </div>
+
+  <div class="stat">
+    <div class="num">1</div>
+    <div class="label">CONFIG LINE FOR RETENTION</div>
+    <div class="ctx">[logs] retention_days = N. No ILM, no curator, no rollover aliases</div>
+  </div>
+
+  <div class="stat">
+    <div class="num">2.8×</div>
+    <div class="label">LESS DISK</div>
+    <div class="ctx">Domain-aware compression on SIEM-shaped log data</div>
+  </div>
+
+</div>
+
+
+<section class="scene-section">
+  <div class="viz-block">
+    <div class="kicker"><span>TOP SERVICES · LOG VOLUME · 24H</span></div>
+    <div class="topn-list">
+    <div class="row">
+      <div class="row__label">api-gateway</div>
+      <div class="row__val">1.29M</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="200.0" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">36.6%</div>
+    </div>
+    <div class="row">
+      <div class="row__label">auth-service</div>
+      <div class="row__val">654K</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="101.4" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">18.5%</div>
+    </div>
+    <div class="row">
+      <div class="row__label">billing</div>
+      <div class="row__val">454K</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="70.4" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">12.9%</div>
+    </div>
+    <div class="row">
+      <div class="row__label">checkout</div>
+      <div class="row__val">333K</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="51.6" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">9.4%</div>
+    </div>
+    <div class="row">
+      <div class="row__label">search</div>
+      <div class="row__val">226K</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="35.0" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">6.4%</div>
+    </div>
+    <div class="row">
+      <div class="row__label">catalog</div>
+      <div class="row__val">203K</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="31.5" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">5.8%</div>
+    </div>
+    <div class="row">
+      <div class="row__label">inventory</div>
+      <div class="row__val">181K</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="28.1" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">5.1%</div>
+    </div>
+    <div class="row">
+      <div class="row__label">shipping</div>
+      <div class="row__val">187K</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="29.0" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">5.3%</div>
+    </div></div>
+  </div>
+</section>
+
+
+<section class="scene-section">
+  <h2 class="scene" style="font-size:var(--fs-56);">SEE IT <span class="accent">LIVE.</span></h2>
+  <p class="wide">The playbook walks the full recipe — schema, ingest command, queries, and the dashboard. The playground runs on seeded data; benchmarks were measured against Elasticsearch 8.13 on 2026-04-14.</p>
+  <div style="display:flex; gap:var(--sp-6); margin-top:var(--sp-6); flex-wrap:wrap;">
+    <a href="/docs/playbooks/log-analytics.html" class="cta" style="font-size:var(--fs-20); padding:var(--sp-4) 0; border-bottom:0; flex:1; min-width:280px;">
+      <span>OPEN THE PLAYBOOK</span>
+      <span class="arrow">→</span>
+    </a>
+    <a href="/playground.html" class="cta" style="font-size:var(--fs-20); padding:var(--sp-4) 0; border-bottom:0; flex:1; min-width:280px;">
+      <span>OPEN THE PLAYGROUND</span>
+      <span class="arrow">→</span>
+    </a>
+  </div>
+</section>
+
+<section class="lead-capture" id="demo">
+  <div class="kicker"><span>READY?</span><span class="dash">·</span><span>REQUEST ACCESS</span></div>
+  <h3>RUN IT ON<br><span class="accent">YOUR DATA.</span></h3>
+  <p>Send us a 1 GB sample of your production logs (any format — JSON, syslog, OTLP). We'll benchmark ingest throughput and query latency head-to-head and share the scripts.</p>
+  <form class="lead-form" id="leadForm" action="#" method="post" novalidate>
+    <input type="email" name="email" placeholder="you@company.com" required aria-label="Work email" autocomplete="email" />
+    <button type="submit" class="demo">SEE THE DEMO <span class="arrow">→</span></button>
+    <span class="note">We only use this email to send you the binary. Ever.</span>
+    <span class="ok">✓ THANKS. CHECK YOUR INBOX WITHIN 24 HOURS.</span>
+  </form>
+</section>
+
+<footer class="footer">
+  <span>XERJ.AI · USE CASES · V0.1</span>
+  <span>STORAGE FOR THE AGENT ERA</span>
+  <span><a href="/index.html">HOME</a> · <a href="/use-cases.html">ALL USE CASES</a> · <a href="/docs/index.html">DOCS</a> · <a href="/playground.html">DASHBOARDS</a></span>
+</footer>
+
+<script>
+  (function () {
+    const root = document.documentElement;
+    for (const btn of document.querySelectorAll('[data-theme]')) {
+      btn.addEventListener('click', () => {
+        const t = btn.getAttribute('data-theme');
+        root.setAttribute('data-theme', t);
+        for (const b of document.querySelectorAll('[data-theme]')) {
+          b.classList.toggle('active', b.getAttribute('data-theme') === t);
+        }
+      });
+    }
+    const form = document.getElementById('leadForm');
+    if (form) {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const email = form.querySelector('input[type=email]').value.trim();
+        if (!email || !email.includes('@')) return;
+        console.log('[xerj lead]', email);
+        form.classList.add('sent');
+      });
+    }
+  })();
+</script>
+
+</body>
+</html>

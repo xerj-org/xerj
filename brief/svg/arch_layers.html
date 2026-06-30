@@ -1,0 +1,115 @@
+
+<svg class="arch-svg" viewBox="0 0 1400 600" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:auto;">
+  <defs>
+    <style>
+      .lbl    { font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; fill: currentColor; }
+      .lbl-s  { font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.10em; fill: currentColor; opacity: 0.62; }
+      .lbl-x  { font-family: 'IBM Plex Sans', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.18em; fill: currentColor; opacity: 0.48; text-transform: uppercase; }
+      .lbl-a  { font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.10em; fill: #ffc400; }
+      .lbl-h  { font-family: 'Big Shoulders Display','IBM Plex Sans',sans-serif; font-size: 22px; font-weight: 900; letter-spacing: 0.08em; fill: currentColor; text-transform: uppercase; }
+      .ln     { stroke: currentColor; stroke-width: 1; fill: none; stroke-linecap: square; }
+      .ln-a   { stroke: #ffc400; stroke-width: 1; fill: none; stroke-linecap: square; }
+      .ln-d   { stroke: currentColor; stroke-width: 1; fill: none; stroke-linecap: square; stroke-dasharray: 3 4; opacity: 0.5; }
+      .bx     { stroke: currentColor; stroke-width: 1; fill: none; }
+      .bx-a   { stroke: #ffc400; stroke-width: 1; fill: none; }
+    </style>
+  </defs>
+
+  <!-- frame -->
+  <rect x="0.5" y="0.5" width="1399" height="599" class="bx" opacity="0.18"/>
+
+  <!-- Left rail labels -->
+  <text x="40" y="50" class="lbl-x">LAYER</text>
+  <text x="40" y="70" class="lbl-x">RESPONSIBILITY</text>
+
+  <!-- Right rail labels -->
+  <text x="1180" y="50" class="lbl-x">DOWNSTREAM CONTRACT</text>
+
+  <!-- Vertical guide lines -->
+  <line x1="280" y1="90" x2="280" y2="560" class="ln" opacity="0.20"/>
+  <line x1="1140" y1="90" x2="1140" y2="560" class="ln" opacity="0.20"/>
+
+  <!-- ============ Stack of layers ============ -->
+
+  <!-- L1: WIRE  -->
+  <text x="40" y="125" class="lbl">L1 · WIRE</text>
+  <text x="40" y="145" class="lbl-s">protocol surface</text>
+
+  <rect x="290" y="100" width="840" height="60" class="bx-a"/>
+  <text x="310" y="132" class="lbl-a">HTTP · ES 8.13 · NATIVE REST · gRPC</text>
+  <text x="310" y="152" class="lbl-s">routes · auth · rate-limit · TLS · request validation · response codec</text>
+
+  <text x="1180" y="132" class="lbl">PARSED REQUEST</text>
+  <text x="1180" y="152" class="lbl-s">typed query DSL</text>
+
+  <line x1="710" y1="160" x2="710" y2="180" class="ln-a"/>
+  <polyline points="700,172 710,182 720,172" class="ln-a"/>
+
+  <!-- L2: QUERY -->
+  <text x="40" y="215" class="lbl">L2 · QUERY</text>
+  <text x="40" y="235" class="lbl-s">plan &amp; execute</text>
+
+  <rect x="290" y="190" width="840" height="60" class="bx"/>
+  <text x="310" y="222" class="lbl">PARSE · PLAN · REWRITE · EXECUTE · FUSE</text>
+  <text x="310" y="242" class="lbl-s">cost model · per-pass concurrency · reciprocal-rank fusion · explain capture</text>
+
+  <text x="1180" y="222" class="lbl">FANOUT TO STORES</text>
+  <text x="1180" y="242" class="lbl-s">per-modality calls</text>
+
+  <line x1="710" y1="250" x2="710" y2="270" class="ln"/>
+  <polyline points="700,262 710,272 720,262" class="ln"/>
+
+  <!-- L3: ENGINE -->
+  <text x="40" y="305" class="lbl">L3 · ENGINE</text>
+  <text x="40" y="325" class="lbl-s">indexes &amp; sessions</text>
+
+  <rect x="290" y="280" width="840" height="60" class="bx"/>
+  <text x="310" y="312" class="lbl">INDEX · MEMTABLE · BULK · TURBO INGEST · AUDIT · RBAC</text>
+  <text x="310" y="332" class="lbl-s">per-index lifecycle · admit / flush / merge · privileged-action journal</text>
+
+  <text x="1180" y="312" class="lbl">DOC OPERATIONS</text>
+  <text x="1180" y="332" class="lbl-s">read · write · evolve</text>
+
+  <line x1="710" y1="340" x2="710" y2="360" class="ln"/>
+  <polyline points="700,352 710,362 720,352" class="ln"/>
+
+  <!-- L4: RETRIEVAL -->
+  <text x="40" y="395" class="lbl">L4 · RETRIEVAL</text>
+  <text x="40" y="415" class="lbl-s">modality engines</text>
+
+  <rect x="290" y="370" width="200" height="60" class="bx"/>
+  <text x="310" y="402" class="lbl">FTS · BM25</text>
+  <text x="310" y="422" class="lbl-s">postings · analyzers</text>
+
+  <rect x="500" y="370" width="200" height="60" class="bx"/>
+  <text x="520" y="402" class="lbl">VECTOR · HNSW</text>
+  <text x="520" y="422" class="lbl-s">graph · quantizer</text>
+
+  <rect x="710" y="370" width="200" height="60" class="bx"/>
+  <text x="730" y="402" class="lbl">COLUMNAR LOGS</text>
+  <text x="730" y="422" class="lbl-s">columns · doc-values</text>
+
+  <rect x="920" y="370" width="210" height="60" class="bx"/>
+  <text x="940" y="402" class="lbl">AI · CHUNK · MEMORY</text>
+  <text x="940" y="422" class="lbl-s">embed · dedup · recall</text>
+
+  <text x="1180" y="402" class="lbl">SEGMENT READS</text>
+  <text x="1180" y="422" class="lbl-s">mmap · doc-values</text>
+
+  <line x1="710" y1="430" x2="710" y2="450" class="ln"/>
+  <polyline points="700,442 710,452 720,442" class="ln"/>
+
+  <!-- L5: STORAGE -->
+  <text x="40" y="485" class="lbl">L5 · STORAGE</text>
+  <text x="40" y="505" class="lbl-s">durable substrate</text>
+
+  <rect x="290" y="460" width="840" height="60" class="bx-a"/>
+  <text x="310" y="492" class="lbl-a">WAL · SHARDED MEMTABLE · SEGMENTS · MERGE · CACHE</text>
+  <text x="310" y="512" class="lbl-s">fsync per batch · 16-shard hash routing · sealed segments · background compaction</text>
+
+  <text x="1180" y="492" class="lbl">FILESYSTEM</text>
+  <text x="1180" y="512" class="lbl-s">single data dir</text>
+
+  <!-- caption -->
+  <text x="40" y="565" class="lbl-x">FIVE LAYERS · ONE PROCESS · NO CROSS-LAYER SHORTCUTS · NO HIDDEN COUPLING</text>
+</svg>

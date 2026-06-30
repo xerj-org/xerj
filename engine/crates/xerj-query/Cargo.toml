@@ -1,0 +1,21 @@
+[package]
+name = "xerj-query"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Query parser, rewriter, planner, and executor for the xerj search engine"
+
+[dependencies]
+xerj-common = { path = "../xerj-common" }
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+rayon.workspace = true
+base64 = "0.22"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+
+[dev-dependencies]
+serde_json = { version = "1", features = [] }

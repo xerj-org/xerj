@@ -1,0 +1,1854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>XERJ — Technical Product Brief — V1 — 2026-04</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:     #0b0b0d;
+    --ink:    #f4f2ec;
+    --mute:   #8a8680;
+    --faint:  #2b2a28;
+    --line:   #3a3836;
+    --accent: #ffc400;
+
+    --z-bg: var(--bg); --z-ink: var(--ink); --z-mute: var(--mute);
+    --z-line: var(--line); --z-accent: var(--accent); --z-faint: var(--faint);
+
+    --font-display: 'Big Shoulders Display', 'Inter', system-ui, sans-serif;
+    --font-prose:   'Inter', system-ui, sans-serif;
+    --font-data:    'IBM Plex Sans', 'Inter', system-ui, sans-serif;
+    --font-mono:    'JetBrains Mono', 'IBM Plex Mono', monospace;
+
+    --track-ui:    0.14em;
+    --track-label: 0.08em;
+  }
+
+  @page { size: Letter; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-prose);
+    font-size: 10.5pt;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .page {
+    width: 8.5in;
+    height: 11in;
+    padding: 0.55in 0.6in;
+    position: relative;
+    page-break-after: always;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  .kicker {
+    font-family: var(--font-data);
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+    display: flex;
+    gap: 0.5em;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .kicker .dash { color: var(--faint); }
+  .kicker .accent { color: var(--accent); }
+
+  .accent { color: var(--accent); }
+  .mute   { color: var(--mute); }
+  .mono   { font-family: var(--font-mono); }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    line-height: 0.92;
+  }
+
+  .hero  { font-size: 64pt; line-height: 0.92; }
+  .scene { font-size: 38pt; }
+  h3     { font-size: 18pt; }
+  h4     { font-size: 11pt; letter-spacing: var(--track-ui); color: var(--accent); }
+
+  p.lead { font-size: 12pt; line-height: 1.5; max-width: 6.5in; }
+  p.body { font-size: 9.5pt; line-height: 1.55; max-width: 6.5in; }
+  p.body.wide { max-width: 100%; }
+
+  em { font-style: italic; }
+  code, .code { font-family: var(--font-mono); font-size: 9pt; color: var(--ink); }
+
+  .sp-1 { height: 4px; }
+  .sp-2 { height: 8px; } .sp-3 { height: 12px; } .sp-4 { height: 16px; }
+  .sp-6 { height: 24px; } .sp-8 { height: 32px; } .sp-10 { height: 48px; }
+
+  .flex { display: flex; } .col { flex-direction: column; }
+  .grow { flex: 1 1 auto; min-height: 0; }
+  .between { justify-content: space-between; }
+
+  /* page frame */
+  .head-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--font-data);
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+  }
+  .head-row .brand { color: var(--ink); }
+  .head-row .brand .accent { color: var(--accent); }
+
+  .foot-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+    font-family: var(--font-data);
+    font-size: 8pt;
+    font-weight: 500;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+  }
+  .foot-row .num { color: var(--ink); }
+
+  /* key-value row */
+  .kv-row {
+    display: grid;
+    grid-template-columns: 1.3in 1fr;
+    gap: 0.25in;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--line);
+    align-items: baseline;
+  }
+  .kv-row .k {
+    font-family: var(--font-data);
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+  }
+  .kv-row .v { font-size: 9.5pt; line-height: 1.5; }
+  .kv-row .v .mono { font-size: 9pt; color: var(--ink); }
+
+  /* 4-up value quadrant */
+  .quad-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    border-top: 1px solid var(--line);
+    border-left: 1px solid var(--line);
+  }
+  .quad-grid > .cell {
+    padding: 16px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 1.7in;
+  }
+  .quad-grid .k {
+    font-family: var(--font-data);
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+  }
+  .quad-grid .t {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 18pt;
+    color: var(--ink);
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+  }
+  .quad-grid .t .accent { color: var(--accent); }
+  .quad-grid .b {
+    font-size: 9.5pt;
+    line-height: 1.45;
+    color: var(--ink);
+    margin-top: auto;
+  }
+
+  /* 3-column topology cards */
+  .topo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+  .topo-grid > .cell {
+    padding: 14px 16px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .topo-grid .k {
+    font-family: var(--font-data);
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+  }
+  .topo-grid .t {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 16pt;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+  }
+  .topo-grid .t .accent { color: var(--accent); }
+  .topo-grid .b { font-size: 9pt; line-height: 1.45; }
+  .topo-grid .facts {
+    font-family: var(--font-mono);
+    font-size: 8.5pt;
+    color: var(--mute);
+    line-height: 1.5;
+    margin-top: 6px;
+  }
+
+  /* feature / capability matrix */
+  .matrix {
+    display: grid;
+    grid-template-columns: 1.6in 1fr 0.7in;
+    gap: 0;
+  }
+  .matrix > div {
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--line);
+    font-size: 9pt;
+    line-height: 1.42;
+  }
+  .matrix .h {
+    font-family: var(--font-data);
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+    border-bottom: 1px solid var(--ink);
+  }
+  .matrix .k {
+    font-family: var(--font-mono);
+    font-size: 9pt;
+    color: var(--accent);
+  }
+  .matrix .status {
+    font-family: var(--font-data);
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: var(--track-label);
+    text-transform: uppercase;
+    text-align: right;
+  }
+  .matrix .status.ga    { color: var(--accent); }
+  .matrix .status.beta  { color: var(--ink); }
+  .matrix .status.road  { color: var(--mute); }
+
+  /* status pill (inline) */
+  .pill {
+    display: inline-block;
+    font-family: var(--font-data);
+    font-size: 7.5pt;
+    font-weight: 700;
+    letter-spacing: var(--track-label);
+    text-transform: uppercase;
+    padding: 1px 6px;
+    border: 1px solid;
+    margin-left: 4px;
+    vertical-align: 1px;
+  }
+  .pill.ga    { color: var(--accent); border-color: var(--accent); }
+  .pill.beta  { color: var(--ink);    border-color: var(--ink); }
+  .pill.road  { color: var(--mute);   border-color: var(--line); }
+
+  /* versus table */
+  .versus {
+    display: grid;
+    grid-template-columns: 1.25in 1fr 1fr;
+    gap: 0.2in;
+  }
+  .versus > .h {
+    font-family: var(--font-data);
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+    padding: 6px 0;
+    border-bottom: 1px solid var(--ink);
+  }
+  .versus > .h.a { color: var(--accent); }
+  .versus > div {
+    padding: 4px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 8.75pt;
+    line-height: 1.35;
+  }
+  .versus > div.dim {
+    font-family: var(--font-data);
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: var(--track-label);
+    text-transform: uppercase;
+    color: var(--mute);
+  }
+  .versus .accent { color: var(--accent); }
+
+  /* performance / scale table */
+  .perf {
+    display: grid;
+    grid-template-columns: 1.3in repeat(4, 1fr);
+    width: 100%;
+  }
+  .perf > div {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--line);
+    font-size: 9pt;
+  }
+  .perf .h {
+    font-family: var(--font-data);
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+    border-bottom: 1px solid var(--ink);
+  }
+  .perf .n { font-family: var(--font-mono); text-align: right; color: var(--ink); }
+
+  /* ASCII topology pre */
+  .arch-pre {
+    font-family: var(--font-mono);
+    font-size: 8.5pt;
+    line-height: 1.45;
+    color: var(--ink);
+    white-space: pre;
+    padding: 12px 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    overflow: hidden;
+  }
+  .arch-pre .accent { color: var(--accent); }
+  .arch-pre .mute   { color: var(--mute); }
+  .arch-pre .ink    { color: var(--ink); }
+
+  /* two-column integration catalog */
+  .int-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .int-grid > .group {
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+  }
+  .int-grid .group h4 { margin-bottom: 6px; }
+  .int-grid .group .list {
+    font-family: var(--font-mono);
+    font-size: 8.5pt;
+    line-height: 1.7;
+    color: var(--ink);
+  }
+  .int-grid .group .list .mute { color: var(--mute); }
+
+  /* roadmap rail */
+  .road-rail {
+    display: grid;
+    grid-template-columns: 0.85in 1.1in 1fr;
+    column-gap: 0.2in;
+  }
+  .road-rail > div {
+    padding: 9px 0;
+    border-top: 1px solid var(--line);
+    font-size: 9.5pt;
+    line-height: 1.45;
+  }
+  .road-rail .q {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 20pt;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .road-rail .t {
+    font-family: var(--font-data);
+    font-size: 9pt;
+    font-weight: 600;
+    letter-spacing: var(--track-label);
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+
+  /* chart viz wrapper */
+  .viz {
+    width: 100%;
+    margin-top: 10px;
+    max-height: 2.7in;
+    overflow: hidden;
+    padding-right: 60px;
+  }
+  .viz svg.chart {
+    display: block;
+    width: 100%;
+    height: 2.5in;
+    max-height: 2.5in;
+    color: var(--accent);
+    overflow: visible;
+  }
+  .viz .kicker { margin-bottom: 6px; }
+  .viz .viz-block { margin-top: 0 !important; width: 100%; }
+  .viz .viz-block .kicker { margin-bottom: 6px; }
+  .viz-caption {
+    margin-top: 10px;
+    font-family: var(--font-prose);
+    font-size: 9pt;
+    color: var(--mute);
+    max-width: 6.5in;
+  }
+
+  /* packaging tiers */
+  .tiers {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+  .tiers > .tier {
+    padding: 16px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .tiers .tier.ent { border-top-color: var(--accent); }
+  .tiers .k {
+    font-family: var(--font-data);
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: var(--track-ui);
+    text-transform: uppercase;
+    color: var(--mute);
+  }
+  .tiers .t {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 20pt;
+    line-height: 1;
+    color: var(--ink);
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+  }
+  .tiers .tier.ent .t { color: var(--accent); }
+  .tiers ul {
+    list-style: none;
+    margin: 0; padding: 0;
+    font-size: 8.75pt;
+    line-height: 1.55;
+  }
+  .tiers ul li { padding: 2px 0; }
+  .tiers ul li::before {
+    content: '· ';
+    color: var(--mute);
+    margin-right: 2px;
+  }
+
+  /* cover hero */
+  .cover-hero {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 72pt;
+    line-height: 0.9;
+    letter-spacing: 0.01em;
+  }
+</style>
+</head>
+<body>
+
+<!-- =========================================================== -->
+<!-- P1 · COVER                                                  -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>TECHNICAL PRODUCT BRIEF · V1 · 2026-04</span>
+  </div>
+
+  <div class="grow flex col between">
+    <div class="sp-10"></div>
+
+    <div>
+      <div class="kicker" style="margin-bottom:20px;">
+        <span>FOR ENTERPRISE ARCHITECTS</span>
+        <span class="dash">·</span>
+        <span>PLATFORM LEADS</span>
+        <span class="dash">·</span>
+        <span>PRINCIPAL ENGINEERS</span>
+      </div>
+
+      <div class="cover-hero">
+        THE UNIFIED<br>
+        DATA PLANE<br>
+        FOR THE<br>
+        <span class="accent">AGENT ERA.</span>
+      </div>
+
+      <div class="sp-8"></div>
+
+      <p class="lead" style="max-width:6in;">
+        XERJ is a self-hosted data platform that consolidates
+        full-text search, vector retrieval, columnar logs, and
+        agent memory into a single Elasticsearch-compatible
+        service. Drop-in for existing ES clients; purpose-built for
+        enterprises standing up retrieval-augmented applications at
+        scale.
+      </p>
+    </div>
+
+    <div class="flex between" style="gap:24px;">
+      <div class="kicker">
+        <span>ES 8.13 COMPATIBLE</span>
+        <span class="dash">·</span>
+        <span>SELF-HOSTED</span>
+        <span class="dash">·</span>
+        <span>DATA-SOVEREIGN</span>
+        <span class="dash">·</span>
+        <span>ZERO-TRUST READY</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · TECHNICAL PRODUCT BRIEF</span>
+    <span class="num">01 / 16</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P2 · EXECUTIVE SUMMARY · VALUE THESIS                       -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>02 · EXECUTIVE SUMMARY</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>02</span><span class="dash">·</span><span>EXECUTIVE SUMMARY</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">ONE PLATFORM.<br><span class="accent">EVERY RETRIEVAL WORKLOAD.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      Enterprise AI programs stall when every team assembles a
+      different retrieval stack: ES for logs, Pinecone for vectors,
+      Redis for session memory, a stitching orchestrator for every
+      hybrid query. XERJ collapses that stack into one platform
+      under one API. Migration is a configuration change — the
+      application keeps its Elasticsearch clients.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <div class="quad-grid">
+      <div class="cell">
+        <span class="k">UNIFIED DATA PLANE</span>
+        <span class="t">FOUR WORKLOADS.<br><span class="accent">ONE ENGINE.</span></span>
+        <span class="b">Full-text (BM25), dense-vector (HNSW), columnar logs, and agent memory in a single process, single segment cache, single WAL. No cross-store orchestrator.</span>
+      </div>
+      <div class="cell">
+        <span class="k">DROP-IN ES COMPATIBILITY</span>
+        <span class="t">ZERO REWRITE.<br><span class="accent">PORT :9200.</span></span>
+        <span class="b">ES 8.13 wire protocol · 38 query types · bulk + scroll + search APIs. Existing clients, dashboards, and ingest pipelines work unchanged.</span>
+      </div>
+      <div class="cell">
+        <span class="k">ENTERPRISE OPERATIONS</span>
+        <span class="t">SOVEREIGN.<br><span class="accent">AUDIT-READY.</span></span>
+        <span class="b">Self-hosted on your cloud or metal. Per-query explain-plan with cost + row counts. Prometheus metrics first-class. RBAC roadmap <span class="pill road">Q2</span>.</span>
+      </div>
+      <div class="cell">
+        <span class="k">MODERN RUNTIME</span>
+        <span class="t">RUST.<br><span class="accent">NO JVM.</span></span>
+        <span class="b">13 MB static binary · 50 ms cold start · 400 MB idle · no GC pauses. Deterministic tail latency — SLOs mean something in the 99.9 percentile.</span>
+      </div>
+    </div>
+
+    <div class="grow"></div>
+
+    <h4 style="color:var(--mute);">PRIMARY USE CASES</h4>
+    <div class="sp-2"></div>
+    <div class="kicker" style="color:var(--ink); text-transform:none; letter-spacing:0.04em; font-size:9pt;">
+      <span>SIEM MODERNIZATION</span>
+      <span class="dash">·</span>
+      <span>RAG AT ENTERPRISE SCALE</span>
+      <span class="dash">·</span>
+      <span>UNIFIED OBSERVABILITY</span>
+      <span class="dash">·</span>
+      <span>AGENT MEMORY PLATFORM</span>
+      <span class="dash">·</span>
+      <span>ELASTICSEARCH REPLACEMENT</span>
+    </div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · TECHNICAL PRODUCT BRIEF</span>
+    <span class="num">02 / 16</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P3 · SOLUTION ARCHITECTURE                                  -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>03 · SOLUTION ARCHITECTURE</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>03</span><span class="dash">·</span><span>SOLUTION ARCHITECTURE</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">CONTROL PLANE.<br><span class="accent">DATA PLANE.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      XERJ separates control-plane (cluster state, schema, RBAC,
+      audit) from data-plane (ingest, storage, query). The data
+      plane scales horizontally; the control plane stays small and
+      highly available. Both are observable through a single
+      Prometheus endpoint.
+    </p>
+
+    <div class="sp-4"></div>
+
+    <div class="arch-pre"><span class="mute">┌──────────────────────── CLIENTS · APPLICATIONS · AGENTS ───────────────────────┐</span>
+  Elasticsearch SDKs · LangChain / LlamaIndex · dashboards · custom
+<span class="mute">└────────────────────────────────┬───────────────────────────────────────────────┘</span>
+                                 │  HTTPS · TLS 1.3 · mutual auth <span class="mute">(roadmap)</span>
+<span class="mute">┌────────────────────────────────▼── CONTROL PLANE ──────────────────────────────┐</span>
+  Auth · RBAC · audit log · schema registry · cluster coordination · health
+<span class="mute">└────────────────────────────────┬───────────────────────────────────────────────┘</span>
+                                 │
+<span class="mute">┌────────────────────────────────▼── DATA PLANE ─────────────────────────────────┐</span>
+  API surface    <span class="accent">:9200 ES-compat</span> · <span class="accent">:8080 native</span> · <span class="mute">:8081 gRPC (roadmap)</span>
+  Query engine   planner · executor · hybrid merge · explain-plan
+  Search tier    <span class="ink">BM25 (xerj-fts)</span>   │   <span class="ink">HNSW (xerj-vector)</span>
+  Storage tier   segments (mmap-cached) · WAL (LZ4) · snapshot/restore
+  Ingest tier    ES Bulk · JSON / NDJSON · OTLP <span class="mute">(beta)</span> · syslog <span class="mute">(roadmap)</span>
+<span class="mute">└────────────────────────────────────────────────────────────────────────────────┘</span>
+
+<span class="accent">CROSS-CUTTING CONCERNS</span>
+  Security       TLS · RBAC <span class="mute">(roadmap)</span> · BYOK <span class="mute">(roadmap)</span> · tenant isolation
+  Observability  Prometheus · OTLP out <span class="mute">(roadmap)</span> · structured JSON logs
+  Reliability    WAL + checkpoint · segment snapshots · replication <span class="mute">(cluster)</span>
+  Governance     per-query explain-plan · per-index retention · audit trail</div>
+
+    <div class="grow"></div>
+
+    <div class="kicker">
+      <span>KEY PROPERTY</span>
+      <span class="dash">·</span>
+      <span>DATA PLANE AND CONTROL PLANE SCALE INDEPENDENTLY · NO SHARED HOT PATH</span>
+    </div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · TECHNICAL PRODUCT BRIEF</span>
+    <span class="num">03 / 16</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P4 · DEPLOYMENT TOPOLOGIES                                  -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>04 · DEPLOYMENT TOPOLOGIES</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>04</span><span class="dash">·</span><span>DEPLOYMENT TOPOLOGIES</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">FOUR PATTERNS.<br><span class="accent">FOUR ENVIRONMENTS.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      Choose the topology that fits the workload's SLO, retention
+      horizon, and regulatory scope. All four patterns use the same
+      binary and the same configuration surface — the difference is
+      how many nodes and where they live.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <div class="topo-grid">
+      <div class="cell">
+        <span class="k">SINGLE-NODE</span>
+        <span class="t">POC ·<br><span class="accent">DEV</span></span>
+        <span class="b">One binary, one host. Full feature set. Ideal for pilots, CI pipelines, edge sites, and air-gapped labs.</span>
+        <span class="facts">1 node<br>RTO: N/A (single point)<br>RPO: WAL fsync<br>Capacity: up to ~250 M docs</span>
+      </div>
+      <div class="cell">
+        <span class="k">HA CLUSTER</span>
+        <span class="t">STANDARD ·<br><span class="accent">PROD</span></span>
+        <span class="b">Three nodes, one region, synchronous replication. Typical enterprise production footprint.</span>
+        <span class="facts">3 nodes · 1 region<br>RTO: &lt; 30 s<br>RPO: 0 (sync)<br>Capacity: 1–5 B docs</span>
+      </div>
+      <div class="cell">
+        <span class="k">MULTI-REGION <span class="pill road">ROAD&nbsp;Q3</span></span>
+        <span class="t">GLOBAL ·<br><span class="accent">RESILIENT</span></span>
+        <span class="b">Active-active across regions. Async cross-region replication. Failover via control-plane DNS swap.</span>
+        <span class="facts">3 + 3 nodes · 2 regions<br>RTO: &lt; 2 min<br>RPO: async (sub-sec)<br>Capacity: &gt; 10 B docs</span>
+      </div>
+    </div>
+
+    <div class="sp-6"></div>
+
+    <div class="topo-grid">
+      <div class="cell">
+        <span class="k">AIR-GAPPED</span>
+        <span class="t">ON-PREM ·<br><span class="accent">REGULATED</span></span>
+        <span class="b">No internet. Offline artifact bundle · license file · offline update channel. Deployable to a sealed rack or SCIF.</span>
+        <span class="facts">1–N nodes<br>No telemetry egress<br>Offline signed updates<br>Target: GOV · HEALTH · FIN</span>
+      </div>
+      <div class="cell">
+        <span class="k">BYOC KUBERNETES</span>
+        <span class="t">CLOUD ·<br><span class="accent">NATIVE</span></span>
+        <span class="b">Helm chart + CRDs. StatefulSet per data-plane role. PVCs for segments; PV for WAL. Tested on EKS, GKE, AKS.</span>
+        <span class="facts">Helm · Terraform <span class="pill road">ROAD Q2</span><br>StorageClass: fast-SSD<br>HPA on CPU + ingest rate<br>Pod-level audit</span>
+      </div>
+      <div class="cell">
+        <span class="k">MANAGED SAAS <span class="pill road">ROAD&nbsp;'27</span></span>
+        <span class="t">HOSTED ·<br><span class="accent">TURNKEY</span></span>
+        <span class="b">Multi-tenant control plane, single-tenant data plane. Predictable pricing per GB ingested + query volume.</span>
+        <span class="facts">Dedicated data plane<br>Shared control plane<br>Region-of-choice<br>BYOK supported</span>
+      </div>
+    </div>
+
+    <div class="grow"></div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · TECHNICAL PRODUCT BRIEF</span>
+    <span class="num">04 / 16</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P5 · UNIFIED DATA PLATFORM                                  -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>05 · UNIFIED DATA PLATFORM</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>05</span><span class="dash">·</span><span>UNIFIED DATA PLATFORM</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">FOUR STORES.<br><span class="accent">ONE ENGINE.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      Every store type shares a single segment cache, a single WAL,
+      a single permission model, and a single query language. The
+      distinctions below are logical — not separate deployments, not
+      separate bills, not separate on-call rotations.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <div class="matrix">
+      <div class="h">STORE TYPE</div>
+      <div class="h">CAPABILITIES</div>
+      <div class="h">STATUS</div>
+
+      <div class="k">FULL-TEXT</div>
+      <div>BM25 scoring · 38 ES query types · 5+ analyzers · per-field overrides · position-aware postings for phrase queries</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">VECTOR</div>
+      <div>HNSW k-NN · cosine / L2 / inner-product · SQ8 (4×) &amp; nibble (8×) quantization · optional float32 re-rank · 4,096 dims</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">COLUMNAR LOGS</div>
+      <div>Columnar doc-values · delta-of-delta timestamps · dictionary + ZSTD keywords · time-partitioned memtables · terms / date-histogram aggs</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">AGENT MEMORY</div>
+      <div>Session-scoped indices · time-decay scoring · token-budget-aware retrieval · native hybrid with vector + keyword signals</div>
+      <div class="status beta">BETA</div>
+
+      <div class="k">METRICS</div>
+      <div>Prometheus remote_write ingest · downsampling · retention tiers · range queries over columnar store</div>
+      <div class="status road">ROAD Q3</div>
+
+      <div class="k">TRACES</div>
+      <div>OTLP ingest · span joins · service-graph materialization · trace-to-log pivot via shared schema</div>
+      <div class="status road">ROAD Q4</div>
+    </div>
+
+    <div class="sp-6"></div>
+
+    <h4>WHY UNIFIED</h4>
+    <div class="sp-2"></div>
+    <div class="kv-row">
+      <div class="k">DATA GRAVITY</div>
+      <div class="v">Logs, embeddings, and metrics describe the same events. Keeping them in one place means queries join at the storage layer, not through a Python orchestrator.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">OPERATIONAL SURFACE</div>
+      <div class="v">One binary to deploy. One config to tune. One audit trail. One backup story. One on-call rotation.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">COST</div>
+      <div class="v">Four vendors collapse to one. Storage is shared across store types — a log index and a vector index live in the same segment file when schemas allow.</div>
+    </div>
+
+    <div class="grow"></div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · TECHNICAL PRODUCT BRIEF</span>
+    <span class="num">05 / 16</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P6 · DATA INGESTION                                         -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>06 · DATA INGESTION &amp; PROCESSING</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>06</span><span class="dash">·</span><span>DATA INGESTION</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">MANY SOURCES.<br><span class="accent">ONE PIPELINE.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      Every ingest path terminates at the same WAL and the same
+      memtable. Durability is guaranteed at <span class="mono">fsync</span>
+      return; visibility follows on flush. Back-pressure propagates
+      to the producer so clients never silently drop.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <h4>SUPPORTED PROTOCOLS &amp; FORMATS</h4>
+    <div class="sp-2"></div>
+
+    <div class="matrix">
+      <div class="h">PROTOCOL / FORMAT</div>
+      <div class="h">USE CASE</div>
+      <div class="h">STATUS</div>
+
+      <div class="k">ES _BULK API</div>
+      <div>Drop-in for existing Beats, Logstash, Filebeat pipelines. Newline-delimited action + doc pairs.</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">JSON / NDJSON</div>
+      <div>Direct HTTP ingest for app logs, custom producers, agent traces. One object per line.</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">OTLP / HTTP</div>
+      <div>OpenTelemetry logs + traces. Standard collectors (Otel Collector, Vector) without a translator.</div>
+      <div class="status beta">BETA</div>
+
+      <div class="k">SYSLOG (RFC 5424)</div>
+      <div>Legacy infrastructure ingest. UDP + TCP listeners, per-source parsing rules.</div>
+      <div class="status road">ROAD Q2</div>
+
+      <div class="k">PROMETHEUS REMOTE_WRITE</div>
+      <div>Metrics ingest compatible with existing scrapers. Maps series to columnar store.</div>
+      <div class="status road">ROAD Q3</div>
+
+      <div class="k">KAFKA SOURCE</div>
+      <div>Pull-based ingest from Kafka topics. Exactly-once via consumer-group offset commits.</div>
+      <div class="status road">ROAD Q3</div>
+
+      <div class="k">S3 / GCS / BLOB</div>
+      <div>Batch import from object storage. Daily log archives, parquet snapshots, embedding dumps.</div>
+      <div class="status road">ROAD Q4</div>
+    </div>
+
+    <div class="sp-6"></div>
+
+    <h4>RELIABILITY GUARANTEES</h4>
+    <div class="sp-2"></div>
+
+    <div class="kv-row">
+      <div class="k">DURABILITY</div>
+      <div class="v">Every accepted document is persisted to WAL with <span class="mono">fsync</span> + CRC32C before ACK. Crash recovery replays from the last checkpoint, idempotent per <span class="mono">seq_no</span>.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">BACK-PRESSURE</div>
+      <div class="v">Ingest returns 429 / <span class="mono">Retry-After</span> when the WAL queue exceeds the watermark. Producers slow down; no silent drops.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">SCHEMA HANDLING</div>
+      <div class="v">Segment-scoped schema. Field additions take effect on the next memtable flush — no global reindex, no service restart.</div>
+    </div>
+
+    <div class="grow"></div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · TECHNICAL PRODUCT BRIEF</span>
+    <span class="num">06 / 16</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P7 · SEARCH & RETRIEVAL                                     -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>07 · SEARCH &amp; RETRIEVAL</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>07</span><span class="dash">·</span><span>SEARCH &amp; RETRIEVAL</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">KEYWORD.<br>VECTOR.<br><span class="accent">ONE QUERY.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      Hybrid retrieval is the default, not a feature. A single query
+      can express a keyword filter, a semantic clause, an aggregation,
+      and a time-window constraint — the planner composes and
+      executes them in one pass.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <div class="matrix">
+      <div class="h">CAPABILITY</div>
+      <div class="h">DETAIL</div>
+      <div class="h">STATUS</div>
+
+      <div class="k">FULL-TEXT</div>
+      <div>BM25 · k1 / b tunable · 38 ES query types (term · match · bool · phrase · fuzzy · wildcard · prefix · multi_match · …)</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">VECTOR SEARCH</div>
+      <div>HNSW k-NN · per-index quantization choice · runtime-tunable <span class="mono">ef_search</span> trading recall for latency</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">HYBRID MERGE</div>
+      <div>Reciprocal Rank Fusion (RRF) — ranks from keyword + vector combined without magnitude calibration. In-process, single pass.</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">UNIFIED PLANNER</div>
+      <div>Shared cost model across FTS, vector, and aggregations. Joint top-K cut-off across signals.</div>
+      <div class="status road">ROAD Q3</div>
+
+      <div class="k">AGGREGATIONS</div>
+      <div>terms · date_histogram · histogram · percentiles · composite · stats · avg / sum / min / max. ES-compatible shapes.</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">EXPLAIN PLAN</div>
+      <div>Every query plan is queryable via <span class="mono">POST /v1/indices/{i}/explain-plan</span>. Per-node cost + row counts. First-class endpoint.</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">SCROLL / PIT</div>
+      <div>Point-in-time snapshots + scroll cursors for large result sets. ES-compat semantics.</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">SQL OVER HTTP</div>
+      <div>ANSI-SQL frontend over the same storage. BI tools connect via standard JDBC / ODBC.</div>
+      <div class="status road">ROAD Q4</div>
+    </div>
+
+    <div class="sp-6"></div>
+
+    <h4>GOVERNANCE &amp; COST CONTROL</h4>
+    <div class="sp-2"></div>
+
+    <div class="kv-row">
+      <div class="k">PER-QUERY COST</div>
+      <div class="v">The explain-plan returns CPU, I/O, and row-scan estimates before execution — and realized counts after. Quotas and circuit-breakers enforced at the API.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">CIRCUIT-BREAKERS</div>
+      <div class="v">Per-request heap · per-request time · per-tenant concurrency · per-index doc-scan ceiling. Triggers return a structured error with the budget that was exceeded.</div>
+    </div>
+
+    <div class="grow"></div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · TECHNICAL PRODUCT BRIEF</span>
+    <span class="num">07 / 16</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P8 · INTEGRATION ECOSYSTEM                                  -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>08 · INTEGRATION ECOSYSTEM</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>08</span><span class="dash">·</span><span>INTEGRATION ECOSYSTEM</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">YOUR STACK.<br><span class="accent">UNCHANGED.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      XERJ's integration strategy is to implement standard
+      protocols rather than ship bespoke adapters. Anything that
+      speaks Elasticsearch 8.13 or OpenTelemetry works out of the
+      box.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <div class="int-grid">
+      <div class="group">
+        <h4>CLIENT LIBRARIES</h4>
+        <div class="list">
+          elasticsearch-py · elasticsearch-js · elasticsearch-java <span class="mute">· via ES wire</span><br>
+          Go, .NET, Rust — any OSS client targeting ES 8.x
+        </div>
+      </div>
+      <div class="group">
+        <h4>INGEST COLLECTORS</h4>
+        <div class="list">
+          Beats · Filebeat · Logstash · Vector <span class="mute">· ES output</span><br>
+          OpenTelemetry Collector <span class="mute">· OTLP (beta)</span>
+        </div>
+      </div>
+      <div class="group">
+        <h4>DASHBOARDS &amp; BI</h4>
+        <div class="list">
+          Kibana <span class="mute">· ES backend, community-validated</span><br>
+          Grafana <span class="mute">· ES datasource · Prometheus scrape</span><br>
+          Tableau · Power BI <span class="mute">· SQL frontend (roadmap Q4)</span>
+        </div>
+      </div>
+      <div class="group">
+        <h4>AI &amp; RAG FRAMEWORKS</h4>
+        <div class="list">
+          LangChain · LlamaIndex <span class="mute">· ES retriever</span><br>
+          Haystack · DSPy <span class="mute">· ES backend</span><br>
+          Custom embedders via pluggable provider interface
+        </div>
+      </div>
+      <div class="group">
+        <h4>IDENTITY &amp; ACCESS</h4>
+        <div class="list">
+          OIDC / SAML 2.0 <span class="mute">· roadmap Q2</span><br>
+          SCIM provisioning <span class="mute">· roadmap Q3</span><br>
+          AWS IAM / Azure AD / Okta <span class="mute">· roadmap Q2</span>
+        </div>
+      </div>
+      <div class="group">
+        <h4>OBSERVABILITY</h4>
+        <div class="list">
+          Prometheus <span class="mute">· /metrics first-class</span><br>
+          OTLP export <span class="mute">· roadmap Q3</span><br>
+          Structured JSON logs <span class="mute">· stdout by default</span>
+        </div>
+      </div>
+      <div class="group">
+        <h4>DEPLOYMENT &amp; AUTOMATION</h4>
+        <div class="list">
+          Helm chart · Kubernetes Operator <span class="mute">· roadmap Q2</span><br>
+          Terraform module <span class="mute">· roadmap Q2</span><br>
+          Ansible playbooks <span class="mute">· community</span>
+        </div>
+      </div>
+      <div class="group">
+        <h4>BACKUP &amp; DR</h4>
+        <div class="list">
+          S3 / GCS / Azure Blob <span class="mute">· snapshot target</span><br>
+          Restic / Kopia <span class="mute">· community, file-level</span><br>
+          Cross-region replication <span class="mute">· roadmap Q3</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grow"></div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · TECHNICAL PRODUCT BRIEF</span>
+    <span class="num">08 / 16</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P9 · SECURITY · COMPLIANCE · GOVERNANCE                     -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>09 · SECURITY · COMPLIANCE · GOVERNANCE</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>09</span><span class="dash">·</span><span>SECURITY &amp; COMPLIANCE</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">ZERO-TRUST READY.<br><span class="accent">AUDIT-GRADE.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      The security model assumes a hostile network. Mutual TLS
+      between services, per-request authorization, and a structured
+      audit log of every privileged operation. Compliance
+      certifications are on the roadmap; the engineering controls
+      that those certifications require are either shipped or in
+      flight.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <h4>CONTROLS</h4>
+    <div class="sp-2"></div>
+
+    <div class="matrix">
+      <div class="h">CONTROL</div>
+      <div class="h">IMPLEMENTATION</div>
+      <div class="h">STATUS</div>
+
+      <div class="k">TLS IN TRANSIT</div>
+      <div>TLS 1.3 on all listeners. Cipher suites restricted to modern AEAD. Certificate rotation without restart.</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">ENCRYPTION AT REST</div>
+      <div>AES-256-GCM on segment and WAL files. Keys in an external KMS (AWS KMS, GCP KMS, HashiCorp Vault).</div>
+      <div class="status beta">BETA</div>
+
+      <div class="k">BYOK</div>
+      <div>Customer-managed keys via KMS. No XERJ-side plaintext access. Rotation documented.</div>
+      <div class="status road">ROAD Q2</div>
+
+      <div class="k">RBAC</div>
+      <div>Role-based access at cluster, index, and field level. Built-in roles + custom roles. Integrated with OIDC groups.</div>
+      <div class="status road">ROAD Q2</div>
+
+      <div class="k">AUDIT TRAIL</div>
+      <div>Structured log of every privileged operation: query, schema change, role assignment, snapshot. Replayable, exportable.</div>
+      <div class="status beta">BETA</div>
+
+      <div class="k">MULTI-TENANCY</div>
+      <div>Tenant-isolated indices, metrics, and quota. Per-tenant RBAC. Physical isolation via separate clusters.</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">AIR-GAPPED UPDATES</div>
+      <div>Offline bundle + signed release manifest. Verified on install. No telemetry egress when <span class="mono">XERJ_AIRGAP=1</span>.</div>
+      <div class="status ga">GA</div>
+    </div>
+
+    <div class="sp-6"></div>
+
+    <h4>CERTIFICATIONS &amp; ATTESTATIONS</h4>
+    <div class="sp-2"></div>
+
+    <div class="matrix">
+      <div class="h">STANDARD</div>
+      <div class="h">SCOPE</div>
+      <div class="h">STATUS</div>
+
+      <div class="k">SOC 2 TYPE I</div>
+      <div>Platform controls · access management · change management · incident response</div>
+      <div class="status road">ROAD Q3 2026</div>
+
+      <div class="k">SOC 2 TYPE II</div>
+      <div>12-month operating effectiveness. Follows Type I.</div>
+      <div class="status road">ROAD Q2 2027</div>
+
+      <div class="k">ISO 27001</div>
+      <div>ISMS scope covers XERJ platform engineering + SaaS operations</div>
+      <div class="status road">ROAD Q4 2026</div>
+
+      <div class="k">HIPAA / HITECH</div>
+      <div>BAA available on Enterprise tier. Self-hosted deployments inherit customer controls.</div>
+      <div class="status road">ROAD 2027</div>
+
+      <div class="k">GDPR / DATA RESIDENCY</div>
+      <div>Self-hosted = customer chooses region. SaaS: region-pinned data plane.</div>
+      <div class="status ga">GA (self-hosted)</div>
+    </div>
+
+    <div class="grow"></div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · TECHNICAL PRODUCT BRIEF</span>
+    <span class="num">09 / 16</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P10 · SCALABILITY &amp; PERFORMANCE                          -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>10 · SCALABILITY &amp; PERFORMANCE</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>10</span><span class="dash">·</span><span>SCALABILITY &amp; PERFORMANCE</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">MEASURED.<br>REPRODUCIBLE.<br><span class="accent">SCALE-OUT.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      Every number below comes from a dated, checked-in battle
+      report under <span class="mono">engine/releases/v0.1.0/reports/</span>
+      with a reproduction script. Scale rows above 1 node are
+      projections pending the <span class="pill road">Q3</span>
+      sharded-ingest GA.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <h4>PERFORMANCE PROFILE · PER NODE</h4>
+    <div class="sp-2"></div>
+
+    <div class="perf">
+      <div class="h">METRIC</div>
+      <div class="h n">VALUE</div>
+      <div class="h n">AT SCALE</div>
+      <div class="h n">VS ES 8.13</div>
+      <div class="h n">SOURCE</div>
+
+      <div>Cold start</div>
+      <div class="n">50 ms</div>
+      <div class="n">same</div>
+      <div class="n accent">300×</div>
+      <div class="n">SIEM_BATTLE</div>
+
+      <div>Idle RSS</div>
+      <div class="n">400 MB</div>
+      <div class="n">+~200 MB / idx</div>
+      <div class="n accent">21×</div>
+      <div class="n">SIEM_BATTLE</div>
+
+      <div>Binary size</div>
+      <div class="n">13 MB</div>
+      <div class="n">static</div>
+      <div class="n accent">56×</div>
+      <div class="n">release</div>
+
+      <div>SIEM top-source-IPs</div>
+      <div class="n">0.4 ms p95</div>
+      <div class="n">1 M events</div>
+      <div class="n accent">74×</div>
+      <div class="n">SIEM_BATTLE</div>
+
+      <div>NGINX terms agg</div>
+      <div class="n">0.4 ms p95</div>
+      <div class="n">5 distinct</div>
+      <div class="n accent">89×</div>
+      <div class="n">CLUSTER_BATTLE</div>
+
+      <div>Hybrid query p95</div>
+      <div class="n">38 ms</div>
+      <div class="n">1 B vectors</div>
+      <div class="n accent">n/a</div>
+      <div class="n">hybrid_bench</div>
+
+      <div>Disk · 1 M SIEM events</div>
+      <div class="n">85 MB</div>
+      <div class="n">post-ingest</div>
+      <div class="n accent">2.8×</div>
+      <div class="n">SIEM_BATTLE</div>
+
+      <div>Vector memory · 10 M × 1536</div>
+      <div class="n">18 GB</div>
+      <div class="n">SQ8</div>
+      <div class="n accent">5.1×</div>
+      <div class="n">RAG_BENCH</div>
+    </div>
+
+    <div class="sp-6"></div>
+
+    <h4>CAPACITY-PLANNING HEURISTIC</h4>
+    <div class="sp-2"></div>
+
+    <div class="kv-row">
+      <div class="k">SIEM WORKLOAD</div>
+      <div class="v">~50 M events / node / day sustained · hot retention 30 d · 1 node covers ~1.5 B events / 85 GB disk.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">RAG WORKLOAD</div>
+      <div class="v">~55 M × 768-dim embeddings / node at SQ8 · query p95 &lt; 40 ms · rebuild HNSW at 10 % churn.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">OBSERVABILITY</div>
+      <div class="v">~80 K events / sec sustained ingest single-client · diurnal pattern · write-stalls rare under documented sizing.</div>
+    </div>
+
+    <div class="grow"></div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · TECHNICAL PRODUCT BRIEF</span>
+    <span class="num">10 / 16</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P11 · HIGH AVAILABILITY &amp; DR                             -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>11 · HIGH AVAILABILITY &amp; DISASTER RECOVERY</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>11</span><span class="dash">·</span><span>HA &amp; DR</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">SURVIVE THE<br><span class="accent">UNEXPECTED.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      HA and DR are separate concerns. HA keeps the platform
+      available when nodes or zones fail; DR restores operation
+      when a region or dataset is lost. XERJ addresses them with
+      different mechanisms — replication for HA, snapshots for DR.
+    </p>
+
+    <div class="sp-6"></div>
+
+    <h4>AVAILABILITY MODEL</h4>
+    <div class="sp-2"></div>
+
+    <div class="kv-row">
+      <div class="k">REPLICATION</div>
+      <div class="v">Primary + N replicas per index · sync for the HA cluster topology · async for cross-region <span class="pill road">ROAD Q3</span>. Quorum writes.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">FAILURE DETECTION</div>
+      <div class="v">Gossip-based health · bounded-latency failover · automatic replica promotion · control-plane notification.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">READ-PATH CONTINUITY</div>
+      <div class="v">Lock-free reader view — a failover swaps the pointer · in-flight queries complete on the stale view · new queries hit the new primary.</div>
+    </div>
+
+    <div class="sp-6"></div>
+
+    <h4>DISASTER RECOVERY</h4>
+    <div class="sp-2"></div>
+
+    <div class="kv-row">
+      <div class="k">SNAPSHOTS</div>
+      <div class="v">Segment-level snapshots to S3 / GCS / Azure Blob. Incremental (only new segments). Encrypted with customer KMS keys (BYOK <span class="pill road">Q2</span>).</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">RESTORE</div>
+      <div class="v">Point-in-time restore at segment granularity. Replay WAL from snapshot to exact <span class="mono">seq_no</span>. Warm standby mounts snapshots for near-zero RTO.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">CROSS-REGION DR</div>
+      <div class="v">Async replication of primary segments to a standby region. DNS-based failover. <span class="pill road">ROAD Q3 2026</span>.</div>
+    </div>
+
+    <div class="sp-6"></div>
+
+    <h4>RTO / RPO TARGETS BY TOPOLOGY</h4>
+    <div class="sp-2"></div>
+
+    <div class="perf" style="grid-template-columns: 1.6in repeat(3, 1fr);">
+      <div class="h">TOPOLOGY</div>
+      <div class="h n">RTO</div>
+      <div class="h n">RPO</div>
+      <div class="h n">AVAILABILITY</div>
+
+      <div>Single-node</div>
+      <div class="n">minutes</div>
+      <div class="n">fsync</div>
+      <div class="n">best effort</div>
+
+      <div>HA cluster · 3-node</div>
+      <div class="n">&lt; 30 s</div>
+      <div class="n">0 (sync)</div>
+      <div class="n">99.95 %</div>
+
+      <div>Multi-region active-active</div>
+      <div class="n">&lt; 2 min</div>
+      <div class="n">sub-second</div>
+      <div class="n">99.99 %</div>
+
+      <div>Air-gapped · 3-node</div>
+      <div class="n">&lt; 30 s</div>
+      <div class="n">0 (sync)</div>
+      <div class="n">99.95 %</div>
+    </div>
+
+    <div class="grow"></div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · TECHNICAL PRODUCT BRIEF</span>
+    <span class="num">11 / 16</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P12 · REFERENCE ARCHITECTURES                               -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>12 · REFERENCE ARCHITECTURES</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>12</span><span class="dash">·</span><span>REFERENCE ARCHITECTURES</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">FOUR BLUEPRINTS.<br><span class="accent">ONE PLATFORM.</span></h2>
+
+    <div class="sp-4"></div>
+    <p class="body">
+      Each blueprint is a validated topology with named upstreams,
+      named consumers, retention policy, and sizing guidance. Every
+      blueprint uses the same XERJ binary — what changes is the
+      ingest surface, retention, and connected tools.
+    </p>
+
+    <div class="sp-4"></div>
+
+    <div class="arch-pre"><span class="accent">01 · SIEM MODERNIZATION</span>                                          <span class="mute">CISO · SOC</span>
+  Firewall · endpoint · auth logs ──▶ Vector/Filebeat ──▶ XERJ (ES _bulk)
+     ────▶ Kibana dashboards · alerting via explain-plan triggers
+     retention 30 d hot · 90 d warm · 1 y cold
+     sizing: 3-node · ~50 M events/node/day · disk ~2.5 TB/node
+
+<span class="accent">02 · RAG AT ENTERPRISE SCALE</span>                                      <span class="mute">CDO · CAIO</span>
+  Documents ──▶ embedder (Voyage · OpenAI) ──▶ XERJ hybrid index
+     ────▶ LangChain / LlamaIndex retriever ──▶ application
+     quantization SQ8 default · float32 re-rank for top-K
+     sizing: ~55 M × 768-dim embeddings/node · hybrid p95 &lt; 40 ms
+
+<span class="accent">03 · UNIFIED OBSERVABILITY</span>                                       <span class="mute">SRE · PLATFORM</span>
+  App + infra ──▶ Otel Collector ──▶ XERJ (OTLP beta)
+     ────▶ Grafana via Prometheus remote_read · alerting
+     retention: metrics 30 d raw · logs 14 d hot · traces 7 d
+     sizing: 3-node · ~80 K events/sec sustained · 6 → 1 stack
+
+<span class="accent">04 · AGENT MEMORY PLATFORM</span>                                       <span class="mute">AI PLATFORM</span>
+  Agent runtime ──▶ XERJ session indices (time-decay scoring)
+     ────▶ native hybrid retrieval · token-budget-aware
+     retention: 90 d · tenant-isolated per team
+     sizing: session-scoped indices · linear with active-agent count</div>
+
+    <div class="grow"></div>
+
+    <div class="kicker">
+      <span>EACH BLUEPRINT</span>
+      <span class="dash">·</span>
+      <span>NAMED UPSTREAMS · DOCUMENTED RETENTION · SIZING TABLE</span>
+    </div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · TECHNICAL PRODUCT BRIEF</span>
+    <span class="num">12 / 16</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P13 · COMPARISON WITH LEGACY STACKS                         -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>13 · COMPARISON · LEGACY STACKS</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>13</span><span class="dash">·</span><span>COMPARISON</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene" style="font-size:34pt;">WHERE THE<br><span class="accent">CONSOLIDATION</span> COMES FROM.</h2>
+
+    <div class="sp-3"></div>
+    <p class="body">
+      Three stacks an architect typically inherits. The XERJ column
+      lists what one deployment of XERJ replaces — not what it
+      adds on top.
+    </p>
+
+    <div class="sp-4"></div>
+
+    <h4>XERJ vs ES + PINECONE + REDIS (RAG STACK)</h4>
+    <div class="sp-2"></div>
+    <div class="versus">
+      <div class="h">AXIS</div>
+      <div class="h a">XERJ</div>
+      <div class="h">LEGACY RAG STACK</div>
+
+      <div class="dim">Systems</div>
+      <div>1 binary</div>
+      <div>3 systems + orchestrator</div>
+
+      <div class="dim">Hybrid retrieval</div>
+      <div>Native RRF, one query</div>
+      <div>Python orchestrator merges two HTTP calls</div>
+
+      <div class="dim">Vector memory · 10 M × 1.5 K dim</div>
+      <div><span class="accent">18 GB</span> (SQ8)</div>
+      <div>92 GB (float32)</div>
+
+      <div class="dim">Vendor contracts</div>
+      <div>One</div>
+      <div>Three + framework</div>
+    </div>
+
+    <div class="sp-4"></div>
+
+    <h4>XERJ vs ELASTIC STACK (ES + KIBANA + LOGSTASH)</h4>
+    <div class="sp-2"></div>
+    <div class="versus">
+      <div class="h">AXIS</div>
+      <div class="h a">XERJ</div>
+      <div class="h">ELASTIC STACK 8.13</div>
+
+      <div class="dim">Ingest binaries</div>
+      <div>1 (built-in _bulk)</div>
+      <div>2 (ES + Logstash)</div>
+
+      <div class="dim">Idle cluster memory</div>
+      <div><span class="accent">400 MB</span> · 1 node</div>
+      <div>8.5 GB · 4-node</div>
+
+      <div class="dim">Cold start</div>
+      <div><span class="accent">50 ms</span></div>
+      <div>~15 s JVM warm-up</div>
+
+      <div class="dim">Client compatibility</div>
+      <div>ES 8.13 wire-protocol</div>
+      <div>ES 8.13 native</div>
+    </div>
+
+    <div class="sp-4"></div>
+
+    <h4>XERJ vs SPLUNK + PROM + TEMPO (OBSERVABILITY)</h4>
+    <div class="sp-2"></div>
+    <div class="versus">
+      <div class="h">AXIS</div>
+      <div class="h a">XERJ</div>
+      <div class="h">SPLUNK + PROM + TEMPO</div>
+
+      <div class="dim">Binaries</div>
+      <div>1</div>
+      <div>6</div>
+
+      <div class="dim">Query languages</div>
+      <div>1 (ES DSL + SQL roadmap)</div>
+      <div>3 (SPL + PromQL + TraceQL)</div>
+
+      <div class="dim">Monthly bill lines</div>
+      <div>1</div>
+      <div>5</div>
+
+      <div class="dim">Retention policies</div>
+      <div>1 unified</div>
+      <div>3 separate</div>
+    </div>
+
+    <div class="grow"></div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · TECHNICAL PRODUCT BRIEF</span>
+    <span class="num">13 / 16</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P14 · OPERATIONS · SIZING · OBSERVABILITY                   -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>14 · OPERATIONS &amp; SIZING</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>14</span><span class="dash">·</span><span>OPERATIONS</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">DAY TWO.<br><span class="accent">BOARD-READABLE.</span></h2>
+
+    <div class="sp-4"></div>
+
+    <h4>NODE REQUIREMENTS</h4>
+    <div class="sp-2"></div>
+
+    <div class="perf" style="grid-template-columns: 1.3in repeat(3, 1fr) 1fr;">
+      <div class="h">PROFILE</div>
+      <div class="h n">CPU</div>
+      <div class="h n">MEMORY</div>
+      <div class="h n">DISK</div>
+      <div class="h n">NETWORK</div>
+
+      <div>Small · pilot</div>
+      <div class="n">4 vCPU</div>
+      <div class="n">16 GB</div>
+      <div class="n">500 GB NVMe</div>
+      <div class="n">1 Gbps</div>
+
+      <div>Medium · prod</div>
+      <div class="n">8 vCPU</div>
+      <div class="n">64 GB</div>
+      <div class="n">2 TB NVMe</div>
+      <div class="n">10 Gbps</div>
+
+      <div>Large · scale-out</div>
+      <div class="n">16 vCPU</div>
+      <div class="n">128 GB</div>
+      <div class="n">8 TB NVMe</div>
+      <div class="n">25 Gbps</div>
+    </div>
+
+    <div class="sp-6"></div>
+
+    <h4>OBSERVABILITY OUT OF THE BOX</h4>
+    <div class="sp-2"></div>
+
+    <div class="kv-row">
+      <div class="k">METRICS</div>
+      <div class="v">Prometheus on <span class="mono">/metrics</span>. 13 counters / histograms / gauges across ingest, query, flush, cache. Per-instance registry — no global-singleton label collisions.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">HEALTH / READINESS</div>
+      <div class="v"><span class="mono">GET /healthz</span> for liveness. <span class="mono">GET /readyz</span> holds until WAL replay completes — rolling restart fleet-safe by default.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">LOGS</div>
+      <div class="v">Structured JSON to stdout. One event per line. Correlation ID on every request. Tail with <span class="mono">jq</span>, ship with any log-forwarding agent.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">UPGRADES</div>
+      <div class="v">Rolling restart supported. Segment and WAL formats are forward-compatible across minor versions. One-minor-version window for rollback.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">CONFIG</div>
+      <div class="v">Single TOML file · <span class="mono">XERJ_CONFIG</span> env · hot-reload via SIGHUP on non-structural changes. Config schema validated on load.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">BACKUP · RESTORE</div>
+      <div class="v">Snapshots to object storage. Incremental, encrypted, restorable at segment granularity. <span class="mono">xerj snapshot create|list|restore</span>.</div>
+    </div>
+
+    <div class="grow"></div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · TECHNICAL PRODUCT BRIEF</span>
+    <span class="num">14 / 16</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P15 · LICENSING · SUPPORT · ROADMAP                         -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>15 · LICENSING · SUPPORT · ROADMAP</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>15</span><span class="dash">·</span><span>LICENSING &amp; SUPPORT</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">THREE TIERS.<br><span class="accent">ONE ENGINE.</span></h2>
+
+    <div class="sp-4"></div>
+
+    <div class="tiers">
+      <div class="tier">
+        <span class="k">TIER 01</span>
+        <span class="t">COMMUNITY</span>
+        <ul>
+          <li>Full feature set · single-node</li>
+          <li>Community support · GitHub · forum</li>
+          <li>No SLA</li>
+          <li>Ideal for POCs, dev, OSS projects</li>
+        </ul>
+      </div>
+      <div class="tier">
+        <span class="k">TIER 02</span>
+        <span class="t">PROFESSIONAL</span>
+        <ul>
+          <li>HA cluster · 3 nodes</li>
+          <li>Business-hours support · 24 h response</li>
+          <li>99.95 % availability SLA</li>
+          <li>Quarterly health review</li>
+          <li>Certified releases only</li>
+        </ul>
+      </div>
+      <div class="tier ent">
+        <span class="k">TIER 03</span>
+        <span class="t">ENTERPRISE</span>
+        <ul>
+          <li>Multi-region · air-gapped · BYOK</li>
+          <li>24×7 support · 1 h response</li>
+          <li>99.99 % availability SLA</li>
+          <li>Dedicated CSM + solutions architect</li>
+          <li>Private roadmap input · early-access builds</li>
+          <li>HIPAA BAA · custom compliance</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="sp-8"></div>
+
+    <h4>ROADMAP · 12 MONTHS</h4>
+    <div class="sp-2"></div>
+
+    <div class="road-rail">
+      <div class="q">Q2</div>
+      <div class="t">2026<br><span class="accent">FOUNDATION</span></div>
+      <div>OIDC + SAML · RBAC · Helm chart · Terraform module · syslog ingest · BYOK encryption-at-rest</div>
+
+      <div class="q">Q3</div>
+      <div class="t">2026<br><span class="accent">SCALE</span></div>
+      <div>Sharded ingest · cross-region async replication · Prometheus remote_write ingest · Kafka source · SOC 2 Type I</div>
+
+      <div class="q">Q4</div>
+      <div class="t">2026<br><span class="accent">SURFACE</span></div>
+      <div>SQL over HTTP · S3/GCS batch import · OTLP trace support · ISO 27001 · ML-ranking hooks</div>
+
+      <div class="q">'27</div>
+      <div class="t">2027<br><span class="accent">MANAGED</span></div>
+      <div>Hosted SaaS offering · region-pinned · BYOK standard · HIPAA BAA · FedRAMP Moderate pursuit</div>
+    </div>
+
+    <div class="grow"></div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · TECHNICAL PRODUCT BRIEF</span>
+    <span class="num">15 / 16</span>
+  </div>
+</section>
+
+<!-- =========================================================== -->
+<!-- P16 · GET STARTED · CONTACT                                 -->
+<!-- =========================================================== -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>16 · GET STARTED</span>
+  </div>
+
+  <div class="grow flex col">
+    <div class="sp-10"></div>
+    <div class="kicker"><span>16</span><span class="dash">·</span><span>GET STARTED</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">PROVE IT<br><span class="accent">ON YOUR DATA.</span></h2>
+
+    <div class="sp-6"></div>
+
+    <p class="body">
+      The fastest path is a two-week pilot on a real workload. We
+      send the binary and the reproduction scripts for every number
+      in this brief. You send one SIEM / RAG / observability
+      workload. We meet again in two weeks with your numbers, not
+      ours.
+    </p>
+
+    <div class="sp-8"></div>
+
+    <div style="padding: 28px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);">
+      <div class="kicker"><span>CONTACT</span></div>
+      <div class="sp-3"></div>
+      <div style="font-family: var(--font-display); font-weight: 900; font-size: 42pt; line-height:1; letter-spacing: 0.01em;">
+        HELLO<span class="accent">@</span>XERJ.AI
+      </div>
+      <div class="sp-3"></div>
+      <div style="font-family: var(--font-data); font-size: 9pt; letter-spacing: var(--track-ui); text-transform: uppercase; color: var(--mute);">
+        XERJ.AI · XERJ.COM · XERJ.DEV
+      </div>
+    </div>
+
+    <div class="sp-6"></div>
+
+    <h4>PILOT PROCESS</h4>
+    <div class="sp-2"></div>
+
+    <div class="kv-row">
+      <div class="k">WEEK 0</div>
+      <div class="v">Scoping call · pick workload · sign mutual NDA if needed (not required to receive binary).</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">WEEK 1</div>
+      <div class="v">Deploy binary in your environment · reproduce our battle reports on sample data · smoke-test ES client compatibility.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">WEEK 2</div>
+      <div class="v">Shadow-deploy against your workload · compare latency, cost, memory. Results meeting: your numbers, your hardware, your decision.</div>
+    </div>
+
+    <div class="grow"></div>
+
+    <div class="kicker">
+      <span>XERJ.AI</span>
+      <span class="dash">·</span>
+      <span>TECHNICAL PRODUCT BRIEF · V1</span>
+      <span class="dash">·</span>
+      <span>ENGINE V0.1 · 2026-04</span>
+    </div>
+  </div>
+
+  <div class="foot-row">
+    <span>XERJ · TECHNICAL PRODUCT BRIEF</span>
+    <span class="num">16 / 16</span>
+  </div>
+</section>
+
+</body>
+</html>

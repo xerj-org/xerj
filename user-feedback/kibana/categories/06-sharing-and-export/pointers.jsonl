@@ -1,0 +1,815 @@
+{"id":"disc-866233","source":"discourse","score":7,"posted_at":"2020-08-25T16:12:34.398Z","tags":[],"title":"When relocating/initializing 3 or more shards, ES is overloaded, REST API is very slow, Kibana and es-exporter cannot reach ES","_secondary":true}
+{"id":"disc-729492","source":"discourse","score":3,"posted_at":"2019-10-29T16:03:16.198Z","tags":["slow-dashboard"],"title":"Kibana embedded dashboard is slow"}
+{"id":"disc-401165","source":"discourse","score":6,"posted_at":"2017-12-01T16:48:21.177Z","tags":[],"title":"Kibana 6 URL Shortener extremely slow"}
+{"id":"disc-99204","source":"discourse","score":7,"posted_at":"2015-09-18T13:29:20.213Z","tags":[],"title":"Kibana upgrade from 4.0.3 to 4.1.1 very slow","_secondary":true}
+{"id":"disc-1048833","source":"discourse","score":6,"posted_at":"2022-02-07T04:44:51.758Z","tags":["slow-dashboard"],"title":"Kibana Sizing Guide?","_secondary":true}
+{"id":"disc-600371","source":"discourse","score":4,"posted_at":"2019-02-12T05:30:29.293Z","tags":[],"title":"Can i import other web page(html with javascript) to Kibana like iframe or frame?","_secondary":true}
+{"id":"disc-593538","source":"discourse","score":6,"posted_at":"2019-01-26T14:56:23.824Z","tags":[],"title":"Make functionbeat logs show in \"Logs\" section of Kibana","_secondary":true}
+{"id":"disc-715936","source":"discourse","score":2,"posted_at":"2019-09-30T03:56:45.723Z","tags":[],"title":"Not seeing any exported fields for MySQL logs","_secondary":true}
+{"id":"disc-1045163","source":"discourse","score":4,"posted_at":"2022-01-25T18:16:53.280Z","tags":[],"title":"Setup lifecycle of \"infra\" plugin wasn't completed in 10sec. Consider disabling the plugin and re-start","_secondary":true}
+{"id":"disc-363999","source":"discourse","score":4,"posted_at":"2017-09-01T21:45:07.909Z","tags":[],"title":"How do I improve performance/response time of exported Kibana graphs and dashboard","_secondary":true}
+{"id":"disc-748445","source":"discourse","score":18,"posted_at":"2019-12-12T15:09:37.684Z","tags":[],"title":"Elastic cluster slow down afre a few weeks of uptime(cluster recommendations)","_secondary":true}
+{"id":"disc-367912","source":"discourse","score":5,"posted_at":"2017-09-12T15:52:39.257Z","tags":["slow-dashboard"],"title":"Issue while embedding kibana dashboard into website","_secondary":true}
+{"id":"disc-1445651","source":"discourse","score":25,"posted_at":"2026-01-15T10:08:34.100Z","tags":[],"title":"Kibana login broken after trying to enable reporting. \"You do not have permission to access the requested page\" message - Need help to fix it"}
+{"id":"disc-621395","source":"discourse","score":10,"posted_at":"2019-03-27T15:26:24.136Z","tags":[],"title":"KIbana 6.7.0 broken upgrade","_secondary":true}
+{"id":"disc-378657","source":"discourse","score":3,"posted_at":"2017-10-10T15:20:43.811Z","tags":[],"title":"Setting default app and import/export seem broken in kibana 5.6.3","_secondary":true}
+{"id":"disc-1382674","source":"discourse","score":1,"posted_at":"2024-06-25T18:10:48.092Z","tags":["saved-objects"],"title":"Kibana dashboard is broken after cluster migration","_secondary":true}
+{"id":"disc-679424","source":"discourse","score":5,"posted_at":"2019-07-17T22:26:38.437Z","tags":[],"title":"Kibana 6.7 embed=true broken"}
+{"id":"disc-1348648","source":"discourse","score":7,"posted_at":"2024-01-12T16:46:07.353Z","tags":["lens","saved-objects"],"title":"Kibana Lens Dashboard Link Broken 404 Dashboard Not Found","_secondary":true}
+{"id":"disc-1102962","source":"discourse","score":5,"posted_at":"2022-08-03T07:27:46.512Z","tags":[],"title":"Broken data received on kibana from metricbeat prometheus module"}
+{"id":"disc-370297","source":"discourse","score":9,"posted_at":"2017-09-19T05:33:01.097Z","tags":["saved-objects"],"title":"Is export/import of Saved Objects broken?","_secondary":true}
+{"id":"disc-287790","source":"discourse","score":7,"posted_at":"2017-06-17T18:16:50.011Z","tags":[],"title":"Generate PDF url broken in 5.4?"}
+{"id":"disc-166960","source":"discourse","score":6,"posted_at":"2016-06-21T07:18:48.086Z","tags":[],"title":"[Resolved] Korean text is broken when open the exported CSV with Excel"}
+{"id":"disc-1344015","source":"discourse","score":6,"posted_at":"2023-12-19T13:44:08.053Z","tags":["canvas","saved-objects"],"title":"savedVisualization / embeddable in canvas broken after upgrading to version 8.9.2 due to saved Objects Id","_secondary":true}
+{"id":"disc-1106248","source":"discourse","score":6,"posted_at":"2022-08-15T14:56:51.440Z","tags":[],"title":"How to embed dashboard into website with auto login user?"}
+{"id":"disc-1100501","source":"discourse","score":7,"posted_at":"2022-07-26T04:06:50.537Z","tags":[],"title":"Configure Kibana logging.quiet"}
+{"id":"disc-676741","source":"discourse","score":4,"posted_at":"2019-07-12T22:03:55.988Z","tags":["saved-objects"],"title":"Saved object export format for Searches","_secondary":true}
+{"id":"disc-1100496","source":"discourse","score":9,"posted_at":"2022-07-26T03:15:35.267Z","tags":[],"title":"The reporting job failed + Error: Max attempts (3) reached for job X. Failed with: Error: Unable to get index-pattern"}
+{"id":"disc-1098021","source":"discourse","score":3,"posted_at":"2022-07-18T15:28:10.092Z","tags":[],"title":"Documentation for reporting with basic licence is wrong"}
+{"id":"disc-1104574","source":"discourse","score":3,"posted_at":"2022-08-09T07:56:53.241Z","tags":["saved-objects"],"title":"What are the options to integrate interactive graphs into my webapp?"}
+{"id":"disc-598424","source":"discourse","score":5,"posted_at":"2019-02-06T18:34:26.116Z","tags":[],"title":"[RESOLVED] \"No handler found\" while trying to export/import a dashboard in Kibana's Dev Tools","_secondary":true}
+{"id":"gh-kibana-1992","source":"github","score":372,"posted_at":"2014-11-20T17:52:24Z","tags":["discover","csv-export"],"title":"Export Documents as CSV"}
+{"id":"gh-kibana-3668","source":"github","score":72,"posted_at":"2015-04-23T20:25:39Z","tags":[],"title":"Change index on visualization/dashboard","_secondary":true}
+{"id":"gh-kibana-1396","source":"github","score":10,"posted_at":"2014-07-26T11:59:06Z","tags":[],"title":"Horizontal bar chart","_secondary":true}
+{"id":"gh-kibana-205","source":"github","score":0,"posted_at":"2013-07-09T10:19:57Z","tags":["csv-export"],"title":"Export to csv"}
+{"id":"gh-kibana-1553","source":"github","score":8,"posted_at":"2014-10-07T03:57:08Z","tags":[],"title":"Url shortening"}
+{"id":"gh-kibana-1366","source":"github","score":178,"posted_at":"2014-07-15T12:17:10Z","tags":[],"title":"Export chart to image","_secondary":true}
+{"id":"gh-kibana-1640","source":"github","score":7,"posted_at":"2014-10-10T16:59:54Z","tags":["time-picker"],"title":"Generate scheduled reports","_secondary":true}
+{"id":"gh-kibana-509","source":"github","score":15,"posted_at":"2013-09-18T02:20:32Z","tags":[],"title":"Export to PDF ","_secondary":true}
+{"id":"gh-kibana-1552","source":"github","score":0,"posted_at":"2014-10-07T02:11:35Z","tags":["saved-objects"],"title":"Import, export and clone saved objects","_secondary":true}
+{"id":"gh-kibana-12560","source":"github","score":64,"posted_at":"2017-06-29T12:17:44Z","tags":["discover","saved-objects"],"title":"Custom drilldown links for a dashboard panel","_secondary":true}
+{"id":"gh-kibana-17950","source":"github","score":10,"posted_at":"2017-02-10T18:49:56Z","tags":["pdf-export"],"title":"[Reporting] Full data table content must be contained in the pdf generated"}
+{"id":"gh-kibana-97934","source":"github","score":0,"posted_at":"2021-04-21T22:51:06Z","tags":[],"title":"Trace Elasticsearch query to the origin","_secondary":true}
+{"id":"gh-kibana-4288","source":"github","score":45,"posted_at":"2015-06-19T13:33:33Z","tags":["saved-objects"],"title":"Ability to export the index pattern along with saved objects","_secondary":true}
+{"id":"gh-kibana-2739","source":"github","score":21,"posted_at":"2015-01-23T14:33:00Z","tags":[],"title":"Timepicker as part of embedded dashboard"}
+{"id":"gh-kibana-4759","source":"github","score":45,"posted_at":"2015-08-26T15:27:52Z","tags":["saved-objects"],"title":"Expose object import/export as an API","_secondary":true}
+{"id":"gh-kibana-82020","source":"github","score":0,"posted_at":"2020-10-29T14:43:58Z","tags":[],"title":"Removing legacy multitenancy"}
+{"id":"gh-kibana-117492","source":"github","score":1,"posted_at":"2021-11-04T11:34:41Z","tags":["apm"],"title":"Default APM Configurations for monitoring of kibana clusters ","_secondary":true}
+{"id":"gh-kibana-61106","source":"github","score":0,"posted_at":"2020-03-24T16:13:08Z","tags":[],"title":"[Discuss]: Providing plugin's own start contract from core.getStartServices","_secondary":true}
+{"id":"gh-kibana-123550","source":"github","score":0,"posted_at":"2022-01-23T09:53:11Z","tags":["saved-objects"],"title":"Importing saved objects can break \"weak links\"","_secondary":true}
+{"id":"gh-kibana-117255","source":"github","score":0,"posted_at":"2021-11-03T05:23:13Z","tags":["oom"],"title":"[securitySolution] Jest memory leaks","_secondary":true}
+{"id":"gh-kibana-71566","source":"github","score":7,"posted_at":"2020-07-13T23:13:20Z","tags":["discover","alerting"],"title":"[discuss] Move to domain-based directory structure","_secondary":true}
+{"id":"gh-kibana-91615","source":"github","score":0,"posted_at":"2021-02-17T10:04:02Z","tags":["saved-objects"],"title":"Saved objects import/export should include spaces","_secondary":true}
+{"id":"gh-kibana-83910","source":"github","score":0,"posted_at":"2020-11-20T12:45:58Z","tags":["lens","discover","apm"],"title":"[Meta] Switch to the new Elasticsearch client","_secondary":true}
+{"id":"gh-kibana-30982","source":"github","score":46,"posted_at":"2019-02-13T17:47:30Z","tags":["tsvb","saved-objects","csv-export"],"title":"[Reporting] Exporting raw data from table-based visualizations","_secondary":true}
+{"id":"gh-kibana-7499","source":"github","score":29,"posted_at":"2016-06-17T16:51:28Z","tags":["discover"],"title":"Kibana CRUD forms enhancement","_secondary":true}
+{"id":"gh-kibana-100133","source":"github","score":2,"posted_at":"2021-05-14T15:35:30Z","tags":[],"title":"[Stack Monitoring] Change out of the box alerts to be opt-in, rather than auto-created","_secondary":true}
+{"id":"gh-kibana-67611","source":"github","score":6,"posted_at":"2020-05-28T12:44:05Z","tags":["apm"],"title":"[APM] Display related trace logs in the trace sample content","_secondary":true}
+{"id":"gh-kibana-17970","source":"github","score":0,"posted_at":"2017-03-30T01:48:34Z","tags":["apm","saved-objects"],"title":"Kibana Spaces"}
+{"id":"gh-kibana-3148","source":"github","score":9,"posted_at":"2015-02-24T14:58:08Z","tags":[],"title":"Server side visualization rendering","_secondary":true}
+{"id":"gh-kibana-75862","source":"github","score":0,"posted_at":"2020-08-25T11:28:39Z","tags":[],"title":"Non-deterministic behavior while installing a package"}
+{"id":"gh-kibana-60522","source":"github","score":11,"posted_at":"2020-03-18T15:22:15Z","tags":[],"title":"Allow for cookie's `SameSite` attribute to be configurable"}
+{"id":"gh-kibana-60053","source":"github","score":0,"posted_at":"2020-03-12T18:36:22Z","tags":["saved-objects"],"title":"[discuss] Removal of kibana.index configuration setting","_secondary":true}
+{"id":"gh-kibana-11389","source":"github","score":0,"posted_at":"2017-04-24T14:11:16Z","tags":[],"title":"Create Redux Style Guide"}
+{"id":"gh-kibana-199345","source":"github","score":0,"posted_at":"2024-11-07T16:03:11Z","tags":["fleet"],"title":"[Fleet] Allow creation of integration policies on a given agent policy without leaving Fleet UI","_secondary":true}
+{"id":"gh-kibana-159965","source":"github","score":0,"posted_at":"2023-06-19T16:54:07Z","tags":["lens","saved-objects"],"title":"[Lens] commonMigrateIndexPatternDatasource migration some times fails during upgrade","_secondary":true}
+{"id":"gh-kibana-17920","source":"github","score":4,"posted_at":"2017-02-10T17:57:10Z","tags":["discover"],"title":"[Phase 2] Usage of \"Generation URL\" should be made clear by UI","_secondary":true}
+{"id":"gh-kibana-11283","source":"github","score":12,"posted_at":"2017-04-17T17:24:10Z","tags":[],"title":"Aliasing imports with `as`","_secondary":true}
+{"id":"gh-kibana-39430","source":"github","score":0,"posted_at":"2019-06-21T11:49:35Z","tags":["alerting"],"title":"Scope-able elasticsearch clients","_secondary":true}
+{"id":"gh-kibana-5810","source":"github","score":0,"posted_at":"2016-01-05T08:29:14Z","tags":[],"title":"Uncaught TypeError: Cannot read property 'length' of undefined "}
+{"id":"gh-kibana-124715","source":"github","score":0,"posted_at":"2022-02-04T17:01:10Z","tags":["saved-objects","license"],"title":"[RAM] Bulk update on rules","_secondary":true}
+{"id":"gh-kibana-21443","source":"github","score":0,"posted_at":"2018-07-30T21:22:53Z","tags":[],"title":"Reporting timeout errors on 6.4.0 - Max attempts reached (3) "}
+{"id":"gh-kibana-10335","source":"github","score":4,"posted_at":"2017-02-14T10:26:45Z","tags":[],"title":"HTTP 302 loop - ERR_TOO_MANY_REDIRECTS"}
+{"id":"gh-kibana-904","source":"github","score":0,"posted_at":"2014-02-03T13:46:07Z","tags":[],"title":"Elasticsearch version mismatch","_secondary":true}
+{"id":"gh-kibana-136993","source":"github","score":1,"posted_at":"2022-07-22T18:52:39Z","tags":["lens"],"title":"[Lens] workspace panel dimensions by chart type","_secondary":true}
+{"id":"gh-kibana-25572","source":"github","score":0,"posted_at":"2018-11-13T00:19:57Z","tags":["pdf-export"],"title":"Kibana report timeout error on cloud"}
+{"id":"gh-kibana-20664","source":"github","score":0,"posted_at":"2018-07-11T11:54:08Z","tags":["apm"],"title":"[APM] Show `error.exception[0].attributes` object in Metadata tab on Errors detail page","_secondary":true}
+{"id":"gh-kibana-3046","source":"github","score":6,"posted_at":"2015-02-16T09:32:15Z","tags":[],"title":"Option for interactivity in embedded mode"}
+{"id":"gh-kibana-159300","source":"github","score":0,"posted_at":"2023-06-08T11:59:52Z","tags":["fleet"],"title":"[Fleet] Implement per-integration health reporting for output","_secondary":true}
+{"id":"gh-kibana-112095","source":"github","score":3,"posted_at":"2021-09-14T13:16:12Z","tags":["apm","fleet"],"title":"[Fleet] Add support for bundling Stack-version aligned packages with Kibana","_secondary":true}
+{"id":"gh-kibana-82027","source":"github","score":0,"posted_at":"2020-10-29T15:05:18Z","tags":["siem","saved-objects"],"title":"SavedObjects should support importing/exporting even if they're hidden from the API","_secondary":true}
+{"id":"gh-kibana-58487","source":"github","score":1,"posted_at":"2020-02-25T15:47:42Z","tags":[],"title":"[Logs UI] view log line in context","_secondary":true}
+{"id":"gh-kibana-55740","source":"github","score":0,"posted_at":"2020-01-23T19:14:37Z","tags":["canvas"],"title":"[DISCUSS] Embeddables and feature controls","_secondary":true}
+{"id":"gh-es-3300","source":"github","score":0,"posted_at":"2013-07-08T23:27:14Z","tags":[],"title":"Aggregation Module - Phase 1 - Functional Design"}
+{"id":"gh-es-43387","source":"github","score":0,"posted_at":"2019-06-19T17:56:08Z","tags":[],"title":"Multiple Test Failures from Blocked accept0 Syscalls (Debian CI Runs only)"}
+{"id":"gh-es-31425","source":"github","score":5,"posted_at":"2018-06-19T10:27:08Z","tags":[],"title":"org.apache.lucene.util.MergedIterator.pullTop() Crash","_secondary":true}
+{"id":"gh-es-116106","source":"github","score":0,"posted_at":"2024-11-01T16:20:29Z","tags":[],"title":"IllegalStateException thrown in SemanticQueryBuilder"}
+{"id":"gh-es-72068","source":"github","score":50,"posted_at":"2021-04-22T09:00:54Z","tags":[],"title":"Allow representing a document with multiple embeddings (dense vectors)","_secondary":true}
+{"id":"gh-es-53181","source":"github","score":3,"posted_at":"2020-03-05T18:22:37Z","tags":[],"title":"Formalize dual text/keyword mappings"}
+{"id":"gh-es-30031","source":"github","score":0,"posted_at":"2017-02-10T18:08:28Z","tags":["alerting"],"title":"Internal indices consistent naming","_secondary":true}
+{"id":"gh-es-112694","source":"github","score":0,"posted_at":"2024-09-10T09:13:03Z","tags":[],"title":"An error occurred while calling the create inference API in the ES cluster upgraded from version 8.9 to 8.15.","_secondary":true}
+{"id":"gh-es-11419","source":"github","score":0,"posted_at":"2015-05-29T13:35:23Z","tags":[],"title":"Scroll scan query doesn't return all documents.","_secondary":true}
+{"id":"gh-es-133171","source":"github","score":1,"posted_at":"2025-08-19T20:59:46Z","tags":["fleet"],"title":"Semantic text mapper restriction specific to system indices","_secondary":true}
+{"id":"gh-es-87173","source":"github","score":0,"posted_at":"2022-05-26T14:41:23Z","tags":[],"title":"Embedded JDK 18 on docker-compose keeps failing"}
+{"id":"gh-es-16810","source":"github","score":0,"posted_at":"2016-02-25T17:49:09Z","tags":[],"title":"NullPointer Exception when starting embedded elastic ","_secondary":true}
+{"id":"gh-es-96207","source":"github","score":0,"posted_at":"2023-05-17T16:51:12Z","tags":[],"title":"unix packaging tests » ubuntu-22.04-packaging :distribution:docker:buildDockerImage failing","_secondary":true}
+{"id":"gh-es-91775","source":"github","score":0,"posted_at":"2022-11-21T16:26:11Z","tags":[],"title":"Challenge of one metric per document","_secondary":true}
+{"id":"gh-es-33003","source":"github","score":3,"posted_at":"2018-08-20T22:15:48Z","tags":[],"title":"Flattened object fields design + implementation","_secondary":true}
+{"id":"gh-es-29715","source":"github","score":0,"posted_at":"2017-02-10T17:37:34Z","tags":[],"title":"[Monitoring] HTTP Exporter should support proxy settings / path"}
+{"id":"gh-es-16993","source":"github","score":0,"posted_at":"2016-03-07T21:52:02Z","tags":["csv-export"],"title":"Next scroll id and number of hits in response headers for search/scroll api"}
+{"id":"gh-es-29880","source":"github","score":0,"posted_at":"2018-03-19T18:45:54Z","tags":[],"title":"MonitoringIT testMonitoringService fails in CI"}
+{"id":"gh-es-20426","source":"github","score":0,"posted_at":"2016-09-12T16:12:36Z","tags":[],"title":"Custom Call Signature Per Script Context"}
+{"id":"gh-es-109335","source":"github","score":1,"posted_at":"2024-06-04T07:45:56Z","tags":["apm"],"title":"Replace apm-java-agent with OTEL SDK in Elasticsearch","_secondary":true}
+{"id":"gh-es-51720","source":"github","score":10,"posted_at":"2020-01-31T00:05:39Z","tags":["discover"],"title":"Cross Cluster Search inconsistently reporting cluster alias in _index field","_secondary":true}
+{"id":"gh-es-31230","source":"github","score":0,"posted_at":"2018-06-09T18:56:52Z","tags":[],"title":"Upgrade to Gradle 4.8 and enable JDK 11 in CI","_secondary":true}
+{"id":"gh-es-106206","source":"github","score":0,"posted_at":"2024-03-11T20:53:16Z","tags":[],"title":"[ML] ELSER crashes in local serverless setup"}
+{"id":"gh-es-88201","source":"github","score":0,"posted_at":"2022-06-30T08:10:26Z","tags":["lens"],"title":"[CI] IndicesSegmentsRestCancellationIT testCatSegmentsRestCancellation failing","_secondary":true}
+{"id":"gh-es-126809","source":"github","score":0,"posted_at":"2025-04-15T02:59:45Z","tags":[],"title":"When I use KNN search, it will cause ES to fail"}
+{"id":"gh-es-72536","source":"github","score":0,"posted_at":"2021-04-30T09:50:19Z","tags":[],"title":"Create a default mapping template for metrics","_secondary":true}
+{"id":"gh-es-19903","source":"github","score":0,"posted_at":"2016-08-10T02:41:47Z","tags":[],"title":"Undocumented side effects from fixing PreBuiltTransportClientsTests PR #19803","_secondary":true}
+{"id":"gh-es-15918","source":"github","score":0,"posted_at":"2016-01-12T05:07:27Z","tags":[],"title":"AccessControlException in JarHell#checkJarHell when running embedded for testing purposes"}
+{"id":"gh-es-41189","source":"github","score":0,"posted_at":"2019-04-15T09:58:02Z","tags":[],"title":"[Springboot]Rest High Level Client 7.0 can't use search method, missing  org.elasticsearch.action.search.SearchRequest","_secondary":true}
+{"id":"gh-es-24529","source":"github","score":25,"posted_at":"2017-05-06T11:30:09Z","tags":[],"title":"Painless as a JSON-friendly templating language"}
+{"id":"gh-es-18739","source":"github","score":0,"posted_at":"2016-06-04T14:36:50Z","tags":["oom"],"title":"Relocating many shards at once results in canceled relocations","_secondary":true}
+{"id":"gh-es-110133","source":"github","score":0,"posted_at":"2024-06-25T12:26:32Z","tags":[],"title":"Change of behaviour for the `\"query_string\": \"*\"` filter after upgrading to 8.14","_secondary":true}
+{"id":"gh-eui-2424","source":"github","score":1,"posted_at":"2019-10-12T14:15:53Z","tags":[],"title":"[flattenPanelTree] Add as export from services","_secondary":true}
+{"id":"gh-eui-7443","source":"github","score":0,"posted_at":"2024-01-03T10:21:17Z","tags":["lens"],"title":"Regular flyout should work with the push flyout","_secondary":true}
+{"id":"gh-eui-2520","source":"github","score":0,"posted_at":"2019-11-12T19:31:56Z","tags":[],"title":"2020 Roadmap","_secondary":true}
+{"id":"gh-eui-5356","source":"github","score":0,"posted_at":"2021-11-07T02:26:16Z","tags":[],"title":"[EuiDatePicker] eui's global css file clobbers react-datepicker's css"}
+{"id":"gh-eui-9050","source":"github","score":0,"posted_at":"2025-09-23T10:15:38Z","tags":[],"title":"Evaluate removing wildcard exports to improve tests startup time"}
+{"id":"gh-eui-8615","source":"github","score":0,"posted_at":"2025-04-23T12:43:24Z","tags":[],"title":"[EuiDataGrid] Make `EuiDataGridCellActions` reusable outside `EuiDataGrid`"}
+{"id":"gh-eui-5837","source":"github","score":0,"posted_at":"2022-04-22T05:05:43Z","tags":[],"title":"[EuiTable] Simplify example demo setup"}
+{"id":"gh-eui-5211","source":"github","score":2,"posted_at":"2021-09-22T21:24:04Z","tags":[],"title":"[Docs] Make building pages with sections more flexible","_secondary":true}
+{"id":"gh-eui-2895","source":"github","score":0,"posted_at":"2020-02-21T23:37:09Z","tags":[],"title":"Formalize `useColorPicker` as a component export"}
+{"id":"gh-eui-1588","source":"github","score":0,"posted_at":"2019-02-22T14:58:20Z","tags":[],"title":"EUI should export hex values instead of rgb() values","_secondary":true}
+{"id":"gh-eui-985","source":"github","score":0,"posted_at":"2018-07-09T20:48:22Z","tags":[],"title":"[DISCUSS] Typescript: EuiContextMenuItem icon should be able to be a non-react element"}
+{"id":"gh-eui-6835","source":"github","score":0,"posted_at":"2023-06-08T09:12:30Z","tags":[],"title":"[EuiFieldText] Textbox component animation fails"}
+{"id":"gh-eui-3839","source":"github","score":0,"posted_at":"2020-07-30T21:20:05Z","tags":[],"title":"Add an unlink glyph to EuiIcon","_secondary":true}
+{"id":"gh-eui-2205","source":"github","score":0,"posted_at":"2019-08-07T08:27:30Z","tags":[],"title":"Drag and Drop. Unable to reorder","_secondary":true}
+{"id":"gh-eui-6693","source":"github","score":0,"posted_at":"2023-04-05T08:38:07Z","tags":["saved-objects"],"title":"[EuiPageHeader] The focus order of `rightSideItems` does not correspond to the logical processing sequence","_secondary":true}
+{"id":"gh-eui-5247","source":"github","score":0,"posted_at":"2021-10-06T16:30:30Z","tags":[],"title":"[EuiInnerText] Returns empty string inside `EuiPopover`"}
+{"id":"gh-eui-3500","source":"github","score":2,"posted_at":"2020-05-18T18:28:31Z","tags":[],"title":"[AriaToolbar] component","_secondary":true}
+{"id":"gh-eui-2572","source":"github","score":0,"posted_at":"2019-11-27T22:20:35Z","tags":[],"title":"Upgrade @elastic/charts to v14","_secondary":true}
+{"id":"gh-eui-2242","source":"github","score":0,"posted_at":"2019-08-21T01:17:55Z","tags":[],"title":"[EuiCodeBlock] Cannot be used in Jest Snapshots when language is specified"}
+{"id":"gh-eui-1376","source":"github","score":2,"posted_at":"2018-12-14T20:05:02Z","tags":[],"title":"EUI with a CRA standalone project","_secondary":true}
+{"id":"gh-eui-6837","source":"github","score":0,"posted_at":"2023-06-09T15:16:53Z","tags":["lens"],"title":"Exporting some utility helpers","_secondary":true}
+{"id":"gh-eui-5573","source":"github","score":0,"posted_at":"2022-01-28T09:51:19Z","tags":["discover"],"title":"Document copyToClipboard utility function","_secondary":true}
+{"id":"gh-eui-4807","source":"github","score":0,"posted_at":"2021-05-18T10:31:20Z","tags":[],"title":"[EuiCollapsibleNav] document is not defined when using CollapsibleNav","_secondary":true}
+{"id":"gh-eui-2636","source":"github","score":0,"posted_at":"2019-12-12T00:45:00Z","tags":[],"title":"[EuiDataGrid] Allow overriding individual aspects of default schemas","_secondary":true}
+{"id":"gh-eui-1757","source":"github","score":0,"posted_at":"2019-03-22T05:20:11Z","tags":[],"title":"Build: babel/proptypes-from-ts-props fails"}
+{"id":"gh-eui-6002","source":"github","score":0,"posted_at":"2022-06-27T12:50:53Z","tags":[],"title":"[DataGrid] Provide OnRender callback","_secondary":true}
+{"id":"gh-eui-5286","source":"github","score":0,"posted_at":"2021-10-20T04:34:28Z","tags":[],"title":"`Error: Cannot find module  './assets/lock'` when using <EuiFieldPassword /> component","_secondary":true}
+{"id":"gh-eui-5138","source":"github","score":0,"posted_at":"2021-09-03T13:09:36Z","tags":[],"title":"`ICON_TYPES` is an empty array"}
+{"id":"gh-eui-5052","source":"github","score":0,"posted_at":"2021-08-19T05:30:30Z","tags":[],"title":"Module not found: Can't resolve '@elastic/eui/src/services/format'"}
+{"id":"gh-eui-4799","source":"github","score":1,"posted_at":"2021-05-14T10:17:11Z","tags":["lens"],"title":"[EuiDataGrid][EuiFlyout] Browser crashes on click if flyout is over EuiDataGrid","_secondary":true}
+{"id":"gh-eui-4422","source":"github","score":0,"posted_at":"2021-01-12T19:01:42Z","tags":[],"title":"[EuiOutsideClickDetector] Accept standard event types"}
+{"id":"gh-eui-2941","source":"github","score":0,"posted_at":"2020-02-27T10:38:17Z","tags":[],"title":"`yarn install` throws error","_secondary":true}
+{"id":"gh-eui-8739","source":"github","score":0,"posted_at":"2025-06-04T09:23:36Z","tags":[],"title":"Remove `@testing-library/react-hooks` as a peer dependency","_secondary":true}
+{"id":"gh-eui-8710","source":"github","score":1,"posted_at":"2025-05-23T01:09:11Z","tags":[],"title":"[Emotion] Export component styles"}
+{"id":"gh-eui-8265","source":"github","score":0,"posted_at":"2025-01-09T23:18:37Z","tags":[],"title":"Add helpers for @container queries"}
+{"id":"gh-eui-7847","source":"github","score":0,"posted_at":"2024-06-25T08:55:55Z","tags":[],"title":"Error when trying to use EUI with Observable Framework","_secondary":true}
+{"id":"gh-eui-6100","source":"github","score":0,"posted_at":"2022-08-03T06:27:13Z","tags":[],"title":"Export the EuiResizable button","_secondary":true}
+{"id":"gh-eui-5552","source":"github","score":1,"posted_at":"2022-01-20T22:48:27Z","tags":[],"title":"Use `export type` syntax and update `es` build","_secondary":true}
+{"id":"gh-eui-5495","source":"github","score":0,"posted_at":"2021-12-20T21:50:00Z","tags":[],"title":"Can `buildTheme()` be exported for consumers?"}
+{"id":"gh-eui-4832","source":"github","score":1,"posted_at":"2021-05-27T18:35:14Z","tags":[],"title":"[Random] Replace with faker.js and remove"}
+{"id":"gh-eui-4660","source":"github","score":0,"posted_at":"2021-03-22T19:31:03Z","tags":[],"title":"[EuiCallOut] TypeScript requiring unnecessary prop `translate`"}
+{"id":"gh-eui-4437","source":"github","score":0,"posted_at":"2021-01-20T20:03:08Z","tags":[],"title":"[Docs] Add automated a11y tests to all guideline and playground pages","_secondary":true}
+{"id":"gh-eui-4176","source":"github","score":0,"posted_at":"2020-10-23T13:20:13Z","tags":[],"title":"Issue with 0.64 NextJS"}
+{"id":"gh-eui-3844","source":"github","score":0,"posted_at":"2020-07-31T20:28:16Z","tags":[],"title":"[EuiButtonEmptyProps & EuiButtonIconProps & EuiButtonProps] Type don't match expectations"}
+{"id":"gh-eui-2671","source":"github","score":0,"posted_at":"2019-12-15T17:51:20Z","tags":[],"title":"Custom Jest matchers causing issues with Jest upgrade","_secondary":true}
+{"id":"gh-eui-1830","source":"github","score":0,"posted_at":"2019-04-12T21:35:41Z","tags":[],"title":"HTMLElement is not defined","_secondary":true}
+{"id":"gh-eui-1622","source":"github","score":0,"posted_at":"2019-02-28T08:51:24Z","tags":[],"title":"Sketch libraries export all open branches, not just Master","_secondary":true}
+{"id":"gh-eui-575","source":"github","score":0,"posted_at":"2018-03-26T21:29:13Z","tags":[],"title":"Export SCSS to JS"}
+{"id":"gh-eui-532","source":"github","score":0,"posted_at":"2018-03-16T16:41:03Z","tags":[],"title":"Module build failed for node-sass","_secondary":true}
+{"id":"gh-eui-335","source":"github","score":0,"posted_at":"2018-01-24T18:40:57Z","tags":[],"title":"Migrate to new file name conventions","_secondary":true}
+{"id":"gh-eui-9033","source":"github","score":0,"posted_at":"2025-09-17T11:11:39Z","tags":[],"title":"[EuiBasicTable] Allow selected items to persist between page number na size changes","_secondary":true}
+{"id":"gh-eui-9013","source":"github","score":0,"posted_at":"2025-09-15T08:46:04Z","tags":[],"title":"Change EuiFilePicker icon to \"export\"","_secondary":true}
+{"id":"gh-eui-8782","source":"github","score":0,"posted_at":"2025-06-11T12:35:14Z","tags":[],"title":"[EuiCheckableCard] onChange handler invoked twice upon checkbox click","_secondary":true}
+{"id":"gh-eui-8466","source":"github","score":0,"posted_at":"2025-03-19T12:28:15Z","tags":[],"title":"[Docs] Add ESLint config with Docusaurus plugin","_secondary":true}
+{"id":"gh-eui-8121","source":"github","score":0,"posted_at":"2024-11-06T08:36:24Z","tags":["discover"],"title":"Add new icon (Add chart breakdown) to library","_secondary":true}
+{"id":"gh-eui-8053","source":"github","score":3,"posted_at":"2024-09-30T16:26:55Z","tags":[],"title":"Move test helpers to their own exported package"}
+{"id":"gh-eui-7764","source":"github","score":0,"posted_at":"2024-05-16T13:26:03Z","tags":[],"title":"[EuiDualRange] Upper value isn't allowed to be blank"}
+{"id":"gh-eui-7247","source":"github","score":0,"posted_at":"2023-10-03T10:45:53Z","tags":[],"title":"[EuiTitle] `size` prop not working when having `css` prop"}
+{"id":"gh-eui-7158","source":"github","score":0,"posted_at":"2023-09-05T21:40:16Z","tags":[],"title":"Emotion and Shadow DOM support"}
+{"id":"gh-eui-6218","source":"github","score":0,"posted_at":"2022-09-07T17:22:14Z","tags":[],"title":"[SearchBar] Export common `search_bar/query` types","_secondary":true}
+{"id":"gh-eui-6197","source":"github","score":0,"posted_at":"2022-08-31T19:20:15Z","tags":[],"title":"[SearchBar] Support translation of clause keys","_secondary":true}
+{"id":"gh-eui-4237","source":"github","score":0,"posted_at":"2020-11-07T06:27:52Z","tags":[],"title":"'EuiListGroupProps' is not exported from '@elastic/eui'","_secondary":true}
+{"id":"gh-eui-3850","source":"github","score":0,"posted_at":"2020-08-01T20:47:20Z","tags":[],"title":"[EuiDatePicker] findDOMNode is deprecated in StrictMode. in EuiDatePicker","_secondary":true}
+{"id":"gh-eui-3660","source":"github","score":0,"posted_at":"2020-06-25T19:19:48Z","tags":["saved-objects"],"title":"[EuiSwitch] Can't add data test subject","_secondary":true}
+{"id":"gh-eui-3634","source":"github","score":0,"posted_at":"2020-06-18T15:25:43Z","tags":[],"title":"EuiCardProps is not exported in eui.d.ts"}
+{"id":"gh-eui-3038","source":"github","score":0,"posted_at":"2020-03-10T21:59:31Z","tags":[],"title":"Missing `EuiTextProps` top-level export"}
+{"id":"gh-eui-1558","source":"github","score":0,"posted_at":"2019-02-13T15:07:10Z","tags":[],"title":"How to spy on an onChange function in test?","_secondary":true}
+{"id":"gh-eui-1545","source":"github","score":0,"posted_at":"2019-02-08T00:41:47Z","tags":[],"title":"Provide standalone EuiAutoRefreshPicker component","_secondary":true}
+{"id":"gh-eui-1506","source":"github","score":0,"posted_at":"2019-02-01T20:06:09Z","tags":[],"title":"Can't resolve '@elastic/datemath' ","_secondary":true}
+{"id":"gh-eui-1308","source":"github","score":0,"posted_at":"2018-11-14T20:44:35Z","tags":["canvas"],"title":"Add a download icon","_secondary":true}
+{"id":"gh-eui-718","source":"github","score":0,"posted_at":"2018-04-28T14:35:34Z","tags":[],"title":"Use patterns or icons in addition to colors to signify toast types","_secondary":true}
+{"id":"gh-eui-56","source":"github","score":0,"posted_at":"2017-10-26T03:16:22Z","tags":[],"title":"Yeoman tasks"}
+{"id":"gh-eui-9473","source":"github","score":0,"posted_at":"2026-03-12T09:51:00Z","tags":[],"title":"[FieldValueToggleFilter] Migrate from class to function component","_secondary":true}
+{"id":"gh-eui-9467","source":"github","score":0,"posted_at":"2026-03-12T09:50:50Z","tags":[],"title":"[EuiAutoSizer] Migrate from class to function component"}
+{"id":"gh-eui-9395","source":"github","score":0,"posted_at":"2026-02-17T20:54:38Z","tags":[],"title":"[EuiTreeView]: expanded nodes clipped at 100vh, causing sibling overlap","_secondary":true}
+{"id":"gh-eui-8263","source":"github","score":0,"posted_at":"2025-01-08T21:51:56Z","tags":[],"title":"[Emotion] Evaluate remaining Sass exports (mixins & variables) and what we can deprecate or remove"}
+{"id":"gh-eui-8014","source":"github","score":0,"posted_at":"2024-09-10T19:53:21Z","tags":[],"title":"EuiButtonIcon isLoading breaks EuiTooltip onBlur hide behavior","_secondary":true}
+{"id":"gh-eui-7655","source":"github","score":0,"posted_at":"2024-04-05T20:31:36Z","tags":[],"title":"[EuiCollapsibleNavBeta] Add popover capability to EuiCollapsibleNavGroup","_secondary":true}
+{"id":"gh-eui-7405","source":"github","score":0,"posted_at":"2023-12-07T14:29:55Z","tags":[],"title":"[Meta] [New docs] Playground stories for all EUI components","_secondary":true}
+{"id":"gh-eui-7394","source":"github","score":0,"posted_at":"2023-12-04T13:56:14Z","tags":[],"title":"[New docs] Convert `EuiComboBox` docs to docusaurus and storybook"}
+{"id":"gh-eui-7393","source":"github","score":0,"posted_at":"2023-12-04T13:48:11Z","tags":[],"title":"[New docs] Create `StoryEmbed` component"}
+{"id":"gh-eui-7235","source":"github","score":0,"posted_at":"2023-09-29T03:23:15Z","tags":[],"title":"Page header content is not centered when page width is decreased"}
+{"id":"gh-eui-7025","source":"github","score":0,"posted_at":"2023-08-01T20:11:52Z","tags":[],"title":"[Emotion] Figure out what exports we do and don't want to make public","_secondary":true}
+{"id":"gh-eui-7000","source":"github","score":1,"posted_at":"2023-07-26T20:35:36Z","tags":[],"title":"[EuiListGroupItem] Give full control over tooltip props","_secondary":true}
+{"id":"gh-eui-6937","source":"github","score":0,"posted_at":"2023-07-12T15:33:20Z","tags":[],"title":"Dot sign (....) and number (1,2,3) are overlapping in paginaiton","_secondary":true}
+{"id":"gh-eui-6855","source":"github","score":0,"posted_at":"2023-06-20T17:12:51Z","tags":[],"title":"[Proposal] Automate generating JSDoc comments with default theme values"}
+{"id":"gh-eui-6674","source":"github","score":0,"posted_at":"2023-04-03T20:29:49Z","tags":[],"title":"[Meta] Storybook","_secondary":true}
+{"id":"gh-eui-5606","source":"github","score":0,"posted_at":"2022-02-05T22:05:51Z","tags":[],"title":"EuiComboBox render","_secondary":true}
+{"id":"gh-eui-4948","source":"github","score":0,"posted_at":"2021-07-13T14:56:27Z","tags":[],"title":"[EuiSearchBar] export ArgsWithQuery, ArgsWithError","_secondary":true}
+{"id":"gh-eui-4877","source":"github","score":6,"posted_at":"2021-06-14T14:10:13Z","tags":[],"title":"[Icons] Export icon constants","_secondary":true}
+{"id":"gh-eui-4596","source":"github","score":1,"posted_at":"2021-03-02T22:34:44Z","tags":[],"title":"'EuiPageSideBarProps' is not exported from './page'","_secondary":true}
+{"id":"gh-eui-4487","source":"github","score":0,"posted_at":"2021-02-04T19:53:37Z","tags":[],"title":"[EuiSideNav] Prop types are not showing up in the props table correctly"}
+{"id":"gh-eui-4369","source":"github","score":0,"posted_at":"2020-12-08T19:35:56Z","tags":[],"title":"[EuiInMemoryTable] Pagination is not working","_secondary":true}
+{"id":"gh-eui-4279","source":"github","score":0,"posted_at":"2020-11-17T19:31:48Z","tags":[],"title":"Refactor input control raw value setting","_secondary":true}
+{"id":"gh-eui-3710","source":"github","score":0,"posted_at":"2020-07-08T17:37:46Z","tags":[],"title":"[EuiSearchBar] Non-existent export error when using Rollup bundler"}
+{"id":"gh-eui-3709","source":"github","score":0,"posted_at":"2020-07-08T16:08:07Z","tags":[],"title":"Remove unexposed functions from declaration files","_secondary":true}
+{"id":"gh-eui-3468","source":"github","score":0,"posted_at":"2020-05-12T21:38:44Z","tags":[],"title":"EuiStepProps type not being exported"}
+{"id":"gh-eui-3054","source":"github","score":0,"posted_at":"2020-03-12T14:54:35Z","tags":[],"title":"Expose EuiDualRangeProps > `type ValueMember` for external use"}
+{"id":"gh-eui-3052","source":"github","score":0,"posted_at":"2020-03-12T11:39:48Z","tags":[],"title":"EuiTreeView component issue - Uncaught Invariant Violation","_secondary":true}
+{"id":"gh-eui-2777","source":"github","score":0,"posted_at":"2020-01-18T02:35:29Z","tags":[],"title":"[Data Grid] Cell state will be discarded when data grid rerender","_secondary":true}
+{"id":"gh-eui-2586","source":"github","score":0,"posted_at":"2019-12-03T14:47:48Z","tags":[],"title":"Standalone page layout"}
+{"id":"gh-eui-2131","source":"github","score":0,"posted_at":"2019-07-17T14:03:03Z","tags":[],"title":"Documentation's example of ListGroup is broken","_secondary":true}
+{"id":"gh-eui-2051","source":"github","score":1,"posted_at":"2019-06-17T18:46:48Z","tags":[],"title":"[WIP SPEC] Inline markdown+ editor that supports embeddable content","_secondary":true}
+{"id":"gh-eui-1939","source":"github","score":1,"posted_at":"2019-05-10T07:34:48Z","tags":[],"title":"Is verticalPosition of EuiPageContent broken?","_secondary":true}
+{"id":"gh-eui-1602","source":"github","score":0,"posted_at":"2019-02-26T13:52:16Z","tags":[],"title":"Cannot find module 'react-datapicker'","_secondary":true}
+{"id":"gh-eui-1478","source":"github","score":1,"posted_at":"2019-01-25T18:33:17Z","tags":[],"title":"Proposal: Make all container components accept a \"loading\" prop.","_secondary":true}
+{"id":"gh-eui-1005","source":"github","score":0,"posted_at":"2018-07-12T15:04:55Z","tags":[],"title":"[META] EUI XYChart roadmap","_secondary":true}
+{"id":"gh-eui-877","source":"github","score":0,"posted_at":"2018-05-25T18:02:38Z","tags":["license"],"title":"EuiFieldSearch unnecessarily unmounting/mounting","_secondary":true}
+{"id":"gh-eui-809","source":"github","score":0,"posted_at":"2018-05-09T09:04:03Z","tags":[],"title":"Error: Element type is invalid: expected a string (for built-in components) or a class/function ","_secondary":true}
+{"id":"gh-eui-694","source":"github","score":1,"posted_at":"2018-04-23T22:59:33Z","tags":[],"title":"Services should be exported at the main export"}
+{"id":"gh-eui-9474","source":"github","score":0,"posted_at":"2026-03-12T09:51:02Z","tags":[],"title":"[FieldValueToggleGroupFilter] Migrate from class to function component","_secondary":true}
+{"id":"gh-eui-9472","source":"github","score":0,"posted_at":"2026-03-12T09:50:58Z","tags":[],"title":"[IsFilter] Migrate from class to function component","_secondary":true}
+{"id":"gh-eui-9450","source":"github","score":0,"posted_at":"2026-03-11T17:07:31Z","tags":[],"title":"[Epic] Simplify Documentation Code Examples for Copy-Paste Usage","_secondary":true}
+{"id":"gh-eui-8637","source":"github","score":0,"posted_at":"2025-04-25T11:18:51Z","tags":[],"title":"Searching docs by component names is broken","_secondary":true}
+{"id":"gh-eui-8279","source":"github","score":0,"posted_at":"2025-01-16T21:43:21Z","tags":[],"title":"`EuiSearchBar` Code Sandbox examples are broken","_secondary":true}
+{"id":"gh-eui-7990","source":"github","score":0,"posted_at":"2024-08-29T07:56:51Z","tags":[],"title":"EuiDataGrid not change theme with EuiProvider colorTheme","_secondary":true}
+{"id":"gh-eui-7879","source":"github","score":0,"posted_at":"2024-07-10T12:19:08Z","tags":[],"title":"[A11Y] Using nested `EuiPopover` in `EuiModal`: Pressing ESC in child component closes parent","_secondary":true}
+{"id":"gh-eui-7829","source":"github","score":0,"posted_at":"2024-06-11T20:21:48Z","tags":[],"title":"[Docs] EuiProvider custom breakpoints example no longer works"}
+{"id":"gh-eui-7644","source":"github","score":0,"posted_at":"2024-04-02T15:32:38Z","tags":[],"title":"[New docs] Move docusaurus website to `packages` directory","_secondary":true}
+{"id":"gh-eui-7477","source":"github","score":0,"posted_at":"2024-01-24T10:44:25Z","tags":[],"title":"[New docs] Create stories for components starting with the letter D","_secondary":true}
+{"id":"gh-eui-7407","source":"github","score":0,"posted_at":"2023-12-07T16:46:50Z","tags":[],"title":"[New docs] Spike: Figure out the best way to integrate full-text search into new docs"}
+{"id":"gh-eui-7355","source":"github","score":0,"posted_at":"2023-11-10T10:19:08Z","tags":[],"title":"[EuiFieldText etc.] Compatibility with Next.js app template"}
+{"id":"gh-eui-7287","source":"github","score":1,"posted_at":"2023-10-16T03:26:46Z","tags":[],"title":"Warning : \"defaultProps\" will be removed"}
+{"id":"gh-eui-6920","source":"github","score":0,"posted_at":"2023-07-07T17:44:45Z","tags":["discover"],"title":"[EuiFilterButton] Sass and Emotion CSS order is causing an incorrect `border-radius` in Kibana components ","_secondary":true}
+{"id":"gh-eui-6442","source":"github","score":3,"posted_at":"2022-11-29T23:39:55Z","tags":[],"title":"[Meta] Fix developer experience for Apple M1/arm64 developers","_secondary":true}
+{"id":"gh-eui-6131","source":"github","score":0,"posted_at":"2022-08-11T19:47:47Z","tags":[],"title":"export `EuiTreeViewNode` type"}
+{"id":"gh-eui-5985","source":"github","score":0,"posted_at":"2022-06-20T19:53:12Z","tags":[],"title":"[EuiAccordion] Export underlying `EuiAccordionClass`?","_secondary":true}
+{"id":"gh-eui-5651","source":"github","score":0,"posted_at":"2022-02-21T00:38:32Z","tags":[],"title":"[EuiSelectableSearch] Embedded <EuiFieldSearch> does not receive an `onChange` when <EuiSelectableSearch> is given searchProps.value","_secondary":true}
+{"id":"gh-eui-4935","source":"github","score":0,"posted_at":"2021-07-04T09:38:35Z","tags":[],"title":"Struggling with documentation - add different content under different tabs (React)","_secondary":true}
+{"id":"gh-eui-4863","source":"github","score":0,"posted_at":"2021-06-06T13:02:18Z","tags":[],"title":"[EuiDataGrid] Unable to get property columns","_secondary":true}
+{"id":"gh-eui-4555","source":"github","score":0,"posted_at":"2021-02-19T15:57:47Z","tags":[],"title":"[EuiResizableContainer] Allow for dynamic prop changes","_secondary":true}
+{"id":"gh-eui-4518","source":"github","score":0,"posted_at":"2021-02-14T12:38:07Z","tags":[],"title":"Attempted import error: 'EuiButtonToggle' is not exported from '@elastic/eui'."}
+{"id":"gh-eui-3851","source":"github","score":0,"posted_at":"2020-08-02T17:11:10Z","tags":[],"title":"Support pill dragging (ordering) in Combo boxes","_secondary":true}
+{"id":"gh-eui-3610","source":"github","score":0,"posted_at":"2020-06-15T16:14:49Z","tags":[],"title":"Docs+webpack build reports unfound type exports"}
+{"id":"gh-eui-3286","source":"github","score":0,"posted_at":"2020-04-09T10:54:20Z","tags":[],"title":"[Typescript] Add types for  EuiNavDrawer"}
+{"id":"gh-eui-3138","source":"github","score":0,"posted_at":"2020-03-20T20:57:39Z","tags":[],"title":"Some EuiSearchBar TypeScript issues"}
+{"id":"gh-eui-2863","source":"github","score":0,"posted_at":"2020-02-16T01:03:07Z","tags":[],"title":"Runtime error when toast from redux store containing react element in Title or Text is used in EuiGlobalToastList","_secondary":true}
+{"id":"gh-eui-2780","source":"github","score":4,"posted_at":"2020-01-21T15:29:03Z","tags":[],"title":"Some icon asset SVGs are huge"}
+{"id":"gh-eui-2581","source":"github","score":0,"posted_at":"2019-12-02T19:12:52Z","tags":[],"title":"ButtonSize typescript"}
+{"id":"gh-eui-2523","source":"github","score":1,"posted_at":"2019-11-13T12:56:38Z","tags":[],"title":"@elastic/eui has no exported member 'EuiBasicTable'"}
+{"id":"gh-eui-2276","source":"github","score":0,"posted_at":"2019-08-30T17:55:47Z","tags":[],"title":"Warnings when running the latest EUI"}
+{"id":"gh-eui-2271","source":"github","score":1,"posted_at":"2019-08-29T13:03:32Z","tags":[],"title":"Using EUI 13.x in a standalone project results in import errors"}
+{"id":"gh-eui-2251","source":"github","score":0,"posted_at":"2019-08-23T11:45:13Z","tags":["csv-export"],"title":"CSV export on saved search from dashboard","_secondary":true}
+{"id":"gh-eui-1495","source":"github","score":0,"posted_at":"2019-01-30T14:31:36Z","tags":[],"title":"EuiSuperSelect into Modal can't change value","_secondary":true}
+{"id":"gh-eui-1388","source":"github","score":0,"posted_at":"2018-12-19T21:38:51Z","tags":[],"title":"eui.d.ts declares non-eui modules"}
+{"id":"gh-eui-1296","source":"github","score":0,"posted_at":"2018-11-07T18:49:39Z","tags":[],"title":"Token tint colors need to be an exported enum"}
+{"id":"gh-eui-741","source":"github","score":0,"posted_at":"2018-04-30T20:51:45Z","tags":[],"title":"EUI near term roadmap","_secondary":true}
+{"id":"gh-eui-409","source":"github","score":0,"posted_at":"2018-02-15T14:14:10Z","tags":[],"title":"Consuming EUI Docs"}
+{"id":"gh-eui-9575","source":"github","score":1,"posted_at":"2026-04-08T13:03:47Z","tags":[],"title":"[Website] Replace FigmaEmbed with direct SVG renders"}
+{"id":"gh-eui-9493","source":"github","score":0,"posted_at":"2026-03-12T09:51:28Z","tags":[],"title":"[FieldValueSelectionFilter] Migrate from class to function component","_secondary":true}
+{"id":"gh-eui-9243","source":"github","score":0,"posted_at":"2025-11-26T15:53:37Z","tags":[],"title":"[ESLint] Dogfood the @elastic/eslint-plugin-eui"}
+{"id":"gh-eui-9157","source":"github","score":0,"posted_at":"2025-10-28T12:36:02Z","tags":[],"title":"[Docusaurus theme] Adjust package exports to expose all theme files"}
+{"id":"gh-eui-8697","source":"github","score":1,"posted_at":"2025-05-09T11:47:30Z","tags":[],"title":"[Visual Refresh] Add additional color palettes"}
+{"id":"gh-eui-8693","source":"github","score":2,"posted_at":"2025-05-07T19:53:25Z","tags":[],"title":"Provide a react hook to obtain `isDarkMode` directly","_secondary":true}
+{"id":"gh-eui-8391","source":"github","score":0,"posted_at":"2025-03-05T14:03:17Z","tags":[],"title":"Add a mention about typing icons to the wiki"}
+{"id":"gh-eui-7888","source":"github","score":0,"posted_at":"2024-07-16T16:27:57Z","tags":[],"title":"[EuiTable EuiBasicTable] Ensure nested content is correctly positioned and aligned","_secondary":true}
+{"id":"gh-eui-7866","source":"github","score":0,"posted_at":"2024-07-01T16:22:21Z","tags":[],"title":"[New docs] Add code transformer to the interactive code component to support existing EUI code examples","_secondary":true}
+{"id":"gh-eui-7614","source":"github","score":0,"posted_at":"2024-03-25T09:19:28Z","tags":[],"title":"[New docs] Create stories for Form components"}
+{"id":"gh-eui-7484","source":"github","score":0,"posted_at":"2024-01-24T11:09:13Z","tags":[],"title":"[New docs] Create stories for components starting with the letter T","_secondary":true}
+{"id":"gh-eui-7483","source":"github","score":0,"posted_at":"2024-01-24T11:05:52Z","tags":[],"title":"[New docs] Create stories for EuiTable components"}
+{"id":"gh-eui-7482","source":"github","score":0,"posted_at":"2024-01-24T11:03:01Z","tags":[],"title":"[New docs] Create stories for components starting with the letters R-S"}
+{"id":"gh-eui-7481","source":"github","score":0,"posted_at":"2024-01-24T10:58:22Z","tags":[],"title":"[New docs] Create stories for components starting with the letter P","_secondary":true}
+{"id":"gh-eui-7480","source":"github","score":0,"posted_at":"2024-01-24T10:55:17Z","tags":[],"title":"[New docs] Create stories for components starting with the letters M-O"}
+{"id":"gh-eui-7479","source":"github","score":0,"posted_at":"2024-01-24T10:51:53Z","tags":[],"title":"[New docs] Create stories for components starting with the letters I-L","_secondary":true}
+{"id":"gh-eui-7478","source":"github","score":0,"posted_at":"2024-01-24T10:48:19Z","tags":[],"title":"[New docs] Create stories for components starting with the letter H"}
+{"id":"gh-eui-7404","source":"github","score":0,"posted_at":"2023-12-07T13:32:20Z","tags":[],"title":"[Meta] [New docs] Convert components docs text content to MDX","_secondary":true}
+{"id":"gh-eui-6736","source":"github","score":0,"posted_at":"2023-04-27T03:06:29Z","tags":[],"title":"Add RTL custom queries to `within`"}
+{"id":"gh-eui-6325","source":"github","score":0,"posted_at":"2022-10-26T10:26:43Z","tags":[],"title":"[EuiCard] betaBadge don't stay on top","_secondary":true}
+{"id":"gh-eui-6168","source":"github","score":0,"posted_at":"2022-08-23T22:21:00Z","tags":[],"title":"Add skip and report only feature to Cypress `checkAxe()` method"}
+{"id":"gh-eui-6085","source":"github","score":0,"posted_at":"2022-07-28T10:26:39Z","tags":[],"title":"EuiBetaBadge type error"}
+{"id":"gh-eui-5659","source":"github","score":0,"posted_at":"2022-02-24T11:37:25Z","tags":[],"title":"docs: EuiLink link validation example doesn't compile on CodeSandbox","_secondary":true}
+{"id":"gh-eui-5293","source":"github","score":0,"posted_at":"2021-10-20T19:02:04Z","tags":[],"title":"[EuiSuggest][AXE-CORE]: Applied filters have nested interactive elements that won't be announced by screen readers"}
+{"id":"gh-eui-4804","source":"github","score":0,"posted_at":"2021-05-17T15:16:21Z","tags":[],"title":"[EuiCollapsibleNav] CollapsibleNav overlaps header"}
+{"id":"gh-eui-4801","source":"github","score":0,"posted_at":"2021-05-14T16:34:49Z","tags":[],"title":"[EuiSideNav] `EuiSideNavProps` default generic value"}
+{"id":"gh-eui-4011","source":"github","score":0,"posted_at":"2020-09-04T19:58:23Z","tags":[],"title":"[EuiBasicTable] `onChange` parameter type unable to be determined leads to `any`","_secondary":true}
+{"id":"gh-eui-3854","source":"github","score":0,"posted_at":"2020-08-03T14:51:51Z","tags":[],"title":"Nested tables do not properly expand","_secondary":true}
+{"id":"gh-eui-3361","source":"github","score":0,"posted_at":"2020-04-20T18:49:48Z","tags":["license"],"title":"[Icons] Icon request: \"download\" icon"}
+{"id":"gh-eui-3144","source":"github","score":0,"posted_at":"2020-03-22T08:02:04Z","tags":[],"title":"EuiBasicTable's DefaultItemAction with IconFunction crashes when collapsed","_secondary":true}
+{"id":"gh-eui-3112","source":"github","score":3,"posted_at":"2020-03-17T22:52:24Z","tags":[],"title":"Replace `makeId` with `htmlIdGenerator`","_secondary":true}
+{"id":"gh-eui-2994","source":"github","score":0,"posted_at":"2020-03-06T13:12:38Z","tags":[],"title":"Embed virtual code editor for every component's examples."}
+{"id":"gh-eui-2635","source":"github","score":0,"posted_at":"2019-12-11T23:12:05Z","tags":[],"title":"Export types for EuiDataGrid"}
+{"id":"gh-eui-2502","source":"github","score":0,"posted_at":"2019-10-29T19:31:48Z","tags":[],"title":"[EuiHeaderAlert] Updated to new styles for Kibana news feed"}
+{"id":"gh-eui-2372","source":"github","score":0,"posted_at":"2019-09-25T14:54:17Z","tags":[],"title":"export reorder function"}
+{"id":"gh-eui-2220","source":"github","score":0,"posted_at":"2019-08-12T21:24:01Z","tags":[],"title":"Allow for `ref`'s to be forwarded for the `EuiFlexGroup` component"}
+{"id":"gh-eui-2185","source":"github","score":0,"posted_at":"2019-07-31T19:21:05Z","tags":[],"title":"Types exported directly from `react-beautiful-dnd` are not removed in ES build"}
+{"id":"gh-eui-2172","source":"github","score":0,"posted_at":"2019-07-26T12:00:38Z","tags":[],"title":"Export the drag'n'drop types"}
+{"id":"gh-eui-2042","source":"github","score":0,"posted_at":"2019-06-13T22:12:32Z","tags":[],"title":"Child `EuiPopover` prevents parent `EuiPopover` from closing via `ESC`"}
+{"id":"gh-eui-1780","source":"github","score":0,"posted_at":"2019-03-29T19:25:46Z","tags":[],"title":"ButtonIconColor type is missing color options"}
+{"id":"gh-eui-1578","source":"github","score":1,"posted_at":"2019-02-20T11:13:01Z","tags":["license"],"title":"Missing license information on package.json"}
+{"id":"gh-eui-1262","source":"github","score":0,"posted_at":"2018-10-24T18:20:57Z","tags":[],"title":"Support TypeScript code within EUI","_secondary":true}
+{"id":"gh-eui-1134","source":"github","score":0,"posted_at":"2018-08-22T15:38:51Z","tags":[],"title":"EuiSwitchChangeCallback is typed incorrectly","_secondary":true}
+{"id":"gh-eui-984","source":"github","score":0,"posted_at":"2018-07-09T20:32:07Z","tags":[],"title":"Typescript: need typings for keyCodes"}
+{"id":"gh-osd-3601","source":"github","score":2,"posted_at":"2023-03-13T17:16:47Z","tags":[],"title":"Bump Node.js from 14 to 18 Proposal","_secondary":true}
+{"id":"gh-osd-4694","source":"github","score":2,"posted_at":"2023-08-08T11:52:43Z","tags":[],"title":"[BUG] Navigation between dashboards requires browser refresh after update to 2.9.0","_secondary":true}
+{"id":"gh-osd-1130","source":"github","score":0,"posted_at":"2022-01-10T22:46:35Z","tags":["license"],"title":"Need Elastic licenses removed"}
+{"id":"gh-osd-6838","source":"github","score":0,"posted_at":"2024-05-26T18:44:54Z","tags":["discover"],"title":"[BUG][Discover] Updating a filter for a saved search does not show up when sharing","_secondary":true}
+{"id":"gh-osd-5639","source":"github","score":1,"posted_at":"2023-12-22T02:03:08Z","tags":[],"title":"[RFC] Clickjacking Mitigation"}
+{"id":"gh-osd-6115","source":"github","score":0,"posted_at":"2024-03-12T00:05:25Z","tags":["saved-objects"],"title":"[BUG]MDS - Transfer data from MDS enabled data source to MDS disabled data source, hit auth failure","_secondary":true}
+{"id":"gh-osd-3083","source":"github","score":0,"posted_at":"2022-12-14T22:57:08Z","tags":["lens","license"],"title":"[BUG] OpenSearch license text should be removed","_secondary":true}
+{"id":"gh-osd-1157","source":"github","score":6,"posted_at":"2022-01-15T03:08:31Z","tags":["saved-objects"],"title":"[Vis Builder] Vis Builder meta issue","_secondary":true}
+{"id":"gh-osd-10460","source":"github","score":0,"posted_at":"2025-08-28T05:56:13Z","tags":["alerting","anomaly"],"title":"[BUG] Shared Links do cause an error when opened in a different browser session","_secondary":true}
+{"id":"gh-osd-7111","source":"github","score":0,"posted_at":"2024-06-26T18:41:49Z","tags":[],"title":"[RFC] Dynamic Configuration Service","_secondary":true}
+{"id":"gh-osd-1547","source":"github","score":0,"posted_at":"2022-05-05T00:29:29Z","tags":["saved-objects"],"title":"[Feature] Accessing Dashboards page in security-enabled cluster from CLI","_secondary":true}
+{"id":"gh-osd-7677","source":"github","score":4,"posted_at":"2024-08-10T14:45:24Z","tags":["discover","alerting","anomaly","ml"],"title":"[BUG] Filters in URL of saved searches are lost while page loading","_secondary":true}
+{"id":"gh-osd-7228","source":"github","score":0,"posted_at":"2024-07-12T04:22:15Z","tags":[],"title":"[RFC] Dynamic content creation within OSD","_secondary":true}
+{"id":"gh-osd-7067","source":"github","score":0,"posted_at":"2024-06-19T18:09:02Z","tags":[],"title":"Integrate Vega Vis into VisBuilder Proposal","_secondary":true}
+{"id":"gh-osd-4058","source":"github","score":0,"posted_at":"2023-05-17T18:33:44Z","tags":["alerting","anomaly"],"title":"Upcoming Transition to Node.js v18: Plugin Compatibility Test Required Overall Issue","_secondary":true}
+{"id":"gh-osd-11080","source":"github","score":2,"posted_at":"2025-12-18T18:17:23Z","tags":[],"title":"[RFC] Upgrade to use Webpack v5, React v18, NodeJS v22","_secondary":true}
+{"id":"gh-osd-6379","source":"github","score":6,"posted_at":"2024-04-09T06:54:09Z","tags":["saved-objects"],"title":"[BUG] Share button lose search criteria","_secondary":true}
+{"id":"gh-osd-5616","source":"github","score":0,"posted_at":"2023-12-14T21:33:52Z","tags":[],"title":"[BUG] [TableVis] Embeddables are not sized correctly, and create vertical and horizontal scrollbars","_secondary":true}
+{"id":"gh-osd-7599","source":"github","score":0,"posted_at":"2024-07-31T08:28:56Z","tags":[],"title":"How to create React Production Build of OpenSearch Dashboard","_secondary":true}
+{"id":"gh-osd-5208","source":"github","score":8,"posted_at":"2023-10-04T09:25:38Z","tags":["discover"],"title":"[BUG] Multiline content in [message] field is not displayed correctly ","_secondary":true}
+{"id":"gh-osd-4615","source":"github","score":8,"posted_at":"2023-07-24T19:18:35Z","tags":["saved-objects"],"title":"[RFC]: Seeking details on the Workspace experience & access control","_secondary":true}
+{"id":"gh-osd-3474","source":"github","score":0,"posted_at":"2023-02-21T17:45:59Z","tags":["discover"],"title":"Discover plugin as embeddable","_secondary":true}
+{"id":"gh-osd-11583","source":"github","score":0,"posted_at":"2026-03-24T23:27:42Z","tags":["discover"],"title":"[BUG] Not able to export a table from OSD > Dashboards","_secondary":true}
+{"id":"gh-osd-11352","source":"github","score":0,"posted_at":"2026-02-15T21:21:54Z","tags":[],"title":"[RFC] AI-Assisted Query Generation in Dev Tools Console","_secondary":true}
+{"id":"gh-osd-5407","source":"github","score":0,"posted_at":"2023-10-30T19:18:01Z","tags":[],"title":"Vis-Builder Integration with Data Explorer Proposal"}
+{"id":"gh-osd-5274","source":"github","score":0,"posted_at":"2023-10-11T14:10:20Z","tags":["alerting","anomaly"],"title":"[BUG] Blank \"dashboardViewport\"","_secondary":true}
+{"id":"gh-osd-3948","source":"github","score":0,"posted_at":"2023-04-26T06:06:21Z","tags":[],"title":"Removal of domain names from dashboard export files","_secondary":true}
+{"id":"gh-osd-3386","source":"github","score":0,"posted_at":"2023-02-04T01:04:27Z","tags":[],"title":"Remove KUI usage in `visualizations`","_secondary":true}
+{"id":"gh-osd-1740","source":"github","score":0,"posted_at":"2022-06-14T07:55:59Z","tags":["pdf-export"],"title":"[Branding] Remove or allow to disable url validation"}
+{"id":"gh-osd-8625","source":"github","score":0,"posted_at":"2024-10-17T09:13:58Z","tags":[],"title":"[RFC] Create a plugin for metric reporting ","_secondary":true}
+{"id":"gh-osd-4688","source":"github","score":0,"posted_at":"2023-08-07T09:36:47Z","tags":["discover","alerting"],"title":"[BUG] no menu on Dashboard View / saved search at Table","_secondary":true}
+{"id":"gh-osd-3849","source":"github","score":0,"posted_at":"2023-04-14T19:51:01Z","tags":[],"title":"Support filters for non-index pattern visualizations in dashboard","_secondary":true}
+{"id":"gh-osd-3485","source":"github","score":0,"posted_at":"2023-02-22T20:01:51Z","tags":[],"title":"[BUG] Vislib to Vega-lite migrator, fix chart overflow issue","_secondary":true}
+{"id":"gh-osd-2087","source":"github","score":1,"posted_at":"2022-08-08T03:14:59Z","tags":["license"],"title":"[BUG] Not able to run functional test on my MacOS","_secondary":true}
+{"id":"gh-osd-1728","source":"github","score":0,"posted_at":"2022-06-13T22:48:44Z","tags":["saved-objects"],"title":"[MD]Handle data source export","_secondary":true}
+{"id":"gh-osd-1368","source":"github","score":0,"posted_at":"2022-03-22T17:12:04Z","tags":[],"title":"Custom branding colors","_secondary":true}
+{"id":"gh-osd-987","source":"github","score":6,"posted_at":"2021-11-29T14:45:41Z","tags":["saved-objects"],"title":"Saved Objects API as production feature","_secondary":true}
+{"id":"gh-osd-569","source":"github","score":2,"posted_at":"2021-06-30T16:15:32Z","tags":[],"title":"[Enhancement] Redesign global header","_secondary":true}
+{"id":"gh-osd-8889","source":"github","score":1,"posted_at":"2024-11-19T05:30:09Z","tags":[],"title":"[BUG] Copy Link does not work in Safari"}
+{"id":"gh-osd-6880","source":"github","score":0,"posted_at":"2024-05-30T23:00:04Z","tags":[],"title":"[Feature Request] Declutter menu using roles","_secondary":true}
+{"id":"gh-osd-6085","source":"github","score":0,"posted_at":"2024-03-08T01:27:10Z","tags":["discover"],"title":"[Proposal] - New, Open, Save, Share and Update Discover Searches and Queries","_secondary":true}
+{"id":"gh-osd-6045","source":"github","score":0,"posted_at":"2024-03-05T22:37:31Z","tags":[],"title":"Export correct types for `RequestHandlerContext.dataSource` for plugins","_secondary":true}
+{"id":"gh-osd-5629","source":"github","score":0,"posted_at":"2023-12-19T06:52:32Z","tags":["discover"],"title":"[BUG] Copy Link button in Share does not actually copy the link on Safari","_secondary":true}
+{"id":"gh-osd-4819","source":"github","score":0,"posted_at":"2023-08-25T15:37:51Z","tags":["discover","alerting"],"title":"[BUG] Dashboard URLs from Markdown visualizations are not loaded correctly","_secondary":true}
+{"id":"gh-osd-3767","source":"github","score":0,"posted_at":"2023-04-02T17:06:23Z","tags":[],"title":"Add support for exporting and restoring the history of commands in Dev Tools"}
+{"id":"gh-osd-3665","source":"github","score":0,"posted_at":"2023-03-23T03:48:46Z","tags":[],"title":"[BUG] Curl to dashboard version 2.2.1 gives {“statusCode”:500,”error”:”Internal Server Error”,”message”:”An internal server error occurred.”} with centos image","_secondary":true}
+{"id":"gh-osd-3440","source":"github","score":1,"posted_at":"2023-02-17T09:55:52Z","tags":[],"title":"Save time range in searches"}
+{"id":"gh-osd-1647","source":"github","score":0,"posted_at":"2022-06-01T06:27:33Z","tags":[],"title":"[FEATURE] Offer OpenSearch Dashboards APIs as Public APIs","_secondary":true}
+{"id":"gh-osd-1403","source":"github","score":2,"posted_at":"2022-03-30T14:53:47Z","tags":[],"title":"Option to hide visualization filters bar for embedded mode","_secondary":true}
+{"id":"gh-osd-1243","source":"github","score":0,"posted_at":"2022-02-14T17:32:06Z","tags":[],"title":"[BUG] Branding with Opensearch Dashboard on Kubernetes Cluster","_secondary":true}
+{"id":"gh-osd-10473","source":"github","score":0,"posted_at":"2025-09-01T12:42:55Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Clarification needed regarding MDS limitations","_secondary":true}
+{"id":"gh-osd-9537","source":"github","score":4,"posted_at":"2025-03-13T09:06:17Z","tags":["ml"],"title":"[RFC] Introducing JupyterNotebook into OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-8985","source":"github","score":0,"posted_at":"2024-11-27T17:34:48Z","tags":["discover"],"title":"[BUG] Navigating to Discover page from a visualization or dashboard with filters applied \"persists\" those filters to the Discover page","_secondary":true}
+{"id":"gh-osd-6690","source":"github","score":0,"posted_at":"2024-04-30T20:53:21Z","tags":[],"title":"[BUG] clicking browser back shows the opensearch header in embed mode"}
+{"id":"gh-osd-6615","source":"github","score":0,"posted_at":"2024-04-23T13:13:14Z","tags":[],"title":"Exported Timestamp field is shown as empty brackets with report generation to CSV","_secondary":true}
+{"id":"gh-osd-6121","source":"github","score":0,"posted_at":"2024-03-12T16:34:00Z","tags":[],"title":"BUG] Internal Server Error HapiResponseAdapter.toInternalError","_secondary":true}
+{"id":"gh-osd-5713","source":"github","score":0,"posted_at":"2024-01-19T18:03:31Z","tags":["discover"],"title":"[Meta][Discover][Functional Test] Capturing Customer Feedback and Bugs into tests for Discover","_secondary":true}
+{"id":"gh-osd-5122","source":"github","score":0,"posted_at":"2023-09-26T19:44:40Z","tags":[],"title":"[BUG] ValidationError when setting maps.proxyOpenSearchMapsServiceInMaps ","_secondary":true}
+{"id":"gh-osd-4367","source":"github","score":0,"posted_at":"2023-06-22T23:41:59Z","tags":[],"title":"[BUG] Breadcrumb behavior on dashboard is broken","_secondary":true}
+{"id":"gh-osd-4125","source":"github","score":0,"posted_at":"2023-05-24T08:54:53Z","tags":[],"title":"[BUG] API calls don't display any report definitions nor instances"}
+{"id":"gh-osd-4079","source":"github","score":0,"posted_at":"2023-05-22T20:04:16Z","tags":["discover"],"title":"[Research] OUI Compliance audit of the `discover` plugin","_secondary":true}
+{"id":"gh-osd-3985","source":"github","score":0,"posted_at":"2023-05-05T13:53:37Z","tags":[],"title":"CVE-2023-29827 (Critical) detected in ejs-3.1.7.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-3982","source":"github","score":0,"posted_at":"2023-05-04T23:13:23Z","tags":[],"title":"[Research] [Dashboard plugin De-Angular] Dashboard state manager"}
+{"id":"gh-osd-3841","source":"github","score":0,"posted_at":"2023-04-13T09:10:31Z","tags":[],"title":"Issues related to Reporting plugin in Opensearch Dashboard 2.6.0 [BUG]","_secondary":true}
+{"id":"gh-osd-3215","source":"github","score":0,"posted_at":"2023-01-09T09:03:19Z","tags":[],"title":"Monaco editor: Using the worker.js instead of embedding the worker inside the main ui process. "}
+{"id":"gh-osd-3057","source":"github","score":0,"posted_at":"2022-12-09T20:03:11Z","tags":[],"title":"[FEATURE] Add red dot to the embeddable component"}
+{"id":"gh-osd-3025","source":"github","score":0,"posted_at":"2022-12-04T20:53:33Z","tags":[],"title":"Fix type errors in Visualization Builder"}
+{"id":"gh-osd-2455","source":"github","score":1,"posted_at":"2022-09-29T18:05:44Z","tags":["alerting"],"title":"[MD] Onboard other plugins to multiple data source feature","_secondary":true}
+{"id":"gh-osd-2389","source":"github","score":1,"posted_at":"2022-09-20T17:04:37Z","tags":[],"title":"Update SECURITY.md with more requirements"}
+{"id":"gh-osd-2331","source":"github","score":0,"posted_at":"2022-09-12T22:05:32Z","tags":[],"title":"Use sass-embedded to solve the optimizer performance issue with dart-sass","_secondary":true}
+{"id":"gh-osd-2252","source":"github","score":0,"posted_at":"2022-09-01T16:24:42Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Document exists but search shows \"no results\" in Discover","_secondary":true}
+{"id":"gh-osd-1885","source":"github","score":0,"posted_at":"2022-07-12T01:22:32Z","tags":["saved-objects"],"title":"[D&D] Functional: validate export/import of saved objects","_secondary":true}
+{"id":"gh-osd-1691","source":"github","score":0,"posted_at":"2022-06-07T21:01:48Z","tags":[],"title":"[Non-Inclusive Lanuage] Replace references to `master` branch with `main`"}
+{"id":"gh-osd-1353","source":"github","score":0,"posted_at":"2022-03-16T18:28:15Z","tags":[],"title":"set custom config properties in opensearch_dashboards.yml, and access them from core/custom plugins","_secondary":true}
+{"id":"gh-osd-353","source":"github","score":8,"posted_at":"2021-05-13T14:24:43Z","tags":[],"title":"[PROPOSAL]  Dashboard Rows in OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-11315","source":"github","score":0,"posted_at":"2026-02-07T00:08:58Z","tags":["kql","discover","csv-export"],"title":"[BUG] CSV export fields in explore are strange","_secondary":true}
+{"id":"gh-osd-11091","source":"github","score":3,"posted_at":"2025-12-23T10:53:14Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Embed mode causes incorrect height calculation for Discover layout, leaving empty space at bottom","_secondary":true}
+{"id":"gh-osd-9825","source":"github","score":1,"posted_at":"2025-05-28T07:19:18Z","tags":[],"title":"[BUG] Dashboards fails when one out of three opensearch nodes is down","_secondary":true}
+{"id":"gh-osd-9714","source":"github","score":0,"posted_at":"2025-04-24T18:57:07Z","tags":["canvas"],"title":"CVE-2024-43788 (Medium) detected in webpack-4.47.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9329","source":"github","score":0,"posted_at":"2025-02-04T17:25:05Z","tags":[],"title":"Issue with yarn build platform --linux and dart-sass Compatibility"}
+{"id":"gh-osd-8952","source":"github","score":0,"posted_at":"2024-11-27T00:45:09Z","tags":[],"title":"[Sharing] TESTID-46: Snapshot URL & short snapshot URL","_secondary":true}
+{"id":"gh-osd-8750","source":"github","score":0,"posted_at":"2024-10-30T08:53:42Z","tags":[],"title":"[BUG] Dashboard map visualization is getting distorted after export to PDF/PNG format"}
+{"id":"gh-osd-8241","source":"github","score":0,"posted_at":"2024-09-19T10:13:17Z","tags":["discover"],"title":"Generate CSV option in saved search is not working for some saved searches","_secondary":true}
+{"id":"gh-osd-7264","source":"github","score":0,"posted_at":"2024-07-16T17:25:50Z","tags":[],"title":"[BUG] Error connecting to datasources using Sigv4 auth","_secondary":true}
+{"id":"gh-osd-7082","source":"github","score":0,"posted_at":"2024-06-21T00:47:16Z","tags":["saved-objects"],"title":"[Meta] Seamless Transition of Legacy Visualizations to VisBuilder","_secondary":true}
+{"id":"gh-osd-6892","source":"github","score":0,"posted_at":"2024-06-03T18:15:30Z","tags":[],"title":"Remove credentials from data source object when exported"}
+{"id":"gh-osd-6738","source":"github","score":0,"posted_at":"2024-05-07T21:26:48Z","tags":[],"title":"[Multiple Datasource] Add API Call Error Handling: Simulate Network Error and 404 Response"}
+{"id":"gh-osd-6711","source":"github","score":0,"posted_at":"2024-05-03T11:21:47Z","tags":[],"title":"[BUG] Security plugin instalation problems","_secondary":true}
+{"id":"gh-osd-6506","source":"github","score":0,"posted_at":"2024-04-17T05:22:07Z","tags":["pdf-export"],"title":"[BUG] Downloading a PDF report opens up a new duplicate tab instead of downloading a file in OPENSEARCH DASHBOARDS 2.12"}
+{"id":"gh-osd-6487","source":"github","score":0,"posted_at":"2024-04-16T16:42:59Z","tags":[],"title":"Exported Timestamp field is shown as empty brackets with report generation to CSV","_secondary":true}
+{"id":"gh-osd-6278","source":"github","score":0,"posted_at":"2024-03-27T15:56:57Z","tags":["pdf-export"],"title":"[BUG] Problems with visual consistency reports","_secondary":true}
+{"id":"gh-osd-5792","source":"github","score":0,"posted_at":"2024-02-02T23:01:48Z","tags":["discover"],"title":"Discover related advanced setting test","_secondary":true}
+{"id":"gh-osd-5755","source":"github","score":0,"posted_at":"2024-01-30T15:15:18Z","tags":["discover","alerting"],"title":"Creating OpenSearch Dashboard Plugin","_secondary":true}
+{"id":"gh-osd-4966","source":"github","score":0,"posted_at":"2023-09-07T16:54:59Z","tags":["dark-mode"],"title":"[Look and Feel] New Home Page Experience","_secondary":true}
+{"id":"gh-osd-4755","source":"github","score":0,"posted_at":"2023-08-16T21:52:21Z","tags":[],"title":"[RFC] No-code designer for AI-augmented workflows"}
+{"id":"gh-osd-4600","source":"github","score":0,"posted_at":"2023-07-20T10:01:00Z","tags":[],"title":"[PLUGINS] plugins server cant fetch data","_secondary":true}
+{"id":"gh-osd-4529","source":"github","score":0,"posted_at":"2023-07-09T05:50:53Z","tags":["discover","saved-objects"],"title":"[BUG] Data Source Connection Passwords Empty When Imported (export.ndjson)","_secondary":true}
+{"id":"gh-osd-4362","source":"github","score":0,"posted_at":"2023-06-22T17:48:12Z","tags":[],"title":"[Dashboard De-Angular] Query, filter and time range correctly update child embeddables","_secondary":true}
+{"id":"gh-osd-4333","source":"github","score":0,"posted_at":"2023-06-20T16:56:32Z","tags":[],"title":"`yarn build*` commands cause some imports to fail","_secondary":true}
+{"id":"gh-osd-4317","source":"github","score":0,"posted_at":"2023-06-19T21:14:38Z","tags":["saved-objects"],"title":"Dashboard De-Angular Design","_secondary":true}
+{"id":"gh-osd-4233","source":"github","score":0,"posted_at":"2023-06-03T01:05:40Z","tags":[],"title":"[Data Explorer] Implement Embeddable"}
+{"id":"gh-osd-4016","source":"github","score":0,"posted_at":"2023-05-12T13:48:52Z","tags":[],"title":"[BUG] Visualization Created With VisBuilder Cannot Be Saved","_secondary":true}
+{"id":"gh-osd-3979","source":"github","score":0,"posted_at":"2023-05-04T05:58:07Z","tags":["dark-mode"],"title":"[BUG] Exporting via reporting on dark mode broke","_secondary":true}
+{"id":"gh-osd-3856","source":"github","score":0,"posted_at":"2023-04-17T08:27:00Z","tags":[],"title":"Reporting : Add possibility to delete reports"}
+{"id":"gh-osd-3682","source":"github","score":0,"posted_at":"2023-03-23T22:17:51Z","tags":[],"title":"Replace `jquery` usage in `vis_type_timeseries` plugin with native methods"}
+{"id":"gh-osd-3476","source":"github","score":0,"posted_at":"2023-02-21T18:00:37Z","tags":[],"title":"Set visualizations filter manager","_secondary":true}
+{"id":"gh-osd-3268","source":"github","score":0,"posted_at":"2023-01-12T20:26:59Z","tags":[],"title":"[Feature Anywhere] Finalize eligibility based on vis configuration","_secondary":true}
+{"id":"gh-osd-3147","source":"github","score":0,"posted_at":"2022-12-24T17:37:03Z","tags":[],"title":"[BUG] Link copy fails in Visualisations > Share"}
+{"id":"gh-osd-2183","source":"github","score":0,"posted_at":"2022-08-23T09:47:20Z","tags":["discover"],"title":"Busy icon/progress bar on click of Refresh/Update button indicating the search operation in progress is missing on Kibana UI.","_secondary":true}
+{"id":"gh-osd-2132","source":"github","score":3,"posted_at":"2022-08-11T23:53:35Z","tags":["discover"],"title":"[Docs] OpenSearch Dashboards documentation gaps","_secondary":true}
+{"id":"gh-osd-1263","source":"github","score":0,"posted_at":"2022-02-18T15:14:43Z","tags":[],"title":"[BUG] Allow running test server in Unix-like operating systems","_secondary":true}
+{"id":"gh-osd-1254","source":"github","score":2,"posted_at":"2022-02-16T19:11:17Z","tags":["discover","saved-objects"],"title":"[BUG]Loading a saved query with double quotes in Discover removes the quotes (Kibana issue #81575)","_secondary":true}
+{"id":"gh-osd-806","source":"github","score":1,"posted_at":"2021-09-21T11:45:05Z","tags":["alerting"],"title":"[Feature Request] Embed Pipe Processing Language (PPL) to GUI","_secondary":true}
+{"id":"gh-osd-37","source":"github","score":0,"posted_at":"2021-03-03T07:05:51Z","tags":["discover","apm"],"title":"[RENAME] Renaming from kibana -> opensearch Dashboards","_secondary":true}
+{"id":"gh-osd-11237","source":"github","score":0,"posted_at":"2026-01-26T21:38:37Z","tags":[],"title":"[RFC] Flexible Version Management for OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-10887","source":"github","score":0,"posted_at":"2025-11-08T00:49:26Z","tags":["discover"],"title":"[Refactor] ExploreEmbeddable should not use getServices from legacy discover","_secondary":true}
+{"id":"gh-osd-10752","source":"github","score":0,"posted_at":"2025-10-17T23:14:58Z","tags":[],"title":"[Test Fail] Run cypress tests (osd:ciGroup13)/(osd:ciGroup13Explore)/(osd:ciGroup14Explore)","_secondary":true}
+{"id":"gh-osd-10488","source":"github","score":0,"posted_at":"2025-09-05T15:59:13Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Possible problem with restoring data streams from snapshots","_secondary":true}
+{"id":"gh-osd-10135","source":"github","score":0,"posted_at":"2025-07-14T16:07:34Z","tags":[],"title":"[BUG]The 'Copy Link' from the Share menu in the Top Bar Does Not Copy to Clipboard"}
+{"id":"gh-osd-10057","source":"github","score":1,"posted_at":"2025-07-02T14:49:30Z","tags":[],"title":"[BUG] - 500 Error When Accessing Short URL Without Selecting Tenant"}
+{"id":"gh-osd-10052","source":"github","score":0,"posted_at":"2025-07-02T04:20:24Z","tags":["alerting","anomaly"],"title":"[BUG]Teams alert getting into Ignored State","_secondary":true}
+{"id":"gh-osd-9997","source":"github","score":7,"posted_at":"2025-06-26T21:14:56Z","tags":[],"title":"[RFC] Integrate Automated AI-based Code Reviews","_secondary":true}
+{"id":"gh-osd-9935","source":"github","score":0,"posted_at":"2025-06-18T23:48:54Z","tags":["saved-objects"],"title":"[BUG] Saved Object Export Pop-up Window Not Showing Types","_secondary":true}
+{"id":"gh-osd-9923","source":"github","score":0,"posted_at":"2025-06-18T00:22:14Z","tags":["saved-objects"],"title":"[BUG] Saved Object Export Pop-up Window Not Showing Types","_secondary":true}
+{"id":"gh-osd-9899","source":"github","score":0,"posted_at":"2025-06-16T04:57:10Z","tags":[],"title":"[BUG] osd-pm webpack config behaves differently between dev and prod env.","_secondary":true}
+{"id":"gh-osd-9716","source":"github","score":0,"posted_at":"2025-04-24T18:57:11Z","tags":[],"title":"CVE-2024-21535 (Medium) detected in markdown-to-jsx-6.11.4.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-8811","source":"github","score":1,"posted_at":"2024-11-05T11:33:16Z","tags":[],"title":"[BUG]"}
+{"id":"gh-osd-8776","source":"github","score":0,"posted_at":"2024-10-31T11:29:13Z","tags":["discover"],"title":"[BUG] Unable to choose custom time for snapshot policies in Snapshot schedule","_secondary":true}
+{"id":"gh-osd-8751","source":"github","score":0,"posted_at":"2024-10-30T15:06:17Z","tags":[],"title":"[BUG] Exported pdf/png has black areas depending on zoom/screen size ","_secondary":true}
+{"id":"gh-osd-8367","source":"github","score":0,"posted_at":"2024-09-27T06:15:29Z","tags":["discover"],"title":"[BUG] Not able to Copy link for sharing logs in Safari","_secondary":true}
+{"id":"gh-osd-8295","source":"github","score":0,"posted_at":"2024-09-23T15:18:44Z","tags":[],"title":"Be able to collapse spans in trace view","_secondary":true}
+{"id":"gh-osd-8175","source":"github","score":0,"posted_at":"2024-09-12T23:06:09Z","tags":["discover"],"title":"[BUG] Generated short url from long url throws internal server error","_secondary":true}
+{"id":"gh-osd-8114","source":"github","score":0,"posted_at":"2024-09-10T22:33:53Z","tags":["discover"],"title":"[BUG] No truncation callout for Discover when query default record count isn't exactly 500","_secondary":true}
+{"id":"gh-osd-7864","source":"github","score":0,"posted_at":"2024-08-27T14:16:53Z","tags":[],"title":"[BUG] Creating scheduled dashboards report","_secondary":true}
+{"id":"gh-osd-7505","source":"github","score":0,"posted_at":"2024-07-26T03:33:47Z","tags":[],"title":"Provide option to hide action button in embeddable header"}
+{"id":"gh-osd-7504","source":"github","score":0,"posted_at":"2024-07-26T03:33:17Z","tags":[],"title":"[Embeddable] Provide option to hide embeddable panel action button"}
+{"id":"gh-osd-6410","source":"github","score":0,"posted_at":"2024-04-11T17:57:37Z","tags":[],"title":"[MDS] Full Timeline Support","_secondary":true}
+{"id":"gh-osd-6376","source":"github","score":0,"posted_at":"2024-04-09T00:18:01Z","tags":[],"title":"[BUG] Error while calling api/stats?extended=true&legacy=true&exclude_usage=false","_secondary":true}
+{"id":"gh-osd-6373","source":"github","score":0,"posted_at":"2024-04-08T22:53:56Z","tags":["discover","saved-objects"],"title":"[BUG] shared_links test fail due to url change when installed security plugin","_secondary":true}
+{"id":"gh-osd-5994","source":"github","score":0,"posted_at":"2024-03-01T11:25:57Z","tags":[],"title":"Unknown Sass implementation \"sass-embedded\""}
+{"id":"gh-osd-5962","source":"github","score":0,"posted_at":"2024-02-27T01:14:45Z","tags":["discover"],"title":"Add functional test for search embeddable in Discover","_secondary":true}
+{"id":"gh-osd-5911","source":"github","score":0,"posted_at":"2024-02-21T20:37:59Z","tags":[],"title":"[BUG] Data table visualizations created before OpenSearch_2_11_R20231113-P2 are broken after applying patch","_secondary":true}
+{"id":"gh-osd-5533","source":"github","score":9,"posted_at":"2023-11-22T23:14:36Z","tags":["discover","anomaly","ml"],"title":"[BUG] Index Pattern Filtering when searching in Dashboards","_secondary":true}
+{"id":"gh-osd-5460","source":"github","score":0,"posted_at":"2023-11-10T09:41:11Z","tags":[],"title":"[BUG] Cannot open in a new tab link to visualization","_secondary":true}
+{"id":"gh-osd-5336","source":"github","score":0,"posted_at":"2023-10-19T18:41:03Z","tags":[],"title":"[Enhancement] Publish minimum snapshot builds to artifacts.opensearch.org","_secondary":true}
+{"id":"gh-osd-5225","source":"github","score":0,"posted_at":"2023-10-05T08:56:46Z","tags":["anomaly"],"title":"[BUG] Options button does not render for heat map widget in dashboard page","_secondary":true}
+{"id":"gh-osd-5116","source":"github","score":0,"posted_at":"2023-09-26T08:29:45Z","tags":["discover"],"title":"[BUG] [Data Explorer] Save search rendering wrong on dashboard when refresh is clicked","_secondary":true}
+{"id":"gh-osd-4372","source":"github","score":0,"posted_at":"2023-06-23T18:33:45Z","tags":[],"title":"[BUG] URL param `embed` is broken on dashboard","_secondary":true}
+{"id":"gh-osd-4118","source":"github","score":0,"posted_at":"2023-05-22T22:57:46Z","tags":[],"title":"Kui dist isn't up to date","_secondary":true}
+{"id":"gh-osd-4095","source":"github","score":0,"posted_at":"2023-05-22T20:05:04Z","tags":[],"title":"[Research] OUI Compliance audit of the `vis_builder` plugin","_secondary":true}
+{"id":"gh-osd-4076","source":"github","score":0,"posted_at":"2023-05-22T20:03:28Z","tags":[],"title":"[Research] OUI Compliance audit of the `dashboard` plugin","_secondary":true}
+{"id":"gh-osd-3905","source":"github","score":0,"posted_at":"2023-04-20T22:49:10Z","tags":[],"title":"[Research] [Dashboard plugin De-Angular] dashboard embeddable factory, embeddable container and embeddable panel structure","_secondary":true}
+{"id":"gh-osd-3155","source":"github","score":0,"posted_at":"2022-12-29T17:58:01Z","tags":["saved-objects"],"title":"[Feature Anywhere] Support a 'View Events' flyout for event details","_secondary":true}
+{"id":"gh-osd-3112","source":"github","score":0,"posted_at":"2022-12-20T07:11:46Z","tags":["discover","saved-objects"],"title":"Understand Discover -- (draft)","_secondary":true}
+{"id":"gh-osd-3077","source":"github","score":0,"posted_at":"2022-12-14T00:48:08Z","tags":[],"title":"[Enhancement] Export existing visualizations to vega","_secondary":true}
+{"id":"gh-osd-3038","source":"github","score":0,"posted_at":"2022-12-07T13:34:48Z","tags":["discover","alerting","anomaly"],"title":"[BUG] Cannot generate CSV reports from query with leading wildcard","_secondary":true}
+{"id":"gh-osd-3032","source":"github","score":0,"posted_at":"2022-12-05T22:36:21Z","tags":[],"title":"[BUG] Obsolete `theme:version` config value of `v8 (beta)` rendering issues"}
+{"id":"gh-osd-2903","source":"github","score":1,"posted_at":"2022-11-19T02:45:49Z","tags":["discover"],"title":"[Proposal] Data persistence using session storage by default instead of using URL","_secondary":true}
+{"id":"gh-osd-2857","source":"github","score":0,"posted_at":"2022-11-10T21:31:04Z","tags":[],"title":"[Table Visualization][Test] Document all the functional tests related to table vis"}
+{"id":"gh-osd-2580","source":"github","score":1,"posted_at":"2022-10-14T23:12:05Z","tags":["saved-objects"],"title":"Reminder for unsaved dashboard when navigating away","_secondary":true}
+{"id":"gh-osd-2379","source":"github","score":0,"posted_at":"2022-09-16T18:08:30Z","tags":[],"title":"[Table Visualization] Table viz to export table as CSV and split table","_secondary":true}
+{"id":"gh-osd-2025","source":"github","score":0,"posted_at":"2022-07-30T03:59:02Z","tags":[],"title":"[MD] Not expose credential materials for read flow"}
+{"id":"gh-osd-1989","source":"github","score":0,"posted_at":"2022-07-27T21:09:01Z","tags":["discover"],"title":"Onboard Discover and `search embeddable`  to support multi datasource","_secondary":true}
+{"id":"gh-osd-1941","source":"github","score":0,"posted_at":"2022-07-22T18:51:46Z","tags":[],"title":"[D&D] Replace embeddable SavedObjectClient implementation with SavedObjectLoader"}
+{"id":"gh-osd-1939","source":"github","score":0,"posted_at":"2022-07-22T18:51:38Z","tags":[],"title":"[D&D] Simplify embeddable setup implementation with startServicesGetter, specific service methods"}
+{"id":"gh-osd-1922","source":"github","score":0,"posted_at":"2022-07-20T18:02:40Z","tags":[],"title":"[Vis Builder] Audit embeddable implementation, edge cases, testing for feature parity","_secondary":true}
+{"id":"gh-osd-1921","source":"github","score":0,"posted_at":"2022-07-20T18:02:34Z","tags":[],"title":"[D&D] Fix/improve default embeddable title handling"}
+{"id":"gh-osd-1910","source":"github","score":0,"posted_at":"2022-07-18T17:42:33Z","tags":[],"title":"[D&D] Remove search/hasMatch vestiges from embeddable example","_secondary":true}
+{"id":"gh-osd-1908","source":"github","score":0,"posted_at":"2022-07-18T16:31:20Z","tags":[],"title":"[D&D] Initial embeddable scaffolding and panel display"}
+{"id":"gh-osd-1703","source":"github","score":0,"posted_at":"2022-06-08T19:11:42Z","tags":["saved-objects"],"title":"[D&D] Add to Dashboard via saved object","_secondary":true}
+{"id":"gh-osd-1700","source":"github","score":0,"posted_at":"2022-06-08T19:03:38Z","tags":["saved-objects"],"title":"[Docs] Dev docs for using Saved Objects & Embeddables","_secondary":true}
+{"id":"gh-osd-1526","source":"github","score":1,"posted_at":"2022-04-29T13:32:28Z","tags":["saved-objects"],"title":"Saved-Objects export and import formats should be interchangeable","_secondary":true}
+{"id":"gh-osd-1501","source":"github","score":0,"posted_at":"2022-04-27T02:02:35Z","tags":[],"title":"CVE-2022-29078 (High) detected in ejs-3.1.6.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1466","source":"github","score":0,"posted_at":"2022-04-15T16:25:32Z","tags":["saved-objects"],"title":"[BUG] Alteration of custom color info in visualizations on import using /api/saved_objects/_import ","_secondary":true}
+{"id":"gh-osd-1360","source":"github","score":0,"posted_at":"2022-03-18T05:25:26Z","tags":[],"title":"type mismatch issue in src/core/server/saved_objects"}
+{"id":"gh-osd-989","source":"github","score":0,"posted_at":"2021-12-01T12:04:09Z","tags":[],"title":"[Branding] Remove or allow to disable url validation"}
+{"id":"gh-osd-880","source":"github","score":0,"posted_at":"2021-10-18T22:01:49Z","tags":[],"title":"Test dashboards build in freeBSD instance once dashboards is bumped to node 16","_secondary":true}
+{"id":"gh-osd-680","source":"github","score":1,"posted_at":"2021-07-28T21:17:26Z","tags":[],"title":"[BUG] Running `yarn uiFramework:start` fails to build osd-ui-framework","_secondary":true}
+{"id":"gh-osd-11705","source":"github","score":0,"posted_at":"2026-04-07T22:37:29Z","tags":[],"title":"[Proposal] Cross-Datasource Federated Query Engine for OpenSearch Dashboards"}
+{"id":"gh-osd-11681","source":"github","score":0,"posted_at":"2026-04-05T17:16:40Z","tags":["saved-objects"],"title":"Saved objects migration leaks OpenSearch scroll context on error","_secondary":true}
+{"id":"gh-osd-11590","source":"github","score":0,"posted_at":"2026-03-25T11:23:29Z","tags":["discover","csv-export"],"title":"Data Table visualization CSV export truncates results (~3–4k rows) without warning or configuration option","_secondary":true}
+{"id":"gh-osd-11577","source":"github","score":0,"posted_at":"2026-03-24T15:47:23Z","tags":[],"title":"[META] Integrate with SQL/PPL Error Reports","_secondary":true}
+{"id":"gh-osd-11491","source":"github","score":0,"posted_at":"2026-03-10T20:43:13Z","tags":[],"title":"[BUG] shortURL does not work properly with storeInSessionStorage"}
+{"id":"gh-osd-11461","source":"github","score":0,"posted_at":"2026-03-06T08:35:51Z","tags":[],"title":"CVE-2026-29063 (High) detected in immutable-5.1.4.tgz","_secondary":true}
+{"id":"gh-osd-11445","source":"github","score":0,"posted_at":"2026-03-04T22:50:02Z","tags":[],"title":"CVE-2026-0540 (Medium) detected in dompurify-3.2.4.tgz"}
+{"id":"gh-osd-11345","source":"github","score":5,"posted_at":"2026-02-13T18:38:15Z","tags":["apm"],"title":"[RFC] Agent Traces: Agent Observability for OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-11319","source":"github","score":0,"posted_at":"2026-02-09T13:54:24Z","tags":[],"title":"Add Date Range Control to Controls Visualization for Filtering on Multiple Date Fields","_secondary":true}
+{"id":"gh-osd-11104","source":"github","score":0,"posted_at":"2025-12-25T14:08:26Z","tags":[],"title":"Import/export dashboards like Grafana","_secondary":true}
+{"id":"gh-osd-10518","source":"github","score":0,"posted_at":"2025-09-11T14:30:58Z","tags":[],"title":"Option for disabling iframe embedding via opensearch-dashboards.yml"}
+{"id":"gh-osd-9948","source":"github","score":0,"posted_at":"2025-06-20T21:33:39Z","tags":["saved-objects"],"title":"[Feature request] In the Save Objects Page, \"Select all\" Selects Only the Saved Objects on the Current Page","_secondary":true}
+{"id":"gh-osd-9934","source":"github","score":0,"posted_at":"2025-06-18T23:27:40Z","tags":["saved-objects"],"title":"[Bugs] Incorrect Saved Object Counts By Type in OpenSearch Dashboards 2.17","_secondary":true}
+{"id":"gh-osd-9664","source":"github","score":0,"posted_at":"2025-04-08T22:12:41Z","tags":[],"title":"[BUG] Data source with auth type `SigV4`can lead to server crash","_secondary":true}
+{"id":"gh-osd-9351","source":"github","score":0,"posted_at":"2025-02-07T16:09:28Z","tags":[],"title":"[BUG][ciGroup10] Flaky shared link tests","_secondary":true}
+{"id":"gh-osd-9180","source":"github","score":0,"posted_at":"2025-01-14T17:15:25Z","tags":[],"title":"Resizable (or Expandable) Trigger Editing Window"}
+{"id":"gh-osd-8746","source":"github","score":0,"posted_at":"2024-10-29T20:33:42Z","tags":["discover"],"title":"[BUG] no fallback when configured tiebreaker fields are invalid or unsortable and break view surrounding documents function","_secondary":true}
+{"id":"hn-46356369","source":"hackernews","score":5,"posted_at":"2025-12-22T17:35:46Z","tags":["alerting","slow-dashboard","license"],"title":"Show HN: Logchef – Open-source schema-agnostic log viewer for ClickHouse","_secondary":true}
+{"id":"hn-22567557","source":"hackernews","score":103,"posted_at":"2020-03-13T14:36:28Z","tags":[],"title":"Launch HN: Castodia (YC W20) – Populate Google Sheets from databases","_secondary":true}
+{"id":"hn-19868592","source":"hackernews","score":1,"posted_at":"2019-05-09T14:30:26Z","tags":[],"title":"Ask HN: Embedded Elastic Search Dashboard"}
+{"id":"hn-10662931","source":"hackernews","score":9,"posted_at":"2015-12-02T14:01:18Z","tags":[],"title":"Elasticsearch and Kibana for Selenium Automation: Real-Time Reporting"}
+{"id":"hn-8158730","source":"hackernews","score":1,"posted_at":"2014-08-10T03:12:47Z","tags":[],"title":"Show HN: kibana-rack – Embed Kibana in Rack/Rails applications"}
+{"id":"hn-45814815","source":"hackernews","score":0,"posted_at":"2025-11-04T19:15:20Z","tags":[],"title":"Ask HN: Who wants to be hired? (November 2025)","_secondary":true}
+{"id":"hn-45453035","source":"hackernews","score":0,"posted_at":"2025-10-02T17:53:13Z","tags":[],"title":"Ask HN: Who is hiring? (October 2025)","_secondary":true}
+{"id":"hn-43547513","source":"hackernews","score":0,"posted_at":"2025-04-01T14:53:10Z","tags":[],"title":"Self-Hosting like it's 2025"}
+{"id":"hn-43195720","source":"hackernews","score":0,"posted_at":"2025-02-27T16:14:23Z","tags":[],"title":"Show HN: Telescope – an open-source web-based log viewer for logs in ClickHouse","_secondary":true}
+{"id":"hn-43195567","source":"hackernews","score":0,"posted_at":"2025-02-27T15:58:30Z","tags":[],"title":"Show HN: Telescope – an open-source web-based log viewer for logs in ClickHouse","_secondary":true}
+{"id":"hn-39553051","source":"hackernews","score":0,"posted_at":"2024-02-29T18:27:31Z","tags":[],"title":"Cloudflare Makes Pingora Rust Framework Open-Source"}
+{"id":"hn-35522018","source":"hackernews","score":0,"posted_at":"2023-04-11T07:37:48Z","tags":["apm"],"title":"Supabase Logs: open-source logging server","_secondary":true}
+{"id":"hn-34134926","source":"hackernews","score":0,"posted_at":"2022-12-26T05:40:06Z","tags":[],"title":"2022 was the year of Linux on the Desktop?"}
+{"id":"hn-32940853","source":"hackernews","score":0,"posted_at":"2022-09-22T16:02:38Z","tags":[],"title":"ZincSearch – lightweight alternative to Elasticsearch written in Go"}
+{"id":"hn-29392842","source":"hackernews","score":0,"posted_at":"2021-11-30T15:02:48Z","tags":[],"title":"Event Sourcing Is Hard (2019)"}
+{"id":"hn-29120515","source":"hackernews","score":0,"posted_at":"2021-11-05T15:20:08Z","tags":["csv-export"],"title":"Show HN: My wife is pregnant; naturally I made a baby-name app to prepare"}
+{"id":"hn-29069038","source":"hackernews","score":0,"posted_at":"2021-11-01T16:30:39Z","tags":["ml"],"title":"Ask HN: Freelancer? Seeking freelancer? (November 2021)","_secondary":true}
+{"id":"hn-28721558","source":"hackernews","score":0,"posted_at":"2021-10-01T17:55:56Z","tags":["ml"],"title":"Ask HN: Freelancer? Seeking freelancer? (October 2021)","_secondary":true}
+{"id":"hn-28638301","source":"hackernews","score":0,"posted_at":"2021-09-24T03:26:44Z","tags":[],"title":"Elk: A low footprint JavaScript engine for embedded systems"}
+{"id":"hn-28388865","source":"hackernews","score":0,"posted_at":"2021-09-02T05:12:11Z","tags":["ml"],"title":"Ask HN: Freelancer? Seeking freelancer? (September 2021)","_secondary":true}
+{"id":"hn-28037396","source":"hackernews","score":0,"posted_at":"2021-08-02T15:02:26Z","tags":["ml"],"title":"Ask HN: Freelancer? Seeking freelancer? (August 2021)","_secondary":true}
+{"id":"hn-27701774","source":"hackernews","score":0,"posted_at":"2021-07-01T17:28:38Z","tags":["ml"],"title":"Ask HN: Freelancer? Seeking freelancer? (July 2021)","_secondary":true}
+{"id":"hn-26473581","source":"hackernews","score":0,"posted_at":"2021-03-16T06:17:05Z","tags":["discover"],"title":"We Don’t Use Docker","_secondary":true}
+{"id":"hn-25834520","source":"hackernews","score":0,"posted_at":"2021-01-19T15:43:45Z","tags":[],"title":"Amazon: Not OK – Why we had to change Elastic licensing","_secondary":true}
+{"id":"hn-24984484","source":"hackernews","score":0,"posted_at":"2020-11-03T21:57:42Z","tags":[],"title":"Ask HN: Who is hiring? (November 2020)"}
+{"id":"hn-23367113","source":"hackernews","score":0,"posted_at":"2020-05-31T04:11:42Z","tags":[],"title":"Ask HN: What was programming like before internet?","_secondary":true}
+{"id":"hn-21281858","source":"hackernews","score":0,"posted_at":"2019-10-17T13:34:24Z","tags":[],"title":"Books: an immutable double-entry accounting database service"}
+{"id":"hn-20510720","source":"hackernews","score":0,"posted_at":"2019-07-23T22:17:03Z","tags":["license"],"title":"Show HN: Poli – An easy-to-use, open-source BI alternative"}
+{"id":"hn-20335781","source":"hackernews","score":0,"posted_at":"2019-07-02T15:02:25Z","tags":[],"title":"Show HN: Vector – A High-Performance Log and Metric Router Written in Rust","_secondary":true}
+{"id":"hn-18002066","source":"hackernews","score":0,"posted_at":"2018-09-17T00:00:40Z","tags":["alerting"],"title":"Ask HN: What topics/subjects are worth learning for a new software engineer?","_secondary":true}
+{"id":"hn-15477651","source":"hackernews","score":0,"posted_at":"2017-10-15T15:56:44Z","tags":[],"title":"Grafana: Postgres Data Source"}
+{"id":"hn-15699779","source":"hackernews","score":0,"posted_at":"2017-11-14T22:26:20Z","tags":[],"title":"Elasticsearch 6.0.0 GA released"}
+{"id":"hn-14023207","source":"hackernews","score":0,"posted_at":"2017-04-03T15:01:35Z","tags":["alerting","pdf-export","ml"],"title":"Ask HN: Who is hiring? (April 2017)"}
+{"id":"hn-15448985","source":"hackernews","score":0,"posted_at":"2017-10-11T11:56:20Z","tags":[],"title":"Google Data Studio"}
+{"id":"hn-15699706","source":"hackernews","score":0,"posted_at":"2017-11-14T22:15:33Z","tags":[],"title":"Elasticsearch 6.0.0 GA released","_secondary":true}
+{"id":"hn-15699699","source":"hackernews","score":0,"posted_at":"2017-11-14T22:14:23Z","tags":[],"title":"Elasticsearch 6.0.0 GA released"}
+{"id":"hn-11121533","source":"hackernews","score":0,"posted_at":"2016-02-17T21:24:22Z","tags":[],"title":"Ask HN: What about site statistics when people are using adblocker?","_secondary":true}
+{"id":"hn-10878464","source":"hackernews","score":0,"posted_at":"2016-01-11T02:47:10Z","tags":[],"title":"Running costs for running a web app"}
+{"id":"hn-9009967","source":"hackernews","score":0,"posted_at":"2015-02-06T17:05:20Z","tags":[],"title":"Working with the ELK stack"}
+{"id":"hn-10823812","source":"hackernews","score":0,"posted_at":"2016-01-01T22:32:56Z","tags":[],"title":"Ask HN: Who is hiring? (January 2016)"}
+{"id":"hn-14413811","source":"hackernews","score":0,"posted_at":"2017-05-24T21:59:45Z","tags":[],"title":"I wrote the SQL query in 5 mins. Why does my engineer say it will take a month?"}
+{"id":"hn-12647375","source":"hackernews","score":0,"posted_at":"2016-10-05T20:11:56Z","tags":[],"title":"Ask HN: Freelancer? Seeking freelancer? (October 2016)"}
+{"id":"hn-8252995","source":"hackernews","score":0,"posted_at":"2014-09-01T14:30:51Z","tags":[],"title":"Ask HN: Freelancer? Seeking freelancer? (September 2014)"}
+{"id":"hn-7829358","source":"hackernews","score":0,"posted_at":"2014-06-01T14:59:40Z","tags":[],"title":"Ask HN: Freelancer? Seeking freelancer? (June 2014)"}
+{"id":"hn-15647793","source":"hackernews","score":0,"posted_at":"2017-11-07T21:24:48Z","tags":[],"title":"Show HN: Serverless logging to S3"}
+{"id":"hn-7227789","source":"hackernews","score":0,"posted_at":"2014-02-12T22:24:40Z","tags":[],"title":"Elasticsearch 1.0.0 released"}
+{"id":"reddit-1mdxf8f","source":"reddit","score":0,"posted_at":"2025-07-31T09:57:59.000Z","tags":["lens","canvas","alerting","license"],"title":"Any free way to get automated CSV reports via email from Kibana?","_secondary":true}
+{"id":"reddit-1it90ep","source":"reddit","score":2,"posted_at":"2025-02-19T16:05:21.000Z","tags":["saved-objects"],"title":"Export ingest pipelines, index templates and kibana saved objects to other kibana instances","_secondary":true}
+{"id":"reddit-1c6ium5","source":"reddit","score":0,"posted_at":"2024-04-17T19:31:20.000Z","tags":[],"title":"Exporting data of all Hosts in Kibana"}
+{"id":"reddit-1di9yed","source":"reddit","score":1,"posted_at":"2024-06-17T21:45:58.000Z","tags":[],"title":"Automating Rule Creation for Kibana","_secondary":true}
+{"id":"reddit-12yzd8w","source":"reddit","score":3,"posted_at":"2023-04-25T23:14:00.000Z","tags":[],"title":"kibana gets timeout during create csv","_secondary":true}
+{"id":"reddit-19869sa","source":"reddit","score":1,"posted_at":"2024-01-16T16:00:45.000Z","tags":["lens"],"title":"Kibana/Lens - Can I do this ?","_secondary":true}
+{"id":"reddit-1078fyg","source":"reddit","score":2,"posted_at":"2023-01-09T07:50:50.000Z","tags":[],"title":"Geopoint from MongoDB typed as text and keyword in kibana","_secondary":true}
+{"id":"reddit-xm9zbe","source":"reddit","score":4,"posted_at":"2022-09-23T21:35:36.000Z","tags":["canvas"],"title":"kibana Canvas SLA reporting for more than 100 servers, SaaS and more, how to achieve it.","_secondary":true}
+{"id":"reddit-zma83a","source":"reddit","score":2,"posted_at":"2022-12-15T02:54:51.000Z","tags":[],"title":"Kibana dashboard to PDF","_secondary":true}
+{"id":"reddit-12pc0im","source":"reddit","score":4,"posted_at":"2023-04-17T11:08:36.000Z","tags":[],"title":"Kibana dashboard in my web app","_secondary":true}
+{"id":"reddit-st8azp","source":"reddit","score":12,"posted_at":"2022-02-15T17:30:38.000Z","tags":[],"title":"Upgrade to 8.0 - kibana problems","_secondary":true}
+{"id":"reddit-vvup3x","source":"reddit","score":5,"posted_at":"2022-07-10T16:07:18.000Z","tags":[],"title":"issues with fields from elasticsearch on kibana"}
+{"id":"reddit-vwx6o7","source":"reddit","score":0,"posted_at":"2022-07-12T00:05:37.000Z","tags":[],"title":"How to move map from Kibana Maps to Kibana Dashboard","_secondary":true}
+{"id":"reddit-wdjncd","source":"reddit","score":5,"posted_at":"2022-08-01T15:02:32.000Z","tags":[],"title":"New to Elastic/Kibana, switches not reporting.. can anyone help?"}
+{"id":"reddit-wpubtg","source":"reddit","score":9,"posted_at":"2022-08-16T13:26:57.000Z","tags":[],"title":"I'm quite new to Elastic, we some MSS clients we manage their logs. They all have oracle linux logness box for their log collection. I want to write a simple ki"}
+{"id":"reddit-tykdql","source":"reddit","score":3,"posted_at":"2022-04-07T19:12:25.000Z","tags":[],"title":"Python (Jupyter) -&gt; Vega -&gt; Kibana?","_secondary":true}
+{"id":"reddit-s4xmau","source":"reddit","score":1,"posted_at":"2022-01-15T23:36:30.000Z","tags":["csv-export"],"title":"Kibana csv export max limit."}
+{"id":"reddit-ipdzq1","source":"reddit","score":5,"posted_at":"2020-09-09T11:20:27.000Z","tags":[],"title":"Kibana - Generate daily report","_secondary":true}
+{"id":"reddit-5rok1m","source":"reddit","score":3,"posted_at":"2017-02-02T18:38:07.000Z","tags":[],"title":"Parsing .nessus files through Filebeat/Kibana"}
+{"id":"reddit-ym85p4","source":"reddit","score":2,"posted_at":"2022-11-04T19:35:44.000Z","tags":[],"title":"System Healthcheck Reporting"}
+{"id":"reddit-e206ps","source":"reddit","score":13,"posted_at":"2019-11-26T16:20:15.000Z","tags":[],"title":"Cheap hardware for learning to administer linux server environment","_secondary":true}
+{"id":"reddit-aq7jus","source":"reddit","score":9,"posted_at":"2019-02-13T15:13:32.000Z","tags":[],"title":"Facing problems with ELK stack: keep pushing on or find something simpler for our small environment?"}
+{"id":"reddit-nycmma","source":"reddit","score":7,"posted_at":"2021-06-12T18:08:58.000Z","tags":[],"title":"Microsoft Nav - implementing monitoring and more"}
+{"id":"reddit-hr1267","source":"reddit","score":1,"posted_at":"2020-07-14T13:00:22.000Z","tags":[],"title":"Filebeat - seperate custom message into fields"}
+{"id":"reddit-erd4ec","source":"reddit","score":3,"posted_at":"2020-01-20T13:21:20.000Z","tags":["alerting"],"title":"Help with monitoring theory: alerting on both metrics and logs (or roughly state and events)","_secondary":true}
+{"id":"reddit-41jg9g","source":"reddit","score":6,"posted_at":"2016-01-18T15:42:55.000Z","tags":[],"title":"Any ELK admins here? I need some help with my centos Installtion","_secondary":true}
+{"id":"reddit-1j0boz7","source":"reddit","score":0,"posted_at":"2025-02-28T16:27:15.000Z","tags":[],"title":"Struggling to move Kibana dashboards between environments?","_secondary":true}
+{"id":"reddit-1j2mn1h","source":"reddit","score":0,"posted_at":"2025-03-03T16:28:59.000Z","tags":[],"title":"Migrating Kibana dashboards manually? Risky &amp; time-consuming.","_secondary":true}
+{"id":"reddit-11f8an9","source":"reddit","score":1,"posted_at":"2023-03-01T16:33:44.000Z","tags":[],"title":"Exporting/Saving ElasticSearch Kibana (7.10) logs?"}
+{"id":"reddit-may9uy","source":"reddit","score":1,"posted_at":"2021-03-22T21:19:21.000Z","tags":[],"title":"Does Kibana have community dashboard marketplace like Grafana?","_secondary":true}
+{"id":"reddit-1g3aubb","source":"reddit","score":0,"posted_at":"2024-10-14T08:08:29.000Z","tags":[],"title":"No calls in DevOps despite 1.5 YOE feels low","_secondary":true}
+{"id":"reddit-h129wg","source":"reddit","score":22,"posted_at":"2020-06-11T16:11:28.000Z","tags":[],"title":"Tech stack around Kubernetes"}
+{"id":"reddit-v42dw5","source":"reddit","score":3,"posted_at":"2022-06-03T15:52:20.000Z","tags":[],"title":"Logging/Events history for kubernetes to know why a node and it's pods became unhealthy"}
+{"id":"reddit-liadg1","source":"reddit","score":6,"posted_at":"2021-02-12T12:48:55.000Z","tags":[],"title":"What do you use for service management?"}
+{"id":"reddit-6mo6wy","source":"reddit","score":3,"posted_at":"2017-07-11T18:32:55.000Z","tags":[],"title":"Adopting and Reducing Challenges of Content Security Policy (CSP) with Sentry (getsentry.com)"}
+{"id":"reddit-18g8z9k","source":"reddit","score":12,"posted_at":"2023-12-12T00:32:39.000Z","tags":["anomaly","ml"],"title":"I deal with a few hundred million time-series data points but don't need streaming - should I still use Kafka?","_secondary":true}
+{"id":"reddit-npwiqc","source":"reddit","score":1,"posted_at":"2021-06-01T15:24:05.000Z","tags":[],"title":"Combining data from ES and Postgres in a BI report"}
+{"id":"reddit-1i79kpn","source":"reddit","score":2,"posted_at":"2025-01-22T12:03:11.000Z","tags":[],"title":"TPOT : Honeypot - export stats"}
+{"id":"reddit-wrm293","source":"reddit","score":2,"posted_at":"2022-08-18T15:11:38.000Z","tags":[],"title":"elastiflow","_secondary":true}
+{"id":"reddit-8uf82u","source":"reddit","score":9,"posted_at":"2018-06-28T01:29:42.000Z","tags":["alerting"],"title":"ELK, Prometheus + InfluxDB + Grafana... I'm a bit lost as to what does what and how they fit together for monitoring my servers","_secondary":true}
+{"id":"reddit-84okjn","source":"reddit","score":0,"posted_at":"2018-03-15T18:07:40.000Z","tags":[],"title":"Help with ESXi/FreeNAS motherboard / CPU advice"}
+{"id":"reddit-6iua04","source":"reddit","score":2,"posted_at":"2017-06-22T15:37:51.000Z","tags":[],"title":"Setting up ELK stack","_secondary":true}
+{"id":"reddit-3v561x","source":"reddit","score":11,"posted_at":"2015-12-02T14:06:18.000Z","tags":[],"title":"Elasticsearch and Kibana for Selenium Automation: Real-time reporting of selenium tests on Kibana dashboard","_secondary":true}
+{"id":"reddit-3v58kx","source":"reddit","score":4,"posted_at":"2015-12-02T14:26:37.000Z","tags":[],"title":"Elasticsearch and Kibana for Selenium Automation: Real-time reporting of selenium tests on Kibana dashboard","_secondary":true}
+{"id":"reddit-3v57a9","source":"reddit","score":3,"posted_at":"2015-12-02T14:16:27.000Z","tags":[],"title":"Elasticsearch and Kibana for Selenium Automation: Real-time reporting of selenium tests on Kibana dashboard","_secondary":true}
+{"id":"reddit-1rfd4md","source":"reddit","score":19,"posted_at":"2026-02-26T15:27:55.000Z","tags":[],"title":"Building RAG pipelines using elasticsearch","_secondary":true}
+{"id":"reddit-1s5rpqf","source":"reddit","score":10,"posted_at":"2026-03-28T05:21:56.000Z","tags":[],"title":"[Advice] 4.6 yrs in Telco (SRE/App Support/OPS) | Is 75k-90k asking salary too high?"}
+{"id":"reddit-1ru9e2w","source":"reddit","score":1,"posted_at":"2026-03-15T09:09:29.000Z","tags":[],"title":"Udemy Free Courses for 15 March 2026","_secondary":true}
+{"id":"reddit-1r7dxvr","source":"reddit","score":3,"posted_at":"2026-02-17T18:15:39.000Z","tags":[],"title":"Full-Stack Developer Looking for Opportunities","_secondary":true}
+{"id":"reddit-1ru9dx9","source":"reddit","score":3,"posted_at":"2026-03-15T09:09:15.000Z","tags":[],"title":"Udemy Free Courses for 15 March 2026","_secondary":true}
+{"id":"reddit-1rgcwd5","source":"reddit","score":2,"posted_at":"2026-02-27T17:22:41.000Z","tags":["discover","apm","license"],"title":"Agentic Observability Copilot for Media and Streaming Platforms Using Elastic Cloud and Hybrid Retrieval","_secondary":true}
+{"id":"reddit-1roh8i5","source":"reddit","score":0,"posted_at":"2026-03-08T21:36:10.000Z","tags":[],"title":"[For Hire] AI Engineer | I Build AI Assistants, Chatbots, and Automation Tools for Businesses | Budget-Friendly | Based in Tunisia"}
+{"id":"reddit-1qxtx73","source":"reddit","score":1,"posted_at":"2026-02-06T21:06:09.000Z","tags":[],"title":"[For Hire] AI Engineer | I Build AI Assistants, Chatbots, and Automation Tools for Businesses | Budget-Friendly | Based in Tunisia"}
+{"id":"reddit-1p1b1ut","source":"reddit","score":7,"posted_at":"2025-11-19T15:43:14.000Z","tags":[],"title":"5 Years of SRE, how do I move to something else"}
+{"id":"reddit-1o4pnq0","source":"reddit","score":0,"posted_at":"2025-10-12T13:53:36.000Z","tags":["time-picker"],"title":"How would you build an open-source Kubernetes “Command Center” (logs + events + advanced metrics) — tool &amp; design suggestions?","_secondary":true}
+{"id":"reddit-1p6su1c","source":"reddit","score":1,"posted_at":"2025-11-26T00:02:43.000Z","tags":[],"title":"Hibernate metrics export to Grafana/Kibana/Influxdb","_secondary":true}
+{"id":"reddit-1gqjhdn","source":"reddit","score":93,"posted_at":"2024-11-13T18:15:35.000Z","tags":[],"title":"[UPDATED 11/13/24] CLINE custom instructions that changed the game for me.","_secondary":true}
+{"id":"reddit-1jgoy18","source":"reddit","score":12,"posted_at":"2025-03-21T19:15:11.000Z","tags":[],"title":"Drop-in Awesome List","_secondary":true}
+{"id":"reddit-ot94id","source":"reddit","score":2,"posted_at":"2021-07-28T12:43:07.000Z","tags":[],"title":"Looking for guidance on a log ingestion and aggregation pipeline in Azure"}
+{"id":"reddit-1jh5h5c","source":"reddit","score":9,"posted_at":"2025-03-22T10:26:43.000Z","tags":[],"title":"Has anyone experienced log loss in Logstash?","_secondary":true}
+{"id":"reddit-1kpte7c","source":"reddit","score":3,"posted_at":"2025-05-18T20:19:14.000Z","tags":[],"title":"Wazuh dashboard server is not ready yet","_secondary":true}
+{"id":"reddit-nc9qdu","source":"reddit","score":3,"posted_at":"2021-05-14T14:20:18.000Z","tags":[],"title":"is my webapp a good usecase for elastic?","_secondary":true}
+{"id":"reddit-1l3k8tl","source":"reddit","score":2,"posted_at":"2025-06-04T23:20:09.000Z","tags":["lens"],"title":"Pull data remotely","_secondary":true}
+{"id":"so-34792146","source":"stackoverflow","score":76,"posted_at":"2016-01-14T14:33:38.000Z","tags":[],"title":"Export to csv/excel from kibana","_secondary":true}
+{"id":"so-31682059","source":"stackoverflow","score":43,"posted_at":"2015-07-28T16:26:26.000Z","tags":[],"title":"Kibana - how to export search results"}
+{"id":"so-40653992","source":"stackoverflow","score":22,"posted_at":"2016-11-17T11:41:56.000Z","tags":[],"title":"Can we export all search result data in Kibana?","_secondary":true}
+{"id":"so-54618244","source":"stackoverflow","score":16,"posted_at":"2019-02-10T16:00:35.000Z","tags":[],"title":"TOO_MANY_REDIRECTS error when iFraming Kibana dashboard using cookies"}
+{"id":"so-27702714","source":"stackoverflow","score":15,"posted_at":"2014-12-30T09:25:49.000Z","tags":[],"title":"Integrating kibana dashboards into an angularjs app","_secondary":true}
+{"id":"so-55757964","source":"stackoverflow","score":12,"posted_at":"2019-04-19T07:12:30.000Z","tags":[],"title":"Set a Kibana dashboard filter through the url","_secondary":true}
+{"id":"so-21724445","source":"stackoverflow","score":9,"posted_at":"2014-02-12T09:57:45.000Z","tags":[],"title":"logstash: multiple logfiles with different pattern"}
+{"id":"so-46928626","source":"stackoverflow","score":8,"posted_at":"2017-10-25T09:22:54.000Z","tags":[],"title":"Angular encodes url in ng-src and replaces &#39;/&#39; with %2F and &#39;?&#39; with %3F"}
+{"id":"so-33222293","source":"stackoverflow","score":8,"posted_at":"2015-10-19T19:25:23.000Z","tags":[],"title":"How can I make Kibana graph by a substring or regex of a field?","_secondary":true}
+{"id":"so-50627095","source":"stackoverflow","score":8,"posted_at":"2018-05-31T14:49:15.000Z","tags":[],"title":"Authenticating embedded Kibana iframe with AWS Cognito"}
+{"id":"so-18866137","source":"stackoverflow","score":7,"posted_at":"2013-09-18T07:22:52.000Z","tags":[],"title":"Running Kibana3, LogStash and ElasticSearch, all in one machine"}
+{"id":"so-39661331","source":"stackoverflow","score":7,"posted_at":"2016-09-23T12:54:48.000Z","tags":[],"title":"Using ElasticSearch and Kibana for Business Intelligence"}
+{"id":"so-47171966","source":"stackoverflow","score":6,"posted_at":"2017-11-08T05:06:21.000Z","tags":["alerting"],"title":"Any open source alerting and reporting plugin for ELK stack is available?","_secondary":true}
+{"id":"so-46735805","source":"stackoverflow","score":6,"posted_at":"2017-10-13T18:14:49.000Z","tags":[],"title":"Connect kibana to elasticsearch in kubernetes cluster","_secondary":true}
+{"id":"so-35873372","source":"stackoverflow","score":6,"posted_at":"2016-03-08T16:58:21.000Z","tags":[],"title":"Kibana without Elastic search"}
+{"id":"so-44381575","source":"stackoverflow","score":6,"posted_at":"2017-06-06T04:46:12.000Z","tags":[],"title":"Move console logs to kibana in angular 2"}
+{"id":"so-37423439","source":"stackoverflow","score":5,"posted_at":"2016-05-24T20:39:43.000Z","tags":[],"title":"How do you export/import &quot;index-pattern&quot; types in Kibana","_secondary":true}
+{"id":"so-47017583","source":"stackoverflow","score":5,"posted_at":"2017-10-30T14:22:03.000Z","tags":[],"title":"How to import/export a dashboard in Kibana using a RESTful API","_secondary":true}
+{"id":"so-73995622","source":"stackoverflow","score":5,"posted_at":"2022-10-08T08:49:59.000Z","tags":[],"title":"Couldn&#39;t configure Elastic Retry or update the kibana.yml file manually"}
+{"id":"so-51876291","source":"stackoverflow","score":5,"posted_at":"2018-08-16T11:45:25.000Z","tags":["saved-objects"],"title":"Version control Kibana Saved Objects?","_secondary":true}
+{"id":"so-40740694","source":"stackoverflow","score":4,"posted_at":"2016-11-22T11:29:05.000Z","tags":["alerting"],"title":"X-pack failed to initialize a TrustManagerFactory","_secondary":true}
+{"id":"so-57034941","source":"stackoverflow","score":4,"posted_at":"2019-07-15T07:20:51.000Z","tags":[],"title":"How can I export all 8304 hits?","_secondary":true}
+{"id":"so-36926264","source":"stackoverflow","score":4,"posted_at":"2016-04-28T22:01:56.000Z","tags":[],"title":"Kibana : Is there a way to get dashboards from command line?","_secondary":true}
+{"id":"so-30849684","source":"stackoverflow","score":4,"posted_at":"2015-06-15T15:56:59.000Z","tags":[],"title":"Kibana 4 proxy dashboard embedding","_secondary":true}
+{"id":"so-55406128","source":"stackoverflow","score":4,"posted_at":"2019-03-28T20:12:53.000Z","tags":[],"title":"Logging .net Core with Elastic stack","_secondary":true}
+{"id":"so-59404303","source":"stackoverflow","score":4,"posted_at":"2019-12-19T06:28:40.000Z","tags":[],"title":"How to export data from kibana(ELK stack) as CSV from API calls?","_secondary":true}
+{"id":"so-59317064","source":"stackoverflow","score":4,"posted_at":"2019-12-13T06:12:13.000Z","tags":[],"title":"How to get Kibana dashboard ID?","_secondary":true}
+{"id":"so-53085983","source":"stackoverflow","score":4,"posted_at":"2018-10-31T14:41:18.000Z","tags":[],"title":"Embed Kibana visualizations but not give users control?"}
+{"id":"so-51882687","source":"stackoverflow","score":4,"posted_at":"2018-08-16T17:47:35.000Z","tags":[],"title":"Kibana - reporting option is missing"}
+{"id":"so-49796815","source":"stackoverflow","score":3,"posted_at":"2018-04-12T12:38:52.000Z","tags":[],"title":"Index ID identification in Elasticsearch/Kibana visualization","_secondary":true}
+{"id":"so-59002414","source":"stackoverflow","score":3,"posted_at":"2019-11-22T22:10:49.000Z","tags":["apm"],"title":"Kibana and Elasticsearch in Docker, coexist with standard install","_secondary":true}
+{"id":"so-62742307","source":"stackoverflow","score":3,"posted_at":"2020-07-05T14:55:00.000Z","tags":[],"title":"Unable to start kibana"}
+{"id":"so-58824243","source":"stackoverflow","score":3,"posted_at":"2019-11-12T18:00:54.000Z","tags":[],"title":"Export-import Kibana [7.4] objects through saved_objects api","_secondary":true}
+{"id":"so-19663877","source":"stackoverflow","score":3,"posted_at":"2013-10-29T16:24:35.000Z","tags":[],"title":"Logstash not importing files due to missing index error"}
+{"id":"so-59045344","source":"stackoverflow","score":3,"posted_at":"2019-11-26T06:57:33.000Z","tags":[],"title":"Is there a way to export kibana visualization data automatically for some time period?","_secondary":true}
+{"id":"so-34265146","source":"stackoverflow","score":3,"posted_at":"2015-12-14T10:50:45.000Z","tags":[],"title":"Can I use Kibana to visualize log file without elastic search?","_secondary":true}
+{"id":"so-31312981","source":"stackoverflow","score":3,"posted_at":"2015-07-09T09:08:29.000Z","tags":[],"title":"How to set field in Logstash as &quot;not_analyzed&quot; using Logstash config file"}
+{"id":"so-25642136","source":"stackoverflow","score":3,"posted_at":"2014-09-03T10:36:38.000Z","tags":[],"title":"Exporting Kibana dashboard to Report","_secondary":true}
+{"id":"so-52233689","source":"stackoverflow","score":3,"posted_at":"2018-09-08T09:01:39.000Z","tags":[],"title":"How to import Kibana dashboard using docker-compose file?","_secondary":true}
+{"id":"so-63645797","source":"stackoverflow","score":3,"posted_at":"2020-08-29T10:10:39.000Z","tags":[],"title":"Predefined filters in Kibana"}
+{"id":"so-59180313","source":"stackoverflow","score":3,"posted_at":"2019-12-04T16:14:01.000Z","tags":["apm"],"title":"What is the best practice to measure the performance of an Angular app?","_secondary":true}
+{"id":"so-56186692","source":"stackoverflow","score":3,"posted_at":"2019-05-17T12:44:35.000Z","tags":["license"],"title":"Kibana UI fails to load for v7.0.0 with error &quot;Kibana did not load properly. Check the server output for more information&quot; on s390x","_secondary":true}
+{"id":"so-44110830","source":"stackoverflow","score":3,"posted_at":"2017-05-22T10:41:51.000Z","tags":[],"title":"Docker ELK 5.4.0 - Kibana did not load properly. Check the server output for more information","_secondary":true}
+{"id":"so-54890764","source":"stackoverflow","score":2,"posted_at":"2019-02-26T17:11:21.000Z","tags":[],"title":"Logstash cannot start because of multiple instances even though there are no instances of it running","_secondary":true}
+{"id":"so-39168914","source":"stackoverflow","score":2,"posted_at":"2016-08-26T14:40:58.000Z","tags":[],"title":"Gmail and Outlook injecting spaces into hyperlink URLs","_secondary":true}
+{"id":"so-71257784","source":"stackoverflow","score":2,"posted_at":"2022-02-24T20:18:29.000Z","tags":[],"title":"what is .reporting-* and .monitoring-* index in elasticsearch"}
+{"id":"so-37444649","source":"stackoverflow","score":2,"posted_at":"2016-05-25T18:07:37.000Z","tags":[],"title":"Is &quot;hack&quot; still a valid uiExport type in Kibana 4.5?","_secondary":true}
+{"id":"so-60617782","source":"stackoverflow","score":2,"posted_at":"2020-03-10T12:33:39.000Z","tags":["canvas","siem","saved-objects"],"title":"Kibana unabe to connect to elasticsearch on windows","_secondary":true}
+{"id":"so-21836397","source":"stackoverflow","score":2,"posted_at":"2014-02-17T18:14:57.000Z","tags":[],"title":"Why is Logstash importing the same file every time I restart it?"}
+{"id":"so-61890863","source":"stackoverflow","score":2,"posted_at":"2020-05-19T12:16:55.000Z","tags":[],"title":"Is there any method to export Kibana dashboards to Grafana as it is?","_secondary":true}
+{"id":"so-57522823","source":"stackoverflow","score":2,"posted_at":"2019-08-16T10:12:39.000Z","tags":["discover"],"title":"Kibana and the _source field, Elastic Version 6.7","_secondary":true}
+{"id":"so-55170033","source":"stackoverflow","score":2,"posted_at":"2019-03-14T18:52:01.000Z","tags":[],"title":"Resend old logs from filebeat to logstash","_secondary":true}
+{"id":"so-53019175","source":"stackoverflow","score":2,"posted_at":"2018-10-27T06:00:53.000Z","tags":[],"title":"How to use elastic query to filter the Kibana Dashbaord in webpage"}
+{"id":"so-52783273","source":"stackoverflow","score":2,"posted_at":"2018-10-12T16:07:28.000Z","tags":[],"title":"ElasticSearch memory useage in kibana doesn&#39;t match Windows","_secondary":true}
+{"id":"so-56318410","source":"stackoverflow","score":2,"posted_at":"2019-05-27T00:35:41.000Z","tags":["saved-objects"],"title":"Importing Saved Object to Kibana via setup.yml","_secondary":true}
+{"id":"so-54263015","source":"stackoverflow","score":2,"posted_at":"2019-01-19T00:21:27.000Z","tags":[],"title":"How can I disable/hide the Dev Tools plugin in Kibana"}
+{"id":"so-41605479","source":"stackoverflow","score":2,"posted_at":"2017-01-12T05:06:11.000Z","tags":[],"title":"Kibana is not starting"}
+{"id":"so-26042910","source":"stackoverflow","score":2,"posted_at":"2014-09-25T15:53:37.000Z","tags":[],"title":"Embedding a part of a dynamic webpage (Kibana) into my own site"}
+{"id":"so-23809609","source":"stackoverflow","score":2,"posted_at":"2014-05-22T14:24:13.000Z","tags":[],"title":"ELK stack pulling in older logs"}
+{"id":"so-21478785","source":"stackoverflow","score":2,"posted_at":"2014-01-31T11:17:21.000Z","tags":[],"title":"Issue using grok filter with logstash and a windows file"}
+{"id":"so-70875767","source":"stackoverflow","score":2,"posted_at":"2022-01-27T08:59:48.000Z","tags":[],"title":"Kibana import not working when Vega code is included and exported via API","_secondary":true}
+{"id":"so-69174636","source":"stackoverflow","score":2,"posted_at":"2021-09-14T08:43:22.000Z","tags":["pdf-export"],"title":"Elastic Search Kibana PDF Report"}
+{"id":"so-61122702","source":"stackoverflow","score":2,"posted_at":"2020-04-09T13:50:11.000Z","tags":[],"title":"&quot;exists&quot; in elasticsearch query not working on an object"}
+{"id":"so-59952878","source":"stackoverflow","score":2,"posted_at":"2020-01-28T16:15:14.000Z","tags":[],"title":"How can Kibana reporting process multiple jobs at once?","_secondary":true}
+{"id":"so-59452144","source":"stackoverflow","score":2,"posted_at":"2019-12-23T08:27:31.000Z","tags":["siem"],"title":"Crontab is not running","_secondary":true}
+{"id":"so-56705834","source":"stackoverflow","score":2,"posted_at":"2019-06-21T14:55:53.000Z","tags":[],"title":"Integrate user specific kibana dashboard in react web app","_secondary":true}
+{"id":"so-56690002","source":"stackoverflow","score":2,"posted_at":"2019-06-20T16:08:47.000Z","tags":[],"title":"Auto sign-in to an embedded Kibana dashboard iframe","_secondary":true}
+{"id":"so-52654636","source":"stackoverflow","score":2,"posted_at":"2018-10-04T20:25:00.000Z","tags":[],"title":"Resolving index UUID stored in searchSourceJSON","_secondary":true}
+{"id":"so-50236972","source":"stackoverflow","score":2,"posted_at":"2018-05-08T15:15:59.000Z","tags":[],"title":"spring boot connect to elasticsearch docker","_secondary":true}
+{"id":"so-49259625","source":"stackoverflow","score":2,"posted_at":"2018-03-13T15:10:51.000Z","tags":[],"title":"Developing Kibana plugin using ReactJS","_secondary":true}
+{"id":"so-48337212","source":"stackoverflow","score":2,"posted_at":"2018-01-19T08:51:29.000Z","tags":[],"title":"Kibana 6.1.1 Custom Plugin (visualization)","_secondary":true}
+{"id":"so-48303125","source":"stackoverflow","score":2,"posted_at":"2018-01-17T14:11:04.000Z","tags":[],"title":"Import Kibana Dashboard in separate webapp"}
+{"id":"so-43340483","source":"stackoverflow","score":2,"posted_at":"2017-04-11T08:22:54.000Z","tags":[],"title":"Kibana is not coming up when i have AWS Elasticsearch service with 5.1 version with separate installation of kibana 5.1.1 with x-pack","_secondary":true}
+{"id":"so-42253490","source":"stackoverflow","score":2,"posted_at":"2017-02-15T15:28:06.000Z","tags":[],"title":"Kibana 5.1 shared short url&#39;s do not work","_secondary":true}
+{"id":"so-41829610","source":"stackoverflow","score":2,"posted_at":"2017-01-24T13:34:48.000Z","tags":[],"title":"How to share visualizations for public access in Kibana?","_secondary":true}
+{"id":"so-41340298","source":"stackoverflow","score":2,"posted_at":"2016-12-27T06:44:27.000Z","tags":[],"title":"Any possibility of adding new UI components within the Kibana Dashboard?","_secondary":true}
+{"id":"so-40202685","source":"stackoverflow","score":2,"posted_at":"2016-10-23T12:03:22.000Z","tags":[],"title":"Is it possible to embed Javascript into Kibana 4.6.1?","_secondary":true}
+{"id":"so-35157338","source":"stackoverflow","score":2,"posted_at":"2016-02-02T15:23:48.000Z","tags":[],"title":"marvel index creation fails and brings down the elasticsearch cluster","_secondary":true}
+{"id":"so-33996003","source":"stackoverflow","score":2,"posted_at":"2015-11-30T10:09:05.000Z","tags":[],"title":"Kibana Dashboard (ELK) user based (scritped/dynamic) dashboards","_secondary":true}
+{"id":"so-32761614","source":"stackoverflow","score":2,"posted_at":"2015-09-24T12:41:11.000Z","tags":[],"title":"Sum count of sessions with Kibana"}
+{"id":"so-25159288","source":"stackoverflow","score":2,"posted_at":"2014-08-06T11:32:40.000Z","tags":[],"title":"Kibana dashboard - error saving to ElasticSearch","_secondary":true}
+{"id":"so-21436640","source":"stackoverflow","score":2,"posted_at":"2014-01-29T16:18:52.000Z","tags":[],"title":"Kibana main dashboard exception using logstash 1.3.3"}
+{"id":"so-62247571","source":"stackoverflow","score":1,"posted_at":"2020-06-07T15:25:23.000Z","tags":[],"title":"How Bypass login in Kibana dashboard inside Iframe","_secondary":true}
+{"id":"so-71628505","source":"stackoverflow","score":1,"posted_at":"2022-03-26T13:35:10.000Z","tags":[],"title":"How to solve refused to connect problem in Kibana?"}
+{"id":"so-67998512","source":"stackoverflow","score":1,"posted_at":"2021-06-16T07:51:23.000Z","tags":["discover"],"title":"can i get elastic search query from kibana search?","_secondary":true}
+{"id":"so-59220299","source":"stackoverflow","score":1,"posted_at":"2019-12-06T21:02:24.000Z","tags":[],"title":"Fluentd time field handling in json log records"}
+{"id":"so-65427573","source":"stackoverflow","score":1,"posted_at":"2020-12-23T16:24:50.000Z","tags":["discover"],"title":"Export Kibana to CSV","_secondary":true}
+{"id":"so-43281264","source":"stackoverflow","score":1,"posted_at":"2017-04-07T14:57:52.000Z","tags":[],"title":"how enable anonymous access in ElasticSearch 5.3","_secondary":true}
+{"id":"so-30752970","source":"stackoverflow","score":1,"posted_at":"2015-06-10T09:54:25.000Z","tags":["discover"],"title":"How to customize Kibana dashboard?","_secondary":true}
+{"id":"so-21967813","source":"stackoverflow","score":1,"posted_at":"2014-02-23T11:50:20.000Z","tags":[],"title":"Kibana multiple dashboards support"}
+{"id":"so-66691173","source":"stackoverflow","score":1,"posted_at":"2021-03-18T12:33:17.000Z","tags":[],"title":"Exposing Kibana behind GCE ingress (UNHEALTHY state)","_secondary":true}
+{"id":"so-53832065","source":"stackoverflow","score":1,"posted_at":"2018-12-18T11:30:04.000Z","tags":[],"title":"Kibana - Reporting feature is missing","_secondary":true}
+{"id":"so-48404326","source":"stackoverflow","score":1,"posted_at":"2018-01-23T14:40:05.000Z","tags":[],"title":"ELK exporting logs","_secondary":true}
+{"id":"so-48117400","source":"stackoverflow","score":1,"posted_at":"2018-01-05T16:18:40.000Z","tags":[],"title":"Adding requestTimeout causes Kibana to fail at startup","_secondary":true}
+{"id":"so-37719112","source":"stackoverflow","score":1,"posted_at":"2016-06-09T07:10:58.000Z","tags":[],"title":"unexpected error error_class=Errno::EADDRINUSE error=&quot;Address already in use - bind(2) for \\&quot;0.0.0.0\\&quot; port 24233&quot;","_secondary":true}
+{"id":"so-29568193","source":"stackoverflow","score":1,"posted_at":"2015-04-10T18:17:05.000Z","tags":[],"title":"How to load Kibana3 dashboards into Kibana4?","_secondary":true}
+{"id":"so-79406844","source":"stackoverflow","score":1,"posted_at":"2025-02-02T15:26:24.000Z","tags":["apm"],"title":"Sending custom metrics to Elasticsearch in Spring Boot","_secondary":true}
+{"id":"so-78976868","source":"stackoverflow","score":1,"posted_at":"2024-09-12T07:05:06.000Z","tags":[],"title":"I want to change kibana logo in version 8.15 with some other logo and change the text too","_secondary":true}
+{"id":"so-77836649","source":"stackoverflow","score":1,"posted_at":"2024-01-18T02:56:23.000Z","tags":[],"title":"Changing Kibana&#39;s xpack settings via API","_secondary":true}
+{"id":"so-75066316","source":"stackoverflow","score":1,"posted_at":"2023-01-10T06:39:34.000Z","tags":[],"title":"How to create an array type runtime field based on a nested field in elasticsearch?","_secondary":true}
+{"id":"so-73099856","source":"stackoverflow","score":1,"posted_at":"2022-07-24T15:47:10.000Z","tags":[],"title":"Exporting metrics from Prometheus to Elastics Search for better monitoring capabilities"}
+{"id":"so-72851684","source":"stackoverflow","score":1,"posted_at":"2022-07-04T04:06:07.000Z","tags":[],"title":"Is it possible to dynamic create the Kibana visualization from the API call?","_secondary":true}
+{"id":"so-67588093","source":"stackoverflow","score":1,"posted_at":"2021-05-18T14:15:52.000Z","tags":[],"title":"Exported dashboard with Kibana API cannot be imported manually in Kibana UI","_secondary":true}
+{"id":"so-66415020","source":"stackoverflow","score":1,"posted_at":"2021-02-28T23:45:49.000Z","tags":[],"title":"Kibana custom dashboard background color","_secondary":true}
+{"id":"so-65145600","source":"stackoverflow","score":1,"posted_at":"2020-12-04T14:43:03.000Z","tags":["csv-export"],"title":"Automate exporting CSV report in Kibana"}
+{"id":"so-63525171","source":"stackoverflow","score":1,"posted_at":"2020-08-21T14:52:34.000Z","tags":[],"title":"Can&#39;t acces to AWS Kibana VPC-Based with nginx using Cognito","_secondary":true}
+{"id":"so-60120210","source":"stackoverflow","score":1,"posted_at":"2020-02-07T19:53:15.000Z","tags":[],"title":"Kibana not connecting to Elasticsearch ([&quot;warning&quot;,&quot;elasticsearch&quot;,&quot;admin&quot;],&quot;pid&quot;:12,&quot;message&quot;:&quot;No living","_secondary":true}
+{"id":"so-56921743","source":"stackoverflow","score":1,"posted_at":"2019-07-07T11:28:43.000Z","tags":[],"title":"There are no logs in Kibana when API is run under docker","_secondary":true}
+{"id":"so-56477286","source":"stackoverflow","score":1,"posted_at":"2019-06-06T12:07:18.000Z","tags":[],"title":"Migration of kibana dashboards","_secondary":true}
+{"id":"so-53342154","source":"stackoverflow","score":1,"posted_at":"2018-11-16T16:48:59.000Z","tags":[],"title":"Spring Micrometer: Shipping Metrics to an AWS ElasticSearch Instance","_secondary":true}
+{"id":"so-40792396","source":"stackoverflow","score":1,"posted_at":"2016-11-24T17:59:31.000Z","tags":["saved-objects"],"title":"Migrating dashboards from Kibana 4 to Kibana 5","_secondary":true}
+{"id":"so-35347332","source":"stackoverflow","score":1,"posted_at":"2016-02-11T18:33:46.000Z","tags":[],"title":"input controls for easy filtering in kibana dashboard?","_secondary":true}
+{"id":"so-34601504","source":"stackoverflow","score":1,"posted_at":"2016-01-04T23:05:31.000Z","tags":[],"title":"Is there a way to communicate between a Kibana dashboard and its parent frame?"}
+{"id":"so-33788276","source":"stackoverflow","score":1,"posted_at":"2015-11-18T19:05:10.000Z","tags":[],"title":"Use different time-field name with mutiple mappings in ElasticSearch index","_secondary":true}
+{"id":"so-30779398","source":"stackoverflow","score":1,"posted_at":"2015-06-11T11:22:31.000Z","tags":[],"title":"Customizing Kibana 4"}
+{"id":"so-22478736","source":"stackoverflow","score":1,"posted_at":"2014-03-18T11:59:23.000Z","tags":[],"title":"How to make logdata as Kibana graph value"}
+{"id":"so-22068192","source":"stackoverflow","score":1,"posted_at":"2014-02-27T12:12:24.000Z","tags":[],"title":"Elasticsearch Performance Analysis"}
+{"id":"so-19697813","source":"stackoverflow","score":1,"posted_at":"2013-10-31T03:11:11.000Z","tags":[],"title":"can&#39;t connect elasticsearch to logstash"}
+{"id":"so-79652089","source":"stackoverflow","score":1,"posted_at":"2025-06-04T02:59:35.000Z","tags":[],"title":"Kibana/Elastic HTTPS","_secondary":true}
+{"id":"so-73388853","source":"stackoverflow","score":1,"posted_at":"2022-08-17T12:55:07.000Z","tags":["data-views"],"title":"Can we create a generic Kibana dashboard template in ndjson format which can then be imported to create new dashboard based on a new data view?","_secondary":true}
+{"id":"so-72852033","source":"stackoverflow","score":1,"posted_at":"2022-07-04T05:13:01.000Z","tags":[],"title":"How to export data in CSV in kibana custom plugin using Reporting plugin","_secondary":true}
+{"id":"so-71787487","source":"stackoverflow","score":1,"posted_at":"2022-04-07T18:48:51.000Z","tags":[],"title":"Python (Jupyter) -&gt; Vega -&gt; Kibana?","_secondary":true}
+{"id":"so-71257168","source":"stackoverflow","score":1,"posted_at":"2022-02-24T19:19:28.000Z","tags":[],"title":"Injest Pipeline Script for nested list of array - retrieve and copy data data from old field to new field in Kibana"}
+{"id":"so-71031267","source":"stackoverflow","score":1,"posted_at":"2022-02-08T09:15:28.000Z","tags":[],"title":"Why does removing files from a kubernetes pod file system reduce the pod&#39;s memory footprint?","_secondary":true}
+{"id":"so-71015292","source":"stackoverflow","score":1,"posted_at":"2022-02-07T08:12:28.000Z","tags":["pdf-export"],"title":"Elastic search kibana : 404 error in genearted pdf report"}
+{"id":"so-70973356","source":"stackoverflow","score":1,"posted_at":"2022-02-03T14:47:44.000Z","tags":[],"title":"Embed Kibana Dashboard in the website that dynamically takes value depending on customer id"}
+{"id":"so-70781535","source":"stackoverflow","score":1,"posted_at":"2022-01-20T06:09:33.000Z","tags":[],"title":"Embed kibana dashboard visualizations in Angular 10 application","_secondary":true}
+{"id":"so-70360181","source":"stackoverflow","score":1,"posted_at":"2021-12-15T08:02:15.000Z","tags":[],"title":"Elasticsearch/kibana Logs export via raw log format"}
+{"id":"so-69774919","source":"stackoverflow","score":1,"posted_at":"2021-10-29T21:25:04.000Z","tags":[],"title":"New Kibana reposting job goes in Pending instead of Processing"}
+{"id":"so-69530361","source":"stackoverflow","score":1,"posted_at":"2021-10-11T17:35:57.000Z","tags":[],"title":"Auto Authentication in Embedded link (AWS Opensearch)","_secondary":true}
+{"id":"so-68831025","source":"stackoverflow","score":1,"posted_at":"2021-08-18T10:53:15.000Z","tags":[],"title":"Kibana health prob fails when elasticsearch host is added to fluentd-forwarder-cm","_secondary":true}
+{"id":"so-68349687","source":"stackoverflow","score":1,"posted_at":"2021-07-12T15:05:12.000Z","tags":[],"title":"Unable to embed Kibana on a reverse proxy server using Nginx"}
+{"id":"so-68223977","source":"stackoverflow","score":1,"posted_at":"2021-07-02T10:56:21.000Z","tags":["discover"],"title":"Kibana Max Attempted Reached while exporting CVS file","_secondary":true}
+{"id":"so-67495218","source":"stackoverflow","score":1,"posted_at":"2021-05-11T22:42:31.000Z","tags":[],"title":"Nginx proxy server receiving dynamic proxy_pass in one location but unsure how to provide it in subsequent locations","_secondary":true}
+{"id":"so-67219939","source":"stackoverflow","score":1,"posted_at":"2021-04-22T19:55:46.000Z","tags":[],"title":"Can Kibana reports be designed similarly to Sentry Error Logging?"}
+{"id":"so-66369747","source":"stackoverflow","score":1,"posted_at":"2021-02-25T13:45:31.000Z","tags":[],"title":"Reverse proxy Kibana 7 with ARR in IIS"}
+{"id":"so-65577951","source":"stackoverflow","score":1,"posted_at":"2021-01-05T11:24:28.000Z","tags":[],"title":"How to query elasticsearch for a specific kibana visualization data?","_secondary":true}
+{"id":"so-64748287","source":"stackoverflow","score":1,"posted_at":"2020-11-09T08:41:28.000Z","tags":["license"],"title":"PHP cURL cannot download image, returns 503 error","_secondary":true}
+{"id":"so-63829731","source":"stackoverflow","score":1,"posted_at":"2020-09-10T12:30:50.000Z","tags":[],"title":"Is there a way to export / import users roles and profiles from one kibana to another?","_secondary":true}
+{"id":"so-62752968","source":"stackoverflow","score":1,"posted_at":"2020-07-06T09:21:11.000Z","tags":[],"title":"Get X-Forwarded-For Real IP in Kibana","_secondary":true}
+{"id":"so-62057271","source":"stackoverflow","score":1,"posted_at":"2020-05-28T04:52:33.000Z","tags":["alerting"],"title":"Kibana Watcher to Slack call resulting in 400","_secondary":true}
+{"id":"so-61417564","source":"stackoverflow","score":1,"posted_at":"2020-04-24T21:15:47.000Z","tags":[],"title":"Elastic search (Kibana) - intersect between boolean results"}
+{"id":"so-59172317","source":"stackoverflow","score":1,"posted_at":"2019-12-04T09:04:49.000Z","tags":[],"title":"How to resolve Blocked a frame with origin(SecurityError) from kibana iframe","_secondary":true}
+{"id":"so-57785997","source":"stackoverflow","score":1,"posted_at":"2019-09-04T09:58:51.000Z","tags":[],"title":"Not able to load kibana dashboard from fetch api","_secondary":true}
+{"id":"so-57373496","source":"stackoverflow","score":1,"posted_at":"2019-08-06T09:58:35.000Z","tags":["license"],"title":"Index migration failed","_secondary":true}
+{"id":"so-57244878","source":"stackoverflow","score":1,"posted_at":"2019-07-28T20:53:17.000Z","tags":[],"title":"Kibana reports fail with &quot;waitForSelector [data-shared-item],[data-shared-items-count] failed on...&quot;","_secondary":true}
+{"id":"so-56792190","source":"stackoverflow","score":1,"posted_at":"2019-06-27T13:30:49.000Z","tags":[],"title":"How to use DSL query from Kibana dev-tools in visualisation?","_secondary":true}
+{"id":"so-55292396","source":"stackoverflow","score":1,"posted_at":"2019-03-22T03:14:48.000Z","tags":[],"title":"Obtaining a specific field in Elastic search using Kibana and Java"}
+{"id":"so-54763694","source":"stackoverflow","score":1,"posted_at":"2019-02-19T10:12:38.000Z","tags":[],"title":"Kibana not showing monitoring data from external Elasticsearch node","_secondary":true}
+{"id":"so-54532152","source":"stackoverflow","score":1,"posted_at":"2019-02-05T10:18:56.000Z","tags":["saved-objects"],"title":"Kibana 6.5.4 does not import all exported saved objects and no reason is provided","_secondary":true}
+{"id":"so-53455480","source":"stackoverflow","score":1,"posted_at":"2018-11-24T05:37:17.000Z","tags":[],"title":"Unable to get the timed value from log line or scripted fields on Kibana/Elasticsearch"}
+{"id":"so-52851781","source":"stackoverflow","score":1,"posted_at":"2018-10-17T09:41:48.000Z","tags":[],"title":"Loading WSO2 IS in an iframe for Kibana Dashboard","_secondary":true}
+{"id":"so-30855522","source":"stackoverflow","score":49,"posted_at":"2015-06-15T21:47:23.000Z","tags":[],"title":"Where is the kibana error log? Is there a kibana error log?","_secondary":true}
+{"id":"so-29350117","source":"stackoverflow","score":4,"posted_at":"2015-03-30T15:26:12.000Z","tags":[],"title":"Export/Import Kibana 4 saved Searches, Visualization &amp; Dashboards","_secondary":true}
+{"id":"so-36148142","source":"stackoverflow","score":3,"posted_at":"2016-03-22T07:07:58.000Z","tags":[],"title":"Filter data based on some fields in Kibana Dashboard using URL"}
+{"id":"so-34300346","source":"stackoverflow","score":2,"posted_at":"2015-12-15T22:08:00.000Z","tags":[],"title":"Kibana 4 visuliazation web cache"}
+{"id":"so-29115407","source":"stackoverflow","score":2,"posted_at":"2015-03-18T06:22:13.000Z","tags":[],"title":"URL parameters for Kibana 4 visualizations"}
+{"id":"so-30765075","source":"stackoverflow","score":1,"posted_at":"2015-06-10T19:01:35.000Z","tags":[],"title":"overload on-click event in kibana dashboards embedded in iframes","_secondary":true}
+{"id":"so-36133031","source":"stackoverflow","score":1,"posted_at":"2016-03-21T13:59:43.000Z","tags":[],"title":"Controlling multiple Kibana visualizations without Dashboard?","_secondary":true}
+{"id":"so-32321470","source":"stackoverflow","score":1,"posted_at":"2015-08-31T23:37:35.000Z","tags":[],"title":"kibana 4 search place out of iframe","_secondary":true}
+{"id":"so-32209281","source":"stackoverflow","score":1,"posted_at":"2015-08-25T16:28:52.000Z","tags":[],"title":"Custom field with embedded html in kibana"}
+{"id":"so-31151199","source":"stackoverflow","score":1,"posted_at":"2015-07-01T01:32:22.000Z","tags":[],"title":"get a reference to timestamp in an embedded kibana chart in html page"}
+{"id":"so-31120803","source":"stackoverflow","score":1,"posted_at":"2015-06-29T16:25:10.000Z","tags":[],"title":"How to extract feature from the Elasticsearch _source to index"}
+{"id":"so-41592487","source":"stackoverflow","score":0,"posted_at":"2017-01-11T13:39:41.000Z","tags":[],"title":"Can I export a saved search from Kibana to Excel?","_secondary":true}
+{"id":"so-37699802","source":"stackoverflow","score":0,"posted_at":"2016-06-08T10:22:52.000Z","tags":[],"title":"Push Mysql data to Elasticsearch using fluentd mysql-replicator Plugin","_secondary":true}
+{"id":"so-51183987","source":"stackoverflow","score":0,"posted_at":"2018-07-05T05:31:53.000Z","tags":[],"title":"Kibana 6.3.0 - &quot;Share saved dashboard&quot; - short dashboard"}
+{"id":"so-44386260","source":"stackoverflow","score":0,"posted_at":"2017-06-06T09:29:15.000Z","tags":[],"title":"Kibana 4.6.x not starting on Google compute Engine","_secondary":true}
+{"id":"so-38429967","source":"stackoverflow","score":0,"posted_at":"2016-07-18T06:33:42.000Z","tags":["discover"],"title":"kibana 4.5 how to get access dashboard","_secondary":true}
+{"id":"so-37883068","source":"stackoverflow","score":0,"posted_at":"2016-06-17T13:37:58.000Z","tags":["anomaly"],"title":"how to add specific visualization to histogram","_secondary":true}
+{"id":"so-33117527","source":"stackoverflow","score":0,"posted_at":"2015-10-14T05:48:52.000Z","tags":[],"title":"Resize iframe with Kibana"}
+{"id":"so-31730576","source":"stackoverflow","score":0,"posted_at":"2015-07-30T17:41:24.000Z","tags":[],"title":"Is it possible to expose Kibana (for ElasticSearch) features to users of a web application?"}
+{"id":"so-31718270","source":"stackoverflow","score":0,"posted_at":"2015-07-30T08:02:57.000Z","tags":[],"title":"Kibana (Elasticsearch) dev environment"}
+{"id":"so-31334447","source":"stackoverflow","score":0,"posted_at":"2015-07-10T07:01:08.000Z","tags":[],"title":"Why in Kibana 4 , it is showing &quot;You must choose and item from the list&quot; in the Field section of Data visualisations page?"}
+{"id":"so-30722703","source":"stackoverflow","score":0,"posted_at":"2015-06-09T03:53:15.000Z","tags":["discover"],"title":"Error while updating a document in ElasticSearch using python es.update()","_secondary":true}
+{"id":"so-47493776","source":"stackoverflow","score":3,"posted_at":"2017-11-26T06:59:29.000Z","tags":["alerting"],"title":"unable to run kibana and logstash with elasticsearch","_secondary":true}
+{"id":"so-49905014","source":"stackoverflow","score":1,"posted_at":"2018-04-18T16:49:12.000Z","tags":[],"title":"How to export elasticsearch raw data to csv","_secondary":true}
+{"id":"so-45096742","source":"stackoverflow","score":1,"posted_at":"2017-07-14T07:04:39.000Z","tags":[],"title":"Unable to use the kibana-time-plugin","_secondary":true}
+{"id":"so-42647193","source":"stackoverflow","score":1,"posted_at":"2017-03-07T11:30:22.000Z","tags":[],"title":"Importing json file to Kibana via UI","_secondary":true}
+{"id":"so-41178976","source":"stackoverflow","score":0,"posted_at":"2016-12-16T07:03:43.000Z","tags":[],"title":"Creating dynamic dashboards depending on a field or filter?","_secondary":true}
+{"id":"so-46784920","source":"stackoverflow","score":0,"posted_at":"2017-10-17T07:38:44.000Z","tags":[],"title":"Kibana - what logs are not reporting"}
+{"id":"so-44493969","source":"stackoverflow","score":0,"posted_at":"2017-06-12T07:44:49.000Z","tags":[],"title":"Kibana shared dashboard (iframe) - Filters"}
+{"id":"so-44193105","source":"stackoverflow","score":0,"posted_at":"2017-05-26T03:24:07.000Z","tags":[],"title":"Exclude results from Elasticsearch / Kibana based on aggregation value","_secondary":true}
+{"id":"so-41116916","source":"stackoverflow","score":0,"posted_at":"2016-12-13T08:51:48.000Z","tags":["time-picker"],"title":"kibana read only dashboard","_secondary":true}
+{"id":"so-55611558","source":"stackoverflow","score":0,"posted_at":"2019-04-10T11:35:32.000Z","tags":[],"title":"Reporting Kibana"}
+{"id":"so-54178033","source":"stackoverflow","score":0,"posted_at":"2019-01-14T08:37:02.000Z","tags":[],"title":"How to show console log in Kibana back-end?","_secondary":true}
+{"id":"so-50605062","source":"stackoverflow","score":0,"posted_at":"2018-05-30T12:45:05.000Z","tags":[],"title":"Kibana not displaying any data","_secondary":true}
+{"id":"so-54342618","source":"stackoverflow","score":-1,"posted_at":"2019-01-24T08:50:55.000Z","tags":[],"title":"How to pass elastic query to kibana dashboard","_secondary":true}
+{"id":"so-59544667","source":"stackoverflow","score":4,"posted_at":"2019-12-31T13:22:08.000Z","tags":["license"],"title":"License information could not be obtained from Elasticsearch for the [data] cluster"}
+{"id":"so-61499384","source":"stackoverflow","score":3,"posted_at":"2020-04-29T10:16:12.000Z","tags":[],"title":"Geopandas dataframe to GeoJSON to Elasticsearch index?","_secondary":true}
+{"id":"so-69791608","source":"stackoverflow","score":2,"posted_at":"2021-11-01T00:28:12.000Z","tags":[],"title":"Unable to retrieve version information from Elasticsearch nodes. Request timed out","_secondary":true}
+{"id":"so-66392940","source":"stackoverflow","score":2,"posted_at":"2021-02-26T21:19:40.000Z","tags":["saved-objects"],"title":"Kibana 7.11 - index-pattern export not showing any fields","_secondary":true}
+{"id":"so-72390443","source":"stackoverflow","score":1,"posted_at":"2022-05-26T10:36:17.000Z","tags":[],"title":"Embed Dashboards Kibana with Security","_secondary":true}
+{"id":"so-68452536","source":"stackoverflow","score":1,"posted_at":"2021-07-20T09:27:48.000Z","tags":[],"title":"filebeat Grok for postgres log file not work"}
+{"id":"so-60639581","source":"stackoverflow","score":1,"posted_at":"2020-03-11T15:35:12.000Z","tags":[],"title":"Working with URL parameters in custom Kibana plugin","_secondary":true}
+{"id":"so-60772887","source":"stackoverflow","score":0,"posted_at":"2020-03-20T11:02:42.000Z","tags":[],"title":"Kibana dashboard embedded in iframe redirecting to login everytime, due to same site cookie setting in latest chrome browser"}
+{"id":"so-69174593","source":"stackoverflow","score":0,"posted_at":"2021-09-14T08:40:31.000Z","tags":["pdf-export"],"title":"Downloading PDF report from kibana/elasticsearch using API call"}
+{"id":"so-64227226","source":"stackoverflow","score":0,"posted_at":"2020-10-06T13:51:12.000Z","tags":[],"title":"Customize CSS in Kibana 7","_secondary":true}
+{"id":"so-57252805","source":"stackoverflow","score":0,"posted_at":"2019-07-29T11:22:56.000Z","tags":[],"title":"Viewing multiple kibana dashboards in one place","_secondary":true}
+{"id":"so-75866240","source":"stackoverflow","score":0,"posted_at":"2023-03-28T12:25:08.000Z","tags":[],"title":"Why Kibana is not able authenticate Elasticsearch server because of security?","_secondary":true}
+{"id":"so-71721566","source":"stackoverflow","score":0,"posted_at":"2022-04-02T22:16:42.000Z","tags":[],"title":"how to export aws opensearch Kibana query results to csv (a big file)","_secondary":true}
+{"id":"so-63666510","source":"stackoverflow","score":0,"posted_at":"2020-08-31T07:26:56.000Z","tags":[],"title":"Embedding kibana dashboard in external ui prompts login"}
+{"id":"so-61355552","source":"stackoverflow","score":0,"posted_at":"2020-04-22T00:50:24.000Z","tags":[],"title":"Embedding Maps from Kibana elasticsearch","_secondary":true}
+{"id":"so-60488943","source":"stackoverflow","score":0,"posted_at":"2020-03-02T12:32:17.000Z","tags":[],"title":"Can I create a plugin in kibana which give me &quot;Download as csv option&quot; in the menu of the widgets inside the dashboard of kibana?"}
+{"id":"so-69897449","source":"stackoverflow","score":1,"posted_at":"2021-11-09T11:37:47.000Z","tags":[],"title":"Enable SAML authentication for Dashboards of private AWS OpenSearch cluster running in VPC","_secondary":true}
+{"id":"so-77170502","source":"stackoverflow","score":0,"posted_at":"2023-09-25T07:10:22.000Z","tags":[],"title":"How can I embed a Kibana dashboard as an iframe in an HTML page?"}

@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>XERJ — AI Search & RAG — Use Case Brief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../common.css">
+</head>
+<body>
+
+<!-- P1 · COVER -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>USE CASE · AI SEARCH &amp; RAG · V1 · 2026-04</span>
+  </div>
+  <div class="grow flex col between">
+    <div class="sp-10"></div>
+    <div>
+      <div class="kicker" style="margin-bottom:20px;">
+        <span>USE CASE 02</span>
+        <span class="dash">·</span>
+        <span>FOR CDO · CAIO · AI PLATFORM LEADS</span>
+      </div>
+      <div class="cover-hero">
+        HYBRID<br>
+        RETRIEVAL.<br>
+        <span class="accent">ONE QUERY.</span><br>
+        ONE HOP.
+      </div>
+      <div class="sp-8"></div>
+      <p class="lead" style="max-width:6in;">
+        Agent performance at enterprise scale is a retrieval
+        problem before it is a model problem. XERJ runs BM25 and
+        HNSW vector search in the same process, against the same
+        segment cache, through a single Elasticsearch-compatible
+        API. No Python orchestrator. No second network hop. No
+        dedicated vector bill.
+      </p>
+    </div>
+    <div class="kicker">
+      <span>4× RAG MEMORY</span>
+      <span class="dash">·</span>
+      <span>38 MS P95 ON 1 B VECTORS</span>
+      <span class="dash">·</span>
+      <span>ONE QUERY</span>
+    </div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · AI SEARCH &amp; RAG · USE CASE BRIEF</span>
+    <span class="num">01 / 10</span>
+  </div>
+</section>
+
+<!-- P2 · PROBLEM -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>02 · WHY THIS MATTERS NOW</span>
+  </div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>02</span><span class="dash">·</span><span>THE RAG DATA PROBLEM</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">RAG STALLS<br>AT THE<br><span class="accent">DATA LAYER.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">
+      Every RAG pilot works. Most production rollouts don't. The
+      failure is rarely the model. It is almost always the data
+      layer beneath it — fragmented across a vector DB, a full-text
+      store, a session cache, and a retrieval orchestrator that
+      glues the three together in Python.
+    </p>
+    <div class="sp-6"></div>
+    <div class="kv-row">
+      <div class="k">LATENCY COMPOUNDS</div>
+      <div class="v">A single retrieval turn crosses three data stores through a Python orchestrator doing RRF. The agent sees the sum of every system's p99. Users see a product that feels slow even when individual queries look fast.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">MEMORY EXPLODES</div>
+      <div class="v">10 M embeddings at 1,536 dim is 92 GB of float32 — before you factor in HNSW graph overhead. Enterprise RAG workloads routinely land in the hundreds of GB of hot memory per tenant.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">COSTS MULTIPLY</div>
+      <div class="v">Per-vector pricing for the embedding store. JVM heap for the keyword index. Redis for session memory. LLM tokens for every orchestrator call. Four bills, four renewals, four procurement cycles.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">AGENT MEMORY IS ORPHANED</div>
+      <div class="v">Conversation turns, tool traces, retrieved context — where do they live? Usually in Redis until the TTL fires. Time-decay, token-budget-aware retrieval ends up as application glue code three teams own.</div>
+    </div>
+    <div class="grow"></div>
+    <div class="kicker"><span>ONE DATA PLANE</span><span class="dash">·</span><span>NOT THREE SUBSYSTEMS AND A FRAMEWORK</span></div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · AI SEARCH &amp; RAG · USE CASE BRIEF</span>
+    <span class="num">02 / 10</span>
+  </div>
+</section>
+
+<!-- P3 · THESIS -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>03 · XERJ POSITIONING</span>
+  </div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>03</span><span class="dash">·</span><span>UNIFIED AI DATA STACK</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">VECTOR.<br>KEYWORD.<br><span class="accent">ONE ENGINE.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">
+      XERJ runs HNSW vector search and BM25 full-text in one
+      process, against one segment cache, through a single ES 8.13
+      wire-protocol API. SQ8 quantization is default — 4× memory
+      reduction with &lt; 0.5 pp recall loss on MS MARCO. Optional
+      float32 re-rank closes the gap.
+    </p>
+    <div class="sp-6"></div>
+    <div class="quad-grid">
+      <div class="cell">
+        <span class="k">EFFICIENCY</span>
+        <span class="v">4–5×</span>
+        <span class="t">LESS MEMORY<br><span class="accent">AT AI SCALE</span></span>
+        <span class="b">10 M × 1,536-dim fits in 18 GB under SQ8 vs 92 GB for float32 in ES + Pinecone.</span>
+      </div>
+      <div class="cell">
+        <span class="k">LATENCY</span>
+        <span class="v">38 MS</span>
+        <span class="t">HYBRID P95<br><span class="accent">1 B VECTORS</span></span>
+        <span class="b">BM25 + vector + aggregation in one query tree, one execution pass, one process.</span>
+      </div>
+      <div class="cell">
+        <span class="k">UNIFIED</span>
+        <span class="v">1 HOP</span>
+        <span class="t">AGENT TURN<br><span class="accent">NO RRF GLUE</span></span>
+        <span class="b">Reciprocal rank fusion is native — no Python orchestrator, no second network call.</span>
+      </div>
+      <div class="cell">
+        <span class="k">MEMORY</span>
+        <span class="v">NATIVE</span>
+        <span class="t">TIME-DECAY<br><span class="accent">TOKEN-BUDGET</span></span>
+        <span class="b">Agent memory (sessions, traces, retrieved context) is a first-class store — not glue code.</span>
+      </div>
+    </div>
+    <div class="grow"></div>
+    <div class="kicker"><span>ES 8.13 WIRE PROTOCOL</span><span class="dash">·</span><span>LANGCHAIN · LLAMAINDEX · DSPY WORK UNCHANGED</span></div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · AI SEARCH &amp; RAG · USE CASE BRIEF</span>
+    <span class="num">03 / 10</span>
+  </div>
+</section>
+
+<!-- P4 · REFERENCE ARCHITECTURE -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>04 · REFERENCE ARCHITECTURE</span>
+  </div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>04</span><span class="dash">·</span><span>REFERENCE ARCHITECTURE</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">RAG BLUEPRINT.<br><span class="accent">ONE PLATFORM.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">
+      A three-node XERJ cluster serving an enterprise RAG workload.
+      Same ES-compat API used by LangChain / LlamaIndex retrievers
+      and by the custom chat application.
+    </p>
+    <div class="sp-4"></div>
+    <div class="arch-pre"><span class="accent">SOURCE</span>
+  Knowledge base · tickets · docs · wiki · contracts · CRM
+     │
+     ▼  <span class="mute">chunker + embedder (OpenAI · Voyage · Anthropic · Cohere)</span>
+  Embedding pipeline · 768 / 1024 / 1536-dim float32
+     │
+     ▼  <span class="mute">ES _bulk — one index per corpus</span>
+<span class="accent">XERJ DATA PLANE</span>
+  ┌──────────────────────────────────────────────────────────────┐
+  │ HNSW index (SQ8 quantized, 4× compression)                   │
+  │ BM25 index on original text (keyword filter + phrase)        │
+  │ COLUMNS: metadata · tenant · acl · last-modified             │
+  │ AGENT MEMORY: session-scoped · time-decay · token-aware      │
+  └──────────────────────────────────────────────────────────────┘
+     │
+     ▼  <span class="mute">hybrid query: BM25 filter + vector ANN + ACL · RRF native</span>
+<span class="accent">AGENT RUNTIME</span>
+  LangChain · LlamaIndex retriever                <span class="mute">single ES query</span>
+  Chat API · classification API · summarization    <span class="mute">hybrid, one hop</span>
+  Feedback loop · re-embed on drift                <span class="mute">scheduled</span>
+
+<span class="accent">QUANTIZATION TIER</span>
+  &lt; 1 M vectors     float32           · max recall · cheapest test path
+  1 M – 10 M        SQ8 (4×)          · production default · &lt; 0.5 pp loss
+  &gt; 10 M            nibble (8×) + re-rank · cost-per-GB dominant</div>
+    <div class="grow"></div>
+    <div class="kicker"><span>SIZING</span><span class="dash">·</span><span>~55 M × 768-DIM / NODE · HYBRID P95 &lt; 40 MS</span></div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · AI SEARCH &amp; RAG · USE CASE BRIEF</span>
+    <span class="num">04 / 10</span>
+  </div>
+</section>
+
+<!-- P5 · TECHNICAL BENEFITS -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>05 · TECHNICAL BENEFITS</span>
+  </div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>05</span><span class="dash">·</span><span>WHY THIS SCALES FOR RAG</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">ENGINEERING<br>CHOICES THAT<br><span class="accent">PAY AT SCALE.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">
+      Six decisions that matter for an enterprise RAG workload.
+      Each is a measurable property of the data plane — not a
+      framework to configure.
+    </p>
+    <div class="sp-6"></div>
+    <div class="kv-row">
+      <div class="k">SQ8 BY DEFAULT</div>
+      <div class="v">Scalar 8-bit quantization runs through the HNSW traversal, not just at rest. Graph RAM shrinks 4× too. Re-rank with float32 on the top-K candidates closes the &lt; 0.5 pp recall gap.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">NATIVE HYBRID</div>
+      <div class="v">Reciprocal Rank Fusion is a planner primitive, not a Python wrapper. BM25 and vector ranks combine in-process; no calibration problem between BM25 float and cosine float.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">ACL IN THE QUERY</div>
+      <div class="v">Tenant / role / document-level ACL is a filter clause on the same hybrid query. No separate permission service, no second round trip, no post-filter leak.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">EXPLAIN-PLAN</div>
+      <div class="v"><span class="mono">POST /v1/indices/rag/explain-plan</span> returns per-node cost and row-scan estimate for every retrieval. Capacity planning, cost visibility, and outlier debugging share one JSON shape.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">AGENT MEMORY NATIVE</div>
+      <div class="v">Time-decay scoring, token-budget-aware retrieval, session-scoped indices — all native operators. No Redis TTL story, no glue code to maintain across three teams.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">COST VISIBILITY</div>
+      <div class="v">Every query returns realized CPU, I/O, and row counts. Finance audits AI spend at the query level; the CFO sees embedding retrieval cost as a line-item, not as an end-of-quarter surprise.</div>
+    </div>
+    <div class="grow"></div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · AI SEARCH &amp; RAG · USE CASE BRIEF</span>
+    <span class="num">05 / 10</span>
+  </div>
+</section>
+
+<!-- P6 · OUTCOMES -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>06 · MEASURED OUTCOMES</span>
+  </div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>06</span><span class="dash">·</span><span>MEASURED OUTCOMES</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">VECTOR MEMORY<br>AT ENTERPRISE<br><span class="accent">SCALE.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">
+      Memory footprint for hybrid retrieval indices at the three
+      corpus sizes that typically decide hardware plans. XERJ
+      under SQ8 default vs. legacy ES + dedicated vector DB in
+      float32.
+    </p>
+    <div class="sp-6"></div>
+    <div class="versus">
+      <div class="h">CORPUS</div>
+      <div class="h a">XERJ (SQ8)</div>
+      <div class="h">ES + VECTOR DB (FLOAT32)</div>
+
+      <div class="dim">1 M × 768-dim</div>
+      <div><span class="accent">1.2 GB</span></div>
+      <div>4.6 GB <span class="mute">— 3.8×</span></div>
+
+      <div class="dim">5 M × 768-dim</div>
+      <div><span class="accent">5.8 GB</span></div>
+      <div>23 GB <span class="mute">— 4.0×</span></div>
+
+      <div class="dim">10 M × 1,536-dim · enterprise</div>
+      <div><span class="accent">18 GB</span></div>
+      <div>92 GB <span class="mute">— 5.1×</span></div>
+
+      <div class="dim">Hybrid query p95 (1 B vectors)</div>
+      <div><span class="accent">38 ms</span></div>
+      <div>orchestrator adds 30 + ms</div>
+
+      <div class="dim">Recall @ 10 vs float32</div>
+      <div><span class="accent">&lt; 0.5 pp loss</span></div>
+      <div>baseline</div>
+
+      <div class="dim">Network hops per turn</div>
+      <div><span class="accent">1</span></div>
+      <div>2–3 (RRF orchestrator)</div>
+    </div>
+    <div class="sp-6"></div>
+    <div class="kv-row">
+      <div class="k">COST IMPACT</div>
+      <div class="v">10 M × 1,536-dim RAG corpus fits on one node under SQ8. The same corpus on ES + Pinecone floats needs a multi-node cluster plus per-vector cloud billing.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">AGENT IMPACT</div>
+      <div class="v">A 10-hop agent turn completes in ~400 ms including LLM roundtrip. The same chain over orchestrated ES+Pinecone+Redis regularly exceeds 2 seconds at the same corpus size.</div>
+    </div>
+    <div class="grow"></div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · AI SEARCH &amp; RAG · USE CASE BRIEF</span>
+    <span class="num">06 / 10</span>
+  </div>
+</section>
+
+<!-- P7 · INTEGRATIONS -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>07 · INTEGRATION ECOSYSTEM</span>
+  </div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>07</span><span class="dash">·</span><span>YOUR RAG STACK, UNCHANGED</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">LANGCHAIN.<br>LLAMAINDEX.<br><span class="accent">DROP-IN.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">
+      XERJ exposes ES 8.13 semantics. Every RAG framework with an
+      ES retriever works as-is. Embedders plug in through a
+      pluggable provider interface.
+    </p>
+    <div class="sp-6"></div>
+    <div class="matrix m3">
+      <div class="h">CATEGORY</div>
+      <div class="h">TOOLS</div>
+      <div class="h">STATUS</div>
+
+      <div class="k">RAG FRAMEWORKS</div>
+      <div>LangChain · LlamaIndex · Haystack · DSPy — ES retriever / backend · zero adapter code</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">EMBEDDING PROVIDERS</div>
+      <div>OpenAI · Anthropic · Voyage · Cohere · Bedrock · Azure OpenAI · self-hosted · pluggable</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">CLIENT LIBRARIES</div>
+      <div>elasticsearch-py · elasticsearch-js · elasticsearch-java · Go · .NET via official ES clients</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">DASHBOARDS</div>
+      <div>Kibana · Grafana · custom · real-time query shape, cost, recall-drift dashboards</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">AGENT FRAMEWORKS</div>
+      <div>Anthropic Agent SDK · OpenAI Agents · LangGraph · CrewAI — all via ES-compatible retriever</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">INGEST</div>
+      <div>ES _bulk · NDJSON · Vector · custom embedding pipelines via SDK · drift detector (roadmap Q3)</div>
+      <div class="status ga">GA</div>
+
+      <div class="k">IDENTITY</div>
+      <div>OIDC / SAML · AWS IAM · Azure AD · Okta · per-tenant index isolation</div>
+      <div class="status road">ROAD Q2</div>
+
+      <div class="k">MLOPS</div>
+      <div>MLflow model registry · W&amp;B traces · recall-monitoring hooks · scheduled re-embed</div>
+      <div class="status road">ROAD Q3</div>
+    </div>
+    <div class="grow"></div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · AI SEARCH &amp; RAG · USE CASE BRIEF</span>
+    <span class="num">07 / 10</span>
+  </div>
+</section>
+
+<!-- P8 · GOVERNANCE -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>08 · GOVERNANCE &amp; COST CONTROL</span>
+  </div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>08</span><span class="dash">·</span><span>GOVERNANCE</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">RAG COST.<br><span class="accent">BOARD-READABLE.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">
+      AI infrastructure is where finance loses visibility fastest.
+      XERJ makes retrieval-layer cost a queryable metric — not an
+      end-of-month vendor surprise.
+    </p>
+    <div class="sp-6"></div>
+    <div class="kv-row">
+      <div class="k">PER-QUERY COST</div>
+      <div class="v">Every retrieval returns CPU, I/O, and row-count estimates before execution and realized counts after. Dashboards query the same field agents query.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">CIRCUIT-BREAKERS</div>
+      <div class="v">Per-request heap · per-request time · per-tenant concurrency · per-index doc-scan ceiling. Runaway agents fail loud, not expensive.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">TENANT ISOLATION</div>
+      <div class="v">Per-tenant indices, quotas, and explain-plans. Noisy-neighbor agents cannot starve another tenant's retrieval budget.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">DATA SOVEREIGNTY</div>
+      <div class="v">Self-hosted. Your cloud, your VPC, your region. Embeddings never leave the perimeter unless an embedder is configured to an external API.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">AUDIT TRAIL</div>
+      <div class="v">Every retrieval logged with principal, query shape, and realized cost. Replayable. Exportable. Queryable as a regular XERJ index.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">DRIFT &amp; RECALL</div>
+      <div class="v">Query-shape dashboard surfaces recall drift, latency outliers, and re-embed candidates. Scheduled monitoring hooks <span class="pill road">Q3</span>.</div>
+    </div>
+    <div class="grow"></div>
+    <div class="kicker"><span>COST AS DATA</span><span class="dash">·</span><span>NOT A POST-HOC BILL RECONCILIATION</span></div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · AI SEARCH &amp; RAG · USE CASE BRIEF</span>
+    <span class="num">08 / 10</span>
+  </div>
+</section>
+
+<!-- P9 · IMPLEMENTATION -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>09 · IMPLEMENTATION PATH</span>
+  </div>
+  <div class="grow flex col">
+    <div class="sp-6"></div>
+    <div class="kicker"><span>09</span><span class="dash">·</span><span>FROM PILOT TO PRODUCTION</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">FIVE PHASES.<br><span class="accent">ONE YEAR.</span></h2>
+    <div class="sp-4"></div>
+    <p class="body">
+      A reversible rollout. Start with one RAG corpus on a single
+      node; end with a consolidated retrieval platform replacing the
+      vector-DB contract, the session cache, and the keyword store.
+    </p>
+    <div class="sp-6"></div>
+    <div class="road-rail">
+      <div class="q">01</div>
+      <div class="t">PILOT<br><span class="accent">WEEKS 1–2</span></div>
+      <div>Single node · embed one corpus (~1 M docs) · run the RAG_BENCH report · compare recall &amp; latency against your current stack on the same corpus. No application change.</div>
+
+      <div class="q">02</div>
+      <div class="t">SHADOW<br><span class="accent">WEEKS 3–6</span></div>
+      <div>3-node HA cluster · dual-write embeddings to XERJ + incumbent vector DB · LangChain / LlamaIndex retriever switch is one env var. Side-by-side A/B on the chat app.</div>
+
+      <div class="q">03</div>
+      <div class="t">MIGRATE PRIMARY RAG CORPUS<br><span class="accent">QUARTER 2</span></div>
+      <div>Make XERJ primary for one RAG workload (docs · tickets · KB). Decommission the shadowed vector DB index. First line removed from the monthly vector-DB bill.</div>
+
+      <div class="q">04</div>
+      <div class="t">ADD AGENT MEMORY<br><span class="accent">QUARTER 3</span></div>
+      <div>Move conversation turns and tool traces into XERJ agent-memory indices. Retire Redis for session cache. Time-decay retrieval now runs natively; glue code is deleted.</div>
+
+      <div class="q">05</div>
+      <div class="t">CONSOLIDATE<br><span class="accent">QUARTER 4</span></div>
+      <div>All RAG workloads on XERJ. Vector DB contract ends. Single retrieval platform for every agent team. One vendor, one SLA, one audit surface.</div>
+    </div>
+    <div class="grow"></div>
+    <div class="kicker"><span>REVERSIBLE</span><span class="dash">·</span><span>ES WIRE PROTOCOL MEANS NO LOCK-IN AT ANY PHASE</span></div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · AI SEARCH &amp; RAG · USE CASE BRIEF</span>
+    <span class="num">09 / 10</span>
+  </div>
+</section>
+
+<!-- P10 · CONTACT -->
+<section class="page">
+  <div class="head-row">
+    <span class="brand">XERJ<span class="accent">.AI</span></span>
+    <span>10 · GET STARTED</span>
+  </div>
+  <div class="grow flex col">
+    <div class="sp-10"></div>
+    <div class="kicker"><span>10</span><span class="dash">·</span><span>NEXT STEPS</span></div>
+    <div class="sp-3"></div>
+    <h2 class="scene">RUN HYBRID.<br><span class="accent">ON YOUR CORPUS.</span></h2>
+    <div class="sp-6"></div>
+    <p class="body">
+      A two-week pilot on a real RAG corpus. Private binary, embed
+      scripts, seeded datasets for the RAG_BENCH report. You bring
+      the corpus and the chat application's current p95.
+    </p>
+    <div class="sp-10"></div>
+    <div style="padding: 28px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);">
+      <div class="kicker"><span>AI PLATFORM CONTACT</span></div>
+      <div class="sp-3"></div>
+      <div style="font-family: var(--font-display); font-weight: 900; font-size: 42pt; line-height:1; letter-spacing: 0.01em;">
+        HELLO<span class="accent">@</span>XERJ.AI
+      </div>
+      <div class="sp-3"></div>
+      <div style="font-family: var(--font-data); font-size: 9pt; letter-spacing: var(--track-ui); text-transform: uppercase; color: var(--mute);">
+        XERJ.AI · XERJ.COM · XERJ.DEV
+      </div>
+    </div>
+    <div class="sp-6"></div>
+    <div class="kv-row">
+      <div class="k">WHAT YOU GET</div>
+      <div class="v">Private binary · RAG_BENCH reproduction scripts · seeded 10 M-embedding corpus · LangChain / LlamaIndex retriever examples · query-shape dashboard JSON.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">WHAT YOU BRING</div>
+      <div class="v">One RAG corpus (docs / tickets / KB) with its embedding model and a baseline recall / p95 number from the current retrieval stack.</div>
+    </div>
+    <div class="kv-row">
+      <div class="k">COMPANION BRIEFS</div>
+      <div class="v"><span class="mono">xerj-exec-brief.pdf</span> (CAIO / CDO) · <span class="mono">xerj-tech-brief.pdf</span> (architect) · <span class="mono">xerj-industry-finserv.pdf</span> for regulated RAG</div>
+    </div>
+    <div class="grow"></div>
+    <div class="kicker">
+      <span>XERJ.AI · AI SEARCH &amp; RAG · USE CASE BRIEF</span>
+      <span class="dash">·</span>
+      <span>V1 · 2026-04</span>
+    </div>
+  </div>
+  <div class="foot-row">
+    <span>XERJ · AI SEARCH &amp; RAG · USE CASE BRIEF</span>
+    <span class="num">10 / 10</span>
+  </div>
+</section>
+
+</body>
+</html>

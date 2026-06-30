@@ -1,0 +1,417 @@
+warning: associated function `from_u8` is never used
+  --> crates/xerj-cluster/src/raft_log.rs:72:8
+   |
+71 | impl EntryKind {
+   | -------------- associated function in this implementation
+72 |     fn from_u8(b: u8) -> Result<Self> {
+   |        ^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `rayon::prelude`
+  --> crates/xerj-vector/src/hnsw.rs:17:5
+   |
+17 | use rayon::prelude::*;
+   |     ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable `curr_dist` is assigned to, but never used
+   --> crates/xerj-vector/src/hnsw.rs:166:13
+    |
+166 |         let mut curr_dist = {
+    |             ^^^^^^^^^^^^^
+    |
+    = note: consider using `_curr_dist` instead
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `curr_dist` is never read
+   --> crates/xerj-vector/src/hnsw.rs:225:17
+    |
+225 |                 curr_dist = candidates[0].0;
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `curr_dist` is never read
+   --> crates/xerj-vector/src/hnsw.rs:175:13
+    |
+175 |             curr_dist = new_dist;
+    |             ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: field `id` is never read
+  --> crates/xerj-vector/src/hnsw.rs:61:5
+   |
+60 | struct Node {
+   |        ---- field in this struct
+61 |     id: u64,
+   |     ^^
+   |
+   = note: `Node` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Write`
+  --> crates/xerj-storage/src/stored_codec.rs:58:29
+   |
+58 | use std::io::{Cursor, Read, Write};
+   |                             ^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Read`
+  --> crates/xerj-storage/src/stored_codec.rs:58:23
+   |
+58 | use std::io::{Cursor, Read, Write};
+   |                       ^^^^
+
+warning: field `depth` is never read
+   --> crates/xerj-storage/src/backend.rs:384:9
+    |
+381 |     pub struct Entry {
+    |                ----- field in this struct
+...
+384 |         depth: usize,
+    |         ^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `CHKPT_LEN` is never used
+  --> crates/xerj-storage/src/wal.rs:63:7
+   |
+63 | const CHKPT_LEN: u64 = 28; // generation(8) + offset(8) + max_seq(8) + crc(4)
+   |       ^^^^^^^^^
+
+warning: `xerj-cluster` (lib) generated 1 warning
+warning: `xerj-vector` (lib) generated 5 warnings
+warning: `xerj-storage` (lib) generated 4 warnings (run `cargo fix --lib -p xerj-storage` to apply 1 suggestion)
+warning: `xerj-vector` (lib test) generated 5 warnings (5 duplicates)
+warning: `xerj-storage` (lib test) generated 4 warnings (4 duplicates)
+warning: `xerj-cluster` (lib test) generated 1 warning (1 duplicate)
+warning: unused import: `Write`
+  --> crates/xerj-logs/src/columnar.rs:10:29
+   |
+10 | use std::io::{Cursor, Read, Write};
+   |                             ^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `ColumnType`, `ColumnValue`, and `Column`
+  --> crates/xerj-logs/src/ingest.rs:14:23
+   |
+14 | use crate::columnar::{Column, ColumnType, ColumnValue};
+   |                       ^^^^^^  ^^^^^^^^^^  ^^^^^^^^^^^
+
+warning: field `bucket` is never read
+   --> crates/xerj-logs/src/ingest.rs:166:5
+    |
+165 | struct Memtable {
+    |        -------- field in this struct
+166 |     bucket: HourBucket,
+    |     ^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Serialize`
+  --> crates/xerj-fts/src/index.rs:28:26
+   |
+28 | use serde::{Deserialize, Serialize};
+   |                          ^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling tikv-jemalloc-sys v0.6.1+5.3.0-1-ge13ca993e8ccb9ba9847cc330696e02839f328f7
+warning: `xerj-logs` (lib) generated 3 warnings (run `cargo fix --lib -p xerj-logs` to apply 2 suggestions)
+warning: `xerj-fts` (lib) generated 1 warning (run `cargo fix --lib -p xerj-fts` to apply 1 suggestion)
+warning: `xerj-logs` (lib test) generated 3 warnings (3 duplicates)
+warning: `xerj-fts` (lib test) generated 1 warning (1 duplicate)
+warning: unused import: `FtsIndexWriter`
+  --> crates/xerj-engine/src/index.rs:17:40
+   |
+17 | use xerj_fts::index::{FtsIndexReader, FtsIndexWriter};
+   |                                        ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `FastAggResult`, `run_agg_fast_filtered`, and `run_agg_fast`
+  --> crates/xerj-engine/src/index.rs:28:38
+   |
+28 | use crate::aggs::{run_aggs_with_all, run_agg_fast, run_agg_fast_filtered, FastAggResult};
+   |                                      ^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^
+
+warning: unused import: `crate::memtable::FtsMemtable`
+  --> crates/xerj-engine/src/index.rs:29:5
+   |
+29 | use crate::memtable::FtsMemtable;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `SegmentId`
+    --> crates/xerj-engine/src/index.rs:1402:51
+     |
+1402 |         use xerj_storage::segment::{SectionType, SegmentId, SegmentReader, SegmentWriter};
+     |                                                   ^^^^^^^^^
+
+warning: unused import: `rayon::prelude`
+  --> crates/xerj-engine/src/turbo_ingest.rs:31:5
+   |
+31 | use rayon::prelude::*;
+   |     ^^^^^^^^^^^^^^
+
+warning: value assigned to `fts_handled` is never read
+    --> crates/xerj-engine/src/index.rs:2772:33
+     |
+2772 | ...                   fts_handled = true;
+     |                       ^^^^^^^^^^^^^^^^^^
+     |
+     = help: maybe it is overwritten before being read?
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `negative`
+    --> crates/xerj-engine/src/index.rs:6209:41
+     |
+6209 |         QueryNode::Boosting { positive, negative, .. } => {
+     |                                         ^^^^^^^^ help: try ignoring the field: `negative: _`
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `pos` is never read
+   --> crates/xerj-engine/src/sql.rs:344:65
+    |
+344 |             Some(Token::Num(n)) => { limit = Some(*n as usize); pos += 1; }
+    |                                                                 ^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: function `execute_agg` is never used
+   --> crates/xerj-engine/src/aggs.rs:391:4
+    |
+391 | fn execute_agg(name: &str, body: &Value, docs: &[Value]) -> Value {
+    |    ^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `execute_agg_with_all` is never used
+   --> crates/xerj-engine/src/aggs.rs:395:4
+    |
+395 | fn execute_agg_with_all(name: &str, body: &Value, docs: &[Value], all_docs: &[Value]) -> Value {
+    |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: variant `Skip` is never constructed
+   --> crates/xerj-engine/src/bulk.rs:123:9
+    |
+120 |     enum ParseOutcome {
+    |          ------------ variant in this enum
+...
+123 |         Skip(usize /* extra item_index to pop, because we optimistically consumed a line */),
+    |         ^^^^
+
+warning: function `run_numeric_agg_with_segments_refs` is never used
+    --> crates/xerj-engine/src/index.rs:5479:4
+     |
+5479 | fn run_numeric_agg_with_segments_refs(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_value_count_with_segments_refs` is never used
+    --> crates/xerj-engine/src/index.rs:5544:4
+     |
+5544 | fn run_value_count_with_segments_refs(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_cardinality_with_segments_refs` is never used
+    --> crates/xerj-engine/src/index.rs:5576:4
+     |
+5576 | fn run_cardinality_with_segments_refs(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_terms_with_segments_refs` is never used
+    --> crates/xerj-engine/src/index.rs:5619:4
+     |
+5619 | fn run_terms_with_segments_refs(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_numeric_agg_with_segments` is never used
+    --> crates/xerj-engine/src/index.rs:5727:4
+     |
+5727 | fn run_numeric_agg_with_segments(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_value_count_with_segments` is never used
+    --> crates/xerj-engine/src/index.rs:5790:4
+     |
+5790 | fn run_value_count_with_segments(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_cardinality_with_segments` is never used
+    --> crates/xerj-engine/src/index.rs:5822:4
+     |
+5822 | fn run_cardinality_with_segments(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `run_terms_with_segments` is never used
+    --> crates/xerj-engine/src/index.rs:5872:4
+     |
+5872 | fn run_terms_with_segments(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `hash_doc_id` is never used
+    --> crates/xerj-engine/src/index.rs:7253:4
+     |
+7253 | fn hash_doc_id(doc_id: &str) -> u32 {
+     |    ^^^^^^^^^^^
+
+warning: constant `ANALYSIS_THRESHOLD` is never used
+  --> crates/xerj-engine/src/memtable.rs:90:7
+   |
+90 | const ANALYSIS_THRESHOLD: usize = 1000;
+   |       ^^^^^^^^^^^^^^^^^^
+
+warning: method `collect_sample` is never used
+   --> crates/xerj-engine/src/memtable.rs:188:8
+    |
+173 | impl DocValues {
+    | -------------- method in this implementation
+...
+188 |     fn collect_sample(&mut self, field: &str, value: &str) {
+    |        ^^^^^^^^^^^^^^
+
+warning: field `parallel` is never read
+   --> crates/xerj-engine/src/turbo_ingest.rs:245:5
+    |
+232 | pub struct TurboIngestPipeline {
+    |            ------------------- field in this struct
+...
+245 |     parallel: bool,
+    |     ^^^^^^^^
+
+warning: calls to `std::mem::drop` with a reference instead of an owned value does nothing
+    --> crates/xerj-engine/src/index.rs:1156:9
+     |
+1156 |         drop(mem);
+     |         ^^^^^---^
+     |              |
+     |              argument has type `&ShardedFtsMemtable`
+     |
+     = note: `#[warn(dropping_references)]` on by default
+help: use `let _ = ...` to ignore the expression or result
+     |
+1156 -         drop(mem);
+1156 +         let _ = mem;
+     |
+
+warning: variable `MERGE_PARALLELISM` should have a snake case name
+    --> crates/xerj-engine/src/index.rs:1506:13
+     |
+1506 |         let MERGE_PARALLELISM: usize = merge_parallelism;
+     |             ^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `merge_parallelism`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: calls to `std::mem::drop` with a reference instead of an owned value does nothing
+    --> crates/xerj-engine/src/index.rs:3409:9
+     |
+3409 |         drop(mem);
+     |         ^^^^^---^
+     |              |
+     |              argument has type `&ShardedFtsMemtable`
+     |
+help: use `let _ = ...` to ignore the expression or result
+     |
+3409 -         drop(mem);
+3409 +         let _ = mem;
+     |
+
+warning: `xerj-engine` (lib) generated 26 warnings (run `cargo fix --lib -p xerj-engine` to apply 5 suggestions)
+warning: `xerj-engine` (lib test) generated 26 warnings (26 duplicates)
+   Compiling xerj-engine v0.1.0 (/home/claude/ai/zeebb.ai/engine/crates/xerj-engine)
+warning: unused import: `SourceFilter`
+  --> crates/xerj-engine/tests/integration.rs:11:50
+   |
+11 | use xerj_query::ast::{QueryNode, SearchRequest, SourceFilter};
+   |                                                  ^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `QueryNode`
+    --> crates/xerj-engine/tests/integration.rs:2379:28
+     |
+2379 |     use xerj_query::ast::{QueryNode, SourceFilter};
+     |                            ^^^^^^^^^
+
+warning: unused import: `serde_json::Value`
+    --> crates/xerj-engine/tests/integration.rs:2416:9
+     |
+2416 |     use serde_json::Value;
+     |         ^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `engine`
+    --> crates/xerj-engine/tests/integration.rs:1603:9
+     |
+1603 |     let engine = make_engine(&dir);
+     |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_engine`
+     |
+     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+    --> crates/xerj-engine/tests/integration.rs:2399:9
+     |
+2399 |     let mut req = SearchRequest {
+     |         ----^^^
+     |         |
+     |         help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: `xerj-engine` (test "integration") generated 5 warnings (run `cargo fix --test "integration" -p xerj-engine` to apply 5 suggestions)
+   Compiling xerj-api v0.1.0 (/home/claude/ai/zeebb.ai/engine/crates/xerj-api)
+   Compiling tikv-jemallocator v0.6.1
+   Compiling xerj-server v0.1.0 (/home/claude/ai/zeebb.ai/engine/crates/xerj-server)
+error[E0308]: mismatched types
+   --> crates/xerj-engine/tests/perf_benchmark.rs:572:20
+    |
+572 |         batch.push((format!("doc{i}"), make_doc(i), empty_bytes));
+    |               ---- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected a tuple with 2 elements, found one with 3 elements
+    |               |
+    |               arguments to this method are incorrect
+    |
+    = note: expected tuple `(std::string::String, serde_json::Value)`
+               found tuple `(std::string::String, serde_json::Value, Arc<[u8]>)`
+note: method defined here
+   --> /rustc/e408947bfd200af42db322daf0fadfe7e26d3bd1/library/alloc/src/vec/mod.rs:993:11
+
+error[E0308]: mismatched types
+   --> crates/xerj-engine/tests/perf_benchmark.rs:577:36
+    |
+577 |                 .index_batch_turbo(b, /*parallel=*/ true, /*fast_analyzer=*/ false)
+    |                  ----------------- ^ expected a tuple with 3 elements, found one with 2 elements
+    |                  |
+    |                  arguments to this method are incorrect
+    |
+    = note: expected struct `Vec<(std::string::String, serde_json::Value, Arc<[u8]>)>`
+               found struct `Vec<(std::string::String, serde_json::Value)>`
+note: method defined here
+   --> crates/xerj-engine/src/index.rs:669:18
+    |
+669 |     pub async fn index_batch_turbo(
+    |                  ^^^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> crates/xerj-engine/tests/perf_benchmark.rs:586:32
+    |
+586 |             .index_batch_turbo(batch, true, false)
+    |              ----------------- ^^^^^ expected a tuple with 3 elements, found one with 2 elements
+    |              |
+    |              arguments to this method are incorrect
+    |
+    = note: expected struct `Vec<(std::string::String, serde_json::Value, Arc<[u8]>)>`
+               found struct `Vec<(std::string::String, serde_json::Value)>`
+note: method defined here
+   --> crates/xerj-engine/src/index.rs:669:18
+    |
+669 |     pub async fn index_batch_turbo(
+    |                  ^^^^^^^^^^^^^^^^^
+
+For more information about this error, try `rustc --explain E0308`.
+error: could not compile `xerj-engine` (test "perf_benchmark") due to 3 previous errors
+warning: build failed, waiting for other jobs to finish...

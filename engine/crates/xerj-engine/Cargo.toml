@@ -1,0 +1,51 @@
+[package]
+name = "xerj-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Integration crate that wires together all xerj subsystems"
+
+[dependencies]
+xerj-common  = { path = "../xerj-common" }
+xerj-storage = { path = "../xerj-storage" }
+xerj-fts     = { path = "../xerj-fts" }
+xerj-vector  = { path = "../xerj-vector" }
+xerj-logs    = { path = "../xerj-logs" }
+xerj-query   = { path = "../xerj-query" }
+xerj-compress = { path = "../xerj-compress" }
+xerj-ai      = { path = "../xerj-ai" }
+xerj-wasm    = { path = "../xerj-wasm" }
+xerj-cluster = { path = "../xerj-cluster" }
+
+tokio      = { workspace = true }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+simd-json  = { workspace = true }
+memchr     = { workspace = true }
+tracing    = { workspace = true }
+thiserror  = { workspace = true }
+anyhow     = { workspace = true }
+dashmap    = { workspace = true }
+arc-swap   = { workspace = true }
+parking_lot = "0.12"
+rayon      = { workspace = true }
+uuid       = { workspace = true }
+sha2       = "0.10"   # v0.9 9-P4 — audit log hash chain
+chrono     = { workspace = true }
+chrono-tz  = "0.8"
+bytes      = { workspace = true }
+regex      = "1"
+
+# Fast non-cryptographic hash — used to shard the engine FTS memtable
+# by doc_id so concurrent bulk ingest batches target different shards.
+xxhash-rust = { workspace = true }
+
+[dev-dependencies]
+tempfile  = { workspace = true }
+tokio     = { workspace = true, features = ["rt-multi-thread", "macros"] }
+criterion = { workspace = true }
+
+[[bench]]
+name = "search_bench"
+harness = false

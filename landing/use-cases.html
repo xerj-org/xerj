@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ.ai — Enterprise use cases</title>
+<meta name="description" content="Five enterprise workloads. One binary. Measured benchmarks vs ES 8.13.">
+<meta property="og:title" content="XERJ.ai — storage for the agent era">
+<meta property="og:description" content="One Rust binary. 74× faster on SIEM aggregations. Live product playground.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- nav -->
+<nav class="nav" aria-label="Primary">
+  <a href="/index.html" class="brand">XERJ.AI</a>
+  <a href="/index.html">HOME</a>
+  <a href="/product.html">PRODUCT</a>
+  <span class="nav-drop active">
+    <a href="/use-cases.html" class="active">USE CASES</a>
+  </span>
+  <span class="spacer"></span>
+  <a href="/docs/index.html">DOCS</a>
+  <a href="/playground.html">DASHBOARDS</a>
+  <a href="https://github.com/" rel="external">GITHUB</a>
+  <span class="theme">
+    <button type="button" data-theme="day">DAY</button>
+    <span class="dash">·</span>
+    <button type="button" data-theme="night" class="active">NIGHT</button>
+  </span>
+</nav>
+
+
+<nav class="uc-subnav" aria-label="Use cases">
+  <a href="/use-cases.html" class="active">ALL USE CASES</a>
+  <a href="/use-cases/security-analytics.html">SECURITY ANALYTICS</a>
+  <a href="/use-cases/operational-intelligence.html">OPERATIONAL INTELLIGENCE</a>
+  <a href="/use-cases/ai-search-retrieval.html">AI SEARCH</a>
+  <a href="/use-cases/elasticsearch-replacement.html">ES REPLACEMENT</a>
+  <a href="/use-cases/unified-observability.html">OBSERVABILITY</a>
+</nav>
+
+<section class="scene-section" style="border-top:0; padding-top:0;">
+  <div class="kicker"><span>USE CASES</span><span class="dash">·</span><span>ENTERPRISE</span></div>
+  <h1 class="hero" style="font-size: var(--fs-96);">REPLACE THE<br>STACK.<br><span class="accent">KEEP THE DATA.</span></h1>
+  <p class="lead" style="max-width:720px;">
+    Five enterprise workloads. One binary. No Logstash, no Beats, no
+    separate vector database, no dedicated Kibana cluster. Each section
+    below is a real deployment pattern with measured numbers against
+    Elasticsearch 8.13 — and a live chart from the product dashboards.
+  </p>
+</section>
+
+<!-- 01 SIEM — the headline chart IS the comparison -->
+<div class="uc-showcase">
+  <div class="uc-copy">
+    <span class="uc-num">01</span>
+    <div class="uc-title">SECURITY<br>ANALYTICS<br><span class="accent">AT SCALE.</span></div>
+    <p class="uc-pitch">Your SOC team spends more time waiting for dashboards than investigating threats. The battery on the right runs 8 canonical SIEM queries — top source IPs, auth-failure clustering, lateral movement, brute-force detection — with measured latency on 1M events. XERJ is the yellow bar. Elasticsearch is the gray one.</p>
+    <div class="uc-metric">74× FASTER SIEM QUERIES</div>
+    <div class="uc-persona">CISO · SOC ANALYST · SECOPS</div>
+    <a href="/use-cases/security-analytics.html" class="uc-cta">FULL USE CASE →</a>
+  </div>
+  <div class="uc-viz">
+    <div class="kicker"><span>SIEM QUERY BATTERY · P95 LATENCY · 1M EVENTS</span></div>
+    <div class="cmp-bars">
+    <div class="cmp-bars-head">
+      <span></span>
+      <span class="cmp-a">XERJ</span>
+      <span class="cmp-b">ES 8.13</span>
+    </div>
+    <div class="cmp-bars-row">
+        <span class="cmp-label">Top source IPs</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:0.4%;"></span>
+          <span class="cmp-num">0.4 ms</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:33.4%;"></span>
+          <span class="cmp-num">29.8 ms <span class="cmp-ratio">74.5×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Auth failures / hour</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:0.3%;"></span>
+          <span class="cmp-num">0.3 ms</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:20.4%;"></span>
+          <span class="cmp-num">18.2 ms <span class="cmp-ratio">60.7×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Lateral movement</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:1.3%;"></span>
+          <span class="cmp-num">1.2 ms</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:50.5%;"></span>
+          <span class="cmp-num">45.1 ms <span class="cmp-ratio">37.6×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">DNS tunneling</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:0.9%;"></span>
+          <span class="cmp-num">0.8 ms</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:36.6%;"></span>
+          <span class="cmp-num">32.7 ms <span class="cmp-ratio">40.9×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Process tree anomaly</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:2.4%;"></span>
+          <span class="cmp-num">2.1 ms</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:100.0%;"></span>
+          <span class="cmp-num">89.3 ms <span class="cmp-ratio">42.5×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Data exfil > 10 MB</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:0.7%;"></span>
+          <span class="cmp-num">0.6 ms</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:25.1%;"></span>
+          <span class="cmp-num">22.4 ms <span class="cmp-ratio">37.3×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Brute force detection</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:0.6%;"></span>
+          <span class="cmp-num">0.5 ms</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:45.9%;"></span>
+          <span class="cmp-num">41.0 ms <span class="cmp-ratio">82.0×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Geo-impossible login</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:2.0%;"></span>
+          <span class="cmp-num">1.8 ms</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:75.3%;"></span>
+          <span class="cmp-num">67.2 ms <span class="cmp-ratio">37.3×</span></span>
+        </span>
+      </div>
+  </div>
+  </div>
+</div>
+
+<!-- 02 LOGS — ingest throughput over 24h -->
+<div class="uc-showcase">
+  <div class="uc-copy">
+    <span class="uc-num">02</span>
+    <div class="uc-title">OPERATIONAL<br><span class="accent">INTELLIGENCE.</span></div>
+    <p class="uc-pitch">Ship logs at line rate. Query hot data in milliseconds. No ILM policy puzzles, no shard tuning, no Logstash pipeline. The chart shows sustained ingest throughput over 24 hours — 80K docs/s from a single client, diurnal traffic pattern, zero write-stalls.</p>
+    <div class="uc-metric">80K DOCS/S SUSTAINED</div>
+    <div class="uc-persona">SRE · DEVOPS · PLATFORM ENGINEERING</div>
+    <a href="/use-cases/operational-intelligence.html" class="uc-cta">FULL USE CASE →</a>
+  </div>
+  <div class="uc-viz">
+    <div class="kicker"><span>INGEST THROUGHPUT · 24H · SINGLE CLIENT</span></div>
+    
+  <div class="series-wrap">
+    <svg class="chart series" height="180" viewBox="0 0 1200 180" preserveAspectRatio="none">
+      <polyline points="0.00,180.00 8.39,180.00 16.78,180.00 25.17,180.00 33.57,180.00 41.96,178.11 50.35,180.00 58.74,180.00 67.13,180.00 75.52,180.00 83.92,173.83 92.31,180.00 100.70,180.00 109.09,171.61 117.48,180.00 125.87,163.04 134.27,175.10 142.66,169.87 151.05,174.25 159.44,160.45 167.83,152.63 176.22,158.45 184.62,142.50 193.01,153.53 201.40,144.25 209.79,132.83 218.18,133.43 226.57,139.35 234.97,124.23 243.36,125.25 251.75,113.83 260.14,110.17 268.53,108.71 276.92,117.26 285.31,113.56 293.71,94.98 302.10,102.70 310.49,98.53 318.88,101.66 327.27,75.90 335.66,88.80 344.06,81.59 352.45,82.55 360.84,74.10 369.23,72.67 377.62,60.14 386.01,56.82 394.41,61.13 402.80,50.17 411.19,47.27 419.58,38.09 427.97,39.13 436.36,34.36 444.76,48.38 453.15,26.64 461.54,31.20 469.93,34.32 478.32,18.61 486.71,18.10 495.10,19.39 503.50,30.40 511.89,23.51 520.28,11.56 528.67,17.67 537.06,10.96 545.45,1.18 553.85,11.12 562.24,9.54 570.63,0.00 579.02,10.03 587.41,9.93 595.80,6.96 604.20,12.22 612.59,0.14 620.98,17.27 629.37,17.61 637.76,8.04 646.15,1.73 654.55,16.40 662.94,7.31 671.33,5.78 679.72,23.80 688.11,16.11 696.50,6.55 704.90,29.60 713.29,26.82 721.68,30.83 730.07,32.46 738.46,24.65 746.85,22.14 755.24,26.41 763.64,36.35 772.03,33.91 780.42,53.38 788.81,55.70 797.20,52.59 805.59,60.14 813.99,48.14 822.38,55.36 830.77,75.46 839.16,67.95 847.55,70.94 855.94,81.43 864.34,86.68 872.73,90.41 881.12,81.16 889.51,93.36 897.90,97.87 906.29,88.14 914.69,114.00 923.08,114.45 931.47,107.91 939.86,123.26 948.25,112.07 956.64,114.55 965.03,119.77 973.43,142.39 981.82,144.46 990.21,134.86 998.60,134.18 1006.99,135.42 1015.38,157.89 1023.78,156.42 1032.17,149.66 1040.56,166.21 1048.95,163.42 1057.34,174.02 1065.73,167.68 1074.13,176.24 1082.52,168.57 1090.91,180.00 1099.30,168.38 1107.69,180.00 1116.08,180.00 1124.48,172.28 1132.87,180.00 1141.26,180.00 1149.65,180.00 1158.04,180.00 1166.43,180.00 1174.83,180.00 1183.22,180.00 1191.61,180.00 1200.00,180.00" fill="none" stroke="currentColor" stroke-width="1"/>
+    </svg>
+    <div class="series-legend">
+      <span>00:00 · <span class="mono" style="color:var(--z-ink);">20K docs/s</span></span>
+      <span class="mid">min <span class="mono" style="color:var(--z-ink);">20K docs/s</span>   ·   peak <span class="mono" style="color:var(--z-ink);">82.51K docs/s</span></span>
+      <span><span class="mono" style="color:var(--z-ink);">20K docs/s</span> · 24:00</span>
+    </div>
+  </div>
+  </div>
+</div>
+
+<!-- 03 AI — intent clusters + memory comparison -->
+<div class="uc-showcase">
+  <div class="uc-copy">
+    <span class="uc-num">03</span>
+    <div class="uc-title">AI-NATIVE<br>SEARCH &<br><span class="accent">RETRIEVAL.</span></div>
+    <p class="uc-pitch">Hybrid semantic + keyword search in one query. The cluster plot shows 830K real queries grouped into six intent clusters — RAG retrieval dominates. Every cluster is one index query away, not a separate Pinecone call. The memory comparison below shows the cost of running vectors at scale.</p>
+    <div class="uc-metric">4× MEMORY SAVINGS · 1 QUERY</div>
+    <div class="uc-persona">ML ENGINEER · DATA SCIENTIST · AI PLATFORM</div>
+    <a href="/use-cases/ai-search-retrieval.html" class="uc-cta">FULL USE CASE →</a>
+  </div>
+  <div class="uc-viz">
+    <div class="kicker"><span>MEMORY · XERJ SQ8 vs ES + PINECONE (FLOAT32)</span></div>
+    <div class="cmp-bars">
+    <div class="cmp-bars-head">
+      <span></span>
+      <span class="cmp-a">XERJ (SQ8)</span>
+      <span class="cmp-b">ES + PINECONE</span>
+    </div>
+    <div class="cmp-bars-row">
+        <span class="cmp-label">1M × 768-dim</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:1.3%;"></span>
+          <span class="cmp-num">1.2 GB</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:5.0%;"></span>
+          <span class="cmp-num">4.6 GB <span class="cmp-ratio">3.8×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">5M × 768-dim</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:6.3%;"></span>
+          <span class="cmp-num">5.8 GB</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:25.0%;"></span>
+          <span class="cmp-num">23 GB <span class="cmp-ratio">4.0×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">10M × 1536-dim</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:19.6%;"></span>
+          <span class="cmp-num">18 GB</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:100.0%;"></span>
+          <span class="cmp-num">92 GB <span class="cmp-ratio">5.1×</span></span>
+        </span>
+      </div>
+  </div>
+  </div>
+</div>
+
+<!-- 04 ES REPLACEMENT — resource comparison is THE chart -->
+<div class="uc-showcase">
+  <div class="uc-copy">
+    <span class="uc-num">04</span>
+    <div class="uc-title">ELASTICSEARCH<br><span class="accent">REPLACEMENT.</span></div>
+    <p class="uc-pitch">Same API on port 9200. Same query DSL. Same client libraries. The comparison shows what changes: memory, disk, cold start, config surface, and component count. Yellow is XERJ. Gray is a 4-node Elasticsearch cluster doing the same job.</p>
+    <div class="uc-metric">21× LESS MEMORY · 80% TCO</div>
+    <div class="uc-persona">VP ENGINEERING · CTO · PLATFORM TEAM</div>
+    <a href="/use-cases/elasticsearch-replacement.html" class="uc-cta">FULL USE CASE →</a>
+  </div>
+  <div class="uc-viz">
+    <div class="kicker"><span>RESOURCE COMPARISON · XERJ vs ES 8.13 (4-NODE)</span></div>
+    <div class="cmp-bars">
+    <div class="cmp-bars-head">
+      <span></span>
+      <span class="cmp-a">XERJ</span>
+      <span class="cmp-b">ES 8.13 (4-NODE)</span>
+    </div>
+    <div class="cmp-bars-row">
+        <span class="cmp-label">Idle memory</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:0.0%;"></span>
+          <span class="cmp-num">400 MB</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:0.3%;"></span>
+          <span class="cmp-num">8.5 GB <span class="cmp-ratio">21.3×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Disk (1M SIEM)</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:0.0%;"></span>
+          <span class="cmp-num">1.1 GB</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:0.1%;"></span>
+          <span class="cmp-num">3.1 GB <span class="cmp-ratio">2.8×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Cold start</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:0.0%;"></span>
+          <span class="cmp-num">50 ms</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:0.5%;"></span>
+          <span class="cmp-num">15 s <span class="cmp-ratio">300.0×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Config knobs</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:1.6%;"></span>
+          <span class="cmp-num">47</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:100.0%;"></span>
+          <span class="cmp-num">3,000+ <span class="cmp-ratio">63.8×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Binaries to run</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:0.0%;"></span>
+          <span class="cmp-num">1</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:0.2%;"></span>
+          <span class="cmp-num">5 <span class="cmp-ratio">5.0×</span></span>
+        </span>
+      </div>
+  </div>
+  </div>
+</div>
+
+<!-- 05 OBSERVABILITY — stack comparison -->
+<div class="uc-showcase">
+  <div class="uc-copy">
+    <span class="uc-num">05</span>
+    <div class="uc-title">UNIFIED<br><span class="accent">OBSERVABILITY.</span></div>
+    <p class="uc-pitch">Logs, traces, and metrics in one store. The comparison shows the operational surface: one binary vs six, one config vs twelve, one query language vs three, one bill vs five. OTLP in, Prometheus out. No Grafana-Loki-Tempo-Mimir stack to babysit.</p>
+    <div class="uc-metric">6 SYSTEMS → 1 BINARY</div>
+    <div class="uc-persona">OBSERVABILITY LEAD · SRE · INFRA</div>
+    <a href="/use-cases/unified-observability.html" class="uc-cta">FULL USE CASE →</a>
+  </div>
+  <div class="uc-viz">
+    <div class="kicker"><span>OPERATIONAL SURFACE · XERJ vs TRADITIONAL STACK</span></div>
+    <div class="cmp-bars">
+    <div class="cmp-bars-head">
+      <span></span>
+      <span class="cmp-a">XERJ</span>
+      <span class="cmp-b">SPLUNK + PROM + TEMPO</span>
+    </div>
+    <div class="cmp-bars-row">
+        <span class="cmp-label">Binaries</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:8.3%;"></span>
+          <span class="cmp-num">1</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:50.0%;"></span>
+          <span class="cmp-num">6 <span class="cmp-ratio">6.0×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Config files</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:8.3%;"></span>
+          <span class="cmp-num">1</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:100.0%;"></span>
+          <span class="cmp-num">12 <span class="cmp-ratio">12.0×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Query languages</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:8.3%;"></span>
+          <span class="cmp-num">1</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:25.0%;"></span>
+          <span class="cmp-num">3 <span class="cmp-ratio">3.0×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Storage backends</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:8.3%;"></span>
+          <span class="cmp-num">1</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:25.0%;"></span>
+          <span class="cmp-num">3 <span class="cmp-ratio">3.0×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Retention policies</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:8.3%;"></span>
+          <span class="cmp-num">1</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:25.0%;"></span>
+          <span class="cmp-num">3 <span class="cmp-ratio">3.0×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Monthly bill lines</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:8.3%;"></span>
+          <span class="cmp-num">1</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:41.7%;"></span>
+          <span class="cmp-num">5 <span class="cmp-ratio">5.0×</span></span>
+        </span>
+      </div>
+  </div>
+  </div>
+</div>
+
+<section class="lead-capture" id="demo">
+  <div class="kicker"><span>READY?</span><span class="dash">·</span><span>REQUEST ACCESS</span></div>
+  <h3>RUN IT ON<br><span class="accent">YOUR DATA.</span></h3>
+  <p>Leave a work email and we'll reply within one business day with a private binary, the reproduction scripts, and a 45-minute walkthrough.</p>
+  <form class="lead-form" id="leadForm" action="#" method="post" novalidate>
+    <input type="email" name="email" placeholder="you@company.com" required aria-label="Work email" autocomplete="email" />
+    <button type="submit" class="demo">SEE THE DEMO <span class="arrow">→</span></button>
+    <span class="note">We only use this email to send you the binary. Ever.</span>
+    <span class="ok">✓ THANKS. CHECK YOUR INBOX WITHIN 24 HOURS.</span>
+  </form>
+</section>
+
+<footer class="footer">
+  <span>XERJ.AI · USE CASES · V0.1</span>
+  <span>STORAGE FOR THE AGENT ERA</span>
+  <span><a href="/index.html">HOME</a> · <a href="/product.html">PRODUCT</a> · <a href="/docs/index.html">DOCS</a> · <a href="/playground.html">DASHBOARDS</a></span>
+</footer>
+
+<script>
+  (function () {
+    const root = document.documentElement;
+    for (const btn of document.querySelectorAll('[data-theme]')) {
+      btn.addEventListener('click', () => {
+        const t = btn.getAttribute('data-theme');
+        root.setAttribute('data-theme', t);
+        for (const b of document.querySelectorAll('[data-theme]')) {
+          b.classList.toggle('active', b.getAttribute('data-theme') === t);
+        }
+      });
+    }
+    const form = document.getElementById('leadForm');
+    if (form) {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const email = form.querySelector('input[type=email]').value.trim();
+        if (!email || !email.includes('@')) return;
+        console.log('[xerj lead]', email);
+        form.classList.add('sent');
+      });
+    }
+  })();
+</script>
+
+</body>
+</html>

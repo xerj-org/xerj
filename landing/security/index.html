@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ.ai — Security &amp; Compliance</title>
+<meta name="description" content="XERJ security posture · encryption, RBAC, audit, BYOK, certifications. Zero-trust-ready data plane.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<nav class="nav" aria-label="Primary">
+  <a href="/index.html" class="brand">XERJ.AI</a>
+  <a href="/index.html">HOME</a>
+  <a href="/product.html">PRODUCT</a>
+  <a href="/solutions/index.html">SOLUTIONS</a>
+  <a href="/industries/index.html">INDUSTRIES</a>
+  <a href="/security/index.html" class="active">SECURITY</a>
+  <a href="/pricing/index.html">PRICING</a>
+  <span class="spacer"></span>
+  <a href="/docs/index.html">DOCS</a>
+  <a href="/resources/index.html">RESOURCES</a>
+  <a href="/playground.html">DASHBOARDS</a>
+  <span class="theme">
+    <button type="button" data-theme="day">DAY</button>
+    <span class="dash">·</span>
+    <button type="button" data-theme="night" class="active">NIGHT</button>
+  </span>
+</nav>
+
+<section class="scene-section" style="border-top:0; padding-top:0;">
+  <div class="kicker"><span>SECURITY &amp; COMPLIANCE</span><span class="dash">·</span><span>ZERO-TRUST-READY</span></div>
+  <h1 class="hero" style="font-size: var(--fs-96);">AUDIT-GRADE.<br><span class="accent">BY DEFAULT.</span></h1>
+  <p class="lead" style="max-width:720px;">
+    The security model assumes a hostile network. Mutual TLS
+    between services, per-request authorization, structured audit
+    of every privileged operation. Compliance certifications are
+    on the roadmap; the engineering controls they require are
+    shipped or in flight.
+  </p>
+</section>
+
+<!-- LIVE TOGGLE: SECURITY LAYER -->
+<section class="scene-section" style="border-top:0;">
+  <div class="kicker"><span>LAYER TOGGLE</span><span class="dash">·</span><span>WHAT EACH CONTROL COVERS</span></div>
+  <h2 class="scene">PICK A LAYER.<br><span class="accent">SEE THE CONTROLS.</span></h2>
+
+  <div class="tabs" data-tabs="sec-layer">
+    <button class="tab active" data-pane="transit">IN TRANSIT</button>
+    <button class="tab" data-pane="rest">AT REST</button>
+    <button class="tab" data-pane="access">ACCESS</button>
+    <button class="tab" data-pane="audit">AUDIT</button>
+    <button class="tab" data-pane="tenancy">TENANCY</button>
+  </div>
+
+  <div class="pane active" data-group="sec-layer" data-pane="transit">
+    <div class="matrix-row"><span class="mk">PROTOCOL</span><span class="mv">TLS 1.3 on every listener (:9200 ES · :8080 native · :8081 gRPC)</span><span class="mstatus ga">GA</span></div>
+    <div class="matrix-row"><span class="mk">CIPHER SUITES</span><span class="mv">Modern AEAD only · TLS_AES_128_GCM · TLS_AES_256_GCM · TLS_CHACHA20_POLY1305</span><span class="mstatus ga">GA</span></div>
+    <div class="matrix-row"><span class="mk">CERT ROTATION</span><span class="mv">SIGHUP reload · existing connections finish · no downtime</span><span class="mstatus ga">GA</span></div>
+    <div class="matrix-row"><span class="mk">MUTUAL TLS</span><span class="mv">Between internal services · client-cert auth option for external</span><span class="mstatus ga">GA</span></div>
+    <div class="matrix-row"><span class="mk">NO DOWNGRADE</span><span class="mv">TLS 1.2 and lower not accepted · no null cipher · no export-grade</span><span class="mstatus ga">GA</span></div>
+    <div class="matrix-row"><span class="mk">FIPS VALIDATION</span><span class="mv">140-2 cert track · required for DoD IL5 + FedRAMP High</span><span class="mstatus road">ROAD 2027</span></div>
+  </div>
+
+  <div class="pane" data-group="sec-layer" data-pane="rest">
+    <div class="matrix-row"><span class="mk">SEGMENT + WAL</span><span class="mv">AES-256-GCM on every segment file and WAL segment</span><span class="mstatus beta">BETA</span></div>
+    <div class="matrix-row"><span class="mk">KEY DERIVATION</span><span class="mv">Per-index keys via HKDF from customer-root master key</span><span class="mstatus beta">BETA</span></div>
+    <div class="matrix-row"><span class="mk">AWS KMS</span><span class="mv">BYOK via AWS KMS · rotation without downtime</span><span class="mstatus road">ROAD Q2</span></div>
+    <div class="matrix-row"><span class="mk">GCP KMS</span><span class="mv">BYOK via Google Cloud KMS</span><span class="mstatus road">ROAD Q2</span></div>
+    <div class="matrix-row"><span class="mk">AZURE KEY VAULT</span><span class="mv">BYOK via Azure Key Vault</span><span class="mstatus road">ROAD Q2</span></div>
+    <div class="matrix-row"><span class="mk">HASHICORP VAULT</span><span class="mv">Vault Enterprise · FIPS-mode supported</span><span class="mstatus road">ROAD Q2</span></div>
+    <div class="matrix-row"><span class="mk">HSM</span><span class="mv">Thales Luna · AWS CloudHSM · PKCS#11</span><span class="mstatus road">ROAD Q3</span></div>
+    <div class="matrix-row"><span class="mk">NO PLAINTEXT ACCESS</span><span class="mv">XERJ has no path to unwrap the master key — envelopes only</span><span class="mstatus ga">GA</span></div>
+  </div>
+
+  <div class="pane" data-group="sec-layer" data-pane="access">
+    <div class="matrix-row"><span class="mk">AUTHENTICATION</span><span class="mv">OIDC · SAML 2.0 · enterprise AD · PIV / CAC bridge · API tokens · mTLS client certs</span><span class="mstatus road">ROAD Q2</span></div>
+    <div class="matrix-row"><span class="mk">FEDERATION</span><span class="mv">AWS IAM · Azure AD · Okta · Ping · SailPoint via SAML / OIDC</span><span class="mstatus road">ROAD Q2</span></div>
+    <div class="matrix-row"><span class="mk">RBAC SCOPE</span><span class="mv">Cluster · index · field-level roles · built-in + custom</span><span class="mstatus road">ROAD Q2</span></div>
+    <div class="matrix-row"><span class="mk">ROLE BINDINGS</span><span class="mv">Bindings mapped to IdP groups · no local user database</span><span class="mstatus road">ROAD Q2</span></div>
+    <div class="matrix-row"><span class="mk">SCIM</span><span class="mv">SCIM 2.0 provisioning for tenants and users</span><span class="mstatus road">ROAD Q3</span></div>
+    <div class="matrix-row"><span class="mk">TODAY</span><span class="mv">API-token + mutual TLS · full OIDC + RBAC shipping Q2 2026</span><span class="mstatus ga">GA</span></div>
+  </div>
+
+  <div class="pane" data-group="sec-layer" data-pane="audit">
+    <div class="matrix-row"><span class="mk">QUERY AUDIT</span><span class="mv">Principal · index · query shape · rows returned · realized cost</span><span class="mstatus beta">BETA</span></div>
+    <div class="matrix-row"><span class="mk">SCHEMA CHANGES</span><span class="mv">Every field add / retype is an audit event with before + after state</span><span class="mstatus beta">BETA</span></div>
+    <div class="matrix-row"><span class="mk">ROLE ASSIGNMENT</span><span class="mv">Every role binding change logged · granted-by · granted-at</span><span class="mstatus road">ROAD Q2</span></div>
+    <div class="matrix-row"><span class="mk">SNAPSHOTS</span><span class="mv">Create · list · restore · delete — audit every operation</span><span class="mstatus ga">GA</span></div>
+    <div class="matrix-row"><span class="mk">CONFIG RELOAD</span><span class="mv">Every SIGHUP reload audit-logged with config diff</span><span class="mstatus ga">GA</span></div>
+    <div class="matrix-row"><span class="mk">EXPLAIN-PLAN</span><span class="mv">Per-query explain-plan doubles as retrieval-layer audit artifact</span><span class="mstatus ga">GA</span></div>
+    <div class="matrix-row"><span class="mk">AUDIT INDEX</span><span class="mv">The audit log is a regular XERJ index — queryable · replayable · exportable</span><span class="mstatus ga">GA</span></div>
+    <div class="matrix-row"><span class="mk">MODEL RISK</span><span class="mv">Aligned with SR 11-7 · EBA · PRA SS1/23 evidence patterns</span><span class="mstatus ga">GA</span></div>
+  </div>
+
+  <div class="pane" data-group="sec-layer" data-pane="tenancy">
+    <div class="matrix-row"><span class="mk">LOGICAL ISOLATION</span><span class="mv">Per-tenant indices · per-tenant RBAC · per-tenant audit trail</span><span class="mstatus ga">GA</span></div>
+    <div class="matrix-row"><span class="mk">QUOTAS</span><span class="mv">Ingest rate · concurrency · doc-scan ceiling per tenant</span><span class="mstatus ga">GA</span></div>
+    <div class="matrix-row"><span class="mk">PHYSICAL ISOLATION</span><span class="mv">Separate clusters · different KMS roots · different network perimeters</span><span class="mstatus ga">GA</span></div>
+    <div class="matrix-row"><span class="mk">REQUEST CIRCUIT BREAKER</span><span class="mv">Per-request heap · per-request wall time · structured error on exceed</span><span class="mstatus ga">GA</span></div>
+    <div class="matrix-row"><span class="mk">TENANT CIRCUIT BREAKER</span><span class="mv">Per-tenant concurrency ceiling prevents noisy-neighbor starvation</span><span class="mstatus ga">GA</span></div>
+    <div class="matrix-row"><span class="mk">INDEX CIRCUIT BREAKER</span><span class="mv">Per-index doc-scan ceiling · runaway query fails loud, not expensive</span><span class="mstatus ga">GA</span></div>
+  </div>
+</section>
+
+<!-- CONTROLS MATRIX -->
+<section class="scene-section">
+  <div class="kicker"><span>CONTROLS</span><span class="dash">·</span><span>ENGINEERED IN</span></div>
+  <h2 class="scene">WHAT SHIPS.<br><span class="accent">WHAT IS COMING.</span></h2>
+
+  <div class="matrix-row"><span class="mk">TLS 1.3</span><span class="mv">All listeners · modern AEAD · cert rotation without restart</span><span class="mstatus ga">GA</span></div>
+  <div class="matrix-row"><span class="mk">AES-256-GCM</span><span class="mv">Segments + WAL · keys in external KMS · rotation supported</span><span class="mstatus beta">BETA</span></div>
+  <div class="matrix-row"><span class="mk">BYOK</span><span class="mv">Customer-managed keys via AWS KMS / GCP KMS / Azure KV / Vault / Thales · no plaintext on XERJ side</span><span class="mstatus road">ROAD Q2</span></div>
+  <div class="matrix-row"><span class="mk">RBAC</span><span class="mv">Cluster + index + field-level · IdP-group-mapped · built-in + custom roles</span><span class="mstatus road">ROAD Q2</span></div>
+  <div class="matrix-row"><span class="mk">OIDC · SAML</span><span class="mv">OIDC · SAML 2.0 · AWS IAM · Azure AD · Okta · PIV / CAC bridge</span><span class="mstatus road">ROAD Q2</span></div>
+  <div class="matrix-row"><span class="mk">SCIM</span><span class="mv">SCIM 2.0 provisioning for tenant and user lifecycle</span><span class="mstatus road">ROAD Q3</span></div>
+  <div class="matrix-row"><span class="mk">AUDIT TRAIL</span><span class="mv">Structured event log · queryable as index · replayable · exportable</span><span class="mstatus beta">BETA</span></div>
+  <div class="matrix-row"><span class="mk">EXPLAIN-PLAN</span><span class="mv">First-class endpoint · per-node cost + rows · audit artifact for every retrieval</span><span class="mstatus ga">GA</span></div>
+  <div class="matrix-row"><span class="mk">AIR-GAP</span><span class="mv">Offline bundle · signed release manifest · <span class="mono">XERJ_AIRGAP=1</span> disables all telemetry</span><span class="mstatus ga">GA</span></div>
+  <div class="matrix-row"><span class="mk">MULTI-TENANCY</span><span class="mv">Tenant-isolated indices + quotas + audit · physical isolation via separate clusters</span><span class="mstatus ga">GA</span></div>
+  <div class="matrix-row"><span class="mk">CIRCUIT-BREAKERS</span><span class="mv">Per-request heap + time · per-tenant concurrency · per-index doc-scan ceiling</span><span class="mstatus ga">GA</span></div>
+</section>
+
+<!-- CERTIFICATIONS MATRIX -->
+<section class="scene-section">
+  <div class="kicker"><span>CERTIFICATIONS</span><span class="dash">·</span><span>ATTESTATIONS &amp; ROADMAP</span></div>
+  <h2 class="scene">DATED<br><span class="accent">MILESTONES.</span></h2>
+
+  <div class="matrix-row"><span class="mk">SOC 2 TYPE I</span><span class="mv">Platform controls · access · change · incident · commercial SaaS track</span><span class="mstatus road">ROAD Q3 2026</span></div>
+  <div class="matrix-row"><span class="mk">SOC 2 TYPE II</span><span class="mv">12-month operating effectiveness · follows Type I</span><span class="mstatus road">ROAD Q2 2027</span></div>
+  <div class="matrix-row"><span class="mk">ISO 27001</span><span class="mv">ISMS scope covers platform engineering + SaaS operations</span><span class="mstatus road">ROAD Q4 2026</span></div>
+  <div class="matrix-row"><span class="mk">HIPAA BAA</span><span class="mv">Available on Enterprise tier · self-hosted inherits customer controls</span><span class="mstatus road">ROAD 2027</span></div>
+  <div class="matrix-row"><span class="mk">FedRAMP MODERATE</span><span class="mv">Commercial SaaS track · self-hosted inherits agency baseline</span><span class="mstatus road">ROAD 2027</span></div>
+  <div class="matrix-row"><span class="mk">DoD IL5</span><span class="mv">BYOK + FIPS crypto + air-gap · engineering scope ready · accreditation roadmap</span><span class="mstatus road">ROAD 2027</span></div>
+  <div class="matrix-row"><span class="mk">FIPS 140-2</span><span class="mv">AES-256-GCM via KMS · TLS 1.3 · validation roadmap</span><span class="mstatus road">ROAD 2027</span></div>
+  <div class="matrix-row"><span class="mk">PCI-DSS · CJIS · GDPR</span><span class="mv">Self-hosted deployments inherit customer controls</span><span class="mstatus yes">INHERITED</span></div>
+</section>
+
+<!-- SBOM · SUPPLY CHAIN -->
+<section class="scene-section">
+  <div class="kicker"><span>SUPPLY CHAIN</span><span class="dash">·</span><span>WHAT SHIPS WITH EACH RELEASE</span></div>
+  <h2 class="scene">SIGNED.<br><span class="accent">VERIFIABLE.</span></h2>
+
+  <div class="row">
+    <div class="k">SBOM</div>
+    <div class="v">Every release ships a CycloneDX SBOM alongside the binary. Every Rust dependency, every transitive, every crate version. <strong>Auditors verify before deploy.</strong></div>
+  </div>
+  <div class="row">
+    <div class="k">SLSA PROVENANCE</div>
+    <div class="v">Build provenance attestations · reproducible builds · cryptographically-signed artifact manifests. SLSA Level 3 target. <strong>Roadmap Q3 2026.</strong></div>
+  </div>
+  <div class="row">
+    <div class="k">SIGNED ARTIFACTS</div>
+    <div class="v">Signed Git tags · signed release archives · cosign-compatible signatures. Offline verification works with <span class="mono">cosign verify-blob</span>.</div>
+  </div>
+  <div class="row">
+    <div class="k">REPRODUCIBLE BUILDS</div>
+    <div class="v">Same source + same toolchain + same flags = byte-identical binary. <strong>Anyone can rebuild and verify.</strong></div>
+  </div>
+  <div class="row">
+    <div class="k">MINIMAL DEPENDENCIES</div>
+    <div class="v">13 MB static binary. No dynamically-loaded modules, no plugin model, no runtime code download. <strong>Supply-chain attack surface shrinks with binary size.</strong></div>
+  </div>
+</section>
+
+<a href="/architecture/index.html" class="cta">
+  <span>SEE THE DEPLOYMENT TOPOLOGIES</span>
+  <span class="arrow">→</span>
+</a>
+
+<footer class="footer">
+  <span>XERJ.AI · SECURITY &amp; COMPLIANCE · V1</span>
+  <span>ZERO-TRUST READY · AUDIT-GRADE</span>
+  <span><a href="/pricing/index.html">PRICING</a> · <a href="/architecture/index.html">ARCHITECTURE</a> · <a href="/docs/index.html">DOCS</a></span>
+</footer>
+
+<script src="/interact.js"></script>
+</body>
+</html>

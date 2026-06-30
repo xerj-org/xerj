@@ -1,0 +1,38 @@
+{
+  "description": "Process nginx access logs",
+  "stages": [
+    {
+      "type": "grok",
+      "config": {
+        "pattern": "NGINX_COMBINED",
+        "field": "message"
+      }
+    },
+    {
+      "type": "timestamp_parse",
+      "config": {
+        "field": "timestamp",
+        "formats": ["apache_common"]
+      }
+    },
+    {
+      "type": "pii_redaction",
+      "config": {
+        "fields": ["client_ip", "message"]
+      }
+    },
+    {
+      "type": "add_field",
+      "config": {
+        "field": "pipeline",
+        "value": "nginx-access"
+      }
+    },
+    {
+      "type": "drop_field",
+      "config": {
+        "fields": ["raw_message"]
+      }
+    }
+  ]
+}

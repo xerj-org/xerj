@@ -1,0 +1,75 @@
+[package]
+name = "xerj-console-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Xerj Console backend API: dashboards, auth, prefs, cluster awareness, and pluggable data sources. Ships compiled into the xerj v1.0 binary; extracts post-v1.0 as a standalone product that can target any data source."
+
+# Bundles the playground SPA (HTML/CSS/JS) into the binary. Walks the
+# playground/ source tree at compile time and emits a `(url, bytes,
+# content_type)` slice consumed by `src/spa.rs`.
+build = "build.rs"
+
+# Why this is `xerj-console-api`, not `xerj-xerj-console-api`:
+# - Xerj Console is its own product. v1.0.x bundles it inside the xerj binary for
+#   simplicity, but the surface is *not* "xerj's adapter for the Xerj Console UI" —
+#   xerj is just one possible backend (the default), and the crate must
+#   stand on its own when extracted (post-v1.0) to connect against ES,
+#   OpenSearch, Prometheus, Postgres, or a remote xerj cluster. Naming it
+#   xerj-* would freeze the dependency direction the wrong way.
+# - The `xerj-local` data-source adapter that talks to the in-process Engine
+#   is one of several adapters this crate hosts; it gets no naming privilege
+#   over the others.
+# - It pulls heavier dependencies (webauthn-rs, axum-extra cookies, sha2,
+#   AEAD for connection-secrets crypt) that have no business in the engine's
+#   ES-compat layer.
+
+[dependencies]
+# Engine-side deps are used by the bundled `xerj-local` adapter, the
+# bootstrap helpers, and the cluster/info handler. When this crate is
+# extracted post-v1.0 they move behind a `bundled` feature so the standalone
+# build can drop them and pull only HTTP-shaped adapters (xerj-remote,
+# elasticsearch, opensearch, prometheus, postgres). Unconditional in v1.0
+# to keep the build matrix simple while we ship.
+xerj-common  = { path = "../xerj-common" }
+xerj-engine  = { path = "../xerj-engine" }
+xerj-cluster = { path = "../xerj-cluster" }
+xerj-query   = { path = "../xerj-query" }
+
+tokio        = { workspace = true }
+axum         = { workspace = true }
+tower        = { workspace = true }
+tower-http   = { workspace = true }
+serde        = { workspace = true }
+serde_json   = { workspace = true }
+tracing      = { workspace = true }
+thiserror    = { workspace = true }
+anyhow       = { workspace = true }
+uuid         = { workspace = true }
+chrono       = { workspace = true }
+bytes        = { workspace = true }
+dashmap      = { workspace = true }
+rand         = { workspace = true }
+arc-swap     = { workspace = true }
+async-trait  = "0.1"
+
+# Crypto: token hashing, cookie signing, AEAD for connection secrets.
+sha2         = "0.10"
+hmac         = "0.12"
+base64       = "0.22"
+subtle       = "2"            # constant-time comparison
+
+# WebAuthn / passkeys.
+webauthn-rs  = { version = "0.5", default-features = false, features = ["danger-allow-state-serialisation"] }
+
+# Cookie helpers (HttpOnly, Secure, SameSite=Lax session cookies).
+axum-extra   = { version = "0.9", features = ["cookie"] }
+
+# Time math beyond what chrono gives us at-a-glance.
+time         = { version = "0.3", features = ["serde"] }
+
+[dev-dependencies]
+tempfile     = { workspace = true }
+tower        = { workspace = true, features = ["util"] }
+http-body-util = "0.1"

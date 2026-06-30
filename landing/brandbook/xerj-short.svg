@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 240" width="600" height="240">
+  <rect width="600" height="240" fill="#0b0b0d"/>
+  <!-- XERJ only · paper-color rules both sides · symmetric 30px gap -->
+  <line x1="90" y1="40" x2="510" y2="40" stroke="#f4f2ec" stroke-width="1" stroke-linecap="square"/>
+  <line x1="90" y1="200" x2="510" y2="200" stroke="#f4f2ec" stroke-width="1" stroke-linecap="square"/>
+  <text x="300" y="170" font-family="'Big Shoulders Display','Inter',sans-serif" font-weight="900" font-size="140" letter-spacing="4" text-anchor="middle" fill="#f4f2ec">XERJ</text>
+</svg>

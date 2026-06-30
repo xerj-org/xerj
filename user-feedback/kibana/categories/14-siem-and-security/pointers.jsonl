@@ -1,0 +1,761 @@
+{"id":"disc-1063584","source":"discourse","score":21,"posted_at":"2022-03-23T18:45:30.593Z","tags":[],"title":"Elastic Endpoint 8.1 - File locking issues","_secondary":true}
+{"id":"disc-938110","source":"discourse","score":3,"posted_at":"2021-03-05T22:18:07.079Z","tags":["siem"],"title":"Detection Failiure in ELK7.8 SIEM"}
+{"id":"disc-1388186","source":"discourse","score":4,"posted_at":"2024-07-29T20:46:42.738Z","tags":["fleet"],"title":"Fleet slow opening issue","_secondary":true}
+{"id":"disc-823929","source":"discourse","score":12,"posted_at":"2020-05-26T15:32:48.956Z","tags":["siem"],"title":"Kibana SIEM app performance","_secondary":true}
+{"id":"disc-585869","source":"discourse","score":5,"posted_at":"2019-01-09T10:05:43.980Z","tags":["discover","siem"],"title":"Optimizing Kibana / Elastic for SIEM to stop Discover: Gateway Timeout errors","_secondary":true}
+{"id":"disc-698800","source":"discourse","score":6,"posted_at":"2019-08-23T13:58:11.821Z","tags":["apm"],"title":"What does Impact mean in APM Transactions on Kibana?","_secondary":true}
+{"id":"disc-931809","source":"discourse","score":9,"posted_at":"2021-02-17T23:18:57.151Z","tags":["fleet"],"title":"Kibana Fleet \"Another broken 7.11.1 upgrade\"","_secondary":true}
+{"id":"disc-929545","source":"discourse","score":16,"posted_at":"2021-02-11T09:21:15.551Z","tags":["discover","upgrade-break","fleet"],"title":"Everything is broken after upgrade to 7.11","_secondary":true}
+{"id":"disc-1397013","source":"discourse","score":2,"posted_at":"2024-09-25T07:24:08.345Z","tags":[],"title":"Elasticsearch 8.8.2 vulnerabilities issue"}
+{"id":"disc-1354220","source":"discourse","score":1,"posted_at":"2024-02-06T22:13:13.173Z","tags":[],"title":"Kibana 8.12.1 Security Update (ESA-2024-01)","_secondary":true}
+{"id":"disc-1365659","source":"discourse","score":37,"posted_at":"2024-03-27T15:31:36.444Z","tags":["fleet"],"title":"Fleet unhealthy in GUI + could not setup certificate reloader can not convert 'object' into 'string'","_secondary":true}
+{"id":"disc-1295718","source":"discourse","score":7,"posted_at":"2023-05-29T17:42:58.927Z","tags":["apm"],"title":"Elastic Agent is installed but currently broken: service exists but installation path is missing","_secondary":true}
+{"id":"disc-181325","source":"discourse","score":4,"posted_at":"2016-08-12T14:01:45.100Z","tags":[],"title":"Can you configure filebeat to exit as soon as eof is reached?","_secondary":true}
+{"id":"disc-1304609","source":"discourse","score":12,"posted_at":"2023-06-30T11:27:34.278Z","tags":["fleet"],"title":"Kibana Fleet high CPU Load on Elasticsearch when adding Integrations","_secondary":true}
+{"id":"disc-946468","source":"discourse","score":3,"posted_at":"2021-03-30T14:58:10.940Z","tags":[],"title":"Jira Action sending broken links on detection jobs","_secondary":true}
+{"id":"disc-1263589","source":"discourse","score":2,"posted_at":"2023-02-07T10:06:42.009Z","tags":["fleet"],"title":"Kibana fleet management: failed to decrypt attribute ssl"}
+{"id":"disc-1088868","source":"discourse","score":19,"posted_at":"2022-06-16T11:10:48.355Z","tags":["apm"],"title":"Uploading sourcemaps from AIX webserver","_secondary":true}
+{"id":"disc-1442467","source":"discourse","score":2,"posted_at":"2025-11-19T12:41:10.521Z","tags":[],"title":"Inference Endpoint Conflict - Multi Agent with LangGraph lab"}
+{"id":"disc-1104317","source":"discourse","score":12,"posted_at":"2022-08-08T09:35:19.672Z","tags":["saved-objects"],"title":"Field was not found","_secondary":true}
+{"id":"disc-1318022","source":"discourse","score":4,"posted_at":"2023-08-24T05:55:38.780Z","tags":["fleet"],"title":"Fleet Integration Assets Fail After Upgrade to 8.9.0","_secondary":true}
+{"id":"disc-1447437","source":"discourse","score":4,"posted_at":"2026-02-24T20:47:26.430Z","tags":["fleet"],"title":"How to add xpack.encryptedSavedObjects.encryptionKey for Kibana deployments in ECE without breaking Fleet","_secondary":true}
+{"id":"gh-kibana-3904","source":"github","score":0,"posted_at":"2015-05-20T23:32:45Z","tags":[],"title":"Authentication","_secondary":true}
+{"id":"gh-kibana-93728","source":"github","score":0,"posted_at":"2021-03-05T02:57:22Z","tags":["siem","license"],"title":"[RAC] Alerts as Data Schema Definition"}
+{"id":"gh-kibana-158361","source":"github","score":0,"posted_at":"2023-05-24T11:05:26Z","tags":["fleet"],"title":"[Fleet]: Kibana upgrade failed from 8.7.1>8.8.0 BC8 when multiple agent policies with integrations exist.","_secondary":true}
+{"id":"gh-kibana-151898","source":"github","score":0,"posted_at":"2023-02-22T16:25:14Z","tags":["fleet"],"title":"[Fleet] Support for document-based routing via ingest pipelines","_secondary":true}
+{"id":"gh-kibana-80508","source":"github","score":0,"posted_at":"2020-10-14T13:19:27Z","tags":["lens","canvas","discover","siem","apm","fleet"],"title":"[Meta] Migrate Kibana plugins to TS project references","_secondary":true}
+{"id":"gh-kibana-143324","source":"github","score":1,"posted_at":"2022-10-13T21:14:10Z","tags":["fleet"],"title":"[Fleet] Implement Kafka output form UI","_secondary":true}
+{"id":"gh-kibana-108456","source":"github","score":1,"posted_at":"2021-08-12T21:05:25Z","tags":["apm","fleet"],"title":"[Fleet] Remove default integrations","_secondary":true}
+{"id":"gh-kibana-122973","source":"github","score":0,"posted_at":"2022-01-13T17:31:38Z","tags":["fleet"],"title":"[Fleet] Add option to toggle search of prerelease packages","_secondary":true}
+{"id":"gh-kibana-100413","source":"github","score":3,"posted_at":"2021-05-20T17:04:22Z","tags":["fleet"],"title":"[Fleet] Ability to configure agent.download.sourceURI in Kibana","_secondary":true}
+{"id":"gh-kibana-140533","source":"github","score":1,"posted_at":"2021-12-20T10:01:39Z","tags":["saved-objects","fleet"],"title":"[Fleet] Support per-policy proxy settings in Fleet UI","_secondary":true}
+{"id":"gh-kibana-108993","source":"github","score":0,"posted_at":"2021-08-17T20:26:53Z","tags":["fleet"],"title":"Allow Fleet to complete package upgrade before Kibana server is ready","_secondary":true}
+{"id":"gh-kibana-181808","source":"github","score":0,"posted_at":"2024-04-26T08:28:17Z","tags":["fleet","security-app"],"title":"[Security Solution] Should not require EPR access in air-gapped environments"}
+{"id":"gh-kibana-88956","source":"github","score":4,"posted_at":"2021-01-21T12:22:15Z","tags":["fleet"],"title":"[Fleet] Configure Fleet packages and integrations through config file","_secondary":true}
+{"id":"gh-kibana-172745","source":"github","score":5,"posted_at":"2022-08-26T06:38:45Z","tags":["fleet"],"title":"[Elastic Agent] Allow the binary upgrade action to also rollback the agent version to the previous working version/state","_secondary":true}
+{"id":"gh-kibana-144585","source":"github","score":5,"posted_at":"2022-11-04T06:37:21Z","tags":["fleet"],"title":"Add ability to remotely restart an agent","_secondary":true}
+{"id":"gh-kibana-152814","source":"github","score":0,"posted_at":"2023-03-07T13:27:19Z","tags":["saved-objects","fleet"],"title":"[Fleet] Automatically add tags on assets for security integration packages","_secondary":true}
+{"id":"gh-kibana-137759","source":"github","score":0,"posted_at":"2022-08-01T17:33:22Z","tags":["apm","fleet"],"title":"[Fleet] Support stack-aligned versioning scheme for bundled APM package","_secondary":true}
+{"id":"gh-kibana-89442","source":"github","score":1,"posted_at":"2021-01-27T16:48:20Z","tags":["fleet"],"title":"[Fleet] Add fleet server URL","_secondary":true}
+{"id":"gh-kibana-172536","source":"github","score":0,"posted_at":"2023-12-05T05:09:42Z","tags":["fleet"],"title":"[Fleet] Provide a \"Known Issues\" flyout when a user is issuing an Upgrade action in Fleet ","_secondary":true}
+{"id":"gh-kibana-117255","source":"github","score":0,"posted_at":"2021-11-03T05:23:13Z","tags":["oom"],"title":"[securitySolution] Jest memory leaks","_secondary":true}
+{"id":"gh-kibana-94017","source":"github","score":0,"posted_at":"2021-02-25T21:46:23Z","tags":["fleet"],"title":"[Fleet] System integration gets added to a policy with empty default values, causing agent to show processor errors","_secondary":true}
+{"id":"gh-kibana-153950","source":"github","score":1,"posted_at":"2023-03-29T14:50:41Z","tags":["fleet"],"title":"[Fleet] Add ability to enable and configure HTTP Monitoring","_secondary":true}
+{"id":"gh-kibana-76843","source":"github","score":0,"posted_at":"2020-09-07T07:32:51Z","tags":["fleet"],"title":"[Ingest Manager] Hosted Agents cannot be upgraded, unenrolled or reassigned to a different config","_secondary":true}
+{"id":"gh-kibana-70582","source":"github","score":4,"posted_at":"2020-07-02T12:27:26Z","tags":["saved-objects","fleet"],"title":"[Fleet] Allow to install a package without the registry.","_secondary":true}
+{"id":"gh-kibana-154715","source":"github","score":1,"posted_at":"2023-04-11T11:12:19Z","tags":["fleet"],"title":"[Fleet] Secrets storage phase 1 -  Remove Kibana's ability to read secrets","_secondary":true}
+{"id":"gh-kibana-74353","source":"github","score":0,"posted_at":"2020-08-05T11:27:55Z","tags":["saved-objects","fleet"],"title":"[Fleet] Package assets should not break when installed within a space","_secondary":true}
+{"id":"gh-kibana-46410","source":"github","score":0,"posted_at":"2019-09-24T00:08:57Z","tags":[],"title":"Remove usages of `@kbn/ui-framework`","_secondary":true}
+{"id":"gh-kibana-133822","source":"github","score":0,"posted_at":"2022-06-07T18:41:57Z","tags":["saved-objects","fleet","license"],"title":"[Fleet] Verify integrations using package signatures from EPR and public key bundled with Kibana","_secondary":true}
+{"id":"gh-kibana-89584","source":"github","score":4,"posted_at":"2021-01-28T15:43:16Z","tags":["lens","alerting","apm","fleet","license"],"title":"By default, a plugin should not be disable-able","_secondary":true}
+{"id":"gh-kibana-136092","source":"github","score":0,"posted_at":"2022-07-11T10:25:39Z","tags":["discover","fleet"],"title":"Adding tags to a large amount of agents sometimes fails","_secondary":true}
+{"id":"gh-kibana-95618","source":"github","score":0,"posted_at":"2021-03-28T06:32:36Z","tags":[],"title":"[Security Solution] Sending Entire Detection Alert JSON to JIRA Service Desk Issue Output Doesn't Work","_secondary":true}
+{"id":"gh-kibana-92636","source":"github","score":0,"posted_at":"2021-02-24T15:09:25Z","tags":["siem"],"title":"[Metrics UI] Summary of process information is different between Metricbeat and Agent.","_secondary":true}
+{"id":"gh-kibana-78351","source":"github","score":0,"posted_at":"2020-09-23T20:51:07Z","tags":["fleet"],"title":"@kbn/config-schema is slow","_secondary":true}
+{"id":"gh-kibana-143905","source":"github","score":12,"posted_at":"2022-10-24T20:04:39Z","tags":["fleet"],"title":"[Fleet] Defining Output per integration "}
+{"id":"gh-kibana-112831","source":"github","score":0,"posted_at":"2021-09-22T13:42:23Z","tags":["apm","fleet"],"title":"[7.16] [Fleet] Enable auto-upgrades for Stack-aligned packages during Fleet setup","_secondary":true}
+{"id":"gh-kibana-92612","source":"github","score":0,"posted_at":"2021-02-24T13:26:24Z","tags":["fleet"],"title":"[Fleet] Upgrading a package should trigger a new POLICY CHANGE for agents","_secondary":true}
+{"id":"gh-kibana-71441","source":"github","score":0,"posted_at":"2020-07-13T13:37:33Z","tags":[],"title":"Research adding concurrency support to Task Manager"}
+{"id":"gh-kibana-159143","source":"github","score":0,"posted_at":"2023-06-06T16:58:43Z","tags":[],"title":"[Security Solution] Single alert may be hidden due to table height"}
+{"id":"gh-kibana-81846","source":"github","score":2,"posted_at":"2020-10-27T19:45:41Z","tags":["saved-objects","fleet"],"title":"Integrate tags to navigational search results","_secondary":true}
+{"id":"gh-kibana-199345","source":"github","score":0,"posted_at":"2024-11-07T16:03:11Z","tags":["fleet"],"title":"[Fleet] Allow creation of integration policies on a given agent policy without leaving Fleet UI","_secondary":true}
+{"id":"gh-kibana-186921","source":"github","score":3,"posted_at":"2024-06-25T18:17:31Z","tags":[],"title":"Cannot read properties of undefined (reading 'map') after upgrading to 8.14.1","_secondary":true}
+{"id":"gh-kibana-137577","source":"github","score":0,"posted_at":"2022-07-29T12:10:19Z","tags":["discover"],"title":"409 error hitting /api/exception_lists on various screens across Kibana","_secondary":true}
+{"id":"gh-kibana-134321","source":"github","score":0,"posted_at":"2022-06-14T10:31:49Z","tags":["fleet"],"title":"[Fleet] Implement new transform installation mechanism","_secondary":true}
+{"id":"gh-kibana-120340","source":"github","score":0,"posted_at":"2021-12-03T12:14:51Z","tags":["fleet"],"title":"[Fleet] `logs-*` and `metrics-*` index patterns get overwritten on install/removal/upgrade of packages, breaking runtime fields and CCS","_secondary":true}
+{"id":"gh-kibana-141206","source":"github","score":0,"posted_at":"2022-09-21T10:34:38Z","tags":["discover","fleet"],"title":"[Fleet] Agent activity enhancements","_secondary":true}
+{"id":"gh-kibana-106345","source":"github","score":0,"posted_at":"2021-07-21T01:19:57Z","tags":[],"title":"[Stack Monitoring] Adapt to removal of memory information from ES segments","_secondary":true}
+{"id":"gh-kibana-99030","source":"github","score":0,"posted_at":"2021-05-03T10:31:23Z","tags":["fleet"],"title":"[Security Solution] Any endpoint except Windows 10 does not show up under the Administration tab even if the Endpoint Security Integration is added"}
+{"id":"gh-kibana-86742","source":"github","score":0,"posted_at":"2020-12-22T10:19:24Z","tags":["fleet"],"title":"[Fleet] \"Socket Hang up\" Error coming inconsistently on Agents Tab","_secondary":true}
+{"id":"gh-kibana-201820","source":"github","score":2,"posted_at":"2024-11-26T15:50:23Z","tags":[],"title":"[Security Solution] Rule exception with a newline in comment throws a 500 on the `_find` api \"Unable to load exception items\"","_secondary":true}
+{"id":"gh-kibana-166135","source":"github","score":0,"posted_at":"2023-09-11T07:43:52Z","tags":["fleet"],"title":"[Fleet]: No data under Dynamic topic processor if added the key values with quotes.","_secondary":true}
+{"id":"gh-kibana-153655","source":"github","score":0,"posted_at":"2023-03-24T14:00:41Z","tags":["fleet"],"title":"[Security Solution] Collect ideas for reducing flakiness and increasing speed of Cypress tests","_secondary":true}
+{"id":"gh-kibana-144161","source":"github","score":0,"posted_at":"2022-10-20T17:00:20Z","tags":["fleet"],"title":"[Fleet] ActionId for Tag removal completes but the tag is still in the list of tags"}
+{"id":"gh-kibana-144052","source":"github","score":0,"posted_at":"2022-10-26T17:19:31Z","tags":["data-views","security-app"],"title":"Security Solution's Data View causes the DataView Service's `hasUserDataView` to be `true`","_secondary":true}
+{"id":"gh-kibana-92933","source":"github","score":1,"posted_at":"2021-02-25T23:00:05Z","tags":["fleet"],"title":"[Discuss] Too many saved-objects + migrations == 💥","_secondary":true}
+{"id":"gh-kibana-75867","source":"github","score":5,"posted_at":"2020-08-25T12:14:03Z","tags":["fleet"],"title":"[Fleet] Reusable integration policies","_secondary":true}
+{"id":"gh-kibana-72731","source":"github","score":0,"posted_at":"2020-07-21T20:00:20Z","tags":["fleet"],"title":"[Ingest Manager] Add support for multiples Kibana hosts.","_secondary":true}
+{"id":"gh-kibana-46054","source":"github","score":5,"posted_at":"2019-09-18T17:27:37Z","tags":["kql","siem","apm"],"title":"The KQL autocomplete values can take long time","_secondary":true}
+{"id":"gh-kibana-29118","source":"github","score":0,"posted_at":"2019-01-22T16:50:21Z","tags":["canvas"],"title":"Optimize expressions over HTTP ","_secondary":true}
+{"id":"gh-kibana-195393","source":"github","score":0,"posted_at":"2024-10-08T12:15:25Z","tags":[],"title":"[Security Solution] [ENHANCEMENT] Unassigned impact is not allowed while adding in the asset criticality via bulk upload","_secondary":true}
+{"id":"gh-kibana-180778","source":"github","score":1,"posted_at":"2024-04-15T09:40:22Z","tags":["fleet"],"title":"[Fleet] Allow to reset agents log level to honor agent policy log level","_secondary":true}
+{"id":"gh-kibana-125625","source":"github","score":1,"posted_at":"2022-02-15T10:54:21Z","tags":[],"title":"/package_policies: package vars should be on input level","_secondary":true}
+{"id":"gh-kibana-74393","source":"github","score":4,"posted_at":"2020-08-05T17:24:51Z","tags":["alerting","saved-objects"],"title":"[alerting] When you rotate/change/lose your encrypted saved object key, alerts should go from enabled to disabled  ","_secondary":true}
+{"id":"gh-kibana-67987","source":"github","score":0,"posted_at":"2020-06-02T16:39:39Z","tags":["fleet"],"title":"[Ingest Manager] Protect Kibana of spikes cause by Elastic Agent enrollment or checkin.","_secondary":true}
+{"id":"gh-kibana-162111","source":"github","score":0,"posted_at":"2023-07-18T07:57:26Z","tags":[],"title":"[Cloud Security] [Findings] [Misconfigurations] [Alerts] - Create detection rule with API"}
+{"id":"gh-kibana-141074","source":"github","score":0,"posted_at":"2022-09-20T12:45:14Z","tags":["fleet"],"title":"[Fleet] Add workflow for requesting and downloading agent diagnostics from Fleet UI","_secondary":true}
+{"id":"gh-kibana-135539","source":"github","score":0,"posted_at":"2022-06-30T11:56:23Z","tags":["fleet"],"title":"[Fleet] Allow users to force running an upgrade again from the UI","_secondary":true}
+{"id":"gh-kibana-101016","source":"github","score":0,"posted_at":"2021-05-31T16:20:50Z","tags":["alerting","siem","apm","saved-objects"],"title":"[RAC][Meta] Consolidate the two indexing implementations in rule_registry plugin","_secondary":true}
+{"id":"gh-kibana-89287","source":"github","score":0,"posted_at":"2021-01-26T13:16:07Z","tags":[],"title":"Interactive setup mode","_secondary":true}
+{"id":"gh-kibana-82027","source":"github","score":0,"posted_at":"2020-10-29T15:05:18Z","tags":["siem","saved-objects"],"title":"SavedObjects should support importing/exporting even if they're hidden from the API","_secondary":true}
+{"id":"gh-kibana-43673","source":"github","score":6,"posted_at":"2019-08-21T13:48:29Z","tags":["lens","canvas","alerting","siem","apm","saved-objects"],"title":"Don't index so many saved object fields","_secondary":true}
+{"id":"gh-es-81168","source":"github","score":0,"posted_at":"2021-11-30T18:57:48Z","tags":[],"title":"Introduce an unauthenticated endpoint for readiness checks","_secondary":true}
+{"id":"gh-es-5512","source":"github","score":58,"posted_at":"2014-03-24T11:26:29Z","tags":[],"title":"Add K-means clustering feature","_secondary":true}
+{"id":"gh-es-81620","source":"github","score":14,"posted_at":"2021-12-10T09:56:21Z","tags":[],"title":"0-day in log4j package","_secondary":true}
+{"id":"gh-es-4227","source":"github","score":1,"posted_at":"2013-11-21T17:33:06Z","tags":[],"title":"Consistency between `_search` and `_msearch`","_secondary":true}
+{"id":"gh-es-22116","source":"github","score":0,"posted_at":"2016-12-12T13:50:01Z","tags":[],"title":"Only grant `connect,accept` permissions to `transport-netty4`","_secondary":true}
+{"id":"gh-es-9201","source":"github","score":0,"posted_at":"2015-01-08T15:36:51Z","tags":[],"title":"Fix Elasticsearch Client API to be less trappy","_secondary":true}
+{"id":"gh-es-25152","source":"github","score":62,"posted_at":"2017-06-09T11:50:13Z","tags":[],"title":"Provide OpenAPI/Swagger specification out of the box","_secondary":true}
+{"id":"gh-es-30731","source":"github","score":0,"posted_at":"2018-05-18T15:13:21Z","tags":["alerting"],"title":"Enable rolling upgrades from default distribution prior to 6.3.0 to default distribution post 6.3.0","_secondary":true}
+{"id":"gh-es-19692","source":"github","score":0,"posted_at":"2016-07-29T19:56:00Z","tags":[],"title":"Delete by Query failed + Primary/Replica shards out of sync","_secondary":true}
+{"id":"gh-es-81451","source":"github","score":2,"posted_at":"2021-12-07T15:47:21Z","tags":["fleet"],"title":"Elasticsearch is missing datastream index template .fleet-actions-results","_secondary":true}
+{"id":"gh-es-54415","source":"github","score":0,"posted_at":"2020-03-30T12:29:25Z","tags":[],"title":"[CI] Failure in BWC on debian 8 tests with `_cat/nodes`. Error: Values less than -1 bytes are not supported","_secondary":true}
+{"id":"gh-es-40326","source":"github","score":0,"posted_at":"2019-03-21T17:27:07Z","tags":[],"title":"Fault detection ping doesn't check for disk health"}
+{"id":"gh-es-25577","source":"github","score":0,"posted_at":"2017-07-06T12:39:19Z","tags":[],"title":"Remove _field_stats endpoint","_secondary":true}
+{"id":"gh-es-75515","source":"github","score":21,"posted_at":"2021-07-20T07:27:22Z","tags":[],"title":"Custom keep-alive strategy for outgoing OIDC connections","_secondary":true}
+{"id":"gh-es-70192","source":"github","score":4,"posted_at":"2021-03-10T05:00:37Z","tags":[],"title":"Deprecate and remove freeze and unfreeze REST endpoints","_secondary":true}
+{"id":"gh-es-22811","source":"github","score":5,"posted_at":"2017-01-26T15:27:16Z","tags":[],"title":"Do we still want to support 4 different content types?"}
+{"id":"gh-es-81839","source":"github","score":0,"posted_at":"2021-12-16T21:20:58Z","tags":["fleet"],"title":"New .monitoring-8 templates need to be automatically cleaned over time","_secondary":true}
+{"id":"gh-es-68414","source":"github","score":0,"posted_at":"2021-02-02T20:36:09Z","tags":[],"title":"Append-only privilege for untrusted endpoints","_secondary":true}
+{"id":"gh-es-52640","source":"github","score":0,"posted_at":"2020-02-21T14:18:01Z","tags":[],"title":"Deprecate & remove undocumented alternatives to the nodes hot threads API","_secondary":true}
+{"id":"gh-es-19388","source":"github","score":5,"posted_at":"2016-07-12T13:11:48Z","tags":[],"title":"Remove content detection mechanism from REST endpoints"}
+{"id":"gh-es-99123","source":"github","score":1,"posted_at":"2023-09-01T10:30:49Z","tags":[],"title":"Missing metric name in tsid results in TSDB duplicate detection dropping data"}
+{"id":"gh-es-96254","source":"github","score":0,"posted_at":"2023-05-22T14:42:15Z","tags":[],"title":"[TSDB] TSDB enablement fails when there is a field of type text","_secondary":true}
+{"id":"gh-es-2117","source":"github","score":0,"posted_at":"2012-07-25T06:52:36Z","tags":[],"title":"split brain condition after second network disconnect - even with minimum_master_nodes set","_secondary":true}
+{"id":"gh-es-51670","source":"github","score":1,"posted_at":"2020-01-30T13:10:17Z","tags":[],"title":"Reduce the surface area of the Elasticsearch Docker image"}
+{"id":"gh-es-114376","source":"github","score":0,"posted_at":"2024-10-09T05:24:41Z","tags":[],"title":"[CI] InferenceRestIT test {p0=inference/40_semantic_text_query/Query a field that uses the default ELSER 2 endpoint} failing","_secondary":true}
+{"id":"gh-es-100000","source":"github","score":26,"posted_at":"2023-09-28T08:14:36Z","tags":[],"title":"ESQL: Support pagination","_secondary":true}
+{"id":"gh-es-46646","source":"github","score":0,"posted_at":"2019-09-12T08:35:00Z","tags":["alerting","fleet"],"title":"Remove API key name uniqueness constraint across active API keys","_secondary":true}
+{"id":"gh-es-32517","source":"github","score":3,"posted_at":"2018-07-31T20:22:10Z","tags":[],"title":"Add support for TLS Server Name Indication (SNI) extension"}
+{"id":"gh-es-23675","source":"github","score":0,"posted_at":"2017-03-21T14:12:41Z","tags":[],"title":"SearchStats counters prone to overflow","_secondary":true}
+{"id":"gh-es-6470","source":"github","score":0,"posted_at":"2014-06-11T19:27:27Z","tags":[],"title":"Disable searching across all indices","_secondary":true}
+{"id":"gh-es-94113","source":"github","score":0,"posted_at":"2023-02-24T13:25:30Z","tags":[],"title":"[TSDB] Enablement of TSDB fails for package with fields having flattened type","_secondary":true}
+{"id":"gh-es-89769","source":"github","score":0,"posted_at":"2022-09-01T09:13:50Z","tags":["oom"],"title":"[ML] Potentially large data held in multiple formats by ML datafeed","_secondary":true}
+{"id":"gh-es-85747","source":"github","score":0,"posted_at":"2022-04-07T13:44:46Z","tags":["fleet"],"title":"[Fleet] Create new service account `elastic/fleet-server-remote` for remote agent connections"}
+{"id":"gh-es-52320","source":"github","score":0,"posted_at":"2020-02-13T13:47:02Z","tags":[],"title":"Context class loader for plugins set to ES class loader","_secondary":true}
+{"id":"gh-eui-7835","source":"github","score":0,"posted_at":"2024-06-13T10:24:42Z","tags":["discover"],"title":"[DataGrid] Enable `Auto Fit` behavior when `Cell row height` - `Custom` is selected","_secondary":true}
+{"id":"gh-eui-5143","source":"github","score":0,"posted_at":"2021-09-03T21:41:00Z","tags":[],"title":"[EuiCommentList] Add ability to collapse multiple events","_secondary":true}
+{"id":"gh-eui-4108","source":"github","score":1,"posted_at":"2020-10-05T17:26:53Z","tags":[],"title":"[EuiDataGrid] Add ability to sort in-memory cell values without SchemaDetector","_secondary":true}
+{"id":"gh-eui-8745","source":"github","score":0,"posted_at":"2025-06-05T09:01:32Z","tags":[],"title":"[EuiDataGrid] Allow control over column actions in columns popover","_secondary":true}
+{"id":"gh-eui-7919","source":"github","score":0,"posted_at":"2024-07-26T12:29:06Z","tags":[],"title":"[EuiMarkdownFormat] : Allow links to open in a new tab!","_secondary":true}
+{"id":"gh-eui-7712","source":"github","score":0,"posted_at":"2024-04-25T13:13:06Z","tags":[],"title":"[EuiCombobox] allow for multiline options of different height ","_secondary":true}
+{"id":"gh-eui-7612","source":"github","score":0,"posted_at":"2024-03-22T14:50:20Z","tags":[],"title":"[EuiFlexGroup][EuiFlexItem] Add polimorphism support for ReactHTML elements","_secondary":true}
+{"id":"gh-eui-7629","source":"github","score":0,"posted_at":"2024-03-28T10:17:09Z","tags":[],"title":"[EuiCodeBlock] Support different highlight and annotations colours","_secondary":true}
+{"id":"gh-eui-7294","source":"github","score":0,"posted_at":"2023-10-18T09:16:06Z","tags":[],"title":"Add direction property to EuiAccordion","_secondary":true}
+{"id":"gh-eui-6277","source":"github","score":0,"posted_at":"2020-12-03T11:42:25Z","tags":[],"title":"[Security Solution] Text is not wrapped in the grey box for events under the resolver.","_secondary":true}
+{"id":"gh-eui-8615","source":"github","score":0,"posted_at":"2025-04-23T12:43:24Z","tags":[],"title":"[EuiDataGrid] Make `EuiDataGridCellActions` reusable outside `EuiDataGrid`","_secondary":true}
+{"id":"gh-eui-7778","source":"github","score":0,"posted_at":"2024-05-21T09:28:15Z","tags":[],"title":"EuiPortal should be able to use different portal target than document.body based on provided Context","_secondary":true}
+{"id":"gh-eui-3779","source":"github","score":0,"posted_at":"2020-07-21T18:55:40Z","tags":["ml"],"title":"Request: Icons for the different types of analytics jobs in ML","_secondary":true}
+{"id":"gh-eui-7723","source":"github","score":0,"posted_at":"2024-04-30T22:11:27Z","tags":[],"title":"[EuiIcon] Icon asset paths/content off center from viewbox","_secondary":true}
+{"id":"gh-eui-6184","source":"github","score":2,"posted_at":"2022-08-26T13:11:02Z","tags":[],"title":"[EuiBasicTable] Option to make selected table items controlled from a parent component","_secondary":true}
+{"id":"gh-eui-4812","source":"github","score":0,"posted_at":"2021-05-18T18:54:21Z","tags":[],"title":"[EuiDualRange] Should only fire change events when user lets go of endpoint","_secondary":true}
+{"id":"gh-eui-3912","source":"github","score":21,"posted_at":"2020-08-13T20:26:47Z","tags":[],"title":"[Meta][CSS-in-JS] Switching to `emotion`","_secondary":true}
+{"id":"gh-eui-3474","source":"github","score":0,"posted_at":"2020-05-13T18:35:37Z","tags":["siem"],"title":"[Discuss] Skeleton component and usage"}
+{"id":"gh-eui-2981","source":"github","score":5,"posted_at":"2020-03-04T17:49:21Z","tags":["siem"],"title":"[EuiDataGrid] bi-directional infinite scrolling"}
+{"id":"gh-eui-2833","source":"github","score":0,"posted_at":"2020-02-06T22:40:20Z","tags":["siem"],"title":"EuiSteps - Support custom badges"}
+{"id":"gh-eui-8341","source":"github","score":0,"posted_at":"2025-02-24T14:54:52Z","tags":[],"title":"[EuiLink] Short-circuit `EuiLink#onClick` if modifier key is pressed","_secondary":true}
+{"id":"gh-eui-7349","source":"github","score":0,"posted_at":"2023-11-08T09:26:38Z","tags":[],"title":"[EuiBreadcrumb] Allow to configure max-width for truncation","_secondary":true}
+{"id":"gh-eui-7019","source":"github","score":1,"posted_at":"2023-08-01T14:48:20Z","tags":["siem"],"title":"Column shake in EuiDataGrid in the security alert view"}
+{"id":"gh-eui-8659","source":"github","score":0,"posted_at":"2025-04-29T13:10:01Z","tags":[],"title":"[Docs] Contributing guide on eui.elastic.co","_secondary":true}
+{"id":"gh-eui-8239","source":"github","score":1,"posted_at":"2024-12-13T20:15:15Z","tags":[],"title":"[Inputs] Styles should prioritize `disabled` over `readOnly`","_secondary":true}
+{"id":"gh-eui-7785","source":"github","score":0,"posted_at":"2024-05-23T14:34:39Z","tags":[],"title":"EuiSteps unordered variant","_secondary":true}
+{"id":"gh-eui-7136","source":"github","score":0,"posted_at":"2023-08-29T07:51:54Z","tags":["discover"],"title":"[EuiDataGrid] Implement draggable columns with table headers","_secondary":true}
+{"id":"gh-eui-6773","source":"github","score":0,"posted_at":"2023-05-12T15:00:44Z","tags":[],"title":"Remove the \"New\" and \"Beta\" label from components","_secondary":true}
+{"id":"gh-eui-6065","source":"github","score":0,"posted_at":"2022-07-20T08:26:07Z","tags":[],"title":"Testing popover visibility and contents with react testing library.","_secondary":true}
+{"id":"gh-eui-3743","source":"github","score":2,"posted_at":"2020-07-15T12:46:04Z","tags":["security-app"],"title":"Add support for common layout pattern often used in Kibana","_secondary":true}
+{"id":"gh-eui-2636","source":"github","score":0,"posted_at":"2019-12-12T00:45:00Z","tags":[],"title":"[EuiDataGrid] Allow overriding individual aspects of default schemas","_secondary":true}
+{"id":"gh-eui-9260","source":"github","score":0,"posted_at":"2025-01-29T14:23:54Z","tags":[],"title":"[Security:Investigations:Osquery page]Incorrect announcement for Exit full screen","_secondary":true}
+{"id":"gh-eui-8733","source":"github","score":1,"posted_at":"2025-06-03T08:27:46Z","tags":[],"title":"Deprecate an option to add different color to EuiFilterButton","_secondary":true}
+{"id":"gh-eui-8017","source":"github","score":0,"posted_at":"2024-09-11T15:38:00Z","tags":["ml"],"title":"[Tables] Improve tables at small resolutions","_secondary":true}
+{"id":"gh-eui-7651","source":"github","score":0,"posted_at":"2024-04-05T07:10:13Z","tags":[],"title":"[EuiSelectable] Add render API for group labels","_secondary":true}
+{"id":"gh-eui-7604","source":"github","score":0,"posted_at":"2024-03-20T02:27:10Z","tags":[],"title":"[EuiDataGrid] Provide an `onFullScreenChange` callback","_secondary":true}
+{"id":"gh-eui-7208","source":"github","score":0,"posted_at":"2023-09-20T18:36:03Z","tags":[],"title":"[EuiCollapsibleNavBeta] Add support for a non-clickable, non-collapsible group heading","_secondary":true}
+{"id":"gh-eui-7160","source":"github","score":0,"posted_at":"2023-09-06T16:21:26Z","tags":[],"title":"[EuiInMemoryTable] Syntax error when searching with special characters","_secondary":true}
+{"id":"gh-eui-6802","source":"github","score":0,"posted_at":"2023-05-23T17:31:11Z","tags":[],"title":"[All EUI form controls] Browser validity messages should automatically populate EuiFormRow `error`s","_secondary":true}
+{"id":"gh-eui-6770","source":"github","score":2,"posted_at":"2023-05-11T15:01:59Z","tags":[],"title":"EuiCodeBlock doesn't have a \"Copy\" button is Safari when rendered in EuiBasicTable's expandable row","_secondary":true}
+{"id":"gh-eui-5676","source":"github","score":0,"posted_at":"2022-03-02T04:30:03Z","tags":[],"title":"[EUI Data Grid] [Bug] Previously opened column field tooltip value is not removed automatically when click other field tooltip value after click on previously c","_secondary":true}
+{"id":"gh-eui-9549","source":"github","score":1,"posted_at":"2026-04-01T14:10:34Z","tags":[],"title":"[Spike] Investigate a feasible programmatic focus detection","_secondary":true}
+{"id":"gh-eui-8679","source":"github","score":0,"posted_at":"2025-05-02T17:40:55Z","tags":[],"title":"Move the `<EUIBasicTable />` loading animation to the header","_secondary":true}
+{"id":"gh-eui-8616","source":"github","score":2,"posted_at":"2025-04-23T13:10:19Z","tags":[],"title":"Upgrade `refractor` to remove `prismjs` vulnerability","_secondary":true}
+{"id":"gh-eui-7558","source":"github","score":0,"posted_at":"2024-03-07T14:44:50Z","tags":[],"title":"[EuiCard] Remove requirement for `title`","_secondary":true}
+{"id":"gh-eui-7536","source":"github","score":0,"posted_at":"2024-02-20T11:43:52Z","tags":[],"title":"[EuiResizableFlyout] Make `size` controllable","_secondary":true}
+{"id":"gh-eui-7425","source":"github","score":0,"posted_at":"2023-12-19T10:05:41Z","tags":[],"title":"Support Vertical Breakpoints","_secondary":true}
+{"id":"gh-eui-7169","source":"github","score":0,"posted_at":"2023-09-08T16:19:02Z","tags":[],"title":"[EuiComboBox] Improve blur from single selection","_secondary":true}
+{"id":"gh-eui-6318","source":"github","score":0,"posted_at":"2022-10-19T21:56:13Z","tags":[],"title":"[EuiIcon] Add AND and OR icons","_secondary":true}
+{"id":"gh-eui-5782","source":"github","score":0,"posted_at":"2022-04-12T20:46:08Z","tags":[],"title":"[EuiTimeline][COGNITION]: Could we refine the HTML to make this an ordered list with list items?","_secondary":true}
+{"id":"gh-eui-5777","source":"github","score":0,"posted_at":"2022-04-11T06:41:38Z","tags":[],"title":"[Asset Mgt] [Bug] Unable to exit from full screen of Results with \"Esc\" button."}
+{"id":"gh-eui-5694","source":"github","score":0,"posted_at":"2022-03-07T15:54:31Z","tags":["security-app"],"title":"[Navigation] Secondary navigation flyout component","_secondary":true}
+{"id":"gh-eui-5691","source":"github","score":0,"posted_at":"2022-03-04T07:23:19Z","tags":[],"title":"[EUI Data Grid] [Bug] Column tab Popup doesn't show up completely under full screen results of Live queries history"}
+{"id":"gh-eui-3711","source":"github","score":0,"posted_at":"2020-07-08T18:02:50Z","tags":["siem"],"title":"Add Outlined Security Icon to EUI"}
+{"id":"gh-eui-956","source":"github","score":0,"posted_at":"2018-06-29T13:41:16Z","tags":["anomaly"],"title":"Headings don't apply EuiTextColor when set on EuiText","_secondary":true}
+{"id":"gh-eui-8546","source":"github","score":0,"posted_at":"2025-04-03T22:06:43Z","tags":[],"title":"[EuiHeaderLinks] Close mobile menu by default on EuiHeaderLink click","_secondary":true}
+{"id":"gh-eui-8466","source":"github","score":0,"posted_at":"2025-03-19T12:28:15Z","tags":[],"title":"[Docs] Add ESLint config with Docusaurus plugin","_secondary":true}
+{"id":"gh-eui-8280","source":"github","score":0,"posted_at":"2025-01-17T00:01:03Z","tags":[],"title":"[EuiBasicTable] Improve actions layout and interaction","_secondary":true}
+{"id":"gh-eui-8214","source":"github","score":1,"posted_at":"2024-12-10T12:01:46Z","tags":[],"title":"Adhere to using full color format for hex codes","_secondary":true}
+{"id":"gh-eui-4981","source":"github","score":0,"posted_at":"2021-07-27T19:03:40Z","tags":["fleet"],"title":"Add Elastic Agent and Fleet icons","_secondary":true}
+{"id":"gh-eui-2431","source":"github","score":0,"posted_at":"2019-10-15T15:15:10Z","tags":["siem"],"title":"EUI 14.5.0 / Kibana 7.5 backports"}
+{"id":"gh-eui-1942","source":"github","score":0,"posted_at":"2019-05-10T18:31:29Z","tags":["siem"],"title":"EUI 10.4.0 backport plan","_secondary":true}
+{"id":"gh-eui-41","source":"github","score":0,"posted_at":"2017-10-24T23:27:48Z","tags":[],"title":"Text right below an input looks funny","_secondary":true}
+{"id":"gh-eui-8703","source":"github","score":0,"posted_at":"2025-05-17T16:00:28Z","tags":[],"title":"[EuiTextArea] Add Support for file/image upload + show preview of uploaded image/file","_secondary":true}
+{"id":"gh-eui-8138","source":"github","score":0,"posted_at":"2024-11-14T11:16:14Z","tags":[],"title":"[EuiBetaBadge] Update to include warning color","_secondary":true}
+{"id":"gh-eui-8084","source":"github","score":0,"posted_at":"2024-10-17T12:42:43Z","tags":[],"title":"[EuiSelectable] Title attribute of selectable options is the entire searchableLabel, which is too long","_secondary":true}
+{"id":"gh-eui-7356","source":"github","score":0,"posted_at":"2023-11-10T19:33:54Z","tags":[],"title":"[EuiText] Remove img's from styling","_secondary":true}
+{"id":"gh-eui-7230","source":"github","score":0,"posted_at":"2023-09-27T18:43:33Z","tags":[],"title":"Add clear guidance on how to mark fields as Optional","_secondary":true}
+{"id":"gh-eui-7195","source":"github","score":1,"posted_at":"2023-09-18T19:57:30Z","tags":[],"title":"[EuiDatePicker] Add `compressed` prop","_secondary":true}
+{"id":"gh-eui-7130","source":"github","score":0,"posted_at":"2023-08-28T16:18:00Z","tags":["discover"],"title":"[EuiDataGrid] Allow ColumnSelector and SortSelector to be rendered on right controls","_secondary":true}
+{"id":"gh-eui-6060","source":"github","score":0,"posted_at":"2022-07-18T19:07:42Z","tags":["fleet"],"title":"[Flyout + Tooltip] Tooltip persists after Flyout is closed","_secondary":true}
+{"id":"gh-eui-2702","source":"github","score":0,"posted_at":"2019-12-19T19:03:09Z","tags":["siem"],"title":"Provide EuiLoadingContent component specific to loading charts"}
+{"id":"gh-eui-2402","source":"github","score":0,"posted_at":"2019-10-06T22:30:32Z","tags":["siem"],"title":"[EuiSuperDatePicker] Maintains 'Update' state when re-selecting current absolute date range"}
+{"id":"gh-eui-2079","source":"github","score":1,"posted_at":"2019-06-28T15:58:36Z","tags":[],"title":"Indicating external links in EUI"}
+{"id":"gh-eui-2077","source":"github","score":0,"posted_at":"2019-06-26T16:21:20Z","tags":["siem"],"title":"`EuiTab` needs right click hyperlink context menu ability"}
+{"id":"gh-eui-9462","source":"github","score":0,"posted_at":"2026-03-12T09:50:41Z","tags":[],"title":"[EuiOutsideClickDetector] Migrate from class to function component","_secondary":true}
+{"id":"gh-eui-9029","source":"github","score":1,"posted_at":"2025-09-17T10:02:36Z","tags":["fleet"],"title":"[Strict Mode] EuiAccordion doesn't display within EuiFlyout","_secondary":true}
+{"id":"gh-eui-8653","source":"github","score":0,"posted_at":"2025-04-28T16:22:00Z","tags":[],"title":"[EuiIcon] Update App icons to use new blue color","_secondary":true}
+{"id":"gh-eui-8429","source":"github","score":0,"posted_at":"2025-03-12T16:02:26Z","tags":[],"title":"[EuiColorPicker][A11y] Add accessible color swatch labels","_secondary":true}
+{"id":"gh-eui-8217","source":"github","score":0,"posted_at":"2024-12-10T23:29:05Z","tags":[],"title":"[EuiTheme context] Add a token for `euiFormMaxWidth`","_secondary":true}
+{"id":"gh-eui-8037","source":"github","score":0,"posted_at":"2024-09-23T16:12:36Z","tags":["discover"],"title":"[Data grid] Single and Custom (set to 1) cell heights are incongruous","_secondary":true}
+{"id":"gh-eui-7951","source":"github","score":0,"posted_at":"2024-08-07T23:04:32Z","tags":[],"title":"[DataGrid] Ability to rearrange display selector components and/or render custom display selector","_secondary":true}
+{"id":"gh-eui-7761","source":"github","score":0,"posted_at":"2024-05-15T09:59:08Z","tags":[],"title":"[EuiInputPopover] Removed setTimeout causes flaky test behavior","_secondary":true}
+{"id":"gh-eui-7586","source":"github","score":0,"posted_at":"2024-03-15T17:10:48Z","tags":[],"title":"[EuiSuperDatePicker] Configurable Time Options","_secondary":true}
+{"id":"gh-eui-7430","source":"github","score":0,"posted_at":"2023-12-20T15:23:51Z","tags":[],"title":"[`EuiPageTemplate.Sidebar`] Shrink side nav on mobile","_secondary":true}
+{"id":"gh-eui-6706","source":"github","score":0,"posted_at":"2023-04-12T20:23:53Z","tags":[],"title":"Create issue templates","_secondary":true}
+{"id":"gh-eui-6584","source":"github","score":1,"posted_at":"2023-02-09T00:39:36Z","tags":[],"title":"fleetApp and agentApp icons appear to be reversed","_secondary":true}
+{"id":"gh-eui-6299","source":"github","score":0,"posted_at":"2022-10-06T20:44:28Z","tags":[],"title":"Add Jest `a11y` tests to components that won't benefit from E2E tests"}
+{"id":"gh-eui-5944","source":"github","score":0,"posted_at":"2022-06-02T09:20:08Z","tags":[],"title":"[EuiTimeline] Customize gap","_secondary":true}
+{"id":"gh-eui-2345","source":"github","score":0,"posted_at":"2019-09-16T10:51:50Z","tags":[],"title":"Prototype Pollution ","_secondary":true}
+{"id":"gh-eui-2244","source":"github","score":0,"posted_at":"2019-08-21T21:11:39Z","tags":["siem"],"title":"SIEM logo is off-center"}
+{"id":"gh-eui-8695","source":"github","score":1,"posted_at":"2025-05-08T20:17:19Z","tags":[],"title":"[EuiFilterButton] Allow percentage values in `numActiveFilters` prop","_secondary":true}
+{"id":"gh-eui-8693","source":"github","score":2,"posted_at":"2025-05-07T19:53:25Z","tags":[],"title":"Provide a react hook to obtain `isDarkMode` directly","_secondary":true}
+{"id":"gh-eui-8677","source":"github","score":0,"posted_at":"2025-05-02T14:29:14Z","tags":[],"title":"Update EUI app icons to match the new brand icons","_secondary":true}
+{"id":"gh-eui-8454","source":"github","score":0,"posted_at":"2025-03-18T09:36:14Z","tags":["lens"],"title":"[Beta] EuiDataGrid canDragAndDropColumns functionality","_secondary":true}
+{"id":"gh-eui-8299","source":"github","score":1,"posted_at":"2025-01-30T18:06:58Z","tags":[],"title":"[EuiAccordion] Don't animate when set to be initially open","_secondary":true}
+{"id":"gh-eui-8154","source":"github","score":0,"posted_at":"2024-11-18T10:03:09Z","tags":[],"title":"[EUI+] Fix missing subdued background colors","_secondary":true}
+{"id":"gh-eui-8090","source":"github","score":0,"posted_at":"2024-10-18T17:04:05Z","tags":[],"title":"[EuiComment] Type definition does not allow `id`","_secondary":true}
+{"id":"gh-eui-8042","source":"github","score":0,"posted_at":"2024-09-25T17:59:21Z","tags":[],"title":"Ensure only one flyout is open at a time","_secondary":true}
+{"id":"gh-eui-7807","source":"github","score":0,"posted_at":"2024-06-01T00:42:58Z","tags":[],"title":"setEuiDevProviderWarning to accept an optional callback function","_secondary":true}
+{"id":"gh-eui-7587","source":"github","score":0,"posted_at":"2024-03-15T17:31:18Z","tags":[],"title":"[EuiHeaderLinks][EuiHeaderLink] doesn't close menu after item is selected","_secondary":true}
+{"id":"gh-eui-7512","source":"github","score":0,"posted_at":"2024-02-05T21:38:31Z","tags":[],"title":"Allow minimum time-setting for auto refresh interval selector","_secondary":true}
+{"id":"gh-eui-7484","source":"github","score":0,"posted_at":"2024-01-24T11:09:13Z","tags":[],"title":"[New docs] Create stories for components starting with the letter T","_secondary":true}
+{"id":"gh-eui-7308","source":"github","score":1,"posted_at":"2023-10-24T15:37:26Z","tags":[],"title":"Change EUIExpression examples and recommendations to avoid 2 clicks","_secondary":true}
+{"id":"gh-eui-7173","source":"github","score":0,"posted_at":"2023-09-08T19:58:40Z","tags":[],"title":"[EuiComboBox] Should truncate single value selection","_secondary":true}
+{"id":"gh-eui-7162","source":"github","score":1,"posted_at":"2023-09-06T19:44:33Z","tags":["discover"],"title":"[EuiIcon] Add icons to toggle panels visibility","_secondary":true}
+{"id":"gh-eui-7141","source":"github","score":0,"posted_at":"2023-08-29T16:32:18Z","tags":["discover"],"title":"[EuiIcon] Add grabbable icon","_secondary":true}
+{"id":"gh-eui-5126","source":"github","score":0,"posted_at":"2021-09-01T19:29:26Z","tags":["siem"],"title":"[EuiDataGrid] allow application to control fullscreen state"}
+{"id":"gh-eui-5115","source":"github","score":0,"posted_at":"2021-08-31T18:32:37Z","tags":["siem"],"title":"[EuiDataGrid] Optimize tabbable usage"}
+{"id":"gh-eui-1528","source":"github","score":0,"posted_at":"2019-02-05T19:17:32Z","tags":[],"title":"EuiBadge: Extend to accept RGB colors","_secondary":true}
+{"id":"gh-eui-867","source":"github","score":0,"posted_at":"2018-05-23T09:39:37Z","tags":[],"title":"Add support for mouse event listeners on table row items","_secondary":true}
+{"id":"gh-osd-2400","source":"github","score":4,"posted_at":"2022-09-21T21:21:30Z","tags":[],"title":"[Feedback] Multiple Datasources","_secondary":true}
+{"id":"gh-osd-2829","source":"github","score":8,"posted_at":"2022-11-08T18:04:39Z","tags":[],"title":"[Feedback] OpenSearch Dashboards Multiple OpenSearch Clusters Support","_secondary":true}
+{"id":"gh-osd-7162","source":"github","score":0,"posted_at":"2024-07-02T22:38:11Z","tags":[],"title":"[BUG] Delayed version bumps after a release and automation request","_secondary":true}
+{"id":"gh-osd-5707","source":"github","score":1,"posted_at":"2024-01-17T18:46:05Z","tags":[],"title":"[BUG] Cluster endpoint test connection passed unexpectly","_secondary":true}
+{"id":"gh-osd-1593","source":"github","score":0,"posted_at":"2022-05-17T20:11:34Z","tags":[],"title":"CVE-2022-29622 (Critical) detected in formidable-2.1.2.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-3277","source":"github","score":0,"posted_at":"2023-01-16T06:59:38Z","tags":["alerting","anomaly"],"title":"[BUG] Fetch calls pass custom headers for every 302 request causing CORS ","_secondary":true}
+{"id":"gh-osd-1206","source":"github","score":0,"posted_at":"2022-02-03T19:44:14Z","tags":[],"title":"[2.0] Dashboards Plugin Errors","_secondary":true}
+{"id":"gh-osd-4335","source":"github","score":0,"posted_at":"2023-06-06T17:57:20Z","tags":["slow-dashboard"],"title":"[Proposal] Accelerate End-of-Life of 1.x","_secondary":true}
+{"id":"gh-osd-660","source":"github","score":0,"posted_at":"2021-07-22T20:40:18Z","tags":[],"title":"[Bug][ARM] Missing re2 ARM build cause Internal Server Error","_secondary":true}
+{"id":"gh-osd-9453","source":"github","score":0,"posted_at":"2025-02-26T21:44:31Z","tags":[],"title":"[BUG] CVE-2022-49043 xmlXIncludeAddNode in xinclude.c in libxml2 before 2.11.0 has a use-after-free.","_secondary":true}
+{"id":"gh-osd-3026","source":"github","score":0,"posted_at":"2022-12-04T20:53:36Z","tags":[],"title":"Fix type errors in Multiple Data Sources","_secondary":true}
+{"id":"gh-osd-1560","source":"github","score":1,"posted_at":"2022-05-06T18:26:08Z","tags":[],"title":"[Initiative] Remove AngularJS as dependency","_secondary":true}
+{"id":"gh-osd-1139","source":"github","score":0,"posted_at":"2022-01-12T20:50:25Z","tags":[],"title":"CVE-2022-0144 (High) detected in shelljs-0.6.1.tgz","_secondary":true}
+{"id":"gh-osd-1084","source":"github","score":0,"posted_at":"2022-01-04T00:36:57Z","tags":[],"title":"CVE-2021-3807 (High) detected in ansi-regex-3.0.0.tgz, ansi-regex-4.1.0.tgz","_secondary":true}
+{"id":"gh-osd-10576","source":"github","score":0,"posted_at":"2025-09-26T04:12:17Z","tags":["apm"],"title":"CVE-2025-57319 (High) detected in fast-redact-3.5.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9865","source":"github","score":0,"posted_at":"2025-06-10T16:02:08Z","tags":[],"title":"CVE-2025-5889 (Low) detected in boost1.90.0 - autoclosed","_secondary":true}
+{"id":"gh-osd-9526","source":"github","score":0,"posted_at":"2025-03-10T22:28:51Z","tags":[],"title":"[BUG] CVE-2024-53382 in PrismJS 1.27.0 (OpenSearch Dashboards)","_secondary":true}
+{"id":"gh-osd-4877","source":"github","score":0,"posted_at":"2023-08-31T16:54:07Z","tags":[],"title":"CVE-2022-43358 (High) detected in sassv0.4.7 - autoclosed","_secondary":true}
+{"id":"gh-osd-2065","source":"github","score":1,"posted_at":"2022-08-03T18:51:52Z","tags":[],"title":"[DISCUSS] What constitutes a new plugin being a core plugin","_secondary":true}
+{"id":"gh-osd-1764","source":"github","score":0,"posted_at":"2022-06-19T22:10:05Z","tags":[],"title":"CVE-2022-33987 (Medium) detected in multiple libraries","_secondary":true}
+{"id":"gh-osd-10578","source":"github","score":0,"posted_at":"2025-09-26T04:12:20Z","tags":[],"title":"CVE-2025-59343 (High) detected in tar-fs-2.1.3.tgz, tar-fs-3.1.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-4735","source":"github","score":0,"posted_at":"2023-08-14T22:27:04Z","tags":[],"title":"CVE-2021-3520 (Critical) detected in https://source.codeaurora.org/quic/la/platform/external/lz4/android-t-preview-2 - autoclosed","_secondary":true}
+{"id":"gh-osd-4518","source":"github","score":0,"posted_at":"2023-07-07T09:20:15Z","tags":[],"title":"[BUG] Re2 Requires wrong NODE_MODULE_VERSION","_secondary":true}
+{"id":"gh-osd-3408","source":"github","score":1,"posted_at":"2023-02-09T18:36:29Z","tags":[],"title":"[Research] Document Timeline visualization expression params, function params and their usage","_secondary":true}
+{"id":"gh-osd-1990","source":"github","score":0,"posted_at":"2022-07-27T21:10:05Z","tags":[],"title":"Onboard non index-pattern based visualization types to multiple datasource","_secondary":true}
+{"id":"gh-osd-1842","source":"github","score":0,"posted_at":"2022-07-03T11:07:23Z","tags":[],"title":"CVE-2022-25758 (High) detected in scss-tokenizer-0.2.3.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1095","source":"github","score":0,"posted_at":"2022-01-04T00:37:20Z","tags":[],"title":"CVE-2021-23364 (Medium) detected in browserslist-4.14.2.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9432","source":"github","score":0,"posted_at":"2025-02-20T21:45:09Z","tags":[],"title":"RFC: OpenSearch Dashboards Backporting Policy Updates for 3.0 Transition","_secondary":true}
+{"id":"gh-osd-9149","source":"github","score":0,"posted_at":"2025-01-06T21:07:15Z","tags":[],"title":"Server-Side Request Forgery risk"}
+{"id":"gh-osd-8830","source":"github","score":0,"posted_at":"2024-11-07T23:04:45Z","tags":[],"title":"CVE-2024-51736 (Low) detected in symfony/process-v3.4.47","_secondary":true}
+{"id":"gh-osd-5542","source":"github","score":0,"posted_at":"2023-11-28T09:14:38Z","tags":[],"title":"CVE-2018-19827 (High) detected in node-sass-9.0.0.tgz"}
+{"id":"gh-osd-4360","source":"github","score":1,"posted_at":"2023-06-22T10:03:54Z","tags":[],"title":"[BUG] Dependency monorepo-synlink-test including vulnerability GHSA-2jcg-qqmg-46q6","_secondary":true}
+{"id":"gh-osd-3519","source":"github","score":1,"posted_at":"2023-03-03T19:34:52Z","tags":["saved-objects"],"title":"[Proposal] Remove timeline application plugin","_secondary":true}
+{"id":"gh-osd-3306","source":"github","score":0,"posted_at":"2023-01-23T14:40:22Z","tags":[],"title":"CVE-2022-37603 (High) detected in loader-utils-2.0.3","_secondary":true}
+{"id":"gh-osd-3148","source":"github","score":0,"posted_at":"2022-12-25T21:22:28Z","tags":[],"title":"CVE-2022-46175 (High) detected in json5-1.0.1.tgz, json5-2.2.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-2210","source":"github","score":0,"posted_at":"2022-08-26T21:18:07Z","tags":[],"title":"[BUG] OSD returns HTTP 500 internal server error messages when the wrapping key is changed","_secondary":true}
+{"id":"gh-osd-1906","source":"github","score":0,"posted_at":"2022-07-17T16:05:09Z","tags":[],"title":"CVE-2022-25869 (Medium) detected in angular-1.5.0.js","_secondary":true}
+{"id":"gh-osd-1432","source":"github","score":0,"posted_at":"2022-04-07T16:58:46Z","tags":[],"title":"CVE-2022-24785 (High) detected in moment-2.29.1.tgz","_secondary":true}
+{"id":"gh-osd-1067","source":"github","score":0,"posted_at":"2022-01-04T00:36:25Z","tags":[],"title":"CVE-2020-24025 (Medium) detected in node-sass-4.13.1.tgz - autoclosed - autoclosed","_secondary":true}
+{"id":"gh-osd-1060","source":"github","score":0,"posted_at":"2021-12-30T20:10:13Z","tags":["discover"],"title":"Remove `@osd/ui-framework` package and replace KUI with OUI","_secondary":true}
+{"id":"gh-osd-998","source":"github","score":0,"posted_at":"2021-12-07T00:16:50Z","tags":["anomaly"],"title":"anomaly-detection-dashboards-plugin Node 14 upgrade","_secondary":true}
+{"id":"gh-osd-232","source":"github","score":0,"posted_at":"2021-03-23T21:15:49Z","tags":[],"title":"Write unit tests for restricted endpoints and upstream communication","_secondary":true}
+{"id":"gh-osd-11545","source":"github","score":0,"posted_at":"2026-03-18T21:02:27Z","tags":["siem"],"title":"RFC: Icon-based Side Navigation for OpenSearch Dashboards","_secondary":true}
+{"id":"gh-osd-11144","source":"github","score":0,"posted_at":"2026-01-08T03:08:26Z","tags":[],"title":"CVE-2025-66648 (High) detected in vega-functions-5.18.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-11055","source":"github","score":0,"posted_at":"2025-12-10T19:51:54Z","tags":["siem"],"title":"[BUG] New Discovery - visualization problem with IP type field","_secondary":true}
+{"id":"gh-osd-10945","source":"github","score":0,"posted_at":"2025-11-21T00:06:35Z","tags":[],"title":"CVE-2025-64756 (High) detected in glob-10.4.1.tgz","_secondary":true}
+{"id":"gh-osd-10150","source":"github","score":0,"posted_at":"2025-07-15T04:55:44Z","tags":[],"title":"[BUG] The certificate information is not being retrieved with the latest data.","_secondary":true}
+{"id":"gh-osd-9630","source":"github","score":0,"posted_at":"2025-03-31T19:31:04Z","tags":[],"title":"CVE-2025-27793 (Medium) detected in vega-5.22.1.js","_secondary":true}
+{"id":"gh-osd-9394","source":"github","score":0,"posted_at":"2025-02-14T18:30:25Z","tags":[],"title":"CVE-2025-26791 (Medium) detected in dompurify-3.1.6.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-7000","source":"github","score":0,"posted_at":"2024-06-10T23:59:57Z","tags":[],"title":"[MDS] UI polishment for MDS support of Timeline visualization ","_secondary":true}
+{"id":"gh-osd-6916","source":"github","score":1,"posted_at":"2024-06-05T03:25:14Z","tags":[],"title":"[Proposal][Vega] Support PPL in vega visualization","_secondary":true}
+{"id":"gh-osd-5937","source":"github","score":0,"posted_at":"2024-02-23T17:44:59Z","tags":[],"title":"[BUG] Test connection is broken for data source","_secondary":true}
+{"id":"gh-osd-5527","source":"github","score":0,"posted_at":"2023-11-21T22:20:46Z","tags":["canvas","discover"],"title":"[BUG][Disocver] Timefield of an indexPattern would get added to selected field in the side nav when removing a column from the canvas","_secondary":true}
+{"id":"gh-osd-4738","source":"github","score":0,"posted_at":"2023-08-14T22:27:09Z","tags":[],"title":"WS-2017-0113 (High) detected in angular-1.5.0.js","_secondary":true}
+{"id":"gh-osd-4737","source":"github","score":0,"posted_at":"2023-08-14T22:27:07Z","tags":[],"title":"CVE-2020-7676 (Medium) detected in angular-1.5.0.js","_secondary":true}
+{"id":"gh-osd-4736","source":"github","score":0,"posted_at":"2023-08-14T22:27:05Z","tags":[],"title":"CVE-2015-9251 (Medium) detected in jquery-1.11.1.js","_secondary":true}
+{"id":"gh-osd-4733","source":"github","score":0,"posted_at":"2023-08-14T22:26:56Z","tags":[],"title":"CVE-2020-11022 (Medium) detected in jquery-1.11.1.js","_secondary":true}
+{"id":"gh-osd-4732","source":"github","score":0,"posted_at":"2023-08-14T22:26:52Z","tags":[],"title":"CVE-2020-11023 (Medium) detected in jquery-1.11.1.js","_secondary":true}
+{"id":"gh-osd-4731","source":"github","score":0,"posted_at":"2023-08-14T22:26:47Z","tags":[],"title":"CVE-2019-10768 (High) detected in angular-1.5.0.js","_secondary":true}
+{"id":"gh-osd-3985","source":"github","score":0,"posted_at":"2023-05-05T13:53:37Z","tags":[],"title":"CVE-2023-29827 (Critical) detected in ejs-3.1.7.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-3826","source":"github","score":0,"posted_at":"2023-04-11T18:29:06Z","tags":[],"title":"[Console] Convert all `/lib/autocomplete/**/*.js` files to typescript"}
+{"id":"gh-osd-3496","source":"github","score":0,"posted_at":"2023-02-24T21:02:11Z","tags":[],"title":"[Research] Document timeline usage in a demo video","_secondary":true}
+{"id":"gh-osd-3449","source":"github","score":0,"posted_at":"2023-02-17T19:46:37Z","tags":[],"title":"[CVE-2022-24999] impact on 2.x and 1.x"}
+{"id":"gh-osd-3405","source":"github","score":0,"posted_at":"2023-02-09T14:32:11Z","tags":[],"title":"Add memory leak detection to unit tests"}
+{"id":"gh-osd-3360","source":"github","score":0,"posted_at":"2023-01-31T14:10:52Z","tags":[],"title":"CVE-2022-25881 (High) detected in http-cache-semantics-4.1.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-3167","source":"github","score":0,"posted_at":"2022-12-31T00:54:10Z","tags":[],"title":"Upgrade flat to 5.0.1 - autoclosed","_secondary":true}
+{"id":"gh-osd-2718","source":"github","score":0,"posted_at":"2022-11-01T19:09:09Z","tags":[],"title":"[Research] Document Timeline visualization type","_secondary":true}
+{"id":"gh-osd-2560","source":"github","score":0,"posted_at":"2022-10-12T21:39:24Z","tags":[],"title":"CVE-2022-37599 (High) detected in loader-utils-2.0.2.tgz","_secondary":true}
+{"id":"gh-osd-2544","source":"github","score":0,"posted_at":"2022-10-10T23:09:14Z","tags":["anomaly"],"title":"`yarn opensearch` arg to setup dependencies ","_secondary":true}
+{"id":"gh-osd-2389","source":"github","score":1,"posted_at":"2022-09-20T17:04:37Z","tags":[],"title":"Update SECURITY.md with more requirements","_secondary":true}
+{"id":"gh-osd-2250","source":"github","score":0,"posted_at":"2022-09-01T10:51:19Z","tags":["dark-mode"],"title":"[BUG] Timeline Y Axis labels are the wrong colour in dark mode making them very difficult to see","_secondary":true}
+{"id":"gh-osd-2173","source":"github","score":0,"posted_at":"2022-08-19T15:47:36Z","tags":[],"title":"CVE-2022-31129 HIGH Severity Vulnerability","_secondary":true}
+{"id":"gh-osd-1505","source":"github","score":4,"posted_at":"2022-04-27T17:29:05Z","tags":["lens","tsvb"],"title":"Allow users to configure fitting/filling function for missing/null buckets","_secondary":true}
+{"id":"gh-osd-1406","source":"github","score":0,"posted_at":"2022-03-30T20:20:58Z","tags":[],"title":"Option to disable Dev Tools/Console?","_secondary":true}
+{"id":"gh-osd-1358","source":"github","score":0,"posted_at":"2022-03-17T14:07:52Z","tags":[],"title":"[Bug]: CVE items in opensearch dashboards","_secondary":true}
+{"id":"gh-osd-1159","source":"github","score":0,"posted_at":"2022-01-16T16:59:00Z","tags":[],"title":"CVE-2021-23567 (High) detected in colors-1.4.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1096","source":"github","score":0,"posted_at":"2022-01-04T00:37:22Z","tags":[],"title":"WS-2020-0208 (Medium) detected in highlight.js-9.18.5.tgz","_secondary":true}
+{"id":"gh-osd-1093","source":"github","score":0,"posted_at":"2022-01-04T00:37:14Z","tags":[],"title":"CVE-2018-19827 (High) detected in node-sass-8.0.0.tgz","_secondary":true}
+{"id":"gh-osd-1092","source":"github","score":0,"posted_at":"2022-01-04T00:37:13Z","tags":[],"title":"CVE-2018-20190 (Medium) detected in node-sass-8.0.0.tgz","_secondary":true}
+{"id":"gh-osd-1087","source":"github","score":0,"posted_at":"2022-01-04T00:37:03Z","tags":[],"title":"CVE-2019-6283 (Medium) detected in node-sass-8.0.0.tgz","_secondary":true}
+{"id":"gh-osd-1085","source":"github","score":0,"posted_at":"2022-01-04T00:36:59Z","tags":[],"title":"CVE-2018-20821 (Medium) detected in node-sass-8.0.0.tgz","_secondary":true}
+{"id":"gh-osd-1083","source":"github","score":0,"posted_at":"2022-01-04T00:36:55Z","tags":[],"title":"CVE-2019-6286 (Medium) detected in node-sass-8.0.0.tgz","_secondary":true}
+{"id":"gh-osd-1080","source":"github","score":0,"posted_at":"2022-01-04T00:36:50Z","tags":[],"title":"CVE-2018-19797 (Medium) detected in node-sass-8.0.0.tgz","_secondary":true}
+{"id":"gh-osd-1074","source":"github","score":0,"posted_at":"2022-01-04T00:36:38Z","tags":[],"title":"CVE-2018-11694 (High) detected in node-sass-8.0.0.tgz","_secondary":true}
+{"id":"gh-osd-1071","source":"github","score":0,"posted_at":"2022-01-04T00:36:33Z","tags":[],"title":"CVE-2018-19839 (Medium) detected in node-sass-8.0.0.tgz","_secondary":true}
+{"id":"gh-osd-1068","source":"github","score":0,"posted_at":"2022-01-04T00:36:27Z","tags":[],"title":"CVE-2018-11698 (High) detected in node-sass-8.0.0.tgz","_secondary":true}
+{"id":"gh-osd-1061","source":"github","score":0,"posted_at":"2021-12-30T21:28:40Z","tags":[],"title":"GHSA-4xcv-9jjx-gfj3 (Medium) detected in `mem`","_secondary":true}
+{"id":"gh-osd-1059","source":"github","score":0,"posted_at":"2021-12-30T18:58:33Z","tags":[],"title":"CVE-2021-3795 (Medium) detected in `semver-regex`","_secondary":true}
+{"id":"gh-osd-11713","source":"github","score":0,"posted_at":"2026-04-08T08:48:58Z","tags":[],"title":"CVE-2026-39409 (Medium) detected in hono-4.12.9.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-11712","source":"github","score":0,"posted_at":"2026-04-08T08:48:56Z","tags":[],"title":"CVE-2026-39408 (Medium) detected in hono-4.12.9.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-11711","source":"github","score":0,"posted_at":"2026-04-08T08:48:55Z","tags":[],"title":"CVE-2026-39407 (Medium) detected in hono-4.12.9.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-11272","source":"github","score":0,"posted_at":"2026-01-29T23:46:59Z","tags":[],"title":"CVE-2026-24739 (Medium) detected in symfony/process-v3.4.47 - autoclosed","_secondary":true}
+{"id":"gh-osd-11143","source":"github","score":0,"posted_at":"2026-01-08T03:08:21Z","tags":[],"title":"CVE-2025-65110 (High) detected in vega-selections-5.6.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-11100","source":"github","score":1,"posted_at":"2025-12-24T03:20:31Z","tags":[],"title":"CVE-2025-68665 (High) detected in core-0.3.78.tgz, core-0.2.36.tgz","_secondary":true}
+{"id":"gh-osd-10992","source":"github","score":0,"posted_at":"2025-11-28T09:32:23Z","tags":[],"title":"CVE-2025-66030 (Medium) detected in node-forge-1.3.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-10990","source":"github","score":0,"posted_at":"2025-11-28T09:32:20Z","tags":[],"title":"CVE-2025-13466 (Medium) detected in body-parser-2.2.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-10988","source":"github","score":0,"posted_at":"2025-11-28T09:32:17Z","tags":[],"title":"CVE-2025-12816 (High) detected in node-forge-1.3.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-10922","source":"github","score":0,"posted_at":"2025-11-17T02:34:31Z","tags":[],"title":"CVE-2025-64718 (Medium) detected in multiple libraries - autoclosed","_secondary":true}
+{"id":"gh-osd-10921","source":"github","score":0,"posted_at":"2025-11-17T02:34:30Z","tags":[],"title":"CVE-2025-59840 (High) detected in vega-5.22.1.js","_secondary":true}
+{"id":"gh-osd-10669","source":"github","score":0,"posted_at":"2025-10-07T21:47:09Z","tags":[],"title":"CVE-2025-56200 (Medium) detected in validator-13.7.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-10530","source":"github","score":0,"posted_at":"2025-09-16T18:55:23Z","tags":[],"title":"CVE-2025-59437 (Low) detected in ip-2.0.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-10529","source":"github","score":0,"posted_at":"2025-09-16T18:55:22Z","tags":[],"title":"CVE-2025-59436 (Low) detected in ip-2.0.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9968","source":"github","score":0,"posted_at":"2025-06-24T18:44:20Z","tags":[],"title":"CVE-2025-6545 (Critical) detected in pbkdf2-3.1.2.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9967","source":"github","score":0,"posted_at":"2025-06-24T18:44:18Z","tags":[],"title":"CVE-2025-6547 (Medium) detected in pbkdf2-3.1.2.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9841","source":"github","score":0,"posted_at":"2025-06-03T17:38:29Z","tags":[],"title":"CVE-2025-48387 (High) detected in tar-fs-3.0.8.tgz, tar-fs-2.1.2.tgz","_secondary":true}
+{"id":"gh-osd-9750","source":"github","score":0,"posted_at":"2025-05-01T19:26:47Z","tags":[],"title":"CVE-2021-33623 (High) detected in trim-newlines-1.0.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9715","source":"github","score":0,"posted_at":"2025-04-24T18:57:09Z","tags":[],"title":"CVE-2024-43799 (Medium) detected in send-0.17.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9713","source":"github","score":0,"posted_at":"2025-04-24T18:57:05Z","tags":[],"title":"CVE-2024-29415 (Critical) detected in ip-2.0.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9712","source":"github","score":0,"posted_at":"2025-04-24T18:57:03Z","tags":[],"title":"CVE-2024-43800 (Medium) detected in serve-static-1.14.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9551","source":"github","score":0,"posted_at":"2025-03-14T21:58:26Z","tags":[],"title":"CVE-2025-27789 (Medium) detected in multiple libraries - autoclosed","_secondary":true}
+{"id":"gh-osd-9539","source":"github","score":0,"posted_at":"2025-03-13T18:47:05Z","tags":[],"title":"[BUG] CVE-2025-27789 for babel in v2.19.1"}
+{"id":"gh-osd-9400","source":"github","score":0,"posted_at":"2025-02-17T06:24:41Z","tags":[],"title":"CVE-2025-25304 (Medium) detected in vega-selections-5.4.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9056","source":"github","score":0,"posted_at":"2024-12-13T19:07:06Z","tags":[],"title":"CVE-2024-55565 (Medium) detected in nanoid-3.3.3.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9054","source":"github","score":0,"posted_at":"2024-12-13T19:07:03Z","tags":[],"title":"CVE-2023-5590 (High) detected in selenium-webdriver-4.0.0-alpha.7.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9041","source":"github","score":0,"posted_at":"2024-12-11T06:48:00Z","tags":[],"title":"[BUG]Strict node dependency on osd 2.x with node 8.19.1 builds breaks OSD build with latest alpine image","_secondary":true}
+{"id":"gh-osd-8147","source":"github","score":0,"posted_at":"2024-09-11T19:02:08Z","tags":[],"title":"CVE-2024-45296 (High) detected in multiple libraries - autoclosed","_secondary":true}
+{"id":"gh-osd-7915","source":"github","score":0,"posted_at":"2024-08-29T08:46:18Z","tags":[],"title":"CVE-2024-4067 still exists in micromatch 4.0.7","_secondary":true}
+{"id":"gh-osd-7682","source":"github","score":0,"posted_at":"2024-08-12T08:10:29Z","tags":[],"title":"CVE-2024-39338 (High) detected in axios-1.7.2.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-7155","source":"github","score":0,"posted_at":"2024-07-02T17:38:55Z","tags":[],"title":"CVE-2024-39249 (Medium) detected in multiple libraries - autoclosed","_secondary":true}
+{"id":"gh-osd-6738","source":"github","score":0,"posted_at":"2024-05-07T21:26:48Z","tags":[],"title":"[Multiple Datasource] Add API Call Error Handling: Simulate Network Error and 404 Response","_secondary":true}
+{"id":"gh-osd-6517","source":"github","score":0,"posted_at":"2024-04-17T22:22:41Z","tags":[],"title":"Validation for Endpoint URL when creating a dataSource","_secondary":true}
+{"id":"gh-osd-5924","source":"github","score":0,"posted_at":"2024-02-22T18:58:15Z","tags":[],"title":"[BUG] Test Connection is not working for multi data source","_secondary":true}
+{"id":"gh-osd-5303","source":"github","score":0,"posted_at":"2023-10-15T00:06:27Z","tags":[],"title":"CVE-2023-45133 (Critical) detected in traverse-7.17.3.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-5178","source":"github","score":0,"posted_at":"2023-10-03T06:12:52Z","tags":[],"title":"CVE-2023-44270 (Medium) detected in postcss-8.4.12.tgz","_secondary":true}
+{"id":"gh-osd-4812","source":"github","score":0,"posted_at":"2023-08-24T17:38:01Z","tags":[],"title":"CVE-2022-43357 (High) detected in sassv0.4.7 - autoclosed","_secondary":true}
+{"id":"gh-osd-3946","source":"github","score":0,"posted_at":"2023-04-25T16:35:57Z","tags":[],"title":"CVE-2023-2251 (High) detected in yaml-1.10.2.tgz, yaml-2.1.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-3655","source":"github","score":0,"posted_at":"2023-03-22T21:45:46Z","tags":[],"title":"[Tech Debt] Remove dependency on 'TinyMath'"}
+{"id":"gh-osd-3525","source":"github","score":0,"posted_at":"2023-03-05T09:09:58Z","tags":[],"title":"CVE-2023-26487 (Medium) detected in vega-5.22.1.js","_secondary":true}
+{"id":"gh-osd-3473","source":"github","score":0,"posted_at":"2023-02-21T14:33:21Z","tags":[],"title":"CVE-2021-23440 (High) detected in set-value-2.0.1.tgz","_secondary":true}
+{"id":"gh-osd-3404","source":"github","score":0,"posted_at":"2023-02-09T08:45:12Z","tags":[],"title":"CVE-2023-25166 (Medium) detected in formula-3.0.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-3330","source":"github","score":0,"posted_at":"2023-01-26T07:57:30Z","tags":[],"title":"CVE-2022-25908 (High) detected in simple-git-3.15.1.tgz","_secondary":true}
+{"id":"gh-osd-3305","source":"github","score":0,"posted_at":"2023-01-23T14:13:27Z","tags":[],"title":"CVE-2022-46175 (High) detected in json5-1.0.1","_secondary":true}
+{"id":"gh-osd-3283","source":"github","score":0,"posted_at":"2023-01-18T12:20:17Z","tags":[],"title":"CVE-2022-25901 (Medium) detected in cookiejar-2.1.3.tgz","_secondary":true}
+{"id":"gh-osd-2598","source":"github","score":0,"posted_at":"2022-10-18T03:34:56Z","tags":[],"title":"Create index pattern with data source with bad endpoint, and toggle Include system and hidden indices, spinner keep spinning -- should render proper error state","_secondary":true}
+{"id":"gh-osd-2422","source":"github","score":8,"posted_at":"2022-09-27T10:07:25Z","tags":[],"title":"Separate OpenSearch Dashboards from Opensearch for vital functions","_secondary":true}
+{"id":"gh-osd-2063","source":"github","score":0,"posted_at":"2022-08-03T18:01:18Z","tags":[],"title":"CVE-2022-2596 (Medium) detected in node-fetch-2.6.7.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1913","source":"github","score":0,"posted_at":"2022-07-18T19:00:05Z","tags":["discover"],"title":"[Vis Builder] Persist the global query parameters including global filters, time range and time filters","_secondary":true}
+{"id":"gh-osd-1641","source":"github","score":1,"posted_at":"2022-05-30T20:49:43Z","tags":[],"title":"Status Code change when calling API","_secondary":true}
+{"id":"gh-osd-1631","source":"github","score":0,"posted_at":"2022-05-27T17:42:48Z","tags":[],"title":"[BUG] Timeline expression initialization is still using \"es\" as function name","_secondary":true}
+{"id":"gh-osd-1558","source":"github","score":0,"posted_at":"2022-05-06T15:15:10Z","tags":[],"title":"CVE-2022-25844 (High) detected in angular-1.8.2.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1375","source":"github","score":0,"posted_at":"2022-03-23T20:32:47Z","tags":[],"title":"CVE-2021-44907 (Low) detected in qs-6.10.3.tgz, qs-6.5.2.tgz","_secondary":true}
+{"id":"gh-osd-1312","source":"github","score":0,"posted_at":"2022-03-03T17:16:38Z","tags":[],"title":"CVE-2022-23707 (Medium)","_secondary":true}
+{"id":"gh-osd-1112","source":"github","score":0,"posted_at":"2022-01-07T19:04:09Z","tags":[],"title":"CVE-2022-0122 (Medium) detected in node-forge-0.10.0.tgz","_secondary":true}
+{"id":"gh-osd-1091","source":"github","score":0,"posted_at":"2022-01-04T00:37:11Z","tags":[],"title":"CVE-2020-7608 (Medium) detected in yargs-parser-10.1.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1089","source":"github","score":0,"posted_at":"2022-01-04T00:37:07Z","tags":[],"title":"CVE-2021-33587 (High) detected in css-what-2.1.3.tgz","_secondary":true}
+{"id":"gh-osd-1086","source":"github","score":0,"posted_at":"2022-01-04T00:37:01Z","tags":[],"title":"CVE-2019-18797 (Medium) detected in node-sass-4.13.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1082","source":"github","score":0,"posted_at":"2022-01-04T00:36:54Z","tags":[],"title":"CVE-2019-6284 (Medium) detected in node-sass-4.13.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1081","source":"github","score":0,"posted_at":"2022-01-04T00:36:52Z","tags":[],"title":"CVE-2021-3803 (High) detected in nth-check-1.0.2.tgz","_secondary":true}
+{"id":"gh-osd-1079","source":"github","score":0,"posted_at":"2022-01-04T00:36:48Z","tags":[],"title":"CVE-2018-11697 (High) detected in node-sass-4.13.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1078","source":"github","score":0,"posted_at":"2022-01-04T00:36:46Z","tags":[],"title":"CVE-2018-11499 (High) detected in node-sass-4.13.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1077","source":"github","score":0,"posted_at":"2022-01-04T00:36:44Z","tags":[],"title":"CVE-2018-11696 (High) detected in node-sass-4.13.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1075","source":"github","score":0,"posted_at":"2022-01-04T00:36:40Z","tags":[],"title":"CVE-2018-19837 (Medium) detected in node-sass-4.13.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1072","source":"github","score":0,"posted_at":"2022-01-04T00:36:35Z","tags":[],"title":"CVE-2018-19838 (Medium) detected in node-sass-4.13.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1063","source":"github","score":0,"posted_at":"2021-12-31T03:55:03Z","tags":[],"title":"CVE-2021-3765 (Medium) detected in `validator`","_secondary":true}
+{"id":"gh-osd-1050","source":"github","score":0,"posted_at":"2021-12-29T01:10:25Z","tags":[],"title":"CVE-2021-22921 (High) detected in `node`","_secondary":true}
+{"id":"gh-osd-11722","source":"github","score":0,"posted_at":"2026-04-09T21:39:36Z","tags":[],"title":"CVE-2026-39983 (High) detected in basic-ftp-5.2.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-11710","source":"github","score":0,"posted_at":"2026-04-08T08:48:53Z","tags":[],"title":"CVE-2026-39406 (Medium) detected in node-server-1.19.11.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-11709","source":"github","score":0,"posted_at":"2026-04-08T08:48:52Z","tags":[],"title":"CVE-2026-39410 (Medium) detected in hono-4.12.9.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-11553","source":"github","score":0,"posted_at":"2026-03-19T11:20:53Z","tags":["oom"],"title":"CVE-2026-33151 (High) detected in socket.io-parser-4.2.4.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-11514","source":"github","score":0,"posted_at":"2026-03-12T22:23:52Z","tags":[],"title":"CVE-2026-31988 (Medium) detected in yauzl-2.10.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-11511","source":"github","score":0,"posted_at":"2026-03-12T15:29:41Z","tags":[],"title":"PPL regex operator fails when alternation (|) matches at beginning of string","_secondary":true}
+{"id":"gh-osd-11500","source":"github","score":0,"posted_at":"2026-03-11T05:52:51Z","tags":[],"title":"CVE-2026-28292 (Critical) detected in simple-git-3.16.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-11499","source":"github","score":0,"posted_at":"2026-03-11T05:52:49Z","tags":[],"title":"CVE-2026-31808 (Medium) detected in file-type-16.5.4.tgz"}
+{"id":"gh-osd-11498","source":"github","score":0,"posted_at":"2026-03-11T05:52:48Z","tags":[],"title":"CVE-2026-31802 (High) detected in tar-7.5.7.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-11340","source":"github","score":0,"posted_at":"2026-02-13T02:18:42Z","tags":[],"title":"CVE-2025-69873 (Low) detected in ajv-8.17.1.tgz, ajv-6.12.6.tgz","_secondary":true}
+{"id":"gh-osd-11335","source":"github","score":0,"posted_at":"2026-02-12T08:40:34Z","tags":[],"title":"CVE-2026-2391 (Low) detected in qs-6.14.1.tgz"}
+{"id":"gh-osd-11334","source":"github","score":0,"posted_at":"2026-02-12T08:40:31Z","tags":[],"title":"CVE-2026-2327 (Medium) detected in markdown-it-13.0.2.tgz","_secondary":true}
+{"id":"gh-osd-11333","source":"github","score":0,"posted_at":"2026-02-12T08:40:29Z","tags":[],"title":"CVE-2026-25528 (Medium) detected in langsmith-0.3.71.tgz"}
+{"id":"gh-osd-11301","source":"github","score":0,"posted_at":"2026-02-04T19:30:48Z","tags":[],"title":"CVE-2026-25547 (High) detected in brace-expansion-5.0.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-11279","source":"github","score":0,"posted_at":"2026-01-30T22:43:47Z","tags":[],"title":"CVE-2026-25128 (High) detected in multiple libraries - autoclosed","_secondary":true}
+{"id":"gh-osd-11273","source":"github","score":0,"posted_at":"2026-01-29T23:47:10Z","tags":[],"title":"CVE-2024-6485 (Medium) detected in bootstrap-3.3.7.min.js","_secondary":true}
+{"id":"gh-osd-11262","source":"github","score":0,"posted_at":"2026-01-28T22:08:23Z","tags":[],"title":"CVE-2026-24842 (High) detected in tar-6.2.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-11247","source":"github","score":0,"posted_at":"2026-01-27T23:31:33Z","tags":[],"title":"CVE-2025-50537 (Medium) detected in eslint-6.8.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-11224","source":"github","score":0,"posted_at":"2026-01-23T06:18:13Z","tags":["oom"],"title":"CVE-2026-24001 (Medium) detected in diff-3.5.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-11223","source":"github","score":0,"posted_at":"2026-01-23T06:18:12Z","tags":[],"title":"CVE-2025-13465 (Critical) detected in lodash-es-4.17.21.tgz, lodash-4.17.21.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-11196","source":"github","score":0,"posted_at":"2026-01-19T09:02:09Z","tags":[],"title":"CVE-2026-23745 (High) detected in tar-6.2.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-11159","source":"github","score":0,"posted_at":"2026-01-12T23:50:57Z","tags":[],"title":"CVE-2025-14505 (Medium) detected in elliptic-6.6.1.tgz","_secondary":true}
+{"id":"gh-osd-11142","source":"github","score":0,"posted_at":"2026-01-08T03:08:19Z","tags":[],"title":"CVE-2026-0621 (High) detected in sdk-1.25.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-11117","source":"github","score":0,"posted_at":"2025-12-30T23:42:44Z","tags":[],"title":"CVE-2025-15284 (High) detected in multiple libraries - autoclosed"}
+{"id":"gh-osd-11002","source":"github","score":0,"posted_at":"2025-12-01T22:58:34Z","tags":[],"title":"CVE-2024-51999 (Medium) detected in express-4.21.2.tgz, express-5.1.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-10991","source":"github","score":0,"posted_at":"2025-11-28T09:32:21Z","tags":[],"title":"CVE-2025-66031 (High) detected in node-forge-1.3.1.tgz","_secondary":true}
+{"id":"gh-osd-10989","source":"github","score":0,"posted_at":"2025-11-28T09:32:18Z","tags":[],"title":"CVE-2025-12758 (High) detected in validator-13.7.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-10577","source":"github","score":0,"posted_at":"2025-09-26T04:12:19Z","tags":[],"title":"CVE-2025-57352 (Medium) detected in min-document-2.19.0.tgz","_secondary":true}
+{"id":"gh-osd-10523","source":"github","score":0,"posted_at":"2025-09-15T14:17:15Z","tags":[],"title":"CVE-2025-58754 (High) detected in axios-1.8.2.tgz","_secondary":true}
+{"id":"gh-osd-10463","source":"github","score":0,"posted_at":"2025-08-28T16:06:40Z","tags":["anomaly"],"title":"[Support] Can we visualize forcasting and abnormally detection on the timeseries chart","_secondary":true}
+{"id":"gh-osd-10429","source":"github","score":0,"posted_at":"2025-08-21T18:01:04Z","tags":[],"title":"CVE-2025-9288 (High) detected in sha.js-2.4.11.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-10428","source":"github","score":0,"posted_at":"2025-08-21T18:01:02Z","tags":[],"title":"CVE-2025-9287 (High) detected in cipher-base-1.0.4.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-10376","source":"github","score":0,"posted_at":"2025-08-08T06:49:08Z","tags":[],"title":"CVE-2025-54798 (Low) detected in tmp-0.0.33.tgz, tmp-0.0.30.tgz","_secondary":true}
+{"id":"gh-osd-10280","source":"github","score":0,"posted_at":"2025-07-28T10:16:45Z","tags":[],"title":"CVE-2025-8263 (High) detected in prettier-2.3.0.tgz, prettier-2.1.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-10246","source":"github","score":1,"posted_at":"2025-07-21T17:21:16Z","tags":[],"title":"CVE-2025-7783 (High) detected in multiple libraries - autoclosed","_secondary":true}
+{"id":"gh-osd-9878","source":"github","score":0,"posted_at":"2025-06-12T18:17:39Z","tags":[],"title":"[BUG] Look into why ciGroup10 is failing","_secondary":true}
+{"id":"gh-osd-9797","source":"github","score":0,"posted_at":"2025-05-19T19:27:24Z","tags":[],"title":"CVE-2020-36604 (High) detected in hoek-6.1.3.tgz","_secondary":true}
+{"id":"gh-osd-9796","source":"github","score":0,"posted_at":"2025-05-19T19:27:22Z","tags":[],"title":"CVE-2025-48050 (High) detected in dompurify-3.2.4.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9719","source":"github","score":0,"posted_at":"2025-04-24T18:57:18Z","tags":[],"title":"CVE-2021-42740 (Critical) detected in shell-quote-1.7.2.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9718","source":"github","score":0,"posted_at":"2025-04-24T18:57:17Z","tags":[],"title":"CVE-2020-7598 (Medium) detected in minimist-0.0.8.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9717","source":"github","score":0,"posted_at":"2025-04-24T18:57:12Z","tags":[],"title":"CVE-2021-3757 (Critical) detected in immer-8.0.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9716","source":"github","score":0,"posted_at":"2025-04-24T18:57:11Z","tags":[],"title":"CVE-2024-21535 (Medium) detected in markdown-to-jsx-6.11.4.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9711","source":"github","score":0,"posted_at":"2025-04-24T18:57:02Z","tags":[],"title":"CVE-2024-29180 (High) detected in webpack-dev-middleware-3.7.3.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9710","source":"github","score":0,"posted_at":"2025-04-24T18:57:00Z","tags":[],"title":"CVE-2021-23436 (Medium) detected in immer-8.0.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9632","source":"github","score":0,"posted_at":"2025-03-31T19:31:09Z","tags":[],"title":"CVE-2024-12905 (High) detected in tar-fs-2.1.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9631","source":"github","score":0,"posted_at":"2025-03-31T19:31:05Z","tags":[],"title":"CVE-2025-26619 (High) detected in vega-functions-5.13.1.tgz, vega-5.23.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-9538","source":"github","score":0,"posted_at":"2025-03-13T17:16:08Z","tags":[],"title":"[BUG] CVE-2025-25977 in 2.19.1 Docker image","_secondary":true}
+{"id":"gh-osd-9375","source":"github","score":0,"posted_at":"2025-02-12T17:21:24Z","tags":[],"title":"CVE-2024-11831 (Medium) detected in serialize-javascript-4.0.0.tgz","_secondary":true}
+{"id":"gh-osd-9308","source":"github","score":0,"posted_at":"2025-01-30T17:24:25Z","tags":[],"title":"CVE-2024-57965 (Low) detected in axios-1.7.7.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-8860","source":"github","score":0,"posted_at":"2024-11-13T18:53:32Z","tags":[],"title":"CVE-2024-21540 (High) detected in source-map-support-0.5.21.tgz","_secondary":true}
+{"id":"gh-osd-8515","source":"github","score":0,"posted_at":"2024-10-07T21:10:05Z","tags":[],"title":"CVE-2024-47764 (Medium) detected in cookie-0.4.2.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-8295","source":"github","score":0,"posted_at":"2024-09-23T15:18:44Z","tags":[],"title":"Be able to collapse spans in trace view","_secondary":true}
+{"id":"gh-osd-7263","source":"github","score":0,"posted_at":"2024-07-16T17:17:54Z","tags":["anomaly"],"title":"[BUG] Upgrade from 2.11.1 to 2.15.0 bricked the cluster","_secondary":true}
+{"id":"gh-osd-7118","source":"github","score":1,"posted_at":"2024-06-27T04:29:49Z","tags":[],"title":"[Navigation-Next] Support nested items in left navigation."}
+{"id":"gh-osd-7108","source":"github","score":0,"posted_at":"2024-06-26T00:57:05Z","tags":["anomaly"],"title":"[RFC] ScatterPlots in OSD Visualize","_secondary":true}
+{"id":"gh-osd-7076","source":"github","score":0,"posted_at":"2024-06-20T10:21:22Z","tags":[],"title":"CVE-2024-37890 (High) detected in ws-7.5.7.tgz, ws-8.5.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-5893","source":"github","score":0,"posted_at":"2024-02-16T23:53:06Z","tags":[],"title":"CVE-2023-28155 (Medium) detected in request-2.88.12.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-5819","source":"github","score":2,"posted_at":"2024-02-06T20:17:16Z","tags":["siem"],"title":"[Feature] Using multiple filters for different visualisations in one dashboard","_secondary":true}
+{"id":"gh-osd-5704","source":"github","score":0,"posted_at":"2024-01-17T09:12:37Z","tags":[],"title":"[Feature] Clear overview of all cluster state and often used options to manage the cluster","_secondary":true}
+{"id":"gh-osd-5690","source":"github","score":0,"posted_at":"2024-01-16T18:11:11Z","tags":["tsvb"],"title":"[BUG] Multiple Datasource should support timeline, vega and TSVB","_secondary":true}
+{"id":"gh-osd-5674","source":"github","score":0,"posted_at":"2024-01-09T18:31:37Z","tags":[],"title":"CVE-2023-26159 (High) detected in follow-redirects-1.15.2.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-5656","source":"github","score":0,"posted_at":"2024-01-04T01:48:16Z","tags":[],"title":"[BUG] Datasource testing connection don't validate endpoints with path","_secondary":true}
+{"id":"gh-osd-5648","source":"github","score":0,"posted_at":"2024-01-01T00:45:53Z","tags":[],"title":"CVE-2023-52079 (Medium) detected in msgpackr-1.9.7.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-5535","source":"github","score":0,"posted_at":"2023-11-23T22:33:06Z","tags":[],"title":"[BUG] Dashboards reloads when ML Commons hits a 401 unathorized while doing request in DevTools","_secondary":true}
+{"id":"gh-osd-5410","source":"github","score":0,"posted_at":"2023-10-30T22:58:37Z","tags":[],"title":"CVE-2023-46234 (Medium) detected in browserify-sign-4.2.1.tgz","_secondary":true}
+{"id":"gh-osd-5387","source":"github","score":0,"posted_at":"2023-10-27T08:11:08Z","tags":[],"title":"[BUG] security vulnerabilities found in opensearch dashboard 1.3.X version which uses node js 10.24.1 ","_secondary":true}
+{"id":"gh-osd-5154","source":"github","score":0,"posted_at":"2023-09-29T15:10:33Z","tags":[],"title":"In v1.3.13 Update library dependecies to reduce the CVEs reported","_secondary":true}
+{"id":"gh-osd-4734","source":"github","score":0,"posted_at":"2023-08-14T22:27:01Z","tags":[],"title":"WS-2017-3772 (High) detected in juice-shopjuice-shop-14.5.1_node16_darwin_x64","_secondary":true}
+{"id":"gh-osd-4730","source":"github","score":0,"posted_at":"2023-08-14T22:26:43Z","tags":[],"title":"CVE-2019-11358 (Medium) detected in jquery-1.9.1.js","_secondary":true}
+{"id":"gh-osd-4726","source":"github","score":0,"posted_at":"2023-08-14T22:26:27Z","tags":[],"title":"CVE-2019-20149 (High) detected in juice-shopjuice-shop-13.3.0_node16_darwin_x64"}
+{"id":"gh-osd-4370","source":"github","score":0,"posted_at":"2023-06-23T17:10:26Z","tags":[],"title":"CVE-2022-25883 (Medium) detected in multiple libraries","_secondary":true}
+{"id":"gh-osd-4369","source":"github","score":0,"posted_at":"2023-06-23T17:10:24Z","tags":[],"title":"CVE-2023-26115 (Medium) detected in word-wrap-1.2.3.tgz","_secondary":true}
+{"id":"gh-osd-4322","source":"github","score":0,"posted_at":"2023-06-19T21:33:29Z","tags":[],"title":"[Vis colors] Replace `vis_type_timeline` colors with ouiPaletteColorBlind()","_secondary":true}
+{"id":"gh-osd-4253","source":"github","score":0,"posted_at":"2023-06-07T15:36:24Z","tags":[],"title":"[Lodash] Replacing Lodash functions with Native JavaScript methods in vis_type_timeline plugin"}
+{"id":"gh-osd-4094","source":"github","score":0,"posted_at":"2023-05-22T20:05:01Z","tags":[],"title":"[Research] OUI Compliance audit of the `timeline` plugin","_secondary":true}
+{"id":"gh-osd-3793","source":"github","score":0,"posted_at":"2023-04-06T13:02:14Z","tags":[],"title":"CVE-2023-0842 (Medium) detected in xml2js-0.4.19.tgz, xml2js-0.4.23.tgz","_secondary":true}
+{"id":"gh-osd-3736","source":"github","score":0,"posted_at":"2023-03-30T08:36:37Z","tags":[],"title":"CVE-2023-26118 (Medium) detected in angular-1.5.0.js - autoclosed","_secondary":true}
+{"id":"gh-osd-3735","source":"github","score":0,"posted_at":"2023-03-30T08:36:35Z","tags":[],"title":"CVE-2023-26117 (Medium) detected in angular-1.5.0.js - autoclosed","_secondary":true}
+{"id":"gh-osd-3734","source":"github","score":0,"posted_at":"2023-03-30T08:36:32Z","tags":[],"title":"CVE-2023-26116 (Medium) detected in angular-1.5.0.js - autoclosed","_secondary":true}
+{"id":"gh-osd-3588","source":"github","score":0,"posted_at":"2023-03-10T09:12:05Z","tags":[],"title":"Endpoint to check application stats","_secondary":true}
+{"id":"gh-osd-3493","source":"github","score":0,"posted_at":"2023-02-24T17:11:11Z","tags":[],"title":"Create a new tag for post release CVE or security fix PR","_secondary":true}
+{"id":"gh-osd-3441","source":"github","score":0,"posted_at":"2023-02-17T13:00:10Z","tags":[],"title":"CVE-2023-25653 (High) detected in node-jose-2.1.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-3388","source":"github","score":0,"posted_at":"2023-02-04T01:45:23Z","tags":[],"title":"Migrate `timeline` plugin to Vega-Lite or deprecate","_secondary":true}
+{"id":"gh-osd-3384","source":"github","score":0,"posted_at":"2023-02-04T01:04:18Z","tags":[],"title":"Remove KUI usage in `timeline` or deprecate","_secondary":true}
+{"id":"gh-osd-3366","source":"github","score":0,"posted_at":"2023-02-01T22:16:31Z","tags":[],"title":"[De-Angular] Timeline over-all tracking issue","_secondary":true}
+{"id":"gh-osd-3354","source":"github","score":0,"posted_at":"2023-01-27T21:14:59Z","tags":[],"title":"[De-Angularize] Timeline angular work research","_secondary":true}
+{"id":"gh-osd-3279","source":"github","score":0,"posted_at":"2023-01-17T09:11:37Z","tags":[],"title":"Default Metric for Visualisations","_secondary":true}
+{"id":"gh-osd-3040","source":"github","score":0,"posted_at":"2022-12-07T14:34:58Z","tags":[],"title":"CVE-2022-37603 (High) detected in loader-utils-1.4.0.tgz, loader-utils-2.0.2.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-3039","source":"github","score":0,"posted_at":"2022-12-07T14:34:55Z","tags":[],"title":"CVE-2022-25912 (High) detected in simple-git-3.5.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-2968","source":"github","score":0,"posted_at":"2022-11-30T13:38:47Z","tags":[],"title":"CVE-2022-38900 (High) detected in decode-uri-component-0.2.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-2613","source":"github","score":0,"posted_at":"2022-10-19T13:13:34Z","tags":[],"title":"CVE-2022-3517 (High) detected in minimatch-3.0.4.tgz","_secondary":true}
+{"id":"gh-osd-2269","source":"github","score":0,"posted_at":"2022-09-06T07:45:52Z","tags":[],"title":"WS-2021-0638 (High) detected in mocha-7.2.0.tgz","_secondary":true}
+{"id":"gh-osd-1907","source":"github","score":0,"posted_at":"2022-07-17T23:34:17Z","tags":[],"title":"CVE-2022-25858 (High) detected in terser-4.8.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1725","source":"github","score":0,"posted_at":"2022-06-13T01:01:40Z","tags":[],"title":"CVE-2022-25851 (High) detected in jpeg-js-0.4.3.tgz","_secondary":true}
+{"id":"gh-osd-1679","source":"github","score":0,"posted_at":"2022-06-06T21:24:24Z","tags":[],"title":"2.0 blog post"}
+{"id":"gh-osd-1546","source":"github","score":0,"posted_at":"2022-05-04T23:12:29Z","tags":[],"title":"CVE-2022-1214 (High) detected in axios-0.21.4.tgz","_secondary":true}
+{"id":"gh-osd-1501","source":"github","score":0,"posted_at":"2022-04-27T02:02:35Z","tags":[],"title":"CVE-2022-29078 (High) detected in ejs-3.1.6.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1267","source":"github","score":0,"posted_at":"2022-02-21T01:07:00Z","tags":[],"title":"CVE-2022-0639 (Medium) detected in url-parse-1.5.3.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1160","source":"github","score":0,"posted_at":"2022-01-16T16:59:02Z","tags":[],"title":"CVE-2021-23566 (Medium) detected in nanoid-3.1.30.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1152","source":"github","score":0,"posted_at":"2022-01-14T19:23:25Z","tags":[],"title":"CVE-2021-23807 (High) detected in jsonpointer-4.1.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1135","source":"github","score":0,"posted_at":"2022-01-11T16:04:18Z","tags":[],"title":"CVE-2022-21670 (Medium) detected in markdown-it-10.0.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1134","source":"github","score":0,"posted_at":"2022-01-11T16:04:16Z","tags":[],"title":"WS-2022-0008 (Medium) detected in node-forge-0.10.0.tgz","_secondary":true}
+{"id":"gh-osd-1118","source":"github","score":0,"posted_at":"2022-01-10T16:04:04Z","tags":[],"title":"[Build] Upgrade from Webpack 4 to 5","_secondary":true}
+{"id":"gh-osd-1111","source":"github","score":0,"posted_at":"2022-01-07T16:34:23Z","tags":[],"title":"CVE-2021-23490 (High) detected in `parse-link-header`","_secondary":true}
+{"id":"gh-osd-1107","source":"github","score":0,"posted_at":"2022-01-06T16:33:03Z","tags":[],"title":"CVE-2021-23807 (Medium) detected in `jsonpointer`","_secondary":true}
+{"id":"gh-osd-1103","source":"github","score":0,"posted_at":"2022-01-05T21:09:44Z","tags":[],"title":"CVE-2021-35065 (High) detected in glob-parent-6.0.0.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1090","source":"github","score":0,"posted_at":"2022-01-04T00:37:09Z","tags":[],"title":"WS-2020-0026 (High) detected in ammo-3.0.1.tgz - autoclosed","_secondary":true}
+{"id":"gh-osd-1066","source":"github","score":0,"posted_at":"2022-01-04T00:36:23Z","tags":[],"title":"CVE-2021-3918 (High) detected in json-schema-0.2.3.tgz","_secondary":true}
+{"id":"gh-osd-1065","source":"github","score":0,"posted_at":"2022-01-04T00:36:21Z","tags":[],"title":"CVE-2021-23424 (High) detected in ansi-html-0.0.7.tgz","_secondary":true}
+{"id":"gh-osd-1052","source":"github","score":0,"posted_at":"2021-12-29T01:22:13Z","tags":[],"title":"CVE-2021-22918 (Medium) detected in `node`","_secondary":true}
+{"id":"gh-osd-1051","source":"github","score":0,"posted_at":"2021-12-29T01:16:19Z","tags":[],"title":"CVE-2021-22940 (High) detected in `node`","_secondary":true}
+{"id":"gh-osd-1049","source":"github","score":0,"posted_at":"2021-12-29T00:59:01Z","tags":[],"title":"CVE-2021-3672 (Medium) detected in `node`","_secondary":true}
+{"id":"gh-osd-1048","source":"github","score":0,"posted_at":"2021-12-29T00:49:39Z","tags":[],"title":"CVE-2021-22931 (High) detected in `node`","_secondary":true}
+{"id":"gh-osd-1047","source":"github","score":0,"posted_at":"2021-12-28T22:48:04Z","tags":[],"title":"CVE-2021-22939 (Medium) detected in `node`","_secondary":true}
+{"id":"gh-osd-854","source":"github","score":3,"posted_at":"2021-10-08T21:20:13Z","tags":[],"title":"Add proxy option on Router","_secondary":true}
+{"id":"gh-osd-11745","source":"github","score":0,"posted_at":"2026-04-13T18:07:44Z","tags":["discover"],"title":"[Infra] Add GitHub repo health agent for automated maintenance","_secondary":true}
+{"id":"gh-osd-11742","source":"github","score":0,"posted_at":"2026-04-13T07:31:28Z","tags":[],"title":"CVE-2026-40190 (Medium) detected in langsmith-0.4.7.tgz","_secondary":true}
+{"id":"gh-osd-11741","source":"github","score":0,"posted_at":"2026-04-13T07:31:25Z","tags":[],"title":"CVE-2026-40175 (Critical) detected in axios-1.13.5.tgz","_secondary":true}
+{"id":"gh-osd-11725","source":"github","score":0,"posted_at":"2026-04-10T01:54:42Z","tags":[],"title":"CVE-2025-62718 (Critical) detected in axios-1.13.5.tgz","_secondary":true}
+{"id":"gh-osd-11692","source":"github","score":0,"posted_at":"2026-04-07T08:05:23Z","tags":[],"title":"CVE-2026-35213 (High) detected in content-5.0.2.tgz","_secondary":true}
+{"id":"gh-osd-11658","source":"github","score":0,"posted_at":"2026-04-03T18:19:56Z","tags":[],"title":"CVE-2026-4800 (High) detected in lodash v4","_secondary":true}
+{"id":"gh-osd-11626","source":"github","score":0,"posted_at":"2026-03-30T17:43:25Z","tags":[],"title":"CVE-2026-4867 (High) detected in path-to-regexp-0.1.12.tgz","_secondary":true}
+{"id":"gh-osd-11625","source":"github","score":0,"posted_at":"2026-03-30T17:43:24Z","tags":[],"title":"CVE-2026-4923 (Medium) detected in path-to-regexp-8.3.0.tgz","_secondary":true}
+{"id":"gh-osd-11624","source":"github","score":0,"posted_at":"2026-03-30T17:43:22Z","tags":[],"title":"CVE-2026-4926 (High) detected in path-to-regexp-8.3.0.tgz","_secondary":true}
+{"id":"gh-osd-11612","source":"github","score":0,"posted_at":"2026-03-27T02:19:24Z","tags":[],"title":"CVE-2026-33895 (High) detected in node-forge-1.3.3.tgz"}
+{"id":"gh-osd-11608","source":"github","score":0,"posted_at":"2026-03-26T23:41:18Z","tags":[],"title":"CVE-2026-33894 (High) detected in node-forge-1.3.3.tgz"}
+{"id":"gh-osd-11607","source":"github","score":0,"posted_at":"2026-03-26T23:41:17Z","tags":[],"title":"CVE-2026-33891 (High) detected in node-forge-1.3.3.tgz","_secondary":true}
+{"id":"gh-osd-11606","source":"github","score":0,"posted_at":"2026-03-26T23:41:15Z","tags":[],"title":"CVE-2026-33896 (High) detected in node-forge-1.3.3.tgz"}
+{"id":"gh-osd-11605","source":"github","score":0,"posted_at":"2026-03-26T23:41:14Z","tags":[],"title":"CVE-2026-33916 (Medium) detected in handlebars-4.7.7.tgz","_secondary":true}
+{"id":"gh-osd-11601","source":"github","score":0,"posted_at":"2026-03-26T19:57:23Z","tags":[],"title":"CVE-2026-33750 (Medium) detected in multiple libraries","_secondary":true}
+{"id":"gh-osd-11600","source":"github","score":0,"posted_at":"2026-03-26T19:57:21Z","tags":["alerting","apm"],"title":"CVE-2026-33671 (High) detected in multiple libraries","_secondary":true}
+{"id":"gh-osd-11599","source":"github","score":0,"posted_at":"2026-03-26T19:57:19Z","tags":["alerting","apm"],"title":"CVE-2026-33672 (Medium) detected in multiple libraries","_secondary":true}
+{"id":"gh-osd-11598","source":"github","score":0,"posted_at":"2026-03-26T19:57:18Z","tags":[],"title":"CVE-2026-33532 (Medium) detected in yaml-2.8.2.tgz","_secondary":true}
+{"id":"gh-osd-11568","source":"github","score":0,"posted_at":"2026-03-23T18:24:54Z","tags":[],"title":"Support custom DNS CNAME or A record for OpenSearch Serverless Dashboard UI URLs","_secondary":true}
+{"id":"gh-osd-11559","source":"github","score":0,"posted_at":"2026-03-20T03:28:26Z","tags":[],"title":"CVE-2026-33228 (Critical) detected in flatted-3.2.5.tgz, flatted-2.0.2.tgz","_secondary":true}
+{"id":"gh-osd-11558","source":"github","score":0,"posted_at":"2026-03-20T03:28:24Z","tags":[],"title":"CVE-2026-33349 (Medium) detected in fast-xml-parser-5.5.1.tgz","_secondary":true}
+{"id":"gh-osd-11544","source":"github","score":0,"posted_at":"2026-03-18T19:26:30Z","tags":[],"title":"CVE-2026-33036 (High) detected in fast-xml-parser-5.5.1.tgz","_secondary":true}
+{"id":"gh-osd-11522","source":"github","score":0,"posted_at":"2026-03-13T20:40:33Z","tags":[],"title":"CVE-2026-32141 (High) detected in flatted-3.2.5.tgz, flatted-2.0.2.tgz","_secondary":true}
+{"id":"gh-osd-11476","source":"github","score":0,"posted_at":"2026-03-09T08:14:52Z","tags":[],"title":"CVE-2026-29786 (High) detected in tar-7.5.7.tgz","_secondary":true}
+{"id":"gh-osd-11475","source":"github","score":0,"posted_at":"2026-03-09T08:14:50Z","tags":[],"title":"CVE-2026-30827 (High) detected in express-rate-limit-8.2.1.tgz","_secondary":true}
+{"id":"gh-osd-11465","source":"github","score":0,"posted_at":"2026-03-06T08:35:57Z","tags":[],"title":"CVE-2026-29087 (High) detected in node-server-1.19.9.tgz","_secondary":true}
+{"id":"gh-osd-11464","source":"github","score":0,"posted_at":"2026-03-06T08:35:55Z","tags":[],"title":"CVE-2026-29045 (High) detected in hono-4.11.7.tgz","_secondary":true}
+{"id":"gh-osd-11463","source":"github","score":0,"posted_at":"2026-03-06T08:35:54Z","tags":[],"title":"CVE-2026-29086 (Medium) detected in hono-4.11.7.tgz","_secondary":true}
+{"id":"gh-osd-11462","source":"github","score":0,"posted_at":"2026-03-06T08:35:52Z","tags":[],"title":"CVE-2026-29085 (Medium) detected in hono-4.11.7.tgz","_secondary":true}
+{"id":"gh-osd-11461","source":"github","score":0,"posted_at":"2026-03-06T08:35:51Z","tags":[],"title":"CVE-2026-29063 (High) detected in immutable-5.1.4.tgz","_secondary":true}
+{"id":"gh-osd-11447","source":"github","score":0,"posted_at":"2026-03-04T22:50:07Z","tags":[],"title":"CVE-2026-3449 (Low) detected in once-1.1.2.tgz","_secondary":true}
+{"id":"gh-osd-11446","source":"github","score":0,"posted_at":"2026-03-04T22:50:03Z","tags":[],"title":"CVE-2025-15599 (Medium) detected in dompurify-3.2.4.tgz","_secondary":true}
+{"id":"gh-osd-11445","source":"github","score":0,"posted_at":"2026-03-04T22:50:02Z","tags":[],"title":"CVE-2026-0540 (Medium) detected in dompurify-3.2.4.tgz","_secondary":true}
+{"id":"gh-osd-11407","source":"github","score":0,"posted_at":"2026-02-27T01:26:57Z","tags":[],"title":"CVE-2026-27903 (High) detected in multiple libraries"}
+{"id":"gh-osd-11399","source":"github","score":0,"posted_at":"2026-02-26T14:19:48Z","tags":[],"title":"CVE-2026-27699 (Critical) detected in basic-ftp-5.0.5.tgz","_secondary":true}
+{"id":"gh-osd-11398","source":"github","score":0,"posted_at":"2026-02-26T14:19:44Z","tags":[],"title":"CVE-2026-27904 (High) detected in multiple libraries"}
+{"id":"gh-osd-11397","source":"github","score":0,"posted_at":"2026-02-26T14:19:41Z","tags":[],"title":"CVE-2026-27942 (Medium) detected in fast-xml-parser-5.3.6.tgz","_secondary":true}
+{"id":"gh-osd-11378","source":"github","score":0,"posted_at":"2026-02-24T04:27:57Z","tags":[],"title":"CVE-2026-2739 (Medium) detected in multiple libraries","_secondary":true}
+{"id":"gh-osd-11369","source":"github","score":0,"posted_at":"2026-02-20T23:05:50Z","tags":[],"title":"CVE-2026-26278 (High) detected in fast-xml-parser-5.3.4.tgz","_secondary":true}
+{"id":"gh-osd-11368","source":"github","score":0,"posted_at":"2026-02-20T23:05:41Z","tags":[],"title":"CVE-2026-26960 (High) detected in tar-7.5.7.tgz","_secondary":true}
+{"id":"gh-osd-11367","source":"github","score":0,"posted_at":"2026-02-20T23:05:40Z","tags":[],"title":"CVE-2026-26996 (High) detected in multiple libraries"}
+{"id":"gh-osd-11336","source":"github","score":0,"posted_at":"2026-02-12T08:40:36Z","tags":[],"title":"CVE-2026-25639 (High) detected in axios-1.13.3.tgz","_secondary":true}
+{"id":"gh-osd-11319","source":"github","score":0,"posted_at":"2026-02-09T13:54:24Z","tags":[],"title":"Add Date Range Control to Controls Visualization for Filtering on Multiple Date Fields","_secondary":true}
+{"id":"gh-osd-11200","source":"github","score":0,"posted_at":"2026-01-20T19:24:45Z","tags":[],"title":"CVE-2026-23950 (High) detected in tar-6.2.1.tgz","_secondary":true}
+{"id":"gh-osd-11013","source":"github","score":0,"posted_at":"2025-12-03T05:29:32Z","tags":[],"title":"CVE-2025-66414 (High) detected in sdk-1.18.2.tgz","_secondary":true}
+{"id":"gh-osd-10437","source":"github","score":0,"posted_at":"2025-08-22T03:32:57Z","tags":[],"title":"Connection timed out","_secondary":true}
+{"id":"gh-osd-10245","source":"github","score":0,"posted_at":"2025-07-21T17:21:13Z","tags":[],"title":"CVE-2025-7339 (Low) detected in on-headers-1.0.2.tgz","_secondary":true}
+{"id":"gh-osd-10223","source":"github","score":0,"posted_at":"2025-07-17T21:24:05Z","tags":[],"title":"[Banner Plugin] Banner extensibility model Refactor","_secondary":true}
+{"id":"gh-osd-9829","source":"github","score":0,"posted_at":"2025-05-29T13:51:44Z","tags":[],"title":"CVE-2025-23165, CVE-2025-23166, and CVE-2025-23167 impacting NodeJS 20.18.3 in OpenSearch Dashboards 3.0.0"}
+{"id":"gh-osd-9749","source":"github","score":0,"posted_at":"2025-05-01T19:26:41Z","tags":[],"title":"CVE-2025-46653 (Low) detected in formidable-2.1.2.tgz","_secondary":true}
+{"id":"gh-osd-9235","source":"github","score":0,"posted_at":"2025-01-21T09:00:27Z","tags":["alerting","anomaly"],"title":"[BUG] Console error appears when loading data source with an empty description","_secondary":true}
+{"id":"gh-osd-8844","source":"github","score":0,"posted_at":"2024-11-12T02:13:36Z","tags":[],"title":"CVE-2024-21538 (High) detected in cross-spawn-6.0.5.tgz, cross-spawn-7.0.3.tgz","_secondary":true}
+{"id":"hn-43293162","source":"hackernews","score":2,"posted_at":"2025-03-07T19:04:47Z","tags":[],"title":"Kibana Hit with a Critical CVE"}
+{"id":"hn-19868592","source":"hackernews","score":1,"posted_at":"2019-05-09T14:30:26Z","tags":[],"title":"Ask HN: Embedded Elastic Search Dashboard","_secondary":true}
+{"id":"hn-16481939","source":"hackernews","score":4,"posted_at":"2018-02-28T09:55:17Z","tags":["anomaly"],"title":"Datastream.io – Real-Time Anomaly Detection Using Python, Elasticsearch and Kibana","_secondary":true}
+{"id":"hn-16053239","source":"hackernews","score":1,"posted_at":"2018-01-02T17:06:29Z","tags":[],"title":"Ask HN: Monitoring linux server networks","_secondary":true}
+{"id":"hn-10787794","source":"hackernews","score":1,"posted_at":"2015-12-24T10:57:38Z","tags":[],"title":"Kibana / Kibi Cross Index Timeline Widget Released"}
+{"id":"hn-47271115","source":"hackernews","score":0,"posted_at":"2026-03-06T05:06:03Z","tags":["siem"],"title":"Labor market impacts of AI: A new measure and early evidence"}
+{"id":"hn-45809899","source":"hackernews","score":0,"posted_at":"2025-11-04T11:52:18Z","tags":[],"title":"How We Found 7 TiB of Memory Just Sitting Around","_secondary":true}
+{"id":"hn-45573566","source":"hackernews","score":0,"posted_at":"2025-10-13T21:32:55Z","tags":["siem"],"title":"Ask HN: Freelancer? Seeking freelancer? (October 2025)"}
+{"id":"hn-43831443","source":"hackernews","score":0,"posted_at":"2025-04-29T12:06:12Z","tags":["kql"],"title":"Beyond Elk: Lightweight and Scalable Cloud-Native Log Monitoring","_secondary":true}
+{"id":"hn-43293163","source":"hackernews","score":0,"posted_at":"2025-03-07T19:04:47Z","tags":[],"title":"Kibana Hit with a Critical CVE","_secondary":true}
+{"id":"hn-39981291","source":"hackernews","score":0,"posted_at":"2024-04-09T16:47:25Z","tags":["fleet"],"title":"Preview of Explore Logs, a new way to browse your logs without writing LogQL","_secondary":true}
+{"id":"hn-38103540","source":"hackernews","score":0,"posted_at":"2023-11-01T19:24:03Z","tags":[],"title":"Ask HN: Freelancer? Seeking freelancer? (November 2023)","_secondary":true}
+{"id":"hn-36487788","source":"hackernews","score":0,"posted_at":"2023-06-27T00:54:54Z","tags":[],"title":"Discovering that a Bluetooth car battery monitor is siphoning location data","_secondary":true}
+{"id":"hn-35163728","source":"hackernews","score":0,"posted_at":"2023-03-15T04:06:17Z","tags":[],"title":"Kali Linux 2023.1 introduces 'Purple' distro for defensive security"}
+{"id":"hn-34507473","source":"hackernews","score":0,"posted_at":"2023-01-24T18:09:45Z","tags":["lens","siem"],"title":"Launch HN: Matano (YC W23) – Open-Source Security Lake Platform (SIEM) for AWS","_secondary":true}
+{"id":"hn-34273718","source":"hackernews","score":0,"posted_at":"2023-01-06T11:52:29Z","tags":[],"title":"Ask HN: What's on your home server?","_secondary":true}
+{"id":"hn-34134926","source":"hackernews","score":0,"posted_at":"2022-12-26T05:40:06Z","tags":[],"title":"2022 was the year of Linux on the Desktop?","_secondary":true}
+{"id":"hn-33935538","source":"hackernews","score":0,"posted_at":"2022-12-10T18:54:00Z","tags":[],"title":"Breaking up with JavaScript front ends","_secondary":true}
+{"id":"hn-33425090","source":"hackernews","score":0,"posted_at":"2022-11-01T18:13:50Z","tags":[],"title":"Ask HN: Who is hiring? (November 2022)"}
+{"id":"hn-33072847","source":"hackernews","score":0,"posted_at":"2022-10-03T19:59:59Z","tags":[],"title":"Ask HN: Who is hiring? (October 2022)"}
+{"id":"hn-32681992","source":"hackernews","score":0,"posted_at":"2022-09-01T19:44:53Z","tags":[],"title":"Ask HN: Who is hiring? (September 2022)"}
+{"id":"hn-32545248","source":"hackernews","score":0,"posted_at":"2022-08-21T22:44:28Z","tags":["siem"],"title":"Ask HN: SIEM-like product with DNS as its data API?"}
+{"id":"hn-32308639","source":"hackernews","score":0,"posted_at":"2022-08-01T16:37:24Z","tags":[],"title":"Ask HN: Who is hiring? (August 2022)"}
+{"id":"hn-31992796","source":"hackernews","score":0,"posted_at":"2022-07-05T19:46:09Z","tags":[],"title":"Ask HN: Who is hiring? (July 2022)"}
+{"id":"hn-31754673","source":"hackernews","score":0,"posted_at":"2022-06-15T15:40:42Z","tags":[],"title":"Log Analytics at Uber","_secondary":true}
+{"id":"hn-31236641","source":"hackernews","score":0,"posted_at":"2022-05-02T15:44:37Z","tags":[],"title":"Ask HN: Who is hiring? (May 2022)"}
+{"id":"hn-30882413","source":"hackernews","score":0,"posted_at":"2022-04-01T19:38:53Z","tags":[],"title":"Ask HN: Who is hiring? (April 2022)"}
+{"id":"hn-30518229","source":"hackernews","score":0,"posted_at":"2022-03-01T18:47:07Z","tags":[],"title":"Ask HN: Who is hiring? (March 2022)"}
+{"id":"hn-29784251","source":"hackernews","score":0,"posted_at":"2022-01-03T18:25:53Z","tags":[],"title":"Ask HN: Who is hiring? (January 2022)"}
+{"id":"hn-29476881","source":"hackernews","score":0,"posted_at":"2021-12-07T19:11:44Z","tags":[],"title":"Ask HN: Who is hiring? (December 2021)"}
+{"id":"hn-27577660","source":"hackernews","score":0,"posted_at":"2021-06-21T09:44:35Z","tags":[],"title":"Show HN: Hacker News-ish stock news, from 40+ sources","_secondary":true}
+{"id":"hn-26997251","source":"hackernews","score":0,"posted_at":"2021-04-30T18:19:11Z","tags":["siem"],"title":"Darktrace Jumps 40% on IPO"}
+{"id":"hn-25837962","source":"hackernews","score":0,"posted_at":"2021-01-19T19:51:47Z","tags":["siem","apm","ml","license"],"title":"Amazon: Not OK – Why we had to change Elastic licensing","_secondary":true}
+{"id":"hn-24970217","source":"hackernews","score":0,"posted_at":"2020-11-02T16:56:31Z","tags":[],"title":"Ask HN: Who is hiring? (November 2020)"}
+{"id":"hn-24311652","source":"hackernews","score":0,"posted_at":"2020-08-28T23:35:52Z","tags":["fleet"],"title":"Cybersecurity and Log Management with SQL"}
+{"id":"hn-24219188","source":"hackernews","score":0,"posted_at":"2020-08-20T02:11:36Z","tags":["siem"],"title":"Elastic 7.9"}
+{"id":"hn-23817760","source":"hackernews","score":0,"posted_at":"2020-07-13T06:50:06Z","tags":[],"title":"Haproxy 2.2","_secondary":true}
+{"id":"hn-22233589","source":"hackernews","score":0,"posted_at":"2020-02-04T08:54:03Z","tags":["siem"],"title":"Ask HN: Who wants to be hired? (February 2020)"}
+{"id":"hn-20586455","source":"hackernews","score":0,"posted_at":"2019-08-01T17:55:47Z","tags":["alerting","siem"],"title":"Ask HN: Who is hiring? (August 2019)"}
+{"id":"hn-20584656","source":"hackernews","score":0,"posted_at":"2019-08-01T15:27:19Z","tags":[],"title":"Ask HN: Who is hiring? (August 2019)"}
+{"id":"hn-20280099","source":"hackernews","score":0,"posted_at":"2019-06-25T23:03:30Z","tags":["siem"],"title":"Elastic SIEM – Security Information and Event Management","_secondary":true}
+{"id":"hn-20279229","source":"hackernews","score":0,"posted_at":"2019-06-25T21:36:23Z","tags":["siem"],"title":"Elastic SIEM – Security Information and Event Management"}
+{"id":"hn-19544372","source":"hackernews","score":0,"posted_at":"2019-04-01T15:31:23Z","tags":["fleet"],"title":"Ask HN: Who is hiring? (April 2019)","_secondary":true}
+{"id":"hn-19056521","source":"hackernews","score":0,"posted_at":"2019-02-01T17:56:41Z","tags":[],"title":"Ask HN: Who is hiring? (February 2019)","_secondary":true}
+{"id":"hn-18898954","source":"hackernews","score":0,"posted_at":"2019-01-13T21:53:03Z","tags":[],"title":"Toshi: An Elasticsearch competitor written in Rust","_secondary":true}
+{"id":"hn-18593412","source":"hackernews","score":0,"posted_at":"2018-12-03T21:45:41Z","tags":[],"title":"Ask HN: Who is hiring? (December 2018)"}
+{"id":"hn-18357252","source":"hackernews","score":0,"posted_at":"2018-11-01T18:59:21Z","tags":[],"title":"Ask HN: Who is hiring? (November 2018)"}
+{"id":"hn-18349589","source":"hackernews","score":0,"posted_at":"2018-10-31T21:56:40Z","tags":[],"title":"CloudWatch Is of the Devil, but I Must Use It","_secondary":true}
+{"id":"hn-18113864","source":"hackernews","score":0,"posted_at":"2018-10-01T15:55:27Z","tags":[],"title":"Ask HN: Who is hiring? (October 2018)"}
+{"id":"hn-9074540","source":"hackernews","score":0,"posted_at":"2015-02-19T15:37:56Z","tags":["anomaly"],"title":"Announcing Graylog v1.0 GA","_secondary":true}
+{"id":"hn-8978680","source":"hackernews","score":0,"posted_at":"2015-02-01T00:51:29Z","tags":["anomaly"],"title":"Ask HN: How do you analyze logs?","_secondary":true}
+{"id":"hn-17018746","source":"hackernews","score":0,"posted_at":"2018-05-08T04:07:10Z","tags":["discover"],"title":"Ask HN: How do you continuously monitor web logs for hack attempts?","_secondary":true}
+{"id":"hn-17019911","source":"hackernews","score":0,"posted_at":"2018-05-08T10:07:19Z","tags":[],"title":"Ask HN: How do you continuously monitor web logs for hack attempts?"}
+{"id":"hn-13542259","source":"hackernews","score":0,"posted_at":"2017-02-01T16:45:04Z","tags":[],"title":"Ask HN: Who is hiring? (February 2017)"}
+{"id":"hn-11203749","source":"hackernews","score":0,"posted_at":"2016-03-01T16:28:26Z","tags":[],"title":"Ask HN: Who is hiring? (March 2016)"}
+{"id":"hn-11203268","source":"hackernews","score":0,"posted_at":"2016-03-01T15:37:30Z","tags":[],"title":"Ask HN: Who is hiring? (March 2016)"}
+{"id":"hn-9638301","source":"hackernews","score":0,"posted_at":"2015-06-01T13:22:14Z","tags":["anomaly"],"title":"Ask HN: Who is hiring? (June 2015)","_secondary":true}
+{"id":"hn-8396646","source":"hackernews","score":0,"posted_at":"2014-10-01T18:28:50Z","tags":[],"title":"Ask HN: Who wants to be hired? (October 2014)","_secondary":true}
+{"id":"reddit-1k99szr","source":"reddit","score":0,"posted_at":"2025-04-27T17:44:55.000Z","tags":["fleet"],"title":"Help setting up ElasticSearch + Kibana + Fleet to track a local folder for adhoc logs?","_secondary":true}
+{"id":"reddit-1j4rw7c","source":"reddit","score":10,"posted_at":"2025-03-06T09:41:22.000Z","tags":["fleet"],"title":"Kibana Authenticated (Viewer) arbitrary code execution via prototype pollution - CVE-2025-25015"}
+{"id":"reddit-1em3hl2","source":"reddit","score":3,"posted_at":"2024-08-07T05:08:41.000Z","tags":["fleet"],"title":"Preconfiguring Agent Policies in Kibana","_secondary":true}
+{"id":"reddit-1czxpgz","source":"reddit","score":1,"posted_at":"2024-05-24T22:53:31.000Z","tags":[],"title":"Azure Private Endpoint with Traffic Filter - Kibana access over Private Link","_secondary":true}
+{"id":"reddit-1di9yed","source":"reddit","score":1,"posted_at":"2024-06-17T21:45:58.000Z","tags":[],"title":"Automating Rule Creation for Kibana","_secondary":true}
+{"id":"reddit-1678cho","source":"reddit","score":2,"posted_at":"2023-09-01T14:15:13.000Z","tags":["fleet"],"title":"Elasticsearch and Kibana running on Docker - Issues using LetsEncrypt Certificate - unable to get issuer certificate","_secondary":true}
+{"id":"reddit-1apfx6r","source":"reddit","score":1,"posted_at":"2024-02-13T00:33:40.000Z","tags":[],"title":"Heartbeat on Docker not receiving logs in Kibana","_secondary":true}
+{"id":"reddit-15x7vjm","source":"reddit","score":3,"posted_at":"2023-08-21T13:35:16.000Z","tags":["siem"],"title":"Kibana Dashboards act as SIEM","_secondary":true}
+{"id":"reddit-138dlcn","source":"reddit","score":4,"posted_at":"2023-05-05T06:59:56.000Z","tags":["fleet"],"title":"Single elastic search/Kibana server running on Windows?"}
+{"id":"reddit-17x022h","source":"reddit","score":2,"posted_at":"2023-11-16T22:55:44.000Z","tags":["fleet"],"title":"Elastic/kibana docker &amp; fleet issues","_secondary":true}
+{"id":"reddit-ze0kdy","source":"reddit","score":5,"posted_at":"2022-12-06T08:32:01.000Z","tags":[],"title":"how do I expose the ES/Kibana created by my ECK operator on K8s?","_secondary":true}
+{"id":"reddit-12ny09v","source":"reddit","score":3,"posted_at":"2023-04-16T06:17:58.000Z","tags":["fleet"],"title":"Ingest Manager Settings in Kibana 8.x Versions"}
+{"id":"reddit-12xvrnd","source":"reddit","score":6,"posted_at":"2023-04-24T20:44:11.000Z","tags":["fleet"],"title":"kibana fleet setup","_secondary":true}
+{"id":"reddit-13btzrc","source":"reddit","score":1,"posted_at":"2023-05-08T14:55:26.000Z","tags":["anomaly"],"title":"Kibana Categorization Anomaly Detection","_secondary":true}
+{"id":"reddit-u2ul4r","source":"reddit","score":19,"posted_at":"2022-04-13T16:43:02.000Z","tags":["alerting","siem"],"title":"Is our proposed threat hunting enrichment &amp; automation pipeline a good idea, or is the counter-argument correct, that everything we propose could be done na","_secondary":true}
+{"id":"reddit-13emrx8","source":"reddit","score":0,"posted_at":"2023-05-11T13:01:46.000Z","tags":["fleet"],"title":"How to connect package registry docker image to kibana docker image?"}
+{"id":"reddit-12cgkdq","source":"reddit","score":1,"posted_at":"2023-04-05T11:04:46.000Z","tags":[],"title":"Loading Kibana dashboards using Metricbeat through HELM charts","_secondary":true}
+{"id":"reddit-siuhba","source":"reddit","score":9,"posted_at":"2022-02-02T17:31:14.000Z","tags":["anomaly"],"title":"Article: A digestible introduction to anomaly detection using Elasticsearch and Kibana without diving too deep into data science","_secondary":true}
+{"id":"reddit-v8heit","source":"reddit","score":1,"posted_at":"2022-06-09T13:56:33.000Z","tags":[],"title":"Kibana Users Page blocked by \"add integrations\"?"}
+{"id":"reddit-rljyxy","source":"reddit","score":1,"posted_at":"2021-12-21T17:46:12.000Z","tags":["fleet"],"title":"Using ElasticAgent in Kibana"}
+{"id":"reddit-q6ub21","source":"reddit","score":2,"posted_at":"2021-10-12T19:57:07.000Z","tags":["fleet"],"title":"I can't figure out how to install Fleet on Elastic+Kibana","_secondary":true}
+{"id":"reddit-rf04va","source":"reddit","score":14,"posted_at":"2021-12-12T22:33:46.000Z","tags":[],"title":"Log4j2 Impact Analysis on Datastores: Kafka, Elastic, Hadoop, Spark, Kibana","_secondary":true}
+{"id":"reddit-akyui2","source":"reddit","score":514,"posted_at":"2019-01-29T10:44:09.000Z","tags":[],"title":"Tools &amp; Info for SysAdmins - Local Hosting, Intrusion Detection, Blogs &amp; More.","_secondary":true}
+{"id":"reddit-1irohvs","source":"reddit","score":1,"posted_at":"2025-02-17T16:55:44.000Z","tags":["fleet"],"title":"Need Help: Elastic Fleet Server Enrollment Fails Every Time","_secondary":true}
+{"id":"reddit-172czbl","source":"reddit","score":1,"posted_at":"2023-10-07T18:17:25.000Z","tags":["alerting"],"title":"Looking for unusual kind of alert management/notification management tool","_secondary":true}
+{"id":"reddit-gzppff","source":"reddit","score":7,"posted_at":"2020-06-09T15:48:53.000Z","tags":["anomaly"],"title":"An Audit How To: Using Logstash with Active Directory/Windows Server","_secondary":true}
+{"id":"reddit-f1t8e3","source":"reddit","score":8,"posted_at":"2020-02-10T17:03:43.000Z","tags":["siem"],"title":"Looking for On-Prem SIEM solution sans Elastic"}
+{"id":"reddit-ytf2vi","source":"reddit","score":0,"posted_at":"2022-11-12T18:44:53.000Z","tags":["anomaly","ml","license"],"title":"Machine Learning in the ELK Stack","_secondary":true}
+{"id":"reddit-hf4dux","source":"reddit","score":8,"posted_at":"2020-06-24T16:41:41.000Z","tags":[],"title":"ELK to display command history","_secondary":true}
+{"id":"reddit-hgsd1w","source":"reddit","score":3,"posted_at":"2020-06-27T12:02:03.000Z","tags":[],"title":"Log only commands users type"}
+{"id":"reddit-belb13","source":"reddit","score":9,"posted_at":"2019-04-18T13:03:53.000Z","tags":[],"title":"Must watch (IMHO) Securing Vendor Webapps - A Vulnerability Assessment on HELK","_secondary":true}
+{"id":"reddit-e0gxrv","source":"reddit","score":0,"posted_at":"2019-11-23T11:52:25.000Z","tags":["siem"],"title":"Best Open-Source SIEM Tool"}
+{"id":"reddit-5vfq8y","source":"reddit","score":2,"posted_at":"2017-02-22T01:31:19.000Z","tags":[],"title":"How to run a successful IT Org/Dept.","_secondary":true}
+{"id":"reddit-6lwwon","source":"reddit","score":2,"posted_at":"2017-07-07T21:41:07.000Z","tags":[],"title":"How do I log to Elastic / Kibana from Kubernetes? [xpost from /r/kubernetes]","_secondary":true}
+{"id":"reddit-1kerwu1","source":"reddit","score":4,"posted_at":"2025-05-04T19:18:22.000Z","tags":[],"title":"Built a fast multi-host terminal log viewer with timeline histogram – looking for feedback","_secondary":true}
+{"id":"reddit-11qavu6","source":"reddit","score":11,"posted_at":"2023-03-13T14:15:02.000Z","tags":[],"title":"how does prometheus monitor elasticSearch? e.g. if I want to alert on a host publishing a certain event","_secondary":true}
+{"id":"reddit-iik28h","source":"reddit","score":1,"posted_at":"2020-08-29T01:46:47.000Z","tags":["fleet"],"title":"SQL based Log management and Security Analytics tools."}
+{"id":"reddit-6rwijg","source":"reddit","score":1,"posted_at":"2017-08-06T04:39:03.000Z","tags":[],"title":"Ask r/DevOps: I'm building an intrusion detection and filesystem monitoring stack in AWS. SQS, Kinesis, or CloudWatch Logs?","_secondary":true}
+{"id":"reddit-1c1bono","source":"reddit","score":3,"posted_at":"2024-04-11T10:28:16.000Z","tags":["fleet"],"title":"ELK Stack behind Cloudflare, privacy concerns","_secondary":true}
+{"id":"reddit-v8nk7s","source":"reddit","score":3,"posted_at":"2022-06-09T18:35:58.000Z","tags":["siem"],"title":"looking for an all in one SIEM docker image"}
+{"id":"reddit-siumxv","source":"reddit","score":3,"posted_at":"2022-02-02T17:37:24.000Z","tags":["anomaly"],"title":"Article: A digestible introduction to anomaly detection using Elasticsearch and Kibana without diving too deep into data science","_secondary":true}
+{"id":"reddit-18g8z9k","source":"reddit","score":12,"posted_at":"2023-12-12T00:32:39.000Z","tags":["anomaly","ml"],"title":"I deal with a few hundred million time-series data points but don't need streaming - should I still use Kafka?","_secondary":true}
+{"id":"reddit-1gcbpt0","source":"reddit","score":2,"posted_at":"2024-10-26T03:03:35.000Z","tags":[],"title":"Tool with UI for exposing data from database (MongoDB) to users","_secondary":true}
+{"id":"reddit-1dp6amd","source":"reddit","score":27,"posted_at":"2024-06-26T18:50:22.000Z","tags":["siem"],"title":"What was in your Home Lab (Cybersecurity) for testing purposes?"}
+{"id":"reddit-1dov1n4","source":"reddit","score":3,"posted_at":"2024-06-26T10:11:14.000Z","tags":["fleet"],"title":"Elastic agent on Security Onion"}
+{"id":"reddit-1521ncx","source":"reddit","score":15,"posted_at":"2023-07-17T13:13:52.000Z","tags":[],"title":"My Kubernetes Homelab","_secondary":true}
+{"id":"reddit-ivq90i","source":"reddit","score":2,"posted_at":"2020-09-19T10:38:32.000Z","tags":["siem"],"title":"Open souce syslog Server (siem)"}
+{"id":"reddit-lqx9lo","source":"reddit","score":2,"posted_at":"2021-02-23T23:58:56.000Z","tags":[],"title":"NIC passthrough issues","_secondary":true}
+{"id":"reddit-y9wmen","source":"reddit","score":3,"posted_at":"2022-10-21T15:28:45.000Z","tags":[],"title":"API request to third endpoint and saving it in Kibana dashboard","_secondary":true}
+{"id":"reddit-hw5bpd","source":"reddit","score":1,"posted_at":"2020-07-23T00:04:43.000Z","tags":["discover","fleet"],"title":"[2.0] Kibana dashboards empty","_secondary":true}
+{"id":"reddit-q6xt0i","source":"reddit","score":7,"posted_at":"2021-10-12T22:55:41.000Z","tags":[],"title":"Build an osquery Performance Dashboard Using Elasticsearch and Kibana"}
+{"id":"reddit-q6xtck","source":"reddit","score":1,"posted_at":"2021-10-12T22:56:11.000Z","tags":[],"title":"Build an osquery performance dashboard Using Elasticsearch and Kibana"}
+{"id":"reddit-ibv4rm","source":"reddit","score":2,"posted_at":"2020-08-18T05:31:52.000Z","tags":["siem"],"title":"Getting SIEM App data into Kibana Dashboards","_secondary":true}
+{"id":"reddit-1sfk14a","source":"reddit","score":4,"posted_at":"2026-04-08T05:32:39.000Z","tags":[],"title":"Is freelance SOC work actually viable?"}
+{"id":"reddit-1sf647l","source":"reddit","score":33,"posted_at":"2026-04-07T19:29:35.000Z","tags":[],"title":"Couldnt afford Sec+ so built a SOC homelab."}
+{"id":"reddit-1sa7fb7","source":"reddit","score":1,"posted_at":"2026-04-02T04:22:14.000Z","tags":["alerting","siem"],"title":"Kubernetes Observability","_secondary":true}
+{"id":"reddit-1jxr4jc","source":"reddit","score":15,"posted_at":"2025-04-12T20:52:50.000Z","tags":["alerting","siem"],"title":"SIEM for SMB with low requirements to functionality","_secondary":true}
+{"id":"reddit-1ql4bc1","source":"reddit","score":4,"posted_at":"2026-01-23T21:58:28.000Z","tags":["siem"],"title":"Wazuh Indexer and Kibana based on ELK?"}
+{"id":"reddit-1qw18bv","source":"reddit","score":2,"posted_at":"2026-02-04T21:15:42.000Z","tags":["siem"],"title":"The Ultimate HTB CDSA 2026 Notes: A Complete Blue Team Study Guide"}
+{"id":"reddit-1p9jnps","source":"reddit","score":0,"posted_at":"2025-11-29T08:17:28.000Z","tags":["fleet"],"title":"Windows logs are not showing on elasticsearch dashboard","_secondary":true}
+{"id":"reddit-1p3wls0","source":"reddit","score":4,"posted_at":"2025-11-22T15:55:18.000Z","tags":[],"title":"How do I pull Wazuh alerts (last 1 hour, level 15) in real-time via API for a custom public dashboard?","_secondary":true}
+{"id":"reddit-1kk0zq6","source":"reddit","score":28,"posted_at":"2025-05-11T13:26:29.000Z","tags":["siem"],"title":"Is it me or does Wazuh need alot of integration to work effectively?"}
+{"id":"reddit-1ojit6p","source":"reddit","score":13,"posted_at":"2025-10-29T22:33:19.000Z","tags":[],"title":"Simple AR visualisation - IoT sensor data","_secondary":true}
+{"id":"reddit-1lhiez3","source":"reddit","score":7,"posted_at":"2025-06-22T07:46:18.000Z","tags":["siem"],"title":"Scaling Wazuh Integrations &amp; Using It as a Full SIEM – Need Help!"}
+{"id":"reddit-1oqhoof","source":"reddit","score":1,"posted_at":"2025-11-07T01:47:46.000Z","tags":[],"title":"Remote Job - Recorded Future - Fraud Intelligence Analyst"}
+{"id":"reddit-1mp6jh0","source":"reddit","score":4,"posted_at":"2025-08-13T14:49:07.000Z","tags":[],"title":"How do you build dynamic dashboards with Tanium Comply data?","_secondary":true}
+{"id":"reddit-1ok8t8d","source":"reddit","score":5,"posted_at":"2025-10-30T19:13:16.000Z","tags":["apm","fleet","license"],"title":"Self-hosted license for APM","_secondary":true}
+{"id":"reddit-1lp0q00","source":"reddit","score":1,"posted_at":"2025-07-01T12:45:35.000Z","tags":["security-app"],"title":"Mastering the Craft: A Deep Dive into Network API Development","_secondary":true}
+{"id":"reddit-ikx0y9","source":"reddit","score":109,"posted_at":"2020-09-02T01:02:31.000Z","tags":["siem","ml"],"title":"Is there a 'boring' alternative to ElasticSearch?","_secondary":true}
+{"id":"reddit-1iedzh3","source":"reddit","score":1,"posted_at":"2025-01-31T12:46:28.000Z","tags":["siem"],"title":"[Help Needed] Setting Up Wazuh on Ubuntu ARM (Mac) for a School Project – Facing Too Many Roadblocks 😓"}
+{"id":"reddit-1c98mvn","source":"reddit","score":0,"posted_at":"2024-04-21T03:52:35.000Z","tags":[],"title":"Seeking Advice on Implementing a Vulnerability Management Solution Using Elasticsearch","_secondary":true}
+{"id":"reddit-1dp68ct","source":"reddit","score":1,"posted_at":"2024-06-26T18:47:39.000Z","tags":["siem"],"title":"What was in your Home Lab for testing purposes when you first started?"}
+{"id":"reddit-1c98olv","source":"reddit","score":4,"posted_at":"2024-04-21T03:55:26.000Z","tags":[],"title":"Seeking Advice on Implementing a Vulnerability Management Solution Using Elasticsearch","_secondary":true}
+{"id":"reddit-1bpyhrz","source":"reddit","score":3,"posted_at":"2024-03-28T15:34:28.000Z","tags":[],"title":"Looking for Wazuh webui alternative solution","_secondary":true}
+{"id":"reddit-1c98nua","source":"reddit","score":2,"posted_at":"2024-04-21T03:54:10.000Z","tags":[],"title":"Seeking Advice on Implementing a Vulnerability Management Solution Using Elasticsearch","_secondary":true}
+{"id":"reddit-pvtvoz","source":"reddit","score":3,"posted_at":"2021-09-26T13:30:49.000Z","tags":["license"],"title":"Password strength/enforcement?","_secondary":true}
+{"id":"reddit-poqar2","source":"reddit","score":1,"posted_at":"2021-09-15T13:38:19.000Z","tags":[],"title":"Building a NAS and Media Server. Thanks for the help!","_secondary":true}
+{"id":"reddit-l0puu4","source":"reddit","score":1,"posted_at":"2021-01-19T18:28:09.000Z","tags":["siem"],"title":"SIEM Solution for MSP"}
+{"id":"reddit-545a3e","source":"reddit","score":4,"posted_at":"2016-09-23T15:33:57.000Z","tags":[],"title":"How can I cache API results to temporarily mitigate a serious production issue?","_secondary":true}
+{"id":"reddit-vkg7md","source":"reddit","score":8,"posted_at":"2022-06-25T14:28:27.000Z","tags":["siem"],"title":"Cluster is slow after expanding it","_secondary":true}
+{"id":"reddit-1l3k8tl","source":"reddit","score":2,"posted_at":"2025-06-04T23:20:09.000Z","tags":["lens"],"title":"Pull data remotely","_secondary":true}
+{"id":"so-47193270","source":"stackoverflow","score":12,"posted_at":"2017-11-09T03:12:26.000Z","tags":[],"title":"AWS Elasticsearch &amp; VPC - configuring network access from my fixed IP","_secondary":true}
+{"id":"so-54018645","source":"stackoverflow","score":8,"posted_at":"2019-01-03T08:24:30.000Z","tags":[],"title":"Elasticsearch / Kibana: NoShardsAvailableException","_secondary":true}
+{"id":"so-56723867","source":"stackoverflow","score":7,"posted_at":"2019-06-23T12:26:51.000Z","tags":[],"title":"Kubernetes nginx ingress rabbitmq management and kibana"}
+{"id":"so-50580474","source":"stackoverflow","score":5,"posted_at":"2018-05-29T09:08:54.000Z","tags":[],"title":"Connecting to VPC-based Kibana using AWS Cognito"}
+{"id":"so-56617561","source":"stackoverflow","score":4,"posted_at":"2019-06-16T09:18:55.000Z","tags":[],"title":"How to set kibana index pattern from filebeat?","_secondary":true}
+{"id":"so-46289774","source":"stackoverflow","score":4,"posted_at":"2017-09-18T23:58:50.000Z","tags":[],"title":"Send Kubernetes cluster logs to AWS Elasticsearch","_secondary":true}
+{"id":"so-32477601","source":"stackoverflow","score":4,"posted_at":"2015-09-09T10:53:35.000Z","tags":[],"title":"How to create timeline chart with average using Kibana?","_secondary":true}
+{"id":"so-55407384","source":"stackoverflow","score":3,"posted_at":"2019-03-28T21:51:01.000Z","tags":[],"title":"Granular permission in Kibana on AWS","_secondary":true}
+{"id":"so-66334591","source":"stackoverflow","score":3,"posted_at":"2021-02-23T14:00:47.000Z","tags":[],"title":"Kibana visualize. Visualize URL, but group same path","_secondary":true}
+{"id":"so-66298405","source":"stackoverflow","score":3,"posted_at":"2021-02-21T01:55:46.000Z","tags":[],"title":"Python Elasticsearch: BulkIndexError: &#39;not_x_content_exception&#39; while trying to use helpers.bulk","_secondary":true}
+{"id":"so-64235601","source":"stackoverflow","score":2,"posted_at":"2020-10-07T00:36:59.000Z","tags":["discover"],"title":"Kibana on AWS user management: Created new user but can&#39;t see my index patterns","_secondary":true}
+{"id":"so-58763139","source":"stackoverflow","score":2,"posted_at":"2019-11-08T08:43:48.000Z","tags":[],"title":"(Grafana / Kibana / Elasticsearch) Table to display count of specific values by endpoint"}
+{"id":"so-71194690","source":"stackoverflow","score":2,"posted_at":"2022-02-20T13:05:06.000Z","tags":["fleet"],"title":"How to use the elastic-agent container to collect service logs from another container?","_secondary":true}
+{"id":"so-56785292","source":"stackoverflow","score":2,"posted_at":"2019-06-27T06:39:52.000Z","tags":["discover"],"title":"How to search/filter for log messages by specified https:// endpoints in Kibana","_secondary":true}
+{"id":"so-46473494","source":"stackoverflow","score":2,"posted_at":"2017-09-28T15:54:08.000Z","tags":[],"title":"Kibana did not load properly. After setting up with nginx reverse proxy","_secondary":true}
+{"id":"so-42972375","source":"stackoverflow","score":2,"posted_at":"2017-03-23T09:46:39.000Z","tags":[],"title":"Parse integer and show in timeline in Kibana","_secondary":true}
+{"id":"so-79429915","source":"stackoverflow","score":2,"posted_at":"2025-02-11T12:10:33.000Z","tags":[],"title":"Kibana alert on API endpoint","_secondary":true}
+{"id":"so-75513775","source":"stackoverflow","score":2,"posted_at":"2023-02-20T20:17:57.000Z","tags":["apm","fleet"],"title":"In the Elastic stack, how can we automatically generate and apply an enrollment token for kibana through docker-compose?","_secondary":true}
+{"id":"so-68971375","source":"stackoverflow","score":2,"posted_at":"2021-08-29T09:00:24.000Z","tags":["anomaly"],"title":"How random cut forest deals with periodicity / seasonality?","_secondary":true}
+{"id":"so-68223060","source":"stackoverflow","score":2,"posted_at":"2021-07-02T09:47:39.000Z","tags":[],"title":"Kibana API Action and connector APIs returning 404","_secondary":true}
+{"id":"so-66097126","source":"stackoverflow","score":2,"posted_at":"2021-02-08T06:58:56.000Z","tags":[],"title":"elasticsearch unable to configure remote cluster","_secondary":true}
+{"id":"so-59452144","source":"stackoverflow","score":2,"posted_at":"2019-12-23T08:27:31.000Z","tags":["siem"],"title":"Crontab is not running","_secondary":true}
+{"id":"so-49947752","source":"stackoverflow","score":2,"posted_at":"2018-04-20T18:30:15.000Z","tags":[],"title":"Lucene query to check for greater than condition for a part of the field","_secondary":true}
+{"id":"so-42253490","source":"stackoverflow","score":2,"posted_at":"2017-02-15T15:28:06.000Z","tags":[],"title":"Kibana 5.1 shared short url&#39;s do not work","_secondary":true}
+{"id":"so-63108849","source":"stackoverflow","score":1,"posted_at":"2020-07-27T04:47:37.000Z","tags":["siem"],"title":"Can elasticsearch support both http and https access at the same time？","_secondary":true}
+{"id":"so-49330409","source":"stackoverflow","score":1,"posted_at":"2018-03-16T22:37:47.000Z","tags":[],"title":"Logstash not parsing JSON","_secondary":true}
+{"id":"so-78826286","source":"stackoverflow","score":1,"posted_at":"2024-08-02T15:48:47.000Z","tags":[],"title":"Configuring Elasticsearch and Kibana to work with each other without requiring enrollment token","_secondary":true}
+{"id":"so-68153672","source":"stackoverflow","score":1,"posted_at":"2021-06-27T17:22:05.000Z","tags":[],"title":"No configuration found in the configured sources. Error while running logstash.conf file","_secondary":true}
+{"id":"so-24764203","source":"stackoverflow","score":1,"posted_at":"2014-07-15T17:10:55.000Z","tags":[],"title":"Kibana (https) can&#39;t access ElasticSearch (http) in Internet Explorer"}
+{"id":"so-76112168","source":"stackoverflow","score":1,"posted_at":"2023-04-26T14:50:16.000Z","tags":["apm","fleet"],"title":"There is no data in Elastic APM using fleet","_secondary":true}
+{"id":"so-61112108","source":"stackoverflow","score":1,"posted_at":"2020-04-09T00:28:03.000Z","tags":["fleet"],"title":"ElasticSearch/Kibana: get values that are not found in entries more recent than a certain date","_secondary":true}
+{"id":"so-61021063","source":"stackoverflow","score":1,"posted_at":"2020-04-03T22:01:54.000Z","tags":[],"title":"Is there a difference between Docker-Compose on Linux vs Windows?","_secondary":true}
+{"id":"so-53342154","source":"stackoverflow","score":1,"posted_at":"2018-11-16T16:48:59.000Z","tags":[],"title":"Spring Micrometer: Shipping Metrics to an AWS ElasticSearch Instance","_secondary":true}
+{"id":"so-51391565","source":"stackoverflow","score":1,"posted_at":"2018-07-17T23:36:09.000Z","tags":[],"title":"‘appid’, &#39;units&#39; is not recognized as an internal or external command","_secondary":true}
+{"id":"so-48517056","source":"stackoverflow","score":1,"posted_at":"2018-01-30T08:33:28.000Z","tags":[],"title":"AWS ElasticSearch as a Service fails to connect via standalone KIBANA","_secondary":true}
+{"id":"so-45895733","source":"stackoverflow","score":1,"posted_at":"2017-08-26T13:09:07.000Z","tags":[],"title":"Nginx location /logs doesn&#39;t proxy pass correctly to Kibana leading to 404","_secondary":true}
+{"id":"so-42420264","source":"stackoverflow","score":1,"posted_at":"2017-02-23T15:45:37.000Z","tags":["anomaly"],"title":"Kibana graph for anomaly detection","_secondary":true}
+{"id":"so-79806943","source":"stackoverflow","score":1,"posted_at":"2025-11-02T05:29:18.000Z","tags":["siem","fleet"],"title":"Logs not showing in Kibana"}
+{"id":"so-77226765","source":"stackoverflow","score":1,"posted_at":"2023-10-04T04:31:14.000Z","tags":[],"title":"Can I hit API endpoints from Kibana dashboard?","_secondary":true}
+{"id":"so-75721766","source":"stackoverflow","score":1,"posted_at":"2023-03-13T12:16:53.000Z","tags":["fleet"],"title":"Kibana Self Signed Certificate behind Proxy"}
+{"id":"so-75427398","source":"stackoverflow","score":1,"posted_at":"2023-02-12T13:42:35.000Z","tags":["discover"],"title":"Bad gateway from Kibana behind nodejs reverse proxys","_secondary":true}
+{"id":"so-73168817","source":"stackoverflow","score":1,"posted_at":"2022-07-29T17:07:57.000Z","tags":["security-app"],"title":"Fortinet data not loading in kibana"}
+{"id":"so-70926108","source":"stackoverflow","score":1,"posted_at":"2022-01-31T12:40:21.000Z","tags":[],"title":"How to calculate api latency from tomcat server weblogs via elastic search Kibana?","_secondary":true}
+{"id":"so-65600601","source":"stackoverflow","score":1,"posted_at":"2021-01-06T17:33:24.000Z","tags":[],"title":"grok regex in logstash to parse and extract field"}
+{"id":"so-61444762","source":"stackoverflow","score":1,"posted_at":"2020-04-26T17:07:10.000Z","tags":[],"title":"Logstash not reading file input using docker-compose.yaml file","_secondary":true}
+{"id":"so-56968289","source":"stackoverflow","score":1,"posted_at":"2019-07-10T10:01:40.000Z","tags":[],"title":"Shoud i need MongoDB profiler in case monitoring mongoDB using ELK stack + redis","_secondary":true}
+{"id":"so-56681411","source":"stackoverflow","score":1,"posted_at":"2019-06-20T07:50:32.000Z","tags":[],"title":"(Logstash) setting @timestamp value using timestamp from logs"}
+{"id":"so-55231038","source":"stackoverflow","score":1,"posted_at":"2019-03-18T22:32:05.000Z","tags":["discover"],"title":"filter by uri param in kibana","_secondary":true}
+{"id":"so-52198688","source":"stackoverflow","score":1,"posted_at":"2018-09-06T07:28:06.000Z","tags":[],"title":"Logstash - Filebeat don&#39;t parse every line of an IIS Log File","_secondary":true}
+{"id":"so-37102335","source":"stackoverflow","score":3,"posted_at":"2016-05-08T16:49:41.000Z","tags":["siem"],"title":"Kibana is very slow to load result"}
+{"id":"so-71169871","source":"stackoverflow","score":0,"posted_at":"2022-02-18T07:38:30.000Z","tags":[],"title":"Combining the metrics by request variable in Kibana","_secondary":true}
+{"id":"so-37647633","source":"stackoverflow","score":0,"posted_at":"2016-06-05T23:01:23.000Z","tags":[],"title":"How to deploy shield with Kibana on Bluemix","_secondary":true}
+{"id":"so-36875778","source":"stackoverflow","score":-1,"posted_at":"2016-04-26T21:07:37.000Z","tags":["discover"],"title":"Kibana 4 as Azure website is not connecting to ElasticSearch service","_secondary":true}
+{"id":"so-42024253","source":"stackoverflow","score":1,"posted_at":"2017-02-03T12:23:42.000Z","tags":[],"title":"Self host kibana 5.1.1 keeps getting request timeout while connecting to AWS Elasticsearch 5.1","_secondary":true}
+{"id":"so-45867927","source":"stackoverflow","score":0,"posted_at":"2017-08-24T17:43:49.000Z","tags":[],"title":"reading .gz files using logstash"}
+{"id":"so-54413006","source":"stackoverflow","score":13,"posted_at":"2019-01-29T02:27:21.000Z","tags":[],"title":"Serilog writes the logs twice","_secondary":true}
+{"id":"so-58035890","source":"stackoverflow","score":1,"posted_at":"2019-09-20T22:47:11.000Z","tags":[],"title":"Index pattern is not showing up in Kibana management","_secondary":true}
+{"id":"so-64969993","source":"stackoverflow","score":1,"posted_at":"2020-11-23T14:04:28.000Z","tags":["kql"],"title":"Regex query from Kibana discovery tab over logs from logstash","_secondary":true}
+{"id":"so-76061366","source":"stackoverflow","score":0,"posted_at":"2023-04-20T07:01:57.000Z","tags":[],"title":"Regarding http post request to url (Kibana 8.6.2) to get the endpoint response","_secondary":true}
+{"id":"so-63817825","source":"stackoverflow","score":0,"posted_at":"2020-09-09T18:49:24.000Z","tags":["lens","canvas","siem","apm"],"title":"Kibana failure during &quot;Optimizing&quot; step","_secondary":true}
+{"id":"so-63666510","source":"stackoverflow","score":0,"posted_at":"2020-08-31T07:26:56.000Z","tags":[],"title":"Embedding kibana dashboard in external ui prompts login","_secondary":true}
+{"id":"so-59716946","source":"stackoverflow","score":0,"posted_at":"2020-01-13T12:46:07.000Z","tags":[],"title":"How to use Elasticsearch, Logstash and Kibana via API inputs?"}
+{"id":"so-65828960","source":"stackoverflow","score":0,"posted_at":"2021-01-21T13:56:09.000Z","tags":[],"title":"No &#39;Access-Control-Allow-Origin&#39; header is present on the requested resource. Angular Elasticsearch Kibana","_secondary":true}
+{"id":"so-74141794","source":"stackoverflow","score":1,"posted_at":"2022-10-20T14:42:07.000Z","tags":[],"title":"Monitoring API for OpenSearch Dashboards","_secondary":true}

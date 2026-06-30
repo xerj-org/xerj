@@ -1,0 +1,137 @@
+
+<svg class="arch-svg" viewBox="0 0 1400 580" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:auto;">
+  <defs>
+    <style>
+      .lbl    { font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; letter-spacing: 0.08em; fill: currentColor; }
+      .lbl-s  { font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.10em; fill: currentColor; opacity: 0.62; }
+      .lbl-x  { font-family: 'IBM Plex Sans', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.18em; fill: currentColor; opacity: 0.48; text-transform: uppercase; }
+      .lbl-a  { font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.10em; fill: #ffc400; }
+      .lbl-m  { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; letter-spacing: 0.04em; fill: currentColor; opacity: 0.55; }
+      .ln     { stroke: currentColor; stroke-width: 1; fill: none; stroke-linecap: square; }
+      .ln-a   { stroke: #ffc400; stroke-width: 1; fill: none; stroke-linecap: square; }
+      .ln-d   { stroke: currentColor; stroke-width: 1; fill: none; stroke-linecap: square; stroke-dasharray: 3 4; opacity: 0.5; }
+      .bx     { stroke: currentColor; stroke-width: 1; fill: none; }
+      .bx-a   { stroke: #ffc400; stroke-width: 1; fill: none; }
+    </style>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="1399" height="579" class="bx" opacity="0.18"/>
+
+  <!-- column headers -->
+  <text x="40"   y="42" class="lbl-x">ADMIT</text>
+  <text x="320"  y="42" class="lbl-x">ROUTE · SHARD</text>
+  <text x="780"  y="42" class="lbl-x">DURABLE LOG</text>
+  <text x="1100" y="42" class="lbl-x">FLUSH · SEAL</text>
+  <line x1="40" y1="56" x2="1360" y2="56" class="ln" opacity="0.30"/>
+
+  <!-- inbound batch -->
+  <rect x="40" y="80" width="220" height="64" class="bx"/>
+  <text x="60" y="112" class="lbl">INGEST BATCH</text>
+  <text x="60" y="132" class="lbl-s">_bulk · NDJSON · OTLP</text>
+
+  <line x1="260" y1="112" x2="310" y2="112" class="ln-a"/>
+  <polyline points="302,102 312,112 302,122" class="ln-a"/>
+
+  <!-- shard router -->
+  <rect x="310" y="80" width="220" height="64" class="bx-a"/>
+  <text x="330" y="112" class="lbl-a">HASH ROUTE</text>
+  <text x="330" y="132" class="lbl-m">xxh3_64(doc_id) &amp; 15</text>
+
+  <!-- 16 sharded memtable cells -->
+  <text x="600" y="74" class="lbl">SHARDED MEMTABLE · 16 SHARDS</text>
+
+  <g stroke="currentColor" stroke-width="1" fill="none" stroke-linecap="square">
+    <!-- 4×4 grid of shards -->
+    <rect x="600"  y="80" width="40" height="40"/>
+    <rect x="650"  y="80" width="40" height="40"/>
+    <rect x="700"  y="80" width="40" height="40"/>
+    <rect x="750"  y="80" width="40" height="40"/>
+    <rect x="600"  y="130" width="40" height="40"/>
+    <rect x="650"  y="130" width="40" height="40"/>
+    <rect x="700"  y="130" width="40" height="40"/>
+    <rect x="750"  y="130" width="40" height="40"/>
+  </g>
+  <!-- second row of 4×2 -->
+  <g stroke="currentColor" stroke-width="1" fill="none" stroke-linecap="square">
+    <rect x="600"  y="180" width="40" height="40"/>
+    <rect x="650"  y="180" width="40" height="40"/>
+    <rect x="700"  y="180" width="40" height="40"/>
+    <rect x="750"  y="180" width="40" height="40"/>
+    <rect x="600"  y="230" width="40" height="40"/>
+    <rect x="650"  y="230" width="40" height="40"/>
+    <rect x="700"  y="230" width="40" height="40"/>
+    <rect x="750"  y="230" width="40" height="40"/>
+  </g>
+
+  <!-- highlight one shard yellow -->
+  <rect x="700" y="130" width="40" height="40" class="bx-a"/>
+
+  <!-- arrow from router to shard grid -->
+  <line x1="530" y1="112" x2="600" y2="100" class="ln"/>
+  <line x1="530" y1="112" x2="600" y2="150" class="ln"/>
+  <line x1="530" y1="112" x2="600" y2="200" class="ln"/>
+  <line x1="530" y1="112" x2="600" y2="250" class="ln"/>
+
+  <!-- WAL writer -->
+  <line x1="790" y1="170" x2="900" y2="170" class="ln-a"/>
+  <polyline points="892,160 902,170 892,180" class="ln-a"/>
+
+  <rect x="900" y="100" width="240" height="120" class="bx-a"/>
+  <text x="920" y="130" class="lbl-a">WAL · SINGLE WRITER</text>
+  <text x="920" y="156" class="lbl-s">monotonic seq_no</text>
+  <text x="920" y="174" class="lbl-s">batched fsync</text>
+  <text x="920" y="192" class="lbl-s">CRC32C per batch</text>
+  <text x="920" y="212" class="lbl-m">2xx ← after fsync return</text>
+
+  <!-- ===== bottom half: flush -> segment ===== -->
+  <line x1="40" y1="310" x2="1360" y2="310" class="ln" opacity="0.30"/>
+  <text x="40" y="338" class="lbl-x">PERIODIC FLUSH · ORDER BY SEQ_NO</text>
+
+  <line x1="700" y1="270" x2="700" y2="372" class="ln"/>
+  <polyline points="690,364 700,374 710,364" class="ln"/>
+
+  <rect x="40" y="380" width="200" height="80" class="bx"/>
+  <text x="60" y="412" class="lbl">DRAIN ALL SHARDS</text>
+  <text x="60" y="432" class="lbl-s">single sorted stream</text>
+  <text x="60" y="450" class="lbl-m">order: seq_no asc</text>
+
+  <line x1="240" y1="420" x2="290" y2="420" class="ln"/>
+  <polyline points="282,410 292,420 282,430" class="ln"/>
+
+  <rect x="290" y="380" width="200" height="80" class="bx"/>
+  <text x="310" y="412" class="lbl">BUILD SEGMENT</text>
+  <text x="310" y="432" class="lbl-s">postings · doc-values</text>
+  <text x="310" y="450" class="lbl-s">columnar logs · vectors</text>
+
+  <line x1="490" y1="420" x2="540" y2="420" class="ln"/>
+  <polyline points="532,410 542,420 532,430" class="ln"/>
+
+  <rect x="540" y="380" width="200" height="80" class="bx"/>
+  <text x="560" y="412" class="lbl">COMPRESS · SEAL</text>
+  <text x="560" y="432" class="lbl-s">LZ4 / ZSTD codecs</text>
+  <text x="560" y="450" class="lbl-s">dictionary · low-card</text>
+
+  <line x1="740" y1="420" x2="790" y2="420" class="ln"/>
+  <polyline points="782,410 792,420 782,430" class="ln"/>
+
+  <rect x="790" y="380" width="200" height="80" class="bx-a"/>
+  <text x="810" y="412" class="lbl-a">SEALED SEGMENT</text>
+  <text x="810" y="432" class="lbl-s">immutable · mmap</text>
+  <text x="810" y="450" class="lbl-s">indexed · queryable</text>
+
+  <!-- merge background -->
+  <line x1="890" y1="460" x2="890" y2="500" class="ln-d"/>
+  <rect x="790" y="500" width="200" height="56" class="bx" stroke-dasharray="3 4" opacity="0.85"/>
+  <text x="810" y="525" class="lbl-s">BACKGROUND MERGE</text>
+  <text x="810" y="544" class="lbl-s">amortized · per-policy</text>
+
+  <!-- recovery branch -->
+  <line x1="990" y1="420" x2="1040" y2="420" class="ln"/>
+  <polyline points="1032,410 1042,420 1032,430" class="ln"/>
+  <rect x="1040" y="380" width="220" height="80" class="bx"/>
+  <text x="1060" y="412" class="lbl">RESTART · OPEN</text>
+  <text x="1060" y="432" class="lbl-s">replay WAL · re-attach</text>
+  <text x="1060" y="450" class="lbl-s">orphan segments</text>
+
+  <text x="40" y="558" class="lbl-x">DURABILITY · 2XX AFTER FSYNC · 100 % RESTART RECOVERY ON 5 M-DOC TEST</text>
+</svg>

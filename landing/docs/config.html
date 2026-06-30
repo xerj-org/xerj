@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ.ai · Docs · Config TOML</title>
+<meta name="description" content="Config TOML — XERJ.ai documentation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+
+<nav class="nav" aria-label="Primary">
+  <a href="/index.html" class="brand">XERJ.AI</a>
+  <a href="/index.html">HOME</a>
+  <a href="/product.html">PRODUCT</a>
+  <span class="nav-drop">
+    <a href="/use-cases.html">USE CASES</a>
+  </span>
+  <span class="spacer"></span>
+  <a href="/docs/index.html" class="active">DOCS</a>
+  <a href="/playground.html">DASHBOARDS</a>
+  <a href="https://github.com/" rel="external">GITHUB</a>
+  <span class="spacer"></span>
+  <span class="theme">
+    <button type="button" data-theme="day">DAY</button>
+    <span class="dash">·</span>
+    <button type="button" data-theme="night" class="active">NIGHT</button>
+  </span>
+</nav>
+
+<div class="docs-search" id="docsSearch">
+  <input type="text" id="docsSearchInput" placeholder="Search docs · keys, flags, endpoints, playbooks…" aria-label="Search docs" autocomplete="off" spellcheck="false">
+  <span class="hint">⌘ K</span>
+  <div class="results" id="docsSearchResults" aria-live="polite"></div>
+</div>
+
+<div class="docs-shell">
+<nav class="docs-nav" aria-label="Docs">  <div class="group">
+    <span class="label">START</span>
+    <a href="/docs/index.html" class=""><span class="eyebrow">01</span>Overview</a>
+      <a href="/docs/quickstart.html" class=""><span class="eyebrow">02</span>Quickstart</a>
+      <a href="/docs/install.html" class=""><span class="eyebrow">03</span>Install</a>
+      <a href="/docs/migration-from-es.html" class=""><span class="eyebrow">04</span>Migrate from ES</a>
+  </div>
+  <div class="group">
+    <span class="label">REFERENCE</span>
+    <a href="/docs/cli.html" class=""><span class="eyebrow">01</span>CLI</a>
+      <a href="/docs/config.html" class="active"><span class="eyebrow">02</span>Config TOML</a>
+      <a href="/docs/env.html" class=""><span class="eyebrow">03</span>Environment</a>
+      <a href="/docs/api-native.html" class=""><span class="eyebrow">04</span>Native REST API</a>
+      <a href="/docs/api-es-compat.html" class=""><span class="eyebrow">05</span>ES-compat API</a>
+  </div>
+  <div class="group">
+    <span class="label">DATA MODEL</span>
+    <a href="/docs/queries.html" class=""><span class="eyebrow">01</span>Query types</a>
+      <a href="/docs/aggregations.html" class=""><span class="eyebrow">02</span>Aggregations</a>
+      <a href="/docs/analyzers.html" class=""><span class="eyebrow">03</span>Analyzers</a>
+      <a href="/docs/vectors.html" class=""><span class="eyebrow">04</span>Vectors & HNSW</a>
+  </div>
+  <div class="group">
+    <span class="label">ENGINE</span>
+    <a href="/docs/ingest.html" class=""><span class="eyebrow">01</span>Ingest pipelines</a>
+      <a href="/docs/storage.html" class=""><span class="eyebrow">02</span>Storage & WAL</a>
+      <a href="/docs/compression.html" class=""><span class="eyebrow">03</span>Compression</a>
+      <a href="/docs/clustering.html" class=""><span class="eyebrow">04</span>Clustering</a>
+      <a href="/docs/metrics.html" class=""><span class="eyebrow">05</span>Metrics</a>
+      <a href="/docs/security.html" class=""><span class="eyebrow">06</span>Auth & TLS</a>
+  </div>
+  <div class="group">
+    <span class="label">OPERATIONS</span>
+    <a href="/docs/operations.html" class=""><span class="eyebrow">01</span>Running in production</a>
+      <a href="/docs/backup-restore.html" class=""><span class="eyebrow">02</span>Backup & restore</a>
+      <a href="/docs/upgrades.html" class=""><span class="eyebrow">03</span>Upgrades</a>
+      <a href="/docs/troubleshooting.html" class=""><span class="eyebrow">04</span>Troubleshooting</a>
+  </div>
+  <div class="group">
+    <span class="label">PLAYBOOKS</span>
+    <a href="/docs/playbooks/siem.html" class=""><span class="eyebrow">01</span>SIEM</a>
+      <a href="/docs/playbooks/log-analytics.html" class=""><span class="eyebrow">02</span>Log analytics</a>
+      <a href="/docs/playbooks/vector-search.html" class=""><span class="eyebrow">03</span>Vector · RAG</a>
+      <a href="/docs/playbooks/full-text.html" class=""><span class="eyebrow">04</span>Full-text search</a>
+      <a href="/docs/playbooks/observability.html" class=""><span class="eyebrow">05</span>Observability</a>
+  </div>
+</nav>
+
+<main class="docs-content">
+  <!-- Print-only branded header (hidden on screen, visible in PDF) -->
+  <div class="print-header" style="display:none;">XERJ.AI</div>
+
+  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span>REFERENCE<span class="sep">·</span>CONFIG
+    <button class="pdf-btn" onclick="window.print()" title="Save this page as PDF">
+      <svg viewBox="0 0 24 24"><path d="M12 3v12M12 15l-4-4M12 15l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+      PDF
+    </button>
+  </div>
+  <div class="kicker"><span>02 · REFERENCE</span></div>
+  <h1>Config TOML</h1>
+
+
+  <p>XERJ reads one TOML file. Every key has a production-ready default, so the smallest working config is an empty file. The table below is the full surface; the sections below it walk each group with a runnable example.</p>
+
+  <p>Paths for the config are, in precedence order: <code class="inline">--config /path/to/xerj.toml</code> on the command line, then <code class="inline">/etc/xerj/xerj.toml</code>, then <code class="inline">./xerj.toml</code> in the working directory. If none exist, the full default is used.</p>
+
+  <h2>Full key table</h2>
+  <div class="cfg"><div class="head">KEY</div><div class="head">TYPE</div><div class="head">DEFAULT</div><div class="head">DESCRIPTION</div><div class="group" id="server">[server]</div><div class="cell k">rest_port</div><div class="cell t">u16</div><div class="cell d">8080</div><div class="cell dsc">Native REST API listener port. All native endpoints (/v1/*) live here.</div><div class="cell k">grpc_port</div><div class="cell t">u16</div><div class="cell d">8081</div><div class="cell dsc">Reserved for a future gRPC API. Not wired in v0.1 — leave at default.</div><div class="cell k">es_compat_port</div><div class="cell t">u16</div><div class="cell d">9200</div><div class="cell dsc">Elasticsearch-compatible wire port. Point Kibana, Logstash, or the ES client here. Set to 0 to disable.</div><div class="cell k">bind_address</div><div class="cell t">string</div><div class="cell d">"0.0.0.0"</div><div class="cell dsc">Interface to bind every listener to. Use "127.0.0.1" for dev or a private address in production.</div><div class="cell k">data_dir</div><div class="cell t">path</div><div class="cell d">"./data"</div><div class="cell dsc">Root for indices, WAL files, and segments. Needs fast I/O and enough free space.</div><div class="group" id="auth">[auth]</div><div class="cell k">enabled</div><div class="cell t">bool</div><div class="cell d">true</div><div class="cell dsc">Require an API key on every request. Set to false only on a trusted network.</div><div class="cell k">admin_api_key</div><div class="cell t">string</div><div class="cell d">""</div><div class="cell dsc">Static admin key. Left empty, a 256-bit key is generated on first run and written to <data_dir>/admin.key.</div><div class="group" id="tls">[tls]</div><div class="cell k">enabled</div><div class="cell t">bool</div><div class="cell d">false</div><div class="cell dsc">Terminate TLS at the server. Requires cert_path + key_path. If you terminate at a proxy, leave false.</div><div class="cell k">cert_path</div><div class="cell t">path</div><div class="cell d">""</div><div class="cell dsc">PEM X.509 certificate. Use a CA-signed cert in production.</div><div class="cell k">key_path</div><div class="cell t">path</div><div class="cell d">""</div><div class="cell dsc">PEM private key. Permissions should be 0600.</div><div class="group" id="storage">[storage]</div><div class="cell k">wal_sync</div><div class="cell t">enum</div><div class="cell d">"batched"</div><div class="cell dsc">"sync" · "batched" · "async". Durability vs throughput. Batched is the recommended default.</div><div class="cell k">wal_batch_ms</div><div class="cell t">u32</div><div class="cell d">100</div><div class="cell dsc">Fsync cadence when wal_sync="batched" (ms). Range 1–10000. Lower = smaller loss window.</div><div class="cell k">wal_max_size_mb</div><div class="cell t">u32</div><div class="cell d">512</div><div class="cell dsc">WAL rollover threshold (MiB). Larger means fewer rollovers, longer crash recovery.</div><div class="cell k">flush_size_mb</div><div class="cell t">u32</div><div class="cell d">256</div><div class="cell dsc">Memtable buffer size that triggers a segment flush (MiB).</div><div class="cell k">flush_interval_secs</div><div class="cell t">u32</div><div class="cell d">30</div><div class="cell dsc">Maximum wall-clock interval between flushes even if the buffer is not full.</div><div class="group" id="merge">[merge]</div><div class="cell k">strategy</div><div class="cell t">enum</div><div class="cell d">"size_tiered"</div><div class="cell dsc">"size_tiered" or "log_structured". Size-tiered for write-heavy, log-structured for mixed workloads.</div><div class="cell k">min_segments</div><div class="cell t">u32</div><div class="cell d">10</div><div class="cell dsc">Minimum live segments before a merge pass is scheduled. Must be ≥ 2.</div><div class="cell k">max_segment_mb</div><div class="cell t">u32</div><div class="cell d">5120</div><div class="cell dsc">Upper bound on a mergeable segment (MiB). Segments larger than this are never merged.</div><div class="cell k">io_rate_mb_per_sec</div><div class="cell t">u32</div><div class="cell d">100</div><div class="cell dsc">Merge I/O throttle (MiB/s). Set 0 to disable — not recommended in production.</div><div class="cell k">max_concurrent</div><div class="cell t">u8</div><div class="cell d">1</div><div class="cell dsc">Concurrent merge workers per index. Bump to 2–4 on fast NVMe.</div><div class="group" id="compression">[compression]</div><div class="cell k">enabled</div><div class="cell t">bool</div><div class="cell d">true</div><div class="cell dsc">Block-level compression. Disabling increases disk usage and lowers read CPU.</div><div class="cell k">level</div><div class="cell t">enum</div><div class="cell d">"balanced"</div><div class="cell dsc">"fast" (LZ4), "balanced" (Zstd L3, default), "best" (Zstd L19, cold storage).</div><div class="cell k">block_size_docs</div><div class="cell t">u32</div><div class="cell d">128</div><div class="cell dsc">Docs per compressed block. Range 16–4096. Larger = better ratio, higher fetch cost.</div><div class="group" id="fts">[fts]</div><div class="cell k">default_analyzer</div><div class="cell t">enum</div><div class="cell d">"standard"</div><div class="cell dsc">"standard" · "whitespace" · "simple" · "english". Override per-field in the mapping.</div><div class="group" id="vector">[vector]</div><div class="cell k">default_metric</div><div class="cell t">enum</div><div class="cell d">"cosine"</div><div class="cell dsc">"cosine" · "dot_product" · "euclidean". Cosine for text embeddings is the usual choice.</div><div class="cell k">hnsw_m</div><div class="cell t">u32</div><div class="cell d">16</div><div class="cell dsc">Bi-directional edges per layer. Higher = better recall, more RAM. Typical 8–64.</div><div class="cell k">hnsw_ef_construction</div><div class="cell t">u32</div><div class="cell d">200</div><div class="cell dsc">Beam width at index-build time. Must be ≥ hnsw_m. Typical 100–500.</div><div class="cell k">hnsw_ef_search</div><div class="cell t">u32</div><div class="cell d">100</div><div class="cell dsc">Default query-time beam width. Per-query override available via `ef_search` in the KNN body.</div><div class="cell k">default_quantization</div><div class="cell t">enum</div><div class="cell d">"scalar8"</div><div class="cell dsc">"none" · "scalar8" · "scalar4" · "binary". scalar8 = 4× RAM saving, 1–2% recall loss.</div><div class="cell k">hnsw_offload_threshold</div><div class="cell t">u32</div><div class="cell d">0</div><div class="cell dsc">Auto-downgrade new vectors to scalar4 once the index exceeds N vectors. 0 disables.</div><div class="cell k">max_dimensions</div><div class="cell t">u32</div><div class="cell d">16384</div><div class="cell dsc">Upper bound on vector dimensionality. 4× the Elasticsearch limit of 4096.</div><div class="group" id="logs">[logs]</div><div class="cell k">retention_days</div><div class="cell t">u32</div><div class="cell d">90</div><div class="cell dsc">Auto-delete log docs older than N days. 0 disables.</div><div class="cell k">time_partition</div><div class="cell t">enum</div><div class="cell d">"1h"</div><div class="cell dsc">"1m" · "5m" · "15m" · "1h" · "6h" · "1d". Time-slice granularity for retention pruning.</div><div class="group" id="embedding">[embedding]</div><div class="cell k">default_endpoint</div><div class="cell t">string</div><div class="cell d">""</div><div class="cell dsc">OpenAI-compatible embeddings URL. Empty disables auto-embedding on ingest. Example: "https://api.openai.com/v1/embeddings".</div><div class="cell k">default_model</div><div class="cell t">string</div><div class="cell d">""</div><div class="cell dsc">Model name passed to the endpoint. Example: "text-embedding-3-small" or "nomic-embed-text".</div><div class="cell k">batch_size</div><div class="cell t">u32</div><div class="cell d">64</div><div class="cell dsc">Docs per embedding API call. Range 1–2048. Bigger batches amortise round-trip cost.</div><div class="cell k">timeout_ms</div><div class="cell t">u32</div><div class="cell d">5000</div><div class="cell dsc">HTTP timeout for embedding calls (ms). Ingest fails with a timeout error if exceeded.</div><div class="group" id="limits">[limits]</div><div class="cell k">max_query_memory_mb</div><div class="cell t">u32</div><div class="cell d">512</div><div class="cell dsc">Per-query memory cap (MiB). Queries that exceed it are cancelled.</div><div class="cell k">max_concurrent_searches</div><div class="cell t">u32</div><div class="cell d">64</div><div class="cell dsc">Global in-flight search ceiling. Extras are queued.</div><div class="cell k">max_fields_per_index</div><div class="cell t">u32</div><div class="cell d">500</div><div class="cell dsc">Field-explosion protection. ES default is 1000; 500 is intentionally stricter.</div><div class="group" id="indexing">[indexing]</div><div class="cell k">turbo_batch_size</div><div class="cell t">u32</div><div class="cell d">1000</div><div class="cell dsc">Docs per batch in turbo mode. Range 500–5000. Larger = higher throughput, slightly higher latency.</div><div class="cell k">turbo_parallel</div><div class="cell t">bool</div><div class="cell d">true</div><div class="cell dsc">Parallel tokenisation on Rayon threads. Disable only for debugging.</div><div class="cell k">turbo_fast_analyzer</div><div class="cell t">bool</div><div class="cell d">false</div><div class="cell dsc">Skip stemming and stop-word removal in turbo mode. Trades recall for speed.</div><div class="group" id="cluster">[cluster]</div><div class="cell k">enabled</div><div class="cell t">bool</div><div class="cell d">false</div><div class="cell dsc">Enable multi-node cluster mode. When true, the Raft state machine and cluster transport are started on port.</div><div class="cell k">port</div><div class="cell t">u16</div><div class="cell d">9300</div><div class="cell dsc">TCP port for intra-cluster Raft and search messages. Must be reachable from every peer.</div><div class="cell k">peers</div><div class="cell t">array</div><div class="cell d">[]</div><div class="cell dsc">Peer list in "node_id=host:port" format. The local node identifies itself from the entry matching bind_address:port. Example: ["a=10.0.0.1:9300","b=10.0.0.2:9300","c=10.0.0.3:9300"].</div><div class="cell k">tick_ms</div><div class="cell t">u64</div><div class="cell d">50</div><div class="cell dsc">Raft tick interval (ms). Lower = faster leader election at the cost of CPU.</div></div>
+
+  
+  <h2 id="server-section">[server]</h2>
+  <p>Network listeners and the data directory. Most deployments only touch <code class="inline">data_dir</code> and the bind address.</p>
+<pre class="code">[server]
+rest_port      = 8080            # native /v1/* API
+es_compat_port = 9200            # ES wire-compatible API
+grpc_port      = 8081            # reserved
+bind_address   = "0.0.0.0"       # listen on all interfaces
+data_dir       = "/var/lib/xerj" # absolute path is strongly recommended</pre>
+
+  <h2 id="auth-section">[auth]</h2>
+  <p>Static API-key authentication. The first-run admin key is written to <code class="inline">&lt;data_dir&gt;/admin.key</code>; subsequent starts reuse it. Clients pass <code class="inline">Authorization: ApiKey &lt;key&gt;</code> on every request.</p>
+<pre class="code">[auth]
+enabled       = true
+admin_api_key = ""               # blank → auto-generated on first run
+
+# Or provide your own:
+# admin_api_key = "ak_live_c8f9a4…"</pre>
+
+  <h2 id="tls-section">[tls]</h2>
+  <p>TLS termination at the server. In Kubernetes or behind a load balancer, leave this off and terminate at the proxy instead — one place to rotate certs, one place to log handshakes.</p>
+<pre class="code">[tls]
+enabled   = true
+cert_path = "/etc/xerj/certs/server.crt"
+key_path  = "/etc/xerj/certs/server.key"</pre>
+
+  <h2 id="storage-section">[storage]</h2>
+  <p>The WAL and flush tuning. <code class="inline">wal_sync</code> is the durability knob everyone looks for — pick <code class="inline">"sync"</code> for financial/compliance workloads, <code class="inline">"batched"</code> for everything else, and <code class="inline">"async"</code> only in benchmarks.</p>
+<pre class="code">[storage]
+wal_sync            = "batched"
+wal_batch_ms        = 100        # fsync every 100 ms
+wal_max_size_mb     = 512        # roll WAL every 512 MiB
+flush_size_mb       = 256        # flush memtable at 256 MiB
+flush_interval_secs = 30</pre>
+
+  <h2 id="merge-section">[merge]</h2>
+  <p>Segment compaction. <code class="inline">size_tiered</code> is the right default: it merges same-size segments, which is cheap and write-optimal. Switch to <code class="inline">log_structured</code> if your reads are doing a lot of full-range scans.</p>
+<pre class="code">[merge]
+strategy           = "size_tiered"
+min_segments       = 10
+max_segment_mb     = 5120        # 5 GiB cap
+io_rate_mb_per_sec = 100         # don't starve queries
+max_concurrent     = 2           # bump on NVMe</pre>
+
+  <h2 id="compression-section">[compression]</h2>
+  <p>See <a href="/docs/compression.html">Compression</a> for the encoding catalog. This section picks the outer <em>block</em> codec only — the inner per-column encodings are chosen automatically at write time.</p>
+<pre class="code">[compression]
+enabled         = true
+level           = "balanced"     # LZ4 / Zstd L3 / Zstd L19
+block_size_docs = 128</pre>
+
+  <h2 id="fts-section">[fts]</h2>
+  <p>Default analyzer applied to untyped <code class="inline">text</code> fields. Override per-field in the mapping when creating an index. See <a href="/docs/analyzers.html">Analyzers</a> for the built-ins.</p>
+<pre class="code">[fts]
+default_analyzer = "standard"    # unicode words + lowercase</pre>
+
+  <h2 id="vector-section">[vector]</h2>
+  <p>HNSW index tuning and the default quantization scheme. These defaults are chosen so a 1 M × 768-dim index fits in a few GiB of RAM with ~99% recall. Override per-field in the mapping for exotic cases.</p>
+<pre class="code">[vector]
+default_metric         = "cosine"
+hnsw_m                 = 16
+hnsw_ef_construction   = 200
+hnsw_ef_search         = 100
+default_quantization   = "scalar8"   # 4× RAM saving
+hnsw_offload_threshold = 1000000     # auto-scalar4 past 1 M vectors
+max_dimensions         = 16384</pre>
+
+  <h2 id="logs-section">[logs]</h2>
+  <p>Time-series retention. Log indices are sliced into partitions of <code class="inline">time_partition</code> width so retention prunes are O(partitions), not O(documents).</p>
+<pre class="code">[logs]
+retention_days = 30              # keep 30 days
+time_partition = "1h"            # 1-hour partitions</pre>
+
+  <h2 id="embedding-section">[embedding]</h2>
+  <p>Delegates vector generation to an OpenAI-compatible endpoint. Leave <code class="inline">default_endpoint</code> empty if clients provide vectors themselves. Token limits are model-specific; the chunker in the <code class="inline">ai</code> crate splits long documents to fit the model's window.</p>
+<pre class="code">[embedding]
+# OpenAI:
+default_endpoint = "https://api.openai.com/v1/embeddings"
+default_model    = "text-embedding-3-small"
+batch_size       = 64
+timeout_ms       = 5000
+
+# Or a local Ollama:
+# default_endpoint = "http://localhost:11434/v1/embeddings"
+# default_model    = "nomic-embed-text"</pre>
+
+  <h2 id="limits-section">[limits]</h2>
+  <p>Hard caps to protect the server from runaway queries and mapping explosions. Lower these on shared nodes, raise <code class="inline">max_query_memory_mb</code> for aggregation-heavy workloads.</p>
+<pre class="code">[limits]
+max_query_memory_mb     = 512
+max_concurrent_searches = 64
+max_fields_per_index    = 500</pre>
+
+  <h2 id="indexing-section">[indexing]</h2>
+  <p>Turbo mode knobs. Turbo is opt-in per-request via <code class="inline">POST /v1/indices/:name/turbo-ingest</code> or the <code class="inline">X-Turbo: true</code> header on <code class="inline">_bulk</code>; these settings only apply when turbo is active.</p>
+<pre class="code">[indexing]
+turbo_batch_size    = 2000
+turbo_parallel      = true
+turbo_fast_analyzer = false      # true only if recall doesn't matter</pre>
+
+  <h2 id="cluster-section">[cluster]</h2>
+  <p>Multi-node mode. Default is off — single-node doesn't need a consensus layer. When enabled, the embedded Raft implementation replicates <strong>metadata only</strong> (schemas, shard assignments, node roster). See <a href="/docs/clustering.html">Clustering</a> for the full story.</p>
+<pre class="code">[cluster]
+enabled = true
+port    = 9300                   # intra-cluster gRPC + Raft
+peers   = [
+  "a=10.0.0.11:9300",
+  "b=10.0.0.12:9300",
+  "c=10.0.0.13:9300",
+]
+tick_ms = 50</pre>
+
+
+  <p class="source-note">Source · engine/xerj.default.toml · engine/crates/common/src/config.rs</p>
+  
+
+<div class="next">
+      <div class="step"><span class="dir">◀ PREV</span><a href="/docs/cli.html">CLI</a></div>
+      <div class="step right"><span class="dir">NEXT ▶</span><a href="/docs/env.html">Environment</a></div>
+    </div>
+
+  <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
+  <div class="print-footer" style="display:none;">
+    <span>XERJ.AI · V0.1 · 2026-04-16</span>
+    <a href="https://xerj.dev/docs/">https://xerj.dev/docs/</a>
+    <span>Config TOML</span>
+  </div>
+</main>
+</div>
+
+<footer class="footer">
+  <span>XERJ.AI · DOCS · V0.1</span>
+  <span>READ THE SOURCE</span>
+  <span><a href="/index.html">HOME</a> · <a href="/product.html">PRODUCT</a> · <a href="/brand.html">BRAND</a> · <a href="/playground.html">DASHBOARDS</a></span>
+</footer>
+
+<script type="application/json" id="docs-index">[{"title":"Overview","slug":"/docs/index.html","kicker":"START","snip":""},{"title":"Quickstart","slug":"/docs/quickstart.html","kicker":"START","snip":""},{"title":"Install","slug":"/docs/install.html","kicker":"START","snip":""},{"title":"Migrate from ES","slug":"/docs/migration-from-es.html","kicker":"START","snip":""},{"title":"CLI","slug":"/docs/cli.html","kicker":"REFERENCE","snip":""},{"title":"Config TOML","slug":"/docs/config.html","kicker":"REFERENCE","snip":""},{"title":"Environment","slug":"/docs/env.html","kicker":"REFERENCE","snip":""},{"title":"Native REST API","slug":"/docs/api-native.html","kicker":"REFERENCE","snip":""},{"title":"ES-compat API","slug":"/docs/api-es-compat.html","kicker":"REFERENCE","snip":""},{"title":"Query types","slug":"/docs/queries.html","kicker":"DATA MODEL","snip":""},{"title":"Aggregations","slug":"/docs/aggregations.html","kicker":"DATA MODEL","snip":""},{"title":"Analyzers","slug":"/docs/analyzers.html","kicker":"DATA MODEL","snip":""},{"title":"Vectors & HNSW","slug":"/docs/vectors.html","kicker":"DATA MODEL","snip":""},{"title":"Ingest pipelines","slug":"/docs/ingest.html","kicker":"ENGINE","snip":""},{"title":"Storage & WAL","slug":"/docs/storage.html","kicker":"ENGINE","snip":""},{"title":"Compression","slug":"/docs/compression.html","kicker":"ENGINE","snip":""},{"title":"Clustering","slug":"/docs/clustering.html","kicker":"ENGINE","snip":""},{"title":"Metrics","slug":"/docs/metrics.html","kicker":"ENGINE","snip":""},{"title":"Auth & TLS","slug":"/docs/security.html","kicker":"ENGINE","snip":""},{"title":"Running in production","slug":"/docs/operations.html","kicker":"OPERATIONS","snip":""},{"title":"Backup & restore","slug":"/docs/backup-restore.html","kicker":"OPERATIONS","snip":""},{"title":"Upgrades","slug":"/docs/upgrades.html","kicker":"OPERATIONS","snip":""},{"title":"Troubleshooting","slug":"/docs/troubleshooting.html","kicker":"OPERATIONS","snip":""},{"title":"SIEM","slug":"/docs/playbooks/siem.html","kicker":"PLAYBOOKS","snip":""},{"title":"Log analytics","slug":"/docs/playbooks/log-analytics.html","kicker":"PLAYBOOKS","snip":""},{"title":"Vector · RAG","slug":"/docs/playbooks/vector-search.html","kicker":"PLAYBOOKS","snip":""},{"title":"Full-text search","slug":"/docs/playbooks/full-text.html","kicker":"PLAYBOOKS","snip":""},{"title":"Observability","slug":"/docs/playbooks/observability.html","kicker":"PLAYBOOKS","snip":""},{"title":"CLI · --config","slug":"/docs/cli.html#config-flag","kicker":"CLI","snip":"-c, --config <PATH>  Path to the TOML config file."},{"title":"CLI · --data-dir","slug":"/docs/cli.html#data-dir-flag","kicker":"CLI","snip":"-d, --data-dir <PATH>  Override [server] data_dir at the command line."},{"title":"CLI · --insecure","slug":"/docs/cli.html#insecure-flag","kicker":"CLI","snip":"-k, --insecure  Disable TLS and API-key auth. Dev only."},{"title":"[server] rest_port","slug":"/docs/config.html#server","kicker":"CONFIG","snip":"u16 · default 8080 · Native REST API listener port."},{"title":"[server] es_compat_port","slug":"/docs/config.html#server","kicker":"CONFIG","snip":"u16 · default 9200 · Elasticsearch-wire-format port. 0 to disable."},{"title":"[storage] wal_sync","slug":"/docs/config.html#storage","kicker":"CONFIG","snip":"enum · default batched · sync · batched · async. Durability knob."},{"title":"[vector] hnsw_ef_search","slug":"/docs/config.html#vector","kicker":"CONFIG","snip":"u32 · default 100 · Beam width at query time. Per-query override."},{"title":"[vector] default_quantization","slug":"/docs/config.html#vector","kicker":"CONFIG","snip":"enum · none · scalar8 · scalar4 · binary."},{"title":"GET /v1/health","slug":"/docs/api-native.html#health","kicker":"NATIVE API","snip":"Liveness + readiness. {status, uptime_s, version}."},{"title":"GET /v1/metrics","slug":"/docs/api-native.html#metrics","kicker":"NATIVE API","snip":"Prometheus text format. Scrape-friendly."},{"title":"POST /v1/indices/:name/turbo-ingest","slug":"/docs/api-native.html#turbo-ingest","kicker":"NATIVE API","snip":"NDJSON bulk path with parallel tokenization."},{"title":"POST /v1/indices/:name/search","slug":"/docs/api-native.html#search","kicker":"NATIVE API","snip":"Unified query endpoint — full-text, term, range, KNN, hybrid."},{"title":"POST /:index/_bulk","slug":"/docs/api-es-compat.html#bulk","kicker":"ES API","snip":"NDJSON bulk. Actions: index, create, update, delete."},{"title":"POST /:index/_search","slug":"/docs/api-es-compat.html#search","kicker":"ES API","snip":"ES query DSL. Drop-in migration path."},{"title":"match_all","slug":"/docs/queries.html#match-all","kicker":"QUERY","snip":"Everything in the index."},{"title":"bool","slug":"/docs/queries.html#bool","kicker":"QUERY","snip":"must / should / must_not / filter clauses."},{"title":"knn","slug":"/docs/queries.html#knn","kicker":"QUERY","snip":"Vector kNN with per-query ef_search."},{"title":"semantic_search","slug":"/docs/queries.html#semantic-search","kicker":"QUERY","snip":"Embed the query at query time."},{"title":"hybrid","slug":"/docs/queries.html#hybrid","kicker":"QUERY","snip":"RRF / linear / learned fusion of sub-queries."},{"title":"terms aggregation","slug":"/docs/aggregations.html#terms","kicker":"AGG","snip":"Exact, pre-computed histogram. 74× faster on SIEM top-IP."},{"title":"date_histogram","slug":"/docs/aggregations.html#date-histogram","kicker":"AGG","snip":"Time-bucketed counts."},{"title":"HNSW","slug":"/docs/vectors.html#hnsw","kicker":"VECTORS","snip":"Hierarchical graph index. m, ef_construction, ef_search."},{"title":"SQ8 quantization","slug":"/docs/vectors.html#quantization","kicker":"VECTORS","snip":"8-bit scalar quantization. 4× memory reduction."},{"title":"turbo-ingest","slug":"/docs/ingest.html#turbo","kicker":"INGEST","snip":"NDJSON bulk path. Parallel tokenization across cores."},{"title":"delta-of-delta","slug":"/docs/compression.html#delta-of-delta","kicker":"COMPRESSION","snip":"Timestamp encoding. Apache/Nginx/ISO auto-detect."},{"title":"dictionary encoding","slug":"/docs/compression.html#dictionary","kicker":"COMPRESSION","snip":"Up to 256 unique strings per column."},{"title":"api_key","slug":"/docs/security.html#api-key","kicker":"SECURITY","snip":"Static admin key. Auto-generated on first run."},{"title":"SIEM playbook","slug":"/docs/playbooks/siem.html","kicker":"PLAYBOOK","snip":"Terms agg, top-source-IPs, 74× faster than ES. Detection rules."},{"title":"RAG playbook","slug":"/docs/playbooks/vector-search.html","kicker":"PLAYBOOK","snip":"Embeddings, HNSW, hybrid search, BM25 + kNN fusion."},{"title":"[cluster] enabled","slug":"/docs/config.html#cluster","kicker":"CONFIG","snip":"bool · default false · Enable multi-node Raft cluster mode."},{"title":"[cluster] peers","slug":"/docs/config.html#cluster","kicker":"CONFIG","snip":"array · \"node_id=host:port\" · At least one peer per node."},{"title":"[cluster] port","slug":"/docs/config.html#cluster","kicker":"CONFIG","snip":"u16 · default 9300 · Intra-cluster Raft + search port."},{"title":"[embedding] default_endpoint","slug":"/docs/config.html#embedding","kicker":"CONFIG","snip":"string · OpenAI-compatible embeddings URL for auto-embedding on ingest."},{"title":"[embedding] default_model","slug":"/docs/config.html#embedding","kicker":"CONFIG","snip":"string · Model name (e.g. text-embedding-3-small, nomic-embed-text)."},{"title":"Raft","slug":"/docs/clustering.html","kicker":"CLUSTER","snip":"Embedded Raft — leader election, log replication, metadata only."},{"title":"Node draining","slug":"/docs/clustering.html","kicker":"CLUSTER","snip":"POST /v1/cluster/nodes/:id/drain before maintenance."},{"title":"Region split/merge","slug":"/docs/clustering.html","kicker":"CLUSTER","snip":"Range partitions auto-split at byte threshold, merge back when small."},{"title":"Systemd unit","slug":"/docs/operations.html","kicker":"OPS","snip":"Production unit file with hardening directives."},{"title":"Readiness probe","slug":"/docs/operations.html","kicker":"OPS","snip":"GET /v1/health/ready — only 200 once WAL replay is complete."},{"title":"Config reload","slug":"/docs/operations.html","kicker":"OPS","snip":"SIGHUP reloads most keys without restart."},{"title":"Hot backup","slug":"/docs/backup-restore.html","kicker":"OPS","snip":"rsync the data dir after POST /v1/admin/flush."},{"title":"S3 backup","slug":"/docs/backup-restore.html","kicker":"OPS","snip":"POST /v1/admin/backup → any S3-compatible endpoint."},{"title":"Rolling upgrade","slug":"/docs/upgrades.html","kicker":"OPS","snip":"Drain → stop → upgrade → start → activate, per node."},{"title":"Merge pressure","slug":"/docs/troubleshooting.html","kicker":"OPS","snip":"Segment count climbing → raise merge.max_concurrent + io_rate."},{"title":"Cluster flapping","slug":"/docs/troubleshooting.html","kicker":"OPS","snip":"Leader changes every few seconds → raise cluster.tick_ms."},{"title":"WAL replay failed","slug":"/docs/troubleshooting.html","kicker":"OPS","snip":"xerj verify --repair-wal truncates at last valid entry."}]</script>
+
+<script>
+  // IIFE — js-auth navigates between decrypted pages in the same
+  // JS realm, so const bindings must be lexically scoped.
+  (function () {
+    const root = document.documentElement;
+    for (const btn of document.querySelectorAll('[data-theme]')) {
+      btn.addEventListener('click', () => {
+        const t = btn.getAttribute('data-theme');
+        root.setAttribute('data-theme', t);
+        for (const b of document.querySelectorAll('[data-theme]')) {
+          b.classList.toggle('active', b.getAttribute('data-theme') === t);
+        }
+      });
+    }
+
+    // Client-side docs search — filters the inline JSON index.
+    const searchEl    = document.getElementById('docsSearch');
+    const inputEl     = document.getElementById('docsSearchInput');
+    const resultsEl   = document.getElementById('docsSearchResults');
+    const indexJson   = document.getElementById('docs-index');
+    if (searchEl && inputEl && resultsEl && indexJson) {
+      let index = [];
+      try { index = JSON.parse(indexJson.textContent || '[]'); } catch {}
+      const render = (q) => {
+        const query = q.trim().toLowerCase();
+        if (!query) { searchEl.classList.remove('active'); resultsEl.innerHTML = ''; return; }
+        const scored = [];
+        for (const e of index) {
+          const hay = (e.title + ' ' + (e.kicker || '') + ' ' + (e.snip || '')).toLowerCase();
+          if (hay.includes(query)) {
+            let score = 0;
+            if (e.title.toLowerCase().includes(query)) score += 10;
+            if ((e.kicker || '').toLowerCase() === query.toUpperCase()) score += 5;
+            if ((e.snip || '').toLowerCase().includes(query)) score += 1;
+            scored.push({ e, score });
+          }
+        }
+        scored.sort((a, b) => b.score - a.score);
+        const top = scored.slice(0, 20);
+        if (top.length === 0) {
+          resultsEl.innerHTML = '<div class="no-results">NO MATCHES — TRY A SHORTER QUERY</div>';
+        } else {
+          resultsEl.innerHTML = top.map(({e}) => {
+            const kicker = e.kicker || '';
+            const snip = e.snip ? '<div class="snip">' + escHtml(e.snip) + '</div>' : '';
+            return '<a href="' + e.slug + '">' +
+              '<span class="kicker">' + escHtml(kicker) + '</span>' +
+              '<span class="title">' + escHtml(e.title) + '</span>' +
+              snip + '</a>';
+          }).join('');
+        }
+        searchEl.classList.add('active');
+      };
+      const escHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      inputEl.addEventListener('input', (e) => render(e.target.value));
+      inputEl.addEventListener('focus', () => { if (inputEl.value) render(inputEl.value); });
+      document.addEventListener('keydown', (e) => {
+        if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          inputEl.focus();
+          inputEl.select();
+        }
+        if (e.key === 'Escape' && document.activeElement === inputEl) {
+          inputEl.value = '';
+          searchEl.classList.remove('active');
+          resultsEl.innerHTML = '';
+          inputEl.blur();
+        }
+      });
+    }
+  })();
+</script>
+
+</body>
+</html>

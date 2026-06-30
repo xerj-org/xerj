@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ.ai — Financial Services</title>
+<meta name="description" content="XERJ for banking, insurance, and asset management. Self-hosted AI data plane, SR 11-7 aligned, drop-in for ES clients.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<nav class="nav" aria-label="Primary">
+  <a href="/index.html" class="brand">XERJ.AI</a>
+  <a href="/index.html">HOME</a>
+  <a href="/product.html">PRODUCT</a>
+  <a href="/solutions/index.html">SOLUTIONS</a>
+  <a href="/industries/index.html" class="active">INDUSTRIES</a>
+  <a href="/security/index.html">SECURITY</a>
+  <a href="/pricing/index.html">PRICING</a>
+  <span class="spacer"></span>
+  <a href="/docs/index.html">DOCS</a>
+  <a href="/resources/index.html">RESOURCES</a>
+  <a href="/playground.html">DASHBOARDS</a>
+  <span class="theme">
+    <button type="button" data-theme="day">DAY</button>
+    <span class="dash">·</span>
+    <button type="button" data-theme="night" class="active">NIGHT</button>
+  </span>
+</nav>
+
+<nav class="uc-subnav" aria-label="Industries">
+  <a href="/industries/index.html">ALL INDUSTRIES</a>
+  <a href="/industries/finserv.html" class="active">FINANCIAL SERVICES</a>
+  <a href="/industries/public-sector.html">PUBLIC SECTOR</a>
+  <a href="/industries/healthcare.html">HEALTHCARE</a>
+  <a href="/industries/retail.html">RETAIL</a>
+</nav>
+
+<section class="scene-section" style="border-top:0; padding-top:0;">
+  <div class="kicker"><span>INDUSTRY 01</span><span class="dash">·</span><span>FOR CIO · CDO · CISO · HEAD OF AI · RISK</span></div>
+  <h1 class="hero" style="font-size: var(--fs-96);">AI IN<br>FINANCIAL<br><span class="accent">SERVICES.</span></h1>
+  <p class="lead" style="max-width:720px;">
+    Banks, insurers, and asset managers run AI under the tightest
+    data controls in the world. XERJ is a self-hosted data plane
+    that runs inside your perimeter — full-text, vector, and agent
+    memory on one platform — so the AI transformation never
+    requires sending data to a third-party retrieval vendor.
+  </p>
+</section>
+
+<!-- WORKLOAD CHIP FILTER · live -->
+<section class="scene-section" style="border-top:0;">
+  <div class="kicker"><span>AI WORKLOADS</span><span class="dash">·</span><span>PICK WHAT APPLIES</span></div>
+  <div class="card-grid cols-3" style="padding-top: var(--sp-8);">
+
+    <div class="card">
+      <span class="card-k">FRAUD / AML</span>
+      <span class="card-t">PAYMENT-AUTH<br><span class="accent">BUDGET</span></span>
+      <span class="card-b">Vector similarity to historical fraud patterns + keyword filter on merchant / geography. Result inside the payment-authorization latency budget.</span>
+      <span class="card-facts">· 1.2 ms vector p95<br>· card-adjacent PCI scope · BYOK<br>· native RRF · no orchestrator</span>
+    </div>
+
+    <div class="card">
+      <span class="card-k">ANALYST RAG</span>
+      <span class="card-t">RESEARCH · TRADE<br><span class="accent">TICKETS</span></span>
+      <span class="card-b">Hybrid BM25 + vector over research notes, term sheets, client correspondence. Citation fidelity tracked; re-embed on drift.</span>
+      <span class="card-facts">· 38 ms hybrid p95 · 1 B vectors<br>· 4× vector memory · SQ8 default<br>· LangChain / LlamaIndex retriever</span>
+    </div>
+
+    <div class="card">
+      <span class="card-k">SIEM</span>
+      <span class="card-t">UNIFIED<br><span class="accent">CYBER SOC</span></span>
+      <span class="card-b">Fraud, cloud audit, identity, network logs in one index. 74× faster SIEM agg vs ES 8.13 on 1 M events. Detection-as-code runs native.</span>
+      <span class="card-facts">· 0.4 ms p95 top-source-IPs<br>· 400 MB idle · 1-node baseline<br>· 21× less memory vs 4-node ES</span>
+    </div>
+
+    <div class="card">
+      <span class="card-k">MODEL RISK</span>
+      <span class="card-t">SR 11-7<br><span class="accent">EVIDENCE STORE</span></span>
+      <span class="card-b">Every retrieval returns an <span class="mono">explain-plan</span> with principal, query, rows, cost. Queryable as a regular index. Audit ready by construction.</span>
+      <span class="card-facts">· per-query audit artifact<br>· replayable · exportable<br>· aligns SR 11-7 · EBA · PRA SS1/23</span>
+    </div>
+
+    <div class="card">
+      <span class="card-k">CUSTOMER SERVICE</span>
+      <span class="card-t">AGENT-ASSISTED<br><span class="accent">SERVICING</span></span>
+      <span class="card-b">Copilots retrieve across transcripts + KB + policy + entitlements. Agent memory scoped per session · time-decay for recent touches.</span>
+      <span class="card-facts">· native session memory · no Redis glue<br>· token-budget aware retrieval<br>· per-tenant isolation per line of biz</span>
+    </div>
+
+  </div>
+</section>
+
+<!-- DEPLOYMENT TOPOLOGY · interactive tabs -->
+<section class="scene-section">
+  <div class="kicker"><span>DEPLOYMENT</span><span class="dash">·</span><span>PICK A TOPOLOGY</span></div>
+  <h2 class="scene">ONE BINARY.<br><span class="accent">THREE PERIMETERS.</span></h2>
+
+  <div class="tabs" data-tabs="fs-topo">
+    <button class="tab active" data-pane="retail">DOMAIN A · RETAIL</button>
+    <button class="tab" data-pane="cib">DOMAIN B · CIB</button>
+    <button class="tab" data-pane="mrm">DOMAIN C · MODEL RISK</button>
+  </div>
+
+  <div class="pane active" data-group="fs-topo" data-pane="retail">
+    <svg class="diagram" viewBox="0 0 960 320" role="img" aria-label="Retail Banking domain">
+      <text x="30" y="38" class="label mute">RETAIL BANKING · VPC · PRODUCTION CARDHOLDER ENVIRONMENT · PCI-DSS SCOPED</text>
+      <g class="node"><rect x="60" y="60" width="840" height="54"/>
+        <text x="76" y="84" class="label">DATA SOURCES</text>
+        <text x="76" y="104" class="small">fraud events · transaction logs · card-auth streams</text>
+      </g>
+      <line x1="480" y1="114" x2="480" y2="144"/><polygon points="476,140 484,140 480,148"/>
+      <g class="node accent"><rect x="60" y="148" width="840" height="72"/>
+        <text x="76" y="172" class="label">XERJ CLUSTER · 3-NODE HA · PCI-DSS SCOPED</text>
+        <text x="76" y="194" class="small">BYOK via AWS KMS · per-tenant indices by product line</text>
+        <text x="76" y="214" class="small mute">audit trail replayable · SR 11-7 evidence per retrieval</text>
+      </g>
+      <line x1="480" y1="220" x2="480" y2="250"/><polygon points="476,246 484,246 480,254"/>
+      <g class="node"><rect x="60" y="254" width="620" height="48"/>
+        <text x="76" y="276" class="label">WORKLOADS</text>
+        <text x="76" y="296" class="small">fraud similarity · AML case retrieval · tx-log SIEM</text>
+      </g>
+      <g class="node"><rect x="700" y="254" width="200" height="48"/>
+        <text x="716" y="276" class="label">RETENTION</text>
+        <text x="716" y="296" class="small">30 d · 90 d · 7 y</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="pane" data-group="fs-topo" data-pane="cib">
+    <svg class="diagram" viewBox="0 0 960 320" role="img" aria-label="Corporate &amp; Investment Banking domain">
+      <text x="30" y="38" class="label mute">CORPORATE &amp; INVESTMENT BANKING · VPC · RESTRICTED</text>
+      <g class="node"><rect x="60" y="60" width="840" height="54"/>
+        <text x="76" y="84" class="label">DATA SOURCES</text>
+        <text x="76" y="104" class="small">research notes · term sheets · trade tickets · client correspondence</text>
+      </g>
+      <line x1="480" y1="114" x2="480" y2="144"/><polygon points="476,140 484,140 480,148"/>
+      <g class="node accent"><rect x="60" y="148" width="840" height="72"/>
+        <text x="76" y="172" class="label">XERJ CLUSTER · 3-NODE HA · ANALYST RAG + SURVEILLANCE</text>
+        <text x="76" y="194" class="small">hybrid BM25 + HNSW · SQ8 quantization · float32 re-rank</text>
+        <text x="76" y="214" class="small mute">LangChain retriever · local embedder · no data egress</text>
+      </g>
+      <line x1="480" y1="220" x2="480" y2="250"/><polygon points="476,246 484,246 480,254"/>
+      <g class="node"><rect x="60" y="254" width="620" height="48"/>
+        <text x="76" y="276" class="label">WORKLOADS</text>
+        <text x="76" y="296" class="small">research RAG · trade-ticket search · compliance surveillance</text>
+      </g>
+      <g class="node"><rect x="700" y="254" width="200" height="48"/>
+        <text x="716" y="276" class="label">RETENTION</text>
+        <text x="716" y="296" class="small">90 d · 1 y · 7 y</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="pane" data-group="fs-topo" data-pane="mrm">
+    <svg class="diagram" viewBox="0 0 960 320" role="img" aria-label="Risk &amp; Model Governance domain">
+      <text x="30" y="38" class="label mute">RISK &amp; MODEL GOVERNANCE · VPC · MODEL-OPS</text>
+      <g class="node"><rect x="60" y="60" width="840" height="54"/>
+        <text x="76" y="84" class="label">DATA SOURCES</text>
+        <text x="76" y="104" class="small">model outputs · feature vectors · validation evidence · audit trails</text>
+      </g>
+      <line x1="480" y1="114" x2="480" y2="144"/><polygon points="476,140 484,140 480,148"/>
+      <g class="node accent"><rect x="60" y="148" width="840" height="72"/>
+        <text x="76" y="172" class="label">XERJ CLUSTER · 3-NODE HA · MODEL-RISK ARCHIVE</text>
+        <text x="76" y="194" class="small">explain-plan indexed · every retrieval is an audit artifact</text>
+        <text x="76" y="214" class="small mute">replayable audit · exportable to CM · scheduled attestation</text>
+      </g>
+      <line x1="480" y1="220" x2="480" y2="250"/><polygon points="476,246 484,246 480,254"/>
+      <g class="node"><rect x="60" y="254" width="620" height="48"/>
+        <text x="76" y="276" class="label">WORKLOADS</text>
+        <text x="76" y="296" class="small">SR 11-7 evidence store · validation retrieval · audit queries</text>
+      </g>
+      <g class="node"><rect x="700" y="254" width="200" height="48"/>
+        <text x="716" y="276" class="label">RETENTION</text>
+        <text x="716" y="296" class="small">model lifecycle + 7 y</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- COMPLIANCE MATRIX -->
+<section class="scene-section">
+  <div class="kicker"><span>COMPLIANCE</span><span class="dash">·</span><span>WHAT YOU INHERIT</span></div>
+  <h2 class="scene">AUDIT-READY.<br><span class="accent">BY DEFAULT.</span></h2>
+  <p class="wide">Self-hosted means most regulatory scope is inherited from your existing controls. XERJ supplies the engineered-in posture auditors expect to see in the submission.</p>
+
+  <div class="matrix-row"><span class="mk">SR 11-7 · MODEL RISK</span><span class="mv">Per-query explain-plan = retrieval-layer audit artifact. Replayable, exportable.</span><span class="mstatus ga">GA</span></div>
+  <div class="matrix-row"><span class="mk">DORA</span><span class="mv">Self-hosted in-region · no cross-border data transfer · incident reporting via structured audit</span><span class="mstatus ga">GA</span></div>
+  <div class="matrix-row"><span class="mk">PCI-DSS v4.0</span><span class="mv">Encrypted at rest (AES-256-GCM) · BYOK · RBAC · tenant isolation · per-query audit</span><span class="mstatus yes">INHERITED</span></div>
+  <div class="matrix-row"><span class="mk">EBA · PRA SS1/23</span><span class="mv">Model-risk documentation surface via explain-plan index · decision evidence queryable</span><span class="mstatus ga">GA</span></div>
+  <div class="matrix-row"><span class="mk">GDPR</span><span class="mv">Self-hosted in customer region · right-to-erasure via tombstone + segment compaction</span><span class="mstatus ga">GA</span></div>
+  <div class="matrix-row"><span class="mk">SOC 2 TYPE I</span><span class="mv">Platform controls · access mgmt · incident response · for commercial SaaS track</span><span class="mstatus road">ROAD Q3 2026</span></div>
+  <div class="matrix-row"><span class="mk">ISO 27001</span><span class="mv">ISMS scope covers platform engineering + SaaS operations</span><span class="mstatus road">ROAD Q4 2026</span></div>
+  <div class="matrix-row"><span class="mk">FIPS 140-2</span><span class="mv">AES-256-GCM via KMS · TLS 1.3 · certification roadmap</span><span class="mstatus road">ROAD 2027</span></div>
+</section>
+
+<!-- MEASURED vs LEGACY STACK -->
+<section class="scene-section">
+  <div class="kicker"><span>MEASURED</span><span class="dash">·</span><span>vs LEGACY RETRIEVAL STACKS</span></div>
+  <h2 class="scene">NUMBERS THE<br>BOARD READS.<br><span class="accent">ON ONE SLIDE.</span></h2>
+
+  <div class="cmp">
+    <div class="head"><span class="cell">METRIC</span><span class="cell xy">XERJ</span><span class="cell es">LEGACY</span></div>
+    <div class="row"><span class="cell name">Fraud · vector p95</span><span class="cell xy">1.2 ms</span><span class="cell es">45 ms (ES + Pinecone)</span></div>
+    <div class="row"><span class="cell name">AML case retrieval p95</span><span class="cell xy">0.4 ms</span><span class="cell es">29.8 ms (ES 8.13)</span></div>
+    <div class="row"><span class="cell name">Vector memory · 10 M × 1.5 K</span><span class="cell xy">18 GB</span><span class="cell es">92 GB (float32) — 5.1×</span></div>
+    <div class="row"><span class="cell name">Idle cluster memory</span><span class="cell xy">400 MB · 1 node</span><span class="cell es">8.5 GB · 4 node</span></div>
+    <div class="row"><span class="cell name">Cold start</span><span class="cell xy">50 ms</span><span class="cell es">~15 s JVM warm-up</span></div>
+    <div class="row"><span class="cell name">Cross-border data egress</span><span class="cell xy">0 (self-hosted)</span><span class="cell es">depends on vendor</span></div>
+    <div class="row"><span class="cell name">Per-query audit artifact</span><span class="cell xy">native · explain-plan</span><span class="cell es">application plumbing</span></div>
+  </div>
+
+  <p class="wide" style="margin-top: var(--sp-10);">
+    <strong>TCO impact:</strong> ~80 % infrastructure cost reduction
+    on log + search + vector workloads. Most savings come from vendor
+    consolidation: one platform team, one renewal cycle, one SOC 2
+    audit scope.
+  </p>
+</section>
+
+<section class="lead-capture" id="demo">
+  <div class="kicker"><span>PILOT · FINSERV</span></div>
+  <h3>PROVE IT<br><span class="accent">IN YOUR VPC.</span></h3>
+  <p>
+    Two-week CISO-signoff pilot · sanitized data · private binary ·
+    architecture + controls review. Mutual NDA available day one;
+    binary delivery does not require one.
+  </p>
+  <form class="lead-form" id="leadForm" action="#" method="post" novalidate>
+    <input type="email" name="email" placeholder="you@bank.com" required aria-label="Work email" autocomplete="email" />
+    <button type="submit" class="demo">REQUEST PILOT <span class="arrow">→</span></button>
+    <span class="note">We reply within one business day · <a href="/resources/index.html" class="accent">DOWNLOAD THE FINSERV BRIEF (PDF)</a></span>
+    <span class="ok">✓ THANKS. CHECK YOUR INBOX WITHIN 24 HOURS.</span>
+  </form>
+</section>
+
+<footer class="footer">
+  <span>XERJ.AI · FINANCIAL SERVICES · V1</span>
+  <span>AI ON YOUR DATA</span>
+  <span><a href="/industries/index.html">INDUSTRIES</a> · <a href="/solutions/index.html">SOLUTIONS</a> · <a href="/resources/index.html">RESOURCES</a> · <a href="/docs/index.html">DOCS</a></span>
+</footer>
+
+<script src="/interact.js"></script>
+<script>
+  (function(){
+    const form = document.getElementById('leadForm');
+    if (!form) return;
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const email = form.querySelector('input[type=email]').value.trim();
+      if (!email || !email.includes('@')) return;
+      form.classList.add('sent');
+    });
+  })();
+</script>
+</body>
+</html>
