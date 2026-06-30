@@ -1706,6 +1706,12 @@ pub async fn get_doc(
     Path((index, id)): Path<(String, String)>,
     Query(params): Query<GetDocParams>,
 ) -> impl IntoResponse {
+    // A closed index rejects read/search ops with ES index_closed_exception.
+    // Strict membership only — frozen/open indices are unaffected.
+    if state.engine.closed_indices.contains_key(&index) {
+        return closed_index_error(&index);
+    }
+
     let idx = match state.engine.get_index(&index) {
         Ok(i) => i,
         Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
@@ -3822,6 +3828,13 @@ pub async fn search(
     body: OptionalJson<EsSearchBody>,
 ) -> impl IntoResponse {
     let started = Instant::now();
+    // A closed index rejects read/search ops with ES index_closed_exception.
+    // Strict membership only — frozen/open indices are unaffected (ES allows
+    // search on frozen indices).
+    if state.engine.closed_indices.contains_key(&index) {
+        return closed_index_error(&index);
+    }
+
     // Strict: empty body → defaults (ES match-all). Malformed body → 400
     // via OptionalJsonRejection, NOT a silent fallback to match-all that
     // hides the real problem from the caller. (See `extract::OptionalJson`
@@ -9955,11 +9968,11 @@ pub async fn index_disk_usage(
     let mut indices = serde_json::Map::new();
     let mut all_size = 0u64;
     for name in &targets {
-        let stats = match state.engine.index_stats(name).await {
-            Ok(s) => s,
+        // Real on-disk size: recursive byte sum of the index's data_dir.
+        let size = match state.engine.get_index(name) {
+            Ok(idx) => dir_size_bytes(idx.data_dir()),
             Err(_) => continue,
         };
-        let size = (stats.doc_count.max(1) * 256) as u64;
         all_size += size;
         indices.insert(name.clone(), json!({
             "store_size": format!("{}b", size),
@@ -14143,12 +14156,20 @@ pub async fn get_tasks(State(state): State<AppState>) -> impl IntoResponse {
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn clear_cache(
-    State(_state): State<AppState>,
-    Path(_index): Path<String>,
+    State(state): State<AppState>,
+    Path(index): Path<String>,
 ) -> impl IntoResponse {
-    Json(json!({
-        "_shards": { "total": 1, "successful": 1, "failed": 0 }
-    })).into_response()
+    // Validate the target index exists (404 otherwise). xerj has no
+    // separately-addressable field/query cache to purge, so there is nothing
+    // to clear — but we still report an honest _shards block computed from the
+    // real index existing on this single node.
+    let index = strip_remote_cluster_prefix(&index);
+    match state.engine.get_index(&index) {
+        Ok(_) => Json(json!({
+            "_shards": { "total": 1, "successful": 1, "failed": 0 }
+        })).into_response(),
+        Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -18774,11 +18795,16 @@ pub async fn index_recovery(
     match state.engine.get_index(&index) {
         Ok(idx) => {
             let stats = idx.stats().await;
+            // Single-node: report an already-completed existing_store recovery
+            // (stage=DONE, 100%). Bytes = real on-disk data_dir size, files =
+            // segment count, translog ops = real doc count — matching _cat/recovery.
+            let bytes = dir_size_bytes(idx.data_dir());
+            let docs = stats.doc_count;
             Json(json!({
                 index: {
                     "shards": [{
                         "id": 0,
-                        "type": "STORE",
+                        "type": "EXISTING_STORE",
                         "stage": "DONE",
                         "primary": true,
                         "start_time_in_millis": 0,
@@ -18794,15 +18820,15 @@ pub async fn index_recovery(
                         },
                         "index": {
                             "size": {
-                                "total_in_bytes": 0,
-                                "reused_in_bytes": 0,
-                                "recovered_in_bytes": 0,
+                                "total_in_bytes": bytes,
+                                "reused_in_bytes": bytes,
+                                "recovered_in_bytes": bytes,
                                 "percent": "100.0%"
                             },
                             "files": {
                                 "total": stats.segment_count,
                                 "reused": stats.segment_count,
-                                "recovered": 0,
+                                "recovered": stats.segment_count,
                                 "percent": "100.0%"
                             },
                             "total_time_in_millis": 0,
@@ -18810,10 +18836,10 @@ pub async fn index_recovery(
                             "target_throttle_time_in_millis": 0
                         },
                         "translog": {
-                            "recovered": 0,
-                            "total": 0,
+                            "recovered": docs,
+                            "total": docs,
                             "percent": "100.0%",
-                            "total_on_start": 0,
+                            "total_on_start": docs,
                             "total_time_in_millis": 0
                         },
                         "verify_index": {
@@ -19905,4 +19931,29 @@ fn count_dense_vector_fields(node: &Value) -> u64 {
         _ => {}
     }
     count
+}
+
+// ── Batch B helpers ──
+
+/// Build the ES `index_closed_exception` 400 returned when an operation
+/// targets an index that has been closed via `POST /:index/_close`.
+/// Mirrors Elasticsearch's body shape so wire-compat clients see the
+/// exact `type`/`reason`/`index` triplet plus the duplicated root_cause.
+fn closed_index_error(index: &str) -> axum::response::Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(json!({
+            "error": {
+                "root_cause": [{
+                    "type": "index_closed_exception",
+                    "reason": "closed"
+                }],
+                "type": "index_closed_exception",
+                "reason": "closed",
+                "index": index
+            },
+            "status": 400
+        })),
+    )
+        .into_response()
 }

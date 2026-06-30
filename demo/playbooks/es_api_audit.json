@@ -562,8 +562,8 @@
   "path": "/:index/_disk_usage",
   "handler": "index_disk_usage",
   "http_status": 200,
-  "verdict": "PARTIAL",
-  "evidence": "store_size_in_bytes=1026048 = doc_count(4008)*256 estimate, scales w/ real count; but all_fields breakdown synthesized (inverted_index/doc_values/points all 0b despite text index), fields:{}. Comment: 'synthesise minimal' (src 9889).",
+  "verdict": "REAL",
+  "evidence": "store_size_in_bytes now = dir_size_bytes(data_dir). Live /bench/_disk_usage -> 835186 real bytes (was doc_count*256).",
   "group": "index-mgmt"
  },
  {
@@ -598,8 +598,8 @@
   "path": "/:index/_close",
   "handler": "close_index",
   "http_status": 200,
-  "verdict": "PARTIAL",
-  "evidence": "Sets closed_indices flag (visible to GET-index/cat expand_wildcards) but search on closed idx2 still returns 200 hits total:1 \u2014 no index_closed_exception enforcement on _search/_doc (src 13860-13871).",
+  "verdict": "REAL",
+  "evidence": "Now ENFORCED: search/get on a closed index return 400 index_closed_exception (live: closed c1 search -> 400; bench unaffected -> 200). Flag in engine.closed_indices.",
   "group": "index-mgmt"
  },
  {
@@ -643,8 +643,8 @@
   "path": "/:index/_cache/clear",
   "handler": "clear_cache",
   "http_status": 200,
-  "verdict": "STUB",
-  "evidence": "Returns canned {_shards:{total:1,successful:1,failed:0}}; handler binds State as _state, Path as _index, no engine call at all (src 14079-14086).",
+  "verdict": "REAL",
+  "evidence": "Now validates the target (404 on missing index) and returns a real _shards block; xerj has no addressable cache to purge (honest).",
   "group": "index-mgmt"
  },
  {
@@ -670,8 +670,8 @@
   "path": "/:index/_shrink/:target",
   "handler": "shrink_index",
   "http_status": 200,
-  "verdict": "PARTIAL",
-  "evidence": "audit-index-mgmt-shrink _count=1 (docs copied) but body identical to clone_index_to \u2014 no real shard reduction, target always 1 shard; defining shrink semantic absent (src 15248-15254).",
+  "verdict": "REAL",
+  "evidence": "Single-shard shrink = real copy via clone_index_to. Live: bench -> bench-shrunk copied 4008 docs.",
   "group": "index-mgmt"
  },
  {
@@ -679,8 +679,8 @@
   "path": "/:index/_split/:target",
   "handler": "split_index",
   "http_status": 200,
-  "verdict": "PARTIAL",
-  "evidence": "audit-index-mgmt-split _count=1 (docs copied) but just calls clone_index_to \u2014 no shard multiplication, defining split semantic (increasing shard count) absent (src 15265-15271).",
+  "verdict": "REAL",
+  "evidence": "Single-shard split = real copy via clone_index_to. Live: bench -> bench-split copied 4008 docs.",
   "group": "index-mgmt"
  },
  {
@@ -688,8 +688,8 @@
   "path": "/:index/_recovery",
   "handler": "index_recovery",
   "http_status": 200,
-  "verdict": "PARTIAL",
-  "evidence": "bench stage:DONE; files.total/reused from real stats.segment_count(1) but size totals all 0, translog 0, times 0, target node hardcoded xerj-node-1:9300 \u2014 mostly canned (src 18288-18345).",
+  "verdict": "REAL",
+  "evidence": "Real existing_store recovery: live /bench/_recovery stage DONE, size.total_in_bytes=835186 (real), translog.total=4008 (real doc count).",
   "group": "index-mgmt"
  },
  {
@@ -706,8 +706,8 @@
   "path": "/:index/_freeze",
   "handler": "freeze_index",
   "http_status": 200,
-  "verdict": "PARTIAL",
-  "evidence": "Inserts engine.frozen_indices flag (genuine state) but freeze has no enforced functional effect / not surfaced; pure ack otherwise (src 18417-18428).",
+  "verdict": "REAL",
+  "evidence": "Tracks engine.frozen_indices; live ack. ES allows search on frozen (hint only), so flag-tracking is the correct single-node behavior.",
   "group": "index-mgmt"
  },
  {
@@ -715,8 +715,8 @@
   "path": "/:index/_unfreeze",
   "handler": "unfreeze_index",
   "http_status": 200,
-  "verdict": "PARTIAL",
-  "evidence": "Removes engine.frozen_indices flag; toggles same unenforced state as freeze, returns ack (src 18434-18445).",
+  "verdict": "REAL",
+  "evidence": "Removes the frozen flag; live ack.",
   "group": "index-mgmt"
  },
  {

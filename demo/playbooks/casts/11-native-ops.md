@@ -19,7 +19,7 @@ curl -s "http://localhost:8080/v1/health"
     "version": "1.0.0-rc.1"
   },
   "took_ms": 0,
-  "request_id": "780a950d-3316-4e54-8d21-4bfc182c1b10"
+  "request_id": "92b0752e-7a16-47c7-a906-6f3230c18de9"
 }
 ```
 
@@ -73,7 +73,7 @@ xerj_flush_duration_seconds_bucket{le="0.32"} 0
 xerj_flush_duration_seconds_bucket{le="0.64"} 0
 xerj_flush_duration_seconds_bucket{le="1.28"} 0
 xerj_flush_duration_seconds_bucket{le="2
-… (5146 more bytes)
+… (5150 more bytes)
 ```
 
 _HTTP 200_
@@ -96,7 +96,7 @@ curl -s "http://localhost:8080/v1/cluster/health"
     "version": "1.0.0-rc.1"
   },
   "took_ms": 0,
-  "request_id": "1383d775-e2c1-453c-af86-1772b6cd5cb4"
+  "request_id": "2b4210c6-52b3-4762-9c36-0bb8093eecb8"
 }
 ```
 
@@ -114,28 +114,28 @@ curl -s -XPOST "http://localhost:8080/v1/admin/flush"
     "failed": [],
     "flushed": 18,
     "indices": [
-      ".xerj_cluster_state",
-      ".xerj_sessions",
-      ".xerj_alert_rules",
-      ".xerj_audit",
-      "bench",
-      ".xerj_prefs",
+      ".xerj_connections",
       ".xerj_dashboards",
       ".xerj_api_tokens",
-      ".xerj_views",
-      ".xerj_users",
       "logs-2026-04",
-      ".xerj_passkeys",
       "vstore",
-      ".xerj_alert_fires",
+      "bench",
+      ".xerj_sessions",
       ".xerj_idp_config",
+      ".xerj_passkeys",
       ".xerj_magic_links",
+      ".xerj_views",
       "articles",
-      ".xerj_connections"
+      ".xerj_cluster_state",
+      ".xerj_users",
+      ".xerj_alert_rules",
+      ".xerj_prefs",
+      ".xerj_alert_fires",
+      ".xerj_audit"
     ]
   },
   "took_ms": 6,
-  "request_id": "88d47a99-23bc-4835-b831-e48952b067aa"
+  "request_id": "bb9ca5ed-9db0-41ec-8574-8808a5bd9515"
 }
 ```
 
@@ -152,10 +152,10 @@ curl -s -XPOST "http://localhost:8080/v1/admin/backup" \
 ```json
 {
   "data": {
-    "backup": "backup-f9629d1b-dedb-49a1-80ec-651ebef9eb04",
+    "backup": "backup-896a35a1-74a9-409e-8552-95bf4bc6b375",
     "manifest": {
       "duration_in_millis": 0,
-      "end_time_in_millis": 1782803097577,
+      "end_time_in_millis": 1782803695308,
       "failures": [],
       "index_files": [
         {
@@ -192,7 +192,7 @@ curl -s -XPOST "http://localhost:8080/v1/admin/backup" \
             "0000000000000000.wal",
             "0000000000000000.wchk",
             "000000000000
-… (91287 more bytes)
+… (92507 more bytes)
 ```
 
 _HTTP 201_
