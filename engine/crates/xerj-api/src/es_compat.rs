@@ -3006,7 +3006,7 @@ fn synthetic_transform_object_ext2(target: &mut serde_json::Map<String, Value>, 
     // order verbatim. We detect "mapped" as "props has an entry for
     // this field", since dynamic ingest already updates the mapping
     // before the doc is retrievable.
-    if !index_keep_arrays {
+    {
         let names: Vec<String> = target.keys().cloned().collect();
         for name in names {
             let field_spec = props.as_object().and_then(|o| o.get(&name));
@@ -3055,14 +3055,26 @@ fn synthetic_transform_object_ext2(target: &mut serde_json::Map<String, Value>, 
             };
             if is_nested { continue; }
             if is_disabled { continue; }
-            if matches!(keep_mode.as_deref(), Some("arrays") | Some("all")) { continue; }
+            // Effective synthetic_source_keep: an explicit per-field
+            // `arrays|all|none` overrides the index-level default. keep:arrays|all
+            // preserves the source array shape (never column-flatten); keep:none
+            // forces flatten even when the index default is `arrays`; no override
+            // inherits the index default. This makes the block correct under
+            // `index.mapping.synthetic_source_keep: arrays` (previously the whole
+            // block was skipped, so a keep:none field was never flattened).
+            let effective_keep_arrays = match keep_mode.as_deref() {
+                Some("arrays") | Some("all") => true,
+                Some("none") => false,
+                _ => index_keep_arrays,
+            };
+            if effective_keep_arrays { continue; }
             let should_flatten = matches!(
                 target.get(&name),
                 Some(Value::Array(arr)) if !arr.is_empty() && arr.iter().all(|v| v.is_object())
             );
             if !should_flatten { continue; }
             if let Some(Value::Array(arr)) = target.remove(&name) {
-                target.insert(name, synthetic_flatten_object_array(&arr, &sub_props, sub_dynamic_false));
+                target.insert(name, synthetic_flatten_object_array(&arr, &sub_props, sub_dynamic_false, index_keep_arrays));
             }
         }
     }
@@ -3080,6 +3092,31 @@ fn synthetic_transform_object_ext2(target: &mut serde_json::Map<String, Value>, 
         let child_spec = props.as_object().and_then(|o| o.get(&name));
         let child_type = child_spec.and_then(|hp| hp.get("type")).and_then(Value::as_str);
         let child_is_nested = child_type == Some("nested");
+        // Flattened fields reconstruct as a single-level dotted-key map
+        // (`{host:{name:x}}` -> `{"host.name":x}`), not a re-nested object.
+        // Collapse here and skip the normal object recursion.
+        if child_type == Some("flattened") {
+            if let Some(cv) = target.get_mut(&name) {
+                match cv {
+                    Value::Object(_) => {
+                        let mut flat = serde_json::Map::new();
+                        flatten_synthetic_dotted("", cv, &mut flat);
+                        *cv = Value::Object(flat);
+                    }
+                    Value::Array(arr) => {
+                        for el in arr.iter_mut() {
+                            if let Value::Object(_) = el {
+                                let mut flat = serde_json::Map::new();
+                                flatten_synthetic_dotted("", el, &mut flat);
+                                *el = Value::Object(flat);
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            continue;
+        }
         let child_props_raw = child_spec.and_then(|hp| hp.get("properties")).cloned();
         // Skip recursion unless we have sub-properties OR this is a
         // nested parent (nested without declared sub-properties still
@@ -3175,7 +3212,24 @@ fn synthetic_transform_object_ext2(target: &mut serde_json::Map<String, Value>, 
 /// for the *contents* of each array element (i.e. the parent field's
 /// `.properties` map). When `parent_dynamic_false` is true, unmapped
 /// keys are treated as ignored_source (source order, no sort/dedupe).
-fn synthetic_flatten_object_array(arr: &[Value], props: &Value, parent_dynamic_false: bool) -> Value {
+/// Collapse a (possibly nested) object into single-level dotted-key form,
+/// matching ES `flattened` synthetic-source reconstruction:
+/// `{"host":{"name":"x"},"region":"y"}` -> `{"host.name":"x","region":"y"}`.
+fn flatten_synthetic_dotted(prefix: &str, value: &Value, out: &mut serde_json::Map<String, Value>) {
+    match value {
+        Value::Object(o) => {
+            for (k, v) in o {
+                let key = if prefix.is_empty() { k.clone() } else { format!("{prefix}.{k}") };
+                flatten_synthetic_dotted(&key, v, out);
+            }
+        }
+        _ => {
+            out.insert(prefix.to_string(), value.clone());
+        }
+    }
+}
+
+fn synthetic_flatten_object_array(arr: &[Value], props: &Value, parent_dynamic_false: bool, index_keep_arrays: bool) -> Value {
     let mut keys_in_order: Vec<String> = Vec::new();
     let mut groups: std::collections::HashMap<String, Vec<Value>> = std::collections::HashMap::new();
     for el in arr {
@@ -3213,15 +3267,22 @@ fn synthetic_flatten_object_array(arr: &[Value], props: &Value, parent_dynamic_f
                 _ => false,
             })
             .unwrap_or(false);
-        let all_objects = !values.is_empty() && values.iter().all(|v| v.is_object());
-        if all_objects {
-            out.insert(k, synthetic_flatten_object_array(&values, &child_props, child_dynamic_false));
+        // Effective keep wins before the column-major flatten: keep:arrays|all
+        // (explicit per-field, or inherited from the index default) preserves
+        // the concatenated source-order values verbatim — objects are NOT
+        // flattened and primitives are NOT sorted/deduped.
+        let effective_keep_arrays = match child_keep {
+            Some("arrays") | Some("all") => true,
+            Some("none") => false,
+            _ => index_keep_arrays,
+        };
+        if effective_keep_arrays {
+            out.insert(k, Value::Array(values));
             continue;
         }
-        // A leaf with `synthetic_source_keep: arrays|all` preserves
-        // the concatenated source order as-is (no sort, no dedupe).
-        if matches!(child_keep, Some("arrays") | Some("all")) {
-            out.insert(k, Value::Array(values));
+        let all_objects = !values.is_empty() && values.iter().all(|v| v.is_object());
+        if all_objects {
+            out.insert(k, synthetic_flatten_object_array(&values, &child_props, child_dynamic_false, index_keep_arrays));
             continue;
         }
         // Unmapped leaves under a `dynamic: false` parent are
