@@ -4330,6 +4330,56 @@ impl Index {
                     && bytes[3].is_ascii_digit()
                     && bytes[4] == b'-'
             }
+            // Day-first slash dates (`dd/MM/yyyy[ HH:mm:ss.SSS]`) that the
+            // year-first `looks_like_date` detector misses. A `date_nanos`
+            // (or `date`) field whose mapping `format` is e.g.
+            // `dd/MM/yyyy HH:mm:ss.SSS` stores its source in this shape; left
+            // as a raw string it string-sorts incorrectly and — across a
+            // multi-index search where a sibling index emits a numeric epoch —
+            // never orders against the sibling at all. Normalising it to an
+            // epoch (millis) here puts both indices on one comparable numeric
+            // scale so the cross-index merge sort in the API layer interleaves
+            // them by true instant, and the response layer's `format` pass
+            // renders the requested ISO string.
+            fn looks_like_slash_date(s: &str) -> bool {
+                let head = s.split_whitespace().next().unwrap_or(s);
+                let parts: Vec<&str> = head.split('/').collect();
+                parts.len() == 3
+                    && (1..=2).contains(&parts[0].len())
+                    && parts[0].bytes().all(|b| b.is_ascii_digit())
+                    && (1..=2).contains(&parts[1].len())
+                    && parts[1].bytes().all(|b| b.is_ascii_digit())
+                    && parts[2].len() == 4
+                    && parts[2].bytes().all(|b| b.is_ascii_digit())
+            }
+            fn slash_date_to_epoch(s: &str) -> Option<Value> {
+                // Day-first is the canonical ES `dd/MM/yyyy` shape; fall back
+                // to month-first only when day-first fails to parse (chrono
+                // rejects an out-of-range month, so an unambiguous `15/04/...`
+                // resolves to day-first). Emit epoch-millis — the
+                // sub-millisecond precision needed for nanos is only carried
+                // by year-first inputs handled above.
+                for pat in [
+                    "%d/%m/%Y %H:%M:%S%.f",
+                    "%d/%m/%Y %H:%M:%S",
+                    "%m/%d/%Y %H:%M:%S%.f",
+                    "%m/%d/%Y %H:%M:%S",
+                ] {
+                    if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, pat) {
+                        return Some(Value::Number(serde_json::Number::from(
+                            dt.and_utc().timestamp_millis(),
+                        )));
+                    }
+                }
+                for pat in ["%d/%m/%Y", "%m/%d/%Y"] {
+                    if let Ok(d) = chrono::NaiveDate::parse_from_str(s, pat) {
+                        return d.and_hms_opt(0, 0, 0).map(|dt| {
+                            Value::Number(serde_json::Number::from(dt.and_utc().timestamp_millis()))
+                        });
+                    }
+                }
+                None
+            }
             fn date_string_to_epoch(s: &str) -> Option<Value> {
                 // Detect sub-millisecond precision: the fractional part
                 // has 4+ digits → treat as nanoseconds, else milliseconds.
@@ -4392,6 +4442,9 @@ impl Index {
                         match raw {
                             Value::String(ref s) if looks_like_date(s) => {
                                 date_string_to_epoch(s).unwrap_or(raw)
+                            }
+                            Value::String(ref s) if looks_like_slash_date(s) => {
+                                slash_date_to_epoch(s).unwrap_or(raw)
                             }
                             other => other,
                         }

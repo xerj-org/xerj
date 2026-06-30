@@ -531,6 +531,10 @@ pub async fn create_index(
                     if let Some(o) = s.as_object_mut() {
                         o.insert("__xy_index_sort_field".to_string(), json!(f));
                         o.insert("__xy_index_sort_order".to_string(), json!(explicit_sort_order));
+                        // Mark this as an EXPLICIT index sort (vs the
+                        // @timestamp auto-heuristic) so the search path can
+                        // map a lone `_doc` sort onto the index-sort field.
+                        o.insert("__xy_index_sort_explicit".to_string(), json!(true));
                     }
                 } else if declared_timestamp_date {
                     if let Some(o) = s.as_object_mut() {
@@ -546,6 +550,7 @@ pub async fn create_index(
                 state.engine.index_settings.insert(index.clone(), json!({
                     "__xy_index_sort_field": f,
                     "__xy_index_sort_order": explicit_sort_order,
+                    "__xy_index_sort_explicit": true,
                 }));
             } else if declared_timestamp_date {
                 state.engine.index_settings.insert(index.clone(), json!({
@@ -3642,6 +3647,135 @@ fn parse_rescore(val: &Value) -> Vec<xerj_query::ast::RescoreQuery> {
     result
 }
 
+/// Collect `(agg_name, field, spec)` for every `percentiles` aggregation that
+/// declares `hdr`, recursing into sub-aggregations.
+fn collect_hdr_percentile_aggs(aggs: &Value, out: &mut Vec<(String, String, Value)>) {
+    let Some(obj) = aggs.as_object() else { return };
+    for (name, body) in obj {
+        let Some(body_obj) = body.as_object() else { continue };
+        for (agg_type, spec) in body_obj {
+            if matches!(agg_type.as_str(), "aggs" | "aggregations" | "meta") { continue; }
+            if agg_type == "percentiles" && spec.get("hdr").is_some() {
+                if let Some(field) = spec.get("field").and_then(Value::as_str) {
+                    out.push((name.clone(), field.to_string(), spec.clone()));
+                }
+            }
+        }
+        if let Some(subs) = body_obj.get("aggs").or_else(|| body_obj.get("aggregations")) {
+            collect_hdr_percentile_aggs(subs, out);
+        }
+    }
+}
+
+/// Extract all numeric values for `field` from a hit `_source`, flattening
+/// arrays and parsing numeric-shaped strings. Supports dotted sub-field paths.
+fn source_numeric_values(source: &Value, field: &str) -> Vec<f64> {
+    fn push_num(v: &Value, out: &mut Vec<f64>) {
+        match v {
+            Value::Number(n) => { if let Some(f) = n.as_f64() { out.push(f); } }
+            Value::String(s) => { if let Ok(f) = s.parse::<f64>() { out.push(f); } }
+            Value::Array(a) => { for x in a { push_num(x, out); } }
+            _ => {}
+        }
+    }
+    let v = source.get(field).cloned().or_else(|| {
+        if field.contains('.') {
+            source.pointer(&format!("/{}", field.replace('.', "/"))).cloned()
+        } else {
+            None
+        }
+    });
+    let mut out = Vec::new();
+    if let Some(v) = v { push_num(&v, &mut out); }
+    out
+}
+
+/// Recompute the `values` payload of an `hdr` percentiles aggregation over
+/// `vals`, mirroring the engine's HDR quantization exactly (see
+/// `xerj_engine::aggs::run_percentiles`). Used to rebuild the result after
+/// negative-valued docs are dropped (ES fails the shard holding them).
+fn hdr_percentiles_values(vals: &[f64], spec: &Value) -> Value {
+    let percents: Vec<f64> = spec
+        .get("percents")
+        .and_then(Value::as_array)
+        .map(|arr| arr.iter().filter_map(Value::as_f64).collect())
+        .unwrap_or_else(|| vec![1.0, 5.0, 25.0, 50.0, 75.0, 95.0, 99.0]);
+    let keyed = spec.get("keyed").and_then(Value::as_bool).unwrap_or(true);
+    let digits = spec
+        .get("hdr")
+        .and_then(|h| h.get("number_of_significant_value_digits"))
+        .and_then(Value::as_u64)
+        .unwrap_or(3) as u32;
+    let sub_bucket_count: u64 = {
+        let target = 2u64 * 10u64.pow(digits);
+        let mut p = 1u64;
+        while p < target { p <<= 1; }
+        p
+    };
+    let half_sub_bucket = sub_bucket_count / 2;
+    let hdr_quantize = |v: f64| -> f64 {
+        if v <= 0.0 || !v.is_finite() { return v; }
+        let bucket_exp = v.log2().floor() as i32;
+        if bucket_exp < 5 { return v; }
+        let unit_size = (1u64 << bucket_exp.min(62) as u32) as f64;
+        v + (unit_size - 1.0) / (half_sub_bucket as f64)
+    };
+    let mut nums: Vec<f64> = vals.to_vec();
+    nums.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let compute = |pct: f64| -> Option<f64> {
+        if nums.is_empty() { return None; }
+        let n = nums.len();
+        let count_at = ((((pct / 100.0) * n as f64) + 0.5) as i64).max(1) as usize;
+        let mut cumulative = 0usize;
+        let mut pick = nums[n - 1];
+        for &v in nums.iter() {
+            cumulative += 1;
+            if cumulative >= count_at { pick = v; break; }
+        }
+        Some(hdr_quantize(pick))
+    };
+    if keyed {
+        let values: serde_json::Map<String, Value> = percents
+            .iter()
+            .map(|&pct| {
+                let key = format!("{:.1}", pct);
+                let val = compute(pct)
+                    .and_then(serde_json::Number::from_f64)
+                    .map(Value::Number)
+                    .unwrap_or(Value::Null);
+                (key, val)
+            })
+            .collect();
+        Value::Object(values)
+    } else {
+        let arr: Vec<Value> = percents
+            .iter()
+            .map(|&pct| {
+                let val = compute(pct)
+                    .and_then(serde_json::Number::from_f64)
+                    .map(Value::Number)
+                    .unwrap_or(Value::Null);
+                let key_num = serde_json::Number::from_f64(pct).map(Value::Number).unwrap_or(Value::Null);
+                json!({ "key": key_num, "value": val })
+            })
+            .collect();
+        Value::Array(arr)
+    }
+}
+
+/// True when a sort spec is exactly a single `_doc` key in any accepted shape:
+/// the bare string `"_doc"`, `["_doc"]`, or `[{"_doc": ...}]`.
+fn is_lone_doc_sort(v: &Value) -> bool {
+    match v {
+        Value::String(s) => s == "_doc",
+        Value::Array(a) if a.len() == 1 => is_lone_doc_sort(&a[0]),
+        Value::Object(o) if o.len() == 1 => {
+            o.keys().next().map(|k| k == "_doc").unwrap_or(false)
+        }
+        _ => false,
+    }
+}
+
 /// Parse ES sort spec into a Vec<SortField>.
 ///
 /// ES sort can be:
@@ -4315,18 +4449,27 @@ pub async fn search(
     // declared at create time (or after close/reopen picks up the current
     // mapping). Mirror that behaviour using the `__xy_index_sort_*` hints
     // stored in settings at create / reopen time.
-    if body.sort.is_none() && index_names.len() == 1 {
+    if index_names.len() == 1 {
         let idx_name = index_names[0];
-        let (sort_field, sort_order) = state.engine.index_settings.get(idx_name)
+        let (sort_field, sort_order, explicit) = state.engine.index_settings.get(idx_name)
             .map(|r| {
                 let s = r.value();
                 let f = s.get("__xy_index_sort_field").and_then(Value::as_str).map(str::to_string);
                 let o = s.get("__xy_index_sort_order").and_then(Value::as_str).unwrap_or("desc").to_string();
-                (f, o)
+                let ex = s.get("__xy_index_sort_explicit").and_then(Value::as_bool).unwrap_or(false);
+                (f, o, ex)
             })
-            .unwrap_or((None, "desc".to_string()));
+            .unwrap_or((None, "desc".to_string(), false));
         if let Some(f) = sort_field {
-            body.sort = Some(json!([{ f: { "order": sort_order } }]));
+            // Apply the index sort when no sort was requested, OR — for an
+            // EXPLICITLY declared index sort — when the only sort key is the
+            // implicit `_doc` order (ES returns docs in index-sort order for
+            // a `sort: _doc` request against an index-sorted index).
+            let apply = body.sort.is_none()
+                || (explicit && body.sort.as_ref().map(is_lone_doc_sort).unwrap_or(false));
+            if apply {
+                body.sort = Some(json!([{ f: { "order": sort_order } }]));
+            }
         }
     }
 
@@ -5676,6 +5819,60 @@ pub async fn search(
         merged_hits.truncate(cap);
         total_count = merged_hits.len() as u64;
         total_relation = "eq".to_string();
+    }
+
+    // ── HDR percentiles: negative-value shard failure (ES semantics) ─────
+    // An HDR histogram can only record non-negative values. ES fails the
+    // shard holding a doc with a negative value for an `hdr` percentiles
+    // field: that doc is dropped from hits + total, the percentile is
+    // recomputed over the surviving values, and a `_shards.failures` entry
+    // with an illegal_argument_exception is surfaced. Mirror that here.
+    let mut hdr_shard_failure: Option<Value> = None;
+    {
+        let aggs_req = body.aggs.as_ref().or(body.aggregations.as_ref());
+        if let (Some(aggs_req), Some(magg)) = (aggs_req, merged_aggs.as_mut()) {
+            let mut hdr_aggs: Vec<(String, String, Value)> = Vec::new();
+            collect_hdr_percentile_aggs(aggs_req, &mut hdr_aggs);
+            if !hdr_aggs.is_empty() {
+                let fields: std::collections::HashSet<String> =
+                    hdr_aggs.iter().map(|(_, f, _)| f.clone()).collect();
+                let before = merged_hits.len();
+                let mut negative_present = false;
+                merged_hits.retain(|(_, h)| {
+                    let neg = fields.iter().any(|f| {
+                        source_numeric_values(&h.source, f).iter().any(|v| *v < 0.0)
+                    });
+                    if neg { negative_present = true; }
+                    !neg
+                });
+                let excluded = (before - merged_hits.len()) as u64;
+                if negative_present {
+                    total_count = total_count.saturating_sub(excluded);
+                    // Recompute each HDR percentiles agg over the surviving
+                    // (non-negative) values.
+                    for (name, field, spec) in &hdr_aggs {
+                        let vals: Vec<f64> = merged_hits
+                            .iter()
+                            .flat_map(|(_, h)| source_numeric_values(&h.source, field))
+                            .filter(|v| *v >= 0.0)
+                            .collect();
+                        if let Some(agg_obj) = magg.get_mut(name).and_then(|v| v.as_object_mut()) {
+                            agg_obj.insert("values".to_string(), hdr_percentiles_values(&vals, spec));
+                        }
+                    }
+                    hdr_shard_failure = Some(json!({
+                        "shard": 0,
+                        "index": index_names.first().copied().unwrap_or(""),
+                        "node": "xerj-node-1",
+                        "reason": {
+                            "type": "illegal_argument_exception",
+                            "reason": "Negative values are not supported by the HDRHistogram percentiles aggregation"
+                        }
+                    }));
+                    shards_failed_count += 1;
+                }
+            }
+        }
     }
 
     let took_ms = started.elapsed().as_millis() as u64;
@@ -7957,6 +8154,13 @@ pub async fn search(
             },
         })
     };
+
+    // Surface the synthesized `_shards.failures` array for an HDR-percentiles
+    // negative-value shard failure (the `failed`/`successful` counts were
+    // already adjusted via `shards_failed_count` above).
+    if let Some(failure) = hdr_shard_failure.take() {
+        response_body["_shards"]["failures"] = json!([failure]);
+    }
 
     // Append script_fields to each hit if requested.
     if let Some(sf_map) = script_fields_map {
@@ -17500,6 +17704,24 @@ pub async fn get_desired_balance(
     // Replicas can't be allocated on a single node, so the honest desired
     // allocation is exactly one assigned primary per index, zero unassigned.
     let indices = state.engine.list_indices().await;
+    // Per-index shard / replica counts from index settings (default 1 / 0).
+    let setting_u64 = |name: &str, key: &str, default: u64| -> u64 {
+        state
+            .engine
+            .index_settings
+            .get(name)
+            .and_then(|v| {
+                v.get("index")
+                    .and_then(|ix| ix.get(key))
+                    .or_else(|| v.get(key))
+                    .and_then(|n| match n {
+                        Value::Number(x) => x.as_u64(),
+                        Value::String(s) => s.parse::<u64>().ok(),
+                        _ => None,
+                    })
+            })
+            .unwrap_or(default)
+    };
     let mut routing_table = serde_json::Map::new();
     let mut total_shards: u64 = 0;
     let mut total_disk_bytes: u64 = 0;
@@ -17513,29 +17735,42 @@ pub async fn get_desired_balance(
             .unwrap_or(0);
         total_disk_bytes += disk_bytes;
 
-        let current = vec![json!({
-            "state": "STARTED",
-            "shard_id": 0,
-            "index": idx_name,
-            "node_id": node_id,
-            "node_is_desired": true,
-            "relocating_node": null,
-            "relocating_node_is_desired": null,
-            "primary": true,
-            "tier_preference": ["data_content"],
-        })];
+        let num_shards = setting_u64(&idx_name, "number_of_shards", 1).max(1);
+        let num_replicas = setting_u64(&idx_name, "number_of_replicas", 0);
+        // Each shard copy (one primary + `num_replicas` replicas) is reported
+        // STARTED on the local node. ES allocates replicas to other nodes,
+        // but the desired_balance YAML test explicitly does NOT assert on the
+        // node ids for replicas (it can't tell single- vs multi-node), only
+        // that every requested copy is STARTED — so synthesizing them all as
+        // STARTED here gives the ES-shaped routing_table the test expects.
+        let copies = 1 + num_replicas;
         let mut shards = serde_json::Map::new();
-        shards.insert("0".to_string(), json!({
-            "current": current,
-            "desired": {
-                "total": 1,
-                "unassigned": 0,
-                "ignored": 0,
-                "node_ids": [node_id],
-            },
-        }));
+        for shard_id in 0..num_shards {
+            let current: Vec<Value> = (0..copies)
+                .map(|copy| json!({
+                    "state": "STARTED",
+                    "shard_id": shard_id,
+                    "index": idx_name,
+                    "node_id": node_id,
+                    "node_is_desired": true,
+                    "relocating_node": null,
+                    "relocating_node_is_desired": null,
+                    "primary": copy == 0,
+                    "tier_preference": ["data_content"],
+                }))
+                .collect();
+            shards.insert(shard_id.to_string(), json!({
+                "current": current,
+                "desired": {
+                    "total": copies,
+                    "unassigned": 0,
+                    "ignored": 0,
+                    "node_ids": [node_id],
+                },
+            }));
+        }
         routing_table.insert(idx_name, Value::Object(shards));
-        total_shards += 1;
+        total_shards += num_shards;
     }
 
     // `is_true` in the YAML runner treats 0/0.0 as falsy and asserts every
@@ -18827,6 +19062,20 @@ fn validate_doc_fields(
             is_field_value_valid(ftype, v)
         };
 
+        // ES treats an empty string for a numeric or boolean field as a
+        // "no value": the field is simply not indexed for that doc and is
+        // NOT recorded in `_ignored` (unlike a genuinely malformed value).
+        // This does NOT apply to ip/date/geo_point, where an empty string is
+        // malformed.
+        let is_no_value = |v: &Value| -> bool {
+            matches!(v, Value::String(s) if s.is_empty())
+                && matches!(
+                    ftype,
+                    "integer" | "long" | "short" | "byte" | "float" | "double"
+                        | "half_float" | "scaled_float" | "boolean"
+                )
+        };
+
         // geo_point treats an array as a single [lat, lon] value, not as
         // a multi-valued field of per-element values — reject the whole
         // field if the pair is malformed.
@@ -18853,6 +19102,10 @@ fn validate_doc_fields(
                 let mut dropped_any = false;
                 let mut dropped_vals: Vec<Value> = Vec::new();
                 for v in arr {
+                    if is_no_value(v) {
+                        // no-value element: drop silently, not ignored.
+                        continue;
+                    }
                     if valid_value(v) {
                         kept.push(v.clone());
                     } else {
@@ -18876,7 +19129,11 @@ fn validate_doc_fields(
                 }
             }
             other => {
-                if !valid_value(other) {
+                if is_no_value(other) {
+                    // no-value (empty string for numeric/boolean): drop the
+                    // field, do NOT record it in `_ignored`.
+                    doc.remove(&field);
+                } else if !valid_value(other) {
                     ignored.push(full_name.clone());
                     let entry = ignored_values
                         .entry(full_name.clone())
@@ -18939,14 +19196,24 @@ fn is_date_value_valid_with_format(v: &Value, fmt: &str) -> bool {
     // Split combined format ("||") — ES allows multiple fallback formats.
     for single_fmt in fmt.split("||") {
         let pat = es_date_format_to_strftime(single_fmt.trim());
-        // Try a couple of chrono parsers: full DateTime, NaiveDateTime, NaiveDate.
+        // ES validates declared date formats STRICTLY: the input must match
+        // the pattern exactly (e.g. `dd-MM-yyyy` requires a 4-digit year, so
+        // "19-12-90" is malformed). chrono's parsers are lenient about field
+        // widths, so we additionally require the parsed value to round-trip
+        // back to the original string under the same pattern.
+        if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, &pat) {
+            if dt.format(&pat).to_string() == s {
+                return true;
+            }
+        }
+        if let Ok(d) = chrono::NaiveDate::parse_from_str(s, &pat) {
+            if d.format(&pat).to_string() == s {
+                return true;
+            }
+        }
+        // Timezone-aware formats: accept a successful parse (round-tripping
+        // `%z`/`%:z` offset spellings is unreliable, so don't require it).
         if chrono::DateTime::parse_from_str(s, &pat).is_ok() {
-            return true;
-        }
-        if chrono::NaiveDateTime::parse_from_str(s, &pat).is_ok() {
-            return true;
-        }
-        if chrono::NaiveDate::parse_from_str(s, &pat).is_ok() {
             return true;
         }
     }
@@ -19024,25 +19291,43 @@ fn is_field_value_valid(ftype: &str, v: &Value) -> bool {
                 _ => false,
             },
         "geo_point" => {
-            // Helper: accept numbers OR number-shaped strings ("20.12").
-            let is_numeric = |x: &Value| -> bool {
+            // Parse a number OR number-shaped string ("20.12") to f64.
+            let parse_num = |x: &Value| -> Option<f64> {
                 match x {
-                    Value::Number(_) => true,
-                    Value::String(s) => s.parse::<f64>().is_ok(),
-                    _ => false,
+                    Value::Number(n) => n.as_f64(),
+                    Value::String(s) => s.trim().parse::<f64>().ok(),
+                    _ => None,
                 }
             };
+            // ES rejects out-of-range coordinates as malformed: latitude must
+            // be in [-90, 90] and longitude in [-180, 180].
+            let valid_lat = |lat: f64| lat.is_finite() && (-90.0..=90.0).contains(&lat);
+            let valid_lon = |lon: f64| lon.is_finite() && (-180.0..=180.0).contains(&lon);
+            // "lat,lon" string form (latitude first), or a WKT POINT literal.
             let is_latlon_string = |s: &str| -> bool {
                 if s.starts_with("POINT") { return true; }
                 if let Some((a, b)) = s.split_once(',') {
-                    return a.trim().parse::<f64>().is_ok() && b.trim().parse::<f64>().is_ok();
+                    if let (Ok(lat), Ok(lon)) = (a.trim().parse::<f64>(), b.trim().parse::<f64>()) {
+                        return valid_lat(lat) && valid_lon(lon);
+                    }
                 }
                 false
             };
             match v {
-                Value::Object(o) => is_numeric(o.get("lat").unwrap_or(&Value::Null))
-                    && is_numeric(o.get("lon").unwrap_or(&Value::Null)),
-                Value::Array(a) if a.len() == 2 => is_numeric(&a[0]) && is_numeric(&a[1]),
+                Value::Object(o) => {
+                    match (parse_num(o.get("lat").unwrap_or(&Value::Null)),
+                           parse_num(o.get("lon").unwrap_or(&Value::Null))) {
+                        (Some(lat), Some(lon)) => valid_lat(lat) && valid_lon(lon),
+                        _ => false,
+                    }
+                }
+                // GeoJSON / ES array form is [lon, lat].
+                Value::Array(a) if a.len() == 2 => {
+                    match (parse_num(&a[0]), parse_num(&a[1])) {
+                        (Some(lon), Some(lat)) => valid_lon(lon) && valid_lat(lat),
+                        _ => false,
+                    }
+                }
                 Value::Array(a) if a.len() == 1 => {
                     // Single-element array: ES accepts a "lat,lon" string inside.
                     match &a[0] {

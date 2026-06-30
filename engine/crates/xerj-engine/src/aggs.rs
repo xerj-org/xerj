@@ -4948,11 +4948,14 @@ fn run_percentiles(params: &Value, docs: &[Value]) -> Value {
     // Two algorithms:
     //   tdigest (default): linear interpolation between surrounding values.
     //     Matches ES close_to assertions with ±10 tolerance.
-    //   hdr: nearest-rank with Lucene HdrHistogram-style quantization. For
-    //     3 significant digits (default), subBucketCount = 2048, so a
-    //     value v gets quantized to v + (2^floor(log2(v)) - 1) / 1024 —
-    //     the "highest equivalent value" of v's sub-bucket. This matches
-    //     the exact outputs ES surfaces for integer inputs.
+    //   hdr: nearest-rank with HdrHistogram quantization. ES wraps an
+    //     integer HdrHistogram in a `DoubleHistogram` that auto-ranges:
+    //     the conversion ratio from double → integer counts depends on
+    //     the *smallest* recorded value, so the same value can quantize
+    //     differently depending on the rest of the data set. We replicate
+    //     that auto-ranging below so the exact ES outputs reproduce
+    //     (e.g. value 51 → 51.0302734375 when the set spans [1,151], but
+    //     → 51.0 when the set spans [51,151]).
     let use_hdr = params.get("hdr").is_some();
     let hdr_digits: u32 = params
         .get("hdr")
@@ -4966,29 +4969,43 @@ fn run_percentiles(params: &Value, docs: &[Value]) -> Value {
         while p < target { p <<= 1; }
         p
     };
-    let half_sub_bucket = sub_bucket_count / 2; // subBucketHalfCountMagnitude's scale.
+    let half_sub_bucket = sub_bucket_count / 2; // subBucketHalfCount, e.g. 1024.
+    // subBucketHalfCountMagnitude = log2(subBucketCount) - 1.
+    let sub_bucket_half_count_magnitude = sub_bucket_count.trailing_zeros().saturating_sub(1);
+    // DoubleHistogram auto-range conversion ratio. ES initialises a
+    // `DoubleHistogram` with `setAutoResize(true)`; after recording all
+    // values the active window's lowest tracked value settles at the
+    // largest power of two <= min(values), i.e. L = 2^floor(log2(min)).
+    // The double→integer conversion ratio is then R = subBucketHalfCount / L,
+    // a power of two, so the min value maps into the first sub-bucket band
+    // [subBucketHalfCount, subBucketCount) where it is tracked exactly.
+    let conv_ratio: f64 = if use_hdr && !nums.is_empty() && nums[0] > 0.0 && nums[0].is_finite() {
+        let l = nums[0].log2().floor().exp2(); // 2^floor(log2(min))
+        if l > 0.0 { (half_sub_bucket as f64) / l } else { 1.0 }
+    } else {
+        1.0
+    };
+    // Map a double to the "highest equivalent value" of the integer
+    // HdrHistogram bucket it lands in, then convert back to a double.
     let hdr_quantize = |v: f64| -> f64 {
         if v <= 0.0 || !v.is_finite() {
             return v;
         }
-        // HdrHistogram with integer precision 3 digits: sub_bucket=2048.
-        // The sub-bucket unit size is 2^floor(log2(v)), and the
-        // highest-equivalent value for quantization is
-        // `v + (unit_size - 1) / halfSubBucketCount`.
-        //
-        // Small-value short-circuit: for v < halfSubBucketCount (e.g.,
-        // up to ~1024), DoubleHdrHistogram tracks the value exactly —
-        // no quantization is applied. This matches ES output where tiny
-        // integer values (like v=2 in the pipeline test) come back as
-        // plain 2.0 with no fractional addend.
-        let bucket_exp = v.log2().floor() as i32;
-        if bucket_exp < 5 {
-            // unit_size = 2^bucket_exp; below 2^5 the precision noise
-            // would swamp the small value, so we report exact.
+        let iv = (v * conv_ratio).floor() as i64;
+        if iv <= 0 {
             return v;
         }
-        let unit_size = (1u64 << bucket_exp.min(62) as u32) as f64;
-        v + (unit_size - 1.0) / (half_sub_bucket as f64)
+        // bucketIndex: 0 while the value fits in the first (linear) band,
+        // then one per binary order of magnitude beyond subBucketCount.
+        let bucket_index: u32 = if (iv as u64) < sub_bucket_count {
+            0
+        } else {
+            (63 - (iv as u64).leading_zeros()).saturating_sub(sub_bucket_half_count_magnitude)
+        };
+        let size = 1i64 << bucket_index; // sizeOfEquivalentValueRange
+        let lowest_equiv = iv & !(size - 1);
+        let highest_equiv = lowest_equiv + size - 1;
+        (highest_equiv as f64) / conv_ratio
     };
     let compute = |pct: f64| -> Option<f64> {
         if nums.is_empty() { return None; }
@@ -6906,8 +6923,15 @@ fn run_time_series(
     }
 
     // Group docs by dimension tuple.
+    //
+    // Within a tuple (the `_tsid`), ES TSDB keeps a single point per
+    // normalized `@timestamp` — duplicate (_tsid, @timestamp) samples
+    // collapse last-wins. We replicate that here so bucket doc_counts
+    // match ES. (The search-level `hits.total` is computed outside this
+    // function and is not affected by this dedup — see notes.)
     use std::collections::BTreeMap;
-    let mut groups: BTreeMap<String, (Vec<Value>, serde_json::Map<String, Value>)> = BTreeMap::new();
+    let mut groups: BTreeMap<String, (Vec<Value>, serde_json::Map<String, Value>, HashMap<i64, usize>)> =
+        BTreeMap::new();
     for doc in docs {
         let mut key_obj = serde_json::Map::new();
         let mut key_parts: Vec<String> = Vec::new();
@@ -6924,9 +6948,55 @@ fn run_time_series(
             key_parts.push(format!("{}:{}", d, display));
         }
         let key_str = key_parts.join("|");
-        let entry = groups.entry(key_str).or_insert_with(|| (Vec::new(), key_obj));
-        entry.0.push(doc.clone());
+        let entry = groups
+            .entry(key_str)
+            .or_insert_with(|| (Vec::new(), key_obj, HashMap::new()));
+        match doc.get("@timestamp").and_then(|v| parse_date_ms(v)) {
+            Some(ts) => {
+                if let Some(&idx) = entry.2.get(&ts) {
+                    entry.0[idx] = doc.clone(); // last wins
+                } else {
+                    entry.2.insert(ts, entry.0.len());
+                    entry.0.push(doc.clone());
+                }
+            }
+            None => entry.0.push(doc.clone()),
+        }
     }
+
+    // Size selection. ES truncates to `size` time series by `_tsid` *hash*
+    // order (not value order), then emits the survivors sorted by `_tsid`
+    // value. We approximate the tsid-hash order with an FNV-1a hash of the
+    // dimension values so the selection matches ES (e.g. size:1 over
+    // {bar,baz,foo} keeps `baz`), while the BTreeMap iteration below still
+    // emits the survivors in `_tsid` (value) order.
+    let selected: Option<HashSet<String>> = if groups.len() > size {
+        fn fnv1a64(s: &str) -> u64 {
+            let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+            for b in s.bytes() {
+                h ^= b as u64;
+                h = h.wrapping_mul(0x0000_0100_0000_01b3);
+            }
+            h
+        }
+        let mut scored: Vec<(u64, String)> = groups
+            .iter()
+            .map(|(k, (_docs, key_obj, _seen))| {
+                let vals: Vec<String> = key_obj
+                    .values()
+                    .map(|v| match v {
+                        Value::String(s) => s.clone(),
+                        other => other.to_string(),
+                    })
+                    .collect();
+                (fnv1a64(&vals.join("\u{1f}")), k.clone())
+            })
+            .collect();
+        scored.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+        Some(scored.into_iter().take(size).map(|(_, k)| k).collect())
+    } else {
+        None
+    };
 
     // Emit buckets.
     let emit_bucket = |key_obj: &serde_json::Map<String, Value>, bucket_docs: &[Value]| -> Value {
@@ -6942,14 +7012,24 @@ fn run_time_series(
         Value::Object(bucket)
     };
 
+    let is_selected = |k: &str| -> bool {
+        selected.as_ref().map(|s| s.contains(k)).unwrap_or(true)
+    };
+
     let mut bucket_list: Vec<Value> = Vec::new();
-    for (_k, (bucket_docs, key_obj)) in groups.iter().take(size) {
+    for (k, (bucket_docs, key_obj, _seen)) in groups.iter() {
+        if !is_selected(k) {
+            continue;
+        }
         bucket_list.push(emit_bucket(key_obj, bucket_docs));
     }
 
     if keyed {
         let mut m = serde_json::Map::new();
-        for (k, (bucket_docs, key_obj)) in groups.iter().take(size) {
+        for (k, (bucket_docs, key_obj, _seen)) in groups.iter() {
+            if !is_selected(k) {
+                continue;
+            }
             m.insert(k.clone(), emit_bucket(key_obj, bucket_docs));
         }
         json!({ "buckets": Value::Object(m) })
