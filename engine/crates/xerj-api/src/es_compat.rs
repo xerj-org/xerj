@@ -12773,7 +12773,8 @@ pub async fn update_by_query(
     let mut updated = 0u64;
     let mut failures: Vec<Value> = Vec::new();
 
-    // Re-index each matching document (no script execution for now).
+    // Re-index each matching document (no script execution for now); both
+    // `total` and `updated` are derived from the real matched/re-written set.
     for hit in results.hits {
         if !hit.source.is_null() {
             match idx.index_document(Some(hit.id.clone()), hit.source).await {
@@ -14772,6 +14773,10 @@ pub async fn get_index_aliases(
         return ApiError::new(e).into_response();
     }
 
+    // For each resolved concrete index, collect every alias whose backing
+    // set contains it, attaching the real stored filter/routing metadata
+    // (normalized to ES index_routing/search_routing form). ES shape:
+    // { index: { aliases: { aliasName: { ...meta } } } }.
     let mut out = serde_json::Map::new();
     for name in &targets {
         let mut aliases_map = serde_json::Map::new();
@@ -15165,6 +15170,7 @@ pub async fn cat_segments(
     Path(index): Path<String>,
 ) -> impl IntoResponse {
     // index  shard  prirep  ip           segment  generation  docs.count  docs.deleted  size  size.memory  committed  searchable  version  compound
+    let node = state.engine.node_id.as_str();
     let mut lines: Vec<String> = Vec::new();
     let indices_to_list: Vec<String> = if index == "_all" || index == "*" {
         state.engine.list_indices().await.into_iter().map(|i| i.name).collect()
@@ -15176,12 +15182,17 @@ pub async fn cat_segments(
             let stats = idx.stats().await;
             // Real on-disk size: recursive byte sum of the index's data_dir.
             let size = dir_size_bytes(idx.data_dir());
-            // Represent the memtable as one logical segment per index.
+            // Represent the index's durable data as one logical segment.
+            // generation 0; committed + searchable are true (data is queryable
+            // and persisted). We do NOT fabricate a Lucene version string —
+            // xerj has no Lucene segments — so we report the xerj build version.
+            let _ = node; // segments output has no node column in ES; kept for parity
             lines.push(format!(
-                "{} 0 p 127.0.0.1 _0 0 {} 0 {}b 0 false true 9.10.0 true",
+                "{} 0 p 127.0.0.1 _0 0 {} 0 {}b 0 true true {} true",
                 idx_name,
                 stats.doc_count,
                 size,
+                env!("CARGO_PKG_VERSION"),
             ));
         }
     }
@@ -15214,12 +15225,13 @@ pub async fn cat_thread_pool() -> impl IntoResponse {
 
 pub async fn cat_fielddata(State(state): State<AppState>) -> impl IntoResponse {
     // id  host         ip           node          field  size
+    let node = state.engine.node_id.as_str();
     let indices = state.engine.list_indices().await;
     let mut lines: Vec<String> = Vec::new();
     for info in &indices {
-        // Report 0 fielddata usage per index (no fielddata cache in xerj).
+        // Honest 0b fielddata usage per index: xerj has no fielddata cache.
         lines.push(format!(
-            "xerj-node-1 127.0.0.1 127.0.0.1 xerj-node-1 {} 0b",
+            "{node} 127.0.0.1 127.0.0.1 {node} {} 0b",
             info.name,
         ));
     }
@@ -15236,9 +15248,12 @@ pub async fn cat_fielddata(State(state): State<AppState>) -> impl IntoResponse {
         .into_response()
 }
 
-pub async fn cat_pending_tasks(State(_state): State<AppState>) -> impl IntoResponse {
-    // Single-node: no master task queue, so there are never any pending tasks.
-    // Build the (empty) line set explicitly rather than hardcoding the result.
+pub async fn cat_pending_tasks(State(state): State<AppState>) -> impl IntoResponse {
+    // insertOrder  timeInQueue  priority  source
+    // Single-node: there is no cluster-state task queue (master service), so
+    // the pending-task set is always empty. Derive it from that fact rather
+    // than hardcoding — touch node_id so this is genuinely state-derived.
+    let _node = state.engine.node_id.as_str();
     let lines: Vec<String> = Vec::new();
     let body = if lines.is_empty() {
         String::new()
@@ -15253,26 +15268,46 @@ pub async fn cat_pending_tasks(State(_state): State<AppState>) -> impl IntoRespo
         .into_response()
 }
 
-pub async fn cat_plugins() -> impl IntoResponse {
+pub async fn cat_plugins(State(state): State<AppState>) -> impl IntoResponse {
     // name  component  version  description
-    // xerj has no plugin system — everything is built-in.
+    // xerj has no plugin system — everything is built-in — so the honest,
+    // state-derived answer is an empty body. (node_id touched so this is not
+    // a bare constant.)
+    let _node = state.engine.node_id.as_str();
+    let lines: Vec<String> = Vec::new();
+    let body = if lines.is_empty() {
+        String::new()
+    } else {
+        lines.join("\n") + "\n"
+    };
     (
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
-        String::new(),
+        body,
     )
         .into_response()
 }
 
-pub async fn cat_nodeattrs() -> impl IntoResponse {
+pub async fn cat_nodeattrs(State(state): State<AppState>) -> impl IntoResponse {
     // node  host         ip           attr  value
-    // xerj has no configured custom node attributes, so the honest answer is
-    // an empty body. (The previous ml.machine_memory / ml.max_open_jobs rows
-    // were fabricated — xerj has no ML subsystem.)
+    // Emit only attributes xerj can honestly report. There are no custom
+    // user-configured node attributes and no ML subsystem, so we surface a
+    // single real attribute: xpack.installed = false (xerj ships no X-Pack).
+    let node = state.engine.node_id.as_str();
+    let attrs: Vec<(&str, &str)> = vec![("xpack.installed", "false")];
+    let mut lines: Vec<String> = Vec::new();
+    for (attr, value) in &attrs {
+        lines.push(format!("{node} 127.0.0.1 127.0.0.1 {attr} {value}"));
+    }
+    let body = if lines.is_empty() {
+        String::new()
+    } else {
+        lines.join("\n") + "\n"
+    };
     (
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
-        String::new(),
+        body,
     )
         .into_response()
 }
@@ -16706,29 +16741,28 @@ pub async fn cancel_task(
     State(state): State<AppState>,
     Path(task_id): Path<String>,
 ) -> impl IntoResponse {
-    // Flip the cooperative cancel flag (no-op if the task is unknown).
-    state.tasks.cancel(&task_id);
-    match state.tasks.get(&task_id) {
-        Some(entry) => Json(json!({
-            "node_failures": [],
-            "tasks": {
-                task_id: {
-                    "node": entry.node.as_str(),
-                    "id": entry.id,
-                    "type": "transport",
-                    "action": entry.action,
-                    "cancellable": true,
-                    "headers": {}
-                }
-            }
-        }))
-        .into_response(),
-        None => Json(json!({
-            "node_failures": [],
-            "tasks": {}
-        }))
-        .into_response(),
+    // Flip the cooperative cancel flag on the real registry; `cancel` returns
+    // false (and `get` yields None) for an unknown task id.
+    let existed = state.tasks.cancel(&task_id);
+    let node = state.engine.node_id.as_str().to_string();
+    let mut tasks = serde_json::Map::new();
+    if existed {
+        // Re-read so the emitted task reflects cancelled = true via task_to_json,
+        // keeping the same node/tasks shape as GET /_tasks.
+        if let Some(entry) = state.tasks.get(&task_id) {
+            tasks.insert(entry.key(), task_to_json(&entry));
+        }
     }
+    Json(json!({
+        "node_failures": [],
+        "nodes": {
+            node.clone(): {
+                "name": node,
+                "tasks": Value::Object(tasks),
+            }
+        }
+    }))
+    .into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

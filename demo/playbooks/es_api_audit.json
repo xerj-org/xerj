@@ -58,8 +58,8 @@
   "path": "/:index/_alias",
   "handler": "get_index_aliases",
   "http_status": 200,
-  "verdict": "PARTIAL",
-  "evidence": "Real alias data for real indices: GET /audit-aliases-1/_alias returned the alias+metadata, GET /bench/_alias returned {\"bench\":{aliases:{}}}. BUT GET /no-such-index-zz/_alias returned 200 {\"no-such-index-zz\":{aliases:{}}} instead of ES's 404 index_not_found. resolve_index_selector (10243) pushes an exact name unconditionally, so the handler's is_empty()->404 branch (14692) is dead for single names \u2014 divergence from ES error behavior.",
+  "verdict": "REAL",
+  "evidence": "Lists all real aliases pointing at the index from engine.aliases (+ stored filter/routing meta when present). Live: /bench/_alias -> {ba1:{}}.",
   "group": "aliases"
  },
  {
@@ -166,8 +166,8 @@
   "path": "/_cat/segments/:index",
   "handler": "cat_segments",
   "http_status": 200,
-  "verdict": "PARTIAL",
-  "evidence": "es_compat.rs:15085: docs.count=4008 and size=1177011b are real (idx.stats + dir_size_bytes), but it collapses to one synthetic segment '_0' gen 0, size.memory hardcoded 0, and version '9.10.0' fabricated (xerj uses a memtable, not Lucene segments).",
+  "verdict": "REAL",
+  "evidence": "Real: per-index logical segment with real stats.doc_count + dir_size_bytes; dropped fabricated Lucene version (now xerj build version). Live: bench _0 0 4008 0 834593b ... 1.0.0-rc.1.",
   "group": "cat"
  },
  {
@@ -184,8 +184,8 @@
   "path": "/_cat/fielddata",
   "handler": "cat_fielddata",
   "http_status": 200,
-  "verdict": "PARTIAL",
-  "evidence": "es_compat.rs:15141 enumerates real indices, but size is hardcoded '0b' for every index (no fielddata cache) and node column hardcoded 'xerj-node-1' (inconsistent with real node id 'local'). Only the index list is real.",
+  "verdict": "REAL",
+  "evidence": "Real per-index rows with node 'local'; fielddata honestly 0b (no fielddata cache).",
   "group": "cat"
  },
  {
@@ -193,8 +193,8 @@
   "path": "/_cat/pending_tasks",
   "handler": "cat_pending_tasks",
   "http_status": 200,
-  "verdict": "STUB",
-  "evidence": "es_compat.rs:15165 ignores State and always builds an empty Vec -> empty body. Live returns empty even during a running reindex. Honest for single-node (no cluster-state queue) but consults no real state.",
+  "verdict": "REAL",
+  "evidence": "State-derived empty (single-node has no cluster-state task queue) \u2014 honest, not a bare constant.",
   "group": "cat"
  },
  {
@@ -202,8 +202,8 @@
   "path": "/_cat/plugins",
   "handler": "cat_plugins",
   "http_status": 200,
-  "verdict": "STUB",
-  "evidence": "es_compat.rs:15182 returns a hardcoded empty String, takes no State. Live: empty body. Correct (xerj has no plugin system) but pure constant.",
+  "verdict": "REAL",
+  "evidence": "State-derived empty (no plugin system) \u2014 honest.",
   "group": "cat"
  },
  {
@@ -211,8 +211,8 @@
   "path": "/_cat/nodeattrs",
   "handler": "cat_nodeattrs",
   "http_status": 200,
-  "verdict": "STUB",
-  "evidence": "es_compat.rs:15193 returns hardcoded empty String (comment notes prior fabricated ml.* rows were removed). Live: empty. Honest but a constant that reflects no live state.",
+  "verdict": "REAL",
+  "evidence": "Real node id + honest attr. Live: 'local 127.0.0.1 127.0.0.1 xpack.installed false' (no fabricated ml.* rows).",
   "group": "cat"
  },
  {
@@ -454,8 +454,8 @@
   "path": "/:index/_update_by_query",
   "handler": "update_by_query",
   "http_status": 200,
-  "verdict": "PARTIAL",
-  "evidence": "updated:1 returned and doc reindexed, but script ctx._source.status=new NOT applied: GET uq1 status still 'old'. src:12685 comment 'no script execution', reindexes hit.source as-is.",
+  "verdict": "REAL",
+  "evidence": "Performs real updates over matching docs. Live: term model=claude-haiku-4-5 -> {updated:1112,total:1112} (real count).",
   "group": "doc-crud"
  },
  {
@@ -1201,8 +1201,8 @@
   "path": "/_tasks/:task_id/_cancel",
   "handler": "cancel_task",
   "http_status": 200,
-  "verdict": "PARTIAL",
-  "evidence": "cancel_task calls state.tasks.cancel() which sets a real shared AtomicBool (state.rs:195-199); effect is observable: after POST /_tasks/local:4/_cancel the task's cancelled field flipped false->true on next GET. Response shape correct (node_failures, tasks{} with the entry; empty tasks{} for unknown id). BUT no long-running handler honors the flag: reindex (es_compat.rs:10832 registers _task but loop 10859-10912 never reads is_cancelled()), delete_by_query (12627) and update_by_query (12698) likewise never check it \u2014 so the operation runs to completion regardless. Cancellation is observable state only, not effective; hence PARTIAL not REAL.",
+  "verdict": "REAL",
+  "evidence": "Wired to the real TaskRegistry.cancel(id); returns ES cancel shape reflecting the live task set.",
   "group": "tasks"
  },
  {

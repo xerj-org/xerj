@@ -36,10 +36,10 @@ curl -s -XPOST "http://localhost:9200/vstore/_bulk" \
   "items": [
     {
       "index": {
-        "_id": "8b5da400-7a47-416e-8b12-59757a428ec1",
+        "_id": "c772314a-ccd0-444f-ba55-2149470d8f17",
         "_index": "vstore",
         "_primary_term": 1,
-        "_seq_no": 1782804405305297,
+        "_seq_no": 1782804896706706,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -52,10 +52,10 @@ curl -s -XPOST "http://localhost:9200/vstore/_bulk" \
     },
     {
       "index": {
-        "_id": "f48582cf-265d-4ca8-8b09-40d8d70d742b",
+        "_id": "f79f24db-c6c7-45d9-8eda-6792e497dc88",
         "_index": "vstore",
         "_primary_term": 1,
-        "_seq_no": 1782804405305298,
+        "_seq_no": 1782804896706707,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -68,10 +68,10 @@ curl -s -XPOST "http://localhost:9200/vstore/_bulk" \
     },
     {
       "index": {
-        "_id": "94795f4a-86a1-4650-9831-8c7fc1c7d923",
+        "_id": "dfd31d47-94a2-4e4a-88aa-3e1125848a13",
         "_index": "vstore",
         "_primary_term": 1,
-        "_seq_no": 1782804405305298,
+        "_seq_no": 1782804896706707,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -126,7 +126,7 @@ curl -s -XPOST "http://localhost:9200/vstore/_search" \
   "hits": {
     "hits": [
       {
-        "_id": "8b5da400-7a47-416e-8b12-59757a428ec1",
+        "_id": "c772314a-ccd0-444f-ba55-2149470d8f17",
         "_index": "vstore",
         "_score": 1,
         "_source": {
@@ -140,7 +140,7 @@ curl -s -XPOST "http://localhost:9200/vstore/_search" \
         }
       },
       {
-        "_id": "f48582cf-265d-4ca8-8b09-40d8d70d742b",
+        "_id": "f79f24db-c6c7-45d9-8eda-6792e497dc88",
         "_index": "vstore",
         "_score": 0.608433723449707,
         "_source": {
@@ -154,7 +154,7 @@ curl -s -XPOST "http://localhost:9200/vstore/_search" \
         }
       },
       {
-        "_id": "94795f4a-86a1-4650-9831-8c7fc1c7d923",
+        "_id": "dfd31d47-94a2-4e4a-88aa-3e1125848a13",
         "_index": "vstore",
         "_score": 0.5120481848716736,
         "_source": {

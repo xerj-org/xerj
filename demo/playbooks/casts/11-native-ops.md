@@ -19,7 +19,7 @@ curl -s "http://localhost:8080/v1/health"
     "version": "1.0.0-rc.1"
   },
   "took_ms": 0,
-  "request_id": "16dc0e8a-e6fa-467e-bdd0-7a0c1df0253a"
+  "request_id": "4ea40768-d02f-400b-a41d-143a3b30a3a6"
 }
 ```
 
@@ -96,7 +96,7 @@ curl -s "http://localhost:8080/v1/cluster/health"
     "version": "1.0.0-rc.1"
   },
   "took_ms": 0,
-  "request_id": "68e56aa9-ad3f-4158-9204-c01e1ecc33a9"
+  "request_id": "80c45115-cf0c-41d9-acca-00f68cc74229"
 }
 ```
 
@@ -114,28 +114,28 @@ curl -s -XPOST "http://localhost:8080/v1/admin/flush"
     "failed": [],
     "flushed": 18,
     "indices": [
-      ".xerj_alert_fires",
-      ".xerj_cluster_state",
-      ".xerj_api_tokens",
-      ".xerj_sessions",
-      ".xerj_audit",
-      ".xerj_passkeys",
-      ".xerj_magic_links",
-      ".xerj_dashboards",
       "logs-2026-04",
       ".xerj_views",
-      "articles",
-      ".xerj_idp_config",
-      ".xerj_prefs",
-      "vstore",
-      ".xerj_users",
-      ".xerj_alert_rules",
+      ".xerj_passkeys",
+      ".xerj_api_tokens",
       "bench",
+      "articles",
+      ".xerj_alert_rules",
+      ".xerj_magic_links",
+      "vstore",
+      ".xerj_audit",
+      ".xerj_users",
+      ".xerj_idp_config",
+      ".xerj_cluster_state",
+      ".xerj_dashboards",
+      ".xerj_prefs",
+      ".xerj_sessions",
+      ".xerj_alert_fires",
       ".xerj_connections"
     ]
   },
   "took_ms": 6,
-  "request_id": "aeb26982-c7c4-46a2-9abf-5a4b5a81ba63"
+  "request_id": "b999b9fb-e47f-461f-9b09-dd3aaa83f9b8"
 }
 ```
 
@@ -152,47 +152,35 @@ curl -s -XPOST "http://localhost:8080/v1/admin/backup" \
 ```json
 {
   "data": {
-    "backup": "backup-9b675626-d005-49cf-a4ad-334c09a558b4",
+    "backup": "backup-2621b3cf-4f39-4a75-921c-4edaae8d5cd7",
     "manifest": {
       "duration_in_millis": 0,
-      "end_time_in_millis": 1782804405504,
+      "end_time_in_millis": 1782804896898,
       "failures": [],
       "index_files": [
         {
           "files": [
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "000000000000
-… (93727 more bytes)
+            "snapshot.json",
+            "schema.json",
+            "791a01a6-3d15-4e69-bc01-9e3eba10f268.@timestamp.norms",
+            "791a01a6-3d15-4e69-bc01-9e3eba10f268.@timestamp.meta",
+            "791a01a6-3d15-4e69-bc01-9e3eba10f268.level.norms",
+            "791a01a6-3d15-4e69-bc01-9e3eba10f268.level.meta",
+            "791a01a6-3d15-4e69-bc01-9e3eba10f268.svc.norms",
+            "791a01a6-3d15-4e69-bc01-9e3eba10f268.@timestamp.fst",
+            "791a01a6-3d15-4e69-bc01-9e3eba10f268.svc.meta",
+            "791a01a6-3d15-4e69-bc01-9e3eba10f268.msg.norms",
+            "791a01a6-3d15-4e69-bc01-9e3eba10f268.msg.meta",
+            "791a01a6-3d15-4e69-bc01-9e3eba10f268.level.fst",
+            "791a01a6-3d15-4e69-bc01-9e3eba10f268.@timestamp.post",
+            "791a01a6-3d15-4e69-bc01-9e3eba10f268.level.post",
+            "791a01a6-3d15-4e69-bc01-9e3eba10f268.svc.fst",
+            "791a01a6-3d15-4e69-bc01-9e3eba10f268.msg.fst",
+            "791a01a6-3d15-4e69-bc01-9e3eba10f268.svc.post",
+            "791a01a6-3d15-4e69-bc01-9e3eba10f268.msg.post",
+            "791a01a6-3d15-4e69-bc01-9e3eba10f268.dv",
+            "fa277a16-e134-4674-9d
+… (92491 more bytes)
 ```
 
 _HTTP 201_
