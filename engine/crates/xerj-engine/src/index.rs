@@ -4695,34 +4695,33 @@ impl Index {
         // is Some), or when the request has no significant_terms agg.  Cloning
         // every memtable doc into a Vec<Value> is the dominant overhead for
         // `size:0 + agg` queries on a 200 k-doc memtable.
-        let needs_full_bg = request
-            .aggs
-            .as_ref()
-            .map(|v| {
-                let s = v.to_string();
-                s.contains("significant_terms")
-                    || s.contains("significant_text")
-                    || s.contains("\"global\"")
-                    // `terms` with `min_doc_count: 0` also needs the
-                    // full background corpus to surface terms that exist
-                    // in the index but didn't match the query.
-                    || s.contains("\"min_doc_count\":0")
-                    || s.contains("\"min_doc_count\": 0")
-            })
-            .unwrap_or(false);
-        let all_docs: Vec<Value> = if precomputed_aggs.is_none()
-            && request.aggs.is_some()
-            && needs_full_bg
-        {
-            // Combine memtable + every segment's stored section so the
-            // full background corpus is available even after `_refresh`
-            // has flushed the memtable to disk. Without this, sig_terms /
-            // sig_text / global aggs see only an empty memtable corpus
-            // and silently produce 0 buckets.
+        // Build the full corpus (live memtable + every segment's stored
+        // section) whenever we will need a JSON-scan aggregation fallback.
+        //
+        // CORRECTNESS: aggregations must see EVERY matching document, not just
+        // the `materialisation_limit`-capped hit window (`final_hits`). The
+        // segment doc-values fast paths (`try_aggs_fast*`) are disabled under
+        // the sharded memtable (M5.1), so for `size:0 + aggs` the agg value is
+        // computed by `run_aggs_with_all` — which previously ran over only the
+        // first ~256 materialised hits, silently under-counting stats/terms on
+        // any index larger than the cap. We hand it the full corpus instead.
+        //
+        // This corpus also serves as the `significant_terms` / `global` /
+        // `min_doc_count:0` background, so it must exist after `_refresh` has
+        // flushed the memtable to segments.
+        let need_full_corpus = precomputed_aggs.is_none() && request.aggs.is_some();
+        let all_docs: Vec<Value> = if need_full_corpus {
+            // `_id` is injected onto each source so `top_hits` / `_id`-keyed
+            // aggs over the corpus still work (the fast path never provided it).
             let mut docs: Vec<Value> = self.memtable
                 .all_docs_with_sources()
                 .into_iter()
-                .map(|(_, v)| v)
+                .map(|(id, mut v)| {
+                    if let Some(o) = v.as_object_mut() {
+                        o.entry("_id".to_string()).or_insert_with(|| Value::String(id));
+                    }
+                    v
+                })
                 .collect();
             let snap_bg = self.store.snapshot();
             for seg in &snap_bg.segments {
@@ -4747,7 +4746,13 @@ impl Index {
                         if let Some(ver) = self.store.version_map.get(id_ref) {
                             if ver.deleted { continue; }
                         }
-                        let src = d.get("_source").cloned().unwrap_or(d);
+                        let id_owned = id_ref.to_string();
+                        let mut src = d.get("_source").cloned().unwrap_or(d);
+                        if let Some(o) = src.as_object_mut() {
+                            if !id_owned.is_empty() {
+                                o.entry("_id".to_string()).or_insert(Value::String(id_owned));
+                            }
+                        }
                         docs.push(src);
                     }
                 }
@@ -4795,38 +4800,38 @@ impl Index {
             let agg_result = if let Some(r) = agg_result_opt {
                 r
             } else {
-                // Path 2: memtable-only fast path (existing behaviour).
+                // Memtable-only DV fast path (currently a no-op under the
+                // sharded memtable — returns None; kept wired for when the
+                // cross-shard column aggregator lands).
                 let can_use_dv_fast = is_match_all || mem_dv_doc_indices.is_some();
-                if can_use_dv_fast {
-                    let dv_indices = mem_dv_doc_indices.as_deref(); // None for MatchAll
-                    if let Some(dv_result) =
-                        try_aggs_fast(aggs_def, dv_indices, &self.memtable).await
-                    {
-                        dv_result
-                    } else {
-                        // Path 3: JSON-scan fallback.
-                        let sources: Vec<Value> = final_hits.iter().map(|h| {
-                            let mut s = h.source.clone();
-                            if let Some(obj) = s.as_object_mut() {
-                                obj.insert("_score".to_string(), serde_json::json!(h.score));
-                                obj.insert("_id".to_string(), Value::String(h.id.clone()));
-                                obj.insert("_index".to_string(), Value::String(self.name.to_string()));
-                                if let Some(seq) = self.lookup_seq_no(&h.id) {
-                                    obj.insert("_seq_no".to_string(), serde_json::json!(seq));
-                                }
-                                if !h.matched_queries.is_empty() {
-                                    obj.insert(
-                                        "_matched_queries".to_string(),
-                                        Value::Array(h.matched_queries.iter().cloned().map(Value::String).collect()),
-                                    );
-                                }
-                            }
-                            s
-                        }).collect();
-                        let bg = if all_docs.is_empty() { &sources[..] } else { &all_docs[..] };
-                        run_aggs_with_all(aggs_def, &sources, bg)
-                    }
+                let dv_result = if can_use_dv_fast {
+                    try_aggs_fast(aggs_def, mem_dv_doc_indices.as_deref(), &self.memtable).await
                 } else {
+                    None
+                };
+                if let Some(r) = dv_result {
+                    r
+                } else if need_full_corpus {
+                    // JSON-scan over the FULL matching set (correctness fix).
+                    // match_all -> the whole corpus; filtered query -> keep only
+                    // docs the query matches (same matcher the stored-doc scan
+                    // uses), so aggregations reflect every match rather than the
+                    // `materialisation_limit`-capped hit window.
+                    let fg_owned: Vec<Value>;
+                    let fg: &[Value] = if is_match_all {
+                        &all_docs[..]
+                    } else {
+                        fg_owned = all_docs
+                            .iter()
+                            .filter(|d| doc_matches_query(query, d))
+                            .cloned()
+                            .collect();
+                        &fg_owned[..]
+                    };
+                    let bg = if all_docs.is_empty() { fg } else { &all_docs[..] };
+                    run_aggs_with_all(aggs_def, fg, bg)
+                } else {
+                    // Safety net: corpus not built — aggregate the hit window.
                     let sources: Vec<Value> = final_hits.iter().map(|h| {
                         let mut s = h.source.clone();
                         if let Some(obj) = s.as_object_mut() {

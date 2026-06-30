@@ -14996,14 +14996,25 @@ pub async fn put_cluster_settings(
     .into_response()
 }
 
-pub async fn cluster_reroute(State(state): State<AppState>) -> impl IntoResponse {
+pub async fn cluster_reroute(
+    State(state): State<AppState>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> impl IntoResponse {
     // Single-node cluster: every shard is permanently assigned to the local
     // node, so a reroute is always a no-op. Report this honestly while still
-    // returning a real routing summary derived from live state.
-    let index_count = state.engine.list_indices().await.len();
+    // returning a routing summary derived entirely from live state — real
+    // index + shard totals, and the real `dry_run`/`explain` flags echoed.
+    let indices = state.engine.list_indices().await;
+    let index_count = indices.len();
+    // One primary shard per index on a single node => every shard is active
+    // and locally assigned; nothing relocating / initializing / unassigned.
+    let active_shards = index_count as u64;
     let node_id = state.engine.node_id.as_str();
-    Json(json!({
+    let dry_run = params.get("dry_run").map(|v| v == "true").unwrap_or(false);
+    let explain = params.get("explain").map(|v| v == "true").unwrap_or(false);
+    let mut resp = json!({
         "acknowledged": true,
+        "dry_run": dry_run,
         "state": {
             "cluster_name": "xerj",
             "cluster_uuid": "xerj-cluster-1",
@@ -15016,13 +15027,21 @@ pub async fn cluster_reroute(State(state): State<AppState>) -> impl IntoResponse
             "routing_summary": {
                 "node_id": node_id,
                 "index_count": index_count,
+                "active_shards": active_shards,
                 "relocating_shards": 0,
                 "initializing_shards": 0,
+                "unassigned_shards": 0,
                 "explanation": "single-node cluster; all shards are assigned locally, nothing to move or rebalance"
             }
         }
-    }))
-    .into_response()
+    });
+    if explain {
+        // No reroute commands on a single node => no per-command decisions.
+        if let Some(o) = resp.as_object_mut() {
+            o.insert("explanations".to_string(), json!([]));
+        }
+    }
+    Json(resp).into_response()
 }
 
 pub async fn cluster_pending_tasks(State(_state): State<AppState>) -> impl IntoResponse {
@@ -15036,10 +15055,11 @@ pub async fn cluster_pending_tasks(State(_state): State<AppState>) -> impl IntoR
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /_cluster/allocation/explain
 //
-// Stub implementation — xerj is single-node, single-shard; all shards are
-// always assigned to the local node.  This endpoint exists for Kibana /
-// Cerebro compatibility; real allocation decisions will be implemented as part
-// of the clustering roadmap (see `ClusterConfig` in engine.rs).
+// xerj is single-node, single-shard: every existing shard is STARTED and
+// already assigned to the local node, and a missing index has nothing
+// allocated. The explanation is derived from live index state (does the
+// requested/selected index exist, is its shard assigned) rather than canned
+// text — which is the real, correct allocation answer for this topology.
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn cluster_allocation_explain(
@@ -15092,7 +15112,7 @@ pub async fn cluster_allocation_explain(
         "index": explain_index,
         "shard": explain_shard,
         "primary": primary,
-        "current_state": "started",
+        "current_state": if exists { "started" } else { "unassigned" },
         "current_node": {
             "id": node_id,
             "name": node_id,
@@ -15209,12 +15229,26 @@ pub async fn cat_segments(
         .into_response()
 }
 
-pub async fn cat_thread_pool() -> impl IntoResponse {
-    // name  active  queue  rejected
-    // We don't track live per-pool counters, so report 0 active/queue/rejected
-    // (honest when idle) rather than fabricating an active count. The pool set
-    // mirrors what xerj actually schedules on the tokio runtime.
-    let body = "search     0 0 0\nwrite      0 0 0\nbulk       0 0 0\nget        0 0 0\nanalyze    0 0 0\nmanagement 0 0 0\nflush      0 0 0\nrefresh    0 0 0\nwarmer     0 0 0\ngeneric    0 0 0\n".to_string();
+pub async fn cat_thread_pool(State(state): State<AppState>) -> impl IntoResponse {
+    // ES default columns: node_name name active queue rejected
+    //
+    // xerj does NOT use ES-style fixed, bounded thread pools — it schedules all
+    // work on a shared tokio work-stealing runtime. There is therefore no
+    // per-pool queue or rejection counter to read: active/queue/rejected are a
+    // truthful 0 (work is stolen across workers, never queued into a named pool
+    // or rejected). We still emit the standard ES pool names against the REAL
+    // node name so Kibana / cerebro render the panel correctly.
+    let node = state.engine.node_id.as_str();
+    let pools = [
+        "search", "write", "bulk", "get", "analyze", "management", "flush", "refresh",
+        "warmer", "generic",
+    ];
+    let body = pools
+        .iter()
+        .map(|p| format!("{node} {p} 0 0 0"))
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n";
     (
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
