@@ -12,7 +12,7 @@ curl -s "http://localhost:9200/"
 
 ```json
 {
-  "name": "xerj-node-b384c415",
+  "name": "local",
   "cluster_name": "xerj",
   "cluster_uuid": "xerj-cluster-0000-0000-0000-000000000000",
   "version": {
@@ -68,7 +68,7 @@ curl -s "http://localhost:9200/_cat/nodes?v"
 ```
 
 ```json
-127.0.0.1 10 50 0 0.00 0.00 0.00 cdfhilmrstw * xerj-node-1
+127.0.0.1 0 6 2 1.91 2.11 1.45 cdfhilmrstw * local
 ```
 
 _HTTP 200_
@@ -88,7 +88,7 @@ curl -s "http://localhost:8080/v1/health"
     "version": "1.0.0-rc.1"
   },
   "took_ms": 0,
-  "request_id": "cfb72836-33db-44b9-acd0-244023ce0e0e"
+  "request_id": "67b97b20-8753-402b-ae40-e7cccfd88e2c"
 }
 ```
 

@@ -18,10 +18,10 @@ curl -s -XPOST "http://localhost:9200/articles/_bulk" \
   "items": [
     {
       "index": {
-        "_id": "6e505def-8b8b-4048-a7bb-449a149f8af5",
+        "_id": "c22c6d77-a257-4abd-825d-8d9560e34340",
         "_index": "articles",
         "_primary_term": 1,
-        "_seq_no": 1782797511936383,
+        "_seq_no": 1782800421526738,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -34,10 +34,10 @@ curl -s -XPOST "http://localhost:9200/articles/_bulk" \
     },
     {
       "index": {
-        "_id": "ac27e975-0932-45cf-92b1-3075721203a8",
+        "_id": "70902f08-6f83-4391-b3f3-3ab73a632c66",
         "_index": "articles",
         "_primary_term": 1,
-        "_seq_no": 1782797511936384,
+        "_seq_no": 1782800421526738,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -50,10 +50,10 @@ curl -s -XPOST "http://localhost:9200/articles/_bulk" \
     },
     {
       "index": {
-        "_id": "ccbacb35-a75d-4486-a030-177c5cb00ac5",
+        "_id": "9242f06e-bfa8-45b0-83b2-c5b44d3b2fd3",
         "_index": "articles",
         "_primary_term": 1,
-        "_seq_no": 1782797511936384,
+        "_seq_no": 1782800421526739,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -66,10 +66,10 @@ curl -s -XPOST "http://localhost:9200/articles/_bulk" \
     },
     {
       "index": {
-        "_id": "f73700d7-04b1-4a58-9ea2-2eff09af1c66",
+        "_id": "fe5e3af4-703b-4fa8-a08e-c3572b7a7e50",
         "_index": "articles",
         "_primary_term": 1,
-        "_seq_no": 1782797511936384,
+        "_seq_no": 1782800421526739,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -125,21 +125,21 @@ curl -s "http://localhost:9200/_cat/indices?v"
 ```
 
 ```json
-green open .xerj_users 16684016-624c-4d3b-8f02-2af9c1328fe4 1 0 0 0
-green open .xerj_prefs be018abd-cc75-456c-9215-9720f937ae48 1 0 0 0
-green open .xerj_connections 65d22489-6e71-4e28-86a9-9c9ca1b17616 1 0 0 0
-green open .xerj_magic_links 741ebaf0-6522-4066-bee8-c288bf69933c 1 0 1 0
-green open .xerj_sessions cbf776a4-8847-436d-9151-2079ae833164 1 0 0 0
-green open .xerj_views eff92923-d7ab-4311-95a8-07e2362ce77c 1 0 0 0
-green open articles e1ca6d9c-f280-4189-9361-dceb95bab88d 1 0 5 0
-green open .xerj_api_tokens 95708ab2-575c-43d6-9822-3ad8da08ebf2 1 0 0 0
-green open .xerj_idp_config 37766ce7-06b9-4b7a-af7f-ff233f514924 1 0 0 0
-green open .xerj_alert_fires 85733184-9cb6-4c15-ba32-5ef6a958849e 1 0 0 0
-green open .xerj_passkeys 331b2a9f-549b-4405-8bf0-f25a8df65aee 1 0 0 0
-green open .xerj_dashboards 12d74f66-2ae4-45f5-83f4-f4adf8af6d3d 1 0 0 0
-green open .xerj_alert_rules 3a68a786-d7ca-4927-9306-0230415c5166 1 0 0 0
-green open .xerj_audit 5254a3a0-a3b7-4b4a-81b7-b1d3faa9431c 1 0 0 0
-green open .xerj_cluster_state b4d7b908-226d-4bdd-9ebc-de6eacaa3e65 1 0 0 0
+green open .xerj_magic_links e9ac9578-3753-4b79-8c80-20fd0846506a 1 0 1 0 3428b 3428b
+green open .xerj_passkeys d4796bad-4732-4f31-a24e-25031665e4cd 1 0 0 0 256b 256b
+green open .xerj_cluster_state e693578d-c788-444f-af47-d3ec3cf53a63 1 0 0 0 256b 256b
+green open .xerj_dashboards adebaccb-5324-4153-9b03-fe4822f7fd47 1 0 0 0 256b 256b
+green open .xerj_api_tokens 48e5b857-2277-48ce-b59b-dd3de9297992 1 0 0 0 256b 256b
+green open .xerj_prefs 792ccf1c-facb-4445-92c3-047e1b22cd2d 1 0 0 0 256b 256b
+green open .xerj_audit c70c7281-4ca4-421d-89d1-81fbb2fb45d6 1 0 0 0 256b 256b
+green open .xerj_alert_fires f589be02-d0a0-41f3-bc70-fcdd98e2668f 1 0 0 0 256b 256b
+green open .xerj_connections 899d11bd-a661-4117-a6f6-74f70711c40e 1 0 0 0 256b 256b
+green open .xerj_views c4245884-45b9-42f6-8d34-0b14df012735 1 0 0 0 256b 256b
+green open .xerj_sessions c68af00a-f1dd-4c8e-8d6e-91459cbf2192 1 0 0 0 256b 256b
+green open .xerj_idp_config 318aa734-525c-4094-90c3-13ee68c1dcb3 1 0 0 0 256b 256b
+green open .xerj_alert_rules 58b4436f-8f3a-4b45-99e4-f26ae38e5d7f 1 0 0 0 256b 256b
+green open articles de429a9b-ef11-4d90-89d8-8e3f4e61ed95 1 0 5 0 8285b 8285b
+green open .xerj_users d0442a81-f398-4390-b0b2-c44c41bc8c33 1 0 0 0 256b 256b
 ```
 
 _HTTP 200_

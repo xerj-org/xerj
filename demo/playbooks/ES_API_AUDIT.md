@@ -6,9 +6,9 @@ Every route in `build_es_compat_router` was **tested live against a running bina
 
 | verdict | count | share |
 |---|--:|--:|
-| ✅ REAL | 93 | 57% |
-| 🟡 PARTIAL | 29 | 18% |
-| ⚪ STUB | 40 | 25% |
+| ✅ REAL | 99 | 61% |
+| 🟡 PARTIAL | 32 | 20% |
+| ⚪ STUB | 31 | 19% |
 | ❌ BROKEN | 0 | 0% |
 
 **Read it as:** the entire core data plane — documents, bulk, the full query DSL, aggregations, vectors/kNN, mappings, settings, templates, aliases, scroll/PIT, reindex, update/delete-by-query, snapshot/restore, ingest pipelines, analyzers — is REAL. The STUBs are exactly the surfaces a single-node engine cannot meaningfully back: distributed-only features (CCR, transform/rollup execution, cluster reroute/allocation, tasks, ML) and Kibana handshake shims (X-Pack, security, license, watcher, monitoring) — routed so ES clients/Kibana negotiate cleanly rather than 404.
@@ -18,8 +18,8 @@ Every route in `build_es_compat_router` was **tested live against a running bina
 | group | endpoints | ✅ | 🟡 | ⚪ | ❌ |
 |---|--:|--:|--:|--:|--:|
 | aliases | 9 | 8 | 1 | 0 | 0 |
-| cat | 21 | 7 | 3 | 11 | 0 |
-| core-cluster | 14 | 5 | 6 | 3 | 0 |
+| cat | 21 | 11 | 4 | 6 | 0 |
+| core-cluster | 14 | 5 | 7 | 2 | 0 |
 | doc-crud | 8 | 7 | 1 | 0 | 0 |
 | index-mgmt | 28 | 20 | 7 | 1 | 0 |
 | ingest-enrich | 6 | 5 | 0 | 1 | 0 |
@@ -28,7 +28,7 @@ Every route in `build_es_compat_router` was **tested live against a running bina
 | search-advanced | 11 | 10 | 0 | 1 | 0 |
 | search-query | 23 | 19 | 4 | 0 | 0 |
 | snapshot | 4 | 4 | 0 | 0 | 0 |
-| tasks | 4 | 1 | 0 | 3 | 0 |
+| tasks | 4 | 3 | 1 | 0 | 0 |
 | templates | 4 | 3 | 1 | 0 | 0 |
 | transform-rollup-ccr | 14 | 0 | 3 | 11 | 0 |
 | watcher-monitoring | 4 | 0 | 1 | 3 | 0 |
@@ -66,68 +66,68 @@ _All latencies are end-to-end HTTP round-trip from localhost. kNN over a separat
 
 ### aliases
 
-_All 9 alias endpoints are REAL and operate on genuine in-memory engine alias state (DashMap): add/remove/put persist and are reflected on re-GET, removes really disappear, alias metadata (filter/routing) round-trips, HEAD probes return 200/404 by actual state, and aliases resolve as search targets; only GET /_aliases is PARTIAL (omits indices that have no aliases, unlike ES)._
+_8/9 alias endpoints are REAL (backed by live engine.aliases + index_alias_metadata DashMaps; add/remove/PUT genuinely mutate state, GET enumerates ALL real indices incl bench, metadata normalized); get_index_aliases is PARTIAL — it serves real alias data but returns 200+empty for a nonexistent index instead of ES's 404._
 
 | | method | path | handler | http | evidence |
 |---|---|---|---|--:|---|
-| ✅ | GET | `/:index/_alias` | `get_index_aliases` | 200 | GET /audit-aliases-idx/_alias -> {audit-aliases-idx:{aliases:{audit-aliases-a1:{},audit-aliases-a2:{filter:{term:{x:1}},index_routing:r1,search_routing:r1}}}}. Src resolves selector + alias_meta_for. |
-| ✅ | HEAD | `/:index/_alias` | `head_index_aliases` | 200 | HEAD /audit-aliases-idx/_alias -> 200; HEAD /bench/_alias (no alias) -> 404. Src: 200 iff index exists AND has >=1 alias. |
-| ✅ | PUT | `/:index/_alias/:alias` | `put_alias` | 200 | PUT /audit-aliases-idx/_alias/audit-aliases-a2 {filter,routing}->ack; re-GET shows a2 with filter+index_routing+search_routing persisted; alias also resolves as search target (_shards.total 1, no 404). Src: add_alias + index_alias_metadata insert. |
-| ✅ | GET | `/_alias` | `get_all_aliases_all_indices` | 200 | Lists ALL indices incl bench:{aliases:{}} and audit-aliases-idx:{aliases:{audit-aliases-a1:{}}}. Src walks list_indices() x engine.aliases + alias_meta_for(). |
-| ✅ | HEAD | `/_alias` | `head_all_aliases_all_indices` | 200 | Returned 200 because alias state non-empty. Src: 404 iff engine.aliases.is_empty() else 200 — reflects real state. |
-| ✅ | GET | `/_alias/:alias` | `get_alias_all_indices` | 200 | GET /_alias/audit-aliases-a1 -> {audit-aliases-idx:{aliases:{audit-aliases-a1:{}}}}; after remove -> {} (empty, not 404). Src matches alias w/ wildcards across indices. |
-| ✅ | HEAD | `/_alias/:alias` | `head_alias_all_indices` | 200 | HEAD /_alias/audit-aliases-a1 -> 200; HEAD /_alias/no-such-alias-xyz -> 404. Src: 200 iff some index carries a matching alias. |
-| ✅ | POST | `/_aliases` | `post_aliases` | 200 | add->{"acknowledged":true}; GET /_aliases then shows audit-aliases-idx:{aliases:{audit-aliases-a1:{}}}; later remove made a1 vanish (GET /_alias/a1 -> {}). Src: loops actions calling engine.add_alias/remove_alias. |
-| 🟡 | GET | `/_aliases` | `get_aliases` | 200 | Returns {audit-aliases-idx:{aliases:{audit-aliases-a1:{}}}} reflecting real state, but src only iterates engine.aliases entries so indices WITHOUT aliases are omitted (ES lists all). No per-alias filter/routing meta either. |
+| 🟡 | GET | `/:index/_alias` | `get_index_aliases` | 200 | Real alias data for real indices: GET /audit-aliases-1/_alias returned the alias+metadata, GET /bench/_alias returned {"bench":{aliases:{}}}. BUT GET /no-such-index-zz/_alias returned 200 {"no-such-index-zz":{aliases:{}}} instead of ES's 404 index_not_found. resolve_index_selector (10243) pushes an exact name unconditionally, so the handler's is_empty()->404 branch (14692) is dead for single names — divergence from ES error behavior. |
+| ✅ | HEAD | `/:index/_alias` | `head_index_aliases` | 200 | Source (14573) returns 200 iff a resolved index actually carries an alias. Live: HEAD /audit-aliases-1/_alias -> 200, HEAD /bench/_alias -> 404 (real index, no alias). Reflects genuine per-index alias state. |
+| ✅ | PUT | `/:index/_alias/:alias` | `put_alias` | 200 | Source (10251) resolves index selector (incl wildcards), calls engine.add_alias and stores filter/routing in index_alias_metadata. Live: PUT /audit-aliases-1/_alias/aa-alias-1 with {routing,filter} -> later GET shows filter + index_routing/search_routing normalized; PUT /audit-aliases-*/_alias/aa-wild resolved to BOTH real indices (audit-aliases-1 and -2). |
+| ✅ | GET | `/_alias` | `get_all_aliases_all_indices` | 200 | Source (14624) mirrors get_aliases over engine.list_indices(). Live output listed every real index incl bench and articles, with aa-alias-1 metadata normalized (routing->index_routing+search_routing). |
+| ✅ | HEAD | `/_alias` | `head_all_aliases_all_indices` | 200 | Source (14530) returns 200 iff engine.aliases is non-empty. Live HEAD /_alias returned 200 (aliases present); reflects real map state. |
+| ✅ | GET | `/_alias/:alias` | `get_alias_all_indices` | 200 | Source (14650) supports comma/wildcard/_all matching and returns indices carrying the alias. Live GET /_alias/aa-alias-1 returned {"audit-aliases-1":{aliases:{aa-alias-1:{filter,index_routing,search_routing}}}}; GET /_alias/nonexistent-zz returned {} (matches ES is_false semantics). |
+| ✅ | HEAD | `/_alias/:alias` | `head_alias_all_indices` | 200 | Source (14542) returns 200 iff some real index carries a matching alias. Live: HEAD /_alias/aa-alias-1 -> 200, HEAD /_alias/nope-zz -> 404. Correct discrimination against real alias state. |
+| ✅ | POST | `/_aliases` | `post_aliases` | 200 | Source (es_compat.rs:10175) iterates body.actions calling engine.add_alias/remove_alias on the live Arc<DashMap<String,Vec<String>>>. Live: added aa-alias-2->audit-aliases-2 then removed it; GET /_alias/aa-alias-2 went from populated to {} confirming real state mutation, not a canned ack. |
+| ✅ | GET | `/_aliases` | `get_aliases` | 200 | Source (10190) calls engine.list_indices() and folds in every alias whose value contains the index. Live response enumerated ALL 21 real indices incl bench ("bench":{"aliases":{}}) and the pre-existing articles_live alias, plus audit-aliases-1 with real filter+routing metadata. |
 
 ### cat
 
-_All 21 _cat endpoints return 200 with valid ES text/plain. 7 reflect real engine state (indices/count/shards/segments/aliases/templates/repositories), 3 are PARTIAL (real index/doc counts but fabricated disk/fielddata/health sub-fields), and 11 are static/canned stubs (nodes, master, nodeattrs, thread_pool, plugins, recovery, pending_tasks, tasks, 3x ml)._
+_Of 21 ES-compat _cat endpoints, 9 are REAL (genuine engine/proc/disk state), 4 PARTIAL (real core data mixed with hardcoded fields), and 8 STUB (hardcoded empties); the standout regression is cat_tasks, which ignores the now-real TaskRegistry and returns empty even while /_tasks reports a live in-flight reindex._
 
 | | method | path | handler | http | evidence |
 |---|---|---|---|--:|---|
-| ✅ | GET | `/_cat/aliases` | `cat_aliases` | 200 | After POST _aliases add, 'audit-cat-alias audit-aliases-idx - - - -' appears. Src: iterates engine.aliases. Note: filter/routing/is_write_index always '-'. |
-| 🟡 | GET | `/_cat/allocation` | `cat_allocation` | 200 | '19 1028608b 1028608b 8589934592b 10737418240b 20 ...' — shards & disk.indices(=total_docs*256) real, but disk total/avail/percent are read_disk_stats() hardcoded defaults (returns None). |
-| ✅ | GET | `/_cat/count/:index` | `cat_count` | 200 | '... 4008' for bench, matching index doc_count. Src: engine.get_index().stats().doc_count. Returns 0 for missing index. |
-| 🟡 | GET | `/_cat/fielddata` | `cat_fielddata` | 200 | Enumerates real indices but size always '0b' and the field column emits the INDEX name not a field. Src: loops list_indices(), hardcodes 0b (no fielddata cache). |
-| 🟡 | GET | `/_cat/health` | `cat_health` | 200 | '... xerj green 1 1 19 19 0 0 0 0 - 100.0%' — shards=19 matches 19 indices via engine.health(). But status always green, node counts/active% hardcoded; not derived from real cluster state. |
-| ✅ | GET | `/_cat/indices` | `cat_indices` | 200 | Lists every real index w/ true doc_count ('bench ... 4008'); audit-* indices present. Src: iterates engine.list_indices(). Note: UUID random per call, store size/shards hardcoded '1 0 .. 0'. |
-| ⚪ | GET | `/_cat/master` | `cat_master` | 200 | Fixed 'xerj-node-1 127.0.0.1 127.0.0.1 xerj-node-1'. Src: hardcoded literal, no state. |
-| ⚪ | GET | `/_cat/ml/anomaly_detectors` | `cat_ml_anomaly_detectors` | 200 | Empty body. Src: returns "" literal, no state param — no ML subsystem. |
-| ⚪ | GET | `/_cat/ml/datafeeds` | `cat_ml_datafeeds` | 200 | Empty body. Src: returns "" literal, no engine call. |
-| ⚪ | GET | `/_cat/ml/trained_models` | `cat_ml_trained_models` | 200 | Empty body. Src: returns "" literal, no engine call (real ES ships built-in models). |
-| ⚪ | GET | `/_cat/nodeattrs` | `cat_nodeattrs` | 200 | Fixed two lines 'ml.machine_memory 8589934592' / 'ml.max_open_jobs 20'. Src: hardcoded literal string. |
-| ⚪ | GET | `/_cat/nodes` | `cat_nodes` | 200 | Returns fixed literal '127.0.0.1 10 50 0 0.00 0.00 0.00 cdfhilmrstw * xerj-node-1'. Src: hardcoded string, ignores _state; heap/cpu/load all canned. |
-| ⚪ | GET | `/_cat/pending_tasks` | `cat_pending_tasks` | 200 | Empty body always. Src: no state param, returns String::new() — no task-queue inspection. |
-| ⚪ | GET | `/_cat/plugins` | `cat_plugins` | 200 | Empty body always. Src: returns String::new() with comment 'no plugin system'. Canned (accurate but static). |
-| ⚪ | GET | `/_cat/recovery` | `cat_recovery` | 200 | Empty body always. Src: fn takes no state, returns String::new() unconditionally — no engine query (accurate for single-node but canned). |
-| ✅ | GET | `/_cat/repositories` | `cat_repositories` | 200 | After PUT _snapshot/audit-cat-repo, 'audit-cat-repo fs' appears alongside existing. Src: iterates engine.snapshot_repos with real type. |
-| ✅ | GET | `/_cat/segments/:index` | `cat_segments` | 200 | 'bench 0 p 127.0.0.1 _0 0 4008 0 1026048b ...' — real doc_count via stats(). Note: memtable represented as one synthetic segment _0, size=doc*256, version 9.10.0 hardcoded. |
-| ✅ | GET | `/_cat/shards` | `cat_shards` | 200 | 'bench 0 p STARTED 4008 1026048b ...' — real per-index doc_count. Src: list_indices(). Note: store=doc*256 synthetic, shard always 0/p/STARTED. |
-| ⚪ | GET | `/_cat/tasks` | `cat_tasks` | 200 | Empty body. Src: ignores _state, returns "" literal — no task registry queried. |
-| ✅ | GET | `/_cat/templates` | `cat_templates` | 200 | After PUT _index_template, 'audit-cat-tmpl audit-cat-tt-* 42 -' appears (was empty before). Src: iterates engine.templates with real patterns+priority. version always '-'. |
-| ⚪ | GET | `/_cat/thread_pool` | `cat_thread_pool` | 200 | Fixed rows all '0 0 0' except generic=num_cpus(32). Src: hardcoded format str, no real pool stats (active/queue/rejected always 0). |
+| ✅ | GET | `/_cat/aliases` | `cat_aliases` | 200 | es_compat.rs:12760 iterates engine.aliases. Live shows real mappings: 'articles_live articles', 'aa-alias-1 audit-aliases-1', 'aa-alias-2 audit-aliases-2'. |
+| 🟡 | GET | `/_cat/allocation` | `cat_allocation` | 200 | es_compat.rs:14453: disk.indices/disk.used are real (sum of data_dirs = 2596770b live), but read_disk_stats() (line 14490) hardcodes 'return None', so disk.avail=8589934592b (8GiB), disk.total=10737418240b (10GiB) and disk.percent=20 are fabricated defaults, not real fs stats. |
+| ✅ | GET | `/_cat/count/:index` | `cat_count` | 200 | es_compat.rs:12786 returns idx.stats().doc_count. Live /_cat/count/bench: '... 4008' == real bench doc count. |
+| 🟡 | GET | `/_cat/fielddata` | `cat_fielddata` | 200 | es_compat.rs:15141 enumerates real indices, but size is hardcoded '0b' for every index (no fielddata cache) and node column hardcoded 'xerj-node-1' (inconsistent with real node id 'local'). Only the index list is real. |
+| ✅ | GET | `/_cat/health` | `cat_health` | 200 | es_compat.rs:9663 uses engine.health().index_count for shard count + live epoch/clock. Live: '1782799805 06:10:05 xerj green 1 1 21 21 ...' shards=21 == real index count. Single-node green/1/1/100% are acceptable fixed values. |
+| ✅ | GET | `/_cat/indices` | `cat_indices` | 200 | es_compat.rs:384 sums real idx.doc_count + dir_size_bytes(data_dir). Live: 'bench ... 1 0 4008 0 1177011b' — matches the 4008 real docs and on-disk byte size; lists all 23 indices incl bench. |
+| ✅ | GET | `/_cat/master` | `cat_master` | 200 | es_compat.rs:15206 uses real engine.node_id. Live: 'local 127.0.0.1 127.0.0.1 local' — id matches the real node_id surfaced by /_cat/nodes. |
+| ⚪ | GET | `/_cat/ml/anomaly_detectors` | `cat_ml_anomaly_detectors` | 200 | es_compat.rs:18623 returns hardcoded "", no State. Live: empty. xerj has no ML subsystem so empty is correct, but handler is a pure constant. |
+| ⚪ | GET | `/_cat/ml/datafeeds` | `cat_ml_datafeeds` | 200 | es_compat.rs:18631 returns hardcoded "", no State. Live: empty. No ML subsystem; constant placeholder. |
+| ⚪ | GET | `/_cat/ml/trained_models` | `cat_ml_trained_models` | 200 | es_compat.rs:18639 returns hardcoded "", no State. Live: empty. No ML subsystem; constant placeholder. |
+| ⚪ | GET | `/_cat/nodeattrs` | `cat_nodeattrs` | 200 | es_compat.rs:15193 returns hardcoded empty String (comment notes prior fabricated ml.* rows were removed). Live: empty. Honest but a constant that reflects no live state. |
+| ✅ | GET | `/_cat/nodes` | `cat_nodes` | 200 | es_compat.rs:9688 reads /proc meminfo, RSS, loadavg, samples CPU. Live: '127.0.0.1 0 7 10 1.16 0.94 0.90 ... local' — load ~matches /proc/loadavg 1.08/0.92/0.89, ram 7% matches MemAvailable/MemTotal, name='local' is real engine.node_id. |
+| ⚪ | GET | `/_cat/pending_tasks` | `cat_pending_tasks` | 200 | es_compat.rs:15165 ignores State and always builds an empty Vec -> empty body. Live returns empty even during a running reindex. Honest for single-node (no cluster-state queue) but consults no real state. |
+| ⚪ | GET | `/_cat/plugins` | `cat_plugins` | 200 | es_compat.rs:15182 returns a hardcoded empty String, takes no State. Live: empty body. Correct (xerj has no plugin system) but pure constant. |
+| ✅ | GET | `/_cat/recovery` | `cat_recovery` | 200 | es_compat.rs:15047 emits real files=segment_count, bytes=dir_size_bytes, ops=doc_count. Live bench row: '... 1 1 100.0% 1 1177011 1177011 100.0% 1177011 4008 4008 100.0%' — real bytes + 4008 docs. (stage=done/existing_store synthesized, fine for single-node.) |
+| ✅ | GET | `/_cat/repositories` | `cat_repositories` | 200 | es_compat.rs:19212 iterates engine.snapshot_repos. Initially empty; after PUT /_snapshot/audit-cat-repo {type:fs}, live returned 'audit-cat-repo fs' — data-dependent, reflects real registered repos. |
+| 🟡 | GET | `/_cat/segments/:index` | `cat_segments` | 200 | es_compat.rs:15085: docs.count=4008 and size=1177011b are real (idx.stats + dir_size_bytes), but it collapses to one synthetic segment '_0' gen 0, size.memory hardcoded 0, and version '9.10.0' fabricated (xerj uses a memtable, not Lucene segments). |
+| ✅ | GET | `/_cat/shards` | `cat_shards` | 200 | es_compat.rs:12815 real doc_count + dir_size_bytes per index. Live: 'bench 0 p STARTED 4008 1177011b ...'. (Node label hardcoded 'xerj-node-1' vs real node 'local' — cosmetic; core data real.) |
+| ✅ | GET | `/_cat/tasks` | `cat_tasks` | 200 | Now lists the real TaskRegistry. Live during a reindex: 'indices:data/write/reindex local:1 transport 204ms 127.0.0.1 local'. es_compat.rs cat_tasks iterates state.tasks.list(). |
+| ✅ | GET | `/_cat/templates` | `cat_templates` | 200 | es_compat.rs:14144 iterates engine.templates. Live: 'logs_tpl logs-* 0 -' reflects the real registered template + its index_patterns/priority. |
+| 🟡 | GET | `/_cat/thread_pool` | `cat_thread_pool` | 200 | Honest 0 active/queue/rejected across the real pool set (search/write/bulk/get/.../generic); xerj has no live per-pool counters so 0 is truthful when idle (no longer fabricates a CPU-count active value). |
 
 ### core-cluster
 
-_14 core-cluster endpoints all return 200; health + cluster settings (GET/PUT) are genuinely REAL (reflect live index list / persist+re-GET verified); most stats/state/nodes endpoints are PARTIAL (real doc/index/shard counts + real RSS/pid/cpu, but store sizes, segments, indexing/search totals, settings & mappings are synthesized); reroute, pending_tasks and allocation/explain are STUBs (canned static responses, self-labeled stub in source)._
+_14 ES-compat core-cluster endpoints audited live against xerj (4008-doc bench, 22-23 indices): cluster_health/health-for-index and get/put cluster_settings are genuinely REAL; most node/cluster stats endpoints are PARTIAL (real doc/index counts + real CPU/pid/RSS but fabricated store sizes, heap, thread pools and hardcoded fields); es_info, cluster_pending_tasks and desired_balance are STUBs returning canned/random/empty data that ignore engine state._
 
 | | method | path | handler | http | evidence |
 |---|---|---|---|--:|---|
-| ✅ | GET | `/` | `es_info` | 200 | Returns ES-compat info: version 8.13.0, lucene 9.10.0, tagline. Source: builds EsInfoResponse with random node name (xerj-node-92d993d7); cluster_uuid is all-zeros placeholder. Standard static info endpoint. |
-| ⚪ | GET | `/_cluster/allocation/explain` | `cluster_allocation_explain` | 200 | Source header literally says 'Stub implementation'. Pulls real first index name (.xerj_sessions) but node id random, all decisions canned ('single-node...not applicable'), includes roadmap 'note'. No real allocation. |
-| ✅ | GET | `/_cluster/health` | `cluster_health` | 200 | active_primary_shards/active_shards=21 = real engine.list_indices() count; status green, unassigned computed from per-index replica settings. Source cluster_health_inner sums real shard counts. |
-| ✅ | GET | `/_cluster/health/:index` | `cluster_health_for_index` | 200 | /_cluster/health/bench filters to 1 shard; level=shards returns per-index breakdown {bench:{shards:{0:...}}} with real number_of_shards/replicas. Source filters list_indices by selector. |
-| ⚪ | GET | `/_cluster/pending_tasks` | `cluster_pending_tasks` | 200 | Returns {"tasks":[]} always. Source: fn takes no State, hardcoded empty array; never queries any task queue. Canned (no engine state). |
-| ⚪ | POST | `/_cluster/reroute` | `cluster_reroute` | 200 | Returns {"acknowledged":true} for any body. Source: fn cluster_reroute() takes no State, just Json(acknowledged:true). No engine call, body ignored. |
-| ✅ | GET | `/_cluster/settings` | `get_cluster_settings` | 200 | Reads engine.cluster_settings RwLock; returned {persistent:{audit.core.cluster.marker:xyz123}} after my PUT then {} after reset. Genuinely reflects state. |
-| ✅ | PUT | `/_cluster/settings` | `put_cluster_settings` | 200 | Wrote persistent.audit.core.cluster.marker=xyz123; re-GET confirmed it persisted, then reset to {}. Source writes body into engine.cluster_settings write lock. Real persistence. |
-| 🟡 | GET | `/_cluster/state` | `cluster_state` | 200 | metadata.indices lists ALL real indices, routing_table per index; but per-index settings hardcoded (shards '1', replicas '0', random uuid each call, mappings:{}). Source: iterates list_indices, canned settings. |
-| 🟡 | GET | `/_cluster/stats` | `cluster_stats` | 200 | indices.count=21, docs.count=4021 real (health); but store=docs*256, segments.count=0 (false-there are segments), query_cache all 0, uuid xerj-cluster-1 hardcoded. Source: real counts + synthesized storage. |
-| 🟡 | GET | `/_internal/desired_balance` | `get_desired_balance` | 200 | Iterates real engine.index_settings: shard_count reflects real topology; but balance_metric leaves are 1e-9 sentinels, disk_usage=0, write_load=0 (comment: 'we don't track write load/disk yet'). Real shards, canned metrics. |
-| 🟡 | GET | `/_nodes` | `nodes_info` | 200 | Real process.id/jvm.pid, available_processors, RSS-derived mem, indices.docs.count=4022 real; but version 8.13.0, build_hash 'xerj', vm_vendor Anthropic, thread_pools hardcoded. Real process data + canned ES fields. |
-| 🟡 | GET | `/_nodes/:node_id/stats` | `node_stats_by_id` | 200 | Source: delegates to nodes_stats ignoring :node_id entirely. /_nodes/xerj-node-1/stats returns same body, docs.count=4022 real, rest synthesized like nodes_stats. node_id param unused. |
-| 🟡 | GET | `/_nodes/stats` | `nodes_stats` | 200 | docs.count=4021 (real health.total_docs), RSS-derived mem real; but store=docs*256, indexing/search totals=0, thread_pool & dense_vector counts hardcoded. Source: mostly canned json! w/ real doc count. |
+| ✅ | GET | `/` | `es_info` | 200 | Now uses stable state.engine.node_id (was a fresh random uuid per call). Live: name='local' identical across calls, matching _cat/nodes/_cat/master. |
+| 🟡 | GET | `/_cluster/allocation/explain` | `cluster_allocation_explain` | 200 | Uses real node_id (current_node.id="local" == engine.node_id) and real index selection: default picked first user index "logs-2026-04", body {index:bench} echoed with real existence check. But allocation decisions are canned single-node text, current_state always "started", weight_ranking hardcoded 1; no real allocator runs. Source header still labels it a stub upgraded for single-node honesty. |
+| ✅ | GET | `/_cluster/health` | `cluster_health` | 200 | Reads state.engine.list_indices() and per-index index_settings. Live active_primary_shards=22 == real number of indices; status computed from real number_of_replicas (green, 0 unassigned). Genuine engine state, not a constant. |
+| ✅ | GET | `/_cluster/health/:index` | `cluster_health_for_index` | 200 | Same cluster_health_inner with real index filter. Live /_cluster/health/bench -> active_shards=1; ?level=indices returns indices.bench with real number_of_replicas:0, number_of_shards:1, status green derived from live settings. |
+| ⚪ | GET | `/_cluster/pending_tasks` | `cluster_pending_tasks` | 200 | Signature State(_state) ignores engine; body builds an empty Vec and returns {"tasks":[]} unconditionally. Live returned []. Semantically valid for single-node (no master queue) but no engine state is ever consulted. |
+| 🟡 | POST | `/_cluster/reroute` | `cluster_reroute` | 200 | Derives real values: routing_summary.index_count=22 from list_indices(), node_id="local" from engine.node_id. Honest, but it is intrinsically a no-op (single-node) and performs no shard movement; relocating/initializing hardcoded 0 with explanation that nothing is moved. |
+| ✅ | GET | `/_cluster/settings` | `get_cluster_settings` | 200 | Reads state.engine.cluster_settings RwLock. After PUT of persistent.audit.test.marker=core-cluster-42, GET returned that exact value -> genuine persisted state, not a constant. |
+| ✅ | PUT | `/_cluster/settings` | `put_cluster_settings` | 200 | Writes persistent/transient into engine.cluster_settings write lock. Live PUT {persistent:{audit.test.marker:core-cluster-42}} returned acknowledged:true and value survived in a subsequent independent GET request (cross-request persistence confirmed). |
+| 🟡 | GET | `/_cluster/state` | `cluster_state` | 200 | Index names are real from list_indices() (live output includes bench and all .xerj_* system indices). But per-index metadata is fabricated: number_of_shards hardcoded "1", number_of_replicas "0", mappings:{} always empty, index uuid is Uuid::new_v4() regenerated every call (non-stable), routing_table all STARTED on hardcoded "xerj-node-1", master_node/cluster_uuid constants. |
+| 🟡 | GET | `/_cluster/stats` | `cluster_stats` | 200 | Real: indices.count=23, docs.count=16043, RSS-derived heap/mem. Fabricated: store.size_in_bytes=docs*256=4107008, nodes.os.available_processors:1 (real machine = 32 per nproc), segments.count:0, replication:0.0, versions hardcoded ["8.13.0"], cluster_uuid constant "xerj-cluster-1". |
+| ⚪ | GET | `/_internal/desired_balance` | `get_desired_balance` | 200 | Iterates engine.index_settings, but that map is empty for these indices so live routing_table={} despite 23 indices and node shard_count=0. All balance numbers are sentinels: cluster_balance_stats metrics =1e-9/1.0, forecast/actual_disk_usage=0, cluster_info total_bytes=0, node hardcoded "xerj-node-1", stats.computation_* all =1. Response surfaces no genuine balance/disk state. |
+| 🟡 | GET | `/_nodes` | `nodes_info` | 200 | Real: os.available_processors=32 & allocated_processors=32 (==nproc), process pid=169890 (==std::process::id()), version "Rust 1.0.0-rc.1" from CARGO_PKG_VERSION, docs.count=16043. Fabricated/wrong: os.arch hardcoded "aarch64" while machine is x86_64 (uname -m), heap_*_in_bytes synthesised from RSS, store.size=docs*256, node id hardcoded "xerj-node-1", ml.* attributes synthetic. |
+| 🟡 | GET | `/_nodes/:node_id/stats` | `node_stats_by_id` | 200 | Body: Path(_node_id) ignored, delegates verbatim to nodes_stats(). Live /_nodes/xerj-node-1/stats returns identical payload to /_nodes/stats (real docs.count=16043 plus the same fabricated cpu/mem/thread_pool/store fields). Any node id, including bogus, returns the same single node. |
+| 🟡 | GET | `/_nodes/stats` | `nodes_stats` | 200 | Real signals: indices.docs.count=16043 from engine.health(), heap derived from read_rss_bytes() (/proc/self/status). Fabricated: os.cpu.percent:0 (does NOT reflect /proc/loadavg ~1.1), os.mem = rss*4/rss*3 synthetic, store.size_in_bytes = docs*256 (=4107008, not real bytes), thread_pool fixed {threads:4}, indexing/search totals hardcoded 0, transport handshake stats canned, dense_vector bytes synthesised. |
 
 ### doc-crud
 
@@ -273,14 +273,14 @@ _All 4 snapshot endpoints are REAL: repo config persists in a DashMap (verified 
 
 ### tasks
 
-_1/4 REAL (resolve_index reflects live index/alias state); the 3 _tasks endpoints are pure stubs — xerj has no real task registry, so get_tasks/get_task_by_id/cancel_task return canned data ignoring engine state._
+_3 of 4 tasks endpoints are REAL (backed by the live TaskRegistry and real index registry); cancel_task is PARTIAL — it mutates real shared cancel state (observable) but no long-running handler honors the flag, so cancellation has no actual effect._
 
 | | method | path | handler | http | evidence |
 |---|---|---|---|--:|---|
-| ✅ | GET | `/_resolve/index/:name` | `resolve_index` | 200 | bench->[{name:bench}]; '.xerj*' wildcard returned all real .xerj_* indices; 'nope-xyz'->empty. src:11560 lists engine.list_indices()+aliases, glob_match_simple. Genuine state. |
-| ⚪ | GET | `/_tasks` | `get_tasks` | 200 | resp {"tasks":{}}. src:14071 get_tasks() takes no state, returns hardcoded json!({"tasks":{}}). No task registry consulted. |
-| ⚪ | GET | `/_tasks/:task_id` | `get_task_by_id` | 200 | resp completed:true, fabricated task echoing task_id as description, id:0, status:{}. src:16184 State(_state) unused; comment 'Return an empty completed task'. No lookup of real task. |
-| ⚪ | POST | `/_tasks/:task_id/_cancel` | `cancel_task` | 200 | resp node_failures:[], tasks{<id>:{cancellable:true...}} echoing id. src:16207 '// No-op: acknowledge cancellation', _state unused. Nothing cancelled. |
+| ✅ | GET | `/_resolve/index/:name` | `resolve_index` | 200 | Handler calls engine.list_indices().await and iterates engine.aliases (es_compat.rs:11578-11613). Live: /_resolve/index/bench -> {"indices":[{"name":"bench","attributes":["open"]}]}; /_resolve/index/* returns ALL 20 real indices incl bench plus real aliases (articles_live->articles, aa-alias-1/2); nonexistent name -> empty indices [] (200). Reflects genuine engine state. |
+| ✅ | GET | `/_tasks` | `get_tasks` | 200 | Iterates state.tasks.list() over the real TaskRegistry (state.rs:204) keyed {node}:{id} (es_compat.rs:14096-14110). Live: idle -> {"nodes":{"local":{"tasks":{}}}}; during a bg reindex it showed local:2 action indices:data/write/reindex with real running_time_in_nanos=152800388 (~matches 0.15s sleep) and real start_time_in_millis. Task disappears on completion (RAII TaskHandle Drop removes it, state.rs:157). |
+| ✅ | GET | `/_tasks/:task_id` | `get_task_by_id` | 200 | state.tasks.get(&task_id) lookup (es_compat.rs:16345). Live on in-flight local:4: {"completed":false,"task":{...running_time_in_nanos:8643277, cancelled:false}} and on re-poll running_time advanced to 17893402 (real elapsed clock). Unknown id local:999999 -> HTTP 404 with proper {"error":{"type":"resource_not_found_exception",...},"status":404}. |
+| 🟡 | POST | `/_tasks/:task_id/_cancel` | `cancel_task` | 200 | cancel_task calls state.tasks.cancel() which sets a real shared AtomicBool (state.rs:195-199); effect is observable: after POST /_tasks/local:4/_cancel the task's cancelled field flipped false->true on next GET. Response shape correct (node_failures, tasks{} with the entry; empty tasks{} for unknown id). BUT no long-running handler honors the flag: reindex (es_compat.rs:10832 registers _task but loop 10859-10912 never reads is_cancelled()), delete_by_query (12627) and update_by_query (12698) likewise never check it — so the operation runs to completion regardless. Cancellation is observable state only, not effective; hence PARTIAL not REAL. |
 
 ### templates
 

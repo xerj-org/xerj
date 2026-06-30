@@ -19,7 +19,7 @@ curl -s "http://localhost:8080/v1/health"
     "version": "1.0.0-rc.1"
   },
   "took_ms": 0,
-  "request_id": "5cdfecab-cb65-4485-abeb-ccf5ac92b38d"
+  "request_id": "4d170a85-ad72-4b75-896f-b4a494e12b1c"
 }
 ```
 
@@ -96,7 +96,7 @@ curl -s "http://localhost:8080/v1/cluster/health"
     "version": "1.0.0-rc.1"
   },
   "took_ms": 0,
-  "request_id": "401a3bfa-5151-4585-ba88-b6eea7fb8b70"
+  "request_id": "df3bfedc-64d1-4a7a-95de-4b60c7602ff1"
 }
 ```
 
@@ -114,27 +114,27 @@ curl -s -XPOST "http://localhost:8080/v1/admin/flush"
     "failed": [],
     "flushed": 17,
     "indices": [
-      ".xerj_users",
-      ".xerj_prefs",
-      ".xerj_connections",
       ".xerj_magic_links",
-      ".xerj_sessions",
-      ".xerj_views",
-      "articles",
-      ".xerj_api_tokens",
-      "vstore",
-      "logs-2026-04",
-      ".xerj_idp_config",
-      ".xerj_alert_fires",
       ".xerj_passkeys",
+      ".xerj_cluster_state",
       ".xerj_dashboards",
-      ".xerj_alert_rules",
+      ".xerj_api_tokens",
+      ".xerj_prefs",
       ".xerj_audit",
-      ".xerj_cluster_state"
+      ".xerj_alert_fires",
+      "vstore",
+      ".xerj_connections",
+      ".xerj_views",
+      ".xerj_sessions",
+      ".xerj_idp_config",
+      ".xerj_alert_rules",
+      "articles",
+      ".xerj_users",
+      "logs-2026-04"
     ]
   },
   "took_ms": 6,
-  "request_id": "2bbde9cd-e4a8-4905-a778-06d71a2ec32b"
+  "request_id": "c1139269-c04d-40bf-b9df-8cace417acac"
 }
 ```
 
@@ -151,46 +151,33 @@ curl -s -XPOST "http://localhost:8080/v1/admin/backup" \
 ```json
 {
   "data": {
-    "backup": "backup-4c0811fe-c67e-4343-988d-7f89817ab3d9",
+    "backup": "backup-cd885b8b-aaae-4a98-85bb-ccbbf5713ddf",
     "manifest": {
       "duration_in_millis": 0,
-      "end_time_in_millis": 1782797512303,
+      "end_time_in_millis": 1782800421896,
       "failures": [],
       "index_files": [
         {
           "files": [
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "0000000000000000.wal",
-            "0000000000000000.wchk",
-            "000000000000
+            "snapshot.json",
+            "schema.json",
+            "e9a268ac-63da-4a3a-a09d-fbdb00b092d9.created_by.norms",
+            "e9a268ac-63da-4a3a-a09d-fbdb00b092d9.used_at.norms",
+            "e9a268ac-63da-4a3a-a09d-fbdb00b092d9.expires_at.norms",
+            "e9a268ac-63da-4a3a-a09d-fbdb00b092d9.used_from_ip.norms",
+            "e9a268ac-63da-4a3a-a09d-fbdb00b092d9.created_by.meta",
+            "e9a268ac-63da-4a3a-a09d-fbdb00b092d9.used_at.meta",
+            "e9a268ac-63da-4a3a-a09d-fbdb00b092d9.expires_at.meta",
+            "e9a268ac-63da-4a3a-a09d-fbdb00b092d9.purpose.norms",
+            "e9a268ac-63da-4a3a-a09d-fbdb00b092d9.used_from_ip.meta",
+            "e9a268ac-63da-4a3a-a09d-fbdb00b092d9.email.norms",
+            "e9a268ac-63da-4a3a-a09d-fbdb00b092d9.role.norms",
+            "e9a268ac-63da-4a3a-a09d-fbdb00b092d9.purpose.meta",
+            "e9a268ac-63da-4a3a-a09d-fbdb00b092d9.email.meta",
+            "e9a268ac-63da-4a3a-a09d-fbdb00b092d9.role.meta",
+            "e9a268ac-63da-4a3a-a09d-fbdb00b092d9.created_at.norms",
+            "e9a268ac-63da-4a3a-a09d-fbdb00b092d9.user_id.norms",
+            "e9a268ac-63da-4a3a-a09d-
 … (37169 more bytes)
 ```
 

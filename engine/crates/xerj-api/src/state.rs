@@ -6,8 +6,11 @@
 //! global lock.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::time::Instant;
 
 use chrono::{DateTime, Utc};
+use dashmap::DashMap;
 use tokio::sync::RwLock;
 use xerj_common::{config::Config, metrics::Metrics, types::Schema};
 use xerj_engine::Engine;
@@ -107,6 +110,103 @@ impl IndexHandle {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Tasks API — real in-flight long-running operation registry
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// One in-flight long-running operation (reindex, delete/update_by_query, …).
+/// Cloned cheaply out of the registry for read-only ES responses; `cancelled`
+/// is shared (Arc) with the live [`TaskHandle`] so a `_cancel` is observable.
+#[derive(Clone)]
+pub struct TaskEntry {
+    pub id: u64,
+    pub action: String,
+    pub start_time_ms: i64,
+    pub start_instant: Instant,
+    pub node: Arc<String>,
+    pub cancelled: Arc<AtomicBool>,
+}
+
+impl TaskEntry {
+    pub fn is_cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::Relaxed)
+    }
+    pub fn running_nanos(&self) -> u64 {
+        self.start_instant.elapsed().as_nanos() as u64
+    }
+    /// ES task key (`{node}:{id}`), used as the registry map key.
+    pub fn key(&self) -> String {
+        format!("{}:{}", self.node, self.id)
+    }
+}
+
+/// RAII handle returned by [`TaskRegistry::register`]. Dropping it (at the end
+/// of the long-running handler) removes the task from the registry, so the
+/// Tasks API only ever reflects genuinely in-flight operations.
+pub struct TaskHandle {
+    inner: Arc<DashMap<String, TaskEntry>>,
+    key: String,
+    pub cancelled: Arc<AtomicBool>,
+}
+
+impl TaskHandle {
+    pub fn is_cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::Relaxed)
+    }
+}
+
+impl Drop for TaskHandle {
+    fn drop(&mut self) {
+        self.inner.remove(&self.key);
+    }
+}
+
+/// Registry of in-flight long-running tasks. Cheaply cloneable (`Arc` inside).
+#[derive(Clone)]
+pub struct TaskRegistry {
+    inner: Arc<DashMap<String, TaskEntry>>,
+    next_id: Arc<AtomicU64>,
+    node_id: Arc<String>,
+}
+
+impl TaskRegistry {
+    pub fn new(node_id: Arc<String>) -> Self {
+        Self {
+            inner: Arc::new(DashMap::new()),
+            next_id: Arc::new(AtomicU64::new(1)),
+            node_id,
+        }
+    }
+    /// Register a new in-flight task; the returned handle removes it on Drop.
+    pub fn register(&self, action: &str) -> TaskHandle {
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let entry = TaskEntry {
+            id,
+            action: action.to_string(),
+            start_time_ms: Utc::now().timestamp_millis(),
+            start_instant: Instant::now(),
+            node: self.node_id.clone(),
+            cancelled: cancelled.clone(),
+        };
+        let key = entry.key();
+        self.inner.insert(key.clone(), entry);
+        TaskHandle { inner: self.inner.clone(), key, cancelled }
+    }
+    pub fn cancel(&self, id: &str) -> bool {
+        match self.inner.get(id) {
+            Some(e) => { e.cancelled.store(true, Ordering::Relaxed); true }
+            None => false,
+        }
+    }
+    pub fn get(&self, id: &str) -> Option<TaskEntry> {
+        self.inner.get(id).map(|e| e.value().clone())
+    }
+    pub fn list(&self) -> Vec<TaskEntry> {
+        self.inner.iter().map(|e| e.value().clone()).collect()
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // AppState
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -120,15 +220,20 @@ pub struct AppState {
     pub engine: Engine,
     /// Prometheus metrics.
     pub metrics: Arc<Metrics>,
+    /// In-memory registry of in-flight long-running tasks (reindex,
+    /// delete/update_by_query) backing the ES Tasks API.
+    pub tasks: TaskRegistry,
 }
 
 impl AppState {
     /// Construct state from a config, engine, and metrics instance.
     pub fn new(config: Config, engine: Engine, metrics: Metrics) -> Self {
+        let tasks = TaskRegistry::new(engine.node_id.clone());
         Self {
             config: Arc::new(config),
             engine,
             metrics: Arc::new(metrics),
+            tasks,
         }
     }
 

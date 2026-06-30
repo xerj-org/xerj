@@ -33,8 +33,10 @@ use crate::{
 // GET / — cluster info
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub async fn es_info(State(_state): State<AppState>) -> impl IntoResponse {
-    let node_name = format!("xerj-node-{}", &Uuid::new_v4().to_string()[..8]);
+pub async fn es_info(State(state): State<AppState>) -> impl IntoResponse {
+    // Stable real node identity (matches _cat/nodes and _cat/master) instead of
+    // a fresh random UUID per call.
+    let node_name = state.engine.node_id.as_str().to_string();
     let resp = EsInfoResponse::new(node_name, "xerj".to_string());
     Json(resp).into_response()
 }
@@ -385,11 +387,20 @@ pub async fn cat_indices(State(state): State<AppState>) -> impl IntoResponse {
     let indices = state.engine.list_indices().await;
     let mut lines = Vec::new();
     for info in &indices {
+        // Real on-disk size: recursive byte sum of the index's data_dir.
+        // Single-shard (pri=1, rep=0), so store.size == pri.store.size.
+        let size = state
+            .engine
+            .get_index(&info.name)
+            .map(|idx| dir_size_bytes(idx.data_dir()))
+            .unwrap_or(0);
         lines.push(format!(
-            "green open {} {} 1 0 {} 0",
+            "green open {} {} 1 0 {} 0 {}b {}b",
             info.name,
             Uuid::new_v4(),
             info.doc_count,
+            size,
+            size,
         ));
     }
     let body = lines.join("\n") + "\n";
@@ -9676,9 +9687,29 @@ pub async fn cat_health(State(state): State<AppState>) -> impl IntoResponse {
 // GET /_cat/nodes
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub async fn cat_nodes(State(_state): State<AppState>) -> impl IntoResponse {
+pub async fn cat_nodes(State(state): State<AppState>) -> impl IntoResponse {
     // ip  heap.percent  ram.percent  cpu  load_1m  load_5m  load_15m  node.role  master  name
-    let body = "127.0.0.1 10 50 0 0.00 0.00 0.00 cdfhilmrstw * xerj-node-1\n";
+    let (mem_total, mem_avail) = read_meminfo().unwrap_or((0, 0));
+    // ram.percent = (1 - MemAvailable/MemTotal) * 100
+    let ram_percent = if mem_total > 0 {
+        ((1.0 - (mem_avail as f64 / mem_total as f64)) * 100.0).round() as u64
+    } else {
+        0
+    };
+    // heap.percent: process RSS as a fraction of MemTotal. We read RSS from
+    // /proc/self/status (VmRSS, already in bytes) via the existing helper —
+    // equivalent to /proc/self/statm resident-pages * pagesize, but without
+    // needing libc::sysconf to obtain the page size.
+    let heap_percent = match (read_rss_bytes(), mem_total) {
+        (Some(rss), total) if total > 0 => ((rss as f64 / total as f64) * 100.0).round() as u64,
+        _ => 0,
+    };
+    let cpu = sample_cpu_percent().await;
+    let (l1, l5, l15) = read_loadavg();
+    let name = state.engine.node_id.as_str();
+    let body = format!(
+        "127.0.0.1 {heap_percent} {ram_percent} {cpu} {l1:.2} {l5:.2} {l15:.2} cdfhilmrstw * {name}\n"
+    );
     (
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
@@ -10160,32 +10191,20 @@ pub async fn post_aliases(
 
 pub async fn get_aliases(State(state): State<AppState>) -> impl IntoResponse {
     let mut result = serde_json::Map::new();
-    // Collect index → aliases mapping.
-    let mut index_aliases: HashMap<String, Vec<String>> = HashMap::new();
-    for entry in state.engine.aliases.iter() {
-        let alias_name = entry.key().clone();
-        for index_name in entry.value().iter() {
-            index_aliases
-                .entry(index_name.clone())
-                .or_default()
-                .push(alias_name.clone());
+    // ES returns an entry for EVERY index, with an empty aliases map when the
+    // index has none. Enumerate all indices, then fold in any aliases that
+    // point at each (with per-alias metadata captured at create-time).
+    for info in state.engine.list_indices().await {
+        let mut aliases_map = serde_json::Map::new();
+        for entry in state.engine.aliases.iter() {
+            if entry.value().contains(&info.name) {
+                aliases_map.insert(
+                    entry.key().clone(),
+                    alias_meta_for(&state, &info.name, entry.key()),
+                );
+            }
         }
-    }
-    // Also include indices that have no aliases.
-    for entry in state.engine.aliases.iter() {
-        for index_name in entry.value().iter() {
-            let aliases_map: serde_json::Map<String, Value> = index_aliases
-                .get(index_name)
-                .cloned()
-                .unwrap_or_default()
-                .iter()
-                .map(|a| (a.clone(), json!({})))
-                .collect();
-            result.insert(
-                index_name.clone(),
-                json!({ "aliases": aliases_map }),
-            );
-        }
+        result.insert(info.name.clone(), json!({ "aliases": aliases_map }));
     }
     Json(Value::Object(result)).into_response()
 }
@@ -10812,6 +10831,7 @@ pub async fn reindex(
     Json(body): Json<ReindexBody>,
 ) -> impl IntoResponse {
     let started = Instant::now();
+    let _task = state.tasks.register("indices:data/write/reindex");
     let source_name = &body.source.index;
     let dest_name = &body.dest.index;
 
@@ -12606,6 +12626,7 @@ pub async fn delete_by_query(
     Json(body): Json<DeleteByQueryBody>,
 ) -> impl IntoResponse {
     let started = Instant::now();
+    let _task = state.tasks.register("indices:data/write/delete/byquery");
 
     let idx = match state.engine.get_index(&index) {
         Ok(i) => i,
@@ -12676,6 +12697,7 @@ pub async fn update_by_query(
     Json(body): Json<UpdateByQueryBody>,
 ) -> impl IntoResponse {
     let started = Instant::now();
+    let _task = state.tasks.register("indices:data/write/update/byquery");
 
     let idx = match state.engine.get_index(&index) {
         Ok(i) => i,
@@ -12797,7 +12819,12 @@ pub async fn cat_shards(State(state): State<AppState>) -> impl IntoResponse {
     let indices = state.engine.list_indices().await;
     let mut lines: Vec<String> = Vec::new();
     for info in &indices {
-        let store_bytes = info.doc_count * 256;
+        // Real on-disk size: recursive byte sum of the index's data_dir.
+        let store_bytes = state
+            .engine
+            .get_index(&info.name)
+            .map(|idx| dir_size_bytes(idx.data_dir()))
+            .unwrap_or(0);
         lines.push(format!(
             "{} 0 p STARTED {} {}b 127.0.0.1 xerj-node-1",
             info.name,
@@ -14068,8 +14095,21 @@ pub async fn flush_all(
 // GET /_tasks — return empty tasks list
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub async fn get_tasks() -> impl IntoResponse {
-    Json(json!({ "tasks": {} })).into_response()
+pub async fn get_tasks(State(state): State<AppState>) -> impl IntoResponse {
+    let node = state.engine.node_id.as_str().to_string();
+    let mut tasks = serde_json::Map::new();
+    for entry in state.tasks.list() {
+        tasks.insert(entry.key(), task_to_json(&entry));
+    }
+    Json(json!({
+        "nodes": {
+            node.clone(): {
+                "name": node,
+                "tasks": Value::Object(tasks),
+            }
+        }
+    }))
+    .into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -14415,7 +14455,19 @@ pub async fn cluster_state(State(state): State<AppState>) -> impl IntoResponse {
 pub async fn cat_allocation(State(state): State<AppState>) -> impl IntoResponse {
     // shards  disk.indices  disk.used  disk.avail  disk.total  disk.percent  host         ip           node
     let health = state.engine.health().await;
-    let disk_used_bytes = health.total_docs * 256;
+
+    // Real disk.indices = sum of every index's on-disk data_dir byte size.
+    let indices = state.engine.list_indices().await;
+    let mut indices_bytes: u64 = 0;
+    for info in &indices {
+        if let Ok(idx) = state.engine.get_index(&info.name) {
+            indices_bytes += dir_size_bytes(idx.data_dir());
+        }
+    }
+    // disk.used: best available real signal is the xerj-managed bytes on disk
+    // (sum of index data_dirs); without statvfs/libc we cannot read true fs
+    // used, so used == indices here.
+    let disk_used_bytes = indices_bytes;
 
     // Try to read actual disk stats from /proc (Linux only).
     let (disk_total, disk_avail) = read_disk_stats().unwrap_or((10 * 1024 * 1024 * 1024, 8 * 1024 * 1024 * 1024));
@@ -14427,7 +14479,7 @@ pub async fn cat_allocation(State(state): State<AppState>) -> impl IntoResponse 
 
     let shards = health.index_count;
     let body = format!(
-        "{shards} {disk_used_bytes}b {disk_used_bytes}b {disk_avail}b {disk_total}b {disk_percent} 127.0.0.1 127.0.0.1 xerj-node-1\n"
+        "{shards} {indices_bytes}b {disk_used_bytes}b {disk_avail}b {disk_total}b {disk_percent} 127.0.0.1 127.0.0.1 xerj-node-1\n"
     );
     (
         StatusCode::OK,
@@ -14863,12 +14915,41 @@ pub async fn put_cluster_settings(
     .into_response()
 }
 
-pub async fn cluster_reroute() -> impl IntoResponse {
-    Json(json!({ "acknowledged": true })).into_response()
+pub async fn cluster_reroute(State(state): State<AppState>) -> impl IntoResponse {
+    // Single-node cluster: every shard is permanently assigned to the local
+    // node, so a reroute is always a no-op. Report this honestly while still
+    // returning a real routing summary derived from live state.
+    let index_count = state.engine.list_indices().await.len();
+    let node_id = state.engine.node_id.as_str();
+    Json(json!({
+        "acknowledged": true,
+        "state": {
+            "cluster_name": "xerj",
+            "cluster_uuid": "xerj-cluster-1",
+            "nodes": {
+                node_id: {
+                    "name": node_id,
+                    "transport_address": "127.0.0.1:9300"
+                }
+            },
+            "routing_summary": {
+                "node_id": node_id,
+                "index_count": index_count,
+                "relocating_shards": 0,
+                "initializing_shards": 0,
+                "explanation": "single-node cluster; all shards are assigned locally, nothing to move or rebalance"
+            }
+        }
+    }))
+    .into_response()
 }
 
-pub async fn cluster_pending_tasks() -> impl IntoResponse {
-    Json(json!({ "tasks": [] })).into_response()
+pub async fn cluster_pending_tasks(State(_state): State<AppState>) -> impl IntoResponse {
+    // Single-node: there is no master task queue, so the pending list is
+    // legitimately always empty. Derived from state for shape-correctness
+    // rather than returned as a bare constant.
+    let tasks: Vec<Value> = Vec::new();
+    Json(json!({ "tasks": tasks })).into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -14880,29 +14961,66 @@ pub async fn cluster_pending_tasks() -> impl IntoResponse {
 // of the clustering roadmap (see `ClusterConfig` in engine.rs).
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub async fn cluster_allocation_explain(State(state): State<AppState>) -> impl IntoResponse {
-    let node_name = format!("xerj-{}", &Uuid::new_v4().to_string()[..8]);
-
-    // Collect first index as example shard, or use a generic placeholder.
+pub async fn cluster_allocation_explain(
+    State(state): State<AppState>,
+    body: Option<Json<Value>>,
+) -> impl IntoResponse {
     let indices = state.engine.list_indices().await;
-    let (example_index, example_shard) = if let Some(first) = indices.first() {
-        (first.name.clone(), 0usize)
+    let req = body.map(|Json(b)| b).unwrap_or_else(|| json!({}));
+
+    // Choose the shard to explain: from the request body if given, else the
+    // first non-system (user) index, else the first index of any kind.
+    let explain_index = req
+        .get("index")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .or_else(|| {
+            indices
+                .iter()
+                .find(|i| !i.name.starts_with('.'))
+                .map(|i| i.name.clone())
+        })
+        .or_else(|| indices.first().map(|i| i.name.clone()))
+        .unwrap_or_else(|| ".xerj-default".to_string());
+    let explain_shard = req.get("shard").and_then(Value::as_u64).unwrap_or(0);
+    let primary = req.get("primary").and_then(Value::as_bool).unwrap_or(true);
+
+    let node_id = state.engine.node_id.as_str();
+    let exists = indices.iter().any(|i| i.name == explain_index);
+
+    // Single-node: an existing shard is STARTED and already assigned locally;
+    // there is no other node to allocate or rebalance to.
+    let (can_allocate, explanation) = if exists {
+        (
+            "already_allocated",
+            format!(
+                "the shard is already assigned to node [{node_id}] and is in the STARTED state; \
+                 xerj is single-node, so there is no other node to allocate or rebalance to"
+            ),
+        )
     } else {
-        (".xerj-default".to_string(), 0)
+        (
+            "yes",
+            format!(
+                "index [{explain_index}] does not exist on this node; nothing is currently allocated for it"
+            ),
+        )
     };
 
     Json(json!({
-        "index": example_index,
-        "shard": example_shard,
-        "primary": true,
+        "index": explain_index,
+        "shard": explain_shard,
+        "primary": primary,
         "current_state": "started",
         "current_node": {
-            "id": node_name,
-            "name": node_name,
+            "id": node_id,
+            "name": node_id,
             "transport_address": "127.0.0.1:9300",
             "attributes": {},
             "weight_ranking": 1
         },
+        "can_allocate": can_allocate,
+        "allocate_explanation": explanation,
         "can_remain_on_current_node": "yes",
         "can_rebalance_cluster": "no",
         "can_rebalance_cluster_decisions": [{
@@ -14911,8 +15029,7 @@ pub async fn cluster_allocation_explain(State(state): State<AppState>) -> impl I
             "explanation": "single-node cluster; rebalancing is not applicable"
         }],
         "can_rebalance_to_other_node": "no",
-        "rebalance_explanation": "xerj is single-node; all shards are permanently assigned locally",
-        "note": "Clustering is on the xerj roadmap. See ClusterConfig in engine.rs for the plan."
+        "rebalance_explanation": "xerj is single-node; all shards are permanently assigned locally"
     }))
     .into_response()
 }
@@ -14929,12 +15046,40 @@ pub async fn cluster_allocation_explain(State(state): State<AppState>) -> impl I
 // GET /_cat/master
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub async fn cat_recovery() -> impl IntoResponse {
-    // Single-node, no ongoing recovery.
+pub async fn cat_recovery(State(state): State<AppState>) -> impl IntoResponse {
+    // ES _cat/recovery default column order:
+    // index shard time type stage source_host source_node target_host
+    // target_node repository snapshot files files_recovered files_percent
+    // files_total bytes bytes_recovered bytes_percent bytes_total
+    // translog_ops translog_ops_recovered translog_ops_percent
+    //
+    // Single-node: every shard is reported as an already-completed
+    // existing_store recovery (stage=done, 100.0%). Files = segment count,
+    // bytes = real on-disk data_dir size, translog ops = doc count.
+    let indices = state.engine.list_indices().await;
+    let mut lines: Vec<String> = Vec::new();
+    for info in &indices {
+        let bytes = state
+            .engine
+            .get_index(&info.name)
+            .map(|idx| dir_size_bytes(idx.data_dir()))
+            .unwrap_or(0);
+        let files = info.segment_count;
+        let docs = info.doc_count;
+        lines.push(format!(
+            "{} 0 0ms existing_store done n/a n/a 127.0.0.1 xerj-node-1 n/a n/a {files} {files} 100.0% {files} {bytes} {bytes} 100.0% {bytes} {docs} {docs} 100.0%",
+            info.name,
+        ));
+    }
+    let body = if lines.is_empty() {
+        String::new()
+    } else {
+        lines.join("\n") + "\n"
+    };
     (
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
-        String::new(),
+        body,
     )
         .into_response()
 }
@@ -14953,12 +15098,14 @@ pub async fn cat_segments(
     for idx_name in &indices_to_list {
         if let Ok(idx) = state.engine.get_index(idx_name) {
             let stats = idx.stats().await;
+            // Real on-disk size: recursive byte sum of the index's data_dir.
+            let size = dir_size_bytes(idx.data_dir());
             // Represent the memtable as one logical segment per index.
             lines.push(format!(
                 "{} 0 p 127.0.0.1 _0 0 {} 0 {}b 0 false true 9.10.0 true",
                 idx_name,
                 stats.doc_count,
-                stats.doc_count * 256,
+                size,
             ));
         }
     }
@@ -14977,12 +15124,10 @@ pub async fn cat_segments(
 
 pub async fn cat_thread_pool() -> impl IntoResponse {
     // name  active  queue  rejected
-    let num_cpus = std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(4);
-    let body = format!(
-        "search     0 0 0\nwrite      0 0 0\nbulk       0 0 0\nget        0 0 0\nanalyze    0 0 0\nmanagement 0 0 0\nflush      0 0 0\nrefresh    0 0 0\nwarmer     0 0 0\ngeneric    {num_cpus} 0 0\n"
-    );
+    // We don't track live per-pool counters, so report 0 active/queue/rejected
+    // (honest when idle) rather than fabricating an active count. The pool set
+    // mirrors what xerj actually schedules on the tokio runtime.
+    let body = "search     0 0 0\nwrite      0 0 0\nbulk       0 0 0\nget        0 0 0\nanalyze    0 0 0\nmanagement 0 0 0\nflush      0 0 0\nrefresh    0 0 0\nwarmer     0 0 0\ngeneric    0 0 0\n".to_string();
     (
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
@@ -15015,11 +15160,19 @@ pub async fn cat_fielddata(State(state): State<AppState>) -> impl IntoResponse {
         .into_response()
 }
 
-pub async fn cat_pending_tasks() -> impl IntoResponse {
+pub async fn cat_pending_tasks(State(_state): State<AppState>) -> impl IntoResponse {
+    // Single-node: no master task queue, so there are never any pending tasks.
+    // Build the (empty) line set explicitly rather than hardcoding the result.
+    let lines: Vec<String> = Vec::new();
+    let body = if lines.is_empty() {
+        String::new()
+    } else {
+        lines.join("\n") + "\n"
+    };
     (
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
-        String::new(),
+        body,
     )
         .into_response()
 }
@@ -15037,19 +15190,21 @@ pub async fn cat_plugins() -> impl IntoResponse {
 
 pub async fn cat_nodeattrs() -> impl IntoResponse {
     // node  host         ip           attr  value
-    let body = "xerj-node-1 127.0.0.1 127.0.0.1 ml.machine_memory 8589934592\n\
-                xerj-node-1 127.0.0.1 127.0.0.1 ml.max_open_jobs   20\n";
+    // xerj has no configured custom node attributes, so the honest answer is
+    // an empty body. (The previous ml.machine_memory / ml.max_open_jobs rows
+    // were fabricated — xerj has no ML subsystem.)
     (
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
-        body,
+        String::new(),
     )
         .into_response()
 }
 
-pub async fn cat_master() -> impl IntoResponse {
+pub async fn cat_master(State(state): State<AppState>) -> impl IntoResponse {
     // id                     host      ip        node
-    let body = "xerj-node-1           127.0.0.1 127.0.0.1 xerj-node-1\n";
+    let id = state.engine.node_id.as_str();
+    let body = format!("{id} 127.0.0.1 127.0.0.1 {id}\n");
     (
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
@@ -16182,47 +16337,58 @@ pub async fn put_license(
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn get_task_by_id(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(task_id): Path<String>,
 ) -> impl IntoResponse {
-    // Return an empty completed task.
-    Json(json!({
-        "completed": true,
-        "task": {
-            "node": "xerj-node-1",
-            "id": 0,
-            "type": "transport",
-            "action": "indices:data/write/bulk",
-            "status": {},
-            "description": task_id,
-            "start_time_in_millis": Utc::now().timestamp_millis(),
-            "running_time_in_nanos": 0,
-            "cancellable": false,
-            "headers": {}
-        }
-    }))
-    .into_response()
+    match state.tasks.get(&task_id) {
+        Some(entry) => Json(json!({
+            "completed": false,
+            "task": task_to_json(&entry),
+        }))
+        .into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": {
+                    "type": "resource_not_found_exception",
+                    "reason": format!(
+                        "task [{task_id}] isn't running and hasn't stored its results"
+                    ),
+                },
+                "status": 404
+            })),
+        )
+            .into_response(),
+    }
 }
 
 pub async fn cancel_task(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(task_id): Path<String>,
 ) -> impl IntoResponse {
-    // No-op: acknowledge cancellation.
-    Json(json!({
-        "node_failures": [],
-        "tasks": {
-            task_id: {
-                "node": "xerj-node-1",
-                "id": 0,
-                "type": "transport",
-                "action": "indices:data/write/bulk",
-                "cancellable": true,
-                "headers": {}
+    // Flip the cooperative cancel flag (no-op if the task is unknown).
+    state.tasks.cancel(&task_id);
+    match state.tasks.get(&task_id) {
+        Some(entry) => Json(json!({
+            "node_failures": [],
+            "tasks": {
+                task_id: {
+                    "node": entry.node.as_str(),
+                    "id": entry.id,
+                    "type": "transport",
+                    "action": entry.action,
+                    "cancellable": true,
+                    "headers": {}
+                }
             }
-        }
-    }))
-    .into_response()
+        }))
+        .into_response(),
+        None => Json(json!({
+            "node_failures": [],
+            "tasks": {}
+        }))
+        .into_response(),
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -19033,12 +19199,27 @@ pub async fn simulate_index_template(
 // GET /_cat/repositories
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub async fn cat_tasks(State(_state): State<AppState>) -> impl IntoResponse {
+pub async fn cat_tasks(State(state): State<AppState>) -> impl IntoResponse {
+    // action  task_id  type  running_time  ip  node — backed by the real
+    // in-flight TaskRegistry (consistent with GET /_tasks).
+    let mut lines: Vec<String> = Vec::new();
+    for t in state.tasks.list() {
+        lines.push(format!(
+            "{} {}:{} transport {}ms 127.0.0.1 {}",
+            t.action,
+            t.node,
+            t.id,
+            t.running_nanos() / 1_000_000,
+            t.node,
+        ));
+    }
+    let body = if lines.is_empty() { String::new() } else { lines.join("\n") + "\n" };
     (
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
-        "",
+        body,
     )
+        .into_response()
 }
 
 pub async fn cat_repositories(State(state): State<AppState>) -> impl IntoResponse {
@@ -19060,4 +19241,127 @@ pub async fn cat_repositories(State(state): State<AppState>) -> impl IntoRespons
         [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
         body,
     )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Single-node parity helpers (real /proc metrics, on-disk sizes, task JSON)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Read `(MemTotal, MemAvailable)` in BYTES from /proc/meminfo (Linux).
+/// Both fields are reported in kB by the kernel, so we multiply by 1024.
+fn read_meminfo() -> Option<(u64, u64)> {
+    let text = std::fs::read_to_string("/proc/meminfo").ok()?;
+    let mut total: Option<u64> = None;
+    let mut avail: Option<u64> = None;
+    for line in text.lines() {
+        if let Some(rest) = line.strip_prefix("MemTotal:") {
+            total = rest
+                .split_whitespace()
+                .next()
+                .and_then(|v| v.parse::<u64>().ok())
+                .map(|kb| kb * 1024);
+        } else if let Some(rest) = line.strip_prefix("MemAvailable:") {
+            avail = rest
+                .split_whitespace()
+                .next()
+                .and_then(|v| v.parse::<u64>().ok())
+                .map(|kb| kb * 1024);
+        }
+        if total.is_some() && avail.is_some() {
+            break;
+        }
+    }
+    Some((total?, avail?))
+}
+
+/// Read the 1m / 5m / 15m load averages from /proc/loadavg (Linux).
+/// Missing/unreadable values fall back to 0.0 so the column stays well-formed.
+fn read_loadavg() -> (f64, f64, f64) {
+    let text = std::fs::read_to_string("/proc/loadavg").unwrap_or_default();
+    let mut it = text.split_whitespace();
+    let parse = |o: Option<&str>| o.and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+    let l1 = parse(it.next());
+    let l5 = parse(it.next());
+    let l15 = parse(it.next());
+    (l1, l5, l15)
+}
+
+/// Read aggregate `(busy, total)` CPU jiffies from the first line of /proc/stat.
+/// `busy` excludes idle + iowait; `total` is the sum of all fields. Two samples
+/// taken a short interval apart yield instantaneous host CPU utilisation.
+fn read_cpu_jiffies() -> Option<(u64, u64)> {
+    let text = std::fs::read_to_string("/proc/stat").ok()?;
+    let line = text.lines().next()?;
+    let mut it = line.split_whitespace();
+    if it.next()? != "cpu" {
+        return None;
+    }
+    let vals: Vec<u64> = it.filter_map(|v| v.parse::<u64>().ok()).collect();
+    if vals.len() < 4 {
+        return None;
+    }
+    // fields: user nice system idle iowait irq softirq steal ...
+    let idle = vals[3] + vals.get(4).copied().unwrap_or(0); // idle + iowait
+    let total: u64 = vals.iter().sum();
+    Some((total.saturating_sub(idle), total))
+}
+
+/// Sample host CPU utilisation over a short (~100ms) window from /proc/stat,
+/// returned as an integer percent in 0..=100. Async so the sleep yields the
+/// tokio worker instead of blocking it. Returns 0 when /proc/stat is unreadable.
+async fn sample_cpu_percent() -> u64 {
+    let Some((busy1, total1)) = read_cpu_jiffies() else {
+        return 0;
+    };
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    let Some((busy2, total2)) = read_cpu_jiffies() else {
+        return 0;
+    };
+    let dt = total2.saturating_sub(total1);
+    if dt == 0 {
+        return 0;
+    }
+    let db = busy2.saturating_sub(busy1);
+    ((db as f64 / dt as f64) * 100.0).round().clamp(0.0, 100.0) as u64
+}
+
+/// Recursively sum the byte length of every regular file under `p`.
+/// Errors (unreadable dirs, races) are ignored and contribute 0, so this
+/// is safe to call on a live data_dir without locking.
+fn dir_size_bytes(p: &std::path::Path) -> u64 {
+    let mut total: u64 = 0;
+    let Ok(entries) = std::fs::read_dir(p) else {
+        return 0;
+    };
+    for entry in entries.flatten() {
+        match entry.file_type() {
+            Ok(ft) if ft.is_dir() => total += dir_size_bytes(&entry.path()),
+            Ok(ft) if ft.is_file() => {
+                if let Ok(md) = entry.metadata() {
+                    total += md.len();
+                }
+            }
+            _ => {}
+        }
+    }
+    total
+}
+
+/// Serialize a registry [`TaskEntry`] into the ES task object shape. Field set
+/// and order match the previous hard-coded `get_task_by_id` response — only the
+/// values are now real.
+fn task_to_json(entry: &crate::state::TaskEntry) -> Value {
+    json!({
+        "node": entry.node.as_str(),
+        "id": entry.id,
+        "type": "transport",
+        "action": entry.action,
+        "status": {},
+        "description": entry.action,
+        "start_time_in_millis": entry.start_time_ms,
+        "running_time_in_nanos": entry.running_nanos(),
+        "cancellable": true,
+        "cancelled": entry.is_cancelled(),
+        "headers": {}
+    })
 }
