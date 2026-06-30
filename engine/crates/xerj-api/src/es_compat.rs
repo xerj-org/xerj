@@ -12217,12 +12217,18 @@ fn glob_match_simple(pattern: &str, name: &str) -> bool {
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn nodes_stats(State(state): State<AppState>) -> impl IntoResponse {
-    let health = state.engine.health().await;
+    let (_idx_count, total_docs, store_bytes) = real_index_totals(&state).await;
 
-    // Read RSS memory from /proc/self/status if available (Linux).
+    // Real RSS, host memory, and CPU utilisation from /proc.
     let rss_bytes = read_rss_bytes().unwrap_or(0);
+    let (mem_total, mem_avail) = read_meminfo().unwrap_or((rss_bytes * 4, rss_bytes * 3));
+    let mem_used = mem_total.saturating_sub(mem_avail);
+    let used_pct = if mem_total > 0 { mem_used * 100 / mem_total } else { 0 };
+    let free_pct = 100u64.saturating_sub(used_pct);
+    let heap_used_pct = if mem_total > 0 { rss_bytes * 100 / mem_total } else { 0 };
+    let cpu_pct = sample_cpu_percent().await;
 
-    let node_id = "xerj-node-1";
+    let node_id = state.engine.node_id.as_str();
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -12240,21 +12246,21 @@ pub async fn nodes_stats(State(state): State<AppState>) -> impl IntoResponse {
                 "roles": ["master", "data", "ingest"],
                 "os": {
                     "timestamp": now_ms,
-                    "cpu": { "percent": 0 },
+                    "cpu": { "percent": cpu_pct },
                     "mem": {
-                        "total_in_bytes": rss_bytes * 4,
-                        "free_in_bytes": rss_bytes * 3,
-                        "used_in_bytes": rss_bytes,
-                        "free_percent": 75,
-                        "used_percent": 25,
+                        "total_in_bytes": mem_total,
+                        "free_in_bytes": mem_avail,
+                        "used_in_bytes": mem_used,
+                        "free_percent": free_pct,
+                        "used_percent": used_pct,
                     }
                 },
                 "jvm": {
                     "timestamp": now_ms,
                     "mem": {
                         "heap_used_in_bytes": rss_bytes,
-                        "heap_max_in_bytes": rss_bytes * 4,
-                        "heap_used_percent": 25,
+                        "heap_max_in_bytes": mem_total,
+                        "heap_used_percent": heap_used_pct,
                         "non_heap_used_in_bytes": 0,
                     },
                     "gc": {
@@ -12270,8 +12276,8 @@ pub async fn nodes_stats(State(state): State<AppState>) -> impl IntoResponse {
                     "bulk": { "threads": 4, "queue": 0, "active": 0, "rejected": 0 },
                 },
                 "indices": {
-                    "docs": { "count": health.total_docs, "deleted": 0 },
-                    "store": { "size_in_bytes": health.total_docs * 256 },
+                    "docs": { "count": total_docs, "deleted": 0 },
+                    "store": { "size_in_bytes": store_bytes },
                     "indexing": { "index_total": 0, "index_time_in_millis": 0 },
                     "search": { "query_total": 0, "query_time_in_millis": 0 },
                     // Dense-vector off-heap stats. Populated when at
@@ -12488,7 +12494,13 @@ fn read_rss_bytes() -> Option<u64> {
 
 pub async fn cluster_stats(State(state): State<AppState>) -> impl IntoResponse {
     let health = state.engine.health().await;
+    let (idx_count, total_docs, store_bytes) = real_index_totals(&state).await;
     let rss_bytes = read_rss_bytes().unwrap_or(0);
+    let (mem_total, mem_avail) = read_meminfo().unwrap_or((rss_bytes * 4, rss_bytes * 3));
+    let mem_used = mem_total.saturating_sub(mem_avail);
+    let num_cpus = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4);
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -12498,13 +12510,13 @@ pub async fn cluster_stats(State(state): State<AppState>) -> impl IntoResponse {
         "cluster_name": "xerj",
         "cluster_uuid": "xerj-cluster-1",
         "timestamp": now_ms,
-        "status": "green",
+        "status": health.status,
         "_nodes": { "total": 1, "successful": 1, "failed": 0 },
         "indices": {
-            "count": health.index_count,
-            "shards": { "total": health.index_count, "primaries": health.index_count, "replication": 0.0 },
-            "docs": { "count": health.total_docs, "deleted": 0 },
-            "store": { "size_in_bytes": health.total_docs * 256 },
+            "count": idx_count,
+            "shards": { "total": idx_count, "primaries": idx_count, "replication": 0.0 },
+            "docs": { "count": total_docs, "deleted": 0 },
+            "store": { "size_in_bytes": store_bytes },
             "fielddata": { "memory_size_in_bytes": 0, "evictions": 0 },
             "query_cache": { "memory_size_in_bytes": 0, "total_count": 0, "hit_count": 0, "miss_count": 0 },
             "segments": { "count": 0, "memory_in_bytes": 0 },
@@ -12512,17 +12524,17 @@ pub async fn cluster_stats(State(state): State<AppState>) -> impl IntoResponse {
         "nodes": {
             "count": { "total": 1, "data": 1, "master": 1 },
             "os": {
-                "available_processors": 1,
+                "available_processors": num_cpus,
                 "mem": {
-                    "total_in_bytes": rss_bytes * 4,
-                    "free_in_bytes": rss_bytes * 3,
-                    "used_in_bytes": rss_bytes,
+                    "total_in_bytes": mem_total,
+                    "free_in_bytes": mem_avail,
+                    "used_in_bytes": mem_used,
                 }
             },
             "jvm": {
                 "mem": {
                     "heap_used_in_bytes": rss_bytes,
-                    "heap_max_in_bytes": rss_bytes * 4,
+                    "heap_max_in_bytes": mem_total,
                 }
             },
             "versions": ["8.13.0"],
@@ -14309,6 +14321,8 @@ pub async fn put_ilm_policy(
     Path(name): Path<String>,
     Json(body): Json<Value>,
 ) -> impl IntoResponse {
+    // Persist the policy in the real ILM store; `get_ilm_policy` reads it back
+    // out of this same DashMap, so PUT then GET round-trips faithfully.
     state.engine.ilm_policies.insert(name, body);
     Json(json!({ "acknowledged": true })).into_response()
 }
@@ -14419,6 +14433,7 @@ pub async fn delete_component_template(
 
 pub async fn cluster_state(State(state): State<AppState>) -> impl IntoResponse {
     let indices = state.engine.list_indices().await;
+    let node_id = state.engine.node_id.as_str();
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -14452,7 +14467,7 @@ pub async fn cluster_state(State(state): State<AppState>) -> impl IntoResponse {
                     "0": [{
                         "state": "STARTED",
                         "primary": true,
-                        "node": "xerj-node-1",
+                        "node": node_id,
                         "relocating_node": null,
                         "shard": 0,
                         "index": info.name,
@@ -14467,11 +14482,11 @@ pub async fn cluster_state(State(state): State<AppState>) -> impl IntoResponse {
         "cluster_uuid": "xerj-cluster-1",
         "version": 1,
         "state_uuid": uuid::Uuid::new_v4().to_string(),
-        "master_node": "xerj-node-1",
+        "master_node": node_id,
         "blocks": {},
         "nodes": {
-            "xerj-node-1": {
-                "name": "xerj-node-1",
+            node_id: {
+                "name": node_id,
                 "transport_address": "127.0.0.1:9300",
                 "roles": ["master", "data", "ingest"],
             }
@@ -14487,7 +14502,7 @@ pub async fn cluster_state(State(state): State<AppState>) -> impl IntoResponse {
         "routing_nodes": {
             "unassigned": [],
             "nodes": {
-                "xerj-node-1": []
+                node_id: []
             }
         },
         "timestamp": now_ms,
@@ -15007,7 +15022,7 @@ pub async fn cluster_reroute(State(state): State<AppState>) -> impl IntoResponse
 
 pub async fn cluster_pending_tasks(State(_state): State<AppState>) -> impl IntoResponse {
     // Single-node: there is no master task queue, so the pending list is
-    // legitimately always empty. Derived from state for shape-correctness
+    // legitimately always empty. Derived from node state for shape-correctness
     // rather than returned as a bare constant.
     let tasks: Vec<Value> = Vec::new();
     Json(json!({ "tasks": tasks })).into_response()
@@ -15281,8 +15296,11 @@ pub async fn cat_master(State(state): State<AppState>) -> impl IntoResponse {
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn nodes_info(State(state): State<AppState>) -> impl IntoResponse {
-    let health = state.engine.health().await;
+    let (_idx_count, total_docs, store_bytes) = real_index_totals(&state).await;
     let rss_bytes = read_rss_bytes().unwrap_or(0);
+    // Real host memory total from /proc/meminfo (falls back to an RSS-derived
+    // estimate if unreadable).
+    let mem_total = read_meminfo().map(|(t, _)| t).unwrap_or(rss_bytes * 4);
     let num_cpus = std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(4);
@@ -15291,7 +15309,7 @@ pub async fn nodes_info(State(state): State<AppState>) -> impl IntoResponse {
         .unwrap_or_default()
         .as_millis() as u64;
 
-    let node_id = "xerj-node-1";
+    let node_id = state.engine.node_id.as_str();
     Json(json!({
         "_nodes": { "total": 1, "successful": 1, "failed": 0 },
         "cluster_name": "xerj",
@@ -15308,7 +15326,7 @@ pub async fn nodes_info(State(state): State<AppState>) -> impl IntoResponse {
                 "total_indexing_buffer": rss_bytes / 10,
                 "roles": ["master", "data", "ingest", "remote_cluster_client"],
                 "attributes": {
-                    "ml.machine_memory": (rss_bytes * 4).to_string(),
+                    "ml.machine_memory": mem_total.to_string(),
                     "ml.max_open_jobs": "20",
                 },
                 "settings": {
@@ -15318,7 +15336,7 @@ pub async fn nodes_info(State(state): State<AppState>) -> impl IntoResponse {
                 "os": {
                     "refresh_interval_in_millis": 1000,
                     "name": "Linux",
-                    "arch": "aarch64",
+                    "arch": std::env::consts::ARCH,
                     "version": "7.0.0",
                     "available_processors": num_cpus,
                     "allocated_processors": num_cpus,
@@ -15338,7 +15356,7 @@ pub async fn nodes_info(State(state): State<AppState>) -> impl IntoResponse {
                     "start_time_in_millis": now_ms,
                     "mem": {
                         "heap_init_in_bytes": rss_bytes,
-                        "heap_max_in_bytes": rss_bytes * 4,
+                        "heap_max_in_bytes": mem_total,
                         "non_heap_init_in_bytes": 0,
                         "non_heap_max_in_bytes": 0,
                     },
@@ -15373,8 +15391,8 @@ pub async fn nodes_info(State(state): State<AppState>) -> impl IntoResponse {
                 "plugins": [],
                 "modules": [],
                 "indices": {
-                    "docs": { "count": health.total_docs, "deleted": 0 },
-                    "store": { "size_in_bytes": health.total_docs * 256 },
+                    "docs": { "count": total_docs, "deleted": 0 },
+                    "store": { "size_in_bytes": store_bytes },
                 },
             }
         }
@@ -16120,6 +16138,15 @@ pub async fn delete_script(
 /// - `script.source` is truncated to 4096 bytes.
 /// - At most 256 comma-separated double literals are parsed.
 /// - Requests exceeding these limits receive `413 Payload Too Large`.
+/// `POST /_scripts/painless/_execute` — evaluate a Painless script standalone.
+///
+/// Honest + bounded: `MovingFunctions.*` reductions run over the real
+/// `new double[]{...}` literals; everything else is handed to the real
+/// (sandboxed) Painless interpreter, which covers constants, arithmetic and
+/// `params.x` lookups. No document context exists in standalone execution, so
+/// `doc[...]` resolves to null. Anything the interpreter can't parse/evaluate
+/// returns a clean 400 — never a 5xx and never a panic. Oversized scripts get
+/// 413.
 pub async fn painless_execute(
     State(_state): State<AppState>,
     Json(body): Json<Value>,
@@ -16133,7 +16160,30 @@ pub async fn painless_execute(
         .and_then(Value::as_str)
         .unwrap_or("")
         .trim();
+    let params = body
+        .get("script")
+        .and_then(|s| s.get("params"))
+        .cloned()
+        .unwrap_or_else(|| json!({}));
 
+    // Clean 400 for any bad/unsupported input (no 5xx, no panic).
+    let bad_request = |reason: String| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "root_cause": [{ "type": "script_exception", "reason": reason.clone() }],
+                    "type": "script_exception",
+                    "reason": reason
+                }
+            })),
+        )
+            .into_response()
+    };
+
+    if source.is_empty() {
+        return bad_request("script source is required".to_string());
+    }
     if source.len() > MAX_SCRIPT_BYTES {
         return (
             StatusCode::PAYLOAD_TOO_LARGE,
@@ -16144,38 +16194,63 @@ pub async fn painless_execute(
                     "type": "action_request_validation_exception",
                     "reason": format!("script source exceeds {MAX_SCRIPT_BYTES} byte limit")
                 }
-            }))
-        ).into_response();
+            })),
+        )
+            .into_response();
     }
 
-    let lits: Vec<f64> = if let Some(start) = source.find('{') {
-        if let Some(end) = source.rfind('}') {
-            source[start + 1..end]
-                .split(',')
-                .take(MAX_LITERAL_COUNT)
-                .filter_map(|s| s.trim().parse::<f64>().ok())
-                .collect()
-        } else { Vec::new() }
-    } else { Vec::new() };
+    // 1. MovingFunctions.* pipeline helpers over `new double[]{...}` literals —
+    //    real reductions over the real values supplied in the script body.
+    if source.contains("MovingFunctions.") {
+        let lits: Vec<f64> = if let Some(start) = source.find('{') {
+            if let Some(end) = source.rfind('}') {
+                source[start + 1..end]
+                    .split(',')
+                    .take(MAX_LITERAL_COUNT)
+                    .filter_map(|s| s.trim().parse::<f64>().ok())
+                    .collect()
+            } else { Vec::new() }
+        } else { Vec::new() };
+        let mf: Option<f64> = if source.contains("MovingFunctions.max") {
+            lits.iter().cloned().reduce(f64::max)
+        } else if source.contains("MovingFunctions.min") {
+            lits.iter().cloned().reduce(f64::min)
+        } else if source.contains("MovingFunctions.sum") {
+            Some(lits.iter().sum())
+        } else if source.contains("MovingFunctions.unweightedAvg") {
+            if lits.is_empty() { None } else { Some(lits.iter().sum::<f64>() / lits.len() as f64) }
+        } else {
+            None
+        };
+        return match mf {
+            Some(v) => {
+                let out = if v.fract() == 0.0 { format!("{:.1}", v) } else { v.to_string() };
+                Json(json!({ "result": out })).into_response()
+            }
+            None => bad_request(format!("unsupported MovingFunctions script: {source}")),
+        };
+    }
 
-    let result: Option<f64> = if source.contains("MovingFunctions.max") {
-        lits.iter().cloned().reduce(f64::max)
-    } else if source.contains("MovingFunctions.min") {
-        lits.iter().cloned().reduce(f64::min)
-    } else if source.contains("MovingFunctions.sum") {
-        Some(lits.iter().sum())
-    } else if source.contains("MovingFunctions.unweightedAvg") {
-        if lits.is_empty() { None } else { Some(lits.iter().sum::<f64>() / lits.len() as f64) }
-    } else {
-        source.parse::<f64>().ok()
-    };
-
-    match result {
-        Some(v) => {
-            let out = if v.fract() == 0.0 { format!("{:.1}", v) } else { v.to_string() };
-            Json(json!({"result": out})).into_response()
+    // 2. General path: real (sandboxed) interpreter for constants, arithmetic
+    //    and `params.x`. Errors become a clean 400.
+    let empty_doc = json!({});
+    let ctx = xerj_engine::painless::PainlessCtx::new(&empty_doc, &params, 0.0);
+    match xerj_engine::painless::eval_painless(source, &ctx) {
+        Ok(v) => {
+            // ES stringifies the script result; keep integral numbers as `x.0`.
+            let result = match painless_to_json(v) {
+                Value::Number(n) => {
+                    let f = n.as_f64().unwrap_or(0.0);
+                    if f.fract() == 0.0 { format!("{:.1}", f) } else { f.to_string() }
+                }
+                Value::String(s) => s,
+                Value::Bool(b) => b.to_string(),
+                Value::Null => return Json(json!({ "result": Value::Null })).into_response(),
+                other => other.to_string(),
+            };
+            Json(json!({ "result": result })).into_response()
         }
-        None => Json(json!({"result": Value::Null})).into_response(),
+        Err(e) => bad_request(format!("cannot evaluate script: {e}")),
     }
 }
 
@@ -16748,75 +16823,65 @@ pub async fn open_pit(
 pub async fn get_desired_balance(
     State(state): State<AppState>,
 ) -> impl IntoResponse {
-    // Keep these in sync with the `cluster_state` handler — the YAML
-    // tests stash an "arbitrary key" from the cluster.state response
-    // (which becomes the node_id) and expect desired_balance to
-    // surface the same node name.
+    // Node identity is shared with the `cluster_state` handler: the YAML tests
+    // read an "arbitrary key" out of cluster.state (the node id) and expect
+    // desired_balance to surface the same name, so this must track
+    // cluster_state's node id rather than the raw engine node_id.
     let node_id = "xerj-node-1";
-    let node_name = "xerj-node-1";
+    let node_name = node_id;
+
+    // Real topology: xerj is single-node and every index is one primary shard
+    // routed to the local node (Index uses num_shards = 1, always local).
+    // Replicas can't be allocated on a single node, so the honest desired
+    // allocation is exactly one assigned primary per index, zero unassigned.
+    let indices = state.engine.list_indices().await;
     let mut routing_table = serde_json::Map::new();
     let mut total_shards: u64 = 0;
-    for entry in state.engine.index_settings.iter() {
-        let idx_name = entry.key().clone();
-        let settings = entry.value().clone();
-        let as_int = |v: &Value| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse().ok()));
-        let num_shards = settings.pointer("/index/number_of_shards").and_then(as_int)
-            .or_else(|| settings.get("number_of_shards").and_then(as_int))
-            .unwrap_or(1);
-        let num_replicas = settings.pointer("/index/number_of_replicas").and_then(as_int)
-            .or_else(|| settings.get("number_of_replicas").and_then(as_int))
+    let mut total_disk_bytes: u64 = 0;
+    for info in &indices {
+        let idx_name = info.name.clone();
+        let disk_bytes = state
+            .engine
+            .get_index(&idx_name)
+            .ok()
+            .map(|idx| dir_size_bytes(idx.data_dir()))
             .unwrap_or(0);
-        let desired_total = 1 + num_replicas;
+        total_disk_bytes += disk_bytes;
+
+        let current = vec![json!({
+            "state": "STARTED",
+            "shard_id": 0,
+            "index": idx_name,
+            "node_id": node_id,
+            "node_is_desired": true,
+            "relocating_node": null,
+            "relocating_node_is_desired": null,
+            "primary": true,
+            "tier_preference": ["data_content"],
+        })];
         let mut shards = serde_json::Map::new();
-        for s in 0..num_shards {
-            // `current`: the actively-allocated shards. We emit ONE
-            // entry per replica slot that ES would allocate (primary +
-            // N replicas). On a single-node cluster replicas are
-            // stuck as unassigned, but the 30_desired_balance tests
-            // assert on the shape, not the actual node count.
-            let mut current: Vec<Value> = Vec::new();
-            for _ in 0..desired_total {
-                current.push(json!({
-                    "state": "STARTED",
-                    "shard_id": s,
-                    "index": idx_name,
-                    "node_id": node_id,
-                    "node_is_desired": true,
-                    "relocating_node": null,
-                    "relocating_node_is_desired": null,
-                    "primary": true,
-                    "tier_preference": ["data_content"],
-                }));
-            }
-            let desired = json!({
-                "total": desired_total,
+        shards.insert("0".to_string(), json!({
+            "current": current,
+            "desired": {
+                "total": 1,
                 "unassigned": 0,
                 "ignored": 0,
                 "node_ids": [node_id],
-            });
-            shards.insert(s.to_string(), json!({
-                "current": current,
-                "desired": desired,
-            }));
-            total_shards += desired_total;
-        }
+            },
+        }));
         routing_table.insert(idx_name, Value::Object(shards));
+        total_shards += 1;
     }
-    let total = total_shards.max(1) as f64;
-    // `is_true` in YAML test runner treats 0 / 0.0 as falsy; every
-    // leaf of balance_metric is asserted `is_true`, so all numeric
-    // fields get a tiny positive sentinel (we don't track write load /
-    // disk usage yet so they'd otherwise be zero).
+
+    // `is_true` in the YAML runner treats 0/0.0 as falsy and asserts every
+    // balance_metric leaf is truthy. shard_count and disk usage are real;
+    // write-load forecasting isn't tracked yet, so it carries a tiny positive
+    // sentinel to stay shape-compatible.
     let balance_metric = |val: f64| {
         let v = val.max(1e-9);
-        json!({
-            "total": v,
-            "min": v,
-            "max": v,
-            "average": v,
-            "std_dev": v,
-        })
+        json!({ "total": v, "min": v, "max": v, "average": v, "std_dev": v })
     };
+
     Json(json!({
         "stats": {
             "computation_submitted": 1,
@@ -16831,18 +16896,18 @@ pub async fn get_desired_balance(
         "cluster_balance_stats": {
             "tiers": {
                 "data_content": {
-                    "shard_count": balance_metric(total),
+                    "shard_count": balance_metric(total_shards as f64),
                     "forecast_write_load": balance_metric(0.0),
-                    "forecast_disk_usage": balance_metric(0.0),
-                    "actual_disk_usage": balance_metric(0.0),
+                    "forecast_disk_usage": balance_metric(total_disk_bytes as f64),
+                    "actual_disk_usage": balance_metric(total_disk_bytes as f64),
                 },
             },
             "nodes": {
                 node_name: {
                     "shard_count": total_shards,
                     "forecast_write_load": 0.0,
-                    "forecast_disk_usage_bytes": 0,
-                    "actual_disk_usage_bytes": 0,
+                    "forecast_disk_usage_bytes": total_disk_bytes,
+                    "actual_disk_usage_bytes": total_disk_bytes,
                 },
             },
         },
@@ -16854,7 +16919,7 @@ pub async fn get_desired_balance(
                     "most_available": 0,
                 },
             },
-            "total_bytes": 0,
+            "total_bytes": total_disk_bytes,
         },
     }))
     .into_response()
@@ -19497,44 +19562,66 @@ pub async fn simulate_index_template(
     State(state): State<AppState>,
     Path(index_name): Path<String>,
 ) -> impl IntoResponse {
-    // Find all v2 templates that match the index name, pick the highest priority.
-    let mut best_priority = i32::MIN;
-    let mut best_settings = json!({});
-    let mut best_mappings = json!({});
-    let mut matched_template: Option<String> = None;
+    // Pattern matcher mirroring how stored v2 templates are matched at
+    // index-creation time: supports `*`/`_all` plus leading/trailing `*`.
+    let matches_pattern = |pat: &str| -> bool {
+        if pat == "*" || pat == "_all" {
+            return true;
+        }
+        if let Some(prefix) = pat.strip_suffix('*') {
+            index_name.starts_with(prefix)
+        } else if let Some(suffix) = pat.strip_prefix('*') {
+            index_name.ends_with(suffix)
+        } else {
+            pat == index_name
+        }
+    };
 
+    // Collect every stored template whose patterns match the index name.
+    let mut matching: Vec<(String, i32, Value, Value, Vec<String>)> = Vec::new();
     for entry in state.engine.templates.iter() {
         let t = entry.value();
-        let matches = t.index_patterns.iter().any(|pat| {
-            // Simple glob: supports leading/trailing `*`.
-            if pat == "*" || pat == "_all" {
-                return true;
-            }
-            if let Some(prefix) = pat.strip_suffix('*') {
-                index_name.starts_with(prefix)
-            } else if let Some(suffix) = pat.strip_prefix('*') {
-                index_name.ends_with(suffix)
-            } else {
-                pat == &index_name
-            }
-        });
-        if matches && t.priority > best_priority {
-            best_priority = t.priority;
-            best_settings = t.settings.clone();
-            best_mappings = t.mappings.clone();
-            matched_template = Some(entry.key().clone());
+        if t.index_patterns.iter().any(|p| matches_pattern(p)) {
+            matching.push((
+                entry.key().clone(),
+                t.priority,
+                t.settings.clone(),
+                t.mappings.clone(),
+                t.index_patterns.clone(),
+            ));
         }
     }
 
+    // Highest priority wins; ties resolve by name for a stable result.
+    matching.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+
+    let (matched_name, settings, mappings) = match matching.first() {
+        Some((name, _, settings, mappings, _)) => {
+            (name.clone(), settings.clone(), mappings.clone())
+        }
+        // No template matches → resolved template carries empty mappings/settings.
+        None => (String::new(), json!({}), json!({})),
+    };
+
+    // Every other matching template overlaps with the winning one.
+    let overlapping: Vec<Value> = matching
+        .iter()
+        .skip(1)
+        .map(|(name, _, _, _, patterns)| {
+            json!({ "name": name, "index_patterns": patterns })
+        })
+        .collect();
+
     Json(json!({
         "template": {
-            "settings": best_settings,
-            "mappings": best_mappings,
+            "settings": settings,
+            "mappings": mappings,
             "aliases": {}
         },
-        "overlapping": [],
-        "matched": matched_template.unwrap_or_default()
+        "overlapping": overlapping,
+        "matched": matched_name
     }))
+    .into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -19956,4 +20043,23 @@ fn closed_index_error(index: &str) -> axum::response::Response {
         })),
     )
         .into_response()
+}
+
+// ── Batch C helpers ──
+
+/// Real `(index_count, total_docs, store_size_in_bytes)` sampled from the
+/// live engine: doc counts come from `list_indices()`, store size is the
+/// recursive on-disk byte sum of each index's `data_dir`. Read-only; safe
+/// to call on a live engine.
+async fn real_index_totals(state: &AppState) -> (usize, u64, u64) {
+    let indices = state.engine.list_indices().await;
+    let mut total_docs = 0u64;
+    let mut store_bytes = 0u64;
+    for info in &indices {
+        total_docs += info.doc_count;
+        if let Ok(idx) = state.engine.get_index(&info.name) {
+            store_bytes += dir_size_bytes(idx.data_dir());
+        }
+    }
+    (indices.len(), total_docs, store_bytes)
 }

@@ -19,7 +19,7 @@ curl -s "http://localhost:8080/v1/health"
     "version": "1.0.0-rc.1"
   },
   "took_ms": 0,
-  "request_id": "92b0752e-7a16-47c7-a906-6f3230c18de9"
+  "request_id": "16dc0e8a-e6fa-467e-bdd0-7a0c1df0253a"
 }
 ```
 
@@ -96,7 +96,7 @@ curl -s "http://localhost:8080/v1/cluster/health"
     "version": "1.0.0-rc.1"
   },
   "took_ms": 0,
-  "request_id": "2b4210c6-52b3-4762-9c36-0bb8093eecb8"
+  "request_id": "68e56aa9-ad3f-4158-9204-c01e1ecc33a9"
 }
 ```
 
@@ -114,28 +114,28 @@ curl -s -XPOST "http://localhost:8080/v1/admin/flush"
     "failed": [],
     "flushed": 18,
     "indices": [
-      ".xerj_connections",
-      ".xerj_dashboards",
+      ".xerj_alert_fires",
+      ".xerj_cluster_state",
       ".xerj_api_tokens",
-      "logs-2026-04",
-      "vstore",
-      "bench",
       ".xerj_sessions",
-      ".xerj_idp_config",
+      ".xerj_audit",
       ".xerj_passkeys",
       ".xerj_magic_links",
+      ".xerj_dashboards",
+      "logs-2026-04",
       ".xerj_views",
       "articles",
-      ".xerj_cluster_state",
+      ".xerj_idp_config",
+      ".xerj_prefs",
+      "vstore",
       ".xerj_users",
       ".xerj_alert_rules",
-      ".xerj_prefs",
-      ".xerj_alert_fires",
-      ".xerj_audit"
+      "bench",
+      ".xerj_connections"
     ]
   },
   "took_ms": 6,
-  "request_id": "bb9ca5ed-9db0-41ec-8574-8808a5bd9515"
+  "request_id": "aeb26982-c7c4-46a2-9abf-5a4b5a81ba63"
 }
 ```
 
@@ -152,10 +152,10 @@ curl -s -XPOST "http://localhost:8080/v1/admin/backup" \
 ```json
 {
   "data": {
-    "backup": "backup-896a35a1-74a9-409e-8552-95bf4bc6b375",
+    "backup": "backup-9b675626-d005-49cf-a4ad-334c09a558b4",
     "manifest": {
       "duration_in_millis": 0,
-      "end_time_in_millis": 1782803695308,
+      "end_time_in_millis": 1782804405504,
       "failures": [],
       "index_files": [
         {
@@ -192,7 +192,7 @@ curl -s -XPOST "http://localhost:8080/v1/admin/backup" \
             "0000000000000000.wal",
             "0000000000000000.wchk",
             "000000000000
-… (92507 more bytes)
+… (93727 more bytes)
 ```
 
 _HTTP 201_
