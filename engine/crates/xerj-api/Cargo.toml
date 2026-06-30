@@ -33,6 +33,7 @@ dashmap              = { workspace = true }
 tracing-subscriber   = { workspace = true }
 
 async-trait  = "0.1"
+libc         = "0.2"
 
 [dev-dependencies]
 tempfile     = { workspace = true }

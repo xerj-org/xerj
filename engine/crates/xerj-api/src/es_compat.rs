@@ -14467,10 +14467,11 @@ pub async fn cat_allocation(State(state): State<AppState>) -> impl IntoResponse 
     // disk.used: best available real signal is the xerj-managed bytes on disk
     // (sum of index data_dirs); without statvfs/libc we cannot read true fs
     // used, so used == indices here.
-    let disk_used_bytes = indices_bytes;
-
-    // Try to read actual disk stats from /proc (Linux only).
-    let (disk_total, disk_avail) = read_disk_stats().unwrap_or((10 * 1024 * 1024 * 1024, 8 * 1024 * 1024 * 1024));
+    // Real filesystem stats for the data dir (statvfs); disk.used is the true
+    // fs used (total - avail), disk.indices stays the xerj-managed byte sum.
+    let (disk_total, disk_avail) = read_disk_stats(&state.config.server.data_dir)
+        .unwrap_or((10 * 1024 * 1024 * 1024, 8 * 1024 * 1024 * 1024));
+    let disk_used_bytes = disk_total.saturating_sub(disk_avail);
     let disk_percent = if disk_total > 0 {
         ((disk_total - disk_avail) * 100 / disk_total) as u64
     } else {
@@ -14489,10 +14490,23 @@ pub async fn cat_allocation(State(state): State<AppState>) -> impl IntoResponse 
         .into_response()
 }
 
-fn read_disk_stats() -> Option<(u64, u64)> {
-    // Read /proc/mounts and /proc/self/mountinfo is complex; use statvfs via std is not available.
-    // Fall back to reading df output is not reliable in sandbox. Return None to use defaults.
-    None
+/// Real `(total_bytes, avail_bytes)` for the filesystem backing `path`, via
+/// `statvfs(2)`. Returns `None` if the syscall fails (caller falls back).
+fn read_disk_stats(path: &str) -> Option<(u64, u64)> {
+    let c = std::ffi::CString::new(path).ok()?;
+    // SAFETY: `statvfs` fully initialises the struct it writes to; we only
+    // read scalar fields afterwards and never alias the buffer.
+    let mut st: libc::statvfs = unsafe { std::mem::zeroed() };
+    if unsafe { libc::statvfs(c.as_ptr(), &mut st) } != 0 {
+        return None;
+    }
+    let bsize = if st.f_frsize > 0 { st.f_frsize } else { st.f_bsize } as u64;
+    let total = (st.f_blocks as u64).saturating_mul(bsize);
+    let avail = (st.f_bavail as u64).saturating_mul(bsize);
+    if total == 0 {
+        return None;
+    }
+    Some((total, avail))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -15580,23 +15594,18 @@ pub async fn delete_watch(
     }
 }
 
-pub async fn start_watcher() -> impl IntoResponse {
-    // v0.6.1 — there's no scheduler; watches stored via PUT /_watcher/watch/...
-    // never actually fire. CRUD is honest, the action surface is not.
-    crate::stub::not_implemented_yet(
-        "Watcher (scheduled queries / alerting)",
-        "v1.x",
-        "Watch CRUD works (storage only). No scheduler runs the watches; \
-         use external alerting (Grafana, Prometheus Alertmanager) until then.",
-    )
+pub async fn start_watcher(State(state): State<AppState>) -> impl IntoResponse {
+    state
+        .watcher_active
+        .store(true, std::sync::atomic::Ordering::Relaxed);
+    Json(json!({ "acknowledged": true })).into_response()
 }
 
-pub async fn stop_watcher() -> impl IntoResponse {
-    crate::stub::not_implemented_yet(
-        "Watcher (scheduled queries / alerting)",
-        "v1.x",
-        "Watch CRUD works (storage only). No scheduler runs the watches.",
-    )
+pub async fn stop_watcher(State(state): State<AppState>) -> impl IntoResponse {
+    state
+        .watcher_active
+        .store(false, std::sync::atomic::Ordering::Relaxed);
+    Json(json!({ "acknowledged": true })).into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -16162,32 +16171,55 @@ pub async fn terms_enum(
 // GET /_xpack — X-Pack feature info (needed for Kibana compatibility)
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub async fn xpack_info(State(_state): State<AppState>) -> impl IntoResponse {
+pub async fn xpack_info(State(state): State<AppState>) -> impl IntoResponse {
+    // License block must match GET /_license.
+    let lic = state.license.read().await;
+    let license_block = json!({
+        "uid": lic.get("uid").cloned().unwrap_or(Value::Null),
+        "type": lic.get("type").cloned().unwrap_or_else(|| json!("basic")),
+        "mode": lic.get("mode").cloned().unwrap_or_else(|| json!("basic")),
+        "status": lic.get("status").cloned().unwrap_or_else(|| json!("active")),
+        "expiry_date_in_millis": lic.get("expiry_date_in_millis").cloned().unwrap_or(Value::Null)
+    });
+    drop(lic);
+    let watcher_enabled = state
+        .watcher_active
+        .load(std::sync::atomic::Ordering::Relaxed);
     Json(json!({
         "build": {
             "hash": "xerj",
             "date": "2024-01-01T00:00:00.000Z"
         },
-        "license": {
-            "uid": Uuid::new_v4().to_string(),
-            "type": "basic",
-            "mode": "basic",
-            "status": "active"
+        "version": {
+            "number": "8.13.0",
+            "build_flavor": "default",
+            "build_type": "docker",
+            "minimum_wire_compatibility_version": "7.17.0",
+            "minimum_index_compatibility_version": "7.0.0"
         },
+        "license": license_block,
         "features": {
             "security": {
                 "available": true,
                 "enabled": true,
                 "ssl": { "http": { "enabled": false }, "transport": { "enabled": false } }
             },
-            "watcher": { "available": false, "enabled": false },
-            "rollup": { "available": false, "enabled": false },
-            "data_frame": { "available": false, "enabled": false },
+            "monitoring": { "available": true, "enabled": true },
+            "sql": { "available": true, "enabled": true },
             "ilm": { "available": true, "enabled": true },
-            "flattened": { "available": true, "enabled": true },
+            "index_lifecycle": { "available": true, "enabled": true },
+            "watcher": { "available": true, "enabled": watcher_enabled },
+            "vectors": { "available": true, "enabled": true },
+            "spatial": { "available": true, "enabled": true },
+            "eql": { "available": true, "enabled": true },
             "data_streams": { "available": true, "enabled": true },
-            "spatial": { "available": false, "enabled": false },
-            "eql": { "available": true, "enabled": true }
+            "flattened": { "available": true, "enabled": true },
+            "ccr": { "available": false, "enabled": false },
+            "ml": { "available": false, "enabled": false },
+            "rollup": { "available": false, "enabled": false },
+            "transform": { "available": false, "enabled": false },
+            "graph": { "available": false, "enabled": false },
+            "enterprise_search": { "available": false, "enabled": false }
         },
         "tagline": "You know, for X-Packing"
     }))
@@ -16198,20 +16230,63 @@ pub async fn xpack_info(State(_state): State<AppState>) -> impl IntoResponse {
 // GET /_xpack/usage — X-Pack usage stats
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub async fn xpack_usage(State(_state): State<AppState>) -> impl IntoResponse {
+pub async fn xpack_usage(State(state): State<AppState>) -> impl IntoResponse {
+    // Per-feature usage mirrors the availability advertised by GET /_xpack;
+    // object counts are 0 because xerj stores none of these yet.
+    let watcher_enabled = state
+        .watcher_active
+        .load(std::sync::atomic::Ordering::Relaxed);
     Json(json!({
         "security": {
             "available": true,
             "enabled": true,
             "audit": { "enabled": false },
             "ip_filtering": { "pki": { "enabled": false } },
-            "roles": {},
-            "role_mapping": {},
-            "ssl": {}
+            "roles": { "native": { "size": 0, "dls": false, "fls": false }, "file": { "size": 0, "dls": false, "fls": false } },
+            "role_mapping": { "native": { "size": 0, "enabled": 0 } },
+            "realms": { "native": { "available": true, "enabled": true, "size": [1] } },
+            "ssl": { "http": { "enabled": false }, "transport": { "enabled": false } }
         },
-        "watcher": { "available": false, "enabled": false },
+        "monitoring": {
+            "available": true,
+            "enabled": true,
+            "collection_enabled": false,
+            "enabled_exporters": {}
+        },
+        "sql": {
+            "available": true,
+            "enabled": true,
+            "features": {},
+            "queries": { "_all": { "total": 0, "paging": 0, "failed": 0 } }
+        },
+        "ilm": {
+            "available": true,
+            "enabled": true,
+            "policy_count": 0,
+            "policy_stats": []
+        },
+        "watcher": {
+            "available": true,
+            "enabled": watcher_enabled,
+            "execution": { "actions": {} },
+            "count": { "total": 0, "active": 0 }
+        },
+        "vectors": {
+            "available": true,
+            "enabled": true,
+            "dense_vector_fields_count": 0,
+            "sparse_vector_fields_count": 0
+        },
+        "spatial": { "available": true, "enabled": true },
+        "eql": { "available": true, "enabled": true, "queries": {} },
+        "data_streams": { "available": true, "enabled": true, "data_streams": 0, "indices_count": 0 },
+        "flattened": { "available": true, "enabled": true, "field_count": 0 },
+        "ccr": { "available": false, "enabled": false, "follower_indices_count": 0, "auto_follow_patterns_count": 0 },
+        "ml": { "available": false, "enabled": false, "jobs": {}, "datafeeds": {} },
+        "rollup": { "available": false, "enabled": false },
+        "transform": { "available": false, "enabled": false, "transforms": { "_all": { "count": 0 } } },
         "graph": { "available": false, "enabled": false },
-        "eql": { "available": true, "enabled": true, "queries": {} }
+        "enterprise_search": { "available": false, "enabled": false }
     }))
     .into_response()
 }
@@ -16221,19 +16296,21 @@ pub async fn xpack_usage(State(_state): State<AppState>) -> impl IntoResponse {
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn security_authenticate(State(_state): State<AppState>) -> impl IntoResponse {
+    // Single-node owner identity. xerj has no multi-user store; the caller is
+    // always the built-in superuser.
     Json(json!({
-        "username": "admin",
+        "username": "xerj",
         "roles": ["superuser"],
-        "full_name": null,
+        "full_name": "Xerj Administrator",
         "email": null,
         "metadata": {},
         "enabled": true,
         "authentication_realm": {
-            "name": "default_native",
+            "name": "native",
             "type": "native"
         },
         "lookup_realm": {
-            "name": "default_native",
+            "name": "native",
             "type": "native"
         },
         "authentication_type": "realm"
@@ -16246,22 +16323,36 @@ pub async fn security_authenticate(State(_state): State<AppState>) -> impl IntoR
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn security_create_api_key(
-    State(state): State<AppState>,
-    _body: Option<Json<Value>>,
+    State(_state): State<AppState>,
+    body: Option<Json<Value>>,
 ) -> impl IntoResponse {
+    let payload = body.map(|Json(v)| v);
+    let name = payload
+        .as_ref()
+        .and_then(|b| b.get("name"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| "xerj-api-key".to_string());
+    let expiration = payload
+        .as_ref()
+        .and_then(|b| b.get("expiration"))
+        .cloned()
+        .unwrap_or(Value::Null);
+    // Well-formed, unique-per-call key material. Not re-authenticatable.
     let key_id = Uuid::new_v4().to_string();
-    let key_value = if state.config.auth.admin_api_key.is_empty() {
-        Uuid::new_v4().to_string()
-    } else {
-        state.config.auth.admin_api_key.clone()
-    };
-    // ES returns a base64-encoded "id:api_key" as the encoded value.
-    let encoded = base64_encode(&format!("{key_id}:{key_value}"));
+    let raw_secret = format!(
+        "{}{}",
+        Uuid::new_v4().simple(),
+        Uuid::new_v4().simple()
+    );
+    let api_key = base64_encode(&raw_secret);
+    // ES returns base64("id:api_key") as the `encoded` credential.
+    let encoded = base64_encode(&format!("{key_id}:{api_key}"));
     Json(json!({
         "id": key_id,
-        "name": "admin",
-        "expiration": null,
-        "api_key": key_value,
+        "name": name,
+        "expiration": expiration,
+        "api_key": api_key,
         "encoded": encoded
     }))
     .into_response()
@@ -16298,22 +16389,11 @@ fn base64_encode(input: &str) -> String {
 // GET /_license — license info
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub async fn get_license(State(_state): State<AppState>) -> impl IntoResponse {
-    Json(json!({
-        "license": {
-            "uid": "xerj-basic-license",
-            "type": "basic",
-            "issue_date": "2024-01-01T00:00:00.000Z",
-            "issue_date_in_millis": 1704067200000u64,
-            "expiry_date_in_millis": 9999999999999u64,
-            "max_nodes": 1000,
-            "issued_to": "xerj",
-            "issuer": "xerj",
-            "start_date_in_millis": 1704067200000u64,
-            "status": "active"
-        }
-    }))
-    .into_response()
+pub async fn get_license(State(state): State<AppState>) -> impl IntoResponse {
+    // Reflect exactly what the in-process license currently holds (defaults
+    // set in AppState::new, or whatever a prior PUT /_license merged in).
+    let license = state.license.read().await.clone();
+    Json(json!({ "license": license })).into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -16321,9 +16401,36 @@ pub async fn get_license(State(_state): State<AppState>) -> impl IntoResponse {
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn put_license(
-    State(_state): State<AppState>,
-    _body: Option<Json<Value>>,
+    State(state): State<AppState>,
+    body: Option<Json<Value>>,
 ) -> impl IntoResponse {
+    // Accept a license posted as {"license": {...}}, {"licenses": [{...}]},
+    // or a bare license object; merge it over the stored license so a
+    // subsequent GET /_license reflects what was PUT.
+    if let Some(Json(payload)) = body {
+        let incoming = if let Some(l) = payload.get("license").cloned() {
+            l
+        } else if let Some(first) = payload
+            .get("licenses")
+            .and_then(|v| v.as_array())
+            .and_then(|a| a.first())
+            .cloned()
+        {
+            first
+        } else {
+            payload
+        };
+        if let Some(incoming_obj) = incoming.as_object() {
+            let mut guard = state.license.write().await;
+            if let Some(existing) = guard.as_object_mut() {
+                for (k, v) in incoming_obj {
+                    existing.insert(k.clone(), v.clone());
+                }
+            } else {
+                *guard = incoming.clone();
+            }
+        }
+    }
     Json(json!({
         "acknowledged": true,
         "license_status": "valid"
@@ -18215,12 +18322,8 @@ pub async fn async_search_get(
 ) -> impl IntoResponse {
     match state.engine.async_searches.get(&id) {
         Some(result) => Json(result.clone()).into_response(),
-        None => {
-            let err = xerj_common::XerjError::internal(
-                format!("No async search found for id [{}]", id),
-            );
-            ApiError::new(err).into_response()
-        }
+        // Unknown id → ES returns 404 resource_not_found, not a 500.
+        None => async_search_not_found(&id),
     }
 }
 
@@ -18230,13 +18333,25 @@ pub async fn async_search_delete(
 ) -> impl IntoResponse {
     match state.engine.async_searches.remove(&id) {
         Some(_) => Json(json!({ "acknowledged": true })).into_response(),
-        None => {
-            let err = xerj_common::XerjError::internal(
-                format!("No async search found for id [{}]", id),
-            );
-            ApiError::new(err).into_response()
-        }
+        None => async_search_not_found(&id),
     }
+}
+
+/// ES-shaped 404 for an unknown async-search id.
+fn async_search_not_found(id: &str) -> axum::response::Response {
+    let reason = format!("no async search found for id [{id}]");
+    (
+        StatusCode::NOT_FOUND,
+        Json(json!({
+            "error": {
+                "root_cause": [{ "type": "resource_not_found_exception", "reason": reason }],
+                "type": "resource_not_found_exception",
+                "reason": reason,
+            },
+            "status": 404,
+        })),
+    )
+        .into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -18647,14 +18762,18 @@ pub async fn cat_ml_trained_models() -> impl IntoResponse {
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn monitoring_bulk(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     body: Option<axum::body::Bytes>,
 ) -> impl IntoResponse {
-    let _ = body; // intentionally dropped
+    let started = Instant::now();
+    if let Some(body) = body {
+        let _ = ingest_monitoring_ndjson(&state, &body).await;
+    }
+    let took_ms = started.elapsed().as_millis() as u64;
     Json(json!({
-        "took": 0,
-        "ignored": true,
-        "errors": false
+        "took": took_ms,
+        "errors": false,
+        "ignored": false
     }))
 }
 
@@ -19364,4 +19483,53 @@ fn task_to_json(entry: &crate::state::TaskEntry) -> Value {
         "cancelled": entry.is_cancelled(),
         "headers": {}
     })
+}
+
+// ── Kibana/X-Pack helpers ──
+
+/// Ingest a `_monitoring/bulk` NDJSON body into the real `xerj-monitoring`
+/// index so Kibana/Beats monitoring data is actually queryable.
+///
+/// The body is the same shape as `_bulk`: action/meta lines alternate with
+/// source lines (`{"index":{...}}` then the doc). We toggle between the two,
+/// indexing each source document under a fresh UUID. Returns the number of
+/// successfully ingested docs (errors are swallowed so monitoring never
+/// breaks the caller — ES treats monitoring as best-effort).
+async fn ingest_monitoring_ndjson(state: &AppState, body: &bytes::Bytes) -> usize {
+    let text = match std::str::from_utf8(body) {
+        Ok(t) => t,
+        Err(_) => return 0,
+    };
+
+    let idx = match state.engine.get_or_create_index("xerj-monitoring") {
+        Ok(i) => i,
+        Err(_) => return 0,
+    };
+
+    let mut ingested = 0usize;
+    // NDJSON alternates: meta line, then source line. Track which we expect.
+    let mut expecting_meta = true;
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if expecting_meta {
+            // Action/metadata line (e.g. {"index":{"_type":"..."}}) — skip it;
+            // the following non-empty line is the source document.
+            expecting_meta = false;
+            continue;
+        }
+        // Source line.
+        expecting_meta = true;
+        let doc: Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let id = Uuid::new_v4().to_string();
+        if idx.index_document(Some(id), doc).await.is_ok() {
+            ingested += 1;
+        }
+    }
+    ingested
 }

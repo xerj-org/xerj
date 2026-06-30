@@ -36,10 +36,10 @@ curl -s -XPOST "http://localhost:9200/vstore/_bulk" \
   "items": [
     {
       "index": {
-        "_id": "5710b411-39e0-4069-a4c5-d60edb4e8c55",
+        "_id": "cd94e719-ead7-4976-b68f-c52f97a51fa1",
         "_index": "vstore",
         "_primary_term": 1,
-        "_seq_no": 1782800421720435,
+        "_seq_no": 1782801645172790,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -52,10 +52,10 @@ curl -s -XPOST "http://localhost:9200/vstore/_bulk" \
     },
     {
       "index": {
-        "_id": "f75500af-1329-4363-8fa3-1ca129162eee",
+        "_id": "d10144d2-b2f6-485d-9a93-c69bdef86ef8",
         "_index": "vstore",
         "_primary_term": 1,
-        "_seq_no": 1782800421720436,
+        "_seq_no": 1782801645172790,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -68,10 +68,10 @@ curl -s -XPOST "http://localhost:9200/vstore/_bulk" \
     },
     {
       "index": {
-        "_id": "678951f3-ef12-4cc3-a06f-efc04cfcadc1",
+        "_id": "6fba334d-6ac1-45c0-893c-745cb0e2d95f",
         "_index": "vstore",
         "_primary_term": 1,
-        "_seq_no": 1782800421720436,
+        "_seq_no": 1782801645172790,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -126,7 +126,7 @@ curl -s -XPOST "http://localhost:9200/vstore/_search" \
   "hits": {
     "hits": [
       {
-        "_id": "5710b411-39e0-4069-a4c5-d60edb4e8c55",
+        "_id": "cd94e719-ead7-4976-b68f-c52f97a51fa1",
         "_index": "vstore",
         "_score": 1,
         "_source": {
@@ -140,7 +140,7 @@ curl -s -XPOST "http://localhost:9200/vstore/_search" \
         }
       },
       {
-        "_id": "f75500af-1329-4363-8fa3-1ca129162eee",
+        "_id": "d10144d2-b2f6-485d-9a93-c69bdef86ef8",
         "_index": "vstore",
         "_score": 0.608433723449707,
         "_source": {
@@ -154,7 +154,7 @@ curl -s -XPOST "http://localhost:9200/vstore/_search" \
         }
       },
       {
-        "_id": "678951f3-ef12-4cc3-a06f-efc04cfcadc1",
+        "_id": "6fba334d-6ac1-45c0-893c-745cb0e2d95f",
         "_index": "vstore",
         "_score": 0.5120481848716736,
         "_source": {

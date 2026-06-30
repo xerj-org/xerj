@@ -37,3 +37,37 @@ jobs:
       - name: Unit + integration tests
         working-directory: engine
         run: cargo test --release --workspace -- --test-threads=2
+
+  api-checks:
+    name: API smoke + liveness + benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/cache
+            ~/.cargo/registry/index
+            ~/.cargo/git/db
+            engine/target
+          key: ci-cargo-${{ hashFiles('engine/Cargo.lock') }}
+          restore-keys: ci-cargo-
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build xerj (release)
+        working-directory: engine
+        run: cargo build --release -p xerj-server
+
+      # Boots the binary, seeds a real corpus, then gates on:
+      #   smoke suite (61/61), API liveness (no 5xx across the read surface),
+      #   and prints the hot-path benchmark. Deterministic — no model needed.
+      - name: API smoke + liveness + benchmark
+        run: bash demo/playbooks/ci-check.sh

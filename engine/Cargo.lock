@@ -3627,6 +3627,7 @@ dependencies = [
  "chrono",
  "dashmap",
  "http-body-util",
+ "libc",
  "prometheus",
  "serde",
  "serde_json",

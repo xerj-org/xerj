@@ -40,8 +40,8 @@ curl -s "http://localhost:9200/_cluster/health"
 
 ```json
 {
-  "active_primary_shards": 14,
-  "active_shards": 14,
+  "active_primary_shards": 15,
+  "active_shards": 15,
   "active_shards_percent_as_number": 100,
   "cluster_name": "xerj",
   "delayed_unassigned_shards": 0,
@@ -68,7 +68,7 @@ curl -s "http://localhost:9200/_cat/nodes?v"
 ```
 
 ```json
-127.0.0.1 0 6 2 1.91 2.11 1.45 cdfhilmrstw * local
+127.0.0.1 0 6 1 0.56 0.81 0.94 cdfhilmrstw * local
 ```
 
 _HTTP 200_
@@ -83,12 +83,12 @@ curl -s "http://localhost:8080/v1/health"
 {
   "data": {
     "status": "yellow",
-    "index_count": 14,
-    "total_docs": 1,
+    "index_count": 15,
+    "total_docs": 4009,
     "version": "1.0.0-rc.1"
   },
   "took_ms": 0,
-  "request_id": "67b97b20-8753-402b-ae40-e7cccfd88e2c"
+  "request_id": "cf7a2cf2-6eb3-4ab1-8afb-8005705fa879"
 }
 ```
 

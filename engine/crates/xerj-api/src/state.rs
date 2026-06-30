@@ -223,17 +223,40 @@ pub struct AppState {
     /// In-memory registry of in-flight long-running tasks (reindex,
     /// delete/update_by_query) backing the ES Tasks API.
     pub tasks: TaskRegistry,
+    /// In-process Elasticsearch license document — mutated by `PUT /_license`,
+    /// reflected by `GET /_license` and the `license` block of `GET /_xpack`.
+    pub license: Arc<RwLock<serde_json::Value>>,
+    /// Whether the Watcher service is "running" (toggled by
+    /// `_watcher/_start` / `_watcher/_stop`; reported in `_xpack`).
+    pub watcher_active: Arc<AtomicBool>,
 }
 
 impl AppState {
     /// Construct state from a config, engine, and metrics instance.
     pub fn new(config: Config, engine: Engine, metrics: Metrics) -> Self {
         let tasks = TaskRegistry::new(engine.node_id.clone());
+        let now = Utc::now();
+        let license = Arc::new(RwLock::new(serde_json::json!({
+            "uid": uuid::Uuid::new_v4().to_string(),
+            "type": "basic",
+            "mode": "basic",
+            "status": "active",
+            "issue_date": now.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string(),
+            "issue_date_in_millis": now.timestamp_millis(),
+            "start_date_in_millis": now.timestamp_millis(),
+            "expiry_date_in_millis": i64::MAX,
+            "max_nodes": 1000,
+            "issued_to": "xerj",
+            "issuer": "xerj"
+        })));
+        let watcher_active = Arc::new(AtomicBool::new(true));
         Self {
             config: Arc::new(config),
             engine,
             metrics: Arc::new(metrics),
             tasks,
+            license,
+            watcher_active,
         }
     }
 

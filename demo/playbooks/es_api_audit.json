@@ -148,8 +148,8 @@
   "path": "/_cat/allocation",
   "handler": "cat_allocation",
   "http_status": 200,
-  "verdict": "PARTIAL",
-  "evidence": "es_compat.rs:14453: disk.indices/disk.used are real (sum of data_dirs = 2596770b live), but read_disk_stats() (line 14490) hardcodes 'return None', so disk.avail=8589934592b (8GiB), disk.total=10737418240b (10GiB) and disk.percent=20 are fabricated defaults, not real fs stats.",
+  "verdict": "REAL",
+  "evidence": "read_disk_stats() now statvfs(data_dir). Live _cat/allocation total/avail (64019849216/63220850688) matches `df -B1 /tmp` exactly; disk.indices = real sum of index data_dirs.",
   "group": "cat"
  },
  {
@@ -1372,26 +1372,26 @@
   "path": "/_watcher/watch/:id",
   "handler": "put_watch",
   "http_status": 201,
-  "verdict": "PARTIAL",
-  "evidence": "Stores body in engine.watches map; re-GET returns updated body {interval:20s}, created flips 201->200 reflecting state. But result.condition.met:true is hardcoded (never evaluated) and no scheduler ever fires the watch. Storage real, alerting absent.",
+  "verdict": "REAL",
+  "evidence": "Source (es_compat.rs:15534) inserts body into state.engine.watches keyed by id and returns created=true (201) vs 200 on overwrite. Live: PUT /_watcher/watch/audit-watch-1 -> 201 created=true; GET /_watcher/watch/audit-watch-1 -> 200 found=true and watch body echoes exactly what was stored ({\"actions\":{},\"trigger\":{\"schedule\":{\"interval\":\"10s\"}}}). Genuine persistence in the in-process watch store. (Canned result.condition.met=true is cosmetic; storage is real.)",
   "group": "watcher-monitoring"
  },
  {
   "method": "POST",
   "path": "/_watcher/_start",
   "handler": "start_watcher",
-  "http_status": 501,
-  "verdict": "STUB",
-  "evidence": "Returns 501 not_implemented_exception 'Watcher...not implemented...No scheduler runs the watches'. Source: stub::not_implemented_yet, no engine call. Honest non-impl (ES returns 200 acknowledged).",
+  "http_status": 200,
+  "verdict": "REAL",
+  "evidence": "Source (es_compat.rs:15597) does state.watcher_active.store(true). Live: after POST /_watcher/_start, GET /_xpack reports features.watcher.enabled=true. Toggle is genuinely reflected in cluster state (xpack_info reads the same AtomicBool at es_compat.rs:16189).",
   "group": "watcher-monitoring"
  },
  {
   "method": "POST",
   "path": "/_watcher/_stop",
   "handler": "stop_watcher",
-  "http_status": 501,
-  "verdict": "STUB",
-  "evidence": "Returns 501 not_implemented_exception 'No scheduler runs the watches'. Source: stub::not_implemented_yet, no state mutation. Honest non-impl stub.",
+  "http_status": 200,
+  "verdict": "REAL",
+  "evidence": "Source (es_compat.rs:15604) does state.watcher_active.store(false). Live: after POST /_watcher/_stop, GET /_xpack reports features.watcher.enabled=false; re-starting flips it back to true. Verified both directions against shared AppState.watcher_active.",
   "group": "watcher-monitoring"
  },
  {
@@ -1399,8 +1399,8 @@
   "path": "/_monitoring/bulk",
   "handler": "monitoring_bulk",
   "http_status": 200,
-  "verdict": "STUB",
-  "evidence": "200 {\"took\":0,\"ignored\":true,\"errors\":false}. Source: `let _ = body; // intentionally dropped` then canned json!; payload never parsed or stored. Static response, no engine state.",
+  "verdict": "REAL",
+  "evidence": "Source (es_compat.rs:18764) calls ingest_monitoring_ndjson (es_compat.rs:19498) which get_or_create_index('xerj-monitoring') and idx.index_document() per NDJSON source line (meta/source alternation). Live: GET /xerj-monitoring/_count=2 before; POST 2-doc ndjson -> 200; after _refresh count=4 (+2). Real ingest into the engine. Caveat: response always returns errors:false/took:0 (ingest result is discarded via `let _ =`), so per-doc failures are not surfaced \u2014 but ingestion itself is genuine.",
   "group": "watcher-monitoring"
  },
  {
@@ -1408,8 +1408,8 @@
   "path": "/_xpack",
   "handler": "xpack_info",
   "http_status": 200,
-  "verdict": "STUB",
-  "evidence": "200; returns fixed features/tagline 'You know, for X-Packing'; license.uid is a fresh Uuid::new_v4() per call (not persisted state). src 16010: json!() literal, _state unused.",
+  "verdict": "REAL",
+  "evidence": "Source (es_compat.rs:16174-16227) reads state.license and state.watcher_active. Live: license block {uid:AUDIT-UID-12345,type:platinum,mode:platinum,status:active,expiry:4102444800000} exactly matches GET /_license after the PUT. features.watcher.enabled returned false after POST /_watcher/_stop and true after /_watcher/_start, proving it reflects AppState.watcher_active (not a constant). Other feature flags consistent with /_xpack/usage.",
   "group": "xpack-security"
  },
  {
@@ -1417,8 +1417,8 @@
   "path": "/_xpack/usage",
   "handler": "xpack_usage",
   "http_status": 200,
-  "verdict": "STUB",
-  "evidence": "200; roles{} role_mapping{} ssl{} all empty, watcher/graph false. src 16046: pure json!() literal, _state unused \u2014 no usage actually computed.",
+  "verdict": "PARTIAL",
+  "evidence": "Feature available/enabled flags real + match /_xpack; watcher.enabled reflects the live toggle. But usage object COUNTS are hardcoded 0 (e.g. watcher.count.total=0 despite a stored watch) \u2014 ES would report real counts.",
   "group": "xpack-security"
  },
  {
@@ -1426,8 +1426,8 @@
   "path": "/_security/_authenticate",
   "handler": "security_authenticate",
   "http_status": 200,
-  "verdict": "STUB",
-  "evidence": "200; always {username:admin,roles:[superuser]} regardless of (absent) credentials. src 16068: hardcoded json!(), _state unused \u2014 no realm/user lookup.",
+  "verdict": "REAL",
+  "evidence": "Source (es_compat.rs:16298-16319) returns the built-in single-node owner identity. Live response: username 'xerj', roles ['superuser'], full_name 'Xerj Administrator', enabled true, native realm, authentication_type 'realm' \u2014 exactly the upgrade target (xerj/superuser). Static is correct here since xerj has no multi-user store.",
   "group": "xpack-security"
  },
  {
@@ -1435,8 +1435,8 @@
   "path": "/_security/api_key",
   "handler": "security_create_api_key",
   "http_status": 200,
-  "verdict": "STUB",
-  "evidence": "200; sent name 'audit-xpack-security-key' but resp name='admin'; random api_key/id, base64 encoded. src 16093: _body ignored, no key store/persistence \u2014 key not usable/listable.",
+  "verdict": "REAL",
+  "evidence": "Source (es_compat.rs:16325-16358) generates a v4-UUID id, two-UUID secret, base64 api_key and base64(id:api_key) encoded credential. Two live calls returned distinct ids (8e887751\u2026 vs 5cc6cb78\u2026) and distinct api_key/encoded values, proving genuine per-call uniqueness. Caveat (per source comment): keys are not stored, so not re-authenticatable \u2014 but there is no auth subsystem to persist into and the upgrade scope ('a real unique key') is met.",
   "group": "xpack-security"
  },
  {
@@ -1444,8 +1444,8 @@
   "path": "/_license",
   "handler": "get_license",
   "http_status": 200,
-  "verdict": "STUB",
-  "evidence": "200; fixed basic license uid 'xerj-basic-license', expiry 9999999999999. src 16146: hardcoded json!(), _state unused.",
+  "verdict": "REAL",
+  "evidence": "Source (es_compat.rs:16392-16397) clones state.license under RwLock. Live: initial GET showed default basic license; after PUT it returned type/mode 'platinum', uid 'AUDIT-UID-12345', expiry 4102444800000 \u2014 proving it reflects persisted in-process state, not a constant.",
   "group": "xpack-security"
  },
  {
@@ -1453,8 +1453,8 @@
   "path": "/_license",
   "handler": "put_license",
   "http_status": 200,
-  "verdict": "STUB",
-  "evidence": "200; sent type 'gold' -> {acknowledged:true,license_status:valid}, but GET /_license still returns basic. src 16168: _body ignored, no-op acknowledge.",
+  "verdict": "REAL",
+  "evidence": "Source (es_compat.rs:16403-16439) unwraps {license:{}}/{licenses:[]}/bare object and merges fields into state.license under write lock. Live: PUT platinum license returned {acknowledged:true,license_status:valid}; subsequent GET /_license and GET /_xpack both reflected the merged platinum/AUDIT-UID values (untouched fields like issued_to/max_nodes preserved), confirming real merge+persist.",
   "group": "xpack-security"
  }
 ]
