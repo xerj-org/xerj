@@ -5137,6 +5137,9 @@ pub async fn search(
     let mut total_count: u64 = 0;
     let mut total_relation = "eq".to_string();
     let mut merged_aggs: Option<Value> = None;
+    // Population max score across ALL matched docs (pre-collapse) merged from
+    // each per-index result, so collapse+track_scores reports ES `max_score`.
+    let mut merged_population_max: Option<f64> = None;
     let mut any_timed_out = false;
 
     // Request-level index-resolution policy. Wildcards default to silently
@@ -5216,6 +5219,11 @@ pub async fn search(
                 total_count += result.total.value;
                 if result.total.relation == xerj_query::executor::TotalHitsRelation::Gte {
                     total_relation = "gte".to_string();
+                }
+                if let Some(ms) = result.max_score {
+                    merged_population_max = Some(
+                        merged_population_max.map_or(ms as f64, |m: f64| m.max(ms as f64)),
+                    );
                 }
                 if let Some(new_aggs) = result.aggs {
                     match &mut merged_aggs {
@@ -5704,12 +5712,16 @@ pub async fn search(
         let explicit_field_sort = !search_req.sort.is_empty()
             && search_req.sort.iter().any(|s| !s.is_score());
         if explicit_field_sort {
-            merged_hits
-                .iter()
-                .map(|(_, h)| h.score as f64)
-                .fold(None, |acc: Option<f64>, s| {
-                    Some(match acc { Some(m) if m >= s => m, _ => s })
-                })
+            // Prefer the per-index pre-collapse population max; fall back to the
+            // (possibly collapsed/paged) merged hit set when unavailable.
+            merged_population_max.or_else(|| {
+                merged_hits
+                    .iter()
+                    .map(|(_, h)| h.score as f64)
+                    .fold(None, |acc: Option<f64>, s| {
+                        Some(match acc { Some(m) if m >= s => m, _ => s })
+                    })
+            })
         } else {
             merged_hits.first().map(|(_, h)| h.score as f64)
         }

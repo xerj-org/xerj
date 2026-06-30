@@ -2652,6 +2652,7 @@ impl Index {
             aggs: None,
             timed_out: false,
             profile: None,
+            max_score: None,
         })
     }
 
@@ -2806,6 +2807,7 @@ impl Index {
             aggs: None,
             timed_out: false,
             profile: None,
+            max_score: None,
         })
     }
 
@@ -2942,6 +2944,7 @@ impl Index {
             aggs: None,
             timed_out: false,
             profile: None,
+            max_score: None,
         })
     }
 
@@ -3454,6 +3457,7 @@ impl Index {
                     aggs: None,
                     timed_out: true,
                     profile: None,
+                    max_score: None,
                 })
             }
         }
@@ -4973,6 +4977,15 @@ impl Index {
         };
         let agg_nanos = agg_start.elapsed().as_nanos() as u64;
 
+        // Population max over ALL matched docs (pre-collapse, pre-page) so the
+        // API can report ES `max_score` with collapse + track_scores correctly
+        // (ES reports the max over the whole result set, not just the collapsed
+        // top hit per group).
+        let population_max_score: Option<f32> = final_hits
+            .iter()
+            .map(|h| h.score)
+            .fold(None, |acc: Option<f32>, s| Some(acc.map_or(s, |m| m.max(s))));
+
         // --- Apply field collapsing (deduplicate by field value, keep top hit per value) ---
         // Skipped here when rescore was present (we already collapsed before rescore).
         let final_hits = if let Some(collapse) = &request.collapse {
@@ -5041,6 +5054,7 @@ impl Index {
             aggs: agg_result,
             timed_out: false,
             profile,
+            max_score: population_max_score,
         })
     }
 

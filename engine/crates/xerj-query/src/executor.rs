@@ -114,6 +114,10 @@ pub struct SearchResult {
     /// Profile data — timing breakdown for query execution phases.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub profile: Option<serde_json::Value>,
+    /// Highest score across ALL matched docs, before collapse/pagination.
+    /// Used for ES `max_score` with collapse + track_scores (search/111).
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub max_score: Option<f32>,
 }
 
 impl SearchResult {
@@ -126,6 +130,7 @@ impl SearchResult {
             aggs: None,
             timed_out: false,
             profile: None,
+            max_score: None,
         }
     }
 }
