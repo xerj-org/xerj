@@ -39,24 +39,24 @@ curl -s "http://localhost:9200/_cat/indices?v"
 ```
 
 ```json
-green open .xerj_api_tokens cbd6449b-6e18-41e7-aeef-4bbf9bd0a1fb 1 0 0 0 256b 256b
-green open .xerj_magic_links 2d9d6650-8c2e-451f-804f-13e5e419e429 1 0 1 0 3429b 3429b
-green open .xerj_connections b4d108f9-ce76-43ca-b5dd-4aefdddfbf93 1 0 0 0 256b 256b
-green open vstore aac8fd11-2800-4f52-9a41-f619d3795680 1 0 3 0 4243b 4243b
-green open .xerj_sessions 868fa9f9-890a-4174-8f9d-7a65ed4fa61f 1 0 0 0 256b 256b
-green open logs-2026-04 8cd6555e-82f4-473c-b0f7-ece61035cb18 1 0 4 0 8497b 8497b
-green open .xerj_prefs 9842c246-277d-4787-91cc-04c68907410d 1 0 0 0 256b 256b
-green open articles 69fbdee8-17dc-4de6-b210-6430a926439e 1 0 5 0 7050b 7050b
-green open .xerj_users 1ff1fd4e-0273-4051-9045-ab2b9fe4fe5a 1 0 0 0 256b 256b
-green open .xerj_cluster_state 524f93b5-3e73-4337-b68c-0f3049263c71 1 0 0 0 256b 256b
-green open .xerj_audit 180ac644-f773-41c7-a3e8-554cf991fb2e 1 0 0 0 256b 256b
-green open .xerj_views a24e4336-362f-4d19-8683-345989482ec1 1 0 0 0 256b 256b
-green open .xerj_passkeys 22034dc4-971e-44e5-8596-a6bf28120ab7 1 0 0 0 256b 256b
-green open .xerj_dashboards 08a529bb-25c9-4f28-8db9-c1e7e885e050 1 0 0 0 256b 256b
-green open bench 6a37c084-5fac-414e-9adf-8f94d99ad298 1 0 4008 0 835239b 835239b
-green open .xerj_alert_rules 9f4e92a4-fd71-4383-b497-3853b743fffe 1 0 0 0 256b 256b
-green open .xerj_idp_config 067f5ff2-9429-431b-a6d2-adfa30ed729b 1 0 0 0 256b 256b
-green open .xerj_alert_
+green open .xerj_cluster_state 612ff274-fddf-469f-9714-bd3e6e4d2274 1 0 0 0 256b 256b
+green open .xerj_sessions 4263400a-0c99-4f3f-9eda-f90d031ee3b5 1 0 0 0 256b 256b
+green open .xerj_alert_rules 63e3096a-4393-4b65-836a-8e9e15a6feec 1 0 0 0 256b 256b
+green open .xerj_audit 715011a1-7180-4113-a7bd-8eb8cb21ad02 1 0 0 0 256b 256b
+green open bench 7c1bcd12-1cab-4dd9-bd41-eaf3284039a6 1 0 4008 0 834761b 834761b
+green open .xerj_prefs 9f9f24ac-418a-4da9-92d1-76b665cc14c3 1 0 0 0 256b 256b
+green open .xerj_dashboards 4b2a4f2a-f9ab-49b4-9a80-43df1b289c32 1 0 0 0 256b 256b
+green open .xerj_api_tokens 2b3051fa-6f0a-4a8c-a88c-4e235fbeca8b 1 0 0 0 256b 256b
+green open .xerj_views 08790e5f-3b11-493e-ab7c-9c3e6698ae6d 1 0 0 0 256b 256b
+green open .xerj_users 778bfe3d-d818-441e-9532-38d275c67f19 1 0 0 0 256b 256b
+green open logs-2026-04 a0f8a075-5487-45a5-939c-8d3444a2bc18 1 0 4 0 8497b 8497b
+green open .xerj_passkeys d6d3447a-77d3-4e69-a708-f56239fc1091 1 0 0 0 256b 256b
+green open vstore 09425fc9-fcc2-484c-82bd-e0eb94934db0 1 0 3 0 4247b 4247b
+green open .xerj_alert_fires 90d4e93d-1212-4ad7-8b2e-f45bcaa748dd 1 0 0 0 256b 256b
+green open .xerj_idp_config 2d5c5ef7-d45f-4fdd-aa3c-298a3b43505a 1 0 0 0 256b 256b
+green open .xerj_magic_links c373c0c8-1339-470b-9398-990fa548bb44 1 0 1 0 3428b 3428b
+green open articles fca027c7-a98c-4459-9422-959fa07752db 1 0 5 0 5713b 5713b
+green open .xerj_connec
 … (60 more bytes)
 ```
 
@@ -72,7 +72,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search?scroll=1m" \
 
 ```json
 {
-  "_scroll_id": "f2efb43c-ea8e-4a28-8193-ab94cd570e21",
+  "_scroll_id": "1938ac8d-4758-411f-8987-a669f0145905",
   "_shards": {
     "failed": 0,
     "skipped": 0,
@@ -93,7 +93,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search?scroll=1m" \
         }
       },
       {
-        "_id": "431431ae-1d7a-4078-ae28-d6d3a590ec83",
+        "_id": "55e198e7-da9e-42ec-bf14-b12c60b4f2a6",
         "_index": "articles",
         "_score": 1,
         "_source": {

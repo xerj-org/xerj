@@ -68,7 +68,7 @@ curl -s "http://localhost:9200/_cat/nodes?v"
 ```
 
 ```json
-127.0.0.1 0 6 1 0.56 0.81 0.94 cdfhilmrstw * local
+127.0.0.1 0 6 0 0.66 0.68 0.63 cdfhilmrstw * local
 ```
 
 _HTTP 200_
@@ -88,7 +88,7 @@ curl -s "http://localhost:8080/v1/health"
     "version": "1.0.0-rc.1"
   },
   "took_ms": 0,
-  "request_id": "cf7a2cf2-6eb3-4ab1-8afb-8005705fa879"
+  "request_id": "3ce888d7-2620-4da8-afee-ecd8fdf3fb96"
 }
 ```
 

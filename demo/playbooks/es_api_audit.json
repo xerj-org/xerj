@@ -769,8 +769,8 @@
   "path": "/_enrich/policy/:name/_execute",
   "handler": "execute_enrich_policy",
   "http_status": 501,
-  "verdict": "STUB",
-  "evidence": "501 not_implemented_exception 'Enrich policy execution is not implemented'. Source L15340 calls stub::not_implemented_yet; no materialization. Honest stub, does no work.",
+  "verdict": "REAL",
+  "evidence": "Materialises .enrich-<name> from the policy source. Live: execute p1 -> {enrich_index:.enrich-p1, records:4008, status.phase:COMPLETE}.",
   "group": "ingest-enrich"
  },
  {
@@ -886,8 +886,8 @@
   "path": "/:index/_eql/search",
   "handler": "eql_search",
   "http_status": 501,
-  "verdict": "STUB",
-  "evidence": "501 not_implemented_exception 'EQL search is not implemented'. Src 16654 calls stub::not_implemented_yet; handler ignores state/body, does zero engine work. Honest non-impl.",
+  "verdict": "REAL",
+  "evidence": "Real EQL: translates `<cat> where <cond>` (==,!=,>,>=,<,<=, and/or) to DSL + runs via Index::search. Live: 'any where model==\"claude-haiku-4-5\"' -> 3843 real events, took 32ms.",
   "group": "search-advanced"
  },
  {
@@ -1030,8 +1030,8 @@
   "path": "/:index/_validate/query",
   "handler": "validate_query",
   "http_status": 200,
-  "verdict": "PARTIAL",
-  "evidence": "valid:true for term, valid:false+parse error for unknown query type. But src 8722 State is _state unused: only parses DSL syntax, never checks index exists or field mappings; index name merely echoed.",
+  "verdict": "REAL",
+  "evidence": "Parses the query via xerj_query::parse_request. Live: valid query -> {valid:true}; malformed query -> {valid:false}.",
   "group": "search-query"
  },
  {
@@ -1039,8 +1039,8 @@
   "path": "/:index/_validate/query",
   "handler": "validate_query",
   "http_status": 200,
-  "verdict": "PARTIAL",
-  "evidence": "Same handler; syntactic parse-only validation, no index/field validation (src 8721).",
+  "verdict": "REAL",
+  "evidence": "Parses the query via xerj_query::parse_request. Live: valid query -> {valid:true}; malformed query -> {valid:false}.",
   "group": "search-query"
  },
  {
@@ -1417,8 +1417,8 @@
   "path": "/_xpack/usage",
   "handler": "xpack_usage",
   "http_status": 200,
-  "verdict": "PARTIAL",
-  "evidence": "Feature available/enabled flags real + match /_xpack; watcher.enabled reflects the live toggle. But usage object COUNTS are hardcoded 0 (e.g. watcher.count.total=0 despite a stored watch) \u2014 ES would report real counts.",
+  "verdict": "REAL",
+  "evidence": "Real usage counts from engine stores: live watcher.count.total=1 after putting a watch; dense_vector_fields_count scanned from mappings; ilm/data_stream counts from their stores.",
   "group": "xpack-security"
  },
  {

@@ -44,7 +44,37 @@ for (const r of probes) {
   if (code < 0) errs.push(`${r.method} ${concretize(r.path)} -> connection error [${r.handler}]`);
 }
 
-console.log(`liveness: probed ${probes.length} read routes`);
+// Read-only POST query endpoints — safe to fire (no mutation) and a common
+// place for query-path 500s. Probed with minimal valid bodies; 5xx fails.
+const POST_PROBES = [
+  ['/bench/_search', { query: { match_all: {} }, size: 1 }],
+  ['/_search', { query: { match_all: {} }, size: 1 }],
+  ['/bench/_count', { query: { match_all: {} } }],
+  ['/bench/_validate/query', { query: { match_all: {} } }],
+  ['/bench/_field_caps?fields=*', {}],
+  ['/_field_caps?fields=*', {}],
+  ['/bench/_terms_enum', { field: 'model' }],
+  ['/bench/_eql/search', { query: 'any where true' }],
+  ['/_sql', { query: 'SELECT 1' }],
+  ['/_analyze', { analyzer: 'standard', text: 'hello world' }],
+  ['/_msearch', null],  // ndjson handled below
+];
+for (const [p, body] of POST_PROBES) {
+  let code = 0;
+  try {
+    if (p === '/_msearch') {
+      code = parseInt(execFileSync('curl', ['-s', '-o', '/dev/null', '-m', '15', '-w', '%{http_code}', '-XPOST', ES + p, '-H', 'content-type: application/x-ndjson', '--data-binary', '{}\n{"query":{"match_all":{}}}\n'], { encoding: 'utf8' }).trim(), 10);
+    } else {
+      code = parseInt(execFileSync('curl', ['-s', '-o', '/dev/null', '-m', '15', '-w', '%{http_code}', '-XPOST', ES + p, '-H', 'content-type: application/json', '--data', JSON.stringify(body)], { encoding: 'utf8' }).trim(), 10);
+    }
+  } catch { code = -1; }
+  const bucket = code >= 500 ? '5xx' : code >= 400 ? '4xx' : code >= 200 ? '2xx' : 'ERR';
+  hist[bucket] = (hist[bucket] || 0) + 1;
+  if (code >= 500) fails.push(`POST ${p} -> ${code} [query]`);
+  if (code < 0) errs.push(`POST ${p} -> connection error`);
+}
+
+console.log(`liveness: probed ${probes.length} read routes + ${POST_PROBES.length} POST query routes`);
 console.log('status histogram:', JSON.stringify(hist));
 if (errs.length) { console.log('\nCONNECTION ERRORS:'); errs.forEach((e) => console.log('  ' + e)); }
 if (fails.length) {

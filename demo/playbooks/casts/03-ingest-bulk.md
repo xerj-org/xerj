@@ -18,10 +18,10 @@ curl -s -XPOST "http://localhost:9200/articles/_bulk" \
   "items": [
     {
       "index": {
-        "_id": "431431ae-1d7a-4078-ae28-d6d3a590ec83",
+        "_id": "55e198e7-da9e-42ec-bf14-b12c60b4f2a6",
         "_index": "articles",
         "_primary_term": 1,
-        "_seq_no": 1782801644999388,
+        "_seq_no": 1782803097197382,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -34,10 +34,10 @@ curl -s -XPOST "http://localhost:9200/articles/_bulk" \
     },
     {
       "index": {
-        "_id": "dab7f220-9dfa-4063-bb3e-832cfe92f457",
+        "_id": "bd70d34e-3464-4626-95da-d938c3768835",
         "_index": "articles",
         "_primary_term": 1,
-        "_seq_no": 1782801644999389,
+        "_seq_no": 1782803097197383,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -50,10 +50,10 @@ curl -s -XPOST "http://localhost:9200/articles/_bulk" \
     },
     {
       "index": {
-        "_id": "042bd161-dd5d-40af-8cf1-66e87ed664a7",
+        "_id": "e7f19229-eb41-42ee-a95b-a1975fa46192",
         "_index": "articles",
         "_primary_term": 1,
-        "_seq_no": 1782801644999389,
+        "_seq_no": 1782803097197383,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -66,10 +66,10 @@ curl -s -XPOST "http://localhost:9200/articles/_bulk" \
     },
     {
       "index": {
-        "_id": "c1d8c0d8-7568-48e5-ae3c-b1dd05493320",
+        "_id": "1c04850f-3e99-4d2d-9b3b-9f21273966c6",
         "_index": "articles",
         "_primary_term": 1,
-        "_seq_no": 1782801644999389,
+        "_seq_no": 1782803097197383,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -125,22 +125,22 @@ curl -s "http://localhost:9200/_cat/indices?v"
 ```
 
 ```json
-green open .xerj_api_tokens d9cb84d8-8f8f-4f4c-87a4-ff1755068f3f 1 0 0 0 256b 256b
-green open .xerj_magic_links 048c1bcd-9662-4ca0-afb3-b47859978e5c 1 0 1 0 3429b 3429b
-green open .xerj_connections 6067b91b-1d8e-4a6c-a65c-71390a586857 1 0 0 0 256b 256b
-green open .xerj_sessions 083df9aa-ba1e-446e-b086-bff0d0c3d046 1 0 0 0 256b 256b
-green open .xerj_prefs 22499dab-fcd5-4aef-a373-3651fc33dc4f 1 0 0 0 256b 256b
-green open articles bc19eafd-9b7c-4fb2-b1d3-df17a038df61 1 0 5 0 7050b 7050b
-green open .xerj_users 47823f13-d53f-48ea-9e5a-1ce739432274 1 0 0 0 256b 256b
-green open .xerj_cluster_state 091b1f09-ff6a-4822-b3f4-caddd650ac9a 1 0 0 0 256b 256b
-green open .xerj_audit d82504c9-14df-4617-a587-4e945096ad79 1 0 0 0 256b 256b
-green open .xerj_views 8da34997-dd1e-4d92-835a-11cbbdb6e027 1 0 0 0 256b 256b
-green open .xerj_passkeys 0ad6c5e1-0f83-4ae4-b5bb-5c373634f00d 1 0 0 0 256b 256b
-green open .xerj_dashboards ef26f9fb-7674-4b10-aa01-fe6beecb532a 1 0 0 0 256b 256b
-green open bench 3dfff88f-0a84-4551-bc99-7a13177e6c45 1 0 4008 0 835239b 835239b
-green open .xerj_alert_rules b40de605-b482-44d2-96e7-c4510cae5d13 1 0 0 0 256b 256b
-green open .xerj_idp_config 3539b519-6add-4a09-a7c0-64725825843e 1 0 0 0 256b 256b
-green open .xerj_alert_fires 6a04fa6a-d3b9-4ac0-ab46-307e1e28c09c 1 0 0 0 256b 256b
+green open .xerj_cluster_state 0e2f9d1f-09fb-4685-a723-c2c544a68e87 1 0 0 0 256b 256b
+green open .xerj_sessions b1c86e43-60e9-4f0b-ae4a-172eaa4b3a01 1 0 0 0 256b 256b
+green open .xerj_alert_rules 399dded0-d7e7-4510-b4bc-298909965aa9 1 0 0 0 256b 256b
+green open .xerj_audit fc65e834-21eb-4d19-a324-ba2cc1e101ec 1 0 0 0 256b 256b
+green open bench baea92ce-93f5-4a6f-9e09-03bf11d33643 1 0 4008 0 834761b 834761b
+green open .xerj_prefs 82d1a681-af59-479e-bd87-8e48fa93493a 1 0 0 0 256b 256b
+green open .xerj_dashboards 71042ba0-3d2c-42ff-8a03-feeb04b29075 1 0 0 0 256b 256b
+green open .xerj_api_tokens a4f76df0-7461-41b0-8169-0e2ae8d6f3b1 1 0 0 0 256b 256b
+green open .xerj_views 49cc29d4-37d2-4b93-8e33-f61e41840923 1 0 0 0 256b 256b
+green open .xerj_users f2a600c0-839c-4bfc-aa3e-e279ff88169d 1 0 0 0 256b 256b
+green open .xerj_passkeys 75e41db5-d5d4-4d86-98dd-99b82be7740c 1 0 0 0 256b 256b
+green open .xerj_alert_fires 537a3648-d390-4fd1-bfc6-2d72ab34a66d 1 0 0 0 256b 256b
+green open .xerj_idp_config 66cea3a7-dcb0-4bfe-ae37-c1c678b9f9d5 1 0 0 0 256b 256b
+green open .xerj_magic_links 34eaedee-6226-40a7-b9bf-1e163b964e6f 1 0 1 0 3428b 3428b
+green open articles 2340f8a4-38d8-450f-9453-8c791d576e45 1 0 5 0 5713b 5713b
+green open .xerj_connections 54616806-20b8-4051-8f43-096727157375 1 0 0 0 256b 256b
 ```
 
 _HTTP 200_

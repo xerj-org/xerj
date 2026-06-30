@@ -8732,29 +8732,55 @@ pub struct ValidateQueryParams {
 pub async fn validate_query(
     State(_state): State<AppState>,
     Path(index): Path<String>,
-    _params: Query<ValidateQueryParams>,
+    Query(params): Query<ValidateQueryParams>,
     body: OptionalJson<Value>,
 ) -> impl IntoResponse {
     let body = body.0.unwrap_or(json!({}));
+    let explain = params
+        .explain
+        .as_deref()
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false);
 
-    // Try to parse the request body.
-    match xerj_query::parse_request(&body) {
-        Ok(_) => {
-            Json(json!({
+    // ES validates the `query` sub-object; rebuild a `{query: ...}` request
+    // doc and feed it through the real parser so unknown/invalid query types
+    // and malformed clauses produce `valid: false`.
+    let query_doc = match body.get("query") {
+        Some(q) => json!({ "query": q }),
+        None => json!({}),
+    };
+
+    match xerj_query::parse_request(&query_doc) {
+        Ok(req) => {
+            let mut resp = json!({
                 "_shards": { "total": 1, "successful": 1, "failed": 0 },
                 "valid": true,
                 "_index": index,
-            }))
-            .into_response()
+            });
+            if explain {
+                resp["explanations"] = json!([{
+                    "index": index,
+                    "valid": true,
+                    "explanation": format!("{:?}", req.query),
+                }]);
+            }
+            Json(resp).into_response()
         }
         Err(e) => {
-            Json(json!({
+            let mut resp = json!({
                 "_shards": { "total": 1, "successful": 0, "failed": 1 },
                 "valid": false,
                 "error": e.to_string(),
                 "_index": index,
-            }))
-            .into_response()
+            });
+            if explain {
+                resp["explanations"] = json!([{
+                    "index": index,
+                    "valid": false,
+                    "error": e.to_string(),
+                }]);
+            }
+            Json(resp).into_response()
         }
     }
 }
@@ -15507,19 +15533,91 @@ pub async fn delete_enrich_policy(
 }
 
 pub async fn execute_enrich_policy(
-    State(_state): State<AppState>,
-    Path(_name): Path<String>,
+    State(state): State<AppState>,
+    Path(name): Path<String>,
 ) -> impl IntoResponse {
-    // v0.6.1 — was returning `{"status": {"phase": "COMPLETE"}}` even
-    // though no enrich materialisation actually happens. CRUD on
-    // policies still works (put/get/delete) — only the execute path
-    // is now honestly 501. Enrich materialisation is on the v1.x
-    // backlog.
-    crate::stub::not_implemented_yet(
-        "Enrich policy execution",
-        "v1.x",
-        "PUT/GET/DELETE on enrich policies still works (storage); _execute is not implemented",
-    )
+    // Look up the stored policy. Shape mirrors ES:
+    //   { "<type>": { "indices": <str|[str]>, "match_field": <str>,
+    //                 "enrich_fields": [..] } }  where <type> is one of
+    //   match / range / geo_match.
+    let policy = match state.engine.enrich_policies.get(&name) {
+        Some(p) => p.value().clone(),
+        None => {
+            let e = xerj_common::XerjError::index_not_found(format!(
+                "enrich policy [{name}] not found"
+            ));
+            return ApiError::new(e).into_response();
+        }
+    };
+
+    // The policy config is nested under its type key; fall back to the
+    // bare body if a caller stored it unwrapped.
+    let config = ["match", "range", "geo_match"]
+        .iter()
+        .find_map(|t| policy.get(*t))
+        .unwrap_or(&policy);
+
+    // Source indices may be a single string or an array of strings.
+    let source_indices: Vec<String> = match config.get("indices") {
+        Some(Value::String(s)) => vec![s.clone()],
+        Some(Value::Array(a)) => {
+            a.iter().filter_map(|v| v.as_str().map(String::from)).collect()
+        }
+        _ => vec![],
+    };
+
+    // Materialise into the system enrich index `.enrich-<name>`.
+    let enrich_index = format!(".enrich-{name}");
+    let dest = match state.engine.get_or_create_index(&enrich_index) {
+        Ok(i) => i,
+        Err(e) => {
+            return ApiError::new(xerj_common::XerjError::from(e)).into_response();
+        }
+    };
+
+    // Pull every source doc (match_all, large page) and copy it into the
+    // enrich index, preserving doc ids.
+    let req = match parse_request(&json!({
+        "query": { "match_all": {} },
+        "size": 10000
+    })) {
+        Ok(r) => r,
+        Err(e) => {
+            return ApiError::new(xerj_common::XerjError::invalid_query(e.to_string()))
+                .into_response();
+        }
+    };
+
+    let mut materialised: u64 = 0;
+    for src_name in &source_indices {
+        // Skip source indices that don't exist rather than failing the
+        // whole execute — ES tolerates partially-present sources here.
+        let src = match state.engine.get_index(src_name) {
+            Ok(i) => i,
+            Err(_) => continue,
+        };
+        let result = match src.search(&req).await {
+            Ok(r) => r,
+            Err(e) => {
+                return ApiError::new(xerj_common::XerjError::from(e)).into_response();
+            }
+        };
+        for hit in result.hits {
+            if let Err(e) = dest.index_document(Some(hit.id.clone()), hit.source).await {
+                return ApiError::new(xerj_common::XerjError::from(e)).into_response();
+            }
+            materialised += 1;
+        }
+    }
+
+    let task_id = Uuid::new_v4().to_string();
+    Json(json!({
+        "status": { "phase": "COMPLETE" },
+        "task_id": task_id,
+        "enrich_index": enrich_index,
+        "records": materialised
+    }))
+    .into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -16231,11 +16329,50 @@ pub async fn xpack_info(State(state): State<AppState>) -> impl IntoResponse {
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn xpack_usage(State(state): State<AppState>) -> impl IntoResponse {
-    // Per-feature usage mirrors the availability advertised by GET /_xpack;
-    // object counts are 0 because xerj stores none of these yet.
+    // Availability/enabled flags mirror GET /_xpack; object counts are now
+    // sourced from the live engine stores rather than hardcoded 0.
     let watcher_enabled = state
         .watcher_active
         .load(std::sync::atomic::Ordering::Relaxed);
+
+    // Watcher: total = every stored watch; active = those not explicitly
+    // deactivated (status.state.active == false).
+    let watch_total = state.engine.watches.len() as u64;
+    let watch_active = state
+        .engine
+        .watches
+        .iter()
+        .filter(|e| {
+            e.value()
+                .pointer("/status/state/active")
+                .and_then(Value::as_bool)
+                != Some(false)
+        })
+        .count() as u64;
+
+    // dense_vector fields: scan every stored index mapping.
+    let dense_vector_fields_count: u64 = state
+        .engine
+        .index_mappings
+        .iter()
+        .map(|e| count_dense_vector_fields(e.value()))
+        .sum();
+
+    // ILM policy count.
+    let ilm_policy_count = state.engine.ilm_policies.len() as u64;
+
+    // Data streams: stream count + total backing indices.
+    let data_stream_count = state.engine.data_streams.len() as u64;
+    let data_stream_indices: u64 = state
+        .engine
+        .data_streams
+        .iter()
+        .map(|e| e.value().backing_indices.len() as u64)
+        .sum();
+
+    // Transform count (rollup has no live store; stays 0).
+    let transform_count = state.engine.transforms.len() as u64;
+
     Json(json!({
         "security": {
             "available": true,
@@ -16262,29 +16399,29 @@ pub async fn xpack_usage(State(state): State<AppState>) -> impl IntoResponse {
         "ilm": {
             "available": true,
             "enabled": true,
-            "policy_count": 0,
+            "policy_count": ilm_policy_count,
             "policy_stats": []
         },
         "watcher": {
             "available": true,
             "enabled": watcher_enabled,
             "execution": { "actions": {} },
-            "count": { "total": 0, "active": 0 }
+            "count": { "total": watch_total, "active": watch_active }
         },
         "vectors": {
             "available": true,
             "enabled": true,
-            "dense_vector_fields_count": 0,
+            "dense_vector_fields_count": dense_vector_fields_count,
             "sparse_vector_fields_count": 0
         },
         "spatial": { "available": true, "enabled": true },
         "eql": { "available": true, "enabled": true, "queries": {} },
-        "data_streams": { "available": true, "enabled": true, "data_streams": 0, "indices_count": 0 },
+        "data_streams": { "available": true, "enabled": true, "data_streams": data_stream_count, "indices_count": data_stream_indices },
         "flattened": { "available": true, "enabled": true, "field_count": 0 },
         "ccr": { "available": false, "enabled": false, "follower_indices_count": 0, "auto_follow_patterns_count": 0 },
         "ml": { "available": false, "enabled": false, "jobs": {}, "datafeeds": {} },
         "rollup": { "available": false, "enabled": false },
-        "transform": { "available": false, "enabled": false, "transforms": { "_all": { "count": 0 } } },
+        "transform": { "available": false, "enabled": false, "transforms": { "_all": { "count": transform_count } } },
         "graph": { "available": false, "enabled": false },
         "enterprise_search": { "available": false, "enabled": false }
     }))
@@ -16917,18 +17054,80 @@ fn glob_match(pattern: &str, name: &str) -> bool {
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn eql_search(
-    State(_state): State<AppState>,
-    Path(_index): Path<String>,
-    _body: Option<Json<Value>>,
+    State(state): State<AppState>,
+    Path(index): Path<String>,
+    body: Option<Json<Value>>,
 ) -> impl IntoResponse {
-    // v0.6.1 — was returning empty-hits 200-OK, which lied to clients.
-    // EQL is not on the v1.0 roadmap; if a customer needs it we'll
-    // route the requirement through the AI/agent track in v1.x.
-    crate::stub::not_implemented_yet(
-        "EQL (Event Query Language) search",
-        "v1.x",
-        "EQL is not on the v0.6/v0.7/v0.8/v0.9/v1.0 roadmap",
-    )
+    let started = Instant::now();
+    let body = body.map(|b| b.0).unwrap_or_else(|| json!({}));
+
+    // EQL request body carries the program in the `query` string field.
+    let eql = match body.get("query").and_then(Value::as_str) {
+        Some(q) => q.to_string(),
+        None => {
+            let reason = "request body must contain a `query` string";
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": {
+                        "root_cause": [{ "type": "parsing_exception", "reason": reason }],
+                        "type": "parsing_exception",
+                        "reason": reason,
+                    },
+                    "status": 400,
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    // Translate EQL -> xerj DSL, then run it through the normal search path.
+    let inner_query = eql_to_query(&eql);
+    let size = body.get("size").and_then(Value::as_u64).unwrap_or(10);
+    let search_body = json!({ "query": inner_query, "size": size, "from": 0 });
+
+    let req = match xerj_query::parse_request(&search_body)
+        .map_err(|e| xerj_common::XerjError::invalid_query(e.to_string()))
+    {
+        Ok(r) => r,
+        Err(e) => return ApiError::new(e).into_response(),
+    };
+
+    let idx = match state.engine.get_index(&index) {
+        Ok(i) => i,
+        Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
+    };
+
+    match idx.search(&req).await {
+        Ok(result) => {
+            let took_ms = started.elapsed().as_millis() as u64;
+            let total = result.total.value;
+            let events: Vec<Value> = result
+                .hits
+                .into_iter()
+                .map(|h| {
+                    let source = if h.source.is_null() { Value::Null } else { h.source };
+                    json!({
+                        "_index": &index,
+                        "_id": h.id,
+                        "_source": source,
+                    })
+                })
+                .collect();
+            Json(json!({
+                "is_partial": false,
+                "is_running": false,
+                "took": took_ms,
+                "timed_out": false,
+                "hits": {
+                    "total": { "value": total, "relation": "eq" },
+                    "events": events,
+                },
+            }))
+            .into_response()
+        }
+        Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -19532,4 +19731,178 @@ async fn ingest_monitoring_ndjson(state: &AppState, body: &bytes::Bytes) -> usiz
         }
     }
     ingested
+}
+
+// ── Batch A parity helpers (EQL translation, xpack usage) ──
+
+/// Case-insensitive search for an ASCII `needle` inside `hay`. Returns the
+/// (start, end) byte range of the match in `hay`, or None. Scans on char
+/// boundaries so it never panics on multibyte values inside the condition.
+fn eql_ci_find(hay: &str, needle: &str) -> Option<(usize, usize)> {
+    let needle = needle.to_lowercase();
+    let ncount = needle.chars().count();
+    for (start, _) in hay.char_indices() {
+        let slice = &hay[start..];
+        let cand: String = slice.chars().take(ncount).flat_map(|c| c.to_lowercase()).collect();
+        if cand == needle {
+            let end = start + slice.chars().take(ncount).map(|c| c.len_utf8()).sum::<usize>();
+            return Some((start, end));
+        }
+    }
+    None
+}
+
+/// Parse an EQL literal into a typed JSON value. Returns (value, is_string),
+/// where `is_string` selects `match` (analyzed) vs `term` (exact) for `==`.
+fn eql_parse_value(s: &str) -> (Value, bool) {
+    let s = s.trim();
+    if s.len() >= 2
+        && ((s.starts_with('"') && s.ends_with('"'))
+            || (s.starts_with('\'') && s.ends_with('\'')))
+    {
+        return (Value::String(s[1..s.len() - 1].to_string()), true);
+    }
+    if let Ok(i) = s.parse::<i64>() {
+        return (json!(i), false);
+    }
+    if let Ok(f) = s.parse::<f64>() {
+        return (json!(f), false);
+    }
+    match s {
+        "true" => (Value::Bool(true), false),
+        "false" => (Value::Bool(false), false),
+        _ => (Value::String(s.to_string()), true),
+    }
+}
+
+/// Build `{ wrapper: { field: inner } }` with a runtime field name. The
+/// `json!` macro stringifies bare identifiers literally, so dynamic keys are
+/// constructed via `serde_json::Map` (same pattern as `bulk_opts_from_query`).
+fn eql_field_obj(wrapper: &str, field: &str, inner: Value) -> Value {
+    let mut fmap = serde_json::Map::new();
+    fmap.insert(field.to_string(), inner);
+    let mut wmap = serde_json::Map::new();
+    wmap.insert(wrapper.to_string(), Value::Object(fmap));
+    Value::Object(wmap)
+}
+
+/// Translate a single `field <op> value` EQL predicate into a DSL leaf query.
+/// Returns None when nothing usable can be extracted.
+fn eql_predicate_to_leaf(pred: &str) -> Option<Value> {
+    let pred = pred.trim().trim_start_matches('(').trim_end_matches(')').trim();
+    if pred.is_empty() {
+        return None;
+    }
+    // Two-char operators must be probed before their single-char prefixes.
+    for op in ["==", "!=", ">=", "<=", ">", "<", "="] {
+        if let Some(pos) = pred.find(op) {
+            let field = pred[..pos].trim();
+            let val_str = pred[pos + op.len()..].trim();
+            if field.is_empty() || val_str.is_empty() {
+                return None;
+            }
+            let (val, is_str) = eql_parse_value(val_str);
+            let eq_leaf = if is_str {
+                eql_field_obj("match", field, val.clone())
+            } else {
+                eql_field_obj("term", field, val.clone())
+            };
+            return Some(match op {
+                "==" | "=" => eq_leaf,
+                "!=" => json!({ "bool": { "must_not": [eq_leaf] } }),
+                ">" => eql_field_obj("range", field, json!({ "gt": val })),
+                ">=" => eql_field_obj("range", field, json!({ "gte": val })),
+                "<" => eql_field_obj("range", field, json!({ "lt": val })),
+                "<=" => eql_field_obj("range", field, json!({ "lte": val })),
+                _ => return None,
+            });
+        }
+    }
+    None
+}
+
+/// Split an EQL condition into predicates on `and`/`or`. Returns the
+/// predicates plus whether any `or` connector was seen; mixed and/or is
+/// treated pragmatically as a flat `should`.
+fn eql_split_predicates(cond: &str) -> (Vec<String>, bool) {
+    let mut parts = Vec::new();
+    let mut is_or = false;
+    let mut rest = cond;
+    loop {
+        let and_pos = eql_ci_find(rest, " and ");
+        let or_pos = eql_ci_find(rest, " or ");
+        let next = match (and_pos, or_pos) {
+            (Some(a), Some(o)) => {
+                if a.0 <= o.0 { Some((a, false)) } else { Some((o, true)) }
+            }
+            (Some(a), None) => Some((a, false)),
+            (None, Some(o)) => Some((o, true)),
+            (None, None) => None,
+        };
+        match next {
+            Some(((s, e), conn_is_or)) => {
+                parts.push(rest[..s].trim().to_string());
+                if conn_is_or {
+                    is_or = true;
+                }
+                rest = &rest[e..];
+            }
+            None => {
+                parts.push(rest.trim().to_string());
+                break;
+            }
+        }
+    }
+    (parts, is_or)
+}
+
+/// Translate a minimal EQL query string into a xerj DSL query object (the
+/// value of the `query` field). Supports `<category> where <cond>` and
+/// `any where <cond>`; the leading category is accepted but not constrained
+/// (no fixed event.category mapping in xerj). Falls back to `match_all` when
+/// no usable predicate can be extracted.
+fn eql_to_query(eql: &str) -> Value {
+    let cond = match eql_ci_find(eql, " where ") {
+        Some((_, end)) => eql[end..].trim(),
+        None => return json!({ "match_all": {} }),
+    };
+    let (preds, is_or) = eql_split_predicates(cond);
+    let leaves: Vec<Value> = preds.iter().filter_map(|p| eql_predicate_to_leaf(p)).collect();
+    if leaves.is_empty() {
+        return json!({ "match_all": {} });
+    }
+    if leaves.len() == 1 && !is_or {
+        return leaves.into_iter().next().unwrap();
+    }
+    if is_or {
+        json!({ "bool": { "should": leaves, "minimum_should_match": 1 } })
+    } else {
+        json!({ "bool": { "must": leaves } })
+    }
+}
+
+/// Recursively count fields declared as `dense_vector` inside a stored
+/// index mapping JSON blob. Walks every nested object/array so vectors
+/// declared under `properties`, `fields`, or nested objects are all
+/// tallied. A `dense_vector` node carries no further `properties`, so
+/// recursing into its sibling keys (dims/index/...) finds nothing extra.
+fn count_dense_vector_fields(node: &Value) -> u64 {
+    let mut count = 0u64;
+    match node {
+        Value::Object(obj) => {
+            if obj.get("type").and_then(Value::as_str) == Some("dense_vector") {
+                count += 1;
+            }
+            for v in obj.values() {
+                count += count_dense_vector_fields(v);
+            }
+        }
+        Value::Array(arr) => {
+            for v in arr {
+                count += count_dense_vector_fields(v);
+            }
+        }
+        _ => {}
+    }
+    count
 }

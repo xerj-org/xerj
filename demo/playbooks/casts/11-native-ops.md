@@ -19,7 +19,7 @@ curl -s "http://localhost:8080/v1/health"
     "version": "1.0.0-rc.1"
   },
   "took_ms": 0,
-  "request_id": "444abb53-39f4-4f86-a08c-691ed398c40f"
+  "request_id": "780a950d-3316-4e54-8d21-4bfc182c1b10"
 }
 ```
 
@@ -96,7 +96,7 @@ curl -s "http://localhost:8080/v1/cluster/health"
     "version": "1.0.0-rc.1"
   },
   "took_ms": 0,
-  "request_id": "698c7217-7df1-4c98-b75b-561708e33530"
+  "request_id": "1383d775-e2c1-453c-af86-1772b6cd5cb4"
 }
 ```
 
@@ -114,28 +114,28 @@ curl -s -XPOST "http://localhost:8080/v1/admin/flush"
     "failed": [],
     "flushed": 18,
     "indices": [
-      ".xerj_api_tokens",
-      ".xerj_magic_links",
-      ".xerj_connections",
-      "vstore",
-      ".xerj_sessions",
-      "logs-2026-04",
-      ".xerj_prefs",
-      "articles",
-      ".xerj_users",
       ".xerj_cluster_state",
-      ".xerj_audit",
-      ".xerj_views",
-      ".xerj_passkeys",
-      ".xerj_dashboards",
-      "bench",
+      ".xerj_sessions",
       ".xerj_alert_rules",
+      ".xerj_audit",
+      "bench",
+      ".xerj_prefs",
+      ".xerj_dashboards",
+      ".xerj_api_tokens",
+      ".xerj_views",
+      ".xerj_users",
+      "logs-2026-04",
+      ".xerj_passkeys",
+      "vstore",
+      ".xerj_alert_fires",
       ".xerj_idp_config",
-      ".xerj_alert_fires"
+      ".xerj_magic_links",
+      "articles",
+      ".xerj_connections"
     ]
   },
   "took_ms": 6,
-  "request_id": "38085b5c-823c-4620-bbe6-07d94db719e9"
+  "request_id": "88d47a99-23bc-4835-b831-e48952b067aa"
 }
 ```
 
@@ -152,10 +152,10 @@ curl -s -XPOST "http://localhost:8080/v1/admin/backup" \
 ```json
 {
   "data": {
-    "backup": "backup-abd5b11b-3548-4aac-bcb5-f78e432db8d7",
+    "backup": "backup-f9629d1b-dedb-49a1-80ec-651ebef9eb04",
     "manifest": {
       "duration_in_millis": 0,
-      "end_time_in_millis": 1782801645372,
+      "end_time_in_millis": 1782803097577,
       "failures": [],
       "index_files": [
         {
@@ -192,7 +192,7 @@ curl -s -XPOST "http://localhost:8080/v1/admin/backup" \
             "0000000000000000.wal",
             "0000000000000000.wchk",
             "000000000000
-… (92507 more bytes)
+… (91287 more bytes)
 ```
 
 _HTTP 201_
