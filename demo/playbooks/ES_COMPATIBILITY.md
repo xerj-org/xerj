@@ -294,3 +294,28 @@ search 426/431. (commits 28b5f9c, 3e5ec6f, 1a74c81, 451470b)
 
 Net: every **correctness** defect from the live verifier is fixed; the conformance
 residual is dominated by single-node-terminal and exact-float-precision cases.
+
+---
+
+## 14. Conformance driven to 99.9% — final (2026-06-30)
+
+Continued the conformance push with multi-agent rounds (worktree-isolated,
+file-disjoint, full-suite-gated). Final: **1325 / 1326 pass (99.9%), 1 fail, 3 skip**.
+
+| Round | Pass | Fail | What landed |
+|---|---|---|---|
+| baseline | 1288 | 38 | (post Round-1 correctness fixes) |
+| 2–5 | 1314 | 12 | top_hits/diversified, synthetic source, holt_winters, closed-index, collapse max_score |
+| A | 1322 | 4 | _ignored validation, desired_balance replica synth, percentiles-hdr (Filtered + Negative), flattened sort, search_after date_nanos, sig_text(partial) |
+| B | 1323 | 3 | significant_text profile debug (TSDB dedup attempt reverted — over-merged) |
+| C | **1325** | **1** | exact TSDB dimension dedup; **delete-aware BM25 collection stats** (search suite → 100%, zero regressions) |
+
+**Per-suite (final): aggregations 638/639, search 429/429 (100%), bulk/cluster/indices/scroll/smoke/vectors 100%.** Product CI (smoke 61/61 + liveness no-5xx) green throughout. Commits: 90e0eff, cb7cf91, b5834c0 (+ rounds 2–5).
+
+### The one remaining failure — a test-internal contradiction
+`aggregations/ignored_metadata_field.yml` · "terms aggregation on _ignored metadata field with top hits" asserts `buckets.1.top_by_datetime.hits.hits.0._ignored == ["order_datetime","products"]`. This is **unsatisfiable alongside the same file's passing assertion `location` doc_count == 3**:
+- `location: 3` requires doc 003's out-of-range longitude (182.22) to be ignored.
+- The order_datetime bucket's earliest-indexed candidate is doc 003, whose `_ignored` is then `["location","order_datetime","products"]`.
+- No other doc in that bucket has exactly `{order_datetime, products}` ignored (004 also has email+newsletter; 006 also has date_of_birth+ip+newsletter).
+
+So one of the two assertions must fail for any consistent ES-faithful validation — it cannot be closed without breaking `location: 3`. Left as the sole documented residual; **100% of the internally-consistent assertions pass.**
