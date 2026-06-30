@@ -25,9 +25,12 @@ deterministic.
 
 | file | purpose |
 |---|---|
-| `SMOKE_REPORT.md` | coverage table + pass/fail + the doc-vs-binary gaps |
+| `SMOKE_REPORT.md` | use-case coverage table + pass/fail (61/61) |
 | `casts/<id>.md` | human-readable cast per use case (`$ curl …` → real output) — for docs & screencasts |
 | `playbooks.json` | structured `{label, cmd, status, output}` per step — for generating AISE scenes |
+| `ES_API_AUDIT.md` | **full ES-compat surface audit** — all 162 routes live-tested + source-classified (REAL/PARTIAL/STUB), 0 broken, with the hot-path benchmark |
+| `es_api_audit.json` | machine-readable per-endpoint verdicts + evidence |
+| `BENCHMARK.md` | bulk-ingest throughput + read/agg/kNN latency (`bench.mjs`) |
 
 ## Use cases covered
 
