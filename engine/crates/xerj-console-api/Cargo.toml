@@ -6,8 +6,8 @@ license.workspace = true
 authors.workspace = true
 description = "Xerj Console backend API: dashboards, auth, prefs, cluster awareness, and pluggable data sources. Ships compiled into the xerj v1.0 binary; extracts post-v1.0 as a standalone product that can target any data source."
 
-# Bundles the playground SPA (HTML/CSS/JS) into the binary. Walks the
-# playground/ source tree at compile time and emits a `(url, bytes,
+# Bundles the Xerj Console UX (xerj-ux/) (HTML/CSS/JS) into the binary. Walks the
+# xerj-ux/ source tree at compile time and emits a `(url, bytes,
 # content_type)` slice consumed by `src/spa.rs`.
 build = "build.rs"
 

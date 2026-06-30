@@ -80,7 +80,7 @@
       <h2>Three points the v2 demo answers explicitly</h2>
       <ol>
         <li><strong>Why does the boot banner say "XERJ CONSOLE"?</strong> Because Xerj Console (the bundled UI) prints its own first-launch claim banner. The server (Xerj) prints its own version line one paragraph above; v2 highlights it.</li>
-        <li><strong>Where do the dashboards come from?</strong> Eight templates ship as code under <code>playground/src/dashboards/*.js</code>, bundled into the binary at compile time. The <strong>data</strong> they render comes from whatever you POST to <code>/_bulk</code>; users can rename / hide / clone via the SETTINGS section but the templates are versioned with the code.</li>
+        <li><strong>Where do the dashboards come from?</strong> Eight templates ship as code under <code>xerj-ux/src/dashboards/*.js</code>, bundled into the binary at compile time. The <strong>data</strong> they render comes from whatever you POST to <code>/_bulk</code>; users can rename / hide / clone via the SETTINGS section but the templates are versioned with the code.</li>
         <li><strong>How is the data added to a dashboard?</strong> It isn't — pull-based. Drop docs into the <code>chat-events</code> / <code>vector-ops</code> / <code>agent-memory</code> / <code>anomalies</code> / <code>ingest-events</code> / <code>ai-kb</code> indices and the matching dashboards' adapters auto-pick them up via <code>_search</code> aggregations. No "connect data source to dashboard" step required.</li>
       </ol>
     </div>

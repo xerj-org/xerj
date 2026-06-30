@@ -1,6 +1,6 @@
 //! Smoke tests for the bundled Xerj Console SPA assets.
 //!
-//! `build.rs` walks the playground/ source tree at compile time and
+//! `build.rs` walks the xerj-ux/ source tree at compile time and
 //! emits a static `(url_path, bytes, content_type)` slice. These tests
 //! confirm the runtime serves the files the demo flow depends on:
 //! setup.html, login.html, the auth + sync JS modules, and the

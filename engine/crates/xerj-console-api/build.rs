@@ -1,19 +1,18 @@
-// Bundle the Xerj Console playground (typography-first observability UI)
+// Bundle the Xerj Console UX (typography-first observability SPA)
 // into the xerj binary at compile time.
 //
-// We walk a single source directory (the playground repo lives next
-// to the engine in this monorepo: ../../../xerj.ai/playground) and
+// We walk a single source directory (`xerj-ux/` at the repo root) and
 // emit `$OUT_DIR/xerj_console_assets.rs` with a const slice of
 // (path, bytes) entries. The asset paths are relative to the
-// playground root and used as the URL path under `/_xerj-console/`.
+// xerj-ux root and used as the URL path under `/_xerj-console/`.
 //
 // We deliberately ship only HTML / CSS / JS / SVG / WOFF — anything
 // the runtime would never serve to a browser stays out. Files larger
 // than 4 MiB are skipped with a build-script warning so an accidental
-// PDF in the playground tree doesn't bloat the binary.
+// PDF in the UX tree doesn't bloat the binary.
 //
 // Re-run logic: cargo invokes this script when build.rs itself
-// changes OR when any file under the playground source tree is
+// changes OR when any file under the xerj-ux source tree is
 // modified (we emit `cargo:rerun-if-changed` for each one).
 
 use std::env;
@@ -22,14 +21,12 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 // Path-resolution strategy: try multiple relative paths so the build
-// works in both the monorepo root layout (xerj.ai/) and the engine-
-// worktree layout (xerj-es-compat-work/engine/, with xerj.ai
-// alongside as a sibling worktree).
-const PLAYGROUND_RELS: &[&str] = &[
-    "../../../xerj.ai/playground",       // engine/crates/api → root → xerj.ai
-    "../../../../xerj.ai/playground",    // worktree → parent → xerj.ai (sibling)
-    "../../playground",                   // direct sibling layout
-    "../../../playground",                // alternate
+// works from the repo-root layout and from an engine-worktree layout
+// (engine/ checked out separately, with the repo root alongside).
+const UX_RELS: &[&str] = &[
+    "../../../xerj-ux",      // engine/crates/api → repo root → xerj-ux
+    "../../../../xerj-ux",   // worktree → parent → xerj-ux (sibling)
+    "../../xerj-ux",         // direct sibling layout
 ];
 const ALLOWED_EXTS: &[&str] = &["html", "css", "js", "svg", "ico", "woff", "woff2", "png"];
 const MAX_FILE_BYTES: u64 = 4 * 1024 * 1024;
@@ -39,35 +36,34 @@ fn main() {
 
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     // Walk the candidate list and pick the first one that resolves to
-    // an existing playground directory.
-    let playground_root_canonical = PLAYGROUND_RELS
+    // an existing xerj-ux directory.
+    let ux_root = UX_RELS
         .iter()
         .map(|rel| manifest_dir.join(rel))
         .find_map(|p| fs::canonicalize(&p).ok())
         .or_else(|| {
             // Last-ditch: env var override for CI / monorepo packaging.
-            env::var("XERJ_CONSOLE_PLAYGROUND_DIR").ok().and_then(|p| fs::canonicalize(p).ok())
+            env::var("XERJ_CONSOLE_UX_DIR").ok().and_then(|p| fs::canonicalize(p).ok())
         });
-    let playground_root_canonical = match playground_root_canonical {
+    let ux_root = match ux_root {
         Some(p) => p,
         None => {
-            // Playground checkout missing — emit an empty asset table
-            // so the engine still builds (e.g. release tarballs that
-            // omit the playground source).
+            // xerj-ux checkout missing — emit an empty asset table so the
+            // engine still builds (e.g. release tarballs that omit the UX).
             write_assets(&[], &manifest_dir);
             println!(
-                "cargo:warning=xerj-console playground not found in any of: {:?} — asset table will be empty (set XERJ_CONSOLE_PLAYGROUND_DIR to override)",
-                PLAYGROUND_RELS,
+                "cargo:warning=xerj-ux not found in any of: {:?} — Console asset table will be empty (set XERJ_CONSOLE_UX_DIR to override)",
+                UX_RELS,
             );
             return;
         }
     };
 
     let mut entries: Vec<(String, PathBuf)> = Vec::new();
-    walk(&playground_root_canonical, &playground_root_canonical, &mut entries);
+    walk(&ux_root, &ux_root, &mut entries);
     entries.sort();
 
-    write_assets(&entries, &playground_root_canonical);
+    write_assets(&entries, &ux_root);
 }
 
 fn walk(root: &Path, dir: &Path, out: &mut Vec<(String, PathBuf)>) {
@@ -77,9 +73,9 @@ fn walk(root: &Path, dir: &Path, out: &mut Vec<(String, PathBuf)>) {
     };
     for entry in read.flatten() {
         let path = entry.path();
-        // Skip hidden files / dirs and node_modules (the playground
-        // is currently a static SPA but a future build step might
-        // pull deps).
+        // Skip hidden files / dirs and node_modules (xerj-ux is
+        // currently a buildless static SPA but a future build step
+        // might pull deps).
         let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
         if name.starts_with('.') || name == "node_modules" {
             continue;
@@ -119,14 +115,14 @@ fn walk(root: &Path, dir: &Path, out: &mut Vec<(String, PathBuf)>) {
     }
 }
 
-fn write_assets(entries: &[(String, PathBuf)], _playground_root: &Path) {
+fn write_assets(entries: &[(String, PathBuf)], _ux_root: &Path) {
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let out_path = out_dir.join("xerj_console_assets.rs");
     let mut f = fs::File::create(&out_path).expect("create xerj_console_assets.rs");
 
     writeln!(
         f,
-        "// auto-generated by build.rs — Xerj Console playground asset bundle\n\
+        "// auto-generated by build.rs — Xerj Console UX asset bundle\n\
          //\n\
          // (url_path, bytes, content_type) tuples. Order is sorted-by-path\n\
          // so the runtime can binary-search by path.\n\

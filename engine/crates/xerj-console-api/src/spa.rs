@@ -1,6 +1,6 @@
-//! Xerj Console playground — embedded UI bundle served at `/_xerj-console`.
+//! Xerj Console UX — embedded UI bundle served at `/_xerj-console`.
 //!
-//! `build.rs` walks the playground source tree at compile time and
+//! `build.rs` walks the xerj-ux source tree at compile time and
 //! generates `OUT_DIR/xerj_console_assets.rs` with a sorted slice of
 //! `(url_path, bytes, content_type)` tuples. This module includes
 //! that slice and exposes one Axum handler that does an O(log n)
@@ -9,8 +9,8 @@
 //! ## URL shape
 //!
 //! ```text
-//! GET /_xerj-console             → playground index.html (302 to /_xerj-console/)
-//! GET /_xerj-console/            → playground index.html (200, text/html)
+//! GET /_xerj-console             → Console index.html (302 to /_xerj-console/)
+//! GET /_xerj-console/            → Console index.html (200, text/html)
 //! GET /_xerj-console/{path*}     → static asset by path, 404 if missing
 //! ```
 //!
@@ -38,7 +38,7 @@ fn find_asset(path: &str) -> Option<&'static (&'static str, &'static [u8], &'sta
     XERJ_CONSOLE_ASSETS.iter().find(|(p, _, _)| *p == path)
 }
 
-/// Serve the playground's index.html for `/_xerj-console/`.
+/// Serve the Console's index.html for `/_xerj-console/`.
 pub async fn xerj_console_index() -> impl IntoResponse {
     serve("index.html", true)
 }
@@ -107,7 +107,7 @@ fn serve_asset(
 }
 
 /// Number of bundled assets — exposed for the startup banner so
-/// operators see at-a-glance whether the playground was bundled.
+/// operators see at-a-glance whether the Console UX was bundled.
 pub fn asset_count() -> usize {
     XERJ_CONSOLE_ASSETS.len()
 }

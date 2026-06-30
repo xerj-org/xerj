@@ -1,6 +1,6 @@
 //! Per-user UI preferences — `GET /prefs` and `PUT /prefs`.
 //!
-//! Replaces every `localStorage["xerj.*"]` write the playground does
+//! Replaces every `localStorage["xerj.*"]` write the Console UX does
 //! today: theme, default cluster, time range, mobile flag, search-box
 //! contents.  We don't constrain the schema — the doc is whatever
 //! key/value pairs the SPA asks us to round-trip — but `_id` is always
