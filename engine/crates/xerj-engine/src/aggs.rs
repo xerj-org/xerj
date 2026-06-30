@@ -6363,8 +6363,33 @@ fn run_top_hits(params: &Value, docs: &[Value]) -> Value {
                         }
                         extract_field_values(doc, &sf).into_iter().next()
                     };
-                    let av = pick_num(a);
-                    let bv = pick_num(b);
+                    // A field listed in the doc's `_ignored` metadata had no
+                    // doc-value indexed (it tripped `ignore_malformed` /
+                    // `ignore_above`), so for sort purposes its value is
+                    // MISSING — even though the raw, unparsed text is still
+                    // present in `_source`. We must NOT fall back to comparing
+                    // that source text: `extract_numeric` runs a lenient date
+                    // parse that happily accepts strings ES rejected under the
+                    // field's strict mapping format (e.g. `2021-05-02` or
+                    // `2021-05-01T20:02:00` against `yyyy-MM-dd HH:mm:ss`), and
+                    // `extract_field_values` returns the malformed string. Both
+                    // would invent a sort key for a value ES treats as absent.
+                    // Treat any `_ignored` field as missing so all such docs
+                    // tie and the tie-break falls through to `_doc` order.
+                    // (Surfaced in
+                    // `aggregations/ignored_metadata_field.yml::terms with top
+                    // hits`: the `order_datetime` bucket's 7 docs ALL have a
+                    // malformed `order_datetime`, so they must be equal on the
+                    // sort key and the earliest-indexed doc wins.)
+                    let ignored = |doc: &Value| -> bool {
+                        doc.get("_ignored")
+                            .and_then(Value::as_array)
+                            .is_some_and(|arr| arr.iter().any(|v| v.as_str() == Some(sf.as_str())))
+                    };
+                    let a_ig = ignored(a);
+                    let b_ig = ignored(b);
+                    let av = if a_ig { None } else { pick_num(a) };
+                    let bv = if b_ig { None } else { pick_num(b) };
                     // Direction-stable missing-Last: missing values stay
                     // at the end regardless of asc/desc on non-null pairs.
                     // ES's default `missing: _last` is stable across
@@ -6372,11 +6397,7 @@ fn run_top_hits(params: &Value, docs: &[Value]) -> Value {
                     // the previous version did) flipped missing values
                     // to the front under desc, putting docs whose date
                     // failed `ignore_malformed` ahead of valid-dated docs
-                    // in `top_hits` ordering. (Surfaced in
-                    // `aggregations/ignored_metadata_field.yml::terms with
-                    // top hits` where doc 005 had an unparseable
-                    // `order_datetime` and was sorted ahead of doc 007's
-                    // valid 2021-05-03 date.)
+                    // in `top_hits` ordering.
                     match (av, bv) {
                         (Some(x), Some(y)) => {
                             let cmp = x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal);
@@ -6385,8 +6406,22 @@ fn run_top_hits(params: &Value, docs: &[Value]) -> Value {
                         (Some(_), None) => std::cmp::Ordering::Less,
                         (None, Some(_)) => std::cmp::Ordering::Greater,
                         (None, None) => {
-                            let cmp = pick_str(a).cmp(&pick_str(b));
-                            if desc { cmp.reverse() } else { cmp }
+                            // Both missing on this key. A genuine string-field
+                            // sort (no `_ignored`) still tie-breaks on the raw
+                            // string value; an ignored field has no value, so
+                            // `pick_str` is forced to None as well.
+                            let sa = if a_ig { None } else { pick_str(a) };
+                            let sb = if b_ig { None } else { pick_str(b) };
+                            let cmp = sa.cmp(&sb);
+                            let cmp = if desc { cmp.reverse() } else { cmp };
+                            // Final tie-break is ES `_doc` order
+                            // (earliest-indexed first), applied ascending
+                            // regardless of the requested sort direction.
+                            cmp.then_with(|| {
+                                let ia = a.get("_id").and_then(Value::as_str).unwrap_or("");
+                                let ib = b.get("_id").and_then(Value::as_str).unwrap_or("");
+                                ia.cmp(ib)
+                            })
                         }
                     }
                 });

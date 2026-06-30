@@ -19698,10 +19698,11 @@ fn is_field_value_valid(ftype: &str, v: &Value) -> bool {
                     _ => None,
                 }
             };
-            // ES rejects out-of-range coordinates as malformed: latitude must
-            // be in [-90, 90] and longitude in [-180, 180].
+            // ES/Lucene NORMALIZES longitude by wrapping it into [-180, 180]
+            // (so e.g. 182.22 -> -177.78 is VALID, not malformed); latitude is
+            // not wrapped and must be in [-90, 90].
             let valid_lat = |lat: f64| lat.is_finite() && (-90.0..=90.0).contains(&lat);
-            let valid_lon = |lon: f64| lon.is_finite() && (-180.0..=180.0).contains(&lon);
+            let valid_lon = |lon: f64| lon.is_finite();
             // "lat,lon" string form (latitude first), or a WKT POINT literal.
             let is_latlon_string = |s: &str| -> bool {
                 if s.starts_with("POINT") { return true; }
@@ -19727,13 +19728,9 @@ fn is_field_value_valid(ftype: &str, v: &Value) -> bool {
                         _ => false,
                     }
                 }
-                Value::Array(a) if a.len() == 1 => {
-                    // Single-element array: ES accepts a "lat,lon" string inside.
-                    match &a[0] {
-                        Value::String(s) => is_latlon_string(s),
-                        _ => false,
-                    }
-                }
+                // A single-element array is NOT a valid geo_point in ES — the
+                // array form must be exactly [lon, lat]. So `["45.33, 8.20"]`
+                // is malformed (whereas the bare string "45.33, 8.20" is fine).
                 Value::String(s) => is_latlon_string(s),
                 _ => false,
             }
