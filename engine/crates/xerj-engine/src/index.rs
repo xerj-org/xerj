@@ -4083,6 +4083,23 @@ impl Index {
             }
         }
 
+        // F1 correctness gate (hoisted so both the scan-early-stop decision and
+        // the post-loop `total_count` overwrite can see it): the doc-values/FST
+        // `shortcut_count` is DELETE-BLIND (counts physical postings, not live
+        // docs), whereas the stored-doc scan it lets us skip filters tombstones.
+        // The shortcut may only stand in for the EXACT `hits.total` when the
+        // index has no deleted/superseded docs. Conservative O(segments) signal:
+        // any flushed tombstone, OR live_count < physical (updates + deletes
+        // inflate the per-segment/memtable physical tally above the version-map
+        // live count). MatchAll is unaffected — overwritten with the
+        // delete-aware live_doc_count() regardless of this flag.
+        let deletes_present: bool = {
+            let seg_physical: u64 = snap.segments.iter().map(|m| m.doc_count).sum();
+            let mem_physical = self.memtable.doc_count() as u64;
+            snap.segments.iter().any(|m| m.has_tombstones)
+                || self.live_doc_count() < seg_physical + mem_physical
+        };
+
         if precomputed_aggs.is_some() {
             // Skip the entire segment loop — the fast agg path already
             // computed everything we need.  `total_count` is set above.
@@ -4124,8 +4141,21 @@ impl Index {
             // turning size>0 match_all/term/range from O(total-matches) into
             // O(from+size).  When the count is NOT authoritative (no shortcut,
             // not match_all) we keep the full counting scan for correctness.
+            // F1 correctness gate: the doc-values/FST `shortcut_count` is
+            // DELETE-BLIND — it counts physical postings, not live docs —
+            // whereas the stored-doc scan it lets us skip filters tombstones.
+            // So the shortcut may only stand in for the EXACT `hits.total` when
+            // the index has no deleted/superseded docs. Cheap, conservative
+            // signal: any flushed tombstone, OR live_count < physical (updates
+            // and deletes both inflate the per-segment/ memtable physical tally
+            // above the version-map live count). MatchAll is unaffected: it is
+            // overwritten with the delete-aware `live_doc_count()` regardless.
+            // When deletes ARE present (and not match_all) we keep the full
+            // delete-aware counting scan for a correct total, at the cost of the
+            // pre-F1 scan time — correctness over speed until the shortcut
+            // itself is made delete-aware. (`deletes_present` hoisted above.)
             let count_authoritative: bool =
-                !query_needs_fts && (is_match_all || shortcut_count.is_some());
+                !query_needs_fts && (is_match_all || (shortcut_count.is_some() && !deletes_present));
 
             for meta in &snap.segments {
                 // F1: once the exact total is authoritative AND the bounded
@@ -4762,11 +4792,15 @@ impl Index {
         // below still adjusts from this corrected base if present.
         if is_match_all {
             total_count = self.live_doc_count();
-        } else if size > 0 && !query_needs_fts && scan_hit_cap {
+        } else if size > 0 && !query_needs_fts && scan_hit_cap && !deletes_present {
             // F1: the non-FTS stored scan filled its bounded collector and may
             // have stopped early, so its `total_count` is partial — replace it
             // with the authoritative doc-values / FST shortcut count.  We only
-            // do this when the scan actually hit the cap: for small result sets
+            // do this when the scan actually hit the cap AND there are no
+            // deletes (the shortcut is delete-blind; see the hoisted
+            // `deletes_present` gate — with deletes present the scan ran in full
+            // delete-aware counting mode so `total_count` is already exact).
+            // For small result sets
             // the scan already produced the EXACT, full-semantics count above
             // and must be trusted (the shortcut can under-count flattened /
             // subobjects:false / passthrough fields, returning 0 where the scan
