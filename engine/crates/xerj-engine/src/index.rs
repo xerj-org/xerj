@@ -1265,32 +1265,86 @@ impl Index {
         // (so `_count`/`hits.total` via `version_map.live_count()` and
         // GET visibility are correct), exactly like `self.store.index`
         // does on the per-doc path.
-        let mut responses = Vec::with_capacity(batch_len);
-        for (i, (id, bytes)) in docs.iter().enumerate() {
-            let source = serde_json::from_slice::<Value>(bytes)
-                .unwrap_or(Value::Object(serde_json::Map::new()));
+        // ── P2.1: intra-request shard fan-out (the DWPT equivalent). ──
+        //
+        // The pre-P2.1 shape indexed serially, doc-by-doc, so a single
+        // `_bulk` request used exactly one core regardless of the cores
+        // available (measured: ~104% CPU on a 32-core box). We now:
+        //   1. parse every doc's JSON in parallel (the dominant per-doc
+        //      CPU cost) on the rayon pool;
+        //   2. evolve the schema SERIALLY in doc order (rare, additive;
+        //      a no-op after the first few docs — see
+        //      `evolve_schema_from_doc`), so dynamic-mapping resolution
+        //      is order-deterministic and identical to the serial path;
+        //   3. bucket doc indices by their OWN shard and insert each
+        //      shard's docs in parallel, holding that shard's lock
+        //      exactly once. Because the buckets partition by shard, no
+        //      two rayon workers ever contend on the same lock — one
+        //      bulk request now fans across min(Ncore, Nshard) cores.
+        //
+        // Correctness invariants preserved bit-for-bit vs the serial
+        // loop: (a) each doc is inserted EXACTLY ONCE on its own shard
+        // with its own `seq_nos[i]`; (b) `version` = prior doc_count +
+        // position + 1, assigned in doc order via one batch-level
+        // `fetch_add`; (c) response order matches request order.
+        use rayon::prelude::*;
 
-            // Dynamic mapping: add newly-seen fields to schema.
-            self.evolve_schema_from_doc(&source).await;
+        // 1. Parse in parallel — each doc exactly once.
+        let sources: Vec<Value> = docs
+            .par_iter()
+            .map(|(_, bytes)| {
+                serde_json::from_slice::<Value>(bytes)
+                    .unwrap_or_else(|_| Value::Object(serde_json::Map::new()))
+            })
+            .collect();
 
-            // Index field values into the FTS memtable once, on the
-            // doc's own shard.  `remove` first so a same-id overwrite
-            // leaves exactly one live entry (mirrors index_document).
-            {
-                let schema_guard = self.schema.read().await;
-                let mem = &*self.memtable;
-                mem.remove(id);
-                mem.insert(id.clone(), &source, &schema_guard.schema, seq_nos[i]);
+        // 2. Dynamic mapping: evolve schema serially, in doc order.
+        for source in &sources {
+            self.evolve_schema_from_doc(source).await;
+        }
+
+        // 3. Parallel shard-partitioned insert. Partition the batch by
+        // each doc's own shard, then insert each shard's sub-batch on a
+        // rayon worker holding that shard's lock exactly once — the
+        // DocumentsWriterPerThread analogue.
+        {
+            let schema_guard = self.schema.read().await;
+            let schema = &schema_guard.schema;
+            let mem = &*self.memtable;
+            let n_shards = mem.shard_count().max(1);
+            let mut buckets: Vec<Vec<usize>> = vec![Vec::new(); n_shards];
+            for (i, (id, _)) in docs.iter().enumerate() {
+                buckets[mem.shard_for_dynamic(id)].push(i);
             }
-
-            let version = self.doc_count.fetch_add(1, Ordering::Relaxed) + 1;
-            responses.push(IndexResponse {
-                id: id.clone(),
-                seq_no: seq_nos[i],
-                version,
-                result: "created".to_string(),
+            buckets.par_iter().enumerate().for_each(|(shard, idxs)| {
+                if idxs.is_empty() {
+                    return;
+                }
+                mem.with_shard_mut(shard, |m| {
+                    for &i in idxs {
+                        let id = &docs[i].0;
+                        // `remove` first so a same-id overwrite within
+                        // the batch leaves exactly one live entry
+                        // (mirrors index_document).
+                        m.remove(id);
+                        m.insert(id.clone(), &sources[i], schema, seq_nos[i]);
+                    }
+                });
             });
         }
+
+        // 4. One batch-level version stamp, assigned in request order.
+        let base = self.doc_count.fetch_add(batch_len as u64, Ordering::Relaxed);
+        let responses: Vec<IndexResponse> = docs
+            .iter()
+            .enumerate()
+            .map(|(i, (id, _))| IndexResponse {
+                id: id.clone(),
+                seq_no: seq_nos[i],
+                version: base + i as u64 + 1,
+                result: "created".to_string(),
+            })
+            .collect();
 
         self.maybe_spawn_flush().await;
 
