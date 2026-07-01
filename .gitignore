@@ -64,3 +64,4 @@ demo/.xerj.pid
 engine/demo-data/
 !engine/IMPLEMENTATION_*.md
 scratchpad/
+engine/build.log

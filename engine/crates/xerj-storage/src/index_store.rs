@@ -1016,6 +1016,29 @@ impl IndexStore {
                 .compare_exchange(last, now_ms, Ordering::AcqRel, Ordering::Relaxed)
                 .is_ok()
         {
+            // P2.3 — persist the snapshot HERE, coupled to the same 1 s
+            // gate as WAL prune, and BEFORE pruning.  Pre-P2.3 this ran
+            // `save_snapshot()` unconditionally on EVERY finalize: with
+            // ~16 concurrent shard flushes per cycle that is 16 full
+            // `serde_json` re-serialisations of the ENTIRE segment list
+            // (O(total segments)) per flush tick — the mechanism behind
+            // the ingest-throughput decay with corpus size.  We now do
+            // it once per maintenance tick.
+            //
+            // Durability invariant preserved: the snapshot is persisted
+            // immediately before the WAL is pruned, so every doc whose
+            // WAL entry is dropped is already recorded in an on-disk
+            // segment listed in the persisted snapshot.  Segments that
+            // are published to the in-memory snapshot between ticks but
+            // not yet persisted are recoverable on restart exactly like
+            // today: a crash between the `rcu` publish above and this
+            // save already left an "orphan" segment, and
+            // `recover_orphaned_segments()` + WAL replay (deduped by the
+            // version_map) reconstruct the live set.  Debouncing only
+            // widens that already-handled window; it adds no new failure
+            // mode.  Clean shutdown / explicit `_flush` persists via
+            // `force_wal_maintenance()`.
+            self.save_snapshot()?;
             for ws in &self.wal_shards {
                 let mut wal = ws.lock().unwrap();
                 wal.checkpoint(max_seq)?;
@@ -1023,9 +1046,6 @@ impl IndexStore {
                 wal.prune()?;
             }
         }
-
-        // Persist the snapshot to disk
-        self.save_snapshot()?;
 
         info!(segment_id, doc_count, min_seq, max_seq, "segment flushed");
         Ok(Some(meta))
@@ -1078,6 +1098,11 @@ impl IndexStore {
     /// churn under sustained ingest), but explicit user flushes get
     /// the unconditional rotation so disk gets reclaimed promptly.
     pub fn force_wal_maintenance(&self, max_seq: SeqNo) -> Result<()> {
+        // P2.3 — persist the (possibly debounced) snapshot before pruning
+        // so an explicit `_flush` / clean shutdown always leaves the
+        // on-disk snapshot covering every segment whose WAL is about to
+        // be dropped.  Mirrors the coupling in the gated flush path.
+        self.save_snapshot()?;
         for ws in &self.wal_shards {
             let mut wal = ws.lock().unwrap();
             wal.checkpoint(max_seq)?;
@@ -1232,7 +1257,11 @@ impl IndexStore {
 
     fn save_snapshot(&self) -> Result<()> {
         let snap = self.snapshot.load();
-        let bytes = serde_json::to_vec_pretty(&**snap)?;
+        // P2.3 — `to_vec` (compact) not `to_vec_pretty`: the snapshot is a
+        // machine-read manifest (loaded via `from_slice`), never
+        // human-edited, and pretty-printing an O(total-segments) list
+        // wastes serialize CPU + disk bytes on the flush path.
+        let bytes = serde_json::to_vec(&**snap)?;
         let path = Self::snapshot_path(&self.data_dir);
         // Unique tmp filename per caller.  Concurrent shard flushes both
         // call `save_snapshot` from `finalize_flush_with_publisher`; pre-
