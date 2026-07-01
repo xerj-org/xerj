@@ -1244,27 +1244,27 @@ impl Index {
 
         let seq_nos = self.store.wal_append_batch(&wal_refs)?;
 
-        // Push each doc as a raw-bytes memtable entry.  Route the whole
-        // batch by the first doc_id's hash so we hold ONE shard lock
-        // for the entire loop (same strategy as the Value-carrying
-        // turbo path).
-        // Two memtable inserts per doc:
-        // 1. Storage memtable (raw bytes) — for _source retrieval
-        // 2. FTS memtable (parsed fields) — for search + aggregations
-        let shard_idx = if docs.is_empty() {
-            0
-        } else {
-            self.memtable.shard_for_dynamic(&docs[0].0)
-        };
-        // Storage memtable: raw bytes for _source.
-        self.memtable.with_shard_mut(shard_idx, |mem| {
-            for (i, (id, bytes)) in docs.iter().enumerate() {
-                mem.remove(id);
-                mem.insert_raw_bytes_with_seq(seq_nos[i], id.clone(), Arc::clone(bytes));
-            }
-        });
-
-        // FTS memtable: parsed field values for search + aggs.
+        // Insert each doc EXACTLY ONCE into the engine FTS memtable,
+        // routed to the doc's OWN shard — bit-for-bit identical to the
+        // per-doc `index_document` path.
+        //
+        // The earlier "ultra-turbo" shape pushed every doc TWICE: once
+        // as a raw-bytes entry pinned to docs[0]'s shard (intended for
+        // _source) and again via `insert` on the doc's own shard (for
+        // search/aggs).  That double-represented each doc in
+        // `memtable.docs` — often on two different shards — so the
+        // brute-force agg corpus (`all_docs_with_sources`) and every
+        // terms/stats/cardinality/date_histogram aggregation counted
+        // each UNFLUSHED doc twice (140-test regression).
+        //
+        // A single `insert` discharges BOTH responsibilities: it stores
+        // the parsed `source` so `_source` GET (`get_doc_source_as_value`)
+        // resolves it, AND it builds the inverted index + columnar
+        // doc-values for search + aggregations.  `wal_append_batch`
+        // above already wrote the WAL frames and set the version_map
+        // (so `_count`/`hits.total` via `version_map.live_count()` and
+        // GET visibility are correct), exactly like `self.store.index`
+        // does on the per-doc path.
         let mut responses = Vec::with_capacity(batch_len);
         for (i, (id, bytes)) in docs.iter().enumerate() {
             let source = serde_json::from_slice::<Value>(bytes)
@@ -1273,11 +1273,15 @@ impl Index {
             // Dynamic mapping: add newly-seen fields to schema.
             self.evolve_schema_from_doc(&source).await;
 
-            // Index field values.
-            let schema_guard = self.schema.read().await;
-            let mem = &*self.memtable;
-            mem.insert(id.clone(), &source, &schema_guard.schema, seq_nos[i]);
-            drop(schema_guard);
+            // Index field values into the FTS memtable once, on the
+            // doc's own shard.  `remove` first so a same-id overwrite
+            // leaves exactly one live entry (mirrors index_document).
+            {
+                let schema_guard = self.schema.read().await;
+                let mem = &*self.memtable;
+                mem.remove(id);
+                mem.insert(id.clone(), &source, &schema_guard.schema, seq_nos[i]);
+            }
 
             let version = self.doc_count.fetch_add(1, Ordering::Relaxed) + 1;
             responses.push(IndexResponse {

@@ -663,6 +663,17 @@ pub async fn process_bulk_with_opts(
         String,
         Vec<(usize, String, std::sync::Arc<[u8]>)>,
     > = HashMap::new();
+    // AUTO-ID plain-index actions (no explicit `_id`).  These are
+    // guaranteed new — they can NEVER overwrite — so every one is a
+    // "created"/201.  That makes them safe to push through the single
+    // `index_batch_turbo_raw` batch call, whose response is hardcoded
+    // to "created".  Explicit-id index actions stay in `index_batches`
+    // and run the per-doc loop because they may overwrite and so need
+    // created-vs-updated / 201-vs-200 semantics turbo can't express.
+    let mut auto_id_batches: HashMap<
+        String,
+        Vec<(usize, String, std::sync::Arc<[u8]>)>,
+    > = HashMap::new();
     let mut non_index_actions: Vec<ParsedAction> = Vec::new();
 
     // Precompute which target indices declare any strict-format date
@@ -717,13 +728,23 @@ pub async fn process_bulk_with_opts(
             && !index_has_strict_date(&action.target_index, &mut index_needs_date_validation)
             && !index_has_dynamic_copy(&action.target_index, &mut index_needs_dynamic_copy);
         if is_plain_index {
-            let id = action
-                .doc_id
-                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-            index_batches
-                .entry(action.target_index)
-                .or_default()
-                .push((action.item_index, id, action.doc_bytes));
+            if action.doc_id.is_none() {
+                // Auto-id: brand-new doc, always "created"/201. Route the
+                // whole group through ONE `index_batch_turbo_raw` call.
+                let id = uuid::Uuid::new_v4().to_string();
+                auto_id_batches
+                    .entry(action.target_index)
+                    .or_default()
+                    .push((action.item_index, id, action.doc_bytes));
+            } else {
+                // Explicit id: may overwrite → keep the per-doc path so
+                // created/updated + 201/200 is resolved correctly.
+                let id = action.doc_id.unwrap();
+                index_batches
+                    .entry(action.target_index)
+                    .or_default()
+                    .push((action.item_index, id, action.doc_bytes));
+            }
         } else {
             non_index_actions.push(action);
         }
@@ -732,6 +753,80 @@ pub async fn process_bulk_with_opts(
 
     let group_ms = t_group.elapsed().as_millis() as u64;
     let t_exec = std::time::Instant::now();
+
+    // ── Auto-id index actions: ONE turbo batch per target index ──────────
+    //
+    // `index_batch_turbo_raw` appends the whole group with a single WAL
+    // batch + one parsed FTS-memtable insert per doc (the now-correct,
+    // single-representation path).  It returns one `IndexResponse` per
+    // input doc IN ORDER, so we map them straight back onto the item
+    // slots — all 201/"created" since auto-id docs can't overwrite.
+    for (index_name, batch) in auto_id_batches {
+        let idx = match engine.get_or_create_index(&index_name) {
+            Ok(i) => i,
+            Err(e) => {
+                for (item_idx, id, _) in batch {
+                    items[item_idx] = Some(BulkItemResult {
+                        action: "index".into(),
+                        index: index_name.clone(),
+                        id,
+                        status: 500,
+                        result: None,
+                        error: Some(e.to_string()),
+                        get_source: None,
+                    });
+                    errors = true;
+                }
+                continue;
+            }
+        };
+
+        // Keep item indices parallel to the docs we hand to turbo so we
+        // can re-associate responses (turbo preserves input order).
+        let item_indices: Vec<usize> = batch.iter().map(|(i, _, _)| *i).collect();
+        let turbo_docs: Vec<(String, std::sync::Arc<[u8]>)> = batch
+            .into_iter()
+            .map(|(_, id, bytes)| (id, bytes))
+            .collect();
+
+        match idx.index_batch_turbo_raw(turbo_docs).await {
+            Ok(responses) => {
+                for (k, resp) in responses.into_iter().enumerate() {
+                    let item_idx = item_indices[k];
+                    items[item_idx] = Some(BulkItemResult {
+                        action: "index".into(),
+                        index: index_name.clone(),
+                        id: resp.id,
+                        status: 201,
+                        result: Some("created".into()),
+                        error: None,
+                        get_source: None,
+                    });
+                }
+            }
+            Err(e) => {
+                // Whole-batch failure (e.g. ResourceExhausted → 429):
+                // mark every item in the batch with the same status.
+                let status = match &e {
+                    EngineError::Common(xerj_common::XerjError::ResourceExhausted { .. }) => 429,
+                    _ => 500,
+                };
+                for item_idx in item_indices {
+                    items[item_idx] = Some(BulkItemResult {
+                        action: "index".into(),
+                        index: index_name.clone(),
+                        id: String::new(),
+                        status,
+                        result: None,
+                        error: Some(e.to_string()),
+                        get_source: None,
+                    });
+                }
+                errors = true;
+            }
+        }
+    }
+
     // Execute turbo batches (index-only).
     for (index_name, batch) in index_batches {
         let idx = match engine.get_or_create_index(&index_name) {
