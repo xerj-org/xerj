@@ -1496,7 +1496,6 @@ impl Index {
         let field_configs = self.flush_signal.field_configs(&self.schema);
         let dataset_version = Arc::clone(&self.dataset_version);
         let query_cache = Arc::clone(&self.query_cache);
-        let dv_cache = Arc::clone(&self.dv_cache);
         // Permit is released by `on_drained` (fired after Phase 1 drain)
         // so the slow segment-write I/O in Phase 2 doesn't hold up the
         // per-shard flush permit pool.  The `Option` wrapper makes the
@@ -1533,9 +1532,18 @@ impl Index {
             if let Err(e) = result {
                 tracing::error!(error = %e, shard_idx, "sync flush failed");
             }
+            // P3.2 — additive invalidation. Bump the dataset version
+            // (the query_cache is keyed by (query_hash, dataset_version)
+            // so every cached result now misses) and clear the small
+            // query_cache, but DO NOT clear the per-segment dv_cache: a
+            // flush only CREATES new immutable segments and cannot
+            // invalidate the doc-values of segments that already
+            // existed. The old blanket clear forced a cold mmap+decode
+            // on the next read after every flush — the flush-coincident
+            // read-p99 spike. Segment-dropping merges evict the exact
+            // dropped ids; see run_merge_once.
             dataset_version.fetch_add(1, Ordering::Release);
             query_cache.clear();
-            dv_cache.clear();
         });
     }
 
@@ -1834,8 +1842,6 @@ impl Index {
             let data_dir = self.data_dir.clone();
             let dataset_version = Arc::clone(&self.dataset_version);
             let query_cache = Arc::clone(&self.query_cache);
-            let dv_cache = Arc::clone(&self.dv_cache);
-            let stored_value_cache = Arc::clone(&self.stored_value_cache);
 
             // Pre-build field configs ONCE for all shard flushes we
             // spawn this tick — avoids N schema read-lock acquires.
@@ -1878,14 +1884,15 @@ impl Index {
                 if let Err(e) = result {
                     tracing::error!(error = %e, shard_idx, "background shard flush failed");
                 }
+                // P3.2 — additive invalidation. Old segment IDs are
+                // still valid after a flush (segments are immutable), so
+                // we keep their per-segment dv_cache / stored_value_cache
+                // entries warm and only invalidate the query_cache via
+                // the dataset-version bump. This removes the cold-read
+                // p99 spike that the old blanket clear produced on every
+                // flush. Merges evict their dropped segment ids exactly.
                 dataset_version.fetch_add(1, AtomicOrdering::Release);
                 query_cache.clear();
-                dv_cache.clear();
-                // Conservative: a flush may have produced a fresh segment
-                // whose ID we don't yet know about, but old segment IDs
-                // are still valid. Mirror dv_cache's all-clear policy
-                // for consistency; revisit once we add an LRU.
-                stored_value_cache.clear();
             });
         }
     }
@@ -1978,6 +1985,10 @@ impl Index {
 
         let segments_dir = self.data_dir.join("segments");
         let mut merged_batches = 0usize;
+        // P3.2 — collect the exact segment ids a merge drops so we can
+        // evict only their per-segment cache entries (vs clearing the
+        // whole dv_cache / stored_value_cache).
+        let mut dropped_seg_ids: Vec<String> = Vec::new();
 
         // V4 M4.7 — PARALLEL BATCHES.  Previously the for-loop awaited
         // each batch's spawn_blocking before starting the next, so only
@@ -2318,6 +2329,10 @@ impl Index {
                             live_docs = live_doc_count,
                             "segment merge complete"
                         );
+                        // These input segment ids are now unreachable —
+                        // record them for precise per-segment cache
+                        // eviction below.
+                        dropped_seg_ids.extend(batch_slice.iter().cloned());
                         merged_batches += 1;
                     }
                 }
@@ -2331,16 +2346,19 @@ impl Index {
             }
         }
 
-        // If we applied any merges, bump the dataset version and drop
-        // the query + dv caches so post-merge reads see fresh data.
+        // If we applied any merges, bump the dataset version (invalidates
+        // the query_cache) and evict ONLY the dropped segments' entries
+        // from the per-segment dv_cache / stored_value_cache. P3.2: the
+        // segments that survived the merge are immutable and their cached
+        // doc-values / stored fields remain valid, so we no longer clear
+        // the whole maps (which cold-started every post-merge read).
         if merged_batches > 0 {
             self.dataset_version.fetch_add(1, AtomicOrdering::Release);
             self.query_cache.clear();
-            self.dv_cache.clear();
-            // Merge replaced N old segment IDs with one new ID; old
-            // entries become unreachable. Drop the whole map so the
-            // unreachable entries get freed.
-            self.stored_value_cache.clear();
+            for id in &dropped_seg_ids {
+                self.dv_cache.remove(id.as_str());
+                self.stored_value_cache.remove(id.as_str());
+            }
         }
 
         Ok(merged_batches)
@@ -5246,10 +5264,12 @@ impl Index {
         }
         // Flushing moves data from memtable → segments, which changes
         // what the shortcut count paths compute.  Bump the dataset
-        // version so the response cache invalidates.
+        // version so the response cache invalidates. P3.2: the new
+        // segments are immutable and don't invalidate any EXISTING
+        // segment's cached doc-values / stored fields, so we no longer
+        // clear those per-segment caches here — the version bump alone
+        // makes the query_cache miss.
         self.dataset_version.fetch_add(1, Ordering::Release);
-        self.dv_cache.clear();
-        self.stored_value_cache.clear();
         // Persist the HNSW graph alongside the segment durability
         // event. v0.6.2 — pre-flush the graph could be reconstructed
         // from the WAL on restart (slow); post-flush the WAL has been
