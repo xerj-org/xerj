@@ -4033,11 +4033,23 @@ impl Index {
             total_count = total_count.saturating_add(mem_count);
         }
 
-        let shortcut_count: Option<u64> = if count_only {
-            self.try_shortcut_count(query, &snap, is_match_all).await
-        } else {
-            None
-        };
+        // Compute the authoritative match count via the fast doc-values /
+        // FST metadata path.  Historically this was gated on `count_only`
+        // (size:0), but F1 decouples the EXACT total from source
+        // materialisation for size>0 too: when the count is known cheaply we
+        // can bound the stored-doc scan to only the top (from+size) hits
+        // instead of walking every match to tally `hits.total`.  For query
+        // shapes the shortcut can't resolve it returns `None` (cheaply) and we
+        // fall back to the full counting scan — so this is always safe.
+        let shortcut_count: Option<u64> =
+            self.try_shortcut_count(query, &snap, is_match_all).await;
+
+        // Whether this query resolves to an FTS (inverted-index) search.  The
+        // FTS scored path already counts authoritatively via `seg_hits.len()`
+        // and materialises only the top prefix, so the F1 bounded-scan / count
+        // overwrite must NOT touch FTS queries — it only applies to the
+        // non-FTS stored-doc scan (match_all / term-on-keyword / range).
+        let query_needs_fts: bool = query_node_to_fts(query, &text_fields).is_some();
 
         // ── Precomputed segment agg fast path (M2 G2) ─────────────────────
         //
@@ -4074,13 +4086,19 @@ impl Index {
         if precomputed_aggs.is_some() {
             // Skip the entire segment loop — the fast agg path already
             // computed everything we need.  `total_count` is set above.
-        } else if let Some(sc_total) = shortcut_count {
+        } else if count_only && shortcut_count.is_some() {
             // Overwrite `total_count` — the memtable/bounded-collector scan
             // above has already looked at the memtable, but we want an
             // authoritative per-shape count, not the sum of two sources.
             // (The memtable path bails on `count_only` without double
             // counting, but to be safe we set the total directly.)
-            total_count = sc_total;
+            //
+            // NOTE: size>0 queries that ALSO have a shortcut count do NOT take
+            // this branch — they fall through to the segment loop so their
+            // top (from+size) hit *sources* still get materialised.  Their
+            // `total_count` is overwritten with `shortcut_count` after the
+            // loop, and the scan runs in bounded (`count_authoritative`) mode.
+            total_count = shortcut_count.unwrap();
         } else if is_match_all && count_only {
             // Legacy MatchAll fast path (covers the `try_shortcut_count`
             // return as well, but keeps existing behaviour if the helper
@@ -4097,7 +4115,31 @@ impl Index {
             let needs_fts = fts_query_probe.is_some();
             drop(fts_query_probe); // only needed for the decision
 
+            // F1: when the EXACT total is already known independently of the
+            // scan — MatchAll (overwritten with `live_doc_count()` below) or a
+            // resolved `shortcut_count` (doc-values / FST) — the stored-doc
+            // scan no longer needs to walk every match just to tally
+            // `hits.total`.  In that case we let the non-FTS scan STOP as soon
+            // as it has materialised the top `materialisation_limit` sources,
+            // turning size>0 match_all/term/range from O(total-matches) into
+            // O(from+size).  When the count is NOT authoritative (no shortcut,
+            // not match_all) we keep the full counting scan for correctness.
+            let count_authoritative: bool =
+                !query_needs_fts && (is_match_all || shortcut_count.is_some());
+
             for meta in &snap.segments {
+                // F1: once the exact total is authoritative AND the bounded
+                // collector is full, remaining segments can neither add a
+                // materialised hit (page is full) nor change `hits.total`
+                // (overwritten by shortcut/live_doc_count).  Skip them WITHOUT
+                // opening + decompressing their stored section — otherwise the
+                // O(N) cost just moves from JSON-parsing to `decode_stored`
+                // over every segment.  This is what turns the whole query into
+                // O(from+size) rather than O(segments·docs_per_segment).
+                if count_authoritative && all_hits.len() >= materialisation_limit {
+                    break;
+                }
+
                 let seg_id = meta.id.clone();
                 let fts_dir = segments_dir.clone();
 
@@ -4289,6 +4331,7 @@ impl Index {
                                     is_match_all,
                                     count_only,
                                     materialisation_limit,
+                                    count_authoritative,
                                     &mut total_count,
                                     &mut all_hits,
                                     &mut seen_ids,
@@ -4301,6 +4344,16 @@ impl Index {
             }
         }
         drop(snap);
+
+        // F1: did the bounded collector fill to the cap?  If so the stored-doc
+        // scan may have STOPPED early (count_authoritative), so its
+        // `total_count` is only a partial tally and must be replaced by the
+        // authoritative shortcut count below.  If it did NOT fill to the cap,
+        // every match was visited and `total_count` is already EXACT — and it
+        // faithfully reflects full query semantics (flattened / subobjects:false
+        // / passthrough field resolution the doc-values shortcut can't model),
+        // so we keep it and never overwrite.
+        let scan_hit_cap: bool = all_hits.len() >= materialisation_limit;
 
         // De-duplication is already enforced by `seen_ids` inside the
         // bounded collector (`admit_hit!`), so `all_hits` is already unique.
@@ -4709,6 +4762,22 @@ impl Index {
         // below still adjusts from this corrected base if present.
         if is_match_all {
             total_count = self.live_doc_count();
+        } else if size > 0 && !query_needs_fts && scan_hit_cap {
+            // F1: the non-FTS stored scan filled its bounded collector and may
+            // have stopped early, so its `total_count` is partial — replace it
+            // with the authoritative doc-values / FST shortcut count.  We only
+            // do this when the scan actually hit the cap: for small result sets
+            // the scan already produced the EXACT, full-semantics count above
+            // and must be trusted (the shortcut can under-count flattened /
+            // subobjects:false / passthrough fields, returning 0 where the scan
+            // finds matches).  The `sc >= final_hits.len()` guard is a final
+            // sanity check — the true total can never be below the number of
+            // distinct hits we actually materialised.
+            if let Some(sc) = shortcut_count {
+                if sc >= final_hits.len() as u64 {
+                    total_count = sc;
+                }
+            }
         }
 
         // --- Apply min_score threshold ---
@@ -6441,6 +6510,7 @@ impl Index {
         is_match_all: bool,
         count_only: bool,
         materialisation_limit: usize,
+        count_authoritative: bool,
         total_count: &mut u64,
         all_hits: &mut Vec<Hit>,
         seen_ids: &mut HashSet<String>,
@@ -6578,7 +6648,19 @@ impl Index {
             }
 
             if all_hits.len() >= materialisation_limit {
-                // Bounded collector is full; count only from here on.
+                // Bounded collector is full.
+                if count_authoritative {
+                    // The EXACT `hits.total` is supplied independently (MatchAll
+                    // live_doc_count / doc-values shortcut) and is overwritten
+                    // by the caller after this scan, so there is nothing left to
+                    // do once we have the top (from+size) sources.  Stop the
+                    // scan instead of walking every remaining match — this is
+                    // the O(from+size) fetch that F1 buys us.  The `*total_count`
+                    // tallied so far is discarded by the caller's overwrite.
+                    break;
+                }
+                // Count not authoritative for this shape: keep scanning to
+                // tally the exact `hits.total`, just don't materialise sources.
                 continue;
             }
 
