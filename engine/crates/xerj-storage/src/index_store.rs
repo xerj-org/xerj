@@ -578,6 +578,90 @@ impl IndexStore {
         Ok(())
     }
 
+    /// Write the `<segment_id>.ids` side-car from `(seq_no, doc_id)` pairs
+    /// (ZID2 format — see the format comment at the flush-time call in
+    /// `finalize_flush_with_publisher`).  Shared by the flush path and the
+    /// engine merge task: pre-2026-07 only flush wrote the side-car, so
+    /// merge-output segments always fell back to the slow decode-stored
+    /// path in `rebuild_version_map_from_segments` on reopen (the very
+    /// path the side-car exists to avoid — ~302 s vs ~5 s cold restart on
+    /// the 66.5 M-doc workload).
+    pub fn write_ids_sidecar(
+        &self,
+        segment_id: &str,
+        pairs: &[(u64, &str)],
+    ) -> std::io::Result<()> {
+        let mut body: Vec<u8> =
+            Vec::with_capacity(pairs.iter().map(|(_, id)| 8 + 2 + id.len()).sum::<usize>());
+        for (seq_no, id) in pairs {
+            body.extend_from_slice(&seq_no.to_le_bytes());
+            body.extend_from_slice(&(id.len() as u16).to_le_bytes());
+            body.extend_from_slice(id.as_bytes());
+        }
+        let compressed = lz4_flex::compress_prepend_size(&body);
+        let mut buf: Vec<u8> = Vec::with_capacity(8 + compressed.len());
+        buf.extend_from_slice(b"ZID2");
+        buf.extend_from_slice(&(pairs.len() as u32).to_le_bytes());
+        buf.extend_from_slice(&compressed);
+        let ids_path = self
+            .data_dir
+            .join("segments")
+            .join(format!("{segment_id}.ids"));
+        std::fs::write(&ids_path, &buf)
+    }
+
+    /// Unlink every on-disk file belonging to the given segment ids — the
+    /// primary `.seg` plus all side-cars (`.sidx`, `.ids`, `.dv`,
+    /// `.<field>.post` / `.fst` / `.meta` / `.norms`).
+    ///
+    /// Disk-space fix (2026-07): called by the engine merge task right
+    /// after `apply_merge` commits, so merged-away input segments are
+    /// reclaimed immediately instead of lingering until the next process
+    /// restart (`cleanup_orphaned_segment_files` only runs on `open()`;
+    /// on the 1 M-doc benchmark that left ~137 MB of dead segment files
+    /// on disk).  Deleting them at commit time also prevents
+    /// `recover_orphaned_segments` from resurrecting stale pre-merge
+    /// segments (they still carry a valid `.ids` side-car) on restart.
+    ///
+    /// Unlinking under a live mmap is safe on Linux: snapshot readers
+    /// that already opened the segment keep their mappings; the blocks
+    /// are freed once the last reader drops.  Errors are best-effort —
+    /// anything left behind is picked up by the on-open cleanup.
+    ///
+    /// Returns `(files_removed, bytes_removed)` for logging.
+    pub fn delete_segment_files(&self, segment_ids: &[SegmentId]) -> (usize, u64) {
+        let segments_dir = self.data_dir.join("segments");
+        let ids: std::collections::HashSet<&str> =
+            segment_ids.iter().map(|s| s.as_str()).collect();
+        if ids.is_empty() {
+            return (0, 0);
+        }
+        let entries = match std::fs::read_dir(&segments_dir) {
+            Ok(e) => e,
+            Err(_) => return (0, 0),
+        };
+        let mut removed_files = 0usize;
+        let mut removed_bytes = 0u64;
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            // Segment filenames look like "<36-char UUID>.<suffix>".
+            if name_str.len() < 37 {
+                continue;
+            }
+            let prefix = &name_str[..36];
+            if !ids.contains(prefix) {
+                continue;
+            }
+            let sz = entry.metadata().map(|m| m.len()).unwrap_or(0);
+            if std::fs::remove_file(entry.path()).is_ok() {
+                removed_files += 1;
+                removed_bytes += sz;
+            }
+        }
+        (removed_files, removed_bytes)
+    }
+
     // ── Shard routing ─────────────────────────────────────────────────────────
 
     /// Route a doc_id to its memtable shard using the *runtime* shard
@@ -934,24 +1018,16 @@ impl IndexStore {
         // ids LZ4 still gets ~2× because the u64 seq_nos step
         // monotonically.  Reading V1 still works for old data dirs.
         {
-            let segments_dir = self.data_dir.join("segments");
-            let ids_path = segments_dir.join(format!("{}.ids", meta.id.as_str()));
-            let live: Vec<&MemEntry> = entries.iter().filter(|e| e.source.is_some()).collect();
-            let mut body: Vec<u8> = Vec::with_capacity(
-                live.iter().map(|e| 8 + 2 + e.doc_id.len()).sum::<usize>(),
-            );
-            for e in &live {
-                body.extend_from_slice(&e.seq_no.to_le_bytes());
-                body.extend_from_slice(&(e.doc_id.len() as u16).to_le_bytes());
-                body.extend_from_slice(e.doc_id.as_bytes());
-            }
-            let compressed = lz4_flex::compress_prepend_size(&body);
-            let mut buf: Vec<u8> = Vec::with_capacity(4 + 4 + compressed.len());
-            buf.extend_from_slice(b"ZID2");
-            buf.extend_from_slice(&(live.len() as u32).to_le_bytes());
-            buf.extend_from_slice(&compressed);
-            if let Err(e) = std::fs::write(&ids_path, &buf) {
-                tracing::warn!(?ids_path, "failed to write seg.ids sidecar: {e}");
+            let pairs: Vec<(u64, &str)> = entries
+                .iter()
+                .filter(|e| e.source.is_some())
+                .map(|e| (e.seq_no, e.doc_id.as_str()))
+                .collect();
+            if let Err(e) = self.write_ids_sidecar(meta.id.as_str(), &pairs) {
+                tracing::warn!(
+                    segment_id = meta.id.as_str(),
+                    "failed to write seg.ids sidecar: {e}"
+                );
             }
         }
 
@@ -1042,7 +1118,23 @@ impl IndexStore {
             for ws in &self.wal_shards {
                 let mut wal = ws.lock().unwrap();
                 wal.checkpoint(max_seq)?;
-                let _ = wal.rotate_if_large(64 * 1024 * 1024);
+                // Disk-space fix (2026-07): force-rotate + prune instead of
+                // `rotate_if_large(64 MB)`.  The checkpoint we just wrote
+                // records the shard's FULL current file length (we hold the
+                // shard mutex, so `offset == current_offset`), i.e. the
+                // whole active generation is covered — rotating now lets
+                // `prune()` reclaim it.  The old 64 MB threshold never
+                // fired on realistic workloads: with 16 WAL shards a 1 M-doc
+                // ingest leaves 10-35 MB per shard file, so ~490 MB of WAL
+                // that was already durable in segments sat on disk forever
+                // (the explicit `_flush` path has done force-rotate via
+                // `force_wal_maintenance` since the 2026-04-25 head-to-head;
+                // this mirrors it on the background flush path).  Rotation
+                // churn stays bounded by the surrounding 1 s
+                // `WAL_MAINTENANCE_INTERVAL_MS` gate — at most one
+                // rotation per shard per second, and `force_rotate` no-ops
+                // on generations with no data past the header.
+                wal.force_rotate()?;
                 wal.prune()?;
             }
         }
