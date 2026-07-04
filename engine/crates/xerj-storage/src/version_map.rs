@@ -106,6 +106,42 @@ impl VersionMap {
         self.inner.insert(doc_id, VersionEntry { seq_no, segment_id: segment_id.into(), deleted });
     }
 
+    /// Record `doc_id → (seq_no, segment_id)` only if `seq_no` is >= the
+    /// currently recorded seq_no (or the doc is unknown).
+    ///
+    /// Used by the merge task to repoint surviving docs at the merged
+    /// segment with their REAL per-doc seq_nos:
+    /// - `>=` (not `>`): the surviving doc's entry currently points at a
+    ///   merged-away INPUT segment with the SAME seq_no — equality must
+    ///   win or `apply_merge → remove_segment` would drop the entry (and
+    ///   the doc) entirely.
+    /// - guarded (not unconditional `set`): a doc updated concurrently
+    ///   while the merge ran has a NEWER entry pointing at the memtable /
+    ///   another segment — clobbering it with the merged copy would
+    ///   resurrect the stale version.
+    ///
+    /// Atomic per key via the dashmap entry API.
+    pub fn set_if_latest(
+        &self,
+        doc_id: impl Into<String>,
+        seq_no: SeqNo,
+        segment_id: impl Into<Arc<str>>,
+        deleted: bool,
+    ) {
+        let doc_id = doc_id.into();
+        use dashmap::mapref::entry::Entry;
+        match self.inner.entry(doc_id) {
+            Entry::Occupied(mut occ) => {
+                if seq_no >= occ.get().seq_no {
+                    occ.insert(VersionEntry { seq_no, segment_id: segment_id.into(), deleted });
+                }
+            }
+            Entry::Vacant(vac) => {
+                vac.insert(VersionEntry { seq_no, segment_id: segment_id.into(), deleted });
+            }
+        }
+    }
+
     /// Attempt an atomic compare-and-set.
     ///
     /// - If `expected_seq_no` is `None`, succeeds only if the document does NOT

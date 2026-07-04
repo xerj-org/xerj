@@ -2025,6 +2025,12 @@ impl Index {
             Vec<xerj_storage::segment::SegmentId>,
             xerj_storage::segment::SegmentMeta,
             usize,
+            // (seq_no, doc_id) per surviving doc, in stored order — used to
+            // write the merge output's `.ids` side-car after `apply_merge`
+            // commits (flush already writes one; merge outputs previously
+            // never got one, forcing the slow decode-stored fallback in
+            // `rebuild_version_map_from_segments` on every reopen).
+            Vec<(u64, String)>,
         );
 
         // Build the list of (batch, metas) pairs we'll launch.
@@ -2125,6 +2131,12 @@ impl Index {
                 // Halves merge working memory and frees the Arc<Value>
                 // immediately after both passes complete.
                 let mut fts_input: Vec<(String, HashMap<String, String>, Value)> = Vec::new();
+                // (seq_no, doc_id) for every surviving doc — kept exactly
+                // aligned with the stored-section byte copy (pushed right
+                // after `live_doc_count += 1`, BEFORE the per-doc Value
+                // parse that can `continue`), so the `.ids` side-car covers
+                // all stored docs even if a doc fails the FTS/DV re-parse.
+                let mut ids_pairs: Vec<(u64, String)> = Vec::new();
 
                 for meta in &metas_for_task {
                     min_seq = min_seq.min(meta.min_seq_no);
@@ -2187,6 +2199,7 @@ impl Index {
                         first_doc = false;
                         merged_json_buf.extend_from_slice(raw_str.as_bytes());
                         live_doc_count += 1;
+                        ids_pairs.push((id_seq.seq_no, id_seq.id.to_string()));
 
                         // Per-doc Value parse for FTS / DV builders.
                         let doc_value: Value = match serde_json::from_str(raw_str) {
@@ -2258,23 +2271,36 @@ impl Index {
                 }
 
                 // Update version_map so doc → segment_id points to the
-                // merged segment.  We use the (id, source) data already
-                // collected during the byte-copy pass above; this used to
-                // re-walk the entire `merged_docs` Vec a second time.
+                // merged segment, using each doc's REAL seq_no from
+                // `ids_pairs` (collected during the byte-copy pass).
+                //
+                // CRITICAL correctness fix (2026-07): the previous code set
+                // EVERY surviving doc's entry to the segment's `max_seq`
+                // ("monotone upper bound").  That poisoned the version map:
+                // on the NEXT merge round the survivor filter compares
+                // `entry.seq_no > stored._seq_no` and, with entry.seq_no
+                // faked to max_seq, every doc except the one that actually
+                // owns max_seq looks stale and is dropped.  Any second-
+                // level merge (merged segment merged again — routine on a
+                // converging index) silently discarded ~all docs; live-
+                // verified as 200 k → 12 docs after one background merge
+                // cascade.  The loss was masked on restart only because
+                // merged-away input segments were never deleted from disk
+                // and `recover_orphaned_segments` resurrected them — a
+                // crutch removed by the merge-commit file deletion below.
+                //
+                // `set_if_latest` (>= guard) rather than unconditional
+                // `set`: a doc updated while the merge ran already has a
+                // newer entry that must not be clobbered by the merged
+                // (older) copy.
                 {
-                    // We need (id, seq_no) pairs.  Stash them while we have
-                    // access to fts_input ids and the per-doc source.  The
-                    // seq_no isn't carried in fts_input — pull from the doc
-                    // source's sibling _seq_no by re-parsing once… or just
-                    // use the merged segment's max_seq_no as a monotone
-                    // upper bound for all surviving docs.  That matches
-                    // what the pre-M4.8 code did when `_seq_no` was missing
-                    // (`unwrap_or(0)`), and is correct for the version-map
-                    // contract because the surviving doc's seq_no is by
-                    // definition ≤ max_seq.
-                    for (id, _, _) in &fts_input {
-                        store_for_task.version_map.set(
-                            id, max_seq, merged_meta.id.as_str(), false,
+                    let merged_arc: Arc<str> = Arc::from(merged_meta.id.as_str());
+                    for (seq_no, id) in &ids_pairs {
+                        store_for_task.version_map.set_if_latest(
+                            id.as_str(),
+                            *seq_no,
+                            Arc::clone(&merged_arc),
+                            false,
                         );
                     }
                 }
@@ -2296,7 +2322,7 @@ impl Index {
                     }
                 }
 
-                Some((batch_for_task, merged_meta, live_doc_count as usize))
+                Some((batch_for_task, merged_meta, live_doc_count as usize, ids_pairs))
             })
         };
 
@@ -2319,14 +2345,55 @@ impl Index {
             // order.
             let handle = in_flight.remove(0);
             match handle.await {
-                Ok(Some((batch_slice, merged_meta, live_doc_count))) => {
+                Ok(Some((batch_slice, merged_meta, live_doc_count, ids_pairs))) => {
                     if let Err(e) = self.store.apply_merge(&batch_slice, merged_meta.clone()) {
                         tracing::warn!("merge: apply_merge failed: {e}");
                     } else {
+                        // Write the merge output's `.ids` side-car AFTER the
+                        // merge is committed: if we crashed before
+                        // `apply_merge`, an output segment carrying a valid
+                        // `.ids` would be resurrected by
+                        // `recover_orphaned_segments` on restart alongside
+                        // its still-live inputs (duplicate docs).  Written
+                        // here, a crash in between merely loses the side-car
+                        // and reopen falls back to the (slow but correct)
+                        // decode-stored path — the pre-fix status quo.
+                        {
+                            let pairs: Vec<(u64, &str)> = ids_pairs
+                                .iter()
+                                .map(|(seq, id)| (*seq, id.as_str()))
+                                .collect();
+                            if let Err(e) = self
+                                .store
+                                .write_ids_sidecar(merged_meta.id.as_str(), &pairs)
+                            {
+                                tracing::warn!(
+                                    merged_id = merged_meta.id.as_str(),
+                                    "merge: failed to write .ids sidecar: {e}"
+                                );
+                            }
+                        }
+                        // Disk-space fix (2026-07): the input segments are
+                        // now unreachable from the (persisted) snapshot —
+                        // unlink their files immediately instead of leaving
+                        // them for the next restart's orphan cleanup (~137 MB
+                        // of dead segments after the 1 M-doc benchmark).
+                        // Drop the cached SegmentReader mmaps first so the
+                        // kernel can actually free the unlinked blocks once
+                        // in-flight readers finish (in-flight queries that
+                        // already hold an Arc<SegmentReader> keep working —
+                        // unlink under a live mmap is safe on Linux).
+                        for id in &batch_slice {
+                            self.store.evict_segment_reader_cache(id.as_str());
+                        }
+                        let (rm_files, rm_bytes) =
+                            self.store.delete_segment_files(&batch_slice);
                         tracing::info!(
                             merged_id = merged_meta.id.as_str(),
                             inputs = batch_slice.len(),
                             live_docs = live_doc_count,
+                            removed_files = rm_files,
+                            removed_mb = rm_bytes / 1_000_000,
                             "segment merge complete"
                         );
                         // These input segment ids are now unreachable —
