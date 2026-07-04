@@ -36,10 +36,10 @@ curl -s -XPOST "http://localhost:9200/vstore/_bulk" \
   "items": [
     {
       "index": {
-        "_id": "c772314a-ccd0-444f-ba55-2149470d8f17",
+        "_id": "7cecbafd-9619-4452-ae2a-7d750fe23c9a",
         "_index": "vstore",
         "_primary_term": 1,
-        "_seq_no": 1782804896706706,
+        "_seq_no": 1782855459635957,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -52,10 +52,10 @@ curl -s -XPOST "http://localhost:9200/vstore/_bulk" \
     },
     {
       "index": {
-        "_id": "f79f24db-c6c7-45d9-8eda-6792e497dc88",
+        "_id": "977f6978-af18-4919-8271-181518685d57",
         "_index": "vstore",
         "_primary_term": 1,
-        "_seq_no": 1782804896706707,
+        "_seq_no": 1782855459635958,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -68,10 +68,10 @@ curl -s -XPOST "http://localhost:9200/vstore/_bulk" \
     },
     {
       "index": {
-        "_id": "dfd31d47-94a2-4e4a-88aa-3e1125848a13",
+        "_id": "0a20a023-22db-4fc1-ba93-eb880ed9771a",
         "_index": "vstore",
         "_primary_term": 1,
-        "_seq_no": 1782804896706707,
+        "_seq_no": 1782855459635958,
         "_shards": {
           "failed": 0,
           "successful": 1,
@@ -126,7 +126,7 @@ curl -s -XPOST "http://localhost:9200/vstore/_search" \
   "hits": {
     "hits": [
       {
-        "_id": "c772314a-ccd0-444f-ba55-2149470d8f17",
+        "_id": "7cecbafd-9619-4452-ae2a-7d750fe23c9a",
         "_index": "vstore",
         "_score": 1,
         "_source": {
@@ -140,7 +140,7 @@ curl -s -XPOST "http://localhost:9200/vstore/_search" \
         }
       },
       {
-        "_id": "f79f24db-c6c7-45d9-8eda-6792e497dc88",
+        "_id": "977f6978-af18-4919-8271-181518685d57",
         "_index": "vstore",
         "_score": 0.608433723449707,
         "_source": {
@@ -152,26 +152,12 @@ curl -s -XPOST "http://localhost:9200/vstore/_search" \
           ],
           "text": "green pear"
         }
-      },
-      {
-        "_id": "dfd31d47-94a2-4e4a-88aa-3e1125848a13",
-        "_index": "vstore",
-        "_score": 0.5120481848716736,
-        "_source": {
-          "embedding": [
-            0,
-            0.1,
-            0.9,
-            0.1
-          ],
-          "text": "blue car"
-        }
       }
     ],
     "max_score": 1,
     "total": {
       "relation": "eq",
-      "value": 3
+      "value": 2
     }
   },
   "timed_out": false,

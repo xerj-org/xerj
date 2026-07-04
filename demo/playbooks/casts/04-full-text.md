@@ -34,7 +34,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "fe733455-65ba-4344-ba9d-098a7ba9de28",
+        "_id": "e8953ed6-3cfa-411f-b585-c141cbb28f0f",
         "_index": "articles",
         "_score": 0.28768211603164673,
         "_source": {
@@ -77,7 +77,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
   "hits": {
     "hits": [
       {
-        "_id": "01ddaa6c-b55e-4744-a7b2-538577fe3fe8",
+        "_id": "a42a64ea-0f2c-44b2-b4af-3db93b145cf3",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -95,7 +95,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
     }
   },
   "timed_out": false,
-  "took": 0
+  "took": 1
 }
 ```
 
@@ -120,7 +120,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
   "hits": {
     "hits": [
       {
-        "_id": "01ddaa6c-b55e-4744-a7b2-538577fe3fe8",
+        "_id": "a42a64ea-0f2c-44b2-b4af-3db93b145cf3",
         "_index": "articles",
         "_score": 1.6931471824645996,
         "_source": {
@@ -131,7 +131,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "5a5e1107-526e-469c-8bdb-db19781d5b4a",
+        "_id": "7e9e9f67-1d1b-4dbb-a833-06052cb89393",
         "_index": "articles",
         "_score": 1.6931471824645996,
         "_source": {
@@ -174,7 +174,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
   "hits": {
     "hits": [
       {
-        "_id": "01ddaa6c-b55e-4744-a7b2-538577fe3fe8",
+        "_id": "a42a64ea-0f2c-44b2-b4af-3db93b145cf3",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -185,7 +185,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "fe733455-65ba-4344-ba9d-098a7ba9de28",
+        "_id": "e8953ed6-3cfa-411f-b585-c141cbb28f0f",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -196,7 +196,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "5a5e1107-526e-469c-8bdb-db19781d5b4a",
+        "_id": "7e9e9f67-1d1b-4dbb-a833-06052cb89393",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -207,7 +207,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "d9fee133-5834-4a29-b4d1-a337ffaabd41",
+        "_id": "f5644d8f-b189-4f4e-bbec-e5dbcc4ccaf8",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -261,7 +261,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "fe733455-65ba-4344-ba9d-098a7ba9de28",
+        "_id": "e8953ed6-3cfa-411f-b585-c141cbb28f0f",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -272,7 +272,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "5a5e1107-526e-469c-8bdb-db19781d5b4a",
+        "_id": "7e9e9f67-1d1b-4dbb-a833-06052cb89393",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -283,7 +283,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "d9fee133-5834-4a29-b4d1-a337ffaabd41",
+        "_id": "f5644d8f-b189-4f4e-bbec-e5dbcc4ccaf8",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -326,7 +326,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
   "hits": {
     "hits": [
       {
-        "_id": "5a5e1107-526e-469c-8bdb-db19781d5b4a",
+        "_id": "7e9e9f67-1d1b-4dbb-a833-06052cb89393",
         "_index": "articles",
         "_score": 0.9741763472557068,
         "_source": {
@@ -344,7 +344,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
     }
   },
   "timed_out": false,
-  "took": 0
+  "took": 1
 }
 ```
 
@@ -369,7 +369,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
   "hits": {
     "hits": [
       {
-        "_id": "01ddaa6c-b55e-4744-a7b2-538577fe3fe8",
+        "_id": "a42a64ea-0f2c-44b2-b4af-3db93b145cf3",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -423,7 +423,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "fe733455-65ba-4344-ba9d-098a7ba9de28",
+        "_id": "e8953ed6-3cfa-411f-b585-c141cbb28f0f",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -477,7 +477,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "01ddaa6c-b55e-4744-a7b2-538577fe3fe8",
+        "_id": "a42a64ea-0f2c-44b2-b4af-3db93b145cf3",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -488,7 +488,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "fe733455-65ba-4344-ba9d-098a7ba9de28",
+        "_id": "e8953ed6-3cfa-411f-b585-c141cbb28f0f",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -499,7 +499,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "5a5e1107-526e-469c-8bdb-db19781d5b4a",
+        "_id": "7e9e9f67-1d1b-4dbb-a833-06052cb89393",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -510,7 +510,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
         }
       },
       {
-        "_id": "d9fee133-5834-4a29-b4d1-a337ffaabd41",
+        "_id": "f5644d8f-b189-4f4e-bbec-e5dbcc4ccaf8",
         "_index": "articles",
         "_score": 1,
         "_source": {
@@ -546,7 +546,7 @@ curl -s -XPOST "http://localhost:9200/articles/_search" \
   "hits": {
     "hits": [
       {
-        "_id": "01ddaa6c-b55e-4744-a7b2-538577fe3fe8",
+        "_id": "a42a64ea-0f2c-44b2-b4af-3db93b145cf3",
         "_index": "articles",
         "_score": 0.28768211603164673,
         "_source": {

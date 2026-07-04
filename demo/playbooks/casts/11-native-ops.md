@@ -19,7 +19,7 @@ curl -s "http://localhost:8080/v1/health"
     "version": "1.0.0-rc.1"
   },
   "took_ms": 0,
-  "request_id": "4ea40768-d02f-400b-a41d-143a3b30a3a6"
+  "request_id": "1ef5f338-8e17-4efc-aeb5-e65ea0659b29"
 }
 ```
 
@@ -96,7 +96,7 @@ curl -s "http://localhost:8080/v1/cluster/health"
     "version": "1.0.0-rc.1"
   },
   "took_ms": 0,
-  "request_id": "80c45115-cf0c-41d9-acca-00f68cc74229"
+  "request_id": "e7062a6a-6dd2-4ff6-bad9-bab8494aae7b"
 }
 ```
 
@@ -114,28 +114,28 @@ curl -s -XPOST "http://localhost:8080/v1/admin/flush"
     "failed": [],
     "flushed": 18,
     "indices": [
-      "logs-2026-04",
       ".xerj_views",
-      ".xerj_passkeys",
-      ".xerj_api_tokens",
-      "bench",
-      "articles",
-      ".xerj_alert_rules",
-      ".xerj_magic_links",
       "vstore",
-      ".xerj_audit",
-      ".xerj_users",
-      ".xerj_idp_config",
-      ".xerj_cluster_state",
-      ".xerj_dashboards",
-      ".xerj_prefs",
+      ".xerj_passkeys",
       ".xerj_sessions",
+      ".xerj_dashboards",
+      "articles",
+      ".xerj_idp_config",
+      ".xerj_alert_rules",
+      ".xerj_connections",
+      ".xerj_cluster_state",
       ".xerj_alert_fires",
-      ".xerj_connections"
+      "logs-2026-04",
+      ".xerj_prefs",
+      ".xerj_magic_links",
+      ".xerj_users",
+      "bench",
+      ".xerj_audit",
+      ".xerj_api_tokens"
     ]
   },
-  "took_ms": 6,
-  "request_id": "b999b9fb-e47f-461f-9b09-dd3aaa83f9b8"
+  "took_ms": 10,
+  "request_id": "74f4f01e-cbe2-4771-b527-128965b2e7a9"
 }
 ```
 
@@ -152,34 +152,46 @@ curl -s -XPOST "http://localhost:8080/v1/admin/backup" \
 ```json
 {
   "data": {
-    "backup": "backup-2621b3cf-4f39-4a75-921c-4edaae8d5cd7",
+    "backup": "backup-364d1962-f061-441c-8087-64ef74709587",
     "manifest": {
       "duration_in_millis": 0,
-      "end_time_in_millis": 1782804896898,
+      "end_time_in_millis": 1782855459954,
       "failures": [],
       "index_files": [
         {
           "files": [
-            "snapshot.json",
-            "schema.json",
-            "791a01a6-3d15-4e69-bc01-9e3eba10f268.@timestamp.norms",
-            "791a01a6-3d15-4e69-bc01-9e3eba10f268.@timestamp.meta",
-            "791a01a6-3d15-4e69-bc01-9e3eba10f268.level.norms",
-            "791a01a6-3d15-4e69-bc01-9e3eba10f268.level.meta",
-            "791a01a6-3d15-4e69-bc01-9e3eba10f268.svc.norms",
-            "791a01a6-3d15-4e69-bc01-9e3eba10f268.@timestamp.fst",
-            "791a01a6-3d15-4e69-bc01-9e3eba10f268.svc.meta",
-            "791a01a6-3d15-4e69-bc01-9e3eba10f268.msg.norms",
-            "791a01a6-3d15-4e69-bc01-9e3eba10f268.msg.meta",
-            "791a01a6-3d15-4e69-bc01-9e3eba10f268.level.fst",
-            "791a01a6-3d15-4e69-bc01-9e3eba10f268.@timestamp.post",
-            "791a01a6-3d15-4e69-bc01-9e3eba10f268.level.post",
-            "791a01a6-3d15-4e69-bc01-9e3eba10f268.svc.fst",
-            "791a01a6-3d15-4e69-bc01-9e3eba10f268.msg.fst",
-            "791a01a6-3d15-4e69-bc01-9e3eba10f268.svc.post",
-            "791a01a6-3d15-4e69-bc01-9e3eba10f268.msg.post",
-            "791a01a6-3d15-4e69-bc01-9e3eba10f268.dv",
-            "fa277a16-e134-4674-9d
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "0000000000000000.wal",
+            "0000000000000000.wchk",
+            "000000000000
 … (92491 more bytes)
 ```
 
