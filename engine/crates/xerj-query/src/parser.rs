@@ -188,8 +188,14 @@ pub fn parse_request(body: &Value) -> Result<SearchRequest> {
         Some(Value::Bool(true)) | None => TrackTotalHits::True,
         Some(Value::Bool(false)) => TrackTotalHits::False,
         Some(Value::Number(n)) => {
-            let limit = n.as_u64().unwrap_or(10_000);
-            TrackTotalHits::Limit(limit)
+            // ES accepts `track_total_hits: -1` as an alias for `true`
+            // (track the exact total).
+            if n.as_i64().map(|v| v < 0).unwrap_or(false) {
+                TrackTotalHits::True
+            } else {
+                let limit = n.as_u64().unwrap_or(10_000);
+                TrackTotalHits::Limit(limit)
+            }
         }
         _ => TrackTotalHits::True,
     };
@@ -3286,6 +3292,33 @@ mod tests {
         } else {
             panic!("wrong variant");
         }
+    }
+
+    // ── track_total_hits ──────────────────────────────────────────────────────
+
+    #[test]
+    fn test_track_total_hits_parsing() {
+        // Absent → exact tracking at the parser level (the ES 10k default is
+        // injected by the HTTP layer, NOT here — `_count` and internal
+        // sub-searches rely on the parser staying exact when unset).
+        let req = parse_request(&json!({"query": {"match_all": {}}})).unwrap();
+        assert_eq!(req.track_total_hits, TrackTotalHits::True);
+
+        // true → exact.
+        let req = parse_request(&json!({"track_total_hits": true})).unwrap();
+        assert_eq!(req.track_total_hits, TrackTotalHits::True);
+
+        // false → don't track.
+        let req = parse_request(&json!({"track_total_hits": false})).unwrap();
+        assert_eq!(req.track_total_hits, TrackTotalHits::False);
+
+        // Integer N → cap at N.
+        let req = parse_request(&json!({"track_total_hits": 10_000})).unwrap();
+        assert_eq!(req.track_total_hits, TrackTotalHits::Limit(10_000));
+
+        // -1 is the ES alias for `true` (exact), NOT a 10k cap.
+        let req = parse_request(&json!({"track_total_hits": -1})).unwrap();
+        assert_eq!(req.track_total_hits, TrackTotalHits::True);
     }
 
     // ── match_phrase ──────────────────────────────────────────────────────────
