@@ -882,8 +882,10 @@ fn parse_query_string(params: &Value) -> Result<QueryNode> {
 
     // Try to lower the query string into a Bool tree so downstream matchers
     // can honor `field:value` + OR/AND syntax.  Fall back to the opaque
-    // QueryString node if parsing fails (the FTS path still tokenizes it).
-    if let Some(lowered) = try_lower_query_string(&query, default_field.as_deref(), default_operator) {
+    // QueryString node if lowering isn't possible (the FTS path still
+    // tokenizes it) — but malformed range syntax is a hard parse error,
+    // never a silent term-match fallback.
+    if let Some(lowered) = try_lower_query_string(&query, default_field.as_deref(), default_operator)? {
         return Ok(match boost {
             Some(b) if b != 1.0 => QueryNode::Boosted { boost: b, query: Box::new(lowered) },
             _ => lowered,
@@ -903,25 +905,58 @@ fn parse_query_string(params: &Value) -> Result<QueryNode> {
 ///  - `+A` must, `-A` must_not
 ///  - parentheses for grouping
 ///  - quoted phrases `"foo bar"` → MatchPhrase
+///  - range syntax: `field:>N`, `field:>=N`, `field:<N`, `field:<=N`,
+///    `field:[A TO B]` (inclusive), `field:{A TO B}` (exclusive), mixed
+///    `[A TO B}` forms, and `*` as an open end → Range
 ///
-/// Returns `None` for anything unrecognized (caller falls back to legacy path).
+/// Returns `Ok(None)` for anything unrecognized (caller falls back to the
+/// legacy opaque-QueryString path) and `Err` for malformed range syntax —
+/// ranges must never silently degrade to a term match.
 fn try_lower_query_string(
     q: &str,
     default_field: Option<&str>,
     default_op: Option<BoolOperator>,
-) -> Option<QueryNode> {
-    let tokens = tokenize_query_string(q)?;
-    if tokens.is_empty() { return None; }
+) -> Result<Option<QueryNode>> {
+    let Some(tokens) = tokenize_query_string(q)? else { return Ok(None) };
+    if tokens.is_empty() { return Ok(None); }
+    // Range clauses must target a concrete field: resolve unqualified
+    // ranges against default_field up-front so `>10` with no usable
+    // default errors instead of degrading to a term match.
+    let mut has_range = false;
+    for t in &tokens {
+        if let QsTok::Range { field, .. } = t {
+            has_range = true;
+            if field.is_empty()
+                && !matches!(default_field, Some(df) if !df.is_empty() && df != "*")
+            {
+                return Err(qerr(
+                    "query_string range requires an explicit field (e.g. `price:>10`) or a non-wildcard default_field",
+                ));
+            }
+        }
+    }
     let mut pos = 0;
-    let node = parse_qs_or(&tokens, &mut pos, default_field, default_op)?;
-    if pos != tokens.len() { return None; }
-    Some(node)
+    let parsed = parse_qs_or(&tokens, &mut pos, default_field, default_op);
+    match parsed {
+        Some(node) if pos == tokens.len() => Ok(Some(node)),
+        _ if has_range => Err(qerr(format!(
+            "failed to parse query_string with range syntax: `{q}`"
+        ))),
+        _ => Ok(None),
+    }
 }
 
 #[derive(Debug, Clone)]
 enum QsTok {
     Term(String, String),     // (field, value) — field empty if unqualified
     Phrase(String, String),   // (field, value)
+    Range {                   // field empty if unqualified
+        field: String,
+        gt: Option<Value>,
+        gte: Option<Value>,
+        lt: Option<Value>,
+        lte: Option<Value>,
+    },
     Or,
     And,
     Not,
@@ -930,7 +965,116 @@ enum QsTok {
     RParen,
 }
 
-fn tokenize_query_string(q: &str) -> Option<Vec<QsTok>> {
+/// Parse a range bound value from a Lucene query_string range expression.
+/// Numbers become JSON numbers (so the Range matcher compares numerically),
+/// `now`-style date math resolves to an ISO timestamp, and everything else
+/// stays a string. Surrounding quotes are stripped; `*` / empty → open end.
+fn qs_range_bound(raw: &str) -> Option<Value> {
+    let mut t = raw.trim();
+    if t.len() >= 2 && t.starts_with('"') && t.ends_with('"') {
+        t = &t[1..t.len() - 1];
+    }
+    if t.is_empty() || t == "*" {
+        return None;
+    }
+    if let Ok(n) = t.parse::<i64>() {
+        return Some(Value::from(n));
+    }
+    if let Ok(f) = t.parse::<f64>() {
+        if f.is_finite() {
+            return Some(Value::from(f));
+        }
+    }
+    if t.starts_with("now") {
+        if let Some(iso) = resolve_now_expr(t) {
+            return Some(Value::String(iso));
+        }
+    }
+    Some(Value::String(t.to_string()))
+}
+
+/// Parse a bracket range (`[A TO B]` / `{A TO B}` / mixed) starting at byte
+/// offset `open` in `q` (pointing at the opening bracket). Returns the token
+/// and the byte offset just past the closing bracket.
+fn qs_parse_bracket_range(q: &str, field: &str, open: usize) -> Result<(QsTok, usize)> {
+    let bytes = q.as_bytes();
+    let inclusive_lo = bytes[open] == b'[';
+    let mut j = open + 1;
+    while j < bytes.len() && bytes[j] != b']' && bytes[j] != b'}' {
+        j += 1;
+    }
+    if j >= bytes.len() {
+        return Err(qerr(format!(
+            "unterminated range in query_string: `{}`",
+            &q[open..]
+        )));
+    }
+    let inclusive_hi = bytes[j] == b']';
+    let inner = &q[open + 1..j];
+    let parts: Vec<&str> = inner.split_whitespace().collect();
+    if parts.len() != 3 || !parts[1].eq_ignore_ascii_case("TO") {
+        return Err(qerr(format!(
+            "malformed range in query_string: expected `[<lower> TO <upper>]`, got `{}`",
+            &q[open..=j]
+        )));
+    }
+    let lo = qs_range_bound(parts[0]);
+    let hi = qs_range_bound(parts[2]);
+    if lo.is_none() && hi.is_none() {
+        return Err(qerr(
+            "query_string range must have at least one non-`*` bound",
+        ));
+    }
+    let (mut gt, mut gte, mut lt, mut lte) = (None, None, None, None);
+    if inclusive_lo { gte = lo; } else { gt = lo; }
+    if inclusive_hi { lte = hi; } else { lt = hi; }
+    Ok((QsTok::Range { field: field.to_string(), gt, gte, lt, lte }, j + 1))
+}
+
+/// Parse a comparison range (`>N`, `>=N`, `<N`, `<=N`). `rest` is the text
+/// after the `field:` prefix within the scanned token; `i` is the byte offset
+/// in `q` where the token scanner stopped — the scanner breaks on `-`/`+`,
+/// which are value characters here (negative numbers, dates like
+/// `2020-01-01`), so the value is extended from the raw string. Returns the
+/// token and the byte offset just past the value.
+fn qs_parse_cmp_range(q: &str, field: &str, rest: &str, mut i: usize) -> Result<(QsTok, usize)> {
+    let bytes = q.as_bytes();
+    let (op, mut val) = if let Some(v) = rest.strip_prefix(">=") {
+        (">=", v.to_string())
+    } else if let Some(v) = rest.strip_prefix("<=") {
+        ("<=", v.to_string())
+    } else if let Some(v) = rest.strip_prefix('>') {
+        (">", v.to_string())
+    } else {
+        ("<", rest[1..].to_string())
+    };
+    while i < bytes.len() {
+        let c = bytes[i] as char;
+        if c.is_whitespace() || c == '(' || c == ')' {
+            break;
+        }
+        val.push(c);
+        i += 1;
+    }
+    let bound = qs_range_bound(&val).ok_or_else(|| {
+        qerr(format!(
+            "query_string range `{field}:{op}` is missing a value"
+        ))
+    })?;
+    let (mut gt, mut gte, mut lt, mut lte) = (None, None, None, None);
+    match op {
+        ">" => gt = Some(bound),
+        ">=" => gte = Some(bound),
+        "<" => lt = Some(bound),
+        _ => lte = Some(bound),
+    }
+    Ok((QsTok::Range { field: field.to_string(), gt, gte, lt, lte }, i))
+}
+
+/// Tokenize a Lucene query string. `Ok(None)` means "can't tokenize — fall
+/// back to the opaque QueryString path"; `Err` is a hard parse error
+/// (malformed range syntax must not degrade to a term match).
+fn tokenize_query_string(q: &str) -> Result<Option<Vec<QsTok>>> {
     let bytes = q.as_bytes();
     let mut out: Vec<QsTok> = Vec::new();
     let mut i = 0;
@@ -946,10 +1090,17 @@ fn tokenize_query_string(q: &str) -> Option<Vec<QsTok>> {
             let start = i + 1;
             let mut j = start;
             while j < bytes.len() && bytes[j] as char != '"' { j += 1; }
-            if j >= bytes.len() { return None; }
+            if j >= bytes.len() { return Ok(None); }
             let val = q[start..j].to_string();
             out.push(QsTok::Phrase(String::new(), val));
             i = j + 1;
+            continue;
+        }
+        // Unqualified bracket range on the default field: `[A TO B]` / `{A TO B}`.
+        if c == '[' || c == '{' {
+            let (tok, next) = qs_parse_bracket_range(q, "", i)?;
+            out.push(tok);
+            i = next;
             continue;
         }
         // Bare token (possibly field:value or field:"value").
@@ -997,19 +1148,35 @@ fn tokenize_query_string(q: &str) -> Option<Vec<QsTok>> {
                     // Rejoin from original string.
                     let mut j = i;
                     while j < bytes.len() && bytes[j] as char != '"' { j += 1; }
-                    if j >= bytes.len() { return None; }
+                    if j >= bytes.len() { return Ok(None); }
                     let whole = format!("{} {}", buf, &q[i..j]);
                     out.push(QsTok::Phrase(field.to_string(), whole));
                     i = j + 1;
                 }
+            } else if rest.starts_with('[') || rest.starts_with('{') {
+                // field:[A TO B] / field:{A TO B} — the bare-token scan stops
+                // at whitespace, so re-scan the raw string from the bracket.
+                let (rtok, next) = qs_parse_bracket_range(q, field, start + colon + 1)?;
+                out.push(rtok);
+                i = next;
+            } else if rest.starts_with('>') || rest.starts_with('<') {
+                // field:>N / field:>=N / field:<N / field:<=N
+                let (rtok, next) = qs_parse_cmp_range(q, field, rest, i)?;
+                out.push(rtok);
+                i = next;
             } else {
                 out.push(QsTok::Term(field.to_string(), unescape_qs(rest)));
             }
+        } else if tok.starts_with('>') || tok.starts_with('<') {
+            // Unqualified comparison range on the default field: `>N`, `<=N`, …
+            let (rtok, next) = qs_parse_cmp_range(q, "", tok, i)?;
+            out.push(rtok);
+            i = next;
         } else {
             out.push(QsTok::Term(String::new(), unescape_qs(tok)));
         }
     }
-    Some(out)
+    Ok(Some(out))
 }
 
 fn parse_qs_or(
@@ -1147,6 +1314,13 @@ fn parse_qs_unary(
             Some(QueryNode::MatchPhrase {
                 field: f, query: value, slop: 0, analyzer: None, boost: None,
             })
+        }
+        QsTok::Range { field, gt, gte, lt, lte } => {
+            *pos += 1;
+            // Unqualified ranges with no usable default_field were already
+            // rejected in try_lower_query_string.
+            let f = if field.is_empty() { default_field.unwrap_or("*").to_string() } else { field };
+            Some(QueryNode::Range { field: f, gte, gt, lte, lt, boost: None })
         }
         _ => None,
     }
@@ -3368,6 +3542,162 @@ mod tests {
             }
         }));
         assert!(matches!(node, QueryNode::Bool { .. }));
+    }
+
+    fn qs(query: &str) -> QueryNode {
+        q(json!({"query_string": {"query": query}}))
+    }
+
+    fn expect_range(node: QueryNode) -> (String, Option<Value>, Option<Value>, Option<Value>, Option<Value>) {
+        match node {
+            QueryNode::Range { field, gt, gte, lt, lte, .. } => (field, gt, gte, lt, lte),
+            other => panic!("expected Range, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_query_string_range_gt() {
+        let (field, gt, gte, lt, lte) = expect_range(qs("n:>1"));
+        assert_eq!(field, "n");
+        assert_eq!(gt, Some(json!(1)));
+        assert!(gte.is_none() && lt.is_none() && lte.is_none());
+    }
+
+    #[test]
+    fn test_query_string_range_gte() {
+        let (field, gt, gte, lt, lte) = expect_range(qs("n:>=2"));
+        assert_eq!(field, "n");
+        assert_eq!(gte, Some(json!(2)));
+        assert!(gt.is_none() && lt.is_none() && lte.is_none());
+    }
+
+    #[test]
+    fn test_query_string_range_lt() {
+        let (field, gt, gte, lt, lte) = expect_range(qs("n:<5"));
+        assert_eq!(field, "n");
+        assert_eq!(lt, Some(json!(5)));
+        assert!(gt.is_none() && gte.is_none() && lte.is_none());
+    }
+
+    #[test]
+    fn test_query_string_range_lte() {
+        let (field, _, _, _, lte) = expect_range(qs("n:<=5"));
+        assert_eq!(field, "n");
+        assert_eq!(lte, Some(json!(5)));
+    }
+
+    #[test]
+    fn test_query_string_range_inclusive_brackets() {
+        let (field, gt, gte, lt, lte) = expect_range(qs("n:[2 TO 5]"));
+        assert_eq!(field, "n");
+        assert_eq!(gte, Some(json!(2)));
+        assert_eq!(lte, Some(json!(5)));
+        assert!(gt.is_none() && lt.is_none());
+    }
+
+    #[test]
+    fn test_query_string_range_exclusive_brackets() {
+        let (field, gt, gte, lt, lte) = expect_range(qs("n:{2 TO 5}"));
+        assert_eq!(field, "n");
+        assert_eq!(gt, Some(json!(2)));
+        assert_eq!(lt, Some(json!(5)));
+        assert!(gte.is_none() && lte.is_none());
+    }
+
+    #[test]
+    fn test_query_string_range_mixed_brackets() {
+        let (field, gt, gte, lt, lte) = expect_range(qs("n:[2 TO 5}"));
+        assert_eq!(field, "n");
+        assert_eq!(gte, Some(json!(2)));
+        assert_eq!(lt, Some(json!(5)));
+        assert!(gt.is_none() && lte.is_none());
+    }
+
+    #[test]
+    fn test_query_string_range_open_upper() {
+        let (field, gt, gte, lt, lte) = expect_range(qs("n:[2 TO *]"));
+        assert_eq!(field, "n");
+        assert_eq!(gte, Some(json!(2)));
+        assert!(gt.is_none() && lt.is_none() && lte.is_none());
+    }
+
+    #[test]
+    fn test_query_string_range_open_lower() {
+        let (field, gt, gte, lt, lte) = expect_range(qs("n:[* TO 5]"));
+        assert_eq!(field, "n");
+        assert_eq!(lte, Some(json!(5)));
+        assert!(gt.is_none() && gte.is_none() && lt.is_none());
+    }
+
+    #[test]
+    fn test_query_string_range_negative_and_float() {
+        let (_, gt, ..) = expect_range(qs("n:>-1"));
+        assert_eq!(gt, Some(json!(-1)));
+        let (_, gt, ..) = expect_range(qs("n:>1.5"));
+        assert_eq!(gt, Some(json!(1.5)));
+    }
+
+    #[test]
+    fn test_query_string_range_date() {
+        let (field, gt, ..) = expect_range(qs("ts:>2020-01-01"));
+        assert_eq!(field, "ts");
+        assert_eq!(gt, Some(json!("2020-01-01")));
+        let (field, _, gte, _, lte) = expect_range(qs("ts:[2020-01-01 TO 2020-12-31]"));
+        assert_eq!(field, "ts");
+        assert_eq!(gte, Some(json!("2020-01-01")));
+        assert_eq!(lte, Some(json!("2020-12-31")));
+    }
+
+    #[test]
+    fn test_query_string_range_combined_and() {
+        // "msg:foo AND n:>1" → Bool.must = [Match(msg), Range(n, gt 1)]
+        let node = qs("msg:foo AND n:>1");
+        let QueryNode::Bool { must, must_not, should, .. } = node else {
+            panic!("expected Bool");
+        };
+        assert!(must_not.is_empty() && should.is_empty());
+        assert_eq!(must.len(), 2);
+        assert!(matches!(&must[0], QueryNode::Match { field, .. } if field == "msg"));
+        let (field, gt, ..) = expect_range(must[1].clone());
+        assert_eq!(field, "n");
+        assert_eq!(gt, Some(json!(1)));
+    }
+
+    #[test]
+    fn test_query_string_range_combined_bracket_and() {
+        let node = qs("msg:foo AND n:[2 TO *]");
+        let QueryNode::Bool { must, .. } = node else { panic!("expected Bool") };
+        assert_eq!(must.len(), 2);
+        let (field, _, gte, ..) = expect_range(must[1].clone());
+        assert_eq!(field, "n");
+        assert_eq!(gte, Some(json!(2)));
+    }
+
+    #[test]
+    fn test_query_string_range_default_field() {
+        // Unqualified range resolves against default_field.
+        let node = q(json!({
+            "query_string": {"query": ">10", "default_field": "n"}
+        }));
+        let (field, gt, ..) = expect_range(node);
+        assert_eq!(field, "n");
+        assert_eq!(gt, Some(json!(10)));
+    }
+
+    #[test]
+    fn test_query_string_range_errors_do_not_degrade() {
+        // Malformed / unrepresentable ranges must be parse errors,
+        // never a silent term match.
+        for bad in [
+            "n:[2 TO",          // unterminated bracket
+            "n:[2 5]",          // missing TO
+            "n:>",              // missing value
+            "n:[* TO *]",       // no usable bound
+            ">10",              // no field and no default_field
+        ] {
+            let res = parse_query(&json!({"query_string": {"query": bad}}));
+            assert!(res.is_err(), "expected parse error for {bad:?}, got {res:?}");
+        }
     }
 
     // ── knn ───────────────────────────────────────────────────────────────────
