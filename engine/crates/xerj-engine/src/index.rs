@@ -15,7 +15,7 @@ use xerj_common::schema::ManagedSchema;
 use xerj_common::types::{FieldConfig, FieldType, IndexName, Schema};
 use xerj_fts::analyzer::AnalyzerRegistry;
 use xerj_fts::index::{FtsIndexReader, FtsIndexWriter};
-use xerj_fts::search::{FtsSearcher, Query as FtsQuery, TermQuery as FtsTerm, BoolQuery as FtsBool};
+use xerj_fts::search::{FtsSearcher, Query as FtsQuery, TermQuery as FtsTerm, BoolQuery as FtsBool, DisMaxQuery as FtsDisMax};
 use regex::Regex;
 use xerj_query::ast::{BoostMode, FieldValueFactor, Fuzziness, HighlightRequest, MinShouldMatch, Modifier, QueryNode, RandomScore, RescoreQuery, ScoreFunction, ScoreMode, SearchRequest, SourceFilter, TrackTotalHits};
 use xerj_query::executor::{Hit, SearchResult, TotalHits, TotalHitsRelation};
@@ -10740,24 +10740,38 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             if score == 0.0 { 1.0 } else { score }
         }
         QueryNode::Named { query, .. } => score_query_against_doc(query, source),
-        // MultiMatch with field boosts: sum boosted scores across matching fields.
-        QueryNode::MultiMatch { fields, query, boost, .. } => {
+        // MultiMatch with field boosts. ES semantics per type:
+        //   best_fields (default) → dis_max: MAX of the per-field scores.
+        //   most_fields           → sum of the per-field scores.
+        QueryNode::MultiMatch { fields, query, boost, match_type, .. } => {
             let q_lower = query.to_lowercase();
             let outer_boost = boost.unwrap_or(1.0);
-            let mut total_score = 0.0f32;
+            let mut sum_score = 0.0f32;
+            let mut max_score = 0.0f32;
             let mut matched = false;
             for field_spec in fields {
                 let (field, field_boost) = parse_field_boost(field_spec);
                 if let Some(v) = get_field_value(source, field) {
                     if let Value::String(s) = v {
                         if s.to_lowercase().contains(&q_lower) {
-                            total_score += field_boost;
+                            sum_score += field_boost;
+                            if field_boost > max_score {
+                                max_score = field_boost;
+                            }
                             matched = true;
                         }
                     }
                 }
             }
-            if matched { total_score * outer_boost } else { 0.0 }
+            if !matched {
+                return 0.0;
+            }
+            let combined = if matches!(match_type, xerj_query::ast::MultiMatchType::MostFields) {
+                sum_score
+            } else {
+                max_score
+            };
+            combined * outer_boost
         }
         QueryNode::FunctionScore { query, functions, score_mode, boost_mode, .. } => {
             // Score the inner query, then run the function scores against
@@ -11491,32 +11505,72 @@ fn query_node_to_fts(q: &QueryNode, text_fields: &[String]) -> Option<FtsQuery> 
             }
             Some(FtsQuery::Bool(Box::new(bool_q)))
         }
-        QueryNode::MultiMatch { query, fields, .. } => {
+        QueryNode::MultiMatch { query, fields, match_type, boost, .. } => {
             let registry = AnalyzerRegistry::default();
             let analyzer = registry.get_analyzer("standard")?;
             let tokens = analyzer.analyze(query);
             if tokens.is_empty() {
                 return None;
             }
-            // Strip boost factors from field specs (e.g. "title^3" → "title").
-            let owned_fields: Vec<String>;
-            let search_fields: Vec<&str> = if fields.is_empty() {
-                text_fields.iter().map(|s| s.as_str()).collect::<Vec<_>>()
+            // Split boost factors out of field specs (e.g. "title^3" → ("title", 3.0)).
+            let field_specs: Vec<(String, f32)> = if fields.is_empty() {
+                text_fields.iter().map(|s| (s.clone(), 1.0)).collect()
             } else {
-                owned_fields = fields
+                fields
                     .iter()
-                    .map(|s| parse_field_boost(s).0.to_string())
-                    .collect();
-                owned_fields.iter().map(|s| s.as_str()).collect()
+                    .map(|s| {
+                        let (f, b) = parse_field_boost(s);
+                        (f.to_string(), b)
+                    })
+                    .collect()
             };
-            let mut bool_q = FtsBool::new();
-            for field in &search_fields {
-                for token in &tokens {
-                    bool_q =
-                        bool_q.should(FtsQuery::Term(FtsTerm::new(*field, &token.text)));
+            if field_specs.is_empty() {
+                return None;
+            }
+            // One scored clause per field.  A single-token query lowers to a
+            // bare Term so that `multi_match(q, [f])` scores IDENTICALLY to
+            // `match {f: q}`; multi-token queries lower to an OR-bool over the
+            // tokens (per-field score = Σ token BM25) — same as the Match
+            // lowering above.  Per-field `^boost` multiplies that field's score.
+            let mut per_field: Vec<FtsQuery> = Vec::with_capacity(field_specs.len());
+            for (field, fb) in &field_specs {
+                if tokens.len() == 1 {
+                    per_field.push(FtsQuery::Term(FtsTerm::boosted(
+                        field.as_str(),
+                        &tokens[0].text,
+                        *fb,
+                    )));
+                } else {
+                    let mut field_bool = FtsBool::new().boost(*fb);
+                    for token in &tokens {
+                        field_bool = field_bool
+                            .should(FtsQuery::Term(FtsTerm::new(field.as_str(), &token.text)));
+                    }
+                    per_field.push(FtsQuery::Bool(Box::new(field_bool)));
                 }
             }
-            Some(FtsQuery::Bool(Box::new(bool_q)))
+            // Combine per-field scores according to the multi_match type:
+            //   best_fields (ES default) → dis_max: score = MAX field score.
+            //   most_fields / everything else currently modeled → bool.should:
+            //     score = Σ field scores (pre-existing behaviour, now non-zero).
+            let combined = if per_field.len() == 1 {
+                per_field.pop().unwrap()
+            } else if matches!(match_type, xerj_query::ast::MultiMatchType::BestFields) {
+                FtsQuery::DisMax(Box::new(FtsDisMax::new(per_field)))
+            } else {
+                let mut bool_q = FtsBool::new();
+                for clause in per_field {
+                    bool_q = bool_q.should(clause);
+                }
+                FtsQuery::Bool(Box::new(bool_q))
+            };
+            // Apply the outer `multi_match.boost` (if any) via a wrapping bool.
+            let outer = boost.unwrap_or(1.0);
+            if (outer - 1.0).abs() > f32::EPSILON {
+                Some(FtsQuery::Bool(Box::new(FtsBool::new().should(combined).boost(outer))))
+            } else {
+                Some(combined)
+            }
         }
         QueryNode::Term { .. } => {
             // Term queries are routed through stored-doc scanning

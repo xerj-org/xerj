@@ -148,7 +148,7 @@ impl PrefixQuery {
 }
 
 /// Boolean combinator query — mirrors Elasticsearch's `bool` query.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BoolQuery {
     /// All must clauses must match.
     #[serde(default)]
@@ -166,6 +166,55 @@ pub struct BoolQuery {
     pub boost: f32,
 }
 
+impl Default for BoolQuery {
+    /// NOTE: `boost` must default to **1.0**, not `f32::default()` (0.0).
+    /// A derived `Default` zeroed the boost, and because `execute_bool`
+    /// multiplies the combined clause score by `boost`, every query built
+    /// through `BoolQuery::new()` (multi_match, multi-token match, bool)
+    /// returned `_score: 0.0` for all hits on the segment FTS path.
+    fn default() -> Self {
+        Self {
+            must: Vec::new(),
+            should: Vec::new(),
+            must_not: Vec::new(),
+            min_should_match: None,
+            boost: 1.0,
+        }
+    }
+}
+
+/// Disjunction-max query — mirrors Elasticsearch's `dis_max`.
+///
+/// A document's score is the MAXIMUM of its sub-query scores, plus
+/// `tie_breaker` × the sum of the remaining matching sub-query scores.
+/// `multi_match` with `type: best_fields` (the ES default) lowers to this.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DisMaxQuery {
+    pub queries: Vec<Query>,
+    /// Fraction of the non-best sub-scores added on top of the max (ES
+    /// default = 0.0, i.e. pure max).
+    #[serde(default)]
+    pub tie_breaker: f32,
+    #[serde(default = "default_boost")]
+    pub boost: f32,
+}
+
+impl DisMaxQuery {
+    pub fn new(queries: Vec<Query>) -> Self {
+        Self { queries, tie_breaker: 0.0, boost: 1.0 }
+    }
+
+    pub fn tie_breaker(mut self, t: f32) -> Self {
+        self.tie_breaker = t;
+        self
+    }
+
+    pub fn boost(mut self, b: f32) -> Self {
+        self.boost = b;
+        self
+    }
+}
+
 /// Top-level query enum.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -174,6 +223,7 @@ pub enum Query {
     Phrase(PhraseQuery),
     Prefix(PrefixQuery),
     Bool(Box<BoolQuery>),
+    DisMax(Box<DisMaxQuery>),
     MatchAll,
 }
 
@@ -206,6 +256,7 @@ impl FtsSearcher {
             Query::Phrase(pq) => self.execute_phrase(pq, explain),
             Query::Prefix(pq) => self.execute_prefix(pq, explain),
             Query::Bool(bq) => self.execute_bool(bq, explain),
+            Query::DisMax(dq) => self.execute_dis_max(dq, explain),
             Query::MatchAll => self.execute_match_all(),
         }
     }
@@ -522,6 +573,33 @@ impl FtsSearcher {
         Ok(hits)
     }
 
+    // ── Dis-max query ─────────────────────────────────────────────────────────
+
+    /// ES `dis_max` scoring: docs matching ANY sub-query are candidates;
+    /// score = max(sub scores) + tie_breaker × Σ(other matching sub scores),
+    /// all multiplied by the query boost.
+    fn execute_dis_max(&self, dq: &DisMaxQuery, explain: bool) -> Result<Vec<ScoredHit>> {
+        // Per-doc (max, sum) accumulator over sub-query scores.
+        let mut acc: std::collections::HashMap<u32, (f32, f32)> =
+            std::collections::HashMap::new();
+        for sub in &dq.queries {
+            for hit in self.execute(sub, explain)? {
+                let e = acc.entry(hit.doc_id).or_insert((f32::NEG_INFINITY, 0.0));
+                if hit.score > e.0 {
+                    e.0 = hit.score;
+                }
+                e.1 += hit.score;
+            }
+        }
+        Ok(acc
+            .into_iter()
+            .map(|(doc_id, (max, sum))| {
+                let score = (max + dq.tie_breaker * (sum - max)) * dq.boost;
+                ScoredHit { doc_id, score, explanation: None }
+            })
+            .collect())
+    }
+
     // ── Match all ─────────────────────────────────────────────────────────────
 
     fn execute_match_all(&self) -> Result<Vec<ScoredHit>> {
@@ -757,6 +835,117 @@ mod tests {
         assert!(doc_ids.contains(&1), "doc1 should match must(fox AND quick)");
         // Doc 4 has fox but not quick
         assert!(!doc_ids.contains(&4), "doc4 should NOT match (no 'quick')");
+    }
+
+    #[test]
+    fn bool_query_should_scores_are_nonzero() {
+        // Regression: BoolQuery's derived Default gave boost = 0.0, so every
+        // bool-shaped query (multi_match, multi-token match) returned
+        // _score 0.0 for all hits. The default boost must be 1.0, and a
+        // single-should bool must score identically to the bare term query.
+        let dir = TempDir::new().unwrap();
+        let searcher = setup_searcher(dir.path());
+
+        let term_hits = searcher
+            .search(&Query::Term(TermQuery::new("body", "fox")), 10, false)
+            .unwrap();
+        let bool_hits = searcher
+            .search(
+                &Query::Bool(Box::new(
+                    BoolQuery::new().should(Query::Term(TermQuery::new("body", "fox"))),
+                )),
+                10,
+                false,
+            )
+            .unwrap();
+
+        assert_eq!(term_hits.len(), bool_hits.len());
+        for th in &term_hits {
+            assert!(th.score > 0.0, "term score must be positive");
+            let bh = bool_hits.iter().find(|h| h.doc_id == th.doc_id).unwrap();
+            assert!(
+                (bh.score - th.score).abs() < 1e-6,
+                "bool(should:[term]) score {} must equal term score {} for doc {}",
+                bh.score,
+                th.score,
+                th.doc_id
+            );
+        }
+    }
+
+    #[test]
+    fn dis_max_takes_max_of_subquery_scores() {
+        let dir = TempDir::new().unwrap();
+        let registry = Arc::new(AnalyzerRegistry::default());
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg0", Arc::clone(&registry));
+        let mut cfg = FieldIndexConfig::default();
+        cfg.analyzer = "whitespace".to_owned();
+        writer.configure_field("title", cfg.clone());
+        writer.configure_field("body", cfg);
+
+        // doc 0: "golf" in both fields; doc 1: only title; doc 2: only body.
+        let docs: Vec<(&str, &str)> = vec![
+            ("golf highlights", "golf swing tips and golf drills"),
+            ("golf weekly", "tennis recap"),
+            ("morning news", "golf scores from sunday"),
+        ];
+        for (i, (title, body)) in docs.iter().enumerate() {
+            let fields: HashMap<String, String> = [
+                ("title".to_owned(), title.to_string()),
+                ("body".to_owned(), body.to_string()),
+            ]
+            .into_iter()
+            .collect();
+            writer.add_document(i as u32, &fields);
+        }
+        writer.finish().unwrap();
+        let reader =
+            Arc::new(FtsIndexReader::open(dir.path(), "seg0", &["title", "body"]).unwrap());
+        let searcher = FtsSearcher::new(reader, registry);
+
+        let title_q = Query::Term(TermQuery::new("title", "golf"));
+        let body_q = Query::Term(TermQuery::new("body", "golf"));
+        let title_hits = searcher.search(&title_q, 10, false).unwrap();
+        let body_hits = searcher.search(&body_q, 10, false).unwrap();
+
+        let dm = Query::DisMax(Box::new(DisMaxQuery::new(vec![
+            title_q.clone(),
+            body_q.clone(),
+        ])));
+        let dm_hits = searcher.search(&dm, 10, false).unwrap();
+
+        // Union of matching docs: all three.
+        assert_eq!(dm_hits.len(), 3, "dis_max must return the union of sub-query docs");
+
+        for hit in &dm_hits {
+            let ts = title_hits.iter().find(|h| h.doc_id == hit.doc_id).map(|h| h.score);
+            let bs = body_hits.iter().find(|h| h.doc_id == hit.doc_id).map(|h| h.score);
+            let expected = ts.unwrap_or(0.0).max(bs.unwrap_or(0.0));
+            assert!(hit.score > 0.0, "dis_max hit must have positive score");
+            assert!(
+                (hit.score - expected).abs() < 1e-6,
+                "doc {}: dis_max score {} != max(field scores) {}",
+                hit.doc_id,
+                hit.score,
+                expected
+            );
+        }
+
+        // tie_breaker adds a fraction of the non-best scores on top of the max.
+        let dm_tb = Query::DisMax(Box::new(
+            DisMaxQuery::new(vec![title_q, body_q]).tie_breaker(0.5),
+        ));
+        let tb_hits = searcher.search(&dm_tb, 10, false).unwrap();
+        let both = tb_hits.iter().find(|h| h.doc_id == 0).unwrap();
+        let ts = title_hits.iter().find(|h| h.doc_id == 0).unwrap().score;
+        let bs = body_hits.iter().find(|h| h.doc_id == 0).unwrap().score;
+        let expected = ts.max(bs) + 0.5 * (ts + bs - ts.max(bs));
+        assert!(
+            (both.score - expected).abs() < 1e-6,
+            "tie_breaker score {} != expected {}",
+            both.score,
+            expected
+        );
     }
 
     #[test]
