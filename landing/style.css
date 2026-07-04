@@ -255,9 +255,23 @@ section.section-split {
 section.section-split > .split-copy { min-width: 0; }
 section.section-split > .split-viz  { min-width: 0; }
 
-/* Hero variant of the split: copy left, demo video right. */
-section.hero-split { align-items: center; }
+/* Hero variant of the split: copy left, demo video right. Copy
+   keeps the wider track so the h1 never wraps mid-word, the h1
+   scales fluidly below full width, and the player is capped — all
+   so the full title hero fits a 1080px viewport without scrolling. */
+section.hero-split {
+  align-items: center;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+}
 section.hero-split .lead { margin-bottom: 0; }
+@media (min-width: 961px) {
+  section.hero-split h1.hero { font-size: clamp(96px, 8.3vw, 160px); }
+}
+.hero-demo {
+  width: 100%;
+  max-width: 600px;
+  justify-self: end;
+}
 
 .hero-demo video {
   width: 100%;
