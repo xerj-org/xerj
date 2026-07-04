@@ -279,6 +279,10 @@ section.hero-split .lead { margin-bottom: 0; }
   background: #000;
   border: 1px solid var(--z-line);
   border-radius: 6px;
+  /* the demo mp4 is 1440x900 — pin the box to its true 8:5 frame so
+     the player never crops or letterboxes the recording */
+  aspect-ratio: 8 / 5;
+  object-fit: contain;
 }
 .hero-demo-caption {
   display: flex;
