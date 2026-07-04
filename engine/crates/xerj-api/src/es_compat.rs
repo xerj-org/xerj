@@ -10854,6 +10854,7 @@ pub async fn index_stats(
     if targets.len() > 1 || index == "_all" || index.contains('*') {
         // Aggregate across multiple indices.
         let mut all_doc_count = 0u64;
+        let mut all_store_bytes = 0u64;
         let mut all_indices = serde_json::Map::new();
         for name in &targets {
             let stats = match state.engine.index_stats(name).await {
@@ -10862,10 +10863,18 @@ pub async fn index_stats(
             };
             let doc_count = stats.doc_count;
             all_doc_count += doc_count;
+            // Real on-disk footprint: recursive byte sum of the index's
+            // data dir (WAL + segments + everything else it persists).
+            let store_size_bytes = state
+                .engine
+                .get_index(name)
+                .map(|idx| dir_size_bytes(idx.data_dir()))
+                .unwrap_or(0);
+            all_store_bytes += store_size_bytes;
             let dv = per_index_dense_vector_stats(&state, name);
             let primaries = json!({
                 "docs": { "count": doc_count, "deleted": 0 },
-                "store": { "size_in_bytes": doc_count * 256 },
+                "store": { "size_in_bytes": store_size_bytes },
                 "dense_vector": dv,
             });
             all_indices.insert(name.clone(), json!({
@@ -10899,7 +10908,7 @@ pub async fn index_stats(
         }
         let all_primaries = json!({
             "docs": { "count": all_doc_count, "deleted": 0 },
-            "store": { "size_in_bytes": all_doc_count * 256 },
+            "store": { "size_in_bytes": all_store_bytes },
             "dense_vector": {
                 "value_count": all_dv_value_count,
                 "off_heap": {
@@ -10925,8 +10934,13 @@ pub async fn index_stats(
     };
 
     let doc_count = stats.doc_count;
-    // Rough size estimate: 256 bytes per doc on average.
-    let store_size_bytes = doc_count * 256;
+    // Real on-disk footprint: recursive byte sum of the index's data dir
+    // (WAL + segments + everything else it persists).
+    let store_size_bytes = state
+        .engine
+        .get_index(&index)
+        .map(|idx| dir_size_bytes(idx.data_dir()))
+        .unwrap_or(0);
 
     // Pull the live noop + request-cache counters from the index.
     let (noop_total, rc_hit, rc_miss, get_total, get_ms, get_exists, get_missing) = match state.engine.get_index(&index) {
