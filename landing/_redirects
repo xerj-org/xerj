@@ -13,7 +13,7 @@
 /gate         /playground.html    302
 /dashboards   /playground.html    302
 /app          /playground/        302
-/bench        /product.html#bench 302
+/bench        /benchmarks/        302
 /github       https://github.com/ 302
 
 # Trailing slash normalization

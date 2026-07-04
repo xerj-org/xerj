@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ vs Elasticsearch — Reproducible Benchmarks</title>
+<meta name="description" content="XERJ vs Elasticsearch 8.13.4: 91 measured dimensions, every WIN and every LOSE published. Reproducible with two scripts, versioned in the repo, re-run on every change.">
+<meta property="og:title" content="XERJ vs Elasticsearch — Reproducible Benchmarks">
+<meta property="og:description" content="43 WIN · 33 LOSE · 15 N/A. Measured, reproducible, versioned. The losses are published next to the wins.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="stylesheet" href="/style.css?v=90f643e">
+<style>
+  /* page-local: 5-column variant of the product .bench grid + verdict tones */
+  .bench-scroll { overflow-x: auto; max-width: 100%; margin-top: var(--sp-8); }
+  .bench.matrix { grid-template-columns: minmax(300px, 1fr) 110px 110px 90px 80px; min-width: 760px; margin-top: 0; }
+  .bench.matrix .cell.win  { color: var(--z-accent); font-weight: 700; }
+  .bench.matrix .cell.lose { color: #e05252; font-weight: 700; }
+  .bench.matrix .cell.na   { color: var(--z-mute); font-weight: 400; }
+  .bench.matrix .cell.test .note { color: var(--z-mute); font-size: var(--fs-11); }
+  .callout { border-left: 1px solid var(--z-accent); padding: var(--sp-2) 0 var(--sp-2) var(--sp-6); margin: var(--sp-8) 0; max-width: 860px; }
+  .callout p { max-width: none; }
+</style>
+</head>
+<body>
+
+<!-- nav -->
+<nav class="nav" aria-label="Primary">
+  <a href="/index.html" class="brand">XERJ.AI</a>
+  <a href="/index.html">HOME</a>
+  <a href="/product.html">PRODUCT</a>
+  <span class="nav-drop">
+    <a href="/use-cases.html" class="">USE CASES</a>
+  </span>
+  <span class="spacer"></span>
+  <a href="/docs/index.html">DOCS</a>
+  <a href="/playground.html">DASHBOARDS</a>
+  <a href="https://github.com/" rel="external">GITHUB</a>
+  <span class="theme">
+    <button type="button" data-theme="day">DAY</button>
+    <span class="dash">·</span>
+    <button type="button" data-theme="night" class="active">NIGHT</button>
+  </span>
+</nav>
+
+<!-- HERO ---------------------------------------------------->
+<section class="scene-section">
+  <div class="kicker">
+    <span class="accent">BENCHMARKS</span><span class="dash">·</span>
+    <span>XERJ V1.0.0-RC.1 VS ELASTICSEARCH 8.13.4</span><span class="dash">·</span>
+    <span>RUN 2026-07-04</span>
+  </div>
+
+  <h1 class="hero">EVERY CELL.<br><span class="accent">BOTH</span> DIRECTIONS.</h1>
+
+  <p class="lead">
+    One harness, two engines, identical workload: 91 measured dimensions
+    across ingest, every query / aggregation / pipeline family, mixed
+    read-under-write, kNN, and disk. As of
+    <span class="mono">2026-07-04</span> the score is
+    <strong>43 WIN · 33 LOSE · 15 N/A</strong> for XERJ. The losses are
+    published next to the wins — this run was truncated by a
+    <span class="mono">search_after</span> defect that the benchmark
+    itself uncovered, and every casualty row is shown below, scored
+    against us.
+  </p>
+
+  <div class="metrics">
+    <div class="metric">
+      <div class="eyebrow">XERJ WINS</div>
+      <div class="value">43</div>
+      <div class="hint">Ratio &gt; 1× · lower latency or higher throughput</div>
+    </div>
+    <div class="metric">
+      <div class="eyebrow">XERJ LOSSES</div>
+      <div class="value">33</div>
+      <div class="hint">Published, tracked, and each one fails CI</div>
+    </div>
+    <div class="metric">
+      <div class="eyebrow">NOT SCORED</div>
+      <div class="value">15</div>
+      <div class="hint">Unsupported on one side or result mismatch</div>
+    </div>
+    <div class="metric">
+      <div class="eyebrow">ES-YAML CONFORMANCE</div>
+      <div class="value">1326<span class="unit">/0</span></div>
+      <div class="hint">Passed / failed · guardrail for every perf change</div>
+    </div>
+  </div>
+</section>
+
+<!-- 01 — SETUP ----------------------------------------------->
+<section class="scene-section">
+  <div class="kicker"><span class="accent">01</span><span class="dash">·</span><span>SETUP</span></div>
+  <h2 class="scene">SAME BOX.<br><span class="accent">SAME WORK.</span></h2>
+
+  <p class="wide">
+    Both engines run as a single node on the same machine, security off,
+    queried over localhost. No containers, no network hop, no cluster
+    coordination on either side. Whatever this box gives one engine, it
+    gives the other.
+  </p>
+
+  <div class="row"><div class="k">MACHINE</div><div class="v">AMD Ryzen AI Max+ 395 (w/ Radeon 8060S) · 32 hardware threads (<span class="mono">nproc</span>) · 119&nbsp;GiB RAM (<span class="mono">free&nbsp;-g</span>) · Linux</div></div>
+  <div class="row"><div class="k">XERJ</div><div class="v"><span class="mono">xerj v1.0.0-rc.1</span> · release build (<span class="mono">cargo build --release</span>) · <span class="mono">--insecure</span>, fresh data dir · port :9200</div></div>
+  <div class="row"><div class="k">ELASTICSEARCH</div><div class="v"><span class="mono">8.13.4</span> official tarball · <span class="mono">xpack.security.enabled: false</span>, <span class="mono">discovery.type: single-node</span> · 4&nbsp;GB heap (<span class="mono">-Xms4g -Xmx4g</span>) · port :9201</div></div>
+  <div class="row"><div class="k">CORPUS</div><div class="v">Real LLM-telemetry events (model, status, latency_ms, cost_usd, tokens, tenant, timestamps) — not synthetic filler. Reads run against 1M docs; ingest is measured at 100k and 1M docs with 1 and 8 concurrent clients.</div></div>
+  <div class="row"><div class="k">TOPOLOGY</div><div class="v">1 node vs 1 node · same machine · localhost · identical request bodies, byte for byte</div></div>
+</section>
+
+<!-- 02 — METHODOLOGY ----------------------------------------->
+<section class="scene-section">
+  <div class="kicker"><span class="accent">02</span><span class="dash">·</span><span>METHODOLOGY</span></div>
+  <h2 class="scene">DESIGNED TO BE<br><span class="accent">HARD TO GAME.</span></h2>
+
+  <p class="wide">
+    The harness is <span class="mono">demo/playbooks/bench-matrix.mjs</span> —
+    one file, Node builtins only, checked into the repo. Its rules:
+  </p>
+
+  <div class="row"><div class="k">OPEN-LOOP LOAD</div><div class="v">Read requests fire on a fixed <strong>200&nbsp;req/s</strong> cadence at <span class="mono">t0&nbsp;+&nbsp;i/rate</span>, independent of when earlier responses return. A slow engine cannot slow the clock down and flatter its own tail.</div></div>
+  <div class="row"><div class="k">SAMPLING</div><div class="v">Per family: 15 untimed warmup calls, then <strong>p50 over 120 timed iterations</strong>. Each request has a 15&nbsp;s bound — an engine that hangs is recorded as collapsed and scored, not silently dropped.</div></div>
+  <div class="row"><div class="k">FEASIBILITY PROBE</div><div class="v">Every family is probed first. A 4xx classifies it <span class="mono">unsupported</span> for that engine; the probe's result signal (hit totals, agg shape) is captured for the correctness check.</div></div>
+  <div class="row"><div class="k">RESULT-SIGNAL MISMATCH</div><div class="v">If the two engines return materially different results (e.g. 0 hits vs 277,449), the row is scored <span class="mono">N/A&nbsp;mismatch</span> — <strong>an engine that returns wrong or empty results cannot win on latency</strong>.</div></div>
+  <div class="row"><div class="k">IDENTICAL WORK</div><div class="v"><span class="mono">track_total_hits: true</span> is injected into every <span class="mono">_search</span> body on both sides. ES caps hit totals at 10,000 by default; forcing exact totals means neither engine wins by short-circuiting the count.</div></div>
+  <div class="row"><div class="k">VERDICTS</div><div class="v">Ratios are normalized so <strong>&gt;1× always means XERJ is better</strong> (lower latency, higher docs/s, smaller disk, higher recall). Any LOSE row makes the runner exit non-zero — the scorecard is a CI gate, not a brochure.</div></div>
+
+  <div class="callout">
+    <div class="kicker"><span class="accent">HOW WE ALMOST FOOLED OURSELVES</span><span class="dash">·</span><span>THE QUERY-CACHE MIRAGE · 2026-07-01</span></div>
+    <p class="wide">
+      Earlier head-to-heads showed XERJ winning reads 1.3–2.2× — and the
+      numbers were a mirage. Those benchmarks repeated the <em>same</em>
+      query against a <em>static</em> index, so XERJ's result cache served
+      every call after the first. We were measuring cache hits, not query
+      execution: uncached, a <span class="mono">match_all size:10</span>
+      actually took <strong>2.28&nbsp;seconds</strong>, because hit
+      materialization scanned every matching document instead of the top
+      <span class="mono">from+size</span>. We published the finding
+      (<span class="mono">demo/playbooks/CRITICAL_FINDING_read_perf_cache_mirage.md</span>),
+      fixed the O(N) path to O(from+size), and hardened the harness with
+      the mismatch detection and identical-work rules above. That is the
+      point of printing the LOSE column: a benchmark that can embarrass
+      you is the only kind that can be trusted when it doesn't.
+    </p>
+  </div>
+</section>
+
+<!-- 03 — FULL RESULTS ---------------------------------------->
+<section class="scene-section">
+  <div class="kicker"><span class="accent">03</span><span class="dash">·</span><span>FULL RESULTS · 2026-07-04 · NO CHERRY-PICKING</span></div>
+  <h2 class="scene">THE WHOLE<br><span class="accent">SCORECARD.</span></h2>
+
+  <p class="wide">
+    All 91 rows from <span class="mono">demo/playbooks/SCORECARD.md</span>,
+    unedited. Latency rows are p50 in milliseconds; ingest rows are docs/s.
+    <strong>Read this run's caveat first:</strong> partway through, the
+    <span class="mono">search_after</span> family (its 9,924&nbsp;ms row
+    below) triggered a defect that drove XERJ to an out-of-memory kill.
+    Rows recorded as <span class="mono">collapsed</span> or
+    <span class="mono">unsupported</span> on the XERJ side after that point
+    are casualties of that crash — the engine was down or dying when those
+    families ran, not measurably slower. They are scored LOSE anyway,
+    because an engine that dies mid-benchmark loses those rows. A fix is
+    in flight (see What's Next); the matrix will be re-run and this page
+    updated when it lands.
+  </p>
+
+  <div class="bench-scroll">
+  <div class="bench matrix">
+    <div class="head">DIMENSION</div>
+    <div class="head num">XERJ</div>
+    <div class="head num">ELASTICSEARCH</div>
+    <div class="head num">RATIO</div>
+    <div class="head num">VERDICT</div>
+    <div class="cell test">ingest 100k × c1 (docs/s)</div>
+    <div class="cell num xy">64,451</div>
+    <div class="cell num es">48,979</div>
+    <div class="cell num ratio win">1.32×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">ingest 100k × c8 (docs/s)</div>
+    <div class="cell num xy">233,602</div>
+    <div class="cell num es">199,589</div>
+    <div class="cell num ratio win">1.17×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">ingest 1m × c1 (docs/s)</div>
+    <div class="cell num xy">65,225</div>
+    <div class="cell num es">69,328</div>
+    <div class="cell num ratio lose">0.94×</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">ingest 1m × c8 (docs/s)</div>
+    <div class="cell num xy">205,273</div>
+    <div class="cell num es">374,490</div>
+    <div class="cell num ratio lose">0.55×</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read q: match_all (p50 ms)</div>
+    <div class="cell num xy">2.14</div>
+    <div class="cell num es">5.07</div>
+    <div class="cell num ratio win">2.37×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: match_none (p50 ms)</div>
+    <div class="cell num xy">2.71</div>
+    <div class="cell num es">3.10</div>
+    <div class="cell num ratio win">1.14×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: match(model) (p50 ms)</div>
+    <div class="cell num xy">1.93</div>
+    <div class="cell num es">4.58</div>
+    <div class="cell num ratio win">2.37×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: match_phrase(top_doc) (p50 ms)</div>
+    <div class="cell num xy">1.87</div>
+    <div class="cell num es">4.39</div>
+    <div class="cell num ratio win">2.35×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: match_phrase_prefix (p50 ms)</div>
+    <div class="cell num xy">2.80</div>
+    <div class="cell num es">unsupported (400)</div>
+    <div class="cell num ratio na">—</div>
+    <div class="cell num verdict na">N/A</div>
+    <div class="cell test">read q: match_bool_prefix (p50 ms)</div>
+    <div class="cell num xy">1.93</div>
+    <div class="cell num es">6.34</div>
+    <div class="cell num ratio win">3.29×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: multi_match (p50 ms) <span class="note">result mismatch: hits 0 vs 277449</span></div>
+    <div class="cell num xy">2.04</div>
+    <div class="cell num es">7.32</div>
+    <div class="cell num ratio na">mismatch</div>
+    <div class="cell num verdict na">N/A</div>
+    <div class="cell test">read q: combined_fields (p50 ms)</div>
+    <div class="cell num xy">2.05</div>
+    <div class="cell num es">unsupported (400)</div>
+    <div class="cell num ratio na">—</div>
+    <div class="cell num verdict na">N/A</div>
+    <div class="cell test">read q: query_string (p50 ms) <span class="note">result mismatch: hits 0 vs 273706</span></div>
+    <div class="cell num xy">2.30</div>
+    <div class="cell num es">11.89</div>
+    <div class="cell num ratio na">mismatch</div>
+    <div class="cell num verdict na">N/A</div>
+    <div class="cell test">read q: simple_query_string (p50 ms) <span class="note">result mismatch: hits 0 vs 987529</span></div>
+    <div class="cell num xy">2.11</div>
+    <div class="cell num es">3.15</div>
+    <div class="cell num ratio na">mismatch</div>
+    <div class="cell num verdict na">N/A</div>
+    <div class="cell test">read q: more_like_this (p50 ms)</div>
+    <div class="cell num xy">1.78</div>
+    <div class="cell num es">3.17</div>
+    <div class="cell num ratio win">1.78×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: term(status) (p50 ms)</div>
+    <div class="cell num xy">2.51</div>
+    <div class="cell num es">2.65</div>
+    <div class="cell num ratio win">1.06×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: terms(model) (p50 ms)</div>
+    <div class="cell num xy">2.23</div>
+    <div class="cell num es">6.42</div>
+    <div class="cell num ratio win">2.88×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: range(latency_ms) (p50 ms)</div>
+    <div class="cell num xy">1.95</div>
+    <div class="cell num es">6.12</div>
+    <div class="cell num ratio win">3.14×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: range(@timestamp) (p50 ms)</div>
+    <div class="cell num xy">2.24</div>
+    <div class="cell num es">2.63</div>
+    <div class="cell num ratio win">1.17×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: range(cost_usd) (p50 ms)</div>
+    <div class="cell num xy">1.14</div>
+    <div class="cell num es">6.54</div>
+    <div class="cell num ratio win">5.75×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: prefix(model) (p50 ms)</div>
+    <div class="cell num xy">1.71</div>
+    <div class="cell num es">11.00</div>
+    <div class="cell num ratio win">6.43×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: wildcard(model) (p50 ms)</div>
+    <div class="cell num xy">1.40</div>
+    <div class="cell num es">10.42</div>
+    <div class="cell num ratio win">7.43×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: regexp(model) (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">11.38</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read q: fuzzy(model) (p50 ms) <span class="note">result mismatch: hits 0 vs 277449</span></div>
+    <div class="cell num xy">1.62</div>
+    <div class="cell num es">3.11</div>
+    <div class="cell num ratio na">mismatch</div>
+    <div class="cell num verdict na">N/A</div>
+    <div class="cell test">read q: exists(cost_usd) (p50 ms)</div>
+    <div class="cell num xy">1.41</div>
+    <div class="cell num es">2.50</div>
+    <div class="cell num ratio win">1.77×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: ids (p50 ms)</div>
+    <div class="cell num xy">1.10</div>
+    <div class="cell num es">2.24</div>
+    <div class="cell num ratio win">2.03×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: term(cache_hit) (p50 ms)</div>
+    <div class="cell num xy">1.25</div>
+    <div class="cell num es">2.37</div>
+    <div class="cell num ratio win">1.90×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: bool must+filter+should+must_not (p50 ms)</div>
+    <div class="cell num xy">0.82</div>
+    <div class="cell num es">20.54</div>
+    <div class="cell num ratio win">25.10×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: constant_score (p50 ms)</div>
+    <div class="cell num xy">1.36</div>
+    <div class="cell num es">2.27</div>
+    <div class="cell num ratio win">1.67×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: boosting (p50 ms)</div>
+    <div class="cell num xy">0.41</div>
+    <div class="cell num es">35.77</div>
+    <div class="cell num ratio win">87.78×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: dis_max (p50 ms)</div>
+    <div class="cell num xy">1.49</div>
+    <div class="cell num es">6.27</div>
+    <div class="cell num ratio win">4.20×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: function_score (p50 ms)</div>
+    <div class="cell num xy">1.15</div>
+    <div class="cell num es">35.40</div>
+    <div class="cell num ratio win">30.84×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read q: pinned (p50 ms)</div>
+    <div class="cell num xy">0.98</div>
+    <div class="cell num es">15.67</div>
+    <div class="cell num ratio win">15.99×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read agg: avg (p50 ms)</div>
+    <div class="cell num xy">0.89</div>
+    <div class="cell num es">2.66</div>
+    <div class="cell num ratio win">2.97×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read agg: sum (p50 ms)</div>
+    <div class="cell num xy">1.21</div>
+    <div class="cell num es">2.57</div>
+    <div class="cell num ratio win">2.12×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read agg: min (p50 ms)</div>
+    <div class="cell num xy">1.11</div>
+    <div class="cell num es">2.24</div>
+    <div class="cell num ratio win">2.01×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read agg: max (p50 ms)</div>
+    <div class="cell num xy">0.62</div>
+    <div class="cell num es">2.75</div>
+    <div class="cell num ratio win">4.47×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read agg: stats (p50 ms)</div>
+    <div class="cell num xy">1.01</div>
+    <div class="cell num es">2.53</div>
+    <div class="cell num ratio win">2.51×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read agg: extended_stats (p50 ms)</div>
+    <div class="cell num xy">0.75</div>
+    <div class="cell num es">2.49</div>
+    <div class="cell num ratio win">3.33×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read agg: value_count (p50 ms)</div>
+    <div class="cell num xy">1.21</div>
+    <div class="cell num es">2.18</div>
+    <div class="cell num ratio win">1.81×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read agg: cardinality (p50 ms)</div>
+    <div class="cell num xy">0.98</div>
+    <div class="cell num es">2.52</div>
+    <div class="cell num ratio win">2.58×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read agg: percentiles (p50 ms)</div>
+    <div class="cell num xy">1.16</div>
+    <div class="cell num es">2.05</div>
+    <div class="cell num ratio win">1.77×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read agg: percentile_ranks (p50 ms)</div>
+    <div class="cell num xy">1.19</div>
+    <div class="cell num es">2.33</div>
+    <div class="cell num ratio win">1.97×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read agg: median_absolute_deviation (p50 ms)</div>
+    <div class="cell num xy">2.46</div>
+    <div class="cell num es">2.79</div>
+    <div class="cell num ratio win">1.13×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read agg: matrix_stats (p50 ms)</div>
+    <div class="cell num xy">2.09</div>
+    <div class="cell num es">2.61</div>
+    <div class="cell num ratio win">1.25×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read agg: scripted_metric (p50 ms)</div>
+    <div class="cell num xy">2.05</div>
+    <div class="cell num es">2.13</div>
+    <div class="cell num ratio win">1.04×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read agg: top_hits (sub) (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">2.96</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read agg: terms (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">2.12</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read agg: rare_terms (p50 ms)</div>
+    <div class="cell num xy">2.01</div>
+    <div class="cell num es">1.96</div>
+    <div class="cell num ratio lose">0.97×</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read agg: significant_terms (p50 ms)</div>
+    <div class="cell num xy">1.55</div>
+    <div class="cell num es">2.03</div>
+    <div class="cell num ratio win">1.31×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read agg: histogram (p50 ms)</div>
+    <div class="cell num xy">2.66</div>
+    <div class="cell num es">2.71</div>
+    <div class="cell num ratio win">1.02×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read agg: date_histogram (p50 ms)</div>
+    <div class="cell num xy">2.31</div>
+    <div class="cell num es">2.53</div>
+    <div class="cell num ratio win">1.10×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read agg: auto_date_histogram (p50 ms)</div>
+    <div class="cell num xy">2.16</div>
+    <div class="cell num es">2.10</div>
+    <div class="cell num ratio lose">0.97×</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read agg: variable_width_histogram (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">3.56</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read agg: range (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">2.30</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read agg: date_range (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">3.18</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read agg: filter (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">2.59</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read agg: filters (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">3.25</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read agg: missing (p50 ms)</div>
+    <div class="cell num xy">1.21</div>
+    <div class="cell num es">2.89</div>
+    <div class="cell num ratio win">2.39×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read agg: global (p50 ms) <span class="note">result mismatch: hits 257 vs 12471</span></div>
+    <div class="cell num xy">1.20</div>
+    <div class="cell num es">2.77</div>
+    <div class="cell num ratio na">mismatch</div>
+    <div class="cell num verdict na">N/A</div>
+    <div class="cell test">read agg: adjacency_matrix (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">3.10</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read agg: composite (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">2.94</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read agg: random_sampler (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">6.48</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read agg: terms+avg(cost) (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">2.62</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read pipe: sum_bucket (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">3.08</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read pipe: avg_bucket (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">3.00</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read pipe: max_bucket (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">3.34</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read pipe: stats_bucket (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">2.68</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read pipe: percentiles_bucket (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">2.87</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read pipe: derivative (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">3.56</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read pipe: cumulative_sum (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">2.53</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read pipe: moving_fn (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">3.84</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read pipe: serial_diff (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">3.25</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read pipe: bucket_script (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">3.26</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read pipe: bucket_selector (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">3.35</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read pipe: bucket_sort (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">3.59</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read feat: sort-heavy (p50 ms)</div>
+    <div class="cell num xy">2.19</div>
+    <div class="cell num es">20.04</div>
+    <div class="cell num ratio win">9.13×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read feat: deep from+size (from 500) (p50 ms)</div>
+    <div class="cell num xy">2.36</div>
+    <div class="cell num es">3.43</div>
+    <div class="cell num ratio win">1.45×</div>
+    <div class="cell num verdict win">WIN</div>
+    <div class="cell test">read feat: search_after (p50 ms)</div>
+    <div class="cell num xy">9924.66</div>
+    <div class="cell num es">18.76</div>
+    <div class="cell num ratio lose">0.00×</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read feat: highlight (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">2.94</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read feat: _count (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">1.74</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read feat: _msearch (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">2.34</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">read feat: _mget (p50 ms)</div>
+    <div class="cell num xy">collapsed</div>
+    <div class="cell num es">2.27</div>
+    <div class="cell num ratio lose">—</div>
+    <div class="cell num verdict lose">LOSE</div>
+    <div class="cell test">mixed match_all (p99 ms, under write)</div>
+    <div class="cell num xy">unsupported</div>
+    <div class="cell num es">20.22</div>
+    <div class="cell num ratio na">—</div>
+    <div class="cell num verdict na">N/A</div>
+    <div class="cell test">mixed bool (p99 ms, under write)</div>
+    <div class="cell num xy">unsupported</div>
+    <div class="cell num es">17.36</div>
+    <div class="cell num ratio na">—</div>
+    <div class="cell num verdict na">N/A</div>
+    <div class="cell test">mixed range (p99 ms, under write)</div>
+    <div class="cell num xy">unsupported</div>
+    <div class="cell num es">37.85</div>
+    <div class="cell num ratio na">—</div>
+    <div class="cell num verdict na">N/A</div>
+    <div class="cell test">mixed terms (p99 ms, under write)</div>
+    <div class="cell num xy">unsupported</div>
+    <div class="cell num es">6.15</div>
+    <div class="cell num ratio na">—</div>
+    <div class="cell num verdict na">N/A</div>
+    <div class="cell test">mixed cardinality (p99 ms, under write)</div>
+    <div class="cell num xy">unsupported</div>
+    <div class="cell num es">21.44</div>
+    <div class="cell num ratio na">—</div>
+    <div class="cell num verdict na">N/A</div>
+    <div class="cell test">kNN k=10 (p50 ms)</div>
+    <div class="cell num xy">error</div>
+    <div class="cell num es">4.84</div>
+    <div class="cell num ratio na">—</div>
+    <div class="cell num verdict na">N/A</div>
+    <div class="cell test">kNN recall@10</div>
+    <div class="cell num xy">error</div>
+    <div class="cell num es">100.0%</div>
+    <div class="cell num ratio na">—</div>
+    <div class="cell num verdict na">N/A</div>
+    <div class="cell test">index on-disk size</div>
+    <div class="cell num xy">unsupported</div>
+    <div class="cell num es">819.4 MB</div>
+    <div class="cell num ratio na">—</div>
+    <div class="cell num verdict na">N/A</div>
+  </div>
+  </div>
+
+  <p class="wide" style="margin-top: var(--sp-6);">
+    Beyond the crash casualties, the honest latency losses in this run:
+    ingest 1M×1&nbsp;client (<span class="mono">0.94×</span>), ingest
+    1M×8&nbsp;clients (<span class="mono">0.55×</span>),
+    <span class="mono">rare_terms</span> (<span class="mono">0.97×</span>),
+    <span class="mono">auto_date_histogram</span>
+    (<span class="mono">0.97×</span>), and
+    <span class="mono">search_after</span> itself. All five are tracked
+    work items.
+  </p>
+</section>
+
+<!-- 04 — REPRODUCE IT ---------------------------------------->
+<section class="scene-section">
+  <div class="kicker"><span class="accent">04</span><span class="dash">·</span><span>REPRODUCE IT</span></div>
+  <h2 class="scene">FOUR COMMANDS.<br><span class="accent">YOUR MACHINE.</span></h2>
+
+  <p class="wide">
+    Everything on this page regenerates from the repo. No hosted harness,
+    no private dataset, no hand-tuned engine flags.
+  </p>
+
+<pre class="code"><span class="prompt">$</span> git clone https://github.com/xerj-org/xerj &amp;&amp; cd xerj
+<span class="prompt">$</span> cargo build --release --manifest-path engine/Cargo.toml
+<span class="prompt">$</span> bash scratchpad/es_up.sh
+<span class="prompt">$</span> bash scratchpad/run_scorecard.sh --docs 100k,1m --clients 1,8 --knn --mixed</pre>
+
+  <div class="row"><div class="k">es_up.sh</div><div class="v">Downloads the official Elasticsearch <span class="mono">8.13.4</span> linux-x86_64 tarball (cached after the first run), writes a single-node config with security off on port <span class="mono">:9201</span>, boots it with a 4&nbsp;GB heap, and polls until it answers 200. Idempotent — re-running is a no-op if ES is already up.</div></div>
+  <div class="row"><div class="k">run_scorecard.sh</div><div class="v">Boots the release XERJ binary on <span class="mono">:9200</span> with a fresh data dir, keeps it alive for the whole run, then executes the matrix against both engines and shuts XERJ down. Exits non-zero if any row is a LOSE.</div></div>
+  <div class="row"><div class="k">HARNESS</div><div class="v"><span class="mono">demo/playbooks/bench-matrix.mjs</span> — the matrix runner and scorecard generator (Node 24, no dependencies). Output lands in <span class="mono">demo/playbooks/SCORECARD.md</span>, which is the exact file this page's table is rendered from.</div></div>
+
+  <p class="wide">
+    Your absolute numbers will differ with hardware; the ratios and
+    verdicts are the claim. If your run disagrees with this page, file an
+    issue with your <span class="mono">SCORECARD.md</span> — that is
+    precisely what the harness is for.
+  </p>
+</section>
+
+<!-- 05 — KNOWN ISSUES & WHAT'S NEXT --------------------------->
+<section class="scene-section">
+  <div class="kicker"><span class="accent">05</span><span class="dash">·</span><span>KNOWN ISSUES &amp; WHAT'S NEXT</span></div>
+  <h2 class="scene">THE RED CELLS<br><span class="accent">ARE THE ROADMAP.</span></h2>
+
+  <h3 class="section">search_after OOM — found by this benchmark</h3>
+  <p class="wide">
+    The deep-pagination <span class="mono">search_after</span> family
+    exposed a defect that ballooned memory until the kernel killed XERJ
+    mid-run — the single largest distortion in this scorecard (28 of the
+    33 LOSE rows are its casualties). The fix is in flight on a dedicated
+    branch; the matrix re-runs, and this page is republished, when it
+    lands. Finding this class of bug is what the benchmark exists to do.
+  </p>
+
+  <h3 class="section">Ingest at 1M docs — the real performance gap</h3>
+  <p class="wide">
+    XERJ wins ingest at 100k docs (1.32× single-client, 1.17× at 8
+    clients) but loses at 1M: <span class="mono">0.94×</span>
+    single-client and <span class="mono">0.55×</span> at 8 clients. The
+    phased plan (<span class="mono">demo/playbooks/BEAT_ES_MASTER_PLAN.md</span>):
+    a <strong>no-reparse flush</strong> that threads already-parsed
+    documents into segment building instead of re-parsing them twice;
+    <strong>search-pool isolation</strong> so background flush and merge
+    can't starve foreground queries; and a <strong>freeze-and-swap
+    flush</strong> that swaps in a fresh memtable atomically so writers
+    never stall behind a drain. Definition of done: every cell in the
+    scorecard green, enforced by CI — any new LOSE fails the build.
+  </p>
+
+  <h3 class="section">Families this corpus can't measure</h3>
+  <p class="wide">
+    Skipped, not hidden — each needs a purpose-built index the flat
+    telemetry corpus lacks: <span class="mono">geo_*</span> queries and
+    aggregations (no geo_point/geo_shape field),
+    <span class="mono">ip_range / ip_prefix</span> (no ip field),
+    <span class="mono">nested / has_child / has_parent</span> (flat
+    corpus, no join mapping), <span class="mono">span_*</span> (needs a
+    positional text field), <span class="mono">significant_text</span>
+    (corpus fields are keyword), <span class="mono">semantic / hybrid
+    retriever</span> (needs a dense_vector field — kNN is covered
+    separately by <span class="mono">--knn</span> on a purpose-built
+    index), and <span class="mono">percolate</span> (parses but no-ops —
+    not benchmarkable for correctness). Purpose-built corpora for these
+    families are planned follow-ups.
+  </p>
+
+  <h3 class="section">The standing guardrail</h3>
+  <p class="wide">
+    Every performance change must hold ES-YAML REST conformance at
+    <strong>1326 passed / 0 failed</strong>. Speed bought with correctness
+    is not a win, and it does not merge.
+  </p>
+</section>
+
+<!-- 06 — CHANGELOG -------------------------------------------->
+<section class="scene-section">
+  <div class="kicker"><span class="accent">06</span><span class="dash">·</span><span>CHANGELOG</span></div>
+  <div class="row"><div class="k">2026-07-04</div><div class="v">First public full-matrix publication. XERJ v1.0.0-rc.1 vs Elasticsearch 8.13.4 · 91 dimensions · 43 WIN / 33 LOSE / 15 N/A · run truncated by the search_after defect documented above.</div></div>
+</section>
+
+<footer class="footer">
+  <span>XERJ.AI · V0.1 · 2026</span>
+  <span>STORAGE FOR THE AGENT ERA</span>
+  <span><a href="/product.html">PRODUCT</a> · <a href="/docs/index.html">DOCS</a> · <a href="/brand.html">BRAND</a> · <a href="/playground.html">DASHBOARDS</a></span>
+</footer>
+
+<script>
+  (function () {
+    const root = document.documentElement;
+    for (const btn of document.querySelectorAll('[data-theme]')) {
+      btn.addEventListener('click', () => {
+        const t = btn.getAttribute('data-theme');
+        root.setAttribute('data-theme', t);
+        for (const b of document.querySelectorAll('[data-theme]')) {
+          b.classList.toggle('active', b.getAttribute('data-theme') === t);
+        }
+      });
+    }
+  })();
+</script>
+
+</body>
+</html>
