@@ -343,6 +343,23 @@ pub struct Index {
     /// invalidation. Same `Left unbounded for now` caveat as `dv_cache`.
     stored_value_cache: Arc<dashmap::DashMap<String, Arc<Vec<Value>>>>,
 
+    /// Per-segment cache of the DECOMPRESSED stored section plus per-doc
+    /// `(start, end)` byte offsets, used by the sorted-DV candidate path
+    /// (field-sorted match_all / search_after).  With it, hydrating the
+    /// O(from+size) candidate positions of a segment is two vector
+    /// lookups + a per-candidate `simd_json` parse — no per-query
+    /// zstd/LZ4 decompress and no O(segment-bytes) brace re-scan.
+    ///
+    /// Unlike `stored_value_cache` (unbounded parsed `Value`s, ~3-6× raw
+    /// bytes) this holds the raw bytes once per segment and is BUDGETED:
+    /// `stored_slices_cache_bytes` tracks retained size and inserts stop
+    /// at `STORED_SLICES_CACHE_BUDGET` (miss → per-query decompress path,
+    /// exactly the pre-cache behaviour).  Segments are immutable, so
+    /// entries stay valid until a merge drops the segment id (evicted at
+    /// the merge-completion site alongside dv_cache/stored_value_cache).
+    stored_slices_cache: Arc<dashmap::DashMap<String, Arc<StoredSlices>>>,
+    stored_slices_cache_bytes: Arc<AtomicU64>,
+
     /// M3 framework — response cache for identical queries.  Keyed on
     /// `(query_body_hash, dataset_version)` and holds the pre-computed
     /// `SearchResult` ready to serialize.  Cache hit → ~10 µs total
@@ -481,6 +498,8 @@ impl Index {
             embedding_proxy: Arc::new(make_embedding_proxy(&config.embedding)),
             dv_cache: Arc::new(dashmap::DashMap::new()),
             stored_value_cache: Arc::new(dashmap::DashMap::new()),
+            stored_slices_cache: Arc::new(dashmap::DashMap::new()),
+            stored_slices_cache_bytes: Arc::new(AtomicU64::new(0)),
             query_cache: Arc::new(dashmap::DashMap::new()),
             dataset_version: Arc::new(AtomicU64::new(0)),
             flush_signal: Arc::new(SyncFlushCoord::new()),
@@ -632,6 +651,8 @@ impl Index {
             embedding_proxy: Arc::new(make_embedding_proxy(&config.embedding)),
             dv_cache: Arc::new(dashmap::DashMap::new()),
             stored_value_cache: Arc::new(dashmap::DashMap::new()),
+            stored_slices_cache: Arc::new(dashmap::DashMap::new()),
+            stored_slices_cache_bytes: Arc::new(AtomicU64::new(0)),
             query_cache: Arc::new(dashmap::DashMap::new()),
             dataset_version: Arc::new(AtomicU64::new(0)),
             flush_signal: Arc::new(SyncFlushCoord::new()),
@@ -2358,6 +2379,10 @@ impl Index {
             for id in &dropped_seg_ids {
                 self.dv_cache.remove(id.as_str());
                 self.stored_value_cache.remove(id.as_str());
+                if let Some((_, slices)) = self.stored_slices_cache.remove(id.as_str()) {
+                    self.stored_slices_cache_bytes
+                        .fetch_sub(slices.retained_bytes(), Ordering::Relaxed);
+                }
             }
         }
 
@@ -3744,10 +3769,38 @@ impl Index {
         // segment loop.  `total_count` is tallied independently and stays exact.
         let field_sort_active: bool = size > 0
             && request.sort.iter().any(|sf| !sf.is_score() && !sf.is_doc_order());
+
+        // ── search_after cursor, normalized ONCE up front ─────────────────
+        // Date-shaped cursor strings are converted to epoch numbers here so
+        // BOTH the bounded sorted collector (pre-heap rejection during
+        // collection) and the legacy post-collection filter compare against
+        // the same shape the hits' `sort` arrays use (`compute_sort_values`
+        // emits epoch numbers for date-shaped strings).  Users may supply
+        // either the raw epoch number (`search_after: [1571646604828]`) or a
+        // formatted date string (`search_after: ["2019-10-21 08:30:04.828"]`);
+        // ES accepts both.
+        let after_norm: Option<Vec<Value>> = match &request.search_after {
+            Some(vals) if !vals.is_empty() => Some(
+                vals.iter()
+                    .enumerate()
+                    .map(|(i, v)| {
+                        let fmt = request.sort.get(i).and_then(|s| s.format.as_deref());
+                        normalize_search_after_value(v, fmt)
+                    })
+                    .collect(),
+            ),
+            _ => None,
+        };
+
         let mut sort_topk: Option<SortTopK> = if field_sort_active {
             Some(SortTopK::new(
                 Arc::new(request.sort.clone()),
                 materialisation_limit,
+                // The cursor is applied DURING collection: the collector
+                // admits only hits strictly after it, so deep cursors cost
+                // the same as page 1 and are correct past the
+                // materialisation cap.
+                after_norm.clone(),
             ))
         } else {
             None
@@ -4420,15 +4473,75 @@ impl Index {
                                 lte.as_ref(),
                                 lt.as_ref(),
                             )
+                        } else if is_match_all && !deletes_present {
+                            // Sorted-DV candidate pruning for field-sorted
+                            // match_all: the segment's sorted numeric
+                            // doc-values index yields the only positions that
+                            // can reach the global top-(from+size) page —
+                            // including the `search_after` cursor bound — so
+                            // the stored scan parses O(from+size) docs per
+                            // segment instead of every doc.  `None` when the
+                            // shape isn't provably safe (non-numeric field,
+                            // nulls/arrays present, dv/stored misalignment,
+                            // deletes) → full scan, still correct.
+                            sort_topk.as_ref().and_then(|topk| {
+                                self.build_sort_candidates_prefilter(
+                                    &segments_dir,
+                                    &seg_id,
+                                    meta.doc_count,
+                                    topk,
+                                    materialisation_limit,
+                                )
+                            })
                         } else {
                             None
                         };
 
-                    if let Ok(seg_reader) = self.store.open_segment_arc(&seg_id) {
+                    // A `Some(∅)` pre-filter proves no doc in this segment can
+                    // contribute a hit or a count (Range: no value in range;
+                    // sorted-DV: no candidate position): skip the open +
+                    // decompress + brace-scan entirely — the scan would have
+                    // skipped every position anyway.
+                    // Sorted-DV candidate path (field-sorted match_all with a
+                    // candidate pre-filter): serve the candidates from the
+                    // per-segment `stored_slices_cache` when warm — two vec
+                    // lookups + O(candidates) simd_json parses, no per-query
+                    // decompress and no O(segment-bytes) brace re-scan.
+                    let sorted_candidates_path =
+                        is_match_all && sort_topk.is_some() && pre_filter.is_some();
+
+                    if pre_filter.as_ref().is_some_and(|pf| pf.is_empty()) {
+                        // A `Some(∅)` pre-filter proves no doc in this segment
+                        // can contribute a hit or a count (Range: no value in
+                        // range; sorted-DV: no candidate position): skip the
+                        // open + decompress + brace-scan entirely — the scan
+                        // would have skipped every position anyway.
+                    } else if sorted_candidates_path
+                        && self.stored_slices_cache.contains_key(seg_id.as_str())
+                    {
+                        if let Some(entry) = self.stored_slices_cache.get(seg_id.as_str()) {
+                            let slices = Arc::clone(entry.value());
+                            drop(entry);
+                            self.hydrate_sorted_candidates(
+                                &slices,
+                                pre_filter.as_ref().expect("gated on is_some"),
+                                sort_topk.as_mut().expect("gated on is_some"),
+                                &mut seen_ids,
+                                &mut total_count,
+                            );
+                        }
+                    } else if let Ok(seg_reader) = self.store.open_segment_arc(&seg_id) {
                         if let Ok(Some(stored_bytes_raw)) = seg_reader.section(SectionType::Stored) {
                             if let Ok(stored_bytes) =
                                 xerj_storage::stored_codec::decode_stored(stored_bytes_raw)
                             {
+                                // Record per-doc offsets on the sorted path so
+                                // the decompressed section can be cached for
+                                // the next query (subject to the budget).
+                                let mut offsets: Vec<(u32, u32)> = Vec::new();
+                                let want_cache = sorted_candidates_path
+                                    && stored_bytes.len() <= u32::MAX as usize
+                                    && !self.stored_slices_cache.contains_key(seg_id.as_str());
                                 self.scan_stored_section_into(
                                     &stored_bytes,
                                     query,
@@ -4441,7 +4554,31 @@ impl Index {
                                     &mut seen_ids,
                                     pre_filter.as_ref(),
                                     sort_topk.as_mut(),
+                                    if want_cache { Some(&mut offsets) } else { None },
                                 );
+                                // Cache only a COMPLETE offsets map (a
+                                // malformed section bails early) and only
+                                // within the retained-bytes budget.
+                                if want_cache && offsets.len() as u64 == meta.doc_count {
+                                    let slices = StoredSlices {
+                                        bytes: stored_bytes,
+                                        offsets,
+                                    };
+                                    let sz = slices.retained_bytes();
+                                    if self
+                                        .stored_slices_cache_bytes
+                                        .load(Ordering::Relaxed)
+                                        .saturating_add(sz)
+                                        <= STORED_SLICES_CACHE_BUDGET
+                                        && self
+                                            .stored_slices_cache
+                                            .insert(seg_id.clone(), Arc::new(slices))
+                                            .is_none()
+                                    {
+                                        self.stored_slices_cache_bytes
+                                            .fetch_add(sz, Ordering::Relaxed);
+                                    }
+                                }
                             }
                         }
                     }
@@ -4795,77 +4932,16 @@ impl Index {
         }
 
         // --- Apply search_after cursor (skip hits up to and including the cursor) ---
+        // Field-sorted queries already rejected cursor-≤ hits INSIDE the
+        // bounded collector (`SortTopK::would_admit`), so for that path this
+        // block is a no-op safety net (position 0 matches immediately).  It
+        // remains load-bearing for the score-sort cursor path, which has no
+        // field collector.  The cursor was normalized ONCE into `after_norm`
+        // before collection (date strings → epoch numbers).
         if let Some(ref after_values) = request.search_after {
             if !after_values.is_empty() {
-                // Normalize the cursor's date-shaped string values to epoch so
-                // they align with the normalized hit.sort produced above.
-                // Users may supply either the raw epoch number
-                // (`search_after: [1571646604828]`) or a formatted date
-                // string (`search_after: ["2019-10-21 08:30:04.828"]`); ES
-                // accepts both.
-                fn normalize_cursor(v: &Value, fmt_hint: Option<&str>) -> Value {
-                    if let Some(s) = v.as_str() {
-                        // If the SortField.format is a known ES pattern, try
-                        // it first — this catches custom formats like
-                        // `yyyy-MM-dd | HH:mm:ss.SSS` whose cursor strings
-                        // don't match the default date detectors below.
-                        if let Some(fmt) = fmt_hint {
-                            if let Some(epoch) = es_format_to_epoch_ms(s, fmt) {
-                                return Value::Number(serde_json::Number::from(epoch));
-                            }
-                        }
-                        let bytes = s.as_bytes();
-                        let looks_date = bytes.len() >= 5
-                            && bytes[0].is_ascii_digit()
-                            && bytes[1].is_ascii_digit()
-                            && bytes[2].is_ascii_digit()
-                            && bytes[3].is_ascii_digit()
-                            && bytes[4] == b'-';
-                        if looks_date {
-                            let frac_digits = s.rsplit_once('.')
-                                .map(|(_, rest)| rest.chars().take_while(|c| c.is_ascii_digit()).count())
-                                .unwrap_or(0);
-                            let is_nanos = frac_digits >= 4;
-                            let s_utc = s.replace(' ', "T");
-                            let s_utc = if s_utc.ends_with('Z') || s_utc.contains('+') {
-                                s_utc
-                            } else {
-                                format!("{}Z", s_utc)
-                            };
-                            if is_nanos {
-                                if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&s_utc) {
-                                    let secs = dt.timestamp();
-                                    let nanos = dt.timestamp_subsec_nanos() as i64;
-                                    if let Some(ns) = secs.checked_mul(1_000_000_000).and_then(|x| x.checked_add(nanos)) {
-                                        return Value::Number(serde_json::Number::from(ns));
-                                    }
-                                }
-                            }
-                            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&s_utc) {
-                                return Value::Number(serde_json::Number::from(dt.timestamp_millis()));
-                            }
-                            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(&s_utc.trim_end_matches('Z'), "%Y-%m-%dT%H:%M:%S%.f") {
-                                return Value::Number(serde_json::Number::from(dt.and_utc().timestamp_millis()));
-                            }
-                            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(&s_utc.trim_end_matches('Z'), "%Y-%m-%dT%H:%M:%S") {
-                                return Value::Number(serde_json::Number::from(dt.and_utc().timestamp_millis()));
-                            }
-                        }
-                    }
-                    v.clone()
-                }
-                let after_values_norm: Vec<Value> = after_values
-                    .iter()
-                    .enumerate()
-                    .map(|(i, v)| {
-                        let fmt = request
-                            .sort
-                            .get(i)
-                            .and_then(|s| s.format.as_deref());
-                        normalize_cursor(v, fmt)
-                    })
-                    .collect();
-                let after_values_ref: &[Value] = &after_values_norm;
+                let after_values_norm: &[Value] = after_norm.as_deref().unwrap_or(&[]);
+                let after_values_ref: &[Value] = after_values_norm;
                 // Find the first hit whose sort values are strictly "after" the cursor.
                 // For sorted results: skip until we find a hit where sort > after_values.
                 // For score-only sort: after_values[0] is the score cursor.
@@ -6443,6 +6519,176 @@ impl Index {
         Some(matching.into_iter().collect())
     }
 
+    /// Sorted-DV candidate pruning for field-sorted `match_all` queries
+    /// (the search_after hot-path fix).
+    ///
+    /// For a segment with a numeric doc-values column on the PRIMARY sort
+    /// field, the column's sorted `(value, position)` index tells us exactly
+    /// which positions can possibly reach the global top-`cap` page:
+    /// - `asc`:  the first `cap` positions at/after the cursor's primary
+    ///   value (cursor ties INCLUDED — the secondary sort key may still
+    ///   qualify them), plus all positions tied with the boundary value so
+    ///   the secondary key can arbitrate;
+    /// - `desc`: symmetric from the top end.
+    ///
+    /// Every other position in the segment provably sorts outside the page
+    /// (worse primary key than `cap` closer candidates) or at/before the
+    /// cursor, so the stored scan can skip parsing it entirely.  This is
+    /// what turns a 1M-doc `search_after` page from an O(N) parse-everything
+    /// scan into O(from+size) per segment.
+    ///
+    /// Returns `None` (→ caller falls back to the full scan, still correct)
+    /// unless the shape is provably safe:
+    /// - primary sort is a plain field (not `_score`/`_doc`) with a
+    ///   `Column::Numeric` sidecar in this segment;
+    /// - the column has NO nulls (a null means a missing field, an array,
+    ///   or a non-scalar — `missing`/`mode` semantics would need the full
+    ///   scan) and covers exactly `seg_doc_count` docs (position alignment);
+    /// - the `search_after` primary cursor value (when present) is numeric.
+    ///
+    /// The caller additionally gates on `is_match_all && !deletes_present`:
+    /// deleted/superseded docs occupy positions in the sorted index, so with
+    /// deletes present the candidate slice could under-fill the page.
+    fn build_sort_candidates_prefilter(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        seg_doc_count: u64,
+        topk: &SortTopK,
+        cap: usize,
+    ) -> Option<HashSet<u32>> {
+        use xerj_query::sort::SortOrder;
+        use xerj_storage::doc_values::Column;
+
+        let sf = topk.fields.first()?;
+        if sf.is_score() || sf.is_doc_order() {
+            return None;
+        }
+        let cols = self.dv_columns_for(segments_dir, segment_id)?;
+        let Some(Column::Numeric(n)) = cols.get(&sf.field) else {
+            return None;
+        };
+        if !n.null_bitmap.is_empty() || n.doc_count as u64 != seg_doc_count {
+            return None;
+        }
+        let sorted = &n.sorted;
+        if sorted.is_empty() {
+            return None;
+        }
+
+        // Primary cursor bound (search_after). `None` cursor → page 1.
+        let cursor_v: Option<f64> = match topk.after.as_deref() {
+            Some(vals) => match vals.first() {
+                Some(Value::Number(x)) => Some(x.as_f64()?),
+                // Non-numeric cursor against a numeric column — don't
+                // guess, take the full scan.
+                Some(_) => return None,
+                None => None,
+            },
+            None => None,
+        };
+
+        let len = sorted.len();
+        let cap = cap.max(1);
+        let (start, end) = if sf.order == SortOrder::Asc {
+            let lo = match cursor_v {
+                // Include cursor ties: `< v0` keeps every position whose
+                // value equals the cursor's primary value; the collector's
+                // full-key comparison decides via the secondary fields.
+                Some(v0) => sorted.partition_point(|(b, _)| f64::from_bits(*b as u64) < v0),
+                None => 0,
+            };
+            let mut end = (lo + cap).min(len);
+            // Extend across boundary ties so the secondary sort key can
+            // arbitrate between equal primary values.
+            if end > lo && end < len {
+                let boundary = sorted[end - 1].0;
+                while end < len && sorted[end].0 == boundary {
+                    end += 1;
+                }
+            }
+            (lo, end)
+        } else {
+            let hi = match cursor_v {
+                // Include cursor ties from the other side: `<= v0` keeps
+                // positions with value == v0 inside the slice.
+                Some(v0) => sorted.partition_point(|(b, _)| f64::from_bits(*b as u64) <= v0),
+                None => len,
+            };
+            let mut start = hi.saturating_sub(cap);
+            if start < hi && start > 0 {
+                let boundary = sorted[start].0;
+                while start > 0 && sorted[start - 1].0 == boundary {
+                    start -= 1;
+                }
+            }
+            (start, hi)
+        };
+
+        Some(sorted[start..end].iter().map(|(_, d)| *d).collect())
+    }
+
+    /// Hydrate the sorted-DV candidate positions of one segment from the
+    /// warm `stored_slices_cache` — the fast twin of the
+    /// `scan_stored_section_into` sort-topk branch (same version-map delete
+    /// check, same dedup, same pre-heap cursor/worst rejection, same
+    /// `total_count` tally for parsed live candidates), minus the per-query
+    /// decompress and the O(segment-bytes) brace scan.
+    ///
+    /// Only called on the `is_match_all` sorted-candidates path, so hits
+    /// score 1.0 and every live candidate matches by construction.
+    fn hydrate_sorted_candidates(
+        &self,
+        slices: &StoredSlices,
+        candidates: &HashSet<u32>,
+        topk: &mut SortTopK,
+        seen_ids: &mut HashSet<String>,
+        total_count: &mut u64,
+    ) {
+        // Ascending positions for forward locality over `slices.bytes`.
+        let mut positions: Vec<u32> = candidates.iter().copied().collect();
+        positions.sort_unstable();
+        for pos in positions {
+            let Some(&(start, end)) = slices.offsets.get(pos as usize) else {
+                continue;
+            };
+            let Some(slice) = slices.bytes.get(start as usize..end as usize) else {
+                continue;
+            };
+            let mut doc_buf = slice.to_vec();
+            let doc: Value = match simd_json::serde::from_slice(&mut doc_buf) {
+                Ok(v) => v,
+                Err(_) => continue,
+            };
+            let id_ref = doc.get("_id").and_then(Value::as_str).unwrap_or("");
+            if let Some(ver) = self.store.version_map.get(id_ref) {
+                if ver.deleted {
+                    continue;
+                }
+            }
+            *total_count += 1;
+            if seen_ids.contains(id_ref) {
+                continue;
+            }
+            let source_ref = doc.get("_source").unwrap_or(&doc);
+            let key = compute_sort_values(source_ref, 1.0, id_ref, topk.fields.as_slice());
+            if !topk.would_admit(&key) {
+                continue;
+            }
+            let id = id_ref.to_string();
+            seen_ids.insert(id.clone());
+            topk.offer_keyed(Hit {
+                id,
+                score: 1.0,
+                source: source_ref.clone(),
+                sort: key,
+                explain: None,
+                highlight: None,
+                matched_queries: Vec::new(),
+            });
+        }
+    }
+
     /// Version of `try_aggs_fast_with_segments` that caches decoded columns
     /// per segment on `self.dv_cache`.  Segments are immutable once flushed,
     /// so a decoded `Arc<BTreeMap<String, Column>>` stays valid until the
@@ -6503,6 +6749,13 @@ impl Index {
         seen_ids: &mut HashSet<String>,
         pre_filter: Option<&HashSet<u32>>,
         mut sort_topk: Option<&mut SortTopK>,
+        // When `Some`, every doc's `(start, end)` byte range is appended as
+        // the brace-scan walks the section, so the caller can cache the
+        // decompressed bytes + offsets (`stored_slices_cache`) and hydrate
+        // future sorted-candidate queries without re-scanning.  Callers must
+        // verify `offsets_out.len() == segment doc_count` before caching —
+        // a malformed section bails early and leaves the vec incomplete.
+        mut offsets_out: Option<&mut Vec<(u32, u32)>>,
     ) {
         // Fast path: scan one doc at a time with a hand-rolled array splitter.
         // The stored section is always shaped as `[{...}, {...}, ...]` (a
@@ -6574,6 +6827,10 @@ impl Index {
                 return;
             }
 
+            if let Some(out) = offsets_out.as_deref_mut() {
+                out.push((start as u32, end as u32));
+            }
+
             let cur_pos = doc_pos;
             doc_pos += 1;
 
@@ -6639,23 +6896,38 @@ impl Index {
             // heap: no early stop (we must visit ALL matches so the survivors
             // are the GLOBAL top-N by the sort key), and retention is bounded
             // by the heap capacity rather than by first-N scan order.
+            //
+            // Hot-path discipline (search_after OOM fix): compute the sort
+            // key on the BORROWED source first and reject pre-heap — hits at
+            // or before the `search_after` cursor, and hits that cannot beat
+            // the current heap-worst, are dropped WITHOUT cloning `_source`
+            // and WITHOUT an id insert.  Pre-fix this branch cloned every
+            // matching doc's source (~1 KB × 1M docs ≈ 1 GB churn/query) and
+            // grew `seen_ids` to one String per match; under piled-up
+            // concurrent search_after queries that ballooned RSS to an OOM
+            // kill.  `seen_ids` now only tracks OFFERED hits, which is
+            // bounded by heap-admission traffic (≈ cap·ln(N) typical).
             if let Some(topk) = sort_topk.as_deref_mut() {
-                let id: String = id_ref.to_string();
-                if seen_ids.contains(&id) {
+                if seen_ids.contains(id_ref) {
                     continue;
                 }
-                let source = doc.get("_source").cloned().unwrap_or_else(|| doc.clone());
+                let source_ref = doc.get("_source").unwrap_or(&doc);
                 let score = if is_match_all {
                     1.0
                 } else {
-                    score_query_against_doc(query, &source)
+                    score_query_against_doc(query, source_ref)
                 };
+                let key = compute_sort_values(source_ref, score, id_ref, topk.fields.as_slice());
+                if !topk.would_admit(&key) {
+                    continue;
+                }
+                let id: String = id_ref.to_string();
                 seen_ids.insert(id.clone());
-                topk.offer(Hit {
+                topk.offer_keyed(Hit {
                     id,
                     score,
-                    source,
-                    sort: Vec::new(),
+                    source: source_ref.clone(),
+                    sort: key,
                     explain: None,
                     highlight: None,
                     matched_queries: Vec::new(),
@@ -11022,20 +11294,73 @@ struct SortTopK {
     heap: std::collections::BinaryHeap<SortHeapEntry>,
     fields: Arc<Vec<xerj_query::sort::SortField>>,
     cap: usize,
+    /// Normalized `search_after` cursor.  Hits whose sort key is NOT
+    /// strictly greater than this key (in the request's sort order) are
+    /// rejected BEFORE touching the heap — ES cursor semantics: a page
+    /// starts strictly after the cursor.  Applying the cursor during
+    /// collection (rather than post-hoc on the drained top-N) is what
+    /// makes deep cursors both correct (a cursor past the materialisation
+    /// cap used to yield an empty/wrong page, because the collector had
+    /// already discarded everything past the top-(from+size)) and cheap
+    /// (page N costs the same as page 1).
+    after: Option<Vec<Value>>,
 }
 impl SortTopK {
-    fn new(fields: Arc<Vec<xerj_query::sort::SortField>>, cap: usize) -> Self {
+    fn new(
+        fields: Arc<Vec<xerj_query::sort::SortField>>,
+        cap: usize,
+        after: Option<Vec<Value>>,
+    ) -> Self {
         Self {
             heap: std::collections::BinaryHeap::new(),
             fields,
             cap: cap.max(1),
+            after,
         }
     }
+    /// Cheap pre-admission check on a computed sort key.  Returns `false`
+    /// when the hit provably cannot appear in the result page:
+    /// - it sorts at or before the `search_after` cursor, or
+    /// - the heap is full and the hit sorts strictly after the current
+    ///   worst (key-only comparison; key ties are admitted and resolved
+    ///   by the heap's `_id` tie-break, matching the pre-existing
+    ///   push-then-evict semantics).
+    ///
+    /// Callers on the hot scan path use this BEFORE cloning `_source`, so
+    /// rejected hits cost zero allocations.
+    fn would_admit(&self, key: &[Value]) -> bool {
+        if let Some(after) = &self.after {
+            if xerj_query::sort::compare_sort_keys(key, after, &self.fields)
+                != std::cmp::Ordering::Greater
+            {
+                return false;
+            }
+        }
+        if self.heap.len() >= self.cap {
+            if let Some(worst) = self.heap.peek() {
+                if xerj_query::sort::compare_sort_keys(key, &worst.hit.sort, &self.fields)
+                    == std::cmp::Ordering::Greater
+                {
+                    return false;
+                }
+            }
+        }
+        true
+    }
     /// Offer a fully-sourced hit.  Computes its sort key from `_source`,
-    /// inserts into the bounded heap, and evicts the current worst (the
-    /// element that sorts last) when over capacity.
+    /// then delegates to `offer_keyed`.
     fn offer(&mut self, mut hit: Hit) {
         hit.sort = compute_sort_values(&hit.source, hit.score, &hit.id, &self.fields);
+        self.offer_keyed(hit);
+    }
+    /// Offer a hit whose `sort` key is already computed.  Applies the
+    /// cursor + heap-worst rejection, inserts into the bounded heap, and
+    /// evicts the current worst (the element that sorts last) when over
+    /// capacity.
+    fn offer_keyed(&mut self, hit: Hit) {
+        if !self.would_admit(&hit.sort) {
+            return;
+        }
         self.heap.push(SortHeapEntry {
             hit,
             fields: Arc::clone(&self.fields),
@@ -11047,6 +11372,92 @@ impl SortTopK {
     fn into_hits(self) -> Vec<Hit> {
         self.heap.into_iter().map(|e| e.hit).collect()
     }
+}
+
+/// Decompressed stored section of one segment plus per-doc byte ranges,
+/// cached so the sorted-DV candidate path can hydrate specific doc
+/// positions without a per-query decompress + O(bytes) brace re-scan.
+/// See `Index::stored_slices_cache`.
+struct StoredSlices {
+    bytes: Vec<u8>,
+    /// `offsets[pos] = (start, end)` byte range of the doc at stored
+    /// position `pos` inside `bytes`.
+    offsets: Vec<(u32, u32)>,
+}
+
+impl StoredSlices {
+    fn retained_bytes(&self) -> u64 {
+        (self.bytes.len() + self.offsets.len() * 8 + 64) as u64
+    }
+}
+
+/// Retained-memory budget for `stored_slices_cache`.  Inserts stop once the
+/// budget is reached (queries then fall back to the per-query decompress
+/// path); merge eviction returns the dropped segment's bytes to the budget.
+const STORED_SLICES_CACHE_BUDGET: u64 = 512 * 1024 * 1024;
+
+/// Normalize one `search_after` cursor value so it compares against the
+/// normalized `hit.sort` values `compute_sort_values` produces (date-shaped
+/// strings → epoch-ms / epoch-ns numbers).  `fmt_hint` is the SortField's
+/// ES format pattern, tried first for custom formats like
+/// `yyyy-MM-dd | HH:mm:ss.SSS` whose cursor strings the default date
+/// detectors below don't recognize.  Non-date values pass through unchanged.
+fn normalize_search_after_value(v: &Value, fmt_hint: Option<&str>) -> Value {
+    if let Some(s) = v.as_str() {
+        if let Some(fmt) = fmt_hint {
+            if let Some(epoch) = es_format_to_epoch_ms(s, fmt) {
+                return Value::Number(serde_json::Number::from(epoch));
+            }
+        }
+        let bytes = s.as_bytes();
+        let looks_date = bytes.len() >= 5
+            && bytes[0].is_ascii_digit()
+            && bytes[1].is_ascii_digit()
+            && bytes[2].is_ascii_digit()
+            && bytes[3].is_ascii_digit()
+            && bytes[4] == b'-';
+        if looks_date {
+            let frac_digits = s
+                .rsplit_once('.')
+                .map(|(_, rest)| rest.chars().take_while(|c| c.is_ascii_digit()).count())
+                .unwrap_or(0);
+            let is_nanos = frac_digits >= 4;
+            let s_utc = s.replace(' ', "T");
+            let s_utc = if s_utc.ends_with('Z') || s_utc.contains('+') {
+                s_utc
+            } else {
+                format!("{}Z", s_utc)
+            };
+            if is_nanos {
+                if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&s_utc) {
+                    let secs = dt.timestamp();
+                    let nanos = dt.timestamp_subsec_nanos() as i64;
+                    if let Some(ns) = secs
+                        .checked_mul(1_000_000_000)
+                        .and_then(|x| x.checked_add(nanos))
+                    {
+                        return Value::Number(serde_json::Number::from(ns));
+                    }
+                }
+            }
+            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&s_utc) {
+                return Value::Number(serde_json::Number::from(dt.timestamp_millis()));
+            }
+            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(
+                s_utc.trim_end_matches('Z'),
+                "%Y-%m-%dT%H:%M:%S%.f",
+            ) {
+                return Value::Number(serde_json::Number::from(dt.and_utc().timestamp_millis()));
+            }
+            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(
+                s_utc.trim_end_matches('Z'),
+                "%Y-%m-%dT%H:%M:%S",
+            ) {
+                return Value::Number(serde_json::Number::from(dt.and_utc().timestamp_millis()));
+            }
+        }
+    }
+    v.clone()
 }
 
 /// Compute the ES sort-value array for a hit from its `_source` (+ score / id
