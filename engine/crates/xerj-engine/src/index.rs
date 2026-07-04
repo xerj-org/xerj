@@ -10066,12 +10066,19 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                 Fuzziness::Fixed(n) => *n as usize,
             };
             let q_lower = query_value.to_lowercase();
-            // ES's Fuzzy query matches at the TERM level: we tokenize the
-            // field value and check if any individual token is within
-            // max_edits edit-distance of the query. Full-string Levenshtein
-            // would never match a multi-word text field.
+            // ES's Fuzzy query matches at the TERM level with an UNANALYZED
+            // query term. For keyword fields the indexed term is the whole
+            // field value, so first compare the full (case-folded) string
+            // against the query — e.g. doc "claude-haiku-4-5" vs query
+            // "claude-haiku-4-6" is 1 edit and must match. Then fall back to
+            // per-token comparison for text-field semantics, where each
+            // analyzed token is an indexed term.
             let token_match = |s: &str| -> bool {
-                s.to_lowercase()
+                let s_lower = s.to_lowercase();
+                if levenshtein_distance(&s_lower, &q_lower) <= max_edits {
+                    return true;
+                }
+                s_lower
                     .split(|c: char| !c.is_alphanumeric())
                     .filter(|t| !t.is_empty())
                     .any(|tok| levenshtein_distance(tok, &q_lower) <= max_edits)
