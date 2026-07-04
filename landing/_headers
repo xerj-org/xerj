@@ -6,9 +6,11 @@
   Permissions-Policy: interest-cohort=()
   Content-Security-Policy: default-src 'self' blob:; style-src 'self' blob: https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' blob: https://fonts.gstatic.com; img-src 'self' blob: data:; script-src 'self' blob: 'unsafe-inline' https://static.cloudflareinsights.com; connect-src 'self' blob: https://cloudflareinsights.com; frame-ancestors 'self';
 
-# Long-cache static assets that are content-addressed or rarely change.
+# Site-wide stylesheet changes with the design — must revalidate on
+# every deploy (ETag 304s keep this cheap). A stale copy here breaks
+# layout for new markup (seen 2026-07-04 with the hero video).
 /style.css
-  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+  Cache-Control: no-cache
 
 # Playground JS/CSS change on every deploy — must revalidate.
 /playground/*.js
