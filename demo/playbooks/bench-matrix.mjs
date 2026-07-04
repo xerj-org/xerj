@@ -44,7 +44,11 @@ async function req(base, method, p, body, ndjson = false) {
   // (track_total_hits=10000, relation "gte") while XERJ returns the exact total.
   // Force BOTH engines to compute the true total so (a) hit counts are
   // comparable for the correctness/no-op guard and (b) neither engine gets a
-  // latency edge from short-circuiting the count. Only for JSON _search bodies.
+  // latency edge from short-circuiting the count. Only for JSON _search bodies:
+  // this covers every READ_FAMILIES / MIXED_OPS / kNN body (all POST .../_search
+  // JSON objects); _count is exact by definition and _mget has no hit total.
+  // _msearch NDJSON bodies are DELIBERATELY not patched (the injection is
+  // JSON-object-only), so its per-line totals keep engine-default semantics.
   let sendBody = body;
   if (!ndjson && body && typeof body === 'object' && !Array.isArray(body)
       && /\/_search(\?|$)/.test(p) && body.track_total_hits === undefined) {
@@ -171,6 +175,12 @@ async function safeTimed(base, p, body, opts) {
   try { return await timed(base, p, body, opts); }
   catch (e) { return { error: String(e && e.message || e) }; }
 }
+// Quick liveness probe (GET /) used by phase-failure diagnostics so a dead
+// engine (crashed between phases) is distinguishable from a missing feature.
+async function engineAlive(base) {
+  const r = await req(base, 'GET', '/');
+  return r.failed ? 'DEAD (no response to GET /)' : `alive (GET / -> HTTP ${r.status})`;
+}
 // true stat value (p50 or recall etc.) or null if unsupported/errored.
 function statVal(r, key = 'p50') {
   return r && !r.unsupported && !r.error && typeof r[key] === 'number' ? r[key] : null;
@@ -274,7 +284,22 @@ const READ_FAMILIES = [
   // search features
   { label: 'feat: sort-heavy', body: { query: { match_all: {} }, size: 50, sort: [{ latency_ms: 'desc' }, { cost_usd: 'asc' }] } },
   { label: 'feat: deep from+size (from 500)', body: { query: { match_all: {} }, from: 500, size: 50 } },
-  { label: 'feat: search_after', body: { query: { match_all: {} }, size: 50, sort: [{ latency_ms: 'desc' }, { _id: 'asc' }], search_after: [1000, '0'] } },
+  // search_after: sort on REAL corpus fields. Stock ES 8 rejects sorting on _id
+  // (fielddata on _id is disabled -> 400), so the previous [{_id:'asc'}] tiebreak
+  // made the probe read "unsupported" on BOTH engines. Page 1 (untimed) captures
+  // the last hit's sort values; the benchmarked body pages past them via
+  // search_after. Timing still goes through the exact same safeTimed path as
+  // every other family (feasibility probe + warmup + open-loop iters).
+  { label: 'feat: search_after', makeBody: async (base) => {
+    const sort = [{ latency_ms: 'asc' }, { '@timestamp': 'asc' }];
+    const first = await req(base, 'POST', S, { query: { match_all: {} }, size: 50, sort });
+    const hits = first.j?.hits?.hits || [];
+    const last = hits.length ? hits[hits.length - 1].sort : null;
+    // Sentinel [0, 0] (int, epoch-millis) when capture failed: safeTimed's own
+    // feasibility probe then classifies the family (4xx -> unsupported,
+    // no response -> collapsed) instead of silently benchmarking page 1.
+    return { query: { match_all: {} }, size: 50, sort, search_after: (last && last.length) ? last : [0, 0] };
+  } },
   { label: 'feat: highlight', body: { query: { match: { status: 'ok' } }, size: 10, highlight: { fields: { status: {} } } } },
   // multi-op endpoints
   { label: 'feat: _count', body: { query: { match_all: {} } }, path: '/perf/_count' },
@@ -460,7 +485,7 @@ async function knnBench(base, log, dims = 128, M = 50000) {
 // ────────────────────────────── on-disk index size ──────────────────────────────
 async function statsBytes(base) {
   try { const r = await req(base, 'GET', '/perf/_stats'); return r.j?._all?.total?.store?.size_in_bytes ?? null; }
-  catch { return null; }
+  catch (e) { process.stderr.write(`   [disk] _stats error for ${base}: ${String(e && e.message || e)}\n`); return null; }
 }
 // Measure BOTH engines on the SAME, index-scoped basis: the /perf `_stats` store
 // size. No `du` on shared/stale candidate data dirs (which can hold translog,
@@ -518,10 +543,19 @@ const mb = (b) => (b / 1048576).toFixed(1) + ' MB';
 // plain-ASCII WIN/LOSE verdict. Unsupported/missing on either side => N/A
 // (does NOT fail CI). higherBetter=true for docs/s + recall; false for latency
 // + disk bytes.
-function scoreRow(dim, xv, ev, higherBetter, fmt) {
-  const disp = (v) => v == null ? 'unsupported' : (!isFinite(v) ? 'collapsed' : fmt(v));
-  const xs = disp(xv);
-  const es = disp(ev);
+// Optional xraw/eraw are the raw timed()/knnBench() results: when present they
+// let disp() distinguish a genuine 4xx feasibility rejection ("unsupported
+// (400)") from a harness/transport error ("error") — so a dead engine mid-run
+// no longer masquerades as a missing feature in the scorecard.
+function scoreRow(dim, xv, ev, higherBetter, fmt, xraw, eraw) {
+  const disp = (v, raw) => {
+    if (v != null) return !isFinite(v) ? 'collapsed' : fmt(v);
+    if (raw && raw.unsupported) return `unsupported (${raw.status ?? '4xx'})`;
+    if (raw && raw.error) return 'error';
+    return 'unsupported';
+  };
+  const xs = disp(xv, xraw);
+  const es = disp(ev, eraw);
   let ratio = '—', verdict = 'N/A';
   if (xv != null && ev != null) {
     const better = higherBetter ? xv >= ev : xv <= ev;
@@ -604,7 +638,10 @@ async function main() {
       for (const e of engines) {
         if (!alive[e.name]) { R.reads[fam.label][e.name] = { error: 'unreachable' }; continue; }
         const path = fam.path || S;
-        R.reads[fam.label][e.name] = await safeTimed(e.url, path, fam.body, { ndjson: !!fam.ndjson });
+        // families with per-engine setup (e.g. search_after sort-value capture)
+        // build their body against THIS engine right before timing.
+        const body = fam.makeBody ? await fam.makeBody(e.url) : fam.body;
+        R.reads[fam.label][e.name] = await safeTimed(e.url, path, body, { ndjson: !!fam.ndjson });
       }
       const xrr = R.reads[fam.label].XERJ, err_ = R.reads[fam.label].ES;
       const xr = statVal(xrr), er = statVal(err_);
@@ -621,7 +658,12 @@ async function main() {
           R.mixed[e.name] = await mixedBench(e.url, log);
           const bg = R.mixed[e.name].__bg;
           if (bg) log(`     ${e.name} background write load: ${bg.dps.toLocaleString()} docs/s (${bg.docs.toLocaleString()} docs during read window)`);
-        } catch (err) { log(`     mixed ERROR: ${err.message}`); R.mixed[e.name] = {}; }
+        } catch (err) {
+          // Log WHY + whether the engine is still up: all-unsupported mixed cells
+          // have previously meant "engine died between phases", not "no feature".
+          log(`     mixed ERROR (${e.name}): ${err.message} — engine ${await engineAlive(e.url)}`);
+          R.mixed[e.name] = {};
+        }
       }
     }
     if (A.knn) {
@@ -629,7 +671,10 @@ async function main() {
         if (!alive[e.name]) { R.knn[e.name] = { unsupported: true }; continue; }
         log(`   [knn] ${e.name}: latency + recall@10 ...`);
         try { R.knn[e.name] = await knnBench(e.url, log); log(`     ${e.name} kNN: p50 ${f3(statVal(R.knn[e.name]))}ms recall@10 ${f3(statVal(R.knn[e.name], 'recall'))}`); }
-        catch (err) { R.knn[e.name] = { error: String(err.message || err) }; log(`     kNN ERROR: ${err.message}`); }
+        catch (err) {
+          R.knn[e.name] = { error: String(err.message || err) };
+          log(`     kNN ERROR (${e.name}): ${err.message} — engine ${await engineAlive(e.url)}`);
+        }
       }
     }
   }
@@ -638,6 +683,8 @@ async function main() {
   for (const e of engines) {
     if (!alive[e.name]) { R.disk[e.name] = null; continue; }
     R.disk[e.name] = await diskBytes(e.url); // index-only _stats store, identical basis for both
+    // null store size + dead engine == crash between phases, not a missing API.
+    if (R.disk[e.name] == null) log(`   [disk] ${e.name}: _stats gave no store size — engine ${await engineAlive(e.url)}`);
     log(`   [disk] ${e.name}: ${R.disk[e.name] == null ? 'unknown' : mb(R.disk[e.name])} (/perf _stats store, apples-to-apples)`);
   }
 
@@ -673,20 +720,20 @@ async function main() {
     if (mm) {
       rows.push({ dim: `read ${fam.label} (p50 ms) [result mismatch: ${mm}]`, xs: fmtMs(statVal(xrr)), es: fmtMs(statVal(err_)), ratio: 'mismatch', verdict: 'N/A' });
     } else {
-      rows.push(scoreRow(`read ${fam.label} (p50 ms)`, statVal(xrr), statVal(err_), false, (v) => v.toFixed(2)));
+      rows.push(scoreRow(`read ${fam.label} (p50 ms)`, statVal(xrr), statVal(err_), false, (v) => v.toFixed(2), xrr, err_));
     }
   }
   // mixed read-under-write (lower p99 = XERJ win)
   if (A.mixed) {
     for (const [label] of MIXED_OPS) {
       const xv = statVal(R.mixed.XERJ?.[label], 'p99'), ev = statVal(R.mixed.ES?.[label], 'p99');
-      rows.push(scoreRow(`mixed ${label} (p99 ms, under write)`, xv, ev, false, (v) => v.toFixed(2)));
+      rows.push(scoreRow(`mixed ${label} (p99 ms, under write)`, xv, ev, false, (v) => v.toFixed(2), R.mixed.XERJ?.[label], R.mixed.ES?.[label]));
     }
   }
   // knn latency (lower p50 = win) + recall (higher = win)
   if (A.knn) {
-    rows.push(scoreRow('kNN k=10 (p50 ms)', statVal(R.knn.XERJ), statVal(R.knn.ES), false, (v) => v.toFixed(2)));
-    rows.push(scoreRow('kNN recall@10', statVal(R.knn.XERJ, 'recall'), statVal(R.knn.ES, 'recall'), true, (v) => (v * 100).toFixed(1) + '%'));
+    rows.push(scoreRow('kNN k=10 (p50 ms)', statVal(R.knn.XERJ), statVal(R.knn.ES), false, (v) => v.toFixed(2), R.knn.XERJ, R.knn.ES));
+    rows.push(scoreRow('kNN recall@10', statVal(R.knn.XERJ, 'recall'), statVal(R.knn.ES, 'recall'), true, (v) => (v * 100).toFixed(1) + '%', R.knn.XERJ, R.knn.ES));
   }
   // disk (smaller = win)
   rows.push(scoreRow('index on-disk size', R.disk.XERJ ?? null, R.disk.ES ?? null, false, mb));
