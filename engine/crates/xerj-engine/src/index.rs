@@ -3732,6 +3732,27 @@ impl Index {
         // O(1) dedup: tracks doc IDs already added to all_hits.
         let mut seen_ids: HashSet<String> = HashSet::new();
 
+        // ── Global top-(from+size) sorted collector ───────────────────────
+        // When the request sorts on a real field (not just `_score` / `_doc`)
+        // and asks for hits (`size > 0`), the arrival-order `materialisation_limit`
+        // cap on `all_hits` would truncate to the first ~256 docs *in scan
+        // order* and then sort only those — returning a wrong subset once total
+        // matches exceed the cap.  Instead we route every admitted hit through
+        // a bounded max-heap (`SortTopK`) keyed by the final sort order, so the
+        // survivors are the true GLOBAL top-(from+size).  `all_hits` is left
+        // empty on this path; the heap is drained into `final_hits` after the
+        // segment loop.  `total_count` is tallied independently and stays exact.
+        let field_sort_active: bool = size > 0
+            && request.sort.iter().any(|sf| !sf.is_score() && !sf.is_doc_order());
+        let mut sort_topk: Option<SortTopK> = if field_sort_active {
+            Some(SortTopK::new(
+                Arc::new(request.sort.clone()),
+                materialisation_limit,
+            ))
+        } else {
+            None
+        };
+
         // Helper: admit a hit into the bounded `all_hits` collector.
         //
         // Contract:
@@ -3750,8 +3771,27 @@ impl Index {
             ($hit:expr) => {{
                 total_count += 1;
                 if !count_only {
-                    let hit: Hit = $hit;
-                    if all_hits.len() < materialisation_limit && !seen_ids.contains(&hit.id) {
+                    let mut hit: Hit = $hit;
+                    if let Some(topk) = sort_topk.as_mut() {
+                        // Field-sorted: offer to the bounded top-N heap.  A hit
+                        // admitted source-less (memtable FTS / id-only paths)
+                        // gets its `_source` filled from the memtable so the
+                        // sort key can be computed now — the heap must rank on
+                        // the real key, not on a deferred/Null source.
+                        if !seen_ids.contains(&hit.id) {
+                            if hit.source.is_null() {
+                                if let Some(src) =
+                                    self.memtable.get_doc_source_as_value(&hit.id)
+                                {
+                                    hit.source = src;
+                                }
+                            }
+                            seen_ids.insert(hit.id.clone());
+                            topk.offer(hit);
+                        }
+                    } else if all_hits.len() < materialisation_limit
+                        && !seen_ids.contains(&hit.id)
+                    {
                         seen_ids.insert(hit.id.clone());
                         all_hits.push(hit);
                     }
@@ -3761,19 +3801,39 @@ impl Index {
             // Count-only variant: increments total without allocating a Hit.
             (count $id:expr) => {{
                 total_count += 1;
-                if !count_only && all_hits.len() < materialisation_limit {
-                    let id: String = $id;
-                    if !seen_ids.contains(&id) {
-                        seen_ids.insert(id.clone());
-                        all_hits.push(Hit {
-                            id,
-                            score: 1.0,
-                            source: Value::Null,
-                            sort: Vec::new(),
-                            explain: None,
-                            highlight: None,
-                            matched_queries: Vec::new(),
-                        });
+                if !count_only {
+                    if let Some(topk) = sort_topk.as_mut() {
+                        let id: String = $id;
+                        if !seen_ids.contains(&id) {
+                            let source = self
+                                .memtable
+                                .get_doc_source_as_value(&id)
+                                .unwrap_or(Value::Null);
+                            seen_ids.insert(id.clone());
+                            topk.offer(Hit {
+                                id,
+                                score: 1.0,
+                                source,
+                                sort: Vec::new(),
+                                explain: None,
+                                highlight: None,
+                                matched_queries: Vec::new(),
+                            });
+                        }
+                    } else if all_hits.len() < materialisation_limit {
+                        let id: String = $id;
+                        if !seen_ids.contains(&id) {
+                            seen_ids.insert(id.clone());
+                            all_hits.push(Hit {
+                                id,
+                                score: 1.0,
+                                source: Value::Null,
+                                sort: Vec::new(),
+                                explain: None,
+                                highlight: None,
+                                matched_queries: Vec::new(),
+                            });
+                        }
                     }
                 }
             }};
@@ -4270,8 +4330,17 @@ impl Index {
                                                 // Page full — the rest are
                                                 // already counted in
                                                 // `total_count`, so stop
-                                                // decoding sources.
-                                                if all_hits.len() >= materialisation_limit {
+                                                // decoding sources.  When a
+                                                // field sort is active we must
+                                                // NOT stop: every match has to
+                                                // be offered to the bounded
+                                                // top-N heap so the survivors
+                                                // are the GLOBAL top-N by the
+                                                // sort key, not the highest-
+                                                // scoring prefix.
+                                                if sort_topk.is_none()
+                                                    && all_hits.len() >= materialisation_limit
+                                                {
                                                     break;
                                                 }
                                                 let doc = match docs.get(sh.doc_id as usize) {
@@ -4302,7 +4371,7 @@ impl Index {
                                                     .cloned()
                                                     .unwrap_or(Value::Null);
                                                 seen_ids.insert(id.clone());
-                                                all_hits.push(Hit {
+                                                let hit = Hit {
                                                     id,
                                                     score: sh.score,
                                                     source,
@@ -4310,7 +4379,12 @@ impl Index {
                                                     explain: None,
                                                     highlight: None,
                                                     matched_queries: Vec::new(),
-                                                });
+                                                };
+                                                if let Some(topk) = sort_topk.as_mut() {
+                                                    topk.offer(hit);
+                                                } else {
+                                                    all_hits.push(hit);
+                                                }
                                             }
                                             // `docs` dropped at end of block.
                                         }
@@ -4366,6 +4440,7 @@ impl Index {
                                     &mut all_hits,
                                     &mut seen_ids,
                                     pre_filter.as_ref(),
+                                    sort_topk.as_mut(),
                                 );
                             }
                         }
@@ -4387,7 +4462,15 @@ impl Index {
 
         // De-duplication is already enforced by `seen_ids` inside the
         // bounded collector (`admit_hit!`), so `all_hits` is already unique.
-        let final_hits: Vec<Hit> = all_hits;
+        // Field-sorted queries collected into the bounded top-N heap instead
+        // of `all_hits` (which stays empty on that path); drain it here.  The
+        // heap already holds only the GLOBAL top-(from+size) by the sort key,
+        // so the downstream `final_hits.sort_by` + `skip(from).take(size)`
+        // produce the correct page.
+        let final_hits: Vec<Hit> = match sort_topk.take() {
+            Some(topk) => topk.into_hits(),
+            None => all_hits,
+        };
 
         // --- Fill memtable sources (for hits that don't yet have a source) ---
         let mut final_hits = self.fill_memtable_sources(final_hits).await;
@@ -4474,143 +4557,13 @@ impl Index {
         // --- Apply field-value sort (populate hit.sort) ---
         if !request.sort.is_empty() {
             let sort_fields = &request.sort;
-            // When a field sort pulls a date-shaped string out of the
-            // source we emit epoch-ms (or epoch-ns for nanosecond-
-            // precision inputs) instead of the raw string, to match ES
-            // sort-value semantics. Heuristic: the value must start with
-            // a 4-digit year followed by `-` — that rules out random
-            // keyword fields whose contents happen to contain a dash.
-            fn looks_like_date(s: &str) -> bool {
-                let bytes = s.as_bytes();
-                bytes.len() >= 5
-                    && bytes[0].is_ascii_digit()
-                    && bytes[1].is_ascii_digit()
-                    && bytes[2].is_ascii_digit()
-                    && bytes[3].is_ascii_digit()
-                    && bytes[4] == b'-'
-            }
-            // Day-first slash dates (`dd/MM/yyyy[ HH:mm:ss.SSS]`) that the
-            // year-first `looks_like_date` detector misses. A `date_nanos`
-            // (or `date`) field whose mapping `format` is e.g.
-            // `dd/MM/yyyy HH:mm:ss.SSS` stores its source in this shape; left
-            // as a raw string it string-sorts incorrectly and — across a
-            // multi-index search where a sibling index emits a numeric epoch —
-            // never orders against the sibling at all. Normalising it to an
-            // epoch (millis) here puts both indices on one comparable numeric
-            // scale so the cross-index merge sort in the API layer interleaves
-            // them by true instant, and the response layer's `format` pass
-            // renders the requested ISO string.
-            fn looks_like_slash_date(s: &str) -> bool {
-                let head = s.split_whitespace().next().unwrap_or(s);
-                let parts: Vec<&str> = head.split('/').collect();
-                parts.len() == 3
-                    && (1..=2).contains(&parts[0].len())
-                    && parts[0].bytes().all(|b| b.is_ascii_digit())
-                    && (1..=2).contains(&parts[1].len())
-                    && parts[1].bytes().all(|b| b.is_ascii_digit())
-                    && parts[2].len() == 4
-                    && parts[2].bytes().all(|b| b.is_ascii_digit())
-            }
-            fn slash_date_to_epoch(s: &str) -> Option<Value> {
-                // Day-first is the canonical ES `dd/MM/yyyy` shape; fall back
-                // to month-first only when day-first fails to parse (chrono
-                // rejects an out-of-range month, so an unambiguous `15/04/...`
-                // resolves to day-first). Emit epoch-millis — the
-                // sub-millisecond precision needed for nanos is only carried
-                // by year-first inputs handled above.
-                for pat in [
-                    "%d/%m/%Y %H:%M:%S%.f",
-                    "%d/%m/%Y %H:%M:%S",
-                    "%m/%d/%Y %H:%M:%S%.f",
-                    "%m/%d/%Y %H:%M:%S",
-                ] {
-                    if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, pat) {
-                        return Some(Value::Number(serde_json::Number::from(
-                            dt.and_utc().timestamp_millis(),
-                        )));
-                    }
-                }
-                for pat in ["%d/%m/%Y", "%m/%d/%Y"] {
-                    if let Ok(d) = chrono::NaiveDate::parse_from_str(s, pat) {
-                        return d.and_hms_opt(0, 0, 0).map(|dt| {
-                            Value::Number(serde_json::Number::from(dt.and_utc().timestamp_millis()))
-                        });
-                    }
-                }
-                None
-            }
-            fn date_string_to_epoch(s: &str) -> Option<Value> {
-                // Detect sub-millisecond precision: the fractional part
-                // has 4+ digits → treat as nanoseconds, else milliseconds.
-                let frac_digits = s.rsplit_once('.')
-                    .map(|(_, rest)| rest.chars().take_while(|c| c.is_ascii_digit()).count())
-                    .unwrap_or(0);
-                let is_nanos = frac_digits >= 4;
-                let s_utc = s.replace(' ', "T");
-                let s_utc = if s_utc.ends_with('Z') || s_utc.contains('+') {
-                    s_utc
-                } else {
-                    format!("{}Z", s_utc)
-                };
-                if is_nanos {
-                    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&s_utc) {
-                        let secs = dt.timestamp();
-                        let nanos = dt.timestamp_subsec_nanos() as i64;
-                        let epoch_ns = secs.checked_mul(1_000_000_000)?.checked_add(nanos)?;
-                        return Some(Value::Number(serde_json::Number::from(epoch_ns)));
-                    }
-                    if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(&s_utc.trim_end_matches('Z'), "%Y-%m-%dT%H:%M:%S%.f") {
-                        let epoch_ms = dt.and_utc().timestamp_millis();
-                        let subsec_nanos = dt.and_utc().timestamp_subsec_nanos() as i64;
-                        let secs = dt.and_utc().timestamp();
-                        let epoch_ns = secs.checked_mul(1_000_000_000)?.checked_add(subsec_nanos)?;
-                        let _ = epoch_ms;
-                        return Some(Value::Number(serde_json::Number::from(epoch_ns)));
-                    }
-                    return None;
-                }
-                if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&s_utc) {
-                    return Some(Value::Number(serde_json::Number::from(dt.timestamp_millis())));
-                }
-                if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(&s_utc.trim_end_matches('Z'), "%Y-%m-%dT%H:%M:%S%.f") {
-                    return Some(Value::Number(serde_json::Number::from(dt.and_utc().timestamp_millis())));
-                }
-                if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(&s_utc.trim_end_matches('Z'), "%Y-%m-%dT%H:%M:%S") {
-                    return Some(Value::Number(serde_json::Number::from(dt.and_utc().timestamp_millis())));
-                }
-                if let Ok(dt) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
-                    return Some(Value::Number(serde_json::Number::from(
-                        dt.and_hms_opt(0, 0, 0)?.and_utc().timestamp_millis(),
-                    )));
-                }
-                None
-            }
-            // Populate sort key arrays from source.
+            // Populate sort key arrays from source.  `compute_sort_values` is
+            // the SAME routine the bounded `SortTopK` collector uses at
+            // admission time, so the global top-N selection and this final
+            // ordering agree on the exact total order (incl. date-string
+            // normalisation).
             for hit in &mut final_hits {
-                let mut sort_vals: Vec<Value> = Vec::new();
-                for sf in sort_fields {
-                    let v = if sf.is_score() {
-                        Value::Number(serde_json::Number::from_f64(hit.score as f64)
-                            .unwrap_or(serde_json::Number::from(0)))
-                    } else if sf.is_doc_order() {
-                        // Use the string id as a proxy for doc order.
-                        Value::String(hit.id.clone())
-                    } else {
-                        let raw = get_field_value(&hit.source, &sf.field)
-                            .unwrap_or(Value::Null);
-                        match raw {
-                            Value::String(ref s) if looks_like_date(s) => {
-                                date_string_to_epoch(s).unwrap_or(raw)
-                            }
-                            Value::String(ref s) if looks_like_slash_date(s) => {
-                                slash_date_to_epoch(s).unwrap_or(raw)
-                            }
-                            other => other,
-                        }
-                    };
-                    sort_vals.push(v);
-                }
-                hit.sort = sort_vals;
+                hit.sort = compute_sort_values(&hit.source, hit.score, &hit.id, sort_fields);
             }
             // Sort by the populated sort keys.
             final_hits.sort_by(|a, b| {
@@ -6549,6 +6502,7 @@ impl Index {
         all_hits: &mut Vec<Hit>,
         seen_ids: &mut HashSet<String>,
         pre_filter: Option<&HashSet<u32>>,
+        mut sort_topk: Option<&mut SortTopK>,
     ) {
         // Fast path: scan one doc at a time with a hand-rolled array splitter.
         // The stored section is always shaped as `[{...}, {...}, ...]` (a
@@ -6678,6 +6632,34 @@ impl Index {
             *total_count += 1;
 
             if count_only {
+                continue;
+            }
+
+            // Field-sorted queries route every match into the bounded top-N
+            // heap: no early stop (we must visit ALL matches so the survivors
+            // are the GLOBAL top-N by the sort key), and retention is bounded
+            // by the heap capacity rather than by first-N scan order.
+            if let Some(topk) = sort_topk.as_deref_mut() {
+                let id: String = id_ref.to_string();
+                if seen_ids.contains(&id) {
+                    continue;
+                }
+                let source = doc.get("_source").cloned().unwrap_or_else(|| doc.clone());
+                let score = if is_match_all {
+                    1.0
+                } else {
+                    score_query_against_doc(query, &source)
+                };
+                seen_ids.insert(id.clone());
+                topk.offer(Hit {
+                    id,
+                    score,
+                    source,
+                    sort: Vec::new(),
+                    explain: None,
+                    highlight: None,
+                    matched_queries: Vec::new(),
+                });
                 continue;
             }
 
@@ -10983,6 +10965,215 @@ fn match_any_field_wildcard(source: &Value, field_pattern: &str, query_lower: &s
 /// - Deep nesting: `a.b.c` in `{"a": {"b": {"c": 42}}}` → `42`
 /// - Dotted source keys (subobjects:false): `a.b.c` in `{"a.b.c": 42}` → `42`
 ///   Tries the literal full path first, then falls back to walking parts.
+// ── Global top-(from+size) sorted collector ───────────────────────────────
+//
+// Bug fix (sort top-N correctness): a field-sorted query used to keep only the
+// FIRST `materialisation_limit` (≈256) hits in *scan order* and then sort that
+// truncated set — so once total matches exceeded the cap it returned a
+// non-deterministic subset instead of the GLOBAL top-N by the sort key.
+//
+// `SortTopK` replaces that arrival-order cap with a bounded max-heap keyed by
+// the SAME total order as the final `final_hits.sort_by` (ascending
+// `(compare_sort_keys, _id)`).  Because `BinaryHeap` is a max-heap, its
+// greatest element is the hit that sorts LAST — exactly the one to evict when
+// the heap exceeds `from+size` capacity.  Every source (memtable shards + each
+// segment, memtable-first for newest-wins dedup) funnels through `offer`, so
+// the heap ends holding the true global top-(from+size).  `_source` is only
+// materialised for hits that reach the heap; retained memory stays
+// O(from+size), preserving F1's win.
+struct SortHeapEntry {
+    hit: Hit,
+    fields: Arc<Vec<xerj_query::sort::SortField>>,
+}
+impl PartialEq for SortHeapEntry {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other) == std::cmp::Ordering::Equal
+    }
+}
+impl Eq for SortHeapEntry {}
+impl PartialOrd for SortHeapEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for SortHeapEntry {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        xerj_query::sort::compare_sort_keys(&self.hit.sort, &other.hit.sort, &self.fields)
+            .then_with(|| self.hit.id.cmp(&other.hit.id))
+    }
+}
+
+/// Bounded top-(from+size) collector for field-sorted queries.
+struct SortTopK {
+    heap: std::collections::BinaryHeap<SortHeapEntry>,
+    fields: Arc<Vec<xerj_query::sort::SortField>>,
+    cap: usize,
+}
+impl SortTopK {
+    fn new(fields: Arc<Vec<xerj_query::sort::SortField>>, cap: usize) -> Self {
+        Self {
+            heap: std::collections::BinaryHeap::new(),
+            fields,
+            cap: cap.max(1),
+        }
+    }
+    /// Offer a fully-sourced hit.  Computes its sort key from `_source`,
+    /// inserts into the bounded heap, and evicts the current worst (the
+    /// element that sorts last) when over capacity.
+    fn offer(&mut self, mut hit: Hit) {
+        hit.sort = compute_sort_values(&hit.source, hit.score, &hit.id, &self.fields);
+        self.heap.push(SortHeapEntry {
+            hit,
+            fields: Arc::clone(&self.fields),
+        });
+        if self.heap.len() > self.cap {
+            self.heap.pop();
+        }
+    }
+    fn into_hits(self) -> Vec<Hit> {
+        self.heap.into_iter().map(|e| e.hit).collect()
+    }
+}
+
+/// Compute the ES sort-value array for a hit from its `_source` (+ score / id
+/// for the `_score` / `_doc` pseudo-fields).  Shared by the bounded
+/// `SortTopK` collector (selection) and the final `final_hits.sort_by`
+/// population (output ordering) so both agree on the exact total order.
+fn compute_sort_values(
+    source: &Value,
+    score: f32,
+    id: &str,
+    sort_fields: &[xerj_query::sort::SortField],
+) -> Vec<Value> {
+    // When a field sort pulls a date-shaped string out of the source we emit
+    // epoch-ms (or epoch-ns for nanosecond-precision inputs) instead of the
+    // raw string, to match ES sort-value semantics.  Heuristic: the value must
+    // start with a 4-digit year followed by `-`.
+    fn looks_like_date(s: &str) -> bool {
+        let bytes = s.as_bytes();
+        bytes.len() >= 5
+            && bytes[0].is_ascii_digit()
+            && bytes[1].is_ascii_digit()
+            && bytes[2].is_ascii_digit()
+            && bytes[3].is_ascii_digit()
+            && bytes[4] == b'-'
+    }
+    // Day-first slash dates (`dd/MM/yyyy[ HH:mm:ss.SSS]`) the year-first
+    // detector misses.
+    fn looks_like_slash_date(s: &str) -> bool {
+        let head = s.split_whitespace().next().unwrap_or(s);
+        let parts: Vec<&str> = head.split('/').collect();
+        parts.len() == 3
+            && (1..=2).contains(&parts[0].len())
+            && parts[0].bytes().all(|b| b.is_ascii_digit())
+            && (1..=2).contains(&parts[1].len())
+            && parts[1].bytes().all(|b| b.is_ascii_digit())
+            && parts[2].len() == 4
+            && parts[2].bytes().all(|b| b.is_ascii_digit())
+    }
+    fn slash_date_to_epoch(s: &str) -> Option<Value> {
+        for pat in [
+            "%d/%m/%Y %H:%M:%S%.f",
+            "%d/%m/%Y %H:%M:%S",
+            "%m/%d/%Y %H:%M:%S%.f",
+            "%m/%d/%Y %H:%M:%S",
+        ] {
+            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, pat) {
+                return Some(Value::Number(serde_json::Number::from(
+                    dt.and_utc().timestamp_millis(),
+                )));
+            }
+        }
+        for pat in ["%d/%m/%Y", "%m/%d/%Y"] {
+            if let Ok(d) = chrono::NaiveDate::parse_from_str(s, pat) {
+                return d.and_hms_opt(0, 0, 0).map(|dt| {
+                    Value::Number(serde_json::Number::from(dt.and_utc().timestamp_millis()))
+                });
+            }
+        }
+        None
+    }
+    fn date_string_to_epoch(s: &str) -> Option<Value> {
+        let frac_digits = s
+            .rsplit_once('.')
+            .map(|(_, rest)| rest.chars().take_while(|c| c.is_ascii_digit()).count())
+            .unwrap_or(0);
+        let is_nanos = frac_digits >= 4;
+        let s_utc = s.replace(' ', "T");
+        let s_utc = if s_utc.ends_with('Z') || s_utc.contains('+') {
+            s_utc
+        } else {
+            format!("{}Z", s_utc)
+        };
+        if is_nanos {
+            if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&s_utc) {
+                let secs = dt.timestamp();
+                let nanos = dt.timestamp_subsec_nanos() as i64;
+                let epoch_ns = secs.checked_mul(1_000_000_000)?.checked_add(nanos)?;
+                return Some(Value::Number(serde_json::Number::from(epoch_ns)));
+            }
+            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(
+                s_utc.trim_end_matches('Z'),
+                "%Y-%m-%dT%H:%M:%S%.f",
+            ) {
+                let subsec_nanos = dt.and_utc().timestamp_subsec_nanos() as i64;
+                let secs = dt.and_utc().timestamp();
+                let epoch_ns = secs.checked_mul(1_000_000_000)?.checked_add(subsec_nanos)?;
+                return Some(Value::Number(serde_json::Number::from(epoch_ns)));
+            }
+            return None;
+        }
+        if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&s_utc) {
+            return Some(Value::Number(serde_json::Number::from(dt.timestamp_millis())));
+        }
+        if let Ok(dt) =
+            chrono::NaiveDateTime::parse_from_str(s_utc.trim_end_matches('Z'), "%Y-%m-%dT%H:%M:%S%.f")
+        {
+            return Some(Value::Number(serde_json::Number::from(
+                dt.and_utc().timestamp_millis(),
+            )));
+        }
+        if let Ok(dt) =
+            chrono::NaiveDateTime::parse_from_str(s_utc.trim_end_matches('Z'), "%Y-%m-%dT%H:%M:%S")
+        {
+            return Some(Value::Number(serde_json::Number::from(
+                dt.and_utc().timestamp_millis(),
+            )));
+        }
+        if let Ok(dt) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+            return Some(Value::Number(serde_json::Number::from(
+                dt.and_hms_opt(0, 0, 0)?.and_utc().timestamp_millis(),
+            )));
+        }
+        None
+    }
+
+    let mut sort_vals: Vec<Value> = Vec::with_capacity(sort_fields.len());
+    for sf in sort_fields {
+        let v = if sf.is_score() {
+            Value::Number(
+                serde_json::Number::from_f64(score as f64)
+                    .unwrap_or(serde_json::Number::from(0)),
+            )
+        } else if sf.is_doc_order() {
+            Value::String(id.to_string())
+        } else {
+            let raw = get_field_value(source, &sf.field).unwrap_or(Value::Null);
+            match raw {
+                Value::String(ref s) if looks_like_date(s) => {
+                    date_string_to_epoch(s).unwrap_or(raw)
+                }
+                Value::String(ref s) if looks_like_slash_date(s) => {
+                    slash_date_to_epoch(s).unwrap_or(raw)
+                }
+                other => other,
+            }
+        };
+        sort_vals.push(v);
+    }
+    sort_vals
+}
+
 fn get_field_value(source: &Value, field: &str) -> Option<Value> {
     // Fast path: literal dotted key at the source root (subobjects:false).
     if let Value::Object(obj) = source {
