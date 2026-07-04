@@ -294,6 +294,12 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         )
         // ── Multi-search ───────────────────────────────────────────────────
         .route("/_msearch", post(es_compat::msearch))
+        // Index-scoped multi-search — the path index defaults header lines
+        // that omit `index`.
+        .route(
+            "/:index/_msearch",
+            get(es_compat::msearch_index).post(es_compat::msearch_index),
+        )
         // ── Resolve index (wildcards) ──────────────────────────────────────
         .route("/_resolve/index/:name", get(es_compat::resolve_index))
         // ── Node & cluster stats ───────────────────────────────────────────
@@ -446,6 +452,12 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         .route("/:index/_search/template", post(es_compat::search_template))
         // ── Multi-search template ────────────────────────────────────────────
         .route("/_msearch/template", post(es_compat::msearch_template))
+        // Index-scoped multi-search template — the path index defaults header
+        // lines that omit `index`.
+        .route(
+            "/:index/_msearch/template",
+            get(es_compat::msearch_template_index).post(es_compat::msearch_template_index),
+        )
         // ── Render template ──────────────────────────────────────────────────
         .route("/_render/template", post(es_compat::render_template_api))
         // ── Stored scripts/templates ─────────────────────────────────────────

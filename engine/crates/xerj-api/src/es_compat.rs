@@ -11918,6 +11918,24 @@ fn native_type_to_es_str(ft: &FieldType) -> &'static str {
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn msearch(State(state): State<AppState>, body: bytes::Bytes) -> impl IntoResponse {
+    msearch_impl(state, body, None).await
+}
+
+/// GET|POST /{index}/_msearch — index-scoped multi-search. The path index is
+/// the default for any header line that omits `index`.
+pub async fn msearch_index(
+    State(state): State<AppState>,
+    Path(index): Path<String>,
+    body: bytes::Bytes,
+) -> impl IntoResponse {
+    msearch_impl(state, body, Some(index)).await
+}
+
+async fn msearch_impl(
+    state: AppState,
+    body: bytes::Bytes,
+    default_index: Option<String>,
+) -> axum::response::Response {
     let text = match std::str::from_utf8(&body) {
         Ok(t) => t,
         Err(_) => {
@@ -11963,12 +11981,14 @@ pub async fn msearch(State(state): State<AppState>, body: bytes::Bytes) -> impl 
             }
         };
 
-        // Determine index name from header or fall back to "*".
+        // Determine index name: header wins, then the path index (for
+        // /{index}/_msearch), then "*" (all indices).
         let index_name = header
             .get("index")
             .and_then(Value::as_str)
-            .unwrap_or("*")
-            .to_string();
+            .map(str::to_string)
+            .or_else(|| default_index.clone())
+            .unwrap_or_else(|| "*".to_string());
 
         let started = Instant::now();
 
@@ -16976,6 +16996,24 @@ pub async fn msearch_template(
     State(state): State<AppState>,
     body: bytes::Bytes,
 ) -> impl IntoResponse {
+    msearch_template_impl(state, body, None).await
+}
+
+/// GET|POST /{index}/_msearch/template — index-scoped multi-search template.
+/// The path index is the default for any header line that omits `index`.
+pub async fn msearch_template_index(
+    State(state): State<AppState>,
+    Path(index): Path<String>,
+    body: bytes::Bytes,
+) -> impl IntoResponse {
+    msearch_template_impl(state, body, Some(index)).await
+}
+
+async fn msearch_template_impl(
+    state: AppState,
+    body: bytes::Bytes,
+    default_index: Option<String>,
+) -> axum::response::Response {
     let text = match std::str::from_utf8(&body) {
         Ok(t) => t,
         Err(_) => return Json(json!({ "error": "body is not valid UTF-8" })).into_response(),
@@ -17011,11 +17049,14 @@ pub async fn msearch_template(
             }
         };
 
+        // Header wins, then the path index (for /{index}/_msearch/template),
+        // then "*" (all indices).
         let index_name = header
             .get("index")
             .and_then(Value::as_str)
-            .unwrap_or("*")
-            .to_string();
+            .map(str::to_string)
+            .or_else(|| default_index.clone())
+            .unwrap_or_else(|| "*".to_string());
 
         let params = tmpl_body.params.unwrap_or_default();
         let search_body_val: Value = if let Some(source_val) = tmpl_body.source {
