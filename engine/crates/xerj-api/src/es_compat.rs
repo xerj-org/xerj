@@ -4172,6 +4172,14 @@ pub async fn search(
             });
         }
     }
+    // ES 8.x default: when `track_total_hits` is absent, totals are only
+    // tracked accurately up to 10,000 — beyond that the response reports
+    // {"value": 10000, "relation": "gte"}. Scroll requests are exempt:
+    // ES keeps scroll totals exact (scroll/10_basic.yml asserts relation
+    // "eq" without setting track_total_hits).
+    if body.track_total_hits.is_none() && !is_scroll_request {
+        body.track_total_hits = Some(json!(10_000));
+    }
     // `?_source_includes=f1,f2` and `?_source_excludes=f3` — query-param
     // source filter. ES resolves these to take precedence over any body-
     // level `_source` value (see test search/10_source_filtering.yml
@@ -11990,6 +11998,15 @@ pub async fn msearch(State(state): State<AppState>, body: bytes::Bytes) -> impl 
             }
         }
 
+        // ES 8.x default: when a sub-search omits `track_total_hits`, the
+        // total is only tracked up to 10,000 ({"value":10000,"relation":"gte"}
+        // beyond that) — same default the top-level `_search` handler applies.
+        if effective_body.get("track_total_hits").is_none() {
+            if let Some(obj) = effective_body.as_object_mut() {
+                obj.insert("track_total_hits".to_string(), json!(10_000));
+            }
+        }
+
         // Parse search request.
         let search_req = match xerj_query::parse_request(&effective_body)
             .map_err(|e| xerj_common::XerjError::invalid_query(e.to_string()))
@@ -12021,6 +12038,7 @@ pub async fn msearch(State(state): State<AppState>, body: bytes::Bytes) -> impl 
 
         let mut merged_hits: Vec<(String, xerj_query::executor::Hit)> = Vec::new();
         let mut total_count: u64 = 0;
+        let mut total_relation = "eq";
         let mut merged_aggs: Option<Value> = None;
         let mut search_error: Option<String> = None;
 
@@ -12035,6 +12053,9 @@ pub async fn msearch(State(state): State<AppState>, body: bytes::Bytes) -> impl 
             match idx.search(&search_req).await {
                 Ok(result) => {
                     total_count += result.total.value;
+                    if result.total.relation == xerj_query::executor::TotalHitsRelation::Gte {
+                        total_relation = "gte";
+                    }
                     if merged_aggs.is_none() {
                         merged_aggs = result.aggs;
                     }
@@ -12060,6 +12081,19 @@ pub async fn msearch(State(state): State<AppState>, body: bytes::Bytes) -> impl 
         let took_ms = started.elapsed().as_millis() as u64;
         let max_score = merged_hits.first().map(|(_, h)| h.score as f64);
 
+        // `track_total_hits: <N>` (including the injected 10k default) caps
+        // the merged total across indices; each per-index search already
+        // applied its own cap but the sum can exceed N. Mirrors the
+        // cross-index re-cap in the main `_search` handler.
+        if let Some(Value::Number(n)) = effective_body.get("track_total_hits") {
+            if let Some(limit) = n.as_u64() {
+                if limit > 0 && total_count > limit {
+                    total_count = limit;
+                    total_relation = "gte";
+                }
+            }
+        }
+
         let hits: Vec<Value> = merged_hits
             .into_iter()
             .map(|(idx_name, h)| {
@@ -12078,7 +12112,7 @@ pub async fn msearch(State(state): State<AppState>, body: bytes::Bytes) -> impl 
             "timed_out": false,
             "_shards": { "total": 1, "successful": 1, "skipped": 0, "failed": 0 },
             "hits": {
-                "total": { "value": total_count, "relation": "eq" },
+                "total": { "value": total_count, "relation": total_relation },
                 "max_score": max_score,
                 "hits": hits,
             },
@@ -19890,7 +19924,12 @@ pub async fn async_search_submit(
     Path(index): Path<String>,
     body: OptionalJson<EsSearchBody>,
 ) -> impl IntoResponse {
-    let body = body.into_or_default();
+    let mut body = body.into_or_default();
+    // ES 8.x default: absent track_total_hits → totals tracked up to 10,000
+    // only ({"value":10000,"relation":"gte"} beyond), same as `_search`.
+    if body.track_total_hits.is_none() {
+        body.track_total_hits = Some(json!(10_000));
+    }
 
     let idx = match state.engine.get_or_create_index(&index) {
         Ok(i) => i,
@@ -19926,7 +19965,10 @@ pub async fn async_search_submit(
         "timed_out": result.timed_out,
         "_shards": { "total": 1, "successful": 1, "skipped": 0, "failed": 0 },
         "hits": {
-            "total": { "value": result.total.value, "relation": "eq" },
+            "total": {
+                "value": result.total.value,
+                "relation": if result.total.relation == xerj_query::executor::TotalHitsRelation::Gte { "gte" } else { "eq" },
+            },
             "max_score": max_score,
             "hits": hits,
         }
