@@ -4630,11 +4630,28 @@ impl Index {
                             // Dictionary-expansion pre-filter (mirrors the
                             // `try_shortcut_count` Regexp arm).  When the
                             // exact total comes from the shortcut
-                            // (count_authoritative) the scan early-breaks at
+                            // (count_authoritative) AND the hits collector is
+                            // the arrival-order bounded `all_hits` (no field
+                            // sort), the scan early-breaks at
                             // `materialisation_limit` hits, so cap the
-                            // position set there; otherwise the scan tallies
-                            // the total itself and needs every position.
-                            let cap = if count_authoritative {
+                            // position set there; otherwise the scan must
+                            // visit EVERY match — to tally the exact total
+                            // and/or to offer every match to the field-sort
+                            // top-N heap — so only a COMPLETE position set is
+                            // a valid filter.
+                            //
+                            // The `sort_topk.is_none()` gate is load-bearing:
+                            // with a field sort active (incl. the implicit
+                            // `@timestamp desc` index sort injected by the ES
+                            // layer for time-series mappings) hits bypass
+                            // `all_hits`, so the caller's early-break and the
+                            // post-loop `scan_hit_cap` shortcut-count
+                            // overwrite NEVER fire — a capped prefilter would
+                            // leak `segments × materialisation_limit` into
+                            // `hits.total` (the 512-vs-847306 bench
+                            // regression) and starve the top-N heap of
+                            // candidates.
+                            let cap = if count_authoritative && sort_topk.is_none() {
                                 Some(materialisation_limit)
                             } else {
                                 None
