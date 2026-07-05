@@ -394,6 +394,12 @@ pub struct Index {
     /// lifecycle as `dv_cache`; evicted alongside it on merge.
     fast_date_cache: Arc<dashmap::DashMap<(String, String), Arc<Vec<i64>>>>,
 
+    /// Fast-agg path: per-(segment, field) sorted parsed dates + prefix doc
+    /// counts (`ms[i]` ascending, `prefix[i+1]-prefix[lo]` = docs in a ms
+    /// range).  Lets `date_range` answer each range with two binary searches
+    /// instead of a full ord walk.  Same lifecycle as `fast_date_cache`.
+    fast_date_sorted_cache: Arc<dashmap::DashMap<(String, String), Arc<(Vec<i64>, Vec<u64>)>>>,
+
     /// M3 framework — response cache for identical queries.  Keyed on
     /// `(query_body_hash, dataset_version)` and holds the pre-computed
     /// `SearchResult` ready to serialize.  Cache hit → ~10 µs total
@@ -550,6 +556,7 @@ impl Index {
             decoded_stored_cache_bytes: Arc::new(AtomicU64::new(0)),
             regexp_expand_cache: Arc::new(dashmap::DashMap::new()),
             fast_date_cache: Arc::new(dashmap::DashMap::new()),
+            fast_date_sorted_cache: Arc::new(dashmap::DashMap::new()),
             query_cache: Arc::new(dashmap::DashMap::new()),
             dataset_version: Arc::new(AtomicU64::new(0)),
             flush_signal: Arc::new(SyncFlushCoord::new()),
@@ -717,6 +724,7 @@ impl Index {
             decoded_stored_cache_bytes: Arc::new(AtomicU64::new(0)),
             regexp_expand_cache: Arc::new(dashmap::DashMap::new()),
             fast_date_cache: Arc::new(dashmap::DashMap::new()),
+            fast_date_sorted_cache: Arc::new(dashmap::DashMap::new()),
             query_cache: Arc::new(dashmap::DashMap::new()),
             dataset_version: Arc::new(AtomicU64::new(0)),
             flush_signal: Arc::new(SyncFlushCoord::new()),
@@ -2594,6 +2602,7 @@ impl Index {
                         .fetch_sub(bytes.len() as u64, Ordering::Relaxed);
                 }
                 self.fast_date_cache.retain(|(seg, _), _| seg != id.as_str());
+                self.fast_date_sorted_cache.retain(|(seg, _), _| seg != id.as_str());
             }
         }
 
