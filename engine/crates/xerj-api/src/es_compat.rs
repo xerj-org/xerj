@@ -9401,6 +9401,40 @@ async fn process_bulk_body(
     }
 
     let resp = EsBulkResponse { took: took_ms, errors, items };
+
+    // Fast path (hot bulk-ingest): the Value round-trip below exists ONLY to
+    // patch `_seq_no`/`_primary_term` sentinels for indices that declare
+    // `disable_sequence_numbers`. Scan the (small) settings map ONCE per
+    // request; when no index declares the flag — the overwhelmingly common
+    // case — serialize the typed response directly. The old shape paid
+    // struct→Value (≈100 k node allocs for a 10 k-item batch), a per-item
+    // DashMap get + full settings-Value clone, and then a SECOND
+    // serialization of the Value to bytes, on every bulk response.
+    let seq_disabled_anywhere = state.engine.index_settings.iter().any(|e| {
+        let s = e.value();
+        let as_bool = |val: &Value| {
+            val.as_bool()
+                .unwrap_or_else(|| val.as_str().map(|x| x == "true").unwrap_or(false))
+        };
+        s.pointer("/index/disable_sequence_numbers").map(as_bool).unwrap_or(false)
+            || s.get("index")
+                .and_then(|i| i.get("index.disable_sequence_numbers"))
+                .map(as_bool)
+                .unwrap_or(false)
+            || s.get("index.disable_sequence_numbers").map(as_bool).unwrap_or(false)
+    });
+    if !seq_disabled_anywhere {
+        let mut r = Json(&resp).into_response();
+        if all_backpressure {
+            *r.status_mut() = axum::http::StatusCode::TOO_MANY_REQUESTS;
+            r.headers_mut().insert(
+                axum::http::header::RETRY_AFTER,
+                axum::http::HeaderValue::from_static("1"),
+            );
+        }
+        return r;
+    }
+
     // Post-process to apply per-index `disable_sequence_numbers` sentinel
     // values (_seq_no=-2, _primary_term=0) in the response. Serialize to
     // Value first so we can mutate the per-item fields without widening
