@@ -6094,6 +6094,10 @@ fn build_doc_value_columns<'a>(
             if field.starts_with('_') {
                 continue;
             }
+            // Lookup-first (`get_mut` before `entry`) so the common case
+            // (field already has a column) skips the per-doc-field
+            // `field.clone()` String allocation `entry()` would force —
+            // ~370k allocs per 31k-doc flush segment on a 12-field corpus.
             match val {
                 Value::Number(n) => {
                     // Always store as f64 bit-pattern.  The agg reader uses
@@ -6104,17 +6108,26 @@ fn build_doc_value_columns<'a>(
                     // kind flag yet, so commit to one representation.
                     let Some(f) = n.as_f64() else { continue };
                     let v = f.to_bits() as i64;
-                    let col = numeric.entry(field.clone()).or_default();
+                    if !numeric.contains_key(field) {
+                        numeric.insert(field.clone(), Vec::new());
+                    }
+                    let col = numeric.get_mut(field).expect("just inserted");
                     pad_with_none(col, doc_idx);
                     col.push(Some(v));
                 }
                 Value::String(s) => {
-                    let col = keyword.entry(field.clone()).or_default();
+                    if !keyword.contains_key(field) {
+                        keyword.insert(field.clone(), Vec::new());
+                    }
+                    let col = keyword.get_mut(field).expect("just inserted");
                     pad_with_none(col, doc_idx);
                     col.push(Some(s.clone()));
                 }
                 Value::Bool(b) => {
-                    let col = numeric.entry(field.clone()).or_default();
+                    if !numeric.contains_key(field) {
+                        numeric.insert(field.clone(), Vec::new());
+                    }
+                    let col = numeric.get_mut(field).expect("just inserted");
                     pad_with_none(col, doc_idx);
                     let v = (if *b { 1.0_f64 } else { 0.0_f64 }).to_bits() as i64;
                     col.push(Some(v));
@@ -7551,6 +7564,12 @@ async fn do_flush_shard(
     // Peek BEFORE drain to determine if docs came from raw-bytes or FTS insert.
     let is_raw_bytes_path = memtable.peek_shard_has_raw_bytes(shard_idx);
 
+    // THROWAWAY prof: per-flush finalize breakdown, gated on XERJ_PROF.
+    let prof = std::env::var_os("XERJ_PROF").is_some();
+    let t_flush_start = std::time::Instant::now();
+    let mut prof_drain_us: u128 = 0;
+    let mut prof_prep_us: u128 = 0;
+
     let drained_opt: Option<(
         Vec<(
             String,
@@ -7559,11 +7578,15 @@ async fn do_flush_shard(
         )>,
         xerj_storage::index_store::DrainedMemtable,
     )> = {
+        let t_drain = std::time::Instant::now();
         let raw = if is_raw_bytes_path {
             memtable.drain_shard_raw(shard_idx)
         } else {
             memtable.drain_shard(shard_idx)
         };
+        prof_drain_us = t_drain.elapsed().as_micros();
+        let t_prep = std::time::Instant::now();
+        let _ = &t_prep;
         if raw.is_empty() {
             None
         } else {
@@ -7580,8 +7603,13 @@ async fn do_flush_shard(
             // CPU per flush — irrelevant against the 50-100 ms segment
             // write.  Always build the drained_fts payload so the FTS
             // sidecar carries the full doc set.
-            let drained_fts: Vec<(String, std::collections::HashMap<String, String>, std::sync::Arc<serde_json::Value>)> =
-                raw.iter()
+            // Rayon: the per-doc text-field extraction (plus the JSON
+            // parse on the raw-bytes path) is pure and was a ~140 ms
+            // SERIAL stretch per 31k-doc flush on the flush task —
+            // par_iter preserves order and spreads it across the pool.
+            let drained_fts: Vec<(String, std::collections::HashMap<String, String>, std::sync::Arc<serde_json::Value>)> = {
+                use rayon::prelude::*;
+                raw.par_iter()
                     .map(|(_seq, doc_id, arc, bytes)| {
                         // Raw-bytes path stores Value::Null in `arc` and
                         // the actual JSON in `bytes` (skip-parse drain).
@@ -7602,7 +7630,8 @@ async fn do_flush_shard(
                         let fields = crate::memtable::extract_text_fields_from(&val);
                         (doc_id.clone(), fields, val)
                     })
-                    .collect();
+                    .collect()
+            };
 
             let storage_entries: Vec<xerj_storage::index_store::MemEntry> = raw
                 .into_iter()
@@ -7616,6 +7645,7 @@ async fn do_flush_shard(
             let storage_drained = xerj_storage::index_store::DrainedMemtable {
                 entries: storage_entries,
             };
+            prof_prep_us = t_prep.elapsed().as_micros();
             Some((drained_fts, storage_drained))
         }
     };
@@ -7658,6 +7688,7 @@ async fn do_flush_shard(
     // bench numbers are unaffected.
     let build_fts = move |meta: &xerj_storage::segment::SegmentMeta| -> xerj_storage::Result<()> {
         // ── Doc-values side-car (always built) ────────────────────
+        let t_dv = std::time::Instant::now();
         {
             let columns = build_doc_value_columns(
                 drained_fts.iter().map(|(_id, _fields, src)| Some(src.as_ref())),
@@ -7672,6 +7703,9 @@ async fn do_flush_shard(
                 }
             }
         }
+        let dv_us = t_dv.elapsed().as_micros();
+        let mut fts_add_us: u128 = 0;
+        let mut fts_finish_us: u128 = 0;
         // Build FTS sidecars when the drained docs have inverted-index data.
         if fts_doc_count > 0 {
             let mut fts_writer = xerj_fts::index::FtsIndexWriter::new(
@@ -7682,10 +7716,20 @@ async fn do_flush_shard(
             for (field_name, cfg) in &field_configs {
                 fts_writer.configure_field(field_name.clone(), cfg.clone());
             }
+            let t_add = std::time::Instant::now();
             fts_writer.add_documents_parallel(&drained_fts);
+            fts_add_us = t_add.elapsed().as_micros();
+            let t_fin = std::time::Instant::now();
             if let Err(e) = fts_writer.finish() {
                 tracing::warn!("flush: FTS build failed: {e}");
             }
+            fts_finish_us = t_fin.elapsed().as_micros();
+        }
+        if prof {
+            eprintln!(
+                "XERJ_PROF flush-sidecar docs={} dv_us={} fts_add_us={} fts_finish_us={}",
+                fts_doc_count, dv_us, fts_add_us, fts_finish_us
+            );
         }
         let _ = &segments_dir;
         let _ = &drained_fts;
@@ -7694,6 +7738,7 @@ async fn do_flush_shard(
     };
 
     // Hand the pre-drained storage entries to the finaliser.
+    let t_finalize = std::time::Instant::now();
     let meta = match store.finalize_flush_with_publisher(storage_drained, build_fts)? {
         Some(m) => m,
         None => {
@@ -7701,6 +7746,17 @@ async fn do_flush_shard(
             return Ok(());
         }
     };
+    if prof {
+        eprintln!(
+            "XERJ_PROF flush-total shard={} docs={} drain_us={} prep_us={} finalize_us={} total_us={}",
+            shard_idx,
+            fts_doc_count,
+            prof_drain_us,
+            prof_prep_us,
+            t_finalize.elapsed().as_micros(),
+            t_flush_start.elapsed().as_micros()
+        );
+    }
 
     info!(
         segment_id = meta.id.as_str(),

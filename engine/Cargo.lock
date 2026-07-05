@@ -3875,6 +3875,7 @@ dependencies = [
  "lz4_flex",
  "memmap2",
  "roaring",
+ "rustc-hash",
  "serde",
  "serde_json",
  "tempfile",

@@ -1029,6 +1029,12 @@ impl IndexStore {
             return Ok(None);
         }
 
+        // THROWAWAY prof (XERJ_PROF): finalize phase breakdown.
+        let prof = std::env::var_os("XERJ_PROF").is_some();
+        let t_fin_start = std::time::Instant::now();
+        let mut prof_ser_us: u128 = 0;
+        let mut prof_encode_us: u128 = 0;
+
         let doc_count = entries.iter().filter(|e| e.source.is_some()).count() as u64;
         let min_seq = entries.iter().map(|e| e.seq_no).min().unwrap_or(0);
         let max_seq = entries.iter().map(|e| e.seq_no).max().unwrap_or(0);
@@ -1048,49 +1054,67 @@ impl IndexStore {
             entries.iter().filter(|e| e.source.is_some()).collect();
         let has_stored = !live_entries.is_empty();
         if has_stored {
-            let mut stored_bytes: Vec<u8> = Vec::with_capacity(live_entries.len() * 512);
-            stored_bytes.push(b'[');
-            let mut first = true;
-            for e in &live_entries {
-                if !first {
-                    stored_bytes.push(b',');
-                }
-                first = false;
-                stored_bytes.extend_from_slice(br#"{"_id":"#);
-                serde_json::to_writer(&mut stored_bytes, &e.doc_id)?;
-                stored_bytes.extend_from_slice(br#","_seq_no":"#);
-                use std::io::Write;
-                write!(stored_bytes, "{}", e.seq_no)?;
-                stored_bytes.extend_from_slice(br#","_source":"#);
-                if !e.source_bytes.is_empty() {
-                    // Raw bytes available — write directly, skip serde round-trip
-                    stored_bytes.extend_from_slice(&e.source_bytes);
-                } else if let Some(src) = &e.source {
-                    serde_json::to_writer(&mut stored_bytes, src.as_ref())?;
-                } else {
-                    stored_bytes.extend_from_slice(b"null");
-                }
-                stored_bytes.push(b'}');
-            }
-            stored_bytes.push(b']');
-            // V4 M4.6 — columnar V2 codec: per-column dict+bitpack,
-            // cross-column determinism (URL→status/bytes collapses to a
-            // mode table + exception bitmap), fallback to LZ4 on small
-            // segments.  The encoder picks v1 or v2 internally based on
-            // which is smaller on this segment, so we never write a
-            // larger file than the pre-M4.6 format.
-            //
             // P2.2 — when every live entry carries a parsed `source`
             // (the HTTP `_bulk` turbo path: engine memtable drained
             // parsed Values, `source_bytes` empty), feed the encoder the
-            // Values directly instead of letting it re-parse the JSON
-            // array we just serialised (~10s background CPU per 1M
-            // docs).  Byte-identical output by contract — see
-            // `encode_stored_v2_from_values`; assert it live with
-            // `XERJ_FLUSH_PARITY=1`.
+            // Values directly instead of letting it re-parse a JSON
+            // array (~10s background CPU per 1M docs).
             let all_parsed = live_entries
                 .iter()
                 .all(|e| e.source_bytes.is_empty() && e.source.is_some());
+            let parity =
+                std::env::var("XERJ_FLUSH_PARITY").map(|v| v == "1").unwrap_or(false);
+            // Flush fast path: on large all-parsed segments skip the
+            // canonical JSON-array serialisation entirely (it existed
+            // only to feed the v1-LZ4 "never make things worse" size
+            // net, which columnar V2 wins on every real segment this
+            // size — ~90 ms serialise + ~25 ms LZ4 per 31k-doc flush,
+            // ~3 s of background CPU per 1M ingested docs).  Small or
+            // mixed segments keep the exact legacy behaviour.
+            const SKIP_JSON_MIN_DOCS: usize = 4096;
+            let skip_json = all_parsed && live_entries.len() >= SKIP_JSON_MIN_DOCS && !parity;
+
+            let t_ser = std::time::Instant::now();
+            let stored_bytes: Vec<u8> = if skip_json {
+                Vec::new()
+            } else {
+                let mut stored_bytes: Vec<u8> =
+                    Vec::with_capacity(live_entries.len() * 512);
+                stored_bytes.push(b'[');
+                let mut first = true;
+                for e in &live_entries {
+                    if !first {
+                        stored_bytes.push(b',');
+                    }
+                    first = false;
+                    stored_bytes.extend_from_slice(br#"{"_id":"#);
+                    serde_json::to_writer(&mut stored_bytes, &e.doc_id)?;
+                    stored_bytes.extend_from_slice(br#","_seq_no":"#);
+                    use std::io::Write;
+                    write!(stored_bytes, "{}", e.seq_no)?;
+                    stored_bytes.extend_from_slice(br#","_source":"#);
+                    if !e.source_bytes.is_empty() {
+                        // Raw bytes available — write directly, skip serde round-trip
+                        stored_bytes.extend_from_slice(&e.source_bytes);
+                    } else if let Some(src) = &e.source {
+                        serde_json::to_writer(&mut stored_bytes, src.as_ref())?;
+                    } else {
+                        stored_bytes.extend_from_slice(b"null");
+                    }
+                    stored_bytes.push(b'}');
+                }
+                stored_bytes.push(b']');
+                stored_bytes
+            };
+            // V4 M4.6 — columnar V2 codec: per-column dict+bitpack,
+            // cross-column determinism (URL→status/bytes collapses to a
+            // mode table + exception bitmap), fallback to LZ4 on small
+            // segments.  Byte-identical output by contract between the
+            // from-values and legacy encoders — see
+            // `encode_stored_v2_from_values`; assert it live with
+            // `XERJ_FLUSH_PARITY=1`.
+            prof_ser_us = t_ser.elapsed().as_micros();
+            let t_enc = std::time::Instant::now();
             let encoded = if all_parsed {
                 let doc_refs: Vec<(&str, u64, &serde_json::Value)> = live_entries
                     .iter()
@@ -1102,9 +1126,12 @@ impl IndexStore {
                         )
                     })
                     .collect();
-                let enc =
-                    crate::stored_codec::encode_stored_v2_from_values(&stored_bytes, &doc_refs);
-                if std::env::var("XERJ_FLUSH_PARITY").map(|v| v == "1").unwrap_or(false) {
+                let enc = if skip_json {
+                    crate::stored_codec::encode_stored_v2_from_values_nojson(&doc_refs)
+                } else {
+                    crate::stored_codec::encode_stored_v2_from_values(&stored_bytes, &doc_refs)
+                };
+                if parity {
                     let legacy = crate::stored_codec::encode_stored_v2(&stored_bytes);
                     assert_eq!(
                         legacy, enc,
@@ -1122,6 +1149,7 @@ impl IndexStore {
             } else {
                 crate::stored_codec::encode_stored_v2(&stored_bytes)
             };
+            prof_encode_us = t_enc.elapsed().as_micros();
             writer.add_section(SectionType::Stored, &encoded)?;
         }
 
@@ -1133,7 +1161,9 @@ impl IndexStore {
             writer.add_section(SectionType::Tombstones, &ts_bytes)?;
         }
 
+        let t_wfin = std::time::Instant::now();
         let meta = writer.finish(doc_count, min_seq, max_seq)?;
+        let prof_wfin_us = t_wfin.elapsed().as_micros();
         let segment_id = meta.id.clone();
 
         // When using an object-store backend, upload the freshly-written segment
@@ -1213,9 +1243,12 @@ impl IndexStore {
         // succeed BEFORE we publish the segment to the snapshot — otherwise
         // a racing query could open the segment and find the side-cars
         // (e.g. FTS index) missing, returning wrong results.
+        let t_pf = std::time::Instant::now();
         post_finish(&meta)?;
+        let prof_pf_us = t_pf.elapsed().as_micros();
 
         // Update version map: point live docs at the new segment
+        let t_vm = std::time::Instant::now();
         let segment_id_arc: std::sync::Arc<str> = std::sync::Arc::from(segment_id.as_str());
         for entry in &entries {
             if entry.source.is_some() {
@@ -1226,6 +1259,18 @@ impl IndexStore {
                     false,
                 );
             }
+        }
+        if prof {
+            eprintln!(
+                "XERJ_PROF finalize docs={} ser_us={} encode_us={} writer_finish_us={} post_finish_us={} vm_us={} total_so_far_us={}",
+                doc_count,
+                prof_ser_us,
+                prof_encode_us,
+                prof_wfin_us,
+                prof_pf_us,
+                t_vm.elapsed().as_micros(),
+                t_fin_start.elapsed().as_micros()
+            );
         }
 
         // Publish the new segment via ArcSwap::rcu so concurrent shard

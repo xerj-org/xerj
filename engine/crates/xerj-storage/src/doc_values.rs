@@ -366,18 +366,22 @@ impl KeywordColumn {
         // **lexicographic** order so the on-disk ordinal space is stable
         // and the FST insert (which requires keys in sorted order) just
         // walks the same iteration order as the assignment loop.
-        let mut term_keys: BTreeMap<String, ()> = BTreeMap::new();
-        for v in &values {
-            if let Some(s) = v {
-                term_keys.entry(s.clone()).or_insert(());
-            }
-        }
-        // Now `term_keys` iteration is sorted; ordinal = position in iteration.
-        let terms: Vec<String> = term_keys.keys().cloned().collect();
-        let term_to_ord: BTreeMap<String, u32> = terms
+        //
+        // sort+dedup over borrowed &str instead of the previous
+        // `BTreeMap<String, ()>` build, which CLONED every non-null cell
+        // (hundreds of thousands of String allocs per 31k-doc flush
+        // segment) — only unique terms are cloned now.
+        let mut refs: Vec<&str> = values
+            .iter()
+            .filter_map(|v| v.as_deref())
+            .collect();
+        refs.sort_unstable();
+        refs.dedup();
+        let terms: Vec<String> = refs.iter().map(|s| (*s).to_string()).collect();
+        let term_to_ord: std::collections::HashMap<&str, u32> = refs
             .iter()
             .enumerate()
-            .map(|(i, s)| (s.clone(), i as u32))
+            .map(|(i, s)| (*s, i as u32))
             .collect();
 
         // Build FST term → ord (keys must be sorted ascending — they are
@@ -399,10 +403,10 @@ impl KeywordColumn {
         let mut null_bitmap = RoaringBitmap::new();
         let mut ords = Vec::with_capacity(values.len());
         let mut per_ord_count: Vec<u32> = vec![0; terms.len()];
-        for (i, v) in values.into_iter().enumerate() {
+        for (i, v) in values.iter().enumerate() {
             match v {
                 Some(s) => {
-                    let ord = *term_to_ord.get(&s).unwrap();
+                    let ord = *term_to_ord.get(s.as_str()).unwrap();
                     ords.push(ord);
                     per_ord_count[ord as usize] += 1;
                 }
