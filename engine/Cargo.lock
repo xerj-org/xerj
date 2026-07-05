@@ -3747,6 +3747,7 @@ dependencies = [
  "parking_lot",
  "rayon",
  "regex",
+ "rustc-hash",
  "serde",
  "serde_json",
  "sha2",

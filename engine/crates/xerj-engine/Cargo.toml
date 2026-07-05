@@ -40,6 +40,9 @@ regex      = "1"
 # Fast non-cryptographic hash — used to shard the engine FTS memtable
 # by doc_id so concurrent bulk ingest batches target different shards.
 xxhash-rust = { workspace = true }
+# FxHash for the memtable hot maps (postings, field_lengths, doc-values)
+# — SipHash was >21% of on-CPU time under the shard write locks at c8.
+rustc-hash = { workspace = true }
 
 [dev-dependencies]
 tempfile  = { workspace = true }

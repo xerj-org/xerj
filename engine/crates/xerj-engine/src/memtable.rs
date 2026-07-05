@@ -5,13 +5,14 @@
 //! HashMap-based inverted index with BM25 scoring, plus a columnar DocValues
 //! store for O(N) term/range/agg queries without JSON parsing per document.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 
+use rustc_hash::{FxHashMap, FxHashSet};
 use serde_json::Value;
 use xerj_common::types::{FieldType, Schema};
 use xerj_compress::field_codec::{FieldAnalyzer, FieldEncoding};
-use xerj_fts::analyzer::AnalyzerRegistry;
+use xerj_fts::analyzer::{AnalyzerPipeline, AnalyzerRegistry, Token};
 use xerj_fts::bm25::Bm25Scorer;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -81,7 +82,15 @@ pub fn extract_text_fields_from(source: &Value) -> HashMap<String, String> {
 }
 
 /// Posting list entry: doc_id → term frequency.
-type PostingList = HashMap<String, u32>; // doc_id → tf
+///
+/// FxHashMap (rustc-hash) instead of the SipHash-keyed std HashMap:
+/// perf profiling of the c8 bulk-ingest ceiling showed >21% of on-CPU
+/// time inside `core::hash::sip` + `hash_one` for the nested posting
+/// merges — all executed under the memtable shard write locks.  These
+/// maps are never exposed to untrusted-key HashDoS (doc ids and field
+/// names of a single tenant's own documents), so the DoS-resistant
+/// hasher buys nothing here.
+type PostingList = FxHashMap<String, u32>; // doc_id → tf
 
 // ── DocValues ─────────────────────────────────────────────────────────────────
 
@@ -102,13 +111,13 @@ const ANALYSIS_THRESHOLD: usize = 1000;
 pub struct DocValues {
     /// field → per-doc numeric value (for Long, Double, Date fields and any
     /// field whose value can be parsed as f64).
-    pub numeric: HashMap<String, Vec<Option<f64>>>,
+    pub numeric: FxHashMap<String, Vec<Option<f64>>>,
     /// field → per-doc keyword value (for Keyword, IP, and any string field).
-    pub keyword: HashMap<String, Vec<Option<String>>>,
+    pub keyword: FxHashMap<String, Vec<Option<String>>>,
     /// field → set of all distinct values seen (for fast cardinality / terms aggs).
     ///
     /// V4 M4: rebuilt lazily from `keyword` via `ensure_counts_built`.
-    pub keyword_set: HashMap<String, HashSet<String>>,
+    pub keyword_set: FxHashMap<String, FxHashSet<String>>,
     /// field → value → live doc count.
     ///
     /// V4 M4: lazily rebuilt from `keyword` when `counts_dirty == true`.
@@ -117,9 +126,9 @@ pub struct DocValues {
     /// hot loop and capped xerj at ~10 k docs/s.  Deferring the rebuild
     /// to query time (or to flush time) trades a one-time O(n) scan for
     /// a 5× ingest-rate improvement.
-    pub keyword_counts: HashMap<String, HashMap<String, u32>>,
+    pub keyword_counts: FxHashMap<String, FxHashMap<String, u32>>,
     /// field → numeric value → live doc count.  Same lazy contract.
-    pub numeric_counts: HashMap<String, HashMap<u64, u32>>,
+    pub numeric_counts: FxHashMap<String, FxHashMap<u64, u32>>,
     /// V4 M4: set to `true` on every `push_field`; cleared by
     /// `ensure_counts_built` once the count/set maps are in sync
     /// with the column data again.
@@ -398,6 +407,19 @@ impl ShardedFtsMemtable {
     pub fn with_shard<R>(&self, shard: usize, f: impl FnOnce(&FtsMemtable) -> R) -> R {
         let g = self.shards[shard].read();
         f(&*g)
+    }
+
+    /// The analyzer `FtsMemtable::insert` uses for text fields: the
+    /// registry's "default" pipeline when one was configured via index
+    /// settings, else "standard".  Every shard shares the same registry
+    /// (see `with_registry_and_shards`), so shard 0 is representative.
+    /// Used by the bulk turbo path to pre-analyze docs OUTSIDE the
+    /// shard write locks via [`analyze_doc`].
+    pub fn default_analyzer(&self) -> Option<Arc<AnalyzerPipeline>> {
+        let g = self.shards[0].read();
+        g.registry
+            .get_analyzer("default")
+            .or_else(|| g.registry.get_analyzer("standard"))
     }
 
     /// Total document count across all shards.
@@ -874,22 +896,40 @@ impl ShardedFtsMemtable {
     }
 
     fn drain_shard_inner(&self, shard_idx: usize, skip_parse: bool) -> Vec<(u64, String, Arc<Value>, Arc<[u8]>)> {
-        let drained: Vec<MemEntry> = {
+        // Swap the shard's maps out under the write lock (pointer moves,
+        // O(1)) and deallocate them AFTER the lock is released, on a
+        // detached thread.  Pre-fix the reset assignments freed the
+        // shard's entire inverted index + doc-values (millions of String
+        // entries, ~95 ms at ~30 k docs/shard) while holding the shard
+        // write lock — and because the bulk path fans every request
+        // across ALL shards and joins on the slowest one, each flush
+        // drain stalled every in-flight bulk request.  32 flushes per
+        // 1 M docs × ~95 ms = a fixed ~3 s Amdahl serial term that
+        // capped 8-client ingest at ~3.1× single-client throughput.
+        let (drained, dead) = {
             let mut g = self.shards[shard_idx].write();
-            let d: Vec<MemEntry> = g.docs.drain(..).collect();
-            g.index = HashMap::new();
-            g.doc_values = DocValues::default();
+            let d: Vec<MemEntry> = std::mem::take(&mut g.docs);
+            let dead_index = std::mem::take(&mut g.index);
+            let dead_dv = std::mem::take(&mut g.doc_values);
+            let dead_fl = std::mem::take(&mut g.field_lengths);
+            let dead_afl = std::mem::take(&mut g.avg_field_lengths);
+            let dead_dii = std::mem::take(&mut g.doc_id_index);
             g.total_bytes = 0;
-            g.field_lengths = HashMap::new();
-            g.avg_field_lengths = HashMap::new();
-            g.doc_id_index = HashMap::new();
             // Flush == merge: purge delete-aware ghost collection stats.
             g.ghost_docs = 0;
-            g.ghost_field_len = HashMap::new();
-            g.ghost_doc_freq = HashMap::new();
-            g.docs.shrink_to_fit();
-            d
+            let dead_gfl = std::mem::take(&mut g.ghost_field_len);
+            let dead_gdf = std::mem::take(&mut g.ghost_doc_freq);
+            (d, (dead_index, dead_dv, dead_fl, dead_afl, dead_dii, dead_gfl, dead_gdf))
         };
+        // Free the dead maps off the flush critical path too — the
+        // drain result is needed synchronously by the segment writer,
+        // but nobody waits for these deallocations.  If thread spawn
+        // fails (resource exhaustion) the closure — and the bundle it
+        // owns — is dropped right here, inline: same correctness, we
+        // only lose the async-free optimisation.
+        let _ = std::thread::Builder::new()
+            .name("xerj-drain-free".to_string())
+            .spawn(move || drop(dead));
         let mut out: Vec<(u64, String, Arc<Value>, Arc<[u8]>)> = drained
             .into_iter()
             .map(|e| {
@@ -961,17 +1001,17 @@ impl FtsMemtable {
                 (seq, (e.doc_id, fields, val))
             })
             .collect();
-        self.index = HashMap::new();
+        self.index = FxHashMap::default();
         self.doc_values = DocValues::default();
         self.total_bytes = 0;
-        self.field_lengths = HashMap::new();
-        self.avg_field_lengths = HashMap::new();
-        self.doc_id_index = HashMap::new();
+        self.field_lengths = FxHashMap::default();
+        self.avg_field_lengths = FxHashMap::default();
+        self.doc_id_index = FxHashMap::default();
         // Flush is the equivalent of a Lucene merge: tombstone contributions
         // are purged, so delete-aware ghost statistics reset to empty.
         self.ghost_docs = 0;
-        self.ghost_field_len = HashMap::new();
-        self.ghost_doc_freq = HashMap::new();
+        self.ghost_field_len = FxHashMap::default();
+        self.ghost_doc_freq = FxHashMap::default();
         self.docs.shrink_to_fit();
         result
     }
@@ -987,17 +1027,17 @@ impl FtsMemtable {
                 (seq, (e.doc_id, fields))
             })
             .collect();
-        self.index = HashMap::new();
+        self.index = FxHashMap::default();
         self.doc_values = DocValues::default();
         self.total_bytes = 0;
-        self.field_lengths = HashMap::new();
-        self.avg_field_lengths = HashMap::new();
-        self.doc_id_index = HashMap::new();
+        self.field_lengths = FxHashMap::default();
+        self.avg_field_lengths = FxHashMap::default();
+        self.doc_id_index = FxHashMap::default();
         // Flush is the equivalent of a Lucene merge: tombstone contributions
         // are purged, so delete-aware ghost statistics reset to empty.
         self.ghost_docs = 0;
-        self.ghost_field_len = HashMap::new();
-        self.ghost_doc_freq = HashMap::new();
+        self.ghost_field_len = FxHashMap::default();
+        self.ghost_doc_freq = FxHashMap::default();
         self.docs.shrink_to_fit();
         result
     }
@@ -1017,7 +1057,8 @@ pub struct FtsMemtable {
     /// Documents in insertion order.
     docs: Vec<MemEntry>,
     /// Inverted index: field → term → posting list (doc_id → tf).
-    index: HashMap<String, HashMap<String, PostingList>>,
+    /// FxHashMap — see `PostingList` for the hasher rationale.
+    index: FxHashMap<String, FxHashMap<String, PostingList>>,
     /// Columnar doc-values store for fast term/range/agg queries.
     pub doc_values: DocValues,
     /// Total accumulated byte size.
@@ -1025,11 +1066,11 @@ pub struct FtsMemtable {
     /// Analyzer registry.
     registry: Arc<AnalyzerRegistry>,
     /// Precomputed field lengths for BM25 scoring: field → {doc_id → token_count}
-    field_lengths: HashMap<String, HashMap<String, u32>>,
+    field_lengths: FxHashMap<String, FxHashMap<String, u32>>,
     /// Running average field length per field: field → (total_tokens, doc_count)
-    avg_field_lengths: HashMap<String, (f64, u64)>,
+    avg_field_lengths: FxHashMap<String, (f64, u64)>,
     /// doc_id → position in self.docs for O(1) lookup
-    doc_id_index: HashMap<String, usize>,
+    doc_id_index: FxHashMap<String, usize>,
     /// Delete-aware BM25 collection statistics (Lucene/ES parity).
     ///
     /// When a document is superseded by an update (remove + re-insert) or
@@ -1045,8 +1086,8 @@ pub struct FtsMemtable {
     /// A document that was never removed contributes nothing here, so its
     /// BM25 score is bit-for-bit identical to before this feature existed.
     ghost_docs: u64,
-    ghost_field_len: HashMap<String, (f64, u64)>,
-    ghost_doc_freq: HashMap<String, HashMap<String, u64>>,
+    ghost_field_len: FxHashMap<String, (f64, u64)>,
+    ghost_doc_freq: FxHashMap<String, FxHashMap<String, u64>>,
 }
 
 impl FtsMemtable {
@@ -1054,16 +1095,16 @@ impl FtsMemtable {
     pub fn new() -> Self {
         Self {
             docs: Vec::new(),
-            index: HashMap::new(),
+            index: FxHashMap::default(),
             doc_values: DocValues::default(),
             total_bytes: 0,
             registry: Arc::new(AnalyzerRegistry::default()),
-            field_lengths: HashMap::new(),
-            avg_field_lengths: HashMap::new(),
-            doc_id_index: HashMap::new(),
+            field_lengths: FxHashMap::default(),
+            avg_field_lengths: FxHashMap::default(),
+            doc_id_index: FxHashMap::default(),
             ghost_docs: 0,
-            ghost_field_len: HashMap::new(),
-            ghost_doc_freq: HashMap::new(),
+            ghost_field_len: FxHashMap::default(),
+            ghost_doc_freq: FxHashMap::default(),
         }
     }
 
@@ -1075,85 +1116,21 @@ impl FtsMemtable {
     pub fn with_registry(registry: Arc<AnalyzerRegistry>) -> Self {
         Self {
             docs: Vec::new(),
-            index: HashMap::new(),
+            index: FxHashMap::default(),
             doc_values: DocValues::default(),
             total_bytes: 0,
             registry,
-            field_lengths: HashMap::new(),
-            avg_field_lengths: HashMap::new(),
-            doc_id_index: HashMap::new(),
+            field_lengths: FxHashMap::default(),
+            avg_field_lengths: FxHashMap::default(),
+            doc_id_index: FxHashMap::default(),
             ghost_docs: 0,
-            ghost_field_len: HashMap::new(),
-            ghost_doc_freq: HashMap::new(),
+            ghost_field_len: FxHashMap::default(),
+            ghost_doc_freq: FxHashMap::default(),
         }
     }
 
     /// Insert a document into the memtable, indexing all text fields.
     pub fn insert(&mut self, doc_id: String, source: &Value, schema: &Schema, seq_no: u64) {
-        let mut text_fields: HashMap<String, String> = HashMap::new();
-
-        // Index fields that are defined as Text in the schema.
-        for field_cfg in &schema.fields {
-            if matches!(field_cfg.field_type, FieldType::Text) {
-                if let Some(val) = source.get(&field_cfg.name) {
-                    let text = extract_text_value(val);
-                    if !text.is_empty() {
-                        text_fields.insert(field_cfg.name.clone(), text);
-                    }
-                }
-            }
-        }
-
-        // Also index any string-valued field not in the schema
-        // (dynamic mapping). Walk nested objects with dotted paths
-        // so a doc `{a: {b: {c: "x"}}}` indexes `a.b.c: "x"` —
-        // queries targeting the leaf-specific dotted path match only
-        // docs that carry that leaf. Also keep a root-level JSON-blob
-        // entry for each top-level object key so types like flattened
-        // (queried at the root path) still find their inner tokens.
-        fn collect_text_fields(v: &Value, prefix: &str, out: &mut HashMap<String, String>) {
-            match v {
-                Value::Object(obj) => {
-                    for (k, val) in obj {
-                        let path = if prefix.is_empty() { k.clone() } else { format!("{}.{}", prefix, k) };
-                        match val {
-                            Value::Object(_) => {
-                                // Root-level JSON-blob for flattened-style
-                                // whole-object queries.
-                                if prefix.is_empty() {
-                                    let t = extract_text_value(val);
-                                    if !t.is_empty() && !out.contains_key(&path) {
-                                        out.insert(path.clone(), t);
-                                    }
-                                }
-                                collect_text_fields(val, &path, out);
-                            }
-                            Value::Array(arr) => {
-                                let joined: String = arr.iter()
-                                    .map(extract_text_value)
-                                    .collect::<Vec<_>>()
-                                    .join(" ");
-                                if !joined.is_empty() && !out.contains_key(&path) {
-                                    out.insert(path, joined);
-                                }
-                            }
-                            _ => {
-                                let t = extract_text_value(val);
-                                if !t.is_empty() && !out.contains_key(&path) {
-                                    out.insert(path, t);
-                                }
-                            }
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
-        if let Some(_obj) = source.as_object() {
-            collect_text_fields(source, "", &mut text_fields);
-        }
-
-        // Build the inverted index entries.
         // Prefer a "default" analyzer if one was registered via custom settings
         // (e.g. with synonym expansion), otherwise fall back to "standard".
         let analyzer = self
@@ -1162,8 +1139,47 @@ impl FtsMemtable {
             .or_else(|| self.registry.get_analyzer("standard"))
             .expect("standard analyzer always present");
 
-        for (field_name, text) in &text_fields {
-            let tokens = analyzer.analyze(text);
+        let analyzed = analyze_doc(source, schema, &analyzer);
+
+        // See `insert_pretokenized` for sizing rationale.
+        let raw_size = source.to_string().len() + doc_id.len();
+        let size = raw_size * 3 + 64;
+
+        self.insert_analyzed(seq_no, doc_id, Arc::new(source.clone()), &analyzed, size);
+    }
+
+    /// Back half of [`insert`] — everything that MUST run under the
+    /// shard write lock: field-length/avg updates, posting merges,
+    /// size accounting, doc-values push and the docs/doc_id_index push.
+    ///
+    /// The front half (schema text-field extraction + dynamic-mapping
+    /// tree walk + analyzer tokenisation — see [`analyze_doc`]) is pure
+    /// and can run OUTSIDE the lock; the ES `_bulk` turbo path runs it
+    /// on the rayon pool per batch and then calls this under the shard
+    /// lock.  Splitting insert this way cuts the lock-held cost from
+    /// ~39 µs/doc to ~9 µs/doc — the single biggest lever on the
+    /// 8-client bulk-ingest scaling ceiling.
+    ///
+    /// (A deeper split that also pre-aggregated tf and pre-extracted
+    /// doc-values cells outside the lock was tried and REVERTED: the
+    /// extra per-doc map/Vec allocations it added on the analyze side
+    /// cost more total CPU than the in-lock time they saved — c8
+    /// throughput dropped ~10% because the 8-client workload is CPU-
+    /// saturated, not lock-saturated, after this split.)
+    ///
+    /// `size` is the pre-computed `size_bytes` accounting value
+    /// (`(serialized_len + doc_id_len) * 3 + 64`), passed in so the
+    /// `source.to_string()` re-serialisation also stays off the lock.
+    /// The `source` Arc is stored directly — no deep clone.
+    pub fn insert_analyzed(
+        &mut self,
+        seq_no: u64,
+        doc_id: String,
+        source: Arc<Value>,
+        analyzed: &[(String, Vec<Token>)],
+        size: usize,
+    ) {
+        for (field_name, tokens) in analyzed {
             let token_count = tokens.len() as u32;
 
             // Cache the field length for BM25 scoring.
@@ -1178,21 +1194,18 @@ impl FtsMemtable {
             entry.1 += 1;
 
             let field_index = self.index.entry(field_name.clone()).or_default();
-            for token in &tokens {
+            for token in tokens {
                 let posting = field_index.entry(token.text.clone()).or_default();
                 *posting.entry(doc_id.clone()).or_insert(0) += 1;
             }
         }
 
-        // See `insert_pretokenized` for sizing rationale.
-        let raw_size = source.to_string().len() + doc_id.len();
-        let size = raw_size * 3 + 64;
         self.total_bytes += size;
 
         // Populate the columnar DocValues store BEFORE pushing to docs so that
         // the doc_index equals the current length (i.e. the slot we're about to fill).
         let doc_index = self.docs.len();
-        self.doc_values.push(source, doc_index);
+        self.doc_values.push(&source, doc_index);
 
         // Track doc_id → index for O(1) lookup.
         self.doc_id_index.insert(doc_id.clone(), doc_index);
@@ -1200,11 +1213,10 @@ impl FtsMemtable {
         self.docs.push(MemEntry {
             seq_no,
             doc_id,
-            source: Arc::new(source.clone()),
+            source,
             source_bytes: Arc::from(&[][..]),
             size_bytes: size,
         });
-        let _ = text_fields; // still used above for inverted-index build
     }
 
     /// Insert with pre-tokenized terms — builds the inverted index using
@@ -1702,17 +1714,17 @@ impl FtsMemtable {
                 (e.doc_id, fields)
             })
             .collect();
-        self.index = HashMap::new();
+        self.index = FxHashMap::default();
         self.doc_values = DocValues::default();
         self.total_bytes = 0;
-        self.field_lengths = HashMap::new();
-        self.avg_field_lengths = HashMap::new();
-        self.doc_id_index = HashMap::new();
+        self.field_lengths = FxHashMap::default();
+        self.avg_field_lengths = FxHashMap::default();
+        self.doc_id_index = FxHashMap::default();
         // Flush is the equivalent of a Lucene merge: tombstone contributions
         // are purged, so delete-aware ghost statistics reset to empty.
         self.ghost_docs = 0;
-        self.ghost_field_len = HashMap::new();
-        self.ghost_doc_freq = HashMap::new();
+        self.ghost_field_len = FxHashMap::default();
+        self.ghost_doc_freq = FxHashMap::default();
         // `self.docs` was drained in place; its Vec backing is kept (cheap).
         self.docs.shrink_to_fit();
         result
@@ -1751,17 +1763,17 @@ impl FtsMemtable {
         // See `drain()` for why we must reassign these (not `.clear()`):
         // `HashMap::clear` retains internal bucket capacity and the RSS
         // never shrinks between flushes.
-        self.index = HashMap::new();
+        self.index = FxHashMap::default();
         self.doc_values = DocValues::default();
         self.total_bytes = 0;
-        self.field_lengths = HashMap::new();
-        self.avg_field_lengths = HashMap::new();
-        self.doc_id_index = HashMap::new();
+        self.field_lengths = FxHashMap::default();
+        self.avg_field_lengths = FxHashMap::default();
+        self.doc_id_index = FxHashMap::default();
         // Flush is the equivalent of a Lucene merge: tombstone contributions
         // are purged, so delete-aware ghost statistics reset to empty.
         self.ghost_docs = 0;
-        self.ghost_field_len = HashMap::new();
-        self.ghost_doc_freq = HashMap::new();
+        self.ghost_field_len = FxHashMap::default();
+        self.ghost_doc_freq = FxHashMap::default();
         self.docs.shrink_to_fit();
         result
     }
@@ -2003,6 +2015,95 @@ impl Default for FtsMemtable {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+/// Collect any string-valued field not in the schema (dynamic mapping).
+/// Walks nested objects with dotted paths so a doc `{a: {b: {c: "x"}}}`
+/// indexes `a.b.c: "x"` — queries targeting the leaf-specific dotted
+/// path match only docs that carry that leaf. Also keeps a root-level
+/// JSON-blob entry for each top-level object key so types like
+/// flattened (queried at the root path) still find their inner tokens.
+///
+/// Hoisted out of `FtsMemtable::insert` so [`analyze_doc`] can run the
+/// identical walk outside the shard write lock.
+fn collect_text_fields(v: &Value, prefix: &str, out: &mut HashMap<String, String>) {
+    match v {
+        Value::Object(obj) => {
+            for (k, val) in obj {
+                let path = if prefix.is_empty() { k.clone() } else { format!("{}.{}", prefix, k) };
+                match val {
+                    Value::Object(_) => {
+                        // Root-level JSON-blob for flattened-style
+                        // whole-object queries.
+                        if prefix.is_empty() {
+                            let t = extract_text_value(val);
+                            if !t.is_empty() && !out.contains_key(&path) {
+                                out.insert(path.clone(), t);
+                            }
+                        }
+                        collect_text_fields(val, &path, out);
+                    }
+                    Value::Array(arr) => {
+                        let joined: String = arr.iter()
+                            .map(extract_text_value)
+                            .collect::<Vec<_>>()
+                            .join(" ");
+                        if !joined.is_empty() && !out.contains_key(&path) {
+                            out.insert(path, joined);
+                        }
+                    }
+                    _ => {
+                        let t = extract_text_value(val);
+                        if !t.is_empty() && !out.contains_key(&path) {
+                            out.insert(path, t);
+                        }
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Front half of `FtsMemtable::insert`, factored out as a pure function
+/// so it can run OUTSIDE the memtable shard write locks (e.g. on the
+/// rayon pool, one call per doc, before the bucketed per-shard insert).
+///
+/// Extracts the schema Text fields plus the dynamic-mapping dotted-path
+/// text fields (exactly like `insert` did in-lock) and tokenises each
+/// with `analyzer`.  Feed the result to [`FtsMemtable::insert_analyzed`].
+pub fn analyze_doc(
+    source: &Value,
+    schema: &Schema,
+    analyzer: &AnalyzerPipeline,
+) -> Vec<(String, Vec<Token>)> {
+    let mut text_fields: HashMap<String, String> = HashMap::new();
+
+    // Index fields that are defined as Text in the schema.
+    for field_cfg in &schema.fields {
+        if matches!(field_cfg.field_type, FieldType::Text) {
+            if let Some(val) = source.get(&field_cfg.name) {
+                let text = extract_text_value(val);
+                if !text.is_empty() {
+                    text_fields.insert(field_cfg.name.clone(), text);
+                }
+            }
+        }
+    }
+
+    // Also index any string-valued field not in the schema (dynamic
+    // mapping) — see `collect_text_fields`.
+    if source.is_object() {
+        collect_text_fields(source, "", &mut text_fields);
+    }
+
+    text_fields
+        .into_iter()
+        .map(|(field_name, text)| {
+            let tokens = analyzer.analyze(&text);
+            (field_name, tokens)
+        })
+        .collect()
+}
 
 /// Extract a string value from a JSON value for text indexing.
 fn extract_text_value(val: &Value) -> String {
