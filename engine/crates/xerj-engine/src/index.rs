@@ -26,6 +26,11 @@ use xerj_vector::hnsw::{HnswIndex, HnswParams};
 use xerj_vector::distance::DistanceMetric;
 
 use crate::aggs::{run_aggs_with_all, run_agg_fast, run_agg_fast_filtered, FastAggResult};
+
+// Doc-values (columnar) fast path for size:0 + match_all + aggs — child
+// module so it can reach Index's private fields/methods via `super::`.
+#[path = "fast_aggs.rs"]
+mod fast_aggs;
 use crate::memtable::FtsMemtable;
 use crate::{EngineError, Result};
 
@@ -373,6 +378,11 @@ pub struct Index {
     /// on every request.
     regexp_expand_cache: Arc<dashmap::DashMap<(String, String, String), Arc<RegexpExpansion>>>,
 
+    /// Fast-agg path: per-(segment, field) parsed date ordinals
+    /// (ord → epoch-ms; i64::MIN = unparseable).  Same immutable-segment
+    /// lifecycle as `dv_cache`; evicted alongside it on merge.
+    fast_date_cache: Arc<dashmap::DashMap<(String, String), Arc<Vec<i64>>>>,
+
     /// M3 framework — response cache for identical queries.  Keyed on
     /// `(query_body_hash, dataset_version)` and holds the pre-computed
     /// `SearchResult` ready to serialize.  Cache hit → ~10 µs total
@@ -526,6 +536,7 @@ impl Index {
             stored_slices_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache_bytes: Arc::new(AtomicU64::new(0)),
             regexp_expand_cache: Arc::new(dashmap::DashMap::new()),
+            fast_date_cache: Arc::new(dashmap::DashMap::new()),
             query_cache: Arc::new(dashmap::DashMap::new()),
             dataset_version: Arc::new(AtomicU64::new(0)),
             flush_signal: Arc::new(SyncFlushCoord::new()),
@@ -680,6 +691,7 @@ impl Index {
             stored_slices_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache_bytes: Arc::new(AtomicU64::new(0)),
             regexp_expand_cache: Arc::new(dashmap::DashMap::new()),
+            fast_date_cache: Arc::new(dashmap::DashMap::new()),
             query_cache: Arc::new(dashmap::DashMap::new()),
             dataset_version: Arc::new(AtomicU64::new(0)),
             flush_signal: Arc::new(SyncFlushCoord::new()),
@@ -2525,6 +2537,7 @@ impl Index {
                     self.stored_slices_cache_bytes
                         .fetch_sub(slices.retained_bytes(), Ordering::Relaxed);
                 }
+                self.fast_date_cache.retain(|(seg, _), _| seg != id.as_str());
             }
         }
 
@@ -4332,7 +4345,7 @@ impl Index {
         // result is stashed in `precomputed_aggs` and consumed at the
         // agg-section below.
         let mut precomputed_aggs: Option<Value> = None;
-        if is_match_all && size == 0 && request.aggs.is_some() {
+        if is_match_all && size == 0 && request.aggs.is_some() && request.min_score.is_none() {
             if let Some(aggs_def) = &request.aggs {
                 let r_opt = self
                     .try_aggs_fast_with_segments_cached(aggs_def, &snap, &segments_dir)
@@ -7205,15 +7218,29 @@ impl Index {
         snap: &xerj_storage::index_store::IndexSnapshot,
         segments_dir: &std::path::Path,
     ) -> Option<Value> {
-        // M5.1 — disabled under sharded memtable for the same reason
-        // `try_aggs_fast` is disabled: the memtable doc-values live
-        // inside per-shard FtsMemtable instances and can't be handed
-        // to `run_numeric_agg_with_segments_refs` as a single
-        // `&DocValues`.  Falls back to `run_aggs_with_all`
-        // stored-doc path (correct, slightly slower).  See V5 §2.4
-        // + §6 for the cross-shard column aggregator follow-up.
-        let _ = (aggs_def, snap, segments_dir);
-        None
+        // 2026-07 agg-hang fix: the columnar executor in `fast_aggs.rs`
+        // serves `size:0 + match_all + aggs` straight from segment `.dv`
+        // sidecars + the live memtable.  It bails (None) on any shape it
+        // can't reproduce byte-identically, on small indices, and when
+        // deletes/updates are present — the caller then falls back to the
+        // brute `run_aggs_with_all` stored-doc path.
+        //
+        // Boolean-mapped fields are stored as 0/1 in numeric `.dv` columns,
+        // indistinguishable from real integers at the column level. The
+        // schema is the only source of truth for "render 0/1 as
+        // false/true", so snapshot the boolean field names here (async
+        // lock) and hand them to the sync executor.
+        let bool_fields: std::collections::HashSet<String> = {
+            let guard = self.schema.read().await;
+            guard
+                .schema
+                .fields
+                .iter()
+                .filter(|f| matches!(f.field_type, xerj_common::FieldType::Boolean))
+                .map(|f| f.name.clone())
+                .collect()
+        };
+        self.try_fast_aggs(aggs_def, snap, segments_dir, &bool_fields)
     }
 }
 

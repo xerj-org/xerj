@@ -174,7 +174,18 @@ pub fn run_aggs_with_all(aggs_def: &Value, docs: &[Value], all_docs: &[Value]) -
         result.insert(agg_name.clone(), agg_result);
     }
 
-    // Second pass: resolve pipeline aggregations that reference sibling results.
+    resolve_sibling_pipelines(&mut result);
+
+    Value::Object(result)
+}
+
+/// Second pass of `run_aggs_with_all`: resolve pipeline aggregations
+/// (`__pipeline__` placeholders emitted by `run_pipeline_agg`) against
+/// their already-computed sibling results, in place.
+///
+/// Extracted so the doc-values fast-agg path (`index.rs`/`fast_aggs.rs`)
+/// can reuse the exact same resolution + typed-keys tagging semantics.
+pub(crate) fn resolve_sibling_pipelines(result: &mut Map<String, Value>) {
     let pipeline_keys: Vec<String> = result
         .iter()
         .filter(|(_, v)| v.get("__pipeline__").and_then(Value::as_bool).unwrap_or(false))
@@ -213,8 +224,6 @@ pub fn run_aggs_with_all(aggs_def: &Value, docs: &[Value], all_docs: &[Value]) -
         }
         result.insert(key, resolved);
     }
-
-    Value::Object(result)
 }
 
 /// Resolve a pipeline aggregation against already-computed sibling results,
@@ -369,7 +378,7 @@ fn resolve_bucket_sort(
 /// they operate on the PARENT's bucket list (dropping/reordering entries).
 /// Call this at the tail of each multi-bucket agg, after all buckets have
 /// been built and populated with sub-agg metrics.
-fn apply_bucket_pipeline_ops(mut buckets: Vec<Value>, sub_aggs: Option<&Value>) -> Vec<Value> {
+pub(crate) fn apply_bucket_pipeline_ops(mut buckets: Vec<Value>, sub_aggs: Option<&Value>) -> Vec<Value> {
     let sub_obj = match sub_aggs.and_then(Value::as_object) {
         Some(o) => o,
         None => return buckets,
@@ -1844,7 +1853,7 @@ fn execute_agg_with_all_cached<'d>(
 // Pipeline aggs reference sibling agg results via `buckets_path`.
 // We store the spec and resolve it after the first pass in `run_aggs_with_all`.
 
-fn run_pipeline_agg(agg_type: &str, params: &Value) -> Value {
+pub(crate) fn run_pipeline_agg(agg_type: &str, params: &Value) -> Value {
     // Return a sentinel that will be resolved in the post-processing pass.
     // Extract buckets_path — for moving_avg / cumulative_sum it may be a plain string;
     // for bucket_selector it's an object {"var": "path"}.
@@ -1911,7 +1920,7 @@ fn run_pipeline_agg(agg_type: &str, params: &Value) -> Value {
 
 /// Extract all scalar string representations of a field value from a document.
 /// Arrays are flattened — each element becomes a separate bucket key.
-fn extract_field_values(doc: &Value, field: &str) -> Vec<String> {
+pub(crate) fn extract_field_values(doc: &Value, field: &str) -> Vec<String> {
     let val = get_nested_field(doc, field);
     let mut out = flatten_to_strings(&val);
     if out.is_empty() {
@@ -1975,7 +1984,7 @@ fn extract_array_path_values(doc: &Value, field: &str) -> Vec<String> {
 /// template). If the full dotted path can't be resolved, fall back to
 /// stripping a trailing `.keyword` segment — that way aggregations on
 /// `category.keyword` still find values when the source only has `category`.
-fn get_nested_field<'a>(doc: &'a Value, field: &str) -> &'a Value {
+pub(crate) fn get_nested_field<'a>(doc: &'a Value, field: &str) -> &'a Value {
     fn walk<'a>(doc: &'a Value, field: &str) -> Option<&'a Value> {
         let mut current = doc;
         for part in field.split('.') {
@@ -2022,7 +2031,7 @@ fn flatten_to_strings(val: &Value) -> Vec<String> {
 }
 
 /// Extract a single numeric value from a field (returns `None` for non-numeric).
-fn extract_numeric(doc: &Value, field: &str) -> Option<f64> {
+pub(crate) fn extract_numeric(doc: &Value, field: &str) -> Option<f64> {
     fn str_to_num(s: &str) -> Option<f64> {
         if let Ok(f) = s.parse::<f64>() {
             return Some(f);
@@ -2060,7 +2069,7 @@ fn extract_numeric_values(doc: &Value, field: &str) -> Vec<f64> {
 }
 
 /// Extract ALL parseable date values (as epoch ms) from a field.
-fn extract_date_ms_values(doc: &Value, field: &str) -> Vec<i64> {
+pub(crate) fn extract_date_ms_values(doc: &Value, field: &str) -> Vec<i64> {
     fn walk(v: &Value, out: &mut Vec<i64>) {
         match v {
             Value::Array(arr) => { for e in arr { walk(e, out); } }
@@ -2412,28 +2421,7 @@ fn run_terms(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs:
             let _ = &bucket_docs; // silence unused when neither sub nor `count` needs it
             let (key, count, precomputed_sub) = (key, count, sub_res);
 
-            // ES returns typed keys: numbers as numbers, booleans as
-            // 1/0 (with key_as_string "true"/"false"), dates as epoch millis
-            // (with key_as_string as the ISO string).  Everything else stays
-            // a string.  `key_as_string` is only added when it carries extra
-            // information that the numeric key can't: booleans and dates.
-            let mut key_as_string: Option<String> = None;
-            let typed_key: Value = if key == "true" || key == "false" {
-                key_as_string = Some(key.clone());
-                json!(if key == "true" { 1 } else { 0 })
-            } else if let Ok(n) = key.parse::<i64>() {
-                json!(n)
-            } else if let Ok(f) = key.parse::<f64>() {
-                serde_json::Number::from_f64(f).map(Value::Number).unwrap_or(json!(key))
-            } else if let Some(epoch_ms) = parse_date_ms(&Value::String(key.clone())) {
-                // ES emits `key_as_string` in full ISO-8601 UTC with millis
-                // regardless of the input granularity (e.g. "2016-05-03" →
-                // "2016-05-03T00:00:00.000Z").
-                key_as_string = Some(epoch_ms_to_iso8601_utc(epoch_ms));
-                json!(epoch_ms)
-            } else {
-                json!(key)
-            };
+            let (typed_key, key_as_string) = typed_term_key(&key);
 
             let mut bucket = json!({
                 "key": typed_key,
@@ -2464,6 +2452,35 @@ fn run_terms(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs:
         "sum_other_doc_count": 0,
         "buckets": buckets
     })
+}
+
+/// ES returns typed terms-bucket keys: numbers as numbers, booleans as
+/// 1/0 (with key_as_string "true"/"false"), dates as epoch millis
+/// (with key_as_string as the ISO string).  Everything else stays
+/// a string.  `key_as_string` is only added when it carries extra
+/// information that the numeric key can't: booleans and dates.
+///
+/// Shared by `run_terms` and the doc-values fast-agg path so bucket
+/// key shaping is byte-identical between the two.
+pub(crate) fn typed_term_key(key: &str) -> (Value, Option<String>) {
+    let mut key_as_string: Option<String> = None;
+    let typed_key: Value = if key == "true" || key == "false" {
+        key_as_string = Some(key.to_string());
+        json!(if key == "true" { 1 } else { 0 })
+    } else if let Ok(n) = key.parse::<i64>() {
+        json!(n)
+    } else if let Ok(f) = key.parse::<f64>() {
+        serde_json::Number::from_f64(f).map(Value::Number).unwrap_or(json!(key))
+    } else if let Some(epoch_ms) = parse_date_ms(&Value::String(key.to_string())) {
+        // ES emits `key_as_string` in full ISO-8601 UTC with millis
+        // regardless of the input granularity (e.g. "2016-05-03" →
+        // "2016-05-03T00:00:00.000Z").
+        key_as_string = Some(epoch_ms_to_iso8601_utc(epoch_ms));
+        json!(epoch_ms)
+    } else {
+        json!(key)
+    };
+    (typed_key, key_as_string)
 }
 
 /// Comparator for terms-agg candidate buckets against a list of `order`
@@ -3373,7 +3390,7 @@ fn build_terms_bucket(key: &str, count: u64) -> Value {
     b
 }
 
-fn interval_to_ms(interval: &str) -> Option<i64> {
+pub(crate) fn interval_to_ms(interval: &str) -> Option<i64> {
     let interval = interval.trim();
     match interval {
         "second" | "1s" => return Some(1_000),
@@ -3407,7 +3424,7 @@ fn interval_to_ms(interval: &str) -> Option<i64> {
     Some(n * ms_per_unit)
 }
 
-fn is_calendar_interval(interval: &str) -> bool {
+pub(crate) fn is_calendar_interval(interval: &str) -> bool {
     // ES's `calendar_interval` accepts these shorthand units — each one
     // is sensitive to local-time boundaries (DST, month lengths). We
     // treat `1d`/`day`/`week`/`1w` as calendar too: a "day" is a local
@@ -3425,7 +3442,7 @@ fn is_calendar_interval(interval: &str) -> bool {
     )
 }
 
-fn calendar_bucket_key(ts_ms: i64, interval: &str) -> i64 {
+pub(crate) fn calendar_bucket_key(ts_ms: i64, interval: &str) -> i64 {
     let dt = chrono::DateTime::from_timestamp_millis(ts_ms).unwrap_or_default();
     let naive = dt.naive_utc();
     match interval.trim() {
@@ -3455,7 +3472,7 @@ fn calendar_bucket_key(ts_ms: i64, interval: &str) -> i64 {
     }
 }
 
-fn next_calendar_bucket(bucket_ms: i64, interval: &str) -> i64 {
+pub(crate) fn next_calendar_bucket(bucket_ms: i64, interval: &str) -> i64 {
     let dt = chrono::DateTime::from_timestamp_millis(bucket_ms).unwrap_or_default();
     let naive = dt.naive_utc();
     match interval.trim() {
@@ -4259,7 +4276,7 @@ fn run_filters(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_doc
 }
 
 /// Minimal filter matcher — supports term, terms, match_all, bool (must/filter).
-fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
+pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
     let obj = match filter.as_object() {
         Some(o) => o,
         None => return true,
@@ -4449,7 +4466,7 @@ fn value_to_string(v: &Value) -> String {
 
 // ── Range aggregation ─────────────────────────────────────────────────────────
 
-fn format_range_val(v: f64) -> String {
+pub(crate) fn format_range_val(v: f64) -> String {
     // Match Java's `Double.toString` output for range bucket keys:
     // ES emits `-9.223372036854776E18` for `Long.MIN_VALUE` rather than
     // the literal `-9223372036854775808` that `{}` would print.
@@ -6264,7 +6281,19 @@ fn painless_value_to_json(v: crate::painless::PainlessValue) -> Value {
     }
 }
 
-fn run_top_hits(params: &Value, docs: &[Value]) -> Value {
+pub(crate) fn run_top_hits(params: &Value, docs: &[Value]) -> Value {
+    run_top_hits_with_total(params, docs, None)
+}
+
+/// `run_top_hits` with an explicit `hits.total.value` override.  The
+/// doc-values fast-agg path feeds only the pre-selected global top-k docs
+/// of a bucket (not the whole bucket), so the true total is supplied by
+/// the caller instead of `docs.len()`.
+pub(crate) fn run_top_hits_with_total(
+    params: &Value,
+    docs: &[Value],
+    total_override: Option<u64>,
+) -> Value {
     let size = params.get("size").and_then(Value::as_u64).unwrap_or(3) as usize;
     let from = params.get("from").and_then(Value::as_u64).unwrap_or(0) as usize;
 
@@ -6429,7 +6458,7 @@ fn run_top_hits(params: &Value, docs: &[Value]) -> Value {
         }
     }
 
-    let total = sorted_docs.len();
+    let total: u64 = total_override.unwrap_or(sorted_docs.len() as u64);
     let page: Vec<Value> = sorted_docs
         .iter()
         .skip(from)
@@ -6780,7 +6809,7 @@ fn run_top_hits(params: &Value, docs: &[Value]) -> Value {
 // ── Sampler aggregation ───────────────────────────────────────────────────────
 
 /// Takes a random sample of documents and runs sub-aggregations on the sample.
-fn run_sampler(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
+pub(crate) fn run_sampler(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
     let shard_size = params.get("shard_size").and_then(Value::as_u64).unwrap_or(200) as usize;
 
     // ES sampler feeds the top shard_size docs by _score — take the score-descending slice.
