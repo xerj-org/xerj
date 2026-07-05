@@ -176,29 +176,102 @@ pub fn encode_stored_v2(stored_docs_json: &[u8]) -> Vec<u8> {
         }
     }
 
-    // Second pass: materialise each column as Vec<&serde_json::Value>.
+    // Second pass: materialise each column as Vec<&serde_json::Value>
+    // (borrowed out of the parsed docs — no per-field clones).
     // `__id` and `__seq_no` are hydrated from the top-level doc object.
-    let mut columns: Vec<Vec<serde_json::Value>> =
+    static NULL: serde_json::Value = serde_json::Value::Null;
+    let mut columns: Vec<Vec<&serde_json::Value>> =
         vec![Vec::with_capacity(num_docs); col_order.len()];
 
-    let null = serde_json::Value::Null;
     for doc in &docs {
         // __id and __seq_no
-        let id = doc.get("_id").cloned().unwrap_or(serde_json::Value::Null);
-        let seq = doc.get("_seq_no").cloned().unwrap_or(serde_json::Value::Null);
-        columns[0].push(id);
-        columns[1].push(seq);
+        columns[0].push(doc.get("_id").unwrap_or(&NULL));
+        columns[1].push(doc.get("_seq_no").unwrap_or(&NULL));
 
         let src_obj = doc.get("_source").and_then(|s| s.as_object());
         for (cix, cname) in col_order.iter().enumerate().skip(2) {
-            let val = src_obj
-                .and_then(|m| m.get(cname))
-                .cloned()
-                .unwrap_or_else(|| null.clone());
+            let val = src_obj.and_then(|m| m.get(cname)).unwrap_or(&NULL);
             columns[cix].push(val);
         }
     }
 
+    encode_v2_columns(num_docs, &col_order, &columns, stored_docs_json)
+}
+
+/// P2.2 — columnar V2 encoder fed directly from already-parsed values.
+///
+/// `encode_stored_v2` re-parses the (potentially multi-MB) JSON array the
+/// flush path just serialised and clones every field into columns — ~10s
+/// of background-flush CPU per 1M docs.  When the flush already holds the
+/// parsed `_source` trees (the HTTP `_bulk` turbo path), this entry point
+/// builds the columns straight from them.
+///
+/// Contract: `stored_docs_json` MUST be the canonical serialisation of
+/// `docs` (`[{"_id":…,"_seq_no":…,"_source":…}, …]`, as built by
+/// `IndexStore::finalize_flush_with_publisher`).  It is used for the v1
+/// (LZ4) fallback on tiny segments and the final "never make things
+/// worse" size comparison, so the output is byte-identical to
+/// `encode_stored_v2(stored_docs_json)` — asserted by unit tests here and
+/// by the `XERJ_FLUSH_PARITY=1` runtime gate in the flush path.
+pub fn encode_stored_v2_from_values(
+    stored_docs_json: &[u8],
+    docs: &[(&str, u64, &serde_json::Value)],
+) -> Vec<u8> {
+    if docs.len() < V2_MIN_DOCS {
+        return encode_stored_lz4(stored_docs_json);
+    }
+    let num_docs = docs.len();
+
+    // Synthetic __id / __seq_no columns need owned Values to borrow from.
+    let ids: Vec<serde_json::Value> = docs
+        .iter()
+        .map(|(id, _, _)| serde_json::Value::String((*id).to_string()))
+        .collect();
+    let seqs: Vec<serde_json::Value> = docs
+        .iter()
+        .map(|(_, seq, _)| serde_json::Value::from(*seq))
+        .collect();
+
+    let mut col_order: Vec<String> = vec!["__id".into(), "__seq_no".into()];
+    let mut col_seen: HashMap<String, usize> = HashMap::new();
+    col_seen.insert("__id".into(), 0);
+    col_seen.insert("__seq_no".into(), 1);
+
+    for (_, _, src) in docs {
+        if let Some(obj) = src.as_object() {
+            for key in obj.keys() {
+                if !col_seen.contains_key(key) {
+                    col_seen.insert(key.clone(), col_order.len());
+                    col_order.push(key.clone());
+                }
+            }
+        }
+    }
+
+    static NULL: serde_json::Value = serde_json::Value::Null;
+    let mut columns: Vec<Vec<&serde_json::Value>> =
+        vec![Vec::with_capacity(num_docs); col_order.len()];
+    for (i, (_, _, src)) in docs.iter().enumerate() {
+        columns[0].push(&ids[i]);
+        columns[1].push(&seqs[i]);
+        let src_obj = src.as_object();
+        for (cix, cname) in col_order.iter().enumerate().skip(2) {
+            let val = src_obj.and_then(|m| m.get(cname)).unwrap_or(&NULL);
+            columns[cix].push(val);
+        }
+    }
+
+    encode_v2_columns(num_docs, &col_order, &columns, stored_docs_json)
+}
+
+/// Shared tail of the two V2 entry points: per-column codec selection +
+/// payload assembly + the v1-LZ4 "never make things worse" size net.
+fn encode_v2_columns(
+    num_docs: usize,
+    col_order: &[String],
+    columns: &[Vec<&serde_json::Value>],
+    stored_docs_json: &[u8],
+) -> Vec<u8> {
     // Build dict-encoded form for each column as a stable side representation.
     // `dict_encode(col)` returns Some((dict_entries, ids)) where ids[i] is the
     // 1-based id (0 reserved for null, we add 1 here).  Returns None when
@@ -415,9 +488,10 @@ fn decode_stored_v2(body: &[u8]) -> Result<Vec<u8>> {
 /// `_source`.  A column that contains even one non-integer float must skip
 /// the numeric optimization entirely and fall back to the lossless dict /
 /// raw-JSON path, which preserves the exact `serde_json::Value`.
-fn col_is_all_integer(col: &[serde_json::Value]) -> bool {
+fn col_is_all_integer<B: std::borrow::Borrow<serde_json::Value>>(col: &[B]) -> bool {
     let mut saw_num = false;
     for v in col {
+        let v = v.borrow();
         if v.is_null() { continue; }
         // Only true JSON integers qualify; floats (even integer-valued
         // ones like `10.0`) are left for the lossless path so their exact
@@ -438,11 +512,14 @@ fn all_scalar_dict_entries(entries: &[serde_json::Value]) -> bool {
 ///
 /// Returns `None` if the column contains any non-scalar (object/array) value
 /// or if the unique-count explodes beyond the cap.
-fn dict_encode_column(col: &[serde_json::Value]) -> Option<(Vec<serde_json::Value>, Vec<u32>)> {
+fn dict_encode_column<B: std::borrow::Borrow<serde_json::Value>>(
+    col: &[B],
+) -> Option<(Vec<serde_json::Value>, Vec<u32>)> {
     let mut map: HashMap<String, u32> = HashMap::new();
     let mut entries: Vec<serde_json::Value> = Vec::new();
     let mut ids: Vec<u32> = Vec::with_capacity(col.len());
     for v in col {
+        let v = v.borrow();
         if v.is_null() {
             ids.push(u32::MAX); // resolved to "null id" later
             continue;
@@ -474,10 +551,10 @@ fn dict_encode_column(col: &[serde_json::Value]) -> Option<(Vec<serde_json::Valu
 /// For a numeric target column, find the index of an earlier dict-encoded
 /// column (if any) whose dict ids deterministically predict the target at
 /// ≥ `CROSS_DEP_MIN_DETERMINISM` fraction of rows.
-fn best_cross_dep_source(
+fn best_cross_dep_source<B: std::borrow::Borrow<serde_json::Value>>(
     dict_encoded: &[Option<(Vec<serde_json::Value>, Vec<u32>)>],
     target_ix: usize,
-    target_col: &[serde_json::Value],
+    target_col: &[B],
 ) -> Option<usize> {
     for (src_ix, de) in dict_encoded.iter().enumerate() {
         if src_ix == target_ix { continue; }
@@ -489,6 +566,7 @@ fn best_cross_dep_source(
         // Build mode table: mode_values[src_id] = most frequent target int
         let mut mode_tally: HashMap<u32, HashMap<i64, usize>> = HashMap::new();
         for (row, t_val) in target_col.iter().enumerate() {
+            let t_val = t_val.borrow();
             let Some(t) = t_val.as_i64().or_else(|| t_val.as_f64().map(|f| f as i64)) else { continue };
             let sid = ids[row];
             *mode_tally.entry(sid).or_default().entry(t).or_insert(0) += 1;
@@ -503,6 +581,7 @@ fn best_cross_dep_source(
         let mut hits = 0usize;
         let mut total_numeric = 0usize;
         for (row, t_val) in target_col.iter().enumerate() {
+            let t_val = t_val.borrow();
             let Some(t) = t_val.as_i64().or_else(|| t_val.as_f64().map(|f| f as i64)) else { continue };
             total_numeric += 1;
             if mode_pick.get(&ids[row]) == Some(&t) { hits += 1; }
@@ -516,9 +595,11 @@ fn best_cross_dep_source(
     None
 }
 
-fn try_encode_constant(col: &[serde_json::Value]) -> Option<Vec<u8>> {
-    let first = col.iter().find(|v| !v.is_null())?;
-    if col.iter().all(|v| v == first || v.is_null()) && !col.iter().any(|v| v.is_null()) {
+fn try_encode_constant<B: std::borrow::Borrow<serde_json::Value>>(col: &[B]) -> Option<Vec<u8>> {
+    let first = col.iter().map(|v| v.borrow()).find(|v| !v.is_null())?;
+    if col.iter().all(|v| { let v = v.borrow(); v == first || v.is_null() })
+        && !col.iter().any(|v| v.borrow().is_null())
+    {
         // Only encode as constant when there are no nulls (keep the codec simple).
         return Some(serde_json::to_vec(first).ok()?);
     }
@@ -607,8 +688,8 @@ fn decode_dict_bitpack(payload: &[u8], num_docs: usize) -> Result<Vec<serde_json
     Ok(values)
 }
 
-fn encode_cross_dep(
-    target_col: &[serde_json::Value],
+fn encode_cross_dep<B: std::borrow::Borrow<serde_json::Value>>(
+    target_col: &[B],
     src_ix: usize,
     dict_encoded: &[Option<(Vec<serde_json::Value>, Vec<u32>)>],
 ) -> (Vec<u8>, bool) {
@@ -626,6 +707,7 @@ fn encode_cross_dep(
     };
     let mut tally: Vec<HashMap<i64, u32>> = vec![HashMap::new(); dict_count + 1];
     for (row, t) in target_col.iter().enumerate() {
+        let t = t.borrow();
         let Some(tv) = t.as_i64().or_else(|| t.as_f64().map(|f| f as i64)) else { continue };
         let sid = src_ids[row] as usize;
         *tally[sid.min(dict_count)].entry(tv).or_insert(0) += 1;
@@ -639,6 +721,7 @@ fn encode_cross_dep(
 
     let mut exceptions: Vec<(u32, i64)> = Vec::new();
     for (row, t) in target_col.iter().enumerate() {
+        let t = t.borrow();
         let Some(tv) = t.as_i64().or_else(|| t.as_f64().map(|f| f as i64)) else {
             // Null / non-numeric — emit as exception with sentinel i64::MIN+1 ? No,
             // simpler: mark with i64::MIN via sentinel tuple, but we cannot
@@ -981,5 +1064,104 @@ mod tests {
         let packed = bitpack_u32(&ids, 3);
         let unpacked = bitunpack_u32(&packed, 3, ids.len());
         assert_eq!(unpacked, ids);
+    }
+
+    /// Serialise (id, seq_no, source) triples with the EXACT byte
+    /// construction `IndexStore::finalize_flush_with_publisher` uses for
+    /// parsed-source entries, so the parity assertion below covers the
+    /// real flush input.
+    fn stored_json_like_flush(docs: &[(String, u64, serde_json::Value)]) -> Vec<u8> {
+        use std::io::Write;
+        let mut stored_bytes: Vec<u8> = Vec::with_capacity(docs.len() * 512);
+        stored_bytes.push(b'[');
+        let mut first = true;
+        for (id, seq, src) in docs {
+            if !first {
+                stored_bytes.push(b',');
+            }
+            first = false;
+            stored_bytes.extend_from_slice(br#"{"_id":"#);
+            serde_json::to_writer(&mut stored_bytes, id).unwrap();
+            stored_bytes.extend_from_slice(br#","_seq_no":"#);
+            write!(stored_bytes, "{}", seq).unwrap();
+            stored_bytes.extend_from_slice(br#","_source":"#);
+            serde_json::to_writer(&mut stored_bytes, src).unwrap();
+            stored_bytes.push(b'}');
+        }
+        stored_bytes.push(b']');
+        stored_bytes
+    }
+
+    /// P2.2 parity gate — `encode_stored_v2_from_values` must be
+    /// byte-identical to the legacy parse-based `encode_stored_v2` for
+    /// the same flush input, across mixed field types (strings, ints,
+    /// floats, dates, bools, explicit nulls, nested objects, arrays)
+    /// and ragged shapes (missing fields).
+    #[test]
+    fn v2_from_values_byte_identical_to_legacy() {
+        let mut docs: Vec<(String, u64, serde_json::Value)> = Vec::new();
+        for i in 0..2000usize {
+            let mut src = json!({
+                "name": format!("doc-{}", i % 37),
+                "count": i as i64,
+                "big": u64::MAX - (i as u64 % 3),
+                "neg": -(i as i64) * 7,
+                "score": (i as f64) * 0.25 + 0.010127,
+                "when": format!("2026-07-{:02}T12:00:{:02}Z", (i % 28) + 1, i % 60),
+                "flag": i % 2 == 0,
+                "maybe": if i % 5 == 0 { serde_json::Value::Null } else { json!("x") },
+                "nested": { "a": i % 3, "b": [1, "two", serde_json::Value::Null, 3.5] },
+                "tags": ["alpha", "beta"],
+            });
+            if i % 7 == 0 {
+                src.as_object_mut().unwrap().remove("count");
+            }
+            if i % 11 == 0 {
+                src.as_object_mut()
+                    .unwrap()
+                    .insert("rare".into(), json!({"deep": {"x": i}}));
+            }
+            docs.push((format!("id-{}", i), 1_000 + i as u64, src));
+        }
+        let stored = stored_json_like_flush(&docs);
+        let refs: Vec<(&str, u64, &serde_json::Value)> = docs
+            .iter()
+            .map(|(id, seq, src)| (id.as_str(), *seq, src))
+            .collect();
+
+        let legacy = encode_stored_v2(&stored);
+        let from_values = encode_stored_v2_from_values(&stored, &refs);
+        assert_eq!(
+            legacy, from_values,
+            "from_values encoder diverged from legacy parse-based encoder"
+        );
+
+        // Decode round-trip sanity: every doc materialises with its id/seq.
+        let decoded = decode_stored(&from_values).unwrap();
+        let round: Vec<serde_json::Value> = serde_json::from_slice(&decoded).unwrap();
+        assert_eq!(round.len(), docs.len());
+        for i in [0usize, 1, 6, 42, 1024, 1999] {
+            assert_eq!(round[i]["_id"].as_str().unwrap(), format!("id-{}", i));
+            assert_eq!(round[i]["_seq_no"].as_u64().unwrap(), 1_000 + i as u64);
+            assert_eq!(round[i]["_source"]["score"], docs[i].2["score"]);
+        }
+    }
+
+    /// Below `V2_MIN_DOCS` both entry points must produce the identical
+    /// v1 LZ4 fallback bytes.
+    #[test]
+    fn v2_from_values_tiny_input_matches_legacy_fallback() {
+        let docs: Vec<(String, u64, serde_json::Value)> = (0..10usize)
+            .map(|i| (format!("t-{}", i), i as u64, json!({"m": i, "s": "x"})))
+            .collect();
+        let stored = stored_json_like_flush(&docs);
+        let refs: Vec<(&str, u64, &serde_json::Value)> = docs
+            .iter()
+            .map(|(id, seq, src)| (id.as_str(), *seq, src))
+            .collect();
+        let legacy = encode_stored_v2(&stored);
+        let from_values = encode_stored_v2_from_values(&stored, &refs);
+        assert_eq!(legacy, from_values);
+        assert_eq!(&from_values[..4], STORED_LZ4_MAGIC);
     }
 }

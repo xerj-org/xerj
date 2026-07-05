@@ -859,7 +859,49 @@ impl IndexStore {
             // segments.  The encoder picks v1 or v2 internally based on
             // which is smaller on this segment, so we never write a
             // larger file than the pre-M4.6 format.
-            let encoded = crate::stored_codec::encode_stored_v2(&stored_bytes);
+            //
+            // P2.2 — when every live entry carries a parsed `source`
+            // (the HTTP `_bulk` turbo path: engine memtable drained
+            // parsed Values, `source_bytes` empty), feed the encoder the
+            // Values directly instead of letting it re-parse the JSON
+            // array we just serialised (~10s background CPU per 1M
+            // docs).  Byte-identical output by contract — see
+            // `encode_stored_v2_from_values`; assert it live with
+            // `XERJ_FLUSH_PARITY=1`.
+            let all_parsed = live_entries
+                .iter()
+                .all(|e| e.source_bytes.is_empty() && e.source.is_some());
+            let encoded = if all_parsed {
+                let doc_refs: Vec<(&str, u64, &serde_json::Value)> = live_entries
+                    .iter()
+                    .map(|e| {
+                        (
+                            e.doc_id.as_str(),
+                            e.seq_no,
+                            e.source.as_deref().expect("all_parsed checked source.is_some()"),
+                        )
+                    })
+                    .collect();
+                let enc =
+                    crate::stored_codec::encode_stored_v2_from_values(&stored_bytes, &doc_refs);
+                if std::env::var("XERJ_FLUSH_PARITY").map(|v| v == "1").unwrap_or(false) {
+                    let legacy = crate::stored_codec::encode_stored_v2(&stored_bytes);
+                    assert_eq!(
+                        legacy, enc,
+                        "XERJ_FLUSH_PARITY: encode_stored_v2_from_values diverged from \
+                         encode_stored_v2 ({} live docs)",
+                        doc_refs.len()
+                    );
+                    tracing::info!(
+                        docs = doc_refs.len(),
+                        bytes = enc.len(),
+                        "XERJ_FLUSH_PARITY: stored-section bytes identical"
+                    );
+                }
+                enc
+            } else {
+                crate::stored_codec::encode_stored_v2(&stored_bytes)
+            };
             writer.add_section(SectionType::Stored, &encoded)?;
         }
 
