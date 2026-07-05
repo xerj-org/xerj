@@ -101,6 +101,46 @@ pub struct DrainedMemtable {
 
 // ── Fsck report types ─────────────────────────────────────────────────────────
 //
+// ── SnapshotReadGuard ─────────────────────────────────────────────────────────
+
+/// A loaded [`IndexSnapshot`] plus a **read lease** on its segment files.
+///
+/// Returned by [`IndexStore::snapshot`].  While any guard is alive, files
+/// of segments retired by a concurrent merge are parked in a graveyard
+/// instead of being unlinked (`IndexStore::retire_segment_files`), so a
+/// scan iterating this snapshot's segment list can always open every
+/// segment it references.  Dropping the last guard sweeps the graveyard.
+///
+/// Derefs to `Arc<IndexSnapshot>` exactly like the
+/// `arc_swap::Guard<Arc<IndexSnapshot>>` it wraps, so call sites are
+/// source-compatible with the pre-lease `snapshot()`.
+pub struct SnapshotReadGuard<'a> {
+    snap: arc_swap::Guard<Arc<IndexSnapshot>>,
+    store: &'a IndexStore,
+}
+
+impl std::ops::Deref for SnapshotReadGuard<'_> {
+    type Target = Arc<IndexSnapshot>;
+    fn deref(&self) -> &Arc<IndexSnapshot> {
+        &self.snap
+    }
+}
+
+impl Drop for SnapshotReadGuard<'_> {
+    fn drop(&mut self) {
+        // Last lease out sweeps the graveyard.  `fetch_sub` returning 1
+        // means this was the final outstanding lease.
+        if self
+            .store
+            .read_leases
+            .fetch_sub(1, std::sync::atomic::Ordering::SeqCst)
+            == 1
+        {
+            self.store.sweep_retired_segments();
+        }
+    }
+}
+
 // Returned by `IndexStore::fsck_segments()`. Per-section CRC32C is
 // computed at write time and validated on every section_checked()
 // call. The fast `section()` read path skips revalidation for perf;
@@ -275,6 +315,21 @@ pub struct IndexStore {
     /// every `WAL_MAINTENANCE_INTERVAL_MS` runs it on behalf of all
     /// concurrent flushers.
     last_wal_maintenance_ms: AtomicU64,
+    /// Merge-race fix (2026-07) — number of outstanding
+    /// [`SnapshotReadGuard`]s (read leases).  Every reader that obtains a
+    /// segment list via [`IndexStore::snapshot`] holds a lease for as long
+    /// as it keeps the guard, and retired (merged-away) segment files are
+    /// only unlinked once this count reaches zero.  See
+    /// `retire_segment_files` for the full race description.
+    read_leases: std::sync::atomic::AtomicUsize,
+    /// Graveyard of segment ids retired by `apply_merge` whose on-disk
+    /// files could not be deleted immediately because a read lease was
+    /// outstanding.  Swept (files unlinked, reader-cache entries evicted)
+    /// by the last lease drop; crash leftovers are handled by the on-open
+    /// `cleanup_orphaned_segment_files` (their `.ids` resurrection marker
+    /// is already unlinked at retire time, so `recover_orphaned_segments`
+    /// can never resurrect them as duplicates).
+    retired_segments: Mutex<Vec<SegmentId>>,
 }
 
 const WAL_MAINTENANCE_INTERVAL_MS: u64 = 1_000;
@@ -328,6 +383,8 @@ impl IndexStore {
             memtable_bytes: AtomicU64::new(0),
             seg_reader_cache: dashmap::DashMap::new(),
             last_wal_maintenance_ms: AtomicU64::new(0),
+            read_leases: std::sync::atomic::AtomicUsize::new(0),
+            retired_segments: Mutex::new(Vec::new()),
         });
 
         // Rebuild version map from flushed segments first (so WAL replay can
@@ -660,6 +717,85 @@ impl IndexStore {
             }
         }
         (removed_files, removed_bytes)
+    }
+
+    /// Retire merged-away segments: delete their files **as soon as it is
+    /// safe**, i.e. once no in-flight reader can still be holding a
+    /// pre-merge segment list that references them.
+    ///
+    /// Merge-race fix (2026-07): `run_merge_once` used to call
+    /// [`delete_segment_files`](Self::delete_segment_files) directly after
+    /// `apply_merge`.  A search that had already loaded the pre-merge
+    /// snapshot would then hit `open_segment_arc` for a segment whose
+    /// files had just been unlinked, get an error, and SILENTLY SKIP the
+    /// segment — returning an undercounted `hits.total` (observed live:
+    /// 798,281 instead of 932,037).  Now every reader holds a
+    /// [`SnapshotReadGuard`] lease; if any lease is outstanding the ids
+    /// are parked in `retired_segments` and swept by the last lease drop.
+    ///
+    /// The `.ids` side-car is unlinked IMMEDIATELY regardless of leases:
+    /// it is only read at open/recovery time (never on the query path),
+    /// and removing it up front keeps the disk-fix invariant that a crash
+    /// while deletions are deferred cannot let
+    /// `recover_orphaned_segments` resurrect the merged-away inputs as
+    /// duplicates on restart (recovery requires a valid `.ids`).  Any
+    /// other leftover files are removed by the on-open
+    /// `cleanup_orphaned_segment_files`.
+    ///
+    /// Returns `(files_removed, bytes_removed)` — `(0, 0)` when deletion
+    /// was deferred to the graveyard.
+    pub fn retire_segment_files(&self, segment_ids: &[SegmentId]) -> (usize, u64) {
+        if segment_ids.is_empty() {
+            return (0, 0);
+        }
+        // Kill the resurrection marker first (crash safety, see above).
+        let segments_dir = self.data_dir.join("segments");
+        for id in segment_ids {
+            let _ = std::fs::remove_file(segments_dir.join(format!("{}.ids", id.as_str())));
+        }
+        {
+            let mut graveyard = self.retired_segments.lock().unwrap();
+            graveyard.extend_from_slice(segment_ids);
+        }
+        // Opportunistic sweep: deletes right away when no reader is active
+        // (the common case), otherwise the last lease drop sweeps.
+        self.sweep_retired_segments()
+    }
+
+    /// Delete the files of every graveyard segment, provided no read
+    /// lease is outstanding.  Called by [`retire_segment_files`] and by
+    /// the last [`SnapshotReadGuard`] drop.
+    ///
+    /// The lease check happens while holding the graveyard lock, and
+    /// `snapshot()` increments the lease count with a SeqCst RMW *before*
+    /// loading the snapshot pointer (itself stored by `apply_merge`
+    /// before retire).  So if this observes `read_leases == 0`, any
+    /// reader that appears afterwards is guaranteed to load the
+    /// post-merge snapshot and can never reference the ids being swept.
+    fn sweep_retired_segments(&self) -> (usize, u64) {
+        let ids: Vec<SegmentId> = {
+            let mut graveyard = self.retired_segments.lock().unwrap();
+            if graveyard.is_empty()
+                || self.read_leases.load(std::sync::atomic::Ordering::SeqCst) != 0
+            {
+                return (0, 0);
+            }
+            graveyard.drain(..).collect()
+        };
+        // Evict any reader-cache entries a leased scan may have re-opened
+        // for these ids so their mmaps (and the unlinked blocks) get
+        // released.
+        for id in &ids {
+            self.seg_reader_cache.remove(id.as_str());
+        }
+        let (files, bytes) = self.delete_segment_files(&ids);
+        debug!(
+            segments = ids.len(),
+            removed_files = files,
+            removed_bytes = bytes,
+            "retired segment files swept"
+        );
+        (files, bytes)
     }
 
     // ── Shard routing ─────────────────────────────────────────────────────────
@@ -1197,8 +1333,30 @@ impl IndexStore {
     // ── Read path ─────────────────────────────────────────────────────────────
 
     /// Load the current snapshot.  Lock-free.
-    pub fn snapshot(&self) -> arc_swap::Guard<Arc<IndexSnapshot>> {
-        self.snapshot.load()
+    ///
+    /// Merge-race fix (2026-07): the returned guard is also a **read
+    /// lease** — for as long as it is alive, the on-disk files of every
+    /// segment it references are guaranteed to exist, even if a
+    /// concurrent merge commits and retires some of them
+    /// (`retire_segment_files` defers the unlink until the last lease
+    /// drops).  Pre-fix, `run_merge_once` unlinked merged-away segment
+    /// files immediately after `apply_merge`; a search that had already
+    /// snapshotted the old segment list would then fail to open those
+    /// segments mid-scan and silently skip them (observed live: 798,281
+    /// hits returned instead of 932,037 during a background merge).
+    ///
+    /// IMPORTANT ordering: the lease count is incremented *before* the
+    /// snapshot pointer is loaded (`fetch_add` is a full RMW barrier), so
+    /// a retire that observes `read_leases == 0` can only race with a
+    /// reader that will observe the *post-merge* snapshot — never one
+    /// still holding the merged-away segment list.
+    pub fn snapshot(&self) -> SnapshotReadGuard<'_> {
+        self.read_leases
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        SnapshotReadGuard {
+            snap: self.snapshot.load(),
+            store: self,
+        }
     }
 
     /// Return the current WAL sequence number (the next value that
@@ -1336,21 +1494,40 @@ impl IndexStore {
             return Ok(Arc::clone(entry.value()));
         }
         let snap = self.snapshot.load();
-        let meta = snap
-            .segments
-            .iter()
-            .find(|s| s.id == segment_id)
-            .ok_or_else(|| StorageError::SegmentNotFound(segment_id.to_owned()))?;
+        // Merge-race fix (2026-07): a miss against the CURRENT snapshot no
+        // longer means "gone".  The caller may hold a `SnapshotReadGuard`
+        // on an OLDER snapshot whose segment was merged away after the
+        // caller loaded it — its files are then still on disk (retire
+        // defers deletion until the last read lease drops), just no longer
+        // registered.  Fall back to the id-derived filename (`{id}.seg` —
+        // the invariant name set by SegmentWriter) so an in-flight scan
+        // stays consistent with ITS snapshot instead of silently skipping
+        // the segment (the merge-race undercount bug).  For a genuinely
+        // unknown id the open below fails and the error propagates.
+        let seg_path: String = match snap.segments.iter().find(|s| s.id == segment_id) {
+            Some(m) => m.seg_path.clone(),
+            None => {
+                let fallback = format!("{segment_id}.seg");
+                let is_local = matches!(self.config.storage_mode, StorageMode::Local);
+                if is_local
+                    && !self.data_dir.join("segments").join(&fallback).exists()
+                {
+                    return Err(StorageError::SegmentNotFound(segment_id.to_owned()));
+                }
+                fallback
+            }
+        };
+        drop(snap);
 
-        let local_path = self.data_dir.join("segments").join(&meta.seg_path);
+        let local_path = self.data_dir.join("segments").join(&seg_path);
 
         // For object-store mode: check local cache; fetch from backend on miss.
         let reader = if let StorageMode::ObjectStore { backend, cache_dir } = &self.config.storage_mode {
-            let cache_path = cache_dir.join(&meta.seg_path);
+            let cache_path = cache_dir.join(&seg_path);
             if cache_path.exists() {
                 crate::segment::SegmentReader::open(cache_path)?
             } else {
-                let object_key = format!("segments/{}", meta.seg_path);
+                let object_key = format!("segments/{seg_path}");
                 let backend_clone = std::sync::Arc::clone(backend);
                 let key_clone = object_key.clone();
                 let data = tokio::task::block_in_place(|| {
@@ -2216,5 +2393,133 @@ mod tests {
         // Subsequent open should be served from cache.
         let reader2 = store.open_segment(&meta.id).unwrap();
         assert_eq!(reader2.header().doc_count, 1);
+    }
+
+    // ── Merge-race read-lease tests (2026-07) ────────────────────────────────
+
+    /// Build two flushed segments and merge them, returning
+    /// (store, input_ids, merged_meta).  The merge is applied
+    /// (snapshot swapped) but the input files are NOT yet retired.
+    fn two_segments_merged(
+        dir: &Path,
+    ) -> (Arc<IndexStore>, Vec<SegmentId>, SegmentMeta) {
+        let store = open_test_store(dir);
+        store.index("doc-1", serde_json::json!({"v": 1})).unwrap();
+        store.flush().unwrap();
+        store.index("doc-2", serde_json::json!({"v": 2})).unwrap();
+        store.flush().unwrap();
+        let ids: Vec<SegmentId> =
+            store.snapshot().segments.iter().map(|s| s.id.clone()).collect();
+        assert_eq!(ids.len(), 2);
+        let executor = crate::merge::MergeExecutor::new(
+            Arc::clone(&store),
+            crate::merge::MergeConfig { io_rate_mb_per_sec: 0, ..Default::default() },
+        );
+        let merged = executor.execute_merge(&ids).unwrap();
+        (store, ids, merged)
+    }
+
+    #[test]
+    fn retire_without_lease_deletes_immediately() {
+        let dir = tempfile::tempdir().unwrap();
+        let (store, ids, merged) = two_segments_merged(dir.path());
+        let segments_dir = dir.path().join("segments");
+
+        for id in &ids {
+            assert!(segments_dir.join(format!("{id}.seg")).exists());
+        }
+        let (files, _bytes) = store.retire_segment_files(&ids);
+        assert!(files >= 2, "expected immediate deletion, removed {files} files");
+        for id in &ids {
+            assert!(
+                !segments_dir.join(format!("{id}.seg")).exists(),
+                "input segment file should be gone with no lease outstanding"
+            );
+        }
+        assert!(segments_dir.join(format!("{}.seg", merged.id)).exists());
+    }
+
+    #[test]
+    fn retire_defers_deletion_while_lease_held_and_scan_stays_consistent() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = open_test_store(dir.path());
+        store.index("doc-1", serde_json::json!({"v": 1})).unwrap();
+        store.flush().unwrap();
+        store.index("doc-2", serde_json::json!({"v": 2})).unwrap();
+        store.flush().unwrap();
+
+        // A "query" snapshots the segment list BEFORE the merge commits.
+        let query_snap = store.snapshot();
+        let ids: Vec<SegmentId> =
+            query_snap.segments.iter().map(|s| s.id.clone()).collect();
+        assert_eq!(ids.len(), 2);
+
+        // Merge commits and retires the inputs while the query is in flight
+        // (mirrors run_merge_once: evict reader cache, then retire).
+        let executor = crate::merge::MergeExecutor::new(
+            Arc::clone(&store),
+            crate::merge::MergeConfig { io_rate_mb_per_sec: 0, ..Default::default() },
+        );
+        executor.execute_merge(&ids).unwrap();
+        for id in &ids {
+            store.evict_segment_reader_cache(id.as_str());
+        }
+        let (files, _bytes) = store.retire_segment_files(&ids);
+        assert_eq!(files, 0, "deletion must be deferred while a lease is held");
+
+        let segments_dir = dir.path().join("segments");
+        for id in &ids {
+            assert!(
+                segments_dir.join(format!("{id}.seg")).exists(),
+                "retired segment file must survive until the last lease drops"
+            );
+            assert!(
+                !segments_dir.join(format!("{id}.ids")).exists(),
+                ".ids resurrection marker must be unlinked at retire time"
+            );
+            // The in-flight query can still open every segment of ITS
+            // snapshot (fallback open path — the ids are no longer in the
+            // current snapshot and the reader cache was evicted).
+            let reader = store.open_segment_arc(id.as_str()).unwrap();
+            assert_eq!(reader.header().doc_count, 1);
+        }
+
+        // Query finishes → last lease drops → graveyard swept.
+        drop(query_snap);
+        for id in &ids {
+            assert!(
+                !segments_dir.join(format!("{id}.seg")).exists(),
+                "retired segment file must be deleted once the last lease drops"
+            );
+        }
+    }
+
+    #[test]
+    fn crash_with_deferred_retire_does_not_resurrect_inputs() {
+        let dir = tempfile::tempdir().unwrap();
+        let (store, ids, merged) = two_segments_merged(dir.path());
+
+        // Hold a lease so retire defers, then "crash" (leak the lease and
+        // drop the store) — the input .seg files stay on disk, .ids gone.
+        let leaked = store.snapshot();
+        let (files, _bytes) = store.retire_segment_files(&ids);
+        assert_eq!(files, 0);
+        std::mem::forget(leaked);
+        drop(store);
+
+        // Reopen: recover_orphaned_segments must NOT resurrect the
+        // merged-away inputs (no .ids side-car), and the on-open cleanup
+        // must reclaim their leftover files.
+        let store2 = open_test_store(dir.path());
+        let snap = store2.snapshot();
+        assert_eq!(snap.segments.len(), 1, "only the merged segment survives");
+        assert_eq!(snap.segments[0].id, merged.id);
+        let segments_dir = dir.path().join("segments");
+        for id in &ids {
+            assert!(
+                !segments_dir.join(format!("{id}.seg")).exists(),
+                "crash leftovers must be cleaned on open"
+            );
+        }
     }
 }

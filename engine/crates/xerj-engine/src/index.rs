@@ -2458,9 +2458,9 @@ impl Index {
                         }
                         // Disk-space fix (2026-07): the input segments are
                         // now unreachable from the (persisted) snapshot —
-                        // unlink their files immediately instead of leaving
-                        // them for the next restart's orphan cleanup (~137 MB
-                        // of dead segments after the 1 M-doc benchmark).
+                        // reclaim their files instead of leaving them for
+                        // the next restart's orphan cleanup (~137 MB of
+                        // dead segments after the 1 M-doc benchmark).
                         // Drop the cached SegmentReader mmaps first so the
                         // kernel can actually free the unlinked blocks once
                         // in-flight readers finish (in-flight queries that
@@ -2469,14 +2469,27 @@ impl Index {
                         for id in &batch_slice {
                             self.store.evict_segment_reader_cache(id.as_str());
                         }
+                        // Merge-race fix (2026-07, follow-up to the disk
+                        // fix): RETIRE, don't delete.  An immediate unlink
+                        // raced in-flight searches that had snapshotted the
+                        // pre-merge segment list but not yet opened every
+                        // segment — the scan silently skipped the vanished
+                        // segment and undercounted hits.total (observed
+                        // live: 798,281 instead of 932,037).
+                        // `retire_segment_files` deletes right away when no
+                        // snapshot read lease is outstanding, otherwise it
+                        // parks the ids in a graveyard swept by the last
+                        // lease drop — so deferral is bounded by the
+                        // longest-running in-flight query, not a restart.
                         let (rm_files, rm_bytes) =
-                            self.store.delete_segment_files(&batch_slice);
+                            self.store.retire_segment_files(&batch_slice);
                         tracing::info!(
                             merged_id = merged_meta.id.as_str(),
                             inputs = batch_slice.len(),
                             live_docs = live_doc_count,
                             removed_files = rm_files,
                             removed_mb = rm_bytes / 1_000_000,
+                            deferred = rm_files == 0,
                             "segment merge complete"
                         );
                         // These input segment ids are now unreachable —
@@ -4549,7 +4562,14 @@ impl Index {
                                 && !seg_hits.is_empty()
                                 && all_hits.len() < materialisation_limit
                             {
-                                if let Ok(seg_reader) = self.store.open_segment_arc(&seg_id) {
+                                // Merge-race hardening (2026-07): NEVER
+                                // silently skip a snapshot segment that
+                                // fails to open — under the read-lease fix
+                                // its files are guaranteed present, so an
+                                // open failure is real corruption and must
+                                // fail the query, not shrink its results.
+                                {
+                                    let seg_reader = self.store.open_segment_arc(&seg_id)?;
                                     if let Ok(Some(stored_bytes_raw)) =
                                         seg_reader.section(SectionType::Stored)
                                     {
@@ -4752,7 +4772,15 @@ impl Index {
                                 &mut total_count,
                             );
                         }
-                    } else if let Ok(seg_reader) = self.store.open_segment_arc(&seg_id) {
+                    } else {
+                        // Merge-race hardening (2026-07): a snapshot
+                        // segment that fails to open is a query error, not
+                        // a segment to skip — skipping silently undercounts
+                        // hits.total (the observed 798,281-of-932,037 bug).
+                        // With the read lease held by `snap`, retired
+                        // segment files persist, so this only fires on
+                        // genuine corruption.
+                        let seg_reader = self.store.open_segment_arc(&seg_id)?;
                         if let Ok(Some(stored_bytes_raw)) = seg_reader.section(SectionType::Stored) {
                             if let Ok(stored_bytes) =
                                 xerj_storage::stored_codec::decode_stored(stored_bytes_raw)
@@ -5267,10 +5295,12 @@ impl Index {
                 .collect();
             let snap_bg = self.store.snapshot();
             for seg in &snap_bg.segments {
-                let reader = match self.store.open_segment_arc(&seg.id) {
-                    Ok(r) => r,
-                    Err(_) => continue,
-                };
+                // Merge-race hardening (2026-07): open failures are
+                // errors, not skips — a skipped segment silently drops
+                // its docs from every aggregation bucket.  The read
+                // lease held by `snap_bg` keeps retired segment files
+                // on disk, so this only fires on genuine corruption.
+                let reader = self.store.open_segment_arc(&seg.id)?;
                 let stored_bytes_raw = match reader.section(SectionType::Stored) {
                     Ok(Some(b)) => b,
                     _ => continue,
