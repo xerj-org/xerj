@@ -176,7 +176,9 @@ pub async fn process_bulk_with_opts(
     }
 
     let t_parse = std::time::Instant::now();
-    let parse_results: Vec<ParseOutcome> = pairs
+    // Dedicated ingest pool: keeps bulk-parse bursts off the global rayon
+    // pool that the search path fans out on (see `crate::ingest_pool`).
+    let parse_results: Vec<ParseOutcome> = crate::ingest_pool().install(|| pairs
         .par_iter()
         .map(|(_line_idx, action_line, doc_line, item_index)| {
             // M5.12 — FAST-PATH manual parse of the action line.
@@ -540,7 +542,7 @@ pub async fn process_bulk_with_opts(
                 dynamic_templates: dynamic_templates_per_item,
             })
         })
-        .collect();
+        .collect());
 
     let parse_ms = t_parse.elapsed().as_millis() as u64;
     let t_group = std::time::Instant::now();

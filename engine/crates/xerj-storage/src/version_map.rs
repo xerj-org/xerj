@@ -84,12 +84,31 @@ pub struct VersionMap {
     /// transiently-interleaved reader can never underflow the type;
     /// `live_count()` clamps at 0.
     live: AtomicI64,
+    /// Monotonic count of "ghost-producing" events: overwrites of an
+    /// existing doc id and deletes.  Each such event leaves a physically
+    /// present but superseded/tombstoned copy in the memtable or a
+    /// segment until a merge purges it.
+    ///
+    /// The search fast paths (`deletes_present` gates in `search_inner` /
+    /// `fast_aggs`) used to INFER this state from
+    /// `live_count() < Σ segment doc_count + memtable doc_count` — but
+    /// that arithmetic also trips on any unrelated physical-count drift
+    /// (live-verified: two duplicate docs per merged segment flipped the
+    /// gate permanently on a pure append-only workload, forcing every
+    /// size>0 term/range/bool query into a full O(N) stored scan — the
+    /// core of the read-under-write collapse).  This counter is the
+    /// exact signal: zero ⇔ no update/delete has ever produced a ghost.
+    ///
+    /// Monotonic by design (never decremented on merge): once an index
+    /// has seen updates, the delete-aware slow paths stay on.  That is
+    /// conservative but always correct.
+    ghost_events: std::sync::atomic::AtomicU64,
 }
 
 impl VersionMap {
     /// Create an empty version map.
     pub fn new() -> Self {
-        Self { inner: DashMap::new(), live: AtomicI64::new(0) }
+        Self { inner: DashMap::new(), live: AtomicI64::new(0), ghost_events: std::sync::atomic::AtomicU64::new(0) }
     }
 
     /// Apply a live-count delta for an entry transition.
@@ -128,6 +147,16 @@ impl VersionMap {
         let old = self
             .inner
             .insert(doc_id, VersionEntry { seq_no, segment_id: segment_id.into(), deleted });
+        // Overwrite or delete — a superseded/tombstoned physical copy now
+        // exists somewhere until merged away.  A same-seq_no re-set is NOT
+        // an overwrite: the flush path repoints every drained doc's entry
+        // from `__memtable__` to its segment id with the seq_no unchanged
+        // (live-verified: counting those flipped the gate ON for every
+        // flushed doc and re-disabled all fast paths under pure appends).
+        let is_overwrite = old.as_ref().map_or(false, |e| e.seq_no != seq_no);
+        if is_overwrite || deleted {
+            self.ghost_events.fetch_add(1, Ordering::Relaxed);
+        }
         self.live_delta(old.map_or(false, |e| !e.deleted), !deleted);
     }
 
@@ -215,6 +244,7 @@ impl VersionMap {
                 }
                 let was_live = !occ.get().deleted;
                 occ.insert(VersionEntry { seq_no: new_seq_no, segment_id: new_segment_id, deleted });
+                self.ghost_events.fetch_add(1, Ordering::Relaxed);
                 self.live_delta(was_live, !deleted);
                 Ok(new_seq_no)
             }
@@ -228,6 +258,9 @@ impl VersionMap {
                     });
                 }
                 vac.insert(VersionEntry { seq_no: new_seq_no, segment_id: new_segment_id, deleted });
+                if deleted {
+                    self.ghost_events.fetch_add(1, Ordering::Relaxed);
+                }
                 self.live_delta(false, !deleted);
                 Ok(new_seq_no)
             }
@@ -254,6 +287,7 @@ impl VersionMap {
                     segment_id: segment_id.into(),
                     deleted: true,
                 };
+                self.ghost_events.fetch_add(1, Ordering::Relaxed);
                 self.live_delta(true, false);
                 Ok(true)
             }
@@ -323,6 +357,22 @@ impl VersionMap {
     /// search request via the `deletes_present` gate).
     pub fn live_count(&self) -> usize {
         self.live.load(Ordering::Relaxed).max(0) as usize
+    }
+
+    /// Number of overwrite/delete events ever seen (see `ghost_events`
+    /// field docs).  Zero ⇔ append-only history ⇔ physical postings and
+    /// stored copies are 1:1 with live docs (barring storage-level bugs,
+    /// which corrupt the brute counting paths identically).
+    pub fn ghost_events(&self) -> u64 {
+        self.ghost_events.load(Ordering::Relaxed)
+    }
+
+    /// Conservatively mark the index as containing ghosts.  Called once at
+    /// open time when the at-rest arithmetic (`live < physical`) indicates
+    /// superseded copies from a pre-restart history the WAL replay cannot
+    /// see.
+    pub fn force_ghost_event(&self) {
+        self.ghost_events.fetch_add(1, Ordering::Relaxed);
     }
 }
 

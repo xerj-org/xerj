@@ -72,13 +72,65 @@ struct SegEntry {
     docs: u32,
 }
 
+/// Memtable docs for the fast path.
+///
+/// `Owned` is the original brute-parity representation: every buffered doc
+/// deep-cloned with `_id` / `_index` / `_seq_no` injected.  It is only
+/// needed when the agg tree can actually OBSERVE those meta fields
+/// (`top_hits`, or an agg targeting `_id`/`_index`/`_seq_no`).  For every
+/// other shape we use `Shared`: Arc clones of the buffered sources — no
+/// deep clone, no injection.  Under a bulk writer the memtable holds 10⁴-10⁵
+/// docs, and the per-request Owned build (~100-300 ms of `clone_subtree` +
+/// version-map lookups) dominated terms/cardinality latency.
+enum MemDocs {
+    Owned(Vec<Value>),
+    Shared { ids: Vec<String>, srcs: Vec<std::sync::Arc<Value>> },
+}
+
+impl MemDocs {
+    fn len(&self) -> usize {
+        match self {
+            MemDocs::Owned(v) => v.len(),
+            MemDocs::Shared { srcs, .. } => srcs.len(),
+        }
+    }
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    fn iter(&self) -> Box<dyn Iterator<Item = &Value> + '_> {
+        match self {
+            MemDocs::Owned(v) => Box::new(v.iter()),
+            MemDocs::Shared { srcs, .. } => Box::new(srcs.iter().map(|a| a.as_ref())),
+        }
+    }
+    /// Materialise doc `i` brute-corpus-style (meta fields injected).
+    fn owned(&self, i: usize, idx: &Index) -> Option<Value> {
+        match self {
+            MemDocs::Owned(v) => v.get(i).cloned(),
+            MemDocs::Shared { ids, srcs } => {
+                let mut v: Value = srcs.get(i)?.as_ref().clone();
+                let id = ids.get(i)?;
+                if let Some(o) = v.as_object_mut() {
+                    o.entry("_id".to_string())
+                        .or_insert_with(|| Value::String(id.clone()));
+                    o.entry("_index".to_string())
+                        .or_insert_with(|| Value::String(idx.name.to_string()));
+                    if let Some(seq) = idx.lookup_seq_no(id) {
+                        o.entry("_seq_no".to_string()).or_insert_with(|| json!(seq));
+                    }
+                }
+                Some(v)
+            }
+        }
+    }
+}
+
 pub(super) struct FastCtx<'a> {
     idx: &'a Index,
     segs: Vec<SegEntry>,
-    /// Memtable docs materialised brute-style: `_source` + `_id`, `_index`,
-    /// `_seq_no` injected.  Empty when the memtable is empty (steady state
-    /// for a flushed corpus).
-    mem_docs: Vec<Value>,
+    /// Memtable docs (see `MemDocs`).  Empty when the memtable is empty
+    /// (steady state for a flushed corpus).
+    mem_docs: MemDocs,
     /// Schema fields mapped `boolean`.  Their `.dv` columns are numeric
     /// 0/1 (indistinguishable from real integers at the column level), but
     /// the brute path renders them as "false"/"true" term keys — so the
@@ -232,8 +284,12 @@ impl Index {
         if total_physical < FAST_AGG_MIN_DOCS {
             return None;
         }
+        // Exact ghost signal — see the matching gate in `search_inner` and
+        // `VersionMap::ghost_events` (the old live-vs-physical arithmetic
+        // false-positived on physical-count drift and disabled this fast
+        // path under append-only write load).
         let deletes_present = snap.segments.iter().any(|m| m.has_tombstones)
-            || self.live_doc_count() < total_physical;
+            || self.store.version_map.ghost_events() > 0;
         if deletes_present {
             return None;
         }
@@ -270,25 +326,47 @@ impl Index {
 
         // Memtable docs, materialised brute-style (see `search_inner`'s
         // full-corpus assembly): `_id` + `_index` + `_seq_no` injected.
-        let mem_docs: Vec<Value> = if mem_physical > 0 {
-            self.memtable
-                .all_docs_with_sources()
-                .into_iter()
-                .map(|(id, mut v)| {
-                    if let Some(o) = v.as_object_mut() {
-                        o.entry("_id".to_string())
-                            .or_insert_with(|| Value::String(id.clone()));
-                        o.entry("_index".to_string())
-                            .or_insert_with(|| Value::String(self.name.to_string()));
-                        if let Some(seq) = self.lookup_seq_no(&id) {
-                            o.entry("_seq_no".to_string()).or_insert_with(|| json!(seq));
+        // Owned (deep-clone + meta-field injection) only when the agg tree
+        // can observe meta fields; Arc-shared otherwise.  Conservative
+        // substring probe — false positives merely fall back to the exact
+        // legacy build.
+        let needs_owned_mem = {
+            let raw = aggs_def.to_string();
+            raw.contains("top_hits")
+                || raw.contains("\"_id\"")
+                || raw.contains("\"_index\"")
+                || raw.contains("\"_seq_no\"")
+        };
+        let mem_docs: MemDocs = if mem_physical == 0 {
+            MemDocs::Owned(Vec::new())
+        } else if needs_owned_mem {
+            MemDocs::Owned(
+                self.memtable
+                    .all_docs_with_sources()
+                    .into_iter()
+                    .map(|(id, mut v)| {
+                        if let Some(o) = v.as_object_mut() {
+                            o.entry("_id".to_string())
+                                .or_insert_with(|| Value::String(id.clone()));
+                            o.entry("_index".to_string())
+                                .or_insert_with(|| Value::String(self.name.to_string()));
+                            if let Some(seq) = self.lookup_seq_no(&id) {
+                                o.entry("_seq_no".to_string()).or_insert_with(|| json!(seq));
+                            }
                         }
-                    }
-                    v
-                })
-                .collect()
+                        v
+                    })
+                    .collect(),
+            )
         } else {
-            Vec::new()
+            let pairs = self.memtable.all_docs_with_sources_arc();
+            let mut ids = Vec::with_capacity(pairs.len());
+            let mut srcs = Vec::with_capacity(pairs.len());
+            for (id, src) in pairs {
+                ids.push(id);
+                srcs.push(src);
+            }
+            MemDocs::Shared { ids, srcs }
         };
 
         let ctx = FastCtx {
@@ -376,7 +454,7 @@ impl<'a> FastCtx<'a> {
 
     fn fetch_doc(&self, r: DocRef) -> Option<Value> {
         match r {
-            DocRef::Mem(i) => self.mem_docs.get(i).cloned(),
+            DocRef::Mem(i) => self.mem_docs.owned(i, self.idx),
             DocRef::Seg(si, row) => self.fetch_seg_doc(si, row),
         }
     }
@@ -616,6 +694,7 @@ impl<'a> FastCtx<'a> {
                 self.exec_metric_top(metric_kind_of(agg_type)?, params)
             }
             "terms" => self.exec_terms(params, sub),
+            "cardinality" => self.exec_cardinality(params, sub),
             "range" => self.exec_range(params, sub),
             "date_range" => self.exec_date_range(params, sub),
             "filter" => self.exec_filter(params, sub),
@@ -683,7 +762,7 @@ impl<'a> FastCtx<'a> {
             field: field.to_string(),
             meta: None,
         };
-        for d in &self.mem_docs {
+        for d in self.mem_docs.iter() {
             Self::fold_mem_metric(d, &spec, &mut acc);
         }
         Some(Self::emit_metric(kind, &acc))
@@ -807,6 +886,124 @@ impl<'a> FastCtx<'a> {
     }
 
     // ── terms ────────────────────────────────────────────────────────────
+
+    /// `cardinality` — exact distinct count from the keyword term
+    /// dictionaries, matching the brute path bit-for-bit (xerj's
+    /// cardinality is exact, not HLL — see aggs.rs `run_cardinality`).
+    ///
+    /// Pre-fix `cardinality` was NOT on the fast path, so every uncached
+    /// `size:0 + match_all + cardinality` request fell into the
+    /// `need_full_corpus` branch of `search_inner`: decompress + JSON-parse
+    /// EVERY stored doc in the index (~22 s at 3.5 M docs).  Steady-state
+    /// dashboards never noticed because the query cache absorbed it, but a
+    /// background bulk writer bumps `dataset_version` on every batch — 100 %
+    /// cache misses — and cardinality became the single biggest CPU bomb in
+    /// the read-under-write collapse.
+    ///
+    /// Keyword-shaped columns only (plus schema-boolean 0/1 numerics):
+    /// numeric distinct values can't be re-rendered into the brute path's
+    /// string keys without risking formatting drift → bail to brute.
+    fn exec_cardinality(&self, params: &Value, sub: Option<&Value>) -> Option<Value> {
+        if sub.is_some() {
+            return None;
+        }
+        // `precision_threshold` is accepted-and-ignored by the brute path
+        // (exact count regardless), so accepting it here is bit-identical.
+        if !params_only(params, &["field", "missing", "precision_threshold"]) {
+            return None;
+        }
+        let field = params.get("field").and_then(Value::as_str)?;
+        let is_bool = self.bool_fields.contains(field);
+        match self.seg_field_kind(field) {
+            Ok(Some(ColKind::Keyword)) | Ok(None) => {}
+            Ok(Some(ColKind::Numeric)) if is_bool => {}
+            _ => return None,
+        }
+        // Same `missing` placeholder semantics as `run_cardinality`.
+        let missing_placeholder: Option<String> =
+            params.get("missing").and_then(|v| match v {
+                Value::String(s) => Some(s.clone()),
+                Value::Number(n) => Some(n.to_string()),
+                Value::Bool(b) => Some(b.to_string()),
+                _ => None,
+            });
+
+        let mut distinct: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
+        const BOOL_TERMS: [&str; 2] = ["false", "true"];
+        for seg in &self.segs {
+            match seg.cols.get(field) {
+                Some(Column::Keyword(k)) => {
+                    for (ord, &cnt) in k.per_ord_count.iter().enumerate() {
+                        if cnt > 0 {
+                            distinct.insert(k.terms[ord].clone());
+                        }
+                    }
+                    if let Some(ph) = &missing_placeholder {
+                        if k.null_bitmap.len() > 0 {
+                            distinct.insert(ph.clone());
+                        }
+                    }
+                }
+                Some(Column::Numeric(n)) if is_bool => {
+                    // Same 0/1 purity check as exec_terms: stray numbers
+                    // would render as "0"/"2.5" on the brute path → bail.
+                    let zeros = n.range_count(0.0, 0.0, true, true);
+                    let ones = n.range_count(1.0, 1.0, true, true);
+                    if zeros + ones != n.live_count {
+                        return None;
+                    }
+                    if zeros > 0 {
+                        distinct.insert(BOOL_TERMS[0].to_string());
+                    }
+                    if ones > 0 {
+                        distinct.insert(BOOL_TERMS[1].to_string());
+                    }
+                    if let Some(ph) = &missing_placeholder {
+                        if n.null_bitmap.len() > 0 {
+                            distinct.insert(ph.clone());
+                        }
+                    }
+                }
+                Some(_) => return None,
+                None => {
+                    // Field absent from the whole segment: every doc counts
+                    // as missing (brute: empty vals → placeholder).
+                    if let Some(ph) = &missing_placeholder {
+                        if seg.docs > 0 {
+                            distinct.insert(ph.clone());
+                        }
+                    }
+                }
+            }
+        }
+        // Memtable docs go through the exact brute extractor so string
+        // rendering is identical.
+        for d in self.mem_docs.iter() {
+            let vals = crate::aggs::extract_field_values(d, field);
+            if vals.is_empty() {
+                if let Some(ph) = &missing_placeholder {
+                    distinct.insert(ph.clone());
+                }
+                continue;
+            }
+            for v in vals {
+                distinct.insert(v);
+            }
+        }
+
+        // Identical output shape to `run_cardinality` including the
+        // internal `__xy_*` fields the cross-index merge consumes.
+        let values: Vec<Value> = distinct
+            .iter()
+            .map(|s| Value::String(s.clone()))
+            .collect();
+        Some(json!({
+            "value": distinct.len(),
+            "__xy_agg__": "cardinality",
+            "__xy_values__": values,
+        }))
+    }
 
     fn exec_terms(&self, params: &Value, sub: Option<&Value>) -> Option<Value> {
         if !params_only(params, &["field", "size", "order", "shard_size", "min_doc_count"]) {
@@ -1112,7 +1309,7 @@ impl<'a> FastCtx<'a> {
                     }
                 }
             }
-            for doc in &self.mem_docs {
+            for doc in self.mem_docs.iter() {
                 let Some(v) = extract_numeric(doc, field) else { continue };
                 let matches = match (from, to) {
                     (Some(f), Some(t)) => v >= f && v < t,
@@ -1258,7 +1455,7 @@ impl<'a> FastCtx<'a> {
                     }
                 }
             }
-            for doc in &self.mem_docs {
+            for doc in self.mem_docs.iter() {
                 let v = doc.get(field);
                 let Some(ms) = v.and_then(parse_date_ms) else { continue };
                 let pass_from = from_ms.map(|f| ms >= f).unwrap_or(true);
@@ -1363,7 +1560,7 @@ impl<'a> FastCtx<'a> {
                 }
             }
         }
-        for doc in &self.mem_docs {
+        for doc in self.mem_docs.iter() {
             if doc_matches_filter(doc, filter_query) {
                 count += doc_count_weight(doc);
                 for (mi, spec) in plan.metrics.iter().enumerate() {
@@ -1451,7 +1648,7 @@ impl<'a> FastCtx<'a> {
                 }
             }
         }
-        for doc in &self.mem_docs {
+        for doc in self.mem_docs.iter() {
             if doc_matches_filter(doc, filter_query) {
                 count += doc_count_weight(doc);
                 for (mi, spec) in plan.metrics.iter().enumerate() {
@@ -1519,7 +1716,7 @@ impl<'a> FastCtx<'a> {
                 }
             }
         }
-        for doc in &self.mem_docs {
+        for doc in self.mem_docs.iter() {
             let matches: Vec<bool> = filters_map
                 .values()
                 .map(|q| doc_matches_filter(doc, q))
@@ -1649,7 +1846,7 @@ impl<'a> FastCtx<'a> {
                 *counts.entry(key).or_insert(0) += c;
             }
         }
-        for doc in &self.mem_docs {
+        for doc in self.mem_docs.iter() {
             let weight = doc_count_weight(doc);
             // Cross-product across multi-valued fields — brute semantics.
             let mut keys: Vec<Vec<String>> = vec![vec![]];
@@ -1738,7 +1935,7 @@ impl<'a> FastCtx<'a> {
         // match_all every doc scores equal, so the brute sampler's
         // stable score sort preserves exactly this prefix.
         let mut sample: Vec<Value> = Vec::with_capacity(shard_size);
-        for d in &self.mem_docs {
+        for d in self.mem_docs.iter() {
             if sample.len() >= shard_size {
                 break;
             }
@@ -1982,7 +2179,7 @@ impl<'a> FastCtx<'a> {
         }
         // Memtable docs — brute multi-value date extraction with per-doc
         // bucket dedup.
-        for doc in &self.mem_docs {
+        for doc in self.mem_docs.iter() {
             let raws = extract_date_ms_values(doc, field);
             let weight = doc_count_weight(doc);
             let mut seen: Vec<i64> = Vec::with_capacity(raws.len());

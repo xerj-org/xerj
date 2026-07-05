@@ -3743,6 +3743,7 @@ dependencies = [
  "chrono-tz",
  "criterion",
  "dashmap",
+ "libc",
  "memchr",
  "parking_lot",
  "rayon",
