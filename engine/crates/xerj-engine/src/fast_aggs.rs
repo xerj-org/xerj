@@ -820,15 +820,28 @@ impl<'a> FastCtx<'a> {
         debug_assert!(accs.len() == plan.metrics.len());
         let _ = n_slots;
 
+        // Hoist the RoaringBitmap null probes: dense columns (no nulls —
+        // the steady state for telemetry-style corpora) skip the per-row
+        // `contains()` entirely, which otherwise dominates this loop.
+        let dense_num: Vec<bool> = num_cols
+            .iter()
+            .map(|c| c.map_or(false, |n| n.null_bitmap.is_empty()))
+            .collect();
+        let dense_kw: Vec<bool> = kw_cols
+            .iter()
+            .map(|c| c.map_or(false, |k| k.null_bitmap.is_empty()))
+            .collect();
+        let th_dense = th_col.map_or(false, |n| n.null_bitmap.is_empty());
+
         for row in 0..seg.docs {
             let Some(slot) = slot_of_row(row) else { continue };
             for (mi, m) in plan.metrics.iter().enumerate() {
                 match m.kind {
                     MetricKind::ValueCount => {
                         let present = if let Some(n) = num_cols[mi] {
-                            !n.null_bitmap.contains(row)
+                            dense_num[mi] || !n.null_bitmap.contains(row)
                         } else if let Some(k) = kw_cols[mi] {
-                            !k.null_bitmap.contains(row)
+                            dense_kw[mi] || !k.null_bitmap.contains(row)
                         } else {
                             false
                         };
@@ -838,7 +851,7 @@ impl<'a> FastCtx<'a> {
                     }
                     _ => {
                         if let Some(n) = num_cols[mi] {
-                            if !n.null_bitmap.contains(row) {
+                            if dense_num[mi] || !n.null_bitmap.contains(row) {
                                 let v = f64::from_bits(n.data[row as usize] as u64);
                                 accs[mi][slot].add(v);
                             }
@@ -848,7 +861,7 @@ impl<'a> FastCtx<'a> {
             }
             if let Some(spec) = &plan.top_hits {
                 let v = match th_col {
-                    Some(n) if !n.null_bitmap.contains(row) => {
+                    Some(n) if th_dense || !n.null_bitmap.contains(row) => {
                         f64::from_bits(n.data[row as usize] as u64)
                     }
                     _ => {
@@ -1128,11 +1141,28 @@ impl<'a> FastCtx<'a> {
             let mut tops: Vec<Vec<(f64, u64, DocRef)>> = vec![Vec::new(); n_ords];
             let mut counts: Vec<u64> = vec![0; n_ords];
             {
+                // Dense term column (no nulls) → skip the per-row roaring
+                // `contains()` inside `ord_for`/`get` and read the raw
+                // ordinal/value arrays directly.
+                let tcol_dense = match &tcol {
+                    TCol::Kw(k) => k.null_bitmap.is_empty(),
+                    TCol::Bool(n) => n.null_bitmap.is_empty(),
+                };
                 let mut slot_of_row = |row: u32| -> Option<usize> {
                     let ord = match &tcol {
-                        TCol::Kw(k) => k.ord_for(row)? as usize,
+                        TCol::Kw(k) => {
+                            if tcol_dense {
+                                *k.ords.get(row as usize)? as usize
+                            } else {
+                                k.ord_for(row)? as usize
+                            }
+                        }
                         TCol::Bool(n) => {
-                            let bits = n.get(row)?;
+                            let bits = if tcol_dense {
+                                *n.data.get(row as usize)?
+                            } else {
+                                n.get(row)?
+                            };
                             usize::from(f64::from_bits(bits as u64) != 0.0)
                         }
                     };
@@ -1400,18 +1430,21 @@ impl<'a> FastCtx<'a> {
             use rayon::prelude::*;
             self.segs.par_iter().for_each(|seg| {
                 if matches!(seg.cols.get(field), Some(Column::Keyword(_))) {
-                    let _ = self.date_ord_index(seg, field);
+                    let _ = self.date_sorted_prefix(seg, field);
                 }
             });
         }
-        // Per-segment parsed date ordinals (cached on the Index).
-        let mut ord_ms_per_seg: Vec<Option<std::sync::Arc<Vec<i64>>>> = Vec::new();
+        // Per-segment sorted (ms, prefix-count) arrays (cached on the Index):
+        // each range is answered with two binary searches instead of a walk
+        // over every distinct term ordinal (~O(distinct timestamps) per
+        // range pre-fix, which dominated on ms-resolution @timestamp data).
+        let mut sorted_per_seg: Vec<Option<std::sync::Arc<(Vec<i64>, Vec<u64>)>>> = Vec::new();
         for s in &self.segs {
             match s.cols.get(field) {
                 Some(Column::Keyword(_)) => {
-                    ord_ms_per_seg.push(Some(self.date_ord_index(s, field)?));
+                    sorted_per_seg.push(Some(self.date_sorted_prefix(s, field)?));
                 }
-                _ => ord_ms_per_seg.push(None),
+                _ => sorted_per_seg.push(None),
             }
         }
 
@@ -1438,21 +1471,22 @@ impl<'a> FastCtx<'a> {
 
             let mut count: u64 = 0;
             for (si, s) in self.segs.iter().enumerate() {
-                let Some(Column::Keyword(k)) = s.cols.get(field) else { continue };
-                let ord_ms = ord_ms_per_seg[si].as_ref()?;
-                for (ord, &cnt) in k.per_ord_count.iter().enumerate() {
-                    if cnt == 0 {
-                        continue;
-                    }
-                    let ms = ord_ms[ord];
-                    if ms == i64::MIN {
-                        continue; // unparseable value — brute skips too
-                    }
-                    let pass_from = from_ms.map(|f| ms >= f).unwrap_or(true);
-                    let pass_to = to_ms.map(|t| ms < t).unwrap_or(true);
-                    if pass_from && pass_to {
-                        count += cnt as u64;
-                    }
+                let Some(Column::Keyword(_)) = s.cols.get(field) else { continue };
+                let sp = sorted_per_seg[si].as_ref()?;
+                let (ms_v, prefix) = (&sp.0, &sp.1);
+                // Semantics identical to the old per-ord walk: from is
+                // inclusive (ms >= from), to is exclusive (ms < to);
+                // unparseable terms are excluded at build time.
+                let lo = match from_ms {
+                    Some(f) => ms_v.partition_point(|&m| m < f),
+                    None => 0,
+                };
+                let hi = match to_ms {
+                    Some(t) => ms_v.partition_point(|&m| m < t),
+                    None => ms_v.len(),
+                };
+                if hi > lo {
+                    count += prefix[hi] - prefix[lo];
                 }
             }
             for doc in self.mem_docs.iter() {
@@ -1524,6 +1558,49 @@ impl<'a> FastCtx<'a> {
         }
         let arc = std::sync::Arc::new(ord_ms);
         self.idx.fast_date_cache.insert(key, std::sync::Arc::clone(&arc));
+        Some(arc)
+    }
+
+    /// Cached sorted parsed dates + prefix doc counts for a keyword date
+    /// column: `ms[i]` ascending, `prefix[i+1] - prefix[lo]` = number of
+    /// docs whose parsed date falls in `ms[lo..=i]`.  Unparseable terms
+    /// (i64::MIN) and zero-count ordinals are excluded — matching the
+    /// brute/date_range walk exactly.
+    fn date_sorted_prefix(
+        &self,
+        seg: &SegEntry,
+        field: &str,
+    ) -> Option<std::sync::Arc<(Vec<i64>, Vec<u64>)>> {
+        let key = (seg.id.clone(), field.to_string());
+        if let Some(v) = self.idx.fast_date_sorted_cache.get(&key) {
+            return Some(std::sync::Arc::clone(v.value()));
+        }
+        let Some(Column::Keyword(k)) = seg.cols.get(field) else {
+            return None;
+        };
+        let ord_ms = self.date_ord_index(seg, field)?;
+        let mut pairs: Vec<(i64, u64)> = Vec::with_capacity(ord_ms.len());
+        for (ord, &ms) in ord_ms.iter().enumerate() {
+            let cnt = k.per_ord_count.get(ord).copied().unwrap_or(0) as u64;
+            if ms == i64::MIN || cnt == 0 {
+                continue;
+            }
+            pairs.push((ms, cnt));
+        }
+        pairs.sort_unstable_by_key(|p| p.0);
+        let mut ms_v: Vec<i64> = Vec::with_capacity(pairs.len());
+        let mut prefix: Vec<u64> = Vec::with_capacity(pairs.len() + 1);
+        prefix.push(0);
+        let mut acc = 0u64;
+        for (ms, c) in pairs {
+            ms_v.push(ms);
+            acc += c;
+            prefix.push(acc);
+        }
+        let arc = std::sync::Arc::new((ms_v, prefix));
+        self.idx
+            .fast_date_sorted_cache
+            .insert(key, std::sync::Arc::clone(&arc));
         Some(arc)
     }
 
@@ -2129,41 +2206,64 @@ impl<'a> FastCtx<'a> {
             let seg = &self.segs[si];
             let Some(Column::Keyword(k)) = seg.cols.get(field) else { continue };
             let ord_ms = self.date_ord_index(seg, field)?;
-            // ord → bucket slot table.
+            // ord → bucket slot table.  Term ordinals are lexicographic and
+            // ISO-8601 timestamps sort chronologically, so `ord_ms` is
+            // (near-)ascending: memoise the current bucket's [start, end)
+            // window and only pay `bucket_of` (chrono calendar math) + the
+            // HashMap probe when the run breaks.  This turns ~1 per distinct
+            // timestamp (≈1 per doc at ms resolution) into ~1 per bucket.
+            // `bucket_of(ms) == key` for every ms in `[key, next_bucket(key))`
+            // is the same invariant the min_doc_count:0 gap-fill below
+            // already relies on.
             let mut ord_slot: Vec<i32> = Vec::with_capacity(k.terms.len());
+            let mut run: Option<(i64, i64, i32)> = None; // (start, end, slot)
             for (ord, &ms) in ord_ms.iter().enumerate() {
                 if ms == i64::MIN || k.per_ord_count.get(ord).copied().unwrap_or(0) == 0 {
                     ord_slot.push(-1);
                     continue;
                 }
-                let slot = ensure_bucket(
-                    bucket_of(ms),
-                    &mut bucket_ids,
-                    &mut bucket_keys,
-                    &mut counts,
-                    &mut accs,
-                );
-                ord_slot.push(slot as i32);
+                let slot = match run {
+                    Some((start, end, slot)) if ms >= start && ms < end => slot,
+                    _ => {
+                        let key = bucket_of(ms);
+                        let slot = ensure_bucket(
+                            key,
+                            &mut bucket_ids,
+                            &mut bucket_keys,
+                            &mut counts,
+                            &mut accs,
+                        ) as i32;
+                        run = Some((key, next_bucket(key), slot));
+                        slot
+                    }
+                };
+                ord_slot.push(slot);
+            }
+            // Bucket doc counts always come from the per-ord histogram —
+            // exactly the count of rows with that (non-null) ordinal — so
+            // the row pass below no longer pays a per-row counter bump.
+            for (ord, &cnt) in k.per_ord_count.iter().enumerate() {
+                if cnt > 0 && ord_slot[ord] >= 0 {
+                    counts[ord_slot[ord] as usize] += cnt as u64;
+                }
             }
             if !has_row_work {
-                for (ord, &cnt) in k.per_ord_count.iter().enumerate() {
-                    if cnt > 0 && ord_slot[ord] >= 0 {
-                        counts[ord_slot[ord] as usize] += cnt as u64;
-                    }
-                }
                 continue;
             }
             let n_slots = bucket_keys.len();
             let mut tops: Vec<Vec<(f64, u64, DocRef)>> = vec![Vec::new(); n_slots.max(1)];
             {
-                let counts_ref = &mut counts;
+                let kw_dense = k.null_bitmap.is_empty();
                 let mut slot_of_row = |row: u32| -> Option<usize> {
-                    let ord = k.ord_for(row)? as usize;
+                    let ord = if kw_dense {
+                        *k.ords.get(row as usize)? as usize
+                    } else {
+                        k.ord_for(row)? as usize
+                    };
                     let s = ord_slot[ord];
                     if s < 0 {
                         return None;
                     }
-                    counts_ref[s as usize] += 1;
                     Some(s as usize)
                 };
                 self.fused_seg_pass(
@@ -2506,9 +2606,10 @@ fn compile_pred(filter: &Value) -> Option<Pred> {
 enum SegPred<'a> {
     Never,
     Always,
-    KwEq(&'a KeywordColumn, u32),
-    KwIn(&'a KeywordColumn, Vec<u32>),
-    Num(&'a NumericColumn, f64, bool, f64, bool),
+    /// Last bool = column has no nulls (hoisted roaring probe).
+    KwEq(&'a KeywordColumn, u32, bool),
+    KwIn(&'a KeywordColumn, Vec<u32>, bool),
+    Num(&'a NumericColumn, f64, bool, f64, bool, bool),
 }
 
 fn resolve_pred<'a>(
@@ -2519,7 +2620,7 @@ fn resolve_pred<'a>(
         Pred::MatchAll => SegPred::Always,
         Pred::TermKw { field, value } => match cols.get(field) {
             Some(Column::Keyword(k)) => match k.ord_for_term(value) {
-                Some(ord) => SegPred::KwEq(k, ord),
+                Some(ord) => SegPred::KwEq(k, ord, k.null_bitmap.is_empty()),
                 None => SegPred::Never,
             },
             Some(Column::Numeric(_)) => return None,
@@ -2531,14 +2632,16 @@ fn resolve_pred<'a>(
                 if ords.is_empty() {
                     SegPred::Never
                 } else {
-                    SegPred::KwIn(k, ords)
+                    SegPred::KwIn(k, ords, k.null_bitmap.is_empty())
                 }
             }
             Some(Column::Numeric(_)) => return None,
             None => SegPred::Never,
         },
         Pred::RangeNum { field, lo, lo_incl, hi, hi_incl } => match cols.get(field) {
-            Some(Column::Numeric(n)) => SegPred::Num(n, *lo, *lo_incl, *hi, *hi_incl),
+            Some(Column::Numeric(n)) => {
+                SegPred::Num(n, *lo, *lo_incl, *hi, *hi_incl, n.null_bitmap.is_empty())
+            }
             Some(Column::Keyword(_)) => return None,
             None => SegPred::Never,
         },
@@ -2550,13 +2653,26 @@ fn seg_pred_matches(sp: &SegPred<'_>, row: u32) -> bool {
     match sp {
         SegPred::Never => false,
         SegPred::Always => true,
-        SegPred::KwEq(k, ord) => k.ord_for(row) == Some(*ord),
-        SegPred::KwIn(k, ords) => match k.ord_for(row) {
-            Some(o) => ords.contains(&o),
-            None => false,
-        },
-        SegPred::Num(n, lo, lo_incl, hi, hi_incl) => {
-            if n.null_bitmap.contains(row) {
+        SegPred::KwEq(k, ord, no_nulls) => {
+            if *no_nulls {
+                k.ords.get(row as usize) == Some(ord)
+            } else {
+                k.ord_for(row) == Some(*ord)
+            }
+        }
+        SegPred::KwIn(k, ords, no_nulls) => {
+            let o = if *no_nulls {
+                k.ords.get(row as usize).copied()
+            } else {
+                k.ord_for(row)
+            };
+            match o {
+                Some(o) => ords.contains(&o),
+                None => false,
+            }
+        }
+        SegPred::Num(n, lo, lo_incl, hi, hi_incl, no_nulls) => {
+            if !*no_nulls && n.null_bitmap.contains(row) {
                 return false;
             }
             let v = f64::from_bits(n.data[row as usize] as u64);
@@ -2571,12 +2687,12 @@ fn seg_pred_count(sp: &SegPred<'_>, docs: u32) -> u64 {
     match sp {
         SegPred::Never => 0,
         SegPred::Always => docs as u64,
-        SegPred::KwEq(k, ord) => k.per_ord_count.get(*ord as usize).copied().unwrap_or(0) as u64,
-        SegPred::KwIn(k, ords) => ords
+        SegPred::KwEq(k, ord, _) => k.per_ord_count.get(*ord as usize).copied().unwrap_or(0) as u64,
+        SegPred::KwIn(k, ords, _) => ords
             .iter()
             .map(|o| k.per_ord_count.get(*o as usize).copied().unwrap_or(0) as u64)
             .sum(),
-        SegPred::Num(n, lo, lo_incl, hi, hi_incl) => n.range_count(*lo, *hi, *lo_incl, *hi_incl) as u64,
+        SegPred::Num(n, lo, lo_incl, hi, hi_incl, _) => n.range_count(*lo, *hi, *lo_incl, *hi_incl) as u64,
     }
 }
 
