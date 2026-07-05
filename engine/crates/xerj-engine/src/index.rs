@@ -1316,6 +1316,14 @@ impl Index {
 
         let index_start = std::time::Instant::now();
         let batch_len = docs.len();
+        // THROWAWAY prof (XERJ_PROF): per-phase attribution of the turbo path.
+        let prof = std::env::var_os("XERJ_PROF").is_some();
+        let mut p_wal_us = 0u128;
+        let mut p_parse_us = 0u128;
+        let mut p_evolve_us = 0u128;
+        let mut p_analyze_us = 0u128;
+        let mut p_insert_us = 0u128;
+        let p_t = std::time::Instant::now();
 
         // Build WAL refs directly from bytes.  We pass `Arc<Value::Null>`
         // as the `source` parameter because `wal_append_batch` uses
@@ -1328,6 +1336,9 @@ impl Index {
             .collect();
 
         let seq_nos = self.store.wal_append_batch(&wal_refs)?;
+        if prof {
+            p_wal_us = p_t.elapsed().as_micros();
+        }
 
         // Insert each doc EXACTLY ONCE into the engine FTS memtable,
         // routed to the doc's OWN shard — bit-for-bit identical to the
@@ -1383,6 +1394,7 @@ impl Index {
         // parse bursts never queue ahead of search/agg par_iters on the
         // global rayon pool — see the read-under-write collapse notes on
         // `ingest_pool()`.
+        let p_t = std::time::Instant::now();
         let sources: Vec<Arc<Value>> = crate::ingest_pool().install(|| {
             docs.par_iter()
                 .map(|(_, bytes)| {
@@ -1393,10 +1405,16 @@ impl Index {
                 })
                 .collect()
         });
+        if prof {
+            p_parse_us = p_t.elapsed().as_micros();
+        }
 
-        // 2. Dynamic mapping: evolve schema serially, in doc order.
-        for source in &sources {
-            self.evolve_schema_from_doc(source.as_ref()).await;
+        // 2. Dynamic mapping: evolve schema in doc order — batched (one
+        // schema read-lock for the whole batch, not one per doc).
+        let p_t = std::time::Instant::now();
+        self.evolve_schema_from_docs(&sources).await;
+        if prof {
+            p_evolve_us = p_t.elapsed().as_micros();
         }
 
         // 3. Parallel shard-partitioned insert. Partition the batch by
@@ -1421,6 +1439,7 @@ impl Index {
             let analyzer = mem
                 .default_analyzer()
                 .expect("standard analyzer always present");
+            let p_t = std::time::Instant::now();
             let analyzed: Vec<Vec<(String, Vec<xerj_fts::analyzer::Token>)>> =
                 crate::ingest_pool().install(|| {
                     sources
@@ -1430,6 +1449,10 @@ impl Index {
                         })
                         .collect()
                 });
+            if prof {
+                p_analyze_us = p_t.elapsed().as_micros();
+            }
+            let p_t = std::time::Instant::now();
 
             let n_shards = mem.shard_count().max(1);
             let mut buckets: Vec<Vec<usize>> = vec![Vec::new(); n_shards];
@@ -1464,6 +1487,17 @@ impl Index {
                     });
                 });
             });
+            if prof {
+                p_insert_us = p_t.elapsed().as_micros();
+            }
+        }
+
+        if prof {
+            eprintln!(
+                "XERJ_PROF turbo-batch docs={} wal_us={} parse_us={} evolve_us={} analyze_us={} insert_us={} total_us={}",
+                batch_len, p_wal_us, p_parse_us, p_evolve_us, p_analyze_us, p_insert_us,
+                index_start.elapsed().as_micros()
+            );
         }
 
         // 4. One batch-level version stamp, assigned in request order.
@@ -6245,6 +6279,60 @@ impl Index {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /// Batch variant of [`evolve_schema_from_doc`]: one schema read-lock
+    /// acquisition for the WHOLE batch instead of one per doc.  The per-doc
+    /// variant paid a tokio `RwLock::read().await` per document — measured
+    /// ~22 ms per 10 k-doc bulk batch (≈ a quarter of the whole turbo exec
+    /// phase) even though the schema stops evolving after the first docs.
+    ///
+    /// Semantics are identical to calling `evolve_schema_from_doc` serially
+    /// in doc order: new fields are collected in FIRST-SEEN order (so the
+    /// first doc that introduces a field decides its inferred type) and
+    /// added under a single write lock, which re-checks `has_field` exactly
+    /// like the per-doc slow path does.
+    async fn evolve_schema_from_docs(&self, sources: &[Arc<Value>]) {
+        let new_fields: Vec<(String, FieldConfig)> = {
+            let schema = self.schema.read().await;
+            if !matches!(schema.dynamic, xerj_common::schema::DynamicMapping::Dynamic) {
+                return;
+            }
+            let mut out: Vec<(String, FieldConfig)> = Vec::new();
+            for source in sources {
+                let Some(obj) = source.as_object() else {
+                    continue;
+                };
+                for (key, val) in obj {
+                    if !schema.schema.has_field(key)
+                        && !out.iter().any(|(k, _)| k == key)
+                    {
+                        let ft = infer_field_type(val);
+                        out.push((key.clone(), FieldConfig::new(key.clone(), ft)));
+                    }
+                }
+            }
+            out
+        };
+
+        if new_fields.is_empty() {
+            return;
+        }
+
+        let mut schema = self.schema.write().await;
+        if !matches!(schema.dynamic, xerj_common::schema::DynamicMapping::Dynamic) {
+            return;
+        }
+        let mut schema_changed = false;
+        for (_, fc) in new_fields {
+            if !schema.schema.has_field(&fc.name) {
+                let _ = schema.schema.add_field(fc);
+                schema_changed = true;
+            }
+        }
+        if schema_changed {
+            let _ = self.save_schema(&schema).await;
+        }
+    }
 
     async fn evolve_schema_from_doc(&self, source: &Value) {
         let obj = match source.as_object() {

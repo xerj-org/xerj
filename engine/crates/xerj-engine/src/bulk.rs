@@ -1230,6 +1230,13 @@ pub async fn process_bulk_with_opts(
 
     let exec_ms = t_exec.elapsed().as_millis() as u64;
     let took_ms = started.elapsed().as_millis() as u64;
+    // THROWAWAY prof (XERJ_PROF): whole-request bulk attribution.
+    if std::env::var_os("XERJ_PROF").is_some() {
+        eprintln!(
+            "XERJ_PROF bulk total_ms={} lines_ms={} parse_ms={} group_ms={} exec_ms={} n_lines={}",
+            took_ms, lines_ms, parse_ms, group_ms, exec_ms, lines.len()
+        );
+    }
     if took_ms >= 50 {
         tracing::debug!(
             total_ms = took_ms,
