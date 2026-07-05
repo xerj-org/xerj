@@ -26,6 +26,50 @@ pub use engine::{Engine, HealthStatus, IndexInfo};
 pub use index::{Index, IndexResponse, IndexStats, FieldEncodingInfo, LogFormat, EnrichTable, detect_log_format, resolve_field_alias, resolve_date_math};
 pub use memtable::FtsMemtable;
 
+// ── Ingest/flush/merge rayon pool ────────────────────────────────────────────
+
+/// Dedicated rayon pool for ingest-side CPU work: bulk-body parse, P2.1
+/// per-batch doc parse/analyze/insert, flush FTS+DV side-car builds, and
+/// merge FTS rebuilds.
+///
+/// Pre-fix all of that ran on the GLOBAL rayon pool — the same pool the
+/// search path uses for segment fan-out (`search_segments`) and the
+/// fast-agg dv-warm par_iter.  A single long flush/merge job therefore
+/// queued every search's rayon work behind it: with a background bulk
+/// writer running, foreground `match_all` p99 was measured at 15 s+ while
+/// steady-state reads were ~2 ms (BEAT_ES_MASTER_PLAN Phase 2, read-under-
+/// write).  Ingest work now runs here; the global pool stays free for
+/// search/agg fan-out, so neither side can starve the other's queue (the
+/// OS scheduler time-slices the two pools fairly).
+///
+/// Sized to all available cores: ingest throughput is unchanged when no
+/// searches run, and under mixed load the kernel — not the rayon job
+/// queue — arbitrates.
+pub(crate) fn ingest_pool() -> &'static rayon::ThreadPool {
+    static POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
+    POOL.get_or_init(|| {
+        let n = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(8);
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(n)
+            .thread_name(|i| format!("xerj-ingest-{i}"))
+            // Deprioritise ingest CPU vs foreground reads.  Flush/merge
+            // side-car builds saturate every core for seconds at a time;
+            // at equal priority a ~20 ms search waits behind them for
+            // hundreds of ms (measured p50 0.2-1.9 s under a bulk
+            // writer).  nice(10) lets CFS schedule search threads ahead
+            // of background encode work; with no reads running the pool
+            // still gets every core, so writer-only throughput is
+            // unchanged.
+            .start_handler(|_| unsafe {
+                let _ = libc::nice(10);
+            })
+            .build()
+            .expect("failed to build ingest rayon pool")
+    })
+}
+
 // ── Analyzer helpers ──────────────────────────────────────────────────────────
 
 use std::sync::Arc;

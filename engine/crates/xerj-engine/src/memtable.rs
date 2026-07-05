@@ -464,6 +464,25 @@ impl ShardedFtsMemtable {
         out
     }
 
+    /// Bounded variant: clone at most `limit` doc ids and return the TOTAL
+    /// buffered doc count alongside.  The unsorted match_all page only
+    /// needs `from+size+ε` ids, but `all_doc_ids` cloned every buffered id
+    /// on every request — ~1 s per query at a 300 k-doc memtable under
+    /// sustained bulk load (the `mem_admit` phase of the read-under-write
+    /// breakdown).
+    pub fn doc_ids_bounded(&self, limit: usize) -> (Vec<String>, u64) {
+        let mut out: Vec<String> = Vec::with_capacity(limit.min(4096));
+        let mut total: u64 = 0;
+        for s in &self.shards {
+            let g = s.read();
+            total += g.doc_count() as u64;
+            if out.len() < limit {
+                out.extend(g.doc_ids_up_to(limit - out.len()));
+            }
+        }
+        (out, total)
+    }
+
     /// Return every (doc_id, source) pair.  Aggregates across all
     /// shards; insertion order is preserved within a shard but not
     /// across shards.  Callers that need global order should sort
@@ -472,6 +491,15 @@ impl ShardedFtsMemtable {
         let mut out = Vec::new();
         for s in &self.shards {
             out.extend(s.read().all_docs_with_sources());
+        }
+        out
+    }
+
+    /// Arc-sharing twin of `all_docs_with_sources` — no deep clones.
+    pub fn all_docs_with_sources_arc(&self) -> Vec<(String, Arc<Value>)> {
+        let mut out = Vec::new();
+        for s in &self.shards {
+            out.extend(s.read().all_docs_with_sources_arc());
         }
         out
     }
@@ -1631,6 +1659,12 @@ impl FtsMemtable {
         self.docs.iter().map(|e| e.doc_id.clone()).collect()
     }
 
+    /// First `n` doc ids (insertion order) — see
+    /// `ShardedFtsMemtable::doc_ids_bounded`.
+    pub fn doc_ids_up_to(&self, n: usize) -> Vec<String> {
+        self.docs.iter().take(n).map(|e| e.doc_id.clone()).collect()
+    }
+
     /// Resolve a MemEntry's source Value — if `source` is Null but
     /// `source_bytes` is non-empty, lazily parse the bytes.  This is
     /// the M5.11 deferred-parse path used by `insert_raw_bytes_with_seq`.
@@ -1642,19 +1676,56 @@ impl FtsMemtable {
         }
     }
 
-    /// Return the full original source JSON for a document by ID.
-    pub fn get_doc_source_as_value(&self, doc_id: &str) -> Option<Value> {
+    /// Arc-sharing twin of `resolve_source`: no deep clone for the common
+    /// HTTP-bulk path where the parsed source is already Arc-stored.
+    fn resolve_source_arc(entry: &MemEntry) -> Arc<Value> {
+        if entry.source.is_null() && !entry.source_bytes.is_empty() {
+            Arc::new(serde_json::from_slice(&entry.source_bytes).unwrap_or(Value::Null))
+        } else {
+            Arc::clone(&entry.source)
+        }
+    }
+
+    /// All (doc_id, source) pairs WITHOUT deep-cloning the source trees.
+    /// The fast-agg path was deep-cloning the entire memtable per agg
+    /// request via `all_docs_with_sources` (~100-300 ms/query at 1e5
+    /// buffered docs under a bulk writer).
+    pub fn all_docs_with_sources_arc(&self) -> Vec<(String, Arc<Value>)> {
         self.docs
             .iter()
-            .find(|e| e.doc_id == doc_id)
-            .map(Self::resolve_source)
+            .map(|e| (e.doc_id.clone(), Self::resolve_source_arc(e)))
+            .collect()
+    }
+
+    /// Return the full original source JSON for a document by ID.
+    /// O(1) doc lookup via `doc_id_index` (maintained by every insert /
+    /// remove path), with a linear-scan fallback in case an entry is ever
+    /// missing from the index.
+    ///
+    /// Pre-fix this was an unconditional `docs.iter().find(..)` — a full
+    /// linear walk of the shard per call.  `fill_memtable_sources`
+    /// hydrates up to `materialisation_limit` (256) hits per search, so
+    /// with a bulk writer keeping the memtable at 10⁵ docs every search
+    /// paid 256 × O(shard) string compares; `get_doc_source_as_value` was
+    /// the single hottest frame in the read-under-write profile.
+    fn entry_for(&self, doc_id: &str) -> Option<&MemEntry> {
+        if let Some(&i) = self.doc_id_index.get(doc_id) {
+            if let Some(e) = self.docs.get(i) {
+                if e.doc_id == doc_id {
+                    return Some(e);
+                }
+            }
+        }
+        self.docs.iter().find(|e| e.doc_id == doc_id)
+    }
+
+    pub fn get_doc_source_as_value(&self, doc_id: &str) -> Option<Value> {
+        self.entry_for(doc_id).map(Self::resolve_source)
     }
 
     /// Return the Arc-wrapped source for a document by ID.
     pub fn get_doc_source_arc(&self, doc_id: &str) -> Option<Arc<Value>> {
-        self.docs
-            .iter()
-            .find(|e| e.doc_id == doc_id)
+        self.entry_for(doc_id)
             .map(|e| {
                 if e.source.is_null() && !e.source_bytes.is_empty() {
                     Arc::new(serde_json::from_slice(&e.source_bytes).unwrap_or(Value::Null))
@@ -1681,9 +1752,10 @@ impl FtsMemtable {
             .collect()
     }
 
-    /// Check if a document exists in the memtable.
+    /// Check if a document exists in the memtable.  O(1) via
+    /// `doc_id_index`, with linear fallback (see `entry_for`).
     pub fn contains(&self, doc_id: &str) -> bool {
-        self.docs.iter().any(|e| e.doc_id == doc_id)
+        self.entry_for(doc_id).is_some()
     }
 
     /// Number of documents in the memtable.

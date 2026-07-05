@@ -364,6 +364,17 @@ pub struct Index {
     /// the merge-completion site alongside dv_cache/stored_value_cache).
     stored_slices_cache: Arc<dashmap::DashMap<String, Arc<StoredSlices>>>,
     stored_slices_cache_bytes: Arc<AtomicU64>,
+    /// Per-segment cache of the DECOMPRESSED stored section bytes for the
+    /// UNSORTED scan path (`scan_stored_section_into`).  The bounded
+    /// collector already stops the scan O(from+size) docs in, but every
+    /// query still paid the full zstd/LZ4 decompress of the FIRST segment
+    /// it touched — for a merged multi-million-doc segment that is
+    /// 0.5-1.5 s per query, and under a bulk writer (100 % query-cache
+    /// misses) it WAS the match_all/bool/range read-under-write tail.
+    /// Budgeted like `stored_slices_cache`; entries evicted by id at the
+    /// merge-completion site.  Segments are immutable → no invalidation.
+    decoded_stored_cache: Arc<dashmap::DashMap<String, Arc<Vec<u8>>>>,
+    decoded_stored_cache_bytes: Arc<AtomicU64>,
     /// Regexp term-dictionary expansion cache — keyed by
     /// `(segment_id, field, pattern)`, holds the exact union doc count
     /// plus the first `REGEXP_EXPANSION_POS_CAP` matching doc positions
@@ -535,6 +546,8 @@ impl Index {
             stored_value_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache_bytes: Arc::new(AtomicU64::new(0)),
+            decoded_stored_cache: Arc::new(dashmap::DashMap::new()),
+            decoded_stored_cache_bytes: Arc::new(AtomicU64::new(0)),
             regexp_expand_cache: Arc::new(dashmap::DashMap::new()),
             fast_date_cache: Arc::new(dashmap::DashMap::new()),
             query_cache: Arc::new(dashmap::DashMap::new()),
@@ -630,6 +643,16 @@ impl Index {
         let memtable_doc_count = memtable.doc_count() as u64;
         let total_doc_count = segment_doc_count + memtable_doc_count;
 
+        // Conservative ghost init: at rest (no in-flight flushes) a live
+        // count below the physical count means superseded copies exist
+        // from a pre-restart history the WAL replay above cannot see.
+        // Flag them so the delete-aware slow paths stay on — the exact
+        // per-event tracking (`VersionMap::ghost_events`) only observes
+        // events from this process lifetime onward.
+        if (store.version_map.live_count() as u64) < total_doc_count {
+            store.version_map.force_ghost_event();
+        }
+
         // See create_with_settings — doc count is a sanity cap, byte threshold drives flushes.
         let flush_doc_threshold = 500_000usize;
         let flush_byte_threshold = (config.storage.flush_size_mb as usize).saturating_mul(1024 * 1024);
@@ -690,6 +713,8 @@ impl Index {
             stored_value_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache_bytes: Arc::new(AtomicU64::new(0)),
+            decoded_stored_cache: Arc::new(dashmap::DashMap::new()),
+            decoded_stored_cache_bytes: Arc::new(AtomicU64::new(0)),
             regexp_expand_cache: Arc::new(dashmap::DashMap::new()),
             fast_date_cache: Arc::new(dashmap::DashMap::new()),
             query_cache: Arc::new(dashmap::DashMap::new()),
@@ -1353,15 +1378,21 @@ impl Index {
         // the memtable entry can share the allocation (no deep clone at
         // insert time — pre-fix `insert` did `Arc::new(source.clone())`
         // per doc under the shard write lock).
-        let sources: Vec<Arc<Value>> = docs
-            .par_iter()
-            .map(|(_, bytes)| {
-                Arc::new(
-                    serde_json::from_slice::<Value>(bytes)
-                        .unwrap_or_else(|_| Value::Object(serde_json::Map::new())),
-                )
-            })
-            .collect();
+        //
+        // Runs on the dedicated ingest pool (`crate::ingest_pool`) so bulk
+        // parse bursts never queue ahead of search/agg par_iters on the
+        // global rayon pool — see the read-under-write collapse notes on
+        // `ingest_pool()`.
+        let sources: Vec<Arc<Value>> = crate::ingest_pool().install(|| {
+            docs.par_iter()
+                .map(|(_, bytes)| {
+                    Arc::new(
+                        serde_json::from_slice::<Value>(bytes)
+                            .unwrap_or_else(|_| Value::Object(serde_json::Map::new())),
+                    )
+                })
+                .collect()
+        });
 
         // 2. Dynamic mapping: evolve schema serially, in doc order.
         for source in &sources {
@@ -1390,40 +1421,47 @@ impl Index {
             let analyzer = mem
                 .default_analyzer()
                 .expect("standard analyzer always present");
-            let analyzed: Vec<Vec<(String, Vec<xerj_fts::analyzer::Token>)>> = sources
-                .par_iter()
-                .map(|source| crate::memtable::analyze_doc(source.as_ref(), schema, &analyzer))
-                .collect();
+            let analyzed: Vec<Vec<(String, Vec<xerj_fts::analyzer::Token>)>> =
+                crate::ingest_pool().install(|| {
+                    sources
+                        .par_iter()
+                        .map(|source| {
+                            crate::memtable::analyze_doc(source.as_ref(), schema, &analyzer)
+                        })
+                        .collect()
+                });
 
             let n_shards = mem.shard_count().max(1);
             let mut buckets: Vec<Vec<usize>> = vec![Vec::new(); n_shards];
             for (i, (id, _)) in docs.iter().enumerate() {
                 buckets[mem.shard_for_dynamic(id)].push(i);
             }
-            buckets.par_iter().enumerate().for_each(|(shard, idxs)| {
-                if idxs.is_empty() {
-                    return;
-                }
-                mem.with_shard_mut(shard, |m| {
-                    for &i in idxs {
-                        let (id, bytes) = &docs[i];
-                        // `remove` first so a same-id overwrite within
-                        // the batch leaves exactly one live entry
-                        // (mirrors index_document).
-                        m.remove(id);
-                        // Same sizing formula as `insert` (`raw * 3 + 64`)
-                        // with the raw NDJSON byte length standing in for
-                        // `source.to_string().len()` — keeps the size
-                        // re-serialisation off the lock too.
-                        let size = (bytes.len() + id.len()) * 3 + 64;
-                        m.insert_analyzed(
-                            seq_nos[i],
-                            id.clone(),
-                            Arc::clone(&sources[i]),
-                            &analyzed[i],
-                            size,
-                        );
+            crate::ingest_pool().install(|| {
+                buckets.par_iter().enumerate().for_each(|(shard, idxs)| {
+                    if idxs.is_empty() {
+                        return;
                     }
+                    mem.with_shard_mut(shard, |m| {
+                        for &i in idxs {
+                            let (id, bytes) = &docs[i];
+                            // `remove` first so a same-id overwrite within
+                            // the batch leaves exactly one live entry
+                            // (mirrors index_document).
+                            m.remove(id);
+                            // Same sizing formula as `insert` (`raw * 3 + 64`)
+                            // with the raw NDJSON byte length standing in for
+                            // `source.to_string().len()` — keeps the size
+                            // re-serialisation off the lock too.
+                            let size = (bytes.len() + id.len()) * 3 + 64;
+                            m.insert_analyzed(
+                                seq_nos[i],
+                                id.clone(),
+                                Arc::clone(&sources[i]),
+                                &analyzed[i],
+                                size,
+                            );
+                        }
+                    });
                 });
             });
         }
@@ -2163,6 +2201,12 @@ impl Index {
             let metas_for_task = metas;
 
             tokio::task::spawn_blocking(move || -> Option<MergeOutput> {
+                // Entire merge encode runs on the deprioritised ingest
+                // pool (nice +10): the decompress + byte-copy + FTS/DV
+                // rebuild below saturates cores for seconds, and on the
+                // normal-priority blocking pool it stole scheduler time
+                // from foreground searches (read-under-write tail).
+                crate::ingest_pool().install(move || -> Option<MergeOutput> {
                 use serde_json::value::RawValue;
 
                 // V4 M4.8 — STREAMING BYTE-COPY MERGE.
@@ -2358,10 +2402,17 @@ impl Index {
                         fts_writer.configure_field(field_name.clone(), cfg.clone());
                     }
                     if !fts_input.is_empty() {
-                        fts_writer.add_documents_parallel(&fts_input);
-                        if let Err(e) = fts_writer.finish() {
-                            tracing::warn!("merge: FTS build failed: {e}");
-                        }
+                        // Dedicated ingest pool: a merged-segment FTS build
+                        // is the single longest rayon job in the system —
+                        // on the global pool it queued every concurrent
+                        // search's par_iter behind it (read-under-write
+                        // collapse; see `crate::ingest_pool`).
+                        crate::ingest_pool().install(|| {
+                            fts_writer.add_documents_parallel(&fts_input);
+                            if let Err(e) = fts_writer.finish() {
+                                tracing::warn!("merge: FTS build failed: {e}");
+                            }
+                        });
                     }
                 }
 
@@ -2418,6 +2469,7 @@ impl Index {
                 }
 
                 Some((batch_for_task, merged_meta, live_doc_count as usize, ids_pairs))
+                })
             })
         };
 
@@ -2536,6 +2588,10 @@ impl Index {
                 if let Some((_, slices)) = self.stored_slices_cache.remove(id.as_str()) {
                     self.stored_slices_cache_bytes
                         .fetch_sub(slices.retained_bytes(), Ordering::Relaxed);
+                }
+                if let Some((_, bytes)) = self.decoded_stored_cache.remove(id.as_str()) {
+                    self.decoded_stored_cache_bytes
+                        .fetch_sub(bytes.len() as u64, Ordering::Relaxed);
                 }
                 self.fast_date_cache.retain(|(seg, _), _| seg != id.as_str());
             }
@@ -3681,6 +3737,12 @@ impl Index {
                 // the working set is far smaller and the cheap O(n)
                 // truncate happens once.
                 if let (Some(key), Ok(ref r)) = (cache_key, &result) {
+                    // Never cache a timed-out partial result — the dataset
+                    // version doesn't change on timeout, so a poisoned entry
+                    // would be served until the next write.
+                    if r.timed_out {
+                        return result;
+                    }
                     if self.query_cache.len() > 1024 {
                         // Cheap eviction: clear the whole cache rather
                         // than implement LRU.  It rebuilds on the next
@@ -3728,6 +3790,32 @@ impl Index {
                 "read",
             )));
         }
+
+        // ── Cooperative deadline ──────────────────────────────────────────
+        // The `tokio::time::timeout` wrapper in `search()` is DEAD CODE on
+        // the multi-thread runtime: the search body runs inside
+        // `block_in_place(block_on(..))`, so the wrapper's first poll only
+        // returns when the whole search is already finished — it can never
+        // fire mid-flight.  Live-verified during the read-under-write
+        // benchmark: 2 118 slow queries (p50 19 s, max 39 s) and ZERO
+        // "search timed out" log lines; every piled-up search ran to
+        // completion even after its client disconnected, which is what let
+        // the backlog snowball keep the CPU pegged for minutes after load
+        // stopped.  Instead we compute a wall-clock deadline here and have
+        // the O(N) loops below check it cooperatively, returning partial
+        // results with `timed_out: true` (ES semantics).
+        let search_deadline: std::time::Instant = std::time::Instant::now()
+            + std::time::Duration::from_millis(request.timeout_ms.unwrap_or(30_000));
+        let mut deadline_exceeded = false;
+        // Slow-query phase attribution (logged for >1 s queries).
+        let phase_t0 = std::time::Instant::now();
+        let mut phase_marks: Vec<(&'static str, u64)> = Vec::new();
+        let mut dbg_segs = 0u32;
+        let mut dbg_decode_ms = 0u64;
+        let mut dbg_scan_ms = 0u64;
+        let mut dbg_fts_ms = 0u64;
+        let mut dbg_walked = 0u64;
+        let mut dbg_admitted = 0u64;
 
         // size=0 is valid and means "return no hits but still run aggs / return total".
         let size = request.size;
@@ -4059,11 +4147,11 @@ impl Index {
         enum MemSnapshot {
             Empty,
             FtsHits(Vec<(String, f32)>),  // (doc_id, score) from inverted index
-            AllDocIds(Vec<String>),         // MatchAll: IDs only, sources filled later
+            AllDocIds(Vec<String>, u64),    // MatchAll: bounded IDs + uncollected remainder count
             /// Fast DocValues hit: (doc_id, internal_index) pairs — source is NOT
             /// cloned here; it will be fetched only for the final page of hits.
             DocValuesHits(Vec<(String, usize)>),
-            DocsForScan(Vec<(String, Value)>), // doc_id + source for term-level scan
+            DocsForScan(Vec<(String, Arc<Value>)>), // doc_id + shared source for term-level scan
         }
 
         // Search the memtable (unflushed docs only). Flushed docs are searched
@@ -4091,9 +4179,18 @@ impl Index {
                 // fallback with empty inputs.
                 MemSnapshot::Empty
             } else if matches!(query, QueryNode::MatchAll) {
-                // Return all doc IDs from the memtable (size > 0 path).
-                let ids: Vec<String> = mem.all_doc_ids();
-                MemSnapshot::AllDocIds(ids)
+                // size > 0 match_all.  Field-sorted requests must offer
+                // EVERY buffered doc to the top-N heap; unsorted requests
+                // only ever admit the first `materialisation_limit` ids,
+                // so clone just those and carry the remainder as a count.
+                if sort_topk.is_some() {
+                    let ids: Vec<String> = mem.all_doc_ids();
+                    MemSnapshot::AllDocIds(ids, 0)
+                } else {
+                    let (ids, total) = mem.doc_ids_bounded(materialisation_limit);
+                    let extra = total.saturating_sub(ids.len() as u64);
+                    MemSnapshot::AllDocIds(ids, extra)
+                }
             } else if is_doc_scan_query(query) {
                 // count_only + Term/Range short-circuits BEFORE
                 // `try_doc_values_query` because the DV-term path walks
@@ -4121,9 +4218,13 @@ impl Index {
                     // the hit list (size > 0 or sort-on-field).
                     MemSnapshot::DocValuesHits(hits)
                 } else {
-                    // Full source materialisation — only reached for
-                    // composite queries or when sources are needed.
-                    let docs: Vec<(String, Value)> = mem.all_docs_with_sources();
+                    // Composite queries (e.g. bool) that the memtable DV
+                    // path can't resolve: share the buffered sources via
+                    // Arc — the old deep-clone of the ENTIRE memtable per
+                    // query (plus a second per-doc clone for `_id`
+                    // injection below) was the single hottest search-side
+                    // cost in the read-under-write thread dumps.
+                    let docs: Vec<(String, Arc<Value>)> = mem.all_docs_with_sources_arc();
                     MemSnapshot::DocsForScan(docs)
                 }
             } else {
@@ -4161,6 +4262,7 @@ impl Index {
             }
             // Lock dropped here
         };
+        phase_marks.push(("mem_snapshot", phase_t0.elapsed().as_millis() as u64));
 
         match mem_snapshot {
             MemSnapshot::Empty => {}
@@ -4177,7 +4279,11 @@ impl Index {
                     });
                 }
             }
-            MemSnapshot::AllDocIds(ids) => {
+            MemSnapshot::AllDocIds(ids, uncollected) => {
+                // Bounded id page: the remainder still counts toward
+                // hits.total (match_all's total is later overwritten by
+                // the authoritative live count anyway).
+                total_count += uncollected;
                 for doc_id in ids {
                     admit_hit!(count doc_id);
                 }
@@ -4197,38 +4303,57 @@ impl Index {
             }
             MemSnapshot::DocsForScan(docs) => {
                 // Lock already released — scan docs without holding the memtable lock.
+                //
+                // `_id` injection (a full per-doc Object clone) is only
+                // observable when the query tree can actually read `_id`
+                // — a nested Ids query.  Detect that ONCE via the query's
+                // serialised form (conservative: false positives merely
+                // keep the legacy per-doc clone) instead of cloning every
+                // buffered doc on every request.
+                let query_may_read_id: bool = serde_json::to_string(query)
+                    .map(|s| s.contains("_id") || s.contains("Ids") || s.contains("ids"))
+                    .unwrap_or(true);
                 for (doc_id, source) in docs {
                     let matched = if let QueryNode::Ids { values } = query {
                         values.iter().any(|v| v == doc_id.as_str())
+                    } else if !query_may_read_id || source.get("_id").is_some() {
+                        doc_matches_query(query, &source)
                     } else {
                         // Inject `_id` so deeply-nested Ids queries (e.g.
                         // function_score → ids) can resolve it from source.
-                        let source_with_id = if source.get("_id").is_some() {
-                            source.clone()
-                        } else if let Some(obj) = source.as_object() {
+                        let source_with_id = if let Some(obj) = source.as_object() {
                             let mut o = obj.clone();
                             o.insert("_id".to_string(), serde_json::Value::String(doc_id.clone()));
                             serde_json::Value::Object(o)
                         } else {
-                            source.clone()
+                            (*source).clone()
                         };
                         doc_matches_query(query, &source_with_id)
                     };
                     if matched {
-                        // Only clone source if we'll actually materialise it.
+                        // Materialise (score + owned source) ONLY when the
+                        // hit can actually enter the bounded collector /
+                        // top-N heap; everything else is a bare count.
+                        // Identical outcome to unconditionally building the
+                        // Hit: `admit_hit!` drops post-cap hits anyway.
                         if count_only {
                             total_count += 1;
-                        } else {
+                        } else if sort_topk.is_some()
+                            || (all_hits.len() < materialisation_limit
+                                && !seen_ids.contains(&doc_id))
+                        {
                             let score = score_query_against_doc(query, &source);
                             admit_hit!(Hit {
                                 id: doc_id,
                                 score,
-                                source,
+                                source: (*source).clone(),
                                 sort: Vec::new(),
                                 explain: None,
                                 highlight: None,
                                 matched_queries: Vec::new(),
                             });
+                        } else {
+                            total_count += 1;
                         }
                     }
                 }
@@ -4345,6 +4470,7 @@ impl Index {
         // result is stashed in `precomputed_aggs` and consumed at the
         // agg-section below.
         let mut precomputed_aggs: Option<Value> = None;
+        phase_marks.push(("mem_admit", phase_t0.elapsed().as_millis() as u64));
         if is_match_all && size == 0 && request.aggs.is_some() && request.min_score.is_none() {
             if let Some(aggs_def) = &request.aggs {
                 let r_opt = self
@@ -4374,13 +4500,19 @@ impl Index {
         // inflate the per-segment/memtable physical tally above the version-map
         // live count). MatchAll is unaffected — overwritten with the
         // delete-aware live_doc_count() regardless of this flag.
-        let deletes_present: bool = {
-            let seg_physical: u64 = snap.segments.iter().map(|m| m.doc_count).sum();
-            let mem_physical = self.memtable.doc_count() as u64;
-            snap.segments.iter().any(|m| m.has_tombstones)
-                || self.live_doc_count() < seg_physical + mem_physical
-        };
+        // EXACT ghost signal (see `VersionMap::ghost_events`): flushed
+        // tombstones OR any overwrite/delete event ever recorded.  The old
+        // `live_count() < seg_physical + mem_physical` arithmetic also
+        // tripped on unrelated physical-count drift — live-verified: two
+        // duplicate docs per merged segment turned the gate permanently ON
+        // for a pure append-only corpus, disabling the F1 bounded scan and
+        // forcing every size>0 term/range/bool into a full O(N) stored
+        // scan.  That was the dominant per-query cost in the
+        // read-under-write collapse.
+        let deletes_present: bool = snap.segments.iter().any(|m| m.has_tombstones)
+            || self.store.version_map.ghost_events() > 0;
 
+        phase_marks.push(("fast_aggs+gates", phase_t0.elapsed().as_millis() as u64));
         if precomputed_aggs.is_some() {
             // Skip the entire segment loop — the fast agg path already
             // computed everything we need.  `total_count` is set above.
@@ -4475,6 +4607,7 @@ impl Index {
                 };
 
             for meta in &snap.segments {
+                dbg_segs += 1;
                 // F1: once the exact total is authoritative AND the bounded
                 // collector is full, remaining segments can neither add a
                 // materialised hit (page is full) nor change `hits.total`
@@ -4484,6 +4617,13 @@ impl Index {
                 // over every segment.  This is what turns the whole query into
                 // O(from+size) rather than O(segments·docs_per_segment).
                 if count_authoritative && all_hits.len() >= materialisation_limit {
+                    break;
+                }
+                // Cooperative deadline: stop fanning into further segments
+                // once the request timeout has elapsed — partial results
+                // with `timed_out: true`, exactly like ES.
+                if std::time::Instant::now() >= search_deadline {
+                    deadline_exceeded = true;
                     break;
                 }
 
@@ -4496,11 +4636,13 @@ impl Index {
 
                 // Try FTS path first if we have an FTS query.
                 let mut fts_handled = false;
+                let t_fts = std::time::Instant::now();
                 let reader_opt = if needs_fts {
                     FtsIndexReader::open(&fts_dir, &seg_id, &field_refs).ok()
                 } else {
                     None
                 };
+                dbg_fts_ms += t_fts.elapsed().as_millis() as u64;
                 if let Some(reader) = reader_opt {
                     let reader = Arc::new(reader);
                     let searcher =
@@ -4785,6 +4927,38 @@ impl Index {
                                 &mut total_count,
                             );
                         }
+                    } else if let Some(cached_bytes) = (!sorted_candidates_path)
+                        .then(|| {
+                            self.decoded_stored_cache
+                                .get(seg_id.as_str())
+                                .map(|e| Arc::clone(e.value()))
+                        })
+                        .flatten()
+                    {
+                        // Decoded-bytes cache hit: skip open + decompress
+                        // entirely.  With the in-section early stop, the
+                        // whole per-segment cost is now O(from+size) doc
+                        // parses instead of O(section) decompress+parse.
+                        let t_scan = std::time::Instant::now();
+                        self.scan_stored_section_into(
+                            &cached_bytes,
+                            query,
+                            is_match_all,
+                            count_only,
+                            materialisation_limit,
+                            count_authoritative,
+                            &mut total_count,
+                            &mut all_hits,
+                            &mut seen_ids,
+                            pre_filter.as_ref(),
+                            sort_topk.as_mut(),
+                            None,
+                            Some(search_deadline),
+                            &mut deadline_exceeded,
+                            &mut dbg_walked,
+                            &mut dbg_admitted,
+                        );
+                        dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
                     } else {
                         // Merge-race hardening (2026-07): a snapshot
                         // segment that fails to open is a query error, not
@@ -4793,11 +4967,14 @@ impl Index {
                         // With the read lease held by `snap`, retired
                         // segment files persist, so this only fires on
                         // genuine corruption.
+                        let t_dec = std::time::Instant::now();
                         let seg_reader = self.store.open_segment_arc(&seg_id)?;
                         if let Ok(Some(stored_bytes_raw)) = seg_reader.section(SectionType::Stored) {
                             if let Ok(stored_bytes) =
                                 xerj_storage::stored_codec::decode_stored(stored_bytes_raw)
                             {
+                                dbg_decode_ms += t_dec.elapsed().as_millis() as u64;
+                                let t_scan = std::time::Instant::now();
                                 // Record per-doc offsets on the sorted path so
                                 // the decompressed section can be cached for
                                 // the next query (subject to the budget).
@@ -4818,7 +4995,12 @@ impl Index {
                                     pre_filter.as_ref(),
                                     sort_topk.as_mut(),
                                     if want_cache { Some(&mut offsets) } else { None },
+                                    Some(search_deadline),
+                                    &mut deadline_exceeded,
+                                    &mut dbg_walked,
+                                    &mut dbg_admitted,
                                 );
+                                dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
                                 // Cache only a COMPLETE offsets map (a
                                 // malformed section bails early) and only
                                 // within the retained-bytes budget.
@@ -4841,6 +5023,26 @@ impl Index {
                                         self.stored_slices_cache_bytes
                                             .fetch_add(sz, Ordering::Relaxed);
                                     }
+                                } else if !want_cache {
+                                    // Unsorted path: retain the decompressed
+                                    // section so the NEXT query on this
+                                    // segment skips the decompress (the
+                                    // read-under-write match_all/bool/range
+                                    // tail fix — see `decoded_stored_cache`).
+                                    let sz = stored_bytes.len() as u64;
+                                    if self
+                                        .decoded_stored_cache_bytes
+                                        .load(Ordering::Relaxed)
+                                        .saturating_add(sz)
+                                        <= DECODED_STORED_CACHE_BUDGET
+                                        && self
+                                            .decoded_stored_cache
+                                            .insert(seg_id.clone(), Arc::new(stored_bytes))
+                                            .is_none()
+                                    {
+                                        self.decoded_stored_cache_bytes
+                                            .fetch_add(sz, Ordering::Relaxed);
+                                    }
                                 }
                             }
                         }
@@ -4858,6 +5060,7 @@ impl Index {
         // faithfully reflects full query semantics (flattened / subobjects:false
         // / passthrough field resolution the doc-values shortcut can't model),
         // so we keep it and never overwrite.
+        phase_marks.push(("segment_loop", phase_t0.elapsed().as_millis() as u64));
         let scan_hit_cap: bool = all_hits.len() >= materialisation_limit;
 
         // De-duplication is already enforced by `seen_ids` inside the
@@ -5308,6 +5511,15 @@ impl Index {
                 .collect();
             let snap_bg = self.store.snapshot();
             for seg in &snap_bg.segments {
+                // Cooperative deadline: the full-corpus assembly is the
+                // most expensive path in the engine (decompress + parse
+                // EVERY stored doc).  Stop pulling further segments once
+                // past the request timeout — aggs become partial and the
+                // response carries `timed_out: true`.
+                if std::time::Instant::now() >= search_deadline {
+                    deadline_exceeded = true;
+                    break;
+                }
                 // Merge-race hardening (2026-07): open failures are
                 // errors, not skips — a skipped segment silently drops
                 // its docs from every aggregation bucket.  The read
@@ -5388,6 +5600,7 @@ impl Index {
             vec![]
         };
 
+        phase_marks.push(("hydrate+corpus", phase_t0.elapsed().as_millis() as u64));
         // --- Run aggregations over the full matched set (before pagination) ---
         let agg_start = std::time::Instant::now();
         let agg_result = if let Some(aggs_def) = &request.aggs {
@@ -5576,6 +5789,43 @@ impl Index {
             None
         };
 
+        let inner_ms = phase_t0.elapsed().as_millis() as u64;
+        if inner_ms >= 1_000 {
+            phase_marks.push(("aggs+page", inner_ms));
+            // Cumulative marks → per-phase deltas for the log line.
+            let mut prev = 0u64;
+            let breakdown: Vec<String> = phase_marks
+                .iter()
+                .map(|(name, at)| {
+                    let d = at.saturating_sub(prev);
+                    prev = *at;
+                    format!("{name}={d}ms")
+                })
+                .collect();
+            warn!(
+                total_ms = inner_ms,
+                index = self.name.as_str(),
+                phases = %breakdown.join(" "),
+                gates = %format!(
+                    "needs_fts={} shortcut={:?} deletes={} ghosts={} total={} lim={} segs={} dec={}ms scan={}ms ftsopen={}ms walked={} admitted={} allhits_cap={}",
+                    query_needs_fts,
+                    shortcut_count,
+                    deletes_present,
+                    self.store.version_map.ghost_events(),
+                    total,
+                    materialisation_limit,
+                    dbg_segs,
+                    dbg_decode_ms,
+                    dbg_scan_ms,
+                    dbg_fts_ms,
+                    dbg_walked,
+                    dbg_admitted,
+                    scan_hit_cap
+                ),
+                "slow search_inner phase breakdown"
+            );
+        }
+
         Ok(SearchResult {
             hits: page,
             total: TotalHits {
@@ -5584,7 +5834,10 @@ impl Index {
             },
             took_ms: 0,
             aggs: agg_result,
-            timed_out: false,
+            // Set when any cooperative deadline check fired: the hits /
+            // total / aggs above are partial, exactly like an ES shard
+            // timeout.  `search()` refuses to cache timed-out results.
+            timed_out: deadline_exceeded,
             profile,
             max_score: population_max_score,
         })
@@ -7284,6 +7537,16 @@ impl Index {
         // verify `offsets_out.len() == segment doc_count` before caching —
         // a malformed section bails early and leaves the vec incomplete.
         mut offsets_out: Option<&mut Vec<(u32, u32)>>,
+        // Cooperative timeout: when `Some`, the walk polls the wall clock
+        // every 4 096 docs and aborts (setting `*timed_out`) once past the
+        // deadline.  One giant merged segment is otherwise a multi-second
+        // uninterruptible unit — the between-segment deadline check in
+        // `search_inner` can't bound it.
+        deadline: Option<std::time::Instant>,
+        timed_out: &mut bool,
+        // Diagnostics: docs brace-walked and hits admitted by THIS call.
+        dbg_walked: &mut u64,
+        dbg_admitted: &mut u64,
     ) {
         // Fast path: scan one doc at a time with a hand-rolled array splitter.
         // The stored section is always shaped as `[{...}, {...}, ...]` (a
@@ -7307,6 +7570,32 @@ impl Index {
         let mut doc_pos: u32 = 0;
 
         loop {
+            // F1b — IN-SEGMENT early stop.  The between-segment F1 break in
+            // `search_inner` skips segments once the page is full and the
+            // total is authoritative, but a single giant merged segment
+            // still paid a FULL walk here: brace-scan + simd_json parse of
+            // every stored doc (~11 s for an uncached size=10 `match_all`
+            // at 3.5 M docs — completely masked at steady state by the
+            // query cache, catastrophic under a bulk writer where every
+            // request is a cache miss).  Once the bounded collector is
+            // full, nothing later in this section can change the page
+            // (admit order is positional) and `total_count` is overwritten
+            // by the shortcut/live count anyway — so stop scanning.
+            //
+            // Excluded, for the same reasons as the outer break:
+            //   - `count_only`: the scan tally IS the total when no
+            //     shortcut resolved (count_authoritative already implies a
+            //     shortcut, but keep the guard belt-and-braces);
+            //   - `sort_topk`: top-N needs every matching doc's sort key;
+            //   - `offsets_out`: the offsets cache must cover the section.
+            if count_authoritative
+                && !count_only
+                && sort_topk.is_none()
+                && offsets_out.is_none()
+                && all_hits.len() >= materialisation_limit
+            {
+                return;
+            }
             // Skip whitespace/commas between docs.
             while i < n && (bytes[i].is_ascii_whitespace() || bytes[i] == b',') {
                 i += 1;
@@ -7361,6 +7650,18 @@ impl Index {
 
             let cur_pos = doc_pos;
             doc_pos += 1;
+            *dbg_walked += 1;
+
+            // Cooperative timeout poll — every 4 096 docs (~1 µs of clock
+            // reads per million docs; the parse below costs ~3 µs/doc).
+            if doc_pos & 0xFFF == 0 {
+                if let Some(dl) = deadline {
+                    if std::time::Instant::now() >= dl {
+                        *timed_out = true;
+                        return;
+                    }
+                }
+            }
 
             // Pre-filter: if the caller supplied a matching set and this
             // position isn't in it, skip the parse entirely.  We already
@@ -7415,6 +7716,7 @@ impl Index {
             }
 
             *total_count += 1;
+            *dbg_admitted += 1;
 
             if count_only {
                 continue;
@@ -7657,6 +7959,10 @@ async fn do_flush_shard(
     // 50-100 ms segment write that follows, and 100K-doc/s ingest
     // bench numbers are unaffected.
     let build_fts = move |meta: &xerj_storage::segment::SegmentMeta| -> xerj_storage::Result<()> {
+        // Whole side-car build runs on the dedicated ingest pool so a
+        // flush burst can't queue search/agg par_iters behind it on the
+        // global rayon pool (read-under-write; see `crate::ingest_pool`).
+        crate::ingest_pool().install(|| {
         // ── Doc-values side-car (always built) ────────────────────
         {
             let columns = build_doc_value_columns(
@@ -7687,6 +7993,7 @@ async fn do_flush_shard(
                 tracing::warn!("flush: FTS build failed: {e}");
             }
         }
+        });
         let _ = &segments_dir;
         let _ = &drained_fts;
 
@@ -7694,7 +8001,11 @@ async fn do_flush_shard(
     };
 
     // Hand the pre-drained storage entries to the finaliser.
-    let meta = match store.finalize_flush_with_publisher(storage_drained, build_fts)? {
+    // Segment encode + side-car build on the deprioritised ingest pool
+    // (build_fts's inner install() is a same-pool no-op).
+    let meta = match crate::ingest_pool()
+        .install(|| store.finalize_flush_with_publisher(storage_drained, build_fts))?
+    {
         Some(m) => m,
         None => {
             tracing::warn!("storage finalize returned None — unexpected");
@@ -12104,6 +12415,11 @@ impl StoredSlices {
 /// budget is reached (queries then fall back to the per-query decompress
 /// path); merge eviction returns the dropped segment's bytes to the budget.
 const STORED_SLICES_CACHE_BUDGET: u64 = 512 * 1024 * 1024;
+
+/// Budget for `decoded_stored_cache` (raw decompressed stored sections,
+/// ~1× the corpus JSON size).  Overflow → inserts are refused and the
+/// query falls back to the per-query decompress (pre-cache behaviour).
+const DECODED_STORED_CACHE_BUDGET: u64 = 4 * 1024 * 1024 * 1024;
 
 /// Normalize one `search_after` cursor value so it compares against the
 /// normalized `hit.sort` values `compute_sort_values` produces (date-shaped

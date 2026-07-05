@@ -176,6 +176,24 @@ impl PostingsWriter {
         });
     }
 
+    /// Direct `(doc_frequency, total_term_frequency)` lookup for ONE term.
+    ///
+    /// O(log T + postings(term)) — use this in per-term loops.  The segment
+    /// writer (`write_field_static`) previously resolved stats via
+    /// `term_stats().find(term)`, which walks the term map from the start
+    /// *and sums every earlier term's postings* on each call — O(T² × P)
+    /// across the write loop.  Invisible on 625-doc flush segments, but a
+    /// merged segment over a float field (≈1 distinct term per doc) spun
+    /// 100 % CPU for HOURS at 3 M docs, pinning rayon workers and starving
+    /// every search + flush behind it (the read-under-write collapse).
+    pub fn stats_for(&self, term: &str) -> Option<(u32, u64)> {
+        self.postings.get(term).map(|postings| {
+            let doc_freq = postings.len() as u32;
+            let ttf: u64 = postings.iter().map(|p| p.term_freq as u64).sum();
+            (doc_freq, ttf)
+        })
+    }
+
     /// Returns an iterator over `(term, doc_frequency, total_term_frequency)`
     /// without consuming self (for building the FST term dictionary).
     pub fn term_stats(&self) -> impl Iterator<Item = (&str, u32, u64)> {

@@ -30,6 +30,7 @@ dashmap    = { workspace = true }
 arc-swap   = { workspace = true }
 parking_lot = "0.12"
 rayon      = { workspace = true }
+libc       = "0.2"
 uuid       = { workspace = true }
 sha2       = "0.10"   # v0.9 9-P4 — audit log hash chain
 chrono     = { workspace = true }

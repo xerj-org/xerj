@@ -699,12 +699,14 @@ impl FtsIndexWriter {
 
         for term in &sorted_terms {
             if let Some((offset, _skip)) = field_data.postings.encode_term(term, &mut post_data) {
-                // Calculate doc_freq and ttf from the writer's internal stats
+                // Calculate doc_freq and ttf from the writer's internal stats.
+                // Direct map lookup — the old `term_stats().find(..)` linear
+                // scan made this loop O(terms² × postings): a merged segment
+                // with ~1 distinct term/doc (float/date fields) took HOURS of
+                // CPU at 3M docs and pinned rayon workers for the duration.
                 let (doc_freq, ttf) = field_data
                     .postings
-                    .term_stats()
-                    .find(|(t, _, _)| *t == term.as_str())
-                    .map(|(_, df, ttf)| (df, ttf))
+                    .stats_for(term)
                     .unwrap_or((0, 0));
 
                 let end_offset = post_data.len() as u64;
