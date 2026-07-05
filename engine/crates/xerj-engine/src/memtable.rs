@@ -80,8 +80,17 @@ pub fn extract_text_fields_from(source: &Value) -> HashMap<String, String> {
     out
 }
 
+/// Fast-hash map used for the memtable's PRIVATE hot-path structures
+/// (inverted index, field lengths, doc_id lookup).  These maps are hit
+/// once-or-more per token on the bulk-ingest hot path; the default
+/// SipHash over String keys measured ~21% of all CPU samples during a
+/// 1M-doc bulk run.  They are drained and rebuilt from scratch at flush
+/// time and never serialized, so swapping the hasher has no on-disk or
+/// wire-visible effect.
+type FastMap<K, V> = HashMap<K, V, ahash::RandomState>;
+
 /// Posting list entry: doc_id → term frequency.
-type PostingList = HashMap<String, u32>; // doc_id → tf
+type PostingList = FastMap<String, u32>; // doc_id → tf
 
 // ── DocValues ─────────────────────────────────────────────────────────────────
 
@@ -877,12 +886,12 @@ impl ShardedFtsMemtable {
         let drained: Vec<MemEntry> = {
             let mut g = self.shards[shard_idx].write();
             let d: Vec<MemEntry> = g.docs.drain(..).collect();
-            g.index = HashMap::new();
+            g.index = FastMap::default();
             g.doc_values = DocValues::default();
             g.total_bytes = 0;
-            g.field_lengths = HashMap::new();
-            g.avg_field_lengths = HashMap::new();
-            g.doc_id_index = HashMap::new();
+            g.field_lengths = FastMap::default();
+            g.avg_field_lengths = FastMap::default();
+            g.doc_id_index = FastMap::default();
             // Flush == merge: purge delete-aware ghost collection stats.
             g.ghost_docs = 0;
             g.ghost_field_len = HashMap::new();
@@ -961,12 +970,12 @@ impl FtsMemtable {
                 (seq, (e.doc_id, fields, val))
             })
             .collect();
-        self.index = HashMap::new();
+        self.index = FastMap::default();
         self.doc_values = DocValues::default();
         self.total_bytes = 0;
-        self.field_lengths = HashMap::new();
-        self.avg_field_lengths = HashMap::new();
-        self.doc_id_index = HashMap::new();
+        self.field_lengths = FastMap::default();
+        self.avg_field_lengths = FastMap::default();
+        self.doc_id_index = FastMap::default();
         // Flush is the equivalent of a Lucene merge: tombstone contributions
         // are purged, so delete-aware ghost statistics reset to empty.
         self.ghost_docs = 0;
@@ -987,12 +996,12 @@ impl FtsMemtable {
                 (seq, (e.doc_id, fields))
             })
             .collect();
-        self.index = HashMap::new();
+        self.index = FastMap::default();
         self.doc_values = DocValues::default();
         self.total_bytes = 0;
-        self.field_lengths = HashMap::new();
-        self.avg_field_lengths = HashMap::new();
-        self.doc_id_index = HashMap::new();
+        self.field_lengths = FastMap::default();
+        self.avg_field_lengths = FastMap::default();
+        self.doc_id_index = FastMap::default();
         // Flush is the equivalent of a Lucene merge: tombstone contributions
         // are purged, so delete-aware ghost statistics reset to empty.
         self.ghost_docs = 0;
@@ -1017,7 +1026,7 @@ pub struct FtsMemtable {
     /// Documents in insertion order.
     docs: Vec<MemEntry>,
     /// Inverted index: field → term → posting list (doc_id → tf).
-    index: HashMap<String, HashMap<String, PostingList>>,
+    index: FastMap<String, FastMap<String, PostingList>>,
     /// Columnar doc-values store for fast term/range/agg queries.
     pub doc_values: DocValues,
     /// Total accumulated byte size.
@@ -1025,11 +1034,11 @@ pub struct FtsMemtable {
     /// Analyzer registry.
     registry: Arc<AnalyzerRegistry>,
     /// Precomputed field lengths for BM25 scoring: field → {doc_id → token_count}
-    field_lengths: HashMap<String, HashMap<String, u32>>,
+    field_lengths: FastMap<String, FastMap<String, u32>>,
     /// Running average field length per field: field → (total_tokens, doc_count)
-    avg_field_lengths: HashMap<String, (f64, u64)>,
+    avg_field_lengths: FastMap<String, (f64, u64)>,
     /// doc_id → position in self.docs for O(1) lookup
-    doc_id_index: HashMap<String, usize>,
+    doc_id_index: FastMap<String, usize>,
     /// Delete-aware BM25 collection statistics (Lucene/ES parity).
     ///
     /// When a document is superseded by an update (remove + re-insert) or
@@ -1054,13 +1063,13 @@ impl FtsMemtable {
     pub fn new() -> Self {
         Self {
             docs: Vec::new(),
-            index: HashMap::new(),
+            index: FastMap::default(),
             doc_values: DocValues::default(),
             total_bytes: 0,
             registry: Arc::new(AnalyzerRegistry::default()),
-            field_lengths: HashMap::new(),
-            avg_field_lengths: HashMap::new(),
-            doc_id_index: HashMap::new(),
+            field_lengths: FastMap::default(),
+            avg_field_lengths: FastMap::default(),
+            doc_id_index: FastMap::default(),
             ghost_docs: 0,
             ghost_field_len: HashMap::new(),
             ghost_doc_freq: HashMap::new(),
@@ -1075,13 +1084,13 @@ impl FtsMemtable {
     pub fn with_registry(registry: Arc<AnalyzerRegistry>) -> Self {
         Self {
             docs: Vec::new(),
-            index: HashMap::new(),
+            index: FastMap::default(),
             doc_values: DocValues::default(),
             total_bytes: 0,
             registry,
-            field_lengths: HashMap::new(),
-            avg_field_lengths: HashMap::new(),
-            doc_id_index: HashMap::new(),
+            field_lengths: FastMap::default(),
+            avg_field_lengths: FastMap::default(),
+            doc_id_index: FastMap::default(),
             ghost_docs: 0,
             ghost_field_len: HashMap::new(),
             ghost_doc_freq: HashMap::new(),
@@ -1089,7 +1098,31 @@ impl FtsMemtable {
     }
 
     /// Insert a document into the memtable, indexing all text fields.
+    ///
+    /// Compatibility wrapper around [`insert_arc`] for callers that hold a
+    /// borrowed `Value` (single-doc PUT, WAL replay).  The bulk hot path
+    /// uses `insert_arc` directly to skip the deep `source.clone()` and
+    /// the `to_string()` re-serialisation that only fed size accounting.
     pub fn insert(&mut self, doc_id: String, source: &Value, schema: &Schema, seq_no: u64) {
+        let raw_len = source.to_string().len();
+        self.insert_arc(doc_id, Arc::new(source.clone()), raw_len, schema, seq_no);
+    }
+
+    /// Zero-copy insert: takes an `Arc<Value>` shared with the caller (no
+    /// deep clone of the JSON tree) plus the raw serialized length of the
+    /// document (`raw_len`, e.g. the NDJSON line length) for byte-size
+    /// accounting.  P2.2: pre-fix the hot bulk path paid one full
+    /// `source.to_string()` (whose ONLY consumer was `.len()`) and one
+    /// deep `Arc::new(source.clone())` per document — together ~3.2s of
+    /// client-blocking CPU per 1M docs.
+    pub fn insert_arc(
+        &mut self,
+        doc_id: String,
+        source: Arc<Value>,
+        raw_len: usize,
+        schema: &Schema,
+        seq_no: u64,
+    ) {
         let mut text_fields: HashMap<String, String> = HashMap::new();
 
         // Index fields that are defined as Text in the schema.
@@ -1150,7 +1183,7 @@ impl FtsMemtable {
             }
         }
         if let Some(_obj) = source.as_object() {
-            collect_text_fields(source, "", &mut text_fields);
+            collect_text_fields(source.as_ref(), "", &mut text_fields);
         }
 
         // Build the inverted index entries.
@@ -1184,15 +1217,18 @@ impl FtsMemtable {
             }
         }
 
-        // See `insert_pretokenized` for sizing rationale.
-        let raw_size = source.to_string().len() + doc_id.len();
+        // See `insert_pretokenized` for sizing rationale.  `raw_len` is the
+        // caller-supplied serialized length (NDJSON line length on the bulk
+        // path) — same ballpark as the old `source.to_string().len()`
+        // without re-serialising the document just to measure it.
+        let raw_size = raw_len + doc_id.len();
         let size = raw_size * 3 + 64;
         self.total_bytes += size;
 
         // Populate the columnar DocValues store BEFORE pushing to docs so that
         // the doc_index equals the current length (i.e. the slot we're about to fill).
         let doc_index = self.docs.len();
-        self.doc_values.push(source, doc_index);
+        self.doc_values.push(&source, doc_index);
 
         // Track doc_id → index for O(1) lookup.
         self.doc_id_index.insert(doc_id.clone(), doc_index);
@@ -1200,7 +1236,8 @@ impl FtsMemtable {
         self.docs.push(MemEntry {
             seq_no,
             doc_id,
-            source: Arc::new(source.clone()),
+            // Arc clone from the caller — refcount bump, no deep copy.
+            source,
             source_bytes: Arc::from(&[][..]),
             size_bytes: size,
         });
@@ -1702,12 +1739,12 @@ impl FtsMemtable {
                 (e.doc_id, fields)
             })
             .collect();
-        self.index = HashMap::new();
+        self.index = FastMap::default();
         self.doc_values = DocValues::default();
         self.total_bytes = 0;
-        self.field_lengths = HashMap::new();
-        self.avg_field_lengths = HashMap::new();
-        self.doc_id_index = HashMap::new();
+        self.field_lengths = FastMap::default();
+        self.avg_field_lengths = FastMap::default();
+        self.doc_id_index = FastMap::default();
         // Flush is the equivalent of a Lucene merge: tombstone contributions
         // are purged, so delete-aware ghost statistics reset to empty.
         self.ghost_docs = 0;
@@ -1751,12 +1788,12 @@ impl FtsMemtable {
         // See `drain()` for why we must reassign these (not `.clear()`):
         // `HashMap::clear` retains internal bucket capacity and the RSS
         // never shrinks between flushes.
-        self.index = HashMap::new();
+        self.index = FastMap::default();
         self.doc_values = DocValues::default();
         self.total_bytes = 0;
-        self.field_lengths = HashMap::new();
-        self.avg_field_lengths = HashMap::new();
-        self.doc_id_index = HashMap::new();
+        self.field_lengths = FastMap::default();
+        self.avg_field_lengths = FastMap::default();
+        self.doc_id_index = FastMap::default();
         // Flush is the equivalent of a Lucene merge: tombstone contributions
         // are purged, so delete-aware ghost statistics reset to empty.
         self.ghost_docs = 0;

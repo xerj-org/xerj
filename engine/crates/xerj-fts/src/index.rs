@@ -521,7 +521,11 @@ impl FtsIndexWriter {
     /// - Doc ordinals are assigned by position in the input `docs` vec,
     ///   matching the row index the caller used with
     ///   `add_document(ordinal, ...)`.
-    pub fn add_documents_parallel(&mut self, docs: &[(String, HashMap<String, String>, serde_json::Value)]) {
+    ///
+    /// Generic over the third tuple element (a source payload the caller
+    /// keeps alongside for its own use — `serde_json::Value`,
+    /// `Arc<serde_json::Value>`, …): this method never reads it.
+    pub fn add_documents_parallel<S: Sync>(&mut self, docs: &[(String, HashMap<String, String>, S)]) {
         use rayon::prelude::*;
         use std::collections::HashMap as StdHashMap;
 

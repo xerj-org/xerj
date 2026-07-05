@@ -9307,7 +9307,19 @@ async fn process_bulk_body(
     let base_text: &str = ts_rewritten.as_deref().unwrap_or(text);
 
     let rewritten_body;
-    let text_ref: &str = if state.engine.index_mappings.is_empty() {
+    // P2.2 — the ignore_malformed rewrite parses + re-serialises EVERY
+    // source line serially (client-blocking).  `apply_ignore_malformed`
+    // can only modify a doc when some field in the target mapping carries
+    // `ignore_malformed: true` or `ignore_above`; when no known mapping
+    // declares either directive the whole pass is a guaranteed no-op, so
+    // skip it instead of round-tripping the body through serde.
+    let text_ref: &str = if state.engine.index_mappings.is_empty()
+        || !state
+            .engine
+            .index_mappings
+            .iter()
+            .any(|e| mapping_has_ignore_directives(e.value()))
+    {
         base_text
     } else {
         rewritten_body = rewrite_bulk_ignore_malformed(state, default_index, base_text);
@@ -19382,6 +19394,29 @@ pub(crate) fn rewrite_bulk_time_series_ids(
         Some(out)
     } else {
         None
+    }
+}
+
+/// True when a stored index mapping contains ANY directive that can make
+/// `apply_ignore_malformed` modify a document: a truthy `ignore_malformed`
+/// or an `ignore_above` anywhere in the (possibly nested) properties tree.
+/// Conservative on false positives (e.g. a user field literally named
+/// `ignore_above` still returns true and takes the slow rewrite path);
+/// never falsely negative, because `validate_doc_fields` only mutates a
+/// doc under one of these two directives.
+pub(crate) fn mapping_has_ignore_directives(mapping: &Value) -> bool {
+    match mapping {
+        Value::Object(m) => {
+            if m.get("ignore_malformed").and_then(Value::as_bool).unwrap_or(false) {
+                return true;
+            }
+            if m.contains_key("ignore_above") {
+                return true;
+            }
+            m.values().any(mapping_has_ignore_directives)
+        }
+        Value::Array(arr) => arr.iter().any(mapping_has_ignore_directives),
+        _ => false,
     }
 }
 

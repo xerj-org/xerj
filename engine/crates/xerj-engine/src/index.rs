@@ -1310,12 +1310,17 @@ impl Index {
         // `fetch_add`; (c) response order matches request order.
         use rayon::prelude::*;
 
-        // 1. Parse in parallel — each doc exactly once.
-        let sources: Vec<Value> = docs
+        // 1. Parse in parallel — each doc exactly once.  Wrapped in `Arc`
+        // right here so the memtable insert below shares the SAME parsed
+        // tree (P2.2: pre-fix `insert` deep-cloned every Value under the
+        // shard lock, ~1.7s CPU/1M docs).
+        let sources: Vec<Arc<Value>> = docs
             .par_iter()
             .map(|(_, bytes)| {
-                serde_json::from_slice::<Value>(bytes)
-                    .unwrap_or_else(|_| Value::Object(serde_json::Map::new()))
+                Arc::new(
+                    serde_json::from_slice::<Value>(bytes)
+                        .unwrap_or_else(|_| Value::Object(serde_json::Map::new())),
+                )
             })
             .collect();
 
@@ -1348,7 +1353,16 @@ impl Index {
                         // the batch leaves exactly one live entry
                         // (mirrors index_document).
                         m.remove(id);
-                        m.insert(id.clone(), &sources[i], schema, seq_nos[i]);
+                        // Share the parsed Value via Arc (no deep clone)
+                        // and pass the raw NDJSON length for size
+                        // accounting (no `to_string()` re-serialisation).
+                        m.insert_arc(
+                            id.clone(),
+                            Arc::clone(&sources[i]),
+                            docs[i].1.len(),
+                            schema,
+                            seq_nos[i],
+                        );
                     }
                 });
             });
@@ -7094,7 +7108,7 @@ async fn do_flush_shard(
         Vec<(
             String,
             std::collections::HashMap<String, String>,
-            serde_json::Value,
+            std::sync::Arc<serde_json::Value>,
         )>,
         xerj_storage::index_store::DrainedMemtable,
     )> = {
@@ -7119,19 +7133,24 @@ async fn do_flush_shard(
             // CPU per flush — irrelevant against the 50-100 ms segment
             // write.  Always build the drained_fts payload so the FTS
             // sidecar carries the full doc set.
-            let drained_fts: Vec<(String, std::collections::HashMap<String, String>, serde_json::Value)> =
+            let drained_fts: Vec<(String, std::collections::HashMap<String, String>, std::sync::Arc<serde_json::Value>)> =
                 raw.iter()
                     .map(|(_seq, doc_id, arc, bytes)| {
                         // Raw-bytes path stores Value::Null in `arc` and
                         // the actual JSON in `bytes` (skip-parse drain).
                         // Re-parse just-in-time for FTS field extraction.
-                        let val: serde_json::Value = if !arc.is_null() {
-                            (**arc).clone()
+                        // P2.2: the parsed path SHARES the memtable's Arc
+                        // instead of deep-cloning every Value (~3.7s CPU
+                        // per 1M docs on the background flush thread).
+                        let val: std::sync::Arc<serde_json::Value> = if !arc.is_null() {
+                            std::sync::Arc::clone(arc)
                         } else if !bytes.is_empty() {
-                            serde_json::from_slice::<serde_json::Value>(bytes)
-                                .unwrap_or(serde_json::Value::Null)
+                            std::sync::Arc::new(
+                                serde_json::from_slice::<serde_json::Value>(bytes)
+                                    .unwrap_or(serde_json::Value::Null),
+                            )
                         } else {
-                            serde_json::Value::Null
+                            std::sync::Arc::new(serde_json::Value::Null)
                         };
                         let fields = crate::memtable::extract_text_fields_from(&val);
                         (doc_id.clone(), fields, val)
@@ -7194,7 +7213,7 @@ async fn do_flush_shard(
         // ── Doc-values side-car (always built) ────────────────────
         {
             let columns = build_doc_value_columns(
-                drained_fts.iter().map(|(_id, _fields, src)| Some(src)),
+                drained_fts.iter().map(|(_id, _fields, src)| Some(src.as_ref())),
             );
             if !columns.is_empty() {
                 if let Err(e) = write_doc_values_sidecar(
