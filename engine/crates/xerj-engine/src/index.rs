@@ -464,7 +464,19 @@ impl Index {
         let settings_path = index_dir.join("settings.json");
         if !settings.is_null() {
             let bytes = serde_json::to_vec_pretty(&settings)?;
-            std::fs::write(&settings_path, bytes)?;
+            write_file_atomic(&settings_path, &bytes)?;
+        }
+
+        // Persist the schema at create time so an explicit mapping
+        // (PUT /{index} with a mappings body) survives a restart.
+        // Historically schema.json was only written by put_mapping /
+        // dynamic-field evolution, so a create-time mapping silently
+        // degraded to ManagedSchema::dynamic() (empty) after reboot —
+        // keyword FST routing, analyzers, and doc-values typing all
+        // reverted to inference until a manual _mapping PUT.
+        {
+            let bytes = serde_json::to_vec_pretty(&managed)?;
+            write_file_atomic(&index_dir.join("schema.json"), &bytes)?;
         }
 
         // Build analyzer registry, applying any custom analysis settings.
@@ -5847,7 +5859,7 @@ impl Index {
 
         let path = self.data_dir.join("settings.json");
         let bytes = serde_json::to_vec_pretty(&settings)?;
-        std::fs::write(&path, bytes).map_err(EngineError::Io)?;
+        write_file_atomic(&path, &bytes).map_err(EngineError::Io)?;
         *self.settings.write().await = settings;
         Ok(())
     }
@@ -5974,7 +5986,7 @@ impl Index {
     async fn save_schema(&self, schema: &ManagedSchema) -> Result<()> {
         let path = self.data_dir.join("schema.json");
         let bytes = serde_json::to_vec_pretty(schema)?;
-        std::fs::write(&path, bytes).map_err(EngineError::Io)?;
+        write_file_atomic(&path, &bytes).map_err(EngineError::Io)?;
         Ok(())
     }
 
@@ -8439,6 +8451,30 @@ fn store_config_from(config: &Config) -> IndexStoreConfig {
         storage_mode: xerj_storage::StorageMode::Local,
         num_wal_shards: config.engine.ingest_shards,
     }
+}
+
+/// Write `bytes` to `path` atomically: write a same-directory temp file,
+/// fsync it, then rename over the target.  A kill -9 mid-write leaves
+/// either the old file or the new file on disk, never a truncated one.
+/// This matters for `schema.json`: `load_schema` treats a torn file as
+/// "no schema" and silently falls back to an empty dynamic mapping,
+/// which is a mapping-loss corruption after crash.
+pub fn write_file_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let tmp = path.with_extension("tmp");
+    {
+        use std::io::Write as _;
+        let mut f = std::fs::File::create(&tmp)?;
+        f.write_all(bytes)?;
+        f.sync_all()?;
+    }
+    std::fs::rename(&tmp, path)?;
+    // Make the rename itself durable across power loss.
+    if let Some(parent) = path.parent() {
+        if let Ok(dir) = std::fs::File::open(parent) {
+            let _ = dir.sync_all();
+        }
+    }
+    Ok(())
 }
 
 fn load_schema(index_dir: &Path) -> std::result::Result<ManagedSchema, ()> {

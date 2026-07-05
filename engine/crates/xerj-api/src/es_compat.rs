@@ -559,10 +559,11 @@ pub async fn create_index(
                 }));
             }
             if !mappings_val.is_null() {
+                // Persists es_mapping.json into the index dir (atomic) so
+                // the create-time mapping survives a restart.
                 state
                     .engine
-                    .index_mappings
-                    .insert(index.clone(), mappings_val.clone());
+                    .put_index_mapping(&index, mappings_val.clone());
             }
             if let Some(aliases) = body.get("aliases").and_then(Value::as_object) {
                 // Alias keys can also contain date math
@@ -1188,7 +1189,9 @@ pub async fn put_mapping(
         } else {
             existing = body.clone();
         }
-        state.engine.index_mappings.insert(idx_name.clone(), existing);
+        // Persists es_mapping.json into the index dir (atomic) so the
+        // merged mapping survives a restart.
+        state.engine.put_index_mapping(idx_name, existing);
     }
 
     Json(json!({ "acknowledged": true })).into_response()

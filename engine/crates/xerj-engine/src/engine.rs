@@ -322,6 +322,11 @@ impl Engine {
                 match Index::open(index_name.clone(), &engine.config, &data_dir) {
                     Ok(idx) => {
                         info!(name = name_str.as_str(), "opened existing index");
+                        // Restore the raw ES mapping blob (analyzers, formats,
+                        // dims — full fidelity) BEFORE any ingest/query can run,
+                        // so GET /_mapping and mapping-dependent code paths see
+                        // the same mapping as pre-restart.
+                        engine.load_persisted_es_mapping(&name_str);
                         engine.indices.insert(name_str, idx);
                     }
                     Err(e) => {
@@ -460,6 +465,51 @@ impl Engine {
         self.indices.insert(name.to_string(), idx);
         info!(name, "index created with custom settings");
         Ok(())
+    }
+
+    /// Register the raw ES mapping blob for `name` and persist it into the
+    /// index data dir (atomic temp-file + rename) so `GET /{index}/_mapping`
+    /// round-trips the exact user-provided mapping (analyzers, date formats,
+    /// dense_vector dims/similarity, multi-fields) across restarts.
+    ///
+    /// This is the single write path for `engine.index_mappings` — both
+    /// index-create-with-mappings and PUT /_mapping go through here.
+    pub fn put_index_mapping(&self, name: &str, mapping: Value) {
+        let index_dir = self.data_dir.join(name);
+        if index_dir.is_dir() {
+            match serde_json::to_vec_pretty(&mapping) {
+                Ok(bytes) => {
+                    if let Err(e) = crate::index::write_file_atomic(
+                        &index_dir.join("es_mapping.json"),
+                        &bytes,
+                    ) {
+                        warn!(index = name, error = %e, "failed to persist es_mapping.json");
+                    }
+                }
+                Err(e) => {
+                    warn!(index = name, error = %e, "failed to serialize index mapping for persistence");
+                }
+            }
+        }
+        self.index_mappings.insert(name.to_string(), mapping);
+    }
+
+    /// Load a previously-persisted raw ES mapping blob for `name` (if any)
+    /// into the in-memory `index_mappings` map.  Called whenever an index is
+    /// (re)opened from disk — boot scan and snapshot restore.  A missing
+    /// file is fine (pre-fix indices, dynamic-only indices): readers fall
+    /// back to schema-derived properties from `schema.json`.
+    fn load_persisted_es_mapping(&self, name: &str) {
+        let path = self.data_dir.join(name).join("es_mapping.json");
+        let Ok(bytes) = std::fs::read(&path) else { return };
+        match serde_json::from_slice::<Value>(&bytes) {
+            Ok(mapping) => {
+                self.index_mappings.insert(name.to_string(), mapping);
+            }
+            Err(e) => {
+                warn!(index = name, error = %e, "ignoring corrupt es_mapping.json");
+            }
+        }
     }
 
     /// Find the highest-priority template matching `index_name`.
@@ -995,6 +1045,9 @@ impl Engine {
             let index_name = IndexName::new(idx_name).map_err(EngineError::Common)?;
             match Index::open(index_name, &self.config, &self.data_dir) {
                 Ok(idx) => {
+                    // Snapshot dirs carry es_mapping.json — reload it so the
+                    // restored index serves the same mapping it was saved with.
+                    self.load_persisted_es_mapping(idx_name);
                     self.indices.insert(idx_name.clone(), idx);
                     info!(index = idx_name, "index restored from snapshot");
                 }
