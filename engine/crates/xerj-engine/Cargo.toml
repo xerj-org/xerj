@@ -40,12 +40,9 @@ regex      = "1"
 # Fast non-cryptographic hash — used to shard the engine FTS memtable
 # by doc_id so concurrent bulk ingest batches target different shards.
 xxhash-rust = { workspace = true }
-# Fast string hasher for the FTS memtable's private postings/lookup maps.
-# perf(P2.2): SipHash over token/doc_id String keys was ~21% of ALL CPU
-# samples during 1M-doc bulk ingest. These maps are drained and discarded
-# at flush time and never serialized, so the hasher swap is invisible on
-# disk.
-ahash = "0.8"
+# FxHash for the memtable hot maps (postings, field_lengths, doc-values)
+# — SipHash was >21% of on-CPU time under the shard write locks at c8.
+rustc-hash = { workspace = true }
 
 [dev-dependencies]
 tempfile  = { workspace = true }

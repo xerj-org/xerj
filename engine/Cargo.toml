@@ -57,6 +57,7 @@ lz4_flex = "0.11"
 zstd = "0.13"
 # Hashing
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
+rustc-hash = "2"
 crc32fast = "1"
 # Crypto/Random
 rand = "0.8"

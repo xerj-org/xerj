@@ -1310,10 +1310,10 @@ impl Index {
         // `fetch_add`; (c) response order matches request order.
         use rayon::prelude::*;
 
-        // 1. Parse in parallel — each doc exactly once.  Wrapped in `Arc`
-        // right here so the memtable insert below shares the SAME parsed
-        // tree (P2.2: pre-fix `insert` deep-cloned every Value under the
-        // shard lock, ~1.7s CPU/1M docs).
+        // 1. Parse in parallel — each doc exactly once.  Arc-wrapped so
+        // the memtable entry can share the allocation (no deep clone at
+        // insert time — pre-fix `insert` did `Arc::new(source.clone())`
+        // per doc under the shard write lock).
         let sources: Vec<Arc<Value>> = docs
             .par_iter()
             .map(|(_, bytes)| {
@@ -1326,7 +1326,7 @@ impl Index {
 
         // 2. Dynamic mapping: evolve schema serially, in doc order.
         for source in &sources {
-            self.evolve_schema_from_doc(source).await;
+            self.evolve_schema_from_doc(source.as_ref()).await;
         }
 
         // 3. Parallel shard-partitioned insert. Partition the batch by
@@ -1337,6 +1337,25 @@ impl Index {
             let schema_guard = self.schema.read().await;
             let schema = &schema_guard.schema;
             let mem = &*self.memtable;
+
+            // 3a. Pre-analyze every doc OUTSIDE the shard locks.  The
+            // schema text-field extraction + dynamic-mapping tree walk
+            // + analyzer tokenisation are the dominant per-doc CPU cost
+            // of `insert` (~30 s of tokenize per 1 M docs) and are pure
+            // — running them here on the rayon pool instead of inside
+            // `with_shard_mut` cuts the lock-held work from ~39 µs/doc
+            // to ~9 µs/doc, which is what lets 8 concurrent bulk
+            // clients actually scale instead of convoying on the shard
+            // write locks.  Uses the exact same analyzer lookup as
+            // `FtsMemtable::insert`, so the postings are bit-identical.
+            let analyzer = mem
+                .default_analyzer()
+                .expect("standard analyzer always present");
+            let analyzed: Vec<Vec<(String, Vec<xerj_fts::analyzer::Token>)>> = sources
+                .par_iter()
+                .map(|source| crate::memtable::analyze_doc(source.as_ref(), schema, &analyzer))
+                .collect();
+
             let n_shards = mem.shard_count().max(1);
             let mut buckets: Vec<Vec<usize>> = vec![Vec::new(); n_shards];
             for (i, (id, _)) in docs.iter().enumerate() {
@@ -1348,20 +1367,22 @@ impl Index {
                 }
                 mem.with_shard_mut(shard, |m| {
                     for &i in idxs {
-                        let id = &docs[i].0;
+                        let (id, bytes) = &docs[i];
                         // `remove` first so a same-id overwrite within
                         // the batch leaves exactly one live entry
                         // (mirrors index_document).
                         m.remove(id);
-                        // Share the parsed Value via Arc (no deep clone)
-                        // and pass the raw NDJSON length for size
-                        // accounting (no `to_string()` re-serialisation).
-                        m.insert_arc(
+                        // Same sizing formula as `insert` (`raw * 3 + 64`)
+                        // with the raw NDJSON byte length standing in for
+                        // `source.to_string().len()` — keeps the size
+                        // re-serialisation off the lock too.
+                        let size = (bytes.len() + id.len()) * 3 + 64;
+                        m.insert_analyzed(
+                            seq_nos[i],
                             id.clone(),
                             Arc::clone(&sources[i]),
-                            docs[i].1.len(),
-                            schema,
-                            seq_nos[i],
+                            &analyzed[i],
+                            size,
                         );
                     }
                 });
