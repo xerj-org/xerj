@@ -1110,10 +1110,19 @@ fn tokenize_query_string(q: &str) -> Result<Option<Vec<QsTok>>> {
             continue;
         }
         // Bare token (possibly field:value or field:"value").
+        //
+        // NOTE: `+` / `-` are Lucene unary operators ONLY at the start of a
+        // clause (handled by the top-of-loop checks above, which can only
+        // fire at a fresh scan position). INSIDE a bare token they are
+        // literal characters — `model:claude-haiku-4-5` is ONE term, not
+        // `model:claude NOT haiku NOT 4 NOT 5`. Breaking on mid-token `-`
+        // shredded hyphenated keyword values and made e.g.
+        // `query_string: "model:claude-haiku-4-5 AND status:ok"` match a
+        // garbage clause tree instead of the two field terms.
         let start = i;
         while i < bytes.len() {
             let ch = bytes[i] as char;
-            if ch.is_whitespace() || ch == '(' || ch == ')' || ch == '+' || ch == '-' { break; }
+            if ch.is_whitespace() || ch == '(' || ch == ')' { break; }
             i += 1;
         }
         let tok = &q[start..i];

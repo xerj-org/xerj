@@ -4203,15 +4203,27 @@ impl Index {
 
         // Determine text fields once outside the segment loop to avoid
         // re-acquiring the schema read lock on every segment iteration.
-        let text_fields: Vec<String> = {
+        //
+        // `exact_fields` mirrors `build_fts_field_configs`: every non-Text
+        // schema field (keyword / numeric / date / bool / ip) is FTS-indexed
+        // with the `keyword` analyzer — the WHOLE value is one case-preserved
+        // token.  The query side (query_node_to_fts) must therefore look
+        // these fields up by whole value, never by standard-analyzer tokens:
+        // a token like "claude" can never match the keyword term
+        // "claude-haiku-4-5", which made multi_match / query_string /
+        // simple_query_string return 0 hits on keyword-only mappings.
+        let (text_fields, exact_fields): (Vec<String>, std::collections::HashSet<String>) = {
             let schema_guard = self.schema.read().await;
-            schema_guard
-                .schema
-                .fields
-                .iter()
-                .filter(|f| matches!(f.field_type, FieldType::Text))
-                .map(|f| f.name.clone())
-                .collect()
+            let mut tf: Vec<String> = Vec::new();
+            let mut ef: std::collections::HashSet<String> = std::collections::HashSet::new();
+            for f in &schema_guard.schema.fields {
+                if matches!(f.field_type, FieldType::Text) {
+                    tf.push(f.name.clone());
+                } else {
+                    ef.insert(f.name.clone());
+                }
+            }
+            (tf, ef)
         };
 
         // ── Fast path: count-only shortcut ────────────────────────────────
@@ -4279,7 +4291,8 @@ impl Index {
         // and materialises only the top prefix, so the F1 bounded-scan / count
         // overwrite must NOT touch FTS queries — it only applies to the
         // non-FTS stored-doc scan (match_all / term-on-keyword / range).
-        let query_needs_fts: bool = query_node_to_fts(query, &text_fields).is_some();
+        let query_needs_fts: bool =
+            query_node_to_fts(query, &text_fields, &exact_fields).is_some();
 
         // ── Precomputed segment agg fast path (M2 G2) ─────────────────────
         //
@@ -4358,9 +4371,29 @@ impl Index {
             // entirely — that call eagerly reads .fst/.meta/.post/.norms
             // for every text field, which costs ~50 MB per segment and is
             // wasted work when the query is a stored-doc scan.
-            let fts_query_probe = query_node_to_fts(query, &text_fields);
+            let fts_query_probe = query_node_to_fts(query, &text_fields, &exact_fields);
             let needs_fts = fts_query_probe.is_some();
-            drop(fts_query_probe); // only needed for the decision
+            // Open the FTS reader with every field the projected query
+            // actually touches, ON TOP of the text fields.  Keyword-typed
+            // fields have FTS side-cars too (whole-value keyword-analyzer
+            // terms) but were never loaded because `field_refs` only listed
+            // Text fields — so keyword projections silently searched an
+            // empty reader.  Restricting the extension to the queried
+            // fields keeps the eager `.fst/.meta/.post/.norms` read bounded.
+            let fts_open_fields: Vec<String> = {
+                let mut all = text_fields.clone();
+                if let Some(fq) = &fts_query_probe {
+                    let mut qf: Vec<String> = Vec::new();
+                    collect_fts_query_fields(fq, &mut qf);
+                    for f in qf {
+                        if !all.contains(&f) {
+                            all.push(f);
+                        }
+                    }
+                }
+                all
+            };
+            drop(fts_query_probe); // only needed for the decision + field list
 
             // F1: when the EXACT total is already known independently of the
             // scan — MatchAll (overwritten with `live_doc_count()` below) or a
@@ -4419,7 +4452,8 @@ impl Index {
                 let seg_id = meta.id.clone();
                 let fts_dir = segments_dir.clone();
 
-                let field_refs: Vec<&str> = text_fields.iter().map(|s| s.as_str()).collect();
+                let field_refs: Vec<&str> =
+                    fts_open_fields.iter().map(|s| s.as_str()).collect();
                 let scan_stored = matches!(query, QueryNode::MatchAll) || is_doc_scan_query(query);
 
                 // Try FTS path first if we have an FTS query.
@@ -4433,7 +4467,7 @@ impl Index {
                     let reader = Arc::new(reader);
                     let searcher =
                         FtsSearcher::new(Arc::clone(&reader), Arc::clone(&self.registry));
-                    let fts_query = query_node_to_fts(query, &text_fields);
+                    let fts_query = query_node_to_fts(query, &text_fields, &exact_fields);
 
                     // Count-only fast path for single-term FTS queries:
                     // call `term_doc_freq` directly on the segment reader
@@ -4456,13 +4490,18 @@ impl Index {
                         // so the reader may open successfully (empty sidecars)
                         // but contain no terms — in that case fall through to
                         // stored-doc scan instead of claiming "0 matches".
-                        let fts_field = match &fq {
-                            FtsQuery::Term(t) => Some(t.field.as_str()),
-                            _ => None,
+                        // Generalised from the old single-`Term` probe: a
+                        // Bool projection (multi_match / lowered
+                        // query_string / simple_query_string) over a field
+                        // with no FTS data would otherwise "authoritatively"
+                        // report 0 matches for the segment. Require every
+                        // referenced field to be present; if any is missing,
+                        // fall through to the stored-doc scan.
+                        let fts_has_field = {
+                            let mut qf: Vec<String> = Vec::new();
+                            collect_fts_query_fields(&fq, &mut qf);
+                            qf.iter().all(|f| reader.field_stats(f).is_some())
                         };
-                        let fts_has_field = fts_field
-                            .map(|f| reader.field_stats(f).is_some())
-                            .unwrap_or(true);
 
                         // Counting is DECOUPLED from materialisation on the
                         // scored FTS path.  `FtsSearcher::execute` builds the
@@ -12461,8 +12500,60 @@ fn ip_matches_cidr(ip_str: &str, cidr: &str) -> Option<bool> {
     Some((ip & mask) == (network & mask))
 }
 
+/// Collect every field name referenced by an FTS query tree.
+///
+/// Used to (a) extend the set of side-car fields `FtsIndexReader::open`
+/// loads beyond the Text-typed schema fields, and (b) verify that a segment
+/// actually has FTS data for every queried field before trusting an FTS
+/// result as authoritative.
+fn collect_fts_query_fields(q: &FtsQuery, out: &mut Vec<String>) {
+    match q {
+        FtsQuery::Term(t) => {
+            if !out.contains(&t.field) {
+                out.push(t.field.clone());
+            }
+        }
+        FtsQuery::Phrase(p) => {
+            if !out.contains(&p.field) {
+                out.push(p.field.clone());
+            }
+        }
+        FtsQuery::Prefix(p) => {
+            if !out.contains(&p.field) {
+                out.push(p.field.clone());
+            }
+        }
+        FtsQuery::Bool(b) => {
+            for sub in b.must.iter().chain(b.should.iter()).chain(b.must_not.iter()) {
+                collect_fts_query_fields(sub, out);
+            }
+        }
+        FtsQuery::DisMax(d) => {
+            for sub in &d.queries {
+                collect_fts_query_fields(sub, out);
+            }
+        }
+        FtsQuery::MatchAll => {}
+    }
+}
+
 /// Convert a QueryNode to an FTS Query for segment search.
-fn query_node_to_fts(q: &QueryNode, text_fields: &[String]) -> Option<FtsQuery> {
+///
+/// `exact_fields` are the non-Text schema fields (keyword / numeric / date /
+/// bool / ip).  `build_fts_field_configs` indexes those with the `keyword`
+/// analyzer — the whole value becomes ONE case-preserved term — so the query
+/// side must look them up by whole value too (ES semantics: `match` /
+/// `multi_match` / query-string clauses on a keyword field are exact
+/// whole-value comparisons, because the keyword analyzer is a no-op).
+/// Tokenizing the query with the `standard` analyzer here would produce
+/// terms (e.g. "claude" from "claude-haiku-4-5") that can never exist in a
+/// keyword field's FST — the cause of the multi_match / query_string /
+/// simple_query_string 0-hit bugs on keyword-only mappings.
+fn query_node_to_fts(
+    q: &QueryNode,
+    text_fields: &[String],
+    exact_fields: &std::collections::HashSet<String>,
+) -> Option<FtsQuery> {
     match q {
         QueryNode::MatchAll => {
             // Return None; MatchAll is handled separately by reading stored docs.
@@ -12470,6 +12561,10 @@ fn query_node_to_fts(q: &QueryNode, text_fields: &[String]) -> Option<FtsQuery> 
         }
         QueryNode::MatchNone => None,
         QueryNode::Match { field, query, operator, .. } => {
+            // Keyword-indexed field: single whole-value, case-sensitive term.
+            if exact_fields.contains(field.as_str()) {
+                return Some(FtsQuery::Term(FtsTerm::new(field.as_str(), query.as_str())));
+            }
             // Tokenize and produce a bool query over terms. Honour the
             // operator: AND → every token must match; OR → any token.
             let registry = AnalyzerRegistry::default();
@@ -12497,9 +12592,6 @@ fn query_node_to_fts(q: &QueryNode, text_fields: &[String]) -> Option<FtsQuery> 
             let registry = AnalyzerRegistry::default();
             let analyzer = registry.get_analyzer("standard")?;
             let tokens = analyzer.analyze(query);
-            if tokens.is_empty() {
-                return None;
-            }
             // Split boost factors out of field specs (e.g. "title^3" → ("title", 3.0)).
             let field_specs: Vec<(String, f32)> = if fields.is_empty() {
                 text_fields.iter().map(|s| (s.clone(), 1.0)).collect()
@@ -12515,14 +12607,36 @@ fn query_node_to_fts(q: &QueryNode, text_fields: &[String]) -> Option<FtsQuery> 
             if field_specs.is_empty() {
                 return None;
             }
+            // Keyword-typed fields match by WHOLE value (their FST holds one
+            // case-preserved keyword-analyzer token per value), so an empty
+            // standard-token set only kills the projection when no keyword
+            // field could still match the raw query string.
+            if tokens.is_empty()
+                && !field_specs.iter().any(|(f, _)| exact_fields.contains(f.as_str()))
+            {
+                return None;
+            }
             // One scored clause per field.  A single-token query lowers to a
             // bare Term so that `multi_match(q, [f])` scores IDENTICALLY to
             // `match {f: q}`; multi-token queries lower to an OR-bool over the
             // tokens (per-field score = Σ token BM25) — same as the Match
             // lowering above.  Per-field `^boost` multiplies that field's score.
+            //
+            // Keyword fields get ONE whole-value term (ES: match/multi_match
+            // on a keyword field is exact whole-value equality — standard
+            // tokens like "claude" can never match the keyword term
+            // "claude-haiku-4-5").
             let mut per_field: Vec<FtsQuery> = Vec::with_capacity(field_specs.len());
             for (field, fb) in &field_specs {
-                if tokens.len() == 1 {
+                if exact_fields.contains(field.as_str()) {
+                    per_field.push(FtsQuery::Term(FtsTerm::boosted(
+                        field.as_str(),
+                        query.as_str(),
+                        *fb,
+                    )));
+                } else if tokens.is_empty() {
+                    continue;
+                } else if tokens.len() == 1 {
                     per_field.push(FtsQuery::Term(FtsTerm::boosted(
                         field.as_str(),
                         &tokens[0].text,
@@ -12536,6 +12650,9 @@ fn query_node_to_fts(q: &QueryNode, text_fields: &[String]) -> Option<FtsQuery> 
                     }
                     per_field.push(FtsQuery::Bool(Box::new(field_bool)));
                 }
+            }
+            if per_field.is_empty() {
+                return None;
             }
             // Combine per-field scores according to the multi_match type:
             //   best_fields (ES default) → dis_max: score = MAX field score.
@@ -12571,7 +12688,7 @@ fn query_node_to_fts(q: &QueryNode, text_fields: &[String]) -> Option<FtsQuery> 
             // selective.
             None
         }
-        QueryNode::Bool { must, should, must_not, .. } => {
+        QueryNode::Bool { must, should, must_not, filter, .. } => {
             let mut bool_q = FtsBool::new();
             let mut projected_any = false;
             // CRITICAL: if a `must` child can't be projected to FTS we
@@ -12579,8 +12696,16 @@ fn query_node_to_fts(q: &QueryNode, text_fields: &[String]) -> Option<FtsQuery> 
             // become more permissive than the original query.  Return
             // None in that case so the caller falls back to stored-scan,
             // which handles all child shapes correctly.
-            for sub in must {
-                if let Some(fq) = query_node_to_fts(sub, text_fields) {
+            //
+            // `filter` children constrain the hit set exactly like `must`
+            // (they differ only in scoring). They MUST NOT be dropped —
+            // with keyword-field projections now producing real matches, a
+            // dropped filter would silently overcount. Project them as
+            // `must`, or fall back to the stored scan when one can't
+            // project (Term/Range/etc. all project to None, so classic
+            // filters keep taking the doc-scan path as before).
+            for sub in must.iter().chain(filter.iter()) {
+                if let Some(fq) = query_node_to_fts(sub, text_fields, exact_fields) {
                     bool_q = bool_q.must(fq);
                     projected_any = true;
                 } else {
@@ -12588,7 +12713,7 @@ fn query_node_to_fts(q: &QueryNode, text_fields: &[String]) -> Option<FtsQuery> 
                 }
             }
             for sub in should {
-                if let Some(fq) = query_node_to_fts(sub, text_fields) {
+                if let Some(fq) = query_node_to_fts(sub, text_fields, exact_fields) {
                     bool_q = bool_q.should(fq);
                     projected_any = true;
                 } else {
@@ -12603,7 +12728,7 @@ fn query_node_to_fts(q: &QueryNode, text_fields: &[String]) -> Option<FtsQuery> 
             // `must_not` children that don't project are similar: dropping
             // a must_not relaxes the filter, which is wrong.
             for sub in must_not {
-                if let Some(fq) = query_node_to_fts(sub, text_fields) {
+                if let Some(fq) = query_node_to_fts(sub, text_fields, exact_fields) {
                     bool_q = bool_q.must_not(fq);
                     projected_any = true;
                 } else {
@@ -12620,6 +12745,10 @@ fn query_node_to_fts(q: &QueryNode, text_fields: &[String]) -> Option<FtsQuery> 
                 .as_deref()
                 .or_else(|| text_fields.first().map(|s| s.as_str()))
                 .unwrap_or("_all");
+            // Keyword default field: whole-value term (keyword analyzer).
+            if exact_fields.contains(field) {
+                return Some(FtsQuery::Term(FtsTerm::new(field, query.as_str())));
+            }
             let registry = AnalyzerRegistry::default();
             let analyzer = registry.get_analyzer("standard")?;
             let tokens = analyzer.analyze(query);
@@ -13006,4 +13135,232 @@ fn build_registry_from_settings(settings: &Value) -> AnalyzerRegistry {
 
     registry.apply_settings(analysis_root);
     registry
+}
+
+#[cfg(test)]
+mod fts_projection_tests {
+    use super::*;
+
+    fn kw(names: &[&str]) -> std::collections::HashSet<String> {
+        names.iter().map(|s| s.to_string()).collect()
+    }
+
+    /// Text-field behavior is UNCHANGED: a multi-token match query on a
+    /// text field still projects to a standard-analyzed (tokenized +
+    /// lowercased) OR-bool of per-token terms.
+    #[test]
+    fn match_on_text_field_still_tokenizes() {
+        let q = QueryNode::Match {
+            field: "body".into(),
+            query: "Quick Fox".into(),
+            operator: xerj_query::ast::BoolOperator::Or,
+            analyzer: None,
+            boost: None,
+            minimum_should_match: None,
+        };
+        let text_fields = vec!["body".to_string()];
+        let fq = query_node_to_fts(&q, &text_fields, &kw(&["status"])).expect("projects");
+        match fq {
+            FtsQuery::Bool(b) => {
+                assert_eq!(b.should.len(), 2, "two analyzed tokens");
+                let terms: Vec<&str> = b
+                    .should
+                    .iter()
+                    .map(|s| match s {
+                        FtsQuery::Term(t) => t.term.as_str(),
+                        other => panic!("expected term, got {:?}", other),
+                    })
+                    .collect();
+                assert_eq!(terms, vec!["quick", "fox"], "lowercased standard tokens");
+            }
+            other => panic!("expected bool, got {:?}", other),
+        }
+    }
+
+    /// A single-token text match still projects to a single lowercased term.
+    #[test]
+    fn match_on_text_field_single_token() {
+        let q = QueryNode::Match {
+            field: "body".into(),
+            query: "Fox".into(),
+            operator: xerj_query::ast::BoolOperator::Or,
+            analyzer: None,
+            boost: None,
+            minimum_should_match: None,
+        };
+        let fq = query_node_to_fts(&q, &["body".to_string()], &kw(&[])).expect("projects");
+        match fq {
+            FtsQuery::Term(t) => {
+                assert_eq!(t.field, "body");
+                assert_eq!(t.term, "fox");
+            }
+            other => panic!("expected term, got {:?}", other),
+        }
+    }
+
+    /// Match on a KEYWORD field projects to ONE whole-value, case-preserved
+    /// term — the FST stores keyword values as single keyword-analyzer
+    /// tokens, so standard-analyzer tokens could never match.
+    #[test]
+    fn match_on_keyword_field_is_whole_value() {
+        let q = QueryNode::Match {
+            field: "model".into(),
+            query: "claude-haiku-4-5".into(),
+            operator: xerj_query::ast::BoolOperator::Or,
+            analyzer: None,
+            boost: None,
+            minimum_should_match: None,
+        };
+        let fq = query_node_to_fts(&q, &[], &kw(&["model"])).expect("projects");
+        match fq {
+            FtsQuery::Term(t) => {
+                assert_eq!(t.field, "model");
+                assert_eq!(t.term, "claude-haiku-4-5", "whole value, not tokens");
+            }
+            other => panic!("expected single term, got {:?}", other),
+        }
+    }
+
+    /// multi_match over keyword fields: one whole-value term per field
+    /// (ES: match on keyword requires whole-value equality per field).
+    #[test]
+    fn multi_match_keyword_fields_whole_value_per_field() {
+        let q = QueryNode::MultiMatch {
+            fields: vec!["model".into(), "top_doc".into()],
+            query: "claude-haiku-4-5".into(),
+            match_type: xerj_query::ast::MultiMatchType::BestFields,
+            operator: None,
+            analyzer: None,
+            boost: None,
+        };
+        let fq = query_node_to_fts(&q, &[], &kw(&["model", "top_doc"])).expect("projects");
+        match fq {
+            // best_fields → dis_max over the per-field clauses.
+            FtsQuery::DisMax(d) => {
+                assert_eq!(d.queries.len(), 2, "one whole-value term per keyword field");
+                for s in &d.queries {
+                    match s {
+                        FtsQuery::Term(t) => assert_eq!(t.term, "claude-haiku-4-5"),
+                        other => panic!("expected term, got {:?}", other),
+                    }
+                }
+            }
+            other => panic!("expected dis_max, got {:?}", other),
+        }
+    }
+
+    /// multi_match over a MIX of text + keyword fields: the text field gets
+    /// standard tokens, the keyword field gets the whole value.
+    #[test]
+    fn multi_match_mixed_text_and_keyword() {
+        let q = QueryNode::MultiMatch {
+            fields: vec!["title".into(), "model".into()],
+            query: "claude-haiku-4-5".into(),
+            match_type: xerj_query::ast::MultiMatchType::BestFields,
+            operator: None,
+            analyzer: None,
+            boost: None,
+        };
+        let fq = query_node_to_fts(&q, &["title".to_string()], &kw(&["model"]))
+            .expect("projects");
+        match fq {
+            // best_fields → dis_max: one clause per field. The text field's
+            // clause is an OR-bool over its standard-analyzed tokens; the
+            // keyword field's clause is a single whole-value term.
+            FtsQuery::DisMax(d) => {
+                assert_eq!(d.queries.len(), 2);
+                let mut title_tokens = 0;
+                let mut model_whole = 0;
+                for clause in &d.queries {
+                    match clause {
+                        FtsQuery::Bool(b) => {
+                            for s in &b.should {
+                                match s {
+                                    FtsQuery::Term(t) if t.field == "title" => {
+                                        assert!(
+                                            ["claude", "haiku", "4", "5"]
+                                                .contains(&t.term.as_str()),
+                                            "text field analyzed with standard: {}",
+                                            t.term
+                                        );
+                                        title_tokens += 1;
+                                    }
+                                    other => panic!("unexpected clause {:?}", other),
+                                }
+                            }
+                        }
+                        FtsQuery::Term(t) if t.field == "model" => {
+                            assert_eq!(t.term, "claude-haiku-4-5");
+                            model_whole += 1;
+                        }
+                        other => panic!("unexpected clause {:?}", other),
+                    }
+                }
+                assert_eq!(title_tokens, 4);
+                assert_eq!(model_whole, 1);
+            }
+            other => panic!("expected dis_max, got {:?}", other),
+        }
+    }
+
+    /// A Bool of keyword Match clauses (the parse-time lowering of
+    /// `query_string: "model:X AND status:ok"`) projects each clause to a
+    /// whole-value term inside an FTS bool.
+    #[test]
+    fn lowered_query_string_bool_over_keyword_fields() {
+        let q = QueryNode::Bool {
+            must: vec![
+                QueryNode::Match {
+                    field: "model".into(),
+                    query: "claude-haiku-4-5".into(),
+                    operator: xerj_query::ast::BoolOperator::Or,
+                    analyzer: None,
+                    boost: None,
+                    minimum_should_match: None,
+                },
+                QueryNode::Match {
+                    field: "status".into(),
+                    query: "ok".into(),
+                    operator: xerj_query::ast::BoolOperator::Or,
+                    analyzer: None,
+                    boost: None,
+                    minimum_should_match: None,
+                },
+            ],
+            should: vec![],
+            must_not: vec![],
+            filter: vec![],
+            minimum_should_match: None,
+        };
+        let fq = query_node_to_fts(&q, &[], &kw(&["model", "status"])).expect("projects");
+        match fq {
+            FtsQuery::Bool(b) => {
+                assert_eq!(b.must.len(), 2);
+                match (&b.must[0], &b.must[1]) {
+                    (FtsQuery::Term(m), FtsQuery::Term(s)) => {
+                        assert_eq!((m.field.as_str(), m.term.as_str()), ("model", "claude-haiku-4-5"));
+                        assert_eq!((s.field.as_str(), s.term.as_str()), ("status", "ok"));
+                    }
+                    other => panic!("expected two terms, got {:?}", other),
+                }
+            }
+            other => panic!("expected bool, got {:?}", other),
+        }
+    }
+
+    /// Field collector walks every clause of a projected query.
+    #[test]
+    fn collect_fields_walks_bool_tree() {
+        let q = FtsQuery::Bool(Box::new({
+            let mut b = FtsBool::new();
+            b = b.must(FtsQuery::Term(FtsTerm::new("model", "x")));
+            b = b.should(FtsQuery::Term(FtsTerm::new("status", "ok")));
+            b = b.must_not(FtsQuery::Term(FtsTerm::new("model", "y")));
+            b
+        }));
+        let mut out = Vec::new();
+        collect_fts_query_fields(&q, &mut out);
+        out.sort();
+        assert_eq!(out, vec!["model".to_string(), "status".to_string()]);
+    }
 }
