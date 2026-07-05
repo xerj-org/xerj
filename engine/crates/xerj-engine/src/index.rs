@@ -3591,17 +3591,31 @@ impl Index {
         let cache_eligible = !request.profile
             && request.search_after.is_none();
         let cache_key: Option<(u64, u64)> = if cache_eligible {
-            // Hash the request via its serde_json representation.
-            // Std DefaultHasher is fine for the cache-key use case
-            // (uniformity matters more than speed; the hash is only
-            // ~600 ns and still way below the slow-path floor).
+            // Hash the request via its serde_json representation,
+            // streaming the serializer output STRAIGHT INTO the hasher.
+            // The previous implementation built a full `String` with
+            // `serde_json::to_string` on every request just to hash it —
+            // a per-request allocation + copy proportional to the body
+            // size that showed up as part of the fixed per-request tax
+            // on trivial reads.
             use std::collections::hash_map::DefaultHasher;
-            use std::hash::{Hash, Hasher};
-            let body_hash: Option<u64> = serde_json::to_string(request).ok().map(|s| {
-                let mut h = DefaultHasher::new();
-                s.hash(&mut h);
-                h.finish()
-            });
+            use std::hash::Hasher;
+            struct HasherWriter<'a>(&'a mut DefaultHasher);
+            impl std::io::Write for HasherWriter<'_> {
+                #[inline]
+                fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                    self.0.write(buf);
+                    Ok(buf.len())
+                }
+                #[inline]
+                fn flush(&mut self) -> std::io::Result<()> {
+                    Ok(())
+                }
+            }
+            let mut h = DefaultHasher::new();
+            let body_hash: Option<u64> = serde_json::to_writer(HasherWriter(&mut h), request)
+                .ok()
+                .map(|_| h.finish());
             let v = self.dataset_version.load(Ordering::Acquire);
             body_hash.map(|h| (h, v))
         } else {

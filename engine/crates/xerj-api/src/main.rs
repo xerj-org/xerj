@@ -37,9 +37,11 @@ async fn main() -> anyhow::Result<()> {
     let native_listener = tokio::net::TcpListener::bind(&native_addr).await?;
     let es_listener = tokio::net::TcpListener::bind(&es_addr).await?;
 
+    // TCP_NODELAY matches the production `xerj` binary (xerj-server) —
+    // see the comment there for the per-request latency rationale.
     tokio::select! {
-        result = axum::serve(native_listener, native_router) => { result?; }
-        result = axum::serve(es_listener, es_router) => { result?; }
+        result = axum::serve(native_listener, native_router).tcp_nodelay(true) => { result?; }
+        result = axum::serve(es_listener, es_router).tcp_nodelay(true) => { result?; }
     }
 
     Ok(())

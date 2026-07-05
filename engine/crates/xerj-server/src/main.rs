@@ -328,7 +328,12 @@ async fn serve(router: Router, addr: SocketAddr, name: &'static str) -> Result<(
 
     info!("{name} listening on {addr}");
 
+    // TCP_NODELAY: disable Nagle on accepted connections.  Elasticsearch
+    // (Netty) sets this by default; without it small request/response
+    // round-trips can stall on the delayed-ACK/Nagle interaction, which
+    // shows up as a fixed per-request latency tax on trivial reads.
     axum::serve(listener, router)
+        .tcp_nodelay(true)
         .with_graceful_shutdown(shutdown_signal())
         .await
         .with_context(|| format!("{name} serve error"))?;

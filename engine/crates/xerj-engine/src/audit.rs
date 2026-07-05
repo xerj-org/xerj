@@ -49,7 +49,11 @@ pub struct AuditEntry {
 }
 
 pub struct AuditLog {
-    buf: RwLock<Vec<AuditEntry>>,
+    // VecDeque: the ring rotates on every append once at capacity;
+    // `Vec::remove(0)` was an O(capacity) memmove (~750 KB at the 4096
+    // default) on EVERY audited request — a measurable slice of the
+    // fixed per-request tax on trivial reads. `pop_front` is O(1).
+    buf: RwLock<std::collections::VecDeque<AuditEntry>>,
     capacity: usize,
     next_seq: AtomicU64,
 }
@@ -57,7 +61,7 @@ pub struct AuditLog {
 impl AuditLog {
     pub fn new(capacity: usize) -> Arc<Self> {
         Arc::new(Self {
-            buf: RwLock::new(Vec::with_capacity(capacity)),
+            buf: RwLock::new(std::collections::VecDeque::with_capacity(capacity)),
             capacity,
             next_seq: AtomicU64::new(1),
         })
@@ -80,7 +84,7 @@ impl AuditLog {
             .unwrap_or(0);
         let prev_hash = {
             let buf = self.buf.read();
-            buf.last().map(|e| e.hash.clone()).unwrap_or_else(|| "0".repeat(64))
+            buf.back().map(|e| e.hash.clone()).unwrap_or_else(|| "0".repeat(64))
         };
         let mut entry = AuditEntry {
             seq,
@@ -95,13 +99,13 @@ impl AuditLog {
         entry.hash = compute_hash(&prev_hash, &entry);
         let mut buf = self.buf.write();
         if buf.len() >= self.capacity {
-            buf.remove(0);
+            buf.pop_front();
         }
-        buf.push(entry);
+        buf.push_back(entry);
     }
 
     pub fn snapshot(&self) -> Vec<AuditEntry> {
-        self.buf.read().clone()
+        self.buf.read().iter().cloned().collect()
     }
 
     /// Walk the chain top-to-bottom.  Returns Ok(()) if the chain is
