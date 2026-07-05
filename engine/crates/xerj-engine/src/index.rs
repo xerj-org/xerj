@@ -359,6 +359,19 @@ pub struct Index {
     /// the merge-completion site alongside dv_cache/stored_value_cache).
     stored_slices_cache: Arc<dashmap::DashMap<String, Arc<StoredSlices>>>,
     stored_slices_cache_bytes: Arc<AtomicU64>,
+    /// Regexp term-dictionary expansion cache — keyed by
+    /// `(segment_id, field, pattern)`, holds the exact union doc count
+    /// plus the first `REGEXP_EXPANSION_POS_CAP` matching doc positions
+    /// for that segment (ES keeps the equivalent in its per-segment
+    /// query cache).  Segments are immutable, so entries stay valid for
+    /// the segment's lifetime — same no-invalidation contract as
+    /// `dv_cache` / `stored_value_cache` above.  Bounded: cleared
+    /// wholesale when it exceeds `REGEXP_EXPANSION_CACHE_MAX` entries
+    /// because patterns are query-supplied.  This is what makes a
+    /// cache-busted (size-varied) regexp count O(1) after the first
+    /// touch instead of re-opening FTS side-cars and re-merging postings
+    /// on every request.
+    regexp_expand_cache: Arc<dashmap::DashMap<(String, String, String), Arc<RegexpExpansion>>>,
 
     /// M3 framework — response cache for identical queries.  Keyed on
     /// `(query_body_hash, dataset_version)` and holds the pre-computed
@@ -500,6 +513,7 @@ impl Index {
             stored_value_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache_bytes: Arc::new(AtomicU64::new(0)),
+            regexp_expand_cache: Arc::new(dashmap::DashMap::new()),
             query_cache: Arc::new(dashmap::DashMap::new()),
             dataset_version: Arc::new(AtomicU64::new(0)),
             flush_signal: Arc::new(SyncFlushCoord::new()),
@@ -653,6 +667,7 @@ impl Index {
             stored_value_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache_bytes: Arc::new(AtomicU64::new(0)),
+            regexp_expand_cache: Arc::new(dashmap::DashMap::new()),
             query_cache: Arc::new(dashmap::DashMap::new()),
             dataset_version: Arc::new(AtomicU64::new(0)),
             flush_signal: Arc::new(SyncFlushCoord::new()),
@@ -4372,6 +4387,22 @@ impl Index {
             let count_authoritative: bool =
                 !query_needs_fts && (is_match_all || (shortcut_count.is_some() && !deletes_present));
 
+            // Whether a Regexp query's field is keyword-typed — gates the
+            // FST term-dictionary route of the regexp pre-filter (computed
+            // here because the segment loop below is sync).  See
+            // `build_regexp_prefilter_cached` for the exactness argument.
+            let regexp_field_is_keyword: bool =
+                if let QueryNode::Regexp { field, .. } = query {
+                    let schema_guard = self.schema.read().await;
+                    schema_guard
+                        .schema
+                        .field(field)
+                        .map(|f| matches!(f.field_type, FieldType::Keyword))
+                        .unwrap_or(false)
+                } else {
+                    false
+                };
+
             for meta in &snap.segments {
                 // F1: once the exact total is authoritative AND the bounded
                 // collector is full, remaining segments can neither add a
@@ -4595,6 +4626,27 @@ impl Index {
                                     materialisation_limit,
                                 )
                             })
+                        } else if let QueryNode::Regexp { field, pattern } = query {
+                            // Dictionary-expansion pre-filter (mirrors the
+                            // `try_shortcut_count` Regexp arm).  When the
+                            // exact total comes from the shortcut
+                            // (count_authoritative) the scan early-breaks at
+                            // `materialisation_limit` hits, so cap the
+                            // position set there; otherwise the scan tallies
+                            // the total itself and needs every position.
+                            let cap = if count_authoritative {
+                                Some(materialisation_limit)
+                            } else {
+                                None
+                            };
+                            self.build_regexp_prefilter_cached(
+                                &segments_dir,
+                                &seg_id,
+                                field,
+                                pattern,
+                                cap,
+                                regexp_field_is_keyword,
+                            )
                         } else {
                             None
                         };
@@ -4984,7 +5036,13 @@ impl Index {
         // below still adjusts from this corrected base if present.
         if is_match_all {
             total_count = self.live_doc_count();
-        } else if size > 0 && !query_needs_fts && scan_hit_cap && !deletes_present {
+        } else if !count_only && !query_needs_fts && scan_hit_cap && !deletes_present {
+            // `!count_only` (not `size > 0`): a `size:0 + aggs` request also
+            // materialises hits (count_only=false) and therefore also runs
+            // the scan in bounded early-break mode when the count is
+            // authoritative — its partial tally needs the same overwrite.
+            // Pure count-only requests never materialise, so scan_hit_cap
+            // is always false for them and this branch can't misfire.
             // F1: the non-FTS stored scan filled its bounded collector and may
             // have stopped early, so its `total_count` is partial — replace it
             // with the authoritative doc-values / FST shortcut count.  We only
@@ -6395,6 +6453,84 @@ impl Index {
             return Some(seg_matches + mem_matches);
         }
 
+        // Regexp shortcut — the ES-equivalent term-dictionary rewrite.
+        // ES answers `regexp` on a keyword field by expanding the pattern
+        // against the field's term dictionary and unioning postings; the
+        // XERJ equivalent runs the (compile-once) anchored regex over each
+        // segment's DISTINCT terms — the doc-values keyword dictionary
+        // when present, else the FTS `.fst` term dictionary — and sums the
+        // per-term doc counts, O(segments × dictionary_size) instead of
+        // O(doc_count) full stored-doc scans.
+        //
+        // Exactness vs the doc-scan it replaces: the Regexp arm of
+        // `doc_matches_query` matches ONLY `Value::String` sources.  The
+        // keyword doc-values column stores exactly those raw strings
+        // (numbers / bools / arrays / objects are null in the column and
+        // can never regexp-match), so it is exact for any field.  The FTS
+        // FST fallback is only exact when the field is KEYWORD-typed in
+        // the schema (whole raw string as a single un-lowercased token —
+        // see `schema_to_field_configs`); for text/numeric fields the FST
+        // holds analyzed/stringified tokens that the doc-scan would never
+        // match, so we bail to the scan.  Abandoned (→ full scan) when a
+        // segment has neither source (dotted / nested fields, pre-FTS
+        // segments) or when deletes are present (both dictionaries tally
+        // physical docs, not live ones).
+        if let QueryNode::Regexp { field, pattern } = query {
+            // Delete-blind guard — same conservative signal as the F1
+            // `deletes_present` gate in `search_inner`.
+            let seg_physical: u64 = snap.segments.iter().map(|m| m.doc_count).sum();
+            let mem_physical = self.memtable.doc_count() as u64;
+            if snap.segments.iter().any(|m| m.has_tombstones)
+                || self.live_doc_count() < seg_physical + mem_physical
+            {
+                return None;
+            }
+            let field_is_keyword = {
+                let schema_guard = self.schema.read().await;
+                schema_guard
+                    .schema
+                    .field(field)
+                    .map(|f| matches!(f.field_type, FieldType::Keyword))
+                    .unwrap_or(false)
+            };
+            let segments_dir = self.data_dir.join("segments");
+            let mut seg_matches: u64 = 0;
+            for meta in &snap.segments {
+                if meta.doc_count == 0 {
+                    continue;
+                }
+                // Cached per-(segment, field, pattern) expansion — dv
+                // keyword dictionary or FST postings union; one dictionary
+                // walk + postings merge per segment LIFETIME, O(1) map hit
+                // per query after that.  `None` (no usable dictionary /
+                // non-keyword field / pathological pattern) abandons to
+                // the stored-doc scan.
+                let exp = self.regexp_segment_expansion(
+                    &segments_dir,
+                    &meta.id,
+                    field,
+                    pattern,
+                    field_is_keyword,
+                )?;
+                seg_matches = seg_matches.saturating_add(exp.count);
+            }
+            // Memtable side — exact per-doc scan, the same fallback the
+            // Bool arm above uses.  Memtables are flush-bounded and the
+            // compiled regex is cached, so this stays cheap.  The keyword
+            // count maps can NOT stand in here: they stringify numbers /
+            // bools / first-array-elements, all of which the Regexp
+            // doc-scan arm would never match.
+            let mem_matches: u64 = if self.memtable.doc_count() == 0 {
+                0
+            } else {
+                let docs = self.memtable.all_docs_with_sources();
+                docs.iter()
+                    .filter(|(_, src)| doc_matches_query(query, src))
+                    .count() as u64
+            };
+            return Some(seg_matches + mem_matches);
+        }
+
         // Only handle single Term queries for now; Bool goes through
         // the regular path until a Bool-specific shortcut lands.
         let (field, value) = match query {
@@ -6789,6 +6925,171 @@ impl Index {
                 matched_queries: Vec::new(),
             });
         }
+    }
+    /// Regexp pre-filter — the set of internal doc positions whose keyword
+    /// term matches the (compile-once) anchored pattern, used to skip
+    /// non-matching docs in the stored-section scan the same way the
+    /// Range pre-filter does.
+    ///
+    /// The regex runs over the segment's DISTINCT terms (doc-values
+    /// keyword dictionary when present, else the field's FTS `.fst`
+    /// dictionary), not per doc: O(dictionary) matcher work + one ords
+    /// walk / bounded postings merge.  Exactness mirrors the
+    /// `try_shortcut_count` Regexp arm: the doc-scan Regexp arm matches
+    /// only `Value::String` sources; the keyword column stores exactly
+    /// those strings (non-strings are null), and the FST route is only
+    /// taken when `fst_ok` (schema says keyword-typed → term == raw
+    /// string, and FTS doc ids == stored positions, see the FTS hit
+    /// materialisation which indexes stored docs by `doc_id`).  Fields
+    /// with neither source return `None` → full scan, never a wrong skip.
+    ///
+    /// `cap`: when the caller's `hits.total` is authoritative (F1) the
+    /// scan early-breaks after materialising `cap` hits anyway, so we stop
+    /// collecting positions there instead of building an ~850 k-entry set
+    /// for a broad pattern.  Pass `None` when the scan must tally the
+    /// exact total itself — then the set must be complete.  The capped
+    /// set holds the FIRST `cap` matching positions in doc order (ords
+    /// walk / ascending postings merge), so the scan materialises the
+    /// same leading hits the uncapped scan would.
+    fn build_regexp_prefilter_cached(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        field: &str,
+        pattern: &str,
+        cap: Option<usize>,
+        fst_ok: bool,
+    ) -> Option<HashSet<u32>> {
+        let exp =
+            self.regexp_segment_expansion(segments_dir, segment_id, field, pattern, fst_ok)?;
+        if exp.count == 0 {
+            // No dictionary term matches — whole segment skipped without
+            // decompressing / parsing a single stored doc.
+            return Some(HashSet::new());
+        }
+        match cap {
+            // Bounded (F1 count-authoritative) mode: the scan stops after
+            // materialising `c` hits, so the FIRST `c` matching positions
+            // (ascending == scan order) reproduce exactly the hits the
+            // unfiltered scan would emit.  The expansion retains
+            // `REGEXP_EXPANSION_POS_CAP` ≥ any default page, so this only
+            // falls back to a full scan for very deep pagination.
+            Some(c) => {
+                if exp.complete || exp.positions.len() >= c {
+                    Some(exp.positions.iter().take(c).copied().collect())
+                } else {
+                    None
+                }
+            }
+            // Unbounded mode (scan must tally the exact total itself):
+            // only a COMPLETE position set is a valid filter.
+            None => {
+                if exp.complete {
+                    Some(exp.positions.iter().copied().collect())
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    /// Expand a regexp against one segment's term dictionary, cached per
+    /// `(segment_id, field, pattern)` — see `regexp_expand_cache`.
+    ///
+    /// Sources, in order:
+    /// (a) the `.dv` keyword column (sorted distinct terms + ords) — exact
+    ///     for any field type because it stores raw strings only;
+    /// (b) the field's FTS `.fst` term dictionary + postings union —
+    ///     taken only when `fst_ok` (schema says the field is
+    ///     keyword-typed, so FST terms are the raw un-analyzed strings and
+    ///     the expansion agrees with the stored-doc scan it stands in
+    ///     for).  Flushed segments currently carry no `.dv` sidecar, so
+    ///     (b) is the path that serves live traffic; merged segments have
+    ///     both.
+    ///
+    /// Returns `None` when neither source can answer exactly (missing
+    /// side-cars, non-keyword field, or a pathological pattern matching
+    /// > 1024 dictionary terms) — callers fall back to the stored scan.
+    fn regexp_segment_expansion(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        field: &str,
+        pattern: &str,
+        fst_ok: bool,
+    ) -> Option<Arc<RegexpExpansion>> {
+        let key = (
+            segment_id.to_string(),
+            field.to_string(),
+            pattern.to_string(),
+        );
+        if let Some(hit) = self.regexp_expand_cache.get(&key) {
+            return Some(Arc::clone(hit.value()));
+        }
+
+        // An invalid pattern matches nothing (the doc-scan arm fails the
+        // per-doc compile and returns false) — expansion is empty+complete.
+        let re = compiled_anchored_regex(pattern);
+
+        let mut exp: Option<RegexpExpansion> = None;
+        if let Some(cols) = self.dv_columns_for(segments_dir, segment_id) {
+            if let Some(xerj_storage::doc_values::Column::Keyword(k)) = cols.get(field) {
+                let mut count: u64 = 0;
+                let mut positions: Vec<u32> = Vec::new();
+                if let Some(re) = re.as_ref() {
+                    let matched_ords: Vec<bool> =
+                        k.terms.iter().map(|t| re.is_match(t)).collect();
+                    if matched_ords.iter().any(|&m| m) {
+                        for (i, &ord) in k.ords.iter().enumerate() {
+                            let pos = i as u32;
+                            if k.null_bitmap.contains(pos) {
+                                continue;
+                            }
+                            if matched_ords.get(ord as usize).copied().unwrap_or(false) {
+                                count += 1;
+                                if positions.len() < REGEXP_EXPANSION_POS_CAP {
+                                    positions.push(pos);
+                                }
+                            }
+                        }
+                    }
+                }
+                let complete = count == positions.len() as u64;
+                exp = Some(RegexpExpansion { count, positions, complete });
+            }
+        }
+
+        let exp = match exp {
+            Some(e) => e,
+            None => {
+                if !fst_ok {
+                    return None;
+                }
+                let reader =
+                    FtsIndexReader::open(segments_dir, segment_id, &[field]).ok()?;
+                reader.field_stats(field)?;
+                let matched = regexp_matched_fst_terms(&reader, field, re.as_ref())?;
+                if matched.is_empty() {
+                    RegexpExpansion { count: 0, positions: Vec::new(), complete: true }
+                } else {
+                    let (count, positions) = postings_union_expand(
+                        &reader,
+                        field,
+                        &matched,
+                        REGEXP_EXPANSION_POS_CAP,
+                    );
+                    let complete = count == positions.len() as u64;
+                    RegexpExpansion { count, positions, complete }
+                }
+            }
+        };
+
+        if self.regexp_expand_cache.len() >= REGEXP_EXPANSION_CACHE_MAX {
+            self.regexp_expand_cache.clear();
+        }
+        let arc = Arc::new(exp);
+        self.regexp_expand_cache.insert(key, Arc::clone(&arc));
+        Some(arc)
     }
 
     /// Version of `try_aggs_fast_with_segments` that caches decoded columns
@@ -9619,6 +9920,151 @@ fn is_doc_scan_query(q: &QueryNode) -> bool {
     )
 }
 
+/// Compile-once cache for anchored `regexp` patterns.
+///
+/// `doc_matches_query` is a free function invoked once per candidate doc;
+/// pre-fix, its Regexp arm called `Regex::new` for EVERY document
+/// (~150 µs per compile), which turned a 1 M-doc regexp stored-scan into
+/// minutes of pure recompilation (measured: 79 s at 500 k docs vs 2.6 s
+/// for the identical scan with a wildcard matcher).  A thread-local cache
+/// keyed by the raw pattern makes the compile a once-per-query cost;
+/// `Regex` clones share the compiled program via an internal `Arc`, so
+/// cache hits are pointer-cheap.  Invalid patterns cache `None` — the
+/// doc-scan arm treats them as match-nothing, same as before.
+///
+/// Thread-local (not a global lock) because doc-scan runs inside
+/// `block_in_place` across many worker threads; a shared map would just
+/// re-serialise the hot loop.  Capped and cleared at 64 entries — the
+/// pattern set is query-supplied and must not grow unbounded.
+fn compiled_anchored_regex(pattern: &str) -> Option<Regex> {
+    use std::cell::RefCell;
+    thread_local! {
+        static REGEX_CACHE: RefCell<std::collections::HashMap<String, Option<Regex>>> =
+            RefCell::new(std::collections::HashMap::new());
+    }
+    REGEX_CACHE.with(|cache| {
+        let mut map = cache.borrow_mut();
+        if let Some(re) = map.get(pattern) {
+            return re.clone();
+        }
+        // Anchor the pattern to a full-string match like ES does.
+        let anchored = format!("^(?:{})$", pattern);
+        let re = Regex::new(&anchored).ok();
+        if map.len() >= 64 {
+            map.clear();
+        }
+        map.insert(pattern.to_string(), re.clone());
+        re
+    })
+}
+
+/// Result of expanding a regexp pattern against one segment's term
+/// dictionary: the exact number of matching docs plus the first
+/// `REGEXP_EXPANSION_POS_CAP` matching doc positions (ascending stored-
+/// section order).  `complete` marks whether `positions` holds EVERY
+/// matching position (true when count ≤ the cap).
+struct RegexpExpansion {
+    count: u64,
+    positions: Vec<u32>,
+    complete: bool,
+}
+
+/// How many matching doc positions an expansion retains — covers any
+/// `from + size` page the F1 bounded scan can ask a pre-filter for
+/// (materialisation_limit = (from+size+100).max(256)) up to ~3.9k deep.
+const REGEXP_EXPANSION_POS_CAP: usize = 4096;
+
+/// Entry bound for `regexp_expand_cache` — patterns are query-supplied,
+/// so the cache is cleared wholesale when it grows past this.
+const REGEXP_EXPANSION_CACHE_MAX: usize = 256;
+
+/// Enumerate the FST terms of `field` that match the anchored regex —
+/// the ES-style "rewrite the pattern against the term dictionary" step.
+/// O(dictionary size) regex probes.  Returns `None` when the expansion
+/// is pathological (more matching terms than ES's default rewrite bound
+/// of 1024) so callers fall back to the stored-doc scan instead of
+/// k-way-merging thousands of postings lists.  `re = None` (invalid
+/// pattern) matches nothing, mirroring the doc-scan arm.
+fn regexp_matched_fst_terms(
+    reader: &FtsIndexReader,
+    field: &str,
+    re: Option<&Regex>,
+) -> Option<Vec<String>> {
+    const MAX_TERM_EXPANSIONS: usize = 1024;
+    let Some(re) = re else {
+        return Some(Vec::new());
+    };
+    let mut matched: Vec<String> = Vec::new();
+    for term in reader.all_terms(field) {
+        if re.is_match(&term) {
+            if matched.len() >= MAX_TERM_EXPANSIONS {
+                return None;
+            }
+            matched.push(term);
+        }
+    }
+    Some(matched)
+}
+
+/// Union the postings of `terms` into (exact distinct doc count, first
+/// `pos_cap` ascending internal doc positions).  FTS doc ids are
+/// assigned in stored-section order at flush/merge time (the FTS hit
+/// path indexes stored docs by `doc_id`), so the positions feed the
+/// stored-scan pre-filter directly.  K-way heap merge over the per-term
+/// posting lists (each ascending, distinct doc ids within a list);
+/// duplicates across lists (multi-valued docs matching several terms)
+/// come out adjacent and are counted ONCE — a plain df-sum would
+/// double-count them and disagree with the stored-doc scan.  One full
+/// O(total postings) pass; callers cache the result per (segment,
+/// field, pattern) so this runs once per segment lifetime, not per
+/// query.
+fn postings_union_expand(
+    reader: &FtsIndexReader,
+    field: &str,
+    terms: &[String],
+    pos_cap: usize,
+) -> (u64, Vec<u32>) {
+    use std::cmp::Reverse;
+    use std::collections::BinaryHeap;
+    use xerj_fts::postings::PostingsReader;
+
+    let has_positions = reader.field_has_positions(field);
+    let mut streams: Vec<PostingsReader<'_>> = Vec::with_capacity(terms.len());
+    let mut heap: BinaryHeap<Reverse<(u32, usize)>> = BinaryHeap::new();
+    for term in terms {
+        let Some(tp) = reader.lookup_term(field, term) else {
+            continue;
+        };
+        let Some(data) = reader.postings_data(field, &tp) else {
+            continue;
+        };
+        let mut pr =
+            PostingsReader::new_with_positions(data, tp.doc_frequency, has_positions);
+        if let Some(first) = pr.next() {
+            let idx = streams.len();
+            streams.push(pr);
+            heap.push(Reverse((first.doc_id, idx)));
+        }
+    }
+
+    let mut count: u64 = 0;
+    let mut last: Option<u32> = None;
+    let mut positions: Vec<u32> = Vec::new();
+    while let Some(Reverse((doc_id, idx))) = heap.pop() {
+        if last != Some(doc_id) {
+            last = Some(doc_id);
+            count += 1;
+            if positions.len() < pos_cap {
+                positions.push(doc_id);
+            }
+        }
+        if let Some(next) = streams[idx].next() {
+            heap.push(Reverse((next.doc_id, idx)));
+        }
+    }
+    (count, positions)
+}
+
 /// Evaluate a query against a single stored document source value.
 ///
 /// Returns true if the document matches the query.
@@ -10206,9 +10652,9 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
             get_field_value(source, field)
                 .and_then(|v| match v {
                     Value::String(s) => {
-                        // Anchor pattern to full string match like ES does.
-                        let anchored = format!("^(?:{})$", pattern);
-                        Regex::new(&anchored).ok().map(|re| re.is_match(&s))
+                        // Compile-once (thread-local cache) — this arm runs
+                        // per candidate doc and used to recompile every time.
+                        compiled_anchored_regex(pattern).map(|re| re.is_match(&s))
                     }
                     _ => None,
                 })

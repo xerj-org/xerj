@@ -31,6 +31,7 @@
 //! ID is already written into the map during the merge process, so this removes
 //! only stale / duplicate references.
 
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::Arc;
 
 use dashmap::DashMap;
@@ -71,12 +72,33 @@ pub struct VersionEntry {
 pub struct VersionMap {
     /// doc_id → VersionEntry
     inner: DashMap<String, VersionEntry>,
+    /// Maintained count of live (non-deleted) entries.
+    ///
+    /// `live_count()` used to iterate the whole map (`O(entries)`), which
+    /// put an ~80 ms fixed cost on EVERY search over a 1 M-doc index — the
+    /// query path calls it for the `deletes_present` gate and the shortcut
+    /// guards.  Each mutating method applies its delta from the entry state
+    /// it atomically displaced (the `DashMap` shard lock linearises
+    /// per-key updates, so concurrent writers each observe a distinct
+    /// old-value and the deltas sum exactly).  `i64` (not `u64`) so a
+    /// transiently-interleaved reader can never underflow the type;
+    /// `live_count()` clamps at 0.
+    live: AtomicI64,
 }
 
 impl VersionMap {
     /// Create an empty version map.
     pub fn new() -> Self {
-        Self { inner: DashMap::new() }
+        Self { inner: DashMap::new(), live: AtomicI64::new(0) }
+    }
+
+    /// Apply a live-count delta for an entry transition.
+    #[inline]
+    fn live_delta(&self, old_live: bool, new_live: bool) {
+        let delta = new_live as i64 - old_live as i64;
+        if delta != 0 {
+            self.live.fetch_add(delta, Ordering::Relaxed);
+        }
     }
 
     /// Return the current version entry for `doc_id`, if any.
@@ -103,7 +125,10 @@ impl VersionMap {
     ) {
         let doc_id = doc_id.into();
         debug!(?doc_id, seq_no, "version_map::set");
-        self.inner.insert(doc_id, VersionEntry { seq_no, segment_id: segment_id.into(), deleted });
+        let old = self
+            .inner
+            .insert(doc_id, VersionEntry { seq_no, segment_id: segment_id.into(), deleted });
+        self.live_delta(old.map_or(false, |e| !e.deleted), !deleted);
     }
 
     /// Record `doc_id → (seq_no, segment_id)` only if `seq_no` is >= the
@@ -188,7 +213,9 @@ impl VersionMap {
                         }
                     }
                 }
+                let was_live = !occ.get().deleted;
                 occ.insert(VersionEntry { seq_no: new_seq_no, segment_id: new_segment_id, deleted });
+                self.live_delta(was_live, !deleted);
                 Ok(new_seq_no)
             }
             Entry::Vacant(vac) => {
@@ -201,6 +228,7 @@ impl VersionMap {
                     });
                 }
                 vac.insert(VersionEntry { seq_no: new_seq_no, segment_id: new_segment_id, deleted });
+                self.live_delta(false, !deleted);
                 Ok(new_seq_no)
             }
         }
@@ -226,6 +254,7 @@ impl VersionMap {
                     segment_id: segment_id.into(),
                     deleted: true,
                 };
+                self.live_delta(true, false);
                 Ok(true)
             }
             None => Ok(false),
@@ -242,7 +271,17 @@ impl VersionMap {
         let stale: std::collections::HashSet<&str> =
             stale_segment_ids.iter().map(String::as_str).collect();
 
-        self.inner.retain(|_, v| !stale.contains(&*v.segment_id));
+        let mut removed_live: i64 = 0;
+        self.inner.retain(|_, v| {
+            let keep = !stale.contains(&*v.segment_id);
+            if !keep && !v.deleted {
+                removed_live += 1;
+            }
+            keep
+        });
+        if removed_live != 0 {
+            self.live.fetch_sub(removed_live, Ordering::Relaxed);
+        }
         debug!(stale_count = stale.len(), "version_map: cleaned up stale segments");
     }
 
@@ -258,10 +297,11 @@ impl VersionMap {
                 None => true,
             };
             if should_insert {
-                self.inner.insert(
+                let old = self.inner.insert(
                     doc_id,
                     VersionEntry { seq_no, segment_id: Arc::from(segment_id), deleted },
                 );
+                self.live_delta(old.map_or(false, |e| !e.deleted), !deleted);
             }
         }
     }
@@ -277,8 +317,12 @@ impl VersionMap {
     }
 
     /// Return the count of live (non-deleted) documents.
+    ///
+    /// O(1) — reads the maintained counter instead of iterating the map
+    /// (which cost ~80 ms per call at 1 M entries and was invoked on every
+    /// search request via the `deletes_present` gate).
     pub fn live_count(&self) -> usize {
-        self.inner.iter().filter(|e| !e.value().deleted).count()
+        self.live.load(Ordering::Relaxed).max(0) as usize
     }
 }
 
