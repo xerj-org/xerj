@@ -153,27 +153,44 @@ impl PostingsWriter {
     /// When the writer was constructed without positions, `position` is
     /// ignored and no heap growth happens in the `positions` Vec.
     pub fn add_occurrence(&mut self, term: &str, doc_id: u32, position: u32) {
-        let list = self.postings.entry(term.to_owned()).or_default();
-
-        if let Some(last) = list.last_mut() {
-            if last.doc_id == doc_id {
-                last.term_freq += 1;
-                if self.store_positions {
-                    last.positions.push(position);
+        // Lookup-first to avoid the `term.to_owned()` String allocation
+        // that `entry()` forced on EVERY occurrence (13M+ allocs per 1M
+        // docs at flush time).  Misses (first occurrence of a term) pay
+        // one extra BTreeMap descent — postings are Zipf-shaped, so hits
+        // dominate.
+        if let Some(list) = self.postings.get_mut(term) {
+            if let Some(last) = list.last_mut() {
+                if last.doc_id == doc_id {
+                    last.term_freq += 1;
+                    if self.store_positions {
+                        last.positions.push(position);
+                    }
+                    return;
                 }
-                return;
             }
+            list.push(RawPosting {
+                doc_id,
+                term_freq: 1,
+                positions: if self.store_positions {
+                    vec![position]
+                } else {
+                    Vec::new()
+                },
+            });
+            return;
         }
-
-        list.push(RawPosting {
-            doc_id,
-            term_freq: 1,
-            positions: if self.store_positions {
-                vec![position]
-            } else {
-                Vec::new()
-            },
-        });
+        self.postings.insert(
+            term.to_owned(),
+            vec![RawPosting {
+                doc_id,
+                term_freq: 1,
+                positions: if self.store_positions {
+                    vec![position]
+                } else {
+                    Vec::new()
+                },
+            }],
+        );
     }
 
     /// Returns an iterator over `(term, doc_frequency, total_term_frequency)`

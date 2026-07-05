@@ -90,6 +90,15 @@ const CROSS_DEP_MIN_DETERMINISM: f64 = 0.90;
 /// zstd over LZ4-JSON.
 const DICT_MAX_CARDINALITY: usize = 16_384;
 
+/// Cardinality cap for CROSS_DEP candidate SOURCES.  A mode table with
+/// thousands of entries (e.g. a `@timestamp` keyword column) is never a
+/// good cross-dep source in practice, and probing one costs a full
+/// O(rows) tally per (target, source) pair — flush-finalize profiling
+/// showed this scan dominating the stored-encode time.  Skipping
+/// high-cardinality sources only changes which codec a column picks
+/// (all codecs decode identically); it never affects correctness.
+const CROSS_DEP_MAX_SRC_CARDINALITY: usize = 256;
+
 /// Zstd level used for every per-column / dict / cross-dep / fallback
 /// payload in V2.
 ///
@@ -195,7 +204,7 @@ pub fn encode_stored_v2(stored_docs_json: &[u8]) -> Vec<u8> {
         }
     }
 
-    encode_v2_columns(num_docs, &col_order, &columns, stored_docs_json)
+    encode_v2_columns(num_docs, &col_order, &columns, Some(stored_docs_json))
 }
 
 /// P2.2 — columnar V2 encoder fed directly from already-parsed values.
@@ -217,10 +226,58 @@ pub fn encode_stored_v2_from_values(
     stored_docs_json: &[u8],
     docs: &[(&str, u64, &serde_json::Value)],
 ) -> Vec<u8> {
+    encode_stored_v2_from_values_inner(Some(stored_docs_json), docs)
+}
+
+/// Flush fast path: encode straight from parsed Values with NO canonical
+/// JSON-array serialisation at all.  Skips the v1-LZ4 "never make things
+/// worse" size net (the columnar form wins on every real segment above a
+/// few thousand docs; serialising a ~10 MB JSON array per flush purely to
+/// run that comparison was ~3 s of background CPU per 1M ingested docs).
+/// On sub-`V2_MIN_DOCS` inputs the canonical JSON array is built here so
+/// the v1 fallback output stays byte-identical to the legacy path.
+pub fn encode_stored_v2_from_values_nojson(
+    docs: &[(&str, u64, &serde_json::Value)],
+) -> Vec<u8> {
+    encode_stored_v2_from_values_inner(None, docs)
+}
+
+/// Serialise the canonical `[{"_id":…,"_seq_no":…,"_source":…}, …]` array
+/// exactly as `IndexStore::finalize_flush_with_publisher` builds it.
+fn serialize_canonical_stored_json(docs: &[(&str, u64, &serde_json::Value)]) -> Vec<u8> {
+    let mut stored_bytes: Vec<u8> = Vec::with_capacity(docs.len() * 512);
+    stored_bytes.push(b'[');
+    let mut first = true;
+    for (id, seq_no, src) in docs {
+        if !first {
+            stored_bytes.push(b',');
+        }
+        first = false;
+        stored_bytes.extend_from_slice(br#"{"_id":"#);
+        let _ = serde_json::to_writer(&mut stored_bytes, id);
+        stored_bytes.extend_from_slice(br#","_seq_no":"#);
+        let _ = write!(stored_bytes, "{}", seq_no);
+        stored_bytes.extend_from_slice(br#","_source":"#);
+        let _ = serde_json::to_writer(&mut stored_bytes, src);
+        stored_bytes.push(b'}');
+    }
+    stored_bytes.push(b']');
+    stored_bytes
+}
+
+fn encode_stored_v2_from_values_inner(
+    stored_docs_json: Option<&[u8]>,
+    docs: &[(&str, u64, &serde_json::Value)],
+) -> Vec<u8> {
     if docs.len() < V2_MIN_DOCS {
-        return encode_stored_lz4(stored_docs_json);
+        return match stored_docs_json {
+            Some(json) => encode_stored_lz4(json),
+            None => encode_stored_lz4(&serialize_canonical_stored_json(docs)),
+        };
     }
     let num_docs = docs.len();
+    let prof = std::env::var_os("XERJ_PROF").is_some();
+    let t_build = std::time::Instant::now();
 
     // Synthetic __id / __seq_no columns need owned Values to borrow from.
     let ids: Vec<serde_json::Value> = docs
@@ -233,32 +290,67 @@ pub fn encode_stored_v2_from_values(
         .collect();
 
     let mut col_order: Vec<String> = vec!["__id".into(), "__seq_no".into()];
-    let mut col_seen: HashMap<String, usize> = HashMap::new();
-    col_seen.insert("__id".into(), 0);
-    col_seen.insert("__seq_no".into(), 1);
-
-    for (_, _, src) in docs {
-        if let Some(obj) = src.as_object() {
-            for key in obj.keys() {
-                if !col_seen.contains_key(key) {
-                    col_seen.insert(key.clone(), col_order.len());
-                    col_order.push(key.clone());
-                }
-            }
-        }
-    }
+    let mut col_seen: rustc_hash::FxHashMap<&str, usize> = rustc_hash::FxHashMap::default();
+    col_seen.insert("__id", 0);
+    col_seen.insert("__seq_no", 1);
 
     static NULL: serde_json::Value = serde_json::Value::Null;
-    let mut columns: Vec<Vec<&serde_json::Value>> =
-        vec![Vec::with_capacity(num_docs); col_order.len()];
+
+    // Single pass over the docs: discover columns on first sight
+    // (backfilling NULLs for rows already consumed) and route each
+    // field value straight to its column.  The previous two-pass build
+    // (discover, then `obj.get(cname)` per column per doc) performed
+    // ~2× the map lookups — measured at ~115 ms per 31k-doc flush.
+    let mut columns: Vec<Vec<&serde_json::Value>> = vec![
+        Vec::with_capacity(num_docs),
+        Vec::with_capacity(num_docs),
+    ];
     for (i, (_, _, src)) in docs.iter().enumerate() {
         columns[0].push(&ids[i]);
         columns[1].push(&seqs[i]);
-        let src_obj = src.as_object();
-        for (cix, cname) in col_order.iter().enumerate().skip(2) {
-            let val = src_obj.and_then(|m| m.get(cname)).unwrap_or(&NULL);
-            columns[cix].push(val);
+        if let Some(obj) = src.as_object() {
+            for (key, val) in obj {
+                let cix = match col_seen.get(key.as_str()) {
+                    // A source field literally named `__id` / `__seq_no`
+                    // must NOT route into the synthetic columns (the
+                    // legacy fill loop skipped them too).
+                    Some(&cix) if cix < 2 => continue,
+                    Some(&cix) => cix,
+                    None => {
+                        let cix = col_order.len();
+                        // `col_seen` borrows the key from the doc's
+                        // source object (outlives this fn's locals);
+                        // `col_order` owns an independent clone.
+                        col_seen.insert(key.as_str(), cix);
+                        col_order.push(key.clone());
+                        let mut fresh: Vec<&serde_json::Value> =
+                            Vec::with_capacity(num_docs);
+                        fresh.resize(i, &NULL); // rows before this doc lack the field
+                        columns.push(fresh);
+                        cix
+                    }
+                };
+                let col = &mut columns[cix];
+                // A duplicate key inside one object is impossible
+                // (serde Map), so len == i here means every earlier pad
+                // is in place — pad any gap, then push this doc's value.
+                col.resize(i, &NULL);
+                col.push(val);
+            }
         }
+        // Columns absent from this doc get padded lazily by the resize
+        // above on their next occurrence, and by the final pass below.
+    }
+    for col in columns.iter_mut() {
+        col.resize(num_docs, &NULL);
+    }
+
+    if prof {
+        eprintln!(
+            "XERJ_PROF encode-build docs={} build_us={}",
+            num_docs,
+            t_build.elapsed().as_micros()
+        );
     }
 
     encode_v2_columns(num_docs, &col_order, &columns, stored_docs_json)
@@ -266,18 +358,29 @@ pub fn encode_stored_v2_from_values(
 
 /// Shared tail of the two V2 entry points: per-column codec selection +
 /// payload assembly + the v1-LZ4 "never make things worse" size net.
+///
+/// `stored_docs_json` is the canonical JSON-array serialisation used for
+/// the LZ4 size net; pass `None` to skip the net (used by the flush
+/// fast path on large segments where the columnar form always wins and
+/// serialising a multi-MB JSON array per flush is measurable CPU).
 fn encode_v2_columns(
     num_docs: usize,
     col_order: &[String],
     columns: &[Vec<&serde_json::Value>],
-    stored_docs_json: &[u8],
+    stored_docs_json: Option<&[u8]>,
 ) -> Vec<u8> {
+    // THROWAWAY prof (XERJ_PROF): encode-phase breakdown.
+    let prof = std::env::var_os("XERJ_PROF").is_some();
+    let t_dict = std::time::Instant::now();
+
     // Build dict-encoded form for each column as a stable side representation.
     // `dict_encode(col)` returns Some((dict_entries, ids)) where ids[i] is the
     // 1-based id (0 reserved for null, we add 1 here).  Returns None when
     // the column has non-scalar values or unique-count exceeds DICT_MAX_CARDINALITY.
     let dict_encoded: Vec<Option<(Vec<serde_json::Value>, Vec<u32>)>> =
         columns.iter().map(|c| dict_encode_column(c)).collect();
+    let dict_us = t_dict.elapsed().as_micros();
+    let t_cross = std::time::Instant::now();
 
     // For each numeric column, try to find a dict-encoded keyword-like
     // source column that determines it.  First match wins.
@@ -289,9 +392,25 @@ fn encode_v2_columns(
             // float columns fall through to the lossless dict / raw path so
             // fractional values (e.g. `0.010127`) survive intact.
             if !col_is_all_integer(col) { return None; }
+            // Provable upper bound: with a source of ≤S dict entries, the
+            // mode table yields at most one hit-value per source id, so
+            // misses ≥ distinct(target) − S and det ≤ 1 − (D − S)/N.
+            // If D > N/10 + S the 0.90 determinism gate CANNOT pass for
+            // any admissible source — skip the whole O(sources × rows)
+            // probe.  This is what stops per-row-unique columns like
+            // `__seq_no` from paying a full cross-dep scan every flush.
+            let target_distinct = dict_encoded[cix]
+                .as_ref()
+                .map(|(e, _)| e.len())
+                .unwrap_or(DICT_MAX_CARDINALITY + 1);
+            if target_distinct > num_docs / 10 + CROSS_DEP_MAX_SRC_CARDINALITY {
+                return None;
+            }
             best_cross_dep_source(&dict_encoded, cix, col)
         })
         .collect();
+    let cross_us = t_cross.elapsed().as_micros();
+    let t_cols = std::time::Instant::now();
 
     // Pick a codec per column and build its payload.
     let mut col_payloads: Vec<(String, u8, Vec<u8>)> = Vec::with_capacity(col_order.len());
@@ -342,11 +461,27 @@ fn encode_v2_columns(
         out.extend_from_slice(payload);
     }
 
+    if prof {
+        eprintln!(
+            "XERJ_PROF encode-cols docs={} cols={} dict_us={} cross_us={} colpay_us={}",
+            num_docs,
+            col_order.len(),
+            dict_us,
+            cross_us,
+            t_cols.elapsed().as_micros()
+        );
+    }
+
     // If v1 LZ4 would have been smaller, use it instead.  This is the
     // "never make things worse" safety net that mirrors cz's per-column
     // best-of-codec picker.
-    let v1 = encode_stored_lz4(stored_docs_json);
-    if v1.len() < out.len() { v1 } else { out }
+    if let Some(json) = stored_docs_json {
+        let v1 = encode_stored_lz4(json);
+        if v1.len() < out.len() {
+            return v1;
+        }
+    }
+    out
 }
 
 /// Decode a stored section written by any supported codec version.
@@ -512,22 +647,62 @@ fn all_scalar_dict_entries(entries: &[serde_json::Value]) -> bool {
 ///
 /// Returns `None` if the column contains any non-scalar (object/array) value
 /// or if the unique-count explodes beyond the cap.
-fn dict_encode_column<B: std::borrow::Borrow<serde_json::Value>>(
-    col: &[B],
+/// Typed dictionary key — replaces the old `v.to_string()` keying, which
+/// allocated a fresh String per CELL (13 columns × 31k rows ≈ 400k allocs
+/// per flush segment).  Strings are borrowed straight from the column;
+/// numbers are keyed by their exact serde variant so `1`, `1.0` and
+/// `"1"` stay distinct exactly as their serialized forms did.
+#[derive(PartialEq, Eq, Hash)]
+enum DictKey<'a> {
+    Str(&'a str),
+    PosInt(u64),
+    NegInt(i64),
+    Float(u64), // f64 bit pattern
+    Bool(bool),
+}
+
+fn dict_key(v: &serde_json::Value) -> Option<DictKey<'_>> {
+    match v {
+        serde_json::Value::String(s) => Some(DictKey::Str(s.as_str())),
+        serde_json::Value::Bool(b) => Some(DictKey::Bool(*b)),
+        serde_json::Value::Number(n) => {
+            if let Some(u) = n.as_u64() {
+                Some(DictKey::PosInt(u))
+            } else if let Some(i) = n.as_i64() {
+                Some(DictKey::NegInt(i))
+            } else {
+                n.as_f64().map(|f| DictKey::Float(f.to_bits()))
+            }
+        }
+        _ => None,
+    }
+}
+
+fn dict_encode_column<'a, B: std::borrow::Borrow<serde_json::Value>>(
+    col: &'a [B],
 ) -> Option<(Vec<serde_json::Value>, Vec<u32>)> {
-    let mut map: HashMap<String, u32> = HashMap::new();
+    // FxHashMap: this map sees one lookup per row per column at flush
+    // time (~400k per 31k-doc segment); SipHash was measurable there and
+    // the keys are the tenant's own field values (no HashDoS surface).
+    let mut map: rustc_hash::FxHashMap<DictKey<'a>, u32> = rustc_hash::FxHashMap::default();
     let mut entries: Vec<serde_json::Value> = Vec::new();
     let mut ids: Vec<u32> = Vec::with_capacity(col.len());
+    // Early abort for id-like columns: if the first `UNIQUE_PREFIX_ABORT`
+    // non-null values are ALL distinct (`__id` on auto-id bulk, UUIDs…),
+    // no dictionary ≤ DICT_MAX_CARDINALITY can emerge from ≤ 65k rows
+    // worth scanning — bail before cloning thousands of entries.  A
+    // column that merely starts diverse (e.g. timestamps) repeats within
+    // this window and is unaffected.
+    const UNIQUE_PREFIX_ABORT: usize = 8_192;
+    let mut non_null = 0usize;
     for v in col {
         let v = v.borrow();
         if v.is_null() {
             ids.push(u32::MAX); // resolved to "null id" later
             continue;
         }
-        if v.is_object() || v.is_array() { return None; }
-        // Key values by their serialized form — fast enough, correct for
-        // string / number / bool.
-        let k = v.to_string();
+        non_null += 1;
+        let Some(k) = dict_key(v) else { return None }; // object / array
         if let Some(&id) = map.get(&k) {
             ids.push(id);
         } else {
@@ -536,8 +711,17 @@ fn dict_encode_column<B: std::borrow::Borrow<serde_json::Value>>(
             map.insert(k, id);
             ids.push(id);
         }
-        if entries.len() > DICT_MAX_CARDINALITY * 4 {
-            return None; // way above the payload-worthy cap
+        if entries.len() >= UNIQUE_PREFIX_ABORT && entries.len() == non_null {
+            return None;
+        }
+        if entries.len() > DICT_MAX_CARDINALITY {
+            // Above the payload cap: both the DICT_BITPACK pick in
+            // `encode_v2_columns` and the cross-dep source filter reject
+            // dictionaries larger than DICT_MAX_CARDINALITY, so building
+            // one bigger than that (the old cap was 4×) was pure wasted
+            // work — e.g. the per-doc-unique `__id` column cloned ~31k
+            // Values per flush segment only to be discarded.
+            return None;
         }
     }
     // Replace u32::MAX with the reserved-null id.
@@ -561,38 +745,63 @@ fn best_cross_dep_source<B: std::borrow::Borrow<serde_json::Value>>(
         let (entries, ids) = match de { Some(e) => e, None => continue };
         if !all_scalar_dict_entries(entries) { continue; }
         if entries.len() < 2 { continue; } // constant source: useless
-        if entries.len() > DICT_MAX_CARDINALITY { continue; }
+        if entries.len() > CROSS_DEP_MAX_SRC_CARDINALITY { continue; }
 
-        // Build mode table: mode_values[src_id] = most frequent target int
-        let mut mode_tally: HashMap<u32, HashMap<i64, usize>> = HashMap::new();
-        for (row, t_val) in target_col.iter().enumerate() {
-            let t_val = t_val.borrow();
-            let Some(t) = t_val.as_i64().or_else(|| t_val.as_f64().map(|f| f as i64)) else { continue };
-            let sid = ids[row];
-            *mode_tally.entry(sid).or_default().entry(t).or_insert(0) += 1;
-        }
-        // Count deterministic rows: row matches mode[src_id].
-        let mut mode_pick: HashMap<u32, i64> = HashMap::new();
-        for (sid, tally) in &mode_tally {
-            if let Some((v, _)) = tally.iter().max_by_key(|(_, c)| *c) {
-                mode_pick.insert(*sid, *v);
+        // Sampled prefilter: tally only the first `SAMPLE` rows first.
+        // Cross-dep is a codec CHOICE — a false negative here just means
+        // the column keeps its dict/zstd codec (identical decode), so a
+        // cheap sample with a slightly relaxed threshold is safe.  The
+        // full O(rows) tally (below) runs only for sources that pass,
+        // which cuts the per-flush cross-dep probe from ~110 ms to ~5 ms
+        // on non-deterministic corpora (the common case).
+        const SAMPLE: usize = 2048;
+        const SAMPLE_SLACK: f64 = 0.05;
+        if target_col.len() > SAMPLE * 2 {
+            if let Some(det) = cross_dep_determinism(&target_col[..SAMPLE], ids) {
+                if det < CROSS_DEP_MIN_DETERMINISM - SAMPLE_SLACK {
+                    continue;
+                }
+            } else {
+                continue;
             }
         }
-        let mut hits = 0usize;
-        let mut total_numeric = 0usize;
-        for (row, t_val) in target_col.iter().enumerate() {
-            let t_val = t_val.borrow();
-            let Some(t) = t_val.as_i64().or_else(|| t_val.as_f64().map(|f| f as i64)) else { continue };
-            total_numeric += 1;
-            if mode_pick.get(&ids[row]) == Some(&t) { hits += 1; }
-        }
-        if total_numeric == 0 { continue; }
-        let det = hits as f64 / total_numeric as f64;
-        if det >= CROSS_DEP_MIN_DETERMINISM {
-            return Some(src_ix);
+
+        // Full single-pass tally.  The number of rows matching their
+        // source-id's mode equals Σ_sid max_count(tally[sid]) — no second
+        // row scan needed (the old two-pass version re-walked every row
+        // against `mode_pick`, doubling the cost for an identical result).
+        match cross_dep_determinism(target_col, ids) {
+            Some(det) if det >= CROSS_DEP_MIN_DETERMINISM => return Some(src_ix),
+            _ => {}
         }
     }
     None
+}
+
+/// Fraction of numeric rows whose value equals the mode of their source
+/// dict id (`None` when no numeric rows).  Shared by the sampled
+/// prefilter and the full pass in [`best_cross_dep_source`].
+fn cross_dep_determinism<B: std::borrow::Borrow<serde_json::Value>>(
+    target_col: &[B],
+    ids: &[u32],
+) -> Option<f64> {
+    let mut mode_tally: HashMap<u32, HashMap<i64, usize>> = HashMap::new();
+    let mut total_numeric = 0usize;
+    for (row, t_val) in target_col.iter().enumerate() {
+        let t_val = t_val.borrow();
+        let Some(t) = t_val.as_i64().or_else(|| t_val.as_f64().map(|f| f as i64)) else { continue };
+        total_numeric += 1;
+        let sid = ids[row];
+        *mode_tally.entry(sid).or_default().entry(t).or_insert(0) += 1;
+    }
+    if total_numeric == 0 {
+        return None;
+    }
+    let hits: usize = mode_tally
+        .values()
+        .map(|tally| tally.values().copied().max().unwrap_or(0))
+        .sum();
+    Some(hits as f64 / total_numeric as f64)
 }
 
 fn try_encode_constant<B: std::borrow::Borrow<serde_json::Value>>(col: &[B]) -> Option<Vec<u8>> {
@@ -1145,6 +1354,53 @@ mod tests {
             assert_eq!(round[i]["_seq_no"].as_u64().unwrap(), 1_000 + i as u64);
             assert_eq!(round[i]["_source"]["score"], docs[i].2["score"]);
         }
+    }
+
+    /// The single-pass column build discovers columns lazily and must
+    /// backfill NULLs for rows consumed before a field first appears —
+    /// exercise a column whose first occurrence is deep into the batch,
+    /// plus a source field named `__id` (must not clobber the synthetic
+    /// id column), and assert byte parity with the legacy two-pass
+    /// parse-based encoder.
+    #[test]
+    fn v2_from_values_late_discovered_column_parity() {
+        let mut docs: Vec<(String, u64, serde_json::Value)> = Vec::new();
+        for i in 0..1500usize {
+            let mut src = json!({
+                "kind": format!("k{}", i % 5),
+                "n": i as i64,
+            });
+            if i >= 700 {
+                // late-discovered column → backfill path
+                src.as_object_mut().unwrap().insert("late".into(), json!(i % 9));
+            }
+            if i % 13 == 0 {
+                // reserved-name source field → must be ignored
+                src.as_object_mut().unwrap().insert("__id".into(), json!("evil"));
+            }
+            docs.push((format!("id-{}", i), 5_000 + i as u64, src));
+        }
+        let stored = stored_json_like_flush(&docs);
+        let refs: Vec<(&str, u64, &serde_json::Value)> = docs
+            .iter()
+            .map(|(id, seq, src)| (id.as_str(), *seq, src))
+            .collect();
+
+        let legacy = encode_stored_v2(&stored);
+        let from_values = encode_stored_v2_from_values(&stored, &refs);
+        assert_eq!(legacy, from_values, "late-column build diverged from legacy");
+
+        // And the no-JSON fast path must produce the same v2 bytes when
+        // v2 wins the size net (it does on this shape).
+        let nojson = encode_stored_v2_from_values_nojson(&refs);
+        assert_eq!(from_values, nojson, "nojson fast path diverged");
+
+        let decoded = decode_stored(&from_values).unwrap();
+        let round: Vec<serde_json::Value> = serde_json::from_slice(&decoded).unwrap();
+        assert_eq!(round.len(), docs.len());
+        assert!(round[0]["_source"].get("late").map(|v| v.is_null()).unwrap_or(true));
+        assert_eq!(round[0]["_id"].as_str().unwrap(), "id-0");
+        assert_eq!(round[750]["_source"]["late"], json!(750 % 9));
     }
 
     /// Below `V2_MIN_DOCS` both entry points must produce the identical

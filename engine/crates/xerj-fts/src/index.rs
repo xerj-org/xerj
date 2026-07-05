@@ -530,13 +530,19 @@ impl FtsIndexWriter {
         use std::collections::HashMap as StdHashMap;
 
         // Column-major reshape: field_name → Vec<(doc_ordinal, text)>.
+        // Lookup-first so the common case (field already seen) skips the
+        // per-doc-field `field_name.clone()` the `entry()` API forced.
         let mut per_field: StdHashMap<String, Vec<(u32, &str)>> = StdHashMap::new();
         for (ord, (_id, fields, _src)) in docs.iter().enumerate() {
             for (field_name, text) in fields {
-                per_field
-                    .entry(field_name.clone())
-                    .or_default()
-                    .push((ord as u32, text.as_str()));
+                if let Some(v) = per_field.get_mut(field_name) {
+                    v.push((ord as u32, text.as_str()));
+                } else {
+                    per_field
+                        .entry(field_name.clone())
+                        .or_default()
+                        .push((ord as u32, text.as_str()));
+                }
             }
         }
 
@@ -697,14 +703,24 @@ impl FtsIndexWriter {
             .collect();
         sorted_terms.sort_unstable();
 
+        // Pre-compute per-term (doc_freq, ttf) ONCE.  The previous code
+        // called `term_stats().find(..)` INSIDE the per-term loop — an
+        // O(T²) scan that also re-summed every candidate's ttf on each
+        // probe.  On numeric-heavy segments (thousands of distinct terms
+        // per field, e.g. `latency_ms`/`@timestamp` string tokens) this
+        // was the dominant flush-finalize CPU cost.
+        let stats_by_term: HashMap<&str, (u32, u64)> = field_data
+            .postings
+            .term_stats()
+            .map(|(t, df, ttf)| (t, (df, ttf)))
+            .collect();
+
         for term in &sorted_terms {
             if let Some((offset, _skip)) = field_data.postings.encode_term(term, &mut post_data) {
                 // Calculate doc_freq and ttf from the writer's internal stats
-                let (doc_freq, ttf) = field_data
-                    .postings
-                    .term_stats()
-                    .find(|(t, _, _)| *t == term.as_str())
-                    .map(|(_, df, ttf)| (df, ttf))
+                let (doc_freq, ttf) = stats_by_term
+                    .get(term.as_str())
+                    .copied()
                     .unwrap_or((0, 0));
 
                 let end_offset = post_data.len() as u64;

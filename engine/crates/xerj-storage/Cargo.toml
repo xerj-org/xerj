@@ -33,6 +33,10 @@ crc32fast = { workspace = true }
 # so that concurrent bulk ingest batches target different shards.
 xxhash-rust = { workspace = true }
 
+# FxHash for the stored-codec dict-encode hot maps (trusted keys only —
+# field values of the tenant's own documents; no HashDoS surface).
+rustc-hash = { workspace = true }
+
 # Compression (WAL payload compression + stored-section codec v2)
 lz4_flex = { workspace = true }
 zstd = { workspace = true }
