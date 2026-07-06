@@ -8,97 +8,97 @@ Verdict is from XERJ's POV: WIN = XERJ better (lower latency / higher docs·s / 
 
 | dimension | XERJ | ES | ratio | verdict |
 |---|--:|--:|--:|:--:|
-| ingest 100k × c1 (docs/s) | 103,126 | 71,432 | 1.44× | WIN |
-| ingest 100k × c8 (docs/s) | 355,363 | 264,935 | 1.34× | WIN |
-| ingest 1m × c1 (docs/s) | 109,543 | 70,197 | 1.56× | WIN |
-| ingest 1m × c8 (docs/s) | 338,555 | 365,530 | 0.93× | LOSE |
-| read q: match_all (p50 ms) | 0.78 | 1.08 | 1.38× | WIN |
-| read q: match_none (p50 ms) | 0.57 | 0.77 | 1.35× | WIN |
-| read q: match(model) (p50 ms) | 0.54 | 0.96 | 1.77× | WIN |
-| read q: match_phrase(top_doc) (p50 ms) | 0.53 | 0.93 | 1.75× | WIN |
-| read q: match_phrase_prefix (p50 ms) | 0.46 | unsupported (400) | — | N/A |
-| read q: match_bool_prefix (p50 ms) | 0.56 | 3.91 | 6.94× | WIN |
-| read q: multi_match (p50 ms) | 0.74 | 5.17 | 7.03× | WIN |
-| read q: combined_fields (p50 ms) | 0.45 | unsupported (400) | — | N/A |
-| read q: query_string (p50 ms) | 0.61 | 8.46 | 13.97× | WIN |
-| read q: simple_query_string (p50 ms) | 1.33 | 1.18 | 0.89× | LOSE |
-| read q: more_like_this (p50 ms) | 0.46 | 1.12 | 2.42× | WIN |
-| read q: term(status) (p50 ms) | 0.69 | 1.29 | 1.86× | WIN |
-| read q: terms(model) (p50 ms) | 0.50 | 4.33 | 8.57× | WIN |
-| read q: range(latency_ms) (p50 ms) | 0.51 | 4.69 | 9.20× | WIN |
-| read q: range(@timestamp) (p50 ms) | 0.48 | 0.75 | 1.56× | WIN |
-| read q: range(cost_usd) (p50 ms) | 0.57 | 5.81 | 10.19× | WIN |
-| read q: prefix(model) (p50 ms) | 0.69 | 8.50 | 12.24× | WIN |
-| read q: wildcard(model) (p50 ms) | 0.58 | 8.65 | 14.96× | WIN |
-| read q: regexp(model) (p50 ms) | 0.55 | 8.73 | 15.84× | WIN |
-| read q: fuzzy(model) (p50 ms) | 0.61 | 1.53 | 2.49× | WIN |
-| read q: exists(cost_usd) (p50 ms) | 0.83 | 1.44 | 1.74× | WIN |
-| read q: ids (p50 ms) | 0.46 | 0.53 | 1.15× | WIN |
-| read q: term(cache_hit) (p50 ms) | 0.49 | 0.92 | 1.88× | WIN |
-| read q: bool must+filter+should+must_not (p50 ms) | 1.33 | 15.49 | 11.61× | WIN |
-| read q: constant_score (p50 ms) | 0.55 | 0.90 | 1.64× | WIN |
-| read q: boosting (p50 ms) | 0.68 | 33.95 | 49.64× | WIN |
-| read q: dis_max (p50 ms) | 0.61 | 4.10 | 6.76× | WIN |
-| read q: function_score (p50 ms) | 0.72 | 38.87 | 54.10× | WIN |
-| read q: pinned (p50 ms) | 0.41 | 14.53 | 35.21× | WIN |
-| read agg: avg (p50 ms) | 0.65 | 1.18 | 1.80× | WIN |
-| read agg: sum (p50 ms) | 0.30 | 1.27 | 4.25× | WIN |
-| read agg: min (p50 ms) | 0.50 | 1.19 | 2.37× | WIN |
-| read agg: max (p50 ms) | 0.44 | 1.02 | 2.33× | WIN |
-| read agg: stats (p50 ms) | 0.34 | 1.30 | 3.79× | WIN |
-| read agg: extended_stats (p50 ms) | 0.35 | 1.39 | 4.00× | WIN |
-| read agg: value_count (p50 ms) | 1.11 | 1.17 | 1.05× | WIN |
-| read agg: cardinality (p50 ms) | 0.32 | 1.12 | 3.53× | WIN |
-| read agg: percentiles (p50 ms) | 1.11 | 1.31 | 1.18× | WIN |
-| read agg: percentile_ranks (p50 ms) | 1.14 | 1.28 | 1.12× | WIN |
-| read agg: median_absolute_deviation (p50 ms) | 0.55 | 1.51 | 2.77× | WIN |
-| read agg: matrix_stats (p50 ms) | 1.22 | 2.21 | 1.82× | WIN |
-| read agg: scripted_metric (p50 ms) | 1.22 | 2.14 | 1.75× | WIN |
-| read agg: top_hits (sub) (p50 ms) | 0.54 | 1.46 | 2.69× | WIN |
-| read agg: terms (p50 ms) | 1.14 | 1.48 | 1.29× | WIN |
-| read agg: rare_terms (p50 ms) | 0.78 | 2.02 | 2.59× | WIN |
-| read agg: significant_terms (p50 ms) | 0.47 | 2.07 | 4.40× | WIN |
-| read agg: histogram (p50 ms) | 0.37 | 0.69 | 1.87× | WIN |
-| read agg: date_histogram (p50 ms) | 0.46 | 2.00 | 4.33× | WIN |
-| read agg: auto_date_histogram (p50 ms) | 0.47 | 0.94 | 2.00× | WIN |
-| read agg: variable_width_histogram (p50 ms) | 0.51 | 2.17 | 4.22× | WIN |
-| read agg: range (p50 ms) | 1.16 | 0.67 | 0.58× | LOSE |
-| read agg: date_range (p50 ms) | 0.35 | 1.53 | 4.39× | WIN |
-| read agg: filter (p50 ms) | 1.26 | 1.22 | 0.97× | LOSE |
-| read agg: filters (p50 ms) | 0.37 | 1.08 | 2.89× | WIN |
-| read agg: missing (p50 ms) | 0.43 | 0.62 | 1.43× | WIN |
-| read agg: global (p50 ms) | 1.15 | 0.62 | 0.54× | LOSE |
-| read agg: adjacency_matrix (p50 ms) | 0.38 | 2.02 | 5.36× | WIN |
-| read agg: composite (p50 ms) | 1.21 | 0.72 | 0.60× | LOSE |
-| read agg: random_sampler (p50 ms) | 0.36 | 4.82 | 13.24× | WIN |
-| read agg: terms+avg(cost) (p50 ms) | 1.22 | 0.76 | 0.63× | LOSE |
-| read pipe: sum_bucket (p50 ms) | 0.39 | 0.74 | 1.91× | WIN |
-| read pipe: avg_bucket (p50 ms) | 1.20 | 2.15 | 1.80× | WIN |
-| read pipe: max_bucket (p50 ms) | 0.37 | 0.71 | 1.93× | WIN |
-| read pipe: stats_bucket (p50 ms) | 0.59 | 2.15 | 3.66× | WIN |
-| read pipe: percentiles_bucket (p50 ms) | 1.19 | 1.39 | 1.17× | WIN |
-| read pipe: derivative (p50 ms) | 0.34 | 2.11 | 6.31× | WIN |
-| read pipe: cumulative_sum (p50 ms) | 1.19 | 2.07 | 1.74× | WIN |
-| read pipe: moving_fn (p50 ms) | 0.36 | 0.75 | 2.08× | WIN |
-| read pipe: serial_diff (p50 ms) | 1.19 | 0.89 | 0.75× | LOSE |
-| read pipe: bucket_script (p50 ms) | 0.33 | 0.65 | 1.97× | WIN |
-| read pipe: bucket_selector (p50 ms) | 1.17 | 2.17 | 1.86× | WIN |
-| read pipe: bucket_sort (p50 ms) | 0.43 | 0.70 | 1.62× | WIN |
-| read feat: sort-heavy (p50 ms) | 1.04 | 16.95 | 16.24× | WIN |
-| read feat: deep from+size (from 500) (p50 ms) | 1.41 | 1.21 | 0.86× | LOSE |
-| read feat: search_after (p50 ms) | 4.34 | 17.97 | 4.14× | WIN |
-| read feat: highlight (p50 ms) | 1.35 | 1.94 | 1.44× | WIN |
-| read feat: _count (p50 ms) | 0.24 | 1.73 | 7.30× | WIN |
-| read feat: _msearch (p50 ms) | 0.98 | 1.29 | 1.32× | WIN |
-| read feat: _mget (p50 ms) | 0.21 | 0.47 | 2.23× | WIN |
-| mixed match_all (p99 ms, under write) | 76.55 | 2.27 | 0.03× | LOSE |
-| mixed bool (p99 ms, under write) | 82.14 | 9.49 | 0.12× | LOSE |
-| mixed range (p99 ms, under write) | 171.28 | 4.71 | 0.03× | LOSE |
-| mixed terms (p99 ms, under write) | 75.60 | 2.76 | 0.04× | LOSE |
-| mixed cardinality (p99 ms, under write) | 81.84 | 17.33 | 0.21× | LOSE |
-| kNN k=10 (p50 ms) | 0.57 | 3.02 | 5.28× | WIN |
+| ingest 100k × c1 (docs/s) | 113,384 | 72,272 | 1.57× | WIN |
+| ingest 100k × c8 (docs/s) | 382,301 | 253,961 | 1.51× | WIN |
+| ingest 1m × c1 (docs/s) | 119,031 | 70,320 | 1.69× | WIN |
+| ingest 1m × c8 (docs/s) | 387,678 | 379,506 | 1.02× | WIN |
+| read q: match_all (p50 ms) | 0.88 | 1.72 | 1.94× | WIN |
+| read q: match_none (p50 ms) | 0.48 | 1.08 | 2.26× | WIN |
+| read q: match(model) (p50 ms) | 0.57 | 1.45 | 2.53× | WIN |
+| read q: match_phrase(top_doc) (p50 ms) | 1.46 | 2.48 | 1.70× | WIN |
+| read q: match_phrase_prefix (p50 ms) | 1.33 | unsupported (400) | — | N/A |
+| read q: match_bool_prefix (p50 ms) | 1.33 | 5.02 | 3.77× | WIN |
+| read q: multi_match (p50 ms) | 1.44 | 5.89 | 4.10× | WIN |
+| read q: combined_fields (p50 ms) | 1.38 | unsupported (400) | — | N/A |
+| read q: query_string (p50 ms) | 1.35 | 9.35 | 6.92× | WIN |
+| read q: simple_query_string (p50 ms) | 1.44 | 2.29 | 1.59× | WIN |
+| read q: more_like_this (p50 ms) | 1.39 | 2.43 | 1.75× | WIN |
+| read q: term(status) (p50 ms) | 1.36 | 2.15 | 1.58× | WIN |
+| read q: terms(model) (p50 ms) | 1.40 | 4.49 | 3.20× | WIN |
+| read q: range(latency_ms) (p50 ms) | 1.34 | 4.66 | 3.47× | WIN |
+| read q: range(@timestamp) (p50 ms) | 1.33 | 2.15 | 1.62× | WIN |
+| read q: range(cost_usd) (p50 ms) | 1.37 | 6.90 | 5.05× | WIN |
+| read q: prefix(model) (p50 ms) | 1.36 | 8.78 | 6.46× | WIN |
+| read q: wildcard(model) (p50 ms) | 1.35 | 9.10 | 6.76× | WIN |
+| read q: regexp(model) (p50 ms) | 1.35 | 9.11 | 6.77× | WIN |
+| read q: fuzzy(model) (p50 ms) | 1.35 | 2.67 | 1.99× | WIN |
+| read q: exists(cost_usd) (p50 ms) | 1.32 | 2.19 | 1.66× | WIN |
+| read q: ids (p50 ms) | 1.13 | 1.95 | 1.72× | WIN |
+| read q: term(cache_hit) (p50 ms) | 1.36 | 2.16 | 1.59× | WIN |
+| read q: bool must+filter+should+must_not (p50 ms) | 1.38 | 15.90 | 11.53× | WIN |
+| read q: constant_score (p50 ms) | 1.37 | 2.20 | 1.60× | WIN |
+| read q: boosting (p50 ms) | 1.34 | 34.42 | 25.64× | WIN |
+| read q: dis_max (p50 ms) | 1.35 | 5.51 | 4.09× | WIN |
+| read q: function_score (p50 ms) | 1.35 | 39.25 | 29.01× | WIN |
+| read q: pinned (p50 ms) | 1.35 | 14.49 | 10.74× | WIN |
+| read agg: avg (p50 ms) | 1.16 | 2.23 | 1.92× | WIN |
+| read agg: sum (p50 ms) | 1.16 | 2.10 | 1.81× | WIN |
+| read agg: min (p50 ms) | 1.16 | 2.03 | 1.75× | WIN |
+| read agg: max (p50 ms) | 1.16 | 1.96 | 1.69× | WIN |
+| read agg: stats (p50 ms) | 1.16 | 1.99 | 1.71× | WIN |
+| read agg: extended_stats (p50 ms) | 1.17 | 2.25 | 1.92× | WIN |
+| read agg: value_count (p50 ms) | 1.16 | 1.91 | 1.65× | WIN |
+| read agg: cardinality (p50 ms) | 1.15 | 1.92 | 1.66× | WIN |
+| read agg: percentiles (p50 ms) | 0.36 | 0.81 | 2.25× | WIN |
+| read agg: percentile_ranks (p50 ms) | 1.17 | 1.99 | 1.70× | WIN |
+| read agg: median_absolute_deviation (p50 ms) | 1.10 | 2.04 | 1.84× | WIN |
+| read agg: matrix_stats (p50 ms) | 1.34 | 1.95 | 1.46× | WIN |
+| read agg: scripted_metric (p50 ms) | 1.29 | 1.91 | 1.48× | WIN |
+| read agg: top_hits (sub) (p50 ms) | 1.07 | 1.69 | 1.58× | WIN |
+| read agg: terms (p50 ms) | 1.34 | 1.54 | 1.15× | WIN |
+| read agg: rare_terms (p50 ms) | 1.27 | 1.55 | 1.22× | WIN |
+| read agg: significant_terms (p50 ms) | 1.13 | 1.21 | 1.06× | WIN |
+| read agg: histogram (p50 ms) | 0.49 | 0.74 | 1.53× | WIN |
+| read agg: date_histogram (p50 ms) | 0.37 | 0.88 | 2.37× | WIN |
+| read agg: auto_date_histogram (p50 ms) | 0.48 | 0.71 | 1.48× | WIN |
+| read agg: variable_width_histogram (p50 ms) | 0.48 | 1.57 | 3.24× | WIN |
+| read agg: range (p50 ms) | 0.42 | 0.65 | 1.57× | WIN |
+| read agg: date_range (p50 ms) | 0.40 | 0.90 | 2.28× | WIN |
+| read agg: filter (p50 ms) | 0.93 | 0.71 | 0.77× | LOSE |
+| read agg: filters (p50 ms) | 0.38 | 0.69 | 1.83× | WIN |
+| read agg: missing (p50 ms) | 0.30 | 0.64 | 2.11× | WIN |
+| read agg: global (p50 ms) | 0.52 | 1.28 | 2.45× | WIN |
+| read agg: adjacency_matrix (p50 ms) | 0.42 | 0.67 | 1.60× | WIN |
+| read agg: composite (p50 ms) | 0.36 | 1.47 | 4.11× | WIN |
+| read agg: random_sampler (p50 ms) | 1.17 | 5.65 | 4.85× | WIN |
+| read agg: terms+avg(cost) (p50 ms) | 0.38 | 1.16 | 3.09× | WIN |
+| read pipe: sum_bucket (p50 ms) | 1.19 | 1.12 | 0.94× | LOSE |
+| read pipe: avg_bucket (p50 ms) | 0.36 | 0.77 | 2.13× | WIN |
+| read pipe: max_bucket (p50 ms) | 1.19 | 2.08 | 1.75× | WIN |
+| read pipe: stats_bucket (p50 ms) | 0.36 | 0.73 | 2.02× | WIN |
+| read pipe: percentiles_bucket (p50 ms) | 0.41 | 2.16 | 5.29× | WIN |
+| read pipe: derivative (p50 ms) | 1.13 | 0.67 | 0.60× | LOSE |
+| read pipe: cumulative_sum (p50 ms) | 0.38 | 1.77 | 4.71× | WIN |
+| read pipe: moving_fn (p50 ms) | 1.18 | 1.39 | 1.18× | WIN |
+| read pipe: serial_diff (p50 ms) | 0.37 | 0.96 | 2.56× | WIN |
+| read pipe: bucket_script (p50 ms) | 1.20 | 2.23 | 1.86× | WIN |
+| read pipe: bucket_selector (p50 ms) | 0.39 | 0.74 | 1.91× | WIN |
+| read pipe: bucket_sort (p50 ms) | 0.66 | 2.19 | 3.30× | WIN |
+| read feat: sort-heavy (p50 ms) | 1.89 | 17.39 | 9.19× | WIN |
+| read feat: deep from+size (from 500) (p50 ms) | 1.39 | 2.20 | 1.58× | WIN |
+| read feat: search_after (p50 ms) | 4.34 | 18.61 | 4.28× | WIN |
+| read feat: highlight (p50 ms) | 0.74 | 2.12 | 2.84× | WIN |
+| read feat: _count (p50 ms) | 0.92 | 1.38 | 1.49× | WIN |
+| read feat: _msearch (p50 ms) | 0.96 | 1.24 | 1.29× | WIN |
+| read feat: _mget (p50 ms) | 0.28 | 1.49 | 5.34× | WIN |
+| mixed match_all (p99 ms, under write) | 65.48 | 2.30 | 0.04× | LOSE |
+| mixed bool (p99 ms, under write) | 63.07 | 9.55 | 0.15× | LOSE |
+| mixed range (p99 ms, under write) | 151.89 | 5.11 | 0.03× | LOSE |
+| mixed terms (p99 ms, under write) | 61.84 | 2.70 | 0.04× | LOSE |
+| mixed cardinality (p99 ms, under write) | 98.92 | 18.84 | 0.19× | LOSE |
+| kNN k=10 (p50 ms) | 0.78 | 2.64 | 3.39× | WIN |
 | kNN recall@10 | 100.0% | 100.0% | 1.00× | WIN |
-| index on-disk size | 644.4 MB | 809.7 MB | 1.26× | WIN |
+| index on-disk size | 672.5 MB | 806.7 MB | 1.20× | WIN |
 
 ## Skipped families (need a purpose-built index the flat corpus lacks)
 
@@ -112,4 +112,4 @@ Verdict is from XERJ's POV: WIN = XERJ better (lower latency / higher docs·s / 
 - `knn (as query/top-level)` — covered separately by --knn on a purpose-built dense_vector index
 - `percolate` — parses but no-ops to match_none — not benchmarkable for correctness
 
-_Summary: 75 WIN, 14 LOSE, 2 N/A._
+_Summary: 81 WIN, 8 LOSE, 2 N/A._
