@@ -4798,9 +4798,17 @@ impl Index {
         // via segment readers below. This is a known v0.1 limitation: flushed
         // docs are not yet searchable via the FTS segment reader for match
         // queries, but MatchAll and doc-scan queries do work via stored segments.
+        // Step 4: fan out the 16-shard `doc_count()` sum ONCE per query and
+        // reuse it at the mem_snapshot gate and the size=0 total-synthesis
+        // arms below, instead of re-locking all 16 shards 3-4×.  The memtable
+        // is written concurrently, so this is a point-in-time snapshot — every
+        // consumer here either feeds a total that a later `live_doc_count()`
+        // overwrites (match_all) or gates the empty-memtable fast path, both
+        // tolerant of a one-instant-stale count.
+        let mem_doc_count = self.memtable.doc_count();
         let mem_snapshot = {
             let mem = &*self.memtable;
-            if mem.doc_count() == 0 {
+            if mem_doc_count == 0 {
                 MemSnapshot::Empty
             } else if matches!(query, QueryNode::MatchAll)
                 && size == 0
@@ -5177,7 +5185,7 @@ impl Index {
         // `mem_count` again we double-count (visible as the 40 vs 20
         // failure on `test_terms_agg_bucket_counts` under M5.1).
         if is_match_all && size == 0 && request.aggs.is_none() {
-            let mem_count = self.memtable.doc_count() as u64;
+            let mem_count = mem_doc_count as u64;
             total_count = total_count.saturating_add(mem_count);
         }
 
@@ -5258,10 +5266,7 @@ impl Index {
                         // (later overwritten with the delete-aware live count).
                         None => {
                             let seg_docs: u64 = snap.segments.iter().map(|m| m.doc_count).sum();
-                            let mem_count = {
-                                let mem = &*self.memtable;
-                                mem.doc_count() as u64
-                            };
+                            let mem_count = mem_doc_count as u64;
                             total_count = seg_docs + mem_count;
                         }
                     }

@@ -196,7 +196,16 @@ pub struct DocValues {
     /// `FtsMemtable::sort_candidates_cached`.  Keyed
     /// `"{field}\u{1}{asc|desc}"`.  Reset with the rest of `DocValues`
     /// at drain; cleared by `remove_at` (positions shift).
-    pub sort_cand_cache: FxHashMap<String, SortCandCache>,
+    ///
+    /// Step 4: behind a `Mutex` so the sorted-`match_all` fast path can
+    /// extend the cache under the shard's READ lock instead of forcing a
+    /// write lock across all 16 shards (which serialised every sorted read
+    /// against concurrent ingest — the residual `match_all` read-under-write
+    /// p99 term).  The shard write lock is exclusive, so `push_field` /
+    /// `remove_at` mutate the columns with no concurrent reader; two
+    /// concurrent readers under the shard read lock serialise briefly on
+    /// this leaf mutex while one folds in the new docs.
+    pub sort_cand_cache: parking_lot::Mutex<FxHashMap<String, SortCandCache>>,
 }
 
 /// State of one incremental per-shard sorted-candidate extraction: the
@@ -384,7 +393,7 @@ impl DocValues {
         // Positions shift left — every cached sorted-candidate pool's
         // `(key, docs-index)` pairs go stale.  Deletes are rare on the
         // hot ingest path; a wholesale clear is simplest-correct.
-        self.sort_cand_cache.clear();
+        self.sort_cand_cache.lock().clear();
         for col in self.numeric.values_mut() {
             if doc_index < col.len() {
                 col.remove(doc_index);
@@ -592,7 +601,9 @@ impl ShardedFtsMemtable {
         let mut cands: Vec<(f64, String)> = Vec::new();
         let mut missing: Vec<String> = Vec::new();
         for s in &self.shards {
-            let mut g = s.write();
+            // Step 4: READ lock — sort_candidates_cached now folds new docs
+            // into the interior-mutable cache without an exclusive shard lock.
+            let g = s.read();
             let n = g.doc_count();
             total += n as u64;
             if n == 0 {
@@ -2299,7 +2310,7 @@ impl FtsMemtable {
     /// field — poisoned until the next drain resets the memtable, so the
     /// fallback decision itself is O(1) per query, not a re-walk).
     pub fn sort_candidates_cached(
-        &mut self,
+        &self,
         field: &str,
         desc: bool,
         cap: usize,
@@ -2315,9 +2326,9 @@ impl FtsMemtable {
         } else {
             format!("{field}\u{1}a")
         };
-        let entry = self
-            .doc_values
-            .sort_cand_cache
+        // Step 4: interior-mutable cache — held under the shard READ lock.
+        let mut cache = self.doc_values.sort_cand_cache.lock();
+        let entry = cache
             .entry(key)
             .or_insert_with(|| SortCandCache {
                 seen_docs: 0,

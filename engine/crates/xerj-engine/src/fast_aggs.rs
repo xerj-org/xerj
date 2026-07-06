@@ -408,13 +408,13 @@ impl Index {
         // can observe meta fields; Arc-shared otherwise.  Conservative
         // substring probe — false positives merely fall back to the exact
         // legacy build.
-        let needs_owned_mem = {
-            let raw = aggs_def.to_string();
-            raw.contains("top_hits")
-                || raw.contains("\"_id\"")
-                || raw.contains("\"_index\"")
-                || raw.contains("\"_seq_no\"")
-        };
+        // Structural walk instead of `aggs_def.to_string()` + substring
+        // search — the serialize-the-whole-tree probe ran on every fast-agg
+        // request.  Semantics are preserved exactly: `top_hits` matches as a
+        // substring of any key/string (a `top_hits` agg key, or a nested
+        // one), while the meta fields match the serialized `"_id"` / `"_index"`
+        // / `"_seq_no"` tokens, i.e. an exact object key or string value.
+        let needs_owned_mem = agg_tree_mentions_meta(aggs_def);
 
         let ctx = FastCtx {
             idx: self,
@@ -2828,6 +2828,28 @@ fn compile_top_pred(filter: &Value) -> Option<Pred> {
         };
     }
     compile_pred(filter)
+}
+
+/// Structural equivalent of the old
+/// `aggs_def.to_string().contains("top_hits" | "\"_id\"" | ...)` probe.
+/// Returns true when the agg tree references a meta field, meaning the
+/// memtable docs must be materialised OWNED (with `_id`/`_index`/`_seq_no`
+/// injected) rather than Arc-shared.  Conservative: a false positive only
+/// costs an extra clone, never correctness — so this deliberately mirrors
+/// the substring semantics (`top_hits` anywhere; the meta fields as exact
+/// key/string tokens, i.e. the serialized quoted form).
+fn agg_tree_mentions_meta(v: &Value) -> bool {
+    fn is_meta(s: &str) -> bool {
+        s.contains("top_hits") || s == "_id" || s == "_index" || s == "_seq_no"
+    }
+    match v {
+        Value::Object(m) => m
+            .iter()
+            .any(|(k, val)| is_meta(k) || agg_tree_mentions_meta(val)),
+        Value::Array(a) => a.iter().any(agg_tree_mentions_meta),
+        Value::String(s) => is_meta(s),
+        _ => false,
+    }
 }
 
 /// Compile the (single-clause) filter queries `doc_matches_filter` supports
