@@ -66,6 +66,7 @@ fn fast_aggs_disabled() -> bool {
 }
 
 /// One on-disk segment's columns + identity.
+#[derive(Clone)]
 struct SegEntry {
     id: String,
     cols: std::sync::Arc<std::collections::BTreeMap<String, Column>>,
@@ -451,24 +452,7 @@ impl Index {
             }
         };
 
-        let mut result = Map::new();
-        for (agg_name, agg_body) in aggs_obj {
-            let (agg_type, params, sub, meta) = split_agg_body(agg_body)?;
-            let mut agg_result = if PIPELINE_TYPES.contains(&agg_type) {
-                // Sibling pipeline — placeholder now, resolved below.
-                run_pipeline_agg(agg_type, params)
-            } else {
-                ctx.exec_agg(agg_type, params, sub)?
-            };
-            if let Some(obj) = agg_result.as_object_mut() {
-                obj.insert("__type__".into(), Value::String(agg_type.to_string()));
-                if let Some(m) = meta {
-                    obj.insert("meta".into(), m.clone());
-                }
-            }
-            result.insert(agg_name.clone(), agg_result);
-        }
-        resolve_sibling_pipelines(&mut result);
+        let result = ctx.eval_aggs_object(aggs_obj)?;
         Some((Value::Object(result), filtered_total))
     }
 }
@@ -760,16 +744,86 @@ impl<'a> FastCtx<'a> {
 
     // ── dispatch ─────────────────────────────────────────────────────────
 
+    /// Evaluate a whole `aggs` object over this context, mirroring the
+    /// top-level dispatch in `try_fast_aggs`: each named entry is executed
+    /// (or run as a sibling pipeline), tagged with `__type__`/`meta`, and
+    /// then sibling-pipeline references are resolved.  Shared so the `global`
+    /// bucket can re-evaluate its sub-aggs over the whole corpus (via a child
+    /// context with no top filter) with byte-identical shaping.
+    fn eval_aggs_object(&self, aggs_obj: &Map<String, Value>) -> Option<Map<String, Value>> {
+        let mut result = Map::new();
+        for (agg_name, agg_body) in aggs_obj {
+            let (agg_type, params, sub, meta) = split_agg_body(agg_body)?;
+            let mut agg_result = if PIPELINE_TYPES.contains(&agg_type) {
+                // Sibling pipeline — placeholder now, resolved below.
+                run_pipeline_agg(agg_type, params)
+            } else {
+                self.exec_agg(agg_type, params, sub)?
+            };
+            if let Some(obj) = agg_result.as_object_mut() {
+                obj.insert("__type__".into(), Value::String(agg_type.to_string()));
+                if let Some(m) = meta {
+                    obj.insert("meta".into(), m.clone());
+                }
+            }
+            result.insert(agg_name.clone(), agg_result);
+        }
+        resolve_sibling_pipelines(&mut result);
+        Some(result)
+    }
+
+    /// `global` bucket — ignores the top-level query and aggregates the WHOLE
+    /// corpus.  A child context with no top filter (sharing the same decoded
+    /// columns via Arc + the same memtable source) evaluates the sub-aggs, so
+    /// e.g. `value_count`/`avg`/`terms` run straight off doc-values instead of
+    /// hydrating `_source` on the brute path.  Byte-identical to the brute
+    /// `run_aggs_with_all` global bucket: `{doc_count, <subs>}`.
+    fn exec_global(&self, params: &Value, sub: Option<&Value>) -> Option<Value> {
+        // `global` takes no params.
+        if !params.as_object().map_or(false, |o| o.is_empty()) {
+            return None;
+        }
+        let child = FastCtx {
+            idx: self.idx,
+            segs: self.segs.clone(),
+            mem_docs: std::sync::OnceLock::new(),
+            needs_owned_mem: self.needs_owned_mem,
+            bool_fields: self.bool_fields,
+            top_filter: None,
+            top_filter_query: None,
+        };
+        let mut bucket = Map::new();
+        // Whole-corpus doc_count (no deletes on the fast path; segment rows are
+        // weight-1, memtable docs honour `_doc_count`, matching every other
+        // fast-path executor).
+        let mut doc_count: u64 = 0;
+        for seg in &child.segs {
+            doc_count += seg.docs as u64;
+        }
+        for doc in child.mem().iter() {
+            doc_count += doc_count_weight(doc);
+        }
+        bucket.insert("doc_count".to_string(), json!(doc_count));
+        if let Some(sub_aggs) = sub.and_then(Value::as_object) {
+            let subs = child.eval_aggs_object(sub_aggs)?;
+            for (k, v) in subs {
+                bucket.insert(k, v);
+            }
+        }
+        Some(Value::Object(bucket))
+    }
+
     fn exec_agg(&self, agg_type: &str, params: &Value, sub: Option<&Value>) -> Option<Value> {
         // Under a top-level query filter only the executors that thread the
         // filter through their columnar reduction are correct; every other
         // agg type falls back to the exact brute path (return None).  The
-        // supported set covers the filtered-metric benchmark (avg/sum/…) and
-        // the common filtered `terms` dashboard.
+        // supported set covers the filtered-metric benchmark (avg/sum/…), the
+        // common filtered `terms` dashboard, and `global` (which ignores the
+        // filter entirely — it reduces over the whole corpus).
         if self.top_filter.is_some()
             && !matches!(
                 agg_type,
-                "avg" | "sum" | "min" | "max" | "stats" | "value_count" | "terms"
+                "avg" | "sum" | "min" | "max" | "stats" | "value_count" | "terms" | "global"
             )
         {
             return None;
@@ -789,6 +843,7 @@ impl<'a> FastCtx<'a> {
             "filters" => self.exec_filters(params, sub),
             "adjacency_matrix" => self.exec_adjacency_matrix(params, sub),
             "composite" => self.exec_composite(params, sub),
+            "global" => self.exec_global(params, sub),
             "sampler" | "random_sampler" => self.exec_sampler(params, sub),
             "variable_width_histogram" => self.exec_vwh(params, sub),
             "date_histogram" => self.exec_date_histogram(params, sub),
