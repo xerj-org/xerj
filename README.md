@@ -135,7 +135,7 @@ XERJ implements the Elasticsearch REST wire protocol. Because it is wire-compati
 
 `match_all`, `match_none`, `match`, `match_phrase`, `match_phrase_prefix`, `multi_match`, `term`, `terms`, `range`, `prefix`, `wildcard`, `exists`, `ids`, `bool`, `fuzzy`, `regexp`, `query_string`, `simple_query_string`, `constant_score`, `boosting`, `dis_max`, `geo_distance`, `knn`, `semantic`, `hybrid`.
 
-> **Vector & semantic search notes.** `knn` (dense-vector HNSW) and `hybrid` (BM25 + kNN in one request) run entirely inside XERJ. The `semantic` query resolves query text to a vector at search time via an **external, OpenAI-compatible `/v1/embeddings` endpoint** that you configure (`embedding.default_endpoint` / `embedding.default_model`) — XERJ ships the proxy, not a built-in embedding model. Built-in/local embeddings, auto-embed-on-ingest, and an agent-memory API are on the [roadmap](#roadmap).
+> **Vector & semantic search notes.** `knn` (dense-vector HNSW) and `hybrid` (BM25 + kNN in one request) run entirely inside XERJ. As of **rc-2**, `semantic_text` fields **auto-embed on ingest** using a built-in, zero-config embedder, and the `semantic` query works with no external service; a configured external OpenAI-compatible `/v1/embeddings` endpoint (`embedding.default_endpoint`) is still used at higher quality when set. The built-in embedder is lexical (not neural) — see the [roadmap](#roadmap) and [ROADMAP.md](./ROADMAP.md) for the honest limitation and what's next. rc-2 also adds an **agent-memory REST API** (`/_memory/{ns}`) and **anomaly detection** (`/_ml/anomaly_detectors`).
 
 **Supported aggregations**
 
@@ -225,13 +225,13 @@ If a test expects a response and XERJ returns something different, that's a bug 
 
 ## Roadmap
 
-XERJ ships full-text, aggregation, log-analytics, dense-vector kNN, and hybrid search today. Several AI-adjacent capabilities are **planned but not yet implemented** — they are called out here (and in [`ROADMAP.md`](./ROADMAP.md)) so the README stays honest about what is and isn't built:
+XERJ ships full-text, aggregation, log-analytics, dense-vector kNN, and hybrid search. **rc-2** added three AI-adjacent capabilities (each conformance-gated and verified by real requests):
 
-- **Built-in / local embeddings & auto-embed on ingest.** Today, `semantic` search proxies to an external OpenAI-compatible embeddings endpoint you configure; there is no bundled embedding model, and the `semantic_text` field type is a mapping placeholder that does not yet auto-embed on ingest.
-- **Agent-memory API.** An internal memory store exists in `xerj-ai` but is not yet wired to a REST endpoint (store/recall/forget over the wire).
-- **Anomaly detection / ML jobs.** The Elasticsearch `_ml` / `_cat/ml/*` surface is present as compatibility stubs only; there is no detection or forecasting engine behind it yet.
+- **Auto-embed on ingest + a built-in embedder** — `semantic_text` works with zero external config; the built-in embedder is lexical (a bundled *neural* model is still future work).
+- **Agent-memory REST API** — `POST /_memory/{ns}` store, `/_recall` (kNN or BM25 + metadata filter), list/forget/drop; namespaced and offline.
+- **Anomaly detection (`_ml`)** — real statistical detectors with baseline + deviation scoring (on-demand; continuous datafeeds and forecasting are future work).
 
-See [ROADMAP.md](./ROADMAP.md) for the full list and status.
+Still planned: a bundled neural embedding model, an ingest-time chunk-embedding pipeline, continuous anomaly datafeeds, and distributed-clustering hardening. See [ROADMAP.md](./ROADMAP.md) for the full status and honest limitations.
 
 ---
 

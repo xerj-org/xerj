@@ -207,6 +207,82 @@ impl TaskRegistry {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ML anomaly detection — detector configs
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A persisted anomaly-detector configuration.
+///
+/// A detector describes how to turn a time-series source index into a set of
+/// evenly-spaced buckets (via `date_histogram` over `time_field`), reduce each
+/// bucket to a single number (via `function` over `field`), and then score each
+/// bucket against a statistical baseline (moving mean + stddev) built from the
+/// preceding *normal* buckets. It is a real, honest statistical detector — not
+/// an opaque ML model — and is fully deterministic.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct MlDetector {
+    /// User-supplied detector id (path segment, unique per node).
+    pub detector_id: String,
+    /// Source index (or index pattern) to analyse.
+    pub source_index: String,
+    /// Time field used to bucket the data (default `@timestamp`).
+    pub time_field: String,
+    /// Metric function: `count | mean | min | max | sum`.
+    pub function: String,
+    /// Field the metric function operates on. Ignored (and optional) for `count`.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub field: Option<String>,
+    /// Bucket span, ES interval syntax (e.g. `"1h"`, `"5m"`, `"1d"`).
+    pub bucket_span: String,
+    /// Number of standard deviations a bucket must deviate from its baseline to
+    /// be flagged as an anomaly (default `3.0`).
+    #[serde(default = "default_anomaly_threshold")]
+    pub anomaly_threshold: f64,
+    /// Creation timestamp (epoch millis).
+    pub create_time_ms: i64,
+    /// Optional human description.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub description: Option<String>,
+}
+
+pub fn default_anomaly_threshold() -> f64 {
+    3.0
+}
+
+impl MlDetector {
+    /// Absolute path of the on-disk detector registry file.
+    fn registry_path(data_dir: &str) -> std::path::PathBuf {
+        std::path::Path::new(data_dir).join("_ml").join("detectors.json")
+    }
+
+    /// Load all persisted detectors from `<data_dir>/_ml/detectors.json`.
+    /// Missing/corrupt files yield an empty registry (best effort).
+    pub fn load_all(data_dir: &str) -> DashMap<String, MlDetector> {
+        let map = DashMap::new();
+        let path = Self::registry_path(data_dir);
+        if let Ok(bytes) = std::fs::read(&path) {
+            if let Ok(list) = serde_json::from_slice::<Vec<MlDetector>>(&bytes) {
+                for d in list {
+                    map.insert(d.detector_id.clone(), d);
+                }
+            }
+        }
+        map
+    }
+
+    /// Persist the full registry to disk (best effort — swallows I/O errors).
+    pub fn save_all(data_dir: &str, registry: &DashMap<String, MlDetector>) {
+        let path = Self::registry_path(data_dir);
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let list: Vec<MlDetector> = registry.iter().map(|e| e.value().clone()).collect();
+        if let Ok(bytes) = serde_json::to_vec_pretty(&list) {
+            let _ = std::fs::write(&path, bytes);
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // AppState
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -239,6 +315,11 @@ pub struct AppState {
     /// Whether the Watcher service is "running" (toggled by
     /// `_watcher/_start` / `_watcher/_stop`; reported in `_xpack`).
     pub watcher_active: Arc<AtomicBool>,
+    /// Registry of anomaly-detector configs, keyed by detector id. Loaded from
+    /// `<data_dir>/_ml/detectors.json` at startup and re-persisted on every
+    /// create/delete. Backs the `PUT/GET/DELETE /_ml/anomaly_detectors/{id}`,
+    /// `POST /_ml/anomaly_detectors/{id}/_score`, and `_cat/ml` endpoints.
+    pub ml_detectors: Arc<DashMap<String, MlDetector>>,
 }
 
 impl AppState {
@@ -260,6 +341,7 @@ impl AppState {
             "issuer": "xerj"
         })));
         let watcher_active = Arc::new(AtomicBool::new(true));
+        let ml_detectors = Arc::new(MlDetector::load_all(&config.server.data_dir));
         Self {
             config: Arc::new(config),
             engine: Arc::new(engine),
@@ -267,6 +349,7 @@ impl AppState {
             tasks,
             license,
             watcher_active,
+            ml_detectors,
         }
     }
 

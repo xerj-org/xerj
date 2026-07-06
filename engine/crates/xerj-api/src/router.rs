@@ -23,7 +23,7 @@ use tower_http::{
 };
 use uuid::Uuid;
 
-use crate::{auth::auth_middleware, es_compat, native, state::AppState};
+use crate::{auth::auth_middleware, es_compat, memory_api, native, state::AppState};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Native xerj router (:8080)
@@ -512,6 +512,21 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         // ── Freeze / Unfreeze ─────────────────────────────────────────────────
         .route("/:index/_freeze", post(es_compat::freeze_index))
         .route("/:index/_unfreeze", post(es_compat::unfreeze_index))
+        // ── _ml anomaly detection APIs ────────────────────────────────────────
+        .route(
+            "/_ml/anomaly_detectors",
+            get(es_compat::list_ml_anomaly_detectors),
+        )
+        .route(
+            "/_ml/anomaly_detectors/:id",
+            put(es_compat::put_ml_anomaly_detector)
+                .get(es_compat::get_ml_anomaly_detector)
+                .delete(es_compat::delete_ml_anomaly_detector),
+        )
+        .route(
+            "/_ml/anomaly_detectors/:id/_score",
+            post(es_compat::score_ml_anomaly_detector),
+        )
         // ── _cat/ml APIs ──────────────────────────────────────────────────────
         .route("/_cat/ml/anomaly_detectors", get(es_compat::cat_ml_anomaly_detectors))
         .route("/_cat/ml/datafeeds", get(es_compat::cat_ml_datafeeds))
@@ -565,6 +580,18 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         // ── More _cat endpoints ────────────────────────────────────────────────────
         .route("/_cat/tasks", get(es_compat::cat_tasks))
         .route("/_cat/repositories", get(es_compat::cat_repositories))
+        // ── Agent-Memory API ────────────────────────────────────────────────────────
+        // Namespaced semantic memory for AI agents, backed by reserved
+        // `.xerj-memory-{namespace}` indices (reuses the doc/dense_vector/BM25
+        // machinery). See `memory_api.rs`.
+        .route(
+            "/_memory/:namespace",
+            post(memory_api::store)
+                .get(memory_api::list)
+                .delete(memory_api::forget_namespace),
+        )
+        .route("/_memory/:namespace/_recall", post(memory_api::recall))
+        .route("/_memory/:namespace/:id", delete(memory_api::forget_one))
         // Shared state
         .with_state(state.clone())
         // Middleware stack (applied outermost-last)
