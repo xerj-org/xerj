@@ -10929,10 +10929,21 @@ pub async fn index_stats(
                 .unwrap_or(0);
             all_store_bytes += store_size_bytes;
             let dv = per_index_dense_vector_stats(&state, name);
+            let (seg_count, merging) = state
+                .engine
+                .get_index(name)
+                .map(|idx| (idx.store_snapshot().segments.len(), idx.is_merge_in_progress()))
+                .unwrap_or((0, false));
             let primaries = json!({
                 "docs": { "count": doc_count, "deleted": 0 },
                 "store": { "size_in_bytes": store_size_bytes },
                 "dense_vector": dv,
+                "merges": {
+                    "current": if merging { 1 } else { 0 },
+                    "current_docs": 0,
+                    "current_size_in_bytes": 0,
+                },
+                "segments": { "count": seg_count, "memory_in_bytes": 0 },
             });
             all_indices.insert(name.clone(), json!({
                 "primaries": primaries,
@@ -11013,6 +11024,13 @@ pub async fn index_stats(
         Err(_) => (0, 0, 0, 0, 0, 0, 0),
     };
     let dense_vector_stats = per_index_dense_vector_stats(&state, &index);
+    // Merge status + real segment count so benchmarks can verify the
+    // index is merge-quiescent (merges.current == 0) before measuring.
+    let (seg_count, merges_current) = state
+        .engine
+        .get_index(&index)
+        .map(|idx| (idx.store_snapshot().segments.len(), idx.is_merge_in_progress()))
+        .unwrap_or((0, false));
     let primaries = json!({
         "docs": { "count": doc_count, "deleted": 0 },
         "store": { "size_in_bytes": store_size_bytes },
@@ -11070,8 +11088,13 @@ pub async fn index_stats(
             "external_total_time_in_millis": 0,
             "listeners": 0,
         },
+        "merges": {
+            "current": if merges_current { 1 } else { 0 },
+            "current_docs": 0,
+            "current_size_in_bytes": 0,
+        },
         "segments": {
-            "count": 0,
+            "count": seg_count,
             "memory_in_bytes": 0,
         },
     });
@@ -15125,25 +15148,56 @@ pub async fn open_index(
 // POST /{index}/_forcemerge — trigger a merge pass synchronously
 // ─────────────────────────────────────────────────────────────────────────────
 
+#[derive(serde::Deserialize)]
+pub struct ForcemergeParams {
+    /// ES `max_num_segments`: merge down to at most this many segments.
+    /// XERJ defaults to 1 (full merge) so a bench "forcemerge + settle"
+    /// step leaves the index fully quiesced, matching what it does to ES.
+    pub max_num_segments: Option<usize>,
+}
+
 pub async fn forcemerge(
     State(state): State<AppState>,
     Path(index): Path<String>,
+    Query(params): Query<ForcemergeParams>,
 ) -> impl IntoResponse {
     match state.engine.get_index(&index) {
         Ok(idx) => {
-            // Drive merge passes until nothing more is selected.
-            let mut total = 0usize;
-            for _ in 0..20 {
-                match idx.run_merge_once().await {
-                    Ok(0) => break,
-                    Ok(n) => total += n,
-                    Err(_) => break,
+            // ES semantics: SYNCHRONOUS. `force_merge` waits for any
+            // in-flight background merge pass (instead of the pre-fix
+            // behaviour of returning `merged_batches: 0` and leaving the
+            // background merge churning through the caller's read phase),
+            // then drives merge passes until the segment count converges
+            // to the target. Long-running is fine — callers wait; bound
+            // it with a generous 30-minute request timeout.
+            let target = params.max_num_segments.unwrap_or(1);
+            match tokio::time::timeout(
+                std::time::Duration::from_secs(30 * 60),
+                idx.force_merge(target),
+            )
+            .await
+            {
+                Ok(Ok(total)) => {
+                    let segments = idx.store_snapshot().segments.len();
+                    Json(json!({
+                        "_shards": { "total": 1, "successful": 1, "failed": 0 },
+                        "merged_batches": total,
+                        "segments": segments,
+                    })).into_response()
                 }
+                Ok(Err(e)) => (
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "error": {"type": "force_merge_failed", "reason": e.to_string()}
+                    })),
+                ).into_response(),
+                Err(_) => (
+                    axum::http::StatusCode::SERVICE_UNAVAILABLE,
+                    Json(json!({
+                        "error": {"type": "force_merge_timeout", "reason": "forcemerge did not complete within 30 minutes"}
+                    })),
+                ).into_response(),
             }
-            Json(json!({
-                "_shards": { "total": 1, "successful": 1, "failed": 0 },
-                "merged_batches": total
-            })).into_response()
         }
         Err(_) => (
             axum::http::StatusCode::NOT_FOUND,

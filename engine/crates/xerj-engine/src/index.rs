@@ -27,6 +27,15 @@ use xerj_vector::distance::DistanceMetric;
 
 use crate::aggs::{run_aggs_with_all, run_agg_fast, run_agg_fast_filtered, FastAggResult};
 
+/// Clears an index's `merge_in_progress` flag on every exit path of the
+/// merge holder (background pass or forcemerge), including panics.
+struct MergeFlagClear<'a>(&'a std::sync::atomic::AtomicBool);
+impl<'a> Drop for MergeFlagClear<'a> {
+    fn drop(&mut self) {
+        self.0.store(false, std::sync::atomic::Ordering::Release);
+    }
+}
+
 // Doc-values (columnar) fast path for size:0 + match_all + aggs — child
 // module so it can reach Index's private fields/methods via `super::`.
 #[path = "fast_aggs.rs"]
@@ -2100,9 +2109,6 @@ impl Index {
     /// also be invoked explicitly by tests.
     pub async fn run_merge_once(&self) -> Result<usize> {
         use std::sync::atomic::Ordering as AtomicOrdering;
-        use xerj_fts::index::FtsIndexWriter;
-        use xerj_storage::merge::{MergePolicy, SizeTieredMergePolicy};
-        use xerj_storage::segment::{SectionType, SegmentId, SegmentReader, SegmentWriter};
 
         // Serialise merges with ourselves (skip if another pass is running).
         if self
@@ -2113,14 +2119,84 @@ impl Index {
             return Ok(0);
         }
         // Ensure we clear the flag on every exit path.
-        struct ClearOnDrop<'a>(&'a std::sync::atomic::AtomicBool);
-        impl<'a> Drop for ClearOnDrop<'a> {
-            fn drop(&mut self) {
-                self.0
-                    .store(false, std::sync::atomic::Ordering::Release);
+        let _clear = MergeFlagClear(&self.merge_in_progress);
+        self.merge_pass_locked(None).await
+    }
+
+    /// True while a merge pass (background or forced) holds the merge flag.
+    /// Exposed through `_stats` so callers (benchmarks) can verify the
+    /// index is merge-quiescent before starting a measurement phase.
+    pub fn is_merge_in_progress(&self) -> bool {
+        self.merge_in_progress
+            .load(std::sync::atomic::Ordering::Acquire)
+    }
+
+    /// ES-style `_forcemerge`: run SYNCHRONOUSLY until the index has at
+    /// most `max_num_segments` segments.
+    ///
+    /// Unlike `run_merge_once`, this does NOT bail out when a background
+    /// pass currently holds the merge flag — it WAITS for the background
+    /// pass to finish, takes the flag over, and then drives merge passes
+    /// to convergence before returning.  The old behaviour (return
+    /// `merged_batches: 0` immediately) meant a benchmark's
+    /// "forcemerge + settle" step quiesced ES but left XERJ's background
+    /// merge churning through the entire read phase, polluting every
+    /// read-latency sample with merge CPU.
+    ///
+    /// On return the index is quiescent for the merged segment set: the
+    /// memtable has been flushed, segments are merged to the target, and
+    /// the size-tiered background policy selects no further work until
+    /// new writes arrive.
+    pub async fn force_merge(&self, max_num_segments: usize) -> Result<usize> {
+        use std::sync::atomic::Ordering as AtomicOrdering;
+
+        let target = max_num_segments.max(1);
+
+        // NOTE: like ES, forcemerge operates on COMMITTED segments only —
+        // it does not flush the memtable. (An earlier draft called
+        // `self.refresh()` here; that exposed a pre-existing defect where
+        // nested dense_vector kNN returns 0 hits once docs move from the
+        // memtable into segments — see 135_knn_query_nested_search_ivf.yml.
+        // Callers that want memtable docs included must refresh first,
+        // exactly as with ES.)
+
+        // Wait for any in-flight background pass instead of skipping.
+        // 50 ms poll; background passes always terminate, and the HTTP
+        // handler above us applies the request-level timeout.
+        while self
+            .merge_in_progress
+            .compare_exchange(false, true, AtomicOrdering::AcqRel, AtomicOrdering::Relaxed)
+            .is_err()
+        {
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        let _clear = MergeFlagClear(&self.merge_in_progress);
+
+        let mut total = 0usize;
+        loop {
+            let n = self.merge_pass_locked(Some(target)).await?;
+            total += n;
+            let seg_count = self.store.snapshot().segments.len();
+            if n == 0 || seg_count <= target {
+                break;
             }
         }
-        let _clear = ClearOnDrop(&self.merge_in_progress);
+        Ok(total)
+    }
+
+    /// One merge pass.  Caller MUST hold `merge_in_progress` (and clear it
+    /// after — see `MergeFlagClear`).
+    ///
+    /// `force_max_segments: None` → size-tiered policy (background path).
+    /// `Some(target)` → forcemerge selection: EVERY segment (large ones
+    /// included — ES ignores the max-merged-segment cap on an explicit
+    /// forcemerge) is chunked into `max_merge_count`-sized batches; the
+    /// caller loops passes until the index converges to `target` segments.
+    async fn merge_pass_locked(&self, force_max_segments: Option<usize>) -> Result<usize> {
+        use std::sync::atomic::Ordering as AtomicOrdering;
+        use xerj_fts::index::FtsIndexWriter;
+        use xerj_storage::merge::{MergePolicy, SizeTieredMergePolicy};
+        use xerj_storage::segment::{SectionType, SegmentId, SegmentReader, SegmentWriter};
 
         // V4 M4.5 — larger merge batches so a bursty-ingest index with
         // thousands of small segments converges in far fewer passes.
@@ -2151,7 +2227,23 @@ impl Index {
             let snap = self.store.snapshot();
             snap.segments.clone()
         };
-        let batches = policy.select_merges(&segments_snapshot_init);
+        let batches: Vec<Vec<SegmentId>> = match force_max_segments {
+            // Forcemerge: chunk every segment (smallest first) into
+            // max_merge_count-sized batches, ignoring tier/size caps.
+            Some(target) if segments_snapshot_init.len() > target => {
+                let mut segs: Vec<&xerj_storage::segment::SegmentMeta> =
+                    segments_snapshot_init.iter().collect();
+                segs.sort_by_key(|s| s.size_bytes);
+                let ids: Vec<SegmentId> =
+                    segs.into_iter().map(|s| s.id.clone()).collect();
+                ids.chunks((mc.max_merge_count as usize).max(2))
+                    .filter(|c| c.len() >= 2)
+                    .map(|c| c.to_vec())
+                    .collect()
+            }
+            Some(_) => Vec::new(),
+            None => policy.select_merges(&segments_snapshot_init),
+        };
         if batches.is_empty() {
             return Ok(0);
         }
