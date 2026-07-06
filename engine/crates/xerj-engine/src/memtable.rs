@@ -272,30 +272,32 @@ impl DocValues {
         // doc HashMap churn from 5-8 entry chains per field to 1 Vec
         // push — measured at ~5× faster ingest on log workloads.
         self.counts_dirty = true;
+        // Column keys (`field`) recur across every doc, so `entry_no_clone`
+        // skips the per-doc `field.to_string()` allocation on the hot path.
         match val {
             Value::Number(n) => {
-                let col = self.numeric.entry(field.to_string()).or_default();
+                let col = entry_no_clone(&mut self.numeric, field, Default::default);
                 pad_to(col, doc_index);
                 col.push(n.as_f64());
                 // Keep the keyword column populated too for mixed-type
                 // access but defer the set/count maps.
-                let kcol = self.keyword.entry(field.to_string()).or_default();
+                let kcol = entry_no_clone(&mut self.keyword, field, Default::default);
                 pad_to(kcol, doc_index);
                 kcol.push(Some(n.to_string()));
             }
             Value::String(s) => {
-                let kcol = self.keyword.entry(field.to_string()).or_default();
+                let kcol = entry_no_clone(&mut self.keyword, field, Default::default);
                 pad_to(kcol, doc_index);
                 kcol.push(Some(s.clone()));
                 // If the string looks numeric, also index it in the numeric column.
                 if let Ok(f) = s.parse::<f64>() {
-                    let ncol = self.numeric.entry(field.to_string()).or_default();
+                    let ncol = entry_no_clone(&mut self.numeric, field, Default::default);
                     pad_to(ncol, doc_index);
                     ncol.push(Some(f));
                 }
             }
             Value::Bool(b) => {
-                let kcol = self.keyword.entry(field.to_string()).or_default();
+                let kcol = entry_no_clone(&mut self.keyword, field, Default::default);
                 pad_to(kcol, doc_index);
                 kcol.push(Some(b.to_string()));
             }
@@ -314,27 +316,24 @@ impl DocValues {
                     _ => None,
                 });
 
-                let ncol = self.numeric.entry(field.to_string()).or_default();
+                let ncol = entry_no_clone(&mut self.numeric, field, Default::default);
                 pad_to(ncol, doc_index);
                 ncol.push(first_num);
 
-                let kcol = self.keyword.entry(field.to_string()).or_default();
-                pad_to(kcol, doc_index);
                 if let Some(ref s) = first_str {
-                    self.keyword_set
-                        .entry(field.to_string())
-                        .or_default()
-                        .insert(s.clone());
+                    entry_no_clone(&mut self.keyword_set, field, Default::default).insert(s.clone());
                 }
+                let kcol = entry_no_clone(&mut self.keyword, field, Default::default);
+                pad_to(kcol, doc_index);
                 kcol.push(first_str);
             }
             Value::Null | Value::Object(_) => {
                 // Push None for null/object fields so columns stay aligned.
-                let ncol = self.numeric.entry(field.to_string()).or_default();
+                let ncol = entry_no_clone(&mut self.numeric, field, Default::default);
                 pad_to(ncol, doc_index);
                 ncol.push(None);
 
-                let kcol = self.keyword.entry(field.to_string()).or_default();
+                let kcol = entry_no_clone(&mut self.keyword, field, Default::default);
                 pad_to(kcol, doc_index);
                 kcol.push(None);
             }
@@ -1345,6 +1344,38 @@ fn pad_to<T>(col: &mut Vec<Option<T>>, target_len: usize) {
     }
 }
 
+/// Borrow the value for `key`, inserting `make()` when absent — but only
+/// allocate a fresh OWNED key on the miss path.
+///
+/// `map.entry(key.to_owned()).or_insert_with(make)` clones `key` into a
+/// heap `String` on EVERY call, even when the entry already exists.  On
+/// the bulk-ingest write-lock critical path the field name and each term
+/// recur across every doc of a shard's sub-batch, so that unconditional
+/// clone was a `malloc` per (doc × field) and per (doc × term) — profiled
+/// as the dominant under-lock cost (~40 ms / 10 k-doc batch).  Here the
+/// common HIT path pays a second `&str` hash/probe instead (a few ns with
+/// FxHash) and allocates NOTHING; only a genuinely new field/term pays the
+/// key clone.
+///
+/// Crucially this shrinks the critical section WITHOUT moving any work off
+/// the lock, so the write lock still serialises writer CPU against reader
+/// CPU (measured: an off-lock rebuild instead regressed the CPU-heaviest
+/// read aggs by removing that serialisation).  The resulting map is
+/// byte-identical to the `entry` form.
+#[inline]
+fn entry_no_clone<'a, V>(
+    map: &'a mut FxHashMap<String, V>,
+    key: &str,
+    make: impl FnOnce() -> V,
+) -> &'a mut V {
+    if !map.contains_key(key) {
+        map.insert(key.to_string(), make());
+    }
+    // Present after the branch above; the second lookup is a hash+probe,
+    // strictly cheaper than the key `String` allocation it replaces.
+    map.get_mut(key).expect("just inserted / already present")
+}
+
 /// One resolved predicate of a `bool { must/filter }` for the fused
 /// columnar memtable walk (`doc_values_bool_query`).  Built by the engine
 /// from Term / Range query nodes; semantics per predicate mirror
@@ -1495,20 +1526,24 @@ impl FtsMemtable {
         for (field_name, tokens) in analyzed {
             let token_count = tokens.len() as u32;
 
-            // Cache the field length for BM25 scoring.
-            self.field_lengths
-                .entry(field_name.clone())
-                .or_default()
+            // Cache the field length for BM25 scoring.  `field_name`
+            // recurs across every doc of the batch, so `entry_no_clone`
+            // skips the per-doc field-key `malloc` on the hot path.
+            entry_no_clone(&mut self.field_lengths, field_name, Default::default)
                 .insert(doc_id.clone(), token_count);
 
             // Update running average.
-            let entry = self.avg_field_lengths.entry(field_name.clone()).or_insert((0.0, 0));
+            let entry = entry_no_clone(&mut self.avg_field_lengths, field_name, || (0.0, 0));
             entry.0 += token_count as f64;
             entry.1 += 1;
 
-            let field_index = self.index.entry(field_name.clone()).or_default();
+            let field_index = entry_no_clone(&mut self.index, field_name, Default::default);
             for token in tokens {
-                let posting = field_index.entry(token.text.clone()).or_default();
+                // `token.text` likewise recurs (low-cardinality keyword-ish
+                // fields), so only a genuinely new term pays the key clone.
+                let posting = entry_no_clone(field_index, &token.text, Default::default);
+                // `doc_id` is unique on the turbo path (fresh auto-id) so it
+                // always misses — the owning clone is unavoidable here.
                 *posting.entry(doc_id.clone()).or_insert(0) += 1;
             }
         }
