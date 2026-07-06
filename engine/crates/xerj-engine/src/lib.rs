@@ -138,6 +138,45 @@ pub(crate) fn merge_pool() -> &'static rayon::ThreadPool {
     })
 }
 
+/// Global bound on how many shard flushes may run their (CPU-heavy,
+/// ~600 ms) segment finalize concurrently.
+///
+/// Under sustained ingest all 16 memtable shards cross their per-shard
+/// flush threshold at nearly the same instant (round-robin doc routing),
+/// so `maybe_spawn_flush` dispatches a 16-wide flush STORM.  Pre-fix each
+/// finalize ran inline via `background_pool().install(...)`, which BLOCKS
+/// the calling tokio worker for the whole finalize; a 16-wide storm parked
+/// up to 16 async workers at once, starving the concurrent `_bulk`
+/// clients' HTTP handling and the 300/s reader's search dispatch.  It also
+/// oversubscribed the 32-thread background pool 16-deep (512 queued rayon
+/// tasks), inflating per-finalize wall time into 700 ms+ outliers and the
+/// memtable-back-pressure that capped ingest.
+///
+/// The finalize now runs on `spawn_blocking` (never parks an async worker)
+/// under this semaphore, so at most N finalizes are in flight.  Measured
+/// on 1M×c8 (32 cores): unbounded+spawn_blocking gained little (337k),
+/// but N=4 staggered the storm into a smoother band — ingest 338k→370k
+/// (+9%, peak 377k) with all five mixed read p99s neutral-to-better.
+/// Total flush CPU is unchanged; the win is scheduling, not less work.
+///
+/// N defaults to `ncores/8` (=4 on the 32-core bench, matching the
+/// measured optimum); `XERJ_FIN_CONC` overrides for tuning.
+pub(crate) fn flush_finalize_gate() -> &'static tokio::sync::Semaphore {
+    static GATE: std::sync::OnceLock<tokio::sync::Semaphore> = std::sync::OnceLock::new();
+    GATE.get_or_init(|| {
+        let n = std::env::var("XERJ_FIN_CONC")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .filter(|&n| n > 0)
+            .unwrap_or_else(|| {
+                std::thread::available_parallelism()
+                    .map(|c| (c.get() / 8).max(2))
+                    .unwrap_or(4)
+            });
+        tokio::sync::Semaphore::new(n)
+    })
+}
+
 // ── Analyzer helpers ──────────────────────────────────────────────────────────
 
 use std::sync::Arc;

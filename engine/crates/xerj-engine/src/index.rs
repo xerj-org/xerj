@@ -9054,15 +9054,34 @@ async fn do_flush_shard(
     };
 
     // Hand the pre-drained storage entries to the finaliser.
+    //
+    // The segment encode + side-car build (CPU-heavy, ~600 ms) runs on the
+    // deprioritised background pool (build_fts's inner install() is a
+    // same-pool no-op).  Two flush-storm mitigations wrap it:
+    //   1. `flush_finalize_gate()` bounds how many shard finalizes run at
+    //      once, staggering the 16-wide storm's core contention off the
+    //      readers (see the gate's doc comment for the measured win).
+    //   2. `spawn_blocking` runs the (blocking) finalize on a blocking
+    //      thread instead of inline, so it never parks a tokio async worker
+    //      — a 16-wide storm used to park up to 16 workers, starving the
+    //      concurrent bulk clients' HTTP handling and the reader's search
+    //      dispatch.
     let t_finalize = std::time::Instant::now();
-    // Segment encode + side-car build on the deprioritised ingest pool
-    // (build_fts's inner install() is a same-pool no-op).
-    let meta = match crate::background_pool()
-        .install(|| store.finalize_flush_with_publisher(storage_drained, build_fts))?
-    {
-        Some(m) => m,
-        None => {
+    let _fin_permit = crate::flush_finalize_gate().acquire().await.ok();
+    let finalize_join = tokio::task::spawn_blocking(move || {
+        crate::background_pool()
+            .install(|| store.finalize_flush_with_publisher(storage_drained, build_fts))
+    })
+    .await;
+    let meta = match finalize_join {
+        Ok(Ok(Some(m))) => m,
+        Ok(Ok(None)) => {
             tracing::warn!("storage finalize returned None — unexpected");
+            return Ok(());
+        }
+        Ok(Err(e)) => return Err(e.into()),
+        Err(join_e) => {
+            tracing::warn!("finalize spawn_blocking join failed: {join_e}");
             return Ok(());
         }
     };
