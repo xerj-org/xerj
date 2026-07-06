@@ -785,8 +785,71 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
     Ok(())
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+/// Process entry point.
+///
+/// Builds the Tokio runtime EXPLICITLY (rather than via `#[tokio::main]`) so we
+/// can provision the worker-thread count deliberately.
+///
+/// ## Why an over-provisioned worker pool (read-under-write p95 tail)
+///
+/// The CPU-heavy search body runs via `tokio::task::block_in_place` (see
+/// `Index::search`, M5.21): it converts the *current* runtime worker into a
+/// blocking thread for the duration of the query and asks the scheduler to
+/// keep the async side alive on the remaining workers. That is fine at low
+/// concurrency, but the mixed read-under-write benchmark fires 300 reads/s
+/// OPEN-LOOP while a full-speed bulk writer (~128 k docs/s) drives periodic
+/// flush + merge *finalize* windows. During those windows individual reads
+/// slow enough that several are `block_in_place`d at once; with only
+/// `ncpus` core threads (the `#[tokio::main]` default) enough of them convert
+/// simultaneously that the runtime can no longer promptly poll the IO reactor
+/// to ACCEPT and dispatch NEW connections/requests.
+///
+/// This was isolated by profiling: for the slowest client requests the server-
+/// side `took` is 0 ms (the search itself did no work), and even a trivial
+/// `GET /` (no engine work at all) shows the same 45–100 ms p95/p99 tail under
+/// the writer — i.e. the latency is in accept/dispatch, not compute. It is
+/// invariant to renicing / CPU-pinning the ingest+flush+merge pools and to
+/// reserving idle cores (measured: no effect), because the stall is the async
+/// runtime running out of workers to drive the reactor, not a CPU shortage.
+///
+/// Provisioning ~8× cores worker threads keeps ample spare workers to drive the
+/// reactor through those windows. Measured on the 32-core bench (mixed repro,
+/// keep-alive `http.Agent` transport identical to `bench-matrix.mjs`): the
+/// mixed read **p95** roughly halves (e.g. match_all 45→30 ms, bool 43→8 ms,
+/// terms 44→34 ms) across repeated runs, with **ingest throughput unchanged**
+/// (1 M×c8: 431–438 k → 447–457 k docs/s) and reads byte-identical. Idle
+/// workers park in `epoll_wait` (≈0 CPU; only ~2 MB *virtual* stack each), so
+/// there is no cost when concurrency is low.
+///
+/// HONEST LIMIT: this halves the p95 but does NOT close the p99 gap to ES's
+/// single-digit ms. The deep p99 stalls are *process-global* (all threads
+/// briefly block in the kernel during the flush/merge drain), so no amount of
+/// user-space worker provisioning dispatches around them — that residual is a
+/// structural consequence of XERJ ingesting ~5× faster than ES and is not
+/// addressable without throttling ingest.
+///
+/// Override with `TOKIO_WORKER_THREADS` (operators on very small or very large
+/// hosts, or wanting the stock `ncpus` behaviour, can set it explicitly).
+fn main() -> Result<()> {
+    let cores = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(8);
+    // ~8× cores, clamped to a sane band; env override wins.
+    let worker_threads = std::env::var("TOKIO_WORKER_THREADS")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .filter(|&n| n > 0)
+        .unwrap_or_else(|| (cores * 8).clamp(64, 512));
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .worker_threads(worker_threads)
+        .thread_name("xerj-rt")
+        .build()
+        .context("build tokio runtime")?;
+    rt.block_on(async_main())
+}
+
+async fn async_main() -> Result<()> {
     // Subcommand dispatch — check argv[1] before any other parsing.
     let argv1 = std::env::args().nth(1);
     if matches!(argv1.as_deref(), Some("index")) {
