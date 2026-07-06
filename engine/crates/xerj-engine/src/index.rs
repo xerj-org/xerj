@@ -360,6 +360,28 @@ pub struct Index {
     /// immutable-segment lifecycle as `dv_cache` (never invalidated,
     /// retired segment ids are simply never queried again).
     sort_shadow_cache: Arc<dashmap::DashMap<String, Option<Arc<Vec<(i64, u32)>>>>>,
+    /// Fields that have EVER been requested through `sorted_shadow_for`
+    /// on this index (bounded at 16) — the publish-time warm pre-builds
+    /// these fields' shadows for every new segment so the first sorted
+    /// query after a flush/merge doesn't pay the O(n log n) build inside
+    /// its own latency.
+    sort_shadow_fields: Arc<dashmap::DashMap<String, ()>>,
+    /// Per-segment single-flight guard for the `stored_slices_for` miss
+    /// arm: without it, every in-flight query racing the same cold
+    /// segment (up to the 64-permit cap) ran its own full stored-section
+    /// decompress — one 30 ms decode became a ~1 s, 64-query stall
+    /// episode at every flush/merge publish the warm hadn't reached yet.
+    stored_slices_build_locks: Arc<dashmap::DashMap<String, Arc<std::sync::Mutex<()>>>>,
+    /// Per-(segment, field, bounds) Range pre-filter position sets.
+    /// `build_range_prefilter_cached` was cached in name only — it re-ran
+    /// the O(matches) `range_doc_ids` walk + HashSet build per query per
+    /// segment (~30-80 ms against a freshly-merged multi-M-doc segment,
+    /// multiplied by every query racing the same post-publish miss — the
+    /// residual range p99 wobble).  Segments are immutable; bounded by a
+    /// wholesale clear at 32 entries (worst-case tens of MB per merged-
+    /// segment entry — a roaring bitmap representation is the durable
+    /// follow-up) and evicted by segment id at merge retire.
+    range_prefilter_cache: Arc<dashmap::DashMap<String, Arc<HashSet<u32>>>>,
 
     /// Per-segment cache of decoded `Vec<Value>` from the stored section.
     /// KNN search and segment-scan get-document paths used to call
@@ -397,6 +419,16 @@ pub struct Index {
     /// merge-completion site.  Segments are immutable → no invalidation.
     decoded_stored_cache: Arc<dashmap::DashMap<String, Arc<Vec<u8>>>>,
     decoded_stored_cache_bytes: Arc<AtomicU64>,
+    /// Per-(segment, query-shape) match-count cache for the
+    /// `try_shortcut_count` Bool intersection arm.  The fused columnar
+    /// walk is O(anchor-predicate matches) per segment PER QUERY — for a
+    /// dashboard-style fixed bool filter under a bulk writer (query cache
+    /// useless: every batch bumps `dataset_version`) that was ~0.6-1 s of
+    /// re-counting per request at 1.5 M docs.  Segments are immutable, so
+    /// a (segment_id, canonical-query-json) key never goes stale; bounded
+    /// by wholesale clear at `SHORTCUT_COUNT_CACHE_MAX` since query
+    /// shapes are client-supplied.
+    shortcut_count_cache: Arc<dashmap::DashMap<(String, String), u64>>,
     /// Regexp term-dictionary expansion cache — keyed by
     /// `(segment_id, field, pattern)`, holds the exact union doc count
     /// plus the first `REGEXP_EXPANSION_POS_CAP` matching doc positions
@@ -572,11 +604,15 @@ impl Index {
             embedding_proxy: Arc::new(make_embedding_proxy(&config.embedding)),
             dv_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_cache: Arc::new(dashmap::DashMap::new()),
+            sort_shadow_fields: Arc::new(dashmap::DashMap::new()),
+            stored_slices_build_locks: Arc::new(dashmap::DashMap::new()),
+            range_prefilter_cache: Arc::new(dashmap::DashMap::new()),
             stored_value_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache_bytes: Arc::new(AtomicU64::new(0)),
             decoded_stored_cache: Arc::new(dashmap::DashMap::new()),
             decoded_stored_cache_bytes: Arc::new(AtomicU64::new(0)),
+            shortcut_count_cache: Arc::new(dashmap::DashMap::new()),
             regexp_expand_cache: Arc::new(dashmap::DashMap::new()),
             fast_date_cache: Arc::new(dashmap::DashMap::new()),
             fast_date_sorted_cache: Arc::new(dashmap::DashMap::new()),
@@ -741,11 +777,15 @@ impl Index {
             embedding_proxy: Arc::new(make_embedding_proxy(&config.embedding)),
             dv_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_cache: Arc::new(dashmap::DashMap::new()),
+            sort_shadow_fields: Arc::new(dashmap::DashMap::new()),
+            stored_slices_build_locks: Arc::new(dashmap::DashMap::new()),
+            range_prefilter_cache: Arc::new(dashmap::DashMap::new()),
             stored_value_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache_bytes: Arc::new(AtomicU64::new(0)),
             decoded_stored_cache: Arc::new(dashmap::DashMap::new()),
             decoded_stored_cache_bytes: Arc::new(AtomicU64::new(0)),
+            shortcut_count_cache: Arc::new(dashmap::DashMap::new()),
             regexp_expand_cache: Arc::new(dashmap::DashMap::new()),
             fast_date_cache: Arc::new(dashmap::DashMap::new()),
             fast_date_sorted_cache: Arc::new(dashmap::DashMap::new()),
@@ -1695,6 +1735,7 @@ impl Index {
         let field_configs = self.flush_signal.field_configs(&self.schema);
         let dataset_version = Arc::clone(&self.dataset_version);
         let query_cache = Arc::clone(&self.query_cache);
+        let warm_caches = self.publish_warm_caches();
         // Permit is released by `on_drained` (fired after Phase 1 drain)
         // so the slow segment-write I/O in Phase 2 doesn't hold up the
         // per-shard flush permit pool.  The `Option` wrapper makes the
@@ -1720,6 +1761,7 @@ impl Index {
                 data_dir,
                 field_configs,
                 on_drained,
+                warm_caches,
             )
             .await;
             // Fallback: if do_flush_shard aborted before on_drained fired
@@ -1954,6 +1996,7 @@ impl Index {
                 self.data_dir.clone(),
                 field_configs.clone(),
                 || {}, // serial refresh path — no permit to drop early
+                self.publish_warm_caches(),
             )
             .await?;
         }
@@ -2041,6 +2084,7 @@ impl Index {
             let data_dir = self.data_dir.clone();
             let dataset_version = Arc::clone(&self.dataset_version);
             let query_cache = Arc::clone(&self.query_cache);
+            let warm_caches = self.publish_warm_caches();
 
             // Pre-build field configs ONCE for all shard flushes we
             // spawn this tick — avoids N schema read-lock acquires.
@@ -2075,6 +2119,7 @@ impl Index {
                     data_dir,
                     field_configs,
                     on_drained,
+                    warm_caches,
                 )
                 .await;
                 if let Ok(mut guard) = permit_cell.lock() {
@@ -2649,8 +2694,35 @@ impl Index {
             let handle = in_flight.remove(0);
             match handle.await {
                 Ok(Some((batch_slice, merged_meta, live_doc_count, ids_pairs))) => {
+                    // Warm the merged segment's stored slices BEFORE the
+                    // swap makes it visible: the first sorted-candidates
+                    // queries after a merge otherwise each pay the fresh
+                    // multi-100 MB stored-section decompress inside their
+                    // own latency (dec=1.1-3.8 s p99 spikes at every merge
+                    // completion under the mixed read/write bench).  On the
+                    // blocking pool — the decompress is CPU-bound and must
+                    // not stall the async merge driver.
+                    {
+                        let w_store = Arc::clone(&self.store);
+                        let w_caches = self.publish_warm_caches();
+                        let w_dir = self.data_dir.join("segments");
+                        let w_id = merged_meta.id.clone();
+                        let w_docs = merged_meta.doc_count;
+                        let _ = tokio::task::spawn_blocking(move || {
+                            warm_segment_at_publish(&w_store, &w_dir, &w_caches, &w_id, w_docs);
+                        })
+                        .await;
+                    }
                     if let Err(e) = self.store.apply_merge(&batch_slice, merged_meta.clone()) {
                         tracing::warn!("merge: apply_merge failed: {e}");
+                        // The pre-warmed slices belong to a segment that
+                        // never became visible — release them.
+                        if let Some((_, slices)) =
+                            self.stored_slices_cache.remove(merged_meta.id.as_str())
+                        {
+                            self.stored_slices_cache_bytes
+                                .fetch_sub(slices.retained_bytes(), Ordering::Relaxed);
+                        }
                     } else {
                         // Write the merge output's `.ids` side-car AFTER the
                         // merge is committed: if we crashed before
@@ -2751,6 +2823,17 @@ impl Index {
                 }
                 self.fast_date_cache.retain(|(seg, _), _| seg != id.as_str());
                 self.fast_date_sorted_cache.retain(|(seg, _), _| seg != id.as_str());
+                // Sort-key shadows are keyed "{seg}\u{1}{field}" and hold
+                // an O(doc_count) Vec each — without eviction every
+                // merged-away segment leaked its shadows for the process
+                // lifetime under a sustained writer.
+                let shadow_prefix = format!("{}\u{1}", id.as_str());
+                self.sort_shadow_cache
+                    .retain(|k, _| !k.starts_with(&shadow_prefix));
+                self.shortcut_count_cache.retain(|(seg, _), _| seg != id.as_str());
+                self.range_prefilter_cache
+                    .retain(|k, _| !k.starts_with(&shadow_prefix));
+                self.stored_slices_build_locks.remove(id.as_str());
             }
         }
 
@@ -4343,7 +4426,9 @@ impl Index {
             AllDocIds(Vec<String>, u64),    // MatchAll: bounded IDs + uncollected remainder count
             /// Fast DocValues hit: (doc_id, internal_index) pairs — source is NOT
             /// cloned here; it will be fetched only for the final page of hits.
-            DocValuesHits(Vec<(String, usize)>),
+            /// The `u64` is the UNCOLLECTED matching-doc remainder (bounded
+            /// fused-bool path); it still counts toward `hits.total`.
+            DocValuesHits(Vec<(String, usize)>, u64),
             DocsForScan(Vec<(String, Arc<Value>)>), // doc_id + shared source for term-level scan
         }
 
@@ -4377,19 +4462,51 @@ impl Index {
                 // only ever admit the first `materialisation_limit` ids,
                 // so clone just those and carry the remainder as a count.
                 if sort_topk.is_some() {
-                    // Field-sorted match_all must offer every buffered doc
-                    // to the top-N heap — but the id-only snapshot forced
-                    // `admit_hit!(count …)` to pay a per-doc
-                    // `get_doc_source_as_value` DEEP CLONE (plus a
-                    // `seen_ids` String insert and a full `offer`) for
-                    // every buffered doc just to compute its sort key:
-                    // ~1 s per query against a ~1 M-doc memtable under the
-                    // mixed-bench writer, serialised across every read.
-                    // Share the sources via Arc instead and let the scan
-                    // arm's pre-clone primary-key rejection below bound the
-                    // per-doc cost to a memoised epoch lookup once the heap
-                    // is full.
-                    MemSnapshot::DocsForScan(mem.all_docs_with_sources_arc())
+                    // Bounded sorted candidates for the common shape
+                    // (single default-flavour field sort, no cursor):
+                    // columnar per-shard top-cap extraction instead of
+                    // offering EVERY buffered doc to the heap.  Date-string
+                    // columns (the implicit `@timestamp` index sort) resolve
+                    // through the bounded process-wide epoch memo — the SAME
+                    // normalisation `compute_sort_values` applies per hit —
+                    // so the candidate cut ranks exactly like the heap would.
+                    let bounded: Option<(Vec<String>, u64)> = (|| {
+                        use xerj_query::sort::{SortMissing, SortMode, SortOrder};
+                        let topk = sort_topk.as_ref()?;
+                        if topk.after.is_some() || request.sort.len() != 1 {
+                            return None;
+                        }
+                        let sf = &request.sort[0];
+                        if sf.is_score()
+                            || sf.is_doc_order()
+                            || sf.mode != SortMode::default()
+                            || sf.missing != SortMissing::default()
+                        {
+                            return None;
+                        }
+                        mem.sort_candidates_numeric(
+                            &sf.field,
+                            sf.order == SortOrder::Desc,
+                            materialisation_limit,
+                            &sort_epoch_memo,
+                        )
+                    })();
+                    match bounded {
+                        Some((ids, total)) => {
+                            let extra = total.saturating_sub(ids.len() as u64);
+                            MemSnapshot::AllDocIds(ids, extra)
+                        }
+                        // Ineligible shape (multi-field sort, cursor,
+                        // non-default mode/missing, un-normalisable
+                        // values): fall back to offering every buffered
+                        // doc — via Arc-shared sources so the scan arm's
+                        // pre-clone primary-key rejection bounds the
+                        // per-doc cost to a memoised epoch lookup once
+                        // the heap is full (NOT the id-only snapshot,
+                        // whose per-doc deep clone cost ~1 s/query at a
+                        // 1 M-doc memtable).
+                        None => MemSnapshot::DocsForScan(mem.all_docs_with_sources_arc()),
+                    }
                 } else {
                     let (ids, total) = mem.doc_ids_bounded(materialisation_limit);
                     let extra = total.saturating_sub(ids.len() as u64);
@@ -4417,10 +4534,28 @@ impl Index {
                     // doc-values in the segment shortcut and would be
                     // silently undercounted.
                     MemSnapshot::Empty
+                } else if let Some((hits, total)) = (|| {
+                    // Fused columnar term/range/bool: ONE position walk
+                    // per shard, bounded id materialisation, exact total.
+                    // Gated off when a field sort is active — the top-N
+                    // heap must see EVERY matching doc — and when aggs
+                    // are present (the filtered-agg path needs the full
+                    // `mem_dv_doc_indices` position set).  Placed BEFORE
+                    // `try_doc_values_query`, whose unbounded walks clone
+                    // every matching doc_id (~all-of-memtable for broad
+                    // range filters) per request.
+                    if sort_topk.is_some() || request.aggs.is_some() {
+                        return None;
+                    }
+                    let preds = mem_bool_preds(query)?;
+                    mem.doc_values_bool_query(&preds, materialisation_limit)
+                })() {
+                    let uncollected = total.saturating_sub(hits.len() as u64);
+                    MemSnapshot::DocValuesHits(hits, uncollected)
                 } else if let Some(hits) = try_doc_values_query(query, &mem) {
                     // DocValues fast path for queries that actually need
                     // the hit list (size > 0 or sort-on-field).
-                    MemSnapshot::DocValuesHits(hits)
+                    MemSnapshot::DocValuesHits(hits, 0)
                 } else {
                     // Composite queries (e.g. bool) that the memtable DV
                     // path can't resolve: share the buffered sources via
@@ -4459,7 +4594,7 @@ impl Index {
                         MemSnapshot::Empty
                     }
                 } else if let Some(hits) = try_doc_values_query(query, &mem) {
-                    MemSnapshot::DocValuesHits(hits)
+                    MemSnapshot::DocValuesHits(hits, 0)
                 } else {
                     MemSnapshot::Empty
                 }
@@ -4468,6 +4603,13 @@ impl Index {
         };
         phase_marks.push(("mem_snapshot", phase_t0.elapsed().as_millis() as u64));
 
+        let dbg_mem_arm: &'static str = match &mem_snapshot {
+            MemSnapshot::Empty => "empty",
+            MemSnapshot::FtsHits(_) => "fts",
+            MemSnapshot::AllDocIds(..) => "allids",
+            MemSnapshot::DocValuesHits(..) => "dv",
+            MemSnapshot::DocsForScan(_) => "scan",
+        };
         match mem_snapshot {
             MemSnapshot::Empty => {}
             MemSnapshot::FtsHits(hits) => {
@@ -4492,7 +4634,7 @@ impl Index {
                     admit_hit!(count doc_id);
                 }
             }
-            MemSnapshot::DocValuesHits(hits) => {
+            MemSnapshot::DocValuesHits(hits, uncollected) => {
                 // DocValues fast path: source is NOT cloned here — we defer the
                 // clone until after pagination so we only pay for from+size docs.
                 // Retain the internal indices for filtered aggregation (Opt 2).
@@ -4503,6 +4645,9 @@ impl Index {
                     }
                     admit_hit!(count doc_id);
                 }
+                // Bounded fused-bool remainder: matched but un-materialised
+                // docs still count toward hits.total.
+                total_count += uncollected;
                 mem_dv_doc_indices = Some(indices);
             }
             MemSnapshot::DocsForScan(docs) => {
@@ -4692,6 +4837,10 @@ impl Index {
         // agg-section below.
         let mut precomputed_aggs: Option<Value> = None;
         phase_marks.push(("mem_admit", phase_t0.elapsed().as_millis() as u64));
+        let dbg_sort_topk = sort_topk.is_some();
+        let dbg_mem_hits = all_hits.len();
+        let dbg_mem_seen = seen_ids.len();
+        let dbg_mem_total = total_count;
         if is_match_all && size == 0 && request.aggs.is_some() && request.min_score.is_none() {
             if let Some(aggs_def) = &request.aggs {
                 let r_opt = self
@@ -5107,7 +5256,7 @@ impl Index {
                     // sorted-candidates path is provably safe; the plain
                     // position pre-filter below is derived from it.
                     let mut sort_cand: Option<SortCandidates> = None;
-                    let pre_filter: Option<HashSet<u32>> =
+                    let pre_filter: Option<Arc<HashSet<u32>>> =
                         if let QueryNode::Range { field, gte, gt, lte, lt, .. } = query {
                             let base = self.build_range_prefilter_cached(
                                 &segments_dir,
@@ -5144,7 +5293,7 @@ impl Index {
                                 }
                             }
                             match &sort_cand {
-                                Some(sc) => Some(sc.set.clone()),
+                                Some(sc) => Some(Arc::new(sc.set.clone())),
                                 None => base,
                             }
                         } else if is_match_all && !deletes_present {
@@ -5167,7 +5316,7 @@ impl Index {
                                     materialisation_limit,
                                 )
                             });
-                            sort_cand.as_ref().map(|sc| sc.set.clone())
+                            sort_cand.as_ref().map(|sc| Arc::new(sc.set.clone()))
                         } else if let QueryNode::Regexp { field, pattern } = query {
                             // Dictionary-expansion pre-filter (mirrors the
                             // `try_shortcut_count` Regexp arm).  When the
@@ -5206,6 +5355,7 @@ impl Index {
                                 cap,
                                 regexp_field_is_keyword,
                             )
+                            .map(Arc::new)
                         } else {
                             None
                         };
@@ -5300,7 +5450,7 @@ impl Index {
                             &mut total_count,
                             &mut all_hits,
                             &mut seen_ids,
-                            pre_filter.as_ref(),
+                            pre_filter.as_deref(),
                             sort_topk.as_mut(),
                             None,
                             Some(search_deadline),
@@ -5342,7 +5492,7 @@ impl Index {
                                     &mut total_count,
                                     &mut all_hits,
                                     &mut seen_ids,
-                                    pre_filter.as_ref(),
+                                    pre_filter.as_deref(),
                                     sort_topk.as_mut(),
                                     if want_cache { Some(&mut offsets) } else { None },
                                     Some(search_deadline),
@@ -5364,7 +5514,7 @@ impl Index {
                                         .stored_slices_cache_bytes
                                         .load(Ordering::Relaxed)
                                         .saturating_add(sz)
-                                        <= STORED_SLICES_CACHE_BUDGET
+                                        <= stored_slices_cache_budget()
                                         && self
                                             .stored_slices_cache
                                             .insert(seg_id.clone(), Arc::new(slices))
@@ -6161,7 +6311,7 @@ impl Index {
                 index = self.name.as_str(),
                 phases = %breakdown.join(" "),
                 gates = %format!(
-                    "needs_fts={} shortcut={:?} deletes={} ghosts={} total={} lim={} segs={} dec={}ms scan={}ms ftsopen={}ms walked={} admitted={} allhits_cap={}",
+                    "needs_fts={} shortcut={:?} deletes={} ghosts={} total={} lim={} segs={} dec={}ms scan={}ms ftsopen={}ms walked={} admitted={} allhits_cap={} memhits={} memseen={} memtotal={} memarm={} sorttopk={}",
                     query_needs_fts,
                     shortcut_count,
                     deletes_present,
@@ -6174,7 +6324,12 @@ impl Index {
                     dbg_fts_ms,
                     dbg_walked,
                     dbg_admitted,
-                    scan_hit_cap
+                    scan_hit_cap,
+                    dbg_mem_hits,
+                    dbg_mem_seen,
+                    dbg_mem_total,
+                    dbg_mem_arm,
+                    dbg_sort_topk
                 ),
                 "slow search_inner phase breakdown"
             );
@@ -6228,6 +6383,7 @@ impl Index {
             let registry = Arc::clone(&self.registry);
             let data_dir = self.data_dir.clone();
             let field_configs = field_configs.clone();
+            let warm_caches = self.publish_warm_caches();
             shard_futures.push(tokio::spawn(async move {
                 let permit = sema.acquire_owned().await.ok();
                 let permit_cell = Arc::new(std::sync::Mutex::new(permit));
@@ -6239,7 +6395,7 @@ impl Index {
                 };
                 let result = do_flush_shard(
                     shard_idx, store, memtable, registry, data_dir, field_configs,
-                    on_drained,
+                    on_drained, warm_caches,
                 )
                 .await;
                 // Defensive: in case on_drained didn't fire.
@@ -6975,9 +7131,20 @@ impl Index {
 
             let segments_dir = self.data_dir.join("segments");
             let mut seg_matches: u64 = 0;
+            // Canonical query key for the per-segment count cache.
+            let bool_cache_key: Option<String> = serde_json::to_string(query).ok();
             for meta in &snap.segments {
                 if meta.doc_count == 0 {
                     continue;
+                }
+                if let Some(k) = &bool_cache_key {
+                    if let Some(hit) = self
+                        .shortcut_count_cache
+                        .get(&(meta.id.clone(), k.clone()))
+                    {
+                        seg_matches = seg_matches.saturating_add(*hit.value());
+                        continue;
+                    }
                 }
                 let Some(cols) = self.dv_columns_for(&segments_dir, &meta.id) else {
                     return None;
@@ -7118,18 +7285,33 @@ impl Index {
                     sc += 1;
                 }
                 let _ = n_docs; // silence unused
+                if let Some(k) = &bool_cache_key {
+                    if self.shortcut_count_cache.len() >= SHORTCUT_COUNT_CACHE_MAX {
+                        self.shortcut_count_cache.clear();
+                    }
+                    self.shortcut_count_cache
+                        .insert((meta.id.clone(), k.clone()), sc);
+                }
                 seg_matches = seg_matches.saturating_add(sc);
             }
 
-            // Memtable side — M5.1 sharded fallback.  The single-shard
-            // fused predicate walk (which took references into one
-            // `DocValues` struct) can't work across independent
-            // shards without a bigger refactor.  For correctness we
-            // fall back to the generic stored-doc scan, which is
-            // slightly slower on tiny filtered bool queries but
-            // identical in output.
-            let mem_matches: u64 = {
-                let docs = self.memtable.all_docs_with_sources();
+            // Memtable side — fused columnar walk (one position pass per
+            // shard, count-only) via the same predicate lowering the
+            // memtable hit path uses.  The old fallback DEEP-CLONED the
+            // entire memtable per query (`all_docs_with_sources`) and ran
+            // a `doc_matches_query` JSON descent per buffered doc — under
+            // a sustained bulk writer that alone was 1-6 s per bool query
+            // (the read-under-write bool collapse, WARN mem_admit term).
+            // When the columns can't serve the predicates we keep the
+            // per-doc scan but share sources via Arc instead of cloning.
+            let mem_matches: u64 = if self.memtable.doc_count() == 0 {
+                0
+            } else if let Some((_, total)) = mem_bool_preds(query)
+                .and_then(|preds| self.memtable.doc_values_bool_query(&preds, 0))
+            {
+                total
+            } else {
+                let docs = self.memtable.all_docs_with_sources_arc();
                 docs.iter().filter(|(_, src)| doc_matches_query(query, src)).count() as u64
             };
 
@@ -7442,6 +7624,17 @@ impl Index {
     /// fix is forcemerge → 1 segment (which blows up on a separate
     /// memory issue in run_merge_once, M5.16/22 capped but still
     /// converges slowly).  Left unbounded for now.
+    /// Bundle the publish-time warm targets (see `warm_segment_at_publish`).
+    fn publish_warm_caches(&self) -> PublishWarmCaches {
+        PublishWarmCaches {
+            slices: Arc::clone(&self.stored_slices_cache),
+            slices_bytes: Arc::clone(&self.stored_slices_cache_bytes),
+            dv: Arc::clone(&self.dv_cache),
+            shadow: Arc::clone(&self.sort_shadow_cache),
+            shadow_fields: Arc::clone(&self.sort_shadow_fields),
+        }
+    }
+
     fn dv_columns_for(
         &self,
         segments_dir: &std::path::Path,
@@ -7501,12 +7694,8 @@ impl Index {
         gt: Option<&Value>,
         lte: Option<&Value>,
         lt: Option<&Value>,
-    ) -> Option<HashSet<u32>> {
+    ) -> Option<Arc<HashSet<u32>>> {
         use xerj_storage::doc_values::Column;
-        let cols = self.dv_columns_for(segments_dir, segment_id)?;
-        let Some(Column::Numeric(n)) = cols.get(field) else {
-            return None;
-        };
 
         let parse = |v: Option<&Value>| -> Option<Option<f64>> {
             match v {
@@ -7538,8 +7727,44 @@ impl Index {
             (None, None) => (f64::INFINITY, true),
         };
 
+        // Segments are immutable → a (segment, field, bounds) key never
+        // goes stale.  SINGLE-FLIGHT the build: post-merge-publish, every
+        // in-flight range query raced the same miss and each rebuilt the
+        // O(matches) set.
+        let cache_key = format!(
+            "{segment_id}\u{1}{field}\u{1}{:x}\u{1}{:x}\u{1}{}{}",
+            lo.to_bits(),
+            hi.to_bits(),
+            lo_incl as u8,
+            hi_incl as u8
+        );
+        if let Some(hit) = self.range_prefilter_cache.get(&cache_key) {
+            return Some(Arc::clone(hit.value()));
+        }
+        let flight = {
+            let e = self
+                .stored_slices_build_locks
+                .entry(format!("{segment_id}\u{2}rpf"))
+                .or_default();
+            Arc::clone(e.value())
+        };
+        let _g = flight.lock().ok()?;
+        if let Some(hit) = self.range_prefilter_cache.get(&cache_key) {
+            return Some(Arc::clone(hit.value()));
+        }
+
+        let cols = self.dv_columns_for(segments_dir, segment_id)?;
+        let Some(Column::Numeric(n)) = cols.get(field) else {
+            return None;
+        };
         let matching = n.range_doc_ids(lo, hi, lo_incl, hi_incl);
-        Some(matching.into_iter().collect())
+        let built: Arc<HashSet<u32>> = Arc::new(matching.into_iter().collect());
+        if self.range_prefilter_cache.len() >= 32 {
+            self.range_prefilter_cache.clear();
+        }
+        self.range_prefilter_cache
+            .insert(cache_key, Arc::clone(&built));
+        Some(built)
     }
 
     /// Sorted-DV candidate pruning for field-sorted `match_all` queries
@@ -7586,7 +7811,11 @@ impl Index {
         field: &str,
         seg_doc_count: u64,
     ) -> Option<Arc<Vec<(i64, u32)>>> {
-        use xerj_storage::doc_values::Column;
+        // Register the field so the publish-time warm pre-builds this
+        // shadow for every FUTURE segment (bounded registry).
+        if self.sort_shadow_fields.len() < 16 && !self.sort_shadow_fields.contains_key(field) {
+            self.sort_shadow_fields.insert(field.to_string(), ());
+        }
         let key = format!("{segment_id}\u{1}{field}");
         if let Some(entry) = self.sort_shadow_cache.get(&key) {
             return entry.value().clone();
@@ -7602,49 +7831,7 @@ impl Index {
         let Some(cols) = self.dv_columns_for(segments_dir, segment_id) else {
             return None;
         };
-        let built: Option<Arc<Vec<(i64, u32)>>> = (|| {
-            match cols.get(field) {
-                Some(Column::Numeric(n)) => {
-                    if !n.null_bitmap.is_empty()
-                        || n.doc_count as u64 != seg_doc_count
-                        || n.sorted.is_empty()
-                    {
-                        return None;
-                    }
-                    Some(Arc::new(n.sorted.clone()))
-                }
-                Some(Column::Keyword(k)) => {
-                    if !k.null_bitmap.is_empty()
-                        || k.doc_count as u64 != seg_doc_count
-                        || k.ords.len() != k.doc_count as usize
-                        || k.terms.is_empty()
-                    {
-                        return None;
-                    }
-                    // Every distinct term must normalise to a NUMBER via the
-                    // exact per-hit date path; one miss → ineligible (the
-                    // heap would rank raw strings, not epochs).
-                    let mut keys: Vec<f64> = Vec::with_capacity(k.terms.len());
-                    for t in &k.terms {
-                        keys.push(sort_date_normalize(t)?.as_f64()?);
-                    }
-                    let mut sorted: Vec<(i64, u32)> = k
-                        .ords
-                        .iter()
-                        .enumerate()
-                        .map(|(pos, ord)| (keys[*ord as usize].to_bits() as i64, pos as u32))
-                        .collect();
-                    sorted.sort_unstable_by(|a, b| {
-                        f64::from_bits(a.0 as u64)
-                            .partial_cmp(&f64::from_bits(b.0 as u64))
-                            .unwrap_or(std::cmp::Ordering::Equal)
-                            .then(a.1.cmp(&b.1))
-                    });
-                    Some(Arc::new(sorted))
-                }
-                None => None,
-            }
-        })();
+        let built = build_sort_shadow(&cols, field, seg_doc_count);
         self.sort_shadow_cache.insert(key, built.clone());
         built
     }
@@ -7836,6 +8023,23 @@ impl Index {
         if let Some(entry) = self.stored_slices_cache.get(seg_id) {
             return Some(Arc::clone(entry.value()));
         }
+        // SINGLE-FLIGHT the miss: up to 64 in-flight queries race the
+        // same cold segment; without this every one of them ran its own
+        // full stored-section decompress (one ~30 ms decode became a ~1 s
+        // 64-query stall episode at every publish the warm hadn't
+        // reached).  Waiters block on the per-segment mutex and wake to a
+        // cache hit.
+        let flight = {
+            let entry = self
+                .stored_slices_build_locks
+                .entry(seg_id.to_string())
+                .or_default();
+            Arc::clone(entry.value())
+        };
+        let _flight_guard = flight.lock().ok()?;
+        if let Some(entry) = self.stored_slices_cache.get(seg_id) {
+            return Some(Arc::clone(entry.value()));
+        }
         // Reuse already-decompressed bytes from `decoded_stored_cache`
         // before paying a fresh open + decompress.
         let bytes: Vec<u8> = if let Some(entry) = self.decoded_stored_cache.get(seg_id) {
@@ -7858,7 +8062,7 @@ impl Index {
             .stored_slices_cache_bytes
             .load(Ordering::Relaxed)
             .saturating_add(sz)
-            <= STORED_SLICES_CACHE_BUDGET
+            <= stored_slices_cache_budget()
             && self
                 .stored_slices_cache
                 .insert(seg_id.to_string(), Arc::clone(&slices))
@@ -8478,6 +8682,10 @@ async fn do_flush_shard(
     data_dir: PathBuf,
     field_configs: HashMap<String, xerj_fts::index::FieldIndexConfig>,
     on_drained: impl FnOnce() + Send + 'static,
+    // Publish-time cache warm (see `warm_segment_at_publish`): the index's
+    // read-path caches, threaded through because this is a free fn without
+    // access to `Index`.
+    warm_caches: PublishWarmCaches,
 ) -> Result<()> {
     // V4 M4.5: no outer flush_lock — concurrent flushes are allowed.  The
     // memtable write lock below is the only atomicity point we need for
@@ -8614,6 +8822,7 @@ async fn do_flush_shard(
     let registry_for_build = Arc::clone(&registry);
     let fts_doc_count = drained_fts.len();
     let segments_dir_for_dv = segments_dir.clone();
+    let store_for_warm = Arc::clone(&store);
     // POV battery (B-3) caught that gating FTS+DV on the raw-bytes path
     // hides docs from match_all/term/range and from the kNN brute-force
     // pre-filter — the per-segment enumeration uses these sidecars as
@@ -8627,7 +8836,7 @@ async fn do_flush_shard(
         // Whole side-car build runs on the dedicated ingest pool so a
         // flush burst can't queue search/agg par_iters behind it on the
         // global rayon pool (read-under-write; see `crate::ingest_pool`).
-        crate::ingest_pool().install(|| {
+        crate::background_pool().install(|| {
         // ── Doc-values side-car (always built) ────────────────────
         let t_dv = std::time::Instant::now();
         {
@@ -8672,6 +8881,21 @@ async fn do_flush_shard(
                 fts_doc_count, dv_us, fts_add_us, fts_finish_us
             );
         }
+        // Publish-time cache warm — MUST run here, inside the finaliser's
+        // pre-publish callback: the snapshot rcu that makes this segment
+        // visible happens right after `post_finish` returns, so by the
+        // time any query can see the segment its stored slices, dv
+        // columns, and sort shadows are already hot.  (A post-finalize
+        // warm left a ~250 ms visible-but-cold window per flush storm;
+        // 64 racing queries each decompressed all 16 fresh segments
+        // inside it — the dec≈900 ms stall episodes.)
+        warm_segment_at_publish(
+            &store_for_warm,
+            &segments_dir_for_dv,
+            &warm_caches,
+            meta.id.as_str(),
+            meta.doc_count,
+        );
         });
         let _ = &segments_dir;
         let _ = &drained_fts;
@@ -8683,7 +8907,7 @@ async fn do_flush_shard(
     let t_finalize = std::time::Instant::now();
     // Segment encode + side-car build on the deprioritised ingest pool
     // (build_fts's inner install() is a same-pool no-op).
-    let meta = match crate::ingest_pool()
+    let meta = match crate::background_pool()
         .install(|| store.finalize_flush_with_publisher(storage_drained, build_fts))?
     {
         Some(m) => m,
@@ -10346,6 +10570,96 @@ fn infer_field_type(val: &Value) -> FieldType {
 /// Returns `(doc_id, internal_memtable_index)` pairs WITHOUT cloning source.
 /// The caller defers source fetching until after scoring and pagination so only
 /// the final `from+size` hits pay the clone cost.
+/// Lower a `bool { must/filter: [Term|Range…] }` (no should / must_not) —
+/// or a bare Term / Range — to fused columnar memtable predicates: the
+/// memtable twin of the `try_shortcut_count` Bool segment arm.  `None` for
+/// any other shape (caller falls back to the stored-source scan).  Wrapper
+/// nodes (constant_score / boost) are peeled like `try_doc_values_query`
+/// does.
+fn mem_bool_preds(q: &QueryNode) -> Option<Vec<crate::memtable::MemBoolPred>> {
+    use crate::memtable::MemBoolPred;
+    let q = match q {
+        QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => query.as_ref(),
+        _ => q,
+    };
+    // Bare term/range: a single-predicate fused walk — bounds the id
+    // materialisation the unbounded `doc_values_term_query` /
+    // `doc_values_range_query` paths would pay (~all-matching doc_id
+    // String clones per query at a 200 k-doc memtable).
+    let children: Vec<&QueryNode> = match q {
+        QueryNode::Term { .. } | QueryNode::Range { .. } => vec![q],
+        QueryNode::Bool { must, should, must_not, filter, .. } => {
+            if !should.is_empty() || !must_not.is_empty() {
+                return None;
+            }
+            must.iter().chain(filter.iter()).collect()
+        }
+        _ => return None,
+    };
+    if children.is_empty() {
+        return None;
+    }
+    let mut preds: Vec<MemBoolPred> = Vec::with_capacity(children.len());
+    for child in children {
+        let child = match child {
+            QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => {
+                query.as_ref()
+            }
+            _ => child,
+        };
+        match child {
+            QueryNode::Term { field, value, .. } => {
+                // Same value lowering (and CIDR bailout) as the standalone
+                // Term arm of `try_doc_values_query`.
+                let val_str = match value {
+                    Value::String(s) => {
+                        if s.contains('/') {
+                            return None;
+                        }
+                        s.clone()
+                    }
+                    Value::Number(n) => n.to_string(),
+                    Value::Bool(b) => b.to_string(),
+                    _ => return None,
+                };
+                preds.push(MemBoolPred::Term { field: field.clone(), value: val_str });
+            }
+            QueryNode::Range { field, gte, gt, lte, lt, .. } => {
+                // Numeric bounds only — mirrors the Range arm of
+                // `try_doc_values_query`.
+                let to_f64 = |v: &Option<Value>| -> Option<Option<f64>> {
+                    match v {
+                        None => Some(None),
+                        Some(Value::Number(n)) => Some(n.as_f64()),
+                        Some(Value::String(s)) => s.parse::<f64>().ok().map(Some),
+                        _ => None,
+                    }
+                };
+                let gte_f = to_f64(gte)?;
+                let gt_f = to_f64(gt)?;
+                let lte_f = to_f64(lte)?;
+                let lt_f = to_f64(lt)?;
+                if (gte_f.is_none() && gte.is_some())
+                    || (gt_f.is_none() && gt.is_some())
+                    || (lte_f.is_none() && lte.is_some())
+                    || (lt_f.is_none() && lt.is_some())
+                {
+                    return None;
+                }
+                preds.push(MemBoolPred::Range {
+                    field: field.clone(),
+                    gte: gte_f,
+                    gt: gt_f,
+                    lte: lte_f,
+                    lt: lt_f,
+                });
+            }
+            _ => return None,
+        }
+    }
+    Some(preds)
+}
+
 fn try_doc_values_query(q: &QueryNode, mem: &crate::memtable::ShardedFtsMemtable) -> Option<Vec<(String, usize)>> {
     match q {
         QueryNode::Term { field, value, .. } => {
@@ -13192,25 +13506,188 @@ impl StoredSlices {
     }
 }
 
+/// Segment sort-key shadow builder — shared by the query-path
+/// `Index::sorted_shadow_for` and the publish-time warm.  See
+/// `sorted_shadow_for` for the eligibility contract (no nulls, full
+/// coverage, all-date keyword terms).
+fn build_sort_shadow(
+    cols: &std::collections::BTreeMap<String, xerj_storage::doc_values::Column>,
+    field: &str,
+    seg_doc_count: u64,
+) -> Option<Arc<Vec<(i64, u32)>>> {
+    use xerj_storage::doc_values::Column;
+    match cols.get(field) {
+        Some(Column::Numeric(n)) => {
+            if !n.null_bitmap.is_empty()
+                || n.doc_count as u64 != seg_doc_count
+                || n.sorted.is_empty()
+            {
+                return None;
+            }
+            Some(Arc::new(n.sorted.clone()))
+        }
+        Some(Column::Keyword(k)) => {
+            if !k.null_bitmap.is_empty()
+                || k.doc_count as u64 != seg_doc_count
+                || k.ords.len() != k.doc_count as usize
+                || k.terms.is_empty()
+            {
+                return None;
+            }
+            // Every distinct term must normalise to a NUMBER via the
+            // exact per-hit date path; one miss → ineligible (the
+            // heap would rank raw strings, not epochs).
+            let mut keys: Vec<f64> = Vec::with_capacity(k.terms.len());
+            for t in &k.terms {
+                keys.push(sort_date_normalize(t)?.as_f64()?);
+            }
+            let mut sorted: Vec<(i64, u32)> = k
+                .ords
+                .iter()
+                .enumerate()
+                .map(|(pos, ord)| (keys[*ord as usize].to_bits() as i64, pos as u32))
+                .collect();
+            sorted.sort_unstable_by(|a, b| {
+                f64::from_bits(a.0 as u64)
+                    .partial_cmp(&f64::from_bits(b.0 as u64))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then(a.1.cmp(&b.1))
+            });
+            Some(Arc::new(sorted))
+        }
+        None => None,
+    }
+}
+
+/// The read-path caches a freshly-published segment must be warm in so
+/// its first queries don't pay cold-start costs inside their own latency.
+/// Bundled so the flush path (a free fn without `&Index`) can carry ONE
+/// handle.  All fields are the Index's own Arcs.
+#[derive(Clone)]
+struct PublishWarmCaches {
+    slices: Arc<dashmap::DashMap<String, Arc<StoredSlices>>>,
+    slices_bytes: Arc<AtomicU64>,
+    dv: Arc<dashmap::DashMap<String, Arc<std::collections::BTreeMap<String, xerj_storage::doc_values::Column>>>>,
+    shadow: Arc<dashmap::DashMap<String, Option<Arc<Vec<(i64, u32)>>>>>,
+    shadow_fields: Arc<dashmap::DashMap<String, ()>>,
+}
+
+/// Warm one just-written segment's read-path caches OUTSIDE the query
+/// path, BEFORE the segment becomes visible:
+///  1. `StoredSlices` (decompressed stored section + per-doc offsets) —
+///     the sorted-candidates hydration source.  Cold cost the first
+///     queries otherwise paid: a full multi-MB (flush) to multi-100 MB
+///     (merge) decompress, multiplied by every concurrent query racing
+///     the same miss (dec=0.9–3.8 s stall episodes at every publish).
+///  2. dv columns — the aggs / shortcut-count / sort-shadow source
+///     (terms/cardinality p99 spikes at every publish).
+///  3. Sort-key shadows for every field the index has ever field-sorted
+///     on (the implicit `@timestamp` in particular) — the O(n log n)
+///     build on a merged segment was a ~200-500 ms first-query cost.
+///
+/// Called (a) by the merge driver right BEFORE `apply_merge` swaps the
+/// merged segment in, and (b) inside `do_flush_shard`'s `build_fts`
+/// callback, which the storage finaliser runs BEFORE the snapshot rcu
+/// publish.  Budget-checked exactly like the query-path inserts; failure
+/// or over-budget is non-fatal (queries fall back to the per-query
+/// decompress — pre-warm status quo).
+fn warm_segment_at_publish(
+    store: &IndexStore,
+    segments_dir: &std::path::Path,
+    caches: &PublishWarmCaches,
+    seg_id: &str,
+    expect_docs: u64,
+) {
+    // 1. Stored slices.
+    if !caches.slices.contains_key(seg_id) {
+        let built: Option<Arc<StoredSlices>> = (|| {
+            let reader = store.open_segment_arc(seg_id).ok()?;
+            let raw = reader.section(SectionType::Stored).ok()??;
+            let bytes = xerj_storage::stored_codec::decode_stored(raw).ok()?;
+            if bytes.len() > u32::MAX as usize {
+                return None;
+            }
+            let offsets = brace_walk_offsets(&bytes);
+            if offsets.len() as u64 != expect_docs {
+                return None;
+            }
+            Some(Arc::new(StoredSlices { bytes, offsets }))
+        })();
+        if let Some(slices) = built {
+            let sz = slices.retained_bytes();
+            if caches.slices_bytes.load(Ordering::Relaxed).saturating_add(sz)
+                <= stored_slices_cache_budget()
+                && caches.slices.insert(seg_id.to_string(), slices).is_none()
+            {
+                caches.slices_bytes.fetch_add(sz, Ordering::Relaxed);
+            }
+        }
+    }
+    // 2. dv columns (mirrors `Index::dv_columns_for`'s miss arm).
+    let cols: Option<Arc<std::collections::BTreeMap<String, xerj_storage::doc_values::Column>>> =
+        if let Some(entry) = caches.dv.get(seg_id) {
+            Some(Arc::clone(entry.value()))
+        } else {
+            let cols = read_doc_values_sidecar(segments_dir, seg_id);
+            if cols.is_empty() {
+                None
+            } else {
+                let arc = Arc::new(cols);
+                caches.dv.insert(seg_id.to_string(), Arc::clone(&arc));
+                Some(arc)
+            }
+        };
+    // 3. Sort shadows for every historically-sorted field.
+    if let Some(cols) = cols {
+        for e in caches.shadow_fields.iter() {
+            let field = e.key();
+            let key = format!("{seg_id}\u{1}{field}");
+            if !caches.shadow.contains_key(&key) {
+                let built = build_sort_shadow(&cols, field, expect_docs);
+                caches.shadow.insert(key, built);
+            }
+        }
+    }
+}
+
 /// Retained-memory budget for `stored_slices_cache`.  Inserts stop once the
 /// budget is reached (queries then fall back to the per-query decompress
 /// path); merge eviction returns the dropped segment's bytes to the budget.
-/// 24 GB (was 3 GB): the mixed bench's background writer grows the corpus
-/// past 3 GB of stored bytes DURING the read window; once the budget is
-/// full every over-budget segment is decompressed PER QUERY (insert stops,
-/// nothing evicts) — measured dec=28–30 s per match_all against a 21 M-doc
-/// corpus even fully quiesced, because with corpus-wide primary-key ties
-/// (cycled telemetry timestamps) the per-segment best-candidate rejection
-/// never strictly loses, so NO segment is skipped.  Sized for the bench
-/// host (119 GB RAM); merge eviction returns merged-away segments' bytes.
+/// 20% of host RAM, ≥2 GB floor (was a flat 3 GB, then a host-tuned 24 GB):
+/// a sustained bulk writer grows the corpus past a small flat budget DURING
+/// the read window; once the budget is full every over-budget segment is
+/// decompressed PER QUERY (insert stops, nothing evicts) — measured
+/// dec=28–30 s per match_all against a 21 M-doc corpus even fully quiesced,
+/// because with corpus-wide primary-key ties (cycled telemetry timestamps)
+/// the per-segment best-candidate rejection never strictly loses, so NO
+/// segment is skipped.  Merge eviction returns merged-away segments' bytes.
 /// The durable fix — hydrating only GLOBAL winners after a shadow-merge of
 /// per-segment candidate keys — is tracked as follow-up.
-const STORED_SLICES_CACHE_BUDGET: u64 = 24 * 1024 * 1024 * 1024;
+fn stored_slices_cache_budget() -> u64 {
+    static BUDGET: std::sync::LazyLock<u64> = std::sync::LazyLock::new(|| {
+        const FLOOR: u64 = 2 * 1024 * 1024 * 1024;
+        let ram_total: Option<u64> = std::fs::read_to_string("/proc/meminfo")
+            .ok()
+            .and_then(|s| {
+                s.lines().find(|l| l.starts_with("MemTotal:")).and_then(|l| {
+                    l.split_whitespace()
+                        .nth(1)
+                        .and_then(|kb| kb.parse::<u64>().ok())
+                        .map(|kb| kb * 1024)
+                })
+            });
+        ram_total.map(|t| (t / 5).max(FLOOR)).unwrap_or(FLOOR)
+    });
+    *BUDGET
+}
 
 /// Budget for `decoded_stored_cache` (raw decompressed stored sections,
 /// ~1× the corpus JSON size).  Overflow → inserts are refused and the
 /// query falls back to the per-query decompress (pre-cache behaviour).
 const DECODED_STORED_CACHE_BUDGET: u64 = 4 * 1024 * 1024 * 1024;
+
+/// Entry cap for `shortcut_count_cache` (cleared wholesale when exceeded).
+const SHORTCUT_COUNT_CACHE_MAX: usize = 65_536;
 
 /// Normalize one `search_after` cursor value so it compares against the
 /// normalized `hit.sort` values `compute_sort_values` produces (date-shaped

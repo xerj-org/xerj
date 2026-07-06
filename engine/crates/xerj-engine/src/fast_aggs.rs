@@ -128,14 +128,65 @@ impl MemDocs {
 pub(super) struct FastCtx<'a> {
     idx: &'a Index,
     segs: Vec<SegEntry>,
-    /// Memtable docs (see `MemDocs`).  Empty when the memtable is empty
-    /// (steady state for a flushed corpus).
-    mem_docs: MemDocs,
+    /// Memtable docs (see `MemDocs`), built LAZILY on first executor
+    /// access: the columnar terms/cardinality memtable arms don't touch
+    /// per-doc sources at all, so the per-request materialisation
+    /// (doc_id String clones + Arc bumps over the whole buffered set —
+    /// several ms at a drain-lagged memtable, EVERY agg request) is only
+    /// paid by executors that genuinely walk docs.
+    mem_docs: std::sync::OnceLock<MemDocs>,
+    /// Whether the agg tree can observe meta fields (`top_hits`, `_id`,
+    /// `_index`, `_seq_no`) — decides Owned vs Shared at build time.
+    needs_owned_mem: bool,
     /// Schema fields mapped `boolean`.  Their `.dv` columns are numeric
     /// 0/1 (indistinguishable from real integers at the column level), but
     /// the brute path renders them as "false"/"true" term keys — so the
     /// terms executor needs the mapping to reproduce that.
     bool_fields: &'a std::collections::HashSet<String>,
+}
+
+impl<'a> FastCtx<'a> {
+    /// Lazy memtable-docs view (see the field doc).  Kept identical to the
+    /// eager build this replaces: Owned (deep clone + meta injection) when
+    /// the agg tree can observe meta fields, Arc-shared otherwise.
+    fn mem(&self) -> &MemDocs {
+        self.mem_docs.get_or_init(|| {
+            if self.idx.memtable.doc_count() == 0 {
+                return MemDocs::Owned(Vec::new());
+            }
+            if self.needs_owned_mem {
+                MemDocs::Owned(
+                    self.idx
+                        .memtable
+                        .all_docs_with_sources()
+                        .into_iter()
+                        .map(|(id, mut v)| {
+                            if let Some(o) = v.as_object_mut() {
+                                o.entry("_id".to_string())
+                                    .or_insert_with(|| Value::String(id.clone()));
+                                o.entry("_index".to_string())
+                                    .or_insert_with(|| Value::String(self.idx.name.to_string()));
+                                if let Some(seq) = self.idx.lookup_seq_no(&id) {
+                                    o.entry("_seq_no".to_string())
+                                        .or_insert_with(|| json!(seq));
+                                }
+                            }
+                            v
+                        })
+                        .collect(),
+                )
+            } else {
+                let pairs = self.idx.memtable.all_docs_with_sources_arc();
+                let mut ids = Vec::with_capacity(pairs.len());
+                let mut srcs = Vec::with_capacity(pairs.len());
+                for (id, src) in pairs {
+                    ids.push(id);
+                    srcs.push(src);
+                }
+                MemDocs::Shared { ids, srcs }
+            }
+        })
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -337,42 +388,12 @@ impl Index {
                 || raw.contains("\"_index\"")
                 || raw.contains("\"_seq_no\"")
         };
-        let mem_docs: MemDocs = if mem_physical == 0 {
-            MemDocs::Owned(Vec::new())
-        } else if needs_owned_mem {
-            MemDocs::Owned(
-                self.memtable
-                    .all_docs_with_sources()
-                    .into_iter()
-                    .map(|(id, mut v)| {
-                        if let Some(o) = v.as_object_mut() {
-                            o.entry("_id".to_string())
-                                .or_insert_with(|| Value::String(id.clone()));
-                            o.entry("_index".to_string())
-                                .or_insert_with(|| Value::String(self.name.to_string()));
-                            if let Some(seq) = self.lookup_seq_no(&id) {
-                                o.entry("_seq_no".to_string()).or_insert_with(|| json!(seq));
-                            }
-                        }
-                        v
-                    })
-                    .collect(),
-            )
-        } else {
-            let pairs = self.memtable.all_docs_with_sources_arc();
-            let mut ids = Vec::with_capacity(pairs.len());
-            let mut srcs = Vec::with_capacity(pairs.len());
-            for (id, src) in pairs {
-                ids.push(id);
-                srcs.push(src);
-            }
-            MemDocs::Shared { ids, srcs }
-        };
 
         let ctx = FastCtx {
             idx: self,
             segs,
-            mem_docs,
+            mem_docs: std::sync::OnceLock::new(),
+            needs_owned_mem,
             bool_fields,
         };
 
@@ -423,7 +444,7 @@ impl<'a> FastCtx<'a> {
     /// Global corpus-order rank offset of segment `si` (mem docs first, then
     /// segments in snapshot order) — mirrors the brute corpus assembly.
     fn seg_rank_offset(&self, si: usize) -> u64 {
-        let mut off = self.mem_docs.len() as u64;
+        let mut off = self.mem().len() as u64;
         for s in &self.segs[..si] {
             off += s.docs as u64;
         }
@@ -454,7 +475,7 @@ impl<'a> FastCtx<'a> {
 
     fn fetch_doc(&self, r: DocRef) -> Option<Value> {
         match r {
-            DocRef::Mem(i) => self.mem_docs.owned(i, self.idx),
+            DocRef::Mem(i) => self.mem().owned(i, self.idx),
             DocRef::Seg(si, row) => self.fetch_seg_doc(si, row),
         }
     }
@@ -517,7 +538,7 @@ impl<'a> FastCtx<'a> {
     }
 
     fn mem_field_numeric_safe(&self, field: &str) -> bool {
-        self.mem_docs.iter().all(|d| {
+        self.mem().iter().all(|d| {
             matches!(get_nested_field(d, field), Value::Number(_) | Value::Null)
         })
     }
@@ -762,7 +783,7 @@ impl<'a> FastCtx<'a> {
             field: field.to_string(),
             meta: None,
         };
-        for d in self.mem_docs.iter() {
+        for d in self.mem().iter() {
             Self::fold_mem_metric(d, &spec, &mut acc);
         }
         Some(Self::emit_metric(kind, &acc))
@@ -990,18 +1011,43 @@ impl<'a> FastCtx<'a> {
                 }
             }
         }
-        // Memtable docs go through the exact brute extractor so string
-        // rendering is identical.
-        for d in self.mem_docs.iter() {
-            let vals = crate::aggs::extract_field_values(d, field);
-            if vals.is_empty() {
-                if let Some(ph) = &missing_placeholder {
-                    distinct.insert(ph.clone());
+        // Memtable docs.  Columnar fast arm first (same equivalence gates
+        // as exec_terms — see `terms_counts_columnar`); the per-doc
+        // extraction walk below was the cardinality read-under-write tail
+        // at a drain-lagged memtable.
+        let mem_columnar: Option<(std::collections::HashMap<String, u64>, u64)> =
+            if !field.contains('.') {
+                self.idx.memtable.terms_counts_columnar(field)
+            } else {
+                None
+            };
+        match mem_columnar {
+            Some((counts, missing)) => {
+                for (term, cnt) in counts {
+                    if cnt > 0 {
+                        distinct.insert(term);
+                    }
                 }
-                continue;
+                if missing > 0 {
+                    if let Some(ph) = &missing_placeholder {
+                        distinct.insert(ph.clone());
+                    }
+                }
             }
-            for v in vals {
-                distinct.insert(v);
+            None => {
+                // Exact brute extractor so string rendering is identical.
+                for d in self.mem().iter() {
+                    let vals = crate::aggs::extract_field_values(d, field);
+                    if vals.is_empty() {
+                        if let Some(ph) = &missing_placeholder {
+                            distinct.insert(ph.clone());
+                        }
+                        continue;
+                    }
+                    for v in vals {
+                        distinct.insert(v);
+                    }
+                }
             }
         }
 
@@ -1198,20 +1244,48 @@ impl<'a> FastCtx<'a> {
             }
         }
 
-        // Memtable docs — brute extractor semantics (multi-value, weights).
-        for (di, doc) in self.mem_docs.iter().enumerate() {
-            let weight = doc_count_weight(doc);
-            let vals = extract_field_values(doc, field);
-            for term in vals {
-                let st = terms_map.entry(term).or_insert_with(|| new_state(&plan));
-                st.count += weight;
-                for (mi, spec) in plan.metrics.iter().enumerate() {
-                    Self::fold_mem_metric(doc, spec, &mut st.accs[mi]);
+        // Memtable docs.  Columnar fast arm first: when the shape is
+        // provably brute-equivalent (no per-row sub-agg work, plain
+        // un-dotted field, no array values ever seen for it, no
+        // `_doc_count` weights — see `terms_counts_columnar`), count from
+        // the keyword column directly.  The per-doc JSON extraction walk
+        // below cost 100-300 ms/query against a drain-lagged 300 k-doc
+        // memtable under a sustained bulk writer — the terms-agg
+        // read-under-write p95/p99 tail.
+        let mem_columnar: Option<(std::collections::HashMap<String, u64>, u64)> =
+            if !has_row_work && !field.contains('.') {
+                self.idx.memtable.terms_counts_columnar(field)
+            } else {
+                None
+            };
+        match mem_columnar {
+            Some((counts, _missing)) => {
+                for (term, cnt) in counts {
+                    if cnt > 0 {
+                        terms_map
+                            .entry(term)
+                            .or_insert_with(|| new_state(&plan))
+                            .count += cnt;
+                    }
                 }
-                if let Some(spec) = &plan.top_hits {
-                    match extract_numeric(doc, &spec.sort_field) {
-                        Some(v) => push_top(&mut st.top, spec.k, spec.desc, v, di as u64, DocRef::Mem(di)),
-                        None => missing_sort_seen = true,
+            }
+            None => {
+                // Brute extractor semantics (multi-value, weights).
+                for (di, doc) in self.mem().iter().enumerate() {
+                    let weight = doc_count_weight(doc);
+                    let vals = extract_field_values(doc, field);
+                    for term in vals {
+                        let st = terms_map.entry(term).or_insert_with(|| new_state(&plan));
+                        st.count += weight;
+                        for (mi, spec) in plan.metrics.iter().enumerate() {
+                            Self::fold_mem_metric(doc, spec, &mut st.accs[mi]);
+                        }
+                        if let Some(spec) = &plan.top_hits {
+                            match extract_numeric(doc, &spec.sort_field) {
+                                Some(v) => push_top(&mut st.top, spec.k, spec.desc, v, di as u64, DocRef::Mem(di)),
+                                None => missing_sort_seen = true,
+                            }
+                        }
                     }
                 }
             }
@@ -1339,7 +1413,7 @@ impl<'a> FastCtx<'a> {
                     }
                 }
             }
-            for doc in self.mem_docs.iter() {
+            for doc in self.mem().iter() {
                 let Some(v) = extract_numeric(doc, field) else { continue };
                 let matches = match (from, to) {
                     (Some(f), Some(t)) => v >= f && v < t,
@@ -1489,7 +1563,7 @@ impl<'a> FastCtx<'a> {
                     count += prefix[hi] - prefix[lo];
                 }
             }
-            for doc in self.mem_docs.iter() {
+            for doc in self.mem().iter() {
                 let v = doc.get(field);
                 let Some(ms) = v.and_then(parse_date_ms) else { continue };
                 let pass_from = from_ms.map(|f| ms >= f).unwrap_or(true);
@@ -1637,7 +1711,7 @@ impl<'a> FastCtx<'a> {
                 }
             }
         }
-        for doc in self.mem_docs.iter() {
+        for doc in self.mem().iter() {
             if doc_matches_filter(doc, filter_query) {
                 count += doc_count_weight(doc);
                 for (mi, spec) in plan.metrics.iter().enumerate() {
@@ -1725,7 +1799,7 @@ impl<'a> FastCtx<'a> {
                 }
             }
         }
-        for doc in self.mem_docs.iter() {
+        for doc in self.mem().iter() {
             if doc_matches_filter(doc, filter_query) {
                 count += doc_count_weight(doc);
                 for (mi, spec) in plan.metrics.iter().enumerate() {
@@ -1793,7 +1867,7 @@ impl<'a> FastCtx<'a> {
                 }
             }
         }
-        for doc in self.mem_docs.iter() {
+        for doc in self.mem().iter() {
             let matches: Vec<bool> = filters_map
                 .values()
                 .map(|q| doc_matches_filter(doc, q))
@@ -1923,7 +1997,7 @@ impl<'a> FastCtx<'a> {
                 *counts.entry(key).or_insert(0) += c;
             }
         }
-        for doc in self.mem_docs.iter() {
+        for doc in self.mem().iter() {
             let weight = doc_count_weight(doc);
             // Cross-product across multi-valued fields — brute semantics.
             let mut keys: Vec<Vec<String>> = vec![vec![]];
@@ -2012,7 +2086,7 @@ impl<'a> FastCtx<'a> {
         // match_all every doc scores equal, so the brute sampler's
         // stable score sort preserves exactly this prefix.
         let mut sample: Vec<Value> = Vec::with_capacity(shard_size);
-        for d in self.mem_docs.iter() {
+        for d in self.mem().iter() {
             if sample.len() >= shard_size {
                 break;
             }
@@ -2078,9 +2152,9 @@ impl<'a> FastCtx<'a> {
                 runs.push(run);
             }
         }
-        if !self.mem_docs.is_empty() {
+        if !self.mem().is_empty() {
             let mut mem_vals: Vec<f64> = self
-                .mem_docs
+                .mem()
                 .iter()
                 .filter_map(|doc| extract_numeric(doc, field))
                 .collect();
@@ -2279,7 +2353,7 @@ impl<'a> FastCtx<'a> {
         }
         // Memtable docs — brute multi-value date extraction with per-doc
         // bucket dedup.
-        for doc in self.mem_docs.iter() {
+        for doc in self.mem().iter() {
             let raws = extract_date_ms_values(doc, field);
             let weight = doc_count_weight(doc);
             let mut seen: Vec<i64> = Vec::with_capacity(raws.len());
