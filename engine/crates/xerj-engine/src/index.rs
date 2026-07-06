@@ -397,6 +397,16 @@ pub struct Index {
     /// merge-completion site.  Segments are immutable → no invalidation.
     decoded_stored_cache: Arc<dashmap::DashMap<String, Arc<Vec<u8>>>>,
     decoded_stored_cache_bytes: Arc<AtomicU64>,
+    /// Per-(segment, query-shape) match-count cache for the
+    /// `try_shortcut_count` Bool intersection arm.  The fused columnar
+    /// walk is O(anchor-predicate matches) per segment PER QUERY — for a
+    /// dashboard-style fixed bool filter under a bulk writer (query cache
+    /// useless: every batch bumps `dataset_version`) that was ~0.6-1 s of
+    /// re-counting per request at 1.5 M docs.  Segments are immutable, so
+    /// a (segment_id, canonical-query-json) key never goes stale; bounded
+    /// by wholesale clear at `SHORTCUT_COUNT_CACHE_MAX` since query
+    /// shapes are client-supplied.
+    shortcut_count_cache: Arc<dashmap::DashMap<(String, String), u64>>,
     /// Regexp term-dictionary expansion cache — keyed by
     /// `(segment_id, field, pattern)`, holds the exact union doc count
     /// plus the first `REGEXP_EXPANSION_POS_CAP` matching doc positions
@@ -577,6 +587,7 @@ impl Index {
             stored_slices_cache_bytes: Arc::new(AtomicU64::new(0)),
             decoded_stored_cache: Arc::new(dashmap::DashMap::new()),
             decoded_stored_cache_bytes: Arc::new(AtomicU64::new(0)),
+            shortcut_count_cache: Arc::new(dashmap::DashMap::new()),
             regexp_expand_cache: Arc::new(dashmap::DashMap::new()),
             fast_date_cache: Arc::new(dashmap::DashMap::new()),
             fast_date_sorted_cache: Arc::new(dashmap::DashMap::new()),
@@ -746,6 +757,7 @@ impl Index {
             stored_slices_cache_bytes: Arc::new(AtomicU64::new(0)),
             decoded_stored_cache: Arc::new(dashmap::DashMap::new()),
             decoded_stored_cache_bytes: Arc::new(AtomicU64::new(0)),
+            shortcut_count_cache: Arc::new(dashmap::DashMap::new()),
             regexp_expand_cache: Arc::new(dashmap::DashMap::new()),
             fast_date_cache: Arc::new(dashmap::DashMap::new()),
             fast_date_sorted_cache: Arc::new(dashmap::DashMap::new()),
@@ -4360,8 +4372,37 @@ impl Index {
                 // only ever admit the first `materialisation_limit` ids,
                 // so clone just those and carry the remainder as a count.
                 if sort_topk.is_some() {
-                    let ids: Vec<String> = mem.all_doc_ids();
-                    MemSnapshot::AllDocIds(ids, 0)
+                    // Bounded sorted candidates for the common shape
+                    // (single default-flavour field sort, no cursor):
+                    // columnar per-shard top-cap extraction instead of
+                    // offering EVERY buffered doc to the heap.
+                    let bounded: Option<(Vec<String>, u64)> = (|| {
+                        use xerj_query::sort::{SortMissing, SortMode, SortOrder};
+                        let topk = sort_topk.as_ref()?;
+                        if topk.after.is_some() || request.sort.len() != 1 {
+                            return None;
+                        }
+                        let sf = &request.sort[0];
+                        if sf.is_score()
+                            || sf.is_doc_order()
+                            || sf.mode != SortMode::default()
+                            || sf.missing != SortMissing::default()
+                        {
+                            return None;
+                        }
+                        mem.sort_candidates_numeric(
+                            &sf.field,
+                            sf.order == SortOrder::Desc,
+                            materialisation_limit,
+                        )
+                    })();
+                    match bounded {
+                        Some((ids, total)) => {
+                            let extra = total.saturating_sub(ids.len() as u64);
+                            MemSnapshot::AllDocIds(ids, extra)
+                        }
+                        None => MemSnapshot::AllDocIds(mem.all_doc_ids(), 0),
+                    }
                 } else {
                     let (ids, total) = mem.doc_ids_bounded(materialisation_limit);
                     let extra = total.saturating_sub(ids.len() as u64);
@@ -4440,6 +4481,13 @@ impl Index {
         };
         phase_marks.push(("mem_snapshot", phase_t0.elapsed().as_millis() as u64));
 
+        let dbg_mem_arm: &'static str = match &mem_snapshot {
+            MemSnapshot::Empty => "empty",
+            MemSnapshot::FtsHits(_) => "fts",
+            MemSnapshot::AllDocIds(..) => "allids",
+            MemSnapshot::DocValuesHits(_) => "dv",
+            MemSnapshot::DocsForScan(_) => "scan",
+        };
         match mem_snapshot {
             MemSnapshot::Empty => {}
             MemSnapshot::FtsHits(hits) => {
@@ -4647,6 +4695,10 @@ impl Index {
         // agg-section below.
         let mut precomputed_aggs: Option<Value> = None;
         phase_marks.push(("mem_admit", phase_t0.elapsed().as_millis() as u64));
+        let dbg_sort_topk = sort_topk.is_some();
+        let dbg_mem_hits = all_hits.len();
+        let dbg_mem_seen = seen_ids.len();
+        let dbg_mem_total = total_count;
         if is_match_all && size == 0 && request.aggs.is_some() && request.min_score.is_none() {
             if let Some(aggs_def) = &request.aggs {
                 let r_opt = self
@@ -6116,7 +6168,7 @@ impl Index {
                 index = self.name.as_str(),
                 phases = %breakdown.join(" "),
                 gates = %format!(
-                    "needs_fts={} shortcut={:?} deletes={} ghosts={} total={} lim={} segs={} dec={}ms scan={}ms ftsopen={}ms walked={} admitted={} allhits_cap={}",
+                    "needs_fts={} shortcut={:?} deletes={} ghosts={} total={} lim={} segs={} dec={}ms scan={}ms ftsopen={}ms walked={} admitted={} allhits_cap={} memhits={} memseen={} memtotal={} memarm={} sorttopk={}",
                     query_needs_fts,
                     shortcut_count,
                     deletes_present,
@@ -6129,7 +6181,12 @@ impl Index {
                     dbg_fts_ms,
                     dbg_walked,
                     dbg_admitted,
-                    scan_hit_cap
+                    scan_hit_cap,
+                    dbg_mem_hits,
+                    dbg_mem_seen,
+                    dbg_mem_total,
+                    dbg_mem_arm,
+                    dbg_sort_topk
                 ),
                 "slow search_inner phase breakdown"
             );
@@ -6930,9 +6987,20 @@ impl Index {
 
             let segments_dir = self.data_dir.join("segments");
             let mut seg_matches: u64 = 0;
+            // Canonical query key for the per-segment count cache.
+            let bool_cache_key: Option<String> = serde_json::to_string(query).ok();
             for meta in &snap.segments {
                 if meta.doc_count == 0 {
                     continue;
+                }
+                if let Some(k) = &bool_cache_key {
+                    if let Some(hit) = self
+                        .shortcut_count_cache
+                        .get(&(meta.id.clone(), k.clone()))
+                    {
+                        seg_matches = seg_matches.saturating_add(*hit.value());
+                        continue;
+                    }
                 }
                 let Some(cols) = self.dv_columns_for(&segments_dir, &meta.id) else {
                     return None;
@@ -7073,6 +7141,13 @@ impl Index {
                     sc += 1;
                 }
                 let _ = n_docs; // silence unused
+                if let Some(k) = &bool_cache_key {
+                    if self.shortcut_count_cache.len() >= SHORTCUT_COUNT_CACHE_MAX {
+                        self.shortcut_count_cache.clear();
+                    }
+                    self.shortcut_count_cache
+                        .insert((meta.id.clone(), k.clone()), sc);
+                }
                 seg_matches = seg_matches.saturating_add(sc);
             }
 
@@ -7546,8 +7621,18 @@ impl Index {
         if let Some(entry) = self.sort_shadow_cache.get(&key) {
             return entry.value().clone();
         }
+        // A missing/unreadable dv sidecar is a TRANSIENT state (a segment can
+        // become visible a beat before its sidecar read succeeds under heavy
+        // flush churn) — return None WITHOUT caching so the next query
+        // re-probes.  Only a successfully-read sidecar whose column SHAPE is
+        // ineligible gets a durable `None` (that never changes for an
+        // immutable segment).  Caching the transient miss permanently
+        // disabled the bounded path for that segment: every subsequent
+        // sorted read full-scanned it until a merge retired it.
+        let Some(cols) = self.dv_columns_for(segments_dir, segment_id) else {
+            return None;
+        };
         let built: Option<Arc<Vec<(i64, u32)>>> = (|| {
-            let cols = self.dv_columns_for(segments_dir, segment_id)?;
             match cols.get(field) {
                 Some(Column::Numeric(n)) => {
                     if !n.null_bitmap.is_empty()
@@ -8572,7 +8657,7 @@ async fn do_flush_shard(
         // Whole side-car build runs on the dedicated ingest pool so a
         // flush burst can't queue search/agg par_iters behind it on the
         // global rayon pool (read-under-write; see `crate::ingest_pool`).
-        crate::ingest_pool().install(|| {
+        crate::background_pool().install(|| {
         // ── Doc-values side-car (always built) ────────────────────
         let t_dv = std::time::Instant::now();
         {
@@ -8628,7 +8713,7 @@ async fn do_flush_shard(
     let t_finalize = std::time::Instant::now();
     // Segment encode + side-car build on the deprioritised ingest pool
     // (build_fts's inner install() is a same-pool no-op).
-    let meta = match crate::ingest_pool()
+    let meta = match crate::background_pool()
         .install(|| store.finalize_flush_with_publisher(storage_drained, build_fts))?
     {
         Some(m) => m,
@@ -13146,6 +13231,9 @@ const STORED_SLICES_CACHE_BUDGET: u64 = 3 * 1024 * 1024 * 1024;
 /// ~1× the corpus JSON size).  Overflow → inserts are refused and the
 /// query falls back to the per-query decompress (pre-cache behaviour).
 const DECODED_STORED_CACHE_BUDGET: u64 = 4 * 1024 * 1024 * 1024;
+
+/// Entry cap for `shortcut_count_cache` (cleared wholesale when exceeded).
+const SHORTCUT_COUNT_CACHE_MAX: usize = 65_536;
 
 /// Normalize one `search_after` cursor value so it compares against the
 /// normalized `hit.sort` values `compute_sort_values` produces (date-shaped

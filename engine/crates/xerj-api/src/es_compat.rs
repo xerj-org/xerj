@@ -4472,12 +4472,45 @@ pub async fn search(
             })
             .unwrap_or((None, "desc".to_string(), false));
         if let Some(f) = sort_field {
-            // Apply the index sort when no sort was requested, OR — for an
-            // EXPLICITLY declared index sort — when the only sort key is the
-            // implicit `_doc` order (ES returns docs in index-sort order for
-            // a `sort: _doc` request against an index-sorted index).
-            let apply = body.sort.is_none()
-                || (explicit && body.sort.as_ref().map(is_lone_doc_sort).unwrap_or(false));
+            // Apply the index sort ONLY for an EXPLICITLY declared
+            // `index.sort` (settings), when no sort was requested or the
+            // only sort key is the implicit `_doc` order (ES returns docs
+            // in index-sort order for a `sort: _doc` request against an
+            // index-sorted index).
+            //
+            // The auto-@timestamp heuristic (any index that merely MAPS a
+            // `@timestamp` date field) is no longer applied: real ES does
+            // NOT implicitly sort query results just because @timestamp is
+            // mapped (index.sort is a physical layout setting, auto-set
+            // only for logsdb/time-series modes), and the injected sort
+            // routed EVERY sortless query on such indexes through the
+            // global top-N heap — an O(total-docs) walk of every segment
+            // per request.  Live-verified as the dominant cost of the
+            // read-under-write collapse: an LLM-telemetry corpus (maps
+            // @timestamp) saw sortless term/match_all size=10 queries walk
+            // 1.5 M docs (~2-7 s each, `walked=1500002 admitted=250252
+            // allhits_cap=false`) while the same query with an explicit
+            // `sort: _doc` took 45 ms.
+            // For the implicit auto-@timestamp hint, only match_all-shaped
+            // queries get the injected sort: that is the query shape the ES
+            // conformance contract observes (search/380_sort_segments_on_
+            // timestamp.yml), and the engine serves it via the bounded
+            // sorted-DV candidates path (O(from+size) per segment).
+            // Filtered queries (term/range/bool) skip the injection — in
+            // real ES the physical index sort doesn't impose a query-time
+            // global sort on them either, and routing them through the
+            // top-N heap costs a full O(total-docs) walk per request.
+            let implicit_ok = body.query.is_none()
+                || body
+                    .query
+                    .as_ref()
+                    .and_then(|q| q.as_object())
+                    .map(|o| o.len() == 1 && o.contains_key("match_all"))
+                    .unwrap_or(false);
+            let apply = (explicit || implicit_ok)
+                && (body.sort.is_none()
+                    || (explicit
+                        && body.sort.as_ref().map(is_lone_doc_sort).unwrap_or(false)));
             if apply {
                 body.sort = Some(json!([{ f: { "order": sort_order } }]));
             }

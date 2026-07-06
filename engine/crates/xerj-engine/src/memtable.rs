@@ -464,6 +464,99 @@ impl ShardedFtsMemtable {
         out
     }
 
+    /// Bounded sorted-candidate extraction for a single-numeric-field sort
+    /// (the implicit `@timestamp desc` index sort in particular).
+    ///
+    /// Returns `(candidate_ids, total_buffered_docs)` where the candidates
+    /// are every buffered doc that could possibly reach the global
+    /// top-`cap` page: the per-shard top-`cap` by column value (boundary
+    /// ties included) plus up to `cap` docs missing the field (the top-N
+    /// heap's full-key comparison places them per the sort's `missing`
+    /// policy).  Columnar walk — no source clones, no per-doc heap offers.
+    /// Pre-fix the field-sorted match_all path offered EVERY buffered doc
+    /// to the top-N heap with an O(shard) source lookup per doc: ~1.3 s
+    /// per query at a 460 k-doc memtable under sustained bulk load.
+    ///
+    /// `None` when a shard's column is missing/misaligned (caller falls
+    /// back to the exact full walk).
+    pub fn sort_candidates_numeric(
+        &self,
+        field: &str,
+        desc: bool,
+        cap: usize,
+    ) -> Option<(Vec<String>, u64)> {
+        let cap = cap.max(1);
+        let mut total: u64 = 0;
+        let mut cands: Vec<(f64, String)> = Vec::new();
+        let mut missing: Vec<String> = Vec::new();
+        for s in &self.shards {
+            let g = s.read();
+            let n = g.doc_count();
+            total += n as u64;
+            if n == 0 {
+                continue;
+            }
+            match g.doc_values.numeric.get(field) {
+                None => {
+                    // Whole shard lacks the column: every doc is missing
+                    // the sort field.
+                    for e in g.docs.iter().take(cap.saturating_sub(missing.len())) {
+                        missing.push(e.doc_id.clone());
+                    }
+                }
+                Some(col) => {
+                    if col.len() != n {
+                        return None; // alignment not provable — full walk
+                    }
+                    let mut local: Vec<(f64, usize)> = Vec::new();
+                    for (i, v) in col.iter().enumerate() {
+                        match v {
+                            Some(x) => local.push((*x, i)),
+                            None => {
+                                if missing.len() < cap {
+                                    missing.push(g.docs[i].doc_id.clone());
+                                }
+                            }
+                        }
+                    }
+                    if desc {
+                        local.sort_unstable_by(|a, b| {
+                            b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
+                        });
+                    } else {
+                        local.sort_unstable_by(|a, b| {
+                            a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal)
+                        });
+                    }
+                    let mut keep = local.len().min(cap);
+                    while keep < local.len() && keep > 0 && local[keep].0 == local[keep - 1].0 {
+                        keep += 1;
+                    }
+                    for (v, i) in local.into_iter().take(keep) {
+                        cands.push((v, g.docs[i].doc_id.clone()));
+                    }
+                }
+            }
+        }
+        // Global cut to cap (+boundary ties).
+        if desc {
+            cands.sort_unstable_by(|a, b| {
+                b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
+            });
+        } else {
+            cands.sort_unstable_by(|a, b| {
+                a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal)
+            });
+        }
+        let mut keep = cands.len().min(cap);
+        while keep < cands.len() && keep > 0 && cands[keep].0 == cands[keep - 1].0 {
+            keep += 1;
+        }
+        let mut ids: Vec<String> = cands.into_iter().take(keep).map(|(_, id)| id).collect();
+        ids.extend(missing);
+        Some((ids, total))
+    }
+
     /// Bounded variant: clone at most `limit` doc ids and return the TOTAL
     /// buffered doc count alongside.  The unsorted match_all page only
     /// needs `from+size+ε` ids, but `all_doc_ids` cloned every buffered id

@@ -54,19 +54,36 @@ pub(crate) fn ingest_pool() -> &'static rayon::ThreadPool {
         rayon::ThreadPoolBuilder::new()
             .num_threads(n)
             .thread_name(|i| format!("xerj-ingest-{i}"))
-            // Deprioritise ingest CPU vs foreground reads.  Flush/merge
-            // side-car builds saturate every core for seconds at a time;
-            // at equal priority a ~20 ms search waits behind them for
-            // hundreds of ms (measured p50 0.2-1.9 s under a bulk
-            // writer).  nice(10) lets CFS schedule search threads ahead
-            // of background encode work; with no reads running the pool
-            // still gets every core, so writer-only throughput is
-            // unchanged.
+            .build()
+            .expect("failed to build ingest rayon pool")
+    })
+}
+
+/// Deprioritised rayon pool for BACKGROUND index maintenance: flush
+/// side-car builds (FTS + doc-values), segment finalisation, and merge
+/// rebuilds.
+///
+/// Separate from `ingest_pool` (foreground, normal priority — bulk parse
+/// and memtable insert are request-latency-critical) and from the global
+/// pool (search fan-out).  nice(10) lets CFS schedule foreground search
+/// and bulk threads ahead of maintenance encode work, which otherwise
+/// saturates every core for seconds per merged segment; with an idle
+/// foreground the pool still gets every core, so writer-only throughput
+/// is unchanged.
+pub(crate) fn background_pool() -> &'static rayon::ThreadPool {
+    static POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
+    POOL.get_or_init(|| {
+        let n = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(8);
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(n)
+            .thread_name(|i| format!("xerj-bg-{i}"))
             .start_handler(|_| unsafe {
                 let _ = libc::nice(10);
             })
             .build()
-            .expect("failed to build ingest rayon pool")
+            .expect("failed to build background rayon pool")
     })
 }
 
