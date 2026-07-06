@@ -540,6 +540,28 @@ pub struct Index {
     pub query_cache: Arc<dashmap::DashMap<(u64, u64), Arc<SearchResult>>>,
     pub dataset_version: Arc<AtomicU64>,
 
+    /// Single-flight coalescing map for identical in-flight reads, keyed by
+    /// the SAME `(query_body_hash, dataset_version)` as `query_cache`. Under
+    /// the mixed read-under-write workload the open-loop 300/s reader fires
+    /// the IDENTICAL body thousands of times; a flush/merge stall makes the
+    /// `query_cache` miss (the flush bumped `dataset_version`) and lets a
+    /// burst of same-key requests pile up concurrently, each otherwise
+    /// recomputing the whole scan/agg and stealing cores from the writer.
+    /// The FIRST request of a key ("leader") computes and publishes on this
+    /// watch channel; identical concurrent requests ("followers") await and
+    /// clone the leader's result instead of recomputing. Because the key is
+    /// identical to the `query_cache` key, a follower's served result is
+    /// byte-identical to what a `query_cache` hit would have returned — no
+    /// new staleness is introduced. A leader that errors / times out
+    /// publishes nothing (drops the sender), so followers fall through and
+    /// recompute independently — no poisoning.
+    query_inflight:
+        Arc<dashmap::DashMap<(u64, u64), tokio::sync::watch::Sender<Option<Arc<SearchResult>>>>>,
+    /// Count of follower reads served by single-flight coalescing (i.e. the
+    /// number of full search recomputes eliminated). Structural evidence for
+    /// the read-under-write CPU-contention fix.
+    metric_singleflight_coalesced: Arc<AtomicU64>,
+
     /// Sync-path flush coordinator — notified by `index_batch_sync_raw`
     /// when a shard crosses threshold; drained by a dedicated OS thread
     /// (`xerj-flusher-<idx>`).  Lets rayon scanners stay fully
@@ -694,6 +716,8 @@ impl Index {
             fast_date_sorted_cache: Arc::new(dashmap::DashMap::new()),
             query_cache: Arc::new(dashmap::DashMap::new()),
             dataset_version: Arc::new(AtomicU64::new(0)),
+            query_inflight: Arc::new(dashmap::DashMap::new()),
+            metric_singleflight_coalesced: Arc::new(AtomicU64::new(0)),
             flush_signal: Arc::new(SyncFlushCoord::new()),
             external_versions: Arc::new(dashmap::DashMap::new()),
             merge_task: Arc::new(parking_lot::Mutex::new(None)),
@@ -867,6 +891,8 @@ impl Index {
             fast_date_sorted_cache: Arc::new(dashmap::DashMap::new()),
             query_cache: Arc::new(dashmap::DashMap::new()),
             dataset_version: Arc::new(AtomicU64::new(0)),
+            query_inflight: Arc::new(dashmap::DashMap::new()),
+            metric_singleflight_coalesced: Arc::new(AtomicU64::new(0)),
             flush_signal: Arc::new(SyncFlushCoord::new()),
             external_versions: Arc::new(dashmap::DashMap::new()),
             merge_task: Arc::new(parking_lot::Mutex::new(None)),
@@ -4047,6 +4073,89 @@ impl Index {
             }
         }
 
+        // ── Single-flight coalescing ────────────────────────────────────
+        // On a `query_cache` miss, coalesce identical concurrent reads: the
+        // first request of a `(hash, version)` key becomes the leader and
+        // computes below; any identical request that arrives while the
+        // leader is still in flight becomes a follower and awaits the
+        // leader's published result instead of recomputing. See the
+        // `query_inflight` field doc for the correctness argument (the key
+        // is identical to the `query_cache` key, so the served result is
+        // byte-identical to a cache hit). This removes the redundant
+        // recompute CPU exactly in the flush/merge stall window where the
+        // open-loop reader piles up same-key requests — the p99 tail.
+        //
+        // RAII guard: whatever return path the leader takes (success,
+        // timed-out partial, or timeout error), the in-flight entry is
+        // removed on drop. On the success path the leader also `send`s its
+        // result so waiting followers wake immediately; on any other path it
+        // publishes nothing, so followers observe the closed channel, re-check
+        // the `query_cache`, and otherwise recompute independently.
+        struct InflightGuard<'a> {
+            map: &'a dashmap::DashMap<(u64, u64), tokio::sync::watch::Sender<Option<Arc<SearchResult>>>>,
+            key: (u64, u64),
+        }
+        impl Drop for InflightGuard<'_> {
+            fn drop(&mut self) {
+                self.map.remove(&self.key);
+            }
+        }
+        fn singleflight_log() -> bool {
+            static SF_LOG: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+            *SF_LOG.get_or_init(|| std::env::var("XERJ_SF_LOG").is_ok())
+        }
+
+        let mut sf_leader: Option<tokio::sync::watch::Sender<Option<Arc<SearchResult>>>> = None;
+        let mut _sf_guard: Option<InflightGuard<'_>> = None;
+        if let Some(key) = cache_key {
+            use dashmap::mapref::entry::Entry;
+            match self.query_inflight.entry(key) {
+                Entry::Occupied(o) => {
+                    // Follower: subscribe to the leader's result, then release
+                    // the shard lock BEFORE awaiting (never hold a DashMap ref
+                    // across an await).
+                    let mut rx = o.get().subscribe();
+                    drop(o);
+                    loop {
+                        if let Some(r) = rx.borrow_and_update().clone() {
+                            let mut cloned = (*r).clone();
+                            cloned.took_ms = 0;
+                            self.metric_query_count.fetch_add(1, Ordering::Relaxed);
+                            self.metric_singleflight_coalesced.fetch_add(1, Ordering::Relaxed);
+                            if singleflight_log() {
+                                warn!(index = self.name.as_str(), "singleflight follower served");
+                            }
+                            return Ok(cloned);
+                        }
+                        if rx.changed().await.is_err() {
+                            // Leader dropped its sender. If it succeeded it
+                            // inserted the result into `query_cache` BEFORE
+                            // dropping, so serve that; otherwise recompute.
+                            if let Some(entry) = self.query_cache.get(&key) {
+                                let mut cloned = (**entry.value()).clone();
+                                cloned.took_ms = 0;
+                                self.metric_query_count.fetch_add(1, Ordering::Relaxed);
+                                self.metric_singleflight_coalesced.fetch_add(1, Ordering::Relaxed);
+                                return Ok(cloned);
+                            }
+                            break;
+                        }
+                    }
+                }
+                Entry::Vacant(v) => {
+                    // Leader: publish an empty channel now; identical requests
+                    // that arrive during our computation become followers.
+                    let (tx, _rx) = tokio::sync::watch::channel(None);
+                    v.insert(tx.clone());
+                    sf_leader = Some(tx);
+                    _sf_guard = Some(InflightGuard {
+                        map: &self.query_inflight,
+                        key,
+                    });
+                }
+            }
+        }
+
         // Acquire a query permit before proceeding.  This bounds the number of
         // queries executing concurrently against this index to 64 (the semaphore
         // capacity), preventing a single hot index from starving others in a
@@ -4114,8 +4223,15 @@ impl Index {
                 if let (Some(key), Ok(ref r)) = (cache_key, &result) {
                     // Never cache a timed-out partial result — the dataset
                     // version doesn't change on timeout, so a poisoned entry
-                    // would be served until the next write.
+                    // would be served until the next write. But DO hand it to
+                    // any coalesced followers (identical query ⇒ identical
+                    // timed-out response) so they return now instead of
+                    // waiting for the closed channel and then recomputing an
+                    // equally-slow query.
                     if r.timed_out {
+                        if let Some(tx) = &sf_leader {
+                            let _ = tx.send(Some(Arc::new(r.clone())));
+                        }
                         return result;
                     }
                     if self.query_cache.len() > 1024 {
@@ -4124,7 +4240,18 @@ impl Index {
                         // few queries.
                         self.query_cache.clear();
                     }
-                    self.query_cache.insert(key, Arc::new(r.clone()));
+                    let arc = Arc::new(r.clone());
+                    self.query_cache.insert(key, Arc::clone(&arc));
+                    // Single-flight: wake any coalesced followers with the
+                    // freshly computed result (byte-identical to this cache
+                    // entry). `send` returns Err if there are no followers —
+                    // ignored. The `_sf_guard` removes the in-flight entry on
+                    // drop. Ordering: cache insert precedes this send, which
+                    // precedes the guard's entry removal, so a follower that
+                    // races the drop still finds the result in `query_cache`.
+                    if let Some(tx) = &sf_leader {
+                        let _ = tx.send(Some(arc));
+                    }
                 }
                 result
             }
@@ -4140,7 +4267,7 @@ impl Index {
                 );
                 // Return empty partial results with timed_out=true signaled via
                 // a special took_ms value (see es_compat handler).
-                Ok(SearchResult {
+                let to = SearchResult {
                     hits: vec![],
                     total: xerj_query::executor::TotalHits {
                         value: 0,
@@ -4151,7 +4278,14 @@ impl Index {
                     timed_out: true,
                     profile: None,
                     max_score: None,
-                })
+                };
+                // Hand the timed-out response to any coalesced followers so
+                // they return immediately rather than waiting for the closed
+                // channel and recomputing an equally-slow query. Not cached.
+                if let Some(tx) = &sf_leader {
+                    let _ = tx.send(Some(Arc::new(to.clone())));
+                }
+                Ok(to)
             }
         }
     }
