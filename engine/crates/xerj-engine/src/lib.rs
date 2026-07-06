@@ -70,6 +70,43 @@ pub(crate) fn ingest_pool() -> &'static rayon::ThreadPool {
     })
 }
 
+/// Dedicated rayon pool for **merge** encode work (byte-copy re-encode +
+/// FTS side-car rebuild of merged segments).
+///
+/// Pre-fix merges ran on `ingest_pool()` — the same pool every `_bulk`
+/// request's parse/analyze/insert par_iters use.  A single 16-segment
+/// (~500 k-doc) merge saturates all N workers for many seconds, so every
+/// concurrent bulk request's `install()` queued behind it: measured on the
+/// 1 M×c8 ingest benchmark as a 4.7 s → 17.5 s FULL STALL of ingest
+/// (window throughput 370 k docs/s → 7.8 k docs/s) the moment the first
+/// background merge tick fired.  100 k-doc runs finish before the first
+/// 5 s merge tick, which is why the regression only appeared at 1 M scale.
+///
+/// Merges are pure background work with no client waiting on them — ES
+/// likewise runs merges on a small dedicated pool and throttles them under
+/// indexing pressure.  Sizing: `max(2, ncores/8)` keeps a merge from ever
+/// occupying more than a sliver of the machine, while `nice(15)` (one step
+/// below ingest's `nice(10)`) lets both foreground reads AND ingest encode
+/// pre-empt merge threads when cores are scarce.  Merges take a few times
+/// longer to converge — acceptable: the 5 s merge loop just picks up where
+/// it left off, and `merge_in_progress` already serialises passes.
+pub(crate) fn merge_pool() -> &'static rayon::ThreadPool {
+    static POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
+    POOL.get_or_init(|| {
+        let n = std::thread::available_parallelism()
+            .map(|n| (n.get() / 8).max(2))
+            .unwrap_or(2);
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(n)
+            .thread_name(|i| format!("xerj-merge-{i}"))
+            .start_handler(|_| unsafe {
+                let _ = libc::nice(15);
+            })
+            .build()
+            .expect("failed to build merge rayon pool")
+    })
+}
+
 // ── Analyzer helpers ──────────────────────────────────────────────────────────
 
 use std::sync::Arc;

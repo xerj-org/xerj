@@ -2258,12 +2258,16 @@ impl Index {
             let metas_for_task = metas;
 
             tokio::task::spawn_blocking(move || -> Option<MergeOutput> {
-                // Entire merge encode runs on the deprioritised ingest
-                // pool (nice +10): the decompress + byte-copy + FTS/DV
-                // rebuild below saturates cores for seconds, and on the
-                // normal-priority blocking pool it stole scheduler time
-                // from foreground searches (read-under-write tail).
-                crate::ingest_pool().install(move || -> Option<MergeOutput> {
+                // Entire merge encode runs on the dedicated SMALL merge
+                // pool (nice +15, ncores/8 threads): the decompress +
+                // byte-copy + FTS/DV rebuild below saturates its workers
+                // for seconds.  On the normal-priority blocking pool it
+                // stole scheduler time from foreground searches (read-
+                // under-write tail); on the shared ingest pool it queued
+                // every bulk request's parse/analyze/insert behind it,
+                // fully stalling 1 M×c8 ingest for ~13 s per merge pass
+                // (see `crate::merge_pool`).
+                crate::merge_pool().install(move || -> Option<MergeOutput> {
                 use serde_json::value::RawValue;
 
                 // V4 M4.8 — STREAMING BYTE-COPY MERGE.
@@ -2459,12 +2463,15 @@ impl Index {
                         fts_writer.configure_field(field_name.clone(), cfg.clone());
                     }
                     if !fts_input.is_empty() {
-                        // Dedicated ingest pool: a merged-segment FTS build
+                        // Dedicated merge pool: a merged-segment FTS build
                         // is the single longest rayon job in the system —
                         // on the global pool it queued every concurrent
                         // search's par_iter behind it (read-under-write
-                        // collapse; see `crate::ingest_pool`).
-                        crate::ingest_pool().install(|| {
+                        // collapse), and on the ingest pool it stalled
+                        // every bulk request (see `crate::merge_pool`).
+                        // Same-pool install here is a no-op re-entry —
+                        // the whole batch already runs inside merge_pool.
+                        crate::merge_pool().install(|| {
                             fts_writer.add_documents_parallel(&fts_input);
                             if let Err(e) = fts_writer.finish() {
                                 tracing::warn!("merge: FTS build failed: {e}");
