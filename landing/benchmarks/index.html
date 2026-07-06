@@ -11,15 +11,19 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
-<link rel="stylesheet" href="/style.css?v=brand-ux1">
+<link rel="stylesheet" href="/style.css?v=brand-ux2">
 <style>
   /* page-local: 5-column variant of the product .bench grid + verdict tones */
   .bench-scroll { overflow-x: auto; max-width: 100%; }
-  .bench.matrix { grid-template-columns: minmax(220px, 1fr) 92px 92px 78px 70px; min-width: 620px; margin-top: 0; }
+  .bench.matrix { grid-template-columns: minmax(170px, 1fr) 88px 88px minmax(100px, 128px) 60px; min-width: 660px; margin-top: 0; }
   .bench.matrix .head { padding-top: 0; }
+  .bench.matrix .head .u { color: var(--z-mute); font-weight: 400; font-size: 0.82em; }
   .bench.matrix .cell.win  { color: var(--z-accent); font-weight: 700; }
   .bench.matrix .cell.lose { color: #e05252; font-weight: 700; }
   .bench.matrix .cell.na   { color: var(--z-mute); font-weight: 400; }
+  .bench.matrix .cell.vs   { white-space: nowrap; }
+  .bench.matrix .cell.es   { color: var(--z-mute); }
+  .cat-metric { display: block; font-family: var(--font-data); font-size: var(--fs-11); letter-spacing: 0; text-transform: none; color: var(--z-mute); margin-top: 3px; }
 
   /* collapsible scorecard categories — native <details>/<summary>, no JS */
   .cat { border-bottom: 1px solid var(--z-line); }
@@ -253,7 +257,7 @@
   <div class="row"><div class="k">OPEN-LOOP LOAD</div><div class="v">Read requests fire on a fixed <strong>200&nbsp;req/s</strong> cadence, independent of when earlier responses return — a slow engine can't slow the clock down and flatter its own tail.</div></div>
   <div class="row"><div class="k">SAMPLING</div><div class="v">Per family: 15 untimed warmups, then <strong>p50 over 120 timed iterations</strong>, with a 15&nbsp;s per-request bound. An engine that hangs is recorded and scored, not silently dropped.</div></div>
   <div class="row"><div class="k">CORRECTNESS GATE</div><div class="v">Every family is probed first; a 4xx marks it <span class="mono">unsupported</span> for that engine. If the two engines return materially different results, the row is scored <span class="mono">N/A</span> — <strong>an engine that returns wrong or empty results can't win on latency</strong>. <span class="mono">track_total_hits: true</span> is forced on both sides so neither wins by short-circuiting the count.</div></div>
-  <div class="row"><div class="k">VERDICTS</div><div class="v">Ratios are normalized so <strong>&gt;1× always means XERJ is better</strong>. Any LOSE row makes the runner exit non-zero — the scorecard is a CI gate, not a brochure.</div></div>
+  <div class="row"><div class="k">VERDICTS</div><div class="v">Every row is scored from XERJ's point of view and shown in plain terms — <strong>N× faster</strong> (gold) or <strong>N× slower</strong> (red) versus ES on that metric. Any LOSE row makes the runner exit non-zero — the scorecard is a CI gate, not a brochure.</div></div>
 </section>
 
 <!-- 03 — FULL RESULTS ---------------------------------------->
@@ -265,9 +269,10 @@
     All 91 rows from <span class="mono">demo/playbooks/SCORECARD.md</span>,
     grouped by family. Every family is collapsed — the tally beside each
     (wins · losses) tells you where to look; open any family to see every row.
-    Latency rows are p50 in milliseconds, ingest is docs/s, and the mixed
-    rows are p99 under a concurrent bulk writer. Ratios are normalized so
-    <strong>&gt;1× means XERJ is faster / higher-throughput / smaller</strong>.
+    Each family names its metric and unit; the <strong>VS ES</strong> column
+    reads in plain terms — <span class="mono">1.9× faster</span> when XERJ wins,
+    <span class="mono">28× slower</span> when it loses — so you never have to
+    decode a raw ratio.
   </p>
 
   <div class="cat-total">
@@ -278,600 +283,591 @@
   <!-- Ingest -->
   <details class="cat">
     <summary>
-      <span class="cat-label">Ingest</span>
+      <span class="cat-label">Ingest<span class="cat-metric">bulk throughput · higher is better</span></span>
       <span class="cat-tally"><span class="w">4&nbsp;W</span></span>
     </summary>
     <div class="bench-scroll">
     <div class="bench matrix">
       <div class="head">DIMENSION</div>
-      <div class="head num">XERJ</div>
-      <div class="head num">ES</div>
-      <div class="head num">RATIO</div>
+      <div class="head num">XERJ <span class="u">docs/s</span></div>
+      <div class="head num">ES <span class="u">docs/s</span></div>
+      <div class="head num">VS ES</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">ingest 100k × c1</div>
       <div class="cell num xy">113,384</div>
       <div class="cell num es">72,272</div>
-      <div class="cell num ratio win">1.57×</div>
+      <div class="cell num vs win">1.6× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">ingest 100k × c8</div>
       <div class="cell num xy">382,301</div>
       <div class="cell num es">253,961</div>
-      <div class="cell num ratio win">1.51×</div>
+      <div class="cell num vs win">1.5× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">ingest 1m × c1</div>
       <div class="cell num xy">119,031</div>
       <div class="cell num es">70,320</div>
-      <div class="cell num ratio win">1.69×</div>
+      <div class="cell num vs win">1.7× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">ingest 1m × c8</div>
       <div class="cell num xy">387,678</div>
       <div class="cell num es">379,506</div>
-      <div class="cell num ratio win">1.02×</div>
+      <div class="cell num vs win">1.0× faster</div>
       <div class="cell num verdict win">WIN</div>
     </div>
     </div>
   </details>
 
-  <!-- Full-text & phrase queries -->
   <details class="cat">
     <summary>
-      <span class="cat-label">Full-text &amp; phrase queries</span>
+      <span class="cat-label">Full-text &amp; phrase queries<span class="cat-metric">p50 query latency · lower is better</span></span>
       <span class="cat-tally"><span class="w">9&nbsp;W</span> · <span class="na">2&nbsp;N/A</span></span>
     </summary>
     <div class="bench-scroll">
     <div class="bench matrix">
       <div class="head">DIMENSION</div>
-      <div class="head num">XERJ</div>
-      <div class="head num">ES</div>
-      <div class="head num">RATIO</div>
+      <div class="head num">XERJ <span class="u">ms</span></div>
+      <div class="head num">ES <span class="u">ms</span></div>
+      <div class="head num">VS ES</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">match_all</div>
       <div class="cell num xy">0.88</div>
       <div class="cell num es">1.72</div>
-      <div class="cell num ratio win">1.94×</div>
+      <div class="cell num vs win">1.9× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">match_none</div>
       <div class="cell num xy">0.48</div>
       <div class="cell num es">1.08</div>
-      <div class="cell num ratio win">2.26×</div>
+      <div class="cell num vs win">2.3× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">match(model)</div>
       <div class="cell num xy">0.57</div>
       <div class="cell num es">1.45</div>
-      <div class="cell num ratio win">2.53×</div>
+      <div class="cell num vs win">2.5× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">match_phrase(top_doc)</div>
       <div class="cell num xy">1.46</div>
       <div class="cell num es">2.48</div>
-      <div class="cell num ratio win">1.70×</div>
+      <div class="cell num vs win">1.7× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">match_phrase_prefix</div>
       <div class="cell num xy">1.33</div>
-      <div class="cell num es">unsupported (400)</div>
-      <div class="cell num ratio na">—</div>
+      <div class="cell num es">not&nbsp;supported</div>
+      <div class="cell num vs na">—</div>
       <div class="cell num verdict na">N/A</div>
       <div class="cell test">match_bool_prefix</div>
       <div class="cell num xy">1.33</div>
       <div class="cell num es">5.02</div>
-      <div class="cell num ratio win">3.77×</div>
+      <div class="cell num vs win">3.8× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">multi_match</div>
       <div class="cell num xy">1.44</div>
       <div class="cell num es">5.89</div>
-      <div class="cell num ratio win">4.10×</div>
+      <div class="cell num vs win">4.1× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">combined_fields</div>
       <div class="cell num xy">1.38</div>
-      <div class="cell num es">unsupported (400)</div>
-      <div class="cell num ratio na">—</div>
+      <div class="cell num es">not&nbsp;supported</div>
+      <div class="cell num vs na">—</div>
       <div class="cell num verdict na">N/A</div>
       <div class="cell test">query_string</div>
       <div class="cell num xy">1.35</div>
       <div class="cell num es">9.35</div>
-      <div class="cell num ratio win">6.92×</div>
+      <div class="cell num vs win">6.9× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">simple_query_string</div>
       <div class="cell num xy">1.44</div>
       <div class="cell num es">2.29</div>
-      <div class="cell num ratio win">1.59×</div>
+      <div class="cell num vs win">1.6× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">more_like_this</div>
       <div class="cell num xy">1.39</div>
       <div class="cell num es">2.43</div>
-      <div class="cell num ratio win">1.75×</div>
+      <div class="cell num vs win">1.8× faster</div>
       <div class="cell num verdict win">WIN</div>
     </div>
     </div>
   </details>
 
-  <!-- Term, range & filter queries -->
   <details class="cat">
     <summary>
-      <span class="cat-label">Term, range &amp; filter queries</span>
+      <span class="cat-label">Term, range &amp; filter queries<span class="cat-metric">p50 query latency · lower is better</span></span>
       <span class="cat-tally"><span class="w">12&nbsp;W</span></span>
     </summary>
     <div class="bench-scroll">
     <div class="bench matrix">
       <div class="head">DIMENSION</div>
-      <div class="head num">XERJ</div>
-      <div class="head num">ES</div>
-      <div class="head num">RATIO</div>
+      <div class="head num">XERJ <span class="u">ms</span></div>
+      <div class="head num">ES <span class="u">ms</span></div>
+      <div class="head num">VS ES</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">term(status)</div>
       <div class="cell num xy">1.36</div>
       <div class="cell num es">2.15</div>
-      <div class="cell num ratio win">1.58×</div>
+      <div class="cell num vs win">1.6× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">terms(model)</div>
       <div class="cell num xy">1.40</div>
       <div class="cell num es">4.49</div>
-      <div class="cell num ratio win">3.20×</div>
+      <div class="cell num vs win">3.2× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">range(latency_ms)</div>
       <div class="cell num xy">1.34</div>
       <div class="cell num es">4.66</div>
-      <div class="cell num ratio win">3.47×</div>
+      <div class="cell num vs win">3.5× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">range(@timestamp)</div>
       <div class="cell num xy">1.33</div>
       <div class="cell num es">2.15</div>
-      <div class="cell num ratio win">1.62×</div>
+      <div class="cell num vs win">1.6× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">range(cost_usd)</div>
       <div class="cell num xy">1.37</div>
       <div class="cell num es">6.90</div>
-      <div class="cell num ratio win">5.05×</div>
+      <div class="cell num vs win">5.0× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">prefix(model)</div>
       <div class="cell num xy">1.36</div>
       <div class="cell num es">8.78</div>
-      <div class="cell num ratio win">6.46×</div>
+      <div class="cell num vs win">6.5× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">wildcard(model)</div>
       <div class="cell num xy">1.35</div>
       <div class="cell num es">9.10</div>
-      <div class="cell num ratio win">6.76×</div>
+      <div class="cell num vs win">6.8× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">regexp(model)</div>
       <div class="cell num xy">1.35</div>
       <div class="cell num es">9.11</div>
-      <div class="cell num ratio win">6.77×</div>
+      <div class="cell num vs win">6.8× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">fuzzy(model)</div>
       <div class="cell num xy">1.35</div>
       <div class="cell num es">2.67</div>
-      <div class="cell num ratio win">1.99×</div>
+      <div class="cell num vs win">2.0× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">exists(cost_usd)</div>
       <div class="cell num xy">1.32</div>
       <div class="cell num es">2.19</div>
-      <div class="cell num ratio win">1.66×</div>
+      <div class="cell num vs win">1.7× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">ids</div>
       <div class="cell num xy">1.13</div>
       <div class="cell num es">1.95</div>
-      <div class="cell num ratio win">1.72×</div>
+      <div class="cell num vs win">1.7× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">term(cache_hit)</div>
       <div class="cell num xy">1.36</div>
       <div class="cell num es">2.16</div>
-      <div class="cell num ratio win">1.59×</div>
+      <div class="cell num vs win">1.6× faster</div>
       <div class="cell num verdict win">WIN</div>
     </div>
     </div>
   </details>
 
-  <!-- Compound & relevance queries -->
   <details class="cat">
     <summary>
-      <span class="cat-label">Compound &amp; relevance queries</span>
+      <span class="cat-label">Compound &amp; relevance queries<span class="cat-metric">p50 query latency · lower is better</span></span>
       <span class="cat-tally"><span class="w">6&nbsp;W</span></span>
     </summary>
     <div class="bench-scroll">
     <div class="bench matrix">
       <div class="head">DIMENSION</div>
-      <div class="head num">XERJ</div>
-      <div class="head num">ES</div>
-      <div class="head num">RATIO</div>
+      <div class="head num">XERJ <span class="u">ms</span></div>
+      <div class="head num">ES <span class="u">ms</span></div>
+      <div class="head num">VS ES</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">bool must+filter+should+must_not</div>
       <div class="cell num xy">1.38</div>
       <div class="cell num es">15.90</div>
-      <div class="cell num ratio win">11.53×</div>
+      <div class="cell num vs win">12× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">constant_score</div>
       <div class="cell num xy">1.37</div>
       <div class="cell num es">2.20</div>
-      <div class="cell num ratio win">1.60×</div>
+      <div class="cell num vs win">1.6× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">boosting</div>
       <div class="cell num xy">1.34</div>
       <div class="cell num es">34.42</div>
-      <div class="cell num ratio win">25.64×</div>
+      <div class="cell num vs win">26× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">dis_max</div>
       <div class="cell num xy">1.35</div>
       <div class="cell num es">5.51</div>
-      <div class="cell num ratio win">4.09×</div>
+      <div class="cell num vs win">4.1× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">function_score</div>
       <div class="cell num xy">1.35</div>
       <div class="cell num es">39.25</div>
-      <div class="cell num ratio win">29.01×</div>
+      <div class="cell num vs win">29× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">pinned</div>
       <div class="cell num xy">1.35</div>
       <div class="cell num es">14.49</div>
-      <div class="cell num ratio win">10.74×</div>
+      <div class="cell num vs win">11× faster</div>
       <div class="cell num verdict win">WIN</div>
     </div>
     </div>
   </details>
 
-  <!-- Metric aggregations -->
   <details class="cat">
     <summary>
-      <span class="cat-label">Metric aggregations</span>
+      <span class="cat-label">Metric aggregations<span class="cat-metric">p50 latency · lower is better</span></span>
       <span class="cat-tally"><span class="w">14&nbsp;W</span></span>
     </summary>
     <div class="bench-scroll">
     <div class="bench matrix">
       <div class="head">DIMENSION</div>
-      <div class="head num">XERJ</div>
-      <div class="head num">ES</div>
-      <div class="head num">RATIO</div>
+      <div class="head num">XERJ <span class="u">ms</span></div>
+      <div class="head num">ES <span class="u">ms</span></div>
+      <div class="head num">VS ES</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">avg</div>
       <div class="cell num xy">1.16</div>
       <div class="cell num es">2.23</div>
-      <div class="cell num ratio win">1.92×</div>
+      <div class="cell num vs win">1.9× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">sum</div>
       <div class="cell num xy">1.16</div>
       <div class="cell num es">2.10</div>
-      <div class="cell num ratio win">1.81×</div>
+      <div class="cell num vs win">1.8× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">min</div>
       <div class="cell num xy">1.16</div>
       <div class="cell num es">2.03</div>
-      <div class="cell num ratio win">1.75×</div>
+      <div class="cell num vs win">1.8× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">max</div>
       <div class="cell num xy">1.16</div>
       <div class="cell num es">1.96</div>
-      <div class="cell num ratio win">1.69×</div>
+      <div class="cell num vs win">1.7× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">stats</div>
       <div class="cell num xy">1.16</div>
       <div class="cell num es">1.99</div>
-      <div class="cell num ratio win">1.71×</div>
+      <div class="cell num vs win">1.7× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">extended_stats</div>
       <div class="cell num xy">1.17</div>
       <div class="cell num es">2.25</div>
-      <div class="cell num ratio win">1.92×</div>
+      <div class="cell num vs win">1.9× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">value_count</div>
       <div class="cell num xy">1.16</div>
       <div class="cell num es">1.91</div>
-      <div class="cell num ratio win">1.65×</div>
+      <div class="cell num vs win">1.6× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">cardinality</div>
       <div class="cell num xy">1.15</div>
       <div class="cell num es">1.92</div>
-      <div class="cell num ratio win">1.66×</div>
+      <div class="cell num vs win">1.7× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">percentiles</div>
       <div class="cell num xy">0.36</div>
       <div class="cell num es">0.81</div>
-      <div class="cell num ratio win">2.25×</div>
+      <div class="cell num vs win">2.3× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">percentile_ranks</div>
       <div class="cell num xy">1.17</div>
       <div class="cell num es">1.99</div>
-      <div class="cell num ratio win">1.70×</div>
+      <div class="cell num vs win">1.7× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">median_absolute_deviation</div>
       <div class="cell num xy">1.10</div>
       <div class="cell num es">2.04</div>
-      <div class="cell num ratio win">1.84×</div>
+      <div class="cell num vs win">1.8× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">matrix_stats</div>
       <div class="cell num xy">1.34</div>
       <div class="cell num es">1.95</div>
-      <div class="cell num ratio win">1.46×</div>
+      <div class="cell num vs win">1.5× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">scripted_metric</div>
       <div class="cell num xy">1.29</div>
       <div class="cell num es">1.91</div>
-      <div class="cell num ratio win">1.48×</div>
+      <div class="cell num vs win">1.5× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">top_hits (sub)</div>
       <div class="cell num xy">1.07</div>
       <div class="cell num es">1.69</div>
-      <div class="cell num ratio win">1.58×</div>
+      <div class="cell num vs win">1.6× faster</div>
       <div class="cell num verdict win">WIN</div>
     </div>
     </div>
   </details>
 
-  <!-- Bucket aggregations -->
   <details class="cat">
     <summary>
-      <span class="cat-label">Bucket aggregations</span>
+      <span class="cat-label">Bucket aggregations<span class="cat-metric">p50 latency · lower is better</span></span>
       <span class="cat-tally"><span class="w">16&nbsp;W</span> · <span class="l">1&nbsp;L</span></span>
     </summary>
     <div class="bench-scroll">
     <div class="bench matrix">
       <div class="head">DIMENSION</div>
-      <div class="head num">XERJ</div>
-      <div class="head num">ES</div>
-      <div class="head num">RATIO</div>
+      <div class="head num">XERJ <span class="u">ms</span></div>
+      <div class="head num">ES <span class="u">ms</span></div>
+      <div class="head num">VS ES</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">terms</div>
       <div class="cell num xy">1.34</div>
       <div class="cell num es">1.54</div>
-      <div class="cell num ratio win">1.15×</div>
+      <div class="cell num vs win">1.1× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">rare_terms</div>
       <div class="cell num xy">1.27</div>
       <div class="cell num es">1.55</div>
-      <div class="cell num ratio win">1.22×</div>
+      <div class="cell num vs win">1.2× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">significant_terms</div>
       <div class="cell num xy">1.13</div>
       <div class="cell num es">1.21</div>
-      <div class="cell num ratio win">1.06×</div>
+      <div class="cell num vs win">1.1× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">histogram</div>
       <div class="cell num xy">0.49</div>
       <div class="cell num es">0.74</div>
-      <div class="cell num ratio win">1.53×</div>
+      <div class="cell num vs win">1.5× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">date_histogram</div>
       <div class="cell num xy">0.37</div>
       <div class="cell num es">0.88</div>
-      <div class="cell num ratio win">2.37×</div>
+      <div class="cell num vs win">2.4× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">auto_date_histogram</div>
       <div class="cell num xy">0.48</div>
       <div class="cell num es">0.71</div>
-      <div class="cell num ratio win">1.48×</div>
+      <div class="cell num vs win">1.5× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">variable_width_histogram</div>
       <div class="cell num xy">0.48</div>
       <div class="cell num es">1.57</div>
-      <div class="cell num ratio win">3.24×</div>
+      <div class="cell num vs win">3.2× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">range</div>
       <div class="cell num xy">0.42</div>
       <div class="cell num es">0.65</div>
-      <div class="cell num ratio win">1.57×</div>
+      <div class="cell num vs win">1.6× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">date_range</div>
       <div class="cell num xy">0.40</div>
       <div class="cell num es">0.90</div>
-      <div class="cell num ratio win">2.28×</div>
+      <div class="cell num vs win">2.3× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">filter</div>
       <div class="cell num xy">0.93</div>
       <div class="cell num es">0.71</div>
-      <div class="cell num ratio lose">0.77×</div>
+      <div class="cell num vs lose">1.3× slower</div>
       <div class="cell num verdict lose">LOSE</div>
       <div class="cell test">filters</div>
       <div class="cell num xy">0.38</div>
       <div class="cell num es">0.69</div>
-      <div class="cell num ratio win">1.83×</div>
+      <div class="cell num vs win">1.8× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">missing</div>
       <div class="cell num xy">0.30</div>
       <div class="cell num es">0.64</div>
-      <div class="cell num ratio win">2.11×</div>
+      <div class="cell num vs win">2.1× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">global</div>
       <div class="cell num xy">0.52</div>
       <div class="cell num es">1.28</div>
-      <div class="cell num ratio win">2.45×</div>
+      <div class="cell num vs win">2.5× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">adjacency_matrix</div>
       <div class="cell num xy">0.42</div>
       <div class="cell num es">0.67</div>
-      <div class="cell num ratio win">1.60×</div>
+      <div class="cell num vs win">1.6× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">composite</div>
       <div class="cell num xy">0.36</div>
       <div class="cell num es">1.47</div>
-      <div class="cell num ratio win">4.11×</div>
+      <div class="cell num vs win">4.1× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">random_sampler</div>
       <div class="cell num xy">1.17</div>
       <div class="cell num es">5.65</div>
-      <div class="cell num ratio win">4.85×</div>
+      <div class="cell num vs win">4.8× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">terms+avg(cost)</div>
       <div class="cell num xy">0.38</div>
       <div class="cell num es">1.16</div>
-      <div class="cell num ratio win">3.09×</div>
+      <div class="cell num vs win">3.1× faster</div>
       <div class="cell num verdict win">WIN</div>
     </div>
     </div>
   </details>
 
-  <!-- Pipeline aggregations -->
   <details class="cat">
     <summary>
-      <span class="cat-label">Pipeline aggregations</span>
+      <span class="cat-label">Pipeline aggregations<span class="cat-metric">p50 latency · lower is better</span></span>
       <span class="cat-tally"><span class="w">10&nbsp;W</span> · <span class="l">2&nbsp;L</span></span>
     </summary>
     <div class="bench-scroll">
     <div class="bench matrix">
       <div class="head">DIMENSION</div>
-      <div class="head num">XERJ</div>
-      <div class="head num">ES</div>
-      <div class="head num">RATIO</div>
+      <div class="head num">XERJ <span class="u">ms</span></div>
+      <div class="head num">ES <span class="u">ms</span></div>
+      <div class="head num">VS ES</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">sum_bucket</div>
       <div class="cell num xy">1.19</div>
       <div class="cell num es">1.12</div>
-      <div class="cell num ratio lose">0.94×</div>
+      <div class="cell num vs lose">1.1× slower</div>
       <div class="cell num verdict lose">LOSE</div>
       <div class="cell test">avg_bucket</div>
       <div class="cell num xy">0.36</div>
       <div class="cell num es">0.77</div>
-      <div class="cell num ratio win">2.13×</div>
+      <div class="cell num vs win">2.1× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">max_bucket</div>
       <div class="cell num xy">1.19</div>
       <div class="cell num es">2.08</div>
-      <div class="cell num ratio win">1.75×</div>
+      <div class="cell num vs win">1.8× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">stats_bucket</div>
       <div class="cell num xy">0.36</div>
       <div class="cell num es">0.73</div>
-      <div class="cell num ratio win">2.02×</div>
+      <div class="cell num vs win">2.0× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">percentiles_bucket</div>
       <div class="cell num xy">0.41</div>
       <div class="cell num es">2.16</div>
-      <div class="cell num ratio win">5.29×</div>
+      <div class="cell num vs win">5.3× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">derivative</div>
       <div class="cell num xy">1.13</div>
       <div class="cell num es">0.67</div>
-      <div class="cell num ratio lose">0.60×</div>
+      <div class="cell num vs lose">1.7× slower</div>
       <div class="cell num verdict lose">LOSE</div>
       <div class="cell test">cumulative_sum</div>
       <div class="cell num xy">0.38</div>
       <div class="cell num es">1.77</div>
-      <div class="cell num ratio win">4.71×</div>
+      <div class="cell num vs win">4.7× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">moving_fn</div>
       <div class="cell num xy">1.18</div>
       <div class="cell num es">1.39</div>
-      <div class="cell num ratio win">1.18×</div>
+      <div class="cell num vs win">1.2× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">serial_diff</div>
       <div class="cell num xy">0.37</div>
       <div class="cell num es">0.96</div>
-      <div class="cell num ratio win">2.56×</div>
+      <div class="cell num vs win">2.6× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">bucket_script</div>
       <div class="cell num xy">1.20</div>
       <div class="cell num es">2.23</div>
-      <div class="cell num ratio win">1.86×</div>
+      <div class="cell num vs win">1.9× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">bucket_selector</div>
       <div class="cell num xy">0.39</div>
       <div class="cell num es">0.74</div>
-      <div class="cell num ratio win">1.91×</div>
+      <div class="cell num vs win">1.9× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">bucket_sort</div>
       <div class="cell num xy">0.66</div>
       <div class="cell num es">2.19</div>
-      <div class="cell num ratio win">3.30×</div>
+      <div class="cell num vs win">3.3× faster</div>
       <div class="cell num verdict win">WIN</div>
     </div>
     </div>
   </details>
 
-  <!-- Query features -->
   <details class="cat">
     <summary>
-      <span class="cat-label">Query features</span>
+      <span class="cat-label">Query features<span class="cat-metric">p50 latency · lower is better</span></span>
       <span class="cat-tally"><span class="w">7&nbsp;W</span></span>
     </summary>
     <div class="bench-scroll">
     <div class="bench matrix">
       <div class="head">DIMENSION</div>
-      <div class="head num">XERJ</div>
-      <div class="head num">ES</div>
-      <div class="head num">RATIO</div>
+      <div class="head num">XERJ <span class="u">ms</span></div>
+      <div class="head num">ES <span class="u">ms</span></div>
+      <div class="head num">VS ES</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">sort-heavy</div>
       <div class="cell num xy">1.89</div>
       <div class="cell num es">17.39</div>
-      <div class="cell num ratio win">9.19×</div>
+      <div class="cell num vs win">9.2× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">deep from+size (from 500)</div>
       <div class="cell num xy">1.39</div>
       <div class="cell num es">2.20</div>
-      <div class="cell num ratio win">1.58×</div>
+      <div class="cell num vs win">1.6× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">search_after</div>
       <div class="cell num xy">4.34</div>
       <div class="cell num es">18.61</div>
-      <div class="cell num ratio win">4.28×</div>
+      <div class="cell num vs win">4.3× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">highlight</div>
       <div class="cell num xy">0.74</div>
       <div class="cell num es">2.12</div>
-      <div class="cell num ratio win">2.84×</div>
+      <div class="cell num vs win">2.8× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">_count</div>
       <div class="cell num xy">0.92</div>
       <div class="cell num es">1.38</div>
-      <div class="cell num ratio win">1.49×</div>
+      <div class="cell num vs win">1.5× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">_msearch</div>
       <div class="cell num xy">0.96</div>
       <div class="cell num es">1.24</div>
-      <div class="cell num ratio win">1.29×</div>
+      <div class="cell num vs win">1.3× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">_mget</div>
       <div class="cell num xy">0.28</div>
       <div class="cell num es">1.49</div>
-      <div class="cell num ratio win">5.34×</div>
+      <div class="cell num vs win">5.3× faster</div>
       <div class="cell num verdict win">WIN</div>
     </div>
     </div>
   </details>
 
-  <!-- Mixed — read under write -->
   <details class="cat">
     <summary>
-      <span class="cat-label">Mixed — read under write</span>
+      <span class="cat-label">Mixed — read under concurrent write<span class="cat-metric">p99 read latency while a bulk writer ingests · lower is better</span></span>
       <span class="cat-tally"><span class="l">5&nbsp;L</span></span>
     </summary>
     <div class="bench-scroll">
     <div class="bench matrix">
-      <div class="head">DIMENSION (p99, under write)</div>
-      <div class="head num">XERJ</div>
-      <div class="head num">ES</div>
-      <div class="head num">RATIO</div>
+      <div class="head">DIMENSION</div>
+      <div class="head num">XERJ <span class="u">ms</span></div>
+      <div class="head num">ES <span class="u">ms</span></div>
+      <div class="head num">VS ES</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">match_all</div>
       <div class="cell num xy">65.48</div>
       <div class="cell num es">2.30</div>
-      <div class="cell num ratio lose">0.04×</div>
+      <div class="cell num vs lose">28× slower</div>
       <div class="cell num verdict lose">LOSE</div>
       <div class="cell test">bool</div>
       <div class="cell num xy">63.07</div>
       <div class="cell num es">9.55</div>
-      <div class="cell num ratio lose">0.15×</div>
+      <div class="cell num vs lose">6.6× slower</div>
       <div class="cell num verdict lose">LOSE</div>
       <div class="cell test">range</div>
       <div class="cell num xy">151.89</div>
       <div class="cell num es">5.11</div>
-      <div class="cell num ratio lose">0.03×</div>
+      <div class="cell num vs lose">30× slower</div>
       <div class="cell num verdict lose">LOSE</div>
       <div class="cell test">terms</div>
       <div class="cell num xy">61.84</div>
       <div class="cell num es">2.70</div>
-      <div class="cell num ratio lose">0.04×</div>
+      <div class="cell num vs lose">23× slower</div>
       <div class="cell num verdict lose">LOSE</div>
       <div class="cell test">cardinality</div>
       <div class="cell num xy">98.92</div>
       <div class="cell num es">18.84</div>
-      <div class="cell num ratio lose">0.19×</div>
+      <div class="cell num vs lose">5.3× slower</div>
       <div class="cell num verdict lose">LOSE</div>
     </div>
     </div>
   </details>
 
-  <!-- Vector & kNN -->
   <details class="cat">
     <summary>
-      <span class="cat-label">Vector &amp; kNN</span>
+      <span class="cat-label">Vector &amp; kNN<span class="cat-metric">query latency &amp; recall</span></span>
       <span class="cat-tally"><span class="w">2&nbsp;W</span></span>
     </summary>
     <div class="bench-scroll">
@@ -879,26 +875,25 @@
       <div class="head">DIMENSION</div>
       <div class="head num">XERJ</div>
       <div class="head num">ES</div>
-      <div class="head num">RATIO</div>
+      <div class="head num">VS ES</div>
       <div class="head num">VERDICT</div>
-      <div class="cell test">kNN k=10 (p50 ms)</div>
-      <div class="cell num xy">0.78</div>
-      <div class="cell num es">2.64</div>
-      <div class="cell num ratio win">3.39×</div>
+      <div class="cell test">kNN k=10</div>
+      <div class="cell num xy">0.78&nbsp;ms</div>
+      <div class="cell num es">2.64&nbsp;ms</div>
+      <div class="cell num vs win">3.4× faster</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">kNN recall@10</div>
       <div class="cell num xy">100.0%</div>
       <div class="cell num es">100.0%</div>
-      <div class="cell num ratio win">1.00×</div>
+      <div class="cell num vs win">on&nbsp;par</div>
       <div class="cell num verdict win">WIN</div>
     </div>
     </div>
   </details>
 
-  <!-- Storage -->
   <details class="cat">
     <summary>
-      <span class="cat-label">Storage</span>
+      <span class="cat-label">Storage<span class="cat-metric">on-disk index size · smaller is better</span></span>
       <span class="cat-tally"><span class="w">1&nbsp;W</span></span>
     </summary>
     <div class="bench-scroll">
@@ -906,16 +901,17 @@
       <div class="head">DIMENSION</div>
       <div class="head num">XERJ</div>
       <div class="head num">ES</div>
-      <div class="head num">RATIO</div>
+      <div class="head num">VS ES</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">index on-disk size</div>
-      <div class="cell num xy">672.5 MB</div>
-      <div class="cell num es">806.7 MB</div>
-      <div class="cell num ratio win">1.20×</div>
+      <div class="cell num xy">672.5&nbsp;MB</div>
+      <div class="cell num es">806.7&nbsp;MB</div>
+      <div class="cell num vs win">1.2× smaller</div>
       <div class="cell num verdict win">WIN</div>
     </div>
     </div>
   </details>
+
 </section>
 
 <!-- 04 — REPRODUCE IT ---------------------------------------->
