@@ -1280,26 +1280,40 @@ impl Index {
             // fewer (e.g. ingest_shards=2 on a 4-core box).
             self.memtable.shard_for_dynamic(&processed[0].id)
         };
-        self.memtable.with_shard_mut(shard_idx, |mem| {
-            for (i, ingest) in processed.iter().enumerate() {
-                mem.remove(&ingest.id);
-                mem.insert_pretokenized_with_seq(
-                    seq_nos[i],
-                    ingest.id.clone(),
-                    Arc::clone(&ingest.source),
-                    &ingest.tokens,
-                );
+        // Chunked insert — same read-under-write rationale as the raw path
+        // (`index_batch_turbo_raw`): release the shard write lock between
+        // chunks so a concurrent search stalls on a writing shard for at
+        // most one chunk, not the whole batch.  `remove()` still precedes
+        // each `insert_pretokenized_with_seq`, so overwrite semantics are
+        // preserved regardless of the chunk boundary.
+        {
+            let mut base = 0usize;
+            while base < batch_len {
+                let end = (base + MEMTABLE_INSERT_CHUNK).min(batch_len);
+                self.memtable.with_shard_mut(shard_idx, |mem| {
+                    for i in base..end {
+                        let ingest = &processed[i];
+                        mem.remove(&ingest.id);
+                        mem.insert_pretokenized_with_seq(
+                            seq_nos[i],
+                            ingest.id.clone(),
+                            Arc::clone(&ingest.source),
+                            &ingest.tokens,
+                        );
 
-                let version = self.doc_count.fetch_add(1, Ordering::Relaxed) + 1;
+                        let version = self.doc_count.fetch_add(1, Ordering::Relaxed) + 1;
 
-                responses.push(IndexResponse {
-                    id: ingest.id.clone(),
-                    seq_no: seq_nos[i],
-                    version,
-                    result: "created".to_string(),
+                        responses.push(IndexResponse {
+                            id: ingest.id.clone(),
+                            seq_no: seq_nos[i],
+                            version,
+                            result: "created".to_string(),
+                        });
+                    }
                 });
+                base = end;
             }
-        });
+        }
         let t4_dur = t4.elapsed();
 
         if batch_len >= 1000 {
@@ -1760,11 +1774,42 @@ impl Index {
         // unique doc_ids so `insert_raw_bytes_fresh` is safe (no prior
         // entry with this id); we skip the `remove()` HashMap miss
         // lookup that the generic `insert_raw_bytes_with_seq` preceded.
-        self.memtable.with_shard_mut(shard_idx, |mem| {
-            for (i, (id, bytes)) in docs.into_iter().enumerate() {
-                mem.insert_raw_bytes_fresh(seq_nos[i], id, bytes);
+        //
+        // READ-UNDER-WRITE stall reduction: the insert loop is CHUNKED so
+        // the shard write lock is released between chunks.  Previously a
+        // whole bulk batch (mixval: 10 000 docs) was routed to ONE shard and
+        // the write lock was held for the ENTIRE insert (~10-30 ms), so a
+        // concurrent search that touched that shard (`doc_ids_bounded`,
+        // `all_docs_with_sources_arc`, `terms_counts_columnar` all take
+        // `s.read()` on every shard) blocked for the full batch.  Chunking
+        // bounds a reader's *lock* stall on a writing shard to ONE chunk
+        // (~0.5-1.5 ms).  NOTE: measured in isolation this removes the
+        // shard-lock component of the read tail, but the mixed
+        // read-under-write p99 is dominated by CPU/scheduler contention with
+        // the full-speed ingest+flush+merge (already deprioritised via the
+        // nice-pool ladder), which this does not address — see commit body.
+        // The lock churn is trivial (batch_len/CHUNK acquisitions, e.g. 20
+        // for a 10 k batch) — nothing like the per-DOC locking that once
+        // caused the 4× ingest regression.  Correctness is unchanged:
+        // seq_nos are pre-assigned, inserts stay in seq order, and a flush
+        // drain that slips between chunks is safe (docs are independent and
+        // `take_memtable_for_flush` re-sorts by seq_no).
+        {
+            let mut docs_iter = docs.into_iter();
+            let mut i = 0usize;
+            while i < batch_len {
+                let end = (i + MEMTABLE_INSERT_CHUNK).min(batch_len);
+                self.memtable.with_shard_mut(shard_idx, |mem| {
+                    for j in i..end {
+                        let (id, bytes) = docs_iter
+                            .next()
+                            .expect("docs_iter yields exactly batch_len items");
+                        mem.insert_raw_bytes_fresh(seq_nos[j], id, bytes);
+                    }
+                });
+                i = end;
             }
-        });
+        }
         // Single batch-level atomic instead of one per doc.  At 1.7 M/s
         // × 10 k batch = 170 batches/s this cuts ~17 M atomic ops/s of
         // cache-line bouncing on `doc_count`.
@@ -6443,7 +6488,7 @@ impl Index {
         };
 
         let inner_ms = phase_t0.elapsed().as_millis() as u64;
-        if inner_ms >= 1_000 {
+        if inner_ms >= phase_log_threshold_ms() {
             phase_marks.push(("aggs+page", inner_ms));
             // Cumulative marks → per-phase deltas for the log line.
             let mut prev = 0u64;
@@ -13818,6 +13863,28 @@ fn warm_segment_at_publish(
         }
     }
 }
+
+/// Phase-breakdown log threshold (ms).  `search_inner` logs a per-phase
+/// timing breakdown for any query slower than this.  Default 1000ms; set
+/// `XERJ_PHASE_LOG_MS` to lower it when profiling the read-under-write tail.
+/// Read once (cached) so the hot query path pays no per-request env lookup.
+fn phase_log_threshold_ms() -> u64 {
+    static T: std::sync::LazyLock<u64> = std::sync::LazyLock::new(|| {
+        std::env::var("XERJ_PHASE_LOG_MS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(1_000)
+    });
+    *T
+}
+
+/// Chunk size for the turbo bulk-insert loops (`index_batch_turbo` /
+/// `index_batch_turbo_raw`).  The shard write lock is released between chunks
+/// so a concurrent search stalls on a writing shard for at most one chunk,
+/// not the whole batch.  512 bounds a reader's worst-case stall to ~0.5-1.5 ms
+/// while adding only batch_len/512 lock acquisitions per batch (trivial vs the
+/// per-doc locking that once regressed ingest 4×).
+const MEMTABLE_INSERT_CHUNK: usize = 512;
 
 /// Retained-memory budget for `stored_slices_cache`.  Inserts stop once the
 /// budget is reached (queries then fall back to the per-query decompress
