@@ -20629,15 +20629,494 @@ pub async fn unfreeze_index(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _cat/ml APIs  (no ML nodes — return empty)
+// _ml anomaly detection — a real (basic) statistical anomaly detector.
+//
+// A detector buckets a time-series source index over its time field (reusing
+// XERJ's `date_histogram` + metric aggregations), reduces each bucket to one
+// number (count/mean/min/max/sum), builds a moving mean+stddev baseline over the
+// *prior normal* buckets, and flags buckets whose value deviates more than
+// `anomaly_threshold` stddevs. The whole thing is deterministic — no RNG, no
+// opaque model — and the scoring is a plain z-score normalised to 0..100.
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub async fn cat_ml_anomaly_detectors() -> impl IntoResponse {
+use crate::state::MlDetector;
+
+/// Build an ES-shaped error response for the `_ml` endpoints.
+fn ml_error(status: StatusCode, err_type: &str, reason: &str) -> axum::response::Response {
+    (
+        status,
+        Json(json!({
+            "error": {
+                "root_cause": [{ "type": err_type, "reason": reason }],
+                "type": err_type,
+                "reason": reason,
+            },
+            "status": status.as_u16(),
+        })),
+    )
+        .into_response()
+}
+
+/// Map a detector `function` to the XERJ metric aggregation name and whether it
+/// needs a `field`. Returns `None` for unknown functions.
+fn ml_metric_agg(function: &str) -> Option<(&'static str, bool)> {
+    match function {
+        "count" => Some(("value_count", false)),
+        "mean" | "avg" => Some(("avg", true)),
+        "min" => Some(("min", true)),
+        "max" => Some(("max", true)),
+        "sum" => Some(("sum", true)),
+        _ => None,
+    }
+}
+
+/// Population mean and standard deviation of a slice (ddof = 0).
+fn ml_mean_std(xs: &[f64]) -> (f64, f64) {
+    let n = xs.len() as f64;
+    if n == 0.0 {
+        return (0.0, 0.0);
+    }
+    let mean = xs.iter().sum::<f64>() / n;
+    let var = xs.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n;
+    (mean, var.sqrt())
+}
+
+/// Normalise an absolute z-score to a 0..100 anomaly score. Crossing the
+/// threshold maps to ~50; the score saturates towards 100 for large deviations.
+/// Monotonic and deterministic.
+fn ml_anomaly_score(abs_z: f64, threshold: f64) -> f64 {
+    if threshold <= 0.0 {
+        return 0.0;
+    }
+    let s = 100.0 * (1.0 - (-std::f64::consts::LN_2 * abs_z / threshold).exp());
+    s.clamp(0.0, 100.0)
+}
+
+/// JSON view of one detector for `GET /_ml/anomaly_detectors` responses.
+fn ml_detector_json(d: &MlDetector) -> Value {
+    json!({
+        "job_id": d.detector_id,
+        "job_type": "anomaly_detector",
+        "description": d.description.clone().unwrap_or_default(),
+        "create_time": d.create_time_ms,
+        "analysis_config": {
+            "bucket_span": d.bucket_span,
+            "detectors": [{
+                "function": d.function,
+                "field_name": d.field.clone().unwrap_or_default(),
+            }],
+        },
+        "data_description": {
+            "time_field": d.time_field,
+        },
+        "source_index": [d.source_index],
+        "anomaly_threshold": d.anomaly_threshold,
+    })
+}
+
+/// PUT /_ml/anomaly_detectors/{id} — create/replace a detector config.
+pub async fn put_ml_anomaly_detector(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    body: OptionalJson<Value>,
+) -> impl IntoResponse {
+    let body = body.0.unwrap_or_else(|| json!({}));
+
+    // source index: accept `source_index` (string or [string]) or nested
+    // `data_description`/analysis blocks — keep it forgiving but explicit.
+    let source_index = body
+        .get("source_index")
+        .map(|v| match v {
+            Value::String(s) => s.clone(),
+            Value::Array(a) => a.first().and_then(Value::as_str).unwrap_or("").to_string(),
+            _ => String::new(),
+        })
+        .or_else(|| body.get("index").and_then(Value::as_str).map(str::to_string))
+        .unwrap_or_default();
+    if source_index.is_empty() {
+        return ml_error(
+            StatusCode::BAD_REQUEST,
+            "illegal_argument_exception",
+            "detector requires a `source_index`",
+        );
+    }
+
+    let time_field = body
+        .get("time_field")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            body.get("data_description")
+                .and_then(|d| d.get("time_field"))
+                .and_then(Value::as_str)
+        })
+        .unwrap_or("@timestamp")
+        .to_string();
+
+    // function + field: accept flat `function`/`field`, or the first entry of an
+    // ES-style `analysis_config.detectors` array.
+    let (function, field) = {
+        let flat_fn = body.get("function").and_then(Value::as_str);
+        let flat_field = body
+            .get("field")
+            .or_else(|| body.get("field_name"))
+            .and_then(Value::as_str);
+        if let Some(f) = flat_fn {
+            (f.to_string(), flat_field.map(str::to_string))
+        } else if let Some(det) = body
+            .get("analysis_config")
+            .and_then(|a| a.get("detectors"))
+            .and_then(Value::as_array)
+            .and_then(|a| a.first())
+        {
+            (
+                det.get("function").and_then(Value::as_str).unwrap_or("count").to_string(),
+                det.get("field_name").and_then(Value::as_str).map(str::to_string),
+            )
+        } else {
+            ("count".to_string(), None)
+        }
+    };
+
+    let (_, needs_field) = match ml_metric_agg(&function) {
+        Some(x) => x,
+        None => {
+            return ml_error(
+                StatusCode::BAD_REQUEST,
+                "illegal_argument_exception",
+                &format!(
+                    "unsupported function `{}` (expected count|mean|min|max|sum)",
+                    function
+                ),
+            )
+        }
+    };
+    if needs_field && field.as_deref().map(str::is_empty).unwrap_or(true) {
+        return ml_error(
+            StatusCode::BAD_REQUEST,
+            "illegal_argument_exception",
+            &format!("function `{}` requires a `field`", function),
+        );
+    }
+
+    let bucket_span = body
+        .get("bucket_span")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            body.get("analysis_config")
+                .and_then(|a| a.get("bucket_span"))
+                .and_then(Value::as_str)
+        })
+        .unwrap_or("1h")
+        .to_string();
+
+    let anomaly_threshold = body
+        .get("anomaly_threshold")
+        .and_then(Value::as_f64)
+        .filter(|v| *v > 0.0)
+        .unwrap_or(3.0);
+
+    let description = body
+        .get("description")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+
+    let detector = MlDetector {
+        detector_id: id.clone(),
+        source_index,
+        time_field,
+        function,
+        field,
+        bucket_span,
+        anomaly_threshold,
+        create_time_ms: Utc::now().timestamp_millis(),
+        description,
+    };
+
+    state.ml_detectors.insert(id.clone(), detector.clone());
+    MlDetector::save_all(&state.config.server.data_dir, &state.ml_detectors);
+
+    (StatusCode::OK, Json(ml_detector_json(&detector))).into_response()
+}
+
+/// GET /_ml/anomaly_detectors/{id} — fetch a single detector.
+pub async fn get_ml_anomaly_detector(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match state.ml_detectors.get(&id) {
+        Some(d) => Json(json!({
+            "count": 1,
+            "jobs": [ml_detector_json(d.value())],
+        }))
+        .into_response(),
+        None => ml_error(
+            StatusCode::NOT_FOUND,
+            "resource_not_found_exception",
+            &format!("No known job with id '{}'", id),
+        ),
+    }
+}
+
+/// GET /_ml/anomaly_detectors — list all detectors.
+pub async fn list_ml_anomaly_detectors(State(state): State<AppState>) -> impl IntoResponse {
+    let mut jobs: Vec<Value> = state
+        .ml_detectors
+        .iter()
+        .map(|e| ml_detector_json(e.value()))
+        .collect();
+    // Deterministic ordering by job_id.
+    jobs.sort_by(|a, b| {
+        a.get("job_id")
+            .and_then(Value::as_str)
+            .cmp(&b.get("job_id").and_then(Value::as_str))
+    });
+    Json(json!({ "count": jobs.len(), "jobs": jobs }))
+}
+
+/// DELETE /_ml/anomaly_detectors/{id} — remove a detector config.
+pub async fn delete_ml_anomaly_detector(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match state.ml_detectors.remove(&id) {
+        Some(_) => {
+            MlDetector::save_all(&state.config.server.data_dir, &state.ml_detectors);
+            Json(json!({ "acknowledged": true })).into_response()
+        }
+        None => ml_error(
+            StatusCode::NOT_FOUND,
+            "resource_not_found_exception",
+            &format!("No known job with id '{}'", id),
+        ),
+    }
+}
+
+/// POST /_ml/anomaly_detectors/{id}/_score — bucket the source index, compute
+/// the metric per bucket, build a moving baseline, and score each bucket.
+///
+/// Optional body overrides: `{"query": {…}}` to restrict the source docs, and
+/// `{"anomaly_threshold": N}` to override the detector's threshold for this run.
+pub async fn score_ml_anomaly_detector(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    body: OptionalJson<Value>,
+) -> impl IntoResponse {
+    let detector = match state.ml_detectors.get(&id) {
+        Some(d) => d.value().clone(),
+        None => {
+            return ml_error(
+                StatusCode::NOT_FOUND,
+                "resource_not_found_exception",
+                &format!("No known job with id '{}'", id),
+            )
+        }
+    };
+
+    let idx = match state.engine.get_index(&detector.source_index) {
+        Ok(i) => i,
+        Err(_) => {
+            return ml_error(
+                StatusCode::NOT_FOUND,
+                "index_not_found_exception",
+                &format!("no such index [{}]", detector.source_index),
+            )
+        }
+    };
+
+    let body = body.0.unwrap_or_else(|| json!({}));
+    let query = body
+        .get("query")
+        .cloned()
+        .unwrap_or_else(|| json!({ "match_all": {} }));
+    let threshold = body
+        .get("anomaly_threshold")
+        .and_then(Value::as_f64)
+        .filter(|v| *v > 0.0)
+        .unwrap_or(detector.anomaly_threshold);
+
+    let (metric_agg, needs_field) = ml_metric_agg(&detector.function)
+        .unwrap_or(("value_count", false));
+
+    // Build the date_histogram (+ optional metric sub-agg) request.
+    let mut hist = json!({
+        "field": detector.time_field,
+        "fixed_interval": detector.bucket_span,
+        "min_doc_count": 0,
+    });
+    let mut bucket_agg = json!({ "date_histogram": hist.take() });
+    if needs_field {
+        bucket_agg["aggs"] = json!({
+            "xerj_ml_metric": { metric_agg: { "field": detector.field.clone().unwrap_or_default() } }
+        });
+    }
+    let search_body = json!({
+        "size": 0,
+        "query": query,
+        "aggs": { "xerj_ml_buckets": bucket_agg },
+    });
+
+    let req = match parse_request(&search_body) {
+        Ok(r) => r,
+        Err(e) => {
+            return ApiError::new(xerj_common::XerjError::invalid_query(e.to_string()))
+                .into_response()
+        }
+    };
+    let result = match idx.search(&req).await {
+        Ok(r) => r,
+        Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
+    };
+
+    let buckets = result
+        .aggs
+        .as_ref()
+        .and_then(|a| a.get("xerj_ml_buckets"))
+        .and_then(|b| b.get("buckets"))
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+
+    // Score each bucket in time order against a baseline of prior *normal* values.
+    const MIN_BASELINE: usize = 4;
+    let mut normal: Vec<f64> = Vec::new();
+    let mut records: Vec<Value> = Vec::new();
+    let mut anomaly_count = 0usize;
+
+    for b in &buckets {
+        let ts_ms = b.get("key").and_then(Value::as_i64).unwrap_or(0);
+        let ts_str = b
+            .get("key_as_string")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .unwrap_or_else(|| {
+                Utc.timestamp_millis_opt(ts_ms)
+                    .single()
+                    .map(|dt| dt.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string())
+                    .unwrap_or_default()
+            });
+
+        // Bucket value: doc_count for count, else the metric sub-agg value.
+        let actual = if needs_field {
+            match b
+                .get("xerj_ml_metric")
+                .and_then(|m| m.get("value"))
+                .and_then(Value::as_f64)
+            {
+                Some(v) => v,
+                // Empty bucket for a field metric — no value to score, skip.
+                None => continue,
+            }
+        } else {
+            b.get("doc_count").and_then(Value::as_f64).unwrap_or(0.0)
+        };
+
+        if normal.len() < MIN_BASELINE {
+            // Warm-up: not enough history to score; seed the baseline.
+            records.push(json!({
+                "timestamp": ts_ms,
+                "timestamp_iso": ts_str,
+                "actual": actual,
+                "expected": Value::Null,
+                "std_dev": Value::Null,
+                "z_score": Value::Null,
+                "anomaly_score": 0.0,
+                "is_anomaly": false,
+                "note": "insufficient_baseline",
+            }));
+            normal.push(actual);
+            continue;
+        }
+
+        let (mean, std) = ml_mean_std(&normal);
+        let z = if std < 1e-9 {
+            if (actual - mean).abs() < 1e-9 { 0.0 } else { (actual - mean).signum() * 1e6 }
+        } else {
+            (actual - mean) / std
+        };
+        let abs_z = z.abs();
+        let is_anomaly = abs_z > threshold;
+        let score = ml_anomaly_score(abs_z, threshold);
+        // Report a finite, capped z for readability when std collapsed to 0.
+        let z_out = if z.abs() >= 1e6 { z.signum() * 1e6 } else { z };
+
+        records.push(json!({
+            "timestamp": ts_ms,
+            "timestamp_iso": ts_str,
+            "actual": actual,
+            "expected": mean,
+            "std_dev": std,
+            "z_score": z_out,
+            "anomaly_score": (score * 100.0).round() / 100.0,
+            "is_anomaly": is_anomaly,
+        }));
+
+        if is_anomaly {
+            anomaly_count += 1;
+            // Do NOT fold anomalies back into the baseline — a spike must not
+            // poison the expectation for subsequent buckets.
+        } else {
+            normal.push(actual);
+        }
+    }
+
+    // Anomalies ranked by score, most-severe first.
+    let mut anomalies: Vec<Value> = records
+        .iter()
+        .filter(|r| r.get("is_anomaly").and_then(Value::as_bool).unwrap_or(false))
+        .cloned()
+        .collect();
+    anomalies.sort_by(|a, b| {
+        let sa = a.get("anomaly_score").and_then(Value::as_f64).unwrap_or(0.0);
+        let sb = b.get("anomaly_score").and_then(Value::as_f64).unwrap_or(0.0);
+        sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    Json(json!({
+        "job_id": detector.detector_id,
+        "source_index": detector.source_index,
+        "function": detector.function,
+        "field": detector.field,
+        "time_field": detector.time_field,
+        "bucket_span": detector.bucket_span,
+        "anomaly_threshold": threshold,
+        "bucket_count": records.len(),
+        "anomaly_count": anomaly_count,
+        "records": records,
+        "anomalies": anomalies,
+    }))
+    .into_response()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _cat/ml APIs
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// GET /_cat/ml/anomaly_detectors — one line per real detector.
+/// Columns: id state source_index function bucket_span
+pub async fn cat_ml_anomaly_detectors(State(state): State<AppState>) -> impl IntoResponse {
+    let mut lines: Vec<String> = state
+        .ml_detectors
+        .iter()
+        .map(|e| {
+            let d = e.value();
+            format!(
+                "{} opened {} {} {}",
+                d.detector_id, d.source_index, d.function, d.bucket_span
+            )
+        })
+        .collect();
+    lines.sort();
+    let body = if lines.is_empty() {
+        String::new()
+    } else {
+        lines.join("\n") + "\n"
+    };
     (
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
-        "",
+        body,
     )
+        .into_response()
 }
 
 pub async fn cat_ml_datafeeds() -> impl IntoResponse {
@@ -22155,5 +22634,54 @@ mod scripted_update_tests {
         let mut src = json!({ "a": 10, "b": 4 });
         apply_painless_update(&mut src, "ctx._source.c = ctx._source.a - ctx._source.b", &json!({})).unwrap();
         assert_eq!(src["c"], json!(6));
+    }
+}
+
+#[cfg(test)]
+mod ml_anomaly_tests {
+    use super::*;
+
+    #[test]
+    fn mean_std_population() {
+        let (m, s) = ml_mean_std(&[2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0]);
+        assert!((m - 5.0).abs() < 1e-9);
+        // population stddev of this classic sample is exactly 2.0
+        assert!((s - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn mean_std_empty() {
+        let (m, s) = ml_mean_std(&[]);
+        assert_eq!(m, 0.0);
+        assert_eq!(s, 0.0);
+    }
+
+    #[test]
+    fn score_monotonic_and_bounded() {
+        let t = 3.0;
+        let z0 = ml_anomaly_score(0.0, t);
+        let zt = ml_anomaly_score(t, t);
+        let zbig = ml_anomaly_score(100.0, t);
+        assert_eq!(z0, 0.0);
+        // crossing the threshold maps to ~50
+        assert!((zt - 50.0).abs() < 0.01);
+        // a huge deviation saturates near (but never above) 100
+        assert!(zbig > 99.0 && zbig <= 100.0);
+        // strictly increasing
+        assert!(z0 < zt && zt < zbig);
+    }
+
+    #[test]
+    fn metric_agg_mapping() {
+        assert_eq!(ml_metric_agg("count"), Some(("value_count", false)));
+        assert_eq!(ml_metric_agg("mean"), Some(("avg", true)));
+        assert_eq!(ml_metric_agg("sum"), Some(("sum", true)));
+        assert_eq!(ml_metric_agg("max"), Some(("max", true)));
+        assert!(ml_metric_agg("median").is_none());
+    }
+
+    #[test]
+    fn score_zero_threshold_is_safe() {
+        assert_eq!(ml_anomaly_score(5.0, 0.0), 0.0);
     }
 }
