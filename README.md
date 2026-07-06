@@ -135,6 +135,8 @@ XERJ implements the Elasticsearch REST wire protocol. Because it is wire-compati
 
 `match_all`, `match_none`, `match`, `match_phrase`, `match_phrase_prefix`, `multi_match`, `term`, `terms`, `range`, `prefix`, `wildcard`, `exists`, `ids`, `bool`, `fuzzy`, `regexp`, `query_string`, `simple_query_string`, `constant_score`, `boosting`, `dis_max`, `geo_distance`, `knn`, `semantic`, `hybrid`.
 
+> **Vector & semantic search notes.** `knn` (dense-vector HNSW) and `hybrid` (BM25 + kNN in one request) run entirely inside XERJ. The `semantic` query resolves query text to a vector at search time via an **external, OpenAI-compatible `/v1/embeddings` endpoint** that you configure (`embedding.default_endpoint` / `embedding.default_model`) — XERJ ships the proxy, not a built-in embedding model. Built-in/local embeddings, auto-embed-on-ingest, and an agent-memory API are on the [roadmap](#roadmap).
+
 **Supported aggregations**
 
 `terms`, `stats`, `avg`, `sum`, `min`, `max`, `value_count`, `cardinality`, `range`, `histogram`, `date_histogram`, `percentiles`, `filter`, `missing`, `composite`.
@@ -165,7 +167,7 @@ XERJ is a Cargo workspace under [`engine/`](./engine). The crates:
 | `xerj-fts` | Full-text search: BM25 scoring, analyzer registry, postings lists. |
 | `xerj-vector` | Dense-vector HNSW index for kNN / semantic search. |
 | `xerj-logs` | Columnar log ingestion and retention. |
-| `xerj-ai` | Text chunking, embedding proxy, and memory store. |
+| `xerj-ai` | Text chunking and an embedding proxy (external OpenAI-compatible API) that powers the `semantic` query. Also houses an experimental memory store not yet exposed over the REST API — see the [roadmap](#roadmap). |
 | `xerj-compress` | Block compression codecs (LZ4, Zstd). |
 | `xerj-common` | Shared types: `Config`, `Schema`, `FieldType`, `XerjError`. |
 | `xerj-cluster` | Embedded Raft consensus for cluster metadata (no external Raft dependency). |
@@ -218,6 +220,18 @@ cargo run -p es-yaml-runner -- --dir tests/es-compat-yaml/yaml/vectors
 ```
 
 If a test expects a response and XERJ returns something different, that's a bug in XERJ — not an accepted divergence.
+
+---
+
+## Roadmap
+
+XERJ ships full-text, aggregation, log-analytics, dense-vector kNN, and hybrid search today. Several AI-adjacent capabilities are **planned but not yet implemented** — they are called out here (and in [`ROADMAP.md`](./ROADMAP.md)) so the README stays honest about what is and isn't built:
+
+- **Built-in / local embeddings & auto-embed on ingest.** Today, `semantic` search proxies to an external OpenAI-compatible embeddings endpoint you configure; there is no bundled embedding model, and the `semantic_text` field type is a mapping placeholder that does not yet auto-embed on ingest.
+- **Agent-memory API.** An internal memory store exists in `xerj-ai` but is not yet wired to a REST endpoint (store/recall/forget over the wire).
+- **Anomaly detection / ML jobs.** The Elasticsearch `_ml` / `_cat/ml/*` surface is present as compatibility stubs only; there is no detection or forecasting engine behind it yet.
+
+See [ROADMAP.md](./ROADMAP.md) for the full list and status.
 
 ---
 

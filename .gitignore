@@ -95,3 +95,4 @@ landing/resources/xerj-sales-kit.zip
 
 # Re-include the public architecture doc (Markdown is ignored by default above).
 !docs/ARCHITECTURE.md
+!ROADMAP.md
