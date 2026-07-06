@@ -54,6 +54,20 @@ pub(crate) fn ingest_pool() -> &'static rayon::ThreadPool {
         rayon::ThreadPoolBuilder::new()
             .num_threads(n)
             .thread_name(|i| format!("xerj-ingest-{i}"))
+            // nice(5): bulk parse/analyze/insert are request-latency
+            // sensitive for the WRITER, but under mixed load they were
+            // the biggest nice(0) CPU block competing head-to-head with
+            // query threads — every flush-storm/bulk burst showed up as
+            // a read p95/p99 episode.  One CFS step below reads keeps
+            // read tails flat while the writer retains far more
+            // throughput than the sustained-ingest target (measured
+            // 115 k docs/s at nice 0 vs a 40 k floor; nice 5 trades a
+            // slice of that for read-tail stability).  Flush side-cars
+            // are nice(10) (`background_pool`), merges nice(15)
+            // (`merge_pool`) — the maintenance ladder stays below both.
+            .start_handler(|_| unsafe {
+                let _ = libc::nice(5);
+            })
             .build()
             .expect("failed to build ingest rayon pool")
     })

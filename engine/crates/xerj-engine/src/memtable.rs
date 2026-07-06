@@ -139,6 +139,40 @@ pub struct DocValues {
     pub samples: HashMap<String, Vec<String>>,
     /// Whether analysis has been performed for each field.
     pub analyzed: HashMap<String, bool>,
+    /// Fields that have EVER carried an array value in this memtable.
+    /// The keyword column stores only an array's FIRST scalar, so any
+    /// columnar fast path whose brute twin fans out over every element
+    /// (terms/cardinality aggs) must bail for these fields.  Never
+    /// removed on delete — conservative (a stale flag only costs the
+    /// fast path, not correctness).
+    pub array_fields: FxHashSet<String>,
+    /// Incremental per-(field, order) sorted-candidate cache for the
+    /// field-sorted match_all memtable arm — see
+    /// `FtsMemtable::sort_candidates_cached`.  Keyed
+    /// `"{field}\u{1}{asc|desc}"`.  Reset with the rest of `DocValues`
+    /// at drain; cleared by `remove_at` (positions shift).
+    pub sort_cand_cache: FxHashMap<String, SortCandCache>,
+}
+
+/// State of one incremental per-shard sorted-candidate extraction: the
+/// shard's top-`cap` (+boundary ties) by sort key plus up to `cap`
+/// missing-key positions, extended by O(new docs) per query instead of
+/// re-walking the whole shard (the O(memtable) epoch-memo walk was
+/// 15-30 ms/query at a drain-lagged 300-500 k-doc memtable — the
+/// residual match_all read-under-write p99 term).
+pub struct SortCandCache {
+    /// Docs positions `[0, seen_docs)` are already folded in.
+    pub seen_docs: usize,
+    /// The cap this cache was built for; a larger request rebuilds.
+    pub cap: usize,
+    /// Candidate pool: (key, docs index).  Kept cut to ~2×cap between
+    /// queries (page-order sort + boundary-tie truncate on overflow).
+    pub top: Vec<(f64, usize)>,
+    /// Up to `cap` positions missing the sort key.
+    pub missing: Vec<usize>,
+    /// A value failed to normalise (or the field carried arrays) — the
+    /// shard is ineligible until the next drain resets the memtable.
+    pub poisoned: bool,
 }
 
 impl DocValues {
@@ -254,6 +288,9 @@ impl DocValues {
                 // Flatten: store the first element (or None for empty arrays).
                 // Each element is treated as a separate value for aggregations,
                 // but for term/range queries we store the first scalar found.
+                if !self.array_fields.contains(field) {
+                    self.array_fields.insert(field.to_string());
+                }
                 let first_num = arr.iter().find_map(|v| v.as_f64());
                 let first_str: Option<String> = arr.iter().find_map(|v| match v {
                     Value::String(s) => Some(s.clone()),
@@ -291,6 +328,10 @@ impl DocValues {
 
     /// Remove the entry at `doc_index` from all columns (called on delete).
     fn remove_at(&mut self, doc_index: usize) {
+        // Positions shift left — every cached sorted-candidate pool's
+        // `(key, docs-index)` pairs go stale.  Deletes are rare on the
+        // hot ingest path; a wholesale clear is simplest-correct.
+        self.sort_cand_cache.clear();
         for col in self.numeric.values_mut() {
             if doc_index < col.len() {
                 col.remove(doc_index);
@@ -464,77 +505,53 @@ impl ShardedFtsMemtable {
         out
     }
 
-    /// Bounded sorted-candidate extraction for a single-numeric-field sort
+    /// Bounded sorted-candidate extraction for a single-field sort
     /// (the implicit `@timestamp desc` index sort in particular).
     ///
     /// Returns `(candidate_ids, total_buffered_docs)` where the candidates
     /// are every buffered doc that could possibly reach the global
-    /// top-`cap` page: the per-shard top-`cap` by column value (boundary
+    /// top-`cap` page: the per-shard top-`cap` by sort key (boundary
     /// ties included) plus up to `cap` docs missing the field (the top-N
     /// heap's full-key comparison places them per the sort's `missing`
-    /// policy).  Columnar walk — no source clones, no per-doc heap offers.
-    /// Pre-fix the field-sorted match_all path offered EVERY buffered doc
-    /// to the top-N heap with an O(shard) source lookup per doc: ~1.3 s
-    /// per query at a 460 k-doc memtable under sustained bulk load.
+    /// policy).  Served INCREMENTALLY per shard via `SortCandCache` —
+    /// each query folds in only the docs inserted since the last one —
+    /// under the shard write lock (brief: O(new docs)).
     ///
-    /// `None` when a shard's column is missing/misaligned (caller falls
-    /// back to the exact full walk).
+    /// Per-doc key resolution (mirrors how the heap ranks the hit later):
+    /// numeric column value when present, else the keyword column value
+    /// through `normalize` (the caller passes the memoised date→epoch
+    /// normaliser `compute_sort_values` uses per hit — this is what lets
+    /// date-STRING `@timestamp` columns take the bounded path), else
+    /// missing.
+    ///
+    /// `None` when any value is un-normalisable or the field has carried
+    /// array values (per-element `mode` semantics need the full walk) —
+    /// caller falls back to the exact full walk.
     pub fn sort_candidates_numeric(
         &self,
         field: &str,
         desc: bool,
         cap: usize,
+        normalize: &dyn Fn(&str) -> Option<f64>,
     ) -> Option<(Vec<String>, u64)> {
         let cap = cap.max(1);
         let mut total: u64 = 0;
         let mut cands: Vec<(f64, String)> = Vec::new();
         let mut missing: Vec<String> = Vec::new();
         for s in &self.shards {
-            let g = s.read();
+            let mut g = s.write();
             let n = g.doc_count();
             total += n as u64;
             if n == 0 {
                 continue;
             }
-            match g.doc_values.numeric.get(field) {
-                None => {
-                    // Whole shard lacks the column: every doc is missing
-                    // the sort field.
-                    for e in g.docs.iter().take(cap.saturating_sub(missing.len())) {
-                        missing.push(e.doc_id.clone());
-                    }
-                }
-                Some(col) => {
-                    if col.len() != n {
-                        return None; // alignment not provable — full walk
-                    }
-                    let mut local: Vec<(f64, usize)> = Vec::new();
-                    for (i, v) in col.iter().enumerate() {
-                        match v {
-                            Some(x) => local.push((*x, i)),
-                            None => {
-                                if missing.len() < cap {
-                                    missing.push(g.docs[i].doc_id.clone());
-                                }
-                            }
-                        }
-                    }
-                    if desc {
-                        local.sort_unstable_by(|a, b| {
-                            b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
-                        });
-                    } else {
-                        local.sort_unstable_by(|a, b| {
-                            a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal)
-                        });
-                    }
-                    let mut keep = local.len().min(cap);
-                    while keep < local.len() && keep > 0 && local[keep].0 == local[keep - 1].0 {
-                        keep += 1;
-                    }
-                    for (v, i) in local.into_iter().take(keep) {
-                        cands.push((v, g.docs[i].doc_id.clone()));
-                    }
+            let (mut top, miss, _) = g.sort_candidates_cached(field, desc, cap, normalize)?;
+            cands.append(&mut top);
+            for m in miss {
+                if missing.len() < cap {
+                    missing.push(m);
+                } else {
+                    break;
                 }
             }
         }
@@ -907,6 +924,107 @@ impl ShardedFtsMemtable {
         n
     }
 
+    /// Fused columnar bool query across all shards — one position walk per
+    /// shard applying every predicate, all under a single read lock per
+    /// shard (so positions can't shift between per-child walks under a
+    /// concurrent flush drain).
+    ///
+    /// Returns `(hits, total)` where `hits` holds at most `limit` cloned
+    /// `(doc_id, local_idx)` pairs (page materialisation) and `total` is
+    /// the EXACT matching-doc count across the whole memtable.  `None`
+    /// when any predicate's column is missing in a non-empty shard or a
+    /// keyword column looks analyzed-text (same conservative bailouts as
+    /// `doc_values_term_query` / `doc_values_range_query`) — caller falls
+    /// back to the stored-source scan.
+    ///
+    /// This replaces the per-query `DocsForScan` walk for composite bool
+    /// filters, which paid a `doc_matches_query` JSON descent per buffered
+    /// doc per query (~1-6 s at a 40-280 k-doc memtable under a sustained
+    /// bulk writer — the read-under-write bool collapse).
+    pub fn doc_values_bool_query(
+        &self,
+        preds: &[MemBoolPred],
+        limit: usize,
+    ) -> Option<(Vec<(String, usize)>, u64)> {
+        if preds.is_empty() {
+            return None;
+        }
+        let mut out: Vec<(String, usize)> = Vec::new();
+        let mut total: u64 = 0;
+        for s in &self.shards {
+            let g = s.read();
+            if g.doc_count() == 0 {
+                continue;
+            }
+            let room = limit.saturating_sub(out.len());
+            let (mut hits, t) = g.doc_values_bool_hits(preds, room)?;
+            out.append(&mut hits);
+            total += t;
+        }
+        Some((out, total))
+    }
+
+    /// Columnar per-value counts for one field across all shards, for the
+    /// terms/cardinality agg fast paths.  Returns `(value → live doc
+    /// count, missing_docs)` — value RENDERING matches the brute per-doc
+    /// extractor exactly for the shapes this serves (the keyword column
+    /// stores strings verbatim, numbers via `Number::to_string`, bools as
+    /// "true"/"false" — the same strings `flatten_to_strings` emits).
+    ///
+    /// `None` (caller falls back to the per-doc JSON extraction walk,
+    /// which cost 100-300 ms/query against a drain-lagged 300 k-doc
+    /// memtable — the terms-agg read-under-write tail) when equivalence
+    /// isn't provable:
+    /// - the field has EVER carried an array value in a shard (column
+    ///   keeps only the first element; brute fans out over all);
+    /// - any doc carries `_doc_count` (brute weights buckets by it);
+    /// - the caller must additionally gate on plain field names (no
+    ///   dotted paths / `.keyword` fallbacks — those resolve through
+    ///   `get_nested_field`, not the column).
+    pub fn terms_counts_columnar(
+        &self,
+        field: &str,
+    ) -> Option<(std::collections::HashMap<String, u64>, u64)> {
+        let mut counts: std::collections::HashMap<String, u64> =
+            std::collections::HashMap::new();
+        let mut missing: u64 = 0;
+        for s in &self.shards {
+            let g = s.read();
+            let n = g.doc_count();
+            if n == 0 {
+                continue;
+            }
+            if g.doc_values.array_fields.contains(field)
+                || g.doc_values.numeric.contains_key("_doc_count")
+                || g.doc_values.keyword.contains_key("_doc_count")
+            {
+                return None;
+            }
+            match g.doc_values.keyword.get(field) {
+                None => {
+                    // No doc in this shard carries the field as a scalar.
+                    missing += n as u64;
+                }
+                Some(col) => {
+                    let mut present: u64 = 0;
+                    for v in col.iter() {
+                        if let Some(s) = v.as_deref() {
+                            present += 1;
+                            if let Some(c) = counts.get_mut(s) {
+                                *c += 1;
+                            } else {
+                                counts.insert(s.to_string(), 1);
+                            }
+                        }
+                    }
+                    // Nones + docs past the column tail are missing.
+                    missing += n as u64 - present;
+                }
+            }
+        }
+        Some((counts, missing))
+    }
+
     /// DocValues term query — aggregates hits across all shards.
     /// Returns `Some(Vec<(doc_id, local_idx)>)` if any shard matched.
     /// The `local_idx` is shard-local; callers use the doc_id to
@@ -1169,6 +1287,24 @@ fn pad_to<T>(col: &mut Vec<Option<T>>, target_len: usize) {
     while col.len() < target_len {
         col.push(None);
     }
+}
+
+/// One resolved predicate of a `bool { must/filter }` for the fused
+/// columnar memtable walk (`doc_values_bool_query`).  Built by the engine
+/// from Term / Range query nodes; semantics per predicate mirror
+/// `doc_values_term_query` / `doc_values_range_query` exactly.
+pub enum MemBoolPred {
+    Term {
+        field: String,
+        value: String,
+    },
+    Range {
+        field: String,
+        gte: Option<f64>,
+        gt: Option<f64>,
+        lte: Option<f64>,
+        lt: Option<f64>,
+    },
 }
 
 // ── FtsMemtable ──────────────────────────────────────────────────────────────
@@ -1984,6 +2120,195 @@ impl FtsMemtable {
     }
 
     // ── Fast DocValues queries ────────────────────────────────────────────────
+
+    /// Incremental per-shard sorted-candidate extraction — see
+    /// `ShardedFtsMemtable::sort_candidates_numeric` for the contract and
+    /// `SortCandCache` for the state.  Returns `(top page-order candidates
+    /// as (key, doc_id), missing doc_ids, shard doc count)`; `None` when
+    /// the shard is ineligible (un-normalisable value or array-valued
+    /// field — poisoned until the next drain resets the memtable, so the
+    /// fallback decision itself is O(1) per query, not a re-walk).
+    pub fn sort_candidates_cached(
+        &mut self,
+        field: &str,
+        desc: bool,
+        cap: usize,
+        normalize: &dyn Fn(&str) -> Option<f64>,
+    ) -> Option<(Vec<(f64, String)>, Vec<String>, u64)> {
+        let n = self.docs.len();
+        let cap = cap.max(1);
+        if self.doc_values.array_fields.contains(field) {
+            return None;
+        }
+        let key = if desc {
+            format!("{field}\u{1}d")
+        } else {
+            format!("{field}\u{1}a")
+        };
+        let entry = self
+            .doc_values
+            .sort_cand_cache
+            .entry(key)
+            .or_insert_with(|| SortCandCache {
+                seen_docs: 0,
+                cap,
+                top: Vec::new(),
+                missing: Vec::new(),
+                poisoned: false,
+            });
+        if entry.poisoned {
+            return None;
+        }
+        if entry.cap < cap || entry.seen_docs > n {
+            // Larger page than cached, or the docs vec shrank without a
+            // cache clear (defensive) — rebuild from scratch.
+            entry.cap = cap;
+            entry.seen_docs = 0;
+            entry.top.clear();
+            entry.missing.clear();
+        }
+        // Fold in the docs inserted since the last query.
+        let ncol = self.doc_values.numeric.get(field);
+        let kcol = self.doc_values.keyword.get(field);
+        for i in entry.seen_docs..n {
+            let nv: Option<f64> = ncol.and_then(|c| c.get(i).copied().flatten());
+            let v: Option<f64> = match nv {
+                Some(x) => Some(x),
+                None => match kcol.and_then(|c| c.get(i)).and_then(|o| o.as_deref()) {
+                    Some(s) => match normalize(s) {
+                        Some(x) => Some(x),
+                        None => {
+                            entry.poisoned = true;
+                            return None;
+                        }
+                    },
+                    None => None,
+                },
+            };
+            match v {
+                Some(x) => entry.top.push((x, i)),
+                None => {
+                    if entry.missing.len() < entry.cap {
+                        entry.missing.push(i);
+                    }
+                }
+            }
+        }
+        entry.seen_docs = n;
+        // Keep the pool bounded: page-order sort + cut to cap (+boundary
+        // ties) once it doubles.  Top-cap of (old top-cap ∪ new docs) ==
+        // top-cap of all docs, so the incremental cut is exact.
+        let cut = |top: &mut Vec<(f64, usize)>, cap: usize| {
+            if desc {
+                top.sort_unstable_by(|a, b| {
+                    b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
+                });
+            } else {
+                top.sort_unstable_by(|a, b| {
+                    a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal)
+                });
+            }
+            let mut keep = top.len().min(cap);
+            while keep < top.len() && keep > 0 && top[keep].0 == top[keep - 1].0 {
+                keep += 1;
+            }
+            top.truncate(keep);
+        };
+        if entry.top.len() > entry.cap.saturating_mul(2).max(64) {
+            cut(&mut entry.top, entry.cap);
+        }
+        // Result view: an exact top-`cap` (+ties) cut of the pool.
+        let mut pool = entry.top.clone();
+        cut(&mut pool, cap);
+        let out: Vec<(f64, String)> = pool
+            .into_iter()
+            .map(|(v, i)| (v, self.docs[i].doc_id.clone()))
+            .collect();
+        let miss: Vec<String> = entry
+            .missing
+            .iter()
+            .take(cap)
+            .map(|&i| self.docs[i].doc_id.clone())
+            .collect();
+        Some((out, miss, n as u64))
+    }
+
+    /// Per-shard fused bool walk — see `ShardedFtsMemtable::doc_values_bool_query`.
+    ///
+    /// Column resolution and per-predicate match semantics mirror the
+    /// standalone `doc_values_term_query` (keyword column, case-sensitive
+    /// whole value, analyzed-text whitespace bailout) and
+    /// `doc_values_range_query` (numeric column, gte/gt/lte/lt) exactly, so
+    /// a bool of term+range predicates matches the same doc set the
+    /// per-child queries would intersect to — without intermediate
+    /// per-child hit vectors.
+    pub fn doc_values_bool_hits(
+        &self,
+        preds: &[MemBoolPred],
+        limit: usize,
+    ) -> Option<(Vec<(String, usize)>, u64)> {
+        enum Col<'a> {
+            Kw(&'a Vec<Option<String>>, &'a str),
+            Num(&'a Vec<Option<f64>>, Option<f64>, Option<f64>, Option<f64>, Option<f64>),
+        }
+        let mut cols: Vec<Col<'_>> = Vec::with_capacity(preds.len());
+        for p in preds {
+            match p {
+                MemBoolPred::Term { field, value } => {
+                    let col = self.doc_values.keyword.get(field.as_str())?;
+                    // Same analyzed-text bailout as doc_values_term_query.
+                    if col.iter().any(|v| {
+                        v.as_deref().map(|s| s.contains(char::is_whitespace)).unwrap_or(false)
+                    }) {
+                        return None;
+                    }
+                    cols.push(Col::Kw(col, value.as_str()));
+                }
+                MemBoolPred::Range { field, gte, gt, lte, lt } => {
+                    let col = self.doc_values.numeric.get(field.as_str())?;
+                    cols.push(Col::Num(col, *gte, *gt, *lte, *lt));
+                }
+            }
+        }
+        let n = self.docs.len();
+        let mut out: Vec<(String, usize)> = Vec::new();
+        let mut total: u64 = 0;
+        'doc: for idx in 0..n {
+            for c in &cols {
+                let ok = match c {
+                    Col::Kw(col, want) => {
+                        col.get(idx).and_then(|o| o.as_deref()) == Some(*want)
+                    }
+                    Col::Num(col, gte, gt, lte, lt) => {
+                        match col.get(idx).copied().flatten() {
+                            None => false,
+                            Some(v) => {
+                                let pl = match (gte, gt) {
+                                    (Some(b), _) => v >= *b,
+                                    (None, Some(b)) => v > *b,
+                                    (None, None) => true,
+                                };
+                                let pu = match (lte, lt) {
+                                    (Some(b), _) => v <= *b,
+                                    (None, Some(b)) => v < *b,
+                                    (None, None) => true,
+                                };
+                                pl && pu
+                            }
+                        }
+                    }
+                };
+                if !ok {
+                    continue 'doc;
+                }
+            }
+            total += 1;
+            if out.len() < limit {
+                out.push((self.docs[idx].doc_id.clone(), idx));
+            }
+        }
+        Some((out, total))
+    }
 
     /// Fast term query using the keyword column — O(N * string_compare).
     ///
