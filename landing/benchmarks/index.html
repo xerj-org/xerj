@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
-<link rel="stylesheet" href="/style.css?v=run10-81w8l-cov2">
+<link rel="stylesheet" href="/style.css?v=brand-ux1">
 <style>
   /* page-local: 5-column variant of the product .bench grid + verdict tones */
   .bench-scroll { overflow-x: auto; max-width: 100%; }
@@ -77,126 +77,46 @@
   }
   .cat-total .cat-tally { font-size: var(--fs-16); }
 
-  /* ---- scoreboard: the headline total infographic ---- */
-  .scoreboard {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: var(--sp-12);
-    align-items: center;
-    padding: var(--sp-12) 0;
-    border-top: 1px solid var(--z-line);
-    border-bottom: 1px solid var(--z-line);
-    margin: var(--sp-12) 0 var(--sp-8);
-  }
-  .scoreboard .sb-num {
-    font-family: var(--font-display, 'Big Shoulders Display', sans-serif);
-    font-weight: 900;
-    line-height: 0.82;
-    color: var(--z-accent);
-    font-size: clamp(72px, 13vw, 136px);
-    letter-spacing: -0.01em;
-  }
-  .scoreboard .sb-num .of { color: var(--z-mute); font-size: 0.36em; font-weight: 800; }
-  .scoreboard .sb-num .sb-word {
-    display: block;
-    font-size: 0.15em;
-    letter-spacing: var(--track-label);
-    color: var(--z-ink);
-    margin-top: var(--sp-3);
-  }
-  .scoreboard .sb-body { min-width: 0; }
-  .sb-cap {
-    font-family: var(--font-data);
-    text-transform: uppercase;
-    letter-spacing: var(--track-label);
-    font-size: var(--fs-13);
-    color: var(--z-mute);
-    margin-bottom: var(--sp-4);
-  }
-  .stackbar {
-    display: flex;
-    height: 26px;
-    width: 100%;
-    border: 1px solid var(--z-line);
-    overflow: hidden;
-    font-family: var(--font-mono);
-    font-size: 11px;
-  }
-  .stackbar > span {
-    display: flex; align-items: center; justify-content: center;
-    color: var(--z-bg); font-weight: 700; white-space: nowrap; min-width: 0;
-  }
-  .stackbar .seg-win  { background: var(--z-accent); }
-  .stackbar .seg-lose { background: #e05252; color: #fff; }
-  .stackbar .seg-na   { background: var(--z-line); color: var(--z-mute); }
-  .stack-legend {
-    display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-10);
-    margin-top: var(--sp-4);
-    font-family: var(--font-mono); font-size: var(--fs-13);
-    font-variant-numeric: tabular-nums;
-  }
-  .stack-legend .k-win  { color: var(--z-accent); font-weight: 700; }
-  .stack-legend .k-lose { color: #e05252; font-weight: 700; }
-  .stack-legend .k-na   { color: var(--z-mute); font-weight: 700; }
-  .stack-legend .k-lbl  { color: var(--z-mute); }
-  .sb-band {
-    font-family: var(--font-data);
-    font-size: var(--fs-13);
-    color: var(--z-mute);
-    margin-top: var(--sp-4);
-    max-width: 660px;
-  }
-  .sb-band strong { color: var(--z-ink); font-weight: 700; }
+  /* headline total — reuses brand .proof-row .stat; '/91' suffix */
+  .proof-row { border-bottom: 1px solid var(--z-line); }
+  .proof-row .stat .num .of { color: var(--z-mute); font-size: 0.42em; font-weight: 800; }
+  .sb-note { font-family: var(--font-data); font-size: var(--fs-13); color: var(--z-mute); margin: var(--sp-6) 0 0; max-width: 760px; }
+  .sb-note strong { color: var(--z-ink); font-weight: 700; }
 
-  /* ---- coverage bars (reuses the topn row__bar pattern) ---- */
-  .cov { margin-top: var(--sp-6); border-top: 1px solid var(--z-line); }
+  /* coverage — thin 4px gold bars + 1px hairline rows (the .cmp-bar idiom) */
   .cov-row {
     display: grid;
-    grid-template-columns: minmax(140px, 1.25fr) 92px minmax(70px, 1.6fr) 58px;
-    gap: var(--sp-4) var(--sp-6);
+    grid-template-columns: minmax(150px, 1.1fr) minmax(60px, 1.7fr) auto;
+    gap: var(--sp-3) var(--sp-6);
     align-items: center;
-    padding: 11px 0;
-    border-bottom: 1px solid var(--z-line);
+    padding: 9px 0;
+    border-bottom: 1px solid var(--z-faint);
     font-family: var(--font-data);
     font-size: var(--fs-13);
-    font-variant-numeric: tabular-nums;
   }
-  .cov-row .cov-label {
-    color: var(--z-ink);
-    text-transform: uppercase;
-    letter-spacing: var(--track-label);
-    font-size: var(--fs-13);
-  }
-  .cov-row .cov-count { text-align: right; font-family: var(--font-mono); color: var(--z-mute); }
-  .cov-row .cov-track { height: 8px; border: 1px solid var(--z-line); position: relative; }
-  .cov-row .cov-fill  { position: absolute; top: 0; bottom: 0; left: 0; background: var(--z-accent); }
-  .cov-row .cov-pct   { text-align: right; font-family: var(--font-mono); font-weight: 700; color: var(--z-ink); }
+  .cov-row:first-of-type { border-top: 1px solid var(--z-line); }
+  .cov-row:last-of-type { border-bottom: 1px solid var(--z-line); }
+  .cov-row .cov-label { color: var(--z-ink); }
+  .cov-row .cov-bar { height: 4px; min-width: 2px; max-width: 100%; background: var(--z-accent); }
+  .cov-row .cov-meta { font-family: var(--font-mono); font-size: var(--fs-11); color: var(--z-mute); white-space: nowrap; text-align: right; }
+  .cov-row .cov-meta b { color: var(--z-accent); font-weight: 700; margin-left: var(--sp-3); }
 
-  /* ---- testing timeline chart (corp-dashboard: gold bars, 1px gray grid) ---- */
-  .tl-chart { margin: var(--sp-6) 0 var(--sp-10); }
-  .tl-chart svg { width: 100%; height: auto; display: block; }
-  .tl-grid    { stroke: var(--z-line); stroke-width: 1; }
-  .tl-axis    { fill: var(--z-mute); font-family: var(--font-mono); font-size: 12px; }
-  .tl-bar     { fill: var(--z-accent); }
-  .tl-bar-final { fill: var(--z-accent); }
-  .tl-bar-retracted { fill: none; stroke: var(--z-mute); stroke-width: 1.5; stroke-dasharray: 3 3; }
-  .tl-val     { fill: var(--z-ink); font-family: var(--font-mono); font-size: 13px; font-weight: 700; text-anchor: middle; }
-  .tl-val-muted { fill: var(--z-mute); font-family: var(--font-mono); font-size: 12px; text-anchor: middle; }
-  .tl-run     { fill: var(--z-ink); font-family: var(--font-data); font-size: 12px; text-anchor: middle; }
-  .tl-date    { fill: var(--z-mute); font-family: var(--font-mono); font-size: 11px; text-anchor: middle; }
-  .tl-legend  {
-    display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-8);
-    font-family: var(--font-mono); font-size: var(--fs-13); color: var(--z-mute);
-    margin-top: var(--sp-3);
-  }
-  .tl-legend .sw { display: inline-block; width: 11px; height: 11px; vertical-align: -1px; margin-right: 5px; }
-  .tl-legend .sw-gold { background: var(--z-accent); }
-  .tl-legend .sw-ret  { border: 1.5px dashed var(--z-mute); }
+  /* timeline — reuses .viz-block + 1px currentColor polyline; HTML axis row.
+     Selectors scoped under .viz-block to beat the generic `.viz-block polyline`
+     rule (else the gold line would fall back to currentColor). */
+  .viz-block line.tl-grid { stroke: currentColor; stroke-opacity: 0.22; stroke-width: 1; shape-rendering: crispEdges; }
+  .viz-block polyline.tl-line { fill: none; stroke: var(--z-accent); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .viz-block polyline.tl-ghost { fill: none; stroke: currentColor; stroke-opacity: 0.35; stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+  .tl-axis-row { display: grid; grid-template-columns: repeat(8, 1fr); margin-top: var(--sp-3); }
+  .tl-axis-row .c { text-align: center; font-family: var(--font-mono); font-size: var(--fs-11); line-height: 1.6; }
+  .tl-axis-row .c .v { display: block; color: var(--z-accent); font-weight: 700; }
+  .tl-axis-row .c .v.ret { color: var(--z-mute); font-weight: 400; }
+  .tl-axis-row .c .r { display: block; color: var(--z-mute); letter-spacing: 0.04em; }
 
   @media (max-width: 620px) {
-    .scoreboard { grid-template-columns: 1fr; gap: var(--sp-6); }
-    .cov-row { grid-template-columns: 1fr 78px; }
-    .cov-row .cov-track { display: none; }
+    .cov-row { grid-template-columns: 1fr auto; }
+    .cov-row .cov-bar { display: none; }
+    .tl-axis-row .c { font-size: 9px; }
   }
 </style>
 </head>
@@ -241,72 +161,64 @@
     with four commands.
   </p>
 
-  <!-- headline scoreboard infographic -->
-  <div class="scoreboard">
-    <div class="sb-num">81<span class="of">/91</span><span class="sb-word">XERJ WINS</span></div>
-    <div class="sb-body">
-      <div class="sb-cap">Total · 91 measured dimensions · XERJ v1.0.0-rc.1 vs Elasticsearch 8.13.4</div>
-      <div class="stackbar" role="img" aria-label="81 win, 8 lose, 2 not scored, of 91">
-        <span class="seg-win"  style="width:89.0%">81 WIN</span>
-        <span class="seg-lose" style="width:8.8%">8</span>
-        <span class="seg-na"   style="width:2.2%">2</span>
-      </div>
-      <div class="stack-legend">
-        <span><span class="k-win">81 WIN</span> <span class="k-lbl">faster / higher throughput / smaller</span></span>
-        <span><span class="k-lose">8 LOSE</span> <span class="k-lbl">5 structural + 3 sub-ms ties · each fails CI</span></span>
-        <span><span class="k-na">2 N/A</span> <span class="k-lbl">queries ES 8.13 itself rejects (400)</span></span>
-      </div>
-      <p class="sb-band">
-        Honest caveat: across repeated runs the total lands <strong>77–84</strong> as a
-        cluster of sub-millisecond aggregation rows flips inside client jitter. The
-        <strong>5 mixed</strong> read-under-write losses are the <em>only</em> constant —
-        everything else XERJ wins. We publish a single run verbatim, not the best draw.
-      </p>
+  <!-- headline total — brand .proof-row stats -->
+  <div class="proof-row">
+    <div class="stat">
+      <div class="num">81<span class="of"> / 91</span></div>
+      <div class="label">XERJ wins</div>
+      <div class="ctx">Lower latency · higher throughput · smaller on disk</div>
+    </div>
+    <div class="stat">
+      <div class="num">8</div>
+      <div class="label">Losses</div>
+      <div class="ctx">5 mixed read-under-write + 3 sub-ms ties · each fails CI</div>
+    </div>
+    <div class="stat">
+      <div class="num">2</div>
+      <div class="label">Not scored</div>
+      <div class="ctx">Queries ES 8.13 itself rejects (400)</div>
     </div>
   </div>
+  <p class="sb-note">
+    XERJ v1.0.0-rc.1 vs Elasticsearch 8.13.4 — one machine, one client, identical workload.
+    Across repeated runs the total lands <strong>77–84</strong> as a cluster of sub-millisecond
+    aggregation rows flips inside client jitter; the <strong>5 mixed</strong> read-under-write
+    losses are the only constant. We publish a single run verbatim, not the best draw.
+  </p>
 
-  <!-- coverage: how much of Elasticsearch XERJ actually implements -->
-  <div class="sb-cap" style="margin-top:var(--sp-8)">How much of Elasticsearch does XERJ cover? · independently audited, not the benchmark count</div>
-  <div class="cov">
+  <!-- coverage — functional ES coverage (audited), distinct from the perf matrix -->
+  <div class="viz-block">
+    <div class="kicker"><span class="accent">COVERAGE</span><span class="dash">·</span><span>HOW MUCH OF ELASTICSEARCH XERJ IMPLEMENTS</span></div>
     <div class="cov-row">
       <span class="cov-label">ES-wire conformance</span>
-      <span class="cov-count">1326 / 1329</span>
-      <span class="cov-track"><span class="cov-fill" style="width:99.8%"></span></span>
-      <span class="cov-pct">99.8%</span>
+      <span class="cov-bar" style="width:99.8%"></span>
+      <span class="cov-meta">1326 / 1329 <b>99.8%</b></span>
     </div>
     <div class="cov-row">
       <span class="cov-label">REST API endpoints</span>
-      <span class="cov-count">152 / 162</span>
-      <span class="cov-track"><span class="cov-fill" style="width:93.8%"></span></span>
-      <span class="cov-pct">93.8%</span>
+      <span class="cov-bar" style="width:93.8%"></span>
+      <span class="cov-meta">152 / 162 <b>93.8%</b></span>
     </div>
     <div class="cov-row">
       <span class="cov-label">Aggregation families</span>
-      <span class="cov-count">61 / 73</span>
-      <span class="cov-track"><span class="cov-fill" style="width:83.6%"></span></span>
-      <span class="cov-pct">83.6%</span>
+      <span class="cov-bar" style="width:83.6%"></span>
+      <span class="cov-meta">61 / 73 <b>84%</b></span>
     </div>
     <div class="cov-row">
       <span class="cov-label">Query DSL types</span>
-      <span class="cov-count">40 / 58</span>
-      <span class="cov-track"><span class="cov-fill" style="width:69%"></span></span>
-      <span class="cov-pct">69%</span>
+      <span class="cov-bar" style="width:69%"></span>
+      <span class="cov-meta">40 / 58 <b>69%</b></span>
     </div>
+    <p class="sb-note">
+      The 91 benchmarked dimensions measure <em>performance</em>; these bars measure <em>functional</em>
+      coverage. The 10 endpoint gaps are cross-cluster replication and ML <span class="mono">_cat</span>
+      shims a single node can't back; XERJ adds <span class="mono">knn</span> / <span class="mono">semantic</span> /
+      <span class="mono">hybrid</span> beyond ES. Eight specialized families (<span class="mono">geo</span>,
+      <span class="mono">ip</span>, <span class="mono">nested</span>, <span class="mono">span</span>,
+      <span class="mono">percolate</span>, <span class="mono">semantic</span>) are implemented but await
+      purpose-built benchmark corpora.
+    </p>
   </div>
-  <p class="wide" style="margin-top:var(--sp-6)">
-    The <strong>91 benchmarked dimensions</strong> above measure <em>performance</em> on the
-    query, aggregation and pipeline families our LLM-telemetry corpus exercises — not the
-    whole feature surface. XERJ's <em>functional</em> coverage of Elasticsearch is the set of
-    bars here: <strong>1326 / 1329</strong> ES-YAML REST conformance tests pass (the 3 remaining are
-    skipped, not failed), <strong>152 / 162</strong> REST endpoints are backed by live engine state
-    (the 10 gaps are cross-cluster replication and ML <span class="mono">_cat</span> shims a single
-    node can't back), and XERJ adds three AI-native query types ES has no equivalent for
-    (<span class="mono">knn</span>, <span class="mono">semantic</span>, <span class="mono">hybrid</span>).
-    Eight specialized families (<span class="mono">geo_*</span>, <span class="mono">ip_*</span>,
-    <span class="mono">nested / has_child</span>, <span class="mono">span_*</span>,
-    <span class="mono">percolate</span>, <span class="mono">semantic / hybrid</span>) are implemented
-    but await purpose-built benchmark corpora before they join the matrix.
-  </p>
 </section>
 
 <!-- 01 — SETUP ----------------------------------------------->
@@ -1058,83 +970,30 @@
     The gold line is where the number actually went.
   </p>
 
-  <div class="tl-chart">
-    <svg viewBox="0 0 1000 300" role="img" aria-label="XERJ win count out of 91 across published benchmark runs, from 43 to 81, with run 6 retracted">
-      <!-- gridlines (1px gray) + y-axis labels -->
-      <g class="tl-grid">
-        <line x1="52" y1="258.0" x2="984" y2="258.0"/>
-        <line x1="52" y1="196.5" x2="984" y2="196.5"/>
-        <line x1="52" y1="134.9" x2="984" y2="134.9"/>
-        <line x1="52" y1="73.4"  x2="984" y2="73.4"/>
-        <line x1="52" y1="34.0"  x2="984" y2="34.0"/>
-      </g>
-      <g class="tl-axis" text-anchor="end">
-        <text x="44" y="262">0</text>
-        <text x="44" y="200">25</text>
-        <text x="44" y="139">50</text>
-        <text x="44" y="77">75</text>
-        <text x="44" y="38">91</text>
-      </g>
-
-      <!-- bars -->
-      <rect class="tl-bar" x="80.2"  y="152.2" width="60" height="105.8"/>
-      <rect class="tl-bar" x="196.8" y="171.8" width="60" height="86.2"/>
-      <rect class="tl-bar" x="313.2" y="147.2" width="60" height="110.8"/>
-      <rect class="tl-bar-retracted" x="429.8" y="68.5" width="60" height="189.5"/>
-      <rect class="tl-bar" x="546.2" y="142.3" width="60" height="115.7"/>
-      <rect class="tl-bar" x="662.8" y="127.5" width="60" height="130.5"/>
-      <rect class="tl-bar" x="779.2" y="73.4"  width="60" height="184.6"/>
-      <rect class="tl-bar-final" x="895.8" y="58.6" width="60" height="199.4"/>
-
-      <!-- progression line through real runs (skips the retracted run) -->
-      <polyline fill="none" stroke="var(--z-accent)" stroke-width="2"
-        points="110.2,152.2 226.8,171.8 343.2,147.2 576.2,142.3 692.8,127.5 809.2,73.4 925.8,58.6"/>
-      <g fill="var(--z-accent)">
-        <circle cx="110.2" cy="152.2" r="3"/>
-        <circle cx="226.8" cy="171.8" r="3"/>
-        <circle cx="343.2" cy="147.2" r="3"/>
-        <circle cx="576.2" cy="142.3" r="3"/>
-        <circle cx="692.8" cy="127.5" r="3"/>
-        <circle cx="809.2" cy="73.4"  r="3"/>
-        <circle cx="925.8" cy="58.6"  r="4"/>
-      </g>
-
-      <!-- value labels -->
-      <g>
-        <text class="tl-val" x="110.2" y="145">43</text>
-        <text class="tl-val" x="226.8" y="165">35</text>
-        <text class="tl-val" x="343.2" y="140">45</text>
-        <text class="tl-val-muted" x="459.8" y="61">77</text>
-        <text class="tl-val" x="576.2" y="135">47</text>
-        <text class="tl-val" x="692.8" y="120">53</text>
-        <text class="tl-val" x="809.2" y="66">75</text>
-        <text class="tl-val" x="925.8" y="51">81</text>
-      </g>
-
-      <!-- run + date labels -->
-      <g>
-        <text class="tl-run"  x="110.2" y="276">first</text>
-        <text class="tl-run"  x="226.8" y="276">r4</text>
-        <text class="tl-run"  x="343.2" y="276">r5</text>
-        <text class="tl-run"  x="459.8" y="276">r6</text>
-        <text class="tl-run"  x="576.2" y="276">r7</text>
-        <text class="tl-run"  x="692.8" y="276">r8</text>
-        <text class="tl-run"  x="809.2" y="276">r9</text>
-        <text class="tl-run"  x="925.8" y="276">r10</text>
-        <text class="tl-date" x="110.2" y="292">Jul 4</text>
-        <text class="tl-date" x="226.8" y="292">Jul 4</text>
-        <text class="tl-date" x="343.2" y="292">Jul 5</text>
-        <text class="tl-date" x="459.8" y="292">Jul 5</text>
-        <text class="tl-date" x="576.2" y="292">Jul 6</text>
-        <text class="tl-date" x="692.8" y="292">Jul 6</text>
-        <text class="tl-date" x="809.2" y="292">Jul 6</text>
-        <text class="tl-date" x="925.8" y="292">Jul 6</text>
-      </g>
+  <div class="viz-block">
+    <svg class="chart" viewBox="0 0 1200 250" preserveAspectRatio="none" style="width:100%; height:220px;" role="img" aria-label="XERJ wins out of 91 across published runs, 43 rising to 81, with run 6 retracted">
+      <!-- 1px gridlines at 0 / 25 / 50 / 75 / 91 -->
+      <line class="tl-grid" x1="40" y1="230"   x2="1160" y2="230"/>
+      <line class="tl-grid" x1="40" y1="172.3" x2="1160" y2="172.3"/>
+      <line class="tl-grid" x1="40" y1="114.6" x2="1160" y2="114.6"/>
+      <line class="tl-grid" x1="40" y1="56.9"  x2="1160" y2="56.9"/>
+      <line class="tl-grid" x1="40" y1="20"    x2="1160" y2="20"/>
+      <!-- the retracted run 6 spike, dashed and off the honest line -->
+      <polyline class="tl-ghost" points="375,126.2 525,52.3 675,121.5"/>
+      <!-- the honest trajectory (1px gold), skipping the retracted run -->
+      <polyline class="tl-line" points="75,130.8 225,149.2 375,126.2 675,121.5 825,107.7 975,56.9 1125,43.1"/>
     </svg>
-    <div class="tl-legend">
-      <span><span class="sw sw-gold"></span>Wins / 91 · published run</span>
-      <span><span class="sw sw-ret"></span>Retracted run (measurement artifact, could not reproduce)</span>
+    <div class="tl-axis-row">
+      <div class="c"><span class="v">43</span><span class="r">first · Jul 4</span></div>
+      <div class="c"><span class="v">35</span><span class="r">r4 · Jul 4</span></div>
+      <div class="c"><span class="v">45</span><span class="r">r5 · Jul 5</span></div>
+      <div class="c"><span class="v ret">77</span><span class="r">r6 · retracted</span></div>
+      <div class="c"><span class="v">47</span><span class="r">r7 · Jul 6</span></div>
+      <div class="c"><span class="v">53</span><span class="r">r8 · Jul 6</span></div>
+      <div class="c"><span class="v">75</span><span class="r">r9 · Jul 6</span></div>
+      <div class="c"><span class="v">81</span><span class="r">r10 · now</span></div>
     </div>
+    <p class="sb-note">Wins out of 91 per published run (0–91 scale). The gold line is the honest trajectory; run 6 (dashed) was retracted — a 77-win high that vanished once a stale result cache was fixed.</p>
   </div>
 
   <div class="row"><div class="k">2026-07-06 (runtime-worker fix)</div><div class="v"><strong>Post-run-10 engine change.</strong> Shipped a tokio runtime over-provision that un-starves request-accept during flush/merge windows — roughly <strong>halving the mixed read-under-write p99 tail</strong> (match_all 65→~45&nbsp;ms, range 152→~50&nbsp;ms typical). Still short of ES's quiesced 2–19&nbsp;ms, but no longer a cliff. Re-running the fixed binary a handful of times, the total lands <strong>77–84</strong> (median ~80) as the sub-millisecond aggregation tie-band flips run to run; the 5 mixed cells stay the only constant losses. We keep run 10's <strong>81/8/2</strong> as the published board — squarely mid-band — rather than cherry-pick the 84-win draw.</div></div>
