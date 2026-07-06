@@ -146,17 +146,36 @@ pub async fn process_bulk_with_opts(
     // Step 1: pair action + doc lines so we can parse each pair in
     // parallel.  The delete action has no doc line, so we track the
     // optional body-line index.
+    // A delete action has NO body line; index/create/update each have
+    // exactly one.  The action type is the first key of the action object
+    // (`{"delete":{...}}`), so we can identify a delete from its action
+    // line alone — no full parse needed.  This loop USED to optimistically
+    // consume the next line as the body for EVERY action and rely on a
+    // "push it back" fixup that was never actually implemented (see the
+    // delete branch below).  The result: a delete followed by another
+    // action (e.g. two consecutive deletes) silently swallowed that next
+    // action line — ~50% of consecutive deletes were lost.  Detect the
+    // delete up front so its body line is never consumed.
+    fn action_line_is_delete(line: &str) -> bool {
+        let b = line.as_bytes();
+        let mut p = 0usize;
+        while p < b.len() && (b[p] == b' ' || b[p] == b'\t') { p += 1; }
+        if p >= b.len() || b[p] != b'{' { return false; }
+        p += 1;
+        while p < b.len() && (b[p] == b' ' || b[p] == b'\t') { p += 1; }
+        if p >= b.len() || b[p] != b'"' { return false; }
+        p += 1;
+        let start = p;
+        while p < b.len() && b[p] != b'"' { p += 1; }
+        p < b.len() && &b[start..p] == b"delete"
+    }
     let mut pairs: Vec<(usize, &str, Option<&str>, usize)> = Vec::new();
     let mut i = 0;
     while i < lines.len() {
         let action_line = lines[i];
         let item_index = items.len();
         items.push(None);
-        // Look ahead to guess whether this is a delete (no body) — we
-        // don't know the action type until after parse, so optimistically
-        // consume a following line as the body.  If the parse later
-        // reveals a delete, we'll push that body line back.
-        let (doc_line, advance) = if i + 1 < lines.len() {
+        let (doc_line, advance) = if !action_line_is_delete(action_line) && i + 1 < lines.len() {
             (Some(lines[i + 1]), 2)
         } else {
             (None, 1)
