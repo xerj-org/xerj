@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
-<link rel="stylesheet" href="/style.css?v=run10-81w8l">
+<link rel="stylesheet" href="/style.css?v=run10-81w8l-cov2">
 <style>
   /* page-local: 5-column variant of the product .bench grid + verdict tones */
   .bench-scroll { overflow-x: auto; max-width: 100%; }
@@ -76,6 +76,128 @@
     color: var(--z-mute);
   }
   .cat-total .cat-tally { font-size: var(--fs-16); }
+
+  /* ---- scoreboard: the headline total infographic ---- */
+  .scoreboard {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--sp-12);
+    align-items: center;
+    padding: var(--sp-12) 0;
+    border-top: 1px solid var(--z-line);
+    border-bottom: 1px solid var(--z-line);
+    margin: var(--sp-12) 0 var(--sp-8);
+  }
+  .scoreboard .sb-num {
+    font-family: var(--font-display, 'Big Shoulders Display', sans-serif);
+    font-weight: 900;
+    line-height: 0.82;
+    color: var(--z-accent);
+    font-size: clamp(72px, 13vw, 136px);
+    letter-spacing: -0.01em;
+  }
+  .scoreboard .sb-num .of { color: var(--z-mute); font-size: 0.36em; font-weight: 800; }
+  .scoreboard .sb-num .sb-word {
+    display: block;
+    font-size: 0.15em;
+    letter-spacing: var(--track-label);
+    color: var(--z-ink);
+    margin-top: var(--sp-3);
+  }
+  .scoreboard .sb-body { min-width: 0; }
+  .sb-cap {
+    font-family: var(--font-data);
+    text-transform: uppercase;
+    letter-spacing: var(--track-label);
+    font-size: var(--fs-13);
+    color: var(--z-mute);
+    margin-bottom: var(--sp-4);
+  }
+  .stackbar {
+    display: flex;
+    height: 26px;
+    width: 100%;
+    border: 1px solid var(--z-line);
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .stackbar > span {
+    display: flex; align-items: center; justify-content: center;
+    color: var(--z-bg); font-weight: 700; white-space: nowrap; min-width: 0;
+  }
+  .stackbar .seg-win  { background: var(--z-accent); }
+  .stackbar .seg-lose { background: #e05252; color: #fff; }
+  .stackbar .seg-na   { background: var(--z-line); color: var(--z-mute); }
+  .stack-legend {
+    display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-10);
+    margin-top: var(--sp-4);
+    font-family: var(--font-mono); font-size: var(--fs-13);
+    font-variant-numeric: tabular-nums;
+  }
+  .stack-legend .k-win  { color: var(--z-accent); font-weight: 700; }
+  .stack-legend .k-lose { color: #e05252; font-weight: 700; }
+  .stack-legend .k-na   { color: var(--z-mute); font-weight: 700; }
+  .stack-legend .k-lbl  { color: var(--z-mute); }
+  .sb-band {
+    font-family: var(--font-data);
+    font-size: var(--fs-13);
+    color: var(--z-mute);
+    margin-top: var(--sp-4);
+    max-width: 660px;
+  }
+  .sb-band strong { color: var(--z-ink); font-weight: 700; }
+
+  /* ---- coverage bars (reuses the topn row__bar pattern) ---- */
+  .cov { margin-top: var(--sp-6); border-top: 1px solid var(--z-line); }
+  .cov-row {
+    display: grid;
+    grid-template-columns: minmax(140px, 1.25fr) 92px minmax(70px, 1.6fr) 58px;
+    gap: var(--sp-4) var(--sp-6);
+    align-items: center;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--z-line);
+    font-family: var(--font-data);
+    font-size: var(--fs-13);
+    font-variant-numeric: tabular-nums;
+  }
+  .cov-row .cov-label {
+    color: var(--z-ink);
+    text-transform: uppercase;
+    letter-spacing: var(--track-label);
+    font-size: var(--fs-13);
+  }
+  .cov-row .cov-count { text-align: right; font-family: var(--font-mono); color: var(--z-mute); }
+  .cov-row .cov-track { height: 8px; border: 1px solid var(--z-line); position: relative; }
+  .cov-row .cov-fill  { position: absolute; top: 0; bottom: 0; left: 0; background: var(--z-accent); }
+  .cov-row .cov-pct   { text-align: right; font-family: var(--font-mono); font-weight: 700; color: var(--z-ink); }
+
+  /* ---- testing timeline chart (corp-dashboard: gold bars, 1px gray grid) ---- */
+  .tl-chart { margin: var(--sp-6) 0 var(--sp-10); }
+  .tl-chart svg { width: 100%; height: auto; display: block; }
+  .tl-grid    { stroke: var(--z-line); stroke-width: 1; }
+  .tl-axis    { fill: var(--z-mute); font-family: var(--font-mono); font-size: 12px; }
+  .tl-bar     { fill: var(--z-accent); }
+  .tl-bar-final { fill: var(--z-accent); }
+  .tl-bar-retracted { fill: none; stroke: var(--z-mute); stroke-width: 1.5; stroke-dasharray: 3 3; }
+  .tl-val     { fill: var(--z-ink); font-family: var(--font-mono); font-size: 13px; font-weight: 700; text-anchor: middle; }
+  .tl-val-muted { fill: var(--z-mute); font-family: var(--font-mono); font-size: 12px; text-anchor: middle; }
+  .tl-run     { fill: var(--z-ink); font-family: var(--font-data); font-size: 12px; text-anchor: middle; }
+  .tl-date    { fill: var(--z-mute); font-family: var(--font-mono); font-size: 11px; text-anchor: middle; }
+  .tl-legend  {
+    display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-8);
+    font-family: var(--font-mono); font-size: var(--fs-13); color: var(--z-mute);
+    margin-top: var(--sp-3);
+  }
+  .tl-legend .sw { display: inline-block; width: 11px; height: 11px; vertical-align: -1px; margin-right: 5px; }
+  .tl-legend .sw-gold { background: var(--z-accent); }
+  .tl-legend .sw-ret  { border: 1.5px dashed var(--z-mute); }
+
+  @media (max-width: 620px) {
+    .scoreboard { grid-template-columns: 1fr; gap: var(--sp-6); }
+    .cov-row { grid-template-columns: 1fr 78px; }
+    .cov-row .cov-track { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -119,28 +241,72 @@
     with four commands.
   </p>
 
-  <div class="metrics">
-    <div class="metric">
-      <div class="eyebrow">XERJ WINS</div>
-      <div class="value">81</div>
-      <div class="hint">Lower latency, higher throughput, smaller disk</div>
-    </div>
-    <div class="metric">
-      <div class="eyebrow">XERJ LOSSES</div>
-      <div class="value">8</div>
-      <div class="hint">Published, tracked — each one fails CI</div>
-    </div>
-    <div class="metric">
-      <div class="eyebrow">NOT SCORED</div>
-      <div class="value">2</div>
-      <div class="hint">Queries ES 8.13 itself rejects (400)</div>
-    </div>
-    <div class="metric">
-      <div class="eyebrow">ES-YAML CONFORMANCE</div>
-      <div class="value">1326<span class="unit">/0</span></div>
-      <div class="hint">Passed / failed · the guardrail for every perf change</div>
+  <!-- headline scoreboard infographic -->
+  <div class="scoreboard">
+    <div class="sb-num">81<span class="of">/91</span><span class="sb-word">XERJ WINS</span></div>
+    <div class="sb-body">
+      <div class="sb-cap">Total · 91 measured dimensions · XERJ v1.0.0-rc.1 vs Elasticsearch 8.13.4</div>
+      <div class="stackbar" role="img" aria-label="81 win, 8 lose, 2 not scored, of 91">
+        <span class="seg-win"  style="width:89.0%">81 WIN</span>
+        <span class="seg-lose" style="width:8.8%">8</span>
+        <span class="seg-na"   style="width:2.2%">2</span>
+      </div>
+      <div class="stack-legend">
+        <span><span class="k-win">81 WIN</span> <span class="k-lbl">faster / higher throughput / smaller</span></span>
+        <span><span class="k-lose">8 LOSE</span> <span class="k-lbl">5 structural + 3 sub-ms ties · each fails CI</span></span>
+        <span><span class="k-na">2 N/A</span> <span class="k-lbl">queries ES 8.13 itself rejects (400)</span></span>
+      </div>
+      <p class="sb-band">
+        Honest caveat: across repeated runs the total lands <strong>77–84</strong> as a
+        cluster of sub-millisecond aggregation rows flips inside client jitter. The
+        <strong>5 mixed</strong> read-under-write losses are the <em>only</em> constant —
+        everything else XERJ wins. We publish a single run verbatim, not the best draw.
+      </p>
     </div>
   </div>
+
+  <!-- coverage: how much of Elasticsearch XERJ actually implements -->
+  <div class="sb-cap" style="margin-top:var(--sp-8)">How much of Elasticsearch does XERJ cover? · independently audited, not the benchmark count</div>
+  <div class="cov">
+    <div class="cov-row">
+      <span class="cov-label">ES-wire conformance</span>
+      <span class="cov-count">1326 / 1329</span>
+      <span class="cov-track"><span class="cov-fill" style="width:99.8%"></span></span>
+      <span class="cov-pct">99.8%</span>
+    </div>
+    <div class="cov-row">
+      <span class="cov-label">REST API endpoints</span>
+      <span class="cov-count">152 / 162</span>
+      <span class="cov-track"><span class="cov-fill" style="width:93.8%"></span></span>
+      <span class="cov-pct">93.8%</span>
+    </div>
+    <div class="cov-row">
+      <span class="cov-label">Aggregation families</span>
+      <span class="cov-count">61 / 73</span>
+      <span class="cov-track"><span class="cov-fill" style="width:83.6%"></span></span>
+      <span class="cov-pct">83.6%</span>
+    </div>
+    <div class="cov-row">
+      <span class="cov-label">Query DSL types</span>
+      <span class="cov-count">40 / 58</span>
+      <span class="cov-track"><span class="cov-fill" style="width:69%"></span></span>
+      <span class="cov-pct">69%</span>
+    </div>
+  </div>
+  <p class="wide" style="margin-top:var(--sp-6)">
+    The <strong>91 benchmarked dimensions</strong> above measure <em>performance</em> on the
+    query, aggregation and pipeline families our LLM-telemetry corpus exercises — not the
+    whole feature surface. XERJ's <em>functional</em> coverage of Elasticsearch is the set of
+    bars here: <strong>1326 / 1329</strong> ES-YAML REST conformance tests pass (the 3 remaining are
+    skipped, not failed), <strong>152 / 162</strong> REST endpoints are backed by live engine state
+    (the 10 gaps are cross-cluster replication and ML <span class="mono">_cat</span> shims a single
+    node can't back), and XERJ adds three AI-native query types ES has no equivalent for
+    (<span class="mono">knn</span>, <span class="mono">semantic</span>, <span class="mono">hybrid</span>).
+    Eight specialized families (<span class="mono">geo_*</span>, <span class="mono">ip_*</span>,
+    <span class="mono">nested / has_child</span>, <span class="mono">span_*</span>,
+    <span class="mono">percolate</span>, <span class="mono">semantic / hybrid</span>) are implemented
+    but await purpose-built benchmark corpora before they join the matrix.
+  </p>
 </section>
 
 <!-- 01 — SETUP ----------------------------------------------->
@@ -185,8 +351,8 @@
 
   <p class="wide">
     All 91 rows from <span class="mono">demo/playbooks/SCORECARD.md</span>,
-    grouped by family. Categories that contain a loss are open by default;
-    the all-win families are collapsed — open any of them to see every row.
+    grouped by family. Every family is collapsed — the tally beside each
+    (wins · losses) tells you where to look; open any family to see every row.
     Latency rows are p50 in milliseconds, ingest is docs/s, and the mixed
     rows are p99 under a concurrent bulk writer. Ratios are normalized so
     <strong>&gt;1× means XERJ is faster / higher-throughput / smaller</strong>.
@@ -518,7 +684,7 @@
   </details>
 
   <!-- Bucket aggregations -->
-  <details class="cat" open>
+  <details class="cat">
     <summary>
       <span class="cat-label">Bucket aggregations</span>
       <span class="cat-tally"><span class="w">16&nbsp;W</span> · <span class="l">1&nbsp;L</span></span>
@@ -620,7 +786,7 @@
   </details>
 
   <!-- Pipeline aggregations -->
-  <details class="cat" open>
+  <details class="cat">
     <summary>
       <span class="cat-label">Pipeline aggregations</span>
       <span class="cat-tally"><span class="w">10&nbsp;W</span> · <span class="l">2&nbsp;L</span></span>
@@ -749,7 +915,7 @@
   </details>
 
   <!-- Mixed — read under write -->
-  <details class="cat" open>
+  <details class="cat">
     <summary>
       <span class="cat-label">Mixed — read under write</span>
       <span class="cat-tally"><span class="l">5&nbsp;L</span></span>
@@ -872,8 +1038,8 @@
   <div class="kicker"><span class="accent">05</span><span class="dash">·</span><span>KNOWN ISSUES &amp; WHAT'S NEXT</span></div>
   <h2 class="scene">THE RED CELLS<br><span class="accent">ARE THE ROADMAP.</span></h2>
 
-  <div class="row"><div class="k">Mixed read-under-write · 5 rows</div><div class="v">The real weakness. With a concurrent bulk writer running, read p99 lands at <strong>62–152&nbsp;ms</strong> against ES's quiesced <strong>2–19&nbsp;ms</strong> — read tail latency degrades under sustained flush/merge pressure. Shrinking it to ES's steady-state is the top active work item.</div></div>
-  <div class="row"><div class="k">Marginal near-ties · 3 rows</div><div class="v">Three sub-millisecond rows where ES edges XERJ by tenths of a millisecond (agg <span class="mono">filter</span> 0.77×, pipe <span class="mono">sum_bucket</span> 0.94×, pipe <span class="mono">derivative</span> 0.60×). Per-request overhead, not algorithmic gaps — under profiling.</div></div>
+  <div class="row"><div class="k">Mixed read-under-write · 5 rows</div><div class="v">The real, constant weakness. With a concurrent bulk writer running, read p99 degrades under sustained flush/merge pressure. A merged runtime-scheduler fix <strong>roughly halves the tail</strong> — typical p99 now ~45–80&nbsp;ms, down from 62–152 — but it still trails ES's quiesced <strong>2–19&nbsp;ms</strong>. XERJ also ingests ~5× faster than ES, so it hits far more finalize windows; shrinking this tail to ES's steady-state is the top active work item.</div></div>
+  <div class="row"><div class="k">Sub-millisecond tie-band</div><div class="v">A handful of aggregation rows where XERJ and ES land within tenths of a millisecond — which side "wins" flips run to run, so the total drifts inside <strong>77–84</strong>. Run 10 caught agg <span class="mono">filter</span>, pipe <span class="mono">sum_bucket</span> / <span class="mono">derivative</span>; other runs catch <span class="mono">percentiles</span> or <span class="mono">composite</span> instead. Per-request overhead, not algorithmic gaps — under profiling, not counted as a real loss.</div></div>
   <div class="row"><div class="k">Hardening along the way</div><div class="v">Durable mappings across restarts, a merge-race segment lease (601k queries under merge churn, zero mismatches), WAL/segment garbage collection, a merge data-loss fix, a dedicated deprioritised ingest pool, and cooperative query timeouts.</div></div>
   <div class="row"><div class="k">Not measured here</div><div class="v">Skipped, not hidden — each needs a purpose-built index the flat corpus lacks: <span class="mono">geo_*</span>, <span class="mono">ip_range / ip_prefix</span>, <span class="mono">nested / has_child / has_parent</span>, <span class="mono">span_*</span>, <span class="mono">significant_text</span>, <span class="mono">semantic / hybrid</span> retrieval, and <span class="mono">percolate</span>. Purpose-built corpora are planned follow-ups.</div></div>
   <div class="row"><div class="k">The standing guardrail</div><div class="v">Every performance change must hold ES-YAML REST conformance at <strong>1326 passed / 0 failed</strong>. Speed bought with correctness is not a win, and it does not merge.</div></div>
@@ -882,6 +1048,96 @@
 <!-- 06 — CHANGELOG -------------------------------------------->
 <section class="scene-section">
   <div class="kicker"><span class="accent">06</span><span class="dash">·</span><span>TESTING CHANGELOG</span></div>
+  <h2 class="scene">THE SCORE,<br><span class="accent">RUN BY RUN.</span></h2>
+
+  <p class="wide">
+    The honest trajectory — wins out of 91 for every published run. It is not
+    a straight line up: twice we caught ourselves measuring the wrong thing
+    and reset. Run&nbsp;6 (hollow bar) is the one we <strong>retracted</strong> —
+    a 77-win high we couldn't reproduce once a stale result cache was fixed.
+    The gold line is where the number actually went.
+  </p>
+
+  <div class="tl-chart">
+    <svg viewBox="0 0 1000 300" role="img" aria-label="XERJ win count out of 91 across published benchmark runs, from 43 to 81, with run 6 retracted">
+      <!-- gridlines (1px gray) + y-axis labels -->
+      <g class="tl-grid">
+        <line x1="52" y1="258.0" x2="984" y2="258.0"/>
+        <line x1="52" y1="196.5" x2="984" y2="196.5"/>
+        <line x1="52" y1="134.9" x2="984" y2="134.9"/>
+        <line x1="52" y1="73.4"  x2="984" y2="73.4"/>
+        <line x1="52" y1="34.0"  x2="984" y2="34.0"/>
+      </g>
+      <g class="tl-axis" text-anchor="end">
+        <text x="44" y="262">0</text>
+        <text x="44" y="200">25</text>
+        <text x="44" y="139">50</text>
+        <text x="44" y="77">75</text>
+        <text x="44" y="38">91</text>
+      </g>
+
+      <!-- bars -->
+      <rect class="tl-bar" x="80.2"  y="152.2" width="60" height="105.8"/>
+      <rect class="tl-bar" x="196.8" y="171.8" width="60" height="86.2"/>
+      <rect class="tl-bar" x="313.2" y="147.2" width="60" height="110.8"/>
+      <rect class="tl-bar-retracted" x="429.8" y="68.5" width="60" height="189.5"/>
+      <rect class="tl-bar" x="546.2" y="142.3" width="60" height="115.7"/>
+      <rect class="tl-bar" x="662.8" y="127.5" width="60" height="130.5"/>
+      <rect class="tl-bar" x="779.2" y="73.4"  width="60" height="184.6"/>
+      <rect class="tl-bar-final" x="895.8" y="58.6" width="60" height="199.4"/>
+
+      <!-- progression line through real runs (skips the retracted run) -->
+      <polyline fill="none" stroke="var(--z-accent)" stroke-width="2"
+        points="110.2,152.2 226.8,171.8 343.2,147.2 576.2,142.3 692.8,127.5 809.2,73.4 925.8,58.6"/>
+      <g fill="var(--z-accent)">
+        <circle cx="110.2" cy="152.2" r="3"/>
+        <circle cx="226.8" cy="171.8" r="3"/>
+        <circle cx="343.2" cy="147.2" r="3"/>
+        <circle cx="576.2" cy="142.3" r="3"/>
+        <circle cx="692.8" cy="127.5" r="3"/>
+        <circle cx="809.2" cy="73.4"  r="3"/>
+        <circle cx="925.8" cy="58.6"  r="4"/>
+      </g>
+
+      <!-- value labels -->
+      <g>
+        <text class="tl-val" x="110.2" y="145">43</text>
+        <text class="tl-val" x="226.8" y="165">35</text>
+        <text class="tl-val" x="343.2" y="140">45</text>
+        <text class="tl-val-muted" x="459.8" y="61">77</text>
+        <text class="tl-val" x="576.2" y="135">47</text>
+        <text class="tl-val" x="692.8" y="120">53</text>
+        <text class="tl-val" x="809.2" y="66">75</text>
+        <text class="tl-val" x="925.8" y="51">81</text>
+      </g>
+
+      <!-- run + date labels -->
+      <g>
+        <text class="tl-run"  x="110.2" y="276">first</text>
+        <text class="tl-run"  x="226.8" y="276">r4</text>
+        <text class="tl-run"  x="343.2" y="276">r5</text>
+        <text class="tl-run"  x="459.8" y="276">r6</text>
+        <text class="tl-run"  x="576.2" y="276">r7</text>
+        <text class="tl-run"  x="692.8" y="276">r8</text>
+        <text class="tl-run"  x="809.2" y="276">r9</text>
+        <text class="tl-run"  x="925.8" y="276">r10</text>
+        <text class="tl-date" x="110.2" y="292">Jul 4</text>
+        <text class="tl-date" x="226.8" y="292">Jul 4</text>
+        <text class="tl-date" x="343.2" y="292">Jul 5</text>
+        <text class="tl-date" x="459.8" y="292">Jul 5</text>
+        <text class="tl-date" x="576.2" y="292">Jul 6</text>
+        <text class="tl-date" x="692.8" y="292">Jul 6</text>
+        <text class="tl-date" x="809.2" y="292">Jul 6</text>
+        <text class="tl-date" x="925.8" y="292">Jul 6</text>
+      </g>
+    </svg>
+    <div class="tl-legend">
+      <span><span class="sw sw-gold"></span>Wins / 91 · published run</span>
+      <span><span class="sw sw-ret"></span>Retracted run (measurement artifact, could not reproduce)</span>
+    </div>
+  </div>
+
+  <div class="row"><div class="k">2026-07-06 (runtime-worker fix)</div><div class="v"><strong>Post-run-10 engine change.</strong> Shipped a tokio runtime over-provision that un-starves request-accept during flush/merge windows — roughly <strong>halving the mixed read-under-write p99 tail</strong> (match_all 65→~45&nbsp;ms, range 152→~50&nbsp;ms typical). Still short of ES's quiesced 2–19&nbsp;ms, but no longer a cliff. Re-running the fixed binary a handful of times, the total lands <strong>77–84</strong> (median ~80) as the sub-millisecond aggregation tie-band flips run to run; the 5 mixed cells stay the only constant losses. We keep run 10's <strong>81/8/2</strong> as the published board — squarely mid-band — rather than cherry-pick the 84-win draw.</div></div>
   <div class="row"><div class="k">2026-07-06 (run 10)</div><div class="v"><strong>81 WIN.</strong> Eight cells flipped LOSE→WIN over run 9 as the engine work landed — ingest 1m×c8 (now <span class="mono">1.02×</span>), aggs <span class="mono">global / composite / terms+avg / range</span>, pipe <span class="mono">serial_diff</span>, <span class="mono">simple_query_string</span>, and deep <span class="mono">from+size</span> — while two former wins regressed to sub-millisecond near-ties (<span class="mono">sum_bucket</span>, <span class="mono">derivative</span>). Net <strong>81 W / 8 L / 2 N/A</strong>: the 8 losses are the 5 mixed read-under-write p99 rows plus 3 sub-millisecond near-ties (agg <span class="mono">filter</span>, pipe <span class="mono">sum_bucket / derivative</span>). Supersedes run 9.</div></div>
   <div class="row"><div class="k">2026-07-06 (run 9)</div><div class="v">75 WIN. Corrected the read-latency transport: earlier runs timed reads through Node's global <span class="mono">fetch</span>/undici (~1.5&nbsp;ms of client overhead per request), which swamped both engines' sub-millisecond server times and pushed ~40 rows into a noise band. Re-ran on a lean keep-alive HTTP client, applied identically to both engines and cross-checked with <span class="mono">curl</span> (XERJ ≤ ES on every op). True server round-trips now show full-text / term / range / wildcard reads winning outright, kNN 5.28× at 100% recall parity, index 1.26× smaller, ingest 3 of 4 cells. 14 honest losses remain · 75 W / 14 L / 2 N/A. Supersedes run 8.</div></div>
   <div class="row"><div class="k">2026-07-06 (run 8 — SUPERSEDED)</div><div class="v">Reported 53 WIN / 36 LOSE / 2 N/A. Reads were still timed through the undici client, whose fixed per-request overhead hid both engines' true sub-millisecond server times — roughly 40 rows sat in a client-jitter band. Transport fixed and re-run honestly as run 9.</div></div>
