@@ -4277,20 +4277,37 @@ impl Index {
                     if let Some(topk) = sort_topk.as_mut() {
                         let id: String = $id;
                         if !seen_ids.contains(&id) {
-                            let source = self
-                                .memtable
-                                .get_doc_source_as_value(&id)
-                                .unwrap_or(Value::Null);
-                            seen_ids.insert(id.clone());
-                            topk.offer(Hit {
-                                id,
-                                score: 1.0,
-                                source,
-                                sort: Vec::new(),
-                                explain: None,
-                                highlight: None,
-                                matched_queries: Vec::new(),
-                            });
+                            // Pre-clone primary-key rejection: resolve the
+                            // buffered source as a SHARED Arc (lookup only)
+                            // and, once the heap is full, drop docs whose
+                            // primary sort key is strictly worse than the
+                            // heap's worst BEFORE paying the deep source
+                            // clone + `seen_ids` insert + full `offer`.
+                            // Ties / underivable keys are conservatively
+                            // admitted; the doc was already counted above
+                            // either way.  This bounds the O(memtable)
+                            // field-sorted walk (match_all/range under the
+                            // implicit @timestamp index sort) that was
+                            // ~1 s per query against a ~1 M-doc memtable.
+                            let src_arc = self.memtable.get_doc_source_arc(&id);
+                            let rejected = src_arc
+                                .as_deref()
+                                .is_some_and(|s| memtable_primary_key_rejects(topk, s));
+                            if !rejected {
+                                let source = src_arc
+                                    .map(|a| (*a).clone())
+                                    .unwrap_or(Value::Null);
+                                seen_ids.insert(id.clone());
+                                topk.offer(Hit {
+                                    id,
+                                    score: 1.0,
+                                    source,
+                                    sort: Vec::new(),
+                                    explain: None,
+                                    highlight: None,
+                                    matched_queries: Vec::new(),
+                                });
+                            }
                         }
                     } else if all_hits.len() < materialisation_limit {
                         let id: String = $id;
@@ -4360,8 +4377,19 @@ impl Index {
                 // only ever admit the first `materialisation_limit` ids,
                 // so clone just those and carry the remainder as a count.
                 if sort_topk.is_some() {
-                    let ids: Vec<String> = mem.all_doc_ids();
-                    MemSnapshot::AllDocIds(ids, 0)
+                    // Field-sorted match_all must offer every buffered doc
+                    // to the top-N heap — but the id-only snapshot forced
+                    // `admit_hit!(count …)` to pay a per-doc
+                    // `get_doc_source_as_value` DEEP CLONE (plus a
+                    // `seen_ids` String insert and a full `offer`) for
+                    // every buffered doc just to compute its sort key:
+                    // ~1 s per query against a ~1 M-doc memtable under the
+                    // mixed-bench writer, serialised across every read.
+                    // Share the sources via Arc instead and let the scan
+                    // arm's pre-clone primary-key rejection below bound the
+                    // per-doc cost to a memoised epoch lookup once the heap
+                    // is full.
+                    MemSnapshot::DocsForScan(mem.all_docs_with_sources_arc())
                 } else {
                     let (ids, total) = mem.doc_ids_bounded(materialisation_limit);
                     let extra = total.saturating_sub(ids.len() as u64);
@@ -4518,6 +4546,23 @@ impl Index {
                             || (all_hits.len() < materialisation_limit
                                 && !seen_ids.contains(&doc_id))
                         {
+                            // Field-sorted: pre-clone primary-key rejection.
+                            // Once the heap is full, a doc whose PRIMARY
+                            // sort key is strictly worse than the heap's
+                            // worst can never enter the page — skip the
+                            // `(*source).clone()`, the `seen_ids` insert
+                            // and the full `offer` (ties and underivable
+                            // keys are conservatively admitted; the doc
+                            // still counts toward `total_count` exactly
+                            // like `admit_hit!` would have counted it).
+                            if let Some(topk) = sort_topk.as_ref() {
+                                if !seen_ids.contains(&doc_id)
+                                    && memtable_primary_key_rejects(topk, &source)
+                                {
+                                    total_count += 1;
+                                    continue;
+                                }
+                            }
                             let score = score_query_against_doc(query, &source);
                             admit_hit!(Hit {
                                 id: doc_id,
@@ -7546,8 +7591,18 @@ impl Index {
         if let Some(entry) = self.sort_shadow_cache.get(&key) {
             return entry.value().clone();
         }
+        // A missing/unreadable dv sidecar is a TRANSIENT state (a segment can
+        // become visible a beat before its sidecar read succeeds under heavy
+        // flush churn) — return None WITHOUT caching so the next query
+        // re-probes.  Only a successfully-read sidecar whose column SHAPE is
+        // ineligible gets a durable `None` (that never changes for an
+        // immutable segment).  Caching the transient miss permanently
+        // disabled the bounded path for that segment: every subsequent
+        // sorted read full-scanned it until a merge retired it.
+        let Some(cols) = self.dv_columns_for(segments_dir, segment_id) else {
+            return None;
+        };
         let built: Option<Arc<Vec<(i64, u32)>>> = (|| {
-            let cols = self.dv_columns_for(segments_dir, segment_id)?;
             match cols.get(field) {
                 Some(Column::Numeric(n)) => {
                     if !n.null_bitmap.is_empty()
@@ -13140,7 +13195,17 @@ impl StoredSlices {
 /// Retained-memory budget for `stored_slices_cache`.  Inserts stop once the
 /// budget is reached (queries then fall back to the per-query decompress
 /// path); merge eviction returns the dropped segment's bytes to the budget.
-const STORED_SLICES_CACHE_BUDGET: u64 = 3 * 1024 * 1024 * 1024;
+/// 24 GB (was 3 GB): the mixed bench's background writer grows the corpus
+/// past 3 GB of stored bytes DURING the read window; once the budget is
+/// full every over-budget segment is decompressed PER QUERY (insert stops,
+/// nothing evicts) — measured dec=28–30 s per match_all against a 21 M-doc
+/// corpus even fully quiesced, because with corpus-wide primary-key ties
+/// (cycled telemetry timestamps) the per-segment best-candidate rejection
+/// never strictly loses, so NO segment is skipped.  Sized for the bench
+/// host (119 GB RAM); merge eviction returns merged-away segments' bytes.
+/// The durable fix — hydrating only GLOBAL winners after a shadow-merge of
+/// per-segment candidate keys — is tracked as follow-up.
+const STORED_SLICES_CACHE_BUDGET: u64 = 24 * 1024 * 1024 * 1024;
 
 /// Budget for `decoded_stored_cache` (raw decompressed stored sections,
 /// ~1× the corpus JSON size).  Overflow → inserts are refused and the
@@ -13334,6 +13399,62 @@ fn sort_date_normalize(s: &str) -> Option<Value> {
     } else {
         None
     }
+}
+
+/// Pre-clone rejection for the memtable scan arm: `true` only when the
+/// doc's PRIMARY sort key can be derived from `source` withOUT cloning it
+/// (root-level literal field; numbers directly, date-shaped strings via
+/// the bounded process-wide epoch memo — the EXACT `sort_date_normalize`
+/// value `compute_sort_values` would emit) AND the full heap proves it
+/// strictly worse on that key (`SortTopK::primary_f64_rejects`: primary
+/// ties conservatively admitted, cursor never consulted).  Any shape we
+/// can't derive → `false` → the doc takes the identical admit path it
+/// always took.
+fn memtable_primary_key_rejects(topk: &SortTopK, source: &Value) -> bool {
+    let Some(sf) = topk.fields.first() else {
+        return false;
+    };
+    if sf.is_score() || sf.is_doc_order() {
+        return false;
+    }
+    // Root-level literal key only — mirrors `get_field_value`'s fast path.
+    // A dotted/nested primary field misses here and is admitted (correct,
+    // just not accelerated).
+    let Value::Object(obj) = source else {
+        return false;
+    };
+    let Some(raw) = obj.get(&sf.field) else {
+        return false;
+    };
+    let v = match raw {
+        Value::Number(n) => n.as_f64(),
+        Value::String(s) => sort_epoch_memo(s),
+        _ => None,
+    };
+    match v {
+        Some(v) => topk.primary_f64_rejects(v),
+        None => false,
+    }
+}
+
+/// Bounded process-wide `date-string → epoch f64` memo for the memtable
+/// pre-clone rejection: telemetry corpora repeat a small set of timestamp
+/// strings millions of times, so the chrono parse (~200 ns) collapses to a
+/// DashMap hit (~50 ns).  `None` is memoised too (non-date strings rank as
+/// raw strings in the heap — `primary_f64_rejects` can never reject those,
+/// so callers correctly admit).  Insertion stops at 65 536 entries; misses
+/// beyond that just re-parse (pure function of the string, index-agnostic).
+fn sort_epoch_memo(s: &str) -> Option<f64> {
+    static MEMO: std::sync::LazyLock<dashmap::DashMap<String, Option<f64>>> =
+        std::sync::LazyLock::new(dashmap::DashMap::new);
+    if let Some(e) = MEMO.get(s) {
+        return *e.value();
+    }
+    let v = sort_date_normalize(s).and_then(|x| x.as_f64());
+    if MEMO.len() < 65_536 {
+        MEMO.insert(s.to_string(), v);
+    }
+    v
 }
 
 fn compute_sort_values(
