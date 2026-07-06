@@ -61,6 +61,7 @@ pub mod binary_protocol;
 pub mod error;
 pub mod es_compat;
 pub mod extract;
+pub mod memory_api;
 pub mod native;
 pub mod responses;
 pub mod router;
