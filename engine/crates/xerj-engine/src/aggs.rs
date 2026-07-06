@@ -7953,11 +7953,10 @@ pub fn run_agg_fast(agg_type: &str, params: &Value, dv: &DocValues, has_sub_aggs
         }
 
         "cardinality" => {
-            // Use the pre-built keyword_set for distinct count.
-            let count = dv.keyword_set
-                .get(field)
-                .map(|s| s.len())
-                .unwrap_or(0) as u64;
+            // Distinct count from the bounded-delta maintained keyword_set.
+            let count = dv
+                .with_keyword_field(field, |c| c.keyword_set.get(field).map(|s| s.len()).unwrap_or(0))
+                as u64;
             FastAggResult::Value(json!({ "value": count }))
         }
 

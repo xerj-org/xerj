@@ -7848,6 +7848,14 @@ impl Index {
             // return 0 and hide stored-string-date range matches that
             // the stored-scan path would otherwise find. Use a probe
             // via `for_each_numeric_value` since `shards` is private.
+            //
+            // NOTE: a bounded-delta sorted numeric index was trialled here to
+            // make this O(log n + tail).  At the hardcoded 500k-doc flush cap
+            // (~31k docs/shard) the memtable numeric column is small enough
+            // that this branch-free linear f64 scan (memory-bandwidth bound,
+            // tens of µs) BEATS a maintained sorted structure — the structure's
+            // per-flush rebuild + sort + high-cardinality (cost_usd double)
+            // count-map churn regressed range p99.  Kept the linear scan.
             if self.memtable.doc_count() > 0 {
                 let mut has_any = false;
                 self.memtable.for_each_numeric_value(field_str, |_| { has_any = true; });
@@ -11399,11 +11407,17 @@ fn run_cardinality_with_segments_refs(
         }
     }
 
-    if let Some(set) = mem_dv.keyword_set.get(field) {
-        found = true;
-        for s in set {
-            distinct.insert(s.clone());
+    if mem_dv.with_keyword_field(field, |c| {
+        if let Some(set) = c.keyword_set.get(field) {
+            for s in set {
+                distinct.insert(s.clone());
+            }
+            true
+        } else {
+            false
         }
+    }) {
+        found = true;
     }
 
     if had_numeric_only && !found {
@@ -11445,22 +11459,17 @@ fn run_terms_with_segments_refs(
 
     // Memtable: O(num_terms) via the precomputed `keyword_counts` map
     // when available, else fall back to a borrowed-key column scan.
-    if let Some(per_value) = mem_dv.keyword_counts.get(field) {
-        found_any = true;
-        for (k, &cnt) in per_value {
-            *counts.entry(k.clone()).or_insert(0) += cnt as u64;
-        }
-    } else if let Some(col) = mem_dv.keyword.get(field) {
-        found_any = true;
-        let mut mem_counts: HashMap<&str, u64> = HashMap::new();
-        for v in col.iter() {
-            if let Some(s) = v.as_deref() {
-                *mem_counts.entry(s).or_insert(0) += 1;
+    if mem_dv.with_keyword_field(field, |c| {
+        if let Some(per_value) = c.keyword_counts.get(field) {
+            for (k, &cnt) in per_value {
+                *counts.entry(k.clone()).or_insert(0) += cnt as u64;
             }
+            true
+        } else {
+            false
         }
-        for (k, cnt) in mem_counts {
-            *counts.entry(k.to_string()).or_insert(0) += cnt;
-        }
+    }) {
+        found_any = true;
     }
 
     if !found_any {
@@ -11651,11 +11660,17 @@ fn run_cardinality_with_segments(
         }
     }
 
-    if let Some(set) = mem_dv.keyword_set.get(field) {
-        found = true;
-        for s in set {
-            distinct.insert(s.clone());
+    if mem_dv.with_keyword_field(field, |c| {
+        if let Some(set) = c.keyword_set.get(field) {
+            for s in set {
+                distinct.insert(s.clone());
+            }
+            true
+        } else {
+            false
         }
+    }) {
+        found = true;
     }
 
     if had_numeric_only && !found {
@@ -11705,22 +11720,17 @@ fn run_terms_with_segments(
 
     // Memtable: O(num_terms) via the precomputed `keyword_counts` map
     // when available, else fall back to a borrowed-key column scan.
-    if let Some(per_value) = mem_dv.keyword_counts.get(field) {
-        found_any = true;
-        for (k, &cnt) in per_value {
-            *counts.entry(k.clone()).or_insert(0) += cnt as u64;
-        }
-    } else if let Some(col) = mem_dv.keyword.get(field) {
-        found_any = true;
-        let mut mem_counts: HashMap<&str, u64> = HashMap::new();
-        for v in col.iter() {
-            if let Some(s) = v.as_deref() {
-                *mem_counts.entry(s).or_insert(0) += 1;
+    if mem_dv.with_keyword_field(field, |c| {
+        if let Some(per_value) = c.keyword_counts.get(field) {
+            for (k, &cnt) in per_value {
+                *counts.entry(k.clone()).or_insert(0) += cnt as u64;
             }
+            true
+        } else {
+            false
         }
-        for (k, cnt) in mem_counts {
-            *counts.entry(k.to_string()).or_insert(0) += cnt;
-        }
+    }) {
+        found_any = true;
     }
 
     if !found_any {

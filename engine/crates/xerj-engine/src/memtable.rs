@@ -148,25 +148,20 @@ pub struct DocValues {
     pub numeric: FxHashMap<String, Vec<Option<f64>>>,
     /// field → per-doc keyword value (for Keyword, IP, and any string field).
     pub keyword: FxHashMap<String, Vec<Option<String>>>,
-    /// field → set of all distinct values seen (for fast cardinality / terms aggs).
+    /// Bounded-delta maintained per-value counts, distinct-value sets, and
+    /// sorted-numeric range indexes for the columns above.  Kept behind a
+    /// `Mutex` (interior mutability) so the query path folds only the
+    /// column positions appended since the last query — O(delta), not
+    /// O(memtable) — under the shard READ lock, instead of the old
+    /// `counts_dirty` full-rebuild under an all-shard WRITE lock.  That
+    /// full-rebuild + write-lock serialisation WAS the residual
+    /// terms/cardinality/range/bool read-under-write p99 term.  See
+    /// [`CountState`] and [`DocValues::with_keyword_field`].
     ///
-    /// V4 M4: rebuilt lazily from `keyword` via `ensure_counts_built`.
-    pub keyword_set: FxHashMap<String, FxHashSet<String>>,
-    /// field → value → live doc count.
-    ///
-    /// V4 M4: lazily rebuilt from `keyword` when `counts_dirty == true`.
-    /// Old design incrementally maintained this on every push; that cost
-    /// 5-8 HashMap::entry chains per field per doc on the ingest-path
-    /// hot loop and capped xerj at ~10 k docs/s.  Deferring the rebuild
-    /// to query time (or to flush time) trades a one-time O(n) scan for
-    /// a 5× ingest-rate improvement.
-    pub keyword_counts: FxHashMap<String, FxHashMap<String, u32>>,
-    /// field → numeric value → live doc count.  Same lazy contract.
-    pub numeric_counts: FxHashMap<String, FxHashMap<u64, u32>>,
-    /// V4 M4: set to `true` on every `push_field`; cleared by
-    /// `ensure_counts_built` once the count/set maps are in sync
-    /// with the column data again.
-    pub counts_dirty: bool,
+    /// The ingest hot path (`push_field`) does NOT touch this — it only
+    /// appends to the raw columns, so per-doc ingest cost is unchanged;
+    /// the fold happens lazily on the read side over just the delta.
+    pub counts: parking_lot::Mutex<CountState>,
     /// Analyzed field encodings — built lazily after sufficient samples.
     pub analyzed_encodings: HashMap<String, FieldEncoding>,
     /// Raw string samples per field for deferred analysis (cleared after analysis).
@@ -229,41 +224,103 @@ pub struct SortCandCache {
     pub poisoned: bool,
 }
 
+/// Amortised sorted numeric index for O(log n + tail) memtable range
+/// COUNTs.  A sorted run plus a bounded unsorted `tail`; the tail is
+/// merged into the run once it grows past `TAIL_MERGE`, so a range count
+/// is `partition_point` bisects over the run plus a linear scan of the
+/// (≤ `TAIL_MERGE`) tail — never an O(memtable) column walk.  The merge
+/// is O(run+tail) but amortised across `TAIL_MERGE` appends, and it runs
+/// on the READ side (bounded-delta fold), never on the ingest hot path.
+/// Bounded-delta maintained aggregation state for a [`DocValues`] store:
+/// per-value keyword counts, distinct-value sets (exact cardinality), and
+/// numeric-value counts.  Folded incrementally + **PER FIELD** on the read
+/// side — `kw_built`/`num_built` record how many leading positions of each
+/// field's column are already reflected, so a query folds only the newly-
+/// appended tail of the ONE field it touches (O(delta)), never the whole
+/// memtable and never other fields' columns.
+///
+/// Per-field folding matters: a `terms`/`cardinality` query on a low-
+/// cardinality field (`model`, `status`) must NOT pay to fold a high-
+/// cardinality sibling column (`cost_usd` doubles stringified into the
+/// keyword store) — folding everything on every query regressed the very
+/// cells this exists to serve.
+#[derive(Default)]
+pub struct CountState {
+    /// per keyword-field: column positions already folded into the maps.
+    kw_built: FxHashMap<String, usize>,
+    /// per numeric-field: column positions already folded into numeric_counts.
+    num_built: FxHashMap<String, usize>,
+    /// field → distinct keyword value → live doc count.
+    pub keyword_counts: FxHashMap<String, FxHashMap<String, u32>>,
+    /// field → numeric-bits → live doc count.
+    pub numeric_counts: FxHashMap<String, FxHashMap<u64, u32>>,
+    /// field → set of distinct keyword values (exact cardinality).
+    pub keyword_set: FxHashMap<String, FxHashSet<String>>,
+}
+
 impl DocValues {
-    /// V4 M4 — lazy rebuild of the keyword/numeric count + set maps.
-    ///
-    /// Called by the query path (term shortcut, terms-agg, cardinality)
-    /// and by the flush path right before the column snapshot is taken.
-    /// O(sum(column_lengths)) once, then free until the next `push_field`.
-    pub fn ensure_counts_built(&mut self) {
-        if !self.counts_dirty {
+    /// Fold the keyword column for ONE `field` up to date (counts + set).
+    /// O(positions appended to that field's column since the last fold).
+    fn fold_keyword_field(&self, cs: &mut CountState, field: &str) {
+        let Some(col) = self.keyword.get(field) else { return };
+        let built = cs.kw_built.get(field).copied().unwrap_or(0);
+        if built >= col.len() {
             return;
         }
-        self.keyword_counts.clear();
-        self.numeric_counts.clear();
-        self.keyword_set.clear();
+        let counts = cs.keyword_counts.entry(field.to_string()).or_default();
+        let set = cs.keyword_set.entry(field.to_string()).or_default();
+        for slot in &col[built..] {
+            if let Some(s) = slot {
+                *counts.entry(s.clone()).or_insert(0) += 1;
+                if !set.contains(s) {
+                    set.insert(s.clone());
+                }
+            }
+        }
+        cs.kw_built.insert(field.to_string(), col.len());
+    }
 
-        for (field, col) in &self.keyword {
-            let counts = self.keyword_counts.entry(field.clone()).or_default();
-            let set = self.keyword_set.entry(field.clone()).or_default();
-            for slot in col {
-                if let Some(s) = slot {
-                    *counts.entry(s.clone()).or_insert(0) += 1;
-                    if !set.contains(s) {
-                        set.insert(s.clone());
-                    }
-                }
+    /// Fold the numeric column for ONE `field` up to date (numeric_counts).
+    fn fold_numeric_field(&self, cs: &mut CountState, field: &str) {
+        let Some(col) = self.numeric.get(field) else { return };
+        let built = cs.num_built.get(field).copied().unwrap_or(0);
+        if built >= col.len() {
+            return;
+        }
+        let counts = cs.numeric_counts.entry(field.to_string()).or_default();
+        for slot in &col[built..] {
+            if let Some(f) = slot {
+                *counts.entry(f.to_bits()).or_insert(0) += 1;
             }
         }
-        for (field, col) in &self.numeric {
-            let counts = self.numeric_counts.entry(field.clone()).or_default();
-            for slot in col {
-                if let Some(f) = slot {
-                    *counts.entry(f.to_bits()).or_insert(0) += 1;
-                }
-            }
-        }
-        self.counts_dirty = false;
+        cs.num_built.insert(field.to_string(), col.len());
+    }
+
+    /// Fold ONE keyword field's maps up to date, then run `f` with a
+    /// read-only borrow of the shared `CountState`.  Takes only `&self`
+    /// (interior mutability via the `counts` Mutex), so the query path
+    /// holds the shard READ lock — never the all-shard WRITE lock the old
+    /// full-rebuild `&mut self` count path forced.
+    pub fn with_keyword_field<R>(&self, field: &str, f: impl FnOnce(&CountState) -> R) -> R {
+        let mut cs = self.counts.lock();
+        self.fold_keyword_field(&mut cs, field);
+        f(&cs)
+    }
+
+    /// Fold ONE numeric field's counts up to date, then run `f`.
+    pub fn with_numeric_field<R>(&self, field: &str, f: impl FnOnce(&CountState) -> R) -> R {
+        let mut cs = self.counts.lock();
+        self.fold_numeric_field(&mut cs, field);
+        f(&cs)
+    }
+
+    /// Reset the maintained maps.  Called on delete (`remove_at`) because a
+    /// positional shift invalidates the append-only watermarks; the next
+    /// query re-folds the (now smaller) columns from scratch.  Deletes are
+    /// rare (never on the append-only bulk path), so this is trivially
+    /// correct at negligible amortised cost.
+    fn reset_counts(&mut self) {
+        *self.counts.get_mut() = CountState::default();
     }
 }
 
@@ -303,14 +360,14 @@ impl DocValues {
     }
 
     fn push_field(&mut self, field: &str, val: &Value, doc_index: usize) {
-        // V4 M4: ingest-path push_field is reduced to the minimum —
-        // raw column storage only.  The `keyword_counts`,
+        // V4 M4 / bounded-delta: ingest-path push_field is reduced to the
+        // minimum — raw column storage only.  The `keyword_counts`,
         // `numeric_counts`, `keyword_set`, and `samples` maps are all
-        // **populated lazily** at query time via `ensure_counts_built`
-        // (see `memtable.rs` → `counts_dirty` flag).  This drops per-
-        // doc HashMap churn from 5-8 entry chains per field to 1 Vec
-        // push — measured at ~5× faster ingest on log workloads.
-        self.counts_dirty = true;
+        // **populated lazily** on the read side via `with_keyword_field` /
+        // `with_numeric_field` (per-field bounded-delta fold over just the
+        // appended tail of the touched field).  This keeps the
+        // hot ingest path at ~1 Vec push per field — no per-doc HashMap
+        // churn — so ingest throughput is unchanged.
         // Column keys (`field`) recur across every doc, so `entry_no_clone`
         // skips the per-doc `field.to_string()` allocation on the hot path.
         match val {
@@ -369,7 +426,9 @@ impl DocValues {
                     if s.contains(char::is_whitespace) && !self.keyword_has_whitespace.contains(field) {
                         self.keyword_has_whitespace.insert(field.to_string());
                     }
-                    entry_no_clone(&mut self.keyword_set, field, Default::default).insert(s.clone());
+                    // keyword_set is maintained lazily on the read side
+                    // (bounded-delta fold of the keyword column, which
+                    // already receives `first_str` below).
                 }
                 let kcol = entry_no_clone(&mut self.keyword, field, Default::default);
                 pad_to(kcol, doc_index);
@@ -394,6 +453,12 @@ impl DocValues {
         // `(key, docs-index)` pairs go stale.  Deletes are rare on the
         // hot ingest path; a wholesale clear is simplest-correct.
         self.sort_cand_cache.lock().clear();
+        // The bounded-delta count/set/range maps track leading column
+        // positions by count; a positional shift invalidates the
+        // watermarks, so reset and let the next read re-fold the (now
+        // smaller) columns.  Keeps counts/sets/range EXACTLY equal to a
+        // full recount after a delete (not an estimate).
+        self.reset_counts();
         for col in self.numeric.values_mut() {
             if doc_index < col.len() {
                 col.remove(doc_index);
@@ -404,8 +469,6 @@ impl DocValues {
                 col.remove(doc_index);
             }
         }
-        // keyword_set is rebuilt lazily; we don't update it on remove for
-        // simplicity (it's used for cardinality estimates, not exact counts).
         // analyzed_encodings, samples, analyzed are not updated on remove —
         // they are statistical summaries, not per-document state.
     }
@@ -740,23 +803,21 @@ impl ShardedFtsMemtable {
 
     /// Fan out a term count query across shards and sum.
     ///
-    /// NOTE: FtsMemtable::doc_values_keyword_count takes `&mut self`
-    /// because it lazily builds the counts map on first access via
-    /// `ensure_counts_built()`.  Until that's moved behind interior
-    /// mutability, we must take the shard's **write** lock here, which
-    /// serialises concurrent term-count queries.  The fast `term`
-    /// path goes through `doc_values_term_query` which IS read-locked.
+    /// Bounded-delta: `FtsMemtable::doc_values_keyword_count` now takes
+    /// `&self` (the maintained maps are folded under interior mutability),
+    /// so this holds only the shard **READ** lock — concurrent term-count
+    /// queries no longer serialise against each other or the writer.
     pub fn doc_values_keyword_count(&self, field: &str, value: &str) -> u32 {
         self.shards
             .iter()
-            .map(|s| s.write().doc_values_keyword_count(field, value).unwrap_or(0))
+            .map(|s| s.read().doc_values_keyword_count(field, value).unwrap_or(0))
             .sum()
     }
 
     pub fn doc_values_numeric_count(&self, field: &str, value: f64) -> u32 {
         self.shards
             .iter()
-            .map(|s| s.write().doc_values_numeric_count(field, value).unwrap_or(0))
+            .map(|s| s.read().doc_values_numeric_count(field, value).unwrap_or(0))
             .sum()
     }
 
@@ -1050,23 +1111,18 @@ impl ShardedFtsMemtable {
         field: &str,
     ) -> Option<(std::collections::HashMap<String, u64>, u64)> {
         use rayon::prelude::*;
-        // Per-shard columnar term-count folding, fanned out across the 16
-        // shards on the rayon pool.  This is a FULL O(memtable) keyword-column
-        // walk on EVERY terms/cardinality agg request (unlike the incremental
-        // sort-candidate cache); under a sustained 120 k-doc/s bulk writer the
-        // live memtable sits at 100-270 k docs and the serial single-thread
-        // walk was the dominant `fast_aggs` read-under-write p95/p99 term
-        // (25-32 ms/query, profiled).  Each shard folds into its OWN local map
-        // under a short read lock, so (a) the CPU work spreads across cores and
-        // (b) every shard's read-lock hold window shrinks ~16× — reducing the
-        // reader/writer contention with the concurrent bulk ingest.  The
-        // per-shard maps are merged commutatively below, so the result is
-        // byte-identical to the serial fold (HashMap merge is associative;
-        // `missing` is a plain sum).  Any shard that hits a bail condition
-        // (array-valued field, `_doc_count` weights) yields `None`, and the
-        // `collect::<Option<_>>` short-circuits the whole call to `None` —
-        // exactly the legacy "return None on the first ineligible shard"
-        // semantics (the caller then falls back to the brute per-doc walk).
+        // Bounded-delta: instead of the old FULL O(memtable) keyword-column
+        // walk on EVERY terms/cardinality agg request (25-32 ms/query at a
+        // drain-lagged 100-270 k-doc memtable — the dominant `fast_aggs`
+        // read-under-write p95/p99 term), each shard reads its maintained
+        // `keyword_counts` map (folded on the read side over just the docs
+        // appended since the last query).  Result is O(distinct values) per
+        // shard, not O(docs).  Value RENDERING is identical: `keyword_counts`
+        // is folded from the same keyword column the old walk read.  `present`
+        // (sum of the per-value counts) == the old "non-None slots" count, so
+        // `missing = n - present` is unchanged.  Any shard that hits a bail
+        // condition (array-valued field, `_doc_count` weights) yields `None`,
+        // and `collect::<Option<_>>` short-circuits the whole call to `None`.
         let per_shard: Option<Vec<(std::collections::HashMap<String, u64>, u64)>> = self
             .shards
             .par_iter()
@@ -1082,30 +1138,22 @@ impl ShardedFtsMemtable {
                 {
                     return None;
                 }
-                let mut counts: std::collections::HashMap<String, u64> =
-                    std::collections::HashMap::new();
-                let missing: u64 = match g.doc_values.keyword.get(field) {
+                Some(g.doc_values.with_keyword_field(field, |c| match c.keyword_counts.get(field) {
                     None => {
                         // No doc in this shard carries the field as a scalar.
-                        n as u64
+                        (std::collections::HashMap::new(), n as u64)
                     }
-                    Some(col) => {
+                    Some(m) => {
+                        let mut counts: std::collections::HashMap<String, u64> =
+                            std::collections::HashMap::with_capacity(m.len());
                         let mut present: u64 = 0;
-                        for v in col.iter() {
-                            if let Some(s) = v.as_deref() {
-                                present += 1;
-                                if let Some(c) = counts.get_mut(s) {
-                                    *c += 1;
-                                } else {
-                                    counts.insert(s.to_string(), 1);
-                                }
-                            }
+                        for (k, &cnt) in m.iter() {
+                            counts.insert(k.clone(), cnt as u64);
+                            present += cnt as u64;
                         }
-                        // Nones + docs past the column tail are missing.
-                        n as u64 - present
+                        (counts, n as u64 - present)
                     }
-                };
-                Some((counts, missing))
+                }))
             })
             .collect();
         let per_shard = per_shard?;
@@ -2282,22 +2330,24 @@ impl FtsMemtable {
     }
 
     /// O(1) memtable count for `field == value` over the keyword column.
-    /// Backed by a lazily-built `HashMap<String, u32>` per field —
-    /// skips the linear column scan entirely once the count map is
-    /// built (first query post-ingest triggers the one-time O(n)
-    /// rebuild; subsequent queries are O(1)).
-    pub fn doc_values_keyword_count(&mut self, field: &str, value: &str) -> Option<u32> {
-        self.doc_values.ensure_counts_built();
-        self.doc_values.keyword_counts.get(field).map(|m| m.get(value).copied().unwrap_or(0))
+    /// Backed by the bounded-delta per-field `keyword_counts` map (folds
+    /// only this field's appended tail).  `&self` — the fold uses interior
+    /// mutability, so the caller holds only the shard READ lock.
+    pub fn doc_values_keyword_count(&self, field: &str, value: &str) -> Option<u32> {
+        self.doc_values.with_keyword_field(field, |c| {
+            c.keyword_counts
+                .get(field)
+                .map(|m| m.get(value).copied().unwrap_or(0))
+        })
     }
 
     /// O(1) memtable count for `field == value` over the numeric column.
-    pub fn doc_values_numeric_count(&mut self, field: &str, value: f64) -> Option<u32> {
-        self.doc_values.ensure_counts_built();
-        self.doc_values
-            .numeric_counts
-            .get(field)
-            .map(|m| m.get(&value.to_bits()).copied().unwrap_or(0))
+    pub fn doc_values_numeric_count(&self, field: &str, value: f64) -> Option<u32> {
+        self.doc_values.with_numeric_field(field, |c| {
+            c.numeric_counts
+                .get(field)
+                .map(|m| m.get(&value.to_bits()).copied().unwrap_or(0))
+        })
     }
 
     // ── Fast DocValues queries ────────────────────────────────────────────────
@@ -2680,10 +2730,10 @@ impl FtsMemtable {
     ///
     /// Used by the completion suggester for fast prefix autocomplete on keyword fields.
     pub fn all_keyword_values_for_field(&self, field: &str) -> Vec<(String, usize)> {
-        match self.doc_values.keyword_set.get(field) {
+        self.doc_values.with_keyword_field(field, |c| match c.keyword_set.get(field) {
             Some(set) => set.iter().map(|v| (v.clone(), 1)).collect(),
             None => Vec::new(),
-        }
+        })
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -2806,5 +2856,113 @@ fn extract_text_value(val: &Value) -> String {
             .join(" "),
         Value::Object(_) => serde_json::to_string(val).unwrap_or_default(),
         Value::Null => String::new(),
+    }
+}
+
+#[cfg(test)]
+mod bounded_delta_counts_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// Brute-force full recount of a DocValues store's columns, matching
+    /// the OLD `ensure_counts_built` semantics exactly.
+    fn recount(
+        dv: &DocValues,
+    ) -> (
+        FxHashMap<String, FxHashMap<String, u32>>,
+        FxHashMap<String, FxHashMap<u64, u32>>,
+        FxHashMap<String, FxHashSet<String>>,
+    ) {
+        let mut kc: FxHashMap<String, FxHashMap<String, u32>> = FxHashMap::default();
+        let mut nc: FxHashMap<String, FxHashMap<u64, u32>> = FxHashMap::default();
+        let mut ks: FxHashMap<String, FxHashSet<String>> = FxHashMap::default();
+        for (field, col) in &dv.keyword {
+            let counts = kc.entry(field.clone()).or_default();
+            let set = ks.entry(field.clone()).or_default();
+            for slot in col {
+                if let Some(s) = slot {
+                    *counts.entry(s.clone()).or_insert(0) += 1;
+                    set.insert(s.clone());
+                }
+            }
+        }
+        for (field, col) in &dv.numeric {
+            let counts = nc.entry(field.clone()).or_default();
+            for slot in col {
+                if let Some(f) = slot {
+                    *counts.entry(f.to_bits()).or_insert(0) += 1;
+                }
+            }
+        }
+        (kc, nc, ks)
+    }
+
+    /// Fold every field per-field (as the query path does) and assert the
+    /// maintained maps equal a full brute-force recount.
+    fn assert_maintained_eq_recount(dv: &DocValues) {
+        let (kc, nc, ks) = recount(dv);
+        // Fold each keyword + numeric field via the per-field accessors,
+        // exactly as the query path does, then compare the whole state.
+        for field in dv.keyword.keys() {
+            dv.with_keyword_field(field, |_| {});
+        }
+        for field in dv.numeric.keys() {
+            dv.with_numeric_field(field, |_| {});
+        }
+        let cs = dv.counts.lock();
+        assert_eq!(cs.keyword_counts, kc, "keyword_counts drift");
+        assert_eq!(cs.numeric_counts, nc, "numeric_counts drift");
+        assert_eq!(cs.keyword_set, ks, "keyword_set drift");
+    }
+
+    #[test]
+    fn bounded_delta_matches_full_recount() {
+        let mut dv = DocValues::default();
+        // Push a first batch spanning keyword + numeric + mixed-number fields.
+        let models = ["haiku", "sonnet", "opus", "haiku", "opus"];
+        for i in 0..2500usize {
+            let doc = json!({
+                "model": models[i % models.len()],
+                "status": if i % 3 == 0 { "ok" } else { "err" },
+                "latency_ms": (i % 400) as i64,
+                "cost_usd": (i as f64) * 0.001,
+            });
+            dv.push(&doc, i);
+        }
+        // First fold (folds the whole batch) must equal a full recount.
+        assert_maintained_eq_recount(&dv);
+
+        // Incremental: append MORE docs past the watermark, fold again — must
+        // still equal a full recount (bounded-delta folds only the new tail).
+        for i in 2500..6000usize {
+            let doc = json!({
+                "model": models[i % models.len()],
+                "status": if i % 5 == 0 { "ok" } else { "err" },
+                "latency_ms": (i % 400) as i64,
+                "cost_usd": (i as f64) * 0.001,
+            });
+            dv.push(&doc, i);
+        }
+        assert_maintained_eq_recount(&dv);
+
+        // Per-field isolation: folding ONE field must not populate a sibling's
+        // maps (a `terms` on `model` must not build `cost_usd`'s high-card map).
+        {
+            let mut fresh = DocValues::default();
+            for i in 0..1000usize {
+                fresh.push(&json!({ "model": "x", "cost_usd": i as f64 }), i);
+            }
+            fresh.with_keyword_field("model", |c| {
+                assert!(c.keyword_counts.contains_key("model"));
+                assert!(!c.keyword_counts.contains_key("cost_usd"), "sibling folded");
+                assert!(!c.numeric_counts.contains_key("cost_usd"), "sibling folded");
+            });
+        }
+
+        // Delete resets the watermarks; the next fold re-derives from scratch
+        // and must again equal a full recount over the (shifted) columns.
+        dv.remove_at(1234);
+        dv.remove_at(0);
+        assert_maintained_eq_recount(&dv);
     }
 }
