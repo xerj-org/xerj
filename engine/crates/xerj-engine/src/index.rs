@@ -987,6 +987,12 @@ impl Index {
             }
         }
 
+        // Auto-embed `semantic_text` fields: vectorise the field's text into
+        // its companion vector field (`<field>_vector`) so it becomes
+        // kNN-searchable. Runs before copy_to / storage so the derived vector
+        // is part of `_source` and gets picked up by HNSW indexing below.
+        let source = self.apply_semantic_embeddings(source).await?;
+
         // Apply copy_to: expand the source by copying field values to their target fields.
         let source = {
             let schema_guard = self.schema.read().await;
@@ -3355,43 +3361,144 @@ impl Index {
         k: usize,
         filter: Option<Box<QueryNode>>,
     ) -> Result<SearchResult> {
-        let proxy = match &*self.embedding_proxy {
-            Some(p) => p,
-            None => {
-                return Err(EngineError::Common(
-                    xerj_common::XerjError::invalid_query(
-                        "semantic query requires `embedding.default_endpoint` to be \
-                         configured (currently empty). Set Config.embedding.default_endpoint \
-                         and Config.embedding.default_model to an OpenAI-compatible \
-                         /v1/embeddings endpoint.",
-                    ),
-                ));
-            }
-        };
-        // Embed the query text. `embed_batch` takes Vec<String>; we
-        // only have one text but the proxy's batching keeps the
-        // wire format stable for callers.
-        let mut vectors = proxy
-            .embed_batch(vec![text.to_string()])
-            .await
-            .map_err(|e| EngineError::Common(xerj_common::XerjError::invalid_query(
-                format!("semantic embed failed: {e}"),
-            )))?;
-        let query_vec = match vectors.pop() {
-            Some(v) if !v.is_empty() => v,
-            _ => {
-                return Err(EngineError::Common(
-                    xerj_common::XerjError::invalid_query(
-                        "embedding proxy returned no vector for semantic query",
-                    ),
-                ));
-            }
-        };
-        let similarity = {
+        // Resolve whether `field` is a `semantic_text` field (has an embedding
+        // config). If so, the vector lives in the companion `target_field` and
+        // was produced by the same embedder used at ingest — so we must embed
+        // the query with that same embedder and kNN against `target_field`.
+        let (knn_field, dims, is_semantic_text, similarity) = {
             let schema = self.schema.read().await;
-            lookup_vector_similarity(&schema.schema, field)
+            match schema.schema.field(field) {
+                Some(fc) if fc.embedding.is_some() => {
+                    let emb = fc.embedding.as_ref().unwrap();
+                    let target = emb
+                        .target_field
+                        .clone()
+                        .unwrap_or_else(|| format!("{field}_vector"));
+                    let dims = fc.options.dimensions.unwrap_or(xerj_ai::local::DEFAULT_DIMS);
+                    let sim = fc
+                        .options
+                        .similarity
+                        .clone()
+                        .unwrap_or_else(|| "cosine".to_string());
+                    (target, dims, true, sim)
+                }
+                _ => (
+                    field.to_string(),
+                    xerj_ai::local::DEFAULT_DIMS,
+                    false,
+                    lookup_vector_similarity(&schema.schema, field),
+                ),
+            }
         };
-        self.run_knn_brute_force(request, field, &query_vec, k, filter, &similarity).await
+
+        // Embed the query text with the effective embedder:
+        //   * EmbeddingProxy when configured (high-quality, same as ingest),
+        //   * else the built-in deterministic embedder — but ONLY for
+        //     `semantic_text` fields, which were embedded that same way at
+        //     ingest. A `semantic` query against a plain dense_vector field
+        //     with no proxy configured still returns the original 400 (there
+        //     is no comparable stored vector to match against).
+        let query_vec = if let Some(proxy) = &*self.embedding_proxy {
+            // `embed_batch` takes Vec<String>; we only have one text but the
+            // proxy's batching keeps the wire format stable for callers.
+            let mut vectors = proxy
+                .embed_batch(vec![text.to_string()])
+                .await
+                .map_err(|e| EngineError::Common(xerj_common::XerjError::invalid_query(
+                    format!("semantic embed failed: {e}"),
+                )))?;
+            match vectors.pop() {
+                Some(v) if !v.is_empty() => v,
+                _ => {
+                    return Err(EngineError::Common(
+                        xerj_common::XerjError::invalid_query(
+                            "embedding proxy returned no vector for semantic query",
+                        ),
+                    ));
+                }
+            }
+        } else if is_semantic_text {
+            xerj_ai::local::local_embed(text, dims)
+        } else {
+            return Err(EngineError::Common(
+                xerj_common::XerjError::invalid_query(
+                    "semantic query requires either a `semantic_text` field (auto-embedded \
+                     with the built-in embedder) or `embedding.default_endpoint` configured \
+                     to an OpenAI-compatible /v1/embeddings endpoint.",
+                ),
+            ));
+        };
+
+        self.run_knn_brute_force(request, &knn_field, &query_vec, k, filter, &similarity).await
+    }
+
+    /// Auto-embed `semantic_text` fields on ingest.
+    ///
+    /// For each schema field carrying an [`EmbeddingConfig`], reads the field's
+    /// text from `source` and writes an embedding into the config's
+    /// `target_field` (default `<field>_vector`). Uses the configured
+    /// [`EmbeddingProxy`] when present, else the zero-config built-in
+    /// deterministic embedder — the *same* choice made at query time so the
+    /// vectors are comparable. Fields where the target already holds a value
+    /// (caller pre-embedded) or whose value is not a string are left untouched.
+    async fn apply_semantic_embeddings(&self, mut source: Value) -> Result<Value> {
+        // Collect (field, target_field, dims) specs without holding the schema
+        // lock across the (possibly async) embedding calls.
+        let specs: Vec<(String, String, usize)> = {
+            let schema = self.schema.read().await;
+            schema
+                .schema
+                .fields
+                .iter()
+                .filter_map(|fc| {
+                    fc.embedding.as_ref().map(|emb| {
+                        let target = emb
+                            .target_field
+                            .clone()
+                            .unwrap_or_else(|| format!("{}_vector", fc.name));
+                        let dims =
+                            fc.options.dimensions.unwrap_or(xerj_ai::local::DEFAULT_DIMS);
+                        (fc.name.clone(), target, dims)
+                    })
+                })
+                .collect()
+        };
+        if specs.is_empty() {
+            return Ok(source);
+        }
+        let Some(obj) = source.as_object_mut() else {
+            return Ok(source);
+        };
+        for (field, target, dims) in specs {
+            // Respect a caller-supplied vector (e.g. pre-computed offline).
+            if obj.get(&target).map(|v| !v.is_null()).unwrap_or(false) {
+                continue;
+            }
+            let Some(text) = obj.get(&field).and_then(Value::as_str) else {
+                continue;
+            };
+            let text = text.to_string();
+            let vec = if let Some(proxy) = &*self.embedding_proxy {
+                let mut vs = proxy
+                    .embed_batch(vec![text])
+                    .await
+                    .map_err(|e| EngineError::Common(xerj_common::XerjError::invalid_query(
+                        format!("semantic_text embed failed for field [{field}]: {e}"),
+                    )))?;
+                match vs.pop() {
+                    Some(v) if !v.is_empty() => v,
+                    _ => continue,
+                }
+            } else {
+                xerj_ai::local::local_embed(&text, dims)
+            };
+            let arr: Vec<Value> = vec
+                .into_iter()
+                .map(|f| Value::from(f as f64))
+                .collect();
+            obj.insert(target, Value::Array(arr));
+        }
+        Ok(source)
     }
 
     /// Hybrid (multi-query + fusion) executor. Recursively runs each
