@@ -217,7 +217,17 @@ pub struct AppState {
     /// Engine-wide configuration (immutable after startup).
     pub config: Arc<Config>,
     /// The search engine (manages all indices).
-    pub engine: Engine,
+    ///
+    /// Wrapped in `Arc` so that cloning `AppState` — which Axum/tower does
+    /// several times per request across the middleware stack (auth, request-id,
+    /// trace, CORS) and once more for the handler — bumps a single refcount
+    /// instead of deep-cloning `Engine`'s ~30 inner `Arc<DashMap<…>>` fields
+    /// (plus a `PathBuf`). Under concurrent load those ~30 shared refcounts
+    /// bounced between cores on every clone/drop; a saturated `perf` profile
+    /// attributed ~42 % of server CPU to `AppState::clone` + its `drop`. All
+    /// `Engine` methods take `&self`, so `state.engine.foo()` and `&state.engine`
+    /// keep working unchanged via `Deref` coercion.
+    pub engine: Arc<Engine>,
     /// Prometheus metrics.
     pub metrics: Arc<Metrics>,
     /// In-memory registry of in-flight long-running tasks (reindex,
@@ -252,7 +262,7 @@ impl AppState {
         let watcher_active = Arc::new(AtomicBool::new(true));
         Self {
             config: Arc::new(config),
-            engine,
+            engine: Arc::new(engine),
             metrics: Arc::new(metrics),
             tasks,
             license,
