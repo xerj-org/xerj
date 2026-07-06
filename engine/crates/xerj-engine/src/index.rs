@@ -4914,10 +4914,20 @@ impl Index {
                 })() {
                     let uncollected = total.saturating_sub(hits.len() as u64);
                     MemSnapshot::DocValuesHits(hits, uncollected)
-                } else if let Some(hits) = try_doc_values_query(query, &mem) {
+                } else if let Some((hits, total)) = try_doc_values_query(
+                    query,
+                    &mem,
+                    // Field-sorted requests must offer EVERY matching doc to
+                    // the top-N heap (sort correctness); unsorted requests
+                    // only materialise the id for the first
+                    // `materialisation_limit` matches and carry the rest as
+                    // an uncollected count (mirrors the fused-bool path).
+                    if sort_topk.is_some() { usize::MAX } else { materialisation_limit },
+                ) {
                     // DocValues fast path for queries that actually need
                     // the hit list (size > 0 or sort-on-field).
-                    MemSnapshot::DocValuesHits(hits, 0)
+                    let uncollected = total.saturating_sub(hits.len() as u64);
+                    MemSnapshot::DocValuesHits(hits, uncollected)
                 } else {
                     // Composite queries (e.g. bool) that the memtable DV
                     // path can't resolve: share the buffered sources via
@@ -4955,8 +4965,13 @@ impl Index {
                     } else {
                         MemSnapshot::Empty
                     }
-                } else if let Some(hits) = try_doc_values_query(query, &mem) {
-                    MemSnapshot::DocValuesHits(hits, 0)
+                } else if let Some((hits, total)) = try_doc_values_query(
+                    query,
+                    &mem,
+                    if sort_topk.is_some() { usize::MAX } else { materialisation_limit },
+                ) {
+                    let uncollected = total.saturating_sub(hits.len() as u64);
+                    MemSnapshot::DocValuesHits(hits, uncollected)
                 } else {
                     MemSnapshot::Empty
                 }
@@ -11115,7 +11130,11 @@ fn mem_bool_preds(q: &QueryNode) -> Option<Vec<crate::memtable::MemBoolPred>> {
     Some(preds)
 }
 
-fn try_doc_values_query(q: &QueryNode, mem: &crate::memtable::ShardedFtsMemtable) -> Option<Vec<(String, usize)>> {
+fn try_doc_values_query(
+    q: &QueryNode,
+    mem: &crate::memtable::ShardedFtsMemtable,
+    limit: usize,
+) -> Option<(Vec<(String, usize)>, u64)> {
     match q {
         QueryNode::Term { field, value, .. } => {
             // Skip if the value is complex or the field uses CIDR notation.
@@ -11128,7 +11147,7 @@ fn try_doc_values_query(q: &QueryNode, mem: &crate::memtable::ShardedFtsMemtable
                 Value::Bool(b) => b.to_string(),
                 _ => return None,
             };
-            mem.doc_values_term_query(field, &val_str)
+            mem.doc_values_term_query(field, &val_str, limit)
         }
 
         QueryNode::Terms { field, values, .. } => {
@@ -11145,7 +11164,7 @@ fn try_doc_values_query(q: &QueryNode, mem: &crate::memtable::ShardedFtsMemtable
             if strs.len() != values.len() {
                 return None; // complex values — fall back
             }
-            mem.doc_values_terms_query(field, &strs)
+            mem.doc_values_terms_query(field, &strs, limit)
         }
 
         QueryNode::Range { field, gte, gt, lte, lt, .. } => {
@@ -11172,12 +11191,12 @@ fn try_doc_values_query(q: &QueryNode, mem: &crate::memtable::ShardedFtsMemtable
             if lte_f.is_none() && lte.is_some() { return None; }
             if lt_f.is_none()  && lt.is_some()  { return None; }
 
-            mem.doc_values_range_query(field, gte_f, gt_f, lte_f, lt_f)
+            mem.doc_values_range_query(field, gte_f, gt_f, lte_f, lt_f, limit)
         }
 
         // Wrapper queries: delegate to inner query.
         QueryNode::Constant { query, .. }
-        | QueryNode::Boosted { query, .. } => try_doc_values_query(query, mem),
+        | QueryNode::Boosted { query, .. } => try_doc_values_query(query, mem, limit),
 
         _ => None,
     }

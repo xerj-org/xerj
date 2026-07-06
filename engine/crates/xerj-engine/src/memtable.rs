@@ -180,6 +180,17 @@ pub struct DocValues {
     /// removed on delete — conservative (a stale flag only costs the
     /// fast path, not correctness).
     pub array_fields: FxHashSet<String>,
+    /// Fields whose keyword column has EVER contained a whitespace-bearing
+    /// value.  Such a column stores an analyzed-text field's full source
+    /// string verbatim; the `term` / `terms` / fused-`bool` doc-values fast
+    /// paths compare against a single token, which can never equal a
+    /// multi-token value, so they MUST bail to the scan path for these
+    /// fields.  Computed ONCE at insert time (see `push_field`) instead of
+    /// the old O(N) `col.iter().any(is_whitespace)` prescan every query ran.
+    /// Never cleared on delete — conservative (a stale flag only sends the
+    /// query down the always-correct scan path, it can't change results),
+    /// mirroring `array_fields`.
+    pub keyword_has_whitespace: FxHashSet<String>,
     /// Incremental per-(field, order) sorted-candidate cache for the
     /// field-sorted match_all memtable arm — see
     /// `FtsMemtable::sort_candidates_cached`.  Keyed
@@ -305,6 +316,12 @@ impl DocValues {
                 kcol.push(Some(n.to_string()));
             }
             Value::String(s) => {
+                // Step 2: cache the analyzed-text eligibility flag at insert
+                // time so the term/terms/bool fast paths skip the per-query
+                // whole-column whitespace prescan.
+                if s.contains(char::is_whitespace) && !self.keyword_has_whitespace.contains(field) {
+                    self.keyword_has_whitespace.insert(field.to_string());
+                }
                 let kcol = entry_no_clone(&mut self.keyword, field, Default::default);
                 pad_to(kcol, doc_index);
                 kcol.push(Some(s.clone()));
@@ -340,6 +357,9 @@ impl DocValues {
                 ncol.push(first_num);
 
                 if let Some(ref s) = first_str {
+                    if s.contains(char::is_whitespace) && !self.keyword_has_whitespace.contains(field) {
+                        self.keyword_has_whitespace.insert(field.to_string());
+                    }
                     entry_no_clone(&mut self.keyword_set, field, Default::default).insert(s.clone());
                 }
                 let kcol = entry_no_clone(&mut self.keyword, field, Default::default);
@@ -1103,18 +1123,29 @@ impl ShardedFtsMemtable {
     /// Returns `Some(Vec<(doc_id, local_idx)>)` if any shard matched.
     /// The `local_idx` is shard-local; callers use the doc_id to
     /// resolve the source via `get_doc_source_*`.
-    pub fn doc_values_term_query(&self, field: &str, value: &str) -> Option<Vec<(String, usize)>> {
+    pub fn doc_values_term_query(
+        &self,
+        field: &str,
+        value: &str,
+        limit: usize,
+    ) -> Option<(Vec<(String, usize)>, u64)> {
         let mut out: Vec<(String, usize)> = Vec::new();
+        let mut total: u64 = 0;
         let mut any_hit = false;
         for s in &self.shards {
             let g = s.read();
-            if let Some(mut hits) = g.doc_values_term_query(field, value) {
+            // Step 1: bound the id clone to the remaining global window;
+            // the total is still exact per shard.  Mirrors
+            // `doc_values_bool_query`.
+            let room = limit.saturating_sub(out.len());
+            if let Some((mut hits, t)) = g.doc_values_term_query(field, value, room) {
                 any_hit = true;
                 out.append(&mut hits);
+                total += t;
             }
         }
         if any_hit {
-            Some(out)
+            Some((out, total))
         } else {
             None
         }
@@ -1124,18 +1155,22 @@ impl ShardedFtsMemtable {
         &self,
         field: &str,
         values: &[String],
-    ) -> Option<Vec<(String, usize)>> {
+        limit: usize,
+    ) -> Option<(Vec<(String, usize)>, u64)> {
         let mut out: Vec<(String, usize)> = Vec::new();
+        let mut total: u64 = 0;
         let mut any_hit = false;
         for s in &self.shards {
             let g = s.read();
-            if let Some(mut hits) = g.doc_values_terms_query(field, values) {
+            let room = limit.saturating_sub(out.len());
+            if let Some((mut hits, t)) = g.doc_values_terms_query(field, values, room) {
                 any_hit = true;
                 out.append(&mut hits);
+                total += t;
             }
         }
         if any_hit {
-            Some(out)
+            Some((out, total))
         } else {
             None
         }
@@ -1160,18 +1195,22 @@ impl ShardedFtsMemtable {
         gt: Option<f64>,
         lte: Option<f64>,
         lt: Option<f64>,
-    ) -> Option<Vec<(String, usize)>> {
+        limit: usize,
+    ) -> Option<(Vec<(String, usize)>, u64)> {
         let mut out: Vec<(String, usize)> = Vec::new();
+        let mut total: u64 = 0;
         let mut any_hit = false;
         for s in &self.shards {
             let g = s.read();
-            if let Some(mut hits) = g.doc_values_range_query(field, gte, gt, lte, lt) {
+            let room = limit.saturating_sub(out.len());
+            if let Some((mut hits, t)) = g.doc_values_range_query(field, gte, gt, lte, lt, room) {
                 any_hit = true;
                 out.append(&mut hits);
+                total += t;
             }
         }
         if any_hit {
-            Some(out)
+            Some((out, total))
         } else {
             None
         }
@@ -2387,10 +2426,9 @@ impl FtsMemtable {
             match p {
                 MemBoolPred::Term { field, value } => {
                     let col = self.doc_values.keyword.get(field.as_str())?;
-                    // Same analyzed-text bailout as doc_values_term_query.
-                    if col.iter().any(|v| {
-                        v.as_deref().map(|s| s.contains(char::is_whitespace)).unwrap_or(false)
-                    }) {
+                    // Step 2: analyzed-text bailout via the insert-time
+                    // cached flag instead of an O(N) per-query column prescan.
+                    if self.doc_values.keyword_has_whitespace.contains(field.as_str()) {
                         return None;
                     }
                     cols.push(Col::Kw(col, value.as_str()));
@@ -2447,27 +2485,36 @@ impl FtsMemtable {
     /// column for `field` equals `value` (case-sensitive exact match).
     ///
     /// Returns `None` when the field has no keyword column (fall back to JSON scan).
-    pub fn doc_values_term_query(&self, field: &str, value: &str) -> Option<Vec<(String, usize)>> {
+    pub fn doc_values_term_query(
+        &self,
+        field: &str,
+        value: &str,
+        limit: usize,
+    ) -> Option<(Vec<(String, usize)>, u64)> {
         let col = self.doc_values.keyword.get(field)?;
-        // Same text-field bailout as doc_values_terms_query: a whitespace-
-        // containing keyword value means the column stores the full
-        // analyzed-text source; a `term` query expects a token match which
-        // only the FTS / scan path can serve.
-        if col.iter().any(|v| v.as_deref().map(|s| s.contains(char::is_whitespace)).unwrap_or(false)) {
+        // Step 2: text-field bailout via the insert-time cached flag — a
+        // whitespace-containing keyword value means the column stores the
+        // full analyzed-text source; a `term` query expects a token match
+        // which only the FTS / scan path can serve.  Was an O(N) per-query
+        // column prescan.
+        if self.doc_values.keyword_has_whitespace.contains(field) {
             return None;
         }
-        let results = col
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, opt)| {
-                if opt.as_deref() == Some(value) {
-                    Some((self.docs[idx].doc_id.clone(), idx))
-                } else {
-                    None
+        // Step 1: walk the whole column for an exact total but only clone
+        // the doc_id String for the first `limit` matches — mirrors
+        // `doc_values_bool_hits`.  The unbounded clone was ~all-matching-doc
+        // String allocations per query at a drain-lagged memtable.
+        let mut out: Vec<(String, usize)> = Vec::new();
+        let mut total: u64 = 0;
+        for (idx, opt) in col.iter().enumerate() {
+            if opt.as_deref() == Some(value) {
+                total += 1;
+                if out.len() < limit {
+                    out.push((self.docs[idx].doc_id.clone(), idx));
                 }
-            })
-            .collect();
-        Some(results)
+            }
+        }
+        Some((out, total))
     }
 
     /// Index-only variant of `doc_values_term_query` that returns only
@@ -2531,29 +2578,32 @@ impl FtsMemtable {
         &self,
         field: &str,
         values: &[String],
-    ) -> Option<Vec<(String, usize)>> {
+        limit: usize,
+    ) -> Option<(Vec<(String, usize)>, u64)> {
         let col = self.doc_values.keyword.get(field)?;
+        // Step 2: analyzed-text bailout via the insert-time cached flag.
         // If any stored keyword value in this column contains whitespace
         // it's likely an analyzed text field whose doc-values were built
         // from the full source string (not the token stream). A `terms`
         // query compares against tokens in that case, which doc-values
         // can't serve — bail so callers fall through to the scan path.
-        if col.iter().any(|v| v.as_deref().map(|s| s.contains(char::is_whitespace)).unwrap_or(false)) {
+        if self.doc_values.keyword_has_whitespace.contains(field) {
             return None;
         }
-        let results: Vec<(String, usize)> = col
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, opt)| {
-                if let Some(v) = opt.as_deref() {
-                    if values.iter().any(|qv| qv == v) {
-                        return Some((self.docs[idx].doc_id.clone(), idx));
+        // Step 1: exact total, bounded doc_id materialisation.
+        let mut out: Vec<(String, usize)> = Vec::new();
+        let mut total: u64 = 0;
+        for (idx, opt) in col.iter().enumerate() {
+            if let Some(v) = opt.as_deref() {
+                if values.iter().any(|qv| qv == v) {
+                    total += 1;
+                    if out.len() < limit {
+                        out.push((self.docs[idx].doc_id.clone(), idx));
                     }
                 }
-                None
-            })
-            .collect();
-        Some(results)
+            }
+        }
+        Some((out, total))
     }
 
     /// Fast range query using the numeric column — O(N * f64_compare).
@@ -2568,31 +2618,37 @@ impl FtsMemtable {
         gt: Option<f64>,
         lte: Option<f64>,
         lt: Option<f64>,
-    ) -> Option<Vec<(String, usize)>> {
+        limit: usize,
+    ) -> Option<(Vec<(String, usize)>, u64)> {
         let col = self.doc_values.numeric.get(field)?;
-        let results = col
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, opt)| {
-                let v = (*opt)?;
-                let passes_lower = match (gte, gt) {
-                    (Some(b), _) => v >= b,
-                    (None, Some(b)) => v > b,
-                    (None, None) => true,
-                };
-                let passes_upper = match (lte, lt) {
-                    (Some(b), _) => v <= b,
-                    (None, Some(b)) => v < b,
-                    (None, None) => true,
-                };
-                if passes_lower && passes_upper {
-                    Some((self.docs[idx].doc_id.clone(), idx))
-                } else {
-                    None
+        // Step 1: exact total, bounded doc_id materialisation — the
+        // unbounded id clone was the biggest read-under-write term for
+        // broad range filters (~all-of-memtable String allocations/query).
+        let mut out: Vec<(String, usize)> = Vec::new();
+        let mut total: u64 = 0;
+        for (idx, opt) in col.iter().enumerate() {
+            let v = match *opt {
+                Some(v) => v,
+                None => continue,
+            };
+            let passes_lower = match (gte, gt) {
+                (Some(b), _) => v >= b,
+                (None, Some(b)) => v > b,
+                (None, None) => true,
+            };
+            let passes_upper = match (lte, lt) {
+                (Some(b), _) => v <= b,
+                (None, Some(b)) => v < b,
+                (None, None) => true,
+            };
+            if passes_lower && passes_upper {
+                total += 1;
+                if out.len() < limit {
+                    out.push((self.docs[idx].doc_id.clone(), idx));
                 }
-            })
-            .collect();
-        Some(results)
+            }
+        }
+        Some((out, total))
     }
 
     /// Return all (term, frequency) pairs for a given field from the inverted index.
