@@ -96,6 +96,25 @@ pub fn extract_text_fields_from(source: &Value) -> HashMap<String, String> {
     out
 }
 
+/// Interned document identifier.
+///
+/// One `Arc<str>` is allocated per document at insert time and its
+/// pointer is cloned (a relaxed refcount bump, no `malloc`) into every
+/// doc-id-keyed map — the postings lists, `field_lengths`, and
+/// `doc_id_index`.  Pre-interning, `insert_analyzed` paid a fresh
+/// `String` heap allocation of the doc id for EVERY (doc × token) it
+/// pushed into a posting list plus one per (doc × field) length entry —
+/// profiled as the dominant remaining under-write-lock cost on the
+/// 1M×c8 bulk ceiling (~40 ms / 10k-doc batch).  Interning collapses
+/// that to a single allocation per doc; the per-token work becomes a
+/// pointer bump inside the shard critical section.
+///
+/// `Arc<str>: Borrow<str>` and its `Hash`/`Eq` forward to the pointed-to
+/// `str`, so every existing lookup by `&str` (`remove`, `contains_key`,
+/// BM25 `field_lengths` probe) is unchanged and byte-for-byte
+/// identical to the `String`-keyed maps it replaces.
+type DocId = Arc<str>;
+
 /// Posting list entry: doc_id → term frequency.
 ///
 /// FxHashMap (rustc-hash) instead of the SipHash-keyed std HashMap:
@@ -105,7 +124,7 @@ pub fn extract_text_fields_from(source: &Value) -> HashMap<String, String> {
 /// maps are never exposed to untrusted-key HashDoS (doc ids and field
 /// names of a single tenant's own documents), so the DoS-resistant
 /// hasher buys nothing here.
-type PostingList = FxHashMap<String, u32>; // doc_id → tf
+type PostingList = FxHashMap<DocId, u32>; // doc_id → tf
 
 // ── DocValues ─────────────────────────────────────────────────────────────────
 
@@ -1410,11 +1429,11 @@ pub struct FtsMemtable {
     /// Analyzer registry.
     registry: Arc<AnalyzerRegistry>,
     /// Precomputed field lengths for BM25 scoring: field → {doc_id → token_count}
-    field_lengths: FxHashMap<String, FxHashMap<String, u32>>,
+    field_lengths: FxHashMap<String, FxHashMap<DocId, u32>>,
     /// Running average field length per field: field → (total_tokens, doc_count)
     avg_field_lengths: FxHashMap<String, (f64, u64)>,
     /// doc_id → position in self.docs for O(1) lookup
-    doc_id_index: FxHashMap<String, usize>,
+    doc_id_index: FxHashMap<DocId, usize>,
     /// Delete-aware BM25 collection statistics (Lucene/ES parity).
     ///
     /// When a document is superseded by an update (remove + re-insert) or
@@ -1523,6 +1542,13 @@ impl FtsMemtable {
         analyzed: &[(String, Vec<Token>)],
         size: usize,
     ) {
+        // Intern the doc id ONCE (one `malloc`).  Every posting / field-
+        // length / doc-id-index entry below then stores a pointer-bumped
+        // `Arc<str>` clone instead of a fresh `String` heap allocation —
+        // the per-token clone under the shard write lock becomes a
+        // relaxed refcount increment.  See `DocId` for the rationale.
+        let doc_key: DocId = Arc::from(doc_id.as_str());
+
         for (field_name, tokens) in analyzed {
             let token_count = tokens.len() as u32;
 
@@ -1530,7 +1556,7 @@ impl FtsMemtable {
             // recurs across every doc of the batch, so `entry_no_clone`
             // skips the per-doc field-key `malloc` on the hot path.
             entry_no_clone(&mut self.field_lengths, field_name, Default::default)
-                .insert(doc_id.clone(), token_count);
+                .insert(doc_key.clone(), token_count);
 
             // Update running average.
             let entry = entry_no_clone(&mut self.avg_field_lengths, field_name, || (0.0, 0));
@@ -1542,9 +1568,8 @@ impl FtsMemtable {
                 // `token.text` likewise recurs (low-cardinality keyword-ish
                 // fields), so only a genuinely new term pays the key clone.
                 let posting = entry_no_clone(field_index, &token.text, Default::default);
-                // `doc_id` is unique on the turbo path (fresh auto-id) so it
-                // always misses — the owning clone is unavoidable here.
-                *posting.entry(doc_id.clone()).or_insert(0) += 1;
+                // Interned doc id — a pointer bump, not a `String` malloc.
+                *posting.entry(doc_key.clone()).or_insert(0) += 1;
             }
         }
 
@@ -1556,7 +1581,7 @@ impl FtsMemtable {
         self.doc_values.push(&source, doc_index);
 
         // Track doc_id → index for O(1) lookup.
-        self.doc_id_index.insert(doc_id.clone(), doc_index);
+        self.doc_id_index.insert(doc_key, doc_index);
 
         self.docs.push(MemEntry {
             seq_no,
@@ -1610,7 +1635,7 @@ impl FtsMemtable {
         self.total_bytes += estimated;
 
         let doc_index = self.docs.len();
-        self.doc_id_index.insert(doc_id.clone(), doc_index);
+        self.doc_id_index.insert(Arc::from(doc_id.as_str()), doc_index);
 
         self.docs.push(MemEntry {
             seq_no,
@@ -1639,7 +1664,7 @@ impl FtsMemtable {
         self.total_bytes += estimated;
 
         let doc_index = self.docs.len();
-        self.doc_id_index.insert(doc_id.clone(), doc_index);
+        self.doc_id_index.insert(Arc::from(doc_id.as_str()), doc_index);
         self.docs.push(MemEntry {
             seq_no,
             doc_id,
@@ -1703,7 +1728,7 @@ impl FtsMemtable {
         self.total_bytes += estimated;
 
         let doc_index = self.docs.len();
-        self.doc_id_index.insert(doc_id.clone(), doc_index);
+        self.doc_id_index.insert(Arc::from(doc_id.as_str()), doc_index);
 
         self.docs.push(MemEntry {
             seq_no,
@@ -1742,6 +1767,7 @@ impl FtsMemtable {
             .or_else(|| self.registry.get_analyzer("standard"))
             .expect("standard analyzer always present");
 
+        let doc_key: DocId = Arc::from(doc_id.as_str());
         for (field_name, text) in &text_fields {
             let tokens = analyzer.analyze(text);
             let token_count = tokens.len() as u32;
@@ -1750,7 +1776,7 @@ impl FtsMemtable {
             self.field_lengths
                 .entry(field_name.clone())
                 .or_default()
-                .insert(doc_id.clone(), token_count);
+                .insert(doc_key.clone(), token_count);
 
             // Update running average.
             let entry = self.avg_field_lengths.entry(field_name.clone()).or_insert((0.0, 0));
@@ -1760,7 +1786,7 @@ impl FtsMemtable {
             let field_index = self.index.entry(field_name.clone()).or_default();
             for token in &tokens {
                 let posting = field_index.entry(token.text.clone()).or_default();
-                *posting.entry(doc_id.clone()).or_insert(0) += 1;
+                *posting.entry(doc_key.clone()).or_insert(0) += 1;
             }
         }
 
@@ -1774,8 +1800,8 @@ impl FtsMemtable {
         // Pass a reference through the Arc — DocValues reads without cloning source.
         self.doc_values.push(&source, doc_index);
 
-        // Track doc_id → index for O(1) lookup.
-        self.doc_id_index.insert(doc_id.clone(), doc_index);
+        // Track doc_id → index for O(1) lookup (interned Arc<str> key).
+        self.doc_id_index.insert(doc_key, doc_index);
 
         self.docs.push(MemEntry {
             seq_no: 0,
@@ -1905,7 +1931,10 @@ impl FtsMemtable {
         }
 
         let doc_count = if global_doc_count > 0 { global_doc_count } else { self.docs.len() as u64 };
-        let mut scores: HashMap<String, f32> = HashMap::new();
+        // Keyed by the interned `Arc<str>` doc id from the postings lists,
+        // so accumulating a term's contribution is a pointer-bump clone
+        // rather than a per-hit `String` allocation.
+        let mut scores: HashMap<DocId, f32> = HashMap::new();
 
         for token in &tokens {
             // Search across requested fields (or all indexed fields if none specified).
@@ -1956,7 +1985,7 @@ impl FtsMemtable {
 
         let mut hits: Vec<MemtableHit> = scores
             .into_iter()
-            .map(|(doc_id, score)| MemtableHit { doc_id, score })
+            .map(|(doc_id, score)| MemtableHit { doc_id: doc_id.to_string(), score })
             .collect();
 
         // Sort by score descending.
