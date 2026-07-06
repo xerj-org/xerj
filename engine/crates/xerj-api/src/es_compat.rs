@@ -9558,6 +9558,48 @@ fn es_properties_to_fields(properties: &Value) -> Vec<FieldConfig> {
             fc.options.null_value = Some(Value::String(format!("__copy_to__:{}", copy_target)));
         }
 
+        // `semantic_text` — auto-embed on ingest. Attach an EmbeddingConfig so
+        // the engine vectorises this field's text into a companion vector field
+        // (`<field>_vector`) at index time, making it kNN-searchable via the
+        // `semantic` query with zero external configuration (built-in embedder)
+        // or via the configured EmbeddingProxy when present. The native type
+        // stays `Object` (the raw text still lives in `_source`); the derived
+        // vector field carries the searchable embedding.
+        if es_type == "semantic_text" {
+            // Dimensionality for the built-in embedder — honour an explicit
+            // `dimensions`/`dims` override, else the built-in default (384).
+            // Default 384 mirrors xerj_ai::local::DEFAULT_DIMS (the built-in
+            // embedder width); kept as a literal here to avoid a build-graph
+            // dependency from xerj-api onto xerj-ai.
+            let dims = field_def
+                .get("dimensions")
+                .or_else(|| field_def.get("dims"))
+                .and_then(Value::as_u64)
+                .map(|d| d as usize)
+                .unwrap_or(384);
+            fc.options.dimensions = Some(dims);
+            // Built-in embeddings are L2-normalised → cosine similarity.
+            fc.options.similarity = Some("cosine".to_string());
+            let target_field = format!("{field_name}_vector");
+            // Allow a mapping to point at an external inference endpoint/model
+            // (`inference_id` mirrors ES 8.x semantic_text wiring); when absent
+            // the engine falls back to the zero-config built-in embedder.
+            let endpoint = field_def
+                .get("inference_endpoint")
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            let model = field_def
+                .get("inference_id")
+                .or_else(|| field_def.get("model_id"))
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            fc.embedding = Some(xerj_common::types::EmbeddingConfig {
+                endpoint,
+                model,
+                target_field: Some(target_field),
+            });
+        }
+
         // Propagate dense_vector config into FieldOptions so the search
         // path can look up similarity + dims without re-parsing the raw
         // mapping.
