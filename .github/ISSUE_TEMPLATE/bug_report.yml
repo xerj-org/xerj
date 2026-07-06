@@ -1,0 +1,121 @@
+name: "\U0001F41B Bug report"
+description: Report a defect in XERJ — including any divergence from Elasticsearch wire behavior.
+title: "[bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. XERJ aims to be a
+        drop-in, wire-compatible alternative to Elasticsearch, so please tell us
+        as precisely as possible what you did, what you expected, and what
+        actually happened.
+
+        Before filing, please:
+        - Search [existing issues](https://github.com/xerj-org/xerj/issues) to avoid duplicates.
+        - If this is a usage question rather than a defect, please use
+          [Discussions](https://github.com/xerj-org/xerj/discussions) instead.
+  - type: input
+    id: version
+    attributes:
+      label: XERJ version
+      description: Output of `xerj --version`, a release tag (e.g. `v1.0.0-rc.1`), or the commit SHA you built from.
+      placeholder: "1.0.0-rc.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: How did you install / run XERJ?
+      options:
+        - Prebuilt release binary
+        - Built from source (cargo build --release)
+        - Docker / container image
+        - Other (describe in steps below)
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system & architecture
+      description: e.g. `Ubuntu 24.04 x86_64`, `macOS 14 aarch64`, `Windows 11 x86_64`.
+      placeholder: "Ubuntu 24.04 x86_64"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: |
+        A minimal, self-contained reproduction. Prefer copy-pasteable `curl`
+        commands against the REST API (`http://localhost:9200`) including the
+        request body, so we can replay it exactly.
+      placeholder: |
+        1. Start the server: `xerj --data-dir ./data --insecure`
+        2. Create the index / index a document:
+           curl -s -XPUT localhost:9200/books/_doc/1 -H 'Content-Type: application/json' -d '{"title":"..."}'
+        3. Run the query that misbehaves:
+           curl -s -XPOST localhost:9200/books/_search -H 'Content-Type: application/json' -d '{"query":{"match":{"title":"..."}}}'
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect XERJ to return or do?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened? Include the full response body and HTTP status code if relevant.
+    validations:
+      required: true
+  - type: dropdown
+    id: es-compat
+    attributes:
+      label: Is this an Elasticsearch wire-compatibility divergence?
+      description: |
+        i.e. XERJ returns something different from what Elasticsearch returns for
+        the same request. If yes, please include the ES response you compared
+        against in the section below.
+      options:
+        - "Unknown / not sure"
+        - "Yes — XERJ diverges from Elasticsearch"
+        - "No — this is a XERJ-native issue (not an ES-compat concern)"
+    validations:
+      required: true
+  - type: textarea
+    id: es-reference
+    attributes:
+      label: Elasticsearch reference (if a compat divergence)
+      description: |
+        If you compared against Elasticsearch, tell us the ES version and paste
+        the response ES returned for the identical request. This lets us treat
+        the divergence as a conformance bug.
+      placeholder: |
+        Elasticsearch 8.13.0 returns:
+        { "hits": { "total": { "value": 5, "relation": "eq" }, ... } }
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: |
+        Server logs around the failure. Re-run with `RUST_LOG=debug` (or
+        `RUST_LOG=xerj=debug`) for more detail. Please redact any secrets.
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
+        - label: I can reproduce this with a minimal example on a clean data directory.
+          required: false

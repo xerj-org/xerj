@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "\U0001F4AC Questions & discussion"
+    url: https://github.com/xerj-org/xerj/discussions
+    about: Ask usage questions, share ideas, or discuss migrating from Elasticsearch. Please use Discussions instead of opening an issue for questions.
+  - name: "\U0001F4D6 Documentation & website"
+    url: https://xerj.org
+    about: Project documentation, getting-started guides, and API reference.
+  - name: "\U0001F4CA Benchmarks"
+    url: https://xerj.org/benchmarks
+    about: Reproducible, head-to-head benchmarks against Elasticsearch 8.13 — honest about both wins and losses.

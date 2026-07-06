@@ -6,10 +6,50 @@ on:
   pull_request:
     branches: [main]
 
+# Least-privilege by default for an OSS repo; jobs opt into more if needed.
+permissions:
+  contents: read
+
+# Cancel superseded runs on the same ref (e.g. rapid pushes to a PR branch).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  CARGO_TERM_COLOR: always
 
 jobs:
+  lint:
+    name: Format + Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/cache
+            ~/.cargo/registry/index
+            ~/.cargo/git/db
+            engine/target
+          key: ci-lint-cargo-${{ hashFiles('engine/Cargo.lock') }}
+          restore-keys: ci-lint-cargo-
+
+      - name: rustfmt (check)
+        working-directory: engine
+        run: cargo fmt --all --check
+
+      - name: clippy (deny warnings)
+        working-directory: engine
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
   build-test:
     name: Build + Test
     runs-on: ubuntu-latest
@@ -71,3 +111,57 @@ jobs:
       #   and prints the hot-path benchmark. Deterministic — no model needed.
       - name: API smoke + liveness + benchmark
         run: bash demo/playbooks/ci-check.sh
+
+  conformance:
+    name: ES-compat YAML conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/cache
+            ~/.cargo/registry/index
+            ~/.cargo/git/db
+            engine/target
+          key: ci-cargo-${{ hashFiles('engine/Cargo.lock') }}
+          restore-keys: ci-cargo-
+
+      - name: Build server + conformance runner (release)
+        working-directory: engine
+        run: cargo build --release -p xerj-server -p es-yaml-runner
+
+      - name: Boot xerj
+        working-directory: engine
+        run: |
+          set -euo pipefail
+          DATA="$(mktemp -d)"
+          echo "XERJ_DATA=$DATA" >> "$GITHUB_ENV"
+          ./target/release/xerj --insecure --data-dir "$DATA" > "$DATA/server.log" 2>&1 &
+          echo "XERJ_PID=$!" >> "$GITHUB_ENV"
+          for _ in $(seq 1 80); do
+            if curl -fs -m1 localhost:9200/_cluster/health >/dev/null 2>&1; then
+              echo "xerj is up"; exit 0
+            fi
+            sleep 0.25
+          done
+          echo "xerj failed to become healthy"; cat "$DATA/server.log"; exit 1
+
+      # The runner exits non-zero if any case fails. The 3 skipped cases do not
+      # count as failures, so a clean run gates the PR at 1326 passing / 0 failing.
+      - name: Run ES-compat YAML suite (0 failures required)
+        working-directory: engine
+        run: cargo run --release -p es-yaml-runner -- --dir tests/es-compat-yaml/yaml
+
+      - name: Server log on failure
+        if: failure()
+        run: cat "$XERJ_DATA/server.log" || true
+
+      - name: Stop xerj
+        if: always()
+        run: kill "${XERJ_PID:-}" 2>/dev/null || true

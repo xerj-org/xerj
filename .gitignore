@@ -65,3 +65,33 @@ engine/demo-data/
 !engine/IMPLEMENTATION_*.md
 scratchpad/
 engine/build.log
+
+# ----------------------------------------------------------------------
+# OSS release hygiene (added by RELEASE_HYGIENE_AUDIT). Additive only —
+# NOTE: ignoring a path does not untrack files already committed. To stop
+# shipping the internal dirs below, maintainers must also run:
+#   git rm -r --cached brief xerj-ux landing/resources/xerj-sales-kit.zip
+# ----------------------------------------------------------------------
+
+# Local Cloudflare Wrangler state (may contain account/session data).
+.wrangler/
+
+# Internal go-to-market material — not part of the OSS engine.
+# (Recommended for a separate repo; see docs/RELEASE_HYGIENE_AUDIT.md.)
+brief/
+xerj-ux/
+landing/resources/xerj-sales-kit.zip
+
+# Re-include root OSS scaffolding so the default *.md / no-extension
+# ignore above does not swallow the standard public-repo files.
+!README.md
+!LICENSE
+!LICENSE.md
+!NOTICE
+!CONTRIBUTING.md
+!CODE_OF_CONDUCT.md
+!SECURITY.md
+!CHANGELOG.md
+
+# Re-include the public architecture doc (Markdown is ignored by default above).
+!docs/ARCHITECTURE.md

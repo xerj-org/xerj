@@ -1,0 +1,71 @@
+name: "\U00002728 Feature request"
+description: Suggest a new capability, an Elasticsearch API/feature to support, or an improvement.
+title: "[feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping shape XERJ. For open-ended ideas or discussion,
+        [Discussions](https://github.com/xerj-org/xerj/discussions) is often a
+        better fit — use this form when you have a concrete proposal.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What are you trying to do, and what makes it hard or impossible today?
+      placeholder: "When migrating from Elasticsearch I need X, but XERJ currently ..."
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the feature or behavior you would like. Be as concrete as you can.
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Area
+      description: Which part of XERJ does this touch?
+      options:
+        - Query DSL / search
+        - Aggregations
+        - Vector / kNN search
+        - Bulk / indexing / ingest
+        - Index management (mappings, templates, aliases)
+        - Log analytics
+        - Cluster / distribution
+        - REST API / wire compatibility
+        - Performance
+        - Operability (config, metrics, deployment)
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: es-feature
+    attributes:
+      label: Elasticsearch equivalent (if any)
+      description: |
+        If this maps to an existing Elasticsearch API, query type, or aggregation,
+        name it and link the ES docs. This helps us prioritize for wire compatibility.
+      placeholder: "e.g. `significant_terms` aggregation, or the `_reindex` API"
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you have tried, or other designs you weighed.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing issues and discussions and did not find a duplicate.
+          required: true
+        - label: I would be willing to help implement or test this.
+          required: false
