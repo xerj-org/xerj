@@ -143,6 +143,19 @@ pub(super) struct FastCtx<'a> {
     /// the brute path renders them as "false"/"true" term keys — so the
     /// terms executor needs the mapping to reproduce that.
     bool_fields: &'a std::collections::HashSet<String>,
+    /// Top-level query filter (from `{size:0, query:Q, aggs:…}`), compiled to
+    /// a columnar predicate.  `None` == match_all (the whole corpus). When
+    /// present, EVERY executor restricts its columnar reduction to matching
+    /// segment rows (via the `fused_seg_pass` row gate + `exec_metric_top`'s
+    /// filtered loop) and every memtable-doc walk is gated by
+    /// `doc_matches_filter(doc, top_filter_query)`.  Only metric + terms aggs
+    /// support filtering; other agg types bail (None) so the caller falls back
+    /// to the exact brute path.
+    top_filter: Option<Pred>,
+    /// The original ES-JSON query for the top-level filter, used for the
+    /// memtable per-doc match (the trusted sibling of `compile_pred`, exactly
+    /// as `exec_filter` pairs them).  `None` == match_all.
+    top_filter_query: Option<Value>,
 }
 
 impl<'a> FastCtx<'a> {
@@ -237,6 +250,7 @@ impl MetricAcc {
     }
 }
 
+#[derive(Clone)]
 struct MetricSpec {
     name: String,
     kind: MetricKind,
@@ -316,10 +330,11 @@ impl Index {
     pub(super) fn try_fast_aggs(
         &self,
         aggs_def: &Value,
+        filter: Option<&Value>,
         snap: &xerj_storage::index_store::IndexSnapshot,
         segments_dir: &std::path::Path,
         bool_fields: &std::collections::HashSet<String>,
-    ) -> Option<Value> {
+    ) -> Option<(Value, Option<u64>)> {
         if fast_aggs_disabled() {
             return None;
         }
@@ -327,6 +342,17 @@ impl Index {
         if aggs_obj.is_empty() {
             return None;
         }
+
+        // Top-level query filter (`{size:0, query:Q, aggs:…}`).  `None` ==
+        // match_all — the pre-existing whole-corpus fast path.  When a filter
+        // is present we MUST be able to columnarize it (term/terms/range/
+        // match_all, or a pure-conjunction bool of those); anything else bails
+        // to the exact brute path.
+        let top_filter: Option<Pred> = match filter {
+            None => None,
+            Some(q) => Some(compile_top_pred(q)?),
+        };
+        let top_filter_query: Option<Value> = filter.cloned();
 
         // Size + delete gates.
         let seg_physical: u64 = snap.segments.iter().map(|m| m.doc_count).sum();
@@ -395,6 +421,34 @@ impl Index {
             mem_docs: std::sync::OnceLock::new(),
             needs_owned_mem,
             bool_fields,
+            top_filter,
+            top_filter_query,
+        };
+
+        // Filtered `hits.total`: the number of live docs matching the query.
+        // For match_all the caller derives it from segment + memtable counts
+        // (and later overwrites with the delete-aware live count), so we only
+        // compute a total when a filter narrowed the corpus.  No deletes are
+        // present on the fast path (gated above), so physical row counts are
+        // exact, and each memtable doc is one hit (weights affect agg
+        // `doc_count`, not `hits.total`).
+        let filtered_total: Option<u64> = match &ctx.top_filter {
+            None => None,
+            Some(pred) => {
+                let mut total: u64 = 0;
+                for seg in &ctx.segs {
+                    let sp = resolve_pred(&seg.cols, pred)?;
+                    total += seg_pred_count(&sp, seg.docs);
+                }
+                if let Some(q) = &ctx.top_filter_query {
+                    for doc in ctx.mem().iter() {
+                        if doc_matches_filter(doc, q) {
+                            total += 1;
+                        }
+                    }
+                }
+                Some(total)
+            }
         };
 
         let mut result = Map::new();
@@ -415,7 +469,7 @@ impl Index {
             result.insert(agg_name.clone(), agg_result);
         }
         resolve_sibling_pipelines(&mut result);
-        Some(Value::Object(result))
+        Some((Value::Object(result), filtered_total))
     }
 }
 
@@ -707,6 +761,19 @@ impl<'a> FastCtx<'a> {
     // ── dispatch ─────────────────────────────────────────────────────────
 
     fn exec_agg(&self, agg_type: &str, params: &Value, sub: Option<&Value>) -> Option<Value> {
+        // Under a top-level query filter only the executors that thread the
+        // filter through their columnar reduction are correct; every other
+        // agg type falls back to the exact brute path (return None).  The
+        // supported set covers the filtered-metric benchmark (avg/sum/…) and
+        // the common filtered `terms` dashboard.
+        if self.top_filter.is_some()
+            && !matches!(
+                agg_type,
+                "avg" | "sum" | "min" | "max" | "stats" | "value_count" | "terms"
+            )
+        {
+            return None;
+        }
         match agg_type {
             "avg" | "sum" | "min" | "max" | "stats" | "value_count" => {
                 if sub.is_some() {
@@ -745,6 +812,43 @@ impl<'a> FastCtx<'a> {
                 return None;
             }
         }
+
+        // ── Filtered path ────────────────────────────────────────────────
+        // A top-level query filter invalidates the O(1) precomputed column
+        // stats (they cover the whole segment).  Reduce the metric over ONLY
+        // the matching rows using the exact fused-pass fold (null handling,
+        // value_count presence semantics identical to the unfiltered path),
+        // then fold matching memtable docs with the brute extractors.
+        if self.top_filter.is_some() {
+            let spec = MetricSpec {
+                name: String::new(),
+                kind,
+                field: field.to_string(),
+                meta: None,
+            };
+            let plan = SubPlan {
+                metrics: vec![spec.clone()],
+                top_hits: None,
+                pipelines: Vec::new(),
+            };
+            let mut accs: Vec<Vec<MetricAcc>> = vec![vec![MetricAcc::default()]];
+            let mut tops: Vec<Vec<(f64, u64, DocRef)>> = vec![Vec::new()];
+            let mut ms = false;
+            for si in 0..self.segs.len() {
+                let mut slot = |_row: u32| -> Option<usize> { Some(0) };
+                self.fused_seg_pass(si, &mut slot, 1, &plan, &mut accs, &mut tops, &mut ms)?;
+            }
+            let mut acc = std::mem::take(&mut accs[0][0]);
+            if let Some(q) = &self.top_filter_query {
+                for d in self.mem().iter() {
+                    if doc_matches_filter(d, q) {
+                        Self::fold_mem_metric(d, &spec, &mut acc);
+                    }
+                }
+            }
+            return Some(Self::emit_metric(kind, &acc));
+        }
+
         let mut acc = MetricAcc::default();
         for s in &self.segs {
             match s.cols.get(field) {
@@ -807,6 +911,16 @@ impl<'a> FastCtx<'a> {
         missing_sort_seen: &mut bool,
     ) -> Option<()> {
         let seg = &self.segs[si];
+        // Top-level query filter: resolve its columnar predicate for this
+        // segment ONCE (bail the whole fast path if it can't be resolved —
+        // e.g. field-kind mismatch — so the caller uses the brute path).
+        // Rows that don't match are skipped before any bucket assignment, so
+        // every fused-pass consumer (terms, filtered metric) reduces over
+        // exactly the matching doc set.
+        let top_sp: Option<SegPred> = match &self.top_filter {
+            Some(pred) => Some(resolve_pred(&seg.cols, pred)?),
+            None => None,
+        };
         // Resolve metric columns once.
         let mut num_cols: Vec<Option<&NumericColumn>> = Vec::with_capacity(plan.metrics.len());
         let mut kw_cols: Vec<Option<&KeywordColumn>> = Vec::with_capacity(plan.metrics.len());
@@ -855,6 +969,11 @@ impl<'a> FastCtx<'a> {
         let th_dense = th_col.map_or(false, |n| n.null_bitmap.is_empty());
 
         for row in 0..seg.docs {
+            if let Some(sp) = &top_sp {
+                if !seg_pred_matches(sp, row) {
+                    continue;
+                }
+            }
             let Some(slot) = slot_of_row(row) else { continue };
             for (mi, m) in plan.metrics.iter().enumerate() {
                 match m.kind {
@@ -1099,7 +1218,12 @@ impl<'a> FastCtx<'a> {
         };
 
         let plan = self.plan_subs(sub, true)?;
-        let has_row_work = !plan.metrics.is_empty() || plan.top_hits.is_some();
+        // A top-level query filter forces the per-row pass (the `!has_row_work`
+        // segment shortcut reads whole-segment `per_ord_count`, which ignores
+        // the filter).  `fused_seg_pass` then gates rows by the filter, and
+        // the memtable arm below matches each doc against it.
+        let has_row_work =
+            !plan.metrics.is_empty() || plan.top_hits.is_some() || self.top_filter.is_some();
 
         // Global per-term state.
         struct TermState {
@@ -1272,6 +1396,13 @@ impl<'a> FastCtx<'a> {
             None => {
                 // Brute extractor semantics (multi-value, weights).
                 for (di, doc) in self.mem().iter().enumerate() {
+                    // Top-level query filter: skip non-matching memtable docs
+                    // (segment rows are already gated inside `fused_seg_pass`).
+                    if let Some(q) = &self.top_filter_query {
+                        if !doc_matches_filter(doc, q) {
+                            continue;
+                        }
+                    }
                     let weight = doc_count_weight(doc);
                     let vals = extract_field_values(doc, field);
                     for term in vals {
@@ -1920,6 +2051,12 @@ impl<'a> FastCtx<'a> {
                 Ok(Some(ColKind::Numeric)) | Ok(None) => Some(()),
                 _ => None,
             },
+            Pred::And(subs) => {
+                for s in subs {
+                    self.check_pred_kinds(s)?;
+                }
+                Some(())
+            }
         }
     }
 
@@ -2596,6 +2733,46 @@ enum Pred {
     TermKw { field: String, value: String },
     TermsKw { field: String, values: Vec<String> },
     RangeNum { field: String, lo: f64, lo_incl: bool, hi: f64, hi_incl: bool },
+    /// Conjunction of leaf predicates — a `bool` with only `must`/`filter`
+    /// clauses (produced by `compile_top_pred` for the top-level query filter;
+    /// `compile_pred` never yields this, so the filter/filters/adjacency
+    /// executors are unaffected).
+    And(Vec<Pred>),
+}
+
+/// Compile a TOP-LEVEL query filter (`{size:0, query:Q, aggs:…}`) into a
+/// columnar predicate.  Leaves delegate to the trusted `compile_pred` (kept
+/// perfectly in sync with `doc_matches_filter`); a `bool` with only
+/// `must`/`filter` clauses becomes a pure conjunction.  Anything else
+/// (must_not, should, minimum_should_match, FTS leaves, …) → `None`, so the
+/// caller falls back to the exact brute path.
+fn compile_top_pred(filter: &Value) -> Option<Pred> {
+    let obj = filter.as_object()?;
+    if obj.len() != 1 {
+        return None;
+    }
+    let (qtype, body) = obj.iter().next()?;
+    if qtype == "bool" {
+        let bo = body.as_object()?;
+        if bo.keys().any(|k| k != "must" && k != "filter") {
+            return None; // must_not / should / minimum_should_match → bail
+        }
+        let mut subs: Vec<Pred> = Vec::new();
+        for key in ["must", "filter"] {
+            if let Some(clauses) = bo.get(key) {
+                let arr = clauses.as_array()?;
+                for c in arr {
+                    subs.push(compile_top_pred(c)?);
+                }
+            }
+        }
+        return match subs.len() {
+            0 => Some(Pred::MatchAll),
+            1 => Some(subs.into_iter().next().unwrap()),
+            _ => Some(Pred::And(subs)),
+        };
+    }
+    compile_pred(filter)
 }
 
 /// Compile the (single-clause) filter queries `doc_matches_filter` supports
@@ -2684,6 +2861,8 @@ enum SegPred<'a> {
     KwEq(&'a KeywordColumn, u32, bool),
     KwIn(&'a KeywordColumn, Vec<u32>, bool),
     Num(&'a NumericColumn, f64, bool, f64, bool, bool),
+    /// Conjunction — every sub-predicate must match the row.
+    And(Vec<SegPred<'a>>),
 }
 
 fn resolve_pred<'a>(
@@ -2719,6 +2898,17 @@ fn resolve_pred<'a>(
             Some(Column::Keyword(_)) => return None,
             None => SegPred::Never,
         },
+        Pred::And(subs) => {
+            let mut resolved: Vec<SegPred<'a>> = Vec::with_capacity(subs.len());
+            for s in subs {
+                let sp = resolve_pred(cols, s)?;
+                if matches!(sp, SegPred::Never) {
+                    return Some(SegPred::Never); // short-circuit: whole AND is empty
+                }
+                resolved.push(sp);
+            }
+            SegPred::And(resolved)
+        }
     })
 }
 
@@ -2754,6 +2944,7 @@ fn seg_pred_matches(sp: &SegPred<'_>, row: u32) -> bool {
             let hi_ok = if *hi_incl { v <= *hi } else { v < *hi };
             lo_ok && hi_ok
         }
+        SegPred::And(subs) => subs.iter().all(|s| seg_pred_matches(s, row)),
     }
 }
 
@@ -2767,6 +2958,10 @@ fn seg_pred_count(sp: &SegPred<'_>, docs: u32) -> u64 {
             .map(|o| k.per_ord_count.get(*o as usize).copied().unwrap_or(0) as u64)
             .sum(),
         SegPred::Num(n, lo, lo_incl, hi, hi_incl, _) => n.range_count(*lo, *hi, *lo_incl, *hi_incl) as u64,
+        // Conjunction has no O(1) form — count matching rows directly.  Only
+        // reached from the top-level filter count (compile_pred, used by the
+        // filter/filters executors, never yields `And`).
+        SegPred::And(_) => (0..docs).filter(|&row| seg_pred_matches(sp, row)).count() as u64,
     }
 }
 

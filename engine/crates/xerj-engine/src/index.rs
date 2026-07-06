@@ -41,6 +41,82 @@ impl<'a> Drop for MergeFlagClear<'a> {
 #[path = "fast_aggs.rs"]
 mod fast_aggs;
 use crate::memtable::FtsMemtable;
+
+/// Reconstruct the ES-JSON form of a query filter that the columnar fast-agg
+/// path (`fast_aggs::compile_top_pred` + `aggs::doc_matches_filter`) can
+/// evaluate over doc-values WITHOUT hydrating `_source`.  Returns `None` for
+/// any query that isn't a plain conjunctive filter over exact/numeric fields
+/// (FTS, wild/prefix, must_not/should bool, date-string ranges, numeric term
+/// keys, …) — the caller then keeps the exact brute path.
+///
+/// Only the leaf/bool shapes that `doc_matches_filter` and `compile_pred`
+/// jointly support are emitted, so the memtable matcher and the columnar
+/// predicate stay byte-identical.
+fn query_node_to_agg_filter(node: &QueryNode) -> Option<Value> {
+    match node {
+        QueryNode::MatchAll => Some(serde_json::json!({ "match_all": {} })),
+        // Exact term — keyword (string) values only.  Numeric/bool term keys
+        // have typed-coercion subtleties, so bail (brute path handles them).
+        QueryNode::Term { field, value, .. } => match value {
+            Value::String(s) => Some(serde_json::json!({ "term": { field: s } })),
+            _ => None,
+        },
+        QueryNode::Terms { field, values, .. } => {
+            let mut strs: Vec<Value> = Vec::with_capacity(values.len());
+            for v in values {
+                match v {
+                    Value::String(s) => strs.push(Value::String(s.clone())),
+                    _ => return None,
+                }
+            }
+            Some(serde_json::json!({ "terms": { field: Value::Array(strs) } }))
+        }
+        // Numeric range only — every present bound must be a JSON number
+        // (date-string bounds compile differently and are left to the brute
+        // path).
+        QueryNode::Range { field, gte, gt, lte, lt, .. } => {
+            let mut bounds = serde_json::Map::new();
+            for (k, opt) in [("gte", gte), ("gt", gt), ("lte", lte), ("lt", lt)] {
+                if let Some(v) = opt {
+                    match v {
+                        Value::Number(_) => {
+                            bounds.insert(k.to_string(), v.clone());
+                        }
+                        _ => return None,
+                    }
+                }
+            }
+            if bounds.is_empty() {
+                return None;
+            }
+            Some(serde_json::json!({ "range": { field: Value::Object(bounds) } }))
+        }
+        // Pure conjunction: `must` + `filter` only.  `should`, `must_not` and
+        // `minimum_should_match` change matching semantics that the columnar
+        // AND / `doc_matches_filter` conjunction can't reproduce here → bail.
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            minimum_should_match,
+        } => {
+            if !should.is_empty() || !must_not.is_empty() || minimum_should_match.is_some() {
+                return None;
+            }
+            let mut clauses: Vec<Value> = Vec::with_capacity(must.len() + filter.len());
+            for c in must.iter().chain(filter.iter()) {
+                clauses.push(query_node_to_agg_filter(c)?);
+            }
+            if clauses.is_empty() {
+                // bool with no positive clauses == match_all
+                return Some(serde_json::json!({ "match_all": {} }));
+            }
+            Some(serde_json::json!({ "bool": { "filter": Value::Array(clauses) } }))
+        }
+        _ => None,
+    }
+}
 use crate::{EngineError, Result};
 
 // ── Response types ────────────────────────────────────────────────────────────
@@ -4841,21 +4917,53 @@ impl Index {
         let dbg_mem_hits = all_hits.len();
         let dbg_mem_seen = seen_ids.len();
         let dbg_mem_total = total_count;
-        if is_match_all && size == 0 && request.aggs.is_some() && request.min_score.is_none() {
+        // Extend the columnar agg fast path to FILTERED `size:0` aggs: a
+        // `{size:0, query:Q, aggs:…}` where Q is a term/terms/numeric-range/
+        // conjunctive-bool over doc-values fields.  Without this the filtered
+        // shape fell through to the full-corpus `_source` hydration path
+        // (~7.8 s on 1 M docs) while the unfiltered shape was ~0.1 ms — a
+        // ~78,000× cliff on any filtered-agg benchmark row.  The filter is
+        // evaluated columnarly (matching-row gate) and the reduction runs over
+        // only the matching docs' doc-values, byte-identical to the brute
+        // path.  Non-columnarizable queries (FTS, must_not/should bool, …)
+        // yield `agg_filter == None` here and keep the exact brute fallback.
+        let agg_filter: Option<Value> =
+            if is_match_all { None } else { query_node_to_agg_filter(query) };
+        if size == 0
+            && request.aggs.is_some()
+            && request.min_score.is_none()
+            && !query_needs_fts
+            && (is_match_all || agg_filter.is_some())
+        {
             if let Some(aggs_def) = &request.aggs {
                 let r_opt = self
-                    .try_aggs_fast_with_segments_cached(aggs_def, &snap, &segments_dir)
+                    .try_aggs_fast_with_segments_cached(
+                        aggs_def,
+                        agg_filter.as_ref(),
+                        &snap,
+                        &segments_dir,
+                    )
                     .await;
-                if let Some(r) = r_opt {
+                if let Some((r, filtered_total)) = r_opt {
                     precomputed_aggs = Some(r);
-                    // Synthesize total_count from segments + memtable so we
-                    // don't need to touch the stored section at all.
-                    let seg_docs: u64 = snap.segments.iter().map(|m| m.doc_count).sum();
-                    let mem_count = {
-                        let mem = &*self.memtable;
-                        mem.doc_count() as u64
-                    };
-                    total_count = seg_docs + mem_count;
+                    match filtered_total {
+                        // Filtered fast path already computed the matching-doc
+                        // count (exact — no deletes on the fast path).
+                        Some(t) => {
+                            total_count = t;
+                        }
+                        // match_all: synthesize total_count from segments +
+                        // memtable so we don't touch the stored section at all
+                        // (later overwritten with the delete-aware live count).
+                        None => {
+                            let seg_docs: u64 = snap.segments.iter().map(|m| m.doc_count).sum();
+                            let mem_count = {
+                                let mem = &*self.memtable;
+                                mem.doc_count() as u64
+                            };
+                            total_count = seg_docs + mem_count;
+                        }
+                    }
                 }
             }
         }
@@ -8361,9 +8469,10 @@ impl Index {
     async fn try_aggs_fast_with_segments_cached(
         &self,
         aggs_def: &Value,
+        filter: Option<&Value>,
         snap: &xerj_storage::index_store::IndexSnapshot,
         segments_dir: &std::path::Path,
-    ) -> Option<Value> {
+    ) -> Option<(Value, Option<u64>)> {
         // 2026-07 agg-hang fix: the columnar executor in `fast_aggs.rs`
         // serves `size:0 + match_all + aggs` straight from segment `.dv`
         // sidecars + the live memtable.  It bails (None) on any shape it
@@ -8386,7 +8495,7 @@ impl Index {
                 .map(|f| f.name.clone())
                 .collect()
         };
-        self.try_fast_aggs(aggs_def, snap, segments_dir, &bool_fields)
+        self.try_fast_aggs(aggs_def, filter, snap, segments_dir, &bool_fields)
     }
 }
 
