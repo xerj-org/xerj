@@ -22,8 +22,12 @@
 //   node demo/playbooks/bench-matrix.mjs --reads-only
 //   node demo/playbooks/bench-matrix.mjs --ingest-only --docs 1m --clients 1,4,8
 //
-// Requires: Node 24, global fetch, curl on PATH. No deps beyond node builtins.
+// Requires: Node 24, curl on PATH. Reads go through Node-core http keep-alive
+// (NOT the global fetch/undici — see the transport note above req()). No deps
+// beyond node builtins.
 import fs from 'node:fs';
+import http from 'node:http';
+import path from 'node:path';
 import { exec, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -34,12 +38,56 @@ const BATCH = 10000;
 const CORPUS = '/home/claude/ai/xerj/demo/data/extras/chat-events.ndjson';
 const SCRATCH = '/tmp/xerj';
 const DEFAULT_OUT = '/home/claude/ai/xerj/demo/playbooks/SCORECARD.md';
-const HEADTOHEAD_OUT = '/home/claude/ai/xerj/demo/playbooks/BENCHMARK_VS_ES.md';
+// BENCHMARK_VS_ES.md (the head-to-head slice kept for continuity with
+// bench-vs-es.mjs) is written next to whatever --out resolves to, so a
+// redirected run (e.g. --out into a worktree) keeps both files co-located
+// rather than scattering the head-to-head copy back into the default dir.
+const HEADTOHEAD_NAME = 'BENCHMARK_VS_ES.md';
+
+// ────────────────────────────── HTTP transport ──────────────────────────────
+// TRANSPORT NOTE — why NOT global fetch (undici):
+// Read latency was previously measured through Node's global `fetch` (undici),
+// which adds ~1.5ms of pure CLIENT overhead per request. That overhead swamps
+// the sub-millisecond SERVER times of BOTH engines and compresses every read
+// into a single noise band, so the scorecard measured Node's client, not the
+// engines. Measured with the IDENTICAL client hitting both engines (size:0 avg
+// over a 300k corpus):
+//   undici fetch:     XERJ 1.61ms, ES 2.77ms
+//   http keep-alive:  XERJ 0.126ms, ES 0.283ms   (~2.2× true server gap revealed)
+// A raw TCP socket is even leaner (XERJ 0.054ms) but can't parse chunked
+// responses; Node's core http parser handles BOTH content-length and chunked,
+// so it is fair to ES too. We therefore drive every request through one shared,
+// per-host keep-alive http.Agent.
+//
+// FAIRNESS INVARIANT: the SAME Agent config, SAME code path, and SAME headers
+// are applied to BOTH engines for ALL operations (reads, ingest setup, mixed,
+// kNN) — the agent is keyed ONLY by host:port, both localhost. Neither engine
+// gets any client advantage; this measures each engine's true server round-trip.
+//
+// maxSockets 256 >= the max concurrency the matrix ever offers (ingest fans out
+// up to `clients` concurrent workers via curl; mixed runs a background writer +
+// a reader burst; open-loop timed() may hold several requests in flight at once)
+// so the client never becomes the bottleneck for either engine.
+const AGENTS = new Map();
+function agentFor(hostname, port) {
+  const key = `${hostname}:${port}`;
+  let a = AGENTS.get(key);
+  if (!a) { a = new http.Agent({ keepAlive: true, maxSockets: 256 }); AGENTS.set(key, a); }
+  return a;
+}
+// Destroy all pooled keep-alive sockets so the event loop can drain and Node can
+// exit cleanly at the end of a run (keep-alive sockets would otherwise linger).
+function destroyAgents() { for (const a of AGENTS.values()) { try { a.destroy(); } catch {} } }
 
 // ────────────────────────────── helpers (lifted from bench-vs-es.mjs) ──────────────────────────────
-async function req(base, method, p, body, ndjson = false) {
+// Lean keep-alive HTTP request. Preserves the exact prior interface/semantics of
+// the fetch-based req(): returns {status, j, txt} on success and
+// {status:0, j:null, txt:'', failed:true} on collapse/timeout; injects
+// track_total_hits:true for JSON _search bodies; honours the ndjson content-type;
+// routes GET/POST/PUT/DELETE; and bounds each request at 15s (was an
+// AbortController, now a socket timeout that destroys the request → failed).
+function req(base, method, p, body, ndjson = false) {
   const headers = { 'content-type': ndjson ? 'application/x-ndjson' : 'application/json' };
-  const opts = { method, headers };
   // Apples-to-apples total-hits: ES caps hits.total.value at 10,000 by default
   // (track_total_hits=10000, relation "gte") while XERJ returns the exact total.
   // Force BOTH engines to compute the true total so (a) hit counts are
@@ -54,22 +102,37 @@ async function req(base, method, p, body, ndjson = false) {
       && /\/_search(\?|$)/.test(p) && body.track_total_hits === undefined) {
     sendBody = { ...body, track_total_hits: true };
   }
-  if (sendBody !== undefined) opts.body = ndjson ? sendBody : JSON.stringify(sendBody);
-  // Bound each request so an engine that collapses under load surfaces as a
-  // timeout (recorded, scored) instead of hanging the whole matrix.
-  const ac = new AbortController();
-  const to = setTimeout(() => ac.abort(), 15000);
-  opts.signal = ac.signal;
-  let r, txt = '', j = null, failed = false;
-  try {
-    r = await fetch(base + p, opts);
-    txt = await r.text();
-    try { j = JSON.parse(txt); } catch {}
-  } catch (e) {
-    failed = true; // timeout / connection reset — engine unresponsive under load
-  } finally { clearTimeout(to); }
-  if (failed) return { status: 0, j: null, txt: '', failed: true };
-  return { status: r.status, j, txt };
+  let payload;
+  if (sendBody !== undefined) payload = ndjson ? sendBody : JSON.stringify(sendBody);
+  if (payload !== undefined) headers['content-length'] = Buffer.byteLength(payload);
+  const u = new URL(base + p);
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (v) => { if (!settled) { settled = true; resolve(v); } };
+    const fail = () => done({ status: 0, j: null, txt: '', failed: true }); // collapse/timeout — engine unresponsive
+    const r = http.request({
+      protocol: u.protocol, hostname: u.hostname, port: u.port,
+      path: u.pathname + u.search, method, headers,
+      agent: agentFor(u.hostname, u.port),
+    }, (res) => {
+      let txt = '';
+      res.setEncoding('utf8');
+      res.on('data', (c) => { txt += c; });
+      res.on('end', () => {
+        let j = null;
+        try { j = JSON.parse(txt); } catch {}
+        done({ status: res.statusCode, j, txt });
+      });
+      res.on('error', fail);
+    });
+    // Bound each request so an engine that collapses under load surfaces as a
+    // timeout (recorded, scored) instead of hanging the whole matrix. Equivalent
+    // to the old 15s AbortController: destroy the request → 'error' → failed.
+    r.setTimeout(15000, () => r.destroy(new Error('timeout')));
+    r.on('error', fail);
+    if (payload !== undefined) r.write(payload);
+    r.end();
+  });
 }
 
 // percentile: p in [0,100], nearest-rank on a sorted copy.
@@ -135,10 +198,20 @@ function signalMismatch(xs, es) {
 //
 // Coordinated-omission correction: request start times are scheduled on a FIXED
 // cadence (t0 + i/rate) independent of when prior responses return; requests may
-// be concurrently in flight; latency is measured from the INTENDED start time, so
-// a server stall (GC/flush/merge) inflates the tail of the backlog instead of
-// silently shifting the schedule and omitting the would-be-slow samples. Also
-// reports offered vs achieved rate so the load level is visible.
+// be concurrently in flight. Latency uses the CANONICAL CO form — service time
+// PLUS any scheduling backlog: lat = (end - actualStart) + max(0, actualStart -
+// intended) = end - min(intended, actualStart). When a request starts on-or-after
+// its slot (server stall / GC / flush / merge pushes actualStart >= intended)
+// this is exactly end - intended, so the stall still inflates the backlog tail
+// instead of being silently omitted — identical to the prior formula. But it is
+// also numerically robust at SUB-MILLISECOND service times: Node's ms-resolution
+// setTimeout releases ~half of the slots a few hundred µs EARLY (measured: 70/120
+// fires up to 1.3ms before `intended`), so the old `end - intended` produced
+// NEGATIVE latencies once the lean keep-alive transport exposed <0.2ms server
+// round-trips. Measuring from min(intended, actualStart) removes that artifact
+// (a request can never be "faster than it started") while preserving CO exactly
+// in the backlog regime. Applied identically to both engines. Also reports
+// offered vs achieved rate so the load level is visible.
 async function timed(base, p, body, opts = {}) {
   const { iters = 120, warmup = 15, method = 'POST', ndjson = false, rate = 200 } = opts;
   const chk = await req(base, method, p, body, ndjson);
@@ -157,8 +230,10 @@ async function timed(base, p, body, opts = {}) {
     tasks[i] = (async () => {
       const wait = intended - performance.now();
       if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+      const start = performance.now();       // when the request actually left the client
       await req(base, method, p, body, ndjson);
-      lat[i] = performance.now() - intended; // CO-corrected: measured from intended start
+      // service time + scheduling backlog; == end - intended when start >= intended.
+      lat[i] = performance.now() - Math.min(intended, start);
     })();
   }
   await Promise.all(tasks);
@@ -746,6 +821,13 @@ async function main() {
   md += `docs = {${A.docsList.map(humanDocs).join(', ')}}, clients = {${A.clientsList.join(', ')}}.\n\n`;
   md += `Verdict is from XERJ's POV: WIN = XERJ better (lower latency / higher docs·s / smaller disk / higher recall). `;
   md += `Ratio is normalized so **>1× means XERJ is better**. Any LOSE fails CI.\n\n`;
+  md += `> **Methodology — read latency transport.** Read/mixed/kNN latencies are measured with a lean **keep-alive HTTP client** `;
+  md += `(Node core \`http\` + a shared per-host \`http.Agent\`, \`maxSockets: 256\`), applied **identically to both engines** for every `;
+  md += `operation and keyed only by \`host:port\` (both localhost). We do **not** use Node's global \`fetch\`/undici: it adds ~1.5ms of pure `;
+  md += `client overhead per request, which swamps the sub-millisecond server times of *both* engines and compresses every read into a noise band. `;
+  md += `Measured with the identical client hitting both engines (\`size:0\` avg over 300k): undici fetch → XERJ 1.61ms, ES 2.77ms; `;
+  md += `http keep-alive → XERJ 0.126ms, ES 0.283ms. The keep-alive client reveals each engine's **true server round-trip** (the ~2.2× gap the `;
+  md += `client overhead had hidden), not the Node client. Ingest/mixed/kNN bulk load uses \`curl\` identically for both engines.\n\n`;
   md += `| dimension | XERJ | ES | ratio | verdict |\n|---|--:|--:|--:|:--:|\n`;
   for (const r of rows) md += `| ${r.dim} | ${r.xs} | ${r.es} | ${r.ratio} | ${r.verdict} |\n`;
   md += `\n`;
@@ -757,11 +839,14 @@ async function main() {
   md += `_Summary: ${rows.filter((r) => r.verdict === 'WIN').length} WIN, ${loses.length} LOSE, ${rows.filter((r) => r.verdict === 'N/A').length} N/A._\n`;
 
   fs.writeFileSync(A.out, md);
-  // keep the head-to-head slice around for continuity with bench-vs-es.mjs
-  try { fs.writeFileSync(HEADTOHEAD_OUT, md); } catch {}
+  // keep the head-to-head slice around for continuity with bench-vs-es.mjs,
+  // co-located with the scorecard (dirname of A.out) so a redirected run keeps
+  // both files together.
+  try { fs.writeFileSync(path.join(path.dirname(A.out), HEADTOHEAD_NAME), md); } catch {}
   log(`\nwrote ${A.out}`);
   console.log(md);
 
+  destroyAgents(); // release keep-alive sockets so the loop can drain
   if (loses.length) { log(`\nFAIL: ${loses.length} LOSE cell(s) — ${loses.map((r) => r.dim).join('; ')}`); process.exit(1); }
 }
 
