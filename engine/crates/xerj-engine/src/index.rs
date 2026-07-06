@@ -5459,6 +5459,47 @@ impl Index {
                             &mut dbg_admitted,
                         );
                         dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
+                    } else if let Some(warm_slices) = (!sorted_candidates_path)
+                        .then(|| {
+                            self.stored_slices_cache
+                                .get(seg_id.as_str())
+                                .map(|e| Arc::clone(e.value()))
+                        })
+                        .flatten()
+                    {
+                        // Unsorted scan (bool/range, no implicit sort) reusing
+                        // the merge/flush-warmed `StoredSlices`.  `slices.bytes`
+                        // IS the decoded stored section — bit-identical to what
+                        // `decoded_stored_cache` would hold — so the FIRST
+                        // bool/range query after a merge scans it directly
+                        // instead of paying a fresh multi-100 MB decompress.
+                        // `warm_segment_at_publish` pre-warms `stored_slices_cache`
+                        // (the sorted-candidate source) but NOT
+                        // `decoded_stored_cache`; without this arm the unsorted
+                        // arm re-decompressed the merged segment on its next
+                        // touch (live dec=1.1-3.8 s spikes at every merge
+                        // completion under the mixed read/write bench).  No
+                        // extra memory: the warmed bytes are shared, not copied.
+                        let t_scan = std::time::Instant::now();
+                        self.scan_stored_section_into(
+                            &warm_slices.bytes,
+                            query,
+                            is_match_all,
+                            count_only,
+                            materialisation_limit,
+                            count_authoritative,
+                            &mut total_count,
+                            &mut all_hits,
+                            &mut seen_ids,
+                            pre_filter.as_deref(),
+                            sort_topk.as_mut(),
+                            None,
+                            Some(search_deadline),
+                            &mut deadline_exceeded,
+                            &mut dbg_walked,
+                            &mut dbg_admitted,
+                        );
+                        dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
                     } else {
                         // Merge-race hardening (2026-07): a snapshot
                         // segment that fails to open is a query error, not

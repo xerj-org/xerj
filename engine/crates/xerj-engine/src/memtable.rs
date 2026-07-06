@@ -7,6 +7,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::OnceLock;
 
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde_json::Value;
@@ -60,6 +61,20 @@ struct MemEntry {
     /// `Value::Null`.  This lets the bulk hot path SKIP the doc-body parse
     /// entirely and push work to the background flush thread pool.
     source_bytes: Arc<[u8]>,
+    /// M5.18 — read-side memo for the M5.11 deferred parse.  When `source`
+    /// is `Null` and `source_bytes` is non-empty, the FIRST read that needs
+    /// the parsed `Value` (`resolve_source*`, `get_doc_source_arc`) parses
+    /// the bytes once and caches the resulting `Arc<Value>` here; every
+    /// subsequent read/scan is an `Arc::clone` instead of a per-doc
+    /// `serde_json::from_slice`.  Under the mixed read-under-write cluster a
+    /// range/bool scan walks the whole buffered memtable, so without this
+    /// memo each query re-parsed ~10⁵–10⁶ raw-bytes docs (live WARN:
+    /// mem_admit=2151 ms spike on one range read).  Inline `OnceLock` →
+    /// `OnceLock::new()` is a const, so the ingest hot path pays NO extra
+    /// heap allocation; the cell only allocates a `Value` when actually
+    /// read.  Empty (never initialised) for eager entries where `source`
+    /// already holds the parsed tree.
+    parsed_memo: OnceLock<Arc<Value>>,
     /// Approximate byte size for flush threshold tracking.
     size_bytes: usize,
 }
@@ -1472,6 +1487,7 @@ impl FtsMemtable {
             doc_id,
             source,
             source_bytes: Arc::from(&[][..]),
+            parsed_memo: OnceLock::new(),
             size_bytes: size,
         });
     }
@@ -1525,6 +1541,7 @@ impl FtsMemtable {
             doc_id,
             source: Arc::new(Value::Null),
             source_bytes,
+            parsed_memo: OnceLock::new(),
             size_bytes: estimated,
         });
     }
@@ -1552,6 +1569,7 @@ impl FtsMemtable {
             doc_id,
             source: Arc::new(Value::Null),
             source_bytes,
+            parsed_memo: OnceLock::new(),
             size_bytes: estimated,
         });
     }
@@ -1616,6 +1634,7 @@ impl FtsMemtable {
             doc_id,
             source,
             source_bytes: Arc::from(&[][..]),
+            parsed_memo: OnceLock::new(),
             size_bytes: estimated,
         });
     }
@@ -1688,6 +1707,7 @@ impl FtsMemtable {
             // Arc clone = atomic refcount increment (cheap pointer copy).
             source,
             source_bytes: Arc::from(&[][..]),
+            parsed_memo: OnceLock::new(),
             size_bytes: size,
         });
         let _ = text_fields; // consumed above by inverted-index build
@@ -1899,7 +1919,7 @@ impl FtsMemtable {
     /// the M5.11 deferred-parse path used by `insert_raw_bytes_with_seq`.
     fn resolve_source(entry: &MemEntry) -> Value {
         if entry.source.is_null() && !entry.source_bytes.is_empty() {
-            serde_json::from_slice(&entry.source_bytes).unwrap_or(Value::Null)
+            (**Self::memoized_parsed(entry)).clone()
         } else {
             (*entry.source).clone()
         }
@@ -1909,10 +1929,23 @@ impl FtsMemtable {
     /// HTTP-bulk path where the parsed source is already Arc-stored.
     fn resolve_source_arc(entry: &MemEntry) -> Arc<Value> {
         if entry.source.is_null() && !entry.source_bytes.is_empty() {
-            Arc::new(serde_json::from_slice(&entry.source_bytes).unwrap_or(Value::Null))
+            Arc::clone(Self::memoized_parsed(entry))
         } else {
             Arc::clone(&entry.source)
         }
+    }
+
+    /// Parse `entry.source_bytes` at most once, caching the result in the
+    /// entry's `parsed_memo`.  All read paths for M5.11 raw-bytes entries
+    /// funnel through here so a scan of the buffered memtable parses each
+    /// doc a single time for the memtable's lifetime instead of once per
+    /// query.  The bytes are immutable for a given entry (a doc update
+    /// creates a fresh `MemEntry` with a fresh memo), so the cache never
+    /// goes stale.
+    fn memoized_parsed(entry: &MemEntry) -> &Arc<Value> {
+        entry
+            .parsed_memo
+            .get_or_init(|| Arc::new(serde_json::from_slice(&entry.source_bytes).unwrap_or(Value::Null)))
     }
 
     /// All (doc_id, source) pairs WITHOUT deep-cloning the source trees.
@@ -1954,14 +1987,7 @@ impl FtsMemtable {
 
     /// Return the Arc-wrapped source for a document by ID.
     pub fn get_doc_source_arc(&self, doc_id: &str) -> Option<Arc<Value>> {
-        self.entry_for(doc_id)
-            .map(|e| {
-                if e.source.is_null() && !e.source_bytes.is_empty() {
-                    Arc::new(serde_json::from_slice(&e.source_bytes).unwrap_or(Value::Null))
-                } else {
-                    Arc::clone(&e.source)
-                }
-            })
+        self.entry_for(doc_id).map(Self::resolve_source_arc)
     }
 
     /// Iterate all stored documents as (doc_id, original_source) pairs.
