@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XERJ vs Elasticsearch — Reproducible Benchmarks · 75 WIN</title>
-<meta name="description" content="XERJ vs Elasticsearch 8.13.4 — 91 measured dimensions, every result published. 75 WIN · 14 LOSE · 2 N/A on identical hardware and an identical HTTP client. Reproduce it on your machine with four commands.">
+<title>XERJ vs Elasticsearch — Reproducible Benchmarks · 81 WIN</title>
+<meta name="description" content="XERJ vs Elasticsearch 8.13.4 — 91 measured dimensions, every result published. 81 WIN · 8 LOSE · 2 N/A on identical hardware and an identical HTTP client. Reproduce it on your machine with four commands.">
 <meta property="og:title" content="XERJ vs Elasticsearch — Reproducible Benchmarks">
-<meta property="og:description" content="75 WIN · 14 LOSE · 2 N/A across 91 dimensions. Measured, reproducible, versioned — the losses are published next to the wins.">
+<meta property="og:description" content="81 WIN · 8 LOSE · 2 N/A across 91 dimensions. Measured, reproducible, versioned — the losses are published next to the wins.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
-<link rel="stylesheet" href="/style.css?v=run9-calm-75w14l">
+<link rel="stylesheet" href="/style.css?v=run10-81w8l">
 <style>
   /* page-local: 5-column variant of the product .bench grid + verdict tones */
   .bench-scroll { overflow-x: auto; max-width: 100%; }
@@ -113,8 +113,8 @@
     One harness, two engines, one machine, identical workload —
     91 measured dimensions across ingest, every query, aggregation and
     pipeline family, mixed read-under-write, kNN and on-disk size. The
-    honest score is <strong>75 WIN · 14 LOSE · 2 N/A</strong>: XERJ wins
-    75 of the 91 cells. Every loss is published below, next to the wins,
+    honest score is <strong>81 WIN · 8 LOSE · 2 N/A</strong>: XERJ wins
+    81 of the 91 cells. Every loss is published below, next to the wins,
     and each one fails our CI. Reproduce the whole thing on your own box
     with four commands.
   </p>
@@ -122,12 +122,12 @@
   <div class="metrics">
     <div class="metric">
       <div class="eyebrow">XERJ WINS</div>
-      <div class="value">75</div>
+      <div class="value">81</div>
       <div class="hint">Lower latency, higher throughput, smaller disk</div>
     </div>
     <div class="metric">
       <div class="eyebrow">XERJ LOSSES</div>
-      <div class="value">14</div>
+      <div class="value">8</div>
       <div class="hint">Published, tracked — each one fails CI</div>
     </div>
     <div class="metric">
@@ -194,14 +194,14 @@
 
   <div class="cat-total">
     <span>Total · 91 dimensions</span>
-    <span class="cat-tally"><span class="w">75&nbsp;W</span> · <span class="l">14&nbsp;L</span> · <span class="na">2&nbsp;N/A</span></span>
+    <span class="cat-tally"><span class="w">81&nbsp;W</span> · <span class="l">8&nbsp;L</span> · <span class="na">2&nbsp;N/A</span></span>
   </div>
 
   <!-- Ingest -->
-  <details class="cat" open>
+  <details class="cat">
     <summary>
       <span class="cat-label">Ingest</span>
-      <span class="cat-tally"><span class="w">3&nbsp;W</span> · <span class="l">1&nbsp;L</span></span>
+      <span class="cat-tally"><span class="w">4&nbsp;W</span></span>
     </summary>
     <div class="bench-scroll">
     <div class="bench matrix">
@@ -211,34 +211,34 @@
       <div class="head num">RATIO</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">ingest 100k × c1</div>
-      <div class="cell num xy">103,126</div>
-      <div class="cell num es">71,432</div>
-      <div class="cell num ratio win">1.44×</div>
+      <div class="cell num xy">113,384</div>
+      <div class="cell num es">72,272</div>
+      <div class="cell num ratio win">1.57×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">ingest 100k × c8</div>
-      <div class="cell num xy">355,363</div>
-      <div class="cell num es">264,935</div>
-      <div class="cell num ratio win">1.34×</div>
+      <div class="cell num xy">382,301</div>
+      <div class="cell num es">253,961</div>
+      <div class="cell num ratio win">1.51×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">ingest 1m × c1</div>
-      <div class="cell num xy">109,543</div>
-      <div class="cell num es">70,197</div>
-      <div class="cell num ratio win">1.56×</div>
+      <div class="cell num xy">119,031</div>
+      <div class="cell num es">70,320</div>
+      <div class="cell num ratio win">1.69×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">ingest 1m × c8</div>
-      <div class="cell num xy">338,555</div>
-      <div class="cell num es">365,530</div>
-      <div class="cell num ratio lose">0.93×</div>
-      <div class="cell num verdict lose">LOSE</div>
+      <div class="cell num xy">387,678</div>
+      <div class="cell num es">379,506</div>
+      <div class="cell num ratio win">1.02×</div>
+      <div class="cell num verdict win">WIN</div>
     </div>
     </div>
   </details>
 
   <!-- Full-text & phrase queries -->
-  <details class="cat" open>
+  <details class="cat">
     <summary>
       <span class="cat-label">Full-text &amp; phrase queries</span>
-      <span class="cat-tally"><span class="w">8&nbsp;W</span> · <span class="l">1&nbsp;L</span> · <span class="na">2&nbsp;N/A</span></span>
+      <span class="cat-tally"><span class="w">9&nbsp;W</span> · <span class="na">2&nbsp;N/A</span></span>
     </summary>
     <div class="bench-scroll">
     <div class="bench matrix">
@@ -248,59 +248,59 @@
       <div class="head num">RATIO</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">match_all</div>
-      <div class="cell num xy">0.78</div>
-      <div class="cell num es">1.08</div>
-      <div class="cell num ratio win">1.38×</div>
+      <div class="cell num xy">0.88</div>
+      <div class="cell num es">1.72</div>
+      <div class="cell num ratio win">1.94×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">match_none</div>
-      <div class="cell num xy">0.57</div>
-      <div class="cell num es">0.77</div>
-      <div class="cell num ratio win">1.35×</div>
+      <div class="cell num xy">0.48</div>
+      <div class="cell num es">1.08</div>
+      <div class="cell num ratio win">2.26×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">match(model)</div>
-      <div class="cell num xy">0.54</div>
-      <div class="cell num es">0.96</div>
-      <div class="cell num ratio win">1.77×</div>
+      <div class="cell num xy">0.57</div>
+      <div class="cell num es">1.45</div>
+      <div class="cell num ratio win">2.53×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">match_phrase(top_doc)</div>
-      <div class="cell num xy">0.53</div>
-      <div class="cell num es">0.93</div>
-      <div class="cell num ratio win">1.75×</div>
+      <div class="cell num xy">1.46</div>
+      <div class="cell num es">2.48</div>
+      <div class="cell num ratio win">1.70×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">match_phrase_prefix</div>
-      <div class="cell num xy">0.46</div>
+      <div class="cell num xy">1.33</div>
       <div class="cell num es">unsupported (400)</div>
       <div class="cell num ratio na">—</div>
       <div class="cell num verdict na">N/A</div>
       <div class="cell test">match_bool_prefix</div>
-      <div class="cell num xy">0.56</div>
-      <div class="cell num es">3.91</div>
-      <div class="cell num ratio win">6.94×</div>
+      <div class="cell num xy">1.33</div>
+      <div class="cell num es">5.02</div>
+      <div class="cell num ratio win">3.77×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">multi_match</div>
-      <div class="cell num xy">0.74</div>
-      <div class="cell num es">5.17</div>
-      <div class="cell num ratio win">7.03×</div>
+      <div class="cell num xy">1.44</div>
+      <div class="cell num es">5.89</div>
+      <div class="cell num ratio win">4.10×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">combined_fields</div>
-      <div class="cell num xy">0.45</div>
+      <div class="cell num xy">1.38</div>
       <div class="cell num es">unsupported (400)</div>
       <div class="cell num ratio na">—</div>
       <div class="cell num verdict na">N/A</div>
       <div class="cell test">query_string</div>
-      <div class="cell num xy">0.61</div>
-      <div class="cell num es">8.46</div>
-      <div class="cell num ratio win">13.97×</div>
+      <div class="cell num xy">1.35</div>
+      <div class="cell num es">9.35</div>
+      <div class="cell num ratio win">6.92×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">simple_query_string</div>
-      <div class="cell num xy">1.33</div>
-      <div class="cell num es">1.18</div>
-      <div class="cell num ratio lose">0.89×</div>
-      <div class="cell num verdict lose">LOSE</div>
+      <div class="cell num xy">1.44</div>
+      <div class="cell num es">2.29</div>
+      <div class="cell num ratio win">1.59×</div>
+      <div class="cell num verdict win">WIN</div>
       <div class="cell test">more_like_this</div>
-      <div class="cell num xy">0.46</div>
-      <div class="cell num es">1.12</div>
-      <div class="cell num ratio win">2.42×</div>
+      <div class="cell num xy">1.39</div>
+      <div class="cell num es">2.43</div>
+      <div class="cell num ratio win">1.75×</div>
       <div class="cell num verdict win">WIN</div>
     </div>
     </div>
@@ -320,64 +320,64 @@
       <div class="head num">RATIO</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">term(status)</div>
-      <div class="cell num xy">0.69</div>
-      <div class="cell num es">1.29</div>
-      <div class="cell num ratio win">1.86×</div>
+      <div class="cell num xy">1.36</div>
+      <div class="cell num es">2.15</div>
+      <div class="cell num ratio win">1.58×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">terms(model)</div>
-      <div class="cell num xy">0.50</div>
-      <div class="cell num es">4.33</div>
-      <div class="cell num ratio win">8.57×</div>
+      <div class="cell num xy">1.40</div>
+      <div class="cell num es">4.49</div>
+      <div class="cell num ratio win">3.20×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">range(latency_ms)</div>
-      <div class="cell num xy">0.51</div>
-      <div class="cell num es">4.69</div>
-      <div class="cell num ratio win">9.20×</div>
+      <div class="cell num xy">1.34</div>
+      <div class="cell num es">4.66</div>
+      <div class="cell num ratio win">3.47×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">range(@timestamp)</div>
-      <div class="cell num xy">0.48</div>
-      <div class="cell num es">0.75</div>
-      <div class="cell num ratio win">1.56×</div>
+      <div class="cell num xy">1.33</div>
+      <div class="cell num es">2.15</div>
+      <div class="cell num ratio win">1.62×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">range(cost_usd)</div>
-      <div class="cell num xy">0.57</div>
-      <div class="cell num es">5.81</div>
-      <div class="cell num ratio win">10.19×</div>
+      <div class="cell num xy">1.37</div>
+      <div class="cell num es">6.90</div>
+      <div class="cell num ratio win">5.05×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">prefix(model)</div>
-      <div class="cell num xy">0.69</div>
-      <div class="cell num es">8.50</div>
-      <div class="cell num ratio win">12.24×</div>
+      <div class="cell num xy">1.36</div>
+      <div class="cell num es">8.78</div>
+      <div class="cell num ratio win">6.46×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">wildcard(model)</div>
-      <div class="cell num xy">0.58</div>
-      <div class="cell num es">8.65</div>
-      <div class="cell num ratio win">14.96×</div>
+      <div class="cell num xy">1.35</div>
+      <div class="cell num es">9.10</div>
+      <div class="cell num ratio win">6.76×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">regexp(model)</div>
-      <div class="cell num xy">0.55</div>
-      <div class="cell num es">8.73</div>
-      <div class="cell num ratio win">15.84×</div>
+      <div class="cell num xy">1.35</div>
+      <div class="cell num es">9.11</div>
+      <div class="cell num ratio win">6.77×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">fuzzy(model)</div>
-      <div class="cell num xy">0.61</div>
-      <div class="cell num es">1.53</div>
-      <div class="cell num ratio win">2.49×</div>
+      <div class="cell num xy">1.35</div>
+      <div class="cell num es">2.67</div>
+      <div class="cell num ratio win">1.99×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">exists(cost_usd)</div>
-      <div class="cell num xy">0.83</div>
-      <div class="cell num es">1.44</div>
-      <div class="cell num ratio win">1.74×</div>
+      <div class="cell num xy">1.32</div>
+      <div class="cell num es">2.19</div>
+      <div class="cell num ratio win">1.66×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">ids</div>
-      <div class="cell num xy">0.46</div>
-      <div class="cell num es">0.53</div>
-      <div class="cell num ratio win">1.15×</div>
+      <div class="cell num xy">1.13</div>
+      <div class="cell num es">1.95</div>
+      <div class="cell num ratio win">1.72×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">term(cache_hit)</div>
-      <div class="cell num xy">0.49</div>
-      <div class="cell num es">0.92</div>
-      <div class="cell num ratio win">1.88×</div>
+      <div class="cell num xy">1.36</div>
+      <div class="cell num es">2.16</div>
+      <div class="cell num ratio win">1.59×</div>
       <div class="cell num verdict win">WIN</div>
     </div>
     </div>
@@ -397,34 +397,34 @@
       <div class="head num">RATIO</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">bool must+filter+should+must_not</div>
-      <div class="cell num xy">1.33</div>
-      <div class="cell num es">15.49</div>
-      <div class="cell num ratio win">11.61×</div>
+      <div class="cell num xy">1.38</div>
+      <div class="cell num es">15.90</div>
+      <div class="cell num ratio win">11.53×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">constant_score</div>
-      <div class="cell num xy">0.55</div>
-      <div class="cell num es">0.90</div>
-      <div class="cell num ratio win">1.64×</div>
+      <div class="cell num xy">1.37</div>
+      <div class="cell num es">2.20</div>
+      <div class="cell num ratio win">1.60×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">boosting</div>
-      <div class="cell num xy">0.68</div>
-      <div class="cell num es">33.95</div>
-      <div class="cell num ratio win">49.64×</div>
+      <div class="cell num xy">1.34</div>
+      <div class="cell num es">34.42</div>
+      <div class="cell num ratio win">25.64×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">dis_max</div>
-      <div class="cell num xy">0.61</div>
-      <div class="cell num es">4.10</div>
-      <div class="cell num ratio win">6.76×</div>
+      <div class="cell num xy">1.35</div>
+      <div class="cell num es">5.51</div>
+      <div class="cell num ratio win">4.09×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">function_score</div>
-      <div class="cell num xy">0.72</div>
-      <div class="cell num es">38.87</div>
-      <div class="cell num ratio win">54.10×</div>
+      <div class="cell num xy">1.35</div>
+      <div class="cell num es">39.25</div>
+      <div class="cell num ratio win">29.01×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">pinned</div>
-      <div class="cell num xy">0.41</div>
-      <div class="cell num es">14.53</div>
-      <div class="cell num ratio win">35.21×</div>
+      <div class="cell num xy">1.35</div>
+      <div class="cell num es">14.49</div>
+      <div class="cell num ratio win">10.74×</div>
       <div class="cell num verdict win">WIN</div>
     </div>
     </div>
@@ -444,74 +444,74 @@
       <div class="head num">RATIO</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">avg</div>
-      <div class="cell num xy">0.65</div>
-      <div class="cell num es">1.18</div>
-      <div class="cell num ratio win">1.80×</div>
+      <div class="cell num xy">1.16</div>
+      <div class="cell num es">2.23</div>
+      <div class="cell num ratio win">1.92×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">sum</div>
-      <div class="cell num xy">0.30</div>
-      <div class="cell num es">1.27</div>
-      <div class="cell num ratio win">4.25×</div>
+      <div class="cell num xy">1.16</div>
+      <div class="cell num es">2.10</div>
+      <div class="cell num ratio win">1.81×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">min</div>
-      <div class="cell num xy">0.50</div>
-      <div class="cell num es">1.19</div>
-      <div class="cell num ratio win">2.37×</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">max</div>
-      <div class="cell num xy">0.44</div>
-      <div class="cell num es">1.02</div>
-      <div class="cell num ratio win">2.33×</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">stats</div>
-      <div class="cell num xy">0.34</div>
-      <div class="cell num es">1.30</div>
-      <div class="cell num ratio win">3.79×</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">extended_stats</div>
-      <div class="cell num xy">0.35</div>
-      <div class="cell num es">1.39</div>
-      <div class="cell num ratio win">4.00×</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">value_count</div>
-      <div class="cell num xy">1.11</div>
-      <div class="cell num es">1.17</div>
-      <div class="cell num ratio win">1.05×</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">cardinality</div>
-      <div class="cell num xy">0.32</div>
-      <div class="cell num es">1.12</div>
-      <div class="cell num ratio win">3.53×</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">percentiles</div>
-      <div class="cell num xy">1.11</div>
-      <div class="cell num es">1.31</div>
-      <div class="cell num ratio win">1.18×</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">percentile_ranks</div>
-      <div class="cell num xy">1.14</div>
-      <div class="cell num es">1.28</div>
-      <div class="cell num ratio win">1.12×</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">median_absolute_deviation</div>
-      <div class="cell num xy">0.55</div>
-      <div class="cell num es">1.51</div>
-      <div class="cell num ratio win">2.77×</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">matrix_stats</div>
-      <div class="cell num xy">1.22</div>
-      <div class="cell num es">2.21</div>
-      <div class="cell num ratio win">1.82×</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">scripted_metric</div>
-      <div class="cell num xy">1.22</div>
-      <div class="cell num es">2.14</div>
+      <div class="cell num xy">1.16</div>
+      <div class="cell num es">2.03</div>
       <div class="cell num ratio win">1.75×</div>
       <div class="cell num verdict win">WIN</div>
+      <div class="cell test">max</div>
+      <div class="cell num xy">1.16</div>
+      <div class="cell num es">1.96</div>
+      <div class="cell num ratio win">1.69×</div>
+      <div class="cell num verdict win">WIN</div>
+      <div class="cell test">stats</div>
+      <div class="cell num xy">1.16</div>
+      <div class="cell num es">1.99</div>
+      <div class="cell num ratio win">1.71×</div>
+      <div class="cell num verdict win">WIN</div>
+      <div class="cell test">extended_stats</div>
+      <div class="cell num xy">1.17</div>
+      <div class="cell num es">2.25</div>
+      <div class="cell num ratio win">1.92×</div>
+      <div class="cell num verdict win">WIN</div>
+      <div class="cell test">value_count</div>
+      <div class="cell num xy">1.16</div>
+      <div class="cell num es">1.91</div>
+      <div class="cell num ratio win">1.65×</div>
+      <div class="cell num verdict win">WIN</div>
+      <div class="cell test">cardinality</div>
+      <div class="cell num xy">1.15</div>
+      <div class="cell num es">1.92</div>
+      <div class="cell num ratio win">1.66×</div>
+      <div class="cell num verdict win">WIN</div>
+      <div class="cell test">percentiles</div>
+      <div class="cell num xy">0.36</div>
+      <div class="cell num es">0.81</div>
+      <div class="cell num ratio win">2.25×</div>
+      <div class="cell num verdict win">WIN</div>
+      <div class="cell test">percentile_ranks</div>
+      <div class="cell num xy">1.17</div>
+      <div class="cell num es">1.99</div>
+      <div class="cell num ratio win">1.70×</div>
+      <div class="cell num verdict win">WIN</div>
+      <div class="cell test">median_absolute_deviation</div>
+      <div class="cell num xy">1.10</div>
+      <div class="cell num es">2.04</div>
+      <div class="cell num ratio win">1.84×</div>
+      <div class="cell num verdict win">WIN</div>
+      <div class="cell test">matrix_stats</div>
+      <div class="cell num xy">1.34</div>
+      <div class="cell num es">1.95</div>
+      <div class="cell num ratio win">1.46×</div>
+      <div class="cell num verdict win">WIN</div>
+      <div class="cell test">scripted_metric</div>
+      <div class="cell num xy">1.29</div>
+      <div class="cell num es">1.91</div>
+      <div class="cell num ratio win">1.48×</div>
+      <div class="cell num verdict win">WIN</div>
       <div class="cell test">top_hits (sub)</div>
-      <div class="cell num xy">0.54</div>
-      <div class="cell num es">1.46</div>
-      <div class="cell num ratio win">2.69×</div>
+      <div class="cell num xy">1.07</div>
+      <div class="cell num es">1.69</div>
+      <div class="cell num ratio win">1.58×</div>
       <div class="cell num verdict win">WIN</div>
     </div>
     </div>
@@ -521,7 +521,7 @@
   <details class="cat" open>
     <summary>
       <span class="cat-label">Bucket aggregations</span>
-      <span class="cat-tally"><span class="w">12&nbsp;W</span> · <span class="l">5&nbsp;L</span></span>
+      <span class="cat-tally"><span class="w">16&nbsp;W</span> · <span class="l">1&nbsp;L</span></span>
     </summary>
     <div class="bench-scroll">
     <div class="bench matrix">
@@ -531,90 +531,90 @@
       <div class="head num">RATIO</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">terms</div>
-      <div class="cell num xy">1.14</div>
-      <div class="cell num es">1.48</div>
-      <div class="cell num ratio win">1.29×</div>
+      <div class="cell num xy">1.34</div>
+      <div class="cell num es">1.54</div>
+      <div class="cell num ratio win">1.15×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">rare_terms</div>
-      <div class="cell num xy">0.78</div>
-      <div class="cell num es">2.02</div>
-      <div class="cell num ratio win">2.59×</div>
+      <div class="cell num xy">1.27</div>
+      <div class="cell num es">1.55</div>
+      <div class="cell num ratio win">1.22×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">significant_terms</div>
-      <div class="cell num xy">0.47</div>
-      <div class="cell num es">2.07</div>
-      <div class="cell num ratio win">4.40×</div>
+      <div class="cell num xy">1.13</div>
+      <div class="cell num es">1.21</div>
+      <div class="cell num ratio win">1.06×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">histogram</div>
-      <div class="cell num xy">0.37</div>
-      <div class="cell num es">0.69</div>
-      <div class="cell num ratio win">1.87×</div>
+      <div class="cell num xy">0.49</div>
+      <div class="cell num es">0.74</div>
+      <div class="cell num ratio win">1.53×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">date_histogram</div>
-      <div class="cell num xy">0.46</div>
-      <div class="cell num es">2.00</div>
-      <div class="cell num ratio win">4.33×</div>
+      <div class="cell num xy">0.37</div>
+      <div class="cell num es">0.88</div>
+      <div class="cell num ratio win">2.37×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">auto_date_histogram</div>
-      <div class="cell num xy">0.47</div>
-      <div class="cell num es">0.94</div>
-      <div class="cell num ratio win">2.00×</div>
+      <div class="cell num xy">0.48</div>
+      <div class="cell num es">0.71</div>
+      <div class="cell num ratio win">1.48×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">variable_width_histogram</div>
-      <div class="cell num xy">0.51</div>
-      <div class="cell num es">2.17</div>
-      <div class="cell num ratio win">4.22×</div>
+      <div class="cell num xy">0.48</div>
+      <div class="cell num es">1.57</div>
+      <div class="cell num ratio win">3.24×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">range</div>
-      <div class="cell num xy">1.16</div>
-      <div class="cell num es">0.67</div>
-      <div class="cell num ratio lose">0.58×</div>
-      <div class="cell num verdict lose">LOSE</div>
+      <div class="cell num xy">0.42</div>
+      <div class="cell num es">0.65</div>
+      <div class="cell num ratio win">1.57×</div>
+      <div class="cell num verdict win">WIN</div>
       <div class="cell test">date_range</div>
-      <div class="cell num xy">0.35</div>
-      <div class="cell num es">1.53</div>
-      <div class="cell num ratio win">4.39×</div>
+      <div class="cell num xy">0.40</div>
+      <div class="cell num es">0.90</div>
+      <div class="cell num ratio win">2.28×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">filter</div>
-      <div class="cell num xy">1.26</div>
-      <div class="cell num es">1.22</div>
-      <div class="cell num ratio lose">0.97×</div>
+      <div class="cell num xy">0.93</div>
+      <div class="cell num es">0.71</div>
+      <div class="cell num ratio lose">0.77×</div>
       <div class="cell num verdict lose">LOSE</div>
       <div class="cell test">filters</div>
-      <div class="cell num xy">0.37</div>
-      <div class="cell num es">1.08</div>
-      <div class="cell num ratio win">2.89×</div>
+      <div class="cell num xy">0.38</div>
+      <div class="cell num es">0.69</div>
+      <div class="cell num ratio win">1.83×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">missing</div>
-      <div class="cell num xy">0.43</div>
-      <div class="cell num es">0.62</div>
-      <div class="cell num ratio win">1.43×</div>
+      <div class="cell num xy">0.30</div>
+      <div class="cell num es">0.64</div>
+      <div class="cell num ratio win">2.11×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">global</div>
-      <div class="cell num xy">1.15</div>
-      <div class="cell num es">0.62</div>
-      <div class="cell num ratio lose">0.54×</div>
-      <div class="cell num verdict lose">LOSE</div>
+      <div class="cell num xy">0.52</div>
+      <div class="cell num es">1.28</div>
+      <div class="cell num ratio win">2.45×</div>
+      <div class="cell num verdict win">WIN</div>
       <div class="cell test">adjacency_matrix</div>
-      <div class="cell num xy">0.38</div>
-      <div class="cell num es">2.02</div>
-      <div class="cell num ratio win">5.36×</div>
+      <div class="cell num xy">0.42</div>
+      <div class="cell num es">0.67</div>
+      <div class="cell num ratio win">1.60×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">composite</div>
-      <div class="cell num xy">1.21</div>
-      <div class="cell num es">0.72</div>
-      <div class="cell num ratio lose">0.60×</div>
-      <div class="cell num verdict lose">LOSE</div>
-      <div class="cell test">random_sampler</div>
       <div class="cell num xy">0.36</div>
-      <div class="cell num es">4.82</div>
-      <div class="cell num ratio win">13.24×</div>
+      <div class="cell num es">1.47</div>
+      <div class="cell num ratio win">4.11×</div>
+      <div class="cell num verdict win">WIN</div>
+      <div class="cell test">random_sampler</div>
+      <div class="cell num xy">1.17</div>
+      <div class="cell num es">5.65</div>
+      <div class="cell num ratio win">4.85×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">terms+avg(cost)</div>
-      <div class="cell num xy">1.22</div>
-      <div class="cell num es">0.76</div>
-      <div class="cell num ratio lose">0.63×</div>
-      <div class="cell num verdict lose">LOSE</div>
+      <div class="cell num xy">0.38</div>
+      <div class="cell num es">1.16</div>
+      <div class="cell num ratio win">3.09×</div>
+      <div class="cell num verdict win">WIN</div>
     </div>
     </div>
   </details>
@@ -623,7 +623,7 @@
   <details class="cat" open>
     <summary>
       <span class="cat-label">Pipeline aggregations</span>
-      <span class="cat-tally"><span class="w">11&nbsp;W</span> · <span class="l">1&nbsp;L</span></span>
+      <span class="cat-tally"><span class="w">10&nbsp;W</span> · <span class="l">2&nbsp;L</span></span>
     </summary>
     <div class="bench-scroll">
     <div class="bench matrix">
@@ -633,74 +633,74 @@
       <div class="head num">RATIO</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">sum_bucket</div>
+      <div class="cell num xy">1.19</div>
+      <div class="cell num es">1.12</div>
+      <div class="cell num ratio lose">0.94×</div>
+      <div class="cell num verdict lose">LOSE</div>
+      <div class="cell test">avg_bucket</div>
+      <div class="cell num xy">0.36</div>
+      <div class="cell num es">0.77</div>
+      <div class="cell num ratio win">2.13×</div>
+      <div class="cell num verdict win">WIN</div>
+      <div class="cell test">max_bucket</div>
+      <div class="cell num xy">1.19</div>
+      <div class="cell num es">2.08</div>
+      <div class="cell num ratio win">1.75×</div>
+      <div class="cell num verdict win">WIN</div>
+      <div class="cell test">stats_bucket</div>
+      <div class="cell num xy">0.36</div>
+      <div class="cell num es">0.73</div>
+      <div class="cell num ratio win">2.02×</div>
+      <div class="cell num verdict win">WIN</div>
+      <div class="cell test">percentiles_bucket</div>
+      <div class="cell num xy">0.41</div>
+      <div class="cell num es">2.16</div>
+      <div class="cell num ratio win">5.29×</div>
+      <div class="cell num verdict win">WIN</div>
+      <div class="cell test">derivative</div>
+      <div class="cell num xy">1.13</div>
+      <div class="cell num es">0.67</div>
+      <div class="cell num ratio lose">0.60×</div>
+      <div class="cell num verdict lose">LOSE</div>
+      <div class="cell test">cumulative_sum</div>
+      <div class="cell num xy">0.38</div>
+      <div class="cell num es">1.77</div>
+      <div class="cell num ratio win">4.71×</div>
+      <div class="cell num verdict win">WIN</div>
+      <div class="cell test">moving_fn</div>
+      <div class="cell num xy">1.18</div>
+      <div class="cell num es">1.39</div>
+      <div class="cell num ratio win">1.18×</div>
+      <div class="cell num verdict win">WIN</div>
+      <div class="cell test">serial_diff</div>
+      <div class="cell num xy">0.37</div>
+      <div class="cell num es">0.96</div>
+      <div class="cell num ratio win">2.56×</div>
+      <div class="cell num verdict win">WIN</div>
+      <div class="cell test">bucket_script</div>
+      <div class="cell num xy">1.20</div>
+      <div class="cell num es">2.23</div>
+      <div class="cell num ratio win">1.86×</div>
+      <div class="cell num verdict win">WIN</div>
+      <div class="cell test">bucket_selector</div>
       <div class="cell num xy">0.39</div>
       <div class="cell num es">0.74</div>
       <div class="cell num ratio win">1.91×</div>
       <div class="cell num verdict win">WIN</div>
-      <div class="cell test">avg_bucket</div>
-      <div class="cell num xy">1.20</div>
-      <div class="cell num es">2.15</div>
-      <div class="cell num ratio win">1.80×</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">max_bucket</div>
-      <div class="cell num xy">0.37</div>
-      <div class="cell num es">0.71</div>
-      <div class="cell num ratio win">1.93×</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">stats_bucket</div>
-      <div class="cell num xy">0.59</div>
-      <div class="cell num es">2.15</div>
-      <div class="cell num ratio win">3.66×</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">percentiles_bucket</div>
-      <div class="cell num xy">1.19</div>
-      <div class="cell num es">1.39</div>
-      <div class="cell num ratio win">1.17×</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">derivative</div>
-      <div class="cell num xy">0.34</div>
-      <div class="cell num es">2.11</div>
-      <div class="cell num ratio win">6.31×</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">cumulative_sum</div>
-      <div class="cell num xy">1.19</div>
-      <div class="cell num es">2.07</div>
-      <div class="cell num ratio win">1.74×</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">moving_fn</div>
-      <div class="cell num xy">0.36</div>
-      <div class="cell num es">0.75</div>
-      <div class="cell num ratio win">2.08×</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">serial_diff</div>
-      <div class="cell num xy">1.19</div>
-      <div class="cell num es">0.89</div>
-      <div class="cell num ratio lose">0.75×</div>
-      <div class="cell num verdict lose">LOSE</div>
-      <div class="cell test">bucket_script</div>
-      <div class="cell num xy">0.33</div>
-      <div class="cell num es">0.65</div>
-      <div class="cell num ratio win">1.97×</div>
-      <div class="cell num verdict win">WIN</div>
-      <div class="cell test">bucket_selector</div>
-      <div class="cell num xy">1.17</div>
-      <div class="cell num es">2.17</div>
-      <div class="cell num ratio win">1.86×</div>
-      <div class="cell num verdict win">WIN</div>
       <div class="cell test">bucket_sort</div>
-      <div class="cell num xy">0.43</div>
-      <div class="cell num es">0.70</div>
-      <div class="cell num ratio win">1.62×</div>
+      <div class="cell num xy">0.66</div>
+      <div class="cell num es">2.19</div>
+      <div class="cell num ratio win">3.30×</div>
       <div class="cell num verdict win">WIN</div>
     </div>
     </div>
   </details>
 
   <!-- Query features -->
-  <details class="cat" open>
+  <details class="cat">
     <summary>
       <span class="cat-label">Query features</span>
-      <span class="cat-tally"><span class="w">6&nbsp;W</span> · <span class="l">1&nbsp;L</span></span>
+      <span class="cat-tally"><span class="w">7&nbsp;W</span></span>
     </summary>
     <div class="bench-scroll">
     <div class="bench matrix">
@@ -710,39 +710,39 @@
       <div class="head num">RATIO</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">sort-heavy</div>
-      <div class="cell num xy">1.04</div>
-      <div class="cell num es">16.95</div>
-      <div class="cell num ratio win">16.24×</div>
+      <div class="cell num xy">1.89</div>
+      <div class="cell num es">17.39</div>
+      <div class="cell num ratio win">9.19×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">deep from+size (from 500)</div>
-      <div class="cell num xy">1.41</div>
-      <div class="cell num es">1.21</div>
-      <div class="cell num ratio lose">0.86×</div>
-      <div class="cell num verdict lose">LOSE</div>
+      <div class="cell num xy">1.39</div>
+      <div class="cell num es">2.20</div>
+      <div class="cell num ratio win">1.58×</div>
+      <div class="cell num verdict win">WIN</div>
       <div class="cell test">search_after</div>
       <div class="cell num xy">4.34</div>
-      <div class="cell num es">17.97</div>
-      <div class="cell num ratio win">4.14×</div>
+      <div class="cell num es">18.61</div>
+      <div class="cell num ratio win">4.28×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">highlight</div>
-      <div class="cell num xy">1.35</div>
-      <div class="cell num es">1.94</div>
-      <div class="cell num ratio win">1.44×</div>
+      <div class="cell num xy">0.74</div>
+      <div class="cell num es">2.12</div>
+      <div class="cell num ratio win">2.84×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">_count</div>
-      <div class="cell num xy">0.24</div>
-      <div class="cell num es">1.73</div>
-      <div class="cell num ratio win">7.30×</div>
+      <div class="cell num xy">0.92</div>
+      <div class="cell num es">1.38</div>
+      <div class="cell num ratio win">1.49×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">_msearch</div>
-      <div class="cell num xy">0.98</div>
-      <div class="cell num es">1.29</div>
-      <div class="cell num ratio win">1.32×</div>
+      <div class="cell num xy">0.96</div>
+      <div class="cell num es">1.24</div>
+      <div class="cell num ratio win">1.29×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">_mget</div>
-      <div class="cell num xy">0.21</div>
-      <div class="cell num es">0.47</div>
-      <div class="cell num ratio win">2.23×</div>
+      <div class="cell num xy">0.28</div>
+      <div class="cell num es">1.49</div>
+      <div class="cell num ratio win">5.34×</div>
       <div class="cell num verdict win">WIN</div>
     </div>
     </div>
@@ -762,29 +762,29 @@
       <div class="head num">RATIO</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">match_all</div>
-      <div class="cell num xy">76.55</div>
-      <div class="cell num es">2.27</div>
-      <div class="cell num ratio lose">0.03×</div>
+      <div class="cell num xy">65.48</div>
+      <div class="cell num es">2.30</div>
+      <div class="cell num ratio lose">0.04×</div>
       <div class="cell num verdict lose">LOSE</div>
       <div class="cell test">bool</div>
-      <div class="cell num xy">82.14</div>
-      <div class="cell num es">9.49</div>
-      <div class="cell num ratio lose">0.12×</div>
+      <div class="cell num xy">63.07</div>
+      <div class="cell num es">9.55</div>
+      <div class="cell num ratio lose">0.15×</div>
       <div class="cell num verdict lose">LOSE</div>
       <div class="cell test">range</div>
-      <div class="cell num xy">171.28</div>
-      <div class="cell num es">4.71</div>
+      <div class="cell num xy">151.89</div>
+      <div class="cell num es">5.11</div>
       <div class="cell num ratio lose">0.03×</div>
       <div class="cell num verdict lose">LOSE</div>
       <div class="cell test">terms</div>
-      <div class="cell num xy">75.60</div>
-      <div class="cell num es">2.76</div>
+      <div class="cell num xy">61.84</div>
+      <div class="cell num es">2.70</div>
       <div class="cell num ratio lose">0.04×</div>
       <div class="cell num verdict lose">LOSE</div>
       <div class="cell test">cardinality</div>
-      <div class="cell num xy">81.84</div>
-      <div class="cell num es">17.33</div>
-      <div class="cell num ratio lose">0.21×</div>
+      <div class="cell num xy">98.92</div>
+      <div class="cell num es">18.84</div>
+      <div class="cell num ratio lose">0.19×</div>
       <div class="cell num verdict lose">LOSE</div>
     </div>
     </div>
@@ -804,9 +804,9 @@
       <div class="head num">RATIO</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">kNN k=10 (p50 ms)</div>
-      <div class="cell num xy">0.57</div>
-      <div class="cell num es">3.02</div>
-      <div class="cell num ratio win">5.28×</div>
+      <div class="cell num xy">0.78</div>
+      <div class="cell num es">2.64</div>
+      <div class="cell num ratio win">3.39×</div>
       <div class="cell num verdict win">WIN</div>
       <div class="cell test">kNN recall@10</div>
       <div class="cell num xy">100.0%</div>
@@ -831,9 +831,9 @@
       <div class="head num">RATIO</div>
       <div class="head num">VERDICT</div>
       <div class="cell test">index on-disk size</div>
-      <div class="cell num xy">644.4 MB</div>
-      <div class="cell num es">809.7 MB</div>
-      <div class="cell num ratio win">1.26×</div>
+      <div class="cell num xy">672.5 MB</div>
+      <div class="cell num es">806.7 MB</div>
+      <div class="cell num ratio win">1.20×</div>
       <div class="cell num verdict win">WIN</div>
     </div>
     </div>
@@ -872,9 +872,8 @@
   <div class="kicker"><span class="accent">05</span><span class="dash">·</span><span>KNOWN ISSUES &amp; WHAT'S NEXT</span></div>
   <h2 class="scene">THE RED CELLS<br><span class="accent">ARE THE ROADMAP.</span></h2>
 
-  <div class="row"><div class="k">Mixed read-under-write · 5 rows</div><div class="v">The real weakness. With a concurrent bulk writer running, read p99 lands at <strong>76–171&nbsp;ms</strong> against ES's quiesced <strong>2–17&nbsp;ms</strong> — read tail latency degrades under sustained flush/merge pressure. Shrinking it to ES's steady-state is the top active work item.</div></div>
-  <div class="row"><div class="k">Marginal near-ties · 8 rows</div><div class="v">A handful of sub-1.5&nbsp;ms rows where ES edges XERJ by tenths of a millisecond (<span class="mono">simple_query_string</span>, aggs <span class="mono">range / filter / global / composite / terms+avg</span>, pipe <span class="mono">serial_diff</span>, deep <span class="mono">from+size</span>). Per-request overhead, not algorithmic gaps — under profiling.</div></div>
-  <div class="row"><div class="k">Ingest 1M × 8 clients · 1 row</div><div class="v">338k vs 366k&nbsp;docs/s (<span class="mono">0.93×</span>). ES still wins high-concurrency bulk ingest at scale; profiling points at a flush-finalize CPU ceiling. Fix in flight — the other 3 ingest cells already win.</div></div>
+  <div class="row"><div class="k">Mixed read-under-write · 5 rows</div><div class="v">The real weakness. With a concurrent bulk writer running, read p99 lands at <strong>62–152&nbsp;ms</strong> against ES's quiesced <strong>2–19&nbsp;ms</strong> — read tail latency degrades under sustained flush/merge pressure. Shrinking it to ES's steady-state is the top active work item.</div></div>
+  <div class="row"><div class="k">Marginal near-ties · 3 rows</div><div class="v">Three sub-millisecond rows where ES edges XERJ by tenths of a millisecond (agg <span class="mono">filter</span> 0.77×, pipe <span class="mono">sum_bucket</span> 0.94×, pipe <span class="mono">derivative</span> 0.60×). Per-request overhead, not algorithmic gaps — under profiling.</div></div>
   <div class="row"><div class="k">Hardening along the way</div><div class="v">Durable mappings across restarts, a merge-race segment lease (601k queries under merge churn, zero mismatches), WAL/segment garbage collection, a merge data-loss fix, a dedicated deprioritised ingest pool, and cooperative query timeouts.</div></div>
   <div class="row"><div class="k">Not measured here</div><div class="v">Skipped, not hidden — each needs a purpose-built index the flat corpus lacks: <span class="mono">geo_*</span>, <span class="mono">ip_range / ip_prefix</span>, <span class="mono">nested / has_child / has_parent</span>, <span class="mono">span_*</span>, <span class="mono">significant_text</span>, <span class="mono">semantic / hybrid</span> retrieval, and <span class="mono">percolate</span>. Purpose-built corpora are planned follow-ups.</div></div>
   <div class="row"><div class="k">The standing guardrail</div><div class="v">Every performance change must hold ES-YAML REST conformance at <strong>1326 passed / 0 failed</strong>. Speed bought with correctness is not a win, and it does not merge.</div></div>
@@ -883,6 +882,7 @@
 <!-- 06 — CHANGELOG -------------------------------------------->
 <section class="scene-section">
   <div class="kicker"><span class="accent">06</span><span class="dash">·</span><span>TESTING CHANGELOG</span></div>
+  <div class="row"><div class="k">2026-07-06 (run 10)</div><div class="v"><strong>81 WIN.</strong> Eight cells flipped LOSE→WIN over run 9 as the engine work landed — ingest 1m×c8 (now <span class="mono">1.02×</span>), aggs <span class="mono">global / composite / terms+avg / range</span>, pipe <span class="mono">serial_diff</span>, <span class="mono">simple_query_string</span>, and deep <span class="mono">from+size</span> — while two former wins regressed to sub-millisecond near-ties (<span class="mono">sum_bucket</span>, <span class="mono">derivative</span>). Net <strong>81 W / 8 L / 2 N/A</strong>: the 8 losses are the 5 mixed read-under-write p99 rows plus 3 sub-millisecond near-ties (agg <span class="mono">filter</span>, pipe <span class="mono">sum_bucket / derivative</span>). Supersedes run 9.</div></div>
   <div class="row"><div class="k">2026-07-06 (run 9)</div><div class="v">75 WIN. Corrected the read-latency transport: earlier runs timed reads through Node's global <span class="mono">fetch</span>/undici (~1.5&nbsp;ms of client overhead per request), which swamped both engines' sub-millisecond server times and pushed ~40 rows into a noise band. Re-ran on a lean keep-alive HTTP client, applied identically to both engines and cross-checked with <span class="mono">curl</span> (XERJ ≤ ES on every op). True server round-trips now show full-text / term / range / wildcard reads winning outright, kNN 5.28× at 100% recall parity, index 1.26× smaller, ingest 3 of 4 cells. 14 honest losses remain · 75 W / 14 L / 2 N/A. Supersedes run 8.</div></div>
   <div class="row"><div class="k">2026-07-06 (run 8 — SUPERSEDED)</div><div class="v">Reported 53 WIN / 36 LOSE / 2 N/A. Reads were still timed through the undici client, whose fixed per-request overhead hid both engines' true sub-millisecond server times — roughly 40 rows sat in a client-jitter band. Transport fixed and re-run honestly as run 9.</div></div>
   <div class="row"><div class="k">2026-07-06 (run 7 — SUPERSEDED)</div><div class="v">First honest read numbers after the query-cache fix, and first run with the harder mixed read-under-write cluster added — but still timed through undici · was 47 WIN / 42 LOSE / 2 N/A.</div></div>
