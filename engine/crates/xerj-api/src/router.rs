@@ -512,6 +512,21 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         // ── Freeze / Unfreeze ─────────────────────────────────────────────────
         .route("/:index/_freeze", post(es_compat::freeze_index))
         .route("/:index/_unfreeze", post(es_compat::unfreeze_index))
+        // ── _ml anomaly detection APIs ────────────────────────────────────────
+        .route(
+            "/_ml/anomaly_detectors",
+            get(es_compat::list_ml_anomaly_detectors),
+        )
+        .route(
+            "/_ml/anomaly_detectors/:id",
+            put(es_compat::put_ml_anomaly_detector)
+                .get(es_compat::get_ml_anomaly_detector)
+                .delete(es_compat::delete_ml_anomaly_detector),
+        )
+        .route(
+            "/_ml/anomaly_detectors/:id/_score",
+            post(es_compat::score_ml_anomaly_detector),
+        )
         // ── _cat/ml APIs ──────────────────────────────────────────────────────
         .route("/_cat/ml/anomaly_detectors", get(es_compat::cat_ml_anomaly_detectors))
         .route("/_cat/ml/datafeeds", get(es_compat::cat_ml_datafeeds))
