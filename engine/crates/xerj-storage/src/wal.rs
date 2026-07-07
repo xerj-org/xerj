@@ -60,7 +60,6 @@ use crate::{Result, SeqNo, StorageError};
 
 const WAL_MAGIC: &[u8; 4] = b"ZWAL";
 const WAL_HEADER_LEN: u64 = 16; // magic(4) + generation(8) + reserved(4)
-const CHKPT_LEN: u64 = 28; // generation(8) + offset(8) + max_seq(8) + crc(4)
 
 // Op codes
 const OP_INDEX: u8 = 0x01;
@@ -173,10 +172,16 @@ impl WalCheckpoint {
         if stored_crc != computed {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("checkpoint CRC mismatch: expected {stored_crc:#010x}, got {computed:#010x}"),
+                format!(
+                    "checkpoint CRC mismatch: expected {stored_crc:#010x}, got {computed:#010x}"
+                ),
             ));
         }
-        Ok(Self { generation, offset, max_seq_no })
+        Ok(Self {
+            generation,
+            offset,
+            max_seq_no,
+        })
     }
 }
 
@@ -242,11 +247,15 @@ impl WalWriter {
 
     /// Current sync mode (used by the batch path to temporarily suppress
     /// per-entry fsyncs and restore the original mode afterwards).
-    pub fn sync_mode(&self) -> SyncMode { self.sync_mode }
+    pub fn sync_mode(&self) -> SyncMode {
+        self.sync_mode
+    }
 
     /// Override the sync mode. The caller is responsible for restoring the
     /// previous mode and for issuing the final fsync in Batched mode.
-    pub fn set_sync_mode(&mut self, mode: SyncMode) { self.sync_mode = mode; }
+    pub fn set_sync_mode(&mut self, mode: SyncMode) {
+        self.sync_mode = mode;
+    }
 
     /// Append a single entry.  Returns the assigned sequence number.
     ///
@@ -278,7 +287,9 @@ impl WalWriter {
         // CRC covers seq_no(8) + op(1) + payload(n)
         let mut hasher = Crc32Hasher::new();
         let mut seq_buf = [0u8; 8];
-        (&mut seq_buf[..]).write_u64::<LittleEndian>(seq_no).unwrap();
+        (&mut seq_buf[..])
+            .write_u64::<LittleEndian>(seq_no)
+            .unwrap();
         hasher.update(&seq_buf);
         hasher.update(&[op_code]);
         hasher.update(&payload);
@@ -337,7 +348,7 @@ impl WalWriter {
         raw_payload.extend_from_slice(br#"{"Index":{"doc_id":""#);
         for &b in doc_id.as_bytes() {
             match b {
-                b'"'  => raw_payload.extend_from_slice(br#"\""#),
+                b'"' => raw_payload.extend_from_slice(br#"\""#),
                 b'\\' => raw_payload.extend_from_slice(br#"\\"#),
                 b'\n' => raw_payload.extend_from_slice(br"\n"),
                 b'\r' => raw_payload.extend_from_slice(br"\r"),
@@ -375,7 +386,9 @@ impl WalWriter {
 
         let mut hasher = Crc32Hasher::new();
         let mut seq_buf = [0u8; 8];
-        (&mut seq_buf[..]).write_u64::<LittleEndian>(seq_no).unwrap();
+        (&mut seq_buf[..])
+            .write_u64::<LittleEndian>(seq_no)
+            .unwrap();
         hasher.update(&seq_buf);
         hasher.update(&[op_code]);
         hasher.update(&payload);
@@ -400,11 +413,7 @@ impl WalWriter {
     /// Write a pre-assembled batch of framed bytes.  Caller must hold
     /// the WAL mutex.  `total_written` is the byte count to add to
     /// `current_offset`.
-    pub fn append_frames_locked(
-        &mut self,
-        frames: &[u8],
-        total_written: u64,
-    ) -> Result<()> {
+    pub fn append_frames_locked(&mut self, frames: &[u8], total_written: u64) -> Result<()> {
         if frames.is_empty() {
             return Ok(());
         }
@@ -429,10 +438,7 @@ impl WalWriter {
     /// 5 small BufWriter calls per doc.
     ///
     /// Returns the first assigned seq_no (subsequent docs are +0, +1, ...).
-    pub fn append_index_raw_batch(
-        &mut self,
-        pre_built: &[Vec<u8>],
-    ) -> Result<Vec<SeqNo>> {
+    pub fn append_index_raw_batch(&mut self, pre_built: &[Vec<u8>]) -> Result<Vec<SeqNo>> {
         if pre_built.is_empty() {
             return Ok(Vec::new());
         }
@@ -475,7 +481,9 @@ impl WalWriter {
             // CRC over seq(8) + op(1) + payload.
             let mut hasher = Crc32Hasher::new();
             let mut seq_buf = [0u8; 8];
-            (&mut seq_buf[..]).write_u64::<LittleEndian>(seq_no).unwrap();
+            (&mut seq_buf[..])
+                .write_u64::<LittleEndian>(seq_no)
+                .unwrap();
             hasher.update(&seq_buf);
             hasher.update(&[op_code]);
             hasher.update(payload_slice);
@@ -536,7 +544,10 @@ impl WalWriter {
         let mut f = File::create(&path)?;
         chkpt.write_to(&mut f)?;
         f.sync_all()?;
-        info!(generation = self.generation, max_seq_no, "WAL checkpoint written");
+        info!(
+            generation = self.generation,
+            max_seq_no, "WAL checkpoint written"
+        );
         Ok(())
     }
 
@@ -603,7 +614,10 @@ impl WalWriter {
         let file = create_wal_file(&path, self.generation)?;
         self.writer = BufWriter::with_capacity(8 * 1024 * 1024, file);
         self.current_offset = WAL_HEADER_LEN;
-        info!(generation = self.generation, "WAL rotated to new generation");
+        info!(
+            generation = self.generation,
+            "WAL rotated to new generation"
+        );
         Ok(())
     }
 
@@ -684,7 +698,9 @@ pub fn wal_build_frames_lockfree(
 
         let mut hasher = Crc32Hasher::new();
         let mut seq_buf = [0u8; 8];
-        (&mut seq_buf[..]).write_u64::<LittleEndian>(seq_no).unwrap();
+        (&mut seq_buf[..])
+            .write_u64::<LittleEndian>(seq_no)
+            .unwrap();
         hasher.update(&seq_buf);
         hasher.update(&[op_code]);
         hasher.update(payload_slice);
@@ -711,7 +727,9 @@ pub struct WalReader {
 
 impl WalReader {
     pub fn new(dir: impl AsRef<Path>) -> Self {
-        Self { dir: dir.as_ref().to_path_buf() }
+        Self {
+            dir: dir.as_ref().to_path_buf(),
+        }
     }
 
     /// Return an iterator of all entries that are NOT yet covered by a
@@ -740,7 +758,7 @@ impl WalReader {
             .into_iter()
             .flatten()
             .flatten()
-            .filter_map(|e| parse_wal_generation(&e.file_name().to_string_lossy().into_owned()))
+            .filter_map(|e| parse_wal_generation(&e.file_name().to_string_lossy()))
             .filter(|&g| g >= start_gen)
             .collect();
         gens.sort_unstable();
@@ -755,12 +773,71 @@ impl WalReader {
     }
 }
 
+/// Discover every WAL directory under `wal_root` and return all replayable
+/// entries merge-sorted by `seq_no`.
+///
+/// Two layouts are supported, matching what `IndexStore` writes:
+/// - legacy single-WAL: `*.wal` files directly in `wal_root`
+/// - sharded WAL: `wal_root/s{N}/` subdirectories, one WAL stream per
+///   ingest shard
+///
+/// Sorting globally by `seq_no` is required for correctness: a delete of a
+/// document can live in a different shard stream than a later re-index of
+/// the same id, so per-directory order alone must not be trusted. Corrupt
+/// entries are skipped with a warning, matching single-dir replay.
+pub fn replay_all_sorted(wal_root: &Path) -> Vec<ReplayEntry> {
+    let mut wal_dirs: Vec<PathBuf> = Vec::new();
+    // Legacy layout: .wal files directly in the root.
+    if fs::read_dir(wal_root)
+        .ok()
+        .map(|rd| {
+            rd.filter_map(|e| e.ok())
+                .any(|e| e.path().extension().map(|x| x == "wal").unwrap_or(false))
+        })
+        .unwrap_or(false)
+    {
+        wal_dirs.push(wal_root.to_path_buf());
+    }
+    // Sharded layout: s0, s1, … subdirectories.
+    if let Ok(rd) = fs::read_dir(wal_root) {
+        for entry in rd.filter_map(|e| e.ok()) {
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if name_str.starts_with('s')
+                && name_str[1..].parse::<usize>().is_ok()
+                && entry.path().is_dir()
+            {
+                wal_dirs.push(entry.path());
+            }
+        }
+    }
+
+    let mut all_entries: Vec<ReplayEntry> = Vec::new();
+    for dir in &wal_dirs {
+        let reader = WalReader::new(dir);
+        let iter = match reader.replay() {
+            Ok(it) => it,
+            Err(e) => {
+                warn!(error = %e, ?dir, "failed to open WAL for replay");
+                continue;
+            }
+        };
+        for result in iter {
+            match result {
+                Ok(e) => all_entries.push(e),
+                Err(e) => {
+                    warn!(error = %e, ?dir, "skipping corrupt WAL entry during replay");
+                }
+            }
+        }
+    }
+    all_entries.sort_by_key(|e| e.seq_no);
+    all_entries
+}
+
 /// Read all entries from a single WAL file, skipping those with seq_no <=
 /// `skip_up_to_seq`.
-fn read_wal_file(
-    path: PathBuf,
-    skip_up_to_seq: SeqNo,
-) -> Vec<Result<ReplayEntry>> {
+fn read_wal_file(path: PathBuf, skip_up_to_seq: SeqNo) -> Vec<Result<ReplayEntry>> {
     let file = match File::open(&path) {
         Ok(f) => f,
         Err(e) => return vec![Err(e.into())],
@@ -791,15 +868,24 @@ fn read_wal_file(
         let entry_len = match reader.read_u32::<LittleEndian>() {
             Ok(l) => l,
             Err(ref e) if e.kind() == io::ErrorKind::UnexpectedEof => break,
-            Err(e) => { results.push(Err(e.into())); break; }
+            Err(e) => {
+                results.push(Err(e.into()));
+                break;
+            }
         };
         let seq_no = match reader.read_u64::<LittleEndian>() {
             Ok(s) => s,
-            Err(e) => { results.push(Err(e.into())); break; }
+            Err(e) => {
+                results.push(Err(e.into()));
+                break;
+            }
         };
         let op_code = match reader.read_u8() {
             Ok(o) => o,
-            Err(e) => { results.push(Err(e.into())); break; }
+            Err(e) => {
+                results.push(Err(e.into()));
+                break;
+            }
         };
         let mut payload = vec![0u8; entry_len as usize];
         if let Err(e) = reader.read_exact(&mut payload) {
@@ -811,13 +897,18 @@ fn read_wal_file(
         }
         let stored_crc = match reader.read_u32::<LittleEndian>() {
             Ok(c) => c,
-            Err(e) => { results.push(Err(e.into())); break; }
+            Err(e) => {
+                results.push(Err(e.into()));
+                break;
+            }
         };
 
         // Verify CRC
         let mut hasher = Crc32Hasher::new();
         let mut seq_buf = [0u8; 8];
-        (&mut seq_buf[..]).write_u64::<LittleEndian>(seq_no).unwrap();
+        (&mut seq_buf[..])
+            .write_u64::<LittleEndian>(seq_no)
+            .unwrap();
         hasher.update(&seq_buf);
         hasher.update(&[op_code]);
         hasher.update(&payload);
@@ -847,7 +938,10 @@ fn read_wal_file(
         let op = match WalOpCode::from_u8(raw_op_code) {
             Some(o) => o,
             None => {
-                warn!(op_code = raw_op_code, "unknown WAL op code — skipping entry");
+                warn!(
+                    op_code = raw_op_code,
+                    "unknown WAL op code — skipping entry"
+                );
                 continue;
             }
         };
@@ -893,7 +987,11 @@ fn read_wal_file(
             break;
         }
 
-        results.push(Ok(ReplayEntry { seq_no, entry, file_offset: this_offset }));
+        results.push(Ok(ReplayEntry {
+            seq_no,
+            entry,
+            file_offset: this_offset,
+        }));
     }
 
     // M5.8 — sort by seq_no so that the M5.8 lock-free WAL writer path
@@ -934,10 +1032,8 @@ fn find_latest_generation(dir: &Path) -> Result<(u64, SeqNo)> {
             if gen >= max_gen {
                 max_gen = gen;
                 // Scan this file for the highest seq_no
-                if let Ok(entries) = scan_seq_nos(entry.path()) {
-                    if let Some(s) = entries {
-                        max_seq = max_seq.max(s);
-                    }
+                if let Ok(Some(s)) = scan_seq_nos(entry.path()) {
+                    max_seq = max_seq.max(s);
                 }
             }
         }
@@ -951,8 +1047,12 @@ fn scan_seq_nos(path: PathBuf) -> io::Result<Option<SeqNo>> {
     let mut reader = BufReader::new(file);
 
     let mut magic = [0u8; 4];
-    if reader.read_exact(&mut magic).is_err() { return Ok(None); }
-    if &magic != WAL_MAGIC { return Ok(None); }
+    if reader.read_exact(&mut magic).is_err() {
+        return Ok(None);
+    }
+    if &magic != WAL_MAGIC {
+        return Ok(None);
+    }
     let _ = reader.read_u64::<LittleEndian>()?; // generation
     let _ = reader.read_u32::<LittleEndian>()?; // reserved
 
@@ -972,7 +1072,11 @@ fn scan_seq_nos(path: PathBuf) -> io::Result<Option<SeqNo>> {
 }
 
 fn create_wal_file(path: &Path, generation: u64) -> io::Result<File> {
-    let mut file = OpenOptions::new().create(true).write(true).truncate(true).open(path)?;
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(path)?;
     file.write_all(WAL_MAGIC)?;
     file.write_u64::<LittleEndian>(generation)?;
     file.write_u32::<LittleEndian>(0)?; // reserved
@@ -989,7 +1093,9 @@ fn read_checkpoint(dir: &Path, generation: u64) -> io::Result<WalCheckpoint> {
 }
 
 fn parse_wal_generation(name: &str) -> Option<u64> {
-    if !name.ends_with(".wal") { return None; }
+    if !name.ends_with(".wal") {
+        return None;
+    }
     let hex = &name[..name.len() - 4];
     u64::from_str_radix(hex, 16).ok()
 }
@@ -999,12 +1105,17 @@ fn parse_wal_generation(name: &str) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
     use std::sync::atomic::AtomicU64;
+    use std::sync::Arc;
 
     fn make_writer(dir: &Path) -> WalWriter {
-        WalWriter::open(dir, 64 * 1024 * 1024, SyncMode::Strict, Arc::new(AtomicU64::new(1)))
-            .unwrap()
+        WalWriter::open(
+            dir,
+            64 * 1024 * 1024,
+            SyncMode::Strict,
+            Arc::new(AtomicU64::new(1)),
+        )
+        .unwrap()
     }
 
     #[test]
@@ -1035,10 +1146,19 @@ mod tests {
     fn checkpoint_skips_old_entries() {
         let dir = tempfile::tempdir().unwrap();
         let seq_ctr = Arc::new(AtomicU64::new(1));
-        let mut w = WalWriter::open(dir.path(), 64 * 1024 * 1024, SyncMode::Batched, Arc::clone(&seq_ctr)).unwrap();
+        let mut w = WalWriter::open(
+            dir.path(),
+            64 * 1024 * 1024,
+            SyncMode::Batched,
+            Arc::clone(&seq_ctr),
+        )
+        .unwrap();
 
         for i in 0..5 {
-            w.append(&WalEntry::Delete { doc_id: format!("doc-{i}") }).unwrap();
+            w.append(&WalEntry::Delete {
+                doc_id: format!("doc-{i}"),
+            })
+            .unwrap();
         }
         // Checkpoint after seq 3
         w.checkpoint(3).unwrap();
@@ -1055,7 +1175,13 @@ mod tests {
     fn rotation_creates_new_generation() {
         let dir = tempfile::tempdir().unwrap();
         // Force rotation after 1 byte
-        let mut w = WalWriter::open(dir.path(), 1, SyncMode::Batched, Arc::new(AtomicU64::new(1))).unwrap();
+        let mut w = WalWriter::open(
+            dir.path(),
+            1,
+            SyncMode::Batched,
+            Arc::new(AtomicU64::new(1)),
+        )
+        .unwrap();
         w.append(&WalEntry::Delete { doc_id: "a".into() }).unwrap();
         w.append(&WalEntry::Delete { doc_id: "b".into() }).unwrap();
         assert!(w.generation > 0, "should have rotated");
@@ -1069,9 +1195,13 @@ mod tests {
         w.append(&WalEntry::Index {
             doc_id: "x".into(),
             source: serde_json::json!({}),
-        }).unwrap();
+        })
+        .unwrap();
         w.append(&WalEntry::Delete { doc_id: "y".into() }).unwrap();
-        w.append(&WalEntry::UpdateMapping { schema: serde_json::json!({"fields": {}}) }).unwrap();
+        w.append(&WalEntry::UpdateMapping {
+            schema: serde_json::json!({"fields": {}}),
+        })
+        .unwrap();
         drop(w);
 
         let reader = WalReader::new(dir.path());

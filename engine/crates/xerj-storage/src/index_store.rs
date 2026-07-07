@@ -21,18 +21,18 @@
 //!    d. Writes a WAL checkpoint covering all flushed seq_nos.
 //!    e. Prunes WAL generations that are now covered.
 
+use arc_swap::ArcSwap;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use arc_swap::ArcSwap;
-use uuid::Uuid;
-use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument, warn};
+use uuid::Uuid;
 
 use crate::backend::StorageBackend;
-use crate::segment::{SegmentId, SegmentMeta, SegmentReader, SegmentWriter, SectionType};
+use crate::segment::{SectionType, SegmentId, SegmentMeta, SegmentReader, SegmentWriter};
 use crate::version_map::{VersionMap, IN_MEMORY_SEGMENT_ID};
-use crate::wal::{wal_build_frames_lockfree, ReplayEntry, SyncMode, WalEntry, WalReader, WalWriter};
+use crate::wal::{SyncMode, WalEntry, WalWriter};
 use crate::{Result, SeqNo, StorageError};
 
 // ── IndexSnapshot ─────────────────────────────────────────────────────────────
@@ -54,24 +54,40 @@ pub struct IndexSnapshot {
 
 impl IndexSnapshot {
     fn empty() -> Self {
-        Self { segments: Vec::new(), generation: 0, max_seq_no: 0 }
+        Self {
+            segments: Vec::new(),
+            generation: 0,
+            max_seq_no: 0,
+        }
     }
 
     fn with_new_segment(&self, meta: SegmentMeta) -> Self {
         let max_seq_no = self.max_seq_no.max(meta.max_seq_no);
         let mut segments = self.segments.clone();
         segments.push(meta);
-        Self { segments, generation: self.generation + 1, max_seq_no }
+        Self {
+            segments,
+            generation: self.generation + 1,
+            max_seq_no,
+        }
     }
 
     fn replace_segments(&self, remove_ids: &[SegmentId], add: SegmentMeta) -> Self {
         let remove_set: std::collections::HashSet<&str> =
             remove_ids.iter().map(String::as_str).collect();
-        let mut segments: Vec<SegmentMeta> =
-            self.segments.iter().filter(|s| !remove_set.contains(s.id.as_str())).cloned().collect();
+        let mut segments: Vec<SegmentMeta> = self
+            .segments
+            .iter()
+            .filter(|s| !remove_set.contains(s.id.as_str()))
+            .cloned()
+            .collect();
         segments.push(add);
         let max_seq_no = segments.iter().map(|s| s.max_seq_no).max().unwrap_or(0);
-        Self { segments, generation: self.generation + 1, max_seq_no }
+        Self {
+            segments,
+            generation: self.generation + 1,
+            max_seq_no,
+        }
     }
 }
 
@@ -205,7 +221,11 @@ impl std::fmt::Debug for StorageMode {
         match self {
             StorageMode::Local => write!(f, "StorageMode::Local"),
             StorageMode::ObjectStore { cache_dir, .. } => {
-                write!(f, "StorageMode::ObjectStore {{ cache_dir: {:?} }}", cache_dir)
+                write!(
+                    f,
+                    "StorageMode::ObjectStore {{ cache_dir: {:?} }}",
+                    cache_dir
+                )
             }
         }
     }
@@ -234,7 +254,7 @@ pub struct IndexStoreConfig {
 impl Default for IndexStoreConfig {
     fn default() -> Self {
         Self {
-            memtable_max_bytes: 32 * 1024 * 1024, // 32 MiB
+            memtable_max_bytes: 32 * 1024 * 1024,  // 32 MiB
             wal_max_size_bytes: 128 * 1024 * 1024, // 128 MiB
             sync_mode: SyncMode::Batched,
             schema_version: 1,
@@ -251,19 +271,17 @@ impl Default for IndexStoreConfig {
 /// All public methods are safe to call from multiple threads.  WAL writes are
 /// serialized through the internal `Mutex<WalWriter>`; snapshot reads are
 /// completely lock-free via `ArcSwap`.
-/// Number of memtable shards.  Each shard has its own `Mutex<Vec<MemEntry>>`
-/// so that concurrent bulk ingest paths that land on different shards run
-/// without contending on a single global lock.  Must be a power of two so
-/// the shard index can be derived via `hash & (N-1)`.
-// Memtable shard count is no longer a compile-time constant. The actual
-// value lives in `IndexStore.num_shards`, derived at construction from
-// `IndexStoreConfig.num_wal_shards.max(1).next_power_of_two()` (in turn
-// usually plumbed from `Config.engine.ingest_shards`). The previous
-// `pub const MEMTABLE_SHARDS: usize = 16;` was a footgun: the static
-// `shard_for_doc_id` helper used it as the modulus while the instance
-// `shard_for(&self)` used `self.num_shards`, producing inconsistent
-// routing on any deployment that didn't happen to land on 16.
-
+//
+// Sharding note: the memtable shard count is not a compile-time constant. It
+// lives in `IndexStore.num_shards`, derived at construction from
+// `IndexStoreConfig.num_wal_shards.max(1).next_power_of_two()` (usually
+// plumbed from `Config.engine.ingest_shards`). Each shard has its own
+// `Mutex<Vec<MemEntry>>` — so concurrent bulk paths on different shards don't
+// contend on one global lock — and must be a power of two so the shard index
+// is `hash & (N-1)`. The previous `pub const MEMTABLE_SHARDS: usize = 16;`
+// was a footgun: the static `shard_for_doc_id` helper used it as the modulus
+// while the instance `shard_for(&self)` used `self.num_shards`, producing
+// inconsistent routing on any deployment that didn't land on 16.
 pub struct IndexStore {
     /// Root directory for this index's data files.
     pub data_dir: PathBuf,
@@ -358,7 +376,12 @@ impl IndexStore {
                 std::fs::create_dir_all(&d)?;
                 d
             };
-            let w = WalWriter::open(&shard_dir, config.wal_max_size_bytes, config.sync_mode, Arc::clone(&seq_counter))?;
+            let w = WalWriter::open(
+                &shard_dir,
+                config.wal_max_size_bytes,
+                config.sync_mode,
+                Arc::clone(&seq_counter),
+            )?;
             wal_shards.push(Mutex::new(w));
         }
 
@@ -368,9 +391,8 @@ impl IndexStore {
         let version_map = Arc::new(VersionMap::new());
 
         let num_shards = config.num_wal_shards.max(1).next_power_of_two();
-        let memtable_shards: Vec<Mutex<Vec<MemEntry>>> = (0..num_shards)
-            .map(|_| Mutex::new(Vec::new()))
-            .collect();
+        let memtable_shards: Vec<Mutex<Vec<MemEntry>>> =
+            (0..num_shards).map(|_| Mutex::new(Vec::new())).collect();
         let store = Arc::new(Self {
             data_dir: data_dir.clone(),
             config,
@@ -460,27 +482,37 @@ impl IndexStore {
         }
 
         let snap = self.snapshot.load();
-        let live_ids: std::collections::HashSet<String> = snap
-            .segments
-            .iter()
-            .map(|s| s.id.to_string())
-            .collect();
+        let live_ids: std::collections::HashSet<String> =
+            snap.segments.iter().map(|s| s.id.to_string()).collect();
         drop(snap);
 
         let mut recovered: Vec<SegmentMeta> = Vec::new();
         let mut seen_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
 
         for entry in std::fs::read_dir(&segments_dir)? {
-            let entry = match entry { Ok(e) => e, Err(_) => continue };
+            let entry = match entry {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
             let name = entry.file_name();
             let name_str = name.to_string_lossy();
             // Only process the primary `.seg` file once per UUID.
-            if !name_str.ends_with(".seg") { continue; }
-            if name_str.len() < 40 { continue; } // 36 UUID + ".seg"
+            if !name_str.ends_with(".seg") {
+                continue;
+            }
+            if name_str.len() < 40 {
+                continue;
+            } // 36 UUID + ".seg"
             let prefix = &name_str[..36];
-            if prefix.as_bytes().get(8) != Some(&b'-') { continue; }
-            if live_ids.contains(prefix) { continue; }
-            if !seen_ids.insert(prefix.to_string()) { continue; }
+            if prefix.as_bytes().get(8) != Some(&b'-') {
+                continue;
+            }
+            if live_ids.contains(prefix) {
+                continue;
+            }
+            if !seen_ids.insert(prefix.to_string()) {
+                continue;
+            }
 
             let seg_filename = format!("{prefix}.seg");
             let seg_path = segments_dir.join(&seg_filename);
@@ -499,9 +531,8 @@ impl IndexStore {
             if magic != b"ZID1" && magic != b"ZID2" {
                 continue;
             }
-            let num_docs = u32::from_le_bytes([
-                ids_bytes[4], ids_bytes[5], ids_bytes[6], ids_bytes[7],
-            ]) as u64;
+            let num_docs =
+                u32::from_le_bytes([ids_bytes[4], ids_bytes[5], ids_bytes[6], ids_bytes[7]]) as u64;
             if num_docs == 0 {
                 continue;
             }
@@ -595,29 +626,37 @@ impl IndexStore {
     /// been loaded.
     fn cleanup_orphaned_segment_files(&self) -> Result<()> {
         let segments_dir = self.data_dir.join("segments");
-        if !segments_dir.exists() { return Ok(()); }
+        if !segments_dir.exists() {
+            return Ok(());
+        }
 
         // Build the set of live segment UUIDs from the current snapshot.
         let snap = self.snapshot.load();
-        let live_ids: std::collections::HashSet<String> = snap
-            .segments
-            .iter()
-            .map(|s| s.id.to_string())
-            .collect();
+        let live_ids: std::collections::HashSet<String> =
+            snap.segments.iter().map(|s| s.id.to_string()).collect();
         drop(snap);
 
         let mut removed_files = 0usize;
         let mut removed_bytes = 0u64;
         for entry in std::fs::read_dir(&segments_dir)? {
-            let entry = match entry { Ok(e) => e, Err(_) => continue };
+            let entry = match entry {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
             let name = entry.file_name();
             let name_str = name.to_string_lossy();
             // Segment filenames look like "<36-char UUID>.<suffix>".
             // Skip anything that doesn't start with a UUID-shaped prefix.
-            if name_str.len() < 37 { continue; }
+            if name_str.len() < 37 {
+                continue;
+            }
             let prefix = &name_str[..36];
-            if prefix.as_bytes().get(8) != Some(&b'-') { continue; }
-            if live_ids.contains(prefix) { continue; }
+            if prefix.as_bytes().get(8) != Some(&b'-') {
+                continue;
+            }
+            if live_ids.contains(prefix) {
+                continue;
+            }
             let path = entry.path();
             let sz = entry.metadata().map(|m| m.len()).unwrap_or(0);
             if std::fs::remove_file(&path).is_ok() {
@@ -688,8 +727,7 @@ impl IndexStore {
     /// Returns `(files_removed, bytes_removed)` for logging.
     pub fn delete_segment_files(&self, segment_ids: &[SegmentId]) -> (usize, u64) {
         let segments_dir = self.data_dir.join("segments");
-        let ids: std::collections::HashSet<&str> =
-            segment_ids.iter().map(|s| s.as_str()).collect();
+        let ids: std::collections::HashSet<&str> = segment_ids.iter().map(|s| s.as_str()).collect();
         if ids.is_empty() {
             return (0, 0);
         }
@@ -842,13 +880,12 @@ impl IndexStore {
     // ── Write path ────────────────────────────────────────────────────────────
 
     /// Index a document.  Returns the assigned sequence number.
-    pub fn index(
-        &self,
-        doc_id: impl Into<String>,
-        source: serde_json::Value,
-    ) -> Result<SeqNo> {
+    pub fn index(&self, doc_id: impl Into<String>, source: serde_json::Value) -> Result<SeqNo> {
         let doc_id = doc_id.into();
-        let entry = WalEntry::Index { doc_id: doc_id.clone(), source: source.clone() };
+        let entry = WalEntry::Index {
+            doc_id: doc_id.clone(),
+            source: source.clone(),
+        };
 
         let seq_no = {
             let ws = self.wal_shard_for(&doc_id);
@@ -857,7 +894,8 @@ impl IndexStore {
         };
 
         let source_len = source.to_string().len();
-        self.version_map.set(&doc_id, seq_no, IN_MEMORY_SEGMENT_ID, false);
+        self.version_map
+            .set(&doc_id, seq_no, IN_MEMORY_SEGMENT_ID, false);
 
         let shard = self.shard_for(&doc_id);
         let mut mem = self.memtable_shards[shard].lock().unwrap();
@@ -867,7 +905,8 @@ impl IndexStore {
             source: Some(std::sync::Arc::new(source)),
             source_bytes: std::sync::Arc::from(&[][..]),
         });
-        self.memtable_bytes.fetch_add(source_len as u64, Ordering::Relaxed);
+        self.memtable_bytes
+            .fetch_add(source_len as u64, Ordering::Relaxed);
 
         debug!(seq_no, "document indexed");
         Ok(seq_no)
@@ -878,10 +917,7 @@ impl IndexStore {
     /// 1. One mutex lock for the entire batch (not N locks)
     /// 2. WAL entries written sequentially without releasing the lock
     /// 3. One memtable lock for the entire batch
-    pub fn index_batch(
-        &self,
-        docs: &[(String, serde_json::Value)],
-    ) -> Result<Vec<SeqNo>> {
+    pub fn index_batch(&self, docs: &[(String, serde_json::Value)]) -> Result<Vec<SeqNo>> {
         if docs.is_empty() {
             return Ok(Vec::new());
         }
@@ -890,7 +926,11 @@ impl IndexStore {
 
         // Route batch to WAL shard of first doc (matches memtable shard routing)
         {
-            let ws = if docs.is_empty() { 0 } else { self.wal_shard_for(&docs[0].0) };
+            let ws = if docs.is_empty() {
+                0
+            } else {
+                self.wal_shard_for(&docs[0].0)
+            };
             let mut wal = self.wal_lock_shard(ws);
             for (doc_id, source) in docs {
                 let entry = WalEntry::Index {
@@ -907,7 +947,8 @@ impl IndexStore {
         // pushes (small batches) only touch 1-2 shards.
         for (i, (doc_id, source)) in docs.iter().enumerate() {
             let seq_no = seq_nos[i];
-            self.version_map.set(doc_id, seq_no, IN_MEMORY_SEGMENT_ID, false);
+            self.version_map
+                .set(doc_id, seq_no, IN_MEMORY_SEGMENT_ID, false);
             let source_len = source.to_string().len();
             let shard = self.shard_for(doc_id);
             let mut mem = self.memtable_shards[shard].lock().unwrap();
@@ -918,7 +959,8 @@ impl IndexStore {
                 source_bytes: std::sync::Arc::from(&[][..]),
             });
             drop(mem);
-            self.memtable_bytes.fetch_add(source_len as u64, Ordering::Relaxed);
+            self.memtable_bytes
+                .fetch_add(source_len as u64, Ordering::Relaxed);
         }
 
         Ok(seq_nos)
@@ -932,18 +974,26 @@ impl IndexStore {
             return Ok(None);
         }
 
-        let entry = WalEntry::Delete { doc_id: doc_id.to_owned() };
+        let entry = WalEntry::Delete {
+            doc_id: doc_id.to_owned(),
+        };
         let seq_no = {
             let ws = self.wal_shard_for(doc_id);
             let mut wal = self.wal_lock_shard(ws);
             wal.append(&entry)?
         };
 
-        self.version_map.delete(doc_id, seq_no, IN_MEMORY_SEGMENT_ID)?;
+        self.version_map
+            .delete(doc_id, seq_no, IN_MEMORY_SEGMENT_ID)?;
 
         let shard = self.shard_for(doc_id);
         let mut mem = self.memtable_shards[shard].lock().unwrap();
-        mem.push(MemEntry { seq_no, doc_id: doc_id.to_owned(), source: None, source_bytes: std::sync::Arc::from(&[][..]) });
+        mem.push(MemEntry {
+            seq_no,
+            doc_id: doc_id.to_owned(),
+            source: None,
+            source_bytes: std::sync::Arc::from(&[][..]),
+        });
 
         Ok(Some(seq_no))
     }
@@ -995,10 +1045,7 @@ impl IndexStore {
     /// segment is abandoned (the .seg file may remain on disk but is never
     /// referenced from the snapshot, so readers will not observe a
     /// half-written segment).
-    pub fn flush_with_publisher<F>(
-        &self,
-        post_finish: F,
-    ) -> Result<Option<SegmentMeta>>
+    pub fn flush_with_publisher<F>(&self, post_finish: F) -> Result<Option<SegmentMeta>>
     where
         F: FnOnce(&SegmentMeta) -> Result<()>,
     {
@@ -1040,8 +1087,7 @@ impl IndexStore {
         let max_seq = entries.iter().map(|e| e.seq_no).max().unwrap_or(0);
 
         let segments_dir = self.data_dir.join("segments");
-        let mut writer =
-            SegmentWriter::new(&segments_dir, self.config.schema_version, 0, 0)?;
+        let mut writer = SegmentWriter::new(&segments_dir, self.config.schema_version, 0, 0)?;
 
         // Build stored-fields bytes directly, streaming each source value
         // into the output buffer via `serde_json::to_writer`.  The previous
@@ -1050,8 +1096,7 @@ impl IndexStore {
         // flush cost on log workloads).  Writing bytes once avoids the
         // clone entirely — `e.source` is `Arc<Value>` and `to_writer` only
         // walks it for serialisation.
-        let live_entries: Vec<&MemEntry> =
-            entries.iter().filter(|e| e.source.is_some()).collect();
+        let live_entries: Vec<&MemEntry> = entries.iter().filter(|e| e.source.is_some()).collect();
         let has_stored = !live_entries.is_empty();
         if has_stored {
             // P2.2 — when every live entry carries a parsed `source`
@@ -1062,8 +1107,9 @@ impl IndexStore {
             let all_parsed = live_entries
                 .iter()
                 .all(|e| e.source_bytes.is_empty() && e.source.is_some());
-            let parity =
-                std::env::var("XERJ_FLUSH_PARITY").map(|v| v == "1").unwrap_or(false);
+            let parity = std::env::var("XERJ_FLUSH_PARITY")
+                .map(|v| v == "1")
+                .unwrap_or(false);
             // Flush fast path: on large all-parsed segments skip the
             // canonical JSON-array serialisation entirely (it existed
             // only to feed the v1-LZ4 "never make things worse" size
@@ -1078,8 +1124,7 @@ impl IndexStore {
             let stored_bytes: Vec<u8> = if skip_json {
                 Vec::new()
             } else {
-                let mut stored_bytes: Vec<u8> =
-                    Vec::with_capacity(live_entries.len() * 512);
+                let mut stored_bytes: Vec<u8> = Vec::with_capacity(live_entries.len() * 512);
                 stored_bytes.push(b'[');
                 let mut first = true;
                 for e in &live_entries {
@@ -1122,7 +1167,9 @@ impl IndexStore {
                         (
                             e.doc_id.as_str(),
                             e.seq_no,
-                            e.source.as_deref().expect("all_parsed checked source.is_some()"),
+                            e.source
+                                .as_deref()
+                                .expect("all_parsed checked source.is_some()"),
                         )
                     })
                     .collect();
@@ -1134,7 +1181,8 @@ impl IndexStore {
                 if parity {
                     let legacy = crate::stored_codec::encode_stored_v2(&stored_bytes);
                     assert_eq!(
-                        legacy, enc,
+                        legacy,
+                        enc,
                         "XERJ_FLUSH_PARITY: encode_stored_v2_from_values diverged from \
                          encode_stored_v2 ({} live docs)",
                         doc_refs.len()
@@ -1154,8 +1202,11 @@ impl IndexStore {
         }
 
         // Build tombstone section if any deletes
-        let tombstone_ids: Vec<&str> =
-            entries.iter().filter(|e| e.source.is_none()).map(|e| e.doc_id.as_str()).collect();
+        let tombstone_ids: Vec<&str> = entries
+            .iter()
+            .filter(|e| e.source.is_none())
+            .map(|e| e.doc_id.as_str())
+            .collect();
         if !tombstone_ids.is_empty() {
             let ts_bytes = serde_json::to_vec(&tombstone_ids)?;
             writer.add_section(SectionType::Tombstones, &ts_bytes)?;
@@ -1286,7 +1337,8 @@ impl IndexStore {
         // ~30 % of `_refresh` calls losing 1-2 docs after 6-doc
         // sequential PUTs in the YAML suite (110_field_collapsing
         // setup, et al.).
-        self.snapshot.rcu(|old| Arc::new(old.with_new_segment(meta.clone())));
+        self.snapshot
+            .rcu(|old| Arc::new(old.with_new_segment(meta.clone())));
 
         // V4 M4 — checkpoint + rotate + prune, NOW time-gated.
         //
@@ -1423,8 +1475,8 @@ impl IndexStore {
         Ok(())
     }
 
-    /// Unconditionally run WAL maintenance (checkpoint + force-rotate
-    /// + prune) across all shards.  Bypasses the
+    /// Unconditionally run WAL maintenance (checkpoint + force-rotate +
+    /// prune) across all shards.  Bypasses the
     /// `WAL_MAINTENANCE_INTERVAL_MS` gate that
     /// `finalize_flush_with_publisher` uses on the hot flush path.
     /// Called by `Index::flush()` (the final drain / user-triggered
@@ -1507,7 +1559,9 @@ impl IndexStore {
                 total_sections += 1;
                 let result = reader.section_checked(kind);
                 let ok = result.is_ok();
-                if !ok { bad_sections += 1; }
+                if !ok {
+                    bad_sections += 1;
+                }
                 section_results.push(FsckSectionReport {
                     kind: format!("{kind:?}"),
                     ok,
@@ -1554,9 +1608,7 @@ impl IndexStore {
             None => {
                 let fallback = format!("{segment_id}.seg");
                 let is_local = matches!(self.config.storage_mode, StorageMode::Local);
-                if is_local
-                    && !self.data_dir.join("segments").join(&fallback).exists()
-                {
+                if is_local && !self.data_dir.join("segments").join(&fallback).exists() {
                     return Err(StorageError::SegmentNotFound(segment_id.to_owned()));
                 }
                 fallback
@@ -1567,7 +1619,9 @@ impl IndexStore {
         let local_path = self.data_dir.join("segments").join(&seg_path);
 
         // For object-store mode: check local cache; fetch from backend on miss.
-        let reader = if let StorageMode::ObjectStore { backend, cache_dir } = &self.config.storage_mode {
+        let reader = if let StorageMode::ObjectStore { backend, cache_dir } =
+            &self.config.storage_mode
+        {
             let cache_path = cache_dir.join(&seg_path);
             if cache_path.exists() {
                 crate::segment::SegmentReader::open(cache_path)?
@@ -1576,10 +1630,9 @@ impl IndexStore {
                 let backend_clone = std::sync::Arc::clone(backend);
                 let key_clone = object_key.clone();
                 let data = tokio::task::block_in_place(|| {
-                    tokio::runtime::Handle::current()
-                        .block_on(async move {
-                            backend_clone.read_range(&key_clone, 0, u64::MAX).await
-                        })
+                    tokio::runtime::Handle::current().block_on(async move {
+                        backend_clone.read_range(&key_clone, 0, u64::MAX).await
+                    })
                 })
                 .map_err(|e| StorageError::Backend(format!("object-store fetch failed: {e}")))?;
 
@@ -1594,7 +1647,8 @@ impl IndexStore {
             crate::segment::SegmentReader::open(local_path)?
         };
         let arc = Arc::new(reader);
-        self.seg_reader_cache.insert(segment_id.to_string(), Arc::clone(&arc));
+        self.seg_reader_cache
+            .insert(segment_id.to_string(), Arc::clone(&arc));
         Ok(arc)
     }
 
@@ -1688,16 +1742,17 @@ impl IndexStore {
                     let mut pos = 0usize;
                     let mut loaded = 0usize;
                     for _ in 0..num {
-                        if pos + 8 + 2 > body.len() { break; }
-                        let seq_no = u64::from_le_bytes(
-                            body[pos..pos + 8].try_into().unwrap(),
-                        );
+                        if pos + 8 + 2 > body.len() {
+                            break;
+                        }
+                        let seq_no = u64::from_le_bytes(body[pos..pos + 8].try_into().unwrap());
                         pos += 8;
-                        let id_len = u16::from_le_bytes(
-                            body[pos..pos + 2].try_into().unwrap(),
-                        ) as usize;
+                        let id_len =
+                            u16::from_le_bytes(body[pos..pos + 2].try_into().unwrap()) as usize;
                         pos += 2;
-                        if pos + id_len > body.len() { break; }
+                        if pos + id_len > body.len() {
+                            break;
+                        }
                         let id_bytes = &body[pos..pos + id_len];
                         pos += id_len;
                         if let Ok(id) = std::str::from_utf8(id_bytes) {
@@ -1767,61 +1822,18 @@ impl IndexStore {
     // ── WAL replay ────────────────────────────────────────────────────────────
 
     fn replay_wal(&self, wal_dir: &Path) -> Result<()> {
-        // Collect all WAL directories: root wal/ (legacy single-WAL) plus
-        // any wal/s{N}/ subdirectories (sharded WAL).
-        let mut wal_dirs: Vec<PathBuf> = Vec::new();
-        // Check root for legacy .wal files
-        if std::fs::read_dir(wal_dir)
-            .ok()
-            .map(|rd| rd.filter_map(|e| e.ok()).any(|e| {
-                e.path().extension().map(|x| x == "wal").unwrap_or(false)
-            }))
-            .unwrap_or(false)
-        {
-            wal_dirs.push(wal_dir.to_path_buf());
-        }
-        // Scan for sharded subdirectories (s0, s1, ...)
-        if let Ok(rd) = std::fs::read_dir(wal_dir) {
-            for entry in rd.filter_map(|e| e.ok()) {
-                let name = entry.file_name();
-                let name_str = name.to_string_lossy();
-                if name_str.starts_with('s') && name_str[1..].parse::<usize>().is_ok() {
-                    if entry.path().is_dir() {
-                        wal_dirs.push(entry.path());
-                    }
-                }
-            }
-        }
-
-        // Replay all WAL directories, merge-sorting by seq_no.
-        let mut all_entries: Vec<ReplayEntry> = Vec::new();
-        for dir in &wal_dirs {
-            let reader = WalReader::new(dir);
-            let iter = match reader.replay() {
-                Ok(it) => it,
-                Err(e) => {
-                    warn!(error = %e, dir = ?dir, "failed to open WAL for replay");
-                    continue;
-                }
-            };
-            for result in iter {
-                match result {
-                    Ok(e) => all_entries.push(e),
-                    Err(e) => {
-                        warn!(error = %e, dir = ?dir, "skipping corrupt WAL entry during replay");
-                    }
-                }
-            }
-        }
-        // Sort by seq_no to reconstruct global insertion order.
-        all_entries.sort_by_key(|e| e.seq_no);
+        // Discover legacy + sharded WAL streams and merge-sort by seq_no
+        // (shared with the engine-level FTS memtable rebuild so the two
+        // replay passes can never diverge on directory layout).
+        let all_entries = crate::wal::replay_all_sorted(wal_dir);
 
         let mut count = 0usize;
         for replay_entry in all_entries {
             match replay_entry.entry {
                 WalEntry::Index { doc_id, source } => {
                     let seq_no = replay_entry.seq_no;
-                    self.version_map.set(&doc_id, seq_no, IN_MEMORY_SEGMENT_ID, false);
+                    self.version_map
+                        .set(&doc_id, seq_no, IN_MEMORY_SEGMENT_ID, false);
                     let shard = self.shard_for(&doc_id);
                     let mut mem = self.memtable_shards[shard].lock().unwrap();
                     mem.push(MemEntry {
@@ -1833,19 +1845,28 @@ impl IndexStore {
                 }
                 WalEntry::Delete { doc_id } => {
                     let seq_no = replay_entry.seq_no;
-                    self.version_map.delete(&doc_id, seq_no, IN_MEMORY_SEGMENT_ID).ok();
+                    self.version_map
+                        .delete(&doc_id, seq_no, IN_MEMORY_SEGMENT_ID)
+                        .ok();
                     let shard = self.shard_for(&doc_id);
                     let mut mem = self.memtable_shards[shard].lock().unwrap();
-                    mem.push(MemEntry { seq_no, doc_id, source: None, source_bytes: std::sync::Arc::from(&[][..]) });
+                    mem.push(MemEntry {
+                        seq_no,
+                        doc_id,
+                        source: None,
+                        source_bytes: std::sync::Arc::from(&[][..]),
+                    });
                 }
                 WalEntry::UpdateMapping { .. } => {}
             }
-            let _ = self.seq_counter.fetch_max(replay_entry.seq_no + 1, Ordering::AcqRel);
+            let _ = self
+                .seq_counter
+                .fetch_max(replay_entry.seq_no + 1, Ordering::AcqRel);
             count += 1;
         }
 
         if count > 0 {
-            info!(count, wal_dirs = wal_dirs.len(), "replayed WAL entries");
+            info!(count, "replayed WAL entries");
         }
         Ok(())
     }
@@ -1855,11 +1876,7 @@ impl IndexStore {
     /// Called by the merge executor (or the engine-level merge task) to
     /// atomically replace merged segments with the merged result and update
     /// the version map.
-    pub fn apply_merge(
-        &self,
-        merged_ids: &[SegmentId],
-        new_meta: SegmentMeta,
-    ) -> Result<()> {
+    pub fn apply_merge(&self, merged_ids: &[SegmentId], new_meta: SegmentMeta) -> Result<()> {
         // Sum the doc counts of the segments we're about to replace, so we can
         // tell whether this merge actually dropped any documents.
         let merged_total: u64 = {
@@ -1874,7 +1891,8 @@ impl IndexStore {
         // `finalize_flush_with_publisher`: a concurrent flush appending
         // its segment between load and store would drop our merged
         // segment swap. rcu retries on contention.
-        self.snapshot.rcu(|old| Arc::new(old.replace_segments(merged_ids, new_meta.clone())));
+        self.snapshot
+            .rcu(|old| Arc::new(old.replace_segments(merged_ids, new_meta.clone())));
         // `remove_segment` does a full O(N) `DashMap::retain` over the ENTIRE
         // version map, holding each shard's write lock — a >1s read-collapse
         // under merge pressure once the map holds millions of entries (reads
@@ -1900,7 +1918,10 @@ impl IndexStore {
     /// Returns stats useful for triggering merges.
     pub fn segment_stats(&self) -> Vec<(SegmentId, u64, u64)> {
         let snap = self.snapshot.load();
-        snap.segments.iter().map(|s| (s.id.clone(), s.doc_count, s.size_bytes)).collect()
+        snap.segments
+            .iter()
+            .map(|s| (s.id.clone(), s.doc_count, s.size_bytes))
+            .collect()
     }
 
     /// Returns the path to the WAL directory for this index store.
@@ -1930,7 +1951,9 @@ impl IndexStore {
 
     /// Append a WAL entry for a deleted document.
     pub fn wal_append_delete(&self, doc_id: &str) -> Result<SeqNo> {
-        let entry = WalEntry::Delete { doc_id: doc_id.to_owned() };
+        let entry = WalEntry::Delete {
+            doc_id: doc_id.to_owned(),
+        };
         let ws = self.wal_shard_for(doc_id);
         let mut wal = self.wal_lock_shard(ws);
         wal.append(&entry)
@@ -1978,7 +2001,9 @@ impl IndexStore {
 
         if std::env::var("XERJ_SKIP_WAL").is_ok() {
             let n = docs.len() as u64;
-            let start_seq = self.seq_counter.fetch_add(n, std::sync::atomic::Ordering::AcqRel);
+            let start_seq = self
+                .seq_counter
+                .fetch_add(n, std::sync::atomic::Ordering::AcqRel);
             let seq_nos: Vec<SeqNo> = (0..docs.len()).map(|i| start_seq + i as u64).collect();
             // Hoist the segment-id Arc once: per-doc cost in the loop is one
             // Arc::clone (single atomic increment) instead of a String alloc.
@@ -2007,9 +2032,7 @@ impl IndexStore {
             // Reserve space for entry_len (4) + seq_no (8) + op (1)
             frames.extend_from_slice(&[0u8; 13]);
             frames.extend_from_slice(br#"{"Index":{"doc_id":""#);
-            let needs_escape = doc_id
-                .bytes()
-                .any(|b| b == b'"' || b == b'\\' || b < 0x20);
+            let needs_escape = doc_id.bytes().any(|b| b == b'"' || b == b'\\' || b < 0x20);
             if needs_escape {
                 for &b in doc_id.as_bytes() {
                     match b {
@@ -2038,7 +2061,9 @@ impl IndexStore {
             let mut hasher = crc32fast::Hasher::new();
             let mut seq_buf = [0u8; 8];
             use byteorder::{LittleEndian, WriteBytesExt};
-            (&mut seq_buf[..]).write_u64::<LittleEndian>(seq_no).unwrap();
+            (&mut seq_buf[..])
+                .write_u64::<LittleEndian>(seq_no)
+                .unwrap();
             hasher.update(&seq_buf);
             hasher.update(&[0x01]); // OP_INDEX
             hasher.update(payload_slice);
@@ -2082,6 +2107,10 @@ impl IndexStore {
         Ok(seq_nos)
     }
 
+    // The `docs` slice element is a WAL-batch tuple (doc_id, source JSON,
+    // pre-serialized bytes); the shape is part of the public batch API so we
+    // keep it inline rather than refactor the signature.
+    #[allow(clippy::type_complexity)]
     pub fn wal_append_batch(
         &self,
         docs: &[(
@@ -2112,10 +2141,10 @@ impl IndexStore {
         // batch buffer.
         if std::env::var("XERJ_SKIP_WAL").is_ok() {
             let n = docs.len() as u64;
-            let start_seq = self.seq_counter.fetch_add(n, std::sync::atomic::Ordering::AcqRel);
-            let seq_nos: Vec<SeqNo> = (0..docs.len())
-                .map(|i| start_seq + i as u64)
-                .collect();
+            let start_seq = self
+                .seq_counter
+                .fetch_add(n, std::sync::atomic::Ordering::AcqRel);
+            let seq_nos: Vec<SeqNo> = (0..docs.len()).map(|i| start_seq + i as u64).collect();
             return Ok(seq_nos);
         }
 
@@ -2123,11 +2152,14 @@ impl IndexStore {
         // directly into one output buffer. Eliminates the intermediate
         // Vec<Vec<u8>> allocation that was 10k allocs per batch.
         let n = docs.len() as u64;
-        let start_seq = self.seq_counter.fetch_add(n, std::sync::atomic::Ordering::AcqRel);
+        let start_seq = self
+            .seq_counter
+            .fetch_add(n, std::sync::atomic::Ordering::AcqRel);
         let mut seq_nos: Vec<SeqNo> = Vec::with_capacity(docs.len());
 
         // Estimate total frame size: per-doc overhead ~80 bytes + source
-        let est_total: usize = docs.iter()
+        let est_total: usize = docs
+            .iter()
             .map(|(id, _, sb)| id.len() + sb.len() + 100)
             .sum();
         let mut frames: Vec<u8> = Vec::with_capacity(est_total);
@@ -2183,7 +2215,9 @@ impl IndexStore {
             let mut hasher = crc32fast::Hasher::new();
             let mut seq_buf = [0u8; 8];
             use byteorder::{LittleEndian, WriteBytesExt};
-            (&mut seq_buf[..]).write_u64::<LittleEndian>(seq_no).unwrap();
+            (&mut seq_buf[..])
+                .write_u64::<LittleEndian>(seq_no)
+                .unwrap();
             hasher.update(&seq_buf);
             hasher.update(&[0x01]); // OP_INDEX
             hasher.update(payload_slice);
@@ -2200,7 +2234,11 @@ impl IndexStore {
         let total_written = frames.len() as u64;
 
         {
-            let ws = if docs.is_empty() { 0 } else { self.wal_shard_for(&docs[0].0) };
+            let ws = if docs.is_empty() {
+                0
+            } else {
+                self.wal_shard_for(&docs[0].0)
+            };
             let mut wal = self.wal_lock_shard(ws);
             let saved_mode = wal.sync_mode();
             wal.set_sync_mode(SyncMode::Batched);
@@ -2281,10 +2319,14 @@ mod tests {
     use super::*;
 
     fn open_test_store(dir: &Path) -> Arc<IndexStore> {
-        IndexStore::open(dir, IndexStoreConfig {
-            sync_mode: SyncMode::Batched, // faster for tests
-            ..Default::default()
-        }).unwrap()
+        IndexStore::open(
+            dir,
+            IndexStoreConfig {
+                sync_mode: SyncMode::Batched, // faster for tests
+                ..Default::default()
+            },
+        )
+        .unwrap()
     }
 
     #[test]
@@ -2292,8 +2334,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let store = open_test_store(dir.path());
 
-        store.index("doc-1", serde_json::json!({"title": "hello"})).unwrap();
-        store.index("doc-2", serde_json::json!({"title": "world"})).unwrap();
+        store
+            .index("doc-1", serde_json::json!({"title": "hello"}))
+            .unwrap();
+        store
+            .index("doc-2", serde_json::json!({"title": "world"}))
+            .unwrap();
 
         let meta = store.flush().unwrap().expect("flush produced a segment");
         assert_eq!(meta.doc_count, 2);
@@ -2340,7 +2386,9 @@ mod tests {
         let store = open_test_store(dir.path());
 
         for i in 0..3 {
-            store.index(format!("doc-{i}"), serde_json::json!({"i": i})).unwrap();
+            store
+                .index(format!("doc-{i}"), serde_json::json!({"i": i}))
+                .unwrap();
             store.flush().unwrap();
         }
 
@@ -2371,7 +2419,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let store = open_test_store(dir.path());
 
-        store.index("doc-1", serde_json::json!({"hello": "world"})).unwrap();
+        store
+            .index("doc-1", serde_json::json!({"hello": "world"}))
+            .unwrap();
         let meta = store.flush().unwrap().unwrap();
 
         let reader = store.open_segment(&meta.id).unwrap();
@@ -2389,9 +2439,8 @@ mod tests {
         let s3_dir = tempfile::tempdir().unwrap();
         let cache_dir = tempfile::tempdir().unwrap();
 
-        let backend: Arc<dyn StorageBackend> = Arc::new(
-            S3Backend::new(s3_dir.path(), "test-bucket", "xerj/"),
-        );
+        let backend: Arc<dyn StorageBackend> =
+            Arc::new(S3Backend::new(s3_dir.path(), "test-bucket", "xerj/"));
 
         let store = IndexStore::open(
             data_dir.path(),
@@ -2406,7 +2455,9 @@ mod tests {
         )
         .unwrap();
 
-        store.index("doc-1", serde_json::json!({"title": "hello s3"})).unwrap();
+        store
+            .index("doc-1", serde_json::json!({"title": "hello s3"}))
+            .unwrap();
         let meta = store.flush().unwrap().expect("should produce a segment");
 
         // Segment must exist in the simulated S3 bucket.
@@ -2430,9 +2481,8 @@ mod tests {
         let s3_dir = tempfile::tempdir().unwrap();
         let cache_dir = tempfile::tempdir().unwrap();
 
-        let backend: Arc<dyn StorageBackend> = Arc::new(
-            S3Backend::new(s3_dir.path(), "test-bucket", "xerj/"),
-        );
+        let backend: Arc<dyn StorageBackend> =
+            Arc::new(S3Backend::new(s3_dir.path(), "test-bucket", "xerj/"));
 
         let store = IndexStore::open(
             data_dir.path(),
@@ -2447,7 +2497,9 @@ mod tests {
         )
         .unwrap();
 
-        store.index("doc-1", serde_json::json!({"title": "cache test"})).unwrap();
+        store
+            .index("doc-1", serde_json::json!({"title": "cache test"}))
+            .unwrap();
         let meta = store.flush().unwrap().unwrap();
 
         // Remove local segment file to force a cache miss on first open.
@@ -2471,20 +2523,25 @@ mod tests {
     /// Build two flushed segments and merge them, returning
     /// (store, input_ids, merged_meta).  The merge is applied
     /// (snapshot swapped) but the input files are NOT yet retired.
-    fn two_segments_merged(
-        dir: &Path,
-    ) -> (Arc<IndexStore>, Vec<SegmentId>, SegmentMeta) {
+    fn two_segments_merged(dir: &Path) -> (Arc<IndexStore>, Vec<SegmentId>, SegmentMeta) {
         let store = open_test_store(dir);
         store.index("doc-1", serde_json::json!({"v": 1})).unwrap();
         store.flush().unwrap();
         store.index("doc-2", serde_json::json!({"v": 2})).unwrap();
         store.flush().unwrap();
-        let ids: Vec<SegmentId> =
-            store.snapshot().segments.iter().map(|s| s.id.clone()).collect();
+        let ids: Vec<SegmentId> = store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|s| s.id.clone())
+            .collect();
         assert_eq!(ids.len(), 2);
         let executor = crate::merge::MergeExecutor::new(
             Arc::clone(&store),
-            crate::merge::MergeConfig { io_rate_mb_per_sec: 0, ..Default::default() },
+            crate::merge::MergeConfig {
+                io_rate_mb_per_sec: 0,
+                ..Default::default()
+            },
         );
         let merged = executor.execute_merge(&ids).unwrap();
         (store, ids, merged)
@@ -2500,7 +2557,10 @@ mod tests {
             assert!(segments_dir.join(format!("{id}.seg")).exists());
         }
         let (files, _bytes) = store.retire_segment_files(&ids);
-        assert!(files >= 2, "expected immediate deletion, removed {files} files");
+        assert!(
+            files >= 2,
+            "expected immediate deletion, removed {files} files"
+        );
         for id in &ids {
             assert!(
                 !segments_dir.join(format!("{id}.seg")).exists(),
@@ -2521,15 +2581,17 @@ mod tests {
 
         // A "query" snapshots the segment list BEFORE the merge commits.
         let query_snap = store.snapshot();
-        let ids: Vec<SegmentId> =
-            query_snap.segments.iter().map(|s| s.id.clone()).collect();
+        let ids: Vec<SegmentId> = query_snap.segments.iter().map(|s| s.id.clone()).collect();
         assert_eq!(ids.len(), 2);
 
         // Merge commits and retires the inputs while the query is in flight
         // (mirrors run_merge_once: evict reader cache, then retire).
         let executor = crate::merge::MergeExecutor::new(
             Arc::clone(&store),
-            crate::merge::MergeConfig { io_rate_mb_per_sec: 0, ..Default::default() },
+            crate::merge::MergeConfig {
+                io_rate_mb_per_sec: 0,
+                ..Default::default()
+            },
         );
         executor.execute_merge(&ids).unwrap();
         for id in &ids {

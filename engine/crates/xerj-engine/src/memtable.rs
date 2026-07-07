@@ -130,6 +130,11 @@ type PostingList = FxHashMap<DocId, u32>; // doc_id → tf
 
 /// Number of raw string samples to collect per field before running
 /// smart encoding analysis.
+// Intentional scaffolding for the deferred field-encoding-analysis subsystem
+// (`collect_sample` + the `pub` samples/analyzed/analyzed_encodings columns); the
+// bounded-delta read-side fold superseded its ingest-time call site, but the writer
+// half and its public columns are retained, so silence dead_code.
+#[allow(dead_code)]
 const ANALYSIS_THRESHOLD: usize = 1000;
 
 /// Columnar doc-values store, one column per field, one row per document
@@ -262,19 +267,19 @@ impl DocValues {
     /// Fold the keyword column for ONE `field` up to date (counts + set).
     /// O(positions appended to that field's column since the last fold).
     fn fold_keyword_field(&self, cs: &mut CountState, field: &str) {
-        let Some(col) = self.keyword.get(field) else { return };
+        let Some(col) = self.keyword.get(field) else {
+            return;
+        };
         let built = cs.kw_built.get(field).copied().unwrap_or(0);
         if built >= col.len() {
             return;
         }
         let counts = cs.keyword_counts.entry(field.to_string()).or_default();
         let set = cs.keyword_set.entry(field.to_string()).or_default();
-        for slot in &col[built..] {
-            if let Some(s) = slot {
-                *counts.entry(s.clone()).or_insert(0) += 1;
-                if !set.contains(s) {
-                    set.insert(s.clone());
-                }
+        for s in col[built..].iter().flatten() {
+            *counts.entry(s.clone()).or_insert(0) += 1;
+            if !set.contains(s) {
+                set.insert(s.clone());
             }
         }
         cs.kw_built.insert(field.to_string(), col.len());
@@ -282,16 +287,16 @@ impl DocValues {
 
     /// Fold the numeric column for ONE `field` up to date (numeric_counts).
     fn fold_numeric_field(&self, cs: &mut CountState, field: &str) {
-        let Some(col) = self.numeric.get(field) else { return };
+        let Some(col) = self.numeric.get(field) else {
+            return;
+        };
         let built = cs.num_built.get(field).copied().unwrap_or(0);
         if built >= col.len() {
             return;
         }
         let counts = cs.numeric_counts.entry(field.to_string()).or_default();
-        for slot in &col[built..] {
-            if let Some(f) = slot {
-                *counts.entry(f.to_bits()).or_insert(0) += 1;
-            }
+        for f in col[built..].iter().flatten() {
+            *counts.entry(f.to_bits()).or_insert(0) += 1;
         }
         cs.num_built.insert(field.to_string(), col.len());
     }
@@ -339,6 +344,11 @@ impl DocValues {
     }
 
     /// Collect a string sample for a field and trigger analysis when threshold is reached.
+    // Not on any current call path: the bounded-delta read-side fold superseded the
+    // ingest-time sampling, but this is the writer for the `pub` samples/analyzed/
+    // analyzed_encodings scaffolding (and the sole user of `FieldAnalyzer`), so it is
+    // retained intentionally rather than deleted.
+    #[allow(dead_code)]
     fn collect_sample(&mut self, field: &str, value: &str) {
         if self.analyzed.get(field).copied().unwrap_or(false) {
             // Already analyzed — no more samples needed.
@@ -423,7 +433,9 @@ impl DocValues {
                 ncol.push(first_num);
 
                 if let Some(ref s) = first_str {
-                    if s.contains(char::is_whitespace) && !self.keyword_has_whitespace.contains(field) {
+                    if s.contains(char::is_whitespace)
+                        && !self.keyword_has_whitespace.contains(field)
+                    {
                         self.keyword_has_whitespace.insert(field.to_string());
                     }
                     // keyword_set is maintained lazily on the read side
@@ -547,7 +559,10 @@ impl ShardedFtsMemtable {
         let shards = (0..n)
             .map(|_| parking_lot::RwLock::new(FtsMemtable::with_registry(Arc::clone(&registry))))
             .collect();
-        Self { shards, shard_mask: n - 1 }
+        Self {
+            shards,
+            shard_mask: n - 1,
+        }
     }
 
     #[inline]
@@ -566,13 +581,13 @@ impl ShardedFtsMemtable {
     /// see each other's state consistently.
     pub fn with_shard_mut<R>(&self, shard: usize, f: impl FnOnce(&mut FtsMemtable) -> R) -> R {
         let mut g = self.shards[shard].write();
-        f(&mut *g)
+        f(&mut g)
     }
 
     /// Run `f` with shared (read-only) access to a specific shard.
     pub fn with_shard<R>(&self, shard: usize, f: impl FnOnce(&FtsMemtable) -> R) -> R {
         let g = self.shards[shard].read();
-        f(&*g)
+        f(&g)
     }
 
     /// The analyzer `FtsMemtable::insert` uses for text fields: the
@@ -852,18 +867,43 @@ impl ShardedFtsMemtable {
     /// statistics — flat IDFs and dropped length normalisation, since
     /// many shards would have N=1, doc_freq=1.
     pub fn search_text(&self, query: &str, fields: &[&str], limit: usize) -> Vec<MemtableHit> {
+        static NO_BOOSTS: std::sync::OnceLock<std::collections::HashMap<String, f32>> =
+            std::sync::OnceLock::new();
+        self.search_text_boosted(
+            query,
+            fields,
+            limit,
+            NO_BOOSTS.get_or_init(std::collections::HashMap::new),
+        )
+    }
+
+    /// `search_text` with per-field boost multipliers from the query tree
+    /// (ES `boost` on match clauses / `field^N` on multi_match). Fields
+    /// absent from the map score with boost 1.0.
+    pub fn search_text_boosted(
+        &self,
+        query: &str,
+        fields: &[&str],
+        limit: usize,
+        field_boosts: &std::collections::HashMap<String, f32>,
+    ) -> Vec<MemtableHit> {
         // Pre-pass: tokenise the query (use any shard's analyzer — they're
         // all the same registry-provided one) and aggregate per-term
         // global doc_freq + per-field global stats.
-        let analyzer = self.shards.iter()
-            .find_map(|s| {
-                let g = s.read();
-                g.registry.get_analyzer("default")
-                    .or_else(|| g.registry.get_analyzer("standard"))
-            });
-        let analyzer = match analyzer { Some(a) => a, None => return Vec::new() };
+        let analyzer = self.shards.iter().find_map(|s| {
+            let g = s.read();
+            g.registry
+                .get_analyzer("default")
+                .or_else(|| g.registry.get_analyzer("standard"))
+        });
+        let analyzer = match analyzer {
+            Some(a) => a,
+            None => return Vec::new(),
+        };
         let q_tokens = analyzer.analyze(query);
-        if q_tokens.is_empty() { return Vec::new(); }
+        if q_tokens.is_empty() {
+            return Vec::new();
+        }
 
         // Delete-aware BM25 collection statistics (Lucene/ES parity): the
         // scoring N counts both live docs AND tombstoned/superseded versions
@@ -900,7 +940,8 @@ impl ShardedFtsMemtable {
                 }
                 for token in &q_tokens {
                     if let Some(pl) = postings.get(&token.text) {
-                        *term_global_df.entry((fname.clone(), token.text.clone()))
+                        *term_global_df
+                            .entry((fname.clone(), token.text.clone()))
                             .or_insert(0) += pl.len() as u64;
                     }
                 }
@@ -912,25 +953,35 @@ impl ShardedFtsMemtable {
                 }
                 for token in &q_tokens {
                     if let Some(df) = terms.get(&token.text) {
-                        *term_global_df.entry((fname.clone(), token.text.clone()))
+                        *term_global_df
+                            .entry((fname.clone(), token.text.clone()))
                             .or_insert(0) += *df;
                     }
                 }
             }
         }
-        let global_avg_field_len: std::collections::HashMap<String, f32> =
-            field_total_len.into_iter()
-                .map(|(k, (sum, n))| (k, if n == 0 { 0.0 } else { (sum / n as f64) as f32 }))
-                .collect();
+        let global_avg_field_len: std::collections::HashMap<String, f32> = field_total_len
+            .into_iter()
+            .map(|(k, (sum, n))| (k, if n == 0 { 0.0 } else { (sum / n as f64) as f32 }))
+            .collect();
 
         let mut all: Vec<MemtableHit> = Vec::new();
         for s in &self.shards {
             all.extend(s.read().search_text_with_global_stats(
-                query, fields, limit,
-                global_doc_count, &global_avg_field_len, &term_global_df,
+                query,
+                fields,
+                limit,
+                global_doc_count,
+                &global_avg_field_len,
+                &term_global_df,
+                field_boosts,
             ));
         }
-        all.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        all.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         all.truncate(limit);
         all
     }
@@ -939,7 +990,9 @@ impl ShardedFtsMemtable {
     /// the `IndexStore::index()` single-doc path.
     pub fn insert(&self, doc_id: String, source: &Value, schema: &Schema, seq_no: u64) {
         let s = self.shard_for_dynamic(&doc_id);
-        self.shards[s].write().insert(doc_id, source, schema, seq_no);
+        self.shards[s]
+            .write()
+            .insert(doc_id, source, schema, seq_no);
     }
 
     /// Drop-in for `insert_pretokenized_with_seq` — picks a shard by
@@ -959,12 +1012,7 @@ impl ShardedFtsMemtable {
     }
 
     /// M5.11 — raw-bytes ultra-turbo insert (shard-routed).
-    pub fn insert_raw_bytes_with_seq(
-        &self,
-        seq_no: u64,
-        doc_id: String,
-        source_bytes: Arc<[u8]>,
-    ) {
+    pub fn insert_raw_bytes_with_seq(&self, seq_no: u64, doc_id: String, source_bytes: Arc<[u8]>) {
         let s = self.shard_for_dynamic(&doc_id);
         self.shards[s]
             .write()
@@ -1138,20 +1186,22 @@ impl ShardedFtsMemtable {
                 {
                     return None;
                 }
-                Some(g.doc_values.with_keyword_field(field, |c| match c.keyword_counts.get(field) {
-                    None => {
-                        // No doc in this shard carries the field as a scalar.
-                        (std::collections::HashMap::new(), n as u64)
-                    }
-                    Some(m) => {
-                        let mut counts: std::collections::HashMap<String, u64> =
-                            std::collections::HashMap::with_capacity(m.len());
-                        let mut present: u64 = 0;
-                        for (k, &cnt) in m.iter() {
-                            counts.insert(k.clone(), cnt as u64);
-                            present += cnt as u64;
+                Some(g.doc_values.with_keyword_field(field, |c| {
+                    match c.keyword_counts.get(field) {
+                        None => {
+                            // No doc in this shard carries the field as a scalar.
+                            (std::collections::HashMap::new(), n as u64)
                         }
-                        (counts, n as u64 - present)
+                        Some(m) => {
+                            let mut counts: std::collections::HashMap<String, u64> =
+                                std::collections::HashMap::with_capacity(m.len());
+                            let mut present: u64 = 0;
+                            for (k, &cnt) in m.iter() {
+                                counts.insert(k.clone(), cnt as u64);
+                                present += cnt as u64;
+                            }
+                            (counts, n as u64 - present)
+                        }
                     }
                 }))
             })
@@ -1159,8 +1209,7 @@ impl ShardedFtsMemtable {
         let per_shard = per_shard?;
         // Merge the per-shard partials (commutative — identical to the serial
         // single-map accumulation this replaces).
-        let mut counts: std::collections::HashMap<String, u64> =
-            std::collections::HashMap::new();
+        let mut counts: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
         let mut missing: u64 = 0;
         for (shard_counts, shard_missing) in per_shard {
             missing += shard_missing;
@@ -1306,7 +1355,11 @@ impl ShardedFtsMemtable {
         self.drain_shard_inner(shard_idx, true)
     }
 
-    fn drain_shard_inner(&self, shard_idx: usize, skip_parse: bool) -> Vec<(u64, String, Arc<Value>, Arc<[u8]>)> {
+    fn drain_shard_inner(
+        &self,
+        shard_idx: usize,
+        skip_parse: bool,
+    ) -> Vec<(u64, String, Arc<Value>, Arc<[u8]>)> {
         // Swap the shard's maps out under the write lock (pointer moves,
         // O(1)) and deallocate them AFTER the lock is released, on a
         // detached thread.  Pre-fix the reset assignments freed the
@@ -1330,7 +1383,12 @@ impl ShardedFtsMemtable {
             g.ghost_docs = 0;
             let dead_gfl = std::mem::take(&mut g.ghost_field_len);
             let dead_gdf = std::mem::take(&mut g.ghost_doc_freq);
-            (d, (dead_index, dead_dv, dead_fl, dead_afl, dead_dii, dead_gfl, dead_gdf))
+            (
+                d,
+                (
+                    dead_index, dead_dv, dead_fl, dead_afl, dead_dii, dead_gfl, dead_gdf,
+                ),
+            )
         };
         // Free the dead maps off the flush critical path too — the
         // drain result is needed synchronously by the segment writer,
@@ -1367,7 +1425,10 @@ impl ShardedFtsMemtable {
     /// to decide whether to build FTS sidecars at flush time.
     pub fn peek_shard_has_raw_bytes(&self, shard_idx: usize) -> bool {
         let g = self.shards[shard_idx].read();
-        g.docs.first().map(|e| !e.source_bytes.is_empty()).unwrap_or(false)
+        g.docs
+            .first()
+            .map(|e| !e.source_bytes.is_empty())
+            .unwrap_or(false)
     }
 
     /// Return `(shard_idx, doc_count, size_bytes)` triples so the
@@ -1733,7 +1794,8 @@ impl FtsMemtable {
         self.total_bytes += estimated;
 
         let doc_index = self.docs.len();
-        self.doc_id_index.insert(Arc::from(doc_id.as_str()), doc_index);
+        self.doc_id_index
+            .insert(Arc::from(doc_id.as_str()), doc_index);
 
         self.docs.push(MemEntry {
             seq_no,
@@ -1752,17 +1814,13 @@ impl FtsMemtable {
     /// the HashMap entry using a borrowed key lookup via `RawEntry`.
     /// Currently we still clone since stable Rust HashMap requires an
     /// owned key; the gain is skipping the prior `remove()` miss lookup.
-    pub fn insert_raw_bytes_fresh(
-        &mut self,
-        seq_no: u64,
-        doc_id: String,
-        source_bytes: Arc<[u8]>,
-    ) {
+    pub fn insert_raw_bytes_fresh(&mut self, seq_no: u64, doc_id: String, source_bytes: Arc<[u8]>) {
         let estimated = 800usize;
         self.total_bytes += estimated;
 
         let doc_index = self.docs.len();
-        self.doc_id_index.insert(Arc::from(doc_id.as_str()), doc_index);
+        self.doc_id_index
+            .insert(Arc::from(doc_id.as_str()), doc_index);
         self.docs.push(MemEntry {
             seq_no,
             doc_id,
@@ -1773,12 +1831,7 @@ impl FtsMemtable {
         });
     }
 
-    pub fn insert_pretokenized(
-        &mut self,
-        doc_id: String,
-        source: Arc<Value>,
-        tokens: &[String],
-    ) {
+    pub fn insert_pretokenized(&mut self, doc_id: String, source: Arc<Value>, tokens: &[String]) {
         // `seq_no = 0` means "unknown" — drain_with_sources falls back
         // to insertion order when all entries share seq_no 0.  Tests
         // and the legacy single-doc path (which never carries a WAL
@@ -1826,7 +1879,8 @@ impl FtsMemtable {
         self.total_bytes += estimated;
 
         let doc_index = self.docs.len();
-        self.doc_id_index.insert(Arc::from(doc_id.as_str()), doc_index);
+        self.doc_id_index
+            .insert(Arc::from(doc_id.as_str()), doc_index);
 
         self.docs.push(MemEntry {
             seq_no,
@@ -1877,7 +1931,10 @@ impl FtsMemtable {
                 .insert(doc_key.clone(), token_count);
 
             // Update running average.
-            let entry = self.avg_field_lengths.entry(field_name.clone()).or_insert((0.0, 0));
+            let entry = self
+                .avg_field_lengths
+                .entry(field_name.clone())
+                .or_insert((0.0, 0));
             entry.0 += token_count as f64;
             entry.1 += 1;
 
@@ -1996,7 +2053,11 @@ impl FtsMemtable {
         // FtsMemtable orchestrator uses search_text_with_global_stats
         // instead so BM25 reflects the union.
         self.search_text_with_global_stats(
-            query, fields, limit, 0,
+            query,
+            fields,
+            limit,
+            0,
+            &std::collections::HashMap::new(),
             &std::collections::HashMap::new(),
             &std::collections::HashMap::new(),
         )
@@ -2005,6 +2066,10 @@ impl FtsMemtable {
     /// search_text variant that uses caller-supplied GLOBAL doc_count,
     /// per-field avg lengths, and per-(field,term) doc frequencies.
     /// Falls back to local stats when the global maps are empty.
+    // The stats params mirror the cross-shard aggregation the orchestrator
+    // computes once per query; bundling them into a struct would just move
+    // the arity into a builder for a single internal call site.
+    #[allow(clippy::too_many_arguments)]
     pub fn search_text_with_global_stats(
         &self,
         query: &str,
@@ -2013,6 +2078,7 @@ impl FtsMemtable {
         global_doc_count: u64,
         global_avg_field_len: &std::collections::HashMap<String, f32>,
         global_term_df: &std::collections::HashMap<(String, String), u64>,
+        field_boosts: &std::collections::HashMap<String, f32>,
     ) -> Vec<MemtableHit> {
         let analyzer = match self
             .registry
@@ -2028,7 +2094,11 @@ impl FtsMemtable {
             return Vec::new();
         }
 
-        let doc_count = if global_doc_count > 0 { global_doc_count } else { self.docs.len() as u64 };
+        let doc_count = if global_doc_count > 0 {
+            global_doc_count
+        } else {
+            self.docs.len() as u64
+        };
         // Keyed by the interned `Arc<str>` doc id from the postings lists,
         // so accumulating a term's contribution is a pointer-bump clone
         // rather than a per-hit `String` allocation.
@@ -2058,13 +2128,17 @@ impl FtsMemtable {
                 let doc_freq: u64 = global_term_df
                     .get(&(field_name.to_string(), token.text.clone()))
                     .copied()
-                    .unwrap_or_else(|| posting_list.len() as u64);
+                    .unwrap_or(posting_list.len() as u64);
                 let avg_field_len = global_avg_field_len
                     .get(*field_name)
                     .copied()
                     .unwrap_or_else(|| self.avg_field_length(field_name));
 
                 let scorer = Bm25Scorer::new(avg_field_len, doc_count);
+                // Per-field boost from the query tree (ES `boost` on match /
+                // `field^N` on multi_match). 1.0 when unboosted, so scores
+                // stay bit-identical for boost-free queries.
+                let field_boost = field_boosts.get(*field_name).copied().unwrap_or(1.0);
 
                 for (doc_id, &tf) in posting_list {
                     let field_len = self
@@ -2074,8 +2148,7 @@ impl FtsMemtable {
                         .copied()
                         .unwrap_or(1);
 
-                    let score =
-                        scorer.score_term(doc_freq, tf, field_len);
+                    let score = scorer.score_term(doc_freq, tf, field_len) * field_boost;
                     *scores.entry(doc_id.clone()).or_insert(0.0) += score;
                 }
             }
@@ -2083,11 +2156,18 @@ impl FtsMemtable {
 
         let mut hits: Vec<MemtableHit> = scores
             .into_iter()
-            .map(|(doc_id, score)| MemtableHit { doc_id: doc_id.to_string(), score })
+            .map(|(doc_id, score)| MemtableHit {
+                doc_id: doc_id.to_string(),
+                score,
+            })
             .collect();
 
         // Sort by score descending.
-        hits.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        hits.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         hits.truncate(limit);
         hits
     }
@@ -2146,9 +2226,9 @@ impl FtsMemtable {
     /// creates a fresh `MemEntry` with a fresh memo), so the cache never
     /// goes stale.
     fn memoized_parsed(entry: &MemEntry) -> &Arc<Value> {
-        entry
-            .parsed_memo
-            .get_or_init(|| Arc::new(serde_json::from_slice(&entry.source_bytes).unwrap_or(Value::Null)))
+        entry.parsed_memo.get_or_init(|| {
+            Arc::new(serde_json::from_slice(&entry.source_bytes).unwrap_or(Value::Null))
+        })
     }
 
     /// All (doc_id, source) pairs WITHOUT deep-cloning the source trees.
@@ -2378,15 +2458,13 @@ impl FtsMemtable {
         };
         // Step 4: interior-mutable cache — held under the shard READ lock.
         let mut cache = self.doc_values.sort_cand_cache.lock();
-        let entry = cache
-            .entry(key)
-            .or_insert_with(|| SortCandCache {
-                seen_docs: 0,
-                cap,
-                top: Vec::new(),
-                missing: Vec::new(),
-                poisoned: false,
-            });
+        let entry = cache.entry(key).or_insert_with(|| SortCandCache {
+            seen_docs: 0,
+            cap,
+            top: Vec::new(),
+            missing: Vec::new(),
+            poisoned: false,
+        });
         if entry.poisoned {
             return None;
         }
@@ -2480,7 +2558,13 @@ impl FtsMemtable {
     ) -> Option<(Vec<(String, usize)>, u64)> {
         enum Col<'a> {
             Kw(&'a Vec<Option<String>>, &'a str),
-            Num(&'a Vec<Option<f64>>, Option<f64>, Option<f64>, Option<f64>, Option<f64>),
+            Num(
+                &'a Vec<Option<f64>>,
+                Option<f64>,
+                Option<f64>,
+                Option<f64>,
+                Option<f64>,
+            ),
         }
         let mut cols: Vec<Col<'_>> = Vec::with_capacity(preds.len());
         for p in preds {
@@ -2489,12 +2573,22 @@ impl FtsMemtable {
                     let col = self.doc_values.keyword.get(field.as_str())?;
                     // Step 2: analyzed-text bailout via the insert-time
                     // cached flag instead of an O(N) per-query column prescan.
-                    if self.doc_values.keyword_has_whitespace.contains(field.as_str()) {
+                    if self
+                        .doc_values
+                        .keyword_has_whitespace
+                        .contains(field.as_str())
+                    {
                         return None;
                     }
                     cols.push(Col::Kw(col, value.as_str()));
                 }
-                MemBoolPred::Range { field, gte, gt, lte, lt } => {
+                MemBoolPred::Range {
+                    field,
+                    gte,
+                    gt,
+                    lte,
+                    lt,
+                } => {
                     let col = self.doc_values.numeric.get(field.as_str())?;
                     cols.push(Col::Num(col, *gte, *gt, *lte, *lt));
                 }
@@ -2506,27 +2600,23 @@ impl FtsMemtable {
         'doc: for idx in 0..n {
             for c in &cols {
                 let ok = match c {
-                    Col::Kw(col, want) => {
-                        col.get(idx).and_then(|o| o.as_deref()) == Some(*want)
-                    }
-                    Col::Num(col, gte, gt, lte, lt) => {
-                        match col.get(idx).copied().flatten() {
-                            None => false,
-                            Some(v) => {
-                                let pl = match (gte, gt) {
-                                    (Some(b), _) => v >= *b,
-                                    (None, Some(b)) => v > *b,
-                                    (None, None) => true,
-                                };
-                                let pu = match (lte, lt) {
-                                    (Some(b), _) => v <= *b,
-                                    (None, Some(b)) => v < *b,
-                                    (None, None) => true,
-                                };
-                                pl && pu
-                            }
+                    Col::Kw(col, want) => col.get(idx).and_then(|o| o.as_deref()) == Some(*want),
+                    Col::Num(col, gte, gt, lte, lt) => match col.get(idx).copied().flatten() {
+                        None => false,
+                        Some(v) => {
+                            let pl = match (gte, gt) {
+                                (Some(b), _) => v >= *b,
+                                (None, Some(b)) => v > *b,
+                                (None, None) => true,
+                            };
+                            let pu = match (lte, lt) {
+                                (Some(b), _) => v <= *b,
+                                (None, Some(b)) => v < *b,
+                                (None, None) => true,
+                            };
+                            pl && pu
                         }
-                    }
+                    },
                 };
                 if !ok {
                     continue 'doc;
@@ -2623,7 +2713,11 @@ impl FtsMemtable {
                     (None, Some(b)) => v < b,
                     (None, None) => true,
                 };
-                if pl && pu { Some(idx) } else { None }
+                if pl && pu {
+                    Some(idx)
+                } else {
+                    None
+                }
             })
             .collect();
         Some(results)
@@ -2730,10 +2824,11 @@ impl FtsMemtable {
     ///
     /// Used by the completion suggester for fast prefix autocomplete on keyword fields.
     pub fn all_keyword_values_for_field(&self, field: &str) -> Vec<(String, usize)> {
-        self.doc_values.with_keyword_field(field, |c| match c.keyword_set.get(field) {
-            Some(set) => set.iter().map(|v| (v.clone(), 1)).collect(),
-            None => Vec::new(),
-        })
+        self.doc_values
+            .with_keyword_field(field, |c| match c.keyword_set.get(field) {
+                Some(set) => set.iter().map(|v| (v.clone(), 1)).collect(),
+                None => Vec::new(),
+            })
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -2764,41 +2859,43 @@ impl Default for FtsMemtable {
 /// Hoisted out of `FtsMemtable::insert` so [`analyze_doc`] can run the
 /// identical walk outside the shard write lock.
 fn collect_text_fields(v: &Value, prefix: &str, out: &mut HashMap<String, String>) {
-    match v {
-        Value::Object(obj) => {
-            for (k, val) in obj {
-                let path = if prefix.is_empty() { k.clone() } else { format!("{}.{}", prefix, k) };
-                match val {
-                    Value::Object(_) => {
-                        // Root-level JSON-blob for flattened-style
-                        // whole-object queries.
-                        if prefix.is_empty() {
-                            let t = extract_text_value(val);
-                            if !t.is_empty() && !out.contains_key(&path) {
-                                out.insert(path.clone(), t);
-                            }
-                        }
-                        collect_text_fields(val, &path, out);
-                    }
-                    Value::Array(arr) => {
-                        let joined: String = arr.iter()
-                            .map(extract_text_value)
-                            .collect::<Vec<_>>()
-                            .join(" ");
-                        if !joined.is_empty() && !out.contains_key(&path) {
-                            out.insert(path, joined);
-                        }
-                    }
-                    _ => {
+    if let Value::Object(obj) = v {
+        for (k, val) in obj {
+            let path = if prefix.is_empty() {
+                k.clone()
+            } else {
+                format!("{}.{}", prefix, k)
+            };
+            match val {
+                Value::Object(_) => {
+                    // Root-level JSON-blob for flattened-style
+                    // whole-object queries.
+                    if prefix.is_empty() {
                         let t = extract_text_value(val);
                         if !t.is_empty() && !out.contains_key(&path) {
-                            out.insert(path, t);
+                            out.insert(path.clone(), t);
                         }
+                    }
+                    collect_text_fields(val, &path, out);
+                }
+                Value::Array(arr) => {
+                    let joined: String = arr
+                        .iter()
+                        .map(extract_text_value)
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    if !joined.is_empty() && !out.contains_key(&path) {
+                        out.insert(path, joined);
+                    }
+                }
+                _ => {
+                    let t = extract_text_value(val);
+                    if !t.is_empty() && !out.contains_key(&path) {
+                        out.insert(path, t);
                     }
                 }
             }
         }
-        _ => {}
     }
 }
 
@@ -2851,7 +2948,7 @@ fn extract_text_value(val: &Value) -> String {
         Value::Bool(b) => b.to_string(),
         Value::Array(arr) => arr
             .iter()
-            .map(|v| extract_text_value(v))
+            .map(extract_text_value)
             .collect::<Vec<_>>()
             .join(" "),
         Value::Object(_) => serde_json::to_string(val).unwrap_or_default(),
@@ -2879,19 +2976,15 @@ mod bounded_delta_counts_tests {
         for (field, col) in &dv.keyword {
             let counts = kc.entry(field.clone()).or_default();
             let set = ks.entry(field.clone()).or_default();
-            for slot in col {
-                if let Some(s) = slot {
-                    *counts.entry(s.clone()).or_insert(0) += 1;
-                    set.insert(s.clone());
-                }
+            for s in col.iter().flatten() {
+                *counts.entry(s.clone()).or_insert(0) += 1;
+                set.insert(s.clone());
             }
         }
         for (field, col) in &dv.numeric {
             let counts = nc.entry(field.clone()).or_default();
-            for slot in col {
-                if let Some(f) = slot {
-                    *counts.entry(f.to_bits()).or_insert(0) += 1;
-                }
+            for f in col.iter().flatten() {
+                *counts.entry(f.to_bits()).or_insert(0) += 1;
             }
         }
         (kc, nc, ks)
