@@ -62,6 +62,11 @@ subtle       = "2"            # constant-time comparison
 
 # WebAuthn / passkeys.
 webauthn-rs  = { version = "0.5", default-features = false, features = ["danger-allow-state-serialisation"] }
+# webauthn-rs-core links OpenSSL. Vendor it (compiled from source per
+# target) so the 8 cross-compiled release binaries are self-contained —
+# without this every non-native release target fails in openssl-sys
+# looking for system headers that aren't there.
+openssl      = { version = "0.10", features = ["vendored"] }
 
 # Cookie helpers (HttpOnly, Secure, SameSite=Lax session cookies).
 axum-extra   = { version = "0.9", features = ["cookie"] }
