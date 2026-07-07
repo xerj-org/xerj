@@ -89,6 +89,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends ${{ matrix.linker_pkgs }}
 
+      - name: Setup Perl + NASM for vendored OpenSSL (Windows)
+        if: matrix.windows == true
+        shell: pwsh
+        run: |
+          # openssl-src's Configure needs a Perl that understands Windows
+          # paths — the Git-for-Windows perl that shadows it on PATH fails
+          # with exit code 2. The runner image ships Strawberry Perl.
+          "OPENSSL_SRC_PERL=C:\Strawberry\perl\bin\perl.exe" | Out-File -Append $env:GITHUB_ENV
+          # x64 OpenSSL asm needs nasm; ARM64 (VC-WIN64-ARM) builds no-asm.
+          choco install nasm -y --no-progress
+          "C:\Program Files\NASM" | Out-File -Append $env:GITHUB_PATH
+
       - name: Install zigbuild (musl targets)
         if: matrix.use_zigbuild
         shell: bash

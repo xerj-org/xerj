@@ -76,8 +76,13 @@ pub(crate) fn ingest_pool() -> &'static rayon::ThreadPool {
             // slice of that for read-tail stability).  Flush side-cars
             // are nice(10) (`background_pool`), merges nice(15)
             // (`merge_pool`) — the maintenance ladder stays below both.
-            .start_handler(|_| unsafe {
-                let _ = libc::nice(5);
+            .start_handler(|_| {
+                // Unix-only: Windows has no nice(2); threads run at normal
+                // priority there and the pool separation still applies.
+                #[cfg(unix)]
+                unsafe {
+                    let _ = libc::nice(5);
+                }
             })
             .build()
             .expect("failed to build ingest rayon pool")
@@ -104,8 +109,11 @@ pub(crate) fn background_pool() -> &'static rayon::ThreadPool {
         rayon::ThreadPoolBuilder::new()
             .num_threads(n)
             .thread_name(|i| format!("xerj-bg-{i}"))
-            .start_handler(|_| unsafe {
-                let _ = libc::nice(10);
+            .start_handler(|_| {
+                #[cfg(unix)]
+                unsafe {
+                    let _ = libc::nice(10);
+                }
             })
             .build()
             .expect("failed to build background rayon pool")
@@ -141,8 +149,11 @@ pub(crate) fn merge_pool() -> &'static rayon::ThreadPool {
         rayon::ThreadPoolBuilder::new()
             .num_threads(n)
             .thread_name(|i| format!("xerj-merge-{i}"))
-            .start_handler(|_| unsafe {
-                let _ = libc::nice(15);
+            .start_handler(|_| {
+                #[cfg(unix)]
+                unsafe {
+                    let _ = libc::nice(15);
+                }
             })
             .build()
             .expect("failed to build merge rayon pool")

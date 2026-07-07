@@ -17249,6 +17249,13 @@ pub async fn cat_allocation(State(state): State<AppState>) -> impl IntoResponse 
 
 /// Real `(total_bytes, avail_bytes)` for the filesystem backing `path`, via
 /// `statvfs(2)`. Returns `None` if the syscall fails (caller falls back).
+///
+/// The `as u64` casts are PORTABILITY, not noise: `statvfs` field widths
+/// differ per libc target — `f_blocks`/`f_bavail` are u64 on Linux but u32
+/// on macOS, and `f_frsize`/`f_bsize` are c_ulong. Clippy on Linux flags
+/// them as same-type casts; removing them breaks the Apple release builds.
+#[cfg(unix)]
+#[allow(clippy::unnecessary_cast)]
 fn read_disk_stats(path: &str) -> Option<(u64, u64)> {
     let c = std::ffi::CString::new(path).ok()?;
     // SAFETY: `statvfs` fully initialises the struct it writes to; we only
@@ -17258,16 +17265,23 @@ fn read_disk_stats(path: &str) -> Option<(u64, u64)> {
         return None;
     }
     let bsize = if st.f_frsize > 0 {
-        st.f_frsize
+        st.f_frsize as u64
     } else {
-        st.f_bsize
+        st.f_bsize as u64
     };
-    let total = st.f_blocks.saturating_mul(bsize);
-    let avail = st.f_bavail.saturating_mul(bsize);
+    let total = (st.f_blocks as u64).saturating_mul(bsize);
+    let avail = (st.f_bavail as u64).saturating_mul(bsize);
     if total == 0 {
         return None;
     }
     Some((total, avail))
+}
+
+/// Non-unix: no statvfs. Return `None`; the caller already falls back to
+/// a conservative default estimate.
+#[cfg(not(unix))]
+fn read_disk_stats(_path: &str) -> Option<(u64, u64)> {
+    None
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
