@@ -30,3 +30,10 @@
   Cache-Control: no-cache
 /index.html
   Cache-Control: no-cache
+
+# The one-line installer: curl -fsSL https://xerj.org/get | sh
+# Serve as plain text so browsers display it (auditable) and curl gets
+# a clean script. Short cache so a fixed installer propagates quickly.
+/get
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=300

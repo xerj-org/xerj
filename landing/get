@@ -1,0 +1,127 @@
+#!/bin/sh
+# =============================================================================
+# xerj installer  ·  curl -fsSL https://xerj.org/get | sh
+# =============================================================================
+# Detects your OS + CPU, downloads the matching release binary from
+# github.com/xerj-org/xerj/releases, verifies its SHA-256, and installs a
+# single `xerj` binary. No JVM, no dependencies — one static binary.
+#
+# Environment overrides:
+#   XERJ_VERSION=v0.1.0     install a specific tag (default: latest release)
+#   XERJ_INSTALL_DIR=/path  install location (default: ~/.local/bin, else ./ )
+#   XERJ_REPO=owner/name    source repo (default: xerj-org/xerj)
+# =============================================================================
+set -eu
+
+REPO="${XERJ_REPO:-xerj-org/xerj}"
+BOLD=''; DIM=''; RED=''; GRN=''; YEL=''; RST=''
+if [ -t 1 ]; then
+  BOLD=$(printf '\033[1m'); DIM=$(printf '\033[2m'); RED=$(printf '\033[31m')
+  GRN=$(printf '\033[32m'); YEL=$(printf '\033[33m'); RST=$(printf '\033[0m')
+fi
+
+say()  { printf '%s\n' "$*"; }
+info() { printf '%s==>%s %s\n' "$YEL" "$RST" "$*"; }
+ok()   { printf '%s ok %s %s\n' "$GRN" "$RST" "$*"; }
+die()  { printf '%serror:%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
+
+need() { command -v "$1" >/dev/null 2>&1 || die "'$1' is required but not found in PATH"; }
+need uname; need tar
+
+# --- pick a downloader ------------------------------------------------------
+if command -v curl >/dev/null 2>&1; then
+  DL() { curl -fsSL "$1" -o "$2"; }
+  DLS() { curl -fsSL "$1"; }
+elif command -v wget >/dev/null 2>&1; then
+  DL() { wget -qO "$2" "$1"; }
+  DLS() { wget -qO - "$1"; }
+else
+  die "need curl or wget"
+fi
+
+# --- detect target triple ---------------------------------------------------
+os=$(uname -s); arch=$(uname -m)
+case "$os" in
+  Linux)  plat="unknown-linux-gnu";  ext="tar.gz"; bin="xerj" ;;
+  Darwin) plat="apple-darwin";       ext="tar.gz"; bin="xerj" ;;
+  MINGW*|MSYS*|CYGWIN*) plat="pc-windows-msvc"; ext="zip"; bin="xerj.exe" ;;
+  *) die "unsupported OS: $os" ;;
+esac
+case "$arch" in
+  x86_64|amd64)        cpu="x86_64" ;;
+  aarch64|arm64)       cpu="aarch64" ;;
+  *) die "unsupported CPU: $arch" ;;
+esac
+# Linux: prefer the fully-static musl build (runs on any distro, incl. Alpine).
+if [ "$os" = "Linux" ]; then plat="unknown-linux-musl"; fi
+target="${cpu}-${plat}"
+
+# --- resolve version --------------------------------------------------------
+if [ "${XERJ_VERSION:-}" = "" ]; then
+  info "resolving latest release of ${REPO}…"
+  # Follow the /releases/latest redirect to read the tag without jq.
+  tag=$(DLS "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null \
+        | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1)
+  [ -n "$tag" ] || die "could not resolve latest release — set XERJ_VERSION=vX.Y.Z (see https://github.com/${REPO}/releases)"
+else
+  tag="$XERJ_VERSION"
+fi
+ver="${tag#v}"
+info "installing xerj ${BOLD}${tag}${RST} for ${BOLD}${target}${RST}"
+
+stage="xerj-${ver}-${target}"
+asset="${stage}.${ext}"
+base="https://github.com/${REPO}/releases/download/${tag}"
+
+tmp=$(mktemp -d 2>/dev/null || mktemp -d -t xerj)
+trap 'rm -rf "$tmp"' EXIT INT TERM
+
+info "downloading ${asset}…"
+DL "${base}/${asset}" "${tmp}/${asset}" \
+  || die "download failed for ${target}. Available assets: https://github.com/${REPO}/releases/tag/${tag}"
+
+# --- verify checksum (best-effort; fail if the .sha256 is present) ----------
+if DL "${base}/${asset}.sha256" "${tmp}/${asset}.sha256" 2>/dev/null; then
+  want=$(awk '{print $1}' "${tmp}/${asset}.sha256")
+  if command -v sha256sum >/dev/null 2>&1; then got=$(sha256sum "${tmp}/${asset}" | awk '{print $1}')
+  elif command -v shasum >/dev/null 2>&1;   then got=$(shasum -a 256 "${tmp}/${asset}" | awk '{print $1}')
+  else got=""; fi
+  if [ -n "$got" ]; then
+    [ "$got" = "$want" ] && ok "sha256 verified" || die "sha256 mismatch (want $want, got $got)"
+  fi
+fi
+
+# --- extract ----------------------------------------------------------------
+info "extracting…"
+if [ "$ext" = "zip" ]; then
+  need unzip; unzip -q "${tmp}/${asset}" -d "$tmp"
+else
+  tar -xzf "${tmp}/${asset}" -C "$tmp"
+fi
+src="${tmp}/${stage}/${bin}"
+[ -f "$src" ] || src=$(find "$tmp" -name "$bin" -type f | head -n1)
+[ -f "$src" ] || die "binary '$bin' not found in archive"
+chmod +x "$src" 2>/dev/null || true
+
+# --- choose install dir -----------------------------------------------------
+if [ "${XERJ_INSTALL_DIR:-}" != "" ]; then dir="$XERJ_INSTALL_DIR"
+elif [ -w "${HOME:-/nonexistent}/.local/bin" ] || mkdir -p "${HOME:-/nonexistent}/.local/bin" 2>/dev/null; then dir="${HOME}/.local/bin"
+else dir="$(pwd)"; fi
+mkdir -p "$dir" 2>/dev/null || die "cannot create install dir: $dir"
+
+dest="${dir}/${bin}"
+mv "$src" "$dest" || die "failed to install to $dest"
+ok "installed ${BOLD}${dest}${RST}"
+
+# --- next steps -------------------------------------------------------------
+say ""
+say "${BOLD}xerj ${tag}${RST} is ready."
+case ":${PATH}:" in
+  *":${dir}:"*) say "  ${DIM}start it:${RST}  xerj --insecure --data-dir ./data" ;;
+  *) say "  ${DIM}${dir} is not on your PATH — either add it:${RST}"
+     say "     export PATH=\"${dir}:\$PATH\""
+     say "  ${DIM}or run it directly:${RST}  ${dest} --insecure --data-dir ./data" ;;
+esac
+say ""
+say "  ${DIM}then open the console:${RST}  http://localhost:9200/_xerj-console/"
+say "  ${DIM}docs:${RST} https://xerj.org/docs/  ${DIM}·${RST}  ${DIM}source:${RST} https://github.com/${REPO}"
