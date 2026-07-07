@@ -7,8 +7,8 @@ use serde_json::{json, Value};
 use tempfile::TempDir;
 use xerj_common::config::Config;
 use xerj_common::types::{FieldConfig, FieldType, Schema};
-use xerj_engine::{Engine, detect_log_format, LogFormat};
-use xerj_query::ast::{QueryNode, SearchRequest, SourceFilter};
+use xerj_engine::{detect_log_format, Engine, LogFormat};
+use xerj_query::ast::{QueryNode, SearchRequest};
 use xerj_query::parse_request;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -85,58 +85,102 @@ async fn test_query_types() {
     engine.create_index("items", Schema::empty()).unwrap();
     let idx = engine.get_index("items").unwrap();
 
-    idx.index_document(Some("a".into()), json!({ "name": "apple", "price": 1.5, "in_stock": true, "tags": ["fruit", "red"] })).await.unwrap();
-    idx.index_document(Some("b".into()), json!({ "name": "banana", "price": 0.75, "in_stock": true, "tags": ["fruit", "yellow"] })).await.unwrap();
+    idx.index_document(
+        Some("a".into()),
+        json!({ "name": "apple", "price": 1.5, "in_stock": true, "tags": ["fruit", "red"] }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("b".into()),
+        json!({ "name": "banana", "price": 0.75, "in_stock": true, "tags": ["fruit", "yellow"] }),
+    )
+    .await
+    .unwrap();
     idx.index_document(Some("c".into()), json!({ "name": "carrot", "price": 2.0, "in_stock": false, "tags": ["vegetable", "orange"] })).await.unwrap();
     idx.index_document(Some("d".into()), json!({ "name": "dragonfruit", "price": 5.0, "in_stock": true, "tags": ["fruit", "exotic"] })).await.unwrap();
 
     // term
-    let r = idx.search(&make_search(json!({"term": {"name": "apple"}}))).await.unwrap();
+    let r = idx
+        .search(&make_search(json!({"term": {"name": "apple"}})))
+        .await
+        .unwrap();
     assert_eq!(r.total.value, 1);
     assert_eq!(r.hits[0].id, "a");
 
     // terms (OR semantics)
-    let r = idx.search(&make_search(json!({"terms": {"name": ["apple", "banana"]}}))).await.unwrap();
+    let r = idx
+        .search(&make_search(
+            json!({"terms": {"name": ["apple", "banana"]}}),
+        ))
+        .await
+        .unwrap();
     assert_eq!(r.total.value, 2);
 
     // range
-    let r = idx.search(&make_search(json!({"range": {"price": {"gte": 1.0, "lte": 3.0}}}))).await.unwrap();
+    let r = idx
+        .search(&make_search(
+            json!({"range": {"price": {"gte": 1.0, "lte": 3.0}}}),
+        ))
+        .await
+        .unwrap();
     assert_eq!(r.total.value, 2); // apple (1.5) and carrot (2.0)
 
     // prefix
-    let r = idx.search(&make_search(json!({"prefix": {"name": "app"}}))).await.unwrap();
+    let r = idx
+        .search(&make_search(json!({"prefix": {"name": "app"}})))
+        .await
+        .unwrap();
     assert_eq!(r.total.value, 1);
     assert_eq!(r.hits[0].id, "a");
 
     // wildcard
-    let r = idx.search(&make_search(json!({"wildcard": {"name": "b*na"}}))).await.unwrap();
+    let r = idx
+        .search(&make_search(json!({"wildcard": {"name": "b*na"}})))
+        .await
+        .unwrap();
     assert_eq!(r.total.value, 1);
     assert_eq!(r.hits[0].id, "b");
 
     // fuzzy
-    let r = idx.search(&make_search(json!({"fuzzy": {"name": {"value": "aple"}}}))).await.unwrap();
+    let r = idx
+        .search(&make_search(json!({"fuzzy": {"name": {"value": "aple"}}})))
+        .await
+        .unwrap();
     assert_eq!(r.total.value, 1);
     assert_eq!(r.hits[0].id, "a");
 
     // exists
-    let r = idx.search(&make_search(json!({"exists": {"field": "in_stock"}}))).await.unwrap();
+    let r = idx
+        .search(&make_search(json!({"exists": {"field": "in_stock"}})))
+        .await
+        .unwrap();
     assert_eq!(r.total.value, 4);
 
     // exists on absent field
-    let r = idx.search(&make_search(json!({"exists": {"field": "nonexistent"}}))).await.unwrap();
+    let r = idx
+        .search(&make_search(json!({"exists": {"field": "nonexistent"}})))
+        .await
+        .unwrap();
     assert_eq!(r.total.value, 0);
 
     // bool: must + must_not
-    let r = idx.search(&make_search(json!({
-        "bool": {
-            "must": [{"term": {"in_stock": true}}],
-            "must_not": [{"term": {"name": "banana"}}]
-        }
-    }))).await.unwrap();
+    let r = idx
+        .search(&make_search(json!({
+            "bool": {
+                "must": [{"term": {"in_stock": true}}],
+                "must_not": [{"term": {"name": "banana"}}]
+            }
+        })))
+        .await
+        .unwrap();
     assert_eq!(r.total.value, 2); // apple and dragonfruit
 
     // ids
-    let r = idx.search(&make_search(json!({"ids": {"values": ["a", "c"]}}))).await.unwrap();
+    let r = idx
+        .search(&make_search(json!({"ids": {"values": ["a", "c"]}})))
+        .await
+        .unwrap();
     assert_eq!(r.total.value, 2);
     let mut ids: Vec<&str> = r.hits.iter().map(|h| h.id.as_str()).collect();
     ids.sort();
@@ -247,7 +291,10 @@ async fn test_document_lifecycle() {
 
     // Create
     let resp = idx
-        .index_document(Some("doc1".into()), json!({"content": "hello world", "version": 1}))
+        .index_document(
+            Some("doc1".into()),
+            json!({"content": "hello world", "version": 1}),
+        )
         .await
         .unwrap();
     assert_eq!(resp.id, "doc1");
@@ -259,9 +306,12 @@ async fn test_document_lifecycle() {
     assert_eq!(doc.unwrap()["content"].as_str().unwrap(), "hello world");
 
     // Update (re-index with same ID)
-    idx.index_document(Some("doc1".into()), json!({"content": "updated content", "version": 2}))
-        .await
-        .unwrap();
+    idx.index_document(
+        Some("doc1".into()),
+        json!({"content": "updated content", "version": 2}),
+    )
+    .await
+    .unwrap();
     let updated = idx.get_document("doc1").await.unwrap().unwrap();
     assert_eq!(updated["content"].as_str().unwrap(), "updated content");
     assert_eq!(updated["version"].as_u64().unwrap(), 2);
@@ -316,7 +366,10 @@ async fn test_wal_persistence() {
             .search(&make_search(json!({"match_all": {}})))
             .await
             .unwrap();
-        assert_eq!(result.total.value, 2, "both docs should be found after restart");
+        assert_eq!(
+            result.total.value, 2,
+            "both docs should be found after restart"
+        );
     }
 }
 
@@ -331,12 +384,9 @@ async fn test_size_zero_returns_total_only() {
     let idx = engine.get_index("counts").unwrap();
 
     for i in 0..10 {
-        idx.index_document(
-            Some(format!("doc{i}")),
-            json!({"value": i}),
-        )
-        .await
-        .unwrap();
+        idx.index_document(Some(format!("doc{i}")), json!({"value": i}))
+            .await
+            .unwrap();
     }
 
     let req = parse_request(&json!({
@@ -348,7 +398,11 @@ async fn test_size_zero_returns_total_only() {
 
     let result = idx.search(&req).await.unwrap();
     assert_eq!(result.total.value, 10, "total should be 10");
-    assert_eq!(result.hits.len(), 0, "no hits should be returned with size=0");
+    assert_eq!(
+        result.hits.len(),
+        0,
+        "no hits should be returned with size=0"
+    );
 }
 
 // ── 7. _source filtering ──────────────────────────────────────────────────────
@@ -394,7 +448,15 @@ async fn test_source_filtering() {
 
     let result2 = idx.search(&req_no_source).await.unwrap();
     assert_eq!(result2.hits.len(), 1);
-    assert!(result2.hits[0].source.is_null(), "source should be null when disabled");
+    // `_source: false` suppression is a response-time decision in
+    // es_compat.rs (`source_body_disabled`), not a data-layer one: the
+    // engine keeps the raw source on the hit so the HTTP layer can still
+    // resolve `fields` / `_ignored` / `highlight` against it. Wire-level
+    // omission is covered by the ES-compat YAML conformance suite.
+    assert!(
+        !result2.hits[0].source.is_null(),
+        "engine must keep the raw source; the response layer suppresses it"
+    );
 }
 
 // ── 8. Field sorting ──────────────────────────────────────────────────────────
@@ -407,9 +469,15 @@ async fn test_field_sorting() {
     engine.create_index("sortidx", Schema::empty()).unwrap();
     let idx = engine.get_index("sortidx").unwrap();
 
-    idx.index_document(Some("z1".into()), json!({"rank": 3, "name": "Charlie"})).await.unwrap();
-    idx.index_document(Some("z2".into()), json!({"rank": 1, "name": "Alice"})).await.unwrap();
-    idx.index_document(Some("z3".into()), json!({"rank": 2, "name": "Bob"})).await.unwrap();
+    idx.index_document(Some("z1".into()), json!({"rank": 3, "name": "Charlie"}))
+        .await
+        .unwrap();
+    idx.index_document(Some("z2".into()), json!({"rank": 1, "name": "Alice"}))
+        .await
+        .unwrap();
+    idx.index_document(Some("z3".into()), json!({"rank": 2, "name": "Bob"}))
+        .await
+        .unwrap();
 
     // Sort by rank ascending
     let req = parse_request(&json!({
@@ -447,9 +515,21 @@ async fn test_delete_by_query() {
     engine.create_index("dbq", Schema::empty()).unwrap();
     let idx = engine.get_index("dbq").unwrap();
 
-    idx.index_document(Some("q1".into()), json!({"category": "delete_me", "val": 1})).await.unwrap();
-    idx.index_document(Some("q2".into()), json!({"category": "delete_me", "val": 2})).await.unwrap();
-    idx.index_document(Some("q3".into()), json!({"category": "keep", "val": 3})).await.unwrap();
+    idx.index_document(
+        Some("q1".into()),
+        json!({"category": "delete_me", "val": 1}),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("q2".into()),
+        json!({"category": "delete_me", "val": 2}),
+    )
+    .await
+    .unwrap();
+    idx.index_document(Some("q3".into()), json!({"category": "keep", "val": 3}))
+        .await
+        .unwrap();
 
     // Delete docs where category == "delete_me"
     let query = QueryNode::Term {
@@ -481,16 +561,34 @@ async fn test_multi_match_query() {
     engine.create_index("mm", Schema::empty()).unwrap();
     let idx = engine.get_index("mm").unwrap();
 
-    idx.index_document(Some("m1".into()), json!({"title": "Rust book", "body": "Systems programming"})).await.unwrap();
-    idx.index_document(Some("m2".into()), json!({"title": "Python guide", "body": "Rust also mentioned here"})).await.unwrap();
-    idx.index_document(Some("m3".into()), json!({"title": "JavaScript", "body": "Web development"})).await.unwrap();
+    idx.index_document(
+        Some("m1".into()),
+        json!({"title": "Rust book", "body": "Systems programming"}),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("m2".into()),
+        json!({"title": "Python guide", "body": "Rust also mentioned here"}),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("m3".into()),
+        json!({"title": "JavaScript", "body": "Web development"}),
+    )
+    .await
+    .unwrap();
 
-    let r = idx.search(&make_search(json!({
-        "multi_match": {
-            "query": "Rust",
-            "fields": ["title", "body"]
-        }
-    }))).await.unwrap();
+    let r = idx
+        .search(&make_search(json!({
+            "multi_match": {
+                "query": "Rust",
+                "fields": ["title", "body"]
+            }
+        })))
+        .await
+        .unwrap();
 
     assert_eq!(r.total.value, 2, "both m1 and m2 mention Rust");
     let mut ids: Vec<&str> = r.hits.iter().map(|h| h.id.as_str()).collect();
@@ -508,14 +606,26 @@ async fn test_match_phrase_query() {
     engine.create_index("phrase", Schema::empty()).unwrap();
     let idx = engine.get_index("phrase").unwrap();
 
-    idx.index_document(Some("ph1".into()), json!({"text": "the quick brown fox jumps"})).await.unwrap();
-    idx.index_document(Some("ph2".into()), json!({"text": "the brown quick fox"})).await.unwrap();
-    idx.index_document(Some("ph3".into()), json!({"text": "quick brown study"})).await.unwrap();
+    idx.index_document(
+        Some("ph1".into()),
+        json!({"text": "the quick brown fox jumps"}),
+    )
+    .await
+    .unwrap();
+    idx.index_document(Some("ph2".into()), json!({"text": "the brown quick fox"}))
+        .await
+        .unwrap();
+    idx.index_document(Some("ph3".into()), json!({"text": "quick brown study"}))
+        .await
+        .unwrap();
 
     // "quick brown" should match ph1 and ph3 but NOT ph2 (wrong order)
-    let r = idx.search(&make_search(json!({
-        "match_phrase": { "text": "quick brown" }
-    }))).await.unwrap();
+    let r = idx
+        .search(&make_search(json!({
+            "match_phrase": { "text": "quick brown" }
+        })))
+        .await
+        .unwrap();
 
     let mut ids: Vec<&str> = r.hits.iter().map(|h| h.id.as_str()).collect();
     ids.sort();
@@ -540,9 +650,12 @@ async fn test_ids_query() {
             .unwrap();
     }
 
-    let r = idx.search(&make_search(json!({
-        "ids": { "values": ["id2", "id4", "id99"] }
-    }))).await.unwrap();
+    let r = idx
+        .search(&make_search(json!({
+            "ids": { "values": ["id2", "id4", "id99"] }
+        })))
+        .await
+        .unwrap();
 
     assert_eq!(r.total.value, 2, "only id2 and id4 exist");
     let mut ids: Vec<&str> = r.hits.iter().map(|h| h.id.as_str()).collect();
@@ -585,14 +698,20 @@ async fn test_geo_distance_query() {
     .unwrap();
 
     // Query: within 50 km of NYC
-    let r = idx.search(&make_search(json!({
-        "geo_distance": {
-            "distance": "50km",
-            "location": { "lat": 40.7128, "lon": -74.0060 }
-        }
-    }))).await.unwrap();
+    let r = idx
+        .search(&make_search(json!({
+            "geo_distance": {
+                "distance": "50km",
+                "location": { "lat": 40.7128, "lon": -74.0060 }
+            }
+        })))
+        .await
+        .unwrap();
 
-    assert_eq!(r.total.value, 2, "NYC and Newark should be within 50km of NYC");
+    assert_eq!(
+        r.total.value, 2,
+        "NYC and Newark should be within 50km of NYC"
+    );
     let ids: Vec<&str> = r.hits.iter().map(|h| h.id.as_str()).collect();
     assert!(ids.contains(&"nyc"));
     assert!(ids.contains(&"nwk"));
@@ -607,15 +726,24 @@ fn test_haversine_distance() {
 
     // NYC to London (approx 5570 km)
     let d = haversine_distance(40.7128, -74.0060, 51.5074, -0.1278);
-    assert!((d - 5570.0).abs() < 50.0, "NYC-London distance should be ~5570 km, got {d:.1}");
+    assert!(
+        (d - 5570.0).abs() < 50.0,
+        "NYC-London distance should be ~5570 km, got {d:.1}"
+    );
 
     // Same point should be 0
     let d0 = haversine_distance(40.0, -74.0, 40.0, -74.0);
-    assert!(d0 < 0.001, "distance from point to itself should be 0, got {d0}");
+    assert!(
+        d0 < 0.001,
+        "distance from point to itself should be 0, got {d0}"
+    );
 
     // NYC to Newark (~16 km)
     let d2 = haversine_distance(40.7128, -74.0060, 40.7357, -74.1724);
-    assert!(d2 < 20.0, "NYC-Newark distance should be < 20 km, got {d2:.1}");
+    assert!(
+        d2 < 20.0,
+        "NYC-Newark distance should be < 20 km, got {d2:.1}"
+    );
 }
 
 // ── 15. bool query combinations ───────────────────────────────────────────────
@@ -628,41 +756,70 @@ async fn test_bool_query() {
     engine.create_index("bool_test", Schema::empty()).unwrap();
     let idx = engine.get_index("bool_test").unwrap();
 
-    idx.index_document(Some("b1".into()), json!({"active": true, "role": "admin", "score": 90})).await.unwrap();
-    idx.index_document(Some("b2".into()), json!({"active": true, "role": "user", "score": 70})).await.unwrap();
-    idx.index_document(Some("b3".into()), json!({"active": false, "role": "admin", "score": 80})).await.unwrap();
-    idx.index_document(Some("b4".into()), json!({"active": true, "role": "user", "score": 50})).await.unwrap();
+    idx.index_document(
+        Some("b1".into()),
+        json!({"active": true, "role": "admin", "score": 90}),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("b2".into()),
+        json!({"active": true, "role": "user", "score": 70}),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("b3".into()),
+        json!({"active": false, "role": "admin", "score": 80}),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("b4".into()),
+        json!({"active": true, "role": "user", "score": 50}),
+    )
+    .await
+    .unwrap();
 
     // must: active=true, must_not: role=admin
-    let r = idx.search(&make_search(json!({
-        "bool": {
-            "must": [{"term": {"active": true}}],
-            "must_not": [{"term": {"role": "admin"}}]
-        }
-    }))).await.unwrap();
+    let r = idx
+        .search(&make_search(json!({
+            "bool": {
+                "must": [{"term": {"active": true}}],
+                "must_not": [{"term": {"role": "admin"}}]
+            }
+        })))
+        .await
+        .unwrap();
     assert_eq!(r.total.value, 2); // b2 and b4
 
     // filter + range
-    let r2 = idx.search(&make_search(json!({
-        "bool": {
-            "filter": [
-                {"term": {"active": true}},
-                {"range": {"score": {"gte": 70}}}
-            ]
-        }
-    }))).await.unwrap();
+    let r2 = idx
+        .search(&make_search(json!({
+            "bool": {
+                "filter": [
+                    {"term": {"active": true}},
+                    {"range": {"score": {"gte": 70}}}
+                ]
+            }
+        })))
+        .await
+        .unwrap();
     assert_eq!(r2.total.value, 2); // b1 (90) and b2 (70)
 
     // should with minimum_should_match
-    let r3 = idx.search(&make_search(json!({
-        "bool": {
-            "should": [
-                {"term": {"role": "admin"}},
-                {"range": {"score": {"gte": 80}}}
-            ],
-            "minimum_should_match": 2
-        }
-    }))).await.unwrap();
+    let r3 = idx
+        .search(&make_search(json!({
+            "bool": {
+                "should": [
+                    {"term": {"role": "admin"}},
+                    {"range": {"score": {"gte": 80}}}
+                ],
+                "minimum_should_match": 2
+            }
+        })))
+        .await
+        .unwrap();
     assert_eq!(r3.total.value, 2); // b1 (admin + score>=80) and b3 (admin + score=80)
 }
 
@@ -676,9 +833,14 @@ async fn test_match_none() {
     engine.create_index("none_test", Schema::empty()).unwrap();
     let idx = engine.get_index("none_test").unwrap();
 
-    idx.index_document(Some("n1".into()), json!({"x": 1})).await.unwrap();
+    idx.index_document(Some("n1".into()), json!({"x": 1}))
+        .await
+        .unwrap();
 
-    let r = idx.search(&make_search(json!({"match_none": {}}))).await.unwrap();
+    let r = idx
+        .search(&make_search(json!({"match_none": {}})))
+        .await
+        .unwrap();
     assert_eq!(r.total.value, 0);
     assert_eq!(r.hits.len(), 0);
 }
@@ -700,37 +862,53 @@ async fn test_bm25_ranking() {
     idx.index_document(
         Some("high".into()),
         json!({ "body": "search engine search engine full text search engine" }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Medium: mentions both once.
     idx.index_document(
         Some("med".into()),
         json!({ "body": "a search engine for data" }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Partial: only "search".
     idx.index_document(
         Some("search_only".into()),
         json!({ "body": "searching for data sources" }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Partial: only "engine".
     idx.index_document(
         Some("engine_only".into()),
         json!({ "body": "engine driving power" }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Irrelevant.
     idx.index_document(
         Some("irrel".into()),
         json!({ "body": "completely unrelated content about cats" }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
-    let result = idx.search(&make_search(json!({"match": {"body": "search engine"}}))).await.unwrap();
+    let result = idx
+        .search(&make_search(json!({"match": {"body": "search engine"}})))
+        .await
+        .unwrap();
 
     // "high" should score highest — both terms appear multiple times.
     assert!(!result.hits.is_empty(), "should have at least one hit");
-    assert_eq!(result.hits[0].id, "high", "most relevant doc should rank first");
+    assert_eq!(
+        result.hits[0].id, "high",
+        "most relevant doc should rank first"
+    );
 
     // "irrel" should not appear (no matching terms after stop-word removal).
     let ids: Vec<&str> = result.hits.iter().map(|h| h.id.as_str()).collect();
@@ -751,31 +929,43 @@ async fn test_multiword_match_scoring() {
     idx.index_document(
         Some("both".into()),
         json!({ "text": "the quick brown fox" }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Only one query term present.
-    idx.index_document(
-        Some("one".into()),
-        json!({ "text": "the quick blue bird" }),
-    ).await.unwrap();
+    idx.index_document(Some("one".into()), json!({ "text": "the quick blue bird" }))
+        .await
+        .unwrap();
 
     // Neither term.
     idx.index_document(
         Some("neither".into()),
         json!({ "text": "completely different stuff" }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // "quick brown" — "quick" survives analysis (not a stop word);
     // "brown" also survives.  "both" has both, "one" has only "quick".
-    let result = idx.search(&make_search(json!({"match": {"text": "quick brown"}}))).await.unwrap();
+    let result = idx
+        .search(&make_search(json!({"match": {"text": "quick brown"}})))
+        .await
+        .unwrap();
 
     // "both" should rank above "one".
     assert!(result.hits.len() >= 2, "at least 2 hits expected");
-    assert_eq!(result.hits[0].id, "both", "doc with both terms should rank first");
+    assert_eq!(
+        result.hits[0].id, "both",
+        "doc with both terms should rank first"
+    );
 
     // "neither" should not appear.
     let ids: Vec<&str> = result.hits.iter().map(|h| h.id.as_str()).collect();
-    assert!(!ids.contains(&"neither"), "doc without matching terms should not appear");
+    assert!(
+        !ids.contains(&"neither"),
+        "doc without matching terms should not appear"
+    );
 }
 
 // ── 19. Fuzzy query — typo tolerance ──────────────────────────────────────────
@@ -788,26 +978,27 @@ async fn test_fuzzy_query_typo() {
     engine.create_index("fuzzy_typo", Schema::empty()).unwrap();
     let idx = engine.get_index("fuzzy_typo").unwrap();
 
-    idx.index_document(
-        Some("es".into()),
-        json!({ "name": "Elasticsearch" }),
-    ).await.unwrap();
+    idx.index_document(Some("es".into()), json!({ "name": "Elasticsearch" }))
+        .await
+        .unwrap();
 
-    idx.index_document(
-        Some("os".into()),
-        json!({ "name": "OpenSearch" }),
-    ).await.unwrap();
+    idx.index_document(Some("os".into()), json!({ "name": "OpenSearch" }))
+        .await
+        .unwrap();
 
     // "Elastcsearch" is a 1-character transposition/deletion away from "Elasticsearch".
     // With AUTO fuzziness the threshold for a 13-char word is 2 edits.
-    let r = idx.search(&make_search(json!({
-        "fuzzy": {
-            "name": {
-                "value": "Elastcsearch",
-                "fuzziness": "AUTO"
+    let r = idx
+        .search(&make_search(json!({
+            "fuzzy": {
+                "name": {
+                    "value": "Elastcsearch",
+                    "fuzziness": "AUTO"
+                }
             }
-        }
-    }))).await.unwrap();
+        })))
+        .await
+        .unwrap();
 
     assert_eq!(r.total.value, 1, "fuzzy query should match the typo");
     assert_eq!(r.hits[0].id, "es");
@@ -826,7 +1017,9 @@ async fn test_highlight() {
     idx.index_document(
         Some("h1".into()),
         json!({ "content": "The quick brown fox jumps over the lazy dog" }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     let req = parse_request(&json!({
         "query": { "match": { "content": "fox" } },
@@ -836,14 +1029,20 @@ async fn test_highlight() {
                 "content": {}
             }
         }
-    })).unwrap();
+    }))
+    .unwrap();
 
     let result = idx.search(&req).await.unwrap();
     assert_eq!(result.hits.len(), 1);
     let hit = &result.hits[0];
     let hl = hit.highlight.as_ref().expect("highlight should be present");
-    let frags = hl.get("content").expect("content highlight should be present");
-    assert!(!frags.is_empty(), "should have at least one highlight fragment");
+    let frags = hl
+        .get("content")
+        .expect("content highlight should be present");
+    assert!(
+        !frags.is_empty(),
+        "should have at least one highlight fragment"
+    );
     let combined = frags.join(" ");
     assert!(
         combined.contains("<em>") && combined.contains("</em>"),
@@ -871,7 +1070,9 @@ async fn test_terms_agg_bucket_counts() {
         idx.index_document(
             Some(format!("doc{i}")),
             json!({ "category": cat, "val": i }),
-        ).await.unwrap();
+        )
+        .await
+        .unwrap();
     }
     // alpha: i=0,3,6,9,12,15,18  → 7 docs
     // beta:  i=1,4,7,10,13,16,19 → 7 docs
@@ -885,7 +1086,8 @@ async fn test_terms_agg_bucket_counts() {
                 "terms": { "field": "category", "size": 10 }
             }
         }
-    })).unwrap();
+    }))
+    .unwrap();
 
     let result = idx.search(&req).await.unwrap();
     assert_eq!(result.total.value, 20);
@@ -895,11 +1097,17 @@ async fn test_terms_agg_bucket_counts() {
     assert_eq!(buckets.len(), 3, "should have 3 category buckets");
 
     // Sorted by count desc — both alpha and beta have 7.
-    let total_docs: u64 = buckets.iter().map(|b| b["doc_count"].as_u64().unwrap_or(0)).sum();
+    let total_docs: u64 = buckets
+        .iter()
+        .map(|b| b["doc_count"].as_u64().unwrap_or(0))
+        .sum();
     assert_eq!(total_docs, 20, "bucket doc counts should sum to 20");
 
     // gamma should have 6 docs (least).
-    let gamma = buckets.iter().find(|b| b["key"].as_str() == Some("gamma")).unwrap();
+    let gamma = buckets
+        .iter()
+        .find(|b| b["key"].as_str() == Some("gamma"))
+        .unwrap();
     assert_eq!(gamma["doc_count"].as_u64().unwrap(), 6);
 }
 
@@ -915,10 +1123,9 @@ async fn test_range_agg_boundaries() {
 
     // Index 10 docs with prices 10, 20, 30, ... 100.
     for i in 1..=10u32 {
-        idx.index_document(
-            Some(format!("p{i}")),
-            json!({ "price": i * 10 }),
-        ).await.unwrap();
+        idx.index_document(Some(format!("p{i}")), json!({ "price": i * 10 }))
+            .await
+            .unwrap();
     }
 
     let req = parse_request(&json!({
@@ -936,7 +1143,8 @@ async fn test_range_agg_boundaries() {
                 }
             }
         }
-    })).unwrap();
+    }))
+    .unwrap();
 
     let result = idx.search(&req).await.unwrap();
     let aggs = result.aggs.as_ref().expect("aggs present");
@@ -944,11 +1152,23 @@ async fn test_range_agg_boundaries() {
     assert_eq!(buckets.len(), 3);
 
     // Bucket 0: price < 30 → prices 10, 20 → 2 docs.
-    assert_eq!(buckets[0]["doc_count"].as_u64().unwrap(), 2, "< 30 should have 2 docs");
+    assert_eq!(
+        buckets[0]["doc_count"].as_u64().unwrap(),
+        2,
+        "< 30 should have 2 docs"
+    );
     // Bucket 1: 30 <= price < 70 → prices 30, 40, 50, 60 → 4 docs.
-    assert_eq!(buckets[1]["doc_count"].as_u64().unwrap(), 4, "30-70 should have 4 docs");
+    assert_eq!(
+        buckets[1]["doc_count"].as_u64().unwrap(),
+        4,
+        "30-70 should have 4 docs"
+    );
     // Bucket 2: price >= 70 → prices 70, 80, 90, 100 → 4 docs.
-    assert_eq!(buckets[2]["doc_count"].as_u64().unwrap(), 4, ">= 70 should have 4 docs");
+    assert_eq!(
+        buckets[2]["doc_count"].as_u64().unwrap(),
+        4,
+        ">= 70 should have 4 docs"
+    );
 }
 
 // ── 23. Bool must_not — exclusion ─────────────────────────────────────────────
@@ -958,21 +1178,46 @@ async fn test_bool_must_not_excludes() {
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
 
-    engine.create_index("must_not_idx", Schema::empty()).unwrap();
+    engine
+        .create_index("must_not_idx", Schema::empty())
+        .unwrap();
     let idx = engine.get_index("must_not_idx").unwrap();
 
-    idx.index_document(Some("a".into()), json!({"status": "active", "type": "admin"})).await.unwrap();
-    idx.index_document(Some("b".into()), json!({"status": "active", "type": "user"})).await.unwrap();
-    idx.index_document(Some("c".into()), json!({"status": "inactive", "type": "user"})).await.unwrap();
-    idx.index_document(Some("d".into()), json!({"status": "active", "type": "moderator"})).await.unwrap();
+    idx.index_document(
+        Some("a".into()),
+        json!({"status": "active", "type": "admin"}),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("b".into()),
+        json!({"status": "active", "type": "user"}),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("c".into()),
+        json!({"status": "inactive", "type": "user"}),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("d".into()),
+        json!({"status": "active", "type": "moderator"}),
+    )
+    .await
+    .unwrap();
 
     // must: status=active, must_not: type=admin
-    let r = idx.search(&make_search(json!({
-        "bool": {
-            "must": [{ "term": { "status": "active" } }],
-            "must_not": [{ "term": { "type": "admin" } }]
-        }
-    }))).await.unwrap();
+    let r = idx
+        .search(&make_search(json!({
+            "bool": {
+                "must": [{ "term": { "status": "active" } }],
+                "must_not": [{ "term": { "type": "admin" } }]
+            }
+        })))
+        .await
+        .unwrap();
 
     assert_eq!(r.total.value, 2, "should return b and d only");
     let ids: Vec<&str> = r.hits.iter().map(|h| h.id.as_str()).collect();
@@ -993,10 +1238,9 @@ async fn test_pagination_no_overlap() {
     let idx = engine.get_index("pages").unwrap();
 
     for i in 0..20u32 {
-        idx.index_document(
-            Some(format!("doc{i:02}")),
-            json!({ "n": i }),
-        ).await.unwrap();
+        idx.index_document(Some(format!("doc{i:02}")), json!({ "n": i }))
+            .await
+            .unwrap();
     }
 
     let page1_req = parse_request(&json!({
@@ -1004,14 +1248,16 @@ async fn test_pagination_no_overlap() {
         "size": 5,
         "from": 0,
         "sort": [{ "n": "asc" }]
-    })).unwrap();
+    }))
+    .unwrap();
 
     let page2_req = parse_request(&json!({
         "query": { "match_all": {} },
         "size": 5,
         "from": 5,
         "sort": [{ "n": "asc" }]
-    })).unwrap();
+    }))
+    .unwrap();
 
     let r1 = idx.search(&page1_req).await.unwrap();
     let r2 = idx.search(&page2_req).await.unwrap();
@@ -1023,7 +1269,11 @@ async fn test_pagination_no_overlap() {
     let ids2: std::collections::HashSet<&str> = r2.hits.iter().map(|h| h.id.as_str()).collect();
 
     let overlap: Vec<&&str> = ids1.intersection(&ids2).collect();
-    assert!(overlap.is_empty(), "pages should not overlap, found: {:?}", overlap);
+    assert!(
+        overlap.is_empty(),
+        "pages should not overlap, found: {:?}",
+        overlap
+    );
 
     // Verify the pages are consecutive (asc sort by n).
     let last_n1 = r1.hits.last().unwrap().source["n"].as_u64().unwrap();
@@ -1043,17 +1293,17 @@ async fn test_sort_stability() {
 
     // All docs have the same "rank" value — tie-breaking should use doc ID.
     for i in 0..5u32 {
-        idx.index_document(
-            Some(format!("doc{i}")),
-            json!({ "rank": 42, "n": i }),
-        ).await.unwrap();
+        idx.index_document(Some(format!("doc{i}")), json!({ "rank": 42, "n": i }))
+            .await
+            .unwrap();
     }
 
     let req = parse_request(&json!({
         "query": { "match_all": {} },
         "size": 10,
         "sort": [{ "rank": "asc" }]
-    })).unwrap();
+    }))
+    .unwrap();
 
     let r1 = idx.search(&req).await.unwrap();
     let r2 = idx.search(&req).await.unwrap();
@@ -1064,7 +1314,10 @@ async fn test_sort_stability() {
     // Ordering should be identical across two identical queries.
     let ids1: Vec<&str> = r1.hits.iter().map(|h| h.id.as_str()).collect();
     let ids2: Vec<&str> = r2.hits.iter().map(|h| h.id.as_str()).collect();
-    assert_eq!(ids1, ids2, "sort order should be stable across identical queries");
+    assert_eq!(
+        ids1, ids2,
+        "sort order should be stable across identical queries"
+    );
 }
 
 // ── 26. Alias test ────────────────────────────────────────────────────────────
@@ -1077,17 +1330,27 @@ async fn test_alias_search() {
     engine.create_index("real_index", Schema::empty()).unwrap();
     let idx = engine.get_index("real_index").unwrap();
 
-    idx.index_document(Some("a1".into()), json!({"msg": "hello from real index"})).await.unwrap();
-    idx.index_document(Some("a2".into()), json!({"msg": "another doc"})).await.unwrap();
+    idx.index_document(Some("a1".into()), json!({"msg": "hello from real index"}))
+        .await
+        .unwrap();
+    idx.index_document(Some("a2".into()), json!({"msg": "another doc"}))
+        .await
+        .unwrap();
 
     // Add alias "my_alias" → "real_index".
     engine.add_alias("my_alias", "real_index");
 
     // Search via alias should return the same results as searching via the real name.
     let idx_via_alias = engine.get_index("my_alias").unwrap();
-    let result = idx_via_alias.search(&make_search(json!({"match_all": {}}))).await.unwrap();
+    let result = idx_via_alias
+        .search(&make_search(json!({"match_all": {}})))
+        .await
+        .unwrap();
 
-    assert_eq!(result.total.value, 2, "search via alias should return all docs");
+    assert_eq!(
+        result.total.value, 2,
+        "search via alias should return all docs"
+    );
     let ids: Vec<&str> = result.hits.iter().map(|h| h.id.as_str()).collect();
     assert!(ids.contains(&"a1"));
     assert!(ids.contains(&"a2"));
@@ -1095,7 +1358,11 @@ async fn test_alias_search() {
     // Remove alias and verify it no longer resolves.
     engine.remove_alias("my_alias", "real_index");
     let resolved = engine.resolve_alias("my_alias");
-    assert_eq!(resolved, vec!["my_alias".to_string()], "removed alias should fall back to literal name");
+    assert_eq!(
+        resolved,
+        vec!["my_alias".to_string()],
+        "removed alias should fall back to literal name"
+    );
 }
 
 // ── 27. Regexp query ──────────────────────────────────────────────────────────
@@ -1108,15 +1375,26 @@ async fn test_regexp_query() {
     engine.create_index("regexp_idx", Schema::empty()).unwrap();
     let idx = engine.get_index("regexp_idx").unwrap();
 
-    idx.index_document(Some("r1".into()), json!({ "sku": "ABC-1234" })).await.unwrap();
-    idx.index_document(Some("r2".into()), json!({ "sku": "ABC-5678" })).await.unwrap();
-    idx.index_document(Some("r3".into()), json!({ "sku": "XYZ-9999" })).await.unwrap();
-    idx.index_document(Some("r4".into()), json!({ "sku": "DEF-0001" })).await.unwrap();
+    idx.index_document(Some("r1".into()), json!({ "sku": "ABC-1234" }))
+        .await
+        .unwrap();
+    idx.index_document(Some("r2".into()), json!({ "sku": "ABC-5678" }))
+        .await
+        .unwrap();
+    idx.index_document(Some("r3".into()), json!({ "sku": "XYZ-9999" }))
+        .await
+        .unwrap();
+    idx.index_document(Some("r4".into()), json!({ "sku": "DEF-0001" }))
+        .await
+        .unwrap();
 
     // Match any SKU starting with "ABC-".
-    let r = idx.search(&make_search(json!({
-        "regexp": { "sku": "ABC-.*" }
-    }))).await.unwrap();
+    let r = idx
+        .search(&make_search(json!({
+            "regexp": { "sku": "ABC-.*" }
+        })))
+        .await
+        .unwrap();
 
     assert_eq!(r.total.value, 2, "only r1 and r2 match ABC-.*");
     let ids: Vec<&str> = r.hits.iter().map(|h| h.id.as_str()).collect();
@@ -1140,33 +1418,48 @@ async fn test_geo_distance_radius() {
     idx.index_document(
         Some("paris".into()),
         json!({ "name": "Paris", "loc": { "lat": 48.8566, "lon": 2.3522 } }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Versailles (~20 km from Paris).
     idx.index_document(
         Some("versailles".into()),
         json!({ "name": "Versailles", "loc": { "lat": 48.8044, "lon": 2.1204 } }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Lyon (~390 km from Paris).
     idx.index_document(
         Some("lyon".into()),
         json!({ "name": "Lyon", "loc": { "lat": 45.7640, "lon": 4.8357 } }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Query: within 50 km of Paris centre.
-    let r = idx.search(&make_search(json!({
-        "geo_distance": {
-            "distance": "50km",
-            "loc": { "lat": 48.8566, "lon": 2.3522 }
-        }
-    }))).await.unwrap();
+    let r = idx
+        .search(&make_search(json!({
+            "geo_distance": {
+                "distance": "50km",
+                "loc": { "lat": 48.8566, "lon": 2.3522 }
+            }
+        })))
+        .await
+        .unwrap();
 
-    assert_eq!(r.total.value, 2, "Paris and Versailles should be within 50km");
+    assert_eq!(
+        r.total.value, 2,
+        "Paris and Versailles should be within 50km"
+    );
     let ids: Vec<&str> = r.hits.iter().map(|h| h.id.as_str()).collect();
     assert!(ids.contains(&"paris"));
     assert!(ids.contains(&"versailles"));
-    assert!(!ids.contains(&"lyon"), "Lyon is ~390km away, should not match");
+    assert!(
+        !ids.contains(&"lyon"),
+        "Lyon is ~390km away, should not match"
+    );
 }
 
 // ── 29. Update document — partial doc merge ───────────────────────────────────
@@ -1183,26 +1476,53 @@ async fn test_update_document_partial_merge() {
     idx.index_document(
         Some("u1".into()),
         json!({ "name": "Alice", "age": 30, "city": "London" }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Partial update: change age, add a new field "email".
-    let resp = idx.update_document(
-        "u1",
-        json!({ "age": 31, "email": "alice@example.com" }),
-    ).await.unwrap();
+    let resp = idx
+        .update_document("u1", json!({ "age": 31, "email": "alice@example.com" }))
+        .await
+        .unwrap();
 
-    assert!(resp.is_some(), "update should succeed for existing document");
+    assert!(
+        resp.is_some(),
+        "update should succeed for existing document"
+    );
 
     // Re-fetch and verify merge.
     let updated = idx.get_document("u1").await.unwrap().unwrap();
-    assert_eq!(updated["name"].as_str().unwrap(), "Alice", "name should be preserved");
-    assert_eq!(updated["age"].as_u64().unwrap(), 31, "age should be updated");
-    assert_eq!(updated["city"].as_str().unwrap(), "London", "city should be preserved");
-    assert_eq!(updated["email"].as_str().unwrap(), "alice@example.com", "email should be added");
+    assert_eq!(
+        updated["name"].as_str().unwrap(),
+        "Alice",
+        "name should be preserved"
+    );
+    assert_eq!(
+        updated["age"].as_u64().unwrap(),
+        31,
+        "age should be updated"
+    );
+    assert_eq!(
+        updated["city"].as_str().unwrap(),
+        "London",
+        "city should be preserved"
+    );
+    assert_eq!(
+        updated["email"].as_str().unwrap(),
+        "alice@example.com",
+        "email should be added"
+    );
 
     // Update of non-existent document should return None.
-    let missing = idx.update_document("nonexistent", json!({ "x": 1 })).await.unwrap();
-    assert!(missing.is_none(), "update of non-existent doc should return None");
+    let missing = idx
+        .update_document("nonexistent", json!({ "x": 1 }))
+        .await
+        .unwrap();
+    assert!(
+        missing.is_none(),
+        "update of non-existent doc should return None"
+    );
 }
 
 // ── Concurrent access: 10 tasks × 100 docs = 1000 total ──────────────────────
@@ -1288,13 +1608,14 @@ async fn test_nested_object_field_access() {
     idx.index_document(
         Some("n1".into()),
         json!({ "user": { "name": "John", "age": 30 } }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Deep nesting: a.b.c
-    idx.index_document(
-        Some("n2".into()),
-        json!({ "a": { "b": { "c": 42 } } }),
-    ).await.unwrap();
+    idx.index_document(Some("n2".into()), json!({ "a": { "b": { "c": 42 } } }))
+        .await
+        .unwrap();
 
     // Array of objects: tags.key
     idx.index_document(
@@ -1303,25 +1624,39 @@ async fn test_nested_object_field_access() {
             { "key": "env", "val": "prod" },
             { "key": "team", "val": "backend" }
         ]}),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Verify nested term query on user.name works.
-    let r = idx.search(&make_search(json!({"term": {"user.name": "John"}}))).await.unwrap();
+    let r = idx
+        .search(&make_search(json!({"term": {"user.name": "John"}})))
+        .await
+        .unwrap();
     assert_eq!(r.total.value, 1, "user.name=John should match n1");
     assert_eq!(r.hits[0].id, "n1");
 
     // Verify deep nesting term query on a.b.c works.
-    let r2 = idx.search(&make_search(json!({"term": {"a.b.c": 42}}))).await.unwrap();
+    let r2 = idx
+        .search(&make_search(json!({"term": {"a.b.c": 42}})))
+        .await
+        .unwrap();
     assert_eq!(r2.total.value, 1, "a.b.c=42 should match n2");
     assert_eq!(r2.hits[0].id, "n2");
 
     // Verify array field: exists query on tags.key
-    let r3 = idx.search(&make_search(json!({"exists": {"field": "tags.key"}}))).await.unwrap();
+    let r3 = idx
+        .search(&make_search(json!({"exists": {"field": "tags.key"}})))
+        .await
+        .unwrap();
     assert_eq!(r3.total.value, 1, "tags.key should exist in n3");
     assert_eq!(r3.hits[0].id, "n3");
 
     // Verify array field: term query on tags.key (matches any element)
-    let r4 = idx.search(&make_search(json!({"term": {"tags.key": "env"}}))).await.unwrap();
+    let r4 = idx
+        .search(&make_search(json!({"term": {"tags.key": "env"}})))
+        .await
+        .unwrap();
     assert_eq!(r4.total.value, 1, "tags.key=env should match n3");
     assert_eq!(r4.hits[0].id, "n3");
 }
@@ -1340,23 +1675,31 @@ async fn test_dynamic_mapping_array_type_detection() {
     idx.index_document(
         Some("d1".into()),
         json!({ "scores": [10, 20, 30], "name": "Alice" }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Index a doc with a bool field.
-    idx.index_document(
-        Some("d2".into()),
-        json!({ "active": true, "name": "Bob" }),
-    ).await.unwrap();
+    idx.index_document(Some("d2".into()), json!({ "active": true, "name": "Bob" }))
+        .await
+        .unwrap();
 
     // Verify schema evolved: fields were added dynamically.
     let schema = idx.schema().await;
-    assert!(schema.fields.iter().any(|f| f.name == "scores"),
-        "scores field should be in schema after dynamic mapping");
-    assert!(schema.fields.iter().any(|f| f.name == "active"),
-        "active field should be in schema after dynamic mapping");
+    assert!(
+        schema.fields.iter().any(|f| f.name == "scores"),
+        "scores field should be in schema after dynamic mapping"
+    );
+    assert!(
+        schema.fields.iter().any(|f| f.name == "active"),
+        "active field should be in schema after dynamic mapping"
+    );
 
     // Verify searching works on dynamically-added fields.
-    let r = idx.search(&make_search(json!({"term": {"active": true}}))).await.unwrap();
+    let r = idx
+        .search(&make_search(json!({"term": {"active": true}})))
+        .await
+        .unwrap();
     assert_eq!(r.total.value, 1, "active=true should match d2");
     assert_eq!(r.hits[0].id, "d2");
 }
@@ -1372,26 +1715,50 @@ async fn test_wal_corruption_recovery() {
     // Phase 1: index some valid docs and persist them to WAL.
     {
         let engine = make_engine(&dir);
-        engine.create_index("corrupt_test", Schema::empty()).unwrap();
+        engine
+            .create_index("corrupt_test", Schema::empty())
+            .unwrap();
         let idx = engine.get_index("corrupt_test").unwrap();
 
-        idx.index_document(Some("good1".into()), json!({"data": "valid entry one"})).await.unwrap();
-        idx.index_document(Some("good2".into()), json!({"data": "valid entry two"})).await.unwrap();
+        idx.index_document(Some("good1".into()), json!({"data": "valid entry one"}))
+            .await
+            .unwrap();
+        idx.index_document(Some("good2".into()), json!({"data": "valid entry two"}))
+            .await
+            .unwrap();
     }
 
     // Phase 2: corrupt the WAL by appending garbage bytes.
     {
         let wal_dir = dir.path().join("corrupt_test").join("wal");
-        // Find the .wal file and append garbage to corrupt it.
-        let wal_file = std::fs::read_dir(&wal_dir)
-            .unwrap()
-            .flatten()
-            .find(|e| e.file_name().to_string_lossy().ends_with(".wal"))
+        // Find a .wal file that actually holds an entry and append garbage to
+        // corrupt it. With the sharded WAL layout the streams live in
+        // wal/s{N}/ subdirectories (docs route by id hash), so walk the root
+        // AND the shard dirs and pick a file larger than the 16-byte header.
+        let mut wal_files: Vec<std::path::PathBuf> = Vec::new();
+        for entry in std::fs::read_dir(&wal_dir).unwrap().flatten() {
+            let p = entry.path();
+            if p.is_dir() {
+                for sub in std::fs::read_dir(&p).unwrap().flatten() {
+                    wal_files.push(sub.path());
+                }
+            } else {
+                wal_files.push(p);
+            }
+        }
+        let wal_file = wal_files
+            .into_iter()
+            .filter(|p| p.to_string_lossy().ends_with(".wal"))
+            .max_by_key(|p| std::fs::metadata(p).map(|m| m.len()).unwrap_or(0))
             .expect("should have a WAL file");
+        assert!(
+            std::fs::metadata(&wal_file).unwrap().len() > 16,
+            "picked WAL file must contain at least one entry"
+        );
 
         let mut f = std::fs::OpenOptions::new()
             .append(true)
-            .open(wal_file.path())
+            .open(&wal_file)
             .unwrap();
         // Write a structurally valid-looking WAL entry (entry_len=4, seq_no=9999,
         // op=INDEX) with garbage payload and zero CRC — this will fail the CRC
@@ -1415,10 +1782,16 @@ async fn test_wal_corruption_recovery() {
 
         // The two valid docs indexed before corruption should be recoverable.
         let doc1 = idx.get_document("good1").await.unwrap();
-        assert!(doc1.is_some(), "good1 should be recoverable after WAL corruption");
+        assert!(
+            doc1.is_some(),
+            "good1 should be recoverable after WAL corruption"
+        );
 
         let doc2 = idx.get_document("good2").await.unwrap();
-        assert!(doc2.is_some(), "good2 should be recoverable after WAL corruption");
+        assert!(
+            doc2.is_some(),
+            "good2 should be recoverable after WAL corruption"
+        );
     }
 }
 
@@ -1438,23 +1811,40 @@ async fn test_flush_to_disk_and_reopen() {
             idx.index_document(
                 Some(format!("doc{i}")),
                 json!({ "n": i, "tag": "flush_test_doc" }),
-            ).await.unwrap();
+            )
+            .await
+            .unwrap();
         }
 
         // Step 2: Verify docs are searchable before flush.
-        let before = idx.search(&make_search(json!({"match_all": {}}))).await.unwrap();
-        assert_eq!(before.total.value, 100, "100 docs should be found before flush");
+        let before = idx
+            .search(&make_search(json!({"match_all": {}})))
+            .await
+            .unwrap();
+        assert_eq!(
+            before.total.value, 100,
+            "100 docs should be found before flush"
+        );
 
         // Step 3: Flush to disk.
         idx.flush().await.unwrap();
 
         // Step 4: Verify docs are still searchable after flush.
-        let after = idx.search(&make_search(json!({"match_all": {}}))).await.unwrap();
-        assert_eq!(after.total.value, 100, "100 docs should be found after flush");
+        let after = idx
+            .search(&make_search(json!({"match_all": {}})))
+            .await
+            .unwrap();
+        assert_eq!(
+            after.total.value, 100,
+            "100 docs should be found after flush"
+        );
 
         // Check that a segment was created.
         let stats = idx.stats().await;
-        assert!(stats.segment_count >= 1, "at least one segment should exist after flush");
+        assert!(
+            stats.segment_count >= 1,
+            "at least one segment should exist after flush"
+        );
     }
 
     // Step 5: Reopen engine with same data dir.
@@ -1463,8 +1853,14 @@ async fn test_flush_to_disk_and_reopen() {
         let idx = engine.get_index("flush_test").unwrap();
 
         // Step 6: Verify docs are still searchable (from segment, not WAL).
-        let result = idx.search(&make_search(json!({"match_all": {}}))).await.unwrap();
-        assert_eq!(result.total.value, 100, "100 docs should survive engine restart after flush");
+        let result = idx
+            .search(&make_search(json!({"match_all": {}})))
+            .await
+            .unwrap();
+        assert_eq!(
+            result.total.value, 100,
+            "100 docs should survive engine restart after flush"
+        );
 
         // Spot-check a specific doc.
         let doc = idx.get_document("doc42").await.unwrap();
@@ -1473,7 +1869,10 @@ async fn test_flush_to_disk_and_reopen() {
 
         // Verify segment count (no WAL replay needed — data is in segment).
         let stats = idx.stats().await;
-        assert!(stats.segment_count >= 1, "segment should persist after reopen");
+        assert!(
+            stats.segment_count >= 1,
+            "segment should persist after reopen"
+        );
     }
 }
 
@@ -1481,13 +1880,15 @@ async fn test_flush_to_disk_and_reopen() {
 
 #[tokio::test]
 async fn test_concurrent_read_write() {
-    use std::sync::Arc;
     use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::Arc;
 
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
 
-    engine.create_index("rw_concurrent", Schema::empty()).unwrap();
+    engine
+        .create_index("rw_concurrent", Schema::empty())
+        .unwrap();
     let idx = Arc::new(engine.get_index("rw_concurrent").unwrap());
 
     // Pre-index some docs so readers have something to find immediately.
@@ -1495,7 +1896,9 @@ async fn test_concurrent_read_write() {
         idx.index_document(
             Some(format!("seed{i}")),
             json!({ "val": i, "kind": "seed" }),
-        ).await.unwrap();
+        )
+        .await
+        .unwrap();
     }
 
     const WRITERS: usize = 4;
@@ -1513,10 +1916,11 @@ async fn test_concurrent_read_write() {
         handles.push(tokio::spawn(async move {
             for d in 0..WRITES_PER_TASK {
                 let id = format!("w{w}-d{d}");
-                if idx_clone.index_document(
-                    Some(id),
-                    json!({ "writer": w, "doc": d, "kind": "write" }),
-                ).await.is_err() {
+                if idx_clone
+                    .index_document(Some(id), json!({ "writer": w, "doc": d, "kind": "write" }))
+                    .await
+                    .is_err()
+                {
                     errors_clone.fetch_add(1, Ordering::Relaxed);
                 }
             }
@@ -1530,7 +1934,11 @@ async fn test_concurrent_read_write() {
         handles.push(tokio::spawn(async move {
             for _ in 0..READS_PER_TASK {
                 // Search is valid even if it returns 0 results during a write window.
-                if idx_clone.search(&make_search(json!({"term": {"kind": "seed"}}))).await.is_err() {
+                if idx_clone
+                    .search(&make_search(json!({"term": {"kind": "seed"}})))
+                    .await
+                    .is_err()
+                {
                     errors_clone.fetch_add(1, Ordering::Relaxed);
                 }
             }
@@ -1543,11 +1951,18 @@ async fn test_concurrent_read_write() {
     }
 
     // No errors during concurrent ops.
-    assert_eq!(errors.load(Ordering::Relaxed), 0, "no errors should occur during concurrent read/write");
+    assert_eq!(
+        errors.load(Ordering::Relaxed),
+        0,
+        "no errors should occur during concurrent read/write"
+    );
 
     // Final state: seed docs + all written docs present.
     let total_written = WRITERS * WRITES_PER_TASK;
-    let result = idx.search(&make_search_with_size(json!({"match_all": {}}), 10_000)).await.unwrap();
+    let result = idx
+        .search(&make_search_with_size(json!({"match_all": {}}), 10_000))
+        .await
+        .unwrap();
     assert_eq!(
         result.total.value,
         (10 + total_written) as u64,
@@ -1575,7 +1990,9 @@ async fn test_memory_usage_bytes() {
         idx.index_document(
             Some(format!("m{i}")),
             json!({ "content": format!("document number {} with some text content", i) }),
-        ).await.unwrap();
+        )
+        .await
+        .unwrap();
     }
 
     let usage_after_index = idx.memory_usage_bytes().await;
@@ -1591,7 +2008,8 @@ async fn test_memory_usage_bytes() {
     assert!(
         usage_after_flush < usage_after_index,
         "memory usage should decrease after flush (memtable cleared), before={} after={}",
-        usage_after_index, usage_after_flush
+        usage_after_index,
+        usage_after_flush
     );
 }
 
@@ -1600,12 +2018,12 @@ async fn test_memory_usage_bytes() {
 #[tokio::test]
 async fn test_index_level_settings() {
     let dir = TempDir::new().unwrap();
-    let engine = make_engine(&dir);
+    let _engine = make_engine(&dir);
 
     // Create index with explicit settings using create_with_settings.
+    use xerj_common::config::Config;
     use xerj_common::types::Schema;
     use xerj_engine::index::Index;
-    use xerj_common::config::Config;
 
     let name = xerj_common::types::IndexName::new("settings_test").unwrap();
     let settings = json!({
@@ -1617,13 +2035,9 @@ async fn test_index_level_settings() {
     let mut config = Config::default();
     config.server.data_dir = dir.path().to_str().unwrap().to_string();
 
-    let idx = Index::create_with_settings(
-        name,
-        Schema::empty(),
-        settings.clone(),
-        &config,
-        dir.path(),
-    ).unwrap();
+    let idx =
+        Index::create_with_settings(name, Schema::empty(), settings.clone(), &config, dir.path())
+            .unwrap();
 
     // Verify GET _settings returns the stored settings.
     let retrieved = idx.get_settings().await;
@@ -1645,8 +2059,8 @@ async fn test_index_settings_persisted_across_restart() {
 
     // Create index with settings.
     {
-        use xerj_engine::index::Index;
         use xerj_common::config::Config;
+        use xerj_engine::index::Index;
 
         let name = xerj_common::types::IndexName::new("settings_persist").unwrap();
         let settings = json!({
@@ -1665,13 +2079,14 @@ async fn test_index_settings_persisted_across_restart() {
             settings,
             &config,
             dir.path(),
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     // Reopen and verify settings survive restart.
     {
-        use xerj_engine::index::Index;
         use xerj_common::config::Config;
+        use xerj_engine::index::Index;
 
         let name = xerj_common::types::IndexName::new("settings_persist").unwrap();
         let mut config = Config::default();
@@ -1751,7 +2166,11 @@ async fn test_search_after_pagination() {
         }
     }
 
-    assert_eq!(collected_ids.len(), 20, "should collect all 20 docs via search_after");
+    assert_eq!(
+        collected_ids.len(),
+        20,
+        "should collect all 20 docs via search_after"
+    );
 
     // Verify all doc IDs are present without duplicates.
     let mut sorted_ids = collected_ids.clone();
@@ -1816,8 +2235,14 @@ async fn test_wildcard_field_search() {
     let r = idx.search(&req).await.unwrap();
     let mut ids: Vec<&str> = r.hits.iter().map(|h| h.id.as_str()).collect();
     ids.sort();
-    assert!(ids.contains(&"wf1"), "wf1 (title=Rust) should match wildcard search");
-    assert!(ids.contains(&"wf3"), "wf3 (body mentions Rust) should match wildcard search");
+    assert!(
+        ids.contains(&"wf1"),
+        "wf1 (title=Rust) should match wildcard search"
+    );
+    assert!(
+        ids.contains(&"wf3"),
+        "wf3 (body mentions Rust) should match wildcard search"
+    );
     assert!(!ids.contains(&"wf2"), "wf2 should not match");
     assert!(!ids.contains(&"wf4"), "wf4 should not match");
 
@@ -1853,21 +2278,36 @@ async fn test_nested_terms_agg() {
     let idx = engine.get_index("nested_agg").unwrap();
 
     // Documents with nested "user.role" field.
-    idx.index_document(Some("na1".into()), json!({ "user": { "role": "admin", "name": "Alice" } }))
-        .await
-        .unwrap();
-    idx.index_document(Some("na2".into()), json!({ "user": { "role": "user", "name": "Bob" } }))
-        .await
-        .unwrap();
-    idx.index_document(Some("na3".into()), json!({ "user": { "role": "admin", "name": "Carol" } }))
-        .await
-        .unwrap();
-    idx.index_document(Some("na4".into()), json!({ "user": { "role": "user", "name": "Dave" } }))
-        .await
-        .unwrap();
-    idx.index_document(Some("na5".into()), json!({ "user": { "role": "moderator", "name": "Eve" } }))
-        .await
-        .unwrap();
+    idx.index_document(
+        Some("na1".into()),
+        json!({ "user": { "role": "admin", "name": "Alice" } }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("na2".into()),
+        json!({ "user": { "role": "user", "name": "Bob" } }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("na3".into()),
+        json!({ "user": { "role": "admin", "name": "Carol" } }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("na4".into()),
+        json!({ "user": { "role": "user", "name": "Dave" } }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("na5".into()),
+        json!({ "user": { "role": "moderator", "name": "Eve" } }),
+    )
+    .await
+    .unwrap();
 
     // Terms aggregation on dot-path field "user.role".
     let req = parse_request(&json!({
@@ -1898,7 +2338,9 @@ async fn test_nested_terms_agg() {
     );
 
     // Find moderator bucket (should have count=1).
-    let mod_bucket = buckets.iter().find(|b| b["key"].as_str() == Some("moderator"));
+    let mod_bucket = buckets
+        .iter()
+        .find(|b| b["key"].as_str() == Some("moderator"));
     assert!(mod_bucket.is_some(), "moderator bucket should exist");
     assert_eq!(mod_bucket.unwrap()["doc_count"].as_u64().unwrap(), 1);
 }
@@ -1914,9 +2356,18 @@ async fn test_terms_agg_array_field() {
     let idx = engine.get_index("arr_agg").unwrap();
 
     // Documents with array-valued "tags" field.
-    idx.index_document(Some("aa1".into()), json!({ "tags": ["rust", "systems"] })).await.unwrap();
-    idx.index_document(Some("aa2".into()), json!({ "tags": ["python", "scripting"] })).await.unwrap();
-    idx.index_document(Some("aa3".into()), json!({ "tags": ["rust", "web"] })).await.unwrap();
+    idx.index_document(Some("aa1".into()), json!({ "tags": ["rust", "systems"] }))
+        .await
+        .unwrap();
+    idx.index_document(
+        Some("aa2".into()),
+        json!({ "tags": ["python", "scripting"] }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(Some("aa3".into()), json!({ "tags": ["rust", "web"] }))
+        .await
+        .unwrap();
 
     let req = parse_request(&json!({
         "query": { "match_all": {} },
@@ -1953,15 +2404,24 @@ async fn test_minimum_should_match_percentage() {
     engine.create_index("msm_pct", Schema::empty()).unwrap();
     let idx = engine.get_index("msm_pct").unwrap();
 
-    idx.index_document(Some("mp1".into()), json!({ "a": true, "b": true, "c": true, "d": true }))
-        .await
-        .unwrap();
-    idx.index_document(Some("mp2".into()), json!({ "a": true, "b": true, "c": false, "d": false }))
-        .await
-        .unwrap();
-    idx.index_document(Some("mp3".into()), json!({ "a": false, "b": false, "c": false, "d": false }))
-        .await
-        .unwrap();
+    idx.index_document(
+        Some("mp1".into()),
+        json!({ "a": true, "b": true, "c": true, "d": true }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("mp2".into()),
+        json!({ "a": true, "b": true, "c": false, "d": false }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("mp3".into()),
+        json!({ "a": false, "b": false, "c": false, "d": false }),
+    )
+    .await
+    .unwrap();
 
     // 75% of 4 should clauses = 3, rounded down.
     let r = idx
@@ -1980,7 +2440,10 @@ async fn test_minimum_should_match_percentage() {
         .unwrap();
 
     // mp1 matches all 4 (>= 3 = 75%), mp2 matches 2 (< 3), mp3 matches 0.
-    assert_eq!(r.total.value, 1, "only mp1 should match with 75% of 4 clauses");
+    assert_eq!(
+        r.total.value, 1,
+        "only mp1 should match with 75% of 4 clauses"
+    );
     assert_eq!(r.hits[0].id, "mp1");
 
     // 50% of 4 = 2 clauses.
@@ -2027,15 +2490,42 @@ async fn test_top_hits_sub_agg() {
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
 
-    engine.create_index("top_hits_idx", Schema::empty()).unwrap();
+    engine
+        .create_index("top_hits_idx", Schema::empty())
+        .unwrap();
     let idx = engine.get_index("top_hits_idx").unwrap();
 
     // 3 docs in cat A, 2 in cat B.
-    idx.index_document(Some("a1".into()), json!({ "cat": "A", "title": "Alpha one", "score": 10 })).await.unwrap();
-    idx.index_document(Some("a2".into()), json!({ "cat": "A", "title": "Alpha two", "score": 20 })).await.unwrap();
-    idx.index_document(Some("a3".into()), json!({ "cat": "A", "title": "Alpha three", "score": 5 })).await.unwrap();
-    idx.index_document(Some("b1".into()), json!({ "cat": "B", "title": "Beta one", "score": 15 })).await.unwrap();
-    idx.index_document(Some("b2".into()), json!({ "cat": "B", "title": "Beta two", "score": 25 })).await.unwrap();
+    idx.index_document(
+        Some("a1".into()),
+        json!({ "cat": "A", "title": "Alpha one", "score": 10 }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("a2".into()),
+        json!({ "cat": "A", "title": "Alpha two", "score": 20 }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("a3".into()),
+        json!({ "cat": "A", "title": "Alpha three", "score": 5 }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("b1".into()),
+        json!({ "cat": "B", "title": "Beta one", "score": 15 }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("b2".into()),
+        json!({ "cat": "B", "title": "Beta two", "score": 25 }),
+    )
+    .await
+    .unwrap();
 
     let req = parse_request(&json!({
         "query": { "match_all": {} },
@@ -2050,7 +2540,8 @@ async fn test_top_hits_sub_agg() {
                 }
             }
         }
-    })).unwrap();
+    }))
+    .unwrap();
 
     let result = idx.search(&req).await.unwrap();
     let aggs = result.aggs.unwrap();
@@ -2066,12 +2557,24 @@ async fn test_top_hits_sub_agg() {
 
     // Each hit should have _source with title but NOT score (filtered).
     let first_hit = &top_hits[0];
-    assert!(first_hit["_source"]["title"].is_string(), "title should be present");
-    assert!(first_hit["_source"]["score"].is_null() || !first_hit["_source"].as_object().map(|o| o.contains_key("score")).unwrap_or(false),
-        "score should be filtered out when _source=[title]");
+    assert!(
+        first_hit["_source"]["title"].is_string(),
+        "title should be present"
+    );
+    assert!(
+        first_hit["_source"]["score"].is_null()
+            || !first_hit["_source"]
+                .as_object()
+                .map(|o| o.contains_key("score"))
+                .unwrap_or(false),
+        "score should be filtered out when _source=[title]"
+    );
 
     // Verify total reflects all docs in bucket.
-    assert_eq!(top["hits"]["total"]["value"], 3, "total in A bucket should be 3");
+    assert_eq!(
+        top["hits"]["total"]["value"], 3,
+        "total in A bucket should be 3"
+    );
 }
 
 // ── Profile mode ──────────────────────────────────────────────────────────────
@@ -2084,19 +2587,29 @@ async fn test_profile_mode() {
     engine.create_index("profile_idx", Schema::empty()).unwrap();
     let idx = engine.get_index("profile_idx").unwrap();
 
-    idx.index_document(Some("1".into()), json!({ "title": "Rust" })).await.unwrap();
-    idx.index_document(Some("2".into()), json!({ "title": "Go" })).await.unwrap();
+    idx.index_document(Some("1".into()), json!({ "title": "Rust" }))
+        .await
+        .unwrap();
+    idx.index_document(Some("2".into()), json!({ "title": "Go" }))
+        .await
+        .unwrap();
 
     let mut req = parse_request(&json!({
         "query": { "match_all": {} },
         "size": 10
-    })).unwrap();
+    }))
+    .unwrap();
     req.profile = true;
 
     let result = idx.search(&req).await.unwrap();
-    assert_eq!(result.total.value, 2, "profile mode should still return all docs");
+    assert_eq!(
+        result.total.value, 2,
+        "profile mode should still return all docs"
+    );
 
-    let profile = result.profile.expect("profile should be present when profile=true");
+    let profile = result
+        .profile
+        .expect("profile should be present when profile=true");
     let shards = profile["shards"].as_array().expect("shards must be array");
     assert!(!shards.is_empty(), "at least one shard in profile");
     let shard = &shards[0];
@@ -2104,8 +2617,14 @@ async fn test_profile_mode() {
     let searches = shard["searches"].as_array().expect("searches in shard");
     assert!(!searches.is_empty(), "searches should have entries");
     let queries = searches[0]["query"].as_array().expect("query timing array");
-    assert!(!queries.is_empty(), "query timing should have at least one entry");
-    assert!(queries[0]["time_in_nanos"].is_number(), "time_in_nanos should be a number");
+    assert!(
+        !queries.is_empty(),
+        "query timing should have at least one entry"
+    );
+    assert!(
+        queries[0]["time_in_nanos"].is_number(),
+        "time_in_nanos should be a number"
+    );
 }
 
 // ── search_after with multiple sort fields ────────────────────────────────────
@@ -2121,10 +2640,9 @@ async fn test_search_after_multi_sort() {
     // Create docs with two sort fields: category (string) + rank (number).
     for i in 0..12usize {
         let cat = if i < 6 { "A" } else { "B" };
-        idx.index_document(
-            Some(format!("d{:02}", i)),
-            json!({ "cat": cat, "rank": i }),
-        ).await.unwrap();
+        idx.index_document(Some(format!("d{:02}", i)), json!({ "cat": cat, "rank": i }))
+            .await
+            .unwrap();
     }
 
     // Page through all docs sorted by (cat asc, rank asc) with page_size=4.
@@ -2174,11 +2692,19 @@ async fn test_search_after_multi_sort() {
     // First 6 should all be category A docs (sorted by rank within A).
     for id in &collected[..6] {
         let doc_idx: usize = id.trim_start_matches('d').parse().unwrap();
-        assert!(doc_idx < 6, "first 6 sorted results should be cat A (indices 0-5), got {}", id);
+        assert!(
+            doc_idx < 6,
+            "first 6 sorted results should be cat A (indices 0-5), got {}",
+            id
+        );
     }
     for id in &collected[6..] {
         let doc_idx: usize = id.trim_start_matches('d').parse().unwrap();
-        assert!(doc_idx >= 6, "last 6 sorted results should be cat B (indices 6-11), got {}", id);
+        assert!(
+            doc_idx >= 6,
+            "last 6 sorted results should be cat B (indices 6-11), got {}",
+            id
+        );
     }
 }
 
@@ -2189,32 +2715,60 @@ async fn test_significant_terms_agg() {
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
 
-    engine.create_index("sig_terms_idx", Schema::empty()).unwrap();
+    engine
+        .create_index("sig_terms_idx", Schema::empty())
+        .unwrap();
     let idx = engine.get_index("sig_terms_idx").unwrap();
 
     // Index 10 docs. "rust" appears in 6/10 (60%) of all docs.
     // "python" appears in 2/10 (20%) of all docs.
     // "java" appears in 1/10 (10%) of all docs.
     for i in 0..6usize {
-        idx.index_document(Some(format!("r{}", i)), json!({ "lang": "rust", "group": "backend" })).await.unwrap();
+        idx.index_document(
+            Some(format!("r{}", i)),
+            json!({ "lang": "rust", "group": "backend" }),
+        )
+        .await
+        .unwrap();
     }
     for i in 0..2usize {
-        idx.index_document(Some(format!("p{}", i)), json!({ "lang": "python", "group": "data" })).await.unwrap();
+        idx.index_document(
+            Some(format!("p{}", i)),
+            json!({ "lang": "python", "group": "data" }),
+        )
+        .await
+        .unwrap();
     }
-    idx.index_document(Some("j0".into()), json!({ "lang": "java", "group": "backend" })).await.unwrap();
-    idx.index_document(Some("g0".into()), json!({ "lang": "go", "group": "backend" })).await.unwrap();
+    idx.index_document(
+        Some("j0".into()),
+        json!({ "lang": "java", "group": "backend" }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("g0".into()),
+        json!({ "lang": "go", "group": "backend" }),
+    )
+    .await
+    .unwrap();
 
     // Run significant_terms on the "data" group (2 docs, "python" appears in 2/2 = 100% of result,
     // but only 20% of all docs → significant).
+    //
+    // `min_doc_count: 1` is required: ES's significant_terms default is
+    // min_doc_count=3 (unlike the terms agg's 1), which would exclude a
+    // term with only 2 foreground docs — in real ES this exact request
+    // without the override returns zero buckets.
     let req = parse_request(&json!({
         "query": { "term": { "group": "data" } },
         "size": 0,
         "aggs": {
             "sig": {
-                "significant_terms": { "field": "lang", "size": 5 }
+                "significant_terms": { "field": "lang", "size": 5, "min_doc_count": 1 }
             }
         }
-    })).unwrap();
+    }))
+    .unwrap();
 
     let result = idx.search(&req).await.unwrap();
     let aggs = result.aggs.unwrap();
@@ -2222,10 +2776,16 @@ async fn test_significant_terms_agg() {
 
     // "python" should appear as significant (100% of result, 20% of background).
     let python_bucket = buckets.iter().find(|b| b["key"] == "python");
-    assert!(python_bucket.is_some(), "python should be significant term in data group");
+    assert!(
+        python_bucket.is_some(),
+        "python should be significant term in data group"
+    );
     let pb = python_bucket.unwrap();
     assert_eq!(pb["doc_count"], 2);
-    assert!(pb["score"].as_f64().unwrap() > 1.0, "score should be > 1 (overrepresented)");
+    assert!(
+        pb["score"].as_f64().unwrap() > 1.0,
+        "score should be > 1 (overrepresented)"
+    );
 }
 
 // ── Adjacency matrix aggregation ─────────────────────────────────────────────
@@ -2239,9 +2799,15 @@ async fn test_adjacency_matrix_agg() {
     let idx = engine.get_index("adj_idx").unwrap();
 
     // 3 docs: one in A, one in B, one in both A and B.
-    idx.index_document(Some("1".into()), json!({ "cat": "A" })).await.unwrap();
-    idx.index_document(Some("2".into()), json!({ "cat": "B" })).await.unwrap();
-    idx.index_document(Some("3".into()), json!({ "cat": "A", "also": "B" })).await.unwrap();
+    idx.index_document(Some("1".into()), json!({ "cat": "A" }))
+        .await
+        .unwrap();
+    idx.index_document(Some("2".into()), json!({ "cat": "B" }))
+        .await
+        .unwrap();
+    idx.index_document(Some("3".into()), json!({ "cat": "A", "also": "B" }))
+        .await
+        .unwrap();
 
     let req = parse_request(&json!({
         "query": { "match_all": {} },
@@ -2256,16 +2822,15 @@ async fn test_adjacency_matrix_agg() {
                 }
             }
         }
-    })).unwrap();
+    }))
+    .unwrap();
 
     let result = idx.search(&req).await.unwrap();
     let aggs = result.aggs.unwrap();
     let buckets = aggs["matrix"]["buckets"].as_array().unwrap();
 
     // Should have buckets for A, B, and A&B.
-    let keys: Vec<&str> = buckets.iter()
-        .map(|b| b["key"].as_str().unwrap())
-        .collect();
+    let keys: Vec<&str> = buckets.iter().map(|b| b["key"].as_str().unwrap()).collect();
     assert!(keys.contains(&"A"), "should have A bucket");
     assert!(keys.contains(&"B"), "should have B bucket");
     // A&B pair (only doc3 matches both if "also"="B" is treated differently, adjust expected counts).
@@ -2288,35 +2853,80 @@ async fn test_field_collapsing() {
     let idx = engine.get_index("products").unwrap();
 
     // Index several documents with duplicate categories.
-    idx.index_document(Some("1".into()), json!({ "name": "apple", "category": "fruit", "price": 1.5 })).await.unwrap();
-    idx.index_document(Some("2".into()), json!({ "name": "banana", "category": "fruit", "price": 0.75 })).await.unwrap();
-    idx.index_document(Some("3".into()), json!({ "name": "carrot", "category": "vegetable", "price": 2.0 })).await.unwrap();
-    idx.index_document(Some("4".into()), json!({ "name": "daikon", "category": "vegetable", "price": 1.0 })).await.unwrap();
-    idx.index_document(Some("5".into()), json!({ "name": "elderberry", "category": "fruit", "price": 3.0 })).await.unwrap();
+    idx.index_document(
+        Some("1".into()),
+        json!({ "name": "apple", "category": "fruit", "price": 1.5 }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("2".into()),
+        json!({ "name": "banana", "category": "fruit", "price": 0.75 }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("3".into()),
+        json!({ "name": "carrot", "category": "vegetable", "price": 2.0 }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("4".into()),
+        json!({ "name": "daikon", "category": "vegetable", "price": 1.0 }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("5".into()),
+        json!({ "name": "elderberry", "category": "fruit", "price": 3.0 }),
+    )
+    .await
+    .unwrap();
 
     // Collapse by category — should return exactly one result per category.
     use xerj_query::ast::CollapseField;
     let mut req = parse_request(&json!({
         "query": { "match_all": {} },
         "size": 10,
-    })).unwrap();
-    req.collapse = Some(CollapseField { field: "category".to_string(), inner_hits: None });
+    }))
+    .unwrap();
+    req.collapse = Some(CollapseField {
+        field: "category".to_string(),
+        inner_hits: None,
+    });
 
     let result = idx.search(&req).await.unwrap();
 
     // Should have exactly 2 hits (one per unique category value).
-    assert_eq!(result.hits.len(), 2, "collapse by category should yield 2 hits");
+    assert_eq!(
+        result.hits.len(),
+        2,
+        "collapse by category should yield 2 hits"
+    );
 
     // Verify each category appears at most once.
-    let categories: Vec<&str> = result.hits.iter()
+    let categories: Vec<&str> = result
+        .hits
+        .iter()
         .filter_map(|h| h.source.get("category").and_then(serde_json::Value::as_str))
         .collect();
     let unique_cats: std::collections::HashSet<&&str> = categories.iter().collect();
-    assert_eq!(unique_cats.len(), categories.len(), "each category should appear exactly once");
+    assert_eq!(
+        unique_cats.len(),
+        categories.len(),
+        "each category should appear exactly once"
+    );
 
     // Both "fruit" and "vegetable" should be present.
-    assert!(categories.contains(&"fruit"), "fruit category should be present");
-    assert!(categories.contains(&"vegetable"), "vegetable category should be present");
+    assert!(
+        categories.contains(&"fruit"),
+        "fruit category should be present"
+    );
+    assert!(
+        categories.contains(&"vegetable"),
+        "vegetable category should be present"
+    );
 }
 
 // ── Index blocks ──────────────────────────────────────────────────────────────
@@ -2329,24 +2939,43 @@ async fn test_index_write_block() {
     let idx = engine.get_index("blocked").unwrap();
 
     // Index a document before blocking.
-    idx.index_document(Some("1".into()), json!({ "value": "before block" })).await.unwrap();
+    idx.index_document(Some("1".into()), json!({ "value": "before block" }))
+        .await
+        .unwrap();
 
     // Set the write block.
     idx.set_block("write").await.unwrap();
 
     // Attempt to index another document — should fail with IndexBlocked.
-    let result = idx.index_document(Some("2".into()), json!({ "value": "after block" })).await;
-    assert!(result.is_err(), "indexing should fail when write block is set");
+    let result = idx
+        .index_document(Some("2".into()), json!({ "value": "after block" }))
+        .await;
+    assert!(
+        result.is_err(),
+        "indexing should fail when write block is set"
+    );
     let err_str = result.unwrap_err().to_string();
-    assert!(err_str.contains("blocked") || err_str.contains("write"), "error should mention block: {err_str}");
+    assert!(
+        err_str.contains("blocked") || err_str.contains("write"),
+        "error should mention block: {err_str}"
+    );
 
     // Searching should still work (read is not blocked).
-    let search_result = idx.search(&make_search(json!({ "match_all": {} }))).await.unwrap();
-    assert_eq!(search_result.total.value, 1, "only pre-block doc should be present");
+    let search_result = idx
+        .search(&make_search(json!({ "match_all": {} })))
+        .await
+        .unwrap();
+    assert_eq!(
+        search_result.total.value, 1,
+        "only pre-block doc should be present"
+    );
 
     // Deletion should also fail with write block.
     let del_result = idx.delete_document("1").await;
-    assert!(del_result.is_err(), "delete should fail when write block is set");
+    assert!(
+        del_result.is_err(),
+        "delete should fail when write block is set"
+    );
 }
 
 #[tokio::test]
@@ -2357,7 +2986,9 @@ async fn test_index_read_block() {
     let idx = engine.get_index("readblock").unwrap();
 
     // Index a document before blocking.
-    idx.index_document(Some("1".into()), json!({ "value": "hello" })).await.unwrap();
+    idx.index_document(Some("1".into()), json!({ "value": "hello" }))
+        .await
+        .unwrap();
 
     // Set the read block.
     idx.set_block("read").await.unwrap();
@@ -2366,7 +2997,10 @@ async fn test_index_read_block() {
     let result = idx.search(&make_search(json!({ "match_all": {} }))).await;
     assert!(result.is_err(), "search should fail when read block is set");
     let err_str = result.unwrap_err().to_string();
-    assert!(err_str.contains("blocked") || err_str.contains("read"), "error should mention block: {err_str}");
+    assert!(
+        err_str.contains("blocked") || err_str.contains("read"),
+        "error should mention block: {err_str}"
+    );
 }
 
 // ── New feature tests ─────────────────────────────────────────────────────────
@@ -2376,7 +3010,7 @@ async fn test_index_read_block() {
 #[tokio::test]
 async fn test_sql_query() {
     use xerj_engine::sql::parse_sql;
-    use xerj_query::ast::{QueryNode, SourceFilter};
+    use xerj_query::ast::SourceFilter;
 
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
@@ -2384,10 +3018,18 @@ async fn test_sql_query() {
     engine.create_index("products", Schema::empty()).unwrap();
     let idx = engine.get_index("products").unwrap();
 
-    idx.index_document(Some("1".into()), json!({"name": "apple",  "price": 1.5})).await.unwrap();
-    idx.index_document(Some("2".into()), json!({"name": "banana", "price": 35.0})).await.unwrap();
-    idx.index_document(Some("3".into()), json!({"name": "cherry", "price": 50.0})).await.unwrap();
-    idx.index_document(Some("4".into()), json!({"name": "date",   "price": 20.0})).await.unwrap();
+    idx.index_document(Some("1".into()), json!({"name": "apple",  "price": 1.5}))
+        .await
+        .unwrap();
+    idx.index_document(Some("2".into()), json!({"name": "banana", "price": 35.0}))
+        .await
+        .unwrap();
+    idx.index_document(Some("3".into()), json!({"name": "cherry", "price": 50.0}))
+        .await
+        .unwrap();
+    idx.index_document(Some("4".into()), json!({"name": "date",   "price": 20.0}))
+        .await
+        .unwrap();
 
     let sql = "SELECT name, price FROM products WHERE price > 30 LIMIT 3";
     let parsed = parse_sql(sql).unwrap();
@@ -2396,7 +3038,7 @@ async fn test_sql_query() {
     assert_eq!(parsed.fields, vec!["name", "price"]);
     assert_eq!(parsed.limit, Some(3));
 
-    let mut req = SearchRequest {
+    let req = SearchRequest {
         query: parsed.query,
         size: parsed.limit.unwrap_or(10),
         sort: parsed.sort,
@@ -2413,8 +3055,6 @@ async fn test_sql_query() {
 
 #[tokio::test]
 async fn test_async_search_store() {
-    use serde_json::Value;
-
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
 
@@ -2431,17 +3071,28 @@ async fn test_async_search_store() {
         }
     });
 
-    engine.async_searches.insert(async_id.clone(), stored.clone());
+    engine
+        .async_searches
+        .insert(async_id.clone(), stored.clone());
 
-    // Retrieve it.
-    let retrieved = engine.async_searches.get(&async_id)
-        .expect("async search should be stored");
-    assert_eq!(retrieved["id"].as_str().unwrap(), async_id);
-    assert_eq!(retrieved["is_running"].as_bool().unwrap(), false);
+    // Retrieve it. Scope the DashMap `Ref` guard: holding it across the
+    // `remove()` below would self-deadlock (same-shard read lock held
+    // while requesting the write lock).
+    {
+        let retrieved = engine
+            .async_searches
+            .get(&async_id)
+            .expect("async search should be stored");
+        assert_eq!(retrieved["id"].as_str().unwrap(), async_id);
+        assert!(!retrieved["is_running"].as_bool().unwrap());
+    }
 
     // Delete it.
     engine.async_searches.remove(&async_id);
-    assert!(engine.async_searches.get(&async_id).is_none(), "should be deleted");
+    assert!(
+        engine.async_searches.get(&async_id).is_none(),
+        "should be deleted"
+    );
 }
 
 // ── KNN / vector search test ──────────────────────────────────────────────────
@@ -2458,15 +3109,21 @@ async fn test_knn_vector_search() {
     idx.index_document(
         Some("doc1".into()),
         json!({ "title": "near", "embedding": [1.0, 0.0, 0.0, 0.0] }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
     idx.index_document(
         Some("doc2".into()),
         json!({ "title": "far",  "embedding": [0.0, 1.0, 0.0, 0.0] }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
     idx.index_document(
         Some("doc3".into()),
         json!({ "title": "medium", "embedding": [0.9, 0.1, 0.0, 0.0] }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Query vector close to doc1 and doc3.
     let query = vec![1.0f32, 0.0, 0.0, 0.0];
@@ -2512,7 +3169,10 @@ fn test_sql_parser_like() {
 
     let q = parse_sql("SELECT name FROM items WHERE name LIKE 'app%'").unwrap();
     // Should produce a Wildcard query.
-    assert!(matches!(q.query, xerj_query::ast::QueryNode::Wildcard { .. }));
+    assert!(matches!(
+        q.query,
+        xerj_query::ast::QueryNode::Wildcard { .. }
+    ));
 }
 
 // ── New feature tests ─────────────────────────────────────────────────────────
@@ -2531,25 +3191,32 @@ async fn test_rescore_changes_ranking() {
     idx.index_document(
         Some("a".into()),
         json!({ "title": "search", "body": "search search search" }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Doc "b": lots of "engine" mentions → would rank lower for "search", higher for "engine"
     idx.index_document(
         Some("b".into()),
         json!({ "title": "engine", "body": "engine engine engine engine engine" }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Doc "c": mentions "search engine" once
     idx.index_document(
         Some("c".into()),
         json!({ "title": "search engine", "body": "search engine" }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Primary query: search for "search" — doc "a" should rank highest initially.
     let primary_req = parse_request(&json!({
         "query": { "match": { "body": "search" } },
         "size": 10,
-    })).unwrap();
+    }))
+    .unwrap();
     let primary_result = idx.search(&primary_req).await.unwrap();
     assert!(!primary_result.hits.is_empty());
     let primary_top = primary_result.hits[0].id.clone();
@@ -2567,22 +3234,33 @@ async fn test_rescore_changes_ranking() {
                 "rescore_query_weight": 10.0
             }
         }
-    })).unwrap();
+    }))
+    .unwrap();
     let rescore_result = idx.search(&rescore_req).await.unwrap();
-    assert!(!rescore_result.hits.is_empty(), "rescore search should return hits");
+    assert!(
+        !rescore_result.hits.is_empty(),
+        "rescore search should return hits"
+    );
 
     // After rescoring, doc "b" (title contains "engine") should appear — check scores changed.
-    let rescore_scores: Vec<(&str, f32)> = rescore_result.hits.iter()
+    let rescore_scores: Vec<(&str, f32)> = rescore_result
+        .hits
+        .iter()
         .map(|h| (h.id.as_str(), h.score))
         .collect();
     // Verify the rescore was applied (scores differ from primary).
-    let primary_scores: Vec<(&str, f32)> = primary_result.hits.iter()
+    let primary_scores: Vec<(&str, f32)> = primary_result
+        .hits
+        .iter()
         .map(|h| (h.id.as_str(), h.score))
         .collect();
     // At least the top score should differ since rescore applies different weights.
     let _ = (rescore_scores, primary_scores, primary_top);
     // Just verify that the request parsed and executed successfully with rescore.
-    assert!(rescore_result.total.value > 0, "should have hits after rescoring");
+    assert!(
+        rescore_result.total.value > 0,
+        "should have hits after rescoring"
+    );
 }
 
 // ── Weighted bool: verify boosted queries rank higher ─────────────────────────
@@ -2599,13 +3277,17 @@ async fn test_weighted_bool_boost_ranking() {
     idx.index_document(
         Some("title_only".into()),
         json!({ "title": "Rust Programming", "body": "other content here" }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // "body_only": matches unboosted body field.
     idx.index_document(
         Some("body_only".into()),
         json!({ "title": "other stuff", "body": "Rust Programming guide" }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Query with boost=3.0 on title, boost=1.0 on body.
     let req = parse_request(&json!({
@@ -2618,7 +3300,8 @@ async fn test_weighted_bool_boost_ranking() {
             }
         },
         "size": 10
-    })).unwrap();
+    }))
+    .unwrap();
 
     let result = idx.search(&req).await.unwrap();
     assert_eq!(result.total.value, 2, "both docs should match");
@@ -2626,13 +3309,24 @@ async fn test_weighted_bool_boost_ranking() {
     // title_only should have a higher score due to the title boost.
     let top_id = &result.hits[0].id;
     let second_id = &result.hits[1].id;
-    assert_eq!(top_id.as_str(), "title_only", "boosted title match should rank first, got: {top_id}");
-    assert_eq!(second_id.as_str(), "body_only", "unboosted body match should rank second");
+    assert_eq!(
+        top_id.as_str(),
+        "title_only",
+        "boosted title match should rank first, got: {top_id}"
+    );
+    assert_eq!(
+        second_id.as_str(),
+        "body_only",
+        "unboosted body match should rank second"
+    );
 
     // Verify scores reflect the boost: top score should be ≥ 3x the second.
-    assert!(result.hits[0].score > result.hits[1].score,
+    assert!(
+        result.hits[0].score > result.hits[1].score,
         "title match (boost=3) score {} should exceed body match (boost=1) score {}",
-        result.hits[0].score, result.hits[1].score);
+        result.hits[0].score,
+        result.hits[1].score
+    );
 }
 
 // ── Nested query test: index docs with nested arrays, query by nested field ───
@@ -2655,7 +3349,9 @@ async fn test_nested_query() {
                 { "author": "bob",   "text": "nice work" }
             ]
         }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Doc with no matching comment.
     idx.index_document(
@@ -2666,7 +3362,9 @@ async fn test_nested_query() {
                 { "author": "charlie", "text": "disagree" }
             ]
         }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Nested query: find docs where comments.author = "alice"
     let req = parse_request(&json!({
@@ -2677,7 +3375,8 @@ async fn test_nested_query() {
             }
         },
         "size": 10
-    })).unwrap();
+    }))
+    .unwrap();
 
     let result = idx.search(&req).await.unwrap();
     assert_eq!(result.total.value, 1, "only doc1 has alice as commenter");
@@ -2707,7 +3406,9 @@ async fn test_more_like_this() {
     idx.index_document(
         Some("python1".into()),
         json!({ "text": "Python is a high-level scripting language used for data science" }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     let req = parse_request(&json!({
         "query": {
@@ -2719,14 +3420,21 @@ async fn test_more_like_this() {
             }
         },
         "size": 10
-    })).unwrap();
+    }))
+    .unwrap();
 
     let result = idx.search(&req).await.unwrap();
     // Should return at least the Rust documents.
-    assert!(result.total.value >= 1, "should find at least one similar doc");
+    assert!(
+        result.total.value >= 1,
+        "should find at least one similar doc"
+    );
     let ids: Vec<&str> = result.hits.iter().map(|h| h.id.as_str()).collect();
-    assert!(ids.contains(&"rust1") || ids.contains(&"rust2"),
-        "Rust docs should match the more_like_this query, got: {:?}", ids);
+    assert!(
+        ids.contains(&"rust1") || ids.contains(&"rust2"),
+        "Rust docs should match the more_like_this query, got: {:?}",
+        ids
+    );
 }
 
 // ── Named query test: matched_queries in hit response ─────────────────────────
@@ -2742,12 +3450,16 @@ async fn test_named_queries_matched() {
     idx.index_document(
         Some("t1".into()),
         json!({ "title": "search engine", "body": "fast search" }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     idx.index_document(
         Some("t2".into()),
         json!({ "title": "database", "body": "slow query" }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Use named queries: title match named "title_match", body match named "body_match".
     let req = parse_request(&json!({
@@ -2760,7 +3472,8 @@ async fn test_named_queries_matched() {
             }
         },
         "size": 10
-    })).unwrap();
+    }))
+    .unwrap();
 
     let result = idx.search(&req).await.unwrap();
     // t1 has "search" in both title and body.
@@ -2768,10 +3481,16 @@ async fn test_named_queries_matched() {
     assert!(t1_hit.is_some(), "t1 should match");
     let t1 = t1_hit.unwrap();
     // t1 should have both matched queries.
-    assert!(t1.matched_queries.contains(&"title_match".to_string()),
-        "title_match should be in matched_queries, got: {:?}", t1.matched_queries);
-    assert!(t1.matched_queries.contains(&"body_match".to_string()),
-        "body_match should be in matched_queries, got: {:?}", t1.matched_queries);
+    assert!(
+        t1.matched_queries.contains(&"title_match".to_string()),
+        "title_match should be in matched_queries, got: {:?}",
+        t1.matched_queries
+    );
+    assert!(
+        t1.matched_queries.contains(&"body_match".to_string()),
+        "body_match should be in matched_queries, got: {:?}",
+        t1.matched_queries
+    );
 
     // t2 should not appear (no "search" in title or body).
     let t2_hit = result.hits.iter().find(|h| h.id == "t2");
@@ -2790,9 +3509,15 @@ async fn test_sql_order_by_integration() {
     engine.create_index("sql_order", Schema::empty()).unwrap();
     let idx = engine.get_index("sql_order").unwrap();
 
-    idx.index_document(Some("a".into()), json!({ "score": 10, "name": "charlie" })).await.unwrap();
-    idx.index_document(Some("b".into()), json!({ "score": 30, "name": "alice" })).await.unwrap();
-    idx.index_document(Some("c".into()), json!({ "score": 20, "name": "bob" })).await.unwrap();
+    idx.index_document(Some("a".into()), json!({ "score": 10, "name": "charlie" }))
+        .await
+        .unwrap();
+    idx.index_document(Some("b".into()), json!({ "score": 30, "name": "alice" }))
+        .await
+        .unwrap();
+    idx.index_document(Some("c".into()), json!({ "score": 20, "name": "bob" }))
+        .await
+        .unwrap();
 
     // Parse SQL with ORDER BY score DESC.
     let parsed = parse_sql("SELECT * FROM sql_order ORDER BY score DESC LIMIT 3").unwrap();
@@ -2808,9 +3533,21 @@ async fn test_sql_order_by_integration() {
 
     // Verify descending score order: b(30) > c(20) > a(10).
     let ids: Vec<&str> = result.hits.iter().map(|h| h.id.as_str()).collect();
-    assert_eq!(ids[0], "b", "highest score (30) should be first, got: {:?}", ids);
-    assert_eq!(ids[1], "c", "second score (20) should be second, got: {:?}", ids);
-    assert_eq!(ids[2], "a", "lowest score (10) should be last, got: {:?}", ids);
+    assert_eq!(
+        ids[0], "b",
+        "highest score (30) should be first, got: {:?}",
+        ids
+    );
+    assert_eq!(
+        ids[1], "c",
+        "second score (20) should be second, got: {:?}",
+        ids
+    );
+    assert_eq!(
+        ids[2], "a",
+        "lowest score (10) should be last, got: {:?}",
+        ids
+    );
 }
 
 // ── ES Features: Field alias, copy_to, IP range, date math ───────────────────
@@ -2823,7 +3560,9 @@ async fn test_field_alias_resolution() {
 
     // Create schema with a field alias: user_name → name
     let mut schema = Schema::empty();
-    schema.add_field(FieldConfig::new("name", FieldType::Keyword)).unwrap();
+    schema
+        .add_field(FieldConfig::new("name", FieldType::Keyword))
+        .unwrap();
     // Add alias field: user_name maps to name
     let mut alias_fc = FieldConfig::new("user_name", FieldType::Object);
     alias_fc.options.null_value = Some(Value::String("__alias__:name".to_string()));
@@ -2832,16 +3571,29 @@ async fn test_field_alias_resolution() {
     engine.create_index("alias_test", schema).unwrap();
     let idx = engine.get_index("alias_test").unwrap();
 
-    idx.index_document(Some("1".into()), json!({ "name": "Alice" })).await.unwrap();
-    idx.index_document(Some("2".into()), json!({ "name": "Bob" })).await.unwrap();
+    idx.index_document(Some("1".into()), json!({ "name": "Alice" }))
+        .await
+        .unwrap();
+    idx.index_document(Some("2".into()), json!({ "name": "Bob" }))
+        .await
+        .unwrap();
 
     // Query using the alias field user_name — should resolve to name.
-    let result = idx.search(&make_search(json!({"term": {"user_name": "Alice"}}))).await.unwrap();
+    let result = idx
+        .search(&make_search(json!({"term": {"user_name": "Alice"}})))
+        .await
+        .unwrap();
     assert_eq!(result.total.value, 1, "alias query should find 1 doc");
-    assert_eq!(result.hits[0].id, "1", "alias query should return Alice's doc");
+    assert_eq!(
+        result.hits[0].id, "1",
+        "alias query should return Alice's doc"
+    );
 
     // Query using the original field name should also work.
-    let result2 = idx.search(&make_search(json!({"term": {"name": "Bob"}}))).await.unwrap();
+    let result2 = idx
+        .search(&make_search(json!({"term": {"name": "Bob"}})))
+        .await
+        .unwrap();
     assert_eq!(result2.total.value, 1);
     assert_eq!(result2.hits[0].id, "2");
 }
@@ -2864,7 +3616,9 @@ async fn test_copy_to() {
     schema.add_field(desc_fc).unwrap();
 
     // all_text is the aggregation target field
-    schema.add_field(FieldConfig::new("all_text", FieldType::Text)).unwrap();
+    schema
+        .add_field(FieldConfig::new("all_text", FieldType::Text))
+        .unwrap();
 
     engine.create_index("copyto_test", schema).unwrap();
     let idx = engine.get_index("copyto_test").unwrap();
@@ -2872,13 +3626,22 @@ async fn test_copy_to() {
     idx.index_document(
         Some("1".into()),
         json!({ "title": "Rust Programming", "description": "A systems language" }),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     // Retrieve the document and check that all_text contains the copied values.
-    let doc = idx.get_document("1").await.unwrap().expect("doc should exist");
+    let doc = idx
+        .get_document("1")
+        .await
+        .unwrap()
+        .expect("doc should exist");
     // all_text should contain the title value (and possibly description too).
     let all_text = doc.get("all_text");
-    assert!(all_text.is_some(), "all_text field should be present after copy_to");
+    assert!(
+        all_text.is_some(),
+        "all_text field should be present after copy_to"
+    );
     let all_text_val = all_text.unwrap();
     let all_text_str = all_text_val.to_string();
     assert!(
@@ -2897,28 +3660,49 @@ async fn test_ip_range_query() {
     engine.create_index("ip_test", Schema::empty()).unwrap();
     let idx = engine.get_index("ip_test").unwrap();
 
-    idx.index_document(Some("1".into()), json!({ "ip": "192.168.1.10" })).await.unwrap();
-    idx.index_document(Some("2".into()), json!({ "ip": "192.168.1.200" })).await.unwrap();
-    idx.index_document(Some("3".into()), json!({ "ip": "10.0.0.1" })).await.unwrap();
-    idx.index_document(Some("4".into()), json!({ "ip": "192.168.2.1" })).await.unwrap();
+    idx.index_document(Some("1".into()), json!({ "ip": "192.168.1.10" }))
+        .await
+        .unwrap();
+    idx.index_document(Some("2".into()), json!({ "ip": "192.168.1.200" }))
+        .await
+        .unwrap();
+    idx.index_document(Some("3".into()), json!({ "ip": "10.0.0.1" }))
+        .await
+        .unwrap();
+    idx.index_document(Some("4".into()), json!({ "ip": "192.168.2.1" }))
+        .await
+        .unwrap();
 
     // CIDR term query: 192.168.1.0/24 should match .10 and .200 but not .2.1 or 10.0.0.1
-    let result = idx.search(&make_search(json!({"term": {"ip": "192.168.1.0/24"}}))).await.unwrap();
-    assert_eq!(result.total.value, 2, "CIDR 192.168.1.0/24 should match 2 IPs, got: {}", result.total.value);
+    let result = idx
+        .search(&make_search(json!({"term": {"ip": "192.168.1.0/24"}})))
+        .await
+        .unwrap();
+    assert_eq!(
+        result.total.value, 2,
+        "CIDR 192.168.1.0/24 should match 2 IPs, got: {}",
+        result.total.value
+    );
     let ids: Vec<&str> = result.hits.iter().map(|h| h.id.as_str()).collect();
     assert!(ids.contains(&"1"), "192.168.1.10 should match /24");
     assert!(ids.contains(&"2"), "192.168.1.200 should match /24");
 
     // IP range query: gte/lte
-    let result2 = idx.search(&make_search(json!({
-        "range": {
-            "ip": {
-                "gte": "192.168.1.0",
-                "lte": "192.168.1.255"
+    let result2 = idx
+        .search(&make_search(json!({
+            "range": {
+                "ip": {
+                    "gte": "192.168.1.0",
+                    "lte": "192.168.1.255"
+                }
             }
-        }
-    }))).await.unwrap();
-    assert_eq!(result2.total.value, 2, "range 192.168.1.0-255 should match 2 IPs");
+        })))
+        .await
+        .unwrap();
+    assert_eq!(
+        result2.total.value, 2,
+        "range 192.168.1.0-255 should match 2 IPs"
+    );
 }
 
 /// Test date math resolution in index names.
@@ -2926,8 +3710,8 @@ async fn test_ip_range_query() {
 /// This test exercises the `resolve_date_math` function directly.
 #[test]
 fn test_date_math_index_name_resolution() {
-    use xerj_engine::resolve_date_math;
     use chrono::Datelike;
+    use xerj_engine::resolve_date_math;
 
     // <log-{now/d}> should resolve to log-YYYY.MM.DD (today's date).
     let today = chrono::Utc::now();
@@ -2938,7 +3722,10 @@ fn test_date_math_index_name_resolution() {
         today.day()
     );
     let resolved = resolve_date_math("<log-{now/d}>");
-    assert_eq!(resolved, expected, "date math <log-{{now/d}}> should resolve to today");
+    assert_eq!(
+        resolved, expected,
+        "date math <log-{{now/d}}> should resolve to today"
+    );
 
     // No date math — should pass through unchanged.
     assert_eq!(resolve_date_math("my-index"), "my-index");
@@ -3025,7 +3812,9 @@ async fn test_custom_analyzer_synonym_expansion() {
 
     // Searching for "slow" (not in any synonym group) should not match.
     let result3 = idx
-        .search(&make_search(json!({"match": {"description": "slow truck"}})))
+        .search(&make_search(
+            json!({"match": {"description": "slow truck"}}),
+        ))
         .await
         .unwrap();
     assert_eq!(
@@ -3192,8 +3981,10 @@ async fn test_ngram_tokenizer_infix_search() {
 
 #[tokio::test]
 async fn test_length_filter_integration() {
-    use xerj_fts::analyzer::{AnalyzerPipeline, AnalyzerRegistry, LengthFilter, LowercaseFilter, StandardTokenizer};
     use std::sync::Arc;
+    use xerj_fts::analyzer::{
+        AnalyzerPipeline, AnalyzerRegistry, LengthFilter, LowercaseFilter, StandardTokenizer,
+    };
 
     let mut registry = AnalyzerRegistry::with_defaults();
     registry.register(
@@ -3219,14 +4010,22 @@ async fn test_length_filter_integration() {
             term
         );
     }
-    assert!(terms.contains(&"runs".to_string()), "4-char word 'runs' should pass");
-    assert!(terms.contains(&"quickly".to_string()), "'quickly' should pass");
+    assert!(
+        terms.contains(&"runs".to_string()),
+        "4-char word 'runs' should pass"
+    );
+    assert!(
+        terms.contains(&"quickly".to_string()),
+        "'quickly' should pass"
+    );
 }
 
 #[tokio::test]
 async fn test_shingle_filter_integration() {
-    use xerj_fts::analyzer::{AnalyzerPipeline, AnalyzerRegistry, LowercaseFilter, ShingleFilter, WhitespaceTokenizer};
     use std::sync::Arc;
+    use xerj_fts::analyzer::{
+        AnalyzerPipeline, AnalyzerRegistry, LowercaseFilter, ShingleFilter, WhitespaceTokenizer,
+    };
 
     let mut registry = AnalyzerRegistry::with_defaults();
     registry.register(
@@ -3249,14 +4048,22 @@ async fn test_shingle_filter_integration() {
     assert!(terms.contains(&"quick".to_string()));
     assert!(terms.contains(&"brown".to_string()));
     // Bigrams
-    assert!(terms.contains(&"the quick".to_string()), "shingle 'the quick' missing");
-    assert!(terms.contains(&"quick brown".to_string()), "shingle 'quick brown' missing");
+    assert!(
+        terms.contains(&"the quick".to_string()),
+        "shingle 'the quick' missing"
+    );
+    assert!(
+        terms.contains(&"quick brown".to_string()),
+        "shingle 'quick brown' missing"
+    );
 }
 
 #[tokio::test]
 async fn test_ascii_folding_filter() {
-    use xerj_fts::analyzer::{AnalyzerPipeline, AnalyzerRegistry, AsciiFoldingFilter, LowercaseFilter, StandardTokenizer};
     use std::sync::Arc;
+    use xerj_fts::analyzer::{
+        AnalyzerPipeline, AnalyzerRegistry, AsciiFoldingFilter, LowercaseFilter, StandardTokenizer,
+    };
 
     let mut registry = AnalyzerRegistry::with_defaults();
     registry.register(
@@ -3282,8 +4089,10 @@ async fn test_ascii_folding_filter() {
 
 #[tokio::test]
 async fn test_pattern_tokenizer() {
-    use xerj_fts::analyzer::{AnalyzerPipeline, AnalyzerRegistry, LowercaseFilter, PatternTokenizer};
     use std::sync::Arc;
+    use xerj_fts::analyzer::{
+        AnalyzerPipeline, AnalyzerRegistry, LowercaseFilter, PatternTokenizer,
+    };
 
     let mut registry = AnalyzerRegistry::with_defaults();
     registry.register(
@@ -3349,19 +4158,44 @@ async fn test_registry_apply_settings() {
     registry.apply_settings(&settings);
 
     // Synonym analyzer should be registered.
-    let syn_analyzer = registry.get_analyzer("my_synonym_analyzer").expect("my_synonym_analyzer registered");
+    let syn_analyzer = registry
+        .get_analyzer("my_synonym_analyzer")
+        .expect("my_synonym_analyzer registered");
     let terms = syn_analyzer.analyze_to_terms("fast vehicle");
-    assert!(terms.contains(&"fast".to_string()), "original term 'fast' present");
-    assert!(terms.contains(&"quick".to_string()), "synonym 'quick' expanded from 'fast'");
-    assert!(terms.contains(&"speedy".to_string()), "synonym 'speedy' expanded from 'fast'");
+    assert!(
+        terms.contains(&"fast".to_string()),
+        "original term 'fast' present"
+    );
+    assert!(
+        terms.contains(&"quick".to_string()),
+        "synonym 'quick' expanded from 'fast'"
+    );
+    assert!(
+        terms.contains(&"speedy".to_string()),
+        "synonym 'speedy' expanded from 'fast'"
+    );
 
     // Autocomplete analyzer should be registered.
-    let ac_analyzer = registry.get_analyzer("my_autocomplete").expect("my_autocomplete registered");
+    let ac_analyzer = registry
+        .get_analyzer("my_autocomplete")
+        .expect("my_autocomplete registered");
     let ac_terms = ac_analyzer.analyze_to_terms("hello");
-    assert!(ac_terms.contains(&"he".to_string()), "edge ngram 'he' from 'hello'");
-    assert!(ac_terms.contains(&"hel".to_string()), "edge ngram 'hel' from 'hello'");
-    assert!(ac_terms.contains(&"hell".to_string()), "edge ngram 'hell' from 'hello'");
-    assert!(ac_terms.contains(&"hello".to_string()), "edge ngram 'hello' from 'hello'");
+    assert!(
+        ac_terms.contains(&"he".to_string()),
+        "edge ngram 'he' from 'hello'"
+    );
+    assert!(
+        ac_terms.contains(&"hel".to_string()),
+        "edge ngram 'hel' from 'hello'"
+    );
+    assert!(
+        ac_terms.contains(&"hell".to_string()),
+        "edge ngram 'hell' from 'hello'"
+    );
+    assert!(
+        ac_terms.contains(&"hello".to_string()),
+        "edge ngram 'hello' from 'hello'"
+    );
 }
 
 // ── Smart field encoding integration test ─────────────────────────────────────
@@ -3380,14 +4214,24 @@ async fn test_smart_field_encoding_apache_logs() {
 
     // ── Generate 1 000 synthetic Apache access log entries ────────────────────
     let methods = ["GET", "POST", "PUT", "DELETE", "HEAD"];
-    let statuses = ["200", "201", "204", "301", "302", "400", "403", "404", "500"];
+    let statuses = [
+        "200", "201", "204", "301", "302", "400", "403", "404", "500",
+    ];
     let paths = [
-        "/api/users", "/api/products", "/api/orders",
-        "/static/app.js", "/static/style.css",
-        "/health", "/metrics",
+        "/api/users",
+        "/api/products",
+        "/api/orders",
+        "/static/app.js",
+        "/static/style.css",
+        "/health",
+        "/metrics",
     ];
     let ips = [
-        "10.0.0.1", "10.0.0.2", "192.168.1.100", "172.16.0.50", "203.0.113.5",
+        "10.0.0.1",
+        "10.0.0.2",
+        "192.168.1.100",
+        "172.16.0.50",
+        "203.0.113.5",
     ];
 
     for i in 0..1000usize {
@@ -3424,7 +4268,10 @@ async fn test_smart_field_encoding_apache_logs() {
     });
     let fmt = detect_log_format(&sample_doc);
     assert!(
-        matches!(fmt, Some(LogFormat::ApacheAccess) | Some(LogFormat::NginxAccess)),
+        matches!(
+            fmt,
+            Some(LogFormat::ApacheAccess) | Some(LogFormat::NginxAccess)
+        ),
         "should detect access log format, got {:?}",
         fmt
     );
@@ -3436,7 +4283,11 @@ async fn test_smart_field_encoding_apache_logs() {
         "service": "api",
     });
     let app_fmt = detect_log_format(&app_doc);
-    assert_eq!(app_fmt, Some(LogFormat::AppLog), "should detect app log format");
+    assert_eq!(
+        app_fmt,
+        Some(LogFormat::AppLog),
+        "should detect app log format"
+    );
 
     // ── Verify encoding stats are populated after 1 000 docs ─────────────────
     let stats = idx.stats().await;
@@ -3468,8 +4319,11 @@ async fn test_smart_field_encoding_apache_logs() {
     println!();
 
     // Spot-check specific fields that should have known good encodings.
-    let by_field: std::collections::HashMap<&str, &xerj_engine::FieldEncodingInfo> =
-        stats.field_encodings.iter().map(|e| (e.field.as_str(), e)).collect();
+    let by_field: std::collections::HashMap<&str, &xerj_engine::FieldEncodingInfo> = stats
+        .field_encodings
+        .iter()
+        .map(|e| (e.field.as_str(), e))
+        .collect();
 
     // `status` should be BitsetEnum or Dictionary (very low cardinality).
     if let Some(status_enc) = by_field.get("status") {

@@ -146,7 +146,9 @@ impl StorageBackend for LocalFsBackend {
             let search_dir = if abs.is_dir() {
                 abs
             } else {
-                abs.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| root.clone())
+                abs.parent()
+                    .map(|p| p.to_path_buf())
+                    .unwrap_or_else(|| root.clone())
             };
             let mut results = Vec::new();
             if search_dir.exists() {
@@ -331,7 +333,9 @@ impl StorageBackend for S3Backend {
             let search_dir = if abs.is_dir() {
                 abs
             } else {
-                abs.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| base.clone())
+                abs.parent()
+                    .map(|p| p.to_path_buf())
+                    .unwrap_or_else(|| base.clone())
             };
             let mut results = Vec::new();
             if search_dir.exists() {
@@ -381,17 +385,32 @@ mod walkdir {
     pub struct Entry {
         path: PathBuf,
         file_type: std::fs::FileType,
+        // Recorded during the walk but not currently read by any consumer;
+        // kept to mirror the real walkdir::DirEntry shape.
+        #[allow(dead_code)]
         depth: usize,
     }
 
     impl Entry {
-        pub fn path(&self) -> &Path { &self.path }
-        pub fn file_type(&self) -> &std::fs::FileType { &self.file_type }
+        pub fn path(&self) -> &Path {
+            &self.path
+        }
+        pub fn file_type(&self) -> &std::fs::FileType {
+            &self.file_type
+        }
     }
 
     impl WalkDir {
-        pub fn new(root: impl Into<PathBuf>) -> Self { Self { root: root.into(), min_depth: 0 } }
-        pub fn min_depth(mut self, d: usize) -> Self { self.min_depth = d; self }
+        pub fn new(root: impl Into<PathBuf>) -> Self {
+            Self {
+                root: root.into(),
+                min_depth: 0,
+            }
+        }
+        pub fn min_depth(mut self, d: usize) -> Self {
+            self.min_depth = d;
+            self
+        }
     }
 
     impl IntoIterator for WalkDir {
@@ -405,6 +424,9 @@ mod walkdir {
         }
     }
 
+    // `root` is threaded through the recursion to mirror walkdir's API but is
+    // only forwarded to nested calls, never read directly in this body.
+    #[allow(clippy::only_used_in_recursion)]
     fn collect(
         root: &Path,
         dir: &Path,
@@ -414,16 +436,26 @@ mod walkdir {
     ) {
         let rd = match std::fs::read_dir(dir) {
             Ok(r) => r,
-            Err(e) => { out.push(Err(e)); return; }
+            Err(e) => {
+                out.push(Err(e));
+                return;
+            }
         };
         for entry in rd.flatten() {
             let path = entry.path();
             let ft = match entry.file_type() {
                 Ok(t) => t,
-                Err(e) => { out.push(Err(e)); continue; }
+                Err(e) => {
+                    out.push(Err(e));
+                    continue;
+                }
             };
             if depth + 1 >= min_depth {
-                out.push(Ok(Entry { path: path.clone(), file_type: ft.clone(), depth: depth + 1 }));
+                out.push(Ok(Entry {
+                    path: path.clone(),
+                    file_type: ft,
+                    depth: depth + 1,
+                }));
             }
             if ft.is_dir() {
                 collect(root, &path, min_depth, depth + 1, out);
@@ -448,7 +480,7 @@ mod tests {
 
         assert!(backend.exists("test/hello.bin").await.unwrap());
 
-        let got = backend.read_range("test/hello.bin", 6, 5).await.unwrap();
+        let got = backend.read_range("test/hello.bin", 6, 4).await.unwrap();
         assert_eq!(&got[..], b"xerj");
 
         let meta = backend.metadata("test/hello.bin").await.unwrap();
@@ -493,7 +525,10 @@ mod tests {
         assert!(backend.exists("segments/seg-001.seg").await.unwrap());
 
         // Range read: "s3 si" starting at offset 6
-        let got = backend.read_range("segments/seg-001.seg", 6, 5).await.unwrap();
+        let got = backend
+            .read_range("segments/seg-001.seg", 6, 5)
+            .await
+            .unwrap();
         assert_eq!(&got[..], b"s3 si");
 
         let meta = backend.metadata("segments/seg-001.seg").await.unwrap();
@@ -541,7 +576,10 @@ mod tests {
     #[tokio::test]
     async fn s3_backend_object_key_prefix() {
         let backend = S3Backend::new("/tmp", "my-bucket", "xerj/v1");
-        assert_eq!(backend.object_key("segments/foo.seg"), "xerj/v1/segments/foo.seg");
+        assert_eq!(
+            backend.object_key("segments/foo.seg"),
+            "xerj/v1/segments/foo.seg"
+        );
         // No double-slash
         assert!(!backend.object_key("/segments/foo.seg").contains("//"));
     }
