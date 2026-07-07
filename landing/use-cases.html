@@ -400,8 +400,7 @@
   <form class="lead-form" id="leadForm" action="#" method="post" novalidate>
     <input type="email" name="email" placeholder="you@company.com" required aria-label="Work email" autocomplete="email" />
     <button type="submit" class="demo">SEE THE DEMO <span class="arrow">→</span></button>
-    <span class="note">We only use this email to send you the binary. Ever.</span>
-    <span class="ok">✓ THANKS. CHECK YOUR INBOX WITHIN 24 HOURS.</span>
+    <span class="note">We keep your email to follow up about XERJ — nothing else. No spam, no reselling.</span>
   </form>
 </section>
 
@@ -430,7 +429,9 @@
         const email = form.querySelector('input[type=email]').value.trim();
         if (!email || !email.includes('@')) return;
         console.log('[xerj lead]', email);
-        form.classList.add('sent');
+        try { localStorage.setItem('xerj.playground.email', email); } catch (_) {}
+        try { fetch('/lead', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: email, source: 'use-cases' }), keepalive: true }).catch(function () {}); } catch (_) {}
+        window.location.href = '/playground/';
       });
     }
   })();

@@ -1,0 +1,9 @@
+# Cloudflare Pages project config for the xerj marketing site + Functions.
+# Binds the R2 bucket that /functions/lead.js writes captured emails to.
+name = "xerj"
+pages_build_output_dir = "landing"
+compatibility_date = "2024-09-01"
+
+[[r2_buckets]]
+binding = "LEADS"
+bucket_name = "xerj-leads"

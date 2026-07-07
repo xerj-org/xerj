@@ -71,7 +71,7 @@
   </form>
 
   <p class="fine">
-    WE ONLY STORE THIS IN YOUR BROWSER · NO PASSWORD · NO FUNNEL · CLEAR IT ANY TIME WITH <code class="inline">localStorage.clear()</code>
+    STORED SO WE CAN FOLLOW UP ABOUT XERJ · NO PASSWORD · NO SPAM · CLEAR YOUR LOCAL COPY ANY TIME WITH <code class="inline">localStorage.clear()</code>
   </p>
 
   <!-- UNLOCKED STATE · revealed once gate is cleared -->
@@ -146,6 +146,9 @@
     if (!email || !email.includes('@')) return;
     localStorage.setItem(GATE_KEY, email);
     console.log('[xerj playground gate]', email);
+    try {
+      fetch('/lead', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: email, source: 'playground-gate' }), keepalive: true }).catch(function () {});
+    } catch (_) {}
     unlock(email);
     // Don't auto-redirect — let the user click LAUNCH so the
     // unlocked state is visible (and so back-button behaviour

@@ -216,7 +216,7 @@
       <input type="email" name="email" placeholder="you@company.com" required aria-label="Work email" autocomplete="email" />
     </div>
     <button type="submit" class="demo">OPEN PLAYGROUND <span class="arrow">→</span></button>
-    <span class="note">Stored only in your browser. No server, no sales call. Ever.</span>
+    <span class="note">We keep your email to follow up about XERJ — nothing else. No spam, no reselling.</span>
   </form>
 </section>
 
@@ -289,9 +289,12 @@
         const email = form.querySelector('input[type=email]').value.trim();
         if (!email || !email.includes('@')) return;
         console.log('[xerj lead]', email);
-        // Stored only in the browser (same gate key as the playground page),
-        // then open the live dashboards app — no server, no "inbox" wait.
         try { localStorage.setItem('xerj.playground.email', email); } catch (_) {}
+        // Capture the lead (fire-and-forget with keepalive so the redirect
+        // never waits on it), then open the live dashboards app.
+        try {
+          fetch('/lead', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: email, source: 'landing' }), keepalive: true }).catch(function () {});
+        } catch (_) {}
         window.location.href = '/playground/';
       });
     }
