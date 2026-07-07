@@ -24,7 +24,7 @@
   <span class="spacer"></span>
   <a href="/docs/index.html" class="active">DOCS</a>
   <a href="/playground.html">DASHBOARDS</a>
-  <a href="https://github.com/" rel="external">GITHUB</a>
+  <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
   <span class="spacer"></span>
   <span class="theme">
     <button type="button" data-theme="day">DAY</button>
@@ -106,17 +106,28 @@
 
   <h2>System requirements</h2>
   <ul>
-    <li><strong>OS:</strong> Linux (glibc ≥ 2.31) or macOS (Darwin arm64 / x86_64).</li>
+    <li><strong>OS:</strong> Linux (any distro — the Linux build is fully static musl, Alpine included), macOS (Apple Silicon arm64 / Intel x86_64), or Windows 10+ (x64 / ARM64).</li>
     <li><strong>RAM:</strong> 400 MB idle. 2 GB working set per active index. Scales linearly with segment resident set.</li>
     <li><strong>Disk:</strong> Any fs that supports <code class="inline">fsync</code> and mmap. Prefer SSD.</li>
     <li><strong>CPU:</strong> x86_64 with AVX2 or arm64 with NEON. The release build uses SIMD for hot paths.</li>
     <li><strong>Open files:</strong> 65536 ulimit is sufficient for most deployments.</li>
   </ul>
 
-  <h2>Download</h2>
-<pre class="code">$ curl -sLO https://xerj.dev/releases/xerj-0.1.0-linux-x86_64.tar.gz
-$ tar xzf xerj-0.1.0-linux-x86_64.tar.gz
-$ sudo install -m 0755 xerj /usr/local/bin/xerj
+  <h2>Install with one command</h2>
+  <p>The installer detects your OS and CPU, downloads the matching release from <a href="https://github.com/xerj-org/xerj/releases">GitHub Releases</a>, and verifies its SHA-256.</p>
+  <p><strong>Linux / macOS</strong> (x86_64 and arm64):</p>
+<pre class="code">$ curl -fsSL https://xerj.org/get | sh</pre>
+  <p><strong>Windows</strong> (x64 and ARM64, PowerShell):</p>
+<pre class="code">&gt; powershell -ExecutionPolicy Bypass -c "irm https://xerj.org/get.ps1 | iex"</pre>
+
+  <h2>Manual download</h2>
+  <p>Every release publishes eight targets, each with a <code class="inline">.sha256</code> alongside: <code class="inline">x86_64</code>/<code class="inline">aarch64</code> × <code class="inline">unknown-linux-musl</code> (static, any distro), <code class="inline">unknown-linux-gnu</code>, <code class="inline">apple-darwin</code>, and <code class="inline">pc-windows-msvc</code> (.zip).</p>
+<pre class="code">$ ver=$(curl -fsSL https://api.github.com/repos/xerj-org/xerj/releases/latest | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p')
+$ curl -fsSLO https://github.com/xerj-org/xerj/releases/download/v${ver}/xerj-${ver}-x86_64-unknown-linux-musl.tar.gz
+$ curl -fsSLO https://github.com/xerj-org/xerj/releases/download/v${ver}/xerj-${ver}-x86_64-unknown-linux-musl.tar.gz.sha256
+$ sha256sum -c xerj-${ver}-x86_64-unknown-linux-musl.tar.gz.sha256
+$ tar xzf xerj-${ver}-x86_64-unknown-linux-musl.tar.gz
+$ sudo install -m 0755 xerj-${ver}-x86_64-unknown-linux-musl/xerj /usr/local/bin/xerj
 $ xerj --version</pre>
 
   <h2>Write the config</h2>
@@ -128,22 +139,22 @@ bind_address = "0.0.0.0"
 data_dir     = "/var/lib/xerj"
 
 [auth]
-enabled = true
-
-[tls]
-enabled   = true
-cert_path = "/etc/xerj/certs/xerj.crt"
-key_path  = "/etc/xerj/certs/xerj.key"</pre>
+enabled = true</pre>
+  <p>With <code class="inline">auth.enabled = true</code>, the first start prints an auto-generated admin API key and writes it to <code class="inline">&lt;data_dir&gt;/admin.key</code> — every native-API request (including health) must send it. In-process TLS is not wired yet (rustls integration is on the roadmap) — terminate TLS at a reverse proxy (nginx/caddy) in front of ports 8080/9200 for now.</p>
 
   <h2>Run as a systemd unit</h2>
+  <p>Create the service user first — <code class="inline">StateDirectory</code> then gives it <code class="inline">/var/lib/xerj</code> automatically:</p>
+<pre class="code">$ sudo useradd -r -s /usr/sbin/nologin xerj</pre>
 <pre class="code"># /etc/systemd/system/xerj.service
 [Unit]
 Description=XERJ storage engine
+Wants=network-online.target
 After=network-online.target
 
 [Service]
 User=xerj
 Group=xerj
+StateDirectory=xerj
 ExecStart=/usr/local/bin/xerj --config /etc/xerj/xerj.toml
 Restart=on-failure
 LimitNOFILE=65536
@@ -156,15 +167,16 @@ WantedBy=multi-user.target</pre>
 <pre class="code">$ sudo systemctl daemon-reload
 $ sudo systemctl enable --now xerj
 $ sudo systemctl status xerj
-$ curl -s http://localhost:8080/v1/health</pre>
+$ curl -s -H "Authorization: ApiKey $(sudo cat /var/lib/xerj/admin.key)" \
+    http://localhost:8080/v1/health</pre>
 
   <h2>Docker</h2>
-  <p>Same binary, different shell. Useful for CI and for embedded dev.</p>
-<pre class="code">$ docker run -d --name xerj \
+  <p>No published image yet — build it locally from <code class="inline">engine/Dockerfile</code> (the image defaults to <code class="inline">--insecure --data-dir /data</code>, right for CI and local dev):</p>
+<pre class="code">$ docker build -t xerj:1.0.0-rc.1 engine/
+$ docker run -d --name xerj \
     -p 8080:8080 -p 9200:9200 \
     -v xerj-data:/data \
-    -v $PWD/xerj.toml:/xerj.toml:ro \
-    xerj:0.1.0 --config /xerj.toml</pre>
+    xerj:1.0.0-rc.1</pre>
 
   <p class="source-note">Source · engine/README.md</p>
   
@@ -176,15 +188,15 @@ $ curl -s http://localhost:8080/v1/health</pre>
 
   <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
   <div class="print-footer" style="display:none;">
-    <span>XERJ.AI · V0.1 · 2026-04-16</span>
-    <a href="https://xerj.dev/docs/">https://xerj.dev/docs/</a>
+    <span>XERJ.AI · V1.0.0-RC.1 · 2026-07-07</span>
+    <a href="https://xerj.org/docs/">https://xerj.org/docs/</a>
     <span>Install</span>
   </div>
 </main>
 </div>
 
 <footer class="footer">
-  <span>XERJ.AI · DOCS · V0.1</span>
+  <span>XERJ.AI · DOCS · V1.0.0-RC.1</span>
   <span>READ THE SOURCE</span>
   <span><a href="/index.html">HOME</a> · <a href="/product.html">PRODUCT</a> · <a href="/brand.html">BRAND</a> · <a href="/playground.html">DASHBOARDS</a></span>
 </footer>

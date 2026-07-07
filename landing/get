@@ -40,17 +40,22 @@ else
 fi
 
 # --- detect target triple ---------------------------------------------------
+# Supported matrix (8 release targets):
+#   Linux   x86_64 / aarch64  (static musl build - any distro incl. Alpine)
+#   macOS   x86_64 / arm64 (Apple Silicon)
+#   Windows x64 / ARM64 (via Git Bash / MSYS here; native PowerShell:
+#     powershell -ExecutionPolicy Bypass -c "irm https://xerj.org/get.ps1 | iex")
 os=$(uname -s); arch=$(uname -m)
 case "$os" in
   Linux)  plat="unknown-linux-gnu";  ext="tar.gz"; bin="xerj" ;;
   Darwin) plat="apple-darwin";       ext="tar.gz"; bin="xerj" ;;
   MINGW*|MSYS*|CYGWIN*) plat="pc-windows-msvc"; ext="zip"; bin="xerj.exe" ;;
-  *) die "unsupported OS: $os" ;;
+  *) die "unsupported OS: $os (xerj ships Linux, macOS and Windows builds)" ;;
 esac
 case "$arch" in
   x86_64|amd64)        cpu="x86_64" ;;
   aarch64|arm64)       cpu="aarch64" ;;
-  *) die "unsupported CPU: $arch" ;;
+  *) die "unsupported CPU: $arch (xerj ships x86_64/amd64 and aarch64/arm64 builds for Linux, macOS and Windows)" ;;
 esac
 # Linux: prefer the fully-static musl build (runs on any distro, incl. Alpine).
 if [ "$os" = "Linux" ]; then plat="unknown-linux-musl"; fi
@@ -65,6 +70,8 @@ if [ "${XERJ_VERSION:-}" = "" ]; then
   [ -n "$tag" ] || die "could not resolve latest release — set XERJ_VERSION=vX.Y.Z (see https://github.com/${REPO}/releases)"
 else
   tag="$XERJ_VERSION"
+  # Release tags are v-prefixed; accept XERJ_VERSION=1.0.0 too.
+  case "$tag" in v*) ;; *) tag="v$tag" ;; esac
 fi
 ver="${tag#v}"
 info "installing xerj ${BOLD}${tag}${RST} for ${BOLD}${target}${RST}"
@@ -73,28 +80,45 @@ stage="xerj-${ver}-${target}"
 asset="${stage}.${ext}"
 base="https://github.com/${REPO}/releases/download/${tag}"
 
-tmp=$(mktemp -d 2>/dev/null || mktemp -d -t xerj)
+# The X-template form works on GNU, BSD/macOS, and busybox mktemp alike.
+tmp=$(mktemp -d 2>/dev/null || mktemp -d "${TMPDIR:-/tmp}/xerj.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT INT TERM
 
 info "downloading ${asset}…"
 DL "${base}/${asset}" "${tmp}/${asset}" \
   || die "download failed for ${target}. Available assets: https://github.com/${REPO}/releases/tag/${tag}"
 
-# --- verify checksum (best-effort; fail if the .sha256 is present) ----------
-if DL "${base}/${asset}.sha256" "${tmp}/${asset}.sha256" 2>/dev/null; then
-  want=$(awk '{print $1}' "${tmp}/${asset}.sha256")
-  if command -v sha256sum >/dev/null 2>&1; then got=$(sha256sum "${tmp}/${asset}" | awk '{print $1}')
-  elif command -v shasum >/dev/null 2>&1;   then got=$(shasum -a 256 "${tmp}/${asset}" | awk '{print $1}')
-  else got=""; fi
-  if [ -n "$got" ]; then
-    [ "$got" = "$want" ] && ok "sha256 verified" || die "sha256 mismatch (want $want, got $got)"
-  fi
+# --- verify checksum (fail closed — every release publishes the .sha256) ----
+DL "${base}/${asset}.sha256" "${tmp}/${asset}.sha256" 2>/dev/null \
+  || die "could not download checksum ${asset}.sha256 — refusing to install an unverified binary"
+want=$(awk '{print $1}' "${tmp}/${asset}.sha256")
+if command -v sha256sum >/dev/null 2>&1; then got=$(sha256sum "${tmp}/${asset}" | awk '{print $1}')
+elif command -v shasum >/dev/null 2>&1;   then got=$(shasum -a 256 "${tmp}/${asset}" | awk '{print $1}')
+else got=""; fi
+if [ -n "$got" ]; then
+  [ "$got" = "$want" ] && ok "sha256 verified" || die "sha256 mismatch (want $want, got $got)"
+else
+  say "${YEL}warning:${RST} sha256sum/shasum not found — skipping checksum verification"
 fi
 
 # --- extract ----------------------------------------------------------------
 info "extracting…"
 if [ "$ext" = "zip" ]; then
-  need unzip; unzip -q "${tmp}/${asset}" -d "$tmp"
+  # Git Bash / MSYS often lack `unzip` — fall back to the PowerShell that
+  # ships with every Windows box. Paths travel via environment variables
+  # (never interpolated into the PS command) and -LiteralPath, so spaces,
+  # apostrophes and [brackets] in %TEMP% can't break quoting or glob.
+  if command -v unzip >/dev/null 2>&1; then
+    unzip -q "${tmp}/${asset}" -d "$tmp"
+  elif command -v powershell.exe >/dev/null 2>&1; then
+    zip_w=$(cygpath -w "${tmp}/${asset}" 2>/dev/null || printf '%s' "${tmp}/${asset}")
+    dst_w=$(cygpath -w "$tmp" 2>/dev/null || printf '%s' "$tmp")
+    XERJ_ZIP="$zip_w" XERJ_DST="$dst_w" powershell.exe -NoProfile -NonInteractive -Command \
+      'Expand-Archive -LiteralPath $env:XERJ_ZIP -DestinationPath $env:XERJ_DST -Force' \
+      || die "failed to extract ${asset} (install 'unzip', or use the native installer: powershell -ExecutionPolicy Bypass -c \"irm https://xerj.org/get.ps1 | iex\")"
+  else
+    die "need 'unzip' to extract ${asset} — or use the native installer: powershell -ExecutionPolicy Bypass -c \"irm https://xerj.org/get.ps1 | iex\""
+  fi
 else
   tar -xzf "${tmp}/${asset}" -C "$tmp"
 fi
@@ -104,14 +128,28 @@ src="${tmp}/${stage}/${bin}"
 chmod +x "$src" 2>/dev/null || true
 
 # --- choose install dir -----------------------------------------------------
+# Re-testing -w AFTER the mkdir matters: mkdir -p on an EXISTING but
+# root-owned ~/.local/bin returns 0, and we must fall through to $(pwd)
+# instead of failing later at the copy.
 if [ "${XERJ_INSTALL_DIR:-}" != "" ]; then dir="$XERJ_INSTALL_DIR"
-elif [ -w "${HOME:-/nonexistent}/.local/bin" ] || mkdir -p "${HOME:-/nonexistent}/.local/bin" 2>/dev/null; then dir="${HOME}/.local/bin"
+elif [ -n "${HOME:-}" ] \
+  && { [ -d "$HOME/.local/bin" ] || mkdir -p "$HOME/.local/bin" 2>/dev/null; } \
+  && [ -w "$HOME/.local/bin" ]; then dir="$HOME/.local/bin"
 else dir="$(pwd)"; fi
 mkdir -p "$dir" 2>/dev/null || die "cannot create install dir: $dir"
 
+# Stage inside the destination directory, then rename: same-directory mv is
+# an atomic rename(2), so $dest is always either the old or the new binary —
+# never a truncated copy (mv from tmpfs /tmp is a non-atomic cross-device
+# copy that Ctrl-C or ENOSPC could otherwise tear mid-write).
 dest="${dir}/${bin}"
-mv "$src" "$dest" || die "failed to install to $dest"
-ok "installed ${BOLD}${dest}${RST}"
+tmpdest="${dir}/.${bin}.tmp.$$"
+if cp "$src" "$tmpdest" && mv -f "$tmpdest" "$dest"; then
+  ok "installed ${BOLD}${dest}${RST}"
+else
+  rm -f "$tmpdest"
+  die "failed to install to $dest"
+fi
 
 # --- next steps -------------------------------------------------------------
 say ""

@@ -37,3 +37,8 @@
 /get
   Content-Type: text/plain; charset=utf-8
   Cache-Control: public, max-age=300
+
+# Windows installer: powershell -ExecutionPolicy Bypass -c "irm https://xerj.org/get.ps1 | iex"
+/get.ps1
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=300
