@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
-<link rel="stylesheet" href="/style.css?v=90f643e">
+<link rel="stylesheet" href="/style.css?v=sc0706">
 </head>
 <body>
 
@@ -467,63 +467,65 @@
 
   <p class="wide">
     The reproducible head-to-head numbers live in
-    demo/playbooks/SCORECARD.md and BENCHMARK_VS_ES.md in the engine
-    repository, with repro scripts. On the LLM-telemetry corpus,
-    XERJ leads terms aggregation ~1.15× and is ~1.20× smaller on
-    disk; the scorecard also records the reads-under-write cases
-    where Elasticsearch wins. Numbers you cannot reproduce from that
-    scorecard should be treated with skepticism.
+    demo/playbooks/SCORECARD.md (with repro scripts) in the engine
+    repository. On the 1M-doc LLM-telemetry corpus, XERJ wins 81 of
+    91 measured cells (8 losses, 2 unsupported) — leading bool
+    queries 11.5×, query_string 6.9×, terms aggregation 1.15×, and
+    running 1.20× smaller on disk. The scorecard publishes the losses
+    too: in the mixed reads-under-write cases Elasticsearch wins, its
+    p99 staying 2–19 ms while XERJ's rises to ~60–150 ms. Numbers you
+    cannot reproduce from that scorecard should be treated with
+    skepticism.
   </p>
 
   <div class="bench">
-    <div class="head">TEST · 1M EVENTS · P95 LATENCY</div>
+    <div class="head">TEST · 1M DOCS · P50 LATENCY</div>
     <div class="head num">ELASTICSEARCH</div>
     <div class="head num">XERJ</div>
     <div class="head num">DELTA</div>
 
-    <div class="cell test">Top-source-IPs · terms aggregation (p50)</div>
+    <div class="cell test">Terms aggregation · top values</div>
     <div class="cell num es">1.54 ms</div>
     <div class="cell num xy">1.34 ms</div>
     <div class="cell num delta">1.15×</div>
     <div class="cell source">demo/playbooks/SCORECARD.md</div>
 
-    <div class="cell test">SIEM 16-query analyst battery · median</div>
-    <div class="cell num es">4.1 ms</div>
-    <div class="cell num xy">0.6 ms</div>
+    <div class="cell test">Bool query · must+filter+should+must_not</div>
+    <div class="cell num es">15.90 ms</div>
+    <div class="cell num xy">1.38 ms</div>
+    <div class="cell num delta">11.5×</div>
+    <div class="cell source">demo/playbooks/SCORECARD.md</div>
+
+    <div class="cell test">Query-string query</div>
+    <div class="cell num es">9.35 ms</div>
+    <div class="cell num xy">1.35 ms</div>
+    <div class="cell num delta">6.9×</div>
+    <div class="cell source">demo/playbooks/SCORECARD.md</div>
+
+    <div class="cell test">Wildcard query</div>
+    <div class="cell num es">9.10 ms</div>
+    <div class="cell num xy">1.35 ms</div>
     <div class="cell num delta">6.8×</div>
-    <div class="cell source">SIEM_BATTLE_2026-04-14_184900_UTC.md §2</div>
+    <div class="cell source">demo/playbooks/SCORECARD.md</div>
 
-    <div class="cell test">NGINX terms aggregation · 5 distinct values</div>
-    <div class="cell num es">35.7 ms</div>
-    <div class="cell num xy">0.4 ms</div>
-    <div class="cell num delta">89×</div>
-    <div class="cell source">CLUSTER_BATTLE_2026-04-14_180241_UTC.md §3</div>
+    <div class="cell test">Range filter · latency_ms</div>
+    <div class="cell num es">4.66 ms</div>
+    <div class="cell num xy">1.34 ms</div>
+    <div class="cell num delta">3.5×</div>
+    <div class="cell source">demo/playbooks/SCORECARD.md</div>
 
-    <div class="cell test">NGINX keyword term query · method=GET · warm cache</div>
-    <div class="cell num es">2.0 ms</div>
-    <div class="cell num xy">0.3 ms</div>
-    <div class="cell num delta">6.7×</div>
-    <div class="cell source">HEAD_TO_HEAD_M3_2026-04-14.md</div>
-
-    <div class="cell test">Cold start · JVM warm-up vs static binary</div>
-    <div class="cell num es">~15 s</div>
-    <div class="cell num xy">50 ms</div>
-    <div class="cell num delta">300×</div>
-    <div class="cell source">SIEM_BATTLE_2026-04-14_184900_UTC.md §4</div>
-
-    <div class="cell test">Release binary size · deploy footprint</div>
-    <div class="cell num es">~620 MB</div>
-    <div class="cell num xy">23 MB</div>
-    <div class="cell num delta">~27×</div>
-    <div class="cell source">ls -la target/release/xerj (23,513,064 bytes)</div>
-
-
+    <div class="cell test">kNN · k=10 · 100% recall</div>
+    <div class="cell num es">2.64 ms</div>
+    <div class="cell num xy">0.78 ms</div>
+    <div class="cell num delta">3.4×</div>
+    <div class="cell source">demo/playbooks/SCORECARD.md</div>
 
     <div class="cell test">Index on-disk size · post-ingest</div>
     <div class="cell num es">806.7 MB</div>
     <div class="cell num xy">672.5 MB</div>
     <div class="cell num delta">1.20×</div>
     <div class="cell source">demo/playbooks/SCORECARD.md</div>
+
   </div>
 </section>
 
@@ -541,7 +543,7 @@
 
   <div class="row">
     <div class="k">No JVM</div>
-    <div class="v">Rust compiles to a static binary with no heap, no GC pauses, no warm-up, no page fault storms after a restart. Cold start is 50 ms, not 15 s.</div>
+    <div class="v">Rust compiles to a static binary with no heap, no GC pauses, no warm-up, no page fault storms after a restart — the process is serving queries the moment it starts.</div>
   </div>
   <div class="row">
     <div class="k">Columnar native</div>

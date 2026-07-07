@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
-<link rel="stylesheet" href="/style.css?v=90f643e">
+<link rel="stylesheet" href="/style.css?v=sc0706">
 </head>
 <body>
 
@@ -47,111 +47,13 @@
 <div class="uc-hero">
   <div class="uc-eyebrow">USE CASE · ELASTICSEARCH REPLACEMENT</div>
   <h1>ELASTICSEARCH<br><span class="accent">REPLACEMENT.</span></h1>
-  <p class="uc-lead">You know the operational burden: 3,000+ config knobs, JVM tuning, shard calculators, master election storms, and a team of specialists to keep it running. XERJ is a drop-in replacement — same API on port 9200, same query DSL, same client libraries — at a fraction of the resource cost.</p>
+  <p class="uc-lead">You know the operational burden: endless config knobs, JVM tuning, shard calculators, master election storms, and a team of specialists to keep it running. XERJ is a drop-in replacement — same API on port 9200, same query DSL, same client libraries — on one binary instead of a JVM cluster.</p>
 </div>
 
 <!-- Hero chart -->
 <section class="scene-section" style="border-top:0; padding-top:0;">
   <div class="viz-block">
-    <div class="kicker"><span>RESOURCE COMPARISON · XERJ vs ES 8.13 (4-NODE)</span></div>
-    <div class="cmp-bars">
-    <div class="cmp-bars-head">
-      <span></span>
-      <span class="cmp-a">XERJ</span>
-      <span class="cmp-b">ES 8.13 (4-NODE)</span>
-    </div>
-    <div class="cmp-bars-row">
-        <span class="cmp-label">Idle memory</span>
-        <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:0.0%;"></span>
-          <span class="cmp-num">400 MB</span>
-        </span>
-        <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:0.3%;"></span>
-          <span class="cmp-num">8.5 GB <span class="cmp-ratio">21.3×</span></span>
-        </span>
-      </div><div class="cmp-bars-row">
-        <span class="cmp-label">Disk (1M SIEM)</span>
-        <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:0.0%;"></span>
-          <span class="cmp-num">1.1 GB</span>
-        </span>
-        <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:0.1%;"></span>
-          <span class="cmp-num">3.1 GB <span class="cmp-ratio">2.8×</span></span>
-        </span>
-      </div><div class="cmp-bars-row">
-        <span class="cmp-label">Cold start</span>
-        <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:0.0%;"></span>
-          <span class="cmp-num">50 ms</span>
-        </span>
-        <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:0.5%;"></span>
-          <span class="cmp-num">15 s <span class="cmp-ratio">300.0×</span></span>
-        </span>
-      </div><div class="cmp-bars-row">
-        <span class="cmp-label">Config knobs</span>
-        <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:1.6%;"></span>
-          <span class="cmp-num">47</span>
-        </span>
-        <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:100.0%;"></span>
-          <span class="cmp-num">3,000+ <span class="cmp-ratio">63.8×</span></span>
-        </span>
-      </div><div class="cmp-bars-row">
-        <span class="cmp-label">Binaries to run</span>
-        <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:0.0%;"></span>
-          <span class="cmp-num">1</span>
-        </span>
-        <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:0.2%;"></span>
-          <span class="cmp-num">5 <span class="cmp-ratio">5.0×</span></span>
-        </span>
-      </div>
-  </div>
-  </div>
-</section>
-
-<div class="pain-solve">
-  <div class="pain">
-    <h3>THE COST OF ELASTICSEARCH</h3>
-    <ul><li><strong>Infrastructure cost: $500K–2M / 3 years.</strong> RAM is the bottleneck (50–70% of budget). A 4-node cluster needs 8.5 GB just to idle. Scale that to 10 indices and you're buying RAM for the JVM, not for your data.</li><li><strong>Specialized engineers: $150K/year each.</strong> ES requires dedicated operators who understand shard allocation, heap sizing, GC tuning, ILM rollover, and cross-cluster replication. Most teams need 2–3.</li><li><strong>GC pauses cause p95 spikes.</strong> JVM stop-the-world pauses inject 50–200 ms latency spikes that show up in your SLOs and your on-call pages.</li><li><strong>Feature-gated pricing.</strong> SSO, RBAC, ML anomaly detection, and cross-cluster search are locked behind Platinum+ licensing. The enterprise bill is opaque and non-negotiable.</li><li><strong>Ecosystem tax.</strong> Running ES means also running Kibana (Node.js, 3.5 s p75 load time), Logstash (JRuby, 500 MB–2 GB RAM), and Beats (OOM-killed after upgrades). Four services to operate before your first query.</li></ul>
-  </div>
-  <div class="solve">
-    <h3>THE XERJ ANSWER</h3>
-    <ul><li><strong>Drop-in API compatibility.</strong> Port 9200, same endpoints: <code>POST /:index/_search</code>, <code>POST /_bulk</code>, <code>POST /_aliases</code>. Existing ES client libraries work unchanged.</li><li><strong>21× less memory at idle.</strong> No JVM heap, no GC pauses. 400 MB RSS vs 8.5 GB for a comparable ES cluster. Predictable latency at every percentile.</li><li><strong>2.8× less disk.</strong> Domain-aware columnar compression with 9 automatic encodings. Same data, smaller footprint.</li><li><strong>One binary replaces five.</strong> No Kibana, no Logstash, no Beats, no separate vector DB. REST API + Prometheus metrics + native ingest — all in-process.</li><li><strong>All features, one tier.</strong> Auth, TLS, RBAC, aggregations, vector search, hybrid queries — everything ships in the binary. No platinum paywall.</li></ul>
-  </div>
-</div>
-
-<div class="proof-row">
-
-  <div class="stat">
-    <div class="num">21×</div>
-    <div class="label">LESS MEMORY</div>
-    <div class="ctx">400 MB xerj vs 8.5 GB ES (4-node)</div>
-  </div>
-
-  <div class="stat">
-    <div class="num">2.8×</div>
-    <div class="label">LESS DISK</div>
-    <div class="ctx">Domain-aware compression on SIEM data</div>
-  </div>
-
-  <div class="stat">
-    <div class="num">80%</div>
-    <div class="label">TCO REDUCTION TARGET</div>
-    <div class="ctx">Fewer nodes, no specialists, no ecosystem tax</div>
-  </div>
-
-</div>
-
-
-<section class="scene-section">
-  <div class="viz-block">
-    <div class="kicker"><span>QUERY LATENCY · XERJ vs ES 8.13 · P95</span></div>
+    <div class="kicker"><span>REPRODUCIBLE · ES 8.13 · SEARCH &amp; FILTER · SCORECARD.md</span></div>
     <div class="cmp-bars">
     <div class="cmp-bars-head">
       <span></span>
@@ -159,67 +61,177 @@
       <span class="cmp-b">ES 8.13</span>
     </div>
     <div class="cmp-bars-row">
-        <span class="cmp-label">Terms agg (top IPs)</span>
+        <span class="cmp-label">Bool query</span>
         <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:0.1%;"></span>
-          <span class="cmp-num">0.4 ms</span>
+          <span class="cmp-bar" style="width:7.8%;"></span>
+          <span class="cmp-num">1.38 ms</span>
         </span>
         <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:4.5%;"></span>
-          <span class="cmp-num">29.8 ms <span class="cmp-ratio">74.5×</span></span>
+          <span class="cmp-bar" style="width:90.0%;"></span>
+          <span class="cmp-num">15.90 ms <span class="cmp-ratio">11.5×</span></span>
         </span>
       </div><div class="cmp-bars-row">
-        <span class="cmp-label">Date histogram</span>
+        <span class="cmp-label">Query-string query</span>
         <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:0.1%;"></span>
-          <span class="cmp-num">0.6 ms</span>
+          <span class="cmp-bar" style="width:7.6%;"></span>
+          <span class="cmp-num">1.35 ms</span>
         </span>
         <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:0.6%;"></span>
-          <span class="cmp-num">4.2 ms <span class="cmp-ratio">7.0×</span></span>
+          <span class="cmp-bar" style="width:52.9%;"></span>
+          <span class="cmp-num">9.35 ms <span class="cmp-ratio">6.9×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Wildcard query</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:7.6%;"></span>
+          <span class="cmp-num">1.35 ms</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:51.5%;"></span>
+          <span class="cmp-num">9.10 ms <span class="cmp-ratio">6.8×</span></span>
         </span>
       </div><div class="cmp-bars-row">
         <span class="cmp-label">Range filter</span>
         <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:0.1%;"></span>
-          <span class="cmp-num">0.6 ms</span>
+          <span class="cmp-bar" style="width:7.6%;"></span>
+          <span class="cmp-num">1.34 ms</span>
         </span>
         <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:100.0%;"></span>
-          <span class="cmp-num">665 ms <span class="cmp-ratio">1108.3×</span></span>
+          <span class="cmp-bar" style="width:26.4%;"></span>
+          <span class="cmp-num">4.66 ms <span class="cmp-ratio">3.5×</span></span>
         </span>
       </div><div class="cmp-bars-row">
-        <span class="cmp-label">Bool + nested</span>
+        <span class="cmp-label">Match query</span>
         <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:0.2%;"></span>
-          <span class="cmp-num">1.1 ms</span>
+          <span class="cmp-bar" style="width:3.2%;"></span>
+          <span class="cmp-num">0.57 ms</span>
         </span>
         <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:1.9%;"></span>
-          <span class="cmp-num">12.4 ms <span class="cmp-ratio">11.3×</span></span>
+          <span class="cmp-bar" style="width:8.2%;"></span>
+          <span class="cmp-num">1.45 ms <span class="cmp-ratio">2.5×</span></span>
         </span>
       </div><div class="cmp-bars-row">
-        <span class="cmp-label">kNN (768-dim)</span>
+        <span class="cmp-label">Term query</span>
         <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:0.3%;"></span>
-          <span class="cmp-num">2.3 ms</span>
+          <span class="cmp-bar" style="width:7.7%;"></span>
+          <span class="cmp-num">1.36 ms</span>
         </span>
         <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:1.3%;"></span>
-          <span class="cmp-num">8.9 ms <span class="cmp-ratio">3.9×</span></span>
-        </span>
-      </div><div class="cmp-bars-row">
-        <span class="cmp-label">Hybrid BM25+kNN</span>
-        <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:0.5%;"></span>
-          <span class="cmp-num">3.1 ms</span>
-        </span>
-        <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:2.7%;"></span>
-          <span class="cmp-num">18.2 ms <span class="cmp-ratio">5.9×</span></span>
+          <span class="cmp-bar" style="width:12.2%;"></span>
+          <span class="cmp-num">2.15 ms <span class="cmp-ratio">1.6×</span></span>
         </span>
       </div>
   </div>
+    <p style="margin-top:14px; font-size:12px; letter-spacing:.04em; color:var(--z-mute); font-family:var(--font-data);">P50 · 1M-DOC LLM-TELEMETRY CORPUS · FULL 91-CELL MATRIX AT <a href="/benchmarks/">xerj.org/benchmarks &rarr;</a></p>
+  </div>
+</section>
+
+<div class="pain-solve">
+  <div class="pain">
+    <h3>THE COST OF ELASTICSEARCH</h3>
+    <ul><li><strong>Memory is the bottleneck.</strong> A production cluster spends most of its budget on RAM for the JVM heap, not for your data. Scale to more indices and you're buying heap, not capacity.</li><li><strong>Specialized engineers required.</strong> ES needs dedicated operators who understand shard allocation, heap sizing, GC tuning, ILM rollover, and cross-cluster replication.</li><li><strong>GC pauses cause p95 spikes.</strong> JVM stop-the-world pauses inject latency spikes that show up in your SLOs and your on-call pages.</li><li><strong>Feature-gated pricing.</strong> SSO, RBAC, ML anomaly detection, and cross-cluster search are locked behind Platinum+ licensing. The enterprise bill is opaque and non-negotiable.</li><li><strong>Ecosystem tax.</strong> Running ES means also running Kibana, Logstash, and Beats — services to operate before your first query.</li></ul>
+  </div>
+  <div class="solve">
+    <h3>THE XERJ ANSWER</h3>
+    <ul><li><strong>Drop-in API compatibility.</strong> Port 9200, same endpoints: <code>POST /:index/_search</code>, <code>POST /_bulk</code>, <code>POST /_aliases</code>. Existing ES client libraries work unchanged.</li><li><strong>No JVM, no GC pauses.</strong> No heap to size, no stop-the-world stalls. Predictable latency at every percentile, at a fraction of the memory footprint.</li><li><strong>Smaller on disk.</strong> Domain-aware columnar compression with automatic encodings — 672.5 MB vs 806.7 MB on the same corpus (1.20× smaller).</li><li><strong>One binary replaces five.</strong> No Kibana, no Logstash, no Beats, no separate vector DB. REST API + Prometheus metrics + native ingest — all in-process.</li><li><strong>All features, one tier.</strong> Auth, TLS, RBAC, aggregations, vector search, hybrid queries — everything ships in the binary. No platinum paywall.</li></ul>
+  </div>
+</div>
+
+<div class="proof-row">
+
+  <div class="stat">
+    <div class="num">11.5×</div>
+    <div class="label">FASTER BOOL QUERIES</div>
+    <div class="ctx">must+filter+should+must_not · p50 · vs ES 8.13</div>
+  </div>
+
+  <div class="stat">
+    <div class="num">6.9×</div>
+    <div class="label">FASTER QUERY-STRING</div>
+    <div class="ctx">query_string · p50 1.35 ms vs 9.35 ms</div>
+  </div>
+
+  <div class="stat">
+    <div class="num">1.20×</div>
+    <div class="label">SMALLER ON DISK</div>
+    <div class="ctx">672.5 MB vs 806.7 MB · post-ingest</div>
+  </div>
+
+</div>
+
+
+<section class="scene-section">
+  <div class="viz-block">
+    <div class="kicker"><span>REPRODUCIBLE · ES 8.13 · MIXED QUERY TYPES · SCORECARD.md</span></div>
+    <div class="cmp-bars">
+    <div class="cmp-bars-head">
+      <span></span>
+      <span class="cmp-a">XERJ</span>
+      <span class="cmp-b">ES 8.13</span>
+    </div>
+    <div class="cmp-bars-row">
+        <span class="cmp-label">Bool query</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:7.8%;"></span>
+          <span class="cmp-num">1.38 ms</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:90.0%;"></span>
+          <span class="cmp-num">15.90 ms <span class="cmp-ratio">11.5×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Query-string query</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:7.6%;"></span>
+          <span class="cmp-num">1.35 ms</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:52.9%;"></span>
+          <span class="cmp-num">9.35 ms <span class="cmp-ratio">6.9×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Range filter</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:7.6%;"></span>
+          <span class="cmp-num">1.34 ms</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:26.4%;"></span>
+          <span class="cmp-num">4.66 ms <span class="cmp-ratio">3.5×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">kNN · k=10 · 100% recall</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:4.4%;"></span>
+          <span class="cmp-num">0.78 ms</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:14.9%;"></span>
+          <span class="cmp-num">2.64 ms <span class="cmp-ratio">3.4×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Match query</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:3.2%;"></span>
+          <span class="cmp-num">0.57 ms</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:8.2%;"></span>
+          <span class="cmp-num">1.45 ms <span class="cmp-ratio">2.5×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Term query</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:7.7%;"></span>
+          <span class="cmp-num">1.36 ms</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:12.2%;"></span>
+          <span class="cmp-num">2.15 ms <span class="cmp-ratio">1.6×</span></span>
+        </span>
+      </div>
+  </div>
+    <p style="margin-top:14px; font-size:12px; letter-spacing:.04em; color:var(--z-mute); font-family:var(--font-data);">P50 · 1M-DOC LLM-TELEMETRY CORPUS · FULL 91-CELL MATRIX AT <a href="/benchmarks/">xerj.org/benchmarks &rarr;</a></p>
   </div>
 </section>
 

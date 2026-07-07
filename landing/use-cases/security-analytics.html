@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
-<link rel="stylesheet" href="/style.css?v=90f643e">
+<link rel="stylesheet" href="/style.css?v=sc0706">
 </head>
 <body>
 
@@ -47,13 +47,13 @@
 <div class="uc-hero">
   <div class="uc-eyebrow">USE CASE · SECURITY ANALYTICS</div>
   <h1>SECURITY<br>ANALYTICS<br><span class="accent">AT SCALE.</span></h1>
-  <p class="uc-lead">Your SOC team spends more time waiting for dashboards than investigating threats. XERJ runs the canonical SIEM query battery — top source IPs, auth-failure clustering, lateral movement detection — at 74× the speed of Elasticsearch, on a single node that costs a fraction of a 4-node ES cluster.</p>
+  <p class="uc-lead">Your SOC team spends more time waiting for dashboards than investigating threats. XERJ runs the same search-and-aggregate workload — filters, term lookups, aggregations — measured against Elasticsearch 8.13, on a single node instead of a 4-node ES cluster.</p>
 </div>
 
 <!-- Hero chart -->
 <section class="scene-section" style="border-top:0; padding-top:0;">
   <div class="viz-block">
-    <div class="kicker"><span>SIEM QUERY BATTERY · P95 LATENCY · 1M EVENTS</span></div>
+    <div class="kicker"><span>REPRODUCIBLE · ES 8.13 · demo/playbooks/SCORECARD.md</span></div>
     <div class="cmp-bars">
     <div class="cmp-bars-head">
       <span></span>
@@ -61,119 +61,120 @@
       <span class="cmp-b">ES 8.13</span>
     </div>
     <div class="cmp-bars-row">
-        <span class="cmp-label">Top source IPs</span>
+        <span class="cmp-label">Bool query</span>
         <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:0.4%;"></span>
-          <span class="cmp-num">0.4 ms</span>
+          <span class="cmp-bar" style="width:7.8%;"></span>
+          <span class="cmp-num">1.38 ms</span>
         </span>
         <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:33.4%;"></span>
-          <span class="cmp-num">29.8 ms <span class="cmp-ratio">74.5×</span></span>
+          <span class="cmp-bar" style="width:90.0%;"></span>
+          <span class="cmp-num">15.90 ms <span class="cmp-ratio">11.5×</span></span>
         </span>
       </div><div class="cmp-bars-row">
-        <span class="cmp-label">Auth failures / hour</span>
+        <span class="cmp-label">Range filter</span>
         <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:0.3%;"></span>
-          <span class="cmp-num">0.3 ms</span>
+          <span class="cmp-bar" style="width:7.6%;"></span>
+          <span class="cmp-num">1.34 ms</span>
         </span>
         <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:20.4%;"></span>
-          <span class="cmp-num">18.2 ms <span class="cmp-ratio">60.7×</span></span>
+          <span class="cmp-bar" style="width:26.4%;"></span>
+          <span class="cmp-num">4.66 ms <span class="cmp-ratio">3.5×</span></span>
         </span>
       </div><div class="cmp-bars-row">
-        <span class="cmp-label">Lateral movement</span>
+        <span class="cmp-label">Match query</span>
         <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:1.3%;"></span>
-          <span class="cmp-num">1.2 ms</span>
+          <span class="cmp-bar" style="width:3.2%;"></span>
+          <span class="cmp-num">0.57 ms</span>
         </span>
         <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:50.5%;"></span>
-          <span class="cmp-num">45.1 ms <span class="cmp-ratio">37.6×</span></span>
+          <span class="cmp-bar" style="width:8.2%;"></span>
+          <span class="cmp-num">1.45 ms <span class="cmp-ratio">2.5×</span></span>
         </span>
       </div><div class="cmp-bars-row">
-        <span class="cmp-label">DNS tunneling</span>
+        <span class="cmp-label">Terms + avg sub-agg</span>
         <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:0.9%;"></span>
-          <span class="cmp-num">0.8 ms</span>
+          <span class="cmp-bar" style="width:2.2%;"></span>
+          <span class="cmp-num">0.38 ms</span>
         </span>
         <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:36.6%;"></span>
-          <span class="cmp-num">32.7 ms <span class="cmp-ratio">40.9×</span></span>
+          <span class="cmp-bar" style="width:6.6%;"></span>
+          <span class="cmp-num">1.16 ms <span class="cmp-ratio">3.1×</span></span>
         </span>
       </div><div class="cmp-bars-row">
-        <span class="cmp-label">Process tree anomaly</span>
+        <span class="cmp-label">Date-histogram agg</span>
         <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:2.4%;"></span>
-          <span class="cmp-num">2.1 ms</span>
+          <span class="cmp-bar" style="width:2.1%;"></span>
+          <span class="cmp-num">0.37 ms</span>
         </span>
         <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:100.0%;"></span>
-          <span class="cmp-num">89.3 ms <span class="cmp-ratio">42.5×</span></span>
+          <span class="cmp-bar" style="width:5.0%;"></span>
+          <span class="cmp-num">0.88 ms <span class="cmp-ratio">2.4×</span></span>
         </span>
       </div><div class="cmp-bars-row">
-        <span class="cmp-label">Data exfil > 10 MB</span>
+        <span class="cmp-label">Cardinality agg</span>
         <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:0.7%;"></span>
-          <span class="cmp-num">0.6 ms</span>
+          <span class="cmp-bar" style="width:6.5%;"></span>
+          <span class="cmp-num">1.15 ms</span>
         </span>
         <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:25.1%;"></span>
-          <span class="cmp-num">22.4 ms <span class="cmp-ratio">37.3×</span></span>
+          <span class="cmp-bar" style="width:10.9%;"></span>
+          <span class="cmp-num">1.92 ms <span class="cmp-ratio">1.7×</span></span>
         </span>
       </div><div class="cmp-bars-row">
-        <span class="cmp-label">Brute force detection</span>
+        <span class="cmp-label">Term query</span>
         <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:0.6%;"></span>
-          <span class="cmp-num">0.5 ms</span>
+          <span class="cmp-bar" style="width:7.7%;"></span>
+          <span class="cmp-num">1.36 ms</span>
         </span>
         <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:45.9%;"></span>
-          <span class="cmp-num">41.0 ms <span class="cmp-ratio">82.0×</span></span>
+          <span class="cmp-bar" style="width:12.2%;"></span>
+          <span class="cmp-num">2.15 ms <span class="cmp-ratio">1.6×</span></span>
         </span>
       </div><div class="cmp-bars-row">
-        <span class="cmp-label">Geo-impossible login</span>
+        <span class="cmp-label">Terms aggregation</span>
         <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:2.0%;"></span>
-          <span class="cmp-num">1.8 ms</span>
+          <span class="cmp-bar" style="width:7.6%;"></span>
+          <span class="cmp-num">1.34 ms</span>
         </span>
         <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:75.3%;"></span>
-          <span class="cmp-num">67.2 ms <span class="cmp-ratio">37.3×</span></span>
+          <span class="cmp-bar" style="width:8.7%;"></span>
+          <span class="cmp-num">1.54 ms <span class="cmp-ratio">1.15×</span></span>
         </span>
       </div>
   </div>
+    <p style="margin-top:14px; font-size:12px; letter-spacing:.04em; color:var(--z-mute); font-family:var(--font-data);">P50 · 1M-DOC LLM-TELEMETRY CORPUS · FULL 91-CELL MATRIX AT <a href="/benchmarks/">xerj.org/benchmarks &rarr;</a></p>
   </div>
 </section>
 
 <div class="pain-solve">
   <div class="pain">
     <h3>THE ELASTICSEARCH PROBLEM</h3>
-    <ul><li><strong>Slow aggregations kill investigations.</strong> A terms agg on source_ip across 1M events takes 29.8 ms on ES. In a live incident, that delay compounds across dozens of pivots.</li><li><strong>Cluster complexity adds ops burden.</strong> A production ES SIEM cluster needs 4+ nodes, dedicated master election, shard tuning, and a team that understands JVM heap sizing. That team costs $150K+ per engineer.</li><li><strong>Cost scales linearly with retention.</strong> Every day of retention adds shards, replicas, and heap. Compliance says "keep 90 days"; finance says "cut nodes".</li><li><strong>Vendor lock-in via licensing tiers.</strong> ES paywalls RBAC, SSO, and ML-based detection behind Platinum+. The features your SOC needs most are the ones that cost the most.</li></ul>
+    <ul><li><strong>Slow aggregations stall investigations.</strong> A terms aggregation on source_ip lags on ES; in a live incident, that delay compounds across dozens of pivots.</li><li><strong>Cluster complexity adds ops burden.</strong> A production ES SIEM cluster needs multiple nodes, dedicated master election, shard tuning, and a team that understands JVM heap sizing.</li><li><strong>Cost scales linearly with retention.</strong> Every day of retention adds shards, replicas, and heap. Compliance says "keep 90 days"; finance says "cut nodes".</li><li><strong>Vendor lock-in via licensing tiers.</strong> ES paywalls RBAC, SSO, and ML-based detection behind Platinum+. The features your SOC needs most are the ones that cost the most.</li></ul>
   </div>
   <div class="solve">
     <h3>THE XERJ ANSWER</h3>
-    <ul><li><strong>74× faster aggregations.</strong> The same top-source-IP query runs in 0.4 ms — sub-millisecond, every time, without warm-up.</li><li><strong>One binary, zero cluster ops.</strong> No master election, no shard calculator, no JVM tuning. A single xerj binary replaces the 4-node ES cluster.</li><li><strong>21× less memory at idle.</strong> 400 MB RSS vs 8.5 GB across 4 ES nodes. That translates directly to smaller instances and lower cloud bills.</li><li><strong>All features in one tier.</strong> RBAC, API-key auth, TLS, aggregations, hybrid search — every feature ships in the binary. No Platinum gate.</li><li><strong>90-day retention is one config line.</strong> <code>[logs] retention_days = 90</code>. No ILM policies, no rollover aliases, no curator scripts.</li></ul>
+    <ul><li><strong>Faster queries, reproducibly.</strong> A full bool filter runs in 1.38 ms vs 15.90 ms on ES (11.5×); the terms aggregation in 1.34 ms vs 1.54 ms — every time, without warm-up.</li><li><strong>One binary, zero cluster ops.</strong> No master election, no shard calculator, no JVM tuning. A single xerj binary replaces the 4-node ES cluster.</li><li><strong>Smaller on disk, no JVM heap.</strong> The same corpus is 672.5 MB on XERJ vs 806.7 MB on ES — 1.20× smaller — with no GC pauses to size around.</li><li><strong>All features in one tier.</strong> RBAC, API-key auth, TLS, aggregations, hybrid search — every feature ships in the binary. No Platinum gate.</li><li><strong>90-day retention is one config line.</strong> <code>[logs] retention_days = 90</code>. No ILM policies, no rollover aliases, no curator scripts.</li></ul>
   </div>
 </div>
 
 <div class="proof-row">
 
   <div class="stat">
-    <div class="num">74×</div>
-    <div class="label">FASTER SIEM AGG</div>
-    <div class="ctx">Top-source-IP terms agg, 1M events, p95</div>
+    <div class="num">11.5×</div>
+    <div class="label">FASTER BOOL QUERIES</div>
+    <div class="ctx">must+filter+should+must_not · p50 · vs ES 8.13</div>
   </div>
 
   <div class="stat">
     <div class="num">6.8×</div>
-    <div class="label">MEDIAN QUERY SPEEDUP</div>
-    <div class="ctx">16-query SIEM battery, geometric mean 8.0×</div>
+    <div class="label">FASTER WILDCARD</div>
+    <div class="ctx">wildcard query · p50 1.35 ms vs 9.10 ms</div>
   </div>
 
   <div class="stat">
-    <div class="num">21×</div>
-    <div class="label">LESS MEMORY</div>
-    <div class="ctx">400 MB xerj vs 8.5 GB ES (4-node cluster)</div>
+    <div class="num">1.20×</div>
+    <div class="label">SMALLER ON DISK</div>
+    <div class="ctx">672.5 MB vs 806.7 MB · post-ingest</div>
   </div>
 
 </div>

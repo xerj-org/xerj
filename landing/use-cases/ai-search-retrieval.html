@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
-<link rel="stylesheet" href="/style.css?v=90f643e">
+<link rel="stylesheet" href="/style.css?v=sc0706">
 </head>
 <body>
 
@@ -70,20 +70,20 @@
 <div class="pain-solve">
   <div class="pain">
     <h3>THE TWO-SYSTEM PROBLEM</h3>
-    <ul><li><strong>Pinecone + ES = double ops.</strong> Two systems, two schemas, two billing lines, two failure domains. Data sync between them is a pipeline you have to build and maintain.</li><li><strong>Hybrid search is an orchestration hack.</strong> Call ES for BM25, call Pinecone for kNN, merge results client-side. Latency doubles, relevance suffers, and the fusion logic is yours to debug.</li><li><strong>Vector DB lock-in is real.</strong> Pinecone is closed-source. Qdrant has WAL corruption bugs. Milvus requires 4 external dependencies. Migrating between them means re-indexing billions of vectors.</li><li><strong>Cost per vector is high.</strong> Full float32 storage at $0.10/1K vectors means 1B vectors = $100K/year just for storage — before queries.</li></ul>
+    <ul><li><strong>Pinecone + ES = double ops.</strong> Two systems, two schemas, two billing lines, two failure domains. Data sync between them is a pipeline you have to build and maintain.</li><li><strong>Hybrid search is an orchestration hack.</strong> Call ES for BM25, call Pinecone for kNN, merge results client-side. Latency doubles, relevance suffers, and the fusion logic is yours to debug.</li><li><strong>Vector DB lock-in is real.</strong> Pinecone is closed-source. Qdrant has WAL corruption bugs. Milvus requires external dependencies. Migrating between them means re-indexing billions of vectors.</li><li><strong>Cost per vector adds up.</strong> Full float32 storage means paying for four bytes per dimension, per vector, at billion-scale — before you run a single query.</li></ul>
   </div>
   <div class="solve">
     <h3>THE XERJ ANSWER</h3>
-    <ul><li><strong>One engine for text + vectors.</strong> BM25 and HNSW share one planner. A hybrid query is one POST, not two API calls stitched together.</li><li><strong>SQ8 quantization built in.</strong> 4× memory savings at ~1% recall loss. 1B vectors on a single node becomes practical.</li><li><strong>Semantic search at query time.</strong> Configure an embedding endpoint and XERJ auto-embeds the query — no client-side embedding step.</li><li><strong>No data sync.</strong> Text and vectors live in the same index, the same document, the same WAL. One write path, one consistency model.</li></ul>
+    <ul><li><strong>One engine for text + vectors.</strong> BM25 and HNSW share one planner. A hybrid query is one POST, not two API calls stitched together.</li><li><strong>SQ8 quantization built in.</strong> Vectors store as int8 — a quarter the size of float32 — so 1B vectors on a single node becomes practical.</li><li><strong>Semantic search at query time.</strong> Configure an embedding endpoint and XERJ auto-embeds the query — no client-side embedding step.</li><li><strong>No data sync.</strong> Text and vectors live in the same index, the same document, the same WAL. One write path, one consistency model.</li></ul>
   </div>
 </div>
 
 <div class="proof-row">
 
   <div class="stat">
-    <div class="num">4×</div>
-    <div class="label">MEMORY SAVINGS</div>
-    <div class="ctx">SQ8 quantization: ~1–2% recall loss</div>
+    <div class="num">3.4×</div>
+    <div class="label">FASTER kNN</div>
+    <div class="ctx">k=10 · 0.78 ms vs 2.64 ms · 100% recall</div>
   </div>
 
   <div class="stat">
@@ -95,7 +95,7 @@
   <div class="stat">
     <div class="num">16,384</div>
     <div class="label">MAX DIMENSIONS</div>
-    <div class="ctx">4× Elasticsearch's 4,096 limit</div>
+    <div class="ctx">vs Elasticsearch's 4,096-dim cap</div>
   </div>
 
 </div>
@@ -103,45 +103,56 @@
 
 <section class="scene-section">
   <div class="viz-block">
-    <div class="kicker"><span>MEMORY · XERJ SQ8 vs ES + PINECONE (FLOAT32)</span></div>
+    <div class="kicker"><span>REPRODUCIBLE · ES 8.13 · demo/playbooks/SCORECARD.md</span></div>
     <div class="cmp-bars">
     <div class="cmp-bars-head">
       <span></span>
-      <span class="cmp-a">XERJ (SQ8)</span>
-      <span class="cmp-b">ES + PINECONE</span>
+      <span class="cmp-a">XERJ</span>
+      <span class="cmp-b">ES 8.13</span>
     </div>
     <div class="cmp-bars-row">
-        <span class="cmp-label">1M × 768-dim</span>
+        <span class="cmp-label">Query-string query</span>
         <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:1.3%;"></span>
-          <span class="cmp-num">1.2 GB</span>
+          <span class="cmp-bar" style="width:13.0%;"></span>
+          <span class="cmp-num">1.35 ms</span>
         </span>
         <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:5.0%;"></span>
-          <span class="cmp-num">4.6 GB <span class="cmp-ratio">3.8×</span></span>
+          <span class="cmp-bar" style="width:90.0%;"></span>
+          <span class="cmp-num">9.35 ms <span class="cmp-ratio">6.9×</span></span>
         </span>
       </div><div class="cmp-bars-row">
-        <span class="cmp-label">5M × 768-dim</span>
+        <span class="cmp-label">Multi-match query</span>
         <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:6.3%;"></span>
-          <span class="cmp-num">5.8 GB</span>
+          <span class="cmp-bar" style="width:13.9%;"></span>
+          <span class="cmp-num">1.44 ms</span>
         </span>
         <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:25.0%;"></span>
-          <span class="cmp-num">23 GB <span class="cmp-ratio">4.0×</span></span>
+          <span class="cmp-bar" style="width:56.7%;"></span>
+          <span class="cmp-num">5.89 ms <span class="cmp-ratio">4.1×</span></span>
         </span>
       </div><div class="cmp-bars-row">
-        <span class="cmp-label">10M × 1536-dim</span>
+        <span class="cmp-label">kNN · k=10 · 100% recall</span>
         <span class="cmp-val cmp-a">
-          <span class="cmp-bar" style="width:19.6%;"></span>
-          <span class="cmp-num">18 GB</span>
+          <span class="cmp-bar" style="width:7.5%;"></span>
+          <span class="cmp-num">0.78 ms</span>
         </span>
         <span class="cmp-val cmp-b">
-          <span class="cmp-bar" style="width:100.0%;"></span>
-          <span class="cmp-num">92 GB <span class="cmp-ratio">5.1×</span></span>
+          <span class="cmp-bar" style="width:25.4%;"></span>
+          <span class="cmp-num">2.64 ms <span class="cmp-ratio">3.4×</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Match query</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:5.5%;"></span>
+          <span class="cmp-num">0.57 ms</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:14.0%;"></span>
+          <span class="cmp-num">1.45 ms <span class="cmp-ratio">2.5×</span></span>
         </span>
       </div>
   </div>
+    <p style="margin-top:14px; font-size:12px; letter-spacing:.04em; color:var(--z-mute); font-family:var(--font-data);">P50 · 1M-DOC LLM-TELEMETRY CORPUS · FULL 91-CELL MATRIX AT <a href="/benchmarks/">xerj.org/benchmarks &rarr;</a></p>
   </div>
 </section>
 

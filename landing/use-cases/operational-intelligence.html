@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
-<link rel="stylesheet" href="/style.css?v=90f643e">
+<link rel="stylesheet" href="/style.css?v=sc0706">
 </head>
 <body>
 
@@ -71,20 +71,20 @@
 <div class="pain-solve">
   <div class="pain">
     <h3>THE ELK STACK TAX</h3>
-    <ul><li><strong>Four services to run before you see a log.</strong> Filebeat → Logstash → Elasticsearch → Kibana. Each has its own config, its own memory footprint (Logstash alone: 500 MB–2 GB), and its own failure modes.</li><li><strong>ILM policies are fragile.</strong> Index lifecycle management in ES involves rollover aliases, warm/cold/frozen tiers, curator scripts, and a naming convention that breaks when someone creates an index manually.</li><li><strong>Cold start kills your morning.</strong> After a restart, ES takes ~15 seconds of JVM warm-up before the first query returns. In an incident, 15 seconds is a lifetime.</li><li><strong>Shard tuning is a full-time job.</strong> Too many shards per index → master bottleneck. Too few → uneven distribution. The "right" number changes with data volume, and there's no undo button.</li></ul>
+    <ul><li><strong>Four services to run before you see a log.</strong> Filebeat → Logstash → Elasticsearch → Kibana. Each has its own config, its own memory footprint, and its own failure modes.</li><li><strong>ILM policies are fragile.</strong> Index lifecycle management in ES involves rollover aliases, warm/cold/frozen tiers, curator scripts, and a naming convention that breaks when someone creates an index manually.</li><li><strong>Cold start kills your morning.</strong> After a restart, ES needs JVM warm-up before the first query returns. In an incident, that wait is a lifetime.</li><li><strong>Shard tuning is a full-time job.</strong> Too many shards per index → master bottleneck. Too few → uneven distribution. The "right" number changes with data volume, and there's no undo button.</li></ul>
   </div>
   <div class="solve">
     <h3>THE XERJ ANSWER</h3>
-    <ul><li><strong>One binary, four ingest paths.</strong> turbo-ingest, structured logs, syslog, and OTLP — all in-process. No Logstash, no Beats.</li><li><strong>Retention is one number.</strong> <code>[logs] retention_days = 30</code>. Time-partitioned internally so pruning is O(partitions), not O(documents).</li><li><strong>300× faster cold start.</strong> 50 ms to first query vs ~15 seconds ES JVM warm-up. WAL replay is fast because it's append-only and the format is simple.</li><li><strong>No shard tuning.</strong> XERJ manages segments internally — you never configure shard count, replica count, or allocation rules for log data.</li></ul>
+    <ul><li><strong>One binary, four ingest paths.</strong> turbo-ingest, structured logs, syslog, and OTLP — all in-process. No Logstash, no Beats.</li><li><strong>Retention is one number.</strong> <code>[logs] retention_days = 30</code>. Time-partitioned internally so pruning is O(partitions), not O(documents).</li><li><strong>No JVM warm-up.</strong> The static binary serves queries the moment it starts — no cold-start stall after a restart. WAL replay is append-only and simple.</li><li><strong>No shard tuning.</strong> XERJ manages segments internally — you never configure shard count, replica count, or allocation rules for log data.</li></ul>
   </div>
 </div>
 
 <div class="proof-row">
 
   <div class="stat">
-    <div class="num">300×</div>
-    <div class="label">FASTER COLD START</div>
-    <div class="ctx">50 ms xerj vs ~15 s ES JVM warm-up</div>
+    <div class="num">1.7×</div>
+    <div class="label">FASTER INGEST</div>
+    <div class="ctx">1M docs · single client · 119K vs 70K docs/s</div>
   </div>
 
   <div class="stat">
@@ -94,9 +94,9 @@
   </div>
 
   <div class="stat">
-    <div class="num">2.8×</div>
-    <div class="label">LESS DISK</div>
-    <div class="ctx">Domain-aware compression on SIEM-shaped log data</div>
+    <div class="num">1.20×</div>
+    <div class="label">SMALLER ON DISK</div>
+    <div class="ctx">672.5 MB vs 806.7 MB · post-ingest</div>
   </div>
 
 </div>
