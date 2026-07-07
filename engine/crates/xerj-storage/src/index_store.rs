@@ -1860,12 +1860,38 @@ impl IndexStore {
         merged_ids: &[SegmentId],
         new_meta: SegmentMeta,
     ) -> Result<()> {
+        // Sum the doc counts of the segments we're about to replace, so we can
+        // tell whether this merge actually dropped any documents.
+        let merged_total: u64 = {
+            let snap = self.snapshot.load();
+            snap.segments
+                .iter()
+                .filter(|s| merged_ids.contains(&s.id))
+                .map(|s| s.doc_count)
+                .sum()
+        };
         // Atomic replace via rcu — same race as `with_new_segment` in
         // `finalize_flush_with_publisher`: a concurrent flush appending
         // its segment between load and store would drop our merged
         // segment swap. rcu retries on contention.
         self.snapshot.rcu(|old| Arc::new(old.replace_segments(merged_ids, new_meta.clone())));
-        self.version_map.remove_segment(merged_ids);
+        // `remove_segment` does a full O(N) `DashMap::retain` over the ENTIRE
+        // version map, holding each shard's write lock — a >1s read-collapse
+        // under merge pressure once the map holds millions of entries (reads
+        // take the same shard locks via `version_map.get`).  It is only needed
+        // to purge stale entries left by documents that were DELETED and
+        // tombstone-dropped during the merge: every SURVIVING doc already had
+        // its entry repointed to the merged segment (`set_if_latest` in
+        // `merge_pass_locked`), so no live doc references the merged-away ids.
+        // When the merge dropped nothing — append-only: the new segment's
+        // doc_count equals the sum of its inputs — there are zero stale
+        // entries, so we skip the sweep entirely and the merge-correlated read
+        // stall disappears.  (Skipping can at worst leave a deleted-doc
+        // tombstone entry pointing at a gone segment, which reads treat as
+        // not-found — harmless; the sweep runs whenever doc_count shrank.)
+        if new_meta.doc_count < merged_total {
+            self.version_map.remove_segment(merged_ids);
+        }
         self.save_snapshot()?;
         info!(merged = merged_ids.len(), "merge applied");
         Ok(())
