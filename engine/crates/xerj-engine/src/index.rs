@@ -598,6 +598,31 @@ impl Index {
         Self::create_with_settings(name, schema, Value::Null, config, data_dir)
     }
 
+    /// Resolve the effective auto-flush thresholds `(docs, bytes)`.
+    ///
+    /// The byte budget is the PRIMARY driver (the memtable RAM ceiling a
+    /// shard fills before draining to a segment); the doc count is a
+    /// secondary sanity cap.  Both are runtime-overridable for cadence
+    /// tuning / benchmarking, mirroring the existing `XERJ_MERGE_*` knobs:
+    ///   `XERJ_FLUSH_SIZE_MB` — global in-memory byte budget (MiB).
+    ///   `XERJ_FLUSH_DOCS`    — global doc-count sanity cap.
+    /// Both are GLOBAL (across all ingest shards); the per-shard trigger
+    /// is `value / shard_count` (see the flush scheduler).
+    fn resolve_flush_thresholds(config_flush_size_mb: u64) -> (usize, usize) {
+        let size_mb = std::env::var("XERJ_FLUSH_SIZE_MB")
+            .ok()
+            .and_then(|v| v.trim().parse::<u64>().ok())
+            .filter(|&v| v > 0)
+            .unwrap_or(config_flush_size_mb);
+        let byte_threshold = (size_mb as usize).saturating_mul(1024 * 1024);
+        let doc_threshold = std::env::var("XERJ_FLUSH_DOCS")
+            .ok()
+            .and_then(|v| v.trim().parse::<usize>().ok())
+            .filter(|&v| v > 0)
+            .unwrap_or(FLUSH_DOC_THRESHOLD_DEFAULT);
+        (doc_threshold, byte_threshold)
+    }
+
     /// Create a new index with explicit settings at `data_dir/<name>`.
     pub fn create_with_settings(
         name: IndexName,
@@ -620,9 +645,9 @@ impl Index {
         // Doc count is a sanity cap only — the byte threshold is the primary
         // driver.  Historically this was 10 000, which forced flushes every ~8 MB
         // regardless of `flush_size_mb`, producing thousands of tiny segments on
-        // log workloads.  500 k matches ~400 MB of typical log docs.
-        let flush_doc_threshold = 500_000usize;
-        let flush_byte_threshold = (config.storage.flush_size_mb as usize).saturating_mul(1024 * 1024);
+        // log workloads.  Both are env-overridable — see resolve_flush_thresholds.
+        let (flush_doc_threshold, flush_byte_threshold) =
+            Self::resolve_flush_thresholds(config.storage.flush_size_mb);
 
         // Warn if >1 shard requested (we only support single-shard).
         if let Some(n) = settings
@@ -820,8 +845,8 @@ impl Index {
         }
 
         // See create_with_settings — doc count is a sanity cap, byte threshold drives flushes.
-        let flush_doc_threshold = 500_000usize;
-        let flush_byte_threshold = (config.storage.flush_size_mb as usize).saturating_mul(1024 * 1024);
+        let (flush_doc_threshold, flush_byte_threshold) =
+            Self::resolve_flush_thresholds(config.storage.flush_size_mb);
 
         // Try to reload a previously-persisted HNSW snapshot. If both
         // graph.bin and ids.json exist and validate, we skip the
@@ -1850,8 +1875,8 @@ impl Index {
 
         // Cheap per-shard threshold check — one read-lock, one shard.
         let n_shards = self.memtable.shard_count().max(1);
-        let per_shard_doc_t = self.flush_doc_threshold.div_ceil(n_shards);
-        let per_shard_byte_t = self.flush_byte_threshold.div_ceil(n_shards);
+        let per_shard_doc_t = staggered_per_shard_threshold(self.flush_doc_threshold, shard_idx, n_shards);
+        let per_shard_byte_t = staggered_per_shard_threshold(self.flush_byte_threshold, shard_idx, n_shards);
         let (sd_docs, sd_bytes) = self.memtable.shard_load(shard_idx);
         if sd_docs >= per_shard_doc_t || sd_bytes >= per_shard_byte_t {
             self.try_spawn_sync_flush(shard_idx);
@@ -2206,18 +2231,17 @@ impl Index {
         // + file I/O) dominates when flushes are only a few
         // thousand docs each, so we let shards fill closer to
         // their share of the global threshold before flushing.
-        let per_shard_doc_t = self
-            .flush_doc_threshold
-            .div_ceil(shards.len().max(1));
-        let per_shard_byte_t = self
-            .flush_byte_threshold
-            .div_ceil(shards.len().max(1));
+        let n_shards_sched = shards.len().max(1);
 
         let field_configs_once: std::sync::OnceLock<
             HashMap<String, xerj_fts::index::FieldIndexConfig>,
         > = std::sync::OnceLock::new();
 
         for (shard_idx, docs, bytes) in shards {
+            let per_shard_doc_t = staggered_per_shard_threshold(
+                self.flush_doc_threshold, shard_idx, n_shards_sched);
+            let per_shard_byte_t = staggered_per_shard_threshold(
+                self.flush_byte_threshold, shard_idx, n_shards_sched);
             if docs < per_shard_doc_t && bytes < per_shard_byte_t {
                 continue;
             }
@@ -9175,6 +9199,19 @@ async fn do_flush_shard(
 
     // THROWAWAY prof: per-flush finalize breakdown, gated on XERJ_PROF.
     let prof = std::env::var_os("XERJ_PROF").is_some();
+    // Run the Phase-1 prep `par_iter` (JIT JSON re-parse + text-field
+    // extraction, ~140 ms/flush) on the deprioritised INGEST pool rather
+    // than the global rayon pool.  Reason: the sidecar build already does
+    // this (see `build_fts`), but the prep par_iter did NOT — so a 16-wide
+    // flush storm floods the GLOBAL rayon pool that concurrent search/agg
+    // par_iters run on, queuing reads behind ~140 ms of flush CPU and
+    // spiking read-under-write p99.  Offloading it to `background_pool`
+    // (nice-10, separate from the search pool) keeps reads off that queue.
+    // Env-overridable (default ON) for A/B — set XERJ_PREP_OFFLOAD=0 to
+    // reproduce the pre-fix global-pool behaviour.
+    let prep_offload = std::env::var("XERJ_PREP_OFFLOAD")
+        .map(|v| v != "0" && !v.eq_ignore_ascii_case("false"))
+        .unwrap_or(true);
     let t_flush_start = std::time::Instant::now();
     let mut prof_drain_us: u128 = 0;
     let mut prof_prep_us: u128 = 0;
@@ -9216,7 +9253,7 @@ async fn do_flush_shard(
             // parse on the raw-bytes path) is pure and was a ~140 ms
             // SERIAL stretch per 31k-doc flush on the flush task —
             // par_iter preserves order and spreads it across the pool.
-            let drained_fts: Vec<(String, std::collections::HashMap<String, String>, std::sync::Arc<serde_json::Value>)> = {
+            let build_drained_fts = || {
                 use rayon::prelude::*;
                 raw.par_iter()
                     .map(|(_seq, doc_id, arc, bytes)| {
@@ -9241,6 +9278,14 @@ async fn do_flush_shard(
                     })
                     .collect()
             };
+            // Off the global rayon pool (default) so the flush-storm prep
+            // doesn't queue ahead of concurrent search/agg par_iters.
+            let drained_fts: Vec<(String, std::collections::HashMap<String, String>, std::sync::Arc<serde_json::Value>)> =
+                if prep_offload {
+                    crate::background_pool().install(build_drained_fts)
+                } else {
+                    build_drained_fts()
+                };
 
             let storage_entries: Vec<xerj_storage::index_store::MemEntry> = raw
                 .into_iter()
@@ -14160,6 +14205,52 @@ fn phase_log_threshold_ms() -> u64 {
 /// while adding only batch_len/512 lock acquisitions per batch (trivial vs the
 /// per-doc locking that once regressed ingest 4×).
 const MEMTABLE_INSERT_CHUNK: usize = 512;
+
+/// Default GLOBAL doc-count auto-flush sanity cap (across all ingest
+/// shards; per-shard trigger is this / shard_count).  This is a
+/// SECONDARY guard — the byte budget (`flush_size_mb`) is the primary
+/// flush driver.  It exists only to bound the posting-map growth of a
+/// pathological tiny-doc workload between byte checkpoints.  Sized so
+/// that for realistic log docs the BYTE budget always trips first: at
+/// 16 shards a 4 M cap is 250 k docs/shard, which for ~300-byte docs is
+/// far more than a 512 MiB/16 = 32 MiB shard-buffer holds, so the
+/// byte trigger dominates as intended.  See `resolve_flush_thresholds`.
+const FLUSH_DOC_THRESHOLD_DEFAULT: usize = 4_000_000;
+
+/// Cached per-shard flush-trigger STAGGER fraction (`XERJ_FLUSH_STAGGER`,
+/// default 0 = off).  When >0, shard `i`'s per-shard threshold is scaled
+/// by `1 + frac*(i/(N-1) - 0.5)` — a RAM-neutral centred ramp (mean over
+/// shards == base) that phase-offsets when each shard crosses its
+/// threshold, so the N ingest shards do NOT all flush in one synchronised
+/// storm.  Investigated as a read-under-write p99 mitigation; ships
+/// DEFAULT-OFF because measurement showed no material p99 win — the
+/// per-storm stall cost is conserved when the storm is spread (see the
+/// flush-cadence investigation).  Kept as a tunable for operators.
+fn flush_stagger_frac() -> f64 {
+    static F: std::sync::OnceLock<f64> = std::sync::OnceLock::new();
+    *F.get_or_init(|| {
+        std::env::var("XERJ_FLUSH_STAGGER")
+            .ok()
+            .and_then(|v| v.trim().parse::<f64>().ok())
+            .filter(|v| v.is_finite() && *v >= 0.0)
+            .unwrap_or(0.0)
+    })
+}
+
+/// Per-shard flush threshold = `base_total / n_shards`, optionally
+/// phase-staggered by `flush_stagger_frac()` so the shards don't all
+/// cross their threshold simultaneously.  The stagger is centred, so the
+/// summed per-shard thresholds still equal `base_total` (RAM-neutral).
+fn staggered_per_shard_threshold(base_total: usize, shard_idx: usize, n_shards: usize) -> usize {
+    let n = n_shards.max(1);
+    let base = base_total.div_ceil(n);
+    let frac = flush_stagger_frac();
+    if frac <= 0.0 || n <= 1 {
+        return base;
+    }
+    let pos = shard_idx as f64 / (n - 1) as f64 - 0.5; // -0.5 ..= 0.5
+    ((base as f64) * (1.0 + frac * pos)).max(1.0) as usize
+}
 
 /// Retained-memory budget for `stored_slices_cache`.  Inserts stop once the
 /// budget is reached (queries then fall back to the per-query decompress
