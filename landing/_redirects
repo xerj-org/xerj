@@ -14,7 +14,7 @@
 /dashboards   /playground.html    302
 /app          /playground/        302
 /bench        /benchmarks/        302
-/github       https://github.com/ 302
+/github       https://github.com/xerj-org/xerj 302
 
 # Trailing slash normalization
 /home         /                   301

@@ -26,7 +26,7 @@
   <span class="spacer"></span>
   <a href="/docs/index.html">DOCS</a>
   <a href="/playground.html">DASHBOARDS</a>
-  <a href="https://github.com/" rel="external">GITHUB</a>
+  <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
   <span class="theme">
     <button type="button" data-theme="day">DAY</button>
     <span class="dash">·</span>
@@ -46,10 +46,14 @@
     <h1 class="hero"><span class="accent">XERJ.</span><br>ONE ENGINE.<br>ZERO STACK.</h1>
 
     <p class="lead">
-      Replace Elasticsearch, Pinecone, and Splunk with a single Rust binary.
-      38 query types. Native hybrid search. Auto-embedding. Agent memory.
-      74× faster on SIEM. 21× less memory. No JVM. No cluster coordinator.
-      No second database for vectors. <strong>Just XERJ.</strong>
+      An AI-native search engine for what keyword search can't do —
+      <strong>agent memory</strong>, <strong>semantic search &amp; RAG</strong>,
+      <strong>hybrid</strong> BM25&nbsp;+&nbsp;vector retrieval,
+      <strong>auto-embedding</strong> on ingest, and <strong>anomaly
+      detection</strong> — with no bolt-on vector database and no glue code.
+      One binary that speaks the Elasticsearch wire protocol, released under
+      <strong>Apache&#8209;2.0</strong>: no lock-in, no SSPL, no per-feature
+      gates. Yours to run, fork, and build on.
     </p>
   </div>
 
@@ -199,22 +203,20 @@
 
 <!-- CTA — DEMO REQUEST ---------------------------------------->
 <section class="lead-capture" id="demo">
-  <div class="kicker"><span class="accent">XERJ.AI</span><span class="dash">·</span><span>REQUEST ACCESS</span></div>
-  <h3>RUN IT ON<br><span class="accent">YOUR DATA.</span></h3>
+  <div class="kicker"><span class="accent">XERJ.AI</span><span class="dash">·</span><span>OPEN THE PLAYGROUND</span></div>
+  <h3>TRY IT<br><span class="accent">RIGHT NOW.</span></h3>
   <p>
-    Leave a work email. We'll reply within one business day with the
-    XERJ binary, the reproduction scripts for the head-to-head tests
-    against ES 8.13, and a 45-minute walkthrough. No marketing funnel,
-    no sequenced drip, no "journey."
+    Leave a work email and the live dashboards open immediately — explore the
+    query surface, vector search, aggregations, and agent memory on real data.
+    Stored only in your browser: no funnel, no sequenced drip, no "journey."
   </p>
 
   <form class="lead-form" id="leadForm" action="#" method="post" novalidate>
     <div class="lead-form-input">
       <input type="email" name="email" placeholder="you@company.com" required aria-label="Work email" autocomplete="email" />
     </div>
-    <button type="submit" class="demo">GET XERJ <span class="arrow">→</span></button>
-    <span class="note">We only use this email to send you the binary. Ever.</span>
-    <span class="ok">✓ THANKS. CHECK YOUR INBOX WITHIN 24 HOURS.</span>
+    <button type="submit" class="demo">OPEN PLAYGROUND <span class="arrow">→</span></button>
+    <span class="note">Stored only in your browser. No server, no sales call. Ever.</span>
   </form>
 </section>
 
@@ -287,7 +289,10 @@
         const email = form.querySelector('input[type=email]').value.trim();
         if (!email || !email.includes('@')) return;
         console.log('[xerj lead]', email);
-        form.classList.add('sent');
+        // Stored only in the browser (same gate key as the playground page),
+        // then open the live dashboards app — no server, no "inbox" wait.
+        try { localStorage.setItem('xerj.playground.email', email); } catch (_) {}
+        window.location.href = '/playground/';
       });
     }
   })();
