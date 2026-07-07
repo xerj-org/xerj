@@ -545,8 +545,8 @@ async fn perf_memory_footprint() {
 
     let rss_after = rss_bytes().unwrap_or(0);
     let rss_delta = rss_after.saturating_sub(baseline_rss);
-    let rss_per_doc = if N > 0 { rss_delta / N as u64 } else { 0 };
-    let engine_per_doc = if N > 0 { engine_reported_bytes / N } else { 0 };
+    let rss_per_doc = rss_delta.checked_div(N as u64).unwrap_or(0);
+    let engine_per_doc = engine_reported_bytes.checked_div(N).unwrap_or(0);
 
     print_kv("Documents indexed:", &format!("{}", N));
     print_kv("Indexing time:", &format!("{:.2?}", elapsed));

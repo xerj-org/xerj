@@ -13958,10 +13958,7 @@ fn compute_sig_text_debug(spec: &SigTextSpec, fg_docs: &[Value]) -> Value {
                 .unwrap_or_default(),
             None => String::new(),
         };
-        per_group
-            .entry(group_key)
-            .or_default()
-            .extend(doc_tokens.into_iter());
+        per_group.entry(group_key).or_default().extend(doc_tokens);
     }
     let total_buckets: u64 = per_group.values().map(|s| s.len() as u64).sum();
     json!({
@@ -14562,17 +14559,9 @@ pub async fn nodes_stats(State(state): State<AppState>) -> impl IntoResponse {
     let rss_bytes = read_rss_bytes().unwrap_or(0);
     let (mem_total, mem_avail) = read_meminfo().unwrap_or((rss_bytes * 4, rss_bytes * 3));
     let mem_used = mem_total.saturating_sub(mem_avail);
-    let used_pct = if mem_total > 0 {
-        mem_used * 100 / mem_total
-    } else {
-        0
-    };
+    let used_pct = (mem_used * 100).checked_div(mem_total).unwrap_or(0);
     let free_pct = 100u64.saturating_sub(used_pct);
-    let heap_used_pct = if mem_total > 0 {
-        rss_bytes * 100 / mem_total
-    } else {
-        0
-    };
+    let heap_used_pct = (rss_bytes * 100).checked_div(mem_total).unwrap_or(0);
     let cpu_pct = sample_cpu_percent().await;
 
     let node_id = state.engine.node_id.as_str();
@@ -17239,11 +17228,9 @@ pub async fn cat_allocation(State(state): State<AppState>) -> impl IntoResponse 
     let (disk_total, disk_avail) = read_disk_stats(&state.config.server.data_dir)
         .unwrap_or((10 * 1024 * 1024 * 1024, 8 * 1024 * 1024 * 1024));
     let disk_used_bytes = disk_total.saturating_sub(disk_avail);
-    let disk_percent = if disk_total > 0 {
-        (disk_total - disk_avail) * 100 / disk_total
-    } else {
-        0
-    };
+    let disk_percent = ((disk_total - disk_avail) * 100)
+        .checked_div(disk_total)
+        .unwrap_or(0);
 
     let shards = health.index_count;
     let body = format!(
@@ -19876,14 +19863,8 @@ pub async fn close_pit(
         .and_then(|v| v.get("id").and_then(Value::as_str))
         .map(String::from);
     let freed = match id {
-        Some(i) => {
-            if state.engine.pits.remove(&i).is_some() {
-                1
-            } else {
-                0
-            }
-        }
-        None => 0,
+        Some(i) if state.engine.pits.remove(&i).is_some() => 1,
+        _ => 0,
     };
     Json(json!({ "succeeded": freed > 0, "num_freed": freed })).into_response()
 }

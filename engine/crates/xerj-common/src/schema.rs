@@ -170,20 +170,16 @@ impl ManagedSchema {
     /// is never compatible.
     pub fn is_compatible_with(&self, other: &ManagedSchema) -> Result<(), XerjError> {
         for field in &self.schema.fields {
-            match other.field(&field.name) {
-                None => {
-                    // `other` is missing a field that `self` has — only allowed
-                    // if the field was added after the other schema was snapshotted.
-                    // We allow this (additive only).
-                }
-                Some(other_field) => {
-                    if other_field.field_type != field.field_type {
-                        return Err(XerjError::invalid_mapping(format!(
-                            "field '{}' type changed from '{}' to '{}'; \
-                             type changes require reindexing",
-                            field.name, field.field_type, other_field.field_type
-                        )));
-                    }
+            // A field missing from `other` is fine — schemas grow additively,
+            // so `self` having a field the snapshot lacks is allowed. Only a
+            // TYPE change on a field both sides know is incompatible.
+            if let Some(other_field) = other.field(&field.name) {
+                if other_field.field_type != field.field_type {
+                    return Err(XerjError::invalid_mapping(format!(
+                        "field '{}' type changed from '{}' to '{}'; \
+                         type changes require reindexing",
+                        field.name, field.field_type, other_field.field_type
+                    )));
                 }
             }
         }

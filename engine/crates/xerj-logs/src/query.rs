@@ -343,7 +343,7 @@ impl<'a> LogQueryExecutor<'a> {
                         value: None,
                     })
                     .collect();
-                buckets.sort_by(|a, b| b.doc_count.cmp(&a.doc_count));
+                buckets.sort_by_key(|b| std::cmp::Reverse(b.doc_count));
                 buckets.truncate(*size);
                 Ok(AggregationResult {
                     value: None,

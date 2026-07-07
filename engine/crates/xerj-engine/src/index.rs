@@ -13628,7 +13628,7 @@ fn intervals_combine_all(
         } else {
             // Unordered: intervals must be disjoint (no overlaps).
             let mut sorted = combo.clone();
-            sorted.sort_by(|a, b| a.start.cmp(&b.start));
+            sorted.sort_by_key(|iv| iv.start);
             let mut ok = true;
             for i in 1..sorted.len() {
                 if sorted[i].start <= sorted[i - 1].end {
@@ -13648,7 +13648,7 @@ fn intervals_combine_all(
         // between contiguous sub-intervals.
         if let Some(mg) = max_gaps {
             let mut sorted = combo.clone();
-            sorted.sort_by(|a, b| a.start.cmp(&b.start));
+            sorted.sort_by_key(|iv| iv.start);
             let mut gap = 0i64;
             for i in 1..sorted.len() {
                 let diff = sorted[i].start as i64 - sorted[i - 1].end as i64 - 1;
