@@ -8,6 +8,27 @@
 [![Rust](https://img.shields.io/badge/Rust-stable-000000.svg?logo=rust)](https://www.rust-lang.org/)
 [![ES conformance](https://img.shields.io/badge/ES%20conformance-1326%2F1329-brightgreen.svg)](https://xerj.org/benchmarks)
 
+<p align="center">
+  <a href="https://xerj.org/playground/"><img src="https://img.shields.io/badge/%E2%96%B6%20Live%20Playground-ffc400?style=for-the-badge&labelColor=0b0b0d" height="36" alt="Live Playground"></a>
+  &nbsp;<a href="https://xerj.org/aise-demo.html"><img src="https://img.shields.io/badge/Watch%20the%20Demo-1f6feb?style=for-the-badge&labelColor=0b0b0d" height="36" alt="Watch the Demo"></a>
+  &nbsp;<a href="https://xerj.org/benchmarks"><img src="https://img.shields.io/badge/Benchmarks-2ea043?style=for-the-badge&labelColor=0b0b0d" height="36" alt="Benchmarks"></a>
+  &nbsp;<a href="https://xerj.org/docs/"><img src="https://img.shields.io/badge/Docs-8957e5?style=for-the-badge&labelColor=0b0b0d" height="36" alt="Docs"></a>
+</p>
+
+<p align="center">
+  <a href="https://xerj.org/aise-demo.html">
+    <img src="docs/media/demo.gif" width="840" alt="XERJ live demo — boot, bulk ingest, search, vector kNN, live dashboards">
+  </a>
+  <br>
+  <sub><b><a href="https://xerj.org/aise-demo.html">▶ Watch the full demo</a></b> — boot → bulk-ingest → search → vectors → live dashboards, no cuts &nbsp;·&nbsp; <a href="https://xerj.org/playground/">open the live playground →</a></sub>
+</p>
+
+<p align="center">
+  <img src="docs/media/dashboard-ai-overview.png" width="270" alt="AI overview dashboard">
+  <img src="docs/media/dashboard-vector-index.png" width="270" alt="Vector index dashboard">
+  <img src="docs/media/dashboard-agent-memory.png" width="270" alt="Agent-memory dashboard">
+</p>
+
 XERJ speaks the Elasticsearch REST wire protocol, so your existing ES clients, dashboards, and tooling talk to it unchanged. Under the hood it combines full-text search (BM25), dense-vector kNN (HNSW), aggregations, and log analytics in a single native binary — no JVM, sub-second cold start. It is released under **Apache-2.0**, a genuinely open license, as an alternative to Elasticsearch's move to SSPL.
 
 ---
@@ -167,7 +188,7 @@ XERJ is a Cargo workspace under [`engine/`](./engine). The crates:
 | `xerj-fts` | Full-text search: BM25 scoring, analyzer registry, postings lists. |
 | `xerj-vector` | Dense-vector HNSW index for kNN / semantic search. |
 | `xerj-logs` | Columnar log ingestion and retention. |
-| `xerj-ai` | Text chunking and an embedding proxy (external OpenAI-compatible API) that powers the `semantic` query. Also houses an experimental memory store not yet exposed over the REST API — see the [roadmap](#roadmap). |
+| `xerj-ai` | Text chunking, the built-in lexical embedder, and an embedding proxy (external OpenAI-compatible API) that powers the `semantic` query. The memory store is now exposed over the REST API at `/_memory/{ns}` (store / `_recall` / list / forget), shipped in rc-2 — see the [roadmap](#roadmap). |
 | `xerj-compress` | Block compression codecs (LZ4, Zstd). |
 | `xerj-common` | Shared types: `Config`, `Schema`, `FieldType`, `XerjError`. |
 | `xerj-cluster` | Embedded Raft consensus for cluster metadata (no external Raft dependency). |

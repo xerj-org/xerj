@@ -6,7 +6,7 @@
 <title>XERJ.ai — Enterprise use cases</title>
 <meta name="description" content="Five enterprise workloads. One binary. Measured benchmarks vs ES 8.13.">
 <meta property="og:title" content="XERJ.ai — storage for the agent era">
-<meta property="og:description" content="One Rust binary. 74× faster on SIEM aggregations. Live product playground.">
+<meta property="og:description" content="An AI-native, Elasticsearch-wire-compatible search + vector + log engine in Rust. Apache-2.0, no lock-in. Live playground + reproducible head-to-head benchmarks.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -61,7 +61,7 @@
     <span class="uc-num">01</span>
     <div class="uc-title">SECURITY<br>ANALYTICS<br><span class="accent">AT SCALE.</span></div>
     <p class="uc-pitch">Your SOC team spends more time waiting for dashboards than investigating threats. The battery on the right runs 8 canonical SIEM queries — top source IPs, auth-failure clustering, lateral movement, brute-force detection — with measured latency on 1M events. XERJ is the yellow bar. Elasticsearch is the gray one.</p>
-    <div class="uc-metric">74× FASTER SIEM QUERIES</div>
+    <div class="uc-metric">1.15× FASTER TERMS AGGREGATIONS</div>
     <div class="uc-persona">CISO · SOC ANALYST · SECOPS</div>
     <a href="/use-cases/security-analytics.html" class="uc-cta">FULL USE CASE →</a>
   </div>
@@ -243,7 +243,7 @@
     <span class="uc-num">04</span>
     <div class="uc-title">ELASTICSEARCH<br><span class="accent">REPLACEMENT.</span></div>
     <p class="uc-pitch">Same API on port 9200. Same query DSL. Same client libraries. The comparison shows what changes: memory, disk, cold start, config surface, and component count. Yellow is XERJ. Gray is a 4-node Elasticsearch cluster doing the same job.</p>
-    <div class="uc-metric">21× LESS MEMORY · 80% TCO</div>
+    <div class="uc-metric">1.20× SMALLER ON DISK</div>
     <div class="uc-persona">VP ENGINEERING · CTO · PLATFORM TEAM</div>
     <a href="/use-cases/elasticsearch-replacement.html" class="uc-cta">FULL USE CASE →</a>
   </div>

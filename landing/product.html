@@ -6,7 +6,7 @@
 <title>XERJ.ai — Product</title>
 <meta name="description" content="Real dashboard visualizations and measured benchmarks against Elasticsearch 8.13.">
 <meta property="og:title" content="XERJ.ai — storage for the agent era">
-<meta property="og:description" content="One Rust binary. 74× faster on SIEM aggregations. Live product playground.">
+<meta property="og:description" content="An AI-native, Elasticsearch-wire-compatible search + vector + log engine in Rust. Apache-2.0, no lock-in. Live playground + reproducible head-to-head benchmarks.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -466,11 +466,13 @@
   <h2 class="scene">NUMBERS YOU<br><span class="accent">CAN REPRODUCE.</span></h2>
 
   <p class="wide">
-    Every row below comes from a dated, checked-in battle report in
-    the engine repository. No synthetic micro-benchmarks, no
-    hand-picked best run — the reports include repro scripts and
-    hardware profiles. Where ES shards its cluster across 4 nodes,
-    we run XERJ on 1. The caveats are published alongside the wins.
+    The reproducible head-to-head numbers live in
+    demo/playbooks/SCORECARD.md and BENCHMARK_VS_ES.md in the engine
+    repository, with repro scripts. On the LLM-telemetry corpus,
+    XERJ leads terms aggregation ~1.15× and is ~1.20× smaller on
+    disk; the scorecard also records the reads-under-write cases
+    where Elasticsearch wins. Numbers you cannot reproduce from that
+    scorecard should be treated with skepticism.
   </p>
 
   <div class="bench">
@@ -479,11 +481,11 @@
     <div class="head num">XERJ</div>
     <div class="head num">DELTA</div>
 
-    <div class="cell test">SIEM top-source-IPs · terms aggregation</div>
-    <div class="cell num es">29.8 ms</div>
-    <div class="cell num xy">0.4 ms</div>
-    <div class="cell num delta">74×</div>
-    <div class="cell source">SIEM_BATTLE_2026-04-14_184900_UTC.md §2</div>
+    <div class="cell test">Top-source-IPs · terms aggregation (p50)</div>
+    <div class="cell num es">1.54 ms</div>
+    <div class="cell num xy">1.34 ms</div>
+    <div class="cell num delta">1.15×</div>
+    <div class="cell source">demo/playbooks/SCORECARD.md</div>
 
     <div class="cell test">SIEM 16-query analyst battery · median</div>
     <div class="cell num es">4.1 ms</div>
@@ -510,22 +512,18 @@
     <div class="cell source">SIEM_BATTLE_2026-04-14_184900_UTC.md §4</div>
 
     <div class="cell test">Release binary size · deploy footprint</div>
-    <div class="cell num es">620 MB</div>
-    <div class="cell num xy">11 MB</div>
-    <div class="cell num delta">56×</div>
-    <div class="cell source">SIEM_BATTLE_2026-04-14_184900_UTC.md §4</div>
+    <div class="cell num es">~620 MB</div>
+    <div class="cell num xy">23 MB</div>
+    <div class="cell num delta">~27×</div>
+    <div class="cell source">ls -la target/release/xerj (23,513,064 bytes)</div>
 
-    <div class="cell test">Idle memory · 1-node XERJ vs 4-node ES heap</div>
-    <div class="cell num es">8.5 GB</div>
-    <div class="cell num xy">400 MB</div>
-    <div class="cell num delta">21×</div>
-    <div class="cell source">SIEM_BATTLE_2026-04-14_184900_UTC.md §4</div>
 
-    <div class="cell test">Disk footprint · 1M SIEM events · post-ingest</div>
-    <div class="cell num es">240 MB</div>
-    <div class="cell num xy">85 MB</div>
-    <div class="cell num delta">2.8×</div>
-    <div class="cell source">SIEM_BATTLE_2026-04-14_184900_UTC.md §4</div>
+
+    <div class="cell test">Index on-disk size · post-ingest</div>
+    <div class="cell num es">806.7 MB</div>
+    <div class="cell num xy">672.5 MB</div>
+    <div class="cell num delta">1.20×</div>
+    <div class="cell source">demo/playbooks/SCORECARD.md</div>
   </div>
 </section>
 
@@ -547,11 +545,11 @@
   </div>
   <div class="row">
     <div class="k">Columnar native</div>
-    <div class="v">Every column is encoded at write time — delta-of-delta for timestamps, dictionary + ZSTD for keywords, FOR+RLE for small integers, SQ8 for vectors.</div>
+    <div class="v">Every column is encoded at write time — delta-of-delta for timestamps, dictionary + ZSTD for keywords, varint/bitpacking for small integers, SQ8 for vectors.</div>
   </div>
   <div class="row">
     <div class="k">Pre-computed term histograms</div>
-    <div class="v">The 74× SIEM win comes from keeping a per-column value histogram at ingest time. Terms aggregations read it directly instead of scanning posting lists.</div>
+    <div class="v">Terms aggregations read a per-column value histogram kept at ingest time instead of scanning posting lists — the mechanism behind XERJ's terms-agg lead in the reproducible SCORECARD.</div>
   </div>
   <div class="row">
     <div class="k">Hybrid planner</div>

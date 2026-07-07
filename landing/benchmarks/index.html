@@ -223,6 +223,37 @@
       purpose-built benchmark corpora.
     </p>
   </div>
+
+  <!-- benchmark coverage — what fraction of ES's surface the 91 cells actually measure -->
+  <div class="viz-block">
+    <div class="kicker"><span class="accent">BENCHMARK COVERAGE</span><span class="dash">·</span><span>HOW MUCH OF ELASTICSEARCH THE 91 CELLS MEASURE</span></div>
+    <div class="cov-row">
+      <span class="cov-label">Query DSL types</span>
+      <span class="cov-bar" style="width:44.8%"></span>
+      <span class="cov-meta">26 / 58 <b>45%</b></span>
+    </div>
+    <div class="cov-row">
+      <span class="cov-label">Aggregation types</span>
+      <span class="cov-bar" style="width:57.5%"></span>
+      <span class="cov-meta">42 / 73 <b>58%</b></span>
+    </div>
+    <div class="cov-row">
+      <span class="cov-label">Query + aggregation surface</span>
+      <span class="cov-bar" style="width:51.9%"></span>
+      <span class="cov-meta">68 / 131 <b>52%</b></span>
+    </div>
+    <p class="sb-note">
+      Distinct from the bars above: this is how much of Elasticsearch's <em>feature surface</em> the
+      91-cell matrix actually <em>perf-measures</em> — about <strong>half (~52%)</strong>, not 80% or 100%.
+      It's dense where the flat LLM-telemetry corpus allows (all compound + term-level + full-text queries,
+      every metric and pipeline aggregation family) and zero where a purpose-built corpus is required:
+      <span class="mono">geo_point</span>, <span class="mono">ip</span>, <span class="mono">nested / join</span>,
+      <span class="mono">span</span>, <span class="mono">significant_text</span>, <span class="mono">percolate</span>.
+      Those families are largely <em>implemented</em> (see the bars above) — "not benchmarked" means not
+      perf-measured, not "not built." The matrix additionally measures 7 search features, kNN latency + recall,
+      ingest throughput, mixed read-under-write, and on-disk size, which aren't part of the 131-type denominator.
+    </p>
+  </div>
 </section>
 
 <!-- 01 — SETUP ----------------------------------------------->

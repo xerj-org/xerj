@@ -1,19 +1,22 @@
 # XERJ Roadmap
 
-This roadmap tracks capabilities that are **planned but not yet fully implemented**, so the project's public claims stay honest about what ships today versus what is coming. Status is verified against the actual code and by real API requests, not aspirational.
+This roadmap tracks capabilities that are **planned but not yet fully implemented**, so the project's public claims stay honest about what ships today versus what is coming. Status is verified against the actual code and by real API requests to the release binary, not aspirational.
 
-Last reviewed: 2026-07-06 (against `v1.0.0-rc.1`).
+Last reviewed: 2026-07-06 (against `v1.0.0-rc.1`, live-verified against `engine/target/release/xerj`).
 
 ## Shipping today (for context)
 
-These are implemented and exercised by the test suite / benchmarks:
+These are implemented and exercised by real API requests / the test suite / benchmarks:
 
 - Elasticsearch REST wire compatibility (1,326 / 1,329 ES-YAML conformance cases).
-- Full-text search (BM25) and all 38 supported query types.
-- The standard aggregation suite.
-- **Dense-vector kNN** over HNSW (`knn` query and top-level `knn`), at recall parity with Elasticsearch.
-- **Hybrid search** — BM25 + kNN combined in a single request (`{"hybrid": {"query": …, "knn": …}}`).
-- Columnar log analytics, bulk / scroll / delete-by-query, aliases, index templates.
+- Full-text search (BM25) and the **26 publicly-documented query types** (`match_all`, `match_none`, `match`, `match_phrase`, `match_phrase_prefix`, `multi_match`, `term`, `terms`, `range`, `prefix`, `wildcard`, `exists`, `ids`, `bool`, `fuzzy`, `regexp`, `query_string`, `simple_query_string`, `constant_score`, `boosting`, `dis_max`, `geo_distance`, `knn`, `semantic`, `hybrid`) — **all 26 parse and execute correctly on the live binary.**
+- **~14 additional query types execute** beyond the documented 26: `combined_fields`, `match_bool_prefix`, `terms_set`, `intervals`, `function_score`, `script_score`, `distance_feature`, `rank_feature`, `geo_bounding_box`, `geo_polygon`, `geo_shape`, `more_like_this`, `pinned`, `wrapper`. The parser dispatches ~49 distinct type keys in total; roughly 38 run without a `400`. **Honest caveat:** not every dispatched type has correct ES semantics — several are stubs (see *Partial / in progress*), so "38 supported query types" describes the dispatch surface, not 38 types that are all semantically faithful.
+- **Aggregations:** the 15 publicly-documented aggregations (`terms`, `stats`, `avg`, `sum`, `min`, `max`, `value_count`, `cardinality`, `range`, `histogram`, `date_histogram`, `percentiles`, `filter`, `missing`, `composite`) **plus ~15 more that execute with correct math** — `date_range`, `extended_stats`, `percentile_ranks`, `filters`, `geo_bounds`, `geo_centroid`, `geohash_grid`, `median_absolute_deviation`, `matrix_stats`, `rare_terms`, `adjacency_matrix`, `ip_range`, `global`, `sampler`, `diversified_sampler`, `top_hits` — and the full **pipeline family** (`avg_bucket`, `sum_bucket`, `max_bucket`, `min_bucket`, `stats_bucket`, `cumulative_sum`, `derivative`, `bucket_script`, `bucket_selector`, `moving_fn`). All verified live at `size:0`. (The README under-lists these — a docs gap, not a defect.)
+- **Dense-vector kNN** over HNSW (`knn` query and ES 8.x top-level `knn`), nearest-first recall verified against the live binary (cosine mapped to `(1+cos)/2`).
+- **Hybrid search** — BM25 + kNN combined in a single request via the `hybrid` **query type**: `{"query":{"hybrid":{"queries":[{"query":…,"weight":…}, …],"fusion":"rrf|linear|learned"}}}`. RRF-fused union verified live. (See *Partial* for the ES-native top-level `query`+`knn` path, which does **not** fuse.)
+- **Columnar storage** — the ZBS2 columnar block (per-column codec) with exactly **9 domain-aware encodings** (`BitsetEnum`, `DeltaTimestamp`, `PackedIp`, `UrlTemplate`, `Varint`, `Dictionary`, `RawString`, `Bitpacked`, `FixedPrecision`), ZSTD/LZ4 codecs, and SQ8 vector quantization — all real and wired into the segment write path.
+- Bulk / scroll / delete-by-query, aliases, index templates, `_cat/*`, `_cluster/health`, `_count` / `_msearch` / `_mget`, `_update` / `_update_by_query` (Painless-style script writes applied) — all live-verified.
+- **A single native binary** — ~23 MB (23,513,064 bytes) statically-linked, no JVM, sub-second cold start (readiness within ~100 ms).
 
 ## Landed in 1.0.0-rc.2
 
@@ -21,25 +24,60 @@ These three shipped in rc-2 (each conformance-gated at 1,326 / 1,329 and verifie
 
 ### 1. Auto-embed on ingest + a built-in embedder ✅ (rc-2)
 
-`semantic_text` now works end to end with **zero external configuration**. Indexing a document into a `semantic_text` field auto-embeds its text (previously returned `405`), and the `semantic` query embeds the query text with the same embedder and runs kNN — no external service required. A configured external `/v1/embeddings` proxy is still used, at higher quality, when `embedding.default_endpoint` is set.
+`semantic_text` now works end to end with **zero external configuration**. Indexing a document into a `semantic_text` field auto-embeds its text (previously returned `405`), and the `semantic` query embeds the query text with the same embedder and runs kNN — no external service required. Live-verified: a `semantic_text` doc indexed with no embedder configured returned `201`, and a `semantic` query ranked the intended doc first. A configured external `/v1/embeddings` proxy is still used, at higher quality, when `embedding.default_endpoint` is set.
 
-- **Limitation:** the built-in embedder is a deterministic **lexical** model (feature-hashed word unigrams + character trigrams, L2-normalized) — it captures vocabulary/sub-word overlap, not deep semantics. Paraphrases that share vocabulary rank correctly; truly-synonymous text with no word overlap will not. For production-grade semantics, configure the external proxy. A bundled neural model remains future work.
+- **Limitation:** the built-in embedder is a deterministic **lexical** model (feature-hashed word unigrams + character trigrams, L2-normalized) — it captures vocabulary/sub-word overlap, not deep semantics. This is observable live: a vocabulary-sharing query out-scored a true paraphrase. Paraphrases that share vocabulary rank correctly; truly-synonymous text with no word overlap will not. For production-grade semantics, configure the external proxy. A bundled neural model remains future work.
 
 ### 2. Agent-memory REST API ✅ (rc-2)
 
 A namespaced agent-memory API, backed by regular XERJ indices (reusing document + vector + BM25 + metadata-filter paths), working fully offline:
-`POST /_memory/{ns}` (store), `POST /_memory/{ns}/_recall` (kNN by vector or BM25 by text, with optional metadata filter + `k`), `GET /_memory/{ns}` (list), `DELETE /_memory/{ns}/{id}` and `DELETE /_memory/{ns}` (forget / drop). Namespaces are physically isolated.
+`POST /_memory/{ns}` (store), `POST /_memory/{ns}/_recall` (kNN by vector or BM25 by text, with optional metadata filter + `k`), `GET /_memory/{ns}` (list), `DELETE /_memory/{ns}/{id}` and `DELETE /_memory/{ns}` (forget / drop). Namespaces are physically isolated — live-verified: recall in an empty namespace returns `hits:[]`, text recall ranks the correct memory first, vector recall returns correct kNN order, and a `metadata.topic` term filter narrows correctly.
 
-- **Limitation:** recall is pure relevance (kNN/BM25); recency-blended scoring and semantic dedup from the older internal module are not applied (recency ordering is available via the list endpoint). Single-node.
+- **Limitation:** the text-recall field is `query` (the store uses `text`); a flat `{text:…}` or a bare filter silently degrades to `match_all`/errors — the filter must be a full ES clause (e.g. `{term:{"metadata.topic":…}}`). Recall is pure relevance (kNN/BM25); recency-blended scoring and semantic dedup from the older internal module are not applied. Single-node.
 
 ### 3. Anomaly detection (`_ml`) ✅ (rc-2)
 
 A real statistical detector replaces the empty compat stubs:
-`PUT /_ml/anomaly_detectors/{id}` (create: source index, time field, function `count|mean|min|max|sum`, bucket span, threshold), `GET` (fetch/list — now returns real jobs), `POST /_ml/anomaly_detectors/{id}/_score` (buckets the source over time, builds a moving mean/stddev baseline, flags buckets deviating beyond the threshold with a normalized anomaly score), `DELETE`.
+`PUT /_ml/anomaly_detectors/{id}` (create: source index, time field, function `count|mean|min|max|sum`, bucket span, threshold), `GET` (fetch/list — returns real jobs), `POST /_ml/anomaly_detectors/{id}/_score` (buckets the source over time, builds a moving mean/stddev baseline, flags buckets deviating beyond the threshold with a normalized anomaly score), `DELETE`. Live-verified: a 500-value spike among 24 baseline buckets of ~10 was correctly flagged (`is_anomaly:true`, `anomaly_score:100`), and `DELETE` removed the job from subsequent `GET`s.
 
-- **Limitation:** on-demand scoring only — no continuous datafeed scheduler, no forecasting, no influencers/model-plot, single-node config registry. `_cat/ml/datafeeds` and `_cat/ml/trained_models` remain valid empty stubs.
+- **Limitation:** on-demand scoring only (`POST _score`) — no continuous datafeed scheduler, no forecasting, no influencers/model-plot, single-node config registry. When the baseline std_dev is 0 the z-score is a placeholder (`1000000`). `_cat/ml/datafeeds` and `_cat/ml/trained_models` remain valid empty stubs.
 
-## Planned / in progress
+## Partial / in progress
+
+### Query types that dispatch but are not yet semantically faithful
+
+Counting these toward "supported query types" overstates correctness — they resolve without a `400` but do not implement ES semantics:
+
+- **`percolate`** — hard-coded to `MatchNone` (`parser.rs:310`); always returns 0 hits.
+- **`has_child` / `has_parent`** — return the inner-query hits **unfiltered** on an index with no join/parent-child mapping (no real join semantics); `nested` returns 0.
+- **`span_term` / `span_or` / `span_not`** — return 0 hits **standalone**, even though `span_near` / `span_first` / `span_containing` using the same clauses return correct hits. Only composite span queries work.
+- **`type`** — mapped to `MatchAll` (`parser.rs:330`).
+- **`combined_fields`** — mapped to `multi_match cross_fields`; scoring is not exact. `rank_feature` passes through on plain fields (no `rank_feature` field type).
+
+### Aggregations that are stubbed or silently degrade
+
+- **`weighted_avg`** — returns **HTTP 200 with an embedded `{"error":"unsupported aggregation type 'weighted_avg'"}`** buried in the aggregations result instead of a value or a `400`. Silent-failure honesty gap; should `400`.
+- **`scripted_metric`** — returns `{"value":null}`; scripts are not executed.
+- **`significant_terms`** — returns empty `buckets` (no JLH/significance scoring produced).
+
+### Hybrid / vector wire-compat
+
+- The **ES-native top-level `{query, knn}`** body does **not** union the kNN hits (live: only the lexical match was returned; the best vector match was dropped). One-request BM25+kNN fusion works only through the explicit `hybrid` query type.
+- `POST /{index}/_doc/{id}` returns `405` (only `PUT`/`GET`/`HEAD`/`DELETE` allowed); real ES accepts `POST` there. Minor wire-compat deviation.
+
+### Distributed clustering maturity
+
+- Embedded Raft (`raft.rs`, `replication.rs`, `transport.rs` — self-contained, no external raft crate) handles cluster metadata today, but the default run is **single-node** (`number_of_nodes:1`); multi-node sharding/replication hardening is ongoing.
+
+### Log analytics data path
+
+- The dedicated `xerj-logs` columnar module (delta-of-delta timestamps + dictionary strings) is declared as an engine dependency but **`xerj_logs::` is never invoked in non-test engine/server source** — effectively unwired. The runtime columnar path is `xerj-storage`'s ZBS2, and log-shaped analytics run through the generic ES aggregation suite (`date_histogram`, etc.). Wiring or removing the dead module is tracked work.
+
+### Benchmark honesty (tracked docs fix)
+
+- The **only reproducible** benchmark in the repo is `demo/playbooks/SCORECARD.md` / `BENCHMARK_VS_ES.md`: terms aggregation XERJ 1.34 ms vs ES 1.54 ms = **1.15×**; on-disk size XERJ 672.5 MB vs ES 806.7 MB = **1.20×** smaller. The website's headline perf claims (74× SIEM, 21× memory, 2.8× disk, 89× NGINX, 300× cold start, 56× binary) cite battle-report files (`SIEM_BATTLE_…`, `CLUSTER_BATTLE_…`, `HEAD_TO_HEAD_M3_…`) that **do not exist in the repo** and must be corrected or substantiated.
+
+## Planned / not yet started
 
 ### Neural embeddings & richer ML
 
@@ -47,10 +85,17 @@ A real statistical detector replaces the empty compat stubs:
 - An ingest-time embedding pipeline with the existing text chunker (overlapping chunks → per-chunk vectors).
 - Continuous anomaly datafeeds (real-time jobs) and forecasting for capacity/write-load signals.
 
+### Correctness of stubbed surface
+
+- Real join / parent-child semantics for `has_child` / `has_parent` / `nested`.
+- Standalone `span_term` / `span_or` / `span_not`; real `percolate`.
+- `weighted_avg` and `scripted_metric` execution (and returning `400` for genuinely-unsupported aggs rather than a buried error/`null`).
+- ES-native top-level `{query, knn}` fusion.
+
 ### Other tracked items
 
 - **Distributed clustering maturity** — embedded Raft handles cluster metadata today; multi-node sharding/replication hardening is ongoing.
-- **Broader aggregation coverage** — geo/IP/nested/join/span families are partially covered; see the conformance suite for the current surface.
+- **Broader aggregation coverage** — geo/IP/nested/join/span families are partially covered; see the conformance suite and `demo/playbooks/ES_COMPATIBILITY.md` for the current surface.
 
 ---
 
