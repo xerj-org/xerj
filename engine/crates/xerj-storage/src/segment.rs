@@ -213,7 +213,12 @@ impl SectionEntry {
         let length = r.read_u64::<LittleEndian>()?;
         let crc32c = r.read_u32::<LittleEndian>()?;
         let _reserved = r.read_u32::<LittleEndian>()?;
-        Ok(Self { section_type: SectionType::from_u8(t), offset, length, crc32c })
+        Ok(Self {
+            section_type: SectionType::from_u8(t),
+            offset,
+            length,
+            crc32c,
+        })
     }
 }
 
@@ -296,7 +301,10 @@ impl SegmentWriter {
         min_seq_no: SeqNo,
         max_seq_no: SeqNo,
     ) -> Result<SegmentMeta> {
-        let has_tombstones = self.sections.iter().any(|(t, _)| *t == SectionType::Tombstones);
+        let has_tombstones = self
+            .sections
+            .iter()
+            .any(|(t, _)| *t == SectionType::Tombstones);
         let flags: u16 = if has_tombstones { 0x0001 } else { 0x0000 };
 
         let header = SegmentHeader {
@@ -384,8 +392,11 @@ impl SegmentWriter {
         {
             let mut f = BufWriter::new(File::create(&sidx_tmp)?);
             // Minimal skip index: one entry pointing to the stored section
-            if let Some(stored) = section_entries.iter().find(|e| e.section_type == SectionType::Stored) {
-                f.write_u64::<LittleEndian>(0)?;             // first doc ordinal
+            if let Some(stored) = section_entries
+                .iter()
+                .find(|e| e.section_type == SectionType::Stored)
+            {
+                f.write_u64::<LittleEndian>(0)?; // first doc ordinal
                 f.write_u64::<LittleEndian>(stored.offset)?; // file offset
             }
             f.flush()?;
@@ -457,7 +468,11 @@ impl SegmentReader {
         for _ in 0..section_count {
             sections.push(SectionEntry::read_from(&mut st_cur)?);
         }
-        Ok(Self { mmap, header, sections })
+        Ok(Self {
+            mmap,
+            header,
+            sections,
+        })
     }
 
     fn from_mmap(mmap: Arc<Mmap>) -> Result<Self> {
@@ -504,11 +519,17 @@ impl SegmentReader {
             sections.push(SectionEntry::read_from(&mut st_cur)?);
         }
 
-        Ok(Self { mmap, header, sections })
+        Ok(Self {
+            mmap,
+            header,
+            sections,
+        })
     }
 
     /// Return the segment header.
-    pub fn header(&self) -> &SegmentHeader { &self.header }
+    pub fn header(&self) -> &SegmentHeader {
+        &self.header
+    }
 
     /// Return the raw bytes of a section, or `None` if that section type is
     /// not present in this segment.
@@ -547,7 +568,10 @@ impl SegmentReader {
         hasher.update(slice);
         let crc = hasher.finalize();
         if crc != entry.crc32c {
-            return Err(StorageError::ChecksumMismatch { expected: entry.crc32c, actual: crc });
+            return Err(StorageError::ChecksumMismatch {
+                expected: entry.crc32c,
+                actual: crc,
+            });
         }
         Ok(Some(slice))
     }
@@ -570,8 +594,12 @@ mod tests {
 
         let mut writer = SegmentWriter::new(dir.path(), 1, 0, 0).unwrap();
         let stored_data = b"{\"title\":\"hello xerj\"}";
-        writer.add_section(SectionType::Stored, stored_data).unwrap();
-        writer.add_section(SectionType::Schema, b"{\"fields\":{}}").unwrap();
+        writer
+            .add_section(SectionType::Stored, stored_data)
+            .unwrap();
+        writer
+            .add_section(SectionType::Schema, b"{\"fields\":{}}")
+            .unwrap();
 
         let meta = writer.finish(1, 10, 10).unwrap();
         assert_eq!(meta.doc_count, 1);
@@ -597,7 +625,9 @@ mod tests {
     fn segment_with_tombstones_sets_flag() {
         let dir = tempfile::tempdir().unwrap();
         let mut writer = SegmentWriter::new(dir.path(), 1, 0, 0).unwrap();
-        writer.add_section(SectionType::Tombstones, &[0xFFu8; 4]).unwrap();
+        writer
+            .add_section(SectionType::Tombstones, [0xFFu8; 4])
+            .unwrap();
         let meta = writer.finish(10, 1, 10).unwrap();
         assert!(meta.has_tombstones);
 

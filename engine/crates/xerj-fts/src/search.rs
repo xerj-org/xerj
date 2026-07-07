@@ -201,7 +201,11 @@ pub struct DisMaxQuery {
 
 impl DisMaxQuery {
     pub fn new(queries: Vec<Query>) -> Self {
-        Self { queries, tie_breaker: 0.0, boost: 1.0 }
+        Self {
+            queries,
+            tie_breaker: 0.0,
+            boost: 1.0,
+        }
     }
 
     pub fn tie_breaker(mut self, t: f32) -> Self {
@@ -276,9 +280,8 @@ impl FtsSearcher {
         };
 
         let has_positions = self.reader.field_has_positions(&tq.field);
-        let mut reader = PostingsReader::new_with_positions(
-            post_data, tp.doc_frequency, has_positions,
-        );
+        let mut reader =
+            PostingsReader::new_with_positions(post_data, tp.doc_frequency, has_positions);
         let mut hits = Vec::with_capacity(tp.doc_frequency as usize);
 
         while let Some(posting) = reader.next() {
@@ -298,15 +301,16 @@ impl FtsSearcher {
                 let boosted_bd = ScoreBreakdown { score: s, ..bd };
                 (s, Some(QueryExplanation::new(vec![boosted_bd])))
             } else {
-                let s = scorer.score_term(
-                    tp.doc_frequency as u64,
-                    posting.term_freq,
-                    doc_len,
-                ) * tq.boost;
+                let s = scorer.score_term(tp.doc_frequency as u64, posting.term_freq, doc_len)
+                    * tq.boost;
                 (s, None)
             };
 
-            hits.push(ScoredHit { doc_id: posting.doc_id, score, explanation });
+            hits.push(ScoredHit {
+                doc_id: posting.doc_id,
+                score,
+                explanation,
+            });
         }
 
         Ok(hits)
@@ -343,9 +347,8 @@ impl FtsSearcher {
             if !has_positions {
                 return Ok(Vec::new());
             }
-            let mut reader = PostingsReader::new_with_positions(
-                post_data, tp.doc_frequency, has_positions,
-            );
+            let mut reader =
+                PostingsReader::new_with_positions(post_data, tp.doc_frequency, has_positions);
             let mut postings: Vec<DecodedPosting> = Vec::new();
             while let Some(p) = reader.next() {
                 postings.push(p);
@@ -380,7 +383,9 @@ impl FtsSearcher {
                     } else {
                         0 // will adjust relative to anchor below
                     };
-                    let adjusted: Vec<u32> = p.positions.iter()
+                    let adjusted: Vec<u32> = p
+                        .positions
+                        .iter()
                         .filter_map(|&pos| pos.checked_sub(offset))
                         .collect();
                     all_positions.push(adjusted);
@@ -424,7 +429,11 @@ impl FtsSearcher {
                 None
             };
 
-            hits.push(ScoredHit { doc_id, score: total_score, explanation });
+            hits.push(ScoredHit {
+                doc_id,
+                score: total_score,
+                explanation,
+            });
         }
 
         Ok(hits)
@@ -465,7 +474,11 @@ impl FtsSearcher {
 
         Ok(score_map
             .into_iter()
-            .map(|(doc_id, (score, explanation))| ScoredHit { doc_id, score, explanation })
+            .map(|(doc_id, (score, explanation))| ScoredHit {
+                doc_id,
+                score,
+                explanation,
+            })
             .collect())
     }
 
@@ -484,7 +497,11 @@ impl FtsSearcher {
     fn execute_bool(&self, bq: &BoolQuery, explain: bool) -> Result<Vec<ScoredHit>> {
         // Determine effective min_should_match
         let min_should = bq.min_should_match.unwrap_or(if bq.must.is_empty() {
-            if bq.should.is_empty() { 0 } else { 1 }
+            if bq.should.is_empty() {
+                0
+            } else {
+                1
+            }
         } else {
             0
         });
@@ -566,7 +583,11 @@ impl FtsSearcher {
             })
             .map(|doc_id| {
                 let score = score_map.get(&doc_id).copied().unwrap_or(0.0) * bq.boost;
-                ScoredHit { doc_id, score, explanation: None }
+                ScoredHit {
+                    doc_id,
+                    score,
+                    explanation: None,
+                }
             })
             .collect();
 
@@ -580,8 +601,7 @@ impl FtsSearcher {
     /// all multiplied by the query boost.
     fn execute_dis_max(&self, dq: &DisMaxQuery, explain: bool) -> Result<Vec<ScoredHit>> {
         // Per-doc (max, sum) accumulator over sub-query scores.
-        let mut acc: std::collections::HashMap<u32, (f32, f32)> =
-            std::collections::HashMap::new();
+        let mut acc: std::collections::HashMap<u32, (f32, f32)> = std::collections::HashMap::new();
         for sub in &dq.queries {
             for hit in self.execute(sub, explain)? {
                 let e = acc.entry(hit.doc_id).or_insert((f32::NEG_INFINITY, 0.0));
@@ -595,7 +615,11 @@ impl FtsSearcher {
             .into_iter()
             .map(|(doc_id, (max, sum))| {
                 let score = (max + dq.tie_breaker * (sum - max)) * dq.boost;
-                ScoredHit { doc_id, score, explanation: None }
+                ScoredHit {
+                    doc_id,
+                    score,
+                    explanation: None,
+                }
             })
             .collect())
     }
@@ -663,16 +687,17 @@ fn phrase_matches(all_positions: &[Vec<u32>], slop: u32) -> bool {
         let mut current_pos = start_pos;
         for positions in &all_positions[1..] {
             // Find the first position in `positions` that is within [current_pos, current_pos + slop + 1]
-            let found = positions.iter().any(|&p| {
-                p >= current_pos && p <= current_pos + slop + 1
-            });
+            let found = positions
+                .iter()
+                .any(|&p| p >= current_pos && p <= current_pos + slop + 1);
             if !found {
                 continue 'outer;
             }
             // Advance current_pos to the matched position
-            if let Some(&next_pos) = positions.iter().find(|&&p| {
-                p >= current_pos && p <= current_pos + slop + 1
-            }) {
+            if let Some(&next_pos) = positions
+                .iter()
+                .find(|&&p| p >= current_pos && p <= current_pos + slop + 1)
+            {
                 current_pos = next_pos;
             }
         }
@@ -733,11 +758,13 @@ mod tests {
         let mut writer = FtsIndexWriter::new(dir, "seg0", Arc::clone(&registry));
 
         // Use whitespace analyzer to avoid stemming surprises in tests
-        let mut cfg = FieldIndexConfig::default();
-        cfg.analyzer = "whitespace".to_owned();
+        let cfg = FieldIndexConfig {
+            analyzer: "whitespace".to_owned(),
+            ..Default::default()
+        };
         writer.configure_field("body", cfg);
 
-        let docs = vec![
+        let docs = [
             "the quick brown fox jumps over the lazy dog",
             "quick brown fox",
             "the lazy dog slept",
@@ -746,8 +773,9 @@ mod tests {
         ];
 
         for (i, text) in docs.iter().enumerate() {
-            let fields: HashMap<String, String> =
-                [("body".to_owned(), text.to_string())].into_iter().collect();
+            let fields: HashMap<String, String> = [("body".to_owned(), text.to_string())]
+                .into_iter()
+                .collect();
             writer.add_document(i as u32, &fields);
         }
         writer.finish().unwrap();
@@ -765,7 +793,11 @@ mod tests {
         let hits = searcher.search(&q, 10, false).unwrap();
 
         // "fox" appears in docs 0, 1, 4
-        assert!(hits.len() >= 2, "expected at least 2 hits for 'fox', got {}", hits.len());
+        assert!(
+            hits.len() >= 2,
+            "expected at least 2 hits for 'fox', got {}",
+            hits.len()
+        );
         let doc_ids: Vec<u32> = hits.iter().map(|h| h.doc_id).collect();
         assert!(doc_ids.contains(&1), "doc 1 should match");
         assert!(doc_ids.contains(&4), "doc 4 should match (triple fox)");
@@ -783,7 +815,12 @@ mod tests {
         let doc4_score = hits.iter().find(|h| h.doc_id == 4).map(|h| h.score);
         let doc1_score = hits.iter().find(|h| h.doc_id == 1).map(|h| h.score);
         if let (Some(s4), Some(s1)) = (doc4_score, doc1_score) {
-            assert!(s4 > s1, "doc4 (TF=4) should outscore doc1 (TF=1): {} vs {}", s4, s1);
+            assert!(
+                s4 > s1,
+                "doc4 (TF=4) should outscore doc1 (TF=1): {} vs {}",
+                s4,
+                s1
+            );
         }
     }
 
@@ -796,7 +833,10 @@ mod tests {
         let hits = searcher.search(&q, 10, true).unwrap();
 
         for hit in &hits {
-            assert!(hit.explanation.is_some(), "explain mode should populate explanation");
+            assert!(
+                hit.explanation.is_some(),
+                "explain mode should populate explanation"
+            );
             let exp = hit.explanation.as_ref().unwrap();
             assert!(!exp.term_breakdowns.is_empty());
             assert!(exp.total_score > 0.0);
@@ -813,7 +853,10 @@ mod tests {
         let hits = searcher.search(&q, 10, false).unwrap();
 
         // "lazy" appears in docs 0 and 2
-        assert!(!hits.is_empty(), "prefix 'la' should match docs containing 'lazy'");
+        assert!(
+            !hits.is_empty(),
+            "prefix 'la' should match docs containing 'lazy'"
+        );
     }
 
     #[test]
@@ -831,8 +874,14 @@ mod tests {
 
         // Docs 0 and 1 contain both "fox" and "quick"
         let doc_ids: Vec<u32> = hits.iter().map(|h| h.doc_id).collect();
-        assert!(doc_ids.contains(&0), "doc0 should match must(fox AND quick)");
-        assert!(doc_ids.contains(&1), "doc1 should match must(fox AND quick)");
+        assert!(
+            doc_ids.contains(&0),
+            "doc0 should match must(fox AND quick)"
+        );
+        assert!(
+            doc_ids.contains(&1),
+            "doc1 should match must(fox AND quick)"
+        );
         // Doc 4 has fox but not quick
         assert!(!doc_ids.contains(&4), "doc4 should NOT match (no 'quick')");
     }
@@ -878,8 +927,10 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let registry = Arc::new(AnalyzerRegistry::default());
         let mut writer = FtsIndexWriter::new(dir.path(), "seg0", Arc::clone(&registry));
-        let mut cfg = FieldIndexConfig::default();
-        cfg.analyzer = "whitespace".to_owned();
+        let cfg = FieldIndexConfig {
+            analyzer: "whitespace".to_owned(),
+            ..Default::default()
+        };
         writer.configure_field("title", cfg.clone());
         writer.configure_field("body", cfg);
 
@@ -915,11 +966,21 @@ mod tests {
         let dm_hits = searcher.search(&dm, 10, false).unwrap();
 
         // Union of matching docs: all three.
-        assert_eq!(dm_hits.len(), 3, "dis_max must return the union of sub-query docs");
+        assert_eq!(
+            dm_hits.len(),
+            3,
+            "dis_max must return the union of sub-query docs"
+        );
 
         for hit in &dm_hits {
-            let ts = title_hits.iter().find(|h| h.doc_id == hit.doc_id).map(|h| h.score);
-            let bs = body_hits.iter().find(|h| h.doc_id == hit.doc_id).map(|h| h.score);
+            let ts = title_hits
+                .iter()
+                .find(|h| h.doc_id == hit.doc_id)
+                .map(|h| h.score);
+            let bs = body_hits
+                .iter()
+                .find(|h| h.doc_id == hit.doc_id)
+                .map(|h| h.score);
             let expected = ts.unwrap_or(0.0).max(bs.unwrap_or(0.0));
             assert!(hit.score > 0.0, "dis_max hit must have positive score");
             assert!(

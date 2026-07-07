@@ -30,9 +30,7 @@ use axum::{
     Router,
 };
 
-use crate::{
-    auth, cluster, dashboards, data_sources, prefs, spa, state::ConsoleState, views,
-};
+use crate::{auth, cluster, dashboards, data_sources, prefs, spa, state::ConsoleState, views};
 
 /// Build the full Xerj Console router. Mount at the root of an axum Router
 /// (it owns the `/_xerj-console/*` prefix internally):
@@ -71,9 +69,15 @@ pub fn xerj_console_router(state: ConsoleState) -> Router {
             post(auth::login::finish),
         )
         // ── API: session-protected ─────────────────────────────────────────
-        .route("/_xerj-console/api/v1/auth/logout", post(auth::login::logout))
+        .route(
+            "/_xerj-console/api/v1/auth/logout",
+            post(auth::login::logout),
+        )
         .route("/_xerj-console/api/v1/me", get(auth::me::me))
-        .route("/_xerj-console/api/v1/auth/passkeys", get(auth::me::list_passkeys))
+        .route(
+            "/_xerj-console/api/v1/auth/passkeys",
+            get(auth::me::list_passkeys),
+        )
         .route(
             "/_xerj-console/api/v1/auth/passkeys/:id",
             delete(auth::me::delete_passkey),
@@ -92,7 +96,10 @@ pub fn xerj_console_router(state: ConsoleState) -> Router {
                 .put(dashboards::replace)
                 .delete(dashboards::delete),
         )
-        .route("/_xerj-console/api/v1/dashboards/:id", patch(dashboards::patch))
+        .route(
+            "/_xerj-console/api/v1/dashboards/:id",
+            patch(dashboards::patch),
+        )
         .route(
             "/_xerj-console/api/v1/views",
             get(views::list).post(views::create),

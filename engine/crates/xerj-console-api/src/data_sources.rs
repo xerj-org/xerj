@@ -44,7 +44,9 @@ pub struct Connection {
     pub etag: String,
 }
 
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
 const BUILTIN_ID: &str = "built-in";
 
@@ -78,7 +80,11 @@ pub async fn list_connections(
     // it).  External adapters add real probing in a later commit.
     let mut out: Vec<Value> = Vec::with_capacity(conns.len());
     for c in conns {
-        let status = if c.id == BUILTIN_ID { "green" } else { "unknown" };
+        let status = if c.id == BUILTIN_ID {
+            "green"
+        } else {
+            "unknown"
+        };
         let mut v = serde_json::to_value(&c)?;
         v["status"] = Value::String(status.into());
         v["last_checked_at"] = Value::String(now_iso());
@@ -130,7 +136,9 @@ pub async fn list_indices(
         }));
     }
     items.sort_by(|a, b| {
-        a["name"].as_str().unwrap_or("")
+        a["name"]
+            .as_str()
+            .unwrap_or("")
             .cmp(b["name"].as_str().unwrap_or(""))
     });
     Ok(ok(json!({ "indices": items, "total": items.len() }), None))
@@ -170,10 +178,7 @@ pub async fn list_fields(
             })
         })
         .collect();
-    Ok(ok(
-        json!({ "fields": fields, "total": fields.len() }),
-        None,
-    ))
+    Ok(ok(json!({ "fields": fields, "total": fields.len() }), None))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -204,6 +209,7 @@ async fn ensure_builtin(state: &ConsoleState) -> ConsoleResult<()> {
         etag: "1".into(),
     };
     let _ = idx.delete_document(BUILTIN_ID).await;
-    idx.create_document(BUILTIN_ID.into(), serde_json::to_value(&conn)?).await?;
+    idx.create_document(BUILTIN_ID.into(), serde_json::to_value(&conn)?)
+        .await?;
     Ok(())
 }

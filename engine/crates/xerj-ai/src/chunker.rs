@@ -55,8 +55,14 @@ pub struct TextChunker {
 
 impl TextChunker {
     pub fn new(chunk_size: usize, overlap: usize) -> Self {
-        assert!(overlap < chunk_size, "overlap must be smaller than chunk_size");
-        Self { chunk_size, overlap }
+        assert!(
+            overlap < chunk_size,
+            "overlap must be smaller than chunk_size"
+        );
+        Self {
+            chunk_size,
+            overlap,
+        }
     }
 
     /// Split `text` into chunks.

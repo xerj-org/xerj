@@ -76,17 +76,13 @@ impl Default for FusionStrategy {
 /// Controls how many edit operations are allowed in a fuzzy query.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
+#[derive(Default)]
 pub enum Fuzziness {
     /// AUTO fuzziness: 0 edits for 1-2 chars, 1 edit for 3-5 chars, 2 edits for 6+ chars.
+    #[default]
     Auto,
     /// Fixed maximum number of edit operations.
     Fixed(u32),
-}
-
-impl Default for Fuzziness {
-    fn default() -> Self {
-        Self::Auto
-    }
 }
 
 /// `minimum_should_match` — either an absolute count or a percentage.
@@ -232,7 +228,6 @@ pub struct DistanceFeature {
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum QueryNode {
     // ── Structural ────────────────────────────────────────────────────────────
-
     /// Matches every document in the index.
     MatchAll,
 
@@ -259,19 +254,12 @@ pub enum QueryNode {
     },
 
     /// Wraps a query, replacing its score with a fixed constant.
-    Constant {
-        score: f32,
-        query: Box<QueryNode>,
-    },
+    Constant { score: f32, query: Box<QueryNode> },
 
     /// Multiplies the wrapped query's score by `boost`.
-    Boosted {
-        boost: f32,
-        query: Box<QueryNode>,
-    },
+    Boosted { boost: f32, query: Box<QueryNode> },
 
     // ── Term-level ────────────────────────────────────────────────────────────
-
     /// Exact-value match on a single field.
     Term {
         field: String,
@@ -327,7 +315,6 @@ pub enum QueryNode {
     Ids { values: Vec<String> },
 
     // ── Full-text ─────────────────────────────────────────────────────────────
-
     /// Analysed text query against a single field.
     Match {
         field: String,
@@ -380,7 +367,6 @@ pub enum QueryNode {
     },
 
     // ── AI-native extensions ──────────────────────────────────────────────────
-
     /// Dense vector k-NN search (exact or approximate).
     Knn {
         field: String,
@@ -449,7 +435,6 @@ pub enum QueryNode {
     },
 
     // ── Extended query types ───────────────────────────────────────────────────
-
     /// Fuzzy match — allows typo tolerance via Levenshtein edit distance.
     Fuzzy {
         field: String,
@@ -459,10 +444,7 @@ pub enum QueryNode {
     },
 
     /// Regular expression match against a field value.
-    Regexp {
-        field: String,
-        pattern: String,
-    },
+    Regexp { field: String, pattern: String },
 
     /// Position-aware text match (ES `intervals` query). The `rule` is the
     /// raw rule JSON (one of match/all_of/any_of/prefix/wildcard/fuzzy,
@@ -512,7 +494,6 @@ pub enum QueryNode {
     },
 
     // ── Nested / join / specialised queries ───────────────────────────────────
-
     /// Nested query — runs an inner query against each element of a nested array.
     ///
     /// If any element matches the inner query, the document matches.
@@ -559,12 +540,8 @@ pub enum QueryNode {
     },
 
     // ── Span queries ──────────────────────────────────────────────────────────
-
     /// Span term — exact value match within span context.
-    SpanTerm {
-        field: String,
-        value: String,
-    },
+    SpanTerm { field: String, value: String },
 
     /// Span near — span terms that appear within `slop` positions of each other.
     SpanNear {
@@ -574,9 +551,7 @@ pub enum QueryNode {
     },
 
     /// Span or — matches if any of the span clauses match.
-    SpanOr {
-        clauses: Vec<QueryNode>,
-    },
+    SpanOr { clauses: Vec<QueryNode> },
 
     /// Span not — matches the include span but not the exclude span.
     SpanNot {
@@ -591,7 +566,6 @@ pub enum QueryNode {
     },
 
     // ── Join queries ──────────────────────────────────────────────────────────
-
     /// Has-child — matches parent documents that have child documents matching the query.
     HasChild {
         child_type: String,
@@ -607,7 +581,6 @@ pub enum QueryNode {
     },
 
     // ── Geo shape queries ─────────────────────────────────────────────────────
-
     /// Geo polygon — matches documents whose geo_point falls within the polygon.
     GeoPolygon {
         field: String,
@@ -615,10 +588,7 @@ pub enum QueryNode {
     },
 
     /// Geo shape — matches documents whose geo field matches the given shape.
-    GeoShape {
-        field: String,
-        shape: GeoShapeType,
-    },
+    GeoShape { field: String, shape: GeoShapeType },
 }
 
 /// Shape type for geo_shape queries.
@@ -628,14 +598,14 @@ pub enum GeoShapeType {
     /// A single point (lat, lon).
     Point { lat: f64, lon: f64 },
     /// An envelope (bounding box) given by top-left and bottom-right corners (lat, lon).
-    Envelope { top_left: (f64, f64), bottom_right: (f64, f64) },
+    Envelope {
+        top_left: (f64, f64),
+        bottom_right: (f64, f64),
+    },
     /// A polygon defined by a list of (lat, lon) points.
     Polygon { points: Vec<(f64, f64)> },
     /// A circle defined by a center point and a radius in kilometres.
-    Circle {
-        center: (f64, f64),
-        radius_km: f64,
-    },
+    Circle { center: (f64, f64), radius_km: f64 },
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -740,9 +710,13 @@ impl QueryNode {
     /// (no scoring contribution from sub-queries).
     pub fn is_filter_only(&self) -> bool {
         match self {
-            QueryNode::Bool { must, should, filter, must_not, .. } => {
-                must.is_empty() && should.is_empty() && !filter.is_empty() || !must_not.is_empty()
-            }
+            QueryNode::Bool {
+                must,
+                should,
+                filter,
+                must_not,
+                ..
+            } => must.is_empty() && should.is_empty() && !filter.is_empty() || !must_not.is_empty(),
             QueryNode::Exists { .. }
             | QueryNode::Term { .. }
             | QueryNode::Terms { .. }
@@ -755,7 +729,13 @@ impl QueryNode {
     /// Rough structural depth — used by the planner for cost estimation.
     pub fn depth(&self) -> usize {
         match self {
-            QueryNode::Bool { must, should, must_not, filter, .. } => {
+            QueryNode::Bool {
+                must,
+                should,
+                must_not,
+                filter,
+                ..
+            } => {
                 let max_child = must
                     .iter()
                     .chain(should.iter())
@@ -766,10 +746,10 @@ impl QueryNode {
                     .unwrap_or(0);
                 1 + max_child
             }
-            QueryNode::Constant { query, .. }
-            | QueryNode::Boosted { query, .. } => 1 + query.depth(),
-            QueryNode::Knn { filter, .. }
-            | QueryNode::SemanticSearch { filter, .. } => {
+            QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => {
+                1 + query.depth()
+            }
+            QueryNode::Knn { filter, .. } | QueryNode::SemanticSearch { filter, .. } => {
                 1 + filter.as_ref().map(|f| f.depth()).unwrap_or(0)
             }
             QueryNode::Hybrid { queries, .. } => {
@@ -777,9 +757,9 @@ impl QueryNode {
                 1 + max_child
             }
             QueryNode::FunctionScore { query, .. } => 1 + query.depth(),
-            QueryNode::Boosting { positive, negative, .. } => {
-                1 + positive.depth().max(negative.depth())
-            }
+            QueryNode::Boosting {
+                positive, negative, ..
+            } => 1 + positive.depth().max(negative.depth()),
             QueryNode::DisMax { queries, .. } => {
                 let max_child = queries.iter().map(|q| q.depth()).max().unwrap_or(0);
                 1 + max_child
@@ -810,21 +790,17 @@ impl QueryNode {
 /// - `Limit(N)` — stop counting after N docs; return `Gte` relation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
+#[derive(Default)]
 pub enum TrackTotalHits {
     /// Count all matching documents (default).
     #[serde(rename = "true")]
+    #[default]
     True,
     /// Do not count beyond `size` hits.
     #[serde(rename = "false")]
     False,
     /// Count up to `N` documents; relation becomes `gte` when capped.
     Limit(u64),
-}
-
-impl Default for TrackTotalHits {
-    fn default() -> Self {
-        TrackTotalHits::True
-    }
 }
 
 /// The fully-parsed search request.

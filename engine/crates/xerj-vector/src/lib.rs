@@ -15,7 +15,7 @@ pub mod search;
 
 pub use distance::{compute_distance, cosine, dot_product, l2_squared, DistanceMetric};
 pub use hnsw::{HnswIndex, HnswParams};
-pub use quantizer::{NoneQuantizer, Quantizer, QuantizedData, QuantizedVectors, Scalar8Quantizer};
+pub use quantizer::{NoneQuantizer, QuantizedData, QuantizedVectors, Quantizer, Scalar8Quantizer};
 pub use search::{SearchResult, VectorSearcher};
 
 pub use xerj_common::Result;

@@ -82,13 +82,23 @@ pub enum XerjError {
 
     // ── Optimistic concurrency ─────────────────────────────────────────────
     /// Optimistic concurrency control check failed (if_seq_no / if_primary_term).
-    #[error("version conflict on document [{id}]: expected seq_no={expected}, actual seq_no={actual}")]
-    VersionConflict { id: String, expected: u64, actual: u64 },
+    #[error(
+        "version conflict on document [{id}]: expected seq_no={expected}, actual seq_no={actual}"
+    )]
+    VersionConflict {
+        id: String,
+        expected: u64,
+        actual: u64,
+    },
 
     // ── Result window ─────────────────────────────────────────────────────
     /// The requested from + size exceeds the max_result_window limit.
     #[error("result window is too large: from + size > max_result_window={max_result_window}; use search_after for deep pagination")]
-    ResultWindowTooLarge { from: usize, size: usize, max_result_window: usize },
+    ResultWindowTooLarge {
+        from: usize,
+        size: usize,
+        max_result_window: usize,
+    },
 
     // ── Index blocks ──────────────────────────────────────────────────────
     /// Operation rejected because an index block is set.
@@ -194,11 +204,19 @@ impl XerjError {
     }
 
     pub fn version_conflict(id: impl Into<String>, expected: u64, actual: u64) -> Self {
-        Self::VersionConflict { id: id.into(), expected, actual }
+        Self::VersionConflict {
+            id: id.into(),
+            expected,
+            actual,
+        }
     }
 
     pub fn result_window_too_large(from: usize, size: usize, max_result_window: usize) -> Self {
-        Self::ResultWindowTooLarge { from, size, max_result_window }
+        Self::ResultWindowTooLarge {
+            from,
+            size,
+            max_result_window,
+        }
     }
 
     pub fn index_blocked(index: impl Into<String>, block_type: impl Into<String>) -> Self {

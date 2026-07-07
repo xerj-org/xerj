@@ -375,10 +375,7 @@ fn extract_hits(search_response: &Value) -> Vec<Value> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// `GET /_memory/{namespace}` — count + most-recent entries (bounded).
-pub async fn list(
-    State(state): State<AppState>,
-    Path(namespace): Path<String>,
-) -> Response {
+pub async fn list(State(state): State<AppState>, Path(namespace): Path<String>) -> Response {
     if let Err(reason) = validate_namespace(&namespace) {
         return error_response(StatusCode::BAD_REQUEST, reason);
     }
@@ -529,13 +526,23 @@ mod tests {
 
     async fn store_mem(state: &AppState, ns: &str, body: Value) -> (StatusCode, Value) {
         let b: StoreBody = serde_json::from_value(body).unwrap();
-        let resp = store(State(state.clone()), Path(ns.to_string()), OptionalJson(Some(b))).await;
+        let resp = store(
+            State(state.clone()),
+            Path(ns.to_string()),
+            OptionalJson(Some(b)),
+        )
+        .await;
         drain_json(resp).await
     }
 
     async fn recall_mem(state: &AppState, ns: &str, body: Value) -> (StatusCode, Value) {
         let b: RecallBody = serde_json::from_value(body).unwrap();
-        let resp = recall(State(state.clone()), Path(ns.to_string()), OptionalJson(Some(b))).await;
+        let resp = recall(
+            State(state.clone()),
+            Path(ns.to_string()),
+            OptionalJson(Some(b)),
+        )
+        .await;
         drain_json(resp).await
     }
 

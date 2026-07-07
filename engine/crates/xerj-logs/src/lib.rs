@@ -16,6 +16,6 @@ pub mod retention;
 pub use columnar::{Column, ColumnReader, ColumnType, ColumnWriter};
 pub use ingest::{LogIngester, LogRecord};
 pub use query::{Aggregation, LogQuery, LogQueryExecutor, QueryResult};
-pub use retention::{RetentionPolicy};
+pub use retention::RetentionPolicy;
 
 pub use xerj_common::Result;

@@ -113,6 +113,10 @@ pub struct NumericColumn {
 }
 
 impl NumericColumn {
+    // Named `from_iter` deliberately; it is not the FromIterator trait method
+    // (returns Self by value from an Option-yielding iterator). Renaming would
+    // break all callers, so the trait-confusion lint is allowed here.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_iter<I: IntoIterator<Item = Option<i64>>>(it: I) -> Self {
         let mut null_bitmap = RoaringBitmap::new();
         let mut data = Vec::new();
@@ -177,18 +181,15 @@ impl NumericColumn {
         if lo_idx >= hi_idx {
             return Vec::new();
         }
-        self.sorted[lo_idx..hi_idx].iter().map(|(_, d)| *d).collect()
+        self.sorted[lo_idx..hi_idx]
+            .iter()
+            .map(|(_, d)| *d)
+            .collect()
     }
 
     /// Count-only variant of `range_doc_ids` — returns just the number of
     /// matching docs without allocating a Vec.
-    pub fn range_count(
-        &self,
-        min: f64,
-        max: f64,
-        min_inclusive: bool,
-        max_inclusive: bool,
-    ) -> u64 {
+    pub fn range_count(&self, min: f64, max: f64, min_inclusive: bool, max_inclusive: bool) -> u64 {
         if self.sorted.is_empty() {
             return 0;
         }
@@ -226,14 +227,13 @@ impl NumericColumn {
     /// `doc_count: u32` whose first byte is 0-255 but never matches 'Z'
     /// for a real doc count.
     pub fn encode(&self) -> Vec<u8> {
-        let mut out = Vec::with_capacity(
-            4 + 4 + 4 + self.data.len() * 8,
-        );
+        let mut out = Vec::with_capacity(4 + 4 + 4 + self.data.len() * 8);
         out.extend_from_slice(b"ZNV1");
         out.write_u32::<LittleEndian>(self.doc_count).unwrap();
         let mut bitmap_buf = Vec::new();
         self.null_bitmap.serialize_into(&mut bitmap_buf).unwrap();
-        out.write_u32::<LittleEndian>(bitmap_buf.len() as u32).unwrap();
+        out.write_u32::<LittleEndian>(bitmap_buf.len() as u32)
+            .unwrap();
         out.extend_from_slice(&bitmap_buf);
         for &v in &self.data {
             out.write_i64::<LittleEndian>(v).unwrap();
@@ -246,7 +246,7 @@ impl NumericColumn {
         let (mut cur, is_new) = if payload.len() >= 4 && &payload[..4] == b"ZNV1" {
             (Cursor::new(&payload[4..]), true)
         } else {
-            (Cursor::new(&payload[..]), false)
+            (Cursor::new(payload), false)
         };
 
         let doc_count = cur.read_u32::<LittleEndian>().map_err(io_to_storage)?;
@@ -358,6 +358,10 @@ pub struct KeywordColumn {
 }
 
 impl KeywordColumn {
+    // Named `from_iter` deliberately; it is not the FromIterator trait method
+    // (it is fallible, returning Result<Self>). Renaming would break all
+    // callers, so the trait-confusion lint is allowed here.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_iter<I: IntoIterator<Item = Option<String>>>(it: I) -> Result<Self> {
         let values: Vec<Option<String>> = it.into_iter().collect();
         let doc_count = values.len() as u32;
@@ -371,10 +375,7 @@ impl KeywordColumn {
         // `BTreeMap<String, ()>` build, which CLONED every non-null cell
         // (hundreds of thousands of String allocs per 31k-doc flush
         // segment) — only unique terms are cloned now.
-        let mut refs: Vec<&str> = values
-            .iter()
-            .filter_map(|v| v.as_deref())
-            .collect();
+        let mut refs: Vec<&str> = values.iter().filter_map(|v| v.as_deref()).collect();
         refs.sort_unstable();
         refs.dedup();
         let terms: Vec<String> = refs.iter().map(|s| (*s).to_string()).collect();
@@ -452,10 +453,7 @@ impl KeywordColumn {
         let Some(ord) = self.ord_for_term(term) else {
             return 0;
         };
-        self.per_ord_count
-            .get(ord as usize)
-            .copied()
-            .unwrap_or(0)
+        self.per_ord_count.get(ord as usize).copied().unwrap_or(0)
     }
 
     fn ord_width(num_terms: u32) -> u8 {
@@ -619,7 +617,8 @@ pub fn encode_columns(columns: &BTreeMap<String, Column>) -> Vec<u8> {
         out.write_u8(kind | KIND_FLAG_ZSTD).unwrap();
         out.write_u32::<LittleEndian>(name.len() as u32).unwrap();
         out.extend_from_slice(name.as_bytes());
-        out.write_u64::<LittleEndian>(zstd_payload.len() as u64).unwrap();
+        out.write_u64::<LittleEndian>(zstd_payload.len() as u64)
+            .unwrap();
         out.extend_from_slice(&zstd_payload);
     }
     out
@@ -738,8 +737,10 @@ mod tests {
         let back = KeywordColumn::decode(&bytes).unwrap();
         for i in 0..5 {
             assert_eq!(
-                col.ord_for(i).map(|o| col.term_for_ord(o).unwrap().to_string()),
-                back.ord_for(i).map(|o| back.term_for_ord(o).unwrap().to_string()),
+                col.ord_for(i)
+                    .map(|o| col.term_for_ord(o).unwrap().to_string()),
+                back.ord_for(i)
+                    .map(|o| back.term_for_ord(o).unwrap().to_string()),
             );
         }
     }
@@ -749,7 +750,11 @@ mod tests {
         let mut cols = BTreeMap::new();
         cols.insert(
             "status".to_string(),
-            Column::Numeric(NumericColumn::from_iter(vec![Some(200), Some(404), Some(200)])),
+            Column::Numeric(NumericColumn::from_iter(vec![
+                Some(200),
+                Some(404),
+                Some(200),
+            ])),
         );
         cols.insert(
             "method".to_string(),

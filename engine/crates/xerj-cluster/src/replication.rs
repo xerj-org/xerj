@@ -87,7 +87,10 @@ pub struct ReplicationResult {
 impl ReplicationResult {
     /// Construct a successful result with the given ACK count.
     pub fn success(ack_count: usize, duration_ms: u64) -> Self {
-        ReplicationResult { ack_count, duration_ms }
+        ReplicationResult {
+            ack_count,
+            duration_ms,
+        }
     }
 }
 
@@ -117,7 +120,12 @@ impl WalReplicator {
         router: Arc<ShardRouter>,
         local_node_id: String,
     ) -> Self {
-        WalReplicator { mode, transport, router, local_node_id }
+        WalReplicator {
+            mode,
+            transport,
+            router,
+            local_node_id,
+        }
     }
 
     /// Replicate a WAL entry to replica nodes according to the configured mode.
@@ -188,11 +196,7 @@ impl WalReplicator {
     /// (i.e. the transport layer accepts the frame without error). A production
     /// system would exchange proper ACK messages; here we model success as
     /// transport-level delivery.
-    async fn replicate_and_wait(
-        &self,
-        replicas: &[String],
-        entry: &ReplicationEntry,
-    ) -> usize {
+    async fn replicate_and_wait(&self, replicas: &[String], entry: &ReplicationEntry) -> usize {
         if replicas.is_empty() {
             return 0;
         }
@@ -218,9 +222,8 @@ impl WalReplicator {
         // Wait for all replicas to respond (or fail).
         let mut acks = 0usize;
         for rx in receivers {
-            match rx.await {
-                Ok(true) => acks += 1,
-                _ => {}
+            if let Ok(true) = rx.await {
+                acks += 1
             }
         }
         acks
@@ -349,8 +352,7 @@ mod tests {
 
         for entry in &entries {
             let json = serde_json::to_string(entry).expect("serialize");
-            let decoded: ReplicationEntry =
-                serde_json::from_str(&json).expect("deserialize");
+            let decoded: ReplicationEntry = serde_json::from_str(&json).expect("deserialize");
             assert_eq!(entry.index, decoded.index);
             assert_eq!(entry.shard, decoded.shard);
             assert_eq!(entry.seq_no, decoded.seq_no);
@@ -379,8 +381,7 @@ mod tests {
         use crate::node::in_memory::{InMemoryBus, InMemoryTransport};
 
         let bus = InMemoryBus::new();
-        let transport_primary =
-            InMemoryTransport::new("primary".to_string(), bus.clone()).await;
+        let transport_primary = InMemoryTransport::new("primary".to_string(), bus.clone()).await;
         let _r1 = InMemoryTransport::new("replica-1".to_string(), bus.clone()).await;
 
         let router = make_router_with_replicas("idx", "primary", &["replica-1"]);
@@ -393,7 +394,10 @@ mod tests {
         );
 
         let entry = make_entry("idx", 0, 1);
-        let result = replicator.replicate(entry).await.expect("async should succeed");
+        let result = replicator
+            .replicate(entry)
+            .await
+            .expect("async should succeed");
         assert_eq!(result.ack_count, 0, "async mode never counts ACKs");
     }
 
@@ -411,7 +415,10 @@ mod tests {
         );
 
         let entry = make_entry("idx", 0, 5);
-        let result = replicator.replicate(entry).await.expect("sync should succeed");
+        let result = replicator
+            .replicate(entry)
+            .await
+            .expect("sync should succeed");
         assert_eq!(result.ack_count, 2, "both replicas must ACK");
     }
 
@@ -429,10 +436,15 @@ mod tests {
             "primary".to_string(),
         );
 
-        let err = replicator.replicate(make_entry("idx", 0, 7)).await
+        let err = replicator
+            .replicate(make_entry("idx", 0, 7))
+            .await
             .expect_err("should fail with insufficient replicas");
         assert!(
-            matches!(err, ReplicationError::InsufficientReplicas { needed: 2, got: 1 }),
+            matches!(
+                err,
+                ReplicationError::InsufficientReplicas { needed: 2, got: 1 }
+            ),
             "unexpected error: {err}"
         );
     }
@@ -457,7 +469,9 @@ mod tests {
             "primary".to_string(),
         );
 
-        let result = replicator.replicate(make_entry("idx", 0, 10)).await
+        let result = replicator
+            .replicate(make_entry("idx", 0, 10))
+            .await
             .expect("quorum should succeed with 2/3 replicas");
         assert_eq!(result.ack_count, 2, "2 of 3 replicas must ACK for majority");
     }

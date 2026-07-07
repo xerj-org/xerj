@@ -312,10 +312,7 @@ impl Engine {
                 let index_name = match IndexName::new(&name_str) {
                     Ok(n) => n,
                     Err(_) => {
-                        warn!(
-                            "Skipping directory '{}': not a valid index name",
-                            name_str
-                        );
+                        warn!("Skipping directory '{}': not a valid index name", name_str);
                         continue;
                     }
                 };
@@ -368,9 +365,7 @@ impl Engine {
 
     fn spawn_pit_sweeper(&self) {
         let pits = Arc::clone(&self.pits);
-        let interval = std::time::Duration::from_secs(
-            self.config.pit.sweep_interval_secs.max(1),
-        );
+        let interval = std::time::Duration::from_secs(self.config.pit.sweep_interval_secs.max(1));
         tokio::spawn(async move {
             let mut tick = tokio::time::interval(interval);
             // Skip the immediate first tick — Engine::new just ran, so
@@ -384,7 +379,9 @@ impl Engine {
                     .filter(|e| e.value().expires_at <= now)
                     .map(|e| e.key().clone())
                     .collect();
-                if expired.is_empty() { continue; }
+                if expired.is_empty() {
+                    continue;
+                }
                 for id in &expired {
                     pits.remove(id);
                 }
@@ -399,8 +396,7 @@ impl Engine {
 
     /// Create a new index, applying any matching index template.
     pub fn create_index(&self, name: &str, schema: Schema) -> Result<()> {
-        let index_name = IndexName::new(name)
-            .map_err(|e| EngineError::Common(e))?;
+        let index_name = IndexName::new(name).map_err(EngineError::Common)?;
 
         if self.indices.contains_key(name) {
             return Err(EngineError::Common(
@@ -421,8 +417,15 @@ impl Engine {
                             .and_then(Value::as_str)
                             .unwrap_or("object");
                         let native_type = es_type_to_field_type(es_type);
-                        if !effective_schema.fields.iter().any(|f| &f.name == field_name) {
-                            let fc = xerj_common::types::FieldConfig::new(field_name.clone(), native_type);
+                        if !effective_schema
+                            .fields
+                            .iter()
+                            .any(|f| &f.name == field_name)
+                        {
+                            let fc = xerj_common::types::FieldConfig::new(
+                                field_name.clone(),
+                                native_type,
+                            );
                             let _ = effective_schema.add_field(fc);
                         }
                     }
@@ -446,8 +449,7 @@ impl Engine {
         schema: Schema,
         settings: serde_json::Value,
     ) -> Result<()> {
-        let index_name = IndexName::new(name)
-            .map_err(|e| EngineError::Common(e))?;
+        let index_name = IndexName::new(name).map_err(EngineError::Common)?;
 
         if self.indices.contains_key(name) {
             return Err(EngineError::Common(
@@ -479,10 +481,9 @@ impl Engine {
         if index_dir.is_dir() {
             match serde_json::to_vec_pretty(&mapping) {
                 Ok(bytes) => {
-                    if let Err(e) = crate::index::write_file_atomic(
-                        &index_dir.join("es_mapping.json"),
-                        &bytes,
-                    ) {
+                    if let Err(e) =
+                        crate::index::write_file_atomic(&index_dir.join("es_mapping.json"), &bytes)
+                    {
                         warn!(index = name, error = %e, "failed to persist es_mapping.json");
                     }
                 }
@@ -501,7 +502,9 @@ impl Engine {
     /// back to schema-derived properties from `schema.json`.
     fn load_persisted_es_mapping(&self, name: &str) {
         let path = self.data_dir.join(name).join("es_mapping.json");
-        let Ok(bytes) = std::fs::read(&path) else { return };
+        let Ok(bytes) = std::fs::read(&path) else {
+            return;
+        };
         match serde_json::from_slice::<Value>(&bytes) {
             Ok(mapping) => {
                 self.index_mappings.insert(name.to_string(), mapping);
@@ -517,7 +520,10 @@ impl Engine {
         let mut best: Option<(i32, IndexTemplate)> = None;
         for entry in self.templates.iter() {
             let tmpl = entry.value();
-            let matches = tmpl.index_patterns.iter().any(|pat| glob_match(pat, index_name));
+            let matches = tmpl
+                .index_patterns
+                .iter()
+                .any(|pat| glob_match(pat, index_name));
             if matches {
                 let priority = tmpl.priority;
                 if best.as_ref().map(|(p, _)| priority > *p).unwrap_or(true) {
@@ -532,7 +538,7 @@ impl Engine {
 
     /// Add an alias pointing to an index.
     pub fn add_alias(&self, alias: &str, index: &str) {
-        let mut entry = self.aliases.entry(alias.to_string()).or_insert_with(Vec::new);
+        let mut entry = self.aliases.entry(alias.to_string()).or_default();
         if !entry.contains(&index.to_string()) {
             entry.push(index.to_string());
         }
@@ -562,11 +568,10 @@ impl Engine {
     /// semantics) and clears the `closed_indices` flag so the name is
     /// truly gone when another test recreates it.
     pub async fn delete_index(&self, name: &str) -> Result<()> {
-        let idx = self
-            .indices
-            .remove(name)
-            .map(|(_, v)| v)
-            .ok_or_else(|| EngineError::Common(xerj_common::XerjError::index_not_found(name)))?;
+        let idx =
+            self.indices.remove(name).map(|(_, v)| v).ok_or_else(|| {
+                EngineError::Common(xerj_common::XerjError::index_not_found(name))
+            })?;
 
         idx.delete_all_data().await?;
 
@@ -603,10 +608,13 @@ impl Engine {
         // Check if name is an alias — if so, resolve to the first backing index.
         if let Some(aliased) = self.aliases.get(name) {
             if let Some(real_name) = aliased.first() {
-                return self.indices
+                return self
+                    .indices
                     .get(real_name.as_str())
                     .map(|r| Arc::clone(r.value()))
-                    .ok_or_else(|| EngineError::Common(xerj_common::XerjError::index_not_found(real_name)));
+                    .ok_or_else(|| {
+                        EngineError::Common(xerj_common::XerjError::index_not_found(real_name))
+                    });
             }
         }
         self.indices
@@ -838,7 +846,11 @@ impl Engine {
             ds.backing_indices.push(new_backing.clone());
         }
 
-        info!(name, new_backing = new_backing.as_str(), "data stream rolled over");
+        info!(
+            name,
+            new_backing = new_backing.as_str(),
+            "data stream rolled over"
+        );
         Ok(new_backing)
     }
 
@@ -887,8 +899,7 @@ impl Engine {
         config_json: Value,
     ) -> std::result::Result<(), xerj_wasm::WasmError> {
         let cfg: xerj_wasm::pipeline::PipelineConfig =
-            serde_json::from_value(config_json.clone())
-                .map_err(xerj_wasm::WasmError::Json)?;
+            serde_json::from_value(config_json.clone()).map_err(xerj_wasm::WasmError::Json)?;
         let pipeline = xerj_wasm::pipeline::Pipeline::from_config(name, &cfg)?;
         self.pipelines.insert(name.to_string(), config_json);
         self.transform_pipelines.insert(name.to_string(), pipeline);
@@ -905,10 +916,8 @@ impl Engine {
         &self,
         pipeline_name: &str,
         mut docs: Vec<Value>,
-    ) -> std::result::Result<
-        Vec<(xerj_wasm::pipeline::ProcessAction, Value)>,
-        xerj_wasm::WasmError,
-    > {
+    ) -> std::result::Result<Vec<(xerj_wasm::pipeline::ProcessAction, Value)>, xerj_wasm::WasmError>
+    {
         let pipeline = self
             .transform_pipelines
             .get(pipeline_name)
@@ -1061,7 +1070,7 @@ impl Engine {
         info!(snapshot = name, repo = repo_path, "snapshot restored");
         Ok(())
     }
-}  // end impl Engine
+} // end impl Engine
 
 // ── Private helpers ───────────────────────────────────────────────────────────
 

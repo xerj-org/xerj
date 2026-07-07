@@ -340,12 +340,7 @@ impl EsSearchResponse {
         }
     }
 
-    pub fn with_hits(
-        took_ms: u64,
-        hits: Vec<EsHit>,
-        total: u64,
-        max_score: Option<f64>,
-    ) -> Self {
+    pub fn with_hits(took_ms: u64, hits: Vec<EsHit>, total: u64, max_score: Option<f64>) -> Self {
         Self {
             took: took_ms,
             timed_out: false,

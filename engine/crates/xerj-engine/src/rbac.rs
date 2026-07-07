@@ -47,8 +47,16 @@ pub struct Role {
 }
 
 impl Role {
-    pub fn new(name: impl Into<String>, privileges: HashSet<Privilege>, indices: Vec<String>) -> Self {
-        Self { name: name.into(), privileges, indices }
+    pub fn new(
+        name: impl Into<String>,
+        privileges: HashSet<Privilege>,
+        indices: Vec<String>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            privileges,
+            indices,
+        }
     }
 
     /// Does this role apply to the named index?  Glob: "*" matches
@@ -84,7 +92,9 @@ impl RoleStore {
         for r in default_roles() {
             roles.insert(r.name.clone(), r);
         }
-        Arc::new(Self { roles: RwLock::new(roles) })
+        Arc::new(Self {
+            roles: RwLock::new(roles),
+        })
     }
 
     pub fn put(&self, role: Role) {
@@ -109,7 +119,17 @@ fn default_roles() -> Vec<Role> {
     vec![
         Role::new(
             "admin",
-            [ReadIndex, WriteIndex, AdminIndex, SnapshotCreate, SnapshotRestore, SecurityAdmin, AuditRead].into_iter().collect(),
+            [
+                ReadIndex,
+                WriteIndex,
+                AdminIndex,
+                SnapshotCreate,
+                SnapshotRestore,
+                SecurityAdmin,
+                AuditRead,
+            ]
+            .into_iter()
+            .collect(),
             vec!["*".into()],
         ),
         Role::new(
@@ -117,11 +137,7 @@ fn default_roles() -> Vec<Role> {
             [ReadIndex, WriteIndex].into_iter().collect(),
             vec!["*".into()],
         ),
-        Role::new(
-            "read",
-            [ReadIndex].into_iter().collect(),
-            vec!["*".into()],
-        ),
+        Role::new("read", [ReadIndex].into_iter().collect(), vec!["*".into()]),
         Role::new(
             "read_only_index",
             [ReadIndex].into_iter().collect(),

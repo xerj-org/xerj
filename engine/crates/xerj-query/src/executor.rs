@@ -84,15 +84,19 @@ pub struct Explanation {
 
 impl Explanation {
     pub fn leaf(value: f32, description: impl Into<String>) -> Self {
-        Self { value, description: description.into(), details: vec![] }
+        Self {
+            value,
+            description: description.into(),
+            details: vec![],
+        }
     }
 
-    pub fn compound(
-        value: f32,
-        description: impl Into<String>,
-        details: Vec<Explanation>,
-    ) -> Self {
-        Self { value, description: description.into(), details }
+    pub fn compound(value: f32, description: impl Into<String>, details: Vec<Explanation>) -> Self {
+        Self {
+            value,
+            description: description.into(),
+            details,
+        }
     }
 }
 
@@ -125,7 +129,10 @@ impl SearchResult {
     pub fn empty(took_ms: u64) -> Self {
         Self {
             hits: vec![],
-            total: TotalHits { value: 0, relation: TotalHitsRelation::Eq },
+            total: TotalHits {
+                value: 0,
+                relation: TotalHitsRelation::Eq,
+            },
             took_ms,
             aggs: None,
             timed_out: false,
@@ -218,8 +225,7 @@ pub fn merge_hits(
         });
     } else {
         all.sort_unstable_by(|a, b| {
-            compare_sort_keys(&a.sort, &b.sort, sort_fields)
-                .then_with(|| a.id.cmp(&b.id))
+            compare_sort_keys(&a.sort, &b.sort, sort_fields).then_with(|| a.id.cmp(&b.id))
         });
     }
 
@@ -238,7 +244,10 @@ pub fn merge_totals(segment_totals: &[(u64, TotalHitsRelation)]) -> TotalHits {
             relation = TotalHitsRelation::Gte;
         }
     }
-    TotalHits { value: total, relation }
+    TotalHits {
+        value: total,
+        relation,
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -286,7 +295,11 @@ impl TopKHeap {
 
     /// Push a hit, evicting the lowest scorer if over capacity.
     pub fn push(&mut self, hit: Hit) {
-        let sh = ScoredHit { score: hit.score, id: hit.id.clone(), hit };
+        let sh = ScoredHit {
+            score: hit.score,
+            id: hit.id.clone(),
+            hit,
+        };
         self.inner.push(Reverse(sh));
         if self.inner.len() > self.capacity {
             self.inner.pop(); // evict the lowest scorer
@@ -295,8 +308,7 @@ impl TopKHeap {
 
     /// Drain the heap in score-descending order.
     pub fn into_sorted_hits(self) -> Vec<Hit> {
-        let mut hits: Vec<Hit> =
-            self.inner.into_iter().map(|Reverse(sh)| sh.hit).collect();
+        let mut hits: Vec<Hit> = self.inner.into_iter().map(|Reverse(sh)| sh.hit).collect();
         hits.sort_unstable_by(|a, b| {
             b.score
                 .partial_cmp(&a.score)
@@ -308,6 +320,11 @@ impl TopKHeap {
     /// Current number of hits in the heap.
     pub fn len(&self) -> usize {
         self.inner.len()
+    }
+
+    /// Whether the heap currently holds no hits.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Minimum score currently in the heap (used for early termination).
@@ -383,12 +400,7 @@ mod tests {
 
     #[test]
     fn test_merge_hits_from_offset() {
-        let seg = vec![
-            hit("a", 0.9),
-            hit("b", 0.8),
-            hit("c", 0.7),
-            hit("d", 0.6),
-        ];
+        let seg = vec![hit("a", 0.9), hit("b", 0.8), hit("c", 0.7), hit("d", 0.6)];
         let merged = merge_hits(vec![seg], 2, 2, &[]);
         assert_eq!(merged.len(), 2);
         assert_eq!(merged[0].id, "c");

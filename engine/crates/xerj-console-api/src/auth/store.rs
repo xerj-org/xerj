@@ -62,10 +62,7 @@ pub async fn get_user(engine: &Engine, user_id: &str) -> ConsoleResult<Option<Us
     search_one(&idx, &body).await
 }
 
-pub async fn find_user_by_email(
-    engine: &Engine,
-    email: &str,
-) -> ConsoleResult<Option<User>> {
+pub async fn find_user_by_email(engine: &Engine, email: &str) -> ConsoleResult<Option<User>> {
     let idx = engine.get_index(indices::USERS)?;
     let body = json!({
         "query": { "term": { "email": email } },
@@ -115,10 +112,7 @@ pub struct MagicLink {
     pub used_at: Option<String>,
 }
 
-pub async fn get_magic_link(
-    engine: &Engine,
-    token_hash: &str,
-) -> ConsoleResult<Option<MagicLink>> {
+pub async fn get_magic_link(engine: &Engine, token_hash: &str) -> ConsoleResult<Option<MagicLink>> {
     let idx = engine.get_index(indices::MAGIC_LINKS)?;
     let body = json!({
         "query": { "ids": { "values": [token_hash] } },
@@ -146,9 +140,8 @@ pub async fn mark_magic_link_used(
 ) -> ConsoleResult<()> {
     let idx = engine.get_index(indices::MAGIC_LINKS)?;
     let existing = get_magic_link(engine, token_hash).await?;
-    let mut link = existing.ok_or_else(|| {
-        ConsoleApiError::NotFound("magic link not found at consume time".into())
-    })?;
+    let mut link = existing
+        .ok_or_else(|| ConsoleApiError::NotFound("magic link not found at consume time".into()))?;
     link.used_at = Some(used_at_iso.to_string());
     let doc = serde_json::to_value(&link)?;
     let _ = idx.delete_document(token_hash).await;
@@ -245,10 +238,7 @@ pub async fn put_session(engine: &Engine, sess: &Session) -> ConsoleResult<()> {
     Ok(())
 }
 
-pub async fn get_session(
-    engine: &Engine,
-    session_id: &str,
-) -> ConsoleResult<Option<Session>> {
+pub async fn get_session(engine: &Engine, session_id: &str) -> ConsoleResult<Option<Session>> {
     let idx = engine.get_index(indices::SESSIONS)?;
     let body = json!({
         "query": { "ids": { "values": [session_id] } },
@@ -293,10 +283,7 @@ pub async fn put_api_token(engine: &Engine, token: &ApiToken) -> ConsoleResult<(
     Ok(())
 }
 
-pub async fn get_api_token(
-    engine: &Engine,
-    token_hash: &str,
-) -> ConsoleResult<Option<ApiToken>> {
+pub async fn get_api_token(engine: &Engine, token_hash: &str) -> ConsoleResult<Option<ApiToken>> {
     let idx = engine.get_index(indices::API_TOKENS)?;
     let body = json!({
         "query": { "ids": { "values": [token_hash] } },

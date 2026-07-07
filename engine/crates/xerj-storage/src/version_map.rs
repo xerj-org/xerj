@@ -37,8 +37,8 @@ use std::sync::Arc;
 use dashmap::DashMap;
 use tracing::debug;
 
-use crate::{Result, SeqNo, StorageError};
 use crate::segment::SegmentId;
+use crate::{Result, SeqNo, StorageError};
 
 /// Sentinel segment ID used for documents that are in the in-memory write buffer
 /// (not yet flushed to any segment file).
@@ -108,7 +108,11 @@ pub struct VersionMap {
 impl VersionMap {
     /// Create an empty version map.
     pub fn new() -> Self {
-        Self { inner: DashMap::new(), live: AtomicI64::new(0), ghost_events: std::sync::atomic::AtomicU64::new(0) }
+        Self {
+            inner: DashMap::new(),
+            live: AtomicI64::new(0),
+            ghost_events: std::sync::atomic::AtomicU64::new(0),
+        }
     }
 
     /// Apply a live-count delta for an entry transition.
@@ -144,20 +148,25 @@ impl VersionMap {
     ) {
         let doc_id = doc_id.into();
         debug!(?doc_id, seq_no, "version_map::set");
-        let old = self
-            .inner
-            .insert(doc_id, VersionEntry { seq_no, segment_id: segment_id.into(), deleted });
+        let old = self.inner.insert(
+            doc_id,
+            VersionEntry {
+                seq_no,
+                segment_id: segment_id.into(),
+                deleted,
+            },
+        );
         // Overwrite or delete — a superseded/tombstoned physical copy now
         // exists somewhere until merged away.  A same-seq_no re-set is NOT
         // an overwrite: the flush path repoints every drained doc's entry
         // from `__memtable__` to its segment id with the seq_no unchanged
         // (live-verified: counting those flipped the gate ON for every
         // flushed doc and re-disabled all fast paths under pure appends).
-        let is_overwrite = old.as_ref().map_or(false, |e| e.seq_no != seq_no);
+        let is_overwrite = old.as_ref().is_some_and(|e| e.seq_no != seq_no);
         if is_overwrite || deleted {
             self.ghost_events.fetch_add(1, Ordering::Relaxed);
         }
-        self.live_delta(old.map_or(false, |e| !e.deleted), !deleted);
+        self.live_delta(old.is_some_and(|e| !e.deleted), !deleted);
     }
 
     /// Record `doc_id → (seq_no, segment_id)` only if `seq_no` is >= the
@@ -187,11 +196,19 @@ impl VersionMap {
         match self.inner.entry(doc_id) {
             Entry::Occupied(mut occ) => {
                 if seq_no >= occ.get().seq_no {
-                    occ.insert(VersionEntry { seq_no, segment_id: segment_id.into(), deleted });
+                    occ.insert(VersionEntry {
+                        seq_no,
+                        segment_id: segment_id.into(),
+                        deleted,
+                    });
                 }
             }
             Entry::Vacant(vac) => {
-                vac.insert(VersionEntry { seq_no, segment_id: segment_id.into(), deleted });
+                vac.insert(VersionEntry {
+                    seq_no,
+                    segment_id: segment_id.into(),
+                    deleted,
+                });
             }
         }
     }
@@ -243,7 +260,11 @@ impl VersionMap {
                     }
                 }
                 let was_live = !occ.get().deleted;
-                occ.insert(VersionEntry { seq_no: new_seq_no, segment_id: new_segment_id, deleted });
+                occ.insert(VersionEntry {
+                    seq_no: new_seq_no,
+                    segment_id: new_segment_id,
+                    deleted,
+                });
                 self.ghost_events.fetch_add(1, Ordering::Relaxed);
                 self.live_delta(was_live, !deleted);
                 Ok(new_seq_no)
@@ -257,7 +278,11 @@ impl VersionMap {
                         actual: 0,
                     });
                 }
-                vac.insert(VersionEntry { seq_no: new_seq_no, segment_id: new_segment_id, deleted });
+                vac.insert(VersionEntry {
+                    seq_no: new_seq_no,
+                    segment_id: new_segment_id,
+                    deleted,
+                });
                 if deleted {
                     self.ghost_events.fetch_add(1, Ordering::Relaxed);
                 }
@@ -316,7 +341,10 @@ impl VersionMap {
         if removed_live != 0 {
             self.live.fetch_sub(removed_live, Ordering::Relaxed);
         }
-        debug!(stale_count = stale.len(), "version_map: cleaned up stale segments");
+        debug!(
+            stale_count = stale.len(),
+            "version_map: cleaned up stale segments"
+        );
     }
 
     /// Bulk-load entries from a segment during recovery / replay.
@@ -333,9 +361,13 @@ impl VersionMap {
             if should_insert {
                 let old = self.inner.insert(
                     doc_id,
-                    VersionEntry { seq_no, segment_id: Arc::from(segment_id), deleted },
+                    VersionEntry {
+                        seq_no,
+                        segment_id: Arc::from(segment_id),
+                        deleted,
+                    },
                 );
-                self.live_delta(old.map_or(false, |e| !e.deleted), !deleted);
+                self.live_delta(old.is_some_and(|e| !e.deleted), !deleted);
             }
         }
     }
@@ -377,7 +409,9 @@ impl VersionMap {
 }
 
 impl Default for VersionMap {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -400,7 +434,9 @@ mod tests {
     fn check_and_set_success() {
         let vm = VersionMap::new();
         vm.set("doc-1", 5, "seg-a", false);
-        let new_seq = vm.check_and_set("doc-1", Some(5), 10, "seg-b", false).unwrap();
+        let new_seq = vm
+            .check_and_set("doc-1", Some(5), 10, "seg-b", false)
+            .unwrap();
         assert_eq!(new_seq, 10);
         assert_eq!(vm.get("doc-1").unwrap().seq_no, 10);
     }
@@ -410,7 +446,14 @@ mod tests {
         let vm = VersionMap::new();
         vm.set("doc-1", 5, "seg-a", false);
         let result = vm.check_and_set("doc-1", Some(3), 10, "seg-b", false);
-        assert!(matches!(result, Err(StorageError::VersionConflict { actual: 5, expected: 3, .. })));
+        assert!(matches!(
+            result,
+            Err(StorageError::VersionConflict {
+                actual: 5,
+                expected: 3,
+                ..
+            })
+        ));
     }
 
     #[test]
@@ -491,7 +534,9 @@ mod tests {
                 vm.set(format!("doc-{i}"), i, "seg-x", false);
             }));
         }
-        for h in handles { h.join().unwrap(); }
+        for h in handles {
+            h.join().unwrap();
+        }
         assert_eq!(vm.len(), 8);
     }
 }

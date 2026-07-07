@@ -55,7 +55,8 @@ impl TermPostings {
         let mut buf = [0u8; 20];
         let mut c = Cursor::new(buf.as_mut_slice());
         c.write_u32::<LittleEndian>(self.doc_frequency).unwrap();
-        c.write_u64::<LittleEndian>(self.total_term_frequency).unwrap();
+        c.write_u64::<LittleEndian>(self.total_term_frequency)
+            .unwrap();
         c.write_u64::<LittleEndian>(self.postings_offset).unwrap();
         // last 4 bytes: length — split from offset to stay 20 B
         // rewrite cleanly:
@@ -71,7 +72,10 @@ impl TermPostings {
     /// FST value (offset only fits in 64 bits); length is stored here.
     pub fn decode(buf: &[u8]) -> io::Result<Self> {
         if buf.len() < 20 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "buffer too short for TermPostings"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "buffer too short for TermPostings",
+            ));
         }
         let mut c = Cursor::new(buf);
         let doc_frequency = c.read_u32::<LittleEndian>()?;
@@ -244,7 +248,7 @@ impl PostingsWriter {
             // Full block
             let block = &postings[i..i + BLOCK_SIZE];
 
-            if block_count % SKIP_INTERVAL == 0 {
+            if block_count.is_multiple_of(SKIP_INTERVAL) {
                 skip_table.push(SkipEntry {
                     max_doc_id: block[BLOCK_SIZE - 1].doc_id,
                     byte_offset: (output.len() - start_offset as usize) as u32,
@@ -269,7 +273,12 @@ impl PostingsWriter {
         // block's final doc_id as well.
         if i < n {
             let residual = &postings[i..];
-            encode_residual(residual, output, prev_block_last_doc_id, self.store_positions);
+            encode_residual(
+                residual,
+                output,
+                prev_block_last_doc_id,
+                self.store_positions,
+            );
         }
 
         Some((start_offset, skip_table))
@@ -297,11 +306,15 @@ impl Default for PostingsWriter {
 fn pack_u32_block(values: &[u32; BLOCK_SIZE], output: &mut Vec<u8>) {
     use bitpacking::BitPacker;
     let max_val = *values.iter().max().unwrap_or(&0);
-    let num_bits = if max_val == 0 { 1u8 } else { (32 - max_val.leading_zeros()) as u8 };
+    let num_bits = if max_val == 0 {
+        1u8
+    } else {
+        (32 - max_val.leading_zeros()) as u8
+    };
     let num_bits = num_bits.min(32);
 
     // bitpacking::BitPacker4x::BLOCK_LEN == 128
-    let byte_len = (BLOCK_SIZE * num_bits as usize + 7) / 8;
+    let byte_len = (BLOCK_SIZE * num_bits as usize).div_ceil(8);
     let mut compressed = vec![0u8; byte_len];
 
     let packer = bitpacking::BitPacker4x::new();
@@ -314,14 +327,21 @@ fn pack_u32_block(values: &[u32; BLOCK_SIZE], output: &mut Vec<u8>) {
 
 /// Decode a 128-element block previously written by `pack_u32_block`.
 /// Reads cursor forward past the data and fills `out`.
-fn unpack_u32_block(data: &[u8], cursor: &mut Cursor<&[u8]>, out: &mut [u32; BLOCK_SIZE]) -> io::Result<()> {
+fn unpack_u32_block(
+    data: &[u8],
+    cursor: &mut Cursor<&[u8]>,
+    out: &mut [u32; BLOCK_SIZE],
+) -> io::Result<()> {
     use bitpacking::BitPacker;
     let num_bits = cursor.read_u8()?;
     let byte_len = cursor.read_u32::<LittleEndian>()? as usize;
     let start = cursor.position() as usize;
     let end = start + byte_len;
     if end > data.len() {
-        return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "postings data truncated"));
+        return Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "postings data truncated",
+        ));
     }
     let compressed = &data[start..end];
     bitpacking::BitPacker4x::new().decompress(compressed, out, num_bits);
@@ -366,7 +386,9 @@ fn encode_block_positions(block: &[RawPosting], output: &mut Vec<u8>) {
             prev = pos;
         }
     }
-    output.write_u32::<LittleEndian>(pos_buf.len() as u32).unwrap();
+    output
+        .write_u32::<LittleEndian>(pos_buf.len() as u32)
+        .unwrap();
     output.extend_from_slice(&pos_buf);
 }
 
@@ -511,6 +533,11 @@ impl<'a> PostingsReader<'a> {
     }
 
     /// Advance to the next posting. Returns `None` when exhausted.
+    ///
+    /// An inherent cursor method rather than an `Iterator` impl: decoding
+    /// borrows the reader's internal buffers, which doesn't fit `Iterator`'s
+    /// `Item` lifetime, so `next` stays inherent by design.
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Option<DecodedPosting> {
         if self.docs_read >= self.doc_frequency {
             return None;
@@ -543,7 +570,11 @@ impl<'a> PostingsReader<'a> {
         self.block_idx += 1;
         self.docs_read += 1;
 
-        Some(DecodedPosting { doc_id, term_freq, positions })
+        Some(DecodedPosting {
+            doc_id,
+            term_freq,
+            positions,
+        })
     }
 
     fn decode_next_full_block(&mut self) -> io::Result<()> {
@@ -625,7 +656,11 @@ impl<'a> PostingsReader<'a> {
                 (1u32, Vec::new())
             };
 
-            result.push(DecodedPosting { doc_id, term_freq, positions });
+            result.push(DecodedPosting {
+                doc_id,
+                term_freq,
+                positions,
+            });
         }
 
         self.residual = result;
@@ -667,11 +702,8 @@ mod tests {
 
     #[test]
     fn roundtrip_small_posting_list() {
-        let postings: Vec<(u32, u32, &[u32])> = vec![
-            (1, 2, &[0, 5]),
-            (3, 1, &[2]),
-            (7, 3, &[0, 1, 2]),
-        ];
+        let postings: Vec<(u32, u32, &[u32])> =
+            vec![(1, 2, &[0, 5]), (3, 1, &[2]), (7, 3, &[0, 1, 2])];
         let (data, doc_freq) = build_postings(&postings);
         let mut reader = PostingsReader::new(&data, doc_freq);
 
@@ -704,8 +736,10 @@ mod tests {
         let mut last_doc = u32::MAX;
         let mut count = 0u32;
         while let Some(p) = reader.next() {
-            assert!(p.doc_id < last_doc || last_doc == u32::MAX || p.doc_id > last_doc,
-                "doc IDs must be monotonically increasing");
+            assert!(
+                p.doc_id < last_doc || last_doc == u32::MAX || p.doc_id > last_doc,
+                "doc IDs must be monotonically increasing"
+            );
             if last_doc != u32::MAX {
                 assert!(p.doc_id > last_doc);
             }

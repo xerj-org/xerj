@@ -48,7 +48,13 @@ pub fn rewrite(query: QueryNode) -> QueryNode {
 /// Single rewrite pass.  Returns `(rewritten_query, did_change)`.
 fn rewrite_once(query: QueryNode) -> (QueryNode, bool) {
     match query {
-        QueryNode::Bool { mut must, mut should, mut must_not, mut filter, minimum_should_match } => {
+        QueryNode::Bool {
+            mut must,
+            mut should,
+            mut must_not,
+            mut filter,
+            minimum_should_match,
+        } => {
             // ── Recurse into children first ──
             let (must2, c1) = rewrite_list(must);
             let (should2, c2) = rewrite_list(should);
@@ -154,13 +160,22 @@ fn rewrite_once(query: QueryNode) -> (QueryNode, bool) {
             {
                 let inner = filter.remove(0);
                 return (
-                    QueryNode::Constant { score: 0.0, query: Box::new(inner) },
+                    QueryNode::Constant {
+                        score: 0.0,
+                        query: Box::new(inner),
+                    },
                     true,
                 );
             }
 
             (
-                QueryNode::Bool { must, should, must_not, filter, minimum_should_match },
+                QueryNode::Bool {
+                    must,
+                    should,
+                    must_not,
+                    filter,
+                    minimum_should_match,
+                },
                 changed,
             )
         }
@@ -168,32 +183,87 @@ fn rewrite_once(query: QueryNode) -> (QueryNode, bool) {
         // ── Constant / Boosted — recurse into child ──
         QueryNode::Constant { score, query } => {
             let (q2, changed) = rewrite_once(*query);
-            (QueryNode::Constant { score, query: Box::new(q2) }, changed)
+            (
+                QueryNode::Constant {
+                    score,
+                    query: Box::new(q2),
+                },
+                changed,
+            )
         }
         QueryNode::Boosted { boost, query } => {
             let (q2, changed) = rewrite_once(*query);
             if q2.is_match_none() {
                 return (QueryNode::MatchNone, true);
             }
-            (QueryNode::Boosted { boost, query: Box::new(q2) }, changed)
+            (
+                QueryNode::Boosted {
+                    boost,
+                    query: Box::new(q2),
+                },
+                changed,
+            )
         }
 
         // ── Vector queries — recurse into filter ──
-        QueryNode::Knn { field, vector, k, filter, boost } => {
-            match filter {
-                None => (QueryNode::Knn { field, vector, k, filter: None, boost }, false),
-                Some(f) => {
-                    let (f2, changed) = rewrite_once(*f);
-                    (QueryNode::Knn { field, vector, k, filter: Some(Box::new(f2)), boost }, changed)
-                }
-            }
-        }
-        QueryNode::SemanticSearch { field, text, k, filter, boost } => match filter {
-            None => (QueryNode::SemanticSearch { field, text, k, filter: None, boost }, false),
+        QueryNode::Knn {
+            field,
+            vector,
+            k,
+            filter,
+            boost,
+        } => match filter {
+            None => (
+                QueryNode::Knn {
+                    field,
+                    vector,
+                    k,
+                    filter: None,
+                    boost,
+                },
+                false,
+            ),
             Some(f) => {
                 let (f2, changed) = rewrite_once(*f);
                 (
-                    QueryNode::SemanticSearch { field, text, k, filter: Some(Box::new(f2)), boost },
+                    QueryNode::Knn {
+                        field,
+                        vector,
+                        k,
+                        filter: Some(Box::new(f2)),
+                        boost,
+                    },
+                    changed,
+                )
+            }
+        },
+        QueryNode::SemanticSearch {
+            field,
+            text,
+            k,
+            filter,
+            boost,
+        } => match filter {
+            None => (
+                QueryNode::SemanticSearch {
+                    field,
+                    text,
+                    k,
+                    filter: None,
+                    boost,
+                },
+                false,
+            ),
+            Some(f) => {
+                let (f2, changed) = rewrite_once(*f);
+                (
+                    QueryNode::SemanticSearch {
+                        field,
+                        text,
+                        k,
+                        filter: Some(Box::new(f2)),
+                        boost,
+                    },
                     changed,
                 )
             }
@@ -207,10 +277,19 @@ fn rewrite_once(query: QueryNode) -> (QueryNode, bool) {
                 .map(|wq| {
                     let (q2, c) = rewrite_once(wq.query);
                     changed |= c;
-                    crate::ast::WeightedQuery { query: q2, weight: wq.weight }
+                    crate::ast::WeightedQuery {
+                        query: q2,
+                        weight: wq.weight,
+                    }
                 })
                 .collect();
-            (QueryNode::Hybrid { queries: queries2, fusion }, changed)
+            (
+                QueryNode::Hybrid {
+                    queries: queries2,
+                    fusion,
+                },
+                changed,
+            )
         }
 
         // ── Leaf nodes — nothing to rewrite ──

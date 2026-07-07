@@ -348,8 +348,7 @@ impl FieldConfig {
 
     /// Returns `true` if this field can be used in sorting and aggregations.
     pub fn is_aggregatable(&self) -> bool {
-        self.options.doc_values
-            && !matches!(self.field_type, FieldType::Text | FieldType::Binary)
+        self.options.doc_values && !matches!(self.field_type, FieldType::Text | FieldType::Binary)
     }
 }
 
@@ -512,17 +511,19 @@ mod tests {
 
     #[test]
     fn index_name_invalid() {
-        assert!(IndexName::new("").is_err());           // empty
-        assert!(IndexName::new("MyIndex").is_err());    // uppercase
-        assert!(IndexName::new("_private").is_err());   // starts with _
-        assert!(IndexName::new("bad name").is_err());   // space
-        assert!(IndexName::new("1bad").is_err());       // starts with digit
+        assert!(IndexName::new("").is_err()); // empty
+        assert!(IndexName::new("MyIndex").is_err()); // uppercase
+        assert!(IndexName::new("_private").is_err()); // starts with _
+        assert!(IndexName::new("bad name").is_err()); // space
+        assert!(IndexName::new("1bad").is_err()); // starts with digit
     }
 
     #[test]
     fn schema_field_add_dedup() {
         let mut schema = Schema::empty();
-        schema.add_field(FieldConfig::new("title", FieldType::Text)).unwrap();
+        schema
+            .add_field(FieldConfig::new("title", FieldType::Text))
+            .unwrap();
         assert_eq!(schema.version, 1);
 
         let result = schema.add_field(FieldConfig::new("title", FieldType::Keyword));
@@ -537,7 +538,10 @@ mod tests {
         let idx = IndexName::new("test").unwrap();
         let doc = Document::new(idx, source);
 
-        assert_eq!(doc.get_field("user.name"), Some(&serde_json::json!("Alice")));
+        assert_eq!(
+            doc.get_field("user.name"),
+            Some(&serde_json::json!("Alice"))
+        );
         assert_eq!(doc.get_field("user.missing"), None);
         assert_eq!(doc.get_field("missing"), None);
     }

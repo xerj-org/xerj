@@ -58,7 +58,12 @@ impl Bm25Scorer {
 
     /// Creates a scorer with custom k1/b parameters.
     pub fn with_params(k1: f32, b: f32, avg_dl: f32, total_docs: u64) -> Self {
-        Self { k1, b, avg_dl, total_docs }
+        Self {
+            k1,
+            b,
+            avg_dl,
+            total_docs,
+        }
     }
 
     /// Compute IDF for a term.
@@ -288,7 +293,12 @@ mod tests {
         let scorer = Bm25Scorer::new(1.0, 100);
         for n in 1u64..=100 {
             let idf = scorer.idf(n);
-            assert!(idf >= 0.0, "IDF must not be negative, got {} for n={}", idf, n);
+            assert!(
+                idf >= 0.0,
+                "IDF must not be negative, got {} for n={}",
+                idf,
+                n
+            );
         }
     }
 

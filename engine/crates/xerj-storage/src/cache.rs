@@ -49,7 +49,11 @@ impl SegmentCache {
     ) -> Self {
         let cache_dir = cache_dir.into();
         std::fs::create_dir_all(&cache_dir).ok();
-        Self { cache_dir, max_size_bytes, backend }
+        Self {
+            cache_dir,
+            max_size_bytes,
+            backend,
+        }
     }
 
     /// Return the data for `path`.
@@ -191,7 +195,10 @@ mod tests {
 
         let backend: Arc<dyn StorageBackend> =
             Arc::new(LocalFsBackend::new(backend_dir.path()).unwrap());
-        backend.write("segments/seg-001.seg", b"segment data here").await.unwrap();
+        backend
+            .write("segments/seg-001.seg", b"segment data here")
+            .await
+            .unwrap();
 
         let cache = SegmentCache::new(cache_dir.path(), 100 * 1024 * 1024, Arc::clone(&backend));
 
@@ -212,8 +219,7 @@ mod tests {
             Arc::new(LocalFsBackend::new(backend_dir.path()).unwrap());
         backend.write("seg.seg", b"original").await.unwrap();
 
-        let cache =
-            SegmentCache::new(cache_dir.path(), 100 * 1024 * 1024, Arc::clone(&backend));
+        let cache = SegmentCache::new(cache_dir.path(), 100 * 1024 * 1024, Arc::clone(&backend));
 
         // Populate cache.
         cache.get("seg.seg").await.unwrap();
@@ -222,7 +228,11 @@ mod tests {
         backend.write("seg.seg", b"modified").await.unwrap();
 
         let data = cache.get("seg.seg").await.unwrap();
-        assert_eq!(&data[..], b"original", "cache should serve stale-but-local copy");
+        assert_eq!(
+            &data[..],
+            b"original",
+            "cache should serve stale-but-local copy"
+        );
     }
 
     #[tokio::test]
@@ -249,7 +259,10 @@ mod tests {
         cache.maybe_evict().await.unwrap();
 
         let size_after = cache.cache_size_bytes().await.unwrap();
-        assert!(size_after <= 15, "expected <= 15 bytes after eviction, got {size_after}");
+        assert!(
+            size_after <= 15,
+            "expected <= 15 bytes after eviction, got {size_after}"
+        );
     }
 
     #[tokio::test]
@@ -261,8 +274,7 @@ mod tests {
             Arc::new(LocalFsBackend::new(backend_dir.path()).unwrap());
         backend.write("inv.seg", b"data").await.unwrap();
 
-        let cache =
-            SegmentCache::new(cache_dir.path(), 100 * 1024 * 1024, Arc::clone(&backend));
+        let cache = SegmentCache::new(cache_dir.path(), 100 * 1024 * 1024, Arc::clone(&backend));
 
         cache.get("inv.seg").await.unwrap();
         assert!(cache_dir.path().join("inv.seg").exists());
@@ -281,10 +293,12 @@ mod tests {
 
         let backend: Arc<dyn StorageBackend> =
             Arc::new(S3Backend::new(s3_dir.path(), "test-bucket", "xerj/"));
-        backend.write("segments/s3-seg.seg", b"s3 segment bytes").await.unwrap();
+        backend
+            .write("segments/s3-seg.seg", b"s3 segment bytes")
+            .await
+            .unwrap();
 
-        let cache =
-            SegmentCache::new(cache_dir.path(), 100 * 1024 * 1024, Arc::clone(&backend));
+        let cache = SegmentCache::new(cache_dir.path(), 100 * 1024 * 1024, Arc::clone(&backend));
 
         // Cache miss path through simulated S3.
         let data = cache.get("segments/s3-seg.seg").await.unwrap();

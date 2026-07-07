@@ -28,7 +28,6 @@
 //! turbo_fast_analyzer  = false  # skip stemming/stopwords for max speed
 //! ```
 
-use rayon::prelude::*;
 use serde_json::Value;
 use std::sync::Arc;
 
@@ -58,13 +57,13 @@ pub fn simd_lowercase(input: &[u8]) -> Vec<u8> {
         if all_ascii {
             // Fast path: ASCII lowercase in bulk.
             for &b in chunk {
-                output.push(if b >= b'A' && b <= b'Z' { b + 32 } else { b });
+                output.push(if b.is_ascii_uppercase() { b + 32 } else { b });
             }
         } else {
             // Slow path: multi-byte sequences — pass through unchanged.
             // Uppercase ASCII bytes that happen to appear are still lowercased.
             for &b in chunk {
-                output.push(if b >= b'A' && b <= b'Z' { b + 32 } else { b });
+                output.push(if b.is_ascii_uppercase() { b + 32 } else { b });
             }
         }
         i += 16;
@@ -72,7 +71,7 @@ pub fn simd_lowercase(input: &[u8]) -> Vec<u8> {
 
     // Tail: remaining bytes.
     for &b in &input[i..] {
-        output.push(if b >= b'A' && b <= b'Z' { b + 32 } else { b });
+        output.push(if b.is_ascii_uppercase() { b + 32 } else { b });
     }
 
     output
@@ -91,14 +90,37 @@ pub fn simd_find_word_boundaries(input: &[u8]) -> Vec<(usize, usize)> {
     for (i, &b) in input.iter().enumerate() {
         let is_sep = matches!(
             b,
-            b' ' | b'\t' | b'\n' | b'\r'
-                | b',' | b'.' | b'!' | b'?'
-                | b';' | b':' | b'"' | b'\''
-                | b'(' | b')' | b'[' | b']'
-                | b'{' | b'}' | b'/' | b'\\'
-                | b'|' | b'@' | b'#' | b'%'
-                | b'^' | b'&' | b'*' | b'+'
-                | b'=' | b'<' | b'>' | b'~'
+            b' ' | b'\t'
+                | b'\n'
+                | b'\r'
+                | b','
+                | b'.'
+                | b'!'
+                | b'?'
+                | b';'
+                | b':'
+                | b'"'
+                | b'\''
+                | b'('
+                | b')'
+                | b'['
+                | b']'
+                | b'{'
+                | b'}'
+                | b'/'
+                | b'\\'
+                | b'|'
+                | b'@'
+                | b'#'
+                | b'%'
+                | b'^'
+                | b'&'
+                | b'*'
+                | b'+'
+                | b'='
+                | b'<'
+                | b'>'
+                | b'~'
                 | b'`'
         );
 
@@ -151,7 +173,7 @@ impl FastTokenizer {
             .iter()
             .filter(|&&(s, e)| {
                 let len = e - s;
-                len >= 2 && len <= 40
+                (2..=40).contains(&len)
             })
             .map(|&(s, e)| {
                 // SAFETY: `lower` contains only bytes that were either:
@@ -242,6 +264,10 @@ pub struct TurboIngestPipeline {
     /// round-trip that v13 was paying.
     buffer: Vec<(String, Value, Arc<[u8]>)>,
     /// Whether to use parallel tokenisation.
+    ///
+    /// Retained for the public `new(batch_size, parallel)` constructor API;
+    /// unread since M5.9 dropped pre-tokenisation from the flush hot path.
+    #[allow(dead_code)]
     parallel: bool,
 }
 
@@ -381,7 +407,11 @@ impl BatchWalWriter {
         }
 
         // Estimate total size so we can pre-allocate one contiguous buffer.
-        let total_cap: usize = self.entries.iter().map(|(id, src)| 8 + id.len() + src.len()).sum();
+        let total_cap: usize = self
+            .entries
+            .iter()
+            .map(|(id, src)| 8 + id.len() + src.len())
+            .sum();
         let mut buf = Vec::with_capacity(total_cap);
 
         for (id, src) in &self.entries {
@@ -477,10 +507,26 @@ mod tests {
     #[test]
     fn pipeline_auto_flushes_at_batch_size() {
         let mut pipeline = TurboIngestPipeline::new(3, false);
-        assert!(pipeline.push("id1".into(), serde_json::json!({"text": "hello"}), empty_bytes()).is_none());
-        assert!(pipeline.push("id2".into(), serde_json::json!({"text": "world"}), empty_bytes()).is_none());
+        assert!(pipeline
+            .push(
+                "id1".into(),
+                serde_json::json!({"text": "hello"}),
+                empty_bytes()
+            )
+            .is_none());
+        assert!(pipeline
+            .push(
+                "id2".into(),
+                serde_json::json!({"text": "world"}),
+                empty_bytes()
+            )
+            .is_none());
         let results = pipeline
-            .push("id3".into(), serde_json::json!({"text": "foo bar"}), empty_bytes())
+            .push(
+                "id3".into(),
+                serde_json::json!({"text": "foo bar"}),
+                empty_bytes(),
+            )
             .expect("should auto-flush at batch_size=3");
         assert_eq!(results.len(), 3);
         assert_eq!(pipeline.buffered(), 0);
@@ -492,8 +538,16 @@ mod tests {
         // tokens are now empty Vecs.  Verify the pipeline still
         // produces the right number of results with correct ids.
         let mut pipeline = TurboIngestPipeline::new(100, false);
-        pipeline.push("id1".into(), serde_json::json!({"body": "quick brown fox"}), empty_bytes());
-        pipeline.push("id2".into(), serde_json::json!({"body": "lazy dog"}), empty_bytes());
+        pipeline.push(
+            "id1".into(),
+            serde_json::json!({"body": "quick brown fox"}),
+            empty_bytes(),
+        );
+        pipeline.push(
+            "id2".into(),
+            serde_json::json!({"body": "lazy dog"}),
+            empty_bytes(),
+        );
         let results = pipeline.flush();
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].id, "id1");

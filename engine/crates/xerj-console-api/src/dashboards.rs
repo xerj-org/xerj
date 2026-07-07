@@ -57,7 +57,9 @@ pub struct Dashboard {
     pub deleted_at: Option<String>,
 }
 
-fn default_org() -> String { "default".to_string() }
+fn default_org() -> String {
+    "default".to_string()
+}
 
 #[derive(Debug, Deserialize)]
 pub struct CreateBody {
@@ -78,7 +80,9 @@ pub struct CreateBody {
     pub time_default: Option<String>,
 }
 
-fn default_visibility() -> String { "private".to_string() }
+fn default_visibility() -> String {
+    "private".to_string()
+}
 
 #[derive(Debug, Deserialize, Default)]
 pub struct PatchBody {
@@ -102,10 +106,7 @@ pub struct PatchBody {
 // LIST
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub async fn list(
-    State(state): State<ConsoleState>,
-    sess: AuthSession,
-) -> ConsoleResult<Response> {
+pub async fn list(State(state): State<ConsoleState>, sess: AuthSession) -> ConsoleResult<Response> {
     let idx = state.engine.get_index(indices::DASHBOARDS)?;
     // Pull everything; filter by owner / visibility in code. The
     // `.xerj_dashboards` index is small (≤ low thousands) so the
@@ -128,14 +129,15 @@ pub async fn list(
         if d.deleted_at.is_some() {
             continue;
         }
-        let visible = d.owner == me
-            || d.visibility == "shared"
-            || d.visibility == "default";
+        let visible = d.owner == me || d.visibility == "shared" || d.visibility == "default";
         if visible {
             items.push(serde_json::to_value(&d)?);
         }
     }
-    Ok(ok(json!({ "dashboards": items, "total": items.len() }), None))
+    Ok(ok(
+        json!({ "dashboards": items, "total": items.len() }),
+        None,
+    ))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -250,16 +252,28 @@ pub async fn patch(
     enforce_write(&sess, &dash)?;
     enforce_etag(&headers, dash.version)?;
 
-    if let Some(name) = body.name { dash.name = name; }
+    if let Some(name) = body.name {
+        dash.name = name;
+    }
     if let Some(visibility) = body.visibility {
         enforce_can_write_visibility(&sess, &visibility)?;
         dash.visibility = visibility;
     }
-    if let Some(section) = body.section { dash.section = Some(section); }
-    if let Some(group) = body.group { dash.group = Some(group); }
-    if let Some(panels) = body.panels { dash.panels = panels; }
-    if let Some(filters) = body.filters_default { dash.filters_default = filters; }
-    if let Some(td) = body.time_default { dash.time_default = Some(td); }
+    if let Some(section) = body.section {
+        dash.section = Some(section);
+    }
+    if let Some(group) = body.group {
+        dash.group = Some(group);
+    }
+    if let Some(panels) = body.panels {
+        dash.panels = panels;
+    }
+    if let Some(filters) = body.filters_default {
+        dash.filters_default = filters;
+    }
+    if let Some(td) = body.time_default {
+        dash.time_default = Some(td);
+    }
 
     dash.version += 1;
     dash.updated_at = now_iso();
@@ -314,12 +328,15 @@ async fn read_required(state: &ConsoleState, id: &str) -> ConsoleResult<Dashboar
 async fn write_doc(state: &ConsoleState, dash: &Dashboard) -> ConsoleResult<()> {
     let idx = state.engine.get_index(indices::DASHBOARDS)?;
     let _ = idx.delete_document(&dash.id).await;
-    idx.create_document(dash.id.clone(), serde_json::to_value(dash)?).await?;
+    idx.create_document(dash.id.clone(), serde_json::to_value(dash)?)
+        .await?;
     Ok(())
 }
 
 fn enforce_read(sess: &AuthSession, dash: &Dashboard) -> ConsoleResult<()> {
-    if dash.owner == sess.user.id { return Ok(()); }
+    if dash.owner == sess.user.id {
+        return Ok(());
+    }
     match dash.visibility.as_str() {
         "shared" | "default" => Ok(()),
         _ => Err(ConsoleApiError::NotFound("dashboard".into())),
@@ -377,9 +394,7 @@ fn enforce_etag(headers: &HeaderMap, current_version: u64) -> ConsoleResult<()> 
         return Ok(());
     };
     let trimmed = if_match.trim();
-    let unwrapped = trimmed
-        .trim_start_matches("W/")
-        .trim_matches('"');
+    let unwrapped = trimmed.trim_start_matches("W/").trim_matches('"');
     match unwrapped.parse::<u64>() {
         Ok(v) if v == current_version => Ok(()),
         _ => Err(ConsoleApiError::Conflict(format!(

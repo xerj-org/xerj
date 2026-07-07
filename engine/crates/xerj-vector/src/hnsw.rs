@@ -9,15 +9,14 @@
 //! - Level selection uses the standard ln-based formula
 //! - Graph is entirely in-memory; persistence is handled by the storage crate
 
-use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use rand::Rng;
-use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, trace};
 use xerj_common::XerjError;
@@ -102,6 +101,9 @@ impl HnswParams {
 
 #[derive(Debug)]
 struct Node {
+    /// The node's own id. Redundant with its key in the `nodes` map, so it is
+    /// never read back out — kept for `Debug` output and crash diagnostics.
+    #[allow(dead_code)]
     id: u64,
     vector: Vec<f32>,
     /// Neighbor lists per layer. `neighbors[layer]` holds neighbor node IDs.
@@ -113,7 +115,11 @@ impl Node {
         let neighbors = (0..=max_layer)
             .map(|l| Vec::with_capacity(if l == 0 { 2 * m } else { m }))
             .collect();
-        Self { id, vector, neighbors }
+        Self {
+            id,
+            vector,
+            neighbors,
+        }
     }
 }
 
@@ -238,17 +244,13 @@ impl HnswIndex {
         let ep_id = self.entry_point.read().unwrap().unwrap();
         let ep_layer = *self.entry_layer.read().unwrap();
 
+        // Greedy descent tracks only the current entry point; the distance to
+        // it is recomputed by `search_layer`/`greedy_search_layer` at each step,
+        // so we don't carry it between layers.
         let mut curr_ep = ep_id;
-        let mut curr_dist = {
-            let nodes = self.nodes.read().unwrap();
-            let ep_node = nodes[&curr_ep].read().unwrap();
-            self.dist(&vector, &ep_node.vector)
-        };
 
         for layer in (node_level + 1..=ep_layer).rev() {
-            let (new_ep, new_dist) = self.greedy_search_layer(&vector, curr_ep, layer, 1);
-            curr_ep = new_ep;
-            curr_dist = new_dist;
+            curr_ep = self.greedy_search_layer(&vector, curr_ep, layer, 1).0;
         }
 
         // Search and connect from node_level down to 0
@@ -298,7 +300,6 @@ impl HnswIndex {
 
             if !candidates.is_empty() {
                 curr_ep = candidates[0].1;
-                curr_dist = candidates[0].0;
             }
         }
 
@@ -351,9 +352,7 @@ impl HnswIndex {
         // mid-query. Cloning a u64 HashSet is cheap and avoids holding
         // the read lock across the whole traversal.
         let tombstoned: HashSet<u64> = self.tombstones.read().unwrap().clone();
-        let combined_filter = move |id: u64| -> bool {
-            !tombstoned.contains(&id) && filter(id)
-        };
+        let combined_filter = move |id: u64| -> bool { !tombstoned.contains(&id) && filter(id) };
 
         let ep_opt = *self.entry_point.read().unwrap();
         let ep_id = match ep_opt {
@@ -437,29 +436,39 @@ impl HnswIndex {
         let mut buf: Vec<u8> = Vec::with_capacity(1024 * 1024);
 
         buf.write_all(HNSW_MAGIC).map_err(io_to_xerj)?;
-        buf.write_u32::<LittleEndian>(HNSW_FORMAT_VERSION).map_err(io_to_xerj)?;
-        buf.write_u32::<LittleEndian>(self.params.m as u32).map_err(io_to_xerj)?;
-        buf.write_u32::<LittleEndian>(self.params.ef_construction as u32).map_err(io_to_xerj)?;
-        buf.write_u8(metric_to_u8(self.params.metric)).map_err(io_to_xerj)?;
-        buf.write_u32::<LittleEndian>(self.params.dim as u32).map_err(io_to_xerj)?;
+        buf.write_u32::<LittleEndian>(HNSW_FORMAT_VERSION)
+            .map_err(io_to_xerj)?;
+        buf.write_u32::<LittleEndian>(self.params.m as u32)
+            .map_err(io_to_xerj)?;
+        buf.write_u32::<LittleEndian>(self.params.ef_construction as u32)
+            .map_err(io_to_xerj)?;
+        buf.write_u8(metric_to_u8(self.params.metric))
+            .map_err(io_to_xerj)?;
+        buf.write_u32::<LittleEndian>(self.params.dim as u32)
+            .map_err(io_to_xerj)?;
 
         let ep = *self.entry_point.read().unwrap();
         let el = *self.entry_layer.read().unwrap();
-        buf.write_u64::<LittleEndian>(ep.unwrap_or(u64::MAX)).map_err(io_to_xerj)?;
-        buf.write_u32::<LittleEndian>(el as u32).map_err(io_to_xerj)?;
+        buf.write_u64::<LittleEndian>(ep.unwrap_or(u64::MAX))
+            .map_err(io_to_xerj)?;
+        buf.write_u32::<LittleEndian>(el as u32)
+            .map_err(io_to_xerj)?;
 
         let nodes = self.nodes.read().unwrap();
-        buf.write_u32::<LittleEndian>(nodes.len() as u32).map_err(io_to_xerj)?;
+        buf.write_u32::<LittleEndian>(nodes.len() as u32)
+            .map_err(io_to_xerj)?;
         for (id, node_arc) in nodes.iter() {
             let n = node_arc.read().unwrap();
             buf.write_u64::<LittleEndian>(*id).map_err(io_to_xerj)?;
             let max_layer = n.neighbors.len().saturating_sub(1) as u32;
-            buf.write_u32::<LittleEndian>(max_layer).map_err(io_to_xerj)?;
+            buf.write_u32::<LittleEndian>(max_layer)
+                .map_err(io_to_xerj)?;
             for &v in &n.vector {
                 buf.write_f32::<LittleEndian>(v).map_err(io_to_xerj)?;
             }
             for layer_neighbors in &n.neighbors {
-                buf.write_u32::<LittleEndian>(layer_neighbors.len() as u32).map_err(io_to_xerj)?;
+                buf.write_u32::<LittleEndian>(layer_neighbors.len() as u32)
+                    .map_err(io_to_xerj)?;
                 for &nid in layer_neighbors {
                     buf.write_u64::<LittleEndian>(nid).map_err(io_to_xerj)?;
                 }
@@ -471,7 +480,8 @@ impl HnswIndex {
         // a delete; v1 readers don't know to skip past this, so the
         // format version was bumped (loader checks).
         let tombs = self.tombstones.read().unwrap();
-        buf.write_u32::<LittleEndian>(tombs.len() as u32).map_err(io_to_xerj)?;
+        buf.write_u32::<LittleEndian>(tombs.len() as u32)
+            .map_err(io_to_xerj)?;
         for &t in tombs.iter() {
             buf.write_u64::<LittleEndian>(t).map_err(io_to_xerj)?;
         }
@@ -521,7 +531,7 @@ impl HnswIndex {
             )));
         }
         let format_ver = cur.read_u32::<LittleEndian>().map_err(io_to_xerj)?;
-        if format_ver < 1 || format_ver > HNSW_FORMAT_VERSION {
+        if !(1..=HNSW_FORMAT_VERSION).contains(&format_ver) {
             return Err(corrupt(&format!(
                 "unsupported format version {format_ver}, this build supports 1..={HNSW_FORMAT_VERSION}"
             )));
@@ -535,7 +545,12 @@ impl HnswIndex {
         let entry_layer = cur.read_u32::<LittleEndian>().map_err(io_to_xerj)? as usize;
         let num_nodes = cur.read_u32::<LittleEndian>().map_err(io_to_xerj)? as usize;
 
-        let params = HnswParams { m, ef_construction, metric, dim };
+        let params = HnswParams {
+            m,
+            ef_construction,
+            metric,
+            dim,
+        };
         let mut node_map: HashMap<u64, Arc<RwLock<Node>>> = HashMap::with_capacity(num_nodes);
 
         for _ in 0..num_nodes {
@@ -554,7 +569,14 @@ impl HnswIndex {
                 }
                 neighbors.push(layer);
             }
-            node_map.insert(id, Arc::new(RwLock::new(Node { id, vector, neighbors })));
+            node_map.insert(
+                id,
+                Arc::new(RwLock::new(Node {
+                    id,
+                    vector,
+                    neighbors,
+                })),
+            );
         }
 
         // v2+: read trailing tombstone block. v1 files have no
@@ -571,7 +593,11 @@ impl HnswIndex {
         Ok(Self {
             params,
             nodes: RwLock::new(node_map),
-            entry_point: RwLock::new(if ep_raw == u64::MAX { None } else { Some(ep_raw) }),
+            entry_point: RwLock::new(if ep_raw == u64::MAX {
+                None
+            } else {
+                Some(ep_raw)
+            }),
             entry_layer: RwLock::new(entry_layer),
             tombstones: RwLock::new(tombstones),
         })
@@ -628,13 +654,7 @@ impl HnswIndex {
     }
 
     /// Beam search at a given layer, returning candidates sorted by distance.
-    fn search_layer(
-        &self,
-        query: &[f32],
-        entry: u64,
-        ef: usize,
-        layer: usize,
-    ) -> Vec<(f32, u64)> {
+    fn search_layer(&self, query: &[f32], entry: u64, ef: usize, layer: usize) -> Vec<(f32, u64)> {
         self.search_layer_filtered(query, entry, ef, layer, &|_| true)
     }
 
@@ -716,10 +736,7 @@ impl HnswIndex {
         }
 
         // Collect results sorted by distance ascending
-        let mut results: Vec<(f32, u64)> = w
-            .into_iter()
-            .map(|(d, id)| (d.0, id))
-            .collect();
+        let mut results: Vec<(f32, u64)> = w.into_iter().map(|(d, id)| (d.0, id)).collect();
         results.sort_unstable_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
         results
     }
@@ -753,7 +770,9 @@ mod ordered_float {
 
     impl Ord for OrderedFloat {
         fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-            self.0.partial_cmp(&other.0).unwrap_or(std::cmp::Ordering::Equal)
+            self.0
+                .partial_cmp(&other.0)
+                .unwrap_or(std::cmp::Ordering::Equal)
         }
     }
 }

@@ -178,10 +178,7 @@ impl FromRequestParts<ConsoleState> for AuthSession {
         bumped.last_seen_at = now_iso();
         let _ = store::put_session(&state.engine, &bumped).await;
 
-        Ok(AuthSession {
-            session_id,
-            user,
-        })
+        Ok(AuthSession { session_id, user })
     }
 }
 

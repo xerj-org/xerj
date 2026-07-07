@@ -339,9 +339,12 @@ mod tests {
 
     #[test]
     fn infer_types_from_json() {
-        assert_eq!(infer_field_type(&serde_json::json!(true)), FieldType::Boolean);
+        assert_eq!(
+            infer_field_type(&serde_json::json!(true)),
+            FieldType::Boolean
+        );
         assert_eq!(infer_field_type(&serde_json::json!(42)), FieldType::Long);
-        assert_eq!(infer_field_type(&serde_json::json!(3.14)), FieldType::Double);
+        assert_eq!(infer_field_type(&serde_json::json!(2.5)), FieldType::Double);
         assert_eq!(
             infer_field_type(&serde_json::json!("hello world")),
             FieldType::Text
@@ -381,7 +384,8 @@ mod tests {
     #[test]
     fn strict_mapping_rejects_unknown() {
         let mut ms = ManagedSchema::strict();
-        ms.add_field(FieldConfig::new("known", FieldType::Text)).unwrap();
+        ms.add_field(FieldConfig::new("known", FieldType::Text))
+            .unwrap();
 
         let doc = serde_json::json!({"known": "ok", "unknown": "boom"});
         assert!(ms.apply_document(&doc, 500).is_err());
@@ -399,10 +403,12 @@ mod tests {
     #[test]
     fn schema_compatibility_type_change_rejected() {
         let mut old = ManagedSchema::dynamic();
-        old.add_field(FieldConfig::new("status", FieldType::Keyword)).unwrap();
+        old.add_field(FieldConfig::new("status", FieldType::Keyword))
+            .unwrap();
 
         let mut new = ManagedSchema::dynamic();
-        new.add_field(FieldConfig::new("status", FieldType::Long)).unwrap();
+        new.add_field(FieldConfig::new("status", FieldType::Long))
+            .unwrap();
 
         assert!(old.is_compatible_with(&new).is_err());
     }

@@ -24,8 +24,8 @@ use serde_json::{json, Value};
 use tempfile::TempDir;
 use tower::ServiceExt;
 use xerj_common::config::Config;
-use xerj_engine::Engine;
 use xerj_console_api::{state::ClusterMode, xerj_console_router, ConsoleState};
+use xerj_engine::Engine;
 
 async fn boot() -> (Engine, Router, TempDir, String) {
     let dir = TempDir::new().unwrap();
@@ -102,13 +102,19 @@ async fn magic_redeem_is_single_use() {
 
     let r1 = router
         .clone()
-        .oneshot(post_json("/_xerj-console/api/v1/auth/magic/redeem", json!({ "token": token })))
+        .oneshot(post_json(
+            "/_xerj-console/api/v1/auth/magic/redeem",
+            json!({ "token": token }),
+        ))
         .await
         .unwrap();
     assert_eq!(r1.status(), 200);
 
     let r2 = router
-        .oneshot(post_json("/_xerj-console/api/v1/auth/magic/redeem", json!({ "token": token })))
+        .oneshot(post_json(
+            "/_xerj-console/api/v1/auth/magic/redeem",
+            json!({ "token": token }),
+        ))
         .await
         .unwrap();
     assert_eq!(r2.status(), 401, "second redemption must fail");
@@ -135,7 +141,10 @@ async fn passkey_begin_returns_creation_options_for_valid_enrollment() {
     // Redeem to get an enrollment session.
     let r = router
         .clone()
-        .oneshot(post_json("/_xerj-console/api/v1/auth/magic/redeem", json!({ "token": token })))
+        .oneshot(post_json(
+            "/_xerj-console/api/v1/auth/magic/redeem",
+            json!({ "token": token }),
+        ))
         .await
         .unwrap();
     let (_, redeem_body) = body_json(r).await;
@@ -218,9 +227,7 @@ async fn login_begin_rate_limit_kicks_in() {
                     .uri("/_xerj-console/api/v1/auth/login/begin")
                     .header("content-type", "application/json")
                     .header("x-forwarded-for", "9.9.9.9")
-                    .body(Body::from(
-                        json!({ "email": "x@y" }).to_string(),
-                    ))
+                    .body(Body::from(json!({ "email": "x@y" }).to_string()))
                     .unwrap(),
             )
             .await
@@ -274,7 +281,10 @@ async fn passkey_finish_rejects_bogus_credential() {
 
     let r = router
         .clone()
-        .oneshot(post_json("/_xerj-console/api/v1/auth/magic/redeem", json!({ "token": token })))
+        .oneshot(post_json(
+            "/_xerj-console/api/v1/auth/magic/redeem",
+            json!({ "token": token }),
+        ))
         .await
         .unwrap();
     let (_, redeem_body) = body_json(r).await;

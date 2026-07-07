@@ -23,10 +23,7 @@ const FALLBACK_PREFS: &str = r#"{
   "mobile": false
 }"#;
 
-pub async fn get(
-    State(state): State<ConsoleState>,
-    sess: AuthSession,
-) -> ConsoleResult<Response> {
+pub async fn get(State(state): State<ConsoleState>, sess: AuthSession) -> ConsoleResult<Response> {
     let idx = state.engine.get_index(indices::PREFS)?;
     let body = json!({
         "query": { "ids": { "values": [&sess.user.id] } },
@@ -37,8 +34,7 @@ pub async fn get(
     let r = idx.search(&req).await?;
     let prefs = match r.hits.into_iter().next() {
         Some(h) => h.source,
-        None => serde_json::from_str(FALLBACK_PREFS)
-            .expect("fallback prefs are valid json"),
+        None => serde_json::from_str(FALLBACK_PREFS).expect("fallback prefs are valid json"),
     };
     Ok(ok(prefs, None))
 }
@@ -54,13 +50,13 @@ pub async fn put(
         ));
     }
     // Strip any client-set "updated_at" so the server is authoritative.
-    body.as_object_mut().unwrap().insert(
-        "updated_at".into(),
-        Value::String(now_iso()),
-    );
+    body.as_object_mut()
+        .unwrap()
+        .insert("updated_at".into(), Value::String(now_iso()));
 
     let idx = state.engine.get_index(indices::PREFS)?;
     let _ = idx.delete_document(&sess.user.id).await;
-    idx.create_document(sess.user.id.clone(), body.clone()).await?;
+    idx.create_document(sess.user.id.clone(), body.clone())
+        .await?;
     Ok(ok(body, None))
 }

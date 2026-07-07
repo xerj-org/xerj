@@ -7,7 +7,7 @@
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
-use std::io::{Cursor, Read, Write};
+use std::io::{Cursor, Read};
 use xerj_common::XerjError;
 use xerj_compress::{
     codec::{get_codec, CompressionLevel},
@@ -163,7 +163,10 @@ pub struct ColumnWriter {
 
 impl ColumnWriter {
     pub fn new(column: Column, compression: CompressionLevel) -> Self {
-        Self { column, compression }
+        Self {
+            column,
+            compression,
+        }
     }
 
     /// Serialize and compress the column, returning the encoded bytes.
@@ -179,10 +182,15 @@ impl ColumnWriter {
     }
 
     fn encode_timestamps(&self) -> Result<Vec<u8>> {
-        let vals: Vec<i64> = self.column.values.iter().map(|v| match v {
-            ColumnValue::Timestamp(t) => *t,
-            _ => 0,
-        }).collect();
+        let vals: Vec<i64> = self
+            .column
+            .values
+            .iter()
+            .map(|v| match v {
+                ColumnValue::Timestamp(t) => *t,
+                _ => 0,
+            })
+            .collect();
 
         let first = vals.first().copied().unwrap_or(0);
 
@@ -212,10 +220,15 @@ impl ColumnWriter {
     }
 
     fn encode_i64s(&self) -> Result<Vec<u8>> {
-        let vals: Vec<i64> = self.column.values.iter().map(|v| match v {
-            ColumnValue::I64(n) => *n,
-            _ => 0,
-        }).collect();
+        let vals: Vec<i64> = self
+            .column
+            .values
+            .iter()
+            .map(|v| match v {
+                ColumnValue::I64(n) => *n,
+                _ => 0,
+            })
+            .collect();
 
         let mut buf = Vec::with_capacity(vals.len() * 8 + 4);
         buf.write_u32::<LittleEndian>(vals.len() as u32)
@@ -233,10 +246,15 @@ impl ColumnWriter {
     }
 
     fn encode_f64s(&self) -> Result<Vec<u8>> {
-        let vals: Vec<f64> = self.column.values.iter().map(|v| match v {
-            ColumnValue::F64(f) => *f,
-            _ => 0.0,
-        }).collect();
+        let vals: Vec<f64> = self
+            .column
+            .values
+            .iter()
+            .map(|v| match v {
+                ColumnValue::F64(f) => *f,
+                _ => 0.0,
+            })
+            .collect();
 
         let mut buf = Vec::with_capacity(vals.len() * 8 + 4);
         buf.write_u32::<LittleEndian>(vals.len() as u32)
@@ -250,10 +268,15 @@ impl ColumnWriter {
     }
 
     fn encode_strings(&self) -> Result<Vec<u8>> {
-        let strs: Vec<&str> = self.column.values.iter().map(|v| match v {
-            ColumnValue::String(s) => s.as_str(),
-            _ => "",
-        }).collect();
+        let strs: Vec<&str> = self
+            .column
+            .values
+            .iter()
+            .map(|v| match v {
+                ColumnValue::String(s) => s.as_str(),
+                _ => "",
+            })
+            .collect();
 
         // Try dictionary encoding if cardinality is low
         let distinct: std::collections::HashSet<&str> = strs.iter().copied().collect();
@@ -293,13 +316,18 @@ impl ColumnWriter {
     }
 
     fn encode_bools(&self) -> Result<Vec<u8>> {
-        let vals: Vec<bool> = self.column.values.iter().map(|v| match v {
-            ColumnValue::Bool(b) => *b,
-            _ => false,
-        }).collect();
+        let vals: Vec<bool> = self
+            .column
+            .values
+            .iter()
+            .map(|v| match v {
+                ColumnValue::Bool(b) => *b,
+                _ => false,
+            })
+            .collect();
 
         // Pack 8 bools per byte
-        let byte_count = (vals.len() + 7) / 8;
+        let byte_count = vals.len().div_ceil(8);
         let mut packed = vec![0u8; byte_count];
         for (i, &b) in vals.iter().enumerate() {
             if b {
@@ -376,9 +404,11 @@ impl ColumnReader {
 
     fn decode_timestamps(&self, raw: &[u8]) -> Result<Vec<ColumnValue>> {
         let mut cur = Cursor::new(raw);
-        let first = cur.read_u64::<LittleEndian>()
+        let first = cur
+            .read_u64::<LittleEndian>()
             .map_err(|e| XerjError::internal(e.to_string()))? as i64;
-        let count = cur.read_u32::<LittleEndian>()
+        let count = cur
+            .read_u32::<LittleEndian>()
             .map_err(|e| XerjError::internal(e.to_string()))? as usize;
 
         let mut result = Vec::with_capacity(count);
@@ -387,7 +417,8 @@ impl ColumnReader {
 
         result.push(ColumnValue::Timestamp(first));
         for _ in 1..count {
-            let dod = cur.read_i64::<LittleEndian>()
+            let dod = cur
+                .read_i64::<LittleEndian>()
                 .map_err(|e| XerjError::internal(e.to_string()))?;
             let delta = prev_delta + dod;
             let v = prev + delta;
@@ -400,12 +431,14 @@ impl ColumnReader {
 
     fn decode_i64s(&self, raw: &[u8]) -> Result<Vec<ColumnValue>> {
         let mut cur = Cursor::new(raw);
-        let count = cur.read_u32::<LittleEndian>()
+        let count = cur
+            .read_u32::<LittleEndian>()
             .map_err(|e| XerjError::internal(e.to_string()))? as usize;
         let mut result = Vec::with_capacity(count);
         let mut prev = 0i64;
         for _ in 0..count {
-            let delta = cur.read_i64::<LittleEndian>()
+            let delta = cur
+                .read_i64::<LittleEndian>()
                 .map_err(|e| XerjError::internal(e.to_string()))?;
             let v = prev + delta;
             result.push(ColumnValue::I64(v));
@@ -416,11 +449,13 @@ impl ColumnReader {
 
     fn decode_f64s(&self, raw: &[u8]) -> Result<Vec<ColumnValue>> {
         let mut cur = Cursor::new(raw);
-        let count = cur.read_u32::<LittleEndian>()
+        let count = cur
+            .read_u32::<LittleEndian>()
             .map_err(|e| XerjError::internal(e.to_string()))? as usize;
         let mut result = Vec::with_capacity(count);
         for _ in 0..count {
-            let v = cur.read_f64::<LittleEndian>()
+            let v = cur
+                .read_f64::<LittleEndian>()
                 .map_err(|e| XerjError::internal(e.to_string()))?;
             result.push(ColumnValue::F64(v));
         }
@@ -432,30 +467,36 @@ impl ColumnReader {
         let mut cur = Cursor::new(&raw[1..]);
 
         if use_dict {
-            let dict_len = cur.read_u32::<LittleEndian>()
-                .map_err(|e| XerjError::internal(e.to_string()))? as usize;
+            let dict_len =
+                cur.read_u32::<LittleEndian>()
+                    .map_err(|e| XerjError::internal(e.to_string()))? as usize;
             let mut dict_bytes = vec![0u8; dict_len];
             cur.read_exact(&mut dict_bytes)
                 .map_err(|e| XerjError::internal(e.to_string()))?;
             let decoder = DictionaryDecoder::deserialize(&dict_bytes)?;
 
-            let count = cur.read_u32::<LittleEndian>()
+            let count = cur
+                .read_u32::<LittleEndian>()
                 .map_err(|e| XerjError::internal(e.to_string()))? as usize;
             let mut result = Vec::with_capacity(count);
             for _ in 0..count {
-                let id = cur.read_u16::<LittleEndian>()
+                let id = cur
+                    .read_u16::<LittleEndian>()
                     .map_err(|e| XerjError::internal(e.to_string()))?;
                 let s = decoder.decode(id).unwrap_or("").to_owned();
                 result.push(ColumnValue::String(s));
             }
             Ok(result)
         } else {
-            let count = cur.read_u32::<LittleEndian>()
+            let count = cur
+                .read_u32::<LittleEndian>()
                 .map_err(|e| XerjError::internal(e.to_string()))? as usize;
             let mut result = Vec::with_capacity(count);
             for _ in 0..count {
-                let slen = cur.read_u32::<LittleEndian>()
-                    .map_err(|e| XerjError::internal(e.to_string()))? as usize;
+                let slen = cur
+                    .read_u32::<LittleEndian>()
+                    .map_err(|e| XerjError::internal(e.to_string()))?
+                    as usize;
                 let mut sbytes = vec![0u8; slen];
                 cur.read_exact(&mut sbytes)
                     .map_err(|e| XerjError::internal(e.to_string()))?;
@@ -469,9 +510,10 @@ impl ColumnReader {
 
     fn decode_bools(&self, raw: &[u8]) -> Result<Vec<ColumnValue>> {
         let mut cur = Cursor::new(raw);
-        let count = cur.read_u32::<LittleEndian>()
+        let count = cur
+            .read_u32::<LittleEndian>()
             .map_err(|e| XerjError::internal(e.to_string()))? as usize;
-        let byte_count = (count + 7) / 8;
+        let byte_count = count.div_ceil(8);
         let mut packed = vec![0u8; byte_count];
         cur.read_exact(&mut packed)
             .map_err(|e| XerjError::internal(e.to_string()))?;
@@ -486,11 +528,13 @@ impl ColumnReader {
 
     fn decode_binary(&self, raw: &[u8]) -> Result<Vec<ColumnValue>> {
         let mut cur = Cursor::new(raw);
-        let count = cur.read_u32::<LittleEndian>()
+        let count = cur
+            .read_u32::<LittleEndian>()
             .map_err(|e| XerjError::internal(e.to_string()))? as usize;
         let mut result = Vec::with_capacity(count);
         for _ in 0..count {
-            let blen = cur.read_u32::<LittleEndian>()
+            let blen = cur
+                .read_u32::<LittleEndian>()
                 .map_err(|e| XerjError::internal(e.to_string()))? as usize;
             let mut bytes = vec![0u8; blen];
             cur.read_exact(&mut bytes)
@@ -511,7 +555,9 @@ mod tests {
 
     fn roundtrip(column: Column) -> Vec<ColumnValue> {
         let compression = CompressionLevel::Fast;
-        let encoded = ColumnWriter::new(column.clone(), compression).encode().unwrap();
+        let encoded = ColumnWriter::new(column.clone(), compression)
+            .encode()
+            .unwrap();
         let reader = ColumnReader::new(&column.name, column.column_type, encoded, 65536);
         reader.decode(compression).unwrap()
     }

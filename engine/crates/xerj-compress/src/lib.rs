@@ -13,8 +13,8 @@ pub mod codec;
 pub mod dictionary;
 pub mod field_codec;
 
-pub use codec::{get_codec, Codec, CompressionLevel, Lz4Codec, NoneCodec, ZstdCodec};
 pub use block::{BlockReader, BlockWriter};
+pub use codec::{get_codec, Codec, CompressionLevel, Lz4Codec, NoneCodec, ZstdCodec};
 pub use dictionary::{DictionaryDecoder, DictionaryEncoder};
 pub use field_codec::{FieldAnalyzer, FieldEncoding, TimestampFormat};
 

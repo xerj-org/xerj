@@ -80,8 +80,8 @@ pub use planner::{plan_query, ExecutionPlan};
 
 // Executor
 pub use executor::{
-    merge_hits, merge_totals, Explanation, Hit, SearchResult, SegmentExecutor, TotalHits,
-    TotalHitsRelation, TopKHeap,
+    merge_hits, merge_totals, Explanation, Hit, SearchResult, SegmentExecutor, TopKHeap, TotalHits,
+    TotalHitsRelation,
 };
 
 // Sort

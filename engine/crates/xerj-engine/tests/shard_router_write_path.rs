@@ -89,14 +89,12 @@ async fn router_forwards_remote_shards() {
         counts[&None]
     );
     assert!(
-        counts[&Some("peer-b".to_string())] >= 150
-            && counts[&Some("peer-b".to_string())] <= 350,
+        counts[&Some("peer-b".to_string())] >= 150 && counts[&Some("peer-b".to_string())] <= 350,
         "peer-b got {} hits, expected 150..350",
         counts[&Some("peer-b".to_string())]
     );
     assert!(
-        counts[&Some("peer-c".to_string())] >= 150
-            && counts[&Some("peer-c".to_string())] <= 350,
+        counts[&Some("peer-c".to_string())] >= 150 && counts[&Some("peer-c".to_string())] <= 350,
         "peer-c got {} hits, expected 150..350",
         counts[&Some("peer-c".to_string())]
     );

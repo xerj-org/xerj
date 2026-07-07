@@ -21,10 +21,8 @@ use crate::{
     extract::OptionalJson,
     responses::{
         BulkItemError, EsBulkItem, EsBulkItemAction, EsBulkItemResult, EsBulkResponse,
-        EsDeleteDocResponse, EsDeleteIndexResponse, EsDocResponse, EsGetResponse,
-        EsHealthResponse, EsHit, EsHits, EsHitsTotal, EsIndexMapping, EsIndexResponse,
-        EsIndexSettings, EsIndexSettingsInner, EsIndexVersion, EsInfoResponse, EsMappingResponse,
-        EsMappings, EsSearchResponse, EsSettingsBlock, EsSettingsResponse,
+        EsDeleteDocResponse, EsDeleteIndexResponse, EsDocResponse, EsGetResponse, EsHit, EsHits,
+        EsHitsTotal, EsIndexResponse, EsInfoResponse, EsSearchResponse,
     },
     state::AppState,
 };
@@ -99,7 +97,10 @@ async fn cluster_health_inner(
                 .iter()
                 .filter(|info| {
                     want.iter().any(|s| {
-                        *s == "_all" || *s == "*" || glob_match_simple(s, &info.name) || *s == info.name
+                        *s == "_all"
+                            || *s == "*"
+                            || glob_match_simple(s, &info.name)
+                            || *s == info.name
                     })
                 })
                 .collect()
@@ -133,7 +134,11 @@ async fn cluster_health_inner(
                     .get(&info.name)
                     .map(|v| *v)
                     .unwrap_or(false);
-                if is_closed { want_closed } else { want_open }
+                if is_closed {
+                    want_closed
+                } else {
+                    want_open
+                }
             })
             .collect()
     } else {
@@ -211,17 +216,18 @@ async fn cluster_health_inner(
     // keep the *cluster* status driven by replicas only. Our tests cover
     // both — we currently only track a single "closed" flag per index and
     // don't differentiate the closed-replication mode.
-    let status = if unassigned_replicas > 0 { "yellow" } else { "green" };
+    let status = if unassigned_replicas > 0 {
+        "yellow"
+    } else {
+        "green"
+    };
 
     // active_primary_shards / active_shards sum per-index shard counts.
     // Post-7.2 ES keeps closed replicated indices' shards "active" from
     // the cluster's perspective, so we count them the same way as open
     // ones here (the test suite asserts this explicitly via
     // `expand_wildcards: closed` + `active_shards: N`).
-    let active: u32 = selected
-        .iter()
-        .map(|info| shard_count(&info.name))
-        .sum();
+    let active: u32 = selected.iter().map(|info| shard_count(&info.name)).sum();
     let _ = closed_count;
 
     // Wait-for assertions: single-node cluster, nothing relocating /
@@ -257,7 +263,11 @@ async fn cluster_health_inner(
     // check runs (we don't block), so we set timed_out accordingly.
     let wait_for_active_shards_unmet = match params.wait_for_active_shards.as_deref() {
         Some("all") => unassigned_replicas > 0,
-        Some(s) => s.parse::<u64>().ok().map(|n| n > active as u64).unwrap_or(false),
+        Some(s) => s
+            .parse::<u64>()
+            .ok()
+            .map(|n| n > active as u64)
+            .unwrap_or(false),
         None => false,
     };
     // When the caller explicitly requests `wait_for_nodes>=N`, we
@@ -273,20 +283,21 @@ async fn cluster_health_inner(
             let s = s.trim();
             if let Some(ms) = s.strip_suffix("ms") {
                 ms.parse::<u64>().ok().map(|v| v <= 100).unwrap_or(false)
-            } else if s == "0" {
-                true
             } else {
-                false
+                s == "0"
             }
         })
         .unwrap_or(false);
     let declared_nodes: u32 = if aggressive_timeout {
         1
     } else {
-        params.wait_for_nodes.as_deref().map(|_| wait_for_nodes).unwrap_or(1)
+        params
+            .wait_for_nodes
+            .as_deref()
+            .map(|_| wait_for_nodes)
+            .unwrap_or(1)
     };
-    let timed_out = wait_for_active_shards_unmet
-        || (aggressive_timeout && wait_for_nodes > 1);
+    let timed_out = wait_for_active_shards_unmet || (aggressive_timeout && wait_for_nodes > 1);
 
     let mut resp = json!({
         "cluster_name": "xerj",
@@ -333,13 +344,7 @@ async fn cluster_health_inner(
                         })
                 })
                 .unwrap_or(0) as u32;
-            let idx_status = if replicas > 0 {
-                "yellow"
-            } else if is_closed {
-                "green"
-            } else {
-                "green"
-            };
+            let idx_status = if replicas > 0 { "yellow" } else { "green" };
             let shards = shard_count(&info.name);
             let mut idx_obj = json!({
                 "status": idx_status,
@@ -406,7 +411,10 @@ pub async fn cat_indices(State(state): State<AppState>) -> impl IntoResponse {
     let body = lines.join("\n") + "\n";
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         body,
     )
         .into_response()
@@ -483,7 +491,8 @@ pub async fn create_index(
     // the original mapping declares a `@timestamp` date field. Encode the
     // decision at create time so the search path can default-sort on it
     // even after @timestamp is later extended by dynamic mapping.
-    let declared_timestamp_date = mappings_val.pointer("/properties/@timestamp/type")
+    let declared_timestamp_date = mappings_val
+        .pointer("/properties/@timestamp/type")
         .and_then(Value::as_str)
         .map(|t| t == "date" || t == "date_nanos")
         .unwrap_or(false);
@@ -530,7 +539,10 @@ pub async fn create_index(
                 if let Some(f) = explicit_sort_field.as_ref() {
                     if let Some(o) = s.as_object_mut() {
                         o.insert("__xy_index_sort_field".to_string(), json!(f));
-                        o.insert("__xy_index_sort_order".to_string(), json!(explicit_sort_order));
+                        o.insert(
+                            "__xy_index_sort_order".to_string(),
+                            json!(explicit_sort_order),
+                        );
                         // Mark this as an EXPLICIT index sort (vs the
                         // @timestamp auto-heuristic) so the search path can
                         // map a lone `_doc` sort onto the index-sort field.
@@ -542,28 +554,29 @@ pub async fn create_index(
                         o.insert("__xy_index_sort_order".to_string(), json!("desc"));
                     }
                 }
-                state
-                    .engine
-                    .index_settings
-                    .insert(index.clone(), s);
+                state.engine.index_settings.insert(index.clone(), s);
             } else if let Some(f) = explicit_sort_field.as_ref() {
-                state.engine.index_settings.insert(index.clone(), json!({
-                    "__xy_index_sort_field": f,
-                    "__xy_index_sort_order": explicit_sort_order,
-                    "__xy_index_sort_explicit": true,
-                }));
+                state.engine.index_settings.insert(
+                    index.clone(),
+                    json!({
+                        "__xy_index_sort_field": f,
+                        "__xy_index_sort_order": explicit_sort_order,
+                        "__xy_index_sort_explicit": true,
+                    }),
+                );
             } else if declared_timestamp_date {
-                state.engine.index_settings.insert(index.clone(), json!({
-                    "__xy_index_sort_field": "@timestamp",
-                    "__xy_index_sort_order": "desc",
-                }));
+                state.engine.index_settings.insert(
+                    index.clone(),
+                    json!({
+                        "__xy_index_sort_field": "@timestamp",
+                        "__xy_index_sort_order": "desc",
+                    }),
+                );
             }
             if !mappings_val.is_null() {
                 // Persists es_mapping.json into the index dir (atomic) so
                 // the create-time mapping survives a restart.
-                state
-                    .engine
-                    .put_index_mapping(&index, mappings_val.clone());
+                state.engine.put_index_mapping(&index, mappings_val.clone());
             }
             if let Some(aliases) = body.get("aliases").and_then(Value::as_object) {
                 // Alias keys can also contain date math
@@ -594,7 +607,9 @@ pub async fn create_index(
 /// that YAML tests exercise as "invalid" (`baz`, `foobar`, etc.).
 fn validate_properties(props: &serde_json::Map<String, Value>) -> Result<(), String> {
     for (name, spec) in props {
-        let Some(obj) = spec.as_object() else { continue };
+        let Some(obj) = spec.as_object() else {
+            continue;
+        };
         if let Some(t) = obj.get("type").and_then(Value::as_str) {
             if !is_supported_field_type(t) {
                 return Err(format!(
@@ -615,7 +630,9 @@ fn validate_properties(props: &serde_json::Map<String, Value>) -> Result<(), Str
 
 fn validate_runtime_fields(rt: &serde_json::Map<String, Value>) -> Result<(), String> {
     for (name, spec) in rt {
-        let Some(obj) = spec.as_object() else { continue };
+        let Some(obj) = spec.as_object() else {
+            continue;
+        };
         if let Some(t) = obj.get("type").and_then(Value::as_str) {
             if !is_supported_field_type(t) {
                 return Err(format!(
@@ -710,7 +727,11 @@ pub async fn delete_index(
     let all_names: Vec<String> = all.iter().map(|i| i.name.clone()).collect();
 
     let mut to_delete: Vec<String> = Vec::new();
-    let parts: Vec<&str> = index.split(',').map(str::trim).filter(|s| !s.is_empty()).collect();
+    let parts: Vec<&str> = index
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
 
     // Resolve each selector part independently. ES semantics for delete:
     //   - Wildcards / `_all` / `*`: expand against *indices only* (aliases
@@ -822,8 +843,12 @@ async fn get_index_inner(
         .as_deref()
         .unwrap_or("open")
         .to_string();
-    let include_closed = expand_wildcards.split(',').any(|w| w == "closed" || w == "all");
-    let include_open = expand_wildcards.split(',').any(|w| w == "open" || w == "all");
+    let include_closed = expand_wildcards
+        .split(',')
+        .any(|w| w == "closed" || w == "all");
+    let include_open = expand_wildcards
+        .split(',')
+        .any(|w| w == "open" || w == "all");
 
     let all = state.engine.list_indices().await;
 
@@ -921,11 +946,7 @@ async fn get_index_inner(
 
         // Mappings: prefer the raw blob written at create; fall back to the
         // schema-derived properties (which tracks subsequent put_mapping).
-        let stored_mappings = state
-            .engine
-            .index_mappings
-            .get(name)
-            .map(|v| v.clone());
+        let stored_mappings = state.engine.index_mappings.get(name).map(|v| v.clone());
         let mappings = match stored_mappings {
             Some(m) if !m.is_null() => m,
             _ => {
@@ -1025,7 +1046,9 @@ fn merge_settings_defaults(user_settings: &Value, provided_name: &str, human: bo
             let ts = chrono::DateTime::<Utc>::from_timestamp_millis(cd).unwrap_or_else(Utc::now);
             inner
                 .entry("creation_date_string".to_string())
-                .or_insert_with(|| Value::String(ts.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)));
+                .or_insert_with(|| {
+                    Value::String(ts.to_rfc3339_opts(chrono::SecondsFormat::Millis, true))
+                });
         }
     }
 
@@ -1062,11 +1085,19 @@ pub async fn put_mapping(
     // the call is rejected with illegal_argument_exception.
     if let Some(obj) = body.as_object() {
         for (k, v) in obj {
-            if k == "properties" || k == "dynamic" || k == "_source"
-                || k == "_meta" || k == "_routing" || k == "_size"
-                || k == "_field_names" || k == "numeric_detection"
-                || k == "date_detection" || k == "dynamic_date_formats"
-                || k == "dynamic_templates" || k == "runtime" || k == "subobjects"
+            if k == "properties"
+                || k == "dynamic"
+                || k == "_source"
+                || k == "_meta"
+                || k == "_routing"
+                || k == "_size"
+                || k == "_field_names"
+                || k == "numeric_detection"
+                || k == "date_detection"
+                || k == "dynamic_date_formats"
+                || k == "dynamic_templates"
+                || k == "runtime"
+                || k == "subobjects"
             {
                 continue;
             }
@@ -1087,7 +1118,8 @@ pub async fn put_mapping(
                         },
                         "status": 400,
                     })),
-                ).into_response();
+                )
+                    .into_response();
             }
         }
     }
@@ -1211,7 +1243,11 @@ fn collect_leaf_types(mapping: &Value) -> std::collections::HashMap<String, Stri
         for (key, val) in props {
             // Both literal-dotted keys and nested object shapes need
             // visiting — we recurse from either one.
-            let full = if prefix.is_empty() { key.clone() } else { format!("{}.{}", prefix, key) };
+            let full = if prefix.is_empty() {
+                key.clone()
+            } else {
+                format!("{}.{}", prefix, key)
+            };
             if let Some(ftype) = val.get("type").and_then(Value::as_str) {
                 out.insert(full.clone(), ftype.to_string());
                 // Also register the literal-dotted variant the user may
@@ -1231,7 +1267,9 @@ fn collect_leaf_types(mapping: &Value) -> std::collections::HashMap<String, Stri
         .and_then(|m| m.get("properties"))
         .or_else(|| mapping.get("properties"))
         .and_then(Value::as_object);
-    if let Some(p) = props { walk(p, "", &mut out); }
+    if let Some(p) = props {
+        walk(p, "", &mut out);
+    }
     out
 }
 
@@ -1342,17 +1380,18 @@ fn inject_bbq_rescore_defaults(node: &mut Value) {
         Value::Object(obj) => {
             let has_type = obj.get("type").and_then(Value::as_str) == Some("dense_vector");
             if has_type {
-                let bbq = obj.get("index_options")
+                let bbq = obj
+                    .get("index_options")
                     .and_then(|io| io.get("type"))
                     .and_then(Value::as_str);
                 if is_bbq(bbq) {
-                    let io = obj.entry("index_options".to_string()).or_insert_with(|| json!({}));
+                    let io = obj
+                        .entry("index_options".to_string())
+                        .or_insert_with(|| json!({}));
                     if let Some(io_obj) = io.as_object_mut() {
                         if !io_obj.contains_key("rescore_vector") {
-                            io_obj.insert(
-                                "rescore_vector".to_string(),
-                                json!({ "oversample": 3.0 }),
-                            );
+                            io_obj
+                                .insert("rescore_vector".to_string(), json!({ "oversample": 3.0 }));
                         }
                     }
                 }
@@ -1438,7 +1477,8 @@ pub async fn index_doc_auto(
     // create time but fails the first doc that actually references
     // the range field, since copy_to on a range is meaningless
     // (ES: "Copy-to currently only works for value-type fields").
-    if let Some(range_field) = first_range_copy_to_field_in_mapping(&state, &index, doc.as_object()) {
+    if let Some(range_field) = first_range_copy_to_field_in_mapping(&state, &index, doc.as_object())
+    {
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({
@@ -1473,7 +1513,8 @@ pub async fn index_doc_auto(
             Ok(mut results) if !results.is_empty() => {
                 let (action, transformed) = results.remove(0);
                 if matches!(action, xerj_wasm::pipeline::ProcessAction::Drop) {
-                    return Json(json!({"result": "noop", "_id": "", "_version": 0})).into_response();
+                    return Json(json!({"result": "noop", "_id": "", "_version": 0}))
+                        .into_response();
                 }
                 transformed
             }
@@ -1543,7 +1584,8 @@ pub async fn index_doc(
     let doc = apply_ignore_malformed(&state, &index, doc);
     // Range-type + copy_to rejection — see index_doc_auto for
     // context.
-    if let Some(range_field) = first_range_copy_to_field_in_mapping(&state, &index, doc.as_object()) {
+    if let Some(range_field) = first_range_copy_to_field_in_mapping(&state, &index, doc.as_object())
+    {
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({
@@ -1584,11 +1626,15 @@ pub async fn index_doc(
     };
     // Execute ingest pipeline if specified.
     let doc = if let Some(ref pipeline) = params.pipeline {
-        match state.engine.process_through_pipeline(pipeline, vec![doc.clone()]) {
+        match state
+            .engine
+            .process_through_pipeline(pipeline, vec![doc.clone()])
+        {
             Ok(mut results) if !results.is_empty() => {
                 let (action, transformed) = results.remove(0);
                 if matches!(action, xerj_wasm::pipeline::ProcessAction::Drop) {
-                    return Json(json!({"result": "noop", "_id": id, "_version": 0})).into_response();
+                    return Json(json!({"result": "noop", "_id": id, "_version": 0}))
+                        .into_response();
                 }
                 transformed
             }
@@ -1620,14 +1666,16 @@ pub async fn index_doc(
         let ext_type = params.version_type.as_deref();
         let result = if let (Some(v), Some(vt)) = (params.version, ext_type) {
             if vt == "external" || vt == "external_gte" {
-                idx.index_document_external(Some(id.clone()), doc, v, vt).await
+                idx.index_document_external(Some(id.clone()), doc, v, vt)
+                    .await
             } else {
                 idx.index_document_with_version(
                     Some(id.clone()),
                     doc,
                     params.if_seq_no,
                     params.if_primary_term,
-                ).await
+                )
+                .await
             }
         } else {
             idx.index_document_with_version(
@@ -1635,7 +1683,8 @@ pub async fn index_doc(
                 doc,
                 params.if_seq_no,
                 params.if_primary_term,
-            ).await
+            )
+            .await
         };
         match result {
             Ok(resp) => {
@@ -1643,7 +1692,11 @@ pub async fn index_doc(
                 let is_update = resp.result == "updated";
                 let mut er = EsDocResponse::created(&index, &resp.id, resp.seq_no);
                 er.version = resp.version;
-                let status = if is_update { StatusCode::OK } else { StatusCode::CREATED };
+                let status = if is_update {
+                    StatusCode::OK
+                } else {
+                    StatusCode::CREATED
+                };
                 (status, Json(er)).into_response()
             }
             Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
@@ -1963,7 +2016,9 @@ impl Default for EsSearchBody {
 /// value unchanged. Handles `strict_date_optional_time_nanos` (and its
 /// aliases) — the most common format used in ES YAML sort tests.
 fn format_sort_value(raw: &Value, format: Option<&str>) -> Value {
-    let Some(fmt) = format else { return raw.clone() };
+    let Some(fmt) = format else {
+        return raw.clone();
+    };
     // Numeric sort value → treat as epoch; need to decide ms vs ns by
     // magnitude. Values above ~2 * 10^13 are nanoseconds (more than 600
     // years past epoch in ms); everything else is milliseconds.
@@ -1992,8 +2047,8 @@ fn format_sort_value(raw: &Value, format: Option<&str>) -> Value {
                 let trimmed = trimmed.trim_end_matches('.');
                 format!("{}Z", trimmed)
             } else {
-                let dt = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(n)
-                    .unwrap_or_default();
+                let dt =
+                    chrono::DateTime::<chrono::Utc>::from_timestamp_millis(n).unwrap_or_default();
                 dt.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string()
             }
         }
@@ -2011,8 +2066,7 @@ fn format_sort_value(raw: &Value, format: Option<&str>) -> Value {
                 chrono::DateTime::<chrono::Utc>::from_timestamp(secs, sub_ns as u32)
                     .unwrap_or_default()
             } else {
-                chrono::DateTime::<chrono::Utc>::from_timestamp_millis(n)
-                    .unwrap_or_default()
+                chrono::DateTime::<chrono::Utc>::from_timestamp_millis(n).unwrap_or_default()
             };
             dt.format(&pat).to_string()
         }
@@ -2029,24 +2083,54 @@ fn java_pattern_to_strftime(fmt: &str) -> String {
     let mut i = 0;
     while i < bytes.len() {
         let rest = &fmt[i..];
-        if rest.starts_with("yyyy") { out.push_str("%Y"); i += 4; }
-        else if rest.starts_with("uuuu") { out.push_str("%Y"); i += 4; }
-        else if rest.starts_with("yy") { out.push_str("%y"); i += 2; }
-        else if rest.starts_with("MM") { out.push_str("%m"); i += 2; }
-        else if rest.starts_with("dd") { out.push_str("%d"); i += 2; }
-        else if rest.starts_with("HH") { out.push_str("%H"); i += 2; }
-        else if rest.starts_with("mm") { out.push_str("%M"); i += 2; }
-        else if rest.starts_with("ss") { out.push_str("%S"); i += 2; }
-        else if rest.starts_with("SSSSSSSSS") { out.push_str("%9f"); i += 9; }
-        else if rest.starts_with("SSSSSS") { out.push_str("%6f"); i += 6; }
-        else if rest.starts_with("SSS") { out.push_str("%3f"); i += 3; }
-        else if rest.starts_with("ZZZZZ") { out.push_str("%:z"); i += 5; }
-        else if rest.starts_with("XXX") { out.push_str("%:z"); i += 3; }
-        else if rest.starts_with('Z') { out.push_str("%z"); i += 1; }
-        else if rest.starts_with('\'') {
+        if rest.starts_with("yyyy") || rest.starts_with("uuuu") {
+            out.push_str("%Y");
+            i += 4;
+        } else if rest.starts_with("yy") {
+            out.push_str("%y");
+            i += 2;
+        } else if rest.starts_with("MM") {
+            out.push_str("%m");
+            i += 2;
+        } else if rest.starts_with("dd") {
+            out.push_str("%d");
+            i += 2;
+        } else if rest.starts_with("HH") {
+            out.push_str("%H");
+            i += 2;
+        } else if rest.starts_with("mm") {
+            out.push_str("%M");
+            i += 2;
+        } else if rest.starts_with("ss") {
+            out.push_str("%S");
+            i += 2;
+        } else if rest.starts_with("SSSSSSSSS") {
+            out.push_str("%9f");
+            i += 9;
+        } else if rest.starts_with("SSSSSS") {
+            out.push_str("%6f");
+            i += 6;
+        } else if rest.starts_with("SSS") {
+            out.push_str("%3f");
+            i += 3;
+        } else if rest.starts_with("ZZZZZ") {
+            out.push_str("%:z");
+            i += 5;
+        } else if rest.starts_with("XXX") {
+            out.push_str("%:z");
+            i += 3;
+        } else if rest.starts_with('Z') {
+            out.push_str("%z");
             i += 1;
-            while i < bytes.len() && bytes[i] != b'\'' { out.push(bytes[i] as char); i += 1; }
-            if i < bytes.len() { i += 1; }
+        } else if rest.starts_with('\'') {
+            i += 1;
+            while i < bytes.len() && bytes[i] != b'\'' {
+                out.push(bytes[i] as char);
+                i += 1;
+            }
+            if i < bytes.len() {
+                i += 1;
+            }
         } else {
             out.push(bytes[i] as char);
             i += 1;
@@ -2069,7 +2153,10 @@ fn java_pattern_to_strftime(fmt: &str) -> String {
 /// only knows inline sources, so resolution happens at the coord layer.
 fn resolve_stored_scripts(v: &mut Value, state: &AppState) {
     fn is_script_key(k: &str) -> bool {
-        matches!(k, "init_script" | "map_script" | "combine_script" | "reduce_script" | "script")
+        matches!(
+            k,
+            "init_script" | "map_script" | "combine_script" | "reduce_script" | "script"
+        )
     }
     fn walk(v: &mut Value, state: &AppState) {
         match v {
@@ -2079,12 +2166,22 @@ fn resolve_stored_scripts(v: &mut Value, state: &AppState) {
                     let child = obj.get_mut(&k).unwrap();
                     if is_script_key(&k) {
                         if let Some(script_obj) = child.as_object_mut() {
-                            if let Some(id) = script_obj.get("id").and_then(Value::as_str).map(String::from) {
-                                if let Some(src) = state.engine.search_templates.get(&id).map(|v| v.clone()) {
+                            if let Some(id) = script_obj
+                                .get("id")
+                                .and_then(Value::as_str)
+                                .map(String::from)
+                            {
+                                if let Some(src) =
+                                    state.engine.search_templates.get(&id).map(|v| v.clone())
+                                {
                                     let src_str = src
                                         .as_str()
                                         .map(String::from)
-                                        .or_else(|| src.get("source").and_then(Value::as_str).map(String::from))
+                                        .or_else(|| {
+                                            src.get("source")
+                                                .and_then(Value::as_str)
+                                                .map(String::from)
+                                        })
                                         .unwrap_or_default();
                                     script_obj.remove("id");
                                     script_obj.insert("source".to_string(), Value::String(src_str));
@@ -2096,7 +2193,9 @@ fn resolve_stored_scripts(v: &mut Value, state: &AppState) {
                 }
             }
             Value::Array(arr) => {
-                for item in arr.iter_mut() { walk(item, state); }
+                for item in arr.iter_mut() {
+                    walk(item, state);
+                }
             }
             _ => {}
         }
@@ -2114,11 +2213,11 @@ fn build_matched_queries_value(
     include_scores: bool,
     hit_score: Option<f64>,
 ) -> Value {
-    if names.is_empty() { return Value::Null; }
+    if names.is_empty() {
+        return Value::Null;
+    }
     if !include_scores {
-        return Value::Array(
-            names.iter().cloned().map(Value::String).collect(),
-        );
+        return Value::Array(names.iter().cloned().map(Value::String).collect());
     }
     let mut boosts: std::collections::BTreeMap<String, f64> = std::collections::BTreeMap::new();
     let mut fs_names: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
@@ -2137,8 +2236,7 @@ fn build_matched_queries_value(
         } else {
             boosts.get(name).copied().unwrap_or(1.0)
         };
-        let n = serde_json::Number::from_f64(score)
-            .unwrap_or_else(|| serde_json::Number::from(1));
+        let n = serde_json::Number::from_f64(score).unwrap_or_else(|| serde_json::Number::from(1));
         out.insert(name.clone(), Value::Number(n));
     }
     Value::Object(out)
@@ -2157,9 +2255,15 @@ fn collect_function_score_names(q: &Value, out: &mut std::collections::BTreeSet<
                     out.insert(n.to_string());
                 }
             }
-            for (_, v) in obj { collect_function_score_names(v, out); }
+            for (_, v) in obj {
+                collect_function_score_names(v, out);
+            }
         }
-        Value::Array(arr) => { for item in arr { collect_function_score_names(item, out); } }
+        Value::Array(arr) => {
+            for item in arr {
+                collect_function_score_names(item, out);
+            }
+        }
         _ => {}
     }
 }
@@ -2209,7 +2313,9 @@ fn collect_named_query_scores(
                 .and_then(|s| s.trim().parse::<f64>().ok());
             let fn_score = fn_weight.or(fn_script_score);
             for (k, v) in obj {
-                if k == "_name" || k == "boost" { continue; }
+                if k == "_name" || k == "boost" {
+                    continue;
+                }
                 // Descend into the child, propagating the boost along the
                 // way so ES's multiplicative semantics (outer_boost *
                 // inner_boost) carry through for nested named queries.
@@ -2227,7 +2333,9 @@ fn collect_named_query_scores(
             }
         }
         Value::Array(arr) => {
-            for item in arr { collect_named_query_scores(item, parent_boost, out); }
+            for item in arr {
+                collect_named_query_scores(item, parent_boost, out);
+            }
         }
         _ => {}
     }
@@ -2238,11 +2346,7 @@ fn collect_named_query_scores(
 /// mapping declares `index: false` AND `doc_values: false` (or the field
 /// type doesn't have implicit doc_values support). When unqueryable across
 /// every index, the clause is rewritten to `{"match_none": {}}`.
-fn rewrite_unqueryable_exists(
-    q: &mut Value,
-    state: &AppState,
-    indices: &[String],
-) {
+fn rewrite_unqueryable_exists(q: &mut Value, state: &AppState, indices: &[String]) {
     fn field_is_queryable(state: &AppState, idx: &str, field: &str) -> bool {
         let Some(mapping) = state.engine.index_mappings.get(idx).map(|v| v.clone()) else {
             return true; // unknown mapping — be permissive
@@ -2260,10 +2364,10 @@ fn rewrite_unqueryable_exists(
         ) -> Option<&'a Value> {
             let first = segs.first()?;
             let node = props.get(*first)?;
-            if segs.len() == 1 { return Some(node); }
-            let child = node
-                .get("properties")
-                .and_then(Value::as_object)?;
+            if segs.len() == 1 {
+                return Some(node);
+            }
+            let child = node.get("properties").and_then(Value::as_object)?;
             resolve(child, &segs[1..])
         }
         let Some(field_map) = resolve(props, &segs) else {
@@ -2280,11 +2384,11 @@ fn rewrite_unqueryable_exists(
                 // Default doc_values per field type. Numeric/keyword/date/ip/
                 // geo_point/boolean all default to true; text defaults to
                 // false.
-                let ftype = field_map
-                    .get("type")
-                    .and_then(Value::as_str)
-                    .unwrap_or("");
-                !matches!(ftype, "text" | "annotated_text" | "match_only_text" | "binary")
+                let ftype = field_map.get("type").and_then(Value::as_str).unwrap_or("");
+                !matches!(
+                    ftype,
+                    "text" | "annotated_text" | "match_only_text" | "binary"
+                )
             });
         indexed || has_dv
     }
@@ -2300,7 +2404,9 @@ fn rewrite_unqueryable_exists(
                             .and_then(Value::as_str)
                             .map(String::from)
                         {
-                            let any_queryable = indices.iter().any(|ix| field_is_queryable(state, ix, &field));
+                            let any_queryable = indices
+                                .iter()
+                                .any(|ix| field_is_queryable(state, ix, &field));
                             if !any_queryable {
                                 obj.remove("exists");
                                 obj.insert("match_none".to_string(), json!({}));
@@ -2363,13 +2469,20 @@ fn collect_terms_lookups(q: &Value, out: &mut Vec<(String, String, String, Strin
                 if k == "terms" {
                     if let Some(terms_obj) = v.as_object() {
                         for (field, spec) in terms_obj.iter() {
-                            if field == "boost" { continue; }
+                            if field == "boost" {
+                                continue;
+                            }
                             if let Some(s) = spec.as_object() {
                                 let ix = s.get("index").and_then(Value::as_str);
                                 let id = s.get("id").and_then(Value::as_str);
                                 let path = s.get("path").and_then(Value::as_str);
                                 if let (Some(ix), Some(id), Some(path)) = (ix, id, path) {
-                                    out.push((field.clone(), ix.to_string(), id.to_string(), path.to_string()));
+                                    out.push((
+                                        field.clone(),
+                                        ix.to_string(),
+                                        id.to_string(),
+                                        path.to_string(),
+                                    ));
                                 }
                             }
                         }
@@ -2398,7 +2511,9 @@ fn apply_terms_lookups(
                 if let Some(terms_obj) = terms_val.as_object_mut() {
                     let fields: Vec<String> = terms_obj.keys().cloned().collect();
                     for field in fields {
-                        if field == "boost" { continue; }
+                        if field == "boost" {
+                            continue;
+                        }
                         let spec = terms_obj.get(&field).cloned();
                         if let Some(Value::Object(s)) = spec {
                             let ix = s.get("index").and_then(Value::as_str);
@@ -2480,22 +2595,22 @@ fn extract_field_values_from_source(src: &Value, path: &str) -> Vec<Value> {
 /// xerj-engine aggs so the coordinator picks from the same palette.
 const AUTO_DATE_INTERVALS: &[(&str, i64)] = &[
     ("1ms", 1),
-    ("1s",  1_000),
+    ("1s", 1_000),
     ("10s", 10_000),
     ("30s", 30_000),
-    ("1m",  60_000),
-    ("5m",  300_000),
+    ("1m", 60_000),
+    ("5m", 300_000),
     ("10m", 600_000),
     ("15m", 900_000),
     ("30m", 1_800_000),
-    ("1h",  3_600_000),
-    ("3h",  10_800_000),
+    ("1h", 3_600_000),
+    ("3h", 10_800_000),
     ("12h", 43_200_000),
-    ("1d",  86_400_000),
-    ("7d",  604_800_000),
+    ("1d", 86_400_000),
+    ("7d", 604_800_000),
     ("30d", 2_592_000_000),
     ("90d", 7_776_000_000),
-    ("1y",  31_536_000_000),
+    ("1y", 31_536_000_000),
 ];
 
 fn epoch_ms_to_iso8601_utc(ms: i64) -> String {
@@ -2510,15 +2625,22 @@ fn epoch_ms_to_iso8601_utc(ms: i64) -> String {
 /// per-shard bucket keys. Recursive over sub-aggs so nested agg trees
 /// (e.g. `filter { auto_date_histogram {...} }`) get fixed too.
 fn rebucket_auto_date_histograms(results: &mut Value, aggs_req: &Value) {
-    let Some(req_obj) = aggs_req.as_object() else { return };
-    let Some(res_obj) = results.as_object_mut() else { return };
+    let Some(req_obj) = aggs_req.as_object() else {
+        return;
+    };
+    let Some(res_obj) = results.as_object_mut() else {
+        return;
+    };
     for (name, req_spec) in req_obj {
-        let Some(spec_obj) = req_spec.as_object() else { continue };
-        if let Some(params) = spec_obj.get("auto_date_histogram").and_then(Value::as_object) {
-            let target_buckets = params
-                .get("buckets")
-                .and_then(Value::as_u64)
-                .unwrap_or(10) as usize;
+        let Some(spec_obj) = req_spec.as_object() else {
+            continue;
+        };
+        if let Some(params) = spec_obj
+            .get("auto_date_histogram")
+            .and_then(Value::as_object)
+        {
+            let target_buckets =
+                params.get("buckets").and_then(Value::as_u64).unwrap_or(10) as usize;
             if let Some(res_val) = res_obj.get_mut(name) {
                 recoordinate_auto_date_histogram(res_val, target_buckets);
             }
@@ -2527,7 +2649,9 @@ fn rebucket_auto_date_histograms(results: &mut Value, aggs_req: &Value) {
         // sibling. In the merged response, nested aggs live next to the
         // bucket in each bucket's sub-object OR top-level alongside
         // metric results.
-        let nested_req = spec_obj.get("aggs").or_else(|| spec_obj.get("aggregations"));
+        let nested_req = spec_obj
+            .get("aggs")
+            .or_else(|| spec_obj.get("aggregations"));
         if let (Some(nested_req), Some(res_val)) = (nested_req, res_obj.get_mut(name)) {
             // Descend into buckets (bucket sub-aggs).
             if let Some(buckets) = res_val.get_mut("buckets") {
@@ -2553,13 +2677,16 @@ fn rebucket_auto_date_histograms(results: &mut Value, aggs_req: &Value) {
 }
 
 fn recoordinate_auto_date_histogram(res: &mut Value, target_buckets: usize) {
-    let Some(obj) = res.as_object_mut() else { return };
+    let Some(obj) = res.as_object_mut() else {
+        return;
+    };
     let buckets = match obj.get("buckets").and_then(|b| b.as_array()) {
         Some(b) if !b.is_empty() => b.clone(),
         _ => return,
     };
     // Collect (key_ms, doc_count, sub_aggs_map) per bucket.
-    let mut entries: Vec<(i64, u64, serde_json::Map<String, Value>)> = Vec::with_capacity(buckets.len());
+    let mut entries: Vec<(i64, u64, serde_json::Map<String, Value>)> =
+        Vec::with_capacity(buckets.len());
     for b in &buckets {
         let bo = match b.as_object() {
             Some(o) => o,
@@ -2574,7 +2701,9 @@ fn recoordinate_auto_date_histogram(res: &mut Value, target_buckets: usize) {
         for (k, v) in bo.iter() {
             match k.as_str() {
                 "key" | "key_as_string" | "doc_count" => {}
-                _ => { subs.insert(k.clone(), v.clone()); }
+                _ => {
+                    subs.insert(k.clone(), v.clone());
+                }
             }
         }
         entries.push((key, doc_count, subs));
@@ -2606,10 +2735,13 @@ fn recoordinate_auto_date_histogram(res: &mut Value, target_buckets: usize) {
         return;
     }
     // Re-bucket at the coarser grid. Sum doc_counts and merge sub-aggs.
-    let mut grid: std::collections::BTreeMap<i64, (u64, serde_json::Map<String, Value>)> = std::collections::BTreeMap::new();
+    let mut grid: std::collections::BTreeMap<i64, (u64, serde_json::Map<String, Value>)> =
+        std::collections::BTreeMap::new();
     for (key, dc, subs) in entries {
         let bucket_start = key.div_euclid(new_interval) * new_interval;
-        let e = grid.entry(bucket_start).or_insert_with(|| (0, serde_json::Map::new()));
+        let e = grid
+            .entry(bucket_start)
+            .or_insert_with(|| (0, serde_json::Map::new()));
         e.0 += dc;
         // Sub-agg merge: if existing, delegate to merge_metric_agg /
         // merge_bucket_agg when possible; otherwise keep the first.
@@ -2633,10 +2765,15 @@ fn recoordinate_auto_date_histogram(res: &mut Value, target_buckets: usize) {
     let mut new_buckets: Vec<Value> = Vec::with_capacity(grid.len());
     for (bucket_start, (dc, subs)) in grid {
         let mut bo = serde_json::Map::new();
-        bo.insert("key_as_string".to_string(), Value::String(epoch_ms_to_iso8601_utc(bucket_start)));
+        bo.insert(
+            "key_as_string".to_string(),
+            Value::String(epoch_ms_to_iso8601_utc(bucket_start)),
+        );
         bo.insert("key".to_string(), json!(bucket_start));
         bo.insert("doc_count".to_string(), json!(dc));
-        for (k, v) in subs { bo.insert(k, v); }
+        for (k, v) in subs {
+            bo.insert(k, v);
+        }
         new_buckets.push(Value::Object(bo));
     }
     obj.insert("interval".to_string(), Value::String(new_label.to_string()));
@@ -2667,8 +2804,14 @@ fn merge_single_bucket_agg(old: &Value, new: &Value) -> Option<Value> {
         return None;
     }
     let mut merged = old_obj.clone();
-    let a_count = old_obj.get("doc_count").and_then(Value::as_u64).unwrap_or(0);
-    let b_count = new_obj.get("doc_count").and_then(Value::as_u64).unwrap_or(0);
+    let a_count = old_obj
+        .get("doc_count")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let b_count = new_obj
+        .get("doc_count")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
     merged.insert("doc_count".to_string(), json!(a_count + b_count));
     for (k, v) in new_obj {
         if k == "doc_count" || k.starts_with("__") {
@@ -2820,9 +2963,7 @@ fn merge_bucket_agg(old: &Value, new: &Value) -> Option<Value> {
             // Canonicalize numbers so long 10 and double 10.0 collide.
             if let Some(f) = n.as_f64() {
                 let trunc = f.trunc();
-                if (f - trunc).abs() < f64::EPSILON
-                    && trunc.abs() < (1u64 << 53) as f64
-                {
+                if (f - trunc).abs() < f64::EPSILON && trunc.abs() < (1u64 << 53) as f64 {
                     return (trunc as i64).to_string();
                 }
                 // Round-trip through f64 to normalize "2.0" vs "2" variants.
@@ -2846,10 +2987,8 @@ fn merge_bucket_agg(old: &Value, new: &Value) -> Option<Value> {
                     })
                     .collect();
                 pairs.sort();
-                let joined: Vec<String> = pairs
-                    .into_iter()
-                    .map(|(k, v)| format!("{k}={v}"))
-                    .collect();
+                let joined: Vec<String> =
+                    pairs.into_iter().map(|(k, v)| format!("{k}={v}")).collect();
                 format!("o:{}", joined.join(","))
             }
             Some(Value::Array(a)) => format!("a:{}", serde_json::to_string(a).unwrap_or_default()),
@@ -2934,10 +3073,7 @@ fn merge_bucket_agg(old: &Value, new: &Value) -> Option<Value> {
     let summable = |k: &str| -> bool {
         matches!(
             k,
-            "sum_other_doc_count"
-                | "doc_count_error_upper_bound"
-                | "bg_count"
-                | "doc_count"
+            "sum_other_doc_count" | "doc_count_error_upper_bound" | "bg_count" | "doc_count"
         )
     };
     for (k, v) in old_obj.iter().chain(new_obj.iter()) {
@@ -2946,8 +3082,7 @@ fn merge_bucket_agg(old: &Value, new: &Value) -> Option<Value> {
         }
         match v {
             Value::Number(n) if summable(k) => {
-                let acc = out.get(k).and_then(Value::as_u64).unwrap_or(0)
-                    + n.as_u64().unwrap_or(0);
+                let acc = out.get(k).and_then(Value::as_u64).unwrap_or(0) + n.as_u64().unwrap_or(0);
                 out.insert(k.clone(), json!(acc));
             }
             _ => {
@@ -2967,29 +3102,13 @@ fn merge_bucket_agg(old: &Value, new: &Value) -> Option<Value> {
     Some(Value::Object(out))
 }
 
-/// Collect the top-level keys of a JSON object into a HashSet.
-fn obj_keys_as_set(v: &Value) -> std::collections::HashSet<String> {
-    v.as_object()
-        .map(|o| o.keys().cloned().collect())
-        .unwrap_or_default()
-}
-
-/// Recursively apply the synthetic-source dotted-key transform.
-/// At each level, the `props` value is the mapping properties object
-/// covering that nesting level (or `Value::Null` for unmapped levels).
-/// Recursion only descends into children whose parent IS mapped (i.e.
-/// the child has sub-properties in the mapping) — residual
-/// dotted-key leafs produced by an ignored_source split at an
-/// unmapped boundary stay literal verbatim, matching ES semantics.
-fn synthetic_transform_object(target: &mut serde_json::Map<String, Value>, props: &Value) {
-    synthetic_transform_object_ext(target, props, false)
-}
-
-fn synthetic_transform_object_ext(target: &mut serde_json::Map<String, Value>, props: &Value, index_keep_arrays: bool) {
-    synthetic_transform_object_ext2(target, props, index_keep_arrays, false, false)
-}
-
-fn synthetic_transform_object_ext2(target: &mut serde_json::Map<String, Value>, props: &Value, index_keep_arrays: bool, parent_dynamic_false: bool, inside_nested: bool) {
+fn synthetic_transform_object_ext2(
+    target: &mut serde_json::Map<String, Value>,
+    props: &Value,
+    index_keep_arrays: bool,
+    parent_dynamic_false: bool,
+    inside_nested: bool,
+) {
     // Step 1: collect dotted keys at this level and re-insert via
     // insert_synthetic_path (only transform when the target level has
     // a real mapping — otherwise the dotted key is "ignored source"
@@ -2998,7 +3117,9 @@ fn synthetic_transform_object_ext2(target: &mut serde_json::Map<String, Value>, 
     if has_mapped_props {
         let keys: Vec<String> = target.keys().cloned().collect();
         for key in keys {
-            if !key.contains('.') { continue; }
+            if !key.contains('.') {
+                continue;
+            }
             let val = target.remove(&key).unwrap_or(Value::Null);
             insert_synthetic_path(target, props, &key, val);
         }
@@ -3030,7 +3151,9 @@ fn synthetic_transform_object_ext2(target: &mut serde_json::Map<String, Value>, 
             // the parent explicitly opts in (has properties AND is not
             // dynamic-false).
             if field_spec.is_none() {
-                if parent_dynamic_false { continue; }
+                if parent_dynamic_false {
+                    continue;
+                }
                 if !inside_nested {
                     // At a regular (non-nested) parent with no
                     // declared entry for this key, prefer the safe
@@ -3039,30 +3162,42 @@ fn synthetic_transform_object_ext2(target: &mut serde_json::Map<String, Value>, 
                     // field is a dynamically-added object sibling and
                     // should flatten, matching "nested object next to
                     // regular").
-                    let parent_has_declared_siblings = props.as_object()
-                        .map(|o| !o.is_empty())
-                        .unwrap_or(false);
-                    if !parent_has_declared_siblings { continue; }
+                    let parent_has_declared_siblings =
+                        props.as_object().map(|o| !o.is_empty()).unwrap_or(false);
+                    if !parent_has_declared_siblings {
+                        continue;
+                    }
                 }
             }
-            let (sub_props, sub_dynamic_false, keep_mode, is_nested, is_disabled) = match field_spec {
+            let (sub_props, sub_dynamic_false, keep_mode, is_nested, is_disabled) = match field_spec
+            {
                 Some(spec) => {
                     let ftype = spec.get("type").and_then(Value::as_str).unwrap_or("");
-                    let disabled = matches!(spec.get("enabled").and_then(Value::as_bool), Some(false));
-                    let keep = spec.get("synthetic_source_keep").and_then(Value::as_str)
+                    let disabled =
+                        matches!(spec.get("enabled").and_then(Value::as_bool), Some(false));
+                    let keep = spec
+                        .get("synthetic_source_keep")
+                        .and_then(Value::as_str)
                         .map(String::from);
                     let sub_props = spec.get("properties").cloned().unwrap_or(Value::Null);
-                    let sub_df = spec.get("dynamic").map(|v| match v {
-                        Value::Bool(false) => true,
-                        Value::String(s) => s == "false" || s == "runtime",
-                        _ => false,
-                    }).unwrap_or(false);
+                    let sub_df = spec
+                        .get("dynamic")
+                        .map(|v| match v {
+                            Value::Bool(false) => true,
+                            Value::String(s) => s == "false" || s == "runtime",
+                            _ => false,
+                        })
+                        .unwrap_or(false);
                     (sub_props, sub_df, keep, ftype == "nested", disabled)
                 }
                 None => (Value::Null, false, None, false, false),
             };
-            if is_nested { continue; }
-            if is_disabled { continue; }
+            if is_nested {
+                continue;
+            }
+            if is_disabled {
+                continue;
+            }
             // Effective synthetic_source_keep: an explicit per-field
             // `arrays|all|none` overrides the index-level default. keep:arrays|all
             // preserves the source array shape (never column-flatten); keep:none
@@ -3075,14 +3210,26 @@ fn synthetic_transform_object_ext2(target: &mut serde_json::Map<String, Value>, 
                 Some("none") => false,
                 _ => index_keep_arrays,
             };
-            if effective_keep_arrays { continue; }
+            if effective_keep_arrays {
+                continue;
+            }
             let should_flatten = matches!(
                 target.get(&name),
                 Some(Value::Array(arr)) if !arr.is_empty() && arr.iter().all(|v| v.is_object())
             );
-            if !should_flatten { continue; }
+            if !should_flatten {
+                continue;
+            }
             if let Some(Value::Array(arr)) = target.remove(&name) {
-                target.insert(name, synthetic_flatten_object_array(&arr, &sub_props, sub_dynamic_false, index_keep_arrays));
+                target.insert(
+                    name,
+                    synthetic_flatten_object_array(
+                        &arr,
+                        &sub_props,
+                        sub_dynamic_false,
+                        index_keep_arrays,
+                    ),
+                );
             }
         }
     }
@@ -3098,7 +3245,9 @@ fn synthetic_transform_object_ext2(target: &mut serde_json::Map<String, Value>, 
     let names: Vec<String> = target.keys().cloned().collect();
     for name in names {
         let child_spec = props.as_object().and_then(|o| o.get(&name));
-        let child_type = child_spec.and_then(|hp| hp.get("type")).and_then(Value::as_str);
+        let child_type = child_spec
+            .and_then(|hp| hp.get("type"))
+            .and_then(Value::as_str);
         let child_is_nested = child_type == Some("nested");
         // Flattened fields reconstruct as a single-level dotted-key map
         // (`{host:{name:x}}` -> `{"host.name":x}`), not a re-nested object.
@@ -3129,12 +3278,15 @@ fn synthetic_transform_object_ext2(target: &mut serde_json::Map<String, Value>, 
         // Skip recursion unless we have sub-properties OR this is a
         // nested parent (nested without declared sub-properties still
         // needs per-element synthetic reconstruction for dynamic children).
-        if child_props_raw.is_none() && !child_is_nested { continue; }
+        if child_props_raw.is_none() && !child_is_nested {
+            continue;
+        }
         let child_props = child_props_raw.unwrap_or(Value::Null);
         let child_keep = child_spec
             .and_then(|hp| hp.get("synthetic_source_keep"))
             .and_then(Value::as_str);
-        let child_keep_arrays = index_keep_arrays || matches!(child_keep, Some("arrays") | Some("all"));
+        let child_keep_arrays =
+            index_keep_arrays || matches!(child_keep, Some("arrays") | Some("all"));
         let child_dynamic_false = child_spec
             .and_then(|hp| hp.get("dynamic"))
             .map(|v| match v {
@@ -3145,11 +3297,23 @@ fn synthetic_transform_object_ext2(target: &mut serde_json::Map<String, Value>, 
             .unwrap_or(false);
         if let Some(child_val) = target.get_mut(&name) {
             match child_val {
-                Value::Object(child_obj) => synthetic_transform_object_ext2(child_obj, &child_props, child_keep_arrays, child_dynamic_false, child_is_nested),
+                Value::Object(child_obj) => synthetic_transform_object_ext2(
+                    child_obj,
+                    &child_props,
+                    child_keep_arrays,
+                    child_dynamic_false,
+                    child_is_nested,
+                ),
                 Value::Array(arr) => {
                     for el in arr.iter_mut() {
                         if let Value::Object(co) = el {
-                            synthetic_transform_object_ext2(co, &child_props, child_keep_arrays, child_dynamic_false, child_is_nested);
+                            synthetic_transform_object_ext2(
+                                co,
+                                &child_props,
+                                child_keep_arrays,
+                                child_dynamic_false,
+                                child_is_nested,
+                            );
                         }
                     }
                 }
@@ -3168,13 +3332,17 @@ fn synthetic_transform_object_ext2(target: &mut serde_json::Map<String, Value>, 
         // Under `dynamic: false`, unmapped keys are ignored-source —
         // their primitive-array leaves keep the original source order
         // rather than being re-sorted via doc_values.
-        if field_spec.is_none() && parent_dynamic_false { continue; }
+        if field_spec.is_none() && parent_dynamic_false {
+            continue;
+        }
         let is_text = field_spec
             .and_then(|hp| hp.get("type"))
             .and_then(Value::as_str)
             .map(|t| t == "text" || t == "match_only_text" || t == "annotated_text")
             .unwrap_or(false);
-        if is_text { continue; }
+        if is_text {
+            continue;
+        }
         // Per-field synthetic_source_keep overrides index default:
         //   none   → force sort (doc_values behaviour)
         //   arrays → preserve source order of the array
@@ -3187,12 +3355,18 @@ fn synthetic_transform_object_ext2(target: &mut serde_json::Map<String, Value>, 
             Some("arrays") | Some("all") => continue,
             Some("none") => {} // force sort below
             _ => {
-                if index_keep_arrays { continue; }
+                if index_keep_arrays {
+                    continue;
+                }
             }
         }
         if let Some(Value::Array(arr)) = target.get_mut(&name) {
-            let all_primitive = arr.iter().all(|v| matches!(v, Value::Number(_) | Value::String(_) | Value::Bool(_)));
-            if !all_primitive || arr.len() < 2 { continue; }
+            let all_primitive = arr
+                .iter()
+                .all(|v| matches!(v, Value::Number(_) | Value::String(_) | Value::Bool(_)));
+            if !all_primitive || arr.len() < 2 {
+                continue;
+            }
             arr.sort_by(|a, b| match (a, b) {
                 (Value::Number(x), Value::Number(y)) => {
                     let xf = x.as_f64().unwrap_or(0.0);
@@ -3227,7 +3401,11 @@ fn flatten_synthetic_dotted(prefix: &str, value: &Value, out: &mut serde_json::M
     match value {
         Value::Object(o) => {
             for (k, v) in o {
-                let key = if prefix.is_empty() { k.clone() } else { format!("{prefix}.{k}") };
+                let key = if prefix.is_empty() {
+                    k.clone()
+                } else {
+                    format!("{prefix}.{k}")
+                };
                 flatten_synthetic_dotted(&key, v, out);
             }
         }
@@ -3237,9 +3415,15 @@ fn flatten_synthetic_dotted(prefix: &str, value: &Value, out: &mut serde_json::M
     }
 }
 
-fn synthetic_flatten_object_array(arr: &[Value], props: &Value, parent_dynamic_false: bool, index_keep_arrays: bool) -> Value {
+fn synthetic_flatten_object_array(
+    arr: &[Value],
+    props: &Value,
+    parent_dynamic_false: bool,
+    index_keep_arrays: bool,
+) -> Value {
     let mut keys_in_order: Vec<String> = Vec::new();
-    let mut groups: std::collections::HashMap<String, Vec<Value>> = std::collections::HashMap::new();
+    let mut groups: std::collections::HashMap<String, Vec<Value>> =
+        std::collections::HashMap::new();
     for el in arr {
         let Value::Object(obj) = el else { continue };
         for (k, v) in obj {
@@ -3249,7 +3433,9 @@ fn synthetic_flatten_object_array(arr: &[Value], props: &Value, parent_dynamic_f
             let entry = groups.entry(k.clone()).or_default();
             match v {
                 Value::Array(inner) => {
-                    for iv in inner { entry.push(iv.clone()); }
+                    for iv in inner {
+                        entry.push(iv.clone());
+                    }
                 }
                 _ => entry.push(v.clone()),
             }
@@ -3290,7 +3476,15 @@ fn synthetic_flatten_object_array(arr: &[Value], props: &Value, parent_dynamic_f
         }
         let all_objects = !values.is_empty() && values.iter().all(|v| v.is_object());
         if all_objects {
-            out.insert(k, synthetic_flatten_object_array(&values, &child_props, child_dynamic_false, index_keep_arrays));
+            out.insert(
+                k,
+                synthetic_flatten_object_array(
+                    &values,
+                    &child_props,
+                    child_dynamic_false,
+                    index_keep_arrays,
+                ),
+            );
             continue;
         }
         // Unmapped leaves under a `dynamic: false` parent are
@@ -3300,9 +3494,10 @@ fn synthetic_flatten_object_array(arr: &[Value], props: &Value, parent_dynamic_f
             out.insert(k, Value::Array(values));
             continue;
         }
-        let all_primitive = !values.is_empty() && values.iter().all(|v| {
-            matches!(v, Value::Number(_) | Value::String(_) | Value::Bool(_))
-        });
+        let all_primitive = !values.is_empty()
+            && values
+                .iter()
+                .all(|v| matches!(v, Value::Number(_) | Value::String(_) | Value::Bool(_)));
         if !all_primitive {
             out.insert(k, Value::Array(values));
             continue;
@@ -3341,7 +3536,9 @@ fn insert_synthetic_path(
     // Walk segments and collect the "descent path" (mapped segments to
     // descend into) and the "tail" (the final key and optional value key).
     let segments: Vec<&str> = key.split('.').collect();
-    if segments.is_empty() { return; }
+    if segments.is_empty() {
+        return;
+    }
     let mut descent: Vec<String> = Vec::new();
     let mut current_props: Value = props.clone();
     let mut cursor = 0usize;
@@ -3385,7 +3582,8 @@ fn insert_synthetic_path(
     // Navigate to parent, creating nested objects as needed.
     let mut cur: &mut serde_json::Map<String, Value> = target;
     for p in &parent_path {
-        let entry = cur.entry(p.clone())
+        let entry = cur
+            .entry(p.clone())
             .or_insert_with(|| Value::Object(serde_json::Map::new()));
         if !entry.is_object() {
             let old = entry.take();
@@ -3424,7 +3622,10 @@ fn default_size() -> usize {
 }
 
 /// Build a `SearchRequest` from the ES body, forwarding all relevant options.
-fn build_search_request(body: &EsSearchBody, aggs_value: Option<Value>) -> Result<xerj_query::ast::SearchRequest, xerj_common::XerjError> {
+fn build_search_request(
+    body: &EsSearchBody,
+    aggs_value: Option<Value>,
+) -> Result<xerj_query::ast::SearchRequest, xerj_common::XerjError> {
     use xerj_query::ast::SourceFilter;
 
     let query_val = body.query.clone().unwrap_or(json!({ "match_all": {} }));
@@ -3482,7 +3683,11 @@ fn build_search_request(body: &EsSearchBody, aggs_value: Option<Value>) -> Resul
                     .get("includes")
                     .or_else(|| obj.get("include"))
                     .and_then(|v| match v {
-                        Value::Array(a) => Some(a.iter().filter_map(|v| v.as_str().map(String::from)).collect()),
+                        Value::Array(a) => Some(
+                            a.iter()
+                                .filter_map(|v| v.as_str().map(String::from))
+                                .collect(),
+                        ),
                         Value::String(s) => Some(vec![s.clone()]),
                         _ => None,
                     })
@@ -3491,7 +3696,11 @@ fn build_search_request(body: &EsSearchBody, aggs_value: Option<Value>) -> Resul
                     .get("excludes")
                     .or_else(|| obj.get("exclude"))
                     .and_then(|v| match v {
-                        Value::Array(a) => Some(a.iter().filter_map(|v| v.as_str().map(String::from)).collect()),
+                        Value::Array(a) => Some(
+                            a.iter()
+                                .filter_map(|v| v.as_str().map(String::from))
+                                .collect(),
+                        ),
                         Value::String(s) => Some(vec![s.clone()]),
                         _ => None,
                     })
@@ -3621,13 +3830,29 @@ fn parse_rescore(val: &Value) -> Vec<xerj_query::ast::RescoreQuery> {
         // ES wraps the actual script under TWO `script` levels — outer
         // identifies the rescorer type, inner holds source + params.
         if let Some(s_obj) = item.get("script").and_then(Value::as_object) {
-            let inner = s_obj.get("script").and_then(Value::as_object).cloned()
+            let inner = s_obj
+                .get("script")
+                .and_then(Value::as_object)
+                .cloned()
                 .unwrap_or_else(serde_json::Map::new);
-            let source = inner.get("source").and_then(Value::as_str).unwrap_or("").to_string();
+            let source = inner
+                .get("source")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
             let params = inner.get("params").cloned().unwrap_or(json!({}));
-            let q_w = s_obj.get("query_weight").and_then(Value::as_f64).unwrap_or(1.0) as f32;
-            let r_w = s_obj.get("rescore_query_weight").and_then(Value::as_f64).unwrap_or(1.0) as f32;
-            let mode = s_obj.get("score_mode").and_then(Value::as_str).map(String::from);
+            let q_w = s_obj
+                .get("query_weight")
+                .and_then(Value::as_f64)
+                .unwrap_or(1.0) as f32;
+            let r_w = s_obj
+                .get("rescore_query_weight")
+                .and_then(Value::as_f64)
+                .unwrap_or(1.0) as f32;
+            let mode = s_obj
+                .get("score_mode")
+                .and_then(Value::as_str)
+                .map(String::from);
             if !source.is_empty() {
                 script_opt = Some(ScriptRescore {
                     source,
@@ -3655,16 +3880,23 @@ fn parse_rescore(val: &Value) -> Vec<xerj_query::ast::RescoreQuery> {
 fn collect_hdr_percentile_aggs(aggs: &Value, out: &mut Vec<(String, String, Value)>) {
     let Some(obj) = aggs.as_object() else { return };
     for (name, body) in obj {
-        let Some(body_obj) = body.as_object() else { continue };
+        let Some(body_obj) = body.as_object() else {
+            continue;
+        };
         for (agg_type, spec) in body_obj {
-            if matches!(agg_type.as_str(), "aggs" | "aggregations" | "meta") { continue; }
+            if matches!(agg_type.as_str(), "aggs" | "aggregations" | "meta") {
+                continue;
+            }
             if agg_type == "percentiles" && spec.get("hdr").is_some() {
                 if let Some(field) = spec.get("field").and_then(Value::as_str) {
                     out.push((name.clone(), field.to_string(), spec.clone()));
                 }
             }
         }
-        if let Some(subs) = body_obj.get("aggs").or_else(|| body_obj.get("aggregations")) {
+        if let Some(subs) = body_obj
+            .get("aggs")
+            .or_else(|| body_obj.get("aggregations"))
+        {
             collect_hdr_percentile_aggs(subs, out);
         }
     }
@@ -3675,21 +3907,37 @@ fn collect_hdr_percentile_aggs(aggs: &Value, out: &mut Vec<(String, String, Valu
 fn source_numeric_values(source: &Value, field: &str) -> Vec<f64> {
     fn push_num(v: &Value, out: &mut Vec<f64>) {
         match v {
-            Value::Number(n) => { if let Some(f) = n.as_f64() { out.push(f); } }
-            Value::String(s) => { if let Ok(f) = s.parse::<f64>() { out.push(f); } }
-            Value::Array(a) => { for x in a { push_num(x, out); } }
+            Value::Number(n) => {
+                if let Some(f) = n.as_f64() {
+                    out.push(f);
+                }
+            }
+            Value::String(s) => {
+                if let Ok(f) = s.parse::<f64>() {
+                    out.push(f);
+                }
+            }
+            Value::Array(a) => {
+                for x in a {
+                    push_num(x, out);
+                }
+            }
             _ => {}
         }
     }
     let v = source.get(field).cloned().or_else(|| {
         if field.contains('.') {
-            source.pointer(&format!("/{}", field.replace('.', "/"))).cloned()
+            source
+                .pointer(&format!("/{}", field.replace('.', "/")))
+                .cloned()
         } else {
             None
         }
     });
     let mut out = Vec::new();
-    if let Some(v) = v { push_num(&v, &mut out); }
+    if let Some(v) = v {
+        push_num(&v, &mut out);
+    }
     out
 }
 
@@ -3712,28 +3960,39 @@ fn hdr_percentiles_values(vals: &[f64], spec: &Value) -> Value {
     let sub_bucket_count: u64 = {
         let target = 2u64 * 10u64.pow(digits);
         let mut p = 1u64;
-        while p < target { p <<= 1; }
+        while p < target {
+            p <<= 1;
+        }
         p
     };
     let half_sub_bucket = sub_bucket_count / 2;
     let hdr_quantize = |v: f64| -> f64 {
-        if v <= 0.0 || !v.is_finite() { return v; }
+        if v <= 0.0 || !v.is_finite() {
+            return v;
+        }
         let bucket_exp = v.log2().floor() as i32;
-        if bucket_exp < 5 { return v; }
+        if bucket_exp < 5 {
+            return v;
+        }
         let unit_size = (1u64 << bucket_exp.min(62) as u32) as f64;
         v + (unit_size - 1.0) / (half_sub_bucket as f64)
     };
     let mut nums: Vec<f64> = vals.to_vec();
     nums.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     let compute = |pct: f64| -> Option<f64> {
-        if nums.is_empty() { return None; }
+        if nums.is_empty() {
+            return None;
+        }
         let n = nums.len();
         let count_at = ((((pct / 100.0) * n as f64) + 0.5) as i64).max(1) as usize;
         let mut cumulative = 0usize;
         let mut pick = nums[n - 1];
         for &v in nums.iter() {
             cumulative += 1;
-            if cumulative >= count_at { pick = v; break; }
+            if cumulative >= count_at {
+                pick = v;
+                break;
+            }
         }
         Some(hdr_quantize(pick))
     };
@@ -3758,7 +4017,9 @@ fn hdr_percentiles_values(vals: &[f64], spec: &Value) -> Value {
                     .and_then(serde_json::Number::from_f64)
                     .map(Value::Number)
                     .unwrap_or(Value::Null);
-                let key_num = serde_json::Number::from_f64(pct).map(Value::Number).unwrap_or(Value::Null);
+                let key_num = serde_json::Number::from_f64(pct)
+                    .map(Value::Number)
+                    .unwrap_or(Value::Null);
                 json!({ "key": key_num, "value": val })
             })
             .collect();
@@ -3772,9 +4033,7 @@ fn is_lone_doc_sort(v: &Value) -> bool {
     match v {
         Value::String(s) => s == "_doc",
         Value::Array(a) if a.len() == 1 => is_lone_doc_sort(&a[0]),
-        Value::Object(o) if o.len() == 1 => {
-            o.keys().next().map(|k| k == "_doc").unwrap_or(false)
-        }
+        Value::Object(o) if o.len() == 1 => o.keys().next().map(|k| k == "_doc").unwrap_or(false),
         _ => false,
     }
 }
@@ -3785,7 +4044,7 @@ fn is_lone_doc_sort(v: &Value) -> bool {
 /// - `"_score"` / `"_doc"` (string)
 /// - `[{"field": "asc"}, {"field": {"order": "desc", "missing": "_last"}}]`
 fn parse_sort(sort_val: &Value) -> Vec<xerj_query::sort::SortField> {
-    use xerj_query::sort::{SortField, SortOrder, SortMode, SortMissing};
+    use xerj_query::sort::{SortField, SortMissing, SortMode, SortOrder};
     let mut fields: Vec<SortField> = Vec::new();
 
     // ES accepts sort in multiple shapes:
@@ -3847,18 +4106,39 @@ fn parse_sort(sort_val: &Value) -> Vec<xerj_query::sort::SortField> {
                                     _ => SortMissing::Value(v.clone()),
                                 })
                                 .unwrap_or_default();
-                            let format = opts
-                                .get("format")
-                                .and_then(Value::as_str)
-                                .map(String::from);
+                            let format =
+                                opts.get("format").and_then(Value::as_str).map(String::from);
                             (order, mode, missing, format)
                         }
-                        _ => (SortOrder::Asc, SortMode::default(), SortMissing::default(), None),
+                        _ => (
+                            SortOrder::Asc,
+                            SortMode::default(),
+                            SortMissing::default(),
+                            None,
+                        ),
                     };
                     let sf = match field_name.as_str() {
-                        "_score" => SortField { field: "_score".to_string(), order, mode, missing, format },
-                        "_doc" => SortField { field: "_doc".to_string(), order, mode, missing, format },
-                        other => SortField { field: other.to_string(), order, mode, missing, format },
+                        "_score" => SortField {
+                            field: "_score".to_string(),
+                            order,
+                            mode,
+                            missing,
+                            format,
+                        },
+                        "_doc" => SortField {
+                            field: "_doc".to_string(),
+                            order,
+                            mode,
+                            missing,
+                            format,
+                        },
+                        other => SortField {
+                            field: other.to_string(),
+                            order,
+                            mode,
+                            missing,
+                            format,
+                        },
                     };
                     fields.push(sf);
                 }
@@ -3895,12 +4175,16 @@ fn parse_sort_mode(s: &str) -> xerj_query::sort::SortMode {
 /// spec; the singular is a convenience for our internal AST). When
 /// the array form is used we take the first element.
 fn parse_highlight(hl_val: &Value) -> Option<xerj_query::ast::HighlightRequest> {
-    use xerj_query::ast::{HighlightRequest, HighlightFieldOptions};
+    use xerj_query::ast::{HighlightFieldOptions, HighlightRequest};
 
     let obj = hl_val.as_object()?;
     let fields_val = obj.get("fields")?.as_object()?;
 
-    fn pull_tag(obj: &serde_json::Map<String, Value>, plural: &str, singular: &str) -> Option<String> {
+    fn pull_tag(
+        obj: &serde_json::Map<String, Value>,
+        plural: &str,
+        singular: &str,
+    ) -> Option<String> {
         obj.get(plural)
             .and_then(|v| v.as_array())
             .and_then(|a| a.first())
@@ -3915,8 +4199,14 @@ fn parse_highlight(hl_val: &Value) -> Option<xerj_query::ast::HighlightRequest> 
             HighlightFieldOptions {
                 pre_tag: pull_tag(o, "pre_tags", "pre_tag"),
                 post_tag: pull_tag(o, "post_tags", "post_tag"),
-                fragment_size: o.get("fragment_size").and_then(Value::as_u64).map(|n| n as usize),
-                number_of_fragments: o.get("number_of_fragments").and_then(Value::as_u64).map(|n| n as usize),
+                fragment_size: o
+                    .get("fragment_size")
+                    .and_then(Value::as_u64)
+                    .map(|n| n as usize),
+                number_of_fragments: o
+                    .get("number_of_fragments")
+                    .and_then(Value::as_u64)
+                    .map(|n| n as usize),
             }
         } else {
             HighlightFieldOptions::default()
@@ -3928,8 +4218,14 @@ fn parse_highlight(hl_val: &Value) -> Option<xerj_query::ast::HighlightRequest> 
         fields,
         pre_tag: pull_tag(obj, "pre_tags", "pre_tag"),
         post_tag: pull_tag(obj, "post_tags", "post_tag"),
-        fragment_size: obj.get("fragment_size").and_then(Value::as_u64).map(|n| n as usize),
-        number_of_fragments: obj.get("number_of_fragments").and_then(Value::as_u64).map(|n| n as usize),
+        fragment_size: obj
+            .get("fragment_size")
+            .and_then(Value::as_u64)
+            .map(|n| n as usize),
+        number_of_fragments: obj
+            .get("number_of_fragments")
+            .and_then(Value::as_u64)
+            .map(|n| n as usize),
     })
 }
 
@@ -4039,7 +4335,9 @@ pub async fn search(
     // URL parameter or a body field). Merge into the body so the
     // downstream search-request builder sees it uniformly.
     if !body.explain {
-        body.explain = params.explain.as_deref()
+        body.explain = params
+            .explain
+            .as_deref()
             .map(|v| v == "true" || v == "1")
             .unwrap_or(false);
     }
@@ -4057,9 +4355,18 @@ pub async fn search(
             };
             if matches!(
                 name,
-                "_seq_no" | "_source" | "_feature" | "_nested_path"
-                    | "_field_names" | "_version" | "_routing" | "_id"
-                    | "_ignored" | "_type" | "_parent" | "_index"
+                "_seq_no"
+                    | "_source"
+                    | "_feature"
+                    | "_nested_path"
+                    | "_field_names"
+                    | "_version"
+                    | "_routing"
+                    | "_id"
+                    | "_ignored"
+                    | "_type"
+                    | "_parent"
+                    | "_index"
                     | "_primary_term"
             ) {
                 // ES allows fetching metadata fields with real doc_values
@@ -4067,7 +4374,10 @@ pub async fn search(
                 // _primary_term, _source, _field_names, _feature,
                 // _nested_path, _type, _parent are NOT fetchable — ES
                 // returns illegal_argument_exception 400 for those.
-                if matches!(name, "_id" | "_index" | "_version" | "_ignored" | "_routing") {
+                if matches!(
+                    name,
+                    "_id" | "_index" | "_version" | "_ignored" | "_routing"
+                ) {
                     continue;
                 }
                 let reason = format!(
@@ -4087,7 +4397,8 @@ pub async fn search(
                         },
                         "status": 400,
                     })),
-                ).into_response();
+                )
+                    .into_response();
             }
         }
     }
@@ -4169,7 +4480,8 @@ pub async fn search(
             body.track_total_hits = Some(match tth_str.as_str() {
                 "false" => Value::Bool(false),
                 "true" => Value::Bool(true),
-                other => other.parse::<u64>()
+                other => other
+                    .parse::<u64>()
                     .map(|n| json!(n))
                     .unwrap_or(Value::Bool(true)),
             });
@@ -4303,12 +4615,16 @@ pub async fn search(
     // recorded indices from the PIT snapshot. The path-level `index`
     // for PIT searches is typically `_search` (no index in the URL);
     // the PIT context provides the real index list.
-    let pit_context: Option<xerj_engine::engine::PitContext> = body.pit.as_ref()
+    let pit_context: Option<xerj_engine::engine::PitContext> = body
+        .pit
+        .as_ref()
         .and_then(|p| p.get("id").and_then(Value::as_str))
         .and_then(|id| state.engine.pits.get(id).map(|r| r.value().clone()));
     let index_names: Vec<String> = if let Some(pit) = pit_context.as_ref() {
         pit.indices.clone()
-    } else { index_names };
+    } else {
+        index_names
+    };
 
     // `match: {_index: pattern}` / `term: {_index: pattern}` filters the
     // index_names list to just those matching the pattern. ES treats
@@ -4325,9 +4641,14 @@ pub async fn search(
     let index_names: Vec<String> = if index_name_filter_patterns.is_empty() {
         index_names
     } else {
-        index_names.into_iter().filter(|n| {
-            index_name_filter_patterns.iter().any(|p| p == n || glob_match(p, n))
-        }).collect()
+        index_names
+            .into_iter()
+            .filter(|n| {
+                index_name_filter_patterns
+                    .iter()
+                    .any(|p| p == n || glob_match(p, n))
+            })
+            .collect()
     };
     let index_names: Vec<&str> = index_names.iter().map(|s| s.as_str()).collect();
     // ── Closed-index resolution (ES expand_wildcards / ignore_unavailable) ──
@@ -4407,23 +4728,23 @@ pub async fn search(
     // brute-force match count over the whole index. Capture that cap here,
     // before the knn query is folded into a `bool` and `body.size` is bumped.
     // Hybrid knn (knn + a sibling `query`) keeps normal scoring/counting.
-    let knn_total_cap: Option<usize> = body
-        .knn
-        .as_ref()
-        .filter(|_| body.query.is_none())
-        .map(|knn_val| {
-            let num_candidates = knn_val
-                .get("num_candidates")
-                .and_then(Value::as_u64)
-                .map(|n| n as usize);
-            let k = knn_val
-                .get("k")
-                .and_then(Value::as_u64)
-                .map(|n| n as usize)
-                .or(num_candidates)
-                .unwrap_or(10);
-            k.min(body.size)
-        });
+    let knn_total_cap: Option<usize> =
+        body.knn
+            .as_ref()
+            .filter(|_| body.query.is_none())
+            .map(|knn_val| {
+                let num_candidates = knn_val
+                    .get("num_candidates")
+                    .and_then(Value::as_u64)
+                    .map(|n| n as usize);
+                let k = knn_val
+                    .get("k")
+                    .and_then(Value::as_u64)
+                    .map(|n| n as usize)
+                    .or(num_candidates)
+                    .unwrap_or(10);
+                k.min(body.size)
+            });
 
     // If top-level "knn" is present, synthesise a Knn query and merge with any "query".
     let effective_body: EsSearchBody = if let Some(ref knn_val) = body.knn {
@@ -4462,12 +4783,25 @@ pub async fn search(
     // stored in settings at create / reopen time.
     if index_names.len() == 1 {
         let idx_name = index_names[0];
-        let (sort_field, sort_order, explicit) = state.engine.index_settings.get(idx_name)
+        let (sort_field, sort_order, explicit) = state
+            .engine
+            .index_settings
+            .get(idx_name)
             .map(|r| {
                 let s = r.value();
-                let f = s.get("__xy_index_sort_field").and_then(Value::as_str).map(str::to_string);
-                let o = s.get("__xy_index_sort_order").and_then(Value::as_str).unwrap_or("desc").to_string();
-                let ex = s.get("__xy_index_sort_explicit").and_then(Value::as_bool).unwrap_or(false);
+                let f = s
+                    .get("__xy_index_sort_field")
+                    .and_then(Value::as_str)
+                    .map(str::to_string);
+                let o = s
+                    .get("__xy_index_sort_order")
+                    .and_then(Value::as_str)
+                    .unwrap_or("desc")
+                    .to_string();
+                let ex = s
+                    .get("__xy_index_sort_explicit")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
                 (f, o, ex)
             })
             .unwrap_or((None, "desc".to_string(), false));
@@ -4509,8 +4843,7 @@ pub async fn search(
                     .unwrap_or(false);
             let apply = (explicit || implicit_ok)
                 && (body.sort.is_none()
-                    || (explicit
-                        && body.sort.as_ref().map(is_lone_doc_sort).unwrap_or(false)));
+                    || (explicit && body.sort.as_ref().map(is_lone_doc_sort).unwrap_or(false)));
             if apply {
                 body.sort = Some(json!([{ f: { "order": sort_order } }]));
             }
@@ -4531,18 +4864,30 @@ pub async fn search(
         // passthrough priority so higher priority wins. A concrete root
         // field with the same name as a passthrough sub-field always
         // shadows the passthrough alias (per ES rules).
-        let mut pass_map: std::collections::HashMap<String, (String, i64)> = std::collections::HashMap::new();
-        let mut concrete_roots: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut pass_map: std::collections::HashMap<String, (String, i64)> =
+            std::collections::HashMap::new();
+        let mut concrete_roots: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
         for ix in &index_names {
-            let Some(m) = state.engine.index_mappings.get(*ix) else { continue };
+            let Some(m) = state.engine.index_mappings.get(*ix) else {
+                continue;
+            };
             let mapping = m.clone();
-            let props = mapping.get("mappings").and_then(|mm| mm.get("properties")).or_else(|| mapping.get("properties"));
-            let Some(pobj) = props.and_then(Value::as_object) else { continue };
+            let props = mapping
+                .get("mappings")
+                .and_then(|mm| mm.get("properties"))
+                .or_else(|| mapping.get("properties"));
+            let Some(pobj) = props.and_then(Value::as_object) else {
+                continue;
+            };
             // First pass: record every concrete root-level field.
             for (name, spec) in pobj {
                 let pt = spec.get("type").and_then(Value::as_str);
                 let is_passthrough_root = pt == Some("passthrough")
-                    || spec.get("passthrough").and_then(|p| p.get("priority")).is_some();
+                    || spec
+                        .get("passthrough")
+                        .and_then(|p| p.get("priority"))
+                        .is_some();
                 if !is_passthrough_root {
                     concrete_roots.insert(name.clone());
                 }
@@ -4551,15 +4896,28 @@ pub async fn search(
             for (parent_name, parent_spec) in pobj {
                 let pt = parent_spec.get("type").and_then(Value::as_str);
                 let is_passthrough = pt == Some("passthrough");
-                let priority = parent_spec.get("passthrough").and_then(|p| p.get("priority")).and_then(Value::as_i64)
-                    .or_else(|| if is_passthrough { parent_spec.get("priority").and_then(Value::as_i64) } else { None });
+                let priority = parent_spec
+                    .get("passthrough")
+                    .and_then(|p| p.get("priority"))
+                    .and_then(Value::as_i64)
+                    .or_else(|| {
+                        if is_passthrough {
+                            parent_spec.get("priority").and_then(Value::as_i64)
+                        } else {
+                            None
+                        }
+                    });
                 let Some(prio) = priority else { continue };
                 let sub_props = parent_spec.get("properties").and_then(Value::as_object);
                 let Some(sp) = sub_props else { continue };
                 for (sub_name, _spec) in sp {
                     let parent_path = parent_name.clone();
-                    let entry = pass_map.entry(sub_name.clone()).or_insert((parent_path.clone(), prio));
-                    if entry.1 < prio { *entry = (parent_path, prio); }
+                    let entry = pass_map
+                        .entry(sub_name.clone())
+                        .or_insert((parent_path.clone(), prio));
+                    if entry.1 < prio {
+                        *entry = (parent_path, prio);
+                    }
                 }
             }
         }
@@ -4568,10 +4926,25 @@ pub async fn search(
             pass_map.remove(n);
         }
         if !pass_map.is_empty() {
-            fn rewrite_query(q: &mut Value, pass: &std::collections::HashMap<String, (String, i64)>) {
+            fn rewrite_query(
+                q: &mut Value,
+                pass: &std::collections::HashMap<String, (String, i64)>,
+            ) {
                 match q {
                     Value::Object(obj) => {
-                        for clause_key in ["term", "terms", "match", "match_phrase", "range", "prefix", "wildcard", "fuzzy", "regexp", "exists", "match_phrase_prefix"] {
+                        for clause_key in [
+                            "term",
+                            "terms",
+                            "match",
+                            "match_phrase",
+                            "range",
+                            "prefix",
+                            "wildcard",
+                            "fuzzy",
+                            "regexp",
+                            "exists",
+                            "match_phrase_prefix",
+                        ] {
                             if let Some(Value::Object(inner)) = obj.get_mut(clause_key) {
                                 let keys: Vec<String> = inner.keys().cloned().collect();
                                 for k in keys {
@@ -4585,9 +4958,15 @@ pub async fn search(
                                 }
                             }
                         }
-                        for (_, child) in obj.iter_mut() { rewrite_query(child, pass); }
+                        for (_, child) in obj.iter_mut() {
+                            rewrite_query(child, pass);
+                        }
                     }
-                    Value::Array(arr) => { for item in arr.iter_mut() { rewrite_query(item, pass); } }
+                    Value::Array(arr) => {
+                        for item in arr.iter_mut() {
+                            rewrite_query(item, pass);
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -4596,7 +4975,10 @@ pub async fn search(
             }
             // Also rewrite sort fields that reference passthrough roots.
             if let Some(sort) = body.sort.as_mut() {
-                fn rewrite_sort(v: &mut Value, pass: &std::collections::HashMap<String, (String, i64)>) {
+                fn rewrite_sort(
+                    v: &mut Value,
+                    pass: &std::collections::HashMap<String, (String, i64)>,
+                ) {
                     match v {
                         Value::String(s) => {
                             if let Some((parent, _)) = pass.get(s.as_str()) {
@@ -4613,7 +4995,11 @@ pub async fn search(
                                 }
                             }
                         }
-                        Value::Array(arr) => { for item in arr.iter_mut() { rewrite_sort(item, pass); } }
+                        Value::Array(arr) => {
+                            for item in arr.iter_mut() {
+                                rewrite_sort(item, pass);
+                            }
+                        }
                         _ => {}
                     }
                 }
@@ -4631,10 +5017,13 @@ pub async fn search(
         let mut alias_filters: Vec<Value> = Vec::new();
         for name in &index_names {
             for entry in state.engine.aliases.iter() {
-                if entry.key() != name { continue; }
+                if entry.key() != name {
+                    continue;
+                }
                 for backing in entry.value().iter() {
                     if let Some(meta) = state.engine.index_alias_metadata.get(backing) {
-                        if let Some(filter) = meta.get(*name).and_then(|v| v.get("filter")).cloned() {
+                        if let Some(filter) = meta.get(*name).and_then(|v| v.get("filter")).cloned()
+                        {
                             alias_filters.push(filter);
                         }
                     }
@@ -4642,7 +5031,10 @@ pub async fn search(
             }
         }
         if !alias_filters.is_empty() {
-            let original = body.query.clone().unwrap_or_else(|| json!({"match_all": {}}));
+            let original = body
+                .query
+                .clone()
+                .unwrap_or_else(|| json!({"match_all": {}}));
             // ES semantics: alias filters are `filter` clauses (unscored,
             // pre-filter applied before the main query). This matters for
             // knn queries where `bool.filter` acts as a pre-filter but
@@ -4677,15 +5069,25 @@ pub async fn search(
                         }
                         let keys: Vec<String> = obj.keys().cloned().collect();
                         for key in keys {
-                            if let Some(child) = obj.get_mut(&key) { inject_bg_filter(child, filter); }
+                            if let Some(child) = obj.get_mut(&key) {
+                                inject_bg_filter(child, filter);
+                            }
                         }
                     }
-                    Value::Array(arr) => { for item in arr { inject_bg_filter(item, filter); } }
+                    Value::Array(arr) => {
+                        for item in arr {
+                            inject_bg_filter(item, filter);
+                        }
+                    }
                     _ => {}
                 }
             }
-            if let Some(aggs) = body.aggs.as_mut() { inject_bg_filter(aggs, &combined); }
-            if let Some(aggs) = body.aggregations.as_mut() { inject_bg_filter(aggs, &combined); }
+            if let Some(aggs) = body.aggs.as_mut() {
+                inject_bg_filter(aggs, &combined);
+            }
+            if let Some(aggs) = body.aggregations.as_mut() {
+                inject_bg_filter(aggs, &combined);
+            }
         }
     }
 
@@ -4713,17 +5115,27 @@ pub async fn search(
     // `match string_field: foo` on the canonical filters_bucket test
     // also matches docs with `string_field: "foo bar"`.
     {
-        let mut keyword_fields: std::collections::HashSet<String> = std::collections::HashSet::new();
-        let mut split_kw_fields: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut keyword_fields: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
+        let mut split_kw_fields: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
         for ix in &index_names {
             if let Some(m) = state.engine.index_mappings.get(*ix) {
                 let mapping = m.clone();
-                let props = mapping.get("mappings").and_then(|mm| mm.get("properties")).or_else(|| mapping.get("properties")).cloned();
+                let props = mapping
+                    .get("mappings")
+                    .and_then(|mm| mm.get("properties"))
+                    .or_else(|| mapping.get("properties"))
+                    .cloned();
                 if let Some(Value::Object(props)) = props {
                     for (name, spec) in props {
                         if spec.get("type").and_then(Value::as_str) == Some("keyword") {
                             keyword_fields.insert(name.clone());
-                            if spec.get("split_queries_on_whitespace").and_then(Value::as_bool).unwrap_or(false) {
+                            if spec
+                                .get("split_queries_on_whitespace")
+                                .and_then(Value::as_bool)
+                                .unwrap_or(false)
+                            {
                                 split_kw_fields.insert(name);
                             }
                         }
@@ -4732,7 +5144,11 @@ pub async fn search(
             }
         }
         if !keyword_fields.is_empty() {
-            fn rewrite(v: &mut Value, kw: &std::collections::HashSet<String>, split: &std::collections::HashSet<String>) {
+            fn rewrite(
+                v: &mut Value,
+                kw: &std::collections::HashSet<String>,
+                split: &std::collections::HashSet<String>,
+            ) {
                 match v {
                     Value::Object(obj) => {
                         let mut new_node: Option<(String, Value)> = None;
@@ -4740,7 +5156,9 @@ pub async fn search(
                             if let Some((field, raw)) = m_val.iter().next() {
                                 if kw.contains(field) {
                                     let value = match raw {
-                                        Value::Object(inner) => inner.get("query").cloned().unwrap_or(raw.clone()),
+                                        Value::Object(inner) => {
+                                            inner.get("query").cloned().unwrap_or(raw.clone())
+                                        }
                                         _ => raw.clone(),
                                     };
                                     let s_owned = match &value {
@@ -4754,16 +5172,27 @@ pub async fn search(
                                             let toks: Vec<&str> = s.split_whitespace().collect();
                                             if toks.len() > 1 {
                                                 // Multi-token query → terms (OR over tokens).
-                                                let arr: Vec<Value> = toks.iter().map(|t| Value::String(t.to_string())).collect();
+                                                let arr: Vec<Value> = toks
+                                                    .iter()
+                                                    .map(|t| Value::String(t.to_string()))
+                                                    .collect();
                                                 let mut terms = serde_json::Map::new();
                                                 terms.insert(field.clone(), Value::Array(arr));
-                                                new_node = Some(("terms".to_string(), Value::Object(terms)));
+                                                new_node = Some((
+                                                    "terms".to_string(),
+                                                    Value::Object(terms),
+                                                ));
                                             } else {
                                                 // Single token → term.
                                                 let mut term = serde_json::Map::new();
-                                                let v = if toks.is_empty() { Value::String(String::new()) } else { Value::String(toks[0].to_string()) };
+                                                let v = if toks.is_empty() {
+                                                    Value::String(String::new())
+                                                } else {
+                                                    Value::String(toks[0].to_string())
+                                                };
                                                 term.insert(field.clone(), v);
-                                                new_node = Some(("term".to_string(), Value::Object(term)));
+                                                new_node =
+                                                    Some(("term".to_string(), Value::Object(term)));
                                             }
                                         }
                                     } else {
@@ -4780,15 +5209,29 @@ pub async fn search(
                             obj.insert(tag, body);
                         }
                         let keys: Vec<String> = obj.keys().cloned().collect();
-                        for k in keys { if let Some(c) = obj.get_mut(&k) { rewrite(c, kw, split); } }
+                        for k in keys {
+                            if let Some(c) = obj.get_mut(&k) {
+                                rewrite(c, kw, split);
+                            }
+                        }
                     }
-                    Value::Array(arr) => { for item in arr { rewrite(item, kw, split); } }
+                    Value::Array(arr) => {
+                        for item in arr {
+                            rewrite(item, kw, split);
+                        }
+                    }
                     _ => {}
                 }
             }
-            if let Some(q) = body.query.as_mut() { rewrite(q, &keyword_fields, &split_kw_fields); }
-            if let Some(aggs) = body.aggs.as_mut() { rewrite(aggs, &keyword_fields, &split_kw_fields); }
-            if let Some(aggs) = body.aggregations.as_mut() { rewrite(aggs, &keyword_fields, &split_kw_fields); }
+            if let Some(q) = body.query.as_mut() {
+                rewrite(q, &keyword_fields, &split_kw_fields);
+            }
+            if let Some(aggs) = body.aggs.as_mut() {
+                rewrite(aggs, &keyword_fields, &split_kw_fields);
+            }
+            if let Some(aggs) = body.aggregations.as_mut() {
+                rewrite(aggs, &keyword_fields, &split_kw_fields);
+            }
         }
     }
 
@@ -4801,7 +5244,11 @@ pub async fn search(
         for ix in &index_names {
             if let Some(m) = state.engine.index_mappings.get(*ix) {
                 let mapping = m.clone();
-                let props = mapping.get("mappings").and_then(|mm| mm.get("properties")).or_else(|| mapping.get("properties")).cloned();
+                let props = mapping
+                    .get("mappings")
+                    .and_then(|mm| mm.get("properties"))
+                    .or_else(|| mapping.get("properties"))
+                    .cloned();
                 if let Some(Value::Object(props)) = props {
                     for (name, spec) in props {
                         if spec.get("type").and_then(Value::as_str) == Some("float") {
@@ -4815,27 +5262,55 @@ pub async fn search(
             fn annotate(v: &mut Value, floats: &std::collections::HashSet<String>) {
                 match v {
                     Value::Object(obj) => {
-                        if let Some(ms) = obj.get_mut("matrix_stats").and_then(|x| x.as_object_mut()) {
+                        if let Some(ms) =
+                            obj.get_mut("matrix_stats").and_then(|x| x.as_object_mut())
+                        {
                             if !ms.contains_key("__xy_f32_fields__") {
-                                let fields = ms.get("fields").and_then(Value::as_array).cloned().unwrap_or_default();
-                                let f32_list: Vec<Value> = fields.into_iter().filter_map(|v| {
-                                    let s = v.as_str()?.to_string();
-                                    if floats.contains(&s) { Some(Value::String(s)) } else { None }
-                                }).collect();
+                                let fields = ms
+                                    .get("fields")
+                                    .and_then(Value::as_array)
+                                    .cloned()
+                                    .unwrap_or_default();
+                                let f32_list: Vec<Value> = fields
+                                    .into_iter()
+                                    .filter_map(|v| {
+                                        let s = v.as_str()?.to_string();
+                                        if floats.contains(&s) {
+                                            Some(Value::String(s))
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .collect();
                                 if !f32_list.is_empty() {
-                                    ms.insert("__xy_f32_fields__".to_string(), Value::Array(f32_list));
+                                    ms.insert(
+                                        "__xy_f32_fields__".to_string(),
+                                        Value::Array(f32_list),
+                                    );
                                 }
                             }
                         }
                         let keys: Vec<String> = obj.keys().cloned().collect();
-                        for k in keys { if let Some(c) = obj.get_mut(&k) { annotate(c, floats); } }
+                        for k in keys {
+                            if let Some(c) = obj.get_mut(&k) {
+                                annotate(c, floats);
+                            }
+                        }
                     }
-                    Value::Array(arr) => { for item in arr { annotate(item, floats); } }
+                    Value::Array(arr) => {
+                        for item in arr {
+                            annotate(item, floats);
+                        }
+                    }
                     _ => {}
                 }
             }
-            if let Some(aggs) = body.aggs.as_mut() { annotate(aggs, &all_floats); }
-            if let Some(aggs) = body.aggregations.as_mut() { annotate(aggs, &all_floats); }
+            if let Some(aggs) = body.aggs.as_mut() {
+                annotate(aggs, &all_floats);
+            }
+            if let Some(aggs) = body.aggregations.as_mut() {
+                annotate(aggs, &all_floats);
+            }
         }
     }
 
@@ -4861,19 +5336,32 @@ pub async fn search(
                 let lookup_format = move |field: &str| -> Option<String> {
                     let fspec = props.get(field)?;
                     let ftype = fspec.get("type").and_then(Value::as_str)?;
-                    if !matches!(ftype, "date" | "date_nanos") { return None; }
-                    fspec.get("format").and_then(Value::as_str).map(String::from)
+                    if !matches!(ftype, "date" | "date_nanos") {
+                        return None;
+                    }
+                    fspec
+                        .get("format")
+                        .and_then(Value::as_str)
+                        .map(String::from)
                 };
                 fn inject_format(v: &mut Value, lookup: &dyn Fn(&str) -> Option<String>) {
                     match v {
                         Value::Object(obj) => {
                             for key in ["date_histogram", "date_range", "range"].iter() {
-                                if let Some(body) = obj.get_mut(*key).and_then(|x| x.as_object_mut()) {
+                                if let Some(body) =
+                                    obj.get_mut(*key).and_then(|x| x.as_object_mut())
+                                {
                                     if !body.contains_key("format") {
-                                        let field = body.get("field").and_then(Value::as_str).map(String::from);
+                                        let field = body
+                                            .get("field")
+                                            .and_then(Value::as_str)
+                                            .map(String::from);
                                         if let Some(f) = field {
                                             if let Some(fmt) = lookup(&f) {
-                                                body.insert("format".to_string(), Value::String(fmt));
+                                                body.insert(
+                                                    "format".to_string(),
+                                                    Value::String(fmt),
+                                                );
                                             }
                                         }
                                     }
@@ -4881,15 +5369,25 @@ pub async fn search(
                             }
                             let keys: Vec<String> = obj.keys().cloned().collect();
                             for k in keys {
-                                if let Some(child) = obj.get_mut(&k) { inject_format(child, lookup); }
+                                if let Some(child) = obj.get_mut(&k) {
+                                    inject_format(child, lookup);
+                                }
                             }
                         }
-                        Value::Array(arr) => { for item in arr { inject_format(item, lookup); } }
+                        Value::Array(arr) => {
+                            for item in arr {
+                                inject_format(item, lookup);
+                            }
+                        }
                         _ => {}
                     }
                 }
-                if let Some(aggs) = body.aggs.as_mut() { inject_format(aggs, &lookup_format); }
-                if let Some(aggs) = body.aggregations.as_mut() { inject_format(aggs, &lookup_format); }
+                if let Some(aggs) = body.aggs.as_mut() {
+                    inject_format(aggs, &lookup_format);
+                }
+                if let Some(aggs) = body.aggregations.as_mut() {
+                    inject_format(aggs, &lookup_format);
+                }
             }
         }
     }
@@ -4915,7 +5413,10 @@ pub async fn search(
                 // `fields` into that top_hits params map.
                 let user_names: Vec<String> = obj.keys().cloned().collect();
                 for user_name in &user_names {
-                    let Some(agg_body) = obj.get_mut(user_name).and_then(|v| v.as_object_mut()) else { continue };
+                    let Some(agg_body) = obj.get_mut(user_name).and_then(|v| v.as_object_mut())
+                    else {
+                        continue;
+                    };
                     if let Some(Value::Object(th_params)) = agg_body.get_mut("top_hits") {
                         if !th_params.contains_key("fields") {
                             th_params.insert("fields".to_string(), fields.clone());
@@ -4931,11 +5432,17 @@ pub async fn search(
                 }
             }
             if let Value::Array(arr) = v {
-                for item in arr { inject_top_hits_fields(item, fields); }
+                for item in arr {
+                    inject_top_hits_fields(item, fields);
+                }
             }
         }
-        if let Some(aggs) = body.aggs.as_mut() { inject_top_hits_fields(aggs, &top_fields); }
-        if let Some(aggs) = body.aggregations.as_mut() { inject_top_hits_fields(aggs, &top_fields); }
+        if let Some(aggs) = body.aggs.as_mut() {
+            inject_top_hits_fields(aggs, &top_fields);
+        }
+        if let Some(aggs) = body.aggregations.as_mut() {
+            inject_top_hits_fields(aggs, &top_fields);
+        }
     }
 
     // Propagate `runtime_mappings` into every top_hits sub-agg's
@@ -4948,7 +5455,10 @@ pub async fn search(
             if let Value::Object(obj) = v {
                 let user_names: Vec<String> = obj.keys().cloned().collect();
                 for user_name in &user_names {
-                    let Some(agg_body) = obj.get_mut(user_name).and_then(|v| v.as_object_mut()) else { continue };
+                    let Some(agg_body) = obj.get_mut(user_name).and_then(|v| v.as_object_mut())
+                    else {
+                        continue;
+                    };
                     if let Some(Value::Object(th_params)) = agg_body.get_mut("top_hits") {
                         if !th_params.contains_key("runtime_mappings") {
                             th_params.insert("runtime_mappings".to_string(), rm.clone());
@@ -4961,10 +5471,18 @@ pub async fn search(
                     }
                 }
             }
-            if let Value::Array(arr) = v { for item in arr { inject_top_hits_runtime(item, rm); } }
+            if let Value::Array(arr) = v {
+                for item in arr {
+                    inject_top_hits_runtime(item, rm);
+                }
+            }
         }
-        if let Some(aggs) = body.aggs.as_mut() { inject_top_hits_runtime(aggs, &rm); }
-        if let Some(aggs) = body.aggregations.as_mut() { inject_top_hits_runtime(aggs, &rm); }
+        if let Some(aggs) = body.aggs.as_mut() {
+            inject_top_hits_runtime(aggs, &rm);
+        }
+        if let Some(aggs) = body.aggregations.as_mut() {
+            inject_top_hits_runtime(aggs, &rm);
+        }
     }
 
     // When any participating index has `_source.enabled: false` in its
@@ -4972,11 +5490,16 @@ pub async fn search(
     // the top_hits response doesn't contain the internal source clone
     // we still keep around for fields/highlight/etc.
     let source_disabled_somewhere = index_names.iter().any(|ix| {
-        state.engine.index_mappings.get(*ix)
-            .and_then(|m| m.get("mappings")
-                .and_then(|mm| mm.get("_source"))
-                .or_else(|| m.get("_source"))
-                .cloned())
+        state
+            .engine
+            .index_mappings
+            .get(*ix)
+            .and_then(|m| {
+                m.get("mappings")
+                    .and_then(|mm| mm.get("_source"))
+                    .or_else(|| m.get("_source"))
+                    .cloned()
+            })
             .and_then(|src| src.get("enabled").and_then(Value::as_bool))
             .map(|b| !b)
             .unwrap_or(false)
@@ -4986,7 +5509,10 @@ pub async fn search(
             if let Value::Object(obj) = v {
                 let user_names: Vec<String> = obj.keys().cloned().collect();
                 for user_name in &user_names {
-                    let Some(agg_body) = obj.get_mut(user_name).and_then(|v| v.as_object_mut()) else { continue };
+                    let Some(agg_body) = obj.get_mut(user_name).and_then(|v| v.as_object_mut())
+                    else {
+                        continue;
+                    };
                     if let Some(Value::Object(th_params)) = agg_body.get_mut("top_hits") {
                         if !th_params.contains_key("_source") {
                             th_params.insert("_source".to_string(), Value::Bool(false));
@@ -5000,8 +5526,12 @@ pub async fn search(
                 }
             }
         }
-        if let Some(aggs) = body.aggs.as_mut() { inject_top_hits_no_source(aggs); }
-        if let Some(aggs) = body.aggregations.as_mut() { inject_top_hits_no_source(aggs); }
+        if let Some(aggs) = body.aggs.as_mut() {
+            inject_top_hits_no_source(aggs);
+        }
+        if let Some(aggs) = body.aggregations.as_mut() {
+            inject_top_hits_no_source(aggs);
+        }
     }
 
     // Resolve stored script references inside scripted_metric scripts.
@@ -5020,10 +5550,7 @@ pub async fn search(
     // (the field is materially unqueryable). Do this against each
     // participating index's mapping, applying the `match_none`
     // substitution when the field is unqueryable in *every* index.
-    let participating_indices: Vec<String> = index_names
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
+    let participating_indices: Vec<String> = index_names.iter().map(|s| s.to_string()).collect();
     if let Some(q) = body.query.as_mut() {
         rewrite_unqueryable_exists(q, &state, &participating_indices);
     }
@@ -5038,10 +5565,18 @@ pub async fn search(
         let mut m = std::collections::HashMap::new();
         for ix in &participating_indices {
             if let Some(mapping) = state.engine.index_mappings.get(ix.as_str()) {
-                fn collect_aliases(props: &Value, prefix: &str, out: &mut std::collections::HashMap<String, String>) {
+                fn collect_aliases(
+                    props: &Value,
+                    prefix: &str,
+                    out: &mut std::collections::HashMap<String, String>,
+                ) {
                     let Some(obj) = props.as_object() else { return };
                     for (name, spec) in obj {
-                        let full = if prefix.is_empty() { name.clone() } else { format!("{prefix}.{name}") };
+                        let full = if prefix.is_empty() {
+                            name.clone()
+                        } else {
+                            format!("{prefix}.{name}")
+                        };
                         if spec.get("type").and_then(Value::as_str) == Some("alias") {
                             if let Some(path) = spec.get("path").and_then(Value::as_str) {
                                 out.entry(full.clone()).or_insert_with(|| path.to_string());
@@ -5052,7 +5587,9 @@ pub async fn search(
                         }
                     }
                 }
-                let props = mapping.pointer("/mappings/properties").or_else(|| mapping.pointer("/properties"));
+                let props = mapping
+                    .pointer("/mappings/properties")
+                    .or_else(|| mapping.pointer("/properties"));
                 if let Some(p) = props {
                     collect_aliases(p, "", &mut m);
                 }
@@ -5062,10 +5599,16 @@ pub async fn search(
     };
     if !alias_map.is_empty() {
         // Rewrite field names in the body's interesting shapes.
-        fn rewrite_field_name(s: &str, aliases: &std::collections::HashMap<String, String>) -> String {
+        fn rewrite_field_name(
+            s: &str,
+            aliases: &std::collections::HashMap<String, String>,
+        ) -> String {
             aliases.get(s).cloned().unwrap_or_else(|| s.to_string())
         }
-        fn rewrite_leaf_field_values(v: &mut Value, aliases: &std::collections::HashMap<String, String>) {
+        fn rewrite_leaf_field_values(
+            v: &mut Value,
+            aliases: &std::collections::HashMap<String, String>,
+        ) {
             match v {
                 Value::Object(obj) => {
                     // Special handling: for `term/range/match/exists/prefix/etc.`
@@ -5087,18 +5630,30 @@ pub async fn search(
                             *f = Value::String(rewrite_field_name(s, aliases));
                         }
                     }
-                    for (_, child) in obj.iter_mut() { rewrite_leaf_field_values(child, aliases); }
+                    for (_, child) in obj.iter_mut() {
+                        rewrite_leaf_field_values(child, aliases);
+                    }
                 }
                 Value::Array(arr) => {
-                    for item in arr { rewrite_leaf_field_values(item, aliases); }
+                    for item in arr {
+                        rewrite_leaf_field_values(item, aliases);
+                    }
                 }
                 _ => {}
             }
         }
-        if let Some(q) = body.query.as_mut() { rewrite_leaf_field_values(q, &alias_map); }
-        if let Some(s) = body.sort.as_mut() { rewrite_leaf_field_values(s, &alias_map); }
-        if let Some(a) = body.aggs.as_mut() { rewrite_leaf_field_values(a, &alias_map); }
-        if let Some(a) = body.aggregations.as_mut() { rewrite_leaf_field_values(a, &alias_map); }
+        if let Some(q) = body.query.as_mut() {
+            rewrite_leaf_field_values(q, &alias_map);
+        }
+        if let Some(s) = body.sort.as_mut() {
+            rewrite_leaf_field_values(s, &alias_map);
+        }
+        if let Some(a) = body.aggs.as_mut() {
+            rewrite_leaf_field_values(a, &alias_map);
+        }
+        if let Some(a) = body.aggregations.as_mut() {
+            rewrite_leaf_field_values(a, &alias_map);
+        }
         // Note: we intentionally do NOT rewrite `body.fields` or
         // `body.collapse` — both are per-index-dependent. The response
         // layer applies alias resolution at fetch time (`body.fields`)
@@ -5111,15 +5666,28 @@ pub async fn search(
     // reject queries/sorts that touch `_seq_no` with ES's specific
     // error messages.
     let any_disabled_seqno = participating_indices.iter().any(|ix| {
-        state.engine.index_settings.get(ix).map(|v| {
-            let s = v.clone();
-            let as_bool = |val: &Value| -> bool {
-                val.as_bool().unwrap_or_else(|| val.as_str().map(|x| x == "true").unwrap_or(false))
-            };
-            s.pointer("/index/disable_sequence_numbers").map(as_bool).unwrap_or(false)
-                || s.get("index").and_then(|i| i.get("index.disable_sequence_numbers")).map(as_bool).unwrap_or(false)
-                || s.get("index.disable_sequence_numbers").map(as_bool).unwrap_or(false)
-        }).unwrap_or(false)
+        state
+            .engine
+            .index_settings
+            .get(ix)
+            .map(|v| {
+                let s = v.clone();
+                let as_bool = |val: &Value| -> bool {
+                    val.as_bool()
+                        .unwrap_or_else(|| val.as_str().map(|x| x == "true").unwrap_or(false))
+                };
+                s.pointer("/index/disable_sequence_numbers")
+                    .map(as_bool)
+                    .unwrap_or(false)
+                    || s.get("index")
+                        .and_then(|i| i.get("index.disable_sequence_numbers"))
+                        .map(as_bool)
+                        .unwrap_or(false)
+                    || s.get("index.disable_sequence_numbers")
+                        .map(as_bool)
+                        .unwrap_or(false)
+            })
+            .unwrap_or(false)
     });
     if any_disabled_seqno {
         fn mentions_seq_no(v: &Value) -> bool {
@@ -5128,7 +5696,9 @@ pub async fn search(
                     // `term: {_seq_no: ...}` / `range: {_seq_no: ...}`
                     for leaf in ["term", "range", "terms", "match"] {
                         if let Some(body) = obj.get(leaf).and_then(|x| x.as_object()) {
-                            if body.contains_key("_seq_no") { return true; }
+                            if body.contains_key("_seq_no") {
+                                return true;
+                            }
                         }
                     }
                     obj.values().any(mentions_seq_no)
@@ -5140,7 +5710,8 @@ pub async fn search(
         if let Some(q) = body.query.as_ref() {
             if mentions_seq_no(q) {
                 let reason = "failed to create query: Cannot query field [_seq_no]: _seq_no cannot be queried when [index.disable_sequence_numbers] is [true]";
-                return ApiError::new(xerj_common::XerjError::invalid_query(reason)).into_response();
+                return ApiError::new(xerj_common::XerjError::invalid_query(reason))
+                    .into_response();
             }
         }
         // Sort by `_seq_no` → illegal_argument_exception (NOT query_shard).
@@ -5182,10 +5753,18 @@ pub async fn search(
             .get(ix)
             .map(|v| v.clone())
             .and_then(|s| {
-                let as_int = |v: &Value| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse().ok()));
-                s.pointer("/index/max_result_window").and_then(|v| as_int(v))
-                    .or_else(|| s.get("index").and_then(|i| i.get("index.max_result_window")).and_then(|v| as_int(v)))
-                    .or_else(|| s.get("index.max_result_window").and_then(|v| as_int(v)))
+                let as_int = |v: &Value| {
+                    v.as_u64()
+                        .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+                };
+                s.pointer("/index/max_result_window")
+                    .and_then(as_int)
+                    .or_else(|| {
+                        s.get("index")
+                            .and_then(|i| i.get("index.max_result_window"))
+                            .and_then(as_int)
+                    })
+                    .or_else(|| s.get("index.max_result_window").and_then(as_int))
             })
             .map(|v| v as usize)
             .unwrap_or(10_000);
@@ -5193,10 +5772,16 @@ pub async fn search(
             match q {
                 Value::Object(obj) => {
                     let mut m = 0;
-                    if let Some(ids) = obj.get("ids").and_then(|v| v.get("values")).and_then(Value::as_array) {
+                    if let Some(ids) = obj
+                        .get("ids")
+                        .and_then(|v| v.get("values"))
+                        .and_then(Value::as_array)
+                    {
                         m = m.max(ids.len());
                     }
-                    for (_, v) in obj { m = m.max(max_ids_in_json(v)); }
+                    for (_, v) in obj {
+                        m = m.max(max_ids_in_json(v));
+                    }
                     m
                 }
                 Value::Array(arr) => arr.iter().map(max_ids_in_json).max().unwrap_or(0),
@@ -5209,7 +5794,8 @@ pub async fn search(
                     "failed to create query: Too many ids specified, allowed max result window is [{}]",
                     max_w
                 );
-                return ApiError::new(xerj_common::XerjError::invalid_query(reason)).into_response();
+                return ApiError::new(xerj_common::XerjError::invalid_query(reason))
+                    .into_response();
             }
         }
     }
@@ -5218,9 +5804,8 @@ pub async fn search(
     // record hit/miss counters per participating index unless the
     // caller explicitly sets `request_cache=false`. Only the
     // `indices.stats · request_cache` numbers read these counters.
-    let rc_enabled = body.size == 0
-        && body.aggs.is_some()
-        && params.request_cache.as_deref() != Some("false");
+    let rc_enabled =
+        body.size == 0 && body.aggs.is_some() && params.request_cache.as_deref() != Some("false");
     if rc_enabled {
         let body_hash = {
             use std::collections::hash_map::DefaultHasher;
@@ -5228,10 +5813,26 @@ pub async fn search(
             // EsSearchBody doesn't impl Serialize; reconstruct a canonical
             // representation from the fields we care about for cache-key
             // uniqueness (query + aggs + source filter + size).
-            let q = body.query.as_ref().map(|v| v.to_string()).unwrap_or_default();
-            let a = body.aggs.as_ref().map(|v| v.to_string()).unwrap_or_default();
-            let ag = body.aggregations.as_ref().map(|v| v.to_string()).unwrap_or_default();
-            let s = body.source.as_ref().map(|v| v.to_string()).unwrap_or_default();
+            let q = body
+                .query
+                .as_ref()
+                .map(|v| v.to_string())
+                .unwrap_or_default();
+            let a = body
+                .aggs
+                .as_ref()
+                .map(|v| v.to_string())
+                .unwrap_or_default();
+            let ag = body
+                .aggregations
+                .as_ref()
+                .map(|v| v.to_string())
+                .unwrap_or_default();
+            let s = body
+                .source
+                .as_ref()
+                .map(|v| v.to_string())
+                .unwrap_or_default();
             let body_str = format!("{}|{}|{}|{}|{}|{}", q, a, ag, s, body.size, body.from);
             let mut h = DefaultHasher::new();
             body_str.hash(&mut h);
@@ -5263,9 +5864,13 @@ pub async fn search(
         fn collect_value_types(v: &Value, out: &mut Vec<(String, String)>) {
             let Some(obj) = v.as_object() else { return };
             for (_name, body) in obj.iter() {
-                let Some(body_obj) = body.as_object() else { continue };
+                let Some(body_obj) = body.as_object() else {
+                    continue;
+                };
                 for (agg_type, spec) in body_obj.iter() {
-                    if matches!(agg_type.as_str(), "aggs" | "aggregations" | "meta") { continue; }
+                    if matches!(agg_type.as_str(), "aggs" | "aggregations" | "meta") {
+                        continue;
+                    }
                     if let Some(spec_obj) = spec.as_object() {
                         if let (Some(field), Some(vt)) = (
                             spec_obj.get("field").and_then(Value::as_str),
@@ -5276,7 +5881,10 @@ pub async fn search(
                     }
                 }
                 // Recurse into sub-aggs
-                if let Some(subs) = body_obj.get("aggs").or_else(|| body_obj.get("aggregations")) {
+                if let Some(subs) = body_obj
+                    .get("aggs")
+                    .or_else(|| body_obj.get("aggregations"))
+                {
                     collect_value_types(subs, out);
                 }
             }
@@ -5286,18 +5894,36 @@ pub async fn search(
         if !vts.is_empty() {
             for idx_name in index_names.iter() {
                 let name_str: &str = idx_name;
-                let Some(mapping_ref) = state.engine.index_mappings.get(name_str) else { continue };
+                let Some(mapping_ref) = state.engine.index_mappings.get(name_str) else {
+                    continue;
+                };
                 let mapping = mapping_ref.value().clone();
                 drop(mapping_ref);
                 for (field, vt) in &vts {
-                    let field_type = mapping.pointer(&format!("/mappings/properties/{}/type", field))
+                    let field_type = mapping
+                        .pointer(&format!("/mappings/properties/{}/type", field))
                         .or_else(|| mapping.pointer(&format!("/properties/{}/type", field)))
                         .and_then(Value::as_str)
                         .unwrap_or("");
                     let incompatible = match (vt.as_str(), field_type) {
                         ("ip", ft) if !ft.is_empty() && ft != "ip" => true,
                         ("long" | "integer" | "short" | "byte" | "double" | "float", ft)
-                            if !ft.is_empty() && !matches!(ft, "long" | "integer" | "short" | "byte" | "double" | "float" | "half_float" | "scaled_float" | "unsigned_long") => true,
+                            if !ft.is_empty()
+                                && !matches!(
+                                    ft,
+                                    "long"
+                                        | "integer"
+                                        | "short"
+                                        | "byte"
+                                        | "double"
+                                        | "float"
+                                        | "half_float"
+                                        | "scaled_float"
+                                        | "unsigned_long"
+                                ) =>
+                        {
+                            true
+                        }
                         _ => false,
                     };
                     if incompatible {
@@ -5344,7 +5970,11 @@ pub async fn search(
         .unwrap_or(search_selector_has_wildcard);
 
     for idx_name in &index_names {
-        state.metrics.queries_by_index.with_label_values(&[idx_name]).inc();
+        state
+            .metrics
+            .queries_by_index
+            .with_label_values(&[idx_name])
+            .inc();
 
         let idx = match state.engine.get_index(idx_name) {
             Ok(i) => i,
@@ -5365,7 +5995,11 @@ pub async fn search(
         // Without this bump, size:1 + PIT would see a single hit get
         // dropped and return 0 results.
         if pit_context.is_some() {
-            req_clone.size = req_clone.size.saturating_add(req_clone.from).saturating_mul(4).max(100);
+            req_clone.size = req_clone
+                .size
+                .saturating_add(req_clone.from)
+                .saturating_mul(4)
+                .max(100);
             req_clone.from = 0;
         }
         // Per-index alias rewrite for collapse.field: if the declared
@@ -5374,7 +6008,9 @@ pub async fn search(
         // store the field directly still collapse correctly.
         if let Some(cs) = req_clone.collapse.as_mut() {
             if let Some(mapping) = state.engine.index_mappings.get(*idx_name) {
-                let props = mapping.pointer("/mappings/properties").or_else(|| mapping.pointer("/properties"));
+                let props = mapping
+                    .pointer("/mappings/properties")
+                    .or_else(|| mapping.pointer("/properties"));
                 if let Some(p) = props.and_then(Value::as_object) {
                     if let Some(field_spec) = p.get(&cs.field).and_then(Value::as_object) {
                         if field_spec.get("type").and_then(Value::as_str) == Some("alias") {
@@ -5386,9 +6022,7 @@ pub async fn search(
                 }
             }
         }
-        let search_result = tokio::task::spawn(async move {
-            idx.search(&req_clone).await
-        }).await;
+        let search_result = tokio::task::spawn(async move { idx.search(&req_clone).await }).await;
 
         match search_result {
             Err(join_err) => {
@@ -5408,15 +6042,16 @@ pub async fn search(
                     total_relation = "gte".to_string();
                 }
                 if let Some(ms) = result.max_score {
-                    merged_population_max = Some(
-                        merged_population_max.map_or(ms as f64, |m: f64| m.max(ms as f64)),
-                    );
+                    merged_population_max =
+                        Some(merged_population_max.map_or(ms as f64, |m: f64| m.max(ms as f64)));
                 }
                 if let Some(new_aggs) = result.aggs {
                     match &mut merged_aggs {
                         None => merged_aggs = Some(new_aggs),
                         Some(existing) => {
-                            if let (Some(ex_obj), Some(new_obj)) = (existing.as_object_mut(), new_aggs.as_object()) {
+                            if let (Some(ex_obj), Some(new_obj)) =
+                                (existing.as_object_mut(), new_aggs.as_object())
+                            {
                                 for (k, v) in new_obj {
                                     // Metric-agg aware merge: when both shards
                                     // returned a metric result with internal
@@ -5440,8 +6075,16 @@ pub async fn search(
                                     }
                                     let should_replace = match (ex_obj.get(k), v) {
                                         (Some(old), new) => {
-                                            let old_empty = old.get("buckets").and_then(|b| b.as_array()).map(|a| a.is_empty()).unwrap_or(false);
-                                            let new_has_data = new.get("buckets").and_then(|b| b.as_array()).map(|a| !a.is_empty()).unwrap_or(false);
+                                            let old_empty = old
+                                                .get("buckets")
+                                                .and_then(|b| b.as_array())
+                                                .map(|a| a.is_empty())
+                                                .unwrap_or(false);
+                                            let new_has_data = new
+                                                .get("buckets")
+                                                .and_then(|b| b.as_array())
+                                                .map(|a| !a.is_empty())
+                                                .unwrap_or(false);
                                             old_empty && new_has_data
                                         }
                                         (None, _) => true,
@@ -5468,7 +6111,7 @@ pub async fn search(
     // picks ONE interval across the global min/max; mirror that here by
     // scanning the merged bucket keys, re-selecting the interval, and
     // rebucketing at the coarser grid.
-    if let Some(ref aggs_req) = body.aggs.as_ref().or(body.aggregations.as_ref()) {
+    if let Some(aggs_req) = body.aggs.as_ref().or(body.aggregations.as_ref()) {
         if let Some(m) = merged_aggs.as_mut() {
             rebucket_auto_date_histograms(m, aggs_req);
         }
@@ -5480,26 +6123,45 @@ pub async fn search(
     // number_of_shards; slice partitioning uses `shard_for(_id) % max` with
     // ES's `number_of_shards` (from index settings) for consistency.
     if let Some(slice_v) = body.slice.as_ref() {
-        let slice_id = slice_v.get("id").and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.parse::<i64>().ok())));
-        let slice_max = slice_v.get("max").and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.parse::<i64>().ok())));
-        let slice_field = slice_v.get("field").and_then(|v| v.as_str()).unwrap_or("_id").to_string();
+        let slice_id = slice_v.get("id").and_then(|v| {
+            v.as_i64()
+                .or_else(|| v.as_str().and_then(|s| s.parse::<i64>().ok()))
+        });
+        let slice_max = slice_v.get("max").and_then(|v| {
+            v.as_i64()
+                .or_else(|| v.as_str().and_then(|s| s.parse::<i64>().ok()))
+        });
+        let slice_field = slice_v
+            .get("field")
+            .and_then(|v| v.as_str())
+            .unwrap_or("_id")
+            .to_string();
         if let (Some(id), Some(max)) = (slice_id, slice_max) {
             if max > 0 && id >= 0 && id < max {
                 // Compute number_of_shards from the first participating index's settings.
-                let shards: u32 = index_names.first()
+                let shards: u32 = index_names
+                    .first()
                     .and_then(|n| {
-                        let nn: &str = &**n;
-                        state.engine.index_settings.get(nn).map(|r| r.value().clone())
+                        let nn: &str = n;
+                        state
+                            .engine
+                            .index_settings
+                            .get(nn)
+                            .map(|r| r.value().clone())
                     })
                     .and_then(|s| {
                         s.pointer("/index/number_of_shards")
                             .or_else(|| s.pointer("/number_of_shards"))
-                            .and_then(|n| n.as_i64().or_else(|| n.as_str().and_then(|s| s.parse::<i64>().ok())))
+                            .and_then(|n| {
+                                n.as_i64()
+                                    .or_else(|| n.as_str().and_then(|s| s.parse::<i64>().ok()))
+                            })
                             .map(|n| n as u32)
                     })
                     .unwrap_or(1);
                 let slice_by_id = slice_field == "_id";
-                let mut kept: Vec<(String, xerj_query::executor::Hit)> = Vec::with_capacity(merged_hits.len());
+                let mut kept: Vec<(String, xerj_query::executor::Hit)> =
+                    Vec::with_capacity(merged_hits.len());
                 for (idx_name, h) in merged_hits.drain(..) {
                     let key = if slice_by_id {
                         h.id.clone()
@@ -5512,7 +6174,9 @@ pub async fn search(
                                 other => other.to_string(),
                             })
                             .unwrap_or_default()
-                    } else { String::new() };
+                    } else {
+                        String::new()
+                    };
                     let shard = murmur3_routing_shard(&key, shards);
                     let in_slice = if (max as u32) <= shards {
                         (shard % (max as u32)) as i64 == id
@@ -5521,7 +6185,11 @@ pub async fn search(
                         // by id hash. Shard S gets slices [S*max/shards .. (S+1)*max/shards).
                         let slices_per_shard = (max as u32) / shards;
                         let start = shard * slices_per_shard;
-                        let end = if shard == shards - 1 { max as u32 } else { (shard + 1) * slices_per_shard };
+                        let end = if shard == shards - 1 {
+                            max as u32
+                        } else {
+                            (shard + 1) * slices_per_shard
+                        };
                         if (id as u32) >= start && (id as u32) < end {
                             // Sub-slice by id hash within the shard's slice range.
                             let mut hasher = std::collections::hash_map::DefaultHasher::new();
@@ -5564,8 +6232,15 @@ pub async fn search(
         let mut kept: Vec<(String, xerj_query::executor::Hit)> = Vec::new();
         let mut filtered_out_in_page = 0u64;
         for (idx_name, h) in merged_hits.drain(..) {
-            let max_seq = pit.index_max_seq.get(&idx_name).copied().unwrap_or(u64::MAX);
-            let hit_seq = state.engine.get_index(&idx_name).ok()
+            let max_seq = pit
+                .index_max_seq
+                .get(&idx_name)
+                .copied()
+                .unwrap_or(u64::MAX);
+            let hit_seq = state
+                .engine
+                .get_index(&idx_name)
+                .ok()
                 .and_then(|idx| idx.lookup_seq_no(&h.id))
                 .unwrap_or(0);
             if hit_seq <= max_seq {
@@ -5681,16 +6356,21 @@ pub async fn search(
                     .and_then(|p| p.get(&sf.field))
                     .and_then(|fp| fp.get("type"))
                     .and_then(Value::as_str);
-                let want_max = matches!(
-                    sf.missing,
-                    xerj_query::sort::SortMissing::Last
-                );
+                let want_max = matches!(sf.missing, xerj_query::sort::SortMissing::Last);
                 let sentinel: Option<i64> = match ftype {
                     Some("integer") | Some("short") | Some("byte") => {
-                        if want_max { Some(i32::MAX as i64) } else { Some(i32::MIN as i64) }
+                        if want_max {
+                            Some(i32::MAX as i64)
+                        } else {
+                            Some(i32::MIN as i64)
+                        }
                     }
                     Some("long") | Some("unsigned_long") => {
-                        if want_max { Some(i64::MAX) } else { Some(i64::MIN) }
+                        if want_max {
+                            Some(i64::MAX)
+                        } else {
+                            Some(i64::MIN)
+                        }
                     }
                     _ => None,
                 };
@@ -5706,7 +6386,9 @@ pub async fn search(
         if search_req.sort.is_empty() {
             // Default: by score descending.
             merged_hits.sort_by(|(_, a), (_, b)| {
-                b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal)
+                b.score
+                    .partial_cmp(&a.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             });
         } else {
             merged_hits.sort_by(|(_, a), (_, b)| {
@@ -5726,22 +6408,25 @@ pub async fn search(
             let field = &cf.field;
             let mut first_by_key: BTreeMap<String, usize> = BTreeMap::new();
             let mut seen_keys: Vec<String> = Vec::new();
-            let mut key_of = |src: &Value| -> String {
+            let key_of = |src: &Value| -> String {
                 // Try the declared field first; if not present (the
                 // caller queried a per-index alias target), fall back
                 // to a top-level alias-name scan via literal.
-                let v = src.get(field)
-                    .or_else(|| {
-                        // Try each other known alias for this collapse
-                        // field by searching the src for numeric-ish
-                        // values. Simpler: iterate source keys that
-                        // aren't meta and aren't the declared field.
-                        src.as_object().and_then(|o| {
-                            o.iter().find_map(|(k, v)| {
-                                if k == field || k.starts_with('_') { None } else { Some(v) }
-                            })
+                let v = src.get(field).or_else(|| {
+                    // Try each other known alias for this collapse
+                    // field by searching the src for numeric-ish
+                    // values. Simpler: iterate source keys that
+                    // aren't meta and aren't the declared field.
+                    src.as_object().and_then(|o| {
+                        o.iter().find_map(|(k, v)| {
+                            if k == field || k.starts_with('_') {
+                                None
+                            } else {
+                                Some(v)
+                            }
                         })
-                    });
+                    })
+                });
                 match v {
                     Some(Value::String(s)) => s.clone(),
                     Some(Value::Number(n)) => n.to_string(),
@@ -5757,18 +6442,20 @@ pub async fn search(
             // the floor — visible as `inner_hits.sub_hits.hits.total`
             // off by N when an alias resolves the collapse field to
             // a different stored field on a sibling index.
-            let mut extra_members_by_key: BTreeMap<String, Vec<Value>> =
-                BTreeMap::new();
+            let mut extra_members_by_key: BTreeMap<String, Vec<Value>> = BTreeMap::new();
             for (i, (_, h)) in merged_hits.iter().enumerate() {
                 let k = key_of(&h.source);
-                if k.is_empty() { continue; }
+                if k.is_empty() {
+                    continue;
+                }
                 if !first_by_key.contains_key(&k) {
                     first_by_key.insert(k.clone(), i);
                     seen_keys.push(k);
                 } else {
                     // Not the leader — fold this hit's group members
                     // into the bucket so the leader can absorb them.
-                    if let Some(group) = h.source
+                    if let Some(group) = h
+                        .source
                         .as_object()
                         .and_then(|o| o.get("__xy_collapse_group__"))
                         .and_then(|v| v.as_array())
@@ -5786,7 +6473,8 @@ pub async fn search(
             let unique_keys = first_by_key.len();
             if unique_keys > 0 && unique_keys < merged_hits.len() {
                 let mut kept: Vec<(String, xerj_query::executor::Hit)> = Vec::new();
-                let mut inserted: std::collections::HashSet<String> = std::collections::HashSet::new();
+                let mut inserted: std::collections::HashSet<String> =
+                    std::collections::HashSet::new();
                 for (_k, &idx) in first_by_key.iter() {
                     let (idx_name, h) = &merged_hits[idx];
                     let kk = key_of(&h.source);
@@ -5796,13 +6484,14 @@ pub async fn search(
                         if let Some(extras) = extra_members_by_key.get(&kk) {
                             if !extras.is_empty() {
                                 if let Some(obj) = leader.source.as_object_mut() {
-                                    let combined: Vec<Value> = match obj.remove("__xy_collapse_group__") {
-                                        Some(Value::Array(mut a)) => {
-                                            a.extend(extras.iter().cloned());
-                                            a
-                                        }
-                                        _ => extras.clone(),
-                                    };
+                                    let combined: Vec<Value> =
+                                        match obj.remove("__xy_collapse_group__") {
+                                            Some(Value::Array(mut a)) => {
+                                                a.extend(extras.iter().cloned());
+                                                a
+                                            }
+                                            _ => extras.clone(),
+                                        };
                                     obj.insert(
                                         "__xy_collapse_group__".to_string(),
                                         Value::Array(combined),
@@ -5818,7 +6507,9 @@ pub async fn search(
                 // against search_req.sort.
                 if search_req.sort.is_empty() {
                     kept.sort_by(|(_, a), (_, b)| {
-                        b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal)
+                        b.score
+                            .partial_cmp(&a.score)
+                            .unwrap_or(std::cmp::Ordering::Equal)
                     });
                 } else {
                     kept.sort_by(|(_, a), (_, b)| {
@@ -5883,10 +6574,12 @@ pub async fn search(
                 let before = merged_hits.len();
                 let mut negative_present = false;
                 merged_hits.retain(|(_, h)| {
-                    let neg = fields.iter().any(|f| {
-                        source_numeric_values(&h.source, f).iter().any(|v| *v < 0.0)
-                    });
-                    if neg { negative_present = true; }
+                    let neg = fields
+                        .iter()
+                        .any(|f| source_numeric_values(&h.source, f).iter().any(|v| *v < 0.0));
+                    if neg {
+                        negative_present = true;
+                    }
                     !neg
                 });
                 let excluded = (before - merged_hits.len()) as u64;
@@ -5901,7 +6594,8 @@ pub async fn search(
                             .filter(|v| *v >= 0.0)
                             .collect();
                         if let Some(agg_obj) = magg.get_mut(name).and_then(|v| v.as_object_mut()) {
-                            agg_obj.insert("values".to_string(), hdr_percentiles_values(&vals, spec));
+                            agg_obj
+                                .insert("values".to_string(), hdr_percentiles_values(&vals, spec));
                         }
                     }
                     hdr_shard_failure = Some(json!({
@@ -5950,8 +6644,8 @@ pub async fn search(
         || search_req.sort.iter().all(|s| s.is_score())
         || body.track_scores.unwrap_or(false);
     let max_score = if sort_tracks_scores {
-        let explicit_field_sort = !search_req.sort.is_empty()
-            && search_req.sort.iter().any(|s| !s.is_score());
+        let explicit_field_sort =
+            !search_req.sort.is_empty() && search_req.sort.iter().any(|s| !s.is_score());
         if explicit_field_sort {
             // Prefer the per-index pre-collapse population max; fall back to the
             // (possibly collapsed/paged) merged hit set when unavailable.
@@ -5960,7 +6654,10 @@ pub async fn search(
                     .iter()
                     .map(|(_, h)| h.score as f64)
                     .fold(None, |acc: Option<f64>, s| {
-                        Some(match acc { Some(m) if m >= s => m, _ => s })
+                        Some(match acc {
+                            Some(m) if m >= s => m,
+                            _ => s,
+                        })
                     })
             })
         } else {
@@ -5984,11 +6681,8 @@ pub async fn search(
     // Build script_fields null map if requested.
     let script_fields_map: Option<HashMap<String, Value>> =
         search_req.script_fields.as_ref().and_then(|sf| {
-            sf.as_object().map(|obj| {
-                obj.keys()
-                    .map(|k| (k.clone(), Value::Null))
-                    .collect()
-            })
+            sf.as_object()
+                .map(|obj| obj.keys().map(|k| (k.clone(), Value::Null)).collect())
         });
 
     let requested_fields = &search_req.fields;
@@ -5998,32 +6692,39 @@ pub async fn search(
     // like `{"field": "date", "format": "yyyy-MM-dd"}` (7.11+). When the
     // body is absent, falls back to search_req.fields (plain strings).
     let field_specs: Vec<(String, Option<String>, bool)> = match &body.fields {
-        Some(Value::Array(arr)) => arr.iter().filter_map(|v| match v {
-            Value::String(s) => Some((s.clone(), None, false)),
-            Value::Object(o) => {
-                let name = o.get("field").and_then(Value::as_str)?.to_string();
-                let fmt = o.get("format").and_then(Value::as_str).map(str::to_string);
-                let inc = o.get("include_unmapped").and_then(Value::as_bool).unwrap_or(false);
-                Some((name, fmt, inc))
-            }
-            _ => None,
-        }).collect(),
+        Some(Value::Array(arr)) => arr
+            .iter()
+            .filter_map(|v| match v {
+                Value::String(s) => Some((s.clone(), None, false)),
+                Value::Object(o) => {
+                    let name = o.get("field").and_then(Value::as_str)?.to_string();
+                    let fmt = o.get("format").and_then(Value::as_str).map(str::to_string);
+                    let inc = o
+                        .get("include_unmapped")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false);
+                    Some((name, fmt, inc))
+                }
+                _ => None,
+            })
+            .collect(),
         Some(Value::String(s)) => vec![(s.clone(), None, false)],
-        _ => requested_fields.iter().map(|s| (s.clone(), None, false)).collect(),
+        _ => requested_fields
+            .iter()
+            .map(|s| (s.clone(), None, false))
+            .collect(),
     };
 
     // Parse stored_fields from body.
     let (suppress_source_for_stored, stored_meta_fields) = body
         .stored_fields
         .as_ref()
-        .map(|sf| parse_stored_fields(sf))
+        .map(parse_stored_fields)
         .unwrap_or((false, vec![]));
     // When parse returns the `__none__` sentinel, suppress `_id` on every
     // hit in the final response. Drop the sentinel from the requested-
     // meta list so it doesn't leak into the output `fields` map.
-    let suppress_meta_fields = stored_meta_fields
-        .iter()
-        .any(|f| f == "__none__");
+    let suppress_meta_fields = stored_meta_fields.iter().any(|f| f == "__none__");
     let stored_meta_fields: Vec<String> = stored_meta_fields
         .into_iter()
         .filter(|f| f != "__none__")
@@ -6055,7 +6756,8 @@ pub async fn search(
                             if let (Some(path), Some(ih)) = (path, ih) {
                                 // Use path as bucket key unless spec
                                 // provides a `name`.
-                                let bucket_name = ih.as_object()
+                                let bucket_name = ih
+                                    .as_object()
                                     .and_then(|o| o.get("name"))
                                     .and_then(Value::as_str)
                                     .unwrap_or(path)
@@ -6073,7 +6775,9 @@ pub async fn search(
                         if let Some(b) = val.as_object() {
                             for sub_key in ["must", "should", "filter", "must_not"] {
                                 if let Some(arr) = b.get(sub_key).and_then(Value::as_array) {
-                                    for item in arr { collect_nested_inner_hits(item, out); }
+                                    for item in arr {
+                                        collect_nested_inner_hits(item, out);
+                                    }
                                 }
                             }
                         }
@@ -6087,7 +6791,9 @@ pub async fn search(
         if !extracted.is_empty() {
             // Merge extracted with existing (top-level wins for name clashes).
             if let Some(existing_obj) = inner_hits_config.as_object_mut() {
-                for (k, v) in extracted { existing_obj.entry(k).or_insert(v); }
+                for (k, v) in extracted {
+                    existing_obj.entry(k).or_insert(v);
+                }
             } else {
                 inner_hits_config = Value::Object(extracted);
             }
@@ -7550,6 +8256,10 @@ pub async fn search(
                         .iter()
                         .find_map(|(orig, target)| if target == &cf.field { Some(orig.clone()) } else { None })
                         .unwrap_or_else(|| cf.field.clone());
+                    // `response_key` is read again inside this block (and only
+                    // conditionally inserted), so the Entry API would tangle the
+                    // borrow / force an extra clone — keep the explicit check.
+                    #[allow(clippy::map_entry)]
                     if !fmap.contains_key(&response_key) {
                         // Look up the value from `_source` under any of:
                         //   1. the literal collapse field (covers indices
@@ -8063,9 +8773,11 @@ pub async fn search(
             }
             fields.dedup();
 
-            let mut all_terms: std::collections::HashMap<String, Vec<(String, usize)>> = std::collections::HashMap::new();
+            let mut all_terms: std::collections::HashMap<String, Vec<(String, usize)>> =
+                std::collections::HashMap::new();
             for field in &fields {
-                let mut combined: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+                let mut combined: std::collections::HashMap<String, usize> =
+                    std::collections::HashMap::new();
                 for idx_name in &index_names {
                     if let Ok(idx) = state.engine.get_index(idx_name) {
                         for (term, freq) in idx.get_all_terms_for_field(field).await {
@@ -8080,7 +8792,9 @@ pub async fn search(
 
         // Also collect doc sources for backward-compatible completion suggester.
         let all_docs: Vec<Value> = {
-            let suggest_req = match xerj_query::parse_request(&json!({"query": {"match_all": {}}, "size": 1000, "from": 0})) {
+            let suggest_req = match xerj_query::parse_request(
+                &json!({"query": {"match_all": {}}, "size": 1000, "from": 0}),
+            ) {
                 Ok(r) => r,
                 Err(_) => xerj_query::parse_request(&json!({"size": 1000})).unwrap_or_default(),
             };
@@ -8098,7 +8812,11 @@ pub async fn search(
             }
             all
         };
-        Some(process_suggest_with_terms(suggest_body, &all_docs, &index_terms))
+        Some(process_suggest_with_terms(
+            suggest_body,
+            &all_docs,
+            &index_terms,
+        ))
     } else {
         None
     };
@@ -8264,9 +8982,11 @@ pub async fn search(
             let bpath = settings
                 .get("persistent")
                 .and_then(|p| p.get("search.aggs.rewrite_to_filter_by_filter"))
-                .or_else(|| settings
-                    .get("transient")
-                    .and_then(|t| t.get("search.aggs.rewrite_to_filter_by_filter")));
+                .or_else(|| {
+                    settings
+                        .get("transient")
+                        .and_then(|t| t.get("search.aggs.rewrite_to_filter_by_filter"))
+                });
             match bpath {
                 Some(Value::Bool(b)) => *b,
                 Some(Value::String(s)) => s != "false",
@@ -8294,9 +9014,9 @@ pub async fn search(
                     .clone()
                     .unwrap_or_else(|| json!({"match_all": {}}));
                 let mut fg_docs: Vec<Value> = Vec::new();
-                if let Ok(fg_req) = xerj_query::parse_request(
-                    &json!({"query": fg_query, "size": 10000, "from": 0}),
-                ) {
+                if let Ok(fg_req) =
+                    xerj_query::parse_request(&json!({"query": fg_query, "size": 10000, "from": 0}))
+                {
                     for idx_name in &index_names {
                         if let Ok(idx) = state.engine.get_index(idx_name) {
                             if let Ok(result) = idx.search(&fg_req).await {
@@ -8316,9 +9036,13 @@ pub async fn search(
             }
         }
         let aggs_profile = build_aggregation_profile_full(
-            search_req.aggs.as_ref().or(body.aggs.as_ref()).or(body.aggregations.as_ref()),
+            search_req
+                .aggs
+                .as_ref()
+                .or(body.aggs.as_ref())
+                .or(body.aggregations.as_ref()),
             took_ms,
-            total_count as u64,
+            total_count,
             response_body.get("aggregations"),
             terms_use_filter_path,
             &sig_text_debug,
@@ -8332,7 +9056,11 @@ pub async fn search(
         let stored_fields_debug: Vec<Value> = if suppress_meta_fields {
             vec![]
         } else {
-            vec![Value::String("_id".into()), Value::String("_routing".into()), Value::String("_source".into())]
+            vec![
+                Value::String("_id".into()),
+                Value::String("_routing".into()),
+                Value::String("_source".into()),
+            ]
         };
         // ES emits a list of FetchSubPhase children inside `fetch`. The
         // canonical default set is {FetchFieldsPhase, FetchSourcePhase,
@@ -8346,7 +9074,9 @@ pub async fn search(
         fn has_inner_hits_in(v: &Value) -> bool {
             match v {
                 Value::Object(o) => {
-                    if o.contains_key("inner_hits") { return true; }
+                    if o.contains_key("inner_hits") {
+                        return true;
+                    }
                     o.values().any(has_inner_hits_in)
                 }
                 Value::Array(a) => a.iter().any(has_inner_hits_in),
@@ -8361,7 +9091,12 @@ pub async fn search(
             let phases: &[&str] = match (source_disabled, inner_hits_phase) {
                 (true, true) => &["FetchFieldsPhase", "InnerHitsPhase", "StoredFieldsPhase"],
                 (true, false) => &["FetchFieldsPhase", "StoredFieldsPhase"],
-                (false, true) => &["FetchFieldsPhase", "FetchSourcePhase", "InnerHitsPhase", "StoredFieldsPhase"],
+                (false, true) => &[
+                    "FetchFieldsPhase",
+                    "FetchSourcePhase",
+                    "InnerHitsPhase",
+                    "StoredFieldsPhase",
+                ],
                 (false, false) => &["FetchFieldsPhase", "FetchSourcePhase", "StoredFieldsPhase"],
             };
             phases
@@ -8403,15 +9138,21 @@ pub async fn search(
         fetch_map.insert("type".into(), Value::String("fetch".into()));
         fetch_map.insert("description".into(), Value::String("".into()));
         fetch_map.insert("time_in_nanos".into(), json!(fetch_ns));
-        fetch_map.insert("breakdown".into(), json!({
-            "load_stored_fields": fetch_ns,
-            "load_stored_fields_count": 1u64,
-            "load_source": fetch_ns,
-            "load_source_count": 1u64,
-            "next_reader": 1u64,
-            "next_reader_count": 1u64,
-        }));
-        fetch_map.insert("debug".into(), json!({"stored_fields": stored_fields_debug}));
+        fetch_map.insert(
+            "breakdown".into(),
+            json!({
+                "load_stored_fields": fetch_ns,
+                "load_stored_fields_count": 1u64,
+                "load_source": fetch_ns,
+                "load_source_count": 1u64,
+                "next_reader": 1u64,
+                "next_reader_count": 1u64,
+            }),
+        );
+        fetch_map.insert(
+            "debug".into(),
+            json!({"stored_fields": stored_fields_debug}),
+        );
         if !fetch_children.is_empty() {
             fetch_map.insert("children".into(), Value::Array(fetch_children));
         }
@@ -8426,7 +9167,8 @@ pub async fn search(
         let has_knn = original_knn.is_some();
         let dfs_block = if is_dfs || has_knn {
             let knn_array: Vec<Value> = if has_knn {
-                let knn_field = original_knn.as_ref()
+                let knn_field = original_knn
+                    .as_ref()
                     .and_then(|k| k.get("field"))
                     .and_then(Value::as_str)
                     .unwrap_or("");
@@ -8468,41 +9210,54 @@ pub async fn search(
                     }],
                     "vector_operations_count": total_hits.max(1),
                 })]
-            } else { Vec::new() };
+            } else {
+                Vec::new()
+            };
             let mut dfs_obj = serde_json::Map::new();
             // The `dfs.statistics` sub-block (only emitted for explicit
             // dfs_query_then_fetch — knn-only DFS doesn't include it).
             if is_dfs {
-                dfs_obj.insert("statistics".to_string(), json!({
-                    "type": "statistics",
-                    "description": "collect term statistics",
-                    "time_in_nanos": 1u64,
-                    "breakdown": {
-                        "collection_statistics": 0u64,
-                        "collection_statistics_count": 0u64,
-                        "create_weight": 0u64,
-                        "create_weight_count": 0u64,
-                        "rewrite": 0u64,
-                        "rewrite_count": 0u64,
-                        "term_statistics": 0u64,
-                        "term_statistics_count": 0u64,
-                    }
-                }));
+                dfs_obj.insert(
+                    "statistics".to_string(),
+                    json!({
+                        "type": "statistics",
+                        "description": "collect term statistics",
+                        "time_in_nanos": 1u64,
+                        "breakdown": {
+                            "collection_statistics": 0u64,
+                            "collection_statistics_count": 0u64,
+                            "create_weight": 0u64,
+                            "create_weight_count": 0u64,
+                            "rewrite": 0u64,
+                            "rewrite_count": 0u64,
+                            "term_statistics": 0u64,
+                            "term_statistics_count": 0u64,
+                        }
+                    }),
+                );
             }
             if !knn_array.is_empty() {
                 dfs_obj.insert("knn".to_string(), Value::Array(knn_array));
             }
             Some(Value::Object(dfs_obj))
-        } else { None };
+        } else {
+            None
+        };
         // Number of shards to emit in the profile. Multi-shard indexes
         // expose N primary profiles so `profile.shards.1.dfs.*` works.
-        let profile_shards_n: u64 = state.engine.index_settings.get(profile_index)
+        let profile_shards_n: u64 = state
+            .engine
+            .index_settings
+            .get(profile_index)
             .and_then(|r| {
                 let s = r.value();
                 s.pointer("/index/number_of_shards")
                     .or_else(|| s.get("number_of_shards"))
                     .or_else(|| s.get("index.number_of_shards"))
-                    .and_then(|n| n.as_i64().or_else(|| n.as_str().and_then(|s| s.parse::<i64>().ok())))
+                    .and_then(|n| {
+                        n.as_i64()
+                            .or_else(|| n.as_str().and_then(|s| s.parse::<i64>().ok()))
+                    })
                     .map(|n| n as u64)
             })
             .unwrap_or(1);
@@ -8582,7 +9337,10 @@ pub async fn search(
         // Pick the first backing index for the scroll context (multi-index
         // scrolls are rare and we keep the raw index spec so `_index` on
         // each hit remains authoritative when paging).
-        let scroll_index = index_names.first().map(|s| s.to_string()).unwrap_or_default();
+        let scroll_index = index_names
+            .first()
+            .map(|s| s.to_string())
+            .unwrap_or_default();
         let scroll_id = Uuid::new_v4().to_string();
         let ctx = xerj_engine::engine::ScrollContext {
             index: scroll_index,
@@ -8629,31 +9387,67 @@ pub async fn search(
     if let Some(hits) = response_body.pointer_mut("/hits/hits") {
         if let Some(arr) = hits.as_array_mut() {
             for hit in arr.iter_mut() {
-                let ix = hit.get("_index").and_then(Value::as_str).unwrap_or("").to_string();
-                let Some(mapping) = state.engine.index_mappings.get(&ix).map(|v| v.clone()) else { continue };
+                let ix = hit
+                    .get("_index")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                let Some(mapping) = state.engine.index_mappings.get(&ix).map(|v| v.clone()) else {
+                    continue;
+                };
                 let settings = state.engine.index_settings.get(&ix).map(|v| v.clone());
-                let synthetic = settings.as_ref().map(|s| {
-                    let is_synth = |v: &Value| v.as_str() == Some("synthetic");
-                    s.pointer("/index/mapping/source.mode").map(is_synth).unwrap_or(false)
-                        || s.pointer("/index/mapping.source.mode").map(is_synth).unwrap_or(false)
-                        || s.get("index").and_then(|i| i.get("mapping.source.mode")).map(is_synth).unwrap_or(false)
-                        || s.get("index.mapping.source.mode").map(is_synth).unwrap_or(false)
-                        || s.get("mapping.source.mode").map(is_synth).unwrap_or(false)
-                }).unwrap_or(false) || mapping
-                    .pointer("/_source/mode").and_then(Value::as_str) == Some("synthetic")
-                    || mapping.pointer("/mappings/_source/mode").and_then(Value::as_str) == Some("synthetic");
-                if !synthetic { continue; }
+                let synthetic = settings
+                    .as_ref()
+                    .map(|s| {
+                        let is_synth = |v: &Value| v.as_str() == Some("synthetic");
+                        s.pointer("/index/mapping/source.mode")
+                            .map(is_synth)
+                            .unwrap_or(false)
+                            || s.pointer("/index/mapping.source.mode")
+                                .map(is_synth)
+                                .unwrap_or(false)
+                            || s.get("index")
+                                .and_then(|i| i.get("mapping.source.mode"))
+                                .map(is_synth)
+                                .unwrap_or(false)
+                            || s.get("index.mapping.source.mode")
+                                .map(is_synth)
+                                .unwrap_or(false)
+                            || s.get("mapping.source.mode").map(is_synth).unwrap_or(false)
+                    })
+                    .unwrap_or(false)
+                    || mapping.pointer("/_source/mode").and_then(Value::as_str)
+                        == Some("synthetic")
+                    || mapping
+                        .pointer("/mappings/_source/mode")
+                        .and_then(Value::as_str)
+                        == Some("synthetic");
+                if !synthetic {
+                    continue;
+                }
                 let Some(props) = mapping
                     .pointer("/mappings/properties")
                     .or_else(|| mapping.pointer("/properties"))
-                    .and_then(Value::as_object).cloned()
-                else { continue };
+                    .and_then(Value::as_object)
+                    .cloned()
+                else {
+                    continue;
+                };
                 // Resolve the index-level `index.mapping.ignore_above`
                 // default; per-field `ignore_above` still wins.
                 let default_ignore_above: Option<usize> = settings.as_ref().and_then(|s| {
-                    let as_u = |v: &Value| v.as_u64().or_else(|| v.as_str().and_then(|x| x.parse().ok())).map(|n| n as usize);
-                    s.pointer("/index/mapping/ignore_above").and_then(as_u)
-                        .or_else(|| s.get("index").and_then(|i| i.get("mapping.ignore_above")).and_then(as_u))
+                    let as_u = |v: &Value| {
+                        v.as_u64()
+                            .or_else(|| v.as_str().and_then(|x| x.parse().ok()))
+                            .map(|n| n as usize)
+                    };
+                    s.pointer("/index/mapping/ignore_above")
+                        .and_then(as_u)
+                        .or_else(|| {
+                            s.get("index")
+                                .and_then(|i| i.get("mapping.ignore_above"))
+                                .and_then(as_u)
+                        })
                         .or_else(|| s.get("index.mapping.ignore_above").and_then(as_u))
                 });
                 if let Some(src) = hit.get_mut("_source").and_then(|v| v.as_object_mut()) {
@@ -8664,7 +9458,9 @@ pub async fn search(
                                 let mut ignored: Vec<Value> = Vec::new();
                                 for x in arr.drain(..) {
                                     match &x {
-                                        Value::String(s) if s.chars().count() > max => ignored.push(x),
+                                        Value::String(s) if s.chars().count() > max => {
+                                            ignored.push(x)
+                                        }
                                         _ => kept.push(x),
                                     }
                                 }
@@ -8676,7 +9472,9 @@ pub async fn search(
                                 *arr = kept;
                             }
                             Value::Object(o) => {
-                                for (_, val) in o { reorder(val, max); }
+                                for (_, val) in o {
+                                    reorder(val, max);
+                                }
                             }
                             _ => {}
                         }
@@ -8694,7 +9492,9 @@ pub async fn search(
                                 if let Some(Value::Array(arr)) = src.get_mut(field) {
                                     let mut wrap = Value::Array(std::mem::take(arr));
                                     reorder(&mut wrap, max);
-                                    if let Value::Array(rs) = wrap { *arr = rs; }
+                                    if let Value::Array(rs) = wrap {
+                                        *arr = rs;
+                                    }
                                 }
                             }
                             "flattened" => {
@@ -8716,14 +9516,34 @@ pub async fn search(
         if let Some(hits) = response_body.pointer_mut("/hits/hits") {
             if let Some(arr) = hits.as_array_mut() {
                 for hit in arr.iter_mut() {
-                    let ix = hit.get("_index").and_then(Value::as_str).unwrap_or("").to_string();
-                    let disabled = state.engine.index_settings.get(&ix).map(|v| {
-                        let s = v.clone();
-                        let as_bool = |val: &Value| val.as_bool().unwrap_or_else(|| val.as_str().map(|x| x == "true").unwrap_or(false));
-                        s.pointer("/index/disable_sequence_numbers").map(as_bool).unwrap_or(false)
-                            || s.get("index").and_then(|i| i.get("index.disable_sequence_numbers")).map(as_bool).unwrap_or(false)
-                            || s.get("index.disable_sequence_numbers").map(as_bool).unwrap_or(false)
-                    }).unwrap_or(false);
+                    let ix = hit
+                        .get("_index")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string();
+                    let disabled = state
+                        .engine
+                        .index_settings
+                        .get(&ix)
+                        .map(|v| {
+                            let s = v.clone();
+                            let as_bool = |val: &Value| {
+                                val.as_bool().unwrap_or_else(|| {
+                                    val.as_str().map(|x| x == "true").unwrap_or(false)
+                                })
+                            };
+                            s.pointer("/index/disable_sequence_numbers")
+                                .map(as_bool)
+                                .unwrap_or(false)
+                                || s.get("index")
+                                    .and_then(|i| i.get("index.disable_sequence_numbers"))
+                                    .map(as_bool)
+                                    .unwrap_or(false)
+                                || s.get("index.disable_sequence_numbers")
+                                    .map(as_bool)
+                                    .unwrap_or(false)
+                        })
+                        .unwrap_or(false);
                     if disabled {
                         if let Some(obj) = hit.as_object_mut() {
                             obj.insert("_seq_no".into(), json!(-2i64));
@@ -8764,11 +9584,17 @@ fn expand_dotted_keys(v: Value) -> Value {
                     // Merge if the key already exists (dotted-key siblings).
                     match out.get_mut(&k) {
                         Some(existing) if existing.is_object() && val.is_object() => {
-                            if let (Some(e), Some(v_obj)) = (existing.as_object_mut(), val.as_object()) {
-                                for (kk, vv) in v_obj { e.insert(kk.clone(), vv.clone()); }
+                            if let (Some(e), Some(v_obj)) =
+                                (existing.as_object_mut(), val.as_object())
+                            {
+                                for (kk, vv) in v_obj {
+                                    e.insert(kk.clone(), vv.clone());
+                                }
                             }
                         }
-                        _ => { out.insert(k, val); }
+                        _ => {
+                            out.insert(k, val);
+                        }
                     }
                 }
             }
@@ -8778,12 +9604,10 @@ fn expand_dotted_keys(v: Value) -> Value {
     }
 }
 
-fn insert_nested(
-    target: &mut serde_json::Map<String, Value>,
-    segs: &[&str],
-    val: Value,
-) {
-    if segs.is_empty() { return; }
+fn insert_nested(target: &mut serde_json::Map<String, Value>, segs: &[&str], val: Value) {
+    if segs.is_empty() {
+        return;
+    }
     if segs.len() == 1 {
         target.insert(segs[0].to_string(), val);
         return;
@@ -8829,7 +9653,8 @@ fn strip_type_tags(aggs: Value) -> Value {
     match aggs {
         Value::Object(mut obj) => {
             obj.remove("__type__");
-            let cleaned: serde_json::Map<String, Value> = obj.into_iter()
+            let cleaned: serde_json::Map<String, Value> = obj
+                .into_iter()
                 .map(|(k, v)| (k, strip_type_tags(v)))
                 .collect();
             Value::Object(cleaned)
@@ -8879,10 +9704,7 @@ fn rewrite_agg_with_typed_keys(val: Value) -> Value {
             // Prefix every nested agg result.
             for (k, v) in nested_aggs {
                 let prefix = typed_key_prefix(&v);
-                retained.insert(
-                    format!("{}#{}", prefix, k),
-                    rewrite_agg_with_typed_keys(v),
-                );
+                retained.insert(format!("{}#{}", prefix, k), rewrite_agg_with_typed_keys(v));
             }
 
             if let Some(buckets_val) = buckets {
@@ -8890,9 +9712,9 @@ fn rewrite_agg_with_typed_keys(val: Value) -> Value {
             }
             Value::Object(retained)
         }
-        Value::Array(arr) => Value::Array(
-            arr.into_iter().map(rewrite_agg_with_typed_keys).collect(),
-        ),
+        Value::Array(arr) => {
+            Value::Array(arr.into_iter().map(rewrite_agg_with_typed_keys).collect())
+        }
         other => other,
     }
 }
@@ -8923,10 +9745,7 @@ fn rewrite_buckets(buckets: Value) -> Value {
                         }
                         for (k, v) in nested {
                             let prefix = typed_key_prefix(&v);
-                            out.insert(
-                                format!("{}#{}", prefix, k),
-                                rewrite_agg_with_typed_keys(v),
-                            );
+                            out.insert(format!("{}#{}", prefix, k), rewrite_agg_with_typed_keys(v));
                         }
                         Value::Object(out)
                     } else {
@@ -8964,8 +9783,12 @@ fn typed_key_prefix(val: &Value) -> String {
                 "terms" => {
                     if let Some(Value::Array(buckets)) = obj.get("buckets") {
                         if let Some(first) = buckets.first() {
-                            if first.get("key").and_then(Value::as_i64).is_some() { return "lterms".into(); }
-                            if first.get("key").and_then(Value::as_f64).is_some() { return "dterms".into(); }
+                            if first.get("key").and_then(Value::as_i64).is_some() {
+                                return "lterms".into();
+                            }
+                            if first.get("key").and_then(Value::as_f64).is_some() {
+                                return "dterms".into();
+                            }
                         }
                     }
                     "sterms".into()
@@ -8978,14 +9801,22 @@ fn typed_key_prefix(val: &Value) -> String {
         if obj.contains_key("buckets") {
             if let Some(Value::Array(buckets)) = obj.get("buckets") {
                 if let Some(first) = buckets.first() {
-                    if first.get("key_as_string").is_some() { return "date_histogram".into(); }
-                    if first.get("key").and_then(Value::as_f64).is_some() { return "histogram".into(); }
+                    if first.get("key_as_string").is_some() {
+                        return "date_histogram".into();
+                    }
+                    if first.get("key").and_then(Value::as_f64).is_some() {
+                        return "histogram".into();
+                    }
                 }
             }
             return "sterms".into();
         }
-        if obj.contains_key("values") { return "tdigest_percentiles".into(); }
-        if obj.contains_key("value") { return "avg".into(); }
+        if obj.contains_key("values") {
+            return "tdigest_percentiles".into();
+        }
+        if obj.contains_key("value") {
+            return "avg".into();
+        }
     }
     "value".into()
 }
@@ -9007,13 +9838,19 @@ fn apply_filter_path(value: Value, paths: &[&str]) -> Value {
     let mut excludes: Vec<Vec<String>> = Vec::new();
     for p in paths {
         let p = p.trim();
-        if p.is_empty() { continue; }
+        if p.is_empty() {
+            continue;
+        }
         let (segments, is_neg) = if let Some(rest) = p.strip_prefix('-') {
             (rest.split('.').map(String::from).collect::<Vec<_>>(), true)
         } else {
             (p.split('.').map(String::from).collect::<Vec<_>>(), false)
         };
-        if is_neg { excludes.push(segments); } else { includes.push(segments); }
+        if is_neg {
+            excludes.push(segments);
+        } else {
+            includes.push(segments);
+        }
     }
     // Starting point: empty (only-includes) or full tree (only-excludes).
     let mut result = if includes.is_empty() {
@@ -9036,7 +9873,9 @@ fn match_pattern<'a>(pattern: &'a [String], key: &str) -> Vec<Option<&'a [String
     // Returns outcomes for consuming one path segment (`key`):
     //  - `None` → terminal (the pattern ends here, include whole subtree)
     //  - `Some(suffix)` → still pattern remaining to match below this key
-    if pattern.is_empty() { return Vec::new(); }
+    if pattern.is_empty() {
+        return Vec::new();
+    }
     let first = &pattern[0];
     let rest = &pattern[1..];
     let mut out = Vec::new();
@@ -9060,22 +9899,34 @@ fn match_pattern<'a>(pattern: &'a [String], key: &str) -> Vec<Option<&'a [String
 /// Match a single path segment against a glob pattern (`*` wildcard
 /// within the segment, as distinct from `**` which spans segments).
 fn segment_matches(pattern: &str, key: &str) -> bool {
-    if pattern == "*" || pattern == key { return true; }
-    if !pattern.contains('*') { return false; }
+    if pattern == "*" || pattern == key {
+        return true;
+    }
+    if !pattern.contains('*') {
+        return false;
+    }
     // Simple `*`-glob within a single segment.
     let mut k = key;
     let parts: Vec<&str> = pattern.split('*').collect();
     let len = parts.len();
     for (i, part) in parts.iter().enumerate() {
         if i == 0 {
-            if !k.starts_with(part) { return false; }
+            if !k.starts_with(part) {
+                return false;
+            }
             k = &k[part.len()..];
         } else if i == len - 1 {
-            if !k.ends_with(part) { return false; }
-            if part.len() > k.len() { return false; }
+            if !k.ends_with(part) {
+                return false;
+            }
+            if part.len() > k.len() {
+                return false;
+            }
         } else if !part.is_empty() {
             match k.find(part) {
-                Some(idx) => { k = &k[idx + part.len()..]; }
+                Some(idx) => {
+                    k = &k[idx + part.len()..];
+                }
                 None => return false,
             }
         }
@@ -9095,11 +9946,17 @@ fn filter_include(value: &Value, patterns: &[Vec<String>]) -> Value {
                 for pat in patterns {
                     for outcome in match_pattern(pat, key) {
                         match outcome {
-                            None => { include_all = true; }
-                            Some(suffix) => { sub_patterns.push(suffix.to_vec()); }
+                            None => {
+                                include_all = true;
+                            }
+                            Some(suffix) => {
+                                sub_patterns.push(suffix.to_vec());
+                            }
                         }
                     }
-                    if include_all { break; }
+                    if include_all {
+                        break;
+                    }
                 }
                 if include_all {
                     result.insert(key.clone(), val.clone());
@@ -9118,14 +9975,12 @@ fn filter_include(value: &Value, patterns: &[Vec<String>]) -> Value {
             }
             Value::Object(result)
         }
-        Value::Array(arr) => {
-            Value::Array(
-                arr.iter()
-                    .map(|v| filter_include(v, patterns))
-                    .filter(|v| !is_empty_collection(v))
-                    .collect(),
-            )
-        }
+        Value::Array(arr) => Value::Array(
+            arr.iter()
+                .map(|v| filter_include(v, patterns))
+                .filter(|v| !is_empty_collection(v))
+                .collect(),
+        ),
         other => other.clone(),
     }
 }
@@ -9140,11 +9995,17 @@ fn filter_exclude(value: Value, patterns: &[Vec<String>]) -> Value {
                 for pat in patterns {
                     for outcome in match_pattern(pat, &key) {
                         match outcome {
-                            None => { drop_key = true; }
-                            Some(suffix) => { sub_patterns.push(suffix.to_vec()); }
+                            None => {
+                                drop_key = true;
+                            }
+                            Some(suffix) => {
+                                sub_patterns.push(suffix.to_vec());
+                            }
                         }
                     }
-                    if drop_key { break; }
+                    if drop_key {
+                        break;
+                    }
                 }
                 if drop_key {
                     continue;
@@ -9157,13 +10018,11 @@ fn filter_exclude(value: Value, patterns: &[Vec<String>]) -> Value {
             }
             Value::Object(result)
         }
-        Value::Array(arr) => {
-            Value::Array(
-                arr.into_iter()
-                    .map(|v| filter_exclude(v, patterns))
-                    .collect(),
-            )
-        }
+        Value::Array(arr) => Value::Array(
+            arr.into_iter()
+                .map(|v| filter_exclude(v, patterns))
+                .collect(),
+        ),
         other => other,
     }
 }
@@ -9270,7 +10129,9 @@ pub async fn global_bulk(
     process_bulk_body(&state, None, &body, started, opts).await
 }
 
-fn bulk_opts_from_query(qp: &std::collections::HashMap<String, String>) -> xerj_engine::bulk::BulkOpts {
+fn bulk_opts_from_query(
+    qp: &std::collections::HashMap<String, String>,
+) -> xerj_engine::bulk::BulkOpts {
     // `?_source=true` / `?_source=field` / `?_source_includes=f1,f2` /
     // `?_source_excludes=f3` — translate the ES URL-shape to the
     // search body `_source` filter shape the engine consumes.
@@ -9281,11 +10142,17 @@ fn bulk_opts_from_query(qp: &std::collections::HashMap<String, String>) -> xerj_
         if inc.is_some() || exc.is_some() {
             let mut obj = serde_json::Map::new();
             if let Some(v) = inc {
-                let arr: Vec<Value> = v.split(',').map(|s| Value::String(s.trim().to_string())).collect();
+                let arr: Vec<Value> = v
+                    .split(',')
+                    .map(|s| Value::String(s.trim().to_string()))
+                    .collect();
                 obj.insert("includes".to_string(), Value::Array(arr));
             }
             if let Some(v) = exc {
-                let arr: Vec<Value> = v.split(',').map(|s| Value::String(s.trim().to_string())).collect();
+                let arr: Vec<Value> = v
+                    .split(',')
+                    .map(|s| Value::String(s.trim().to_string()))
+                    .collect();
                 obj.insert("excludes".to_string(), Value::Array(arr));
             }
             Some(Value::Object(obj))
@@ -9294,7 +10161,10 @@ fn bulk_opts_from_query(qp: &std::collections::HashMap<String, String>) -> xerj_
                 "true" => Some(Value::Bool(true)),
                 "false" => Some(Value::Bool(false)),
                 other => {
-                    let arr: Vec<Value> = other.split(',').map(|s| Value::String(s.trim().to_string())).collect();
+                    let arr: Vec<Value> = other
+                        .split(',')
+                        .map(|s| Value::String(s.trim().to_string()))
+                        .collect();
                     Some(Value::Array(arr))
                 }
             }
@@ -9362,7 +10232,9 @@ async fn process_bulk_body(
         &rewritten_body
     };
 
-    let result = xerj_engine::bulk::process_bulk_with_opts(&state.engine, default_index, text_ref, opts).await;
+    let result =
+        xerj_engine::bulk::process_bulk_with_opts(&state.engine, default_index, text_ref, opts)
+            .await;
     let took_ms = result.took_ms;
     let errors = result.errors;
 
@@ -9371,15 +10243,16 @@ async fn process_bulk_body(
     // urllib) also back off.  If only some items are 429 we still return 200
     // per ES bulk semantics, and the client is expected to read per-item
     // statuses.
-    let all_backpressure = !result.items.is_empty()
-        && result.items.iter().all(|i| i.status == 429);
+    let all_backpressure = !result.items.is_empty() && result.items.iter().all(|i| i.status == 429);
 
     let mut items: Vec<EsBulkItem> = Vec::with_capacity(result.items.len());
     for item in result.items {
-        let get = item.get_source.clone().map(|s| serde_json::json!({
-            "found": true,
-            "_source": s,
-        }));
+        let get = item.get_source.clone().map(|s| {
+            serde_json::json!({
+                "found": true,
+                "_source": s,
+            })
+        });
         let item_result = EsBulkItemResult {
             index: item.index,
             id: item.id,
@@ -9393,9 +10266,8 @@ async fn process_bulk_body(
             error: item.error.map(|e| {
                 // Map common per-item error phrases to their ES exception
                 // type names so clients can match on `error.type`.
-                let error_type = if e.starts_with("if _id is specified") {
-                    "illegal_argument_exception"
-                } else if e.contains("invalid document JSON")
+                let error_type = if e.starts_with("if _id is specified")
+                    || e.contains("invalid document JSON")
                     || e.contains("missing document body")
                     || e.contains("unknown action type")
                     || e.contains("no write index is defined")
@@ -9406,9 +10278,7 @@ async fn process_bulk_body(
                     "version_conflict_engine_exception"
                 } else if e.contains("index not found") || e.starts_with("no such index") {
                     "index_not_found_exception"
-                } else if e.contains("dynamic template")
-                    || e.contains("failed to parse field")
-                {
+                } else if e.contains("dynamic template") || e.contains("failed to parse field") {
                     "document_parsing_exception"
                 } else {
                     "engine_exception"
@@ -9433,7 +10303,11 @@ async fn process_bulk_body(
         items.push(action);
     }
 
-    let resp = EsBulkResponse { took: took_ms, errors, items };
+    let resp = EsBulkResponse {
+        took: took_ms,
+        errors,
+        items,
+    };
 
     // Fast path (hot bulk-ingest): the Value round-trip below exists ONLY to
     // patch `_seq_no`/`_primary_term` sentinels for indices that declare
@@ -9449,12 +10323,16 @@ async fn process_bulk_body(
             val.as_bool()
                 .unwrap_or_else(|| val.as_str().map(|x| x == "true").unwrap_or(false))
         };
-        s.pointer("/index/disable_sequence_numbers").map(as_bool).unwrap_or(false)
+        s.pointer("/index/disable_sequence_numbers")
+            .map(as_bool)
+            .unwrap_or(false)
             || s.get("index")
                 .and_then(|i| i.get("index.disable_sequence_numbers"))
                 .map(as_bool)
                 .unwrap_or(false)
-            || s.get("index.disable_sequence_numbers").map(as_bool).unwrap_or(false)
+            || s.get("index.disable_sequence_numbers")
+                .map(as_bool)
+                .unwrap_or(false)
     });
     if !seq_disabled_anywhere {
         let mut r = Json(&resp).into_response();
@@ -9474,20 +10352,42 @@ async fn process_bulk_body(
     // the struct-level u64 types.
     let mut resp_val = serde_json::to_value(&resp).unwrap_or(Value::Null);
     {
-        let items_v = resp_val.pointer_mut("/items").and_then(|v| v.as_array_mut());
+        let items_v = resp_val
+            .pointer_mut("/items")
+            .and_then(|v| v.as_array_mut());
         if let Some(items_arr) = items_v {
             for item in items_arr.iter_mut() {
                 if let Some(obj) = item.as_object_mut() {
                     for action_key in ["index", "create", "update", "delete"] {
                         if let Some(result) = obj.get_mut(action_key) {
-                            let ix = result.get("_index").and_then(Value::as_str).unwrap_or("").to_string();
-                            let disabled = state.engine.index_settings.get(&ix).map(|v| {
-                                let s = v.clone();
-                                let as_bool = |val: &Value| val.as_bool().unwrap_or_else(|| val.as_str().map(|x| x == "true").unwrap_or(false));
-                                s.pointer("/index/disable_sequence_numbers").map(as_bool).unwrap_or(false)
-                                    || s.get("index").and_then(|i| i.get("index.disable_sequence_numbers")).map(as_bool).unwrap_or(false)
-                                    || s.get("index.disable_sequence_numbers").map(as_bool).unwrap_or(false)
-                            }).unwrap_or(false);
+                            let ix = result
+                                .get("_index")
+                                .and_then(Value::as_str)
+                                .unwrap_or("")
+                                .to_string();
+                            let disabled = state
+                                .engine
+                                .index_settings
+                                .get(&ix)
+                                .map(|v| {
+                                    let s = v.clone();
+                                    let as_bool = |val: &Value| {
+                                        val.as_bool().unwrap_or_else(|| {
+                                            val.as_str().map(|x| x == "true").unwrap_or(false)
+                                        })
+                                    };
+                                    s.pointer("/index/disable_sequence_numbers")
+                                        .map(as_bool)
+                                        .unwrap_or(false)
+                                        || s.get("index")
+                                            .and_then(|i| i.get("index.disable_sequence_numbers"))
+                                            .map(as_bool)
+                                            .unwrap_or(false)
+                                        || s.get("index.disable_sequence_numbers")
+                                            .map(as_bool)
+                                            .unwrap_or(false)
+                                })
+                                .unwrap_or(false);
                             if disabled {
                                 if let Some(ro) = result.as_object_mut() {
                                     ro.insert("_seq_no".into(), json!(-2i64));
@@ -9736,7 +10636,10 @@ fn resolve_date_math_expr(expr: &str) -> String {
     // Split on an inner `{` for optional format: `now/d{yyyy.MM.dd}`.
     let (math_expr, fmt) = if let Some(inner_brace) = date_part.find('{') {
         let inner_end = date_part.rfind('}').unwrap_or(date_part.len());
-        (&date_part[..inner_brace], &date_part[inner_brace + 1..inner_end])
+        (
+            &date_part[..inner_brace],
+            &date_part[inner_brace + 1..inner_end],
+        )
     } else {
         (date_part, "yyyy.MM.dd")
     };
@@ -9756,10 +10659,9 @@ fn resolve_date_math_expr(expr: &str) -> String {
         // Accept `yyyy-MM-dd`, `yyyy-MM-ddTHH:mm:ss`, and full RFC3339.
         if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(anchor_str) {
             dt.with_timezone(&chrono::Utc)
-        } else if let Ok(ndt) = chrono::NaiveDateTime::parse_from_str(
-            anchor_str,
-            "%Y-%m-%dT%H:%M:%S",
-        ) {
+        } else if let Ok(ndt) =
+            chrono::NaiveDateTime::parse_from_str(anchor_str, "%Y-%m-%dT%H:%M:%S")
+        {
             ndt.and_utc()
         } else if let Ok(nd) = chrono::NaiveDate::parse_from_str(anchor_str, "%Y-%m-%d") {
             nd.and_hms_opt(0, 0, 0)
@@ -9811,7 +10713,7 @@ fn apply_date_math_tail(
                 "y" => Duration::days(n * 365),
                 _ => Duration::zero(),
             };
-            dt = dt + offset;
+            dt += offset;
             rest = r3;
         } else if let Some(r) = rest.strip_prefix('/') {
             let (unit, r2) = if !r.is_empty() {
@@ -9828,10 +10730,7 @@ fn apply_date_math_tail(
     dt
 }
 
-fn round_date_down(
-    dt: chrono::DateTime<chrono::Utc>,
-    unit: &str,
-) -> chrono::DateTime<chrono::Utc> {
+fn round_date_down(dt: chrono::DateTime<chrono::Utc>, unit: &str) -> chrono::DateTime<chrono::Utc> {
     use chrono::{Datelike, TimeZone, Timelike};
     match unit {
         "d" => chrono::Utc
@@ -9859,7 +10758,10 @@ fn round_date_down(
 }
 
 /// Parse and evaluate a `now`-based date math expression.
-fn resolve_now_expr(expr: &str, base: chrono::DateTime<chrono::Utc>) -> chrono::DateTime<chrono::Utc> {
+fn resolve_now_expr(
+    expr: &str,
+    base: chrono::DateTime<chrono::Utc>,
+) -> chrono::DateTime<chrono::Utc> {
     use chrono::Duration;
 
     // Strip leading "now".
@@ -9873,7 +10775,10 @@ fn resolve_now_expr(expr: &str, base: chrono::DateTime<chrono::Utc>) -> chrono::
         let sign = if rest.starts_with('+') { 1i64 } else { -1i64 };
         let rest = &rest[1..];
         // Parse number.
-        let (num_str, rest) = rest.split_at(rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(rest.len()));
+        let (num_str, rest) = rest.split_at(
+            rest.find(|c: char| !c.is_ascii_digit())
+                .unwrap_or(rest.len()),
+        );
         let n: i64 = num_str.parse().unwrap_or(0) * sign;
         // Parse unit.
         let (unit, rest) = if !rest.is_empty() {
@@ -9902,25 +10807,23 @@ fn resolve_now_expr(expr: &str, base: chrono::DateTime<chrono::Utc>) -> chrono::
         dt = match unit {
             'd' => {
                 // Round down to day.
-                chrono::Utc.with_ymd_and_hms(dt.year(), dt.month(), dt.day(), 0, 0, 0)
+                chrono::Utc
+                    .with_ymd_and_hms(dt.year(), dt.month(), dt.day(), 0, 0, 0)
                     .single()
                     .unwrap_or(dt)
             }
-            'h' => {
-                chrono::Utc.with_ymd_and_hms(dt.year(), dt.month(), dt.day(), dt.hour(), 0, 0)
-                    .single()
-                    .unwrap_or(dt)
-            }
-            'M' => {
-                chrono::Utc.with_ymd_and_hms(dt.year(), dt.month(), 1, 0, 0, 0)
-                    .single()
-                    .unwrap_or(dt)
-            }
-            'y' => {
-                chrono::Utc.with_ymd_and_hms(dt.year(), 1, 1, 0, 0, 0)
-                    .single()
-                    .unwrap_or(dt)
-            }
+            'h' => chrono::Utc
+                .with_ymd_and_hms(dt.year(), dt.month(), dt.day(), dt.hour(), 0, 0)
+                .single()
+                .unwrap_or(dt),
+            'M' => chrono::Utc
+                .with_ymd_and_hms(dt.year(), dt.month(), 1, 0, 0, 0)
+                .single()
+                .unwrap_or(dt),
+            'y' => chrono::Utc
+                .with_ymd_and_hms(dt.year(), 1, 1, 0, 0, 0)
+                .single()
+                .unwrap_or(dt),
             _ => dt,
         };
     }
@@ -10002,7 +10905,10 @@ pub async fn update_doc(
                     Ok(resp) => {
                         state.metrics.record_doc_indexed(&index);
                         let er = crate::responses::EsDocResponse::updated(
-                            &index, &resp.id, resp.version, resp.seq_no,
+                            &index,
+                            &resp.id,
+                            resp.version,
+                            resp.seq_no,
                         );
                         Json(er).into_response()
                     }
@@ -10015,13 +10921,21 @@ pub async fn update_doc(
                 // not run against the upsert body (matches ES default,
                 // scripted_upsert=false).
                 let upsert_body = body.upsert.clone().or_else(|| {
-                    if body.doc_as_upsert { body.doc.clone() } else { None }
+                    if body.doc_as_upsert {
+                        body.doc.clone()
+                    } else {
+                        None
+                    }
                 });
                 if let Some(up) = upsert_body {
                     return match idx.index_document(Some(id.clone()), up).await {
                         Ok(resp) => {
                             state.metrics.record_doc_indexed(&index);
-                            let er = crate::responses::EsDocResponse::created(&index, &resp.id, resp.seq_no);
+                            let er = crate::responses::EsDocResponse::created(
+                                &index,
+                                &resp.id,
+                                resp.seq_no,
+                            );
                             Json(er).into_response()
                         }
                         Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
@@ -10034,15 +10948,18 @@ pub async fn update_doc(
         }
     }
 
-    match idx.update_document_with_upsert(
-        &id,
-        body.doc,
-        body.upsert,
-        body.doc_as_upsert,
-    ).await {
+    match idx
+        .update_document_with_upsert(&id, body.doc, body.upsert, body.doc_as_upsert)
+        .await
+    {
         Ok(Some(resp)) => {
             state.metrics.record_doc_indexed(&index);
-            let er = crate::responses::EsDocResponse::updated(&index, &resp.id, resp.version, resp.seq_no);
+            let er = crate::responses::EsDocResponse::updated(
+                &index,
+                &resp.id,
+                resp.version,
+                resp.seq_no,
+            );
             Json(er).into_response()
         }
         Ok(None) => {
@@ -10205,7 +11122,8 @@ fn painless_update_value(v: xerj_engine::painless::PainlessValue) -> Value {
 /// is an expression that must be evaluated.
 fn parse_rhs_literal(rhs: &str) -> Option<Value> {
     let t = rhs.trim();
-    if t.len() >= 2 && t.starts_with('\'') && t.ends_with('\'') && !t[1..t.len() - 1].contains('\'') {
+    if t.len() >= 2 && t.starts_with('\'') && t.ends_with('\'') && !t[1..t.len() - 1].contains('\'')
+    {
         return Some(Value::String(t[1..t.len() - 1].to_string()));
     }
     serde_json::from_str::<Value>(t).ok()
@@ -10222,7 +11140,11 @@ fn eval_update_expr(expr: &str, source: &Value, params: &Value) -> Result<Value,
 /// Apply a painless update script to `source` in place. Supports the common
 /// `ctx._source.*` mutation forms: assignment (`=`), compound assignment
 /// (`+= -= *= /=`), increment / decrement (`++ --`), and `remove(...)`.
-fn apply_painless_update(source: &mut Value, script_src: &str, params: &Value) -> Result<(), String> {
+fn apply_painless_update(
+    source: &mut Value,
+    script_src: &str,
+    params: &Value,
+) -> Result<(), String> {
     for raw in split_update_statements(script_src) {
         let stmt = raw.trim();
         if stmt.is_empty() {
@@ -10301,9 +11223,11 @@ fn apply_one_update_stmt(source: &mut Value, stmt: &str, params: &Value) -> Resu
     if opr == "++" || opr == "--" {
         let cur = get_source_path(source, &path).as_f64().unwrap_or(0.0);
         let nv = if opr == "++" { cur + 1.0 } else { cur - 1.0 };
-        set_source_path(source, &path, painless_update_value(
-            xerj_engine::painless::PainlessValue::Number(nv),
-        ));
+        set_source_path(
+            source,
+            &path,
+            painless_update_value(xerj_engine::painless::PainlessValue::Number(nv)),
+        );
         return Ok(());
     }
 
@@ -10412,7 +11336,9 @@ pub async fn count_docs(
             .unwrap_or(false);
         let mut total: u64 = 0;
         for ix_name in &wanted {
-            let Ok(idx) = state.engine.get_index(ix_name) else { continue };
+            let Ok(idx) = state.engine.get_index(ix_name) else {
+                continue;
+            };
             if has_query {
                 let query_val = body
                     .as_ref()
@@ -10612,7 +11538,11 @@ pub async fn mget_index(
                 .and_then(Value::as_str)
                 .unwrap_or(&index)
                 .to_string();
-            let id = d.get("_id").and_then(Value::as_str).unwrap_or("").to_string();
+            let id = d
+                .get("_id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
             entries.push((i, id));
         }
     }
@@ -10679,12 +11609,13 @@ pub async fn cat_health(State(state): State<AppState>) -> impl IntoResponse {
     let now = Utc::now();
     let ts = now.format("%H:%M:%S").to_string();
     let shards = health.index_count as u32;
-    let body = format!(
-        "{epoch} {ts} xerj green 1 1 {shards} {shards} 0 0 0 0 - 100.0%\n"
-    );
+    let body = format!("{epoch} {ts} xerj green 1 1 {shards} {shards} 0 0 0 0 - 100.0%\n");
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         body,
     )
         .into_response()
@@ -10719,7 +11650,10 @@ pub async fn cat_nodes(State(state): State<AppState>) -> impl IntoResponse {
     );
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         body,
     )
         .into_response()
@@ -10894,7 +11828,8 @@ fn tokenize_for_analyze(input: &str, analyzer: &str) -> Vec<Value> {
             let bytes = input.as_bytes();
             let mut i = 0usize;
             while i <= input.len() {
-                let is_alnum = i < input.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] > 127);
+                let is_alnum =
+                    i < input.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] > 127);
                 if is_alnum && !in_tok {
                     start = i;
                     in_tok = true;
@@ -10942,33 +11877,41 @@ pub async fn index_disk_usage(
             Err(_) => continue,
         };
         all_size += size;
-        indices.insert(name.clone(), json!({
-            "store_size": format!("{}b", size),
-            "store_size_in_bytes": size,
-            "all_fields": {
-                "total": format!("{}b", size),
-                "total_in_bytes": size,
-                "inverted_index": { "total": "0b", "total_in_bytes": 0 },
-                "stored_fields": format!("{}b", size),
-                "stored_fields_in_bytes": size,
-                "doc_values": "0b",
-                "doc_values_in_bytes": 0,
-                "points": "0b",
-                "points_in_bytes": 0,
-                "norms": "0b",
-                "norms_in_bytes": 0,
-                "term_vectors": "0b",
-                "term_vectors_in_bytes": 0,
-                "knn_vectors": "0b",
-                "knn_vectors_in_bytes": 0,
-            },
-            "fields": {}
-        }));
+        indices.insert(
+            name.clone(),
+            json!({
+                "store_size": format!("{}b", size),
+                "store_size_in_bytes": size,
+                "all_fields": {
+                    "total": format!("{}b", size),
+                    "total_in_bytes": size,
+                    "inverted_index": { "total": "0b", "total_in_bytes": 0 },
+                    "stored_fields": format!("{}b", size),
+                    "stored_fields_in_bytes": size,
+                    "doc_values": "0b",
+                    "doc_values_in_bytes": 0,
+                    "points": "0b",
+                    "points_in_bytes": 0,
+                    "norms": "0b",
+                    "norms_in_bytes": 0,
+                    "term_vectors": "0b",
+                    "term_vectors_in_bytes": 0,
+                    "knn_vectors": "0b",
+                    "knn_vectors_in_bytes": 0,
+                },
+                "fields": {}
+            }),
+        );
     }
     let mut out = serde_json::Map::new();
-    out.insert("_shards".to_string(), json!({"total":1,"successful":1,"failed":0}));
+    out.insert(
+        "_shards".to_string(),
+        json!({"total":1,"successful":1,"failed":0}),
+    );
     let _ = all_size;
-    for (k, v) in indices { out.insert(k, v); }
+    for (k, v) in indices {
+        out.insert(k, v);
+    }
     Json(Value::Object(out)).into_response()
 }
 
@@ -11007,7 +11950,12 @@ pub async fn index_stats(
             let (seg_count, merging) = state
                 .engine
                 .get_index(name)
-                .map(|idx| (idx.store_snapshot().segments.len(), idx.is_merge_in_progress()))
+                .map(|idx| {
+                    (
+                        idx.store_snapshot().segments.len(),
+                        idx.is_merge_in_progress(),
+                    )
+                })
                 .unwrap_or((0, false));
             let primaries = json!({
                 "docs": { "count": doc_count, "deleted": 0 },
@@ -11020,10 +11968,13 @@ pub async fn index_stats(
                 },
                 "segments": { "count": seg_count, "memory_in_bytes": 0 },
             });
-            all_indices.insert(name.clone(), json!({
-                "primaries": primaries,
-                "total": primaries,
-            }));
+            all_indices.insert(
+                name.clone(),
+                json!({
+                    "primaries": primaries,
+                    "total": primaries,
+                }),
+            );
         }
         // Build _all by summing per-index stats. dense_vector merges by
         // summing every numeric leaf and dropping per-index `fielddata`.
@@ -11039,13 +11990,34 @@ pub async fn index_stats(
             let dv = per_index_dense_vector_stats(&state, name);
             let off = dv.get("off_heap").and_then(|v| v.as_object());
             if let Some(o) = off {
-                all_dv_size += o.get("total_size_bytes").and_then(Value::as_u64).unwrap_or(0);
-                all_dv_vec += o.get("total_vec_size_bytes").and_then(Value::as_u64).unwrap_or(0);
-                all_dv_veb += o.get("total_veb_size_bytes").and_then(Value::as_u64).unwrap_or(0);
-                all_dv_veq += o.get("total_veq_size_bytes").and_then(Value::as_u64).unwrap_or(0);
-                all_dv_vex += o.get("total_vex_size_bytes").and_then(Value::as_u64).unwrap_or(0);
-                all_dv_cenivf += o.get("total_cenivf_size_bytes").and_then(Value::as_u64).unwrap_or(0);
-                all_dv_clivf += o.get("total_clivf_size_bytes").and_then(Value::as_u64).unwrap_or(0);
+                all_dv_size += o
+                    .get("total_size_bytes")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0);
+                all_dv_vec += o
+                    .get("total_vec_size_bytes")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0);
+                all_dv_veb += o
+                    .get("total_veb_size_bytes")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0);
+                all_dv_veq += o
+                    .get("total_veq_size_bytes")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0);
+                all_dv_vex += o
+                    .get("total_vex_size_bytes")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0);
+                all_dv_cenivf += o
+                    .get("total_cenivf_size_bytes")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0);
+                all_dv_clivf += o
+                    .get("total_clivf_size_bytes")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0);
             }
             all_dv_value_count += dv.get("value_count").and_then(Value::as_u64).unwrap_or(0);
         }
@@ -11069,7 +12041,8 @@ pub async fn index_stats(
             "_shards": { "total": 1, "successful": 1, "failed": 0 },
             "_all": { "primaries": all_primaries, "total": all_primaries },
             "indices": all_indices,
-        })).into_response();
+        }))
+        .into_response();
     }
     let stats = match state.engine.index_stats(&index).await {
         Ok(s) => s,
@@ -11086,25 +12059,35 @@ pub async fn index_stats(
         .unwrap_or(0);
 
     // Pull the live noop + request-cache counters from the index.
-    let (noop_total, rc_hit, rc_miss, get_total, get_ms, get_exists, get_missing) = match state.engine.get_index(&index) {
-        Ok(idx) => (
-            idx.noop_update_total(),
-            idx.request_cache_hit_count(),
-            idx.request_cache_miss_count(),
-            idx.metric_get_count.load(std::sync::atomic::Ordering::Relaxed),
-            idx.metric_get_total_ms.load(std::sync::atomic::Ordering::Relaxed),
-            idx.metric_get_exists_count.load(std::sync::atomic::Ordering::Relaxed),
-            idx.metric_get_missing_count.load(std::sync::atomic::Ordering::Relaxed),
-        ),
-        Err(_) => (0, 0, 0, 0, 0, 0, 0),
-    };
+    let (noop_total, rc_hit, rc_miss, get_total, get_ms, get_exists, get_missing) =
+        match state.engine.get_index(&index) {
+            Ok(idx) => (
+                idx.noop_update_total(),
+                idx.request_cache_hit_count(),
+                idx.request_cache_miss_count(),
+                idx.metric_get_count
+                    .load(std::sync::atomic::Ordering::Relaxed),
+                idx.metric_get_total_ms
+                    .load(std::sync::atomic::Ordering::Relaxed),
+                idx.metric_get_exists_count
+                    .load(std::sync::atomic::Ordering::Relaxed),
+                idx.metric_get_missing_count
+                    .load(std::sync::atomic::Ordering::Relaxed),
+            ),
+            Err(_) => (0, 0, 0, 0, 0, 0, 0),
+        };
     let dense_vector_stats = per_index_dense_vector_stats(&state, &index);
     // Merge status + real segment count so benchmarks can verify the
     // index is merge-quiescent (merges.current == 0) before measuring.
     let (seg_count, merges_current) = state
         .engine
         .get_index(&index)
-        .map(|idx| (idx.store_snapshot().segments.len(), idx.is_merge_in_progress()))
+        .map(|idx| {
+            (
+                idx.store_snapshot().segments.len(),
+                idx.is_merge_in_progress(),
+            )
+        })
         .unwrap_or((0, false));
     let primaries = json!({
         "docs": { "count": doc_count, "deleted": 0 },
@@ -11177,7 +12160,10 @@ pub async fn index_stats(
     // dense_vector stats but keeps it on the per-index entries (per
     // 220_dense_vector_node_bbq_disk_index_stats).
     let mut all_primaries = primaries.clone();
-    if let Some(dv) = all_primaries.pointer_mut("/dense_vector/off_heap").and_then(|v| v.as_object_mut()) {
+    if let Some(dv) = all_primaries
+        .pointer_mut("/dense_vector/off_heap")
+        .and_then(|v| v.as_object_mut())
+    {
         dv.remove("fielddata");
     }
     Json(json!({
@@ -11385,10 +12371,16 @@ pub async fn put_index_template(
     Path(name): Path<String>,
     Json(body): Json<IndexTemplateBody>,
 ) -> impl IntoResponse {
-    let settings = body.template.as_ref().and_then(|t| t.settings.clone())
+    let settings = body
+        .template
+        .as_ref()
+        .and_then(|t| t.settings.clone())
         .or(body.settings.clone())
         .unwrap_or(json!({}));
-    let mappings = body.template.as_ref().and_then(|t| t.mappings.clone())
+    let mappings = body
+        .template
+        .as_ref()
+        .and_then(|t| t.mappings.clone())
         .or(body.mappings.clone())
         .unwrap_or(json!({}));
 
@@ -11411,17 +12403,20 @@ pub async fn get_index_template(
         let mut templates = serde_json::Map::new();
         for entry in state.engine.templates.iter() {
             let t = entry.value();
-            templates.insert(entry.key().clone(), json!({
-                "name": entry.key().clone(),
-                "index_template": {
-                    "index_patterns": t.index_patterns,
-                    "priority": t.priority,
-                    "template": {
-                        "settings": t.settings,
-                        "mappings": t.mappings,
+            templates.insert(
+                entry.key().clone(),
+                json!({
+                    "name": entry.key().clone(),
+                    "index_template": {
+                        "index_patterns": t.index_patterns,
+                        "priority": t.priority,
+                        "template": {
+                            "settings": t.settings,
+                            "mappings": t.mappings,
+                        }
                     }
-                }
-            }));
+                }),
+            );
         }
         let index_templates: Vec<Value> = templates.values().cloned().collect();
         return Json(json!({ "index_templates": index_templates })).into_response();
@@ -11445,7 +12440,8 @@ pub async fn get_index_template(
             Json(resp).into_response()
         }
         None => {
-            let e = xerj_common::XerjError::index_not_found(format!("index template [{name}] missing"));
+            let e =
+                xerj_common::XerjError::index_not_found(format!("index template [{name}] missing"));
             ApiError::new(e).into_response()
         }
     }
@@ -11563,7 +12559,8 @@ pub async fn search_with_scroll(
     if params.scroll.is_some() {
         let scroll_id = Uuid::new_v4().to_string();
         // Extract just the hits from the pairs.
-        let hits_only: Vec<xerj_query::executor::Hit> = all_hits.iter().map(|(_, h)| h.clone()).collect();
+        let hits_only: Vec<xerj_query::executor::Hit> =
+            all_hits.iter().map(|(_, h)| h.clone()).collect();
 
         // Return first page.
         let first_page: Vec<EsHit> = all_hits
@@ -11576,13 +12573,31 @@ pub async fn search_with_scroll(
                 version: Some(1),
                 seq_no: Some(0),
                 primary_term: Some(1),
-                source: if h.source.is_null() { None } else { Some(h.source.clone()) },
+                source: if h.source.is_null() {
+                    None
+                } else {
+                    Some(h.source.clone())
+                },
                 fields: None,
-                sort: if h.sort.is_empty() { None } else { Some(h.sort.clone()) },
+                sort: if h.sort.is_empty() {
+                    None
+                } else {
+                    Some(h.sort.clone())
+                },
                 highlight: h.highlight.clone(),
                 explanation: None,
                 inner_hits: None,
-                matched_queries: if h.matched_queries.is_empty() { Value::Null } else { Value::Array(h.matched_queries.iter().cloned().map(Value::String).collect()) },
+                matched_queries: if h.matched_queries.is_empty() {
+                    Value::Null
+                } else {
+                    Value::Array(
+                        h.matched_queries
+                            .iter()
+                            .cloned()
+                            .map(Value::String)
+                            .collect(),
+                    )
+                },
                 ignored: None,
                 ignored_field_values: None,
             })
@@ -11630,13 +12645,31 @@ pub async fn search_with_scroll(
             version: Some(1),
             seq_no: Some(0),
             primary_term: Some(1),
-            source: if h.source.is_null() { None } else { Some(h.source.clone()) },
+            source: if h.source.is_null() {
+                None
+            } else {
+                Some(h.source.clone())
+            },
             fields: None,
-            sort: if h.sort.is_empty() { None } else { Some(h.sort.clone()) },
+            sort: if h.sort.is_empty() {
+                None
+            } else {
+                Some(h.sort.clone())
+            },
             highlight: h.highlight.clone(),
             explanation: None,
             inner_hits: None,
-            matched_queries: if h.matched_queries.is_empty() { Value::Null } else { Value::Array(h.matched_queries.iter().cloned().map(Value::String).collect()) },
+            matched_queries: if h.matched_queries.is_empty() {
+                Value::Null
+            } else {
+                Value::Array(
+                    h.matched_queries
+                        .iter()
+                        .cloned()
+                        .map(Value::String)
+                        .collect(),
+                )
+            },
             ignored: None,
             ignored_field_values: None,
         })
@@ -11648,7 +12681,10 @@ pub async fn search_with_scroll(
         timed_out: false,
         shards: crate::responses::EsShards::search_success(),
         hits: EsHits {
-            total: EsHitsTotal { value: total_count, relation: "eq".to_string() },
+            total: EsHitsTotal {
+                value: total_count,
+                relation: "eq".to_string(),
+            },
             max_score,
             hits: page,
         },
@@ -11698,7 +12734,9 @@ pub async fn next_scroll(
 
             // Detect whether the initial search sorted by a non-score key;
             // in that case `max_score` must be null on scroll pages too.
-            let has_non_score_sort = ctx.hits.first()
+            let has_non_score_sort = ctx
+                .hits
+                .first()
                 .map(|h| !h.sort.is_empty())
                 .unwrap_or(false);
 
@@ -11714,13 +12752,31 @@ pub async fn next_scroll(
                     version: Some(1),
                     seq_no: Some(0),
                     primary_term: Some(1),
-                    source: if h.source.is_null() { None } else { Some(h.source.clone()) },
+                    source: if h.source.is_null() {
+                        None
+                    } else {
+                        Some(h.source.clone())
+                    },
                     fields: None,
-                    sort: if h.sort.is_empty() { None } else { Some(h.sort.clone()) },
+                    sort: if h.sort.is_empty() {
+                        None
+                    } else {
+                        Some(h.sort.clone())
+                    },
                     highlight: h.highlight.clone(),
                     explanation: None,
                     inner_hits: None,
-                    matched_queries: if h.matched_queries.is_empty() { Value::Null } else { Value::Array(h.matched_queries.iter().cloned().map(Value::String).collect()) },
+                    matched_queries: if h.matched_queries.is_empty() {
+                        Value::Null
+                    } else {
+                        Value::Array(
+                            h.matched_queries
+                                .iter()
+                                .cloned()
+                                .map(Value::String)
+                                .collect(),
+                        )
+                    },
                     ignored: None,
                     ignored_field_values: None,
                 })
@@ -11767,7 +12823,9 @@ pub async fn next_scroll(
             Json(resp).into_response()
         }
         None => {
-            let e = xerj_common::XerjError::index_not_found(format!("No search context found for id [{scroll_id}]"));
+            let e = xerj_common::XerjError::index_not_found(format!(
+                "No search context found for id [{scroll_id}]"
+            ));
             ApiError::new(e).into_response()
         }
     }
@@ -11891,7 +12949,11 @@ pub async fn reindex(
         Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
     };
 
-    let query_val = body.source.query.clone().unwrap_or(json!({ "match_all": {} }));
+    let query_val = body
+        .source
+        .query
+        .clone()
+        .unwrap_or(json!({ "match_all": {} }));
     let page_size = body.source.size.min(10_000); // cap per-batch at 10k
     let max_total = 100_000usize; // safety cap for reindex total
 
@@ -11933,10 +12995,22 @@ pub async fn reindex(
         for hit in results.hits {
             if !hit.source.is_null() {
                 // Check if doc already exists in dest to track created vs updated.
-                let exists = dest_idx.get_document(&hit.id).await.ok().flatten().is_some();
-                match dest_idx.index_document(Some(hit.id.clone()), hit.source).await {
+                let exists = dest_idx
+                    .get_document(&hit.id)
+                    .await
+                    .ok()
+                    .flatten()
+                    .is_some();
+                match dest_idx
+                    .index_document(Some(hit.id.clone()), hit.source)
+                    .await
+                {
                     Ok(_) => {
-                        if exists { updated += 1; } else { created += 1; }
+                        if exists {
+                            updated += 1;
+                        } else {
+                            created += 1;
+                        }
                     }
                     Err(e) => {
                         failures.push(json!({
@@ -11992,9 +13066,18 @@ pub async fn field_caps(
 ) -> impl IntoResponse {
     // Support "*" as a wildcard for all indices.
     let resolved_indices: Vec<String> = if index == "*" || index == "_all" {
-        state.engine.list_indices().await.into_iter().map(|i| i.name).collect()
+        state
+            .engine
+            .list_indices()
+            .await
+            .into_iter()
+            .map(|i| i.name)
+            .collect()
     } else {
-        index.split(',').flat_map(|n| state.engine.resolve_alias(n.trim())).collect()
+        index
+            .split(',')
+            .flat_map(|n| state.engine.resolve_alias(n.trim()))
+            .collect()
     };
 
     let fields_filter = params.fields.as_deref().unwrap_or("*");
@@ -12149,7 +13232,8 @@ async fn msearch_impl(
 
         // PIT override: when the per-item body has pit.id, resolve
         // the PIT context and use its indices list + index_filter.
-        let pit_context: Option<xerj_engine::engine::PitContext> = search_body_val.get("pit")
+        let pit_context: Option<xerj_engine::engine::PitContext> = search_body_val
+            .get("pit")
             .and_then(|p| p.get("id"))
             .and_then(Value::as_str)
             .and_then(|id| state.engine.pits.get(id).map(|r| r.value().clone()));
@@ -12206,15 +13290,27 @@ async fn msearch_impl(
         let index_names: Vec<String> = if let Some(pit) = pit_context.as_ref() {
             pit.indices.clone()
         } else if index_name == "*" || index_name == "_all" {
-            state.engine.list_indices().await.into_iter().map(|i| i.name).collect()
+            state
+                .engine
+                .list_indices()
+                .await
+                .into_iter()
+                .map(|i| i.name)
+                .collect()
         } else {
-            index_name.split(',').flat_map(|n| state.engine.resolve_alias(n.trim())).collect()
+            index_name
+                .split(',')
+                .flat_map(|n| state.engine.resolve_alias(n.trim()))
+                .collect()
         };
 
         let index_names: Vec<String> = if idx_constraints.is_empty() {
             index_names
         } else {
-            index_names.into_iter().filter(|n| idx_constraints.iter().any(|p| p == n || glob_match(p, n))).collect()
+            index_names
+                .into_iter()
+                .filter(|n| idx_constraints.iter().any(|p| p == n || glob_match(p, n)))
+                .collect()
         };
 
         let mut merged_hits: Vec<(String, xerj_query::executor::Hit)> = Vec::new();
@@ -12278,7 +13374,11 @@ async fn msearch_impl(
         let hits: Vec<Value> = merged_hits
             .into_iter()
             .map(|(idx_name, h)| {
-                let source = if h.source.is_null() { None } else { Some(h.source.clone()) };
+                let source = if h.source.is_null() {
+                    None
+                } else {
+                    Some(h.source.clone())
+                };
                 json!({
                     "_index": idx_name,
                     "_id": h.id,
@@ -12337,15 +13437,29 @@ fn suggest_edit_distance(a: &str, b: &str) -> usize {
     let b: Vec<char> = b.chars().collect();
     let m = a.len();
     let n = b.len();
-    if m == 0 { return n; }
-    if n == 0 { return m; }
+    if m == 0 {
+        return n;
+    }
+    if n == 0 {
+        return m;
+    }
     let mut dp = vec![vec![0usize; n + 1]; m + 1];
-    for i in 0..=m { dp[i][0] = i; }
-    for j in 0..=n { dp[0][j] = j; }
+    // `i`/`j` are both the index into the 2D `dp` grid and the value written;
+    // the range form is the clearest expression of this DP initialization.
+    #[allow(clippy::needless_range_loop)]
+    for i in 0..=m {
+        dp[i][0] = i;
+    }
+    #[allow(clippy::needless_range_loop)]
+    for j in 0..=n {
+        dp[0][j] = j;
+    }
     for i in 1..=m {
         for j in 1..=n {
             let cost = if a[i - 1] == b[j - 1] { 0 } else { 1 };
-            dp[i][j] = (dp[i - 1][j] + 1).min(dp[i][j - 1] + 1).min(dp[i - 1][j - 1] + cost);
+            dp[i][j] = (dp[i - 1][j] + 1)
+                .min(dp[i][j - 1] + 1)
+                .min(dp[i - 1][j - 1] + cost);
         }
     }
     dp[m][n]
@@ -12368,7 +13482,10 @@ pub fn process_suggest(suggest_body: &Value, docs: &[Value]) -> Value {
         // ── Completion suggester ──────────────────────────────────────────────
         // {"prefix": "sea", "completion": {"field": "suggest"}}
         if let Some(completion_opts) = suggest_def.get("completion") {
-            let prefix = suggest_def.get("prefix").and_then(Value::as_str).unwrap_or("");
+            let prefix = suggest_def
+                .get("prefix")
+                .and_then(Value::as_str)
+                .unwrap_or("");
             let field = completion_opts
                 .get("field")
                 .and_then(Value::as_str)
@@ -12400,18 +13517,24 @@ pub fn process_suggest(suggest_body: &Value, docs: &[Value]) -> Value {
                 .map(|(text, _freq)| json!({ "text": text, "_score": 1.0, "_source": {} }))
                 .collect();
 
-            result.insert(suggest_name.clone(), Value::Array(vec![json!({
-                "text": prefix,
-                "offset": 0,
-                "length": prefix.len(),
-                "options": options,
-            })]));
+            result.insert(
+                suggest_name.clone(),
+                Value::Array(vec![json!({
+                    "text": prefix,
+                    "offset": 0,
+                    "length": prefix.len(),
+                    "options": options,
+                })]),
+            );
             continue;
         }
 
         // ── Term suggester ────────────────────────────────────────────────────
         // {"text": "...", "term": {"field": "..."}}
-        let text = suggest_def.get("text").and_then(Value::as_str).unwrap_or("");
+        let text = suggest_def
+            .get("text")
+            .and_then(Value::as_str)
+            .unwrap_or("");
         let term_opts = suggest_def.get("term");
         let field = term_opts
             .and_then(|t| t.get("field"))
@@ -12448,7 +13571,9 @@ pub fn process_suggest(suggest_body: &Value, docs: &[Value]) -> Value {
                 .iter()
                 .filter(|(term, _)| {
                     // Always include prefix matches; also include edit-distance matches.
-                    if term.as_str() == input_lower { return false; } // skip exact match
+                    if term.as_str() == input_lower {
+                        return false;
+                    } // skip exact match
                     let dist = suggest_edit_distance(term.as_str(), &input_lower);
                     dist <= max_edits
                 })
@@ -12517,7 +13642,10 @@ pub fn process_suggest_with_terms(
         // ── Completion suggester ──────────────────────────────────────────────
         // {"prefix": "sea", "completion": {"field": "suggest"}}
         if let Some(completion_opts) = suggest_def.get("completion") {
-            let prefix = suggest_def.get("prefix").and_then(Value::as_str).unwrap_or("");
+            let prefix = suggest_def
+                .get("prefix")
+                .and_then(Value::as_str)
+                .unwrap_or("");
             let field = completion_opts
                 .get("field")
                 .and_then(Value::as_str)
@@ -12560,18 +13688,24 @@ pub fn process_suggest_with_terms(
                 .map(|(text, _freq)| json!({ "text": text, "_score": 1.0, "_source": {} }))
                 .collect();
 
-            result.insert(suggest_name.clone(), Value::Array(vec![json!({
-                "text": prefix,
-                "offset": 0,
-                "length": prefix.len(),
-                "options": options,
-            })]));
+            result.insert(
+                suggest_name.clone(),
+                Value::Array(vec![json!({
+                    "text": prefix,
+                    "offset": 0,
+                    "length": prefix.len(),
+                    "options": options,
+                })]),
+            );
             continue;
         }
 
         // ── Term suggester ────────────────────────────────────────────────────
         // {"text": "...", "term": {"field": "..."}}
-        let text = suggest_def.get("text").and_then(Value::as_str).unwrap_or("");
+        let text = suggest_def
+            .get("text")
+            .and_then(Value::as_str)
+            .unwrap_or("");
         let term_opts = suggest_def.get("term");
         let field = term_opts
             .and_then(|t| t.get("field"))
@@ -12613,7 +13747,9 @@ pub fn process_suggest_with_terms(
             let mut matches: Vec<(String, u64, usize)> = term_counts
                 .iter()
                 .filter(|(term, _)| {
-                    if term.as_str() == input_lower { return false; } // skip exact match
+                    if term.as_str() == input_lower {
+                        return false;
+                    } // skip exact match
                     let dist = suggest_edit_distance(term.as_str(), &input_lower);
                     dist <= max_edits
                 })
@@ -12729,7 +13865,9 @@ struct SigTextSpec {
 fn collect_sig_text_specs(aggs: &Value, parent_field: Option<&str>, out: &mut Vec<SigTextSpec>) {
     let Some(obj) = aggs.as_object() else { return };
     for (name, spec) in obj {
-        let Some(spec_obj) = spec.as_object() else { continue };
+        let Some(spec_obj) = spec.as_object() else {
+            continue;
+        };
         let (agg_type, agg_cfg) = match spec_obj
             .iter()
             .find(|(k, _)| !matches!(k.as_str(), "aggs" | "aggregations" | "meta"))
@@ -12750,12 +13888,16 @@ fn collect_sig_text_specs(aggs: &Value, parent_field: Option<&str>, out: &mut Ve
         }
         // A bucketing agg becomes the owning grouping for its descendants.
         let child_parent = match agg_type {
-            "terms" | "significant_terms" | "histogram" | "date_histogram" | "range" => {
-                agg_cfg.get("field").and_then(Value::as_str).or(parent_field)
-            }
+            "terms" | "significant_terms" | "histogram" | "date_histogram" | "range" => agg_cfg
+                .get("field")
+                .and_then(Value::as_str)
+                .or(parent_field),
             _ => parent_field,
         };
-        if let Some(children) = spec_obj.get("aggs").or_else(|| spec_obj.get("aggregations")) {
+        if let Some(children) = spec_obj
+            .get("aggs")
+            .or_else(|| spec_obj.get("aggregations"))
+        {
             collect_sig_text_specs(children, child_parent, out);
         }
     }
@@ -12835,17 +13977,6 @@ fn compute_sig_text_debug(spec: &SigTextSpec, fg_docs: &[Value]) -> Value {
     })
 }
 
-/// Build the `aggregations` block of the `profile.shards[0]` response.
-///
-/// Walks the aggregation request tree and emits one node per agg whose
-/// `type` field carries the ES Java class name. xerj doesn't own those
-/// classes; this mapping is a translation layer over our executor so the
-/// published profile shape matches ES.
-fn build_aggregation_profile(aggs: Option<&Value>, took_ms: u64) -> Vec<Value> {
-    let empty = std::collections::HashMap::new();
-    build_aggregation_profile_full(aggs, took_ms, 1, None, true, &empty)
-}
-
 fn build_aggregation_profile_full(
     aggs: Option<&Value>,
     took_ms: u64,
@@ -12854,7 +13985,15 @@ fn build_aggregation_profile_full(
     terms_use_filter_path: bool,
     sig_text_debug: &std::collections::HashMap<String, Value>,
 ) -> Vec<Value> {
-    build_aggregation_profile_full_at(aggs, took_ms, collect_count, results, terms_use_filter_path, false, sig_text_debug)
+    build_aggregation_profile_full_at(
+        aggs,
+        took_ms,
+        collect_count,
+        results,
+        terms_use_filter_path,
+        false,
+        sig_text_debug,
+    )
 }
 
 fn build_aggregation_profile_full_at(
@@ -12867,16 +14006,21 @@ fn build_aggregation_profile_full_at(
     sig_text_debug: &std::collections::HashMap<String, Value>,
 ) -> Vec<Value> {
     let Some(aggs) = aggs else { return Vec::new() };
-    let Some(obj) = aggs.as_object() else { return Vec::new() };
+    let Some(obj) = aggs.as_object() else {
+        return Vec::new();
+    };
 
     let mut out: Vec<Value> = Vec::new();
     for (name, spec) in obj {
-        let Some(spec_obj) = spec.as_object() else { continue };
+        let Some(spec_obj) = spec.as_object() else {
+            continue;
+        };
         // First one-key entry (besides aggs/aggregations/meta) is the agg
         // type. Sub-aggregations live under "aggs" or "aggregations".
-        let (agg_type, agg_cfg) = match spec_obj.iter().find(|(k, _)| {
-            !matches!(k.as_str(), "aggs" | "aggregations" | "meta")
-        }) {
+        let (agg_type, agg_cfg) = match spec_obj
+            .iter()
+            .find(|(k, _)| !matches!(k.as_str(), "aggs" | "aggregations" | "meta"))
+        {
             Some((t, c)) => (t.as_str(), c),
             None => continue,
         };
@@ -12893,15 +14037,15 @@ fn build_aggregation_profile_full_at(
             .and_then(Value::as_array)
             .map(|a| {
                 a.iter()
-                    .filter(|b| {
-                        b.get("doc_count").and_then(Value::as_u64).unwrap_or(0) > 0
-                    })
+                    .filter(|b| b.get("doc_count").and_then(Value::as_u64).unwrap_or(0) > 0)
                     .count() as u64
             });
 
         // Sub-agg tree, if any. Capture the sub-agg names so the parent
         // node's debug payload can list deferred aggregator names.
-        let children_spec = spec_obj.get("aggs").or_else(|| spec_obj.get("aggregations"));
+        let children_spec = spec_obj
+            .get("aggs")
+            .or_else(|| spec_obj.get("aggregations"));
         let sub_agg_names: Vec<String> = children_spec
             .and_then(Value::as_object)
             .map(|o| o.keys().cloned().collect())
@@ -12922,7 +14066,8 @@ fn build_aggregation_profile_full_at(
                     // number of docs a sub-agg collector observes for
                     // bucketed parents (including the FromFilters path,
                     // which visits each filter's docs sequentially).
-                    let summed: u64 = arr.iter()
+                    let summed: u64 = arr
+                        .iter()
                         .filter_map(|b| b.get("doc_count").and_then(Value::as_u64))
                         .sum();
                     if summed > 0 {
@@ -12951,15 +14096,13 @@ fn build_aggregation_profile_full_at(
         // "am I a sub-agg?" flag so nested terms stay on the
         // ordinals aggregator (filter-by-filter is a top-level
         // optimization).
-        let class_name = es_aggregator_class_name_ctx(agg_type, agg_cfg, terms_use_filter_path, is_sub_level);
+        let class_name =
+            es_aggregator_class_name_ctx(agg_type, agg_cfg, terms_use_filter_path, is_sub_level);
 
         let mut node = serde_json::Map::new();
         node.insert("type".to_string(), Value::String(class_name));
         node.insert("description".to_string(), Value::String(name.clone()));
-        node.insert(
-            "time_in_nanos".to_string(),
-            json!(took_ms * 1_000_000u64),
-        );
+        node.insert("time_in_nanos".to_string(), json!(took_ms * 1_000_000u64));
         // Breakdown numbers are in nanoseconds. Even a fast agg takes some
         // wall-clock time to initialize; the `gt 0` assertions in the YAML
         // tests reject a literal zero. Floor every phase at 1 ns so those
@@ -13024,7 +14167,8 @@ fn build_aggregation_profile_full_at(
         // reports `collect_count: 0` on the parent and exposes a
         // `debug.delegate` block listing the child filter queries
         // (bucket keys, alphabetically sorted, formatted `field:term`).
-        let is_from_filters = node.get("type")
+        let is_from_filters = node
+            .get("type")
             .and_then(Value::as_str)
             .map(|s| s.ends_with("FromFilters"))
             .unwrap_or(false);
@@ -13039,9 +14183,7 @@ fn build_aggregation_profile_full_at(
         if is_terms {
             if let Some(Value::Object(dbg)) = node.get_mut("debug") {
                 if dbg.contains_key("segments_with_single_valued_ords") {
-                    let multi = bucket_count
-                        .map(|bc| bc > collect_count)
-                        .unwrap_or(false);
+                    let multi = bucket_count.map(|bc| bc > collect_count).unwrap_or(false);
                     dbg.insert(
                         "segments_with_single_valued_ords".into(),
                         json!(if multi { 0u64 } else { 1u64 }),
@@ -13069,31 +14211,41 @@ fn build_aggregation_profile_full_at(
             let mut bucket_keys: Vec<String> = this_result
                 .and_then(|r| r.get("buckets"))
                 .and_then(Value::as_array)
-                .map(|a| a.iter().filter_map(|b| {
-                    b.get("key").and_then(|k| match k {
-                        Value::String(s) => Some(s.clone()),
-                        Value::Number(n) => Some(n.to_string()),
-                        Value::Bool(b) => Some(b.to_string()),
-                        _ => None,
-                    })
-                }).collect())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|b| {
+                            b.get("key").and_then(|k| match k {
+                                Value::String(s) => Some(s.clone()),
+                                Value::Number(n) => Some(n.to_string()),
+                                Value::Bool(b) => Some(b.to_string()),
+                                _ => None,
+                            })
+                        })
+                        .collect()
+                })
                 .unwrap_or_default();
             bucket_keys.sort();
-            let filters: Vec<Value> = bucket_keys.into_iter().map(|k| {
-                json!({
-                    "query": format!("{}:{}", field_name, k),
-                    "specialized_for": "term",
-                    "results_from_metadata": 0u64,
-                    "segments_counted_in_constant_time": 0u64,
+            let filters: Vec<Value> = bucket_keys
+                .into_iter()
+                .map(|k| {
+                    json!({
+                        "query": format!("{}:{}", field_name, k),
+                        "specialized_for": "term",
+                        "results_from_metadata": 0u64,
+                        "segments_counted_in_constant_time": 0u64,
+                    })
                 })
-            }).collect();
+                .collect();
             if let Some(Value::Object(dbg)) = node.get_mut("debug") {
                 dbg.insert("delegate".to_string(), json!("FilterByFilterAggregator"));
-                dbg.insert("delegate_debug".to_string(), json!({
-                    "segments_counted_in_constant_time": 0u64,
-                    "segments_with_deleted_docs": 0u64,
-                    "filters": filters,
-                }));
+                dbg.insert(
+                    "delegate_debug".to_string(),
+                    json!({
+                        "segments_counted_in_constant_time": 0u64,
+                        "segments_with_deleted_docs": 0u64,
+                        "filters": filters,
+                    }),
+                );
             }
         }
         if !children.is_empty() {
@@ -13104,22 +14256,12 @@ fn build_aggregation_profile_full_at(
     out
 }
 
-/// Map an ES aggregation request type + its config to the Java aggregator
-/// class name that ES would surface in `profile.shards[].aggregations[].type`.
-///
-/// The picks match ES 8.x defaults: numeric terms use `NumericTermsAggregator`,
-/// keyword terms use the global-ordinals variant unless an `execution_hint`
-/// forces map mode, etc. YAML tests only ever assert on the leaf class name.
-/// Synthesize an ES-style `debug` block for a profiled aggregation node.
-/// Zeros for counters we can't measure; non-zero for collector-flavor
-/// fields that match the declared execution hint. Agg-specific keys
-/// (`surviving_buckets`, `empty_collectors_used` etc.) are emitted
-/// based on `agg_type` so the YAML tests find the keys they assert on.
-fn es_aggregator_debug(agg_type: &str, agg_cfg: &Value) -> Value {
-    es_aggregator_debug_full(agg_type, agg_cfg, &[], 0)
-}
-
-fn es_aggregator_debug_full(agg_type: &str, agg_cfg: &Value, sub_agg_names: &[String], doc_count: u64) -> Value {
+fn es_aggregator_debug_full(
+    agg_type: &str,
+    agg_cfg: &Value,
+    sub_agg_names: &[String],
+    doc_count: u64,
+) -> Value {
     let execution_hint = agg_cfg
         .get("execution_hint")
         .and_then(Value::as_str)
@@ -13137,8 +14279,10 @@ fn es_aggregator_debug_full(agg_type: &str, agg_cfg: &Value, sub_agg_names: &[St
         .get("field")
         .and_then(Value::as_str)
         .map(|f| {
-            matches!(f, "int" | "long" | "double" | "float" | "number" | "count" | "num")
-                || f.contains("int")
+            matches!(
+                f,
+                "int" | "long" | "double" | "float" | "number" | "count" | "num"
+            ) || f.contains("int")
                 || f.contains("long")
                 || f.contains("double")
                 || f.contains("float")
@@ -13167,7 +14311,11 @@ fn es_aggregator_debug_full(agg_type: &str, agg_cfg: &Value, sub_agg_names: &[St
             //   keyword field, map   → "terms"
             //   keyword field, ord   → "terms"
             // `total_buckets` and `built_buckets` reflect the unique-key count.
-            let strategy = if field_is_numeric { "long_terms" } else { "terms" };
+            let strategy = if field_is_numeric {
+                "long_terms"
+            } else {
+                "terms"
+            };
             let mut debug = serde_json::Map::new();
             debug.insert("total_buckets".into(), json!(doc_count));
             debug.insert("built_buckets".into(), json!(doc_count));
@@ -13177,13 +14325,20 @@ fn es_aggregator_debug_full(agg_type: &str, agg_cfg: &Value, sub_agg_names: &[St
             if collect_mode == "breadth_first" && !sub_agg_names.is_empty() {
                 debug.insert(
                     "deferred_aggregators".into(),
-                    Value::Array(sub_agg_names.iter().map(|s| Value::String(s.clone())).collect()),
+                    Value::Array(
+                        sub_agg_names
+                            .iter()
+                            .map(|s| Value::String(s.clone()))
+                            .collect(),
+                    ),
                 );
             }
             // For string keyword fields with global ordinals, ES emits a
             // `collection_strategy` describing the ord-collection variant
             // chosen. The default for "many" buckets is the remap path.
-            if !field_is_numeric && (execution_hint == "global_ordinals" || execution_hint.is_empty()) {
+            if !field_is_numeric
+                && (execution_hint == "global_ordinals" || execution_hint.is_empty())
+            {
                 debug.insert(
                     "collection_strategy".into(),
                     Value::String("remap using many bucket ords".into()),
@@ -13227,14 +14382,6 @@ fn es_aggregator_debug_full(agg_type: &str, agg_cfg: &Value, sub_agg_names: &[St
         }),
         _ => json!({}),
     }
-}
-
-fn es_aggregator_class_name(
-    agg_type: &str,
-    agg_cfg: &Value,
-    terms_use_filter_path: bool,
-) -> String {
-    es_aggregator_class_name_ctx(agg_type, agg_cfg, terms_use_filter_path, false)
 }
 
 fn es_aggregator_class_name_ctx(
@@ -13311,7 +14458,12 @@ fn es_aggregator_class_name_ctx(
                 .get("filters")
                 .and_then(Value::as_object)
                 .map(|o| o.len())
-                .or_else(|| agg_cfg.get("filters").and_then(Value::as_array).map(|a| a.len()))
+                .or_else(|| {
+                    agg_cfg
+                        .get("filters")
+                        .and_then(Value::as_array)
+                        .map(|a| a.len())
+                })
                 .unwrap_or(0);
             if bucket_count <= 1 {
                 "FilterByFilterAggregator".to_string()
@@ -13327,7 +14479,7 @@ fn es_aggregator_class_name_ctx(
         "diversified_sampler" => "DiversifiedBytesHashSamplerAggregator".to_string(),
         "random_sampler" => "RandomSamplerAggregator".to_string(),
         "composite" => "CompositeAggregator".to_string(),
-        "geo_distance" | "geohash_grid" => "GeoHashGridAggregator".to_string(),
+        "geohash_grid" => "GeoHashGridAggregator".to_string(),
         "geotile_grid" => "GeoTileGridAggregator".to_string(),
         "geohex_grid" => "GeoHexGridAggregator".to_string(),
         "time_series" => "TimeSeriesAggregator".to_string(),
@@ -13410,9 +14562,17 @@ pub async fn nodes_stats(State(state): State<AppState>) -> impl IntoResponse {
     let rss_bytes = read_rss_bytes().unwrap_or(0);
     let (mem_total, mem_avail) = read_meminfo().unwrap_or((rss_bytes * 4, rss_bytes * 3));
     let mem_used = mem_total.saturating_sub(mem_avail);
-    let used_pct = if mem_total > 0 { mem_used * 100 / mem_total } else { 0 };
+    let used_pct = if mem_total > 0 {
+        mem_used * 100 / mem_total
+    } else {
+        0
+    };
     let free_pct = 100u64.saturating_sub(used_pct);
-    let heap_used_pct = if mem_total > 0 { rss_bytes * 100 / mem_total } else { 0 };
+    let heap_used_pct = if mem_total > 0 {
+        rss_bytes * 100 / mem_total
+    } else {
+        0
+    };
     let cpu_pct = sample_cpu_percent().await;
 
     let node_id = state.engine.node_id.as_str();
@@ -13540,26 +14700,38 @@ fn per_index_dense_vector_stats(state: &AppState, index: &str) -> Value {
     let mut fielddata = serde_json::Map::new();
     if let Some(entry) = state.engine.index_mappings.get(index) {
         let mapping = entry.clone();
-        let props = mapping.get("mappings").and_then(|m| m.get("properties"))
+        let props = mapping
+            .get("mappings")
+            .and_then(|m| m.get("properties"))
             .or_else(|| mapping.get("properties"));
         if let Some(pobj) = props.and_then(Value::as_object) {
             for (fname, fspec) in pobj {
-                if fspec.get("type").and_then(Value::as_str) != Some("dense_vector") { continue }
+                if fspec.get("type").and_then(Value::as_str) != Some("dense_vector") {
+                    continue;
+                }
                 let dim = fspec.get("dims").and_then(Value::as_u64).unwrap_or(0);
                 let bytes_per_vec = (dim * 4).max(64);
-                let bbq = fspec.get("index_options").and_then(|io| io.get("type"))
-                    .and_then(Value::as_str).unwrap_or("");
+                let bbq = fspec
+                    .get("index_options")
+                    .and_then(|io| io.get("type"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
                 let n = 1u64;
                 let mut field_obj = serde_json::Map::new();
-                let (mut vec_b, mut veb_b, mut veq_b, mut vex_b, mut ceniv_b, mut cliv_b) = (0u64, 0u64, 0u64, 0u64, 0u64, 0u64);
+                let (mut vec_b, mut veb_b, veq_b, vex_b, mut ceniv_b, mut cliv_b) =
+                    (0u64, 0u64, 0u64, 0u64, 0u64, 0u64);
                 match bbq {
                     "bbq_disk" => {
                         vec_b = n * bytes_per_vec;
                         ceniv_b = n * 8;
                         cliv_b = n * 8;
                     }
-                    "bbq_hnsw" | "bbq_flat" => { veb_b = n * (bytes_per_vec / 8 + 1); }
-                    _ => { vec_b = n * bytes_per_vec; }
+                    "bbq_hnsw" | "bbq_flat" => {
+                        veb_b = n * (bytes_per_vec / 8 + 1);
+                    }
+                    _ => {
+                        vec_b = n * bytes_per_vec;
+                    }
                 }
                 let total_b = vec_b + veb_b + veq_b + vex_b + ceniv_b + cliv_b;
                 field_obj.insert("vec_size_bytes".into(), json!(vec_b));
@@ -13607,27 +14779,38 @@ fn dense_vector_off_heap_stats(state: &AppState) -> Value {
     let mut total_size = 0u64;
     let mut total_vec = 0u64;
     let mut total_veb = 0u64;
-    let mut total_veq = 0u64;
-    let mut total_vex = 0u64;
+    let total_veq = 0u64;
+    let total_vex = 0u64;
     let mut total_cenivf = 0u64;
     let mut total_clivf = 0u64;
     for entry in state.engine.index_mappings.iter() {
         let mapping = entry.value().clone();
-        let props = mapping.get("mappings").and_then(|m| m.get("properties"))
+        let props = mapping
+            .get("mappings")
+            .and_then(|m| m.get("properties"))
             .or_else(|| mapping.get("properties"));
-        let Some(pobj) = props.and_then(Value::as_object) else { continue };
-        let docs: u64 = state.engine.get_index(entry.key())
+        let Some(pobj) = props.and_then(Value::as_object) else {
+            continue;
+        };
+        let docs: u64 = state
+            .engine
+            .get_index(entry.key())
             .ok()
-            .map(|_| 1u64)  // Just need >0 for tests; precise per-index doc count requires async
+            .map(|_| 1u64) // Just need >0 for tests; precise per-index doc count requires async
             .unwrap_or(0);
         for (_fname, fspec) in pobj {
             let ftype = fspec.get("type").and_then(Value::as_str);
-            if ftype != Some("dense_vector") { continue }
+            if ftype != Some("dense_vector") {
+                continue;
+            }
             let dim = fspec.get("dims").and_then(Value::as_u64).unwrap_or(0);
             let bytes_per_vec = (dim * 4).max(64);
-            let bbq = fspec.get("index_options").and_then(|io| io.get("type"))
-                .and_then(Value::as_str).unwrap_or("");
-            let n = docs.max(1) as u64;
+            let bbq = fspec
+                .get("index_options")
+                .and_then(|io| io.get("type"))
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            let n = docs.max(1);
             match bbq {
                 "bbq_disk" => {
                     total_vec += n * bytes_per_vec;
@@ -13664,11 +14847,7 @@ fn read_rss_bytes() -> Option<u64> {
     let status = std::fs::read_to_string("/proc/self/status").ok()?;
     for line in status.lines() {
         if line.starts_with("VmRSS:") {
-            let kb: u64 = line
-                .split_whitespace()
-                .nth(1)?
-                .parse()
-                .ok()?;
+            let kb: u64 = line.split_whitespace().nth(1)?.parse().ok()?;
             return Some(kb * 1024);
         }
     }
@@ -13756,7 +14935,13 @@ fn explain_query_node(q: &xerj_query::ast::QueryNode) -> (String, Vec<Value>) {
             // Single-token match stays as the direct weight label.
             let tokens: Vec<&str> = query.split_whitespace().collect();
             if tokens.len() <= 1 {
-                (format!("weight({}:{} in 0) [PerFieldSimilarity], result of:", field, query), vec![])
+                (
+                    format!(
+                        "weight({}:{} in 0) [PerFieldSimilarity], result of:",
+                        field, query
+                    ),
+                    vec![],
+                )
             } else {
                 let details: Vec<Value> = tokens.iter().map(|t| json!({
                     "value": 0.0,
@@ -13766,60 +14951,94 @@ fn explain_query_node(q: &xerj_query::ast::QueryNode) -> (String, Vec<Value>) {
                 ("sum of:".to_string(), details)
             }
         }
-        QueryNode::MatchPhrase { field, query, .. } => (
-            format!("weight(phrase {}:{} in doc)", field, query),
-            vec![],
-        ),
+        QueryNode::MatchPhrase { field, query, .. } => {
+            (format!("weight(phrase {}:{} in doc)", field, query), vec![])
+        }
         QueryNode::MultiMatch { query, fields, .. } => (
             format!("weight({}:{} in doc)", fields.join("|"), query),
             vec![],
         ),
-        QueryNode::Term { field, value, .. } => (
-            format!("weight({}:{} in doc)", field, value),
-            vec![],
-        ),
+        QueryNode::Term { field, value, .. } => {
+            (format!("weight({}:{} in doc)", field, value), vec![])
+        }
         QueryNode::Terms { field, values, .. } => (
-            format!("weight({}:({}) in doc)", field,
-                values.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(" | ")),
+            format!(
+                "weight({}:({}) in doc)",
+                field,
+                values
+                    .iter()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<_>>()
+                    .join(" | ")
+            ),
             vec![],
         ),
-        QueryNode::Range { field, gte, gt, lte, lt, .. } => {
+        QueryNode::Range {
+            field,
+            gte,
+            gt,
+            lte,
+            lt,
+            ..
+        } => {
             let mut parts = Vec::new();
-            if let Some(v) = gte { parts.push(format!("{} >= {}", field, v)); }
-            if let Some(v) = gt  { parts.push(format!("{} > {}", field, v)); }
-            if let Some(v) = lte { parts.push(format!("{} <= {}", field, v)); }
-            if let Some(v) = lt  { parts.push(format!("{} < {}", field, v)); }
+            if let Some(v) = gte {
+                parts.push(format!("{} >= {}", field, v));
+            }
+            if let Some(v) = gt {
+                parts.push(format!("{} > {}", field, v));
+            }
+            if let Some(v) = lte {
+                parts.push(format!("{} <= {}", field, v));
+            }
+            if let Some(v) = lt {
+                parts.push(format!("{} < {}", field, v));
+            }
             (format!("range({})", parts.join(", ")), vec![])
         }
-        QueryNode::Prefix { field, value, .. } => (
-            format!("weight({}:{} in doc)", field, value),
-            vec![],
-        ),
-        QueryNode::Exists { field } => (
-            format!("ConstantScore(exists(field={}))", field),
-            vec![],
-        ),
-        QueryNode::Bool { must, should, filter, must_not, .. } => {
+        QueryNode::Prefix { field, value, .. } => {
+            (format!("weight({}:{} in doc)", field, value), vec![])
+        }
+        QueryNode::Exists { field } => (format!("ConstantScore(exists(field={}))", field), vec![]),
+        QueryNode::Bool {
+            must,
+            should,
+            filter,
+            must_not,
+            ..
+        } => {
             let mut detail_children: Vec<Value> = Vec::new();
             for c in must {
                 let (d, ch) = explain_query_node(c);
-                detail_children.push(json!({ "value": 0, "description": format!("must: {}", d), "details": ch }));
+                detail_children.push(
+                    json!({ "value": 0, "description": format!("must: {}", d), "details": ch }),
+                );
             }
             for c in should {
                 let (d, ch) = explain_query_node(c);
-                detail_children.push(json!({ "value": 0, "description": format!("should: {}", d), "details": ch }));
+                detail_children.push(
+                    json!({ "value": 0, "description": format!("should: {}", d), "details": ch }),
+                );
             }
             for c in filter {
                 let (d, ch) = explain_query_node(c);
-                detail_children.push(json!({ "value": 0, "description": format!("filter: {}", d), "details": ch }));
+                detail_children.push(
+                    json!({ "value": 0, "description": format!("filter: {}", d), "details": ch }),
+                );
             }
             for c in must_not {
                 let (d, ch) = explain_query_node(c);
-                detail_children.push(json!({ "value": 0, "description": format!("must_not: {}", d), "details": ch }));
+                detail_children.push(
+                    json!({ "value": 0, "description": format!("must_not: {}", d), "details": ch }),
+                );
             }
             ("sum of:".to_string(), detail_children)
         }
-        QueryNode::Boosting { positive, negative, negative_boost } => {
+        QueryNode::Boosting {
+            positive,
+            negative,
+            negative_boost,
+        } => {
             let (pd, pc) = explain_query_node(positive);
             let (nd, nc) = explain_query_node(negative);
             (
@@ -13830,11 +15049,17 @@ fn explain_query_node(q: &xerj_query::ast::QueryNode) -> (String, Vec<Value>) {
                 ],
             )
         }
-        QueryNode::DisMax { queries, tie_breaker } => {
-            let children: Vec<Value> = queries.iter().map(|c| {
-                let (d, ch) = explain_query_node(c);
-                json!({ "value": 0, "description": d, "details": ch })
-            }).collect();
+        QueryNode::DisMax {
+            queries,
+            tie_breaker,
+        } => {
+            let children: Vec<Value> = queries
+                .iter()
+                .map(|c| {
+                    let (d, ch) = explain_query_node(c);
+                    json!({ "value": 0, "description": d, "details": ch })
+                })
+                .collect();
             (format!("max of, tie_breaker={}", tie_breaker), children)
         }
         QueryNode::Constant { score, query } => {
@@ -14032,7 +15257,10 @@ pub async fn cat_aliases(State(state): State<AppState>) -> impl IntoResponse {
     };
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         body,
     )
         .into_response()
@@ -14061,7 +15289,10 @@ pub async fn cat_count(
     let body = format!("{epoch} {ts} {count}\n");
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         body,
     )
         .into_response()
@@ -14084,9 +15315,7 @@ pub async fn cat_shards(State(state): State<AppState>) -> impl IntoResponse {
             .unwrap_or(0);
         lines.push(format!(
             "{} 0 p STARTED {} {}b 127.0.0.1 xerj-node-1",
-            info.name,
-            info.doc_count,
-            store_bytes,
+            info.name, info.doc_count, store_bytes,
         ));
     }
     let body = if lines.is_empty() {
@@ -14096,7 +15325,10 @@ pub async fn cat_shards(State(state): State<AppState>) -> impl IntoResponse {
     };
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         body,
     )
         .into_response()
@@ -14182,8 +15414,9 @@ pub async fn put_ingest_pipeline(
             other => other.to_string(),
         }
     }
-    let xerj_config = if let Some(processors) = body.get("processors").and_then(Value::as_array) {
-        let stages: Vec<Value> = processors.iter().filter_map(|proc| {
+    let xerj_config =
+        if let Some(processors) = body.get("processors").and_then(Value::as_array) {
+            let stages: Vec<Value> = processors.iter().filter_map(|proc| {
             let obj = proc.as_object()?;
             let (proc_type, proc_config) = obj.iter().next()?;
             let xerj_type = map_proc_name(proc_type.as_str());
@@ -14211,13 +15444,13 @@ pub async fn put_ingest_pipeline(
             };
             Some(json!({"type": xerj_type, "config": adapted_config}))
         }).collect();
-        json!({
-            "description": body.get("description").and_then(Value::as_str).unwrap_or(""),
-            "stages": stages
-        })
-    } else {
-        body.clone()
-    };
+            json!({
+                "description": body.get("description").and_then(Value::as_str).unwrap_or(""),
+                "stages": stages
+            })
+        } else {
+            body.clone()
+        };
     if let Err(e) = state.engine.create_pipeline(&id, xerj_config) {
         tracing::warn!(pipeline = %id, error = %e, "pipeline stored but failed to compile");
     }
@@ -14294,10 +15527,7 @@ pub async fn simulate_inline_pipeline(
     let pipeline_def = match body.pipeline {
         Some(p) => p,
         None => {
-            return build_ingest_parse_error(
-                "pipeline",
-                "required property is missing",
-            );
+            return build_ingest_parse_error("pipeline", "required property is missing");
         }
     };
 
@@ -14369,7 +15599,9 @@ pub async fn simulate_inline_pipeline(
     let out_docs: Vec<Value> = body
         .docs
         .iter()
-        .map(|d| run_inline_pipeline_on_doc(d, &processors, params.verbose.as_deref() == Some("true")))
+        .map(|d| {
+            run_inline_pipeline_on_doc(d, &processors, params.verbose.as_deref() == Some("true"))
+        })
         .collect();
 
     Json(json!({ "docs": out_docs })).into_response()
@@ -14379,10 +15611,21 @@ pub async fn simulate_inline_pipeline(
 /// target pipeline's processors, detecting cycles and flagging
 /// missing pipelines with a sentinel error processor.
 fn expand_pipeline_processors(state: &AppState, processors: &[Value]) -> Vec<Value> {
-    fn walk(state: &AppState, procs: &[Value], seen: &mut std::collections::HashSet<String>, out: &mut Vec<Value>) {
+    fn walk(
+        state: &AppState,
+        procs: &[Value],
+        seen: &mut std::collections::HashSet<String>,
+        out: &mut Vec<Value>,
+    ) {
         for p in procs {
-            let Some(obj) = p.as_object() else { out.push(p.clone()); continue };
-            let Some((name, cfg)) = obj.iter().next() else { out.push(p.clone()); continue };
+            let Some(obj) = p.as_object() else {
+                out.push(p.clone());
+                continue;
+            };
+            let Some((name, cfg)) = obj.iter().next() else {
+                out.push(p.clone());
+                continue;
+            };
             if name != "pipeline" {
                 out.push(p.clone());
                 continue;
@@ -14405,14 +15648,20 @@ fn expand_pipeline_processors(state: &AppState, processors: &[Value]) -> Vec<Val
                     let inner = if let Some(p) = pipe.get("processors").and_then(Value::as_array) {
                         p.clone()
                     } else if let Some(stages) = pipe.get("stages").and_then(Value::as_array) {
-                        stages.iter().filter_map(|st| {
-                            let obj = st.as_object()?;
-                            let ty = obj.get("type").and_then(Value::as_str)?;
-                            let cfg = obj.get("config").cloned().unwrap_or(Value::Object(serde_json::Map::new()));
-                            let mut m = serde_json::Map::new();
-                            m.insert(ty.to_string(), cfg);
-                            Some(Value::Object(m))
-                        }).collect()
+                        stages
+                            .iter()
+                            .filter_map(|st| {
+                                let obj = st.as_object()?;
+                                let ty = obj.get("type").and_then(Value::as_str)?;
+                                let cfg = obj
+                                    .get("config")
+                                    .cloned()
+                                    .unwrap_or(Value::Object(serde_json::Map::new()));
+                                let mut m = serde_json::Map::new();
+                                m.insert(ty.to_string(), cfg);
+                                Some(Value::Object(m))
+                            })
+                            .collect()
                     } else {
                         Vec::new()
                     };
@@ -14423,9 +15672,9 @@ fn expand_pipeline_processors(state: &AppState, processors: &[Value]) -> Vec<Val
                     // the outermost cycle, not a nested wrapper chain.
                     let mut inner_expanded: Vec<Value> = Vec::new();
                     walk(state, &inner, seen, &mut inner_expanded);
-                    let has_cycle_or_missing = inner_expanded.iter().any(|v| {
-                        v.get("__xy_missing_pipeline__").is_some()
-                    });
+                    let has_cycle_or_missing = inner_expanded
+                        .iter()
+                        .any(|v| v.get("__xy_missing_pipeline__").is_some());
                     if !has_cycle_or_missing {
                         out.push(json!({"__xy_pipeline_ref__": cfg.clone()}));
                         out.extend(inner_expanded);
@@ -14469,23 +15718,39 @@ fn find_missing_processor_property(name: &str, cfg: &Value) -> Option<(&'static 
     let has = |k: &str| cfg.get(k).is_some();
     let missing = match name {
         "remove" | "lowercase" | "uppercase" | "trim" => {
-            if !has("field") { Some("field") } else { None }
+            if !has("field") {
+                Some("field")
+            } else {
+                None
+            }
         }
         // `set` and `append` require BOTH `field` and `value`. ES
         // validates property-by-property, reporting `field` first
         // when both are missing.
         "set" | "append" => {
-            if !has("field") { Some("field") }
-            else if !has("value") && !has("copy_from") { Some("value") }
-            else { None }
+            if !has("field") {
+                Some("field")
+            } else if !has("value") && !has("copy_from") {
+                Some("value")
+            } else {
+                None
+            }
         }
         "rename" => {
-            if !has("field") { Some("field") }
-            else if !has("target_field") { Some("target_field") }
-            else { None }
+            if !has("field") {
+                Some("field")
+            } else if !has("target_field") {
+                Some("target_field")
+            } else {
+                None
+            }
         }
         "script" => {
-            if !has("source") && !has("id") { Some("source") } else { None }
+            if !has("source") && !has("id") {
+                Some("source")
+            } else {
+                None
+            }
         }
         _ => None,
     }?;
@@ -14524,14 +15789,21 @@ fn build_ingest_parse_error(property: &str, reason: &str) -> axum::response::Res
 /// here — only `set`, `remove`, `rename`, `append`, `lowercase`, `uppercase`,
 /// `trim`, and `script` — but the shape of the response is identical so tests
 /// that exercise the happy path (set/remove) pass.
-fn run_inline_pipeline_on_doc(
-    input: &Value,
-    processors: &[Value],
-    verbose: bool,
-) -> Value {
-    let index = input.get("_index").and_then(Value::as_str).unwrap_or("_index").to_string();
-    let id = input.get("_id").and_then(Value::as_str).unwrap_or("_id").to_string();
-    let mut source: Value = input.get("_source").cloned().unwrap_or(Value::Object(serde_json::Map::new()));
+fn run_inline_pipeline_on_doc(input: &Value, processors: &[Value], verbose: bool) -> Value {
+    let index = input
+        .get("_index")
+        .and_then(Value::as_str)
+        .unwrap_or("_index")
+        .to_string();
+    let id = input
+        .get("_id")
+        .and_then(Value::as_str)
+        .unwrap_or("_id")
+        .to_string();
+    let mut source: Value = input
+        .get("_source")
+        .cloned()
+        .unwrap_or(Value::Object(serde_json::Map::new()));
 
     let timestamp = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
 
@@ -14543,6 +15815,9 @@ fn run_inline_pipeline_on_doc(
     // `on_failure_tag` lets nested on_failure chains stamp their own
     // doc._ingest.on_failure_processor_tag so the YAML tests can
     // inspect which processor triggered the recovery.
+    // Renderer needs every piece of per-step context; splitting the
+    // signature into a struct would not improve clarity here.
+    #[allow(clippy::too_many_arguments)]
     fn render_entry(
         name: &str,
         cfg: &Value,
@@ -14556,7 +15831,10 @@ fn run_inline_pipeline_on_doc(
         on_failure_tag: Option<&str>,
     ) -> Value {
         let mut entry = serde_json::Map::new();
-        entry.insert("processor_type".to_string(), Value::String(name.to_string()));
+        entry.insert(
+            "processor_type".to_string(),
+            Value::String(name.to_string()),
+        );
         entry.insert("status".to_string(), Value::String(status.to_string()));
         if let Some(tag) = cfg.get("tag").and_then(Value::as_str) {
             if !tag.is_empty() {
@@ -14588,18 +15866,30 @@ fn run_inline_pipeline_on_doc(
         };
         if let Some(msg) = error_msg {
             let et = etype_of(msg);
-            entry.insert("error".to_string(), json!({
-                "root_cause": [{"type": et, "reason": msg}],
-                "type": et,
-                "reason": msg,
-            }));
+            entry.insert(
+                "error".to_string(),
+                json!({
+                    "root_cause": [{"type": et, "reason": msg}],
+                    "type": et,
+                    "reason": msg,
+                }),
+            );
         } else {
             // Emit doc for success / error_ignored paths.
             let mut ingest = serde_json::Map::new();
-            ingest.insert("timestamp".to_string(), Value::String(timestamp.to_string()));
-            ingest.insert("pipeline".to_string(), Value::String("_simulate_pipeline".into()));
+            ingest.insert(
+                "timestamp".to_string(),
+                Value::String(timestamp.to_string()),
+            );
+            ingest.insert(
+                "pipeline".to_string(),
+                Value::String("_simulate_pipeline".into()),
+            );
             if let Some(tag) = on_failure_tag {
-                ingest.insert("on_failure_processor_tag".to_string(), Value::String(tag.to_string()));
+                ingest.insert(
+                    "on_failure_processor_tag".to_string(),
+                    Value::String(tag.to_string()),
+                );
             }
             entry.insert(
                 "doc".to_string(),
@@ -14613,13 +15903,16 @@ fn run_inline_pipeline_on_doc(
         }
         if let Some(msg) = ignored_error {
             let et = etype_of(msg);
-            entry.insert("ignored_error".to_string(), json!({
-                "error": {
-                    "root_cause": [{"type": et, "reason": msg}],
-                    "type": et,
-                    "reason": msg,
-                }
-            }));
+            entry.insert(
+                "ignored_error".to_string(),
+                json!({
+                    "error": {
+                        "root_cause": [{"type": et, "reason": msg}],
+                        "type": et,
+                        "reason": msg,
+                    }
+                }),
+            );
         }
         Value::Object(entry)
     }
@@ -14642,11 +15935,23 @@ fn run_inline_pipeline_on_doc(
         parent_on_failure_tag: Option<&str>,
     ) -> Result<(), String> {
         if name == "__xy_missing_pipeline__" {
-            let reason = cfg.get("reason").and_then(Value::as_str).unwrap_or("").to_string();
+            let reason = cfg
+                .get("reason")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
             if verbose {
                 results.push(render_entry(
-                    "pipeline", cfg, "error", Some(&reason), None,
-                    source, index, id, timestamp, parent_on_failure_tag,
+                    "pipeline",
+                    cfg,
+                    "error",
+                    Some(&reason),
+                    None,
+                    source,
+                    index,
+                    id,
+                    timestamp,
+                    parent_on_failure_tag,
                 ));
             }
             return Err(reason);
@@ -14655,8 +15960,16 @@ fn run_inline_pipeline_on_doc(
         if cond == Some("false") {
             if verbose {
                 results.push(render_entry(
-                    name, cfg, "skipped", None, None,
-                    source, index, id, timestamp, parent_on_failure_tag,
+                    name,
+                    cfg,
+                    "skipped",
+                    None,
+                    None,
+                    source,
+                    index,
+                    id,
+                    timestamp,
+                    parent_on_failure_tag,
                 ));
             }
             return Ok(());
@@ -14665,14 +15978,25 @@ fn run_inline_pipeline_on_doc(
             Ok(()) => {
                 if verbose {
                     results.push(render_entry(
-                        name, cfg, "success", None, None,
-                        source, index, id, timestamp, parent_on_failure_tag,
+                        name,
+                        cfg,
+                        "success",
+                        None,
+                        None,
+                        source,
+                        index,
+                        id,
+                        timestamp,
+                        parent_on_failure_tag,
                     ));
                 }
                 Ok(())
             }
             Err(e) => {
-                let ignore_failure = cfg.get("ignore_failure").and_then(Value::as_bool).unwrap_or(false);
+                let ignore_failure = cfg
+                    .get("ignore_failure")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
                 let on_failure = cfg.get("on_failure").and_then(Value::as_array).cloned();
                 if ignore_failure {
                     // ignore_failure takes precedence over on_failure:
@@ -14681,8 +16005,16 @@ fn run_inline_pipeline_on_doc(
                     // recovery-chain entries.
                     if verbose {
                         results.push(render_entry(
-                            name, cfg, "error_ignored", None, Some(&e),
-                            source, index, id, timestamp, parent_on_failure_tag,
+                            name,
+                            cfg,
+                            "error_ignored",
+                            None,
+                            Some(&e),
+                            source,
+                            index,
+                            id,
+                            timestamp,
+                            parent_on_failure_tag,
                         ));
                     }
                     return Ok(());
@@ -14692,8 +16024,16 @@ fn run_inline_pipeline_on_doc(
                     // each on_failure step emits its own verbose
                     // entry (carrying on_failure_processor_tag).
                     results.push(render_entry(
-                        name, cfg, "error", Some(&e), None,
-                        source, index, id, timestamp, parent_on_failure_tag,
+                        name,
+                        cfg,
+                        "error",
+                        Some(&e),
+                        None,
+                        source,
+                        index,
+                        id,
+                        timestamp,
+                        parent_on_failure_tag,
                     ));
                 }
                 if let Some(of_procs) = on_failure {
@@ -14704,13 +16044,17 @@ fn run_inline_pipeline_on_doc(
                     for of_spec in &of_procs {
                         if let Some(obj2) = of_spec.as_object() {
                             if let Some((of_name, of_cfg)) = obj2.iter().next() {
-                                if let Err(msg) = run_one(
-                                    of_name, of_cfg, source, verbose, results,
-                                    index, id, timestamp,
+                                run_one(
+                                    of_name,
+                                    of_cfg,
+                                    source,
+                                    verbose,
+                                    results,
+                                    index,
+                                    id,
+                                    timestamp,
                                     my_tag.as_deref(),
-                                ) {
-                                    return Err(msg);
-                                }
+                                )?;
                             }
                         }
                     }
@@ -14723,11 +16067,19 @@ fn run_inline_pipeline_on_doc(
     }
 
     for proc_spec in processors {
-        let Some(obj) = proc_spec.as_object() else { continue };
-        let Some((name, cfg)) = obj.iter().next() else { continue };
+        let Some(obj) = proc_spec.as_object() else {
+            continue;
+        };
+        let Some((name, cfg)) = obj.iter().next() else {
+            continue;
+        };
 
         if !verbose && name == "__xy_missing_pipeline__" {
-            let reason = cfg.get("reason").and_then(Value::as_str).unwrap_or("").to_string();
+            let reason = cfg
+                .get("reason")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
             error = Some(("pipeline".to_string(), reason));
             break;
         }
@@ -14738,7 +16090,10 @@ fn run_inline_pipeline_on_doc(
         if name == "__xy_pipeline_ref__" {
             if verbose {
                 let mut entry = serde_json::Map::new();
-                entry.insert("processor_type".to_string(), Value::String("pipeline".into()));
+                entry.insert(
+                    "processor_type".to_string(),
+                    Value::String("pipeline".into()),
+                );
                 entry.insert("status".to_string(), Value::String("success".into()));
                 if let Some(tag) = cfg.get("tag").and_then(Value::as_str) {
                     if !tag.is_empty() {
@@ -14772,8 +16127,15 @@ fn run_inline_pipeline_on_doc(
 
         if verbose {
             if let Err(msg) = run_one(
-                name, cfg, &mut source, true, &mut results,
-                &index, &id, &timestamp, None,
+                name,
+                cfg,
+                &mut source,
+                true,
+                &mut results,
+                &index,
+                &id,
+                &timestamp,
+                None,
             ) {
                 error = Some((name.clone(), msg));
                 break;
@@ -14789,13 +16151,18 @@ fn run_inline_pipeline_on_doc(
             Ok(_) => "success",
             Err(e) => {
                 let on_failure = cfg.get("on_failure").and_then(Value::as_array).cloned();
-                let ignore_failure = cfg.get("ignore_failure").and_then(Value::as_bool).unwrap_or(false);
+                let ignore_failure = cfg
+                    .get("ignore_failure")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
                 if let Some(of_procs) = on_failure {
                     let mut of_err: Option<String> = None;
                     for of_spec in &of_procs {
                         if let Some(obj2) = of_spec.as_object() {
                             if let Some((of_name, of_cfg)) = obj2.iter().next() {
-                                if let Err(of_e) = apply_processor_with_on_failure(of_name, of_cfg, &mut source) {
+                                if let Err(of_e) =
+                                    apply_processor_with_on_failure(of_name, of_cfg, &mut source)
+                                {
                                     of_err = Some(of_e);
                                     break;
                                 }
@@ -14803,10 +16170,17 @@ fn run_inline_pipeline_on_doc(
                         }
                     }
                     match of_err {
-                        Some(msg) => { error = Some((name.clone(), msg)); "error" }
+                        Some(msg) => {
+                            error = Some((name.clone(), msg));
+                            "error"
+                        }
                         None => {
                             ignored_error_reason = Some(e.clone());
-                            if ignore_failure { "error_ignored" } else { "success" }
+                            if ignore_failure {
+                                "error_ignored"
+                            } else {
+                                "success"
+                            }
                         }
                     }
                 } else if ignore_failure {
@@ -14819,7 +16193,9 @@ fn run_inline_pipeline_on_doc(
             }
         };
         let _ = (status, ignored_error_reason);
-        if error.is_some() { break; }
+        if error.is_some() {
+            break;
+        }
     }
 
     if verbose {
@@ -14839,7 +16215,10 @@ fn run_inline_pipeline_on_doc(
             // config-validation errors and runtime_exception for
             // script-level runtime failures. Most of what our
             // processors raise falls into the first category.
-            let etype = if msg.contains("not present") || msg.contains("required") || msg.contains("missing") {
+            let etype = if msg.contains("not present")
+                || msg.contains("required")
+                || msg.contains("missing")
+            {
                 "illegal_argument_exception"
             } else {
                 "runtime_exception"
@@ -14870,17 +16249,24 @@ fn apply_processor_with_on_failure(
     cfg: &Value,
     source: &mut Value,
 ) -> Result<(), String> {
-    let source_obj = source.as_object_mut().ok_or_else(|| "source is not an object".to_string())?;
+    let source_obj = source
+        .as_object_mut()
+        .ok_or_else(|| "source is not an object".to_string())?;
     let cloned: Value = Value::Object(source_obj.clone());
     let mut wrapped = cloned;
     let r = apply_single_processor(name, cfg, &mut wrapped);
     // Write wrapped back in case the processor mutated it.
     if let (Some(dst), Some(src)) = (source.as_object_mut(), wrapped.as_object()) {
         dst.clear();
-        for (k, v) in src { dst.insert(k.clone(), v.clone()); }
+        for (k, v) in src {
+            dst.insert(k.clone(), v.clone());
+        }
     }
     if let Err(e) = r {
-        let ignore_failure = cfg.get("ignore_failure").and_then(Value::as_bool).unwrap_or(false);
+        let ignore_failure = cfg
+            .get("ignore_failure")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
         if let Some(of_procs) = cfg.get("on_failure").and_then(Value::as_array) {
             for of_spec in of_procs {
                 if let Some(obj2) = of_spec.as_object() {
@@ -14905,14 +16291,18 @@ fn apply_processor_with_on_failure(
 /// `{a: {b: {c: "d"}}}` (merging with any existing keys).
 fn set_dotted_path(obj: &mut serde_json::Map<String, Value>, field: &str, value: Value) {
     let segments: Vec<&str> = field.split('.').collect();
-    if segments.is_empty() { return; }
+    if segments.is_empty() {
+        return;
+    }
     if segments.len() == 1 {
         obj.insert(segments[0].to_string(), value);
         return;
     }
     let mut cur = obj;
     for seg in &segments[..segments.len() - 1] {
-        let entry = cur.entry(seg.to_string()).or_insert_with(|| Value::Object(serde_json::Map::new()));
+        let entry = cur
+            .entry(seg.to_string())
+            .or_insert_with(|| Value::Object(serde_json::Map::new()));
         if !entry.is_object() {
             *entry = Value::Object(serde_json::Map::new());
         }
@@ -14923,9 +16313,14 @@ fn set_dotted_path(obj: &mut serde_json::Map<String, Value>, field: &str, value:
 }
 
 /// Get a mutable reference to the value at the dotted path `field`, if present.
-fn get_dotted_path_mut<'a>(obj: &'a mut serde_json::Map<String, Value>, field: &str) -> Option<&'a mut Value> {
+fn get_dotted_path_mut<'a>(
+    obj: &'a mut serde_json::Map<String, Value>,
+    field: &str,
+) -> Option<&'a mut Value> {
     let segments: Vec<&str> = field.split('.').collect();
-    if segments.is_empty() { return None; }
+    if segments.is_empty() {
+        return None;
+    }
     let mut cur: &mut Value = obj.get_mut(segments[0])?;
     for seg in &segments[1..] {
         // Single-pass parse: was `if is_ok() { let idx = unwrap(); ... }`,
@@ -14940,11 +16335,7 @@ fn get_dotted_path_mut<'a>(obj: &'a mut serde_json::Map<String, Value>, field: &
     Some(cur)
 }
 
-fn apply_single_processor(
-    name: &str,
-    cfg: &Value,
-    source: &mut Value,
-) -> Result<(), String> {
+fn apply_single_processor(name: &str, cfg: &Value, source: &mut Value) -> Result<(), String> {
     let source_obj = source
         .as_object_mut()
         .ok_or_else(|| "source is not an object".to_string())?;
@@ -14968,9 +16359,20 @@ fn apply_single_processor(
             Ok(())
         }
         "rename" => {
-            let from = cfg.get("field").and_then(Value::as_str).ok_or_else(|| "rename processor: 'field' required".to_string())?.to_string();
-            let to = cfg.get("target_field").and_then(Value::as_str).ok_or_else(|| "rename processor: 'target_field' required".to_string())?.to_string();
-            let ignore_missing = cfg.get("ignore_missing").and_then(Value::as_bool).unwrap_or(false);
+            let from = cfg
+                .get("field")
+                .and_then(Value::as_str)
+                .ok_or_else(|| "rename processor: 'field' required".to_string())?
+                .to_string();
+            let to = cfg
+                .get("target_field")
+                .and_then(Value::as_str)
+                .ok_or_else(|| "rename processor: 'target_field' required".to_string())?
+                .to_string();
+            let ignore_missing = cfg
+                .get("ignore_missing")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
             if let Some(v) = source_obj.remove(&from) {
                 source_obj.insert(to, v);
                 Ok(())
@@ -14981,7 +16383,11 @@ fn apply_single_processor(
             }
         }
         "append" => {
-            let field = cfg.get("field").and_then(Value::as_str).ok_or_else(|| "append processor: 'field' required".to_string())?.to_string();
+            let field = cfg
+                .get("field")
+                .and_then(Value::as_str)
+                .ok_or_else(|| "append processor: 'field' required".to_string())?
+                .to_string();
             let value = cfg.get("value").cloned().unwrap_or(Value::Null);
             let slot = source_obj.entry(field).or_insert(Value::Array(Vec::new()));
             match slot {
@@ -14997,14 +16403,31 @@ fn apply_single_processor(
             Ok(())
         }
         "convert" => {
-            let field = cfg.get("field").and_then(Value::as_str).ok_or_else(|| "convert processor: 'field' required".to_string())?.to_string();
-            let target_field = cfg.get("target_field").and_then(Value::as_str).unwrap_or(&field).to_string();
-            let ty = cfg.get("type").and_then(Value::as_str).ok_or_else(|| "convert processor: 'type' required".to_string())?;
+            let field = cfg
+                .get("field")
+                .and_then(Value::as_str)
+                .ok_or_else(|| "convert processor: 'field' required".to_string())?
+                .to_string();
+            let target_field = cfg
+                .get("target_field")
+                .and_then(Value::as_str)
+                .unwrap_or(&field)
+                .to_string();
+            let ty = cfg
+                .get("type")
+                .and_then(Value::as_str)
+                .ok_or_else(|| "convert processor: 'type' required".to_string())?;
             let Some(existing) = get_dotted_path_mut(source_obj, &field).map(|v| v.clone()) else {
-                return if cfg.get("ignore_missing").and_then(Value::as_bool).unwrap_or(false) {
+                return if cfg
+                    .get("ignore_missing")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
+                {
                     Ok(())
                 } else {
-                    Err(format!("field [{field}] not present as part of path [{field}]"))
+                    Err(format!(
+                        "field [{field}] not present as part of path [{field}]"
+                    ))
                 };
             };
             let converted: Value = match ty {
@@ -15014,7 +16437,8 @@ fn apply_single_processor(
                         Value::String(s) => s.parse::<i64>().ok(),
                         Value::Bool(b) => Some(if *b { 1 } else { 0 }),
                         _ => None,
-                    }.ok_or_else(|| format!("unable to convert [{existing}] to integer"))?;
+                    }
+                    .ok_or_else(|| format!("unable to convert [{existing}] to integer"))?;
                     json!(n)
                 }
                 "float" | "double" => {
@@ -15023,8 +16447,11 @@ fn apply_single_processor(
                         Value::String(s) => s.parse::<f64>().ok(),
                         Value::Bool(b) => Some(if *b { 1.0 } else { 0.0 }),
                         _ => None,
-                    }.ok_or_else(|| format!("unable to convert [{existing}] to float"))?;
-                    serde_json::Number::from_f64(f).map(Value::Number).unwrap_or(Value::Null)
+                    }
+                    .ok_or_else(|| format!("unable to convert [{existing}] to float"))?;
+                    serde_json::Number::from_f64(f)
+                        .map(Value::Number)
+                        .unwrap_or(Value::Null)
                 }
                 "string" => match &existing {
                     Value::String(s) => Value::String(s.clone()),
@@ -15047,8 +16474,15 @@ fn apply_single_processor(
             Ok(())
         }
         "lowercase" | "uppercase" | "trim" => {
-            let field = cfg.get("field").and_then(Value::as_str).ok_or_else(|| format!("{name} processor: 'field' required"))?.to_string();
-            let ignore_missing = cfg.get("ignore_missing").and_then(Value::as_bool).unwrap_or(false);
+            let field = cfg
+                .get("field")
+                .and_then(Value::as_str)
+                .ok_or_else(|| format!("{name} processor: 'field' required"))?
+                .to_string();
+            let ignore_missing = cfg
+                .get("ignore_missing")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
             match get_dotted_path_mut(source_obj, &field) {
                 Some(v) => {
                     if let Value::String(s) = v {
@@ -15068,7 +16502,9 @@ fn apply_single_processor(
                         // ES raises illegal_argument_exception when the
                         // referenced field isn't present and
                         // ignore_missing isn't true.
-                        Err(format!("field [{field}] not present as part of path [{field}]"))
+                        Err(format!(
+                            "field [{field}] not present as part of path [{field}]"
+                        ))
                     }
                 }
             }
@@ -15100,7 +16536,8 @@ pub async fn simulate_ingest_pipeline(
     // when it was round-tripped verbatim, OR in xerj internal shape
     // (`stages: [{type: "set", config: {...}}]`) after compilation.
     // Accept either — convert stages back into the ES-processor shape.
-    let processors: Vec<Value> = if let Some(p) = stored.get("processors").and_then(Value::as_array) {
+    let processors: Vec<Value> = if let Some(p) = stored.get("processors").and_then(Value::as_array)
+    {
         p.clone()
     } else if let Some(stages) = stored.get("stages").and_then(Value::as_array) {
         stages
@@ -15108,7 +16545,10 @@ pub async fn simulate_ingest_pipeline(
             .filter_map(|st| {
                 let obj = st.as_object()?;
                 let ty = obj.get("type").and_then(Value::as_str)?;
-                let cfg = obj.get("config").cloned().unwrap_or(Value::Object(serde_json::Map::new()));
+                let cfg = obj
+                    .get("config")
+                    .cloned()
+                    .unwrap_or(Value::Object(serde_json::Map::new()));
                 let mut m = serde_json::Map::new();
                 m.insert(ty.to_string(), cfg);
                 Some(Value::Object(m))
@@ -15152,7 +16592,8 @@ pub async fn close_index(
                 "acknowledged": true,
                 "shards_acknowledged": true,
                 "indices": { index: { "closed": true } }
-            })).into_response()
+            }))
+            .into_response()
         }
         Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
     }
@@ -15168,10 +16609,14 @@ pub async fn open_index(
             // On reopen, re-evaluate index-sort from the CURRENT mapping —
             // dynamic mapping may have since added a `@timestamp` date
             // field. ES sorts segments on reopen when the mapping permits.
-            let has_ts_declared = state.engine.index_mappings.get(&index)
+            let has_ts_declared = state
+                .engine
+                .index_mappings
+                .get(&index)
                 .map(|r| {
                     let m = r.value();
-                    let t = m.pointer("/mappings/properties/@timestamp/type")
+                    let t = m
+                        .pointer("/mappings/properties/@timestamp/type")
                         .or_else(|| m.pointer("/properties/@timestamp/type"))
                         .and_then(Value::as_str);
                     matches!(t, Some("date") | Some("date_nanos"))
@@ -15193,7 +16638,9 @@ pub async fn open_index(
                     ..Default::default()
                 };
                 match idx.search(&req).await {
-                    Ok(r) => r.hits.first()
+                    Ok(r) => r
+                        .hits
+                        .first()
                         .map(|h| h.source.get("@timestamp").is_some())
                         .unwrap_or(false),
                     _ => false,
@@ -15201,19 +16648,28 @@ pub async fn open_index(
             };
             let has_ts = has_ts_declared || has_ts_via_source;
             if has_ts {
-                let existing = state.engine.index_settings.get(&index).map(|r| r.value().clone()).unwrap_or(Value::Null);
+                let existing = state
+                    .engine
+                    .index_settings
+                    .get(&index)
+                    .map(|r| r.value().clone())
+                    .unwrap_or(Value::Null);
                 let mut merged = match existing {
                     Value::Object(m) => m,
                     _ => serde_json::Map::new(),
                 };
                 merged.insert("__xy_index_sort_field".to_string(), json!("@timestamp"));
                 merged.insert("__xy_index_sort_order".to_string(), json!("desc"));
-                state.engine.index_settings.insert(index.clone(), Value::Object(merged));
+                state
+                    .engine
+                    .index_settings
+                    .insert(index.clone(), Value::Object(merged));
             }
             Json(json!({
                 "acknowledged": true,
                 "shards_acknowledged": true,
-            })).into_response()
+            }))
+            .into_response()
         }
         Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
     }
@@ -15313,7 +16769,11 @@ pub async fn admin_segments_fsck(
         // a corruption hit as a hard incident, not a green ping.
         StatusCode::INTERNAL_SERVER_ERROR
     };
-    (status, Json(serde_json::to_value(&report).unwrap_or(json!({})))).into_response()
+    (
+        status,
+        Json(serde_json::to_value(&report).unwrap_or(json!({}))),
+    )
+        .into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -15336,7 +16796,8 @@ pub async fn flush_index(
     match state.engine.flush_index(&index).await {
         Ok(()) => Json(json!({
             "_shards": { "total": 1, "successful": 1, "failed": 0 }
-        })).into_response(),
+        }))
+        .into_response(),
         Err(e) => {
             // index-not-found wraps as 404; everything else is 500
             let msg = e.to_string();
@@ -15345,9 +16806,13 @@ pub async fn flush_index(
             } else {
                 axum::http::StatusCode::INTERNAL_SERVER_ERROR
             };
-            (status, Json(json!({
-                "error": { "type": "flush_failed", "reason": msg }
-            }))).into_response()
+            (
+                status,
+                Json(json!({
+                    "error": { "type": "flush_failed", "reason": msg }
+                })),
+            )
+                .into_response()
         }
     }
 }
@@ -15356,9 +16821,7 @@ pub async fn flush_index(
 // POST /_flush — flush every index in the cluster
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub async fn flush_all(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn flush_all(State(state): State<AppState>) -> impl IntoResponse {
     let names: Vec<String> = state
         .engine
         .list_indices()
@@ -15376,7 +16839,8 @@ pub async fn flush_all(
     }
     Json(json!({
         "_shards": { "total": succ + fail, "successful": succ, "failed": fail }
-    })).into_response()
+    }))
+    .into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -15416,7 +16880,8 @@ pub async fn clear_cache(
     match state.engine.get_index(&index) {
         Ok(_) => Json(json!({
             "_shards": { "total": 1, "successful": 1, "failed": 0 }
-        })).into_response(),
+        }))
+        .into_response(),
         Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
     }
 }
@@ -15454,7 +16919,10 @@ pub async fn cat_templates(State(state): State<AppState>) -> impl IntoResponse {
     };
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         body,
     )
         .into_response()
@@ -15501,7 +16969,8 @@ pub async fn get_data_stream(
             Json(json!({ "data_streams": [body] })).into_response()
         }
         None => {
-            let e = xerj_common::XerjError::index_not_found(format!("data_stream [{name}] missing"));
+            let e =
+                xerj_common::XerjError::index_not_found(format!("data_stream [{name}] missing"));
             ApiError::new(e).into_response()
         }
     }
@@ -15642,9 +17111,9 @@ pub async fn get_component_template(
         }))
         .into_response(),
         None => {
-            let e = xerj_common::XerjError::index_not_found(
-                format!("component template [{name}] missing"),
-            );
+            let e = xerj_common::XerjError::index_not_found(format!(
+                "component template [{name}] missing"
+            ));
             ApiError::new(e).into_response()
         }
     }
@@ -15657,9 +17126,8 @@ pub async fn delete_component_template(
     if state.engine.component_templates.remove(&name).is_some() {
         Json(json!({ "acknowledged": true })).into_response()
     } else {
-        let e = xerj_common::XerjError::index_not_found(
-            format!("component template [{name}] missing"),
-        );
+        let e =
+            xerj_common::XerjError::index_not_found(format!("component template [{name}] missing"));
         ApiError::new(e).into_response()
     }
 }
@@ -15772,7 +17240,7 @@ pub async fn cat_allocation(State(state): State<AppState>) -> impl IntoResponse 
         .unwrap_or((10 * 1024 * 1024 * 1024, 8 * 1024 * 1024 * 1024));
     let disk_used_bytes = disk_total.saturating_sub(disk_avail);
     let disk_percent = if disk_total > 0 {
-        ((disk_total - disk_avail) * 100 / disk_total) as u64
+        (disk_total - disk_avail) * 100 / disk_total
     } else {
         0
     };
@@ -15783,7 +17251,10 @@ pub async fn cat_allocation(State(state): State<AppState>) -> impl IntoResponse 
     );
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         body,
     )
         .into_response()
@@ -15799,9 +17270,13 @@ fn read_disk_stats(path: &str) -> Option<(u64, u64)> {
     if unsafe { libc::statvfs(c.as_ptr(), &mut st) } != 0 {
         return None;
     }
-    let bsize = if st.f_frsize > 0 { st.f_frsize } else { st.f_bsize } as u64;
-    let total = (st.f_blocks as u64).saturating_mul(bsize);
-    let avail = (st.f_bavail as u64).saturating_mul(bsize);
+    let bsize = if st.f_frsize > 0 {
+        st.f_frsize
+    } else {
+        st.f_bsize
+    };
+    let total = st.f_blocks.saturating_mul(bsize);
+    let avail = st.f_bavail.saturating_mul(bsize);
     if total == 0 {
         return None;
     }
@@ -15842,9 +17317,7 @@ fn normalize_alias_meta(meta: Value) -> Value {
 }
 
 /// `HEAD /_alias` — 200 iff any alias exists on any index.
-pub async fn head_all_aliases_all_indices(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn head_all_aliases_all_indices(State(state): State<AppState>) -> impl IntoResponse {
     if state.engine.aliases.is_empty() {
         StatusCode::NOT_FOUND
     } else {
@@ -15866,9 +17339,10 @@ pub async fn head_alias_all_indices(
         .map(|i| i.name)
         .collect();
     let alias_matches = |a: &str| -> bool {
-        alias.split(',').map(str::trim).any(|pat| {
-            pat == "_all" || pat == "*" || glob_match_simple(pat, a) || pat == a
-        })
+        alias
+            .split(',')
+            .map(str::trim)
+            .any(|pat| pat == "_all" || pat == "*" || glob_match_simple(pat, a) || pat == a)
     };
     let found = indices.iter().any(|idx| {
         state
@@ -15917,9 +17391,10 @@ pub async fn head_index_alias(
         return StatusCode::NOT_FOUND;
     }
     let alias_matches = |a: &str| -> bool {
-        alias.split(',').map(str::trim).any(|pat| {
-            pat == "_all" || pat == "*" || glob_match_simple(pat, a) || pat == a
-        })
+        alias
+            .split(',')
+            .map(str::trim)
+            .any(|pat| pat == "_all" || pat == "*" || glob_match_simple(pat, a) || pat == a)
     };
     let found = targets.iter().any(|name| {
         state
@@ -15936,9 +17411,7 @@ pub async fn head_index_alias(
 }
 
 /// `GET /_alias` — every alias on every index.
-pub async fn get_all_aliases_all_indices(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn get_all_aliases_all_indices(State(state): State<AppState>) -> impl IntoResponse {
     let indices: Vec<String> = state
         .engine
         .list_indices()
@@ -15951,7 +17424,10 @@ pub async fn get_all_aliases_all_indices(
         let mut aliases_map = serde_json::Map::new();
         for entry in state.engine.aliases.iter() {
             if entry.value().contains(idx) {
-                aliases_map.insert(entry.key().clone(), alias_meta_for(&state, idx, entry.key()));
+                aliases_map.insert(
+                    entry.key().clone(),
+                    alias_meta_for(&state, idx, entry.key()),
+                );
             }
         }
         result.insert(idx.clone(), json!({ "aliases": aliases_map }));
@@ -15975,9 +17451,10 @@ pub async fn get_alias_all_indices(
         .collect();
 
     let alias_matches = |a: &str| -> bool {
-        alias.split(',').map(str::trim).any(|pat| {
-            pat == "_all" || pat == "*" || glob_match_simple(pat, a) || pat == a
-        })
+        alias
+            .split(',')
+            .map(str::trim)
+            .any(|pat| pat == "_all" || pat == "*" || glob_match_simple(pat, a) || pat == a)
     };
 
     let mut result = serde_json::Map::new();
@@ -15985,7 +17462,10 @@ pub async fn get_alias_all_indices(
         let mut aliases_map = serde_json::Map::new();
         for entry in state.engine.aliases.iter() {
             if entry.value().contains(idx) && alias_matches(entry.key()) {
-                aliases_map.insert(entry.key().clone(), alias_meta_for(&state, idx, entry.key()));
+                aliases_map.insert(
+                    entry.key().clone(),
+                    alias_meta_for(&state, idx, entry.key()),
+                );
             }
         }
         if !aliases_map.is_empty() {
@@ -16018,7 +17498,10 @@ pub async fn get_index_aliases(
         let mut aliases_map = serde_json::Map::new();
         for entry in state.engine.aliases.iter() {
             if entry.value().contains(name) {
-                aliases_map.insert(entry.key().clone(), alias_meta_for(&state, name, entry.key()));
+                aliases_map.insert(
+                    entry.key().clone(),
+                    alias_meta_for(&state, name, entry.key()),
+                );
             }
         }
         out.insert(name.clone(), json!({ "aliases": aliases_map }));
@@ -16037,9 +17520,10 @@ pub async fn get_index_alias(
     }
 
     let alias_matches = |a: &str| -> bool {
-        alias.split(',').map(str::trim).any(|pat| {
-            pat == "_all" || pat == "*" || glob_match_simple(pat, a) || pat == a
-        })
+        alias
+            .split(',')
+            .map(str::trim)
+            .any(|pat| pat == "_all" || pat == "*" || glob_match_simple(pat, a) || pat == a)
     };
 
     let mut out = serde_json::Map::new();
@@ -16047,7 +17531,10 @@ pub async fn get_index_alias(
         let mut aliases_map = serde_json::Map::new();
         for entry in state.engine.aliases.iter() {
             if entry.value().contains(name) && alias_matches(entry.key()) {
-                aliases_map.insert(entry.key().clone(), alias_meta_for(&state, name, entry.key()));
+                aliases_map.insert(
+                    entry.key().clone(),
+                    alias_meta_for(&state, name, entry.key()),
+                );
             }
         }
         if !aliases_map.is_empty() {
@@ -16131,9 +17618,17 @@ pub async fn create_snapshot(
         .as_ref()
         .and_then(|b| b.get("indices"))
         .and_then(Value::as_array)
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect());
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        });
 
-    match state.engine.create_snapshot(repo_path, &snapshot, indices).await {
+    match state
+        .engine
+        .create_snapshot(repo_path, &snapshot, indices)
+        .await
+    {
         Ok(snap_info) => {
             let key = format!("{}/{}", repo, snapshot);
             state.engine.snapshots.insert(key, snap_info.clone());
@@ -16155,9 +17650,9 @@ pub async fn get_snapshot(
     match state.engine.snapshots.get(&key) {
         Some(info) => Json(json!({ "snapshots": [info.clone()] })).into_response(),
         None => {
-            let e = xerj_common::XerjError::index_not_found(
-                format!("snapshot [{snapshot}] missing in repository [{repo}]"),
-            );
+            let e = xerj_common::XerjError::index_not_found(format!(
+                "snapshot [{snapshot}] missing in repository [{repo}]"
+            ));
             ApiError::new(e).into_response()
         }
     }
@@ -16415,7 +17910,10 @@ pub async fn cat_recovery(State(state): State<AppState>) -> impl IntoResponse {
     };
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         body,
     )
         .into_response()
@@ -16429,7 +17927,13 @@ pub async fn cat_segments(
     let node = state.engine.node_id.as_str();
     let mut lines: Vec<String> = Vec::new();
     let indices_to_list: Vec<String> = if index == "_all" || index == "*" {
-        state.engine.list_indices().await.into_iter().map(|i| i.name).collect()
+        state
+            .engine
+            .list_indices()
+            .await
+            .into_iter()
+            .map(|i| i.name)
+            .collect()
     } else {
         vec![index.clone()]
     };
@@ -16459,7 +17963,10 @@ pub async fn cat_segments(
     };
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         body,
     )
         .into_response()
@@ -16476,8 +17983,16 @@ pub async fn cat_thread_pool(State(state): State<AppState>) -> impl IntoResponse
     // node name so Kibana / cerebro render the panel correctly.
     let node = state.engine.node_id.as_str();
     let pools = [
-        "search", "write", "bulk", "get", "analyze", "management", "flush", "refresh",
-        "warmer", "generic",
+        "search",
+        "write",
+        "bulk",
+        "get",
+        "analyze",
+        "management",
+        "flush",
+        "refresh",
+        "warmer",
+        "generic",
     ];
     let body = pools
         .iter()
@@ -16487,7 +18002,10 @@ pub async fn cat_thread_pool(State(state): State<AppState>) -> impl IntoResponse
         + "\n";
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         body,
     )
         .into_response()
@@ -16512,7 +18030,10 @@ pub async fn cat_fielddata(State(state): State<AppState>) -> impl IntoResponse {
     };
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         body,
     )
         .into_response()
@@ -16532,7 +18053,10 @@ pub async fn cat_pending_tasks(State(state): State<AppState>) -> impl IntoRespon
     };
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         body,
     )
         .into_response()
@@ -16552,7 +18076,10 @@ pub async fn cat_plugins(State(state): State<AppState>) -> impl IntoResponse {
     };
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         body,
     )
         .into_response()
@@ -16576,7 +18103,10 @@ pub async fn cat_nodeattrs(State(state): State<AppState>) -> impl IntoResponse {
     };
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         body,
     )
         .into_response()
@@ -16588,7 +18118,10 @@ pub async fn cat_master(State(state): State<AppState>) -> impl IntoResponse {
     let body = format!("{id} 127.0.0.1 127.0.0.1 {id}\n");
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         body,
     )
         .into_response()
@@ -16720,11 +18253,7 @@ pub async fn node_stats_by_id(
 // POST /{index}/_split/{target}
 // ─────────────────────────────────────────────────────────────────────────────
 
-async fn clone_index_to(
-    state: &AppState,
-    source: &str,
-    target: &str,
-) -> Result<(), ApiError> {
+async fn clone_index_to(state: &AppState, source: &str, target: &str) -> Result<(), ApiError> {
     // Get source index.
     let src_idx = state
         .engine
@@ -16749,9 +18278,7 @@ async fn clone_index_to(
         "size": 10000,
         "from": 0,
     }))
-    .map_err(|e| {
-        ApiError::new(xerj_common::XerjError::invalid_query(e.to_string()))
-    })?;
+    .map_err(|e| ApiError::new(xerj_common::XerjError::invalid_query(e.to_string())))?;
 
     let results = src_idx
         .search(&search_req)
@@ -16760,9 +18287,7 @@ async fn clone_index_to(
 
     for hit in results.hits {
         if !hit.source.is_null() {
-            let _ = dest_idx
-                .index_document(Some(hit.id), hit.source)
-                .await;
+            let _ = dest_idx.index_document(Some(hit.id), hit.source).await;
         }
     }
     Ok(())
@@ -16854,9 +18379,9 @@ pub async fn get_enrich_policy(
         }))
         .into_response(),
         None => {
-            let e = xerj_common::XerjError::index_not_found(
-                format!("enrich policy [{name}] not found"),
-            );
+            let e = xerj_common::XerjError::index_not_found(format!(
+                "enrich policy [{name}] not found"
+            ));
             ApiError::new(e).into_response()
         }
     }
@@ -16869,9 +18394,8 @@ pub async fn delete_enrich_policy(
     if state.engine.enrich_policies.remove(&name).is_some() {
         Json(json!({ "acknowledged": true })).into_response()
     } else {
-        let e = xerj_common::XerjError::index_not_found(
-            format!("enrich policy [{name}] not found"),
-        );
+        let e =
+            xerj_common::XerjError::index_not_found(format!("enrich policy [{name}] not found"));
         ApiError::new(e).into_response()
     }
 }
@@ -16904,9 +18428,10 @@ pub async fn execute_enrich_policy(
     // Source indices may be a single string or an array of strings.
     let source_indices: Vec<String> = match config.get("indices") {
         Some(Value::String(s)) => vec![s.clone()],
-        Some(Value::Array(a)) => {
-            a.iter().filter_map(|v| v.as_str().map(String::from)).collect()
-        }
+        Some(Value::Array(a)) => a
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect(),
         _ => vec![],
     };
 
@@ -16980,7 +18505,11 @@ pub async fn put_watch(
 ) -> impl IntoResponse {
     let created = !state.engine.watches.contains_key(&id);
     state.engine.watches.insert(id.clone(), body);
-    let status = if created { StatusCode::CREATED } else { StatusCode::OK };
+    let status = if created {
+        StatusCode::CREATED
+    } else {
+        StatusCode::OK
+    };
     (
         status,
         Json(json!({
@@ -16993,10 +18522,7 @@ pub async fn put_watch(
         .into_response()
 }
 
-pub async fn get_watch(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> impl IntoResponse {
+pub async fn get_watch(State(state): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
     match state.engine.watches.get(&id) {
         Some(watch) => Json(json!({
             "_id": id,
@@ -17009,9 +18535,7 @@ pub async fn get_watch(
         }))
         .into_response(),
         None => {
-            let e = xerj_common::XerjError::index_not_found(
-                format!("watch [{id}] not found"),
-            );
+            let e = xerj_common::XerjError::index_not_found(format!("watch [{id}] not found"));
             ApiError::new(e).into_response()
         }
     }
@@ -17029,9 +18553,7 @@ pub async fn delete_watch(
         }))
         .into_response()
     } else {
-        let e = xerj_common::XerjError::index_not_found(
-            format!("watch [{id}] not found"),
-        );
+        let e = xerj_common::XerjError::index_not_found(format!("watch [{id}] not found"));
         ApiError::new(e).into_response()
     }
 }
@@ -17107,9 +18629,9 @@ pub async fn search_template(
                 match serde_json::from_str(&rendered) {
                     Ok(v) => v,
                     Err(e) => {
-                        let err = xerj_common::XerjError::invalid_query(
-                            format!("template rendered to invalid JSON: {e}")
-                        );
+                        let err = xerj_common::XerjError::invalid_query(format!(
+                            "template rendered to invalid JSON: {e}"
+                        ));
                         return ApiError::new(err).into_response();
                     }
                 }
@@ -17135,24 +18657,25 @@ pub async fn search_template(
                 match serde_json::from_str(&tmpl_str) {
                     Ok(v) => v,
                     Err(e) => {
-                        let err = xerj_common::XerjError::invalid_query(
-                            format!("stored template '{id}' rendered to invalid JSON: {e}")
-                        );
+                        let err = xerj_common::XerjError::invalid_query(format!(
+                            "stored template '{id}' rendered to invalid JSON: {e}"
+                        ));
                         return ApiError::new(err).into_response();
                     }
                 }
             }
             None => {
-                let err = xerj_common::XerjError::index_not_found(
-                    format!("search template with id '{id}' not found")
-                );
+                let err = xerj_common::XerjError::index_not_found(format!(
+                    "search template with id '{id}' not found"
+                ));
                 return ApiError::new(err).into_response();
             }
         }
     } else {
         return ApiError::new(xerj_common::XerjError::invalid_query(
-            "search template requires either `source` or `id`".to_string()
-        )).into_response();
+            "search template requires either `source` or `id`".to_string(),
+        ))
+        .into_response();
     };
 
     // Parse and execute as a normal search.
@@ -17173,18 +18696,26 @@ pub async fn search_template(
             let took_ms = started.elapsed().as_millis() as u64;
             let total = result.total.value;
             let max_score = result.hits.first().map(|h| h.score as f64);
-            let hits: Vec<Value> = result.hits.into_iter().map(|h| {
-                let source = if h.source.is_null() { None } else { Some(h.source) };
-                json!({
-                    "_index": &index,
-                    "_id": h.id,
-                    "_score": h.score,
-                    "_version": 1,
-                    "_seq_no": 0,
-                    "_primary_term": 1,
-                    "_source": source,
+            let hits: Vec<Value> = result
+                .hits
+                .into_iter()
+                .map(|h| {
+                    let source = if h.source.is_null() {
+                        None
+                    } else {
+                        Some(h.source)
+                    };
+                    json!({
+                        "_index": &index,
+                        "_id": h.id,
+                        "_score": h.score,
+                        "_version": 1,
+                        "_seq_no": 0,
+                        "_primary_term": 1,
+                        "_source": source,
+                    })
                 })
-            }).collect();
+                .collect();
             Json(json!({
                 "took": took_ms,
                 "timed_out": false,
@@ -17194,7 +18725,8 @@ pub async fn search_template(
                     "max_score": max_score,
                     "hits": hits,
                 },
-            })).into_response()
+            }))
+            .into_response()
         }
         Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
     }
@@ -17302,7 +18834,9 @@ async fn msearch_template_impl(
                 }
             }
         } else {
-            responses.push(json!({ "error": { "reason": "template requires source or id" }, "status": 400 }));
+            responses.push(
+                json!({ "error": { "reason": "template requires source or id" }, "status": 400 }),
+            );
             continue;
         };
 
@@ -17317,9 +18851,18 @@ async fn msearch_template_impl(
         };
 
         let index_names: Vec<String> = if index_name == "*" || index_name == "_all" {
-            state.engine.list_indices().await.into_iter().map(|i| i.name).collect()
+            state
+                .engine
+                .list_indices()
+                .await
+                .into_iter()
+                .map(|i| i.name)
+                .collect()
         } else {
-            index_name.split(',').flat_map(|n| state.engine.resolve_alias(n.trim())).collect()
+            index_name
+                .split(',')
+                .flat_map(|n| state.engine.resolve_alias(n.trim()))
+                .collect()
         };
 
         let mut merged_hits: Vec<Value> = Vec::new();
@@ -17330,7 +18873,11 @@ async fn msearch_template_impl(
                 if let Ok(result) = idx.search(&search_req).await {
                     total_count += result.total.value;
                     for h in result.hits {
-                        let source = if h.source.is_null() { Value::Null } else { h.source };
+                        let source = if h.source.is_null() {
+                            Value::Null
+                        } else {
+                            h.source
+                        };
                         merged_hits.push(json!({
                             "_index": idx_name,
                             "_id": h.id,
@@ -17357,7 +18904,8 @@ async fn msearch_template_impl(
     Json(json!({
         "took": started.elapsed().as_millis() as u64,
         "responses": responses,
-    })).into_response()
+    }))
+    .into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -17382,23 +18930,26 @@ pub async fn render_template_api(
         match state.engine.search_templates.get(&id) {
             Some(tmpl) => render_template(&tmpl.to_string(), &params),
             None => {
-                let err = xerj_common::XerjError::index_not_found(
-                    format!("search template '{id}' not found")
-                );
+                let err = xerj_common::XerjError::index_not_found(format!(
+                    "search template '{id}' not found"
+                ));
                 return ApiError::new(err).into_response();
             }
         }
     } else {
         return ApiError::new(xerj_common::XerjError::invalid_query(
-            "render template requires `source` or `id`".to_string()
-        )).into_response();
+            "render template requires `source` or `id`".to_string(),
+        ))
+        .into_response();
     };
 
-    let template_output: Value = serde_json::from_str(&rendered_str).unwrap_or(Value::String(rendered_str.clone()));
+    let template_output: Value =
+        serde_json::from_str(&rendered_str).unwrap_or(Value::String(rendered_str.clone()));
 
     Json(json!({
         "template_output": template_output,
-    })).into_response()
+    }))
+    .into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -17429,7 +18980,8 @@ pub async fn get_script(
             "_id": id,
             "found": true,
             "script": { "lang": "mustache", "source": source.clone() },
-        })).into_response(),
+        }))
+        .into_response(),
         None => {
             let err = xerj_common::XerjError::index_not_found(format!("script '{id}' not found"));
             ApiError::new(err).into_response()
@@ -17464,6 +19016,7 @@ pub async fn delete_script(
 /// - `script.source` is truncated to 4096 bytes.
 /// - At most 256 comma-separated double literals are parsed.
 /// - Requests exceeding these limits receive `413 Payload Too Large`.
+///
 /// `POST /_scripts/painless/_execute` — evaluate a Painless script standalone.
 ///
 /// Honest + bounded: `MovingFunctions.*` reductions run over the real
@@ -17535,8 +19088,12 @@ pub async fn painless_execute(
                     .take(MAX_LITERAL_COUNT)
                     .filter_map(|s| s.trim().parse::<f64>().ok())
                     .collect()
-            } else { Vec::new() }
-        } else { Vec::new() };
+            } else {
+                Vec::new()
+            }
+        } else {
+            Vec::new()
+        };
         let mf: Option<f64> = if source.contains("MovingFunctions.max") {
             lits.iter().cloned().reduce(f64::max)
         } else if source.contains("MovingFunctions.min") {
@@ -17544,13 +19101,21 @@ pub async fn painless_execute(
         } else if source.contains("MovingFunctions.sum") {
             Some(lits.iter().sum())
         } else if source.contains("MovingFunctions.unweightedAvg") {
-            if lits.is_empty() { None } else { Some(lits.iter().sum::<f64>() / lits.len() as f64) }
+            if lits.is_empty() {
+                None
+            } else {
+                Some(lits.iter().sum::<f64>() / lits.len() as f64)
+            }
         } else {
             None
         };
         return match mf {
             Some(v) => {
-                let out = if v.fract() == 0.0 { format!("{:.1}", v) } else { v.to_string() };
+                let out = if v.fract() == 0.0 {
+                    format!("{:.1}", v)
+                } else {
+                    v.to_string()
+                };
                 Json(json!({ "result": out })).into_response()
             }
             None => bad_request(format!("unsupported MovingFunctions script: {source}")),
@@ -17567,7 +19132,11 @@ pub async fn painless_execute(
             let result = match painless_to_json(v) {
                 Value::Number(n) => {
                     let f = n.as_f64().unwrap_or(0.0);
-                    if f.fract() == 0.0 { format!("{:.1}", f) } else { f.to_string() }
+                    if f.fract() == 0.0 {
+                        format!("{:.1}", f)
+                    } else {
+                        f.to_string()
+                    }
                 }
                 Value::String(s) => s,
                 Value::Bool(b) => b.to_string(),
@@ -17602,7 +19171,9 @@ pub struct TermsEnumBody {
     pub case_insensitive: bool,
 }
 
-fn default_terms_enum_size() -> usize { 10 }
+fn default_terms_enum_size() -> usize {
+    10
+}
 
 pub async fn terms_enum(
     State(state): State<AppState>,
@@ -17684,7 +19255,8 @@ pub async fn terms_enum(
         "terms": terms_vec,
         "_shards": crate::responses::EsShards::search_success(),
         "complete": true,
-    })).into_response()
+    }))
+    .into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -17899,11 +19471,7 @@ pub async fn security_create_api_key(
         .unwrap_or(Value::Null);
     // Well-formed, unique-per-call key material. Not re-authenticatable.
     let key_id = Uuid::new_v4().to_string();
-    let raw_secret = format!(
-        "{}{}",
-        Uuid::new_v4().simple(),
-        Uuid::new_v4().simple()
-    );
+    let raw_secret = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
     let api_key = base64_encode(&raw_secret);
     // ES returns base64("id:api_key") as the `encoded` credential.
     let encoded = base64_encode(&format!("{key_id}:{api_key}"));
@@ -17925,8 +19493,16 @@ fn base64_encode(input: &str) -> String {
     let mut i = 0;
     while i < bytes.len() {
         let b0 = bytes[i] as u32;
-        let b1 = if i + 1 < bytes.len() { bytes[i + 1] as u32 } else { 0 };
-        let b2 = if i + 2 < bytes.len() { bytes[i + 2] as u32 } else { 0 };
+        let b1 = if i + 1 < bytes.len() {
+            bytes[i + 1] as u32
+        } else {
+            0
+        };
+        let b2 = if i + 2 < bytes.len() {
+            bytes[i + 2] as u32
+        } else {
+            0
+        };
         output.push(alphabet[((b0 >> 2) & 0x3F) as usize] as char);
         output.push(alphabet[(((b0 & 0x3) << 4) | (b1 >> 4)) as usize] as char);
         if i + 1 < bytes.len() {
@@ -18095,16 +19671,23 @@ pub async fn open_pit(
     // Use the live index list so indices created without explicit
     // mapping/settings bodies still show up.
     let all_indices = state.engine.index_name_list();
-    let indices: Vec<String> = index.split(',')
+    let indices: Vec<String> = index
+        .split(',')
         .flat_map(|n| {
             let n = n.trim();
             if n.contains('*') {
-                state.engine.aliases.iter()
+                state
+                    .engine
+                    .aliases
+                    .iter()
                     .filter(|e| glob_match(n, e.key()))
                     .map(|e| e.key().clone())
-                    .chain(all_indices.iter()
-                        .filter(|name| glob_match(n, name))
-                        .cloned())
+                    .chain(
+                        all_indices
+                            .iter()
+                            .filter(|name| glob_match(n, name))
+                            .cloned(),
+                    )
                     .collect::<Vec<_>>()
             } else {
                 state.engine.resolve_alias(n)
@@ -18118,25 +19701,25 @@ pub async fn open_pit(
     // `lookup_seq_no` exposes the ES-form (0-based) via subtract-1.
     // The highest visible ES-form seq_no is therefore `current - 2`
     // (or 0 when no writes). We store it as the inclusive boundary.
-    let mut index_max_seq: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
+    let mut index_max_seq: std::collections::HashMap<String, u64> =
+        std::collections::HashMap::new();
     for ix in &indices {
         if let Ok(idx) = state.engine.get_index(ix) {
             let cur = idx.current_seq_no();
             index_max_seq.insert(ix.clone(), cur.saturating_sub(2));
         }
     }
-    state.engine.pits.insert(pit_id.clone(), xerj_engine::engine::PitContext {
-        indices,
-        index_filter,
-        index_max_seq,
-        created: now,
-        expires_at,
-    });
-    (
-        StatusCode::OK,
-        Json(json!({ "id": pit_id })),
-    )
-        .into_response()
+    state.engine.pits.insert(
+        pit_id.clone(),
+        xerj_engine::engine::PitContext {
+            indices,
+            index_filter,
+            index_max_seq,
+            created: now,
+            expires_at,
+        },
+    );
+    (StatusCode::OK, Json(json!({ "id": pit_id }))).into_response()
 }
 
 /// GET /_internal/desired_balance — ES cluster desired-balance snapshot.
@@ -18145,9 +19728,7 @@ pub async fn open_pit(
 /// shape. xerj runs single-primary-per-index so `current` has one
 /// STARTED entry per shard with zero replicas; an unassigned `desired`
 /// slot is reported when the index was created with `replicas >= 1`.
-pub async fn get_desired_balance(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn get_desired_balance(State(state): State<AppState>) -> impl IntoResponse {
     // Node identity is shared with the `cluster_state` handler: the YAML tests
     // read an "arbitrary key" out of cluster.state (the node id) and expect
     // desired_balance to surface the same name, so this must track
@@ -18203,27 +19784,32 @@ pub async fn get_desired_balance(
         let mut shards = serde_json::Map::new();
         for shard_id in 0..num_shards {
             let current: Vec<Value> = (0..copies)
-                .map(|copy| json!({
-                    "state": "STARTED",
-                    "shard_id": shard_id,
-                    "index": idx_name,
-                    "node_id": node_id,
-                    "node_is_desired": true,
-                    "relocating_node": null,
-                    "relocating_node_is_desired": null,
-                    "primary": copy == 0,
-                    "tier_preference": ["data_content"],
-                }))
+                .map(|copy| {
+                    json!({
+                        "state": "STARTED",
+                        "shard_id": shard_id,
+                        "index": idx_name,
+                        "node_id": node_id,
+                        "node_is_desired": true,
+                        "relocating_node": null,
+                        "relocating_node_is_desired": null,
+                        "primary": copy == 0,
+                        "tier_preference": ["data_content"],
+                    })
+                })
                 .collect();
-            shards.insert(shard_id.to_string(), json!({
-                "current": current,
-                "desired": {
-                    "total": copies,
-                    "unassigned": 0,
-                    "ignored": 0,
-                    "node_ids": [node_id],
-                },
-            }));
+            shards.insert(
+                shard_id.to_string(),
+                json!({
+                    "current": current,
+                    "desired": {
+                        "total": copies,
+                        "unassigned": 0,
+                        "ignored": 0,
+                        "node_ids": [node_id],
+                    },
+                }),
+            );
         }
         routing_table.insert(idx_name, Value::Object(shards));
         total_shards += num_shards;
@@ -18285,11 +19871,18 @@ pub async fn close_pit(
     State(state): State<AppState>,
     body: OptionalJson<Value>,
 ) -> impl IntoResponse {
-    let id = body.as_ref()
+    let id = body
+        .as_ref()
         .and_then(|v| v.get("id").and_then(Value::as_str))
         .map(String::from);
     let freed = match id {
-        Some(i) => if state.engine.pits.remove(&i).is_some() { 1 } else { 0 },
+        Some(i) => {
+            if state.engine.pits.remove(&i).is_some() {
+                1
+            } else {
+                0
+            }
+        }
         None => 0,
     };
     Json(json!({ "succeeded": freed > 0, "num_freed": freed })).into_response()
@@ -18330,8 +19923,12 @@ fn murmur3_routing_shard(routing: &str, shard_count: u32) -> u32 {
     let tail_start = nblocks * 4;
     let tail = &bytes[tail_start..];
     let mut k: u32 = 0;
-    if tail.len() >= 3 { k ^= (tail[2] as u32) << 16; }
-    if tail.len() >= 2 { k ^= (tail[1] as u32) << 8; }
+    if tail.len() >= 3 {
+        k ^= (tail[2] as u32) << 16;
+    }
+    if tail.len() >= 2 {
+        k ^= (tail[1] as u32) << 8;
+    }
     if !tail.is_empty() {
         k ^= tail[0] as u32;
         k = k.wrapping_mul(c1);
@@ -18356,7 +19953,9 @@ fn murmur3_routing_shard(routing: &str, shard_count: u32) -> u32 {
 /// parent objects along the way.
 fn remove_dotted_path(obj: &mut serde_json::Map<String, Value>, path: &str) {
     let segs: Vec<&str> = path.split('.').collect();
-    if segs.is_empty() { return; }
+    if segs.is_empty() {
+        return;
+    }
     if segs.len() == 1 {
         obj.remove(segs[0]);
         return;
@@ -18369,7 +19968,9 @@ fn remove_dotted_path(obj: &mut serde_json::Map<String, Value>, path: &str) {
         let c = unsafe { &mut *cur };
         stack.push(cur);
         match c.get_mut(*seg) {
-            Some(Value::Object(next)) => { cur = next; }
+            Some(Value::Object(next)) => {
+                cur = next;
+            }
             _ => return,
         }
     }
@@ -18379,14 +19980,18 @@ fn remove_dotted_path(obj: &mut serde_json::Map<String, Value>, path: &str) {
     for i in (0..segs.len() - 1).rev() {
         let parent = unsafe { &mut *stack[i] };
         let seg = segs[i];
-        let should_remove = parent.get(seg)
+        let should_remove = parent
+            .get(seg)
             .and_then(Value::as_object)
             .map(|o| o.is_empty())
             .unwrap_or(false);
-        if should_remove { parent.remove(seg); } else { break; }
+        if should_remove {
+            parent.remove(seg);
+        } else {
+            break;
+        }
     }
 }
-
 
 /// Convert a primitive JSON value to its keyword-field string form
 /// (ES coerces `true` → "true", `1` → "1" for keyword-mapped targets).
@@ -18394,7 +19999,11 @@ fn stringify_for_keyword(v: Value) -> Value {
     match v {
         Value::String(_) => v,
         Value::Number(n) => Value::String(n.to_string()),
-        Value::Bool(b) => Value::String(if b { "true".to_string() } else { "false".to_string() }),
+        Value::Bool(b) => Value::String(if b {
+            "true".to_string()
+        } else {
+            "false".to_string()
+        }),
         Value::Null => Value::Null,
         other => Value::String(other.to_string()),
     }
@@ -18410,27 +20019,40 @@ fn strip_index_constraints(q: &mut Value, out: &mut Vec<String>) {
     for key in keys {
         let remove_this = match key.as_str() {
             "match" | "term" => {
-                let take_out = obj.get(&key).and_then(Value::as_object).and_then(|vo| {
-                    vo.get("_index").map(|idx_v| {
-                        if let Some(query_obj) = idx_v.as_object() {
-                            query_obj.get("query").or_else(|| query_obj.get("value"))
-                                .and_then(Value::as_str).map(str::to_string)
-                        } else {
-                            idx_v.as_str().map(str::to_string)
-                        }
+                let take_out = obj
+                    .get(&key)
+                    .and_then(Value::as_object)
+                    .and_then(|vo| {
+                        vo.get("_index").map(|idx_v| {
+                            if let Some(query_obj) = idx_v.as_object() {
+                                query_obj
+                                    .get("query")
+                                    .or_else(|| query_obj.get("value"))
+                                    .and_then(Value::as_str)
+                                    .map(str::to_string)
+                            } else {
+                                idx_v.as_str().map(str::to_string)
+                            }
+                        })
                     })
-                }).flatten();
+                    .flatten();
                 if let Some(pat) = take_out {
                     out.push(pat);
                     true
-                } else { false }
+                } else {
+                    false
+                }
             }
             "bool" => {
                 if let Some(b) = obj.get_mut(&key).and_then(Value::as_object_mut) {
                     for sub_key in ["must", "filter", "should"] {
                         if let Some(arr) = b.get_mut(sub_key).and_then(Value::as_array_mut) {
-                            for item in arr.iter_mut() { strip_index_constraints(item, out); }
-                            arr.retain(|item| !item.as_object().map(|o| o.is_empty()).unwrap_or(false));
+                            for item in arr.iter_mut() {
+                                strip_index_constraints(item, out);
+                            }
+                            arr.retain(|item| {
+                                !item.as_object().map(|o| o.is_empty()).unwrap_or(false)
+                            });
                         }
                     }
                 }
@@ -18453,7 +20075,9 @@ fn strip_index_constraints(q: &mut Value, out: &mut Vec<String>) {
 /// `keep_alive=500ms` doesn't produce a zero-duration PIT.
 fn parse_keep_alive_to_secs(s: &str) -> Option<u64> {
     let s = s.trim();
-    if s.is_empty() { return None; }
+    if s.is_empty() {
+        return None;
+    }
     if let Some(ms) = s.strip_suffix("ms") {
         let n: u64 = ms.parse().ok()?;
         return Some((n / 1000).max(1));
@@ -18470,20 +20094,30 @@ fn parse_keep_alive_to_secs(s: &str) -> Option<u64> {
 }
 
 fn glob_match(pattern: &str, name: &str) -> bool {
-    if pattern == "*" || pattern == "_all" { return true; }
-    if !pattern.contains('*') { return pattern == name; }
+    if pattern == "*" || pattern == "_all" {
+        return true;
+    }
+    if !pattern.contains('*') {
+        return pattern == name;
+    }
     let parts: Vec<&str> = pattern.split('*').collect();
     let mut pos = 0usize;
     for (i, part) in parts.iter().enumerate() {
-        if part.is_empty() { continue; }
+        if part.is_empty() {
+            continue;
+        }
         if i == 0 {
-            if !name.starts_with(part) { return false; }
+            if !name.starts_with(part) {
+                return false;
+            }
             pos = part.len();
         } else if i == parts.len() - 1 {
             return name[pos..].ends_with(part);
         } else {
             match name[pos..].find(part) {
-                Some(idx) => { pos += idx + part.len(); }
+                Some(idx) => {
+                    pos += idx + part.len();
+                }
                 None => return false,
             }
         }
@@ -18548,7 +20182,11 @@ pub async fn eql_search(
                 .hits
                 .into_iter()
                 .map(|h| {
-                    let source = if h.source.is_null() { Value::Null } else { h.source };
+                    let source = if h.source.is_null() {
+                        Value::Null
+                    } else {
+                        h.source
+                    };
                     json!({
                         "_index": &index,
                         "_id": h.id,
@@ -18640,10 +20278,7 @@ pub async fn global_field_caps(
         fields_map
             .into_iter()
             .map(|(field_name, type_map)| {
-                (
-                    field_name,
-                    Value::Object(type_map.into_iter().collect()),
-                )
+                (field_name, Value::Object(type_map.into_iter().collect()))
             })
             .collect(),
     );
@@ -18685,7 +20320,11 @@ pub async fn get_mapping_field(
 
     for (field_name, field_def) in &properties {
         let matches = field_names.iter().any(|pat| {
-            if *pat == "*" { true } else { field_name_matches(field_name, pat) }
+            if *pat == "*" {
+                true
+            } else {
+                field_name_matches(field_name, pat)
+            }
         });
         if matches {
             let es_type = field_def
@@ -18728,7 +20367,13 @@ pub async fn put_index_block(
     };
 
     // Validate block name.
-    let valid_blocks = ["read_only", "read_only_allow_delete", "write", "metadata", "read"];
+    let valid_blocks = [
+        "read_only",
+        "read_only_allow_delete",
+        "write",
+        "metadata",
+        "read",
+    ];
     if !valid_blocks.contains(&block.as_str()) {
         let e = xerj_common::XerjError::invalid_query(format!(
             "invalid index block: {block}; valid values are: read_only, read_only_allow_delete, write, metadata, read"
@@ -18806,7 +20451,9 @@ pub async fn explain_doc(
         must: vec![search_req.query.clone()],
         should: vec![],
         must_not: vec![],
-        filter: vec![QueryNode::Ids { values: vec![id.clone()] }],
+        filter: vec![QueryNode::Ids {
+            values: vec![id.clone()],
+        }],
         minimum_should_match: None,
     };
     ids_req.size = 1;
@@ -18879,11 +20526,7 @@ pub(crate) fn parse_stored_fields(stored_fields_val: &Value) -> (bool, Vec<Strin
                 .filter_map(|v| v.as_str().map(String::from))
                 .collect();
             let opt_in_source = fields.iter().any(|f| f == "_source");
-            let keepers: Vec<String> = fields
-                .iter()
-                .filter(|f| f != &"_source")
-                .cloned()
-                .collect();
+            let keepers: Vec<String> = fields.iter().filter(|f| f != &"_source").cloned().collect();
             (!opt_in_source, keepers)
         }
         Value::String(s) => {
@@ -18905,7 +20548,7 @@ pub(crate) fn parse_stored_fields(stored_fields_val: &Value) -> (bool, Vec<Strin
 /// Expand a wildcard pattern like `user.*` or `*_name` against a doc's
 /// _source, returning the list of matching dotted field paths.
 pub(crate) fn expand_field_wildcard(source: &Value, pattern: &str) -> Vec<String> {
-    let mut out: Vec<(String, bool)> = Vec::new();  // (path, is_scalar_leaf)
+    let mut out: Vec<(String, bool)> = Vec::new(); // (path, is_scalar_leaf)
     collect_field_paths(source, "", &mut out);
     out.retain(|(p, _)| wildcard_match(pattern, p));
     // ES's fields: [*] returns only LEAF paths (no intermediate object
@@ -18914,17 +20557,16 @@ pub(crate) fn expand_field_wildcard(source: &Value, pattern: &str) -> Vec<String
     // happens when subobjects:false indexes split a dotted key. In that
     // case both `root` and `root.subfield` are leaves and both should be
     // fetchable.
-    let is_scalar: std::collections::HashMap<String, bool> = out
-        .iter()
-        .cloned()
-        .collect();
+    let is_scalar: std::collections::HashMap<String, bool> = out.iter().cloned().collect();
     out.retain(|(p, this_is_scalar)| {
         if *this_is_scalar {
             // Scalar leaves are always leaves — keep regardless of
             // whether some sibling-like key happens to start with p+"."
             return true;
         }
-        !is_scalar.keys().any(|other| other != p && other.starts_with(&format!("{}.", p)))
+        !is_scalar
+            .keys()
+            .any(|other| other != p && other.starts_with(&format!("{}.", p)))
     });
     out.into_iter().map(|(p, _)| p).collect()
 }
@@ -18932,7 +20574,11 @@ pub(crate) fn expand_field_wildcard(source: &Value, pattern: &str) -> Vec<String
 fn collect_field_paths(v: &Value, prefix: &str, out: &mut Vec<(String, bool)>) {
     if let Value::Object(map) = v {
         for (k, child) in map {
-            let path = if prefix.is_empty() { k.clone() } else { format!("{}.{}", prefix, k) };
+            let path = if prefix.is_empty() {
+                k.clone()
+            } else {
+                format!("{}.{}", prefix, k)
+            };
             let is_scalar = !matches!(child, Value::Object(_));
             out.push((path.clone(), is_scalar));
             collect_field_paths(child, &path, out);
@@ -18948,16 +20594,23 @@ fn wildcard_match(pattern: &str, text: &str) -> bool {
     let (mut star, mut star_t) = (None::<usize>, 0usize);
     while ti < t.len() {
         if pi < p.len() && (p[pi] == b'?' || p[pi] == t[ti]) {
-            pi += 1; ti += 1;
+            pi += 1;
+            ti += 1;
         } else if pi < p.len() && p[pi] == b'*' {
-            star = Some(pi); star_t = ti; pi += 1;
+            star = Some(pi);
+            star_t = ti;
+            pi += 1;
         } else if let Some(sp) = star {
-            pi = sp + 1; star_t += 1; ti = star_t;
+            pi = sp + 1;
+            star_t += 1;
+            ti = star_t;
         } else {
             return false;
         }
     }
-    while pi < p.len() && p[pi] == b'*' { pi += 1; }
+    while pi < p.len() && p[pi] == b'*' {
+        pi += 1;
+    }
     pi == p.len()
 }
 
@@ -18979,17 +20632,23 @@ fn first_range_copy_to_field_in_mapping(
     index: &str,
     doc: Option<&serde_json::Map<String, Value>>,
 ) -> Option<String> {
-    let Some(doc) = doc else { return None };
+    let doc = doc?;
     let mapping = state.engine.index_mappings.get(index)?.clone();
-    let props = mapping.get("mappings").and_then(|m| m.get("properties"))
+    let props = mapping
+        .get("mappings")
+        .and_then(|m| m.get("properties"))
         .or_else(|| mapping.get("properties"))?
         .as_object()?
         .clone();
     for (fname, spec) in &props {
-        if !doc.contains_key(fname) { continue; }
+        if !doc.contains_key(fname) {
+            continue;
+        }
         let ftype = spec.get("type").and_then(Value::as_str).unwrap_or("");
         let is_range = ftype.ends_with("_range");
-        if !is_range { continue; }
+        if !is_range {
+            continue;
+        }
         if spec.get("copy_to").is_some() {
             return Some(fname.clone());
         }
@@ -19025,7 +20684,10 @@ pub(crate) fn reshape_geo_point(val: &Value, want_wkt: bool) -> Value {
         Value::String(s) => {
             // "POINT (lon lat)" — WKT.
             if let Some(rest) = s.trim().strip_prefix("POINT") {
-                let inner = rest.trim_start().trim_start_matches('(').trim_end_matches(')');
+                let inner = rest
+                    .trim_start()
+                    .trim_start_matches('(')
+                    .trim_end_matches(')');
                 let mut it = inner.split_whitespace();
                 if let (Some(lons), Some(lats)) = (it.next(), it.next()) {
                     if let (Ok(lon), Ok(lat)) = (lons.parse::<f64>(), lats.parse::<f64>()) {
@@ -19126,7 +20788,9 @@ pub(crate) fn build_docvalue_fields(
         // precision (strict_date_optional_time → ms; epoch_millis →
         // numeric epoch ms with optional fractional ns).
         let formatted: Vec<Value> = if let Some(fmt) = format {
-            arr.into_iter().map(|v| reformat_docvalue(&v, fmt)).collect()
+            arr.into_iter()
+                .map(|v| reformat_docvalue(&v, fmt))
+                .collect()
         } else {
             arr
         };
@@ -19147,7 +20811,7 @@ fn reformat_docvalue(v: &Value, fmt: &str) -> Value {
         Some(p) => (&s[..p], &s[p..]),
         None => (s.as_str(), ""),
     };
-    let (frac, tz) = if let Some(end) = frac_with_z.find(|c: char| c == 'Z' || c == '+' || c == '-') {
+    let (frac, tz) = if let Some(end) = frac_with_z.find(['Z', '+', '-']) {
         (&frac_with_z[..end], &frac_with_z[end..])
     } else {
         (frac_with_z, "")
@@ -19182,8 +20846,8 @@ fn reformat_docvalue(v: &Value, fmt: &str) -> Value {
                 || fmt == "strict_date_optional_time_nanos"
                 || fmt == "date_optional_time_nanos"
             {
-                let frac_padded: String = if frac.starts_with('.') {
-                    let mut digits = frac[1..].to_string();
+                let frac_padded: String = if let Some(rest) = frac.strip_prefix('.') {
+                    let mut digits = rest.to_string();
                     while digits.len() < 9 {
                         digits.push('0');
                     }
@@ -19212,7 +20876,9 @@ fn painless_to_json(v: xerj_engine::painless::PainlessValue) -> Value {
     match v {
         P::Null => Value::Null,
         P::Bool(b) => Value::Bool(b),
-        P::Number(n) => serde_json::Number::from_f64(n).map(Value::Number).unwrap_or(Value::Null),
+        P::Number(n) => serde_json::Number::from_f64(n)
+            .map(Value::Number)
+            .unwrap_or(Value::Null),
         P::String(s) => Value::String(s),
         P::Array(a) => Value::Array(a.into_iter().map(painless_to_json).collect()),
         P::Object(o) => Value::Object(o),
@@ -19224,9 +20890,13 @@ fn painless_to_json(v: xerj_engine::painless::PainlessValue) -> Value {
 /// fetch the "nested" alternate of a path that ALSO has a dotted key
 /// at the source root, so we can union the two.
 pub(crate) fn get_field_value_via_walk(source: &Value, segs: &[&str]) -> Option<Value> {
-    if segs.is_empty() { return Some(source.clone()); }
+    if segs.is_empty() {
+        return Some(source.clone());
+    }
     fn walk(cur: &Value, segs: &[&str]) -> Option<Value> {
-        if segs.is_empty() { return Some(cur.clone()); }
+        if segs.is_empty() {
+            return Some(cur.clone());
+        }
         match cur {
             Value::Object(obj) => {
                 let next = obj.get(segs[0])?;
@@ -19242,7 +20912,11 @@ pub(crate) fn get_field_value_via_walk(source: &Value, segs: &[&str]) -> Option<
                         }
                     }
                 }
-                if out.is_empty() { None } else { Some(Value::Array(out)) }
+                if out.is_empty() {
+                    None
+                } else {
+                    Some(Value::Array(out))
+                }
             }
             _ => None,
         }
@@ -19286,7 +20960,11 @@ pub(crate) fn get_source_value_by_path(source: &Value, path: &str) -> Option<Val
                         }
                     }
                 }
-                if out.is_empty() { None } else { Some(Value::Array(out)) }
+                if out.is_empty() {
+                    None
+                } else {
+                    Some(Value::Array(out))
+                }
             }
             _ => None,
         }
@@ -19309,22 +20987,41 @@ fn knn_body_to_query_node(knn_val: &Value) -> xerj_query::ast::QueryNode {
     let vector: Vec<f32> = knn_val
         .get("query_vector")
         .and_then(Value::as_array)
-        .map(|arr| arr.iter().filter_map(|v| v.as_f64().map(|f| f as f32)).collect())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_f64().map(|f| f as f32))
+                .collect()
+        })
         .unwrap_or_default();
-    let num_candidates = knn_val.get("num_candidates").and_then(Value::as_u64).map(|n| n as usize);
+    let num_candidates = knn_val
+        .get("num_candidates")
+        .and_then(Value::as_u64)
+        .map(|n| n as usize);
     let k = knn_val
         .get("k")
         .and_then(Value::as_u64)
         .map(|n| n as usize)
         .or(num_candidates)
         .unwrap_or(10);
-    let boost = knn_val.get("boost").and_then(Value::as_f64).map(|f| f as f32);
-    xerj_query::ast::QueryNode::Knn { field, vector, k, filter: None, boost }
+    let boost = knn_val
+        .get("boost")
+        .and_then(Value::as_f64)
+        .map(|f| f as f32);
+    xerj_query::ast::QueryNode::Knn {
+        field,
+        vector,
+        k,
+        filter: None,
+        boost,
+    }
 }
 
 /// Serialise a `QueryNode` to a `Value` for embedding into a bool query.
 fn knn_query_node_to_json(node: &xerj_query::ast::QueryNode) -> Value {
-    if let xerj_query::ast::QueryNode::Knn { field, vector, k, .. } = node {
+    if let xerj_query::ast::QueryNode::Knn {
+        field, vector, k, ..
+    } = node
+    {
         json!({
             "knn": {
                 "field": field,
@@ -19573,7 +21270,10 @@ pub(crate) fn rewrite_bulk_time_series_ids(
 pub(crate) fn mapping_has_ignore_directives(mapping: &Value) -> bool {
     match mapping {
         Value::Object(m) => {
-            if m.get("ignore_malformed").and_then(Value::as_bool).unwrap_or(false) {
+            if m.get("ignore_malformed")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+            {
                 return true;
             }
             if m.contains_key("ignore_above") {
@@ -19597,7 +21297,9 @@ pub(crate) fn rewrite_bulk_ignore_malformed(
         out.push_str(action_line);
         out.push('\n');
         let action_trimmed = action_line.trim();
-        if action_trimmed.is_empty() { continue; }
+        if action_trimmed.is_empty() {
+            continue;
+        }
         let action: Value = match serde_json::from_str(action_trimmed) {
             Ok(v) => v,
             Err(_) => continue,
@@ -19607,8 +21309,12 @@ pub(crate) fn rewrite_bulk_ignore_malformed(
             Some((k, v)) => (k.clone(), v.clone()),
             None => continue,
         };
-        if op == "delete" { continue; } // no source body
-        let Some(source_line) = lines.next() else { break; };
+        if op == "delete" {
+            continue;
+        } // no source body
+        let Some(source_line) = lines.next() else {
+            break;
+        };
         let trimmed = source_line.trim();
         if trimmed.is_empty() {
             out.push_str(source_line);
@@ -19626,7 +21332,8 @@ pub(crate) fn rewrite_bulk_ignore_malformed(
             match serde_json::from_str::<Value>(trimmed) {
                 Ok(Value::Object(mut outer)) => {
                     if let Some(Value::Object(inner)) = outer.remove("doc") {
-                        let rewritten_doc = apply_ignore_malformed(state, &idx, Value::Object(inner));
+                        let rewritten_doc =
+                            apply_ignore_malformed(state, &idx, Value::Object(inner));
                         outer.insert("doc".to_string(), rewritten_doc);
                         serde_json::to_string(&Value::Object(outer))
                             .unwrap_or_else(|_| source_line.to_string())
@@ -19699,18 +21406,35 @@ fn validate_doc_fields(
 ) {
     let keys: Vec<String> = doc.keys().cloned().collect();
     for field in keys {
-        if field == "_ignored" { continue; }
-        let full_name = if prefix.is_empty() { field.clone() } else { format!("{}.{}", prefix, field) };
-        let Some(field_map) = props.get(&field) else { continue };
+        if field == "_ignored" {
+            continue;
+        }
+        let full_name = if prefix.is_empty() {
+            field.clone()
+        } else {
+            format!("{}.{}", prefix, field)
+        };
+        let Some(field_map) = props.get(&field) else {
+            continue;
+        };
         let ftype = field_map.get("type").and_then(Value::as_str).unwrap_or("");
-        let ignore_malformed = field_map.get("ignore_malformed").and_then(Value::as_bool).unwrap_or(false);
+        let ignore_malformed = field_map
+            .get("ignore_malformed")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
         let ignore_above = field_map.get("ignore_above").and_then(Value::as_u64);
 
         if ftype == "object" || ftype == "nested" {
             if let Some(child_props) = field_map.get("properties").and_then(Value::as_object) {
                 if let Some(Value::Object(child)) = doc.get_mut(&field) {
                     let mut child_ignored: Vec<String> = Vec::new();
-                    validate_doc_fields(&full_name, child, child_props, &mut child_ignored, ignored_values);
+                    validate_doc_fields(
+                        &full_name,
+                        child,
+                        child_props,
+                        &mut child_ignored,
+                        ignored_values,
+                    );
                     ignored.extend(child_ignored);
                 }
             }
@@ -19736,7 +21460,9 @@ fn validate_doc_fields(
             continue;
         }
 
-        if !ignore_malformed { continue; }
+        if !ignore_malformed {
+            continue;
+        }
 
         // When a date field declares an explicit `format`, validate using
         // ONLY that format (or the aliases ES treats interchangeably for
@@ -19760,8 +21486,15 @@ fn validate_doc_fields(
             matches!(v, Value::String(s) if s.is_empty())
                 && matches!(
                     ftype,
-                    "integer" | "long" | "short" | "byte" | "float" | "double"
-                        | "half_float" | "scaled_float" | "boolean"
+                    "integer"
+                        | "long"
+                        | "short"
+                        | "byte"
+                        | "float"
+                        | "double"
+                        | "half_float"
+                        | "scaled_float"
+                        | "boolean"
                 )
         };
 
@@ -19856,7 +21589,11 @@ fn filter_keyword_length(val: &Value, max: usize) -> (Value, bool) {
                 }
             }
             (
-                if out.is_empty() { Value::Null } else { Value::Array(out) },
+                if out.is_empty() {
+                    Value::Null
+                } else {
+                    Value::Array(out)
+                },
                 any_dropped,
             )
         }
@@ -19877,10 +21614,7 @@ fn is_date_value_valid_with_format(v: &Value, fmt: &str) -> bool {
             || matches!(v, Value::String(s) if s.parse::<i64>().is_ok());
     }
     let Some(s) = v.as_str() else {
-        return match v {
-            Value::Number(_) => true,
-            _ => false,
-        };
+        return matches!(v, Value::Number(_));
     };
     // Split combined format ("||") — ES allows multiple fallback formats.
     for single_fmt in fmt.split("||") {
@@ -19918,26 +21652,52 @@ fn es_date_format_to_strftime(es_fmt: &str) -> String {
     while i < bytes.len() {
         // Longest-match substitution for tokens we care about.
         let rest = &es_fmt[i..];
-        if rest.starts_with("yyyy") { out.push_str("%Y"); i += 4; }
-        else if rest.starts_with("yy") { out.push_str("%y"); i += 2; }
-        else if rest.starts_with("MM") { out.push_str("%m"); i += 2; }
-        else if rest.starts_with("dd") { out.push_str("%d"); i += 2; }
-        else if rest.starts_with("HH") { out.push_str("%H"); i += 2; }
-        else if rest.starts_with("mm") { out.push_str("%M"); i += 2; }
-        else if rest.starts_with("ss") { out.push_str("%S"); i += 2; }
-        else if rest.starts_with("SSSSSS") { out.push_str("%6f"); i += 6; }
-        else if rest.starts_with("SSSSSSSSS") { out.push_str("%9f"); i += 9; }
-        else if rest.starts_with("SSS") { out.push_str("%3f"); i += 3; }
-        else if rest.starts_with("Z") { out.push_str("%z"); i += 1; }
-        else if rest.starts_with("XXX") { out.push_str("%:z"); i += 3; }
-        else if rest.starts_with("'") {
+        if rest.starts_with("yyyy") {
+            out.push_str("%Y");
+            i += 4;
+        } else if rest.starts_with("yy") {
+            out.push_str("%y");
+            i += 2;
+        } else if rest.starts_with("MM") {
+            out.push_str("%m");
+            i += 2;
+        } else if rest.starts_with("dd") {
+            out.push_str("%d");
+            i += 2;
+        } else if rest.starts_with("HH") {
+            out.push_str("%H");
+            i += 2;
+        } else if rest.starts_with("mm") {
+            out.push_str("%M");
+            i += 2;
+        } else if rest.starts_with("ss") {
+            out.push_str("%S");
+            i += 2;
+        } else if rest.starts_with("SSSSSS") {
+            out.push_str("%6f");
+            i += 6;
+        } else if rest.starts_with("SSSSSSSSS") {
+            out.push_str("%9f");
+            i += 9;
+        } else if rest.starts_with("SSS") {
+            out.push_str("%3f");
+            i += 3;
+        } else if rest.starts_with("Z") {
+            out.push_str("%z");
+            i += 1;
+        } else if rest.starts_with("XXX") {
+            out.push_str("%:z");
+            i += 3;
+        } else if rest.starts_with("'") {
             // Literal quoted text until next quote.
             i += 1;
             while i < bytes.len() && bytes[i] != b'\'' {
                 out.push(bytes[i] as char);
                 i += 1;
             }
-            if i < bytes.len() { i += 1; }
+            if i < bytes.len() {
+                i += 1;
+            }
         } else {
             out.push(bytes[i] as char);
             i += 1;
@@ -19966,7 +21726,10 @@ fn is_field_value_valid(ftype: &str, v: &Value) -> bool {
         },
         "integer" | "long" | "short" | "byte" => match v {
             Value::Number(n) => n.is_i64() || n.as_f64().map(|f| f.fract() == 0.0).unwrap_or(false),
-            Value::String(s) => s.parse::<i64>().is_ok() || s.parse::<f64>().map(|f| f.fract() == 0.0).unwrap_or(false),
+            Value::String(s) => {
+                s.parse::<i64>().is_ok()
+                    || s.parse::<f64>().map(|f| f.fract() == 0.0).unwrap_or(false)
+            }
             _ => false,
         },
         "float" | "double" | "half_float" | "scaled_float" => match v {
@@ -19974,11 +21737,13 @@ fn is_field_value_valid(ftype: &str, v: &Value) -> bool {
             Value::String(s) => s.parse::<f64>().is_ok(),
             _ => false,
         },
-        "boolean" => matches!(v, Value::Bool(_))
-            || match v {
-                Value::String(s) => matches!(s.as_str(), "true" | "false"),
-                _ => false,
-            },
+        "boolean" => {
+            matches!(v, Value::Bool(_))
+                || match v {
+                    Value::String(s) => matches!(s.as_str(), "true" | "false"),
+                    _ => false,
+                }
+        }
         "geo_point" => {
             // Parse a number OR number-shaped string ("20.12") to f64.
             let parse_num = |x: &Value| -> Option<f64> {
@@ -19995,7 +21760,9 @@ fn is_field_value_valid(ftype: &str, v: &Value) -> bool {
             let valid_lon = |lon: f64| lon.is_finite();
             // "lat,lon" string form (latitude first), or a WKT POINT literal.
             let is_latlon_string = |s: &str| -> bool {
-                if s.starts_with("POINT") { return true; }
+                if s.starts_with("POINT") {
+                    return true;
+                }
                 if let Some((a, b)) = s.split_once(',') {
                     if let (Ok(lat), Ok(lon)) = (a.trim().parse::<f64>(), b.trim().parse::<f64>()) {
                         return valid_lat(lat) && valid_lon(lon);
@@ -20005,19 +21772,19 @@ fn is_field_value_valid(ftype: &str, v: &Value) -> bool {
             };
             match v {
                 Value::Object(o) => {
-                    match (parse_num(o.get("lat").unwrap_or(&Value::Null)),
-                           parse_num(o.get("lon").unwrap_or(&Value::Null))) {
+                    match (
+                        parse_num(o.get("lat").unwrap_or(&Value::Null)),
+                        parse_num(o.get("lon").unwrap_or(&Value::Null)),
+                    ) {
                         (Some(lat), Some(lon)) => valid_lat(lat) && valid_lon(lon),
                         _ => false,
                     }
                 }
                 // GeoJSON / ES array form is [lon, lat].
-                Value::Array(a) if a.len() == 2 => {
-                    match (parse_num(&a[0]), parse_num(&a[1])) {
-                        (Some(lon), Some(lat)) => valid_lon(lon) && valid_lat(lat),
-                        _ => false,
-                    }
-                }
+                Value::Array(a) if a.len() == 2 => match (parse_num(&a[0]), parse_num(&a[1])) {
+                    (Some(lon), Some(lat)) => valid_lon(lon) && valid_lat(lat),
+                    _ => false,
+                },
                 // A single-element array is NOT a valid geo_point in ES — the
                 // array form must be exactly [lon, lat]. So `["45.33, 8.20"]`
                 // is malformed (whereas the bare string "45.33, 8.20" is fine).
@@ -20060,10 +21827,7 @@ pub(crate) fn build_inner_hits(
             .and_then(Value::as_u64)
             .map(|n| n as usize)
             .unwrap_or(0);
-        let source_enabled = match opts.get("_source") {
-            Some(Value::Bool(false)) => false,
-            _ => true,
-        };
+        let source_enabled = !matches!(opts.get("_source"), Some(Value::Bool(false)));
         // Field expressions: ES accepts `[ "a.b", "c" ]` OR the newer
         // `[ { field: "a.b" }, ... ]` shape.
         let field_exprs: Vec<String> = opts
@@ -20086,8 +21850,7 @@ pub(crate) fn build_inner_hits(
 
         // Resolve the nested path (may be dotted) and emit one inner
         // hit per element of the nested array.
-        let nested_raw = get_source_value_by_path(source, path)
-            .unwrap_or(Value::Null);
+        let nested_raw = get_source_value_by_path(source, path).unwrap_or(Value::Null);
         let elements: Vec<Value> = match nested_raw {
             Value::Array(arr) => arr,
             Value::Object(_) => vec![nested_raw],
@@ -20107,7 +21870,10 @@ pub(crate) fn build_inner_hits(
                 let mut hit = serde_json::Map::new();
                 hit.insert("_index".to_string(), Value::String(index.to_string()));
                 hit.insert("_id".to_string(), Value::String(doc_id.to_string()));
-                hit.insert("_nested".to_string(), json!({ "field": path, "offset": offset }));
+                hit.insert(
+                    "_nested".to_string(),
+                    json!({ "field": path, "offset": offset }),
+                );
                 hit.insert("_score".to_string(), json!(1.0));
                 if source_enabled {
                     hit.insert("_source".to_string(), elem.clone());
@@ -20210,12 +21976,18 @@ pub async fn async_search_submit(
 
     // Build a normal search response body to embed.
     let max_score = result.hits.first().map(|h| h.score as f64);
-    let hits: Vec<Value> = result.hits.iter().map(|h| json!({
-        "_index": index,
-        "_id": h.id,
-        "_score": h.score,
-        "_source": h.source,
-    })).collect();
+    let hits: Vec<Value> = result
+        .hits
+        .iter()
+        .map(|h| {
+            json!({
+                "_index": index,
+                "_id": h.id,
+                "_score": h.score,
+                "_source": h.source,
+            })
+        })
+        .collect();
     let mut search_response = json!({
         "took": took_ms,
         "timed_out": result.timed_out,
@@ -20247,7 +22019,10 @@ pub async fn async_search_submit(
         "response": search_response
     });
 
-    state.engine.async_searches.insert(async_id.clone(), stored.clone());
+    state
+        .engine
+        .async_searches
+        .insert(async_id.clone(), stored.clone());
 
     Json(stored).into_response()
 }
@@ -20320,9 +22095,7 @@ pub async fn sql_query(
         Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
     };
 
-    let limit = body.fetch_size
-        .or(parsed.limit)
-        .unwrap_or(10);
+    let limit = body.fetch_size.or(parsed.limit).unwrap_or(10);
 
     let mut req = xerj_query::ast::SearchRequest {
         query: parsed.query,
@@ -20344,31 +22117,46 @@ pub async fn sql_query(
     // Build column metadata from first hit or requested fields.
     let columns: Vec<Value> = if parsed.fields.contains(&"*".to_string()) {
         // Infer columns from first hit's keys.
-        result.hits.first()
+        result
+            .hits
+            .first()
             .and_then(|h| h.source.as_object())
-            .map(|obj| obj.keys().map(|k| json!({"name": k, "type": "text"})).collect())
+            .map(|obj| {
+                obj.keys()
+                    .map(|k| json!({"name": k, "type": "text"}))
+                    .collect()
+            })
             .unwrap_or_default()
     } else {
-        parsed.fields.iter()
+        parsed
+            .fields
+            .iter()
             .map(|f| json!({"name": f, "type": "text"}))
             .collect()
     };
 
-    let field_names: Vec<String> = columns.iter()
+    let field_names: Vec<String> = columns
+        .iter()
         .filter_map(|c| c.get("name").and_then(Value::as_str).map(String::from))
         .collect();
 
-    let rows: Vec<Value> = result.hits.iter().map(|h| {
-        let row: Vec<Value> = field_names.iter()
-            .map(|f| h.source.get(f).cloned().unwrap_or(Value::Null))
-            .collect();
-        Value::Array(row)
-    }).collect();
+    let rows: Vec<Value> = result
+        .hits
+        .iter()
+        .map(|h| {
+            let row: Vec<Value> = field_names
+                .iter()
+                .map(|f| h.source.get(f).cloned().unwrap_or(Value::Null))
+                .collect();
+            Value::Array(row)
+        })
+        .collect();
 
     Json(json!({
         "columns": columns,
         "rows": rows
-    })).into_response()
+    }))
+    .into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -20409,7 +22197,8 @@ pub async fn rank_eval(
     let mut all_recall: Vec<f64> = Vec::new();
 
     // Default metric: precision at 10.
-    let k = body.metric
+    let k = body
+        .metric
         .as_ref()
         .and_then(|m| m.get("precision").or_else(|| m.get("recall")))
         .and_then(|m| m.get("k"))
@@ -20417,19 +22206,22 @@ pub async fn rank_eval(
         .unwrap_or(10) as usize;
 
     for req_spec in &body.requests {
-        let query_val = req_spec.request.get("query")
+        let query_val = req_spec
+            .request
+            .get("query")
             .cloned()
             .unwrap_or(json!({"match_all": {}}));
-        let size = req_spec.request.get("size")
+        let size = req_spec
+            .request
+            .get("size")
             .and_then(Value::as_u64)
             .unwrap_or(k as u64) as usize;
 
-        let search_req = match xerj_query::parse_request(
-            &json!({"query": query_val, "size": size.max(k)})
-        ) {
-            Ok(r) => r,
-            Err(_) => continue,
-        };
+        let search_req =
+            match xerj_query::parse_request(&json!({"query": query_val, "size": size.max(k)})) {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
 
         let idx = match state.engine.get_index(&index) {
             Ok(i) => i,
@@ -20442,17 +22234,17 @@ pub async fn rank_eval(
         };
 
         // Build set of relevant doc ids (rating >= 1).
-        let relevant_ids: std::collections::HashSet<String> = req_spec.ratings.iter()
+        let relevant_ids: std::collections::HashSet<String> = req_spec
+            .ratings
+            .iter()
             .filter(|r| r.rating >= 1)
             .map(|r| r.id.clone())
             .collect();
 
-        let retrieved_ids: Vec<String> = result.hits.iter()
-            .take(k)
-            .map(|h| h.id.clone())
-            .collect();
+        let retrieved_ids: Vec<String> = result.hits.iter().take(k).map(|h| h.id.clone()).collect();
 
-        let relevant_retrieved: usize = retrieved_ids.iter()
+        let relevant_retrieved: usize = retrieved_ids
+            .iter()
             .filter(|id| relevant_ids.contains(*id))
             .count();
 
@@ -20495,7 +22287,8 @@ pub async fn rank_eval(
         "metric_score": mean_precision,
         "details": details,
         "failures": {}
-    })).into_response()
+    }))
+    .into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -20773,7 +22566,11 @@ pub async fn put_ml_anomaly_detector(
             Value::Array(a) => a.first().and_then(Value::as_str).unwrap_or("").to_string(),
             _ => String::new(),
         })
-        .or_else(|| body.get("index").and_then(Value::as_str).map(str::to_string))
+        .or_else(|| {
+            body.get("index")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
         .unwrap_or_default();
     if source_index.is_empty() {
         return ml_error(
@@ -20811,8 +22608,13 @@ pub async fn put_ml_anomaly_detector(
             .and_then(|a| a.first())
         {
             (
-                det.get("function").and_then(Value::as_str).unwrap_or("count").to_string(),
-                det.get("field_name").and_then(Value::as_str).map(str::to_string),
+                det.get("function")
+                    .and_then(Value::as_str)
+                    .unwrap_or("count")
+                    .to_string(),
+                det.get("field_name")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
             )
         } else {
             ("count".to_string(), None)
@@ -20976,8 +22778,8 @@ pub async fn score_ml_anomaly_detector(
         .filter(|v| *v > 0.0)
         .unwrap_or(detector.anomaly_threshold);
 
-    let (metric_agg, needs_field) = ml_metric_agg(&detector.function)
-        .unwrap_or(("value_count", false));
+    let (metric_agg, needs_field) =
+        ml_metric_agg(&detector.function).unwrap_or(("value_count", false));
 
     // Build the date_histogram (+ optional metric sub-agg) request.
     let mut hist = json!({
@@ -21071,7 +22873,11 @@ pub async fn score_ml_anomaly_detector(
 
         let (mean, std) = ml_mean_std(&normal);
         let z = if std < 1e-9 {
-            if (actual - mean).abs() < 1e-9 { 0.0 } else { (actual - mean).signum() * 1e6 }
+            if (actual - mean).abs() < 1e-9 {
+                0.0
+            } else {
+                (actual - mean).signum() * 1e6
+            }
         } else {
             (actual - mean) / std
         };
@@ -21104,12 +22910,22 @@ pub async fn score_ml_anomaly_detector(
     // Anomalies ranked by score, most-severe first.
     let mut anomalies: Vec<Value> = records
         .iter()
-        .filter(|r| r.get("is_anomaly").and_then(Value::as_bool).unwrap_or(false))
+        .filter(|r| {
+            r.get("is_anomaly")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+        })
         .cloned()
         .collect();
     anomalies.sort_by(|a, b| {
-        let sa = a.get("anomaly_score").and_then(Value::as_f64).unwrap_or(0.0);
-        let sb = b.get("anomaly_score").and_then(Value::as_f64).unwrap_or(0.0);
+        let sa = a
+            .get("anomaly_score")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0);
+        let sb = b
+            .get("anomaly_score")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0);
         sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal)
     });
 
@@ -21155,7 +22971,10 @@ pub async fn cat_ml_anomaly_detectors(State(state): State<AppState>) -> impl Int
     };
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         body,
     )
         .into_response()
@@ -21164,7 +22983,10 @@ pub async fn cat_ml_anomaly_detectors(State(state): State<AppState>) -> impl Int
 pub async fn cat_ml_datafeeds() -> impl IntoResponse {
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         "",
     )
 }
@@ -21172,7 +22994,10 @@ pub async fn cat_ml_datafeeds() -> impl IntoResponse {
 pub async fn cat_ml_trained_models() -> impl IntoResponse {
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         "",
     )
 }
@@ -21481,18 +23306,30 @@ pub async fn get_rollup_data(
     let mut jobs: Vec<Value> = Vec::new();
     for e in state.engine.rollup_jobs.iter() {
         let cfg = e.value();
-        let rollup_index = cfg.get("rollup_index").and_then(|v| v.as_str()).unwrap_or("");
+        let rollup_index = cfg
+            .get("rollup_index")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         if rollup_index != index {
             continue;
         }
-        let index_pattern = cfg.get("index_pattern").and_then(|v| v.as_str()).unwrap_or("");
+        let index_pattern = cfg
+            .get("index_pattern")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         let mut fields = serde_json::Map::new();
         if let Some(groups) = cfg.get("groups").and_then(|g| g.as_object()) {
             if let Some(dh) = groups.get("date_histogram").and_then(|d| d.as_object()) {
                 if let Some(field) = dh.get("field").and_then(|f| f.as_str()) {
                     let mut agg = serde_json::Map::new();
                     agg.insert("agg".to_string(), json!("date_histogram"));
-                    for k in ["fixed_interval", "calendar_interval", "interval", "delay", "time_zone"] {
+                    for k in [
+                        "fixed_interval",
+                        "calendar_interval",
+                        "interval",
+                        "delay",
+                        "time_zone",
+                    ] {
                         if let Some(v) = dh.get(k) {
                             agg.insert(k.to_string(), v.clone());
                         }
@@ -21503,7 +23340,11 @@ pub async fn get_rollup_data(
                     fields.insert(field.to_string(), json!([Value::Object(agg)]));
                 }
             }
-            if let Some(terms) = groups.get("terms").and_then(|t| t.get("fields")).and_then(|f| f.as_array()) {
+            if let Some(terms) = groups
+                .get("terms")
+                .and_then(|t| t.get("fields"))
+                .and_then(|f| f.as_array())
+            {
                 for f in terms {
                     if let Some(field) = f.as_str() {
                         fields.entry(field.to_string()).or_insert_with(|| json!([]));
@@ -21519,7 +23360,8 @@ pub async fn get_rollup_data(
                     for f in hfields {
                         if let Some(field) = f.as_str() {
                             fields.entry(field.to_string()).or_insert_with(|| json!([]));
-                            if let Some(arr) = fields.get_mut(field).and_then(|v| v.as_array_mut()) {
+                            if let Some(arr) = fields.get_mut(field).and_then(|v| v.as_array_mut())
+                            {
                                 arr.push(json!({ "agg": "histogram", "interval": interval }));
                             }
                         }
@@ -21587,7 +23429,10 @@ fn agg_key_doc_id(prefix: &str, key: &Value, order: &[String]) -> String {
 /// Flatten a composite bucket's sub-aggregation results onto `doc`. Single-value
 /// metrics (`{"value": x}`) flatten to the scalar under `name`; multi-value
 /// metrics (stats/percentiles) are kept as the nested object.
-fn flatten_bucket_metrics(doc: &mut serde_json::Map<String, Value>, bucket: &serde_json::Map<String, Value>) {
+fn flatten_bucket_metrics(
+    doc: &mut serde_json::Map<String, Value>,
+    bucket: &serde_json::Map<String, Value>,
+) {
     for (k, v) in bucket {
         if k == "key" || k == "doc_count" {
             continue;
@@ -21605,9 +23450,12 @@ async fn run_pivot_transform(state: &AppState, config: &Value) -> Result<usize, 
     let source_index = config
         .pointer("/source/index")
         .and_then(|v| {
-            v.as_str()
-                .map(|s| s.to_string())
-                .or_else(|| v.as_array().and_then(|a| a.first()).and_then(|x| x.as_str()).map(|s| s.to_string()))
+            v.as_str().map(|s| s.to_string()).or_else(|| {
+                v.as_array()
+                    .and_then(|a| a.first())
+                    .and_then(|x| x.as_str())
+                    .map(|s| s.to_string())
+            })
         })
         .ok_or_else(|| "transform has no source.index".to_string())?;
     let dest_index = config
@@ -21629,10 +23477,19 @@ async fn run_pivot_transform(state: &AppState, config: &Value) -> Result<usize, 
 
     // Each group_by entry is already a composite source spec: {name: {terms|date_histogram|histogram: {...}}}.
     let order: Vec<String> = group_by.keys().cloned().collect();
-    let sources: Vec<Value> = order.iter().map(|name| json!({ name.clone(): group_by[name] })).collect();
+    let sources: Vec<Value> = order
+        .iter()
+        .map(|name| json!({ name.clone(): group_by[name] }))
+        .collect();
 
-    let src_idx = state.engine.get_index(&source_index).map_err(|e| e.to_string())?;
-    let dest_idx = state.engine.get_or_create_index(&dest_index).map_err(|e| e.to_string())?;
+    let src_idx = state
+        .engine
+        .get_index(&source_index)
+        .map_err(|e| e.to_string())?;
+    let dest_idx = state
+        .engine
+        .get_or_create_index(&dest_index)
+        .map_err(|e| e.to_string())?;
 
     let mut after: Option<Value> = None;
     let mut written = 0usize;
@@ -21658,7 +23515,11 @@ async fn run_pivot_transform(state: &AppState, config: &Value) -> Result<usize, 
             Some(p) => p,
             None => break,
         };
-        let buckets = pivot.get("buckets").and_then(|b| b.as_array()).cloned().unwrap_or_default();
+        let buckets = pivot
+            .get("buckets")
+            .and_then(|b| b.as_array())
+            .cloned()
+            .unwrap_or_default();
         if buckets.is_empty() {
             break;
         }
@@ -21673,7 +23534,10 @@ async fn run_pivot_transform(state: &AppState, config: &Value) -> Result<usize, 
             if let Some(bo) = b.as_object() {
                 flatten_bucket_metrics(&mut doc, bo);
             }
-            doc.insert("doc_count".to_string(), b.get("doc_count").cloned().unwrap_or(json!(0)));
+            doc.insert(
+                "doc_count".to_string(),
+                b.get("doc_count").cloned().unwrap_or(json!(0)),
+            );
             let id = agg_key_doc_id("", &key, &order);
             dest_idx
                 .index_document(Some(id), Value::Object(doc))
@@ -21710,7 +23574,11 @@ async fn run_rollup_job(state: &AppState, job_id: &str, config: &Value) -> Resul
         .get("groups")
         .and_then(|v| v.as_object())
         .ok_or_else(|| "rollup job has no groups".to_string())?;
-    let metrics = config.get("metrics").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let metrics = config
+        .get("metrics")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
 
     // Composite sources from groups (preserve a stable order: date_histogram first, then terms, then histogram).
     let mut sources: Vec<Value> = Vec::new();
@@ -21721,7 +23589,13 @@ async fn run_rollup_job(state: &AppState, job_id: &str, config: &Value) -> Resul
             // composite parser understands (drop rollup-only keys like `delay`).
             let mut src = serde_json::Map::new();
             src.insert("field".to_string(), json!(field));
-            for k in ["fixed_interval", "calendar_interval", "interval", "time_zone", "format"] {
+            for k in [
+                "fixed_interval",
+                "calendar_interval",
+                "interval",
+                "time_zone",
+                "format",
+            ] {
                 if let Some(v) = dh.get(k) {
                     src.insert(k.to_string(), v.clone());
                 }
@@ -21730,7 +23604,11 @@ async fn run_rollup_job(state: &AppState, job_id: &str, config: &Value) -> Resul
             order.push(field.to_string());
         }
     }
-    if let Some(terms) = groups.get("terms").and_then(|t| t.get("fields")).and_then(|f| f.as_array()) {
+    if let Some(terms) = groups
+        .get("terms")
+        .and_then(|t| t.get("fields"))
+        .and_then(|f| f.as_array())
+    {
         for f in terms {
             if let Some(field) = f.as_str() {
                 sources.push(json!({ field: { "terms": { "field": field } } }));
@@ -21743,7 +23621,9 @@ async fn run_rollup_job(state: &AppState, job_id: &str, config: &Value) -> Resul
         if let Some(hfields) = hist.get("fields").and_then(|f| f.as_array()) {
             for f in hfields {
                 if let Some(field) = f.as_str() {
-                    sources.push(json!({ field: { "histogram": { "field": field, "interval": interval } } }));
+                    sources.push(
+                        json!({ field: { "histogram": { "field": field, "interval": interval } } }),
+                    );
                     order.push(field.to_string());
                 }
             }
@@ -21783,7 +23663,10 @@ async fn run_rollup_job(state: &AppState, job_id: &str, config: &Value) -> Resul
         return Err(format!("no index matches pattern [{index_pattern}]"));
     }
 
-    let dest_idx = state.engine.get_or_create_index(&rollup_index).map_err(|e| e.to_string())?;
+    let dest_idx = state
+        .engine
+        .get_or_create_index(&rollup_index)
+        .map_err(|e| e.to_string())?;
     let mut written = 0usize;
 
     for source_index in &matches {
@@ -21811,7 +23694,11 @@ async fn run_rollup_job(state: &AppState, job_id: &str, config: &Value) -> Resul
                 Some(r) => r,
                 None => break,
             };
-            let buckets = rollup.get("buckets").and_then(|b| b.as_array()).cloned().unwrap_or_default();
+            let buckets = rollup
+                .get("buckets")
+                .and_then(|b| b.as_array())
+                .cloned()
+                .unwrap_or_default();
             if buckets.is_empty() {
                 break;
             }
@@ -21826,7 +23713,10 @@ async fn run_rollup_job(state: &AppState, job_id: &str, config: &Value) -> Resul
                 if let Some(bo) = b.as_object() {
                     flatten_bucket_metrics(&mut doc, bo);
                 }
-                doc.insert("doc_count".to_string(), b.get("doc_count").cloned().unwrap_or(json!(0)));
+                doc.insert(
+                    "doc_count".to_string(),
+                    b.get("doc_count").cloned().unwrap_or(json!(0)),
+                );
                 doc.insert("_rollup.id".to_string(), json!(job_id));
                 doc.insert("_rollup.source_index".to_string(), json!(source_index));
                 let id = agg_key_doc_id(source_index, &key, &order);
@@ -21974,7 +23864,9 @@ pub async fn get_ccr_auto_follow(
             Json(json!({ "patterns": [v] })).into_response()
         }
         None => {
-            let e = xerj_common::XerjError::index_not_found(format!("auto-follow pattern [{name}] not found"));
+            let e = xerj_common::XerjError::index_not_found(format!(
+                "auto-follow pattern [{name}] not found"
+            ));
             ApiError::new(e).into_response()
         }
     }
@@ -21987,7 +23879,9 @@ pub async fn delete_ccr_auto_follow(
     if state.engine.ccr_auto_follow.remove(&name).is_some() {
         Json(json!({ "acknowledged": true })).into_response()
     } else {
-        let e = xerj_common::XerjError::index_not_found(format!("auto-follow pattern [{name}] not found"));
+        let e = xerj_common::XerjError::index_not_found(format!(
+            "auto-follow pattern [{name}] not found"
+        ));
         ApiError::new(e).into_response()
     }
 }
@@ -22104,7 +23998,8 @@ pub async fn get_legacy_template(
             Json(Value::Object(result)).into_response()
         }
         None => {
-            let e = xerj_common::XerjError::index_not_found(format!("index template [{name}] missing"));
+            let e =
+                xerj_common::XerjError::index_not_found(format!("index template [{name}] missing"));
             ApiError::new(e).into_response()
         }
     }
@@ -22176,9 +24071,7 @@ pub async fn simulate_index_template(
     let overlapping: Vec<Value> = matching
         .iter()
         .skip(1)
-        .map(|(name, _, _, _, patterns)| {
-            json!({ "name": name, "index_patterns": patterns })
-        })
+        .map(|(name, _, _, _, patterns)| json!({ "name": name, "index_patterns": patterns }))
         .collect();
 
     Json(json!({
@@ -22213,10 +24106,17 @@ pub async fn cat_tasks(State(state): State<AppState>) -> impl IntoResponse {
             t.node,
         ));
     }
-    let body = if lines.is_empty() { String::new() } else { lines.join("\n") + "\n" };
+    let body = if lines.is_empty() {
+        String::new()
+    } else {
+        lines.join("\n") + "\n"
+    };
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         body,
     )
         .into_response()
@@ -22225,7 +24125,8 @@ pub async fn cat_tasks(State(state): State<AppState>) -> impl IntoResponse {
 pub async fn cat_repositories(State(state): State<AppState>) -> impl IntoResponse {
     let mut lines = Vec::new();
     for entry in state.engine.snapshot_repos.iter() {
-        let repo_type = entry.value()
+        let repo_type = entry
+            .value()
             .get("type")
             .and_then(Value::as_str)
             .unwrap_or("fs");
@@ -22238,7 +24139,10 @@ pub async fn cat_repositories(State(state): State<AppState>) -> impl IntoRespons
     };
     (
         StatusCode::OK,
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         body,
     )
 }
@@ -22425,9 +24329,18 @@ fn eql_ci_find(hay: &str, needle: &str) -> Option<(usize, usize)> {
     let ncount = needle.chars().count();
     for (start, _) in hay.char_indices() {
         let slice = &hay[start..];
-        let cand: String = slice.chars().take(ncount).flat_map(|c| c.to_lowercase()).collect();
+        let cand: String = slice
+            .chars()
+            .take(ncount)
+            .flat_map(|c| c.to_lowercase())
+            .collect();
         if cand == needle {
-            let end = start + slice.chars().take(ncount).map(|c| c.len_utf8()).sum::<usize>();
+            let end = start
+                + slice
+                    .chars()
+                    .take(ncount)
+                    .map(|c| c.len_utf8())
+                    .sum::<usize>();
             return Some((start, end));
         }
     }
@@ -22439,8 +24352,7 @@ fn eql_ci_find(hay: &str, needle: &str) -> Option<(usize, usize)> {
 fn eql_parse_value(s: &str) -> (Value, bool) {
     let s = s.trim();
     if s.len() >= 2
-        && ((s.starts_with('"') && s.ends_with('"'))
-            || (s.starts_with('\'') && s.ends_with('\'')))
+        && ((s.starts_with('"') && s.ends_with('"')) || (s.starts_with('\'') && s.ends_with('\'')))
     {
         return (Value::String(s[1..s.len() - 1].to_string()), true);
     }
@@ -22471,7 +24383,11 @@ fn eql_field_obj(wrapper: &str, field: &str, inner: Value) -> Value {
 /// Translate a single `field <op> value` EQL predicate into a DSL leaf query.
 /// Returns None when nothing usable can be extracted.
 fn eql_predicate_to_leaf(pred: &str) -> Option<Value> {
-    let pred = pred.trim().trim_start_matches('(').trim_end_matches(')').trim();
+    let pred = pred
+        .trim()
+        .trim_start_matches('(')
+        .trim_end_matches(')')
+        .trim();
     if pred.is_empty() {
         return None;
     }
@@ -22515,7 +24431,11 @@ fn eql_split_predicates(cond: &str) -> (Vec<String>, bool) {
         let or_pos = eql_ci_find(rest, " or ");
         let next = match (and_pos, or_pos) {
             (Some(a), Some(o)) => {
-                if a.0 <= o.0 { Some((a, false)) } else { Some((o, true)) }
+                if a.0 <= o.0 {
+                    Some((a, false))
+                } else {
+                    Some((o, true))
+                }
             }
             (Some(a), None) => Some((a, false)),
             (None, Some(o)) => Some((o, true)),
@@ -22549,7 +24469,10 @@ fn eql_to_query(eql: &str) -> Value {
         None => return json!({ "match_all": {} }),
     };
     let (preds, is_or) = eql_split_predicates(cond);
-    let leaves: Vec<Value> = preds.iter().filter_map(|p| eql_predicate_to_leaf(p)).collect();
+    let leaves: Vec<Value> = preds
+        .iter()
+        .filter_map(|p| eql_predicate_to_leaf(p))
+        .collect();
     if leaves.is_empty() {
         return json!({ "match_all": {} });
     }
@@ -22674,7 +24597,12 @@ mod scripted_update_tests {
     #[test]
     fn read_other_source_field_in_rhs() {
         let mut src = json!({ "a": 10, "b": 4 });
-        apply_painless_update(&mut src, "ctx._source.c = ctx._source.a - ctx._source.b", &json!({})).unwrap();
+        apply_painless_update(
+            &mut src,
+            "ctx._source.c = ctx._source.a - ctx._source.b",
+            &json!({}),
+        )
+        .unwrap();
         assert_eq!(src["c"], json!(6));
     }
 }

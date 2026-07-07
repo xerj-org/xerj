@@ -118,10 +118,17 @@ impl ClusterMetadata {
             ClusterCommand::DeleteIndex { name } => {
                 self.apply_delete_index(name);
             }
-            ClusterCommand::UpdateMapping { index, mapping_json } => {
+            ClusterCommand::UpdateMapping {
+                index,
+                mapping_json,
+            } => {
                 self.apply_update_mapping(index, mapping_json);
             }
-            ClusterCommand::AssignShard { index, shard, node_id } => {
+            ClusterCommand::AssignShard {
+                index,
+                shard,
+                node_id,
+            } => {
                 self.apply_assign_shard(index, *shard, node_id);
             }
             ClusterCommand::AddNode { node_id, address } => {
@@ -168,8 +175,7 @@ impl ClusterMetadata {
             return;
         }
         // Clean up shard assignments for this index
-        self.shard_assignments
-            .retain(|(idx, _), _| idx != name);
+        self.shard_assignments.retain(|(idx, _), _| idx != name);
         info!(index = %name, "Applying DeleteIndex");
     }
 
@@ -266,12 +272,16 @@ mod tests {
             },
         );
         assert_eq!(
-            meta.indices["logs"].schema_json,
-            r#"{"properties":{}}"#,
+            meta.indices["logs"].schema_json, r#"{"properties":{}}"#,
             "duplicate create should not overwrite schema"
         );
 
-        meta.apply(3, &ClusterCommand::DeleteIndex { name: "logs".to_string() });
+        meta.apply(
+            3,
+            &ClusterCommand::DeleteIndex {
+                name: "logs".to_string(),
+            },
+        );
         assert!(!meta.indices.contains_key("logs"));
     }
 
@@ -288,7 +298,12 @@ mod tests {
         );
         assert_eq!(meta.nodes["n1"].state, NodeState::Active);
 
-        meta.apply(2, &ClusterCommand::RemoveNode { node_id: "n1".to_string() });
+        meta.apply(
+            2,
+            &ClusterCommand::RemoveNode {
+                node_id: "n1".to_string(),
+            },
+        );
         assert_eq!(meta.nodes["n1"].state, NodeState::Down);
 
         assert!(
@@ -367,7 +382,10 @@ mod tests {
             meta.apply(entry.index, &entry.command);
         }
 
-        assert!(meta.indices.contains_key("events"), "CreateIndex should be applied");
+        assert!(
+            meta.indices.contains_key("events"),
+            "CreateIndex should be applied"
+        );
         assert!(meta.nodes.contains_key("n2"), "AddNode should be applied");
     }
 }

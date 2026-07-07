@@ -25,7 +25,7 @@ use anyhow::{Context, Result};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use fst::{Map, MapBuilder};
 use memmap2::Mmap;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::{
     collections::HashMap,
     fs::{self, File},
@@ -240,9 +240,7 @@ fn encode_field_meta_v4(
         let tp = term_postings
             .get(term)
             .expect("sorted_terms must match term_postings keys");
-        records
-            .write_u32::<LittleEndian>(tp.doc_frequency)
-            .unwrap();
+        records.write_u32::<LittleEndian>(tp.doc_frequency).unwrap();
         records
             .write_u64::<LittleEndian>(tp.total_term_frequency)
             .unwrap();
@@ -254,18 +252,18 @@ fn encode_field_meta_v4(
             .unwrap();
     }
     let uncompressed_len = records.len() as u32;
-    let compressed = zstd::bulk::compress(&records, ZSTD_DURABLE_LEVEL)
-        .with_context(|| "ZFM4 zstd compress")?;
-    let mut out: Vec<u8> = Vec::with_capacity(
-        ZFM3_HEADER_LEN + 4 + 4 + compressed.len(),
-    );
+    let compressed =
+        zstd::bulk::compress(&records, ZSTD_DURABLE_LEVEL).with_context(|| "ZFM4 zstd compress")?;
+    let mut out: Vec<u8> = Vec::with_capacity(ZFM3_HEADER_LEN + 4 + 4 + compressed.len());
     out.extend_from_slice(META_MAGIC_V4);
     out.write_u64::<LittleEndian>(stats.total_docs).unwrap();
-    out.write_u64::<LittleEndian>(stats.total_field_length).unwrap();
+    out.write_u64::<LittleEndian>(stats.total_field_length)
+        .unwrap();
     out.write_u32::<LittleEndian>(num_terms as u32).unwrap();
     out.push(if has_positions { 1u8 } else { 0u8 });
     out.write_u32::<LittleEndian>(uncompressed_len).unwrap();
-    out.write_u32::<LittleEndian>(compressed.len() as u32).unwrap();
+    out.write_u32::<LittleEndian>(compressed.len() as u32)
+        .unwrap();
     out.extend_from_slice(&compressed);
     Ok(out)
 }
@@ -313,7 +311,10 @@ fn decode_field_meta_binary(bytes: &[u8]) -> Result<FieldMeta> {
             ));
         }
         return Ok(FieldMeta {
-            stats: FieldStats { total_docs, total_field_length },
+            stats: FieldStats {
+                total_docs,
+                total_field_length,
+            },
             terms: HashMap::new(),
             has_positions,
             fst_value_format: FstValueFormat::MetaByteOffset,
@@ -338,7 +339,10 @@ fn decode_field_meta_binary(bytes: &[u8]) -> Result<FieldMeta> {
             ));
         }
         return Ok(FieldMeta {
-            stats: FieldStats { total_docs, total_field_length },
+            stats: FieldStats {
+                total_docs,
+                total_field_length,
+            },
             // ZFM3 doesn't populate `terms` — lookups go through
             // `flat_records` via the FST byte-offset value instead.
             terms: HashMap::new(),
@@ -381,15 +385,21 @@ fn decode_field_meta_binary(bytes: &[u8]) -> Result<FieldMeta> {
         let total_term_frequency = cur.read_u64::<LittleEndian>()?;
         let postings_offset = cur.read_u64::<LittleEndian>()?;
         let postings_length = cur.read_u32::<LittleEndian>()?;
-        terms.insert(term, SerialTermPostings {
-            doc_frequency,
-            total_term_frequency,
-            postings_offset,
-            postings_length,
-        });
+        terms.insert(
+            term,
+            SerialTermPostings {
+                doc_frequency,
+                total_term_frequency,
+                postings_offset,
+                postings_length,
+            },
+        );
     }
     Ok(FieldMeta {
-        stats: FieldStats { total_docs, total_field_length },
+        stats: FieldStats {
+            total_docs,
+            total_field_length,
+        },
         terms,
         has_positions,
         fst_value_format: FstValueFormat::PostingsOffset,
@@ -492,7 +502,9 @@ impl FtsIndexWriter {
             let field_len = tokens.len() as u64;
 
             // Record norms (capped at u16::MAX)
-            field_data.norms.push((doc_id, field_len.min(u16::MAX as u64) as u16));
+            field_data
+                .norms
+                .push((doc_id, field_len.min(u16::MAX as u64) as u16));
 
             // Update field stats
             field_data.stats.total_docs += 1;
@@ -500,7 +512,9 @@ impl FtsIndexWriter {
 
             // Accumulate postings
             for token in &tokens {
-                field_data.postings.add_occurrence(&token.text, doc_id, token.position);
+                field_data
+                    .postings
+                    .add_occurrence(&token.text, doc_id, token.position);
             }
         }
     }
@@ -525,7 +539,10 @@ impl FtsIndexWriter {
     /// Generic over the third tuple element (a source payload the caller
     /// keeps alongside for its own use — `serde_json::Value`,
     /// `Arc<serde_json::Value>`, …): this method never reads it.
-    pub fn add_documents_parallel<S: Sync>(&mut self, docs: &[(String, HashMap<String, String>, S)]) {
+    pub fn add_documents_parallel<S: Sync>(
+        &mut self,
+        docs: &[(String, HashMap<String, String>, S)],
+    ) {
         use rayon::prelude::*;
         use std::collections::HashMap as StdHashMap;
 
@@ -577,10 +594,7 @@ impl FtsIndexWriter {
         let built: Vec<(String, FieldData)> = per_field_vec
             .into_par_iter()
             .map(|(field_name, entries)| {
-                let cfg = field_configs
-                    .get(&field_name)
-                    .cloned()
-                    .unwrap_or_default();
+                let cfg = field_configs.get(&field_name).cloned().unwrap_or_default();
                 let analyzer = registry
                     .get_analyzer(&cfg.analyzer)
                     .or_else(|| registry.get_analyzer("standard"))
@@ -601,7 +615,8 @@ impl FtsIndexWriter {
                 for (doc_ord, text) in entries {
                     let tokens = analyzer.analyze(text);
                     let field_len = tokens.len() as u64;
-                    fd.norms.push((doc_ord, field_len.min(u16::MAX as u64) as u16));
+                    fd.norms
+                        .push((doc_ord, field_len.min(u16::MAX as u64) as u16));
                     fd.stats.total_docs += 1;
                     fd.stats.total_field_length += field_len;
                     for token in &tokens {
@@ -652,13 +667,8 @@ impl FtsIndexWriter {
         let results: Vec<Result<(String, FieldStats)>> = fields
             .into_par_iter()
             .map(|(field_name, stats, field_data)| {
-                Self::write_field_static(
-                    &segment_dir,
-                    &segment_id,
-                    &field_name,
-                    field_data,
-                )
-                .with_context(|| format!("writing field '{}'", field_name))?;
+                Self::write_field_static(&segment_dir, &segment_id, &field_name, field_data)
+                    .with_context(|| format!("writing field '{}'", field_name))?;
                 Ok((field_name, stats))
             })
             .collect();
@@ -683,9 +693,8 @@ impl FtsIndexWriter {
         // so using `segment_dir.join("segment_id.field_name")` followed by
         // `with_extension("fst")` would strip `.field_name` and collapse every
         // field to the same file.  Build filenames by hand to avoid that.
-        let filename = |ext: &str| {
-            segment_dir.join(format!("{}.{}.{}", segment_id, field_name, ext))
-        };
+        let filename =
+            |ext: &str| segment_dir.join(format!("{}.{}.{}", segment_id, field_name, ext));
         let fst_path = filename("fst");
         let post_path = filename("post");
         let meta_path = filename("meta");
@@ -696,11 +705,8 @@ impl FtsIndexWriter {
         let mut term_postings: HashMap<String, TermPostings> = HashMap::new();
 
         // Collect sorted terms (FST requires lexicographic order)
-        let mut sorted_terms: Vec<String> = field_data
-            .postings
-            .terms()
-            .map(|s| s.to_owned())
-            .collect();
+        let mut sorted_terms: Vec<String> =
+            field_data.postings.terms().map(|s| s.to_owned()).collect();
         sorted_terms.sort_unstable();
 
         // Pre-compute per-term (doc_freq, ttf) ONCE.  The previous code
@@ -718,10 +724,7 @@ impl FtsIndexWriter {
         for term in &sorted_terms {
             if let Some((offset, _skip)) = field_data.postings.encode_term(term, &mut post_data) {
                 // Calculate doc_freq and ttf from the writer's internal stats
-                let (doc_freq, ttf) = stats_by_term
-                    .get(term.as_str())
-                    .copied()
-                    .unwrap_or((0, 0));
+                let (doc_freq, ttf) = stats_by_term.get(term.as_str()).copied().unwrap_or((0, 0));
 
                 let end_offset = post_data.len() as u64;
                 let length = (end_offset - offset) as u32;
@@ -780,20 +783,17 @@ impl FtsIndexWriter {
         // holds df + ttf + postings_offset + length, so one FST hit →
         // one bounded mmap read.
         let fst_file = BufWriter::new(
-            File::create(&fst_path)
-                .with_context(|| format!("creating FST file {:?}", fst_path))?,
+            File::create(&fst_path).with_context(|| format!("creating FST file {:?}", fst_path))?,
         );
-        let mut fst_builder = MapBuilder::new(fst_file)
-            .with_context(|| "creating FST builder")?;
+        let mut fst_builder = MapBuilder::new(fst_file).with_context(|| "creating FST builder")?;
 
         // The i-th sorted term gets record slot `i`, whose byte offset
         // inside the flat meta array is `ZFM3_HEADER_LEN + i * 24`.  We
         // iterate the same sorted_terms list that built the meta body,
         // so ordering is consistent.
         for (i, term) in sorted_terms.iter().enumerate() {
-            if term_postings.get(term).is_some() {
-                let meta_offset =
-                    (ZFM3_HEADER_LEN + i * ZFM3_RECORD_LEN) as u64;
+            if term_postings.contains_key(term) {
+                let meta_offset = (ZFM3_HEADER_LEN + i * ZFM3_RECORD_LEN) as u64;
                 fst_builder
                     .insert(term.as_bytes(), meta_offset)
                     .with_context(|| format!("inserting term '{}' into FST", term))?;
@@ -845,7 +845,8 @@ impl FtsIndexWriter {
         // to pay off (long runs of identical norms on low-entropy fields
         // like nginx `method` compress ~8×).
         let lz4_try = lz4_flex::compress_prepend_size(&dense);
-        let (encoding, payload): (u8, &[u8]) = if dense.len() > 1024 && lz4_try.len() < dense.len() {
+        let (encoding, payload): (u8, &[u8]) = if dense.len() > 1024 && lz4_try.len() < dense.len()
+        {
             (1, &lz4_try[..])
         } else {
             (0, &dense[..])
@@ -873,9 +874,13 @@ const NORMS_MAGIC: &[u8; 4] = b"ZNM1";
 /// lengths, same as Lucene's `SmallFloat`.
 #[inline]
 fn norm_u16_to_u8(len: u16) -> u8 {
-    if len == 0 { return 0; }
+    if len == 0 {
+        return 0;
+    }
     // Clamp short lengths [1..8] to direct encoding (0..7).
-    if len < 8 { return (len - 1) as u8 & 0x07; }
+    if len < 8 {
+        return (len - 1) as u8 & 0x07;
+    }
     // Logarithmic scale beyond 8.
     let l = (len as f64).log2();
     let v = ((l - 3.0) * 32.0 + 8.0) as i32;
@@ -885,7 +890,9 @@ fn norm_u16_to_u8(len: u16) -> u8 {
 #[inline]
 #[allow(dead_code)]
 fn norm_u8_to_u16(b: u8) -> u16 {
-    if b < 8 { return (b + 1) as u16; }
+    if b < 8 {
+        return (b + 1) as u16;
+    }
     let l = ((b - 8) as f64) / 32.0 + 3.0;
     let v = l.exp2();
     v.min(u16::MAX as f64) as u16
@@ -972,9 +979,8 @@ impl FtsIndexReader {
         for &field_name in field_names {
             // Build filenames explicitly — see note in `write_field_static`
             // for why `with_extension()` would be wrong here.
-            let filename = |ext: &str| {
-                segment_dir.join(format!("{}.{}.{}", segment_id, field_name, ext))
-            };
+            let filename =
+                |ext: &str| segment_dir.join(format!("{}.{}.{}", segment_id, field_name, ext));
             let fst_path = filename("fst");
             let post_path = filename("post");
             let meta_path = filename("meta");
@@ -988,15 +994,13 @@ impl FtsIndexReader {
             // ── FST ──────────────────────────────────────────────────
             // Prefer mmap; fall back to fs::read if mmap fails (tmpfs etc.).
             let fst = match Self::mmap_file(&fst_path) {
-                Ok(mmap) => FstData::Mmap(
-                    Map::new(mmap).with_context(|| "parsing FST map (mmap)")?,
-                ),
+                Ok(mmap) => {
+                    FstData::Mmap(Map::new(mmap).with_context(|| "parsing FST map (mmap)")?)
+                }
                 Err(_) => {
                     let fst_bytes = fs::read(&fst_path)
                         .with_context(|| format!("reading FST {:?}", fst_path))?;
-                    FstData::Owned(
-                        Map::new(fst_bytes).with_context(|| "parsing FST map (owned)")?,
-                    )
+                    FstData::Owned(Map::new(fst_bytes).with_context(|| "parsing FST map (owned)")?)
                 }
             };
 
@@ -1039,8 +1043,8 @@ impl FtsIndexReader {
             // Auto-detect the on-disk format: ZFM1 binary (new) vs
             // legacy pretty-JSON (from pre-M4.7 segments).  We keep the
             // JSON fallback so upgrades don't require a reindex.
-            let meta_bytes = fs::read(&meta_path)
-                .with_context(|| format!("reading meta {:?}", meta_path))?;
+            let meta_bytes =
+                fs::read(&meta_path).with_context(|| format!("reading meta {:?}", meta_path))?;
             let is_binary = meta_bytes.len() >= 4
                 && (&meta_bytes[..4] == META_MAGIC_V1
                     || &meta_bytes[..4] == META_MAGIC_V2
@@ -1067,15 +1071,21 @@ impl FtsIndexReader {
                     .with_context(|| "parsing legacy field meta JSON")?;
                 FieldMeta {
                     stats: legacy.stats,
-                    terms: legacy.terms.into_iter().map(|(k, v)| (
-                        k,
-                        SerialTermPostings {
-                            doc_frequency: v.doc_frequency,
-                            total_term_frequency: v.total_term_frequency,
-                            postings_offset: v.postings_offset,
-                            postings_length: v.postings_length,
-                        },
-                    )).collect(),
+                    terms: legacy
+                        .terms
+                        .into_iter()
+                        .map(|(k, v)| {
+                            (
+                                k,
+                                SerialTermPostings {
+                                    doc_frequency: v.doc_frequency,
+                                    total_term_frequency: v.total_term_frequency,
+                                    postings_offset: v.postings_offset,
+                                    postings_length: v.postings_length,
+                                },
+                            )
+                        })
+                        .collect(),
                     has_positions: true, // legacy segments always had positions
                     fst_value_format: FstValueFormat::PostingsOffset,
                     flat_records: Vec::new(),
@@ -1086,11 +1096,20 @@ impl FtsIndexReader {
 
             fields.insert(
                 field_name.to_owned(),
-                LoadedField { fst, post_data, meta, norms },
+                LoadedField {
+                    fst,
+                    post_data,
+                    meta,
+                    norms,
+                },
             );
         }
 
-        Ok(Self { segment_dir, segment_id, fields })
+        Ok(Self {
+            segment_dir,
+            segment_id,
+            fields,
+        })
     }
 
     /// Memory-map a file.
@@ -1101,24 +1120,18 @@ impl FtsIndexReader {
     /// immutable until merged away.  We only mmap these stable files, so
     /// this is safe in practice.
     fn mmap_file(path: &Path) -> Result<Mmap> {
-        let file = File::open(path)
-            .with_context(|| format!("opening {:?} for mmap", path))?;
+        let file = File::open(path).with_context(|| format!("opening {:?} for mmap", path))?;
         // Zero-length files would panic — short-circuit.
-        let len = file
-            .metadata()
-            .with_context(|| "stat for mmap")?
-            .len();
+        let len = file.metadata().with_context(|| "stat for mmap")?.len();
         if len == 0 {
             return Err(anyhow::anyhow!("empty file"));
         }
-        let mmap = unsafe { Mmap::map(&file) }
-            .with_context(|| format!("mmap {:?}", path))?;
+        let mmap = unsafe { Mmap::map(&file) }.with_context(|| format!("mmap {:?}", path))?;
         Ok(mmap)
     }
 
     fn load_norms(path: &Path) -> Result<Vec<(u32, u16)>> {
-        let bytes = fs::read(path)
-            .with_context(|| format!("opening norms {:?}", path))?;
+        let bytes = fs::read(path).with_context(|| format!("opening norms {:?}", path))?;
         // V4 M4.7 compact format starts with `NORMS_MAGIC`; legacy starts
         // with a raw u32 count (whose first byte almost never matches 'Z').
         if bytes.len() >= 4 && &bytes[..4] == NORMS_MAGIC {
@@ -1137,7 +1150,9 @@ impl FtsIndexReader {
             };
             if dense.len() != dense_len {
                 return Err(anyhow::anyhow!(
-                    "norms: dense length mismatch {} != {}", dense.len(), dense_len
+                    "norms: dense length mismatch {} != {}",
+                    dense.len(),
+                    dense_len
                 ));
             }
             // Materialise (doc_id, norm) pairs only for live docs so the
@@ -1176,7 +1191,10 @@ impl FtsIndexReader {
                 // record inside the flat `.meta` array.
                 let off = fst_value as usize;
                 let end = off.checked_add(ZFM3_RECORD_LEN)?;
-                let rec = loaded.meta.flat_records.get(off.checked_sub(ZFM3_HEADER_LEN)?..end.checked_sub(ZFM3_HEADER_LEN)?)?;
+                let rec = loaded
+                    .meta
+                    .flat_records
+                    .get(off.checked_sub(ZFM3_HEADER_LEN)?..end.checked_sub(ZFM3_HEADER_LEN)?)?;
                 // rec is exactly 24 bytes: df(4) ttf(8) off(8) len(4).
                 let mut cur = std::io::Cursor::new(rec);
                 let doc_frequency = cur.read_u32::<LittleEndian>().ok()?;
@@ -1318,9 +1336,15 @@ mod tests {
         let mut writer = FtsIndexWriter::new(dir.path(), "seg0", registry);
 
         let docs: Vec<HashMap<String, String>> = vec![
-            [("body".to_owned(), "the quick brown fox".to_owned())].into_iter().collect(),
-            [("body".to_owned(), "the lazy dog".to_owned())].into_iter().collect(),
-            [("body".to_owned(), "quick fox lazy dog".to_owned())].into_iter().collect(),
+            [("body".to_owned(), "the quick brown fox".to_owned())]
+                .into_iter()
+                .collect(),
+            [("body".to_owned(), "the lazy dog".to_owned())]
+                .into_iter()
+                .collect(),
+            [("body".to_owned(), "quick fox lazy dog".to_owned())]
+                .into_iter()
+                .collect(),
         ];
 
         for (i, doc) in docs.iter().enumerate() {
@@ -1340,9 +1364,12 @@ mod tests {
         assert!(!all_terms.is_empty(), "should have indexed terms");
 
         // "lazi" is the Snowball stem of "lazy"
-        let lazi_exists = reader.term_exists("body", "lazi")
-            || reader.term_exists("body", "lazy");
-        assert!(lazi_exists, "lazy/lazi should be indexed; terms={:?}", all_terms);
+        let lazi_exists = reader.term_exists("body", "lazi") || reader.term_exists("body", "lazy");
+        assert!(
+            lazi_exists,
+            "lazy/lazi should be indexed; terms={:?}",
+            all_terms
+        );
 
         // Field stats round-trip
         let fs = reader.field_stats("body").unwrap();
@@ -1364,13 +1391,19 @@ mod tests {
         let mut writer = FtsIndexWriter::new(dir.path(), "seg1", registry);
 
         // Use keyword analyzer to avoid stemming surprises
-        let mut cfg = FieldIndexConfig::default();
-        cfg.analyzer = "whitespace".to_owned();
+        let cfg = FieldIndexConfig {
+            analyzer: "whitespace".to_owned(),
+            ..Default::default()
+        };
         writer.configure_field("title", cfg);
 
-        let docs = vec![
-            [("title".to_owned(), "hello world".to_owned())].into_iter().collect(),
-            [("title".to_owned(), "hello rust".to_owned())].into_iter().collect(),
+        let docs = [
+            [("title".to_owned(), "hello world".to_owned())]
+                .into_iter()
+                .collect(),
+            [("title".to_owned(), "hello rust".to_owned())]
+                .into_iter()
+                .collect(),
         ];
         for (i, doc) in docs.iter().enumerate() {
             writer.add_document(i as u32, doc);
@@ -1380,12 +1413,16 @@ mod tests {
         let reader = FtsIndexReader::open(dir.path(), "seg1", &["title"]).unwrap();
 
         // "hello" appears in both docs
-        let tp = reader.lookup_term("title", "hello").expect("'hello' should be in index");
+        let tp = reader
+            .lookup_term("title", "hello")
+            .expect("'hello' should be in index");
         assert_eq!(tp.doc_frequency, 2);
         assert_eq!(tp.total_term_frequency, 2);
 
         // "world" appears in 1 doc
-        let tp = reader.lookup_term("title", "world").expect("'world' should be in index");
+        let tp = reader
+            .lookup_term("title", "world")
+            .expect("'world' should be in index");
         assert_eq!(tp.doc_frequency, 1);
 
         // Postings data retrievable

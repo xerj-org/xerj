@@ -43,6 +43,11 @@ pub enum CompressionLevel {
 
 impl CompressionLevel {
     /// Parse from a string (case-insensitive).
+    ///
+    /// Named `from_str` for config ergonomics; returns `Option` (not the
+    /// `Result` that `std::str::FromStr` requires), so it deliberately does
+    /// not implement that trait.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_ascii_lowercase().as_str() {
             "none" => Some(Self::None),
@@ -200,7 +205,10 @@ mod tests {
     fn lz4_reduces_size() {
         let codec = Lz4Codec;
         let compressed = codec.compress(PAYLOAD).unwrap();
-        assert!(compressed.len() < PAYLOAD.len(), "LZ4 should compress repetitive data");
+        assert!(
+            compressed.len() < PAYLOAD.len(),
+            "LZ4 should compress repetitive data"
+        );
     }
 
     #[test]

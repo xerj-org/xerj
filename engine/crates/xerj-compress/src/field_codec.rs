@@ -126,9 +126,7 @@ pub enum FieldEncoding {
     /// High-cardinality strings — raw storage.
     ///
     /// Falls back to this when no smarter encoding applies.
-    RawString {
-        values: Vec<String>,
-    },
+    RawString { values: Vec<String> },
 
     /// Booleans — bit-packed (8 values per byte).
     Bitpacked {
@@ -161,7 +159,7 @@ impl FieldEncoding {
                 let n_docs: usize = bitmap.first().map(|b| b.len() * 8).unwrap_or(0);
                 // 4-bit index per document + bitmap overhead
                 let bitmap_bytes: usize = bitmap.iter().map(|b| b.len()).sum();
-                let ids_bytes = (n_docs + 1) / 2; // 4-bit index per doc
+                let ids_bytes = n_docs.div_ceil(2); // 4-bit index per doc
                 (bitmap_bytes + ids_bytes, n_docs.max(1))
             }
             FieldEncoding::DeltaTimestamp { deltas, .. } => {
@@ -176,7 +174,11 @@ impl FieldEncoding {
                 ..
             } => {
                 let ids_bytes = template_ids.len() * 2;
-                let var_bytes: usize = variables.iter().flat_map(|v| v.iter()).map(|s| s.len() + 1).sum();
+                let var_bytes: usize = variables
+                    .iter()
+                    .flat_map(|v| v.iter())
+                    .map(|s| s.len() + 1)
+                    .sum();
                 (ids_bytes + var_bytes, template_ids.len().max(1))
             }
             FieldEncoding::Varint { values } => {
@@ -203,9 +205,7 @@ impl FieldEncoding {
     /// Total bytes used by the encoded column data.
     pub fn total_bytes(&self) -> usize {
         match self {
-            FieldEncoding::BitsetEnum { bitmap, .. } => {
-                bitmap.iter().map(|b| b.len()).sum()
-            }
+            FieldEncoding::BitsetEnum { bitmap, .. } => bitmap.iter().map(|b| b.len()).sum(),
             FieldEncoding::DeltaTimestamp { deltas, .. } => {
                 deltas.iter().map(|d| varint_signed_len(*d)).sum()
             }
@@ -217,7 +217,11 @@ impl FieldEncoding {
             } => {
                 let tmpl_bytes: usize = templates.iter().map(|t| t.len()).sum();
                 let ids_bytes = template_ids.len() * 2;
-                let var_bytes: usize = variables.iter().flat_map(|v| v.iter()).map(|s| s.len() + 1).sum();
+                let var_bytes: usize = variables
+                    .iter()
+                    .flat_map(|v| v.iter())
+                    .map(|s| s.len() + 1)
+                    .sum();
                 tmpl_bytes + ids_bytes + var_bytes
             }
             FieldEncoding::Varint { values } => {
@@ -263,14 +267,14 @@ impl FieldEncoding {
         // We don't have the original strings at this point, so we use
         // a conservative estimate for the raw baseline based on encoding type.
         let raw_bpv = match self {
-            FieldEncoding::BitsetEnum { .. } => 3.0,   // e.g. "200", "GET"
+            FieldEncoding::BitsetEnum { .. } => 3.0, // e.g. "200", "GET"
             FieldEncoding::DeltaTimestamp { .. } => 25.0, // typical timestamp string
-            FieldEncoding::PackedIp { .. } => 14.0,    // "192.168.100.200" avg
+            FieldEncoding::PackedIp { .. } => 14.0,  // "192.168.100.200" avg
             FieldEncoding::UrlTemplate { .. } => 30.0, // typical URL path
-            FieldEncoding::Varint { .. } => 6.0,       // content-length as string
-            FieldEncoding::Dictionary { .. } => 12.0,  // hostname / service name
-            FieldEncoding::RawString { .. } => bpv,    // already raw
-            FieldEncoding::Bitpacked { .. } => 4.5,    // "true" / "false"
+            FieldEncoding::Varint { .. } => 6.0,     // content-length as string
+            FieldEncoding::Dictionary { .. } => 12.0, // hostname / service name
+            FieldEncoding::RawString { .. } => bpv,  // already raw
+            FieldEncoding::Bitpacked { .. } => 4.5,  // "true" / "false"
             FieldEncoding::FixedPrecision { .. } => 6.0, // "12.34"
         };
         raw_bpv / bpv
@@ -421,7 +425,7 @@ impl FieldAnalyzer {
             .collect();
 
         let n_docs = values.len();
-        let bytes_per_bitmap = (n_docs + 7) / 8;
+        let bytes_per_bitmap = n_docs.div_ceil(8);
 
         // One bitmap per dictionary entry
         let mut bitmap: Vec<Vec<u8>> = vec![vec![0u8; bytes_per_bitmap]; dict.len()];
@@ -465,10 +469,7 @@ impl FieldAnalyzer {
         let base_us = parsed_us[0];
 
         // First pass: absolute → delta
-        let deltas_abs: Vec<i64> = parsed_us
-            .windows(2)
-            .map(|w| w[1] - w[0])
-            .collect();
+        let deltas_abs: Vec<i64> = parsed_us.windows(2).map(|w| w[1] - w[0]).collect();
 
         // Second pass: delta → delta-of-delta
         let mut deltas: Vec<i64> = Vec::with_capacity(deltas_abs.len());
@@ -488,10 +489,7 @@ impl FieldAnalyzer {
 
     /// Build a [`FieldEncoding::PackedIp`] from a column of IPv4 strings.
     pub fn encode_as_packed_ip(&self, values: &[&str]) -> FieldEncoding {
-        let packed: Vec<u32> = values
-            .iter()
-            .map(|v| parse_ipv4(v).unwrap_or(0))
-            .collect();
+        let packed: Vec<u32> = values.iter().map(|v| parse_ipv4(v).unwrap_or(0)).collect();
         FieldEncoding::PackedIp { values: packed }
     }
 
@@ -556,7 +554,7 @@ impl FieldAnalyzer {
     /// Build a [`FieldEncoding::Bitpacked`] from a column of boolean strings.
     pub fn encode_as_bitpacked(&self, values: &[&str]) -> FieldEncoding {
         let count = values.len();
-        let mut bits = vec![0u8; (count + 7) / 8];
+        let mut bits = vec![0u8; count.div_ceil(8)];
         for (i, v) in values.iter().enumerate() {
             let is_true = *v == "true" || *v == "1";
             if is_true {
@@ -622,7 +620,10 @@ enum TimestampLikelihood {
 /// Classify a single value for timestamp likelihood without full parsing.
 fn detect_timestamp_format_single(v: &str) -> TimestampLikelihood {
     // ISO 8601: starts with 4 digits + '-'
-    if v.len() >= 10 && v.as_bytes().iter().take(4).all(|b| b.is_ascii_digit()) && v.as_bytes().get(4) == Some(&b'-') {
+    if v.len() >= 10
+        && v.as_bytes().iter().take(4).all(|b| b.is_ascii_digit())
+        && v.as_bytes().get(4) == Some(&b'-')
+    {
         return TimestampLikelihood::Likely;
     }
     // Apache common: starts with '['
@@ -778,7 +779,7 @@ fn parse_nginx_us(v: &str) -> Option<i64> {
 
 /// Days since Unix epoch (1970-01-01) using the proleptic Gregorian calendar.
 fn days_since_epoch(year: i64, month: i64, day: i64) -> Option<i64> {
-    if !(1 <= month && month <= 12 && 1 <= day && day <= 31) {
+    if !((1..=12).contains(&month) && (1..=31).contains(&day)) {
         return None;
     }
     // Rata Die algorithm
@@ -932,7 +933,10 @@ fn is_uuid_like(s: &str) -> bool {
     if bytes.len() != 36 {
         return false;
     }
-    bytes[8] == b'-' && bytes[13] == b'-' && bytes[18] == b'-' && bytes[23] == b'-'
+    bytes[8] == b'-'
+        && bytes[13] == b'-'
+        && bytes[18] == b'-'
+        && bytes[23] == b'-'
         && bytes.iter().enumerate().all(|(i, &b)| {
             if i == 8 || i == 13 || i == 18 || i == 23 {
                 b == b'-'
@@ -1003,7 +1007,10 @@ mod tests {
 
     #[test]
     fn test_parse_ipv4() {
-        assert_eq!(parse_ipv4("192.168.1.1"), Some((192 << 24) | (168 << 16) | (1 << 8) | 1));
+        assert_eq!(
+            parse_ipv4("192.168.1.1"),
+            Some((192 << 24) | (168 << 16) | (1 << 8) | 1)
+        );
         assert_eq!(parse_ipv4("0.0.0.0"), Some(0));
         assert_eq!(parse_ipv4("255.255.255.255"), Some(u32::MAX));
         assert!(parse_ipv4("not-an-ip").is_none());
@@ -1089,7 +1096,7 @@ mod tests {
         let statuses = vec![
             "200", "200", "404", "500", "200", "301", "404", "200", "403", "200",
         ];
-        let refs: Vec<&str> = statuses.iter().copied().collect();
+        let refs: Vec<&str> = statuses.to_vec();
         let enc = analyzer.analyze("status", &refs);
 
         match &enc {
@@ -1102,7 +1109,10 @@ mod tests {
                 // doc 0 → byte 0 bit 0
                 assert!(bmap[0] & 1 != 0);
             }
-            other => panic!("expected BitsetEnum, got {:?}", std::mem::discriminant(other)),
+            other => panic!(
+                "expected BitsetEnum, got {:?}",
+                std::mem::discriminant(other)
+            ),
         }
 
         // bytes_per_value should be well below 1.0 for 10 docs / small cardinality
@@ -1117,8 +1127,8 @@ mod tests {
     #[test]
     fn test_http_method_encoding() {
         let analyzer = FieldAnalyzer::new(1024);
-        let methods = vec!["GET", "POST", "GET", "GET", "DELETE", "PUT", "GET", "POST"];
-        let refs: Vec<&str> = methods.iter().copied().collect();
+        let methods = ["GET", "POST", "GET", "GET", "DELETE", "PUT", "GET", "POST"];
+        let refs: Vec<&str> = methods.to_vec();
         let enc = analyzer.analyze("method", &refs);
         assert!(matches!(enc, FieldEncoding::BitsetEnum { .. }));
         assert!(enc.bytes_per_value() < 2.0);
@@ -1127,8 +1137,8 @@ mod tests {
     #[test]
     fn test_log_level_encoding() {
         let analyzer = FieldAnalyzer::new(1024);
-        let levels = vec!["INFO", "ERROR", "WARN", "INFO", "DEBUG", "INFO", "ERROR"];
-        let refs: Vec<&str> = levels.iter().copied().collect();
+        let levels = ["INFO", "ERROR", "WARN", "INFO", "DEBUG", "INFO", "ERROR"];
+        let refs: Vec<&str> = levels.to_vec();
         let enc = analyzer.analyze("level", &refs);
         assert!(matches!(enc, FieldEncoding::BitsetEnum { .. }));
         println!(
@@ -1141,14 +1151,14 @@ mod tests {
     #[test]
     fn test_timestamp_iso8601() {
         let analyzer = FieldAnalyzer::new(1024);
-        let timestamps = vec![
+        let timestamps = [
             "2024-01-15T12:34:56Z",
             "2024-01-15T12:34:57Z",
             "2024-01-15T12:34:58Z",
             "2024-01-15T12:34:59Z",
             "2024-01-15T12:35:00Z",
         ];
-        let refs: Vec<&str> = timestamps.iter().copied().collect();
+        let refs: Vec<&str> = timestamps.to_vec();
         let enc = analyzer.analyze("@timestamp", &refs);
 
         match &enc {
@@ -1164,7 +1174,10 @@ mod tests {
                 assert_eq!(deltas.len(), 4); // N-1 values encoded
                 println!("timestamp deltas: {:?}", deltas);
             }
-            other => panic!("expected DeltaTimestamp, got {:?}", std::mem::discriminant(other)),
+            other => panic!(
+                "expected DeltaTimestamp, got {:?}",
+                std::mem::discriminant(other)
+            ),
         }
 
         println!(
@@ -1177,27 +1190,33 @@ mod tests {
     #[test]
     fn test_timestamp_apache() {
         let analyzer = FieldAnalyzer::new(1024);
-        let timestamps = vec![
+        let timestamps = [
             "[10/Jan/2024:12:34:56 +0000]",
             "[10/Jan/2024:12:34:57 +0000]",
             "[10/Jan/2024:12:35:00 +0000]",
         ];
-        let refs: Vec<&str> = timestamps.iter().copied().collect();
+        let refs: Vec<&str> = timestamps.to_vec();
         let enc = analyzer.analyze("@timestamp", &refs);
-        assert!(matches!(enc, FieldEncoding::DeltaTimestamp { format: TimestampFormat::ApacheCommon, .. }));
+        assert!(matches!(
+            enc,
+            FieldEncoding::DeltaTimestamp {
+                format: TimestampFormat::ApacheCommon,
+                ..
+            }
+        ));
     }
 
     #[test]
     fn test_ip_encoding() {
         let analyzer = FieldAnalyzer::new(1024);
-        let ips = vec![
+        let ips = [
             "192.168.1.1",
             "10.0.0.1",
             "172.16.0.50",
             "192.168.1.2",
             "8.8.8.8",
         ];
-        let refs: Vec<&str> = ips.iter().copied().collect();
+        let refs: Vec<&str> = ips.to_vec();
         let enc = analyzer.analyze("client_ip", &refs);
 
         match &enc {
@@ -1219,7 +1238,7 @@ mod tests {
     #[test]
     fn test_url_template_encoding() {
         let analyzer = FieldAnalyzer::new(1024);
-        let paths = vec![
+        let paths = [
             "/api/users/1",
             "/api/users/2",
             "/api/users/3",
@@ -1227,7 +1246,7 @@ mod tests {
             "/static/js/app.js",
             "/static/css/main.css",
         ];
-        let refs: Vec<&str> = paths.iter().copied().collect();
+        let refs: Vec<&str> = paths.to_vec();
         let enc = analyzer.analyze("path", &refs);
 
         match &enc {
@@ -1236,12 +1255,18 @@ mod tests {
                 template_ids,
                 variables,
             } => {
-                assert!(templates.len() < paths.len(), "should deduplicate templates");
+                assert!(
+                    templates.len() < paths.len(),
+                    "should deduplicate templates"
+                );
                 assert_eq!(template_ids.len(), paths.len());
                 assert_eq!(variables.len(), paths.len());
                 println!("URL templates: {:?}", templates);
             }
-            other => panic!("expected UrlTemplate, got {:?}", std::mem::discriminant(other)),
+            other => panic!(
+                "expected UrlTemplate, got {:?}",
+                std::mem::discriminant(other)
+            ),
         }
 
         println!(
@@ -1254,8 +1279,8 @@ mod tests {
     #[test]
     fn test_varint_encoding() {
         let analyzer = FieldAnalyzer::new(1024);
-        let sizes = vec!["1024", "2048", "512", "65536", "128", "256"];
-        let refs: Vec<&str> = sizes.iter().copied().collect();
+        let sizes = ["1024", "2048", "512", "65536", "128", "256"];
+        let refs: Vec<&str> = sizes.to_vec();
         let enc = analyzer.analyze("content_length", &refs);
 
         assert!(matches!(enc, FieldEncoding::Varint { .. }));
@@ -1270,11 +1295,14 @@ mod tests {
     fn test_boolean_encoding() {
         let analyzer = FieldAnalyzer::new(1024);
         // 2 unique values → BitsetEnum wins (most compact for tiny cardinality)
-        let bools: Vec<&str> = (0..64).map(|i| if i % 3 == 0 { "true" } else { "false" }).collect();
+        let bools: Vec<&str> = (0..64)
+            .map(|i| if i % 3 == 0 { "true" } else { "false" })
+            .collect();
         let enc = analyzer.analyze("is_active", &bools);
         // Either BitsetEnum or Bitpacked is correct — both are compact
         assert!(
-            matches!(enc, FieldEncoding::Bitpacked { .. }) || matches!(enc, FieldEncoding::BitsetEnum { .. }),
+            matches!(enc, FieldEncoding::Bitpacked { .. })
+                || matches!(enc, FieldEncoding::BitsetEnum { .. }),
             "expected compact bool encoding"
         );
         assert!(enc.bytes_per_value() < 1.0);
@@ -1295,7 +1323,10 @@ mod tests {
                 assert_eq!(values[0], 34);
                 assert_eq!(values.len(), 20);
             }
-            other => panic!("expected FixedPrecision, got {:?}", std::mem::discriminant(other)),
+            other => panic!(
+                "expected FixedPrecision, got {:?}",
+                std::mem::discriminant(other)
+            ),
         }
     }
 
@@ -1315,7 +1346,9 @@ mod tests {
     fn test_raw_string_fallback() {
         let analyzer = FieldAnalyzer::new(1024);
         // High cardinality, non-structured strings
-        let msgs: Vec<String> = (0..500).map(|i| format!("Unique log message number {i} with some context")).collect();
+        let msgs: Vec<String> = (0..500)
+            .map(|i| format!("Unique log message number {i} with some context"))
+            .collect();
         let refs: Vec<&str> = msgs.iter().map(String::as_str).collect();
         let enc = analyzer.analyze("message", &refs);
         assert!(matches!(enc, FieldEncoding::RawString { .. }));

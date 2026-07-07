@@ -65,8 +65,7 @@ fn dataset_dir() -> PathBuf {
     }
     // CARGO_MANIFEST_DIR points to crates/xerj-engine.
     // Walk up until we hit the workspace root (has Cargo.lock).
-    let manifest = std::env::var("CARGO_MANIFEST_DIR")
-        .unwrap_or_else(|_| ".".into());
+    let manifest = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".into());
     let mut dir = PathBuf::from(manifest);
     loop {
         if dir.join("Cargo.lock").exists() {
@@ -74,7 +73,7 @@ fn dataset_dir() -> PathBuf {
         }
         match dir.parent() {
             Some(p) => dir = p.to_path_buf(),
-            None    => break,
+            None => break,
         }
     }
     // Fallback: relative to crate root (works if run from workspace root)
@@ -100,7 +99,12 @@ fn load_ndjson(filename: &str) -> Result<Vec<Value>, String> {
             continue;
         }
         let val: Value = serde_json::from_str(trimmed).map_err(|e| {
-            format!("JSON parse error in {} line {}: {}", filename, lineno + 1, e)
+            format!(
+                "JSON parse error in {} line {}: {}",
+                filename,
+                lineno + 1,
+                e
+            )
         })?;
         docs.push(val);
     }
@@ -197,7 +201,10 @@ fn lat_rows(label: &str, lats: &[Duration]) {
     row(&format!("{} p50", label), &format!("{:.2?}", ps[0]));
     row(&format!("{} p95", label), &format!("{:.2?}", ps[1]));
     row(&format!("{} p99", label), &format!("{:.2?}", ps[2]));
-    row(&format!("{} min/max", label), &format!("{:.2?} / {:.2?}", lats[0], lats[lats.len() - 1]));
+    row(
+        &format!("{} min/max", label),
+        &format!("{:.2?} / {:.2?}", lats[0], lats[lats.len() - 1]),
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -213,19 +220,31 @@ async fn battle_bulk_ingest_all() {
     // Load datasets
     let access_docs = match load_ndjson("access_logs.ndjson") {
         Ok(d) => d,
-        Err(e) => { println!("SKIP: {}", e); return; }
+        Err(e) => {
+            println!("SKIP: {}", e);
+            return;
+        }
     };
     let product_docs = match load_ndjson("products.ndjson") {
         Ok(d) => d,
-        Err(e) => { println!("SKIP: {}", e); return; }
+        Err(e) => {
+            println!("SKIP: {}", e);
+            return;
+        }
     };
     let error_docs = match load_ndjson("error_logs.ndjson") {
         Ok(d) => d,
-        Err(e) => { println!("SKIP: {}", e); return; }
+        Err(e) => {
+            println!("SKIP: {}", e);
+            return;
+        }
     };
     let article_docs = match load_ndjson("articles.ndjson") {
         Ok(d) => d,
-        Err(e) => { println!("SKIP: {}", e); return; }
+        Err(e) => {
+            println!("SKIP: {}", e);
+            return;
+        }
     };
 
     let total_docs = access_docs.len() + product_docs.len() + error_docs.len() + article_docs.len();
@@ -241,22 +260,60 @@ async fn battle_bulk_ingest_all() {
     let wall_start = Instant::now();
 
     let (n, t) = bulk_index(&engine, "access-logs", &access_docs).await;
-    row("access-logs indexed:", &format!("{} docs in {:.2?} ({:.0} docs/s)", n, t, n as f64 / t.as_secs_f64()));
+    row(
+        "access-logs indexed:",
+        &format!(
+            "{} docs in {:.2?} ({:.0} docs/s)",
+            n,
+            t,
+            n as f64 / t.as_secs_f64()
+        ),
+    );
 
     let (n, t) = bulk_index(&engine, "products", &product_docs).await;
-    row("products indexed:", &format!("{} docs in {:.2?} ({:.0} docs/s)", n, t, n as f64 / t.as_secs_f64()));
+    row(
+        "products indexed:",
+        &format!(
+            "{} docs in {:.2?} ({:.0} docs/s)",
+            n,
+            t,
+            n as f64 / t.as_secs_f64()
+        ),
+    );
 
     let (n, t) = bulk_index(&engine, "error-logs", &error_docs).await;
-    row("error-logs indexed:", &format!("{} docs in {:.2?} ({:.0} docs/s)", n, t, n as f64 / t.as_secs_f64()));
+    row(
+        "error-logs indexed:",
+        &format!(
+            "{} docs in {:.2?} ({:.0} docs/s)",
+            n,
+            t,
+            n as f64 / t.as_secs_f64()
+        ),
+    );
 
     let (n, t) = bulk_index(&engine, "articles", &article_docs).await;
-    row("articles indexed:", &format!("{} docs in {:.2?} ({:.0} docs/s)", n, t, n as f64 / t.as_secs_f64()));
+    row(
+        "articles indexed:",
+        &format!(
+            "{} docs in {:.2?} ({:.0} docs/s)",
+            n,
+            t,
+            n as f64 / t.as_secs_f64()
+        ),
+    );
 
     let wall = wall_start.elapsed();
     separator();
     row("TOTAL wall-clock time:", &format!("{:.2?}", wall));
-    row("Overall throughput:", &format!("{:.0} docs/sec", total_docs as f64 / wall.as_secs_f64()));
-    row("Avg latency per doc:", &format!("{:.3} ms", wall.as_millis() as f64 / total_docs as f64));
+    row(
+        "Overall throughput:",
+        &format!("{:.0} docs/sec", total_docs as f64 / wall.as_secs_f64()),
+    );
+    row(
+        "Avg latency per doc:",
+        &format!("{:.3} ms", wall.as_millis() as f64 / total_docs as f64),
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -270,7 +327,10 @@ async fn battle_log_error_search() {
 
     let docs = match load_ndjson("error_logs.ndjson") {
         Ok(d) => d,
-        Err(e) => { println!("SKIP: {}", e); return; }
+        Err(e) => {
+            println!("SKIP: {}", e);
+            return;
+        }
     };
 
     let (engine, _dir) = battle_engine();
@@ -278,7 +338,10 @@ async fn battle_log_error_search() {
     let (indexed, ingest_time) = bulk_index(&engine, "error-logs", &docs).await;
     let idx = engine.get_index("error-logs").unwrap();
 
-    row("Docs indexed:", &format!("{} in {:.2?}", indexed, ingest_time));
+    row(
+        "Docs indexed:",
+        &format!("{} in {:.2?}", indexed, ingest_time),
+    );
     separator();
 
     const RUNS: usize = 200;
@@ -287,7 +350,8 @@ async fn battle_log_error_search() {
     let req_error = parse_request(&json!({
         "query": { "term": { "level": "ERROR" } },
         "size": 50
-    })).unwrap();
+    }))
+    .unwrap();
     let result = idx.search(&req_error).await.unwrap();
     let error_count = result.total.value;
     row("ERROR doc count (term query):", &error_count.to_string());
@@ -300,9 +364,13 @@ async fn battle_log_error_search() {
     let req_err_fatal = parse_request(&json!({
         "query": { "terms": { "level": ["ERROR", "FATAL"] } },
         "size": 100
-    })).unwrap();
+    }))
+    .unwrap();
     let result2 = idx.search(&req_err_fatal).await.unwrap();
-    row("ERROR+FATAL count (terms query):", &result2.total.value.to_string());
+    row(
+        "ERROR+FATAL count (terms query):",
+        &result2.total.value.to_string(),
+    );
 
     let lats2 = measure_search!(idx, req_err_fatal, RUNS);
     lat_rows("ERROR+FATAL terms query", &lats2);
@@ -321,10 +389,17 @@ async fn battle_log_error_search() {
             }
         },
         "size": 50
-    })).unwrap();
+    }))
+    .unwrap();
     let result3 = idx.search(&req_conn_error).await.unwrap();
-    row("Connection timeout errors (bool must+filter):", &result3.total.value.to_string());
-    assert!(result3.total.value > 0, "Expected at least one connection timeout error");
+    row(
+        "Connection timeout errors (bool must+filter):",
+        &result3.total.value.to_string(),
+    );
+    assert!(
+        result3.total.value > 0,
+        "Expected at least one connection timeout error"
+    );
 
     let lats3 = measure_search!(idx, req_conn_error, RUNS);
     lat_rows("Bool must+filter (conn errors)", &lats3);
@@ -343,9 +418,13 @@ async fn battle_log_error_search() {
             }
         },
         "size": 50
-    })).unwrap();
+    }))
+    .unwrap();
     let result4 = idx.search(&req_timeout).await.unwrap();
-    row("Timeout messages, not FATAL:", &result4.total.value.to_string());
+    row(
+        "Timeout messages, not FATAL:",
+        &result4.total.value.to_string(),
+    );
 
     let lats4 = measure_search!(idx, req_timeout, RUNS);
     lat_rows("Bool must+must_not (timeout)", &lats4);
@@ -362,7 +441,10 @@ async fn battle_product_fulltext_search() {
 
     let docs = match load_ndjson("products.ndjson") {
         Ok(d) => d,
-        Err(e) => { println!("SKIP: {}", e); return; }
+        Err(e) => {
+            println!("SKIP: {}", e);
+            return;
+        }
     };
 
     let (engine, _dir) = battle_engine();
@@ -370,7 +452,10 @@ async fn battle_product_fulltext_search() {
     let (indexed, ingest_time) = bulk_index(&engine, "products", &docs).await;
     let idx = engine.get_index("products").unwrap();
 
-    row("Docs indexed:", &format!("{} in {:.2?}", indexed, ingest_time));
+    row(
+        "Docs indexed:",
+        &format!("{} in {:.2?}", indexed, ingest_time),
+    );
     separator();
 
     const RUNS: usize = 500;
@@ -383,10 +468,17 @@ async fn battle_product_fulltext_search() {
             }
         },
         "size": 10
-    })).unwrap();
+    }))
+    .unwrap();
     let res = idx.search(&req_premium).await.unwrap();
-    row("match 'premium quality' in name hits:", &res.total.value.to_string());
-    assert!(res.total.value > 0, "Expected hits for 'premium' or 'quality' in product names");
+    row(
+        "match 'premium quality' in name hits:",
+        &res.total.value.to_string(),
+    );
+    assert!(
+        res.total.value > 0,
+        "Expected hits for 'premium' or 'quality' in product names"
+    );
     assert!(res.hits.len() <= 10);
 
     let lats = measure_search!(idx, req_premium, RUNS);
@@ -399,9 +491,13 @@ async fn battle_product_fulltext_search() {
             "match": { "description": "durable excellent craftsmanship" }
         },
         "size": 20
-    })).unwrap();
+    }))
+    .unwrap();
     let res2 = idx.search(&req_desc).await.unwrap();
-    row("match 'durable excellent craftsmanship':", &res2.total.value.to_string());
+    row(
+        "match 'durable excellent craftsmanship':",
+        &res2.total.value.to_string(),
+    );
 
     let lats2 = measure_search!(idx, req_desc, RUNS);
     lat_rows("match (description)", &lats2);
@@ -422,14 +518,26 @@ async fn battle_product_fulltext_search() {
         },
         "size": 20,
         "sort": [{ "price": "asc" }]
-    })).unwrap();
+    }))
+    .unwrap();
     let res3 = idx.search(&req_bool).await.unwrap();
-    row("Bool + range + sort (in-stock $50-$500):", &res3.total.value.to_string());
+    row(
+        "Bool + range + sort (in-stock $50-$500):",
+        &res3.total.value.to_string(),
+    );
 
     // Verify sort order if we got results
     if res3.hits.len() >= 2 {
-        let p0 = res3.hits[0].source.get("price").and_then(|v| v.as_f64()).unwrap_or(0.0);
-        let p1 = res3.hits[1].source.get("price").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let p0 = res3.hits[0]
+            .source
+            .get("price")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+        let p1 = res3.hits[1]
+            .source
+            .get("price")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
         assert!(p0 <= p1, "price sort asc violated: {} > {}", p0, p1);
         row("Sort correctness (price asc):", "OK");
     }
@@ -442,9 +550,13 @@ async fn battle_product_fulltext_search() {
     let req_prefix = parse_request(&json!({
         "query": { "prefix": { "category": "electr" } },
         "size": 50
-    })).unwrap();
+    }))
+    .unwrap();
     let res4 = idx.search(&req_prefix).await.unwrap();
-    row("Prefix 'electr' on category:", &res4.total.value.to_string());
+    row(
+        "Prefix 'electr' on category:",
+        &res4.total.value.to_string(),
+    );
 
     let lats4 = measure_search!(idx, req_prefix, RUNS);
     lat_rows("Prefix query (autocomplete)", &lats4);
@@ -461,15 +573,23 @@ async fn battle_geo_distance_search() {
 
     let docs = match load_ndjson("products.ndjson") {
         Ok(d) => d,
-        Err(e) => { println!("SKIP: {}", e); return; }
+        Err(e) => {
+            println!("SKIP: {}", e);
+            return;
+        }
     };
 
     let (engine, _dir) = battle_engine();
-    engine.create_index("products-geo", Schema::empty()).unwrap();
+    engine
+        .create_index("products-geo", Schema::empty())
+        .unwrap();
     let (indexed, ingest_time) = bulk_index(&engine, "products-geo", &docs).await;
     let idx = engine.get_index("products-geo").unwrap();
 
-    row("Docs indexed:", &format!("{} in {:.2?}", indexed, ingest_time));
+    row(
+        "Docs indexed:",
+        &format!("{} in {:.2?}", indexed, ingest_time),
+    );
     separator();
 
     const RUNS: usize = 200;
@@ -483,7 +603,8 @@ async fn battle_geo_distance_search() {
             }
         },
         "size": 100
-    })).unwrap();
+    }))
+    .unwrap();
     let res = idx.search(&req_nyc_50km).await.unwrap();
     row("Within 50 km of NYC:", &res.total.value.to_string());
 
@@ -500,7 +621,8 @@ async fn battle_geo_distance_search() {
             }
         },
         "size": 100
-    })).unwrap();
+    }))
+    .unwrap();
     let res2 = idx.search(&req_nyc_500km).await.unwrap();
     row("Within 500 km of NYC:", &res2.total.value.to_string());
     // More results at wider radius
@@ -531,7 +653,8 @@ async fn battle_geo_distance_search() {
             }
         },
         "size": 50
-    })).unwrap();
+    }))
+    .unwrap();
     let res3 = idx.search(&req_geo_stock).await.unwrap();
     row("200 km + in_stock=true:", &res3.total.value.to_string());
 
@@ -550,16 +673,24 @@ async fn battle_aggregations() {
 
     let error_docs = match load_ndjson("error_logs.ndjson") {
         Ok(d) => d,
-        Err(e) => { println!("SKIP: {}", e); return; }
+        Err(e) => {
+            println!("SKIP: {}", e);
+            return;
+        }
     };
     let product_docs = match load_ndjson("products.ndjson") {
         Ok(d) => d,
-        Err(e) => { println!("SKIP: {}", e); return; }
+        Err(e) => {
+            println!("SKIP: {}", e);
+            return;
+        }
     };
 
     let (engine, _dir) = battle_engine();
     engine.create_index("agg-errors", Schema::empty()).unwrap();
-    engine.create_index("agg-products", Schema::empty()).unwrap();
+    engine
+        .create_index("agg-products", Schema::empty())
+        .unwrap();
 
     let (en, et) = bulk_index(&engine, "agg-errors", &error_docs).await;
     let (pn, pt) = bulk_index(&engine, "agg-products", &product_docs).await;
@@ -587,7 +718,8 @@ async fn battle_aggregations() {
                 "terms": { "field": "hostname", "size": 10 }
             }
         }
-    })).unwrap();
+    }))
+    .unwrap();
 
     let agg_res = err_idx.search(&req_top_services).await.unwrap();
     let aggs = agg_res.aggs.as_ref().expect("aggs present");
@@ -617,7 +749,8 @@ async fn battle_aggregations() {
                 "stats": { "field": "duration_ms" }
             }
         }
-    })).unwrap();
+    }))
+    .unwrap();
 
     let res2 = err_idx.search(&req_duration_stats).await.unwrap();
     let aggs2 = res2.aggs.as_ref().expect("aggs present");
@@ -658,20 +791,32 @@ async fn battle_aggregations() {
                 "stats": { "field": "rating" }
             }
         }
-    })).unwrap();
+    }))
+    .unwrap();
 
     let res3 = prod_idx.search(&req_faceted).await.unwrap();
     let aggs3 = res3.aggs.as_ref().expect("aggs present");
-    let cat_buckets = aggs3["by_category"]["buckets"].as_array().expect("category buckets");
-    row("Category buckets (in-stock):", &cat_buckets.len().to_string());
+    let cat_buckets = aggs3["by_category"]["buckets"]
+        .as_array()
+        .expect("category buckets");
+    row(
+        "Category buckets (in-stock):",
+        &cat_buckets.len().to_string(),
+    );
     assert!(!cat_buckets.is_empty(), "Expected category buckets");
 
-    let price_buckets = aggs3["price_ranges"]["buckets"].as_array().expect("price range buckets");
+    let price_buckets = aggs3["price_ranges"]["buckets"]
+        .as_array()
+        .expect("price range buckets");
     row("Price range buckets:", &price_buckets.len().to_string());
 
     if let Some(avg_rating) = aggs3["rating_stats"]["avg"].as_f64() {
         row("Avg product rating:", &format!("{:.2}", avg_rating));
-        assert!((1.0..=5.0).contains(&avg_rating), "Rating out of range: {}", avg_rating);
+        assert!(
+            (1.0..=5.0).contains(&avg_rating),
+            "Rating out of range: {}",
+            avg_rating
+        );
     }
 
     let lats3 = measure_search!(prod_idx, req_faceted, RUNS);
@@ -693,11 +838,17 @@ async fn battle_aggregations() {
                 }
             }
         }
-    })).unwrap();
+    }))
+    .unwrap();
     let res4 = prod_idx.search(&req_composite).await.unwrap();
     let aggs4 = res4.aggs.as_ref().expect("aggs present");
-    let comp_buckets = aggs4["by_brand_cat"]["buckets"].as_array().expect("composite buckets");
-    row("Composite (category x brand) buckets:", &comp_buckets.len().to_string());
+    let comp_buckets = aggs4["by_brand_cat"]["buckets"]
+        .as_array()
+        .expect("composite buckets");
+    row(
+        "Composite (category x brand) buckets:",
+        &comp_buckets.len().to_string(),
+    );
 
     let lats4 = measure_search!(prod_idx, req_composite, RUNS);
     lat_rows("Composite agg (brand x category)", &lats4);
@@ -714,7 +865,10 @@ async fn battle_article_search_with_highlight() {
 
     let docs = match load_ndjson("articles.ndjson") {
         Ok(d) => d,
-        Err(e) => { println!("SKIP: {}", e); return; }
+        Err(e) => {
+            println!("SKIP: {}", e);
+            return;
+        }
     };
 
     let (engine, _dir) = battle_engine();
@@ -722,7 +876,10 @@ async fn battle_article_search_with_highlight() {
     let (indexed, ingest_time) = bulk_index(&engine, "articles", &docs).await;
     let idx = engine.get_index("articles").unwrap();
 
-    row("Docs indexed:", &format!("{} in {:.2?}", indexed, ingest_time));
+    row(
+        "Docs indexed:",
+        &format!("{} in {:.2?}", indexed, ingest_time),
+    );
     separator();
 
     const RUNS: usize = 300;
@@ -741,15 +898,25 @@ async fn battle_article_search_with_highlight() {
                 }
             }
         }
-    })).unwrap();
+    }))
+    .unwrap();
 
     let res = idx.search(&req_hl).await.unwrap();
-    row("'memory safety performance' hits:", &res.total.value.to_string());
-    assert!(res.total.value > 0, "Expected FTS hits for 'memory safety performance'");
+    row(
+        "'memory safety performance' hits:",
+        &res.total.value.to_string(),
+    );
+    assert!(
+        res.total.value > 0,
+        "Expected FTS hits for 'memory safety performance'"
+    );
 
     // Verify highlights are present and contain the em tags
     let hits_with_highlight = res.hits.iter().filter(|h| h.highlight.is_some()).count();
-    row("Hits with highlight fragments:", &hits_with_highlight.to_string());
+    row(
+        "Hits with highlight fragments:",
+        &hits_with_highlight.to_string(),
+    );
     if let Some(first_with_hl) = res.hits.iter().find(|h| h.highlight.is_some()) {
         let hl = first_with_hl.highlight.as_ref().unwrap();
         if let Some(frags) = hl.get("body") {
@@ -774,9 +941,13 @@ async fn battle_article_search_with_highlight() {
             }
         },
         "size": 10
-    })).unwrap();
+    }))
+    .unwrap();
     let res2 = idx.search(&req_multi).await.unwrap();
-    row("multi_match 'distributed systems':", &res2.total.value.to_string());
+    row(
+        "multi_match 'distributed systems':",
+        &res2.total.value.to_string(),
+    );
 
     let lats2 = measure_search!(idx, req_multi, RUNS);
     lat_rows("multi_match (title+body)", &lats2);
@@ -788,9 +959,13 @@ async fn battle_article_search_with_highlight() {
             "match_phrase": { "body": "memory safety" }
         },
         "size": 20
-    })).unwrap();
+    }))
+    .unwrap();
     let res3 = idx.search(&req_phrase).await.unwrap();
-    row("match_phrase 'memory safety':", &res3.total.value.to_string());
+    row(
+        "match_phrase 'memory safety':",
+        &res3.total.value.to_string(),
+    );
 
     let lats3 = measure_search!(idx, req_phrase, RUNS);
     lat_rows("match_phrase", &lats3);
@@ -815,9 +990,13 @@ async fn battle_article_search_with_highlight() {
         },
         "size": 20,
         "sort": [{ "views": "desc" }, { "_score": "desc" }]
-    })).unwrap();
+    }))
+    .unwrap();
     let res4 = idx.search(&req_complex).await.unwrap();
-    row("Complex bool (performance+security):", &res4.total.value.to_string());
+    row(
+        "Complex bool (performance+security):",
+        &res4.total.value.to_string(),
+    );
 
     let lats4 = measure_search!(idx, req_complex, RUNS);
     lat_rows("Complex bool + sort", &lats4);
@@ -834,7 +1013,10 @@ async fn battle_access_log_analytics() {
 
     let docs = match load_ndjson("access_logs.ndjson") {
         Ok(d) => d,
-        Err(e) => { println!("SKIP: {}", e); return; }
+        Err(e) => {
+            println!("SKIP: {}", e);
+            return;
+        }
     };
 
     let (engine, _dir) = battle_engine();
@@ -842,7 +1024,10 @@ async fn battle_access_log_analytics() {
     let (indexed, ingest_time) = bulk_index(&engine, "access-logs", &docs).await;
     let idx = engine.get_index("access-logs").unwrap();
 
-    row("Docs indexed:", &format!("{} in {:.2?}", indexed, ingest_time));
+    row(
+        "Docs indexed:",
+        &format!("{} in {:.2?}", indexed, ingest_time),
+    );
     separator();
 
     const RUNS: usize = 200;
@@ -851,7 +1036,8 @@ async fn battle_access_log_analytics() {
     let req_500 = parse_request(&json!({
         "query": { "term": { "status": "500" } },
         "size": 100
-    })).unwrap();
+    }))
+    .unwrap();
     let res_500 = idx.search(&req_500).await.unwrap();
     row("HTTP 500 errors:", &res_500.total.value.to_string());
 
@@ -877,7 +1063,8 @@ async fn battle_access_log_analytics() {
                 "stats": { "field": "response_time_ms" }
             }
         }
-    })).unwrap();
+    }))
+    .unwrap();
     let res2 = idx.search(&req_non200).await.unwrap();
     row("Non-200 total:", &res2.total.value.to_string());
 
@@ -897,15 +1084,29 @@ async fn battle_access_log_analytics() {
         },
         "size": 50,
         "sort": [{ "response_time_ms": "desc" }]
-    })).unwrap();
+    }))
+    .unwrap();
     let res3 = idx.search(&req_slow).await.unwrap();
     row("Slow requests (>1000ms):", &res3.total.value.to_string());
 
     // Verify sort order descending
     if res3.hits.len() >= 2 {
-        let t0 = res3.hits[0].source.get("response_time_ms").and_then(|v| v.as_u64()).unwrap_or(0);
-        let t1 = res3.hits[1].source.get("response_time_ms").and_then(|v| v.as_u64()).unwrap_or(0);
-        assert!(t0 >= t1, "response_time_ms sort desc violated: {} < {}", t0, t1);
+        let t0 = res3.hits[0]
+            .source
+            .get("response_time_ms")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let t1 = res3.hits[1]
+            .source
+            .get("response_time_ms")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        assert!(
+            t0 >= t1,
+            "response_time_ms sort desc violated: {} < {}",
+            t0,
+            t1
+        );
         row("Sort correctness (response_time desc):", "OK");
     }
 
@@ -917,10 +1118,17 @@ async fn battle_access_log_analytics() {
     let req_exists = parse_request(&json!({
         "query": { "exists": { "field": "request_id" } },
         "size": 0
-    })).unwrap();
+    }))
+    .unwrap();
     let res4 = idx.search(&req_exists).await.unwrap();
-    row("Docs with request_id field (exists):", &res4.total.value.to_string());
-    assert_eq!(res4.total.value, indexed as u64, "All docs should have request_id");
+    row(
+        "Docs with request_id field (exists):",
+        &res4.total.value.to_string(),
+    );
+    assert_eq!(
+        res4.total.value, indexed as u64,
+        "All docs should have request_id"
+    );
 
     let lats4 = measure_search!(idx, req_exists, RUNS);
     lat_rows("Exists query", &lats4);
@@ -941,10 +1149,13 @@ async fn battle_access_log_analytics() {
                 "stats": { "field": "response_time_ms" }
             }
         }
-    })).unwrap();
+    }))
+    .unwrap();
     let res5 = idx.search(&req_method_breakdown).await.unwrap();
     let aggs5 = res5.aggs.as_ref().expect("aggs present");
-    let method_buckets = aggs5["by_method"]["buckets"].as_array().expect("method buckets");
+    let method_buckets = aggs5["by_method"]["buckets"]
+        .as_array()
+        .expect("method buckets");
     row("HTTP method buckets:", &method_buckets.len().to_string());
     for b in method_buckets.iter().take(5) {
         let key = b["key"].as_str().unwrap_or("?");
@@ -967,26 +1178,42 @@ async fn battle_correctness_spot_checks() {
 
     let access_docs = match load_ndjson("access_logs.ndjson") {
         Ok(d) => d,
-        Err(e) => { println!("SKIP: {}", e); return; }
+        Err(e) => {
+            println!("SKIP: {}", e);
+            return;
+        }
     };
     let product_docs = match load_ndjson("products.ndjson") {
         Ok(d) => d,
-        Err(e) => { println!("SKIP: {}", e); return; }
+        Err(e) => {
+            println!("SKIP: {}", e);
+            return;
+        }
     };
     let error_docs = match load_ndjson("error_logs.ndjson") {
         Ok(d) => d,
-        Err(e) => { println!("SKIP: {}", e); return; }
+        Err(e) => {
+            println!("SKIP: {}", e);
+            return;
+        }
     };
     let article_docs = match load_ndjson("articles.ndjson") {
         Ok(d) => d,
-        Err(e) => { println!("SKIP: {}", e); return; }
+        Err(e) => {
+            println!("SKIP: {}", e);
+            return;
+        }
     };
 
     let (engine, _dir) = battle_engine();
     engine.create_index("chk-access", Schema::empty()).unwrap();
-    engine.create_index("chk-products", Schema::empty()).unwrap();
+    engine
+        .create_index("chk-products", Schema::empty())
+        .unwrap();
     engine.create_index("chk-errors", Schema::empty()).unwrap();
-    engine.create_index("chk-articles", Schema::empty()).unwrap();
+    engine
+        .create_index("chk-articles", Schema::empty())
+        .unwrap();
 
     let (an, _) = bulk_index(&engine, "chk-access", &access_docs).await;
     let (pn, _) = bulk_index(&engine, "chk-products", &product_docs).await;
@@ -1001,88 +1228,211 @@ async fn battle_correctness_spot_checks() {
     // ── Access logs ────────────────────────────────────────────────────────────
 
     // match_all must return the full dataset count
-    let r = acc.search(&parse_request(&json!({"query":{"match_all":{}},"size":0})).unwrap()).await.unwrap();
-    assert_eq!(r.total.value, an as u64, "access-logs: match_all count mismatch");
-    row("access-logs match_all total:", &format!("{} (PASS)", r.total.value));
+    let r = acc
+        .search(&parse_request(&json!({"query":{"match_all":{}},"size":0})).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(
+        r.total.value, an as u64,
+        "access-logs: match_all count mismatch"
+    );
+    row(
+        "access-logs match_all total:",
+        &format!("{} (PASS)", r.total.value),
+    );
 
     // 200 + non-200 must equal total
-    let r200 = acc.search(&parse_request(&json!({"query":{"term":{"status":200}},"size":0})).unwrap()).await.unwrap();
-    let rnon = acc.search(&parse_request(&json!({"query":{"bool":{"must_not":[{"term":{"status":200}}]}},"size":0})).unwrap()).await.unwrap();
-    assert_eq!(r200.total.value + rnon.total.value, an as u64, "200 + non-200 != total");
+    let r200 = acc
+        .search(&parse_request(&json!({"query":{"term":{"status":200}},"size":0})).unwrap())
+        .await
+        .unwrap();
+    let rnon = acc
+        .search(
+            &parse_request(
+                &json!({"query":{"bool":{"must_not":[{"term":{"status":200}}]}},"size":0}),
+            )
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        r200.total.value + rnon.total.value,
+        an as u64,
+        "200 + non-200 != total"
+    );
     row("access-logs 200+non200==total:", "PASS");
 
     // ── Products ───────────────────────────────────────────────────────────────
 
     // match_all
-    let r = prod.search(&parse_request(&json!({"query":{"match_all":{}},"size":0})).unwrap()).await.unwrap();
-    assert_eq!(r.total.value, pn as u64, "products: match_all count mismatch");
-    row("products match_all total:", &format!("{} (PASS)", r.total.value));
+    let r = prod
+        .search(&parse_request(&json!({"query":{"match_all":{}},"size":0})).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(
+        r.total.value, pn as u64,
+        "products: match_all count mismatch"
+    );
+    row(
+        "products match_all total:",
+        &format!("{} (PASS)", r.total.value),
+    );
 
     // in_stock=true + in_stock=false == total
-    let rin = prod.search(&parse_request(&json!({"query":{"term":{"in_stock":true}},"size":0})).unwrap()).await.unwrap();
-    let rout = prod.search(&parse_request(&json!({"query":{"term":{"in_stock":false}},"size":0})).unwrap()).await.unwrap();
-    assert_eq!(rin.total.value + rout.total.value, pn as u64, "in_stock true+false != total");
+    let rin = prod
+        .search(&parse_request(&json!({"query":{"term":{"in_stock":true}},"size":0})).unwrap())
+        .await
+        .unwrap();
+    let rout = prod
+        .search(&parse_request(&json!({"query":{"term":{"in_stock":false}},"size":0})).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(
+        rin.total.value + rout.total.value,
+        pn as u64,
+        "in_stock true+false != total"
+    );
     row("products in_stock true+false==total:", "PASS");
 
     // price range [0, ∞) == total
-    let rprice = prod.search(&parse_request(&json!({"query":{"range":{"price":{"gte":0}}},"size":0})).unwrap()).await.unwrap();
-    assert_eq!(rprice.total.value, pn as u64, "products: price range gte 0 != total");
+    let rprice = prod
+        .search(&parse_request(&json!({"query":{"range":{"price":{"gte":0}}},"size":0})).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(
+        rprice.total.value, pn as u64,
+        "products: price range gte 0 != total"
+    );
     row("products price >=0 range==total:", "PASS");
 
     // rating agg avg within [1,5]
     let ragg = prod.search(&parse_request(&json!({"query":{"match_all":{}},"size":0,"aggs":{"avg_r":{"avg":{"field":"rating"}}}})).unwrap()).await.unwrap();
-    if let Some(avg) = ragg.aggs.as_ref().and_then(|a| a["avg_r"]["value"].as_f64()) {
-        assert!((1.0..=5.0).contains(&avg), "avg rating {} out of [1,5]", avg);
-        row("products avg rating in [1,5]:", &format!("{:.2} (PASS)", avg));
+    if let Some(avg) = ragg
+        .aggs
+        .as_ref()
+        .and_then(|a| a["avg_r"]["value"].as_f64())
+    {
+        assert!(
+            (1.0..=5.0).contains(&avg),
+            "avg rating {} out of [1,5]",
+            avg
+        );
+        row(
+            "products avg rating in [1,5]:",
+            &format!("{:.2} (PASS)", avg),
+        );
     }
 
     // ── Error logs ─────────────────────────────────────────────────────────────
 
-    let r = err.search(&parse_request(&json!({"query":{"match_all":{}},"size":0})).unwrap()).await.unwrap();
-    assert_eq!(r.total.value, en as u64, "error-logs: match_all count mismatch");
-    row("error-logs match_all total:", &format!("{} (PASS)", r.total.value));
+    let r = err
+        .search(&parse_request(&json!({"query":{"match_all":{}},"size":0})).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(
+        r.total.value, en as u64,
+        "error-logs: match_all count mismatch"
+    );
+    row(
+        "error-logs match_all total:",
+        &format!("{} (PASS)", r.total.value),
+    );
 
     // All log levels must sum to total
     let levels = ["INFO", "WARN", "ERROR", "FATAL"];
     let mut level_sum = 0u64;
     for level in &levels {
-        let rl = err.search(&parse_request(&json!({"query":{"term":{"level":level}},"size":0})).unwrap()).await.unwrap();
+        let rl = err
+            .search(&parse_request(&json!({"query":{"term":{"level":level}},"size":0})).unwrap())
+            .await
+            .unwrap();
         level_sum += rl.total.value;
-        row(&format!("error-logs level={}:", level), &rl.total.value.to_string());
+        row(
+            &format!("error-logs level={}:", level),
+            &rl.total.value.to_string(),
+        );
     }
-    assert_eq!(level_sum, en as u64, "level sum {} != total {}", level_sum, en);
+    assert_eq!(
+        level_sum, en as u64,
+        "level sum {} != total {}",
+        level_sum, en
+    );
     row("error-logs sum(levels)==total:", "PASS");
 
     // terms agg by level — bucket sum must equal total
-    let ragg = err.search(&parse_request(&json!({
-        "query": { "match_all": {} },
-        "size": 0,
-        "aggs": { "by_level": { "terms": { "field": "level", "size": 10 } } }
-    })).unwrap()).await.unwrap();
-    let agg_sum: u64 = ragg.aggs.as_ref()
+    let ragg = err
+        .search(
+            &parse_request(&json!({
+                "query": { "match_all": {} },
+                "size": 0,
+                "aggs": { "by_level": { "terms": { "field": "level", "size": 10 } } }
+            }))
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    let agg_sum: u64 = ragg
+        .aggs
+        .as_ref()
         .and_then(|a| a["by_level"]["buckets"].as_array())
-        .map(|b| b.iter().map(|bk| bk["doc_count"].as_u64().unwrap_or(0)).sum())
+        .map(|b| {
+            b.iter()
+                .map(|bk| bk["doc_count"].as_u64().unwrap_or(0))
+                .sum()
+        })
         .unwrap_or(0);
-    row("error-logs terms agg bucket sum:", &format!("{} vs {} total", agg_sum, en));
+    row(
+        "error-logs terms agg bucket sum:",
+        &format!("{} vs {} total", agg_sum, en),
+    );
 
     // ── Articles ───────────────────────────────────────────────────────────────
 
-    let r = art.search(&parse_request(&json!({"query":{"match_all":{}},"size":0})).unwrap()).await.unwrap();
-    assert_eq!(r.total.value, artn as u64, "articles: match_all count mismatch");
-    row("articles match_all total:", &format!("{} (PASS)", r.total.value));
+    let r = art
+        .search(&parse_request(&json!({"query":{"match_all":{}},"size":0})).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(
+        r.total.value, artn as u64,
+        "articles: match_all count mismatch"
+    );
+    row(
+        "articles match_all total:",
+        &format!("{} (PASS)", r.total.value),
+    );
 
     // word_count range [0,∞) == total
-    let rwc = art.search(&parse_request(&json!({"query":{"range":{"word_count":{"gte":0}}},"size":0})).unwrap()).await.unwrap();
-    assert_eq!(rwc.total.value, artn as u64, "articles: word_count range != total");
+    let rwc = art
+        .search(
+            &parse_request(&json!({"query":{"range":{"word_count":{"gte":0}}},"size":0})).unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        rwc.total.value, artn as u64,
+        "articles: word_count range != total"
+    );
     row("articles word_count >=0 == total:", "PASS");
 
     // FTS hits for a common word that should appear in all articles
-    let rfts = art.search(&parse_request(&json!({
-        "query": { "match": { "body": "performance" } },
-        "size": 0
-    })).unwrap()).await.unwrap();
-    row("articles FTS 'performance' hits:", &rfts.total.value.to_string());
-    assert!(rfts.total.value > 0, "Expected FTS hits for 'performance' in articles");
+    let rfts = art
+        .search(
+            &parse_request(&json!({
+                "query": { "match": { "body": "performance" } },
+                "size": 0
+            }))
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    row(
+        "articles FTS 'performance' hits:",
+        &rfts.total.value.to_string(),
+    );
+    assert!(
+        rfts.total.value > 0,
+        "Expected FTS hits for 'performance' in articles"
+    );
 
     separator();
     row("ALL CORRECTNESS CHECKS:", "PASSED");
@@ -1099,16 +1449,24 @@ async fn battle_complex_bool_queries() {
 
     let error_docs = match load_ndjson("error_logs.ndjson") {
         Ok(d) => d,
-        Err(e) => { println!("SKIP: {}", e); return; }
+        Err(e) => {
+            println!("SKIP: {}", e);
+            return;
+        }
     };
     let product_docs = match load_ndjson("products.ndjson") {
         Ok(d) => d,
-        Err(e) => { println!("SKIP: {}", e); return; }
+        Err(e) => {
+            println!("SKIP: {}", e);
+            return;
+        }
     };
 
     let (engine, _dir) = battle_engine();
     engine.create_index("bool-errors", Schema::empty()).unwrap();
-    engine.create_index("bool-products", Schema::empty()).unwrap();
+    engine
+        .create_index("bool-products", Schema::empty())
+        .unwrap();
 
     let (en, _) = bulk_index(&engine, "bool-errors", &error_docs).await;
     let (pn, _) = bulk_index(&engine, "bool-products", &product_docs).await;
@@ -1144,9 +1502,13 @@ async fn battle_complex_bool_queries() {
             { "duration_ms": "desc" },
             { "_score": "desc" }
         ]
-    })).unwrap();
+    }))
+    .unwrap();
     let res = err_idx.search(&req_complex_log).await.unwrap();
-    row("Complex log bool (database+service filter):", &res.total.value.to_string());
+    row(
+        "Complex log bool (database+service filter):",
+        &res.total.value.to_string(),
+    );
 
     let lats = measure_search!(err_idx, req_complex_log, RUNS);
     lat_rows("Complex bool (must+filter+must_not+sort)", &lats);
@@ -1173,9 +1535,13 @@ async fn battle_complex_bool_queries() {
             }
         },
         "size": 50
-    })).unwrap();
+    }))
+    .unwrap();
     let res2 = err_idx.search(&req_nested_bool).await.unwrap();
-    row("Nested bool (connection OR timeout, ERROR/FATAL):", &res2.total.value.to_string());
+    row(
+        "Nested bool (connection OR timeout, ERROR/FATAL):",
+        &res2.total.value.to_string(),
+    );
 
     let lats2 = measure_search!(err_idx, req_nested_bool, RUNS);
     lat_rows("Nested bool (should inside must)", &lats2);
@@ -1203,14 +1569,26 @@ async fn battle_complex_bool_queries() {
         },
         "size": 20,
         "sort": [{ "rating": "desc" }, { "price": "asc" }]
-    })).unwrap();
+    }))
+    .unwrap();
     let res3 = prod_idx.search(&req_product_complex).await.unwrap();
-    row("Product complex bool (quality+rating+price):", &res3.total.value.to_string());
+    row(
+        "Product complex bool (quality+rating+price):",
+        &res3.total.value.to_string(),
+    );
 
     // Sort verification: rating descending
     if res3.hits.len() >= 2 {
-        let r0 = res3.hits[0].source.get("rating").and_then(|v| v.as_f64()).unwrap_or(0.0);
-        let r1 = res3.hits[1].source.get("rating").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let r0 = res3.hits[0]
+            .source
+            .get("rating")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+        let r1 = res3.hits[1]
+            .source
+            .get("rating")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
         assert!(r0 >= r1, "rating sort desc violated: {} < {}", r0, r1);
         row("Sort correctness (rating desc, price asc):", "OK");
     }
@@ -1224,12 +1602,14 @@ async fn battle_complex_bool_queries() {
         "query": { "match_all": {} },
         "from": 0, "size": 10,
         "sort": [{ "price": "asc" }]
-    })).unwrap();
+    }))
+    .unwrap();
     let req_page2 = parse_request(&json!({
         "query": { "match_all": {} },
         "from": 10, "size": 10,
         "sort": [{ "price": "asc" }]
-    })).unwrap();
+    }))
+    .unwrap();
 
     let p1 = prod_idx.search(&req_page1).await.unwrap();
     let p2 = prod_idx.search(&req_page2).await.unwrap();
@@ -1256,16 +1636,24 @@ async fn battle_concurrent_search_load() {
 
     let error_docs = match load_ndjson("error_logs.ndjson") {
         Ok(d) => d,
-        Err(e) => { println!("SKIP: {}", e); return; }
+        Err(e) => {
+            println!("SKIP: {}", e);
+            return;
+        }
     };
     let product_docs = match load_ndjson("products.ndjson") {
         Ok(d) => d,
-        Err(e) => { println!("SKIP: {}", e); return; }
+        Err(e) => {
+            println!("SKIP: {}", e);
+            return;
+        }
     };
 
     let (engine, _dir) = battle_engine();
     engine.create_index("conc-errors", Schema::empty()).unwrap();
-    engine.create_index("conc-products", Schema::empty()).unwrap();
+    engine
+        .create_index("conc-products", Schema::empty())
+        .unwrap();
 
     let (en, _) = bulk_index(&engine, "conc-errors", &error_docs).await;
     let (pn, _) = bulk_index(&engine, "conc-products", &product_docs).await;
@@ -1314,7 +1702,7 @@ async fn battle_concurrent_search_load() {
 
                 let t0 = Instant::now();
                 // Alternate between the two indices
-                if qi % 2 == 0 {
+                if qi.is_multiple_of(2) {
                     let _ = err_c.search(&req).await;
                 } else {
                     let _ = prd_c.search(&req).await;

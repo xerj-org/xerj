@@ -14,8 +14,8 @@ use regex::Regex;
 use rust_stemmers::{Algorithm, Stemmer};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use unicode_segmentation::UnicodeSegmentation;
 use tracing;
+use unicode_segmentation::UnicodeSegmentation;
 
 // ── Core token type ──────────────────────────────────────────────────────────
 
@@ -109,10 +109,7 @@ impl AnalyzerPipeline {
 
     /// Convenience: return just the token texts (used for query term extraction).
     pub fn analyze_to_terms(&self, input: &str) -> Vec<String> {
-        self.analyze(input)
-            .into_iter()
-            .map(|t| t.text)
-            .collect()
+        self.analyze(input).into_iter().map(|t| t.text).collect()
     }
 }
 
@@ -125,21 +122,14 @@ pub struct StandardTokenizer;
 impl Tokenizer for StandardTokenizer {
     fn tokenize(&self, input: &str) -> Vec<Token> {
         let mut tokens = Vec::new();
-        let mut position: u32 = 0;
 
-        for word in input.unicode_words() {
+        for (position, word) in input.unicode_words().enumerate() {
             // Find the byte offset of this word in the original string.
             // SAFETY: `unicode_words()` returns sub-slices of `input`.
             let start = word.as_ptr() as usize - input.as_ptr() as usize;
             let end = start + word.len();
 
-            tokens.push(Token::new(
-                word,
-                position,
-                start as u32,
-                end as u32,
-            ));
-            position += 1;
+            tokens.push(Token::new(word, position as u32, start as u32, end as u32));
         }
 
         tokens
@@ -312,8 +302,17 @@ impl Tokenizer for NGramTokenizer {
                 let text: String = chars[start_char..end_char].iter().collect();
                 // Compute byte offsets.
                 let byte_start: usize = chars[..start_char].iter().map(|c| c.len_utf8()).sum();
-                let byte_end: usize = byte_start + chars[start_char..end_char].iter().map(|c| c.len_utf8()).sum::<usize>();
-                tokens.push(Token::new(text, position, byte_start as u32, byte_end as u32));
+                let byte_end: usize = byte_start
+                    + chars[start_char..end_char]
+                        .iter()
+                        .map(|c| c.len_utf8())
+                        .sum::<usize>();
+                tokens.push(Token::new(
+                    text,
+                    position,
+                    byte_start as u32,
+                    byte_end as u32,
+                ));
                 position += 1;
             }
         }
@@ -343,16 +342,14 @@ impl Tokenizer for EdgeNGramTokenizer {
     fn tokenize(&self, input: &str) -> Vec<Token> {
         let chars: Vec<char> = input.chars().collect();
         let mut tokens = Vec::new();
-        let mut position: u32 = 0;
 
-        for gram_size in self.min_gram..=self.max_gram {
+        for (position, gram_size) in (self.min_gram..=self.max_gram).enumerate() {
             if gram_size > chars.len() {
                 break;
             }
             let text: String = chars[..gram_size].iter().collect();
             let byte_end: usize = chars[..gram_size].iter().map(|c| c.len_utf8()).sum();
-            tokens.push(Token::new(text, position, 0, byte_end as u32));
-            position += 1;
+            tokens.push(Token::new(text, position as u32, 0, byte_end as u32));
         }
         tokens
     }
@@ -387,14 +384,17 @@ impl PatternTokenizer {
 impl Tokenizer for PatternTokenizer {
     fn tokenize(&self, input: &str) -> Vec<Token> {
         let mut tokens = Vec::new();
-        let mut position: u32 = 0;
 
-        for mat in self.pattern.split(input).filter(|s| !s.is_empty()) {
+        for (position, mat) in self
+            .pattern
+            .split(input)
+            .filter(|s| !s.is_empty())
+            .enumerate()
+        {
             // Compute byte offsets by finding the substring in the original input.
             let start = mat.as_ptr() as usize - input.as_ptr() as usize;
             let end = start + mat.len();
-            tokens.push(Token::new(mat, position, start as u32, end as u32));
-            position += 1;
+            tokens.push(Token::new(mat, position as u32, start as u32, end as u32));
         }
         tokens
     }
@@ -430,15 +430,19 @@ impl SynonymFilter {
             if let Some((lhs, rhs)) = rule.split_once("=>") {
                 // Explicit: lhs terms map to rhs terms.
                 let inputs: Vec<String> = lhs.split(',').map(|s| s.trim().to_lowercase()).collect();
-                let outputs: Vec<String> = rhs.split(',').map(|s| s.trim().to_lowercase()).collect();
+                let outputs: Vec<String> =
+                    rhs.split(',').map(|s| s.trim().to_lowercase()).collect();
                 for input in inputs {
-                    map.entry(input).or_default().extend(outputs.iter().cloned());
+                    map.entry(input)
+                        .or_default()
+                        .extend(outputs.iter().cloned());
                 }
             } else {
                 // Equivalence: all terms expand to the full set.
                 let terms: Vec<String> = rule.split(',').map(|s| s.trim().to_lowercase()).collect();
                 for term in &terms {
-                    let others: Vec<String> = terms.iter().filter(|t| *t != term).cloned().collect();
+                    let others: Vec<String> =
+                        terms.iter().filter(|t| *t != term).cloned().collect();
                     map.entry(term.clone()).or_default().extend(others);
                 }
             }
@@ -505,37 +509,41 @@ fn fold_to_ascii(s: &str) -> String {
 fn push_ascii_fold(c: char, buf: &mut String) {
     match c {
         // A
-        'À'|'Á'|'Â'|'Ã'|'Ä'|'Å'|'à'|'á'|'â'|'ã'|'ä'|'å' => buf.push('a'),
+        'À' | 'Á' | 'Â' | 'Ã' | 'Ä' | 'Å' | 'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' => {
+            buf.push('a')
+        }
         // AE
-        'Æ'|'æ' => buf.push_str("ae"),
+        'Æ' | 'æ' => buf.push_str("ae"),
         // C
-        'Ç'|'ç' => buf.push('c'),
+        'Ç' | 'ç' => buf.push('c'),
         // D
-        'Ð'|'ð' => buf.push('d'),
+        'Ð' | 'ð' => buf.push('d'),
         // E
-        'È'|'É'|'Ê'|'Ë'|'è'|'é'|'ê'|'ë' => buf.push('e'),
+        'È' | 'É' | 'Ê' | 'Ë' | 'è' | 'é' | 'ê' | 'ë' => buf.push('e'),
         // G
-        'Ğ'|'ğ' => buf.push('g'),
+        'Ğ' | 'ğ' => buf.push('g'),
         // I
-        'Ì'|'Í'|'Î'|'Ï'|'ì'|'í'|'î'|'ï' => buf.push('i'),
+        'Ì' | 'Í' | 'Î' | 'Ï' | 'ì' | 'í' | 'î' | 'ï' => buf.push('i'),
         // N
-        'Ñ'|'ñ' => buf.push('n'),
+        'Ñ' | 'ñ' => buf.push('n'),
         // O
-        'Ò'|'Ó'|'Ô'|'Õ'|'Ö'|'Ø'|'ò'|'ó'|'ô'|'õ'|'ö'|'ø' => buf.push('o'),
+        'Ò' | 'Ó' | 'Ô' | 'Õ' | 'Ö' | 'Ø' | 'ò' | 'ó' | 'ô' | 'õ' | 'ö' | 'ø' => {
+            buf.push('o')
+        }
         // OE
-        'Œ'|'œ' => buf.push_str("oe"),
+        'Œ' | 'œ' => buf.push_str("oe"),
         // S
-        'Š'|'š' => buf.push('s'),
+        'Š' | 'š' => buf.push('s'),
         // SS
         'ß' => buf.push_str("ss"),
         // T
-        'Þ'|'þ' => buf.push_str("th"),
+        'Þ' | 'þ' => buf.push_str("th"),
         // U
-        'Ù'|'Ú'|'Û'|'Ü'|'ù'|'ú'|'û'|'ü' => buf.push('u'),
+        'Ù' | 'Ú' | 'Û' | 'Ü' | 'ù' | 'ú' | 'û' | 'ü' => buf.push('u'),
         // Y
-        'Ý'|'ÿ'|'ý' => buf.push('y'),
+        'Ý' | 'ÿ' | 'ý' => buf.push('y'),
         // Z
-        'Ž'|'ž' => buf.push('z'),
+        'Ž' | 'ž' => buf.push('z'),
         // Passthrough
         other => buf.push(other),
     }
@@ -749,10 +757,19 @@ impl Tokenizer for ThaiTokenizer {
                 while i < chars.len() && is_thai(chars[i].1) {
                     i += 1;
                 }
-                let run_end_byte = if i < chars.len() { chars[i].0 } else { input.len() };
+                let run_end_byte = if i < chars.len() {
+                    chars[i].0
+                } else {
+                    input.len()
+                };
                 if let Some(word) = input.get(run_start_byte..run_end_byte) {
                     if !word.is_empty() {
-                        tokens.push(Token::new(word, position, run_start_byte as u32, run_end_byte as u32));
+                        tokens.push(Token::new(
+                            word,
+                            position,
+                            run_start_byte as u32,
+                            run_end_byte as u32,
+                        ));
                         position += 1;
                     }
                 }
@@ -764,7 +781,11 @@ impl Tokenizer for ThaiTokenizer {
                 while i < chars.len() && !chars[i].1.is_whitespace() && !is_thai(chars[i].1) {
                     i += 1;
                 }
-                let run_end_byte = if i < chars.len() { chars[i].0 } else { input.len() };
+                let run_end_byte = if i < chars.len() {
+                    chars[i].0
+                } else {
+                    input.len()
+                };
                 if let Some(word) = input.get(run_start_byte..run_end_byte) {
                     if !word.is_empty() {
                         tokens.push(Token::new(
@@ -813,9 +834,7 @@ fn nfkc_normalize(s: &str) -> String {
     // a best-effort fold: lowercase + ASCII compatibility substitutions.
     // The unicode-normalization crate is not a current dependency, so we keep
     // this lightweight — the filter still benefits from lowercasing.
-    s.chars()
-        .flat_map(|c| nfkc_fold_char(c))
-        .collect()
+    s.chars().flat_map(nfkc_fold_char).collect()
 }
 
 /// Single-character NFKC compatibility fold for the most common cases.
@@ -997,7 +1016,8 @@ impl AnalyzerRegistry {
     /// Returns the "standard" analyzer, panicking if it is not registered.
     /// This should never panic with a default-constructed registry.
     pub fn standard(&self) -> Arc<AnalyzerPipeline> {
-        self.get_analyzer("standard").expect("standard analyzer always registered")
+        self.get_analyzer("standard")
+            .expect("standard analyzer always registered")
     }
 
     /// Extend this registry with custom analyzer definitions parsed from an
@@ -1044,25 +1064,20 @@ impl AnalyzerRegistry {
                         let rules: Vec<&str> = filter_def
                             .get("synonyms")
                             .and_then(|v| v.as_array())
-                            .map(|arr| {
-                                arr.iter()
-                                    .filter_map(|v| v.as_str())
-                                    .collect()
-                            })
+                            .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect())
                             .unwrap_or_default();
                         let f = SynonymFilter::new(&rules);
                         custom_filters.insert(filter_name.clone(), Arc::new(f));
                     }
                     "length" => {
-                        let min = filter_def
-                            .get("min")
-                            .and_then(|v| v.as_u64())
-                            .unwrap_or(2) as usize;
+                        let min =
+                            filter_def.get("min").and_then(|v| v.as_u64()).unwrap_or(2) as usize;
                         let max = filter_def
                             .get("max")
                             .and_then(|v| v.as_u64())
                             .unwrap_or(256) as usize;
-                        custom_filters.insert(filter_name.clone(), Arc::new(LengthFilter::new(min, max)));
+                        custom_filters
+                            .insert(filter_name.clone(), Arc::new(LengthFilter::new(min, max)));
                     }
                     "shingle" => {
                         let size = filter_def
@@ -1100,10 +1115,7 @@ impl AnalyzerRegistry {
 
         if let Some(tok_map) = analysis.pointer("/tokenizer").and_then(|v| v.as_object()) {
             for (tok_name, tok_def) in tok_map {
-                let tok_type = tok_def
-                    .get("type")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
+                let tok_type = tok_def.get("type").and_then(|v| v.as_str()).unwrap_or("");
 
                 match tok_type {
                     "ngram" => {
@@ -1115,7 +1127,8 @@ impl AnalyzerRegistry {
                             .get("max_gram")
                             .and_then(|v| v.as_u64())
                             .unwrap_or(2) as usize;
-                        custom_tokenizers.insert(tok_name.clone(), Arc::new(NGramTokenizer::new(min, max)));
+                        custom_tokenizers
+                            .insert(tok_name.clone(), Arc::new(NGramTokenizer::new(min, max)));
                     }
                     "edge_ngram" => {
                         let min = tok_def
@@ -1126,7 +1139,10 @@ impl AnalyzerRegistry {
                             .get("max_gram")
                             .and_then(|v| v.as_u64())
                             .unwrap_or(2) as usize;
-                        custom_tokenizers.insert(tok_name.clone(), Arc::new(EdgeNGramTokenizer::new(min, max)));
+                        custom_tokenizers.insert(
+                            tok_name.clone(),
+                            Arc::new(EdgeNGramTokenizer::new(min, max)),
+                        );
                     }
                     "pattern" => {
                         let pattern = tok_def
@@ -1134,7 +1150,9 @@ impl AnalyzerRegistry {
                             .and_then(|v| v.as_str())
                             .unwrap_or(r"\W+");
                         match PatternTokenizer::new(pattern) {
-                            Ok(t) => { custom_tokenizers.insert(tok_name.clone(), Arc::new(t)); }
+                            Ok(t) => {
+                                custom_tokenizers.insert(tok_name.clone(), Arc::new(t));
+                            }
                             Err(e) => {
                                 tracing::warn!(
                                     tok_name = tok_name.as_str(),
@@ -1320,74 +1338,464 @@ const ECOMMERCE_SYNONYMS: &[&str] = &[
 
 /// Matches Lucene's `EnglishAnalyzer.ENGLISH_STOP_WORDS_SET` (174 words).
 const ENGLISH_STOP_WORDS: &[&str] = &[
-    "a", "an", "and", "are", "as", "at", "be", "but", "by", "for",
-    "if", "in", "into", "is", "it", "no", "not", "of", "on", "or",
-    "such", "that", "the", "their", "then", "there", "these", "they",
-    "this", "to", "was", "will", "with",
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "be",
+    "but",
+    "by",
+    "for",
+    "if",
+    "in",
+    "into",
+    "is",
+    "it",
+    "no",
+    "not",
+    "of",
+    "on",
+    "or",
+    "such",
+    "that",
+    "the",
+    "their",
+    "then",
+    "there",
+    "these",
+    "they",
+    "this",
+    "to",
+    "was",
+    "will",
+    "with",
     // Extended Lucene English stop list
-    "able", "about", "above", "according", "accordingly", "across",
-    "actually", "after", "afterwards", "again", "against", "albeit",
-    "all", "allow", "allows", "almost", "alone", "along", "already",
-    "also", "although", "always", "am", "among", "amongst", "another",
-    "any", "anybody", "anyhow", "anyone", "anything", "anyway",
-    "anyways", "anywhere", "apart", "appear", "appreciate", "appropriate",
-    "around", "aside", "ask", "asking", "associated", "available",
-    "away", "awfully", "became", "because", "become", "becomes",
-    "becoming", "been", "before", "beforehand", "behind", "being",
-    "below", "beside", "besides", "best", "better", "between", "beyond",
-    "both", "brief", "came", "can", "cannot", "cant", "cause", "causes",
-    "certain", "certainly", "changes", "clearly", "co", "com", "come",
-    "comes", "concerning", "consequently", "consider", "considering",
-    "contain", "containing", "contains", "corresponding", "could",
-    "course", "currently", "definitely", "described", "despite",
-    "did", "different", "does", "doing", "done", "down", "during",
-    "each", "eight", "either", "else", "elsewhere", "enough", "entirely",
-    "especially", "even", "ever", "every", "everybody", "everyone",
-    "everything", "everywhere", "ex", "exactly", "except", "far",
-    "few", "fifth", "first", "five", "followed", "following", "follows",
-    "former", "formerly", "forth", "four", "from", "further",
-    "furthermore", "get", "gets", "given", "go", "goes", "going",
-    "gone", "got", "had", "happens", "hardly", "has", "have", "having",
-    "he", "hence", "her", "here", "hereafter", "hereby", "herein",
-    "hereupon", "hers", "herself", "him", "himself", "his", "hither",
-    "hopefully", "how", "howbeit", "however", "i", "ie", "ignored",
-    "immediate", "inasmuch", "inc", "indeed", "indicate", "indicated",
-    "indicates", "inner", "insofar", "instead", "its", "itself",
-    "just", "keep", "kept", "know", "known", "knows", "last", "lately",
-    "later", "latter", "latterly", "least", "less", "lest", "let",
-    "like", "liked", "likely", "little", "look", "looking", "looks",
-    "ltd", "mainly", "many", "may", "maybe", "me", "mean", "meanwhile",
-    "merely", "might", "more", "moreover", "most", "mostly", "much",
-    "must", "my", "myself", "name", "namely", "nd", "near", "nearly",
-    "necessary", "need", "needs", "neither", "never", "nevertheless",
-    "new", "next", "nine", "nobody", "none", "noone", "nor", "normally",
-    "nothing", "novel", "now", "nowhere", "obviously", "off", "often",
-    "oh", "ok", "okay", "old", "once", "one", "ones", "only", "onto",
-    "other", "others", "otherwise", "our", "ours", "ourselves", "out",
-    "outside", "over", "overall", "own", "particular", "particularly",
-    "per", "perhaps", "placed", "please", "plus", "possible", "presumably",
-    "probably", "provides", "quite", "rather", "really", "reasonably",
-    "regarding", "regardless", "regards", "relatively", "respectively",
-    "right", "said", "same", "saw", "say", "saying", "says", "second",
-    "secondly", "see", "seeing", "seem", "seemed", "seeming", "seems",
-    "seen", "self", "selves", "sensible", "sent", "serious", "seriously",
-    "seven", "several", "shall", "she", "should", "since", "six",
-    "so", "some", "somebody", "somehow", "someone", "something",
-    "sometime", "sometimes", "somewhat", "somewhere", "soon", "sorry",
-    "specified", "specify", "specifying", "still", "sub", "sup",
-    "sure", "take", "taken", "tell", "tends", "th", "than", "thank",
-    "thanks", "third", "thorough", "thoroughly", "though", "three",
-    "through", "throughout", "thru", "thus", "together", "too", "took",
-    "toward", "towards", "tried", "tries", "truly", "try", "trying",
-    "twice", "two", "un", "under", "unfortunately", "unless", "unlikely",
-    "until", "unto", "upon", "us", "use", "used", "useful", "uses",
-    "using", "usually", "value", "various", "very", "via", "viz",
-    "vs", "want", "wants", "we", "well", "went", "were", "what",
-    "whatever", "when", "whence", "whenever", "where", "whereafter",
-    "whereas", "whereby", "wherein", "whereupon", "wherever", "whether",
-    "which", "while", "whither", "who", "whoever", "whole", "whom",
-    "whose", "why", "within", "without", "wonder", "would", "yes",
-    "yet", "you", "your", "yours", "yourself", "yourselves", "zero",
+    "able",
+    "about",
+    "above",
+    "according",
+    "accordingly",
+    "across",
+    "actually",
+    "after",
+    "afterwards",
+    "again",
+    "against",
+    "albeit",
+    "all",
+    "allow",
+    "allows",
+    "almost",
+    "alone",
+    "along",
+    "already",
+    "also",
+    "although",
+    "always",
+    "am",
+    "among",
+    "amongst",
+    "another",
+    "any",
+    "anybody",
+    "anyhow",
+    "anyone",
+    "anything",
+    "anyway",
+    "anyways",
+    "anywhere",
+    "apart",
+    "appear",
+    "appreciate",
+    "appropriate",
+    "around",
+    "aside",
+    "ask",
+    "asking",
+    "associated",
+    "available",
+    "away",
+    "awfully",
+    "became",
+    "because",
+    "become",
+    "becomes",
+    "becoming",
+    "been",
+    "before",
+    "beforehand",
+    "behind",
+    "being",
+    "below",
+    "beside",
+    "besides",
+    "best",
+    "better",
+    "between",
+    "beyond",
+    "both",
+    "brief",
+    "came",
+    "can",
+    "cannot",
+    "cant",
+    "cause",
+    "causes",
+    "certain",
+    "certainly",
+    "changes",
+    "clearly",
+    "co",
+    "com",
+    "come",
+    "comes",
+    "concerning",
+    "consequently",
+    "consider",
+    "considering",
+    "contain",
+    "containing",
+    "contains",
+    "corresponding",
+    "could",
+    "course",
+    "currently",
+    "definitely",
+    "described",
+    "despite",
+    "did",
+    "different",
+    "does",
+    "doing",
+    "done",
+    "down",
+    "during",
+    "each",
+    "eight",
+    "either",
+    "else",
+    "elsewhere",
+    "enough",
+    "entirely",
+    "especially",
+    "even",
+    "ever",
+    "every",
+    "everybody",
+    "everyone",
+    "everything",
+    "everywhere",
+    "ex",
+    "exactly",
+    "except",
+    "far",
+    "few",
+    "fifth",
+    "first",
+    "five",
+    "followed",
+    "following",
+    "follows",
+    "former",
+    "formerly",
+    "forth",
+    "four",
+    "from",
+    "further",
+    "furthermore",
+    "get",
+    "gets",
+    "given",
+    "go",
+    "goes",
+    "going",
+    "gone",
+    "got",
+    "had",
+    "happens",
+    "hardly",
+    "has",
+    "have",
+    "having",
+    "he",
+    "hence",
+    "her",
+    "here",
+    "hereafter",
+    "hereby",
+    "herein",
+    "hereupon",
+    "hers",
+    "herself",
+    "him",
+    "himself",
+    "his",
+    "hither",
+    "hopefully",
+    "how",
+    "howbeit",
+    "however",
+    "i",
+    "ie",
+    "ignored",
+    "immediate",
+    "inasmuch",
+    "inc",
+    "indeed",
+    "indicate",
+    "indicated",
+    "indicates",
+    "inner",
+    "insofar",
+    "instead",
+    "its",
+    "itself",
+    "just",
+    "keep",
+    "kept",
+    "know",
+    "known",
+    "knows",
+    "last",
+    "lately",
+    "later",
+    "latter",
+    "latterly",
+    "least",
+    "less",
+    "lest",
+    "let",
+    "like",
+    "liked",
+    "likely",
+    "little",
+    "look",
+    "looking",
+    "looks",
+    "ltd",
+    "mainly",
+    "many",
+    "may",
+    "maybe",
+    "me",
+    "mean",
+    "meanwhile",
+    "merely",
+    "might",
+    "more",
+    "moreover",
+    "most",
+    "mostly",
+    "much",
+    "must",
+    "my",
+    "myself",
+    "name",
+    "namely",
+    "nd",
+    "near",
+    "nearly",
+    "necessary",
+    "need",
+    "needs",
+    "neither",
+    "never",
+    "nevertheless",
+    "new",
+    "next",
+    "nine",
+    "nobody",
+    "none",
+    "noone",
+    "nor",
+    "normally",
+    "nothing",
+    "novel",
+    "now",
+    "nowhere",
+    "obviously",
+    "off",
+    "often",
+    "oh",
+    "ok",
+    "okay",
+    "old",
+    "once",
+    "one",
+    "ones",
+    "only",
+    "onto",
+    "other",
+    "others",
+    "otherwise",
+    "our",
+    "ours",
+    "ourselves",
+    "out",
+    "outside",
+    "over",
+    "overall",
+    "own",
+    "particular",
+    "particularly",
+    "per",
+    "perhaps",
+    "placed",
+    "please",
+    "plus",
+    "possible",
+    "presumably",
+    "probably",
+    "provides",
+    "quite",
+    "rather",
+    "really",
+    "reasonably",
+    "regarding",
+    "regardless",
+    "regards",
+    "relatively",
+    "respectively",
+    "right",
+    "said",
+    "same",
+    "saw",
+    "say",
+    "saying",
+    "says",
+    "second",
+    "secondly",
+    "see",
+    "seeing",
+    "seem",
+    "seemed",
+    "seeming",
+    "seems",
+    "seen",
+    "self",
+    "selves",
+    "sensible",
+    "sent",
+    "serious",
+    "seriously",
+    "seven",
+    "several",
+    "shall",
+    "she",
+    "should",
+    "since",
+    "six",
+    "so",
+    "some",
+    "somebody",
+    "somehow",
+    "someone",
+    "something",
+    "sometime",
+    "sometimes",
+    "somewhat",
+    "somewhere",
+    "soon",
+    "sorry",
+    "specified",
+    "specify",
+    "specifying",
+    "still",
+    "sub",
+    "sup",
+    "sure",
+    "take",
+    "taken",
+    "tell",
+    "tends",
+    "th",
+    "than",
+    "thank",
+    "thanks",
+    "third",
+    "thorough",
+    "thoroughly",
+    "though",
+    "three",
+    "through",
+    "throughout",
+    "thru",
+    "thus",
+    "together",
+    "too",
+    "took",
+    "toward",
+    "towards",
+    "tried",
+    "tries",
+    "truly",
+    "try",
+    "trying",
+    "twice",
+    "two",
+    "un",
+    "under",
+    "unfortunately",
+    "unless",
+    "unlikely",
+    "until",
+    "unto",
+    "upon",
+    "us",
+    "use",
+    "used",
+    "useful",
+    "uses",
+    "using",
+    "usually",
+    "value",
+    "various",
+    "very",
+    "via",
+    "viz",
+    "vs",
+    "want",
+    "wants",
+    "we",
+    "well",
+    "went",
+    "were",
+    "what",
+    "whatever",
+    "when",
+    "whence",
+    "whenever",
+    "where",
+    "whereafter",
+    "whereas",
+    "whereby",
+    "wherein",
+    "whereupon",
+    "wherever",
+    "whether",
+    "which",
+    "while",
+    "whither",
+    "who",
+    "whoever",
+    "whole",
+    "whom",
+    "whose",
+    "why",
+    "within",
+    "without",
+    "wonder",
+    "would",
+    "yes",
+    "yet",
+    "you",
+    "your",
+    "yours",
+    "yourself",
+    "yourselves",
+    "zero",
 ];
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -1463,7 +1871,8 @@ mod tests {
     fn registry_standard_analyzer_e2e() {
         let registry = AnalyzerRegistry::default();
         let analyzer = registry.get_analyzer("standard").unwrap();
-        let terms = analyzer.analyze_to_terms("The quick brown foxes are jumping over the lazy dogs");
+        let terms =
+            analyzer.analyze_to_terms("The quick brown foxes are jumping over the lazy dogs");
         // V4 — `standard` now matches ES semantics (lowercase + unicode
         // tokenize, no stop words, no stemming).  For stemming use the
         // `english` analyzer explicitly.

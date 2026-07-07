@@ -76,35 +76,58 @@ fn tokenise(sql: &str) -> Vec<Token> {
     let mut i = 0;
     while i < chars.len() {
         match chars[i] {
-            ' ' | '\t' | '\n' | '\r' => { i += 1; }
-            ',' => { tokens.push(Token::Comma); i += 1; }
-            '(' => { tokens.push(Token::LParen); i += 1; }
-            ')' => { tokens.push(Token::RParen); i += 1; }
-            '*' => { tokens.push(Token::Star); i += 1; }
+            ' ' | '\t' | '\n' | '\r' => {
+                i += 1;
+            }
+            ',' => {
+                tokens.push(Token::Comma);
+                i += 1;
+            }
+            '(' => {
+                tokens.push(Token::LParen);
+                i += 1;
+            }
+            ')' => {
+                tokens.push(Token::RParen);
+                i += 1;
+            }
+            '*' => {
+                tokens.push(Token::Star);
+                i += 1;
+            }
             '>' => {
                 if i + 1 < chars.len() && chars[i + 1] == '=' {
-                    tokens.push(Token::Ge); i += 2;
+                    tokens.push(Token::Ge);
+                    i += 2;
                 } else {
-                    tokens.push(Token::Gt); i += 1;
+                    tokens.push(Token::Gt);
+                    i += 1;
                 }
             }
             '<' => {
                 if i + 1 < chars.len() && chars[i + 1] == '=' {
-                    tokens.push(Token::Le); i += 2;
+                    tokens.push(Token::Le);
+                    i += 2;
                 } else if i + 1 < chars.len() && chars[i + 1] == '>' {
-                    tokens.push(Token::Ne); i += 2;
+                    tokens.push(Token::Ne);
+                    i += 2;
                 } else {
-                    tokens.push(Token::Lt); i += 1;
+                    tokens.push(Token::Lt);
+                    i += 1;
                 }
             }
             '!' => {
                 if i + 1 < chars.len() && chars[i + 1] == '=' {
-                    tokens.push(Token::Ne); i += 2;
+                    tokens.push(Token::Ne);
+                    i += 2;
                 } else {
                     i += 1;
                 }
             }
-            '=' => { tokens.push(Token::Eq); i += 1; }
+            '=' => {
+                tokens.push(Token::Eq);
+                i += 1;
+            }
             '\'' | '"' => {
                 let quote = chars[i];
                 i += 1;
@@ -118,12 +141,18 @@ fn tokenise(sql: &str) -> Vec<Token> {
                     }
                     i += 1;
                 }
-                if i < chars.len() { i += 1; } // consume closing quote
+                if i < chars.len() {
+                    i += 1;
+                } // consume closing quote
                 tokens.push(Token::Str(s));
             }
-            c if c.is_ascii_digit() || (c == '-' && i + 1 < chars.len() && chars[i + 1].is_ascii_digit()) => {
+            c if c.is_ascii_digit()
+                || (c == '-' && i + 1 < chars.len() && chars[i + 1].is_ascii_digit()) =>
+            {
                 let start = i;
-                if chars[i] == '-' { i += 1; }
+                if chars[i] == '-' {
+                    i += 1;
+                }
                 while i < chars.len() && (chars[i].is_ascii_digit() || chars[i] == '.') {
                     i += 1;
                 }
@@ -133,13 +162,17 @@ fn tokenise(sql: &str) -> Vec<Token> {
             }
             c if c.is_alphabetic() || c == '_' || c == '.' => {
                 let start = i;
-                while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_' || chars[i] == '.') {
+                while i < chars.len()
+                    && (chars[i].is_alphanumeric() || chars[i] == '_' || chars[i] == '.')
+                {
                     i += 1;
                 }
                 let word: String = chars[start..i].iter().collect();
                 tokens.push(Token::Word(word));
             }
-            _ => { i += 1; }
+            _ => {
+                i += 1;
+            }
         }
     }
     tokens
@@ -165,7 +198,9 @@ pub fn parse_sql(sql: &str) -> Result<SqlQuery, String> {
 
     // SELECT
     match peek_word(pos) {
-        Some(w) if w == "SELECT" => { pos += 1; }
+        Some(w) if w == "SELECT" => {
+            pos += 1;
+        }
         _ => return Err("Expected SELECT".to_string()),
     }
 
@@ -188,7 +223,12 @@ pub fn parse_sql(sql: &str) -> Result<SqlQuery, String> {
             }
             Some(Token::Word(w)) => {
                 let upper = w.to_uppercase();
-                if upper == "FROM" || upper == "GROUP" || upper == "ORDER" || upper == "LIMIT" || upper == "WHERE" {
+                if upper == "FROM"
+                    || upper == "GROUP"
+                    || upper == "ORDER"
+                    || upper == "LIMIT"
+                    || upper == "WHERE"
+                {
                     break;
                 }
                 if upper == "COUNT" {
@@ -243,7 +283,11 @@ pub fn parse_sql(sql: &str) -> Result<SqlQuery, String> {
             _ => break,
         }
         // Consume optional comma.
-        if let Some(Token::Comma) = peek(pos) { pos += 1; } else { break; }
+        if let Some(Token::Comma) = peek(pos) {
+            pos += 1;
+        } else {
+            break;
+        }
     }
     if fields.is_empty() && agg_functions.is_empty() {
         return Err("No fields in SELECT".to_string());
@@ -251,13 +295,19 @@ pub fn parse_sql(sql: &str) -> Result<SqlQuery, String> {
 
     // FROM
     match peek_word(pos) {
-        Some(w) if w == "FROM" => { pos += 1; }
+        Some(w) if w == "FROM" => {
+            pos += 1;
+        }
         _ => return Err("Expected FROM".to_string()),
     }
 
     // Index name.
     let index = match peek(pos) {
-        Some(Token::Word(w)) => { let s = w.clone(); pos += 1; s }
+        Some(Token::Word(w)) => {
+            let s = w.clone();
+            pos += 1;
+            s
+        }
         _ => return Err("Expected index name after FROM".to_string()),
     };
 
@@ -273,20 +323,21 @@ pub fn parse_sql(sql: &str) -> Result<SqlQuery, String> {
     let mut group_by: Vec<String> = Vec::new();
     if peek_word(pos).as_deref() == Some("GROUP") {
         pos += 1;
-        if peek_word(pos).as_deref() == Some("BY") { pos += 1; }
-        loop {
-            match peek(pos) {
-                Some(Token::Word(field)) => {
-                    let upper = field.to_uppercase();
-                    if upper == "ORDER" || upper == "LIMIT" || upper == "HAVING" {
-                        break;
-                    }
-                    group_by.push(field.clone());
-                    pos += 1;
-                }
-                _ => break,
+        if peek_word(pos).as_deref() == Some("BY") {
+            pos += 1;
+        }
+        while let Some(Token::Word(field)) = peek(pos) {
+            let upper = field.to_uppercase();
+            if upper == "ORDER" || upper == "LIMIT" || upper == "HAVING" {
+                break;
             }
-            if let Some(Token::Comma) = peek(pos) { pos += 1; } else { break; }
+            group_by.push(field.clone());
+            pos += 1;
+            if let Some(Token::Comma) = peek(pos) {
+                pos += 1;
+            } else {
+                break;
+            }
         }
     }
 
@@ -300,10 +351,21 @@ pub fn parse_sql(sql: &str) -> Result<SqlQuery, String> {
                 _ => {}
             }
             match tok {
-                Token::Word(_) | Token::Num(_) | Token::Str(_)
-                | Token::Eq | Token::Ne | Token::Gt | Token::Ge
-                | Token::Lt | Token::Le | Token::LParen | Token::RParen
-                | Token::Comma | Token::Star => { pos += 1; }
+                Token::Word(_)
+                | Token::Num(_)
+                | Token::Str(_)
+                | Token::Eq
+                | Token::Ne
+                | Token::Gt
+                | Token::Ge
+                | Token::Lt
+                | Token::Le
+                | Token::LParen
+                | Token::RParen
+                | Token::Comma
+                | Token::Star => {
+                    pos += 1;
+                }
             }
         }
     }
@@ -312,28 +374,35 @@ pub fn parse_sql(sql: &str) -> Result<SqlQuery, String> {
     let mut sort: Vec<SortField> = Vec::new();
     if peek_word(pos).as_deref() == Some("ORDER") {
         pos += 1;
-        if peek_word(pos).as_deref() == Some("BY") { pos += 1; }
-        loop {
-            match peek(pos) {
-                Some(Token::Word(field)) => {
-                    let field = field.clone();
+        if peek_word(pos).as_deref() == Some("BY") {
+            pos += 1;
+        }
+        while let Some(Token::Word(field)) = peek(pos) {
+            let field = field.clone();
+            pos += 1;
+            let order = match peek_word(pos).as_deref() {
+                Some("DESC") => {
                     pos += 1;
-                    let order = match peek_word(pos).as_deref() {
-                        Some("DESC") => { pos += 1; SortOrder::Desc }
-                        Some("ASC")  => { pos += 1; SortOrder::Asc  }
-                        _ => SortOrder::Asc,
-                    };
-                    sort.push(SortField {
-                        field,
-                        order,
-                        mode: xerj_query::sort::SortMode::default(),
-                        missing: xerj_query::sort::SortMissing::default(),
-                        format: None,
-                    });
+                    SortOrder::Desc
                 }
-                _ => break,
+                Some("ASC") => {
+                    pos += 1;
+                    SortOrder::Asc
+                }
+                _ => SortOrder::Asc,
+            };
+            sort.push(SortField {
+                field,
+                order,
+                mode: xerj_query::sort::SortMode::default(),
+                missing: xerj_query::sort::SortMissing::default(),
+                format: None,
+            });
+            if let Some(Token::Comma) = peek(pos) {
+                pos += 1;
+            } else {
+                break;
             }
-            if let Some(Token::Comma) = peek(pos) { pos += 1; } else { break; }
         }
     }
 
@@ -342,12 +411,23 @@ pub fn parse_sql(sql: &str) -> Result<SqlQuery, String> {
     if peek_word(pos).as_deref() == Some("LIMIT") {
         pos += 1;
         match peek(pos) {
-            Some(Token::Num(n)) => { limit = Some(*n as usize); pos += 1; }
+            Some(Token::Num(n)) => {
+                limit = Some(*n as usize);
+            }
             _ => return Err("Expected number after LIMIT".to_string()),
         }
     }
 
-    Ok(SqlQuery { index, fields, query, limit, sort, distinct, group_by, agg_functions })
+    Ok(SqlQuery {
+        index,
+        fields,
+        query,
+        limit,
+        sort,
+        distinct,
+        group_by,
+        agg_functions,
+    })
 }
 
 // ── Condition parser (recursive descent) ─────────────────────────────────────
@@ -422,37 +502,79 @@ fn parse_condition(tokens: &[Token], pos: &mut usize) -> Result<QueryNode, Strin
     if let Some(Token::LParen) = tokens.get(*pos) {
         *pos += 1;
         let inner = parse_or_expr(tokens, pos)?;
-        if let Some(Token::RParen) = tokens.get(*pos) { *pos += 1; }
+        if let Some(Token::RParen) = tokens.get(*pos) {
+            *pos += 1;
+        }
         return Ok(inner);
     }
 
     // field op value
     let field = match tokens.get(*pos) {
-        Some(Token::Word(f)) => { let f = f.clone(); *pos += 1; f }
+        Some(Token::Word(f)) => {
+            let f = f.clone();
+            *pos += 1;
+            f
+        }
         _ => return Err(format!("Expected field name at pos {}", pos)),
     };
 
     let op = match tokens.get(*pos) {
-        Some(Token::Eq)  => { *pos += 1; "eq"   }
-        Some(Token::Ne)  => { *pos += 1; "ne"   }
-        Some(Token::Gt)  => { *pos += 1; "gt"   }
-        Some(Token::Ge)  => { *pos += 1; "gte"  }
-        Some(Token::Lt)  => { *pos += 1; "lt"   }
-        Some(Token::Le)  => { *pos += 1; "lte"  }
-        Some(Token::Word(w)) if w.to_uppercase() == "LIKE"     => { *pos += 1; "like"     }
-        Some(Token::Word(w)) if w.to_uppercase() == "NOT"      => {
+        Some(Token::Eq) => {
+            *pos += 1;
+            "eq"
+        }
+        Some(Token::Ne) => {
+            *pos += 1;
+            "ne"
+        }
+        Some(Token::Gt) => {
+            *pos += 1;
+            "gt"
+        }
+        Some(Token::Ge) => {
+            *pos += 1;
+            "gte"
+        }
+        Some(Token::Lt) => {
+            *pos += 1;
+            "lt"
+        }
+        Some(Token::Le) => {
+            *pos += 1;
+            "lte"
+        }
+        Some(Token::Word(w)) if w.to_uppercase() == "LIKE" => {
+            *pos += 1;
+            "like"
+        }
+        Some(Token::Word(w)) if w.to_uppercase() == "NOT" => {
             // NOT LIKE
             *pos += 1;
             if let Some(Token::Word(w2)) = tokens.get(*pos) {
-                if w2.to_uppercase() == "LIKE" { *pos += 1; "not_like" } else { "ne" }
-            } else { "ne" }
+                if w2.to_uppercase() == "LIKE" {
+                    *pos += 1;
+                    "not_like"
+                } else {
+                    "ne"
+                }
+            } else {
+                "ne"
+            }
         }
         _ => return Err(format!("Expected operator at pos {}", pos)),
     };
 
     let value = match tokens.get(*pos) {
-        Some(Token::Str(s))  => { let v = serde_json::Value::String(s.clone()); *pos += 1; v }
-        Some(Token::Num(n))  => { let v = serde_json::json!(*n); *pos += 1; v }
+        Some(Token::Str(s)) => {
+            let v = serde_json::Value::String(s.clone());
+            *pos += 1;
+            v
+        }
+        Some(Token::Num(n)) => {
+            let v = serde_json::json!(*n);
+            *pos += 1;
+            v
+        }
         Some(Token::Word(w)) => {
             let upper = w.to_uppercase();
             let v = if upper == "TRUE" {
@@ -464,7 +586,8 @@ fn parse_condition(tokens: &[Token], pos: &mut usize) -> Result<QueryNode, Strin
             } else {
                 serde_json::Value::String(w.clone())
             };
-            *pos += 1; v
+            *pos += 1;
+            v
         }
         _ => return Err(format!("Expected value at pos {}", pos)),
     };
@@ -482,32 +605,56 @@ fn parse_condition(tokens: &[Token], pos: &mut usize) -> Result<QueryNode, Strin
                     analyzer: None,
                 }
             } else {
-                QueryNode::Term { field: field.clone(), value: value.clone(), boost: None }
+                QueryNode::Term {
+                    field: field.clone(),
+                    value: value.clone(),
+                    boost: None,
+                }
             }
         }
         "ne" => QueryNode::Bool {
             must: vec![],
             filter: vec![],
             should: vec![],
-            must_not: vec![QueryNode::Term { field: field.clone(), value: value.clone(), boost: None }],
+            must_not: vec![QueryNode::Term {
+                field: field.clone(),
+                value: value.clone(),
+                boost: None,
+            }],
             minimum_should_match: None,
         },
-        "gt"  => make_range(&field, None, None, Some(value), None),
+        "gt" => make_range(&field, None, None, Some(value), None),
         "gte" => make_range(&field, None, None, None, Some(value)),
-        "lt"  => make_range(&field, Some(value), None, None, None),
+        "lt" => make_range(&field, Some(value), None, None, None),
         "lte" => make_range(&field, None, Some(value), None, None),
         "like" => {
             // Convert SQL LIKE pattern (% → *, _ → ?) to wildcard query.
-            let pattern = value.as_str().unwrap_or("*").replace('%', "*").replace('_', "?");
-            QueryNode::Wildcard { field: field.clone(), value: pattern, boost: None }
+            let pattern = value
+                .as_str()
+                .unwrap_or("*")
+                .replace('%', "*")
+                .replace('_', "?");
+            QueryNode::Wildcard {
+                field: field.clone(),
+                value: pattern,
+                boost: None,
+            }
         }
         "not_like" => {
-            let pattern = value.as_str().unwrap_or("*").replace('%', "*").replace('_', "?");
+            let pattern = value
+                .as_str()
+                .unwrap_or("*")
+                .replace('%', "*")
+                .replace('_', "?");
             QueryNode::Bool {
                 must: vec![],
                 filter: vec![],
                 should: vec![],
-                must_not: vec![QueryNode::Wildcard { field: field.clone(), value: pattern, boost: None }],
+                must_not: vec![QueryNode::Wildcard {
+                    field: field.clone(),
+                    value: pattern,
+                    boost: None,
+                }],
                 minimum_should_match: None,
             }
         }

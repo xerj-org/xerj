@@ -46,7 +46,11 @@ pub async fn xerj_console_index() -> impl IntoResponse {
 /// Serve a named asset under `/_xerj-console/{path*}`.
 pub async fn xerj_console_asset(Path(rest): Path<String>) -> impl IntoResponse {
     // Empty rest path = same as `/_xerj-console/` — serve index.
-    let path = if rest.is_empty() { "index.html".to_string() } else { rest };
+    let path = if rest.is_empty() {
+        "index.html".to_string()
+    } else {
+        rest
+    };
     serve(&path, false)
 }
 
@@ -81,16 +85,14 @@ fn serve(path: &str, no_cache: bool) -> Response {
             return (
                 StatusCode::NOT_FOUND,
                 format!("xerj-console asset not found: {path}"),
-            ).into_response();
+            )
+                .into_response();
         }
     };
     serve_asset(asset, no_cache)
 }
 
-fn serve_asset(
-    asset: &(&'static str, &'static [u8], &'static str),
-    no_cache: bool,
-) -> Response {
+fn serve_asset(asset: &(&'static str, &'static [u8], &'static str), no_cache: bool) -> Response {
     let cache = if no_cache {
         "no-cache"
     } else {

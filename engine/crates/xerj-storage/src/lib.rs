@@ -66,7 +66,10 @@ pub enum StorageError {
     ChecksumMismatch { expected: u32, actual: u32 },
 
     #[error("Invalid magic bytes: expected {expected:?}, got {actual:?}")]
-    InvalidMagic { expected: &'static [u8], actual: Vec<u8> },
+    InvalidMagic {
+        expected: &'static [u8],
+        actual: Vec<u8>,
+    },
 
     #[error("Unsupported format version {0}")]
     UnsupportedVersion(u16),
@@ -78,7 +81,11 @@ pub enum StorageError {
     WalCorrupt(u64, String),
 
     #[error("Version conflict: doc {doc_id} expected seq {expected}, found {actual}")]
-    VersionConflict { doc_id: String, expected: SeqNo, actual: SeqNo },
+    VersionConflict {
+        doc_id: String,
+        expected: SeqNo,
+        actual: SeqNo,
+    },
 
     #[error("Backend error: {0}")]
     Backend(String),

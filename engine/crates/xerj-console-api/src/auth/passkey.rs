@@ -4,10 +4,10 @@
 //!
 //! - `POST /auth/passkey/begin   { enrollment_session_id, email?, display_name? }`
 //!   → returns the WebAuthn `CreationChallengeResponse` JSON the SPA
-//!     hands to `navigator.credentials.create({ publicKey })`.
+//!   hands to `navigator.credentials.create({ publicKey })`.
 //! - `POST /auth/passkey/finish  { enrollment_session_id, name, credential }`
 //!   → validates the attestation, persists the credential, marks the
-//!     user `active`, and mints a session cookie.
+//!   user `active`, and mints a session cookie.
 //!
 //! The enrollment session itself lives only in
 //! `ConsoleState.enrollment_sessions` — it is consumed once at finish-time
@@ -28,7 +28,7 @@ use crate::auth::{audit, sessions, store, webauthn_setup};
 use crate::error::{ConsoleApiError, ConsoleResult};
 use crate::indices;
 use crate::response::ok;
-use crate::state::{ChallengeKind, PendingChallenge, ConsoleState};
+use crate::state::{ChallengeKind, ConsoleState, PendingChallenge};
 use crate::time::{now_epoch_ms, now_iso};
 
 const CHALLENGE_TTL_MS: i64 = 5 * 60 * 1000;
@@ -62,7 +62,9 @@ pub async fn begin(
         .ok_or_else(|| ConsoleApiError::Unauthorized("unknown enrollment session".into()))?;
 
     if now_epoch_ms() > enroll.expires_at_ms {
-        state.enrollment_sessions.remove(&body.enrollment_session_id);
+        state
+            .enrollment_sessions
+            .remove(&body.enrollment_session_id);
         return Err(ConsoleApiError::Unauthorized(
             "enrollment session expired".into(),
         ));
@@ -107,8 +109,7 @@ pub async fn begin(
         .collect();
 
     let webauthn = webauthn_setup::build(&state)?;
-    let user_unique_id = uuid::Uuid::parse_str(&enroll.user_id)
-        .unwrap_or_else(|_| Uuid::new_v4()); // synthetic placeholders are uuids; legacy ids fall back.
+    let user_unique_id = uuid::Uuid::parse_str(&enroll.user_id).unwrap_or_else(|_| Uuid::new_v4()); // synthetic placeholders are uuids; legacy ids fall back.
 
     let display_name = body.display_name.clone().unwrap_or_else(|| email.clone());
     let (creation_options, reg_state) = webauthn
@@ -116,7 +117,11 @@ pub async fn begin(
             user_unique_id,
             &email,
             &display_name,
-            if exclude.is_empty() { None } else { Some(exclude) },
+            if exclude.is_empty() {
+                None
+            } else {
+                Some(exclude)
+            },
         )
         .map_err(|e| ConsoleApiError::Internal(format!("start registration: {e}")))?;
 
@@ -196,8 +201,7 @@ pub async fn finish(
 
     // Persist the credential.
     let cred_id_bytes: &[u8] = passkey.cred_id().as_ref();
-    let credential_id_b64 =
-        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(cred_id_bytes);
+    let credential_id_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(cred_id_bytes);
     let pk_blob = serde_json::to_value(&passkey)?;
     let pk = store::StoredPasskey {
         id: credential_id_b64.clone(),
@@ -258,14 +262,8 @@ pub async fn finish(
     )
     .await;
 
-    let (_session, signed) = sessions::mint_session(
-        &state,
-        &user.id,
-        "passkey",
-        Some(ip.clone()),
-        ua,
-    )
-    .await?;
+    let (_session, signed) =
+        sessions::mint_session(&state, &user.id, "passkey", Some(ip.clone()), ua).await?;
 
     audit::record(
         &state.engine,
@@ -293,7 +291,11 @@ pub async fn finish(
         }),
         None,
     );
-    Ok((axum_extra::extract::cookie::CookieJar::new().add(cookie), body).into_response())
+    Ok((
+        axum_extra::extract::cookie::CookieJar::new().add(cookie),
+        body,
+    )
+        .into_response())
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

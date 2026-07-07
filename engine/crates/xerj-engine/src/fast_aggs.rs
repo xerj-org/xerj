@@ -44,12 +44,11 @@
 
 use super::*;
 use crate::aggs::{
-    apply_bucket_pipeline_ops, doc_count_weight, doc_matches_filter, extract_date_ms_values,
-    extract_field_values, extract_numeric, get_nested_field, interval_to_ms, is_calendar_interval,
-    calendar_bucket_key, next_calendar_bucket, parse_date_ms, render_date_format,
-    resolve_sibling_pipelines, run_pipeline_agg, run_sampler, run_top_hits_with_total,
-    typed_term_key, render_iso_date, detect_fractional_digits,
-    format_range_val,
+    apply_bucket_pipeline_ops, calendar_bucket_key, detect_fractional_digits, doc_count_weight,
+    doc_matches_filter, extract_date_ms_values, extract_field_values, extract_numeric,
+    format_range_val, get_nested_field, interval_to_ms, is_calendar_interval, next_calendar_bucket,
+    parse_date_ms, render_date_format, render_iso_date, resolve_sibling_pipelines,
+    run_pipeline_agg, run_sampler, run_top_hits_with_total, typed_term_key,
 };
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
@@ -62,7 +61,11 @@ const FAST_AGG_MIN_DOCS: u64 = 10_000;
 
 fn fast_aggs_disabled() -> bool {
     static DISABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *DISABLED.get_or_init(|| std::env::var("XERJ_DISABLE_FAST_AGGS").map(|v| v == "1" || v.eq_ignore_ascii_case("true")).unwrap_or(false))
+    *DISABLED.get_or_init(|| {
+        std::env::var("XERJ_DISABLE_FAST_AGGS")
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false)
+    })
 }
 
 /// One on-disk segment's columns + identity.
@@ -85,7 +88,10 @@ struct SegEntry {
 /// version-map lookups) dominated terms/cardinality latency.
 enum MemDocs {
     Owned(Vec<Value>),
-    Shared { ids: Vec<String>, srcs: Vec<std::sync::Arc<Value>> },
+    Shared {
+        ids: Vec<String>,
+        srcs: Vec<std::sync::Arc<Value>>,
+    },
 }
 
 impl MemDocs {
@@ -181,8 +187,7 @@ impl<'a> FastCtx<'a> {
                                 o.entry("_index".to_string())
                                     .or_insert_with(|| Value::String(self.idx.name.to_string()));
                                 if let Some(seq) = self.idx.lookup_seq_no(&id) {
-                                    o.entry("_seq_no".to_string())
-                                        .or_insert_with(|| json!(seq));
+                                    o.entry("_seq_no".to_string()).or_insert_with(|| json!(seq));
                                 }
                             }
                             v
@@ -287,9 +292,21 @@ struct SubPlan {
 }
 
 const PIPELINE_TYPES: &[&str] = &[
-    "avg_bucket", "max_bucket", "min_bucket", "sum_bucket", "derivative", "moving_avg",
-    "cumulative_sum", "bucket_selector", "bucket_sort", "bucket_script", "percentiles_bucket",
-    "stats_bucket", "serial_diff", "moving_fn", "extended_stats_bucket",
+    "avg_bucket",
+    "max_bucket",
+    "min_bucket",
+    "sum_bucket",
+    "derivative",
+    "moving_avg",
+    "cumulative_sum",
+    "bucket_selector",
+    "bucket_sort",
+    "bucket_script",
+    "percentiles_bucket",
+    "stats_bucket",
+    "serial_diff",
+    "moving_fn",
+    "extended_stats_bucket",
 ];
 
 fn metric_kind_of(t: &str) -> Option<MetricKind> {
@@ -494,11 +511,16 @@ impl<'a> FastCtx<'a> {
         let seg = &self.segs[si];
         let stored = self.idx.stored_values_for(&seg.id)?;
         let d = stored.get(row as usize)?;
-        let id = d.get("_id").and_then(Value::as_str).unwrap_or("").to_string();
+        let id = d
+            .get("_id")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
         let mut src = d.get("_source").cloned().unwrap_or_else(|| d.clone());
         if let Some(o) = src.as_object_mut() {
             if !id.is_empty() {
-                o.entry("_id".to_string()).or_insert(Value::String(id.clone()));
+                o.entry("_id".to_string())
+                    .or_insert(Value::String(id.clone()));
             }
             o.entry("_index".to_string())
                 .or_insert_with(|| Value::String(self.idx.name.to_string()));
@@ -529,7 +551,9 @@ impl<'a> FastCtx<'a> {
             top_hits: None,
             pipelines: Vec::new(),
         };
-        let Some(sub) = sub_aggs else { return Some(plan) };
+        let Some(sub) = sub_aggs else {
+            return Some(plan);
+        };
         let sub_obj = sub.as_object()?;
         for (name, body) in sub_obj {
             let (t, params, nested_sub, meta) = split_agg_body(body)?;
@@ -576,12 +600,17 @@ impl<'a> FastCtx<'a> {
     }
 
     fn mem_field_numeric_safe(&self, field: &str) -> bool {
-        self.mem().iter().all(|d| {
-            matches!(get_nested_field(d, field), Value::Number(_) | Value::Null)
-        })
+        self.mem()
+            .iter()
+            .all(|d| matches!(get_nested_field(d, field), Value::Number(_) | Value::Null))
     }
 
-    fn plan_top_hits(&self, name: &str, params: &Value, meta: Option<&Value>) -> Option<TopHitsSpec> {
+    fn plan_top_hits(
+        &self,
+        name: &str,
+        params: &Value,
+        meta: Option<&Value>,
+    ) -> Option<TopHitsSpec> {
         if !params_only(params, &["size", "from", "sort", "_source"]) {
             return None;
         }
@@ -614,7 +643,10 @@ impl<'a> FastCtx<'a> {
                 if !o.keys().all(|k| k == "order") {
                     return None; // mode / nested / missing → bail
                 }
-                o.get("order").and_then(Value::as_str).map(|v| v == "desc").unwrap_or(false)
+                o.get("order")
+                    .and_then(Value::as_str)
+                    .map(|v| v == "desc")
+                    .unwrap_or(false)
             }
             _ => return None,
         };
@@ -632,7 +664,7 @@ impl<'a> FastCtx<'a> {
             sort_field: field.clone(),
             desc,
             k,
-            meta: meta.map(Value::clone),
+            meta: meta.cloned(),
         })
     }
 
@@ -711,7 +743,10 @@ impl<'a> FastCtx<'a> {
         for (mi, spec) in plan.metrics.iter().enumerate() {
             let mut v = Self::emit_metric(spec.kind, &accs[mi]);
             if let Some(o) = v.as_object_mut() {
-                o.insert("__type__".into(), Value::String(metric_type_name(spec.kind).to_string()));
+                o.insert(
+                    "__type__".into(),
+                    Value::String(metric_type_name(spec.kind).to_string()),
+                );
                 if let Some(m) = &spec.meta {
                     o.insert("meta".into(), m.clone());
                 }
@@ -780,7 +815,7 @@ impl<'a> FastCtx<'a> {
     /// `run_aggs_with_all` global bucket: `{doc_count, <subs>}`.
     fn exec_global(&self, params: &Value, sub: Option<&Value>) -> Option<Value> {
         // `global` takes no params.
-        if !params.as_object().map_or(false, |o| o.is_empty()) {
+        if !params.as_object().is_some_and(|o| o.is_empty()) {
             return None;
         }
         let child = FastCtx {
@@ -1015,13 +1050,13 @@ impl<'a> FastCtx<'a> {
         // `contains()` entirely, which otherwise dominates this loop.
         let dense_num: Vec<bool> = num_cols
             .iter()
-            .map(|c| c.map_or(false, |n| n.null_bitmap.is_empty()))
+            .map(|c| c.is_some_and(|n| n.null_bitmap.is_empty()))
             .collect();
         let dense_kw: Vec<bool> = kw_cols
             .iter()
-            .map(|c| c.map_or(false, |k| k.null_bitmap.is_empty()))
+            .map(|c| c.is_some_and(|k| k.null_bitmap.is_empty()))
             .collect();
-        let th_dense = th_col.map_or(false, |n| n.null_bitmap.is_empty());
+        let th_dense = th_col.is_some_and(|n| n.null_bitmap.is_empty());
 
         for row in 0..seg.docs {
             if let Some(sp) = &top_sp {
@@ -1029,7 +1064,9 @@ impl<'a> FastCtx<'a> {
                     continue;
                 }
             }
-            let Some(slot) = slot_of_row(row) else { continue };
+            let Some(slot) = slot_of_row(row) else {
+                continue;
+            };
             for (mi, m) in plan.metrics.iter().enumerate() {
                 match m.kind {
                     MetricKind::ValueCount => {
@@ -1090,7 +1127,11 @@ impl<'a> FastCtx<'a> {
             .iter()
             .map(|(_, _, r)| self.fetch_doc(*r))
             .collect::<Option<Vec<_>>>()?;
-        Some(run_top_hits_with_total(&spec.params, &docs, Some(bucket_total)))
+        Some(run_top_hits_with_total(
+            &spec.params,
+            &docs,
+            Some(bucket_total),
+        ))
     }
 
     // ── terms ────────────────────────────────────────────────────────────
@@ -1128,16 +1169,14 @@ impl<'a> FastCtx<'a> {
             _ => return None,
         }
         // Same `missing` placeholder semantics as `run_cardinality`.
-        let missing_placeholder: Option<String> =
-            params.get("missing").and_then(|v| match v {
-                Value::String(s) => Some(s.clone()),
-                Value::Number(n) => Some(n.to_string()),
-                Value::Bool(b) => Some(b.to_string()),
-                _ => None,
-            });
+        let missing_placeholder: Option<String> = params.get("missing").and_then(|v| match v {
+            Value::String(s) => Some(s.clone()),
+            Value::Number(n) => Some(n.to_string()),
+            Value::Bool(b) => Some(b.to_string()),
+            _ => None,
+        });
 
-        let mut distinct: std::collections::HashSet<String> =
-            std::collections::HashSet::new();
+        let mut distinct: std::collections::HashSet<String> = std::collections::HashSet::new();
         const BOOL_TERMS: [&str; 2] = ["false", "true"];
         for seg in &self.segs {
             match seg.cols.get(field) {
@@ -1148,7 +1187,7 @@ impl<'a> FastCtx<'a> {
                         }
                     }
                     if let Some(ph) = &missing_placeholder {
-                        if k.null_bitmap.len() > 0 {
+                        if !k.null_bitmap.is_empty() {
                             distinct.insert(ph.clone());
                         }
                     }
@@ -1168,7 +1207,7 @@ impl<'a> FastCtx<'a> {
                         distinct.insert(BOOL_TERMS[1].to_string());
                     }
                     if let Some(ph) = &missing_placeholder {
-                        if n.null_bitmap.len() > 0 {
+                        if !n.null_bitmap.is_empty() {
                             distinct.insert(ph.clone());
                         }
                     }
@@ -1227,10 +1266,7 @@ impl<'a> FastCtx<'a> {
 
         // Identical output shape to `run_cardinality` including the
         // internal `__xy_*` fields the cross-index merge consumes.
-        let values: Vec<Value> = distinct
-            .iter()
-            .map(|s| Value::String(s.clone()))
-            .collect();
+        let values: Vec<Value> = distinct.iter().map(|s| Value::String(s.clone())).collect();
         Some(json!({
             "value": distinct.len(),
             "__xy_agg__": "cardinality",
@@ -1239,12 +1275,18 @@ impl<'a> FastCtx<'a> {
     }
 
     fn exec_terms(&self, params: &Value, sub: Option<&Value>) -> Option<Value> {
-        if !params_only(params, &["field", "size", "order", "shard_size", "min_doc_count"]) {
+        if !params_only(
+            params,
+            &["field", "size", "order", "shard_size", "min_doc_count"],
+        ) {
             return None;
         }
         // Brute default & only supported min_doc_count is 1 (0 needs the
         // background corpus, >1 is honored below since it's a plain filter).
-        let min_doc_count = params.get("min_doc_count").and_then(Value::as_u64).unwrap_or(1);
+        let min_doc_count = params
+            .get("min_doc_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(1);
         if params.get("min_doc_count").is_some() && min_doc_count == 0 {
             return None;
         }
@@ -1265,7 +1307,10 @@ impl<'a> FastCtx<'a> {
         if orders.iter().any(|(k, _)| k != "_count" && k != "_key") {
             return None;
         }
-        let size_opt: Option<usize> = params.get("size").and_then(Value::as_u64).map(|v| v as usize);
+        let size_opt: Option<usize> = params
+            .get("size")
+            .and_then(Value::as_u64)
+            .map(|v| v as usize);
         let cap: Option<usize> = match size_opt {
             Some(0) => None,
             Some(n) => Some(n),
@@ -1304,7 +1349,9 @@ impl<'a> FastCtx<'a> {
 
         for si in 0..self.segs.len() {
             let seg = &self.segs[si];
-            let Some(col) = seg.cols.get(field) else { continue };
+            let Some(col) = seg.cols.get(field) else {
+                continue;
+            };
             let tcol = match col {
                 Column::Keyword(k) => TCol::Kw(k),
                 Column::Numeric(n) if is_bool => {
@@ -1468,7 +1515,14 @@ impl<'a> FastCtx<'a> {
                         }
                         if let Some(spec) = &plan.top_hits {
                             match extract_numeric(doc, &spec.sort_field) {
-                                Some(v) => push_top(&mut st.top, spec.k, spec.desc, v, di as u64, DocRef::Mem(di)),
+                                Some(v) => push_top(
+                                    &mut st.top,
+                                    spec.k,
+                                    spec.desc,
+                                    v,
+                                    di as u64,
+                                    DocRef::Mem(di),
+                                ),
                                 None => missing_sort_seen = true,
                             }
                         }
@@ -1489,7 +1543,13 @@ impl<'a> FastCtx<'a> {
             .into_iter()
             .filter(|(_, st)| st.count >= min_doc_count)
             .collect();
-        candidates.sort_by(|a, b| cmp_by_orders(&(a.0.clone(), a.1.count), &(b.0.clone(), b.1.count), &orders));
+        candidates.sort_by(|a, b| {
+            cmp_by_orders(
+                &(a.0.clone(), a.1.count),
+                &(b.0.clone(), b.1.count),
+                &orders,
+            )
+        });
         if let Some(n) = cap {
             candidates.truncate(n);
         }
@@ -1566,9 +1626,11 @@ impl<'a> FastCtx<'a> {
             let mut accs: Vec<MetricAcc> = vec![MetricAcc::default(); plan.metrics.len()];
             for si in 0..self.segs.len() {
                 let seg = &self.segs[si];
-                let Some(Column::Numeric(n)) = seg.cols.get(field) else { continue };
+                let Some(Column::Numeric(n)) = seg.cols.get(field) else {
+                    continue;
+                };
                 if plan.metrics.is_empty() {
-                    count += n.range_count(lo, hi, true, hi_incl) as u64;
+                    count += n.range_count(lo, hi, true, hi_incl);
                 } else {
                     let rows = n.range_doc_ids(lo, hi, true, hi_incl);
                     count += rows.len() as u64;
@@ -1600,7 +1662,9 @@ impl<'a> FastCtx<'a> {
                 }
             }
             for doc in self.mem().iter() {
-                let Some(v) = extract_numeric(doc, field) else { continue };
+                let Some(v) = extract_numeric(doc, field) else {
+                    continue;
+                };
                 let matches = match (from, to) {
                     (Some(f), Some(t)) => v >= f && v < t,
                     (Some(f), None) => v >= f,
@@ -1621,7 +1685,9 @@ impl<'a> FastCtx<'a> {
                 .and_then(Value::as_str)
                 .map(String::from)
                 .unwrap_or_else(|| match (from, to) {
-                    (Some(f), Some(t)) => format!("{}-{}", format_range_val(f), format_range_val(t)),
+                    (Some(f), Some(t)) => {
+                        format!("{}-{}", format_range_val(f), format_range_val(t))
+                    }
                     (Some(f), None) => format!("{}-*", format_range_val(f)),
                     (None, Some(t)) => format!("*-{}", format_range_val(t)),
                     (None, None) => "*-*".to_string(),
@@ -1640,11 +1706,18 @@ impl<'a> FastCtx<'a> {
         }
         let buckets = apply_bucket_pipeline_ops(buckets, sub);
 
-        let keyed = params.get("keyed").and_then(Value::as_bool).unwrap_or(false);
+        let keyed = params
+            .get("keyed")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
         if keyed {
             let mut keyed_map = Map::new();
             for mut b in buckets {
-                let k = b.get("key").and_then(Value::as_str).unwrap_or("").to_string();
+                let k = b
+                    .get("key")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
                 if let Some(obj) = b.as_object_mut() {
                     obj.remove("key");
                 }
@@ -1664,7 +1737,10 @@ impl<'a> FastCtx<'a> {
         if !params_only(params, &["field", "ranges", "keyed"]) {
             return None;
         }
-        let field = params.get("field").and_then(Value::as_str).unwrap_or("@timestamp");
+        let field = params
+            .get("field")
+            .and_then(Value::as_str)
+            .unwrap_or("@timestamp");
         let ranges = params.get("ranges").and_then(Value::as_array)?;
         match self.seg_field_kind(field) {
             Ok(Some(ColKind::Keyword)) | Ok(None) => {}
@@ -1675,8 +1751,16 @@ impl<'a> FastCtx<'a> {
         let nanos_digits: usize = ranges
             .iter()
             .flat_map(|r| {
-                let f = r.get("from").and_then(Value::as_str).map(detect_fractional_digits).unwrap_or(0);
-                let t = r.get("to").and_then(Value::as_str).map(detect_fractional_digits).unwrap_or(0);
+                let f = r
+                    .get("from")
+                    .and_then(Value::as_str)
+                    .map(detect_fractional_digits)
+                    .unwrap_or(0);
+                let t = r
+                    .get("to")
+                    .and_then(Value::as_str)
+                    .map(detect_fractional_digits)
+                    .unwrap_or(0);
                 [f, t]
             })
             .max()
@@ -1708,7 +1792,10 @@ impl<'a> FastCtx<'a> {
             }
         }
 
-        let keyed = params.get("keyed").and_then(Value::as_bool).unwrap_or(false);
+        let keyed = params
+            .get("keyed")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
         let mut keyed_map = Map::new();
         let mut buckets: Vec<Value> = Vec::new();
         for range_def in ranges {
@@ -1731,7 +1818,9 @@ impl<'a> FastCtx<'a> {
 
             let mut count: u64 = 0;
             for (si, s) in self.segs.iter().enumerate() {
-                let Some(Column::Keyword(_)) = s.cols.get(field) else { continue };
+                let Some(Column::Keyword(_)) = s.cols.get(field) else {
+                    continue;
+                };
                 let sp = sorted_per_seg[si].as_ref()?;
                 let (ms_v, prefix) = (&sp.0, &sp.1);
                 // Semantics identical to the old per-ord walk: from is
@@ -1751,7 +1840,9 @@ impl<'a> FastCtx<'a> {
             }
             for doc in self.mem().iter() {
                 let v = doc.get(field);
-                let Some(ms) = v.and_then(parse_date_ms) else { continue };
+                let Some(ms) = v.and_then(parse_date_ms) else {
+                    continue;
+                };
                 let pass_from = from_ms.map(|f| ms >= f).unwrap_or(true);
                 let pass_to = to_ms.map(|t| ms < t).unwrap_or(true);
                 if pass_from && pass_to {
@@ -1817,7 +1908,9 @@ impl<'a> FastCtx<'a> {
             ord_ms.push(parse_date_ms(&Value::String(t.clone())).unwrap_or(i64::MIN));
         }
         let arc = std::sync::Arc::new(ord_ms);
-        self.idx.fast_date_cache.insert(key, std::sync::Arc::clone(&arc));
+        self.idx
+            .fast_date_cache
+            .insert(key, std::sync::Arc::clone(&arc));
         Some(arc)
     }
 
@@ -1926,7 +2019,11 @@ impl<'a> FastCtx<'a> {
             _ => return None,
         };
         let named = matches!(filters_val, Value::Object(_));
-        let keyed = if named { keyed_override.unwrap_or(true) } else { false };
+        let keyed = if named {
+            keyed_override.unwrap_or(true)
+        } else {
+            false
+        };
 
         let mut rendered: Vec<(Option<String>, Value)> = Vec::with_capacity(entries.len());
         for (name, q) in &entries {
@@ -2261,7 +2358,10 @@ impl<'a> FastCtx<'a> {
     // ── sampler / random_sampler ─────────────────────────────────────────
 
     fn exec_sampler(&self, params: &Value, sub: Option<&Value>) -> Option<Value> {
-        if !params_only(params, &["shard_size", "probability", "seed", "max_docs_per_value"]) {
+        if !params_only(
+            params,
+            &["shard_size", "probability", "seed", "max_docs_per_value"],
+        ) {
             return None;
         }
         if let Some(s) = sub {
@@ -2269,7 +2369,10 @@ impl<'a> FastCtx<'a> {
                 return None;
             }
         }
-        let shard_size = params.get("shard_size").and_then(Value::as_u64).unwrap_or(200) as usize;
+        let shard_size = params
+            .get("shard_size")
+            .and_then(Value::as_u64)
+            .unwrap_or(200) as usize;
         if shard_size > 10_000 {
             return None; // keep the materialisation bounded
         }
@@ -2328,7 +2431,9 @@ impl<'a> FastCtx<'a> {
         // corpus paid ~300 ms of SipHash there), no global re-sort.
         let mut runs: Vec<Vec<(f64, u64)>> = Vec::with_capacity(self.segs.len() + 1);
         for seg in &self.segs {
-            let Some(Column::Numeric(n)) = seg.cols.get(field) else { continue };
+            let Some(Column::Numeric(n)) = seg.cols.get(field) else {
+                continue;
+            };
             let mut run: Vec<(f64, u64)> = Vec::new();
             let mut i = 0usize;
             while i < n.sorted.len() {
@@ -2400,7 +2505,15 @@ impl<'a> FastCtx<'a> {
     fn exec_date_histogram(&self, params: &Value, sub: Option<&Value>) -> Option<Value> {
         if !params_only(
             params,
-            &["field", "calendar_interval", "fixed_interval", "interval", "format", "keyed", "min_doc_count"],
+            &[
+                "field",
+                "calendar_interval",
+                "fixed_interval",
+                "interval",
+                "format",
+                "keyed",
+                "min_doc_count",
+            ],
         ) {
             return None;
         }
@@ -2430,7 +2543,11 @@ impl<'a> FastCtx<'a> {
             } else {
                 key + interval_ms
             };
-            if next <= key { key + interval_ms } else { next }
+            if next <= key {
+                key + interval_ms
+            } else {
+                next
+            }
         };
 
         // Parallel pre-warm of the per-segment date-ordinal cache (chrono
@@ -2451,26 +2568,28 @@ impl<'a> FastCtx<'a> {
         let mut bucket_keys: Vec<i64> = Vec::new();
         let mut counts: Vec<u64> = Vec::new();
         let mut accs: Vec<Vec<MetricAcc>> = plan.metrics.iter().map(|_| Vec::new()).collect();
-        let mut ensure_bucket =
-            |key: i64,
-             bucket_ids: &mut HashMap<i64, usize>,
-             bucket_keys: &mut Vec<i64>,
-             counts: &mut Vec<u64>,
-             accs: &mut Vec<Vec<MetricAcc>>| -> usize {
-                *bucket_ids.entry(key).or_insert_with(|| {
-                    bucket_keys.push(key);
-                    counts.push(0);
-                    for a in accs.iter_mut() {
-                        a.push(MetricAcc::default());
-                    }
-                    bucket_keys.len() - 1
-                })
-            };
+        let ensure_bucket = |key: i64,
+                             bucket_ids: &mut HashMap<i64, usize>,
+                             bucket_keys: &mut Vec<i64>,
+                             counts: &mut Vec<u64>,
+                             accs: &mut Vec<Vec<MetricAcc>>|
+         -> usize {
+            *bucket_ids.entry(key).or_insert_with(|| {
+                bucket_keys.push(key);
+                counts.push(0);
+                for a in accs.iter_mut() {
+                    a.push(MetricAcc::default());
+                }
+                bucket_keys.len() - 1
+            })
+        };
 
         let mut missing_sort_seen = false;
         for si in 0..self.segs.len() {
             let seg = &self.segs[si];
-            let Some(Column::Keyword(k)) = seg.cols.get(field) else { continue };
+            let Some(Column::Keyword(k)) = seg.cols.get(field) else {
+                continue;
+            };
             let ord_ms = self.date_ord_index(seg, field)?;
             // ord → bucket slot table.  Term ordinals are lexicographic and
             // ISO-8601 timestamps sort chronologically, so `ord_ms` is
@@ -2555,7 +2674,13 @@ impl<'a> FastCtx<'a> {
                     continue;
                 }
                 seen.push(key);
-                let slot = ensure_bucket(key, &mut bucket_ids, &mut bucket_keys, &mut counts, &mut accs);
+                let slot = ensure_bucket(
+                    key,
+                    &mut bucket_ids,
+                    &mut bucket_keys,
+                    &mut counts,
+                    &mut accs,
+                );
                 counts[slot] += weight;
                 for (mi, spec) in plan.metrics.iter().enumerate() {
                     Self::fold_mem_metric(doc, spec, &mut accs[mi][slot]);
@@ -2563,8 +2688,14 @@ impl<'a> FastCtx<'a> {
             }
         }
 
-        let min_doc_count = params.get("min_doc_count").and_then(Value::as_u64).unwrap_or(0);
-        let keyed = params.get("keyed").and_then(Value::as_bool).unwrap_or(false);
+        let min_doc_count = params
+            .get("min_doc_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        let keyed = params
+            .get("keyed")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
 
         // Bucket-key set: gap-fill when min_doc_count == 0 (brute default).
         const MAX_BUCKETS: i64 = 65_536;
@@ -2623,7 +2754,12 @@ impl<'a> FastCtx<'a> {
             bucket.insert("key_as_string".to_string(), json!(render_key(key)));
             bucket.insert("doc_count".to_string(), json!(count));
             let bucket_accs: Vec<MetricAcc> = match slot {
-                Some(s) => plan.metrics.iter().enumerate().map(|(mi, _)| accs[mi][s]).collect(),
+                Some(s) => plan
+                    .metrics
+                    .iter()
+                    .enumerate()
+                    .map(|(mi, _)| accs[mi][s])
+                    .collect(),
                 None => empty_accs.clone(),
             };
             self.finish_bucket(&mut bucket, &plan, &bucket_accs, None);
@@ -2687,7 +2823,7 @@ fn push_top(buf: &mut Vec<(f64, u64, DocRef)>, k: usize, desc: bool, v: f64, ran
     }
 }
 
-fn sort_top(buf: &mut Vec<(f64, u64, DocRef)>, desc: bool) {
+fn sort_top(buf: &mut [(f64, u64, DocRef)], desc: bool) {
     buf.sort_by(|a, b| {
         let c = if desc {
             b.0.partial_cmp(&a.0)
@@ -2730,7 +2866,11 @@ fn parse_orders(params: &Value) -> Vec<(String, bool)> {
 }
 
 /// `cmp_terms_by_orders` for (key, count) with no sub-agg entries.
-fn cmp_by_orders(a: &(String, u64), b: &(String, u64), orders: &[(String, bool)]) -> std::cmp::Ordering {
+fn cmp_by_orders(
+    a: &(String, u64),
+    b: &(String, u64),
+    orders: &[(String, bool)],
+) -> std::cmp::Ordering {
     use std::cmp::Ordering;
     if orders.is_empty() {
         return b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0));
@@ -2772,8 +2912,10 @@ fn composite_cmp(a: &[String], b: &[String]) -> std::cmp::Ordering {
 fn sub_tree_needs_background(sub: &Value) -> bool {
     match sub {
         Value::Object(o) => o.iter().any(|(k, v)| {
-            matches!(k.as_str(), "significant_terms" | "significant_text" | "global")
-                || (k == "min_doc_count" && v.as_u64() == Some(0))
+            matches!(
+                k.as_str(),
+                "significant_terms" | "significant_text" | "global"
+            ) || (k == "min_doc_count" && v.as_u64() == Some(0))
                 || sub_tree_needs_background(v)
         }),
         Value::Array(a) => a.iter().any(sub_tree_needs_background),
@@ -2785,9 +2927,21 @@ fn sub_tree_needs_background(sub: &Value) -> bool {
 
 enum Pred {
     MatchAll,
-    TermKw { field: String, value: String },
-    TermsKw { field: String, values: Vec<String> },
-    RangeNum { field: String, lo: f64, lo_incl: bool, hi: f64, hi_incl: bool },
+    TermKw {
+        field: String,
+        value: String,
+    },
+    TermsKw {
+        field: String,
+        values: Vec<String>,
+    },
+    RangeNum {
+        field: String,
+        lo: f64,
+        lo_incl: bool,
+        hi: f64,
+        hi_incl: bool,
+    },
     /// Conjunction of leaf predicates — a `bool` with only `must`/`filter`
     /// clauses (produced by `compile_top_pred` for the top-level query filter;
     /// `compile_pred` never yields this, so the filter/filters/adjacency
@@ -2876,7 +3030,10 @@ fn compile_pred(filter: &Value) -> Option<Pred> {
                 },
                 _ => return None, // numeric/bool string-form subtleties → bail
             };
-            Some(Pred::TermKw { field: field.clone(), value })
+            Some(Pred::TermKw {
+                field: field.clone(),
+                value,
+            })
         }
         "terms" => {
             let fm = body.as_object()?;
@@ -2892,7 +3049,10 @@ fn compile_pred(filter: &Value) -> Option<Pred> {
                     _ => return None,
                 }
             }
-            Some(Pred::TermsKw { field: field.clone(), values })
+            Some(Pred::TermsKw {
+                field: field.clone(),
+                values,
+            })
         }
         "range" => {
             let fm = body.as_object()?;
@@ -2901,7 +3061,10 @@ fn compile_pred(filter: &Value) -> Option<Pred> {
             }
             let (field, bounds) = fm.iter().next()?;
             let bo = bounds.as_object()?;
-            if !bo.keys().all(|k| matches!(k.as_str(), "gte" | "gt" | "lte" | "lt")) {
+            if !bo
+                .keys()
+                .all(|k| matches!(k.as_str(), "gte" | "gt" | "lte" | "lt"))
+            {
                 return None;
             }
             let get_num = |k: &str| -> Option<Option<f64>> {
@@ -2925,7 +3088,13 @@ fn compile_pred(filter: &Value) -> Option<Pred> {
                 (None, Some(v)) => (v, false),
                 (None, None) => (f64::INFINITY, true),
             };
-            Some(Pred::RangeNum { field: field.clone(), lo, lo_incl, hi, hi_incl })
+            Some(Pred::RangeNum {
+                field: field.clone(),
+                lo,
+                lo_incl,
+                hi,
+                hi_incl,
+            })
         }
         _ => None,
     }
@@ -2968,7 +3137,13 @@ fn resolve_pred<'a>(
             Some(Column::Numeric(_)) => return None,
             None => SegPred::Never,
         },
-        Pred::RangeNum { field, lo, lo_incl, hi, hi_incl } => match cols.get(field) {
+        Pred::RangeNum {
+            field,
+            lo,
+            lo_incl,
+            hi,
+            hi_incl,
+        } => match cols.get(field) {
             Some(Column::Numeric(n)) => {
                 SegPred::Num(n, *lo, *lo_incl, *hi, *hi_incl, n.null_bitmap.is_empty())
             }
@@ -3034,7 +3209,7 @@ fn seg_pred_count(sp: &SegPred<'_>, docs: u32) -> u64 {
             .iter()
             .map(|o| k.per_ord_count.get(*o as usize).copied().unwrap_or(0) as u64)
             .sum(),
-        SegPred::Num(n, lo, lo_incl, hi, hi_incl, _) => n.range_count(*lo, *hi, *lo_incl, *hi_incl) as u64,
+        SegPred::Num(n, lo, lo_incl, hi, hi_incl, _) => n.range_count(*lo, *hi, *lo_incl, *hi_incl),
         // Conjunction has no O(1) form — count matching rows directly.  Only
         // reached from the top-level filter count (compile_pred, used by the
         // filter/filters executors, never yields `And`).
@@ -3072,7 +3247,11 @@ fn merge_weighted_runs(mut runs: Vec<Vec<(f64, u64)>>) -> Vec<(f64, u64)> {
     // from finite doc values, so the sign-flip trick keeps ordering exact).
     fn key(v: f64) -> u64 {
         let b = v.to_bits();
-        if b >> 63 == 1 { !b } else { b | (1 << 63) }
+        if b >> 63 == 1 {
+            !b
+        } else {
+            b | (1 << 63)
+        }
     }
     let total: usize = runs.iter().map(Vec::len).sum();
     let mut out: Vec<(f64, u64)> = Vec::with_capacity(total);
@@ -3135,15 +3314,30 @@ fn vwh_cluster(vals: &[(f64, u64)], num_buckets: usize) -> Vec<VwhBucket> {
         for &(v, w) in vals {
             if merges_needed >= w - 1 {
                 merges_needed -= w - 1;
-                out.push(VwhBucket { min: v, max: v, sum: v * w as f64, count: w });
+                out.push(VwhBucket {
+                    min: v,
+                    max: v,
+                    sum: v * w as f64,
+                    count: w,
+                });
             } else {
                 // Partially collapsed run: one merged bucket of
                 // (merges_needed + 1) instances, then singletons.
                 let m = merges_needed;
                 merges_needed = 0;
-                out.push(VwhBucket { min: v, max: v, sum: v * (m + 1) as f64, count: m + 1 });
+                out.push(VwhBucket {
+                    min: v,
+                    max: v,
+                    sum: v * (m + 1) as f64,
+                    count: m + 1,
+                });
                 for _ in 0..(w - 1 - m) {
-                    out.push(VwhBucket { min: v, max: v, sum: v, count: 1 });
+                    out.push(VwhBucket {
+                        min: v,
+                        max: v,
+                        sum: v,
+                        count: 1,
+                    });
                 }
             }
         }
@@ -3167,7 +3361,11 @@ fn vwh_cluster(vals: &[(f64, u64)], num_buckets: usize) -> Vec<VwhBucket> {
     use std::cmp::Reverse;
     use std::collections::BinaryHeap;
     #[derive(PartialEq, Eq, PartialOrd, Ord)]
-    struct Entry(u64 /*gap bits (total_cmp key)*/, usize /*left idx*/, u64 /*gen sum*/);
+    struct Entry(
+        u64,   /*gap bits (total_cmp key)*/
+        usize, /*left idx*/
+        u64,   /*gen sum*/
+    );
     let gap_key = |g: f64| -> u64 {
         // total_cmp-compatible ordering for non-negative floats.
         g.to_bits()
@@ -3179,7 +3377,9 @@ fn vwh_cluster(vals: &[(f64, u64)], num_buckets: usize) -> Vec<VwhBucket> {
         heap.push(Reverse(Entry(gap_key(g), i, 0)));
     }
     while remaining > 0 {
-        let Some(Reverse(Entry(_, left, gsum))) = heap.pop() else { break };
+        let Some(Reverse(Entry(_, left, gsum))) = heap.pop() else {
+            break;
+        };
         if !alive[left] {
             continue;
         }
@@ -3225,7 +3425,12 @@ fn vwh_cluster(vals: &[(f64, u64)], num_buckets: usize) -> Vec<VwhBucket> {
         i += 1;
     }
     while i < d {
-        out.push(VwhBucket { min: mn[i], max: mx[i], sum: sum[i], count: cnt[i] });
+        out.push(VwhBucket {
+            min: mn[i],
+            max: mx[i],
+            sum: sum[i],
+            count: cnt[i],
+        });
         i = next[i];
         while i < d && !alive[i] {
             i += 1;

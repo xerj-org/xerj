@@ -136,8 +136,7 @@ impl RegionManager {
         self.regions
             .iter()
             .filter(|r| {
-                r.size_bytes > self.split_threshold_bytes
-                    || r.doc_count > self.split_threshold_docs
+                r.size_bytes > self.split_threshold_bytes || r.doc_count > self.split_threshold_docs
             })
             .collect()
     }
@@ -313,7 +312,11 @@ impl RegionManager {
         let rb = self.regions[pos_b].clone();
 
         if ra.index != rb.index {
-            bail!("cannot merge regions from different indices: {} vs {}", ra.index, rb.index);
+            bail!(
+                "cannot merge regions from different indices: {} vs {}",
+                ra.index,
+                rb.index
+            );
         }
 
         // Verify adjacency.
@@ -366,7 +369,11 @@ impl RegionManager {
         };
 
         // Remove old regions (remove higher index first to keep positions stable).
-        let (hi, lo) = if pos_a > pos_b { (pos_a, pos_b) } else { (pos_b, pos_a) };
+        let (hi, lo) = if pos_a > pos_b {
+            (pos_a, pos_b)
+        } else {
+            (pos_b, pos_a)
+        };
         self.regions.remove(hi);
         self.regions.remove(lo);
         self.regions.push(merged.clone());
@@ -399,9 +406,7 @@ impl RegionManager {
         let region_loads: HashMap<String, Vec<u64>> = {
             let mut m: HashMap<String, Vec<u64>> = HashMap::new();
             for r in &self.regions {
-                m.entry(r.leader_node.clone())
-                    .or_default()
-                    .push(r.id);
+                m.entry(r.leader_node.clone()).or_default().push(r.id);
             }
             m
         };
@@ -409,14 +414,8 @@ impl RegionManager {
 
         loop {
             // Find most-loaded and least-loaded nodes.
-            let max_node = loads
-                .iter()
-                .max_by_key(|(_, v)| *v)
-                .map(|(k, _)| k.clone());
-            let min_node = loads
-                .iter()
-                .min_by_key(|(_, v)| *v)
-                .map(|(k, _)| k.clone());
+            let max_node = loads.iter().max_by_key(|(_, v)| *v).map(|(k, _)| k.clone());
+            let min_node = loads.iter().min_by_key(|(_, v)| *v).map(|(k, _)| k.clone());
 
             let (max_node, min_node) = match (max_node, min_node) {
                 (Some(a), Some(b)) if a != b => (a, b),
@@ -443,15 +442,17 @@ impl RegionManager {
             };
 
             // Simulate the load transfer.
-            *loads.get_mut(&max_node).unwrap() =
-                max_load.saturating_sub(region.size_bytes);
+            *loads.get_mut(&max_node).unwrap() = max_load.saturating_sub(region.size_bytes);
             *loads.entry(min_node.clone()).or_insert(0) += region.size_bytes;
 
             // Update the working region-owner map.
             if let Some(ids) = node_regions.get_mut(&max_node) {
                 ids.retain(|&id| id != region_id);
             }
-            node_regions.entry(min_node.clone()).or_default().push(region_id);
+            node_regions
+                .entry(min_node.clone())
+                .or_default()
+                .push(region_id);
 
             moves.push(RegionMove {
                 region_id,
@@ -471,12 +472,7 @@ impl RegionManager {
     /// Update a region's statistics after an indexing or deletion operation.
     ///
     /// `size_delta` and `doc_delta` may be negative (deletions).
-    pub fn update_region_stats(
-        &mut self,
-        region_id: u64,
-        size_delta: i64,
-        doc_delta: i64,
-    ) {
+    pub fn update_region_stats(&mut self, region_id: u64, size_delta: i64, doc_delta: i64) {
         if let Some(r) = self.regions.iter_mut().find(|r| r.id == region_id) {
             r.size_bytes = (r.size_bytes as i64 + size_delta).max(0) as u64;
             r.doc_count = (r.doc_count as i64 + doc_delta).max(0) as u64;
@@ -668,7 +664,8 @@ mod tests {
         // Regions are contiguous: each start_key == previous end_key.
         for i in 1..created.len() {
             assert_eq!(
-                created[i].start_key, created[i - 1].end_key,
+                created[i].start_key,
+                created[i - 1].end_key,
                 "region {i} start_key should equal region {} end_key",
                 i - 1
             );
@@ -680,7 +677,7 @@ mod tests {
             *counts.entry(r.leader_node.as_str()).or_default() += 1;
         }
         assert_eq!(counts.len(), 3);
-        for (_, count) in &counts {
+        for count in counts.values() {
             assert_eq!(*count, 2);
         }
     }
@@ -739,13 +736,10 @@ mod tests {
             mgr.update_region_stats(r.id, 10 * 1024 * 1024, 1000);
         }
 
-        let loads: HashMap<String, u64> = mgr
-            .regions()
-            .iter()
-            .fold(HashMap::new(), |mut m, r| {
-                *m.entry(r.leader_node.clone()).or_default() += r.size_bytes;
-                m
-            });
+        let loads: HashMap<String, u64> = mgr.regions().iter().fold(HashMap::new(), |mut m, r| {
+            *m.entry(r.leader_node.clone()).or_default() += r.size_bytes;
+            m
+        });
 
         let moves = mgr.plan_rebalance(&loads);
         assert!(
@@ -760,7 +754,7 @@ mod tests {
     /// the routed doc_id (when the region map covers the same key space).
     #[test]
     fn test_jump_hash_routes_to_region() {
-        use crate::router::{ShardRouter, jump_hash};
+        use crate::router::{jump_hash, ShardRouter};
         use xxhash_rust::xxh3::xxh3_64;
 
         let mut router = ShardRouter::new(4);
@@ -792,7 +786,10 @@ mod tests {
                 r.start_key.clone()
             };
             let found = mgr.region_for_key("docs", &probe_key);
-            assert!(found.is_some(), "probe key {probe_key:?} should be covered by a region");
+            assert!(
+                found.is_some(),
+                "probe key {probe_key:?} should be covered by a region"
+            );
         }
     }
 

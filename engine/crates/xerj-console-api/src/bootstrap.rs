@@ -76,8 +76,9 @@ const MASTER_KEY_ENV: &str = "XERJ_CONSOLE_KEY";
 fn load_or_init_master_key(data_dir: &Path) -> ConsoleResult<[u8; 32]> {
     // Env var wins — covers Kubernetes secret mounts.
     if let Ok(hex) = std::env::var(MASTER_KEY_ENV) {
-        let bytes = hex_decode(hex.trim())
-            .ok_or_else(|| ConsoleApiError::Internal(format!("{MASTER_KEY_ENV}: not 64 hex chars")))?;
+        let bytes = hex_decode(hex.trim()).ok_or_else(|| {
+            ConsoleApiError::Internal(format!("{MASTER_KEY_ENV}: not 64 hex chars"))
+        })?;
         if bytes.len() != 32 {
             return Err(ConsoleApiError::Internal(format!(
                 "{MASTER_KEY_ENV}: expected 32 bytes (64 hex), got {}",
@@ -263,7 +264,7 @@ fn hex_encode(bytes: &[u8]) -> String {
 }
 
 fn hex_decode(s: &str) -> Option<Vec<u8>> {
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return None;
     }
     let mut out = Vec::with_capacity(s.len() / 2);

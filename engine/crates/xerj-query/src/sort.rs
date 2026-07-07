@@ -132,9 +132,10 @@ pub enum SortMode {
 /// `missing:"_last"` and `missing:"_first"`. That caused
 /// `search/630_format_sort_missing_dates.yml` to serve a stale
 /// missing-Last result to a subsequent missing-First request.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum SortMissing {
     /// Documents missing the field sort last (default).
+    #[default]
     Last,
     /// Documents missing the field sort first.
     First,
@@ -160,12 +161,6 @@ impl<'de> Deserialize<'de> for SortMissing {
             serde_json::Value::String(s) if s == "_first" => Ok(SortMissing::First),
             other => Ok(SortMissing::Value(other)),
         }
-    }
-}
-
-impl Default for SortMissing {
-    fn default() -> Self {
-        SortMissing::Last
     }
 }
 
@@ -200,7 +195,11 @@ pub fn compare_sort_keys(
                 SortMissing::Last => std::cmp::Ordering::Greater,
                 SortMissing::Value(_) => {
                     let raw = compare_values(av, bv, &field.missing);
-                    if field.order == SortOrder::Desc { raw.reverse() } else { raw }
+                    if field.order == SortOrder::Desc {
+                        raw.reverse()
+                    } else {
+                        raw
+                    }
                 }
             },
             (_, serde_json::Value::Null) => match field.missing {
@@ -208,12 +207,20 @@ pub fn compare_sort_keys(
                 SortMissing::Last => std::cmp::Ordering::Less,
                 SortMissing::Value(_) => {
                     let raw = compare_values(av, bv, &field.missing);
-                    if field.order == SortOrder::Desc { raw.reverse() } else { raw }
+                    if field.order == SortOrder::Desc {
+                        raw.reverse()
+                    } else {
+                        raw
+                    }
                 }
             },
             (_, _) => {
                 let raw = compare_values(av, bv, &field.missing);
-                if field.order == SortOrder::Desc { raw.reverse() } else { raw }
+                if field.order == SortOrder::Desc {
+                    raw.reverse()
+                } else {
+                    raw
+                }
             }
         };
         if cmp != std::cmp::Ordering::Equal {

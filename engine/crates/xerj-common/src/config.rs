@@ -43,7 +43,7 @@ use crate::error::XerjError;
 ///
 /// Fields are grouped into sub-structs by concern. All fields implement
 /// `Default` so that an empty config file (or no file at all) is valid.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
     /// Network and data directory settings — 5 settings.
@@ -79,28 +79,9 @@ pub struct Config {
 }
 
 // Total: 5+2+3+10+5+3+1+6+2+4+3+4+3 = 51 fields
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            server: ServerConfig::default(),
-            auth: AuthConfig::default(),
-            tls: TlsConfig::default(),
-            storage: StorageConfig::default(),
-            merge: MergeConfig::default(),
-            compression: CompressionConfig::default(),
-            fts: FtsConfig::default(),
-            vector: VectorConfig::default(),
-            logs: LogsConfig::default(),
-            embedding: EmbeddingConfig::default(),
-            limits: LimitsConfig::default(),
-            indexing: IndexingConfig::default(),
-            engine: EngineConfig::default(),
-            cluster: ClusterConfig::default(),
-            pit: PitConfig::default(),
-        }
-    }
-}
+// `Default` is derived — every field is a sub-config that implements
+// `Default`, so the derive produces exactly the same all-defaults value
+// the manual impl used to build by hand.
 
 impl Config {
     /// Load configuration from a TOML file.
@@ -119,7 +100,11 @@ impl Config {
     }
 
     /// Load configuration from a TOML string (useful for testing).
-    pub fn from_str(s: &str) -> Result<Self, XerjError> {
+    ///
+    /// Named `from_toml_str` rather than `from_str` to avoid shadowing the
+    /// `std::str::FromStr::from_str` convention (clippy::should_implement_trait):
+    /// this parses TOML specifically and also runs cross-field validation.
+    pub fn from_toml_str(s: &str) -> Result<Self, XerjError> {
         let config: Config = toml::from_str(s)?;
         config.validate()?;
         Ok(config)
@@ -279,7 +264,11 @@ impl Default for AuthConfig {
 /// TLS settings.
 ///
 /// **3 settings.**
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// Defaults are derived: TLS is disabled (`enabled: false`) with empty
+/// cert/key paths so the engine starts out of the box; enable it in
+/// production by setting `cert_path` + `key_path`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct TlsConfig {
     /// Enable TLS on all listeners (default: `false` — enable in production).
@@ -288,18 +277,6 @@ pub struct TlsConfig {
     pub cert_path: String,
     /// Path to the PEM-encoded private key file.
     pub key_path: String,
-}
-
-impl Default for TlsConfig {
-    fn default() -> Self {
-        Self {
-            // Default to disabled so the engine starts out of the box.
-            // Enable in production by setting cert_path and key_path.
-            enabled: false,
-            cert_path: String::new(),
-            key_path: String::new(),
-        }
-    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -326,7 +303,6 @@ pub struct StorageConfig {
     pub flush_interval_secs: u64,
 
     // ── Object-store backend (compute-storage separation) ─────────────────────
-
     /// Storage backend: `"local"` or `"s3"` (default: `"local"`).
     ///
     /// When set to `"s3"`, flushed segments are written to the configured S3
@@ -882,12 +858,14 @@ mod tests {
 
     #[test]
     fn default_config_is_valid() {
-        Config::default().validate().expect("default config should be valid");
+        Config::default()
+            .validate()
+            .expect("default config should be valid");
     }
 
     #[test]
     fn parse_minimal_toml() {
-        let cfg = Config::from_str(
+        let cfg = Config::from_toml_str(
             r#"
             [server]
             rest_port = 9000
@@ -901,7 +879,7 @@ mod tests {
 
     #[test]
     fn duplicate_ports_rejected() {
-        let result = Config::from_str(
+        let result = Config::from_toml_str(
             r#"
             [server]
             rest_port = 9200
@@ -913,7 +891,7 @@ mod tests {
 
     #[test]
     fn tls_enabled_requires_paths() {
-        let result = Config::from_str(
+        let result = Config::from_toml_str(
             r#"
             [tls]
             enabled = true
@@ -926,7 +904,7 @@ mod tests {
 
     #[test]
     fn tls_disabled_no_paths_ok() {
-        let cfg = Config::from_str(
+        let cfg = Config::from_toml_str(
             r#"
             [tls]
             enabled = false

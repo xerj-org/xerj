@@ -22,7 +22,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SearchMessage {
     // ── Search ────────────────────────────────────────────────────────────────
-
     /// Gateway → Search node: execute query on local shards.
     SearchRequest {
         /// Unique identifier for correlating requests and responses.
@@ -50,7 +49,6 @@ pub enum SearchMessage {
     },
 
     // ── Indexing ──────────────────────────────────────────────────────────────
-
     /// Gateway → Node: forward a document for indexing on the target shard.
     IndexRequest {
         /// Index to write into.
@@ -72,7 +70,6 @@ pub enum SearchMessage {
     },
 
     // ── Errors ────────────────────────────────────────────────────────────────
-
     /// Any node → requester: signals that a request could not be fulfilled.
     Error {
         /// The `request_id` from the original request, if available.

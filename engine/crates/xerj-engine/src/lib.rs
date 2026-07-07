@@ -8,6 +8,14 @@
 //! - [`FtsMemtable`] — in-memory inverted index for unflushed documents
 //! - [`bulk`]      — NDJSON bulk operation processing
 
+// The engine wires aggregation, segment, and memtable pipelines whose closures
+// and columnar accumulators carry deeply-nested generic types (e.g.
+// `Vec<(String, HashMap<String, String>, Arc<Value>)>`). Naming each with a
+// type alias hurts more than it helps at these call sites, so we opt out of
+// `clippy::type_complexity` crate-wide — the standard idiom for data-plane
+// internals.
+#![allow(clippy::type_complexity)]
+
 pub mod aggs;
 pub mod audit;
 pub mod bulk;
@@ -23,7 +31,10 @@ pub mod turbo_ingest;
 // ── Re-exports ────────────────────────────────────────────────────────────────
 
 pub use engine::{Engine, HealthStatus, IndexInfo};
-pub use index::{Index, IndexResponse, IndexStats, FieldEncodingInfo, LogFormat, EnrichTable, detect_log_format, resolve_field_alias, resolve_date_math};
+pub use index::{
+    detect_log_format, resolve_date_math, resolve_field_alias, EnrichTable, FieldEncodingInfo,
+    Index, IndexResponse, IndexStats, LogFormat,
+};
 pub use memtable::FtsMemtable;
 
 // ── Ingest/flush/merge rayon pool ────────────────────────────────────────────
@@ -181,8 +192,8 @@ pub(crate) fn flush_finalize_gate() -> &'static tokio::sync::Semaphore {
 
 use std::sync::Arc;
 use xerj_fts::analyzer::{
-    AnalyzerRegistry, LowercaseFilter, StemmerFilter, StopwordsFilter,
-    StandardTokenizer, Tokenizer, TokenFilter,
+    AnalyzerRegistry, LowercaseFilter, StandardTokenizer, StemmerFilter, StopwordsFilter,
+    TokenFilter, Tokenizer,
 };
 
 /// Return a default [`AnalyzerRegistry`] pre-populated with all built-in analyzers.

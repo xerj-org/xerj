@@ -106,10 +106,12 @@ impl Pipeline {
         let mut stages: Vec<Arc<dyn TransformPlugin>> = Vec::new();
 
         for stage_cfg in &config.stages {
-            let plugin = build_plugin(&stage_cfg.stage_type, &stage_cfg.config)
-                .map_err(|reason| WasmError::InvalidConfig {
-                    plugin: stage_cfg.stage_type.clone(),
-                    reason,
+            let plugin =
+                build_plugin(&stage_cfg.stage_type, &stage_cfg.config).map_err(|reason| {
+                    WasmError::InvalidConfig {
+                        plugin: stage_cfg.stage_type.clone(),
+                        reason,
+                    }
                 })?;
             stages.push(plugin);
         }
@@ -132,7 +134,11 @@ impl Pipeline {
     /// [`ProcessAction::Pass`] if all stages pass.
     pub fn process(&self, doc: &mut Value) -> ProcessAction {
         for stage in &self.stages {
-            debug!(pipeline = self.name.as_str(), stage = stage.name(), "running stage");
+            debug!(
+                pipeline = self.name.as_str(),
+                stage = stage.name(),
+                "running stage"
+            );
             match stage.process(doc) {
                 ProcessAction::Pass => continue,
                 action => {
@@ -393,10 +399,7 @@ mod tests {
     fn pipeline_short_circuits_on_drop() {
         let pl = make_pipeline(&[
             // First stage drops the document
-            (
-                "drop_field",
-                serde_json::json!({ "fields": ["drop_me"] }),
-            ),
+            ("drop_field", serde_json::json!({ "fields": ["drop_me"] })),
             // This stage would add a field, but we'll test with a route stage
             // that triggers drop via a route mismatch — use a simple 2-stage test
             (
@@ -416,10 +419,7 @@ mod tests {
             "add_field",
             serde_json::json!({ "field": "pipeline", "value": "default" }),
         )]);
-        let mut docs = vec![
-            serde_json::json!({ "a": 1 }),
-            serde_json::json!({ "b": 2 }),
-        ];
+        let mut docs = vec![serde_json::json!({ "a": 1 }), serde_json::json!({ "b": 2 })];
         let actions = pl.process_batch(&mut docs);
         assert!(actions.iter().all(|a| *a == ProcessAction::Pass));
         assert_eq!(docs[0]["pipeline"], "default");

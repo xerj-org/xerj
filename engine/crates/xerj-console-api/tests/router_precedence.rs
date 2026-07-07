@@ -11,8 +11,8 @@ use http_body_util::BodyExt;
 use tempfile::TempDir;
 use tower::ServiceExt;
 use xerj_common::config::Config;
-use xerj_engine::Engine;
 use xerj_console_api::{state::ClusterMode, xerj_console_router, ConsoleState};
+use xerj_engine::Engine;
 
 fn boot() -> (axum::Router, TempDir) {
     let dir = TempDir::new().unwrap();

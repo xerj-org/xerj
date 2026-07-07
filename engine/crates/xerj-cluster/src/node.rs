@@ -46,11 +46,7 @@ pub struct ClusterNode {
 
 impl ClusterNode {
     /// Create a new cluster node with the given identity, peers, and transport.
-    pub fn new(
-        id: String,
-        peers: Vec<String>,
-        transport: Box<dyn ClusterTransport>,
-    ) -> Self {
+    pub fn new(id: String, peers: Vec<String>, transport: Box<dyn ClusterTransport>) -> Self {
         ClusterNode {
             raft: RaftNode::new(id, peers),
             metadata: ClusterMetadata::new(),
@@ -99,11 +95,7 @@ impl ClusterNode {
         info!(node = %self.raft.id, "Starting cluster node run loop");
         loop {
             // Try to receive a message within the tick interval
-            let recv_result = tokio::time::timeout(
-                tick_interval,
-                self.transport.recv(),
-            )
-            .await;
+            let recv_result = tokio::time::timeout(tick_interval, self.transport.recv()).await;
 
             match recv_result {
                 Ok(Ok((from, msg))) => {
@@ -199,27 +191,22 @@ pub mod in_memory {
         /// Register a node and return its dedicated receiver channel.
         pub async fn register(&self, node_id: &str) -> Receiver {
             let (tx, rx) = mpsc::unbounded_channel();
-            self.senders
-                .lock()
-                .await
-                .insert(node_id.to_string(), tx);
+            self.senders.lock().await.insert(node_id.to_string(), tx);
             rx
         }
 
         /// Send a message directly (used by [`InMemoryTransport`]).
-        pub async fn send_to(
-            &self,
-            from: &str,
-            to: &str,
-            msg: RaftMessage,
-        ) -> Result<()> {
+        pub async fn send_to(&self, from: &str, to: &str, msg: RaftMessage) -> Result<()> {
             let senders = self.senders.lock().await;
             if let Some(tx) = senders.get(to) {
                 tx.send((from.to_string(), msg))
                     .map_err(|e| anyhow::anyhow!("channel closed: {}", e))?;
             } else {
                 // Node not registered — simulate network partition
-                debug!(from, to, "InMemoryBus: target node not found (partitioned?)");
+                debug!(
+                    from,
+                    to, "InMemoryBus: target node not found (partitioned?)"
+                );
             }
             Ok(())
         }
@@ -271,9 +258,7 @@ mod tests {
     #[allow(unused_imports)]
     use std::time::Duration;
 
-    async fn make_cluster(
-        ids: &[&str],
-    ) -> Vec<ClusterNode> {
+    async fn make_cluster(ids: &[&str]) -> Vec<ClusterNode> {
         let bus = InMemoryBus::new();
         let id_list: Vec<String> = ids.iter().map(|s| s.to_string()).collect();
 
@@ -285,11 +270,7 @@ mod tests {
                 .cloned()
                 .collect();
             let transport = InMemoryTransport::new(id.to_string(), bus.clone()).await;
-            let node = ClusterNode::new(
-                id.to_string(),
-                peers,
-                Box::new(transport),
-            );
+            let node = ClusterNode::new(id.to_string(), peers, Box::new(transport));
             nodes.push(node);
         }
         nodes

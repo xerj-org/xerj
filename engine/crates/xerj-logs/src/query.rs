@@ -39,29 +39,21 @@ pub enum Filter {
 impl Filter {
     fn matches(&self, record: &LogRecord) -> bool {
         match self {
-            Filter::Level { value } => {
-                record.level.as_deref().map_or(false, |l| {
-                    l.eq_ignore_ascii_case(value)
-                })
-            }
-            Filter::FieldEquals { field, value } => {
-                record.fields.get(field).map_or(false, |v| v == value)
-            }
-            Filter::FieldContains { field, substring } => {
-                record.fields.get(field).and_then(|v| v.as_str()).map_or(
-                    false,
-                    |s| s.contains(substring.as_str()),
-                )
-            }
-            Filter::FieldRange { field, min, max } => {
-                record
-                    .fields
-                    .get(field)
-                    .and_then(|v| v.as_f64())
-                    .map_or(false, |n| {
-                        min.map_or(true, |m| n >= m) && max.map_or(true, |m| n <= m)
-                    })
-            }
+            Filter::Level { value } => record
+                .level
+                .as_deref()
+                .is_some_and(|l| l.eq_ignore_ascii_case(value)),
+            Filter::FieldEquals { field, value } => record.fields.get(field) == Some(value),
+            Filter::FieldContains { field, substring } => record
+                .fields
+                .get(field)
+                .and_then(|v| v.as_str())
+                .is_some_and(|s| s.contains(substring.as_str())),
+            Filter::FieldRange { field, min, max } => record
+                .fields
+                .get(field)
+                .and_then(|v| v.as_f64())
+                .is_some_and(|n| min.is_none_or(|m| n >= m) && max.is_none_or(|m| n <= m)),
         }
     }
 }
@@ -119,7 +111,9 @@ impl LogQuery {
     }
 
     pub fn with_level(mut self, level: impl Into<String>) -> Self {
-        self.filters.push(Filter::Level { value: level.into() });
+        self.filters.push(Filter::Level {
+            value: level.into(),
+        });
         self
     }
 
@@ -274,7 +268,10 @@ impl<'a> LogQueryExecutor<'a> {
                 } else {
                     Some(vals.iter().sum::<f64>() / vals.len() as f64)
                 };
-                Ok(AggregationResult { value: avg, buckets: vec![] })
+                Ok(AggregationResult {
+                    value: avg,
+                    buckets: vec![],
+                })
             }
 
             Aggregation::Min { field } => {
@@ -315,7 +312,10 @@ impl<'a> LogQueryExecutor<'a> {
                     })
                     .collect();
                 buckets.sort_by_key(|b| b.key.parse::<i64>().unwrap_or(0));
-                Ok(AggregationResult { value: None, buckets })
+                Ok(AggregationResult {
+                    value: None,
+                    buckets,
+                })
             }
 
             Aggregation::Terms { field, size } => {
@@ -345,7 +345,10 @@ impl<'a> LogQueryExecutor<'a> {
                     .collect();
                 buckets.sort_by(|a, b| b.doc_count.cmp(&a.doc_count));
                 buckets.truncate(*size);
-                Ok(AggregationResult { value: None, buckets })
+                Ok(AggregationResult {
+                    value: None,
+                    buckets,
+                })
             }
         }
     }
@@ -367,18 +370,38 @@ mod tests {
     fn setup_ingester() -> LogIngester {
         let ingester = LogIngester::new();
         let records = vec![
-            LogRecord { timestamp: ts(0), level: Some("INFO".into()), message: Some("start".into()), fields: HashMap::new() },
-            LogRecord { timestamp: ts(10), level: Some("WARN".into()), message: Some("slow".into()), fields: {
-                let mut m = HashMap::new();
-                m.insert("latency_ms".into(), Value::from(150.0));
-                m
-            }},
-            LogRecord { timestamp: ts(20), level: Some("ERROR".into()), message: Some("fail".into()), fields: {
-                let mut m = HashMap::new();
-                m.insert("latency_ms".into(), Value::from(5000.0));
-                m
-            }},
-            LogRecord { timestamp: ts(30), level: Some("INFO".into()), message: Some("done".into()), fields: HashMap::new() },
+            LogRecord {
+                timestamp: ts(0),
+                level: Some("INFO".into()),
+                message: Some("start".into()),
+                fields: HashMap::new(),
+            },
+            LogRecord {
+                timestamp: ts(10),
+                level: Some("WARN".into()),
+                message: Some("slow".into()),
+                fields: {
+                    let mut m = HashMap::new();
+                    m.insert("latency_ms".into(), Value::from(150.0));
+                    m
+                },
+            },
+            LogRecord {
+                timestamp: ts(20),
+                level: Some("ERROR".into()),
+                message: Some("fail".into()),
+                fields: {
+                    let mut m = HashMap::new();
+                    m.insert("latency_ms".into(), Value::from(5000.0));
+                    m
+                },
+            },
+            LogRecord {
+                timestamp: ts(30),
+                level: Some("INFO".into()),
+                message: Some("done".into()),
+                fields: HashMap::new(),
+            },
         ];
         for r in records {
             ingester.ingest(r).unwrap();
@@ -408,8 +431,9 @@ mod tests {
     fn sum_aggregation() {
         let ingester = setup_ingester();
         let exec = LogQueryExecutor::new(&ingester);
-        let q = LogQuery::new(ts(-1), ts(60))
-            .with_aggregation(Aggregation::Sum { field: "latency_ms".into() });
+        let q = LogQuery::new(ts(-1), ts(60)).with_aggregation(Aggregation::Sum {
+            field: "latency_ms".into(),
+        });
         let result = exec.execute(&q).unwrap();
         assert_eq!(result.aggregations["result"].value, Some(5150.0));
     }
@@ -418,8 +442,9 @@ mod tests {
     fn max_aggregation() {
         let ingester = setup_ingester();
         let exec = LogQueryExecutor::new(&ingester);
-        let q = LogQuery::new(ts(-1), ts(60))
-            .with_aggregation(Aggregation::Max { field: "latency_ms".into() });
+        let q = LogQuery::new(ts(-1), ts(60)).with_aggregation(Aggregation::Max {
+            field: "latency_ms".into(),
+        });
         let result = exec.execute(&q).unwrap();
         assert_eq!(result.aggregations["result"].value, Some(5000.0));
     }
@@ -428,8 +453,10 @@ mod tests {
     fn terms_aggregation() {
         let ingester = setup_ingester();
         let exec = LogQueryExecutor::new(&ingester);
-        let q = LogQuery::new(ts(-1), ts(60))
-            .with_aggregation(Aggregation::Terms { field: "level".into(), size: 5 });
+        let q = LogQuery::new(ts(-1), ts(60)).with_aggregation(Aggregation::Terms {
+            field: "level".into(),
+            size: 5,
+        });
         let result = exec.execute(&q).unwrap();
         let buckets = &result.aggregations["result"].buckets;
         // INFO appears twice, should be first

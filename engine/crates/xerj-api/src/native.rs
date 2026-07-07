@@ -109,8 +109,12 @@ pub async fn create_index(
 
     if let Err(e) = state.engine.create_index(&name_str, schema) {
         let xerj_err: xerj_common::XerjError = e.into();
-        return native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-            .into_response();
+        return native_error(
+            xerj_err,
+            Some(&request_id),
+            started.elapsed().as_millis() as u64,
+        )
+        .into_response();
     }
 
     let took_ms = started.elapsed().as_millis() as u64;
@@ -137,8 +141,12 @@ pub async fn get_index(
         Ok(i) => i,
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            return native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response();
+            return native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response();
         }
     };
 
@@ -173,8 +181,12 @@ pub async fn delete_index(
 
     if let Err(e) = state.engine.delete_index(&name).await {
         let xerj_err: xerj_common::XerjError = e.into();
-        return native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-            .into_response();
+        return native_error(
+            xerj_err,
+            Some(&request_id),
+            started.elapsed().as_millis() as u64,
+        )
+        .into_response();
     }
 
     let took_ms = started.elapsed().as_millis() as u64;
@@ -202,8 +214,12 @@ pub async fn ingest_docs(
         Ok(i) => i,
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            return native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response();
+            return native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response();
         }
     };
 
@@ -293,8 +309,12 @@ pub async fn get_doc(
         Ok(i) => i,
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            return native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response();
+            return native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response();
         }
     };
 
@@ -314,8 +334,12 @@ pub async fn get_doc(
         }
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response()
+            native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response()
         }
     }
 }
@@ -335,8 +359,12 @@ pub async fn delete_doc(
         Ok(i) => i,
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            return native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response();
+            return native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response();
         }
     };
 
@@ -352,8 +380,12 @@ pub async fn delete_doc(
         }
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response()
+            native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response()
         }
     }
 }
@@ -374,13 +406,21 @@ pub async fn search(
         Ok(i) => i,
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            return native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response();
+            return native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response();
         }
     };
 
     state.metrics.queries_executed.inc();
-    state.metrics.queries_by_index.with_label_values(&[&name]).inc();
+    state
+        .metrics
+        .queries_by_index
+        .with_label_values(&[&name])
+        .inc();
 
     // Build a query body for the parser.
     let query_body = if let Some(q_str) = &req.q {
@@ -446,8 +486,12 @@ pub async fn search(
         }
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response()
+            native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response()
         }
     }
 }
@@ -469,8 +513,12 @@ pub async fn flush_index(
 
     if let Err(e) = state.engine.flush_index(&name).await {
         let xerj_err: xerj_common::XerjError = e.into();
-        return native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-            .into_response();
+        return native_error(
+            xerj_err,
+            Some(&request_id),
+            started.elapsed().as_millis() as u64,
+        )
+        .into_response();
     }
 
     let took_ms = started.elapsed().as_millis() as u64;
@@ -646,7 +694,11 @@ pub async fn admin_backup(State(state): State<AppState>, body: Bytes) -> impl In
         .name
         .unwrap_or_else(|| format!("backup-{}", Uuid::new_v4()));
 
-    match state.engine.create_snapshot(&repo_path, &name, req.indices).await {
+    match state
+        .engine
+        .create_snapshot(&repo_path, &name, req.indices)
+        .await
+    {
         Ok(manifest) => {
             let took_ms = started.elapsed().as_millis() as u64;
             let resp = NativeResponse::new(
@@ -662,8 +714,12 @@ pub async fn admin_backup(State(state): State<AppState>, body: Bytes) -> impl In
         }
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response()
+            native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response()
         }
     }
 }
@@ -742,7 +798,11 @@ pub async fn rbac_get_role(
 ) -> impl IntoResponse {
     match state.engine.roles.get(&name) {
         Some(r) => Json(r).into_response(),
-        None => (axum::http::StatusCode::NOT_FOUND, format!("role '{name}' not found")).into_response(),
+        None => (
+            axum::http::StatusCode::NOT_FOUND,
+            format!("role '{name}' not found"),
+        )
+            .into_response(),
     }
 }
 
@@ -764,7 +824,11 @@ pub async fn rbac_delete_role(
 ) -> impl IntoResponse {
     match state.engine.roles.delete(&name) {
         Some(_) => (axum::http::StatusCode::OK, "deleted").into_response(),
-        None => (axum::http::StatusCode::NOT_FOUND, format!("role '{name}' not found")).into_response(),
+        None => (
+            axum::http::StatusCode::NOT_FOUND,
+            format!("role '{name}' not found"),
+        )
+            .into_response(),
     }
 }
 
@@ -805,8 +869,12 @@ pub async fn get_schema(
         Ok(i) => i,
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            return native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response();
+            return native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response();
         }
     };
 
@@ -839,8 +907,12 @@ pub async fn evolve_schema(
         Ok(i) => i,
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            return native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response();
+            return native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response();
         }
     };
 
@@ -890,8 +962,12 @@ pub async fn bulk_ingest(
         Ok(i) => i,
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            return native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response();
+            return native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response();
         }
     };
 
@@ -944,8 +1020,12 @@ pub async fn ingest_logs(
         Ok(i) => i,
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            return native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response();
+            return native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response();
         }
     };
 
@@ -1026,8 +1106,12 @@ pub async fn ingest_otlp(
         Ok(i) => i,
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            return native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response();
+            return native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response();
         }
     };
 
@@ -1062,13 +1146,10 @@ pub async fn ingest_otlp(
                         .unwrap_or("")
                         .to_string();
 
-                    if let Some(records) =
-                        scope_log.get("logRecords").and_then(Value::as_array)
-                    {
+                    if let Some(records) = scope_log.get("logRecords").and_then(Value::as_array) {
                         for record in records {
                             total += 1;
-                            let doc =
-                                otlp_record_to_doc(record, &resource_attrs, &scope_name);
+                            let doc = otlp_record_to_doc(record, &resource_attrs, &scope_name);
                             let id = Uuid::new_v4().to_string();
                             match idx.index_document(Some(id), doc).await {
                                 Ok(_) => {
@@ -1132,23 +1213,14 @@ fn otlp_record_to_doc(
         let secs = (ts_nano / 1_000_000_000) as i64;
         let nanos = (ts_nano % 1_000_000_000) as u32;
         if let Some(dt) = chrono::DateTime::<chrono::Utc>::from_timestamp(secs, nanos) {
-            doc.insert(
-                "@timestamp".to_string(),
-                Value::String(dt.to_rfc3339()),
-            );
+            doc.insert("@timestamp".to_string(), Value::String(dt.to_rfc3339()));
             doc.insert("timestamp_nanos".to_string(), Value::Number(ts_nano.into()));
         }
-    } else if let Some(ts_nano) = record
-        .get("timeUnixNano")
-        .and_then(Value::as_u64)
-    {
+    } else if let Some(ts_nano) = record.get("timeUnixNano").and_then(Value::as_u64) {
         let secs = (ts_nano / 1_000_000_000) as i64;
         let nanos = (ts_nano % 1_000_000_000) as u32;
         if let Some(dt) = chrono::DateTime::<chrono::Utc>::from_timestamp(secs, nanos) {
-            doc.insert(
-                "@timestamp".to_string(),
-                Value::String(dt.to_rfc3339()),
-            );
+            doc.insert("@timestamp".to_string(), Value::String(dt.to_rfc3339()));
             doc.insert("timestamp_nanos".to_string(), Value::Number(ts_nano.into()));
         }
     }
@@ -1216,7 +1288,11 @@ fn extract_otlp_any_value(any_val: &Value) -> Value {
     if let Some(b) = any_val.get("boolValue").and_then(Value::as_bool) {
         return Value::Bool(b);
     }
-    if let Some(arr) = any_val.get("arrayValue").and_then(|a| a.get("values")).and_then(Value::as_array) {
+    if let Some(arr) = any_val
+        .get("arrayValue")
+        .and_then(|a| a.get("values"))
+        .and_then(Value::as_array)
+    {
         let items: Vec<Value> = arr.iter().map(extract_otlp_any_value).collect();
         return Value::Array(items);
     }
@@ -1252,8 +1328,12 @@ pub async fn ingest_syslog(
         Ok(i) => i,
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            return native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response();
+            return native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response();
         }
     };
 
@@ -1378,7 +1458,10 @@ fn try_parse_rfc5424<'a>(s: &'a str, doc: &mut serde_json::Map<String, Value>) -
     let msg = parts.next().unwrap_or("");
 
     if timestamp != "-" {
-        doc.insert("@timestamp".to_string(), Value::String(timestamp.to_string()));
+        doc.insert(
+            "@timestamp".to_string(),
+            Value::String(timestamp.to_string()),
+        );
     }
     if hostname != "-" {
         doc.insert("hostname".to_string(), Value::String(hostname.to_string()));
@@ -1389,7 +1472,10 @@ fn try_parse_rfc5424<'a>(s: &'a str, doc: &mut serde_json::Map<String, Value>) -
     if procid != "-" {
         doc.insert("pid".to_string(), Value::String(procid.to_string()));
     }
-    doc.insert("syslog_format".to_string(), Value::String("rfc5424".to_string()));
+    doc.insert(
+        "syslog_format".to_string(),
+        Value::String("rfc5424".to_string()),
+    );
 
     // Strip optional structured data block `[...]` from the start of msg.
     let msg = msg.trim_start();
@@ -1399,8 +1485,8 @@ fn try_parse_rfc5424<'a>(s: &'a str, doc: &mut serde_json::Map<String, Value>) -
         } else {
             msg
         }
-    } else if msg.starts_with('-') {
-        msg[1..].trim()
+    } else if let Some(rest) = msg.strip_prefix('-') {
+        rest.trim()
     } else {
         msg
     };
@@ -1414,8 +1500,7 @@ fn try_parse_rfc5424<'a>(s: &'a str, doc: &mut serde_json::Map<String, Value>) -
 fn try_parse_rfc3164<'a>(s: &'a str, doc: &mut serde_json::Map<String, Value>) -> Option<&'a str> {
     // Month abbreviations used in BSD syslog.
     const MONTHS: &[&str] = &[
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     ];
 
     // The first token should be a month abbreviation.
@@ -1435,24 +1520,35 @@ fn try_parse_rfc3164<'a>(s: &'a str, doc: &mut serde_json::Map<String, Value>) -
     // HH:MM:SS
     let time_end = rest.find(' ').unwrap_or(rest.len());
     let time_str = &rest[..time_end];
-    let rest = if time_end < rest.len() { rest[time_end..].trim_start() } else { "" };
+    let rest = if time_end < rest.len() {
+        rest[time_end..].trim_start()
+    } else {
+        ""
+    };
 
     // Build a timestamp string.
     let year = chrono::Utc::now().year();
     let ts = format!("{month_str} {day_str} {time_str} {year}");
     doc.insert("@timestamp".to_string(), Value::String(ts));
-    doc.insert("syslog_format".to_string(), Value::String("rfc3164".to_string()));
+    doc.insert(
+        "syslog_format".to_string(),
+        Value::String("rfc3164".to_string()),
+    );
 
     // HOSTNAME
     let hostname_end = rest.find(' ').unwrap_or(rest.len());
     let hostname = &rest[..hostname_end];
-    let rest = if hostname_end < rest.len() { rest[hostname_end..].trim_start() } else { "" };
+    let rest = if hostname_end < rest.len() {
+        rest[hostname_end..].trim_start()
+    } else {
+        ""
+    };
     if !hostname.is_empty() {
         doc.insert("hostname".to_string(), Value::String(hostname.to_string()));
     }
 
     // TAG (optional, ends at ':' or '[').
-    let tag_end = rest.find(|c| c == ':' || c == '[').unwrap_or(rest.len());
+    let tag_end = rest.find([':', '[']).unwrap_or(rest.len());
     let tag = &rest[..tag_end];
     let rest = &rest[tag_end..];
 
@@ -1581,8 +1677,12 @@ pub async fn turbo_ingest(
         Ok(i) => i,
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            return native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response();
+            return native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response();
         }
     };
 
@@ -1649,8 +1749,12 @@ pub async fn turbo_ingest(
         }
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response()
+            native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response()
         }
     }
 }
@@ -1676,8 +1780,12 @@ pub async fn get_index_encodings(
         Ok(i) => i,
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            return native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response();
+            return native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response();
         }
     };
 
@@ -1755,7 +1863,9 @@ pub async fn dashboard_summary(State(state): State<AppState>) -> impl IntoRespon
 
         // Approximate disk size: rough heuristic — 200 bytes per doc in segments,
         // 500 bytes per memtable doc (uncompressed).
-        let size_bytes = stats.doc_count.saturating_sub(stats.memtable_doc_count as u64)
+        let size_bytes = stats
+            .doc_count
+            .saturating_sub(stats.memtable_doc_count as u64)
             * 200
             + stats.memtable_doc_count as u64 * 500;
 
@@ -1832,8 +1942,12 @@ pub async fn enrich_index(
         Ok(i) => i,
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            return native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response();
+            return native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response();
         }
     };
 
@@ -1854,7 +1968,9 @@ pub async fn enrich_index(
         Some(f) => f.to_string(),
         None => {
             return native_error(
-                xerj_common::XerjError::invalid_query("enrich request must include a 'match_field' field"),
+                xerj_common::XerjError::invalid_query(
+                    "enrich request must include a 'match_field' field",
+                ),
                 Some(&request_id),
                 started.elapsed().as_millis() as u64,
             )
@@ -1866,7 +1982,9 @@ pub async fn enrich_index(
         Some(o) => o.clone(),
         None => {
             return native_error(
-                xerj_common::XerjError::invalid_query("enrich request must include a 'lookup' object"),
+                xerj_common::XerjError::invalid_query(
+                    "enrich request must include a 'lookup' object",
+                ),
                 Some(&request_id),
                 started.elapsed().as_millis() as u64,
             )
@@ -1874,10 +1992,8 @@ pub async fn enrich_index(
         }
     };
 
-    let lookup: std::collections::HashMap<String, serde_json::Value> = lookup_raw
-        .into_iter()
-        .map(|(k, v)| (k, v))
-        .collect();
+    let lookup: std::collections::HashMap<String, serde_json::Value> =
+        lookup_raw.into_iter().collect();
 
     let entry_count = lookup.len();
     let table = EnrichTable {
@@ -1931,8 +2047,12 @@ pub async fn explain_plan(
         Ok(i) => i,
         Err(e) => {
             let xerj_err: xerj_common::XerjError = e.into();
-            return native_error(xerj_err, Some(&request_id), started.elapsed().as_millis() as u64)
-                .into_response();
+            return native_error(
+                xerj_err,
+                Some(&request_id),
+                started.elapsed().as_millis() as u64,
+            )
+            .into_response();
         }
     };
 
@@ -2001,7 +2121,9 @@ fn build_explain_plan(query: &xerj_query::ast::QueryNode, doc_count: u64) -> ser
             "estimated_cost": "O(1)",
             "fields_accessed": [],
         }),
-        QueryNode::Match { field, query: q, .. } => serde_json::json!({
+        QueryNode::Match {
+            field, query: q, ..
+        } => serde_json::json!({
             "engine": "fts",
             "description": format!("match query on field '{field}' for '{q}'"),
             "estimated_docs_scanned": doc_count / 10,
@@ -2029,8 +2151,15 @@ fn build_explain_plan(query: &xerj_query::ast::QueryNode, doc_count: u64) -> ser
             "estimated_cost": "O(log N)",
             "fields_accessed": [field],
         }),
-        QueryNode::Bool { must, should, filter, must_not, .. } => {
-            let sub_plans: Vec<_> = must.iter()
+        QueryNode::Bool {
+            must,
+            should,
+            filter,
+            must_not,
+            ..
+        } => {
+            let sub_plans: Vec<_> = must
+                .iter()
                 .chain(should.iter())
                 .chain(filter.iter())
                 .chain(must_not.iter())
@@ -2132,7 +2261,10 @@ pub async fn ingest_with_pipeline(
         IngestRequest::Batch(docs) => docs,
     };
 
-    let processed = match state.engine.process_through_pipeline(&params.pipeline, docs) {
+    let processed = match state
+        .engine
+        .process_through_pipeline(&params.pipeline, docs)
+    {
         Ok(p) => p,
         Err(e) => {
             let ze = xerj_common::XerjError::internal(e.to_string());

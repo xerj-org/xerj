@@ -38,9 +38,9 @@ use serde_json::json;
 /// envelope so existing clients log it predictably.
 ///
 /// * `feature`  — short human label, e.g. `"EQL search"` or
-///                `"Watcher (scheduled queries)"`.
+///   `"Watcher (scheduled queries)"`.
 /// * `milestone` — the version this is planned for, e.g. `"v0.7"`
-///                 or `"v1.x"` for un-scheduled features.
+///   or `"v1.x"` for un-scheduled features.
 /// * `note`      — one-sentence detail; printed in `error.reason`.
 ///
 /// Returns a 501 with a JSON body and a `Retry-After: 0` header

@@ -96,10 +96,8 @@ impl ShardRouter {
         let mut targets: Vec<String> = Vec::new();
 
         for ((idx, _shard), node_id) in &self.routing_table {
-            if idx == index {
-                if seen.insert(node_id.as_str()) {
-                    targets.push(node_id.clone());
-                }
+            if idx == index && seen.insert(node_id.as_str()) {
+                targets.push(node_id.clone());
             }
         }
 

@@ -228,7 +228,8 @@ impl<'a> BlockReader<'a> {
         for _ in 0..header.doc_count {
             let len = rdr
                 .read_u32::<LittleEndian>()
-                .map_err(|e| XerjError::internal(format!("doc len read: {e}")))? as usize;
+                .map_err(|e| XerjError::internal(format!("doc len read: {e}")))?
+                as usize;
             let mut doc = vec![0u8; len];
             rdr.read_exact(&mut doc)
                 .map_err(|e| XerjError::internal(format!("doc data read: {e}")))?;
@@ -281,16 +282,24 @@ mod tests {
     }
 
     #[test]
-    fn roundtrip_none_exact_block() { roundtrip(CompressionLevel::None, BLOCK_SIZE); }
+    fn roundtrip_none_exact_block() {
+        roundtrip(CompressionLevel::None, BLOCK_SIZE);
+    }
 
     #[test]
-    fn roundtrip_lz4_partial_block() { roundtrip(CompressionLevel::Fast, 37); }
+    fn roundtrip_lz4_partial_block() {
+        roundtrip(CompressionLevel::Fast, 37);
+    }
 
     #[test]
-    fn roundtrip_lz4_multiple_blocks() { roundtrip(CompressionLevel::Fast, BLOCK_SIZE * 3 + 5); }
+    fn roundtrip_lz4_multiple_blocks() {
+        roundtrip(CompressionLevel::Fast, BLOCK_SIZE * 3 + 5);
+    }
 
     #[test]
-    fn roundtrip_zstd_balanced() { roundtrip(CompressionLevel::Balanced, 200); }
+    fn roundtrip_zstd_balanced() {
+        roundtrip(CompressionLevel::Balanced, 200);
+    }
 
     #[test]
     fn empty_finish_produces_no_bytes() {

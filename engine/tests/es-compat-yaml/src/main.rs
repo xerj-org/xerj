@@ -15,8 +15,8 @@
 
 use clap::Parser;
 use colored::*;
-use serde_json::Value;
 use serde::Deserialize;
+use serde_json::Value;
 use serde_yaml::Value as YamlValue;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -58,11 +58,20 @@ fn main() {
 
     println!(
         "\n{}",
-        format!("ES-COMPAT YAML RUNNER · {} files · {}", files.len(), cli.url).bold()
+        format!(
+            "ES-COMPAT YAML RUNNER · {} files · {}",
+            files.len(),
+            cli.url
+        )
+        .bold()
     );
     println!("{}\n", "=".repeat(60));
 
-    let mut total = Stats { passed: 0, failed: 0, skipped: 0 };
+    let mut total = Stats {
+        passed: 0,
+        failed: 0,
+        skipped: 0,
+    };
 
     for path in &files {
         run_file(&client, &cli.url, path, cli.verbose, &mut total);
@@ -90,19 +99,18 @@ fn collect_files(cli: &Cli) -> Vec<PathBuf> {
         }
     }
     if let Some(d) = &cli.dir {
-        for entry in glob::glob(&format!("{}/**/*.yml", d.display())).unwrap() {
-            if let Ok(p) = entry {
-                files.push(p);
-            }
+        for p in glob::glob(&format!("{}/**/*.yml", d.display()))
+            .unwrap()
+            .flatten()
+        {
+            files.push(p);
         }
     }
     if files.is_empty() && cli.file.is_none() && cli.dir.is_none() {
         let default = Path::new("yaml");
         if default.exists() {
-            for entry in glob::glob("yaml/**/*.yml").unwrap() {
-                if let Ok(p) = entry {
-                    files.push(p);
-                }
+            for p in glob::glob("yaml/**/*.yml").unwrap().flatten() {
+                files.push(p);
             }
         }
     }
@@ -110,15 +118,18 @@ fn collect_files(cli: &Cli) -> Vec<PathBuf> {
     files
 }
 
+// Helper kept for the per-test index-isolation work (wire-up pending); not
+// yet called from the runner loop, so silence dead_code under `-D warnings`.
+#[allow(dead_code)]
 fn extract_setup_indices(steps: &[YamlValue]) -> Vec<String> {
     let mut indices = Vec::new();
     for step in steps {
         if let YamlValue::Mapping(m) = step {
-            if let Some(YamlValue::Mapping(action)) = m.get(&YamlValue::String("do".into())) {
+            if let Some(YamlValue::Mapping(action)) = m.get(YamlValue::String("do".into())) {
                 for (key, val) in action {
                     let action_name = yaml_to_string(key);
                     if let YamlValue::Mapping(params) = val {
-                        if let Some(idx) = params.get(&YamlValue::String("index".into())) {
+                        if let Some(idx) = params.get(YamlValue::String("index".into())) {
                             let idx_str = yaml_to_string(idx);
                             if !idx_str.is_empty() && !indices.contains(&idx_str) {
                                 indices.push(idx_str);
@@ -126,7 +137,10 @@ fn extract_setup_indices(steps: &[YamlValue]) -> Vec<String> {
                         }
                     }
                     // Also check bulk and index actions in test body steps
-                    if action_name == "indices.create" || action_name == "bulk" || action_name == "index" {
+                    if action_name == "indices.create"
+                        || action_name == "bulk"
+                        || action_name == "index"
+                    {
                         // already handled above
                     }
                 }
@@ -137,7 +151,7 @@ fn extract_setup_indices(steps: &[YamlValue]) -> Vec<String> {
 }
 
 fn cleanup_indices(client: &reqwest::blocking::Client, base_url: &str) {
-    let _ = client.delete(&format!("{}/_all", base_url)).send();
+    let _ = client.delete(format!("{}/_all", base_url)).send();
 }
 
 fn run_file(
@@ -183,9 +197,8 @@ fn run_file(
 
     for doc in &docs {
         if let YamlValue::Mapping(m) = doc {
-            if m.contains_key(&YamlValue::String("setup".into())) {
-                if let Some(YamlValue::Sequence(steps)) = m.get(&YamlValue::String("setup".into()))
-                {
+            if m.contains_key(YamlValue::String("setup".into())) {
+                if let Some(YamlValue::Sequence(steps)) = m.get(YamlValue::String("setup".into())) {
                     setup_steps = steps.clone();
                 }
                 continue;
@@ -205,16 +218,26 @@ fn run_file(
         let mut setup_response: Value = Value::Null;
         let mut setup_vars: HashMap<String, String> = HashMap::new();
         for step in &setup_steps {
-            if let Err(e) = execute_step(client, base_url, step, &mut setup_response, &mut setup_vars) {
+            if let Err(e) =
+                execute_step(client, base_url, step, &mut setup_response, &mut setup_vars)
+            {
                 if verbose {
-                    println!("  {} {} · {} — setup: {}", "SKIP".yellow(), short_name, name, e);
+                    println!(
+                        "  {} {} · {} — setup: {}",
+                        "SKIP".yellow(),
+                        short_name,
+                        name,
+                        e
+                    );
                 }
                 stats.skipped += 1;
                 setup_ok = false;
                 break;
             }
         }
-        if !setup_ok { continue; }
+        if !setup_ok {
+            continue;
+        }
 
         let result = run_test_case(client, base_url, &[], steps, verbose);
         match result {
@@ -225,12 +248,24 @@ fn run_file(
                 stats.passed += 1;
             }
             TestResult::Fail(reason) => {
-                println!("  {} {} · {} — {}", "FAIL".red().bold(), short_name, name, reason);
+                println!(
+                    "  {} {} · {} — {}",
+                    "FAIL".red().bold(),
+                    short_name,
+                    name,
+                    reason
+                );
                 stats.failed += 1;
             }
             TestResult::Skip(reason) => {
                 if verbose {
-                    println!("  {} {} · {} — {}", "SKIP".yellow(), short_name, name, reason);
+                    println!(
+                        "  {} {} · {} — {}",
+                        "SKIP".yellow(),
+                        short_name,
+                        name,
+                        reason
+                    );
                 }
                 stats.skipped += 1;
             }
@@ -292,7 +327,7 @@ fn execute_step(
     };
 
     // `set` — store response field into a variable
-    if let Some(YamlValue::Mapping(m)) = map.get(&YamlValue::String("set".into())) {
+    if let Some(YamlValue::Mapping(m)) = map.get(YamlValue::String("set".into())) {
         for (path, var_name) in m {
             let path_str = yaml_to_string(path);
             let var_str = yaml_to_string(var_name);
@@ -301,15 +336,14 @@ fn execute_step(
             // the parent path, fetching its first key, and assigning
             // THAT to the variable.
             if path_str.ends_with("._arbitrary_key_") || path_str == "_arbitrary_key_" {
-                let parent_path = path_str
-                    .strip_suffix("._arbitrary_key_")
-                    .unwrap_or("");
+                let parent_path = path_str.strip_suffix("._arbitrary_key_").unwrap_or("");
                 let parent_val = if parent_path.is_empty() {
                     last_response.clone()
                 } else {
                     json_path(last_response, parent_path)
                 };
-                let key_str = parent_val.as_object()
+                let key_str = parent_val
+                    .as_object()
                     .and_then(|o| o.keys().next().cloned())
                     .unwrap_or_default();
                 vars.insert(var_str, key_str);
@@ -328,7 +362,7 @@ fn execute_step(
         return Ok(());
     }
 
-    if let Some(action) = map.get(&YamlValue::String("do".into())) {
+    if let Some(action) = map.get(YamlValue::String("do".into())) {
         return execute_do(client, base_url, action, last_response, vars);
     }
 
@@ -336,7 +370,7 @@ fn execute_step(
     //
     // Special paths: `$body` refers to the entire response body,
     // `""` (empty) also resolves to the whole body.
-    if let Some(YamlValue::Mapping(m)) = map.get(&YamlValue::String("match".into())) {
+    if let Some(YamlValue::Mapping(m)) = map.get(YamlValue::String("match".into())) {
         for (path, expected) in m {
             let raw_path_str = yaml_to_string(path);
             let path_str = substitute_vars(&raw_path_str, vars);
@@ -383,7 +417,7 @@ fn execute_step(
     // `contains` — assert path contains a value. For strings, substring
     // match; for arrays, element must appear; for objects, expected must
     // be a subset of the actual map.
-    if let Some(YamlValue::Mapping(m)) = map.get(&YamlValue::String("contains".into())) {
+    if let Some(YamlValue::Mapping(m)) = map.get(YamlValue::String("contains".into())) {
         for (path, expected) in m {
             let path_str = yaml_to_string(path);
             // Paths that are a bare `$var` reference (a stashed value) resolve
@@ -414,7 +448,7 @@ fn execute_step(
                 (Value::Array(a), e) => a.iter().any(|item| values_match(item, e)),
                 (Value::Object(a), Value::Object(e)) => e
                     .iter()
-                    .all(|(k, v)| a.get(k).map_or(false, |av| values_match(av, v))),
+                    .all(|(k, v)| a.get(k).is_some_and(|av| values_match(av, v))),
                 _ => values_match(&actual, &expected_json),
             };
             if !ok {
@@ -428,7 +462,7 @@ fn execute_step(
     }
 
     // `length` — assert array/object length
-    if let Some(YamlValue::Mapping(m)) = map.get(&YamlValue::String("length".into())) {
+    if let Some(YamlValue::Mapping(m)) = map.get(YamlValue::String("length".into())) {
         for (path, expected) in m {
             let raw_path_str = yaml_to_string(path);
             let path_str = substitute_vars(&raw_path_str, vars);
@@ -481,7 +515,7 @@ fn execute_step(
             }
         }
     }
-    if let Some(path) = map.get(&YamlValue::String("is_true".into())) {
+    if let Some(path) = map.get(YamlValue::String("is_true".into())) {
         let path_str = yaml_to_string(path);
         let resolved_path = substitute_vars(&path_str, vars);
         let val = if resolved_path == "$body" || resolved_path.is_empty() {
@@ -496,7 +530,7 @@ fn execute_step(
     }
 
     // `is_false` — assert field is falsy
-    if let Some(path) = map.get(&YamlValue::String("is_false".into())) {
+    if let Some(path) = map.get(YamlValue::String("is_false".into())) {
         let path_str = yaml_to_string(path);
         let resolved_path = substitute_vars(&path_str, vars);
         let val = if resolved_path == "$body" || resolved_path.is_empty() {
@@ -517,7 +551,7 @@ fn execute_step(
         ("lte", |a, b| a <= b),
         ("lt", |a, b| a < b),
     ] {
-        if let Some(YamlValue::Mapping(m)) = map.get(&YamlValue::String(op_name.into())) {
+        if let Some(YamlValue::Mapping(m)) = map.get(YamlValue::String(op_name.into())) {
             for (path, expected) in m {
                 let raw_path_str = yaml_to_string(path);
                 let path_str = substitute_vars(&raw_path_str, vars);
@@ -533,7 +567,7 @@ fn execute_step(
     }
 
     // `close_to` — assert floating-point value is within tolerance
-    if let Some(YamlValue::Mapping(m)) = map.get(&YamlValue::String("close_to".into())) {
+    if let Some(YamlValue::Mapping(m)) = map.get(YamlValue::String("close_to".into())) {
         for (path, spec) in m {
             let raw_path_str = yaml_to_string(path);
             let path_str = substitute_vars(&raw_path_str, vars);
@@ -544,12 +578,17 @@ fn execute_step(
             let expected = match spec_json.get("value") {
                 Some(Value::String(s)) if s.starts_with('$') => {
                     let name = &s[1..];
-                    vars.get(name).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0)
+                    vars.get(name)
+                        .and_then(|v| v.parse::<f64>().ok())
+                        .unwrap_or(0.0)
                 }
                 Some(v) => v.as_f64().unwrap_or(0.0),
                 None => 0.0,
             };
-            let error = spec_json.get("error").and_then(|v| v.as_f64()).unwrap_or(0.001);
+            let error = spec_json
+                .get("error")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.001);
             if (actual_f - expected).abs() > error {
                 return Err(format!(
                     "close_to {}: expected {:.6} ± {}, got {:.6}",
@@ -564,12 +603,13 @@ fn execute_step(
     // explicitly awaiting a fix in the upstream project.
     // `skip: { features: [...] }` is runner-capability metadata (e.g.,
     // "headers", "allowed_warnings") — not a reason to skip on XERJ.
-    if let Some(skip_val) = map.get(&YamlValue::String("skip".into())) {
+    if let Some(skip_val) = map.get(YamlValue::String("skip".into())) {
         if let YamlValue::Mapping(skip_map) = skip_val {
-            let has_version = skip_map.contains_key(&YamlValue::String("version".into()));
-            let has_features = skip_map.contains_key(&YamlValue::String("features".into()));
-            let has_cluster_features = skip_map.contains_key(&YamlValue::String("cluster_features".into()));
-            let has_awaits_fix = skip_map.contains_key(&YamlValue::String("awaits_fix".into()));
+            let has_version = skip_map.contains_key(YamlValue::String("version".into()));
+            let has_features = skip_map.contains_key(YamlValue::String("features".into()));
+            let has_cluster_features =
+                skip_map.contains_key(YamlValue::String("cluster_features".into()));
+            let has_awaits_fix = skip_map.contains_key(YamlValue::String("awaits_fix".into()));
             // awaits_fix marks a test upstream is tracking as broken — skip.
             if has_awaits_fix {
                 return Err("skip directive (awaits_fix)".into());
@@ -582,7 +622,9 @@ fn execute_step(
             // as an ES-8.x-equivalent cluster, so any `gte_vX.Y` constraint
             // where X<=8 is considered satisfied → skip.
             if has_cluster_features {
-                if let Some(YamlValue::Sequence(items)) = skip_map.get(&YamlValue::String("cluster_features".into())) {
+                if let Some(YamlValue::Sequence(items)) =
+                    skip_map.get(YamlValue::String("cluster_features".into()))
+                {
                     for f in items {
                         if let YamlValue::String(s) = f {
                             if cluster_feature_satisfied(s) {
@@ -590,7 +632,9 @@ fn execute_step(
                             }
                         }
                     }
-                } else if let Some(YamlValue::String(s)) = skip_map.get(&YamlValue::String("cluster_features".into())) {
+                } else if let Some(YamlValue::String(s)) =
+                    skip_map.get(YamlValue::String("cluster_features".into()))
+                {
                     if cluster_feature_satisfied(s) {
                         return Err("skip directive (cluster_features)".into());
                     }
@@ -608,7 +652,7 @@ fn execute_step(
     // `requires` — tests may enumerate cluster versions / features they
     // depend on. We permissively attempt every `requires` test (we aim
     // for 100% on the broadest feature set), so this block is a no-op.
-    if map.contains_key(&YamlValue::String("requires".into())) {
+    if map.contains_key(YamlValue::String("requires".into())) {
         return Ok(());
     }
 
@@ -623,7 +667,9 @@ fn execute_step(
 ///   are still outstanding for us)
 /// - gte_v9+ is NOT satisfied
 fn cluster_feature_satisfied(feature: &str) -> bool {
-    let Some(rest) = feature.strip_prefix("gte_v") else { return false };
+    let Some(rest) = feature.strip_prefix("gte_v") else {
+        return false;
+    };
     let parts: Vec<&str> = rest.split('.').collect();
     let major: u32 = parts.first().and_then(|s| s.parse().ok()).unwrap_or(0);
     let minor: u32 = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
@@ -658,14 +704,17 @@ fn execute_do(
 
     // Skip `catch` expectations and `headers` for now
     let mut catch: Option<String> = None;
-    if let Some(c) = map.get(&YamlValue::String("catch".into())) {
+    if let Some(c) = map.get(YamlValue::String("catch".into())) {
         catch = Some(yaml_to_string(c));
     }
 
     for (key, val) in map {
         let action_name = yaml_to_string(key);
-        if action_name == "catch" || action_name == "headers" || action_name == "warnings"
-            || action_name == "allowed_warnings" || action_name == "allowed_warnings_regex"
+        if action_name == "catch"
+            || action_name == "headers"
+            || action_name == "warnings"
+            || action_name == "allowed_warnings"
+            || action_name == "allowed_warnings_regex"
             || action_name == "node_selector"
         {
             continue;
@@ -704,7 +753,11 @@ fn execute_do(
 
         let resp_text = resp.text().unwrap_or_default();
         if std::env::var("XERJ_DEBUG_RESP").is_ok() {
-            eprintln!("--- RESP {} ---\n{}\n--- END ---", status, &resp_text[..resp_text.len().min(1000)]);
+            eprintln!(
+                "--- RESP {} ---\n{}\n--- END ---",
+                status,
+                &resp_text[..resp_text.len().min(1000)]
+            );
         }
         let mut resp_json: Value = serde_json::from_str(&resp_text).unwrap_or(Value::Null);
 
@@ -725,7 +778,13 @@ fn execute_do(
             // 404 on delete = idempotent cleanup (OK)
             // 409 on create = index exists from prior test (OK after cleanup)
             if !action_name.contains("delete") && !action_name.contains("create") {
-                return Err(format!("{} {} → {} {}", method, path, status, &resp_text[..resp_text.len().min(200)]));
+                return Err(format!(
+                    "{} {} → {} {}",
+                    method,
+                    path,
+                    status,
+                    &resp_text[..resp_text.len().min(200)]
+                ));
             }
         }
 
@@ -740,7 +799,12 @@ fn execute_do(
 // collide with URL path semantics. Percent-encode them so the server sees
 // one path segment. Also handle `+` for index name addition syntax.
 fn encode_index_seg(s: &str) -> String {
-    if !s.contains('<') && !s.contains('|') && !s.contains('>') && !s.contains('{') && !s.contains('}') {
+    if !s.contains('<')
+        && !s.contains('|')
+        && !s.contains('>')
+        && !s.contains('{')
+        && !s.contains('}')
+    {
         return s.to_string();
     }
     let mut out = String::with_capacity(s.len() * 2);
@@ -770,30 +834,63 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
         "indices.delete" => {
             let mut path = format!("/{}", index);
             let mut qp = Vec::new();
-            if let Some(v) = get_param_str(params, "ignore_unavailable") { qp.push(format!("ignore_unavailable={}", v)); }
-            if let Some(v) = get_param_str(params, "allow_no_indices") { qp.push(format!("allow_no_indices={}", v)); }
-            if let Some(v) = get_param_str(params, "expand_wildcards") { qp.push(format!("expand_wildcards={}", v)); }
-            if !qp.is_empty() { path.push('?'); path.push_str(&qp.join("&")); }
+            if let Some(v) = get_param_str(params, "ignore_unavailable") {
+                qp.push(format!("ignore_unavailable={}", v));
+            }
+            if let Some(v) = get_param_str(params, "allow_no_indices") {
+                qp.push(format!("allow_no_indices={}", v));
+            }
+            if let Some(v) = get_param_str(params, "expand_wildcards") {
+                qp.push(format!("expand_wildcards={}", v));
+            }
+            if !qp.is_empty() {
+                path.push('?');
+                path.push_str(&qp.join("&"));
+            }
             ("DELETE".into(), path, None)
         }
-        "indices.refresh" => ("POST".into(), format!("/{}/_refresh", if index.is_empty() { "*" } else { &index }), None),
+        "indices.refresh" => (
+            "POST".into(),
+            format!("/{}/_refresh", if index.is_empty() { "*" } else { &index }),
+            None,
+        ),
         "indices.disk_usage" => {
             let mut path = format!("/{}/_disk_usage", index);
             let mut qp = Vec::new();
-            if let Some(v) = get_param_str(params, "run_expensive_tasks") { qp.push(format!("run_expensive_tasks={}", v)); }
-            if let Some(v) = get_param_str(params, "flush") { qp.push(format!("flush={}", v)); }
-            if !qp.is_empty() { path.push('?'); path.push_str(&qp.join("&")); }
+            if let Some(v) = get_param_str(params, "run_expensive_tasks") {
+                qp.push(format!("run_expensive_tasks={}", v));
+            }
+            if let Some(v) = get_param_str(params, "flush") {
+                qp.push(format!("flush={}", v));
+            }
+            if !qp.is_empty() {
+                path.push('?');
+                path.push_str(&qp.join("&"));
+            }
             ("POST".into(), path, None)
-        },
+        }
         "indices.get" => {
             let mut path = format!("/{}", index);
             let mut qp = Vec::new();
-            if let Some(v) = get_param_str(params, "human") { qp.push(format!("human={}", v)); }
-            if let Some(v) = get_param_str(params, "features") { qp.push(format!("features={}", v)); }
-            if let Some(v) = get_param_str(params, "ignore_unavailable") { qp.push(format!("ignore_unavailable={}", v)); }
-            if let Some(v) = get_param_str(params, "allow_no_indices") { qp.push(format!("allow_no_indices={}", v)); }
-            if let Some(v) = get_param_str(params, "expand_wildcards") { qp.push(format!("expand_wildcards={}", v)); }
-            if !qp.is_empty() { path.push('?'); path.push_str(&qp.join("&")); }
+            if let Some(v) = get_param_str(params, "human") {
+                qp.push(format!("human={}", v));
+            }
+            if let Some(v) = get_param_str(params, "features") {
+                qp.push(format!("features={}", v));
+            }
+            if let Some(v) = get_param_str(params, "ignore_unavailable") {
+                qp.push(format!("ignore_unavailable={}", v));
+            }
+            if let Some(v) = get_param_str(params, "allow_no_indices") {
+                qp.push(format!("allow_no_indices={}", v));
+            }
+            if let Some(v) = get_param_str(params, "expand_wildcards") {
+                qp.push(format!("expand_wildcards={}", v));
+            }
+            if !qp.is_empty() {
+                path.push('?');
+                path.push_str(&qp.join("&"));
+            }
             ("GET".into(), path, None)
         }
         "indices.put_mapping" => ("PUT".into(), format!("/{}/_mapping", index), body),
@@ -853,7 +950,11 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
         "indices.put_settings" => ("PUT".into(), format!("/{}/_settings", index), body),
         "indices.get_field_mapping" => {
             let fields = get_param_str(params, "fields").unwrap_or_default();
-            ("GET".into(), format!("/{}/_mapping/field/{}", index, fields), None)
+            (
+                "GET".into(),
+                format!("/{}/_mapping/field/{}", index, fields),
+                None,
+            )
         }
         "indices.put_index_template" | "indices.put_index_template.json" => {
             let name = get_param_str(params, "name").unwrap_or_default();
@@ -879,17 +980,41 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
         // Document operations
         "index" => {
             let mut qp: Vec<String> = Vec::new();
-            if let Some(v) = get_param_str(params, "refresh") { qp.push(format!("refresh={}", v)); }
-            if let Some(v) = get_param_str(params, "routing") { qp.push(format!("routing={}", v)); }
-            if let Some(v) = get_param_str(params, "pipeline") { qp.push(format!("pipeline={}", v)); }
-            if let Some(v) = get_param_str(params, "version") { qp.push(format!("version={}", v)); }
-            if let Some(v) = get_param_str(params, "version_type") { qp.push(format!("version_type={}", v)); }
-            if let Some(v) = get_param_str(params, "op_type") { qp.push(format!("op_type={}", v)); }
-            if let Some(v) = get_param_str(params, "if_seq_no") { qp.push(format!("if_seq_no={}", v)); }
-            if let Some(v) = get_param_str(params, "if_primary_term") { qp.push(format!("if_primary_term={}", v)); }
-            if let Some(v) = get_param_str(params, "timeout") { qp.push(format!("timeout={}", v)); }
-            if let Some(v) = get_param_str(params, "require_alias") { qp.push(format!("require_alias={}", v)); }
-            let qs = if qp.is_empty() { String::new() } else { format!("?{}", qp.join("&")) };
+            if let Some(v) = get_param_str(params, "refresh") {
+                qp.push(format!("refresh={}", v));
+            }
+            if let Some(v) = get_param_str(params, "routing") {
+                qp.push(format!("routing={}", v));
+            }
+            if let Some(v) = get_param_str(params, "pipeline") {
+                qp.push(format!("pipeline={}", v));
+            }
+            if let Some(v) = get_param_str(params, "version") {
+                qp.push(format!("version={}", v));
+            }
+            if let Some(v) = get_param_str(params, "version_type") {
+                qp.push(format!("version_type={}", v));
+            }
+            if let Some(v) = get_param_str(params, "op_type") {
+                qp.push(format!("op_type={}", v));
+            }
+            if let Some(v) = get_param_str(params, "if_seq_no") {
+                qp.push(format!("if_seq_no={}", v));
+            }
+            if let Some(v) = get_param_str(params, "if_primary_term") {
+                qp.push(format!("if_primary_term={}", v));
+            }
+            if let Some(v) = get_param_str(params, "timeout") {
+                qp.push(format!("timeout={}", v));
+            }
+            if let Some(v) = get_param_str(params, "require_alias") {
+                qp.push(format!("require_alias={}", v));
+            }
+            let qs = if qp.is_empty() {
+                String::new()
+            } else {
+                format!("?{}", qp.join("&"))
+            };
             if id.is_empty() {
                 ("POST".into(), format!("/{}/_doc{}", index, qs), body)
             } else {
@@ -910,44 +1035,112 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
             };
             // Forward query params that ES YAML tests use
             let mut qp = Vec::new();
-            if let Some(v) = get_param_str(params, "rest_total_hits_as_int") { qp.push(format!("rest_total_hits_as_int={}", v)); }
-            if let Some(v) = get_param_str(params, "track_total_hits") { qp.push(format!("track_total_hits={}", v)); }
-            if let Some(v) = get_param_str(params, "scroll") { qp.push(format!("scroll={}", v)); }
-            if let Some(v) = get_param_str(params, "size") { qp.push(format!("size={}", v)); }
-            if let Some(v) = get_param_str(params, "from") { qp.push(format!("from={}", v)); }
-            if let Some(v) = get_param_str(params, "sort") { qp.push(format!("sort={}", v)); }
-            if let Some(v) = get_param_str(params, "_source") { qp.push(format!("_source={}", v)); }
-            if let Some(v) = get_param_str(params, "_source_includes") { qp.push(format!("_source_includes={}", v)); }
-            if let Some(v) = get_param_str(params, "_source_excludes") { qp.push(format!("_source_excludes={}", v)); }
-            if let Some(v) = get_param_str(params, "typed_keys") { qp.push(format!("typed_keys={}", v)); }
-            if let Some(v) = get_param_str(params, "docvalue_fields") { qp.push(format!("docvalue_fields={}", v)); }
-            if let Some(v) = get_param_str(params, "stored_fields") { qp.push(format!("stored_fields={}", v)); }
-            if let Some(v) = get_param_str(params, "q") { qp.push(format!("q={}", v)); }
-            if let Some(v) = get_param_str(params, "df") { qp.push(format!("df={}", v)); }
-            if let Some(v) = get_param_str(params, "default_operator") { qp.push(format!("default_operator={}", v)); }
-            if let Some(v) = get_param_str(params, "pre_filter_shard_size") { qp.push(format!("pre_filter_shard_size={}", v)); }
-            if let Some(v) = get_param_str(params, "batched_reduce_size") { qp.push(format!("batched_reduce_size={}", v)); }
-            if let Some(v) = get_param_str(params, "ccs_minimize_roundtrips") { qp.push(format!("ccs_minimize_roundtrips={}", v)); }
-            if let Some(v) = get_param_str(params, "explain") { qp.push(format!("explain={}", v)); }
-            if let Some(v) = get_param_str(params, "ignore_unavailable") { qp.push(format!("ignore_unavailable={}", v)); }
-            if let Some(v) = get_param_str(params, "allow_no_indices") { qp.push(format!("allow_no_indices={}", v)); }
-            if let Some(v) = get_param_str(params, "expand_wildcards") { qp.push(format!("expand_wildcards={}", v)); }
-            if let Some(v) = get_param_str(params, "seq_no_primary_term") { qp.push(format!("seq_no_primary_term={}", v)); }
-            if let Some(v) = get_param_str(params, "version") { qp.push(format!("version={}", v)); }
-            if let Some(v) = get_param_str(params, "preference") { qp.push(format!("preference={}", v)); }
-            if let Some(v) = get_param_str(params, "routing") { qp.push(format!("routing={}", v)); }
-            if let Some(v) = get_param_str(params, "search_type") { qp.push(format!("search_type={}", v)); }
-            if let Some(v) = get_param_str(params, "request_cache") { qp.push(format!("request_cache={}", v)); }
+            if let Some(v) = get_param_str(params, "rest_total_hits_as_int") {
+                qp.push(format!("rest_total_hits_as_int={}", v));
+            }
+            if let Some(v) = get_param_str(params, "track_total_hits") {
+                qp.push(format!("track_total_hits={}", v));
+            }
+            if let Some(v) = get_param_str(params, "scroll") {
+                qp.push(format!("scroll={}", v));
+            }
+            if let Some(v) = get_param_str(params, "size") {
+                qp.push(format!("size={}", v));
+            }
+            if let Some(v) = get_param_str(params, "from") {
+                qp.push(format!("from={}", v));
+            }
+            if let Some(v) = get_param_str(params, "sort") {
+                qp.push(format!("sort={}", v));
+            }
+            if let Some(v) = get_param_str(params, "_source") {
+                qp.push(format!("_source={}", v));
+            }
+            if let Some(v) = get_param_str(params, "_source_includes") {
+                qp.push(format!("_source_includes={}", v));
+            }
+            if let Some(v) = get_param_str(params, "_source_excludes") {
+                qp.push(format!("_source_excludes={}", v));
+            }
+            if let Some(v) = get_param_str(params, "typed_keys") {
+                qp.push(format!("typed_keys={}", v));
+            }
+            if let Some(v) = get_param_str(params, "docvalue_fields") {
+                qp.push(format!("docvalue_fields={}", v));
+            }
+            if let Some(v) = get_param_str(params, "stored_fields") {
+                qp.push(format!("stored_fields={}", v));
+            }
+            if let Some(v) = get_param_str(params, "q") {
+                qp.push(format!("q={}", v));
+            }
+            if let Some(v) = get_param_str(params, "df") {
+                qp.push(format!("df={}", v));
+            }
+            if let Some(v) = get_param_str(params, "default_operator") {
+                qp.push(format!("default_operator={}", v));
+            }
+            if let Some(v) = get_param_str(params, "pre_filter_shard_size") {
+                qp.push(format!("pre_filter_shard_size={}", v));
+            }
+            if let Some(v) = get_param_str(params, "batched_reduce_size") {
+                qp.push(format!("batched_reduce_size={}", v));
+            }
+            if let Some(v) = get_param_str(params, "ccs_minimize_roundtrips") {
+                qp.push(format!("ccs_minimize_roundtrips={}", v));
+            }
+            if let Some(v) = get_param_str(params, "explain") {
+                qp.push(format!("explain={}", v));
+            }
+            if let Some(v) = get_param_str(params, "ignore_unavailable") {
+                qp.push(format!("ignore_unavailable={}", v));
+            }
+            if let Some(v) = get_param_str(params, "allow_no_indices") {
+                qp.push(format!("allow_no_indices={}", v));
+            }
+            if let Some(v) = get_param_str(params, "expand_wildcards") {
+                qp.push(format!("expand_wildcards={}", v));
+            }
+            if let Some(v) = get_param_str(params, "seq_no_primary_term") {
+                qp.push(format!("seq_no_primary_term={}", v));
+            }
+            if let Some(v) = get_param_str(params, "version") {
+                qp.push(format!("version={}", v));
+            }
+            if let Some(v) = get_param_str(params, "preference") {
+                qp.push(format!("preference={}", v));
+            }
+            if let Some(v) = get_param_str(params, "routing") {
+                qp.push(format!("routing={}", v));
+            }
+            if let Some(v) = get_param_str(params, "search_type") {
+                qp.push(format!("search_type={}", v));
+            }
+            if let Some(v) = get_param_str(params, "request_cache") {
+                qp.push(format!("request_cache={}", v));
+            }
             if let Some(v) = get_param_str(params, "filter_path") {
                 // Commas and `*` are part of filter_path syntax; encode
                 // only what reqwest or the server would choke on.
-                let e = v.replace(' ', "%20").replace('#', "%23").replace('&', "%26");
+                let e = v
+                    .replace(' ', "%20")
+                    .replace('#', "%23")
+                    .replace('&', "%26");
                 qp.push(format!("filter_path={}", e));
             }
-            if let Some(v) = get_param_str(params, "allow_partial_search_results") { qp.push(format!("allow_partial_search_results={}", v)); }
-            if let Some(v) = get_param_str(params, "include_named_queries_score") { qp.push(format!("include_named_queries_score={}", v)); }
-            if let Some(v) = get_param_str(params, "force_synthetic_source") { qp.push(format!("force_synthetic_source={}", v)); }
-            if !qp.is_empty() { path.push('?'); path.push_str(&qp.join("&")); }
+            if let Some(v) = get_param_str(params, "allow_partial_search_results") {
+                qp.push(format!("allow_partial_search_results={}", v));
+            }
+            if let Some(v) = get_param_str(params, "include_named_queries_score") {
+                qp.push(format!("include_named_queries_score={}", v));
+            }
+            if let Some(v) = get_param_str(params, "force_synthetic_source") {
+                qp.push(format!("force_synthetic_source={}", v));
+            }
+            if !qp.is_empty() {
+                path.push('?');
+                path.push_str(&qp.join("&"));
+            }
             ("POST".into(), path, body)
         }
         "count" => {
@@ -958,26 +1151,46 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
             };
             let mut qp = Vec::new();
             if let Some(v) = get_param_str(params, "filter_path") {
-                let e = v.replace(' ', "%20").replace('#', "%23").replace('&', "%26");
+                let e = v
+                    .replace(' ', "%20")
+                    .replace('#', "%23")
+                    .replace('&', "%26");
                 qp.push(format!("filter_path={}", e));
             }
-            if !qp.is_empty() { path.push('?'); path.push_str(&qp.join("&")); }
+            if !qp.is_empty() {
+                path.push('?');
+                path.push_str(&qp.join("&"));
+            }
             ("POST".into(), path, body)
         }
         "scroll" => {
             let mut path = "/_search/scroll".to_string();
             let mut qp = Vec::new();
-            if let Some(v) = get_param_str(params, "rest_total_hits_as_int") { qp.push(format!("rest_total_hits_as_int={}", v)); }
-            if let Some(v) = get_param_str(params, "scroll_id") { qp.push(format!("scroll_id={}", v)); }
-            if let Some(v) = get_param_str(params, "scroll") { qp.push(format!("scroll={}", v)); }
-            if !qp.is_empty() { path.push('?'); path.push_str(&qp.join("&")); }
+            if let Some(v) = get_param_str(params, "rest_total_hits_as_int") {
+                qp.push(format!("rest_total_hits_as_int={}", v));
+            }
+            if let Some(v) = get_param_str(params, "scroll_id") {
+                qp.push(format!("scroll_id={}", v));
+            }
+            if let Some(v) = get_param_str(params, "scroll") {
+                qp.push(format!("scroll={}", v));
+            }
+            if !qp.is_empty() {
+                path.push('?');
+                path.push_str(&qp.join("&"));
+            }
             ("POST".into(), path, body)
         }
         "clear_scroll" => {
             let mut path = "/_search/scroll".to_string();
             let mut qp = Vec::new();
-            if let Some(v) = get_param_str(params, "scroll_id") { qp.push(format!("scroll_id={}", v)); }
-            if !qp.is_empty() { path.push('?'); path.push_str(&qp.join("&")); }
+            if let Some(v) = get_param_str(params, "scroll_id") {
+                qp.push(format!("scroll_id={}", v));
+            }
+            if !qp.is_empty() {
+                path.push('?');
+                path.push_str(&qp.join("&"));
+            }
             ("DELETE".into(), path, body)
         }
 
@@ -989,15 +1202,34 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
                 format!("/{}/_bulk", index)
             };
             let mut qp = Vec::new();
-            if let Some(v) = get_param_str(params, "refresh") { qp.push(format!("refresh={}", v)); }
-            if let Some(v) = get_param_str(params, "require_alias") { qp.push(format!("require_alias={}", v)); }
-            if let Some(v) = get_param_str(params, "routing") { qp.push(format!("routing={}", v)); }
-            if let Some(v) = get_param_str(params, "pipeline") { qp.push(format!("pipeline={}", v)); }
-            if let Some(v) = get_param_str(params, "timeout") { qp.push(format!("timeout={}", v)); }
-            if let Some(v) = get_param_str(params, "_source") { qp.push(format!("_source={}", v)); }
-            if let Some(v) = get_param_str(params, "_source_includes") { qp.push(format!("_source_includes={}", v)); }
-            if let Some(v) = get_param_str(params, "_source_excludes") { qp.push(format!("_source_excludes={}", v)); }
-            if !qp.is_empty() { path.push('?'); path.push_str(&qp.join("&")); }
+            if let Some(v) = get_param_str(params, "refresh") {
+                qp.push(format!("refresh={}", v));
+            }
+            if let Some(v) = get_param_str(params, "require_alias") {
+                qp.push(format!("require_alias={}", v));
+            }
+            if let Some(v) = get_param_str(params, "routing") {
+                qp.push(format!("routing={}", v));
+            }
+            if let Some(v) = get_param_str(params, "pipeline") {
+                qp.push(format!("pipeline={}", v));
+            }
+            if let Some(v) = get_param_str(params, "timeout") {
+                qp.push(format!("timeout={}", v));
+            }
+            if let Some(v) = get_param_str(params, "_source") {
+                qp.push(format!("_source={}", v));
+            }
+            if let Some(v) = get_param_str(params, "_source_includes") {
+                qp.push(format!("_source_includes={}", v));
+            }
+            if let Some(v) = get_param_str(params, "_source_excludes") {
+                qp.push(format!("_source_excludes={}", v));
+            }
+            if !qp.is_empty() {
+                path.push('?');
+                path.push_str(&qp.join("&"));
+            }
             let ndjson = get_param_ndjson(params);
             ("POST".into(), path, ndjson)
         }
@@ -1009,15 +1241,34 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
                 path = format!("/_cluster/health/{}", index);
             }
             let mut qp = Vec::new();
-            if let Some(v) = get_param_str(params, "level") { qp.push(format!("level={}", v)); }
-            if let Some(v) = get_param_str(params, "wait_for_status") { qp.push(format!("wait_for_status={}", v)); }
-            if let Some(v) = get_param_str(params, "wait_for_no_relocating_shards") { qp.push(format!("wait_for_no_relocating_shards={}", v)); }
-            if let Some(v) = get_param_str(params, "wait_for_no_initializing_shards") { qp.push(format!("wait_for_no_initializing_shards={}", v)); }
-            if let Some(v) = get_param_str(params, "wait_for_active_shards") { qp.push(format!("wait_for_active_shards={}", v)); }
-            if let Some(v) = get_param_str(params, "wait_for_nodes") { qp.push(format!("wait_for_nodes={}", v)); }
-            if let Some(v) = get_param_str(params, "expand_wildcards") { qp.push(format!("expand_wildcards={}", v)); }
-            if let Some(v) = get_param_str(params, "timeout") { qp.push(format!("timeout={}", v)); }
-            if !qp.is_empty() { path.push('?'); path.push_str(&qp.join("&")); }
+            if let Some(v) = get_param_str(params, "level") {
+                qp.push(format!("level={}", v));
+            }
+            if let Some(v) = get_param_str(params, "wait_for_status") {
+                qp.push(format!("wait_for_status={}", v));
+            }
+            if let Some(v) = get_param_str(params, "wait_for_no_relocating_shards") {
+                qp.push(format!("wait_for_no_relocating_shards={}", v));
+            }
+            if let Some(v) = get_param_str(params, "wait_for_no_initializing_shards") {
+                qp.push(format!("wait_for_no_initializing_shards={}", v));
+            }
+            if let Some(v) = get_param_str(params, "wait_for_active_shards") {
+                qp.push(format!("wait_for_active_shards={}", v));
+            }
+            if let Some(v) = get_param_str(params, "wait_for_nodes") {
+                qp.push(format!("wait_for_nodes={}", v));
+            }
+            if let Some(v) = get_param_str(params, "expand_wildcards") {
+                qp.push(format!("expand_wildcards={}", v));
+            }
+            if let Some(v) = get_param_str(params, "timeout") {
+                qp.push(format!("timeout={}", v));
+            }
+            if !qp.is_empty() {
+                path.push('?');
+                path.push_str(&qp.join("&"));
+            }
             ("GET".into(), path, None)
         }
         "cluster.state" => ("GET".into(), "/_cluster/state".into(), None),
@@ -1033,7 +1284,9 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
         "nodes.stats" => ("GET".into(), "/_nodes/stats".into(), None),
 
         // Internal cluster APIs
-        "_internal.get_desired_balance" => ("GET".into(), "/_internal/desired_balance".into(), None),
+        "_internal.get_desired_balance" => {
+            ("GET".into(), "/_internal/desired_balance".into(), None)
+        }
 
         // Ingest
         "ingest.put_pipeline" => {
@@ -1052,8 +1305,14 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
                 format!("/_ingest/pipeline/{}/_simulate", pid)
             };
             let mut qp = Vec::new();
-            if let Some(v) = get_param_str(params, "verbose") { qp.push(format!("verbose={}", v)); }
-            let final_path = if qp.is_empty() { path } else { format!("{}?{}", path, qp.join("&")) };
+            if let Some(v) = get_param_str(params, "verbose") {
+                qp.push(format!("verbose={}", v));
+            }
+            let final_path = if qp.is_empty() {
+                path
+            } else {
+                format!("{}?{}", path, qp.join("&"))
+            };
             ("POST".into(), final_path, body)
         }
         "ingest.get_pipeline" => {
@@ -1098,7 +1357,7 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
 }
 
 fn get_param_str(params: &serde_yaml::Mapping, key: &str) -> Option<String> {
-    params.get(&YamlValue::String(key.into())).map(|v| {
+    params.get(YamlValue::String(key.into())).map(|v| {
         match v {
             // YAML arrays like [test_1, test_2] → comma-separated "test_1,test_2"
             YamlValue::Sequence(items) => items
@@ -1113,7 +1372,7 @@ fn get_param_str(params: &serde_yaml::Mapping, key: &str) -> Option<String> {
 
 fn get_param_body(params: &serde_yaml::Mapping) -> Option<String> {
     params
-        .get(&YamlValue::String("body".into()))
+        .get(YamlValue::String("body".into()))
         .map(|v| match v {
             // A YAML string that already looks like a JSON object/array is
             // passed through unchanged — ES YAML tests use `body: >  {...}`
@@ -1132,7 +1391,7 @@ fn get_param_body(params: &serde_yaml::Mapping) -> Option<String> {
 }
 
 fn get_param_ndjson(params: &serde_yaml::Mapping) -> Option<String> {
-    if let Some(YamlValue::Sequence(items)) = params.get(&YamlValue::String("body".into())) {
+    if let Some(YamlValue::Sequence(items)) = params.get(YamlValue::String("body".into())) {
         let mut ndjson = String::new();
         for item in items {
             match item {
@@ -1149,7 +1408,9 @@ fn get_param_ndjson(params: &serde_yaml::Mapping) -> Option<String> {
                         // doesn't parse, fall back to replacing newlines
                         // with spaces so the JSON remains intact.
                         let compact = match serde_json::from_str::<serde_json::Value>(s) {
-                            Ok(v) => serde_json::to_string(&v).unwrap_or_else(|_| s.replace('\n', " ")),
+                            Ok(v) => {
+                                serde_json::to_string(&v).unwrap_or_else(|_| s.replace('\n', " "))
+                            }
                             Err(_) => s.replace('\n', " "),
                         };
                         ndjson.push_str(&compact);
@@ -1277,7 +1538,9 @@ fn values_match(actual: &Value, expected: &Value) -> bool {
         (Value::Number(a), Value::Number(b)) => {
             let af = a.as_f64().unwrap_or(0.0);
             let bf = b.as_f64().unwrap_or(0.0);
-            if af == bf { return true; }
+            if af == bf {
+                return true;
+            }
             // serde_yaml and serde_json disagree by up to 1 ULP on the
             // parse of identical decimal literals (serde_json's parser
             // is not always correctly rounded). Treat numbers that are
@@ -1310,20 +1573,16 @@ fn values_match(actual: &Value, expected: &Value) -> bool {
                 a == b
             }
         }
-        (Value::String(a), Value::Number(b)) => {
-            a.parse::<f64>().ok() == b.as_f64()
-        }
-        (Value::Number(a), Value::String(b)) => {
-            b.parse::<f64>().ok() == a.as_f64()
-        }
+        (Value::String(a), Value::Number(b)) => a.parse::<f64>().ok() == b.as_f64(),
+        (Value::Number(a), Value::String(b)) => b.parse::<f64>().ok() == a.as_f64(),
         (Value::Bool(a), Value::Bool(b)) => a == b,
         (Value::Null, Value::Null) => true,
         (Value::Array(a), Value::Array(b)) => {
             a.len() == b.len() && a.iter().zip(b.iter()).all(|(x, y)| values_match(x, y))
         }
-        (Value::Object(a), Value::Object(b)) => {
-            b.iter().all(|(k, v)| a.get(k).map_or(false, |av| values_match(av, v)))
-        }
+        (Value::Object(a), Value::Object(b)) => b
+            .iter()
+            .all(|(k, v)| a.get(k).is_some_and(|av| values_match(av, v))),
         _ => actual == expected,
     }
 }

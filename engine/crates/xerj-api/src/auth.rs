@@ -24,11 +24,7 @@ use crate::state::AppState;
 ///
 /// Call via `middleware::from_fn_with_state(state, auth_middleware)` in the
 /// router builders.
-pub async fn auth_middleware(
-    State(state): State<AppState>,
-    req: Request,
-    next: Next,
-) -> Response {
+pub async fn auth_middleware(State(state): State<AppState>, req: Request, next: Next) -> Response {
     let cfg = &state.config.auth;
 
     // Skip auth when disabled or no admin key is configured.

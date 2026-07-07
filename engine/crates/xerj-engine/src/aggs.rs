@@ -52,19 +52,29 @@ struct FieldCache<'d> {
 
 impl<'d> FieldCache<'d> {
     fn new(docs: &'d [Value]) -> Self {
-        Self { docs, numeric: HashMap::new(), strings: HashMap::new() }
+        Self {
+            docs,
+            numeric: HashMap::new(),
+            strings: HashMap::new(),
+        }
     }
 
     fn get_numeric(&mut self, field: &str) -> &[Option<f64>] {
-        self.numeric
-            .entry(field.to_string())
-            .or_insert_with(|| self.docs.iter().map(|d| extract_numeric(d, field)).collect())
+        self.numeric.entry(field.to_string()).or_insert_with(|| {
+            self.docs
+                .iter()
+                .map(|d| extract_numeric(d, field))
+                .collect()
+        })
     }
 
     fn get_strings(&mut self, field: &str) -> &[Vec<String>] {
-        self.strings
-            .entry(field.to_string())
-            .or_insert_with(|| self.docs.iter().map(|d| extract_field_values(d, field)).collect())
+        self.strings.entry(field.to_string()).or_insert_with(|| {
+            self.docs
+                .iter()
+                .map(|d| extract_field_values(d, field))
+                .collect()
+        })
     }
 }
 
@@ -99,8 +109,7 @@ pub fn run_aggs(aggs_def: &Value, docs: &[Value]) -> Value {
 // Set once at Index construction via `set_max_buckets`; defaults to the same
 // 65 536 ES uses if never set. Atomic + Relaxed: read in hot agg loops, write
 // once at startup, no ordering needed.
-static MAX_BUCKETS: std::sync::atomic::AtomicUsize =
-    std::sync::atomic::AtomicUsize::new(65_536);
+static MAX_BUCKETS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(65_536);
 
 /// Override the per-aggregation bucket cap. Call once at Index startup with
 /// `config.limits.max_buckets`. Subsequent calls overwrite the previous value.
@@ -121,12 +130,12 @@ thread_local! {
     /// layer. Set by the search handler via `set_outer_query_terms`
     /// before calling `run_aggs_with_all`; cleared afterwards.
     pub static OUTER_QUERY_TERMS: std::cell::RefCell<Vec<String>> =
-        std::cell::RefCell::new(Vec::new());
+        const { std::cell::RefCell::new(Vec::new()) };
     /// (field, term) pairs extracted from the outer Match/Term queries.
     /// Used by run_top_hits to build per-hit _explanation output when
     /// the caller sets `explain: true` on top_hits.
     pub static OUTER_QUERY_FIELD_TERMS: std::cell::RefCell<Vec<(String, String)>> =
-        std::cell::RefCell::new(Vec::new());
+        const { std::cell::RefCell::new(Vec::new()) };
 }
 
 pub fn set_outer_query_terms(terms: Vec<String>) {
@@ -165,7 +174,8 @@ pub fn run_aggs_with_all(aggs_def: &Value, docs: &[Value], all_docs: &[Value]) -
 
     let mut result = Map::new();
     for (agg_name, agg_body) in obj {
-        let mut agg_result = execute_agg_with_all_cached(agg_name, agg_body, docs, all_docs, &mut cache);
+        let mut agg_result =
+            execute_agg_with_all_cached(agg_name, agg_body, docs, all_docs, &mut cache);
         if let Some(meta) = agg_body.get("meta") {
             if let Some(res_obj) = agg_result.as_object_mut() {
                 res_obj.insert("meta".into(), meta.clone());
@@ -188,7 +198,11 @@ pub fn run_aggs_with_all(aggs_def: &Value, docs: &[Value], all_docs: &[Value]) -
 pub(crate) fn resolve_sibling_pipelines(result: &mut Map<String, Value>) {
     let pipeline_keys: Vec<String> = result
         .iter()
-        .filter(|(_, v)| v.get("__pipeline__").and_then(Value::as_bool).unwrap_or(false))
+        .filter(|(_, v)| {
+            v.get("__pipeline__")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+        })
         .map(|(k, _)| k.clone())
         .collect();
 
@@ -197,11 +211,14 @@ pub(crate) fn resolve_sibling_pipelines(result: &mut Map<String, Value>) {
             let spec = &result[&key];
             let t = spec["type"].as_str().unwrap_or("").to_string();
             let bp = spec["buckets_path"].as_str().unwrap_or("").to_string();
-            let format = spec.get("format").and_then(Value::as_str).map(str::to_string);
+            let format = spec
+                .get("format")
+                .and_then(Value::as_str)
+                .map(str::to_string);
             let extra = spec.clone();
             (t, bp, extra, format)
         };
-        let mut resolved = resolve_pipeline_agg_full(&agg_type, &buckets_path, &extra, &result);
+        let mut resolved = resolve_pipeline_agg_full(&agg_type, &buckets_path, &extra, result);
         if let Some(fmt) = format {
             apply_pipeline_value_format(&mut resolved, &fmt);
         }
@@ -240,40 +257,64 @@ fn resolve_pipeline_agg_full(
             resolve_moving_avg_full(buckets_path, window, siblings)
         }
         "bucket_selector" => {
-            let script = spec.get("script")
-                .and_then(|v| v.as_str().or_else(|| v.get("source").and_then(|s| s.as_str())))
+            let script = spec
+                .get("script")
+                .and_then(|v| {
+                    v.as_str()
+                        .or_else(|| v.get("source").and_then(|s| s.as_str()))
+                })
                 .unwrap_or("")
                 .to_string();
             resolve_bucket_selector(buckets_path, &script, siblings)
         }
         "bucket_sort" => {
             let sort = spec.get("sort").cloned();
-            let size = spec.get("size").and_then(|v| v.as_u64()).map(|n| n as usize);
+            let size = spec
+                .get("size")
+                .and_then(|v| v.as_u64())
+                .map(|n| n as usize);
             resolve_bucket_sort(buckets_path, sort.as_ref(), size, siblings)
         }
         "bucket_script" => {
             let script_val = spec.get("script");
             let script = script_val
-                .and_then(|v| v.as_str().or_else(|| v.get("source").and_then(|s| s.as_str())))
+                .and_then(|v| {
+                    v.as_str()
+                        .or_else(|| v.get("source").and_then(|s| s.as_str()))
+                })
                 .unwrap_or("")
                 .to_string();
             // Script-provided constant params (e.g. `script.params.extra = 1`).
             let extra_params: HashMap<String, f64> = script_val
                 .and_then(|v| v.get("params"))
                 .and_then(|v| v.as_object())
-                .map(|o| o.iter().filter_map(|(k, v)| v.as_f64().map(|f| (k.clone(), f))).collect())
+                .map(|o| {
+                    o.iter()
+                        .filter_map(|(k, v)| v.as_f64().map(|f| (k.clone(), f)))
+                        .collect()
+                })
                 .unwrap_or_default();
-            let bp_full = spec.get("buckets_path_full").cloned().unwrap_or(Value::Null);
+            let bp_full = spec
+                .get("buckets_path_full")
+                .cloned()
+                .unwrap_or(Value::Null);
             resolve_bucket_script(&bp_full, &script, &extra_params, siblings)
         }
         _ => {
-            let gap_policy = spec.get("gap_policy").and_then(Value::as_str).unwrap_or("skip");
+            let gap_policy = spec
+                .get("gap_policy")
+                .and_then(Value::as_str)
+                .unwrap_or("skip");
             resolve_pipeline_agg_with_gap(agg_type, buckets_path, siblings, gap_policy)
         }
     }
 }
 
-fn resolve_moving_avg_full(buckets_path: &str, window: usize, siblings: &Map<String, Value>) -> Value {
+fn resolve_moving_avg_full(
+    buckets_path: &str,
+    window: usize,
+    siblings: &Map<String, Value>,
+) -> Value {
     let (sibling_name, metric_name) = split_buckets_path(buckets_path);
     let sibling = match siblings.get(sibling_name) {
         Some(v) => v,
@@ -283,7 +324,11 @@ fn resolve_moving_avg_full(buckets_path: &str, window: usize, siblings: &Map<Str
     resolve_moving_avg(&bucket_values, window)
 }
 
-fn resolve_bucket_selector(buckets_path: &str, script: &str, siblings: &Map<String, Value>) -> Value {
+fn resolve_bucket_selector(
+    buckets_path: &str,
+    script: &str,
+    siblings: &Map<String, Value>,
+) -> Value {
     // Parse a simple comparison from the script string:
     //   "params.count > 10"  →  threshold = 10, operator = ">"
     // We look for the sibling bucket array and filter by the parsed condition.
@@ -301,26 +346,31 @@ fn resolve_bucket_selector(buckets_path: &str, script: &str, siblings: &Map<Stri
         None => return json!({"buckets": []}),
     };
 
-    let filtered: Vec<&Value> = buckets.iter().filter(|b| {
-        let val = if let Some(m) = metric_name {
-            b.get(m).and_then(|mv| mv.get("value")).and_then(Value::as_f64)
-        } else {
-            b.get("doc_count").and_then(Value::as_f64)
-        };
-        if let Some(v) = val {
-            match operator {
-                ">" => v > threshold,
-                ">=" => v >= threshold,
-                "<" => v < threshold,
-                "<=" => v <= threshold,
-                "==" | "=" => (v - threshold).abs() < f64::EPSILON,
-                "!=" => (v - threshold).abs() >= f64::EPSILON,
-                _ => true,
+    let filtered: Vec<&Value> = buckets
+        .iter()
+        .filter(|b| {
+            let val = if let Some(m) = metric_name {
+                b.get(m)
+                    .and_then(|mv| mv.get("value"))
+                    .and_then(Value::as_f64)
+            } else {
+                b.get("doc_count").and_then(Value::as_f64)
+            };
+            if let Some(v) = val {
+                match operator {
+                    ">" => v > threshold,
+                    ">=" => v >= threshold,
+                    "<" => v < threshold,
+                    "<=" => v <= threshold,
+                    "==" | "=" => (v - threshold).abs() < f64::EPSILON,
+                    "!=" => (v - threshold).abs() >= f64::EPSILON,
+                    _ => true,
+                }
+            } else {
+                false
             }
-        } else {
-            false
-        }
-    }).collect();
+        })
+        .collect();
 
     json!({"buckets": filtered})
 }
@@ -338,7 +388,7 @@ fn resolve_bucket_sort(
     };
 
     let mut buckets: Vec<Value> = match sibling.get("buckets").and_then(Value::as_array) {
-        Some(b) => b.iter().cloned().collect(),
+        Some(b) => b.to_vec(),
         None => return json!({"buckets": []}),
     };
 
@@ -349,8 +399,11 @@ fn resolve_bucket_sort(
                 for (sort_field, sort_opts) in sort_obj {
                     let descending = match sort_opts {
                         Value::String(s) => s == "desc",
-                        Value::Object(o) => o.get("order")
-                            .and_then(Value::as_str).map(|v| v == "desc").unwrap_or(false),
+                        Value::Object(o) => o
+                            .get("order")
+                            .and_then(Value::as_str)
+                            .map(|v| v == "desc")
+                            .unwrap_or(false),
                         _ => false,
                     };
                     let sf = sort_field.clone();
@@ -358,7 +411,11 @@ fn resolve_bucket_sort(
                         let av = extract_bucket_value(a, &sf);
                         let bv = extract_bucket_value(b, &sf);
                         let cmp = av.partial_cmp(&bv).unwrap_or(std::cmp::Ordering::Equal);
-                        if descending { cmp.reverse() } else { cmp }
+                        if descending {
+                            cmp.reverse()
+                        } else {
+                            cmp
+                        }
                     });
                 }
             }
@@ -378,7 +435,10 @@ fn resolve_bucket_sort(
 /// they operate on the PARENT's bucket list (dropping/reordering entries).
 /// Call this at the tail of each multi-bucket agg, after all buckets have
 /// been built and populated with sub-agg metrics.
-pub(crate) fn apply_bucket_pipeline_ops(mut buckets: Vec<Value>, sub_aggs: Option<&Value>) -> Vec<Value> {
+pub(crate) fn apply_bucket_pipeline_ops(
+    mut buckets: Vec<Value>,
+    sub_aggs: Option<&Value>,
+) -> Vec<Value> {
     let sub_obj = match sub_aggs.and_then(Value::as_object) {
         Some(o) => o,
         None => return buckets,
@@ -388,12 +448,17 @@ pub(crate) fn apply_bucket_pipeline_ops(mut buckets: Vec<Value>, sub_aggs: Optio
     let mut ops: Vec<(String, String, Value)> = Vec::new();
     let mut parent_ops: Vec<(String, String, Value)> = Vec::new();
     for (sub_name, sub_spec) in sub_obj {
-        let spec_obj = match sub_spec.as_object() { Some(o) => o, None => continue };
+        let spec_obj = match sub_spec.as_object() {
+            Some(o) => o,
+            None => continue,
+        };
         for (agg_type, params) in spec_obj {
             if agg_type == "bucket_sort" || agg_type == "bucket_selector" {
                 ops.push((sub_name.clone(), agg_type.clone(), params.clone()));
-            } else if matches!(agg_type.as_str(),
-                "serial_diff" | "derivative" | "moving_avg" | "moving_fn" | "cumulative_sum") {
+            } else if matches!(
+                agg_type.as_str(),
+                "serial_diff" | "derivative" | "moving_avg" | "moving_fn" | "cumulative_sum"
+            ) {
                 parent_ops.push((sub_name.clone(), agg_type.clone(), params.clone()));
             }
         }
@@ -403,11 +468,15 @@ pub(crate) fn apply_bucket_pipeline_ops(mut buckets: Vec<Value>, sub_aggs: Optio
     // moving_fn, cumulative_sum): each consumes the metric series across
     // the parent's buckets and writes one `{value: N}` per bucket.
     for (sub_name, agg_type, spec) in &parent_ops {
-        let bp = spec.get("buckets_path").and_then(Value::as_str).unwrap_or("");
-        let fmt = spec.get("format").and_then(Value::as_str).map(str::to_string);
-        let values: Vec<Option<f64>> = buckets.iter()
-            .map(|b| resolve_metric_path(b, bp))
-            .collect();
+        let bp = spec
+            .get("buckets_path")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let fmt = spec
+            .get("format")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        let values: Vec<Option<f64>> = buckets.iter().map(|b| resolve_metric_path(b, bp)).collect();
         let lag = spec.get("lag").and_then(Value::as_u64).unwrap_or(1) as usize;
         let window = spec.get("window").and_then(Value::as_u64).unwrap_or(5) as usize;
         for (i, bucket) in buckets.iter_mut().enumerate() {
@@ -418,7 +487,9 @@ pub(crate) fn apply_bucket_pipeline_ops(mut buckets: Vec<Value>, sub_aggs: Optio
                             (Some(a), Some(b)) => Some(a - b),
                             _ => None,
                         }
-                    } else { None }
+                    } else {
+                        None
+                    }
                 }
                 "derivative" => {
                     if i >= 1 {
@@ -426,13 +497,18 @@ pub(crate) fn apply_bucket_pipeline_ops(mut buckets: Vec<Value>, sub_aggs: Optio
                             (Some(a), Some(b)) => Some(a - b),
                             _ => None,
                         }
-                    } else { None }
+                    } else {
+                        None
+                    }
                 }
                 "moving_avg" | "moving_fn" => {
                     // `shift` advances the window by N positions. Defaults
                     // to 0 (window covers the buckets *before* the current).
                     let shift = spec.get("shift").and_then(Value::as_i64).unwrap_or(0);
-                    let gap_policy = spec.get("gap_policy").and_then(Value::as_str).unwrap_or("skip");
+                    let gap_policy = spec
+                        .get("gap_policy")
+                        .and_then(Value::as_str)
+                        .unwrap_or("skip");
                     let i_signed = i as i64;
                     let win_end_signed = i_signed + shift;
                     if win_end_signed <= 0 {
@@ -448,7 +524,10 @@ pub(crate) fn apply_bucket_pipeline_ops(mut buckets: Vec<Value>, sub_aggs: Optio
                         let win_end = (win_end_signed as usize).min(values.len());
                         let start = win_end.saturating_sub(window);
                         let wnd: Vec<f64> = match gap_policy {
-                            "insert_zeros" => values[start..win_end].iter().map(|v| v.unwrap_or(0.0)).collect(),
+                            "insert_zeros" => values[start..win_end]
+                                .iter()
+                                .map(|v| v.unwrap_or(0.0))
+                                .collect(),
                             "keep_values" | "keep_value" => {
                                 // keep_values: treat the source stream
                                 // as a dense vec of non-null values —
@@ -456,7 +535,8 @@ pub(crate) fn apply_bucket_pipeline_ops(mut buckets: Vec<Value>, sub_aggs: Optio
                                 // window, but it also EMITS a value at
                                 // gap buckets (carried over from the
                                 // prior non-gap bucket's output).
-                                let dense: Vec<f64> = values[..win_end].iter().filter_map(|v| *v).collect();
+                                let dense: Vec<f64> =
+                                    values[..win_end].iter().filter_map(|v| *v).collect();
                                 let take_from = dense.len().saturating_sub(window);
                                 dense[take_from..].to_vec()
                             }
@@ -470,18 +550,25 @@ pub(crate) fn apply_bucket_pipeline_ops(mut buckets: Vec<Value>, sub_aggs: Optio
                                 // position N doesn't shrink the window
                                 // used by bucket N+1 — it pulls an older
                                 // value in instead.
-                                let dense: Vec<f64> = values[..win_end].iter().filter_map(|v| *v).collect();
+                                let dense: Vec<f64> =
+                                    values[..win_end].iter().filter_map(|v| *v).collect();
                                 let take_from = dense.len().saturating_sub(window);
                                 dense[take_from..].to_vec()
                             }
                         };
-                        if wnd.is_empty() { None } else {
+                        if wnd.is_empty() {
+                            None
+                        } else {
                             // moving_fn allows a `script` field naming the
                             // reducer function. Recognised forms: min, max,
                             // sum, stdDev, linearWeightedAvg, ewma (alpha
                             // default 0.3), unweightedAvg (default: avg).
-                            let op = spec.get("script")
-                                .and_then(|v| v.as_str().or_else(|| v.get("source").and_then(Value::as_str)))
+                            let op = spec
+                                .get("script")
+                                .and_then(|v| {
+                                    v.as_str()
+                                        .or_else(|| v.get("source").and_then(Value::as_str))
+                                })
                                 .map(|s| s.to_ascii_lowercase())
                                 .unwrap_or_default();
                             // Handle simple `fn(values) OP fn(values)`
@@ -500,26 +587,39 @@ pub(crate) fn apply_bucket_pipeline_ops(mut buckets: Vec<Value>, sub_aggs: Optio
                                     None
                                 }
                             };
-                            let combined: Option<f64> = if op.contains(") - ") || op.contains(")-") {
+                            let combined: Option<f64> = if op.contains(") - ") || op.contains(")-")
+                            {
                                 let idx = op.find(") - ").unwrap_or_else(|| op.find(")-").unwrap());
                                 let (l, r) = op.split_at(idx);
                                 let (a, b) = (eval_side(l), eval_side(r));
-                                match (a, b) { (Some(x), Some(y)) => Some(x - y), _ => None }
+                                match (a, b) {
+                                    (Some(x), Some(y)) => Some(x - y),
+                                    _ => None,
+                                }
                             } else if op.contains(") + ") || op.contains(")+") {
                                 let idx = op.find(") + ").unwrap_or_else(|| op.find(")+").unwrap());
                                 let (l, r) = op.split_at(idx);
                                 let (a, b) = (eval_side(l), eval_side(r));
-                                match (a, b) { (Some(x), Some(y)) => Some(x + y), _ => None }
+                                match (a, b) {
+                                    (Some(x), Some(y)) => Some(x + y),
+                                    _ => None,
+                                }
                             } else if op.contains(") * ") || op.contains(")*") {
                                 let idx = op.find(") * ").unwrap_or_else(|| op.find(")*").unwrap());
                                 let (l, r) = op.split_at(idx);
                                 let (a, b) = (eval_side(l), eval_side(r));
-                                match (a, b) { (Some(x), Some(y)) => Some(x * y), _ => None }
+                                match (a, b) {
+                                    (Some(x), Some(y)) => Some(x * y),
+                                    _ => None,
+                                }
                             } else if op.contains(") / ") || op.contains(")/") {
                                 let idx = op.find(") / ").unwrap_or_else(|| op.find(")/").unwrap());
                                 let (l, r) = op.split_at(idx);
                                 let (a, b) = (eval_side(l), eval_side(r));
-                                match (a, b) { (Some(x), Some(y)) if y != 0.0 => Some(x / y), _ => None }
+                                match (a, b) {
+                                    (Some(x), Some(y)) if y != 0.0 => Some(x / y),
+                                    _ => None,
+                                }
                             } else {
                                 None
                             };
@@ -535,13 +635,16 @@ pub(crate) fn apply_bucket_pipeline_ops(mut buckets: Vec<Value>, sub_aggs: Optio
                                 Some(wnd.iter().sum::<f64>())
                             } else if op.contains("stddev") {
                                 let mean = wnd.iter().sum::<f64>() / wnd.len() as f64;
-                                let var = wnd.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / wnd.len() as f64;
+                                let var = wnd.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
+                                    / wnd.len() as f64;
                                 Some(var.sqrt())
                             } else if op.contains("linearweighted") {
                                 // Weight i+1 across window [v_0,...v_{n-1}].
                                 let n = wnd.len() as f64;
                                 let total_w = n * (n + 1.0) / 2.0;
-                                let weighted: f64 = wnd.iter().enumerate()
+                                let weighted: f64 = wnd
+                                    .iter()
+                                    .enumerate()
                                     .map(|(idx, v)| v * (idx as f64 + 1.0))
                                     .sum();
                                 Some(weighted / total_w)
@@ -575,7 +678,9 @@ pub(crate) fn apply_bucket_pipeline_ops(mut buckets: Vec<Value>, sub_aggs: Optio
             };
             let result = match computed {
                 Some(v) if v.is_finite() => {
-                    let num = serde_json::Number::from_f64(v).map(Value::Number).unwrap_or(Value::Null);
+                    let num = serde_json::Number::from_f64(v)
+                        .map(Value::Number)
+                        .unwrap_or(Value::Null);
                     let mut m = serde_json::Map::new();
                     m.insert("value".to_string(), num);
                     if let Some(ref f) = fmt {
@@ -598,34 +703,59 @@ pub(crate) fn apply_bucket_pipeline_ops(mut buckets: Vec<Value>, sub_aggs: Optio
         }
     }
 
-    if ops.is_empty() { return buckets; }
+    if ops.is_empty() {
+        return buckets;
+    }
 
     // Apply bucket_selector: drop buckets whose script evaluates to false.
     for (_, agg_type, spec) in &ops {
-        if agg_type != "bucket_selector" { continue; }
-        let bp_obj = spec.get("buckets_path").and_then(Value::as_object).cloned().unwrap_or_default();
-        let script_str = spec.get("script")
-            .and_then(|v| v.as_str().or_else(|| v.get("source").and_then(Value::as_str)))
+        if agg_type != "bucket_selector" {
+            continue;
+        }
+        let bp_obj = spec
+            .get("buckets_path")
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        let script_str = spec
+            .get("script")
+            .and_then(|v| {
+                v.as_str()
+                    .or_else(|| v.get("source").and_then(Value::as_str))
+            })
             .unwrap_or("")
             .to_string();
-        let extra_params: HashMap<String, f64> = spec.get("script")
+        let extra_params: HashMap<String, f64> = spec
+            .get("script")
             .and_then(|v| v.get("params"))
             .and_then(|v| v.as_object())
-            .map(|o| o.iter().filter_map(|(k, v)| v.as_f64().map(|f| (k.clone(), f))).collect())
+            .map(|o| {
+                o.iter()
+                    .filter_map(|(k, v)| v.as_f64().map(|f| (k.clone(), f)))
+                    .collect()
+            })
             .unwrap_or_default();
-        let gap_policy = spec.get("gap_policy").and_then(Value::as_str).unwrap_or("skip");
+        let gap_policy = spec
+            .get("gap_policy")
+            .and_then(Value::as_str)
+            .unwrap_or("skip");
         buckets.retain(|bucket| {
             let mut params = extra_params.clone();
             for (alias, target) in &bp_obj {
-                let tstr = match target.as_str() { Some(s) => s, None => return false };
+                let tstr = match target.as_str() {
+                    Some(s) => s,
+                    None => return false,
+                };
                 match get_bucket_metric_value(bucket, tstr) {
-                    Some(v) => { params.insert(alias.clone(), v); }
-                    None => {
-                        match gap_policy {
-                            "insert_zeros" => { params.insert(alias.clone(), 0.0); }
-                            _ => return false,
-                        }
+                    Some(v) => {
+                        params.insert(alias.clone(), v);
                     }
+                    None => match gap_policy {
+                        "insert_zeros" => {
+                            params.insert(alias.clone(), 0.0);
+                        }
+                        _ => return false,
+                    },
                 }
             }
             match eval_script_expr(&script_str, &params) {
@@ -637,11 +767,17 @@ pub(crate) fn apply_bucket_pipeline_ops(mut buckets: Vec<Value>, sub_aggs: Optio
 
     // Apply bucket_sort: gap_policy → reorder → from/size.
     for (_, agg_type, spec) in &ops {
-        if agg_type != "bucket_sort" { continue; }
+        if agg_type != "bucket_sort" {
+            continue;
+        }
 
         // Collect every sort key referenced by this bucket_sort. Gap handling
         // runs across the union of these keys.
-        let sort_arr = spec.get("sort").and_then(Value::as_array).cloned().unwrap_or_default();
+        let sort_arr = spec
+            .get("sort")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
         let sort_keys: Vec<String> = sort_arr
             .iter()
             .filter_map(|item| item.as_object())
@@ -669,23 +805,43 @@ pub(crate) fn apply_bucket_pipeline_ops(mut buckets: Vec<Value>, sub_aggs: Optio
         }
 
         for sort_item in sort_arr.iter().rev() {
-            let sort_obj = match sort_item.as_object() { Some(o) => o, None => continue };
+            let sort_obj = match sort_item.as_object() {
+                Some(o) => o,
+                None => continue,
+            };
             for (sort_field, sort_opts) in sort_obj {
                 let desc = match sort_opts {
                     Value::String(s) => s == "desc",
-                    Value::Object(o) => o.get("order")
-                        .and_then(Value::as_str).map(|v| v == "desc").unwrap_or(false),
+                    Value::Object(o) => o
+                        .get("order")
+                        .and_then(Value::as_str)
+                        .map(|v| v == "desc")
+                        .unwrap_or(false),
                     _ => false,
                 };
                 let sf = sort_field.clone();
                 let use_zero_for_missing = gap_policy == "insert_zeros";
                 buckets.sort_by(|a, b| {
-                    let av = extract_bucket_value_opt(a, &sf)
-                        .unwrap_or(if use_zero_for_missing { 0.0 } else if desc { f64::NEG_INFINITY } else { f64::INFINITY });
-                    let bv = extract_bucket_value_opt(b, &sf)
-                        .unwrap_or(if use_zero_for_missing { 0.0 } else if desc { f64::NEG_INFINITY } else { f64::INFINITY });
+                    let av = extract_bucket_value_opt(a, &sf).unwrap_or(if use_zero_for_missing {
+                        0.0
+                    } else if desc {
+                        f64::NEG_INFINITY
+                    } else {
+                        f64::INFINITY
+                    });
+                    let bv = extract_bucket_value_opt(b, &sf).unwrap_or(if use_zero_for_missing {
+                        0.0
+                    } else if desc {
+                        f64::NEG_INFINITY
+                    } else {
+                        f64::INFINITY
+                    });
                     let cmp = av.partial_cmp(&bv).unwrap_or(std::cmp::Ordering::Equal);
-                    if desc { cmp.reverse() } else { cmp }
+                    if desc {
+                        cmp.reverse()
+                    } else {
+                        cmp
+                    }
                 });
             }
         }
@@ -706,7 +862,9 @@ pub(crate) fn apply_bucket_pipeline_ops(mut buckets: Vec<Value>, sub_aggs: Optio
     // not echo them back in the output).
     for bucket in buckets.iter_mut() {
         if let Some(bo) = bucket.as_object_mut() {
-            for (name, _, _) in &ops { bo.remove(name); }
+            for (name, _, _) in &ops {
+                bo.remove(name);
+            }
         }
     }
 
@@ -746,7 +904,8 @@ fn get_bucket_metric_value(bucket: &Value, path: &str) -> Option<f64> {
                 }
                 if let Some(rest) = inner.strip_prefix("fields.") {
                     let arr_path = format!("/fields/{}", rest);
-                    return top_hit.pointer(&arr_path)
+                    return top_hit
+                        .pointer(&arr_path)
                         .and_then(|v| v.as_array())
                         .and_then(|a| a.first())
                         .and_then(Value::as_f64);
@@ -757,9 +916,11 @@ fn get_bucket_metric_value(bucket: &Value, path: &str) -> Option<f64> {
     let (sib, metric) = split_buckets_path(path);
     let sib_val = bucket.get(sib)?;
     if let Some(m) = metric {
-        sib_val
-            .get(m)
-            .and_then(|x| x.get("value").and_then(Value::as_f64).or_else(|| x.as_f64()))
+        sib_val.get(m).and_then(|x| {
+            x.get("value")
+                .and_then(Value::as_f64)
+                .or_else(|| x.as_f64())
+        })
     } else {
         sib_val.get("value").and_then(Value::as_f64)
     }
@@ -802,10 +963,10 @@ fn parse_simple_script(script: &str) -> (&'static str, f64) {
                     ">=" => ">=",
                     "<=" => "<=",
                     "!=" => "!=",
-                    ">"  => ">",
-                    "<"  => "<",
+                    ">" => ">",
+                    "<" => "<",
                     "==" => "==",
-                    "="  => "=",
+                    "=" => "=",
                     _ => ">",
                 };
                 return (op_str, threshold);
@@ -834,16 +995,27 @@ fn resolve_bucket_script(
     };
     let mut params: HashMap<String, f64> = extra_params.clone();
     for (alias, target) in bp {
-        let t = match target.as_str() { Some(s) => s, None => continue };
+        let t = match target.as_str() {
+            Some(s) => s,
+            None => continue,
+        };
         // Walk "sibling>metric" if nested, else just ".value".
         let (sib_name, metric) = split_buckets_path(t);
-        let sib = match siblings.get(sib_name) { Some(v) => v, None => return json!({"value": Value::Null}) };
+        let sib = match siblings.get(sib_name) {
+            Some(v) => v,
+            None => return json!({"value": Value::Null}),
+        };
         let v = if let Some(m) = metric {
-            sib.get(m).and_then(|x| x.get("value")).and_then(Value::as_f64)
+            sib.get(m)
+                .and_then(|x| x.get("value"))
+                .and_then(Value::as_f64)
         } else {
             sib.get("value").and_then(Value::as_f64)
         };
-        let v = match v { Some(x) => x, None => return json!({"value": Value::Null}) };
+        let v = match v {
+            Some(x) => x,
+            None => return json!({"value": Value::Null}),
+        };
         params.insert(alias.clone(), v);
     }
     match eval_script_expr(script, &params) {
@@ -865,7 +1037,12 @@ fn eval_script_expr(script: &str, params: &HashMap<String, f64>) -> Option<f64> 
 }
 
 #[derive(Debug, Clone)]
-enum Tok { Num(f64), Op(&'static str), LParen, RParen }
+enum Tok {
+    Num(f64),
+    Op(&'static str),
+    LParen,
+    RParen,
+}
 
 fn tokenize_script(s: &str, params: &HashMap<String, f64>) -> Option<Vec<Tok>> {
     let bytes = s.as_bytes();
@@ -873,10 +1050,17 @@ fn tokenize_script(s: &str, params: &HashMap<String, f64>) -> Option<Vec<Tok>> {
     let mut i = 0;
     while i < bytes.len() {
         let c = bytes[i] as char;
-        if c.is_whitespace() { i += 1; continue; }
-        if c.is_ascii_digit() || (c == '.' && i + 1 < bytes.len() && (bytes[i+1] as char).is_ascii_digit()) {
+        if c.is_whitespace() {
+            i += 1;
+            continue;
+        }
+        if c.is_ascii_digit()
+            || (c == '.' && i + 1 < bytes.len() && (bytes[i + 1] as char).is_ascii_digit())
+        {
             let start = i;
-            while i < bytes.len() && ((bytes[i] as char).is_ascii_digit() || bytes[i] as char == '.') {
+            while i < bytes.len()
+                && ((bytes[i] as char).is_ascii_digit() || bytes[i] as char == '.')
+            {
                 i += 1;
             }
             let n: f64 = s[start..i].parse().ok()?;
@@ -885,7 +1069,11 @@ fn tokenize_script(s: &str, params: &HashMap<String, f64>) -> Option<Vec<Tok>> {
         }
         if c.is_ascii_alphabetic() || c == '_' {
             let start = i;
-            while i < bytes.len() && ((bytes[i] as char).is_ascii_alphanumeric() || bytes[i] as char == '_' || bytes[i] as char == '.') {
+            while i < bytes.len()
+                && ((bytes[i] as char).is_ascii_alphanumeric()
+                    || bytes[i] as char == '_'
+                    || bytes[i] as char == '.')
+            {
                 i += 1;
             }
             let ident = &s[start..i];
@@ -901,12 +1089,17 @@ fn tokenize_script(s: &str, params: &HashMap<String, f64>) -> Option<Vec<Tok>> {
         }
         // Two-character operators first.
         if i + 1 < bytes.len() {
-            let two = &s[i..i+2];
+            let two = &s[i..i + 2];
             match two {
                 ">=" | "<=" | "==" | "!=" | "&&" | "||" => {
                     let op: &'static str = match two {
-                        ">=" => ">=", "<=" => "<=", "==" => "==", "!=" => "!=",
-                        "&&" => "&&", "||" => "||", _ => unreachable!(),
+                        ">=" => ">=",
+                        "<=" => "<=",
+                        "==" => "==",
+                        "!=" => "!=",
+                        "&&" => "&&",
+                        "||" => "||",
+                        _ => unreachable!(),
                     };
                     toks.push(Tok::Op(op));
                     i += 2;
@@ -916,15 +1109,33 @@ fn tokenize_script(s: &str, params: &HashMap<String, f64>) -> Option<Vec<Tok>> {
             }
         }
         match c {
-            '+' => { toks.push(Tok::Op("+")); }
-            '-' => { toks.push(Tok::Op("-")); }
-            '*' => { toks.push(Tok::Op("*")); }
-            '/' => { toks.push(Tok::Op("/")); }
-            '%' => { toks.push(Tok::Op("%")); }
-            '<' => { toks.push(Tok::Op("<")); }
-            '>' => { toks.push(Tok::Op(">")); }
-            '(' => { toks.push(Tok::LParen); }
-            ')' => { toks.push(Tok::RParen); }
+            '+' => {
+                toks.push(Tok::Op("+"));
+            }
+            '-' => {
+                toks.push(Tok::Op("-"));
+            }
+            '*' => {
+                toks.push(Tok::Op("*"));
+            }
+            '/' => {
+                toks.push(Tok::Op("/"));
+            }
+            '%' => {
+                toks.push(Tok::Op("%"));
+            }
+            '<' => {
+                toks.push(Tok::Op("<"));
+            }
+            '>' => {
+                toks.push(Tok::Op(">"));
+            }
+            '(' => {
+                toks.push(Tok::LParen);
+            }
+            ')' => {
+                toks.push(Tok::RParen);
+            }
             ';' => {} // ignore trailing semicolons
             _ => return None,
         }
@@ -953,8 +1164,11 @@ fn shunting_yard(toks: &[Tok]) -> Option<Vec<Tok>> {
             Tok::Num(_) => out.push(t.clone()),
             Tok::Op(o) => {
                 while let Some(Tok::Op(top)) = ops.last() {
-                    if precedence(top) >= precedence(o) { out.push(ops.pop().unwrap()); }
-                    else { break; }
+                    if precedence(top) >= precedence(o) {
+                        out.push(ops.pop().unwrap());
+                    } else {
+                        break;
+                    }
                 }
                 ops.push(t.clone());
             }
@@ -970,7 +1184,9 @@ fn shunting_yard(toks: &[Tok]) -> Option<Vec<Tok>> {
         }
     }
     while let Some(op) = ops.pop() {
-        if matches!(op, Tok::LParen | Tok::RParen) { return None; }
+        if matches!(op, Tok::LParen | Tok::RParen) {
+            return None;
+        }
         out.push(op);
     }
     Some(out)
@@ -985,18 +1201,79 @@ fn evaluate_rpn(rpn: &[Tok]) -> Option<f64> {
                 let b = stack.pop()?;
                 let a = stack.pop()?;
                 let r = match *op {
-                    "+" => a + b, "-" => a - b,
+                    "+" => a + b,
+                    "-" => a - b,
                     "*" => a * b,
-                    "/" => if b == 0.0 { return None; } else { a / b },
-                    "%" => if b == 0.0 { return None; } else { a % b },
-                    "<" => if a < b { 1.0 } else { 0.0 },
-                    ">" => if a > b { 1.0 } else { 0.0 },
-                    "<=" => if a <= b { 1.0 } else { 0.0 },
-                    ">=" => if a >= b { 1.0 } else { 0.0 },
-                    "==" => if (a - b).abs() < 1e-9 { 1.0 } else { 0.0 },
-                    "!=" => if (a - b).abs() >= 1e-9 { 1.0 } else { 0.0 },
-                    "&&" => if a != 0.0 && b != 0.0 { 1.0 } else { 0.0 },
-                    "||" => if a != 0.0 || b != 0.0 { 1.0 } else { 0.0 },
+                    "/" => {
+                        if b == 0.0 {
+                            return None;
+                        } else {
+                            a / b
+                        }
+                    }
+                    "%" => {
+                        if b == 0.0 {
+                            return None;
+                        } else {
+                            a % b
+                        }
+                    }
+                    "<" => {
+                        if a < b {
+                            1.0
+                        } else {
+                            0.0
+                        }
+                    }
+                    ">" => {
+                        if a > b {
+                            1.0
+                        } else {
+                            0.0
+                        }
+                    }
+                    "<=" => {
+                        if a <= b {
+                            1.0
+                        } else {
+                            0.0
+                        }
+                    }
+                    ">=" => {
+                        if a >= b {
+                            1.0
+                        } else {
+                            0.0
+                        }
+                    }
+                    "==" => {
+                        if (a - b).abs() < 1e-9 {
+                            1.0
+                        } else {
+                            0.0
+                        }
+                    }
+                    "!=" => {
+                        if (a - b).abs() >= 1e-9 {
+                            1.0
+                        } else {
+                            0.0
+                        }
+                    }
+                    "&&" => {
+                        if a != 0.0 && b != 0.0 {
+                            1.0
+                        } else {
+                            0.0
+                        }
+                    }
+                    "||" => {
+                        if a != 0.0 || b != 0.0 {
+                            1.0
+                        } else {
+                            0.0
+                        }
+                    }
                     _ => return None,
                 };
                 stack.push(r);
@@ -1004,7 +1281,11 @@ fn evaluate_rpn(rpn: &[Tok]) -> Option<f64> {
             _ => return None,
         }
     }
-    if stack.len() == 1 { Some(stack[0]) } else { None }
+    if stack.len() == 1 {
+        Some(stack[0])
+    } else {
+        None
+    }
 }
 
 fn split_buckets_path(buckets_path: &str) -> (&str, Option<&str>) {
@@ -1035,7 +1316,11 @@ fn collect_bucket_values(sibling: &Value, metric_name: Option<&str>) -> Vec<f64>
 ///
 /// `metric_name` supports dotted paths (`stats.sum`) and subscript notation
 /// (`percentiles[99.9]`, `extended_stats[std_deviation]`).
-fn collect_bucket_values_with_policy(sibling: &Value, metric_name: Option<&str>, gap_policy: &str) -> Vec<f64> {
+fn collect_bucket_values_with_policy(
+    sibling: &Value,
+    metric_name: Option<&str>,
+    gap_policy: &str,
+) -> Vec<f64> {
     let buckets = match sibling.get("buckets").and_then(Value::as_array) {
         Some(b) => b,
         None => return vec![],
@@ -1084,14 +1369,22 @@ fn resolve_metric_path(bucket: &Value, path: &str) -> Option<f64> {
             let key = &path[open + 1..open + close];
             // Try both "values.<key>" (percentiles) and direct child.
             let node = bucket.get(base)?;
-            if let Some(v) = node.get("values").and_then(|vals| vals.get(key)).and_then(Value::as_f64) {
+            if let Some(v) = node
+                .get("values")
+                .and_then(|vals| vals.get(key))
+                .and_then(Value::as_f64)
+            {
                 return Some(v);
             }
             // Numeric percentile rendered as number (not string)
             if let Ok(n) = key.parse::<f64>() {
                 if let Some(vals) = node.get("values").and_then(Value::as_object) {
                     for (k, v) in vals {
-                        if k.parse::<f64>().ok().map(|x| (x - n).abs() < 1e-6).unwrap_or(false) {
+                        if k.parse::<f64>()
+                            .ok()
+                            .map(|x| (x - n).abs() < 1e-6)
+                            .unwrap_or(false)
+                        {
                             return v.as_f64();
                         }
                     }
@@ -1123,9 +1416,7 @@ fn resolve_metric_path(bucket: &Value, path: &str) -> Option<f64> {
                                         let k = entry.get("key").and_then(Value::as_f64);
                                         if let Some(k) = k {
                                             if (k - key_num).abs() < 1e-6 {
-                                                return entry
-                                                    .get("value")
-                                                    .and_then(Value::as_f64);
+                                                return entry.get("value").and_then(Value::as_f64);
                                             }
                                         }
                                     }
@@ -1167,10 +1458,16 @@ fn resolve_metric_path(bucket: &Value, path: &str) -> Option<f64> {
     if let Some(values) = node.get("values") {
         match values {
             Value::Object(map) if map.len() == 1 => {
-                if let Some((_, v)) = map.iter().next() { if let Some(f) = v.as_f64() { return Some(f); } }
+                if let Some((_, v)) = map.iter().next() {
+                    if let Some(f) = v.as_f64() {
+                        return Some(f);
+                    }
+                }
             }
             Value::Array(arr) if arr.len() == 1 => {
-                if let Some(f) = arr[0].get("value").and_then(Value::as_f64) { return Some(f); }
+                if let Some(f) = arr[0].get("value").and_then(Value::as_f64) {
+                    return Some(f);
+                }
             }
             _ => {}
         }
@@ -1203,7 +1500,8 @@ fn collect_bucket_keys_matching_value(
         };
         if let Some(v) = v {
             if (v - target_value).abs() < 1e-9 {
-                let k = b.get("key_as_string")
+                let k = b
+                    .get("key_as_string")
                     .or_else(|| b.get("key"))
                     .cloned()
                     .unwrap_or(Value::Null);
@@ -1212,13 +1510,6 @@ fn collect_bucket_keys_matching_value(
         }
     }
     out
-}
-
-/// Resolve a pipeline aggregation against already-computed sibling results.
-///
-/// `buckets_path` format: `"sibling_agg>metric_name"` or just `"sibling_agg"`.
-fn resolve_pipeline_agg(agg_type: &str, buckets_path: &str, siblings: &Map<String, Value>) -> Value {
-    resolve_pipeline_agg_with_gap(agg_type, buckets_path, siblings, "skip")
 }
 
 fn resolve_pipeline_agg_with_gap(
@@ -1262,7 +1553,10 @@ fn resolve_pipeline_agg_with_gap(
             make_value_result(sum / bucket_values.len() as f64)
         }
         "max_bucket" => {
-            let value = bucket_values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            let value = bucket_values
+                .iter()
+                .cloned()
+                .fold(f64::NEG_INFINITY, f64::max);
             let keys = collect_bucket_keys_matching_value(sibling, metric_name, value);
             let mut r = make_value_result(value);
             if let Some(obj) = r.as_object_mut() {
@@ -1284,7 +1578,10 @@ fn resolve_pipeline_agg_with_gap(
             let count = bucket_values.len() as f64;
             let sum: f64 = bucket_values.iter().sum();
             let min = bucket_values.iter().cloned().fold(f64::INFINITY, f64::min);
-            let max = bucket_values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            let max = bucket_values
+                .iter()
+                .cloned()
+                .fold(f64::NEG_INFINITY, f64::max);
             let avg = sum / count;
             json!({
                 "count": bucket_values.len(),
@@ -1299,7 +1596,10 @@ fn resolve_pipeline_agg_with_gap(
             let n = bucket_values.len() as f64;
             let sum: f64 = bucket_values.iter().sum();
             let min = bucket_values.iter().cloned().fold(f64::INFINITY, f64::min);
-            let max = bucket_values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            let max = bucket_values
+                .iter()
+                .cloned()
+                .fold(f64::NEG_INFINITY, f64::max);
             let avg = if n > 0.0 { sum / n } else { 0.0 };
             let sum_sq: f64 = bucket_values.iter().map(|v| v * v).sum();
             let variance_pop = if n > 0.0 { sum_sq / n - avg * avg } else { 0.0 };
@@ -1310,7 +1610,11 @@ fn resolve_pipeline_agg_with_gap(
             };
             let std_pop = variance_pop.max(0.0).sqrt();
             let std_sample = variance_sample.max(0.0).sqrt();
-            let num = |x: f64| serde_json::Number::from_f64(x).map(Value::Number).unwrap_or(Value::Null);
+            let num = |x: f64| {
+                serde_json::Number::from_f64(x)
+                    .map(Value::Number)
+                    .unwrap_or(Value::Null)
+            };
             json!({
                 "count": bucket_values.len(),
                 "min": num(min),
@@ -1348,11 +1652,15 @@ fn resolve_pipeline_agg_with_gap(
                 let val = if n == 0 {
                     Value::Null
                 } else if n == 1 {
-                    serde_json::Number::from_f64(sorted[0]).map(Value::Number).unwrap_or(Value::Null)
+                    serde_json::Number::from_f64(sorted[0])
+                        .map(Value::Number)
+                        .unwrap_or(Value::Null)
                 } else {
                     let idx = ((p / 100.0) * (n as f64 - 1.0)).round() as usize;
                     let idx = idx.min(n - 1);
-                    serde_json::Number::from_f64(sorted[idx]).map(Value::Number).unwrap_or(Value::Null)
+                    serde_json::Number::from_f64(sorted[idx])
+                        .map(Value::Number)
+                        .unwrap_or(Value::Null)
                 };
                 values.insert(format!("{:.1}", p), val);
             }
@@ -1360,7 +1668,9 @@ fn resolve_pipeline_agg_with_gap(
         }
         "serial_diff" => {
             if bucket_values.len() >= 2 {
-                make_value_result(bucket_values[bucket_values.len() - 1] - bucket_values[bucket_values.len() - 2])
+                make_value_result(
+                    bucket_values[bucket_values.len() - 1] - bucket_values[bucket_values.len() - 2],
+                )
             } else {
                 json!({"value": Value::Null})
             }
@@ -1368,8 +1678,7 @@ fn resolve_pipeline_agg_with_gap(
         "derivative" => {
             if bucket_values.len() >= 2 {
                 make_value_result(
-                    bucket_values[bucket_values.len() - 1]
-                        - bucket_values[bucket_values.len() - 2],
+                    bucket_values[bucket_values.len() - 1] - bucket_values[bucket_values.len() - 2],
                 )
             } else {
                 json!({"value": Value::Null})
@@ -1394,7 +1703,9 @@ fn make_value_result(value: f64) -> Value {
 /// rendering. Supports `"0.00"`, `"#,##0.00"`, `"0.##"` — the minimal set
 /// the YAML tests exercise — via `format_number_pattern`.
 fn apply_pipeline_value_format(result: &mut Value, fmt: &str) {
-    let Some(obj) = result.as_object_mut() else { return };
+    let Some(obj) = result.as_object_mut() else {
+        return;
+    };
     if let Some(Value::Number(n)) = obj.get("value").cloned() {
         if let Some(f) = n.as_f64() {
             obj.insert(
@@ -1405,9 +1716,16 @@ fn apply_pipeline_value_format(result: &mut Value, fmt: &str) {
     }
     // `stats_bucket` / `extended_stats_bucket` — format each numeric stat.
     for key in [
-        "min", "max", "avg", "sum",
-        "variance", "variance_population", "variance_sampling",
-        "std_deviation", "std_deviation_population", "std_deviation_sampling",
+        "min",
+        "max",
+        "avg",
+        "sum",
+        "variance",
+        "variance_population",
+        "variance_sampling",
+        "std_deviation",
+        "std_deviation_population",
+        "std_deviation_sampling",
         "sum_of_squares",
     ] {
         if let Some(Value::Number(n)) = obj.get(key).cloned() {
@@ -1445,7 +1763,10 @@ fn apply_pipeline_value_format(result: &mut Value, fmt: &str) {
                 out.insert(k, Value::String(format_number_pattern(f, fmt)));
             }
         }
-        obj.insert("std_deviation_bounds_as_string".to_string(), Value::Object(out));
+        obj.insert(
+            "std_deviation_bounds_as_string".to_string(),
+            Value::Object(out),
+        );
     }
 }
 
@@ -1559,7 +1880,14 @@ fn holt(values: &[f64], alpha: f64, beta: f64) -> f64 {
 /// initial level = mean of the first full period, initial trend =
 /// (mean of 2nd period - mean of 1st period) / period, initial seasonal
 /// indices = element-wise residual over the first period.
-fn holt_winters(values: &[f64], alpha: f64, beta: f64, gamma: f64, period: usize, multiplicative: bool) -> Option<f64> {
+fn holt_winters(
+    values: &[f64],
+    alpha: f64,
+    beta: f64,
+    gamma: f64,
+    period: usize,
+    multiplicative: bool,
+) -> Option<f64> {
     if period == 0 || values.len() < 2 * period {
         return Some(0.0);
     }
@@ -1594,15 +1922,21 @@ fn holt_winters(values: &[f64], alpha: f64, beta: f64, gamma: f64, period: usize
         }
         b = beta * (s - last_s) + (1.0 - beta) * last_b;
         if multiplicative {
-            seasonal[i] = gamma * (vs[i] / (last_s + last_b)) + (1.0 - gamma) * seasonal[i - period];
+            seasonal[i] =
+                gamma * (vs[i] / (last_s + last_b)) + (1.0 - gamma) * seasonal[i - period];
         } else {
-            seasonal[i] = gamma * (vs[i] - (last_s - last_b)) + (1.0 - gamma) * seasonal[i - period];
+            seasonal[i] =
+                gamma * (vs[i] - (last_s - last_b)) + (1.0 - gamma) * seasonal[i - period];
         }
         last_s = s;
         last_b = b;
     }
     let idx = n - period;
-    let out = if multiplicative { (s + b) * seasonal[idx] } else { s + b + seasonal[idx] };
+    let out = if multiplicative {
+        (s + b) * seasonal[idx]
+    } else {
+        s + b + seasonal[idx]
+    };
     Some(out)
 }
 
@@ -1621,7 +1955,10 @@ pub(crate) fn format_number_pattern(value: f64, pattern: &str) -> String {
     // substring — chars in {0,#,.,,} — and keep the rest as literal.
     let is_fmt = |c: char| matches!(c, '0' | '#' | '.' | ',');
     let start = pattern.find(is_fmt).unwrap_or(pattern.len());
-    let end = pattern.rfind(is_fmt).map(|i| i + 1).unwrap_or(pattern.len());
+    let end = pattern
+        .rfind(is_fmt)
+        .map(|i| i + 1)
+        .unwrap_or(pattern.len());
     let (prefix, rest) = pattern.split_at(start);
     let (active_pat, suffix) = if end >= start {
         (&rest[..(end - start)], &pattern[end..])
@@ -1636,7 +1973,10 @@ pub(crate) fn format_number_pattern(value: f64, pattern: &str) -> String {
         Some(i) => (&active_pat[..i], &active_pat[i + 1..]),
         None => (active_pat, ""),
     };
-    let frac_digits = frac_part_pat.chars().filter(|c| *c == '0' || *c == '#').count();
+    let frac_digits = frac_part_pat
+        .chars()
+        .filter(|c| *c == '0' || *c == '#')
+        .count();
     let fixed_frac_digits = frac_part_pat.chars().filter(|c| *c == '0').count();
     let int_min_digits = int_part_pat.chars().filter(|c| *c == '0').count();
     let use_grouping = int_part_pat.contains(',');
@@ -1692,7 +2032,7 @@ fn resolve_moving_avg(bucket_values: &[f64], window: usize) -> Value {
     }
     // Return a per-bucket moving average (only the last bucket's value for the pipeline result).
     let n = bucket_values.len();
-    let start = if n >= window { n - window } else { 0 };
+    let start = n.saturating_sub(window);
     let slice = &bucket_values[start..];
     let avg = slice.iter().sum::<f64>() / slice.len() as f64;
     make_value_result(avg)
@@ -1708,15 +2048,6 @@ fn resolve_cumulative_sum(bucket_values: &[f64]) -> Value {
 
 // ── Dispatch ──────────────────────────────────────────────────────────────────
 
-fn execute_agg(name: &str, body: &Value, docs: &[Value]) -> Value {
-    execute_agg_with_all(name, body, docs, docs)
-}
-
-fn execute_agg_with_all(name: &str, body: &Value, docs: &[Value], all_docs: &[Value]) -> Value {
-    let mut cache = FieldCache::new(docs);
-    execute_agg_with_all_cached(name, body, docs, all_docs, &mut cache)
-}
-
 fn execute_agg_with_all_cached<'d>(
     name: &str,
     body: &Value,
@@ -1730,9 +2061,7 @@ fn execute_agg_with_all_cached<'d>(
     };
 
     // Sub-aggregations live under the "aggs" (or "aggregations") key.
-    let sub_aggs = obj
-        .get("aggs")
-        .or_else(|| obj.get("aggregations"));
+    let sub_aggs = obj.get("aggs").or_else(|| obj.get("aggregations"));
 
     // Find the aggregation type key (first key that is not "aggs"/"aggregations"/"meta").
     let type_key = obj
@@ -1765,7 +2094,9 @@ fn execute_agg_with_all_cached<'d>(
         "range" => run_range(agg_params, sub_aggs, docs, all_docs),
         "missing" => run_missing(agg_params, docs),
         "histogram" => run_histogram(agg_params, sub_aggs, docs, all_docs),
-        "variable_width_histogram" => run_variable_width_histogram(agg_params, sub_aggs, docs, all_docs),
+        "variable_width_histogram" => {
+            run_variable_width_histogram(agg_params, sub_aggs, docs, all_docs)
+        }
         "percentiles" => run_percentiles(agg_params, docs),
         "composite" => run_composite(agg_params, sub_aggs, docs, all_docs),
         "significant_terms" => run_significant_terms(agg_params, docs, all_docs),
@@ -1816,12 +2147,21 @@ fn execute_agg_with_all_cached<'d>(
         // global — run sub-aggs on ALL docs, regardless of query filter.
         "global" => run_global(sub_aggs, all_docs),
         // Pipeline aggregations — these are computed in a second pass; return placeholder.
-        "avg_bucket" | "max_bucket" | "min_bucket" | "sum_bucket" | "derivative"
-        | "moving_avg" | "cumulative_sum" | "bucket_selector" | "bucket_sort"
-        | "bucket_script" | "percentiles_bucket" | "stats_bucket" | "serial_diff"
-        | "moving_fn" | "extended_stats_bucket" => {
-            run_pipeline_agg(agg_type, agg_params)
-        }
+        "avg_bucket"
+        | "max_bucket"
+        | "min_bucket"
+        | "sum_bucket"
+        | "derivative"
+        | "moving_avg"
+        | "cumulative_sum"
+        | "bucket_selector"
+        | "bucket_sort"
+        | "bucket_script"
+        | "percentiles_bucket"
+        | "stats_bucket"
+        | "serial_diff"
+        | "moving_fn"
+        | "extended_stats_bucket" => run_pipeline_agg(agg_type, agg_params),
         // date_range — like range but with date math
         "date_range" => run_date_range(agg_params, sub_aggs, docs, all_docs),
         // percentile_ranks — given values, return percentile rank of each
@@ -1864,7 +2204,11 @@ pub(crate) fn run_pipeline_agg(agg_type: &str, params: &Value) -> Value {
         Value::String(s) => s.clone(),
         Value::Object(o) => {
             // Take the first value — e.g. {"count": "_count"} → "_count"
-            o.values().next().and_then(|v| v.as_str()).unwrap_or("").to_string()
+            o.values()
+                .next()
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string()
         }
         _ => String::new(),
     };
@@ -1922,7 +2266,7 @@ pub(crate) fn run_pipeline_agg(agg_type: &str, params: &Value) -> Value {
 /// Arrays are flattened — each element becomes a separate bucket key.
 pub(crate) fn extract_field_values(doc: &Value, field: &str) -> Vec<String> {
     let val = get_nested_field(doc, field);
-    let mut out = flatten_to_strings(&val);
+    let mut out = flatten_to_strings(val);
     if out.is_empty() {
         // Array-aware dotted-path fallback: for `users.last` where `users`
         // is an array of objects, fan out through each element and pull
@@ -1940,13 +2284,17 @@ pub(crate) fn extract_field_values(doc: &Value, field: &str) -> Vec<String> {
 /// `users[]` array.
 fn extract_array_path_values(doc: &Value, field: &str) -> Vec<String> {
     fn walk(val: &Value, parts: &[&str]) -> Vec<String> {
-        if parts.is_empty() { return flatten_to_strings(val); }
+        if parts.is_empty() {
+            return flatten_to_strings(val);
+        }
         let head = parts[0];
         let rest = &parts[1..];
         match val {
             Value::Array(arr) => {
                 let mut out = Vec::new();
-                for el in arr { out.extend(walk(el, parts)); }
+                for el in arr {
+                    out.extend(walk(el, parts));
+                }
                 out
             }
             Value::Object(obj) => {
@@ -2021,7 +2369,7 @@ pub(crate) fn get_nested_field<'a>(doc: &'a Value, field: &str) -> &'a Value {
 
 fn flatten_to_strings(val: &Value) -> Vec<String> {
     match val {
-        Value::Array(arr) => arr.iter().flat_map(|v| flatten_to_strings(v)).collect(),
+        Value::Array(arr) => arr.iter().flat_map(flatten_to_strings).collect(),
         Value::Null => vec![],
         Value::String(s) => vec![s.clone()],
         Value::Number(n) => vec![n.to_string()],
@@ -2057,9 +2405,21 @@ pub(crate) fn extract_numeric(doc: &Value, field: &str) -> Option<f64> {
 fn extract_numeric_values(doc: &Value, field: &str) -> Vec<f64> {
     fn walk(v: &Value, out: &mut Vec<f64>) {
         match v {
-            Value::Number(n) => { if let Some(f) = n.as_f64() { out.push(f); } }
-            Value::String(s) => { if let Ok(f) = s.parse::<f64>() { out.push(f); } }
-            Value::Array(arr) => { for e in arr { walk(e, out); } }
+            Value::Number(n) => {
+                if let Some(f) = n.as_f64() {
+                    out.push(f);
+                }
+            }
+            Value::String(s) => {
+                if let Ok(f) = s.parse::<f64>() {
+                    out.push(f);
+                }
+            }
+            Value::Array(arr) => {
+                for e in arr {
+                    walk(e, out);
+                }
+            }
             _ => {}
         }
     }
@@ -2072,20 +2432,21 @@ fn extract_numeric_values(doc: &Value, field: &str) -> Vec<f64> {
 pub(crate) fn extract_date_ms_values(doc: &Value, field: &str) -> Vec<i64> {
     fn walk(v: &Value, out: &mut Vec<i64>) {
         match v {
-            Value::Array(arr) => { for e in arr { walk(e, out); } }
+            Value::Array(arr) => {
+                for e in arr {
+                    walk(e, out);
+                }
+            }
             other => {
-                if let Some(ms) = parse_date_ms(other) { out.push(ms); }
+                if let Some(ms) = parse_date_ms(other) {
+                    out.push(ms);
+                }
             }
         }
     }
     let mut out = Vec::new();
     walk(get_nested_field(doc, field), &mut out);
     out
-}
-
-/// Extract numeric with a `missing` fallback value (ES `"missing"` param).
-fn extract_numeric_or_missing(doc: &Value, field: &str, missing: Option<f64>) -> Option<f64> {
-    extract_numeric(doc, field).or(missing)
 }
 
 /// Extract range-typed values as (from_inclusive, to_exclusive) numeric pairs.
@@ -2096,17 +2457,23 @@ fn extract_numeric_ranges(doc: &Value, field: &str) -> Vec<(f64, f64)> {
     fn walk(v: &Value, out: &mut Vec<(f64, f64)>) {
         match v {
             Value::Array(arr) => {
-                for e in arr { walk(e, out); }
+                for e in arr {
+                    walk(e, out);
+                }
             }
             Value::Object(obj) => {
                 let num = |k: &str| obj.get(k).and_then(Value::as_f64);
-                let from = num("gte").or_else(|| num("gt").map(|g| g + f64::EPSILON))
+                let from = num("gte")
+                    .or_else(|| num("gt").map(|g| g + f64::EPSILON))
                     .unwrap_or(f64::MIN);
-                let to = num("lt").or_else(|| num("lte").map(|l| l + f64::EPSILON))
+                let to = num("lt")
+                    .or_else(|| num("lte").map(|l| l + f64::EPSILON))
                     .unwrap_or(f64::MAX);
                 // Only treat as a range if at least one of the range keys is present.
-                if obj.contains_key("gte") || obj.contains_key("gt")
-                    || obj.contains_key("lte") || obj.contains_key("lt")
+                if obj.contains_key("gte")
+                    || obj.contains_key("gt")
+                    || obj.contains_key("lte")
+                    || obj.contains_key("lt")
                 {
                     out.push((from, to));
                 }
@@ -2124,14 +2491,22 @@ fn extract_date_ranges(doc: &Value, field: &str) -> Vec<(i64, i64)> {
     fn walk(v: &Value, out: &mut Vec<(i64, i64)>) {
         match v {
             Value::Array(arr) => {
-                for e in arr { walk(e, out); }
+                for e in arr {
+                    walk(e, out);
+                }
             }
             Value::Object(obj) => {
                 let ms = |k: &str| obj.get(k).and_then(parse_date_ms);
-                let from = ms("gte").or_else(|| ms("gt").map(|g| g + 1)).unwrap_or(i64::MIN);
-                let to = ms("lt").or_else(|| ms("lte").map(|l| l + 1)).unwrap_or(i64::MAX);
-                if obj.contains_key("gte") || obj.contains_key("gt")
-                    || obj.contains_key("lte") || obj.contains_key("lt")
+                let from = ms("gte")
+                    .or_else(|| ms("gt").map(|g| g + 1))
+                    .unwrap_or(i64::MIN);
+                let to = ms("lt")
+                    .or_else(|| ms("lte").map(|l| l + 1))
+                    .unwrap_or(i64::MAX);
+                if obj.contains_key("gte")
+                    || obj.contains_key("gt")
+                    || obj.contains_key("lte")
+                    || obj.contains_key("lt")
                 {
                     out.push((from, to));
                 }
@@ -2146,7 +2521,12 @@ fn extract_date_ranges(doc: &Value, field: &str) -> Vec<(i64, i64)> {
 
 // ── Terms aggregation ─────────────────────────────────────────────────────────
 
-fn run_terms(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
+fn run_terms(
+    params: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
         None => return json!({"buckets": []}),
@@ -2159,9 +2539,9 @@ fn run_terms(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs:
         .map(|v| v as usize);
     // size=0 → no truncation; absent → default 10.
     let cap: Option<usize> = match size_opt {
-        Some(0) => None,          // unlimited
-        Some(n) => Some(n),       // explicit cap
-        None => Some(10),         // ES default
+        Some(0) => None,    // unlimited
+        Some(n) => Some(n), // explicit cap
+        None => Some(10),   // ES default
     };
 
     // Count occurrences of each term, honoring the `_doc_count` metadata
@@ -2171,14 +2551,12 @@ fn run_terms(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs:
     //
     // The `missing` param supplies a placeholder key for docs that don't
     // have the field — ES treats it as the field value for bucketing.
-    let missing_placeholder: Option<String> = params
-        .get("missing")
-        .and_then(|v| match v {
-            Value::String(s) => Some(s.clone()),
-            Value::Number(n) => Some(n.to_string()),
-            Value::Bool(b) => Some(b.to_string()),
-            _ => None,
-        });
+    let missing_placeholder: Option<String> = params.get("missing").and_then(|v| match v {
+        Value::String(s) => Some(s.clone()),
+        Value::Number(n) => Some(n.to_string()),
+        Value::Bool(b) => Some(b.to_string()),
+        _ => None,
+    });
     let mut counts: HashMap<String, u64> = HashMap::new();
     let bucket_cap = max_buckets();
     for doc in docs {
@@ -2261,9 +2639,7 @@ fn run_terms(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs:
     //
     // When the ordering only references `_count` or `_key`, skip the
     // pre-compute — simple sort, cheaper.
-    let orders_need_sub_agg = orders
-        .iter()
-        .any(|(k, _)| k != "_count" && k != "_key");
+    let orders_need_sub_agg = orders.iter().any(|(k, _)| k != "_count" && k != "_key");
 
     let min_doc_count: u64 = params
         .get("min_doc_count")
@@ -2287,24 +2663,28 @@ fn run_terms(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs:
     // of explicit terms, which we match as literal equality.
     let include_regex = params.get("include").and_then(Value::as_str);
     let exclude_regex = params.get("exclude").and_then(Value::as_str);
-    let include_list: Option<Vec<String>> = params
-        .get("include")
-        .and_then(Value::as_array)
-        .map(|a| a.iter().filter_map(|v| match v {
-            Value::String(s) => Some(s.clone()),
-            Value::Number(n) => Some(n.to_string()),
-            Value::Bool(b) => Some(b.to_string()),
-            _ => None,
-        }).collect());
-    let exclude_list: Option<Vec<String>> = params
-        .get("exclude")
-        .and_then(Value::as_array)
-        .map(|a| a.iter().filter_map(|v| match v {
-            Value::String(s) => Some(s.clone()),
-            Value::Number(n) => Some(n.to_string()),
-            Value::Bool(b) => Some(b.to_string()),
-            _ => None,
-        }).collect());
+    let include_list: Option<Vec<String>> =
+        params.get("include").and_then(Value::as_array).map(|a| {
+            a.iter()
+                .filter_map(|v| match v {
+                    Value::String(s) => Some(s.clone()),
+                    Value::Number(n) => Some(n.to_string()),
+                    Value::Bool(b) => Some(b.to_string()),
+                    _ => None,
+                })
+                .collect()
+        });
+    let exclude_list: Option<Vec<String>> =
+        params.get("exclude").and_then(Value::as_array).map(|a| {
+            a.iter()
+                .filter_map(|v| match v {
+                    Value::String(s) => Some(s.clone()),
+                    Value::Number(n) => Some(n.to_string()),
+                    Value::Bool(b) => Some(b.to_string()),
+                    _ => None,
+                })
+                .collect()
+        });
 
     // Apply min_doc_count filter before sorting — ES default is 1, tests set
     // values as low as 0 (to force empty-term buckets into the output).
@@ -2376,20 +2756,19 @@ fn run_terms(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs:
 
     // Build (key, count, sub_aggs) so we can reuse sub-agg results for
     // both ordering and final bucket output.
-    let pre_computed: Vec<(String, u64, Option<Value>)> = if orders_need_sub_agg
-        || sub_aggs.is_some()
-    {
-        candidates
-            .iter()
-            .map(|(k, c)| {
-                let bucket_docs = compute_bucket_docs(k);
-                let sub_res = sub_aggs.map(|sa| run_aggs_with_all(sa, &bucket_docs, all_docs));
-                (k.clone(), *c, sub_res)
-            })
-            .collect()
-    } else {
-        candidates.drain(..).map(|(k, c)| (k, c, None)).collect()
-    };
+    let pre_computed: Vec<(String, u64, Option<Value>)> =
+        if orders_need_sub_agg || sub_aggs.is_some() {
+            candidates
+                .iter()
+                .map(|(k, c)| {
+                    let bucket_docs = compute_bucket_docs(k);
+                    let sub_res = sub_aggs.map(|sa| run_aggs_with_all(sa, &bucket_docs, all_docs));
+                    (k.clone(), *c, sub_res)
+                })
+                .collect()
+        } else {
+            candidates.drain(..).map(|(k, c)| (k, c, None)).collect()
+        };
 
     // Reorder according to the requested sort keys.
     let mut sorted: Vec<(String, u64, Option<Value>)> = pre_computed;
@@ -2470,7 +2849,9 @@ pub(crate) fn typed_term_key(key: &str) -> (Value, Option<String>) {
     } else if let Ok(n) = key.parse::<i64>() {
         json!(n)
     } else if let Ok(f) = key.parse::<f64>() {
-        serde_json::Number::from_f64(f).map(Value::Number).unwrap_or(json!(key))
+        serde_json::Number::from_f64(f)
+            .map(Value::Number)
+            .unwrap_or(json!(key))
     } else if let Some(epoch_ms) = parse_date_ms(&Value::String(key.to_string())) {
         // ES emits `key_as_string` in full ISO-8601 UTC with millis
         // regardless of the input granularity (e.g. "2016-05-03" →
@@ -2523,7 +2904,9 @@ fn cmp_terms_by_orders(
 /// `<bucket_agg>>.<metric_agg>` (or `>` only), and keyed
 /// percentile/percentile_rank lookups.
 fn lookup_agg_metric(sub: Option<&Value>, path: &str) -> f64 {
-    let Some(root) = sub else { return f64::NEG_INFINITY };
+    let Some(root) = sub else {
+        return f64::NEG_INFINITY;
+    };
     // Normalize ES `>` separator (nested bucket-path syntax) to `.`
     // for uniform walking. `aggA>aggB` → `aggA.aggB`. Strip leading dot.
     let normalized = path.replace('>', ".");
@@ -2542,15 +2925,28 @@ fn lookup_agg_metric(sub: Option<&Value>, path: &str) -> f64 {
     cur.as_f64().unwrap_or(f64::NEG_INFINITY)
 }
 
-fn run_ip_prefix(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
+fn run_ip_prefix(
+    params: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
         None => return json!({"buckets": []}),
     };
-    let prefix_length = params.get("prefix_length").and_then(Value::as_u64).unwrap_or(24) as usize;
-    let is_ipv6 = params.get("is_ipv6").and_then(Value::as_bool).unwrap_or(false);
+    let prefix_length = params
+        .get("prefix_length")
+        .and_then(Value::as_u64)
+        .unwrap_or(24) as usize;
+    let is_ipv6 = params
+        .get("is_ipv6")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     let append_prefix_length = params
-        .get("append_prefix_length").and_then(Value::as_bool).unwrap_or(false);
+        .get("append_prefix_length")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
 
     // Group docs by their prefixed IP key. ES sorts buckets by the binary
     // octet representation of the masked address, not by lexicographic
@@ -2568,8 +2964,11 @@ fn run_ip_prefix(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
         for v in extract_field_values(doc, field) {
             let (binkey, display): (Option<Vec<u8>>, Option<String>) = if is_ipv6 {
                 // Treat every address as 128-bit. v4 maps to ::ffff:V.V.V.V.
-                let addr: Option<std::net::Ipv6Addr> = v.parse().ok()
-                    .or_else(|| v.parse::<std::net::Ipv4Addr>().ok().map(|v4| v4.to_ipv6_mapped()));
+                let addr: Option<std::net::Ipv6Addr> = v.parse().ok().or_else(|| {
+                    v.parse::<std::net::Ipv4Addr>()
+                        .ok()
+                        .map(|v4| v4.to_ipv6_mapped())
+                });
                 match addr {
                     Some(a) => {
                         let masked = mask_ipv6(a, prefix_length);
@@ -2585,14 +2984,20 @@ fn run_ip_prefix(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
                 // When the value is IPv6 but is_ipv6=false, ES takes the
                 // last 4 bytes and treats them as IPv4 (the "incorrect"
                 // classification case) rather than discarding the doc.
-                let ip4: Option<std::net::Ipv4Addr> = v.parse::<std::net::Ipv4Addr>().ok()
-                    .or_else(|| v.parse::<std::net::Ipv6Addr>().ok().map(|v6| {
-                        let oct = v6.octets();
-                        std::net::Ipv4Addr::new(oct[12], oct[13], oct[14], oct[15])
-                    }));
+                let ip4: Option<std::net::Ipv4Addr> =
+                    v.parse::<std::net::Ipv4Addr>().ok().or_else(|| {
+                        v.parse::<std::net::Ipv6Addr>().ok().map(|v6| {
+                            let oct = v6.octets();
+                            std::net::Ipv4Addr::new(oct[12], oct[13], oct[14], oct[15])
+                        })
+                    });
                 match ip4 {
                     Some(ip4) => {
-                        let mask = if prefix_length >= 32 { !0u32 } else { !0u32 << (32 - prefix_length) };
+                        let mask = if prefix_length >= 32 {
+                            !0u32
+                        } else {
+                            !0u32 << (32 - prefix_length)
+                        };
                         let masked = u32::from_be_bytes(ip4.octets()) & mask;
                         let ip = std::net::Ipv4Addr::from(masked);
                         let octets = ip.octets();
@@ -2605,8 +3010,14 @@ fn run_ip_prefix(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
                 }
             };
             if let (Some(bk), Some(k)) = (binkey, display) {
-                let disp = if append_prefix_length { format!("{}/{}", k, prefix_length) } else { k };
-                let entry = prefix_docs.entry(bk).or_insert_with(|| (disp.clone(), Vec::new()));
+                let disp = if append_prefix_length {
+                    format!("{}/{}", k, prefix_length)
+                } else {
+                    k
+                };
+                let entry = prefix_docs
+                    .entry(bk)
+                    .or_insert_with(|| (disp.clone(), Vec::new()));
                 entry.1.push(i);
             }
         }
@@ -2617,26 +3028,31 @@ fn run_ip_prefix(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
     entries.sort_by(|a, b| a.0.cmp(&b.0));
     let entries: Vec<(String, Vec<usize>)> = entries.into_iter().map(|(_, v)| v).collect();
 
-    let buckets: Vec<Value> = entries.iter().map(|(key, indices)| {
-        let bucket_docs: Vec<Value> = indices.iter().map(|&i| docs[i].clone()).collect();
-        let mut bucket = json!({
-            "key": key,
-            "doc_count": indices.len(),
-            "is_ipv6": is_ipv6,
-            "prefix_length": prefix_length,
-        });
-        // netmask is only emitted for IPv4.
-        if !is_ipv6 {
-            bucket["netmask"] = json!(format_netmask_v4(prefix_length));
-        }
-        if let Some(sub) = sub_aggs {
-            let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
-            if let (Some(bo), Value::Object(so)) = (bucket.as_object_mut(), sub_result) {
-                for (k, v) in so { bo.insert(k, v); }
+    let buckets: Vec<Value> = entries
+        .iter()
+        .map(|(key, indices)| {
+            let bucket_docs: Vec<Value> = indices.iter().map(|&i| docs[i].clone()).collect();
+            let mut bucket = json!({
+                "key": key,
+                "doc_count": indices.len(),
+                "is_ipv6": is_ipv6,
+                "prefix_length": prefix_length,
+            });
+            // netmask is only emitted for IPv4.
+            if !is_ipv6 {
+                bucket["netmask"] = json!(format_netmask_v4(prefix_length));
             }
-        }
-        bucket
-    }).collect();
+            if let Some(sub) = sub_aggs {
+                let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
+                if let (Some(bo), Value::Object(so)) = (bucket.as_object_mut(), sub_result) {
+                    for (k, v) in so {
+                        bo.insert(k, v);
+                    }
+                }
+            }
+            bucket
+        })
+        .collect();
 
     json!({"buckets": buckets})
 }
@@ -2655,57 +3071,95 @@ fn mask_ipv6(addr: std::net::Ipv6Addr, prefix_length: usize) -> std::net::Ipv6Ad
 }
 
 fn format_netmask_v4(prefix_length: usize) -> String {
-    let mask = if prefix_length >= 32 { !0u32 } else { !0u32 << (32 - prefix_length) };
+    let mask = if prefix_length >= 32 {
+        !0u32
+    } else {
+        !0u32 << (32 - prefix_length)
+    };
     let ip = std::net::Ipv4Addr::from(mask);
     ip.to_string()
 }
 
-fn run_rare_terms(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
+fn run_rare_terms(
+    params: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
         None => return json!({"buckets": []}),
     };
-    let max_doc_count = params.get("max_doc_count").and_then(Value::as_u64).unwrap_or(1) as usize;
+    let max_doc_count = params
+        .get("max_doc_count")
+        .and_then(Value::as_u64)
+        .unwrap_or(1) as usize;
 
     // include / exclude — ES accepts array of literals (applies to any
     // field type) or regex string (keyword fields only).
-    let include_list: Option<Vec<String>> = params.get("include").and_then(Value::as_array)
-        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)
-            .or_else(|| v.as_f64().map(|f| f.to_string()))).collect());
-    let exclude_list: Option<Vec<String>> = params.get("exclude").and_then(Value::as_array)
-        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)
-            .or_else(|| v.as_f64().map(|f| f.to_string()))).collect());
+    let include_list: Option<Vec<String>> =
+        params.get("include").and_then(Value::as_array).map(|a| {
+            a.iter()
+                .filter_map(|v| {
+                    v.as_str()
+                        .map(String::from)
+                        .or_else(|| v.as_f64().map(|f| f.to_string()))
+                })
+                .collect()
+        });
+    let exclude_list: Option<Vec<String>> =
+        params.get("exclude").and_then(Value::as_array).map(|a| {
+            a.iter()
+                .filter_map(|v| {
+                    v.as_str()
+                        .map(String::from)
+                        .or_else(|| v.as_f64().map(|f| f.to_string()))
+                })
+                .collect()
+        });
 
     let mut term_docs: HashMap<String, Vec<usize>> = HashMap::new();
     for (i, doc) in docs.iter().enumerate() {
         for v in extract_field_values(doc, field) {
-            if v.is_empty() { continue; }
+            if v.is_empty() {
+                continue;
+            }
             if let Some(ref inc) = include_list {
-                if !inc.contains(&v) { continue; }
+                if !inc.contains(&v) {
+                    continue;
+                }
             }
             if let Some(ref exc) = exclude_list {
-                if exc.contains(&v) { continue; }
+                if exc.contains(&v) {
+                    continue;
+                }
             }
             term_docs.entry(v).or_default().push(i);
         }
     }
 
-    let mut entries: Vec<_> = term_docs.into_iter()
+    let mut entries: Vec<_> = term_docs
+        .into_iter()
         .filter(|(_, indices)| indices.len() <= max_doc_count)
         .collect();
     entries.sort_by(|a, b| a.1.len().cmp(&b.1.len()).then(a.0.cmp(&b.0)));
 
-    let buckets: Vec<Value> = entries.iter().map(|(key, indices)| {
-        let bucket_docs: Vec<Value> = indices.iter().map(|&i| docs[i].clone()).collect();
-        let mut bucket = build_terms_bucket(key, indices.len() as u64);
-        if let Some(sub) = sub_aggs {
-            let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
-            if let (Some(bo), Value::Object(so)) = (bucket.as_object_mut(), sub_result) {
-                for (k, v) in so { bo.insert(k, v); }
+    let buckets: Vec<Value> = entries
+        .iter()
+        .map(|(key, indices)| {
+            let bucket_docs: Vec<Value> = indices.iter().map(|&i| docs[i].clone()).collect();
+            let mut bucket = build_terms_bucket(key, indices.len() as u64);
+            if let Some(sub) = sub_aggs {
+                let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
+                if let (Some(bo), Value::Object(so)) = (bucket.as_object_mut(), sub_result) {
+                    for (k, v) in so {
+                        bo.insert(k, v);
+                    }
+                }
             }
-        }
-        bucket
-    }).collect();
+            bucket
+        })
+        .collect();
 
     json!({"buckets": buckets})
 }
@@ -2722,7 +3176,11 @@ fn run_matrix_stats(params: &Value, docs: &[Value]) -> Value {
     let fields: Vec<String> = params
         .get("fields")
         .and_then(Value::as_array)
-        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_default();
     if fields.is_empty() {
         return json!({"doc_count": 0, "fields": []});
@@ -2744,10 +3202,18 @@ fn run_matrix_stats(params: &Value, docs: &[Value]) -> Value {
     let f32_fields: HashSet<String> = params
         .get("__xy_f32_fields__")
         .and_then(Value::as_array)
-        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_default();
     let cast_if_f32 = |field: &str, v: f64| -> f64 {
-        if f32_fields.contains(field) { v as f32 as f64 } else { v }
+        if f32_fields.contains(field) {
+            v as f32 as f64
+        } else {
+            v
+        }
     };
 
     // Per-doc value vector (f64 per field) — doc is included only when
@@ -2774,7 +3240,11 @@ fn run_matrix_stats(params: &Value, docs: &[Value]) -> Value {
                     "median" => {
                         let mut s = nums.clone();
                         s.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-                        if s.is_empty() { None } else { Some(s[s.len() / 2]) }
+                        if s.is_empty() {
+                            None
+                        } else {
+                            Some(s[s.len() / 2])
+                        }
                     }
                     _ => Some(nums.iter().sum::<f64>() / nums.len() as f64), // "avg" default
                 }
@@ -2854,6 +3324,9 @@ fn run_matrix_stats(params: &Value, docs: &[Value]) -> Value {
         }
     }
     let denom = if n > 1 { (n - 1) as f64 } else { 1.0 };
+    // cov[i][j] is 2-D matrix indexing; a plain range loop is the clearest
+    // form and an iterator refactor would obscure the normalization math.
+    #[allow(clippy::needless_range_loop)]
     for i in 0..k {
         for j in 0..k {
             cov[i][j] /= denom;
@@ -2861,7 +3334,11 @@ fn run_matrix_stats(params: &Value, docs: &[Value]) -> Value {
     }
     let corr = |i: usize, j: usize| -> f64 {
         let d = std_dev[i] * std_dev[j];
-        if d > 0.0 { cov[i][j] / d } else { 0.0 }
+        if d > 0.0 {
+            cov[i][j] / d
+        } else {
+            0.0
+        }
     };
 
     // Build per-field output. ES orders fields by the input order.
@@ -2922,8 +3399,12 @@ fn run_string_stats(params: &Value, docs: &[Value]) -> Value {
         for v in extract_field_values(doc, field) {
             count += 1;
             let l = v.chars().count();
-            if l < min_len { min_len = l; }
-            if l > max_len { max_len = l; }
+            if l < min_len {
+                min_len = l;
+            }
+            if l > max_len {
+                max_len = l;
+            }
             total_len += l;
             for c in v.chars() {
                 *char_counts.entry(c).or_insert(0) += 1;
@@ -2975,7 +3456,9 @@ fn run_string_stats(params: &Value, docs: &[Value]) -> Value {
 fn run_boxplot(params: &Value, docs: &[Value]) -> Value {
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
-        None => return json!({"min": Value::Null, "max": Value::Null, "q1": Value::Null, "q2": Value::Null, "q3": Value::Null}),
+        None => {
+            return json!({"min": Value::Null, "max": Value::Null, "q1": Value::Null, "q2": Value::Null, "q3": Value::Null})
+        }
     };
     let mut values: Vec<f64> = Vec::new();
     for doc in docs {
@@ -2996,12 +3479,18 @@ fn run_boxplot(params: &Value, docs: &[Value]) -> Value {
     }
     values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     let percentile = |p: f64, vals: &[f64]| -> f64 {
-        if vals.is_empty() { return 0.0; }
-        if vals.len() == 1 { return vals[0]; }
+        if vals.is_empty() {
+            return 0.0;
+        }
+        if vals.len() == 1 {
+            return vals[0];
+        }
         let rank = p / 100.0 * (vals.len() - 1) as f64;
         let lo = rank.floor() as usize;
         let hi = rank.ceil() as usize;
-        if lo == hi { return vals[lo]; }
+        if lo == hi {
+            return vals[lo];
+        }
         vals[lo] + (rank - lo as f64) * (vals[hi] - vals[lo])
     };
     let q1 = percentile(25.0, &values);
@@ -3032,7 +3521,10 @@ fn run_top_metrics(params: &Value, docs: &[Value]) -> Value {
                     .filter_map(|m| m.get("field").and_then(Value::as_str).map(String::from))
                     .collect::<Vec<_>>(),
             ),
-            Value::Object(o) => o.get("field").and_then(Value::as_str).map(|s| vec![s.to_string()]),
+            Value::Object(o) => o
+                .get("field")
+                .and_then(Value::as_str)
+                .map(|s| vec![s.to_string()]),
             _ => None,
         })
         .unwrap_or_default();
@@ -3047,7 +3539,11 @@ fn run_top_metrics(params: &Value, docs: &[Value]) -> Value {
             if let Some((k, v)) = o.iter().next() {
                 let desc = match v {
                     Value::String(s) => s == "desc",
-                    Value::Object(ob) => ob.get("order").and_then(Value::as_str).map(|s| s == "desc").unwrap_or(true),
+                    Value::Object(ob) => ob
+                        .get("order")
+                        .and_then(Value::as_str)
+                        .map(|s| s == "desc")
+                        .unwrap_or(true),
                     _ => true,
                 };
                 (k.clone(), desc)
@@ -3060,7 +3556,11 @@ fn run_top_metrics(params: &Value, docs: &[Value]) -> Value {
                 if let Some((k, v)) = o.iter().next() {
                     let desc = match v {
                         Value::String(s) => s == "desc",
-                        Value::Object(ob) => ob.get("order").and_then(Value::as_str).map(|s| s == "desc").unwrap_or(true),
+                        Value::Object(ob) => ob
+                            .get("order")
+                            .and_then(Value::as_str)
+                            .map(|s| s == "desc")
+                            .unwrap_or(true),
                         _ => true,
                     };
                     (k.clone(), desc)
@@ -3077,12 +3577,19 @@ fn run_top_metrics(params: &Value, docs: &[Value]) -> Value {
     let mut ranked: Vec<(f64, &Value)> = docs
         .iter()
         .filter_map(|d| {
-            extract_numeric_values(d, &sort_field).first().copied().map(|v| (v, d))
+            extract_numeric_values(d, &sort_field)
+                .first()
+                .copied()
+                .map(|v| (v, d))
         })
         .collect();
     ranked.sort_by(|a, b| {
         let cmp = a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal);
-        if sort_desc { cmp.reverse() } else { cmp }
+        if sort_desc {
+            cmp.reverse()
+        } else {
+            cmp
+        }
     });
 
     let out: Vec<Value> = ranked
@@ -3153,15 +3660,12 @@ pub fn render_date_format(
         Some("strict_date_optional_time")
         | Some("strict_date_optional_time_nanos")
         | Some("iso8601")
-        | Some("date_optional_time") => {
-            dt.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string()
-        }
+        | Some("date_optional_time") => dt.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string(),
         Some("basic_date") => dt.format("%Y%m%d").to_string(),
         Some("basic_date_time") => dt.format("%Y%m%dT%H%M%S%.3fZ").to_string(),
         Some("basic_time") => dt.format("%H%M%S%.3fZ").to_string(),
         Some("date") | Some("strict_date") => dt.format("%Y-%m-%d").to_string(),
-        Some("date_hour_minute_second")
-        | Some("strict_date_hour_minute_second") => {
+        Some("date_hour_minute_second") | Some("strict_date_hour_minute_second") => {
             dt.format("%Y-%m-%dT%H:%M:%S").to_string()
         }
         Some("date_time") | Some("strict_date_time") => {
@@ -3197,28 +3701,45 @@ pub(crate) fn java_to_strftime(pattern: &str) -> String {
                 out.push(bytes[i] as char);
                 i += 1;
             }
-            if i < bytes.len() { i += 1; } // skip closing quote
+            if i < bytes.len() {
+                i += 1;
+            } // skip closing quote
             continue;
         }
         // Match longest-first. Java uses `uuuu` for proleptic year and
         // `yyyy` for year-of-era; both render as 4-digit year in modern
         // ES so map both to `%Y`. `ZZZZZ` is offset with colon; `XXX`
         // similarly emits `+HH:MM`.
-        let matched: Option<(usize, &str)> = if bytes[i..].starts_with(b"uuuu") { Some((4, "%Y")) }
-            else if bytes[i..].starts_with(b"yyyy") { Some((4, "%Y")) }
-            else if bytes[i..].starts_with(b"yy") { Some((2, "%y")) }
-            else if bytes[i..].starts_with(b"MM") { Some((2, "%m")) }
-            else if bytes[i..].starts_with(b"dd") { Some((2, "%d")) }
-            else if bytes[i..].starts_with(b"HH") { Some((2, "%H")) }
-            else if bytes[i..].starts_with(b"mm") { Some((2, "%M")) }
-            else if bytes[i..].starts_with(b"ss") { Some((2, "%S")) }
-            else if bytes[i..].starts_with(b"SSSSSSSSS") { Some((9, "%9f")) }
-            else if bytes[i..].starts_with(b"SSSSSS") { Some((6, "%6f")) }
-            else if bytes[i..].starts_with(b"SSS") { Some((3, "%3f")) }
-            else if bytes[i..].starts_with(b"ZZZZZ") { Some((5, "%:z")) }
-            else if bytes[i..].starts_with(b"XXX") { Some((3, "%:z")) }
-            else if bytes[i..].starts_with(b"Z") { Some((1, "%z")) }
-            else { None };
+        let matched: Option<(usize, &str)> =
+            if bytes[i..].starts_with(b"uuuu") || bytes[i..].starts_with(b"yyyy") {
+                Some((4, "%Y"))
+            } else if bytes[i..].starts_with(b"yy") {
+                Some((2, "%y"))
+            } else if bytes[i..].starts_with(b"MM") {
+                Some((2, "%m"))
+            } else if bytes[i..].starts_with(b"dd") {
+                Some((2, "%d"))
+            } else if bytes[i..].starts_with(b"HH") {
+                Some((2, "%H"))
+            } else if bytes[i..].starts_with(b"mm") {
+                Some((2, "%M"))
+            } else if bytes[i..].starts_with(b"ss") {
+                Some((2, "%S"))
+            } else if bytes[i..].starts_with(b"SSSSSSSSS") {
+                Some((9, "%9f"))
+            } else if bytes[i..].starts_with(b"SSSSSS") {
+                Some((6, "%6f"))
+            } else if bytes[i..].starts_with(b"SSS") {
+                Some((3, "%3f"))
+            } else if bytes[i..].starts_with(b"ZZZZZ") {
+                Some((5, "%:z"))
+            } else if bytes[i..].starts_with(b"XXX") {
+                Some((3, "%:z"))
+            } else if bytes[i..].starts_with(b"Z") {
+                Some((1, "%z"))
+            } else {
+                None
+            };
         match matched {
             Some((n, s)) => {
                 out.push_str(s);
@@ -3288,14 +3809,10 @@ pub(crate) fn parse_date_ms(val: &Value) -> Option<i64> {
                 return Some(dt.timestamp_millis());
             }
             // Try ISO-8601 without timezone (treat as UTC).
-            if let Ok(dt) =
-                chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f")
-            {
+            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f") {
                 return Some(dt.and_utc().timestamp_millis());
             }
-            if let Ok(dt) =
-                chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S")
-            {
+            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S") {
                 return Some(dt.and_utc().timestamp_millis());
             }
             if let Ok(dt) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
@@ -3306,21 +3823,15 @@ pub(crate) fn parse_date_ms(val: &Value) -> Option<i64> {
             if let Ok(dt) = chrono::NaiveDate::parse_from_str(s, "%Y/%m/%d") {
                 return Some(dt.and_hms_opt(0, 0, 0)?.and_utc().timestamp_millis());
             }
-            if let Ok(dt) =
-                chrono::NaiveDateTime::parse_from_str(s, "%Y/%m/%d %H:%M:%S")
-            {
+            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, "%Y/%m/%d %H:%M:%S") {
                 return Some(dt.and_utc().timestamp_millis());
             }
             // Space-separated form `YYYY-MM-DD HH:MM:SS[.fff]` (ES Java
             // pattern `yyyy-MM-dd HH:mm:ss.SSS`).
-            if let Ok(dt) =
-                chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f")
-            {
+            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f") {
                 return Some(dt.and_utc().timestamp_millis());
             }
-            if let Ok(dt) =
-                chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S")
-            {
+            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S") {
                 return Some(dt.and_utc().timestamp_millis());
             }
             // Fallback: try parsing as a raw integer string.
@@ -3370,7 +3881,9 @@ fn build_terms_bucket(key: &str, count: u64) -> Value {
     } else if let Ok(n) = key.parse::<i64>() {
         json!(n)
     } else if let Ok(f) = key.parse::<f64>() {
-        serde_json::Number::from_f64(f).map(Value::Number).unwrap_or(json!(key))
+        serde_json::Number::from_f64(f)
+            .map(Value::Number)
+            .unwrap_or(json!(key))
     } else if let Some(epoch_ms) = parse_date_ms(&Value::String(key.to_string())) {
         // ES emits the canonical ISO-8601 UTC form (with millisecond precision),
         // regardless of the input form (`2016-05-03` expands to full timestamp).
@@ -3432,13 +3945,20 @@ pub(crate) fn is_calendar_interval(interval: &str) -> bool {
     // 23h / 25h days that still bucket correctly.
     matches!(
         interval.trim(),
-        "minute" | "1m"
-            | "hour" | "1h"
-            | "day" | "1d"
-            | "week" | "1w"
-            | "month" | "1M"
-            | "quarter" | "1q"
-            | "year" | "1y"
+        "minute"
+            | "1m"
+            | "hour"
+            | "1h"
+            | "day"
+            | "1d"
+            | "week"
+            | "1w"
+            | "month"
+            | "1M"
+            | "quarter"
+            | "1q"
+            | "year"
+            | "1y"
     )
 }
 
@@ -3457,16 +3977,28 @@ pub(crate) fn calendar_bucket_key(ts_ms: i64, interval: &str) -> i64 {
         }
         "month" | "1M" => {
             let start = chrono::NaiveDate::from_ymd_opt(naive.year(), naive.month(), 1).unwrap();
-            start.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp_millis()
+            start
+                .and_hms_opt(0, 0, 0)
+                .unwrap()
+                .and_utc()
+                .timestamp_millis()
         }
         "quarter" | "1q" => {
             let q_month = ((naive.month() - 1) / 3) * 3 + 1;
             let start = chrono::NaiveDate::from_ymd_opt(naive.year(), q_month, 1).unwrap();
-            start.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp_millis()
+            start
+                .and_hms_opt(0, 0, 0)
+                .unwrap()
+                .and_utc()
+                .timestamp_millis()
         }
         "year" | "1y" => {
             let start = chrono::NaiveDate::from_ymd_opt(naive.year(), 1, 1).unwrap();
-            start.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp_millis()
+            start
+                .and_hms_opt(0, 0, 0)
+                .unwrap()
+                .and_utc()
+                .timestamp_millis()
         }
         _ => ts_ms,
     }
@@ -3481,19 +4013,39 @@ pub(crate) fn next_calendar_bucket(bucket_ms: i64, interval: &str) -> i64 {
         "day" | "1d" => bucket_ms + 86_400_000,
         "week" | "1w" => bucket_ms + 7 * 86_400_000,
         "month" | "1M" => {
-            let (y, m) = if naive.month() == 12 { (naive.year() + 1, 1) } else { (naive.year(), naive.month() + 1) };
+            let (y, m) = if naive.month() == 12 {
+                (naive.year() + 1, 1)
+            } else {
+                (naive.year(), naive.month() + 1)
+            };
             let start = chrono::NaiveDate::from_ymd_opt(y, m, 1).unwrap();
-            start.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp_millis()
+            start
+                .and_hms_opt(0, 0, 0)
+                .unwrap()
+                .and_utc()
+                .timestamp_millis()
         }
         "quarter" | "1q" => {
             let q_month = ((naive.month() - 1) / 3) * 3 + 1;
-            let (y, m) = if q_month + 3 > 12 { (naive.year() + 1, q_month + 3 - 12) } else { (naive.year(), q_month + 3) };
+            let (y, m) = if q_month + 3 > 12 {
+                (naive.year() + 1, q_month + 3 - 12)
+            } else {
+                (naive.year(), q_month + 3)
+            };
             let start = chrono::NaiveDate::from_ymd_opt(y, m, 1).unwrap();
-            start.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp_millis()
+            start
+                .and_hms_opt(0, 0, 0)
+                .unwrap()
+                .and_utc()
+                .timestamp_millis()
         }
         "year" | "1y" => {
             let start = chrono::NaiveDate::from_ymd_opt(naive.year() + 1, 1, 1).unwrap();
-            start.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp_millis()
+            start
+                .and_hms_opt(0, 0, 0)
+                .unwrap()
+                .and_utc()
+                .timestamp_millis()
         }
         _ => bucket_ms,
     }
@@ -3518,9 +4070,15 @@ pub(crate) fn parse_time_zone_offset(tz: &str) -> Option<chrono::FixedOffset> {
         let sign: i32 = if bytes[0] == b'+' { 1 } else { -1 };
         let rest = &t[1..];
         let (h, m) = if let Some(idx) = rest.find(':') {
-            (rest[..idx].parse::<i32>().ok()?, rest[idx + 1..].parse::<i32>().ok()?)
+            (
+                rest[..idx].parse::<i32>().ok()?,
+                rest[idx + 1..].parse::<i32>().ok()?,
+            )
         } else if rest.len() == 4 {
-            (rest[..2].parse::<i32>().ok()?, rest[2..].parse::<i32>().ok()?)
+            (
+                rest[..2].parse::<i32>().ok()?,
+                rest[2..].parse::<i32>().ok()?,
+            )
         } else if rest.len() == 2 {
             (rest.parse::<i32>().ok()?, 0)
         } else {
@@ -3539,7 +4097,7 @@ pub(crate) fn fixed_offset_for_tz_at(tz: &str, ts_ms: i64) -> Option<chrono::Fix
     if let Some(off) = parse_time_zone_offset(tz) {
         return Some(off);
     }
-    use chrono::{TimeZone, Offset};
+    use chrono::{Offset, TimeZone};
     let zone: chrono_tz::Tz = tz.parse().ok()?;
     let dt = chrono::DateTime::from_timestamp_millis(ts_ms)?;
     let local = zone.from_utc_datetime(&dt.naive_utc());
@@ -3550,7 +4108,9 @@ pub(crate) fn fixed_offset_for_tz_at(tz: &str, ts_ms: i64) -> Option<chrono::Fix
 /// Accepts forms like "+1d", "-1h", "+30m", "+90ms".
 pub(crate) fn parse_offset_ms(s: &str) -> Option<i64> {
     let t = s.trim();
-    if t.is_empty() { return None; }
+    if t.is_empty() {
+        return None;
+    }
     let (sign, rest) = match t.as_bytes()[0] {
         b'+' => (1i64, &t[1..]),
         b'-' => (-1i64, &t[1..]),
@@ -3559,7 +4119,12 @@ pub(crate) fn parse_offset_ms(s: &str) -> Option<i64> {
     interval_to_ms(rest).map(|v| sign * v)
 }
 
-fn run_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
+fn run_date_histogram(
+    params: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
         None => return json!({"buckets": []}),
@@ -3581,7 +4146,10 @@ fn run_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], 
 
     let use_calendar = is_calendar_interval(interval_str);
 
-    let tz_str = params.get("time_zone").and_then(Value::as_str).unwrap_or("");
+    let tz_str = params
+        .get("time_zone")
+        .and_then(Value::as_str)
+        .unwrap_or("");
     // Only set tz_offset when an explicit time_zone was supplied. ES uses
     // `...Z` ISO-8601 formatting when no time_zone is set, and `...+HH:MM`
     // when one is. IANA zones (Europe/Berlin etc.) are resolved to the
@@ -3593,7 +4161,8 @@ fn run_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], 
         Some(off)
     } else {
         // Need a sample instant to pick the right DST offset.
-        let sample_ms = docs.iter()
+        let sample_ms = docs
+            .iter()
             .filter_map(|d| extract_date_ms_values(d, field).into_iter().next())
             .next()
             .unwrap_or(0);
@@ -3607,21 +4176,29 @@ fn run_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], 
 
     // hard_bounds: { min: ISO, max: ISO }. Buckets outside are dropped.
     let (hard_min, hard_max) = if let Some(hb) = params.get("hard_bounds") {
-        (hb.get("min").and_then(parse_date_ms), hb.get("max").and_then(parse_date_ms))
-    } else { (None, None) };
+        (
+            hb.get("min").and_then(parse_date_ms),
+            hb.get("max").and_then(parse_date_ms),
+        )
+    } else {
+        (None, None)
+    };
 
     // extended_bounds: { min, max } forces bucket range to include these.
     let (ext_min, ext_max) = if let Some(eb) = params.get("extended_bounds") {
-        (eb.get("min").and_then(parse_date_ms), eb.get("max").and_then(parse_date_ms))
-    } else { (None, None) };
+        (
+            eb.get("min").and_then(parse_date_ms),
+            eb.get("max").and_then(parse_date_ms),
+        )
+    } else {
+        (None, None)
+    };
 
     let mut buckets: HashMap<i64, Vec<usize>> = HashMap::new();
 
     // `missing` on date_histogram: the value can be an ISO-8601 string or
     // an epoch-ms number. Missing-field docs fall into this bucket.
-    let missing_ms: Option<i64> = params
-        .get("missing")
-        .and_then(|v| parse_date_ms(v));
+    let missing_ms: Option<i64> = params.get("missing").and_then(parse_date_ms);
 
     // Bucket-key derivation with time_zone:
     //   local_ts = utc_ts + tz_offset_seconds*1000
@@ -3632,15 +4209,16 @@ fn run_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], 
     // timestamp so buckets straddling a DST transition get the correct
     // midnight. For fixed-offset zones this reduces to the single value.
     let tz_str_bucket = tz_str.to_string();
-    let tz_is_iana = !tz_str_bucket.is_empty()
-        && parse_time_zone_offset(&tz_str_bucket).is_none();
+    let tz_is_iana = !tz_str_bucket.is_empty() && parse_time_zone_offset(&tz_str_bucket).is_none();
     let shift_at = |ts: i64| -> i64 {
         if tz_is_iana {
             if let Some(off) = fixed_offset_for_tz_at(&tz_str_bucket, ts) {
                 return off.local_minus_utc() as i64 * 1000;
             }
         }
-        tz_offset.map(|o| o.local_minus_utc() as i64 * 1000).unwrap_or(0)
+        tz_offset
+            .map(|o| o.local_minus_utc() as i64 * 1000)
+            .unwrap_or(0)
     };
     let to_local = |ts: i64| ts + shift_at(ts) - offset_ms;
     // Map a local-time bucket-start back to UTC. The local time 00:00 of
@@ -3667,7 +4245,9 @@ fn run_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], 
         // scalar extraction found nothing.
         let ranges = if raws.is_empty() {
             extract_date_ranges(doc, field)
-        } else { Vec::new() };
+        } else {
+            Vec::new()
+        };
         if raws.is_empty() && ranges.is_empty() {
             if let Some(m) = missing_ms {
                 raws.push(m);
@@ -3683,8 +4263,16 @@ fn run_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], 
             };
             let bucket_key = to_utc(local_bucket);
             // Apply hard_bounds (inclusive on both ends — ES semantics).
-            if let Some(m) = hard_min { if bucket_key < m { continue; } }
-            if let Some(m) = hard_max { if bucket_key > m { continue; } }
+            if let Some(m) = hard_min {
+                if bucket_key < m {
+                    continue;
+                }
+            }
+            if let Some(m) = hard_max {
+                if bucket_key > m {
+                    continue;
+                }
+            }
             if !seen.contains(&bucket_key) {
                 seen.push(bucket_key);
                 buckets.entry(bucket_key).or_default().push(i);
@@ -3696,7 +4284,9 @@ fn run_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], 
             // the bucket at that key spans beyond max by one interval, so
             // we still emit it when the range intersects it.
             let end_anchor = to_ms; // compare bucket_key against to_ms via interval overlap
-            if !(end_anchor > start_anchor) { continue; }
+            if end_anchor <= start_anchor {
+                continue;
+            }
             let local_start = to_local(start_anchor);
             let mut local_bucket = if use_calendar {
                 calendar_bucket_key(local_start, interval_str)
@@ -3706,13 +4296,21 @@ fn run_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], 
             let mut guard = 0usize;
             loop {
                 guard += 1;
-                if guard > 65_536 { break; }
+                if guard > 65_536 {
+                    break;
+                }
                 let bucket_key = to_utc(local_bucket);
                 // Stop once the bucket's start is at/after the range's upper bound
                 // — no more intersection possible.
-                if bucket_key >= end_anchor { break; }
+                if bucket_key >= end_anchor {
+                    break;
+                }
                 // Stop once we've walked past the hard_max bucket.
-                if let Some(m) = hard_max { if bucket_key > m { break; } }
+                if let Some(m) = hard_max {
+                    if bucket_key > m {
+                        break;
+                    }
+                }
                 let next_local = if use_calendar {
                     next_calendar_bucket(local_bucket, interval_str)
                 } else {
@@ -3720,20 +4318,33 @@ fn run_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], 
                 };
                 let next_key = to_utc(next_local);
                 if next_key > start_anchor {
-                    if let Some(m) = hard_min { if bucket_key < m { local_bucket = next_local; continue; } }
+                    if let Some(m) = hard_min {
+                        if bucket_key < m {
+                            local_bucket = next_local;
+                            continue;
+                        }
+                    }
                     if !seen.contains(&bucket_key) {
                         seen.push(bucket_key);
                         buckets.entry(bucket_key).or_default().push(i);
                     }
                 }
-                if next_key <= bucket_key { break; } // safety against infinite loop
+                if next_key <= bucket_key {
+                    break;
+                } // safety against infinite loop
                 local_bucket = next_local;
             }
         }
     }
 
-    let min_doc_count = params.get("min_doc_count").and_then(|v| v.as_u64()).unwrap_or(0);
-    let keyed = params.get("keyed").and_then(Value::as_bool).unwrap_or(false);
+    let min_doc_count = params
+        .get("min_doc_count")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let keyed = params
+        .get("keyed")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
 
     const MAX_BUCKETS: i64 = 65_536;
 
@@ -3767,14 +4378,22 @@ fn run_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], 
     };
     if let Some(m) = ext_min {
         let local_m = ext_bound_to_local(m);
-        let b = if use_calendar { calendar_bucket_key(local_m, interval_str) } else { local_m.div_euclid(interval_ms) * interval_ms };
+        let b = if use_calendar {
+            calendar_bucket_key(local_m, interval_str)
+        } else {
+            local_m.div_euclid(interval_ms) * interval_ms
+        };
         let key = ext_bound_to_utc(b);
         range_min = Some(range_min.map_or(key, |k| k.min(key)));
         range_max = Some(range_max.map_or(key, |k| k.max(key)));
     }
     if let Some(m) = ext_max {
         let local_m = ext_bound_to_local(m);
-        let b = if use_calendar { calendar_bucket_key(local_m, interval_str) } else { local_m.div_euclid(interval_ms) * interval_ms };
+        let b = if use_calendar {
+            calendar_bucket_key(local_m, interval_str)
+        } else {
+            local_m.div_euclid(interval_ms) * interval_ms
+        };
         let key = ext_bound_to_utc(b);
         range_min = Some(range_min.map_or(key, |k| k.min(key)));
         range_max = Some(range_max.map_or(key, |k| k.max(key)));
@@ -3783,7 +4402,11 @@ fn run_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], 
     // hard_bounds further clamps the fill range (honored alongside data filter)
     if let Some(m) = hard_min {
         let local_m = to_local(m);
-        let b = if use_calendar { calendar_bucket_key(local_m, interval_str) } else { local_m.div_euclid(interval_ms) * interval_ms };
+        let b = if use_calendar {
+            calendar_bucket_key(local_m, interval_str)
+        } else {
+            local_m.div_euclid(interval_ms) * interval_ms
+        };
         let key = to_utc(b);
         range_min = Some(range_min.map_or(key, |k| k.max(key)));
     }
@@ -3791,7 +4414,11 @@ fn run_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], 
         // hard_bounds is inclusive on both ends: the bucket whose start
         // key equals `max` is still emitted.
         let local_m = to_local(m);
-        let b = if use_calendar { calendar_bucket_key(local_m, interval_str) } else { local_m.div_euclid(interval_ms) * interval_ms };
+        let b = if use_calendar {
+            calendar_bucket_key(local_m, interval_str)
+        } else {
+            local_m.div_euclid(interval_ms) * interval_ms
+        };
         let key = to_utc(b);
         range_max = Some(range_max.map_or(key, |k| k.min(key)));
     }
@@ -3838,7 +4465,7 @@ fn run_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], 
             // gap-fill iteration). Fall back to a fixed-offset step so the
             // loop advances.
             if next <= k {
-                k = k + interval_ms;
+                k += interval_ms;
             } else {
                 k = next;
             }
@@ -3851,7 +4478,12 @@ fn run_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], 
 
     // min_doc_count filter (applied after gap-fill)
     if min_doc_count > 0 {
-        bucket_keys.retain(|k| buckets.get(k).map(|v| v.len() as u64 >= min_doc_count).unwrap_or(false));
+        bucket_keys.retain(|k| {
+            buckets
+                .get(k)
+                .map(|v| v.len() as u64 >= min_doc_count)
+                .unwrap_or(false)
+        });
     }
 
     let empty_indices: Vec<usize> = Vec::new();
@@ -3878,7 +4510,8 @@ fn run_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], 
                 // synthetic UTC timestamp that embeds the local offset.
                 let off_ms = off.local_minus_utc() as i64 * 1000;
                 let shifted_ms = key + off_ms;
-                let dt_shifted = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(shifted_ms).unwrap_or_default();
+                let dt_shifted = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(shifted_ms)
+                    .unwrap_or_default();
                 render_date_format(Some(fmt), shifted_ms, dt_shifted)
             } else {
                 dt_local.format("%Y-%m-%dT%H:%M:%S%.3f%:z").to_string()
@@ -3893,8 +4526,7 @@ fn run_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], 
         .iter()
         .map(|&key| {
             let doc_indices = buckets.get(&key).unwrap_or(&empty_indices);
-            let bucket_docs: Vec<Value> =
-                doc_indices.iter().map(|&i| docs[i].clone()).collect();
+            let bucket_docs: Vec<Value> = doc_indices.iter().map(|&i| docs[i].clone()).collect();
             let doc_count = sum_doc_count(&bucket_docs);
 
             let dt = render_key(key);
@@ -3923,7 +4555,10 @@ fn run_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], 
     if keyed {
         let mut map = serde_json::Map::new();
         for b in result_buckets {
-            let k = b.get("key_as_string").and_then(Value::as_str).map(str::to_string)
+            let k = b
+                .get("key_as_string")
+                .and_then(Value::as_str)
+                .map(str::to_string)
                 .or_else(|| b.get("key").and_then(|v| v.as_i64()).map(|i| i.to_string()))
                 .unwrap_or_default();
             map.insert(k, b);
@@ -3969,13 +4604,13 @@ fn run_avg<'d>(params: &Value, docs: &'d [Value], cache: &mut FieldCache<'d>) ->
         None => return json!({"value": Value::Null, "__xy_count__": 0, "__xy_sum__": 0.0}),
     };
     let missing = get_missing_value(params);
-    let (sum, count) = cache.get_numeric(field).iter().fold(
-        (0.0f64, 0usize),
-        |(s, n), v| match v.or(missing) {
+    let (sum, count) = cache
+        .get_numeric(field)
+        .iter()
+        .fold((0.0f64, 0usize), |(s, n), v| match v.or(missing) {
             Some(x) => (s + x, n + 1),
             None => (s, n),
-        },
-    );
+        });
     if count == 0 {
         return json!({ "value": Value::Null, "__xy_count__": 0, "__xy_sum__": 0.0 });
     }
@@ -4017,7 +4652,11 @@ fn run_min<'d>(params: &Value, docs: &'d [Value], cache: &mut FieldCache<'d>) ->
         None => return json!({"value": Value::Null, "__xy_agg__": "min"}),
     };
     let missing = get_missing_value(params);
-    let min = cache.get_numeric(field).iter().filter_map(|v| v.or(missing)).fold(f64::INFINITY, f64::min);
+    let min = cache
+        .get_numeric(field)
+        .iter()
+        .filter_map(|v| v.or(missing))
+        .fold(f64::INFINITY, f64::min);
     if min.is_infinite() {
         return json!({ "value": Value::Null, "__xy_agg__": "min" });
     }
@@ -4036,7 +4675,11 @@ fn run_max<'d>(params: &Value, docs: &'d [Value], cache: &mut FieldCache<'d>) ->
         None => return json!({"value": Value::Null, "__xy_agg__": "max"}),
     };
     let missing = get_missing_value(params);
-    let max = cache.get_numeric(field).iter().filter_map(|v| v.or(missing)).fold(f64::NEG_INFINITY, f64::max);
+    let max = cache
+        .get_numeric(field)
+        .iter()
+        .filter_map(|v| v.or(missing))
+        .fold(f64::NEG_INFINITY, f64::max);
     if max.is_infinite() {
         return json!({ "value": Value::Null, "__xy_agg__": "max" });
     }
@@ -4052,11 +4695,13 @@ fn run_max<'d>(params: &Value, docs: &'d [Value], cache: &mut FieldCache<'d>) ->
 
 fn field_is_date_shape(docs: &[Value], field: &str) -> bool {
     docs.iter().any(|d| match get_nested_field(d, field) {
-        Value::String(s) => parse_date_ms(&Value::String(s.clone())).is_some()
-            && s.parse::<f64>().is_err(),
+        Value::String(s) => {
+            parse_date_ms(&Value::String(s.clone())).is_some() && s.parse::<f64>().is_err()
+        }
         Value::Array(arr) => arr.iter().any(|e| match e {
-            Value::String(s) => parse_date_ms(&Value::String(s.clone())).is_some()
-                && s.parse::<f64>().is_err(),
+            Value::String(s) => {
+                parse_date_ms(&Value::String(s.clone())).is_some() && s.parse::<f64>().is_err()
+            }
             _ => false,
         }),
         _ => false,
@@ -4078,10 +4723,14 @@ fn run_stats<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldCache<'d>)
     };
 
     let missing = get_missing_value(params);
-    let (count, sum, min, max) = cache.get_numeric(field).iter().filter_map(|v| v.or(missing)).fold(
-        (0usize, 0.0f64, f64::INFINITY, f64::NEG_INFINITY),
-        |(cnt, s, mn, mx), x| (cnt + 1, s + x, mn.min(x), mx.max(x)),
-    );
+    let (count, sum, min, max) = cache
+        .get_numeric(field)
+        .iter()
+        .filter_map(|v| v.or(missing))
+        .fold(
+            (0usize, 0.0f64, f64::INFINITY, f64::NEG_INFINITY),
+            |(cnt, s, mn, mx), x| (cnt + 1, s + x, mn.min(x), mx.max(x)),
+        );
 
     if count == 0 {
         return json!({
@@ -4149,7 +4798,12 @@ fn run_cardinality<'d>(params: &Value, docs: &'d [Value], cache: &mut FieldCache
 /// Filter aggregation: filter documents using an ES query, then run sub-aggs.
 // (signature updated to thread all_docs through)
 /// The `params` here is the filter query itself (e.g. `{"term": {"level": "ERROR"}}`).
-fn run_filter(filter_query: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
+fn run_filter(
+    filter_query: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
     let filtered_docs: Vec<Value> = docs
         .iter()
         .filter(|doc| doc_matches_filter(doc, filter_query))
@@ -4188,7 +4842,12 @@ fn run_filter(filter_query: &Value, sub_aggs: Option<&Value>, docs: &[Value], al
 /// { "filters": { "filters": [ { "term": { "status": "200" } },
 ///                               { "term": { "status": "404" } } ] } }
 /// ```
-fn run_filters(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
+fn run_filters(
+    params: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
     let filters_val = match params.get("filters") {
         Some(v) => v,
         None => return json!({"buckets": {}}),
@@ -4305,7 +4964,8 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
                 if let Some(field_map) = query_body.as_object() {
                     for (field, expected_vals) in field_map {
                         if let Some(arr) = expected_vals.as_array() {
-                            let expected_strs: Vec<String> = arr.iter().map(value_to_string).collect();
+                            let expected_strs: Vec<String> =
+                                arr.iter().map(value_to_string).collect();
                             let actual_values = extract_field_values(doc, field);
                             if !actual_values.iter().any(|v| expected_strs.contains(v)) {
                                 return false;
@@ -4319,7 +4979,9 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
                     for (field, expected) in field_map {
                         let actual_values = extract_field_values(doc, field);
                         let expected_str = match expected {
-                            Value::Object(o) => o.get("query").map(value_to_string).unwrap_or_default(),
+                            Value::Object(o) => {
+                                o.get("query").map(value_to_string).unwrap_or_default()
+                            }
                             other => value_to_string(other),
                         };
                         let exp_lower = expected_str.to_lowercase();
@@ -4332,7 +4994,9 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
                                 exp_tokens.iter().all(|t| v_lower.contains(t))
                             }
                         });
-                        if !matched { return false; }
+                        if !matched {
+                            return false;
+                        }
                     }
                 }
             }
@@ -4341,7 +5005,9 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
                     for (field, expected) in field_map {
                         let actual_values = extract_field_values(doc, field);
                         let prefix = match expected {
-                            Value::Object(o) => o.get("value").map(value_to_string).unwrap_or_default(),
+                            Value::Object(o) => {
+                                o.get("value").map(value_to_string).unwrap_or_default()
+                            }
                             other => value_to_string(other),
                         };
                         if !actual_values.iter().any(|v| v.starts_with(&prefix)) {
@@ -4355,18 +5021,25 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
                     for (field, expected) in field_map {
                         let actual_values = extract_field_values(doc, field);
                         let pattern = match expected {
-                            Value::Object(o) => o.get("value").map(value_to_string).unwrap_or_default(),
+                            Value::Object(o) => {
+                                o.get("value").map(value_to_string).unwrap_or_default()
+                            }
                             other => value_to_string(other),
                         };
                         let matched = actual_values.iter().any(|v| {
-                            if pattern == "*" { true }
-                            else if let Some(suffix) = pattern.strip_prefix('*') {
+                            if pattern == "*" {
+                                true
+                            } else if let Some(suffix) = pattern.strip_prefix('*') {
                                 v.ends_with(suffix)
                             } else if let Some(prefix) = pattern.strip_suffix('*') {
                                 v.starts_with(prefix)
-                            } else { v == &pattern }
+                            } else {
+                                v == &pattern
+                            }
                         });
-                        if !matched { return false; }
+                        if !matched {
+                            return false;
+                        }
                     }
                 }
             }
@@ -4390,16 +5063,24 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
                         let num_val: Option<f64> = values.first().and_then(|s| s.parse().ok());
                         if let Some(n) = num_val {
                             if let Some(gte) = bounds.get("gte").and_then(Value::as_f64) {
-                                if n < gte { return false; }
+                                if n < gte {
+                                    return false;
+                                }
                             }
                             if let Some(gt) = bounds.get("gt").and_then(Value::as_f64) {
-                                if n <= gt { return false; }
+                                if n <= gt {
+                                    return false;
+                                }
                             }
                             if let Some(lte) = bounds.get("lte").and_then(Value::as_f64) {
-                                if n > lte { return false; }
+                                if n > lte {
+                                    return false;
+                                }
                             }
                             if let Some(lt) = bounds.get("lt").and_then(Value::as_f64) {
-                                if n >= lt { return false; }
+                                if n >= lt {
+                                    return false;
+                                }
                             }
                         }
                     }
@@ -4439,7 +5120,8 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
                             Value::Array(a) => a.clone(),
                             single => vec![single.clone()],
                         };
-                        let has_must = bool_body.contains_key("must") || bool_body.contains_key("filter");
+                        let has_must =
+                            bool_body.contains_key("must") || bool_body.contains_key("filter");
                         if !has_must && !clause_list.is_empty() {
                             let any_match = clause_list.iter().any(|c| doc_matches_filter(doc, c));
                             if !any_match {
@@ -4477,7 +5159,7 @@ pub(crate) fn format_range_val(v: f64) -> String {
     if v == 0.0 {
         return "0.0".to_string();
     }
-    if abs >= 1e7 || abs < 1e-3 {
+    if !(1e-3..1e7).contains(&abs) {
         // Java: scientific with single integer digit, capital E,
         // trailing `.0` if mantissa has no fractional part, no `+` on
         // positive exponents.
@@ -4508,7 +5190,12 @@ fn java_scientific(v: f64) -> String {
     format!("{mantissa}E{exp}")
 }
 
-fn run_range(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
+fn run_range(
+    params: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
         None => return json!({"buckets": []}),
@@ -4531,7 +5218,8 @@ fn run_range(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs:
     // they had this numeric value. Applies before range comparison.
     let missing_val: Option<f64> = params.get("missing").and_then(|v| match v {
         Value::Number(n) => n.as_f64(),
-        Value::String(s) if is_date_range => parse_date_ms(v).map(|ms| ms as f64)
+        Value::String(s) if is_date_range => parse_date_ms(v)
+            .map(|ms| ms as f64)
             .or_else(|| s.parse::<f64>().ok()),
         Value::String(s) => s.parse::<f64>().ok(),
         _ => None,
@@ -4559,7 +5247,10 @@ fn run_range(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs:
                 .iter()
                 .filter(|doc| {
                     let num = if is_date_range {
-                        extract_date_ms_values(doc, field).first().copied().map(|ms| ms as f64)
+                        extract_date_ms_values(doc, field)
+                            .first()
+                            .copied()
+                            .map(|ms| ms as f64)
                     } else {
                         extract_numeric(doc, field)
                     };
@@ -4586,12 +5277,16 @@ fn run_range(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs:
                     format_range_val(f)
                 }
             };
-            let key = range_def.get("key").and_then(Value::as_str).map(String::from).unwrap_or_else(|| match (from, to) {
-                (Some(f), Some(t)) => format!("{}-{}", render_bound(f), render_bound(t)),
-                (Some(f), None) => format!("{}-*", render_bound(f)),
-                (None, Some(t)) => format!("*-{}", render_bound(t)),
-                (None, None) => "*-*".to_string(),
-            });
+            let key = range_def
+                .get("key")
+                .and_then(Value::as_str)
+                .map(String::from)
+                .unwrap_or_else(|| match (from, to) {
+                    (Some(f), Some(t)) => format!("{}-{}", render_bound(f), render_bound(t)),
+                    (Some(f), None) => format!("{}-*", render_bound(f)),
+                    (None, Some(t)) => format!("*-{}", render_bound(t)),
+                    (None, None) => "*-*".to_string(),
+                });
 
             let mut bucket = json!({
                 "key": key,
@@ -4632,11 +5327,18 @@ fn run_range(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs:
     // `keyed: true` (or `keyed: false` overriding the default) — render
     // buckets as a map keyed by bucket key instead of an array, removing
     // the redundant `key` field per ES semantics.
-    let keyed = params.get("keyed").and_then(Value::as_bool).unwrap_or(false);
+    let keyed = params
+        .get("keyed")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     if keyed {
         let mut keyed_map = serde_json::Map::new();
         for mut b in buckets {
-            let k = b.get("key").and_then(Value::as_str).unwrap_or("").to_string();
+            let k = b
+                .get("key")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
             if let Some(obj) = b.as_object_mut() {
                 obj.remove("key");
             }
@@ -4676,7 +5378,12 @@ fn run_missing(params: &Value, docs: &[Value]) -> Value {
 
 // ── Histogram aggregation ─────────────────────────────────────────────────────
 
-fn run_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
+fn run_histogram(
+    params: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
         None => return json!({"buckets": []}),
@@ -4688,7 +5395,10 @@ fn run_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
     };
 
     let offset = params.get("offset").and_then(Value::as_f64).unwrap_or(0.0);
-    let min_doc_count = params.get("min_doc_count").and_then(|v| v.as_u64()).unwrap_or(0);
+    let min_doc_count = params
+        .get("min_doc_count")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
 
     let extended_bounds = params.get("extended_bounds").and_then(Value::as_object);
     let hard_bounds = params.get("hard_bounds").and_then(Value::as_object);
@@ -4709,7 +5419,9 @@ fn run_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
         let mut nums = extract_numeric_values(doc, field);
         let ranges = if nums.is_empty() {
             extract_numeric_ranges(doc, field)
-        } else { Vec::new() };
+        } else {
+            Vec::new()
+        };
         if nums.is_empty() && ranges.is_empty() {
             if let Some(m) = missing_num {
                 nums.push(m);
@@ -4731,21 +5443,24 @@ fn run_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
         // when neither is configured, ES limits to the data's finite span,
         // which here reduces to each finite endpoint.
         for (from, to) in ranges {
-            let clip_lo = hard_min.or(extended_min).unwrap_or({
-                if from == f64::MIN { from } else { from }
-            });
-            let clip_hi = hard_max.or(extended_max).unwrap_or({
-                if to == f64::MAX { to } else { to }
-            });
+            let clip_lo = hard_min.or(extended_min).unwrap_or(from);
+            let clip_hi = hard_max.or(extended_max).unwrap_or(to);
             let lo = from.max(clip_lo);
             let hi = to.min(clip_hi);
-            if !(hi > lo) { continue; }
+            // Keep the negated `>` verbatim so NaN endpoints skip the bucket
+            // (rewriting to `hi <= lo` would flip the NaN edge case).
+            #[allow(clippy::neg_cmp_op_on_partial_ord)]
+            if !(hi > lo) {
+                continue;
+            }
             let k_lo = ((lo - offset) / interval).floor() as i64;
             let k_hi = ((hi - offset) / interval).floor() as i64;
             for k in k_lo..=k_hi {
                 let bucket_lo = k as f64 * interval + offset;
                 // Skip buckets that only touch at a single exclusive edge.
-                if to <= bucket_lo { continue; }
+                if to <= bucket_lo {
+                    continue;
+                }
                 if !seen.contains(&k) {
                     seen.push(k);
                     buckets.entry(k).or_default().push(i);
@@ -4801,12 +5516,18 @@ fn run_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
 
     if min_doc_count > 0 {
         bucket_keys.retain(|key| {
-            buckets.get(key).map(|v| v.len() as u64 >= min_doc_count).unwrap_or(false)
+            buckets
+                .get(key)
+                .map(|v| v.len() as u64 >= min_doc_count)
+                .unwrap_or(false)
         });
     }
 
     let format_pattern: Option<&str> = params.get("format").and_then(Value::as_str);
-    let keyed = params.get("keyed").and_then(Value::as_bool).unwrap_or(false);
+    let keyed = params
+        .get("keyed")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
 
     let empty_indices: Vec<usize> = Vec::new();
     let rendered: Vec<(String, Value)> = bucket_keys
@@ -4814,12 +5535,10 @@ fn run_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
         .map(|&key| {
             let actual_key = key as f64 * interval + offset;
             let doc_indices = buckets.get(&key).unwrap_or(&empty_indices);
-            let bucket_docs: Vec<Value> =
-                doc_indices.iter().map(|&i| docs[i].clone()).collect();
+            let bucket_docs: Vec<Value> = doc_indices.iter().map(|&i| docs[i].clone()).collect();
             let doc_count = sum_doc_count(&bucket_docs);
 
-            let key_as_string = format_pattern
-                .map(|p| format_number_pattern(actual_key, p));
+            let key_as_string = format_pattern.map(|p| format_number_pattern(actual_key, p));
             let key_json = if actual_key.fract() == 0.0 {
                 json!(actual_key as i64)
             } else {
@@ -4830,7 +5549,9 @@ fn run_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
                 "doc_count": doc_count
             });
             if let Some(ref kas) = key_as_string {
-                bucket.as_object_mut().unwrap()
+                bucket
+                    .as_object_mut()
+                    .unwrap()
                     .insert("key_as_string".to_string(), Value::String(kas.clone()));
             }
 
@@ -4862,19 +5583,28 @@ fn run_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
     }
 }
 
-fn run_variable_width_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
+fn run_variable_width_histogram(
+    params: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
         None => return json!({"buckets": []}),
     };
     let num_buckets = params.get("buckets").and_then(Value::as_u64).unwrap_or(10) as usize;
 
-    let mut values: Vec<(f64, usize)> = docs.iter().enumerate()
+    let mut values: Vec<(f64, usize)> = docs
+        .iter()
+        .enumerate()
         .filter_map(|(i, doc)| extract_numeric(doc, field).map(|n| (n, i)))
         .collect();
     values.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
-    if values.is_empty() { return json!({"buckets": []}); }
+    if values.is_empty() {
+        return json!({"buckets": []});
+    }
 
     // ES variable_width_histogram: adaptive-merge clustering. Start with
     // each distinct value as its own bucket, then iteratively merge the
@@ -4914,25 +5644,34 @@ fn run_variable_width_histogram(params: &Value, sub_aggs: Option<&Value>, docs: 
         left.5 += right.5;
     }
     let partitions: Vec<(usize, usize)> = buckets.iter().map(|b| (b.0, b.1)).collect();
-    let result_buckets: Vec<Value> = partitions.iter().map(|&(s, e)| {
-        let chunk = &values[s..e];
-        let min_val = chunk.first().map(|v| v.0).unwrap_or(0.0);
-        let max_val = chunk.last().map(|v| v.0).unwrap_or(0.0);
-        let sum: f64 = chunk.iter().map(|(v, _)| v).sum();
-        let key = if chunk.is_empty() { 0.0 } else { sum / chunk.len() as f64 };
-        let bucket_docs: Vec<Value> = chunk.iter().map(|(_, i)| docs[*i].clone()).collect();
-        let mut bucket = json!({
-            "min": min_val, "key": key, "max": max_val,
-            "doc_count": chunk.len()
-        });
-        if let Some(sub) = sub_aggs {
-            let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
-            if let (Some(bo), Value::Object(so)) = (bucket.as_object_mut(), sub_result) {
-                for (k, v) in so { bo.insert(k, v); }
+    let result_buckets: Vec<Value> = partitions
+        .iter()
+        .map(|&(s, e)| {
+            let chunk = &values[s..e];
+            let min_val = chunk.first().map(|v| v.0).unwrap_or(0.0);
+            let max_val = chunk.last().map(|v| v.0).unwrap_or(0.0);
+            let sum: f64 = chunk.iter().map(|(v, _)| v).sum();
+            let key = if chunk.is_empty() {
+                0.0
+            } else {
+                sum / chunk.len() as f64
+            };
+            let bucket_docs: Vec<Value> = chunk.iter().map(|(_, i)| docs[*i].clone()).collect();
+            let mut bucket = json!({
+                "min": min_val, "key": key, "max": max_val,
+                "doc_count": chunk.len()
+            });
+            if let Some(sub) = sub_aggs {
+                let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
+                if let (Some(bo), Value::Object(so)) = (bucket.as_object_mut(), sub_result) {
+                    for (k, v) in so {
+                        bo.insert(k, v);
+                    }
+                }
             }
-        }
-        bucket
-    }).collect();
+            bucket
+        })
+        .collect();
 
     json!({"buckets": result_buckets})
 }
@@ -4983,11 +5722,13 @@ fn run_percentiles(params: &Value, docs: &[Value]) -> Value {
     let sub_bucket_count: u64 = {
         let target = 2u64 * 10u64.pow(hdr_digits);
         let mut p = 1u64;
-        while p < target { p <<= 1; }
+        while p < target {
+            p <<= 1;
+        }
         p
     };
     let half_sub_bucket = sub_bucket_count / 2; // subBucketHalfCount, e.g. 1024.
-    // subBucketHalfCountMagnitude = log2(subBucketCount) - 1.
+                                                // subBucketHalfCountMagnitude = log2(subBucketCount) - 1.
     let sub_bucket_half_count_magnitude = sub_bucket_count.trailing_zeros().saturating_sub(1);
     // DoubleHistogram auto-range conversion ratio. ES initialises a
     // `DoubleHistogram` with `setAutoResize(true)`; after recording all
@@ -4998,7 +5739,11 @@ fn run_percentiles(params: &Value, docs: &[Value]) -> Value {
     // [subBucketHalfCount, subBucketCount) where it is tracked exactly.
     let conv_ratio: f64 = if use_hdr && !nums.is_empty() && nums[0] > 0.0 && nums[0].is_finite() {
         let l = nums[0].log2().floor().exp2(); // 2^floor(log2(min))
-        if l > 0.0 { (half_sub_bucket as f64) / l } else { 1.0 }
+        if l > 0.0 {
+            (half_sub_bucket as f64) / l
+        } else {
+            1.0
+        }
     } else {
         1.0
     };
@@ -5025,7 +5770,9 @@ fn run_percentiles(params: &Value, docs: &[Value]) -> Value {
         (highest_equiv as f64) / conv_ratio
     };
     let compute = |pct: f64| -> Option<f64> {
-        if nums.is_empty() { return None; }
+        if nums.is_empty() {
+            return None;
+        }
         if use_hdr {
             // Java HdrHistogram.getValueAtPercentile:
             //   countAtPercentile = (long)((pct / 100 * N) + 0.5) clamped to >=1
@@ -5059,7 +5806,9 @@ fn run_percentiles(params: &Value, docs: &[Value]) -> Value {
             .map(|&pct| {
                 let key = format!("{:.1}", pct);
                 let val = match compute(pct) {
-                    Some(v) => serde_json::Number::from_f64(v).map(Value::Number).unwrap_or(Value::Null),
+                    Some(v) => serde_json::Number::from_f64(v)
+                        .map(Value::Number)
+                        .unwrap_or(Value::Null),
                     None => Value::Null,
                 };
                 (key, val)
@@ -5071,10 +5820,14 @@ fn run_percentiles(params: &Value, docs: &[Value]) -> Value {
             .iter()
             .map(|&pct| {
                 let val = match compute(pct) {
-                    Some(v) => serde_json::Number::from_f64(v).map(Value::Number).unwrap_or(Value::Null),
+                    Some(v) => serde_json::Number::from_f64(v)
+                        .map(Value::Number)
+                        .unwrap_or(Value::Null),
                     None => Value::Null,
                 };
-                let key_num = serde_json::Number::from_f64(pct).map(Value::Number).unwrap_or(Value::Null);
+                let key_num = serde_json::Number::from_f64(pct)
+                    .map(Value::Number)
+                    .unwrap_or(Value::Null);
                 json!({ "key": key_num, "value": val })
             })
             .collect();
@@ -5084,15 +5837,17 @@ fn run_percentiles(params: &Value, docs: &[Value]) -> Value {
 
 // ── Composite aggregation ─────────────────────────────────────────────────────
 
-fn run_composite(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
+fn run_composite(
+    params: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
     let sources = match params.get("sources").and_then(Value::as_array) {
         Some(s) => s,
         None => return json!({"buckets": []}),
     };
-    let size = params
-        .get("size")
-        .and_then(Value::as_u64)
-        .unwrap_or(10) as usize;
+    let size = params.get("size").and_then(Value::as_u64).unwrap_or(10) as usize;
 
     // Each source is { "name": { "type": { "field": "..." } } }
     // Build a list of (source_name, source_type, field, type_params).
@@ -5108,7 +5863,12 @@ fn run_composite(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
                 .get("field")
                 .and_then(Value::as_str)?
                 .to_string();
-            Some((src_name.clone(), src_type.clone(), field, type_params.clone()))
+            Some((
+                src_name.clone(),
+                src_type.clone(),
+                field,
+                type_params.clone(),
+            ))
         })
         .collect();
 
@@ -5124,13 +5884,21 @@ fn run_composite(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
         // Compute the key for each source.
         let mut key_parts: Vec<Vec<String>> = Vec::new();
         for (_, src_type, field, src_params) in &source_defs {
-            let missing_bucket = src_params.get("missing_bucket").and_then(Value::as_bool)
+            let missing_bucket = src_params
+                .get("missing_bucket")
+                .and_then(Value::as_bool)
                 .unwrap_or(false);
             let part_values = match src_type.as_str() {
                 "terms" => extract_field_values(doc, field),
                 "histogram" => {
-                    let interval = src_params.get("interval").and_then(Value::as_f64).unwrap_or(1.0);
-                    let offset = src_params.get("offset").and_then(Value::as_f64).unwrap_or(0.0);
+                    let interval = src_params
+                        .get("interval")
+                        .and_then(Value::as_f64)
+                        .unwrap_or(1.0);
+                    let offset = src_params
+                        .get("offset")
+                        .and_then(Value::as_f64)
+                        .unwrap_or(0.0);
                     let nums = extract_numeric_values(doc, field);
                     let mut keys: Vec<String> = Vec::with_capacity(nums.len());
                     for num in nums {
@@ -5144,7 +5912,9 @@ fn run_composite(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
                     keys
                 }
                 "date_histogram" => {
-                    let interval_str = src_params.get("calendar_interval").and_then(Value::as_str)
+                    let interval_str = src_params
+                        .get("calendar_interval")
+                        .and_then(Value::as_str)
                         .or_else(|| src_params.get("fixed_interval").and_then(Value::as_str))
                         .or_else(|| src_params.get("interval").and_then(Value::as_str));
                     let interval_ms = interval_str.and_then(interval_to_ms).unwrap_or(86_400_000);
@@ -5166,16 +5936,24 @@ fn run_composite(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
                         None => 0,
                     };
                     // time_zone: resolve to a fixed offset at a representative instant.
-                    let tz_str = src_params.get("time_zone").and_then(Value::as_str).unwrap_or("");
+                    let tz_str = src_params
+                        .get("time_zone")
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
                     let tz_offset: Option<chrono::FixedOffset> = if tz_str.is_empty() {
                         None
                     } else if let Some(off) = parse_time_zone_offset(tz_str) {
                         Some(off)
                     } else {
-                        let sample_ms = extract_date_ms_values(doc, field).into_iter().next().unwrap_or(0);
+                        let sample_ms = extract_date_ms_values(doc, field)
+                            .into_iter()
+                            .next()
+                            .unwrap_or(0);
                         fixed_offset_for_tz_at(tz_str, sample_ms)
                     };
-                    let tz_shift_ms: i64 = tz_offset.map(|o| o.local_minus_utc() as i64 * 1000).unwrap_or(0);
+                    let tz_shift_ms: i64 = tz_offset
+                        .map(|o| o.local_minus_utc() as i64 * 1000)
+                        .unwrap_or(0);
                     let raws = extract_date_ms_values(doc, field);
                     let mut keys: Vec<String> = Vec::with_capacity(raws.len());
                     for ts_ms in raws {
@@ -5262,7 +6040,12 @@ fn run_composite(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
                 _ => vec![],
             };
             if part_values.is_empty() {
-                if missing_bucket || params.get("missing_bucket").and_then(Value::as_bool).unwrap_or(false) {
+                if missing_bucket
+                    || params
+                        .get("missing_bucket")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false)
+                {
                     key_parts.push(vec!["__null__".to_string()]);
                 } else {
                     key_parts.push(vec![]);
@@ -5330,7 +6113,11 @@ fn run_composite(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
     /// numeric sorting; returns `(0, 0, 0)` on parse error.
     fn geotile_parse(s: &str) -> (i64, i64, i64) {
         let mut parts = s.splitn(3, '/').map(|p| p.parse::<i64>().unwrap_or(0));
-        (parts.next().unwrap_or(0), parts.next().unwrap_or(0), parts.next().unwrap_or(0))
+        (
+            parts.next().unwrap_or(0),
+            parts.next().unwrap_or(0),
+            parts.next().unwrap_or(0),
+        )
     }
     let mut sorted_keys: Vec<Vec<String>> = bucket_map.keys().cloned().collect();
     sorted_keys.sort_by(|a, b| {
@@ -5393,10 +6180,8 @@ fn run_composite(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
                                         return (sec * 1000).to_string();
                                     }
                                 }
-                                if fmt == Some("epoch_millis") {
-                                    if s.parse::<i64>().is_ok() {
-                                        return s.clone();
-                                    }
+                                if fmt == Some("epoch_millis") && s.parse::<i64>().is_ok() {
+                                    return s.clone();
                                 }
                                 // Honor the source's `time_zone` when
                                 // parsing the cursor string: a cursor
@@ -5410,15 +6195,22 @@ fn run_composite(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
                                     .unwrap_or("");
                                 if !tz_str.is_empty() {
                                     if let Some(off) = parse_time_zone_offset(tz_str) {
-                                        if let Ok(d) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+                                        if let Ok(d) =
+                                            chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
+                                        {
                                             let local = d.and_hms_opt(0, 0, 0).unwrap();
-                                            let utc = local - chrono::Duration::seconds(off.local_minus_utc() as i64);
+                                            let utc = local
+                                                - chrono::Duration::seconds(
+                                                    off.local_minus_utc() as i64
+                                                );
                                             let ms = utc.and_utc().timestamp_millis();
                                             return ms.to_string();
                                         }
                                     }
                                 }
-                                parse_date_ms(v).map(|ms| ms.to_string()).unwrap_or_else(|| s.clone())
+                                parse_date_ms(v)
+                                    .map(|ms| ms.to_string())
+                                    .unwrap_or_else(|| s.clone())
                             } else {
                                 s.clone()
                             }
@@ -5486,12 +6278,11 @@ fn run_composite(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
         .iter()
         .map(|key| {
             let doc_indices = &bucket_map[key];
-            let bucket_docs: Vec<Value> =
-                doc_indices.iter().map(|&i| docs[i].clone()).collect();
+            let bucket_docs: Vec<Value> = doc_indices.iter().map(|&i| docs[i].clone()).collect();
             let doc_count = sum_doc_count(&bucket_docs);
 
             let mut key_obj = serde_json::Map::new();
-            for (i, (src_name, src_type, _, _)) in source_defs.iter().enumerate() {
+            for (i, (src_name, _src_type, _, _)) in source_defs.iter().enumerate() {
                 let val = key.get(i).cloned().unwrap_or_default();
                 let (_name_slot, src_type, _field, src_params) = &source_defs[i];
                 if val == "__null__" {
@@ -5506,7 +6297,10 @@ fn run_composite(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
                         if fmt.is_none() {
                             key_obj.insert(src_name.clone(), json!(ts));
                         } else {
-                            let tz_str = src_params.get("time_zone").and_then(Value::as_str).unwrap_or("");
+                            let tz_str = src_params
+                                .get("time_zone")
+                                .and_then(Value::as_str)
+                                .unwrap_or("");
                             let tz_offset: Option<chrono::FixedOffset> = if tz_str.is_empty() {
                                 None
                             } else if let Some(off) = parse_time_zone_offset(tz_str) {
@@ -5515,21 +6309,26 @@ fn run_composite(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
                                 fixed_offset_for_tz_at(tz_str, ts)
                             };
                             let rendered = if let Some(off) = tz_offset {
-                                let dt_utc = chrono::DateTime::from_timestamp_millis(ts).unwrap_or_default();
+                                let dt_utc =
+                                    chrono::DateTime::from_timestamp_millis(ts).unwrap_or_default();
                                 let dt_local = dt_utc.with_timezone(&off);
                                 match fmt {
                                     Some("epoch_millis") => ts.to_string(),
                                     Some("epoch_second") => (ts / 1000).to_string(),
-                                    Some("iso8601") | Some("strict_date_time") | Some("date_time") =>
-                                        dt_local.format("%Y-%m-%dT%H:%M:%S%.3f%:z").to_string(),
-                                    Some(_) => {
-                                        let strf = java_to_strftime(fmt.unwrap());
+                                    Some("iso8601")
+                                    | Some("strict_date_time")
+                                    | Some("date_time") => {
+                                        dt_local.format("%Y-%m-%dT%H:%M:%S%.3f%:z").to_string()
+                                    }
+                                    Some(f) => {
+                                        let strf = java_to_strftime(f);
                                         dt_local.format(&strf).to_string()
                                     }
                                     None => unreachable!(),
                                 }
                             } else {
-                                let dt_val = chrono::DateTime::from_timestamp_millis(ts).unwrap_or_default();
+                                let dt_val =
+                                    chrono::DateTime::from_timestamp_millis(ts).unwrap_or_default();
                                 render_date_format(fmt, ts, dt_val)
                             };
                             key_obj.insert(src_name.clone(), Value::String(rendered));
@@ -5541,7 +6340,12 @@ fn run_composite(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_d
                     if let Ok(n) = val.parse::<i64>() {
                         key_obj.insert(src_name.clone(), json!(n));
                     } else if let Ok(f) = val.parse::<f64>() {
-                        key_obj.insert(src_name.clone(), serde_json::Number::from_f64(f).map(Value::Number).unwrap_or(Value::String(val)));
+                        key_obj.insert(
+                            src_name.clone(),
+                            serde_json::Number::from_f64(f)
+                                .map(Value::Number)
+                                .unwrap_or(Value::String(val)),
+                        );
                     } else {
                         key_obj.insert(src_name.clone(), Value::String(val));
                     }
@@ -5616,8 +6420,12 @@ fn murmur3_32_partition_hash(data: &[u8]) -> u32 {
     let tail_start = nblocks * 4;
     let tail_len = data.len() - tail_start;
     let mut k1: u32 = 0;
-    if tail_len >= 3 { k1 ^= (data[tail_start + 2] as u32) << 16; }
-    if tail_len >= 2 { k1 ^= (data[tail_start + 1] as u32) << 8; }
+    if tail_len >= 3 {
+        k1 ^= (data[tail_start + 2] as u32) << 16;
+    }
+    if tail_len >= 2 {
+        k1 ^= (data[tail_start + 1] as u32) << 8;
+    }
     if tail_len >= 1 {
         k1 ^= data[tail_start] as u32;
         k1 = k1.wrapping_mul(c1);
@@ -5646,14 +6454,13 @@ fn run_significant_terms(params: &Value, result_docs: &[Value], all_docs: &[Valu
     // Optional `background_filter`: restricts the background-corpus comparison
     // to docs matching the filter (typically a `terms` query). Apply the
     // filter to all_docs to compute bg_counts and bg_total.
-    let bg_docs_owned: Option<Vec<Value>> = params
-        .get("background_filter")
-        .map(|filter| {
-            all_docs.iter()
-                .filter(|d| matches_simple_filter(d, filter))
-                .cloned()
-                .collect()
-        });
+    let bg_docs_owned: Option<Vec<Value>> = params.get("background_filter").map(|filter| {
+        all_docs
+            .iter()
+            .filter(|d| matches_simple_filter(d, filter))
+            .cloned()
+            .collect()
+    });
     let bg_docs: &[Value] = bg_docs_owned.as_deref().unwrap_or(all_docs);
     let all_total = bg_docs.len();
 
@@ -5677,7 +6484,9 @@ fn run_significant_terms(params: &Value, result_docs: &[Value], all_docs: &[Valu
         for v in raw {
             if v.contains(char::is_whitespace) {
                 for tok in v.split_whitespace() {
-                    let t = tok.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase();
+                    let t = tok
+                        .trim_matches(|c: char| !c.is_alphanumeric())
+                        .to_lowercase();
                     if !t.is_empty() {
                         out.insert(t);
                     }
@@ -5714,14 +6523,18 @@ fn run_significant_terms(params: &Value, result_docs: &[Value], all_docs: &[Valu
     // ES `include` / `exclude`: when given as an array of values, treat
     // as an allow / deny set. (Regex form is intentionally rejected
     // upstream for IP fields per ES semantics.)
-    let include_set: Option<HashSet<String>> = params
-        .get("include")
-        .and_then(Value::as_array)
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect());
-    let exclude_set: Option<HashSet<String>> = params
-        .get("exclude")
-        .and_then(Value::as_array)
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect());
+    let include_set: Option<HashSet<String>> =
+        params.get("include").and_then(Value::as_array).map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        });
+    let exclude_set: Option<HashSet<String>> =
+        params.get("exclude").and_then(Value::as_array).map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        });
 
     // ES `min_doc_count` (default 3) — exclude terms whose foreground
     // count is below the threshold. The IP test sets min_doc_count:1
@@ -5743,10 +6556,14 @@ fn run_significant_terms(params: &Value, result_docs: &[Value], all_docs: &[Valu
                 return None;
             }
             if let Some(ref inc) = include_set {
-                if !inc.contains(&term) { return None; }
+                if !inc.contains(&term) {
+                    return None;
+                }
             }
             if let Some(ref exc) = exclude_set {
-                if exc.contains(&term) { return None; }
+                if exc.contains(&term) {
+                    return None;
+                }
             }
             let result_freq = rc as f64 / result_total_f;
             let bg_count = *bg_counts.get(&term).unwrap_or(&0);
@@ -5815,7 +6632,9 @@ fn matches_simple_filter(doc: &Value, filter: &Value) -> bool {
         Some(o) => o,
         None => return false,
     };
-    if obj.contains_key("match_all") { return true; }
+    if obj.contains_key("match_all") {
+        return true;
+    }
     // `match` on a single field — treat as keyword-equivalent term match
     // (stringify both sides). For text fields this is a rough
     // approximation but sufficient for background_filter use cases where
@@ -5849,13 +6668,19 @@ fn matches_simple_filter(doc: &Value, filter: &Value) -> bool {
         }
     }
     if let Some(b) = obj.get("bool").and_then(Value::as_object) {
-        let must_ok = b.get("must").and_then(Value::as_array)
+        let must_ok = b
+            .get("must")
+            .and_then(Value::as_array)
             .map(|arr| arr.iter().all(|f| matches_simple_filter(doc, f)))
             .unwrap_or(true);
-        let filter_ok = b.get("filter").and_then(Value::as_array)
+        let filter_ok = b
+            .get("filter")
+            .and_then(Value::as_array)
             .map(|arr| arr.iter().all(|f| matches_simple_filter(doc, f)))
             .unwrap_or(true);
-        let must_not_ok = b.get("must_not").and_then(Value::as_array)
+        let must_not_ok = b
+            .get("must_not")
+            .and_then(Value::as_array)
             .map(|arr| arr.iter().all(|f| !matches_simple_filter(doc, f)))
             .unwrap_or(true);
         return must_ok && filter_ok && must_not_ok;
@@ -5864,7 +6689,9 @@ fn matches_simple_filter(doc: &Value, filter: &Value) -> bool {
 }
 
 fn values_match(dv: &Value, target: &Value) -> bool {
-    if dv == target { return true; }
+    if dv == target {
+        return true;
+    }
     match (dv, target) {
         (Value::Array(arr), _) => arr.iter().any(|e| values_match(e, target)),
         (Value::String(s), Value::String(t)) => s == t,
@@ -5888,48 +6715,53 @@ fn run_significant_text(params: &Value, result_docs: &[Value], all_docs: &[Value
         None => return json!({"buckets": []}),
     };
     let size = params.get("size").and_then(Value::as_u64).unwrap_or(10) as usize;
-    let min_doc_count = params.get("min_doc_count").and_then(Value::as_u64).unwrap_or(3);
+    let min_doc_count = params
+        .get("min_doc_count")
+        .and_then(Value::as_u64)
+        .unwrap_or(3);
 
     // background_filter: restrict the background corpus to docs matching
     // the filter. sig_text's bg frequencies come from this subset when
     // provided, so `bg_freq` can collapse to 0 for terms absent from the
     // filtered bg (e.g. "bad" when ugly=true only keeps "good" docs).
-    let bg_docs_owned: Option<Vec<Value>> = params
-        .get("background_filter")
-        .map(|filter| {
-            all_docs
-                .iter()
-                .filter(|d| matches_simple_filter(d, filter))
-                .cloned()
-                .collect()
-        });
+    let bg_docs_owned: Option<Vec<Value>> = params.get("background_filter").map(|filter| {
+        all_docs
+            .iter()
+            .filter(|d| matches_simple_filter(d, filter))
+            .cloned()
+            .collect()
+    });
     let all_docs: &[Value] = bg_docs_owned.as_deref().unwrap_or(all_docs);
 
     // Optional include/exclude — ES accepts a Lucene-style regex pattern
     // (anchored full-term match, not substring) or an explicit array of
     // terms. Honor both.
-    let (include_re, include_set): (Option<regex::Regex>, Option<HashSet<String>>) = match params.get("include") {
-        Some(Value::String(s)) => (
-            regex::Regex::new(&format!("^(?:{})$", s)).ok(),
-            None,
-        ),
-        Some(Value::Array(a)) => (
-            None,
-            Some(a.iter().filter_map(|v| v.as_str().map(String::from)).collect()),
-        ),
-        _ => (None, None),
-    };
-    let (exclude_re, exclude_set): (Option<regex::Regex>, Option<HashSet<String>>) = match params.get("exclude") {
-        Some(Value::String(s)) => (
-            regex::Regex::new(&format!("^(?:{})$", s)).ok(),
-            None,
-        ),
-        Some(Value::Array(a)) => (
-            None,
-            Some(a.iter().filter_map(|v| v.as_str().map(String::from)).collect()),
-        ),
-        _ => (None, None),
-    };
+    let (include_re, include_set): (Option<regex::Regex>, Option<HashSet<String>>) =
+        match params.get("include") {
+            Some(Value::String(s)) => (regex::Regex::new(&format!("^(?:{})$", s)).ok(), None),
+            Some(Value::Array(a)) => (
+                None,
+                Some(
+                    a.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect(),
+                ),
+            ),
+            _ => (None, None),
+        };
+    let (exclude_re, exclude_set): (Option<regex::Regex>, Option<HashSet<String>>) =
+        match params.get("exclude") {
+            Some(Value::String(s)) => (regex::Regex::new(&format!("^(?:{})$", s)).ok(), None),
+            Some(Value::Array(a)) => (
+                None,
+                Some(
+                    a.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect(),
+                ),
+            ),
+            _ => (None, None),
+        };
 
     let result_total = result_docs.len();
     let all_total = all_docs.len().max(1);
@@ -5937,14 +6769,21 @@ fn run_significant_text(params: &Value, result_docs: &[Value], all_docs: &[Value
         return json!({ "buckets": [], "doc_count": 0 });
     }
 
-    let filter_dup = params.get("filter_duplicate_text").and_then(Value::as_bool).unwrap_or(false);
+    let filter_dup = params
+        .get("filter_duplicate_text")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
 
     // ES `source_fields` override: when the target field isn't stored, read
     // text from these source fields instead. Defaults to the target field.
     let source_fields: Vec<String> = params
         .get("source_fields")
         .and_then(Value::as_array)
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_else(|| vec![field.to_string()]);
 
     let tokenize_doc = |doc: &Value| -> HashSet<String> {
@@ -5952,9 +6791,13 @@ fn run_significant_text(params: &Value, result_docs: &[Value], all_docs: &[Value
         for src_field in &source_fields {
             for raw in extract_field_values(doc, src_field) {
                 for tok in raw.split(|c: char| !c.is_alphanumeric()) {
-                    if tok.len() < 2 { continue; }
+                    if tok.len() < 2 {
+                        continue;
+                    }
                     let lower = tok.to_lowercase();
-                    if SIG_TEXT_STOPWORDS.contains(&lower.as_str()) { continue; }
+                    if SIG_TEXT_STOPWORDS.contains(&lower.as_str()) {
+                        continue;
+                    }
                     out.insert(lower);
                 }
             }
@@ -5971,7 +6814,9 @@ fn run_significant_text(params: &Value, result_docs: &[Value], all_docs: &[Value
         for src_field in &source_fields {
             for raw in extract_field_values(doc, src_field) {
                 for tok in raw.split(|c: char| !c.is_alphanumeric()) {
-                    if tok.len() < 2 { continue; }
+                    if tok.len() < 2 {
+                        continue;
+                    }
                     seq.push(tok.to_lowercase());
                 }
             }
@@ -5984,10 +6829,13 @@ fn run_significant_text(params: &Value, result_docs: &[Value], all_docs: &[Value
     // ES's `SignificantTextAggregator` logic for deduping boilerplate.
     const SIG_SHINGLE: usize = 6;
     let dup_token_sets: Vec<HashSet<String>> = if filter_dup {
-        let per_doc_tokens: Vec<Vec<String>> = result_docs.iter().map(&tokenize_doc_ordered).collect();
+        let per_doc_tokens: Vec<Vec<String>> =
+            result_docs.iter().map(&tokenize_doc_ordered).collect();
         let mut shingle_docs: HashMap<String, HashSet<usize>> = HashMap::new();
         for (i, toks) in per_doc_tokens.iter().enumerate() {
-            if toks.len() < SIG_SHINGLE { continue; }
+            if toks.len() < SIG_SHINGLE {
+                continue;
+            }
             for w in toks.windows(SIG_SHINGLE) {
                 shingle_docs.entry(w.join(" ")).or_default().insert(i);
             }
@@ -5996,7 +6844,9 @@ fn run_significant_text(params: &Value, result_docs: &[Value], all_docs: &[Value
             .iter()
             .map(|toks| {
                 let mut dups: HashSet<String> = HashSet::new();
-                if toks.len() < SIG_SHINGLE { return dups; }
+                if toks.len() < SIG_SHINGLE {
+                    return dups;
+                }
                 for w in toks.windows(SIG_SHINGLE) {
                     let n = shingle_docs.get(&w.join(" ")).map(|s| s.len()).unwrap_or(0);
                     if n > 1 {
@@ -6018,13 +6868,17 @@ fn run_significant_text(params: &Value, result_docs: &[Value], all_docs: &[Value
     for (i, doc) in result_docs.iter().enumerate() {
         let dups = &dup_token_sets[i];
         for t in tokenize_doc(doc) {
-            if dups.contains(&t) { continue; }
+            if dups.contains(&t) {
+                continue;
+            }
             *result_counts.entry(t).or_insert(0) += 1;
         }
     }
     let mut bg_counts: HashMap<String, u64> = HashMap::new();
     for doc in all_docs {
-        for t in tokenize_doc(doc) { *bg_counts.entry(t).or_insert(0) += 1; }
+        for t in tokenize_doc(doc) {
+            *bg_counts.entry(t).or_insert(0) += 1;
+        }
     }
 
     let result_total_f = result_total as f64;
@@ -6039,18 +6893,28 @@ fn run_significant_text(params: &Value, result_docs: &[Value], all_docs: &[Value
     let mut scored: Vec<(String, u64, u64, f64)> = result_counts
         .into_iter()
         .filter_map(|(term, rc)| {
-            if rc < min_doc_count { return None; }
+            if rc < min_doc_count {
+                return None;
+            }
             if let Some(ref re) = include_re {
-                if !re.is_match(&term) { return None; }
+                if !re.is_match(&term) {
+                    return None;
+                }
             }
             if let Some(ref set) = include_set {
-                if !set.contains(&term) { return None; }
+                if !set.contains(&term) {
+                    return None;
+                }
             }
             if let Some(ref re) = exclude_re {
-                if re.is_match(&term) { return None; }
+                if re.is_match(&term) {
+                    return None;
+                }
             }
             if let Some(ref set) = exclude_set {
-                if set.contains(&term) { return None; }
+                if set.contains(&term) {
+                    return None;
+                }
             }
             let bg = *bg_counts.get(&term).unwrap_or(&0);
             let result_freq = rc as f64 / result_total_f;
@@ -6070,9 +6934,15 @@ fn run_significant_text(params: &Value, result_docs: &[Value], all_docs: &[Value
                 let n_21 = (bg as i64 - rc as i64).max(0) as f64;
                 let n_22 = n_2_dot - n_21;
                 // Require fg concentration strictly greater than bg.
-                if result_freq <= bg_freq { return None; }
+                if result_freq <= bg_freq {
+                    return None;
+                }
                 let ln_safe = |num: f64, den: f64| -> f64 {
-                    if num <= 0.0 || den <= 0.0 { 0.0 } else { (num / den).ln() }
+                    if num <= 0.0 || den <= 0.0 {
+                        0.0
+                    } else {
+                        (num / den).ln()
+                    }
                 };
                 let mi = (n_11 / n) * ln_safe(n * n_11, n_1_dot * n_dot_1)
                     + (n_12 / n) * ln_safe(n * n_12, n_1_dot * n_dot_2)
@@ -6081,7 +6951,9 @@ fn run_significant_text(params: &Value, result_docs: &[Value], all_docs: &[Value
                 // ES's default significance threshold on MI is around
                 // 0.05 (i.e. the term must explain ≥ 5% of the
                 // classification signal). Weaker terms are dropped.
-                if mi < 0.05 { return None; }
+                if mi < 0.05 {
+                    return None;
+                }
                 mi
             } else if use_gnd {
                 // Google Normalized Distance: smaller is more significant.
@@ -6091,14 +6963,20 @@ fn run_significant_text(params: &Value, result_docs: &[Value], all_docs: &[Value
                 let f_x = result_total_f;
                 let f_y = bg as f64;
                 let n = all_total_f;
-                if f_xy == 0.0 || f_x == 0.0 || f_y == 0.0 { return None; }
+                if f_xy == 0.0 || f_x == 0.0 || f_y == 0.0 {
+                    return None;
+                }
                 let max_xy = f_x.ln().max(f_y.ln());
                 let min_xy = f_x.ln().min(f_y.ln());
                 let denom = n.ln() - min_xy;
-                if denom == 0.0 { return None; }
+                if denom == 0.0 {
+                    return None;
+                }
                 let gnd = (max_xy - f_xy.ln()) / denom;
                 // Drop strongly-unrelated pairs (gnd >= 1 means disjoint).
-                if gnd >= 1.0 { return None; }
+                if gnd >= 1.0 {
+                    return None;
+                }
                 -gnd
             } else if use_chi {
                 // chi_square: standard 2x2 contingency test.
@@ -6111,10 +6989,14 @@ fn run_significant_text(params: &Value, result_docs: &[Value], all_docs: &[Value
                 let n_12 = n_1_dot - n_11;
                 let n_21 = (bg as i64 - rc as i64).max(0) as f64;
                 let n_22 = n_2_dot - n_21;
-                if result_freq <= bg_freq { return None; }
+                if result_freq <= bg_freq {
+                    return None;
+                }
                 let num = n * (n_11 * n_22 - n_12 * n_21).powi(2);
                 let den = n_1_dot * n_2_dot * n_dot_1 * n_dot_2;
-                if den == 0.0 { return None; }
+                if den == 0.0 {
+                    return None;
+                }
                 num / den
             } else {
                 // JLH-like score: term completely absent from the background
@@ -6137,23 +7019,26 @@ fn run_significant_text(params: &Value, result_docs: &[Value], all_docs: &[Value
     // SignificantTermsAggregator, which iterates terms in reverse
     // BytesRef order when scores collide).
     scored.sort_by(|a, b| {
-        b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal)
+        b.3.partial_cmp(&a.3)
+            .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| b.0.cmp(&a.0))
     });
     scored.truncate(size);
 
     let buckets: Vec<Value> = scored
         .into_iter()
-        .map(|(key, doc_count, bg_count, score)| json!({
-            "key": key, "doc_count": doc_count, "bg_count": bg_count, "score": score,
-        }))
+        .map(|(key, doc_count, bg_count, score)| {
+            json!({
+                "key": key, "doc_count": doc_count, "bg_count": bg_count, "score": score,
+            })
+        })
         .collect();
     json!({ "doc_count": result_total, "bg_count": all_total, "buckets": buckets })
 }
 
 const SIG_TEXT_STOPWORDS: &[&str] = &[
-    "a","an","and","are","as","at","be","by","for","from","has","he","in","is","it",
-    "its","of","on","that","the","to","was","were","will","with",
+    "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "has", "he", "in", "is", "it",
+    "its", "of", "on", "that", "the", "to", "was", "were", "will", "with",
 ];
 
 // ── Top hits sub-aggregation ──────────────────────────────────────────────────
@@ -6172,7 +7057,10 @@ fn extract_match_terms_from_query_value(q: &Value) -> Option<Vec<String>> {
                     if let Some(mo) = val.as_object() {
                         for (_, v) in mo {
                             let s = if let Some(o) = v.as_object() {
-                                o.get("query").or_else(|| o.get("value")).and_then(Value::as_str).map(String::from)
+                                o.get("query")
+                                    .or_else(|| o.get("value"))
+                                    .and_then(Value::as_str)
+                                    .map(String::from)
                             } else {
                                 v.as_str().map(String::from)
                             };
@@ -6192,7 +7080,9 @@ fn extract_match_terms_from_query_value(q: &Value) -> Option<Vec<String>> {
                             } else {
                                 v.as_str().map(String::from)
                             };
-                            if let Some(s) = s { out.push(s.to_lowercase()); }
+                            if let Some(s) = s {
+                                out.push(s.to_lowercase());
+                            }
                         }
                     }
                 }
@@ -6214,42 +7104,56 @@ fn extract_match_terms_from_query_value(q: &Value) -> Option<Vec<String>> {
         }
     }
     collect(obj, &mut out);
-    if out.is_empty() { None } else { Some(out) }
+    if out.is_empty() {
+        None
+    } else {
+        Some(out)
+    }
 }
 
 /// Build a highlight fragment for a text by wrapping case-insensitive
 /// occurrences of each term in `pre`..`post`. Returns None when no term
 /// is found. Preserves original text case — only the tag sites change.
-fn highlight_text_with_terms(text: &str, terms: &[String], pre: &str, post: &str) -> Option<String> {
+fn highlight_text_with_terms(
+    text: &str,
+    terms: &[String],
+    pre: &str,
+    post: &str,
+) -> Option<String> {
     let text_lower = text.to_lowercase();
     // Find all match ranges (byte offsets) then build the output.
     let mut ranges: Vec<(usize, usize)> = Vec::new();
     for term in terms {
-        if term.is_empty() { continue; }
+        if term.is_empty() {
+            continue;
+        }
         let term_lc = term.to_lowercase();
         let mut start = 0usize;
         while let Some(pos) = text_lower[start..].find(&term_lc) {
             let abs = start + pos;
             let end = abs + term_lc.len();
             // Ensure token boundaries — avoid matching 'the' inside 'therefore'.
-            let before_ok = abs == 0
-                || !text_lower.as_bytes()[abs - 1].is_ascii_alphanumeric();
-            let after_ok = end == text_lower.len()
-                || !text_lower.as_bytes()[end].is_ascii_alphanumeric();
+            let before_ok = abs == 0 || !text_lower.as_bytes()[abs - 1].is_ascii_alphanumeric();
+            let after_ok =
+                end == text_lower.len() || !text_lower.as_bytes()[end].is_ascii_alphanumeric();
             if before_ok && after_ok {
                 ranges.push((abs, end));
             }
             start = end.max(start + 1);
         }
     }
-    if ranges.is_empty() { return None; }
+    if ranges.is_empty() {
+        return None;
+    }
     // Sort + merge overlapping ranges.
     ranges.sort_by_key(|r| r.0);
     let mut merged: Vec<(usize, usize)> = Vec::new();
     for r in ranges {
         if let Some(last) = merged.last_mut() {
             if r.0 <= last.1 {
-                if r.1 > last.1 { last.1 = r.1; }
+                if r.1 > last.1 {
+                    last.1 = r.1;
+                }
                 continue;
             }
         }
@@ -6274,7 +7178,9 @@ fn painless_value_to_json(v: crate::painless::PainlessValue) -> Value {
     match v {
         P::Null => Value::Null,
         P::Bool(b) => Value::Bool(b),
-        P::Number(n) => serde_json::Number::from_f64(n).map(Value::Number).unwrap_or(Value::Null),
+        P::Number(n) => serde_json::Number::from_f64(n)
+            .map(Value::Number)
+            .unwrap_or(Value::Null),
         P::String(s) => Value::String(s),
         P::Array(a) => Value::Array(a.into_iter().map(painless_value_to_json).collect()),
         P::Object(o) => Value::Object(o),
@@ -6299,14 +7205,16 @@ pub(crate) fn run_top_hits_with_total(
 
     // Optional _source filtering.  `false` / `[]` disables source; an array
     // of strings keeps only listed top-level fields.
-    let source_fields: Option<Vec<String>> = params
-        .get("_source")
-        .and_then(|v| match v {
-            Value::Array(arr) => Some(arr.iter().filter_map(|e| e.as_str().map(String::from)).collect()),
-            Value::String(s) => Some(vec![s.clone()]),
-            Value::Bool(false) => Some(vec![]), // empty = return nothing
-            _ => None,
-        });
+    let source_fields: Option<Vec<String>> = params.get("_source").and_then(|v| match v {
+        Value::Array(arr) => Some(
+            arr.iter()
+                .filter_map(|e| e.as_str().map(String::from))
+                .collect(),
+        ),
+        Value::String(s) => Some(vec![s.clone()]),
+        Value::Bool(false) => Some(vec![]), // empty = return nothing
+        _ => None,
+    });
 
     // Optional sort spec. ES accepts any of:
     //   [{"field": "desc"}]                       — array of shorthand
@@ -6328,7 +7236,8 @@ pub(crate) fn run_top_hits_with_total(
         sorted_docs.sort_by(|a, b| {
             let sa = a.get("_score").and_then(Value::as_f64).unwrap_or(0.0);
             let sb = b.get("_score").and_then(Value::as_f64).unwrap_or(0.0);
-            sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal)
+            sb.partial_cmp(&sa)
+                .unwrap_or(std::cmp::Ordering::Equal)
                 .then_with(|| {
                     let qa = a.get("_seq_no").and_then(Value::as_i64).unwrap_or(i64::MAX);
                     let qb = b.get("_seq_no").and_then(Value::as_i64).unwrap_or(i64::MAX);
@@ -6351,8 +7260,11 @@ pub(crate) fn run_top_hits_with_total(
             for (sort_field, sort_opts) in &sort_obj {
                 let desc = match sort_opts {
                     Value::String(s) => s == "desc",
-                    Value::Object(o) => o.get("order")
-                        .and_then(Value::as_str).map(|v| v == "desc").unwrap_or(false),
+                    Value::Object(o) => o
+                        .get("order")
+                        .and_then(Value::as_str)
+                        .map(|v| v == "desc")
+                        .unwrap_or(false),
                     _ => false,
                 };
                 let sf = sort_field.clone();
@@ -6387,7 +7299,11 @@ pub(crate) fn run_top_hits_with_total(
                             let mut vals = extract_field_values(doc, &sf);
                             if !vals.is_empty() {
                                 vals.sort();
-                                return if desc { vals.pop() } else { Some(vals.remove(0)) };
+                                return if desc {
+                                    vals.pop()
+                                } else {
+                                    Some(vals.remove(0))
+                                };
                             }
                         }
                         extract_field_values(doc, &sf).into_iter().next()
@@ -6430,7 +7346,11 @@ pub(crate) fn run_top_hits_with_total(
                     match (av, bv) {
                         (Some(x), Some(y)) => {
                             let cmp = x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal);
-                            if desc { cmp.reverse() } else { cmp }
+                            if desc {
+                                cmp.reverse()
+                            } else {
+                                cmp
+                            }
                         }
                         (Some(_), None) => std::cmp::Ordering::Less,
                         (None, Some(_)) => std::cmp::Ordering::Greater,
@@ -6540,7 +7460,7 @@ pub(crate) fn run_top_hits_with_total(
             // ES emits this for fields that triggered ignore_malformed
             // / ignore_above per-doc.
             if let Some(ig) = doc.get("_ignored").cloned() {
-                if !ig.is_null() && ig.as_array().map_or(true, |a| !a.is_empty()) {
+                if !ig.is_null() && ig.as_array().is_none_or(|a| !a.is_empty()) {
                     hit_obj.insert("_ignored".to_string(), ig);
                 }
             }
@@ -6753,7 +7673,7 @@ pub(crate) fn run_top_hits_with_total(
                 // Top-level highlight_query overrides outer query terms.
                 let top_hl_query_terms: Option<Vec<String>> = hl_cfg
                     .get("highlight_query")
-                    .and_then(|q| extract_match_terms_from_query_value(q));
+                    .and_then(extract_match_terms_from_query_value);
                 if let Some(fields) = hl_cfg.get("fields").and_then(Value::as_object) {
                     let mut hl_out = serde_json::Map::new();
                     for (fname, fopts) in fields {
@@ -6809,8 +7729,16 @@ pub(crate) fn run_top_hits_with_total(
 // ── Sampler aggregation ───────────────────────────────────────────────────────
 
 /// Takes a random sample of documents and runs sub-aggregations on the sample.
-pub(crate) fn run_sampler(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
-    let shard_size = params.get("shard_size").and_then(Value::as_u64).unwrap_or(200) as usize;
+pub(crate) fn run_sampler(
+    params: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
+    let shard_size = params
+        .get("shard_size")
+        .and_then(Value::as_u64)
+        .unwrap_or(200) as usize;
 
     // ES sampler feeds the top shard_size docs by _score — take the score-descending slice.
     let mut ordered: Vec<Value> = docs.to_vec();
@@ -6840,9 +7768,20 @@ pub(crate) fn run_sampler(params: &Value, sub_aggs: Option<&Value>, docs: &[Valu
 /// `diversified_sampler` — take a sample while capping the number of docs
 /// that share the same `field` value (default `max_docs_per_value` = 1).
 /// Diversity acts as a pre-filter, shrinking the working set before sub-aggs run.
-fn run_diversified_sampler(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
-    let shard_size = params.get("shard_size").and_then(Value::as_u64).unwrap_or(200) as usize;
-    let max_per = params.get("max_docs_per_value").and_then(Value::as_u64).unwrap_or(1) as usize;
+fn run_diversified_sampler(
+    params: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
+    let shard_size = params
+        .get("shard_size")
+        .and_then(Value::as_u64)
+        .unwrap_or(200) as usize;
+    let max_per = params
+        .get("max_docs_per_value")
+        .and_then(Value::as_u64)
+        .unwrap_or(1) as usize;
     let field = params.get("field").and_then(Value::as_str).unwrap_or("");
 
     // ES semantics: diversified_sampler feeds the sampler the docs in
@@ -6858,16 +7797,26 @@ fn run_diversified_sampler(params: &Value, sub_aggs: Option<&Value>, docs: &[Val
     let mut counts: HashMap<String, usize> = HashMap::new();
     let mut sample: Vec<Value> = Vec::new();
     for doc in &ordered {
-        if sample.len() >= shard_size { break; }
+        if sample.len() >= shard_size {
+            break;
+        }
         let values = if field.is_empty() {
             vec!["__no_field__".to_string()]
         } else {
             let vs = extract_field_values(doc, field);
-            if vs.is_empty() { vec!["__null__".to_string()] } else { vs }
+            if vs.is_empty() {
+                vec!["__null__".to_string()]
+            } else {
+                vs
+            }
         };
         // A doc is admitted if ANY of its field values has spare capacity.
-        let can_admit = values.iter().any(|v| counts.get(v).copied().unwrap_or(0) < max_per);
-        if !can_admit { continue; }
+        let can_admit = values
+            .iter()
+            .any(|v| counts.get(v).copied().unwrap_or(0) < max_per);
+        if !can_admit {
+            continue;
+        }
         for v in &values {
             *counts.entry(v.clone()).or_insert(0) += 1;
         }
@@ -6881,7 +7830,9 @@ fn run_diversified_sampler(params: &Value, sub_aggs: Option<&Value>, docs: &[Val
     if let Some(sub) = sub_aggs {
         let sub_result = run_aggs_with_all(sub, &sample, all_docs);
         if let Value::Object(sub_obj) = sub_result {
-            for (k, v) in sub_obj { result.insert(k, v); }
+            for (k, v) in sub_obj {
+                result.insert(k, v);
+            }
         }
     }
     Value::Object(result)
@@ -6908,7 +7859,10 @@ fn run_time_series(
     all_docs: &[Value],
 ) -> Value {
     let size = params.get("size").and_then(Value::as_u64).unwrap_or(10000) as usize;
-    let keyed = params.get("keyed").and_then(Value::as_bool).unwrap_or(false);
+    let keyed = params
+        .get("keyed")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
 
     // Infer dimension fields from doc metadata. xerj stores the
     // routing path segments in `__xy_routing_path__` when the index
@@ -6944,10 +7898,10 @@ fn run_time_series(
         // ahead of `key` (the actual `time_series_dimension`).
         if let Some(first) = docs.first().and_then(Value::as_object) {
             const METRIC_NAMES: &[&str] = &[
-                "val", "value", "count", "sum", "num", "n", "size",
-                "gauge", "counter", "metric",
+                "val", "value", "count", "sum", "num", "n", "size", "gauge", "counter", "metric",
             ];
-            let candidate_keys: Vec<&String> = first.keys()
+            let candidate_keys: Vec<&String> = first
+                .keys()
                 .filter(|k| {
                     !k.starts_with('_')
                         && !k.starts_with('@')
@@ -6994,8 +7948,14 @@ fn run_time_series(
     // match ES. (The search-level `hits.total` is computed outside this
     // function and is not affected by this dedup — see notes.)
     use std::collections::BTreeMap;
-    let mut groups: BTreeMap<String, (Vec<Value>, serde_json::Map<String, Value>, HashMap<i64, usize>)> =
-        BTreeMap::new();
+    let mut groups: BTreeMap<
+        String,
+        (
+            Vec<Value>,
+            serde_json::Map<String, Value>,
+            HashMap<i64, usize>,
+        ),
+    > = BTreeMap::new();
     for doc in docs {
         let mut key_obj = serde_json::Map::new();
         let mut key_parts: Vec<String> = Vec::new();
@@ -7015,7 +7975,7 @@ fn run_time_series(
         let entry = groups
             .entry(key_str)
             .or_insert_with(|| (Vec::new(), key_obj, HashMap::new()));
-        match doc.get("@timestamp").and_then(|v| parse_date_ms(v)) {
+        match doc.get("@timestamp").and_then(parse_date_ms) {
             Some(ts) => {
                 if let Some(&idx) = entry.2.get(&ts) {
                     entry.0[idx] = doc.clone(); // last wins
@@ -7070,15 +8030,16 @@ fn run_time_series(
         if let Some(sub) = sub_aggs {
             let sub_result = run_aggs_with_all(sub, bucket_docs, all_docs);
             if let Value::Object(sub_obj) = sub_result {
-                for (k, v) in sub_obj { bucket.insert(k, v); }
+                for (k, v) in sub_obj {
+                    bucket.insert(k, v);
+                }
             }
         }
         Value::Object(bucket)
     };
 
-    let is_selected = |k: &str| -> bool {
-        selected.as_ref().map(|s| s.contains(k)).unwrap_or(true)
-    };
+    let is_selected =
+        |k: &str| -> bool { selected.as_ref().map(|s| s.contains(k)).unwrap_or(true) };
 
     let mut bucket_list: Vec<Value> = Vec::new();
     for (k, (bucket_docs, key_obj, _seen)) in groups.iter() {
@@ -7106,7 +8067,12 @@ fn run_time_series(
 
 /// Creates a matrix of which filter combinations co-occur in the document set.
 /// Returns one bucket per filter and one bucket per pair of filters that co-occur.
-fn run_adjacency_matrix(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
+fn run_adjacency_matrix(
+    params: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
     let filters_map = match params.get("filters").and_then(Value::as_object) {
         Some(m) => m,
         None => return json!({ "buckets": [] }),
@@ -7121,7 +8087,10 @@ fn run_adjacency_matrix(params: &Value, sub_aggs: Option<&Value>, docs: &[Value]
     // For each doc, determine which filters it matches.
     let mut filter_matches: Vec<Vec<bool>> = Vec::with_capacity(docs.len());
     for doc in docs {
-        let matches: Vec<bool> = filters.iter().map(|(_, q)| doc_matches_filter(doc, q)).collect();
+        let matches: Vec<bool> = filters
+            .iter()
+            .map(|(_, q)| doc_matches_filter(doc, q))
+            .collect();
         filter_matches.push(matches);
     }
 
@@ -7143,7 +8112,9 @@ fn run_adjacency_matrix(params: &Value, sub_aggs: Option<&Value>, docs: &[Value]
         if let Some(sub) = sub_aggs {
             let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
             if let (Some(obj), Value::Object(sub_obj)) = (bucket.as_object_mut(), sub_result) {
-                for (k, v) in sub_obj { obj.insert(k, v); }
+                for (k, v) in sub_obj {
+                    obj.insert(k, v);
+                }
             }
         }
         buckets.push(bucket);
@@ -7169,7 +8140,9 @@ fn run_adjacency_matrix(params: &Value, sub_aggs: Option<&Value>, docs: &[Value]
             if let Some(sub) = sub_aggs {
                 let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
                 if let (Some(obj), Value::Object(sub_obj)) = (bucket.as_object_mut(), sub_result) {
-                    for (k, v) in sub_obj { obj.insert(k, v); }
+                    for (k, v) in sub_obj {
+                        obj.insert(k, v);
+                    }
                 }
             }
             buckets.push(bucket);
@@ -7232,31 +8205,6 @@ fn encode_geohash(lat: f64, lon: f64, precision: usize) -> String {
     String::from_utf8(hash).unwrap_or_default()
 }
 
-/// Extract lat/lon from a field value (same formats as GeoDistance).
-fn extract_lat_lon(doc: &Value, field: &str) -> Option<(f64, f64)> {
-    let val = get_nested_field(doc, field);
-    match val {
-        Value::Object(obj) => {
-            let lat = obj.get("lat").and_then(|v| v.as_f64())?;
-            let lon = obj.get("lon").and_then(|v| v.as_f64())?;
-            Some((lat, lon))
-        }
-        Value::Array(arr) if arr.len() == 2 => {
-            let lon = arr[0].as_f64()?;
-            let lat = arr[1].as_f64()?;
-            Some((lat, lon))
-        }
-        Value::String(s) => {
-            let parts: Vec<&str> = s.splitn(2, ',').collect();
-            if parts.len() != 2 { return None; }
-            let lat = parts[0].trim().parse::<f64>().ok()?;
-            let lon = parts[1].trim().parse::<f64>().ok()?;
-            Some((lat, lon))
-        }
-        _ => None,
-    }
-}
-
 /// Extract a (lat, lon) pair from an ES geo_point value.
 /// Accepts:
 ///   - {"lat": 1.0, "lon": 2.0}
@@ -7279,7 +8227,11 @@ fn parse_geo_point(v: &Value) -> Option<(f64, f64)> {
         Value::String(s) => {
             let t = s.trim();
             if let Some(rest) = t.strip_prefix("POINT") {
-                let rest = rest.trim_start().trim_start_matches('(').trim_end_matches(')').trim();
+                let rest = rest
+                    .trim_start()
+                    .trim_start_matches('(')
+                    .trim_end_matches(')')
+                    .trim();
                 let mut parts = rest.split_whitespace();
                 let lon: f64 = parts.next()?.parse().ok()?;
                 let lat: f64 = parts.next()?.parse().ok()?;
@@ -7313,8 +8265,7 @@ fn geotile_xy(lat: f64, lon: f64, zoom: u32) -> (i64, i64) {
     let lat_rad = lat.to_radians();
     let n = 2f64.powi(zoom as i32);
     let x = ((lon + 180.0) / 360.0 * n).floor() as i64;
-    let y = ((1.0 - (lat_rad.tan() + 1.0 / lat_rad.cos()).ln() / std::f64::consts::PI) / 2.0
-        * n)
+    let y = ((1.0 - (lat_rad.tan() + 1.0 / lat_rad.cos()).ln() / std::f64::consts::PI) / 2.0 * n)
         .floor() as i64;
     (x, y)
 }
@@ -7385,7 +8336,12 @@ fn geo_unit_scale(u: &str) -> f64 {
 
 /// ES `geo_distance` aggregation — bucket each doc by its distance
 /// (meters by default) from `origin`, against a list of `ranges`.
-fn run_geo_distance(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
+fn run_geo_distance(
+    params: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
         None => return json!({"buckets": []}),
@@ -7405,62 +8361,80 @@ fn run_geo_distance(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], al
     let unit = params.get("unit").and_then(Value::as_str).unwrap_or("m");
     let scale = geo_unit_scale(unit);
 
-    let buckets: Vec<Value> = ranges.iter().map(|r| {
-        let from = r.get("from").and_then(Value::as_f64);
-        let to = r.get("to").and_then(Value::as_f64);
-        let filtered: Vec<Value> = docs.iter().filter(|doc| {
-            let loc = match doc.get(field) {
-                Some(v) => v,
-                None => return false,
-            };
-            let pt = match parse_geo_point(loc) {
-                Some(p) => p,
-                None => return false,
-            };
-            let dist_m = haversine_distance(origin, pt);
-            let dist = dist_m / scale;
-            match (from, to) {
-                (Some(f), Some(t)) => dist >= f && dist < t,
-                (Some(f), None) => dist >= f,
-                (None, Some(t)) => dist < t,
-                (None, None) => true,
+    let buckets: Vec<Value> = ranges
+        .iter()
+        .map(|r| {
+            let from = r.get("from").and_then(Value::as_f64);
+            let to = r.get("to").and_then(Value::as_f64);
+            let filtered: Vec<Value> = docs
+                .iter()
+                .filter(|doc| {
+                    let loc = match doc.get(field) {
+                        Some(v) => v,
+                        None => return false,
+                    };
+                    let pt = match parse_geo_point(loc) {
+                        Some(p) => p,
+                        None => return false,
+                    };
+                    let dist_m = haversine_distance(origin, pt);
+                    let dist = dist_m / scale;
+                    match (from, to) {
+                        (Some(f), Some(t)) => dist >= f && dist < t,
+                        (Some(f), None) => dist >= f,
+                        (None, Some(t)) => dist < t,
+                        (None, None) => true,
+                    }
+                })
+                .cloned()
+                .collect();
+            let key = r
+                .get("key")
+                .and_then(Value::as_str)
+                .map(String::from)
+                .unwrap_or_else(|| match (from, to) {
+                    (Some(f), Some(t)) => {
+                        format!("{}-{}", format_range_val(f), format_range_val(t))
+                    }
+                    (Some(f), None) => format!("{}-*", format_range_val(f)),
+                    (None, Some(t)) => format!("*-{}", format_range_val(t)),
+                    (None, None) => "*-*".to_string(),
+                });
+            let mut bucket = serde_json::Map::new();
+            bucket.insert("key".to_string(), Value::String(key));
+            if let Some(f) = from {
+                bucket.insert("from".to_string(), json!(f));
             }
-        }).cloned().collect();
-        let key = r.get("key").and_then(Value::as_str).map(String::from).unwrap_or_else(|| match (from, to) {
-            (Some(f), Some(t)) => format!("{}-{}", format_range_val(f), format_range_val(t)),
-            (Some(f), None) => format!("{}-*", format_range_val(f)),
-            (None, Some(t)) => format!("*-{}", format_range_val(t)),
-            (None, None) => "*-*".to_string(),
-        });
-        let mut bucket = serde_json::Map::new();
-        bucket.insert("key".to_string(), Value::String(key));
-        if let Some(f) = from { bucket.insert("from".to_string(), json!(f)); }
-        if let Some(t) = to { bucket.insert("to".to_string(), json!(t)); }
-        bucket.insert("doc_count".to_string(), json!(filtered.len() as u64));
-        if let Some(sub) = sub_aggs {
-            let sr = run_aggs_with_all(sub, &filtered, all_docs);
-            if let Value::Object(so) = sr {
-                for (k, v) in so { bucket.insert(k, v); }
+            if let Some(t) = to {
+                bucket.insert("to".to_string(), json!(t));
             }
-        }
-        Value::Object(bucket)
-    }).collect();
+            bucket.insert("doc_count".to_string(), json!(filtered.len() as u64));
+            if let Some(sub) = sub_aggs {
+                let sr = run_aggs_with_all(sub, &filtered, all_docs);
+                if let Value::Object(so) = sr {
+                    for (k, v) in so {
+                        bucket.insert(k, v);
+                    }
+                }
+            }
+            Value::Object(bucket)
+        })
+        .collect();
     json!({"buckets": buckets})
 }
 
-fn run_geotile_grid(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
+fn run_geotile_grid(
+    params: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
         None => return json!({"buckets": []}),
     };
-    let precision = params
-        .get("precision")
-        .and_then(Value::as_u64)
-        .unwrap_or(7) as u32;
-    let size = params
-        .get("size")
-        .and_then(Value::as_u64)
-        .unwrap_or(10_000) as usize;
+    let precision = params.get("precision").and_then(Value::as_u64).unwrap_or(7) as u32;
+    let size = params.get("size").and_then(Value::as_u64).unwrap_or(10_000) as usize;
     // Optional bounds filter: {top_left: [lon, lat], bottom_right: [lon, lat]}.
     // ES filter semantics: a doc's tile counts if that tile
     // intersects the bounds rectangle (not if the doc's point itself
@@ -7489,9 +8463,11 @@ fn run_geotile_grid(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], al
         for (lat, lon) in pts {
             let (x, y) = geotile_xy(lat, lon, precision);
             if let Some((xlo, xhi, ylo, yhi)) = tile_bounds {
-                if x < xlo || x > xhi || y < ylo || y > yhi { continue; }
+                if x < xlo || x > xhi || y < ylo || y > yhi {
+                    continue;
+                }
             }
-            let n = 2i64.pow(precision as u32);
+            let n = 2i64.pow(precision);
             let max = n - 1;
             let key = format!("{}/{}/{}", precision, x.clamp(0, max), y.clamp(0, max));
             // Bucket cap: skip new keys past the limit; existing keys still grow.
@@ -7505,8 +8481,9 @@ fn run_geotile_grid(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], al
     // entries to the front, then O(N log N) on just the prefix. Beats a full
     // O(M log M) sort when M (total buckets) >> N (size); for 10M buckets /
     // size=10 this is roughly a 20× win.
-    let cmp = |a: &(String, Vec<usize>), b: &(String, Vec<usize>)|
-        b.1.len().cmp(&a.1.len()).then_with(|| a.0.cmp(&b.0));
+    let cmp = |a: &(String, Vec<usize>), b: &(String, Vec<usize>)| {
+        b.1.len().cmp(&a.1.len()).then_with(|| a.0.cmp(&b.0))
+    };
     let mut sorted: Vec<(String, Vec<usize>)> = bucket_map.into_iter().collect();
     let n = size.min(sorted.len());
     if n > 0 && n < sorted.len() {
@@ -7524,7 +8501,9 @@ fn run_geotile_grid(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], al
             if let Some(sub) = sub_aggs {
                 let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
                 if let (Some(obj), Value::Object(sub_obj)) = (bucket.as_object_mut(), sub_result) {
-                    for (k, v) in sub_obj { obj.insert(k, v); }
+                    for (k, v) in sub_obj {
+                        obj.insert(k, v);
+                    }
                 }
             }
             bucket
@@ -7567,10 +8546,7 @@ fn collect_geo_points(doc: &Value, field: &str) -> Vec<(f64, f64)> {
     }
     match v {
         Value::Array(arr) => {
-            if arr.len() == 2
-                && arr[0].as_f64().is_some()
-                && arr[1].as_f64().is_some()
-            {
+            if arr.len() == 2 && arr[0].as_f64().is_some() && arr[1].as_f64().is_some() {
                 if let Some(p) = parse_geo_point(v) {
                     out.push(p);
                 }
@@ -7585,19 +8561,18 @@ fn collect_geo_points(doc: &Value, field: &str) -> Vec<(f64, f64)> {
     out
 }
 
-fn run_geohash_grid(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
+fn run_geohash_grid(
+    params: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
         None => return json!({"buckets": []}),
     };
-    let precision = params
-        .get("precision")
-        .and_then(Value::as_u64)
-        .unwrap_or(5) as usize;
-    let size = params
-        .get("size")
-        .and_then(Value::as_u64)
-        .unwrap_or(10_000) as usize;
+    let precision = params.get("precision").and_then(Value::as_u64).unwrap_or(5) as usize;
+    let size = params.get("size").and_then(Value::as_u64).unwrap_or(10_000) as usize;
 
     // Optional bounds filter.
     let bounds = params.get("bounds").and_then(Value::as_object);
@@ -7622,7 +8597,9 @@ fn run_geohash_grid(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], al
     let bucket_cap = max_buckets();
     for (i, doc) in docs.iter().enumerate() {
         for (lat, lon) in collect_geo_points(doc, field) {
-            if !in_bounds(lat, lon) { continue; }
+            if !in_bounds(lat, lon) {
+                continue;
+            }
             let hash = encode_geohash(lat, lon, precision);
             if bucket_map.contains_key(&hash) || bucket_map.len() < bucket_cap {
                 bucket_map.entry(hash).or_default().push(i);
@@ -7635,8 +8612,9 @@ fn run_geohash_grid(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], al
     // value in descending order (matching the numeric-id tie-break
     // used by Lucene's geohash aggregator). Partial-sort optimization
     // (see geotile path above for the rationale).
-    let cmp = |a: &(String, Vec<usize>), b: &(String, Vec<usize>)|
-        b.1.len().cmp(&a.1.len()).then_with(|| b.0.cmp(&a.0));
+    let cmp = |a: &(String, Vec<usize>), b: &(String, Vec<usize>)| {
+        b.1.len().cmp(&a.1.len()).then_with(|| b.0.cmp(&a.0))
+    };
     let mut sorted: Vec<(String, Vec<usize>)> = bucket_map.into_iter().collect();
     let n = size.min(sorted.len());
     if n > 0 && n < sorted.len() {
@@ -7654,7 +8632,9 @@ fn run_geohash_grid(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], al
             if let Some(sub) = sub_aggs {
                 let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
                 if let (Some(obj), Value::Object(sub_obj)) = (bucket.as_object_mut(), sub_result) {
-                    for (k, v) in sub_obj { obj.insert(k, v); }
+                    for (k, v) in sub_obj {
+                        obj.insert(k, v);
+                    }
                 }
             }
             bucket
@@ -7666,15 +8646,17 @@ fn run_geohash_grid(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], al
 
 // ── Multi-terms aggregation ───────────────────────────────────────────────────
 
-fn run_multi_terms(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
+fn run_multi_terms(
+    params: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
     let terms_defs = match params.get("terms").and_then(Value::as_array) {
         Some(t) => t,
         None => return json!({"buckets": []}),
     };
-    let size = params
-        .get("size")
-        .and_then(Value::as_u64)
-        .unwrap_or(10) as usize;
+    let size = params.get("size").and_then(Value::as_u64).unwrap_or(10) as usize;
 
     // Extract field names in order.
     let fields: Vec<&str> = terms_defs
@@ -7693,7 +8675,12 @@ fn run_multi_terms(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all
         // For multi-terms, take the first value for each field (like ES default).
         let key: Vec<String> = fields
             .iter()
-            .map(|f| extract_field_values(doc, f).into_iter().next().unwrap_or_default())
+            .map(|f| {
+                extract_field_values(doc, f)
+                    .into_iter()
+                    .next()
+                    .unwrap_or_default()
+            })
             .collect();
         if bucket_map.contains_key(&key) || bucket_map.len() < bucket_cap {
             bucket_map.entry(key).or_default().push(i);
@@ -7703,8 +8690,9 @@ fn run_multi_terms(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all
     // Sort by doc_count descending. Partial-sort: O(M) select_nth_unstable_by
     // + O(N log N) prefix sort, vs O(M log M) for full sort. Wins big for
     // wide multi-terms aggs over high-cardinality compound keys.
-    let cmp = |a: &(Vec<String>, Vec<usize>), b: &(Vec<String>, Vec<usize>)|
-        b.1.len().cmp(&a.1.len()).then_with(|| a.0.cmp(&b.0));
+    let cmp = |a: &(Vec<String>, Vec<usize>), b: &(Vec<String>, Vec<usize>)| {
+        b.1.len().cmp(&a.1.len()).then_with(|| a.0.cmp(&b.0))
+    };
     let mut sorted: Vec<(Vec<String>, Vec<usize>)> = bucket_map.into_iter().collect();
     let n = size.min(sorted.len());
     if n > 0 && n < sorted.len() {
@@ -7728,7 +8716,9 @@ fn run_multi_terms(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all
             if let Some(sub) = sub_aggs {
                 let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
                 if let (Some(obj), Value::Object(sub_obj)) = (bucket.as_object_mut(), sub_result) {
-                    for (k, v) in sub_obj { obj.insert(k, v); }
+                    for (k, v) in sub_obj {
+                        obj.insert(k, v);
+                    }
                 }
             }
             bucket
@@ -7751,33 +8741,35 @@ fn run_multi_terms(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all
 // canonical form here.
 const AUTO_DATE_INTERVALS: &[(&str, i64)] = &[
     ("1ms", 1),
-    ("1s",  1_000),
+    ("1s", 1_000),
     ("10s", 10_000),
     ("30s", 30_000),
-    ("1m",  60_000),
-    ("5m",  300_000),
+    ("1m", 60_000),
+    ("5m", 300_000),
     ("10m", 600_000),
     ("15m", 900_000),
     ("30m", 1_800_000),
-    ("1h",  3_600_000),
-    ("3h",  10_800_000),
+    ("1h", 3_600_000),
+    ("3h", 10_800_000),
     ("12h", 43_200_000),
-    ("1d",  86_400_000),
-    ("7d",  604_800_000),
+    ("1d", 86_400_000),
+    ("7d", 604_800_000),
     ("30d", 2_592_000_000),
     ("90d", 7_776_000_000),
-    ("1y",  31_536_000_000),
+    ("1y", 31_536_000_000),
 ];
 
-fn run_auto_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
+fn run_auto_date_histogram(
+    params: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
         None => return json!({"buckets": [], "interval": "1d"}),
     };
-    let target_buckets = params
-        .get("buckets")
-        .and_then(Value::as_u64)
-        .unwrap_or(10) as usize;
+    let target_buckets = params.get("buckets").and_then(Value::as_u64).unwrap_or(10) as usize;
 
     // Collect all timestamps.
     let timestamps: Vec<i64> = docs
@@ -7791,7 +8783,7 @@ fn run_auto_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Val
 
     let min_ts = *timestamps.iter().min().unwrap();
     let max_ts = *timestamps.iter().max().unwrap();
-    let span_ms = (max_ts - min_ts).max(1);
+    let _span_ms = (max_ts - min_ts).max(1);
 
     // Choose the interval that produces the number of buckets closest to
     // target_buckets. Use a calendar-aware bucket count that matches ES's
@@ -7824,17 +8816,15 @@ fn run_auto_date_histogram(params: &Value, sub_aggs: Option<&Value>, docs: &[Val
     // pin to (e.g. expected first bucket = 2020-03-01, the data min).
     // Compute the required `offset` (ms) relative to the current grid
     // and pass it through to date_histogram.
-    let offset_ms: i64 = if interval_label == "7d"
-        || interval_label == "30d"
-        || interval_label == "90d"
-    {
-        let day_ms = 86_400_000i64;
-        let min_day = min_ts.div_euclid(day_ms) * day_ms;
-        let grid_floor = min_day.div_euclid(interval_ms) * interval_ms;
-        min_day - grid_floor
-    } else {
-        0
-    };
+    let offset_ms: i64 =
+        if interval_label == "7d" || interval_label == "30d" || interval_label == "90d" {
+            let day_ms = 86_400_000i64;
+            let min_day = min_ts.div_euclid(day_ms) * day_ms;
+            let grid_floor = min_day.div_euclid(interval_ms) * interval_ms;
+            min_day - grid_floor
+        } else {
+            0
+        };
     let offset_str = if offset_ms == 0 {
         String::new()
     } else {
@@ -7883,7 +8873,12 @@ pub enum FastAggResult {
 /// Returns `Unsupported` for bucket aggs that have sub-aggs (which would
 /// require re-filtering docs — those still go through the JSON scan path),
 /// or for any agg type that cannot be served from a single column.
-pub fn run_agg_fast(agg_type: &str, params: &Value, dv: &DocValues, has_sub_aggs: bool) -> FastAggResult {
+pub fn run_agg_fast(
+    agg_type: &str,
+    params: &Value,
+    dv: &DocValues,
+    has_sub_aggs: bool,
+) -> FastAggResult {
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
         None => return FastAggResult::Unsupported,
@@ -7896,7 +8891,10 @@ pub fn run_agg_fast(agg_type: &str, params: &Value, dv: &DocValues, has_sub_aggs
                 Some(c) => c,
                 None => return FastAggResult::Unsupported,
             };
-            let (sum, count) = col.iter().flatten().fold((0.0f64, 0u64), |(s, c), &v| (s + v, c + 1));
+            let (sum, count) = col
+                .iter()
+                .flatten()
+                .fold((0.0f64, 0u64), |(s, c), &v| (s + v, c + 1));
             let value: Value = if count == 0 {
                 Value::Null
             } else {
@@ -7944,19 +8942,24 @@ pub fn run_agg_fast(agg_type: &str, params: &Value, dv: &DocValues, has_sub_aggs
 
         "value_count" => {
             // Count non-null values in the keyword column (or numeric fallback).
-            let count = dv.keyword
+            let count = dv
+                .keyword
                 .get(field)
                 .map(|col| col.iter().filter(|v| v.is_some()).count())
-                .or_else(|| dv.numeric.get(field).map(|col| col.iter().filter(|v| v.is_some()).count()))
+                .or_else(|| {
+                    dv.numeric
+                        .get(field)
+                        .map(|col| col.iter().filter(|v| v.is_some()).count())
+                })
                 .unwrap_or(0) as u64;
             FastAggResult::Value(json!({ "value": count }))
         }
 
         "cardinality" => {
             // Distinct count from the bounded-delta maintained keyword_set.
-            let count = dv
-                .with_keyword_field(field, |c| c.keyword_set.get(field).map(|s| s.len()).unwrap_or(0))
-                as u64;
+            let count = dv.with_keyword_field(field, |c| {
+                c.keyword_set.get(field).map(|s| s.len()).unwrap_or(0)
+            }) as u64;
             FastAggResult::Value(json!({ "value": count }))
         }
 
@@ -7972,16 +8975,24 @@ pub fn run_agg_fast(agg_type: &str, params: &Value, dv: &DocValues, has_sub_aggs
             for &v in col.iter().flatten() {
                 count += 1;
                 sum += v;
-                if v < min { min = v; }
-                if v > max { max = v; }
+                if v < min {
+                    min = v;
+                }
+                if v > max {
+                    max = v;
+                }
             }
             let avg = if count > 0 { sum / count as f64 } else { 0.0 };
             let (min_out, max_out) = if count == 0 {
                 (Value::Null, Value::Null)
             } else {
                 (
-                    serde_json::Number::from_f64(min).map(Value::Number).unwrap_or(Value::Null),
-                    serde_json::Number::from_f64(max).map(Value::Number).unwrap_or(Value::Null),
+                    serde_json::Number::from_f64(min)
+                        .map(Value::Number)
+                        .unwrap_or(Value::Null),
+                    serde_json::Number::from_f64(max)
+                        .map(Value::Number)
+                        .unwrap_or(Value::Null),
                 )
             };
             FastAggResult::Value(json!({
@@ -8015,13 +9026,15 @@ pub fn run_agg_fast(agg_type: &str, params: &Value, dv: &DocValues, has_sub_aggs
                 *counts.entry(opt.clone()).or_insert(0) += 1;
             }
 
-            let order_by_count_asc = params.get("order")
+            let order_by_count_asc = params
+                .get("order")
                 .and_then(Value::as_object)
                 .and_then(|o| o.get("_count"))
                 .and_then(Value::as_str)
                 .map(|s| s == "asc")
                 .unwrap_or(false);
-            let order_by_key = params.get("order")
+            let order_by_key = params
+                .get("order")
                 .and_then(Value::as_object)
                 .and_then(|o| o.get("_key"))
                 .and_then(Value::as_str)
@@ -8092,10 +9105,10 @@ pub fn run_agg_fast_filtered(
     // Returns owned Strings to avoid lifetime complexity with the closure.
     let iter_keyword = |col: &[Option<String>]| -> Vec<String> {
         match doc_indices {
-            None => col.iter().filter_map(|v| v.as_ref().map(|s| s.clone())).collect(),
+            None => col.iter().filter_map(|v| v.clone()).collect(),
             Some(idxs) => idxs
                 .iter()
-                .filter_map(|&i| col.get(i).and_then(|v| v.as_ref().map(|s| s.clone())))
+                .filter_map(|&i| col.get(i).and_then(|v| v.clone()))
                 .collect(),
         }
     };
@@ -8168,7 +9181,8 @@ pub fn run_agg_fast_filtered(
         "cardinality" => {
             // For filtered sets, recount distinct values from the filtered slice.
             let count = if let Some(col) = dv.keyword.get(field) {
-                let distinct: std::collections::HashSet<String> = iter_keyword(col).into_iter().collect();
+                let distinct: std::collections::HashSet<String> =
+                    iter_keyword(col).into_iter().collect();
                 distinct.len()
             } else {
                 0
@@ -8189,16 +9203,24 @@ pub fn run_agg_fast_filtered(
             for v in vals {
                 count += 1;
                 sum += v;
-                if v < min { min = v; }
-                if v > max { max = v; }
+                if v < min {
+                    min = v;
+                }
+                if v > max {
+                    max = v;
+                }
             }
             let avg = if count > 0 { sum / count as f64 } else { 0.0 };
             let (min_out, max_out) = if count == 0 {
                 (Value::Null, Value::Null)
             } else {
                 (
-                    serde_json::Number::from_f64(min).map(Value::Number).unwrap_or(Value::Null),
-                    serde_json::Number::from_f64(max).map(Value::Number).unwrap_or(Value::Null),
+                    serde_json::Number::from_f64(min)
+                        .map(Value::Number)
+                        .unwrap_or(Value::Null),
+                    serde_json::Number::from_f64(max)
+                        .map(Value::Number)
+                        .unwrap_or(Value::Null),
                 )
             };
             FastAggResult::Value(json!({
@@ -8229,13 +9251,15 @@ pub fn run_agg_fast_filtered(
                 *counts.entry(v.to_string()).or_insert(0) += 1;
             }
 
-            let order_by_count_asc = params.get("order")
+            let order_by_count_asc = params
+                .get("order")
                 .and_then(Value::as_object)
                 .and_then(|o| o.get("_count"))
                 .and_then(Value::as_str)
                 .map(|s| s == "asc")
                 .unwrap_or(false);
-            let order_by_key = params.get("order")
+            let order_by_key = params
+                .get("order")
                 .and_then(Value::as_object)
                 .and_then(|o| o.get("_key"))
                 .and_then(Value::as_str)
@@ -8338,10 +9362,7 @@ fn run_extended_stats<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldC
     };
     let std_deviation = variance_pop.max(0.0).sqrt();
     let std_deviation_samp = variance_samp.max(0.0).sqrt();
-    let sigma = params
-        .get("sigma")
-        .and_then(Value::as_f64)
-        .unwrap_or(2.0);
+    let sigma = params.get("sigma").and_then(Value::as_f64).unwrap_or(2.0);
 
     json!({
         "count": count,
@@ -8466,7 +9487,11 @@ fn run_geo_centroid(params: &Value, docs: &[Value]) -> Value {
 }
 
 /// `median_absolute_deviation` — median of absolute deviations from the median.
-fn run_median_absolute_deviation<'d>(params: &Value, _docs: &'d [Value], cache: &mut FieldCache<'d>) -> Value {
+fn run_median_absolute_deviation<'d>(
+    params: &Value,
+    _docs: &'d [Value],
+    cache: &mut FieldCache<'d>,
+) -> Value {
     let field = match params.get("field").and_then(Value::as_str) {
         Some(f) => f,
         None => return json!({"value": Value::Null}),
@@ -8484,7 +9509,7 @@ fn run_median_absolute_deviation<'d>(params: &Value, _docs: &'d [Value], cache: 
 
     values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     let n = values.len();
-    let median = if n % 2 == 0 {
+    let median = if n.is_multiple_of(2) {
         (values[n / 2 - 1] + values[n / 2]) / 2.0
     } else {
         values[n / 2]
@@ -8493,7 +9518,7 @@ fn run_median_absolute_deviation<'d>(params: &Value, _docs: &'d [Value], cache: 
     let mut deviations: Vec<f64> = values.iter().map(|x| (x - median).abs()).collect();
     deviations.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     let m = deviations.len();
-    let mad = if m % 2 == 0 {
+    let mad = if m.is_multiple_of(2) {
         (deviations[m / 2 - 1] + deviations[m / 2]) / 2.0
     } else {
         deviations[m / 2]
@@ -8551,8 +9576,12 @@ fn run_nested(path: &str, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[
             if matches!(item, Value::Object(_)) {
                 let mut wrapped = wrap_synth_for_path(path, item);
                 if let Some(obj) = wrapped.as_object_mut() {
-                    if let Some(id) = parent_id.clone() { obj.insert("_id".into(), id); }
-                    if let Some(ix) = parent_index.clone() { obj.insert("_index".into(), ix); }
+                    if let Some(id) = parent_id.clone() {
+                        obj.insert("_id".into(), id);
+                    }
+                    if let Some(ix) = parent_index.clone() {
+                        obj.insert("_index".into(), ix);
+                    }
                     obj.insert(
                         "_nested".into(),
                         json!({"field": path, "offset": offset as u64}),
@@ -8591,23 +9620,6 @@ fn wrap_synth_for_path(path: &str, item: &Value) -> Value {
     cur
 }
 
-fn run_nested_passthrough(sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
-    let doc_count = docs.len() as u64;
-    let mut result = serde_json::Map::new();
-    result.insert("doc_count".to_string(), json!(doc_count));
-
-    if let Some(sub) = sub_aggs {
-        let sub_result = run_aggs_with_all(sub, docs, all_docs);
-        if let Value::Object(sub_obj) = sub_result {
-            for (k, v) in sub_obj {
-                result.insert(k, v);
-            }
-        }
-    }
-
-    Value::Object(result)
-}
-
 fn run_reverse_nested(sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
     // Deduplicate by parent _id so each parent doc is counted once. Docs
     // without _id fall back to identity (treated as already-parent).
@@ -8625,7 +9637,11 @@ fn run_reverse_nested(sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Valu
             let parent = doc
                 .get("_id")
                 .and_then(Value::as_str)
-                .and_then(|id| all_docs.iter().find(|d| d.get("_id").and_then(Value::as_str) == Some(id)))
+                .and_then(|id| {
+                    all_docs
+                        .iter()
+                        .find(|d| d.get("_id").and_then(Value::as_str) == Some(id))
+                })
                 .cloned()
                 .unwrap_or_else(|| doc.clone());
             unique.push(parent);
@@ -8666,13 +9682,24 @@ fn run_global(sub_aggs: Option<&Value>, all_docs: &[Value]) -> Value {
 
 // ── date_range aggregation ────────────────────────────────────────────────────
 
-fn run_date_range(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
-    let field = params.get("field").and_then(Value::as_str).unwrap_or("@timestamp");
+fn run_date_range(
+    params: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
+    let field = params
+        .get("field")
+        .and_then(Value::as_str)
+        .unwrap_or("@timestamp");
     let ranges = match params.get("ranges").and_then(Value::as_array) {
         Some(r) => r,
         None => return json!({"buckets": []}),
     };
-    let keyed = params.get("keyed").and_then(Value::as_bool).unwrap_or(false);
+    let keyed = params
+        .get("keyed")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     let user_fmt = params.get("format").and_then(Value::as_str);
     let missing_ms: Option<i64> = params.get("missing").and_then(parse_date_ms);
     let tz_param = params.get("time_zone").and_then(Value::as_str);
@@ -8680,11 +9707,23 @@ fn run_date_range(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_
     // Detect fractional-second precision from the longest input. If any
     // from/to uses 9-digit (nanos) precision, render with `SSSSSSSSS`; else
     // default to ES's 3-digit (millis).
-    let nanos_digits: usize = ranges.iter().flat_map(|r| {
-        let from_s = r.get("from").and_then(Value::as_str).map(detect_fractional_digits).unwrap_or(0);
-        let to_s = r.get("to").and_then(Value::as_str).map(detect_fractional_digits).unwrap_or(0);
-        [from_s, to_s]
-    }).max().unwrap_or(3);
+    let nanos_digits: usize = ranges
+        .iter()
+        .flat_map(|r| {
+            let from_s = r
+                .get("from")
+                .and_then(Value::as_str)
+                .map(detect_fractional_digits)
+                .unwrap_or(0);
+            let to_s = r
+                .get("to")
+                .and_then(Value::as_str)
+                .map(detect_fractional_digits)
+                .unwrap_or(0);
+            [from_s, to_s]
+        })
+        .max()
+        .unwrap_or(3);
     let nanos_digits = if nanos_digits >= 9 { 9 } else { 3 };
 
     let render = |ms: i64| -> String {
@@ -8704,11 +9743,13 @@ fn run_date_range(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_
             let offset = tz_param.and_then(|tz| fixed_offset_for_tz_at(tz, ms));
             let pat = java_to_strftime(fmt);
             let out = if let Some(off) = offset {
-                let dt_utc = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms).unwrap_or_default();
+                let dt_utc =
+                    chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms).unwrap_or_default();
                 let dt_local = dt_utc.with_timezone(&off);
                 dt_local.format(&pat).to_string()
             } else {
-                let dt_utc = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms).unwrap_or_default();
+                let dt_utc =
+                    chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms).unwrap_or_default();
                 dt_utc.format(&pat).to_string()
             };
             // Java's `ZZZZZ` collapses to `Z` for UTC; chrono's `%:z`
@@ -8746,7 +9787,9 @@ fn run_date_range(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_
                 _ => None,
             };
         }
-        if let Some(ms) = parse_date_ms(val) { return Some(ms); }
+        if let Some(ms) = parse_date_ms(val) {
+            return Some(ms);
+        }
         let s = val.as_str()?;
         let fmt = user_fmt?;
         let pat = java_to_strftime(fmt);
@@ -8754,7 +9797,9 @@ fn run_date_range(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_
             return Some(dt.and_utc().timestamp_millis());
         }
         if let Ok(d) = chrono::NaiveDate::parse_from_str(s, &pat) {
-            return d.and_hms_opt(0, 0, 0).map(|dt| dt.and_utc().timestamp_millis());
+            return d
+                .and_hms_opt(0, 0, 0)
+                .map(|dt| dt.and_utc().timestamp_millis());
         }
         None
     };
@@ -8765,8 +9810,8 @@ fn run_date_range(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_
         // `from`/`to` can be ISO-8601 strings or raw numbers. Both cases
         // convert through parse_date_ms so bucket comparisons work on
         // millis.
-        let from_ms = range_def.get("from").and_then(|v| parse_with_fmt(v));
-        let to_ms = range_def.get("to").and_then(|v| parse_with_fmt(v));
+        let from_ms = range_def.get("from").and_then(&parse_with_fmt);
+        let to_ms = range_def.get("to").and_then(&parse_with_fmt);
         let from_str_in = range_def.get("from").and_then(Value::as_str);
         let to_str_in = range_def.get("to").and_then(Value::as_str);
 
@@ -8784,24 +9829,31 @@ fn run_date_range(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_
             _ => "*".to_string(),
         };
         let default_key = format!("{}-{}", from_key, to_key);
-        let key = range_def.get("key").and_then(Value::as_str).map(String::from)
+        let key = range_def
+            .get("key")
+            .and_then(Value::as_str)
+            .map(String::from)
             .unwrap_or(default_key);
 
-        let filtered: Vec<Value> = docs.iter().filter(|doc| {
-            let v = doc.get(field).or_else(|| {
-                doc.get("_source").and_then(|s| s.get(field))
-            });
-            // Doc values honor the field-declared format too: a doc
-            // stored as `{date: 1000}` under `format: epoch_second`
-            // means 1000 seconds = 1 000 000 ms.
-            let doc_ms = match v.and_then(|vv| parse_with_fmt(vv)).or(missing_ms) {
-                Some(m) => m,
-                None => return false,
-            };
-            let passes_from = from_ms.map(|f| doc_ms >= f).unwrap_or(true);
-            let passes_to = to_ms.map(|t| doc_ms < t).unwrap_or(true);
-            passes_from && passes_to
-        }).cloned().collect();
+        let filtered: Vec<Value> = docs
+            .iter()
+            .filter(|doc| {
+                let v = doc
+                    .get(field)
+                    .or_else(|| doc.get("_source").and_then(|s| s.get(field)));
+                // Doc values honor the field-declared format too: a doc
+                // stored as `{date: 1000}` under `format: epoch_second`
+                // means 1000 seconds = 1 000 000 ms.
+                let doc_ms = match v.and_then(&parse_with_fmt).or(missing_ms) {
+                    Some(m) => m,
+                    None => return false,
+                };
+                let passes_from = from_ms.map(|f| doc_ms >= f).unwrap_or(true);
+                let passes_to = to_ms.map(|t| doc_ms < t).unwrap_or(true);
+                passes_from && passes_to
+            })
+            .cloned()
+            .collect();
 
         let mut bucket = serde_json::Map::new();
         if !keyed {
@@ -8819,7 +9871,9 @@ fn run_date_range(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_
         if let Some(sub) = sub_aggs {
             let sr = run_aggs_with_all(sub, &filtered, all_docs);
             if let Value::Object(so) = sr {
-                for (k, v) in so { bucket.insert(k, v); }
+                for (k, v) in so {
+                    bucket.insert(k, v);
+                }
             }
         }
         if keyed {
@@ -8859,10 +9913,15 @@ fn run_percentile_ranks(params: &Value, docs: &[Value]) -> Value {
     // Default `keyed` for percentile_ranks is true (matches percentiles).
     let keyed = params.get("keyed").and_then(Value::as_bool).unwrap_or(true);
 
-    let mut nums: Vec<f64> = docs.iter().filter_map(|doc| {
-        let v = doc.get(field).or_else(|| doc.get("_source").and_then(|s| s.get(field)))?;
-        v.as_f64()
-    }).collect();
+    let mut nums: Vec<f64> = docs
+        .iter()
+        .filter_map(|doc| {
+            let v = doc
+                .get(field)
+                .or_else(|| doc.get("_source").and_then(|s| s.get(field)))?;
+            v.as_f64()
+        })
+        .collect();
     nums.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
     let total = nums.len() as f64;
@@ -8923,7 +9982,8 @@ fn run_percentile_ranks(params: &Value, docs: &[Value]) -> Value {
 fn run_scripted_metric(params: &Value, docs: &[Value]) -> Value {
     let src_of = |key: &str| -> Option<String> {
         params.get(key).and_then(|v| {
-            v.as_str().map(String::from)
+            v.as_str()
+                .map(String::from)
                 .or_else(|| v.get("source").and_then(Value::as_str).map(String::from))
         })
     };
@@ -8936,7 +9996,7 @@ fn run_scripted_metric(params: &Value, docs: &[Value]) -> Value {
     // Pre-parse the scripts once. Each returns the parsed AST, or an
     // error we surface as a null metric.
     let parse = |s: &Option<String>| -> Option<Vec<PlStmt>> {
-        s.as_deref().map(|code| parse_script(code)).transpose().ok().flatten()
+        s.as_deref().map(parse_script).transpose().ok().flatten()
     };
     let init_ast = parse(&init_src);
     let map_ast = parse(&map_src);
@@ -8949,13 +10009,17 @@ fn run_scripted_metric(params: &Value, docs: &[Value]) -> Value {
     let mut state_obj = Value::Object(serde_json::Map::new());
     if let Some(ast) = &init_ast {
         let mut ctx = ScriptCtx::new(state_obj.clone(), script_params.clone(), None);
-        if exec_stmts(ast, &mut ctx).is_err() { return json!({"value": Value::Null}); }
+        if exec_stmts(ast, &mut ctx).is_err() {
+            return json!({"value": Value::Null});
+        }
         state_obj = ctx.state;
     }
     if let Some(ast) = &map_ast {
         for doc in docs {
             let mut ctx = ScriptCtx::new(state_obj.clone(), script_params.clone(), Some(doc));
-            if exec_stmts(ast, &mut ctx).is_err() { return json!({"value": Value::Null}); }
+            if exec_stmts(ast, &mut ctx).is_err() {
+                return json!({"value": Value::Null});
+            }
             state_obj = ctx.state;
         }
     }
@@ -9036,7 +10100,13 @@ struct ScriptCtx<'a> {
 }
 impl<'a> ScriptCtx<'a> {
     fn new(state: Value, params: Value, doc: Option<&'a Value>) -> Self {
-        Self { state, params, doc, states: None, locals: std::collections::HashMap::new() }
+        Self {
+            state,
+            params,
+            doc,
+            states: None,
+            locals: std::collections::HashMap::new(),
+        }
     }
 }
 
@@ -9047,21 +10117,32 @@ fn lex_script(src: &str) -> Result<Vec<PlTok>, String> {
     let mut out = Vec::new();
     while i < bytes.len() {
         let c = bytes[i] as char;
-        if c.is_whitespace() { i += 1; continue; }
-        // Line comments //..., block comments /* ... */
-        if c == '/' && i + 1 < bytes.len() && bytes[i+1] as char == '/' {
-            while i < bytes.len() && bytes[i] as char != '\n' { i += 1; }
+        if c.is_whitespace() {
+            i += 1;
             continue;
         }
-        if c == '/' && i + 1 < bytes.len() && bytes[i+1] as char == '*' {
+        // Line comments //..., block comments /* ... */
+        if c == '/' && i + 1 < bytes.len() && bytes[i + 1] as char == '/' {
+            while i < bytes.len() && bytes[i] as char != '\n' {
+                i += 1;
+            }
+            continue;
+        }
+        if c == '/' && i + 1 < bytes.len() && bytes[i + 1] as char == '*' {
             i += 2;
-            while i + 1 < bytes.len() && !(bytes[i] as char == '*' && bytes[i+1] as char == '/') { i += 1; }
+            while i + 1 < bytes.len() && !(bytes[i] as char == '*' && bytes[i + 1] as char == '/') {
+                i += 1;
+            }
             i += 2.min(bytes.len() - i);
             continue;
         }
-        if c.is_ascii_digit() || (c == '.' && i + 1 < bytes.len() && (bytes[i+1] as char).is_ascii_digit()) {
+        if c.is_ascii_digit()
+            || (c == '.' && i + 1 < bytes.len() && (bytes[i + 1] as char).is_ascii_digit())
+        {
             let start = i;
-            while i < bytes.len() && ((bytes[i] as char).is_ascii_digit() || bytes[i] as char == '.') {
+            while i < bytes.len()
+                && ((bytes[i] as char).is_ascii_digit() || bytes[i] as char == '.')
+            {
                 i += 1;
             }
             let s = &src[start..i];
@@ -9073,15 +10154,21 @@ fn lex_script(src: &str) -> Result<Vec<PlTok>, String> {
             let quote = c;
             i += 1;
             let start = i;
-            while i < bytes.len() && bytes[i] as char != quote { i += 1; }
+            while i < bytes.len() && bytes[i] as char != quote {
+                i += 1;
+            }
             let s = src[start..i].to_string();
-            if i < bytes.len() { i += 1; }
+            if i < bytes.len() {
+                i += 1;
+            }
             out.push(PlTok::StrLit(s));
             continue;
         }
         if c.is_ascii_alphabetic() || c == '_' {
             let start = i;
-            while i < bytes.len() && ((bytes[i] as char).is_ascii_alphanumeric() || bytes[i] as char == '_') {
+            while i < bytes.len()
+                && ((bytes[i] as char).is_ascii_alphanumeric() || bytes[i] as char == '_')
+            {
                 i += 1;
             }
             out.push(PlTok::Ident(src[start..i].to_string()));
@@ -9089,11 +10176,18 @@ fn lex_script(src: &str) -> Result<Vec<PlTok>, String> {
         }
         // Two-char operators
         if i + 1 < bytes.len() {
-            let two = &src[i..i+2];
+            let two = &src[i..i + 2];
             let op: Option<&'static str> = match two {
-                ">=" => Some(">="), "<=" => Some("<="), "==" => Some("=="), "!=" => Some("!="),
-                "&&" => Some("&&"), "||" => Some("||"), "+=" => Some("+="), "-=" => Some("-="),
-                "*=" => Some("*="), "/=" => Some("/="),
+                ">=" => Some(">="),
+                "<=" => Some("<="),
+                "==" => Some("=="),
+                "!=" => Some("!="),
+                "&&" => Some("&&"),
+                "||" => Some("||"),
+                "+=" => Some("+="),
+                "-=" => Some("-="),
+                "*=" => Some("*="),
+                "/=" => Some("/="),
                 _ => None,
             };
             if let Some(o) = op {
@@ -9103,26 +10197,86 @@ fn lex_script(src: &str) -> Result<Vec<PlTok>, String> {
             }
         }
         match c {
-            '+' => { out.push(PlTok::Op("+")); i += 1; }
-            '-' => { out.push(PlTok::Op("-")); i += 1; }
-            '*' => { out.push(PlTok::Op("*")); i += 1; }
-            '/' => { out.push(PlTok::Op("/")); i += 1; }
-            '%' => { out.push(PlTok::Op("%")); i += 1; }
-            '<' => { out.push(PlTok::Op("<")); i += 1; }
-            '>' => { out.push(PlTok::Op(">")); i += 1; }
-            '=' => { out.push(PlTok::Op("=")); i += 1; }
-            '!' => { out.push(PlTok::Op("!")); i += 1; }
-            '(' => { out.push(PlTok::LParen); i += 1; }
-            ')' => { out.push(PlTok::RParen); i += 1; }
-            '{' => { out.push(PlTok::LBrace); i += 1; }
-            '}' => { out.push(PlTok::RBrace); i += 1; }
-            '[' => { out.push(PlTok::Op("[")); i += 1; }
-            ']' => { out.push(PlTok::Op("]")); i += 1; }
-            ';' => { out.push(PlTok::Semi); i += 1; }
-            ',' => { out.push(PlTok::Comma); i += 1; }
-            '.' => { out.push(PlTok::Dot); i += 1; }
-            '?' => { out.push(PlTok::Question); i += 1; }
-            ':' => { out.push(PlTok::Colon); i += 1; }
+            '+' => {
+                out.push(PlTok::Op("+"));
+                i += 1;
+            }
+            '-' => {
+                out.push(PlTok::Op("-"));
+                i += 1;
+            }
+            '*' => {
+                out.push(PlTok::Op("*"));
+                i += 1;
+            }
+            '/' => {
+                out.push(PlTok::Op("/"));
+                i += 1;
+            }
+            '%' => {
+                out.push(PlTok::Op("%"));
+                i += 1;
+            }
+            '<' => {
+                out.push(PlTok::Op("<"));
+                i += 1;
+            }
+            '>' => {
+                out.push(PlTok::Op(">"));
+                i += 1;
+            }
+            '=' => {
+                out.push(PlTok::Op("="));
+                i += 1;
+            }
+            '!' => {
+                out.push(PlTok::Op("!"));
+                i += 1;
+            }
+            '(' => {
+                out.push(PlTok::LParen);
+                i += 1;
+            }
+            ')' => {
+                out.push(PlTok::RParen);
+                i += 1;
+            }
+            '{' => {
+                out.push(PlTok::LBrace);
+                i += 1;
+            }
+            '}' => {
+                out.push(PlTok::RBrace);
+                i += 1;
+            }
+            '[' => {
+                out.push(PlTok::Op("["));
+                i += 1;
+            }
+            ']' => {
+                out.push(PlTok::Op("]"));
+                i += 1;
+            }
+            ';' => {
+                out.push(PlTok::Semi);
+                i += 1;
+            }
+            ',' => {
+                out.push(PlTok::Comma);
+                i += 1;
+            }
+            '.' => {
+                out.push(PlTok::Dot);
+                i += 1;
+            }
+            '?' => {
+                out.push(PlTok::Question);
+                i += 1;
+            }
+            ':' => {
+                out.push(PlTok::Colon);
+                i += 1;
+            }
             _ => return Err(format!("unexpected char `{}`", c)),
         }
     }
@@ -9134,18 +10288,32 @@ struct PlParser {
     pos: usize,
 }
 impl PlParser {
-    fn peek(&self) -> Option<&PlTok> { self.toks.get(self.pos) }
-    fn bump(&mut self) -> Option<PlTok> { let t = self.toks.get(self.pos).cloned(); self.pos += 1; t }
+    fn peek(&self) -> Option<&PlTok> {
+        self.toks.get(self.pos)
+    }
+    fn bump(&mut self) -> Option<PlTok> {
+        let t = self.toks.get(self.pos).cloned();
+        self.pos += 1;
+        t
+    }
     fn eat_semi(&mut self) {
-        while matches!(self.peek(), Some(PlTok::Semi)) { self.pos += 1; }
+        while matches!(self.peek(), Some(PlTok::Semi)) {
+            self.pos += 1;
+        }
     }
     fn parse_stmts(&mut self, terminator_brace: bool) -> Result<Vec<PlStmt>, String> {
         let mut out = Vec::new();
         while let Some(t) = self.peek() {
-            if terminator_brace && matches!(t, PlTok::RBrace) { break; }
+            if terminator_brace && matches!(t, PlTok::RBrace) {
+                break;
+            }
             self.eat_semi();
-            if self.peek().is_none() { break; }
-            if terminator_brace && matches!(self.peek(), Some(PlTok::RBrace)) { break; }
+            if self.peek().is_none() {
+                break;
+            }
+            if terminator_brace && matches!(self.peek(), Some(PlTok::RBrace)) {
+                break;
+            }
             out.push(self.parse_stmt()?);
             self.eat_semi();
         }
@@ -9170,9 +10338,23 @@ impl PlParser {
             // map to ordinary JSON values.
             if matches!(
                 kw.as_str(),
-                "long" | "int" | "double" | "float" | "def" | "var" | "boolean" | "String"
-                    | "Set" | "Map" | "List" | "HashSet" | "TreeSet" | "HashMap" | "TreeMap"
-                    | "ArrayList" | "Collection"
+                "long"
+                    | "int"
+                    | "double"
+                    | "float"
+                    | "def"
+                    | "var"
+                    | "boolean"
+                    | "String"
+                    | "Set"
+                    | "Map"
+                    | "List"
+                    | "HashSet"
+                    | "TreeSet"
+                    | "HashMap"
+                    | "TreeMap"
+                    | "ArrayList"
+                    | "Collection"
             ) {
                 // Lookahead: if the next token after the type keyword
                 // is not an identifier (i.e. this is a bare expression
@@ -9194,15 +10376,21 @@ impl PlParser {
             // statement as a no-op expression so parsing proceeds.
             if kw == "throw" {
                 self.bump(); // `throw`
-                // Consume `new`, type name, and `(args)`.
+                             // Consume `new`, type name, and `(args)`.
                 if let Some(PlTok::Ident(n)) = self.peek().cloned() {
-                    if n == "new" { self.bump(); }
+                    if n == "new" {
+                        self.bump();
+                    }
                 }
                 // Type name (optionally `Foo.Bar` path).
-                if let Some(PlTok::Ident(_)) = self.peek() { self.bump(); }
+                if let Some(PlTok::Ident(_)) = self.peek() {
+                    self.bump();
+                }
                 while matches!(self.peek(), Some(PlTok::Dot)) {
                     self.bump();
-                    if let Some(PlTok::Ident(_)) = self.peek() { self.bump(); }
+                    if let Some(PlTok::Ident(_)) = self.peek() {
+                        self.bump();
+                    }
                 }
                 if matches!(self.peek(), Some(PlTok::LParen)) {
                     self.bump();
@@ -9245,7 +10433,10 @@ impl PlParser {
         // Accept either `for (t in ...)` or `for (def t : ...)`.
         // Skip an optional type keyword before the loop variable.
         if let Some(PlTok::Ident(kw)) = self.peek().cloned() {
-            if matches!(kw.as_str(), "def" | "var" | "long" | "int" | "double" | "float") {
+            if matches!(
+                kw.as_str(),
+                "def" | "var" | "long" | "int" | "double" | "float"
+            ) {
                 self.bump();
             }
         }
@@ -9273,13 +10464,19 @@ impl PlParser {
     }
     fn parse_if(&mut self) -> Result<PlStmt, String> {
         self.bump();
-        if !matches!(self.bump(), Some(PlTok::LParen)) { return Err("expected `(` after if".into()); }
+        if !matches!(self.bump(), Some(PlTok::LParen)) {
+            return Err("expected `(` after if".into());
+        }
         let cond = self.parse_expr()?;
-        if !matches!(self.bump(), Some(PlTok::RParen)) { return Err("expected `)` after if-cond".into()); }
+        if !matches!(self.bump(), Some(PlTok::RParen)) {
+            return Err("expected `)` after if-cond".into());
+        }
         let then_body = if matches!(self.peek(), Some(PlTok::LBrace)) {
             self.bump();
             let b = self.parse_stmts(true)?;
-            if !matches!(self.bump(), Some(PlTok::RBrace)) { return Err("expected `}` after if-then".into()); }
+            if !matches!(self.bump(), Some(PlTok::RBrace)) {
+                return Err("expected `}` after if-then".into());
+            }
             b
         } else {
             vec![self.parse_stmt()?]
@@ -9289,31 +10486,42 @@ impl PlParser {
             if matches!(self.peek(), Some(PlTok::LBrace)) {
                 self.bump();
                 let b = self.parse_stmts(true)?;
-                if !matches!(self.bump(), Some(PlTok::RBrace)) { return Err("expected `}` after if-else".into()); }
+                if !matches!(self.bump(), Some(PlTok::RBrace)) {
+                    return Err("expected `}` after if-else".into());
+                }
                 Some(b)
             } else {
                 Some(vec![self.parse_stmt()?])
             }
-        } else { None };
+        } else {
+            None
+        };
         Ok(PlStmt::If(cond, then_body, else_body))
     }
-    fn parse_expr(&mut self) -> Result<PlExpr, String> { self.parse_ternary() }
+    fn parse_expr(&mut self) -> Result<PlExpr, String> {
+        self.parse_ternary()
+    }
     fn parse_ternary(&mut self) -> Result<PlExpr, String> {
         let cond = self.parse_binary(1)?;
         if matches!(self.peek(), Some(PlTok::Question)) {
             self.bump();
             let t = self.parse_ternary()?;
-            if !matches!(self.bump(), Some(PlTok::Colon)) { return Err("expected `:` in ternary".into()); }
+            if !matches!(self.bump(), Some(PlTok::Colon)) {
+                return Err("expected `:` in ternary".into());
+            }
             let f = self.parse_ternary()?;
             Ok(PlExpr::Ternary(Box::new(cond), Box::new(t), Box::new(f)))
-        } else { Ok(cond) }
+        } else {
+            Ok(cond)
+        }
     }
     fn parse_binary(&mut self, min_prec: u8) -> Result<PlExpr, String> {
         let mut lhs = self.parse_unary()?;
-        loop {
-            let Some(op) = self.peek_binop() else { break };
+        while let Some(op) = self.peek_binop() {
             let prec = binop_prec(op);
-            if prec < min_prec { break; }
+            if prec < min_prec {
+                break;
+            }
             self.bump();
             let rhs = self.parse_binary(prec + 1)?;
             lhs = PlExpr::Binary(Box::new(lhs), op, Box::new(rhs));
@@ -9323,11 +10531,13 @@ impl PlParser {
     fn peek_binop(&self) -> Option<&'static str> {
         if let Some(PlTok::Op(o)) = self.peek() {
             match *o {
-                "||" | "&&" | "==" | "!=" | "<" | ">" | "<=" | ">=" |
-                "+" | "-" | "*" | "/" | "%" => Some(*o),
+                "||" | "&&" | "==" | "!=" | "<" | ">" | "<=" | ">=" | "+" | "-" | "*" | "/"
+                | "%" => Some(*o),
                 _ => None,
             }
-        } else { None }
+        } else {
+            None
+        }
     }
     fn parse_unary(&mut self) -> Result<PlExpr, String> {
         if let Some(PlTok::Op("-")) = self.peek() {
@@ -9416,7 +10626,9 @@ impl PlParser {
                             // Optional dotted type path (`Foo.Bar`).
                             while matches!(self.peek(), Some(PlTok::Dot)) {
                                 self.bump();
-                                if let Some(PlTok::Ident(_)) = self.peek() { self.bump(); }
+                                if let Some(PlTok::Ident(_)) = self.peek() {
+                                    self.bump();
+                                }
                             }
                             // Optional generic args `<…>` — tokenised
                             // as `<` then idents; skip until `>`.
@@ -9456,7 +10668,9 @@ impl PlParser {
             }
             Some(PlTok::LParen) => {
                 let e = self.parse_expr()?;
-                if !matches!(self.bump(), Some(PlTok::RParen)) { return Err("expected `)`".into()); }
+                if !matches!(self.bump(), Some(PlTok::RParen)) {
+                    return Err("expected `)`".into());
+                }
                 Ok(e)
             }
             Some(PlTok::Op("[")) => {
@@ -9480,7 +10694,8 @@ impl PlParser {
 }
 fn binop_prec(op: &str) -> u8 {
     match op {
-        "||" => 1, "&&" => 2,
+        "||" => 1,
+        "&&" => 2,
         "==" | "!=" => 3,
         "<" | ">" | "<=" | ">=" => 4,
         "+" | "-" => 5,
@@ -9512,7 +10727,10 @@ fn exec_stmt(stmt: &PlStmt, ctx: &mut ScriptCtx) -> Result<Option<Value>, String
             ctx.locals.insert(name.clone(), v);
             Ok(None)
         }
-        PlStmt::Expr(e) => { eval_expr(e, ctx)?; Ok(None) }
+        PlStmt::Expr(e) => {
+            eval_expr(e, ctx)?;
+            Ok(None)
+        }
         PlStmt::Assign(lhs, rhs) => {
             let v = eval_expr(rhs, ctx)?;
             assign_to(lhs, v, ctx)?;
@@ -9576,13 +10794,16 @@ fn eval_expr(e: &PlExpr, ctx: &mut ScriptCtx) -> Result<Value, String> {
         PlExpr::Num(n) => Ok(json!(n)),
         PlExpr::Str(s) => Ok(Value::String(s.clone())),
         PlExpr::Ident(n) => {
-            if let Some(v) = ctx.locals.get(n) { return Ok(v.clone()); }
+            if let Some(v) = ctx.locals.get(n) {
+                return Ok(v.clone());
+            }
             match n.as_str() {
                 "state" => Ok(ctx.state.clone()),
                 "params" => Ok(ctx.params.clone()),
                 "states" => Ok(ctx.states.clone().map(Value::Array).unwrap_or(Value::Null)),
                 "doc" => Ok(ctx.doc.cloned().unwrap_or(Value::Null)),
-                "_score" => Ok(ctx.doc
+                "_score" => Ok(ctx
+                    .doc
                     .and_then(|d| d.get("_score").cloned())
                     .unwrap_or(json!(1.0))),
                 _ => Ok(Value::Null),
@@ -9590,7 +10811,9 @@ fn eval_expr(e: &PlExpr, ctx: &mut ScriptCtx) -> Result<Value, String> {
         }
         PlExpr::ArrayLit(items) => {
             let mut out = Vec::with_capacity(items.len());
-            for it in items { out.push(eval_expr(it, ctx)?); }
+            for it in items {
+                out.push(eval_expr(it, ctx)?);
+            }
             Ok(Value::Array(out))
         }
         PlExpr::Member(obj_expr, name) => {
@@ -9602,7 +10825,9 @@ fn eval_expr(e: &PlExpr, ctx: &mut ScriptCtx) -> Result<Value, String> {
                     // below collapses it. We surface the array form here.
                     // Supports dotted paths (`doc['k8s.pod.uid']` →
                     // walk `k8s.pod.uid` or look up literal-dotted key).
-                    let Some(doc) = ctx.doc else { return Ok(Value::Null) };
+                    let Some(doc) = ctx.doc else {
+                        return Ok(Value::Null);
+                    };
                     let src = doc.get("_source").unwrap_or(doc);
                     let raw = walk_dotted_or_literal(src, name);
                     let as_array = match raw {
@@ -9622,12 +10847,16 @@ fn eval_expr(e: &PlExpr, ctx: &mut ScriptCtx) -> Result<Value, String> {
             }
             // `.size()` — property form for arrays.
             if name == "size" || name == "length" {
-                if let Value::Array(a) = base { return Ok(json!(a.len() as u64)); }
+                if let Value::Array(a) = base {
+                    return Ok(json!(a.len() as u64));
+                }
                 return Ok(json!(0));
             }
             // Generic property lookup on objects.
             if let Value::Object(ref obj) = base {
-                if let Some(v) = obj.get(name) { return Ok(v.clone()); }
+                if let Some(v) = obj.get(name) {
+                    return Ok(v.clone());
+                }
             }
             Ok(Value::Null)
         }
@@ -9667,7 +10896,9 @@ fn eval_expr(e: &PlExpr, ctx: &mut ScriptCtx) -> Result<Value, String> {
                 return Ok(Value::Bool(true));
             }
             if name == "size" && args.is_empty() {
-                if let Value::Array(a) = recv_val { return Ok(json!(a.len() as u64)); }
+                if let Value::Array(a) = recv_val {
+                    return Ok(json!(a.len() as u64));
+                }
                 return Ok(json!(0));
             }
             if name == "contains" && args.len() == 1 {
@@ -9705,8 +10936,11 @@ fn eval_expr(e: &PlExpr, ctx: &mut ScriptCtx) -> Result<Value, String> {
                     let a = value_as_f64(&lv).unwrap_or(0.0);
                     let b = value_as_f64(&rv).unwrap_or(0.0);
                     let res = match *op {
-                        "<" => a < b, "<=" => a <= b,
-                        ">" => a > b, ">=" => a >= b, _ => false,
+                        "<" => a < b,
+                        "<=" => a <= b,
+                        ">" => a > b,
+                        ">=" => a >= b,
+                        _ => false,
                     };
                     Ok(Value::Bool(res))
                 }
@@ -9718,17 +10952,23 @@ fn eval_expr(e: &PlExpr, ctx: &mut ScriptCtx) -> Result<Value, String> {
                     let lhs_str = matches!(lv, Value::String(_));
                     let rhs_str = matches!(rv, Value::String(_));
                     if lhs_str || rhs_str {
-                        let fmt = |v: &Value| -> String { match v {
-                            Value::String(s) => s.clone(),
-                            Value::Number(n) => {
-                                if n.is_i64() { n.as_i64().unwrap().to_string() }
-                                else if n.is_u64() { n.as_u64().unwrap().to_string() }
-                                else { n.to_string() }
+                        let fmt = |v: &Value| -> String {
+                            match v {
+                                Value::String(s) => s.clone(),
+                                Value::Number(n) => {
+                                    if n.is_i64() {
+                                        n.as_i64().unwrap().to_string()
+                                    } else if n.is_u64() {
+                                        n.as_u64().unwrap().to_string()
+                                    } else {
+                                        n.to_string()
+                                    }
+                                }
+                                Value::Bool(b) => b.to_string(),
+                                Value::Null => "null".to_string(),
+                                other => other.to_string(),
                             }
-                            Value::Bool(b) => b.to_string(),
-                            Value::Null => "null".to_string(),
-                            other => other.to_string(),
-                        }};
+                        };
                         Ok(Value::String(format!("{}{}", fmt(&lv), fmt(&rv))))
                     } else {
                         num_binop(&lv, op, &rv)
@@ -9751,7 +10991,11 @@ fn eval_expr(e: &PlExpr, ctx: &mut ScriptCtx) -> Result<Value, String> {
         }
         PlExpr::Ternary(c, t, f) => {
             let cv = eval_expr(c, ctx)?;
-            if is_truthy(&cv) { eval_expr(t, ctx) } else { eval_expr(f, ctx) }
+            if is_truthy(&cv) {
+                eval_expr(t, ctx)
+            } else {
+                eval_expr(f, ctx)
+            }
         }
     }
 }
@@ -9762,13 +11006,19 @@ fn eval_expr(e: &PlExpr, ctx: &mut ScriptCtx) -> Result<Value, String> {
 /// accepts both shapes interchangeably.
 fn walk_dotted_or_literal(v: &Value, key: &str) -> Value {
     if let Value::Object(obj) = v {
-        if let Some(direct) = obj.get(key) { return direct.clone(); }
-        if !key.contains('.') { return Value::Null; }
+        if let Some(direct) = obj.get(key) {
+            return direct.clone();
+        }
+        if !key.contains('.') {
+            return Value::Null;
+        }
         let mut cur: &Value = v;
         for seg in key.split('.') {
             match cur {
                 Value::Object(o) => {
-                    let Some(next) = o.get(seg) else { return Value::Null };
+                    let Some(next) = o.get(seg) else {
+                        return Value::Null;
+                    };
                     cur = next;
                 }
                 _ => return Value::Null,
@@ -9791,14 +11041,14 @@ fn json_value_eq(a: &Value, b: &Value) -> bool {
     match (a, b) {
         (Value::String(x), Value::String(y)) => x == y,
         (Value::String(x), other) | (other, Value::String(x)) => {
-            if let Some(nx) = x.parse::<f64>().ok() {
-                if let Some(ny) = value_as_f64(other) { return (nx - ny).abs() < 1e-12; }
+            if let Ok(nx) = x.parse::<f64>() {
+                if let Some(ny) = value_as_f64(other) {
+                    return (nx - ny).abs() < 1e-12;
+                }
             }
             other.as_str().map(|s| s == x).unwrap_or(false)
         }
-        (Value::Number(_), Value::Number(_)) => {
-            value_as_f64(a) == value_as_f64(b)
-        }
+        (Value::Number(_), Value::Number(_)) => value_as_f64(a) == value_as_f64(b),
         _ => a == b,
     }
 }
@@ -9806,9 +11056,23 @@ fn num_binop(a: &Value, op: &str, b: &Value) -> Result<Value, String> {
     let x = value_as_f64(a).unwrap_or(0.0);
     let y = value_as_f64(b).unwrap_or(0.0);
     let r = match op {
-        "+" => x + y, "-" => x - y, "*" => x * y,
-        "/" => if y != 0.0 { x / y } else { 0.0 },
-        "%" => if y != 0.0 { x % y } else { 0.0 },
+        "+" => x + y,
+        "-" => x - y,
+        "*" => x * y,
+        "/" => {
+            if y != 0.0 {
+                x / y
+            } else {
+                0.0
+            }
+        }
+        "%" => {
+            if y != 0.0 {
+                x % y
+            } else {
+                0.0
+            }
+        }
         _ => return Err(format!("bad num op `{}`", op)),
     };
     // Preserve integer shape when the result is representable as an int
@@ -9822,7 +11086,9 @@ fn num_binop(a: &Value, op: &str, b: &Value) -> Result<Value, String> {
 }
 fn value_looks_int(v: &Value) -> bool {
     match v {
-        Value::Number(n) => n.is_i64() || n.is_u64() || n.as_f64().map(|f| f.fract() == 0.0).unwrap_or(false),
+        Value::Number(n) => {
+            n.is_i64() || n.is_u64() || n.as_f64().map(|f| f.fract() == 0.0).unwrap_or(false)
+        }
         _ => false,
     }
 }
@@ -9842,7 +11108,10 @@ fn assign_to(target: &PlExpr, value: Value, ctx: &mut ScriptCtx) -> Result<(), S
                 ctx.locals.insert(root, value);
                 Ok(())
             } else {
-                let mut holder = ctx.locals.remove(&root).unwrap_or(Value::Object(serde_json::Map::new()));
+                let mut holder = ctx
+                    .locals
+                    .remove(&root)
+                    .unwrap_or(Value::Object(serde_json::Map::new()));
                 write_chain(&mut holder, &segments, value)?;
                 ctx.locals.insert(root, holder);
                 Ok(())
@@ -9874,7 +11143,9 @@ fn write_chain(holder: &mut Value, segs: &[String], value: Value) -> Result<(), 
     if segs.len() == 1 {
         obj.insert(first.clone(), value);
     } else {
-        let entry = obj.entry(first.clone()).or_insert_with(|| Value::Object(serde_json::Map::new()));
+        let entry = obj
+            .entry(first.clone())
+            .or_insert_with(|| Value::Object(serde_json::Map::new()));
         write_chain(entry, &segs[1..], value)?;
     }
     Ok(())
@@ -9890,7 +11161,12 @@ fn format_ipv6_u128(u: u128) -> String {
     std::net::Ipv6Addr::from(bytes).to_string()
 }
 
-fn run_ip_range(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Value]) -> Value {
+fn run_ip_range(
+    params: &Value,
+    sub_aggs: Option<&Value>,
+    docs: &[Value],
+    all_docs: &[Value],
+) -> Value {
     let field = params.get("field").and_then(Value::as_str).unwrap_or("ip");
     let ranges = match params.get("ranges").and_then(Value::as_array) {
         Some(r) => r,
@@ -9920,11 +11196,17 @@ fn run_ip_range(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_do
         // uses v6-mapped form, so shift v4 prefixes by +96 and require the
         // candidate addr to be v4-mapped (upper 80 bits = 0, next 16 = 0xFFFF).
         let is_v4_cidr = !net.contains(':');
-        let Some(net_u) = ip_as_u128(net) else { return false };
-        let Some(addr_u) = ip_as_u128(addr_str) else { return false };
+        let Some(net_u) = ip_as_u128(net) else {
+            return false;
+        };
+        let Some(addr_u) = ip_as_u128(addr_str) else {
+            return false;
+        };
         if is_v4_cidr {
             // Candidate must be v4-mapped for a v4 CIDR to apply.
-            if (addr_u >> 32) != 0xFFFF_u128 { return false; }
+            if (addr_u >> 32) != 0xFFFF_u128 {
+                return false;
+            }
             let effective = prefix + 96;
             let shift = 128u32.saturating_sub(effective);
             let mask = if shift >= 128 { 0 } else { (!0u128) << shift };
@@ -9948,29 +11230,38 @@ fn run_ip_range(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_do
         } else {
             format!("{}-{}", from_str.unwrap_or("*"), to_str.unwrap_or("*"))
         };
-        let key = range_def.get("key").and_then(Value::as_str).map(String::from)
+        let key = range_def
+            .get("key")
+            .and_then(Value::as_str)
+            .map(String::from)
             .unwrap_or(default_key);
 
         let from_u = from_str.and_then(ip_as_u128);
         let to_u = to_str.and_then(ip_as_u128);
-        let filtered: Vec<Value> = docs.iter().filter(|doc| {
-            let val = doc.get(field).or_else(|| doc.get("_source").and_then(|s| s.get(field)));
-            let ip_str = match val.and_then(Value::as_str) {
-                Some(s) => s,
-                None => return false,
-            };
-            if let Some(m) = mask {
-                cidr_matches(ip_str, m)
-            } else {
-                let ip_u = match ip_as_u128(ip_str) {
-                    Some(v) => v,
+        let filtered: Vec<Value> = docs
+            .iter()
+            .filter(|doc| {
+                let val = doc
+                    .get(field)
+                    .or_else(|| doc.get("_source").and_then(|s| s.get(field)));
+                let ip_str = match val.and_then(Value::as_str) {
+                    Some(s) => s,
                     None => return false,
                 };
-                let passes_from = from_u.map(|f| ip_u >= f).unwrap_or(true);
-                let passes_to = to_u.map(|t| ip_u < t).unwrap_or(true);
-                passes_from && passes_to
-            }
-        }).cloned().collect();
+                if let Some(m) = mask {
+                    cidr_matches(ip_str, m)
+                } else {
+                    let ip_u = match ip_as_u128(ip_str) {
+                        Some(v) => v,
+                        None => return false,
+                    };
+                    let passes_from = from_u.map(|f| ip_u >= f).unwrap_or(true);
+                    let passes_to = to_u.map(|t| ip_u < t).unwrap_or(true);
+                    passes_from && passes_to
+                }
+            })
+            .cloned()
+            .collect();
 
         let mut bucket = serde_json::Map::new();
         bucket.insert("key".to_string(), json!(key));
@@ -9990,7 +11281,7 @@ fn run_ip_range(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_do
                 let shift = 128u32.saturating_sub(effective_prefix);
                 let mask_bits = if shift >= 128 { 0 } else { (!0u128) << shift };
                 let start = net_u & mask_bits;
-                let end = start.checked_add(1u128 << shift.min(127)).unwrap_or(u128::MAX);
+                let end = start.saturating_add(1u128 << shift.min(127));
                 let fmt = |u: u128| -> String {
                     if is_v4 {
                         // Render as IPv4 (strip the v6-mapped prefix).
@@ -10017,7 +11308,9 @@ fn run_ip_range(params: &Value, sub_aggs: Option<&Value>, docs: &[Value], all_do
         if let Some(sub) = sub_aggs {
             let sr = run_aggs_with_all(sub, &filtered, all_docs);
             if let Value::Object(so) = sr {
-                for (k, v) in so { bucket.insert(k, v); }
+                for (k, v) in so {
+                    bucket.insert(k, v);
+                }
             }
         }
         buckets.push(Value::Object(bucket));

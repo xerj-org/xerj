@@ -7,12 +7,12 @@ use std::time::Duration;
 use tokio::sync::watch;
 
 use xerj_cluster::node::{
-    ClusterNode,
     in_memory::{InMemoryBus, InMemoryTransport},
+    ClusterNode,
 };
 use xerj_cluster::raft::{ClusterCommand, RaftMessage};
 use xerj_cluster::runner::ClusterRunner;
-use xerj_cluster::search::{SearchHit, SearchMessage, merge_search_responses};
+use xerj_cluster::search::{merge_search_responses, SearchHit, SearchMessage};
 use xerj_cluster::transport::TcpTransport;
 
 // ── Helper: find a free port ──────────────────────────────────────────────────
@@ -75,7 +75,9 @@ async fn test_tcp_transport_send_recv() {
     assert_eq!(from, "node-a");
 
     match received {
-        RaftMessage::RequestVote { term, candidate_id, .. } => {
+        RaftMessage::RequestVote {
+            term, candidate_id, ..
+        } => {
             assert_eq!(term, 1);
             assert_eq!(candidate_id, "node-a");
         }
@@ -124,7 +126,9 @@ async fn test_cluster_runner_election() {
         .map(|mut r| {
             tokio::spawn(async move {
                 // Run for at most 2 seconds, then return the runner for inspection.
-                tokio::time::timeout(Duration::from_secs(2), r.run()).await.ok();
+                tokio::time::timeout(Duration::from_secs(2), r.run())
+                    .await
+                    .ok();
                 r
             })
         })
@@ -201,7 +205,8 @@ async fn test_distributed_search_message() {
         let json = serde_json::to_string(msg).expect("serialize");
         let decoded: SearchMessage = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(
-            msg, &decoded,
+            msg,
+            &decoded,
             "round-trip failed for {:?}",
             std::mem::discriminant(msg)
         );

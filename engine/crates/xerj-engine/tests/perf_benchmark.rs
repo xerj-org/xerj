@@ -40,7 +40,15 @@ fn bench_engine() -> (Engine, TempDir) {
 
 /// Generate a realistic document body for document index `i`.
 fn make_doc(i: usize) -> Value {
-    let categories = ["technology", "science", "politics", "sports", "arts", "health", "finance"];
+    let categories = [
+        "technology",
+        "science",
+        "politics",
+        "sports",
+        "arts",
+        "health",
+        "finance",
+    ];
     let cat = categories[i % categories.len()];
     let score = (i % 100) as f64 / 10.0;
     json!({
@@ -60,7 +68,7 @@ fn make_doc(i: usize) -> Value {
         "category": cat,
         "score": score,
         "tags": [cat, format!("tag{}", i % 10)],
-        "published": i % 3 != 0,
+        "published": !i.is_multiple_of(3),
         "price": (i % 500) as f64 + 0.99,
     })
 }
@@ -154,12 +162,27 @@ async fn perf_search_latency() {
             .unwrap();
     }
     let index_time = index_start.elapsed();
-    print_kv("Index phase:", &format!("{:.2?} ({:.0} docs/sec)", index_time, INDEX_N as f64 / index_time.as_secs_f64()));
+    print_kv(
+        "Index phase:",
+        &format!(
+            "{:.2?} ({:.0} docs/sec)",
+            index_time,
+            INDEX_N as f64 / index_time.as_secs_f64()
+        ),
+    );
 
     // Query terms cycling over categories and body keywords
     let terms = [
-        "technology", "science", "politics", "sports", "arts",
-        "alpha", "beta", "gamma", "delta", "omega",
+        "technology",
+        "science",
+        "politics",
+        "sports",
+        "arts",
+        "alpha",
+        "beta",
+        "gamma",
+        "delta",
+        "omega",
     ];
 
     // Warm up (not measured)
@@ -236,9 +259,8 @@ async fn perf_bulk_throughput() {
         let mut ndjson = String::with_capacity(BATCH_SIZE * 200);
         for j in 0..BATCH_SIZE {
             let doc_idx = batch * BATCH_SIZE + j;
-            let action = format!(
-                "{{\"index\":{{\"_index\":\"bulk_bench\",\"_id\":\"{doc_idx}\"}}}}\n"
-            );
+            let action =
+                format!("{{\"index\":{{\"_index\":\"bulk_bench\",\"_id\":\"{doc_idx}\"}}}}\n");
             let doc_str = serde_json::to_string(&make_doc(doc_idx)).unwrap() + "\n";
             ndjson.push_str(&action);
             ndjson.push_str(&doc_str);
@@ -256,10 +278,16 @@ async fn perf_bulk_throughput() {
     let total_mb = total_bytes as f64 / 1_048_576.0;
 
     print_kv("Documents indexed:", &format!("{}", docs_indexed));
-    print_kv("Batches:", &format!("{} × {} docs", total_batches, BATCH_SIZE));
+    print_kv(
+        "Batches:",
+        &format!("{} × {} docs", total_batches, BATCH_SIZE),
+    );
     print_kv("Total payload size:", &format!("{:.1} MB", total_mb));
     print_kv("Total time:", &format!("{:.2?}", elapsed));
-    print_kv("Throughput (docs):", &format!("{:.0} docs/sec", docs_per_sec));
+    print_kv(
+        "Throughput (docs):",
+        &format!("{:.0} docs/sec", docs_per_sec),
+    );
     print_kv("Throughput (data):", &format!("{:.1} MB/sec", mb_per_sec));
     println!();
 }
@@ -387,8 +415,16 @@ async fn perf_concurrent_search() {
 
     let idx = std::sync::Arc::new(idx);
     let terms = std::sync::Arc::new([
-        "technology", "science", "politics", "sports", "arts",
-        "alpha", "beta", "gamma", "delta", "epsilon",
+        "technology",
+        "science",
+        "politics",
+        "sports",
+        "arts",
+        "alpha",
+        "beta",
+        "gamma",
+        "delta",
+        "epsilon",
     ]);
 
     // Spawn concurrent tasks
@@ -439,7 +475,10 @@ async fn perf_concurrent_search() {
     print_kv("p95:", &format!("{:.2?}", pcts[1]));
     print_kv("p99:", &format!("{:.2?}", pcts[2]));
     print_kv("min:", &format!("{:.2?}", all_latencies[0]));
-    print_kv("max:", &format!("{:.2?}", all_latencies[all_latencies.len() - 1]));
+    print_kv(
+        "max:",
+        &format!("{:.2?}", all_latencies[all_latencies.len() - 1]),
+    );
     println!();
 }
 
@@ -468,9 +507,13 @@ async fn perf_memory_footprint() {
         {
             // SAFETY: sysconf(_SC_PAGESIZE) is always safe; it reads a kernel
             // constant and never touches user memory.
-            extern "C" { fn sysconf(name: i32) -> i64; }
+            extern "C" {
+                fn sysconf(name: i32) -> i64;
+            }
             let ps = unsafe { sysconf(30) }; // 30 == _SC_PAGESIZE
-            if ps > 0 { return ps as u64; }
+            if ps > 0 {
+                return ps as u64;
+            }
         }
         4096
     }
@@ -507,11 +550,23 @@ async fn perf_memory_footprint() {
 
     print_kv("Documents indexed:", &format!("{}", N));
     print_kv("Indexing time:", &format!("{:.2?}", elapsed));
-    print_kv("RSS before:", &format!("{:.1} MB", baseline_rss as f64 / 1_048_576.0));
-    print_kv("RSS after:", &format!("{:.1} MB", rss_after as f64 / 1_048_576.0));
-    print_kv("RSS delta:", &format!("{:.1} MB", rss_delta as f64 / 1_048_576.0));
+    print_kv(
+        "RSS before:",
+        &format!("{:.1} MB", baseline_rss as f64 / 1_048_576.0),
+    );
+    print_kv(
+        "RSS after:",
+        &format!("{:.1} MB", rss_after as f64 / 1_048_576.0),
+    );
+    print_kv(
+        "RSS delta:",
+        &format!("{:.1} MB", rss_delta as f64 / 1_048_576.0),
+    );
     print_kv("RSS bytes/doc:", &format!("{}", rss_per_doc));
-    print_kv("Engine-reported memtable:", &format!("{:.1} MB", engine_reported_bytes as f64 / 1_048_576.0));
+    print_kv(
+        "Engine-reported memtable:",
+        &format!("{:.1} MB", engine_reported_bytes as f64 / 1_048_576.0),
+    );
     print_kv("Engine bytes/doc:", &format!("{}", engine_per_doc));
     println!();
 }
@@ -543,7 +598,9 @@ async fn perf_turbo_indexing_throughput() {
     // ── Standard path ─────────────────────────────────────────────────────
 
     let (engine_std, _dir_std) = bench_engine();
-    engine_std.create_index("std_bench", Schema::empty()).unwrap();
+    engine_std
+        .create_index("std_bench", Schema::empty())
+        .unwrap();
     let idx_std = engine_std.get_index("std_bench").unwrap();
 
     let std_start = Instant::now();
@@ -565,7 +622,8 @@ async fn perf_turbo_indexing_throughput() {
     let idx_turbo = engine_turbo.get_index("turbo_bench").unwrap();
 
     let turbo_start = Instant::now();
-    let mut batch: Vec<(String, serde_json::Value, std::sync::Arc<[u8]>)> = Vec::with_capacity(TURBO_BATCH);
+    let mut batch: Vec<(String, serde_json::Value, std::sync::Arc<[u8]>)> =
+        Vec::with_capacity(TURBO_BATCH);
 
     for i in 0..N {
         let empty_bytes: std::sync::Arc<[u8]> = std::sync::Arc::from(&[][..]);

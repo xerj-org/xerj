@@ -73,15 +73,9 @@ pub fn build_native_router(state: AppState) -> Router {
             get(native::get_doc).delete(native::delete_doc),
         )
         // Bulk ingest
-        .route(
-            "/v1/indices/:name/docs/_bulk",
-            post(native::bulk_ingest),
-        )
+        .route("/v1/indices/:name/docs/_bulk", post(native::bulk_ingest))
         // Turbo ingest — high-throughput batched parallel ingest (opt-in)
-        .route(
-            "/v1/indices/:name/turbo-ingest",
-            post(native::turbo_ingest),
-        )
+        .route("/v1/indices/:name/turbo-ingest", post(native::turbo_ingest))
         // Log ingest (auto-ID for every record)
         .route("/v1/indices/:name/logs", post(native::ingest_logs))
         // OTLP log ingest (OpenTelemetry JSON format)
@@ -91,7 +85,10 @@ pub fn build_native_router(state: AppState) -> Router {
         // Search
         .route("/v1/indices/:name/search", post(native::search))
         // Per-field smart encoding analysis
-        .route("/v1/indices/:name/encodings", get(native::get_index_encodings))
+        .route(
+            "/v1/indices/:name/encodings",
+            get(native::get_index_encodings),
+        )
         // Flush memtable to durable segment
         .route("/v1/indices/:name/_flush", post(native::flush_index))
         // Cluster / observability
@@ -106,17 +103,25 @@ pub fn build_native_router(state: AppState) -> Router {
         .route("/v1/admin/flush", post(native::admin_flush))
         .route("/v1/admin/backup", post(native::admin_backup))
         // Admin: slow query log — v0.8 8-P6
-        .route("/v1/admin/slow_queries", get(native::admin_slow_queries).delete(native::admin_slow_queries_clear))
-        .route("/v1/admin/slow_queries/threshold/:ms", put(native::admin_slow_queries_set_threshold))
+        .route(
+            "/v1/admin/slow_queries",
+            get(native::admin_slow_queries).delete(native::admin_slow_queries_clear),
+        )
+        .route(
+            "/v1/admin/slow_queries/threshold/:ms",
+            put(native::admin_slow_queries_set_threshold),
+        )
         // v0.9 9-P4 — Audit log
         .route("/_audit/_search", get(native::audit_search))
         .route("/_audit/_verify", get(native::audit_verify))
         // v0.9 9-P2 — RBAC roles
         .route("/_security/roles", get(native::rbac_list_roles))
-        .route("/_security/role/:name",
+        .route(
+            "/_security/role/:name",
             get(native::rbac_get_role)
                 .put(native::rbac_put_role)
-                .delete(native::rbac_delete_role))
+                .delete(native::rbac_delete_role),
+        )
         // (Xerj Console SPA + API — `/_xerj-console/*` — is served by xerj-console-api,
         // merged at the server level. See xerj-server/src/main.rs.)
         // Dashboard — overview of all indices (first step toward built-in UI)
@@ -131,7 +136,10 @@ pub fn build_native_router(state: AppState) -> Router {
         // Transform pipeline management
         .route("/v1/pipelines/:name", put(native::put_pipeline))
         // Ingest with pipeline transformation
-        .route("/v1/indices/:name/ingest", post(native::ingest_with_pipeline))
+        .route(
+            "/v1/indices/:name/ingest",
+            post(native::ingest_with_pipeline),
+        )
         // Shared state
         .with_state(state.clone())
         // Middleware stack (applied outermost-last)
@@ -185,7 +193,10 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         // ── Cluster-level ──────────────────────────────────────────────────
         .route("/", get(es_compat::es_info))
         .route("/_cluster/health", get(es_compat::cluster_health))
-        .route("/_cluster/health/:index", get(es_compat::cluster_health_for_index))
+        .route(
+            "/_cluster/health/:index",
+            get(es_compat::cluster_health_for_index),
+        )
         .route("/_cat/indices", get(es_compat::cat_indices))
         .route("/_cat/health", get(es_compat::cat_health))
         .route("/_cat/nodes", get(es_compat::cat_nodes))
@@ -231,8 +242,14 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         )
         .route("/:index/_stats", get(es_compat::index_stats))
         .route("/:index/_disk_usage", post(es_compat::index_disk_usage))
-        .route("/:index/_count", get(es_compat::count_docs).post(es_compat::count_docs))
-        .route("/_count", get(es_compat::count_docs_global).post(es_compat::count_docs_global))
+        .route(
+            "/:index/_count",
+            get(es_compat::count_docs).post(es_compat::count_docs),
+        )
+        .route(
+            "/_count",
+            get(es_compat::count_docs_global).post(es_compat::count_docs_global),
+        )
         .route("/:index/_refresh", post(es_compat::refresh_index))
         .route("/:index/_analyze", post(es_compat::analyze_text))
         .route("/_analyze", post(es_compat::analyze_text_global))
@@ -268,7 +285,10 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         // ── Bulk ───────────────────────────────────────────────────────────
         .route("/:index/_bulk", post(es_compat::bulk_ops))
         // ── Aliases ────────────────────────────────────────────────────────
-        .route("/_aliases", post(es_compat::post_aliases).get(es_compat::get_aliases))
+        .route(
+            "/_aliases",
+            post(es_compat::post_aliases).get(es_compat::get_aliases),
+        )
         // ── Index Templates ────────────────────────────────────────────────
         .route(
             "/_index_template/:name",
@@ -312,7 +332,10 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         // ── Cat templates ──────────────────────────────────────────────────
         .route("/_cat/templates", get(es_compat::cat_templates))
         // ── Ingest pipelines ───────────────────────────────────────────────
-        .route("/_ingest/pipeline", get(es_compat::get_all_ingest_pipelines))
+        .route(
+            "/_ingest/pipeline",
+            get(es_compat::get_all_ingest_pipelines),
+        )
         .route(
             "/_ingest/pipeline/_simulate",
             post(es_compat::simulate_inline_pipeline),
@@ -337,7 +360,10 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         // ── Admin: per-section CRC32C re-validation across every segment ──
         // 200 with `corrupt_sections: 0` on healthy index; 500 on any
         // corruption so external monitors fire on hits.
-        .route("/:index/_admin/segments/fsck", post(es_compat::admin_segments_fsck))
+        .route(
+            "/:index/_admin/segments/fsck",
+            post(es_compat::admin_segments_fsck),
+        )
         // ── Data streams ───────────────────────────────────────────────────
         .route(
             "/_data_stream/:name",
@@ -365,15 +391,15 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         // ── Cluster allocation explain ─────────────────────────────────────
         .route(
             "/_cluster/allocation/explain",
-            get(es_compat::cluster_allocation_explain)
-                .post(es_compat::cluster_allocation_explain),
+            get(es_compat::cluster_allocation_explain).post(es_compat::cluster_allocation_explain),
         )
         // ── Cat allocation ─────────────────────────────────────────────────
         .route("/_cat/allocation", get(es_compat::cat_allocation))
         // ── Index alias checks ─────────────────────────────────────────────
         .route(
             "/_alias",
-            get(es_compat::get_all_aliases_all_indices).head(es_compat::head_all_aliases_all_indices),
+            get(es_compat::get_all_aliases_all_indices)
+                .head(es_compat::head_all_aliases_all_indices),
         )
         .route(
             "/_alias/:alias",
@@ -411,7 +437,10 @@ pub fn build_es_compat_router(state: AppState) -> Router {
             get(es_compat::get_cluster_settings).put(es_compat::put_cluster_settings),
         )
         .route("/_cluster/reroute", post(es_compat::cluster_reroute))
-        .route("/_cluster/pending_tasks", get(es_compat::cluster_pending_tasks))
+        .route(
+            "/_cluster/pending_tasks",
+            get(es_compat::cluster_pending_tasks),
+        )
         // ── More _cat APIs ──────────────────────────────────────────────────
         .route("/_cat/recovery", get(es_compat::cat_recovery))
         .route("/_cat/segments/:index", get(es_compat::cat_segments))
@@ -467,15 +496,24 @@ pub fn build_es_compat_router(state: AppState) -> Router {
                 .get(es_compat::get_script)
                 .delete(es_compat::delete_script),
         )
-        .route("/_scripts/painless/_execute", post(es_compat::painless_execute))
+        .route(
+            "/_scripts/painless/_execute",
+            post(es_compat::painless_execute),
+        )
         // ── Terms enum ───────────────────────────────────────────────────────
         .route("/:index/_terms_enum", post(es_compat::terms_enum))
         // ── X-Pack APIs (needed for Kibana compatibility) ─────────────────────
         .route("/_xpack", get(es_compat::xpack_info))
         .route("/_xpack/usage", get(es_compat::xpack_usage))
         // ── Security APIs ─────────────────────────────────────────────────────
-        .route("/_security/_authenticate", get(es_compat::security_authenticate))
-        .route("/_security/api_key", post(es_compat::security_create_api_key))
+        .route(
+            "/_security/_authenticate",
+            get(es_compat::security_authenticate),
+        )
+        .route(
+            "/_security/api_key",
+            post(es_compat::security_create_api_key),
+        )
         // ── License ───────────────────────────────────────────────────────────
         .route(
             "/_license",
@@ -485,7 +523,10 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         .route("/:index/_pit", post(es_compat::open_pit))
         .route("/_pit", delete(es_compat::close_pit))
         // ── Internal cluster APIs ────────────────────────────────────────────
-        .route("/_internal/desired_balance", get(es_compat::get_desired_balance))
+        .route(
+            "/_internal/desired_balance",
+            get(es_compat::get_desired_balance),
+        )
         // ── EQL search ────────────────────────────────────────────────────────
         .route("/:index/_eql/search", post(es_compat::eql_search))
         // ── Global field_caps (across all indices) ────────────────────────────
@@ -528,9 +569,15 @@ pub fn build_es_compat_router(state: AppState) -> Router {
             post(es_compat::score_ml_anomaly_detector),
         )
         // ── _cat/ml APIs ──────────────────────────────────────────────────────
-        .route("/_cat/ml/anomaly_detectors", get(es_compat::cat_ml_anomaly_detectors))
+        .route(
+            "/_cat/ml/anomaly_detectors",
+            get(es_compat::cat_ml_anomaly_detectors),
+        )
         .route("/_cat/ml/datafeeds", get(es_compat::cat_ml_datafeeds))
-        .route("/_cat/ml/trained_models", get(es_compat::cat_ml_trained_models))
+        .route(
+            "/_cat/ml/trained_models",
+            get(es_compat::cat_ml_trained_models),
+        )
         // ── Monitoring ────────────────────────────────────────────────────────
         .route("/_monitoring/bulk", post(es_compat::monitoring_bulk))
         // ── Transform APIs ────────────────────────────────────────────────────
@@ -561,8 +608,14 @@ pub fn build_es_compat_router(state: AppState) -> Router {
                 .delete(es_compat::delete_ccr_auto_follow),
         )
         .route("/:index/_ccr/follow", put(es_compat::ccr_follow))
-        .route("/:index/_ccr/pause_follow", post(es_compat::ccr_pause_follow))
-        .route("/:index/_ccr/resume_follow", post(es_compat::ccr_resume_follow))
+        .route(
+            "/:index/_ccr/pause_follow",
+            post(es_compat::ccr_pause_follow),
+        )
+        .route(
+            "/:index/_ccr/resume_follow",
+            post(es_compat::ccr_resume_follow),
+        )
         .route("/:index/_ccr/unfollow", post(es_compat::ccr_unfollow))
         .route("/:index/_ccr/info", get(es_compat::ccr_info))
         // ── Legacy index templates (v1) ────────────────────────────────────────────

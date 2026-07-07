@@ -73,7 +73,7 @@ impl Default for SizeTieredMergePolicy {
         Self {
             min_merge_count: 4,
             max_merge_count: 10,
-            tier_floor_bytes: 5 * 1024 * 1024,       // 5 MiB
+            tier_floor_bytes: 5 * 1024 * 1024, // 5 MiB
             max_merged_segment_bytes: 5 * 1024 * 1024 * 1024, // 5 GiB
         }
     }
@@ -81,7 +81,9 @@ impl Default for SizeTieredMergePolicy {
 
 impl SizeTieredMergePolicy {
     fn tier_for(&self, size_bytes: u64) -> u32 {
-        if size_bytes == 0 { return 0; }
+        if size_bytes == 0 {
+            return 0;
+        }
         let floor = self.tier_floor_bytes.max(1) as f64;
         let ratio = (size_bytes as f64 / floor).log2().max(0.0);
         ratio as u32
@@ -189,7 +191,10 @@ pub struct MergeConfig {
 
 impl Default for MergeConfig {
     fn default() -> Self {
-        Self { io_rate_mb_per_sec: 50, check_interval_ms: 5_000 }
+        Self {
+            io_rate_mb_per_sec: 50,
+            check_interval_ms: 5_000,
+        }
     }
 }
 
@@ -218,7 +223,9 @@ impl MergeExecutor {
     #[instrument(skip(self), fields(count = segment_ids.len()))]
     pub fn execute_merge(&self, segment_ids: &[SegmentId]) -> Result<SegmentMeta> {
         if segment_ids.len() < 2 {
-            return Err(StorageError::MergeAborted("need at least 2 segments to merge".into()));
+            return Err(StorageError::MergeAborted(
+                "need at least 2 segments to merge".into(),
+            ));
         }
 
         let snap = self.store.snapshot();
@@ -237,7 +244,9 @@ impl MergeExecutor {
                 .iter()
                 .filter(|id| !metas.iter().any(|m| &m.id == *id))
                 .collect();
-            return Err(StorageError::MergeAborted(format!("segments not found: {missing:?}")));
+            return Err(StorageError::MergeAborted(format!(
+                "segments not found: {missing:?}"
+            )));
         }
 
         let total_docs: u64 = metas.iter().map(|m| m.doc_count).sum();
@@ -312,17 +321,11 @@ impl MergeExecutor {
         self.store.apply_merge(segment_ids, merged_meta.clone())?;
 
         // Update version map for all merged docs · hoist the Arc once.
-        let merged_id_arc: std::sync::Arc<str> =
-            std::sync::Arc::from(merged_meta.id.as_str());
+        let merged_id_arc: std::sync::Arc<str> = std::sync::Arc::from(merged_meta.id.as_str());
         for doc in &merged_docs {
             if let Some(doc_id) = doc.get("_id").and_then(|v| v.as_str()) {
                 if let Some(seq_no) = doc.get("_seq_no").and_then(|v| v.as_u64()) {
-                    version_map.set(
-                        doc_id,
-                        seq_no,
-                        std::sync::Arc::clone(&merged_id_arc),
-                        false,
-                    );
+                    version_map.set(doc_id, seq_no, std::sync::Arc::clone(&merged_id_arc), false);
                 }
             }
         }
@@ -341,10 +344,7 @@ impl MergeExecutor {
     ///
     /// The thread runs until [`MergeExecutor::shutdown`] is called.  Returns a
     /// handle that can be joined on shutdown.
-    pub fn spawn_background<P>(
-        self: Arc<Self>,
-        policy: Arc<P>,
-    ) -> std::thread::JoinHandle<()>
+    pub fn spawn_background<P>(self: Arc<Self>, policy: Arc<P>) -> std::thread::JoinHandle<()>
     where
         P: MergePolicy,
     {
@@ -358,7 +358,9 @@ impl MergeExecutor {
                 while !shutdown.load(Ordering::Relaxed) {
                     std::thread::sleep(interval);
 
-                    if shutdown.load(Ordering::Relaxed) { break; }
+                    if shutdown.load(Ordering::Relaxed) {
+                        break;
+                    }
 
                     let snap = self.store.snapshot();
                     let candidates = policy.select_merges(&snap.segments);
@@ -370,7 +372,9 @@ impl MergeExecutor {
                     }
 
                     for batch in candidates {
-                        if shutdown.load(Ordering::Relaxed) { break; }
+                        if shutdown.load(Ordering::Relaxed) {
+                            break;
+                        }
                         match self.execute_merge(&batch) {
                             Ok(meta) => info!(merged_id = meta.id, "background merge completed"),
                             Err(e) => warn!("background merge failed: {e}"),
@@ -397,10 +401,13 @@ mod tests {
     use crate::wal::SyncMode;
 
     fn test_store(dir: &std::path::Path) -> Arc<IndexStore> {
-        IndexStore::open(dir, IndexStoreConfig {
-            sync_mode: SyncMode::Batched,
-            ..Default::default()
-        })
+        IndexStore::open(
+            dir,
+            IndexStoreConfig {
+                sync_mode: SyncMode::Batched,
+                ..Default::default()
+            },
+        )
         .unwrap()
     }
 
@@ -417,11 +424,19 @@ mod tests {
 
         assert_eq!(store.snapshot().segments.len(), 2);
 
-        let ids: Vec<SegmentId> = store.snapshot().segments.iter().map(|s| s.id.clone()).collect();
+        let ids: Vec<SegmentId> = store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|s| s.id.clone())
+            .collect();
 
         let executor = Arc::new(MergeExecutor::new(
             Arc::clone(&store),
-            MergeConfig { io_rate_mb_per_sec: 0, ..Default::default() },
+            MergeConfig {
+                io_rate_mb_per_sec: 0,
+                ..Default::default()
+            },
         ));
 
         let meta = executor.execute_merge(&ids).unwrap();
@@ -445,11 +460,19 @@ mod tests {
         store.index("doc-2", serde_json::json!({"v": 2})).unwrap();
         store.flush().unwrap();
 
-        let ids: Vec<SegmentId> = store.snapshot().segments.iter().map(|s| s.id.clone()).collect();
+        let ids: Vec<SegmentId> = store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|s| s.id.clone())
+            .collect();
 
         let executor = Arc::new(MergeExecutor::new(
             Arc::clone(&store),
-            MergeConfig { io_rate_mb_per_sec: 0, ..Default::default() },
+            MergeConfig {
+                io_rate_mb_per_sec: 0,
+                ..Default::default()
+            },
         ));
 
         let meta = executor.execute_merge(&ids).unwrap();
@@ -459,7 +482,11 @@ mod tests {
 
     #[test]
     fn size_tiered_policy_groups_correctly() {
-        let policy = SizeTieredMergePolicy { min_merge_count: 2, max_merge_count: 10, ..Default::default() };
+        let policy = SizeTieredMergePolicy {
+            min_merge_count: 2,
+            max_merge_count: 10,
+            ..Default::default()
+        };
 
         let make_meta = |id: &str, size: u64| SegmentMeta {
             id: id.to_string(),
@@ -496,11 +523,22 @@ mod tests {
         store.index("doc-1", serde_json::json!({})).unwrap();
         store.flush().unwrap();
 
-        let ids: Vec<SegmentId> = store.snapshot().segments.iter().map(|s| s.id.clone()).collect();
+        let ids: Vec<SegmentId> = store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|s| s.id.clone())
+            .collect();
         let executor = Arc::new(MergeExecutor::new(
             Arc::clone(&store),
-            MergeConfig { io_rate_mb_per_sec: 0, ..Default::default() },
+            MergeConfig {
+                io_rate_mb_per_sec: 0,
+                ..Default::default()
+            },
         ));
-        assert!(matches!(executor.execute_merge(&ids), Err(StorageError::MergeAborted(_))));
+        assert!(matches!(
+            executor.execute_merge(&ids),
+            Err(StorageError::MergeAborted(_))
+        ));
     }
 }

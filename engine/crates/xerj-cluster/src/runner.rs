@@ -159,11 +159,7 @@ impl ClusterRunnerBuilder {
         self
     }
 
-    pub fn build(
-        self,
-        node: ClusterNode,
-        shutdown: watch::Receiver<bool>,
-    ) -> ClusterRunner {
+    pub fn build(self, node: ClusterNode, shutdown: watch::Receiver<bool>) -> ClusterRunner {
         ClusterRunner::new(node, self.tick_interval, shutdown)
     }
 }

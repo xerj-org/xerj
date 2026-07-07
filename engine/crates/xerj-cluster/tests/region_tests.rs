@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use xerj_cluster::regions::{Region, RegionManager};
-use xerj_cluster::router::{ShardRouter, jump_hash};
+use xerj_cluster::router::{jump_hash, ShardRouter};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -24,7 +24,11 @@ fn test_region_split() {
     // Push it over the size threshold.
     mgr.update_region_stats(id, 600, 10); // 600 bytes > 500 threshold
 
-    assert_eq!(mgr.regions_to_split().len(), 1, "one region should need splitting");
+    assert_eq!(
+        mgr.regions_to_split().len(),
+        1,
+        "one region should need splitting"
+    );
 
     let (left, right) = mgr.split_region(id).expect("split should succeed");
 
@@ -35,8 +39,14 @@ fn test_region_split() {
     );
 
     // Two new regions now exist.
-    assert!(mgr.regions().iter().any(|r| r.id == left.id), "left half should exist");
-    assert!(mgr.regions().iter().any(|r| r.id == right.id), "right half should exist");
+    assert!(
+        mgr.regions().iter().any(|r| r.id == left.id),
+        "left half should exist"
+    );
+    assert!(
+        mgr.regions().iter().any(|r| r.id == right.id),
+        "right half should exist"
+    );
 
     // Key ranges are contiguous.
     assert_eq!(
@@ -45,7 +55,11 @@ fn test_region_split() {
     );
 
     // Stats are approximately halved.
-    assert_eq!(left.size_bytes + right.size_bytes, 600, "stats should sum to original");
+    assert_eq!(
+        left.size_bytes + right.size_bytes,
+        600,
+        "stats should sum to original"
+    );
     assert_eq!(left.doc_count + right.doc_count, 10);
 }
 
@@ -97,14 +111,23 @@ fn test_region_merge() {
     let merged = mgr.merge_regions(id_a, id_b).expect("merge should succeed");
 
     // Original regions removed.
-    assert!(mgr.regions().iter().all(|r| r.id != id_a), "region a should be removed");
-    assert!(mgr.regions().iter().all(|r| r.id != id_b), "region b should be removed");
+    assert!(
+        mgr.regions().iter().all(|r| r.id != id_a),
+        "region a should be removed"
+    );
+    assert!(
+        mgr.regions().iter().all(|r| r.id != id_b),
+        "region b should be removed"
+    );
 
     // Merged region exists.
     assert!(mgr.regions().iter().any(|r| r.id == merged.id));
 
     // The merged region spans the full key range.
-    assert_eq!(merged.start_key, "", "merged start should be left-unbounded");
+    assert_eq!(
+        merged.start_key, "",
+        "merged start should be left-unbounded"
+    );
     assert_eq!(merged.end_key, "", "merged end should be right-unbounded");
 
     // Stats are summed (both were 0 here).
@@ -121,7 +144,10 @@ fn test_region_merge_non_adjacent_fails() {
     let id_last = regions[2].id;
 
     let result = mgr.merge_regions(id_first, id_last);
-    assert!(result.is_err(), "merging non-adjacent regions should return Err");
+    assert!(
+        result.is_err(),
+        "merging non-adjacent regions should return Err"
+    );
 }
 
 /// Merging accumulates stats from both regions.
@@ -153,7 +179,10 @@ fn test_initial_region_creation() {
     assert_eq!(mgr.regions().len(), 6);
 
     // First region is left-unbounded.
-    assert_eq!(created[0].start_key, "", "first region start should be empty");
+    assert_eq!(
+        created[0].start_key, "",
+        "first region start should be empty"
+    );
     // Last region is right-unbounded.
     assert_eq!(created[5].end_key, "", "last region end should be empty");
 
@@ -233,7 +262,10 @@ fn test_rebalance_plan() {
 
     assert!(!moves.is_empty(), "should plan at least one move");
     for mv in &moves {
-        assert_eq!(mv.from_node, "n1", "moves should come from the overloaded node");
+        assert_eq!(
+            mv.from_node, "n1",
+            "moves should come from the overloaded node"
+        );
         assert_eq!(mv.to_node, "n2", "moves should go to the underloaded node");
     }
 }

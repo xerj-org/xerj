@@ -41,9 +41,15 @@ pub struct EmbeddingProxyConfig {
     pub max_retries: u32,
 }
 
-fn default_timeout_secs() -> u64 { 30 }
-fn default_max_concurrent() -> usize { 4 }
-fn default_max_retries() -> u32 { 3 }
+fn default_timeout_secs() -> u64 {
+    30
+}
+fn default_max_concurrent() -> usize {
+    4
+}
+fn default_max_retries() -> u32 {
+    3
+}
 
 impl EmbeddingProxyConfig {
     pub fn new(endpoint: impl Into<String>, model: impl Into<String>) -> Self {
@@ -109,14 +115,19 @@ impl EmbeddingProxy {
 
         let semaphore = Arc::new(Semaphore::new(config.max_concurrent));
 
-        Ok(Self { config, client, semaphore })
+        Ok(Self {
+            config,
+            client,
+            semaphore,
+        })
     }
 
     /// Embed a batch of texts using the configured model.
     ///
     /// Returns one embedding vector per input text, in the same order.
     pub async fn embed_batch(&self, texts: Vec<String>) -> Result<Vec<Vec<f32>>> {
-        self.embed_batch_with_model(texts, &self.config.model.clone()).await
+        self.embed_batch_with_model(texts, &self.config.model.clone())
+            .await
     }
 
     /// Embed texts using a specific model (overrides the config default).
@@ -163,7 +174,10 @@ impl EmbeddingProxy {
     }
 
     async fn send_once(&self, texts: &[String], model: &str) -> Result<Vec<Vec<f32>>> {
-        let body = EmbedRequest { input: texts, model };
+        let body = EmbedRequest {
+            input: texts,
+            model,
+        };
 
         let mut req = self
             .client
@@ -227,7 +241,8 @@ mod tests {
 
     #[test]
     fn config_defaults() {
-        let cfg = EmbeddingProxyConfig::new("http://localhost/v1/embeddings", "text-embedding-3-small");
+        let cfg =
+            EmbeddingProxyConfig::new("http://localhost/v1/embeddings", "text-embedding-3-small");
         assert_eq!(cfg.timeout_secs, 30);
         assert_eq!(cfg.max_concurrent, 4);
         assert_eq!(cfg.max_retries, 3);
@@ -236,8 +251,7 @@ mod tests {
 
     #[test]
     fn config_with_api_key() {
-        let cfg = EmbeddingProxyConfig::new("http://localhost", "model")
-            .with_api_key("sk-test");
+        let cfg = EmbeddingProxyConfig::new("http://localhost", "model").with_api_key("sk-test");
         assert_eq!(cfg.api_key.as_deref(), Some("sk-test"));
     }
 

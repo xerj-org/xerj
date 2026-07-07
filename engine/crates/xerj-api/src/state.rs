@@ -5,8 +5,8 @@
 //! `Arc<RwLock<…>>` so concurrent requests never block each other on a
 //! global lock.
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::Instant;
 
 use chrono::{DateTime, Utc};
@@ -85,8 +85,7 @@ impl IndexHandle {
 
     /// Approximate document count (relaxed load — fine for stats).
     pub fn doc_count(&self) -> u64 {
-        self.doc_count
-            .load(std::sync::atomic::Ordering::Relaxed)
+        self.doc_count.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Increment the document counter by `n`.
@@ -190,11 +189,18 @@ impl TaskRegistry {
         };
         let key = entry.key();
         self.inner.insert(key.clone(), entry);
-        TaskHandle { inner: self.inner.clone(), key, cancelled }
+        TaskHandle {
+            inner: self.inner.clone(),
+            key,
+            cancelled,
+        }
     }
     pub fn cancel(&self, id: &str) -> bool {
         match self.inner.get(id) {
-            Some(e) => { e.cancelled.store(true, Ordering::Relaxed); true }
+            Some(e) => {
+                e.cancelled.store(true, Ordering::Relaxed);
+                true
+            }
             None => false,
         }
     }
@@ -251,7 +257,9 @@ pub fn default_anomaly_threshold() -> f64 {
 impl MlDetector {
     /// Absolute path of the on-disk detector registry file.
     fn registry_path(data_dir: &str) -> std::path::PathBuf {
-        std::path::Path::new(data_dir).join("_ml").join("detectors.json")
+        std::path::Path::new(data_dir)
+            .join("_ml")
+            .join("detectors.json")
     }
 
     /// Load all persisted detectors from `<data_dir>/_ml/detectors.json`.
@@ -364,7 +372,6 @@ impl AppState {
 
 impl std::fmt::Debug for AppState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AppState")
-            .finish_non_exhaustive()
+        f.debug_struct("AppState").finish_non_exhaustive()
     }
 }

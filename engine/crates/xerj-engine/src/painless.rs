@@ -75,7 +75,9 @@ impl PainlessValue {
             Value::Bool(b) => PainlessValue::Bool(*b),
             Value::Number(n) => PainlessValue::Number(n.as_f64().unwrap_or(0.0)),
             Value::String(s) => PainlessValue::String(s.clone()),
-            Value::Array(arr) => PainlessValue::Array(arr.iter().map(PainlessValue::from_json).collect()),
+            Value::Array(arr) => {
+                PainlessValue::Array(arr.iter().map(PainlessValue::from_json).collect())
+            }
             Value::Object(o) => PainlessValue::Object(o.clone()),
         }
     }
@@ -94,7 +96,12 @@ pub struct PainlessCtx<'a> {
 
 impl<'a> PainlessCtx<'a> {
     pub fn new(doc: &'a Value, params: &'a Value, score: f32) -> Self {
-        Self { doc, params, score, emits: std::cell::RefCell::new(Vec::new()) }
+        Self {
+            doc,
+            params,
+            score,
+            emits: std::cell::RefCell::new(Vec::new()),
+        }
     }
     pub fn take_emits(&self) -> Vec<PainlessValue> {
         std::mem::take(&mut *self.emits.borrow_mut())
@@ -120,28 +127,47 @@ fn tokenize(src: &str) -> Result<Vec<Tok>, String> {
     while i < bytes.len() {
         let c = bytes[i] as char;
         // Skip whitespace
-        if c.is_whitespace() { i += 1; continue; }
+        if c.is_whitespace() {
+            i += 1;
+            continue;
+        }
         // Comments
         if c == '/' && i + 1 < bytes.len() && bytes[i + 1] as char == '/' {
-            while i < bytes.len() && bytes[i] as char != '\n' { i += 1; }
+            while i < bytes.len() && bytes[i] as char != '\n' {
+                i += 1;
+            }
             continue;
         }
         if c == '/' && i + 1 < bytes.len() && bytes[i + 1] as char == '*' {
             i += 2;
-            while i + 1 < bytes.len() && !(bytes[i] as char == '*' && bytes[i + 1] as char == '/') { i += 1; }
+            while i + 1 < bytes.len() && !(bytes[i] as char == '*' && bytes[i + 1] as char == '/') {
+                i += 1;
+            }
             i += 2;
             continue;
         }
         // Number literal
-        if c.is_ascii_digit() || (c == '.' && i + 1 < bytes.len() && (bytes[i + 1] as char).is_ascii_digit()) {
+        if c.is_ascii_digit()
+            || (c == '.' && i + 1 < bytes.len() && (bytes[i + 1] as char).is_ascii_digit())
+        {
             let start = i;
             while i < bytes.len() {
                 let cc = bytes[i] as char;
-                if cc.is_ascii_digit() || cc == '.' || cc == 'e' || cc == 'E' || cc == '-' || cc == '+' {
+                if cc.is_ascii_digit()
+                    || cc == '.'
+                    || cc == 'e'
+                    || cc == 'E'
+                    || cc == '-'
+                    || cc == '+'
+                {
                     // Allow signed exponent
-                    if (cc == '-' || cc == '+') && !matches!(bytes[i - 1] as char, 'e' | 'E') { break; }
+                    if (cc == '-' || cc == '+') && !matches!(bytes[i - 1] as char, 'e' | 'E') {
+                        break;
+                    }
                     i += 1;
-                } else { break; }
+                } else {
+                    break;
+                }
             }
             // Strip trailing 'L'/'F'/'D' type suffix Painless allows.
             let s_end = i;
@@ -156,8 +182,12 @@ fn tokenize(src: &str) -> Result<Vec<Tok>, String> {
                 }
             }
             // strip possibly trailing "L" already in string for safety
-            s_clean = s_clean.trim_end_matches(|c: char| matches!(c, 'L' | 'l' | 'F' | 'f' | 'D' | 'd')).to_string();
-            let n: f64 = s_clean.parse().map_err(|e| format!("bad number {s_clean}: {e}"))?;
+            s_clean = s_clean
+                .trim_end_matches(['L', 'l', 'F', 'f', 'D', 'd'])
+                .to_string();
+            let n: f64 = s_clean
+                .parse()
+                .map_err(|e| format!("bad number {s_clean}: {e}"))?;
             out.push(Tok::Number(n));
             continue;
         }
@@ -167,9 +197,15 @@ fn tokenize(src: &str) -> Result<Vec<Tok>, String> {
             i += 1;
             let start = i;
             while i < bytes.len() && bytes[i] as char != quote {
-                if bytes[i] as char == '\\' && i + 1 < bytes.len() { i += 2; } else { i += 1; }
+                if bytes[i] as char == '\\' && i + 1 < bytes.len() {
+                    i += 2;
+                } else {
+                    i += 1;
+                }
             }
-            if i >= bytes.len() { return Err("unterminated string".into()); }
+            if i >= bytes.len() {
+                return Err("unterminated string".into());
+            }
             let raw = &src[start..i];
             i += 1;
             // Basic escape handling.
@@ -200,14 +236,19 @@ fn tokenize(src: &str) -> Result<Vec<Tok>, String> {
             let start = i;
             while i < bytes.len() {
                 let cc = bytes[i] as char;
-                if cc.is_alphanumeric() || cc == '_' || cc == '$' { i += 1; } else { break; }
+                if cc.is_alphanumeric() || cc == '_' || cc == '$' {
+                    i += 1;
+                } else {
+                    break;
+                }
             }
             let s = &src[start..i];
             match s {
-                "if" | "else" | "return" | "true" | "false" | "null" |
-                "double" | "int" | "long" | "float" | "boolean" | "String" |
-                "def" | "var" | "for" | "while" | "break" | "continue" |
-                "new" | "instanceof" => out.push(Tok::Keyword(s.to_string())),
+                "if" | "else" | "return" | "true" | "false" | "null" | "double" | "int"
+                | "long" | "float" | "boolean" | "String" | "def" | "var" | "for" | "while"
+                | "break" | "continue" | "new" | "instanceof" => {
+                    out.push(Tok::Keyword(s.to_string()))
+                }
                 _ => out.push(Tok::Ident(s.to_string())),
             }
             continue;
@@ -215,14 +256,52 @@ fn tokenize(src: &str) -> Result<Vec<Tok>, String> {
         // Multi-char punctuation
         if i + 1 < bytes.len() {
             let two: String = format!("{}{}", c, bytes[i + 1] as char);
-            if matches!(two.as_str(), "==" | "!=" | "<=" | ">=" | "&&" | "||" | "->" | "+=" | "-=" | "*=" | "/=" | "%=" | "++" | "--") {
+            if matches!(
+                two.as_str(),
+                "==" | "!="
+                    | "<="
+                    | ">="
+                    | "&&"
+                    | "||"
+                    | "->"
+                    | "+="
+                    | "-="
+                    | "*="
+                    | "/="
+                    | "%="
+                    | "++"
+                    | "--"
+            ) {
                 out.push(Tok::PunctMulti(two));
                 i += 2;
                 continue;
             }
         }
         // Single-char punctuation
-        if matches!(c, '(' | ')' | '{' | '}' | '[' | ']' | ',' | ';' | '.' | ':' | '?' | '+' | '-' | '*' | '/' | '%' | '<' | '>' | '=' | '!' | '&' | '|') {
+        if matches!(
+            c,
+            '(' | ')'
+                | '{'
+                | '}'
+                | '['
+                | ']'
+                | ','
+                | ';'
+                | '.'
+                | ':'
+                | '?'
+                | '+'
+                | '-'
+                | '*'
+                | '/'
+                | '%'
+                | '<'
+                | '>'
+                | '='
+                | '!'
+                | '&'
+                | '|'
+        ) {
             out.push(Tok::Punct(c));
             i += 1;
             continue;
@@ -270,9 +349,19 @@ struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    fn new(toks: &'a [Tok]) -> Self { Self { toks, pos: 0 } }
-    fn peek(&self) -> Option<&Tok> { self.toks.get(self.pos) }
-    fn eat(&mut self) -> Option<Tok> { let t = self.toks.get(self.pos).cloned(); if t.is_some() { self.pos += 1; } t }
+    fn new(toks: &'a [Tok]) -> Self {
+        Self { toks, pos: 0 }
+    }
+    fn peek(&self) -> Option<&Tok> {
+        self.toks.get(self.pos)
+    }
+    fn eat(&mut self) -> Option<Tok> {
+        let t = self.toks.get(self.pos).cloned();
+        if t.is_some() {
+            self.pos += 1;
+        }
+        t
+    }
     fn expect_punct(&mut self, c: char) -> Result<(), String> {
         match self.eat() {
             Some(Tok::Punct(p)) if p == c => Ok(()),
@@ -281,13 +370,19 @@ impl<'a> Parser<'a> {
     }
     fn match_punct(&mut self, c: char) -> bool {
         if let Some(Tok::Punct(p)) = self.peek() {
-            if *p == c { self.pos += 1; return true; }
+            if *p == c {
+                self.pos += 1;
+                return true;
+            }
         }
         false
     }
     fn match_keyword(&mut self, kw: &str) -> bool {
         if let Some(Tok::Keyword(s)) = self.peek() {
-            if s == kw { self.pos += 1; return true; }
+            if s == kw {
+                self.pos += 1;
+                return true;
+            }
         }
         false
     }
@@ -307,7 +402,9 @@ impl<'a> Parser<'a> {
             let then_body = self.parse_block_or_stmt()?;
             let else_body = if self.match_keyword("else") {
                 self.parse_block_or_stmt()?
-            } else { Vec::new() };
+            } else {
+                Vec::new()
+            };
             return Ok(Stmt::If(cond, then_body, else_body));
         }
         if self.match_keyword("return") {
@@ -327,7 +424,10 @@ impl<'a> Parser<'a> {
         }
         // Variable decl: `<type> NAME = expr;`
         if let Some(Tok::Keyword(kw)) = self.peek().cloned() {
-            if matches!(kw.as_str(), "double" | "int" | "long" | "float" | "boolean" | "String" | "def" | "var") {
+            if matches!(
+                kw.as_str(),
+                "double" | "int" | "long" | "float" | "boolean" | "String" | "def" | "var"
+            ) {
                 self.pos += 1;
                 let name = match self.eat() {
                     Some(Tok::Ident(n)) => n,
@@ -349,7 +449,9 @@ impl<'a> Parser<'a> {
         if self.match_punct('{') {
             let mut out = Vec::new();
             while let Some(t) = self.peek() {
-                if matches!(t, Tok::Punct('}')) { break; }
+                if matches!(t, Tok::Punct('}')) {
+                    break;
+                }
                 out.push(self.parse_stmt()?);
             }
             self.expect_punct('}')?;
@@ -379,23 +481,37 @@ impl<'a> Parser<'a> {
             let then_e = self.parse_assign()?;
             self.expect_punct(':')?;
             let else_e = self.parse_assign()?;
-            return Ok(Expr::Ternary(Box::new(cond), Box::new(then_e), Box::new(else_e)));
+            return Ok(Expr::Ternary(
+                Box::new(cond),
+                Box::new(then_e),
+                Box::new(else_e),
+            ));
         }
         Ok(cond)
     }
     fn parse_or(&mut self) -> Result<Expr, String> {
         let mut lhs = self.parse_and()?;
         while let Some(Tok::PunctMulti(op)) = self.peek() {
-            if op == "||" { self.pos += 1; let rhs = self.parse_and()?; lhs = Expr::Binary("||".into(), Box::new(lhs), Box::new(rhs)); }
-            else { break; }
+            if op == "||" {
+                self.pos += 1;
+                let rhs = self.parse_and()?;
+                lhs = Expr::Binary("||".into(), Box::new(lhs), Box::new(rhs));
+            } else {
+                break;
+            }
         }
         Ok(lhs)
     }
     fn parse_and(&mut self) -> Result<Expr, String> {
         let mut lhs = self.parse_eq()?;
         while let Some(Tok::PunctMulti(op)) = self.peek() {
-            if op == "&&" { self.pos += 1; let rhs = self.parse_eq()?; lhs = Expr::Binary("&&".into(), Box::new(lhs), Box::new(rhs)); }
-            else { break; }
+            if op == "&&" {
+                self.pos += 1;
+                let rhs = self.parse_eq()?;
+                lhs = Expr::Binary("&&".into(), Box::new(lhs), Box::new(rhs));
+            } else {
+                break;
+            }
         }
         Ok(lhs)
     }
@@ -490,18 +606,25 @@ impl<'a> Parser<'a> {
                 let idx = self.parse_expr()?;
                 self.expect_punct(']')?;
                 e = Expr::Index(Box::new(e), Box::new(idx));
-            } else { break; }
+            } else {
+                break;
+            }
         }
         Ok(e)
     }
     fn parse_args(&mut self, end: char) -> Result<Vec<Expr>, String> {
         let mut out: Vec<Expr> = Vec::new();
         if let Some(Tok::Punct(c)) = self.peek() {
-            if *c == end { self.pos += 1; return Ok(out); }
+            if *c == end {
+                self.pos += 1;
+                return Ok(out);
+            }
         }
         loop {
             out.push(self.parse_expr()?);
-            if self.match_punct(',') { continue; }
+            if self.match_punct(',') {
+                continue;
+            }
             break;
         }
         match self.eat() {
@@ -548,16 +671,28 @@ pub fn eval_painless(src: &str, ctx: &PainlessCtx) -> Result<PainlessValue, Stri
     let mut last: PainlessValue = PainlessValue::Null;
     for stmt in &stmts {
         match exec_stmt(stmt, ctx, &mut env)? {
-            ExecOutcome::Return(v) => { ret = Some(v); break; }
-            ExecOutcome::Value(v) => { last = v; }
+            ExecOutcome::Return(v) => {
+                ret = Some(v);
+                break;
+            }
+            ExecOutcome::Value(v) => {
+                last = v;
+            }
         }
     }
     Ok(ret.unwrap_or(last))
 }
 
-enum ExecOutcome { Return(PainlessValue), Value(PainlessValue) }
+enum ExecOutcome {
+    Return(PainlessValue),
+    Value(PainlessValue),
+}
 
-fn exec_stmt(s: &Stmt, ctx: &PainlessCtx, env: &mut HashMap<String, PainlessValue>) -> Result<ExecOutcome, String> {
+fn exec_stmt(
+    s: &Stmt,
+    ctx: &PainlessCtx,
+    env: &mut HashMap<String, PainlessValue>,
+) -> Result<ExecOutcome, String> {
     match s {
         Stmt::Return(opt) => {
             let v = match opt {
@@ -590,14 +725,20 @@ fn exec_stmt(s: &Stmt, ctx: &PainlessCtx, env: &mut HashMap<String, PainlessValu
     }
 }
 
-fn eval_expr(e: &Expr, ctx: &PainlessCtx, env: &mut HashMap<String, PainlessValue>) -> Result<PainlessValue, String> {
+fn eval_expr(
+    e: &Expr,
+    ctx: &PainlessCtx,
+    env: &mut HashMap<String, PainlessValue>,
+) -> Result<PainlessValue, String> {
     match e {
         Expr::Number(n) => Ok(PainlessValue::Number(*n)),
         Expr::String(s) => Ok(PainlessValue::String(s.clone())),
         Expr::Bool(b) => Ok(PainlessValue::Bool(*b)),
         Expr::Null => Ok(PainlessValue::Null),
         Expr::Ident(name) => {
-            if let Some(v) = env.get(name) { return Ok(v.clone()); }
+            if let Some(v) = env.get(name) {
+                return Ok(v.clone());
+            }
             match name.as_str() {
                 "_score" => Ok(PainlessValue::Number(ctx.score as f64)),
                 "doc" => Ok(PainlessValue::Null), // marker; resolved via Member/Index
@@ -622,33 +763,38 @@ fn eval_expr(e: &Expr, ctx: &PainlessCtx, env: &mut HashMap<String, PainlessValu
             // Short-circuit && ||
             if op == "&&" {
                 let av = eval_expr(a, ctx, env)?;
-                if !av.as_bool() { return Ok(PainlessValue::Bool(false)); }
+                if !av.as_bool() {
+                    return Ok(PainlessValue::Bool(false));
+                }
                 return Ok(PainlessValue::Bool(eval_expr(b, ctx, env)?.as_bool()));
             }
             if op == "||" {
                 let av = eval_expr(a, ctx, env)?;
-                if av.as_bool() { return Ok(PainlessValue::Bool(true)); }
+                if av.as_bool() {
+                    return Ok(PainlessValue::Bool(true));
+                }
                 return Ok(PainlessValue::Bool(eval_expr(b, ctx, env)?.as_bool()));
             }
             let av = eval_expr(a, ctx, env)?;
             let bv = eval_expr(b, ctx, env)?;
             // String concatenation for `+`.
-            if op == "+" {
-                if matches!(av, PainlessValue::String(_)) || matches!(bv, PainlessValue::String(_)) {
-                    let sa = match &av {
-                        PainlessValue::String(s) => s.clone(),
-                        PainlessValue::Number(n) => format_num(*n),
-                        PainlessValue::Bool(b) => b.to_string(),
-                        _ => "null".to_string(),
-                    };
-                    let sb = match &bv {
-                        PainlessValue::String(s) => s.clone(),
-                        PainlessValue::Number(n) => format_num(*n),
-                        PainlessValue::Bool(b) => b.to_string(),
-                        _ => "null".to_string(),
-                    };
-                    return Ok(PainlessValue::String(format!("{sa}{sb}")));
-                }
+            if op == "+"
+                && (matches!(av, PainlessValue::String(_))
+                    || matches!(bv, PainlessValue::String(_)))
+            {
+                let sa = match &av {
+                    PainlessValue::String(s) => s.clone(),
+                    PainlessValue::Number(n) => format_num(*n),
+                    PainlessValue::Bool(b) => b.to_string(),
+                    _ => "null".to_string(),
+                };
+                let sb = match &bv {
+                    PainlessValue::String(s) => s.clone(),
+                    PainlessValue::Number(n) => format_num(*n),
+                    PainlessValue::Bool(b) => b.to_string(),
+                    _ => "null".to_string(),
+                };
+                return Ok(PainlessValue::String(format!("{sa}{sb}")));
             }
             let an = av.as_f64().unwrap_or(0.0);
             let bn = bv.as_f64().unwrap_or(0.0);
@@ -656,8 +802,20 @@ fn eval_expr(e: &Expr, ctx: &PainlessCtx, env: &mut HashMap<String, PainlessValu
                 "+" => an + bn,
                 "-" => an - bn,
                 "*" => an * bn,
-                "/" => if bn == 0.0 { f64::NAN } else { an / bn },
-                "%" => if bn == 0.0 { f64::NAN } else { an % bn },
+                "/" => {
+                    if bn == 0.0 {
+                        f64::NAN
+                    } else {
+                        an / bn
+                    }
+                }
+                "%" => {
+                    if bn == 0.0 {
+                        f64::NAN
+                    } else {
+                        an % bn
+                    }
+                }
                 "<" => return Ok(PainlessValue::Bool(an < bn)),
                 "<=" => return Ok(PainlessValue::Bool(an <= bn)),
                 ">" => return Ok(PainlessValue::Bool(an > bn)),
@@ -670,7 +828,11 @@ fn eval_expr(e: &Expr, ctx: &PainlessCtx, env: &mut HashMap<String, PainlessValu
         }
         Expr::Ternary(c, t, f) => {
             let cv = eval_expr(c, ctx, env)?;
-            if cv.as_bool() { eval_expr(t, ctx, env) } else { eval_expr(f, ctx, env) }
+            if cv.as_bool() {
+                eval_expr(t, ctx, env)
+            } else {
+                eval_expr(f, ctx, env)
+            }
         }
         Expr::Index(base, idx) => {
             // Special-case `doc['field']` / `params['x']`.
@@ -724,7 +886,10 @@ fn eval_expr(e: &Expr, ctx: &PainlessCtx, env: &mut HashMap<String, PainlessValu
                 }
                 if name == "Math" {
                     let argvs: Vec<PainlessValue> = match args {
-                        Some(args) => args.iter().map(|a| eval_expr(a, ctx, env)).collect::<Result<_, _>>()?,
+                        Some(args) => args
+                            .iter()
+                            .map(|a| eval_expr(a, ctx, env))
+                            .collect::<Result<_, _>>()?,
                         None => Vec::new(),
                     };
                     return math_call(member, &argvs);
@@ -775,7 +940,10 @@ fn eval_expr(e: &Expr, ctx: &PainlessCtx, env: &mut HashMap<String, PainlessValu
             Err(format!("unsupported member access .{}", member))
         }
         Expr::Call(name, args) => {
-            let argvs: Vec<PainlessValue> = args.iter().map(|a| eval_expr(a, ctx, env)).collect::<Result<_, _>>()?;
+            let argvs: Vec<PainlessValue> = args
+                .iter()
+                .map(|a| eval_expr(a, ctx, env))
+                .collect::<Result<_, _>>()?;
             global_call(name, &argvs, ctx)
         }
     }
@@ -826,7 +994,10 @@ fn resolve_doc_member(
         "value" => {
             // Return first scalar.
             match raw {
-                Value::Array(arr) => Ok(arr.first().map(|v| PainlessValue::from_json(v)).unwrap_or(PainlessValue::Number(0.0))),
+                Value::Array(arr) => Ok(arr
+                    .first()
+                    .map(PainlessValue::from_json)
+                    .unwrap_or(PainlessValue::Number(0.0))),
                 Value::Number(n) => Ok(PainlessValue::Number(n.as_f64().unwrap_or(0.0))),
                 Value::String(s) => Ok(PainlessValue::String(s)),
                 Value::Bool(b) => Ok(PainlessValue::Bool(b)),
@@ -873,7 +1044,10 @@ fn get_doc_value(doc: &Value, field: &str) -> Value {
                         for p in parts.iter() {
                             if let Value::Object(obj) = &sub {
                                 sub = obj.get(*p).cloned().unwrap_or(Value::Null);
-                            } else { sub = Value::Null; break; }
+                            } else {
+                                sub = Value::Null;
+                                break;
+                            }
                         }
                         sub
                     })
@@ -907,7 +1081,11 @@ fn math_call(name: &str, args: &[PainlessValue]) -> Result<PainlessValue, String
     Ok(PainlessValue::Number(r))
 }
 
-fn global_call(name: &str, args: &[PainlessValue], ctx: &PainlessCtx) -> Result<PainlessValue, String> {
+fn global_call(
+    name: &str,
+    args: &[PainlessValue],
+    ctx: &PainlessCtx,
+) -> Result<PainlessValue, String> {
     match name {
         "emit" => {
             // Runtime-field emit — records each call's value into the
@@ -924,7 +1102,9 @@ fn global_call(name: &str, args: &[PainlessValue], ctx: &PainlessCtx) -> Result<
                 return Err(format!("dotProduct expects 2 args, got {}", args.len()));
             }
             let query: Vec<f64> = match &args[0] {
-                PainlessValue::Array(arr) => arr.iter().map(|v| v.as_f64().unwrap_or(0.0)).collect(),
+                PainlessValue::Array(arr) => {
+                    arr.iter().map(|v| v.as_f64().unwrap_or(0.0)).collect()
+                }
                 _ => return Err("dotProduct arg 0 must be array".into()),
             };
             let doc_vec: Vec<f64> = match &args[1] {
@@ -936,19 +1116,29 @@ fn global_call(name: &str, args: &[PainlessValue], ctx: &PainlessCtx) -> Result<
                         _ => Vec::new(),
                     }
                 }
-                PainlessValue::Array(arr) => arr.iter().map(|v| v.as_f64().unwrap_or(0.0)).collect(),
+                PainlessValue::Array(arr) => {
+                    arr.iter().map(|v| v.as_f64().unwrap_or(0.0)).collect()
+                }
                 _ => return Err("dotProduct arg 1 must be field name or array".into()),
             };
             if query.len() != doc_vec.len() {
-                return Err(format!("dim mismatch: {} vs {}", query.len(), doc_vec.len()));
+                return Err(format!(
+                    "dim mismatch: {} vs {}",
+                    query.len(),
+                    doc_vec.len()
+                ));
             }
             let dot: f64 = query.iter().zip(doc_vec.iter()).map(|(a, b)| a * b).sum();
             Ok(PainlessValue::Number(dot))
         }
         "cosineSimilarity" => {
-            if args.len() != 2 { return Err("cosineSimilarity expects 2 args".into()); }
+            if args.len() != 2 {
+                return Err("cosineSimilarity expects 2 args".into());
+            }
             let q: Vec<f64> = match &args[0] {
-                PainlessValue::Array(arr) => arr.iter().map(|v| v.as_f64().unwrap_or(0.0)).collect(),
+                PainlessValue::Array(arr) => {
+                    arr.iter().map(|v| v.as_f64().unwrap_or(0.0)).collect()
+                }
                 _ => return Err("cosineSimilarity arg 0 must be array".into()),
             };
             let d: Vec<f64> = match &args[1] {
@@ -959,20 +1149,32 @@ fn global_call(name: &str, args: &[PainlessValue], ctx: &PainlessCtx) -> Result<
                         _ => Vec::new(),
                     }
                 }
-                PainlessValue::Array(arr) => arr.iter().map(|v| v.as_f64().unwrap_or(0.0)).collect(),
+                PainlessValue::Array(arr) => {
+                    arr.iter().map(|v| v.as_f64().unwrap_or(0.0)).collect()
+                }
                 _ => return Err("cosineSimilarity arg 1 must be field name".into()),
             };
-            if q.len() != d.len() { return Err("dim mismatch".into()); }
+            if q.len() != d.len() {
+                return Err("dim mismatch".into());
+            }
             let dot: f64 = q.iter().zip(&d).map(|(a, b)| a * b).sum();
             let nq: f64 = q.iter().map(|v| v * v).sum::<f64>().sqrt();
             let nd: f64 = d.iter().map(|v| v * v).sum::<f64>().sqrt();
             let denom = nq * nd;
-            Ok(PainlessValue::Number(if denom > 0.0 { dot / denom } else { 0.0 }))
+            Ok(PainlessValue::Number(if denom > 0.0 {
+                dot / denom
+            } else {
+                0.0
+            }))
         }
         "l1norm" | "l1Norm" => {
-            if args.len() != 2 { return Err("l1norm expects 2 args".into()); }
+            if args.len() != 2 {
+                return Err("l1norm expects 2 args".into());
+            }
             let q: Vec<f64> = match &args[0] {
-                PainlessValue::Array(arr) => arr.iter().map(|v| v.as_f64().unwrap_or(0.0)).collect(),
+                PainlessValue::Array(arr) => {
+                    arr.iter().map(|v| v.as_f64().unwrap_or(0.0)).collect()
+                }
                 _ => return Err("l1norm arg 0 must be array".into()),
             };
             let d: Vec<f64> = match &args[1] {
@@ -989,9 +1191,13 @@ fn global_call(name: &str, args: &[PainlessValue], ctx: &PainlessCtx) -> Result<
             Ok(PainlessValue::Number(s))
         }
         "l2norm" | "l2Norm" => {
-            if args.len() != 2 { return Err("l2norm expects 2 args".into()); }
+            if args.len() != 2 {
+                return Err("l2norm expects 2 args".into());
+            }
             let q: Vec<f64> = match &args[0] {
-                PainlessValue::Array(arr) => arr.iter().map(|v| v.as_f64().unwrap_or(0.0)).collect(),
+                PainlessValue::Array(arr) => {
+                    arr.iter().map(|v| v.as_f64().unwrap_or(0.0)).collect()
+                }
                 _ => return Err("l2norm arg 0 must be array".into()),
             };
             let d: Vec<f64> = match &args[1] {
@@ -1004,11 +1210,18 @@ fn global_call(name: &str, args: &[PainlessValue], ctx: &PainlessCtx) -> Result<
                 }
                 _ => return Err("l2norm arg 1 must be field name".into()),
             };
-            let s: f64 = q.iter().zip(&d).map(|(a, b)| (a - b).powi(2)).sum::<f64>().sqrt();
+            let s: f64 = q
+                .iter()
+                .zip(&d)
+                .map(|(a, b)| (a - b).powi(2))
+                .sum::<f64>()
+                .sqrt();
             Ok(PainlessValue::Number(s))
         }
         "sigmoid" => {
-            if args.len() != 1 { return Err("sigmoid expects 1 arg".into()); }
+            if args.len() != 1 {
+                return Err("sigmoid expects 1 arg".into());
+            }
             let x = args[0].as_f64().unwrap_or(0.0);
             Ok(PainlessValue::Number(1.0 / (1.0 + (-x).exp())))
         }
@@ -1029,7 +1242,11 @@ mod tests {
     fn doc_value_times_param() {
         let doc = json!({"num_likes": 150});
         let params = json!({"multiplier": 10});
-        let v = eval_painless("doc['num_likes'].value * params.multiplier", &ctx(&doc, &params, 0.0)).unwrap();
+        let v = eval_painless(
+            "doc['num_likes'].value * params.multiplier",
+            &ctx(&doc, &params, 0.0),
+        )
+        .unwrap();
         assert!((v.as_f64().unwrap() - 1500.0).abs() < 1e-9);
     }
 
@@ -1045,7 +1262,8 @@ mod tests {
     fn ternary_dot_product() {
         let doc = json!({"vec": [1.0, 2.0, 3.0]});
         let params = json!({"q": [1.0, 0.0, -1.0]});
-        let src = "double s = dotProduct(params.q, 'vec'); return s < 0 ? 1.0 / (1.0 - s) : s + 1.0;";
+        let src =
+            "double s = dotProduct(params.q, 'vec'); return s < 0 ? 1.0 / (1.0 - s) : s + 1.0;";
         let v = eval_painless(src, &ctx(&doc, &params, 0.0)).unwrap();
         // dot = 1*1 + 2*0 + 3*-1 = -2 → 1/(1-(-2)) = 1/3
         assert!((v.as_f64().unwrap() - (1.0 / 3.0)).abs() < 1e-6);
@@ -1055,7 +1273,11 @@ mod tests {
     fn if_return() {
         let doc = json!({"x": 10});
         let params = json!({});
-        let v = eval_painless("if (doc['x'].value > 5) { return 100; } return 0;", &ctx(&doc, &params, 0.0)).unwrap();
+        let v = eval_painless(
+            "if (doc['x'].value > 5) { return 100; } return 0;",
+            &ctx(&doc, &params, 0.0),
+        )
+        .unwrap();
         assert!((v.as_f64().unwrap() - 100.0).abs() < 1e-9);
     }
 

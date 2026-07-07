@@ -25,7 +25,11 @@ pub struct SearchResult {
 impl SearchResult {
     fn new(doc_id: u64, distance: f32, metric: DistanceMetric) -> Self {
         let score = distance_to_score(distance, metric);
-        Self { doc_id, distance, score }
+        Self {
+            doc_id,
+            distance,
+            score,
+        }
     }
 }
 
@@ -59,7 +63,10 @@ impl VectorSearcher {
 
     /// Create a searcher with a custom ef.
     pub fn with_ef(index: HnswIndex, ef: usize) -> Self {
-        Self { index, default_ef: ef }
+        Self {
+            index,
+            default_ef: ef,
+        }
     }
 
     /// Get a reference to the underlying index.
@@ -93,7 +100,9 @@ impl VectorSearcher {
             .collect();
         // Sort by score descending
         results.sort_unstable_by(|a, b| {
-            b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal)
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
         Ok(results)
     }
@@ -129,7 +138,9 @@ impl VectorSearcher {
             .map(|(id, dist)| SearchResult::new(id, dist, metric))
             .collect();
         results.sort_unstable_by(|a, b| {
-            b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal)
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
         Ok(results)
     }

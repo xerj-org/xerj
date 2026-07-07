@@ -184,10 +184,10 @@ mod tests {
     fn expired_buckets_returns_correct_subset() {
         let policy = RetentionPolicy::retain_days(30);
         let buckets = vec![
-            old_bucket(5),   // recent
-            old_bucket(40),  // expired
-            old_bucket(60),  // expired
-            old_bucket(10),  // recent
+            old_bucket(5),  // recent
+            old_bucket(40), // expired
+            old_bucket(60), // expired
+            old_bucket(10), // recent
         ];
         let expired = policy.expired_buckets(&buckets);
         assert_eq!(expired.len(), 2);

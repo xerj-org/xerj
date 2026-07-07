@@ -11,8 +11,8 @@ use http_body_util::BodyExt;
 use tempfile::TempDir;
 use tower::ServiceExt;
 use xerj_common::config::Config;
-use xerj_engine::Engine;
 use xerj_console_api::{state::ClusterMode, xerj_console_router, ConsoleState};
+use xerj_engine::Engine;
 
 fn boot() -> (axum::Router, TempDir) {
     let dir = TempDir::new().unwrap();
@@ -31,12 +31,7 @@ fn boot() -> (axum::Router, TempDir) {
 
 async fn fetch(router: axum::Router, path: &str) -> (u16, String) {
     let resp = router
-        .oneshot(
-            Request::builder()
-                .uri(path)
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
         .await
         .unwrap();
     let status = resp.status().as_u16();
@@ -49,7 +44,10 @@ async fn setup_html_is_bundled_and_served() {
     let (router, _dir) = boot();
     // /_xerj-console/setup (no extension) should fall back to setup.html.
     let (status, body) = fetch(router, "/_xerj-console/setup").await;
-    assert_eq!(status, 200, "expected 200 for /_xerj-console/setup, body={body}");
+    assert_eq!(
+        status, 200,
+        "expected 200 for /_xerj-console/setup, body={body}"
+    );
     assert!(
         body.contains("XERJ CONSOLE") && body.contains("setup"),
         "setup page must contain XERJ CONSOLE banner — got: {}",

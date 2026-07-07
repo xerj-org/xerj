@@ -178,45 +178,72 @@ pub fn plan_query(query: QueryNode, schema: &Schema) -> Result<ExecutionPlan> {
     Ok(plan)
 }
 
+// `schema` is threaded through only so recursive sub-plans can consult it;
+// the current arms don't read it directly, so silence the recursion lint.
+#[allow(clippy::only_used_in_recursion)]
 fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
     match query {
         QueryNode::MatchAll => ExecutionPlan::MatchAll,
         QueryNode::MatchNone => ExecutionPlan::MatchNone,
 
-        QueryNode::Term { field, value, .. } => {
-            ExecutionPlan::FtsScan {
-                cost: 1.0,
-                terms: vec![value],
-                field,
-            }
-        }
+        QueryNode::Term { field, value, .. } => ExecutionPlan::FtsScan {
+            cost: 1.0,
+            terms: vec![value],
+            field,
+        },
 
         QueryNode::Terms { field, values, .. } => {
             let cost = values.len() as f64;
-            ExecutionPlan::FtsScan { field, terms: values, cost }
+            ExecutionPlan::FtsScan {
+                field,
+                terms: values,
+                cost,
+            }
         }
 
         QueryNode::Ids { values } => ExecutionPlan::IdLookup { ids: values },
 
         QueryNode::Exists { field } => ExecutionPlan::ExistsScan { field },
 
-        QueryNode::Range { field, gte, gt, lte, lt, .. } => {
-            ExecutionPlan::RangeScan { field, gte, gt, lte, lt, cost: 3.0 }
-        }
+        QueryNode::Range {
+            field,
+            gte,
+            gt,
+            lte,
+            lt,
+            ..
+        } => ExecutionPlan::RangeScan {
+            field,
+            gte,
+            gt,
+            lte,
+            lt,
+            cost: 3.0,
+        },
 
-        QueryNode::Prefix { field, value, .. } => {
-            ExecutionPlan::PrefixScan { field, prefix: value, wildcard: false, cost: 5.0 }
-        }
+        QueryNode::Prefix { field, value, .. } => ExecutionPlan::PrefixScan {
+            field,
+            prefix: value,
+            wildcard: false,
+            cost: 5.0,
+        },
 
-        QueryNode::Wildcard { field, value, .. } => {
-            ExecutionPlan::PrefixScan { field, prefix: value, wildcard: true, cost: 5.0 }
-        }
+        QueryNode::Wildcard { field, value, .. } => ExecutionPlan::PrefixScan {
+            field,
+            prefix: value,
+            wildcard: true,
+            cost: 5.0,
+        },
 
-        QueryNode::Match { field, query, operator, .. } => {
+        QueryNode::Match {
+            field,
+            query,
+            operator,
+            ..
+        } => {
             // Simple whitespace tokenisation for cost estimation.
             // Actual tokenisation happens in the FTS engine.
-            let tokens: Vec<String> =
-                query.split_whitespace().map(str::to_string).collect();
+            let tokens: Vec<String> = query.split_whitespace().map(str::to_string).collect();
             let n = tokens.len().max(1);
             let require_all = matches!(operator, crate::ast::BoolOperator::And);
             ExecutionPlan::FtsSearch {
@@ -229,9 +256,10 @@ fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
             }
         }
 
-        QueryNode::MatchPhrase { field, query, slop, .. } => {
-            let tokens: Vec<String> =
-                query.split_whitespace().map(str::to_string).collect();
+        QueryNode::MatchPhrase {
+            field, query, slop, ..
+        } => {
+            let tokens: Vec<String> = query.split_whitespace().map(str::to_string).collect();
             ExecutionPlan::FtsSearch {
                 cost: 8.0,
                 field,
@@ -242,13 +270,20 @@ fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
             }
         }
 
-        QueryNode::MultiMatch { fields, query, match_type, .. } => {
+        QueryNode::MultiMatch {
+            fields,
+            query,
+            match_type,
+            ..
+        } => {
             // Expand to a Bool(should=[ Match(field, query) for field in fields ])
             // and plan that.
-            let tokens: Vec<String> =
-                query.split_whitespace().map(str::to_string).collect();
+            let tokens: Vec<String> = query.split_whitespace().map(str::to_string).collect();
             let n = tokens.len().max(1);
-            let phrase = matches!(match_type, MultiMatchType::Phrase | MultiMatchType::PhrasePrefix);
+            let phrase = matches!(
+                match_type,
+                MultiMatchType::Phrase | MultiMatchType::PhrasePrefix
+            );
             let cost = 5.0 * fields.len() as f64 * n as f64;
 
             let sub_plans: Vec<ExecutionPlan> = fields
@@ -286,7 +321,13 @@ fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
             }
         }
 
-        QueryNode::Bool { must, should, must_not, filter, minimum_should_match } => {
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            minimum_should_match,
+        } => {
             // Plan each clause, then sort must/should by cost (cheapest first).
             let plan_list = |clauses: Vec<QueryNode>| {
                 let mut plans: Vec<ExecutionPlan> =
@@ -317,25 +358,57 @@ fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
         QueryNode::Constant { score, query } => {
             let inner = plan_node(*query, schema);
             let cost = inner.cost();
-            ExecutionPlan::ConstantScore { score, inner: Box::new(inner), cost }
+            ExecutionPlan::ConstantScore {
+                score,
+                inner: Box::new(inner),
+                cost,
+            }
         }
 
         QueryNode::Boosted { boost, query } => {
             let inner = plan_node(*query, schema);
             let cost = inner.cost();
-            ExecutionPlan::Boost { boost, inner: Box::new(inner), cost }
+            ExecutionPlan::Boost {
+                boost,
+                inner: Box::new(inner),
+                cost,
+            }
         }
 
-        QueryNode::Knn { field, vector, k, filter, .. } => {
+        QueryNode::Knn {
+            field,
+            vector,
+            k,
+            filter,
+            ..
+        } => {
             let filter_plan = filter.map(|f| Box::new(plan_node(*f, schema)));
             let cost = 50.0 * k as f64;
-            ExecutionPlan::VectorScan { field, vector, k, filter: filter_plan, cost }
+            ExecutionPlan::VectorScan {
+                field,
+                vector,
+                k,
+                filter: filter_plan,
+                cost,
+            }
         }
 
-        QueryNode::SemanticSearch { field, text, k, filter, .. } => {
+        QueryNode::SemanticSearch {
+            field,
+            text,
+            k,
+            filter,
+            ..
+        } => {
             let filter_plan = filter.map(|f| Box::new(plan_node(*f, schema)));
             let cost = 50.0 * k as f64 + 20.0; // +20 for embedding inference
-            ExecutionPlan::SemanticScan { field, text, k, filter: filter_plan, cost }
+            ExecutionPlan::SemanticScan {
+                field,
+                text,
+                k,
+                filter: filter_plan,
+                cost,
+            }
         }
 
         QueryNode::Hybrid { queries, fusion } => {
@@ -348,11 +421,19 @@ fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
                     (p, wq.weight)
                 })
                 .collect();
-            ExecutionPlan::HybridMerge { plans, fusion, cost: total_cost }
+            ExecutionPlan::HybridMerge {
+                plans,
+                fusion,
+                cost: total_cost,
+            }
         }
 
         // Boosting: plan the positive sub-query; negative is evaluated at score time.
-        QueryNode::Boosting { positive, negative, negative_boost } => {
+        QueryNode::Boosting {
+            positive,
+            negative,
+            negative_boost,
+        } => {
             let pos_plan = plan_node(*positive, schema);
             let neg_plan = plan_node(*negative, schema);
             let cost = pos_plan.cost() + neg_plan.cost();
@@ -394,29 +475,23 @@ fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
         }
 
         // Fuzzy: treat as a term scan with higher cost due to edit-distance computation.
-        QueryNode::Fuzzy { field, value, .. } => {
-            ExecutionPlan::FtsScan {
-                field,
-                terms: vec![serde_json::Value::String(value)],
-                cost: 10.0,
-            }
-        }
+        QueryNode::Fuzzy { field, value, .. } => ExecutionPlan::FtsScan {
+            field,
+            terms: vec![serde_json::Value::String(value)],
+            cost: 10.0,
+        },
 
         // Regexp: full scan cost since we must evaluate each doc.
-        QueryNode::Regexp { field, pattern } => {
-            ExecutionPlan::FtsScan {
-                field,
-                terms: vec![serde_json::Value::String(pattern)],
-                cost: 20.0,
-            }
-        }
+        QueryNode::Regexp { field, pattern } => ExecutionPlan::FtsScan {
+            field,
+            terms: vec![serde_json::Value::String(pattern)],
+            cost: 20.0,
+        },
 
         // Intervals: position-aware text match. Plan as an exists-scan
         // on the field — the doc-scan executor evaluates the rule
         // directly against tokens (see engine::doc_matches_query).
-        QueryNode::Intervals { field, .. } => {
-            ExecutionPlan::ExistsScan { field }
-        }
+        QueryNode::Intervals { field, .. } => ExecutionPlan::ExistsScan { field },
 
         // MatchPhrasePrefix: treat as a phrase search on the given field.
         QueryNode::MatchPhrasePrefix { field, query, .. } => {
@@ -432,46 +507,47 @@ fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
         }
 
         // SimpleQueryString: resolved to Bool at parse time; fallback to full scan.
-        QueryNode::SimpleQueryString { query, .. } => {
-            ExecutionPlan::FtsSearch {
-                field: "_all".to_string(),
-                tokens: vec![query],
-                require_all: false,
-                phrase: false,
-                slop: 0,
-                cost: 15.0,
-            }
-        }
+        QueryNode::SimpleQueryString { query, .. } => ExecutionPlan::FtsSearch {
+            field: "_all".to_string(),
+            tokens: vec![query],
+            require_all: false,
+            phrase: false,
+            slop: 0,
+            cost: 15.0,
+        },
 
         // GeoDistance: full doc-scan with per-doc haversine computation.
-        QueryNode::GeoDistance { field, .. } => {
-            ExecutionPlan::ExistsScan { field }
-        }
+        QueryNode::GeoDistance { field, .. } => ExecutionPlan::ExistsScan { field },
 
         // GeoBoundingBox: full doc-scan with per-doc bounding box check.
-        QueryNode::GeoBoundingBox { field, .. } => {
-            ExecutionPlan::ExistsScan { field }
-        }
+        QueryNode::GeoBoundingBox { field, .. } => ExecutionPlan::ExistsScan { field },
 
         // FunctionScore: plan the inner query; function application happens at score time.
         QueryNode::FunctionScore { query, .. } => {
             let inner = plan_node(*query, schema);
             let cost = inner.cost() + 5.0; // small overhead for function application
-            ExecutionPlan::Boost { boost: 1.0, inner: Box::new(inner), cost }
+            ExecutionPlan::Boost {
+                boost: 1.0,
+                inner: Box::new(inner),
+                cost,
+            }
         }
 
         // Nested: plan the inner query with a doc-scan cost.
         QueryNode::Nested { query, .. } => {
             let inner = plan_node(*query, schema);
             let cost = inner.cost() + 10.0; // array traversal overhead
-            ExecutionPlan::Boost { boost: 1.0, inner: Box::new(inner), cost }
+            ExecutionPlan::Boost {
+                boost: 1.0,
+                inner: Box::new(inner),
+                cost,
+            }
         }
 
         // MoreLikeThis: treat as a multi-term FTS search.
         QueryNode::MoreLikeThis { like, .. } => {
             let all_text = like.join(" ");
-            let tokens: Vec<String> =
-                all_text.split_whitespace().map(str::to_string).collect();
+            let tokens: Vec<String> = all_text.split_whitespace().map(str::to_string).collect();
             let cost = 5.0 * tokens.len().max(1) as f64;
             ExecutionPlan::FtsSearch {
                 field: "_all".to_string(),
@@ -503,13 +579,11 @@ fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
         QueryNode::Named { query, .. } => plan_node(*query, schema),
 
         // ── Span queries — treat as doc-scans ────────────────────────────────
-        QueryNode::SpanTerm { field, value } => {
-            ExecutionPlan::FtsScan {
-                field,
-                terms: vec![serde_json::Value::String(value)],
-                cost: 2.0,
-            }
-        }
+        QueryNode::SpanTerm { field, value } => ExecutionPlan::FtsScan {
+            field,
+            terms: vec![serde_json::Value::String(value)],
+            cost: 2.0,
+        },
 
         QueryNode::SpanNear { clauses, .. } => {
             let sub_plans: Vec<ExecutionPlan> =
@@ -559,7 +633,11 @@ fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
         QueryNode::HasChild { query, .. } | QueryNode::HasParent { query, .. } => {
             let inner = plan_node(*query, schema);
             let cost = inner.cost() + 10.0;
-            ExecutionPlan::Boost { boost: 1.0, inner: Box::new(inner), cost }
+            ExecutionPlan::Boost {
+                boost: 1.0,
+                inner: Box::new(inner),
+                cost,
+            }
         }
 
         // ── Geo shape queries — treat as doc-scans ────────────────────────────
@@ -672,7 +750,9 @@ mod tests {
             query: Box::new(term_node("status", "active")),
         };
         let plan = plan_query(q, &empty_schema()).unwrap();
-        assert!(matches!(plan, ExecutionPlan::ConstantScore { score, .. } if (score - 1.5).abs() < 0.001));
+        assert!(
+            matches!(plan, ExecutionPlan::ConstantScore { score, .. } if (score - 1.5).abs() < 0.001)
+        );
     }
 
     #[test]

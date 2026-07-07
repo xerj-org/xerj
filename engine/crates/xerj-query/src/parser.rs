@@ -19,7 +19,7 @@ use std::cell::Cell;
 use tracing::trace;
 
 use crate::ast::{
-    BoostMode, BoolOperator, FieldValueFactor, Fuzziness, FusionStrategy, GeoShapeType,
+    BoolOperator, BoostMode, FieldValueFactor, FusionStrategy, Fuzziness, GeoShapeType,
     MinShouldMatch, Modifier, MultiMatchType, QueryNode, RandomScore, ScoreFunction, ScoreMode,
     SearchRequest, SourceFilter, TrackTotalHits, WeightedQuery,
 };
@@ -86,7 +86,10 @@ fn invalid<T>(msg: impl Into<String>) -> Result<T> {
 #[inline(always)]
 fn maybe_named(node: QueryNode, name: Option<String>) -> QueryNode {
     match name {
-        Some(n) => QueryNode::Named { name: n, query: Box::new(node) },
+        Some(n) => QueryNode::Named {
+            name: n,
+            query: Box::new(node),
+        },
         None => node,
     }
 }
@@ -114,11 +117,11 @@ fn unknown_type<T>(name: impl Into<String>) -> Result<T> {
 /// }
 /// ```
 pub fn parse_request(body: &Value) -> Result<SearchRequest> {
-    let obj = body
-        .as_object()
-        .ok_or_else(|| QueryError::Parse(ParseError::Invalid(
+    let obj = body.as_object().ok_or_else(|| {
+        QueryError::Parse(ParseError::Invalid(
             "request body must be a JSON object".into(),
-        )))?;
+        ))
+    })?;
 
     let query = match obj.get("query") {
         Some(q) => parse_query(q)?,
@@ -126,16 +129,20 @@ pub fn parse_request(body: &Value) -> Result<SearchRequest> {
     };
 
     let from = match obj.get("from") {
-        Some(v) => v.as_u64().ok_or_else(|| QueryError::Parse(ParseError::Invalid(
-            "`from` must be a non-negative integer".into(),
-        )))? as usize,
+        Some(v) => v.as_u64().ok_or_else(|| {
+            QueryError::Parse(ParseError::Invalid(
+                "`from` must be a non-negative integer".into(),
+            ))
+        })? as usize,
         None => 0,
     };
 
     let size = match obj.get("size") {
-        Some(v) => v.as_u64().ok_or_else(|| QueryError::Parse(ParseError::Invalid(
-            "`size` must be a non-negative integer".into(),
-        )))? as usize,
+        Some(v) => v.as_u64().ok_or_else(|| {
+            QueryError::Parse(ParseError::Invalid(
+                "`size` must be a non-negative integer".into(),
+            ))
+        })? as usize,
         None => 10,
     };
 
@@ -161,10 +168,7 @@ pub fn parse_request(body: &Value) -> Result<SearchRequest> {
         None => None,
     };
 
-    let aggs = obj
-        .get("aggs")
-        .or_else(|| obj.get("aggregations"))
-        .cloned();
+    let aggs = obj.get("aggs").or_else(|| obj.get("aggregations")).cloned();
 
     let explain = obj
         .get("explain")
@@ -176,12 +180,12 @@ pub fn parse_request(body: &Value) -> Result<SearchRequest> {
         None => SourceFilter::default(),
     };
 
-    let timeout_ms = obj.get("timeout").and_then(|v| parse_timeout(v));
+    let timeout_ms = obj.get("timeout").and_then(parse_timeout);
 
     // Parse optional highlight configuration.
-    let highlight = obj.get("highlight").and_then(|v| {
-        serde_json::from_value(v.clone()).ok()
-    });
+    let highlight = obj
+        .get("highlight")
+        .and_then(|v| serde_json::from_value(v.clone()).ok());
 
     // Parse track_total_hits: true | false | integer
     let track_total_hits = match obj.get("track_total_hits") {
@@ -213,10 +217,7 @@ pub fn parse_request(body: &Value) -> Result<SearchRequest> {
     };
 
     // profile — include timing breakdown
-    let profile = obj
-        .get("profile")
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
+    let profile = obj.get("profile").and_then(Value::as_bool).unwrap_or(false);
 
     Ok(SearchRequest {
         query,
@@ -248,11 +249,9 @@ pub fn parse_query(json: &Value) -> Result<QueryNode> {
     // an error return here does not leak the increment to a sibling call.
     let _depth = DepthGuard::enter()?;
 
-    let obj = json
-        .as_object()
-        .ok_or_else(|| QueryError::Parse(ParseError::Invalid(
-            "query must be a JSON object".into(),
-        )))?;
+    let obj = json.as_object().ok_or_else(|| {
+        QueryError::Parse(ParseError::Invalid("query must be a JSON object".into()))
+    })?;
 
     if obj.len() != 1 {
         if obj.is_empty() {
@@ -373,17 +372,33 @@ fn parse_match(params: &Value) -> Result<QueryNode> {
         .ok_or_else(|| qerr("`match` field value must be a scalar or object"))?;
 
     // Inside the object form, `query` can also be a number / bool.
-    let query = vobj.get("query")
+    let query = vobj
+        .get("query")
         .and_then(scalar_to_string)
         .ok_or_else(|| qerr("`match.query` must be a non-empty scalar"))?;
     let operator = parse_bool_operator(vobj.get("operator"))?;
-    let analyzer = vobj.get("analyzer").and_then(|v| v.as_str()).map(str::to_string);
+    let analyzer = vobj
+        .get("analyzer")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
     let boost = vobj.get("boost").and_then(|v| v.as_f64()).map(|b| b as f32);
-    let minimum_should_match =
-        vobj.get("minimum_should_match").map(parse_min_should_match).transpose()?;
-    let name = vobj.get("_name").and_then(|v| v.as_str()).map(str::to_string);
+    let minimum_should_match = vobj
+        .get("minimum_should_match")
+        .map(parse_min_should_match)
+        .transpose()?;
+    let name = vobj
+        .get("_name")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
 
-    let node = QueryNode::Match { field, query, operator, analyzer, boost, minimum_should_match };
+    let node = QueryNode::Match {
+        field,
+        query,
+        operator,
+        analyzer,
+        boost,
+        minimum_should_match,
+    };
     Ok(maybe_named(node, name))
 }
 
@@ -425,11 +440,23 @@ fn parse_match_phrase(params: &Value) -> Result<QueryNode> {
 
     let query = string_field(vobj, "query")?;
     let slop = vobj.get("slop").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
-    let analyzer = vobj.get("analyzer").and_then(|v| v.as_str()).map(str::to_string);
+    let analyzer = vobj
+        .get("analyzer")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
     let boost = vobj.get("boost").and_then(|v| v.as_f64()).map(|b| b as f32);
-    let name = vobj.get("_name").and_then(|v| v.as_str()).map(str::to_string);
+    let name = vobj
+        .get("_name")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
 
-    let node = QueryNode::MatchPhrase { field, query, slop, analyzer, boost };
+    let node = QueryNode::MatchPhrase {
+        field,
+        query,
+        slop,
+        analyzer,
+        boost,
+    };
     Ok(maybe_named(node, name))
 }
 
@@ -473,20 +500,29 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
         return invalid("`multi_match.fields` must not be empty");
     }
 
-    let type_str = obj.get("type").and_then(|v| v.as_str()).unwrap_or("best_fields");
+    let type_str = obj
+        .get("type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("best_fields");
 
     // bool_prefix: rewrite to a Bool::should over per-field match_bool_prefix
     // clauses. Tokens except the last become Match queries, the last becomes
     // a Prefix query — matching ES `match_bool_prefix` semantics across all
     // supplied fields.
     if type_str == "bool_prefix" {
-        let analyzer_opt = obj.get("analyzer").and_then(|v| v.as_str()).map(str::to_string);
-        let analyzer_lowercases = match analyzer_opt.as_deref() {
-            Some("whitespace") | Some("keyword") => false,
-            _ => true,
-        };
+        let analyzer_opt = obj
+            .get("analyzer")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
+        let analyzer_lowercases = !matches!(
+            analyzer_opt.as_deref(),
+            Some("whitespace") | Some("keyword")
+        );
         let operator_and = matches!(
-            obj.get("operator").and_then(Value::as_str).map(|s| s.to_ascii_lowercase()).as_deref(),
+            obj.get("operator")
+                .and_then(Value::as_str)
+                .map(|s| s.to_ascii_lowercase())
+                .as_deref(),
             Some("and")
         );
         let mm_ms = obj.get("minimum_should_match").and_then(|v| match v {
@@ -502,7 +538,11 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
         });
         let fuzziness_opt = obj.get("fuzziness").map(|v| match v {
             Value::String(s) if s.eq_ignore_ascii_case("auto") => crate::ast::Fuzziness::Auto,
-            Value::String(s) => s.parse::<u32>().ok().map(crate::ast::Fuzziness::Fixed).unwrap_or(crate::ast::Fuzziness::Auto),
+            Value::String(s) => s
+                .parse::<u32>()
+                .ok()
+                .map(crate::ast::Fuzziness::Fixed)
+                .unwrap_or(crate::ast::Fuzziness::Auto),
             Value::Number(n) => crate::ast::Fuzziness::Fixed(n.as_u64().unwrap_or(0) as u32),
             _ => crate::ast::Fuzziness::Auto,
         });
@@ -511,9 +551,16 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
         } else {
             query.split_whitespace().map(str::to_string).collect()
         };
-        let tokens: Vec<String> = raw_tokens.into_iter().map(|t| {
-            if analyzer_lowercases { t.to_lowercase() } else { t }
-        }).collect();
+        let tokens: Vec<String> = raw_tokens
+            .into_iter()
+            .map(|t| {
+                if analyzer_lowercases {
+                    t.to_lowercase()
+                } else {
+                    t
+                }
+            })
+            .collect();
         if tokens.is_empty() {
             return Ok(QueryNode::MatchAll);
         }
@@ -522,7 +569,7 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
         for raw_field in &fields {
             // Strip any ^boost suffix (e.g. "title^2").
             let (field, fb): (&str, Option<f32>) = match raw_field.rfind('^') {
-                Some(idx) => (&raw_field[..idx], raw_field[idx+1..].parse::<f32>().ok()),
+                Some(idx) => (&raw_field[..idx], raw_field[idx + 1..].parse::<f32>().ok()),
                 None => (raw_field.as_str(), None),
             };
             if tokens.len() == 1 {
@@ -536,8 +583,12 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
             }
             let last = tokens.len() - 1;
             let build_leaf = |tok: &str| -> QueryNode {
-                if let Some(fz) = fuzziness_opt.clone() {
-                    QueryNode::Fuzzy { field: field.to_string(), value: tok.to_string(), fuzziness: fz }
+                if let Some(fz) = fuzziness_opt {
+                    QueryNode::Fuzzy {
+                        field: field.to_string(),
+                        value: tok.to_string(),
+                        fuzziness: fz,
+                    }
                 } else {
                     QueryNode::Match {
                         field: field.to_string(),
@@ -549,7 +600,8 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
                     }
                 }
             };
-            let mut inner_clauses: Vec<QueryNode> = tokens[..last].iter().map(|t| build_leaf(t)).collect();
+            let mut inner_clauses: Vec<QueryNode> =
+                tokens[..last].iter().map(|t| build_leaf(t)).collect();
             inner_clauses.push(QueryNode::Prefix {
                 field: field.to_string(),
                 value: tokens[last].clone(),
@@ -558,7 +610,7 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
             let (im, is, imm) = if operator_and {
                 (inner_clauses, vec![], None)
             } else {
-                (vec![], inner_clauses, mm_ms.clone())
+                (vec![], inner_clauses, mm_ms)
             };
             let inner_bool = QueryNode::Bool {
                 must: im,
@@ -568,8 +620,13 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
                 minimum_should_match: imm,
             };
             let field_clause = if let Some(b) = fb {
-                QueryNode::Boosted { boost: b, query: Box::new(inner_bool) }
-            } else { inner_bool };
+                QueryNode::Boosted {
+                    boost: b,
+                    query: Box::new(inner_bool),
+                }
+            } else {
+                inner_bool
+            };
             should.push(field_clause);
         }
         return Ok(QueryNode::Bool {
@@ -578,8 +635,12 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
             filter: vec![],
             must_not: vec![],
             minimum_should_match: None,
-        }).map(|n| match boost {
-            Some(b) => QueryNode::Boosted { query: Box::new(n), boost: b },
+        })
+        .map(|n| match boost {
+            Some(b) => QueryNode::Boosted {
+                query: Box::new(n),
+                boost: b,
+            },
             None => n,
         });
     }
@@ -594,10 +655,20 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
     };
 
     let operator = parse_bool_operator(obj.get("operator")).ok();
-    let analyzer = obj.get("analyzer").and_then(|v| v.as_str()).map(str::to_string);
+    let analyzer = obj
+        .get("analyzer")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
     let boost = obj.get("boost").and_then(|v| v.as_f64()).map(|b| b as f32);
 
-    Ok(QueryNode::MultiMatch { fields, query, match_type, operator, analyzer, boost })
+    Ok(QueryNode::MultiMatch {
+        fields,
+        query,
+        match_type,
+        operator,
+        analyzer,
+        boost,
+    })
 }
 
 fn parse_term(params: &Value) -> Result<QueryNode> {
@@ -613,8 +684,14 @@ fn parse_term(params: &Value) -> Result<QueryNode> {
 
     if let Some(inner) = raw.as_object() {
         if let Some(value) = inner.get("value") {
-            let boost = inner.get("boost").and_then(|v| v.as_f64()).map(|b| b as f32);
-            let name = inner.get("_name").and_then(|v| v.as_str()).map(str::to_string);
+            let boost = inner
+                .get("boost")
+                .and_then(|v| v.as_f64())
+                .map(|b| b as f32);
+            let name = inner
+                .get("_name")
+                .and_then(|v| v.as_str())
+                .map(str::to_string);
             let case_insensitive = inner
                 .get("case_insensitive")
                 .and_then(Value::as_bool)
@@ -630,15 +707,27 @@ fn parse_term(params: &Value) -> Result<QueryNode> {
                     Value::String(s) => s.clone(),
                     other => other.to_string().trim_matches('"').to_string(),
                 };
-                let node = QueryNode::Wildcard { field, value: val_str, boost };
+                let node = QueryNode::Wildcard {
+                    field,
+                    value: val_str,
+                    boost,
+                };
                 return Ok(maybe_named(node, name));
             }
-            let node = QueryNode::Term { field, value: value.clone(), boost };
+            let node = QueryNode::Term {
+                field,
+                value: value.clone(),
+                boost,
+            };
             return Ok(maybe_named(node, name));
         }
     }
 
-    Ok(QueryNode::Term { field, value: raw.clone(), boost: None })
+    Ok(QueryNode::Term {
+        field,
+        value: raw.clone(),
+        boost: None,
+    })
 }
 
 fn parse_terms(params: &Value) -> Result<QueryNode> {
@@ -646,10 +735,7 @@ fn parse_terms(params: &Value) -> Result<QueryNode> {
         .as_object()
         .ok_or_else(|| qerr("`terms` must be an object"))?;
 
-    let field_entries: Vec<_> = obj
-        .iter()
-        .filter(|(k, _)| k.as_str() != "boost")
-        .collect();
+    let field_entries: Vec<_> = obj.iter().filter(|(k, _)| k.as_str() != "boost").collect();
 
     if field_entries.len() != 1 {
         return invalid("`terms` query must have exactly one field");
@@ -675,7 +761,11 @@ fn parse_terms(params: &Value) -> Result<QueryNode> {
 
     let boost = obj.get("boost").and_then(|v| v.as_f64()).map(|b| b as f32);
 
-    Ok(QueryNode::Terms { field, values, boost })
+    Ok(QueryNode::Terms {
+        field,
+        values,
+        boost,
+    })
 }
 
 /// Resolve an ES date-math expression like `now`, `now-24h`, `now+1d/d`
@@ -705,14 +795,14 @@ fn resolve_now_expr(expr: &str) -> Option<String> {
         let n: f64 = num_part.parse().ok()?;
         let secs = match unit_part.as_str() {
             "ms" => n / 1000.0,
-            "s"  => n,
-            "m"  => n * 60.0,
-            "h"  => n * 3600.0,
-            "d"  => n * 86_400.0,
-            "w"  => n * 7.0 * 86_400.0,
-            "M"  => n * 30.0 * 86_400.0,
-            "y"  => n * 365.0 * 86_400.0,
-            _    => return None,
+            "s" => n,
+            "m" => n * 60.0,
+            "h" => n * 3600.0,
+            "d" => n * 86_400.0,
+            "w" => n * 7.0 * 86_400.0,
+            "M" => n * 30.0 * 86_400.0,
+            "y" => n * 365.0 * 86_400.0,
+            _ => return None,
         };
         delta_secs = (sign as f64 * secs) as i64;
     }
@@ -739,7 +829,10 @@ fn parse_range(params: &Value) -> Result<QueryNode> {
     let mut gt = inner.get("gt").cloned();
     let mut lte = inner.get("lte").cloned();
     let mut lt = inner.get("lt").cloned();
-    let boost = inner.get("boost").and_then(|v| v.as_f64()).map(|b| b as f32);
+    let boost = inner
+        .get("boost")
+        .and_then(|v| v.as_f64())
+        .map(|b| b as f32);
 
     // ES date math: `gte: "now-24h"` etc. resolve at query-time against
     // wall clock. Without this, downstream `doc_matches_query` would
@@ -757,10 +850,18 @@ fn parse_range(params: &Value) -> Result<QueryNode> {
             _ => v,
         }
     };
-    if let Some(v) = gte.take() { gte = Some(resolve_now(v)); }
-    if let Some(v) = gt.take()  { gt  = Some(resolve_now(v)); }
-    if let Some(v) = lte.take() { lte = Some(resolve_now(v)); }
-    if let Some(v) = lt.take()  { lt  = Some(resolve_now(v)); }
+    if let Some(v) = gte.take() {
+        gte = Some(resolve_now(v));
+    }
+    if let Some(v) = gt.take() {
+        gt = Some(resolve_now(v));
+    }
+    if let Some(v) = lte.take() {
+        lte = Some(resolve_now(v));
+    }
+    if let Some(v) = lt.take() {
+        lt = Some(resolve_now(v));
+    }
 
     // `format: uuuu` (year-only): ES resolves the bound as year-first-day
     // (YEAR-01-01T00:00:00) and applies range rounding at day granularity —
@@ -775,7 +876,9 @@ fn parse_range(params: &Value) -> Result<QueryNode> {
                 _ => None,
             };
             let Some(y) = year else { return b };
-            if !matches!(fmt, "uuuu" | "yyyy" | "year") { return b; }
+            if !matches!(fmt, "uuuu" | "yyyy" | "year") {
+                return b;
+            }
             let iso = if upper {
                 format!("{:04}-01-01T23:59:59.999Z", y)
             } else {
@@ -783,15 +886,26 @@ fn parse_range(params: &Value) -> Result<QueryNode> {
             };
             Value::String(iso)
         };
-        if let Some(v) = gte.take() { gte = Some(rewrite(v, false)); }
-        if let Some(v) = lte.take() { lte = Some(rewrite(v, true)); }
+        if let Some(v) = gte.take() {
+            gte = Some(rewrite(v, false));
+        }
+        if let Some(v) = lte.take() {
+            lte = Some(rewrite(v, true));
+        }
     }
 
     if gte.is_none() && gt.is_none() && lte.is_none() && lt.is_none() {
         return invalid("`range` query must have at least one bound (gte, gt, lte, lt)");
     }
 
-    Ok(QueryNode::Range { field, gte, gt, lte, lt, boost })
+    Ok(QueryNode::Range {
+        field,
+        gte,
+        gt,
+        lte,
+        lt,
+        boost,
+    })
 }
 
 fn parse_prefix(params: &Value) -> Result<QueryNode> {
@@ -806,7 +920,11 @@ fn parse_prefix(params: &Value) -> Result<QueryNode> {
     let field = field.clone();
 
     if let Some(value) = raw.as_str() {
-        return Ok(QueryNode::Prefix { field, value: value.to_string(), boost: None });
+        return Ok(QueryNode::Prefix {
+            field,
+            value: value.to_string(),
+            boost: None,
+        });
     }
 
     let inner = raw
@@ -814,9 +932,16 @@ fn parse_prefix(params: &Value) -> Result<QueryNode> {
         .ok_or_else(|| qerr("`prefix` field value must be a string or object"))?;
 
     let value = string_field(inner, "value")?;
-    let boost = inner.get("boost").and_then(|v| v.as_f64()).map(|b| b as f32);
+    let boost = inner
+        .get("boost")
+        .and_then(|v| v.as_f64())
+        .map(|b| b as f32);
 
-    Ok(QueryNode::Prefix { field, value, boost })
+    Ok(QueryNode::Prefix {
+        field,
+        value,
+        boost,
+    })
 }
 
 fn parse_wildcard(params: &Value) -> Result<QueryNode> {
@@ -831,7 +956,11 @@ fn parse_wildcard(params: &Value) -> Result<QueryNode> {
     let field = field.clone();
 
     if let Some(value) = raw.as_str() {
-        return Ok(QueryNode::Wildcard { field, value: value.to_string(), boost: None });
+        return Ok(QueryNode::Wildcard {
+            field,
+            value: value.to_string(),
+            boost: None,
+        });
     }
 
     let inner = raw
@@ -839,9 +968,16 @@ fn parse_wildcard(params: &Value) -> Result<QueryNode> {
         .ok_or_else(|| qerr("`wildcard` field value must be a string or object"))?;
 
     let value = string_field(inner, "value")?;
-    let boost = inner.get("boost").and_then(|v| v.as_f64()).map(|b| b as f32);
+    let boost = inner
+        .get("boost")
+        .and_then(|v| v.as_f64())
+        .map(|b| b as f32);
 
-    Ok(QueryNode::Wildcard { field, value, boost })
+    Ok(QueryNode::Wildcard {
+        field,
+        value,
+        boost,
+    })
 }
 
 fn parse_exists(params: &Value) -> Result<QueryNode> {
@@ -891,14 +1027,24 @@ fn parse_query_string(params: &Value) -> Result<QueryNode> {
     // QueryString node if lowering isn't possible (the FTS path still
     // tokenizes it) — but malformed range syntax is a hard parse error,
     // never a silent term-match fallback.
-    if let Some(lowered) = try_lower_query_string(&query, default_field.as_deref(), default_operator)? {
+    if let Some(lowered) =
+        try_lower_query_string(&query, default_field.as_deref(), default_operator)?
+    {
         return Ok(match boost {
-            Some(b) if b != 1.0 => QueryNode::Boosted { boost: b, query: Box::new(lowered) },
+            Some(b) if b != 1.0 => QueryNode::Boosted {
+                boost: b,
+                query: Box::new(lowered),
+            },
             _ => lowered,
         });
     }
 
-    Ok(QueryNode::QueryString { query, default_field, default_operator, boost })
+    Ok(QueryNode::QueryString {
+        query,
+        default_field,
+        default_operator,
+        boost,
+    })
 }
 
 /// Lower a Lucene-style query string into a QueryNode::Bool tree.
@@ -923,8 +1069,12 @@ fn try_lower_query_string(
     default_field: Option<&str>,
     default_op: Option<BoolOperator>,
 ) -> Result<Option<QueryNode>> {
-    let Some(tokens) = tokenize_query_string(q)? else { return Ok(None) };
-    if tokens.is_empty() { return Ok(None); }
+    let Some(tokens) = tokenize_query_string(q)? else {
+        return Ok(None);
+    };
+    if tokens.is_empty() {
+        return Ok(None);
+    }
     // Range clauses must target a concrete field: resolve unqualified
     // ranges against default_field up-front so `>10` with no usable
     // default errors instead of degrading to a term match.
@@ -932,8 +1082,7 @@ fn try_lower_query_string(
     for t in &tokens {
         if let QsTok::Range { field, .. } = t {
             has_range = true;
-            if field.is_empty()
-                && !matches!(default_field, Some(df) if !df.is_empty() && df != "*")
+            if field.is_empty() && !matches!(default_field, Some(df) if !df.is_empty() && df != "*")
             {
                 return Err(qerr(
                     "query_string range requires an explicit field (e.g. `price:>10`) or a non-wildcard default_field",
@@ -954,9 +1103,10 @@ fn try_lower_query_string(
 
 #[derive(Debug, Clone)]
 enum QsTok {
-    Term(String, String),     // (field, value) — field empty if unqualified
-    Phrase(String, String),   // (field, value)
-    Range {                   // field empty if unqualified
+    Term(String, String),   // (field, value) — field empty if unqualified
+    Phrase(String, String), // (field, value)
+    Range {
+        // field empty if unqualified
         field: String,
         gt: Option<Value>,
         gte: Option<Value>,
@@ -1032,9 +1182,26 @@ fn qs_parse_bracket_range(q: &str, field: &str, open: usize) -> Result<(QsTok, u
         ));
     }
     let (mut gt, mut gte, mut lt, mut lte) = (None, None, None, None);
-    if inclusive_lo { gte = lo; } else { gt = lo; }
-    if inclusive_hi { lte = hi; } else { lt = hi; }
-    Ok((QsTok::Range { field: field.to_string(), gt, gte, lt, lte }, j + 1))
+    if inclusive_lo {
+        gte = lo;
+    } else {
+        gt = lo;
+    }
+    if inclusive_hi {
+        lte = hi;
+    } else {
+        lt = hi;
+    }
+    Ok((
+        QsTok::Range {
+            field: field.to_string(),
+            gt,
+            gte,
+            lt,
+            lte,
+        },
+        j + 1,
+    ))
 }
 
 /// Parse a comparison range (`>N`, `>=N`, `<N`, `<=N`). `rest` is the text
@@ -1074,7 +1241,16 @@ fn qs_parse_cmp_range(q: &str, field: &str, rest: &str, mut i: usize) -> Result<
         "<" => lt = Some(bound),
         _ => lte = Some(bound),
     }
-    Ok((QsTok::Range { field: field.to_string(), gt, gte, lt, lte }, i))
+    Ok((
+        QsTok::Range {
+            field: field.to_string(),
+            gt,
+            gte,
+            lt,
+            lte,
+        },
+        i,
+    ))
 }
 
 /// Tokenize a Lucene query string. `Ok(None)` means "can't tokenize — fall
@@ -1086,17 +1262,40 @@ fn tokenize_query_string(q: &str) -> Result<Option<Vec<QsTok>>> {
     let mut i = 0;
     while i < bytes.len() {
         let c = bytes[i] as char;
-        if c.is_whitespace() { i += 1; continue; }
-        if c == '(' { out.push(QsTok::LParen); i += 1; continue; }
-        if c == ')' { out.push(QsTok::RParen); i += 1; continue; }
-        if c == '+' { out.push(QsTok::Must); i += 1; continue; }
-        if c == '-' { out.push(QsTok::Not); i += 1; continue; }
+        if c.is_whitespace() {
+            i += 1;
+            continue;
+        }
+        if c == '(' {
+            out.push(QsTok::LParen);
+            i += 1;
+            continue;
+        }
+        if c == ')' {
+            out.push(QsTok::RParen);
+            i += 1;
+            continue;
+        }
+        if c == '+' {
+            out.push(QsTok::Must);
+            i += 1;
+            continue;
+        }
+        if c == '-' {
+            out.push(QsTok::Not);
+            i += 1;
+            continue;
+        }
         // Quoted phrase — optional `field:"value"` prefix handled below.
         if c == '"' {
             let start = i + 1;
             let mut j = start;
-            while j < bytes.len() && bytes[j] as char != '"' { j += 1; }
-            if j >= bytes.len() { return Ok(None); }
+            while j < bytes.len() && bytes[j] as char != '"' {
+                j += 1;
+            }
+            if j >= bytes.len() {
+                return Ok(None);
+            }
             let val = q[start..j].to_string();
             out.push(QsTok::Phrase(String::new(), val));
             i = j + 1;
@@ -1122,15 +1321,26 @@ fn tokenize_query_string(q: &str) -> Result<Option<Vec<QsTok>>> {
         let start = i;
         while i < bytes.len() {
             let ch = bytes[i] as char;
-            if ch.is_whitespace() || ch == '(' || ch == ')' { break; }
+            if ch.is_whitespace() || ch == '(' || ch == ')' {
+                break;
+            }
             i += 1;
         }
         let tok = &q[start..i];
         // Keywords OR / AND / NOT (case-insensitive, must stand alone).
         match tok {
-            "OR" | "or" | "||" => { out.push(QsTok::Or); continue; }
-            "AND" | "and" | "&&" => { out.push(QsTok::And); continue; }
-            "NOT" | "not" | "!" => { out.push(QsTok::Not); continue; }
+            "OR" | "or" | "||" => {
+                out.push(QsTok::Or);
+                continue;
+            }
+            "AND" | "and" | "&&" => {
+                out.push(QsTok::And);
+                continue;
+            }
+            "NOT" | "not" | "!" => {
+                out.push(QsTok::Not);
+                continue;
+            }
             _ => {}
         }
         // Lucene query_string unescapes `\X` → `X` for any char X;
@@ -1142,7 +1352,9 @@ fn tokenize_query_string(q: &str) -> Result<Option<Vec<QsTok>>> {
             let mut chars = s.chars();
             while let Some(c) = chars.next() {
                 if c == '\\' {
-                    if let Some(nxt) = chars.next() { out.push(nxt); }
+                    if let Some(nxt) = chars.next() {
+                        out.push(nxt);
+                    }
                 } else {
                     out.push(c);
                 }
@@ -1153,17 +1365,21 @@ fn tokenize_query_string(q: &str) -> Result<Option<Vec<QsTok>>> {
         if let Some(colon) = tok.find(':') {
             let field = &tok[..colon];
             let rest = &tok[colon + 1..];
-            if rest.starts_with('"') {
+            if let Some(after_quote) = rest.strip_prefix('"') {
                 // Consume continuation until matching quote (may have been split).
-                let mut buf = rest[1..].to_string();
+                let mut buf = after_quote.to_string();
                 if buf.ends_with('"') {
                     buf.pop();
                     out.push(QsTok::Phrase(field.to_string(), buf));
                 } else {
                     // Rejoin from original string.
                     let mut j = i;
-                    while j < bytes.len() && bytes[j] as char != '"' { j += 1; }
-                    if j >= bytes.len() { return Ok(None); }
+                    while j < bytes.len() && bytes[j] as char != '"' {
+                        j += 1;
+                    }
+                    if j >= bytes.len() {
+                        return Ok(None);
+                    }
                     let whole = format!("{} {}", buf, &q[i..j]);
                     out.push(QsTok::Phrase(field.to_string(), whole));
                     i = j + 1;
@@ -1206,7 +1422,9 @@ fn parse_qs_or(
         *pos += 1;
         let right = parse_qs_and(toks, pos, default_field, default_op)?;
         left = QueryNode::Bool {
-            must: vec![], must_not: vec![], filter: vec![],
+            must: vec![],
+            must_not: vec![],
+            filter: vec![],
             should: vec![left, right],
             minimum_should_match: Some(MinShouldMatch::Fixed(1)),
         };
@@ -1220,7 +1438,9 @@ fn parse_qs_or(
         while *pos < toks.len() && !matches!(toks[*pos], QsTok::RParen | QsTok::Or | QsTok::And) {
             let right = parse_qs_and(toks, pos, default_field, default_op)?;
             left = QueryNode::Bool {
-                must: vec![], must_not: vec![], filter: vec![],
+                must: vec![],
+                must_not: vec![],
+                filter: vec![],
                 should: vec![left, right],
                 minimum_should_match: Some(MinShouldMatch::Fixed(1)),
             };
@@ -1240,26 +1460,34 @@ fn parse_qs_and(
     let mut explicit_and = false;
     loop {
         // Optional + / - / NOT prefix for each clause.
-        let mut force_must = false;
         let mut force_not = false;
         while *pos < toks.len() {
             match &toks[*pos] {
-                QsTok::Must => { force_must = true; *pos += 1; }
-                QsTok::Not => { force_not = true; *pos += 1; }
+                QsTok::Must => {
+                    *pos += 1;
+                }
+                QsTok::Not => {
+                    force_not = true;
+                    *pos += 1;
+                }
                 _ => break,
             }
         }
         let node = parse_qs_unary(toks, pos, default_field)?;
         if force_not {
             not_clauses.push(node);
-        } else if force_must {
-            clauses.push(node);
         } else {
             clauses.push(node);
         }
-        if *pos >= toks.len() { break; }
+        if *pos >= toks.len() {
+            break;
+        }
         match &toks[*pos] {
-            QsTok::And => { explicit_and = true; *pos += 1; continue; }
+            QsTok::And => {
+                explicit_and = true;
+                *pos += 1;
+                continue;
+            }
             QsTok::Or | QsTok::RParen => break,
             _ => {
                 // Juxtaposition — treat as OR unless default_op is AND.
@@ -1273,20 +1501,22 @@ fn parse_qs_and(
     if clauses.len() == 1 && not_clauses.is_empty() {
         return Some(clauses.pop().unwrap());
     }
-    let should_mode = !explicit_and
-        && !clauses.is_empty()
-        && !matches!(default_op, Some(BoolOperator::And));
+    let should_mode =
+        !explicit_and && !clauses.is_empty() && !matches!(default_op, Some(BoolOperator::And));
     let node = if should_mode {
         QueryNode::Bool {
-            must: vec![], filter: vec![],
+            must: vec![],
+            filter: vec![],
             must_not: not_clauses,
             should: clauses,
             minimum_should_match: Some(MinShouldMatch::Fixed(1)),
         }
     } else {
         QueryNode::Bool {
-            must: clauses, filter: vec![],
-            must_not: not_clauses, should: vec![],
+            must: clauses,
+            filter: vec![],
+            must_not: not_clauses,
+            should: vec![],
             minimum_should_match: None,
         }
     };
@@ -1298,44 +1528,83 @@ fn parse_qs_unary(
     pos: &mut usize,
     default_field: Option<&str>,
 ) -> Option<QueryNode> {
-    if *pos >= toks.len() { return None; }
+    if *pos >= toks.len() {
+        return None;
+    }
     match toks[*pos].clone() {
         QsTok::LParen => {
             *pos += 1;
             let n = parse_qs_or(toks, pos, default_field, None)?;
-            if *pos >= toks.len() || !matches!(toks[*pos], QsTok::RParen) { return None; }
+            if *pos >= toks.len() || !matches!(toks[*pos], QsTok::RParen) {
+                return None;
+            }
             *pos += 1;
             Some(n)
         }
         QsTok::Term(field, value) => {
             *pos += 1;
-            let f = if field.is_empty() { default_field.unwrap_or("*").to_string() } else { field };
+            let f = if field.is_empty() {
+                default_field.unwrap_or("*").to_string()
+            } else {
+                field
+            };
             // A bare term containing `*` or `?` is a Lucene wildcard —
             // emit a Wildcard query so `q=shor*` / `q=te?t` match text
             // tokens with the expected substitution semantics.
             if value.contains('*') || value.contains('?') {
                 return Some(QueryNode::Wildcard {
-                    field: f, value, boost: None,
+                    field: f,
+                    value,
+                    boost: None,
                 });
             }
             Some(QueryNode::Match {
-                field: f, query: value, operator: BoolOperator::Or,
-                analyzer: None, boost: None, minimum_should_match: None,
+                field: f,
+                query: value,
+                operator: BoolOperator::Or,
+                analyzer: None,
+                boost: None,
+                minimum_should_match: None,
             })
         }
         QsTok::Phrase(field, value) => {
             *pos += 1;
-            let f = if field.is_empty() { default_field.unwrap_or("*").to_string() } else { field };
+            let f = if field.is_empty() {
+                default_field.unwrap_or("*").to_string()
+            } else {
+                field
+            };
             Some(QueryNode::MatchPhrase {
-                field: f, query: value, slop: 0, analyzer: None, boost: None,
+                field: f,
+                query: value,
+                slop: 0,
+                analyzer: None,
+                boost: None,
             })
         }
-        QsTok::Range { field, gt, gte, lt, lte } => {
+        QsTok::Range {
+            field,
+            gt,
+            gte,
+            lt,
+            lte,
+        } => {
             *pos += 1;
             // Unqualified ranges with no usable default_field were already
             // rejected in try_lower_query_string.
-            let f = if field.is_empty() { default_field.unwrap_or("*").to_string() } else { field };
-            Some(QueryNode::Range { field: f, gte, gt, lte, lt, boost: None })
+            let f = if field.is_empty() {
+                default_field.unwrap_or("*").to_string()
+            } else {
+                field
+            };
+            Some(QueryNode::Range {
+                field: f,
+                gte,
+                gt,
+                lte,
+                lt,
+                boost: None,
+            })
         }
         _ => None,
     }
@@ -1370,19 +1639,28 @@ fn parse_fuzzy(params: &Value) -> Result<QueryNode> {
         Some(Value::String(s)) if s.to_uppercase() == "AUTO" => Fuzziness::Auto,
         Some(Value::String(s)) => {
             let n = s.parse::<u32>().map_err(|_| {
-                qerr(format!("`fuzzy.fuzziness` must be 'AUTO' or an integer, got '{s}'"))
+                qerr(format!(
+                    "`fuzzy.fuzziness` must be 'AUTO' or an integer, got '{s}'"
+                ))
             })?;
             Fuzziness::Fixed(n)
         }
         Some(Value::Number(n)) => {
-            let n = n.as_u64().ok_or_else(|| qerr("`fuzzy.fuzziness` must be a non-negative integer"))? as u32;
+            let n = n
+                .as_u64()
+                .ok_or_else(|| qerr("`fuzzy.fuzziness` must be a non-negative integer"))?
+                as u32;
             Fuzziness::Fixed(n)
         }
         None => Fuzziness::Auto,
         _ => return invalid("`fuzzy.fuzziness` must be 'AUTO' or an integer"),
     };
 
-    Ok(QueryNode::Fuzzy { field, value, fuzziness })
+    Ok(QueryNode::Fuzzy {
+        field,
+        value,
+        fuzziness,
+    })
 }
 
 fn parse_regexp(params: &Value) -> Result<QueryNode> {
@@ -1397,7 +1675,10 @@ fn parse_regexp(params: &Value) -> Result<QueryNode> {
     let field = field.clone();
 
     if let Some(pattern) = raw.as_str() {
-        return Ok(QueryNode::Regexp { field, pattern: pattern.to_string() });
+        return Ok(QueryNode::Regexp {
+            field,
+            pattern: pattern.to_string(),
+        });
     }
 
     let inner = raw
@@ -1437,7 +1718,11 @@ fn parse_match_phrase_prefix(params: &Value) -> Result<QueryNode> {
         .and_then(Value::as_u64)
         .unwrap_or(50) as u32;
 
-    Ok(QueryNode::MatchPhrasePrefix { field, query, max_expansions })
+    Ok(QueryNode::MatchPhrasePrefix {
+        field,
+        query,
+        max_expansions,
+    })
 }
 
 fn parse_simple_query_string(params: &Value) -> Result<QueryNode> {
@@ -1494,7 +1779,9 @@ fn parse_simple_query_string(params: &Value) -> Result<QueryNode> {
         } else {
             (' ', tok)
         };
-        if term_text.is_empty() { continue; }
+        if term_text.is_empty() {
+            continue;
+        }
         let node = make_simple_query_node(term_text, &fields);
         match sign {
             '+' => must.push(node),
@@ -1601,7 +1888,12 @@ fn parse_geo_distance(params: &Value) -> Result<QueryNode> {
 
     let (lat, lon) = parse_lat_lon(location)?;
 
-    Ok(QueryNode::GeoDistance { field, lat, lon, distance_km })
+    Ok(QueryNode::GeoDistance {
+        field,
+        lat,
+        lon,
+        distance_km,
+    })
 }
 
 /// Parse a `geo_bounding_box` query.
@@ -1646,14 +1938,20 @@ fn parse_geo_bounding_box(params: &Value) -> Result<QueryNode> {
     let top_left = parse_lat_lon(tl_val)?;
     let bottom_right = parse_lat_lon(br_val)?;
 
-    Ok(QueryNode::GeoBoundingBox { field, top_left, bottom_right })
+    Ok(QueryNode::GeoBoundingBox {
+        field,
+        top_left,
+        bottom_right,
+    })
 }
 
 /// Parse a distance string like "10km", "5mi", "100m" into kilometres.
 fn parse_distance_km(s: &str) -> Result<f64> {
     let s = s.trim();
     if let Some(km) = s.strip_suffix("km") {
-        km.trim().parse::<f64>().map_err(|_| qerr(format!("invalid distance: `{s}`")))
+        km.trim()
+            .parse::<f64>()
+            .map_err(|_| qerr(format!("invalid distance: `{s}`")))
     } else if let Some(mi) = s.strip_suffix("mi") {
         mi.trim()
             .parse::<f64>()
@@ -1666,7 +1964,8 @@ fn parse_distance_km(s: &str) -> Result<f64> {
             .map_err(|_| qerr(format!("invalid distance: `{s}`")))
     } else {
         // Bare number interpreted as kilometres.
-        s.parse::<f64>().map_err(|_| qerr(format!("invalid distance: `{s}`")))
+        s.parse::<f64>()
+            .map_err(|_| qerr(format!("invalid distance: `{s}`")))
     }
 }
 
@@ -1689,8 +1988,12 @@ fn parse_lat_lon(value: &Value) -> Result<(f64, f64)> {
         }
         Value::Array(arr) if arr.len() == 2 => {
             // GeoJSON order: [lon, lat]
-            let lon = arr[0].as_f64().ok_or_else(|| qerr("geo_point array element must be a number"))?;
-            let lat = arr[1].as_f64().ok_or_else(|| qerr("geo_point array element must be a number"))?;
+            let lon = arr[0]
+                .as_f64()
+                .ok_or_else(|| qerr("geo_point array element must be a number"))?;
+            let lat = arr[1]
+                .as_f64()
+                .ok_or_else(|| qerr("geo_point array element must be a number"))?;
             Ok((lat, lon))
         }
         Value::String(s) => {
@@ -1699,8 +2002,14 @@ fn parse_lat_lon(value: &Value) -> Result<(f64, f64)> {
             if parts.len() != 2 {
                 return invalid(format!("geo_point string must be `lat,lon`, got `{s}`"));
             }
-            let lat = parts[0].trim().parse::<f64>().map_err(|_| qerr(format!("invalid lat in `{s}`")))?;
-            let lon = parts[1].trim().parse::<f64>().map_err(|_| qerr(format!("invalid lon in `{s}`")))?;
+            let lat = parts[0]
+                .trim()
+                .parse::<f64>()
+                .map_err(|_| qerr(format!("invalid lat in `{s}`")))?;
+            let lon = parts[1]
+                .trim()
+                .parse::<f64>()
+                .map_err(|_| qerr(format!("invalid lon in `{s}`")))?;
             Ok((lat, lon))
         }
         _ => invalid("geo_point must be an object {lat,lon}, array [lon,lat], or 'lat,lon' string"),
@@ -1730,7 +2039,13 @@ fn parse_bool(params: &Value) -> Result<QueryNode> {
         .map(parse_min_should_match)
         .transpose()?;
 
-    Ok(QueryNode::Bool { must, should, must_not, filter, minimum_should_match })
+    Ok(QueryNode::Bool {
+        must,
+        should,
+        must_not,
+        filter,
+        minimum_should_match,
+    })
 }
 
 fn parse_constant_score(params: &Value) -> Result<QueryNode> {
@@ -1809,7 +2124,10 @@ fn parse_dis_max(params: &Value) -> Result<QueryNode> {
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0) as f32;
 
-    Ok(QueryNode::DisMax { queries, tie_breaker })
+    Ok(QueryNode::DisMax {
+        queries,
+        tie_breaker,
+    })
 }
 
 fn parse_knn(params: &Value) -> Result<QueryNode> {
@@ -1845,7 +2163,13 @@ fn parse_knn(params: &Value) -> Result<QueryNode> {
 
     let boost = obj.get("boost").and_then(|v| v.as_f64()).map(|b| b as f32);
 
-    Ok(QueryNode::Knn { field, vector, k, filter, boost })
+    Ok(QueryNode::Knn {
+        field,
+        vector,
+        k,
+        filter,
+        boost,
+    })
 }
 
 fn parse_semantic(params: &Value) -> Result<QueryNode> {
@@ -1865,7 +2189,13 @@ fn parse_semantic(params: &Value) -> Result<QueryNode> {
 
     let boost = obj.get("boost").and_then(|v| v.as_f64()).map(|b| b as f32);
 
-    Ok(QueryNode::SemanticSearch { field, text, k, filter, boost })
+    Ok(QueryNode::SemanticSearch {
+        field,
+        text,
+        k,
+        filter,
+        boost,
+    })
 }
 
 fn parse_hybrid(params: &Value) -> Result<QueryNode> {
@@ -1882,17 +2212,14 @@ fn parse_hybrid(params: &Value) -> Result<QueryNode> {
         .iter()
         .enumerate()
         .map(|(i, v)| {
-            let entry = v.as_object().ok_or_else(|| {
-                qerr(format!("`hybrid.queries[{i}]` must be an object"))
-            })?;
-            let q_val = entry.get("query").ok_or_else(|| {
-                qerr(format!("`hybrid.queries[{i}]` missing `query`"))
-            })?;
+            let entry = v
+                .as_object()
+                .ok_or_else(|| qerr(format!("`hybrid.queries[{i}]` must be an object")))?;
+            let q_val = entry
+                .get("query")
+                .ok_or_else(|| qerr(format!("`hybrid.queries[{i}]` missing `query`")))?;
             let query = parse_query(q_val)?;
-            let weight = entry
-                .get("weight")
-                .and_then(|v| v.as_f64())
-                .unwrap_or(1.0) as f32;
+            let weight = entry.get("weight").and_then(|v| v.as_f64()).unwrap_or(1.0) as f32;
             Ok(WeightedQuery { query, weight })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -1949,7 +2276,10 @@ fn parse_function_score(params: &Value) -> Result<QueryNode> {
         .as_object()
         .ok_or_else(|| qerr("`function_score` must be an object"))?;
 
-    let name = obj.get("_name").and_then(|v| v.as_str()).map(str::to_string);
+    let name = obj
+        .get("_name")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
 
     // Inner query (defaults to match_all).
     let query = match obj.get("query") {
@@ -1975,7 +2305,11 @@ fn parse_function_score(params: &Value) -> Result<QueryNode> {
         }
     };
 
-    let score_mode = match obj.get("score_mode").and_then(Value::as_str).unwrap_or("multiply") {
+    let score_mode = match obj
+        .get("score_mode")
+        .and_then(Value::as_str)
+        .unwrap_or("multiply")
+    {
         "multiply" => ScoreMode::Multiply,
         "sum" => ScoreMode::Sum,
         "avg" => ScoreMode::Avg,
@@ -1985,7 +2319,11 @@ fn parse_function_score(params: &Value) -> Result<QueryNode> {
         other => return invalid(format!("unknown score_mode `{other}`")),
     };
 
-    let boost_mode = match obj.get("boost_mode").and_then(Value::as_str).unwrap_or("multiply") {
+    let boost_mode = match obj
+        .get("boost_mode")
+        .and_then(Value::as_str)
+        .unwrap_or("multiply")
+    {
         "multiply" => BoostMode::Multiply,
         "replace" => BoostMode::Replace,
         "sum" => BoostMode::Sum,
@@ -1995,7 +2333,10 @@ fn parse_function_score(params: &Value) -> Result<QueryNode> {
         other => return invalid(format!("unknown boost_mode `{other}`")),
     };
 
-    let max_boost = obj.get("max_boost").and_then(|v| v.as_f64()).map(|b| b as f32);
+    let max_boost = obj
+        .get("max_boost")
+        .and_then(|v| v.as_f64())
+        .map(|b| b as f32);
 
     let node = QueryNode::FunctionScore {
         query: Box::new(query),
@@ -2017,7 +2358,11 @@ fn parse_score_function(v: &Value) -> Result<ScoreFunction> {
 
 /// Parse score function fields from an existing object map.
 fn parse_score_function_inline(obj: &serde_json::Map<String, Value>) -> Result<ScoreFunction> {
-    let filter = obj.get("filter").map(parse_query).transpose()?.map(Box::new);
+    let filter = obj
+        .get("filter")
+        .map(parse_query)
+        .transpose()?
+        .map(Box::new);
     let weight = obj.get("weight").and_then(|v| v.as_f64()).map(|w| w as f32);
 
     let field_value_factor = match obj.get("field_value_factor") {
@@ -2031,7 +2376,11 @@ fn parse_score_function_inline(obj: &serde_json::Map<String, Value>) -> Result<S
                 .ok_or_else(|| qerr("`field_value_factor.field` is required"))?
                 .to_string();
             let factor = fvf.get("factor").and_then(|v| v.as_f64()).unwrap_or(1.0) as f32;
-            let modifier = match fvf.get("modifier").and_then(Value::as_str).unwrap_or("none") {
+            let modifier = match fvf
+                .get("modifier")
+                .and_then(Value::as_str)
+                .unwrap_or("none")
+            {
                 "none" => Modifier::None,
                 "log" => Modifier::Log,
                 "log1p" => Modifier::Log1p,
@@ -2045,7 +2394,12 @@ fn parse_score_function_inline(obj: &serde_json::Map<String, Value>) -> Result<S
                 other => return invalid(format!("unknown modifier `{other}`")),
             };
             let missing = fvf.get("missing").and_then(|v| v.as_f64());
-            Some(FieldValueFactor { field, factor, modifier, missing })
+            Some(FieldValueFactor {
+                field,
+                factor,
+                modifier,
+                missing,
+            })
         }
         None => None,
     };
@@ -2065,15 +2419,12 @@ fn parse_score_function_inline(obj: &serde_json::Map<String, Value>) -> Result<S
     // script_score within a function: literal numeric source goes into
     // the fast-path `script_score` field; richer Painless source goes
     // into `script_source` and is evaluated at score time.
-    let script_obj = obj
-        .get("script_score")
-        .and_then(|ss| ss.get("script"));
+    let script_obj = obj.get("script_score").and_then(|ss| ss.get("script"));
     let script_source_str = script_obj
         .and_then(|s| s.get("source"))
         .and_then(Value::as_str)
         .map(String::from);
-    let script_params = script_obj
-        .and_then(|s| s.get("params").cloned());
+    let script_params = script_obj.and_then(|s| s.get("params").cloned());
     let literal_score = script_source_str
         .as_ref()
         .and_then(|s| s.trim().parse::<f32>().ok());
@@ -2187,12 +2538,15 @@ fn parse_sort_field_spec(field: &str, spec: &Value) -> Result<SortField> {
         Some(other) => SortMissing::Value(Value::String(other.to_string())),
     };
 
-    let format = obj
-        .get("format")
-        .and_then(|v| v.as_str())
-        .map(String::from);
+    let format = obj.get("format").and_then(|v| v.as_str()).map(String::from);
 
-    Ok(SortField { field: field.to_string(), order, mode, missing, format })
+    Ok(SortField {
+        field: field.to_string(),
+        order,
+        mode,
+        missing,
+        format,
+    })
 }
 
 fn parse_sort_order(s: &str) -> Result<SortOrder> {
@@ -2263,9 +2617,9 @@ fn qerr(msg: impl Into<String>) -> QueryError {
 fn parse_min_should_match(v: &Value) -> Result<MinShouldMatch> {
     match v {
         Value::Number(n) => {
-            let i = n.as_u64().ok_or_else(|| {
-                qerr("`minimum_should_match` must be non-negative")
-            })?;
+            let i = n
+                .as_u64()
+                .ok_or_else(|| qerr("`minimum_should_match` must be non-negative"))?;
             Ok(MinShouldMatch::Fixed(i as u32))
         }
         Value::String(s) => {
@@ -2274,12 +2628,16 @@ fn parse_min_should_match(v: &Value) -> Result<MinShouldMatch> {
                 let pct: i64 = pct.trim().parse().map_err(|_| {
                     qerr(format!("invalid `minimum_should_match` percentage: `{s}`"))
                 })?;
-                let pct = if pct < 0 { (100 + pct).max(0) as u32 } else { pct as u32 };
+                let pct = if pct < 0 {
+                    (100 + pct).max(0) as u32
+                } else {
+                    pct as u32
+                };
                 Ok(MinShouldMatch::Percentage(pct))
             } else {
-                let n: u32 = s.parse().map_err(|_| {
-                    qerr(format!("invalid `minimum_should_match` value: `{s}`"))
-                })?;
+                let n: u32 = s
+                    .parse()
+                    .map_err(|_| qerr(format!("invalid `minimum_should_match` value: `{s}`")))?;
                 Ok(MinShouldMatch::Fixed(n))
             }
         }
@@ -2302,10 +2660,7 @@ fn parse_bool_operator(v: Option<&Value>) -> Result<BoolOperator> {
 }
 
 /// Parse a bool clause list.  ES allows a single object or an array.
-fn parse_clause_list(
-    obj: &serde_json::Map<String, Value>,
-    key: &str,
-) -> Result<Vec<QueryNode>> {
+fn parse_clause_list(obj: &serde_json::Map<String, Value>, key: &str) -> Result<Vec<QueryNode>> {
     match obj.get(key) {
         None => Ok(vec![]),
         Some(Value::Array(arr)) => arr.iter().map(parse_query).collect(),
@@ -2413,7 +2768,11 @@ fn parse_more_like_this(params: &Value) -> Result<QueryNode> {
                             .values()
                             .filter_map(|v| v.as_str().map(str::to_string))
                             .collect();
-                        if text.is_empty() { None } else { Some(text.join(" ")) }
+                        if text.is_empty() {
+                            None
+                        } else {
+                            Some(text.join(" "))
+                        }
                     } else {
                         None
                     }
@@ -2568,9 +2927,16 @@ fn parse_span_near(params: &Value) -> Result<QueryNode> {
     }
 
     let slop = obj.get("slop").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
-    let in_order = obj.get("in_order").and_then(|v| v.as_bool()).unwrap_or(false);
+    let in_order = obj
+        .get("in_order")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
-    Ok(QueryNode::SpanNear { clauses, slop, in_order })
+    Ok(QueryNode::SpanNear {
+        clauses,
+        slop,
+        in_order,
+    })
 }
 
 /// Parse a `span_or` query.
@@ -2611,7 +2977,10 @@ fn parse_span_not(params: &Value) -> Result<QueryNode> {
         .ok_or_else(|| qerr("`span_not` requires an `exclude` clause"))
         .and_then(parse_query)?;
 
-    Ok(QueryNode::SpanNot { include: Box::new(include), exclude: Box::new(exclude) })
+    Ok(QueryNode::SpanNot {
+        include: Box::new(include),
+        exclude: Box::new(exclude),
+    })
 }
 
 /// Parse a `span_first` query.
@@ -2628,7 +2997,10 @@ fn parse_span_first(params: &Value) -> Result<QueryNode> {
         .and_then(parse_query)?;
     let end = obj.get("end").and_then(|v| v.as_u64()).unwrap_or(1) as u32;
 
-    Ok(QueryNode::SpanFirst { match_query: Box::new(match_query), end })
+    Ok(QueryNode::SpanFirst {
+        match_query: Box::new(match_query),
+        end,
+    })
 }
 
 /// Parse span_containing / span_within — use the `big` clause only.
@@ -2662,9 +3034,16 @@ fn parse_has_child(params: &Value) -> Result<QueryNode> {
         .ok_or_else(|| qerr("`has_child` requires a `query`"))
         .and_then(parse_query)?;
 
-    let score_mode = obj.get("score_mode").and_then(|v| v.as_str()).map(str::to_string);
+    let score_mode = obj
+        .get("score_mode")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
 
-    Ok(QueryNode::HasChild { child_type, query: Box::new(query), score_mode })
+    Ok(QueryNode::HasChild {
+        child_type,
+        query: Box::new(query),
+        score_mode,
+    })
 }
 
 /// Parse a `has_parent` query.
@@ -2688,7 +3067,11 @@ fn parse_has_parent(params: &Value) -> Result<QueryNode> {
 
     let score = obj.get("score").and_then(|v| v.as_bool()).unwrap_or(false);
 
-    Ok(QueryNode::HasParent { parent_type, query: Box::new(query), score })
+    Ok(QueryNode::HasParent {
+        parent_type,
+        query: Box::new(query),
+        score,
+    })
 }
 
 /// Parse a `geo_polygon` query.
@@ -2714,7 +3097,7 @@ fn parse_geo_polygon(params: &Value) -> Result<QueryNode> {
 
     let points = points_arr
         .iter()
-        .map(|p| parse_lat_lon_obj(p))
+        .map(parse_lat_lon_obj)
         .collect::<Result<Vec<_>>>()?;
 
     Ok(QueryNode::GeoPolygon { field, points })
@@ -2722,10 +3105,16 @@ fn parse_geo_polygon(params: &Value) -> Result<QueryNode> {
 
 /// Parse a geo point from a JSON object like `{"lat": 40, "lon": -74}`.
 fn parse_lat_lon_obj(v: &Value) -> Result<(f64, f64)> {
-    let obj = v.as_object().ok_or_else(|| qerr("geo point must be an object {lat, lon}"))?;
-    let lat = obj.get("lat").and_then(|x| x.as_f64())
+    let obj = v
+        .as_object()
+        .ok_or_else(|| qerr("geo point must be an object {lat, lon}"))?;
+    let lat = obj
+        .get("lat")
+        .and_then(|x| x.as_f64())
         .ok_or_else(|| qerr("geo point missing `lat`"))?;
-    let lon = obj.get("lon").and_then(|x| x.as_f64())
+    let lon = obj
+        .get("lon")
+        .and_then(|x| x.as_f64())
         .ok_or_else(|| qerr("geo point missing `lon`"))?;
     Ok((lat, lon))
 }
@@ -2740,7 +3129,9 @@ fn parse_geo_shape(params: &Value) -> Result<QueryNode> {
 
     let (field, field_params) = obj
         .iter()
-        .find(|(k, _)| k.as_str() != "boost" && k.as_str() != "_name" && k.as_str() != "ignore_unmapped")
+        .find(|(k, _)| {
+            k.as_str() != "boost" && k.as_str() != "_name" && k.as_str() != "ignore_unmapped"
+        })
         .ok_or_else(|| qerr("`geo_shape` must specify a field"))?;
 
     let field = field.clone();
@@ -2759,39 +3150,52 @@ fn parse_geo_shape(params: &Value) -> Result<QueryNode> {
     let shape = match shape_type.as_str() {
         "point" => {
             // coordinates: [lon, lat]
-            let coords = shape_val.get("coordinates")
+            let coords = shape_val
+                .get("coordinates")
                 .and_then(|v| v.as_array())
                 .ok_or_else(|| qerr("`geo_shape` point needs `coordinates`"))?;
-            let lon = coords.get(0).and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let lon = coords.first().and_then(|v| v.as_f64()).unwrap_or(0.0);
             let lat = coords.get(1).and_then(|v| v.as_f64()).unwrap_or(0.0);
             GeoShapeType::Point { lat, lon }
         }
         "envelope" => {
             // coordinates: [[top_left_lon, top_left_lat], [bottom_right_lon, bottom_right_lat]]
-            let coords = shape_val.get("coordinates")
+            let coords = shape_val
+                .get("coordinates")
                 .and_then(|v| v.as_array())
                 .ok_or_else(|| qerr("`geo_shape` envelope needs `coordinates`"))?;
-            let tl = coords.get(0).and_then(|v| v.as_array())
+            let tl = coords
+                .first()
+                .and_then(|v| v.as_array())
                 .ok_or_else(|| qerr("`geo_shape` envelope top-left missing"))?;
-            let br = coords.get(1).and_then(|v| v.as_array())
+            let br = coords
+                .get(1)
+                .and_then(|v| v.as_array())
                 .ok_or_else(|| qerr("`geo_shape` envelope bottom-right missing"))?;
-            let tl_lon = tl.get(0).and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let tl_lon = tl.first().and_then(|v| v.as_f64()).unwrap_or(0.0);
             let tl_lat = tl.get(1).and_then(|v| v.as_f64()).unwrap_or(0.0);
-            let br_lon = br.get(0).and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let br_lon = br.first().and_then(|v| v.as_f64()).unwrap_or(0.0);
             let br_lat = br.get(1).and_then(|v| v.as_f64()).unwrap_or(0.0);
-            GeoShapeType::Envelope { top_left: (tl_lat, tl_lon), bottom_right: (br_lat, br_lon) }
+            GeoShapeType::Envelope {
+                top_left: (tl_lat, tl_lon),
+                bottom_right: (br_lat, br_lon),
+            }
         }
         "polygon" => {
             // coordinates: [[[lon, lat], ...]] (outer ring only)
-            let rings = shape_val.get("coordinates")
+            let rings = shape_val
+                .get("coordinates")
                 .and_then(|v| v.as_array())
                 .ok_or_else(|| qerr("`geo_shape` polygon needs `coordinates`"))?;
-            let outer = rings.get(0).and_then(|v| v.as_array())
+            let outer = rings
+                .first()
+                .and_then(|v| v.as_array())
                 .ok_or_else(|| qerr("`geo_shape` polygon outer ring missing"))?;
-            let points = outer.iter()
+            let points = outer
+                .iter()
                 .filter_map(|p| {
                     let arr = p.as_array()?;
-                    let lon = arr.get(0)?.as_f64()?;
+                    let lon = arr.first()?.as_f64()?;
                     let lat = arr.get(1)?.as_f64()?;
                     Some((lat, lon))
                 })
@@ -2800,14 +3204,21 @@ fn parse_geo_shape(params: &Value) -> Result<QueryNode> {
         }
         "circle" => {
             // coordinates: [lon, lat], radius: "10km" or number
-            let coords = shape_val.get("coordinates")
+            let coords = shape_val
+                .get("coordinates")
                 .and_then(|v| v.as_array())
                 .ok_or_else(|| qerr("`geo_shape` circle needs `coordinates`"))?;
-            let lon = coords.get(0).and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let lon = coords.first().and_then(|v| v.as_f64()).unwrap_or(0.0);
             let lat = coords.get(1).and_then(|v| v.as_f64()).unwrap_or(0.0);
-            let radius_km = parse_distance_to_km(shape_val.get("radius")
-                .ok_or_else(|| qerr("`geo_shape` circle needs `radius`"))?)?;
-            GeoShapeType::Circle { center: (lat, lon), radius_km }
+            let radius_km = parse_distance_to_km(
+                shape_val
+                    .get("radius")
+                    .ok_or_else(|| qerr("`geo_shape` circle needs `radius`"))?,
+            )?;
+            GeoShapeType::Circle {
+                center: (lat, lon),
+                radius_km,
+            }
         }
         other => return invalid(format!("unsupported geo_shape type `{}`", other)),
     };
@@ -2823,14 +3234,23 @@ fn parse_distance_to_km(v: &Value) -> Result<f64> {
     if let Some(s) = v.as_str() {
         let s = s.trim().to_lowercase();
         if let Some(stripped) = s.strip_suffix("km") {
-            return stripped.trim().parse::<f64>().map_err(|_| qerr("invalid distance km"));
+            return stripped
+                .trim()
+                .parse::<f64>()
+                .map_err(|_| qerr("invalid distance km"));
         }
         if let Some(stripped) = s.strip_suffix("mi") {
-            let miles: f64 = stripped.trim().parse().map_err(|_| qerr("invalid distance mi"))?;
+            let miles: f64 = stripped
+                .trim()
+                .parse()
+                .map_err(|_| qerr("invalid distance mi"))?;
             return Ok(miles * 1.60934);
         }
         if let Some(stripped) = s.strip_suffix('m') {
-            let metres: f64 = stripped.trim().parse().map_err(|_| qerr("invalid distance m"))?;
+            let metres: f64 = stripped
+                .trim()
+                .parse()
+                .map_err(|_| qerr("invalid distance m"))?;
             return Ok(metres / 1000.0);
         }
         if let Ok(n) = s.parse::<f64>() {
@@ -2864,7 +3284,9 @@ fn parse_match_bool_prefix(params: &Value) -> Result<QueryNode> {
     let (query_str, mm, operator_and, analyzer, fuzziness) = if let Some(s) = raw.as_str() {
         (s.to_string(), None, false, None, None)
     } else {
-        let inner = raw.as_object().ok_or_else(|| qerr("`match_bool_prefix` field value must be a string or object"))?;
+        let inner = raw
+            .as_object()
+            .ok_or_else(|| qerr("`match_bool_prefix` field value must be a string or object"))?;
         let q = string_field(inner, "query")?;
         let mm_val = inner.get("minimum_should_match").and_then(|v| match v {
             Value::Number(n) => n.as_u64().map(|i| MinShouldMatch::Fixed(i as u32)),
@@ -2878,13 +3300,24 @@ fn parse_match_bool_prefix(params: &Value) -> Result<QueryNode> {
             _ => None,
         });
         let op_and = matches!(
-            inner.get("operator").and_then(Value::as_str).map(|s| s.to_ascii_lowercase()).as_deref(),
+            inner
+                .get("operator")
+                .and_then(Value::as_str)
+                .map(|s| s.to_ascii_lowercase())
+                .as_deref(),
             Some("and")
         );
-        let analyzer = inner.get("analyzer").and_then(Value::as_str).map(str::to_string);
+        let analyzer = inner
+            .get("analyzer")
+            .and_then(Value::as_str)
+            .map(str::to_string);
         let fuzziness = inner.get("fuzziness").map(|v| match v {
             Value::String(s) if s.eq_ignore_ascii_case("auto") => crate::ast::Fuzziness::Auto,
-            Value::String(s) => s.parse::<u32>().ok().map(crate::ast::Fuzziness::Fixed).unwrap_or(crate::ast::Fuzziness::Auto),
+            Value::String(s) => s
+                .parse::<u32>()
+                .ok()
+                .map(crate::ast::Fuzziness::Fixed)
+                .unwrap_or(crate::ast::Fuzziness::Auto),
             Value::Number(n) => crate::ast::Fuzziness::Fixed(n.as_u64().unwrap_or(0) as u32),
             _ => crate::ast::Fuzziness::Auto,
         });
@@ -2894,12 +3327,13 @@ fn parse_match_bool_prefix(params: &Value) -> Result<QueryNode> {
     // Analyzer semantics: "whitespace" preserves case, "keyword" treats
     // input as single token, default/standard lowercases. We approximate
     // by case-folding unless the requested analyzer is case-preserving.
-    let analyzer_lowercases = match analyzer.as_deref() {
-        Some("whitespace") | Some("keyword") => false,
-        _ => true,
-    };
+    let analyzer_lowercases = !matches!(analyzer.as_deref(), Some("whitespace") | Some("keyword"));
     let fold = |t: &str| -> String {
-        if analyzer_lowercases { t.to_lowercase() } else { t.to_string() }
+        if analyzer_lowercases {
+            t.to_lowercase()
+        } else {
+            t.to_string()
+        }
     };
 
     let raw_tokens: Vec<String> = if analyzer.as_deref() == Some("keyword") {
@@ -2912,14 +3346,22 @@ fn parse_match_bool_prefix(params: &Value) -> Result<QueryNode> {
     }
 
     if raw_tokens.len() == 1 {
-        return Ok(QueryNode::Prefix { field, value: fold(&raw_tokens[0]), boost: None });
+        return Ok(QueryNode::Prefix {
+            field,
+            value: fold(&raw_tokens[0]),
+            boost: None,
+        });
     }
 
     let last_idx = raw_tokens.len() - 1;
     let build_leaf = |tok: &str| -> QueryNode {
         let folded = fold(tok);
-        if let Some(fz) = fuzziness.clone() {
-            QueryNode::Fuzzy { field: field.clone(), value: folded, fuzziness: fz }
+        if let Some(fz) = fuzziness {
+            QueryNode::Fuzzy {
+                field: field.clone(),
+                value: folded,
+                fuzziness: fz,
+            }
         } else {
             QueryNode::Match {
                 field: field.clone(),
@@ -2931,7 +3373,10 @@ fn parse_match_bool_prefix(params: &Value) -> Result<QueryNode> {
             }
         }
     };
-    let mut clauses: Vec<QueryNode> = raw_tokens[..last_idx].iter().map(|t| build_leaf(t)).collect();
+    let mut clauses: Vec<QueryNode> = raw_tokens[..last_idx]
+        .iter()
+        .map(|t| build_leaf(t))
+        .collect();
     clauses.push(QueryNode::Prefix {
         field: field.clone(),
         value: fold(&raw_tokens[last_idx]),
@@ -2963,10 +3408,7 @@ fn parse_terms_set(params: &Value) -> Result<QueryNode> {
         .as_object()
         .ok_or_else(|| qerr("`terms_set` must be an object"))?;
 
-    let field_entries: Vec<_> = obj
-        .iter()
-        .filter(|(k, _)| k.as_str() != "boost")
-        .collect();
+    let field_entries: Vec<_> = obj.iter().filter(|(k, _)| k.as_str() != "boost").collect();
 
     if field_entries.len() != 1 {
         return invalid("`terms_set` query must have exactly one field entry");
@@ -2993,7 +3435,10 @@ fn parse_terms_set(params: &Value) -> Result<QueryNode> {
             crate::ast::MinShouldMatch::Fixed(1)
         })
         .or_else(|| {
-            inner.get("minimum_should_match").map(parse_min_should_match).and_then(|r| r.ok())
+            inner
+                .get("minimum_should_match")
+                .map(parse_min_should_match)
+                .and_then(|r| r.ok())
         });
 
     let should: Vec<QueryNode> = terms
@@ -3044,72 +3489,6 @@ fn parse_intervals(params: &Value) -> Result<QueryNode> {
     })
 }
 
-fn parse_intervals_rule(field: &str, rule: &Value) -> Result<QueryNode> {
-    let field = field.to_string();
-    // `match` sub-rule.
-    if let Some(m) = rule.get("match") {
-        let q = m.get("query").and_then(Value::as_str).unwrap_or("").to_string();
-        let ordered = m.get("ordered").and_then(Value::as_bool).unwrap_or(false);
-        let max_gaps = m.get("max_gaps").and_then(Value::as_i64);
-        if q.is_empty() {
-            return Ok(QueryNode::Exists { field });
-        }
-        if ordered {
-            // Positive max_gaps maps to slop; -1 / absent → large slop.
-            let slop = match max_gaps {
-                Some(n) if n >= 0 => n as u32,
-                _ => 50,
-            };
-            return Ok(QueryNode::MatchPhrase { field, query: q, slop, analyzer: None, boost: None });
-        }
-        // Unordered: all tokens must be present.
-        return Ok(QueryNode::Match {
-            field, query: q, operator: BoolOperator::And,
-            analyzer: None, boost: None, minimum_should_match: None,
-        });
-    }
-    if let Some(p) = rule.get("prefix").and_then(Value::as_str) {
-        return Ok(QueryNode::Prefix { field, value: p.to_string(), boost: None });
-    }
-    if let Some(p) = rule.get("prefix").and_then(|v| v.get("prefix")).and_then(Value::as_str) {
-        return Ok(QueryNode::Prefix { field, value: p.to_string(), boost: None });
-    }
-    if let Some(w) = rule.get("wildcard").and_then(|v| v.get("pattern")).and_then(Value::as_str) {
-        return Ok(QueryNode::Wildcard { field, value: w.to_string(), boost: None });
-    }
-    if let Some(fz) = rule.get("fuzzy").and_then(|v| v.get("term")).and_then(Value::as_str) {
-        return Ok(QueryNode::Fuzzy { field, value: fz.to_string(), fuzziness: Fuzziness::Auto });
-    }
-    // all_of → bool.must of sub-intervals on the same field.
-    if let Some(ao) = rule.get("all_of") {
-        let subs = ao.get("intervals").and_then(Value::as_array);
-        if let Some(arr) = subs {
-            let must: Vec<QueryNode> = arr.iter()
-                .filter_map(|sub| parse_intervals_rule(&field, sub).ok())
-                .collect();
-            return Ok(QueryNode::Bool {
-                must, should: vec![], must_not: vec![], filter: vec![],
-                minimum_should_match: None,
-            });
-        }
-    }
-    // any_of → bool.should of sub-intervals (minimum_should_match = 1).
-    if let Some(ao) = rule.get("any_of") {
-        let subs = ao.get("intervals").and_then(Value::as_array);
-        if let Some(arr) = subs {
-            let should: Vec<QueryNode> = arr.iter()
-                .filter_map(|sub| parse_intervals_rule(&field, sub).ok())
-                .collect();
-            return Ok(QueryNode::Bool {
-                must: vec![], should, must_not: vec![], filter: vec![],
-                minimum_should_match: Some(MinShouldMatch::Fixed(1)),
-            });
-        }
-    }
-    // Unknown rule: accept without error (existence check).
-    Ok(QueryNode::Exists { field })
-}
-
 /// `script_score` — wrap the inner query and apply a Painless script
 /// to compute each matched doc's score. The script's returned value
 /// REPLACES the BM25 score (boost_mode: Replace).
@@ -3141,7 +3520,11 @@ fn parse_script_score(params: &Value) -> Result<QueryNode> {
         field_value_factor: None,
         random_score: None,
         script_score: literal_score,
-        script_source: if literal_score.is_some() { None } else { source },
+        script_source: if literal_score.is_some() {
+            None
+        } else {
+            source
+        },
         script_params: s_params,
         name: None,
         distance_feature: None,
@@ -3194,7 +3577,9 @@ fn parse_distance_feature(params: &Value) -> Result<QueryNode> {
             weight: boost,
             field_value_factor: None,
             random_score: None,
-            script_score: None, script_source: None, script_params: None,
+            script_score: None,
+            script_source: None,
+            script_params: None,
             name: None,
             distance_feature: Some(df),
         }],
@@ -3233,7 +3618,9 @@ fn parse_rank_feature(params: &Value) -> Result<QueryNode> {
             weight: boost,
             field_value_factor: Some(fvf),
             random_score: None,
-            script_score: None, script_source: None, script_params: None,
+            script_score: None,
+            script_source: None,
+            script_params: None,
             name: None,
             distance_feature: None,
         }],
@@ -3278,8 +3665,10 @@ mod tests {
     #[test]
     fn test_match_shorthand() {
         let node = q(json!({"match": {"title": "hello world"}}));
-        assert!(matches!(node, QueryNode::Match { ref field, ref query, operator: BoolOperator::Or, .. }
-            if field == "title" && query == "hello world"));
+        assert!(
+            matches!(node, QueryNode::Match { ref field, ref query, operator: BoolOperator::Or, .. }
+            if field == "title" && query == "hello world")
+        );
     }
 
     #[test]
@@ -3293,7 +3682,14 @@ mod tests {
                 }
             }
         }));
-        if let QueryNode::Match { field, query, operator, analyzer, .. } = node {
+        if let QueryNode::Match {
+            field,
+            query,
+            operator,
+            analyzer,
+            ..
+        } = node
+        {
             assert_eq!(field, "title");
             assert_eq!(query, "hello world");
             assert_eq!(operator, BoolOperator::And);
@@ -3335,8 +3731,10 @@ mod tests {
     #[test]
     fn test_match_phrase_shorthand() {
         let node = q(json!({"match_phrase": {"body": "quick brown fox"}}));
-        assert!(matches!(node, QueryNode::MatchPhrase { ref field, slop: 0, .. }
-            if field == "body"));
+        assert!(
+            matches!(node, QueryNode::MatchPhrase { ref field, slop: 0, .. }
+            if field == "body")
+        );
     }
 
     #[test]
@@ -3355,7 +3753,13 @@ mod tests {
                 "fields": ["title", "body^2"]
             }
         }));
-        if let QueryNode::MultiMatch { fields, query, match_type, .. } = node {
+        if let QueryNode::MultiMatch {
+            fields,
+            query,
+            match_type,
+            ..
+        } = node
+        {
             assert_eq!(query, "hello");
             assert_eq!(fields, vec!["title", "body^2"]);
             assert_eq!(match_type, MultiMatchType::BestFields);
@@ -3374,7 +3778,13 @@ mod tests {
                 "operator": "AND"
             }
         }));
-        assert!(matches!(node, QueryNode::MultiMatch { match_type: MultiMatchType::CrossFields, .. }));
+        assert!(matches!(
+            node,
+            QueryNode::MultiMatch {
+                match_type: MultiMatchType::CrossFields,
+                ..
+            }
+        ));
     }
 
     // ── term ──────────────────────────────────────────────────────────────────
@@ -3417,7 +3827,15 @@ mod tests {
     #[test]
     fn test_range_numeric() {
         let node = q(json!({"range": {"age": {"gte": 18, "lt": 65}}}));
-        if let QueryNode::Range { field, gte, lt, gt, lte, .. } = node {
+        if let QueryNode::Range {
+            field,
+            gte,
+            lt,
+            gt,
+            lte,
+            ..
+        } = node
+        {
             assert_eq!(field, "age");
             assert_eq!(gte, Some(json!(18)));
             assert_eq!(lt, Some(json!(65)));
@@ -3444,8 +3862,10 @@ mod tests {
     #[test]
     fn test_prefix_shorthand() {
         let node = q(json!({"prefix": {"name": "Joh"}}));
-        assert!(matches!(node, QueryNode::Prefix { ref field, ref value, .. }
-            if field == "name" && value == "Joh"));
+        assert!(
+            matches!(node, QueryNode::Prefix { ref field, ref value, .. }
+            if field == "name" && value == "Joh")
+        );
     }
 
     #[test]
@@ -3459,8 +3879,10 @@ mod tests {
     #[test]
     fn test_wildcard() {
         let node = q(json!({"wildcard": {"name": "Jo*n"}}));
-        assert!(matches!(node, QueryNode::Wildcard { ref field, ref value, .. }
-            if field == "name" && value == "Jo*n"));
+        assert!(
+            matches!(node, QueryNode::Wildcard { ref field, ref value, .. }
+            if field == "name" && value == "Jo*n")
+        );
     }
 
     // ── exists ────────────────────────────────────────────────────────────────
@@ -3494,7 +3916,14 @@ mod tests {
                 "filter": [{"range": {"age": {"gte": 18}}}]
             }
         }));
-        if let QueryNode::Bool { must, must_not, filter, should, .. } = node {
+        if let QueryNode::Bool {
+            must,
+            must_not,
+            filter,
+            should,
+            ..
+        } = node
+        {
             assert_eq!(must.len(), 1);
             assert_eq!(must_not.len(), 1);
             assert_eq!(filter.len(), 1);
@@ -3534,7 +3963,11 @@ mod tests {
                 "minimum_should_match": 2
             }
         }));
-        if let QueryNode::Bool { minimum_should_match, .. } = node {
+        if let QueryNode::Bool {
+            minimum_should_match,
+            ..
+        } = node
+        {
             assert_eq!(minimum_should_match, Some(MinShouldMatch::Fixed(2)));
         }
     }
@@ -3547,7 +3980,11 @@ mod tests {
                 "minimum_should_match": "75%"
             }
         }));
-        if let QueryNode::Bool { minimum_should_match, .. } = node {
+        if let QueryNode::Bool {
+            minimum_should_match,
+            ..
+        } = node
+        {
             assert_eq!(minimum_should_match, Some(MinShouldMatch::Percentage(75)));
         }
     }
@@ -3590,9 +4027,24 @@ mod tests {
         q(json!({"query_string": {"query": query}}))
     }
 
-    fn expect_range(node: QueryNode) -> (String, Option<Value>, Option<Value>, Option<Value>, Option<Value>) {
+    fn expect_range(
+        node: QueryNode,
+    ) -> (
+        String,
+        Option<Value>,
+        Option<Value>,
+        Option<Value>,
+        Option<Value>,
+    ) {
         match node {
-            QueryNode::Range { field, gt, gte, lt, lte, .. } => (field, gt, gte, lt, lte),
+            QueryNode::Range {
+                field,
+                gt,
+                gte,
+                lt,
+                lte,
+                ..
+            } => (field, gt, gte, lt, lte),
             other => panic!("expected Range, got {other:?}"),
         }
     }
@@ -3694,7 +4146,13 @@ mod tests {
     fn test_query_string_range_combined_and() {
         // "msg:foo AND n:>1" → Bool.must = [Match(msg), Range(n, gt 1)]
         let node = qs("msg:foo AND n:>1");
-        let QueryNode::Bool { must, must_not, should, .. } = node else {
+        let QueryNode::Bool {
+            must,
+            must_not,
+            should,
+            ..
+        } = node
+        else {
             panic!("expected Bool");
         };
         assert!(must_not.is_empty() && should.is_empty());
@@ -3708,7 +4166,9 @@ mod tests {
     #[test]
     fn test_query_string_range_combined_bracket_and() {
         let node = qs("msg:foo AND n:[2 TO *]");
-        let QueryNode::Bool { must, .. } = node else { panic!("expected Bool") };
+        let QueryNode::Bool { must, .. } = node else {
+            panic!("expected Bool")
+        };
         assert_eq!(must.len(), 2);
         let (field, _, gte, ..) = expect_range(must[1].clone());
         assert_eq!(field, "n");
@@ -3731,14 +4191,17 @@ mod tests {
         // Malformed / unrepresentable ranges must be parse errors,
         // never a silent term match.
         for bad in [
-            "n:[2 TO",          // unterminated bracket
-            "n:[2 5]",          // missing TO
-            "n:>",              // missing value
-            "n:[* TO *]",       // no usable bound
-            ">10",              // no field and no default_field
+            "n:[2 TO",    // unterminated bracket
+            "n:[2 5]",    // missing TO
+            "n:>",        // missing value
+            "n:[* TO *]", // no usable bound
+            ">10",        // no field and no default_field
         ] {
             let res = parse_query(&json!({"query_string": {"query": bad}}));
-            assert!(res.is_err(), "expected parse error for {bad:?}, got {res:?}");
+            assert!(
+                res.is_err(),
+                "expected parse error for {bad:?}, got {res:?}"
+            );
         }
     }
 
@@ -3753,7 +4216,14 @@ mod tests {
                 "k": 5
             }
         }));
-        if let QueryNode::Knn { field, vector, k, filter, .. } = node {
+        if let QueryNode::Knn {
+            field,
+            vector,
+            k,
+            filter,
+            ..
+        } = node
+        {
             assert_eq!(field, "embedding");
             assert_eq!(k, 5);
             assert_eq!(vector.len(), 3);
@@ -3773,7 +4243,13 @@ mod tests {
                 "filter": {"term": {"status": "active"}}
             }
         }));
-        assert!(matches!(node, QueryNode::Knn { filter: Some(_), .. }));
+        assert!(matches!(
+            node,
+            QueryNode::Knn {
+                filter: Some(_),
+                ..
+            }
+        ));
     }
 
     // ── full request ──────────────────────────────────────────────────────────

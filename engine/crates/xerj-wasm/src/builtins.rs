@@ -98,11 +98,7 @@ pub struct TimestampParsePlugin {
 }
 
 impl TimestampParsePlugin {
-    pub fn new(
-        field: impl Into<String>,
-        formats: Vec<String>,
-        target: Option<String>,
-    ) -> Self {
+    pub fn new(field: impl Into<String>, formats: Vec<String>, target: Option<String>) -> Self {
         Self {
             field: field.into(),
             formats,
@@ -187,7 +183,11 @@ impl TransformPlugin for TimestampParsePlugin {
             return ProcessAction::Pass;
         }
 
-        debug!(field = self.field.as_str(), raw = raw.as_str(), "timestamp_parse: no format matched");
+        debug!(
+            field = self.field.as_str(),
+            raw = raw.as_str(),
+            "timestamp_parse: no format matched"
+        );
         ProcessAction::Pass
     }
 }
@@ -426,8 +426,16 @@ fn grok_pattern(name: &str) -> (&'static str, &'static [&'static str]) {
         "NGINX_COMBINED" | "APACHE_COMBINED" => (
             r#"^(?P<remote_addr>\S+) - (?P<remote_user>\S+) \[(?P<time_local>[^\]]+)\] "(?P<method>\S+) (?P<request_uri>\S+) (?P<http_version>[^"]+)" (?P<status>\d{3}) (?P<body_bytes_sent>\d+) "(?P<http_referer>[^"]*)" "(?P<http_user_agent>[^"]*)"#,
             &[
-                "remote_addr", "remote_user", "time_local", "method", "request_uri",
-                "http_version", "status", "body_bytes_sent", "http_referer", "http_user_agent",
+                "remote_addr",
+                "remote_user",
+                "time_local",
+                "method",
+                "request_uri",
+                "http_version",
+                "status",
+                "body_bytes_sent",
+                "http_referer",
+                "http_user_agent",
             ],
         ),
         "SYSLOG" => (
@@ -436,7 +444,14 @@ fn grok_pattern(name: &str) -> (&'static str, &'static [&'static str]) {
         ),
         "POSTGRESQL" => (
             r#"^(?P<log_time>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+ \w+) \[(?P<pid>\d+)\] (?P<user_name>\S+)@(?P<database_name>\S+) (?P<severity>\w+):  (?P<message>.+)$"#,
-            &["log_time", "pid", "user_name", "database_name", "severity", "message"],
+            &[
+                "log_time",
+                "pid",
+                "user_name",
+                "database_name",
+                "severity",
+                "message",
+            ],
         ),
         _ => (
             // Generic: capture everything as `message`.
@@ -730,7 +745,9 @@ pub struct LowercasePlugin {
 
 impl LowercasePlugin {
     pub fn new(field: impl Into<String>) -> Self {
-        Self { field: field.into() }
+        Self {
+            field: field.into(),
+        }
     }
 }
 
@@ -758,7 +775,9 @@ pub struct UppercasePlugin {
 
 impl UppercasePlugin {
     pub fn new(field: impl Into<String>) -> Self {
-        Self { field: field.into() }
+        Self {
+            field: field.into(),
+        }
     }
 }
 
@@ -806,10 +825,7 @@ impl TransformPlugin for SetPlugin {
     }
 
     fn process(&self, doc: &mut Value) -> ProcessAction {
-        let exists = doc
-            .get(&self.field)
-            .map(|v| !v.is_null())
-            .unwrap_or(false);
+        let exists = doc.get(&self.field).map(|v| !v.is_null()).unwrap_or(false);
 
         if self.override_existing || !exists {
             doc[&self.field] = self.value.clone();
@@ -853,7 +869,9 @@ pub struct UrlDecodePlugin {
 
 impl UrlDecodePlugin {
     pub fn new(field: impl Into<String>) -> Self {
-        Self { field: field.into() }
+        Self {
+            field: field.into(),
+        }
     }
 
     fn percent_decode(s: &str) -> Option<String> {
@@ -984,7 +1002,9 @@ mod tests {
     #[test]
     fn field_rename_basic() {
         let plugin = FieldRenamePlugin::new(
-            [("old_name".into(), "new_name".into())].into_iter().collect(),
+            [("old_name".into(), "new_name".into())]
+                .into_iter()
+                .collect(),
         );
         let mut doc = json!({ "old_name": "value", "other": 1 });
         assert_eq!(plugin.process(&mut doc), ProcessAction::Pass);
@@ -996,7 +1016,9 @@ mod tests {
     #[test]
     fn field_rename_missing_field_no_op() {
         let plugin = FieldRenamePlugin::new(
-            [("does_not_exist".into(), "target".into())].into_iter().collect(),
+            [("does_not_exist".into(), "target".into())]
+                .into_iter()
+                .collect(),
         );
         let mut doc = json!({ "a": 1 });
         assert_eq!(plugin.process(&mut doc), ProcessAction::Pass);
@@ -1053,18 +1075,20 @@ mod tests {
         let plugin = RoutePlugin::new("level", routes, None);
 
         let mut doc = json!({ "level": "error", "msg": "oops" });
-        assert_eq!(plugin.process(&mut doc), ProcessAction::Route("logs-errors".into()));
+        assert_eq!(
+            plugin.process(&mut doc),
+            ProcessAction::Route("logs-errors".into())
+        );
     }
 
     #[test]
     fn route_fallback_to_default() {
-        let plugin = RoutePlugin::new(
-            "level",
-            HashMap::new(),
-            Some("logs-misc".into()),
-        );
+        let plugin = RoutePlugin::new("level", HashMap::new(), Some("logs-misc".into()));
         let mut doc = json!({ "level": "debug" });
-        assert_eq!(plugin.process(&mut doc), ProcessAction::Route("logs-misc".into()));
+        assert_eq!(
+            plugin.process(&mut doc),
+            ProcessAction::Route("logs-misc".into())
+        );
     }
 
     #[test]
@@ -1117,7 +1141,10 @@ mod tests {
         let mut doc = json!({ "msg": "contact user@example.com for info" });
         assert_eq!(plugin.process(&mut doc), ProcessAction::Pass);
         let msg = doc["msg"].as_str().unwrap();
-        assert!(!msg.contains("user@example.com"), "email not redacted: {msg}");
+        assert!(
+            !msg.contains("user@example.com"),
+            "email not redacted: {msg}"
+        );
         assert!(msg.contains("[REDACTED_EMAIL]"), "got: {msg}");
     }
 

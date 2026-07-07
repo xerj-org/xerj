@@ -67,7 +67,10 @@ pub fn local_embed(text: &str, dims: usize) -> Vec<f32> {
     }
 
     let lower = text.to_lowercase();
-    for token in lower.split(|c: char| !c.is_alphanumeric()).filter(|t| !t.is_empty()) {
+    for token in lower
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|t| !t.is_empty())
+    {
         // Whole-word unigram — the dominant lexical signal.
         add_feature(&mut acc, token.as_bytes(), 1.0);
 
@@ -145,7 +148,10 @@ mod tests {
         // on for kNN retrieval.
         let dims = DEFAULT_DIMS;
         let doc_relevant = local_embed("a hungry dog chased the ball across the green park", dims);
-        let doc_unrelated = local_embed("investors sold technology shares amid rising interest rates", dims);
+        let doc_unrelated = local_embed(
+            "investors sold technology shares amid rising interest rates",
+            dims,
+        );
         let query = local_embed("a dog ran after a ball in the park", dims);
 
         let sim_relevant = dot(&query, &doc_relevant);

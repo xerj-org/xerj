@@ -35,7 +35,9 @@ pub struct View {
     pub updated_at: String,
 }
 
-fn default_org() -> String { "default".to_string() }
+fn default_org() -> String {
+    "default".to_string()
+}
 
 #[derive(Debug, Deserialize)]
 pub struct ListQuery {
@@ -90,7 +92,8 @@ pub async fn create(
         updated_at: now_iso(),
     };
     let idx = state.engine.get_index(indices::VIEWS)?;
-    idx.create_document(id.clone(), serde_json::to_value(&view)?).await?;
+    idx.create_document(id.clone(), serde_json::to_value(&view)?)
+        .await?;
     let location = format!("/_xerj-console/api/v1/views/{id}");
     Ok(created(view, &location, None))
 }

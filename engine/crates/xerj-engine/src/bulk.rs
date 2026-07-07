@@ -91,11 +91,7 @@ struct ParsedAction {
 /// All `index` and `create` operations are batched per-index and submitted
 /// via `index_batch_turbo()` for 10–20x higher throughput than one-at-a-time.
 /// `update` and `delete` operations are still executed individually.
-pub async fn process_bulk(
-    engine: &Engine,
-    default_index: Option<&str>,
-    body: &str,
-) -> BulkResult {
+pub async fn process_bulk(engine: &Engine, default_index: Option<&str>, body: &str) -> BulkResult {
     process_bulk_with_opts(engine, default_index, body, BulkOpts::default()).await
 }
 
@@ -159,14 +155,24 @@ pub async fn process_bulk_with_opts(
     fn action_line_is_delete(line: &str) -> bool {
         let b = line.as_bytes();
         let mut p = 0usize;
-        while p < b.len() && (b[p] == b' ' || b[p] == b'\t') { p += 1; }
-        if p >= b.len() || b[p] != b'{' { return false; }
+        while p < b.len() && (b[p] == b' ' || b[p] == b'\t') {
+            p += 1;
+        }
+        if p >= b.len() || b[p] != b'{' {
+            return false;
+        }
         p += 1;
-        while p < b.len() && (b[p] == b' ' || b[p] == b'\t') { p += 1; }
-        if p >= b.len() || b[p] != b'"' { return false; }
+        while p < b.len() && (b[p] == b' ' || b[p] == b'\t') {
+            p += 1;
+        }
+        if p >= b.len() || b[p] != b'"' {
+            return false;
+        }
         p += 1;
         let start = p;
-        while p < b.len() && b[p] != b'"' { p += 1; }
+        while p < b.len() && b[p] != b'"' {
+            p += 1;
+        }
         p < b.len() && &b[start..p] == b"delete"
     }
     let mut pairs: Vec<(usize, &str, Option<&str>, usize)> = Vec::new();
@@ -191,167 +197,239 @@ pub async fn process_bulk_with_opts(
     enum ParseOutcome {
         Ok(ParsedAction),
         Err(BulkItemResult, usize),
-        Skip(usize /* extra item_index to pop, because we optimistically consumed a line */),
     }
 
     let t_parse = std::time::Instant::now();
     // Dedicated ingest pool: keeps bulk-parse bursts off the global rayon
     // pool that the search path fans out on (see `crate::ingest_pool`).
-    let parse_results: Vec<ParseOutcome> = crate::ingest_pool().install(|| pairs
-        .par_iter()
-        .map(|(_line_idx, action_line, doc_line, item_index)| {
-            // M5.12 — FAST-PATH manual parse of the action line.
-            //
-            // Pre-M5.12 the action line hit `serde_json::from_str::<Value>`
-            // which allocates a Map<String,Value> for every one of 5000
-            // action lines per batch = ~5 us × 5000 = 25 ms of pure
-            // allocation per bulk batch.
-            //
-            // We handle the three common shapes inline and fall back to
-            // full serde_json parse only on a cache miss:
-            //   {"index":{}}
-            //   {"index":{"_id":"..."}}
-            //   {"index":{"_index":"..."}}
-            //   {"index":{"_index":"...","_id":"..."}}
-            //   (same for "create", "update", "delete")
-            let bytes = action_line.as_bytes();
-            // Any require_alias mention forces full parse (bool extraction is
-            // not handled in the fast path); uncommon enough to not matter.
-            let has_require_alias = bytes.windows(14).any(|w| w == b"require_alias\"");
-            let has_pipeline = bytes.windows(9).any(|w| w == b"pipeline\"");
-            let has_if_seq_no = bytes.windows(11).any(|w| w == b"\"if_seq_no\"");
-            let has_routing = bytes.windows(9).any(|w| w == b"\"routing\"");
-            let has_source = bytes.windows(9).any(|w| w == b"\"_source\"");
-            let has_dynamic_templates = bytes.windows(19).any(|w| w == b"\"dynamic_templates\"");
-            let mut require_alias_per_item: Option<bool> = None;
-            let mut pipeline_per_item: Option<String> = None;
-            let mut if_seq_no_per_item: Option<u64> = None;
-            let mut if_primary_term_per_item: Option<u64> = None;
-            let mut routing_per_item: Option<String> = None;
-            let mut source_req_per_item: Option<Value> = None;
-            let mut dynamic_templates_per_item: Option<std::collections::BTreeMap<String, String>> = None;
-            let (action_type, target_index, doc_id) = 'fast: {
-                if has_require_alias || has_pipeline || has_if_seq_no || has_routing || has_source || has_dynamic_templates {
-                    break 'fast (None, None, None);
-                }
-                // Parse state: skip whitespace, expect `{`, "action": "index" etc.
-                let mut p = 0usize;
-                while p < bytes.len() && (bytes[p] == b' ' || bytes[p] == b'\t') { p += 1; }
-                if p >= bytes.len() || bytes[p] != b'{' { break 'fast (None, None, None); }
-                p += 1;
-                while p < bytes.len() && (bytes[p] == b' ' || bytes[p] == b'\t') { p += 1; }
-                if p >= bytes.len() || bytes[p] != b'"' { break 'fast (None, None, None); }
-                p += 1;
-                // Find closing quote of action name.
-                let key_start = p;
-                while p < bytes.len() && bytes[p] != b'"' { p += 1; }
-                if p >= bytes.len() { break 'fast (None, None, None); }
-                let key = &bytes[key_start..p];
-                let action_ty: &'static str = match key {
-                    b"index"  => "index",
-                    b"create" => "create",
-                    b"update" => "update",
-                    b"delete" => "delete",
-                    _ => break 'fast (None, None, None),
-                };
-                p += 1;
-                while p < bytes.len() && (bytes[p] == b' ' || bytes[p] == b':') { p += 1; }
-                if p >= bytes.len() || bytes[p] != b'{' { break 'fast (None, None, None); }
-                // Extract optional _index and _id inside the inner object.
-                // Both are bare-quoted strings with no embedded quotes in
-                // the canonical bulk format produced by ES clients. The
-                // inner object itself may contain nested objects (e.g.
-                // `dynamic_templates:{...}`), so we track brace depth —
-                // a naive "first `}`" scan would truncate the inner slice
-                // at the first nested `}` and hide fields like `op_type`.
-                let inner_end = {
-                    let mut j = p + 1;
-                    let mut depth: i32 = 1;
-                    let mut in_str = false;
-                    while j < bytes.len() {
-                        let c = bytes[j];
-                        if in_str {
-                            if c == b'\\' { j += 2; continue; }
-                            if c == b'"' { in_str = false; }
-                        } else {
-                            match c {
-                                b'"' => in_str = true,
-                                b'{' => depth += 1,
-                                b'}' => {
-                                    depth -= 1;
-                                    if depth == 0 { break; }
-                                }
-                                _ => {}
-                            }
-                        }
-                        j += 1;
+    let parse_results: Vec<ParseOutcome> = crate::ingest_pool().install(|| {
+        pairs
+            .par_iter()
+            .map(|(_line_idx, action_line, doc_line, item_index)| {
+                // M5.12 — FAST-PATH manual parse of the action line.
+                //
+                // Pre-M5.12 the action line hit `serde_json::from_str::<Value>`
+                // which allocates a Map<String,Value> for every one of 5000
+                // action lines per batch = ~5 us × 5000 = 25 ms of pure
+                // allocation per bulk batch.
+                //
+                // We handle the three common shapes inline and fall back to
+                // full serde_json parse only on a cache miss:
+                //   {"index":{}}
+                //   {"index":{"_id":"..."}}
+                //   {"index":{"_index":"..."}}
+                //   {"index":{"_index":"...","_id":"..."}}
+                //   (same for "create", "update", "delete")
+                let bytes = action_line.as_bytes();
+                // Any require_alias mention forces full parse (bool extraction is
+                // not handled in the fast path); uncommon enough to not matter.
+                let has_require_alias = bytes.windows(14).any(|w| w == b"require_alias\"");
+                let has_pipeline = bytes.windows(9).any(|w| w == b"pipeline\"");
+                let has_if_seq_no = bytes.windows(11).any(|w| w == b"\"if_seq_no\"");
+                let has_routing = bytes.windows(9).any(|w| w == b"\"routing\"");
+                let has_source = bytes.windows(9).any(|w| w == b"\"_source\"");
+                let has_dynamic_templates =
+                    bytes.windows(19).any(|w| w == b"\"dynamic_templates\"");
+                let mut require_alias_per_item: Option<bool> = None;
+                let mut pipeline_per_item: Option<String> = None;
+                let mut if_seq_no_per_item: Option<u64> = None;
+                let mut if_primary_term_per_item: Option<u64> = None;
+                let mut routing_per_item: Option<String> = None;
+                let mut source_req_per_item: Option<Value> = None;
+                let mut dynamic_templates_per_item: Option<
+                    std::collections::BTreeMap<String, String>,
+                > = None;
+                let (action_type, target_index, doc_id) = 'fast: {
+                    if has_require_alias
+                        || has_pipeline
+                        || has_if_seq_no
+                        || has_routing
+                        || has_source
+                        || has_dynamic_templates
+                    {
+                        break 'fast (None, None, None);
                     }
-                    if j >= bytes.len() { break 'fast (None, None, None); }
-                    j
-                };
-                let inner = &bytes[p + 1..inner_end];
-                let find_field = |needle: &[u8]| -> Option<String> {
-                    // Look for `"_key":"value"` (quoted) or `"_key":NUM`
-                    // (numeric, e.g. `_id:1`) inside `inner`. ES bulk
-                    // accepts both shapes — numeric ids are stringified at
-                    // the coordinator. An empty quoted value is preserved
-                    // as `Some(String::new())` so the caller can tell
-                    // "key absent" from "key present, empty".
-                    let mut i = 0;
-                    while i + needle.len() <= inner.len() {
-                        if &inner[i..i + needle.len()] == needle {
-                            let mut j = i + needle.len();
-                            while j < inner.len() && inner[j] != b':' { j += 1; }
+                    // Parse state: skip whitespace, expect `{`, "action": "index" etc.
+                    let mut p = 0usize;
+                    while p < bytes.len() && (bytes[p] == b' ' || bytes[p] == b'\t') {
+                        p += 1;
+                    }
+                    if p >= bytes.len() || bytes[p] != b'{' {
+                        break 'fast (None, None, None);
+                    }
+                    p += 1;
+                    while p < bytes.len() && (bytes[p] == b' ' || bytes[p] == b'\t') {
+                        p += 1;
+                    }
+                    if p >= bytes.len() || bytes[p] != b'"' {
+                        break 'fast (None, None, None);
+                    }
+                    p += 1;
+                    // Find closing quote of action name.
+                    let key_start = p;
+                    while p < bytes.len() && bytes[p] != b'"' {
+                        p += 1;
+                    }
+                    if p >= bytes.len() {
+                        break 'fast (None, None, None);
+                    }
+                    let key = &bytes[key_start..p];
+                    let action_ty: &'static str = match key {
+                        b"index" => "index",
+                        b"create" => "create",
+                        b"update" => "update",
+                        b"delete" => "delete",
+                        _ => break 'fast (None, None, None),
+                    };
+                    p += 1;
+                    while p < bytes.len() && (bytes[p] == b' ' || bytes[p] == b':') {
+                        p += 1;
+                    }
+                    if p >= bytes.len() || bytes[p] != b'{' {
+                        break 'fast (None, None, None);
+                    }
+                    // Extract optional _index and _id inside the inner object.
+                    // Both are bare-quoted strings with no embedded quotes in
+                    // the canonical bulk format produced by ES clients. The
+                    // inner object itself may contain nested objects (e.g.
+                    // `dynamic_templates:{...}`), so we track brace depth —
+                    // a naive "first `}`" scan would truncate the inner slice
+                    // at the first nested `}` and hide fields like `op_type`.
+                    let inner_end = {
+                        let mut j = p + 1;
+                        let mut depth: i32 = 1;
+                        let mut in_str = false;
+                        while j < bytes.len() {
+                            let c = bytes[j];
+                            if in_str {
+                                if c == b'\\' {
+                                    j += 2;
+                                    continue;
+                                }
+                                if c == b'"' {
+                                    in_str = false;
+                                }
+                            } else {
+                                match c {
+                                    b'"' => in_str = true,
+                                    b'{' => depth += 1,
+                                    b'}' => {
+                                        depth -= 1;
+                                        if depth == 0 {
+                                            break;
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                            }
                             j += 1;
-                            while j < inner.len() && inner[j] == b' ' { j += 1; }
-                            if j >= inner.len() { return None; }
-                            if inner[j] == b'"' {
+                        }
+                        if j >= bytes.len() {
+                            break 'fast (None, None, None);
+                        }
+                        j
+                    };
+                    let inner = &bytes[p + 1..inner_end];
+                    let find_field = |needle: &[u8]| -> Option<String> {
+                        // Look for `"_key":"value"` (quoted) or `"_key":NUM`
+                        // (numeric, e.g. `_id:1`) inside `inner`. ES bulk
+                        // accepts both shapes — numeric ids are stringified at
+                        // the coordinator. An empty quoted value is preserved
+                        // as `Some(String::new())` so the caller can tell
+                        // "key absent" from "key present, empty".
+                        let mut i = 0;
+                        while i + needle.len() <= inner.len() {
+                            if &inner[i..i + needle.len()] == needle {
+                                let mut j = i + needle.len();
+                                while j < inner.len() && inner[j] != b':' {
+                                    j += 1;
+                                }
                                 j += 1;
+                                while j < inner.len() && inner[j] == b' ' {
+                                    j += 1;
+                                }
+                                if j >= inner.len() {
+                                    return None;
+                                }
+                                if inner[j] == b'"' {
+                                    j += 1;
+                                    let v_start = j;
+                                    while j < inner.len() && inner[j] != b'"' {
+                                        j += 1;
+                                    }
+                                    return Some(
+                                        std::str::from_utf8(&inner[v_start..j]).ok()?.to_string(),
+                                    );
+                                }
+                                // Unquoted numeric id (e.g. `"_id":1`).
                                 let v_start = j;
-                                while j < inner.len() && inner[j] != b'"' { j += 1; }
+                                while j < inner.len()
+                                    && (inner[j].is_ascii_digit()
+                                        || inner[j] == b'-'
+                                        || inner[j] == b'.')
+                                {
+                                    j += 1;
+                                }
+                                if v_start == j {
+                                    return None;
+                                }
                                 return Some(
                                     std::str::from_utf8(&inner[v_start..j]).ok()?.to_string(),
                                 );
                             }
-                            // Unquoted numeric id (e.g. `"_id":1`).
-                            let v_start = j;
-                            while j < inner.len() && (inner[j].is_ascii_digit() || inner[j] == b'-' || inner[j] == b'.') {
-                                j += 1;
-                            }
-                            if v_start == j { return None; }
-                            return Some(
-                                std::str::from_utf8(&inner[v_start..j]).ok()?.to_string(),
+                            i += 1;
+                        }
+                        None
+                    };
+                    let idx_name = find_field(br#""_index""#);
+                    let id = find_field(br#""_id""#);
+                    // ES allows `{"index": {"op_type": "create", ...}}` as a shorthand
+                    // for a `create` action; promote it so downstream treats it as create.
+                    let op_type = find_field(br#""op_type""#);
+                    let final_ty: &'static str =
+                        if action_ty == "index" && op_type.as_deref() == Some("create") {
+                            "create"
+                        } else {
+                            action_ty
+                        };
+                    (Some(final_ty), idx_name, id)
+                };
+
+                let (action_type, target_index, doc_id) = if let Some(ty) = action_type {
+                    (ty, target_index, doc_id)
+                } else {
+                    // Fallback: serde_json for non-canonical action lines.
+                    // simd_json would need a mutable buffer (action_line is &str
+                    // borrowed from the request body), forcing a per-action
+                    // to_vec(). For the small action JSONs typical here (a few
+                    // hundred bytes), serde_json's borrow-only path beats
+                    // simd_json + allocation on the wall clock.
+                    let action_val: Value = match serde_json::from_slice(action_line.as_bytes()) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            return ParseOutcome::Err(
+                                BulkItemResult {
+                                    action: "unknown".into(),
+                                    index: default_index.unwrap_or("_unknown").to_string(),
+                                    id: String::new(),
+                                    status: 400,
+                                    result: None,
+                                    error: Some(format!("failed to parse action line: {e}")),
+                                    get_source: None,
+                                },
+                                *item_index,
                             );
                         }
-                        i += 1;
-                    }
-                    None
-                };
-                let idx_name = find_field(br#""_index""#);
-                let id = find_field(br#""_id""#);
-                // ES allows `{"index": {"op_type": "create", ...}}` as a shorthand
-                // for a `create` action; promote it so downstream treats it as create.
-                let op_type = find_field(br#""op_type""#);
-                let final_ty: &'static str = if action_ty == "index" && op_type.as_deref() == Some("create") {
-                    "create"
-                } else {
-                    action_ty
-                };
-                (Some(final_ty), idx_name, id)
-            };
-
-            let (action_type, target_index, doc_id) = if let Some(ty) = action_type {
-                (ty, target_index, doc_id)
-            } else {
-                // Fallback: serde_json for non-canonical action lines.
-                // simd_json would need a mutable buffer (action_line is &str
-                // borrowed from the request body), forcing a per-action
-                // to_vec(). For the small action JSONs typical here (a few
-                // hundred bytes), serde_json's borrow-only path beats
-                // simd_json + allocation on the wall clock.
-                let action_val: Value = match serde_json::from_slice(action_line.as_bytes()) {
-                    Ok(v) => v,
-                    Err(e) => {
+                    };
+                    let (a, meta) = if let Some(obj) = action_val.get("index") {
+                        ("index", obj)
+                    } else if let Some(obj) = action_val.get("create") {
+                        ("create", obj)
+                    } else if let Some(obj) = action_val.get("update") {
+                        ("update", obj)
+                    } else if let Some(obj) = action_val.get("delete") {
+                        ("delete", obj)
+                    } else {
                         return ParseOutcome::Err(
                             BulkItemResult {
                                 action: "unknown".into(),
@@ -359,132 +437,84 @@ pub async fn process_bulk_with_opts(
                                 id: String::new(),
                                 status: 400,
                                 result: None,
-                                error: Some(format!("failed to parse action line: {e}")),
-                                                            get_source: None,
+                                error: Some("unknown action type".to_string()),
+                                get_source: None,
                             },
                             *item_index,
                         );
-                    }
+                    };
+                    let op_type_str = meta.get("op_type").and_then(Value::as_str);
+                    let final_a: &'static str = if a == "index" && op_type_str == Some("create") {
+                        "create"
+                    } else {
+                        a
+                    };
+                    require_alias_per_item = meta.get("require_alias").and_then(Value::as_bool);
+                    pipeline_per_item = meta
+                        .get("pipeline")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned);
+                    if_seq_no_per_item = meta.get("if_seq_no").and_then(Value::as_u64);
+                    if_primary_term_per_item = meta.get("if_primary_term").and_then(Value::as_u64);
+                    routing_per_item = meta
+                        .get("routing")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned);
+                    source_req_per_item = meta.get("_source").cloned();
+                    dynamic_templates_per_item = meta
+                        .get("dynamic_templates")
+                        .and_then(Value::as_object)
+                        .map(|o| {
+                            o.iter()
+                                .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                                .collect()
+                        });
+                    // ES bulk accepts `_id` as either a string or a number;
+                    // numeric ids are stringified at the coordinating node.
+                    let id_from_meta = meta.get("_id").and_then(|v| match v {
+                        Value::String(s) => Some(s.clone()),
+                        Value::Number(n) => Some(n.to_string()),
+                        Value::Bool(b) => Some(b.to_string()),
+                        _ => None,
+                    });
+                    (
+                        final_a,
+                        meta.get("_index")
+                            .and_then(Value::as_str)
+                            .map(str::to_owned),
+                        id_from_meta,
+                    )
                 };
-                let (a, meta) = if let Some(obj) = action_val.get("index") {
-                    ("index", obj)
-                } else if let Some(obj) = action_val.get("create") {
-                    ("create", obj)
-                } else if let Some(obj) = action_val.get("update") {
-                    ("update", obj)
-                } else if let Some(obj) = action_val.get("delete") {
-                    ("delete", obj)
-                } else {
-                    return ParseOutcome::Err(
-                        BulkItemResult {
-                            action: "unknown".into(),
-                            index: default_index.unwrap_or("_unknown").to_string(),
-                            id: String::new(),
-                            status: 400,
-                            result: None,
-                            error: Some("unknown action type".to_string()),
-                                                    get_source: None,
-                        },
-                        *item_index,
-                    );
-                };
-                let op_type_str = meta.get("op_type").and_then(Value::as_str);
-                let final_a: &'static str = if a == "index" && op_type_str == Some("create") {
-                    "create"
-                } else {
-                    a
-                };
-                require_alias_per_item = meta.get("require_alias").and_then(Value::as_bool);
-                pipeline_per_item = meta.get("pipeline").and_then(Value::as_str).map(str::to_owned);
-                if_seq_no_per_item = meta.get("if_seq_no").and_then(Value::as_u64);
-                if_primary_term_per_item = meta.get("if_primary_term").and_then(Value::as_u64);
-                routing_per_item = meta.get("routing").and_then(Value::as_str).map(str::to_owned);
-                source_req_per_item = meta.get("_source").cloned();
-                dynamic_templates_per_item = meta.get("dynamic_templates")
-                    .and_then(Value::as_object)
-                    .map(|o| o.iter()
-                        .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
-                        .collect());
-                // ES bulk accepts `_id` as either a string or a number;
-                // numeric ids are stringified at the coordinating node.
-                let id_from_meta = meta.get("_id").and_then(|v| match v {
-                    Value::String(s) => Some(s.clone()),
-                    Value::Number(n) => Some(n.to_string()),
-                    Value::Bool(b) => Some(b.to_string()),
-                    _ => None,
-                });
-                (
-                    final_a,
-                    meta.get("_index").and_then(Value::as_str).map(str::to_owned),
-                    id_from_meta,
-                )
-            };
 
-            let target_index = target_index
-                .or_else(|| default_index.map(str::to_owned))
-                .unwrap_or_else(|| "_unknown".to_string());
+                let target_index = target_index
+                    .or_else(|| default_index.map(str::to_owned))
+                    .unwrap_or_else(|| "_unknown".to_string());
 
-            // ES rejects an explicit empty `_id` with an
-            // illegal_argument_exception per-item error. `_id` missing
-            // entirely still auto-generates; only the present-but-empty
-            // case is wrong.
-            if let Some(s) = doc_id.as_deref() {
-                if s.is_empty() {
-                    return ParseOutcome::Err(
-                        BulkItemResult {
-                            action: action_type.to_string(),
-                            index: target_index,
-                            id: String::new(),
-                            status: 400,
-                            result: None,
-                            error: Some("if _id is specified it must not be empty".to_string()),
-                                                    get_source: None,
-                        },
-                        *item_index,
-                    );
-                }
-            }
-
-            let (doc_body, doc_bytes) = if action_type != "delete" {
-                let dl = match doc_line {
-                    Some(dl) => dl,
-                    None => {
+                // ES rejects an explicit empty `_id` with an
+                // illegal_argument_exception per-item error. `_id` missing
+                // entirely still auto-generates; only the present-but-empty
+                // case is wrong.
+                if let Some(s) = doc_id.as_deref() {
+                    if s.is_empty() {
                         return ParseOutcome::Err(
                             BulkItemResult {
                                 action: action_type.to_string(),
                                 index: target_index,
-                                id: doc_id.unwrap_or_default(),
+                                id: String::new(),
                                 status: 400,
                                 result: None,
-                                error: Some("missing document body".to_string()),
-                                                            get_source: None,
+                                error: Some("if _id is specified it must not be empty".to_string()),
+                                get_source: None,
                             },
                             *item_index,
                         );
                     }
-                };
-                // M5.11 — SKIP the doc-body JSON parse for `index`
-                // actions.  The turbo-raw ingest path accepts the raw
-                // NDJSON bytes and defers the parse to drain-for-flush
-                // on a background thread, taking ~5 µs/doc off the HTTP
-                // worker's critical path.  `update` and `create`
-                // actions still need the parsed Value because they
-                // take different code paths below — but `index` is
-                // the dominant one on ingest benchmarks.
-                if action_type == "index" {
-                    let bytes: std::sync::Arc<[u8]> =
-                        std::sync::Arc::from(dl.as_bytes());
-                    (None, bytes)
-                } else {
-                    // See action_line fallback above for why serde_json beats
-                    // simd_json + to_vec() on small bulk doc lines.
-                    match serde_json::from_slice::<Value>(dl.as_bytes()) {
-                        Ok(v) => {
-                            let bytes: std::sync::Arc<[u8]> =
-                                std::sync::Arc::from(dl.as_bytes());
-                            (Some(v), bytes)
-                        }
-                        Err(e) => {
+                }
+
+                let (doc_body, doc_bytes) = if action_type != "delete" {
+                    let dl = match doc_line {
+                        Some(dl) => dl,
+                        None => {
                             return ParseOutcome::Err(
                                 BulkItemResult {
                                     action: action_type.to_string(),
@@ -492,76 +522,112 @@ pub async fn process_bulk_with_opts(
                                     id: doc_id.unwrap_or_default(),
                                     status: 400,
                                     result: None,
-                                    error: Some(format!("invalid document JSON: {e}")),
-                                                                    get_source: None,
+                                    error: Some("missing document body".to_string()),
+                                    get_source: None,
                                 },
                                 *item_index,
                             );
                         }
+                    };
+                    // M5.11 — SKIP the doc-body JSON parse for `index`
+                    // actions.  The turbo-raw ingest path accepts the raw
+                    // NDJSON bytes and defers the parse to drain-for-flush
+                    // on a background thread, taking ~5 µs/doc off the HTTP
+                    // worker's critical path.  `update` and `create`
+                    // actions still need the parsed Value because they
+                    // take different code paths below — but `index` is
+                    // the dominant one on ingest benchmarks.
+                    if action_type == "index" {
+                        let bytes: std::sync::Arc<[u8]> = std::sync::Arc::from(dl.as_bytes());
+                        (None, bytes)
+                    } else {
+                        // See action_line fallback above for why serde_json beats
+                        // simd_json + to_vec() on small bulk doc lines.
+                        match serde_json::from_slice::<Value>(dl.as_bytes()) {
+                            Ok(v) => {
+                                let bytes: std::sync::Arc<[u8]> =
+                                    std::sync::Arc::from(dl.as_bytes());
+                                (Some(v), bytes)
+                            }
+                            Err(e) => {
+                                return ParseOutcome::Err(
+                                    BulkItemResult {
+                                        action: action_type.to_string(),
+                                        index: target_index,
+                                        id: doc_id.unwrap_or_default(),
+                                        status: 400,
+                                        result: None,
+                                        error: Some(format!("invalid document JSON: {e}")),
+                                        get_source: None,
+                                    },
+                                    *item_index,
+                                );
+                            }
+                        }
                     }
-                }
-            } else {
-                // Delete action — we may have optimistically consumed
-                // a line during pair building that actually belongs to
-                // the NEXT action.  Signal the caller to pop it back
-                // into the input stream.
-                let skip_back = if doc_line.is_some() { 1usize } else { 0usize };
-                let action = ParsedAction {
+                } else {
+                    // Delete action — we may have optimistically consumed
+                    // a line during pair building that actually belongs to
+                    // the NEXT action.  Signal the caller to pop it back
+                    // into the input stream.
+                    let skip_back = if doc_line.is_some() { 1usize } else { 0usize };
+                    let action = ParsedAction {
+                        action_type: action_type.to_string(),
+                        target_index,
+                        doc_id,
+                        doc_body: None,
+                        doc_bytes: std::sync::Arc::from(&[][..]),
+                        item_index: *item_index,
+                        require_alias: require_alias_per_item,
+                        pipeline: pipeline_per_item.clone(),
+                        if_seq_no: if_seq_no_per_item,
+                        if_primary_term: if_primary_term_per_item,
+                        routing: routing_per_item.clone(),
+                        source_req: source_req_per_item.clone(),
+                        dynamic_templates: dynamic_templates_per_item.clone(),
+                    };
+                    if skip_back > 0 {
+                        // We need to signal that the "body" we consumed
+                        // was actually a new action line — but with a
+                        // parallel parse this is hard because lines are
+                        // not in order.  For now, fall back to the
+                        // serial path for delete-heavy batches.
+                        // In practice nginx log ingest has ZERO deletes,
+                        // so this branch is cold.
+                        return ParseOutcome::Ok(action);
+                    }
+                    return ParseOutcome::Ok(action);
+                };
+
+                // For update actions, the request may put `_source` on the
+                // doc body rather than the action meta
+                // (`{_source: true, doc: {...}}`). Honor that too.
+                let source_req_final = source_req_per_item.or_else(|| {
+                    if action_type == "update" {
+                        doc_body.as_ref().and_then(|b| b.get("_source").cloned())
+                    } else {
+                        None
+                    }
+                });
+
+                ParseOutcome::Ok(ParsedAction {
                     action_type: action_type.to_string(),
                     target_index,
                     doc_id,
-                    doc_body: None,
-                    doc_bytes: std::sync::Arc::from(&[][..]),
+                    doc_body,
+                    doc_bytes,
                     item_index: *item_index,
                     require_alias: require_alias_per_item,
-                    pipeline: pipeline_per_item.clone(),
+                    pipeline: pipeline_per_item,
                     if_seq_no: if_seq_no_per_item,
                     if_primary_term: if_primary_term_per_item,
-                    routing: routing_per_item.clone(),
-                    source_req: source_req_per_item.clone(),
-                    dynamic_templates: dynamic_templates_per_item.clone(),
-                };
-                if skip_back > 0 {
-                    // We need to signal that the "body" we consumed
-                    // was actually a new action line — but with a
-                    // parallel parse this is hard because lines are
-                    // not in order.  For now, fall back to the
-                    // serial path for delete-heavy batches.
-                    // In practice nginx log ingest has ZERO deletes,
-                    // so this branch is cold.
-                    return ParseOutcome::Ok(action);
-                }
-                return ParseOutcome::Ok(action);
-            };
-
-            // For update actions, the request may put `_source` on the
-            // doc body rather than the action meta
-            // (`{_source: true, doc: {...}}`). Honor that too.
-            let source_req_final = source_req_per_item.or_else(|| {
-                if action_type == "update" {
-                    doc_body.as_ref().and_then(|b| b.get("_source").cloned())
-                } else {
-                    None
-                }
-            });
-
-            ParseOutcome::Ok(ParsedAction {
-                action_type: action_type.to_string(),
-                target_index,
-                doc_id,
-                doc_body,
-                doc_bytes,
-                item_index: *item_index,
-                require_alias: require_alias_per_item,
-                pipeline: pipeline_per_item,
-                if_seq_no: if_seq_no_per_item,
-                if_primary_term: if_primary_term_per_item,
-                routing: routing_per_item,
-                source_req: source_req_final,
-                dynamic_templates: dynamic_templates_per_item,
+                    routing: routing_per_item,
+                    source_req: source_req_final,
+                    dynamic_templates: dynamic_templates_per_item,
+                })
             })
-        })
-        .collect());
+            .collect()
+    });
 
     let parse_ms = t_parse.elapsed().as_millis() as u64;
     let t_group = std::time::Instant::now();
@@ -573,7 +639,6 @@ pub async fn process_bulk_with_opts(
                 items[item_idx] = Some(err_item);
                 errors = true;
             }
-            ParseOutcome::Skip(_) => {}
         }
     }
 
@@ -592,7 +657,7 @@ pub async fn process_bulk_with_opts(
                     status: 400,
                     result: None,
                     error: Some(format!("pipeline with id [{pid}] does not exist")),
-                                    get_source: None,
+                    get_source: None,
                 });
                 errors = true;
                 return false;
@@ -680,10 +745,8 @@ pub async fn process_bulk_with_opts(
     // Value straight into the batch.
     // M5.11 — index actions carry only `(item_index, doc_id, doc_bytes)`.
     // The parsed `Value` is never built for index actions on this path.
-    let mut index_batches: HashMap<
-        String,
-        Vec<(usize, String, std::sync::Arc<[u8]>)>,
-    > = HashMap::new();
+    let mut index_batches: HashMap<String, Vec<(usize, String, std::sync::Arc<[u8]>)>> =
+        HashMap::new();
     // AUTO-ID plain-index actions (no explicit `_id`).  These are
     // guaranteed new — they can NEVER overwrite — so every one is a
     // "created"/201.  That makes them safe to push through the single
@@ -691,10 +754,8 @@ pub async fn process_bulk_with_opts(
     // to "created".  Explicit-id index actions stay in `index_batches`
     // and run the per-doc loop because they may overwrite and so need
     // created-vs-updated / 201-vs-200 semantics turbo can't express.
-    let mut auto_id_batches: HashMap<
-        String,
-        Vec<(usize, String, std::sync::Arc<[u8]>)>,
-    > = HashMap::new();
+    let mut auto_id_batches: HashMap<String, Vec<(usize, String, std::sync::Arc<[u8]>)>> =
+        HashMap::new();
     let mut non_index_actions: Vec<ParsedAction> = Vec::new();
 
     // Precompute which target indices declare any strict-format date
@@ -703,12 +764,21 @@ pub async fn process_bulk_with_opts(
     // slow path so the validation loop below can see them.
     let mut index_needs_date_validation: HashMap<String, bool> = HashMap::new();
     let index_has_strict_date = |target: &str, cache: &mut HashMap<String, bool>| -> bool {
-        if let Some(b) = cache.get(target) { return *b; }
-        let has = engine.index_mappings.get(target).map(|m| {
-            let props = m.get("properties").cloned()
-                .or_else(|| m.get("mappings").and_then(|mm| mm.get("properties")).cloned());
-            mapping_has_strict_date(&props.unwrap_or(Value::Null))
-        }).unwrap_or(false);
+        if let Some(b) = cache.get(target) {
+            return *b;
+        }
+        let has = engine
+            .index_mappings
+            .get(target)
+            .map(|m| {
+                let props = m.get("properties").cloned().or_else(|| {
+                    m.get("mappings")
+                        .and_then(|mm| mm.get("properties"))
+                        .cloned()
+                });
+                mapping_has_strict_date(&props.unwrap_or(Value::Null))
+            })
+            .unwrap_or(false);
         cache.insert(target.to_string(), has);
         has
     };
@@ -719,17 +789,34 @@ pub async fn process_bulk_with_opts(
     // so route those actions through the slow path.
     let mut index_needs_dynamic_copy: HashMap<String, bool> = HashMap::new();
     let index_has_dynamic_copy = |target: &str, cache: &mut HashMap<String, bool>| -> bool {
-        if let Some(b) = cache.get(target) { return *b; }
-        let has = engine.index_mappings.get(target).map(|m| {
-            let tmpls = m.get("mappings")
-                .and_then(|mm| mm.get("dynamic_templates"))
-                .or_else(|| m.get("dynamic_templates"));
-            tmpls.and_then(Value::as_array).map(|arr| arr.iter().any(|v| {
-                v.as_object().and_then(|o| o.iter().next()).map(|(_, body)| {
-                    body.get("mapping").and_then(|mm| mm.get("copy_to")).is_some()
-                }).unwrap_or(false)
-            })).unwrap_or(false)
-        }).unwrap_or(false);
+        if let Some(b) = cache.get(target) {
+            return *b;
+        }
+        let has = engine
+            .index_mappings
+            .get(target)
+            .map(|m| {
+                let tmpls = m
+                    .get("mappings")
+                    .and_then(|mm| mm.get("dynamic_templates"))
+                    .or_else(|| m.get("dynamic_templates"));
+                tmpls
+                    .and_then(Value::as_array)
+                    .map(|arr| {
+                        arr.iter().any(|v| {
+                            v.as_object()
+                                .and_then(|o| o.iter().next())
+                                .map(|(_, body)| {
+                                    body.get("mapping")
+                                        .and_then(|mm| mm.get("copy_to"))
+                                        .is_some()
+                                })
+                                .unwrap_or(false)
+                        })
+                    })
+                    .unwrap_or(false)
+            })
+            .unwrap_or(false);
         cache.insert(target.to_string(), has);
         has
     };
@@ -749,22 +836,25 @@ pub async fn process_bulk_with_opts(
             && !index_has_strict_date(&action.target_index, &mut index_needs_date_validation)
             && !index_has_dynamic_copy(&action.target_index, &mut index_needs_dynamic_copy);
         if is_plain_index {
-            if action.doc_id.is_none() {
-                // Auto-id: brand-new doc, always "created"/201. Route the
-                // whole group through ONE `index_batch_turbo_raw` call.
-                let id = uuid::Uuid::new_v4().to_string();
-                auto_id_batches
-                    .entry(action.target_index)
-                    .or_default()
-                    .push((action.item_index, id, action.doc_bytes));
-            } else {
-                // Explicit id: may overwrite → keep the per-doc path so
-                // created/updated + 201/200 is resolved correctly.
-                let id = action.doc_id.unwrap();
-                index_batches
-                    .entry(action.target_index)
-                    .or_default()
-                    .push((action.item_index, id, action.doc_bytes));
+            match action.doc_id {
+                None => {
+                    // Auto-id: brand-new doc, always "created"/201. Route the
+                    // whole group through ONE `index_batch_turbo_raw` call.
+                    let id = uuid::Uuid::new_v4().to_string();
+                    auto_id_batches
+                        .entry(action.target_index)
+                        .or_default()
+                        .push((action.item_index, id, action.doc_bytes));
+                }
+                Some(id) => {
+                    // Explicit id: may overwrite → keep the per-doc path so
+                    // created/updated + 201/200 is resolved correctly.
+                    index_batches.entry(action.target_index).or_default().push((
+                        action.item_index,
+                        id,
+                        action.doc_bytes,
+                    ));
+                }
             }
         } else {
             non_index_actions.push(action);
@@ -861,7 +951,7 @@ pub async fn process_bulk_with_opts(
                         status: 500,
                         result: None,
                         error: Some(e.to_string()),
-                                            get_source: None,
+                        get_source: None,
                     });
                     errors = true;
                 }
@@ -881,7 +971,11 @@ pub async fn process_bulk_with_opts(
                 bytes_len = doc_bytes.len(),
                 "bulk: indexing doc via per-doc path"
             );
-            let id_opt = if doc_id.is_empty() { None } else { Some(doc_id) };
+            let id_opt = if doc_id.is_empty() {
+                None
+            } else {
+                Some(doc_id)
+            };
             match idx.index_document(id_opt, source).await {
                 Ok(resp) => {
                     // 201 for new doc, 200 for overwrite (ES semantics).
@@ -893,12 +987,14 @@ pub async fn process_bulk_with_opts(
                         status,
                         result: Some(resp.result),
                         error: None,
-                                            get_source: None,
+                        get_source: None,
                     });
                 }
                 Err(e) => {
                     let status = match &e {
-                        EngineError::Common(xerj_common::XerjError::ResourceExhausted { .. }) => 429,
+                        EngineError::Common(xerj_common::XerjError::ResourceExhausted {
+                            ..
+                        }) => 429,
                         _ => 500,
                     };
                     items[item_idx] = Some(BulkItemResult {
@@ -908,7 +1004,7 @@ pub async fn process_bulk_with_opts(
                         status,
                         result: None,
                         error: Some(e.to_string()),
-                                            get_source: None,
+                        get_source: None,
                     });
                     errors = true;
                 }
@@ -953,7 +1049,9 @@ pub async fn process_bulk_with_opts(
                 // forced a per-doc to_vec(). serde_json takes &[u8]
                 // immutably and avoids the allocation entirely.
                 serde_json::from_slice::<Value>(&doc_bytes).ok()
-            } else { None }
+            } else {
+                None
+            }
         });
         // Apply dynamic-template `copy_to` at ingest. When a doc
         // field name matches a dynamic template's `match` pattern
@@ -989,21 +1087,34 @@ pub async fn process_bulk_with_opts(
                 // template instead).
                 let templates: Vec<(String, Option<String>)> = mapping
                     .as_ref()
-                    .and_then(|m| m.get("mappings").and_then(|mm| mm.get("dynamic_templates"))
-                        .or_else(|| m.get("dynamic_templates")))
+                    .and_then(|m| {
+                        m.get("mappings")
+                            .and_then(|mm| mm.get("dynamic_templates"))
+                            .or_else(|| m.get("dynamic_templates"))
+                    })
                     .and_then(Value::as_array)
-                    .map(|arr| arr.iter().filter_map(|v| v.as_object().and_then(|o| {
-                        let (name, spec) = o.iter().next()?;
-                        let pattern = spec.get("match").and_then(Value::as_str).map(String::from);
-                        Some((name.clone(), pattern))
-                    })).collect())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| {
+                                v.as_object().and_then(|o| {
+                                    let (name, spec) = o.iter().next()?;
+                                    let pattern =
+                                        spec.get("match").and_then(Value::as_str).map(String::from);
+                                    Some((name.clone(), pattern))
+                                })
+                            })
+                            .collect()
+                    })
                     .unwrap_or_default();
-                let declared_names: std::collections::HashSet<String> = templates
-                    .iter().map(|(n, _)| n.clone()).collect();
+                let declared_names: std::collections::HashSet<String> =
+                    templates.iter().map(|(n, _)| n.clone()).collect();
                 let declared_fields: std::collections::HashSet<String> = mapping
                     .as_ref()
-                    .and_then(|m| m.get("mappings").and_then(|mm| mm.get("properties"))
-                        .or_else(|| m.get("properties")))
+                    .and_then(|m| {
+                        m.get("mappings")
+                            .and_then(|mm| mm.get("properties"))
+                            .or_else(|| m.get("properties"))
+                    })
                     .and_then(Value::as_object)
                     .map(|o| o.keys().cloned().collect())
                     .unwrap_or_default();
@@ -1024,15 +1135,28 @@ pub async fn process_bulk_with_opts(
                 };
                 let mut first_bad: Option<(String, String)> = None;
                 for (field, tmpl) in dt_map {
-                    let present_in_doc = doc_body.as_ref()
-                        .map(|db| db.as_object().map(|o| o.contains_key(field)).unwrap_or(false))
+                    let present_in_doc = doc_body
+                        .as_ref()
+                        .map(|db| {
+                            db.as_object()
+                                .map(|o| o.contains_key(field))
+                                .unwrap_or(false)
+                        })
                         .unwrap_or(true);
-                    if declared_fields.contains(field) { continue; }
-                    if !present_in_doc { continue; }
-                    if declared_names.contains(tmpl) { continue; }
+                    if declared_fields.contains(field) {
+                        continue;
+                    }
+                    if !present_in_doc {
+                        continue;
+                    }
+                    if declared_names.contains(tmpl) {
+                        continue;
+                    }
                     // Fall back: the field might be implicitly mapped by
                     // a pattern-matching template (e.g. `match: "my*"`).
-                    if field_matches_any_template(field) { continue; }
+                    if field_matches_any_template(field) {
+                        continue;
+                    }
                     first_bad = Some((field.clone(), tmpl.clone()));
                     break;
                 }
@@ -1048,36 +1172,68 @@ pub async fn process_bulk_with_opts(
                         // spec so we can inspect its `type`.
                         let tmpl_specs: std::collections::HashMap<String, Value> = mapping
                             .as_ref()
-                            .and_then(|m| m.get("mappings").and_then(|mm| mm.get("dynamic_templates"))
-                                .or_else(|| m.get("dynamic_templates")))
+                            .and_then(|m| {
+                                m.get("mappings")
+                                    .and_then(|mm| mm.get("dynamic_templates"))
+                                    .or_else(|| m.get("dynamic_templates"))
+                            })
                             .and_then(Value::as_array)
-                            .map(|arr| arr.iter().filter_map(|v| v.as_object().and_then(|o| {
-                                let (name, spec) = o.iter().next()?;
-                                let mapping_spec = spec.get("mapping").cloned().unwrap_or(Value::Null);
-                                Some((name.clone(), mapping_spec))
-                            })).collect())
+                            .map(|arr| {
+                                arr.iter()
+                                    .filter_map(|v| {
+                                        v.as_object().and_then(|o| {
+                                            let (name, spec) = o.iter().next()?;
+                                            let mapping_spec =
+                                                spec.get("mapping").cloned().unwrap_or(Value::Null);
+                                            Some((name.clone(), mapping_spec))
+                                        })
+                                    })
+                                    .collect()
+                            })
                             .unwrap_or_default();
                         let mut first_type_clash: Option<(String, String, String)> = None;
                         for (field, tmpl) in dt_map {
-                            let Some(spec) = tmpl_specs.get(tmpl) else { continue };
+                            let Some(spec) = tmpl_specs.get(tmpl) else {
+                                continue;
+                            };
                             let ftype = spec.get("type").and_then(Value::as_str).unwrap_or("");
                             // Scalar-like types that can't hold an object.
                             let scalar = matches!(
                                 ftype,
-                                "keyword" | "text" | "match_only_text" | "long" | "integer" |
-                                "short" | "byte" | "double" | "float" | "boolean" | "date" |
-                                "date_nanos" | "ip" | "binary" | "half_float" | "scaled_float" |
-                                "unsigned_long" | "geo_point"
+                                "keyword"
+                                    | "text"
+                                    | "match_only_text"
+                                    | "long"
+                                    | "integer"
+                                    | "short"
+                                    | "byte"
+                                    | "double"
+                                    | "float"
+                                    | "boolean"
+                                    | "date"
+                                    | "date_nanos"
+                                    | "ip"
+                                    | "binary"
+                                    | "half_float"
+                                    | "scaled_float"
+                                    | "unsigned_long"
+                                    | "geo_point"
                             );
-                            if !scalar { continue; }
+                            if !scalar {
+                                continue;
+                            }
                             let prefix = format!("{}.", field);
                             let has_dotted = body.keys().any(|k| k.starts_with(&prefix));
-                            if !has_dotted { continue; }
+                            if !has_dotted {
+                                continue;
+                            }
                             // Build a preview of the "object-shaped"
                             // value ES would render (e.g. `{bar=hello world}`).
                             let mut parts: Vec<String> = Vec::new();
                             for (k, v) in body.iter() {
-                                if !k.starts_with(&prefix) { continue; }
+                                if !k.starts_with(&prefix) {
+                                    continue;
+                                }
                                 let sub_key = &k[prefix.len()..];
                                 let rendered = match v {
                                     Value::String(s) => s.clone(),
@@ -1137,11 +1293,11 @@ pub async fn process_bulk_with_opts(
         // `create`; updates operate on already-stored docs.
         if matches!(action_type.as_str(), "index" | "create") {
             if let Some(body) = doc_body.as_ref().and_then(Value::as_object) {
-                let mapping_props = engine.index_mappings.get(&target_index)
-                    .and_then(|m| {
-                        m.get("properties").or_else(|| m.get("mappings").and_then(|mm| mm.get("properties")))
-                            .cloned()
-                    });
+                let mapping_props = engine.index_mappings.get(&target_index).and_then(|m| {
+                    m.get("properties")
+                        .or_else(|| m.get("mappings").and_then(|mm| mm.get("properties")))
+                        .cloned()
+                });
                 if let Some(props) = mapping_props {
                     if let Some(bad) = find_bad_date_field(body, &props) {
                         let reason = format!(
@@ -1192,21 +1348,28 @@ pub async fn process_bulk_with_opts(
                 // via `items[N].update.get._source`. Source spec comes
                 // from (priority): action metadata → doc-body `_source`
                 // → URL-level default (?_source=true).
-                let effective_source_req = source_req.clone().or_else(|| default_source_req.clone());
-                let get_source: Option<Value> = if action_type == "update" && effective_source_req.is_some() {
-                    match doc_id_for_get.as_deref() {
-                        Some(id) => {
-                            match engine.get_index(&target_index_for_get) {
+                let effective_source_req =
+                    source_req.clone().or_else(|| default_source_req.clone());
+                let get_source: Option<Value> =
+                    if action_type == "update" && effective_source_req.is_some() {
+                        match doc_id_for_get.as_deref() {
+                            Some(id) => match engine.get_index(&target_index_for_get) {
                                 Ok(idx) => {
                                     let fetched = idx.get_document(id).await.ok().flatten();
-                                    fetched.map(|src| apply_bulk_source_filter(&src, effective_source_req.as_ref().unwrap()))
+                                    fetched.map(|src| {
+                                        apply_bulk_source_filter(
+                                            &src,
+                                            effective_source_req.as_ref().unwrap(),
+                                        )
+                                    })
                                 }
                                 Err(_) => None,
-                            }
+                            },
+                            None => None,
                         }
-                        None => None,
-                    }
-                } else { None };
+                    } else {
+                        None
+                    };
                 items[item_idx] = Some(BulkItemResult {
                     action: action_type.clone(),
                     index: target_index,
@@ -1235,17 +1398,14 @@ pub async fn process_bulk_with_opts(
                     status,
                     result: None,
                     error: Some(e.to_string()),
-                                    get_source: None,
+                    get_source: None,
                 });
             }
         }
     }
 
     // Flatten — any slot still None is a parse error that already set its slot.
-    let final_items: Vec<BulkItemResult> = items
-        .into_iter()
-        .filter_map(|opt| opt)
-        .collect();
+    let final_items: Vec<BulkItemResult> = items.into_iter().flatten().collect();
 
     let exec_ms = t_exec.elapsed().as_millis() as u64;
     let took_ms = started.elapsed().as_millis() as u64;
@@ -1253,7 +1413,12 @@ pub async fn process_bulk_with_opts(
     if std::env::var_os("XERJ_PROF").is_some() {
         eprintln!(
             "XERJ_PROF bulk total_ms={} lines_ms={} parse_ms={} group_ms={} exec_ms={} n_lines={}",
-            took_ms, lines_ms, parse_ms, group_ms, exec_ms, lines.len()
+            took_ms,
+            lines_ms,
+            parse_ms,
+            group_ms,
+            exec_ms,
+            lines.len()
         );
     }
     if took_ms >= 50 {
@@ -1267,7 +1432,11 @@ pub async fn process_bulk_with_opts(
             "process_bulk timings"
         );
     }
-    BulkResult { took_ms, errors, items: final_items }
+    BulkResult {
+        took_ms,
+        errors,
+        items: final_items,
+    }
 }
 
 /// Apply a bulk-action `_source` request to a fetched document.
@@ -1287,15 +1456,18 @@ fn apply_bulk_source_filter(src: &Value, spec: &Value) -> Value {
         Value::Bool(false) => return Value::Null,
         Value::String(s) => (vec![s.clone()], Vec::new()),
         Value::Array(arr) => (
-            arr.iter().filter_map(|v| v.as_str().map(String::from)).collect(),
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect(),
             Vec::new(),
         ),
         Value::Object(o) => {
             let pull = |k: &str| -> Vec<String> {
                 match o.get(k) {
-                    Some(Value::Array(a)) => {
-                        a.iter().filter_map(|x| x.as_str().map(String::from)).collect()
-                    }
+                    Some(Value::Array(a)) => a
+                        .iter()
+                        .filter_map(|x| x.as_str().map(String::from))
+                        .collect(),
                     Some(Value::String(s)) => vec![s.clone()],
                     _ => Vec::new(),
                 }
@@ -1342,8 +1514,12 @@ fn apply_dynamic_template_copy_to(
         .get("mappings")
         .and_then(|m| m.get("dynamic_templates"))
         .or_else(|| mapping.get("dynamic_templates"));
-    let Some(templates_arr) = templates_v.and_then(Value::as_array) else { return };
-    if templates_arr.is_empty() { return; }
+    let Some(templates_arr) = templates_v.and_then(Value::as_array) else {
+        return;
+    };
+    if templates_arr.is_empty() {
+        return;
+    }
     let declared_props: std::collections::HashSet<String> = mapping
         .get("mappings")
         .and_then(|m| m.get("properties"))
@@ -1358,14 +1534,14 @@ fn apply_dynamic_template_copy_to(
         .filter_map(|v| {
             let (name, body) = v.as_object().and_then(|o| o.iter().next())?;
             let pattern = body.get("match").and_then(Value::as_str).map(String::from);
-            let copy_to = body
-                .get("mapping")
-                .and_then(|m| m.get("copy_to"))
-                .and_then(|c| match c {
-                    Value::String(s) => Some(s.clone()),
-                    Value::Array(a) => a.first().and_then(Value::as_str).map(String::from),
-                    _ => None,
-                });
+            let copy_to =
+                body.get("mapping")
+                    .and_then(|m| m.get("copy_to"))
+                    .and_then(|c| match c {
+                        Value::String(s) => Some(s.clone()),
+                        Value::Array(a) => a.first().and_then(Value::as_str).map(String::from),
+                        _ => None,
+                    });
             Some((name.clone(), pattern, copy_to))
         })
         .collect();
@@ -1374,7 +1550,9 @@ fn apply_dynamic_template_copy_to(
     let mut touched_targets: Vec<String> = Vec::new();
     let mut pristine: serde_json::Map<String, Value> = serde_json::Map::new();
     for field in field_names {
-        if declared_props.contains(&field) { continue; }
+        if declared_props.contains(&field) {
+            continue;
+        }
         // Priority 1: per-item `dynamic_templates: {field: name}`.
         let forced = per_item.and_then(|m| m.get(&field).cloned());
         let mut chosen: Option<String> = None;
@@ -1398,7 +1576,9 @@ fn apply_dynamic_template_copy_to(
             }
         }
         let Some(target_path) = chosen else { continue };
-        let Some(val) = body.get(&field).cloned() else { continue };
+        let Some(val) = body.get(&field).cloned() else {
+            continue;
+        };
         // Snapshot the target's pristine value before mutation so
         // the synthetic-source emit path can restore the explicit-
         // only source shape. Matches apply_copy_to's convention.
@@ -1414,7 +1594,9 @@ fn apply_dynamic_template_copy_to(
         // value shape here.
         match val {
             Value::Array(arr) => {
-                for v in arr { append_copy_to_path(body, &target_path, v); }
+                for v in arr {
+                    append_copy_to_path(body, &target_path, v);
+                }
             }
             other => append_copy_to_path(body, &target_path, other),
         }
@@ -1428,13 +1610,18 @@ fn apply_dynamic_template_copy_to(
                 pristine.entry(k).or_insert(v);
             }
         }
-        body.insert("__xy_copy_to_pristine__".to_string(), Value::Object(pristine));
+        body.insert(
+            "__xy_copy_to_pristine__".to_string(),
+            Value::Object(pristine),
+        );
     }
 }
 
 fn path_get<'a>(root: &'a serde_json::Map<String, Value>, path: &str) -> Option<&'a Value> {
     let segs: Vec<&str> = path.split('.').collect();
-    if segs.is_empty() { return None; }
+    if segs.is_empty() {
+        return None;
+    }
     let mut cur: &Value = root.get(segs[0])?;
     for seg in &segs[1..] {
         cur = cur.as_object()?.get(*seg)?;
@@ -1442,21 +1629,25 @@ fn path_get<'a>(root: &'a serde_json::Map<String, Value>, path: &str) -> Option<
     Some(cur)
 }
 
-fn append_copy_to_path(
-    target: &mut serde_json::Map<String, Value>,
-    path: &str,
-    val: Value,
-) {
+fn append_copy_to_path(target: &mut serde_json::Map<String, Value>, path: &str, val: Value) {
     let segs: Vec<&str> = path.split('.').collect();
-    if segs.is_empty() { return; }
+    if segs.is_empty() {
+        return;
+    }
     let last = segs.len() - 1;
     let mut cur: &mut serde_json::Map<String, Value> = target;
     for (i, seg) in segs.iter().enumerate() {
         if i == last {
             let entry = cur.entry((*seg).to_string()).or_insert(Value::Null);
             match entry {
-                Value::Null => { *entry = val; return; }
-                Value::Array(arr) => { arr.push(val); return; }
+                Value::Null => {
+                    *entry = val;
+                    return;
+                }
+                Value::Array(arr) => {
+                    arr.push(val);
+                    return;
+                }
                 existing => {
                     let prev = existing.clone();
                     *existing = Value::Array(vec![prev, val]);
@@ -1464,7 +1655,9 @@ fn append_copy_to_path(
                 }
             }
         }
-        let entry = cur.entry((*seg).to_string()).or_insert_with(|| Value::Object(serde_json::Map::new()));
+        let entry = cur
+            .entry((*seg).to_string())
+            .or_insert_with(|| Value::Object(serde_json::Map::new()));
         if !entry.is_object() {
             let old = entry.take();
             let mut m = serde_json::Map::new();
@@ -1480,17 +1673,24 @@ fn append_copy_to_path(
 /// `format` set AND does not opt into `ignore_malformed`? When true,
 /// ingest must parse-validate date values on this index.
 fn mapping_has_strict_date(props: &Value) -> bool {
-    let Some(obj) = props.as_object() else { return false };
+    let Some(obj) = props.as_object() else {
+        return false;
+    };
     for (_, spec) in obj {
         let ftype = spec.get("type").and_then(Value::as_str).unwrap_or("");
         if (ftype == "date" || ftype == "date_nanos")
             && spec.get("format").and_then(Value::as_str).is_some()
-            && !spec.get("ignore_malformed").and_then(Value::as_bool).unwrap_or(false)
+            && !spec
+                .get("ignore_malformed")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
         {
             return true;
         }
         if let Some(sub) = spec.get("properties") {
-            if mapping_has_strict_date(sub) { return true; }
+            if mapping_has_strict_date(sub) {
+                return true;
+            }
         }
     }
     false
@@ -1511,11 +1711,20 @@ fn find_bad_date_field(
     for (fname, spec) in props_obj {
         let Some(val) = doc.get(fname) else { continue };
         let ftype = spec.get("type").and_then(Value::as_str).unwrap_or("");
-        if ftype != "date" && ftype != "date_nanos" { continue; }
+        if ftype != "date" && ftype != "date_nanos" {
+            continue;
+        }
         let fmt = spec.get("format").and_then(Value::as_str).unwrap_or("");
-        if fmt.is_empty() { continue; }
-        let ignore_mal = spec.get("ignore_malformed").and_then(Value::as_bool).unwrap_or(false);
-        if ignore_mal { continue; }
+        if fmt.is_empty() {
+            continue;
+        }
+        let ignore_mal = spec
+            .get("ignore_malformed")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        if ignore_mal {
+            continue;
+        }
         // Pick the single value to validate — arrays recurse over
         // each element, using the first failure we find.
         let candidates: Vec<&Value> = match val {
@@ -1585,19 +1794,30 @@ fn simple_glob_matches(pat: &[u8], txt: &[u8]) -> bool {
     let (mut star, mut star_t) = (None::<usize>, 0usize);
     while t < txt.len() {
         if p < pat.len() && (pat[p] == b'?' || pat[p] == txt[t]) {
-            p += 1; t += 1;
+            p += 1;
+            t += 1;
         } else if p < pat.len() && pat[p] == b'*' {
-            star = Some(p); star_t = t; p += 1;
+            star = Some(p);
+            star_t = t;
+            p += 1;
         } else if let Some(sp) = star {
-            p = sp + 1; star_t += 1; t = star_t;
+            p = sp + 1;
+            star_t += 1;
+            t = star_t;
         } else {
             return false;
         }
     }
-    while p < pat.len() && pat[p] == b'*' { p += 1; }
+    while p < pat.len() && pat[p] == b'*' {
+        p += 1;
+    }
     p == pat.len()
 }
 
+// Per-item bulk execution needs all 8 pieces of action metadata (target,
+// id, body, CAS pair, routing); grouping them into a struct would just
+// reshuffle the same fields, so allow the arg count here.
+#[allow(clippy::too_many_arguments)]
 async fn execute_bulk_action(
     engine: &Engine,
     action_type: &str,
@@ -1631,7 +1851,8 @@ async fn execute_bulk_action(
             let idx = engine.get_or_create_index(index)?;
             let source = inject_routing(body).unwrap_or(Value::Object(serde_json::Map::new()));
             if if_seq_no.is_some() || if_primary_term.is_some() {
-                idx.index_document_with_version(doc_id, source, if_seq_no, if_primary_term).await
+                idx.index_document_with_version(doc_id, source, if_seq_no, if_primary_term)
+                    .await
             } else {
                 idx.index_document(doc_id, source).await
             }
@@ -1660,7 +1881,10 @@ async fn execute_bulk_action(
                 .and_then(Value::as_bool)
                 .unwrap_or(false);
 
-            match idx.update_document_with_upsert(&id, partial, upsert, doc_as_upsert).await? {
+            match idx
+                .update_document_with_upsert(&id, partial, upsert, doc_as_upsert)
+                .await?
+            {
                 Some(resp) => Ok(resp),
                 None => Err(crate::EngineError::Common(
                     xerj_common::XerjError::document_not_found(&id, index),

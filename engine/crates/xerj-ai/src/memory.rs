@@ -65,7 +65,11 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
         nb += bi * bi;
     }
     let denom = (na * nb).sqrt();
-    if denom == 0.0 { 0.0 } else { dot / denom }
+    if denom == 0.0 {
+        0.0
+    } else {
+        dot / denom
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -179,9 +183,7 @@ impl AgentMemory {
             .collect();
 
         // Sort descending by score
-        scored.sort_unstable_by(|a, b| {
-            b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
-        });
+        scored.sort_unstable_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
         scored.into_iter().take(k).map(|(_, e)| e.clone()).collect()
     }
@@ -216,11 +218,19 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    fn vec_a() -> Vec<f32> { vec![1.0, 0.0, 0.0, 0.0] }
-    fn vec_b() -> Vec<f32> { vec![0.0, 1.0, 0.0, 0.0] }
-    fn vec_c() -> Vec<f32> { vec![0.0, 0.0, 1.0, 0.0] }
+    fn vec_a() -> Vec<f32> {
+        vec![1.0, 0.0, 0.0, 0.0]
+    }
+    fn vec_b() -> Vec<f32> {
+        vec![0.0, 1.0, 0.0, 0.0]
+    }
+    fn vec_c() -> Vec<f32> {
+        vec![0.0, 0.0, 1.0, 0.0]
+    }
     // Very similar to vec_a
-    fn vec_a_near() -> Vec<f32> { vec![0.999, 0.001, 0.0, 0.0] }
+    fn vec_a_near() -> Vec<f32> {
+        vec![0.999, 0.001, 0.0, 0.0]
+    }
 
     #[test]
     fn store_and_recall_basic() {

@@ -170,13 +170,9 @@ impl SearchCoordinator {
                 // Local search — bypass network
                 debug!(node = %self.local_node_id, index, "Serving search locally");
                 let response = match &self.local_searcher {
-                    Some(searcher) => searcher.search_local(
-                        &request_id,
-                        index,
-                        query_json,
-                        size + from,
-                        0,
-                    ),
+                    Some(searcher) => {
+                        searcher.search_local(&request_id, index, query_json, size + from, 0)
+                    }
                     None => {
                         // No local searcher configured — return empty shard response.
                         warn!(
@@ -257,9 +253,7 @@ impl SearchCoordinator {
                 // Forward to remote shard owner
                 debug!(
                     target = node,
-                    index,
-                    doc_id,
-                    "Forwarding index request to remote node"
+                    index, doc_id, "Forwarding index request to remote node"
                 );
                 let req = SearchMessage::IndexRequest {
                     index: index.to_string(),
@@ -280,10 +274,7 @@ impl SearchCoordinator {
                     SearchMessage::Error { message, .. } => {
                         Err(anyhow!("remote index error: {}", message))
                     }
-                    other => Err(anyhow!(
-                        "unexpected response to IndexRequest: {:?}",
-                        other
-                    )),
+                    other => Err(anyhow!("unexpected response to IndexRequest: {:?}", other)),
                 }
             }
             // Local node owns the shard (or no assignment — handle locally).
@@ -449,17 +440,9 @@ mod tests {
         );
         let transport_ref = Arc::clone(&transport);
 
-        let coordinator = SearchCoordinator::new(
-            Arc::new(router),
-            transport_ref,
-            "gateway",
-            None,
-        );
+        let coordinator = SearchCoordinator::new(Arc::new(router), transport_ref, "gateway", None);
 
-        coordinator
-            .search("logs", "{}", 10, 0)
-            .await
-            .unwrap();
+        coordinator.search("logs", "{}", 10, 0).await.unwrap();
 
         let calls = transport.calls();
         assert_eq!(calls.len(), 3, "exactly one call per node");
@@ -482,33 +465,18 @@ mod tests {
         let transport = MockSearchTransport::new()
             .with_response(
                 "node-a",
-                make_response(
-                    vec![("p1", 3.0), ("p3", 1.5), ("p5", 0.8)],
-                    100,
-                    10,
-                ),
+                make_response(vec![("p1", 3.0), ("p3", 1.5), ("p5", 0.8)], 100, 10),
             )
             .with_response(
                 "node-b",
-                make_response(
-                    vec![("p2", 2.5), ("p4", 1.2), ("p6", 0.5)],
-                    80,
-                    8,
-                ),
+                make_response(vec![("p2", 2.5), ("p4", 1.2), ("p6", 0.5)], 80, 8),
             );
 
-        let coordinator = SearchCoordinator::new(
-            Arc::new(router),
-            Arc::new(transport),
-            "gateway",
-            None,
-        );
+        let coordinator =
+            SearchCoordinator::new(Arc::new(router), Arc::new(transport), "gateway", None);
 
         // Page 1: size=2, from=0
-        let page1 = coordinator
-            .search("products", "{}", 2, 0)
-            .await
-            .unwrap();
+        let page1 = coordinator.search("products", "{}", 2, 0).await.unwrap();
         assert_eq!(page1.hits[0].id, "p1"); // 3.0
         assert_eq!(page1.hits[1].id, "p2"); // 2.5
         assert_eq!(page1.total, 180);
@@ -518,36 +486,21 @@ mod tests {
         let transport2 = MockSearchTransport::new()
             .with_response(
                 "node-a",
-                make_response(
-                    vec![("p1", 3.0), ("p3", 1.5), ("p5", 0.8)],
-                    100,
-                    10,
-                ),
+                make_response(vec![("p1", 3.0), ("p3", 1.5), ("p5", 0.8)], 100, 10),
             )
             .with_response(
                 "node-b",
-                make_response(
-                    vec![("p2", 2.5), ("p4", 1.2), ("p6", 0.5)],
-                    80,
-                    8,
-                ),
+                make_response(vec![("p2", 2.5), ("p4", 1.2), ("p6", 0.5)], 80, 8),
             );
 
         let mut router2 = ShardRouter::new(2);
         router2.assign("products", 0, "node-a");
         router2.assign("products", 1, "node-b");
 
-        let coordinator2 = SearchCoordinator::new(
-            Arc::new(router2),
-            Arc::new(transport2),
-            "gateway",
-            None,
-        );
+        let coordinator2 =
+            SearchCoordinator::new(Arc::new(router2), Arc::new(transport2), "gateway", None);
 
-        let page2 = coordinator2
-            .search("products", "{}", 2, 2)
-            .await
-            .unwrap();
+        let page2 = coordinator2.search("products", "{}", 2, 2).await.unwrap();
         assert_eq!(page2.hits[0].id, "p3"); // 1.5
         assert_eq!(page2.hits[1].id, "p4"); // 1.2
     }
@@ -561,12 +514,7 @@ mod tests {
         let transport = Arc::new(MockSearchTransport::new());
         let transport_ref = Arc::clone(&transport);
 
-        let coordinator = SearchCoordinator::new(
-            Arc::new(router),
-            transport_ref,
-            "node-0",
-            None,
-        );
+        let coordinator = SearchCoordinator::new(Arc::new(router), transport_ref, "node-0", None);
 
         let result = coordinator
             .search("empty-index", "{}", 10, 0)
@@ -575,7 +523,10 @@ mod tests {
 
         assert_eq!(result.hits.len(), 0);
         assert_eq!(result.total, 0);
-        assert!(transport.calls().is_empty(), "no transport calls for empty index");
+        assert!(
+            transport.calls().is_empty(),
+            "no transport calls for empty index"
+        );
     }
 
     // ── Index routing test ────────────────────────────────────────────────────
@@ -616,12 +567,8 @@ mod tests {
 
         let transport = MockSearchTransport::new().with_response("node-remote", remote_resp);
 
-        let coordinator = SearchCoordinator::new(
-            Arc::new(router),
-            Arc::new(transport),
-            "node-local",
-            None,
-        );
+        let coordinator =
+            SearchCoordinator::new(Arc::new(router), Arc::new(transport), "node-local", None);
 
         let resp = coordinator
             .route_index("orders", "doc-xyz", r#"{"amount":99}"#)

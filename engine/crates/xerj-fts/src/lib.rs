@@ -65,13 +65,12 @@ pub mod search;
 pub use analyzer::{
     AnalyzerPipeline, AnalyzerRegistry, AsciiFoldingFilter, CharFilter, CjkTokenizer,
     EdgeNGramTokenizer, IcuFoldingFilter, KeywordTokenizer, LengthFilter, LowercaseFilter,
-    NGramTokenizer, PatternTokenizer, ShingleFilter, StemmerFilter, StandardTokenizer,
+    NGramTokenizer, PatternTokenizer, ShingleFilter, StandardTokenizer, StemmerFilter,
     StopwordsFilter, SynonymFilter, ThaiTokenizer, Token, TokenFilter, Tokenizer,
     WhitespaceTokenizer,
 };
 
 pub use bm25::{Bm25Scorer, FieldStats, QueryExplanation, ScoreBreakdown, DEFAULT_B, DEFAULT_K1};
-
 
 pub use index::{FieldIndexConfig, FtsIndexReader, FtsIndexWriter};
 
@@ -80,6 +79,5 @@ pub use postings::{
 };
 
 pub use search::{
-    search_segments, BoolQuery, FtsSearcher, PhraseQuery, PrefixQuery, Query, ScoredHit,
-    TermQuery,
+    search_segments, BoolQuery, FtsSearcher, PhraseQuery, PrefixQuery, Query, ScoredHit, TermQuery,
 };

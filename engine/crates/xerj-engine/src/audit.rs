@@ -69,14 +69,7 @@ impl AuditLog {
 
     /// Append an entry.  Computes the hash over (prev_hash || canonical
     /// JSON of the entry without its `hash` field).
-    pub fn append(
-        &self,
-        op: &str,
-        subject: &str,
-        resource: &str,
-        outcome: &str,
-        note: &str,
-    ) {
+    pub fn append(&self, op: &str, subject: &str, resource: &str, outcome: &str, note: &str) {
         let seq = self.next_seq.fetch_add(1, Ordering::Relaxed);
         let at_ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -84,7 +77,9 @@ impl AuditLog {
             .unwrap_or(0);
         let prev_hash = {
             let buf = self.buf.read();
-            buf.back().map(|e| e.hash.clone()).unwrap_or_else(|| "0".repeat(64))
+            buf.back()
+                .map(|e| e.hash.clone())
+                .unwrap_or_else(|| "0".repeat(64))
         };
         let mut entry = AuditEntry {
             seq,
@@ -165,8 +160,8 @@ mod tests {
     fn tampering_detected() {
         let log = AuditLog::new(8);
         log.append("search", "alice", "x", "ok", "");
-        log.append("delete", "bob",   "x", "ok", "");
-        log.append("admin",  "root",  "y", "ok", "");
+        log.append("delete", "bob", "x", "ok", "");
+        log.append("admin", "root", "y", "ok", "");
         // Tamper with entry 2's `subject`.
         {
             let mut buf = log.buf.write();

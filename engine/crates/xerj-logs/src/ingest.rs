@@ -11,8 +11,6 @@ use std::sync::{Arc, Mutex};
 use tracing::{debug, warn};
 use xerj_common::XerjError;
 
-use crate::columnar::{Column, ColumnType, ColumnValue};
-
 /// Result alias.
 pub type Result<T> = std::result::Result<T, XerjError>;
 
@@ -37,16 +35,14 @@ pub struct LogRecord {
 impl LogRecord {
     /// Parse from a JSON byte slice.
     pub fn from_json(data: &[u8]) -> Result<Self> {
-        serde_json::from_slice(data).map_err(|e| {
-            XerjError::serialization(format!("log record parse: {e}"))
-        })
+        serde_json::from_slice(data)
+            .map_err(|e| XerjError::serialization(format!("log record parse: {e}")))
     }
 
     /// Parse from a JSON string.
     pub fn from_json_str(s: &str) -> Result<Self> {
-        serde_json::from_str(s).map_err(|e| {
-            XerjError::serialization(format!("log record parse: {e}"))
-        })
+        serde_json::from_str(s)
+            .map_err(|e| XerjError::serialization(format!("log record parse: {e}")))
     }
 
     /// Create a simple record with the current time.
@@ -163,6 +159,8 @@ fn looks_like_variable(token: &str) -> bool {
 
 /// A mutable in-memory partition for one time bucket.
 struct Memtable {
+    // Retained for provenance/debugging; not read on the hot path.
+    #[allow(dead_code)]
     bucket: HourBucket,
     /// Core columns always present.
     timestamps: Vec<i64>,
@@ -268,7 +266,9 @@ impl LogIngester {
     pub fn ingest(&self, record: LogRecord) -> Result<()> {
         let bucket = record.hour_bucket();
         let mut tables = self.memtables.lock().unwrap();
-        let table = tables.entry(bucket).or_insert_with(|| Memtable::new(bucket));
+        let table = tables
+            .entry(bucket)
+            .or_insert_with(|| Memtable::new(bucket));
         table.push(&record);
 
         *self.total_ingested.lock().unwrap() += 1;
@@ -415,7 +415,8 @@ mod tests {
     #[test]
     fn ndjson_skips_bad_lines() {
         let ingester = LogIngester::new();
-        let data = "not-json\n{\"timestamp\":1700000000000000000,\"level\":\"INFO\",\"message\":\"ok\"}\n";
+        let data =
+            "not-json\n{\"timestamp\":1700000000000000000,\"level\":\"INFO\",\"message\":\"ok\"}\n";
         let count = ingester.ingest_ndjson(data).unwrap();
         assert_eq!(count, 1);
     }

@@ -72,5 +72,8 @@ fn main() {
 
     let action = pipeline.process(&mut doc);
     println!("Action: {action:?}");
-    println!("Transformed doc: {}", serde_json::to_string_pretty(&doc).unwrap());
+    println!(
+        "Transformed doc: {}",
+        serde_json::to_string_pretty(&doc).unwrap()
+    );
 }

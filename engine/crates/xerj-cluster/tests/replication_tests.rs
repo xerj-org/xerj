@@ -33,7 +33,9 @@ impl ClusterTransport for PartialTransport {
         if self.reachable.contains(to) {
             Ok(())
         } else {
-            Err(anyhow::anyhow!("node {to} is unreachable (simulated failure)"))
+            Err(anyhow::anyhow!(
+                "node {to} is unreachable (simulated failure)"
+            ))
         }
     }
 
@@ -56,11 +58,7 @@ fn make_entry(index: &str, shard: u32, seq_no: u64) -> ReplicationEntry {
     }
 }
 
-fn router_with_replicas(
-    index: &str,
-    primary: &str,
-    replicas: &[&str],
-) -> Arc<ShardRouter> {
+fn router_with_replicas(index: &str, primary: &str, replicas: &[&str]) -> Arc<ShardRouter> {
     let mut router = ShardRouter::new(8);
     router.assign(index, 0, primary);
     for rep in replicas {
@@ -125,8 +123,7 @@ async fn test_sync_replication() {
 #[tokio::test]
 async fn test_sync_replication_insufficient_replicas() {
     // Only replica-1 is reachable; replica-2 will return an error.
-    let transport: Arc<dyn ClusterTransport> =
-        Arc::new(PartialTransport::new(&["replica-1"]));
+    let transport: Arc<dyn ClusterTransport> = Arc::new(PartialTransport::new(&["replica-1"]));
     let router = router_with_replicas("idx", "primary", &["replica-1", "replica-2"]);
 
     let replicator = WalReplicator::new(
@@ -142,7 +139,10 @@ async fn test_sync_replication_insufficient_replicas() {
         .expect_err("should fail with insufficient replicas");
 
     assert!(
-        matches!(err, ReplicationError::InsufficientReplicas { needed: 2, got: 1 }),
+        matches!(
+            err,
+            ReplicationError::InsufficientReplicas { needed: 2, got: 1 }
+        ),
         "unexpected error: {err}"
     );
 }
@@ -183,8 +183,7 @@ async fn test_quorum_replication() {
 #[tokio::test]
 async fn test_quorum_replication_fails_below_majority() {
     // Only 1 of 3 replicas is reachable.
-    let transport: Arc<dyn ClusterTransport> =
-        Arc::new(PartialTransport::new(&["replica-1"]));
+    let transport: Arc<dyn ClusterTransport> = Arc::new(PartialTransport::new(&["replica-1"]));
 
     let mut router = ShardRouter::new(8);
     router.assign("idx", 0, "primary");
@@ -248,8 +247,7 @@ fn test_replication_entry_serialization() {
 
     for entry in &entries {
         let json = serde_json::to_string(entry).expect("serialize entry");
-        let decoded: ReplicationEntry =
-            serde_json::from_str(&json).expect("deserialize entry");
+        let decoded: ReplicationEntry = serde_json::from_str(&json).expect("deserialize entry");
 
         assert_eq!(entry.index, decoded.index, "index mismatch");
         assert_eq!(entry.shard, decoded.shard, "shard mismatch");
@@ -257,8 +255,14 @@ fn test_replication_entry_serialization() {
 
         match (&entry.operation, &decoded.operation) {
             (
-                ReplicationOp::Index { doc_id: a, source_json: sa },
-                ReplicationOp::Index { doc_id: b, source_json: sb },
+                ReplicationOp::Index {
+                    doc_id: a,
+                    source_json: sa,
+                },
+                ReplicationOp::Index {
+                    doc_id: b,
+                    source_json: sb,
+                },
             ) => {
                 assert_eq!(a, b, "doc_id mismatch in Index");
                 assert_eq!(sa, sb, "source_json mismatch");
@@ -310,6 +314,9 @@ async fn test_replication_no_replicas() {
             "primary".to_string(),
         );
         let result = replicator.replicate(make_entry("solo", 0, 1)).await;
-        assert!(result.is_ok(), "no-replica {mode:?} should succeed: {result:?}");
+        assert!(
+            result.is_ok(),
+            "no-replica {mode:?} should succeed: {result:?}"
+        );
     }
 }

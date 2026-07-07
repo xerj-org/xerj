@@ -19,7 +19,7 @@ use crate::bootstrap::sha256_hex;
 use crate::error::{ConsoleApiError, ConsoleResult};
 use crate::indices;
 use crate::response::ok;
-use crate::state::{EnrollmentSession, ConsoleState};
+use crate::state::{ConsoleState, EnrollmentSession};
 use crate::time::{now_epoch_ms, now_iso, parse_iso};
 
 const ENROLL_TTL_MS: i64 = 30 * 60 * 1000;
@@ -66,64 +66,69 @@ pub async fn redeem(
     // Single-use.
     if link.used_at.is_some() {
         audit_redeem_failed(&state, "already-used", &ip);
-        return Err(ConsoleApiError::Unauthorized("invalid or expired link".into()));
+        return Err(ConsoleApiError::Unauthorized(
+            "invalid or expired link".into(),
+        ));
     }
     // Expiry.
     if let Some(exp) = parse_iso(&link.expires_at) {
         if now_epoch_ms() > exp.timestamp_millis() {
             audit_redeem_failed(&state, "expired", &ip);
-            return Err(ConsoleApiError::Unauthorized("invalid or expired link".into()));
+            return Err(ConsoleApiError::Unauthorized(
+                "invalid or expired link".into(),
+            ));
         }
     }
 
     // Resolve target user. Bootstrap links have no user_id yet — we
     // synthesise one. Invite links carry the user_id we already
     // provisioned in pending state.
-    let (user_id, email) = match link.purpose.as_str() {
-        "bootstrap" => {
-            // Make sure no active user has snuck in between mint and
-            // redeem (race window when two operators open the same
-            // banner).
-            let active = store::count_active_users(&state.engine).await?;
-            if active > 0 {
-                audit_redeem_failed(&state, "bootstrap-already-claimed", &ip);
-                return Err(ConsoleApiError::Conflict(
-                    "this server has already been claimed; ask your admin for an invite".into(),
-                ));
+    let (user_id, email) =
+        match link.purpose.as_str() {
+            "bootstrap" => {
+                // Make sure no active user has snuck in between mint and
+                // redeem (race window when two operators open the same
+                // banner).
+                let active = store::count_active_users(&state.engine).await?;
+                if active > 0 {
+                    audit_redeem_failed(&state, "bootstrap-already-claimed", &ip);
+                    return Err(ConsoleApiError::Conflict(
+                        "this server has already been claimed; ask your admin for an invite".into(),
+                    ));
+                }
+                // Provision a placeholder user. The SPA fills in the email
+                // and display name during the passkey enrollment flow.
+                let synthetic_id = uuid::Uuid::new_v4().to_string();
+                (synthetic_id, link.email.clone())
             }
-            // Provision a placeholder user. The SPA fills in the email
-            // and display name during the passkey enrollment flow.
-            let synthetic_id = uuid::Uuid::new_v4().to_string();
-            (synthetic_id, link.email.clone())
-        }
-        "invite" => {
-            let uid = link
-                .user_id
-                .clone()
-                .ok_or_else(|| ConsoleApiError::Internal("invite link without user_id".into()))?;
-            // Make sure the invitee row still exists (admin may have
-            // deleted them between mint and redeem).
-            let user = store::get_user(&state.engine, &uid).await?;
-            if user.is_none() {
-                audit_redeem_failed(&state, "invitee-gone", &ip);
-                return Err(ConsoleApiError::Unauthorized("invalid or expired link".into()));
+            "invite" => {
+                let uid = link.user_id.clone().ok_or_else(|| {
+                    ConsoleApiError::Internal("invite link without user_id".into())
+                })?;
+                // Make sure the invitee row still exists (admin may have
+                // deleted them between mint and redeem).
+                let user = store::get_user(&state.engine, &uid).await?;
+                if user.is_none() {
+                    audit_redeem_failed(&state, "invitee-gone", &ip);
+                    return Err(ConsoleApiError::Unauthorized(
+                        "invalid or expired link".into(),
+                    ));
+                }
+                (uid, link.email.clone())
             }
-            (uid, link.email.clone())
-        }
-        "recovery" => {
-            // Reserved for v1.1 — same shape as invite.
-            let uid = link
-                .user_id
-                .clone()
-                .ok_or_else(|| ConsoleApiError::Internal("recovery link without user_id".into()))?;
-            (uid, link.email.clone())
-        }
-        other => {
-            return Err(ConsoleApiError::Internal(format!(
-                "unknown magic-link purpose: {other}"
-            )));
-        }
-    };
+            "recovery" => {
+                // Reserved for v1.1 — same shape as invite.
+                let uid = link.user_id.clone().ok_or_else(|| {
+                    ConsoleApiError::Internal("recovery link without user_id".into())
+                })?;
+                (uid, link.email.clone())
+            }
+            other => {
+                return Err(ConsoleApiError::Internal(format!(
+                    "unknown magic-link purpose: {other}"
+                )));
+            }
+        };
 
     // Mark used.
     store::mark_magic_link_used(&state.engine, &token_hash, &now_iso()).await?;

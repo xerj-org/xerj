@@ -60,14 +60,18 @@ pub mod transport;
 
 // ── Convenience re-exports ────────────────────────────────────────────────────
 
-pub use coordinator::{IndexResponse, LocalSearcher, MergedSearchResult, SearchCoordinator, SearchTransport};
+pub use coordinator::{
+    IndexResponse, LocalSearcher, MergedSearchResult, SearchCoordinator, SearchTransport,
+};
 pub use metadata::{ClusterMetadata, IndexMetadata, NodeInfo, NodeState};
 pub use node::{ClusterNode, ClusterTransport};
 pub use raft::{ClusterCommand, LogEntry, RaftMessage, RaftNode, RaftState};
 pub use regions::{Region, RegionManager, RegionMove};
-pub use replication::{ReplicationEntry, ReplicationMode, ReplicationOp, ReplicationResult, WalReplicator};
-pub use router::ShardRouter;
+pub use replication::{
+    ReplicationEntry, ReplicationMode, ReplicationOp, ReplicationResult, WalReplicator,
+};
 pub use router::jump_hash;
+pub use router::ShardRouter;
 pub use runner::{ClusterRunner, ClusterRunnerBuilder};
-pub use search::{SearchHit, SearchMessage, merge_search_responses};
+pub use search::{merge_search_responses, SearchHit, SearchMessage};
 pub use transport::TcpTransport;

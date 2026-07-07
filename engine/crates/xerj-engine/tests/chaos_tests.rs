@@ -57,17 +57,9 @@ fn now_ts() -> String {
 
 fn print_header(test_name: &str) {
     println!();
-    println!(
-        "┌─────────────────────────────────────────────────────────────────┐"
-    );
-    println!(
-        "│  [{ts}]  {name:<52}│",
-        ts = now_ts(),
-        name = test_name
-    );
-    println!(
-        "└─────────────────────────────────────────────────────────────────┘"
-    );
+    println!("┌─────────────────────────────────────────────────────────────────┐");
+    println!("│  [{ts}]  {name:<52}│", ts = now_ts(), name = test_name);
+    println!("└─────────────────────────────────────────────────────────────────┘");
 }
 
 fn print_summary(results: &[TestResult]) {
@@ -178,9 +170,7 @@ async fn chaos_crash_during_writes() {
             // Phase 1: index N docs then "crash" (drop without flush).
             {
                 let engine = make_engine(&dir);
-                engine
-                    .create_index("crash_idx", Schema::empty())
-                    .unwrap();
+                engine.create_index("crash_idx", Schema::empty()).unwrap();
                 let idx = engine.get_index("crash_idx").unwrap();
                 for i in 0..crash_after {
                     idx.index_document(
@@ -204,9 +194,13 @@ async fn chaos_crash_during_writes() {
             let elapsed_ms = iter_start.elapsed().as_millis();
 
             // Allow up to 0.5% loss for batched WAL sync (same as ES translog batched mode)
-        let min_recovered = (crash_after as f64 * 0.995) as u64;
-        let ok = recovered >= min_recovered;
-            if ok { pass += 1; } else { fail += 1; }
+            let min_recovered = (crash_after as f64 * 0.995) as u64;
+            let ok = recovered >= min_recovered;
+            if ok {
+                pass += 1;
+            } else {
+                fail += 1;
+            }
 
             let rate = (recovered as f64 / crash_after as f64) * 100.0;
             println!(
@@ -219,7 +213,11 @@ async fn chaos_crash_during_writes() {
                 rec = recovered,
                 rate = rate,
                 ms = elapsed_ms,
-                status = if ok { "PASS" } else { "FAIL ← data loss detected" },
+                status = if ok {
+                    "PASS"
+                } else {
+                    "FAIL ← data loss detected"
+                },
             );
         }
     }
@@ -245,14 +243,16 @@ async fn chaos_crash_during_writes() {
             drop(engine);
         }
         let engine2 = make_engine_at(dir.path());
-        let idx2 = engine2
-            .get_index("crash_idx")
-            .expect("index must reopen");
+        let idx2 = engine2.get_index("crash_idx").expect("index must reopen");
         let recovered = count_all(&idx2).await;
         // Allow up to 0.5% loss for batched WAL sync (same as ES translog batched mode)
         let min_recovered = (crash_after as f64 * 0.995) as u64;
         let ok = recovered >= min_recovered;
-        if ok { pass += 1; } else { fail += 1; }
+        if ok {
+            pass += 1;
+        } else {
+            fail += 1;
+        }
         println!(
             "  [{ts}] iter={it:>2}  crash_after={n:>6}  recovered={rec}  \
              elapsed={ms}ms  {status}",
@@ -299,6 +299,9 @@ async fn chaos_wal_corruption() {
         apply: fn(&mut Vec<u8>),
     }
 
+    // ptr_arg: signature must stay `fn(&mut Vec<u8>)` to match the CorruptCase.apply
+    // field type shared with corrupt_truncate50, which needs Vec::truncate.
+    #[allow(clippy::ptr_arg)]
     fn corrupt_last10(data: &mut Vec<u8>) {
         let len = data.len();
         if len >= 10 {
@@ -307,6 +310,9 @@ async fn chaos_wal_corruption() {
             }
         }
     }
+    // ptr_arg: signature must stay `fn(&mut Vec<u8>)` to match the CorruptCase.apply
+    // field type shared with corrupt_truncate50, which needs Vec::truncate.
+    #[allow(clippy::ptr_arg)]
     fn corrupt_middle(data: &mut Vec<u8>) {
         let mid = data.len() / 2;
         let end = (mid + 64).min(data.len());
@@ -314,6 +320,9 @@ async fn chaos_wal_corruption() {
             *b ^= 0xAA;
         }
     }
+    // ptr_arg: signature must stay `fn(&mut Vec<u8>)` to match the CorruptCase.apply
+    // field type shared with corrupt_truncate50, which needs Vec::truncate.
+    #[allow(clippy::ptr_arg)]
     fn corrupt_header(data: &mut Vec<u8>) {
         // Overwrite the 4-byte "ZWAL" magic at offset 0.
         if data.len() >= 4 {
@@ -327,6 +336,9 @@ async fn chaos_wal_corruption() {
         let half = data.len() / 2;
         data.truncate(half);
     }
+    // ptr_arg: signature must stay `fn(&mut Vec<u8>)` to match the CorruptCase.apply
+    // field type shared with corrupt_truncate50, which needs Vec::truncate.
+    #[allow(clippy::ptr_arg)]
     fn corrupt_zero4kb(data: &mut Vec<u8>) {
         let start = (data.len() / 4).min(data.len().saturating_sub(4096));
         let end = (start + 4096).min(data.len());
@@ -336,11 +348,26 @@ async fn chaos_wal_corruption() {
     }
 
     let cases: &[CorruptCase] = &[
-        CorruptCase { name: "last-10-bytes",   apply: corrupt_last10   },
-        CorruptCase { name: "middle-64-bytes",  apply: corrupt_middle   },
-        CorruptCase { name: "header-magic",     apply: corrupt_header   },
-        CorruptCase { name: "truncate-50pct",   apply: corrupt_truncate50 },
-        CorruptCase { name: "zero-4kb-block",   apply: corrupt_zero4kb  },
+        CorruptCase {
+            name: "last-10-bytes",
+            apply: corrupt_last10,
+        },
+        CorruptCase {
+            name: "middle-64-bytes",
+            apply: corrupt_middle,
+        },
+        CorruptCase {
+            name: "header-magic",
+            apply: corrupt_header,
+        },
+        CorruptCase {
+            name: "truncate-50pct",
+            apply: corrupt_truncate50,
+        },
+        CorruptCase {
+            name: "zero-4kb-block",
+            apply: corrupt_zero4kb,
+        },
     ];
 
     for case in cases {
@@ -371,12 +398,7 @@ async fn chaos_wal_corruption() {
             .ok()
             .and_then(|rd| {
                 rd.flatten()
-                    .find(|e| {
-                        e.path()
-                            .extension()
-                            .map(|x| x == "wal")
-                            .unwrap_or(false)
-                    })
+                    .find(|e| e.path().extension().map(|x| x == "wal").unwrap_or(false))
             })
             .map(|e| e.path());
 
@@ -422,7 +444,11 @@ async fn chaos_wal_corruption() {
 
         // Pass = engine opened without panic (data loss is acceptable for some corruption types).
         let ok = engine_opened;
-        if ok { pass += 1; } else { fail += 1; }
+        if ok {
+            pass += 1;
+        } else {
+            fail += 1;
+        }
 
         println!(
             "  [{ts}] iter={it}  corruption={name:<20}  opened={op}  \
@@ -435,7 +461,11 @@ async fn chaos_wal_corruption() {
             total = doc_count,
             loss = loss_pct,
             ms = iter_start.elapsed().as_millis(),
-            status = if ok { "PASS" } else { "FAIL ← engine crashed/panicked" },
+            status = if ok {
+                "PASS"
+            } else {
+                "FAIL ← engine crashed/panicked"
+            },
         );
     }
 
@@ -473,9 +503,7 @@ async fn chaos_rapid_restart_loop() {
     // Seed data and flush so it lives in a segment (survives WAL-free reopens).
     {
         let engine = make_engine(&dir);
-        engine
-            .create_index("restart_idx", Schema::empty())
-            .unwrap();
+        engine.create_index("restart_idx", Schema::empty()).unwrap();
         let idx = engine.get_index("restart_idx").unwrap();
         for i in 0..initial_docs {
             idx.index_document(
@@ -505,15 +533,18 @@ async fn chaos_rapid_restart_loop() {
 
         // Use match_all — works across both memtable and flushed segments
         let search_req =
-            parse_request(&json!({ "query": { "match_all": {} }, "size": 5 }))
-                .unwrap();
+            parse_request(&json!({ "query": { "match_all": {} }, "size": 5 })).unwrap();
         let search_result = idx.search(&search_req).await.unwrap();
-        let search_works = search_result.total.value > 0 && search_result.hits.len() > 0;
+        let search_works = search_result.total.value > 0 && !search_result.hits.is_empty();
 
         let restart_ms = iter_start.elapsed().as_millis();
         let iter_ok = doc_count == initial_docs && search_works;
 
-        if iter_ok { pass += 1; } else { fail += 1; }
+        if iter_ok {
+            pass += 1;
+        } else {
+            fail += 1;
+        }
 
         // Print every 10th iteration or on failure.
         if i % 10 == 0 || !iter_ok {
@@ -565,9 +596,7 @@ async fn chaos_concurrent_readwrite_stress() {
 
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
-    engine
-        .create_index("stress_idx", Schema::empty())
-        .unwrap();
+    engine.create_index("stress_idx", Schema::empty()).unwrap();
     let idx = Arc::new(engine.get_index("stress_idx").unwrap());
 
     let write_errors = Arc::new(AtomicU64::new(0));
@@ -601,9 +630,8 @@ async fn chaos_concurrent_readwrite_stress() {
     }
 
     // Spawn readers.
-    let search_req = Arc::new(
-        parse_request(&json!({ "query": { "match_all": {} }, "size": 1 })).unwrap(),
-    );
+    let search_req =
+        Arc::new(parse_request(&json!({ "query": { "match_all": {} }, "size": 1 })).unwrap());
     let mut reader_handles = Vec::new();
     for _ in 0..reader_tasks {
         let idx_c = Arc::clone(&idx);
@@ -613,15 +641,23 @@ async fn chaos_concurrent_readwrite_stress() {
         reader_handles.push(tokio::spawn(async move {
             for _ in 0..searches_per_reader {
                 match idx_c.search(&req_c).await {
-                    Ok(_) => { ok_c.fetch_add(1, Ordering::Relaxed); }
-                    Err(_) => { err_c.fetch_add(1, Ordering::Relaxed); }
+                    Ok(_) => {
+                        ok_c.fetch_add(1, Ordering::Relaxed);
+                    }
+                    Err(_) => {
+                        err_c.fetch_add(1, Ordering::Relaxed);
+                    }
                 }
             }
         }));
     }
 
-    for h in writer_handles { h.await.expect("writer task panicked"); }
-    for h in reader_handles { h.await.expect("reader task panicked"); }
+    for h in writer_handles {
+        h.await.expect("writer task panicked");
+    }
+    for h in reader_handles {
+        h.await.expect("reader task panicked");
+    }
 
     let expected_docs = (writer_tasks * docs_per_writer) as u64;
     let actual_docs = count_all(&idx).await;
@@ -635,15 +671,23 @@ async fn chaos_concurrent_readwrite_stress() {
 
     println!(
         "  [{ts}] total_writes={tw}  actual_docs={ad}  write_errors={we}",
-        ts = now_ts(), tw = expected_docs, ad = actual_docs, we = w_err
+        ts = now_ts(),
+        tw = expected_docs,
+        ad = actual_docs,
+        we = w_err
     );
     println!(
         "  [{ts}] reads_ok={rok}  read_errors={re}  duration={d:.1}s",
-        ts = now_ts(), rok = r_ok, re = r_err, d = duration.as_secs_f64()
+        ts = now_ts(),
+        rok = r_ok,
+        re = r_err,
+        d = duration.as_secs_f64()
     );
     println!(
         "  [{ts}] write_throughput={wt:.0} docs/s  read_throughput={rt:.0} searches/s",
-        ts = now_ts(), wt = write_tput, rt = read_tput
+        ts = now_ts(),
+        wt = write_tput,
+        rt = read_tput
     );
 
     let all_ok = actual_docs == expected_docs && w_err == 0 && r_err == 0;
@@ -680,9 +724,7 @@ async fn chaos_large_documents() {
 
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
-    engine
-        .create_index("large_idx", Schema::empty())
-        .unwrap();
+    engine.create_index("large_idx", Schema::empty()).unwrap();
     let idx = engine.get_index("large_idx").unwrap();
 
     let sizes: &[(usize, &str)] = &[
@@ -724,7 +766,11 @@ async fn chaos_large_documents() {
             .unwrap_or(false);
 
         let iter_ok = index_ok && source_verified;
-        if iter_ok { pass += 1; } else { fail += 1; }
+        if iter_ok {
+            pass += 1;
+        } else {
+            fail += 1;
+        }
 
         println!(
             "  [{ts}] size={label:<6}  bytes={b:>9}  index_ms={im:>6}  \
@@ -777,9 +823,7 @@ async fn chaos_flush_during_writes() {
 
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
-    engine
-        .create_index("flush_idx", Schema::empty())
-        .unwrap();
+    engine.create_index("flush_idx", Schema::empty()).unwrap();
     let idx = engine.get_index("flush_idx").unwrap();
 
     let mut flush_count = 0u64;
@@ -831,9 +875,8 @@ async fn chaos_flush_during_writes() {
         ar = docs_after,
     );
 
-    let all_ok = flush_count == expected_flushes
-        && docs_before == total_docs
-        && docs_after == total_docs;
+    let all_ok =
+        flush_count == expected_flushes && docs_before == total_docs && docs_after == total_docs;
     println!(
         "  RESULT: {}  duration={d:.1}s",
         if all_ok { "PASS" } else { "FAIL" },
@@ -846,7 +889,11 @@ async fn chaos_flush_during_writes() {
         fail: if all_ok { 0 } else { 1 },
         duration,
     });
-    assert_eq!(flush_count, expected_flushes, "expected {} flushes", expected_flushes);
+    assert_eq!(
+        flush_count, expected_flushes,
+        "expected {} flushes",
+        expected_flushes
+    );
     assert_eq!(docs_before, total_docs, "docs before restart mismatch");
     assert_eq!(docs_after, total_docs, "docs after restart mismatch");
 }
@@ -922,7 +969,12 @@ async fn chaos_delete_during_writes() {
     let even_spot_check = [0u64, 2, 100, 500, 1998];
     let mut even_present = 0u64;
     for &n in &even_spot_check {
-        if idx.get_document(&format!("orig-{}", n)).await.unwrap().is_some() {
+        if idx
+            .get_document(&format!("orig-{}", n))
+            .await
+            .unwrap()
+            .is_some()
+        {
             even_present += 1;
         }
     }
@@ -931,7 +983,12 @@ async fn chaos_delete_during_writes() {
     let odd_spot_check = [1u64, 3, 101, 501, 1999];
     let mut odd_absent = 0u64;
     for &n in &odd_spot_check {
-        if idx.get_document(&format!("orig-{}", n)).await.unwrap().is_none() {
+        if idx
+            .get_document(&format!("orig-{}", n))
+            .await
+            .unwrap()
+            .is_none()
+        {
             odd_absent += 1;
         }
     }
@@ -979,8 +1036,16 @@ async fn chaos_delete_during_writes() {
         fail: u64::from(!all_ok),
         duration,
     });
-    assert_eq!(even_present, even_spot_check.len() as u64, "even originals missing");
-    assert_eq!(odd_absent, odd_spot_check.len() as u64, "odd docs not deleted");
+    assert_eq!(
+        even_present,
+        even_spot_check.len() as u64,
+        "even originals missing"
+    );
+    assert_eq!(
+        odd_absent,
+        odd_spot_check.len() as u64,
+        "odd docs not deleted"
+    );
     assert!(new_doc_ok, "new doc missing after concurrent writes");
 }
 
@@ -1004,15 +1069,16 @@ async fn chaos_memory_pressure() {
     // ~1KB body per doc.
     let body_1kb: String = "abcdefghij".repeat(102);
 
-    println!("  Indexing {} docs (~1KB each = ~{}MB total)…", doc_count, doc_count / 1024);
+    println!(
+        "  Indexing {} docs (~1KB each = ~{}MB total)…",
+        doc_count,
+        doc_count / 1024
+    );
     let ingest_start = Instant::now();
     for i in 0..doc_count {
-        idx.index_document(
-            Some(format!("m{}", i)),
-            json!({ "n": i, "body": body_1kb }),
-        )
-        .await
-        .unwrap();
+        idx.index_document(Some(format!("m{}", i)), json!({ "n": i, "body": body_1kb }))
+            .await
+            .unwrap();
         if i % 10_000 == 0 && i > 0 {
             println!(
                 "  [{ts}] ingested {i}/{doc_count}  rss={rss:.0}MB",
@@ -1028,7 +1094,11 @@ async fn chaos_memory_pressure() {
     );
 
     let peak_rss_mb = read_rss_mb();
-    println!("  [{ts}] peak_rss_mb={rss:.0}", ts = now_ts(), rss = peak_rss_mb);
+    println!(
+        "  [{ts}] peak_rss_mb={rss:.0}",
+        ts = now_ts(),
+        rss = peak_rss_mb
+    );
 
     // 100 concurrent aggregation queries.
     let idx_arc = Arc::new(idx);
@@ -1052,12 +1122,18 @@ async fn chaos_memory_pressure() {
         let ok_c = Arc::clone(&q_ok);
         handles.push(tokio::spawn(async move {
             match idx_c.search(&req_c).await {
-                Ok(_) => { ok_c.fetch_add(1, Ordering::Relaxed); }
-                Err(_) => { err_c.fetch_add(1, Ordering::Relaxed); }
+                Ok(_) => {
+                    ok_c.fetch_add(1, Ordering::Relaxed);
+                }
+                Err(_) => {
+                    err_c.fetch_add(1, Ordering::Relaxed);
+                }
             }
         }));
     }
-    for h in handles { h.await.expect("query task panicked"); }
+    for h in handles {
+        h.await.expect("query task panicked");
+    }
 
     let queries_ok = q_ok.load(Ordering::Relaxed);
     let queries_err = q_err.load(Ordering::Relaxed);
@@ -1089,13 +1165,20 @@ async fn chaos_memory_pressure() {
         duration,
     });
     assert_eq!(queries_err, 0, "{} aggregation queries failed", queries_err);
-    assert_eq!(queries_ok, concurrent_queries as u64, "not all queries completed");
+    assert_eq!(
+        queries_ok, concurrent_queries as u64,
+        "not all queries completed"
+    );
 }
 
 fn read_rss_mb() -> f64 {
     // /proc/self/statm: size resident shared text lib data dt (pages, 4KB each).
     if let Ok(s) = std::fs::read_to_string("/proc/self/statm") {
-        if let Some(rss_pages) = s.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok()) {
+        if let Some(rss_pages) = s
+            .split_whitespace()
+            .nth(1)
+            .and_then(|v| v.parse::<u64>().ok())
+        {
             return (rss_pages * 4096) as f64 / (1024.0 * 1024.0);
         }
     }
@@ -1114,9 +1197,7 @@ async fn chaos_schema_evolution() {
 
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
-    engine
-        .create_index("schema_idx", Schema::empty())
-        .unwrap();
+    engine.create_index("schema_idx", Schema::empty()).unwrap();
     let idx = engine.get_index("schema_idx").unwrap();
 
     // Batch 1: fields {a, b, c}
@@ -1170,13 +1251,34 @@ async fn chaos_schema_evolution() {
         query: Value,
     }
     let field_searches = [
-        FieldSearch { field: "a", query: json!({"range": {"a": {"gte": 0, "lte": 100}}}) },
-        FieldSearch { field: "b", query: json!({"match": {"b": "batch1"}}) },
-        FieldSearch { field: "c", query: json!({"range": {"c": {"gte": 0, "lte": 5}}}) },
-        FieldSearch { field: "d", query: json!({"match": {"d": "batch2"}}) },
-        FieldSearch { field: "e", query: json!({"range": {"e": {"gte": 0, "lte": 50}}}) },
-        FieldSearch { field: "f", query: json!({"match": {"f": "batch3"}}) },
-        FieldSearch { field: "g", query: json!({"range": {"g": {"gte": 0.0, "lte": 10.0}}}) },
+        FieldSearch {
+            field: "a",
+            query: json!({"range": {"a": {"gte": 0, "lte": 100}}}),
+        },
+        FieldSearch {
+            field: "b",
+            query: json!({"match": {"b": "batch1"}}),
+        },
+        FieldSearch {
+            field: "c",
+            query: json!({"range": {"c": {"gte": 0, "lte": 5}}}),
+        },
+        FieldSearch {
+            field: "d",
+            query: json!({"match": {"d": "batch2"}}),
+        },
+        FieldSearch {
+            field: "e",
+            query: json!({"range": {"e": {"gte": 0, "lte": 50}}}),
+        },
+        FieldSearch {
+            field: "f",
+            query: json!({"match": {"f": "batch3"}}),
+        },
+        FieldSearch {
+            field: "g",
+            query: json!({"range": {"g": {"gte": 0.0, "lte": 10.0}}}),
+        },
     ];
 
     let mut fields_ok = 0usize;
@@ -1186,7 +1288,11 @@ async fn chaos_schema_evolution() {
         let req = parse_request(&json!({ "query": fs.query, "size": 5 })).unwrap();
         let result = idx.search(&req).await.unwrap();
         let ok = result.total.value > 0;
-        if ok { fields_ok += 1; } else { fields_fail += 1; }
+        if ok {
+            fields_ok += 1;
+        } else {
+            fields_fail += 1;
+        }
         println!(
             "  [{ts}] field={f:<3}  hits={h:>5}  {status}",
             ts = now_ts(),
@@ -1223,7 +1329,11 @@ async fn chaos_schema_evolution() {
         duration,
     });
     assert_eq!(total_docs, 1500, "expected 1500 docs");
-    assert_eq!(fields_fail, 0, "schema evolution: {} fields returned no hits", fields_fail);
+    assert_eq!(
+        fields_fail, 0,
+        "schema evolution: {} fields returned no hits",
+        fields_fail
+    );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1259,7 +1369,10 @@ async fn chaos_data_integrity() {
     let dir = TempDir::new().unwrap();
 
     // ── Phase 1: index and verify before restart ──────────────────────────────
-    println!("  Phase 1: indexing {} docs and verifying checksums pre-restart…", doc_count);
+    println!(
+        "  Phase 1: indexing {} docs and verifying checksums pre-restart…",
+        doc_count
+    );
     let (pre_verified, pre_mismatches) = {
         let engine = make_engine(&dir);
         engine
@@ -1278,9 +1391,7 @@ async fn chaos_data_integrity() {
         for (id, src) in &docs {
             match idx.get_document(id).await {
                 Ok(Some(got)) => {
-                    if fnv64(got.to_string().as_bytes())
-                        == fnv64(src.to_string().as_bytes())
-                    {
+                    if fnv64(got.to_string().as_bytes()) == fnv64(src.to_string().as_bytes()) {
                         v += 1;
                     } else {
                         m += 1;
@@ -1301,7 +1412,11 @@ async fn chaos_data_integrity() {
         total = doc_count,
         m = pre_mismatches,
     );
-    assert_eq!(pre_mismatches, 0, "pre-restart checksum failures: {}", pre_mismatches);
+    assert_eq!(
+        pre_mismatches, 0,
+        "pre-restart checksum failures: {}",
+        pre_mismatches
+    );
 
     // ── Phase 2: reopen via WAL replay and re-verify ──────────────────────────
     println!("  Phase 2: reopening engine (WAL replay) and re-verifying checksums…");
@@ -1338,8 +1453,7 @@ async fn chaos_data_integrity() {
         miss = post_missing,
     );
 
-    let all_ok =
-        post_mismatches == 0 && post_missing == 0 && post_verified == doc_count;
+    let all_ok = post_mismatches == 0 && post_missing == 0 && post_verified == doc_count;
     println!(
         "  RESULT: {}  duration={d:.1}s",
         if all_ok { "PASS" } else { "FAIL" },
@@ -1363,7 +1477,18 @@ async fn chaos_data_integrity() {
         print_summary(&results);
     }
 
-    assert_eq!(post_mismatches, 0, "checksum mismatches after WAL replay: {}", post_mismatches);
-    assert_eq!(post_missing, 0, "docs missing after WAL replay: {}", post_missing);
-    assert_eq!(post_verified, doc_count, "not all docs verified after restart");
+    assert_eq!(
+        post_mismatches, 0,
+        "checksum mismatches after WAL replay: {}",
+        post_mismatches
+    );
+    assert_eq!(
+        post_missing, 0,
+        "docs missing after WAL replay: {}",
+        post_missing
+    );
+    assert_eq!(
+        post_verified, doc_count,
+        "not all docs verified after restart"
+    );
 }

@@ -51,8 +51,12 @@ fn main() {
     let reg = AnalyzerRegistry::default();
     let analyzer = reg.get_analyzer("standard").unwrap();
     let schema = Schema::default();
-    let mut inputs: Vec<(String, Arc<Value>, Vec<(String, Vec<xerj_fts::analyzer::Token>)>)> =
-        Vec::with_capacity(n_docs);
+    type DocInput = (
+        String,
+        Arc<Value>,
+        Vec<(String, Vec<xerj_fts::analyzer::Token>)>,
+    );
+    let mut inputs: Vec<DocInput> = Vec::with_capacity(n_docs);
     for i in 0..n_docs {
         let line = &raw[i % raw.len()];
         let v: Value = serde_json::from_str(line).unwrap();

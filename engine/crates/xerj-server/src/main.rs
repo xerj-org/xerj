@@ -36,16 +36,16 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use axum::Router;
-use tokio::signal;
 use tokio::net::TcpListener;
+use tokio::signal;
 use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
 
 use xerj_api::{build_es_compat_router, build_native_router, AppState};
-use xerj_cluster::{ClusterNode, ClusterRunner, transport::TcpTransport};
+use xerj_cluster::{transport::TcpTransport, ClusterNode, ClusterRunner};
 use xerj_common::{config::Config, metrics::Metrics};
-use xerj_engine::Engine;
 use xerj_console_api::{state::ClusterMode, ConsoleState};
+use xerj_engine::Engine;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CLI
@@ -90,7 +90,11 @@ fn parse_args() -> CliArgs {
         }
     }
 
-    CliArgs { config, data_dir, insecure }
+    CliArgs {
+        config,
+        data_dir,
+        insecure,
+    }
 }
 
 fn print_help() {
@@ -122,7 +126,10 @@ fn print_banner(cfg: &Config, startup_ms: u128) {
     let tls = if cfg.tls.enabled { "TLS " } else { "plain" };
     println!();
     println!(" ▀▄▀  ▄▀█  █▄█  ▄▀█  █ █");
-    println!(" █ █  █▀█   █   █▀█  █▀█  · ai   v{}", env!("CARGO_PKG_VERSION"));
+    println!(
+        " █ █  █▀█   █   █▀█  █▀█  · ai   v{}",
+        env!("CARGO_PKG_VERSION")
+    );
     println!();
     println!(" byte-perfect from design to code");
     println!();
@@ -156,7 +163,9 @@ fn print_banner(cfg: &Config, startup_ms: u128) {
     if !cfg.auth.enabled {
         println!(" │ ⚠  Auth:   DISABLED (--insecure) — anyone on the network can write");
     } else {
-        println!(" │ ✓  Auth:   single API-key (no RBAC; per-doc / per-field controls roadmap v0.9)");
+        println!(
+            " │ ✓  Auth:   single API-key (no RBAC; per-doc / per-field controls roadmap v0.9)"
+        );
     }
     println!(" │ ⚠  Audit:  request tracing only — tamper-evident WORM audit log v0.9");
     println!(" │ ⚠  Encryption-at-rest: not engine-level — use OS FDE or S3 SSE for now");
@@ -176,8 +185,7 @@ fn load_config(args: &CliArgs) -> Result<Config> {
 
     let mut cfg = if let Some(path) = config_path {
         info!("loading config from {}", path.display());
-        Config::load(&path)
-            .with_context(|| format!("load config from {}", path.display()))?
+        Config::load(&path).with_context(|| format!("load config from {}", path.display()))?
     } else {
         info!("no config file — using defaults");
         Config::default()
@@ -410,22 +418,13 @@ fn parse_index_args() -> IndexCmdArgs {
             "--index" | "-i" => index = args.next(),
             "--file" | "-f" => file = args.next().map(PathBuf::from),
             "--batch" | "-b" => {
-                batch = args
-                    .next()
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(5000);
+                batch = args.next().and_then(|s| s.parse().ok()).unwrap_or(5000);
             }
             "--workers" | "-w" => {
-                workers = args
-                    .next()
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(0);
+                workers = args.next().and_then(|s| s.parse().ok()).unwrap_or(0);
             }
             "--limit" | "-l" => {
-                limit = args
-                    .next()
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(0);
+                limit = args.next().and_then(|s| s.parse().ok()).unwrap_or(0);
             }
             "--config" | "-c" => config = args.next().map(PathBuf::from),
             "--data-dir" | "-d" => data_dir = args.next(),
@@ -449,7 +448,15 @@ fn parse_index_args() -> IndexCmdArgs {
         std::process::exit(2);
     });
 
-    IndexCmdArgs { index, file, batch, workers, limit, config, data_dir }
+    IndexCmdArgs {
+        index,
+        file,
+        batch,
+        workers,
+        limit,
+        config,
+        data_dir,
+    }
 }
 
 fn print_index_help() {
@@ -536,8 +543,8 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
     // pre-M5.14 BufReader::lines() loop that was pinned to one thread
     // at ~400 MB/s and became the hot-path bottleneck once xerj was
     // doing 900k docs/s peak.
-    let file = std::fs::File::open(&cmd.file)
-        .with_context(|| format!("open {}", cmd.file.display()))?;
+    let file =
+        std::fs::File::open(&cmd.file).with_context(|| format!("open {}", cmd.file.display()))?;
     let file_size = file.metadata().map(|m| m.len()).unwrap_or(0);
     let mmap: memmap2::Mmap = unsafe { memmap2::Mmap::map(&file) }
         .with_context(|| format!("mmap {}", cmd.file.display()))?;
@@ -629,10 +636,7 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
 
     let scan_result = tokio::task::spawn_blocking(move || {
         use rayon::prelude::*;
-        let pairs: Vec<(usize, usize)> = boundaries
-            .windows(2)
-            .map(|w| (w[0], w[1]))
-            .collect();
+        let pairs: Vec<(usize, usize)> = boundaries.windows(2).map(|w| (w[0], w[1])).collect();
 
         let seen = std::sync::atomic::AtomicU64::new(0);
 
@@ -640,16 +644,12 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
             .par_iter()
             .enumerate()
             .for_each(|(scanner_idx, &(start, end))| {
-                if limit > 0
-                    && seen.load(std::sync::atomic::Ordering::Relaxed)
-                        >= limit as u64
-                {
+                if limit > 0 && seen.load(std::sync::atomic::Ordering::Relaxed) >= limit as u64 {
                     return;
                 }
                 let chunk = &data[start..end];
                 let mut cursor = 0usize;
-                let mut current: Vec<(String, StdArc<[u8]>)> =
-                    Vec::with_capacity(batch_size);
+                let mut current: Vec<(String, StdArc<[u8]>)> = Vec::with_capacity(batch_size);
 
                 // Synchronous submit with back-pressure retry.  The engine
                 // returns ResourceExhausted only when memtable > 3× flush
@@ -668,10 +668,7 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
                         let b = current_batch.take().unwrap();
                         match idx_for_rayon.index_batch_sync_raw(b) {
                             Ok(_) => {
-                                sent_for_rayon.fetch_add(
-                                    n,
-                                    std::sync::atomic::Ordering::Relaxed,
-                                );
+                                sent_for_rayon.fetch_add(n, std::sync::atomic::Ordering::Relaxed);
                                 return;
                             }
                             Err(xerj_engine::EngineError::Common(
@@ -682,22 +679,16 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
                                 // 50 ms; add a tiny thread::sleep to avoid
                                 // a tight busy-loop on persistent back-
                                 // pressure (flusher is clearly saturated).
-                                std::thread::sleep(
-                                    std::time::Duration::from_millis(5),
-                                );
+                                std::thread::sleep(std::time::Duration::from_millis(5));
                                 let reclone: Vec<(String, StdArc<[u8]>)> = retry
                                     .iter()
                                     .map(|(id, b)| (id.clone(), StdArc::clone(b)))
                                     .collect();
-                                current_batch =
-                                    Some(std::mem::replace(&mut retry, reclone));
+                                current_batch = Some(std::mem::replace(&mut retry, reclone));
                             }
                             Err(e) => {
                                 error!("batch ingest error: {e}");
-                                errs_for_rayon.fetch_add(
-                                    n,
-                                    std::sync::atomic::Ordering::Relaxed,
-                                );
+                                errs_for_rayon.fetch_add(n, std::sync::atomic::Ordering::Relaxed);
                                 return;
                             }
                         }
@@ -705,8 +696,8 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
                 };
 
                 while cursor < chunk.len() {
-                    let nl_rel = memchr::memchr(b'\n', &chunk[cursor..])
-                        .unwrap_or(chunk.len() - cursor);
+                    let nl_rel =
+                        memchr::memchr(b'\n', &chunk[cursor..]).unwrap_or(chunk.len() - cursor);
                     let line_end = cursor + nl_rel;
                     let line = &chunk[cursor..line_end];
                     cursor = line_end + 1;
@@ -714,8 +705,7 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
                         continue;
                     }
 
-                    let seq =
-                        seen.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let seq = seen.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     if limit > 0 && seq >= limit as u64 {
                         break;
                     }
@@ -725,10 +715,7 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
                     current.push((doc_id, bytes));
 
                     if current.len() >= batch_size {
-                        let batch = std::mem::replace(
-                            &mut current,
-                            Vec::with_capacity(batch_size),
-                        );
+                        let batch = std::mem::replace(&mut current, Vec::with_capacity(batch_size));
                         submit(batch);
                     }
                 }
@@ -774,10 +761,16 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
     println!(" docs sent      : {}", sent);
     println!(" errors         : {}", errs);
     println!(" ingest time    : {:.2} s", ingest_elapsed.as_secs_f64());
-    println!(" ingest rate    : {:.0} docs/s  (WAL-durable, in-memtable)", ingest_rate);
+    println!(
+        " ingest rate    : {:.0} docs/s  (WAL-durable, in-memtable)",
+        ingest_rate
+    );
     println!(" final flush    : {:.2} s", flush_elapsed.as_secs_f64());
     println!(" total elapsed  : {:.2} s", elapsed.as_secs_f64());
-    println!(" total rate     : {:.0} docs/s  (fully segment-durable)", total_rate);
+    println!(
+        " total rate     : {:.0} docs/s  (fully segment-durable)",
+        total_rate
+    );
     println!(" workers        : {}", workers);
     println!(" batch size     : {}", batch_size);
     println!("═══════════════════════════════════════════════════════════");
@@ -899,7 +892,9 @@ async fn async_main() -> Result<()> {
         for peer_str in &cfg.cluster.peers {
             if let Some((id, addr_str)) = peer_str.split_once('=') {
                 match addr_str.parse::<std::net::SocketAddr>() {
-                    Ok(addr) => { peers.insert(id.to_string(), addr); }
+                    Ok(addr) => {
+                        peers.insert(id.to_string(), addr);
+                    }
                     Err(e) => warn!("cluster: ignoring invalid peer {peer_str}: {e}"),
                 }
             } else {
@@ -908,16 +903,11 @@ async fn async_main() -> Result<()> {
         }
 
         // Derive this node's listen address from the server bind address + cluster port.
-        let node_id = format!(
-            "{}:{}",
-            cfg.server.bind_address, cfg.cluster.port
-        );
-        let listen_addr: std::net::SocketAddr = format!(
-            "{}:{}",
-            cfg.server.bind_address, cfg.cluster.port
-        )
-        .parse()
-        .context("parse cluster listen address")?;
+        let node_id = format!("{}:{}", cfg.server.bind_address, cfg.cluster.port);
+        let listen_addr: std::net::SocketAddr =
+            format!("{}:{}", cfg.server.bind_address, cfg.cluster.port)
+                .parse()
+                .context("parse cluster listen address")?;
 
         let tick = std::time::Duration::from_millis(cfg.cluster.tick_ms);
 
@@ -998,10 +988,8 @@ async fn async_main() -> Result<()> {
     //     merge would leave xerj-api compiling and serving on its own
     //     — a property worth preserving.
     let xerj_console_router = xerj_console_api::xerj_console_router(xerj_console_state);
-    let native_router =
-        build_native_router(state.clone()).merge(xerj_console_router.clone());
-    let es_router =
-        build_es_compat_router(state.clone()).merge(xerj_console_router);
+    let native_router = build_native_router(state.clone()).merge(xerj_console_router.clone());
+    let es_router = build_es_compat_router(state.clone()).merge(xerj_console_router);
 
     // 10. Banner (includes total startup time)
     let startup_ms = startup_start.elapsed().as_millis();

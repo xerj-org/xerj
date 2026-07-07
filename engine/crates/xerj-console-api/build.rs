@@ -24,9 +24,9 @@ use std::path::{Path, PathBuf};
 // works from the repo-root layout and from an engine-worktree layout
 // (engine/ checked out separately, with the repo root alongside).
 const UX_RELS: &[&str] = &[
-    "../../../xerj-ux",      // engine/crates/api → repo root → xerj-ux
-    "../../../../xerj-ux",   // worktree → parent → xerj-ux (sibling)
-    "../../xerj-ux",         // direct sibling layout
+    "../../../xerj-ux",    // engine/crates/api → repo root → xerj-ux
+    "../../../../xerj-ux", // worktree → parent → xerj-ux (sibling)
+    "../../xerj-ux",       // direct sibling layout
 ];
 const ALLOWED_EXTS: &[&str] = &["html", "css", "js", "svg", "ico", "woff", "woff2", "png"];
 const MAX_FILE_BYTES: u64 = 4 * 1024 * 1024;
@@ -43,7 +43,9 @@ fn main() {
         .find_map(|p| fs::canonicalize(&p).ok())
         .or_else(|| {
             // Last-ditch: env var override for CI / monorepo packaging.
-            env::var("XERJ_CONSOLE_UX_DIR").ok().and_then(|p| fs::canonicalize(p).ok())
+            env::var("XERJ_CONSOLE_UX_DIR")
+                .ok()
+                .and_then(|p| fs::canonicalize(p).ok())
         });
     let ux_root = match ux_root {
         Some(p) => p,
@@ -127,7 +129,8 @@ fn write_assets(entries: &[(String, PathBuf)], _ux_root: &Path) {
          // (url_path, bytes, content_type) tuples. Order is sorted-by-path\n\
          // so the runtime can binary-search by path.\n\
          pub static XERJ_CONSOLE_ASSETS: &[(&str, &[u8], &str)] = &["
-    ).unwrap();
+    )
+    .unwrap();
     for (url_path, src_path) in entries {
         let ct = content_type_for(url_path);
         // Use absolute path so include_bytes! doesn't depend on the
@@ -140,7 +143,8 @@ fn write_assets(entries: &[(String, PathBuf)], _ux_root: &Path) {
             url_path,
             src_path.display(),
             ct,
-        ).unwrap();
+        )
+        .unwrap();
     }
     writeln!(f, "];").unwrap();
 }
@@ -149,14 +153,14 @@ fn content_type_for(path: &str) -> &'static str {
     let ext = path.rsplit('.').next().unwrap_or("");
     match ext.to_ascii_lowercase().as_str() {
         "html" => "text/html; charset=utf-8",
-        "css"  => "text/css; charset=utf-8",
-        "js"   => "application/javascript; charset=utf-8",
-        "svg"  => "image/svg+xml",
-        "ico"  => "image/x-icon",
+        "css" => "text/css; charset=utf-8",
+        "js" => "application/javascript; charset=utf-8",
+        "svg" => "image/svg+xml",
+        "ico" => "image/x-icon",
         "woff" => "font/woff",
-        "woff2"=> "font/woff2",
-        "png"  => "image/png",
+        "woff2" => "font/woff2",
+        "png" => "image/png",
         "json" => "application/json; charset=utf-8",
-        _      => "application/octet-stream",
+        _ => "application/octet-stream",
     }
 }

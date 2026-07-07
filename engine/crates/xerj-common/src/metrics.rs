@@ -295,8 +295,7 @@ impl Metrics {
         encoder
             .encode(&self.gather(), &mut buf)
             .map_err(|e| XerjError::internal(format!("metrics encode: {e}")))?;
-        String::from_utf8(buf)
-            .map_err(|e| XerjError::internal(format!("metrics utf8: {e}")))
+        String::from_utf8(buf).map_err(|e| XerjError::internal(format!("metrics utf8: {e}")))
     }
 
     // ── Ergonomic recording helpers ───────────────────────────────────────────

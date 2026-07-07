@@ -69,7 +69,11 @@ impl QuantizedData {
                     None
                 }
             }
-            QuantizedData::U8 { bytes, mins, scales } => {
+            QuantizedData::U8 {
+                bytes,
+                mins,
+                scales,
+            } => {
                 let start = idx * dim;
                 let end = start + dim;
                 if end <= bytes.len() {
@@ -83,9 +87,13 @@ impl QuantizedData {
                     None
                 }
             }
-            QuantizedData::Nibble { bytes, mins, scales } => {
+            QuantizedData::Nibble {
+                bytes,
+                mins,
+                scales,
+            } => {
                 // Each vector uses `ceil(dim/2)` bytes.
-                let bytes_per_vec = (dim + 1) / 2;
+                let bytes_per_vec = dim.div_ceil(2);
                 let byte_start = idx * bytes_per_vec;
                 let byte_end = byte_start + bytes_per_vec;
                 if byte_end > bytes.len() {
@@ -223,12 +231,20 @@ impl Quantizer for Scalar8Quantizer {
                 ));
             }
             for (d, &v) in vec.iter().enumerate() {
-                if v < mins[d] { mins[d] = v; }
-                if v > maxs[d] { maxs[d] = v; }
+                if v < mins[d] {
+                    mins[d] = v;
+                }
+                if v > maxs[d] {
+                    maxs[d] = v;
+                }
             }
         }
 
-        let scales: Vec<f32> = mins.iter().zip(maxs.iter()).map(|(&mn, &mx)| mx - mn).collect();
+        let scales: Vec<f32> = mins
+            .iter()
+            .zip(maxs.iter())
+            .map(|(&mn, &mx)| mx - mn)
+            .collect();
 
         // Encode all vectors
         let mut bytes = Vec::with_capacity(vectors.len() * dim);
@@ -241,14 +257,26 @@ impl Quantizer for Scalar8Quantizer {
         Ok(QuantizedVectors {
             count: vectors.len(),
             dim,
-            data: QuantizedData::U8 { bytes, mins, scales },
+            data: QuantizedData::U8 {
+                bytes,
+                mins,
+                scales,
+            },
         })
     }
 
     fn distance(&self, query: &[f32], quantized: &QuantizedData, id: usize) -> Result<f32> {
         let (bytes, mins, scales) = match quantized {
-            QuantizedData::U8 { bytes, mins, scales } => (bytes, mins, scales),
-            _ => return Err(XerjError::internal("Scalar8Quantizer: wrong QuantizedData variant")),
+            QuantizedData::U8 {
+                bytes,
+                mins,
+                scales,
+            } => (bytes, mins, scales),
+            _ => {
+                return Err(XerjError::internal(
+                    "Scalar8Quantizer: wrong QuantizedData variant",
+                ))
+            }
         };
 
         let dim = query.len();
@@ -345,15 +373,23 @@ impl Quantizer for Scalar4Quantizer {
                 ));
             }
             for (d, &v) in vec.iter().enumerate() {
-                if v < mins[d] { mins[d] = v; }
-                if v > maxs[d] { maxs[d] = v; }
+                if v < mins[d] {
+                    mins[d] = v;
+                }
+                if v > maxs[d] {
+                    maxs[d] = v;
+                }
             }
         }
 
-        let scales: Vec<f32> = mins.iter().zip(maxs.iter()).map(|(&mn, &mx)| mx - mn).collect();
+        let scales: Vec<f32> = mins
+            .iter()
+            .zip(maxs.iter())
+            .map(|(&mn, &mx)| mx - mn)
+            .collect();
 
         // Each vector takes `ceil(dim/2)` bytes.
-        let bytes_per_vec = (dim + 1) / 2;
+        let bytes_per_vec = dim.div_ceil(2);
         let mut bytes = Vec::with_capacity(vectors.len() * bytes_per_vec);
 
         for vec in vectors {
@@ -373,18 +409,30 @@ impl Quantizer for Scalar4Quantizer {
         Ok(QuantizedVectors {
             count: vectors.len(),
             dim,
-            data: QuantizedData::Nibble { bytes, mins, scales },
+            data: QuantizedData::Nibble {
+                bytes,
+                mins,
+                scales,
+            },
         })
     }
 
     fn distance(&self, query: &[f32], quantized: &QuantizedData, id: usize) -> Result<f32> {
         let (bytes, mins, scales) = match quantized {
-            QuantizedData::Nibble { bytes, mins, scales } => (bytes, mins, scales),
-            _ => return Err(XerjError::internal("Scalar4Quantizer: wrong QuantizedData variant")),
+            QuantizedData::Nibble {
+                bytes,
+                mins,
+                scales,
+            } => (bytes, mins, scales),
+            _ => {
+                return Err(XerjError::internal(
+                    "Scalar4Quantizer: wrong QuantizedData variant",
+                ))
+            }
         };
 
         let dim = query.len();
-        let bytes_per_vec = (dim + 1) / 2;
+        let bytes_per_vec = dim.div_ceil(2);
         let byte_start = id * bytes_per_vec;
         let byte_end = byte_start + bytes_per_vec;
 
@@ -444,19 +492,13 @@ mod tests {
     #[test]
     fn scalar8_roundtrip_approx() {
         let q = Scalar8Quantizer;
-        let vecs = vec![
-            vec![0.0, 0.5, 1.0],
-            vec![0.2, 0.7, 0.9],
-        ];
+        let vecs = vec![vec![0.0, 0.5, 1.0], vec![0.2, 0.7, 0.9]];
         let qv = q.quantize(&vecs).unwrap();
 
         // Dequantized values should be close to originals (within ~1% error)
         let recovered = qv.data.get_f32(0, 3).unwrap();
         for (orig, rec) in vecs[0].iter().zip(recovered.iter()) {
-            assert!(
-                approx_eq(*orig, *rec, 0.02),
-                "expected ~{orig}, got {rec}"
-            );
+            assert!(approx_eq(*orig, *rec, 0.02), "expected ~{orig}, got {rec}");
         }
     }
 
@@ -485,18 +527,12 @@ mod tests {
     #[test]
     fn scalar4_roundtrip_approx() {
         let q = Scalar4Quantizer;
-        let vecs = vec![
-            vec![0.0, 0.5, 1.0],
-            vec![0.2, 0.7, 0.9],
-        ];
+        let vecs = vec![vec![0.0, 0.5, 1.0], vec![0.2, 0.7, 0.9]];
         let qv = q.quantize(&vecs).unwrap();
         // 4-bit gives 16 levels over the range — tolerance of ~7%
         let recovered = qv.data.get_f32(0, 3).unwrap();
         for (orig, rec) in vecs[0].iter().zip(recovered.iter()) {
-            assert!(
-                (orig - rec).abs() < 0.08,
-                "expected ~{orig}, got {rec}"
-            );
+            assert!((orig - rec).abs() < 0.08, "expected ~{orig}, got {rec}");
         }
     }
 
@@ -519,7 +555,10 @@ mod tests {
         let query = vec![1.0, 0.0, 0.0];
         let d0 = q.distance(&query, &qv.data, 0).unwrap();
         let d1 = q.distance(&query, &qv.data, 1).unwrap();
-        assert!(d0 < d1, "closer vector should have smaller distance (4-bit)");
+        assert!(
+            d0 < d1,
+            "closer vector should have smaller distance (4-bit)"
+        );
     }
 
     #[test]
@@ -534,8 +573,14 @@ mod tests {
         let qv4 = q4.quantize(&vecs).unwrap();
         let qv8 = q8.quantize(&vecs).unwrap();
 
-        let bytes4 = match &qv4.data { QuantizedData::Nibble { bytes, .. } => bytes.len(), _ => panic!() };
-        let bytes8 = match &qv8.data { QuantizedData::U8    { bytes, .. } => bytes.len(), _ => panic!() };
+        let bytes4 = match &qv4.data {
+            QuantizedData::Nibble { bytes, .. } => bytes.len(),
+            _ => panic!(),
+        };
+        let bytes8 = match &qv8.data {
+            QuantizedData::U8 { bytes, .. } => bytes.len(),
+            _ => panic!(),
+        };
 
         // scalar4 should use ≤ 55% of scalar8 byte count (target is 50%)
         assert!(

@@ -54,7 +54,7 @@ use crc32fast::Hasher as Crc32;
 
 /// Magic for the raft log file format.  Distinct from the WAL magic so
 /// we never confuse one for the other on recovery.
-const MAGIC: u32 = 0x5A_52_4C_32; // "ZRL2"
+const MAGIC: u32 = 0x5A52_4C32; // "ZRL2" (ASCII Z R L 2)
 const LOG_FILE: &str = "raft.log";
 const COMMIT_FILE: &str = "commit.meta";
 
@@ -66,17 +66,6 @@ pub enum EntryKind {
     ClusterCommand = 0,
     ConfigChange = 1,
     Snapshot = 2,
-}
-
-impl EntryKind {
-    fn from_u8(b: u8) -> Result<Self> {
-        match b {
-            0 => Ok(Self::ClusterCommand),
-            1 => Ok(Self::ConfigChange),
-            2 => Ok(Self::Snapshot),
-            _ => Err(anyhow!("unknown raft entry kind {b}")),
-        }
-    }
 }
 
 /// A single persisted log entry.
@@ -257,7 +246,8 @@ impl FileRaftLog {
         self.writer.write_all(payload)?;
         self.writer.write_u32::<LittleEndian>(crc)?;
 
-        self.seek_table.insert(index, (term, header_offset, payload_len));
+        self.seek_table
+            .insert(index, (term, header_offset, payload_len));
         if index > self.last_index {
             self.last_index = index;
         }
@@ -293,8 +283,8 @@ impl FileRaftLog {
         // Open a fresh read handle so we don't fight with the writer's
         // buffered position.
         let log_path = self.dir.join(LOG_FILE);
-        let mut file = File::open(&log_path)
-            .with_context(|| format!("reopening {log_path:?} for read"))?;
+        let mut file =
+            File::open(&log_path).with_context(|| format!("reopening {log_path:?} for read"))?;
         // Header is: magic(4) + entry_len(8) + term(8) + index(8) + kind(1) + payload_len(8)
         // = 37 bytes.  Then the payload.
         file.seek(SeekFrom::Start(offset + 37))

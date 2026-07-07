@@ -42,12 +42,7 @@ fn make_engine_with_config(dir: &TempDir, configure: impl FnOnce(&mut Config)) -
     Engine::new(config).expect("engine::new")
 }
 
-fn print_result(
-    journey: &str,
-    xerj_desc: &str,
-    es_desc: &str,
-    winner_line: &str,
-) {
+fn print_result(journey: &str, xerj_desc: &str, es_desc: &str, winner_line: &str) {
     let width = 52usize;
     let border = "=".repeat(width);
     let pad = |s: &str| {
@@ -112,7 +107,10 @@ async fn journey_first_time_user() {
         "First-Time User",
         &format!("{:.2?} from zero to search results", total_time),
         "60+ seconds (JVM startup alone)",
-        &format!("xerj ({:.0}x faster to first value)", 60_000.0 / total_time.as_millis().max(1) as f64),
+        &format!(
+            "xerj ({:.0}x faster to first value)",
+            60_000.0 / total_time.as_millis().max(1) as f64
+        ),
     );
 
     assert!(
@@ -121,7 +119,10 @@ async fn journey_first_time_user() {
         total_time
     );
     assert!(result.total.value > 0, "Must find at least one document");
-    assert_eq!(result.total.value, 100, "All 100 docs should match 'various topics'");
+    assert_eq!(
+        result.total.value, 100,
+        "All 100 docs should match 'various topics'"
+    );
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -147,7 +148,9 @@ async fn journey_crash_recovery() {
         config.server.data_dir = data_path.clone();
         let engine = Engine::new(config).unwrap();
 
-        engine.create_index("critical-data", Schema::empty()).unwrap();
+        engine
+            .create_index("critical-data", Schema::empty())
+            .unwrap();
         let idx = engine.get_index("critical-data").unwrap();
 
         for i in 0..doc_count {
@@ -302,7 +305,12 @@ async fn journey_log_analytics() {
     engine.create_index("app-logs", Schema::empty()).unwrap();
     let idx = engine.get_index("app-logs").unwrap();
 
-    let services = ["auth-service", "payment-service", "user-service", "api-gateway"];
+    let services = [
+        "auth-service",
+        "payment-service",
+        "user-service",
+        "api-gateway",
+    ];
     let levels = ["INFO", "WARN", "ERROR", "DEBUG"];
     let messages = [
         "request processed successfully",
@@ -320,9 +328,9 @@ async fn journey_log_analytics() {
     for i in 0..5_000usize {
         let service = services[i % services.len()];
         // Skew: errors cluster in payment-service and api-gateway.
-        let level = if service == "payment-service" && i % 5 == 0 {
-            "ERROR"
-        } else if service == "api-gateway" && i % 8 == 0 {
+        let level = if (service == "payment-service" && i % 5 == 0)
+            || (service == "api-gateway" && i % 8 == 0)
+        {
             "ERROR"
         } else {
             levels[i % 3] // INFO/WARN/ERROR cycling but less ERROR
@@ -380,7 +388,10 @@ async fn journey_log_analytics() {
         .await
         .unwrap();
 
-    assert!(payment_errors.total.value > 0, "Must find payment-service errors");
+    assert!(
+        payment_errors.total.value > 0,
+        "Must find payment-service errors"
+    );
 
     // Query 3: Full-text search across log messages — find connection issues.
     let connection_issues = idx
@@ -442,7 +453,10 @@ async fn journey_es_migration() {
 
     // ES contract: _id, result, _version fields in response.
     assert_eq!(resp.id, "1", "response._id must match supplied ID");
-    assert_eq!(resp.result, "created", "result must be 'created' on first write");
+    assert_eq!(
+        resp.result, "created",
+        "result must be 'created' on first write"
+    );
     assert_eq!(resp.version, 1, "_version must start at 1");
 
     // POST /{index}/_search — same query DSL as ES.
@@ -458,11 +472,17 @@ async fn journey_es_migration() {
         .await
         .unwrap();
 
-    assert_eq!(result.total.value, 1, "Search must find the indexed document");
+    assert_eq!(
+        result.total.value, 1,
+        "Search must find the indexed document"
+    );
     // ES response format: hits.total.value and hits.hits[].
     let hit = &result.hits[0];
     assert_eq!(hit.id, "1");
-    assert!(hit.source.get("user").is_some(), "Source fields must be returned");
+    assert!(
+        hit.source.get("user").is_some(),
+        "Source fields must be returned"
+    );
 
     // POST /_bulk — NDJSON bulk format (identical to ES).
     let bulk_body = r#"{"index":{"_index":"my-index","_id":"2"}}
@@ -474,10 +494,20 @@ async fn journey_es_migration() {
 "#;
 
     let bulk_result = process_bulk(&engine, Some("my-index"), bulk_body).await;
-    assert!(!bulk_result.errors, "Bulk operation must succeed without errors");
-    assert_eq!(bulk_result.items.len(), 3, "All 3 bulk items must be processed");
+    assert!(
+        !bulk_result.errors,
+        "Bulk operation must succeed without errors"
+    );
+    assert_eq!(
+        bulk_result.items.len(),
+        3,
+        "All 3 bulk items must be processed"
+    );
     for item in &bulk_result.items {
-        assert!(item.status == 200 || item.status == 201, "Each bulk item must return HTTP 200 or 201");
+        assert!(
+            item.status == 200 || item.status == 201,
+            "Each bulk item must return HTTP 200 or 201"
+        );
     }
 
     // Verify all docs are searchable immediately after bulk.
@@ -511,7 +541,10 @@ async fn journey_es_migration() {
         )
         .await
         .unwrap();
-    assert_eq!(recent.total.value, 3, "Range query must find 3 docs from 2024");
+    assert_eq!(
+        recent.total.value, 3,
+        "Range query must find 3 docs from 2024"
+    );
 
     print_result(
         "ES Migration",
@@ -543,7 +576,7 @@ async fn journey_security_by_default() {
     // Admin key starts empty — it's auto-generated at server startup time.
     // (In tests we verify the flag, not the runtime key generation.)
     // The point: you can't accidentally run an open cluster.
-    let config_with_auth = Config::from_str(
+    let config_with_auth = Config::from_toml_str(
         r#"
         [auth]
         enabled = true
@@ -555,7 +588,7 @@ async fn journey_security_by_default() {
     assert_eq!(config_with_auth.auth.admin_api_key, "test-key-abc123");
 
     // Verify: disabling auth is a deliberate choice, not the default.
-    let insecure_config = Config::from_str(
+    let insecure_config = Config::from_toml_str(
         r#"
         [auth]
         enabled = false
@@ -568,7 +601,9 @@ async fn journey_security_by_default() {
     );
 
     // Verify: the default config is valid (usable out of the box).
-    Config::default().validate().expect("Default config must be valid");
+    Config::default()
+        .validate()
+        .expect("Default config must be valid");
 
     print_result(
         "Security by Default",
@@ -599,7 +634,9 @@ async fn journey_upgrade() {
         config.server.data_dir = data_path.clone();
         let engine = Engine::new(config).unwrap();
 
-        engine.create_index("user-profiles", Schema::empty()).unwrap();
+        engine
+            .create_index("user-profiles", Schema::empty())
+            .unwrap();
         let idx = engine.get_index("user-profiles").unwrap();
 
         for i in 0..doc_count {
@@ -660,15 +697,23 @@ async fn journey_upgrade() {
             )
             .await
             .unwrap();
-        println!("  After upgrade: {} docs found, first 3: {:?}",
+        println!(
+            "  After upgrade: {} docs found, first 3: {:?}",
             enterprise.total.value,
-            enterprise.hits.iter().map(|h| &h.id).collect::<Vec<_>>());
-        assert!(enterprise.total.value >= doc_count as u64 / 2,
-            "Most docs must survive upgrade, found {}", enterprise.total.value);
+            enterprise.hits.iter().map(|h| &h.id).collect::<Vec<_>>()
+        );
+        assert!(
+            enterprise.total.value >= doc_count as u64 / 2,
+            "Most docs must survive upgrade, found {}",
+            enterprise.total.value
+        );
 
         print_result(
             "Zero-Downtime Upgrade",
-            &format!("restart in {:.2?}; all {} docs immediately available", startup_time, doc_count),
+            &format!(
+                "restart in {:.2?}; all {} docs immediately available",
+                startup_time, doc_count
+            ),
             "major version upgrades require reindex (days/weeks); rolling restarts",
             "xerj (restart and go; no reindex ever)",
         );
@@ -724,19 +769,31 @@ async fn journey_zero_config() {
         .await
         .unwrap();
 
-    assert_eq!(result.total.value, 1, "Search must work with zero configuration");
+    assert_eq!(
+        result.total.value, 1,
+        "Search must work with zero configuration"
+    );
 
     // Count user-facing settings.
     // xerj: 38 settings (5+2+3+5+5+3+1+6+2+4+3 - 1 auto-generated).
     // ES: 3,000+ settings across elasticsearch.yml, jvm.options, log4j2.properties.
     let xerj_settings: usize = 5 + 2 + 3 + 5 + 5 + 3 + 1 + 6 + 2 + 4 + 3 - 1; // = 38
-    assert_eq!(xerj_settings, 38, "xerj must have exactly 38 user-facing settings");
+    assert_eq!(
+        xerj_settings, 38,
+        "xerj must have exactly 38 user-facing settings"
+    );
 
     print_result(
         "Zero Configuration",
-        &format!("{} settings total; works out of the box with defaults", xerj_settings),
+        &format!(
+            "{} settings total; works out of the box with defaults",
+            xerj_settings
+        ),
         "3,000+ settings; requires JVM tuning, cluster config, network setup",
-        &format!("xerj ({:.0}x fewer settings to learn)", 3000.0 / xerj_settings as f64),
+        &format!(
+            "xerj ({:.0}x fewer settings to learn)",
+            3000.0 / xerj_settings as f64
+        ),
     );
 }
 
@@ -807,13 +864,13 @@ async fn journey_realtime_search() {
     }
 
     let all = idx
-        .search(
-            &parse_request(&json!({ "query": { "match_all": {} }, "size": 0 }))
-            .unwrap(),
-        )
+        .search(&parse_request(&json!({ "query": { "match_all": {} }, "size": 0 })).unwrap())
         .await
         .unwrap();
-    assert_eq!(all.total.value, 10, "All 10 documents must be searchable immediately");
+    assert_eq!(
+        all.total.value, 10,
+        "All 10 documents must be searchable immediately"
+    );
 
     print_result(
         "Real-Time Search",

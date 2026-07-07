@@ -2,9 +2,9 @@
 //!
 //! - `POST /auth/login/begin   { email }`
 //!   → returns the WebAuthn `RequestChallengeResponse` JSON.
-//!     Even when the email is unknown we return a *fake* challenge with
-//!     no allow-credentials so the response shape is identical — this
-//!     denies an attacker the email-enumeration oracle.
+//!   Even when the email is unknown we return a *fake* challenge with
+//!   no allow-credentials so the response shape is identical — this
+//!   denies an attacker the email-enumeration oracle.
 //! - `POST /auth/login/finish  { challenge_id, credential }`
 //!   → validates the assertion, mints a session cookie.
 //!
@@ -25,7 +25,7 @@ use crate::auth::{audit, rate_limit, sessions, store, webauthn_setup};
 use crate::error::{ConsoleApiError, ConsoleResult};
 use crate::indices;
 use crate::response::ok;
-use crate::state::{ChallengeKind, PendingChallenge, ConsoleState};
+use crate::state::{ChallengeKind, ConsoleState, PendingChallenge};
 use crate::time::{now_epoch_ms, now_iso};
 
 const CHALLENGE_TTL_MS: i64 = 5 * 60 * 1000;
@@ -64,13 +64,11 @@ pub async fn begin(
     // Collect this user's passkeys (empty list when user is None).
     let passkeys: Vec<Passkey> = match &user {
         None => Vec::new(),
-        Some(u) => {
-            store::list_passkeys_for_user(&state.engine, &u.id)
-                .await?
-                .into_iter()
-                .filter_map(|p| serde_json::from_value(p.blob).ok())
-                .collect()
-        }
+        Some(u) => store::list_passkeys_for_user(&state.engine, &u.id)
+            .await?
+            .into_iter()
+            .filter_map(|p| serde_json::from_value(p.blob).ok())
+            .collect(),
     };
 
     let webauthn = webauthn_setup::build(&state)?;
@@ -153,7 +151,9 @@ pub async fn finish(
         None => {
             // Should be impossible given the challenge state used the
             // same credential set, but stay defensive.
-            return Err(ConsoleApiError::Unauthorized("authentication failed".into()));
+            return Err(ConsoleApiError::Unauthorized(
+                "authentication failed".into(),
+            ));
         }
     };
 
@@ -203,7 +203,11 @@ pub async fn finish(
         }),
         None,
     );
-    Ok((axum_extra::extract::cookie::CookieJar::new().add(cookie), body).into_response())
+    Ok((
+        axum_extra::extract::cookie::CookieJar::new().add(cookie),
+        body,
+    )
+        .into_response())
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -50,34 +50,58 @@ async fn multi_match_scores_nonzero_and_best_fields_takes_field_max() {
 
     // ── Memtable state: scores must not be zero ──────────────────────────
     let r = idx
-        .search(&req(json!({"multi_match": {"query": "golf", "fields": ["msg", "note"]}})))
+        .search(&req(
+            json!({"multi_match": {"query": "golf", "fields": ["msg", "note"]}}),
+        ))
         .await
         .unwrap();
     assert_eq!(r.total.value, 9, "memtable multi_match union");
     for h in &r.hits {
-        assert!(h.score > 0.0, "memtable multi_match hit {} scored 0.0", h.id);
+        assert!(
+            h.score > 0.0,
+            "memtable multi_match hit {} scored 0.0",
+            h.id
+        );
     }
 
     // ── Segment state: BM25 scores, ES best_fields semantics ─────────────
     idx.flush().await.unwrap();
 
-    let match_msg = idx.search(&req(json!({"match": {"msg": "golf"}}))).await.unwrap();
-    let match_note = idx.search(&req(json!({"match": {"note": "golf"}}))).await.unwrap();
-    let msg_scores: HashMap<&str, f32> =
-        match_msg.hits.iter().map(|h| (h.id.as_str(), h.score)).collect();
-    let note_scores: HashMap<&str, f32> =
-        match_note.hits.iter().map(|h| (h.id.as_str(), h.score)).collect();
+    let match_msg = idx
+        .search(&req(json!({"match": {"msg": "golf"}})))
+        .await
+        .unwrap();
+    let match_note = idx
+        .search(&req(json!({"match": {"note": "golf"}})))
+        .await
+        .unwrap();
+    let msg_scores: HashMap<&str, f32> = match_msg
+        .hits
+        .iter()
+        .map(|h| (h.id.as_str(), h.score))
+        .collect();
+    let note_scores: HashMap<&str, f32> = match_note
+        .hits
+        .iter()
+        .map(|h| (h.id.as_str(), h.score))
+        .collect();
     assert!(match_msg.hits.iter().all(|h| h.score > 0.0));
 
     // Single-field multi_match must score IDENTICALLY to the match query.
     let mm_single = idx
-        .search(&req(json!({"multi_match": {"query": "golf", "fields": ["msg"]}})))
+        .search(&req(
+            json!({"multi_match": {"query": "golf", "fields": ["msg"]}}),
+        ))
         .await
         .unwrap();
     assert_eq!(mm_single.total.value, match_msg.total.value);
     for h in &mm_single.hits {
         let expected = msg_scores.get(h.id.as_str()).copied().unwrap_or(0.0);
-        assert!(h.score > 0.0, "single-field multi_match hit {} scored 0.0", h.id);
+        assert!(
+            h.score > 0.0,
+            "single-field multi_match hit {} scored 0.0",
+            h.id
+        );
         assert!(
             (h.score - expected).abs() < 1e-5,
             "hit {}: multi_match(msg) score {} != match(msg) score {}",
@@ -89,7 +113,9 @@ async fn multi_match_scores_nonzero_and_best_fields_takes_field_max() {
 
     // Multi-field best_fields: score = max(per-field match scores).
     let mm = idx
-        .search(&req(json!({"multi_match": {"query": "golf", "fields": ["msg", "note"]}})))
+        .search(&req(
+            json!({"multi_match": {"query": "golf", "fields": ["msg", "note"]}}),
+        ))
         .await
         .unwrap();
     assert_eq!(mm.total.value, 9, "segment multi_match union");
@@ -97,7 +123,11 @@ async fn multi_match_scores_nonzero_and_best_fields_takes_field_max() {
         let ms = msg_scores.get(h.id.as_str()).copied().unwrap_or(0.0);
         let ns = note_scores.get(h.id.as_str()).copied().unwrap_or(0.0);
         let expected = ms.max(ns);
-        assert!(h.score > 0.0, "multi-field multi_match hit {} scored 0.0", h.id);
+        assert!(
+            h.score > 0.0,
+            "multi-field multi_match hit {} scored 0.0",
+            h.id
+        );
         assert!(
             (h.score - expected).abs() < 1e-5,
             "hit {}: best_fields score {} != max(msg {}, note {})",

@@ -145,9 +145,7 @@ fn bench_bm25_search(c: &mut Criterion) {
             b.iter(|| {
                 let idx = Arc::clone(&idx_ref);
                 let req = request.clone();
-                rt_ref.block_on(async move {
-                    black_box(idx.search(&req).await.expect("search"))
-                })
+                rt_ref.block_on(async move { black_box(idx.search(&req).await.expect("search")) })
             });
         });
     }
@@ -302,9 +300,7 @@ fn bench_aggregations(c: &mut Criterion) {
             b.iter(|| {
                 let idx = Arc::clone(&idx_ref);
                 let req = request.clone();
-                rt_ref.block_on(async move {
-                    black_box(idx.search(&req).await.expect("search"))
-                })
+                rt_ref.block_on(async move { black_box(idx.search(&req).await.expect("search")) })
             });
         });
     }

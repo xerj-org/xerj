@@ -28,9 +28,7 @@ pub mod types;
 // Convenience re-exports at the crate root
 pub use config::Config;
 pub use error::XerjError;
-pub use types::{
-    DocId, Document, FieldConfig, FieldType, IndexName, Schema, SegmentId, SeqNo,
-};
+pub use types::{DocId, Document, FieldConfig, FieldType, IndexName, Schema, SegmentId, SeqNo};
 
 /// Crate-level result alias — uses [`XerjError`] as the error type.
 pub type Result<T> = std::result::Result<T, XerjError>;

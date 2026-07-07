@@ -26,8 +26,14 @@ use crate::raft::RaftMessage;
 async fn write_frame(stream: &mut TcpStream, msg: &RaftMessage) -> Result<()> {
     let payload = serde_json::to_vec(msg).context("serialize RaftMessage")?;
     let len = payload.len() as u32;
-    stream.write_all(&len.to_be_bytes()).await.context("write frame length")?;
-    stream.write_all(&payload).await.context("write frame payload")?;
+    stream
+        .write_all(&len.to_be_bytes())
+        .await
+        .context("write frame length")?;
+    stream
+        .write_all(&payload)
+        .await
+        .context("write frame payload")?;
     stream.flush().await.context("flush frame")?;
     Ok(())
 }
@@ -35,7 +41,10 @@ async fn write_frame(stream: &mut TcpStream, msg: &RaftMessage) -> Result<()> {
 /// Read a single length-prefixed JSON frame from the given stream.
 async fn read_frame(stream: &mut TcpStream) -> Result<RaftMessage> {
     let mut len_buf = [0u8; 4];
-    stream.read_exact(&mut len_buf).await.context("read frame length")?;
+    stream
+        .read_exact(&mut len_buf)
+        .await
+        .context("read frame length")?;
     let len = u32::from_be_bytes(len_buf) as usize;
 
     // Guard against absurdly large frames (e.g. 10 MiB max).
@@ -44,7 +53,10 @@ async fn read_frame(stream: &mut TcpStream) -> Result<RaftMessage> {
     }
 
     let mut payload = vec![0u8; len];
-    stream.read_exact(&mut payload).await.context("read frame payload")?;
+    stream
+        .read_exact(&mut payload)
+        .await
+        .context("read frame payload")?;
     let msg: RaftMessage = serde_json::from_slice(&payload).context("deserialize RaftMessage")?;
     Ok(msg)
 }
@@ -180,24 +192,26 @@ async fn handle_connection(
 ) -> Result<()> {
     // Read sender header: [4-byte len][node_id bytes]
     let mut hlen_buf = [0u8; 4];
-    stream.read_exact(&mut hlen_buf).await.context("read sender header length")?;
+    stream
+        .read_exact(&mut hlen_buf)
+        .await
+        .context("read sender header length")?;
     let hlen = u32::from_be_bytes(hlen_buf) as usize;
     if hlen > 256 {
         anyhow::bail!("sender header too large: {} bytes", hlen);
     }
     let mut hbuf = vec![0u8; hlen];
-    stream.read_exact(&mut hbuf).await.context("read sender header")?;
+    stream
+        .read_exact(&mut hbuf)
+        .await
+        .context("read sender header")?;
     let from = String::from_utf8(hbuf).context("decode sender node_id")?;
 
     // Read all message frames from this connection.
-    loop {
-        match read_frame(&mut stream).await {
-            Ok(msg) => {
-                if tx.send((from.clone(), msg)).await.is_err() {
-                    break; // receiver dropped
-                }
-            }
-            Err(_) => break, // EOF or parse error
+    // Loop exits on EOF or parse error (read_frame returns Err).
+    while let Ok(msg) = read_frame(&mut stream).await {
+        if tx.send((from.clone(), msg)).await.is_err() {
+            break; // receiver dropped
         }
     }
 

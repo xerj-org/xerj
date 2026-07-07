@@ -133,7 +133,13 @@ impl ConsoleState {
         master_key: [u8; 32],
         cluster_mode: ClusterMode,
     ) -> Self {
-        Self::new_with_rp(engine, node_id, master_key, cluster_mode, RpConfig::default())
+        Self::new_with_rp(
+            engine,
+            node_id,
+            master_key,
+            cluster_mode,
+            RpConfig::default(),
+        )
     }
 
     pub fn new_with_rp(

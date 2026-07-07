@@ -322,7 +322,12 @@ impl RaftNode {
                 last_log_index,
                 last_log_term,
             } => {
-                out.extend(self.handle_request_vote(term, candidate_id, last_log_index, last_log_term));
+                out.extend(self.handle_request_vote(
+                    term,
+                    candidate_id,
+                    last_log_index,
+                    last_log_term,
+                ));
             }
             RaftMessage::RequestVoteResponse {
                 from,
@@ -427,8 +432,7 @@ impl RaftNode {
     /// send AppendEntries to all peers right now.
     pub fn force_heartbeat(&mut self) -> Vec<OutboundMessage> {
         if self.state == RaftState::Leader {
-            self.last_heartbeat_sent =
-                Instant::now() - Duration::from_millis(1000);
+            self.last_heartbeat_sent = Instant::now() - Duration::from_millis(1000);
             self.send_heartbeats()
         } else {
             vec![]
@@ -766,8 +770,8 @@ impl RaftNode {
         //   a) haven't voted yet (or already voted for this candidate) this term
         //   b) candidate's log is at least as up-to-date as ours (§5.4)
         if term >= self.current_term {
-            let can_vote = self.voted_for.is_none()
-                || self.voted_for.as_deref() == Some(&candidate_id);
+            let can_vote =
+                self.voted_for.is_none() || self.voted_for.as_deref() == Some(&candidate_id);
 
             // "Up-to-date" check: candidate's last log term > ours, OR
             //  same last log term and candidate's log is at least as long.
@@ -888,12 +892,14 @@ mod tests {
         let mut node = RaftNode::new("n1".to_string(), vec![]);
 
         // Force an immediate election by resetting the heartbeat timer
-        node.last_heartbeat =
-            Instant::now() - Duration::from_millis(500);
+        node.last_heartbeat = Instant::now() - Duration::from_millis(500);
 
         let msgs = node.tick();
         // Single-node cluster: should become leader immediately, no messages needed
-        assert!(node.is_leader(), "single node must become leader after timeout");
+        assert!(
+            node.is_leader(),
+            "single node must become leader after timeout"
+        );
         // No peers, so no messages to send (or only heartbeat to self which is empty)
         assert!(
             msgs.is_empty() || msgs.iter().all(|m| m.to == "n1"),

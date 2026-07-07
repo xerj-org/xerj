@@ -55,7 +55,7 @@
 use crate::{Result, StorageError};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::collections::HashMap;
-use std::io::{Cursor, Read, Write};
+use std::io::{Cursor, Write};
 
 // ── V1: flat LZ4 over JSON (legacy) ───────────────────────────────────────
 
@@ -236,9 +236,7 @@ pub fn encode_stored_v2_from_values(
 /// run that comparison was ~3 s of background CPU per 1M ingested docs).
 /// On sub-`V2_MIN_DOCS` inputs the canonical JSON array is built here so
 /// the v1 fallback output stays byte-identical to the legacy path.
-pub fn encode_stored_v2_from_values_nojson(
-    docs: &[(&str, u64, &serde_json::Value)],
-) -> Vec<u8> {
+pub fn encode_stored_v2_from_values_nojson(docs: &[(&str, u64, &serde_json::Value)]) -> Vec<u8> {
     encode_stored_v2_from_values_inner(None, docs)
 }
 
@@ -301,10 +299,8 @@ fn encode_stored_v2_from_values_inner(
     // field value straight to its column.  The previous two-pass build
     // (discover, then `obj.get(cname)` per column per doc) performed
     // ~2× the map lookups — measured at ~115 ms per 31k-doc flush.
-    let mut columns: Vec<Vec<&serde_json::Value>> = vec![
-        Vec::with_capacity(num_docs),
-        Vec::with_capacity(num_docs),
-    ];
+    let mut columns: Vec<Vec<&serde_json::Value>> =
+        vec![Vec::with_capacity(num_docs), Vec::with_capacity(num_docs)];
     for (i, (_, _, src)) in docs.iter().enumerate() {
         columns[0].push(&ids[i]);
         columns[1].push(&seqs[i]);
@@ -323,8 +319,7 @@ fn encode_stored_v2_from_values_inner(
                         // `col_order` owns an independent clone.
                         col_seen.insert(key.as_str(), cix);
                         col_order.push(key.clone());
-                        let mut fresh: Vec<&serde_json::Value> =
-                            Vec::with_capacity(num_docs);
+                        let mut fresh: Vec<&serde_json::Value> = Vec::with_capacity(num_docs);
                         fresh.resize(i, &NULL); // rows before this doc lack the field
                         columns.push(fresh);
                         cix
@@ -391,7 +386,9 @@ fn encode_v2_columns(
             // Only integer columns may use the lossy i64 cross-dep path;
             // float columns fall through to the lossless dict / raw path so
             // fractional values (e.g. `0.010127`) survive intact.
-            if !col_is_all_integer(col) { return None; }
+            if !col_is_all_integer(col) {
+                return None;
+            }
             // Provable upper bound: with a source of ≤S dict entries, the
             // mode table yields at most one hit-value per source id, so
             // misses ≥ distinct(target) − S and det ≤ 1 − (D − S)/N.
@@ -438,7 +435,8 @@ fn encode_v2_columns(
         }
         // Fallback: zstd over JSON-array of the column's values.
         let col_json = serde_json::to_vec(col).unwrap_or_default();
-        let zstd_payload = zstd::encode_all(Cursor::new(&col_json), STORED_ZSTD_LEVEL).unwrap_or_else(|_| col_json.clone());
+        let zstd_payload = zstd::encode_all(Cursor::new(&col_json), STORED_ZSTD_LEVEL)
+            .unwrap_or_else(|_| col_json.clone());
         // Choose RAW_JSON vs LZ4_JSON by size.
         let lz4_payload = lz4_flex::compress_prepend_size(&col_json);
         if lz4_payload.len() + 1 < zstd_payload.len() {
@@ -449,10 +447,17 @@ fn encode_v2_columns(
     }
 
     // Assemble the V2 payload.
-    let mut out: Vec<u8> = Vec::with_capacity(4 + 8 + col_payloads.iter().map(|(n, _, p)| 2 + n.len() + 5 + p.len()).sum::<usize>());
+    let mut out: Vec<u8> = Vec::with_capacity(
+        4 + 8
+            + col_payloads
+                .iter()
+                .map(|(n, _, p)| 2 + n.len() + 5 + p.len())
+                .sum::<usize>(),
+    );
     out.extend_from_slice(STORED_V2_MAGIC);
     out.write_u32::<LittleEndian>(num_docs as u32).unwrap();
-    out.write_u32::<LittleEndian>(col_payloads.len() as u32).unwrap();
+    out.write_u32::<LittleEndian>(col_payloads.len() as u32)
+        .unwrap();
     for (name, codec_id, payload) in &col_payloads {
         out.write_u16::<LittleEndian>(name.len() as u16).unwrap();
         out.extend_from_slice(name.as_bytes());
@@ -501,10 +506,14 @@ pub fn decode_stored(bytes: &[u8]) -> Result<Vec<u8>> {
 
 fn decode_stored_v2(body: &[u8]) -> Result<Vec<u8>> {
     let mut cur = Cursor::new(body);
-    let num_docs = cur.read_u32::<LittleEndian>()
-        .map_err(|e| StorageError::Other(anyhow::anyhow!("v2 num_docs: {e}")))? as usize;
-    let num_cols = cur.read_u32::<LittleEndian>()
-        .map_err(|e| StorageError::Other(anyhow::anyhow!("v2 num_cols: {e}")))? as usize;
+    let num_docs = cur
+        .read_u32::<LittleEndian>()
+        .map_err(|e| StorageError::Other(anyhow::anyhow!("v2 num_docs: {e}")))?
+        as usize;
+    let num_cols = cur
+        .read_u32::<LittleEndian>()
+        .map_err(|e| StorageError::Other(anyhow::anyhow!("v2 num_cols: {e}")))?
+        as usize;
 
     // First pass: decode each column into Vec<Value>.  Store the name
     // alongside so we can re-assemble the docs.
@@ -512,8 +521,10 @@ fn decode_stored_v2(body: &[u8]) -> Result<Vec<u8>> {
     let mut col_data: Vec<Vec<serde_json::Value>> = Vec::with_capacity(num_cols);
 
     for _ in 0..num_cols {
-        let name_len = cur.read_u16::<LittleEndian>()
-            .map_err(|e| StorageError::Other(anyhow::anyhow!("v2 name_len: {e}")))? as usize;
+        let name_len = cur
+            .read_u16::<LittleEndian>()
+            .map_err(|e| StorageError::Other(anyhow::anyhow!("v2 name_len: {e}")))?
+            as usize;
         let pos = cur.position() as usize;
         if body.len() < pos + name_len {
             return Err(StorageError::Other(anyhow::anyhow!("v2 truncated name")));
@@ -523,12 +534,15 @@ fn decode_stored_v2(body: &[u8]) -> Result<Vec<u8>> {
             .to_string();
         cur.set_position((pos + name_len) as u64);
 
-        let codec_id = cur.read_u8()
+        let codec_id = cur
+            .read_u8()
             .map_err(|e| StorageError::Other(anyhow::anyhow!("v2 codec_id: {e}")))?;
         let codec = ColCodec::from_u8(codec_id)
             .ok_or_else(|| StorageError::Other(anyhow::anyhow!("v2 unknown codec {}", codec_id)))?;
-        let payload_len = cur.read_u32::<LittleEndian>()
-            .map_err(|e| StorageError::Other(anyhow::anyhow!("v2 payload_len: {e}")))? as usize;
+        let payload_len = cur
+            .read_u32::<LittleEndian>()
+            .map_err(|e| StorageError::Other(anyhow::anyhow!("v2 payload_len: {e}")))?
+            as usize;
         let pos = cur.position() as usize;
         if body.len() < pos + payload_len {
             return Err(StorageError::Other(anyhow::anyhow!("v2 truncated payload")));
@@ -549,13 +563,22 @@ fn decode_stored_v2(body: &[u8]) -> Result<Vec<u8>> {
                 col_data.push(Vec::new());
                 // Stash the raw payload in col_data[i] as a single
                 // "deferred" Value.  Second pass recognises and replaces.
-                col_data.last_mut().unwrap().push(serde_json::Value::Object({
-                    let mut m = serde_json::Map::new();
-                    m.insert("__deferred_cross_dep__".into(), serde_json::Value::Array(
-                        payload.iter().map(|b| serde_json::Value::Number((*b).into())).collect(),
-                    ));
-                    m
-                }));
+                col_data
+                    .last_mut()
+                    .unwrap()
+                    .push(serde_json::Value::Object({
+                        let mut m = serde_json::Map::new();
+                        m.insert(
+                            "__deferred_cross_dep__".into(),
+                            serde_json::Value::Array(
+                                payload
+                                    .iter()
+                                    .map(|b| serde_json::Value::Number((*b).into()))
+                                    .collect(),
+                            ),
+                        );
+                        m
+                    }));
                 continue;
             }
         };
@@ -578,7 +601,8 @@ fn decode_stored_v2(body: &[u8]) -> Result<Vec<u8>> {
                         .iter()
                         .filter_map(|v| v.as_u64().map(|u| u as u8))
                         .collect();
-                    let resolved = decode_cross_dep(&payload, num_docs, &col_data, &col_name_to_ix)?;
+                    let resolved =
+                        decode_cross_dep(&payload, num_docs, &col_data, &col_name_to_ix)?;
                     col_data[cix] = resolved;
                     continue;
                 }
@@ -594,15 +618,32 @@ fn decode_stored_v2(body: &[u8]) -> Result<Vec<u8>> {
     for d in 0..num_docs {
         let mut source_map = serde_json::Map::new();
         for (cix, name) in col_names.iter().enumerate() {
-            if cix == id_col_ix || cix == seq_col_ix { continue; }
-            let v = col_data[cix].get(d).cloned().unwrap_or(serde_json::Value::Null);
+            if cix == id_col_ix || cix == seq_col_ix {
+                continue;
+            }
+            let v = col_data[cix]
+                .get(d)
+                .cloned()
+                .unwrap_or(serde_json::Value::Null);
             if !v.is_null() {
                 source_map.insert(name.clone(), v);
             }
         }
         let mut doc = serde_json::Map::new();
-        doc.insert("_id".into(), col_data[id_col_ix].get(d).cloned().unwrap_or(serde_json::Value::Null));
-        doc.insert("_seq_no".into(), col_data[seq_col_ix].get(d).cloned().unwrap_or(serde_json::Value::Null));
+        doc.insert(
+            "_id".into(),
+            col_data[id_col_ix]
+                .get(d)
+                .cloned()
+                .unwrap_or(serde_json::Value::Null),
+        );
+        doc.insert(
+            "_seq_no".into(),
+            col_data[seq_col_ix]
+                .get(d)
+                .cloned()
+                .unwrap_or(serde_json::Value::Null),
+        );
         doc.insert("_source".into(), serde_json::Value::Object(source_map));
         out_docs.push(serde_json::Value::Object(doc));
     }
@@ -627,18 +668,24 @@ fn col_is_all_integer<B: std::borrow::Borrow<serde_json::Value>>(col: &[B]) -> b
     let mut saw_num = false;
     for v in col {
         let v = v.borrow();
-        if v.is_null() { continue; }
+        if v.is_null() {
+            continue;
+        }
         // Only true JSON integers qualify; floats (even integer-valued
         // ones like `10.0`) are left for the lossless path so their exact
         // representation round-trips.
-        if v.as_i64().is_none() && v.as_u64().is_none() { return false; }
+        if v.as_i64().is_none() && v.as_u64().is_none() {
+            return false;
+        }
         saw_num = true;
     }
     saw_num
 }
 
 fn all_scalar_dict_entries(entries: &[serde_json::Value]) -> bool {
-    entries.iter().all(|v| v.is_null() || v.is_string() || v.is_number() || v.is_boolean())
+    entries
+        .iter()
+        .all(|v| v.is_null() || v.is_string() || v.is_number() || v.is_boolean())
 }
 
 /// Build a dictionary representation `(entries, ids)` where:
@@ -702,7 +749,7 @@ fn dict_encode_column<'a, B: std::borrow::Borrow<serde_json::Value>>(
             continue;
         }
         non_null += 1;
-        let Some(k) = dict_key(v) else { return None }; // object / array
+        let k = dict_key(v)?; // object / array
         if let Some(&id) = map.get(&k) {
             ids.push(id);
         } else {
@@ -727,7 +774,9 @@ fn dict_encode_column<'a, B: std::borrow::Borrow<serde_json::Value>>(
     // Replace u32::MAX with the reserved-null id.
     let null_id = entries.len() as u32;
     for id in ids.iter_mut() {
-        if *id == u32::MAX { *id = null_id; }
+        if *id == u32::MAX {
+            *id = null_id;
+        }
     }
     Some((entries, ids))
 }
@@ -741,11 +790,22 @@ fn best_cross_dep_source<B: std::borrow::Borrow<serde_json::Value>>(
     target_col: &[B],
 ) -> Option<usize> {
     for (src_ix, de) in dict_encoded.iter().enumerate() {
-        if src_ix == target_ix { continue; }
-        let (entries, ids) = match de { Some(e) => e, None => continue };
-        if !all_scalar_dict_entries(entries) { continue; }
-        if entries.len() < 2 { continue; } // constant source: useless
-        if entries.len() > CROSS_DEP_MAX_SRC_CARDINALITY { continue; }
+        if src_ix == target_ix {
+            continue;
+        }
+        let (entries, ids) = match de {
+            Some(e) => e,
+            None => continue,
+        };
+        if !all_scalar_dict_entries(entries) {
+            continue;
+        }
+        if entries.len() < 2 {
+            continue;
+        } // constant source: useless
+        if entries.len() > CROSS_DEP_MAX_SRC_CARDINALITY {
+            continue;
+        }
 
         // Sampled prefilter: tally only the first `SAMPLE` rows first.
         // Cross-dep is a codec CHOICE — a false negative here just means
@@ -789,7 +849,9 @@ fn cross_dep_determinism<B: std::borrow::Borrow<serde_json::Value>>(
     let mut total_numeric = 0usize;
     for (row, t_val) in target_col.iter().enumerate() {
         let t_val = t_val.borrow();
-        let Some(t) = t_val.as_i64().or_else(|| t_val.as_f64().map(|f| f as i64)) else { continue };
+        let Some(t) = t_val.as_i64().or_else(|| t_val.as_f64().map(|f| f as i64)) else {
+            continue;
+        };
         total_numeric += 1;
         let sid = ids[row];
         *mode_tally.entry(sid).or_default().entry(t).or_insert(0) += 1;
@@ -806,11 +868,13 @@ fn cross_dep_determinism<B: std::borrow::Borrow<serde_json::Value>>(
 
 fn try_encode_constant<B: std::borrow::Borrow<serde_json::Value>>(col: &[B]) -> Option<Vec<u8>> {
     let first = col.iter().map(|v| v.borrow()).find(|v| !v.is_null())?;
-    if col.iter().all(|v| { let v = v.borrow(); v == first || v.is_null() })
-        && !col.iter().any(|v| v.borrow().is_null())
+    if col.iter().all(|v| {
+        let v = v.borrow();
+        v == first || v.is_null()
+    }) && !col.iter().any(|v| v.borrow().is_null())
     {
         // Only encode as constant when there are no nulls (keep the codec simple).
-        return Some(serde_json::to_vec(first).ok()?);
+        return serde_json::to_vec(first).ok();
     }
     None
 }
@@ -827,7 +891,11 @@ fn encode_dict_bitpack(entries: &[serde_json::Value], ids: &[u32]) -> Vec<u8> {
     // packed range, so we allocate `bit_width` large enough for dict_count
     // inclusive).
     let max_id = dict_count as u32;
-    let bit_width = if max_id == 0 { 1 } else { 32 - max_id.leading_zeros() as u8 };
+    let bit_width = if max_id == 0 {
+        1
+    } else {
+        32 - max_id.leading_zeros() as u8
+    };
 
     let mut out = Vec::new();
     out.write_u32::<LittleEndian>(dict_count as u32).unwrap();
@@ -835,33 +903,43 @@ fn encode_dict_bitpack(entries: &[serde_json::Value], ids: &[u32]) -> Vec<u8> {
 
     // Dict entries as zstd(json array).
     let dict_json = serde_json::to_vec(entries).unwrap_or_default();
-    let dict_zstd = zstd::encode_all(Cursor::new(&dict_json), STORED_ZSTD_LEVEL).unwrap_or(dict_json.clone());
-    out.write_u32::<LittleEndian>(dict_zstd.len() as u32).unwrap();
+    let dict_zstd =
+        zstd::encode_all(Cursor::new(&dict_json), STORED_ZSTD_LEVEL).unwrap_or(dict_json.clone());
+    out.write_u32::<LittleEndian>(dict_zstd.len() as u32)
+        .unwrap();
     out.extend_from_slice(&dict_zstd);
 
     // Bit-packed ids.
     let packed = bitpack_u32(ids, bit_width);
     // zstd over the bit-packed stream — gives another 20-40 % on log
     // data because repeated ids cluster.
-    let packed_zstd = zstd::encode_all(Cursor::new(&packed), STORED_ZSTD_LEVEL).unwrap_or(packed.clone());
+    let packed_zstd =
+        zstd::encode_all(Cursor::new(&packed), STORED_ZSTD_LEVEL).unwrap_or(packed.clone());
     out.write_u32::<LittleEndian>(ids.len() as u32).unwrap();
-    out.write_u32::<LittleEndian>(packed_zstd.len() as u32).unwrap();
+    out.write_u32::<LittleEndian>(packed_zstd.len() as u32)
+        .unwrap();
     out.extend_from_slice(&packed_zstd);
     out
 }
 
 fn decode_dict_bitpack(payload: &[u8], num_docs: usize) -> Result<Vec<serde_json::Value>> {
     let mut cur = Cursor::new(payload);
-    let dict_count = cur.read_u32::<LittleEndian>()
-        .map_err(|e| StorageError::Other(anyhow::anyhow!("dict_count: {e}")))? as usize;
-    let bit_width = cur.read_u8()
+    let dict_count =
+        cur.read_u32::<LittleEndian>()
+            .map_err(|e| StorageError::Other(anyhow::anyhow!("dict_count: {e}")))? as usize;
+    let bit_width = cur
+        .read_u8()
         .map_err(|e| StorageError::Other(anyhow::anyhow!("bit_width: {e}")))?;
 
-    let dict_zstd_len = cur.read_u32::<LittleEndian>()
-        .map_err(|e| StorageError::Other(anyhow::anyhow!("dict_zstd_len: {e}")))? as usize;
+    let dict_zstd_len = cur
+        .read_u32::<LittleEndian>()
+        .map_err(|e| StorageError::Other(anyhow::anyhow!("dict_zstd_len: {e}")))?
+        as usize;
     let pos = cur.position() as usize;
     if payload.len() < pos + dict_zstd_len {
-        return Err(StorageError::Other(anyhow::anyhow!("dict bitpack truncated")));
+        return Err(StorageError::Other(anyhow::anyhow!(
+            "dict bitpack truncated"
+        )));
     }
     let dict_json = zstd::decode_all(&payload[pos..pos + dict_zstd_len])
         .map_err(|e| StorageError::Other(anyhow::anyhow!("dict zstd decode: {e}")))?;
@@ -869,18 +947,25 @@ fn decode_dict_bitpack(payload: &[u8], num_docs: usize) -> Result<Vec<serde_json
         .map_err(|e| StorageError::Other(anyhow::anyhow!("dict json decode: {e}")))?;
     cur.set_position((pos + dict_zstd_len) as u64);
 
-    let ids_len = cur.read_u32::<LittleEndian>()
-        .map_err(|e| StorageError::Other(anyhow::anyhow!("ids_len: {e}")))? as usize;
+    let ids_len =
+        cur.read_u32::<LittleEndian>()
+            .map_err(|e| StorageError::Other(anyhow::anyhow!("ids_len: {e}")))? as usize;
     if ids_len != num_docs {
         return Err(StorageError::Other(anyhow::anyhow!(
-            "dict bitpack ids_len {} != num_docs {}", ids_len, num_docs
+            "dict bitpack ids_len {} != num_docs {}",
+            ids_len,
+            num_docs
         )));
     }
-    let packed_zstd_len = cur.read_u32::<LittleEndian>()
-        .map_err(|e| StorageError::Other(anyhow::anyhow!("packed_zstd_len: {e}")))? as usize;
+    let packed_zstd_len = cur
+        .read_u32::<LittleEndian>()
+        .map_err(|e| StorageError::Other(anyhow::anyhow!("packed_zstd_len: {e}")))?
+        as usize;
     let pos = cur.position() as usize;
     if payload.len() < pos + packed_zstd_len {
-        return Err(StorageError::Other(anyhow::anyhow!("dict bitpack packed truncated")));
+        return Err(StorageError::Other(anyhow::anyhow!(
+            "dict bitpack packed truncated"
+        )));
     }
     let packed = zstd::decode_all(&payload[pos..pos + packed_zstd_len])
         .map_err(|e| StorageError::Other(anyhow::anyhow!("packed zstd decode: {e}")))?;
@@ -890,8 +975,14 @@ fn decode_dict_bitpack(payload: &[u8], num_docs: usize) -> Result<Vec<serde_json
     let values: Vec<serde_json::Value> = ids
         .into_iter()
         .map(|id| {
-            if id == null_id { serde_json::Value::Null }
-            else { entries.get(id as usize).cloned().unwrap_or(serde_json::Value::Null) }
+            if id == null_id {
+                serde_json::Value::Null
+            } else {
+                entries
+                    .get(id as usize)
+                    .cloned()
+                    .unwrap_or(serde_json::Value::Null)
+            }
         })
         .collect();
     Ok(values)
@@ -917,7 +1008,9 @@ fn encode_cross_dep<B: std::borrow::Borrow<serde_json::Value>>(
     let mut tally: Vec<HashMap<i64, u32>> = vec![HashMap::new(); dict_count + 1];
     for (row, t) in target_col.iter().enumerate() {
         let t = t.borrow();
-        let Some(tv) = t.as_i64().or_else(|| t.as_f64().map(|f| f as i64)) else { continue };
+        let Some(tv) = t.as_i64().or_else(|| t.as_f64().map(|f| f as i64)) else {
+            continue;
+        };
         let sid = src_ids[row] as usize;
         *tally[sid.min(dict_count)].entry(tv).or_insert(0) += 1;
     }
@@ -939,7 +1032,11 @@ fn encode_cross_dep<B: std::borrow::Borrow<serde_json::Value>>(
             continue;
         };
         let sid = src_ids[row] as usize;
-        let expected = if sid < dict_count { mode_values[sid] } else { i64::MIN };
+        let expected = if sid < dict_count {
+            mode_values[sid]
+        } else {
+            i64::MIN
+        };
         if expected != tv {
             exceptions.push((row as u32, tv));
         }
@@ -949,8 +1046,11 @@ fn encode_cross_dep<B: std::borrow::Borrow<serde_json::Value>>(
     let mut out = Vec::new();
     out.write_u32::<LittleEndian>(src_ix as u32).unwrap();
     out.write_u32::<LittleEndian>(dict_count as u32).unwrap();
-    for &v in &mode_values { out.write_i64::<LittleEndian>(v).unwrap(); }
-    out.write_u32::<LittleEndian>(exceptions.len() as u32).unwrap();
+    for &v in &mode_values {
+        out.write_i64::<LittleEndian>(v).unwrap();
+    }
+    out.write_u32::<LittleEndian>(exceptions.len() as u32)
+        .unwrap();
     // delta-encode doc_ords
     let mut prev_ord = 0u32;
     for (ord, val) in &exceptions {
@@ -990,27 +1090,38 @@ fn decode_cross_dep(
         payload[1..].to_vec()
     };
     let mut cur = Cursor::new(&body[..]);
-    let src_ix = cur.read_u32::<LittleEndian>()
-        .map_err(|e| StorageError::Other(anyhow::anyhow!("cross_dep src_ix: {e}")))? as usize;
+    let src_ix = cur
+        .read_u32::<LittleEndian>()
+        .map_err(|e| StorageError::Other(anyhow::anyhow!("cross_dep src_ix: {e}")))?
+        as usize;
     let _ = col_name_to_ix; // not strictly needed yet
-    let dict_count = cur.read_u32::<LittleEndian>()
-        .map_err(|e| StorageError::Other(anyhow::anyhow!("cross_dep dict_count: {e}")))? as usize;
+    let dict_count = cur
+        .read_u32::<LittleEndian>()
+        .map_err(|e| StorageError::Other(anyhow::anyhow!("cross_dep dict_count: {e}")))?
+        as usize;
     let mut mode_values: Vec<i64> = Vec::with_capacity(dict_count);
     for _ in 0..dict_count {
-        mode_values.push(cur.read_i64::<LittleEndian>()
-            .map_err(|e| StorageError::Other(anyhow::anyhow!("cross_dep mode: {e}")))?);
+        mode_values.push(
+            cur.read_i64::<LittleEndian>()
+                .map_err(|e| StorageError::Other(anyhow::anyhow!("cross_dep mode: {e}")))?,
+        );
     }
-    let exc_count = cur.read_u32::<LittleEndian>()
-        .map_err(|e| StorageError::Other(anyhow::anyhow!("cross_dep exc_count: {e}")))? as usize;
+    let exc_count = cur
+        .read_u32::<LittleEndian>()
+        .map_err(|e| StorageError::Other(anyhow::anyhow!("cross_dep exc_count: {e}")))?
+        as usize;
 
     // Rebuild the source column's dict ids by re-running `dict_encode_column`
     // on the already-decoded source column.
-    let src_col = col_data.get(src_ix)
+    let src_col = col_data
+        .get(src_ix)
         .ok_or_else(|| StorageError::Other(anyhow::anyhow!("cross_dep src missing")))?;
     if src_col.len() != num_docs {
         // Source column was itself a CROSS_DEP and not yet resolved.  Caller
         // should have resolved RHS first.  Bail with a clear error.
-        return Err(StorageError::Other(anyhow::anyhow!("cross_dep src not resolved")));
+        return Err(StorageError::Other(anyhow::anyhow!(
+            "cross_dep src not resolved"
+        )));
     }
     let (_src_entries, src_ids) = dict_encode_column(src_col)
         .ok_or_else(|| StorageError::Other(anyhow::anyhow!("cross_dep re-dict src failed")))?;
@@ -1042,7 +1153,11 @@ fn decode_cross_dep(
             continue;
         }
         let sid = src_ids.get(row).copied().unwrap_or(0) as usize;
-        let v = if sid < dict_count { mode_values[sid] } else { i64::MIN };
+        let v = if sid < dict_count {
+            mode_values[sid]
+        } else {
+            i64::MIN
+        };
         if v == i64::MIN {
             result.push(serde_json::Value::Null);
         } else {
@@ -1074,7 +1189,7 @@ fn bitpack_u32(ids: &[u32], bit_width: u8) -> Vec<u8> {
     }
     let bw = bit_width as usize;
     let total_bits = ids.len() * bw;
-    let total_bytes = (total_bits + 7) / 8;
+    let total_bytes = total_bits.div_ceil(8);
     let mut out = vec![0u8; total_bytes];
     let mut bit_pos = 0usize;
     for &id in ids {
@@ -1083,7 +1198,7 @@ fn bitpack_u32(ids: &[u32], bit_width: u8) -> Vec<u8> {
         let shift = bit_pos % 8;
         let combined = val << shift;
         // Write up to 64 bits starting at byte_ix.
-        let n_bytes = ((bw + shift + 7) / 8).min(total_bytes - byte_ix);
+        let n_bytes = (bw + shift).div_ceil(8).min(total_bytes - byte_ix);
         for i in 0..n_bytes {
             out[byte_ix + i] |= ((combined >> (i * 8)) & 0xFF) as u8;
         }
@@ -1104,7 +1219,7 @@ fn bitunpack_u32(packed: &[u8], bit_width: u8, count: usize) -> Vec<u32> {
         let byte_ix = bit_pos / 8;
         let shift = bit_pos % 8;
         let mut combined: u64 = 0;
-        let n_bytes = ((bw + shift + 7) / 8).min(packed.len() - byte_ix);
+        let n_bytes = (bw + shift).div_ceil(8).min(packed.len() - byte_ix);
         for j in 0..n_bytes {
             combined |= (packed[byte_ix + j] as u64) << (j * 8);
         }
@@ -1120,7 +1235,10 @@ fn write_varint(out: &mut Vec<u8>, mut v: u64) {
     loop {
         let b = (v & 0x7F) as u8;
         v >>= 7;
-        if v == 0 { out.push(b); break; }
+        if v == 0 {
+            out.push(b);
+            break;
+        }
         out.push(b | 0x80);
     }
 }
@@ -1132,7 +1250,9 @@ fn read_varint(data: &[u8], pos: &mut usize) -> u64 {
         let b = data[*pos];
         *pos += 1;
         v |= ((b & 0x7F) as u64) << shift;
-        if b & 0x80 == 0 { return v; }
+        if b & 0x80 == 0 {
+            return v;
+        }
         shift += 7;
     }
     v
@@ -1197,8 +1317,12 @@ mod tests {
         let raw = serde_json::to_vec(&docs).unwrap();
         let encoded = encode_stored_v2(&raw);
         // V2 should have meaningfully reduced the payload.
-        assert!(encoded.len() < raw.len() / 2,
-                "v2 encoded {} not < half of raw {}", encoded.len(), raw.len());
+        assert!(
+            encoded.len() < raw.len() / 2,
+            "v2 encoded {} not < half of raw {}",
+            encoded.len(),
+            raw.len()
+        );
 
         let decoded = decode_stored(&encoded).unwrap();
         let round: Vec<serde_json::Value> = serde_json::from_slice(&decoded).unwrap();
@@ -1206,12 +1330,18 @@ mod tests {
         // Spot-check a few docs.
         for i in [0, 1, 5, 42, 128, 255] {
             assert_eq!(round[i]["_id"], docs[i]["_id"], "id mismatch at {i}");
-            assert_eq!(round[i]["_source"]["status"], docs[i]["_source"]["status"],
-                       "status mismatch at {i}");
-            assert_eq!(round[i]["_source"]["path"], docs[i]["_source"]["path"],
-                       "path mismatch at {i}");
-            assert_eq!(round[i]["_source"]["bytes"], docs[i]["_source"]["bytes"],
-                       "bytes mismatch at {i}");
+            assert_eq!(
+                round[i]["_source"]["status"], docs[i]["_source"]["status"],
+                "status mismatch at {i}"
+            );
+            assert_eq!(
+                round[i]["_source"]["path"], docs[i]["_source"]["path"],
+                "path mismatch at {i}"
+            );
+            assert_eq!(
+                round[i]["_source"]["bytes"], docs[i]["_source"]["bytes"],
+                "bytes mismatch at {i}"
+            );
         }
     }
 
@@ -1255,15 +1385,22 @@ mod tests {
         let round: Vec<serde_json::Value> = serde_json::from_slice(&decoded).unwrap();
         assert_eq!(round.len(), docs.len());
 
-        for i in 0..docs.len() {
+        for (i, doc) in round.iter().enumerate() {
             let c = i % categories.len();
             // Exact f64 fidelity — no truncation to integer.
-            let got = round[i]["_source"]["cost_usd"].as_f64().unwrap();
+            let got = doc["_source"]["cost_usd"].as_f64().unwrap();
             assert_eq!(got, costs[c], "cost_usd corrupted at row {i}");
             // The integer sibling stays a genuine integer (not promoted to float).
-            let cnt = &round[i]["_source"]["count"];
-            assert!(cnt.is_i64() || cnt.is_u64(), "count became non-integer at row {i}: {cnt}");
-            assert_eq!(cnt.as_i64().unwrap(), counts[c], "count value wrong at row {i}");
+            let cnt = &doc["_source"]["count"];
+            assert!(
+                cnt.is_i64() || cnt.is_u64(),
+                "count became non-integer at row {i}: {cnt}"
+            );
+            assert_eq!(
+                cnt.as_i64().unwrap(),
+                counts[c],
+                "count value wrong at row {i}"
+            );
         }
     }
 
@@ -1372,11 +1509,15 @@ mod tests {
             });
             if i >= 700 {
                 // late-discovered column → backfill path
-                src.as_object_mut().unwrap().insert("late".into(), json!(i % 9));
+                src.as_object_mut()
+                    .unwrap()
+                    .insert("late".into(), json!(i % 9));
             }
             if i % 13 == 0 {
                 // reserved-name source field → must be ignored
-                src.as_object_mut().unwrap().insert("__id".into(), json!("evil"));
+                src.as_object_mut()
+                    .unwrap()
+                    .insert("__id".into(), json!("evil"));
             }
             docs.push((format!("id-{}", i), 5_000 + i as u64, src));
         }
@@ -1388,7 +1529,10 @@ mod tests {
 
         let legacy = encode_stored_v2(&stored);
         let from_values = encode_stored_v2_from_values(&stored, &refs);
-        assert_eq!(legacy, from_values, "late-column build diverged from legacy");
+        assert_eq!(
+            legacy, from_values,
+            "late-column build diverged from legacy"
+        );
 
         // And the no-JSON fast path must produce the same v2 bytes when
         // v2 wins the size net (it does on this shape).
@@ -1398,7 +1542,10 @@ mod tests {
         let decoded = decode_stored(&from_values).unwrap();
         let round: Vec<serde_json::Value> = serde_json::from_slice(&decoded).unwrap();
         assert_eq!(round.len(), docs.len());
-        assert!(round[0]["_source"].get("late").map(|v| v.is_null()).unwrap_or(true));
+        assert!(round[0]["_source"]
+            .get("late")
+            .map(|v| v.is_null())
+            .unwrap_or(true));
         assert_eq!(round[0]["_id"].as_str().unwrap(), "id-0");
         assert_eq!(round[750]["_source"]["late"], json!(750 % 9));
     }

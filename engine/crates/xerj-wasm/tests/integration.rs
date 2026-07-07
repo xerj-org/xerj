@@ -1,7 +1,9 @@
 //! Integration tests for the xerj-wasm pipeline system.
 
 use serde_json::json;
-use xerj_wasm::pipeline::{ErrorPolicy, Pipeline, PipelineConfig, PipelineStageConfig, ProcessAction};
+use xerj_wasm::pipeline::{
+    ErrorPolicy, Pipeline, PipelineConfig, PipelineStageConfig, ProcessAction,
+};
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,14 +35,8 @@ fn test_full_pipeline_nginx_log() {
             "grok",
             json!({ "pattern": "NGINX_COMBINED", "field": "message" }),
         ),
-        (
-            "timestamp_parse",
-            json!({ "field": "time_local" }),
-        ),
-        (
-            "pii_redaction",
-            json!({ "types": ["ip", "email"] }),
-        ),
+        ("timestamp_parse", json!({ "field": "time_local" })),
+        ("pii_redaction", json!({ "types": ["ip", "email"] })),
         (
             "add_field",
             json!({ "field": "pipeline", "value": "nginx-access" }),
@@ -56,7 +52,10 @@ fn test_full_pipeline_nginx_log() {
     // Grok fields extracted
     assert_eq!(doc["method"], "GET", "method field not extracted");
     assert_eq!(doc["status"], "200", "status field not extracted");
-    assert_eq!(doc["request_uri"], "/index.html", "request_uri not extracted");
+    assert_eq!(
+        doc["request_uri"], "/index.html",
+        "request_uri not extracted"
+    );
 
     // Timestamp parsed from time_local
     assert!(
@@ -65,7 +64,10 @@ fn test_full_pipeline_nginx_log() {
         doc["@timestamp"]
     );
     let ts = doc["@timestamp"].as_str().unwrap();
-    assert!(ts.contains("2026-04-10"), "timestamp not parsed correctly: {ts}");
+    assert!(
+        ts.contains("2026-04-10"),
+        "timestamp not parsed correctly: {ts}"
+    );
 
     // PII redacted — remote_addr should be masked
     let remote = doc["remote_addr"].as_str().unwrap_or("");
@@ -129,17 +131,35 @@ fn test_pipeline_with_routing() {
 fn test_pipeline_chaining_all_plugins() {
     let pl = make_pipeline(&[
         // json_parse: parse a JSON payload field
-        ("json_parse", json!({ "field": "payload", "target": "parsed" })),
+        (
+            "json_parse",
+            json!({ "field": "payload", "target": "parsed" }),
+        ),
         // add_field: add a static tag
-        ("add_field", json!({ "field": "env", "value": "production" })),
+        (
+            "add_field",
+            json!({ "field": "env", "value": "production" }),
+        ),
         // copy_field: copy env → environment
-        ("copy_field", json!({ "source": "env", "target": "environment" })),
+        (
+            "copy_field",
+            json!({ "source": "env", "target": "environment" }),
+        ),
         // set: only set if missing
-        ("set", json!({ "field": "region", "value": "us-east-1", "override": false })),
+        (
+            "set",
+            json!({ "field": "region", "value": "us-east-1", "override": false }),
+        ),
         // set: override always
-        ("set", json!({ "field": "env", "value": "prod", "override": true })),
+        (
+            "set",
+            json!({ "field": "env", "value": "prod", "override": true }),
+        ),
         // convert: status code to integer
-        ("convert", json!({ "field": "status_code", "type": "integer" })),
+        (
+            "convert",
+            json!({ "field": "status_code", "type": "integer" }),
+        ),
         // split: split tags
         ("split", json!({ "field": "tags", "separator": "," })),
         // lowercase: lowercase method
@@ -159,7 +179,10 @@ fn test_pipeline_chaining_all_plugins() {
         // timestamp_parse
         ("timestamp_parse", json!({ "field": "ts" })),
         // grok on log line
-        ("grok", json!({ "pattern": "SYSLOG", "field": "syslog_line" })),
+        (
+            "grok",
+            json!({ "pattern": "SYSLOG", "field": "syslog_line" }),
+        ),
     ]);
 
     let mut doc = json!({
@@ -176,10 +199,17 @@ fn test_pipeline_chaining_all_plugins() {
     });
 
     let action = pl.process(&mut doc);
-    assert_eq!(action, ProcessAction::Pass, "all-plugin pipeline should pass");
+    assert_eq!(
+        action,
+        ProcessAction::Pass,
+        "all-plugin pipeline should pass"
+    );
 
     // json_parse + field_rename
-    assert_eq!(doc["data"]["key"], "value", "json_parse + field_rename failed");
+    assert_eq!(
+        doc["data"]["key"], "value",
+        "json_parse + field_rename failed"
+    );
     // add_field
     assert_eq!(doc["environment"], "production", "copy_field failed");
     // set override=false keeps existing
@@ -201,7 +231,10 @@ fn test_pipeline_chaining_all_plugins() {
     assert!(doc.get("null_field").is_none(), "remove_null failed");
     // pii_redaction
     let contact = doc["contact"].as_str().unwrap();
-    assert!(contact.contains("[REDACTED_EMAIL]"), "pii_redaction failed: {contact}");
+    assert!(
+        contact.contains("[REDACTED_EMAIL]"),
+        "pii_redaction failed: {contact}"
+    );
     // timestamp_parse
     assert!(doc["@timestamp"].is_string(), "@timestamp not set");
     // grok
@@ -225,7 +258,10 @@ fn test_pipeline_error_handling() {
         timeout_ms: 0,
     };
     let result = Pipeline::from_config("bad", &cfg);
-    assert!(result.is_err(), "building pipeline with unknown plugin should fail");
+    assert!(
+        result.is_err(),
+        "building pipeline with unknown plugin should fail"
+    );
 
     // With on_error = Pass, a missing-field stage is a no-op (passes through).
     let pl = make_pipeline(&[
@@ -236,7 +272,10 @@ fn test_pipeline_error_handling() {
     ]);
     let mut doc = json!({ "msg": "hello" });
     assert_eq!(pl.process(&mut doc), ProcessAction::Pass);
-    assert_eq!(doc["survived"], true, "document should survive after no-op stage");
+    assert_eq!(
+        doc["survived"], true,
+        "document should survive after no-op stage"
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -290,7 +329,10 @@ fn test_simulate_pipeline() {
 
 #[test]
 fn test_copy_field() {
-    let pl = make_pipeline(&[("copy_field", json!({ "source": "msg", "target": "original" }))]);
+    let pl = make_pipeline(&[(
+        "copy_field",
+        json!({ "source": "msg", "target": "original" }),
+    )]);
     let mut doc = json!({ "msg": "hello" });
     assert_eq!(pl.process(&mut doc), ProcessAction::Pass);
     assert_eq!(doc["msg"], "hello", "source should be preserved");
@@ -305,10 +347,13 @@ fn test_convert_types() {
         ("convert", json!({ "field": "s", "type": "string" })),
         ("convert", json!({ "field": "b", "type": "boolean" })),
     ]);
-    let mut doc = json!({ "n": "42", "f": "3.14", "s": 99, "b": "true" });
+    let mut doc = json!({ "n": "42", "f": "2.5", "s": 99, "b": "true" });
     assert_eq!(pl.process(&mut doc), ProcessAction::Pass);
     assert_eq!(doc["n"], 42, "integer convert failed");
-    assert!((doc["f"].as_f64().unwrap() - 3.14).abs() < 0.001, "float convert failed");
+    assert!(
+        (doc["f"].as_f64().unwrap() - 2.5).abs() < 0.001,
+        "float convert failed"
+    );
     assert_eq!(doc["s"], "99", "string convert failed");
     assert_eq!(doc["b"], true, "boolean convert failed");
 }
@@ -329,7 +374,10 @@ fn test_split_and_case_plugins() {
 
 #[test]
 fn test_set_plugin_no_override() {
-    let pl = make_pipeline(&[("set", json!({ "field": "env", "value": "production", "override": false }))]);
+    let pl = make_pipeline(&[(
+        "set",
+        json!({ "field": "env", "value": "production", "override": false }),
+    )]);
 
     // Field absent → should be set
     let mut doc = json!({ "msg": "hi" });
@@ -339,15 +387,24 @@ fn test_set_plugin_no_override() {
     // Field present → should NOT be overwritten
     let mut doc2 = json!({ "env": "staging" });
     pl.process(&mut doc2);
-    assert_eq!(doc2["env"], "staging", "set with override=false should not overwrite");
+    assert_eq!(
+        doc2["env"], "staging",
+        "set with override=false should not overwrite"
+    );
 }
 
 #[test]
 fn test_set_plugin_with_override() {
-    let pl = make_pipeline(&[("set", json!({ "field": "env", "value": "production", "override": true }))]);
+    let pl = make_pipeline(&[(
+        "set",
+        json!({ "field": "env", "value": "production", "override": true }),
+    )]);
     let mut doc = json!({ "env": "staging" });
     pl.process(&mut doc);
-    assert_eq!(doc["env"], "production", "set with override=true should overwrite");
+    assert_eq!(
+        doc["env"], "production",
+        "set with override=true should overwrite"
+    );
 }
 
 #[test]
@@ -356,7 +413,10 @@ fn test_remove_null_plugin() {
     let mut doc = json!({ "a": 1, "b": null, "c": "hello", "d": "" });
     pl.process(&mut doc);
     assert!(doc.get("b").is_none(), "null field should be removed");
-    assert!(doc.get("d").is_none(), "empty string field should be removed");
+    assert!(
+        doc.get("d").is_none(),
+        "empty string field should be removed"
+    );
     assert_eq!(doc["a"], 1, "non-null field should remain");
     assert_eq!(doc["c"], "hello", "non-null field should remain");
 }
@@ -366,5 +426,8 @@ fn test_url_decode_plugin() {
     let pl = make_pipeline(&[("url_decode", json!({ "field": "path" }))]);
     let mut doc = json!({ "path": "/search%3Fq%3Dhello+world%26lang%3Den" });
     pl.process(&mut doc);
-    assert_eq!(doc["path"], "/search?q=hello world&lang=en", "url_decode failed");
+    assert_eq!(
+        doc["path"], "/search?q=hello world&lang=en",
+        "url_decode failed"
+    );
 }

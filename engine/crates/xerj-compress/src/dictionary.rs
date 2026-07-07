@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn encode_decode_roundtrip() {
-        let samples = vec!["INFO", "ERROR", "WARN", "INFO", "INFO", "DEBUG", "ERROR"];
+        let samples = ["INFO", "ERROR", "WARN", "INFO", "INFO", "DEBUG", "ERROR"];
         let mut encoder = DictionaryEncoder::new();
         encoder.build_from_sample(samples.iter().copied());
 
@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     fn serialize_deserialize() {
-        let samples = vec!["alpha", "beta", "gamma", "alpha", "beta", "alpha"];
+        let samples = ["alpha", "beta", "gamma", "alpha", "beta", "alpha"];
         let mut encoder = DictionaryEncoder::new();
         encoder.build_from_sample(samples.iter().copied());
 

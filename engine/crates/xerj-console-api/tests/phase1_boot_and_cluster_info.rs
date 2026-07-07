@@ -14,8 +14,8 @@ use serde_json::Value;
 use tempfile::TempDir;
 use tower::ServiceExt; // for `.oneshot`
 use xerj_common::config::Config;
-use xerj_engine::Engine;
 use xerj_console_api::{state::ClusterMode, xerj_console_router, ConsoleState};
+use xerj_engine::Engine;
 
 fn engine_in(dir: &TempDir) -> Engine {
     let mut cfg = Config::default();
@@ -108,8 +108,9 @@ async fn cluster_info_returns_raft_mode_when_clustered() {
     // ClusterMode::Raft + a non-"local" node id.
     let dir = TempDir::new().unwrap();
     let engine = engine_in(&dir);
-    let outcome =
-        xerj_console_api::bootstrap::run(&engine, dir.path(), "http://x").await.unwrap();
+    let outcome = xerj_console_api::bootstrap::run(&engine, dir.path(), "http://x")
+        .await
+        .unwrap();
     let state = ConsoleState::new(
         engine,
         "10.0.0.1:7000".to_string(),
@@ -188,6 +189,9 @@ async fn known_routes_table_matches_registered_routes() {
     // Catches the easy mistake of adding a route to known_routes() (used
     // by tests) without registering it, or vice versa.
     let routes = xerj_console_api::router::known_routes();
-    assert!(!routes.is_empty(), "phase 1 must expose at least /cluster/info");
+    assert!(
+        !routes.is_empty(),
+        "phase 1 must expose at least /cluster/info"
+    );
     assert!(routes.contains(&"/_xerj-console/api/v1/cluster/info"));
 }
