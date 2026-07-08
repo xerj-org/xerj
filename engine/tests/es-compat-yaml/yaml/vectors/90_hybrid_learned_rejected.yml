@@ -1,0 +1,83 @@
+setup:
+
+  - do:
+      indices.create:
+        index: hybrid_learned_test
+        body:
+          settings:
+            number_of_shards: 1
+          mappings:
+            properties:
+              title:
+                type: text
+
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{ "index": { "_index": "hybrid_learned_test", "_id": "1" } }'
+          - '{ "title": "quick brown fox" }'
+          - '{ "index": { "_index": "hybrid_learned_test", "_id": "2" } }'
+          - '{ "title": "lazy brown dog" }'
+
+---
+"hybrid query with learned fusion is rejected (400)":
+
+  # Learned fusion is not implemented. XERJ fails loud rather than
+  # silently substituting RRF, which would misrepresent the ranking.
+  - do:
+      catch: bad_request
+      search:
+        index: hybrid_learned_test
+        body:
+          query:
+            hybrid:
+              queries:
+                - query:
+                    match:
+                      title: "brown"
+                - query:
+                    match:
+                      title: "fox"
+              fusion: "learned"
+
+---
+"hybrid query with learned fusion object form is rejected (400)":
+
+  - do:
+      catch: bad_request
+      search:
+        index: hybrid_learned_test
+        body:
+          query:
+            hybrid:
+              queries:
+                - query:
+                    match:
+                      title: "brown"
+                - query:
+                    match:
+                      title: "fox"
+              fusion:
+                type: "learned"
+
+---
+"hybrid query with rrf fusion still works":
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: hybrid_learned_test
+        body:
+          query:
+            hybrid:
+              queries:
+                - query:
+                    match:
+                      title: "brown"
+                - query:
+                    match:
+                      title: "fox"
+              fusion: "rrf"
+
+  - match: { hits.total: 2 }

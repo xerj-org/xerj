@@ -3701,9 +3701,15 @@ impl Index {
         let fused = match fusion {
             xerj_query::ast::FusionStrategy::Rrf { k } => fuse_rrf(&sub_results, k),
             xerj_query::ast::FusionStrategy::Linear => fuse_linear(&sub_results),
+            // Defense in depth: the parser already rejects `fusion: learned`
+            // with a 400 (see xerj-query parser.rs::parse_hybrid), so this
+            // arm is unreachable via the ES API. Fail loud rather than
+            // silently substituting RRF, in case a future non-parser caller
+            // constructs the AST directly.
             xerj_query::ast::FusionStrategy::Learned => {
-                warn!("Hybrid: Learned fusion not implemented, falling back to RRF(k=60)");
-                fuse_rrf(&sub_results, 60)
+                return Err(EngineError::Common(xerj_common::XerjError::invalid_query(
+                    "hybrid fusion learned is not yet supported; use rrf or linear",
+                )));
             }
         };
 

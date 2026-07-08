@@ -2233,7 +2233,12 @@ fn parse_hybrid(params: &Value) -> Result<QueryNode> {
         Some(Value::String(s)) => match s.as_str() {
             "rrf" => FusionStrategy::Rrf { k: 60 },
             "linear" => FusionStrategy::Linear,
-            "learned" => FusionStrategy::Learned,
+            // Learned fusion is not implemented — fail loud rather than
+            // silently substituting RRF (which would misrepresent the
+            // ranking the caller asked for). AST variant kept for future.
+            "learned" => {
+                return invalid("hybrid fusion learned is not yet supported; use rrf or linear")
+            }
             other => return invalid(format!("unknown hybrid fusion strategy `{other}`")),
         },
         Some(Value::Object(m)) => {
@@ -2244,7 +2249,10 @@ fn parse_hybrid(params: &Value) -> Result<QueryNode> {
                     FusionStrategy::Rrf { k }
                 }
                 "linear" => FusionStrategy::Linear,
-                "learned" => FusionStrategy::Learned,
+                // Learned fusion is not implemented — fail loud (see above).
+                "learned" => {
+                    return invalid("hybrid fusion learned is not yet supported; use rrf or linear")
+                }
                 other => return invalid(format!("unknown hybrid fusion strategy `{other}`")),
             }
         }
@@ -4324,6 +4332,28 @@ mod tests {
             assert!(matches!(fusion, FusionStrategy::Rrf { k: 60 }));
         } else {
             panic!("wrong variant");
+        }
+    }
+
+    #[test]
+    fn test_hybrid_learned_rejected() {
+        // Learned fusion is not implemented — must fail loud rather than
+        // silently substituting RRF. Both the string and object forms.
+        for fusion in [json!("learned"), json!({ "type": "learned" })] {
+            let err = parse_query(&json!({
+                "hybrid": {
+                    "queries": [
+                        {"query": {"match": {"title": "rust"}}},
+                        {"query": {"match": {"title": "go"}}}
+                    ],
+                    "fusion": fusion
+                }
+            }))
+            .unwrap_err();
+            assert!(
+                format!("{err}").contains("learned is not yet supported"),
+                "unexpected error: {err}"
+            );
         }
     }
 
