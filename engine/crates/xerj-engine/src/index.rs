@@ -6127,6 +6127,11 @@ impl Index {
                         )
                     } else if let QueryNode::Terms { field, values, .. } = query {
                         self.build_term_prefilter_cached(&segments_dir, &seg_id, field, values)
+                    } else if matches!(query, QueryNode::Bool { .. }) {
+                        // Pure-conjunction bool: parse only the most-selective
+                        // conjunct's docs; `doc_matches_query` re-tests the full
+                        // bool per admitted doc (superset filter).
+                        self.build_bool_prefilter_cached(&segments_dir, &seg_id, query)
                     } else if is_match_all && !deletes_present {
                         // Sorted-DV candidate pruning for field-sorted
                         // match_all: the segment's sorted numeric
@@ -8836,6 +8841,94 @@ impl Index {
                 Some(Arc::new(set))
             }
         }
+    }
+
+    /// Superset pre-filter for a pure-conjunction `bool` (`must` + `filter`
+    /// only — no `should` / `must_not`).
+    ///
+    /// `scan_stored_section_into` re-runs the FULL query via `doc_matches_query`
+    /// on every admitted position, so the pre-filter only needs to be a
+    /// SUPERSET of the true matches. A bool AND matches a SUBSET of every one of
+    /// its conjuncts, so the COMPLETE position set of ANY single conjunct is a
+    /// valid superset — and the SMALLEST such set is the tightest (fewest docs
+    /// to parse + re-test). This is what makes the ubiquitous
+    /// `bool { filter:[ term, range, … ] }` shape parse O(most-selective-
+    /// conjunct) stored docs instead of the whole section.
+    ///
+    /// Returns `Some(∅)` if a conjunct matches nothing (→ the bool matches
+    /// nothing → skip the segment), `Some(set)` (the smallest resolvable
+    /// conjunct's complete set), or `None` when no conjunct resolves to a
+    /// selective dv-backed Term/Terms/Range (→ full scan, still correct).
+    fn build_bool_prefilter_cached(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        query: &QueryNode,
+    ) -> Option<Arc<HashSet<u32>>> {
+        let QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            ..
+        } = query
+        else {
+            return None;
+        };
+        // `should` can admit docs OUTSIDE every `must`/`filter` conjunct, and
+        // `must_not` is subtractive — a single-conjunct superset would then be
+        // INCOMPLETE. Only pure conjunctions are safe here.
+        if !should.is_empty() || !must_not.is_empty() {
+            return None;
+        }
+        let mut best: Option<Arc<HashSet<u32>>> = None;
+        for child in must.iter().chain(filter.iter()) {
+            let child = match child {
+                QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => {
+                    query.as_ref()
+                }
+                _ => child,
+            };
+            let pf = match child {
+                QueryNode::Term { field, value, .. } => self.build_term_prefilter_cached(
+                    segments_dir,
+                    segment_id,
+                    field,
+                    std::slice::from_ref(value),
+                ),
+                QueryNode::Terms { field, values, .. } => {
+                    self.build_term_prefilter_cached(segments_dir, segment_id, field, values)
+                }
+                QueryNode::Range {
+                    field,
+                    gte,
+                    gt,
+                    lte,
+                    lt,
+                    ..
+                } => self.build_range_prefilter_cached(
+                    segments_dir,
+                    segment_id,
+                    field,
+                    gte.as_ref(),
+                    gt.as_ref(),
+                    lte.as_ref(),
+                    lt.as_ref(),
+                ),
+                _ => None,
+            };
+            if let Some(set) = pf {
+                if set.is_empty() {
+                    // A conjunct matches nothing → the AND matches nothing.
+                    return Some(set);
+                }
+                best = match best {
+                    Some(b) if b.len() <= set.len() => Some(b),
+                    _ => Some(set),
+                };
+            }
+        }
+        best
     }
 
     /// Sorted-DV candidate pruning for field-sorted `match_all` queries
