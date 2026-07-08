@@ -49,7 +49,7 @@ use std::sync::Arc;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use crc32fast::Hasher as Crc32Hasher;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 
 // LZ4 compression for WAL payloads.
 use lz4_flex::{compress_prepend_size, decompress_size_prepended};
@@ -544,7 +544,10 @@ impl WalWriter {
         let mut f = File::create(&path)?;
         chkpt.write_to(&mut f)?;
         f.sync_all()?;
-        info!(
+        // debug, not info: a checkpoint is written per WAL (16 shards × every
+        // index) on each flush and again on shutdown drain — at info this
+        // floods the console with hundreds of identical lines on Ctrl-C.
+        debug!(
             generation = self.generation,
             max_seq_no, "WAL checkpoint written"
         );
@@ -614,7 +617,7 @@ impl WalWriter {
         let file = create_wal_file(&path, self.generation)?;
         self.writer = BufWriter::with_capacity(8 * 1024 * 1024, file);
         self.current_offset = WAL_HEADER_LEN;
-        info!(
+        debug!(
             generation = self.generation,
             "WAL rotated to new generation"
         );
@@ -740,7 +743,8 @@ impl WalReader {
         // Determine the starting generation and offset from the checkpoint
         let (start_gen, skip_up_to_seq) = match read_checkpoint(&self.dir, latest_gen) {
             Ok(c) => {
-                info!(
+                // debug: fires per WAL (16 shards × every index) at startup.
+                debug!(
                     generation = c.generation,
                     max_seq_no = c.max_seq_no,
                     "replaying from checkpoint"
@@ -748,7 +752,7 @@ impl WalReader {
                 (c.generation, c.max_seq_no)
             }
             Err(_) => {
-                info!("no checkpoint found, replaying from generation 0");
+                debug!("no checkpoint found, replaying from generation 0");
                 (0u64, 0u64)
             }
         };
