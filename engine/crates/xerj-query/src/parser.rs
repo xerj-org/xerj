@@ -3062,16 +3062,31 @@ fn parse_span_first(params: &Value) -> Result<QueryNode> {
     })
 }
 
-/// Parse span_containing / span_within — use the `big` clause only.
+/// Parse `span_containing` / `span_within`. Both take a `little` and a `big`
+/// span clause; the difference is only which span must enclose the other,
+/// which is captured by the returned variant.
 fn parse_span_containing_like(query_type: &str, params: &Value) -> Result<QueryNode> {
-    let obj = match params.as_object() {
-        Some(o) => o,
-        None => return Ok(QueryNode::MatchNone),
-    };
-    obj.get("big")
-        .map(parse_query)
-        .transpose()?
+    let obj = params
+        .as_object()
+        .ok_or_else(|| qerr(format!("`{}` must be an object", query_type)))?;
+
+    let little = obj
+        .get("little")
+        .ok_or_else(|| qerr(format!("`{}` requires a `little` clause", query_type)))
+        .and_then(parse_query)?;
+    let big = obj
+        .get("big")
         .ok_or_else(|| qerr(format!("`{}` requires a `big` clause", query_type)))
+        .and_then(parse_query)?;
+
+    let little = Box::new(little);
+    let big = Box::new(big);
+
+    Ok(match query_type {
+        "span_within" => QueryNode::SpanWithin { little, big },
+        // "span_containing"
+        _ => QueryNode::SpanContaining { little, big },
+    })
 }
 
 /// Parse a `has_child` query.
@@ -4513,6 +4528,57 @@ mod tests {
         // Missing field is rejected.
         assert!(parse_query(&json!({
             "percolate": { "document": { "m": "x" } }
+        }))
+        .is_err());
+    }
+
+    // ── span_containing / span_within ───────────────────────────────────────
+
+    #[test]
+    fn test_span_containing_parses_little_and_big() {
+        let node = q(json!({
+            "span_containing": {
+                "little": { "span_term": { "text": "brown" } },
+                "big": {
+                    "span_near": {
+                        "clauses": [
+                            { "span_term": { "text": "quick" } },
+                            { "span_term": { "text": "fox" } }
+                        ],
+                        "slop": 3,
+                        "in_order": true
+                    }
+                }
+            }
+        }));
+        match node {
+            QueryNode::SpanContaining { little, big } => {
+                assert!(matches!(*little, QueryNode::SpanTerm { .. }));
+                assert!(matches!(*big, QueryNode::SpanNear { .. }));
+            }
+            other => panic!("expected span_containing, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_span_within_variant() {
+        let node = q(json!({
+            "span_within": {
+                "little": { "span_term": { "text": "brown" } },
+                "big": { "span_term": { "text": "quick" } }
+            }
+        }));
+        assert!(matches!(node, QueryNode::SpanWithin { .. }));
+    }
+
+    #[test]
+    fn test_span_containing_missing_clause_is_400() {
+        assert!(parse_query(&json!({
+            "span_containing": { "big": { "span_term": { "text": "x" } } }
+        }))
+        .is_err());
+        assert!(parse_query(&json!({
+            "span_within": { "little": { "span_term": { "text": "x" } } }
         }))
         .is_err());
     }

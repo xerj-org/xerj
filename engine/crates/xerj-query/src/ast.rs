@@ -581,6 +581,18 @@ pub enum QueryNode {
         end: u32,
     },
 
+    /// Span containing — matches spans of `big` that enclose a span of `little`.
+    SpanContaining {
+        little: Box<QueryNode>,
+        big: Box<QueryNode>,
+    },
+
+    /// Span within — matches spans of `little` that are enclosed by a span of `big`.
+    SpanWithin {
+        little: Box<QueryNode>,
+        big: Box<QueryNode>,
+    },
+
     // ── Join queries ──────────────────────────────────────────────────────────
     /// Has-child — matches parent documents that have child documents matching the query.
     HasChild {

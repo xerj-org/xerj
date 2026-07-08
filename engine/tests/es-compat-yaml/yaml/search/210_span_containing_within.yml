@@ -1,0 +1,80 @@
+setup:
+  - do:
+      indices.create:
+        index: spans
+        body:
+          mappings:
+            properties:
+              text:
+                type: text
+
+  - do:
+      bulk:
+        refresh: true
+        body:
+        # doc 1: "brown" sits between "quick" and "fox" — the little span is
+        # enclosed by the big span_near.
+        - '{ "index": { "_index": "spans", "_id": "1" } }'
+        - '{ "text": "the quick brown fox jumps" }'
+        # doc 2: "brown" is AFTER "fox", so it is not enclosed by quick..fox.
+        - '{ "index": { "_index": "spans", "_id": "2" } }'
+        - '{ "text": "the quick fox is brown" }'
+
+---
+"span_within: little span enclosed by big span matches only doc 1":
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: spans
+        body:
+          query:
+            span_within:
+              little:
+                span_term: { text: "brown" }
+              big:
+                span_near:
+                  clauses:
+                    - span_term: { text: "quick" }
+                    - span_term: { text: "fox" }
+                  slop: 3
+                  in_order: true
+
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "1" }
+
+---
+"span_containing: big span contains little span matches only doc 1":
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: spans
+        body:
+          query:
+            span_containing:
+              little:
+                span_term: { text: "brown" }
+              big:
+                span_near:
+                  clauses:
+                    - span_term: { text: "quick" }
+                    - span_term: { text: "fox" }
+                  slop: 3
+                  in_order: true
+
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "1" }
+
+---
+"span_containing requires both little and big (400)":
+
+  - do:
+      catch: bad_request
+      search:
+        index: spans
+        body:
+          query:
+            span_containing:
+              big:
+                span_term: { text: "fox" }

@@ -12131,6 +12131,8 @@ fn is_doc_scan_query(q: &QueryNode) -> bool {
             | QueryNode::SpanOr { .. }
             | QueryNode::SpanNot { .. }
             | QueryNode::SpanFirst { .. }
+            | QueryNode::SpanContaining { .. }
+            | QueryNode::SpanWithin { .. }
             | QueryNode::HasChild { .. }
             | QueryNode::HasParent { .. }
             | QueryNode::Constant { .. }
@@ -13309,6 +13311,31 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
             tokens[..limit].iter().any(|t| t == &v_lower)
         }
 
+        // SpanContaining / SpanWithin: both reduce to the same doc-level
+        // predicate — there exists a `big` span that encloses a `little`
+        // span. (span_containing returns the enclosing spans, span_within the
+        // enclosed ones, but a document matches in either case iff such a pair
+        // exists.) Tokenise the shared field, evaluate both spans into
+        // position intervals, and test enclosure.
+        QueryNode::SpanContaining { little, big } | QueryNode::SpanWithin { little, big } => {
+            let field = match span_field(big).or_else(|| span_field(little)) {
+                Some(f) => f,
+                None => return false,
+            };
+            let text = match get_field_value(source, &field) {
+                Some(Value::String(s)) => s,
+                _ => return false,
+            };
+            let tokens = intervals_tokenise(&text);
+            let bigs = span_intervals(big, &tokens);
+            if bigs.is_empty() {
+                return false;
+            }
+            let littles = span_intervals(little, &tokens);
+            bigs.iter()
+                .any(|b| littles.iter().any(|l| b.start <= l.start && l.end <= b.end))
+        }
+
         // ── Join queries — UNREACHABLE ─────────────────────────────────────────
         // has_child/has_parent are rejected with a 400 at parse time
         // (see xerj-query parser.rs::parse_has_child), so these AST variants
@@ -13412,6 +13439,133 @@ struct TokenInterval {
 impl TokenInterval {
     fn width(&self) -> usize {
         self.end.saturating_sub(self.start)
+    }
+}
+
+/// Find the target field of a span query subtree (the field all span clauses
+/// operate on). ES span queries are single-field; we return the first
+/// `span_term` / `term` field encountered.
+fn span_field(node: &QueryNode) -> Option<String> {
+    match node {
+        QueryNode::SpanTerm { field, .. } => Some(field.clone()),
+        QueryNode::Term { field, .. } => Some(field.clone()),
+        QueryNode::SpanNear { clauses, .. } | QueryNode::SpanOr { clauses } => {
+            clauses.iter().find_map(span_field)
+        }
+        QueryNode::SpanNot { include, .. } => span_field(include),
+        QueryNode::SpanFirst { match_query, .. } => span_field(match_query),
+        QueryNode::SpanContaining { big, little } | QueryNode::SpanWithin { big, little } => {
+            span_field(big).or_else(|| span_field(little))
+        }
+        _ => None,
+    }
+}
+
+/// Evaluate a span query subtree over an already-tokenised field, returning
+/// the set of matching token-position intervals. Used by span_containing /
+/// span_within to test enclosure between a `little` and a `big` span.
+///
+/// Supports SpanTerm/Term, SpanNear, SpanOr, SpanFirst and SpanNot — the same
+/// family the doc-scan span matcher already understands.
+fn span_intervals(node: &QueryNode, tokens: &[String]) -> Vec<TokenInterval> {
+    match node {
+        QueryNode::SpanTerm { value, .. } => {
+            let target = value.to_lowercase();
+            tokens
+                .iter()
+                .enumerate()
+                .filter(|(_, t)| **t == target)
+                .map(|(i, _)| TokenInterval { start: i, end: i })
+                .collect()
+        }
+        QueryNode::Term { value, .. } => match value.as_str() {
+            Some(v) => {
+                let target = v.to_lowercase();
+                tokens
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, t)| **t == target)
+                    .map(|(i, _)| TokenInterval { start: i, end: i })
+                    .collect()
+            }
+            None => Vec::new(),
+        },
+        QueryNode::SpanOr { clauses } => clauses
+            .iter()
+            .flat_map(|c| span_intervals(c, tokens))
+            .collect(),
+        QueryNode::SpanNear {
+            clauses,
+            slop,
+            in_order,
+        } => {
+            let per: Vec<Vec<TokenInterval>> =
+                clauses.iter().map(|c| span_intervals(c, tokens)).collect();
+            if per.iter().any(|p| p.is_empty()) {
+                return Vec::new();
+            }
+            // Choose one interval per clause such that consecutive picks are
+            // within `slop` (adjacency gap) and — when in_order — appear in
+            // clause order. The produced interval encloses all picks.
+            #[allow(clippy::too_many_arguments)]
+            fn rec(
+                per: &[Vec<TokenInterval>],
+                idx: usize,
+                prev: Option<TokenInterval>,
+                min: usize,
+                max: usize,
+                slop: u32,
+                in_order: bool,
+                out: &mut Vec<TokenInterval>,
+            ) {
+                if idx == per.len() {
+                    if prev.is_some() {
+                        out.push(TokenInterval {
+                            start: min,
+                            end: max,
+                        });
+                    }
+                    return;
+                }
+                for &iv in &per[idx] {
+                    let (nmin, nmax, ok) = match prev {
+                        None => (iv.start, iv.end, true),
+                        Some(p) => {
+                            let order_ok = !in_order || iv.start > p.end;
+                            // Gap between the two intervals (0 when they
+                            // overlap); one of the two subtractions is 0.
+                            let dist = iv
+                                .start
+                                .saturating_sub(p.end)
+                                .max(p.start.saturating_sub(iv.end));
+                            let slop_ok = dist <= slop as usize + 1;
+                            (min.min(iv.start), max.max(iv.end), order_ok && slop_ok)
+                        }
+                    };
+                    if ok {
+                        rec(per, idx + 1, Some(iv), nmin, nmax, slop, in_order, out);
+                    }
+                }
+            }
+            let mut out = Vec::new();
+            rec(&per, 0, None, 0, 0, *slop, *in_order, &mut out);
+            out
+        }
+        QueryNode::SpanFirst { match_query, end } => span_intervals(match_query, tokens)
+            .into_iter()
+            .filter(|iv| iv.end < *end as usize)
+            .collect(),
+        QueryNode::SpanNot { include, exclude } => {
+            let exc = span_intervals(exclude, tokens);
+            span_intervals(include, tokens)
+                .into_iter()
+                .filter(|iv| {
+                    // Keep include spans that do not overlap any exclude span.
+                    !exc.iter().any(|e| iv.start <= e.end && e.start <= iv.end)
+                })
+                .collect()
+        }
+        _ => Vec::new(),
     }
 }
 
@@ -16664,5 +16818,70 @@ mod knn_num_candidates_tests {
         // Tuple: (field, vector, k, num_candidates, filter).
         assert_eq!(peeled.2, 5, "k");
         assert_eq!(peeled.3, Some(64), "num_candidates");
+    }
+}
+
+#[cfg(test)]
+mod span_containment_tests {
+    use super::*;
+    use serde_json::json;
+    use xerj_query::ast::QueryNode;
+
+    fn span_term(field: &str, value: &str) -> QueryNode {
+        QueryNode::SpanTerm {
+            field: field.into(),
+            value: value.into(),
+        }
+    }
+
+    /// A `big` span_near over [quick, fox] with slop 3, and a `little`
+    /// span_term(brown) that falls between them.
+    fn near_quick_fox() -> QueryNode {
+        QueryNode::SpanNear {
+            clauses: vec![span_term("text", "quick"), span_term("text", "fox")],
+            slop: 3,
+            in_order: true,
+        }
+    }
+
+    #[test]
+    fn span_within_little_inside_big_matches() {
+        // "the quick brown fox jumps": brown (pos 2) is inside the
+        // quick..fox span (pos 1..3).
+        let doc = json!({ "text": "the quick brown fox jumps" });
+        let q = QueryNode::SpanWithin {
+            little: Box::new(span_term("text", "brown")),
+            big: Box::new(near_quick_fox()),
+        };
+        assert!(doc_matches_query(&q, &doc));
+    }
+
+    #[test]
+    fn span_containing_big_contains_little_matches() {
+        let doc = json!({ "text": "the quick brown fox jumps" });
+        let q = QueryNode::SpanContaining {
+            little: Box::new(span_term("text", "brown")),
+            big: Box::new(near_quick_fox()),
+        };
+        assert!(doc_matches_query(&q, &doc));
+    }
+
+    #[test]
+    fn span_within_non_enclosing_does_not_match() {
+        // "jumps" (pos 4) is outside the quick..fox span (pos 1..3).
+        let doc = json!({ "text": "the quick brown fox jumps" });
+        let q = QueryNode::SpanWithin {
+            little: Box::new(span_term("text", "jumps")),
+            big: Box::new(near_quick_fox()),
+        };
+        assert!(!doc_matches_query(&q, &doc));
+
+        // And when the big span does not even form (no "quick" near "fox").
+        let doc2 = json!({ "text": "brown only here" });
+        let q2 = QueryNode::SpanContaining {
+            little: Box::new(span_term("text", "brown")),
+            big: Box::new(near_quick_fox()),
+        };
+        assert!(!doc_matches_query(&q2, &doc2));
     }
 }

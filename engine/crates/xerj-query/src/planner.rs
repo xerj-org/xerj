@@ -641,6 +641,13 @@ fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
 
         QueryNode::SpanFirst { match_query, .. } => plan_node(*match_query, schema),
 
+        // span_containing / span_within are pure doc-scans (enclosure test);
+        // the plan is ignored by the doc-scan path. Plan the `big` clause so
+        // any field annotation is preserved for cost estimation.
+        QueryNode::SpanContaining { big, .. } | QueryNode::SpanWithin { big, .. } => {
+            plan_node(*big, schema)
+        }
+
         // ── Join queries — UNREACHABLE ────────────────────────────────────────
         // has_child/has_parent are rejected with a 400 at parse time
         // (see parser.rs::parse_has_child), so these AST variants are never
