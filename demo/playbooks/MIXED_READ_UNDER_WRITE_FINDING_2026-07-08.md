@@ -114,3 +114,30 @@ worktree agent for the implementation.
 
 Artifacts: `scratchpad/gdb_catch.sh`, `scratchpad/load_driver.py` (NOTE: fix to
 auto-id), `scratchpad/gdb_dump_*.txt` (symbolicated stacks).
+
+## UPDATE 2 — representative repro CONFIRMS the stall + fix target located
+Re-ran with AUTO-ID turbo writes (`scratchpad/mixed_repr.py`) on the production
+(stripped) binary. The stall REPRODUCES: server-side `took_ms=17030/17256` on
+range(n) window aggs, 70 slow queries. So it is NOT just the explicit-id
+amplifier — the mechanism is real for the representative write path. (My probe
+over-drove the corpus so the absolute 17s is still inflated vs the documented
+62-152ms, but the shape is confirmed.)
+
+FIX TARGET LOCATED (index.rs `mem_snapshot`, ~5266-5327): for a size:0 agg WITH
+a term/range/bool FILTER, the fused columnar memtable path is GATED OFF because
+`request.aggs.is_some()` (line 5292). Correctness (the agg must fold ALL
+matching docs, not just `materialisation_limit`) then forces the `DocsForScan`
+arm → `mem.all_docs_with_sources_arc()` (line 5325) = materialize EVERY memtable
+doc. Under a write flood the memtable holds ~all recent docs, so this is O(all
+memtable docs) built under `s.read()` (the lock hold) then folded. The SEGMENT
+side of exactly this was fixed in commit 5098645 ("filtered size:0 aggs →
+columnar-filtered, 7.8s→~10ms"); the MEMTABLE side was not.
+
+FIX DIRECTION: give the memtable filtered-agg a columnar range/term/bool
+doc-values position fold — enumerate ONLY matching positions via the numeric/
+keyword DV index (like `doc_values_bool_query` already does, but UNBOUNDED for
+the agg case) and fold status/stats over just those, holding `s.read()` only
+briefly. Cuts O(memtable)→O(matching) AND shrinks the lock hold (helps the
+lock-bound contention gdb confirmed). CRITICAL correctness: fold ALL matches
+(memtable matches can exceed materialisation_limit); verify with a dataset where
+the filtered set > 256 in the memtable.
