@@ -3435,15 +3435,15 @@ impl Index {
         }
         .into_iter()
         .map(|(id, score, source)| Hit {
-                id,
-                score,
-                source,
-                sort: Vec::new(),
-                explain: None,
-                highlight: None,
-                matched_queries: Vec::new(),
-            })
-            .collect();
+            id,
+            score,
+            source,
+            sort: Vec::new(),
+            explain: None,
+            highlight: None,
+            matched_queries: Vec::new(),
+        })
+        .collect();
 
         Ok(SearchResult {
             hits,

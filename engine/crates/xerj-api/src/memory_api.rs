@@ -680,18 +680,31 @@ mod tests {
         let state = test_state();
 
         for (id, text) in [
-            ("i1", "host 1.2.3.4 brute forced ssh with hundreds of failed passwords"),
+            (
+                "i1",
+                "host 1.2.3.4 brute forced ssh with hundreds of failed passwords",
+            ),
             ("i2", "nightly database backup completed without errors"),
-            ("i3", "repeated ssh authentication failures from an unknown attacker"),
+            (
+                "i3",
+                "repeated ssh authentication failures from an unknown attacker",
+            ),
         ] {
             let (s, _) = store_mem(&state, "soc", json!({"text": text, "id": id})).await;
-            assert_eq!(s, StatusCode::CREATED, "text-only store must succeed (auto-embedded)");
+            assert_eq!(
+                s,
+                StatusCode::CREATED,
+                "text-only store must succeed (auto-embedded)"
+            );
         }
 
         // Pass query TEXT + semantic:true, NO vector. The server embeds it.
-        let (s, body) =
-            recall_mem(&state, "soc", json!({"query": "ssh brute force attack", "semantic": true, "k": 2}))
-                .await;
+        let (s, body) = recall_mem(
+            &state,
+            "soc",
+            json!({"query": "ssh brute force attack", "semantic": true, "k": 2}),
+        )
+        .await;
         assert_eq!(s, StatusCode::OK);
         let hits = body["hits"].as_array().unwrap();
         assert_eq!(hits.len(), 2, "semantic k=2 → exactly 2 hits");
@@ -707,7 +720,11 @@ mod tests {
 
         // semantic:true with no query text → 400 (nothing to embed).
         let (s, _) = recall_mem(&state, "soc", json!({"semantic": true})).await;
-        assert_eq!(s, StatusCode::BAD_REQUEST, "semantic recall needs a `query` to embed");
+        assert_eq!(
+            s,
+            StatusCode::BAD_REQUEST,
+            "semantic recall needs a `query` to embed"
+        );
 
         // A metadata filter still narrows semantic recall.
         store_mem(
@@ -723,7 +740,10 @@ mod tests {
         )
         .await;
         let hits = body["hits"].as_array().unwrap();
-        assert!(!hits.is_empty(), "filtered semantic recall returns the high-sev memory");
+        assert!(
+            !hits.is_empty(),
+            "filtered semantic recall returns the high-sev memory"
+        );
         assert!(
             hits.iter().all(|h| h["id"] == "i4"),
             "only the high-sev memory passes the filter"

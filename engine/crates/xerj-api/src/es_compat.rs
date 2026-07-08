@@ -5820,7 +5820,8 @@ pub async fn search(
                 .map(|v| v.clone())
                 .and_then(|s| {
                     let as_int = |v: &Value| {
-                        v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+                        v.as_u64()
+                            .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
                     };
                     s.pointer("/index/max_script_fields")
                         .and_then(as_int)
@@ -5839,7 +5840,8 @@ pub async fn search(
                      [{max_sf}] but was [{n}]. This limit can be set by changing the \
                      [index.max_script_fields] index level setting."
                 );
-                return ApiError::new(xerj_common::XerjError::invalid_query(reason)).into_response();
+                return ApiError::new(xerj_common::XerjError::invalid_query(reason))
+                    .into_response();
             }
         }
     }

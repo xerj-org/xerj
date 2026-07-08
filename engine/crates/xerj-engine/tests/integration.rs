@@ -3181,12 +3181,22 @@ async fn test_knn_size_windows_into_k() {
 
     // k=4 pool, size=2 requested → exactly 2 hits, total reports the k pool.
     let res = idx.search(&knn(json!({"size": 2}))).await.unwrap();
-    assert_eq!(res.hits.len(), 2, "size must cap returned hits (pre-fix returned k=4)");
-    assert_eq!(res.total.value, 4, "total.value is the k-neighbor pool, not the 6-doc corpus");
+    assert_eq!(
+        res.hits.len(),
+        2,
+        "size must cap returned hits (pre-fix returned k=4)"
+    );
+    assert_eq!(
+        res.total.value, 4,
+        "total.value is the k-neighbor pool, not the 6-doc corpus"
+    );
     assert_eq!(res.hits[0].id, "d1", "top hit is the exact match");
 
     // from paginates within the pool: page [1..3) skips the top neighbor.
-    let res2 = idx.search(&knn(json!({"from": 1, "size": 2}))).await.unwrap();
+    let res2 = idx
+        .search(&knn(json!({"from": 1, "size": 2})))
+        .await
+        .unwrap();
     assert_eq!(res2.hits.len(), 2, "from+size windows within the k pool");
     assert_eq!(res2.total.value, 4, "total is unaffected by from/size");
     assert_ne!(res2.hits[0].id, res.hits[0].id, "from=1 skips the top hit");
