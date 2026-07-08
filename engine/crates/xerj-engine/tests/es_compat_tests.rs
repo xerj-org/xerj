@@ -853,6 +853,87 @@ async fn test_es_bulk_mixed_operations() {
     );
 }
 
+/// ES YAML test: bulk/90_pipeline.yml — per-item ingest pipeline execution.
+///
+/// A bulk `index` item carrying `pipeline: <name>` must be run through the
+/// named ingest pipeline before it is stored; an item without a pipeline is
+/// stored verbatim; and an item referencing an unknown pipeline fails with a
+/// per-item 400 `illegal_argument_exception`.
+#[tokio::test]
+async fn test_es_bulk_per_item_pipeline() {
+    let (engine, _dir) = test_engine();
+    engine.create_index("bulk_pipe", Schema::empty()).unwrap();
+
+    // Register a pipeline that stamps `ingested = "yes"` on every doc.
+    engine
+        .create_pipeline(
+            "set_pipe",
+            json!({
+                "description": "stamp ingested marker",
+                "stages": [
+                    { "type": "set", "config": { "field": "ingested", "value": "yes", "override": true } }
+                ]
+            }),
+        )
+        .expect("create_pipeline");
+
+    let ndjson = concat!(
+        // Item 0: no pipeline → stored verbatim.
+        r#"{"index":{"_index":"bulk_pipe","_id":"plain"}}"#,
+        "\n",
+        r#"{"f1":"v1"}"#,
+        "\n",
+        // Item 1: pipeline set_pipe → should gain ingested=yes.
+        r#"{"index":{"_index":"bulk_pipe","_id":"piped","pipeline":"set_pipe"}}"#,
+        "\n",
+        r#"{"f1":"v2"}"#,
+        "\n",
+        // Item 2: unknown pipeline → per-item 400.
+        r#"{"index":{"_index":"bulk_pipe","_id":"bad","pipeline":"missing_pipe"}}"#,
+        "\n",
+        r#"{"f1":"v3"}"#,
+        "\n",
+    );
+
+    let result = process_bulk(&engine, Some("bulk_pipe"), ndjson).await;
+    assert_eq!(result.items.len(), 3);
+
+    // Item 0 stored without the pipeline field.
+    assert_eq!(result.items[0].status, 201);
+    // Item 1 succeeded via the pipeline.
+    assert_eq!(result.items[1].status, 201);
+    // Item 2 failed because the pipeline does not exist.
+    assert!(result.errors, "unknown pipeline should mark errors=true");
+    assert_eq!(result.items[2].status, 400);
+    assert_eq!(
+        result.items[2].error.as_deref(),
+        Some("pipeline with id [missing_pipe] does not exist")
+    );
+
+    let idx = engine.get_index("bulk_pipe").unwrap();
+
+    // The piped doc carries the pipeline-injected field.
+    let piped = idx.get_document("piped").await.unwrap().expect("piped doc");
+    assert_eq!(
+        piped.get("ingested").and_then(Value::as_str),
+        Some("yes"),
+        "pipeline must run on the bulk item: {piped:?}"
+    );
+
+    // The plain doc was NOT touched by the pipeline.
+    let plain = idx.get_document("plain").await.unwrap().expect("plain doc");
+    assert!(
+        plain.get("ingested").is_none(),
+        "doc without a pipeline must be stored verbatim: {plain:?}"
+    );
+
+    // The bad-pipeline doc was never indexed.
+    assert!(
+        idx.get_document("bad").await.unwrap().is_none(),
+        "item referencing an unknown pipeline must not be stored"
+    );
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Count API
 // ═════════════════════════════════════════════════════════════════════════════

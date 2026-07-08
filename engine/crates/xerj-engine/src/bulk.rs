@@ -833,6 +833,7 @@ pub async fn process_bulk_with_opts(
             && action.if_primary_term.is_none()
             && action.routing.is_none()
             && action.dynamic_templates.is_none()
+            && action.pipeline.is_none()
             && !index_has_strict_date(&action.target_index, &mut index_needs_date_validation)
             && !index_has_dynamic_copy(&action.target_index, &mut index_needs_dynamic_copy);
         if is_plain_index {
@@ -1027,7 +1028,7 @@ pub async fn process_bulk_with_opts(
             doc_bytes,
             item_index: item_idx,
             require_alias: _,
-            pipeline: _,
+            pipeline,
             if_seq_no,
             if_primary_term,
             routing,
@@ -1053,6 +1054,57 @@ pub async fn process_bulk_with_opts(
                 None
             }
         });
+        // ── Ingest pipeline execution ───────────────────────────────────
+        //
+        // ES runs the item's ingest pipeline BEFORE field mapping,
+        // `copy_to`, and date / dynamic-template validation, so we apply
+        // it here — right after the doc body is parsed. Only `index` /
+        // `create` carry a source body through a pipeline (`update` /
+        // `delete` never do). Unknown pipeline names were already rejected
+        // as per-item 400s in the pre-partition validation pass above, so a
+        // lookup miss here is defensive only — mirror the same error.
+        if let Some(pid) = pipeline.as_deref() {
+            if matches!(action_type.as_str(), "index" | "create") {
+                let input = doc_body
+                    .clone()
+                    .unwrap_or_else(|| Value::Object(serde_json::Map::new()));
+                match engine.process_through_pipeline(pid, vec![input]) {
+                    Ok(mut results) if !results.is_empty() => {
+                        let (p_action, transformed) = results.remove(0);
+                        if matches!(p_action, xerj_wasm::pipeline::ProcessAction::Drop) {
+                            // Pipeline dropped the doc: ES reports a
+                            // successful no-op and does not index it.
+                            items[item_idx] = Some(BulkItemResult {
+                                action: action_type.to_string(),
+                                index: target_index.clone(),
+                                id: error_id.clone(),
+                                status: 200,
+                                result: Some("noop".into()),
+                                error: None,
+                                get_source: None,
+                            });
+                            continue;
+                        }
+                        doc_body = Some(transformed);
+                    }
+                    // Empty result set — index the original body unchanged.
+                    Ok(_) => {}
+                    Err(_) => {
+                        items[item_idx] = Some(BulkItemResult {
+                            action: action_type.to_string(),
+                            index: target_index.clone(),
+                            id: error_id.clone(),
+                            status: 400,
+                            result: None,
+                            error: Some(format!("pipeline with id [{pid}] does not exist")),
+                            get_source: None,
+                        });
+                        errors = true;
+                        continue;
+                    }
+                }
+            }
+        }
         // Apply dynamic-template `copy_to` at ingest. When a doc
         // field name matches a dynamic template's `match` pattern
         // (or equals the template name) and the template's mapping

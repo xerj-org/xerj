@@ -23,3 +23,42 @@
         index: test_index
 
   - match: {count: 1}
+
+---
+"Bulk item runs its ingest pipeline":
+  - do:
+      ingest.put_pipeline:
+        id: "set_pipe"
+        body:
+          processors:
+            - set:
+                field: "ingested"
+                value: "yes"
+
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{"index": {"_index": "pipe_index", "_id": "no_pipe"}}'
+          - '{"f1": "plain"}'
+          - '{"index": {"_index": "pipe_index", "_id": "with_pipe", "pipeline": "set_pipe"}}'
+          - '{"f1": "piped"}'
+
+  - match: { errors: false }
+  - match: { items.0.index.result: created }
+  - match: { items.1.index.result: created }
+
+  # The pipelined doc gained the injected field.
+  - do:
+      get:
+        index: pipe_index
+        id: with_pipe
+  - match: { _source.ingested: "yes" }
+
+  # The non-pipelined doc was stored verbatim (no injected field).
+  - do:
+      get:
+        index: pipe_index
+        id: no_pipe
+  - match: { _source.f1: "plain" }
+  - is_false: _source.ingested
