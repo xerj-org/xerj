@@ -1,0 +1,72 @@
+setup:
+
+  - do:
+      indices.create:
+        index: hybrid_aggs_test
+        body:
+          settings:
+            number_of_shards: 1
+          mappings:
+            properties:
+              title:
+                type: text
+              category:
+                type: keyword
+
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{ "index": { "_index": "hybrid_aggs_test", "_id": "1" } }'
+          - '{ "title": "quick brown fox", "category": "a" }'
+          - '{ "index": { "_index": "hybrid_aggs_test", "_id": "2" } }'
+          - '{ "title": "lazy brown dog", "category": "b" }'
+          - '{ "index": { "_index": "hybrid_aggs_test", "_id": "3" } }'
+          - '{ "title": "quick red fox", "category": "a" }'
+
+---
+"hybrid query with aggregations is rejected (400)":
+
+  # Aggregations over a fused (RRF) result set have no exact semantics —
+  # XERJ fails loud with a 400 rather than silently dropping the aggs or
+  # returning under-counted doc_counts.
+  - do:
+      catch: bad_request
+      search:
+        index: hybrid_aggs_test
+        body:
+          query:
+            hybrid:
+              queries:
+                - query:
+                    match:
+                      title: "brown"
+                - query:
+                    match:
+                      title: "fox"
+              fusion: "rrf"
+          aggs:
+            by_category:
+              terms:
+                field: category
+
+---
+"hybrid query without aggregations still works":
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: hybrid_aggs_test
+        body:
+          query:
+            hybrid:
+              queries:
+                - query:
+                    match:
+                      title: "brown"
+                - query:
+                    match:
+                      title: "fox"
+              fusion: "rrf"
+
+  - match: { hits.total: 3 }

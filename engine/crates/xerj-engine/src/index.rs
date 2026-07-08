@@ -3635,8 +3635,11 @@ impl Index {
     /// Aggregations are NOT supported in hybrid queries today (the
     /// natural semantics — agg over the fused result set vs over each
     /// sub-query — is application-specific). If the request asks for
-    /// aggs we surface that as the response's `aggs: null` so callers
-    /// notice; the v0.7-P1 scope is hits + scores only.
+    /// aggs we reject it with an explicit 400 rather than silently
+    /// dropping them; a bounded aggregation over the fused top-N would
+    /// present under-counted `doc_count`s as if they were exact. Run
+    /// the aggregation as a separate, non-hybrid search instead. The
+    /// v0.7-P1 scope is hits + scores only.
     pub async fn run_hybrid(
         &self,
         request: &SearchRequest,
@@ -3644,6 +3647,17 @@ impl Index {
         fusion: xerj_query::ast::FusionStrategy,
     ) -> Result<SearchResult> {
         let started = std::time::Instant::now();
+
+        // Aggregations over a fused (RRF/Linear/Learned) result set have
+        // no well-defined exact semantics — a bounded agg over the fused
+        // top-N would silently under-count. Fail loud (400) instead of
+        // returning `aggs: null`, mirroring `result_window_too_large`.
+        if request.aggs.is_some() {
+            return Err(EngineError::Common(xerj_common::XerjError::invalid_query(
+                "aggregations are not supported with hybrid/fusion queries; \
+                 run the aggregation as a separate non-hybrid search",
+            )));
+        }
 
         // Each sub-list needs to be deeper than the final top-N so
         // fusion has enough material for stable rank-merge. ES uses
