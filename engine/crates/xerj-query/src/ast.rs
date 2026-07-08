@@ -85,14 +85,28 @@ pub enum Fuzziness {
     Fixed(u32),
 }
 
-/// `minimum_should_match` — either an absolute count or a percentage.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// `minimum_should_match` — an absolute count, a percentage, or (for
+/// `terms_set`) a per-document count sourced from a field or a script.
+///
+/// Not `Copy`/`Eq` because the `Script` variant carries an owned source
+/// string and a free-form params object (`serde_json::Value` is not `Eq`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum MinShouldMatch {
     /// Exact number of `should` clauses that must match.
     Fixed(u32),
     /// Percentage of `should` clauses that must match (0–100).
     Percentage(u32),
+    /// `terms_set.minimum_should_match_field`: the required count is read
+    /// per-document from this numeric field.
+    Field(String),
+    /// `terms_set.minimum_should_match_script`: the required count is the
+    /// result of a Painless script (with `params.num_terms` injected).
+    Script {
+        source: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        params: Option<serde_json::Value>,
+    },
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

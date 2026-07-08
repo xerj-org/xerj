@@ -611,7 +611,7 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
             let (im, is, imm) = if operator_and {
                 (inner_clauses, vec![], None)
             } else {
-                (vec![], inner_clauses, mm_ms)
+                (vec![], inner_clauses, mm_ms.clone())
             };
             let inner_bool = QueryNode::Bool {
                 must: im,
@@ -3473,19 +3473,28 @@ fn parse_terms_set(params: &Value) -> Result<QueryNode> {
         .ok_or_else(|| qerr("`terms_set.terms` must be an array"))?
         .clone();
 
-    let minimum_should_match = inner
+    // `minimum_should_match_field` reads the per-doc required count from a
+    // numeric field; `minimum_should_match_script` computes it from a
+    // Painless script. Fall back to a literal `minimum_should_match`.
+    let minimum_should_match = if let Some(field_name) = inner
         .get("minimum_should_match_field")
-        .or_else(|| inner.get("minimum_should_match_script"))
-        .map(|_| {
-            // Script/field-based minimum — fall back to 1 (parse without error).
-            crate::ast::MinShouldMatch::Fixed(1)
-        })
-        .or_else(|| {
-            inner
-                .get("minimum_should_match")
-                .map(parse_min_should_match)
-                .and_then(|r| r.ok())
-        });
+        .and_then(Value::as_str)
+    {
+        Some(crate::ast::MinShouldMatch::Field(field_name.to_string()))
+    } else if let Some(script) = inner.get("minimum_should_match_script") {
+        let source = script
+            .get("source")
+            .and_then(Value::as_str)
+            .ok_or_else(|| qerr("`terms_set.minimum_should_match_script` requires a `source`"))?
+            .to_string();
+        let params = script.get("params").cloned();
+        Some(crate::ast::MinShouldMatch::Script { source, params })
+    } else {
+        inner
+            .get("minimum_should_match")
+            .map(parse_min_should_match)
+            .and_then(|r| r.ok())
+    };
 
     let should: Vec<QueryNode> = terms
         .iter()
@@ -4581,5 +4590,49 @@ mod tests {
             "span_within": { "little": { "span_term": { "text": "x" } } }
         }))
         .is_err());
+    }
+
+    // ── terms_set minimum_should_match_field / _script ──────────────────────
+
+    #[test]
+    fn test_terms_set_minimum_should_match_field() {
+        let node = q(json!({
+            "terms_set": {
+                "codes": {
+                    "terms": ["a", "b", "c"],
+                    "minimum_should_match_field": "required"
+                }
+            }
+        }));
+        match node {
+            QueryNode::Bool {
+                minimum_should_match: Some(MinShouldMatch::Field(name)),
+                should,
+                ..
+            } => {
+                assert_eq!(name, "required");
+                assert_eq!(should.len(), 3);
+            }
+            other => panic!("expected bool w/ field msm, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_terms_set_minimum_should_match_script() {
+        let node = q(json!({
+            "terms_set": {
+                "codes": {
+                    "terms": ["a", "b"],
+                    "minimum_should_match_script": { "source": "params.num_terms" }
+                }
+            }
+        }));
+        match node {
+            QueryNode::Bool {
+                minimum_should_match: Some(MinShouldMatch::Script { source, .. }),
+                ..
+            } => assert_eq!(source, "params.num_terms"),
+            other => panic!("expected bool w/ script msm, got {:?}", other),
+        }
     }
 }

@@ -11338,7 +11338,7 @@ fn rewrite_query_aliases(q: &QueryNode, schema: &Schema) -> QueryNode {
                 boost: *boost,
                 operator: *operator,
                 analyzer: analyzer.clone(),
-                minimum_should_match: *minimum_should_match,
+                minimum_should_match: minimum_should_match.clone(),
             }
         }
         QueryNode::Bool {
@@ -11364,7 +11364,7 @@ fn rewrite_query_aliases(q: &QueryNode, schema: &Schema) -> QueryNode {
                 .iter()
                 .map(|c| rewrite_query_aliases(c, schema))
                 .collect(),
-            minimum_should_match: *minimum_should_match,
+            minimum_should_match: minimum_should_match.clone(),
         },
         // For all other query types, return as-is.
         other => other.clone(),
@@ -11451,7 +11451,7 @@ fn strip_nested_path_in_query(q: &QueryNode, path: &str) -> QueryNode {
             boost: *boost,
             operator: *operator,
             analyzer: analyzer.clone(),
-            minimum_should_match: *minimum_should_match,
+            minimum_should_match: minimum_should_match.clone(),
         },
         QueryNode::MatchPhrase {
             field,
@@ -11546,7 +11546,7 @@ fn strip_nested_path_in_query(q: &QueryNode, path: &str) -> QueryNode {
                 .iter()
                 .map(|c| strip_nested_path_in_query(c, path))
                 .collect(),
-            minimum_should_match: *minimum_should_match,
+            minimum_should_match: minimum_should_match.clone(),
         },
         QueryNode::Boosting {
             positive,
@@ -12510,11 +12510,43 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
             }
             // Should clauses: if present, at least minimum_should_match must match.
             if !should.is_empty() {
+                // `should.len() + 1` is the "unsatisfiable" sentinel: `matched`
+                // can never reach it, so the doc is forced to not match.
+                let unsatisfiable = should.len() + 1;
                 let min = match minimum_should_match {
                     Some(MinShouldMatch::Fixed(n)) => *n as usize,
                     Some(MinShouldMatch::Percentage(pct)) => {
                         // Round down, minimum 1.
                         ((should.len() as f32 * (*pct as f32 / 100.0)).floor() as usize).max(1)
+                    }
+                    // terms_set: per-doc required count read from a numeric
+                    // field. Missing / non-numeric => the doc cannot match
+                    // (ES semantics).
+                    Some(MinShouldMatch::Field(name)) => {
+                        match get_field_value(source, name).and_then(|v| v.as_f64()) {
+                            Some(n) if n >= 0.0 => n as usize,
+                            _ => unsatisfiable,
+                        }
+                    }
+                    // terms_set: per-doc required count computed by a Painless
+                    // script, with `params.num_terms` injected. A script error
+                    // makes the doc unsatisfiable (fail-closed).
+                    Some(MinShouldMatch::Script {
+                        source: script_src,
+                        params,
+                    }) => {
+                        let mut p = params.clone().unwrap_or_else(|| serde_json::json!({}));
+                        if let Value::Object(map) = &mut p {
+                            map.insert("num_terms".to_string(), Value::from(should.len() as u64));
+                        }
+                        let ctx = crate::painless::PainlessCtx::new(source, &p, 0.0);
+                        match crate::painless::eval_painless(script_src, &ctx)
+                            .ok()
+                            .and_then(|v| v.as_f64())
+                        {
+                            Some(n) if n >= 0.0 => n as usize,
+                            _ => unsatisfiable,
+                        }
                     }
                     None => {
                         // Default: if must/filter are empty, at least 1 should must match.
@@ -16883,5 +16915,75 @@ mod span_containment_tests {
             big: Box::new(near_quick_fox()),
         };
         assert!(!doc_matches_query(&q2, &doc2));
+    }
+}
+
+#[cfg(test)]
+mod terms_set_tests {
+    use super::*;
+    use serde_json::json;
+    use xerj_query::ast::{MinShouldMatch, QueryNode};
+
+    /// Build the Bool that `terms_set` lowers to: a `should` of Term clauses
+    /// over `codes` with the given `minimum_should_match`.
+    fn terms_set_bool(codes: &[&str], msm: MinShouldMatch) -> QueryNode {
+        QueryNode::Bool {
+            must: vec![],
+            must_not: vec![],
+            filter: vec![],
+            should: codes
+                .iter()
+                .map(|c| QueryNode::Term {
+                    field: "codes".into(),
+                    value: json!(c),
+                    boost: None,
+                })
+                .collect(),
+            minimum_should_match: Some(msm),
+        }
+    }
+
+    #[test]
+    fn terms_set_field_required_count() {
+        let q = terms_set_bool(&["a", "b", "c"], MinShouldMatch::Field("required".into()));
+
+        // 2 of the codes present, required 2 => match.
+        assert!(doc_matches_query(
+            &q,
+            &json!({ "codes": ["a", "b"], "required": 2 })
+        ));
+        // Only 1 present, required 2 => no match.
+        assert!(!doc_matches_query(
+            &q,
+            &json!({ "codes": ["a"], "required": 2 })
+        ));
+        // required exceeds the number of matching terms => no match.
+        assert!(!doc_matches_query(
+            &q,
+            &json!({ "codes": ["a", "b", "c"], "required": 4 })
+        ));
+        // required field missing => unsatisfiable, no match.
+        assert!(!doc_matches_query(&q, &json!({ "codes": ["a", "b", "c"] })));
+        // required field non-numeric => unsatisfiable, no match.
+        assert!(!doc_matches_query(
+            &q,
+            &json!({ "codes": ["a", "b"], "required": "two" })
+        ));
+    }
+
+    #[test]
+    fn terms_set_script_num_terms() {
+        // source `params.num_terms` => require ALL terms to match.
+        let q = terms_set_bool(
+            &["a", "b", "c"],
+            MinShouldMatch::Script {
+                source: "params.num_terms".into(),
+                params: None,
+            },
+        );
+        // All three present => match.
+        assert!(doc_matches_query(&q, &json!({ "codes": ["a", "b", "c"] })));
+        // Only two present => no match.
+        assert!(!doc_matches_query(&q, &json!({ "codes": ["a", "b"] })));
     }
 }

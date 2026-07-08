@@ -1,0 +1,70 @@
+setup:
+  - do:
+      indices.create:
+        index: tset
+        body:
+          mappings:
+            properties:
+              codes:
+                type: keyword
+              required:
+                type: integer
+
+  - do:
+      bulk:
+        refresh: true
+        body:
+        # 2 of {a,b,c} present, requires 2 => matches.
+        - '{ "index": { "_index": "tset", "_id": "1" } }'
+        - '{ "codes": ["a", "b"], "required": 2 }'
+        # only 1 present, requires 2 => no match.
+        - '{ "index": { "_index": "tset", "_id": "2" } }'
+        - '{ "codes": ["a"], "required": 2 }'
+        # all 3 present, requires 1 => matches.
+        - '{ "index": { "_index": "tset", "_id": "3" } }'
+        - '{ "codes": ["a", "b", "c"], "required": 1 }'
+        # 2 present but requires 3 => no match (required exceeds matches).
+        - '{ "index": { "_index": "tset", "_id": "4" } }'
+        - '{ "codes": ["b", "c"], "required": 3 }'
+
+---
+"terms_set with minimum_should_match_field":
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: tset
+        body:
+          size: 10
+          sort: [ { _id: asc } ]
+          query:
+            terms_set:
+              codes:
+                terms: ["a", "b", "c"]
+                minimum_should_match_field: required
+
+  # docs 1 and 3 satisfy their per-doc required count; 2 and 4 do not.
+  - match: { hits.total: 2 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.1._id: "3" }
+
+---
+"terms_set with minimum_should_match_script params.num_terms":
+
+  # params.num_terms == 3 => a doc must contain ALL three codes.
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: tset
+        body:
+          size: 10
+          query:
+            terms_set:
+              codes:
+                terms: ["a", "b", "c"]
+                minimum_should_match_script:
+                  source: "params.num_terms"
+
+  # Only doc 3 has all of a, b and c.
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "3" }
