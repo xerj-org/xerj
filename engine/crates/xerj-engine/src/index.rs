@@ -16171,6 +16171,45 @@ fn compute_field_value_factor(fvf: &FieldValueFactor, source: &Value) -> f32 {
     (modified * fvf.factor as f64) as f32
 }
 
+/// Compute the score contribution from a `rank_feature` function over a
+/// numeric feature field. Implements the four ES functions exactly:
+///
+/// * saturation: `v / (v + pivot)`  (pivot defaults to 1.0 when omitted)
+/// * log:        `log10(scaling_factor + v)`
+/// * sigmoid:    `v^exponent / (v^exponent + pivot^exponent)`
+/// * linear:     `v`
+///
+/// A missing or non-numeric field contributes 0 (the surrounding Exists
+/// query already filters docs lacking the field).
+fn compute_rank_feature_score(rf: &xerj_query::ast::RankFeature, source: &Value) -> f32 {
+    use xerj_query::ast::RankFeatureFn;
+    let Some(v) = get_field_value(source, &rf.field).and_then(|x| x.as_f64()) else {
+        return 0.0;
+    };
+    let s = match &rf.function {
+        RankFeatureFn::Saturation { pivot } => {
+            let p = pivot.unwrap_or(1.0);
+            if v + p == 0.0 {
+                0.0
+            } else {
+                v / (v + p)
+            }
+        }
+        RankFeatureFn::Log { scaling_factor } => (scaling_factor + v).log10(),
+        RankFeatureFn::Sigmoid { pivot, exponent } => {
+            let ve = v.powf(*exponent);
+            let pe = pivot.powf(*exponent);
+            if ve + pe == 0.0 {
+                0.0
+            } else {
+                ve / (ve + pe)
+            }
+        }
+        RankFeatureFn::Linear => v,
+    };
+    s as f32
+}
+
 /// Compute the score contribution from a `distance_feature` function.
 /// Formula: `pivot / (pivot + distance(origin, field_value))`.
 ///
@@ -16420,6 +16459,12 @@ fn apply_function_score(
             // Exists query already filters them out).
             let ds = compute_distance_feature_score(df, source);
             score = ds;
+        }
+
+        if let Some(rf) = &func.rank_feature {
+            // rank_feature emits its own score; the query `boost` (carried in
+            // `weight`, default 1.0) multiplies it, matching ES.
+            score *= compute_rank_feature_score(rf, source);
         }
 
         fn_scores.push(score);
@@ -16985,5 +17030,60 @@ mod terms_set_tests {
         assert!(doc_matches_query(&q, &json!({ "codes": ["a", "b", "c"] })));
         // Only two present => no match.
         assert!(!doc_matches_query(&q, &json!({ "codes": ["a", "b"] })));
+    }
+}
+
+#[cfg(test)]
+mod rank_feature_tests {
+    use super::*;
+    use serde_json::json;
+    use xerj_query::ast::{RankFeature, RankFeatureFn};
+
+    fn score(function: RankFeatureFn, v: f64) -> f32 {
+        let rf = RankFeature {
+            field: "pagerank".into(),
+            function,
+        };
+        compute_rank_feature_score(&rf, &json!({ "pagerank": v }))
+    }
+
+    #[test]
+    fn saturation_formula_and_ordering() {
+        // v / (v + pivot); pivot = 8.
+        let f = |v| score(RankFeatureFn::Saturation { pivot: Some(8.0) }, v);
+        assert!((f(8.0) - 0.5).abs() < 1e-6, "8/(8+8) = 0.5");
+        assert!((f(2.0) - 0.2).abs() < 1e-6, "2/(2+8) = 0.2");
+        // Monotonic increasing.
+        assert!(f(2.0) < f(8.0) && f(8.0) < f(100.0));
+    }
+
+    #[test]
+    fn linear_is_identity() {
+        assert!((score(RankFeatureFn::Linear, 42.0) - 42.0).abs() < 1e-4);
+        assert!((score(RankFeatureFn::Linear, 3.5) - 3.5).abs() < 1e-4);
+    }
+
+    #[test]
+    fn log_is_monotonic() {
+        let f = |v| {
+            score(
+                RankFeatureFn::Log {
+                    scaling_factor: 4.0,
+                },
+                v,
+            )
+        };
+        // log10(4 + 6) = 1.0.
+        assert!((f(6.0) - 1.0).abs() < 1e-6);
+        assert!(f(1.0) < f(6.0) && f(6.0) < f(96.0));
+    }
+
+    #[test]
+    fn missing_field_scores_zero() {
+        let rf = RankFeature {
+            field: "pagerank".into(),
+            function: RankFeatureFn::Linear,
+        };
+        assert_eq!(compute_rank_feature_score(&rf, &json!({ "other": 1 })), 0.0);
     }
 }

@@ -1,0 +1,81 @@
+setup:
+  - do:
+      indices.create:
+        index: rf
+        body:
+          mappings:
+            properties:
+              pagerank:
+                type: rank_feature
+
+  - do:
+      bulk:
+        refresh: true
+        body:
+        - '{ "index": { "_index": "rf", "_id": "1" } }'
+        - '{ "pagerank": 10 }'
+        - '{ "index": { "_index": "rf", "_id": "2" } }'
+        - '{ "pagerank": 100 }'
+        - '{ "index": { "_index": "rf", "_id": "3" } }'
+        - '{ "pagerank": 1 }'
+        - '{ "index": { "_index": "rf", "_id": "4" } }'
+        - '{ "pagerank": 50 }'
+
+---
+"rank_feature saturation orders by v/(v+pivot) and yields that score":
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: rf
+        body:
+          query:
+            rank_feature:
+              field: pagerank
+              saturation:
+                pivot: 8
+
+  - length: { hits.hits: 4 }
+  - match: { hits.hits.0._id: "2" }
+  - match: { hits.hits.1._id: "4" }
+  - match: { hits.hits.2._id: "1" }
+  - match: { hits.hits.3._id: "3" }
+  # S = 10 / (10 + 8) = 0.5555556 for doc 1.
+  - match: { hits.hits.2._score: 0.5555556 }
+
+---
+"rank_feature linear yields _score == value":
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: rf
+        body:
+          query:
+            rank_feature:
+              field: pagerank
+              linear: {}
+
+  - match: { hits.hits.0._id: "2" }
+  - match: { hits.hits.0._score: 100.0 }
+  - match: { hits.hits.1._id: "4" }
+  - match: { hits.hits.1._score: 50.0 }
+
+---
+"rank_feature log ordering is monotonic":
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: rf
+        body:
+          query:
+            rank_feature:
+              field: pagerank
+              log:
+                scaling_factor: 4
+
+  - match: { hits.hits.0._id: "2" }
+  - match: { hits.hits.1._id: "4" }
+  - match: { hits.hits.2._id: "1" }
+  - match: { hits.hits.3._id: "3" }

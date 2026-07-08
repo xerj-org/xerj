@@ -224,6 +224,37 @@ pub struct ScoreFunction {
     /// the pivot is a duration (for date fields) or distance (for geo_point).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub distance_feature: Option<DistanceFeature>,
+    /// `rank_feature` scoring — saturation / log / sigmoid / linear proximity
+    /// scoring over a numeric `rank_feature` field.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rank_feature: Option<RankFeature>,
+}
+
+/// Payload for a `rank_feature` function.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RankFeature {
+    /// The rank_feature field to score on.
+    pub field: String,
+    /// Which of the four ES functions to apply.
+    pub function: RankFeatureFn,
+}
+
+/// The four Elasticsearch `rank_feature` scoring functions.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RankFeatureFn {
+    /// `v / (v + pivot)`. When `pivot` is omitted ES uses the field's
+    /// approximate value distribution; we default it to 1.0.
+    Saturation {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pivot: Option<f64>,
+    },
+    /// `log10(scaling_factor + v)`.
+    Log { scaling_factor: f64 },
+    /// `v^exponent / (v^exponent + pivot^exponent)`.
+    Sigmoid { pivot: f64, exponent: f64 },
+    /// `v` (identity).
+    Linear,
 }
 
 /// Payload for a `distance_feature` function.

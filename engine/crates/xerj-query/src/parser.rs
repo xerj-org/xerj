@@ -2462,6 +2462,7 @@ fn parse_score_function_inline(obj: &serde_json::Map<String, Value>) -> Result<S
         script_params,
         name,
         distance_feature: None,
+        rank_feature: None,
     })
 }
 
@@ -3583,6 +3584,7 @@ fn parse_script_score(params: &Value) -> Result<QueryNode> {
         script_params: s_params,
         name: None,
         distance_feature: None,
+        rank_feature: None,
     };
 
     Ok(QueryNode::FunctionScore {
@@ -3637,6 +3639,7 @@ fn parse_distance_feature(params: &Value) -> Result<QueryNode> {
             script_params: None,
             name: None,
             distance_feature: Some(df),
+            rank_feature: None,
         }],
         score_mode: ScoreMode::Multiply,
         boost_mode: BoostMode::Replace,
@@ -3650,6 +3653,8 @@ fn parse_distance_feature(params: &Value) -> Result<QueryNode> {
 ///
 /// ES docs: <https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-rank-feature-query.html>
 fn parse_rank_feature(params: &Value) -> Result<QueryNode> {
+    use crate::ast::{RankFeature, RankFeatureFn};
+
     let obj = params
         .as_object()
         .ok_or_else(|| qerr("`rank_feature` must be an object"))?;
@@ -3657,30 +3662,57 @@ fn parse_rank_feature(params: &Value) -> Result<QueryNode> {
     let field = string_field(obj, "field")?;
     let boost = obj.get("boost").and_then(|v| v.as_f64()).map(|b| b as f32);
 
-    // log(pivot + value) / log(pivot + max_value) approximation — we use
-    // a field_value_factor with log1p modifier as a close stand-in.
-    let fvf = FieldValueFactor {
+    // Detect which of the four ES functions is requested. Default to
+    // `saturation` (with the field's default pivot) when none is given.
+    let function = if let Some(sat) = obj.get("saturation") {
+        let pivot = sat.get("pivot").and_then(|v| v.as_f64());
+        RankFeatureFn::Saturation { pivot }
+    } else if let Some(log) = obj.get("log") {
+        let scaling_factor = log
+            .get("scaling_factor")
+            .and_then(|v| v.as_f64())
+            .ok_or_else(|| qerr("`rank_feature.log` requires a `scaling_factor`"))?;
+        RankFeatureFn::Log { scaling_factor }
+    } else if let Some(sig) = obj.get("sigmoid") {
+        let pivot = sig
+            .get("pivot")
+            .and_then(|v| v.as_f64())
+            .ok_or_else(|| qerr("`rank_feature.sigmoid` requires a `pivot`"))?;
+        let exponent = sig
+            .get("exponent")
+            .and_then(|v| v.as_f64())
+            .ok_or_else(|| qerr("`rank_feature.sigmoid` requires an `exponent`"))?;
+        RankFeatureFn::Sigmoid { pivot, exponent }
+    } else if obj.contains_key("linear") {
+        RankFeatureFn::Linear
+    } else {
+        RankFeatureFn::Saturation { pivot: None }
+    };
+
+    let rank_feature = RankFeature {
         field: field.clone(),
-        factor: 1.0,
-        modifier: Modifier::Log1p,
-        missing: Some(0.0),
+        function,
     };
 
     Ok(QueryNode::FunctionScore {
+        // The inner Exists query supplies the candidate set (all docs that
+        // have the rank_feature field); `boost_mode: replace` substitutes
+        // the feature's own score for the query score.
         query: Box::new(QueryNode::Exists { field }),
         functions: vec![ScoreFunction {
             filter: None,
             weight: boost,
-            field_value_factor: Some(fvf),
+            field_value_factor: None,
             random_score: None,
             script_score: None,
             script_source: None,
             script_params: None,
             name: None,
             distance_feature: None,
+            rank_feature: Some(rank_feature),
         }],
         score_mode: ScoreMode::Multiply,
-        boost_mode: BoostMode::Multiply,
+        boost_mode: BoostMode::Replace,
         max_boost: None,
     })
 }
@@ -4634,5 +4666,77 @@ mod tests {
             } => assert_eq!(source, "params.num_terms"),
             other => panic!("expected bool w/ script msm, got {:?}", other),
         }
+    }
+
+    // ── rank_feature ────────────────────────────────────────────────────────
+
+    fn rank_feature_fn(body: serde_json::Value) -> crate::ast::RankFeatureFn {
+        use crate::ast::QueryNode;
+        match q(body) {
+            QueryNode::FunctionScore {
+                functions,
+                boost_mode,
+                ..
+            } => {
+                assert_eq!(boost_mode, crate::ast::BoostMode::Replace);
+                functions[0]
+                    .rank_feature
+                    .as_ref()
+                    .expect("rank_feature payload present")
+                    .function
+                    .clone()
+            }
+            other => panic!("expected function_score, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_rank_feature_saturation_with_pivot() {
+        let f = rank_feature_fn(json!({
+            "rank_feature": { "field": "pagerank", "saturation": { "pivot": 8 } }
+        }));
+        assert_eq!(
+            f,
+            crate::ast::RankFeatureFn::Saturation { pivot: Some(8.0) }
+        );
+    }
+
+    #[test]
+    fn test_rank_feature_defaults_to_saturation() {
+        let f = rank_feature_fn(json!({ "rank_feature": { "field": "pagerank" } }));
+        assert_eq!(f, crate::ast::RankFeatureFn::Saturation { pivot: None });
+    }
+
+    #[test]
+    fn test_rank_feature_log_sigmoid_linear() {
+        assert_eq!(
+            rank_feature_fn(json!({
+                "rank_feature": { "field": "pr", "log": { "scaling_factor": 4 } }
+            })),
+            crate::ast::RankFeatureFn::Log {
+                scaling_factor: 4.0
+            }
+        );
+        assert_eq!(
+            rank_feature_fn(json!({
+                "rank_feature": { "field": "pr", "sigmoid": { "pivot": 7, "exponent": 0.6 } }
+            })),
+            crate::ast::RankFeatureFn::Sigmoid {
+                pivot: 7.0,
+                exponent: 0.6
+            }
+        );
+        assert_eq!(
+            rank_feature_fn(json!({ "rank_feature": { "field": "pr", "linear": {} } })),
+            crate::ast::RankFeatureFn::Linear
+        );
+    }
+
+    #[test]
+    fn test_rank_feature_log_missing_scaling_is_400() {
+        assert!(parse_query(&json!({
+            "rank_feature": { "field": "pr", "log": {} }
+        }))
+        .is_err());
     }
 }
