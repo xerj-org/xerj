@@ -28,6 +28,7 @@ zstd = { workspace = true }
 
 # Direct deps (not in workspace)
 unicode-segmentation = "1"
+unicode-normalization = "0.1"
 rust-stemmers = "1.2"
 regex = "1"
 

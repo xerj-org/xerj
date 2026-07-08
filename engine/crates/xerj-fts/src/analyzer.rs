@@ -816,10 +816,6 @@ impl TokenFilter for IcuFoldingFilter {
         tokens
             .into_iter()
             .map(|mut t| {
-                // Apply NFKC normalization using the `unicode-normalization` approach.
-                // We approximate NFKC by applying compatibility and canonical decomposition
-                // then recomposing.  In Rust stable we use the `unicode_normalization` crate
-                // if available, otherwise we fall back to lowercasing only.
                 t.text = nfkc_normalize(&t.text);
                 t
             })
@@ -827,37 +823,20 @@ impl TokenFilter for IcuFoldingFilter {
     }
 }
 
-/// Apply NFKC-like normalization.  Uses a character-by-character approach
-/// for the most common compatibility mappings without requiring extra crate deps.
+/// Apply full Unicode NFKC normalization (compatibility decomposition +
+/// canonical composition) via the `unicode-normalization` crate.
+///
+/// This is real NFKC, matching the Unicode standard the ICU folding token
+/// filter in Elasticsearch relies on — not a hand-picked table.  Examples:
+/// - Composes combining sequences: `e` + U+0301 → `é`.
+/// - Folds compatibility characters: `ﬁ` → `fi`, `²` → `2`, `Ⅸ` → `IX`.
+/// - Maps fullwidth forms to ASCII: `！` → `!`.
+///
+/// Casing is intentionally left to the pipeline's `LowercaseFilter`; this
+/// filter is pure NFKC so it can be composed independently.
 fn nfkc_normalize(s: &str) -> String {
-    // Rust's standard library doesn't include Unicode normalization, so we do
-    // a best-effort fold: lowercase + ASCII compatibility substitutions.
-    // The unicode-normalization crate is not a current dependency, so we keep
-    // this lightweight — the filter still benefits from lowercasing.
-    s.chars().flat_map(nfkc_fold_char).collect()
-}
-
-/// Single-character NFKC compatibility fold for the most common cases.
-fn nfkc_fold_char(c: char) -> Vec<char> {
-    match c {
-        // Ligatures
-        'ﬁ' => vec!['f', 'i'],
-        'ﬂ' => vec!['f', 'l'],
-        'ﬃ' => vec!['f', 'f', 'i'],
-        'ﬄ' => vec!['f', 'f', 'l'],
-        'ﬀ' => vec!['f', 'f'],
-        // Superscripts/subscripts
-        '²' => vec!['2'],
-        '³' => vec!['3'],
-        '¹' => vec!['1'],
-        '⁰' => vec!['0'],
-        // Fullwidth ASCII (U+FF01..U+FF5E → U+0021..U+007E)
-        c if ('\u{FF01}'..='\u{FF5E}').contains(&c) => {
-            let ascii = (c as u32 - 0xFF00 + 0x0020) as u8;
-            vec![ascii as char]
-        }
-        other => vec![other.to_lowercase().next().unwrap_or(other)],
-    }
+    use unicode_normalization::UnicodeNormalization;
+    s.nfkc().collect()
 }
 
 // ── Analyzer registry ─────────────────────────────────────────────────────────
@@ -1889,5 +1868,40 @@ mod tests {
         let analyzer = registry.get_analyzer("keyword").unwrap();
         let terms = analyzer.analyze_to_terms("Hello World");
         assert_eq!(terms, vec!["Hello World"]);
+    }
+
+    #[test]
+    fn icu_folding_filter_applies_real_nfkc() {
+        let filter = IcuFoldingFilter;
+        // Combining sequence composes: "e" + U+0301 (COMBINING ACUTE) -> "é".
+        // Fullwidth exclamation folds to ASCII "!".
+        // Roman numeral nine (U+2168) decomposes to "IX".
+        // Ligature "ﬁ" -> "fi"; superscript "²" -> "2".
+        let tokens = vec![
+            Token::new("e\u{0301}", 0, 0, 0),
+            Token::new("\u{FF01}", 1, 0, 0),
+            Token::new("\u{2168}", 2, 0, 0),
+            Token::new("ﬁ", 3, 0, 0),
+            Token::new("²", 4, 0, 0),
+        ];
+        let out = filter.filter(tokens);
+        assert_eq!(out[0].text, "\u{00E9}"); // é (single precomposed codepoint)
+        assert_eq!(out[0].text.chars().count(), 1);
+        assert_eq!(out[1].text, "!");
+        assert_eq!(out[2].text, "IX"); // NFKC keeps case; lowercasing is the pipeline's job
+        assert_eq!(out[3].text, "fi");
+        assert_eq!(out[4].text, "2");
+    }
+
+    #[test]
+    fn registry_icu_folding_analyzer_lowercases_and_nfkc() {
+        let registry = AnalyzerRegistry::default();
+        let analyzer = registry.get_analyzer("icu_folding").unwrap();
+        // Pipeline = StandardTokenizer -> LowercaseFilter -> IcuFoldingFilter,
+        // so the analyzer both lowercases and NFKC-folds.
+        let terms = analyzer.analyze_to_terms("Ⅸ ﬁ TEST");
+        assert!(terms.contains(&"ix".to_string()), "terms={terms:?}");
+        assert!(terms.contains(&"fi".to_string()), "terms={terms:?}");
+        assert!(terms.contains(&"test".to_string()), "terms={terms:?}");
     }
 }
