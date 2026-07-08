@@ -111,9 +111,16 @@ impl ShardRouter {
     /// index assignments.
     pub fn update_from_metadata(&mut self, metadata: &ClusterMetadata) {
         self.routing_table.clear();
+        let mut max_shards: u32 = 0;
         for ((index, shard), node_id) in &metadata.shard_assignments {
             self.routing_table
                 .insert((index.clone(), *shard), node_id.clone());
+            max_shards = max_shards.max(shard + 1);
+        }
+        // Only widen when we actually saw assignments — an empty metadata set
+        // must not violate the `num_shards > 0` invariant established in `new`.
+        if max_shards > 0 {
+            self.num_shards = max_shards;
         }
     }
 
@@ -317,12 +324,36 @@ mod tests {
             },
         );
 
-        let mut router = ShardRouter::new(2);
+        // Start with a single virtual shard: refreshing from metadata that
+        // assigns shards 0 and 1 must widen num_shards to 2.
+        let mut router = ShardRouter::new(1);
         router.update_from_metadata(&meta);
+
+        // num_shards is refreshed to the max shard index seen (+1), matching
+        // the doc comment on update_from_metadata.
+        assert_eq!(router.num_shards(), 2, "num_shards should widen to 2");
 
         let targets = router.search_targets("products");
         assert!(targets.contains(&"node-a".to_string()));
         assert!(targets.contains(&"node-b".to_string()));
         assert_eq!(targets.len(), 2);
+
+        // Routing must resolve to a real assigned node now that both shards
+        // are reachable — with num_shards==1 shard 1 was unreachable.
+        let mut saw_node_a = false;
+        let mut saw_node_b = false;
+        for i in 0..64 {
+            let (shard, node) = router.route_doc("products", &format!("doc-{i}"));
+            assert!(shard < 2, "shard {shard} out of range for num_shards=2");
+            match node {
+                Some("node-a") => saw_node_a = true,
+                Some("node-b") => saw_node_b = true,
+                other => panic!("doc routed to unexpected node: {other:?}"),
+            }
+        }
+        assert!(
+            saw_node_a && saw_node_b,
+            "both shards should be reachable after refresh (a={saw_node_a}, b={saw_node_b})"
+        );
     }
 }
