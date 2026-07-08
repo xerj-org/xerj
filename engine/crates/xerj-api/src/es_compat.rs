@@ -1445,8 +1445,39 @@ pub async fn get_settings(
 pub struct IndexDocAutoParams {
     /// `refresh=true|wait_for` — accepted without error; memtable is always visible.
     pub refresh: Option<String>,
-    /// `pipeline=my_pipeline` — accepted and logged; pipeline execution not supported.
+    /// `pipeline=my_pipeline` — ingest pipeline to run before indexing.
+    /// `_none` disables the index's `default_pipeline`; absent falls back to it.
     pub pipeline: Option<String>,
+}
+
+/// Resolve the effective ingest pipeline for a single-doc write.
+///
+/// Mirrors Elasticsearch `index.default_pipeline` semantics:
+/// - `Some("_none")` → `None` (explicit opt-out; no pipeline runs).
+/// - `Some(name)`    → that pipeline (an explicit `?pipeline=` always wins).
+/// - `None`          → the index's `index.default_pipeline` setting, if any.
+///
+/// The default is read from `engine.index_settings`, handling the nested
+/// `{index: {default_pipeline: ..}}`, dotted `{"index.default_pipeline": ..}`,
+/// and flat `{default_pipeline: ..}` shapes — mirroring the `number_of_shards`
+/// lookup pattern used elsewhere in this module.
+fn resolve_effective_pipeline(
+    state: &AppState,
+    index: &str,
+    explicit: Option<&str>,
+) -> Option<String> {
+    match explicit {
+        Some("_none") => None,
+        Some(p) => Some(p.to_string()),
+        None => state.engine.index_settings.get(index).and_then(|v| {
+            v.get("index")
+                .and_then(|ix| ix.get("default_pipeline"))
+                .or_else(|| v.get("index.default_pipeline"))
+                .or_else(|| v.get("default_pipeline"))
+                .and_then(Value::as_str)
+                .map(|s| s.to_string())
+        }),
+    }
 }
 
 /// Fast path for `POST /{index}/_doc`: receives raw bytes to skip the axum
@@ -1507,8 +1538,10 @@ pub async fn index_doc_auto(
         d
     };
 
-    // Execute ingest pipeline if specified.
-    let doc = if let Some(ref pipeline) = params.pipeline {
+    // Execute ingest pipeline if one is specified (explicit `?pipeline=`) or
+    // resolved from the index's `index.default_pipeline` setting.
+    let effective_pipeline = resolve_effective_pipeline(&state, &index, params.pipeline.as_deref());
+    let doc = if let Some(ref pipeline) = effective_pipeline {
         match state.engine.process_through_pipeline(pipeline, vec![doc]) {
             Ok(mut results) if !results.is_empty() => {
                 let (action, transformed) = results.remove(0);
@@ -1561,7 +1594,8 @@ pub struct IndexDocParams {
     pub op_type: Option<String>,
     /// `refresh=true|wait_for` — accepted without error; memtable is always visible.
     pub refresh: Option<String>,
-    /// `pipeline=my_pipeline` — accepted and logged; pipeline execution not supported.
+    /// `pipeline=my_pipeline` — ingest pipeline to run before indexing.
+    /// `_none` disables the index's `default_pipeline`; absent falls back to it.
     pub pipeline: Option<String>,
     /// `routing=X` — routing metadata stored on the document (surfaces
     /// as `_routing` under `fields`/`exists` queries).
@@ -1624,8 +1658,10 @@ pub async fn index_doc(
     } else {
         doc
     };
-    // Execute ingest pipeline if specified.
-    let doc = if let Some(ref pipeline) = params.pipeline {
+    // Execute ingest pipeline if one is specified (explicit `?pipeline=`) or
+    // resolved from the index's `index.default_pipeline` setting.
+    let effective_pipeline = resolve_effective_pipeline(&state, &index, params.pipeline.as_deref());
+    let doc = if let Some(ref pipeline) = effective_pipeline {
         match state
             .engine
             .process_through_pipeline(pipeline, vec![doc.clone()])
@@ -1713,7 +1749,8 @@ pub async fn index_doc(
 pub struct CreateDocParams {
     /// `refresh=true|wait_for` — accepted without error; memtable is always visible.
     pub refresh: Option<String>,
-    /// `pipeline=my_pipeline` — accepted and logged; pipeline execution not supported.
+    /// `pipeline=my_pipeline` — ingest pipeline to run before indexing.
+    /// `_none` disables the index's `default_pipeline`; absent falls back to it.
     pub pipeline: Option<String>,
 }
 
@@ -1726,9 +1763,27 @@ pub async fn create_doc(
     Query(params): Query<CreateDocParams>,
     Json(doc): Json<Value>,
 ) -> impl IntoResponse {
-    if let Some(ref pipeline) = params.pipeline {
-        tracing::info!(pipeline = %pipeline, index = %index, "?pipeline parameter accepted (pipeline execution not supported)");
-    }
+    // Execute ingest pipeline if one is specified (explicit `?pipeline=`) or
+    // resolved from the index's `index.default_pipeline` setting.
+    let effective_pipeline = resolve_effective_pipeline(&state, &index, params.pipeline.as_deref());
+    let doc = if let Some(ref pipeline) = effective_pipeline {
+        match state
+            .engine
+            .process_through_pipeline(pipeline, vec![doc.clone()])
+        {
+            Ok(mut results) if !results.is_empty() => {
+                let (action, transformed) = results.remove(0);
+                if matches!(action, xerj_wasm::pipeline::ProcessAction::Drop) {
+                    return Json(json!({"result": "noop", "_id": id, "_version": 0}))
+                        .into_response();
+                }
+                transformed
+            }
+            _ => doc,
+        }
+    } else {
+        doc
+    };
 
     let idx = match state.engine.get_or_create_index(&index) {
         Ok(i) => i,

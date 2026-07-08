@@ -1100,21 +1100,9 @@ impl Index {
             }
         }
 
-        // Check for a default_pipeline and log (scripting not executed, just logged).
-        {
-            let settings = self.settings.read().await;
-            if let Some(pipeline) = settings
-                .pointer("/index/default_pipeline")
-                .and_then(Value::as_str)
-            {
-                info!(
-                    pipeline = pipeline,
-                    index = self.name.as_str(),
-                    doc_id = doc_id.as_str(),
-                    "default_pipeline would be applied (pipeline execution not yet supported)"
-                );
-            }
-        }
+        // `index.default_pipeline` is resolved and executed at the API layer
+        // (xerj-api es_compat::resolve_effective_pipeline) before the document
+        // reaches the engine, so no pipeline handling is needed here.
 
         // Auto-embed `semantic_text` fields: vectorise the field's text into
         // its companion vector field (`<field>_vector`) so it becomes

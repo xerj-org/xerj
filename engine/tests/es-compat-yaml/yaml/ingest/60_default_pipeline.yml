@@ -1,0 +1,68 @@
+---
+"index.default_pipeline auto-applies on single-doc writes":
+  # (1) Register a pipeline that sets field2 = "_value".
+  - do:
+      ingest.put_pipeline:
+        id: "my_pipe"
+        body:
+          processors:
+            - set:
+                field: "field2"
+                value: "_value"
+  - match: { acknowledged: true }
+
+  # (2) Create an index whose default_pipeline is my_pipe.
+  - do:
+      indices.create:
+        index: "idx"
+        body:
+          settings:
+            index:
+              default_pipeline: "my_pipe"
+
+  # (3) Index a doc WITHOUT any ?pipeline param — the default must apply.
+  - do:
+      index:
+        index: "idx"
+        id: "1"
+        refresh: true
+        body: { foo: "bar" }
+
+  - do:
+      get:
+        index: "idx"
+        id: "1"
+  - match: { _source.foo: "bar" }
+  - match: { _source.field2: "_value" }
+
+  # (4) Index a doc with pipeline=_none — the default must be suppressed.
+  - do:
+      index:
+        index: "idx"
+        id: "2"
+        pipeline: "_none"
+        refresh: true
+        body: { foo: "baz" }
+
+  - do:
+      get:
+        index: "idx"
+        id: "2"
+  - match: { _source.foo: "baz" }
+  - is_false: _source.field2
+
+  # (5) Regression guard: an explicit pipeline into a plain index (no default)
+  # still runs the transform.
+  - do:
+      index:
+        index: "plain"
+        id: "3"
+        pipeline: "my_pipe"
+        refresh: true
+        body: { foo: "qux" }
+
+  - do:
+      get:
+        index: "plain"
+        id: "3"
+  - match: { _source.field2: "_value" }
