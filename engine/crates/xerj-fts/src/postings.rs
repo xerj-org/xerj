@@ -6,24 +6,38 @@
 //! Within each block, doc IDs are delta-encoded and PFOR-packed using the
 //! `bitpacking` crate for SIMD-accelerated bit-manipulation.
 //!
-//! Layout on disk / in memory (per term):
+//! Per-term layout written into the `.post` blob (see
+//! [`PostingsWriter::encode_term`]):
 //!
 //! ```text
 //! ┌─────────────────────────────────────────┐
-//! │  TermPostings header (doc_freq, ttf)    │
-//! ├─────────────────────────────────────────┤
-//! │  Skip table (every SKIP_INTERVAL blocks)│
-//! │    (last_doc_id: u32, byte_offset: u32) │
-//! ├─────────────────────────────────────────┤
 //! │  Block 0: packed doc_id deltas          │
-//! │           packed term_freqs             │
-//! │           positions (vbyte)             │
+//! │           packed term_freqs (positioned)│
+//! │           positions (vbyte, positioned) │
 //! ├─────────────────────────────────────────┤
 //! │  Block 1 …                              │
+//! ├─────────────────────────────────────────┤
+//! │  Residual (< 128 docs, vbyte)           │
 //! └─────────────────────────────────────────┘
 //! ```
 //!
-//! Residual docs (< 128) at the end use variable-byte encoding.
+//! Residual docs (< 128) at the end use variable-byte encoding.  In docs-only
+//! mode (`store_positions = false`) the freq and position sub-blocks are
+//! omitted and the reader synthesises `term_freq = 1`.
+//!
+//! The per-term `(doc_frequency, total_term_frequency, offset)` header lives in
+//! the FST term dictionary / `.meta` file, **not** inline in the `.post` blob.
+//!
+//! ## Skip-list acceleration: NOT implemented
+//!
+//! There is **no on-disk skip table**.  [`PostingsWriter::encode_term`] computes
+//! a [`SkipEntry`] vector in memory (one entry every [`SKIP_INTERVAL`] blocks)
+//! but it is **never serialised** — the caller in `xerj-fts::index` discards it,
+//! and the whole `.post` blob is wrapped in a Zstd envelope, so intra-blob byte
+//! offsets would not be usable as seek targets anyway.  Consequently
+//! [`PostingsReader::advance_to`] performs a **linear scan**, not a skip-list
+//! seek.  Traversal is correct, just unaccelerated; the [`SkipEntry`] machinery
+//! is scaffolding for a future block-skip implementation.
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{self, Cursor};
@@ -31,7 +45,9 @@ use std::io::{self, Cursor};
 /// Number of docs per PFOR block (must be a multiple of 128 for bitpacking).
 pub const BLOCK_SIZE: usize = 128;
 
-/// Number of blocks between skip-table entries.
+/// Cadence at which [`PostingsWriter::encode_term`] emits an in-memory
+/// [`SkipEntry`].  NOTE: these entries are never persisted or consulted — see
+/// the module docs' "Skip-list acceleration: NOT implemented" note.
 pub const SKIP_INTERVAL: usize = 8; // every 1024 docs
 
 // ── Term metadata ─────────────────────────────────────────────────────────────
@@ -92,6 +108,12 @@ impl TermPostings {
 
 // ── Skip table entry ──────────────────────────────────────────────────────────
 
+/// A single would-be skip pointer into a term's block stream.
+///
+/// **Currently unused scaffolding.**  [`PostingsWriter::encode_term`] builds a
+/// `Vec<SkipEntry>` but the value is discarded by its only caller and is never
+/// written to the `.post` file, so no reader ever consults it.  It exists to
+/// mark the intended shape of a future block-skip index; see the module docs.
 #[derive(Debug, Clone)]
 pub struct SkipEntry {
     /// Highest doc ID in the preceding block range.
@@ -230,6 +252,11 @@ impl PostingsWriter {
     /// Returns `(postings_offset, skip_table)` where `postings_offset` is
     /// the byte position of the encoded data within `output` at the time of
     /// writing (caller tracks the global byte offset).
+    ///
+    /// NOTE: the returned `skip_table` is **not** written into `output` and is
+    /// currently discarded by the caller — only the packed blocks and residual
+    /// are serialised.  See the module docs' "Skip-list acceleration: NOT
+    /// implemented" note.
     pub fn encode_term(&self, term: &str, output: &mut Vec<u8>) -> Option<(u64, Vec<SkipEntry>)> {
         let postings = self.postings.get(term)?;
 
@@ -668,8 +695,13 @@ impl<'a> PostingsReader<'a> {
         Ok(())
     }
 
-    /// Skip forward to the first doc_id >= `target`.
-    /// Uses the skip table when available. For now, uses linear scan.
+    /// Advance to the first posting whose `doc_id >= target`.
+    ///
+    /// This is a **linear scan** — it calls [`Self::next`] until a doc_id at or
+    /// past `target` is reached (or the list is exhausted).  There is no
+    /// skip-list acceleration: the `.post` blob carries no on-disk skip table
+    /// (see the module docs), so no block-level seek is possible.  Correct, but
+    /// O(n) in the number of postings skipped.
     pub fn advance_to(&mut self, target: u32) -> Option<DecodedPosting> {
         loop {
             match self.next() {
@@ -757,5 +789,39 @@ mod tests {
             let decoded = vbyte_decode(&mut Cursor::new(buf.as_slice())).unwrap();
             assert_eq!(decoded, v, "vbyte failed for {}", v);
         }
+    }
+
+    /// `advance_to` is a *linear* scan (there is no on-disk skip table — see
+    /// the module docs).  This asserts it still lands on the correct posting:
+    /// the first doc_id at or past the target, across a block boundary, and
+    /// that it returns `None` once the list is exhausted.
+    #[test]
+    fn advance_to_linear_scans_correctly() {
+        // 200 docs => one full 128-doc block + a 72-doc residual.
+        // doc_id = i * 3, so ids are 0, 3, 6, … 597.
+        let mut writer = PostingsWriter::new();
+        for i in 0u32..200 {
+            writer.add_occurrence("term", i * 3, i);
+        }
+        let mut data = Vec::new();
+        writer.encode_term("term", &mut data);
+
+        // Target lands exactly on a doc (150 = 50 * 3), inside the first block.
+        let mut reader = PostingsReader::new(&data, 200);
+        let hit = reader.advance_to(150).expect("expected a hit at/after 150");
+        assert_eq!(hit.doc_id, 150, "must return the exact match when present");
+
+        // Target between two docs (301 is not a multiple of 3) crossing into
+        // the residual section => first doc strictly greater is 303.
+        let mut reader = PostingsReader::new(&data, 200);
+        let hit = reader.advance_to(301).expect("expected a hit at/after 301");
+        assert_eq!(hit.doc_id, 303, "must return the first doc_id >= target");
+
+        // Target past the end yields None.
+        let mut reader = PostingsReader::new(&data, 200);
+        assert!(
+            reader.advance_to(600).is_none(),
+            "advance past the last doc must exhaust the reader"
+        );
     }
 }
