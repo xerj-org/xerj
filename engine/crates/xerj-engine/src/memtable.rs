@@ -2602,6 +2602,7 @@ impl FtsMemtable {
     ) -> Option<(Vec<(String, usize)>, u64)> {
         enum Col<'a> {
             Kw(&'a Vec<Option<String>>, &'a str),
+            NumEq(&'a Vec<Option<f64>>, f64),
             Num(
                 &'a Vec<Option<f64>>,
                 Option<f64>,
@@ -2614,17 +2615,26 @@ impl FtsMemtable {
         for p in preds {
             match p {
                 MemBoolPred::Term { field, value } => {
-                    let col = self.doc_values.keyword.get(field.as_str())?;
-                    // Step 2: analyzed-text bailout via the insert-time
-                    // cached flag instead of an O(N) per-query column prescan.
-                    if self
-                        .doc_values
-                        .keyword_has_whitespace
-                        .contains(field.as_str())
-                    {
+                    if let Some(col) = self.doc_values.keyword.get(field.as_str()) {
+                        // Step 2: analyzed-text bailout via the insert-time
+                        // cached flag instead of an O(N) per-query column
+                        // prescan.
+                        if self
+                            .doc_values
+                            .keyword_has_whitespace
+                            .contains(field.as_str())
+                        {
+                            return None;
+                        }
+                        cols.push(Col::Kw(col, value.as_str()));
+                    } else if let Some(col) = self.doc_values.numeric.get(field.as_str()) {
+                        // Numeric term predicate: exact f64 equality (the
+                        // predicate value was lowered to its string form).
+                        let needle = value.parse::<f64>().ok()?;
+                        cols.push(Col::NumEq(col, needle));
+                    } else {
                         return None;
                     }
-                    cols.push(Col::Kw(col, value.as_str()));
                 }
                 MemBoolPred::Range {
                     field,
@@ -2645,6 +2655,7 @@ impl FtsMemtable {
             for c in &cols {
                 let ok = match c {
                     Col::Kw(col, want) => col.get(idx).and_then(|o| o.as_deref()) == Some(*want),
+                    Col::NumEq(col, want) => col.get(idx).copied().flatten() == Some(*want),
                     Col::Num(col, gte, gt, lte, lt) => match col.get(idx).copied().flatten() {
                         None => false,
                         Some(v) => {
@@ -2686,30 +2697,53 @@ impl FtsMemtable {
         value: &str,
         limit: usize,
     ) -> Option<(Vec<(String, usize)>, u64)> {
-        let col = self.doc_values.keyword.get(field)?;
-        // Step 2: text-field bailout via the insert-time cached flag — a
-        // whitespace-containing keyword value means the column stores the
-        // full analyzed-text source; a `term` query expects a token match
-        // which only the FTS / scan path can serve.  Was an O(N) per-query
-        // column prescan.
-        if self.doc_values.keyword_has_whitespace.contains(field) {
-            return None;
-        }
-        // Step 1: walk the whole column for an exact total but only clone
-        // the doc_id String for the first `limit` matches — mirrors
-        // `doc_values_bool_hits`.  The unbounded clone was ~all-matching-doc
-        // String allocations per query at a drain-lagged memtable.
-        let mut out: Vec<(String, usize)> = Vec::new();
-        let mut total: u64 = 0;
-        for (idx, opt) in col.iter().enumerate() {
-            if opt.as_deref() == Some(value) {
-                total += 1;
-                if out.len() < limit {
-                    out.push((self.docs[idx].doc_id.clone(), idx));
+        if let Some(col) = self.doc_values.keyword.get(field) {
+            // Step 2: text-field bailout via the insert-time cached flag — a
+            // whitespace-containing keyword value means the column stores the
+            // full analyzed-text source; a `term` query expects a token match
+            // which only the FTS / scan path can serve.  Was an O(N) per-query
+            // column prescan.
+            if self.doc_values.keyword_has_whitespace.contains(field) {
+                return None;
+            }
+            // Step 1: walk the whole column for an exact total but only clone
+            // the doc_id String for the first `limit` matches — mirrors
+            // `doc_values_bool_hits`.  The unbounded clone was ~all-matching-doc
+            // String allocations per query at a drain-lagged memtable.
+            let mut out: Vec<(String, usize)> = Vec::new();
+            let mut total: u64 = 0;
+            for (idx, opt) in col.iter().enumerate() {
+                if opt.as_deref() == Some(value) {
+                    total += 1;
+                    if out.len() < limit {
+                        out.push((self.docs[idx].doc_id.clone(), idx));
+                    }
                 }
             }
+            return Some((out, total));
         }
-        Some((out, total))
+        // Numeric column: `term` on a numeric field is lowered to its string
+        // form by the caller; parse it back to f64 and match by exact equality
+        // (mirrors the numeric matching in `doc_values_range_indices`). Without
+        // this a `term` on a numeric field found no keyword column and returned
+        // `None`, dropping the query onto the O(N) per-doc `_source` scan — a
+        // selective numeric term (`code:500`, an id lookup) then paid a full
+        // memtable walk. Bail (→ JSON scan) if the value isn't numeric.
+        if let Some(col) = self.doc_values.numeric.get(field) {
+            let needle = value.parse::<f64>().ok()?;
+            let mut out: Vec<(String, usize)> = Vec::new();
+            let mut total: u64 = 0;
+            for (idx, opt) in col.iter().enumerate() {
+                if *opt == Some(needle) {
+                    total += 1;
+                    if out.len() < limit {
+                        out.push((self.docs[idx].doc_id.clone(), idx));
+                    }
+                }
+            }
+            return Some((out, total));
+        }
+        None
     }
 
     /// Index-only variant of `doc_values_term_query` that returns only
@@ -2779,7 +2813,35 @@ impl FtsMemtable {
         values: &[String],
         limit: usize,
     ) -> Option<(Vec<(String, usize)>, u64)> {
-        let col = self.doc_values.keyword.get(field)?;
+        let Some(col) = self.doc_values.keyword.get(field) else {
+            // Numeric column: a `terms` over a numeric field — parse every
+            // query value to f64 and match by exact equality (mirrors the
+            // single-value numeric path in `doc_values_term_query`). Without
+            // this a numeric `terms` fell onto the O(N) `_source` scan.
+            if let Some(col) = self.doc_values.numeric.get(field) {
+                let needles: Vec<f64> = values
+                    .iter()
+                    .filter_map(|v| v.parse::<f64>().ok())
+                    .collect();
+                if needles.len() != values.len() {
+                    return None; // some value isn't numeric — JSON scan
+                }
+                let mut out: Vec<(String, usize)> = Vec::new();
+                let mut total: u64 = 0;
+                for (idx, opt) in col.iter().enumerate() {
+                    if let Some(v) = *opt {
+                        if needles.contains(&v) {
+                            total += 1;
+                            if out.len() < limit {
+                                out.push((self.docs[idx].doc_id.clone(), idx));
+                            }
+                        }
+                    }
+                }
+                return Some((out, total));
+            }
+            return None;
+        };
         // Step 2: analyzed-text bailout via the insert-time cached flag.
         // If any stored keyword value in this column contains whitespace
         // it's likely an analyzed text field whose doc-values were built
