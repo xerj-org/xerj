@@ -46,9 +46,10 @@ use super::*;
 use crate::aggs::{
     apply_bucket_pipeline_ops, calendar_bucket_key, detect_fractional_digits, doc_count_weight,
     doc_matches_filter, extract_date_ms_values, extract_field_values, extract_numeric,
-    format_range_val, get_nested_field, interval_to_ms, is_calendar_interval, next_calendar_bucket,
-    parse_date_ms, render_date_format, render_iso_date, resolve_sibling_pipelines,
-    run_pipeline_agg, run_sampler, run_top_hits_with_total, typed_term_key,
+    extract_numeric_values, format_histogram_key, format_number_pattern, format_range_val,
+    get_nested_field, interval_to_ms, is_calendar_interval, next_calendar_bucket, parse_date_ms,
+    render_date_format, render_iso_date, resolve_sibling_pipelines, run_pipeline_agg, run_sampler,
+    run_top_hits_with_total, typed_term_key,
 };
 use crate::memtable::MemBoolPred;
 use serde_json::{json, Map, Value};
@@ -1045,6 +1046,7 @@ impl<'a> FastCtx<'a> {
             "sampler" | "random_sampler" => self.exec_sampler(params, sub),
             "variable_width_histogram" => self.exec_vwh(params, sub),
             "date_histogram" => self.exec_date_histogram(params, sub),
+            "histogram" => self.exec_histogram(params, sub),
             _ => None,
         }
     }
@@ -3042,6 +3044,277 @@ impl<'a> FastCtx<'a> {
                     .or_else(|| b.get("key").and_then(Value::as_i64).map(|i| i.to_string()))
                     .unwrap_or_default();
                 map.insert(k, b);
+            }
+            Some(json!({ "buckets": Value::Object(map) }))
+        } else {
+            Some(json!({ "buckets": result_buckets }))
+        }
+    }
+
+    // Fixed-interval `histogram` over a NUMERIC doc-values column. Mirrors the
+    // date_histogram numeric arm for the columnar mechanics (per-segment
+    // row→slot fold + `fused_seg_pass` for sub-metrics + brute memtable fold)
+    // and `aggs::run_histogram` for the exact bucketing/rendering semantics.
+    // Before this, `histogram` had no exec_agg arm → every request hit the O(N)
+    // `run_aggs_with_all` brute path (~950 ms / 200k docs).
+    fn exec_histogram(&self, params: &Value, sub: Option<&Value>) -> Option<Value> {
+        if !params_only(
+            params,
+            &[
+                "field",
+                "interval",
+                "offset",
+                "min_doc_count",
+                "keyed",
+                "format",
+                "extended_bounds",
+                "hard_bounds",
+            ],
+        ) {
+            return None;
+        }
+        // `missing`, multi-value range-typed inputs, and every non-listed
+        // param are handled only by the brute path — bail (return None) so
+        // those requests stay exact.
+        let field = params.get("field").and_then(Value::as_str)?;
+        // Require a real numeric doc-values column. A Keyword (string) column,
+        // a range-typed field (stored differently), or a field that lives only
+        // in the memtable (`Ok(None)`) all fall back to the exact brute path —
+        // a Numeric segment column proves the mapping is plain-numeric, so the
+        // memtable fold below (`extract_numeric_values`) is exact too.
+        match self.seg_field_kind(field) {
+            Ok(Some(ColKind::Numeric)) => {}
+            _ => return None,
+        }
+        let interval = params
+            .get("interval")
+            .and_then(Value::as_f64)
+            .filter(|i| *i > 0.0)?;
+        let offset = params.get("offset").and_then(Value::as_f64).unwrap_or(0.0);
+        let min_doc_count = params
+            .get("min_doc_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        let keyed = params
+            .get("keyed")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let extended_bounds = params.get("extended_bounds").and_then(Value::as_object);
+        let hard_bounds = params.get("hard_bounds").and_then(Value::as_object);
+        let extended_min = extended_bounds.and_then(|b| b.get("min").and_then(Value::as_f64));
+        let extended_max = extended_bounds.and_then(|b| b.get("max").and_then(Value::as_f64));
+        let hard_min = hard_bounds.and_then(|b| b.get("min").and_then(Value::as_f64));
+        let hard_max = hard_bounds.and_then(|b| b.get("max").and_then(Value::as_f64));
+
+        let key_of = |v: f64| -> i64 { ((v - offset) / interval).floor() as i64 };
+
+        let plan = self.plan_subs(sub, false)?;
+        let has_row_work = !plan.metrics.is_empty();
+
+        let mut bucket_ids: HashMap<i64, usize> = HashMap::new();
+        let mut bucket_keys: Vec<i64> = Vec::new();
+        let mut counts: Vec<u64> = Vec::new();
+        let mut accs: Vec<Vec<MetricAcc>> = plan.metrics.iter().map(|_| Vec::new()).collect();
+        let ensure_bucket = |key: i64,
+                             bucket_ids: &mut HashMap<i64, usize>,
+                             bucket_keys: &mut Vec<i64>,
+                             counts: &mut Vec<u64>,
+                             accs: &mut Vec<Vec<MetricAcc>>|
+         -> usize {
+            *bucket_ids.entry(key).or_insert_with(|| {
+                bucket_keys.push(key);
+                counts.push(0);
+                for a in accs.iter_mut() {
+                    a.push(MetricAcc::default());
+                }
+                bucket_keys.len() - 1
+            })
+        };
+
+        let mut missing_sort_seen = false;
+        // Numeric column: bucket the doc-values integers/doubles directly.
+        for si in 0..self.segs.len() {
+            let seg = &self.segs[si];
+            let Some(Column::Numeric(n)) = seg.cols.get(field) else {
+                continue;
+            };
+            let mut row_slot: Vec<i32> = Vec::with_capacity(seg.docs as usize);
+            for row in 0..seg.docs {
+                match n.get(row) {
+                    // `NumericColumn::data` stores f64 BITS (see its doc
+                    // comment) — decode to the real value before bucketing.
+                    // Unlike date_histogram (epoch-ms integers) histogram keeps
+                    // the fractional value, so DO NOT truncate to i64 here.
+                    Some(bits) => {
+                        let v = f64::from_bits(bits as u64);
+                        let key = key_of(v);
+                        let slot = ensure_bucket(
+                            key,
+                            &mut bucket_ids,
+                            &mut bucket_keys,
+                            &mut counts,
+                            &mut accs,
+                        ) as i32;
+                        counts[slot as usize] += 1;
+                        row_slot.push(slot);
+                    }
+                    None => row_slot.push(-1),
+                }
+            }
+            if !has_row_work {
+                continue;
+            }
+            let n_slots = bucket_keys.len();
+            let mut tops: Vec<Vec<(f64, u64, DocRef)>> = vec![Vec::new(); n_slots.max(1)];
+            {
+                let mut slot_of_row = |row: u32| -> Option<usize> {
+                    let s = *row_slot.get(row as usize)?;
+                    if s < 0 {
+                        None
+                    } else {
+                        Some(s as usize)
+                    }
+                };
+                self.fused_seg_pass(
+                    si,
+                    &mut slot_of_row,
+                    n_slots,
+                    &plan,
+                    &mut accs,
+                    &mut tops,
+                    &mut missing_sort_seen,
+                )?;
+            }
+        }
+
+        // Memtable docs — brute multi-value numeric extraction with per-doc
+        // bucket dedup, matching `run_histogram`. No `missing` fold (bailed).
+        for doc in self.mem().iter() {
+            let nums = extract_numeric_values(doc, field);
+            if nums.is_empty() {
+                continue;
+            }
+            let weight = doc_count_weight(doc);
+            let mut seen: Vec<i64> = Vec::with_capacity(nums.len());
+            for v in nums {
+                let key = key_of(v);
+                if seen.contains(&key) {
+                    continue;
+                }
+                seen.push(key);
+                let slot = ensure_bucket(
+                    key,
+                    &mut bucket_ids,
+                    &mut bucket_keys,
+                    &mut counts,
+                    &mut accs,
+                );
+                counts[slot] += weight;
+                for (mi, spec) in plan.metrics.iter().enumerate() {
+                    Self::fold_mem_metric(doc, spec, &mut accs[mi][slot]);
+                }
+            }
+        }
+
+        // ── Bucket-key set (mirrors run_histogram exactly) ────────────────
+        const MAX_BUCKETS: i64 = 65_536;
+        let mut final_keys: Vec<i64> = if bucket_ids.is_empty() && extended_min.is_none() {
+            Vec::new()
+        } else if min_doc_count > 0 && extended_min.is_none() {
+            bucket_ids.keys().copied().collect()
+        } else {
+            let data_min = bucket_ids.keys().min().copied();
+            let data_max = bucket_ids.keys().max().copied();
+            let min_key = extended_min.map(key_of).or(data_min).unwrap_or(0);
+            let max_key = extended_max.map(key_of).or(data_max).unwrap_or(0);
+            let span = max_key.saturating_sub(min_key);
+            if span > MAX_BUCKETS {
+                return Some(json!({
+                    "error": format!(
+                        "Trying to create too many buckets. Must be less than or equal to: [{}] but this number of buckets was exceeded. This limit can be set by changing the [search.max_buckets] cluster level setting.",
+                        MAX_BUCKETS
+                    ),
+                    "__error_status__": 400u32,
+                }));
+            }
+            let mut keys = Vec::with_capacity((span as usize).min(MAX_BUCKETS as usize) + 1);
+            let mut k = min_key;
+            while k <= max_key {
+                keys.push(k);
+                k += 1;
+            }
+            keys
+        };
+        final_keys.sort_unstable();
+
+        if let (Some(h_min), Some(h_max)) = (hard_min, hard_max) {
+            let hard_min_key = key_of(h_min);
+            let hard_max_key = key_of(h_max);
+            final_keys.retain(|&k| k >= hard_min_key && k <= hard_max_key);
+        }
+        if min_doc_count > 0 {
+            final_keys.retain(|k| {
+                bucket_ids
+                    .get(k)
+                    .map(|&s| counts[s] >= min_doc_count)
+                    .unwrap_or(false)
+            });
+        }
+
+        let format_pattern = params.get("format").and_then(Value::as_str);
+        let empty_accs: Vec<MetricAcc> = vec![MetricAcc::default(); plan.metrics.len()];
+        let mut result_buckets: Vec<Value> = Vec::with_capacity(final_keys.len());
+        for &key in &final_keys {
+            let slot = bucket_ids.get(&key).copied();
+            let count = slot.map(|s| counts[s]).unwrap_or(0);
+            let actual_key = key as f64 * interval + offset;
+            let key_json = if actual_key.fract() == 0.0 {
+                json!(actual_key as i64)
+            } else {
+                json!(actual_key)
+            };
+            let mut bucket = Map::new();
+            bucket.insert("key".to_string(), key_json);
+            bucket.insert("doc_count".to_string(), json!(count));
+            if let Some(p) = format_pattern {
+                bucket.insert(
+                    "key_as_string".to_string(),
+                    Value::String(format_number_pattern(actual_key, p)),
+                );
+            }
+            let bucket_accs: Vec<MetricAcc> = match slot {
+                Some(s) => plan
+                    .metrics
+                    .iter()
+                    .enumerate()
+                    .map(|(mi, _)| accs[mi][s])
+                    .collect(),
+                None => empty_accs.clone(),
+            };
+            self.finish_bucket(&mut bucket, &plan, &bucket_accs, None);
+            result_buckets.push(Value::Object(bucket));
+        }
+
+        // Sibling pipeline ops (derivative, cumulative_sum, …) operate on the
+        // ordered bucket list before keying, same as date_histogram.
+        let result_buckets = apply_bucket_pipeline_ops(result_buckets, sub);
+        if keyed {
+            // Map key: `key_as_string` when a format is set, else the plain
+            // numeric key rendered by `format_histogram_key` — identical to the
+            // brute path (aggs::run_histogram).
+            let mut map = Map::new();
+            for b in result_buckets {
+                let label = b
+                    .get("key_as_string")
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+                    .or_else(|| {
+                        b.get("key")
+                            .and_then(Value::as_f64)
+                            .map(format_histogram_key)
+                    })
+                    .unwrap_or_default();
+                map.insert(label, b);
             }
             Some(json!({ "buckets": Value::Object(map) }))
         } else {
