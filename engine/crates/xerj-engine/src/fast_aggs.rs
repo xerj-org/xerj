@@ -1022,7 +1022,15 @@ impl<'a> FastCtx<'a> {
         if self.top_filter.is_some()
             && !matches!(
                 agg_type,
-                "avg" | "sum" | "min" | "max" | "stats" | "value_count" | "terms" | "global"
+                "avg"
+                    | "sum"
+                    | "min"
+                    | "max"
+                    | "stats"
+                    | "value_count"
+                    | "terms"
+                    | "cardinality"
+                    | "global"
             )
         {
             return None;
@@ -1354,87 +1362,273 @@ impl<'a> FastCtx<'a> {
 
         let mut distinct: std::collections::HashSet<String> = std::collections::HashSet::new();
         const BOOL_TERMS: [&str; 2] = ["false", "true"];
-        for seg in &self.segs {
+        // Under a top-level query filter the distinct set must cover ONLY the
+        // matching docs — the whole-segment `per_ord_count` shortcut (which
+        // sees every doc) is valid only for the unfiltered path. The empty
+        // plan drives `fused_seg_pass` purely for its columnar filter gate;
+        // `slot_of_row` records which term-ords appear among matching rows.
+        // This is what stops a `{size:0, query:range, cardinality}` from
+        // bailing the whole request to the O(N) brute `_source` hydrate
+        // (~1.2 s on a 600 k-doc unflushed memtable) — the mixed-read tail.
+        let filtered = self.top_filter.is_some();
+        let empty_plan = if filtered {
+            Some(self.plan_subs(None, false)?)
+        } else {
+            None
+        };
+        for si in 0..self.segs.len() {
+            let seg = &self.segs[si];
+            if !filtered {
+                // ── Unfiltered: whole-segment term-dictionary scan (fast) ──
+                match seg.cols.get(field) {
+                    Some(Column::Keyword(k)) => {
+                        for (ord, &cnt) in k.per_ord_count.iter().enumerate() {
+                            if cnt > 0 {
+                                distinct.insert(k.terms[ord].clone());
+                            }
+                        }
+                        if let Some(ph) = &missing_placeholder {
+                            if !k.null_bitmap.is_empty() {
+                                distinct.insert(ph.clone());
+                            }
+                        }
+                    }
+                    Some(Column::Numeric(n)) if is_bool => {
+                        // Same 0/1 purity check as exec_terms: stray numbers
+                        // would render as "0"/"2.5" on the brute path → bail.
+                        let zeros = n.range_count(0.0, 0.0, true, true);
+                        let ones = n.range_count(1.0, 1.0, true, true);
+                        if zeros + ones != n.live_count {
+                            return None;
+                        }
+                        if zeros > 0 {
+                            distinct.insert(BOOL_TERMS[0].to_string());
+                        }
+                        if ones > 0 {
+                            distinct.insert(BOOL_TERMS[1].to_string());
+                        }
+                        if let Some(ph) = &missing_placeholder {
+                            if !n.null_bitmap.is_empty() {
+                                distinct.insert(ph.clone());
+                            }
+                        }
+                    }
+                    Some(_) => return None,
+                    None => {
+                        // Field absent from the whole segment: every doc counts
+                        // as missing (brute: empty vals → placeholder).
+                        if let Some(ph) = &missing_placeholder {
+                            if seg.docs > 0 {
+                                distinct.insert(ph.clone());
+                            }
+                        }
+                    }
+                }
+                continue;
+            }
+            // ── Filtered: per-row pass, distinct over matching rows only ──
+            let plan = empty_plan.as_ref().unwrap();
+            let mut mss = false;
             match seg.cols.get(field) {
                 Some(Column::Keyword(k)) => {
-                    for (ord, &cnt) in k.per_ord_count.iter().enumerate() {
-                        if cnt > 0 {
+                    let mut seen = vec![false; k.terms.len()];
+                    let mut saw_missing = false;
+                    {
+                        let dense = k.null_bitmap.is_empty();
+                        let mut slot_of_row = |row: u32| -> Option<usize> {
+                            let ord = if dense {
+                                *k.ords.get(row as usize)? as usize
+                            } else {
+                                match k.ord_for(row) {
+                                    Some(o) => o as usize,
+                                    None => {
+                                        saw_missing = true;
+                                        return None;
+                                    }
+                                }
+                            };
+                            seen[ord] = true;
+                            Some(ord)
+                        };
+                        self.fused_seg_pass(
+                            si,
+                            &mut slot_of_row,
+                            k.terms.len(),
+                            plan,
+                            &mut [],
+                            &mut [],
+                            &mut mss,
+                        )?;
+                    }
+                    for (ord, &s) in seen.iter().enumerate() {
+                        if s {
                             distinct.insert(k.terms[ord].clone());
                         }
                     }
-                    if let Some(ph) = &missing_placeholder {
-                        if !k.null_bitmap.is_empty() {
+                    if saw_missing {
+                        if let Some(ph) = &missing_placeholder {
                             distinct.insert(ph.clone());
                         }
                     }
                 }
                 Some(Column::Numeric(n)) if is_bool => {
-                    // Same 0/1 purity check as exec_terms: stray numbers
-                    // would render as "0"/"2.5" on the brute path → bail.
                     let zeros = n.range_count(0.0, 0.0, true, true);
                     let ones = n.range_count(1.0, 1.0, true, true);
                     if zeros + ones != n.live_count {
                         return None;
                     }
-                    if zeros > 0 {
+                    let mut seen_bool = [false, false];
+                    let mut saw_missing = false;
+                    {
+                        let dense = n.null_bitmap.is_empty();
+                        let mut slot_of_row = |row: u32| -> Option<usize> {
+                            let bits = if dense {
+                                *n.data.get(row as usize)?
+                            } else {
+                                match n.get(row) {
+                                    Some(b) => b,
+                                    None => {
+                                        saw_missing = true;
+                                        return None;
+                                    }
+                                }
+                            };
+                            let idx = usize::from(f64::from_bits(bits as u64) != 0.0);
+                            seen_bool[idx] = true;
+                            Some(idx)
+                        };
+                        self.fused_seg_pass(
+                            si,
+                            &mut slot_of_row,
+                            2,
+                            plan,
+                            &mut [],
+                            &mut [],
+                            &mut mss,
+                        )?;
+                    }
+                    if seen_bool[0] {
                         distinct.insert(BOOL_TERMS[0].to_string());
                     }
-                    if ones > 0 {
+                    if seen_bool[1] {
                         distinct.insert(BOOL_TERMS[1].to_string());
                     }
-                    if let Some(ph) = &missing_placeholder {
-                        if !n.null_bitmap.is_empty() {
+                    if saw_missing {
+                        if let Some(ph) = &missing_placeholder {
                             distinct.insert(ph.clone());
                         }
                     }
                 }
                 Some(_) => return None,
                 None => {
-                    // Field absent from the whole segment: every doc counts
-                    // as missing (brute: empty vals → placeholder).
+                    // Field absent from this segment → every matching row is
+                    // "missing"; only need whether ≥1 row matches the filter.
                     if let Some(ph) = &missing_placeholder {
-                        if seg.docs > 0 {
+                        let mut any = false;
+                        {
+                            let mut slot_of_row = |_row: u32| -> Option<usize> {
+                                any = true;
+                                None
+                            };
+                            self.fused_seg_pass(
+                                si,
+                                &mut slot_of_row,
+                                0,
+                                plan,
+                                &mut [],
+                                &mut [],
+                                &mut mss,
+                            )?;
+                        }
+                        if any {
                             distinct.insert(ph.clone());
                         }
                     }
                 }
             }
         }
-        // Memtable docs.  Columnar fast arm first (same equivalence gates
-        // as exec_terms — see `terms_counts_columnar`); the per-doc
-        // extraction walk below was the cardinality read-under-write tail
-        // at a drain-lagged memtable.
-        let mem_columnar: Option<(std::collections::HashMap<String, u64>, u64)> =
-            if !field.contains('.') {
-                self.idx.memtable.terms_counts_columnar(field)
-            } else {
-                None
+        // ── Memtable docs ─────────────────────────────────────────────────
+        if filtered {
+            // Distinct over MATCHING memtable docs only. O(matching) columnar
+            // candidates when the filter columnarises (re-checked against the
+            // JSON matcher for byte-identical results); else the full walk
+            // gated by `doc_matches_filter`.
+            let cols = match (self.filtered_mem(), self.top_filter_query.as_ref()) {
+                (Some(fdocs), Some(q)) => Some((fdocs, q)),
+                _ => None,
             };
-        match mem_columnar {
-            Some((counts, missing)) => {
-                for (term, cnt) in counts {
-                    if cnt > 0 {
-                        distinct.insert(term);
+            if let Some((fdocs, q)) = cols {
+                for (_id, doc) in fdocs {
+                    if !doc_matches_filter(doc, q) {
+                        continue;
                     }
-                }
-                if missing > 0 {
-                    if let Some(ph) = &missing_placeholder {
-                        distinct.insert(ph.clone());
-                    }
-                }
-            }
-            None => {
-                // Exact brute extractor so string rendering is identical.
-                for d in self.mem().iter() {
-                    let vals = crate::aggs::extract_field_values(d, field);
+                    let vals = extract_field_values(doc, field);
                     if vals.is_empty() {
                         if let Some(ph) = &missing_placeholder {
                             distinct.insert(ph.clone());
                         }
-                        continue;
+                    } else {
+                        for v in vals {
+                            distinct.insert(v);
+                        }
                     }
-                    for v in vals {
-                        distinct.insert(v);
+                }
+            } else {
+                for doc in self.mem().iter() {
+                    if let Some(q) = &self.top_filter_query {
+                        if !doc_matches_filter(doc, q) {
+                            continue;
+                        }
+                    }
+                    let vals = extract_field_values(doc, field);
+                    if vals.is_empty() {
+                        if let Some(ph) = &missing_placeholder {
+                            distinct.insert(ph.clone());
+                        }
+                    } else {
+                        for v in vals {
+                            distinct.insert(v);
+                        }
+                    }
+                }
+            }
+        } else {
+            // Unfiltered memtable.  Columnar fast arm first (same equivalence
+            // gates as exec_terms — see `terms_counts_columnar`); the per-doc
+            // extraction walk below was the cardinality read-under-write tail
+            // at a drain-lagged memtable.
+            let mem_columnar: Option<(std::collections::HashMap<String, u64>, u64)> =
+                if !field.contains('.') {
+                    self.idx.memtable.terms_counts_columnar(field)
+                } else {
+                    None
+                };
+            match mem_columnar {
+                Some((counts, missing)) => {
+                    for (term, cnt) in counts {
+                        if cnt > 0 {
+                            distinct.insert(term);
+                        }
+                    }
+                    if missing > 0 {
+                        if let Some(ph) = &missing_placeholder {
+                            distinct.insert(ph.clone());
+                        }
+                    }
+                }
+                None => {
+                    // Exact brute extractor so string rendering is identical.
+                    for d in self.mem().iter() {
+                        let vals = crate::aggs::extract_field_values(d, field);
+                        if vals.is_empty() {
+                            if let Some(ph) = &missing_placeholder {
+                                distinct.insert(ph.clone());
+                            }
+                            continue;
+                        }
+                        for v in vals {
+                            distinct.insert(v);
+                        }
                     }
                 }
             }
