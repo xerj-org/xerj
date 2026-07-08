@@ -3607,17 +3607,32 @@ impl Index {
             };
             let text = text.to_string();
             let vec = if let Some(proxy) = &*self.embedding_proxy {
-                let mut vs = proxy.embed_batch(vec![text]).await.map_err(|e| {
+                // Chunk long text before embedding so a single document maps to
+                // a chunk-aware vector instead of one embedding of the whole
+                // (possibly truncated) field. Short text (<= chunk_size) yields
+                // one chunk == the exact pre-chunking behavior.
+                let chunks = semantic_chunker().chunk(&text, None);
+                let chunk_texts: Vec<String> = if chunks.len() <= 1 {
+                    vec![text.clone()]
+                } else {
+                    chunks.iter().map(|c| c.text.clone()).collect()
+                };
+                let vs = proxy.embed_batch(chunk_texts).await.map_err(|e| {
                     EngineError::Common(xerj_common::XerjError::invalid_query(format!(
                         "semantic_text embed failed for field [{field}]: {e}"
                     )))
                 })?;
-                match vs.pop() {
-                    Some(v) if !v.is_empty() => v,
-                    _ => continue,
+                let vs: Vec<Vec<f32>> = vs.into_iter().filter(|v| !v.is_empty()).collect();
+                match vs.len() {
+                    0 => continue,
+                    // Single chunk: return the embedding as-is (pre-chunking
+                    // behavior — no re-normalization).
+                    1 => vs.into_iter().next().unwrap(),
+                    // Multiple chunks: L2-normalize each, mean-pool, re-normalize.
+                    _ => mean_pool_normalize(&vs),
                 }
             } else {
-                xerj_ai::local::local_embed(&text, dims)
+                local_chunk_embed(&text, dims)
             };
             let arr: Vec<Value> = vec.into_iter().map(|f| Value::from(f as f64)).collect();
             obj.insert(target, Value::Array(arr));
@@ -16171,6 +16186,73 @@ fn compute_field_value_factor(fvf: &FieldValueFactor, source: &Value) -> f32 {
     (modified * fvf.factor as f64) as f32
 }
 
+/// Default chunk size (characters) for auto-embed-on-ingest chunking.
+/// `EmbeddingConfig` has no per-field chunk parameter yet, so this is a
+/// sensible fixed default (roughly a paragraph).
+const SEMANTIC_CHUNK_SIZE: usize = 512;
+/// Default overlap (characters) between consecutive chunks.
+const SEMANTIC_CHUNK_OVERLAP: usize = 64;
+
+/// The chunker used by the auto-embed-on-ingest path.
+fn semantic_chunker() -> xerj_ai::TextChunker {
+    xerj_ai::TextChunker::new(SEMANTIC_CHUNK_SIZE, SEMANTIC_CHUNK_OVERLAP)
+}
+
+/// L2-normalize each input vector, mean-pool across all of them, then
+/// re-normalize the pooled result. Produces a unit-norm vector of the same
+/// dimensionality as the inputs (empty input => empty vec). Vectors whose
+/// length differs from the first are skipped.
+fn mean_pool_normalize(vectors: &[Vec<f32>]) -> Vec<f32> {
+    let dims = match vectors.first() {
+        Some(v) => v.len(),
+        None => return Vec::new(),
+    };
+    let mut acc = vec![0.0f32; dims];
+    let mut used = 0usize;
+    for v in vectors {
+        if v.len() != dims {
+            continue;
+        }
+        let norm = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+        if norm > 0.0 {
+            for (a, x) in acc.iter_mut().zip(v.iter()) {
+                *a += x / norm;
+            }
+            used += 1;
+        }
+    }
+    if used > 0 {
+        let inv = 1.0 / used as f32;
+        for a in acc.iter_mut() {
+            *a *= inv;
+        }
+    }
+    // Re-normalize the pooled vector to unit length.
+    let norm = acc.iter().map(|x| x * x).sum::<f32>().sqrt();
+    if norm > 0.0 {
+        for a in acc.iter_mut() {
+            *a /= norm;
+        }
+    }
+    acc
+}
+
+/// Chunk `text` and mean-pool the per-chunk *local* embeddings into a single
+/// unit-norm vector of length `dims`. Short text (<= chunk_size) produces a
+/// single chunk, so the result is exactly `local_embed(text, dims)` — a no-op
+/// relative to the pre-chunking behavior.
+fn local_chunk_embed(text: &str, dims: usize) -> Vec<f32> {
+    let chunks = semantic_chunker().chunk(text, None);
+    if chunks.len() <= 1 {
+        return xerj_ai::local::local_embed(text, dims);
+    }
+    let vecs: Vec<Vec<f32>> = chunks
+        .iter()
+        .map(|c| xerj_ai::local::local_embed(&c.text, dims))
+        .collect();
+    mean_pool_normalize(&vecs)
+}
+
 /// Compute the score contribution from a `rank_feature` function over a
 /// numeric feature field. Implements the four ES functions exactly:
 ///
@@ -17085,5 +17167,67 @@ mod rank_feature_tests {
             function: RankFeatureFn::Linear,
         };
         assert_eq!(compute_rank_feature_score(&rf, &json!({ "other": 1 })), 0.0);
+    }
+}
+
+#[cfg(test)]
+mod chunk_embed_tests {
+    use super::*;
+    use xerj_ai::local::{local_embed, DEFAULT_DIMS};
+
+    fn l2_norm(v: &[f32]) -> f32 {
+        v.iter().map(|x| x * x).sum::<f32>().sqrt()
+    }
+
+    /// A long, multi-sentence document is split into more than one chunk and
+    /// pooled into a single unit-norm vector of exactly `dims` elements.
+    #[test]
+    fn long_text_chunks_and_pools_to_unit_vector() {
+        let text =
+            "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. "
+                .repeat(20);
+        assert!(text.len() > SEMANTIC_CHUNK_SIZE);
+
+        // (b) The chunker actually produced more than one chunk.
+        let chunks = semantic_chunker().chunk(&text, None);
+        assert!(
+            chunks.len() > 1,
+            "expected multiple chunks, got {}",
+            chunks.len()
+        );
+
+        // (a) Output has exactly `dims` elements and is unit-norm.
+        let v = local_chunk_embed(&text, DEFAULT_DIMS);
+        assert_eq!(v.len(), DEFAULT_DIMS);
+        assert!(
+            (l2_norm(&v) - 1.0).abs() < 1e-4,
+            "pooled vector is unit-norm"
+        );
+    }
+
+    /// (c) A short string still embeds to a single unit-norm vector identical
+    /// to the pre-change `local_embed` path.
+    #[test]
+    fn short_text_is_identical_to_pre_change_path() {
+        let text = "Hello world, this is a short document.";
+        assert!(text.len() <= SEMANTIC_CHUNK_SIZE);
+
+        let got = local_chunk_embed(text, DEFAULT_DIMS);
+        let expected = local_embed(text, DEFAULT_DIMS);
+        assert_eq!(got, expected, "short text is a no-op vs local_embed");
+        assert!(
+            (l2_norm(&got) - 1.0).abs() < 1e-4,
+            "single-chunk vector unit-norm"
+        );
+    }
+
+    /// mean_pool_normalize on already-unit vectors returns a unit vector.
+    #[test]
+    fn mean_pool_of_two_vectors_is_unit_norm() {
+        let a = local_embed("first chunk of text", DEFAULT_DIMS);
+        let b = local_embed("a very different second chunk", DEFAULT_DIMS);
+        let pooled = mean_pool_normalize(&[a, b]);
+        assert_eq!(pooled.len(), DEFAULT_DIMS);
+        assert!((l2_norm(&pooled) - 1.0).abs() < 1e-4);
     }
 }
