@@ -1,0 +1,129 @@
+setup:
+  - do:
+      indices.create:
+        index: ml_cpu
+        body:
+          mappings:
+            properties:
+              "@timestamp":
+                type: date
+              cpu:
+                type: double
+
+  # One reading per minute; a runaway spike at minute 12 (96 vs the ~20 baseline).
+  - do:
+      bulk:
+        index: ml_cpu
+        refresh: true
+        body:
+          - '{"index": {}}'
+          - '{"@timestamp": "2026-07-06T00:00:00Z", "cpu": 19}'
+          - '{"index": {}}'
+          - '{"@timestamp": "2026-07-06T00:01:00Z", "cpu": 21}'
+          - '{"index": {}}'
+          - '{"@timestamp": "2026-07-06T00:02:00Z", "cpu": 20}'
+          - '{"index": {}}'
+          - '{"@timestamp": "2026-07-06T00:03:00Z", "cpu": 20}'
+          - '{"index": {}}'
+          - '{"@timestamp": "2026-07-06T00:04:00Z", "cpu": 22}'
+          - '{"index": {}}'
+          - '{"@timestamp": "2026-07-06T00:05:00Z", "cpu": 18}'
+          - '{"index": {}}'
+          - '{"@timestamp": "2026-07-06T00:06:00Z", "cpu": 21}'
+          - '{"index": {}}'
+          - '{"@timestamp": "2026-07-06T00:07:00Z", "cpu": 20}'
+          - '{"index": {}}'
+          - '{"@timestamp": "2026-07-06T00:08:00Z", "cpu": 19}'
+          - '{"index": {}}'
+          - '{"@timestamp": "2026-07-06T00:09:00Z", "cpu": 21}'
+          - '{"index": {}}'
+          - '{"@timestamp": "2026-07-06T00:10:00Z", "cpu": 20}'
+          - '{"index": {}}'
+          - '{"@timestamp": "2026-07-06T00:11:00Z", "cpu": 22}'
+          - '{"index": {}}'
+          - '{"@timestamp": "2026-07-06T00:12:00Z", "cpu": 96}'
+          - '{"index": {}}'
+          - '{"@timestamp": "2026-07-06T00:13:00Z", "cpu": 20}'
+          - '{"index": {}}'
+          - '{"@timestamp": "2026-07-06T00:14:00Z", "cpu": 21}'
+          - '{"index": {}}'
+          - '{"@timestamp": "2026-07-06T00:15:00Z", "cpu": 19}'
+
+---
+"Continuous datafeed scores a spike and supports the start/stop/delete lifecycle":
+  # Create the anomaly-detection job (detector).
+  - do:
+      ml.put_job:
+        job_id: cpu-spike
+        body:
+          source_index: ml_cpu
+          time_field: "@timestamp"
+          function: mean
+          field: cpu
+          bucket_span: 1m
+  - match: { job_id: cpu-spike }
+
+  # Create a continuous datafeed for it (short frequency).
+  - do:
+      ml.put_datafeed:
+        datafeed_id: cpu-feed
+        body:
+          job_id: cpu-spike
+          frequency: 1s
+  - match: { datafeed_id: cpu-feed }
+  - match: { job_id: cpu-spike }
+  - match: { state: stopped }
+
+  # Datafeed for an unknown job must 404.
+  - do:
+      catch: missing
+      ml.put_datafeed:
+        datafeed_id: bad-feed
+        body:
+          job_id: no-such-job
+
+  # Start it — runs one synchronous scoring pass now.
+  - do:
+      ml.start_datafeed:
+        datafeed_id: cpu-feed
+  - match: { started: true }
+
+  # The spike must have produced at least one anomaly record.
+  - do:
+      ml.get_records:
+        job_id: cpu-spike
+  - gte: { count: 1 }
+  - match: { records.0.job_id: cpu-spike }
+
+  # Datafeed now reports started.
+  - do:
+      ml.get_datafeeds:
+        datafeed_id: cpu-feed
+  - match: { datafeeds.0.state: started }
+
+  # Deleting a started datafeed must conflict.
+  - do:
+      catch: conflict
+      ml.delete_datafeed:
+        datafeed_id: cpu-feed
+
+  # Stop, then delete cleanly.
+  - do:
+      ml.stop_datafeed:
+        datafeed_id: cpu-feed
+  - match: { stopped: true }
+
+  - do:
+      ml.get_datafeeds:
+        datafeed_id: cpu-feed
+  - match: { datafeeds.0.state: stopped }
+
+  - do:
+      ml.delete_datafeed:
+        datafeed_id: cpu-feed
+  - match: { acknowledged: true }
+
+  - do:
+      ml.delete_job:
+        job_id: cpu-spike
+  - match: { acknowledged: true }

@@ -1358,6 +1358,62 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
         // Security — API keys
         "security.create_api_key" => ("POST".into(), "/_security/api_key".into(), body),
 
+        // ML — anomaly detectors, datafeeds, results
+        "ml.put_job" => {
+            let job = get_param_str(params, "job_id").unwrap_or_default();
+            (
+                "PUT".into(),
+                format!("/_ml/anomaly_detectors/{}", job),
+                body,
+            )
+        }
+        "ml.delete_job" => {
+            let job = get_param_str(params, "job_id").unwrap_or_default();
+            (
+                "DELETE".into(),
+                format!("/_ml/anomaly_detectors/{}", job),
+                None,
+            )
+        }
+        "ml.get_records" => {
+            let job = get_param_str(params, "job_id").unwrap_or_default();
+            (
+                "GET".into(),
+                format!("/_ml/anomaly_detectors/{}/results/records", job),
+                body,
+            )
+        }
+        "ml.put_datafeed" => {
+            let feed = get_param_str(params, "datafeed_id").unwrap_or_default();
+            ("PUT".into(), format!("/_ml/datafeeds/{}", feed), body)
+        }
+        "ml.get_datafeeds" | "ml.get_datafeed" => match get_param_str(params, "datafeed_id") {
+            Some(feed) if !feed.is_empty() => {
+                ("GET".into(), format!("/_ml/datafeeds/{}", feed), None)
+            }
+            _ => ("GET".into(), "/_ml/datafeeds".into(), None),
+        },
+        "ml.delete_datafeed" => {
+            let feed = get_param_str(params, "datafeed_id").unwrap_or_default();
+            ("DELETE".into(), format!("/_ml/datafeeds/{}", feed), None)
+        }
+        "ml.start_datafeed" => {
+            let feed = get_param_str(params, "datafeed_id").unwrap_or_default();
+            (
+                "POST".into(),
+                format!("/_ml/datafeeds/{}/_start", feed),
+                None,
+            )
+        }
+        "ml.stop_datafeed" => {
+            let feed = get_param_str(params, "datafeed_id").unwrap_or_default();
+            (
+                "POST".into(),
+                format!("/_ml/datafeeds/{}/_stop", feed),
+                None,
+            )
+        }
+
         // Catch-all
         _ => {
             let path = format!("/{}", action.replace('.', "/"));
