@@ -186,3 +186,39 @@ the KB, runs the five semantic retrievals with assertions, prints the RAG contex
 bundle, shows the keyword-vs-semantic contrast, demonstrates the lexical-embedder
 miss, and exits non-zero if any of the five retrievals regress. Point `BASE` at any
 XERJ (or real Elasticsearch with a `semantic_text`/inference setup) to compare.
+
+---
+
+## Measuring ranking quality with `_rank_eval`
+
+Once you have relevance judgements (which docs *should* come back for a
+query), the `_rank_eval` API scores your ranking with the standard IR
+metrics — the same wire API as Elasticsearch. XERJ computes each metric for
+real (they are **not** aliases for precision): `precision`, `recall`, `dcg`
+(add `"normalize": true` for nDCG), `mean_reciprocal_rank`, and
+`expected_reciprocal_rank`. An unknown metric name returns `400` rather than
+a misleading number.
+
+```bash
+curl -sX POST "$BASE/kb/_rank_eval" -H 'content-type: application/json' -d '{
+  "metric": { "dcg": { "k": 10, "normalize": true } },
+  "requests": [
+    {
+      "id": "chunking_q",
+      "request": { "query": { "semantic": { "field": "content",
+                    "query": "how do I split documents for RAG?", "k": 10 } } },
+      "ratings": [
+        { "_id": "kb-7",  "rating": 3 },
+        { "_id": "kb-12", "rating": 1 },
+        { "_id": "kb-30", "rating": 0 }
+      ]
+    }
+  ]
+}'
+# → { "metric_score": 0.87, "details": { "chunking_q": { "metric_score": 0.87, ... } } }
+```
+
+Swap `"dcg"` for `"precision"`, `"recall"`, `"mean_reciprocal_rank"`, or
+`"expected_reciprocal_rank"` to score the same ranking a different way — each
+returns its own value, so you can track whichever metric your product cares
+about as you tune embeddings, `k`, and hybrid weights.

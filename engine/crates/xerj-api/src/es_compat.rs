@@ -22338,23 +22338,205 @@ pub struct RankEvalRating {
     pub rating: u32,
 }
 
+/// Real per-request rank_eval metric score. `ranked` is the graded relevance
+/// of each retrieved doc in rank order; `all_ratings` is every rating supplied
+/// for the request (used for recall's denominator, nDCG's ideal ordering, and
+/// ERR's default max grade). Pure so it can be unit-tested against known values.
+fn rank_eval_metric_score(
+    metric: &str,
+    mparams: &Value,
+    ranked: &[u32],
+    all_ratings: &[u32],
+    k: usize,
+    threshold: u32,
+    normalize: bool,
+) -> f64 {
+    match metric {
+        "precision" => {
+            let rel = ranked.iter().filter(|&&r| r >= threshold).count();
+            if ranked.is_empty() {
+                0.0
+            } else {
+                rel as f64 / ranked.len() as f64
+            }
+        }
+        "recall" => {
+            let total_rel = all_ratings.iter().filter(|&&r| r >= threshold).count();
+            let rel = ranked.iter().filter(|&&r| r >= threshold).count();
+            if total_rel == 0 {
+                0.0
+            } else {
+                rel as f64 / total_rel as f64
+            }
+        }
+        // DCG = Σ (2^rating − 1) / log2(rank + 1), rank 1-based.
+        // nDCG divides by the ideal DCG (ratings sorted descending, top-k).
+        "dcg" => {
+            let dcg = |gains: &[u32]| -> f64 {
+                gains
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &g)| (2f64.powi(g as i32) - 1.0) / ((i as f64) + 2.0).log2())
+                    .sum()
+            };
+            let raw = dcg(ranked);
+            if normalize {
+                let mut ideal: Vec<u32> = all_ratings.to_vec();
+                ideal.sort_unstable_by(|a, b| b.cmp(a));
+                ideal.truncate(k);
+                let idcg = dcg(&ideal);
+                if idcg > 0.0 {
+                    raw / idcg
+                } else {
+                    0.0
+                }
+            } else {
+                raw
+            }
+        }
+        // Reciprocal rank of the first doc at/above the relevance threshold.
+        "mean_reciprocal_rank" => ranked
+            .iter()
+            .position(|&r| r >= threshold)
+            .map(|p| 1.0 / (p as f64 + 1.0))
+            .unwrap_or(0.0),
+        // ERR = Σ_i (1/i)·(Π_{j<i}(1−R_j))·R_i, R_g = (2^g − 1)/2^max_grade.
+        "expected_reciprocal_rank" => {
+            let max_grade = mparams
+                .get("maximum_relevance")
+                .and_then(Value::as_u64)
+                .map(|v| v as u32)
+                .unwrap_or_else(|| all_ratings.iter().copied().max().unwrap_or(1))
+                .max(1);
+            let denom = 2f64.powi(max_grade as i32);
+            let mut err = 0.0;
+            let mut p_stay = 1.0;
+            for (i, &g) in ranked.iter().enumerate() {
+                let r = (2f64.powi(g as i32) - 1.0) / denom;
+                err += p_stay * r / (i as f64 + 1.0);
+                p_stay *= 1.0 - r;
+            }
+            err
+        }
+        _ => 0.0,
+    }
+}
+
+#[cfg(test)]
+mod rank_eval_metric_tests {
+    use super::rank_eval_metric_score;
+    use serde_json::json;
+
+    // ranked ratings [3,0,1] retrieved in that order; all ratings [3,0,1].
+    // Each metric must produce a DISTINCT, correct value (the bug was that
+    // dcg/mrr/err all silently returned precision).
+    const RANKED: [u32; 3] = [3, 0, 1];
+    const ALL: [u32; 3] = [3, 0, 1];
+
+    fn score(metric: &str, params: serde_json::Value, normalize: bool) -> f64 {
+        rank_eval_metric_score(metric, &params, &RANKED, &ALL, 3, 1, normalize)
+    }
+
+    #[test]
+    fn precision_is_relevant_over_retrieved() {
+        assert!((score("precision", json!({}), false) - 2.0 / 3.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn recall_is_relevant_retrieved_over_total() {
+        assert!((score("recall", json!({}), false) - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn dcg_uses_graded_gain_and_log_discount() {
+        // 7/log2(2) + 0/log2(3) + 1/log2(4) = 7 + 0 + 0.5
+        assert!((score("dcg", json!({}), false) - 7.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn ndcg_normalizes_against_ideal() {
+        // ideal [3,1,0] → 7 + 1/log2(3) = 7.630930; ndcg = 7.5 / 7.630930
+        assert!((score("dcg", json!({}), true) - (7.5 / (7.0 + 1.0 / 3f64.log2()))).abs() < 1e-9);
+    }
+
+    #[test]
+    fn mrr_is_reciprocal_of_first_relevant_rank() {
+        // first rating>=1 is at rank 1 → 1.0
+        assert!((score("mean_reciprocal_rank", json!({}), false) - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn err_uses_cascade_probabilities() {
+        // max_grade 3, denom 8; R=[7/8,0,1/8] → 0.875 + 0 + (1/3)(0.125)(0.125)
+        let expected = 0.875 + (1.0 / 3.0) * 0.125 * 0.125;
+        assert!((score("expected_reciprocal_rank", json!({"maximum_relevance":3}), false)
+            - expected)
+            .abs()
+            < 1e-9);
+    }
+
+    #[test]
+    fn non_precision_metrics_do_not_collapse_to_precision() {
+        // The original bug: dcg / nDCG / mrr / err all silently returned the
+        // precision value. Each must now differ from precision.
+        let precision = score("precision", json!({}), false);
+        for (name, val) in [
+            ("dcg", score("dcg", json!({}), false)),
+            ("ndcg", score("dcg", json!({}), true)),
+            ("mrr", score("mean_reciprocal_rank", json!({}), false)),
+            ("err", score("expected_reciprocal_rank", json!({"maximum_relevance":3}), false)),
+        ] {
+            assert!(
+                (val - precision).abs() > 1e-6,
+                "{name} collapsed to precision ({precision})"
+            );
+        }
+    }
+}
+
 pub async fn rank_eval(
     State(state): State<AppState>,
     Path(index): Path<String>,
     Json(body): Json<RankEvalBody>,
 ) -> impl IntoResponse {
     let mut details: serde_json::Map<String, Value> = serde_json::Map::new();
-    let mut all_precision: Vec<f64> = Vec::new();
-    let mut all_recall: Vec<f64> = Vec::new();
+    let mut all_scores: Vec<f64> = Vec::new();
 
-    // Default metric: precision at 10.
-    let k = body
+    // The metric object carries exactly one key naming the metric. Default
+    // to precision when omitted (back-compat). Each metric computes its own
+    // real score below — an unknown metric fails loud (400) rather than
+    // silently returning precision.
+    let (metric_name, mparams): (String, Value) = body
         .metric
         .as_ref()
-        .and_then(|m| m.get("precision").or_else(|| m.get("recall")))
-        .and_then(|m| m.get("k"))
+        .and_then(|m| m.as_object())
+        .and_then(|o| o.iter().next().map(|(k, v)| (k.clone(), v.clone())))
+        .unwrap_or_else(|| ("precision".to_string(), json!({})));
+
+    const KNOWN_METRICS: [&str; 5] = [
+        "precision",
+        "recall",
+        "dcg",
+        "mean_reciprocal_rank",
+        "expected_reciprocal_rank",
+    ];
+    if !KNOWN_METRICS.contains(&metric_name.as_str()) {
+        return ApiError::new(xerj_common::XerjError::invalid_query(format!(
+            "unknown rank_eval metric [{metric_name}]; supported: precision, recall, dcg, \
+             mean_reciprocal_rank, expected_reciprocal_rank"
+        )))
+        .into_response();
+    }
+
+    let k = mparams.get("k").and_then(Value::as_u64).unwrap_or(10) as usize;
+    let threshold = mparams
+        .get("relevant_rating_threshold")
         .and_then(Value::as_u64)
-        .unwrap_or(10) as usize;
+        .unwrap_or(1) as u32;
+    let normalize = mparams
+        .get("normalize")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
 
     for req_spec in &body.requests {
         let query_val = req_spec
@@ -22384,38 +22566,34 @@ pub async fn rank_eval(
             Err(_) => continue,
         };
 
-        // Build set of relevant doc ids (rating >= 1).
-        let relevant_ids: std::collections::HashSet<String> = req_spec
-            .ratings
-            .iter()
-            .filter(|r| r.rating >= 1)
-            .map(|r| r.id.clone())
-            .collect();
-
         let retrieved_ids: Vec<String> = result.hits.iter().take(k).map(|h| h.id.clone()).collect();
 
-        let relevant_retrieved: usize = retrieved_ids
-            .iter()
-            .filter(|id| relevant_ids.contains(*id))
-            .count();
-
-        let precision = if retrieved_ids.is_empty() {
-            0.0
-        } else {
-            relevant_retrieved as f64 / retrieved_ids.len() as f64
+        // Rating of each retrieved doc, in rank order (unrated → 0).
+        let rating_of = |id: &str| -> u32 {
+            req_spec
+                .ratings
+                .iter()
+                .find(|r| r.id == id)
+                .map(|r| r.rating)
+                .unwrap_or(0)
         };
+        let ranked: Vec<u32> = retrieved_ids.iter().map(|id| rating_of(id)).collect();
+        let all_ratings: Vec<u32> = req_spec.ratings.iter().map(|r| r.rating).collect();
 
-        let recall = if relevant_ids.is_empty() {
-            1.0
-        } else {
-            relevant_retrieved as f64 / relevant_ids.len() as f64
-        };
+        let score = rank_eval_metric_score(
+            &metric_name,
+            &mparams,
+            &ranked,
+            &all_ratings,
+            k,
+            threshold,
+            normalize,
+        );
 
-        all_precision.push(precision);
-        all_recall.push(recall);
+        all_scores.push(score);
 
         details.insert(req_spec.id.clone(), json!({
-            "metric_score": precision,
+            "metric_score": score,
             "unrated_docs": [],
             "hits": retrieved_ids.iter().enumerate().map(|(i, id)| {
                 let rating = req_spec.ratings.iter().find(|r| &r.id == id).map(|r| r.rating as i64).unwrap_or(-1);
@@ -22428,14 +22606,16 @@ pub async fn rank_eval(
         }));
     }
 
-    let mean_precision = if all_precision.is_empty() {
+    // Top-level score is the mean across requests (ES aggregates every
+    // rank_eval metric by averaging per-request scores).
+    let mean_score = if all_scores.is_empty() {
         0.0
     } else {
-        all_precision.iter().sum::<f64>() / all_precision.len() as f64
+        all_scores.iter().sum::<f64>() / all_scores.len() as f64
     };
 
     Json(json!({
-        "metric_score": mean_precision,
+        "metric_score": mean_score,
         "details": details,
         "failures": {}
     }))
