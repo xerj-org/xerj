@@ -4295,7 +4295,6 @@ async fn test_registry_apply_settings() {
 /// field analyzer auto-detects encodings and produces meaningful compression
 /// ratios.
 #[tokio::test]
-#[ignore = "collect_sample was removed from push_field during M4 perf opt — field_encodings not populated"]
 async fn test_smart_field_encoding_apache_logs() {
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);

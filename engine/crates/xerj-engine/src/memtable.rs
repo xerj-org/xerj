@@ -1285,13 +1285,57 @@ impl ShardedFtsMemtable {
     }
 
     /// Aggregated smart-field-encoding map across all shards.
+    ///
+    /// Computed lazily on the READ side from the doc-values `keyword`
+    /// columns already maintained per shard — the same bounded-read pattern
+    /// used by `all_keyword_values_for_field` / the `keyword_counts` fold.
+    /// The ingest hot path only appends raw column values (it no longer runs
+    /// `FieldAnalyzer` — the ingest-time `collect_sample` was dropped during
+    /// the M4 perf pass, which is why `analyzed_encodings` is always empty),
+    /// so this adds ZERO per-doc cost: the analysis happens here, once, when
+    /// a caller (the `/v1/indices/:name/encodings` stats endpoint) asks for
+    /// it.
+    ///
+    /// For each field we merge every shard's non-`None` keyword values into a
+    /// single sample vector (capped at `ENCODING_SAMPLE_CAP` to bound work on
+    /// a large memtable), then — for each field carrying at least
+    /// `ENCODING_MIN_SAMPLES` values — run `FieldAnalyzer` to pick its optimal
+    /// encoding.  Read-only: it never touches the columns or the ingest path.
     pub fn aggregated_field_encodings(&self) -> HashMap<String, FieldEncoding> {
-        let mut out: HashMap<String, FieldEncoding> = HashMap::new();
+        /// Upper bound on values analyzed per field — keeps this read bounded
+        /// on a multi-hundred-k-doc memtable while staying statistically ample.
+        const ENCODING_SAMPLE_CAP: usize = 4096;
+        /// Minimum values a field needs before we report an encoding for it;
+        /// below this the cardinality tiers aren't statistically meaningful.
+        const ENCODING_MIN_SAMPLES: usize = 16;
+
+        // Merge each shard's keyword columns into one capped sample vector
+        // per field, under the shard READ lock.
+        let mut samples: HashMap<String, Vec<String>> = HashMap::new();
         for s in &self.shards {
             let g = s.read();
-            for (k, v) in g.analyzed_field_encodings().iter() {
-                out.entry(k.clone()).or_insert_with(|| v.clone());
+            for (field, col) in g.doc_values.keyword.iter() {
+                let acc = samples.entry(field.clone()).or_default();
+                if acc.len() >= ENCODING_SAMPLE_CAP {
+                    continue;
+                }
+                for v in col.iter().flatten() {
+                    acc.push(v.clone());
+                    if acc.len() >= ENCODING_SAMPLE_CAP {
+                        break;
+                    }
+                }
             }
+        }
+
+        let analyzer = FieldAnalyzer::default();
+        let mut out: HashMap<String, FieldEncoding> = HashMap::new();
+        for (field, vals) in samples {
+            if vals.len() < ENCODING_MIN_SAMPLES {
+                continue;
+            }
+            let refs: Vec<&str> = vals.iter().map(|s| s.as_str()).collect();
+            out.insert(field.clone(), analyzer.analyze(&field, &refs));
         }
         out
     }
