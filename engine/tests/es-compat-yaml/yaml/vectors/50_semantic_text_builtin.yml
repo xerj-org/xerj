@@ -1,0 +1,83 @@
+# semantic_text built-in embedder — end-to-end regression.
+#
+# COMPAT_MATRIX / lexical-not-neural note:
+#   XERJ's `semantic_text` field auto-embeds text on ingest with a zero-config,
+#   deterministic BUILT-IN embedder (xerj_ai::local::local_embed) that hashes
+#   word unigrams + intra-word character trigrams into an L2-normalised vector.
+#   It captures LEXICAL / vocabulary overlap, NOT deep neural semantics. This is
+#   an intentional, disclosed limitation (see README.md "Vector & semantic search
+#   notes" and ROADMAP.md — a bundled neural model is future work). When an
+#   external OpenAI-compatible `embedding.default_endpoint` is configured the
+#   engine uses that proxy at ingest and query time instead, at higher quality.
+#
+# What this test locks (the guarantee the built-in embedder makes):
+#   * `semantic_text` works with ZERO external config — create → index → query.
+#   * The query text is embedded with the SAME built-in embedder used at ingest,
+#     so a paraphrase sharing vocabulary ranks ABOVE topically-unrelated text.
+#   * `k` bounds the neighbour pool (hits.total.value = min(k, matches)).
+#   * `size` caps the returned hits independently of `k`.
+#
+# The three strings below mirror xerj-ai's `paraphrase_ranks_above_unrelated`
+# unit test, which proves sim(query, doc-1) > sim(query, doc-2) at 384 dims.
+
+setup:
+  - do:
+      indices.create:
+        index: semantic-builtin
+        body:
+          mappings:
+            properties:
+              body:
+                type: semantic_text
+
+  - do:
+      index:
+        index: semantic-builtin
+        id: "1"
+        refresh: true
+        body:
+          body: "a hungry dog chased the ball across the green park"
+
+  - do:
+      index:
+        index: semantic-builtin
+        id: "2"
+        refresh: true
+        body:
+          body: "investors sold technology shares amid rising interest rates"
+
+---
+"semantic query over a semantic_text field ranks the vocabulary-overlapping doc first":
+  - do:
+      search:
+        index: semantic-builtin
+        body:
+          size: 1
+          query:
+            semantic:
+              field: body
+              query: "a dog ran after a ball in the park"
+              k: 10
+
+  # k=10 bounds the neighbour pool; only 2 docs carry a vector → total is 2.
+  - match: { hits.total.value: 2 }
+  # size:1 caps the returned hits regardless of k.
+  - length: { hits.hits: 1 }
+  # The vocabulary-overlapping doc (id 1) must rank first.
+  - match: { hits.hits.0._id: "1" }
+
+---
+"size 0 semantic query returns the pool total but no hits":
+  - do:
+      search:
+        index: semantic-builtin
+        body:
+          size: 0
+          query:
+            semantic:
+              field: body
+              query: "a dog ran after a ball in the park"
+              k: 10
+
+  - match: { hits.total.value: 2 }
+  - length: { hits.hits: 0 }
