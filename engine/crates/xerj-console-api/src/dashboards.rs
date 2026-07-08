@@ -6,9 +6,16 @@
 //! etag for optimistic concurrency; private dashboards skip that check
 //! since only the owner ever writes them.
 //!
-//! SSE streaming (`/_stream`) lands in a follow-up commit so an SE
-//! mid-call can see "another user just renamed this dashboard" without
-//! polling.  CRUD ships first because it's the bigger blocker.
+//! Real-time push (SSE `/_stream`) is NOT implemented in this release:
+//! there is no `/_stream` endpoint on dashboards or views, and none is
+//! registered in the router.  Concurrent edits are surfaced only on the
+//! next read — an SE who wants to see "another user just renamed this
+//! dashboard" must re-fetch (poll) rather than receive a live event.
+//! The If-Match etag on writes still makes a stale update fail loudly
+//! with 409 instead of silently clobbering, so correctness never
+//! depends on live push; it only trades a lower-latency notification.
+//! CRUD is complete and correct; live push is deferred (tracked in the
+//! crate-level "Coming after RC" list in `lib.rs`).
 
 use axum::{
     extract::{Path, State},
@@ -400,5 +407,29 @@ fn enforce_etag(headers: &HeaderMap, current_version: u64) -> ConsoleResult<()> 
         _ => Err(ConsoleApiError::Conflict(format!(
             "etag mismatch (current = W/\"{current_version}\")"
         ))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// Locks the module-doc disclosure that SSE live push (`/_stream`)
+    /// is NOT implemented: no route registered by this crate may expose
+    /// a `_stream` (server-sent-events) endpoint. If real-time push is
+    /// ever added, this assertion fails on purpose so the disclosure at
+    /// the top of this module — and the crate-level "Coming after RC"
+    /// list in `lib.rs` — is updated in the same change instead of
+    /// silently drifting out of date.
+    #[test]
+    fn no_sse_stream_endpoint_is_registered() {
+        let offenders: Vec<&str> = crate::router::known_routes()
+            .iter()
+            .copied()
+            .filter(|route| route.contains("_stream"))
+            .collect();
+        assert!(
+            offenders.is_empty(),
+            "module doc states SSE /_stream is not implemented, \
+             but these routes exist: {offenders:?}"
+        );
     }
 }
