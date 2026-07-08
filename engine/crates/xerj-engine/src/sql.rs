@@ -341,33 +341,12 @@ pub fn parse_sql(sql: &str) -> Result<SqlQuery, String> {
         }
     }
 
-    // Optional HAVING (parsed but not yet translated — reserved for future use).
+    // HAVING is not supported over /_sql. There is no GROUP BY execution path
+    // here to filter post-aggregation, so silently skipping the predicate would
+    // return ungrouped rows that ignore the filter — a wrong answer. Fail loud
+    // with a parse error that the /_sql handler surfaces as a 400 invalid_query.
     if peek_word(pos).as_deref() == Some("HAVING") {
-        pos += 1;
-        // Skip tokens until ORDER, LIMIT, or end.
-        while let Some(tok) = peek(pos) {
-            match peek_word(pos).as_deref() {
-                Some("ORDER") | Some("LIMIT") => break,
-                _ => {}
-            }
-            match tok {
-                Token::Word(_)
-                | Token::Num(_)
-                | Token::Str(_)
-                | Token::Eq
-                | Token::Ne
-                | Token::Gt
-                | Token::Ge
-                | Token::Lt
-                | Token::Le
-                | Token::LParen
-                | Token::RParen
-                | Token::Comma
-                | Token::Star => {
-                    pos += 1;
-                }
-            }
-        }
+        return Err("HAVING clause is not supported over /_sql".to_string());
     }
 
     // Optional ORDER BY.
@@ -715,5 +694,29 @@ mod tests {
         assert_eq!(q.sort.len(), 1);
         assert_eq!(q.sort[0].field, "created");
         assert!(matches!(q.sort[0].order, SortOrder::Desc));
+    }
+
+    #[test]
+    fn test_having_rejected() {
+        // HAVING has no GROUP BY execution path over /_sql; it must fail loud
+        // (surfaced as 400 invalid_query) rather than silently drop the filter.
+        let res = parse_sql(
+            "SELECT category, COUNT(*) FROM products GROUP BY category HAVING COUNT(*) > 5",
+        );
+        match res {
+            Err(err) => assert!(
+                err.contains("HAVING"),
+                "expected HAVING reject error, got: {err}"
+            ),
+            Ok(_) => panic!("expected HAVING clause to be rejected, but query parsed"),
+        }
+    }
+
+    #[test]
+    fn test_group_by_without_having_still_parses() {
+        // A plain GROUP BY (no HAVING) must continue to parse unchanged.
+        let q = parse_sql("SELECT category, COUNT(*) FROM products GROUP BY category").unwrap();
+        assert_eq!(q.index, "products");
+        assert_eq!(q.group_by, vec!["category"]);
     }
 }
