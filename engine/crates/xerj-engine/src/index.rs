@@ -31,6 +31,7 @@ use xerj_storage::segment::SectionType;
 use xerj_storage::wal::{SyncMode, WalEntry};
 use xerj_vector::distance::DistanceMetric;
 use xerj_vector::hnsw::{HnswIndex, HnswParams};
+use xerj_vector::Sq8Params;
 
 use crate::aggs::run_aggs_with_all;
 
@@ -315,6 +316,45 @@ impl RequestCacheSeen {
     }
 }
 
+// ── SQ8 serving-path code store ───────────────────────────────────────────────
+
+/// Per-field in-memory SQ8 (scalar8) code store used by the kNN serving path.
+///
+/// Holds one shared [`Sq8Params`] (fitted from the first ~1000 ingested
+/// vectors for the field) plus a `doc_id -> Vec<u8>` code map. Each code vector
+/// is 1 byte per dimension — a quarter of the 4 bytes/dim an f32 vector costs —
+/// so this is the concrete artifact behind the ~4× memory claim. The store is
+/// consulted by [`Index::run_knn_brute_force`] instead of reading the f32
+/// vector from `_source` for scoring.
+struct Sq8FieldStore {
+    /// Shared per-dimension min/scale codec for this field.
+    params: Sq8Params,
+    /// Vector dimensionality the params were fitted for.
+    dim: usize,
+    /// Whether vectors were L2-normalised before quantising (cosine fields).
+    normalize: bool,
+    /// doc_id → SQ8 codes (1 byte/dim).
+    codes: HashMap<String, Vec<u8>>,
+}
+
+impl Sq8FieldStore {
+    /// Total bytes held by the u8 code map — the working set we shrank 4×.
+    fn code_bytes(&self) -> usize {
+        self.codes.values().map(|c| c.len()).sum()
+    }
+}
+
+/// L2-normalise a vector in place (no-op for a zero vector). Used for cosine
+/// fields so SQ8 fits over bounded per-dimension ranges (better recall).
+fn l2_normalize_vec(v: &mut [f32]) {
+    let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+    if norm > 0.0 {
+        for x in v.iter_mut() {
+            *x /= norm;
+        }
+    }
+}
+
 // ── Index ────────────────────────────────────────────────────────────────────
 
 /// Per-index coordinator.
@@ -368,6 +408,18 @@ pub struct Index {
     hnsw_id_rev: Arc<RwLock<HashMap<u64, String>>>,
     /// Monotonic counter for HNSW node IDs.
     hnsw_next_id: Arc<AtomicU64>,
+    /// Per-field SQ8 (scalar8) code stores for the kNN serving path.
+    ///
+    /// Keyed by dense_vector field name. Populated only for fields whose
+    /// mapping opts into `scalar8` quantization (`index_options.type:
+    /// int8_hnsw`). Each store holds one shared [`Sq8Params`] plus a
+    /// `doc_id -> Vec<u8>` code map (1 byte/dim, NOT 4), giving a real ~4×
+    /// reduction on that field's vector working set. Built lazily on the first
+    /// kNN over the field from the same (doc_id, source) candidates the
+    /// brute-force scan already gathers, then refreshed incrementally as new
+    /// docs appear. Default (none) fields never touch this map, so their exact
+    /// f32 brute-force path is byte-identical to before.
+    sq8_stores: Arc<RwLock<HashMap<String, Sq8FieldStore>>>,
     // ── Per-index concurrency control ─────────────────────────────────────────
     /// Semaphore that limits the number of queries executing concurrently
     /// against this index.  The default is 64 permits, matching the global
@@ -735,6 +787,7 @@ impl Index {
             hnsw_id_map: Arc::new(RwLock::new(HashMap::new())),
             hnsw_id_rev: Arc::new(RwLock::new(HashMap::new())),
             hnsw_next_id: Arc::new(AtomicU64::new(1)),
+            sq8_stores: Arc::new(RwLock::new(HashMap::new())),
             metric_query_count: Arc::new(AtomicU64::new(0)),
             metric_query_total_ms: Arc::new(AtomicU64::new(0)),
             metric_index_count: Arc::new(AtomicU64::new(0)),
@@ -909,6 +962,7 @@ impl Index {
             hnsw_id_map: Arc::new(RwLock::new(id_map_init)),
             hnsw_id_rev: Arc::new(RwLock::new(id_rev_init)),
             hnsw_next_id: Arc::new(AtomicU64::new(next_id_init)),
+            sq8_stores: Arc::new(RwLock::new(HashMap::new())),
             metric_query_count: Arc::new(AtomicU64::new(0)),
             metric_query_total_ms: Arc::new(AtomicU64::new(0)),
             metric_index_count: Arc::new(AtomicU64::new(0)),
@@ -3379,35 +3433,135 @@ impl Index {
             }
         }
 
+        // ── Determine whether this field opts into SQ8 (scalar8) ──────
+        // Default fields keep the exact f32 brute-force scan below,
+        // byte-identical to before. A `scalar8` field instead scores against
+        // a per-field u8 code store — decoding each doc's SQ8 codes rather
+        // than reading its f32 vector from `_source` for scoring.
+        let use_sq8 = {
+            let schema = self.schema.read().await;
+            lookup_vector_quantization(&schema.schema, field).as_deref() == Some("scalar8")
+        };
+
         // ── Score each candidate against the query vector ─────────────
         let mut scored: Vec<(String, f32, Value)> = Vec::with_capacity(candidates.len());
-        for (id, src) in candidates {
-            // Apply filter: if the filter doesn't match this doc, skip.
-            if let Some(ref f) = filter {
-                let mut src_with_id = src.clone();
-                if let Some(obj) = src_with_id.as_object_mut() {
-                    obj.insert("_id".to_string(), Value::String(id.clone()));
+        if use_sq8 {
+            // Cosine fields are L2-normalised before quantising so SQ8 fits
+            // over bounded [-1,1] per-dim ranges (much better recall); cosine
+            // is invariant to that scaling so ranking stays correct. Non-cosine
+            // metrics must keep raw magnitudes, so they are quantised as-is.
+            let normalize = !matches!(similarity, "l2_norm" | "dot_product" | "max_inner_product");
+            let dim = query_vec.len();
+
+            // Post-filter candidate vectors for this field: (id, src, doc_vec).
+            let mut cand: Vec<(String, Value, Vec<f32>)> = Vec::with_capacity(candidates.len());
+            for (id, src) in candidates {
+                if let Some(ref f) = filter {
+                    let mut src_with_id = src.clone();
+                    if let Some(obj) = src_with_id.as_object_mut() {
+                        obj.insert("_id".to_string(), Value::String(id.clone()));
+                    }
+                    if !doc_matches_query(f, &src_with_id) {
+                        continue;
+                    }
                 }
-                if !doc_matches_query(f, &src_with_id) {
+                let vec_val = match get_field_value(&src, field) {
+                    Some(v) => v,
+                    None => continue,
+                };
+                let mut doc_vec: Vec<f32> = match &vec_val {
+                    Value::Array(arr) => arr
+                        .iter()
+                        .filter_map(|v| v.as_f64().map(|f| f as f32))
+                        .collect(),
+                    _ => continue,
+                };
+                if doc_vec.len() != dim {
                     continue;
                 }
+                if normalize {
+                    l2_normalize_vec(&mut doc_vec);
+                }
+                cand.push((id, src, doc_vec));
             }
-            let vec_val = match get_field_value(&src, field) {
-                Some(v) => v,
-                None => continue,
-            };
-            let doc_vec: Vec<f32> = match &vec_val {
-                Value::Array(arr) => arr
-                    .iter()
-                    .filter_map(|v| v.as_f64().map(|f| f as f32))
-                    .collect(),
-                _ => continue,
-            };
-            if doc_vec.len() != query_vec.len() {
-                continue;
+
+            // Build/refresh the per-field SQ8 code store: fit params once from
+            // the first ≤1000 vectors, then encode any doc not yet stored. The
+            // store holds u8 codes (1 byte/dim), so its steady-state footprint
+            // is ~4× smaller than the f32 vectors it replaces for scoring.
+            {
+                let mut stores = self.sq8_stores.write().await;
+                let store = stores.entry(field.to_string()).or_insert_with(|| {
+                    let sample: Vec<Vec<f32>> =
+                        cand.iter().take(1000).map(|(_, _, v)| v.clone()).collect();
+                    let params = Sq8Params::fit(&sample, dim);
+                    Sq8FieldStore {
+                        params,
+                        dim,
+                        normalize,
+                        codes: HashMap::new(),
+                    }
+                });
+                if store.dim == dim {
+                    for (id, _src, v) in cand.iter() {
+                        if !store.codes.contains_key(id) {
+                            store.codes.insert(id.clone(), store.params.encode(v));
+                        }
+                    }
+                    debug!(
+                        field,
+                        docs = store.codes.len(),
+                        code_bytes = store.code_bytes(),
+                        f32_bytes = store.codes.len() * store.dim * std::mem::size_of::<f32>(),
+                        normalize = store.normalize,
+                        "SQ8 code store refreshed"
+                    );
+                }
             }
-            let score = compute_vector_similarity(similarity, query_vec, &doc_vec);
-            scored.push((id, score, src));
+
+            // Score by DECODING the stored SQ8 codes (never the raw f32).
+            let stores = self.sq8_stores.read().await;
+            if let Some(store) = stores.get(field) {
+                let mut decoded = vec![0.0f32; store.dim];
+                for (id, src, _v) in cand {
+                    let codes = match store.codes.get(&id) {
+                        Some(c) if c.len() == store.dim => c,
+                        _ => continue,
+                    };
+                    store.params.decode_into(codes, &mut decoded);
+                    let score = compute_vector_similarity(similarity, query_vec, &decoded);
+                    scored.push((id, score, src));
+                }
+            }
+        } else {
+            for (id, src) in candidates {
+                // Apply filter: if the filter doesn't match this doc, skip.
+                if let Some(ref f) = filter {
+                    let mut src_with_id = src.clone();
+                    if let Some(obj) = src_with_id.as_object_mut() {
+                        obj.insert("_id".to_string(), Value::String(id.clone()));
+                    }
+                    if !doc_matches_query(f, &src_with_id) {
+                        continue;
+                    }
+                }
+                let vec_val = match get_field_value(&src, field) {
+                    Some(v) => v,
+                    None => continue,
+                };
+                let doc_vec: Vec<f32> = match &vec_val {
+                    Value::Array(arr) => arr
+                        .iter()
+                        .filter_map(|v| v.as_f64().map(|f| f as f32))
+                        .collect(),
+                    _ => continue,
+                };
+                if doc_vec.len() != query_vec.len() {
+                    continue;
+                }
+                let score = compute_vector_similarity(similarity, query_vec, &doc_vec);
+                scored.push((id, score, src));
+            }
         }
 
         // ── Rank, cap the candidate pool at k, then paginate ──────────
@@ -11285,6 +11439,33 @@ fn lookup_vector_similarity(schema: &Schema, field: &str) -> String {
     find(&schema.fields, &parts)
         .and_then(|fc| fc.options.similarity.clone())
         .unwrap_or_else(|| "cosine".to_string())
+}
+
+/// Look up the quantization scheme declared for a dense_vector `field`.
+///
+/// Returns `Some("scalar8")` only for fields that opted into SQ8 (via
+/// `index_options.type: int8_hnsw` at mapping time); `None` for every default
+/// full-precision field. Mirrors [`lookup_vector_similarity`]'s dotted-path
+/// descent so nested vector fields resolve correctly.
+fn lookup_vector_quantization(schema: &Schema, field: &str) -> Option<String> {
+    fn find<'a>(fields: &'a [FieldConfig], path: &[&str]) -> Option<&'a FieldConfig> {
+        if path.is_empty() {
+            return None;
+        }
+        let head = path[0];
+        let tail = &path[1..];
+        for fc in fields {
+            if fc.name == head {
+                if tail.is_empty() {
+                    return Some(fc);
+                }
+                return find(&fc.fields, tail);
+            }
+        }
+        None
+    }
+    let parts: Vec<&str> = field.split('.').collect();
+    find(&schema.fields, &parts).and_then(|fc| fc.options.quantization.clone())
 }
 
 /// Rewrite a query by resolving any field aliases to their canonical field names.

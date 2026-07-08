@@ -182,14 +182,18 @@ impl Config {
             ));
         }
 
-        // Vector: dense_vector quantization is not implemented. The quantizer
-        // types exist in xerj-vector but are not wired into the HNSW index
-        // build/query path, so any scheme other than `none` would store full
-        // float32 vectors while claiming a memory saving.
-        if self.vector.default_quantization != VectorQuantization::None {
+        // Vector: `scalar8` (SQ8) quantization is now wired into the kNN
+        // serving path (`Index::run_knn_brute_force`): a `scalar8` dense_vector
+        // field keeps a per-field u8 code store (1 byte/dim vs 4) and scores
+        // candidates by decoding those codes, giving a real ~4× reduction on
+        // that field's vector working set. `none` and `scalar8` are therefore
+        // accepted. `binary` (1-bit) has no implemented quantizer, so honouring
+        // it would silently store full-precision vectors while claiming a 32×
+        // saving — it stays rejected until a BinaryQuantizer lands.
+        if self.vector.default_quantization == VectorQuantization::Binary {
             return Err(XerjError::config(
-                "vector.default_quantization: vector quantization is not implemented in this \
-                 build; only \"none\" is supported",
+                "vector.default_quantization: binary (1-bit) quantization is not implemented in \
+                 this build; only \"none\" and \"scalar8\" are supported",
             ));
         }
 
@@ -536,17 +540,22 @@ pub struct VectorConfig {
     /// Can be overridden per query. Must be ≥ the number of neighbours
     /// requested (`k`).
     pub hnsw_ef_search: usize,
-    /// Default quantization: `"none"` (default). `"scalar8"` / `"binary"` are
-    /// **not implemented in this build** and are rejected at startup.
+    /// Default quantization: `"none"` (default) or `"scalar8"`. `"binary"` is
+    /// **not implemented in this build** and is rejected at startup.
     ///
     /// - `"none"` — full float32 vectors (highest accuracy, most memory).
-    /// - `"scalar8"` — 8-bit scalar quantization (~4× memory reduction) — NOT YET IMPLEMENTED.
-    /// - `"binary"` — 1-bit binary quantization (~32× memory reduction) — NOT YET IMPLEMENTED.
+    /// - `"scalar8"` — 8-bit scalar quantization (~4× memory reduction) — WIRED
+    ///   into the kNN serving path. A `scalar8` dense_vector field keeps a
+    ///   per-field u8 code store (1 byte/dim) and scores candidates by decoding
+    ///   those codes, so the memory saving is real, not cosmetic. Typically
+    ///   opted into per field via `index_options.type: int8_hnsw` on the
+    ///   mapping; this global default applies the same scheme index-wide.
+    /// - `"binary"` — 1-bit binary quantization (~32× memory reduction) — NOT
+    ///   YET IMPLEMENTED (no `BinaryQuantizer` exists).
     ///
-    /// The quantizer types exist in `xerj-vector` but are not wired into the
-    /// index build/query path, so honouring `scalar8`/`binary` would silently
-    /// store full-precision vectors while claiming a memory saving. Until the
-    /// wiring lands, only `none` is accepted (see `Config::validate`).
+    /// Honouring `binary` would silently store full-precision vectors while
+    /// claiming a saving, so only `none` and `scalar8` are accepted (see
+    /// `Config::validate`).
     pub default_quantization: VectorQuantization,
     /// Maximum supported vector dimensionality (default: `16384`).
     pub max_dimensions: usize,
@@ -968,18 +977,17 @@ mod tests {
     }
 
     #[test]
-    fn quantization_scalar8_rejected() {
-        let result = Config::from_toml_str(
+    fn quantization_scalar8_accepted() {
+        // scalar8 (SQ8) is now wired into the kNN serving path, so it must be
+        // accepted at startup (no longer a silent-fake rejection).
+        let cfg = Config::from_toml_str(
             r#"
             [vector]
             default_quantization = "scalar8"
             "#,
-        );
-        let err = result.expect_err("scalar8 quantization must be rejected as unimplemented");
-        assert!(
-            err.to_string().contains("not implemented"),
-            "error should explain quantization is unimplemented, got: {err}"
-        );
+        )
+        .expect("scalar8 quantization must be accepted now that it is wired");
+        assert_eq!(cfg.vector.default_quantization, VectorQuantization::Scalar8);
     }
 
     #[test]

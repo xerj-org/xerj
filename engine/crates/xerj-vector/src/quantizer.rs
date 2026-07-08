@@ -5,6 +5,7 @@
 //! during graph traversal, with optional re-ranking using full-precision
 //! vectors for the final top-K.
 
+use serde::{Deserialize, Serialize};
 use xerj_common::XerjError;
 
 /// Result alias.
@@ -308,6 +309,112 @@ impl Quantizer for Scalar8Quantizer {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Sq8Params — serializable serving-path scalar8 codec
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Serializable per-dimension scalar-quantization (SQ8) parameters.
+///
+/// This is the serving-path counterpart to [`Scalar8Quantizer`]: instead of
+/// packing a whole batch into one blob, it exposes a fitted codec that the
+/// engine keeps *per dense_vector field*. The engine stores one shared
+/// `Sq8Params` (fitted from the first ~1000 ingested vectors for the field)
+/// plus a `doc_id -> Vec<u8>` code map, so the brute-force kNN scan reads
+/// **1 byte/dim** instead of the 4 bytes/dim an f32 vector costs — a ~4×
+/// reduction on the quantized field's vector working set.
+///
+/// `mins[d]`/`scales[d]` are the per-dimension minimum and range (`max-min`)
+/// observed in the fitting sample. `encode` maps `v[d]` linearly to a u8 in
+/// `[0,255]`; `decode` reverses it. A zero scale (constant dimension) encodes
+/// to 0 and decodes back to `min`. The encode/decode math is bit-for-bit
+/// identical to [`Scalar8Quantizer`]'s private `encode_dim`/`decode_dim`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Sq8Params {
+    /// Per-dimension minimum value.
+    pub mins: Vec<f32>,
+    /// Per-dimension scale (`max - min`).
+    pub scales: Vec<f32>,
+}
+
+impl Sq8Params {
+    /// Fit per-dimension min/max over `sample`.
+    ///
+    /// `dim` is the required vector dimensionality; sample vectors of a
+    /// different length are skipped. If no usable vector is present the
+    /// params degenerate to zero scale (every code becomes 0, decoding to 0).
+    pub fn fit(sample: &[Vec<f32>], dim: usize) -> Sq8Params {
+        let mut mins = vec![f32::MAX; dim];
+        let mut maxs = vec![f32::MIN; dim];
+        let mut seen = false;
+        for v in sample {
+            if v.len() != dim {
+                continue;
+            }
+            seen = true;
+            for (d, &x) in v.iter().enumerate() {
+                if x < mins[d] {
+                    mins[d] = x;
+                }
+                if x > maxs[d] {
+                    maxs[d] = x;
+                }
+            }
+        }
+        if !seen {
+            mins = vec![0.0; dim];
+            maxs = vec![0.0; dim];
+        }
+        let scales = mins
+            .iter()
+            .zip(maxs.iter())
+            .map(|(&mn, &mx)| mx - mn)
+            .collect();
+        Sq8Params { mins, scales }
+    }
+
+    /// Vector dimensionality this codec was fitted for.
+    #[inline]
+    pub fn dim(&self) -> usize {
+        self.mins.len()
+    }
+
+    /// Encode a full-precision vector to one u8 per dimension.
+    #[inline]
+    pub fn encode(&self, v: &[f32]) -> Vec<u8> {
+        v.iter()
+            .enumerate()
+            .map(|(d, &x)| {
+                let min = self.mins.get(d).copied().unwrap_or(0.0);
+                let scale = self.scales.get(d).copied().unwrap_or(0.0);
+                if scale == 0.0 {
+                    return 0u8;
+                }
+                let normalized = (x - min) / scale;
+                (normalized * 255.0).round().clamp(0.0, 255.0) as u8
+            })
+            .collect()
+    }
+
+    /// Decode a code slice back to approximate f32 values (allocating).
+    #[inline]
+    pub fn decode(&self, codes: &[u8]) -> Vec<f32> {
+        let mut out = vec![0.0f32; codes.len()];
+        self.decode_into(codes, &mut out);
+        out
+    }
+
+    /// Decode into a caller-provided buffer, avoiding per-score allocation on
+    /// the hot kNN scan. `out` must be at least `codes.len()` long.
+    #[inline]
+    pub fn decode_into(&self, codes: &[u8], out: &mut [f32]) {
+        for (d, &b) in codes.iter().enumerate() {
+            let min = self.mins.get(d).copied().unwrap_or(0.0);
+            let scale = self.scales.get(d).copied().unwrap_or(0.0);
+            out[d] = min + (b as f32 / 255.0) * scale;
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Scalar4Quantizer
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -586,6 +693,143 @@ mod tests {
         assert!(
             bytes4 <= bytes8 * 55 / 100,
             "scalar4 ({bytes4} B) should be ~50% of scalar8 ({bytes8} B)"
+        );
+    }
+
+    // ── Sq8Params (serving-path codec) ────────────────────────────────────────
+
+    /// Tiny deterministic xorshift RNG so the recall/memory tests are
+    /// reproducible without pulling in the `rand` crate.
+    struct XorShift(u64);
+    impl XorShift {
+        fn next_u64(&mut self) -> u64 {
+            let mut x = self.0;
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            self.0 = x;
+            x
+        }
+        /// Standard-normal-ish sample via sum of 4 uniforms (CLT), in ~[-2,2].
+        fn next_gauss(&mut self) -> f32 {
+            let mut s = 0.0f32;
+            for _ in 0..4 {
+                s += (self.next_u64() as f64 / u64::MAX as f64) as f32;
+            }
+            s - 2.0 // mean 0
+        }
+    }
+
+    fn l2_normalize(v: &mut [f32]) {
+        let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+        if norm > 0.0 {
+            for x in v.iter_mut() {
+                *x /= norm;
+            }
+        }
+    }
+
+    fn cosine_sim(a: &[f32], b: &[f32]) -> f32 {
+        let dot: f32 = a.iter().zip(b).map(|(x, y)| x * y).sum();
+        let na: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let nb: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
+        if na > 0.0 && nb > 0.0 {
+            dot / (na * nb)
+        } else {
+            0.0
+        }
+    }
+
+    /// (b) MEMORY: the SQ8 code store is ~4× smaller than the f32 equivalent.
+    #[test]
+    fn sq8_store_is_quarter_of_f32() {
+        let n = 2000usize;
+        let dim = 128usize;
+        let mut rng = XorShift(0x1234_5678_9abc_def0);
+        let vecs: Vec<Vec<f32>> = (0..n)
+            .map(|_| {
+                let mut v: Vec<f32> = (0..dim).map(|_| rng.next_gauss()).collect();
+                l2_normalize(&mut v);
+                v
+            })
+            .collect();
+        let params = Sq8Params::fit(&vecs, dim);
+        let code_bytes: usize = vecs.iter().map(|v| params.encode(v).len()).sum();
+        // params overhead is 2 * dim * 4 bytes, shared across all N vectors.
+        let params_bytes = (params.mins.len() + params.scales.len()) * std::mem::size_of::<f32>();
+        let f32_bytes = n * dim * std::mem::size_of::<f32>();
+        let ratio = f32_bytes as f64 / (code_bytes + params_bytes) as f64;
+        println!(
+            "SQ8 memory: f32={f32_bytes}B codes={code_bytes}B params={params_bytes}B ratio={ratio:.3}x"
+        );
+        assert!(
+            ratio >= 3.5,
+            "SQ8 store should be >=3.5x smaller than f32, got {ratio:.3}x"
+        );
+    }
+
+    /// (c) RECALL: scalar8 serving-path scoring keeps recall@10 >= 0.90 vs the
+    /// exact (none) path over >=2000 vectors / >=100 queries at dim>=64.
+    #[test]
+    fn sq8_recall_at_10_above_090() {
+        let n = 2000usize;
+        let dim = 128usize;
+        let k = 10usize;
+        let queries = 100usize;
+        let mut rng = XorShift(0xdead_beef_cafe_0001);
+
+        // Corpus, L2-normalized (cosine convention, as the serving path does).
+        let corpus: Vec<Vec<f32>> = (0..n)
+            .map(|_| {
+                let mut v: Vec<f32> = (0..dim).map(|_| rng.next_gauss()).collect();
+                l2_normalize(&mut v);
+                v
+            })
+            .collect();
+
+        // Fit params from the first 1000 vectors (mirrors the engine's sample).
+        let sample: Vec<Vec<f32>> = corpus.iter().take(1000).cloned().collect();
+        let params = Sq8Params::fit(&sample, dim);
+        let codes: Vec<Vec<u8>> = corpus.iter().map(|v| params.encode(v)).collect();
+
+        let mut recall_sum = 0.0f64;
+        let mut decoded = vec![0.0f32; dim];
+        for _ in 0..queries {
+            let q: Vec<f32> = (0..dim).map(|_| rng.next_gauss()).collect();
+
+            // Exact (ground truth) top-k by cosine on the raw f32 corpus.
+            let mut exact: Vec<(usize, f32)> = corpus
+                .iter()
+                .enumerate()
+                .map(|(i, v)| (i, cosine_sim(&q, v)))
+                .collect();
+            exact.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+            let truth: std::collections::HashSet<usize> =
+                exact.iter().take(k).map(|(i, _)| *i).collect();
+
+            // Approximate top-k by cosine on the DECODED SQ8 codes.
+            let mut approx: Vec<(usize, f32)> = codes
+                .iter()
+                .enumerate()
+                .map(|(i, c)| {
+                    params.decode_into(c, &mut decoded);
+                    (i, cosine_sim(&q, &decoded))
+                })
+                .collect();
+            approx.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+            let hit = approx
+                .iter()
+                .take(k)
+                .filter(|(i, _)| truth.contains(i))
+                .count();
+            recall_sum += hit as f64 / k as f64;
+        }
+        let mean_recall = recall_sum / queries as f64;
+        println!("SQ8 recall@{k}: {mean_recall:.4} over {queries} queries / {n} vectors dim={dim}");
+        assert!(
+            mean_recall >= 0.90,
+            "SQ8 recall@{k} should be >=0.90, got {mean_recall:.4}"
         );
     }
 }

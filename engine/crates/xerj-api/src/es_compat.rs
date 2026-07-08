@@ -10612,6 +10612,33 @@ fn es_properties_to_fields(properties: &Value) -> Vec<FieldConfig> {
                 // ES default similarity for dense_vector with index: true.
                 fc.options.similarity = Some("cosine".to_string());
             }
+
+            // Opt-in scalar8 (SQ8) quantization. ES expresses this via
+            // `index_options.type`: the `int8_*` families are 8-bit scalar
+            // quantized, which we map to our serving-path SQ8 code store. A
+            // direct `quantization` string on the field def is also honoured
+            // (and overrides). Only `scalar8` changes the serving path — every
+            // other family (hnsw/flat/bbq*/int4*) keeps the exact f32 scan, so
+            // we leave `quantization` unset (None) for them and default
+            // behaviour stays byte-identical.
+            let mut quant: Option<String> = None;
+            if let Some(io_type) = field_def
+                .get("index_options")
+                .and_then(|io| io.get("type"))
+                .and_then(Value::as_str)
+            {
+                if matches!(io_type, "int8_hnsw" | "int8_flat") {
+                    quant = Some("scalar8".to_string());
+                }
+            }
+            if let Some(q) = field_def.get("quantization").and_then(Value::as_str) {
+                match q {
+                    "scalar8" | "int8" => quant = Some("scalar8".to_string()),
+                    "none" => quant = None,
+                    _ => {}
+                }
+            }
+            fc.options.quantization = quant;
         }
 
         fields.push(fc);

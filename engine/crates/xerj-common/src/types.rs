@@ -241,6 +241,14 @@ pub struct FieldOptions {
     /// Similarity metric override for this vector field.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub similarity: Option<String>,
+    /// Vector quantization scheme for this dense_vector field.
+    ///
+    /// `Some("scalar8")` opts this field into the serving-path SQ8 code store
+    /// (1 byte/dim, ~4× memory reduction); `None`/absent keeps the exact
+    /// full-precision f32 brute-force path. Set from the mapping's
+    /// `index_options.type` (`int8_hnsw`/`int8_flat` → `scalar8`) in es_compat.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quantization: Option<String>,
     /// Null value to substitute when the field is missing from a document.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub null_value: Option<serde_json::Value>,
@@ -270,6 +278,7 @@ impl Default for FieldOptions {
             term_positions: true,
             dimensions: None,
             similarity: None,
+            quantization: None,
             null_value: None,
             multi_value: true,
             boost: 1.0,
