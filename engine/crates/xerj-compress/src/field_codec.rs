@@ -403,8 +403,12 @@ impl FieldAnalyzer {
 
     /// Build a [`FieldEncoding::BitsetEnum`] from a column of values.
     ///
-    /// Up to 16 distinct values are supported.  If more are present, the
-    /// rarest values beyond the limit are lumped under an `"__other__"` sentinel.
+    /// The 4-bit per-document index caps the dictionary at 16 slots. When a
+    /// column has ≤16 distinct values every value gets its own slot. When it
+    /// has more, the top-15 by frequency keep their own slots and slot 16 is an
+    /// `"__other__"` catch-all — every document that falls outside the top-15 is
+    /// routed there. This preserves the invariant that each document sets
+    /// exactly one bit across all bitmaps, so no value is ever dropped.
     pub fn encode_as_bitset_enum(&self, values: &[&str]) -> FieldEncoding {
         // Frequency count
         let mut freq: HashMap<&str, usize> = HashMap::new();
@@ -412,12 +416,29 @@ impl FieldAnalyzer {
             *freq.entry(v).or_insert(0) += 1;
         }
 
-        // Top-16 by frequency (ties broken alphabetically for stability)
+        // Total distinct values, captured before any truncation.
+        let distinct = freq.len();
+
+        // Sort by frequency (ties broken alphabetically for stability).
         let mut entries: Vec<(&str, usize)> = freq.into_iter().collect();
         entries.sort_unstable_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
-        entries.truncate(16);
 
-        let dict: Vec<String> = entries.iter().map(|(v, _)| v.to_string()).collect();
+        // With >16 distinct values, keep the top-15 and reserve the final slot
+        // for the `__other__` sentinel so the dictionary stays within 16 entries.
+        let overflow = distinct > 16;
+        if overflow {
+            entries.truncate(15);
+        }
+
+        let mut dict: Vec<String> = entries.iter().map(|(v, _)| v.to_string()).collect();
+        let other_idx = if overflow {
+            let idx = dict.len();
+            dict.push("__other__".to_string());
+            Some(idx)
+        } else {
+            None
+        };
+
         let dict_index: HashMap<&str, usize> = dict
             .iter()
             .enumerate()
@@ -431,12 +452,14 @@ impl FieldAnalyzer {
         let mut bitmap: Vec<Vec<u8>> = vec![vec![0u8; bytes_per_bitmap]; dict.len()];
 
         for (doc_idx, val) in values.iter().enumerate() {
-            if let Some(&dict_pos) = dict_index.get(val) {
+            // Every document sets exactly one bit: its own dictionary slot, or
+            // the `__other__` slot when it fell outside the top-15. Without
+            // overflow, all values are guaranteed to be present in `dict_index`.
+            if let Some(slot) = dict_index.get(val).copied().or(other_idx) {
                 let byte = doc_idx / 8;
                 let bit = doc_idx % 8;
-                bitmap[dict_pos][byte] |= 1 << bit;
+                bitmap[slot][byte] |= 1 << bit;
             }
-            // Values not in the top-16 are silently dropped from the bitmap
         }
 
         FieldEncoding::BitsetEnum {
@@ -1122,6 +1145,75 @@ mod tests {
             enc.bytes_per_value(),
             enc.compression_ratio_vs_raw()
         );
+    }
+
+    #[test]
+    fn test_bitset_enum_other_overflow() {
+        let analyzer = FieldAnalyzer::new(1024);
+        // 20 distinct status codes → exceeds the 16-slot / 4-bit dictionary.
+        // The "status" field name forces BitsetEnum regardless of cardinality.
+        let owned: Vec<String> = (0..20).map(|i| (200 + i).to_string()).collect();
+        let refs: Vec<&str> = owned.iter().map(String::as_str).collect();
+        let enc = analyzer.analyze("status", &refs);
+
+        match &enc {
+            FieldEncoding::BitsetEnum { values, bitmap } => {
+                // Top-15 kept + the __other__ catch-all == 16 (4-bit invariant).
+                assert_eq!(values.len(), 16, "dictionary must stay within 16 slots");
+                assert!(
+                    values.contains(&"__other__".to_string()),
+                    "overflow must add an __other__ sentinel"
+                );
+                assert_eq!(bitmap.len(), values.len());
+
+                // Every document sets exactly one bit — nothing is dropped.
+                let total_set_bits: u32 = bitmap
+                    .iter()
+                    .flat_map(|b| b.iter())
+                    .map(|byte| byte.count_ones())
+                    .sum();
+                assert_eq!(
+                    total_set_bits as usize,
+                    refs.len(),
+                    "every doc must map to exactly one bit (no value dropped)"
+                );
+
+                // The __other__ bitmap must actually carry the 5 overflow docs.
+                let other_idx = values.iter().position(|v| v == "__other__").unwrap();
+                let other_bits: u32 = bitmap[other_idx].iter().map(|b| b.count_ones()).sum();
+                assert_eq!(
+                    other_bits as usize,
+                    refs.len() - 15,
+                    "the 5 values beyond the top-15 must land in __other__"
+                );
+            }
+            other => panic!(
+                "expected BitsetEnum, got {:?}",
+                std::mem::discriminant(other)
+            ),
+        }
+    }
+
+    #[test]
+    fn test_bitset_enum_no_overflow_no_sentinel() {
+        // ≤16 distinct values must NOT introduce an __other__ sentinel.
+        let analyzer = FieldAnalyzer::new(1024);
+        let owned: Vec<String> = (0..16).map(|i| (200 + i).to_string()).collect();
+        let refs: Vec<&str> = owned.iter().map(String::as_str).collect();
+        let enc = analyzer.encode_as_bitset_enum(&refs);
+
+        if let FieldEncoding::BitsetEnum { values, bitmap } = &enc {
+            assert_eq!(values.len(), 16);
+            assert!(!values.contains(&"__other__".to_string()));
+            let total_set_bits: u32 = bitmap
+                .iter()
+                .flat_map(|b| b.iter())
+                .map(|byte| byte.count_ones())
+                .sum();
+            assert_eq!(total_set_bits as usize, refs.len());
+        } else {
+            panic!("expected BitsetEnum");
+        }
     }
 
     #[test]
