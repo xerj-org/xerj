@@ -2402,7 +2402,7 @@ pub(crate) fn extract_numeric(doc: &Value, field: &str) -> Option<f64> {
 }
 
 /// Extract ALL numeric values from a field (flattens arrays).
-fn extract_numeric_values(doc: &Value, field: &str) -> Vec<f64> {
+pub(crate) fn extract_numeric_values(doc: &Value, field: &str) -> Vec<f64> {
     fn walk(v: &Value, out: &mut Vec<f64>) {
         match v {
             Value::Number(n) => {
@@ -3844,7 +3844,7 @@ pub(crate) fn parse_date_ms(val: &Value) -> Option<i64> {
 /// Format a numeric histogram bucket key as the string used in composite
 /// key-part maps.  Integer values format without a trailing `.0` so they
 /// round-trip via serde_json::Number::as_i64 when emitted.
-fn format_histogram_key(v: f64) -> String {
+pub(crate) fn format_histogram_key(v: f64) -> String {
     if v.fract() == 0.0 && v.abs() < 1e18 {
         format!("{}", v as i64)
     } else {
