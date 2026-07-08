@@ -385,10 +385,20 @@ impl HnswIndex {
         Ok(results)
     }
 
-    /// Batch insert using rayon for parallel level selection and candidate search.
+    /// Insert a batch of `(id, vector)` items **serially**, one after another.
     ///
-    /// Insertions are still serialized at the graph mutation step to maintain
-    /// consistency, but the expensive distance computations are parallelized.
+    /// This is a thin convenience wrapper over [`insert`](Self::insert): it
+    /// forwards each item in order and returns on the first error. It offers
+    /// no parallel speedup over calling `insert` in a loop yourself — despite
+    /// this crate depending on `rayon`, no parallelism happens here.
+    ///
+    /// Insertion is kept serial on purpose: concurrent HNSW graph mutation
+    /// races on neighbour-list updates and can corrupt connectivity/recall,
+    /// so the batch API trades throughput for a provably consistent graph.
+    ///
+    /// Each item is validated by `insert` (dimension check); a mismatch
+    /// returns `Err` and leaves already-inserted items in the graph (this
+    /// method is not transactional / all-or-nothing).
     pub fn insert_batch(&self, items: Vec<(u64, Vec<f32>)>) -> Result<()> {
         for (id, vec) in items {
             self.insert(id, vec)?;
@@ -807,6 +817,40 @@ mod tests {
         let results = idx.search(&query, 1, 10).unwrap();
         assert!(!results.is_empty());
         assert_eq!(results[0].0, 0, "nearest should be id=0");
+    }
+
+    #[test]
+    fn insert_batch_serial_is_correct() {
+        // insert_batch is a serial wrapper over insert; a batch build must
+        // produce a queryable graph whose nearest neighbour is exact.
+        let idx = make_index(4);
+        let items: Vec<(u64, Vec<f32>)> = vec![
+            (0, vec![1.0, 0.0, 0.0, 0.0]),
+            (1, vec![0.0, 1.0, 0.0, 0.0]),
+            (2, vec![0.0, 0.0, 1.0, 0.0]),
+            (3, vec![0.0, 0.0, 0.0, 1.0]),
+        ];
+        idx.insert_batch(items).unwrap();
+        assert_eq!(idx.len(), 4, "all batched items must be inserted");
+
+        let results = idx.search(&[0.0, 0.0, 1.0, 0.0], 1, 10).unwrap();
+        assert_eq!(results[0].0, 2, "nearest to the id=2 unit vector is id=2");
+    }
+
+    #[test]
+    fn insert_batch_dim_mismatch_errors_and_is_not_atomic() {
+        // A bad item mid-batch returns Err; items before it are already in
+        // the graph (documented non-transactional behaviour).
+        let idx = make_index(4);
+        let err = idx
+            .insert_batch(vec![
+                (0, vec![1.0, 0.0, 0.0, 0.0]),
+                (1, vec![0.0, 1.0]), // wrong dim
+                (2, vec![0.0, 0.0, 1.0, 0.0]),
+            ])
+            .unwrap_err();
+        assert!(matches!(err, XerjError::InvalidMapping { .. }));
+        assert_eq!(idx.len(), 1, "only the pre-error item was inserted");
     }
 
     #[test]
