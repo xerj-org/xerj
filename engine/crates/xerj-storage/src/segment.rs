@@ -36,9 +36,19 @@
 //!
 //! ## `.sidx` file layout
 //!
-//! The skip index maps logical doc-position ranges to file offsets for fast
-//! random access.  Initially simple: a sorted list of (doc_ordinal, offset)
-//! pairs written as little-endian u64 pairs.
+//! The skip index is *intended* to map logical doc-position ranges to file
+//! offsets for fast random access.  Its on-disk form is a sorted list of
+//! (doc_ordinal, offset) pairs written as little-endian u64 pairs.
+//!
+//! **Status: written but not yet consumed on the read path.**  Every
+//! flush/merge emits a `.sidx` side-car (see [`SegmentWriter::finish`]), but
+//! no reader opens it — [`SegmentReader`] addresses sections purely through
+//! the in-file section table, and random access to stored fields is already
+//! served from an in-memory offset cache (the engine's `stored_slices_cache`).
+//! The on-disk skip index is therefore currently redundant; it is retained
+//! for format completeness and forward compatibility.  Wiring it into the
+//! read path (so cold random access need not rebuild offsets in memory) is
+//! future work.
 
 use std::fs::File;
 use std::io::{self, BufWriter, Read, Write};
@@ -385,7 +395,12 @@ impl SegmentWriter {
         }
         std::fs::rename(&seg_tmp, &seg_path)?;
 
-        // Write .sidx file (simple: N*(doc_ordinal:u64, offset:u64) pairs)
+        // Write .sidx side-car (simple: N*(doc_ordinal:u64, offset:u64) pairs).
+        // NOTE: emitted for format completeness only — the read path does NOT
+        // consume it (see the module-level ".sidx file layout" note).
+        // `SegmentReader` addresses sections via the in-file section table, and
+        // random access to stored fields is served from the engine's in-memory
+        // `stored_slices_cache`, so no reader ever opens this file.
         let sidx_filename = format!("{}.sidx", self.id);
         let sidx_path = self.dir.join(&sidx_filename);
         let sidx_tmp = sidx_path.with_extension("tmp");
@@ -666,5 +681,39 @@ mod tests {
         assert!(types.contains(&SectionType::Stored));
         assert!(types.contains(&SectionType::Fts));
         assert!(!types.contains(&SectionType::Vectors));
+    }
+
+    /// Locks the `.sidx` disclosure: `finish()` emits the skip-index
+    /// side-car, but the read path does NOT consume it.  `SegmentReader`
+    /// addresses every section through the in-file section table, so a
+    /// segment reads back fully even after its `.sidx` file is deleted.
+    /// If a future change starts reading `.sidx`, this test will fail and
+    /// force the module doc-comment to be updated in step.
+    #[test]
+    fn sidx_is_written_but_read_path_ignores_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut writer = SegmentWriter::new(dir.path(), 1, 0, 0).unwrap();
+        let stored_data = b"{\"title\":\"sidx disclosure\"}";
+        writer
+            .add_section(SectionType::Stored, stored_data)
+            .unwrap();
+        let meta = writer.finish(1, 1, 1).unwrap();
+
+        // The side-car is written on finish.
+        let sidx_path = dir.path().join(&meta.sidx_path);
+        assert!(
+            sidx_path.exists(),
+            "finish() must emit the .sidx side-car for format completeness"
+        );
+
+        // Reads must not depend on it: remove the .sidx and re-open.
+        std::fs::remove_file(&sidx_path).unwrap();
+        let reader = SegmentReader::open(dir.path().join(&meta.seg_path)).unwrap();
+        let stored = reader.section(SectionType::Stored).unwrap().unwrap();
+        assert_eq!(
+            stored, stored_data,
+            "the read path must serve stored fields via the section table, \
+             not the (absent) .sidx skip index"
+        );
     }
 }
