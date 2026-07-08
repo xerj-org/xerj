@@ -6113,6 +6113,20 @@ impl Index {
                             Some(sc) => Some(Arc::new(sc.set.clone())),
                             None => base,
                         }
+                    } else if let QueryNode::Term { field, value, .. } = query {
+                        // Selective `term`: parse only the matching stored
+                        // positions instead of the whole section (id lookups,
+                        // `code:500`). A field sort still gets a complete set
+                        // (the builder never caps a set it returns), so the
+                        // top-N heap sees every match.
+                        self.build_term_prefilter_cached(
+                            &segments_dir,
+                            &seg_id,
+                            field,
+                            std::slice::from_ref(value),
+                        )
+                    } else if let QueryNode::Terms { field, values, .. } = query {
+                        self.build_term_prefilter_cached(&segments_dir, &seg_id, field, values)
                     } else if is_match_all && !deletes_present {
                         // Sorted-DV candidate pruning for field-sorted
                         // match_all: the segment's sorted numeric
@@ -8746,6 +8760,82 @@ impl Index {
         self.range_prefilter_cache
             .insert(cache_key, Arc::clone(&built));
         Some(built)
+    }
+
+    /// Build a doc-position pre-filter for a `term` / `terms` query against a
+    /// segment, so `scan_stored_section_into` parses ONLY the matching stored
+    /// docs instead of the whole section. Without this a SELECTIVE term (an id
+    /// lookup, `code:500`) walked + JSON-parsed every stored doc looking for
+    /// the handful of matches — the size>0 F1 early-break never fired because
+    /// the bounded hit collector never filled (few matches).
+    ///
+    /// Mirrors `build_range_prefilter_cached`: numeric-field terms reuse the
+    /// sorted numeric index via a degenerate `[v, v]` range; keyword-field
+    /// terms enumerate the positions carrying the term's ordinal.
+    ///
+    /// Returns:
+    /// - `Some(∅)` when the term matches nothing in the segment (caller skips
+    ///   the segment entirely — no decompress/scan);
+    /// - `Some(set)` (COMPLETE match set) when the match cardinality is
+    ///   selective (`<= TERM_PREFILTER_CAP`);
+    /// - `None` for very-high-cardinality terms (the ordinary early-break scan
+    ///   is already fast) and for shapes the doc-values can't resolve (analyzed
+    ///   text, non-numeric value on a numeric column, missing column) → full
+    ///   scan, still correct.
+    fn build_term_prefilter_cached(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        field: &str,
+        values: &[Value],
+    ) -> Option<Arc<HashSet<u32>>> {
+        use xerj_storage::doc_values::Column;
+        // Selectivity ceiling: above this the match set is large enough that
+        // the ordinary scan's F1 early-break already bounds the parse to
+        // O(from+size), so a big position set would only add build + memory
+        // cost. Keeps the set to <= ~256 KB.
+        const TERM_PREFILTER_CAP: usize = 65_536;
+
+        let cols = self.dv_columns_for(segments_dir, segment_id)?;
+        match cols.get(field)? {
+            Column::Numeric(n) => {
+                // Exact numeric equality per value = a degenerate inclusive
+                // range; union across `terms` values. Bail if any value isn't
+                // numeric (→ full scan preserves semantics).
+                let mut set: HashSet<u32> = HashSet::new();
+                for v in values {
+                    let f = v.as_f64()?;
+                    // Cheap cardinality guard before materialising positions.
+                    if set.len() + n.range_count(f, f, true, true) as usize > TERM_PREFILTER_CAP {
+                        return None;
+                    }
+                    set.extend(n.range_doc_ids(f, f, true, true));
+                }
+                Some(Arc::new(set))
+            }
+            Column::Keyword(k) => {
+                let mut set: HashSet<u32> = HashSet::new();
+                for v in values {
+                    let term = match v {
+                        Value::String(s) => s.clone(),
+                        other => other.to_string(),
+                    };
+                    let Some(ord) = k.ord_for_term(&term) else {
+                        continue; // term absent in this segment → contributes 0
+                    };
+                    let card = k.per_ord_count.get(ord as usize).copied().unwrap_or(0) as usize;
+                    if set.len() + card > TERM_PREFILTER_CAP {
+                        return None;
+                    }
+                    for (pos, &o) in k.ords.iter().enumerate() {
+                        if o == ord && !k.null_bitmap.contains(pos as u32) {
+                            set.insert(pos as u32);
+                        }
+                    }
+                }
+                Some(Arc::new(set))
+            }
+        }
     }
 
     /// Sorted-DV candidate pruning for field-sorted `match_all` queries
