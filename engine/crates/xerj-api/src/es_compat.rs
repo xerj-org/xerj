@@ -8829,6 +8829,29 @@ pub async fn search(
         })
         .collect();
 
+    // Phrase suggester is not implemented. Detect it and fail loudly with a
+    // clear 400 rather than silently defaulting its field to `_all`, scanning
+    // for a nonexistent field, and emitting empty/garbage term-style output.
+    // Completion and term suggesters are supported.
+    if let Some(sobj) = body.suggest.as_ref().and_then(Value::as_object) {
+        if sobj.values().any(|d| d.get("phrase").is_some()) {
+            let reason = "phrase suggester is not supported by XERJ; supported suggesters are \
+                          `completion` and `term`";
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": {
+                        "root_cause": [{ "type": "illegal_argument_exception", "reason": reason }],
+                        "type": "illegal_argument_exception",
+                        "reason": reason,
+                    },
+                    "status": 400,
+                })),
+            )
+                .into_response();
+        }
+    }
+
     // Process suggest block if present.
     let suggest_result = if let Some(ref suggest_body) = body.suggest {
         // Gather field-level indexed terms from all indices for suggest processing.
@@ -11930,9 +11953,14 @@ fn tokenize_for_analyze(input: &str, analyzer: &str) -> Vec<Value> {
 // GET /{index}/_stats
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// `POST /{index}/_disk_usage` — disk space breakdown by field. We
-/// synthesise a minimal response sufficient to satisfy the YAML tests
-/// that assert `store_size_in_bytes > 0` after a doc is indexed.
+/// `POST /{index}/_disk_usage` — on-disk store size.
+///
+/// `store_size_in_bytes` is the real recursive byte sum of the index's
+/// `data_dir`. XERJ does NOT compute the ES per-field / per-category
+/// breakdown (inverted_index / doc_values / points / norms / term_vectors /
+/// knn_vectors), so `fields` is honestly empty rather than fabricated with
+/// hardcoded zeros. The total is genuinely useful; only the decomposition is
+/// unavailable, and we don't imply otherwise.
 pub async fn index_disk_usage(
     State(state): State<AppState>,
     Path(index): Path<String>,
@@ -11954,25 +11982,11 @@ pub async fn index_disk_usage(
         indices.insert(
             name.clone(),
             json!({
+                // Real on-disk total only. The ES per-field / per-category
+                // breakdown is not computed, so `fields` is honestly empty
+                // rather than fabricated zeros (see the handler doc-comment).
                 "store_size": format!("{}b", size),
                 "store_size_in_bytes": size,
-                "all_fields": {
-                    "total": format!("{}b", size),
-                    "total_in_bytes": size,
-                    "inverted_index": { "total": "0b", "total_in_bytes": 0 },
-                    "stored_fields": format!("{}b", size),
-                    "stored_fields_in_bytes": size,
-                    "doc_values": "0b",
-                    "doc_values_in_bytes": 0,
-                    "points": "0b",
-                    "points_in_bytes": 0,
-                    "norms": "0b",
-                    "norms_in_bytes": 0,
-                    "term_vectors": "0b",
-                    "term_vectors_in_bytes": 0,
-                    "knn_vectors": "0b",
-                    "knn_vectors_in_bytes": 0,
-                },
                 "fields": {}
             }),
         );
@@ -20225,6 +20239,38 @@ pub async fn eql_search(
                 .into_response();
         }
     };
+
+    // EQL sequence/sample queries (multi-event correlation) are not
+    // implemented. Detect them by their leading keyword and fail loudly
+    // rather than silently degrading to a single-condition query — or, for a
+    // bare `sequence ... by ...` with no inner `where`, to `match_all` over
+    // EVERY doc. A silent wrong answer is a correctness hazard for SIEM
+    // users. Single-event queries (`<category> where <condition>`) are
+    // supported and continue through the normal path below.
+    let first_word: String = eql
+        .trim_start()
+        .chars()
+        .take_while(|c| c.is_alphanumeric() || *c == '_')
+        .collect::<String>()
+        .to_ascii_lowercase();
+    if first_word == "sequence" || first_word == "sample" {
+        let reason = format!(
+            "EQL {first_word} queries (multi-event correlation) are not supported by XERJ. \
+             Only single-event EQL is implemented (`<category> where <condition>`)."
+        );
+        return (
+            StatusCode::NOT_IMPLEMENTED,
+            Json(json!({
+                "error": {
+                    "root_cause": [{ "type": "verification_exception", "reason": reason }],
+                    "type": "verification_exception",
+                    "reason": reason,
+                },
+                "status": 501,
+            })),
+        )
+            .into_response();
+    }
 
     // Translate EQL -> xerj DSL, then run it through the normal search path.
     let inner_query = eql_to_query(&eql);
