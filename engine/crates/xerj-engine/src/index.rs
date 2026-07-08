@@ -15613,7 +15613,13 @@ fn compute_sort_values(
             Value::Number(
                 serde_json::Number::from_f64(score as f64).unwrap_or(serde_json::Number::from(0)),
             )
-        } else if sf.is_doc_order() {
+        } else if sf.is_doc_order() || sf.field == "_id" {
+            // `_id` (and `_doc`) is doc metadata, NOT part of `_source`, so a
+            // plain `get_field_value` returns Null — which breaks `_id`-sorted
+            // `search_after` cursors (the cursor `[id]` has nothing to compare
+            // against). Project the doc id as the sort value so `sort: [_id]`
+            // ordering and `search_after: [last_id]` keyset paging (used by
+            // reindex) compare correctly. Matches ES, which echoes the id.
             Value::String(id.to_string())
         } else {
             let raw = get_field_value(source, &sf.field).unwrap_or(Value::Null);

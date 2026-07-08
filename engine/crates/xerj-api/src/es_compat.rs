@@ -13128,28 +13128,46 @@ pub async fn reindex(
         Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
     };
 
+    // Flush the source memtable to segments before paging. `_id`-sorted
+    // `search_after` keyset pagination is correct over on-disk segments, but
+    // the in-memory memtable's field-sort path does NOT order by `_id`
+    // reliably, so un-flushed recent writes would be skipped or duplicated
+    // across pages. Reindex is a snapshot-style bulk op, so a single flush up
+    // front is an acceptable cost and makes the whole source keyset-pageable.
+    let _ = source_idx.flush().await;
+
     let query_val = body
         .source
         .query
         .clone()
         .unwrap_or(json!({ "match_all": {} }));
     let page_size = body.source.size.min(10_000); // cap per-batch at 10k
-    let max_total = 100_000usize; // safety cap for reindex total
+                                                  // Safety backstop only. With TRUE keyset (`search_after`) paging below,
+                                                  // every page is a fresh top-N strictly below `max_result_window`, so we
+                                                  // never hit the deep-paging wall — this cap just prevents a runaway loop
+                                                  // on a pathologically large source, well above any realistic reindex.
+    let max_total = 10_000_000usize;
 
     let mut total_fetched = 0usize;
     let mut created = 0usize;
     let mut updated = 0usize;
     let mut failures: Vec<Value> = Vec::new();
     let mut batches = 0usize;
-    let mut from = 0usize;
+    // Keyset cursor: `[last_id]` of the previous page (the sole sort key is
+    // `_id: asc`). `None` on the first page. This replaces `from`-offset
+    // paging, which silently truncated at `max_result_window` (~10k) once
+    // `from` exceeded the deep-paging limit.
+    let mut search_after: Option<Value> = None;
 
     loop {
-        let search_body_val = json!({
+        let mut search_body_val = json!({
             "query": query_val,
             "size": page_size,
-            "from": from,
             "sort": [{ "_id": "asc" }],
         });
+        if let Some(ref sa) = search_after {
+            search_body_val["search_after"] = sa.clone();
+        }
 
         let search_req = match xerj_query::parse_request(&search_body_val)
             .map_err(|e| xerj_common::XerjError::invalid_query(e.to_string()))
@@ -13170,6 +13188,9 @@ pub async fn reindex(
 
         batches += 1;
         total_fetched += batch_size;
+
+        // Capture the keyset cursor before the `for` loop consumes `results.hits`.
+        let last_id = results.hits.last().map(|h| h.id.clone());
 
         for hit in results.hits {
             if !hit.source.is_null() {
@@ -13201,10 +13222,11 @@ pub async fn reindex(
             }
         }
 
-        from += batch_size;
+        // Advance the keyset cursor to the last `_id` of this page.
+        search_after = last_id.map(|id| json!([id]));
 
-        // Stop if we've reached the safety cap or fetched fewer docs than requested
-        // (meaning we hit the end of the source).
+        // Stop if we've reached the safety backstop or fetched fewer docs than
+        // requested (meaning we hit the end of the source).
         if batch_size < page_size || total_fetched >= max_total {
             break;
         }
@@ -25018,5 +25040,86 @@ mod ml_anomaly_tests {
     #[test]
     fn score_zero_threshold_is_safe() {
         assert_eq!(ml_anomaly_score(5.0, 0.0), 0.0);
+    }
+}
+
+#[cfg(test)]
+mod reindex_keyset_tests {
+    use super::*;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir");
+        // Leak the tempdir so the data directory outlives the Engine.
+        let path = dir.keep();
+        let mut config = Config::default();
+        config.server.data_dir = path.to_str().unwrap().to_string();
+        // Never fsync — this test indexes >10k docs and only cares about
+        // correctness of paging, not durability.
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    /// Reindexing a source larger than `max_result_window` (~10k) must carry
+    /// every document. A `from`-offset pager truncates once `from` crosses the
+    /// deep-paging wall; true `search_after` keyset paging does not.
+    #[tokio::test]
+    async fn reindex_pages_past_10k_via_keyset() {
+        let state = test_state();
+        let n = 10_050usize;
+
+        // Index N docs with distinct _ids into `src` via the batched turbo
+        // path (one WAL append) so the test isn't dominated by per-doc fsyncs.
+        let src = state.engine.get_or_create_index("src").expect("src index");
+        let mut batch: Vec<(String, Value, std::sync::Arc<[u8]>)> = Vec::with_capacity(n);
+        for i in 0..n {
+            let id = format!("doc-{i:06}");
+            let v = json!({ "n": i });
+            let bytes: std::sync::Arc<[u8]> = std::sync::Arc::from(serde_json::to_vec(&v).unwrap());
+            batch.push((id, v, bytes));
+        }
+        src.index_batch_turbo(batch, true, false)
+            .await
+            .expect("bulk index src");
+        assert_eq!(
+            src.live_doc_count(),
+            n as u64,
+            "sanity: all source docs indexed"
+        );
+
+        // Reindex src -> dst with a 1000-doc page size (forces >10 pages,
+        // crossing the 10k window that a from-offset pager cannot).
+        let body = ReindexBody {
+            source: ReindexSource {
+                index: "src".into(),
+                query: None,
+                size: 1000,
+            },
+            dest: ReindexDest {
+                index: "dst".into(),
+            },
+        };
+        let resp = reindex(State(state.clone()), Json(body))
+            .await
+            .into_response();
+        assert!(
+            resp.status().is_success(),
+            "reindex returned {}",
+            resp.status()
+        );
+
+        // Independent count via the destination's version map.
+        let dst = state.engine.get_index("dst").expect("dst index");
+        assert_eq!(
+            dst.live_doc_count(),
+            n as u64,
+            "every source doc must be reindexed (a from-offset pager truncates at ~10k)"
+        );
     }
 }

@@ -1163,6 +1163,7 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
             }
             ("POST".into(), path, body)
         }
+        "reindex" => ("POST".into(), "/_reindex".into(), body),
         "scroll" => {
             let mut path = "/_search/scroll".to_string();
             let mut qp = Vec::new();

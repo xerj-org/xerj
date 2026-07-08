@@ -1,0 +1,44 @@
+---
+"reindex pages every doc via search_after keyset (multi-page)":
+  # Seed 7 docs into src with distinct _ids.
+  - do:
+      index: { index: rk_src, id: "1", body: { n: 1 } }
+  - do:
+      index: { index: rk_src, id: "2", body: { n: 2 } }
+  - do:
+      index: { index: rk_src, id: "3", body: { n: 3 } }
+  - do:
+      index: { index: rk_src, id: "4", body: { n: 4 } }
+  - do:
+      index: { index: rk_src, id: "5", body: { n: 5 } }
+  - do:
+      index: { index: rk_src, id: "6", body: { n: 6 } }
+  - do:
+      index: { index: rk_src, id: "7", refresh: true, body: { n: 7 } }
+
+  # size:2 forces >3 keyset pages, exercising multi-page cursor advancement.
+  - do:
+      reindex:
+        body:
+          source: { index: rk_src, size: 2 }
+          dest: { index: rk_dst }
+
+  - do:
+      indices.refresh:
+        index: rk_dst
+
+  # Every doc must arrive — no gaps, no dupes, no early truncation.
+  - do:
+      search:
+        index: rk_dst
+        body:
+          query: { match_all: {} }
+          size: 0
+  - match: { hits.total.value: 7 }
+
+  # Spot-check a doc from a later page is present with its source intact.
+  - do:
+      get:
+        index: rk_dst
+        id: "7"
+  - match: { _source.n: 7 }
