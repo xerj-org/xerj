@@ -25,6 +25,14 @@ xerj-console-api     = { path = "../xerj-console-api" }
 
 tokio.workspace = true
 axum.workspace = true
+# In-process TLS termination for the REST + ES-compat listeners.
+# `tls-rustls-no-provider` deliberately avoids axum-server's default
+# `tls-rustls` feature, which would force `rustls/aws-lc-rs` into the
+# build; we install the `ring` provider ourselves (ring is already in
+# the dependency tree via reqwest), keeping the crypto backend uniform
+# and cross-compile friendly.
+axum-server = { version = "0.7", default-features = false, features = ["tls-rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 serde.workspace = true
@@ -44,3 +52,8 @@ rayon = { workspace = true }
 # RSS back down after each flush — critical under the 4 GB cgroup cap.
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = "0.6"
+
+[dev-dependencies]
+# HTTPS round-trip test against the in-process rustls listener.
+reqwest = { workspace = true }
+tempfile = { workspace = true }

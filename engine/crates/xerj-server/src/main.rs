@@ -36,6 +36,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use axum::Router;
+use axum_server::tls_rustls::RustlsConfig;
 use tokio::net::TcpListener;
 use tokio::signal;
 use tracing::{error, info, warn};
@@ -155,10 +156,10 @@ fn print_banner(cfg: &Config, startup_ms: u128) {
     println!(" ┌─ Deployment posture (see PATH_TO_100_PCT_v0.6.0_to_v1.0.md) ──");
     if !cfg.tls.enabled {
         println!(" │ ⚠  TLS:    listener is plain TCP — terminate TLS at a reverse proxy");
-        println!(" │           (in-process TLS on the roadmap for v0.9)");
+        println!(" │           (or enable in-process TLS: tls.enabled = true)");
     } else {
-        println!(" │ ⚠  TLS:    cert configured but in-process TLS is not yet wired");
-        println!(" │           (v0.9 ships rustls integration into the Axum listener)");
+        println!(" │ ✓  TLS:    in-process rustls termination active (REST + ES-compat)");
+        println!(" │           (self-signed by default — supply a CA cert for production)");
     }
     if !cfg.auth.enabled {
         println!(" │ ⚠  Auth:   DISABLED (--insecure) — anyone on the network can write");
@@ -280,6 +281,36 @@ fn ensure_tls_cert(cfg: &mut Config) -> Result<()> {
     Ok(())
 }
 
+/// Build the in-process TLS server config from the PEM cert/key that
+/// `ensure_tls_cert` produced.  Returns `None` when TLS is disabled.
+///
+/// Installs the `ring` rustls crypto provider as the process default —
+/// rustls 0.23's infallible `ServerConfig::builder()` (used inside
+/// axum-server's `from_pem_file`) panics without one.  `install_default`
+/// is idempotent-safe: a redundant call returns `Err`, which we ignore.
+///
+/// If TLS is enabled but the cert/key fail to load we return the error
+/// (fail loud) rather than silently downgrading the operator-requested
+/// HTTPS listener to cleartext.
+async fn build_tls_config(cfg: &Config) -> Result<Option<RustlsConfig>> {
+    if !cfg.tls.enabled {
+        return Ok(None);
+    }
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
+    let config = RustlsConfig::from_pem_file(&cfg.tls.cert_path, &cfg.tls.key_path)
+        .await
+        .with_context(|| {
+            format!(
+                "load TLS cert {} / key {} (TLS is enabled)",
+                cfg.tls.cert_path, cfg.tls.key_path
+            )
+        })?;
+
+    Ok(Some(config))
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Observability
 // ─────────────────────────────────────────────────────────────────────────────
@@ -329,7 +360,45 @@ async fn shutdown_signal() {
 // Server runners
 // ─────────────────────────────────────────────────────────────────────────────
 
-async fn serve(router: Router, addr: SocketAddr, name: &'static str) -> Result<()> {
+async fn serve(
+    router: Router,
+    addr: SocketAddr,
+    name: &'static str,
+    tls: Option<RustlsConfig>,
+) -> Result<()> {
+    // ── TLS path: in-process rustls termination via axum-server ──────────
+    //
+    // When TLS is enabled the plain `axum::serve` (hyper) accept loop can't
+    // be used — it speaks cleartext.  `axum_server::bind_rustls` wraps every
+    // accepted TCP connection in a `tokio_rustls::TlsAcceptor` handshake
+    // before handing the decrypted stream to the same axum `Router`.  The
+    // ServerConfig (cert chain + key + ALPN h2/http1) is built once by the
+    // caller from the PEM files that `ensure_tls_cert` generated/validated.
+    if let Some(tls) = tls {
+        // axum-server drives shutdown through a `Handle` rather than a
+        // graceful-shutdown future, so bridge our SIGINT/SIGTERM signal to
+        // it: on signal, stop accepting and drain in-flight connections
+        // (10 s grace) so ongoing requests finish cleanly.
+        let handle = axum_server::Handle::new();
+        let shutdown_handle = handle.clone();
+        tokio::spawn(async move {
+            shutdown_signal().await;
+            shutdown_handle.graceful_shutdown(Some(std::time::Duration::from_secs(10)));
+        });
+
+        info!("{name} listening on {addr} (TLS)");
+
+        axum_server::bind_rustls(addr, tls)
+            .handle(handle)
+            .serve(router.into_make_service())
+            .await
+            .with_context(|| format!("{name} serve error (TLS)"))?;
+
+        info!("{name} shut down cleanly");
+        return Ok(());
+    }
+
+    // ── Plain path: unchanged cleartext HTTP ─────────────────────────────
     let listener = TcpListener::bind(addr)
         .await
         .with_context(|| format!("{name}: bind {addr}"))?;
@@ -877,6 +946,15 @@ async fn async_main() -> Result<()> {
         cfg.tls.enabled = false;
     }
 
+    // 6b. In-process TLS config (rustls).  Loaded once here and shared
+    //     (cheap Arc clone) by both listeners.  When TLS is enabled but the
+    //     cert fails to load this returns an error and startup aborts —
+    //     we do NOT silently downgrade an operator-requested HTTPS port to
+    //     cleartext.
+    let tls_config = build_tls_config(&cfg)
+        .await
+        .context("build TLS server config")?;
+
     // 7. Metrics
     let metrics = Metrics::new().context("initialise metrics")?;
 
@@ -1021,14 +1099,16 @@ async fn async_main() -> Result<()> {
     });
 
     // 13. Start servers concurrently
+    let rest_tls = tls_config.clone();
     let rest = tokio::spawn(async move {
-        if let Err(e) = serve(native_router, rest_addr, "native REST").await {
+        if let Err(e) = serve(native_router, rest_addr, "native REST", rest_tls).await {
             error!("native REST: {e:#}");
         }
     });
 
+    let es_tls = tls_config.clone();
     let es = tokio::spawn(async move {
-        if let Err(e) = serve(es_router, es_addr, "ES-compat").await {
+        if let Err(e) = serve(es_router, es_addr, "ES-compat", es_tls).await {
             error!("ES-compat: {e:#}");
         }
     });
@@ -1059,4 +1139,115 @@ async fn async_main() -> Result<()> {
 
     info!("xerj v{} stopped. Goodbye.", env!("CARGO_PKG_VERSION"));
     Ok(())
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tests
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// These live as an in-crate unit test module (not `tests/tls.rs`) because
+// `serve` / `build_tls_config` / `ensure_tls_cert` are private items of a
+// *binary* crate — a `tests/` integration test compiles as a separate crate
+// and cannot reach them.  A unit test can, so it exercises the real listener
+// wiring end to end (self-signed cert → HTTPS round-trip).
+#[cfg(test)]
+mod tls_tests {
+    use super::*;
+    use axum::routing::get;
+
+    /// Grab an ephemeral port, then release it so `serve` can rebind.
+    fn free_port() -> u16 {
+        std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port()
+    }
+
+    fn test_router() -> Router {
+        Router::new().route("/", get(|| async { "ok" }))
+    }
+
+    /// Poll until the just-spawned listener answers (spawn races the client).
+    async fn poll_status(client: &reqwest::Client, url: &str) -> u16 {
+        for _ in 0..100 {
+            if let Ok(resp) = client.get(url).send().await {
+                return resp.status().as_u16();
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        panic!("server never became reachable at {url}");
+    }
+
+    /// TLS enabled: the self-signed cert `ensure_tls_cert` writes is loaded
+    /// by `build_tls_config` and terminated in-process by `serve`; an HTTPS
+    /// GET returns 200.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn https_serves_when_tls_enabled() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut cfg = Config::default();
+        cfg.server.data_dir = dir.path().to_string_lossy().into_owned();
+        cfg.tls.enabled = true;
+
+        ensure_tls_cert(&mut cfg).expect("generate self-signed cert");
+        let tls = build_tls_config(&cfg)
+            .await
+            .expect("build tls config")
+            .expect("tls enabled must yield Some");
+
+        let port = free_port();
+        let addr: SocketAddr = ([127, 0, 0, 1], port).into();
+        let server = tokio::spawn(serve(test_router(), addr, "test-tls", Some(tls)));
+
+        let client = reqwest::Client::builder()
+            .danger_accept_invalid_certs(true) // self-signed
+            .build()
+            .unwrap();
+        let status = poll_status(&client, &format!("https://127.0.0.1:{port}/")).await;
+        assert_eq!(status, 200, "HTTPS GET / should return 200");
+
+        // Plain HTTP against the TLS port must NOT succeed as cleartext.
+        let plain = reqwest::Client::new();
+        let plain_res = plain
+            .get(format!("http://127.0.0.1:{port}/"))
+            .timeout(std::time::Duration::from_secs(2))
+            .send()
+            .await;
+        assert!(
+            plain_res.is_err(),
+            "cleartext GET against the TLS port must fail, got {plain_res:?}"
+        );
+
+        server.abort();
+    }
+
+    /// TLS disabled: the unchanged plain-HTTP path still serves.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn http_serves_when_tls_disabled() {
+        let port = free_port();
+        let addr: SocketAddr = ([127, 0, 0, 1], port).into();
+        let server = tokio::spawn(serve(test_router(), addr, "test-plain", None));
+
+        let client = reqwest::Client::new();
+        let status = poll_status(&client, &format!("http://127.0.0.1:{port}/")).await;
+        assert_eq!(status, 200, "HTTP GET / should return 200");
+
+        server.abort();
+    }
+
+    /// TLS enabled but the cert path is missing → `build_tls_config` fails
+    /// loud rather than silently downgrading to cleartext.
+    #[tokio::test]
+    async fn build_tls_config_fails_loud_on_missing_cert() {
+        let mut cfg = Config::default();
+        cfg.tls.enabled = true;
+        cfg.tls.cert_path = "/nonexistent/xerj.crt".to_string();
+        cfg.tls.key_path = "/nonexistent/xerj.key".to_string();
+
+        let res = build_tls_config(&cfg).await;
+        assert!(
+            res.is_err(),
+            "missing cert with TLS enabled must error, not downgrade"
+        );
+    }
 }
