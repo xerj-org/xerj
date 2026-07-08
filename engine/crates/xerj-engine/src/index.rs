@@ -6316,24 +6316,49 @@ impl Index {
                         // completion under the mixed read/write bench).  No
                         // extra memory: the warmed bytes are shared, not copied.
                         let t_scan = std::time::Instant::now();
-                        self.scan_stored_section_into(
-                            &warm_slices.bytes,
-                            query,
-                            is_match_all,
-                            count_only,
-                            materialisation_limit,
-                            count_authoritative,
-                            &mut total_count,
-                            &mut all_hits,
-                            &mut seen_ids,
-                            pre_filter.as_deref(),
-                            sort_topk.as_mut(),
-                            None,
-                            Some(search_deadline),
-                            &mut deadline_exceeded,
-                            &mut dbg_walked,
-                            &mut dbg_admitted,
-                        );
+                        // F2: with warm slices we have the per-doc offset index,
+                        // so an UNSORTED pre-filtered query (selective term /
+                        // terms / conjunction bool) random-accesses only its
+                        // matching positions instead of brace-walking the whole
+                        // section — the O(section bytes)→O(|pre_filter|) fix for
+                        // a term fanned across every shard-segment. Sorted or
+                        // no-pre-filter queries keep the linear scan.
+                        match pre_filter.as_deref() {
+                            Some(pf) if sort_topk.is_none() => {
+                                self.hydrate_prefiltered_unsorted(
+                                    &warm_slices,
+                                    pf,
+                                    query,
+                                    is_match_all,
+                                    count_only,
+                                    materialisation_limit,
+                                    count_authoritative,
+                                    &mut total_count,
+                                    &mut all_hits,
+                                    &mut seen_ids,
+                                );
+                            }
+                            _ => {
+                                self.scan_stored_section_into(
+                                    &warm_slices.bytes,
+                                    query,
+                                    is_match_all,
+                                    count_only,
+                                    materialisation_limit,
+                                    count_authoritative,
+                                    &mut total_count,
+                                    &mut all_hits,
+                                    &mut seen_ids,
+                                    pre_filter.as_deref(),
+                                    sort_topk.as_mut(),
+                                    None,
+                                    Some(search_deadline),
+                                    &mut deadline_exceeded,
+                                    &mut dbg_walked,
+                                    &mut dbg_admitted,
+                                );
+                            }
+                        }
                         dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
                     } else {
                         // Merge-race hardening (2026-07): a snapshot
@@ -9299,6 +9324,118 @@ impl Index {
             });
         }
     }
+
+    /// Hydrate an UNSORTED, pre-filtered query from a warm `StoredSlices` using
+    /// the per-doc offset index for RANDOM ACCESS — parse only the pre-filter
+    /// positions, never brace-walk the whole section.
+    ///
+    /// The warm-slices scan path otherwise walks every doc's bytes (balanced-
+    /// brace split) to advance the position counter and test pre-filter
+    /// membership, so a selective term whose matches fan across all N shard-
+    /// segments paid O(total section bytes) per query even though it parses
+    /// only a handful of docs. With the offsets already cached, we jump
+    /// straight to each matching position instead: O(|pre_filter|) parses, no
+    /// section walk.
+    ///
+    /// `pre_filter` is a SUPERSET of the true matches (bool picks one
+    /// conjunct's complete set; term/range sets are exact) — every hydrated doc
+    /// is re-tested with `doc_matches_query`, so false positives are dropped
+    /// exactly as the brace-walk scan drops them. Admit order is positional
+    /// (positions sorted ascending) to match the linear scan's `all_hits`
+    /// order, and deletes are filtered via the version map. Early-break mirrors
+    /// F1: stop once the bounded page is full and the exact total is supplied
+    /// elsewhere (`count_authoritative`).
+    #[allow(clippy::too_many_arguments)]
+    fn hydrate_prefiltered_unsorted(
+        &self,
+        slices: &StoredSlices,
+        pre_filter: &HashSet<u32>,
+        query: &QueryNode,
+        is_match_all: bool,
+        count_only: bool,
+        materialisation_limit: usize,
+        count_authoritative: bool,
+        total_count: &mut u64,
+        all_hits: &mut Vec<Hit>,
+        seen_ids: &mut HashSet<String>,
+    ) {
+        let mut positions: Vec<u32> = pre_filter.iter().copied().collect();
+        positions.sort_unstable();
+        for pos in positions {
+            if count_authoritative && !count_only && all_hits.len() >= materialisation_limit {
+                break;
+            }
+            let Some(&(start, end)) = slices.offsets.get(pos as usize) else {
+                continue;
+            };
+            let Some(slice) = slices.bytes.get(start as usize..end as usize) else {
+                continue;
+            };
+            let mut doc_buf = slice.to_vec();
+            let doc: Value = match simd_json::serde::from_slice(&mut doc_buf) {
+                Ok(v) => v,
+                Err(_) => continue,
+            };
+            let id_ref = doc.get("_id").and_then(Value::as_str).unwrap_or("");
+            if let Some(ver) = self.store.version_map.get(id_ref) {
+                if ver.deleted {
+                    continue;
+                }
+            }
+            // Re-test the full query — the pre-filter is only a superset.
+            let matched = if is_match_all {
+                true
+            } else if let QueryNode::Ids { values } = query {
+                values.iter().any(|v| v == id_ref)
+            } else {
+                let source_ref = doc.get("_source").unwrap_or(&doc);
+                let source_with_id = if source_ref.get("_id").is_some() {
+                    source_ref.clone()
+                } else if let Some(obj) = source_ref.as_object() {
+                    let mut o = obj.clone();
+                    o.insert("_id".to_string(), Value::String(id_ref.to_string()));
+                    Value::Object(o)
+                } else {
+                    source_ref.clone()
+                };
+                doc_matches_query(query, &source_with_id)
+            };
+            if !matched {
+                continue;
+            }
+            *total_count += 1;
+            if count_only {
+                continue;
+            }
+            if all_hits.len() >= materialisation_limit {
+                if count_authoritative {
+                    break;
+                }
+                continue;
+            }
+            let id: String = id_ref.to_string();
+            if seen_ids.contains(&id) {
+                continue;
+            }
+            let source = doc.get("_source").cloned().unwrap_or_else(|| doc.clone());
+            let score = if is_match_all {
+                1.0
+            } else {
+                score_query_against_doc(query, &source)
+            };
+            seen_ids.insert(id.clone());
+            all_hits.push(Hit {
+                id,
+                score,
+                source,
+                sort: Vec::new(),
+                explain: None,
+                highlight: None,
+                matched_queries: Vec::new(),
+            });
+        }
+    }
+
     /// Regexp pre-filter — the set of internal doc positions whose keyword
     /// term matches the (compile-once) anchored pattern, used to skip
     /// non-matching docs in the stored-section scan the same way the
