@@ -2,15 +2,28 @@
 //!
 //! Turbo mode is an **opt-in** ingest path that trades a small amount of
 //! linguistic quality (no stemming, no stopword removal) for dramatically
-//! higher indexing throughput.  It achieves this through three mechanisms:
+//! higher indexing throughput.  It achieves this through two active mechanisms:
 //!
 //! 1. **SIMD-accelerated text processing** — ASCII lowercase and word-boundary
-//!    detection operate on 16-byte chunks, reducing branch overhead.
-//! 2. **Parallel tokenization** — documents in a batch are tokenized
-//!    concurrently via Rayon's work-stealing thread pool.
-//! 3. **Batched WAL writes** — multiple documents are serialised into a single
+//!    detection operate on 16-byte chunks, reducing branch overhead.  These
+//!    helpers (`simd_lowercase`, `FastTokenizer`) build the durable FTS index
+//!    at segment-merge time, not on the ingest hot path.
+//! 2. **Batched WAL writes** — multiple documents are serialised into a single
 //!    contiguous buffer and written (+ fsynced) in one syscall, amortising the
 //!    per-write overhead across the entire batch.
+//!
+//! # Tokenisation is deferred to segment-merge — the `parallel` path is a no-op
+//!
+//! Earlier revisions tokenised each batch concurrently via Rayon on the ingest
+//! hot path.  Since **M5.6** the memtable consumer
+//! (`insert_pretokenized_with_seq`) ignores those tokens — the durable FTS
+//! index is (re)built from stored fields at merge time — so **M5.9** dropped
+//! pre-tokenisation from [`TurboIngestPipeline::flush`] entirely to reclaim
+//! ~3 µs/doc of pure waste.  As a result the `turbo_parallel` config knob and
+//! the `parallel` argument to [`TurboIngestPipeline::new`] are **currently
+//! no-ops**, retained only for API/config stability.  Re-enabling parallel
+//! tokenisation here would spend CPU producing tokens that are immediately
+//! discarded, regressing throughput for no benefit.
 //!
 //! # Opt-in
 //!
@@ -24,7 +37,7 @@
 //! ```toml
 //! [indexing]
 //! turbo_batch_size     = 1000   # documents per flush cycle
-//! turbo_parallel       = true   # parallel tokenization via Rayon
+//! turbo_parallel       = true   # accepted for compat; currently a no-op (see above)
 //! turbo_fast_analyzer  = false  # skip stemming/stopwords for max speed
 //! ```
 
@@ -245,12 +258,16 @@ fn collect_tokens(value: &Value, out: &mut Vec<String>) {
 
 // ── TurboIngestPipeline ───────────────────────────────────────────────────────
 
-/// A batching, parallel tokenisation pipeline for high-throughput ingest.
+/// A batching pipeline for high-throughput ingest.
 ///
 /// Documents are accumulated in an internal buffer.  When the buffer reaches
 /// `batch_size`, or when [`TurboIngestPipeline::flush`] is called explicitly,
-/// all buffered documents are tokenised in parallel via Rayon and returned as a
-/// `Vec<IngestResult>`.
+/// all buffered documents are drained and returned as a `Vec<IngestResult>`.
+///
+/// Note: this pipeline no longer tokenises on the ingest hot path.  The
+/// `tokens` field of each [`IngestResult`] is left empty and the durable FTS
+/// index is built from stored fields at segment-merge time (see the module
+/// header).  The `parallel` constructor argument is therefore a no-op.
 pub struct TurboIngestPipeline {
     /// Target batch size (documents).
     batch_size: usize,
@@ -275,7 +292,11 @@ impl TurboIngestPipeline {
     /// Create a new pipeline.
     ///
     /// - `batch_size` — how many documents to accumulate before auto-flushing.
-    /// - `parallel`   — if `true`, tokenisation uses Rayon (recommended).
+    /// - `parallel`   — **currently a no-op**, retained for API/config
+    ///   stability.  Turbo tokenisation is deferred to segment-merge, so
+    ///   `new(_, true)` and `new(_, false)` produce identical output (asserted
+    ///   by `pipeline_parallel_flush_matches_sequential`).  The argument is
+    ///   *not* wired to Rayon and does not affect throughput or results.
     pub fn new(batch_size: usize, parallel: bool) -> Self {
         Self {
             batch_size: batch_size.max(1),
@@ -369,7 +390,8 @@ impl TurboIngestPipeline {
 /// This type is intentionally decoupled from the WAL file format — it hands
 /// off the final serialised bytes to whatever writer the caller provides.  The
 /// standard path in [`super::index::Index::index_batch_turbo`] delegates back
-/// to `IndexStore::index` after the parallel tokenisation step.
+/// to `IndexStore::index` after the pipeline drain (turbo tokenisation is
+/// deferred to segment-merge — see the module header).
 pub struct BatchWalWriter {
     /// Accumulated `(doc_id, serialised_source_bytes)` pairs.
     entries: Vec<(String, Vec<u8>)>,
@@ -554,6 +576,14 @@ mod tests {
         assert_eq!(results[1].id, "id2");
     }
 
+    /// Documents that the `parallel` constructor argument is a **no-op**.
+    ///
+    /// Turbo tokenisation is deferred to segment-merge (see the module header),
+    /// so `new(_, true)` and `new(_, false)` must produce byte-identical
+    /// `IngestResult`s, and every result's `tokens` field must be empty (the
+    /// durable FTS index is built from stored fields at merge time, not here).
+    /// If a future change resurrects on-ingest tokenisation, this assertion
+    /// forces the docs above to be revisited.
     #[test]
     fn pipeline_parallel_flush_matches_sequential() {
         let docs: Vec<_> = (0..50)
@@ -588,6 +618,17 @@ mod tests {
             s_tokens.sort();
             p_tokens.sort();
             assert_eq!(s_tokens, p_tokens);
+            // Tokenisation is deferred to segment-merge: both paths emit no
+            // tokens on the ingest hot path.  This is the observable proof
+            // that `parallel` is a no-op, not a live Rayon fan-out.
+            assert!(
+                s.tokens.is_empty(),
+                "turbo ingest must not tokenise on the hot path (parallel=false)"
+            );
+            assert!(
+                p.tokens.is_empty(),
+                "turbo ingest must not tokenise on the hot path (parallel=true)"
+            );
         }
     }
 
