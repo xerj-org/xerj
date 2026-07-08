@@ -30,6 +30,7 @@ use sha2::Sha256;
 use subtle::ConstantTimeEq;
 
 use crate::auth::store;
+use crate::bootstrap::sha256_hex;
 use crate::error::{ConsoleApiError, ConsoleResult};
 use crate::state::ConsoleState;
 use crate::time::{epoch_ms_to_iso, now_epoch_ms, now_iso, parse_iso};
@@ -138,6 +139,14 @@ impl FromRequestParts<ConsoleState> for AuthSession {
         parts: &mut Parts,
         state: &ConsoleState,
     ) -> Result<Self, Self::Rejection> {
+        // API clients authenticate with `Authorization: Bearer <token>`;
+        // browsers with a signed session cookie. Bearer wins when present so
+        // a token-carrying request is never silently downgraded to the
+        // (absent) cookie path.
+        if let Some(token) = bearer_token(&parts.headers) {
+            return authenticate_bearer(state, &token).await;
+        }
+
         let jar = CookieJar::from_headers(&parts.headers);
         let cookie = jar
             .get(COOKIE_NAME)
@@ -180,6 +189,59 @@ impl FromRequestParts<ConsoleState> for AuthSession {
 
         Ok(AuthSession { session_id, user })
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bearer (API token) authentication
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Pull the secret out of an `Authorization: Bearer <secret>` header.
+/// Returns `None` when the header is absent, is not a bearer scheme, or
+/// carries an empty value — the caller then falls back to the cookie path.
+fn bearer_token(headers: &axum::http::HeaderMap) -> Option<String> {
+    let raw = headers
+        .get(axum::http::header::AUTHORIZATION)?
+        .to_str()
+        .ok()?;
+    let rest = raw
+        .strip_prefix("Bearer ")
+        .or_else(|| raw.strip_prefix("bearer "))?;
+    let trimmed = rest.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+/// Authenticate a presented API token: hash it, look up a non-revoked
+/// `ApiToken` row (see `auth::tokens`), and resolve its owner. Failure
+/// semantics mirror the cookie path — every mismatch is a flat 401 that
+/// never reveals which check failed.
+async fn authenticate_bearer(
+    state: &ConsoleState,
+    presented: &str,
+) -> Result<AuthSession, ConsoleApiError> {
+    let hash = sha256_hex(presented.as_bytes());
+    let token = store::get_api_token(&state.engine, &hash)
+        .await?
+        .ok_or_else(|| ConsoleApiError::Unauthorized("invalid api token".into()))?;
+    if token.revoked_at.is_some() {
+        return Err(ConsoleApiError::Unauthorized("api token revoked".into()));
+    }
+    let user = store::get_user(&state.engine, &token.user_id)
+        .await?
+        .ok_or_else(|| ConsoleApiError::Unauthorized("api token user gone".into()))?;
+    if user.status != store::UserStatus::Active {
+        return Err(ConsoleApiError::Unauthorized("user disabled".into()));
+    }
+    // `session_id` is opaque to callers; for a token-authenticated request
+    // it is the token id (= hash). The cookie-only `logout` handler would
+    // just no-op against `.xerj_sessions` for such an id.
+    Ok(AuthSession {
+        session_id: token.id,
+        user,
+    })
 }
 
 /// Allow `Option<AuthSession>` extractors for endpoints that work

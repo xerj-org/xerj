@@ -83,6 +83,14 @@ pub fn xerj_console_router(state: ConsoleState) -> Router {
             delete(auth::me::delete_passkey),
         )
         .route(
+            "/_xerj-console/api/v1/auth/api-tokens",
+            get(auth::tokens::list).post(auth::tokens::create),
+        )
+        .route(
+            "/_xerj-console/api/v1/auth/api-tokens/:id",
+            delete(auth::tokens::revoke),
+        )
+        .route(
             "/_xerj-console/api/v1/prefs",
             get(prefs::get).put(prefs::put),
         )
@@ -141,6 +149,8 @@ pub fn known_routes() -> &'static [&'static str] {
         "/_xerj-console/api/v1/me",
         "/_xerj-console/api/v1/auth/passkeys",
         "/_xerj-console/api/v1/auth/passkeys/:id",
+        "/_xerj-console/api/v1/auth/api-tokens",
+        "/_xerj-console/api/v1/auth/api-tokens/:id",
         "/_xerj-console/api/v1/prefs",
         "/_xerj-console/api/v1/dashboards",
         "/_xerj-console/api/v1/dashboards/:id",

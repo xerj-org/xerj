@@ -13,6 +13,7 @@ pub mod passkey;
 pub mod rate_limit;
 pub mod sessions;
 pub mod store;
+pub mod tokens;
 pub mod webauthn_setup;
 
 pub use sessions::{AuthSession, OptionalAuthSession};
