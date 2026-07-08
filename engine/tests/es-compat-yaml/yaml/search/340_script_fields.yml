@@ -1,0 +1,68 @@
+---
+setup:
+  - do:
+      indices.create:
+          index: test
+          body:
+            mappings:
+              properties:
+                price: { type: double }
+                qty:   { type: long }
+                name:  { type: keyword }
+
+  - do:
+      index:
+        index: test
+        id:    "1"
+        body:  { name: widget, price: 9.5, qty: 3 }
+  - do:
+      index:
+        index: test
+        id:    "2"
+        body:  { name: gadget, price: 4.0, qty: 10 }
+  - do:
+      indices.refresh: {}
+
+---
+"script_fields computes a value per hit from doc values":
+  - do:
+      search:
+        index: test
+        body:
+          query: { match_all: {} }
+          sort: [ { price: asc } ]
+          script_fields:
+            total:
+              script:
+                lang: painless
+                source: "doc['price'].value * doc['qty'].value"
+            label:
+              script:
+                lang: painless
+                source: "doc['name'].value + '!'"
+
+  - match: { hits.hits.0._id: "2" }
+  - match: { hits.hits.0.fields.total.0: 40.0 }
+  - match: { hits.hits.0.fields.label.0: "gadget!" }
+  - match: { hits.hits.1._id: "1" }
+  - match: { hits.hits.1.fields.total.0: 28.5 }
+  - match: { hits.hits.1.fields.label.0: "widget!" }
+
+---
+"script_fields reads params":
+  - do:
+      search:
+        index: test
+        size:  1
+        body:
+          query: { match_all: {} }
+          sort: [ { price: asc } ]
+          script_fields:
+            taxed:
+              script:
+                lang: painless
+                source: "doc['price'].value * params.rate"
+                params: { rate: 2.0 }
+
+  - match: { hits.hits.0._id: "2" }
+  - match: { hits.hits.0.fields.taxed.0: 8.0 }

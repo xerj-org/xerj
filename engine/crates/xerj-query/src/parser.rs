@@ -204,7 +204,8 @@ pub fn parse_request(body: &Value) -> Result<SearchRequest> {
         _ => TrackTotalHits::True,
     };
 
-    // script_fields — accept but treat as no-op (return null for each field).
+    // script_fields — opaque `{name: {script: {...}}}`; evaluated per hit
+    // against the doc source by the ES-compat search handler.
     let script_fields = obj.get("script_fields").cloned();
 
     // fields — stored/doc-value fields to return alongside _source.

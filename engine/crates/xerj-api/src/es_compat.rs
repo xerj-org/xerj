@@ -1910,7 +1910,9 @@ pub struct EsSearchBody {
     pub suggest: Option<Value>,
     #[serde(default)]
     pub explain: bool,
-    /// Script fields — accepted but treated as no-op (returns null per field).
+    /// Script fields — `{name: {script: {source, lang?, params?}}}`. Each
+    /// script is evaluated per hit against the hit's source and merged into
+    /// the hit's `fields` output (subject to `index.max_script_fields`).
     #[serde(default)]
     pub script_fields: Option<Value>,
     /// Stored/doc-value fields to return alongside _source.
@@ -3722,7 +3724,9 @@ fn build_search_request(
         req.highlight = parse_highlight(hl_val);
     }
 
-    // Forward script_fields (stored as opaque JSON; engine returns null values).
+    // Forward script_fields (opaque `{name: {script: {...}}}` JSON). Each
+    // script is evaluated per hit against the hit's source in the search
+    // handler's fields-building closure and merged into the hit's `fields`.
     req.script_fields = body.script_fields.clone();
 
     // Forward fields request.
@@ -5799,6 +5803,47 @@ pub async fn search(
             }
         }
     }
+
+    // Enforce per-index `index.max_script_fields` (default 32). ES rejects a
+    // search requesting more script_fields than the limit before executing it.
+    if let Some(n) = body
+        .script_fields
+        .as_ref()
+        .and_then(Value::as_object)
+        .map(|o| o.len())
+    {
+        for ix in &participating_indices {
+            let max_sf = state
+                .engine
+                .index_settings
+                .get(ix)
+                .map(|v| v.clone())
+                .and_then(|s| {
+                    let as_int = |v: &Value| {
+                        v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+                    };
+                    s.pointer("/index/max_script_fields")
+                        .and_then(as_int)
+                        .or_else(|| {
+                            s.get("index")
+                                .and_then(|i| i.get("index.max_script_fields"))
+                                .and_then(as_int)
+                        })
+                        .or_else(|| s.get("index.max_script_fields").and_then(as_int))
+                })
+                .map(|v| v as usize)
+                .unwrap_or(32);
+            if n > max_sf {
+                let reason = format!(
+                    "Trying to retrieve too many script_fields. Must be less than or equal to: \
+                     [{max_sf}] but was [{n}]. This limit can be set by changing the \
+                     [index.max_script_fields] index level setting."
+                );
+                return ApiError::new(xerj_common::XerjError::invalid_query(reason)).into_response();
+            }
+        }
+    }
+
     // Request-cache tracking: ES's shard request cache is on by
     // default for cache-eligible searches (size:0 + aggs), so we
     // record hit/miss counters per participating index unless the
@@ -6678,12 +6723,10 @@ pub async fn search(
 
     let explain = search_req.explain;
 
-    // Build script_fields null map if requested.
-    let script_fields_map: Option<HashMap<String, Value>> =
-        search_req.script_fields.as_ref().and_then(|sf| {
-            sf.as_object()
-                .map(|obj| obj.keys().map(|k| (k.clone(), Value::Null)).collect())
-        });
+    // `script_fields` are evaluated per hit (against each hit's source) inside
+    // the fields-building closure below, so the computed values merge into the
+    // same `fields` object ES uses. See the `script_fields` block near the end
+    // of that closure.
 
     let requested_fields = &search_req.fields;
 
@@ -8385,6 +8428,43 @@ pub async fn search(
                         }
                     }
                 }
+                // script_fields: evaluate each field's Painless script against
+                // THIS hit's source and merge the (array-wrapped) result into
+                // `fields`, exactly like ES. The same interpreter backs
+                // `script_score`, scripted updates, and `_painless_execute`.
+                // Evaluating against `h.source` (not the response `_source`)
+                // means script_fields still work when `_source` is filtered out
+                // of the response. A script that errors surfaces no value for
+                // that field (we keep the hit valid rather than failing the
+                // whole search).
+                if let Some(sf_obj) = search_req.script_fields.as_ref().and_then(Value::as_object) {
+                    for (fname, spec) in sf_obj {
+                        let Some(script) = spec.get("script") else { continue };
+                        let Some(source) = script
+                            .get("source")
+                            .or_else(|| script.get("inline"))
+                            .and_then(Value::as_str)
+                        else {
+                            continue;
+                        };
+                        let empty_params = Value::Object(serde_json::Map::new());
+                        let params = script.get("params").unwrap_or(&empty_params);
+                        let ctx = xerj_engine::painless::PainlessCtx::new(
+                            &h.source, params, h.score,
+                        );
+                        if let Ok(pv) = xerj_engine::painless::eval_painless(source, &ctx) {
+                            // ES wraps script-field results in an array; a script
+                            // that returns an array is emitted as-is, and a null
+                            // result yields an empty array (no phantom `null`).
+                            let arr = match painless_to_json(pv) {
+                                Value::Array(a) => Value::Array(a),
+                                Value::Null => Value::Array(vec![]),
+                                other => Value::Array(vec![other]),
+                            };
+                            fmap.insert(fname.clone(), arr);
+                        }
+                    }
+                }
                 // When the index has `_source.enabled: false`, ES 8.4+
                 // only returns metadata fields (_id, _index, _score) in
                 // the fields response — non-meta fields are not
@@ -8924,15 +9004,9 @@ pub async fn search(
         response_body["_shards"]["failures"] = json!([failure]);
     }
 
-    // Append script_fields to each hit if requested.
-    if let Some(sf_map) = script_fields_map {
-        if let Some(hits_arr) = response_body["hits"]["hits"].as_array_mut() {
-            let sf_val = Value::Object(sf_map.into_iter().collect());
-            for hit in hits_arr.iter_mut() {
-                hit["fields"] = sf_val.clone();
-            }
-        }
-    }
+    // (script_fields are evaluated per hit against the hit's source in the
+    // fields-building closure above and already merged into each hit's
+    // `fields` object — nothing to append post-hoc.)
 
     // `stored_fields: "_none_"` → strip `_id` (and the stored-fields
     // related meta) from every hit. `_score` is scoring metadata, not
