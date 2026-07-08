@@ -3410,15 +3410,31 @@ impl Index {
             scored.push((id, score, src));
         }
 
-        // ── Take top-k by score (descending) ──────────────────────────
+        // ── Rank, cap the candidate pool at k, then paginate ──────────
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        // `k` bounds the kNN candidate pool; `from`/`size` then window into
+        // it, exactly like an ES top-level knn (returned hits are the
+        // size-slice of the top-k, NOT k itself). Without this, a
+        // `{"knn"/"semantic": {k: 5}}` with `"size": 3` returned 5 hits.
+        // `size == 0` is a count-only request (total only, no hits).
+        scored.truncate(k.max(1));
+        // ES reports `hits.total.value` for a knn/semantic query as the size
+        // of the retrieved neighbor pool (min(k, matches)), NOT the number of
+        // docs that merely have a vector — so compute it AFTER the truncate.
+        // (Hybrid/RRF ignores this total and recomputes its own from the fused
+        // list, so bounding it here is safe for that path.)
         let total_value = scored.len() as u64;
-        let k_final = k.max(request.size).max(1);
-        scored.truncate(k_final);
-
-        let hits: Vec<Hit> = scored
-            .into_iter()
-            .map(|(id, score, source)| Hit {
+        let hits: Vec<Hit> = if request.size == 0 {
+            Vec::new()
+        } else {
+            scored
+                .into_iter()
+                .skip(request.from)
+                .take(request.size)
+                .collect::<Vec<_>>()
+        }
+        .into_iter()
+        .map(|(id, score, source)| Hit {
                 id,
                 score,
                 source,

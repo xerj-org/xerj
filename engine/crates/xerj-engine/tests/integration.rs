@@ -3139,6 +3139,64 @@ async fn test_knn_vector_search() {
     );
 }
 
+/// Regression for the "semantic/knn query ignores `size`" bug (returned `k`
+/// hits instead of `size`). ES semantics for a top-level knn/semantic query:
+/// `k` bounds the neighbor pool, `from`/`size` then window into it, and
+/// `hits.total.value` reports the pool size (min(k, matches)) — NOT the number
+/// of docs that merely have a vector. Surfaced by recipes/semantic_search.py
+/// against v1.0.0-rc.1, where `{"semantic":{...,"k":5}}` + `"size":3` wrongly
+/// returned 5 hits while match/hybrid respected size.
+#[tokio::test]
+async fn test_knn_size_windows_into_k() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    engine.create_index("vectors", Schema::empty()).unwrap();
+    let idx = engine.get_index("vectors").unwrap();
+
+    // Six docs so `size < k < corpus` makes every assertion meaningful.
+    // Descending cosine similarity to [1,0,0,0]: d1 > d2 > d3 > (d4,d5,d6≈0).
+    for (id, v) in [
+        ("d1", [1.0, 0.0, 0.0, 0.0]),
+        ("d2", [0.9, 0.1, 0.0, 0.0]),
+        ("d3", [0.8, 0.2, 0.0, 0.0]),
+        ("d4", [0.0, 1.0, 0.0, 0.0]),
+        ("d5", [0.0, 0.9, 0.1, 0.0]),
+        ("d6", [0.0, 0.0, 1.0, 0.0]),
+    ] {
+        idx.index_document(Some(id.into()), json!({ "embedding": v }))
+            .await
+            .unwrap();
+    }
+
+    let knn = |extra: Value| {
+        let mut body = json!({
+            "query": {"knn": {"field": "embedding", "query_vector": [1.0, 0.0, 0.0, 0.0], "k": 4}},
+        });
+        let obj = body.as_object_mut().unwrap();
+        for (key, val) in extra.as_object().unwrap() {
+            obj.insert(key.clone(), val.clone());
+        }
+        parse_request(&body).unwrap()
+    };
+
+    // k=4 pool, size=2 requested → exactly 2 hits, total reports the k pool.
+    let res = idx.search(&knn(json!({"size": 2}))).await.unwrap();
+    assert_eq!(res.hits.len(), 2, "size must cap returned hits (pre-fix returned k=4)");
+    assert_eq!(res.total.value, 4, "total.value is the k-neighbor pool, not the 6-doc corpus");
+    assert_eq!(res.hits[0].id, "d1", "top hit is the exact match");
+
+    // from paginates within the pool: page [1..3) skips the top neighbor.
+    let res2 = idx.search(&knn(json!({"from": 1, "size": 2}))).await.unwrap();
+    assert_eq!(res2.hits.len(), 2, "from+size windows within the k pool");
+    assert_eq!(res2.total.value, 4, "total is unaffected by from/size");
+    assert_ne!(res2.hits[0].id, res.hits[0].id, "from=1 skips the top hit");
+
+    // size=0 → count-only: pool total present, no hits materialized.
+    let res0 = idx.search(&knn(json!({"size": 0}))).await.unwrap();
+    assert!(res0.hits.is_empty(), "size=0 returns no hits");
+    assert_eq!(res0.total.value, 4, "size=0 still reports the pool total");
+}
+
 // ── SQL parser unit tests (inline) ────────────────────────────────────────────
 
 #[test]
