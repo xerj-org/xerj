@@ -164,6 +164,35 @@ impl Config {
             return Err(XerjError::config("vector.max_dimensions must be > 0"));
         }
 
+        // ── Config honesty guards ────────────────────────────────────────────
+        // Some config knobs exist in the schema but are not wired into any code
+        // path in this build. Silently ignoring them is worse than failing: an
+        // operator who sets `storage.backend = "s3"` believes their data lands
+        // in S3, and one who sets `default_quantization = "scalar8"` believes
+        // vectors are compressed 4×. Neither is true. Fail loud at startup so
+        // the mismatch surfaces immediately instead of after data is written.
+
+        // Storage: only the local filesystem backend is implemented. The S3 /
+        // object-store backend selector is inert — no code reads it to route
+        // segment writes/reads to S3.
+        if self.storage.backend != StorageBackendType::Local {
+            return Err(XerjError::config(
+                "storage.backend: the S3 storage backend is not implemented in this build; \
+                 only \"local\" is supported",
+            ));
+        }
+
+        // Vector: dense_vector quantization is not implemented. The quantizer
+        // types exist in xerj-vector but are not wired into the HNSW index
+        // build/query path, so any scheme other than `none` would store full
+        // float32 vectors while claiming a memory saving.
+        if self.vector.default_quantization != VectorQuantization::None {
+            return Err(XerjError::config(
+                "vector.default_quantization: vector quantization is not implemented in this \
+                 build; only \"none\" is supported",
+            ));
+        }
+
         // Limits: concurrency must be > 0
         if self.limits.max_concurrent_searches == 0 {
             return Err(XerjError::config(
@@ -507,11 +536,17 @@ pub struct VectorConfig {
     /// Can be overridden per query. Must be ≥ the number of neighbours
     /// requested (`k`).
     pub hnsw_ef_search: usize,
-    /// Default quantization: `"none"`, `"scalar8"`, or `"binary"` (default: `"scalar8"`).
+    /// Default quantization: `"none"` (default). `"scalar8"` / `"binary"` are
+    /// **not implemented in this build** and are rejected at startup.
     ///
     /// - `"none"` — full float32 vectors (highest accuracy, most memory).
-    /// - `"scalar8"` — 8-bit scalar quantization (~4× memory reduction).
-    /// - `"binary"` — 1-bit binary quantization (~32× memory reduction).
+    /// - `"scalar8"` — 8-bit scalar quantization (~4× memory reduction) — NOT YET IMPLEMENTED.
+    /// - `"binary"` — 1-bit binary quantization (~32× memory reduction) — NOT YET IMPLEMENTED.
+    ///
+    /// The quantizer types exist in `xerj-vector` but are not wired into the
+    /// index build/query path, so honouring `scalar8`/`binary` would silently
+    /// store full-precision vectors while claiming a memory saving. Until the
+    /// wiring lands, only `none` is accepted (see `Config::validate`).
     pub default_quantization: VectorQuantization,
     /// Maximum supported vector dimensionality (default: `16384`).
     pub max_dimensions: usize,
@@ -524,7 +559,7 @@ impl Default for VectorConfig {
             hnsw_m: 16,
             hnsw_ef_construction: 200,
             hnsw_ef_search: 100,
-            default_quantization: VectorQuantization::Scalar8,
+            default_quantization: VectorQuantization::None,
             max_dimensions: 16384,
         }
     }
@@ -912,6 +947,79 @@ mod tests {
         )
         .expect("tls disabled with no paths should be ok");
         assert!(!cfg.tls.enabled);
+    }
+
+    #[test]
+    fn s3_backend_rejected() {
+        // The S3 backend selector is inert in this build; setting it must fail
+        // loud rather than silently running on local disk.
+        let result = Config::from_toml_str(
+            r#"
+            [storage]
+            backend = "s3"
+            s3_bucket = "my-bucket"
+            "#,
+        );
+        let err = result.expect_err("s3 backend must be rejected as unimplemented");
+        assert!(
+            err.to_string().contains("not implemented"),
+            "error should explain S3 is unimplemented, got: {err}"
+        );
+    }
+
+    #[test]
+    fn quantization_scalar8_rejected() {
+        let result = Config::from_toml_str(
+            r#"
+            [vector]
+            default_quantization = "scalar8"
+            "#,
+        );
+        let err = result.expect_err("scalar8 quantization must be rejected as unimplemented");
+        assert!(
+            err.to_string().contains("not implemented"),
+            "error should explain quantization is unimplemented, got: {err}"
+        );
+    }
+
+    #[test]
+    fn quantization_binary_rejected() {
+        let result = Config::from_toml_str(
+            r#"
+            [vector]
+            default_quantization = "binary"
+            "#,
+        );
+        assert!(
+            result.is_err(),
+            "binary quantization must be rejected as unimplemented"
+        );
+    }
+
+    #[test]
+    fn local_backend_none_quantization_ok() {
+        let cfg = Config::from_toml_str(
+            r#"
+            [storage]
+            backend = "local"
+
+            [vector]
+            default_quantization = "none"
+            "#,
+        )
+        .expect("local backend + none quantization should be ok");
+        assert_eq!(cfg.storage.backend, StorageBackendType::Local);
+        assert_eq!(cfg.vector.default_quantization, VectorQuantization::None);
+    }
+
+    #[test]
+    fn default_quantization_is_none() {
+        // Guards depend on the default being the only implemented scheme so the
+        // out-of-the-box config validates.
+        assert_eq!(
+            VectorConfig::default().default_quantization,
+            VectorQuantization::None
+        );
     }
 
     #[test]
