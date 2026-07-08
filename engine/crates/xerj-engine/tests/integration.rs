@@ -4153,6 +4153,29 @@ async fn test_ascii_folding_filter() {
     assert!(terms.contains(&"uber".to_string()), "über → uber");
     assert!(terms.contains(&"naive".to_string()), "naïve → naive");
     assert!(terms.contains(&"resume".to_string()), "résumé → resume");
+
+    // Latin Extended-A coverage (Polish / Czech / Croatian) — these live outside
+    // the Latin-1 Supplement block and previously passed through unfolded.
+    let ext_a = analyzer.analyze_to_terms("łódź žluťoučký đžem");
+    assert!(
+        ext_a.contains(&"lodz".to_string()),
+        "łódź → lodz: {ext_a:?}"
+    );
+    assert!(
+        ext_a.contains(&"zlutoucky".to_string()),
+        "žluťoučký → zlutoucky: {ext_a:?}"
+    );
+    assert!(
+        ext_a.contains(&"dzem".to_string()),
+        "đžem → dzem: {ext_a:?}"
+    );
+
+    // Decomposed / NFD input: "e" + U+0301 (combining acute) must fold to "e".
+    let nfd = analyzer.analyze_to_terms("cafe\u{0301}");
+    assert!(
+        nfd.contains(&"cafe".to_string()),
+        "cafe+́ (NFD) → cafe: {nfd:?}"
+    );
 }
 
 #[tokio::test]

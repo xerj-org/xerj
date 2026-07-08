@@ -479,9 +479,11 @@ impl TokenFilter for SynonymFilter {
 
 /// Converts Unicode characters to their ASCII equivalents.
 ///
-/// Handles common Latin diacritics (à→a, é→e, ü→u, ñ→n, etc.) and strips
-/// combining diacritical marks.  Characters with no ASCII mapping are kept
-/// unchanged so that non-Latin scripts are preserved rather than dropped.
+/// Folds the Latin-1 Supplement diacritics *and* the full Latin Extended-A
+/// block (à→a, é→e, ñ→n, ł→l, č→c, ő→o, ĳ→ij, …), and drops standalone
+/// combining diacritical marks (U+0300–U+036F) so that decomposed / NFD input
+/// folds too (`"e" + U+0301` → `"e"`).  Characters with no ASCII mapping are
+/// kept unchanged so that non-Latin scripts are preserved rather than dropped.
 pub struct AsciiFoldingFilter;
 
 impl TokenFilter for AsciiFoldingFilter {
@@ -496,7 +498,9 @@ impl TokenFilter for AsciiFoldingFilter {
     }
 }
 
-/// Best-effort mapping of common Latin diacritics to ASCII.
+/// Fold a string to ASCII: strips combining marks, maps Latin-1 Supplement and
+/// Latin Extended-A letters to their ASCII base(s), and passes everything else
+/// through unchanged.
 fn fold_to_ascii(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
@@ -506,7 +510,52 @@ fn fold_to_ascii(s: &str) -> String {
 }
 
 /// Push the ASCII equivalent(s) of `c` into `buf`.
+///
+/// Case is normalised to lowercase (this pipeline's convention — a
+/// `LowercaseFilter` typically runs first, but the fold is correct standalone
+/// too).  Characters outside the covered ranges are passed through unchanged.
 fn push_ascii_fold(c: char, buf: &mut String) {
+    let cp = c as u32;
+
+    // Combining diacritical marks (U+0300–U+036F): emit nothing, so decomposed
+    // / NFD input such as `"e" + U+0301` folds down to `"e"`.
+    if (0x0300..=0x036F).contains(&cp) {
+        return;
+    }
+
+    // Latin Extended-A (U+0100–U+017F).  The block is laid out alphabetically
+    // by base letter, so each contiguous sub-range folds to a single ASCII
+    // base (both upper- and lower-case forms → lowercase base).
+    if (0x0100..=0x017F).contains(&cp) {
+        match cp {
+            0x0100..=0x0105 => buf.push('a'),      // Ā ā Ă ă Ą ą
+            0x0106..=0x010D => buf.push('c'),      // Ć ć Ĉ ĉ Ċ ċ Č č
+            0x010E..=0x0111 => buf.push('d'),      // Ď ď Đ đ
+            0x0112..=0x011B => buf.push('e'),      // Ē ē Ĕ ĕ Ė ė Ę ę Ě ě
+            0x011C..=0x0123 => buf.push('g'),      // Ĝ ĝ Ğ ğ Ġ ġ Ģ ģ
+            0x0124..=0x0127 => buf.push('h'),      // Ĥ ĥ Ħ ħ
+            0x0128..=0x0131 => buf.push('i'),      // Ĩ ĩ Ī ī Ĭ ĭ Į į İ ı
+            0x0132..=0x0133 => buf.push_str("ij"), // Ĳ ĳ
+            0x0134..=0x0135 => buf.push('j'),      // Ĵ ĵ
+            0x0136..=0x0138 => buf.push('k'),      // Ķ ķ ĸ
+            0x0139..=0x0142 => buf.push('l'),      // Ĺ ĺ Ļ ļ Ľ ľ Ŀ ŀ Ł ł
+            0x0143..=0x014B => buf.push('n'),      // Ń ń Ņ ņ Ň ň ŉ Ŋ ŋ
+            0x014C..=0x0151 => buf.push('o'),      // Ō ō Ŏ ŏ Ő ő
+            0x0152..=0x0153 => buf.push_str("oe"), // Œ œ
+            0x0154..=0x0159 => buf.push('r'),      // Ŕ ŕ Ŗ ŗ Ř ř
+            0x015A..=0x0161 => buf.push('s'),      // Ś ś Ŝ ŝ Ş ş Š š
+            0x0162..=0x0167 => buf.push('t'),      // Ţ ţ Ť ť Ŧ ŧ
+            0x0168..=0x0173 => buf.push('u'),      // Ũ ũ Ū ū Ŭ ŭ Ů ů Ű ű Ų ų
+            0x0174..=0x0175 => buf.push('w'),      // Ŵ ŵ
+            0x0176..=0x0178 => buf.push('y'),      // Ŷ ŷ Ÿ
+            0x0179..=0x017E => buf.push('z'),      // Ź ź Ż ż Ž ž
+            0x017F => buf.push('s'),               // ſ (long s)
+            _ => buf.push(c),
+        }
+        return;
+    }
+
+    // Latin-1 Supplement diacritics and ligatures.
     match c {
         // A
         'À' | 'Á' | 'Â' | 'Ã' | 'Ä' | 'Å' | 'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' => {
@@ -516,12 +565,10 @@ fn push_ascii_fold(c: char, buf: &mut String) {
         'Æ' | 'æ' => buf.push_str("ae"),
         // C
         'Ç' | 'ç' => buf.push('c'),
-        // D
+        // D (eth)
         'Ð' | 'ð' => buf.push('d'),
         // E
         'È' | 'É' | 'Ê' | 'Ë' | 'è' | 'é' | 'ê' | 'ë' => buf.push('e'),
-        // G
-        'Ğ' | 'ğ' => buf.push('g'),
         // I
         'Ì' | 'Í' | 'Î' | 'Ï' | 'ì' | 'í' | 'î' | 'ï' => buf.push('i'),
         // N
@@ -530,20 +577,14 @@ fn push_ascii_fold(c: char, buf: &mut String) {
         'Ò' | 'Ó' | 'Ô' | 'Õ' | 'Ö' | 'Ø' | 'ò' | 'ó' | 'ô' | 'õ' | 'ö' | 'ø' => {
             buf.push('o')
         }
-        // OE
-        'Œ' | 'œ' => buf.push_str("oe"),
-        // S
-        'Š' | 'š' => buf.push('s'),
         // SS
         'ß' => buf.push_str("ss"),
-        // T
+        // TH (thorn)
         'Þ' | 'þ' => buf.push_str("th"),
         // U
         'Ù' | 'Ú' | 'Û' | 'Ü' | 'ù' | 'ú' | 'û' | 'ü' => buf.push('u'),
         // Y
         'Ý' | 'ÿ' | 'ý' => buf.push('y'),
-        // Z
-        'Ž' | 'ž' => buf.push('z'),
         // Passthrough
         other => buf.push(other),
     }
@@ -1891,6 +1932,26 @@ mod tests {
         assert_eq!(out[2].text, "IX"); // NFKC keeps case; lowercasing is the pipeline's job
         assert_eq!(out[3].text, "fi");
         assert_eq!(out[4].text, "2");
+    }
+
+    #[test]
+    fn ascii_folding_covers_latin_extended_a_and_combining_marks() {
+        let filter = AsciiFoldingFilter;
+        let tokens = vec![
+            Token::new("łódź", 0, 0, 0), // Polish: Ł/ł (Ext-A) + ó (Latin-1) + ź (Ext-A)
+            Token::new("žluťoučký", 1, 0, 0), // Czech: ž ť č (Ext-A) + ý (Latin-1)
+            Token::new("đžem", 2, 0, 0), // Croatian: đ ž (Ext-A)
+            Token::new("cafe\u{0301}", 3, 0, 0), // NFD: e + combining acute → e
+            Token::new("ĳsselmeer", 4, 0, 0), // ĳ ligature → ij
+            Token::new("œuvre", 5, 0, 0), // œ ligature → oe
+        ];
+        let out = filter.filter(tokens);
+        assert_eq!(out[0].text, "lodz");
+        assert_eq!(out[1].text, "zlutoucky");
+        assert_eq!(out[2].text, "dzem");
+        assert_eq!(out[3].text, "cafe");
+        assert_eq!(out[4].text, "ijsselmeer");
+        assert_eq!(out[5].text, "oeuvre");
     }
 
     #[test]
