@@ -50,9 +50,105 @@ use crate::aggs::{
     parse_date_ms, render_date_format, render_iso_date, resolve_sibling_pipelines,
     run_pipeline_agg, run_sampler, run_top_hits_with_total, typed_term_key,
 };
+use crate::memtable::MemBoolPred;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use xerj_storage::doc_values::{Column, KeywordColumn, NumericColumn};
+
+/// Compile the top-level agg filter JSON (the restricted shape
+/// `query_node_to_agg_filter` emits: `term`/`range`/`bool{must,filter}`) into a
+/// pure conjunction of memtable columnar predicates, for the O(matching)
+/// filtered-memtable fold (`ShardedFtsMemtable::filtered_docs_arc`).
+///
+/// Only Term (keyword string) and numeric Range leaves — and a `bool` with just
+/// `must`/`filter` clauses of those — are expressible as a `[MemBoolPred]`
+/// conjunction.  `terms` (a disjunction), `match_all`, and anything richer yield
+/// `None`, so the caller keeps the exact full-memtable walk.  This is the
+/// columnar-predicate sibling of `compile_top_pred`; the fast-agg memtable fold
+/// always re-applies `doc_matches_filter` on top, so this only needs to be a
+/// no-false-negative candidate generator.
+fn mem_preds_from_agg_filter(filter: &Value) -> Option<Vec<MemBoolPred>> {
+    fn push_leaf(filter: &Value, out: &mut Vec<MemBoolPred>) -> Option<()> {
+        let obj = filter.as_object()?;
+        if obj.len() != 1 {
+            return None;
+        }
+        let (qtype, body) = obj.iter().next()?;
+        match qtype.as_str() {
+            "term" => {
+                let fm = body.as_object()?;
+                if fm.len() != 1 {
+                    return None;
+                }
+                let (field, expected) = fm.iter().next()?;
+                let value = match expected {
+                    Value::String(s) => {
+                        if s.contains('/') {
+                            return None; // CIDR — mirror mem_bool_preds
+                        }
+                        s.clone()
+                    }
+                    _ => return None,
+                };
+                out.push(MemBoolPred::Term {
+                    field: field.clone(),
+                    value,
+                });
+                Some(())
+            }
+            "range" => {
+                let fm = body.as_object()?;
+                if fm.len() != 1 {
+                    return None;
+                }
+                let (field, bounds) = fm.iter().next()?;
+                let b = bounds.as_object()?;
+                let get = |k: &str| -> Option<Option<f64>> {
+                    match b.get(k) {
+                        None => Some(None),
+                        Some(Value::Number(n)) => Some(n.as_f64()),
+                        _ => None, // date-string / non-numeric bound → bail
+                    }
+                };
+                // Reject any present-but-non-numeric bound.
+                for k in ["gte", "gt", "lte", "lt"] {
+                    if b.contains_key(k) && get(k)?.is_none() {
+                        return None;
+                    }
+                }
+                out.push(MemBoolPred::Range {
+                    field: field.clone(),
+                    gte: get("gte")?,
+                    gt: get("gt")?,
+                    lte: get("lte")?,
+                    lt: get("lt")?,
+                });
+                Some(())
+            }
+            "bool" => {
+                let bo = body.as_object()?;
+                if bo.keys().any(|k| k != "must" && k != "filter") {
+                    return None;
+                }
+                for key in ["must", "filter"] {
+                    if let Some(clauses) = bo.get(key) {
+                        for c in clauses.as_array()? {
+                            push_leaf(c, out)?;
+                        }
+                    }
+                }
+                Some(())
+            }
+            _ => None, // terms / match_all / … → not a pure Term/Range conjunction
+        }
+    }
+    let mut out = Vec::new();
+    push_leaf(filter, &mut out)?;
+    if out.is_empty() {
+        return None;
+    }
+    Some(out)
+}
 
 /// Minimum index size (live docs) before the columnar path activates.
 /// Below this the brute JSON path answers in single-digit milliseconds and
@@ -163,6 +259,18 @@ pub(super) struct FastCtx<'a> {
     /// memtable per-doc match (the trusted sibling of `compile_pred`, exactly
     /// as `exec_filter` pairs them).  `None` == match_all.
     top_filter_query: Option<Value>,
+    /// The top-level filter compiled to memtable columnar predicates (a pure
+    /// Term/Range conjunction), when it is one.  Drives the O(matching)
+    /// filtered-memtable fold (`filtered_mem`); `None` when the filter isn't a
+    /// pure conjunction (e.g. `terms`) or there is no filter — the executors
+    /// then walk the full `mem()` gated by `doc_matches_filter`, exactly as
+    /// before.
+    top_filter_mem_preds: Option<Vec<MemBoolPred>>,
+    /// Lazily-materialised columnar-filtered memtable docs (see `filtered_mem`).
+    /// The outer `Option` is the OnceLock cell; the inner `Option` is the
+    /// memtable's own "columnar path applicable?" answer (`None` == a bailout,
+    /// fall back to full `mem()`).
+    mem_filtered: std::sync::OnceLock<Option<Vec<(String, std::sync::Arc<Value>)>>>,
 }
 
 impl<'a> FastCtx<'a> {
@@ -205,6 +313,29 @@ impl<'a> FastCtx<'a> {
                 MemDocs::Shared { ids, srcs }
             }
         })
+    }
+
+    /// Columnar-filtered memtable docs for the top-level filter, or `None` when
+    /// the columnar fold doesn't apply — the caller then walks the full `mem()`
+    /// gated by `doc_matches_filter`, exactly as before.
+    ///
+    /// Applies ONLY when the top-level filter compiled to a pure Term/Range
+    /// conjunction AND the agg tree can't observe meta fields (`needs_owned_mem`
+    /// == false — the columnar sources carry no `_id`/`_index`/`_seq_no`, and
+    /// under that condition `plan.top_hits` is always `None`, so the positional
+    /// `DocRef::Mem`/`mem().len()` paths never run) AND every predicate field is
+    /// a scalar doc-valued column in every shard (the memtable returns `None`
+    /// otherwise).  The returned set is a no-false-negative superset of the
+    /// `doc_matches_filter` set — callers re-apply the JSON matcher for
+    /// byte-identical results.
+    fn filtered_mem(&self) -> Option<&[(String, std::sync::Arc<Value>)]> {
+        if self.needs_owned_mem {
+            return None;
+        }
+        let preds = self.top_filter_mem_preds.as_ref()?;
+        self.mem_filtered
+            .get_or_init(|| self.idx.memtable.filtered_docs_arc(preds))
+            .as_deref()
     }
 }
 
@@ -371,6 +502,11 @@ impl Index {
             Some(q) => Some(compile_top_pred(q)?),
         };
         let top_filter_query: Option<Value> = filter.cloned();
+        // Columnar-predicate form of the filter for the O(matching) memtable
+        // fold.  `None` for match_all or a non-conjunction filter (`terms`, …)
+        // — those keep the full-memtable walk.
+        let top_filter_mem_preds: Option<Vec<MemBoolPred>> =
+            filter.and_then(mem_preds_from_agg_filter);
 
         // Size + delete gates.
         let seg_physical: u64 = snap.segments.iter().map(|m| m.doc_count).sum();
@@ -441,6 +577,8 @@ impl Index {
             bool_fields,
             top_filter,
             top_filter_query,
+            top_filter_mem_preds,
+            mem_filtered: std::sync::OnceLock::new(),
         };
 
         // Filtered `hits.total`: the number of live docs matching the query.
@@ -459,9 +597,20 @@ impl Index {
                     total += seg_pred_count(&sp, seg.docs);
                 }
                 if let Some(q) = &ctx.top_filter_query {
-                    for doc in ctx.mem().iter() {
-                        if doc_matches_filter(doc, q) {
-                            total += 1;
+                    // O(matching) columnar fold when the filter columnarises;
+                    // else the full-memtable walk.  Both re-check
+                    // `doc_matches_filter` so the count is exact either way.
+                    if let Some(fdocs) = ctx.filtered_mem() {
+                        for (_id, src) in fdocs {
+                            if doc_matches_filter(src, q) {
+                                total += 1;
+                            }
+                        }
+                    } else {
+                        for doc in ctx.mem().iter() {
+                            if doc_matches_filter(doc, q) {
+                                total += 1;
+                            }
                         }
                     }
                 }
@@ -600,9 +749,21 @@ impl<'a> FastCtx<'a> {
     }
 
     fn mem_field_numeric_safe(&self, field: &str) -> bool {
-        self.mem()
-            .iter()
-            .all(|d| matches!(get_nested_field(d, field), Value::Number(_) | Value::Null))
+        // Under a columnarisable top filter, only the MATCHING docs are folded
+        // (segments + the columnar memtable candidate set, `doc_matches_filter`-
+        // rechecked), so the metric fold never touches a non-matching doc — the
+        // numeric-safety check need only cover the candidate set.  That set is a
+        // superset of the true matches, so this stays conservative (it may bail
+        // to brute on a non-matching candidate, never the reverse) while
+        // avoiding the full-memtable hydration.  When the columnar path doesn't
+        // apply it walks the full `mem()` exactly as before.
+        let is_num =
+            |d: &Value| matches!(get_nested_field(d, field), Value::Number(_) | Value::Null);
+        if let Some(fdocs) = self.filtered_mem() {
+            fdocs.iter().all(|(_id, src)| is_num(src))
+        } else {
+            self.mem().iter().all(is_num)
+        }
     }
 
     fn plan_top_hits(
@@ -826,6 +987,8 @@ impl<'a> FastCtx<'a> {
             bool_fields: self.bool_fields,
             top_filter: None,
             top_filter_query: None,
+            top_filter_mem_preds: None,
+            mem_filtered: std::sync::OnceLock::new(),
         };
         let mut bucket = Map::new();
         // Whole-corpus doc_count (no deletes on the fast path; segment rows are
@@ -930,9 +1093,20 @@ impl<'a> FastCtx<'a> {
             }
             let mut acc = std::mem::take(&mut accs[0][0]);
             if let Some(q) = &self.top_filter_query {
-                for d in self.mem().iter() {
-                    if doc_matches_filter(d, q) {
-                        Self::fold_mem_metric(d, &spec, &mut acc);
+                // O(matching) columnar fold when the filter columnarises; else
+                // the full-memtable walk.  Both gate on `doc_matches_filter`, so
+                // the folded set is byte-identical.
+                if let Some(fdocs) = self.filtered_mem() {
+                    for (_id, src) in fdocs {
+                        if doc_matches_filter(src, q) {
+                            Self::fold_mem_metric(src, &spec, &mut acc);
+                        }
+                    }
+                } else {
+                    for d in self.mem().iter() {
+                        if doc_matches_filter(d, q) {
+                            Self::fold_mem_metric(d, &spec, &mut acc);
+                        }
                     }
                 }
             }
@@ -1496,34 +1670,62 @@ impl<'a> FastCtx<'a> {
                 }
             }
             None => {
-                // Brute extractor semantics (multi-value, weights).
-                for (di, doc) in self.mem().iter().enumerate() {
-                    // Top-level query filter: skip non-matching memtable docs
-                    // (segment rows are already gated inside `fused_seg_pass`).
-                    if let Some(q) = &self.top_filter_query {
+                // O(matching) columnar fold: when the top filter columnarises
+                // AND no meta-observing sub-agg is present (`filtered_mem` is
+                // Some ⇒ `needs_owned_mem` false ⇒ `plan.top_hits` is None, so
+                // the positional `DocRef::Mem` path is unreachable here), fold
+                // only the columnar-matched candidates — re-checked against the
+                // JSON matcher for byte-identical results.  Otherwise the full
+                // `mem()` walk (brute extractor semantics; multi-value, weights,
+                // top_hits) exactly as before.
+                let columnar = match (self.filtered_mem(), self.top_filter_query.as_ref()) {
+                    (Some(fdocs), Some(q)) if plan.top_hits.is_none() => Some((fdocs, q)),
+                    _ => None,
+                };
+                if let Some((fdocs, q)) = columnar {
+                    for (_id, doc) in fdocs {
                         if !doc_matches_filter(doc, q) {
                             continue;
                         }
-                    }
-                    let weight = doc_count_weight(doc);
-                    let vals = extract_field_values(doc, field);
-                    for term in vals {
-                        let st = terms_map.entry(term).or_insert_with(|| new_state(&plan));
-                        st.count += weight;
-                        for (mi, spec) in plan.metrics.iter().enumerate() {
-                            Self::fold_mem_metric(doc, spec, &mut st.accs[mi]);
+                        let weight = doc_count_weight(doc);
+                        let vals = extract_field_values(doc, field);
+                        for term in vals {
+                            let st = terms_map.entry(term).or_insert_with(|| new_state(&plan));
+                            st.count += weight;
+                            for (mi, spec) in plan.metrics.iter().enumerate() {
+                                Self::fold_mem_metric(doc, spec, &mut st.accs[mi]);
+                            }
                         }
-                        if let Some(spec) = &plan.top_hits {
-                            match extract_numeric(doc, &spec.sort_field) {
-                                Some(v) => push_top(
-                                    &mut st.top,
-                                    spec.k,
-                                    spec.desc,
-                                    v,
-                                    di as u64,
-                                    DocRef::Mem(di),
-                                ),
-                                None => missing_sort_seen = true,
+                    }
+                } else {
+                    for (di, doc) in self.mem().iter().enumerate() {
+                        // Top-level query filter: skip non-matching memtable docs
+                        // (segment rows are already gated inside `fused_seg_pass`).
+                        if let Some(q) = &self.top_filter_query {
+                            if !doc_matches_filter(doc, q) {
+                                continue;
+                            }
+                        }
+                        let weight = doc_count_weight(doc);
+                        let vals = extract_field_values(doc, field);
+                        for term in vals {
+                            let st = terms_map.entry(term).or_insert_with(|| new_state(&plan));
+                            st.count += weight;
+                            for (mi, spec) in plan.metrics.iter().enumerate() {
+                                Self::fold_mem_metric(doc, spec, &mut st.accs[mi]);
+                            }
+                            if let Some(spec) = &plan.top_hits {
+                                match extract_numeric(doc, &spec.sort_field) {
+                                    Some(v) => push_top(
+                                        &mut st.top,
+                                        spec.k,
+                                        spec.desc,
+                                        v,
+                                        di as u64,
+                                        DocRef::Mem(di),
+                                    ),
+                                    None => missing_sort_seen = true,
+                                }
                             }
                         }
                     }

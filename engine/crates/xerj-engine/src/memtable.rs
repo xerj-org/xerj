@@ -756,6 +756,33 @@ impl ShardedFtsMemtable {
         out
     }
 
+    /// Columnar-filtered twin of `all_docs_with_sources_arc`: materialise ONLY
+    /// the `(doc_id, source_arc)` pairs matching `preds` (a pure conjunction of
+    /// Term/Range predicates), so a filtered `size:0` aggregation folds
+    /// O(matching) docs instead of hydrating the whole memtable under the shard
+    /// read lock.  Returns `None` (caller must fall back to
+    /// `all_docs_with_sources_arc`) when any shard can't prove column↔source
+    /// equivalence for a predicate field — see `filtered_docs_arc_into`.
+    ///
+    /// Each shard's enumeration + source materialisation happens under a single
+    /// `s.read()` held only for that shard's walk (the same brief per-shard hold
+    /// `all_docs_with_sources_arc` takes), so this both shrinks the work and the
+    /// lock hold that the mixed read-under-write contention is bound on.
+    pub fn filtered_docs_arc(&self, preds: &[MemBoolPred]) -> Option<Vec<(String, Arc<Value>)>> {
+        if preds.is_empty() {
+            return None;
+        }
+        let mut out: Vec<(String, Arc<Value>)> = Vec::new();
+        for s in &self.shards {
+            let g = s.read();
+            if g.doc_count() == 0 {
+                continue;
+            }
+            g.filtered_docs_arc_into(preds, &mut out)?;
+        }
+        Some(out)
+    }
+
     /// Drain every shard, merge-sort by seq_no, and return the
     /// combined (doc_id, text_fields, source) stream.  This is the
     /// single entry point used by the flush path — the sort
@@ -2685,6 +2712,118 @@ impl FtsMemtable {
         Some((out, total))
     }
 
+    /// Push `(doc_id, source_arc)` for every buffered position whose
+    /// doc-values columns satisfy EVERY predicate (a pure conjunction of
+    /// Term/Range).  Column resolution + per-predicate match semantics are the
+    /// exact ones `doc_values_bool_hits` uses, so this enumerates the same doc
+    /// set the fused-bool search walk would — but UNBOUNDED (all matches, the
+    /// aggregation contract) and materialising the matching sources instead of
+    /// just ids.
+    ///
+    /// Returns `None` (caller must fall back to the full-corpus walk) whenever
+    /// column↔source equivalence with the JSON matcher isn't provable for a
+    /// predicate field:
+    ///   * the field has EVER carried an ARRAY value in this shard — the column
+    ///     keeps only the first element, so a later element that matches under
+    ///     `doc_matches_filter` would be silently dropped (a false negative the
+    ///     aggregation could NOT recover);
+    ///   * a keyword predicate field holds analyzed-text (whitespace) values;
+    ///   * a predicate field has no column at all.
+    ///
+    /// For the shapes it DOES accept (scalar numeric/keyword columns) the
+    /// columnar match set equals the `doc_matches_filter` set — the fast-agg
+    /// caller still re-applies the JSON matcher as a safety net, so any residual
+    /// false POSITIVE is removed and only the provable no-false-negative
+    /// guarantee is load-bearing.
+    pub fn filtered_docs_arc_into(
+        &self,
+        preds: &[MemBoolPred],
+        out: &mut Vec<(String, Arc<Value>)>,
+    ) -> Option<()> {
+        enum Col<'a> {
+            Kw(&'a Vec<Option<String>>, &'a str),
+            NumEq(&'a Vec<Option<f64>>, f64),
+            Num(
+                &'a Vec<Option<f64>>,
+                Option<f64>,
+                Option<f64>,
+                Option<f64>,
+                Option<f64>,
+            ),
+        }
+        let mut cols: Vec<Col<'_>> = Vec::with_capacity(preds.len());
+        for p in preds {
+            match p {
+                MemBoolPred::Term { field, value } => {
+                    // Array-valued field: the column is lossy (first element
+                    // only) → bail so a later matching element can't be dropped.
+                    if self.doc_values.array_fields.contains(field.as_str()) {
+                        return None;
+                    }
+                    if let Some(col) = self.doc_values.keyword.get(field.as_str()) {
+                        if self
+                            .doc_values
+                            .keyword_has_whitespace
+                            .contains(field.as_str())
+                        {
+                            return None;
+                        }
+                        cols.push(Col::Kw(col, value.as_str()));
+                    } else if let Some(col) = self.doc_values.numeric.get(field.as_str()) {
+                        let needle = value.parse::<f64>().ok()?;
+                        cols.push(Col::NumEq(col, needle));
+                    } else {
+                        return None;
+                    }
+                }
+                MemBoolPred::Range {
+                    field,
+                    gte,
+                    gt,
+                    lte,
+                    lt,
+                } => {
+                    if self.doc_values.array_fields.contains(field.as_str()) {
+                        return None;
+                    }
+                    let col = self.doc_values.numeric.get(field.as_str())?;
+                    cols.push(Col::Num(col, *gte, *gt, *lte, *lt));
+                }
+            }
+        }
+        let n = self.docs.len();
+        'doc: for idx in 0..n {
+            for c in &cols {
+                let ok = match c {
+                    Col::Kw(col, want) => col.get(idx).and_then(|o| o.as_deref()) == Some(*want),
+                    Col::NumEq(col, want) => col.get(idx).copied().flatten() == Some(*want),
+                    Col::Num(col, gte, gt, lte, lt) => match col.get(idx).copied().flatten() {
+                        None => false,
+                        Some(v) => {
+                            let pl = match (gte, gt) {
+                                (Some(b), _) => v >= *b,
+                                (None, Some(b)) => v > *b,
+                                (None, None) => true,
+                            };
+                            let pu = match (lte, lt) {
+                                (Some(b), _) => v <= *b,
+                                (None, Some(b)) => v < *b,
+                                (None, None) => true,
+                            };
+                            pl && pu
+                        }
+                    },
+                };
+                if !ok {
+                    continue 'doc;
+                }
+            }
+            let e = &self.docs[idx];
+            out.push((e.doc_id.clone(), Self::resolve_source_arc(e)));
+        }
+        Some(())
+    }
+
     /// Fast term query using the keyword column — O(N * string_compare).
     ///
     /// Returns `(doc_id, doc_index)` pairs for documents where the keyword
@@ -3163,5 +3302,156 @@ mod bounded_delta_counts_tests {
         dv.remove_at(1234);
         dv.remove_at(0);
         assert_maintained_eq_recount(&dv);
+    }
+}
+
+#[cfg(test)]
+mod filtered_docs_arc_tests {
+    use super::*;
+    use crate::aggs::doc_matches_filter;
+    use serde_json::json;
+
+    /// Build a sharded memtable of `n_docs` docs with scalar fields:
+    ///   n (long = i), status (keyword, 5-card = i%5), lat (double).
+    fn build_mem(n_docs: usize) -> ShardedFtsMemtable {
+        let mem = ShardedFtsMemtable::new();
+        let schema = Schema::default();
+        for i in 0..n_docs {
+            let doc = json!({
+                "n": i as i64,
+                "status": format!("s{}", i % 5),
+                "lat": (i % 1000) as f64 * 0.01,
+            });
+            mem.insert(format!("d{i}"), &doc, &schema, i as u64);
+        }
+        mem
+    }
+
+    /// Brute reference: every buffered doc whose source matches `filter_json`
+    /// under the exact JSON matcher, as a sorted `doc_id` vec.
+    fn brute_ids(mem: &ShardedFtsMemtable, filter_json: &Value) -> Vec<String> {
+        let mut ids: Vec<String> = mem
+            .all_docs_with_sources_arc()
+            .into_iter()
+            .filter(|(_id, src)| doc_matches_filter(src, filter_json))
+            .map(|(id, _)| id)
+            .collect();
+        ids.sort();
+        ids
+    }
+
+    fn columnar_ids(mem: &ShardedFtsMemtable, preds: &[MemBoolPred]) -> Vec<String> {
+        let mut ids: Vec<String> = mem
+            .filtered_docs_arc(preds)
+            .expect("columnar path should apply for scalar fields")
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect();
+        ids.sort();
+        ids
+    }
+
+    /// The columnar candidate set must EQUAL the `doc_matches_filter` set —
+    /// including on a filter that matches FAR more than the historical
+    /// `materialisation_limit` (256) so a bounded/truncated fold would be
+    /// caught (the all-matches aggregation contract).
+    #[test]
+    fn columnar_range_matches_brute_over_256() {
+        let mem = build_mem(4000);
+        // Range n ∈ [500, 3500) → 3000 matches, an order of magnitude past 256.
+        let preds = vec![MemBoolPred::Range {
+            field: "n".to_string(),
+            gte: Some(500.0),
+            gt: None,
+            lte: None,
+            lt: Some(3500.0),
+        }];
+        let filter = json!({ "range": { "n": { "gte": 500, "lt": 3500 } } });
+        let brute = brute_ids(&mem, &filter);
+        let columnar = columnar_ids(&mem, &preds);
+        assert_eq!(brute.len(), 3000, "sanity: 3000 docs in [500,3500)");
+        assert_eq!(columnar, brute, "columnar range set diverged from brute");
+        // Value fold parity: sum over the columnar candidate set (metric-agg
+        // fold input) equals the brute sum over the matcher set.
+        let sum_of = |ids: &[String]| -> f64 {
+            ids.iter()
+                .map(|id| id.trim_start_matches('d').parse::<f64>().unwrap())
+                .sum()
+        };
+        assert_eq!(sum_of(&columnar), sum_of(&brute));
+    }
+
+    /// Term + Range conjunction (a `bool{filter}`), also > 256 matches.
+    #[test]
+    fn columnar_bool_conjunction_matches_brute() {
+        let mem = build_mem(4000);
+        // status == "s2" (800 docs) AND n ∈ [0,4000) → the 800 status-s2 docs.
+        let preds = vec![
+            MemBoolPred::Term {
+                field: "status".to_string(),
+                value: "s2".to_string(),
+            },
+            MemBoolPred::Range {
+                field: "n".to_string(),
+                gte: Some(0.0),
+                gt: None,
+                lte: None,
+                lt: Some(4000.0),
+            },
+        ];
+        let filter = json!({
+            "bool": { "filter": [
+                { "term": { "status": "s2" } },
+                { "range": { "n": { "gte": 0, "lt": 4000 } } },
+            ]}
+        });
+        let brute = brute_ids(&mem, &filter);
+        assert_eq!(brute.len(), 800);
+        assert_eq!(columnar_ids(&mem, &preds), brute);
+    }
+
+    /// Bare keyword term.
+    #[test]
+    fn columnar_term_matches_brute() {
+        let mem = build_mem(2000);
+        let preds = vec![MemBoolPred::Term {
+            field: "status".to_string(),
+            value: "s3".to_string(),
+        }];
+        let filter = json!({ "term": { "status": "s3" } });
+        let brute = brute_ids(&mem, &filter);
+        assert_eq!(brute.len(), 400);
+        assert_eq!(columnar_ids(&mem, &preds), brute);
+    }
+
+    /// A predicate field that ever carried an ARRAY value makes the column
+    /// lossy (first element only), so the columnar path MUST bail (`None`) so
+    /// the caller keeps the exact full-corpus walk — otherwise a later matching
+    /// array element would be a silent false negative.
+    #[test]
+    fn columnar_bails_on_array_predicate_field() {
+        let mem = ShardedFtsMemtable::new();
+        let schema = Schema::default();
+        for i in 0..2000usize {
+            // Every 500th doc stores `n` as an array — poisons the shard's
+            // `array_fields` for whichever shard owns it.
+            let n_val = if i % 500 == 0 {
+                json!([i as i64, (i as i64) + 1])
+            } else {
+                json!(i as i64)
+            };
+            mem.insert(format!("d{i}"), &json!({ "n": n_val }), &schema, i as u64);
+        }
+        let preds = vec![MemBoolPred::Range {
+            field: "n".to_string(),
+            gte: Some(0.0),
+            gt: None,
+            lte: None,
+            lt: Some(2000.0),
+        }];
+        assert!(
+            mem.filtered_docs_arc(&preds).is_none(),
+            "array-valued predicate field must force the full-corpus fallback"
+        );
     }
 }
