@@ -24,7 +24,8 @@ Both arms use XERJ's own server-side embedder (the pooled baseline reuses
 XERJ's ``<field>_vector`` read back out of ``_source``), so the only variable
 is pooled-vs-per-passage. We report how often the compendium reaches the top-3.
 
-Run:  python3 recipes/passage_search.py      (honors $XERJ_URL, default :9200)
+Run:  python3 docs/examples/passage-retrieval/passage_demo.py
+      (honors $XERJ_URL, default http://localhost:9200)
 """
 import json
 import os
@@ -34,8 +35,32 @@ import urllib.request
 
 URL = os.environ.get("XERJ_URL", "http://localhost:9200").rstrip("/")
 HERE = os.path.dirname(os.path.abspath(__file__))
-KB = os.path.join(HERE, "..", "demo", "data", "ai_kb.ndjson")
 TOPK = 3
+
+
+def _find_kb():
+    """Locate demo/data/ai_kb.ndjson robustly.
+
+    Honors $XERJ_KB if set; otherwise walks up from this file to the repo
+    root that holds demo/data/ai_kb.ndjson (works no matter how deep the
+    example lives under the tree)."""
+    env = os.environ.get("XERJ_KB")
+    if env:
+        return env
+    d = HERE
+    for _ in range(8):
+        cand = os.path.join(d, "demo", "data", "ai_kb.ndjson")
+        if os.path.exists(cand):
+            return cand
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    # Documented repo-relative fallback (docs/examples/<recipe>/ → repo root).
+    return os.path.join(HERE, "..", "..", "..", "demo", "data", "ai_kb.ndjson")
+
+
+KB = _find_kb()
 
 
 def req(method, path, body=None, quiet=False):

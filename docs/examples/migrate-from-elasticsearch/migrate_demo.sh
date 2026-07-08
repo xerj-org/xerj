@@ -5,12 +5,15 @@
 # point it at XERJ's wire port and every request below is byte-for-byte
 # the same JSON you'd send Elasticsearch.
 #
-#   ES=http://localhost:9487 ./migrate_demo.sh
+#   ES=http://localhost:9200 ./migrate_demo.sh
 #
-# Requires: curl, and (for pretty output) python3 — both stdlib-only.
+# Requires: curl, and python3 (both stdlib-only — the python is just a JSON
+# pretty-printer; no third-party packages, no network calls of its own).
 set -euo pipefail
 
-ES="${ES:-http://localhost:9200}"   # <-- the ONE thing you change to migrate
+# The ONE thing you change to migrate. ES is the documented knob; XERJ_URL is
+# accepted as an alias so the same script drops into XERJ's own tooling.
+ES="${ES:-${XERJ_URL:-http://localhost:9200}}"
 IDX=products
 
 pp() { python3 -m json.tool; }      # pretty-print JSON from stdin
@@ -49,26 +52,27 @@ curl -s -X POST "$ES/_bulk" \
 {"name":"Ceramic coffee mug","brand":"Bodum","price":12.00,"in_stock":true}
 {"index":{"_index":"products","_id":"6"}}
 {"name":"Plastic sports bottle","brand":"Klean","price":9.99,"in_stock":false}
-' | python3 -c 'import sys,json; d=json.load(sys.stdin); print("errors:",d["errors"],"items:",len(d["items"]))'
+' | python3 -c 'import sys,json; d=json.load(sys.stdin); print("errors:", str(d["errors"]).lower(), " items:", len(d["items"]))'
 
 # Make freshly-indexed docs searchable (ES semantics: refresh).
 curl -s -X POST "$ES/$IDX/_refresh" >/dev/null
 
 # 3) match query — full-text search on the analyzed "name" field.
-say "3. _search  match: name ~ \"water bottle\""
+say '3. _search  match: name ~ "water bottle"'
 curl -s "$ES/$IDX/_search" -H 'Content-Type: application/json' -d '{
   "query": { "match": { "name": "water bottle" } },
   "_source": ["name","brand","price"]
 }' | python3 -c '
-import sys,json
-d=json.load(sys.stdin)
-print("total:", d["hits"]["total"]["value"])
-for h in d["hits"]["hits"]:
-    print(f"  {h[_SCORE]:.3f}  {h[_SRC][NAME]}".replace("_SCORE",chr(39)+"_score"+chr(39)).replace("_SRC",chr(39)+"_source"+chr(39)).replace("NAME",chr(39)+"name"+chr(39)))
-' 2>/dev/null || curl -s "$ES/$IDX/_search" -H 'Content-Type: application/json' -d '{"query":{"match":{"name":"water bottle"}},"_source":["name"]}' | pp
+import sys, json
+d = json.load(sys.stdin)
+h = d["hits"]
+print("total:", h["total"]["value"], " max_score:", round(h["max_score"], 4))
+for hit in h["hits"]:
+    print("  %.3f  %s" % (hit["_score"], hit["_source"]["name"]))
+'
 
 # 4) bool query: must match + term filter + range filter — the classic ES combo.
-say "4. _search  bool: match \"bottle\" AND brand=Hydro-or-Klean AND price 10..40"
+say '4. _search  bool: match "bottle" AND brand=Hydro-or-Klean AND price 10..40'
 curl -s "$ES/$IDX/_search" -H 'Content-Type: application/json' -d '{
   "query": {
     "bool": {
@@ -80,7 +84,15 @@ curl -s "$ES/$IDX/_search" -H 'Content-Type: application/json' -d '{
     }
   },
   "_source": ["name","brand","price"]
-}' | pp
+}' | python3 -c '
+import sys, json
+d = json.load(sys.stdin)
+h = d["hits"]
+print("total:", h["total"]["value"])
+for hit in h["hits"]:
+    s = hit["_source"]
+    print("  %-6s %6.2f  %s" % (s["brand"], s["price"], s["name"]))
+'
 
 # 5) terms aggregation — count products per brand (no query hits, just the agg).
 say "5. _search  terms agg: products per brand"
@@ -89,11 +101,26 @@ curl -s "$ES/$IDX/_search" -H 'Content-Type: application/json' -d '{
   "aggs": {
     "by_brand": { "terms": { "field": "brand" } }
   }
-}' | pp
+}' | python3 -c '
+import sys, json
+d = json.load(sys.stdin)
+print("total docs:", d["hits"]["total"]["value"])
+agg = d["aggregations"]["by_brand"]
+print("doc_count_error_upper_bound:", agg["doc_count_error_upper_bound"],
+      " sum_other_doc_count:", agg["sum_other_doc_count"])
+for b in agg["buckets"]:
+    print("  %-6s %d" % (b["key"], b["doc_count"]))
+'
 
 # 6) _cat/indices — operational sanity check, human-readable table.
-say "6. GET /_cat/indices?v"
+#    Note: XERJ serves the whole-cluster _cat/indices listing (which also
+#    includes its .xerj_* system indices). It does NOT serve the per-index
+#    _cat/indices/<name> path (404), so filter client-side as shown.
+say "6. GET /_cat/indices?v  (ops table — includes .xerj_* system indices)"
 curl -s "$ES/_cat/indices?v"
+echo
+echo "--- your index only (client-side filter) ---"
+curl -s "$ES/_cat/indices?v" | grep -E ' products ' || true
 
 echo
 echo "All standard Elasticsearch calls succeeded against XERJ at $ES"

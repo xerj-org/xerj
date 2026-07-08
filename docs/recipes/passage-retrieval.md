@@ -59,16 +59,15 @@ even if the rest of it is about something else entirely.
 
 ## Try it
 
-`docs/examples/passage-retrieval/passage_demo.py` (identical to
-`recipes/passage_search.py`) indexes the 40 real KB articles as short docs
-**plus** one long "compendium" that concatenates all 40, then runs each
-article's title as a query and measures how often the long compendium reaches
-the top 3. Both arms use XERJ's own embedder — the pooled baseline reads
-XERJ's whole-document `<field>_vector` back out of `_source` — so the only
-variable is pooled-vs-per-passage:
+`docs/examples/passage-retrieval/passage_demo.py` indexes the 40 real KB
+articles as short docs **plus** one long "compendium" that concatenates all
+40, then runs each article's title as a query and measures how often the long
+compendium reaches the top 3 under each scoring mode. Both arms use XERJ's own
+embedder — the pooled baseline reads XERJ's whole-document `<field>_vector`
+back out of `_source` — so the only variable is pooled-vs-per-passage:
 
 ```
-$ python3 recipes/passage_search.py
+$ python3 docs/examples/passage-retrieval/passage_demo.py
 40 short article docs + 1 long compendium of all 40
 
 compendium embedded into 21 passage vectors (pooled into 1 whole-doc vector of 384 dims)
@@ -84,6 +83,38 @@ OK: per-passage scoring let the long document compete on each of its sections
 The compendium contains every topic, so with per-passage scoring it competes
 for almost every query. Averaged into a single vector, it is a mediocre blur
 that loses to the undiluted short docs two times out of three.
+
+## Reproduce it yourself
+
+Start XERJ on its default port (`9200`) and run the example — no keys, no
+external services, stdlib Python only:
+
+```bash
+# 1. Start a throwaway XERJ (ES-compat wire on :9200 by default)
+xerj --insecure --data-dir ./data
+
+# 2. In another shell, run the demo (honors $XERJ_URL, default http://localhost:9200)
+python3 docs/examples/passage-retrieval/passage_demo.py
+```
+
+Point it at a non-default host/port with `XERJ_URL=http://host:port`. The run
+is fully deterministic (offline lexical embedder over a fixed 40-article
+corpus), so every run prints the same numbers:
+
+```
+40 short article docs + 1 long compendium of all 40
+
+compendium embedded into 21 passage vectors (pooled into 1 whole-doc vector of 384 dims)
+
+compendium reached the top-3:
+  per-passage : 39/40  (98%)
+  pooled      : 13/40  (32%)
+```
+
+Both `39/40` and `13/40` are computed by the run itself over the 40 title
+queries — nothing is hardcoded. If either arm regresses (per-passage top-3
+rate < 75%, or per-passage failing to beat pooled) the script exits non-zero,
+so it doubles as a CI gate.
 
 ## How it works
 

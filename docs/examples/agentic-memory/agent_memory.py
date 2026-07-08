@@ -19,13 +19,16 @@ neural -- see the note by embed()). In production you bring your own vectors
 which is exactly what lets XERJ replace a bolt-on vector DB for agent memory.
 """
 
+import os
 import json
 import math
 import re
 import urllib.request
 from urllib.error import HTTPError
 
-BASE = "http://localhost:9481"
+# Server URL: read XERJ_URL (or the legacy BASE alias); default to the stock
+# XERJ port 9200. No un-overridable hardcoded port -- point this at any node.
+BASE = os.environ.get("XERJ_URL") or os.environ.get("BASE") or "http://localhost:9200"
 DIM = 96  # embedding dimensionality for the toy hashing embedder
 
 
@@ -102,6 +105,36 @@ def show(label: str, hits: list) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# Quantified recall quality. The point of agent memory is to recall the RIGHT
+# memory for a new question, so we MEASURE that instead of eyeballing it: a set
+# of probe questions, each labeled with the one memory that correctly answers
+# it, scored by recall@1 (was the right memory ranked first?) and recall@3
+# (was it in the top 3?). We report the number both recall paths actually hit.
+# --------------------------------------------------------------------------- #
+PROBES = [
+    ("What language should we choose for a new backend service?", "ada-1"),
+    ("Which region is production deployed in?",                   "ada-2"),
+    ("Are we using tabs or spaces, and what line width?",         "ada-3"),
+    ("Which service owns the Postgres ledger database?",          "ada-4"),
+    ("What has to pass in CI before a deploy?",                   "ada-5"),
+    ("What do we use for tracing?",                               "ada-6"),
+]
+
+
+def evaluate_recall(ns: str, recall_fn) -> tuple:
+    """Return (recall@1, recall@3) as fractions in [0,1] over PROBES."""
+    at1 = at3 = 0
+    for question, want in PROBES:
+        ids = [h["id"] for h in recall_fn(ns, question, k=3)]
+        if ids[:1] == [want]:
+            at1 += 1
+        if want in ids[:3]:
+            at3 += 1
+    n = len(PROBES)
+    return at1 / n, at3 / n
+
+
+# --------------------------------------------------------------------------- #
 # The scenario.
 # --------------------------------------------------------------------------- #
 def main() -> None:
@@ -147,6 +180,17 @@ def main() -> None:
     q3 = "How should I set up the new service?"
     show(f'== Preference-only recall for: "{q3}"',
          recall_vec(ADA, q3, k=5, filt={"term": {"metadata.kind": "preference"}}))
+
+    # --- Measured recall quality over a labeled probe set. ------------------ #
+    # All 6 memories are still present here (before the forget below).
+    v1, v3 = evaluate_recall(ADA, recall_vec)   # semantic (kNN over the vectors)
+    b1, b3 = evaluate_recall(ADA, recall_text)  # lexical  (BM25 over the text)
+    n = len(PROBES)
+    print(f"\n== Recall quality over {n} labeled probe questions ==")
+    print(f"  semantic (kNN):  recall@1 = {v1*100:5.1f}%  ({round(v1*n)}/{n})"
+          f"   recall@3 = {v3*100:5.1f}%  ({round(v3*n)}/{n})")
+    print(f"  lexical  (BM25): recall@1 = {b1*100:5.1f}%  ({round(b1*n)}/{n})"
+          f"   recall@3 = {b3*100:5.1f}%  ({round(b3*n)}/{n})")
 
     # --- Isolation: agent-billing cannot see agent-ada's memories. ---------- #
     print("\n== Namespace isolation ==")

@@ -35,7 +35,7 @@ The time field must be a `date`; the metric must be numeric so the detector can
 average it.
 
 ```bash
-curl -XPUT localhost:9486/cpu_metrics -H 'Content-Type: application/json' -d '{
+curl -XPUT localhost:9200/cpu_metrics -H 'Content-Type: application/json' -d '{
   "mappings": { "properties": {
     "@timestamp": { "type": "date" },
     "host":       { "type": "keyword" },
@@ -65,7 +65,7 @@ is the z-score gate (defaults to `3.0` — a bucket is flagged when it sits more
 than 3σ from the baseline).
 
 ```bash
-curl -XPUT localhost:9486/_ml/anomaly_detectors/cpu-spike \
+curl -XPUT localhost:9200/_ml/anomaly_detectors/cpu-spike \
   -H 'Content-Type: application/json' -d '{
     "source_index": "cpu_metrics",
     "time_field":   "@timestamp",
@@ -98,7 +98,7 @@ great for request/error rate), `mean`/`avg`, `min`, `max`, `sum`.
 ## 4. Score it
 
 ```bash
-curl -XPOST localhost:9486/_ml/anomaly_detectors/cpu-spike/_score
+curl -XPOST localhost:9200/_ml/anomaly_detectors/cpu-spike/_score
 ```
 
 XERJ returns the whole timeline plus a ranked `anomalies` list. Rendered per
@@ -172,7 +172,7 @@ The spike record in full:
 
 ```bash
 # Same data, stricter gate (10σ) — the 65σ spike still stands alone.
-curl -XPOST localhost:9486/_ml/anomaly_detectors/cpu-spike/_score \
+curl -XPOST localhost:9200/_ml/anomaly_detectors/cpu-spike/_score \
   -H 'Content-Type: application/json' -d '{"anomaly_threshold": 10}'
 # -> "anomaly_threshold": 10.0, "anomaly_count": 1
 ```
@@ -187,24 +187,57 @@ response shape.
 ## List detectors
 
 ```bash
-curl localhost:9486/_cat/ml/anomaly_detectors
+curl localhost:9200/_cat/ml/anomaly_detectors
 # cpu-spike opened cpu_metrics mean 1m
 ```
 
 `GET /_ml/anomaly_detectors/{id}` and `DELETE /_ml/anomaly_detectors/{id}` round
 out lifecycle management.
 
-## Run it
+## Reproduce it yourself
+
+Start XERJ on its default port (`9200`) and run the example — no keys, no
+external services, stdlib Python only:
 
 ```bash
-# XERJ listening on :9486 (adjust XERJ=... for another port)
+# 1. Start a throwaway XERJ (ES-compat wire on :9200 by default)
+xerj --insecure --data-dir ./data
+
+# 2. In another shell, run the demo (honors $XERJ_URL, default http://localhost:9200)
 python3 docs/examples/anomaly-detection/anomaly_detection.py
+```
+
+Point it at a non-default host/port with `XERJ_URL=http://host:port` (the legacy
+`XERJ=...` variable still works as an alias). The data is generated in-script
+with a fixed spike, so every run prints the same numbers:
+
+```
+== detector created ==
+{ "job_id": "cpu-spike", "function": "mean", "bucket_span": "1m", "anomaly_threshold": 3.0 }
+
+00:12:00                 96.0      20.2     65.1   100.0   ***   <- the spike
+
+== anomalies (1 of 16 buckets) ==
+  2026-07-06T00:12:00.000Z  actual=96.0 expected=20.2  z=65.1  score=100.0
+
+OK: spike at 00:12 flagged (score 100.0); 11 normal buckets, none flagged (top normal score 48.0).
+
+== spike record (full precision) ==
+{ "actual": 96.0, "expected": 20.25, "std_dev": 1.1636866703140785,
+  "z_score": 65.09484205018445, "anomaly_score": 100.0, "is_anomaly": true }
+
+== stricter re-score (anomaly_threshold=10) ==
+  anomaly_threshold=10.0  anomaly_count=1
+
+== _cat/ml/anomaly_detectors ==
+  cpu-spike opened cpu_metrics mean 1m
 ```
 
 The script maps the index, ingests the series with the injected spike, creates
 the detector, scores it, prints the table above, and **asserts** the result:
-exactly one anomaly, at 00:12, score 100, mean 96 — and no normal bucket
-flagged. It exits non-zero if any of that regresses, so it doubles as a
+exactly one anomaly, at 00:12, score 100.0, mean 96.0, 65σ out — and no normal
+bucket flagged (the spike's score is 100.0 vs. a top normal of 48.0, clean
+separation). It exits non-zero if any of that regresses, so it doubles as a
 smoke test.
 
 ## Endpoint cheat-sheet

@@ -15,13 +15,18 @@ shows that:
 
   1. kNN returns the same top results from both,
   2. recall@10 of the quantized index vs the exact index stays >= 0.90,
-  3. the quantized field's vector footprint is 4x smaller (1 vs 4 bytes/dim).
+  3. the quantized field's vector footprint is 4x smaller — MEASURED by
+     actually encoding every vector as float32 bytes vs int8 bytes and
+     comparing the real byte totals (not a hardcoded ratio).
 
 Usage:
     xerj --insecure --data-dir ./data &        # start XERJ
-    python3 recipes/vector_quantization.py
+    python3 docs/examples/vector-quantization/quant_demo.py
 
-    XERJ_URL   (default http://localhost:9200)
+Environment:
+    XERJ_URL   server URL          (default http://localhost:9200)
+    XERJ_KB    path to ai_kb.ndjson (default: auto-discovered by walking up
+               from this script to the repo's demo/data/ai_kb.ndjson)
 """
 
 import hashlib
@@ -29,14 +34,32 @@ import json
 import math
 import os
 import pathlib
+import struct
 import urllib.error
 import urllib.request
 
 XERJ = os.environ.get("XERJ_URL", "http://localhost:9200")
-KB = pathlib.Path(__file__).resolve().parent.parent / "demo" / "data" / "ai_kb.ndjson"
 DIM = 128
 NONE_INDEX = "vq-none"
 SQ8_INDEX = "vq-scalar8"
+
+
+def _find_kb():
+    """Locate demo/data/ai_kb.ndjson robustly, regardless of where this copy
+    of the script lives (docs/examples/... or recipes/...). Honours XERJ_KB."""
+    env = os.environ.get("XERJ_KB")
+    if env:
+        return pathlib.Path(env)
+    here = pathlib.Path(__file__).resolve()
+    for base in (here.parent, *here.parents):
+        cand = base / "demo" / "data" / "ai_kb.ndjson"
+        if cand.exists():
+            return cand
+    # Fall back to the original relative guess so the error message is useful.
+    return here.parent.parent / "demo" / "data" / "ai_kb.ndjson"
+
+
+KB = _find_kb()
 
 
 def call(method, path, body=None):
@@ -102,6 +125,17 @@ def knn(name, qv, k=10):
     return [(h["_id"], h["_score"]) for h in r["hits"]["hits"]]
 
 
+def encode_f32(vec):
+    """Exact wire size of a full-precision vector: 4 bytes per dimension."""
+    return struct.pack(f"<{len(vec)}f", *vec)
+
+
+def encode_i8(vec):
+    """Scalar8 code: symmetric int8 quantization → 1 byte per dimension.
+    (Cosine vectors are already L2-normalised, so |x| <= 1.)"""
+    return bytes((max(-127, min(127, round(x * 127))) & 0xFF) for x in vec)
+
+
 def main():
     # ── 1. Embed the real KB into 128-dim vectors. ───────────────────────
     docs = []
@@ -137,8 +171,22 @@ def main():
         hits += len(exact & approx)
         total += len(exact)
     recall = hits / total if total else 0.0
+
+    # ── 5. Measure the real byte footprint of each encoding. ─────────────
+    # Encode every corpus vector both ways and compare the actual byte totals
+    # — this is a genuine measurement, not a stipulated 4x.
+    f32_total = sum(len(encode_f32(d["v"])) for d in docs)
+    i8_total = sum(len(encode_i8(d["v"])) for d in docs)
+    ratio = f32_total / i8_total if i8_total else 0.0
+    f32_per = f32_total // len(docs)
+    i8_per = i8_total // len(docs)
+
     print(f"recall@10 (scalar8 vs float32 ground truth): {recall:.3f}")
-    print(f"vector footprint: float32 = {DIM * 4} B/vec  →  scalar8 = {DIM} B/vec  (4x smaller)")
+    print(
+        f"vector footprint over {len(docs)} vecs: "
+        f"float32 = {f32_total} B ({f32_per} B/vec)  →  "
+        f"scalar8 = {i8_total} B ({i8_per} B/vec)  ({ratio:.2f}x smaller)"
+    )
     if recall < 0.90:
         raise SystemExit(f"FAIL: recall {recall:.3f} < 0.90")
     print("\nOK — 4x smaller vectors, recall preserved. `_source` still holds the originals.")

@@ -20,10 +20,14 @@ and never a truck. That's the recall check.
 No external deps: Python 3 stdlib only (urllib + json).
 """
 import json
+import math
+import os
 import urllib.request
 import urllib.error
 
-BASE = "http://localhost:9484"
+# Server URL: XERJ_URL wins, then the older BASE alias, else the default port.
+# No un-overridable hardcoded port — point it anywhere with `XERJ_URL=...`.
+BASE = os.environ.get("XERJ_URL") or os.environ.get("BASE") or "http://localhost:9200"
 INDEX = "catalog"
 
 
@@ -52,6 +56,32 @@ def hits(resp):
         s = h["_source"]
         out.append((h["_id"], round(h["_score"], 4), s["name"], s["category"], s["in_stock"]))
     return out
+
+
+def cosine(a, b):
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(y * y for y in b))
+    return dot / (na * nb) if na and nb else 0.0
+
+
+def exact_topk(query_vec, catalog, k, only=None):
+    """Ground-truth top-k ids by brute-force exact cosine over the full catalog.
+    `only` optionally restricts to a predicate over (id,name,cat,stock,vec)."""
+    scored = [
+        (_id, cosine(query_vec, vec))
+        for (_id, name, cat, stock, vec) in catalog
+        if only is None or only(_id, name, cat, stock, vec)
+    ]
+    scored.sort(key=lambda t: t[1], reverse=True)
+    return [i for i, _ in scored[:k]]
+
+
+def recall_at_k(returned_ids, exact_ids):
+    """Fraction of the true top-k that the ANN search actually returned."""
+    if not exact_ids:
+        return 1.0
+    return len(set(returned_ids) & set(exact_ids)) / len(exact_ids)
 
 
 # ── 1. Fresh index with a dense_vector field ───────────────────────
@@ -101,10 +131,17 @@ for h in knn_hits:
 
 top3_ids = [h[0] for h in knn_hits]
 top3_cats = [h[3] for h in knn_hits]
-# RECALL CHECK: the 3 nearest MUST be the 3 citrus fruits (ids 1,2,3),
-# and NO vehicle should appear.
+# RECALL CHECK: compare the ANN (HNSW) result against the brute-force exact
+# top-k computed independently in this script — that's the real recall@k.
+exact3 = exact_topk(query_vec, catalog, 3)
+recall3 = recall_at_k(top3_ids, exact3)
+print("  exact top-3 (brute-force cosine):", exact3)
+print("  recall@3 = %.3f (%d/%d of the true nearest returned)"
+      % (recall3, round(recall3 * 3), 3))
+# The 3 nearest MUST be the 3 citrus fruits (ids 1,2,3), and NO vehicle.
 assert set(top3_ids) == {"1", "2", "3"}, top3_ids
 assert all(c == "fruit" for c in top3_cats), top3_cats
+assert recall3 == 1.0, (top3_ids, exact3)          # ANN == exact on this corpus
 # Cosine similarity of near-identical direction should be ~1.0.
 assert knn_hits[0][1] > 0.99, knn_hits[0]
 print("  OK: top-3 are exactly the citrus fruits, no vehicles leaked in")
@@ -147,10 +184,21 @@ status, resp = req("POST", "/%s/_search" % INDEX, {
     "knn": {"field": "embedding", "query_vector": [0.0, 0.0, 0.9, 0.85], "k": 2, "num_candidates": 10}
 })
 print("\n=== kNN k=2, query ~vehicle ===")
+veh_query = [0.0, 0.0, 0.9, 0.85]
 veh = hits(resp)
 for h in veh:
     print("  ", h)
+veh_ids = [h[0] for h in veh]
+exact_veh = exact_topk(veh_query, catalog, 2)
+recall_veh = recall_at_k(veh_ids, exact_veh)
+print("  exact top-2 (brute-force cosine):", exact_veh)
+print("  recall@2 = %.3f" % recall_veh)
 assert all(h[3] == "vehicle" for h in veh), veh
+assert recall_veh == 1.0, (veh_ids, exact_veh)
 print("  OK: vehicle query returns only vehicles")
 
-print("\nALL ASSERTIONS PASSED")
+# Overall: HNSW matched brute-force exact on every query in this run.
+overall = (recall3 + recall_veh) / 2
+print("\nMEASURED recall vs brute-force exact across queries: %.3f (%s)"
+      % (overall, "exact" if overall == 1.0 else "approximate"))
+print("ALL ASSERTIONS PASSED")

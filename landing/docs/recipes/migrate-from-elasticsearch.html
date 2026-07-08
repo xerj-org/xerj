@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XERJ.ai · Docs · Playbook · Log analytics</title>
-<meta name="description" content="Playbook · Log analytics — XERJ.ai documentation.">
+<title>XERJ · Docs · Recipe · Migrate from Elasticsearch</title>
+<meta name="description" content="Recipe · Migrate from Elasticsearch to XERJ by pointing your client's base URL at XERJ — it speaks the ES REST wire protocol on :9200, so your queries, bulk loads, and dashboards work unchanged.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -81,7 +81,7 @@
   <div class="group">
     <span class="label">PLAYBOOKS</span>
     <a href="/docs/playbooks/siem.html" class=""><span class="eyebrow">01</span>SIEM</a>
-      <a href="/docs/playbooks/log-analytics.html" class="active"><span class="eyebrow">02</span>Log analytics</a>
+      <a href="/docs/playbooks/log-analytics.html" class=""><span class="eyebrow">02</span>Log analytics</a>
       <a href="/docs/playbooks/vector-search.html" class=""><span class="eyebrow">03</span>Vector · RAG</a>
       <a href="/docs/playbooks/full-text.html" class=""><span class="eyebrow">04</span>Full-text search</a>
       <a href="/docs/playbooks/observability.html" class=""><span class="eyebrow">05</span>Observability</a>
@@ -98,7 +98,7 @@
     <a href="/docs/recipes/log-analytics.html" class=""><span class="eyebrow">07</span>Log analytics</a>
     <a href="/docs/recipes/anomaly-detection.html" class=""><span class="eyebrow">08</span>Anomaly detection</a>
     <a href="/docs/recipes/continuous-anomaly-datafeeds.html" class=""><span class="eyebrow">09</span>Anomaly datafeeds</a>
-    <a href="/docs/recipes/migrate-from-elasticsearch.html" class=""><span class="eyebrow">10</span>Migrate from ES</a>
+    <a href="/docs/recipes/migrate-from-elasticsearch.html" class="active"><span class="eyebrow">10</span>Migrate from ES</a>
   </div>
 </nav>
 
@@ -106,96 +106,204 @@
   <!-- Print-only branded header (hidden on screen, visible in PDF) -->
   <div class="print-header" style="display:none;">XERJ.AI</div>
 
-  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span>PLAYBOOKS<span class="sep">·</span>LOG ANALYTICS
+  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span><a href="/docs/recipes/index.html">RECIPES</a><span class="sep">·</span>MIGRATE FROM ELASTICSEARCH
     <button class="pdf-btn" onclick="window.print()" title="Save this page as PDF">
       <svg viewBox="0 0 24 24"><path d="M12 3v12M12 15l-4-4M12 15l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
       PDF
     </button>
   </div>
-  <div class="kicker"><span>PLAYBOOK · 02</span></div>
-  <h1>Playbook · Log analytics</h1>
+  <div class="kicker"><span>RECIPE · 10</span></div>
+  <h1>Migrate from Elasticsearch</h1>
 
 
-  <p>Ingest Nginx, JSON, syslog, or OTLP at line rate. Query hot logs in milliseconds. Cold-drop to cheap storage with ILM-free retention. This is the workload XERJ was originally built for.</p>
+  <p><strong>Use case:</strong> You have a service that talks to Elasticsearch — it creates indices with mappings, bulk-loads documents, runs <code class="inline">match</code>/<code class="inline">term</code>/<code class="inline">range</code>/<code class="inline">bool</code> searches, computes <code class="inline">terms</code> aggregations, and checks <code class="inline">_cat/indices</code> in ops dashboards. You want to move to XERJ without rewriting any of that.</p>
 
-  <h2>Schema</h2>
-<pre class="code">$ curl -sX PUT http://localhost:8080/v1/indices/logs \
-    -H 'Content-Type: application/json' \
-    -d '{
-      "fields": {
-        "@timestamp":  "date",
-        "service":     "keyword",
-        "level":       "keyword",
-        "host":        "keyword",
-        "trace_id":    "keyword",
-        "span_id":     "keyword",
-        "status":      "integer",
-        "latency_ms":  "integer",
-        "bytes_out":   "integer",
-        "client_ip":   "ip",
-        "message":     "text"
-      }
-    }'</pre>
+  <p><strong>The whole migration is one line:</strong> point your client's base URL at XERJ. XERJ speaks the Elasticsearch REST wire protocol on the same <code class="inline">:9200</code>, so the exact JSON your app already sends works unchanged. No SDK swap, no query rewrites, no re-mapping.</p>
 
-  <h2>Ingest options</h2>
+<pre class="code">- ES_URL = "http://elasticsearch:9200"
++ ES_URL = "http://xerj:9200"</pre>
+
+  <p>This recipe proves it by running the standard ES request shapes — verbatim — against a live XERJ and showing the real responses.</p>
+
+  <h2>Why XERJ for this</h2>
   <ul>
-    <li><strong>Raw NGINX/Apache</strong> → <code class="inline">POST /v1/indices/logs/logs</code> auto-detects the format.</li>
-    <li><strong>Structured JSON</strong> → <code class="inline">POST /v1/indices/logs/turbo-ingest</code> NDJSON body.</li>
-    <li><strong>Syslog</strong> → <code class="inline">POST /v1/indices/logs/syslog</code>.</li>
-    <li><strong>OTLP</strong> → <code class="inline">POST /v1/indices/logs/otlp</code>.</li>
+    <li><strong>Same wire, same client.</strong> The official <code class="inline">elasticsearch-py</code>, <code class="inline">@elastic/elasticsearch</code>, or a raw <code class="inline">curl</code> all work because XERJ implements the ES REST API surface. XERJ even reports itself as version <code class="inline">8.13.0</code> at <code class="inline">GET /</code>, so version-sniffing clients connect cleanly.</li>
+    <li><strong>Faster on the same workload.</strong> On an identical corpus and machine, XERJ beats a real Elasticsearch 8.13 on both ingest and reads — e.g. bulk ingest ~1.5–1.7× and <code class="inline">match</code> queries ~2.5× lower p50 latency (see <a href="#benchmarks">Benchmarks</a>).</li>
+    <li><strong>Honest scope.</strong> XERJ is <em>wire-compatible</em>, not a byte-for-byte fork. As of the last full run it passes <strong>1,325 / 1,326</strong> executed cases of the 1,329-case ES REST conformance suite (3 skipped, 1 known fail). Response <em>shapes</em> match; some internal details (exact BM25 float scores, segment-merge timing) are XERJ's own. See <a href="#limitations-be-honest">Limitations</a>.</li>
   </ul>
 
-  <h2>Tail recent errors</h2>
+  <h2>The working solution</h2>
+  <p>Everything below is a plain <code class="inline">curl</code> in the exact shape you'd send Elasticsearch. The only variable is <code class="inline">$ES</code>.</p>
+
+  <h3>1. Create an index with a mapping — <code class="inline">PUT /products</code></h3>
+<pre class="code">curl -s -X PUT "$ES/products" -H 'Content-Type: application/json' -d '{
+  "mappings": {
+    "properties": {
+      "name":     { "type": "text" },
+      "brand":    { "type": "keyword" },
+      "price":    { "type": "float" },
+      "in_stock": { "type": "boolean" }
+    }
+  }
+}'</pre>
+
+  <p>Response — the standard ES acknowledgement:</p>
+<pre class="code">{ "acknowledged": true, "shards_acknowledged": true, "index": "products" }</pre>
+
+  <h3>2. Bulk-load documents — <code class="inline">POST /_bulk</code></h3>
+  <p>Standard NDJSON: an action line, then a source line, repeated. <code class="inline">Content-Type: application/x-ndjson</code>, trailing newline.</p>
+<pre class="code">curl -s -X POST "$ES/_bulk" -H 'Content-Type: application/x-ndjson' --data-binary '
+{"index":{"_index":"products","_id":"1"}}
+{"name":"Aluminum water bottle","brand":"Klean","price":24.99,"in_stock":true}
+{"index":{"_index":"products","_id":"2"}}
+{"name":"Insulated steel water bottle","brand":"Hydro","price":39.95,"in_stock":true}
+... 4 more ...
+'</pre>
+
+  <p>Response is the ES bulk envelope (<code class="inline">{"took":..,"errors":false,"items":[...]}</code>) — here, <code class="inline">errors: false, items: 6</code>.</p>
+
+  <blockquote><p>As in Elasticsearch, freshly indexed docs become searchable after a refresh. Call <code class="inline">POST /products/_refresh</code> (or wait for the interval) before the search steps.</p></blockquote>
+
+  <h3>3. Full-text <code class="inline">match</code> — <code class="inline">POST /products/_search</code></h3>
+<pre class="code">curl -s "$ES/products/_search" -H 'Content-Type: application/json' -d '{
+  "query": { "match": { "name": "water bottle" } },
+  "_source": ["name","brand","price"]
+}'</pre>
+
+  <p>Real result — BM25-ranked, standard <code class="inline">hits.total.value</code> / <code class="inline">_score</code> shape (exact captured values):</p>
+<pre class="code">total: 4  max_score: 0.5754
+  0.575  Aluminum water bottle
+  0.575  Insulated steel water bottle
+  0.288  Glass water carafe
+  0.288  Plastic sports bottle</pre>
+
+  <p>Note the classic OR semantics of <code class="inline">match</code>: "Glass water carafe" matches only "water" and "Plastic sports bottle" matches only "bottle", so each scores <code class="inline">0.288</code> and ranks below the two docs that match both terms (<code class="inline">0.575</code>). The full hit shape is exactly ES's:</p>
 <pre class="code">{
+  "hits": {
+    "total": { "value": 4, "relation": "eq" },
+    "max_score": 0.5753642320632935,
+    "hits": [
+      { "_index": "products", "_id": "1", "_score": 0.5753642320632935,
+        "_source": { "name": "Aluminum water bottle", "brand": "Klean", "price": 24.99 } }
+    ]
+  }
+}</pre>
+
+  <h3>4. The classic <code class="inline">bool</code> combo — <code class="inline">must</code> + <code class="inline">terms</code> filter + <code class="inline">range</code> filter</h3>
+  <p>The bread-and-butter Elasticsearch query: full-text relevance in <code class="inline">must</code>, non-scoring constraints in <code class="inline">filter</code>.</p>
+<pre class="code">curl -s "$ES/products/_search" -H 'Content-Type: application/json' -d '{
   "query": {
     "bool": {
+      "must":   [ { "match": { "name": "bottle" } } ],
       "filter": [
-        { "term":  { "level": "error" } },
-        { "range": { "@timestamp": { "gte": "now-15m" } } }
+        { "terms": { "brand": ["Hydro","Klean"] } },
+        { "range": { "price": { "gte": 10, "lte": 40 } } }
       ]
     }
   },
-  "size": 100,
-  "sort": [ { "@timestamp": "desc" } ]
-}</pre>
+  "_source": ["name","brand","price"]
+}'</pre>
 
-  <h2>Top slow endpoints · percentiles</h2>
+  <p>Real result — only the docs that match the text <strong>and</strong> pass both filters:</p>
+<pre class="code">total: 2
+  Klean   24.99  Aluminum water bottle
+  Hydro   39.95  Insulated steel water bottle</pre>
+
+  <p>(The Klean "Plastic sports bottle" is excluded — its price <code class="inline">9.99</code> is below the <code class="inline">10</code> floor.)</p>
+
+  <h3>5. <code class="inline">terms</code> aggregation — <code class="inline">POST /products/_search</code> with <code class="inline">size: 0</code></h3>
+<pre class="code">curl -s "$ES/products/_search" -H 'Content-Type: application/json' -d '{
+  "size": 0,
+  "aggs": { "by_brand": { "terms": { "field": "brand" } } }
+}'</pre>
+
+  <p>Real result — the standard <code class="inline">buckets</code> shape with <code class="inline">doc_count_error_upper_bound</code> and <code class="inline">sum_other_doc_count</code>:</p>
 <pre class="code">{
-  "query": { "term": { "service": "api-gateway" } },
-  "aggs": {
-    "by_route": {
-      "terms": { "field": "url_template", "size": 20 },
-      "aggs": {
-        "p": { "percentiles": { "field": "latency_ms", "percents": [50, 95, 99] } }
-      }
+  "hits": { "total": { "value": 6, "relation": "eq" }, "hits": [] },
+  "aggregations": {
+    "by_brand": {
+      "doc_count_error_upper_bound": 0,
+      "sum_other_doc_count": 0,
+      "buckets": [
+        { "key": "Bodum", "doc_count": 2 },
+        { "key": "Hydro", "doc_count": 2 },
+        { "key": "Klean", "doc_count": 2 }
+      ]
     }
-  },
-  "size": 0
+  }
 }</pre>
 
-  <h2>Retention</h2>
-  <p>Per-index, in the config. No ILM policy DSL required.</p>
-<pre class="code">[logs]
-retention_days = 30
-time_partition = "1h"</pre>
+  <h3>6. Ops check — <code class="inline">GET /_cat/indices?v</code></h3>
+  <p>The human-readable <code class="inline">_cat</code> table your dashboards and shell scripts parse. The columns are ES's order — <code class="inline">health status index uuid pri rep docs.count docs.deleted store.size pri.store.size</code>:</p>
+<pre class="code">green open products 0ddfa388-df97-4b4b-9c9d-b9782b1b493a 1 0 6 0 10901b 10901b</pre>
 
-  <h2>Dashboard</h2>
-  <p>Open the playground and pick <a href="/playground.html">LOGS · OVERVIEW</a> — nine panels with click-to-filter TopN, 1 ms date_histogram, heatmap, and drill-through to the <a href="/playground.html">SYSTEM · OVERVIEW</a> dashboard.</p>
+  <p>Two honest deltas from Elasticsearch here:</p>
+  <ul>
+    <li><strong><code class="inline">?v</code> does not emit a column-header row.</strong> XERJ returns the data rows only, even with <code class="inline">?v</code>. The column <em>order</em> is ES's, so anything parsing by position keeps working; anything that keys off the header line does not.</li>
+    <li><strong>No per-index <code class="inline">_cat</code> path.</strong> XERJ serves the whole-cluster <code class="inline">GET /_cat/indices</code> (which, like ES's own <code class="inline">.security</code>/<code class="inline">.kibana</code> dot-indices, also lists XERJ's internal <code class="inline">.xerj_*</code> system indices). The per-index form <code class="inline">GET /_cat/indices/products</code> returns <strong>404</strong> in this build, so filter client-side instead — e.g. <code class="inline">curl -s "$ES/_cat/indices?v" | grep ' products '</code>.</li>
+  </ul>
+  <p>(The <code class="inline">uuid</code> column is a fresh per-response value in this build — treat it as illustrative, not stable.)</p>
 
-  <p class="source-note">Source · engine/crates/logs/src/lib.rs</p>
-  
+  <h2>Reproduce it yourself</h2>
+  <p>The full script is <a href="https://github.com/xerj-org/xerj/blob/main/docs/examples/migrate-from-elasticsearch/migrate_demo.sh"><code class="inline">docs/examples/migrate-from-elasticsearch/migrate_demo.sh</code></a> — stdlib-only (<code class="inline">curl</code> + <code class="inline">python3</code> as a JSON pretty-printer, no third-party packages, no external network calls). Boot XERJ and run every step above end-to-end:</p>
+<pre class="code"># 1. Boot XERJ (insecure = no TLS/auth, for local demo). ES-wire on :9200 by default.
+xerj --insecure --data-dir /tmp/xerj-demo &amp;
 
-<div class="next">
-      <div class="step"><span class="dir">◀ PREV</span><a href="/docs/playbooks/siem.html">Playbook · SIEM</a></div>
-      <div class="step right"><span class="dir">NEXT ▶</span><a href="/docs/playbooks/vector-search.html">Vector · RAG</a></div>
-    </div>
+# 2. Run the standard-ES demo against it — the ONLY change is the URL.
+#    ES is the documented knob; XERJ_URL is accepted as an alias.
+ES=http://localhost:9200 bash docs/examples/migrate-from-elasticsearch/migrate_demo.sh</pre>
 
-  <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
-  <div class="print-footer" style="display:none;">
-    <span>XERJ.AI · V0.1 · 2026-04-16</span>
-    <a href="https://xerj.dev/docs/">https://xerj.dev/docs/</a>
-    <span>Playbook · Log analytics</span>
-  </div>
+  <p>It exits <code class="inline">0</code> and ends with <code class="inline">All standard Elasticsearch calls succeeded against XERJ</code>. The exact numbers this run produces (deterministic on this 6-doc corpus):</p>
+  <table>
+    <thead>
+      <tr><th>Step</th><th>What you see</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>2. <code class="inline">_bulk</code></td><td><code class="inline">errors: false  items: 6</code></td></tr>
+      <tr><td>3. <code class="inline">match "water bottle"</code></td><td><code class="inline">total: 4  max_score: 0.5754</code> → <code class="inline">0.575</code> Aluminum, <code class="inline">0.575</code> Insulated, <code class="inline">0.288</code> Glass, <code class="inline">0.288</code> Plastic</td></tr>
+      <tr><td>4. <code class="inline">bool</code> (match + terms + range)</td><td><code class="inline">total: 2</code> → Klean 24.99 Aluminum, Hydro 39.95 Insulated</td></tr>
+      <tr><td>5. <code class="inline">terms</code> agg by brand</td><td><code class="inline">total docs: 6</code>; buckets Bodum 2, Hydro 2, Klean 2; <code class="inline">doc_count_error_upper_bound: 0</code>, <code class="inline">sum_other_doc_count: 0</code></td></tr>
+      <tr><td>6. <code class="inline">_cat/indices</code> products row</td><td><code class="inline">docs.count 6</code>, <code class="inline">docs.deleted 0</code>, <code class="inline">store.size 10901b</code></td></tr>
+    </tbody>
+  </table>
+
+  <p>The BM25 <code class="inline">_score</code> values and bucket counts are stable run-to-run; only the <code class="inline">_cat</code> <code class="inline">uuid</code> column changes (see step 6). To A/B against a real cluster, run the identical script with <code class="inline">ES=http://your-elasticsearch:9200</code> — same script, same output shape.</p>
+
+  <h2>What to change in your real app</h2>
+  <p>Almost nothing:</p>
+  <ol>
+    <li><strong>Base URL</strong> → your XERJ host. That's the migration.</li>
+    <li><strong>Auth/TLS</strong> → XERJ supports them; the demo uses <code class="inline">--insecure</code> for brevity. Point your client's existing credentials/CA config at XERJ as you would any ES endpoint.</li>
+    <li><strong>Client library</strong> → keep it. <code class="inline">elasticsearch-py</code>, the JS client, Logstash/Beats outputs, or raw HTTP all speak this wire.</li>
+  </ol>
+
+  <h2 id="limitations-be-honest">Limitations (be honest)</h2>
+  <ul>
+    <li><strong>Wire-compatible, not byte-identical.</strong> XERJ passes <strong>1,325 / 1,326</strong> executed cases of the 1,329-case ES REST conformance suite (3 skipped, 1 known fail), last full run. Response <em>structure</em> matches ES; validate the specific endpoints and query types your app depends on against your own data before cutting over. Per-suite conformance and caveats are tracked in <code class="inline">demo/playbooks/ES_COMPATIBILITY.md</code>.</li>
+    <li><strong>Relevance scores are XERJ's own BM25.</strong> Ranking order matches ES intent, but exact <code class="inline">_score</code> float values differ, and can even shift slightly for the <em>same</em> query as background segment merges change collection statistics — the same class of internal difference you'd see comparing two ES minor versions. If you assert on exact scores in tests, relax those assertions.</li>
+    <li><strong>A few query/agg types differ or aren't implemented.</strong> XERJ covers the common set (<code class="inline">match</code>, <code class="inline">term</code>, <code class="inline">terms</code>, <code class="inline">range</code>, <code class="inline">bool</code>, <code class="inline">match_phrase</code>, <code class="inline">multi_match</code>, <code class="inline">terms</code>/<code class="inline">stats</code>/<code class="inline">date_histogram</code>/... aggs). Some ES features are partial or unsupported (e.g. vector-suite conformance is low). Check the compatibility report for your specific needs.</li>
+  </ul>
+
+  <h2 id="benchmarks">Benchmarks</h2>
+  <p>Same corpus, same machine, single node, security off — XERJ vs. a real Elasticsearch 8.13:</p>
+  <table>
+    <thead>
+      <tr><th>Operation</th><th>XERJ</th><th>ES 8.13</th><th>XERJ advantage</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>ingest 1M docs, 1 client (docs/s)</td><td>119,031</td><td>70,320</td><td><strong>1.69×</strong></td></tr>
+      <tr><td>ingest 100k docs, 8 clients (docs/s)</td><td>382,301</td><td>253,961</td><td><strong>1.51×</strong></td></tr>
+      <tr><td><code class="inline">match(model)</code> read (p50 ms)</td><td>0.57</td><td>1.45</td><td><strong>2.53×</strong></td></tr>
+      <tr><td><code class="inline">match_all</code> read (p50 ms)</td><td>0.88</td><td>1.72</td><td><strong>1.94×</strong></td></tr>
+      <tr><td><code class="inline">query_string</code> read (p50 ms)</td><td>1.35</td><td>9.35</td><td><strong>6.92×</strong></td></tr>
+    </tbody>
+  </table>
+
+  <p>Full head-to-head matrix and methodology (identical keep-alive HTTP client applied to both engines): <code class="inline">demo/playbooks/BENCHMARK_VS_ES.md</code>.</p>
+
+  <hr>
+
+  <p class="source-note"><em>Verified end-to-end against a live XERJ (merged <code class="inline">main</code> binary, ES-wire port). Every request/response above is real captured output.</em></p>
 </main>
 </div>
 

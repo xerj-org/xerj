@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XERJ.ai · Docs · Playbook · Log analytics</title>
-<meta name="description" content="Playbook · Log analytics — XERJ.ai documentation.">
+<title>XERJ · Docs · Recipe · Anomaly detection</title>
+<meta name="description" content="Detect metric spikes on demand with XERJ's Elasticsearch-shaped anomaly detector — a moving-window z-score that flags the bucket where a metric broke out of its normal band.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -81,7 +81,7 @@
   <div class="group">
     <span class="label">PLAYBOOKS</span>
     <a href="/docs/playbooks/siem.html" class=""><span class="eyebrow">01</span>SIEM</a>
-      <a href="/docs/playbooks/log-analytics.html" class="active"><span class="eyebrow">02</span>Log analytics</a>
+      <a href="/docs/playbooks/log-analytics.html" class=""><span class="eyebrow">02</span>Log analytics</a>
       <a href="/docs/playbooks/vector-search.html" class=""><span class="eyebrow">03</span>Vector · RAG</a>
       <a href="/docs/playbooks/full-text.html" class=""><span class="eyebrow">04</span>Full-text search</a>
       <a href="/docs/playbooks/observability.html" class=""><span class="eyebrow">05</span>Observability</a>
@@ -96,7 +96,7 @@
     <a href="/docs/recipes/vector-quantization.html" class=""><span class="eyebrow">05</span>Vector quantization</a>
     <a href="/docs/recipes/hybrid-search.html" class=""><span class="eyebrow">06</span>Hybrid search</a>
     <a href="/docs/recipes/log-analytics.html" class=""><span class="eyebrow">07</span>Log analytics</a>
-    <a href="/docs/recipes/anomaly-detection.html" class=""><span class="eyebrow">08</span>Anomaly detection</a>
+    <a href="/docs/recipes/anomaly-detection.html" class="active"><span class="eyebrow">08</span>Anomaly detection</a>
     <a href="/docs/recipes/continuous-anomaly-datafeeds.html" class=""><span class="eyebrow">09</span>Anomaly datafeeds</a>
     <a href="/docs/recipes/migrate-from-elasticsearch.html" class=""><span class="eyebrow">10</span>Migrate from ES</a>
   </div>
@@ -106,96 +106,184 @@
   <!-- Print-only branded header (hidden on screen, visible in PDF) -->
   <div class="print-header" style="display:none;">XERJ.AI</div>
 
-  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span>PLAYBOOKS<span class="sep">·</span>LOG ANALYTICS
+  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span><a href="/docs/recipes/index.html">RECIPES</a><span class="sep">·</span>ANOMALY DETECTION
     <button class="pdf-btn" onclick="window.print()" title="Save this page as PDF">
       <svg viewBox="0 0 24 24"><path d="M12 3v12M12 15l-4-4M12 15l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
       PDF
     </button>
   </div>
-  <div class="kicker"><span>PLAYBOOK · 02</span></div>
-  <h1>Playbook · Log analytics</h1>
+  <div class="kicker"><span>RECIPE · 08</span></div>
+  <h1>Anomaly detection</h1>
 
 
-  <p>Ingest Nginx, JSON, syslog, or OTLP at line rate. Query hot logs in milliseconds. Cold-drop to cheap storage with ILM-free retention. This is the workload XERJ was originally built for.</p>
+  <p><strong>Goal:</strong> you have a timestamped metric — CPU, latency, request rate, error count — and you want to know <em>when it went wrong</em> without hand-tuning a fixed red-line. A CPU box that idles at 20% is fine at 20% and alarming at 96%, but the "alarming" number depends on the box. You want the engine to learn the normal band and flag the minute it broke out.</p>
 
-  <h2>Schema</h2>
-<pre class="code">$ curl -sX PUT http://localhost:8080/v1/indices/logs \
-    -H 'Content-Type: application/json' \
-    -d '{
-      "fields": {
-        "@timestamp":  "date",
-        "service":     "keyword",
-        "level":       "keyword",
-        "host":        "keyword",
-        "trace_id":    "keyword",
-        "span_id":     "keyword",
-        "status":      "integer",
-        "latency_ms":  "integer",
-        "bytes_out":   "integer",
-        "client_ip":   "ip",
-        "message":     "text"
-      }
-    }'</pre>
+  <p>XERJ ships an on-demand anomaly detector (<code class="inline">_ml/anomaly_detectors</code>, Elasticsearch wire-shape). You point it at an index, tell it the time field, the metric (<code class="inline">mean(cpu)</code>), and a bucket span. When you score it, XERJ buckets the data by time, computes the metric per bucket, builds a <strong>moving baseline from prior normal buckets</strong>, and scores each bucket by how many standard deviations it sits from that baseline. A spike lands many sigmas out and gets flagged; ordinary jitter does not.</p>
 
-  <h2>Ingest options</h2>
+  <p><strong>Honest scope.</strong> This is <strong>on-demand batch scoring</strong>: you POST <code class="inline">_score</code> and get the full timeline back in one response. There is <strong>no continuous datafeed or background job</strong> yet — nothing runs on a timer, and there is no alerting. To monitor live, call <code class="inline">_score</code> on a schedule (cron, your alertmanager, a <code class="inline">/loop</code>) over a recent time window and act on <code class="inline">anomaly_count</code>. The model is a transparent moving-window z-score, not a seasonal/multivariate ML model — it's excellent for "this metric jumped relative to its recent self," which covers the large majority of ops spikes.</p>
+
+  <h2>The scenario</h2>
+  <p><code class="inline">cpu_metrics</code> collects four host readings per minute. For fifteen minutes CPU sits around 20%. At <strong>minute 12</strong> a runaway process pins a box and the per-minute mean jumps to <strong>96%</strong>, then recovers. We want XERJ to flag exactly that minute.</p>
+
+  <h2>1. Map the index</h2>
+  <p>The time field must be a <code class="inline">date</code>; the metric must be numeric so the detector can average it.</p>
+<pre class="code">curl -XPUT localhost:9200/cpu_metrics -H 'Content-Type: application/json' -d '{
+  "mappings": { "properties": {
+    "@timestamp": { "type": "date" },
+    "host":       { "type": "keyword" },
+    "cpu":        { "type": "double" }
+  }}
+}'</pre>
+
+  <h2>2. Bulk-ingest the series (spike injected at minute 12)</h2>
+  <p>Standard <code class="inline">_bulk</code> NDJSON — 16 minutes × 4 hosts. Normal minutes read ~20%; minute 12 reads ~96%. (Full generator in the script below.)</p>
+<pre class="code">{"index":{"_index":"cpu_metrics"}}
+{"@timestamp":"2026-07-06T00:00:00Z","host":"web-0","cpu":19}
+...
+{"index":{"_index":"cpu_metrics"}}
+{"@timestamp":"2026-07-06T00:12:00Z","host":"web-1","cpu":96}   &lt;- the spike
+...</pre>
+
+  <h2>3. Create the detector</h2>
+  <p><code class="inline">function: mean</code> over the <code class="inline">cpu</code> field, one-minute buckets. <code class="inline">anomaly_threshold</code> is the z-score gate (defaults to <code class="inline">3.0</code> — a bucket is flagged when it sits more than 3σ from the baseline).</p>
+<pre class="code">curl -XPUT localhost:9200/_ml/anomaly_detectors/cpu-spike \
+  -H 'Content-Type: application/json' -d '{
+    "source_index": "cpu_metrics",
+    "time_field":   "@timestamp",
+    "function":     "mean",
+    "field":        "cpu",
+    "bucket_span":  "1m",
+    "description":  "CPU mean per minute"
+  }'</pre>
+
+  <p>Response (the config, ES-shaped):</p>
+<pre class="code">{
+  "job_id": "cpu-spike",
+  "job_type": "anomaly_detector",
+  "analysis_config": {
+    "bucket_span": "1m",
+    "detectors": [{ "function": "mean", "field_name": "cpu" }]
+  },
+  "data_description": { "time_field": "@timestamp" },
+  "source_index": ["cpu_metrics"],
+  "anomaly_threshold": 3.0
+}</pre>
+
+  <p>Supported <code class="inline">function</code> values: <code class="inline">count</code> (no field needed — buckets by doc count, great for request/error rate), <code class="inline">mean</code>/<code class="inline">avg</code>, <code class="inline">min</code>, <code class="inline">max</code>, <code class="inline">sum</code>.</p>
+
+  <h2>4. Score it</h2>
+<pre class="code">curl -XPOST localhost:9200/_ml/anomaly_detectors/cpu-spike/_score</pre>
+
+  <p>XERJ returns the whole timeline plus a ranked <code class="inline">anomalies</code> list. Rendered per bucket:</p>
+<pre class="code">minute (UTC)           actual  expected  z_score   score  flag
+00:00:00                 20.0         -        -     0.0        &lt;- warm-up
+00:01:00                 21.0         -        -     0.0        &lt;- warm-up
+00:02:00                 19.0         -        -     0.0        &lt;- warm-up
+00:03:00                 20.0         -        -     0.0        &lt;- warm-up
+00:04:00                 22.0      20.0      2.8    48.0
+00:05:00                 18.0      20.4     -2.4    41.9
+00:06:00                 21.0      20.0      0.8    16.4
+00:07:00                 20.0      20.1     -0.1     2.6
+00:08:00                 19.0      20.1     -1.0    20.0
+00:09:00                 21.0      20.0      0.9    18.1
+00:10:00                 20.0      20.1     -0.1     2.0
+00:11:00                 22.0      20.1      1.8    33.5
+00:12:00                 96.0      20.2     65.1   100.0   ***  &lt;- SPIKE
+00:13:00                 20.0      20.2     -0.2     4.8
+00:14:00                 21.0      20.2      0.7    14.7
+00:15:00                 19.0      20.3     -1.2    23.7
+
+== anomalies (1 of 16 buckets) ==
+  2026-07-06T00:12:00.000Z  actual=96.0 expected=20.2  z=65.1  score=100.0</pre>
+
+  <p>The spike record in full:</p>
+<pre class="code">{
+  "actual": 96.0,
+  "expected": 20.25,
+  "std_dev": 1.1636866703140785,
+  "z_score": 65.09484205018445,
+  "anomaly_score": 100.0,
+  "is_anomaly": true,
+  "timestamp_iso": "2026-07-06T00:12:00.000Z"
+}</pre>
+
+  <h2>How the scoring works (and how to read the numbers)</h2>
   <ul>
-    <li><strong>Raw NGINX/Apache</strong> → <code class="inline">POST /v1/indices/logs/logs</code> auto-detects the format.</li>
-    <li><strong>Structured JSON</strong> → <code class="inline">POST /v1/indices/logs/turbo-ingest</code> NDJSON body.</li>
-    <li><strong>Syslog</strong> → <code class="inline">POST /v1/indices/logs/syslog</code>.</li>
-    <li><strong>OTLP</strong> → <code class="inline">POST /v1/indices/logs/otlp</code>.</li>
+    <li><strong>Warm-up.</strong> The first 4 buckets seed the baseline and are not scored (<code class="inline">"expected": null</code>, <code class="inline">"note": "insufficient_baseline"</code>). Give the detector a span of history before the interesting part.</li>
+    <li><strong><code class="inline">expected</code> / <code class="inline">std_dev</code>.</strong> The mean and standard deviation of prior <strong>normal</strong> buckets. Crucially, a flagged bucket is <strong>not folded back into the baseline</strong> — one spike can't poison the expectation for the minutes after it. Notice <code class="inline">expected</code> stays ~20 straight through the spike.</li>
+    <li><strong><code class="inline">z_score</code>.</strong> <code class="inline">(actual − expected) / std_dev</code>. The spike is 65σ out; normal jitter stays within a couple of sigma.</li>
+    <li><strong><code class="inline">is_anomaly</code></strong> is the decision, gated purely on <code class="inline">|z| &gt; anomaly_threshold</code>. Only the spike crosses it here.</li>
+    <li><strong><code class="inline">anomaly_score</code> (0–100)</strong> is a normalized, human-friendly severity: it maps |z| = threshold to ~50 and saturates toward 100 for large deviations. It is <strong>not</strong> the flag. That's why the <code class="inline">00:04</code> jitter bucket shows a mid score of 48 (its z of 2.8 is close to the threshold of 3) yet is correctly <em>not</em> flagged. <strong>Alert on <code class="inline">is_anomaly</code> / <code class="inline">anomaly_count</code>; use <code class="inline">anomaly_score</code> for ranking and dashboards.</strong> In this run the spike (100.0) is more than 2× the top normal bucket (48.0) — clean separation.</li>
   </ul>
 
-  <h2>Tail recent errors</h2>
-<pre class="code">{
-  "query": {
-    "bool": {
-      "filter": [
-        { "term":  { "level": "error" } },
-        { "range": { "@timestamp": { "gte": "now-15m" } } }
-      ]
-    }
-  },
-  "size": 100,
-  "sort": [ { "@timestamp": "desc" } ]
-}</pre>
+  <h2>Narrow or re-tune a run without recreating the job</h2>
+  <p><code class="inline">_score</code> accepts two per-run overrides in the POST body:</p>
+  <ul>
+    <li><strong><code class="inline">query</code></strong> — restrict which docs feed the buckets (e.g. one <code class="inline">host</code>, one service). Any XERJ query works: <code class="inline">{"query": {"term": {"host": "web-1"}}}</code>.</li>
+    <li><strong><code class="inline">anomaly_threshold</code></strong> — override the flag sensitivity for this run only.</li>
+  </ul>
+<pre class="code"># Same data, stricter gate (10σ) — the 65σ spike still stands alone.
+curl -XPOST localhost:9200/_ml/anomaly_detectors/cpu-spike/_score \
+  -H 'Content-Type: application/json' -d '{"anomaly_threshold": 10}'
+# -&gt; "anomaly_threshold": 10.0, "anomaly_count": 1</pre>
 
-  <h2>Top slow endpoints · percentiles</h2>
-<pre class="code">{
-  "query": { "term": { "service": "api-gateway" } },
-  "aggs": {
-    "by_route": {
-      "terms": { "field": "url_template", "size": 20 },
-      "aggs": {
-        "p": { "percentiles": { "field": "latency_ms", "percents": [50, 95, 99] } }
-      }
-    }
-  },
-  "size": 0
-}</pre>
+  <h2>Count instead of mean (rate spikes)</h2>
+  <p>For "too many errors this minute" you don't need a metric field — use <code class="inline">function: count</code>, drop <code class="inline">field</code>, and point the detector at your log index. Each bucket's <code class="inline">actual</code> becomes the doc count, scored the same way. Same recipe, same response shape.</p>
 
-  <h2>Retention</h2>
-  <p>Per-index, in the config. No ILM policy DSL required.</p>
-<pre class="code">[logs]
-retention_days = 30
-time_partition = "1h"</pre>
+  <h2>List detectors</h2>
+<pre class="code">curl localhost:9200/_cat/ml/anomaly_detectors
+# cpu-spike opened cpu_metrics mean 1m</pre>
 
-  <h2>Dashboard</h2>
-  <p>Open the playground and pick <a href="/playground.html">LOGS · OVERVIEW</a> — nine panels with click-to-filter TopN, 1 ms date_histogram, heatmap, and drill-through to the <a href="/playground.html">SYSTEM · OVERVIEW</a> dashboard.</p>
+  <p><code class="inline">GET /_ml/anomaly_detectors/{id}</code> and <code class="inline">DELETE /_ml/anomaly_detectors/{id}</code> round out lifecycle management.</p>
 
-  <p class="source-note">Source · engine/crates/logs/src/lib.rs</p>
-  
+  <h2>Reproduce it yourself</h2>
+  <p>Start XERJ on its default port (<code class="inline">9200</code>) and run the example — no keys, no external services, stdlib Python only:</p>
+<pre class="code"># 1. Start a throwaway XERJ (ES-compat wire on :9200 by default)
+xerj --insecure --data-dir ./data
 
-<div class="next">
-      <div class="step"><span class="dir">◀ PREV</span><a href="/docs/playbooks/siem.html">Playbook · SIEM</a></div>
-      <div class="step right"><span class="dir">NEXT ▶</span><a href="/docs/playbooks/vector-search.html">Vector · RAG</a></div>
-    </div>
+# 2. In another shell, run the demo (honors $XERJ_URL, default http://localhost:9200)
+python3 docs/examples/anomaly-detection/anomaly_detection.py</pre>
+  <p>Point it at a non-default host/port with <code class="inline">XERJ_URL=http://host:port</code> (the legacy <code class="inline">XERJ=...</code> variable still works as an alias). The data is generated in-script with a fixed spike, so every run prints the same numbers:</p>
+<pre class="code">== detector created ==
+{ "job_id": "cpu-spike", "function": "mean", "bucket_span": "1m", "anomaly_threshold": 3.0 }
 
-  <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
-  <div class="print-footer" style="display:none;">
-    <span>XERJ.AI · V0.1 · 2026-04-16</span>
-    <a href="https://xerj.dev/docs/">https://xerj.dev/docs/</a>
-    <span>Playbook · Log analytics</span>
-  </div>
+00:12:00                 96.0      20.2     65.1   100.0   ***   &lt;- the spike
+
+== anomalies (1 of 16 buckets) ==
+  2026-07-06T00:12:00.000Z  actual=96.0 expected=20.2  z=65.1  score=100.0
+
+OK: spike at 00:12 flagged (score 100.0); 11 normal buckets, none flagged (top normal score 48.0).
+
+== spike record (full precision) ==
+{ "actual": 96.0, "expected": 20.25, "std_dev": 1.1636866703140785,
+  "z_score": 65.09484205018445, "anomaly_score": 100.0, "is_anomaly": true }
+
+== stricter re-score (anomaly_threshold=10) ==
+  anomaly_threshold=10.0  anomaly_count=1
+
+== _cat/ml/anomaly_detectors ==
+  cpu-spike opened cpu_metrics mean 1m</pre>
+
+  <p>The script maps the index, ingests the series with the injected spike, creates the detector, scores it, prints the table above, and <strong>asserts</strong> the result: exactly one anomaly, at 00:12, score 100.0, mean 96.0, 65σ out — and no normal bucket flagged (the spike's score is 100.0 vs. a top normal of 48.0, clean separation). It exits non-zero if any of that regresses, so it doubles as a smoke test.</p>
+
+  <p>Full example script on GitHub: <a href="https://github.com/xerj-org/xerj/blob/main/docs/examples/anomaly-detection/anomaly_detection.py">docs/examples/anomaly-detection/anomaly_detection.py</a>.</p>
+
+  <h2>Endpoint cheat-sheet</h2>
+  <table>
+    <thead>
+      <tr><th>Method</th><th>Path</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code class="inline">PUT</code></td><td><code class="inline">/_ml/anomaly_detectors/{id}</code></td><td>create/replace a detector</td></tr>
+      <tr><td><code class="inline">GET</code></td><td><code class="inline">/_ml/anomaly_detectors/{id}</code></td><td>fetch one detector's config</td></tr>
+      <tr><td><code class="inline">GET</code></td><td><code class="inline">/_ml/anomaly_detectors</code></td><td>list all detectors</td></tr>
+      <tr><td><code class="inline">DELETE</code></td><td><code class="inline">/_ml/anomaly_detectors/{id}</code></td><td>remove a detector</td></tr>
+      <tr><td><code class="inline">POST</code></td><td><code class="inline">/_ml/anomaly_detectors/{id}/_score</code></td><td>score now; body may set <code class="inline">query</code>, <code class="inline">anomaly_threshold</code></td></tr>
+      <tr><td><code class="inline">GET</code></td><td><code class="inline">/_cat/ml/anomaly_detectors</code></td><td>one line per detector</td></tr>
+    </tbody>
+  </table>
+
+  <p>Config fields: <code class="inline">source_index</code> (required), <code class="inline">time_field</code> (default <code class="inline">@timestamp</code>), <code class="inline">function</code> (<code class="inline">count</code>/<code class="inline">mean</code>/<code class="inline">min</code>/<code class="inline">max</code>/<code class="inline">sum</code>, default <code class="inline">count</code>), <code class="inline">field</code> (required for everything but <code class="inline">count</code>), <code class="inline">bucket_span</code> (default <code class="inline">1h</code>), <code class="inline">anomaly_threshold</code> (z-gate, default <code class="inline">3.0</code>), <code class="inline">description</code>. ES-style <code class="inline">analysis_config.detectors[]</code> and <code class="inline">data_description.time_field</code> are also accepted for drop-in configs.</p>
 </main>
 </div>
 

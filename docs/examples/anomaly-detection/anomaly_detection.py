@@ -13,21 +13,25 @@ index by time, computes the metric per bucket (here mean(cpu)), builds a moving
 baseline from prior *normal* buckets, and scores each bucket by how many
 standard deviations it sits from that baseline.
 
-Run:  python3 anomaly_detection.py            # assumes XERJ on :9486
-      XERJ=http://localhost:9200 python3 anomaly_detection.py
+Run:  python3 anomaly_detection.py                       # assumes XERJ on :9200
+      XERJ_URL=http://localhost:9486 python3 anomaly_detection.py
 
-Uses only the Python 3 standard library. No pip installs.
+Server URL comes from $XERJ_URL (default http://localhost:9200); the legacy
+$XERJ variable is still honored as an alias. Uses only the Python 3 standard
+library. No pip installs, no third-party network calls.
 """
 import json
 import os
 import urllib.request
 
-XERJ = os.environ.get("XERJ", "http://localhost:9486").rstrip("/")
+XERJ = os.environ.get(
+    "XERJ_URL", os.environ.get("XERJ", "http://localhost:9200")
+).rstrip("/")
 INDEX = "cpu_metrics"
 JOB = "cpu-spike"
 
 
-def req(method, path, body=None, ndjson=False):
+def req(method, path, body=None, ndjson=False, raw=False):
     data = None
     headers = {}
     if ndjson:
@@ -38,7 +42,8 @@ def req(method, path, body=None, ndjson=False):
         headers["Content-Type"] = "application/json"
     r = urllib.request.Request(XERJ + path, data=data, method=method, headers=headers)
     with urllib.request.urlopen(r) as resp:
-        return json.loads(resp.read().decode())
+        text = resp.read().decode()
+        return text if raw else json.loads(text)
 
 
 # 1. Map the index: @timestamp as a date, cpu as a numeric we can average.
@@ -139,3 +144,23 @@ assert spike["anomaly_score"] >= 2 * max_normal, \
         spike["anomaly_score"], max_normal)
 print("\nOK: spike at 00:12 flagged (score %.1f); %d normal buckets, none flagged"
       " (top normal score %.1f)." % (spike["anomaly_score"], len(normals), max_normal))
+
+# 6. The spike record in full — the exact numbers this recipe quotes.
+print("\n== spike record (full precision) ==")
+print(json.dumps({k: spike[k] for k in (
+    "actual", "expected", "std_dev", "z_score",
+    "anomaly_score", "is_anomaly", "timestamp_iso")}, indent=2))
+
+# 7. Re-tune without recreating the job: a stricter 10-sigma gate for this run
+#    only. The 65-sigma spike still stands alone.
+strict = req("POST", "/_ml/anomaly_detectors/" + JOB + "/_score",
+             {"anomaly_threshold": 10})
+print("\n== stricter re-score (anomaly_threshold=10) ==")
+print("  anomaly_threshold=%.1f  anomaly_count=%d" %
+      (strict["anomaly_threshold"], strict["anomaly_count"]))
+assert strict["anomaly_count"] == 1, \
+    "spike should survive a 10-sigma gate, got count=%d" % strict["anomaly_count"]
+
+# 8. One-line detector listing (_cat plaintext).
+print("\n== _cat/ml/anomaly_detectors ==")
+print("  " + req("GET", "/_cat/ml/anomaly_detectors", raw=True).strip())

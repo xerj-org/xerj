@@ -115,19 +115,18 @@ POST /helpdesk/_search
 }
 ```
 
-Real response (trimmed to `title`):
+Real response (trimmed to `title`, printed verbatim by the script):
 
 ```json
 {
   "hits": {
-    "total": { "value": 5, "relation": "eq" },
-    "max_score": 0.03278,
+    "total": { "value": 4, "relation": "eq" },
+    "max_score": 0.03279,
     "hits": [
-      { "_id": "d1", "_score": 0.03278, "_source": { "title": "Reset your password" } },
-      { "_id": "d5", "_score": 0.03200, "_source": { "title": "Change your account password" } },
-      { "_id": "d3", "_score": 0.03150, "_source": { "title": "Password complexity and rotation policy" } },
-      { "_id": "d2", "_score": 0.01613, "_source": { "title": "Regain entry to a locked-out account" } },
-      { "_id": "d4", "_score": 0.01538, "_source": { "title": "How to bake sourdough bread" } }
+      { "_id": "d1", "_score": 0.03279, "_source": { "title": "Reset your password" } },
+      { "_id": "d5", "_score": 0.03175, "_source": { "title": "Change your account password" } },
+      { "_id": "d3", "_score": 0.01613, "_source": { "title": "Password complexity and rotation policy" } },
+      { "_id": "d2", "_score": 0.01613, "_source": { "title": "Regain entry to a locked-out account" } }
     ]
   }
 }
@@ -135,17 +134,32 @@ Real response (trimmed to `title`):
 
 **d2** (only kNN found it) and **d3** (only BM25 found it) are now *both*
 on the page, and **d1** — the doc that matched on *both* keyword and
-vector — is still ranked #1. That's the whole point: fusion rewards
-agreement between the two signals and still admits the strong
-single-signal hits that either method alone would have dropped.
+vector — is still ranked #1. Watch **d5**: neither BM25 nor kNN ranks it
+better than #3, yet because *both* signals agree on it, fusion promotes
+it to **#2** — ahead of d3 and d2, each of which is strong in only one
+modality. That's the whole point: fusion rewards agreement between the
+two signals while still admitting the strong single-signal hits that
+either method alone would have dropped.
+
+Only **four** docs come back, not five: d4 ("How to bake sourdough
+bread") is in *neither* sub-query's result set — it shares no keywords
+and its topic vector falls outside the kNN `k:3` cutoff — so RRF never
+sees it. Fusion ranks the *union* of the sub-query hits, nothing more.
 
 ## How the fusion works
 
 `"fusion": "rrf"` uses Reciprocal Rank Fusion: each sub-query contributes
-`weight / (k + rank)` for a doc (default `k = 60`), summed across
-sub-queries. It ranks by *position*, not raw score, so BM25's `~0.5`
-scores and kNN's `~0.99` cosines never have to be normalized onto a
-common scale — a persistent headache when you fuse two systems yourself.
+`weight / (k + rank)` for a doc (default `k = 60`, `rank` is 1-based),
+summed across sub-queries. It ranks by *position*, not raw score, so
+BM25's `~0.5` scores and kNN's `~0.99` cosines never have to be
+normalized onto a common scale — a persistent headache when you fuse two
+systems yourself. The scores above fall straight out of this formula:
+
+- **d1** is rank 1 in *both* lists → `1/(60+1) + 1/(60+1) = 0.03279`.
+- **d5** is rank 3 in *both* lists → `1/63 + 1/63 = 0.03175`, still beating
+  either single-list hit because two contributions stack.
+- **d3** and **d2** each appear in *one* list at rank 2 → `1/(60+2) =
+  0.01613` apiece — an exact tie.
 
 Other `fusion` options:
 
@@ -156,19 +170,29 @@ Other `fusion` options:
 Per-query `weight` lets you bias the blend, e.g. `1.5` on the `match`
 sub-query to favor exact terms.
 
-## Run it
+## Reproduce it yourself
 
-No dependencies beyond Python 3 stdlib. Point it at a running XERJ:
+No dependencies beyond the Python 3 standard library — no pip install, no
+API keys, no external service. Point it at a running XERJ:
 
 ```bash
-# start XERJ (insecure, local data dir) on port 9485
-xerj --insecure --data-dir /tmp/xerj-hybrid --config <(printf '[server]\nes_compat_port = 9485\n')
+# 1. start a throwaway XERJ (insecure, local data dir) on the default port 9200
+xerj --insecure --data-dir /tmp/xerj-hybrid \
+     --config <(printf '[server]\nes_compat_port = 9200\n')
 
-# in another shell
+# 2. in another shell, run the example (defaults to http://localhost:9200)
 python3 docs/examples/hybrid-search/hybrid_search.py
 ```
 
-Expected tail:
+The script reads its target from `XERJ_URL` (default
+`http://localhost:9200`); the legacy `BASE` alias still works. To hit a
+server on another port:
+
+```bash
+XERJ_URL=http://localhost:9485 python3 docs/examples/hybrid-search/hybrid_search.py
+```
+
+Expected tail (verified live):
 
 ```
 --- assertions ---
@@ -179,10 +203,17 @@ PASS  d1 (keyword + vector match) still ranks #1 under fusion
 
 BM25 ids  : ['d1', 'd3', 'd5']
 kNN  ids  : ['d1', 'd2', 'd5']
-Hybrid ids: ['d1', 'd3', 'd5', 'd2', 'd4']
+Hybrid ids: ['d1', 'd5', 'd2', 'd3']
 
 OK
 ```
+
+The four assertions and the scores are deterministic; the BM25 and kNN
+id lists are stable, and the hybrid list always starts `['d1', 'd5', …]`.
+The **only** run-to-run wobble is the last two ids — **d3 and d2 tie at
+exactly `0.01613`**, so they swap freely between positions #3 and #4
+(across a dozen runs we saw both `d2, d3` and `d3, d2`). The recipe's
+point — that d2 and d3 both appear and d1 stays #1 — holds every time.
 
 ## Notes & limits
 
@@ -191,12 +222,14 @@ OK
   plus `size:3` means "show the 3 nearest." For a hard candidate cap
   independent of `size`, keep `k` small — it's carried on the sub-query.
 - **Score scales differ by fusion.** RRF returns small fused scores
-  (`~0.01–0.03` here) — compare docs *within* a response, not against
+  (`0.016–0.033` here) — compare docs *within* a response, not against
   BM25/cosine absolutes.
-- **Tie ordering is not guaranteed** for docs with near-identical fused
-  scores (d3 and d5 differ by `0.00005` here), so exact positions among
-  ties can vary run to run. Set membership — the point of this recipe —
-  is stable.
+- **Tie ordering is not guaranteed** for docs with identical fused scores.
+  d3 and d2 both score exactly `0.01613` here (each is a single rank-2 hit
+  in one sub-query), and they genuinely swap between positions #3 and #4
+  from one run to the next — we observed both orders across a dozen runs.
+  Set membership — the point of this recipe — is stable; the order *among
+  exact ties* is not.
 - **Vector quality is your embeddings' job.** This recipe supplies
   vectors directly for a deterministic demo. For real semantic recall,
   generate `dense_vector` values with a production embedding model, or

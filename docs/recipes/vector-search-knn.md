@@ -106,7 +106,7 @@ Query the *other* corner and the space cleanly separates:
 curl -X POST http://localhost:9200/catalog/_search -H 'Content-Type: application/json' -d '{
   "knn": { "field": "embedding", "query_vector": [0.0, 0.0, 0.9, 0.85], "k": 2, "num_candidates": 10 }
 }'
-# → Pickup Truck (1.0), Sports Car (0.999) — only vehicles
+# → Pickup Truck (1.0), Sports Car (0.9992) — only vehicles
 ```
 
 ---
@@ -153,23 +153,36 @@ filter genuinely restricted the pool — it didn't just re-score.
 
 ---
 
-## Run it
+## Reproduce it yourself
 
-Boot XERJ (`target/release/xerj --insecure --data-dir ./data`, default
-port 9200) and run the self-checking script — stdlib only, no pip:
+Boot XERJ on its default port and run the self-checking script — stdlib
+only, no pip, no network calls:
 
 ```bash
+# 1. start a throwaway node (default ES-compat port 9200)
+./engine/target/release/xerj --insecure --data-dir ./data
+
+# 2. in another shell, from the repo root:
 python3 docs/examples/vector-search-knn/knn_demo.py
 ```
 
-It creates the index, bulk-loads the catalog, runs all three searches,
-and asserts the recall and filter behavior. Expected tail:
+The script reads its server URL from `XERJ_URL` (default
+`http://localhost:9200`); the older `BASE` variable still works as an
+alias. Point it at any node with `XERJ_URL=http://host:port python3 …`.
+
+It creates the index, bulk-loads the 8-row catalog, runs all three
+searches, and — beyond the pass/fail assertions — computes **recall@k
+against a brute-force exact-cosine ground truth built in-process**, so
+the "the result is exact" claim below is measured, not asserted. Exact
+tail from a real run:
 
 ```
 === kNN k=3, query ~citrus ===
    ('1', 0.9999, 'Navel Orange', 'fruit', True)
    ('2', 0.9997, 'Meyer Lemon', 'fruit', True)
    ('3', 0.9948, 'Blood Orange', 'fruit', False)
+  exact top-3 (brute-force cosine): ['1', '2', '3']
+  recall@3 = 1.000 (3/3 of the true nearest returned)
   OK: top-3 are exactly the citrus fruits, no vehicles leaked in
 
 === kNN + bool.filter in_stock:true ===
@@ -181,12 +194,18 @@ and asserts the recall and filter behavior. Expected tail:
 === kNN k=2, query ~vehicle ===
    ('6', 1.0, 'Pickup Truck', 'vehicle', True)
    ('7', 0.9992, 'Sports Car', 'vehicle', False)
+  exact top-2 (brute-force cosine): ['6', '7']
+  recall@2 = 1.000
   OK: vehicle query returns only vehicles
 
+MEASURED recall vs brute-force exact across queries: 1.000 (exact)
 ALL ASSERTIONS PASSED
 ```
 
-(The script targets port 9484; change `BASE` if you booted on 9200.)
+The scores and recall are **deterministic for this 8-row corpus** —
+every run prints the same numbers (`recall@3 = recall@2 = 1.000`). The
+cosine scores above are the ES-normalized values `(1 + cos)/2`; unrounded
+they are `0.99985695`, `0.99970835`, `0.99479961` for the citrus top-3.
 
 ---
 
@@ -203,8 +222,10 @@ controls the search-time breadth (the ANN analog of `ef_search`) — raise
 it to trade latency for recall, lower it for speed.
 
 Because it's *approximate*, ANN can in principle miss a true neighbor.
-For a corpus this small the result is exact; the knobs above only start
-to matter at scale.
+For a corpus this small the result is **exact** — the script above
+measures **recall@k = 1.000** against a brute-force cosine ground truth
+on every query, confirming HNSW returned the identical top-k. The knobs
+above only start to matter at scale.
 
 ---
 

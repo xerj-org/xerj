@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XERJ.ai · Docs · Playbook · Log analytics</title>
-<meta name="description" content="Playbook · Log analytics — XERJ.ai documentation.">
+<title>XERJ · Docs · Recipes</title>
+<meta name="description" content="Recipes — XERJ.ai documentation.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -81,14 +81,14 @@
   <div class="group">
     <span class="label">PLAYBOOKS</span>
     <a href="/docs/playbooks/siem.html" class=""><span class="eyebrow">01</span>SIEM</a>
-      <a href="/docs/playbooks/log-analytics.html" class="active"><span class="eyebrow">02</span>Log analytics</a>
+      <a href="/docs/playbooks/log-analytics.html" class=""><span class="eyebrow">02</span>Log analytics</a>
       <a href="/docs/playbooks/vector-search.html" class=""><span class="eyebrow">03</span>Vector · RAG</a>
       <a href="/docs/playbooks/full-text.html" class=""><span class="eyebrow">04</span>Full-text search</a>
       <a href="/docs/playbooks/observability.html" class=""><span class="eyebrow">05</span>Observability</a>
   </div>
   <div class="group">
     <span class="label">RECIPES</span>
-    <a href="/docs/recipes/index.html" class=""><span class="eyebrow">00</span>All recipes</a>
+    <a href="/docs/recipes/index.html" class="active"><span class="eyebrow">00</span>All recipes</a>
     <a href="/docs/recipes/semantic-search-rag.html" class=""><span class="eyebrow">01</span>Semantic search &amp; RAG</a>
     <a href="/docs/recipes/agentic-memory.html" class=""><span class="eyebrow">02</span>Agent memory</a>
     <a href="/docs/recipes/passage-retrieval.html" class=""><span class="eyebrow">03</span>Passage retrieval</a>
@@ -106,95 +106,76 @@
   <!-- Print-only branded header (hidden on screen, visible in PDF) -->
   <div class="print-header" style="display:none;">XERJ.AI</div>
 
-  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span>PLAYBOOKS<span class="sep">·</span>LOG ANALYTICS
+  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span>RECIPES
     <button class="pdf-btn" onclick="window.print()" title="Save this page as PDF">
       <svg viewBox="0 0 24 24"><path d="M12 3v12M12 15l-4-4M12 15l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
       PDF
     </button>
   </div>
-  <div class="kicker"><span>PLAYBOOK · 02</span></div>
-  <h1>Playbook · Log analytics</h1>
+  <div class="kicker"><span>RECIPES</span></div>
+  <h1>Recipes</h1>
 
 
-  <p>Ingest Nginx, JSON, syslog, or OTLP at line rate. Query hot logs in milliseconds. Cold-drop to cheap storage with ILM-free retention. This is the workload XERJ was originally built for.</p>
+  <p>Task-oriented AI &amp; search recipes for building real things with XERJ — retrieval by meaning, agent memory, hybrid ranking, log analytics, and anomaly detection. Each recipe was verified end-to-end against a live XERJ before it was written, and ships with a runnable, dependency-free example.</p>
 
-  <h2>Schema</h2>
-<pre class="code">$ curl -sX PUT http://localhost:8080/v1/indices/logs \
-    -H 'Content-Type: application/json' \
-    -d '{
-      "fields": {
-        "@timestamp":  "date",
-        "service":     "keyword",
-        "level":       "keyword",
-        "host":        "keyword",
-        "trace_id":    "keyword",
-        "span_id":     "keyword",
-        "status":      "integer",
-        "latency_ms":  "integer",
-        "bytes_out":   "integer",
-        "client_ip":   "ip",
-        "message":     "text"
-      }
-    }'</pre>
-
-  <h2>Ingest options</h2>
-  <ul>
-    <li><strong>Raw NGINX/Apache</strong> → <code class="inline">POST /v1/indices/logs/logs</code> auto-detects the format.</li>
-    <li><strong>Structured JSON</strong> → <code class="inline">POST /v1/indices/logs/turbo-ingest</code> NDJSON body.</li>
-    <li><strong>Syslog</strong> → <code class="inline">POST /v1/indices/logs/syslog</code>.</li>
-    <li><strong>OTLP</strong> → <code class="inline">POST /v1/indices/logs/otlp</code>.</li>
-  </ul>
-
-  <h2>Tail recent errors</h2>
-<pre class="code">{
-  "query": {
-    "bool": {
-      "filter": [
-        { "term":  { "level": "error" } },
-        { "range": { "@timestamp": { "gte": "now-15m" } } }
-      ]
-    }
-  },
-  "size": 100,
-  "sort": [ { "@timestamp": "desc" } ]
-}</pre>
-
-  <h2>Top slow endpoints · percentiles</h2>
-<pre class="code">{
-  "query": { "term": { "service": "api-gateway" } },
-  "aggs": {
-    "by_route": {
-      "terms": { "field": "url_template", "size": 20 },
-      "aggs": {
-        "p": { "percentiles": { "field": "latency_ms", "percents": [50, 95, 99] } }
-      }
-    }
-  },
-  "size": 0
-}</pre>
-
-  <h2>Retention</h2>
-  <p>Per-index, in the config. No ILM policy DSL required.</p>
-<pre class="code">[logs]
-retention_days = 30
-time_partition = "1h"</pre>
-
-  <h2>Dashboard</h2>
-  <p>Open the playground and pick <a href="/playground.html">LOGS · OVERVIEW</a> — nine panels with click-to-filter TopN, 1 ms date_histogram, heatmap, and drill-through to the <a href="/playground.html">SYSTEM · OVERVIEW</a> dashboard.</p>
-
-  <p class="source-note">Source · engine/crates/logs/src/lib.rs</p>
-  
-
-<div class="next">
-      <div class="step"><span class="dir">◀ PREV</span><a href="/docs/playbooks/siem.html">Playbook · SIEM</a></div>
-      <div class="step right"><span class="dir">NEXT ▶</span><a href="/docs/playbooks/vector-search.html">Vector · RAG</a></div>
-    </div>
+  <div class="recipes">
+    <a class="recipe" href="/docs/recipes/semantic-search-rag.html">
+      <span class="num">01</span>
+      <span class="title">Semantic search &amp; RAG</span>
+      <p class="lead">Retrieval by meaning with <code class="inline">semantic_text</code> — auto-embed on ingest, no separate vector DB.</p>
+    </a>
+    <a class="recipe" href="/docs/recipes/agentic-memory.html">
+      <span class="num">02</span>
+      <span class="title">Give an AI agent long-term memory</span>
+      <p class="lead">A memory-backed agent on the <code class="inline">/_memory</code> API — store, semantic + keyword recall, metadata filters, forgetting, per-agent isolation.</p>
+    </a>
+    <a class="recipe" href="/docs/recipes/passage-retrieval.html">
+      <span class="num">03</span>
+      <span class="title">Passage retrieval on long docs</span>
+      <p class="lead"><code class="inline">semantic_text</code> auto-embeds every overlapping passage; a long doc competes on any one of its sections via best-passage (max-sim) scoring — 98% top-3 vs 32% pooled.</p>
+    </a>
+    <a class="recipe" href="/docs/recipes/vector-search-knn.html">
+      <span class="num">04</span>
+      <span class="title">Vector search (kNN)</span>
+      <p class="lead">Nearest-neighbor similarity search over <code class="inline">dense_vector</code> (HNSW), with filters.</p>
+    </a>
+    <a class="recipe" href="/docs/recipes/vector-quantization.html">
+      <span class="num">05</span>
+      <span class="title">Vector quantization</span>
+      <p class="lead">Opt a <code class="inline">dense_vector</code> field into scalar8 (<code class="inline">int8_hnsw</code>) — 4× smaller vectors, recall@10 ≈ 0.99.</p>
+    </a>
+    <a class="recipe" href="/docs/recipes/hybrid-search.html">
+      <span class="num">06</span>
+      <span class="title">Hybrid search</span>
+      <p class="lead">Keyword + vector in one query — results neither BM25 nor kNN finds alone.</p>
+    </a>
+    <a class="recipe" href="/docs/recipes/log-analytics.html">
+      <span class="num">07</span>
+      <span class="title">Log analytics</span>
+      <p class="lead">From raw logs to dashboards — error rates, p95 latency, top services via aggregations.</p>
+    </a>
+    <a class="recipe" href="/docs/recipes/anomaly-detection.html">
+      <span class="num">08</span>
+      <span class="title">Anomaly detection</span>
+      <p class="lead">Statistical <code class="inline">_ml</code> detectors that flag spikes in metrics/logs.</p>
+    </a>
+    <a class="recipe" href="/docs/recipes/continuous-anomaly-datafeeds.html">
+      <span class="num">09</span>
+      <span class="title">Continuous anomaly datafeeds</span>
+      <p class="lead">A live <code class="inline">_ml</code> datafeed that re-scores an index on a timer and stores new anomaly records you poll.</p>
+    </a>
+    <a class="recipe" href="/docs/recipes/migrate-from-elasticsearch.html">
+      <span class="num">10</span>
+      <span class="title">Migrate from Elasticsearch</span>
+      <p class="lead">Point your existing ES client at XERJ — same wire, change the URL.</p>
+    </a>
+  </div>
 
   <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
   <div class="print-footer" style="display:none;">
     <span>XERJ.AI · V0.1 · 2026-04-16</span>
     <a href="https://xerj.dev/docs/">https://xerj.dev/docs/</a>
-    <span>Playbook · Log analytics</span>
+    <span>Recipes</span>
   </div>
 </main>
 </div>

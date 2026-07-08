@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XERJ.ai · Docs · Playbook · Log analytics</title>
-<meta name="description" content="Playbook · Log analytics — XERJ.ai documentation.">
+<title>XERJ · Docs · Recipe · Hybrid search</title>
+<meta name="description" content="Recipe · Hybrid search — fuse BM25 keyword and dense-vector kNN in a single XERJ hybrid query with Reciprocal Rank Fusion, no second datastore.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -81,7 +81,7 @@
   <div class="group">
     <span class="label">PLAYBOOKS</span>
     <a href="/docs/playbooks/siem.html" class=""><span class="eyebrow">01</span>SIEM</a>
-      <a href="/docs/playbooks/log-analytics.html" class="active"><span class="eyebrow">02</span>Log analytics</a>
+      <a href="/docs/playbooks/log-analytics.html" class=""><span class="eyebrow">02</span>Log analytics</a>
       <a href="/docs/playbooks/vector-search.html" class=""><span class="eyebrow">03</span>Vector · RAG</a>
       <a href="/docs/playbooks/full-text.html" class=""><span class="eyebrow">04</span>Full-text search</a>
       <a href="/docs/playbooks/observability.html" class=""><span class="eyebrow">05</span>Observability</a>
@@ -94,7 +94,7 @@
     <a href="/docs/recipes/passage-retrieval.html" class=""><span class="eyebrow">03</span>Passage retrieval</a>
     <a href="/docs/recipes/vector-search-knn.html" class=""><span class="eyebrow">04</span>Vector search &middot; kNN</a>
     <a href="/docs/recipes/vector-quantization.html" class=""><span class="eyebrow">05</span>Vector quantization</a>
-    <a href="/docs/recipes/hybrid-search.html" class=""><span class="eyebrow">06</span>Hybrid search</a>
+    <a href="/docs/recipes/hybrid-search.html" class="active"><span class="eyebrow">06</span>Hybrid search</a>
     <a href="/docs/recipes/log-analytics.html" class=""><span class="eyebrow">07</span>Log analytics</a>
     <a href="/docs/recipes/anomaly-detection.html" class=""><span class="eyebrow">08</span>Anomaly detection</a>
     <a href="/docs/recipes/continuous-anomaly-datafeeds.html" class=""><span class="eyebrow">09</span>Anomaly datafeeds</a>
@@ -106,95 +106,154 @@
   <!-- Print-only branded header (hidden on screen, visible in PDF) -->
   <div class="print-header" style="display:none;">XERJ.AI</div>
 
-  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span>PLAYBOOKS<span class="sep">·</span>LOG ANALYTICS
+  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span><a href="/docs/recipes/index.html">RECIPES</a><span class="sep">·</span>HYBRID SEARCH
     <button class="pdf-btn" onclick="window.print()" title="Save this page as PDF">
       <svg viewBox="0 0 24 24"><path d="M12 3v12M12 15l-4-4M12 15l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
       PDF
     </button>
   </div>
-  <div class="kicker"><span>PLAYBOOK · 02</span></div>
-  <h1>Playbook · Log analytics</h1>
+  <div class="kicker"><span>RECIPE · 06</span></div>
+  <h1>Hybrid search</h1>
 
 
-  <p>Ingest Nginx, JSON, syslog, or OTLP at line rate. Query hot logs in milliseconds. Cold-drop to cheap storage with ILM-free retention. This is the workload XERJ was originally built for.</p>
-
-  <h2>Schema</h2>
-<pre class="code">$ curl -sX PUT http://localhost:8080/v1/indices/logs \
-    -H 'Content-Type: application/json' \
-    -d '{
-      "fields": {
-        "@timestamp":  "date",
-        "service":     "keyword",
-        "level":       "keyword",
-        "host":        "keyword",
-        "trace_id":    "keyword",
-        "span_id":     "keyword",
-        "status":      "integer",
-        "latency_ms":  "integer",
-        "bytes_out":   "integer",
-        "client_ip":   "ip",
-        "message":     "text"
-      }
-    }'</pre>
-
-  <h2>Ingest options</h2>
+  <h2>The problem</h2>
+  <p>You run a help-desk search box. A user types <strong>"reset password"</strong>. Two things are true at once:</p>
   <ul>
-    <li><strong>Raw NGINX/Apache</strong> → <code class="inline">POST /v1/indices/logs/logs</code> auto-detects the format.</li>
-    <li><strong>Structured JSON</strong> → <code class="inline">POST /v1/indices/logs/turbo-ingest</code> NDJSON body.</li>
-    <li><strong>Syslog</strong> → <code class="inline">POST /v1/indices/logs/syslog</code>.</li>
-    <li><strong>OTLP</strong> → <code class="inline">POST /v1/indices/logs/otlp</code>.</li>
+    <li>The best answer might share <strong>no keywords</strong> with the query. An article titled <em>"Regain entry to a locked-out account"</em> is exactly what they need, but BM25 never sees it — there's no lexical overlap.</li>
+    <li>A keyword-exact article might be <strong>off-topic</strong>. <em>"Password complexity and rotation policy"</em> contains "password," so BM25 loves it, but a semantic ranker knows it's about policy, not recovery.</li>
   </ul>
+  <p>Keyword search (BM25) is precise on exact terms and useless on synonyms. Vector search (kNN) captures meaning but drops exact-term matches whose embeddings drift. The usual "fix" is to run <strong>two systems</strong> — a lexical engine and a vector DB — then stitch and re-rank the results in your application. That's two deployments, two writes on every ingest, and a fusion step you have to build and maintain yourself.</p>
 
-  <h2>Tail recent errors</h2>
-<pre class="code">{
+  <h2>Why XERJ</h2>
+  <p>XERJ indexes the text field and the <code class="inline">dense_vector</code> field in the <strong>same index</strong>, and fuses BM25 and kNN in a <strong>single <code class="inline">hybrid</code> query</strong>. One request goes out, one ranked list comes back — already fused with Reciprocal Rank Fusion (RRF). No second datastore, no client-side re-ranking.</p>
+
+  <h2>The solution</h2>
+
+  <h3>1. One index, two modalities</h3>
+  <p>A <code class="inline">text</code> field for BM25 and a <code class="inline">dense_vector</code> field for kNN:</p>
+<pre class="code">PUT /helpdesk
+{
+  "mappings": {
+    "properties": {
+      "title": { "type": "text" },
+      "vec":   { "type": "dense_vector", "dims": 4, "similarity": "cosine" }
+    }
+  }
+}</pre>
+  <p>The vectors in this recipe are hand-authored 4-dim <em>topic</em> vectors so the demo is deterministic and you can see exactly why each result ranks where it does. In production you fill <code class="inline">vec</code> with a real embedding model — or skip the vectors entirely and use a <code class="inline">semantic_text</code> field, which auto-embeds on ingest. (XERJ's built-in embedder is lexical, good for demos and keyword-semantic overlap; point <code class="inline">inference_id</code> at an external <code class="inline">/v1/embeddings</code> endpoint for neural-quality vectors.)</p>
+
+  <h3>2. The corpus</h3>
+  <p>Each doc has a title (for BM25) and a topic vector (for kNN). Topic axes are <code class="inline">[auth_recovery, security_policy, cooking, generic]</code>:</p>
+  <table>
+    <thead>
+      <tr><th>id</th><th>title</th><th>vector</th><th>keyword "password"?</th><th>near query vector?</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>d1</td><td>Reset your password</td><td><code class="inline">[1.00, 0.15, 0, 0.10]</code></td><td>yes</td><td>yes</td></tr>
+      <tr><td>d2</td><td>Regain entry to a locked-out account</td><td><code class="inline">[0.95, 0.10, 0, 0.15]</code></td><td><strong>no</strong></td><td>yes</td></tr>
+      <tr><td>d3</td><td>Password complexity and rotation policy</td><td><code class="inline">[0.15, 1.00, 0, 0.10]</code></td><td>yes</td><td><strong>no</strong></td></tr>
+      <tr><td>d4</td><td>How to bake sourdough bread</td><td><code class="inline">[0.00, 0.00, 1.0, 0.10]</code></td><td>no</td><td>no</td></tr>
+      <tr><td>d5</td><td>Change your account password</td><td><code class="inline">[0.85, 0.25, 0, 0.20]</code></td><td>yes</td><td>yes</td></tr>
+    </tbody>
+  </table>
+  <p>The user's intent in both modalities: text <code class="inline">"reset password"</code>, vector <code class="inline">[1.0, 0.20, 0.0, 0.10]</code> (an "auth recovery" direction).</p>
+
+  <h3>3. Watch each modality fail on its own</h3>
+  <p><strong>Pure BM25</strong> — <code class="inline">{"match": {"title": "reset password"}}</code>:</p>
+<pre class="code">d1  score=0.5754  Reset your password
+d3  score=0.2877  Password complexity and rotation policy
+d5  score=0.2877  Change your account password</pre>
+  <p>It <strong>misses d2</strong> entirely — "Regain entry to a locked-out account" has no shared keywords, so it can never be a BM25 hit.</p>
+  <p><strong>Pure kNN</strong> — <code class="inline">{"knn": {"field": "vec", "query_vector": [...], "k": 3}}</code>, showing the 3 nearest:</p>
+<pre class="code">d1  score=0.9994  Reset your password
+d2  score=0.9971  Regain entry to a locked-out account
+d5  score=0.9942  Change your account password</pre>
+  <p>It surfaces d2 (great!) but <strong>misses d3</strong> — the password-policy article's topic vector points at "security_policy," far from the query, so it falls below the top-3 cutoff.</p>
+
+  <h3>4. Hybrid recovers both — one query</h3>
+<pre class="code">POST /helpdesk/_search
+{
+  "size": 5,
   "query": {
-    "bool": {
-      "filter": [
-        { "term":  { "level": "error" } },
-        { "range": { "@timestamp": { "gte": "now-15m" } } }
-      ]
+    "hybrid": {
+      "queries": [
+        { "query": { "match": { "title": "reset password" } }, "weight": 1.0 },
+        { "query": { "knn": { "field": "vec",
+                              "query_vector": [1.0, 0.2, 0.0, 0.1],
+                              "k": 3 } }, "weight": 1.0 }
+      ],
+      "fusion": "rrf"
     }
-  },
-  "size": 100,
-  "sort": [ { "@timestamp": "desc" } ]
+  }
 }</pre>
-
-  <h2>Top slow endpoints · percentiles</h2>
+  <p>Real response (trimmed to <code class="inline">title</code>, printed verbatim by the script):</p>
 <pre class="code">{
-  "query": { "term": { "service": "api-gateway" } },
-  "aggs": {
-    "by_route": {
-      "terms": { "field": "url_template", "size": 20 },
-      "aggs": {
-        "p": { "percentiles": { "field": "latency_ms", "percents": [50, 95, 99] } }
-      }
-    }
-  },
-  "size": 0
+  "hits": {
+    "total": { "value": 4, "relation": "eq" },
+    "max_score": 0.03279,
+    "hits": [
+      { "_id": "d1", "_score": 0.03279, "_source": { "title": "Reset your password" } },
+      { "_id": "d5", "_score": 0.03175, "_source": { "title": "Change your account password" } },
+      { "_id": "d3", "_score": 0.01613, "_source": { "title": "Password complexity and rotation policy" } },
+      { "_id": "d2", "_score": 0.01613, "_source": { "title": "Regain entry to a locked-out account" } }
+    ]
+  }
 }</pre>
+  <p><strong>d2</strong> (only kNN found it) and <strong>d3</strong> (only BM25 found it) are now <em>both</em> on the page, and <strong>d1</strong> — the doc that matched on <em>both</em> keyword and vector — is still ranked #1. Watch <strong>d5</strong>: neither BM25 nor kNN ranks it better than #3, yet because <em>both</em> signals agree on it, fusion promotes it to <strong>#2</strong> — ahead of d3 and d2, each of which is strong in only one modality. That's the whole point: fusion rewards agreement between the two signals while still admitting the strong single-signal hits that either method alone would have dropped.</p>
+  <p>Only <strong>four</strong> docs come back, not five: d4 ("How to bake sourdough bread") is in <em>neither</em> sub-query's result set — it shares no keywords and its topic vector falls outside the kNN <code class="inline">k:3</code> cutoff — so RRF never sees it. Fusion ranks the <em>union</em> of the sub-query hits, nothing more.</p>
 
-  <h2>Retention</h2>
-  <p>Per-index, in the config. No ILM policy DSL required.</p>
-<pre class="code">[logs]
-retention_days = 30
-time_partition = "1h"</pre>
+  <h2>How the fusion works</h2>
+  <p><code class="inline">"fusion": "rrf"</code> uses Reciprocal Rank Fusion: each sub-query contributes <code class="inline">weight / (k + rank)</code> for a doc (default <code class="inline">k = 60</code>, <code class="inline">rank</code> is 1-based), summed across sub-queries. It ranks by <em>position</em>, not raw score, so BM25's <code class="inline">~0.5</code> scores and kNN's <code class="inline">~0.99</code> cosines never have to be normalized onto a common scale — a persistent headache when you fuse two systems yourself. The scores above fall straight out of this formula:</p>
+  <ul>
+    <li><strong>d1</strong> is rank 1 in <em>both</em> lists → <code class="inline">1/(60+1) + 1/(60+1) = 0.03279</code>.</li>
+    <li><strong>d5</strong> is rank 3 in <em>both</em> lists → <code class="inline">1/63 + 1/63 = 0.03175</code>, still beating either single-list hit because two contributions stack.</li>
+    <li><strong>d3</strong> and <strong>d2</strong> each appear in <em>one</em> list at rank 2 → <code class="inline">1/(60+2) = 0.01613</code> apiece — an exact tie.</li>
+  </ul>
+  <p>Other <code class="inline">fusion</code> options:</p>
+  <ul>
+    <li><code class="inline">"rrf"</code> or <code class="inline">{"type": "rrf", "k": 40}</code> — rank-based, the safe default.</li>
+    <li><code class="inline">"linear"</code> — weighted sum of the raw sub-query scores (use <code class="inline">weight</code> to tilt toward keyword or vector; requires comparable score scales).</li>
+  </ul>
+  <p>Per-query <code class="inline">weight</code> lets you bias the blend, e.g. <code class="inline">1.5</code> on the <code class="inline">match</code> sub-query to favor exact terms.</p>
 
-  <h2>Dashboard</h2>
-  <p>Open the playground and pick <a href="/playground.html">LOGS · OVERVIEW</a> — nine panels with click-to-filter TopN, 1 ms date_histogram, heatmap, and drill-through to the <a href="/playground.html">SYSTEM · OVERVIEW</a> dashboard.</p>
+  <h2>Reproduce it yourself</h2>
+  <p>No dependencies beyond the Python 3 standard library — no pip install, no API keys, no external service. Point it at a running XERJ:</p>
+<pre class="code"># 1. start a throwaway XERJ (insecure, local data dir) on the default port 9200
+xerj --insecure --data-dir /tmp/xerj-hybrid \
+     --config &lt;(printf '[server]\nes_compat_port = 9200\n')
 
-  <p class="source-note">Source · engine/crates/logs/src/lib.rs</p>
-  
+# 2. in another shell, run the example (defaults to http://localhost:9200)
+python3 docs/examples/hybrid-search/hybrid_search.py</pre>
+  <p>The script reads its target from <code class="inline">XERJ_URL</code> (default <code class="inline">http://localhost:9200</code>); the legacy <code class="inline">BASE</code> alias still works. To hit a server on another port:</p>
+<pre class="code">XERJ_URL=http://localhost:9485 python3 docs/examples/hybrid-search/hybrid_search.py</pre>
+  <p>Expected tail (verified live):</p>
+<pre class="code">--- assertions ---
+PASS  BM25 alone MISSES d2 (locked-out account: no shared keywords)
+PASS  kNN alone MISSES d3 (password policy: topic vector too far)
+PASS  Hybrid surfaces BOTH d2 and d3 in a single query
+PASS  d1 (keyword + vector match) still ranks #1 under fusion
 
-<div class="next">
-      <div class="step"><span class="dir">◀ PREV</span><a href="/docs/playbooks/siem.html">Playbook · SIEM</a></div>
-      <div class="step right"><span class="dir">NEXT ▶</span><a href="/docs/playbooks/vector-search.html">Vector · RAG</a></div>
-    </div>
+BM25 ids  : ['d1', 'd3', 'd5']
+kNN  ids  : ['d1', 'd2', 'd5']
+Hybrid ids: ['d1', 'd5', 'd2', 'd3']
+
+OK</pre>
+  <p>The four assertions and the scores are deterministic; the BM25 and kNN id lists are stable, and the hybrid list always starts <code class="inline">['d1', 'd5', …]</code>. The <strong>only</strong> run-to-run wobble is the last two ids — <strong>d3 and d2 tie at exactly <code class="inline">0.01613</code></strong>, so they swap freely between positions #3 and #4 (across a dozen runs we saw both <code class="inline">d2, d3</code> and <code class="inline">d3, d2</code>). The recipe's point — that d2 and d3 both appear and d1 stays #1 — holds every time.</p>
+  <p>See the full runnable example — <a href="https://github.com/xerj-org/xerj/blob/main/docs/examples/hybrid-search/hybrid_search.py">docs/examples/hybrid-search/hybrid_search.py</a> on GitHub.</p>
+
+  <h2>Notes &amp; limits</h2>
+  <ul>
+    <li><strong><code class="inline">knn</code> in a query scores every doc that has the field</strong>, ranked by cosine; <code class="inline">size</code> (or <code class="inline">from</code>+<code class="inline">size</code>) is the cutoff the user sees. So <code class="inline">k:3</code> plus <code class="inline">size:3</code> means "show the 3 nearest." For a hard candidate cap independent of <code class="inline">size</code>, keep <code class="inline">k</code> small — it's carried on the sub-query.</li>
+    <li><strong>Score scales differ by fusion.</strong> RRF returns small fused scores (<code class="inline">0.016–0.033</code> here) — compare docs <em>within</em> a response, not against BM25/cosine absolutes.</li>
+    <li><strong>Tie ordering is not guaranteed</strong> for docs with identical fused scores. d3 and d2 both score exactly <code class="inline">0.01613</code> here (each is a single rank-2 hit in one sub-query), and they genuinely swap between positions #3 and #4 from one run to the next — we observed both orders across a dozen runs. Set membership — the point of this recipe — is stable; the order <em>among exact ties</em> is not.</li>
+    <li><strong>Vector quality is your embeddings' job.</strong> This recipe supplies vectors directly for a deterministic demo. For real semantic recall, generate <code class="inline">dense_vector</code> values with a production embedding model, or use a <code class="inline">semantic_text</code> field with an external <code class="inline">inference_id</code>.</li>
+  </ul>
 
   <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
   <div class="print-footer" style="display:none;">
     <span>XERJ.AI · V0.1 · 2026-04-16</span>
     <a href="https://xerj.dev/docs/">https://xerj.dev/docs/</a>
-    <span>Playbook · Log analytics</span>
+    <span>Recipe · Hybrid search</span>
   </div>
 </main>
 </div>

@@ -17,10 +17,13 @@ embedding model (or use XERJ's semantic_text auto-embedding).
 Topic axes: [auth_recovery, security_policy, cooking, generic]
 """
 import json
+import os
 import sys
 import urllib.request
 
-BASE = "http://localhost:9485"
+# Server URL: XERJ_URL (canonical) or BASE (legacy alias) override the
+# default. No hardcoded port — defaults to the standard ES-compat port.
+BASE = os.environ.get("XERJ_URL") or os.environ.get("BASE") or "http://localhost:9200"
 INDEX = "helpdesk"
 
 
@@ -120,6 +123,22 @@ hyb = req("POST", f"/{INDEX}/_search", {
 print("\nHybrid     (BM25 + kNN, RRF fusion):")
 table(hyb)
 hyb_ids = ids(hyb)
+
+# Trimmed view of the ACTUAL fused response — this is what the recipe docs
+# quote, so print it verbatim from the run (nothing hand-edited).
+trimmed = {
+    "hits": {
+        "total": hyb["hits"]["total"],
+        "max_score": round(hyb["hits"]["max_score"], 5),
+        "hits": [
+            {"_id": h["_id"], "_score": round(h["_score"], 5),
+             "_source": {"title": h["_source"]["title"]}}
+            for h in hyb["hits"]["hits"]
+        ],
+    }
+}
+print("\nHybrid response (trimmed to title):")
+print(json.dumps(trimmed, indent=2))
 
 # ---- 4. Prove the point --------------------------------------------------
 print("\n--- assertions ---")
