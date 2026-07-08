@@ -1,0 +1,54 @@
+setup:
+
+  - do:
+      indices.create:
+        index: parent_child_test
+        body:
+          settings:
+            number_of_shards: 1
+          mappings:
+            properties:
+              body:
+                type: text
+
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - '{ "index": { "_index": "parent_child_test", "_id": "1" } }'
+          - '{ "body": "a question" }'
+          - '{ "index": { "_index": "parent_child_test", "_id": "2" } }'
+          - '{ "body": "an answer" }'
+
+---
+"has_child query is rejected (400)":
+
+  # XERJ is single-type per index and never materializes a parent/child
+  # join, so has_child is rejected at parse time rather than silently
+  # running the inner query on flat docs (which returned wrong results).
+  - do:
+      catch: bad_request
+      search:
+        index: parent_child_test
+        body:
+          query:
+            has_child:
+              type: answer
+              query:
+                match:
+                  body: "answer"
+
+---
+"has_parent query is rejected (400)":
+
+  - do:
+      catch: bad_request
+      search:
+        index: parent_child_test
+        body:
+          query:
+            has_parent:
+              parent_type: question
+              query:
+                match:
+                  body: "question"

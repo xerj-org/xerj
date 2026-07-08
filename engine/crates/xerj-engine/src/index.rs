@@ -13262,11 +13262,13 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
             tokens[..limit].iter().any(|t| t == &v_lower)
         }
 
-        // ── Join queries ──────────────────────────────────────────────────────
-
-        // HasChild / HasParent: single-index simplification — run the inner query.
-        // In a real parent-child setup we'd query the child/parent type; here we
-        // treat all docs as a flat set and just run the inner query.
+        // ── Join queries — UNREACHABLE ─────────────────────────────────────────
+        // has_child/has_parent are rejected with a 400 at parse time
+        // (see xerj-query parser.rs::parse_has_child), so these AST variants
+        // are never built and these branches never execute. Previously they
+        // silently ran the inner query on the flat doc set, which returned
+        // wrong results (no parent/child join is materialized). Kept for
+        // exhaustiveness / a future real join executor.
         QueryNode::HasChild { query, .. } => doc_matches_query(query, source),
         QueryNode::HasParent { query, .. } => doc_matches_query(query, source),
 

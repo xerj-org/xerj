@@ -629,7 +629,11 @@ fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
 
         QueryNode::SpanFirst { match_query, .. } => plan_node(*match_query, schema),
 
-        // ── Join queries — run the inner query as a doc-scan ──────────────────
+        // ── Join queries — UNREACHABLE ────────────────────────────────────────
+        // has_child/has_parent are rejected with a 400 at parse time
+        // (see parser.rs::parse_has_child), so these AST variants are never
+        // built and this branch is never taken. Kept for exhaustiveness and
+        // in case the AST variant is ever wired to a real join executor.
         QueryNode::HasChild { query, .. } | QueryNode::HasParent { query, .. } => {
             let inner = plan_node(*query, schema);
             let cost = inner.cost() + 10.0;

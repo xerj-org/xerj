@@ -3019,60 +3019,32 @@ fn parse_span_containing_like(query_type: &str, params: &Value) -> Result<QueryN
 /// Parse a `has_child` query.
 ///
 /// `{"has_child": {"type": "answer", "query": {...}, "score_mode": "avg"}}`
-fn parse_has_child(params: &Value) -> Result<QueryNode> {
-    let obj = params
-        .as_object()
-        .ok_or_else(|| qerr("`has_child` must be an object"))?;
-
-    let child_type = obj
-        .get("type")
-        .and_then(|v| v.as_str())
-        .unwrap_or("_doc")
-        .to_string();
-
-    let query = obj
-        .get("query")
-        .ok_or_else(|| qerr("`has_child` requires a `query`"))
-        .and_then(parse_query)?;
-
-    let score_mode = obj
-        .get("score_mode")
-        .and_then(|v| v.as_str())
-        .map(str::to_string);
-
-    Ok(QueryNode::HasChild {
-        child_type,
-        query: Box::new(query),
-        score_mode,
-    })
+///
+/// Parent-child joins are NOT supported. XERJ is single-type per index
+/// and never materializes the parent/child join structure, so both the
+/// planner and executor branches for `HasChild` would silently fall back
+/// to running the inner query on flat docs (wrong results). We fail loud
+/// (400) at parse time instead — the `QueryNode::HasChild` AST variant is
+/// therefore never built, and the downstream branches are unreachable.
+fn parse_has_child(_params: &Value) -> Result<QueryNode> {
+    invalid(
+        "parent-child join queries (has_child/has_parent) are not supported; \
+         index as a single flat type or denormalize the relationship",
+    )
 }
 
 /// Parse a `has_parent` query.
 ///
 /// `{"has_parent": {"parent_type": "question", "query": {...}, "score": true}}`
-fn parse_has_parent(params: &Value) -> Result<QueryNode> {
-    let obj = params
-        .as_object()
-        .ok_or_else(|| qerr("`has_parent` must be an object"))?;
-
-    let parent_type = obj
-        .get("parent_type")
-        .and_then(|v| v.as_str())
-        .unwrap_or("_doc")
-        .to_string();
-
-    let query = obj
-        .get("query")
-        .ok_or_else(|| qerr("`has_parent` requires a `query`"))
-        .and_then(parse_query)?;
-
-    let score = obj.get("score").and_then(|v| v.as_bool()).unwrap_or(false);
-
-    Ok(QueryNode::HasParent {
-        parent_type,
-        query: Box::new(query),
-        score,
-    })
+///
+/// See `parse_has_child`: parent-child joins are unsupported and rejected
+/// with a 400 at parse time, so the `QueryNode::HasParent` variant is
+/// never constructed.
+fn parse_has_parent(_params: &Value) -> Result<QueryNode> {
+    invalid(
+        "parent-child join queries (has_child/has_parent) are not supported; \
+         index as a single flat type or denormalize the relationship",
+    )
 }
 
 /// Parse a `geo_polygon` query.
@@ -4005,6 +3977,41 @@ mod tests {
             }
         }));
         assert!(matches!(node, QueryNode::Term { .. }));
+    }
+
+    // ── parent-child join (unsupported) ────────────────────────────────────────
+
+    #[test]
+    fn test_has_child_rejected() {
+        // Parent-child joins are not materialized in XERJ; parsing must
+        // fail loud (400) rather than build an AST node that silently runs
+        // the inner query on flat docs.
+        let err = parse_query(&json!({
+            "has_child": {
+                "type": "answer",
+                "query": { "match": { "body": "hello" } }
+            }
+        }))
+        .unwrap_err();
+        assert!(
+            format!("{err}").contains("parent-child join queries"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn test_has_parent_rejected() {
+        let err = parse_query(&json!({
+            "has_parent": {
+                "parent_type": "question",
+                "query": { "match": { "body": "hello" } }
+            }
+        }))
+        .unwrap_err();
+        assert!(
+            format!("{err}").contains("parent-child join queries"),
+            "unexpected error: {err}"
+        );
     }
 
     // ── query_string ──────────────────────────────────────────────────────────
