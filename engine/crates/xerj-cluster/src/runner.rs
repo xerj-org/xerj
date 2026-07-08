@@ -1,13 +1,15 @@
-//! Cluster runner — drives the Raft tick loop and message passing.
+//! Cluster runner — drives the Raft consensus loop and message passing.
 //!
-//! [`ClusterRunner`] owns a [`ClusterNode`] and two background tasks:
-//! 1. A periodic **tick** (every 50 ms by default) that advances the Raft
-//!    state machine and dispatches heartbeats / log replication RPCs.
-//! 2. A **receive loop** that delivers inbound messages from peers and routes
-//!    the responses.
+//! [`ClusterRunner`] owns a [`ClusterNode`] and runs a single async loop that,
+//! each iteration, drives one [`ClusterNode::step`]: it drains an inbound
+//! message from a peer (bounded by the tick interval), delivers it to the Raft
+//! state machine, and then ticks — advancing elections and dispatching
+//! heartbeat / log-replication RPCs.
 //!
 //! Shutdown is controlled via a `tokio::sync::watch` channel. When the watch
-//! value becomes `true`, the run loop exits cleanly.
+//! value becomes `true` the run loop exits cleanly; the shutdown wait is raced
+//! against `step` via `tokio::select!` so a shutdown is observed promptly
+//! rather than only between ticks.
 
 use std::time::Duration;
 
@@ -76,19 +78,16 @@ impl ClusterRunner {
 
     /// Run the Raft event loop until the shutdown signal fires.
     ///
-    /// The loop alternates between:
-    /// - Ticking the Raft state machine at `tick_interval`.
-    /// - Receiving inbound messages (with a timeout equal to the tick interval)
-    ///   via `ClusterNode::run`'s built-in timeout-based recv pattern.
-    /// - Checking the shutdown watch.
+    /// Each iteration races two futures with `tokio::select!`:
+    /// - [`ClusterNode::step`] — drain one inbound peer message (bounded by
+    ///   `tick_interval`), deliver it to the Raft state machine, then tick.
+    /// - `shutdown.changed()` — resolves when the shutdown watch is set (or the
+    ///   sender is dropped), at which point the loop exits.
     ///
-    /// Because `ClusterNode` owns the transport as a `Box<dyn ClusterTransport>`
-    /// and does not expose `recv()` directly to callers, we drive the node
-    /// forward by:
-    /// 1. Sleeping one tick.
-    /// 2. During that sleep, letting the node drain inbound messages via its
-    ///    existing `run`-style timeout recv.
-    /// 3. Calling `node.tick()` after each sleep.
+    /// This actually *handles* inbound messages, so leader election and log
+    /// replication make progress. (The previous implementation only slept and
+    /// ticked, never calling `recv()`, so a multi-node cluster could never
+    /// elect a leader.)
     pub async fn run(&mut self) {
         info!(
             node = %self.node.raft.id,
@@ -96,32 +95,32 @@ impl ClusterRunner {
             "ClusterRunner starting"
         );
 
+        let tick = self.tick_interval;
         loop {
-            // Check shutdown before each tick iteration.
+            // Fast path: already asked to shut down before we start a step.
             if *self.shutdown.borrow() {
                 info!(node = %self.node.raft.id, "ClusterRunner received shutdown signal");
                 break;
             }
 
-            // Try to receive a message within the tick interval.
-            // This uses the same timeout pattern as ClusterNode::run.
-            // Sleep for one tick interval. During this window the Tokio
-            // runtime services other tasks (including any transport tasks).
-            tokio::time::sleep(self.tick_interval).await;
-
-            // Tick the Raft state machine.
-            if let Err(e) = self.node.tick().await {
-                warn!(
-                    node = %self.node.raft.id,
-                    error = %e,
-                    "Raft tick error"
-                );
-            }
-
-            // Poll shutdown watch (non-blocking).
-            if self.shutdown.has_changed().unwrap_or(false) && *self.shutdown.borrow() {
-                info!(node = %self.node.raft.id, "ClusterRunner received shutdown signal");
-                break;
+            tokio::select! {
+                // Shutdown requested (value changed) or sender dropped (Err).
+                changed = self.shutdown.changed() => {
+                    if changed.is_err() || *self.shutdown.borrow() {
+                        info!(node = %self.node.raft.id, "ClusterRunner received shutdown signal");
+                        break;
+                    }
+                }
+                // Drive one iteration of the Raft loop: recv → handle → tick.
+                res = self.node.step(tick) => {
+                    if let Err(e) = res {
+                        warn!(
+                            node = %self.node.raft.id,
+                            error = %e,
+                            "Raft step error"
+                        );
+                    }
+                }
             }
         }
 

@@ -82,34 +82,48 @@ impl ClusterNode {
         self.raft.propose(cmd)
     }
 
-    /// Run the node event loop until `shutdown` fires.
+    /// Perform one iteration of the node event loop:
+    /// 1. Wait for an inbound message, bounded by `tick_interval`.
+    /// 2. If one arrives, deliver it to the Raft state machine.
+    /// 3. Tick the state machine (advancing elections / heartbeats).
     ///
-    /// Continuously:
-    /// 1. Waits for an inbound message (with a timeout equal to the tick interval).
-    /// 2. Delivers the message to the Raft state machine.
-    /// 3. Ticks the state machine regardless.
+    /// This is the unit of work that [`crate::runner::ClusterRunner`] drives,
+    /// so the caller can interleave it with a shutdown signal via
+    /// `tokio::select!`. It is cancellation-safe: dropping the returned future
+    /// before it resolves only abandons an in-flight `recv`/`send`, which Raft
+    /// tolerates via retransmission.
+    pub async fn step(&mut self, tick_interval: Duration) -> Result<()> {
+        // Try to receive a message within the tick interval.
+        let recv_result = tokio::time::timeout(tick_interval, self.transport.recv()).await;
+
+        match recv_result {
+            Ok(Ok((from, msg))) => {
+                self.handle_message(&from, msg).await?;
+            }
+            Ok(Err(e)) => {
+                warn!(node = %self.raft.id, error = %e, "Transport recv error");
+            }
+            Err(_timeout) => {
+                // Timeout is normal — just tick.
+            }
+        }
+
+        self.tick().await?;
+        Ok(())
+    }
+
+    /// Run the node event loop forever (until an error is hit).
+    ///
+    /// Each iteration is a single [`ClusterNode::step`]: waits for an inbound
+    /// message (with a timeout equal to the tick interval), delivers it to the
+    /// Raft state machine, then ticks.
     ///
     /// In production you would wrap this with a `tokio::select!` that listens
-    /// for a shutdown signal and for the transport channel.
+    /// for a shutdown signal — see [`crate::runner::ClusterRunner::run`].
     pub async fn run(&mut self, tick_interval: Duration) -> Result<()> {
         info!(node = %self.raft.id, "Starting cluster node run loop");
         loop {
-            // Try to receive a message within the tick interval
-            let recv_result = tokio::time::timeout(tick_interval, self.transport.recv()).await;
-
-            match recv_result {
-                Ok(Ok((from, msg))) => {
-                    self.handle_message(&from, msg).await?;
-                }
-                Ok(Err(e)) => {
-                    warn!(node = %self.raft.id, error = %e, "Transport recv error");
-                }
-                Err(_timeout) => {
-                    // Timeout is normal — just tick
-                }
-            }
-
-            self.tick().await?;
+            self.step(tick_interval).await?;
         }
     }
 
@@ -328,5 +342,55 @@ mod tests {
 
         assert!(nodes[0].metadata.nodes.contains_key("n2"));
         assert_eq!(nodes[0].metadata.config["replicas"], "2");
+    }
+
+    /// End-to-end proof that [`crate::runner::ClusterRunner::run`] actually
+    /// drains and handles inbound messages (not just sleeps and ticks).
+    ///
+    /// Three real [`ClusterNode`]s are wrapped in `ClusterRunner`s over a shared
+    /// [`InMemoryBus`] and driven by their `run()` loops concurrently. A leader
+    /// can only emerge if RequestVote / vote-response messages are received and
+    /// handled during the run, so asserting exactly one leader within ~2s proves
+    /// the run loop processes messages. With the old recv-less `sleep + tick`
+    /// body, votes were sent but never received, so zero leaders emerged and
+    /// this assertion fails.
+    #[tokio::test]
+    async fn test_cluster_runner_elects_single_leader() {
+        use crate::runner::ClusterRunner;
+        use tokio::sync::watch;
+
+        let nodes = make_cluster(&["n1", "n2", "n3"]).await;
+
+        // Keep the sender alive for the whole test: dropping it would resolve
+        // `shutdown.changed()` with an error and stop the run loops early.
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+
+        let tick = Duration::from_millis(5);
+        let mut runners = nodes
+            .into_iter()
+            .map(|n| ClusterRunner::new(n, tick, shutdown_rx.clone()));
+        let mut r1 = runners.next().unwrap();
+        let mut r2 = runners.next().unwrap();
+        let mut r3 = runners.next().unwrap();
+
+        // run() loops forever, so the 2s timeout branch is what ends the
+        // select!. Because select! borrows (does not move) the runners, once
+        // the timeout fires and the run() futures are cancelled we regain
+        // access to inspect leadership.
+        tokio::select! {
+            _ = r1.run() => {}
+            _ = r2.run() => {}
+            _ = r3.run() => {}
+            _ = tokio::time::sleep(Duration::from_secs(2)) => {}
+        }
+
+        let leaders = [r1.is_leader(), r2.is_leader(), r3.is_leader()]
+            .into_iter()
+            .filter(|&l| l)
+            .count();
+        assert_eq!(
+            leaders, 1,
+            "exactly one leader must be elected while ClusterRunner::run() drives the cluster"
+        );
     }
 }
