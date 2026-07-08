@@ -22,7 +22,7 @@ endpoint takes over.
 ## 1. Map one field as `semantic_text`
 
 ```bash
-curl -X PUT localhost:9482/kb -H 'Content-Type: application/json' -d '{
+curl -X PUT localhost:9200/kb -H 'Content-Type: application/json' -d '{
   "mappings": {
     "properties": {
       "title": { "type": "text" },
@@ -42,7 +42,7 @@ declaration, no dimension bookkeeping, no second datastore.
 Nothing special — the embedding happens under the hood:
 
 ```bash
-curl -X POST localhost:9482/_bulk -H 'Content-Type: application/x-ndjson' --data-binary '
+curl -X POST localhost:9200/_bulk -H 'Content-Type: application/x-ndjson' --data-binary '
 {"index":{"_index":"kb","_id":"kb-1"}}
 {"title":"Rotating an API key","body":"To change your API credentials, open Settings, choose Security, and click Regenerate token. The old token stops working immediately."}
 {"index":{"_index":"kb","_id":"kb-2"}}
@@ -58,7 +58,7 @@ in the "Refund policy" doc analyzed the same way. The `semantic` query retrieves
 it anyway:
 
 ```bash
-curl localhost:9482/kb/_search -H 'Content-Type: application/json' -d '{
+curl localhost:9200/kb/_search -H 'Content-Type: application/json' -d '{
   "size": 2,
   "query": { "semantic": { "field": "body", "query": "how do I regenerate my API token", "k": 2 } }
 }'
@@ -76,7 +76,7 @@ Real response (trimmed):
         "_source": {
           "title": "Rotating an API key",
           "body": "To change your API credentials, open Settings, choose Security, and click Regenerate token. The old token stops working immediately.",
-          "body_vector": [ 0.0, 0.0, -0.2164437, ... ]
+          "body_vector": [ 0.0, 0.0, 0.0, ... ]
         }
       }
     ]
@@ -173,19 +173,45 @@ was configured for this recipe.
 
 ---
 
-## Run it
+## Reproduce it yourself
 
-Boot XERJ (Elasticsearch-compatible port shown as 9482 here), then:
+Start XERJ on its default port (`9200`) and run the example — no keys, no
+external services, stdlib Python only:
 
 ```bash
-BASE=http://localhost:9482 python3 docs/examples/semantic-search-rag/rag_demo.py
+# 1. Start a throwaway XERJ (ES-compat wire on :9200 by default)
+xerj --insecure --data-dir ./data
+
+# 2. In another shell, run the demo (honors $XERJ_URL, default http://localhost:9200)
+python3 docs/examples/semantic-search-rag/rag_demo.py
 ```
 
-The script (stdlib only — `urllib` + `json`, no pip) creates the index, bulk-loads
-the KB, runs the five semantic retrievals with assertions, prints the RAG context
-bundle, shows the keyword-vs-semantic contrast, demonstrates the lexical-embedder
-miss, and exits non-zero if any of the five retrievals regress. Point `BASE` at any
-XERJ (or real Elasticsearch with a `semantic_text`/inference setup) to compare.
+Point it at a non-default host/port with `XERJ_URL=http://host:port` (the older
+`BASE` variable still works as an alias). The script (stdlib only — `urllib` +
+`json`, no pip) creates the index, bulk-loads the KB, runs the five semantic
+retrievals with assertions, prints the RAG context bundle, shows the
+keyword-vs-semantic contrast, demonstrates the lexical-embedder miss, scores the
+ranking with `_rank_eval`, and exits non-zero if any of the five retrievals
+regress — so it doubles as a CI gate.
+
+The built-in embedder is deterministic (offline lexical model), so every run
+prints the same numbers:
+
+```
+bulk -> errors=False items=5
+...
+Q: 'how do I regenerate my API token'  top -> kb-1 'Rotating an API key' score=0.6626 OK
+Q: 'can I get my money back after buying'  top -> kb-2 'Refund policy' score=0.5771 OK
+Q: "I forgot my login and can't sign in"  top -> kb-3 'Resetting a forgotten password' score=0.6710 OK
+Q: 'which file formats are supported for uploads'  top -> kb-4 'Supported file formats for upload' score=0.5926 OK
+Q: 'how many calls per minute am I allowed'  top -> kb-5 'Rate limits' score=0.6171 OK
+
+RESULT: 5/5 semantic retrievals returned the right doc at rank 1
+```
+
+Every score above is emitted by this run (the top `kb-1` score is
+`0.6625697016716003`, shown to 4 dp); nothing is hardcoded. Point `XERJ_URL` at
+real Elasticsearch with a `semantic_text`/inference setup to compare.
 
 ---
 
@@ -199,26 +225,39 @@ real (they are **not** aliases for precision): `precision`, `recall`, `dcg`
 `expected_reciprocal_rank`. An unknown metric name returns `400` rather than
 a misleading number.
 
+Scoring the regenerate-token ranking against this KB — `kb-1` is the one
+relevant answer, so with it at rank 1 the ranking is perfect:
+
 ```bash
-curl -sX POST "$BASE/kb/_rank_eval" -H 'content-type: application/json' -d '{
-  "metric": { "dcg": { "k": 10, "normalize": true } },
+curl -sX POST localhost:9200/kb/_rank_eval -H 'content-type: application/json' -d '{
+  "metric": { "dcg": { "k": 3, "normalize": true } },
   "requests": [
     {
-      "id": "chunking_q",
-      "request": { "query": { "semantic": { "field": "content",
-                    "query": "how do I split documents for RAG?", "k": 10 } } },
+      "id": "regen_token_q",
+      "request": { "query": { "semantic": { "field": "body",
+                    "query": "how do I regenerate my API token", "k": 3 } } },
       "ratings": [
-        { "_id": "kb-7",  "rating": 3 },
-        { "_id": "kb-12", "rating": 1 },
-        { "_id": "kb-30", "rating": 0 }
+        { "_id": "kb-1", "rating": 3 },
+        { "_id": "kb-5", "rating": 0 },
+        { "_id": "kb-2", "rating": 0 }
       ]
     }
   ]
 }'
-# → { "metric_score": 0.87, "details": { "chunking_q": { "metric_score": 0.87, ... } } }
+# → { "metric_score": 1.0, "details": { "regen_token_q": { "metric_score": 1.0, ... } } }
 ```
 
-Swap `"dcg"` for `"precision"`, `"recall"`, `"mean_reciprocal_rank"`, or
-`"expected_reciprocal_rank"` to score the same ranking a different way — each
-returns its own value, so you can track whichever metric your product cares
-about as you tune embeddings, `k`, and hybrid weights.
+Swap `"dcg"` for `"precision"`, `"recall"`, or `"mean_reciprocal_rank"` to score
+the *same* ranking a different way — each returns its own value. These are the
+figures the demo actually measures against this KB:
+
+```
+dcg (nDCG@3)          metric_score=1.0
+precision@3           metric_score=0.3333333333333333
+recall@3              metric_score=1.0
+mean_reciprocal_rank  metric_score=1.0
+unknown-metric -> HTTP 400 (fail-loud, not a misleading number)
+```
+
+Track whichever metric your product cares about as you tune embeddings, `k`, and
+hybrid weights.

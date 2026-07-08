@@ -11,12 +11,18 @@ real operational questions with Elasticsearch-style aggregations:
 Stdlib only (urllib + json). No pip installs. Point it at a live XERJ.
 """
 import json
+import os
 import random
 import sys
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
-BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:9483"
+# Server URL resolution (no un-overridable hardcoded port):
+#   1. explicit argv[1]                      (documented positional form)
+#   2. $XERJ_URL environment variable        (uniform across all recipes)
+#   3. http://localhost:9200                 (XERJ's default es_compat_port)
+BASE = (sys.argv[1] if len(sys.argv) > 1
+        else os.environ.get("XERJ_URL", "http://localhost:9200"))
 INDEX = "logs-app"
 
 
@@ -113,6 +119,7 @@ r = req("POST", "/" + INDEX + "/_search", {
         }
     }
 })
+print(f"(took={r.get('took')} ms)")
 print(f"{'hour (UTC)':<22}{'total':>8}{'errors':>8}{'err_rate':>10}")
 for b in r["aggregations"]["per_hour"]["buckets"]:
     total = b["doc_count"]
@@ -139,6 +146,8 @@ r = req("POST", "/" + INDEX + "/_search", {
     }
 })
 pct = r["aggregations"]["latency"]["values"]
+raw = "  ".join(f"{k}={v:.2f}" for k, v in sorted(pct.items(), key=lambda kv: float(kv[0])))
+print(f"(took={r.get('took')} ms; raw percentiles: {raw})")
 print(f"fleet-wide  p50={pct['50.0']:.0f}  p95={pct['95.0']:.0f}  p99={pct['99.0']:.0f}")
 print(f"{'service':<12}{'p95 latency':>14}")
 for b in r["aggregations"]["by_service"]["buckets"]:

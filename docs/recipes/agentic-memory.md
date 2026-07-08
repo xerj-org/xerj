@@ -59,7 +59,7 @@ that is how isolation stays clean.
 ### Storing a memory (raw wire)
 
 ```bash
-curl -XPOST localhost:9481/_memory/agent-ada -H 'content-type: application/json' -d '{
+curl -XPOST localhost:9200/_memory/agent-ada -H 'content-type: application/json' -d '{
   "text": "The team prefers Rust over Go for new backend services.",
   "vector": [0.12, 0.0, 0.34],
   "metadata": {"kind": "preference", "topic": "language"},
@@ -73,7 +73,7 @@ curl -XPOST localhost:9481/_memory/agent-ada -H 'content-type: application/json'
 ### Recalling by vector, filtered to preferences (raw wire)
 
 ```bash
-curl -XPOST localhost:9481/_memory/agent-ada/_recall -H 'content-type: application/json' -d '{
+curl -XPOST localhost:9200/_memory/agent-ada/_recall -H 'content-type: application/json' -d '{
   "vector": [0.12, 0.0, 0.34],
   "k": 2,
   "filter": {"term": {"metadata.kind": "preference"}}
@@ -111,13 +111,16 @@ trigrams) so the demo needs no model download and cosine similarity is meaningfu
 #!/usr/bin/env python3
 """Long-term memory for an AI agent, backed by XERJ's /_memory API."""
 
+import os
 import json
 import math
 import re
 import urllib.request
 from urllib.error import HTTPError
 
-BASE = "http://localhost:9481"
+# Server URL: read XERJ_URL (or the legacy BASE alias); default to the stock
+# XERJ port 9200. No un-overridable hardcoded port -- point this at any node.
+BASE = os.environ.get("XERJ_URL") or os.environ.get("BASE") or "http://localhost:9200"
 DIM = 96  # embedding dimensionality for the toy hashing embedder
 
 
@@ -173,6 +176,27 @@ def show(label, hits):
         print(f"  [{h['score']:.3f}] ({kind:10}) {h['text']}")
 
 
+# Quantified recall quality: probe questions each labeled with the one memory
+# that answers them, scored by recall@1 / recall@3 -- MEASURED, not eyeballed.
+PROBES = [
+    ("What language should we choose for a new backend service?", "ada-1"),
+    ("Which region is production deployed in?",                   "ada-2"),
+    ("Are we using tabs or spaces, and what line width?",         "ada-3"),
+    ("Which service owns the Postgres ledger database?",          "ada-4"),
+    ("What has to pass in CI before a deploy?",                   "ada-5"),
+    ("What do we use for tracing?",                               "ada-6"),
+]
+
+def evaluate_recall(ns, recall_fn):
+    at1 = at3 = 0
+    for question, want in PROBES:
+        ids = [h["id"] for h in recall_fn(ns, question, k=3)]
+        at1 += ids[:1] == [want]
+        at3 += want in ids[:3]
+    n = len(PROBES)
+    return at1 / n, at3 / n
+
+
 def main():
     ADA, BILLING = "agent-ada", "agent-billing"
     drop(ADA); drop(BILLING)  # clean slate for a repeatable demo
@@ -208,6 +232,16 @@ def main():
     show(f'== Preference-only recall for: "{q3}"',
          recall_vec(ADA, q3, k=5, filt={"term": {"metadata.kind": "preference"}}))
 
+    # Measured recall quality (all 6 memories still present, before the forget).
+    v1, v3 = evaluate_recall(ADA, recall_vec)   # semantic (kNN over the vectors)
+    b1, b3 = evaluate_recall(ADA, recall_text)  # lexical  (BM25 over the text)
+    n = len(PROBES)
+    print(f"\n== Recall quality over {n} labeled probe questions ==")
+    print(f"  semantic (kNN):  recall@1 = {v1*100:5.1f}%  ({round(v1*n)}/{n})"
+          f"   recall@3 = {v3*100:5.1f}%  ({round(v3*n)}/{n})")
+    print(f"  lexical  (BM25): recall@1 = {b1*100:5.1f}%  ({round(b1*n)}/{n})"
+          f"   recall@3 = {b3*100:5.1f}%  ({round(b3*n)}/{n})")
+
     print("\n== Namespace isolation ==")
     leak = recall_vec(BILLING, q1, k=3)
     billing_texts = [h["text"] for h in leak]
@@ -237,18 +271,36 @@ if __name__ == "__main__":
 
 ---
 
-## Run it
+## Reproduce it yourself
 
-Start XERJ (single node, no TLS/auth) and run the script:
+Start XERJ (single node, no TLS/auth) on its default port and run the script.
+Nothing to install — the client is Python 3 **stdlib only**.
 
 ```bash
-# 1. boot XERJ
-printf '[server]\nes_compat_port = 9481\n' > /tmp/xerj.toml
-./engine/target/release/xerj --insecure --data-dir /tmp/xerj-mem --config /tmp/xerj.toml &
+# 1. boot XERJ on the default port 9200
+./engine/target/release/xerj --insecure --data-dir /tmp/xerj-mem &
 
-# 2. run the agent
+# 2. run the agent (defaults to http://localhost:9200)
 python3 docs/examples/agentic-memory/agent_memory.py
+
+# Point it at a different node/port with XERJ_URL if you like:
+#   XERJ_URL=http://localhost:9481 python3 docs/examples/agentic-memory/agent_memory.py
 ```
+
+**What a customer should see.** The client exits `0` and prints `All assertions
+passed.`. The recall-quality line is the headline number, and it is
+**deterministic** — the toy embedder and BM25 are fixed functions of this
+corpus, so the values below reproduce exactly, run to run:
+
+- **Semantic (kNN):** recall@1 = **83.3% (5/6)**, recall@3 = **100% (6/6)**
+- **Lexical (BM25):** recall@1 = **100% (6/6)**, recall@3 = **100% (6/6)**
+
+The single semantic recall@1 miss is honest and instructive: on *"Which region
+is production deployed in?"* the toy trigram embedder scores *"**Deploys** are
+gated on CI…"* (0.790) a hair above the correct *"**Production** runs on AWS…"*
+(0.780) — shared `deploy`/`Deploys` character trigrams. The right memory is still
+in the top 3, and **BM25 recalls it first (6/6)**, which is exactly why the recipe
+offers both recall paths.
 
 ### Real output
 
@@ -274,6 +326,10 @@ python3 docs/examples/agentic-memory/agent_memory.py
   [0.765] (preference) The team prefers Rust over Go for new backend services.
   [0.692] (preference) The team prefers tabs over spaces and a 100-column line limit.
   [0.666] (preference) The team prefers OpenTelemetry for tracing, not vendor SDKs.
+
+== Recall quality over 6 labeled probe questions ==
+  semantic (kNN):  recall@1 =  83.3%  (5/6)   recall@3 = 100.0%  (6/6)
+  lexical  (BM25): recall@1 = 100.0%  (6/6)   recall@3 = 100.0%  (6/6)
 
 == Namespace isolation ==
   agent-billing recall for a coding question -> ['Invoices over $10k require CFO approval.']
@@ -304,6 +360,9 @@ Read the run top to bottom:
 - **BM25 recall** answered the region question exactly, no vectors involved.
 - **Preference-only recall** returned three memories, *all* `kind:"preference"` —
   the `metadata.kind` filter did its job.
+- **Recall quality** over the 6 labeled probes is measured, not asserted by hand:
+  BM25 recall@1 = 6/6, semantic recall@1 = 5/6, both recall@3 = 6/6 — a real number
+  this run computed and printed.
 - **Isolation** held: `agent-billing`, asked a coding question, only saw its own
   single finance memory.
 - **Forgetting** removed `ada-6` (the tracing preference); the follow-up recall no
@@ -321,8 +380,12 @@ Read the run top to bottom:
 - **Vector *or* text.** A memory needs at least `text` or a `vector`. Text is always
   BM25-indexed; a vector additionally enables kNN recall. Recall with `vector` uses
   kNN; without it, `query` uses BM25.
-- **Recency.** The store blends similarity with a recency signal internally, so
-  fresh memories surface even when marginally less similar — useful for agents whose
+- **Recency (opt-in).** Recall is pure relevance by default. Pass `recency_weight`
+  in `[0, 1]` on `_recall` to blend recency: the engine over-fetches candidates and
+  re-ranks by `(1 - w) * norm_relevance + w * norm_recency` (both min-max normalized
+  across the candidate set), so `w = 1` surfaces the newest memory, `w = 0` is exactly
+  the default relevance order. Verified: two same-vector memories tie on relevance;
+  with `recency_weight: 1.0` the newer one is returned first. Useful when an agent's
   latest observation should win ties.
 - **Isolation is structural, not a filter.** Namespaces are separate physical
   indices, so there is no query you can write in one namespace that reads another.

@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XERJ.ai · Docs · Playbook · Log analytics</title>
-<meta name="description" content="Playbook · Log analytics — XERJ.ai documentation.">
+<title>XERJ · Docs · Recipe · Passage retrieval</title>
+<meta name="description" content="Recipe · Passage retrieval — map a field as semantic_text so XERJ embeds every passage on ingest and a long, multi-topic document competes on its best-matching section.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -81,7 +81,7 @@
   <div class="group">
     <span class="label">PLAYBOOKS</span>
     <a href="/docs/playbooks/siem.html" class=""><span class="eyebrow">01</span>SIEM</a>
-      <a href="/docs/playbooks/log-analytics.html" class="active"><span class="eyebrow">02</span>Log analytics</a>
+      <a href="/docs/playbooks/log-analytics.html" class=""><span class="eyebrow">02</span>Log analytics</a>
       <a href="/docs/playbooks/vector-search.html" class=""><span class="eyebrow">03</span>Vector · RAG</a>
       <a href="/docs/playbooks/full-text.html" class=""><span class="eyebrow">04</span>Full-text search</a>
       <a href="/docs/playbooks/observability.html" class=""><span class="eyebrow">05</span>Observability</a>
@@ -91,7 +91,7 @@
     <a href="/docs/recipes/index.html" class=""><span class="eyebrow">00</span>All recipes</a>
     <a href="/docs/recipes/semantic-search-rag.html" class=""><span class="eyebrow">01</span>Semantic search &amp; RAG</a>
     <a href="/docs/recipes/agentic-memory.html" class=""><span class="eyebrow">02</span>Agent memory</a>
-    <a href="/docs/recipes/passage-retrieval.html" class=""><span class="eyebrow">03</span>Passage retrieval</a>
+    <a href="/docs/recipes/passage-retrieval.html" class="active"><span class="eyebrow">03</span>Passage retrieval</a>
     <a href="/docs/recipes/vector-search-knn.html" class=""><span class="eyebrow">04</span>Vector search &middot; kNN</a>
     <a href="/docs/recipes/vector-quantization.html" class=""><span class="eyebrow">05</span>Vector quantization</a>
     <a href="/docs/recipes/hybrid-search.html" class=""><span class="eyebrow">06</span>Hybrid search</a>
@@ -106,95 +106,96 @@
   <!-- Print-only branded header (hidden on screen, visible in PDF) -->
   <div class="print-header" style="display:none;">XERJ.AI</div>
 
-  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span>PLAYBOOKS<span class="sep">·</span>LOG ANALYTICS
+  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span><a href="/docs/recipes/index.html">RECIPES</a><span class="sep">·</span>PASSAGE RETRIEVAL
     <button class="pdf-btn" onclick="window.print()" title="Save this page as PDF">
       <svg viewBox="0 0 24 24"><path d="M12 3v12M12 15l-4-4M12 15l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
       PDF
     </button>
   </div>
-  <div class="kicker"><span>PLAYBOOK · 02</span></div>
-  <h1>Playbook · Log analytics</h1>
+  <div class="kicker"><span>RECIPE · 03</span></div>
+  <h1>Passage retrieval</h1>
 
 
-  <p>Ingest Nginx, JSON, syslog, or OTLP at line rate. Query hot logs in milliseconds. Cold-drop to cheap storage with ILM-free retention. This is the workload XERJ was originally built for.</p>
+  <h2>The problem</h2>
+  <p>Embeddings describe <em>one</em> piece of text. But real documents — a manual, a contract, a long article, a support-ticket thread — are <em>many</em> topics stitched together. If you embed the whole document into a single vector, you get the <strong>average</strong> of everything it says. A query about one section then has to match that blurred average, and it loses to a short document that is <em>only</em> about that section. The relevant long document is there; your retriever just can't see it.</p>
+  <p>The fix the field settled on is <strong>passage (chunk) embeddings</strong>: split the document into overlapping passages, embed each one, and score the document by its <em>best-matching</em> passage. Most stacks make you build that pipeline yourself — a separate chunker, a vector column per chunk, a nested query — and keep it in sync with your data.</p>
 
-  <h2>Schema</h2>
-<pre class="code">$ curl -sX PUT http://localhost:8080/v1/indices/logs \
-    -H 'Content-Type: application/json' \
-    -d '{
-      "fields": {
-        "@timestamp":  "date",
-        "service":     "keyword",
-        "level":       "keyword",
-        "host":        "keyword",
-        "trace_id":    "keyword",
-        "span_id":     "keyword",
-        "status":      "integer",
-        "latency_ms":  "integer",
-        "bytes_out":   "integer",
-        "client_ip":   "ip",
-        "message":     "text"
-      }
-    }'</pre>
+  <h2>Why XERJ</h2>
+  <p>XERJ does it on ingest, with no configuration. A <code class="inline">semantic_text</code> field splits each value into overlapping passages, embeds <strong>every passage</strong>, and persists the per-passage vectors alongside the document. A <code class="inline">semantic</code> query then scores each document by its <strong>best-matching passage</strong> (max-sim) instead of a single pooled vector — so a long document competes on <em>any one</em> of its sections.</p>
+  <p>Short values (a single passage) are unchanged: one vector, exactly as before. The pipeline only kicks in when a value is long enough to span more than one passage, so you pay nothing for short fields.</p>
 
-  <h2>Ingest options</h2>
+  <h2>The solution</h2>
+  <p>Nothing to configure — map the field as <code class="inline">semantic_text</code> and index normally:</p>
+<pre class="code">curl -sX PUT "$XERJ_URL/docs" -H 'content-type: application/json' -d '{
+  "mappings": { "properties": { "body": { "type": "semantic_text" } } }
+}'
+
+# A long, multi-topic document — embedded per passage automatically.
+curl -sX PUT "$XERJ_URL/docs/_doc/handbook?refresh=true" \
+  -H 'content-type: application/json' \
+  -d '{ "body": "...many paragraphs across many topics..." }'</pre>
+
+  <p>Query it with <code class="inline">semantic</code> — the question is embedded server-side and scored against the best passage:</p>
+<pre class="code">curl -sX POST "$XERJ_URL/docs/_search" -H 'content-type: application/json' -d '{
+  "query": { "semantic": { "field": "body",
+                           "query": "how does chlorophyll drive photosynthesis",
+                           "k": 10 } }
+}'</pre>
+
+  <p>The document is retrieved on the strength of the one passage that matches — even if the rest of it is about something else entirely.</p>
+
+  <h2>Try it</h2>
+  <p><a href="https://github.com/xerj-org/xerj/blob/main/docs/examples/passage-retrieval/passage_demo.py"><code class="inline">docs/examples/passage-retrieval/passage_demo.py</code></a> indexes the 40 real KB articles as short docs <strong>plus</strong> one long "compendium" that concatenates all 40, then runs each article's title as a query and measures how often the long compendium reaches the top 3 under each scoring mode. Both arms use XERJ's own embedder — the pooled baseline reads XERJ's whole-document <code class="inline">&lt;field&gt;_vector</code> back out of <code class="inline">_source</code> — so the only variable is pooled-vs-per-passage:</p>
+<pre class="code">$ python3 docs/examples/passage-retrieval/passage_demo.py
+40 short article docs + 1 long compendium of all 40
+
+compendium embedded into 21 passage vectors (pooled into 1 whole-doc vector of 384 dims)
+
+compendium reached the top-3:
+  per-passage : 39/40  (98%)
+  pooled      : 13/40  (32%)
+
+OK: per-passage scoring let the long document compete on each of its sections
+    (39/40 top-3); a single pooled vector managed only 13/40.</pre>
+
+  <p>The compendium contains every topic, so with per-passage scoring it competes for almost every query. Averaged into a single vector, it is a mediocre blur that loses to the undiluted short docs two times out of three.</p>
+
+  <h2>Reproduce it yourself</h2>
+  <p>Start XERJ on its default port (<code class="inline">9200</code>) and run the example — no keys, no external services, stdlib Python only:</p>
+<pre class="code"># 1. Start a throwaway XERJ (ES-compat wire on :9200 by default)
+xerj --insecure --data-dir ./data
+
+# 2. In another shell, run the demo (honors $XERJ_URL, default http://localhost:9200)
+python3 docs/examples/passage-retrieval/passage_demo.py</pre>
+  <p>Point it at a non-default host/port with <code class="inline">XERJ_URL=http://host:port</code>. The run is fully deterministic (offline lexical embedder over a fixed 40-article corpus), so every run prints the same numbers:</p>
+<pre class="code">40 short article docs + 1 long compendium of all 40
+
+compendium embedded into 21 passage vectors (pooled into 1 whole-doc vector of 384 dims)
+
+compendium reached the top-3:
+  per-passage : 39/40  (98%)
+  pooled      : 13/40  (32%)</pre>
+  <p>Both <code class="inline">39/40</code> and <code class="inline">13/40</code> are computed by the run itself over the 40 title queries — nothing is hardcoded. If either arm regresses (per-passage top-3 rate &lt; 75%, or per-passage failing to beat pooled) the script exits non-zero, so it doubles as a CI gate.</p>
+
+  <h2>How it works</h2>
   <ul>
-    <li><strong>Raw NGINX/Apache</strong> → <code class="inline">POST /v1/indices/logs/logs</code> auto-detects the format.</li>
-    <li><strong>Structured JSON</strong> → <code class="inline">POST /v1/indices/logs/turbo-ingest</code> NDJSON body.</li>
-    <li><strong>Syslog</strong> → <code class="inline">POST /v1/indices/logs/syslog</code>.</li>
-    <li><strong>OTLP</strong> → <code class="inline">POST /v1/indices/logs/otlp</code>.</li>
+    <li><strong>Chunker.</strong> The built-in overlapping chunker (512-char passages, 64-char overlap) splits the field value; each passage is embedded with the same embedder used for the whole field (built-in lexical by default, or your configured OpenAI-compatible endpoint).</li>
+    <li><strong>Storage.</strong> The pooled whole-document vector stays in <code class="inline">&lt;field&gt;_vector</code> for back-compat and plain kNN; the per-passage vectors are persisted in <code class="inline">&lt;field&gt;_vector_chunks</code> <strong>only</strong> when the document spans more than one passage.</li>
+    <li><strong>Scoring.</strong> A <code class="inline">semantic</code> query scores each candidate by the maximum similarity over its passage vectors, falling back to the single pooled vector for short documents.</li>
   </ul>
 
-  <h2>Tail recent errors</h2>
-<pre class="code">{
-  "query": {
-    "bool": {
-      "filter": [
-        { "term":  { "level": "error" } },
-        { "range": { "@timestamp": { "gte": "now-15m" } } }
-      ]
-    }
-  },
-  "size": 100,
-  "sort": [ { "@timestamp": "desc" } ]
-}</pre>
-
-  <h2>Top slow endpoints · percentiles</h2>
-<pre class="code">{
-  "query": { "term": { "service": "api-gateway" } },
-  "aggs": {
-    "by_route": {
-      "terms": { "field": "url_template", "size": 20 },
-      "aggs": {
-        "p": { "percentiles": { "field": "latency_ms", "percents": [50, 95, 99] } }
-      }
-    }
-  },
-  "size": 0
-}</pre>
-
-  <h2>Retention</h2>
-  <p>Per-index, in the config. No ILM policy DSL required.</p>
-<pre class="code">[logs]
-retention_days = 30
-time_partition = "1h"</pre>
-
-  <h2>Dashboard</h2>
-  <p>Open the playground and pick <a href="/playground.html">LOGS · OVERVIEW</a> — nine panels with click-to-filter TopN, 1 ms date_histogram, heatmap, and drill-through to the <a href="/playground.html">SYSTEM · OVERVIEW</a> dashboard.</p>
-
-  <p class="source-note">Source · engine/crates/logs/src/lib.rs</p>
-  
-
-<div class="next">
-      <div class="step"><span class="dir">◀ PREV</span><a href="/docs/playbooks/siem.html">Playbook · SIEM</a></div>
-      <div class="step right"><span class="dir">NEXT ▶</span><a href="/docs/playbooks/vector-search.html">Vector · RAG</a></div>
-    </div>
+  <h2>Notes and limits</h2>
+  <ul>
+    <li><strong>Short fields are byte-identical to before.</strong> A single-passage value stores one vector and scores exactly as it did pre-pipeline; no existing behavior changes.</li>
+    <li><strong>The built-in embedder is lexical</strong>, not neural — great for offline demos and CI. Point XERJ at an OpenAI-compatible <code class="inline">/v1/embeddings</code> endpoint (<code class="inline">[embedding]</code> in <code class="inline">xerj.toml</code>) for production semantics; the pipeline is identical, just higher-quality per-passage vectors.</li>
+    <li><strong>Scoring is exact (brute-force max-sim)</strong> over the passage vectors, which is what makes the ranking deterministic on the corpus sizes these recipes use.</li>
+  </ul>
 
   <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
   <div class="print-footer" style="display:none;">
     <span>XERJ.AI · V0.1 · 2026-04-16</span>
     <a href="https://xerj.dev/docs/">https://xerj.dev/docs/</a>
-    <span>Playbook · Log analytics</span>
+    <span>Recipe · Passage retrieval</span>
   </div>
 </main>
 </div>

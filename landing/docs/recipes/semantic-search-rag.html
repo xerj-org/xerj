@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XERJ.ai · Docs · Playbook · Log analytics</title>
-<meta name="description" content="Playbook · Log analytics — XERJ.ai documentation.">
+<title>XERJ · Docs · Recipe · Semantic search &amp; RAG</title>
+<meta name="description" content="Semantic search and RAG retrieval with XERJ — map a field as semantic_text, auto-embed on ingest, and retrieve passages by meaning with the semantic query, no separate vector database.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -81,7 +81,7 @@
   <div class="group">
     <span class="label">PLAYBOOKS</span>
     <a href="/docs/playbooks/siem.html" class=""><span class="eyebrow">01</span>SIEM</a>
-      <a href="/docs/playbooks/log-analytics.html" class="active"><span class="eyebrow">02</span>Log analytics</a>
+      <a href="/docs/playbooks/log-analytics.html" class=""><span class="eyebrow">02</span>Log analytics</a>
       <a href="/docs/playbooks/vector-search.html" class=""><span class="eyebrow">03</span>Vector · RAG</a>
       <a href="/docs/playbooks/full-text.html" class=""><span class="eyebrow">04</span>Full-text search</a>
       <a href="/docs/playbooks/observability.html" class=""><span class="eyebrow">05</span>Observability</a>
@@ -89,7 +89,7 @@
   <div class="group">
     <span class="label">RECIPES</span>
     <a href="/docs/recipes/index.html" class=""><span class="eyebrow">00</span>All recipes</a>
-    <a href="/docs/recipes/semantic-search-rag.html" class=""><span class="eyebrow">01</span>Semantic search &amp; RAG</a>
+    <a href="/docs/recipes/semantic-search-rag.html" class="active"><span class="eyebrow">01</span>Semantic search &amp; RAG</a>
     <a href="/docs/recipes/agentic-memory.html" class=""><span class="eyebrow">02</span>Agent memory</a>
     <a href="/docs/recipes/passage-retrieval.html" class=""><span class="eyebrow">03</span>Passage retrieval</a>
     <a href="/docs/recipes/vector-search-knn.html" class=""><span class="eyebrow">04</span>Vector search &middot; kNN</a>
@@ -106,95 +106,181 @@
   <!-- Print-only branded header (hidden on screen, visible in PDF) -->
   <div class="print-header" style="display:none;">XERJ.AI</div>
 
-  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span>PLAYBOOKS<span class="sep">·</span>LOG ANALYTICS
+  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span><a href="/docs/recipes/index.html">RECIPES</a><span class="sep">·</span>SEMANTIC SEARCH &amp; RAG
     <button class="pdf-btn" onclick="window.print()" title="Save this page as PDF">
       <svg viewBox="0 0 24 24"><path d="M12 3v12M12 15l-4-4M12 15l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
       PDF
     </button>
   </div>
-  <div class="kicker"><span>PLAYBOOK · 02</span></div>
-  <h1>Playbook · Log analytics</h1>
+  <div class="kicker"><span>RECIPE · 01</span></div>
+  <h1>Semantic search &amp; RAG</h1>
 
 
-  <p>Ingest Nginx, JSON, syslog, or OTLP at line rate. Query hot logs in milliseconds. Cold-drop to cheap storage with ILM-free retention. This is the workload XERJ was originally built for.</p>
+  <p><strong>Goal:</strong> you have a knowledge base (support docs, product FAQs, policy pages) and you want an LLM to answer questions <em>grounded</em> in it. The retrieval half of RAG — "find the passages that mean the same thing as the user's question" — normally means standing up a separate vector database, an embedding service, and glue code to keep them in sync with your search index.</p>
 
-  <h2>Schema</h2>
-<pre class="code">$ curl -sX PUT http://localhost:8080/v1/indices/logs \
-    -H 'Content-Type: application/json' \
-    -d '{
-      "fields": {
-        "@timestamp":  "date",
-        "service":     "keyword",
-        "level":       "keyword",
-        "host":        "keyword",
-        "trace_id":    "keyword",
-        "span_id":     "keyword",
-        "status":      "integer",
-        "latency_ms":  "integer",
-        "bytes_out":   "integer",
-        "client_ip":   "ip",
-        "message":     "text"
+  <p>With XERJ you don't. You map one field as <code class="inline">semantic_text</code>, ingest your docs with a normal <code class="inline">_bulk</code>, and XERJ <strong>embeds each document on ingest</strong> with a built-in, zero-config embedder. Then a <code class="inline">semantic</code> query retrieves by meaning from the same index you already full-text search. One engine, one wire protocol (Elasticsearch 8.x), no extra moving parts.</p>
+
+  <p>This recipe indexes a tiny KB, retrieves passages with paraphrased questions (different words, same meaning), assembles the context bundle you'd hand an LLM, and is honest about where the built-in lexical embedder stops and a real neural endpoint takes over.</p>
+
+  <hr>
+
+  <h2>1. Map one field as <code class="inline">semantic_text</code></h2>
+<pre class="code">curl -X PUT localhost:9200/kb -H 'Content-Type: application/json' -d '{
+  "mappings": {
+    "properties": {
+      "title": { "type": "text" },
+      "body":  { "type": "semantic_text" }
+    }
+  }
+}'</pre>
+
+  <p><code class="inline">body</code> is now auto-embedded. On ingest XERJ vectorizes the field's text into a companion HNSW-indexed vector field (<code class="inline">body_vector</code>, 384 dims by default, cosine similarity) — you never call an embedding API yourself. No <code class="inline">dense_vector</code> declaration, no dimension bookkeeping, no second datastore.</p>
+
+  <h2>2. Ingest with a plain <code class="inline">_bulk</code></h2>
+  <p>Nothing special — the embedding happens under the hood:</p>
+<pre class="code">curl -X POST localhost:9200/_bulk -H 'Content-Type: application/x-ndjson' --data-binary '
+{"index":{"_index":"kb","_id":"kb-1"}}
+{"title":"Rotating an API key","body":"To change your API credentials, open Settings, choose Security, and click Regenerate token. The old token stops working immediately."}
+{"index":{"_index":"kb","_id":"kb-2"}}
+{"title":"Refund policy","body":"Customers can request their money back within 30 days of purchase. Refunds are issued to the original payment method within five business days."}
+'</pre>
+
+  <h2>3. Retrieve by meaning with the <code class="inline">semantic</code> query</h2>
+  <p>The user's question rarely uses your doc's exact words. A <code class="inline">match</code> query on <code class="inline">"get my money back after buying"</code> returns <strong>nothing</strong> — none of those tokens are in the "Refund policy" doc analyzed the same way. The <code class="inline">semantic</code> query retrieves it anyway:</p>
+<pre class="code">curl localhost:9200/kb/_search -H 'Content-Type: application/json' -d '{
+  "size": 2,
+  "query": { "semantic": { "field": "body", "query": "how do I regenerate my API token", "k": 2 } }
+}'</pre>
+
+  <p>Real response (trimmed):</p>
+<pre class="code">{
+  "hits": {
+    "hits": [
+      {
+        "_id": "kb-1",
+        "_score": 0.6625697,
+        "_source": {
+          "title": "Rotating an API key",
+          "body": "To change your API credentials, open Settings, choose Security, and click Regenerate token. The old token stops working immediately.",
+          "body_vector": [ 0.0, 0.0, 0.0, ... ]
+        }
       }
-    }'</pre>
+    ]
+  }
+}</pre>
 
-  <h2>Ingest options</h2>
+  <p><code class="inline">field</code> is the <code class="inline">semantic_text</code> field, <code class="inline">query</code> is the natural-language question, <code class="inline">k</code> is how many nearest passages to pull from the vector index. Add a <code class="inline">filter</code> (any XERJ query) to constrain candidates, or a <code class="inline">boost</code> to weight it inside a <code class="inline">bool</code>.</p>
+
+  <blockquote>
+    <p><strong><code class="inline">_source</code> note.</strong> The companion <code class="inline">body_vector</code> rides along in <code class="inline">_source</code> on semantic hits (source filtering is applied on the lexical path but the vector field is re-attached on the retrieval path). It's just noise for RAG — read the fields you want (<code class="inline">title</code>, <code class="inline">body</code>) and ignore it when you build the LLM prompt.</p>
+  </blockquote>
+
+  <h2>4. The RAG context bundle</h2>
+  <p>Retrieval done, RAG is just "concatenate the top passages into the prompt." Pull <code class="inline">k</code> hits and format them with their ids so the model can cite them:</p>
+<pre class="code">User question: how do I regenerate my API token
+
+Retrieved context:
+[kb-1] Rotating an API key
+To change your API credentials, open Settings, choose Security, and click
+Regenerate token. The old token stops working immediately.
+
+[kb-5] Rate limits
+The API permits 600 requests per minute per key. Exceeding the throttle returns
+HTTP 429; back off and retry after the reset window.</pre>
+
+  <p>Feed that block to your LLM as grounding context alongside the question. That's the whole retrieval side of RAG — no vector DB in the diagram.</p>
+
+  <h2>5. Results — paraphrases land on the right doc</h2>
+  <p>Running five paraphrased questions (none share the doc's full wording) against the 5-doc KB, each returns the correct passage at rank 1:</p>
+<pre class="code">Q: 'how do I regenerate my API token'          -&gt; kb-1 Rotating an API key           OK
+Q: 'can I get my money back after buying'       -&gt; kb-2 Refund policy                  OK
+Q: "I forgot my login and can't sign in"        -&gt; kb-3 Resetting a forgotten password OK
+Q: 'which file formats are supported for uploads' -&gt; kb-4 Supported file formats        OK
+Q: 'how many calls per minute am I allowed'     -&gt; kb-5 Rate limits                    OK
+
+RESULT: 5/5 semantic retrievals returned the right doc at rank 1</pre>
+
+  <p>For contrast, the same paraphrase through a keyword <code class="inline">match</code>:</p>
+<pre class="code">Q: 'get my money back after buying'
+   match    top -&gt; NO HITS
+   semantic top -&gt; kb-2 Refund policy</pre>
+
+  <h2>Honest limitation: the built-in embedder is <em>lexical</em>, not neural</h2>
+  <p>The zero-config embedder is a <strong>lexical</strong> model — it maps overlapping and related vocabulary into vector space. It shines when the question and the answer share <em>some</em> terms (a synonym here, a rephrase there), which covers a lot of real support/FAQ traffic. It is <strong>not</strong> a neural sentence embedder and won't capture deep semantics with no lexical bridge.</p>
+
+  <p>Concretely, from this same KB:</p>
+<pre class="code">Q: 'how do I rotate my API key'
+   semantic top -&gt; kb-5 Rate limits   (expected kb-1)</pre>
+
+  <p>The doc is <em>titled</em> "Rotating an API key," but only its <strong>body</strong> is embedded, and the body never uses the word "rotate" — so a pure "rotate" paraphrase misses. Two honest takeaways:</p>
   <ul>
-    <li><strong>Raw NGINX/Apache</strong> → <code class="inline">POST /v1/indices/logs/logs</code> auto-detects the format.</li>
-    <li><strong>Structured JSON</strong> → <code class="inline">POST /v1/indices/logs/turbo-ingest</code> NDJSON body.</li>
-    <li><strong>Syslog</strong> → <code class="inline">POST /v1/indices/logs/syslog</code>.</li>
-    <li><strong>OTLP</strong> → <code class="inline">POST /v1/indices/logs/otlp</code>.</li>
+    <li><strong>Embed the text that carries the meaning.</strong> If titles matter, index them into the <code class="inline">semantic_text</code> field too (or add a second <code class="inline">semantic_text</code> field and combine with <code class="inline">hybrid</code>), so the vocabulary the user might use is actually in the vector.</li>
+    <li><strong>For production-grade semantics, wire an external embeddings endpoint.</strong> XERJ will call any OpenAI-compatible <code class="inline">/v1/embeddings</code> service. Set <code class="inline">embedding.default_endpoint</code> in config, or point a field at it in the mapping via <code class="inline">inference_endpoint</code> / <code class="inline">inference_id</code>. The <code class="inline">semantic</code> query and the ingest path are identical — you just get neural-quality vectors instead of the built-in lexical ones. (Anomaly-style continuous re-embedding isn't a thing here; embedding happens at ingest time.)</li>
   </ul>
 
-  <h2>Tail recent errors</h2>
-<pre class="code">{
-  "query": {
-    "bool": {
-      "filter": [
-        { "term":  { "level": "error" } },
-        { "range": { "@timestamp": { "gte": "now-15m" } } }
+  <p>Everything above is <code class="inline">semantic_text</code> + the built-in embedder — no external service was configured for this recipe.</p>
+
+  <hr>
+
+  <h2>Reproduce it yourself</h2>
+  <p>Start XERJ on its default port (<code class="inline">9200</code>) and run the example — no keys, no external services, stdlib Python only:</p>
+<pre class="code"># 1. Start a throwaway XERJ (ES-compat wire on :9200 by default)
+xerj --insecure --data-dir ./data
+
+# 2. In another shell, run the demo (honors $XERJ_URL, default http://localhost:9200)
+python3 docs/examples/semantic-search-rag/rag_demo.py</pre>
+
+  <p>Point it at a non-default host/port with <code class="inline">XERJ_URL=http://host:port</code> (the older <code class="inline">BASE</code> variable still works as an alias). The <a href="https://github.com/xerj-org/xerj/blob/main/docs/examples/semantic-search-rag/rag_demo.py">script</a> (stdlib only — <code class="inline">urllib</code> + <code class="inline">json</code>, no pip) creates the index, bulk-loads the KB, runs the five semantic retrievals with assertions, prints the RAG context bundle, shows the keyword-vs-semantic contrast, demonstrates the lexical-embedder miss, scores the ranking with <code class="inline">_rank_eval</code>, and exits non-zero if any of the five retrievals regress — so it doubles as a CI gate.</p>
+
+  <p>The built-in embedder is deterministic (offline lexical model), so every run prints the same numbers:</p>
+<pre class="code">bulk -&gt; errors=False items=5
+...
+Q: 'how do I regenerate my API token'  top -&gt; kb-1 'Rotating an API key' score=0.6626 OK
+Q: 'can I get my money back after buying'  top -&gt; kb-2 'Refund policy' score=0.5771 OK
+Q: "I forgot my login and can't sign in"  top -&gt; kb-3 'Resetting a forgotten password' score=0.6710 OK
+Q: 'which file formats are supported for uploads'  top -&gt; kb-4 'Supported file formats for upload' score=0.5926 OK
+Q: 'how many calls per minute am I allowed'  top -&gt; kb-5 'Rate limits' score=0.6171 OK
+
+RESULT: 5/5 semantic retrievals returned the right doc at rank 1</pre>
+
+  <p>Every score above is emitted by this run (the top <code class="inline">kb-1</code> score is <code class="inline">0.6625697016716003</code>, shown to 4 dp); nothing is hardcoded. Point <code class="inline">XERJ_URL</code> at real Elasticsearch with a <code class="inline">semantic_text</code>/inference setup to compare.</p>
+
+  <hr>
+
+  <h2>Measuring ranking quality with <code class="inline">_rank_eval</code></h2>
+  <p>Once you have relevance judgements (which docs <em>should</em> come back for a query), the <code class="inline">_rank_eval</code> API scores your ranking with the standard IR metrics — the same wire API as Elasticsearch. XERJ computes each metric for real (they are <strong>not</strong> aliases for precision): <code class="inline">precision</code>, <code class="inline">recall</code>, <code class="inline">dcg</code> (add <code class="inline">"normalize": true</code> for nDCG), <code class="inline">mean_reciprocal_rank</code>, and <code class="inline">expected_reciprocal_rank</code>. An unknown metric name returns <code class="inline">400</code> rather than a misleading number.</p>
+  <p>Scoring the regenerate-token ranking against this KB — <code class="inline">kb-1</code> is the one relevant answer, so with it at rank 1 the ranking is perfect:</p>
+<pre class="code">curl -sX POST localhost:9200/kb/_rank_eval -H 'content-type: application/json' -d '{
+  "metric": { "dcg": { "k": 3, "normalize": true } },
+  "requests": [
+    {
+      "id": "regen_token_q",
+      "request": { "query": { "semantic": { "field": "body",
+                    "query": "how do I regenerate my API token", "k": 3 } } },
+      "ratings": [
+        { "_id": "kb-1", "rating": 3 },
+        { "_id": "kb-5", "rating": 0 },
+        { "_id": "kb-2", "rating": 0 }
       ]
     }
-  },
-  "size": 100,
-  "sort": [ { "@timestamp": "desc" } ]
-}</pre>
+  ]
+}'
+# → { "metric_score": 1.0, "details": { "regen_token_q": { "metric_score": 1.0, ... } } }</pre>
 
-  <h2>Top slow endpoints · percentiles</h2>
-<pre class="code">{
-  "query": { "term": { "service": "api-gateway" } },
-  "aggs": {
-    "by_route": {
-      "terms": { "field": "url_template", "size": 20 },
-      "aggs": {
-        "p": { "percentiles": { "field": "latency_ms", "percents": [50, 95, 99] } }
-      }
-    }
-  },
-  "size": 0
-}</pre>
+  <p>Swap <code class="inline">"dcg"</code> for <code class="inline">"precision"</code>, <code class="inline">"recall"</code>, or <code class="inline">"mean_reciprocal_rank"</code> to score the <em>same</em> ranking a different way — each returns its own value. These are the figures the demo actually measures against this KB:</p>
+<pre class="code">dcg (nDCG@3)          metric_score=1.0
+precision@3           metric_score=0.3333333333333333
+recall@3              metric_score=1.0
+mean_reciprocal_rank  metric_score=1.0
+unknown-metric -&gt; HTTP 400 (fail-loud, not a misleading number)</pre>
 
-  <h2>Retention</h2>
-  <p>Per-index, in the config. No ILM policy DSL required.</p>
-<pre class="code">[logs]
-retention_days = 30
-time_partition = "1h"</pre>
-
-  <h2>Dashboard</h2>
-  <p>Open the playground and pick <a href="/playground.html">LOGS · OVERVIEW</a> — nine panels with click-to-filter TopN, 1 ms date_histogram, heatmap, and drill-through to the <a href="/playground.html">SYSTEM · OVERVIEW</a> dashboard.</p>
-
-  <p class="source-note">Source · engine/crates/logs/src/lib.rs</p>
-  
-
-<div class="next">
-      <div class="step"><span class="dir">◀ PREV</span><a href="/docs/playbooks/siem.html">Playbook · SIEM</a></div>
-      <div class="step right"><span class="dir">NEXT ▶</span><a href="/docs/playbooks/vector-search.html">Vector · RAG</a></div>
-    </div>
+  <p>Track whichever metric your product cares about as you tune embeddings, <code class="inline">k</code>, and hybrid weights.</p>
 
   <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
   <div class="print-footer" style="display:none;">
     <span>XERJ.AI · V0.1 · 2026-04-16</span>
     <a href="https://xerj.dev/docs/">https://xerj.dev/docs/</a>
-    <span>Playbook · Log analytics</span>
+    <span>Recipe · Semantic search &amp; RAG</span>
   </div>
 </main>
 </div>

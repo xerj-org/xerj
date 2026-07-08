@@ -39,14 +39,14 @@ The time field must be a `date`; the metric must be numeric. The detector is the
 same object as in the on-demand recipe: `mean(cpu)` over one-minute buckets.
 
 ```bash
-curl -XPUT localhost:9486/cpu_datafeed -H 'Content-Type: application/json' -d '{
+curl -XPUT localhost:9200/cpu_datafeed -H 'Content-Type: application/json' -d '{
   "mappings": { "properties": {
     "@timestamp": { "type": "date" },
     "cpu":        { "type": "double" }
   }}
 }'
 
-curl -XPUT localhost:9486/_ml/anomaly_detectors/cpu-spike \
+curl -XPUT localhost:9200/_ml/anomaly_detectors/cpu-spike \
   -H 'Content-Type: application/json' -d '{
     "source_index": "cpu_datafeed",
     "time_field":   "@timestamp",
@@ -64,7 +64,7 @@ A datafeed needs a `job_id` (which must reference an existing detector — else
 to `>= 1s`, default `60s`).
 
 ```bash
-curl -XPUT localhost:9486/_ml/datafeeds/cpu-spike-feed \
+curl -XPUT localhost:9200/_ml/datafeeds/cpu-spike-feed \
   -H 'Content-Type: application/json' -d '{
     "job_id":    "cpu-spike",
     "frequency": "2s"
@@ -91,14 +91,14 @@ Response (the datafeed config, ES-shaped):
 re-scores every `frequency`.
 
 ```bash
-curl -XPOST localhost:9486/_ml/datafeeds/cpu-spike-feed/_start
+curl -XPOST localhost:9200/_ml/datafeeds/cpu-spike-feed/_start
 # -> {"started": true}
 ```
 
 Read the results the first pass produced:
 
 ```bash
-curl 'localhost:9486/_ml/anomaly_detectors/cpu-spike/results/records'
+curl 'localhost:9200/_ml/anomaly_detectors/cpu-spike/results/records'
 ```
 
 ```json
@@ -107,6 +107,7 @@ curl 'localhost:9486/_ml/anomaly_detectors/cpu-spike/results/records'
   "records": [
     {
       "job_id": "cpu-spike",
+      "result_type": "record",
       "timestamp": 1783296720000,
       "timestamp_iso": "2026-07-06T00:12:00.000Z",
       "actual": 96.0,
@@ -115,6 +116,7 @@ curl 'localhost:9486/_ml/anomaly_detectors/cpu-spike/results/records'
       "std_dev": 1.1636866703140785,
       "z_score": 65.09484205018445,
       "record_score": 100.0,
+      "anomaly_score": 100.0,
       "bucket_span": "1m",
       "is_anomaly": true
     }
@@ -123,15 +125,17 @@ curl 'localhost:9486/_ml/anomaly_detectors/cpu-spike/results/records'
 ```
 
 Each record reuses the fields the `_score` endpoint emits per bucket, plus the
-ES `record_score` (the 0–100 severity) and `typical` (ES's name for the
-baseline `expected`).
+ES `record_score` (the 0–100 severity, mirrored as `anomaly_score`), the
+`result_type` tag, and `typical` (ES's name for the baseline `expected`). Those
+values are deterministic for this fixed series — this exact record is what the
+run below prints.
 
 ## 4. The continuous part
 
 Now push a **new** spike into the live index — without touching the datafeed:
 
 ```bash
-curl -XPOST 'localhost:9486/_bulk?refresh=true' \
+curl -XPOST 'localhost:9200/_bulk?refresh=true' \
   -H 'Content-Type: application/x-ndjson' --data-binary $'
 {"index":{"_index":"cpu_datafeed"}}
 {"@timestamp":"2026-07-06T00:20:00Z","cpu":88}
@@ -142,7 +146,7 @@ Within one `frequency` tick the background scorer re-buckets the series, sees th
 new bucket, and appends it. Poll again a couple of seconds later:
 
 ```bash
-curl 'localhost:9486/_ml/anomaly_detectors/cpu-spike/results/records'
+curl 'localhost:9200/_ml/anomaly_detectors/cpu-spike/results/records'
 # -> count: 2  (the 00:12 spike AND the new 00:20 spike)
 ```
 
@@ -164,56 +168,104 @@ pass appends only the **new** anomalies — the 00:12 record is never duplicated
 
 ```bash
 # only high-severity records
-curl 'localhost:9486/_ml/anomaly_detectors/cpu-spike/results/records?record_score=90'
+curl 'localhost:9200/_ml/anomaly_detectors/cpu-spike/results/records?record_score=90'
 # at most 5, most-recent-friendly (chronological)
-curl 'localhost:9486/_ml/anomaly_detectors/cpu-spike/results/records?size=5'
+curl 'localhost:9200/_ml/anomaly_detectors/cpu-spike/results/records?size=5'
 ```
 
 ## 6. Stop and delete
 
 ```bash
-curl -XPOST localhost:9486/_ml/datafeeds/cpu-spike-feed/_stop
+curl -XPOST localhost:9200/_ml/datafeeds/cpu-spike-feed/_stop
 # -> {"stopped": true}   (aborts the background task)
 
-curl localhost:9486/_cat/ml/datafeeds
+curl localhost:9200/_cat/ml/datafeeds
 # cpu-spike-feed stopped cpu-spike
 
-curl -XDELETE localhost:9486/_ml/datafeeds/cpu-spike-feed
+curl -XDELETE localhost:9200/_ml/datafeeds/cpu-spike-feed
 # {"acknowledged": true}
 ```
 
 A datafeed must be stopped before it can be deleted — deleting a `started`
 datafeed returns `409`, exactly like Elasticsearch.
 
-## Run it
+## Reproduce it yourself
+
+Two shells, no external packages — the script is pure Python 3 standard library
+(no `pip install`, no third-party service, no API key).
 
 ```bash
-# XERJ listening on :9486 (adjust XERJ=... for another port)
+# 1. Start a throwaway XERJ (listens on :9200 by default)
+xerj --insecure
+
+# 2. In another shell, from the repo root, run the demo
 python3 docs/examples/continuous-anomaly-datafeeds/datafeed_demo.py
+
+# Point it at a different host/port with XERJ_URL (XERJ still works as an alias):
+XERJ_URL=http://localhost:9200 python3 docs/examples/continuous-anomaly-datafeeds/datafeed_demo.py
 ```
 
 The script maps the index, ingests the series with the first spike, creates the
-detector and datafeed, starts it, reads the first anomaly, injects the second
-spike into the live index, polls until the running datafeed picks it up on its
-own, then stops and **asserts** both spikes were detected — the second without a
-second `_start`. It exits non-zero if any of that regresses, so it doubles as a
-smoke test.
+detector and datafeed, starts it, dumps the first anomaly record in full, injects
+the second spike into the live index, polls until the running datafeed picks it
+up on its own, then filters/caps the results, stops, deletes, and **asserts**
+both spikes were detected — the second without a second `_start`. It exits
+non-zero if any of that regresses, so it doubles as a smoke test.
+
+The metric series is fixed, so the numbers are deterministic run to run: the
+00:12 bucket scores `actual 96.0` against `expected 20.25` (`std_dev
+1.1636866703140785`, `z_score 65.09`, `record_score 100.0`) and the
+continuously-detected 00:20 bucket scores `actual 88.0` against the same
+baseline. Only the wall time (~2s, one or two `2s` scorer ticks) varies.
 
 Expected output:
 
 ```
 datafeed cpu-spike-feed -> job cpu-spike (every 2s), state=stopped
+  raw datafeed config:
+  {
+    "datafeed_id": "cpu-spike-feed",
+    "frequency": "2s",
+    "indices": [
+      "cpu_datafeed"
+    ],
+    "job_id": "cpu-spike",
+    "query": {
+      "match_all": {}
+    },
+    "state": "stopped"
+  }
 
 after _start — 1 anomaly record(s) from the first pass:
   when                   actual   expected   record_score
   2026-07-06 00:12 UTC     96.0       20.2          100.0
+
+  raw first record:
+  {
+    "actual": 96.0,
+    "anomaly_score": 100.0,
+    "bucket_span": "1m",
+    "expected": 20.25,
+    "is_anomaly": true,
+    "job_id": "cpu-spike",
+    "record_score": 100.0,
+    "result_type": "record",
+    "std_dev": 1.1636866703140785,
+    "timestamp": 1783296720000,
+    "timestamp_iso": "2026-07-06T00:12:00.000Z",
+    "typical": 20.25,
+    "z_score": 65.09484205018445
+  }
 
 injecting a new spike at 00:20, waiting for the 2s scorer...
 datafeed picked up 1 new anomaly record(s) on its own:
   when                   actual   expected   record_score
   2026-07-06 00:20 UTC     88.0       20.2          100.0
 
+filter record_score>=90 -> 2 record(s); size=1 cap -> 1 record(s)
 _stop -> {'stopped': True} · datafeed state now: stopped
+_cat/ml/datafeeds -> 'cpu-spike-feed stopped cpu-spike'
+DELETE datafeed -> {'acknowledged': True}
 
 OK: 2 anomalies detected continuously; datafeed stopped cleanly.
 ```

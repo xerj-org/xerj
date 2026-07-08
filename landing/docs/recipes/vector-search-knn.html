@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XERJ.ai · Docs · Playbook · Log analytics</title>
-<meta name="description" content="Playbook · Log analytics — XERJ.ai documentation.">
+<title>XERJ · Docs · Recipe · Vector search · kNN</title>
+<meta name="description" content="Recipe · Vector similarity search with kNN in XERJ — store dense_vector fields, build an HNSW graph, run Elasticsearch-8 knn queries, and pre-filter with bool + filter.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -81,7 +81,7 @@
   <div class="group">
     <span class="label">PLAYBOOKS</span>
     <a href="/docs/playbooks/siem.html" class=""><span class="eyebrow">01</span>SIEM</a>
-      <a href="/docs/playbooks/log-analytics.html" class="active"><span class="eyebrow">02</span>Log analytics</a>
+      <a href="/docs/playbooks/log-analytics.html" class=""><span class="eyebrow">02</span>Log analytics</a>
       <a href="/docs/playbooks/vector-search.html" class=""><span class="eyebrow">03</span>Vector · RAG</a>
       <a href="/docs/playbooks/full-text.html" class=""><span class="eyebrow">04</span>Full-text search</a>
       <a href="/docs/playbooks/observability.html" class=""><span class="eyebrow">05</span>Observability</a>
@@ -92,7 +92,7 @@
     <a href="/docs/recipes/semantic-search-rag.html" class=""><span class="eyebrow">01</span>Semantic search &amp; RAG</a>
     <a href="/docs/recipes/agentic-memory.html" class=""><span class="eyebrow">02</span>Agent memory</a>
     <a href="/docs/recipes/passage-retrieval.html" class=""><span class="eyebrow">03</span>Passage retrieval</a>
-    <a href="/docs/recipes/vector-search-knn.html" class=""><span class="eyebrow">04</span>Vector search &middot; kNN</a>
+    <a href="/docs/recipes/vector-search-knn.html" class="active"><span class="eyebrow">04</span>Vector search &middot; kNN</a>
     <a href="/docs/recipes/vector-quantization.html" class=""><span class="eyebrow">05</span>Vector quantization</a>
     <a href="/docs/recipes/hybrid-search.html" class=""><span class="eyebrow">06</span>Hybrid search</a>
     <a href="/docs/recipes/log-analytics.html" class=""><span class="eyebrow">07</span>Log analytics</a>
@@ -106,95 +106,160 @@
   <!-- Print-only branded header (hidden on screen, visible in PDF) -->
   <div class="print-header" style="display:none;">XERJ.AI</div>
 
-  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span>PLAYBOOKS<span class="sep">·</span>LOG ANALYTICS
+  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span><a href="/docs/recipes/index.html">RECIPES</a><span class="sep">·</span>VECTOR SEARCH · KNN
     <button class="pdf-btn" onclick="window.print()" title="Save this page as PDF">
       <svg viewBox="0 0 24 24"><path d="M12 3v12M12 15l-4-4M12 15l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
       PDF
     </button>
   </div>
-  <div class="kicker"><span>PLAYBOOK · 02</span></div>
-  <h1>Playbook · Log analytics</h1>
+  <div class="kicker"><span>RECIPE · 04</span></div>
+  <h1>Vector search · kNN</h1>
 
 
-  <p>Ingest Nginx, JSON, syslog, or OTLP at line rate. Query hot logs in milliseconds. Cold-drop to cheap storage with ILM-free retention. This is the workload XERJ was originally built for.</p>
+  <p><strong>Goal:</strong> you have a set of items — products, articles, images, support tickets — and each one is represented by an <em>embedding</em>: a fixed-length list of floats. You want the classic operation behind recommendations, "more like this", dedup, and semantic retrieval: <strong>given one vector, find the N most similar items.</strong></p>
 
-  <h2>Schema</h2>
-<pre class="code">$ curl -sX PUT http://localhost:8080/v1/indices/logs \
-    -H 'Content-Type: application/json' \
-    -d '{
-      "fields": {
-        "@timestamp":  "date",
-        "service":     "keyword",
-        "level":       "keyword",
-        "host":        "keyword",
-        "trace_id":    "keyword",
-        "span_id":     "keyword",
-        "status":      "integer",
-        "latency_ms":  "integer",
-        "bytes_out":   "integer",
-        "client_ip":   "ip",
-        "message":     "text"
-      }
-    }'</pre>
+  <p>XERJ answers this natively. It stores a <code class="inline">dense_vector</code> field, builds an HNSW graph over the vectors, and serves the Elasticsearch-8 top-level <code class="inline">knn</code> query — so the exact same request bodies (and ES client libraries) work unchanged. No sidecar vector database, no separate service.</p>
 
-  <h2>Ingest options</h2>
+  <p>This recipe uses <strong>tiny, hand-made 4-dimensional vectors</strong> so every result is reproducible and you can see <em>why</em> each neighbor came back. In production your vectors come from a real embedding model (768, 1024, 1536 dims…) — the API is identical.</p>
+
+  <h2>The toy feature space</h2>
+  <p>Real embeddings are opaque. To make kNN legible, we hand-build vectors in a 4-axis "feature space":</p>
+<pre class="code">[ citrus , berry , engine , wheels ]</pre>
+  <p>Fruits load on the fruit axes and are ~0 on the vehicle axes; vehicles do the reverse. So a query sitting in the <em>citrus</em> corner should return oranges and lemons first and <strong>never</strong> a truck. That's our recall check.</p>
+
+  <table>
+    <thead>
+      <tr><th>id</th><th>name</th><th>category</th><th>in_stock</th><th>embedding</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>Navel Orange</td><td>fruit</td><td>true</td><td><code class="inline">[0.90, 0.10, 0.00, 0.00]</code></td></tr>
+      <tr><td>2</td><td>Meyer Lemon</td><td>fruit</td><td>true</td><td><code class="inline">[0.95, 0.05, 0.00, 0.00]</code></td></tr>
+      <tr><td>3</td><td>Blood Orange</td><td>fruit</td><td><strong>false</strong></td><td><code class="inline">[0.85, 0.20, 0.00, 0.00]</code></td></tr>
+      <tr><td>4</td><td>Strawberry</td><td>fruit</td><td>true</td><td><code class="inline">[0.10, 0.92, 0.00, 0.00]</code></td></tr>
+      <tr><td>5</td><td>Blueberry</td><td>fruit</td><td>true</td><td><code class="inline">[0.05, 0.95, 0.00, 0.00]</code></td></tr>
+      <tr><td>6</td><td>Pickup Truck</td><td>vehicle</td><td>true</td><td><code class="inline">[0.00, 0.00, 0.90, 0.85]</code></td></tr>
+      <tr><td>7</td><td>Sports Car</td><td>vehicle</td><td>false</td><td><code class="inline">[0.00, 0.00, 0.95, 0.80]</code></td></tr>
+      <tr><td>8</td><td>Electric Sedan</td><td>vehicle</td><td>true</td><td><code class="inline">[0.00, 0.05, 0.40, 0.88]</code></td></tr>
+    </tbody>
+  </table>
+
+  <h2>1. Map a <code class="inline">dense_vector</code> field</h2>
+<pre class="code">curl -X PUT http://localhost:9200/catalog -H 'Content-Type: application/json' -d '{
+  "mappings": {
+    "properties": {
+      "name":      { "type": "text" },
+      "category":  { "type": "keyword" },
+      "in_stock":  { "type": "boolean" },
+      "embedding": { "type": "dense_vector", "dims": 4, "similarity": "cosine" }
+    }
+  }
+}'</pre>
+  <p>Two things matter:</p>
   <ul>
-    <li><strong>Raw NGINX/Apache</strong> → <code class="inline">POST /v1/indices/logs/logs</code> auto-detects the format.</li>
-    <li><strong>Structured JSON</strong> → <code class="inline">POST /v1/indices/logs/turbo-ingest</code> NDJSON body.</li>
-    <li><strong>Syslog</strong> → <code class="inline">POST /v1/indices/logs/syslog</code>.</li>
-    <li><strong>OTLP</strong> → <code class="inline">POST /v1/indices/logs/otlp</code>.</li>
+    <li><strong><code class="inline">dims</code></strong> must equal the length of every vector you index. Indexing a wrong-length vector is silently skipped from the ANN scan.</li>
+    <li><strong><code class="inline">similarity</code></strong> defaults to <code class="inline">cosine</code> (magnitude-invariant — the right default for most normalized embeddings). Other options: <code class="inline">l2</code>, <code class="inline">dot_product</code>. Scores come back as ES-normalized cosine in <code class="inline">[0, 1]</code>: identical direction ≈ <code class="inline">1.0</code>, orthogonal ≈ <code class="inline">0.5</code>.</li>
   </ul>
+  <p>Load the rows with the Bulk API (<code class="inline">{"index":{...}}</code> + source line pairs), adding <code class="inline">?refresh=true</code> so they're searchable immediately.</p>
 
-  <h2>Tail recent errors</h2>
+  <h2>2. Plain kNN — "find items most like a citrus fruit"</h2>
+  <p>Put the query vector right in the citrus corner and ask for the 3 nearest:</p>
+<pre class="code">curl -X POST http://localhost:9200/catalog/_search -H 'Content-Type: application/json' -d '{
+  "knn": { "field": "embedding", "query_vector": [0.92, 0.08, 0.0, 0.0], "k": 3, "num_candidates": 10 }
+}'</pre>
+  <p>Real response (trimmed):</p>
 <pre class="code">{
+  "hits": { "hits": [
+    { "_id": "1", "_score": 0.9998569, "_source": { "name": "Navel Orange", "category": "fruit" } },
+    { "_id": "2", "_score": 0.9997083, "_source": { "name": "Meyer Lemon",  "category": "fruit" } },
+    { "_id": "3", "_score": 0.9948,    "_source": { "name": "Blood Orange", "category": "fruit" } }
+  ] }
+}</pre>
+  <p>The three nearest are <strong>exactly</strong> the three citrus fruits, in order of closeness, and no vehicle leaked in. <code class="inline">k</code> is how many neighbors you want back; <code class="inline">num_candidates</code> is how many the graph search explores before picking the top <code class="inline">k</code> (bigger = higher recall, more work).</p>
+  <p>Query the <em>other</em> corner and the space cleanly separates:</p>
+<pre class="code">curl -X POST http://localhost:9200/catalog/_search -H 'Content-Type: application/json' -d '{
+  "knn": { "field": "embedding", "query_vector": [0.0, 0.0, 0.9, 0.85], "k": 2, "num_candidates": 10 }
+}'
+# → Pickup Truck (1.0), Sports Car (0.9992) — only vehicles</pre>
+
+  <h2>3. kNN + a filter — "…but only what's in stock"</h2>
+  <p>This is the request people actually get wrong. To constrain a kNN search (price range, in-stock, tenant, language…), <strong>wrap the <code class="inline">knn</code> in a <code class="inline">bool</code> and put the constraint in a sibling <code class="inline">filter</code> clause.</strong> <code class="inline">bool.filter</code> runs as a <strong>pre-filter</strong>: XERJ narrows the candidate set first, <em>then</em> ranks the survivors by similarity.</p>
+<pre class="code">curl -X POST http://localhost:9200/catalog/_search -H 'Content-Type: application/json' -d '{
+  "size": 3,
   "query": {
     "bool": {
-      "filter": [
-        { "term":  { "level": "error" } },
-        { "range": { "@timestamp": { "gte": "now-15m" } } }
-      ]
+      "must":   [ { "knn": { "field": "embedding", "query_vector": [0.92, 0.08, 0.0, 0.0], "k": 3, "num_candidates": 10 } } ],
+      "filter": [ { "term": { "in_stock": true } } ]
     }
-  },
-  "size": 100,
-  "sort": [ { "@timestamp": "desc" } ]
-}</pre>
+  }
+}'</pre>
+  <p>Real response (trimmed):</p>
+<pre class="code">1  0.9999  Navel Orange   in_stock=True
+2  0.9997  Meyer Lemon    in_stock=True
+4  0.5969  Strawberry     in_stock=True</pre>
+  <p>Blood Orange (id 3) is the 3rd-closest citrus but is <strong>out of stock</strong>, so it drops out and a farther <em>in-stock</em> item (a berry) takes the slot. The filter genuinely restricted the pool — it didn't just re-score.</p>
+  <blockquote>
+    <p><strong>Heads-up on the ES-8 shorthand.</strong> Elasticsearch also lets you inline the filter <em>inside</em> the knn clause: <code class="inline">"knn": { …, "filter": {…} }</code>. XERJ parses that form but <strong>currently ignores the inlined filter</strong> on the top-level-<code class="inline">knn</code> path (it returns unfiltered neighbors). Until that's wired up, use the <code class="inline">bool</code> + <code class="inline">filter</code> wrapper shown above — it's the reliable way to get pre-filtered kNN today, and it's also how XERJ's own agent-memory recall builds filtered vector queries internally.</p>
+  </blockquote>
 
-  <h2>Top slow endpoints · percentiles</h2>
-<pre class="code">{
-  "query": { "term": { "service": "api-gateway" } },
-  "aggs": {
-    "by_route": {
-      "terms": { "field": "url_template", "size": 20 },
-      "aggs": {
-        "p": { "percentiles": { "field": "latency_ms", "percents": [50, 95, 99] } }
-      }
-    }
-  },
-  "size": 0
-}</pre>
+  <h2>Reproduce it yourself</h2>
+  <p>Boot XERJ on its default port and run the <a href="https://github.com/xerj-org/xerj/blob/main/docs/examples/vector-search-knn/knn_demo.py">self-checking script</a> — stdlib only, no pip, no network calls:</p>
+<pre class="code"># 1. start a throwaway node (default ES-compat port 9200)
+./engine/target/release/xerj --insecure --data-dir ./data
 
-  <h2>Retention</h2>
-  <p>Per-index, in the config. No ILM policy DSL required.</p>
-<pre class="code">[logs]
-retention_days = 30
-time_partition = "1h"</pre>
+# 2. in another shell, from the repo root:
+python3 docs/examples/vector-search-knn/knn_demo.py</pre>
+  <p>The script reads its server URL from <code class="inline">XERJ_URL</code> (default <code class="inline">http://localhost:9200</code>); the older <code class="inline">BASE</code> variable still works as an alias. Point it at any node with <code class="inline">XERJ_URL=http://host:port python3 …</code>.</p>
+  <p>It creates the index, bulk-loads the 8-row catalog, runs all three searches, and — beyond the pass/fail assertions — computes <strong>recall@k against a brute-force exact-cosine ground truth built in-process</strong>, so the "the result is exact" claim below is measured, not asserted. Exact tail from a real run:</p>
+<pre class="code">=== kNN k=3, query ~citrus ===
+   ('1', 0.9999, 'Navel Orange', 'fruit', True)
+   ('2', 0.9997, 'Meyer Lemon', 'fruit', True)
+   ('3', 0.9948, 'Blood Orange', 'fruit', False)
+  exact top-3 (brute-force cosine): ['1', '2', '3']
+  recall@3 = 1.000 (3/3 of the true nearest returned)
+  OK: top-3 are exactly the citrus fruits, no vehicles leaked in
 
-  <h2>Dashboard</h2>
-  <p>Open the playground and pick <a href="/playground.html">LOGS · OVERVIEW</a> — nine panels with click-to-filter TopN, 1 ms date_histogram, heatmap, and drill-through to the <a href="/playground.html">SYSTEM · OVERVIEW</a> dashboard.</p>
+=== kNN + bool.filter in_stock:true ===
+   ('1', 0.9999, 'Navel Orange', 'fruit', True)
+   ('2', 0.9997, 'Meyer Lemon', 'fruit', True)
+   ('4', 0.5969, 'Strawberry', 'fruit', True)
+  OK: out-of-stock Blood Orange excluded; only in-stock neighbors returned
 
-  <p class="source-note">Source · engine/crates/logs/src/lib.rs</p>
-  
+=== kNN k=2, query ~vehicle ===
+   ('6', 1.0, 'Pickup Truck', 'vehicle', True)
+   ('7', 0.9992, 'Sports Car', 'vehicle', False)
+  exact top-2 (brute-force cosine): ['6', '7']
+  recall@2 = 1.000
+  OK: vehicle query returns only vehicles
 
-<div class="next">
-      <div class="step"><span class="dir">◀ PREV</span><a href="/docs/playbooks/siem.html">Playbook · SIEM</a></div>
-      <div class="step right"><span class="dir">NEXT ▶</span><a href="/docs/playbooks/vector-search.html">Vector · RAG</a></div>
-    </div>
+MEASURED recall vs brute-force exact across queries: 1.000 (exact)
+ALL ASSERTIONS PASSED</pre>
+  <p>The scores and recall are <strong>deterministic for this 8-row corpus</strong> — every run prints the same numbers (<code class="inline">recall@3 = recall@2 = 1.000</code>). The cosine scores above are the ES-normalized values <code class="inline">(1 + cos)/2</code>; unrounded they are <code class="inline">0.99985695</code>, <code class="inline">0.99970835</code>, <code class="inline">0.99479961</code> for the citrus top-3.</p>
+
+  <h2>How the search works: HNSW</h2>
+  <p>XERJ indexes vectors in an <strong>HNSW</strong> graph (Hierarchical Navigable Small World) — the same family of ANN index Elasticsearch/Lucene use. Instead of comparing your query against every stored vector (O(N), fine for our 8-row demo, painful at millions), HNSW builds a layered proximity graph and greedily hops toward the nearest region, giving roughly O(log N) search that stays fast as the corpus grows. XERJ builds with <code class="inline">ef_construction = 200</code> for high recall; at query time <code class="inline">num_candidates</code> controls the search-time breadth (the ANN analog of <code class="inline">ef_search</code>) — raise it to trade latency for recall, lower it for speed.</p>
+  <p>Because it's <em>approximate</em>, ANN can in principle miss a true neighbor. For a corpus this small the result is <strong>exact</strong> — the script above measures <strong>recall@k = 1.000</strong> against a brute-force cosine ground truth on every query, confirming HNSW returned the identical top-k. The knobs above only start to matter at scale.</p>
+
+  <h2>Raw kNN vs. <code class="inline">semantic_text</code>: which do I use?</h2>
+  <p>Both end up doing vector search. The difference is <strong>who makes the vectors.</strong></p>
+  <ul>
+    <li><strong>Raw <code class="inline">dense_vector</code> + <code class="inline">knn</code> (this recipe)</strong> — <em>you</em> supply the embeddings, on both the ingest side and the query side. Use it when you already run an embedding model (OpenAI, a local sentence-transformer, a CLIP image encoder, your own recommender) and just need fast storage and nearest-neighbor retrieval. Maximum control; works for any modality, not just text.</li>
+    <li><strong><code class="inline">semantic_text</code> field + <code class="inline">semantic</code> query</strong> — XERJ embeds text <strong>for</strong> you at ingest time and at query time, so you send plain strings and never touch a vector. Great when your data is text and you want semantic search with zero embedding plumbing. <em>Honest caveat:</em> the built-in embedder is <strong>lexical, not neural</strong> — excellent for demos and keyword-semantic overlap, but for production-grade semantic quality point XERJ at an external OpenAI-compatible <code class="inline">/v1/embeddings</code> endpoint (<code class="inline">embedding.default_endpoint</code>), after which both ingest and query use that higher-quality model.</li>
+  </ul>
+  <p>Rule of thumb: <strong>already have embeddings → raw <code class="inline">knn</code>. Have text and want it embedded for you → <code class="inline">semantic_text</code>.</strong> Need to blend keyword relevance (BM25) with vector similarity in one request? Reach for the <code class="inline">hybrid</code> query.</p>
+
+  <h2>Gotchas</h2>
+  <ul>
+    <li><strong><code class="inline">dims</code> must match your vectors exactly</strong> — a length mismatch means the doc is skipped from the scan, not an error.</li>
+    <li><strong>Filter a kNN with <code class="inline">bool</code> + <code class="inline">filter</code></strong>, not the inlined <code class="inline">knn.filter</code> (currently ignored on the top-level path — see §3).</li>
+    <li><strong><code class="inline">k</code> vs <code class="inline">num_candidates</code></strong>: <code class="inline">k</code> = results returned; <code class="inline">num_candidates</code> = how many the graph explores first. <code class="inline">num_candidates &gt;= k</code>; raise it if recall matters.</li>
+    <li>Scores are <strong>ES-normalized cosine in <code class="inline">[0,1]</code></strong> (≈1.0 identical, ≈0.5 orthogonal), not raw cosine in <code class="inline">[-1,1]</code>.</li>
+  </ul>
 
   <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
   <div class="print-footer" style="display:none;">
     <span>XERJ.AI · V0.1 · 2026-04-16</span>
     <a href="https://xerj.dev/docs/">https://xerj.dev/docs/</a>
-    <span>Playbook · Log analytics</span>
+    <span>Recipe · Vector search · kNN</span>
   </div>
 </main>
 </div>

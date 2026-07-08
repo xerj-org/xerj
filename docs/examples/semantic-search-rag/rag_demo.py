@@ -7,10 +7,11 @@ ingest, zero external config), then retrieves passages by *meaning* using the
 `semantic` query. The retrieved passages are the chunks you'd hand to an LLM as
 grounding context for RAG.
 
-Stdlib only (urllib + json). Point BASE at a running XERJ es_compat port.
+Stdlib only (urllib + json). Point XERJ_URL at a running XERJ es_compat port.
 
-    python3 rag_demo.py            # defaults to http://localhost:9482
-    BASE=http://localhost:9200 python3 rag_demo.py
+    python3 rag_demo.py                          # defaults to http://localhost:9200
+    XERJ_URL=http://localhost:9482 python3 rag_demo.py
+    BASE=http://localhost:9482 python3 rag_demo.py   # BASE still works (alias)
 """
 import json
 import os
@@ -19,7 +20,8 @@ import time
 import urllib.request
 import urllib.error
 
-BASE = os.environ.get("BASE", "http://localhost:9482")
+# Server URL: XERJ_URL is canonical; BASE kept as a documented alias; default :9200.
+BASE = os.environ.get("XERJ_URL") or os.environ.get("BASE") or "http://localhost:9200"
 INDEX = "kb"
 
 
@@ -131,6 +133,12 @@ def main():
     context = "\n\n".join(
         f"[{h['_id']}] {h['_source']['title']}\n{h['_source']['body']}" for h in hits
     )
+    # Raw shape of the top hit — the exact score + companion vector the doc quotes.
+    top = hits[0]
+    vec = top["_source"].get("body_vector", [])
+    print("\n=== RAW TOP HIT (exact score + companion vector) ===")
+    print(f"query={q!r}  top={top['_id']}  score={top['_score']!r}  "
+          f"dims={len(vec)}  body_vector[:3]={vec[:3]}  order={[h['_id'] for h in hits]}")
     print("\n=== RAG CONTEXT BUNDLE (top-2 passages -> LLM prompt) ===")
     print(f"User question: {q}\n")
     print("Retrieved context:\n" + context)
@@ -155,6 +163,39 @@ def main():
     print(f"Q: {q!r}")
     print(f"   semantic top -> {sm[0]['_id']} {sm[0]['_source']['title']} "
           f"(expected kb-1; the body never uses the word 'rotate')")
+
+    # 7) Score the ranking with _rank_eval — real IR metrics over the real KB.
+    #    kb-1 is the one relevant answer to the regenerate-token question; each
+    #    metric scores the SAME semantic ranking a different way.
+    print("\n=== RANK EVAL (real IR metrics on this KB, ES wire API) ===")
+    request = {
+        "id": "regen_token_q",
+        "request": {"query": {"semantic": {"field": "body",
+                    "query": "how do I regenerate my API token", "k": 3}}},
+        "ratings": [
+            {"_id": "kb-1", "rating": 3},
+            {"_id": "kb-5", "rating": 0},
+            {"_id": "kb-2", "rating": 0},
+        ],
+    }
+    metrics = {
+        "dcg (nDCG@3)": {"dcg": {"k": 3, "normalize": True}},
+        "precision@3": {"precision": {"k": 3}},
+        "recall@3": {"recall": {"k": 3}},
+        "mean_reciprocal_rank": {"mean_reciprocal_rank": {"k": 3}},
+    }
+    rank_scores = {}
+    for label, metric in metrics.items():
+        status, resp = req("POST", f"/{INDEX}/_rank_eval",
+                           {"metric": metric, "requests": [request]})
+        assert status == 200, resp
+        score = resp.get("metric_score")
+        rank_scores[label] = score
+        print(f"   {label:22} metric_score={score}")
+    # An unknown metric name must fail loud (400), not return a misleading number.
+    status, resp = req("POST", f"/{INDEX}/_rank_eval",
+                       {"metric": {"not_a_metric": {"k": 3}}, "requests": [request]})
+    print(f"   unknown-metric -> HTTP {status} (expected 400, fail-loud)")
 
     print(f"\nRESULT: {passed}/{len(checks)} semantic retrievals returned the right doc at rank 1")
     if passed != len(checks):

@@ -27,7 +27,7 @@ Give the log fields explicit types up front. `@timestamp` must be a `date` for
 `keyword` so they bucket exactly instead of being analyzed.
 
 ```bash
-curl -XPUT localhost:9483/logs-app -H 'Content-Type: application/json' -d '{
+curl -XPUT localhost:9200/logs-app -H 'Content-Type: application/json' -d '{
   "mappings": { "properties": {
     "@timestamp": {"type": "date"},
     "level":      {"type": "keyword"},
@@ -176,20 +176,43 @@ payments          73      269   103    958
 low-volume but has the worst worst-case (958 ms). That's the whole triage
 picture from three `_search` calls.
 
-## Run it
+## Reproduce it yourself
+
+The tables above are the real, captured output of this exact script. The dataset
+is generated with a fixed seed (`random.seed(7)`), so the counts, error rates,
+percentiles, and per-service tables are **deterministic** — you will get the same
+numbers shown here. The only run-to-run variance is `took` (per-query latency),
+which stays in the single-digit milliseconds (this run: Q1 `took=4 ms`, Q2
+`took=5 ms`).
 
 ```bash
-# 1. Boot XERJ (insecure/local) on a port of your choice
-printf '[server]\nes_compat_port = 9483\n' > /tmp/xerj.toml
-./engine/target/release/xerj --insecure --data-dir /tmp/xerj-logs --config /tmp/xerj.toml &
+# 1. Start XERJ on its default port (9200), insecure/local — no config needed
+./engine/target/release/xerj --insecure --data-dir /tmp/xerj-logs &
 
-# 2. Run the recipe (stdlib only — no pip installs)
-python3 docs/examples/log-analytics/log_analytics.py http://localhost:9483
+# 2. Run the recipe (stdlib only — no pip installs, no third-party network calls)
+python3 docs/examples/log-analytics/log_analytics.py
 ```
 
-The script creates the mapping, bulk-ingests 600 events, runs all three
-queries, and prints the tables above. It asserts the ingest count and that
-`_bulk` reported no errors, so a green run means the aggregations are real.
+The client reads the server URL from `$XERJ_URL` (default
+`http://localhost:9200`). A positional argument still overrides it if you run
+XERJ on a different port, e.g.
+`python3 docs/examples/log-analytics/log_analytics.py http://localhost:9483`.
+
+The script creates the mapping, bulk-ingests 600 events, runs all three queries,
+and prints the tables above. It asserts the ingest count and that `_bulk`
+reported no errors, so a green run means the aggregations are real.
+
+A green run prints the three per-question tables shown above and ends with
+`All aggregations returned.` — the deterministic headline numbers it produces,
+summarized:
+
+```
+Ingested 600 log events into 'logs-app'
+
+Q1  hourly error rate:  08:00 6.9% · 09:00 3.0% · 10:00 4.7% · 11:00 2.2% · 12:00 2.2% · 13:00 4.7%
+Q2  fleet latency:      p50=56 ms  p95=321 ms  p99=565 ms   (per-service p95: catalog 51, search 79, checkout 447, payments 529)
+Q3  top services:       catalog 190 · search 187 · checkout 150 · payments 73   (payments worst-case 958 ms)
+```
 
 ## Notes and honest limits
 

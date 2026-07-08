@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XERJ.ai · Docs · Playbook · Log analytics</title>
-<meta name="description" content="Playbook · Log analytics — XERJ.ai documentation.">
+<title>XERJ · Docs · Recipe · Vector quantization</title>
+<meta name="description" content="Opt a dense_vector field into scalar8 (int8) quantization for a 4× smaller vector working set at recall@10 ≈ 0.99 — same ranking, with the original vectors still returned in _source.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -81,7 +81,7 @@
   <div class="group">
     <span class="label">PLAYBOOKS</span>
     <a href="/docs/playbooks/siem.html" class=""><span class="eyebrow">01</span>SIEM</a>
-      <a href="/docs/playbooks/log-analytics.html" class="active"><span class="eyebrow">02</span>Log analytics</a>
+      <a href="/docs/playbooks/log-analytics.html" class=""><span class="eyebrow">02</span>Log analytics</a>
       <a href="/docs/playbooks/vector-search.html" class=""><span class="eyebrow">03</span>Vector · RAG</a>
       <a href="/docs/playbooks/full-text.html" class=""><span class="eyebrow">04</span>Full-text search</a>
       <a href="/docs/playbooks/observability.html" class=""><span class="eyebrow">05</span>Observability</a>
@@ -93,7 +93,7 @@
     <a href="/docs/recipes/agentic-memory.html" class=""><span class="eyebrow">02</span>Agent memory</a>
     <a href="/docs/recipes/passage-retrieval.html" class=""><span class="eyebrow">03</span>Passage retrieval</a>
     <a href="/docs/recipes/vector-search-knn.html" class=""><span class="eyebrow">04</span>Vector search &middot; kNN</a>
-    <a href="/docs/recipes/vector-quantization.html" class=""><span class="eyebrow">05</span>Vector quantization</a>
+    <a href="/docs/recipes/vector-quantization.html" class="active"><span class="eyebrow">05</span>Vector quantization</a>
     <a href="/docs/recipes/hybrid-search.html" class=""><span class="eyebrow">06</span>Hybrid search</a>
     <a href="/docs/recipes/log-analytics.html" class=""><span class="eyebrow">07</span>Log analytics</a>
     <a href="/docs/recipes/anomaly-detection.html" class=""><span class="eyebrow">08</span>Anomaly detection</a>
@@ -106,96 +106,95 @@
   <!-- Print-only branded header (hidden on screen, visible in PDF) -->
   <div class="print-header" style="display:none;">XERJ.AI</div>
 
-  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span>PLAYBOOKS<span class="sep">·</span>LOG ANALYTICS
+  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span><a href="/docs/recipes/index.html">RECIPES</a><span class="sep">·</span>VECTOR QUANTIZATION
     <button class="pdf-btn" onclick="window.print()" title="Save this page as PDF">
       <svg viewBox="0 0 24 24"><path d="M12 3v12M12 15l-4-4M12 15l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
       PDF
     </button>
   </div>
-  <div class="kicker"><span>PLAYBOOK · 02</span></div>
-  <h1>Playbook · Log analytics</h1>
+  <div class="kicker"><span>RECIPE · 05</span></div>
+  <h1>Vector quantization</h1>
 
 
-  <p>Ingest Nginx, JSON, syslog, or OTLP at line rate. Query hot logs in milliseconds. Cold-drop to cheap storage with ILM-free retention. This is the workload XERJ was originally built for.</p>
+  <h2>The problem</h2>
+  <p>Dense vectors are heavy. A 768-dim <code class="inline">float32</code> embedding is ~3 KB; a million of them is ~3 GB of vector data that has to be resident to serve low-latency kNN. Scale to tens of millions and the vector working set — not the text, not the postings — becomes the thing that decides how much RAM you rent.</p>
 
-  <h2>Schema</h2>
-<pre class="code">$ curl -sX PUT http://localhost:8080/v1/indices/logs \
-    -H 'Content-Type: application/json' \
-    -d '{
-      "fields": {
-        "@timestamp":  "date",
-        "service":     "keyword",
-        "level":       "keyword",
-        "host":        "keyword",
-        "trace_id":    "keyword",
-        "span_id":     "keyword",
-        "status":      "integer",
-        "latency_ms":  "integer",
-        "bytes_out":   "integer",
-        "client_ip":   "ip",
-        "message":     "text"
+  <p>The standard fix is <strong>scalar quantization</strong>: store each dimension in one byte instead of four. That's a 4× reduction. The catch everyone worries about is recall — does compressing the vectors quietly wreck ranking quality?</p>
+
+  <h2>Why XERJ</h2>
+  <p>XERJ lets you opt a <code class="inline">dense_vector</code> field into <strong>scalar8</strong> (int8) quantization per field. When you do, the kNN <em>serving</em> path scores against 1-byte-per-dimension codes instead of 4-byte floats — a ~4× smaller vector working set — while <code class="inline">_source</code> still returns the <strong>original</strong> vectors for retrieval. It's off by default (full float32), so you choose precision vs. memory per field, exactly like Elasticsearch's <code class="inline">int8_hnsw</code>.</p>
+
+  <p>On a real 128-dim corpus the recall cost is negligible: <strong>recall@10 = 0.998</strong> against the exact float32 index, with the vector footprint cut from 512 to 128 bytes per vector — a <strong>measured 4.00× reduction</strong>. (Both numbers are computed by the run below, not stipulated.)</p>
+
+  <h2>The solution</h2>
+  <p>Opt a field in at mapping time with <code class="inline">index_options.type: int8_hnsw</code>:</p>
+<pre class="code">curl -sX PUT "$XERJ_URL/docs" -H 'content-type: application/json' -d '{
+  "mappings": {
+    "properties": {
+      "title": { "type": "text" },
+      "v": {
+        "type": "dense_vector",
+        "dims": 128,
+        "similarity": "cosine",
+        "index_options": { "type": "int8_hnsw" }
       }
-    }'</pre>
+    }
+  }
+}'</pre>
 
-  <h2>Ingest options</h2>
+  <p>Index and query exactly as you would a full-precision field — nothing else changes:</p>
+<pre class="code">curl -sX POST "$XERJ_URL/docs/_search" -H 'content-type: application/json' -d '{
+  "knn": { "field": "v", "query_vector": [0.12, 0.08, -0.31, "..."], "k": 10 }
+}'</pre>
+
+  <p>The scores come back slightly different from an exact float32 index (that's the quantization at work — a query that exactly matches a stored vector scores ~0.99999 instead of 1.0), but the <strong>ranking is the same</strong>.</p>
+
+  <h2>Try it</h2>
+  <p><a href="https://github.com/xerj-org/xerj/blob/main/docs/examples/vector-quantization/quant_demo.py"><code class="inline">docs/examples/vector-quantization/quant_demo.py</code></a> (the mirrored <code class="inline">recipes/vector_quantization.py</code> runs the same demo) embeds the 40 real KB articles into 128-dim vectors, indexes the same vectors into a float32 index and a scalar8 index, and prints the side-by-side top hits, the measured recall@10, and the measured byte footprint of each encoding:</p>
+<pre class="code">$ python3 docs/examples/vector-quantization/quant_demo.py
+embedded 40 real KB articles into 128-dim vectors
+
+indexed into `vq-none` (float32) and `vq-scalar8` (int8_hnsw / scalar8)
+
+query: 'how do I stop an agent's context window from overflowing?'
+
+── float32 (exact)
+    0.67958  Long-context windows do not replace memory
+    0.60029  p95 latency budgets for interactive RAG agents
+    0.59712  SOC 2 controls that apply to vector workloads
+
+── scalar8 (quantized)
+    0.67938  Long-context windows do not replace memory
+    0.60021  p95 latency budgets for interactive RAG agents
+    0.59731  SOC 2 controls that apply to vector workloads
+
+recall@10 (scalar8 vs float32 ground truth): 0.998
+vector footprint over 40 vecs: float32 = 20480 B (512 B/vec)  →  scalar8 = 5120 B (128 B/vec)  (4.00x smaller)
+
+OK — 4x smaller vectors, recall preserved. `_source` still holds the originals.</pre>
+
+  <p>The footprint line is a real measurement: the run encodes every corpus vector as float32 bytes (<code class="inline">struct</code>) and as int8 codes and compares the actual byte totals — 20480 B vs 5120 B, exactly 4.00×.</p>
+
+  <h2>Reproduce it yourself</h2>
+<pre class="code"># 1. Start XERJ (dev mode, default ES-compat port 9200)
+xerj --insecure --data-dir ./data &amp;
+
+# 2. Run the demo (stdlib-only Python 3, no packages, no API keys)
+python3 docs/examples/vector-quantization/quant_demo.py</pre>
+  <p><code class="inline">XERJ_URL</code> overrides the server (default <code class="inline">http://localhost:9200</code>); <code class="inline">XERJ_KB</code> overrides the KB path (default: auto-discovered <code class="inline">demo/data/ai_kb.ndjson</code>). The embedder and corpus are deterministic, so a customer should see exactly:</p>
   <ul>
-    <li><strong>Raw NGINX/Apache</strong> → <code class="inline">POST /v1/indices/logs/logs</code> auto-detects the format.</li>
-    <li><strong>Structured JSON</strong> → <code class="inline">POST /v1/indices/logs/turbo-ingest</code> NDJSON body.</li>
-    <li><strong>Syslog</strong> → <code class="inline">POST /v1/indices/logs/syslog</code>.</li>
-    <li><strong>OTLP</strong> → <code class="inline">POST /v1/indices/logs/otlp</code>.</li>
+    <li><code class="inline">recall@10 (scalar8 vs float32 ground truth): 0.998</code></li>
+    <li><code class="inline">vector footprint over 40 vecs: float32 = 20480 B (512 B/vec)  →  scalar8 = 5120 B (128 B/vec)  (4.00x smaller)</code></li>
   </ul>
+  <p>These numbers are stable run-to-run (verified across repeated runs — no variance); the printed kNN scores are likewise identical each run.</p>
 
-  <h2>Tail recent errors</h2>
-<pre class="code">{
-  "query": {
-    "bool": {
-      "filter": [
-        { "term":  { "level": "error" } },
-        { "range": { "@timestamp": { "gte": "now-15m" } } }
-      ]
-    }
-  },
-  "size": 100,
-  "sort": [ { "@timestamp": "desc" } ]
-}</pre>
-
-  <h2>Top slow endpoints · percentiles</h2>
-<pre class="code">{
-  "query": { "term": { "service": "api-gateway" } },
-  "aggs": {
-    "by_route": {
-      "terms": { "field": "url_template", "size": 20 },
-      "aggs": {
-        "p": { "percentiles": { "field": "latency_ms", "percents": [50, 95, 99] } }
-      }
-    }
-  },
-  "size": 0
-}</pre>
-
-  <h2>Retention</h2>
-  <p>Per-index, in the config. No ILM policy DSL required.</p>
-<pre class="code">[logs]
-retention_days = 30
-time_partition = "1h"</pre>
-
-  <h2>Dashboard</h2>
-  <p>Open the playground and pick <a href="/playground.html">LOGS · OVERVIEW</a> — nine panels with click-to-filter TopN, 1 ms date_histogram, heatmap, and drill-through to the <a href="/playground.html">SYSTEM · OVERVIEW</a> dashboard.</p>
-
-  <p class="source-note">Source · engine/crates/logs/src/lib.rs</p>
-  
-
-<div class="next">
-      <div class="step"><span class="dir">◀ PREV</span><a href="/docs/playbooks/siem.html">Playbook · SIEM</a></div>
-      <div class="step right"><span class="dir">NEXT ▶</span><a href="/docs/playbooks/vector-search.html">Vector · RAG</a></div>
-    </div>
-
-  <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
-  <div class="print-footer" style="display:none;">
-    <span>XERJ.AI · V0.1 · 2026-04-16</span>
-    <a href="https://xerj.dev/docs/">https://xerj.dev/docs/</a>
-    <span>Playbook · Log analytics</span>
-  </div>
+  <h2>Notes and limits</h2>
+  <ul>
+    <li><strong>Opt-in per field.</strong> Fields without <code class="inline">int8_hnsw</code> keep exact float32 scoring, byte-for-byte unchanged.</li>
+    <li><strong><code class="inline">_source</code> is never quantized.</strong> Retrieval returns the vectors you indexed; only the scoring path uses the compact codes.</li>
+    <li><strong><code class="inline">scalar8</code> is wired; <code class="inline">binary</code> is not yet.</strong> Binary (1-bit) quantization is rejected at startup rather than silently storing full precision.</li>
+    <li><strong>Cosine is normalised</strong> before quantizing for the tightest code range; <code class="inline">dot_product</code> and <code class="inline">l2_norm</code> similarities are supported too.</li>
+  </ul>
 </main>
 </div>
 

@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XERJ.ai · Docs · Playbook · Log analytics</title>
-<meta name="description" content="Playbook · Log analytics — XERJ.ai documentation.">
+<title>XERJ · Docs · Recipe · Agent memory</title>
+<meta name="description" content="Give an AI agent long-term memory with XERJ's namespaced, offline agent-memory API — store, recall by vector or text, filter by metadata, forget, and keep each agent's memories isolated.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -81,7 +81,7 @@
   <div class="group">
     <span class="label">PLAYBOOKS</span>
     <a href="/docs/playbooks/siem.html" class=""><span class="eyebrow">01</span>SIEM</a>
-      <a href="/docs/playbooks/log-analytics.html" class="active"><span class="eyebrow">02</span>Log analytics</a>
+      <a href="/docs/playbooks/log-analytics.html" class=""><span class="eyebrow">02</span>Log analytics</a>
       <a href="/docs/playbooks/vector-search.html" class=""><span class="eyebrow">03</span>Vector · RAG</a>
       <a href="/docs/playbooks/full-text.html" class=""><span class="eyebrow">04</span>Full-text search</a>
       <a href="/docs/playbooks/observability.html" class=""><span class="eyebrow">05</span>Observability</a>
@@ -90,7 +90,7 @@
     <span class="label">RECIPES</span>
     <a href="/docs/recipes/index.html" class=""><span class="eyebrow">00</span>All recipes</a>
     <a href="/docs/recipes/semantic-search-rag.html" class=""><span class="eyebrow">01</span>Semantic search &amp; RAG</a>
-    <a href="/docs/recipes/agentic-memory.html" class=""><span class="eyebrow">02</span>Agent memory</a>
+    <a href="/docs/recipes/agentic-memory.html" class="active"><span class="eyebrow">02</span>Agent memory</a>
     <a href="/docs/recipes/passage-retrieval.html" class=""><span class="eyebrow">03</span>Passage retrieval</a>
     <a href="/docs/recipes/vector-search-knn.html" class=""><span class="eyebrow">04</span>Vector search &middot; kNN</a>
     <a href="/docs/recipes/vector-quantization.html" class=""><span class="eyebrow">05</span>Vector quantization</a>
@@ -106,96 +106,165 @@
   <!-- Print-only branded header (hidden on screen, visible in PDF) -->
   <div class="print-header" style="display:none;">XERJ.AI</div>
 
-  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span>PLAYBOOKS<span class="sep">·</span>LOG ANALYTICS
+  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span><a href="/docs/recipes/index.html">RECIPES</a><span class="sep">·</span>AGENT MEMORY
     <button class="pdf-btn" onclick="window.print()" title="Save this page as PDF">
       <svg viewBox="0 0 24 24"><path d="M12 3v12M12 15l-4-4M12 15l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
       PDF
     </button>
   </div>
-  <div class="kicker"><span>PLAYBOOK · 02</span></div>
-  <h1>Playbook · Log analytics</h1>
+  <div class="kicker"><span>RECIPE · 02</span></div>
+  <h1>Agent memory</h1>
 
 
-  <p>Ingest Nginx, JSON, syslog, or OTLP at line rate. Query hot logs in milliseconds. Cold-drop to cheap storage with ILM-free retention. This is the workload XERJ was originally built for.</p>
+  <p><strong>Use case:</strong> your agent learns things during a session — user preferences, project facts, decisions — and needs to <em>remember</em> them on a later turn to answer well. The usual answer is to bolt a separate vector database next to your search stack. XERJ folds that job into the engine you already run: a namespaced, offline <strong>agent-memory API</strong> (<code class="inline">/_memory/{ns}</code>) that stores text + an embedding + metadata and recalls the most relevant memories by <strong>vector similarity</strong> or <strong>plain text</strong>, with metadata filtering, forgetting, and hard per-agent isolation.</p>
 
-  <h2>Schema</h2>
-<pre class="code">$ curl -sX PUT http://localhost:8080/v1/indices/logs \
-    -H 'Content-Type: application/json' \
-    -d '{
-      "fields": {
-        "@timestamp":  "date",
-        "service":     "keyword",
-        "level":       "keyword",
-        "host":        "keyword",
-        "trace_id":    "keyword",
-        "span_id":     "keyword",
-        "status":      "integer",
-        "latency_ms":  "integer",
-        "bytes_out":   "integer",
-        "client_ip":   "ip",
-        "message":     "text"
-      }
-    }'</pre>
+  <p>This recipe builds a tiny simulated coding-assistant agent (no LLM required) that:</p>
+  <ol>
+    <li><strong>stores</strong> what it learns as memories (<code class="inline">POST /_memory/{ns}</code>),</li>
+    <li><strong>recalls</strong> the right memory to answer a new question — semantically (kNN) and lexically (BM25),</li>
+    <li>does a <strong>metadata-filtered</strong> recall ("only surface team <em>preferences</em>"),</li>
+    <li><strong>forgets</strong> a memory that is no longer true, and</li>
+    <li>proves <strong>multi-namespace isolation</strong>: a second agent can never see the first agent's memories.</li>
+  </ol>
 
-  <h2>Ingest options</h2>
+  <p>Everything below was run end-to-end against a live XERJ. No pip installs — the example is Python 3 stdlib only.</p>
+
+  <h2>Why this replaces a bolt-on vector DB</h2>
+  <p>A memory namespace is just a reserved XERJ index (<code class="inline">.xerj-memory-{ns}</code>) under the hood, so recall reuses the same <code class="inline">dense_vector</code>/HNSW kNN, BM25, and metadata-filter paths that serve the rest of the engine. That means:</p>
   <ul>
-    <li><strong>Raw NGINX/Apache</strong> → <code class="inline">POST /v1/indices/logs/logs</code> auto-detects the format.</li>
-    <li><strong>Structured JSON</strong> → <code class="inline">POST /v1/indices/logs/turbo-ingest</code> NDJSON body.</li>
-    <li><strong>Syslog</strong> → <code class="inline">POST /v1/indices/logs/syslog</code>.</li>
-    <li><strong>OTLP</strong> → <code class="inline">POST /v1/indices/logs/otlp</code>.</li>
+    <li><strong>One system to run and back up.</strong> No second datastore, no sync job keeping a vector index consistent with your source of truth.</li>
+    <li><strong>kNN <em>and</em> BM25 in the same store.</strong> Recall by embedding similarity, by keyword, or filter both by metadata — no glue code.</li>
+    <li><strong>Namespaces are physical isolation.</strong> Each agent (or tenant, or user) gets its own backing index; a recall in namespace <code class="inline">A</code> literally cannot read namespace <code class="inline">B</code>.</li>
+    <li><strong>Offline and zero-config.</strong> You supply the vectors (from your own model); XERJ never phones out to embed.</li>
   </ul>
 
-  <h2>Tail recent errors</h2>
-<pre class="code">{
-  "query": {
-    "bool": {
-      "filter": [
-        { "term":  { "level": "error" } },
-        { "range": { "@timestamp": { "gte": "now-15m" } } }
-      ]
-    }
-  },
-  "size": 100,
-  "sort": [ { "@timestamp": "desc" } ]
-}</pre>
+  <h2>The memory API, in four calls</h2>
+  <table>
+    <thead>
+      <tr><th>Verb + path</th><th>What it does</th><th>Body / result</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code class="inline">POST /_memory/{ns}</code></td><td>store a memory</td><td><code class="inline">{text, vector?, metadata?, id?}</code> → <code class="inline">{id, namespace, created}</code></td></tr>
+      <tr><td><code class="inline">POST /_memory/{ns}/_recall</code></td><td>recall top-k</td><td><code class="inline">{vector? | query?, k?, filter?}</code> → <code class="inline">{hits:[{id,text,metadata,score}]}</code></td></tr>
+      <tr><td><code class="inline">GET /_memory/{ns}</code></td><td>list recent (bounded)</td><td>→ <code class="inline">{count, entries:[…]}</code></td></tr>
+      <tr><td><code class="inline">DELETE /_memory/{ns}/{id}</code></td><td>forget one</td><td>→ <code class="inline">{id, forgotten}</code></td></tr>
+      <tr><td><code class="inline">DELETE /_memory/{ns}</code></td><td>drop the namespace</td><td>→ <code class="inline">{namespace, dropped}</code></td></tr>
+    </tbody>
+  </table>
+  <p><code class="inline">_recall</code> picks the path from the body: a <code class="inline">vector</code> runs kNN; otherwise <code class="inline">query</code> runs BM25 over the text; an empty body returns recent memories (<code class="inline">match_all</code>). <code class="inline">filter</code> is a normal ES query clause applied as a <code class="inline">bool</code> filter, so it narrows without affecting the score. Recall of an unknown namespace returns <code class="inline">{"hits": []}</code> — that is how isolation stays clean.</p>
 
-  <h2>Top slow endpoints · percentiles</h2>
-<pre class="code">{
-  "query": { "term": { "service": "api-gateway" } },
-  "aggs": {
-    "by_route": {
-      "terms": { "field": "url_template", "size": 20 },
-      "aggs": {
-        "p": { "percentiles": { "field": "latency_ms", "percents": [50, 95, 99] } }
-      }
-    }
-  },
-  "size": 0
-}</pre>
+  <h3>Storing a memory (raw wire)</h3>
+<pre class="code">curl -XPOST localhost:9200/_memory/agent-ada -H 'content-type: application/json' -d '{
+  "text": "The team prefers Rust over Go for new backend services.",
+  "vector": [0.12, 0.0, 0.34],
+  "metadata": {"kind": "preference", "topic": "language"},
+  "id": "demo-1"
+}'</pre>
+<pre class="code">{"created":true,"id":"demo-1","namespace":"agent-ada"}</pre>
 
-  <h2>Retention</h2>
-  <p>Per-index, in the config. No ILM policy DSL required.</p>
-<pre class="code">[logs]
-retention_days = 30
-time_partition = "1h"</pre>
+  <h3>Recalling by vector, filtered to preferences (raw wire)</h3>
+<pre class="code">curl -XPOST localhost:9200/_memory/agent-ada/_recall -H 'content-type: application/json' -d '{
+  "vector": [0.12, 0.0, 0.34],
+  "k": 2,
+  "filter": {"term": {"metadata.kind": "preference"}}
+}'</pre>
+<pre class="code">{"hits":[{"id":"demo-1",
+          "metadata":{"kind":"preference","topic":"language"},
+          "score":1.0,
+          "text":"The team prefers Rust over Go for new backend services."}],
+ "namespace":"agent-ada"}</pre>
 
-  <h2>Dashboard</h2>
-  <p>Open the playground and pick <a href="/playground.html">LOGS · OVERVIEW</a> — nine panels with click-to-filter TopN, 1 ms date_histogram, heatmap, and drill-through to the <a href="/playground.html">SYSTEM · OVERVIEW</a> dashboard.</p>
+  <p>Note <code class="inline">metadata.kind</code> filters straight out of the box — nested metadata subfields are queryable with a normal <code class="inline">term</code> clause, no explicit mapping needed.</p>
 
-  <p class="source-note">Source · engine/crates/logs/src/lib.rs</p>
-  
+  <h2>The full agent</h2>
+  <p>The script below is the whole example. The one thing to understand about it: it carries a <strong>tiny self-contained "embedder"</strong> (deterministic hashed character trigrams) so the demo needs no model download and cosine similarity is meaningful.</p>
+  <p><strong>Honesty check.</strong> That toy embedder is <em>lexical</em>, not neural: it rewards shared character n-grams (so <code class="inline">service</code>/<code class="inline">services</code>, <code class="inline">prefer</code>/<code class="inline">prefers</code> land near each other), but it does not know that "car" ≈ "automobile". For real semantic recall you pass vectors from your own model (OpenAI/Cohere/a local model) — the store and recall calls are byte-for-byte the same. XERJ's own built-in <code class="inline">semantic_text</code> embedder is likewise lexical unless you configure an external <code class="inline">/v1/embeddings</code> endpoint; the memory API deliberately takes <em>your</em> vectors so quality is your choice.</p>
+  <p>The full example script is on GitHub — <a href="https://github.com/xerj-org/xerj/blob/main/docs/examples/agentic-memory/agent_memory.py">docs/examples/agentic-memory/agent_memory.py</a> (Python 3 stdlib only, no dependencies).</p>
 
-<div class="next">
-      <div class="step"><span class="dir">◀ PREV</span><a href="/docs/playbooks/siem.html">Playbook · SIEM</a></div>
-      <div class="step right"><span class="dir">NEXT ▶</span><a href="/docs/playbooks/vector-search.html">Vector · RAG</a></div>
-    </div>
+  <h2>Reproduce it yourself</h2>
+  <p>Start XERJ (single node, no TLS/auth) on its default port and run the script. Nothing to install — the client is Python 3 <strong>stdlib only</strong>.</p>
+<pre class="code"># 1. boot XERJ on the default port 9200
+./engine/target/release/xerj --insecure --data-dir /tmp/xerj-mem &amp;
 
-  <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
-  <div class="print-footer" style="display:none;">
-    <span>XERJ.AI · V0.1 · 2026-04-16</span>
-    <a href="https://xerj.dev/docs/">https://xerj.dev/docs/</a>
-    <span>Playbook · Log analytics</span>
-  </div>
+# 2. run the agent (defaults to http://localhost:9200)
+python3 docs/examples/agentic-memory/agent_memory.py
+
+# Point it at a different node/port with XERJ_URL if you like:
+#   XERJ_URL=http://localhost:9481 python3 docs/examples/agentic-memory/agent_memory.py</pre>
+
+  <p><strong>What a customer should see.</strong> The client exits <code class="inline">0</code> and prints <code class="inline">All assertions passed.</code>. The recall-quality line is the headline number, and it is <strong>deterministic</strong> — the toy embedder and BM25 are fixed functions of this corpus, so the values below reproduce exactly, run to run:</p>
+  <ul>
+    <li><strong>Semantic (kNN):</strong> recall@1 = <strong>83.3% (5/6)</strong>, recall@3 = <strong>100% (6/6)</strong></li>
+    <li><strong>Lexical (BM25):</strong> recall@1 = <strong>100% (6/6)</strong>, recall@3 = <strong>100% (6/6)</strong></li>
+  </ul>
+  <p>The single semantic recall@1 miss is honest and instructive: on <em>"Which region is production deployed in?"</em> the toy trigram embedder scores <em>"<strong>Deploys</strong> are gated on CI…"</em> (0.790) a hair above the correct <em>"<strong>Production</strong> runs on AWS…"</em> (0.780) — shared <code class="inline">deploy</code>/<code class="inline">Deploys</code> character trigrams. The right memory is still in the top 3, and <strong>BM25 recalls it first (6/6)</strong>, which is exactly why the recipe offers both recall paths.</p>
+
+  <h3>Real output</h3>
+<pre class="code">== Storing what the agent learned this session ==
+  stored ada-1    created=True
+  stored ada-2    created=True
+  stored ada-3    created=True
+  stored ada-4    created=True
+  stored ada-5    created=True
+  stored ada-6    created=True
+
+== Semantic recall for: "What programming language should I use for a new backend service?"
+  [0.779] (preference) The team prefers Rust over Go for new backend services.
+  [0.741] (fact      ) The payments service owns the Postgres 'ledger' database.
+  [0.731] (preference) The team prefers tabs over spaces and a 100-column line limit.
+
+== Lexical (BM25) recall for: "Which region is production deployed in?"
+  [3.746] (fact      ) Production runs on AWS in us-east-1; staging is us-west-2.
+  [1.010] (fact      ) Deploys are gated on the full integration suite passing in CI.
+
+== Preference-only recall for: "How should I set up the new service?"
+  [0.765] (preference) The team prefers Rust over Go for new backend services.
+  [0.692] (preference) The team prefers tabs over spaces and a 100-column line limit.
+  [0.666] (preference) The team prefers OpenTelemetry for tracing, not vendor SDKs.
+
+== Recall quality over 6 labeled probe questions ==
+  semantic (kNN):  recall@1 =  83.3%  (5/6)   recall@3 = 100.0%  (6/6)
+  lexical  (BM25): recall@1 = 100.0%  (6/6)   recall@3 = 100.0%  (6/6)
+
+== Namespace isolation ==
+  agent-billing recall for a coding question -&gt; ['Invoices over $10k require CFO approval.']
+  OK: agent-billing only ever sees its own namespace.
+
+== Forgetting a memory that is no longer true ==
+
+  before forget:
+  [0.755] (preference) The team prefers OpenTelemetry for tracing, not vendor SDKs.
+  [0.692] (fact      ) Production runs on AWS in us-east-1; staging is us-west-2.
+  [0.683] (preference) The team prefers Rust over Go for new backend services.
+  forget -&gt; {'forgotten': True, 'id': 'ada-6', 'namespace': 'agent-ada'}
+
+  after forget:
+  [0.692] (fact      ) Production runs on AWS in us-east-1; staging is us-west-2.
+  [0.683] (preference) The team prefers Rust over Go for new backend services.
+  [0.661] (preference) The team prefers tabs over spaces and a 100-column line limit.
+  OK: the retracted memory is gone.
+
+All assertions passed.</pre>
+
+  <p>Read the run top to bottom:</p>
+  <ul>
+    <li><strong>Semantic recall</strong> put the Rust preference on top for a question that never says "Rust" or "prefer" — trigram overlap on <em>backend / service / new</em> pulled it up over unrelated facts.</li>
+    <li><strong>BM25 recall</strong> answered the region question exactly, no vectors involved.</li>
+    <li><strong>Preference-only recall</strong> returned three memories, <em>all</em> <code class="inline">kind:"preference"</code> — the <code class="inline">metadata.kind</code> filter did its job.</li>
+    <li><strong>Recall quality</strong> over the 6 labeled probes is measured, not asserted by hand: BM25 recall@1 = 6/6, semantic recall@1 = 5/6, both recall@3 = 6/6 — a real number this run computed and printed.</li>
+    <li><strong>Isolation</strong> held: <code class="inline">agent-billing</code>, asked a coding question, only saw its own single finance memory.</li>
+    <li><strong>Forgetting</strong> removed <code class="inline">ada-6</code> (the tracing preference); the follow-up recall no longer surfaces it.</li>
+  </ul>
+
+  <h2>Notes, limits, and going to production</h2>
+  <ul>
+    <li><strong>Bring your own embeddings.</strong> The memory API stores whatever vector you pass and kNN-searches it with cosine similarity. Swap the toy <code class="inline">embed()</code> for a call to your model's embeddings endpoint and everything else is unchanged. Keep the vector dimension consistent within a namespace — the backing index's <code class="inline">dense_vector</code> field is sized from the first stored vector.</li>
+    <li><strong>Vector <em>or</em> text.</strong> A memory needs at least <code class="inline">text</code> or a <code class="inline">vector</code>. Text is always BM25-indexed; a vector additionally enables kNN recall. Recall with <code class="inline">vector</code> uses kNN; without it, <code class="inline">query</code> uses BM25.</li>
+    <li><strong>Recency (opt-in).</strong> Recall is pure relevance by default. Pass <code class="inline">recency_weight</code> in <code class="inline">[0, 1]</code> on <code class="inline">_recall</code> to blend recency: the engine over-fetches candidates and re-ranks by <code class="inline">(1 - w) * norm_relevance + w * norm_recency</code> (both min-max normalized across the candidate set), so <code class="inline">w = 1</code> surfaces the newest memory and <code class="inline">w = 0</code> is exactly the default relevance order. Verified: two same-vector memories tie on relevance; with <code class="inline">recency_weight: 1.0</code> the newer one is returned first. Useful when an agent's latest observation should win ties.</li>
+    <li><strong>Isolation is structural, not a filter.</strong> Namespaces are separate physical indices, so there is no query you can write in one namespace that reads another. Use one namespace per agent/tenant/user.</li>
+    <li><strong><code class="inline">GET /_memory/{ns}</code></strong> lists up to 100 most-recent entries for debugging/audit; it is bounded and recent-first, not a full export.</li>
+    <li><strong>Wire-compatible.</strong> Because a namespace is a real index, you can inspect or operate on it with the standard ES-compatible surface if you ever need to — the memory API is a thin, honest adapter over the same machinery.</li>
+  </ul>
 </main>
 </div>
 

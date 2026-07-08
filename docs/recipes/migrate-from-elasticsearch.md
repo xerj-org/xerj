@@ -69,25 +69,25 @@ curl -s "$ES/products/_search" -H 'Content-Type: application/json' -d '{
 }'
 ```
 
-Real result — BM25-ranked, standard `hits.total.value` / `_score` shape:
+Real result — BM25-ranked, standard `hits.total.value` / `_score` shape (exact captured values):
 
 ```
-total: 4
+total: 4  max_score: 0.5754
   0.575  Aluminum water bottle
   0.575  Insulated steel water bottle
-  0.288  Glass water carafe          # matched "water"
-  0.288  Plastic sports bottle       # matched "bottle"
+  0.288  Glass water carafe
+  0.288  Plastic sports bottle
 ```
 
-Note the classic OR semantics of `match`: "Glass water carafe" and "Plastic sports bottle" each match one term and rank below the docs matching both. The full hit shape is exactly ES's:
+Note the classic OR semantics of `match`: "Glass water carafe" matches only "water" and "Plastic sports bottle" matches only "bottle", so each scores `0.288` and ranks below the two docs that match both terms (`0.575`). The full hit shape is exactly ES's:
 
 ```json
 {
   "hits": {
     "total": { "value": 4, "relation": "eq" },
-    "max_score": 1.4168,
+    "max_score": 0.5753642320632935,
     "hits": [
-      { "_index": "products", "_id": "1", "_score": 1.4168,
+      { "_index": "products", "_id": "1", "_score": 0.5753642320632935,
         "_source": { "name": "Aluminum water bottle", "brand": "Klean", "price": 24.99 } }
     ]
   }
@@ -153,28 +153,43 @@ Real result — the standard `buckets` shape with `doc_count_error_upper_bound` 
 
 ### 6. Ops check — `GET /_cat/indices?v`
 
-The human-readable `_cat` table your dashboards and shell scripts parse:
+The human-readable `_cat` table your dashboards and shell scripts parse. The columns are ES's order — `health status index uuid pri rep docs.count docs.deleted store.size pri.store.size`:
 
 ```
-health status index    uuid       pri rep docs.count docs.deleted store.size pri.store.size
-green  open   products  f5c15d1... 1   0   6          0            10901b     10901b
+green open products 0ddfa388-df97-4b4b-9c9d-b9782b1b493a 1 0 6 0 10901b 10901b
 ```
 
-`_cat/indices` also lists XERJ's internal `.xerj_*` system indices (sessions, users, dashboards, etc.), analogous to Elasticsearch's own `.security`/`.kibana` dot-indices. Filter them the same way you would in ES: `GET /_cat/indices/products?v` or a `products*` pattern.
+Two honest deltas from Elasticsearch here:
 
-## Run it
+- **`?v` does not emit a column-header row.** XERJ returns the data rows only, even with `?v`. The column *order* is ES's, so anything parsing by position keeps working; anything that keys off the header line does not.
+- **No per-index `_cat` path.** XERJ serves the whole-cluster `GET /_cat/indices` (which, like ES's own `.security`/`.kibana` dot-indices, also lists XERJ's internal `.xerj_*` system indices). The per-index form `GET /_cat/indices/products` returns **404** in this build, so filter client-side instead — e.g. `curl -s "$ES/_cat/indices?v" | grep ' products '`.
 
-The full script is [`docs/examples/migrate-from-elasticsearch/migrate_demo.sh`](../examples/migrate-from-elasticsearch/migrate_demo.sh). Boot XERJ and run every step above end-to-end:
+(The `uuid` column is a fresh per-response value in this build — treat it as illustrative, not stable.)
+
+## Reproduce it yourself
+
+The full script is [`docs/examples/migrate-from-elasticsearch/migrate_demo.sh`](../examples/migrate-from-elasticsearch/migrate_demo.sh) — stdlib-only (`curl` + `python3` as a JSON pretty-printer, no third-party packages, no external network calls). Boot XERJ and run every step above end-to-end:
 
 ```bash
-# 1. Boot XERJ (insecure = no TLS/auth, for local demo)
+# 1. Boot XERJ (insecure = no TLS/auth, for local demo). ES-wire on :9200 by default.
 xerj --insecure --data-dir /tmp/xerj-demo &
 
-# 2. Run the standard-ES demo against it — the ONLY change is the URL
-ES=http://localhost:9200 ./migrate_demo.sh
+# 2. Run the standard-ES demo against it — the ONLY change is the URL.
+#    ES is the documented knob; XERJ_URL is accepted as an alias.
+ES=http://localhost:9200 bash docs/examples/migrate-from-elasticsearch/migrate_demo.sh
 ```
 
-It prints each request's result and ends with `All standard Elasticsearch calls succeeded against XERJ`. To A/B against a real cluster, run the identical script with `ES=http://your-elasticsearch:9200` — same script, same output shape.
+It exits `0` and ends with `All standard Elasticsearch calls succeeded against XERJ`. The exact numbers this run produces (deterministic on this 6-doc corpus):
+
+| Step | What you see |
+|---|---|
+| 2. `_bulk` | `errors: false  items: 6` |
+| 3. `match "water bottle"` | `total: 4  max_score: 0.5754` → `0.575` Aluminum, `0.575` Insulated, `0.288` Glass, `0.288` Plastic |
+| 4. `bool` (match + terms + range) | `total: 2` → Klean 24.99 Aluminum, Hydro 39.95 Insulated |
+| 5. `terms` agg by brand | `total docs: 6`; buckets Bodum 2, Hydro 2, Klean 2; `doc_count_error_upper_bound: 0`, `sum_other_doc_count: 0` |
+| 6. `_cat/indices` products row | `docs.count 6`, `docs.deleted 0`, `store.size 10901b` |
+
+The BM25 `_score` values and bucket counts are stable run-to-run; only the `_cat` `uuid` column changes (see step 6). To A/B against a real cluster, run the identical script with `ES=http://your-elasticsearch:9200` — same script, same output shape.
 
 ## What to change in your real app
 

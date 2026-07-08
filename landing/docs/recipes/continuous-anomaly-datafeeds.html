@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XERJ.ai · Docs · Playbook · Log analytics</title>
-<meta name="description" content="Playbook · Log analytics — XERJ.ai documentation.">
+<title>XERJ · Docs · Recipe · Continuous anomaly datafeeds</title>
+<meta name="description" content="Run an Elasticsearch _ml datafeed on XERJ to score a live metric index for anomalies continuously — one pass now, then a background timer that appends only newly flagged buckets.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -81,7 +81,7 @@
   <div class="group">
     <span class="label">PLAYBOOKS</span>
     <a href="/docs/playbooks/siem.html" class=""><span class="eyebrow">01</span>SIEM</a>
-      <a href="/docs/playbooks/log-analytics.html" class="active"><span class="eyebrow">02</span>Log analytics</a>
+      <a href="/docs/playbooks/log-analytics.html" class=""><span class="eyebrow">02</span>Log analytics</a>
       <a href="/docs/playbooks/vector-search.html" class=""><span class="eyebrow">03</span>Vector · RAG</a>
       <a href="/docs/playbooks/full-text.html" class=""><span class="eyebrow">04</span>Full-text search</a>
       <a href="/docs/playbooks/observability.html" class=""><span class="eyebrow">05</span>Observability</a>
@@ -97,7 +97,7 @@
     <a href="/docs/recipes/hybrid-search.html" class=""><span class="eyebrow">06</span>Hybrid search</a>
     <a href="/docs/recipes/log-analytics.html" class=""><span class="eyebrow">07</span>Log analytics</a>
     <a href="/docs/recipes/anomaly-detection.html" class=""><span class="eyebrow">08</span>Anomaly detection</a>
-    <a href="/docs/recipes/continuous-anomaly-datafeeds.html" class=""><span class="eyebrow">09</span>Anomaly datafeeds</a>
+    <a href="/docs/recipes/continuous-anomaly-datafeeds.html" class="active"><span class="eyebrow">09</span>Anomaly datafeeds</a>
     <a href="/docs/recipes/migrate-from-elasticsearch.html" class=""><span class="eyebrow">10</span>Migrate from ES</a>
   </div>
 </nav>
@@ -106,96 +106,198 @@
   <!-- Print-only branded header (hidden on screen, visible in PDF) -->
   <div class="print-header" style="display:none;">XERJ.AI</div>
 
-  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span>PLAYBOOKS<span class="sep">·</span>LOG ANALYTICS
+  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span><a href="/docs/recipes/index.html">RECIPES</a><span class="sep">·</span>CONTINUOUS ANOMALY DATAFEEDS
     <button class="pdf-btn" onclick="window.print()" title="Save this page as PDF">
       <svg viewBox="0 0 24 24"><path d="M12 3v12M12 15l-4-4M12 15l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
       PDF
     </button>
   </div>
-  <div class="kicker"><span>PLAYBOOK · 02</span></div>
-  <h1>Playbook · Log analytics</h1>
+  <div class="kicker"><span>RECIPE · 09</span></div>
+  <h1>Continuous anomaly datafeeds</h1>
 
 
-  <p>Ingest Nginx, JSON, syslog, or OTLP at line rate. Query hot logs in milliseconds. Cold-drop to cheap storage with ILM-free retention. This is the workload XERJ was originally built for.</p>
+  <p><strong>Goal:</strong> you already know how to score a metric series for anomalies on demand (see <a href="/docs/recipes/anomaly-detection.html">Detect a spike in a metric series</a> — you POST <code class="inline">_score</code> and get the whole timeline back). But a dashboard or an alerting loop doesn't want to <em>ask</em> every time; it wants the engine to keep watching a live index and hand you new anomalies as they appear. That's a <strong>datafeed</strong>.</p>
 
-  <h2>Schema</h2>
-<pre class="code">$ curl -sX PUT http://localhost:8080/v1/indices/logs \
-    -H 'Content-Type: application/json' \
-    -d '{
-      "fields": {
-        "@timestamp":  "date",
-        "service":     "keyword",
-        "level":       "keyword",
-        "host":        "keyword",
-        "trace_id":    "keyword",
-        "span_id":     "keyword",
-        "status":      "integer",
-        "latency_ms":  "integer",
-        "bytes_out":   "integer",
-        "client_ip":   "ip",
-        "message":     "text"
-      }
-    }'</pre>
+  <p>XERJ ships the Elasticsearch <code class="inline">_ml/datafeeds</code> surface. A datafeed references an existing anomaly-detection job (a detector), reads from one or more <code class="inline">indices</code> through an optional <code class="inline">query</code>, and runs on a fixed <code class="inline">frequency</code>. When you <code class="inline">_start</code> it, XERJ scores the series once immediately and then keeps re-scoring on a timer, appending only the <strong>newly</strong> flagged buckets to the job's results — which you read back with <code class="inline">GET /_ml/anomaly_detectors/{job}/results/records</code>. Same transparent moving mean/stddev z-score as the on-demand path; now it runs itself.</p>
 
-  <h2>Ingest options</h2>
-  <ul>
-    <li><strong>Raw NGINX/Apache</strong> → <code class="inline">POST /v1/indices/logs/logs</code> auto-detects the format.</li>
-    <li><strong>Structured JSON</strong> → <code class="inline">POST /v1/indices/logs/turbo-ingest</code> NDJSON body.</li>
-    <li><strong>Syslog</strong> → <code class="inline">POST /v1/indices/logs/syslog</code>.</li>
-    <li><strong>OTLP</strong> → <code class="inline">POST /v1/indices/logs/otlp</code>.</li>
-  </ul>
+  <p><strong>Honest scope.</strong> The scoring is the same deterministic moving-window z-score as <code class="inline">_score</code> — a great fit for "this metric jumped relative to its recent self," not a seasonal/multivariate model. Results are held <strong>in memory</strong> (bounded to the last ~10k records per job) and the background scorer is a per-node <strong>tokio task</strong>: results and running datafeeds do <strong>not</strong> survive a restart (a reloaded datafeed comes back <code class="inline">stopped</code>, and <code class="inline">_start</code> begins a fresh run). This is single-node — there is no cross-node datafeed scheduler. It is exactly what you want for a live dashboard or a self-contained alert loop on one node; it is not a replacement for a clustered, durable ML pipeline.</p>
 
-  <h2>Tail recent errors</h2>
+  <h2>The scenario</h2>
+  <p><code class="inline">cpu_datafeed</code> collects one CPU reading per minute. For sixteen minutes it sits around 20%, with a runaway spike to <strong>96%</strong> at minute 12. We create a detector, attach a datafeed, and start it. Then — while the datafeed is running — a <strong>second</strong> spike (88%) lands at minute 20, and we watch the datafeed find it on its own.</p>
+
+  <h2>1. Map the index and create the detector</h2>
+  <p>The time field must be a <code class="inline">date</code>; the metric must be numeric. The detector is the same object as in the on-demand recipe: <code class="inline">mean(cpu)</code> over one-minute buckets.</p>
+<pre class="code">curl -XPUT localhost:9200/cpu_datafeed -H 'Content-Type: application/json' -d '{
+  "mappings": { "properties": {
+    "@timestamp": { "type": "date" },
+    "cpu":        { "type": "double" }
+  }}
+}'
+
+curl -XPUT localhost:9200/_ml/anomaly_detectors/cpu-spike \
+  -H 'Content-Type: application/json' -d '{
+    "source_index": "cpu_datafeed",
+    "time_field":   "@timestamp",
+    "function":     "mean",
+    "field":        "cpu",
+    "bucket_span":  "1m"
+  }'</pre>
+
+  <h2>2. Create the datafeed</h2>
+  <p>A datafeed needs a <code class="inline">job_id</code> (which must reference an existing detector — else <code class="inline">404</code>). <code class="inline">indices</code> defaults to the detector's <code class="inline">source_index</code>, <code class="inline">query</code> to <code class="inline">match_all</code>, and <code class="inline">frequency</code> parses an ES time value (<code class="inline">"2s"</code>, <code class="inline">"5m"</code>, …; clamped to <code class="inline">&gt;= 1s</code>, default <code class="inline">60s</code>).</p>
+<pre class="code">curl -XPUT localhost:9200/_ml/datafeeds/cpu-spike-feed \
+  -H 'Content-Type: application/json' -d '{
+    "job_id":    "cpu-spike",
+    "frequency": "2s"
+  }'</pre>
+  <p>Response (the datafeed config, ES-shaped):</p>
 <pre class="code">{
-  "query": {
-    "bool": {
-      "filter": [
-        { "term":  { "level": "error" } },
-        { "range": { "@timestamp": { "gte": "now-15m" } } }
-      ]
-    }
-  },
-  "size": 100,
-  "sort": [ { "@timestamp": "desc" } ]
+  "datafeed_id": "cpu-spike-feed",
+  "job_id": "cpu-spike",
+  "state": "stopped",
+  "indices": ["cpu_datafeed"],
+  "query": { "match_all": {} },
+  "frequency": "2s"
 }</pre>
 
-  <h2>Top slow endpoints · percentiles</h2>
+  <h2>3. Start it — one pass now, then a timer</h2>
+  <p><code class="inline">_start</code> marks the datafeed <code class="inline">started</code>, runs <strong>one scoring pass synchronously</strong> (so results are immediately queryable), and spawns a background task that re-scores every <code class="inline">frequency</code>.</p>
+<pre class="code">curl -XPOST localhost:9200/_ml/datafeeds/cpu-spike-feed/_start
+# -&gt; {"started": true}</pre>
+  <p>Read the results the first pass produced:</p>
+<pre class="code">curl 'localhost:9200/_ml/anomaly_detectors/cpu-spike/results/records'</pre>
 <pre class="code">{
-  "query": { "term": { "service": "api-gateway" } },
-  "aggs": {
-    "by_route": {
-      "terms": { "field": "url_template", "size": 20 },
-      "aggs": {
-        "p": { "percentiles": { "field": "latency_ms", "percents": [50, 95, 99] } }
-      }
+  "count": 1,
+  "records": [
+    {
+      "job_id": "cpu-spike",
+      "result_type": "record",
+      "timestamp": 1783296720000,
+      "timestamp_iso": "2026-07-06T00:12:00.000Z",
+      "actual": 96.0,
+      "typical": 20.25,
+      "expected": 20.25,
+      "std_dev": 1.1636866703140785,
+      "z_score": 65.09484205018445,
+      "record_score": 100.0,
+      "anomaly_score": 100.0,
+      "bucket_span": "1m",
+      "is_anomaly": true
     }
-  },
-  "size": 0
+  ]
 }</pre>
+  <p>Each record reuses the fields the <code class="inline">_score</code> endpoint emits per bucket, plus the ES <code class="inline">record_score</code> (the 0–100 severity, mirrored as <code class="inline">anomaly_score</code>), the <code class="inline">result_type</code> tag, and <code class="inline">typical</code> (ES's name for the baseline <code class="inline">expected</code>). Those values are deterministic for this fixed series — this exact record is what the run below prints.</p>
 
-  <h2>Retention</h2>
-  <p>Per-index, in the config. No ILM policy DSL required.</p>
-<pre class="code">[logs]
-retention_days = 30
-time_partition = "1h"</pre>
+  <h2>4. The continuous part</h2>
+  <p>Now push a <strong>new</strong> spike into the live index — without touching the datafeed:</p>
+<pre class="code">curl -XPOST 'localhost:9200/_bulk?refresh=true' \
+  -H 'Content-Type: application/x-ndjson' --data-binary $'
+{"index":{"_index":"cpu_datafeed"}}
+{"@timestamp":"2026-07-06T00:20:00Z","cpu":88}
+'</pre>
+  <p>Within one <code class="inline">frequency</code> tick the background scorer re-buckets the series, sees the new bucket, and appends it. Poll again a couple of seconds later:</p>
+<pre class="code">curl 'localhost:9200/_ml/anomaly_detectors/cpu-spike/results/records'
+# -&gt; count: 2  (the 00:12 spike AND the new 00:20 spike)</pre>
+  <p>The datafeed tracks the highest bucket timestamp it has already scored, so each pass appends only the <strong>new</strong> anomalies — the 00:12 record is never duplicated.</p>
+  <p><strong>A note on freshness.</strong> XERJ's read path caches aggregation results keyed by <code class="inline">(query, dataset_version)</code>, and version only bumps on a segment flush — so an <em>identical</em> query repeated against an index that has only taken unflushed (in-memory) writes can be served a cached result. Because a datafeed re-issues the same query every tick, its scorer deliberately requests an <strong>uncached</strong> read so it always sees the newest buckets. (The on-demand <code class="inline">_score</code> endpoint is unchanged and remains cache-eligible.)</p>
 
-  <h2>Dashboard</h2>
-  <p>Open the playground and pick <a href="/playground.html">LOGS · OVERVIEW</a> — nine panels with click-to-filter TopN, 1 ms date_histogram, heatmap, and drill-through to the <a href="/playground.html">SYSTEM · OVERVIEW</a> dashboard.</p>
+  <h2>5. Filter and cap the results</h2>
+  <p><code class="inline">results/records</code> accepts a <code class="inline">record_score</code> floor (query param or JSON body) and a <code class="inline">size</code> cap:</p>
+<pre class="code"># only high-severity records
+curl 'localhost:9200/_ml/anomaly_detectors/cpu-spike/results/records?record_score=90'
+# at most 5, most-recent-friendly (chronological)
+curl 'localhost:9200/_ml/anomaly_detectors/cpu-spike/results/records?size=5'</pre>
 
-  <p class="source-note">Source · engine/crates/logs/src/lib.rs</p>
-  
+  <h2>6. Stop and delete</h2>
+<pre class="code">curl -XPOST localhost:9200/_ml/datafeeds/cpu-spike-feed/_stop
+# -&gt; {"stopped": true}   (aborts the background task)
 
-<div class="next">
-      <div class="step"><span class="dir">◀ PREV</span><a href="/docs/playbooks/siem.html">Playbook · SIEM</a></div>
-      <div class="step right"><span class="dir">NEXT ▶</span><a href="/docs/playbooks/vector-search.html">Vector · RAG</a></div>
-    </div>
+curl localhost:9200/_cat/ml/datafeeds
+# cpu-spike-feed stopped cpu-spike
 
-  <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
-  <div class="print-footer" style="display:none;">
-    <span>XERJ.AI · V0.1 · 2026-04-16</span>
-    <a href="https://xerj.dev/docs/">https://xerj.dev/docs/</a>
-    <span>Playbook · Log analytics</span>
-  </div>
+curl -XDELETE localhost:9200/_ml/datafeeds/cpu-spike-feed
+# {"acknowledged": true}</pre>
+  <p>A datafeed must be stopped before it can be deleted — deleting a <code class="inline">started</code> datafeed returns <code class="inline">409</code>, exactly like Elasticsearch.</p>
+
+  <h2>Reproduce it yourself</h2>
+  <p>Two shells, no external packages — the <a href="https://github.com/xerj-org/xerj/blob/main/docs/examples/continuous-anomaly-datafeeds/datafeed_demo.py">example script</a> is pure Python 3 standard library (no <code class="inline">pip install</code>, no third-party service, no API key).</p>
+<pre class="code"># 1. Start a throwaway XERJ (listens on :9200 by default)
+xerj --insecure
+
+# 2. In another shell, from the repo root, run the demo
+python3 docs/examples/continuous-anomaly-datafeeds/datafeed_demo.py
+
+# Point it at a different host/port with XERJ_URL (XERJ still works as an alias):
+XERJ_URL=http://localhost:9200 python3 docs/examples/continuous-anomaly-datafeeds/datafeed_demo.py</pre>
+  <p>The script maps the index, ingests the series with the first spike, creates the detector and datafeed, starts it, dumps the first anomaly record in full, injects the second spike into the live index, polls until the running datafeed picks it up on its own, then filters/caps the results, stops, deletes, and <strong>asserts</strong> both spikes were detected — the second without a second <code class="inline">_start</code>. It exits non-zero if any of that regresses, so it doubles as a smoke test.</p>
+  <p>The metric series is fixed, so the numbers are deterministic run to run: the 00:12 bucket scores <code class="inline">actual 96.0</code> against <code class="inline">expected 20.25</code> (<code class="inline">std_dev 1.1636866703140785</code>, <code class="inline">z_score 65.09</code>, <code class="inline">record_score 100.0</code>) and the continuously-detected 00:20 bucket scores <code class="inline">actual 88.0</code> against the same baseline. Only the wall time (~2s, one or two <code class="inline">2s</code> scorer ticks) varies.</p>
+  <p>Expected output:</p>
+<pre class="code">datafeed cpu-spike-feed -&gt; job cpu-spike (every 2s), state=stopped
+  raw datafeed config:
+  {
+    "datafeed_id": "cpu-spike-feed",
+    "frequency": "2s",
+    "indices": [
+      "cpu_datafeed"
+    ],
+    "job_id": "cpu-spike",
+    "query": {
+      "match_all": {}
+    },
+    "state": "stopped"
+  }
+
+after _start — 1 anomaly record(s) from the first pass:
+  when                   actual   expected   record_score
+  2026-07-06 00:12 UTC     96.0       20.2          100.0
+
+  raw first record:
+  {
+    "actual": 96.0,
+    "anomaly_score": 100.0,
+    "bucket_span": "1m",
+    "expected": 20.25,
+    "is_anomaly": true,
+    "job_id": "cpu-spike",
+    "record_score": 100.0,
+    "result_type": "record",
+    "std_dev": 1.1636866703140785,
+    "timestamp": 1783296720000,
+    "timestamp_iso": "2026-07-06T00:12:00.000Z",
+    "typical": 20.25,
+    "z_score": 65.09484205018445
+  }
+
+injecting a new spike at 00:20, waiting for the 2s scorer...
+datafeed picked up 1 new anomaly record(s) on its own:
+  when                   actual   expected   record_score
+  2026-07-06 00:20 UTC     88.0       20.2          100.0
+
+filter record_score&gt;=90 -&gt; 2 record(s); size=1 cap -&gt; 1 record(s)
+_stop -&gt; {'stopped': True} · datafeed state now: stopped
+_cat/ml/datafeeds -&gt; 'cpu-spike-feed stopped cpu-spike'
+DELETE datafeed -&gt; {'acknowledged': True}
+
+OK: 2 anomalies detected continuously; datafeed stopped cleanly.</pre>
+
+  <h2>Endpoint cheat-sheet</h2>
+  <table>
+    <thead>
+      <tr><th>Method</th><th>Path</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code class="inline">PUT</code></td><td><code class="inline">/_ml/datafeeds/{id}</code></td><td>create/replace a datafeed (<code class="inline">job_id</code> required; <code class="inline">indices</code>, <code class="inline">query</code>, <code class="inline">frequency</code> optional)</td></tr>
+      <tr><td><code class="inline">GET</code></td><td><code class="inline">/_ml/datafeeds/{id}</code></td><td>fetch one datafeed</td></tr>
+      <tr><td><code class="inline">GET</code></td><td><code class="inline">/_ml/datafeeds</code></td><td>list all datafeeds (<code class="inline">{datafeeds, count}</code>)</td></tr>
+      <tr><td><code class="inline">DELETE</code></td><td><code class="inline">/_ml/datafeeds/{id}</code></td><td>remove a datafeed (must be stopped, else <code class="inline">409</code>)</td></tr>
+      <tr><td><code class="inline">POST</code></td><td><code class="inline">/_ml/datafeeds/{id}/_start</code></td><td>start: score now + re-score every <code class="inline">frequency</code></td></tr>
+      <tr><td><code class="inline">POST</code></td><td><code class="inline">/_ml/datafeeds/{id}/_stop</code></td><td>stop and abort the background scorer</td></tr>
+      <tr><td><code class="inline">GET</code></td><td><code class="inline">/_ml/anomaly_detectors/{job}/results/records</code></td><td>stored anomaly records; <code class="inline">record_score</code> / <code class="inline">size</code> filters</td></tr>
+      <tr><td><code class="inline">GET</code></td><td><code class="inline">/_cat/ml/datafeeds</code></td><td>one line per datafeed: <code class="inline">id state job_id</code></td></tr>
+    </tbody>
+  </table>
+
+  <p>See <a href="/docs/recipes/anomaly-detection.html">Detect a spike in a metric series</a> for the detector model and the scoring math these records come from.</p>
 </main>
 </div>
 

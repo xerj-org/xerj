@@ -15,8 +15,8 @@ This demo proves the "continuous" part end to end:
   3. ingest a SECOND spike into the live index,
   4. poll until the background scorer picks it up — with no second _start.
 
-Run:  python3 datafeed_demo.py                 # assumes XERJ on :9486
-      XERJ=http://localhost:9200 python3 datafeed_demo.py
+Run:  python3 datafeed_demo.py                       # assumes XERJ on :9200
+      XERJ_URL=http://localhost:9200 python3 datafeed_demo.py
 
 Uses only the Python 3 standard library. No pip installs.
 """
@@ -29,7 +29,8 @@ import json
 import urllib.error
 import urllib.request
 
-XERJ = os.environ.get("XERJ", "http://localhost:9486").rstrip("/")
+# Primary env var is XERJ_URL (default :9200); XERJ is kept as a legacy alias.
+XERJ = os.environ.get("XERJ_URL", os.environ.get("XERJ", "http://localhost:9200")).rstrip("/")
 INDEX = "cpu_datafeed"
 DETECTOR = "cpu-spike"
 DATAFEED = "cpu-spike-feed"
@@ -47,6 +48,13 @@ def call(method, path, body=None):
     req = urllib.request.Request(f"{XERJ}{path}", data=data, headers=headers, method=method)
     with urllib.request.urlopen(req) as resp:
         return json.loads(resp.read())
+
+
+def get_text(path):
+    """GET a plain-text endpoint (e.g. the _cat family) and return it stripped."""
+    req = urllib.request.Request(f"{XERJ}{path}", method="GET")
+    with urllib.request.urlopen(req) as resp:
+        return resp.read().decode().strip()
 
 
 def ingest(readings):
@@ -117,7 +125,11 @@ def main():
         "frequency": FREQUENCY,
     })
     print(f"datafeed {feed['datafeed_id']} -> job {feed['job_id']} "
-          f"(every {feed['frequency']}), state={feed['state']}\n")
+          f"(every {feed['frequency']}), state={feed['state']}")
+    print("  raw datafeed config:")
+    for line in json.dumps(feed, indent=2, sort_keys=True).splitlines():
+        print("  " + line)
+    print()
 
     # Start it: one scoring pass runs synchronously now, then a background task
     # re-scores every `frequency`.
@@ -125,6 +137,12 @@ def main():
     first = poll_records(1)
     print(f"after _start — {len(first)} anomaly record(s) from the first pass:")
     show(first)
+    # Dump the full first record so every field the recipe documents
+    # (timestamp, typical, std_dev, z_score, record_score) is a value THIS run
+    # actually produced — no hand-copied JSON.
+    print("\n  raw first record:")
+    for line in json.dumps(first[0], indent=2, sort_keys=True).splitlines():
+        print("  " + line)
 
     # Now the "continuous" part: a NEW spike lands in the live index at minute
     # 20. We do NOT touch the datafeed — the running background scorer should
@@ -136,16 +154,29 @@ def main():
     print(f"datafeed picked up {len(new)} new anomaly record(s) on its own:")
     show(new)
 
+    # Filter + cap the stored records (section 5 of the recipe).
+    high = call("GET", f"/_ml/anomaly_detectors/{DETECTOR}/results/records?record_score=90")["records"]
+    capped = call("GET", f"/_ml/anomaly_detectors/{DETECTOR}/results/records?size=1")["records"]
+    print(f"\nfilter record_score>=90 -> {len(high)} record(s); size=1 cap -> {len(capped)} record(s)")
+
     # Stop the datafeed (idempotent cleanup for re-runs).
     stopped = call("POST", f"/_ml/datafeeds/{DATAFEED}/_stop")
     fed = call("GET", f"/_ml/datafeeds/{DATAFEED}")["datafeeds"][0]
-    print(f"\n_stop -> {stopped} · datafeed state now: {fed['state']}")
+    print(f"_stop -> {stopped} · datafeed state now: {fed['state']}")
+
+    # A stopped datafeed can be deleted; a started one returns 409 (ES parity).
+    cat = get_text("/_cat/ml/datafeeds")
+    print(f"_cat/ml/datafeeds -> {cat!r}")
+    deleted = call("DELETE", f"/_ml/datafeeds/{DATAFEED}")
+    print(f"DELETE datafeed -> {deleted}")
 
     # Verify: both spikes were detected, the second WITHOUT re-starting.
     spikes = {when(r): r["actual"] for r in after}
     assert any(96.0 == v for v in spikes.values()), "first spike (00:12) missing"
     assert any(88.0 == v for v in spikes.values()), "continuously-detected spike (00:20) missing"
     assert len(after) >= 2, f"expected >=2 anomaly records, got {len(after)}"
+    assert len(high) == len(after), "record_score>=90 should keep both 100.0-score records"
+    assert len(capped) == 1, "size=1 should cap to a single record"
     assert fed["state"] == "stopped", "datafeed did not stop"
     print(f"\nOK: {len(after)} anomalies detected continuously; datafeed stopped cleanly.")
 

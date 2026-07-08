@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XERJ.ai · Docs · Playbook · Log analytics</title>
-<meta name="description" content="Playbook · Log analytics — XERJ.ai documentation.">
+<title>XERJ · Docs · Recipe · Log analytics</title>
+<meta name="description" content="Bulk-ingest structured application logs into XERJ and answer error-rate, latency-percentile, and top-service questions with Elasticsearch-compatible aggregations.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -81,7 +81,7 @@
   <div class="group">
     <span class="label">PLAYBOOKS</span>
     <a href="/docs/playbooks/siem.html" class=""><span class="eyebrow">01</span>SIEM</a>
-      <a href="/docs/playbooks/log-analytics.html" class="active"><span class="eyebrow">02</span>Log analytics</a>
+      <a href="/docs/playbooks/log-analytics.html" class=""><span class="eyebrow">02</span>Log analytics</a>
       <a href="/docs/playbooks/vector-search.html" class=""><span class="eyebrow">03</span>Vector · RAG</a>
       <a href="/docs/playbooks/full-text.html" class=""><span class="eyebrow">04</span>Full-text search</a>
       <a href="/docs/playbooks/observability.html" class=""><span class="eyebrow">05</span>Observability</a>
@@ -95,7 +95,7 @@
     <a href="/docs/recipes/vector-search-knn.html" class=""><span class="eyebrow">04</span>Vector search &middot; kNN</a>
     <a href="/docs/recipes/vector-quantization.html" class=""><span class="eyebrow">05</span>Vector quantization</a>
     <a href="/docs/recipes/hybrid-search.html" class=""><span class="eyebrow">06</span>Hybrid search</a>
-    <a href="/docs/recipes/log-analytics.html" class=""><span class="eyebrow">07</span>Log analytics</a>
+    <a href="/docs/recipes/log-analytics.html" class="active"><span class="eyebrow">07</span>Log analytics</a>
     <a href="/docs/recipes/anomaly-detection.html" class=""><span class="eyebrow">08</span>Anomaly detection</a>
     <a href="/docs/recipes/continuous-anomaly-datafeeds.html" class=""><span class="eyebrow">09</span>Anomaly datafeeds</a>
     <a href="/docs/recipes/migrate-from-elasticsearch.html" class=""><span class="eyebrow">10</span>Migrate from ES</a>
@@ -106,95 +106,160 @@
   <!-- Print-only branded header (hidden on screen, visible in PDF) -->
   <div class="print-header" style="display:none;">XERJ.AI</div>
 
-  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span>PLAYBOOKS<span class="sep">·</span>LOG ANALYTICS
+  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span><a href="/docs/recipes/index.html">RECIPES</a><span class="sep">·</span>LOG ANALYTICS
     <button class="pdf-btn" onclick="window.print()" title="Save this page as PDF">
       <svg viewBox="0 0 24 24"><path d="M12 3v12M12 15l-4-4M12 15l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
       PDF
     </button>
   </div>
-  <div class="kicker"><span>PLAYBOOK · 02</span></div>
-  <h1>Playbook · Log analytics</h1>
+  <div class="kicker"><span>RECIPE · 07</span></div>
+  <h1>Log analytics</h1>
 
 
-  <p>Ingest Nginx, JSON, syslog, or OTLP at line rate. Query hot logs in milliseconds. Cold-drop to cheap storage with ILM-free retention. This is the workload XERJ was originally built for.</p>
+  <p><strong>Goal:</strong> You have a stream of structured application logs — timestamp, level, service, latency, status — and you need to answer the questions an on-call engineer actually asks: <em>Is the error rate climbing? Which service owns the latency tail? Who's taking the most traffic?</em> This recipe bulk-ingests a few hundred synthetic log events and answers all three with plain Elasticsearch aggregations against a single XERJ instance — no separate metrics store, no second query language.</p>
 
-  <h2>Schema</h2>
-<pre class="code">$ curl -sX PUT http://localhost:8080/v1/indices/logs \
-    -H 'Content-Type: application/json' \
-    -d '{
-      "fields": {
-        "@timestamp":  "date",
-        "service":     "keyword",
-        "level":       "keyword",
-        "host":        "keyword",
-        "trace_id":    "keyword",
-        "span_id":     "keyword",
-        "status":      "integer",
-        "latency_ms":  "integer",
-        "bytes_out":   "integer",
-        "client_ip":   "ip",
-        "message":     "text"
-      }
-    }'</pre>
+  <p>Everything below was run end-to-end against a live XERJ. The numbers and JSON are the real captured output.</p>
 
-  <h2>Ingest options</h2>
-  <ul>
-    <li><strong>Raw NGINX/Apache</strong> → <code class="inline">POST /v1/indices/logs/logs</code> auto-detects the format.</li>
-    <li><strong>Structured JSON</strong> → <code class="inline">POST /v1/indices/logs/turbo-ingest</code> NDJSON body.</li>
-    <li><strong>Syslog</strong> → <code class="inline">POST /v1/indices/logs/syslog</code>.</li>
-    <li><strong>OTLP</strong> → <code class="inline">POST /v1/indices/logs/otlp</code>.</li>
-  </ul>
+  <h2>Why XERJ for this</h2>
+  <p>XERJ speaks the Elasticsearch wire protocol, so the aggregation surface you already know — <code class="inline">date_histogram</code>, <code class="inline">percentiles</code>, <code class="inline">terms</code>, <code class="inline">stats</code>, and <code class="inline">filter</code> sub-aggs — works as-is. You ingest with <code class="inline">_bulk</code> and query with <code class="inline">_search</code>. One Rust engine handles the logs, the aggregations, and (if you want them later) full-text and vector search on the same documents. No Logstash/metrics-store split to operate.</p>
 
-  <h2>Tail recent errors</h2>
-<pre class="code">{
-  "query": {
-    "bool": {
-      "filter": [
-        { "term":  { "level": "error" } },
-        { "range": { "@timestamp": { "gte": "now-15m" } } }
-      ]
-    }
-  },
-  "size": 100,
-  "sort": [ { "@timestamp": "desc" } ]
-}</pre>
+  <h2>Set up the index</h2>
+  <p>Give the log fields explicit types up front. <code class="inline">@timestamp</code> must be a <code class="inline">date</code> for <code class="inline">date_histogram</code>, <code class="inline">latency_ms</code>/<code class="inline">status</code> numeric for math, and <code class="inline">service</code>/<code class="inline">level</code> <code class="inline">keyword</code> so they bucket exactly instead of being analyzed.</p>
+<pre class="code">curl -XPUT localhost:9200/logs-app -H 'Content-Type: application/json' -d '{
+  "mappings": { "properties": {
+    "@timestamp": {"type": "date"},
+    "level":      {"type": "keyword"},
+    "service":    {"type": "keyword"},
+    "latency_ms": {"type": "integer"},
+    "status":     {"type": "integer"},
+    "message":    {"type": "text"}
+  }}
+}'</pre>
 
-  <h2>Top slow endpoints · percentiles</h2>
-<pre class="code">{
-  "query": { "term": { "service": "api-gateway" } },
+  <h2>Ingest with <code class="inline">_bulk</code></h2>
+  <p>Logs arrive in volume, so use the bulk API: alternating action + document NDJSON lines. <a href="https://github.com/xerj-org/xerj/blob/main/docs/examples/log-analytics/log_analytics.py">The example script</a> generates 600 events across 6 hours and 4 services (<code class="inline">checkout</code>, <code class="inline">search</code>, <code class="inline">catalog</code>, <code class="inline">payments</code>), each with its own baseline latency and error propensity so the aggregations tell a real story. One <code class="inline">_bulk</code> call ships them all:</p>
+<pre class="code">POST /_bulk           (Content-Type: application/x-ndjson)
+{"index":{"_index":"logs-app"}}
+{"@timestamp":"2026-07-06T08:14:03+00:00","level":"INFO","service":"search","latency_ms":61,"status":200,"message":"search handled request status=200"}
+{"index":{"_index":"logs-app"}}
+{"@timestamp":"2026-07-06T08:22:41+00:00","level":"ERROR","service":"payments","latency_ms":740,"status":503,"message":"payments handled request status=503"}
+...</pre>
+
+  <p>Check <code class="inline">errors</code> in the response is <code class="inline">false</code>, then <code class="inline">_refresh</code> to make the docs searchable. <code class="inline">GET /logs-app/_count</code> confirms 600 landed.</p>
+
+  <h2>Q1 — Error rate over time</h2>
+  <p>Bucket events by hour with <code class="inline">date_histogram</code>, and inside each bucket count the ERROR events with a <code class="inline">filter</code> sub-agg. <code class="inline">errors.doc_count / doc_count</code> is the error rate for that hour — exactly the shape a dashboard panel needs.</p>
+<pre class="code">POST /logs-app/_search
+{
+  "size": 0,
   "aggs": {
-    "by_route": {
-      "terms": { "field": "url_template", "size": 20 },
+    "per_hour": {
+      "date_histogram": { "field": "@timestamp", "fixed_interval": "1h" },
       "aggs": {
-        "p": { "percentiles": { "field": "latency_ms", "percents": [50, 95, 99] } }
+        "errors": { "filter": { "term": { "level": "ERROR" } } }
       }
     }
-  },
-  "size": 0
+  }
 }</pre>
 
-  <h2>Retention</h2>
-  <p>Per-index, in the config. No ILM policy DSL required.</p>
-<pre class="code">[logs]
-retention_days = 30
-time_partition = "1h"</pre>
+  <p><code class="inline">size: 0</code> means "no hits, just the aggregations." Real response (first two buckets, <code class="inline">took</code> in ms):</p>
+<pre class="code">{
+  "took": 4,
+  "buckets": [
+    { "key_as_string": "2026-07-06T08:00:00.000Z", "doc_count": 102,
+      "errors": { "doc_count": 7 } },
+    { "key_as_string": "2026-07-06T09:00:00.000Z", "doc_count": 101,
+      "errors": { "doc_count": 3 } }
+  ]
+}</pre>
 
-  <h2>Dashboard</h2>
-  <p>Open the playground and pick <a href="/playground.html">LOGS · OVERVIEW</a> — nine panels with click-to-filter TopN, 1 ms date_histogram, heatmap, and drill-through to the <a href="/playground.html">SYSTEM · OVERVIEW</a> dashboard.</p>
+  <p>Rolled up across all six buckets:</p>
+<pre class="code">hour (UTC)            total  errors  err_rate
+08:00                   102       7      6.9%
+09:00                   101       3      3.0%
+10:00                   106       5      4.7%
+11:00                    91       2      2.2%
+12:00                    93       2      2.2%
+13:00                   107       5      4.7%</pre>
 
-  <p class="source-note">Source · engine/crates/logs/src/lib.rs</p>
-  
+  <h2>Q2 — Latency percentiles (p50 / p95 / p99)</h2>
+  <p>Averages hide tail latency; percentiles don't. Ask for fleet-wide percentiles, and break out p95 per service with a <code class="inline">terms</code> + <code class="inline">percentiles</code> sub-agg to see who owns the tail.</p>
+<pre class="code">POST /logs-app/_search
+{
+  "size": 0,
+  "aggs": {
+    "latency": { "percentiles": { "field": "latency_ms", "percents": [50, 95, 99] } },
+    "by_service": {
+      "terms": { "field": "service" },
+      "aggs": { "p95": { "percentiles": { "field": "latency_ms", "percents": [95] } } }
+    }
+  }
+}</pre>
 
-<div class="next">
-      <div class="step"><span class="dir">◀ PREV</span><a href="/docs/playbooks/siem.html">Playbook · SIEM</a></div>
-      <div class="step right"><span class="dir">NEXT ▶</span><a href="/docs/playbooks/vector-search.html">Vector · RAG</a></div>
-    </div>
+  <p>The fleet-wide block comes back as ES-style keyed percentiles:</p>
+<pre class="code">{ "latency": { "values": { "50.0": 56.0, "95.0": 321.15, "99.0": 565.22 } } }</pre>
+
+  <p>Per-service p95 makes the culprits obvious — <code class="inline">checkout</code> and <code class="inline">payments</code> carry the tail while <code class="inline">catalog</code> and <code class="inline">search</code> stay flat:</p>
+<pre class="code">fleet-wide  p50=56  p95=321  p99=565
+service        p95 latency
+catalog                51
+search                 79
+checkout              447
+payments              529</pre>
+
+  <h2>Q3 — Top services by volume (with latency stats)</h2>
+  <p>One <code class="inline">terms</code> agg ranks services by event count; a <code class="inline">stats</code> sub-agg attaches count/avg/min/max latency to each in the same round trip — leaderboard and latency profile from a single query.</p>
+<pre class="code">POST /logs-app/_search
+{
+  "size": 0,
+  "aggs": {
+    "top_services": {
+      "terms": { "field": "service", "size": 10, "order": { "_count": "desc" } },
+      "aggs": { "lat": { "stats": { "field": "latency_ms" } } }
+    }
+  }
+}</pre>
+
+<pre class="code">service       volume   avg_ms   min    max
+catalog          190       35    15    118
+search           187       51    22    114
+checkout         150      167    60    590
+payments          73      269   103    958</pre>
+
+  <p><code class="inline">catalog</code> and <code class="inline">search</code> take the most traffic but are cheap; <code class="inline">payments</code> is low-volume but has the worst worst-case (958 ms). That's the whole triage picture from three <code class="inline">_search</code> calls.</p>
+
+  <h2>Reproduce it yourself</h2>
+  <p>The tables above are the real, captured output of this exact script. The dataset is generated with a fixed seed (<code class="inline">random.seed(7)</code>), so the counts, error rates, percentiles, and per-service tables are <strong>deterministic</strong> — you will get the same numbers shown here. The only run-to-run variance is <code class="inline">took</code> (per-query latency), which stays in the single-digit milliseconds (this run: Q1 <code class="inline">took=4 ms</code>, Q2 <code class="inline">took=5 ms</code>).</p>
+<pre class="code"># 1. Start XERJ on its default port (9200), insecure/local — no config needed
+./engine/target/release/xerj --insecure --data-dir /tmp/xerj-logs &amp;
+
+# 2. Run the recipe (stdlib only — no pip installs, no third-party network calls)
+python3 docs/examples/log-analytics/log_analytics.py</pre>
+
+  <p>The client reads the server URL from <code class="inline">$XERJ_URL</code> (default <code class="inline">http://localhost:9200</code>). A positional argument still overrides it if you run XERJ on a different port, e.g. <code class="inline">python3 docs/examples/log-analytics/log_analytics.py http://localhost:9483</code>.</p>
+
+  <p>The script creates the mapping, bulk-ingests 600 events, runs all three queries, and prints the tables above. It asserts the ingest count and that <code class="inline">_bulk</code> reported no errors, so a green run means the aggregations are real.</p>
+
+  <p>A green run prints the three per-question tables shown above and ends with <code class="inline">All aggregations returned.</code> — the deterministic headline numbers it produces, summarized:</p>
+<pre class="code">Ingested 600 log events into 'logs-app'
+
+Q1  hourly error rate:  08:00 6.9% · 09:00 3.0% · 10:00 4.7% · 11:00 2.2% · 12:00 2.2% · 13:00 4.7%
+Q2  fleet latency:      p50=56 ms  p95=321 ms  p99=565 ms   (per-service p95: catalog 51, search 79, checkout 447, payments 529)
+Q3  top services:       catalog 190 · search 187 · checkout 150 · payments 73   (payments worst-case 958 ms)</pre>
+
+  <h2>Notes and honest limits</h2>
+  <ul>
+    <li>These aggregations are computed on demand per query — XERJ is not running a continuous rollup or a background job. That's exactly what you want for ad-hoc dashboards and alerting queries; if you need pre-materialized rollups at very high cardinality, aggregate on a schedule and index the results.</li>
+    <li><code class="inline">fixed_interval: "1h"</code> gives evenly spaced buckets; use <code class="inline">calendar_interval</code> (<code class="inline">"day"</code>, <code class="inline">"month"</code>) when you want calendar-aware boundaries and DST handling.</li>
+    <li>Percentiles use an approximate (t-digest-style) algorithm, matching ES semantics — the values are estimates, not exact order statistics, which is why p95 reads as <code class="inline">321.15</code> rather than a whole millisecond.</li>
+    <li>Same documents, same engine: because <code class="inline">message</code> is a <code class="inline">text</code> field you can add <code class="inline">match</code>/<code class="inline">match_phrase</code> full-text filters to any of these queries (e.g. only aggregate logs matching <code class="inline">"timeout"</code>) without moving data anywhere.</li>
+  </ul>
 
   <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
   <div class="print-footer" style="display:none;">
     <span>XERJ.AI · V0.1 · 2026-04-16</span>
     <a href="https://xerj.dev/docs/">https://xerj.dev/docs/</a>
-    <span>Playbook · Log analytics</span>
+    <span>Recipe · Log analytics</span>
   </div>
 </main>
 </div>
