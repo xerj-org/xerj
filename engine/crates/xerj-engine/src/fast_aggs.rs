@@ -2519,7 +2519,12 @@ impl<'a> FastCtx<'a> {
         }
         let field = params.get("field").and_then(Value::as_str)?;
         match self.seg_field_kind(field) {
-            Ok(Some(ColKind::Keyword)) | Ok(None) => {}
+            // Keyword = date-as-ISO-string column (parsed via `date_ord_index`).
+            // Numeric = epoch-millis column (`date`/`long` doc-values) — the
+            // common case, bucketed directly below with no chrono parse. Before
+            // this, a Numeric date field fell through to the O(N) brute path
+            // (`run_aggs_with_all`), ~1 s / 200k docs.
+            Ok(Some(ColKind::Keyword)) | Ok(Some(ColKind::Numeric)) | Ok(None) => {}
             _ => return None,
         }
         let interval_str = params
@@ -2662,6 +2667,64 @@ impl<'a> FastCtx<'a> {
                 )?;
             }
         }
+        // Numeric (epoch-millis) date column: bucket the doc-values integers
+        // directly — no chrono parse, no per-ord run memo (values are ~unique
+        // per doc). Segments are keyword XOR numeric for a field, so exactly
+        // one of these two loops does work. Counts are bumped here; sub-metrics
+        // fold via `fused_seg_pass`, mirroring the keyword arm above.
+        for si in 0..self.segs.len() {
+            let seg = &self.segs[si];
+            let Some(Column::Numeric(n)) = seg.cols.get(field) else {
+                continue;
+            };
+            let mut row_slot: Vec<i32> = Vec::with_capacity(seg.docs as usize);
+            for row in 0..seg.docs {
+                match n.get(row) {
+                    // `NumericColumn::data` stores f64 BITS (see its doc comment
+                    // + `exec_vwh`), not the raw integer — decode to the epoch-ms
+                    // value before bucketing.
+                    Some(bits) => {
+                        let ms = f64::from_bits(bits as u64) as i64;
+                        let key = bucket_of(ms);
+                        let slot = ensure_bucket(
+                            key,
+                            &mut bucket_ids,
+                            &mut bucket_keys,
+                            &mut counts,
+                            &mut accs,
+                        ) as i32;
+                        counts[slot as usize] += 1;
+                        row_slot.push(slot);
+                    }
+                    None => row_slot.push(-1),
+                }
+            }
+            if !has_row_work {
+                continue;
+            }
+            let n_slots = bucket_keys.len();
+            let mut tops: Vec<Vec<(f64, u64, DocRef)>> = vec![Vec::new(); n_slots.max(1)];
+            {
+                let mut slot_of_row = |row: u32| -> Option<usize> {
+                    let s = *row_slot.get(row as usize)?;
+                    if s < 0 {
+                        None
+                    } else {
+                        Some(s as usize)
+                    }
+                };
+                self.fused_seg_pass(
+                    si,
+                    &mut slot_of_row,
+                    n_slots,
+                    &plan,
+                    &mut accs,
+                    &mut tops,
+                    &mut missing_sort_seen,
+                )?;
+            }
+        }
+
         // Memtable docs — brute multi-value date extraction with per-doc
         // bucket dedup.
         for doc in self.mem().iter() {
