@@ -8893,28 +8893,28 @@ impl Index {
         let QueryNode::Bool {
             must,
             should,
-            must_not,
+            // `must_not` is subtractive: it only REMOVES docs, so it never
+            // widens the superset. The stored-scan re-runs the full bool per
+            // admitted doc and applies it — no need to read it here.
+            must_not: _,
             filter,
             ..
         } = query
         else {
             return None;
         };
-        // `should` can admit docs OUTSIDE every `must`/`filter` conjunct, and
-        // `must_not` is subtractive — a single-conjunct superset would then be
-        // INCOMPLETE. Only pure conjunctions are safe here.
-        if !should.is_empty() || !must_not.is_empty() {
-            return None;
-        }
-        let mut best: Option<Arc<HashSet<u32>>> = None;
-        for child in must.iter().chain(filter.iter()) {
+        const BOOL_PREFILTER_CAP: usize = 65_536;
+        // Resolve a single leaf clause to its COMPLETE match-position set for
+        // this segment (term/terms/range only). `None` = not resolvable to a
+        // complete set (e.g. a `match`/`wildcard` clause).
+        let resolve = |child: &QueryNode| -> Option<Arc<HashSet<u32>>> {
             let child = match child {
                 QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => {
                     query.as_ref()
                 }
                 _ => child,
             };
-            let pf = match child {
+            match child {
                 QueryNode::Term { field, value, .. } => self.build_term_prefilter_cached(
                     segments_dir,
                     segment_id,
@@ -8941,19 +8941,57 @@ impl Index {
                     lt.as_ref(),
                 ),
                 _ => None,
-            };
-            if let Some(set) = pf {
-                if set.is_empty() {
-                    // A conjunct matches nothing → the AND matches nothing.
-                    return Some(set);
-                }
-                best = match best {
-                    Some(b) if b.len() <= set.len() => Some(b),
-                    _ => Some(set),
-                };
             }
+        };
+
+        // CASE A — at least one REQUIRED conjunct (`must`/`filter`).
+        // Every hit is a subset of the AND of all required conjuncts, hence a
+        // subset of ANY single required conjunct's complete set. `should` is
+        // optional/narrowing when a required clause is present (default
+        // `minimum_should_match` is 0), and `must_not` is subtractive — both
+        // only REMOVE docs, never add. So the smallest resolvable required
+        // conjunct is a valid SUPERSET regardless of `should`/`must_not`; the
+        // stored-scan re-runs the full bool per admitted doc, refining it to
+        // the exact match set and applying `should` boosts + `must_not`.
+        if !must.is_empty() || !filter.is_empty() {
+            let mut best: Option<Arc<HashSet<u32>>> = None;
+            for child in must.iter().chain(filter.iter()) {
+                if let Some(set) = resolve(child) {
+                    if set.is_empty() {
+                        // A required conjunct matches nothing → AND is empty.
+                        return Some(set);
+                    }
+                    best = match best {
+                        Some(b) if b.len() <= set.len() => Some(b),
+                        _ => Some(set),
+                    };
+                }
+            }
+            return best;
         }
-        best
+
+        // CASE B — pure `should` (no `must`/`filter`). Here `minimum_should_match`
+        // defaults to 1, so a hit matches AT LEAST one should clause: the match
+        // set is a subset of the UNION of every should clause's complete set
+        // (a larger `minimum_should_match` only shrinks it further, so the union
+        // stays a valid superset). `must_not` is still subtractive and gets
+        // re-tested by the scan. The union is only valid if EVERY should clause
+        // resolves — an unresolvable clause could admit docs outside the union.
+        if !should.is_empty() {
+            let mut union: HashSet<u32> = HashSet::new();
+            for child in should.iter() {
+                let set = resolve(child)?;
+                if union.len() + set.len() > BOOL_PREFILTER_CAP {
+                    return None; // too broad to be worth prefiltering
+                }
+                union.extend(set.iter().copied());
+            }
+            return Some(Arc::new(union));
+        }
+
+        // Pure `must_not` (or nothing resolvable) → base set is ~all docs; no
+        // useful superset. Fall back to the full scan.
+        None
     }
 
     /// Sorted-DV candidate pruning for field-sorted `match_all` queries

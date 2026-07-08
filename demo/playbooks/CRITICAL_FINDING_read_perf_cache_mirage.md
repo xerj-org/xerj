@@ -110,21 +110,62 @@ Measured UNCACHED (novel params every call, 300k-doc flushed segment; median):
 
 All conformance-gated: full ES-compat YAML **1360 / 0** at every step.
 
-### Known remaining read costs (honest, mechanism confirmed by instrumentation)
-- **A selective term whose matches are SPREAD across all 16 shard-segments**
-  (e.g. a ~3000-value field, ~100 matches / 300k, ~7 per shard): ~26–35 ms.
-  Mechanism (measured, not guessed): the pre-filter *build* is ~8 µs/segment —
-  negligible. The cost is that EVERY one of the 16 sharded stored-sections has
-  a few matches, so all 16 get opened + decompressed + scanned (~2 ms each) on
-  a cold/novel query. A term confined to ONE shard (e.g. a unique id) returns
-  `Some(∅)` for the other 15 segments → they are skipped → ~3 ms. So the lever
-  is **per-segment cold stored-section decompress** (retain/warm decoded
-  sections across a varied query workload, or cheapen the decode), i.e. **F2**,
-  NOT the term pre-filter. **Next lever.**
-- **bool with `should` / `must_not`, or all-broad conjuncts**: no single-
-  conjunct superset is valid (or none is selective) → full scan (still exact,
-  just unoptimised).
+### F2 DONE (commit c3bd84b) — the segment-spread selective term is fixed
+The ~26–35 ms case (a selective term fanned across all 16 shard-segments) was
+NOT decompress and NOT the pre-filter build (both earlier guesses were wrong;
+instrumentation showed 0 decompress events, build ~8 µs). The real cost: the
+warm-slice scan `scan_stored_section_into` BRACE-WALKED the entire section of
+every touched segment to advance the position counter, even though it parsed
+only ~6 docs/segment. `StoredSlices` already caches per-doc `offsets`, so
+`hydrate_prefiltered_unsorted` now RANDOM-ACCESSES only the pre-filter
+positions — O(section bytes) → O(|pre_filter|). Measured (300k, uncached):
 
-Net: the common uncached read shapes are now **single-digit ms**, not seconds.
-The remaining lever is F2 (per-segment decoded-section warmth) for selective
-terms fanned across every shard — a decompress cost, not a scan or build cost.
+| query | pre-F2 | post-F2 |
+|---|--:|--:|
+| term (spread across 16 segs) | 22 ms | **1.8 ms** |
+| terms (5 novel keyword values) | 9.8 ms | **0.8 ms** |
+| bool `grp AND status` | 37 ms | **4.2 ms** |
+
+**Whole uncached read profile now sub-6 ms** (most sub-2 ms): match_all 2.0,
+term 0.6–1.7, range 1.4, terms 0.8, bool 0.9–4.2, aggs 2.8–5.7 ms. No O(N)
+uncached read path of note remains for the common query shapes.
+
+### Bool prefilter widened to filter+must_not / filter+should / pure-should
+`build_bool_prefilter_cached` originally bailed on ANY `should`/`must_not`
+(only pure conjunctions were prefiltered). But whenever a bool has a required
+`must`/`filter` conjunct, every hit is a subset of that conjunct's complete
+set — `should` is optional/narrowing (default `minimum_should_match` 0 when a
+required clause is present) and `must_not` is subtractive, so neither widens
+the set. The smallest required conjunct is therefore a valid *superset*, and
+the stored-scan re-runs the full bool per admitted doc (applying `must_not`
+and `should` scoring). Pure-`should` bools take the union of every clause's
+complete set (valid superset for any `minimum_should_match`). This covers the
+very common "filtered search with an exclusion / optional boost" shape.
+Measured (300k, uncached, selective grp bucket ~100 docs):
+
+| bool shape | before (full scan) | now (prefilter) |
+|---|--:|--:|
+| `filter[grp] must_not[status]` | full section scan* | **2.1 ms** |
+| `filter[grp] should[status,status]` | full section scan* | **1.9 ms** |
+| `must[grp] must_not[status,status]` | full section scan* | **1.6 ms** |
+| pure `should[grp,grp,grp]` (union) | full section scan* | **3.6 ms** |
+| `filter[grp] should[range] msm=1` | full section scan* | **3.2 ms** |
+
+*The full-scan path is the same O(section) walk F2 removed for prefiltered
+queries; a selective bool on the full-scan path measured ~430 ms here (that
+ref carries wildcard per-doc eval), and the analogous pure-conjunction
+`grp AND status` was 37 → 4.2 ms once prefiltered. All 5 shapes verified
+against independently brute-forced expected counts; full ES-compat YAML
+**1360 / 0**.
+
+### Known remaining (honest, minor)
+- **pure `must_not`** (no must/filter/should): base set is ~all docs → no
+  useful superset → full scan (uncommon; usually paired with a filter).
+- A bool whose only clauses are non-term/range (e.g. `match`/`wildcard`) has
+  nothing to resolve to a complete set → full scan (still exact).
+- The `decoded_stored_cache` path (raw bytes, no offsets) still brace-walks —
+  but the warm `stored_slices_cache` path (with offsets) is the one taken for
+  published segments, so this is not hit in practice.
+
+Net: the query-cache mirage is resolved. Uncached reads are single-digit ms
+across match_all / term / terms / range / bool (incl. must_not/should) / aggs.
