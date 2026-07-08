@@ -1818,7 +1818,8 @@ pub async fn get_index_encodings(
 // Handler: GET /v1/dashboard/summary
 //
 // First step toward a built-in UI — returns an overview of all indices with
-// doc counts, estimated on-disk sizes, per-field encodings, and health status.
+// doc counts, measured on-disk + memtable sizes, per-field encodings, and
+// health status.
 // This is intentionally designed as a "one-shot" endpoint so a lightweight
 // dashboard can render a complete picture with a single HTTP request.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1828,7 +1829,9 @@ pub async fn get_index_encodings(
 pub struct DashboardIndexSummary {
     pub name: String,
     pub doc_count: u64,
-    /// Approximate segment data size in bytes (sum of segment section sizes).
+    /// Real measured size in bytes: sum of on-disk segment file sizes plus the
+    /// in-memory memtable byte size (the same figures reported by the
+    /// `_segments` API and `IndexStats`).
     pub size_bytes: u64,
     /// Number of distinct fields.
     pub field_count: usize,
@@ -1861,13 +1864,16 @@ pub async fn dashboard_summary(State(state): State<AppState>) -> impl IntoRespon
             "green"
         };
 
-        // Approximate disk size: rough heuristic — 200 bytes per doc in segments,
-        // 500 bytes per memtable doc (uncompressed).
-        let size_bytes = stats
-            .doc_count
-            .saturating_sub(stats.memtable_doc_count as u64)
-            * 200
-            + stats.memtable_doc_count as u64 * 500;
+        // Real measured size: sum of on-disk segment file sizes (the same
+        // per-segment `size_bytes` reported by the `_segments` API) plus the
+        // in-memory memtable byte size (as reported by `IndexStats`).
+        let segment_bytes: u64 = idx
+            .store_snapshot()
+            .segments
+            .iter()
+            .map(|s| s.size_bytes)
+            .sum();
+        let size_bytes = segment_bytes + stats.memtable_size_bytes as u64;
 
         let mut encodings = stats.field_encodings;
         encodings.sort_by(|a, b| {

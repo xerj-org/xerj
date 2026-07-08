@@ -4429,3 +4429,76 @@ async fn test_smart_field_encoding_apache_logs() {
         );
     }
 }
+
+// ── Dashboard summary size_bytes is real measured bytes, not a heuristic ──────
+//
+// The native `/v1/dashboard/summary` handler reports per-index `size_bytes` as
+// `sum(store_snapshot().segments[].size_bytes) + stats.memtable_size_bytes`.
+// Both inputs are real byte measurements (the segment figures also back the
+// `_segments` API; the memtable figure backs `IndexStats`). This test asserts
+// that computation at the engine level — the handler is a thin wrapper over it,
+// so we verify the load-bearing data here rather than through the HTTP harness.
+#[tokio::test]
+async fn test_dashboard_summary_size_is_measured_bytes() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    engine.create_index("dash", Schema::empty()).unwrap();
+    let idx = engine.get_index("dash").unwrap();
+
+    for i in 0..50 {
+        idx.index_document(
+            Some(format!("doc{i}")),
+            json!({ "n": i, "name": format!("item {i}"), "tag": "dashboard" }),
+        )
+        .await
+        .unwrap();
+    }
+
+    // Before flush: everything lives in the memtable, so the measured memtable
+    // byte count must be non-zero and there are no segments yet.
+    let stats = idx.stats().await;
+    assert_eq!(
+        stats.segment_count, 0,
+        "no segments should exist before flush"
+    );
+    assert!(
+        stats.memtable_size_bytes > 0,
+        "memtable byte size should be > 0 with docs buffered"
+    );
+
+    // Flush to disk so a real on-disk segment (with a real byte size) exists.
+    idx.flush().await.unwrap();
+
+    // Recompute the exact expression the dashboard handler uses.
+    let snap = idx.store_snapshot();
+    assert!(
+        !snap.segments.is_empty(),
+        "at least one segment should exist after flush"
+    );
+    let segment_bytes: u64 = snap.segments.iter().map(|s| s.size_bytes).sum();
+    assert!(
+        segment_bytes > 0,
+        "segment byte size should be > 0 after flush (real .seg file bytes)"
+    );
+
+    let stats = idx.stats().await;
+    // This mirrors the dashboard handler's size_bytes computation exactly:
+    // real segment file bytes + real memtable bytes.
+    let size_bytes = segment_bytes + stats.memtable_size_bytes as u64;
+
+    // The measured size must be real (> 0).
+    assert!(size_bytes > 0, "measured dashboard size_bytes must be > 0");
+
+    // Sanity: the measured on-disk size is nothing like the old heuristic's
+    // fixed 200-bytes-per-segment-doc fabrication, proving it is real.
+    let old_heuristic = stats
+        .doc_count
+        .saturating_sub(stats.memtable_doc_count as u64)
+        * 200
+        + stats.memtable_doc_count as u64 * 500;
+    assert_ne!(
+        size_bytes, old_heuristic,
+        "measured size should differ from the removed docs*200+memtable*500 heuristic"
+    );
+}
