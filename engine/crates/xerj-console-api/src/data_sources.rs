@@ -6,10 +6,18 @@
 //! in-process Engine.  This is enough for the SPA to drop its
 //! hand-rolled `data-sources.js` overlay.
 //!
-//! Adapter trait, encrypted credentials, write paths (POST/PATCH/DELETE),
+//! **External-connection disclosure.** Only the `built-in` connection is
+//! backed by a live adapter; its index and field listings are read
+//! straight from the running Engine's real schema, never a canned map.
+//! No external adapter subsystem exists yet — the adapter trait,
+//! encrypted credentials, write paths (POST/PATCH/DELETE) and the
 //! HTTP-shaped adapters (xerj-remote, elasticsearch, opensearch,
-//! prometheus, postgres) come in a follow-up commit.  Their stubs return
-//! 501 today.
+//! prometheus, postgres) all land in a follow-up commit.  Until then,
+//! listing indices or fields for any non-`built-in` connection id
+//! returns `501 Not Implemented` rather than a fabricated answer, and a
+//! connection row that is not `built-in` is reported with status
+//! `"unknown"` (no live probe is performed) so the UI never shows a
+//! green light it cannot stand behind.
 
 use axum::{
     extract::{Path, State},

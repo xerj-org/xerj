@@ -14,6 +14,7 @@ use serde_json::{json, Value};
 use tempfile::TempDir;
 use tower::ServiceExt;
 use xerj_common::config::Config;
+use xerj_common::types::{FieldConfig, FieldType, Schema};
 use xerj_console_api::{
     auth::{sessions, store},
     state::ClusterMode,
@@ -24,6 +25,7 @@ use xerj_engine::Engine;
 struct TestApp {
     router: Router,
     cookie: String,
+    engine: Engine,
     _dir: TempDir,
 }
 
@@ -63,6 +65,7 @@ async fn boot_with_session() -> TestApp {
     TestApp {
         router,
         cookie,
+        engine,
         _dir: dir,
     }
 }
@@ -412,6 +415,67 @@ async fn data_sources_unknown_connection_returns_501() {
         .oneshot(req(
             "GET",
             "/_xerj-console/api/v1/data-sources/connections/elasticsearch-prod/indices",
+            &app.cookie,
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 501);
+}
+
+#[tokio::test]
+async fn data_sources_fields_for_built_in_are_live_schema() {
+    // The built-in connection must surface the *real* engine schema for an
+    // index — verbatim field names and types, never a fabricated map.
+    let app = boot_with_session().await;
+
+    let mut schema = Schema::empty();
+    schema
+        .add_field(FieldConfig::new("title", FieldType::Keyword))
+        .unwrap();
+    schema
+        .add_field(FieldConfig::new("views", FieldType::Long))
+        .unwrap();
+    app.engine
+        .create_index("catalog", schema)
+        .expect("create index");
+
+    let r = app
+        .router
+        .oneshot(req(
+            "GET",
+            "/_xerj-console/api/v1/data-sources/connections/built-in/indices/catalog/fields",
+            &app.cookie,
+            None,
+        ))
+        .await
+        .unwrap();
+    let (status, body) = body_json(r).await;
+    assert_eq!(status, 200, "{body}");
+    let fields = body["data"]["fields"].as_array().unwrap();
+    let title = fields
+        .iter()
+        .find(|f| f["name"] == "title")
+        .unwrap_or_else(|| panic!("missing title field: {body}"));
+    // Type comes straight from the live engine schema.
+    assert_eq!(title["type"], "keyword", "{body}");
+    let views = fields
+        .iter()
+        .find(|f| f["name"] == "views")
+        .unwrap_or_else(|| panic!("missing views field: {body}"));
+    assert_eq!(views["type"], "long", "{body}");
+}
+
+#[tokio::test]
+async fn data_sources_fields_unknown_connection_returns_501() {
+    // Field listing for any non-built-in connection id must fail loud with
+    // 501 — the API never fabricates an external adapter's schema.
+    let app = boot_with_session().await;
+    let r = app
+        .router
+        .oneshot(req(
+            "GET",
+            "/_xerj-console/api/v1/data-sources/connections/elasticsearch-prod/indices/logs/fields",
             &app.cookie,
             None,
         ))
