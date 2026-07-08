@@ -776,11 +776,23 @@ impl Tokenizer for CjkTokenizer {
     }
 }
 
-/// Thai tokenizer.
+/// Thai tokenizer — **Thai-run isolation only, NOT dictionary word segmentation.**
 ///
-/// Splits Thai text on non-Thai character boundaries (spaces, ASCII, etc.).
-/// Thai word segmentation is complex (no spaces between words); this simple
-/// implementation at least separates Thai runs from non-Thai text.
+/// This tokenizer performs *script-run isolation*, not linguistic word breaking:
+/// - Each maximal contiguous run of Thai-script characters is emitted as **one
+///   token**, verbatim (Thai has no case, so no lowercasing is applied).
+/// - Non-Thai runs are split on whitespace and lowercased, like the other
+///   Latin-oriented tokenizers.
+///
+/// Example: `"สวัสดีabc def"` → `["สวัสดี", "abc", "def"]`.
+///
+/// Thai is written without spaces between words, so an entire Thai phrase or
+/// sentence collapses into a single token here. This is a deliberate,
+/// recall-limited simplification: Elasticsearch's `thai` analyzer uses an ICU
+/// `BreakIterator` (dictionary-based word segmentation) that would split that
+/// same run into multiple word tokens. Queries relying on matching individual
+/// Thai words within a run will therefore under-recall against XERJ compared
+/// with ES. Full dictionary word segmentation is out of scope for this tokenizer.
 pub struct ThaiTokenizer;
 
 impl Tokenizer for ThaiTokenizer {
@@ -1857,6 +1869,26 @@ mod tests {
         let tokens = vec![Token::new("HELLO", 0, 0, 5)];
         let out = filter.filter(tokens);
         assert_eq!(out[0].text, "hello");
+    }
+
+    #[test]
+    fn thai_tokenizer_isolates_runs_not_words() {
+        // Documents the honest behaviour: the ThaiTokenizer performs
+        // Thai-script-run ISOLATION, not dictionary word segmentation.
+        // A contiguous Thai run is emitted verbatim as a single token
+        // (no word breaking, no lowercasing — Thai has no case), while
+        // non-Thai runs are split on whitespace and lowercased.
+        let tok = ThaiTokenizer;
+        let tokens = tok.tokenize("สวัสดีabc def");
+        let texts: Vec<&str> = tokens.iter().map(|t| t.text.as_str()).collect();
+        assert_eq!(texts, vec!["สวัสดี", "abc", "def"]);
+
+        // The whole Thai run stays one token — it is NOT segmented into
+        // the individual words "สวัสดี" + "ครับ" that ES's ICU BreakIterator
+        // would produce. This asserts the recall-limited contract on purpose.
+        let joined = tok.tokenize("สวัสดีครับ");
+        assert_eq!(joined.len(), 1);
+        assert_eq!(joined[0].text, "สวัสดีครับ");
     }
 
     #[test]
