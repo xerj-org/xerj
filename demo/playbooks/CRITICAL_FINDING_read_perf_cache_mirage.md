@@ -76,3 +76,52 @@ The project is NOT "reads already beat ES." It is: ingest near-parity (100k
 wins, 1M/8-client behind), disk 2× larger, and **reads are ~1000× slower
 uncached** — the read engine needs fundamental work before any "beats ES on
 reads" claim holds. Everything else is secondary to F1.
+
+---
+
+## UPDATE 2026-07-08 — F1 landed + selective-query prefilters; uncached reads now single-digit ms
+
+The mirage is largely resolved. F1 (bounded hit materialisation) shipped
+earlier (b79a8c2, a93354a). This session added the missing piece F1 didn't
+cover — **selective queries** whose bounded hit collector never fills, so the
+size>0 early-break never fired and they walked/parsed the whole section:
+
+- **memtable numeric term/terms** used the doc-values fast path (was keyword-
+  column-only → O(N) `_source` scan). 7219c78.
+- **segment selective term/terms** got a doc-values position pre-filter
+  (numeric = degenerate `[v,v]` range on the sorted index; keyword = the
+  ordinal's positions), so the scan parses only matching positions. 8fc5928.
+- **segment conjunction bool** (`filter:[term,range,…]`) gets a *superset*
+  pre-filter from its most-selective conjunct — the scan already re-runs
+  `doc_matches_query` per admitted doc, so a superset is sufficient. 77586f0.
+
+Measured UNCACHED (novel params every call, 300k-doc flushed segment; median):
+
+| query | before | now |
+|---|--:|--:|
+| match_all size:10 | 2.28 s (mirage-era 500k) | **2.4 ms** |
+| term (numeric, selective) | ~2.4 s | **3.1 ms** |
+| term (unique keyword) | ~100 ms (100k) | **2.7 ms** |
+| range (novel bound) | ~2.4 s | **3.2 ms** |
+| terms (5 novel values) | O(N) scan | **9.8 ms** |
+| bool `uid AND range` (selective) | O(N) scan | **3.7 ms** |
+| terms agg (low- and 3000-card) | 8.48 s (first touch) | **2.4 / 6.1 ms** |
+| stats agg | — | **3.4 ms** |
+
+All conformance-gated: full ES-compat YAML **1360 / 0** at every step.
+
+### Known remaining read costs (honest)
+- **Mid-cardinality keyword selective term** (e.g. a field with ~3000 values,
+  ~100 matches / 300k): ~26 ms — the keyword pre-filter build scans the
+  forward `ords` array O(N) because keyword columns have no ord→positions
+  index (numerics do, via their sorted index). Still a ~4× win over the prior
+  full-parse scan, but the fix is a flush-time keyword posting/inverted
+  structure. **Next lever.**
+- **bool with `should` / `must_not`, or all-broad conjuncts**: no single-
+  conjunct superset is valid (or none is selective) → full scan (still exact,
+  just unoptimised).
+- Cross-segment/merge warmth (F2) was not the bottleneck in these
+  measurements (aggs are single-digit ms cold with novel filters).
+
+Net: the common uncached read shapes are now **single-digit ms**, not seconds.
+The remaining keyword-posting work is the last O(N) read path of note.
