@@ -61,8 +61,10 @@ Every recipe honors `XERJ_URL` (default `http://localhost:9200`).
   OpenAI-compatible embeddings endpoint (`[embedding]` in `xerj.toml`) —
   the recipes need no change.
 - `memory_agent.py` recalls with **text (BM25) relevance** scores
-  (unbounded, higher = better). For pure vector recall, pass a `vector`
-  to `_recall`.
+  (unbounded, higher = better) by default. Add `"semantic": true` to the
+  `_recall` body to have XERJ embed the query server-side and recall by
+  vector similarity (cosine, 0–1) with no client-side embedding, or pass
+  your own `vector` for BYO-embedding kNN.
 - The SSH capture is real production honeypot-style traffic, so it is
   dominated by attacks — which is exactly why the anomaly detector lights
   up. That is the real signal, not an artifact.

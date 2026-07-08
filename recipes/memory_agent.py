@@ -8,8 +8,9 @@ this repo — and remembers what it decided, using XERJ's Agent-Memory API
 
   1. It groups the raw sshd events into per-attacker incidents.
   2. Before deciding, it RECALLS similar past incidents. Text recall is
-     relevance-ranked (BM25); pass a `vector` to `_recall` instead for
-     fully semantic matching over stored embeddings.
+     relevance-ranked (BM25); add `"semantic": true` to have XERJ embed the
+     query server-side and recall by vector similarity (no client-side
+     embedding), or pass your own `vector` for BYO-embedding kNN.
   3. It decides (block / rate-limit / watch), explains whether memory
      changed the decision, and STORES the outcome as a new memory.
 

@@ -9,16 +9,21 @@
 //! Endpoints (mounted on the ES-compat router):
 //! ```text
 //! POST   /_memory/{namespace}            store   — {text, metadata?, vector?, id?} → {id, created}
-//! POST   /_memory/{namespace}/_recall    recall  — {query?, vector?, k?, filter?} → {hits:[…]}
+//! POST   /_memory/{namespace}/_recall    recall  — {query?, vector?, semantic?, k?, filter?} → {hits:[…]}
 //! GET    /_memory/{namespace}            list    — {count, entries:[…]} (bounded, recent first)
 //! DELETE /_memory/{namespace}/{id}       forget  — delete one entry
 //! DELETE /_memory/{namespace}            drop    — drop the whole namespace
 //! ```
 //!
-//! Offline-testable: recall works with a caller-supplied query vector (kNN) OR
-//! query text (BM25) with NO external embedding service. Namespaces isolate —
-//! a recall in namespace A never sees namespace B's entries because they live
-//! in physically distinct backing indices.
+//! Recall has three modes, tried in order: an explicit query `vector` (kNN over
+//! a caller-supplied embedding) → `semantic: true` (the server embeds `query`
+//! with the same embedder used at store time and recalls by vector similarity)
+//! → plain `query` text (BM25 relevance). All three are offline-testable with
+//! NO external embedding service — memories are stored in a `semantic_text`
+//! field, so the built-in deterministic embedder vectorises both the stored
+//! text and the recall query. Namespaces isolate — a recall in namespace A
+//! never sees namespace B's entries because they live in physically distinct
+//! backing indices.
 
 use axum::{
     extract::{Path, State},
@@ -124,8 +129,16 @@ async fn ensure_backing_index(
         return Ok(());
     }
 
+    // `text` is a `semantic_text` field: the engine auto-embeds it at ingest
+    // with the built-in (or configured) embedder into a companion `text_vector`,
+    // so a memory is BM25-searchable *and* kNN-searchable with zero client-side
+    // embedding. That is what powers `_recall {"semantic": true}` — the query
+    // text is embedded server-side the same way and matched by vector
+    // similarity. 384 mirrors the built-in embedder width (xerj_ai DEFAULT_DIMS);
+    // kept as a literal to avoid a build-graph edge from xerj-api onto xerj-ai
+    // (same convention as es_compat's semantic_text mapper).
     let mut properties = json!({
-        "text": { "type": "text" },
+        "text": { "type": "semantic_text", "dimensions": 384 },
         "stored_at": { "type": "long" },
         "metadata": { "type": "object" }
     });
@@ -259,9 +272,15 @@ pub struct RecallBody {
     #[serde(default)]
     pub query: Option<String>,
     /// Query embedding → kNN recall over stored vectors. Takes precedence over
-    /// `query` when both are supplied.
+    /// `query` and `semantic` when supplied.
     #[serde(default)]
     pub vector: Option<Vec<f32>>,
+    /// When `true`, embed `query` server-side with the same embedder used at
+    /// store time and recall by vector similarity — no client-side embedding
+    /// needed. Requires a non-empty `query`. Default (`false`/absent) keeps the
+    /// BM25 text-relevance recall. Ignored when an explicit `vector` is given.
+    #[serde(default)]
+    pub semantic: Option<bool>,
     /// Number of memories to return. Defaults to 10.
     #[serde(default)]
     pub k: Option<usize>,
@@ -284,6 +303,7 @@ pub async fn recall(
     let body = body.0.unwrap_or(RecallBody {
         query: None,
         vector: None,
+        semantic: None,
         k: None,
         filter: None,
     });
@@ -302,6 +322,7 @@ pub async fn recall(
     };
 
     if let Some(vec) = body.vector {
+        // (1) Caller-supplied embedding → pure kNN over the stored `vector`.
         let knn = json!({ "field": "vector", "query_vector": vec, "k": k });
         match body.filter {
             Some(filter) => {
@@ -316,8 +337,31 @@ pub async fn recall(
                 search_body.knn = Some(knn);
             }
         }
+    } else if body.semantic == Some(true) {
+        // (2) Server-side semantic recall: embed `query` with the same embedder
+        // used at store time (via the `semantic` query over the `text`
+        // semantic_text field) and recall by vector similarity. No client-side
+        // embedding required.
+        let q = match body.query.as_deref() {
+            Some(q) if !q.is_empty() => q,
+            _ => {
+                return error_response(
+                    StatusCode::BAD_REQUEST,
+                    "semantic recall requires a non-empty `query` to embed",
+                );
+            }
+        };
+        // The `semantic` query carries its own `filter` (applied as a kNN
+        // pre-filter inside the engine), so pass the metadata filter there
+        // rather than wrapping in a `bool` — a `semantic` node nested in a
+        // `bool` is not dispatched to the vector path.
+        let mut semantic = json!({ "field": "text", "query": q, "k": k });
+        if let Some(filter) = body.filter {
+            semantic["filter"] = filter;
+        }
+        search_body.query = Some(json!({ "semantic": semantic }));
     } else {
-        // Text recall (BM25). Empty/absent query → match_all (recent memories).
+        // (3) Text recall (BM25). Empty/absent query → match_all (recent memories).
         let inner = match body.query.as_deref() {
             Some(q) if !q.is_empty() => json!({ "match": { "text": q } }),
             _ => json!({ "match_all": {} }),
@@ -624,5 +668,65 @@ mod tests {
         let (_, body) = recall_mem(&state, "agent1", json!({"vector":[1.0,0.0,0.0],"k":10})).await;
         let hits = body["hits"].as_array().unwrap();
         assert!(hits.iter().all(|h| h["id"] != "m1"), "m1 must be forgotten");
+    }
+
+    /// #17: server-side semantic recall. Memories are stored text-only (NO
+    /// client-side vector); because `text` is a `semantic_text` field the
+    /// engine auto-embeds each at store time. `_recall {"semantic": true}` then
+    /// embeds the query text with the same built-in embedder and recalls by
+    /// vector similarity — no external service, no client-side embedding.
+    #[tokio::test]
+    async fn store_recall_server_side_semantic() {
+        let state = test_state();
+
+        for (id, text) in [
+            ("i1", "host 1.2.3.4 brute forced ssh with hundreds of failed passwords"),
+            ("i2", "nightly database backup completed without errors"),
+            ("i3", "repeated ssh authentication failures from an unknown attacker"),
+        ] {
+            let (s, _) = store_mem(&state, "soc", json!({"text": text, "id": id})).await;
+            assert_eq!(s, StatusCode::CREATED, "text-only store must succeed (auto-embedded)");
+        }
+
+        // Pass query TEXT + semantic:true, NO vector. The server embeds it.
+        let (s, body) =
+            recall_mem(&state, "soc", json!({"query": "ssh brute force attack", "semantic": true, "k": 2}))
+                .await;
+        assert_eq!(s, StatusCode::OK);
+        let hits = body["hits"].as_array().unwrap();
+        assert_eq!(hits.len(), 2, "semantic k=2 → exactly 2 hits");
+        let ids: Vec<&str> = hits.iter().map(|h| h["id"].as_str().unwrap()).collect();
+        assert!(
+            ids.iter().any(|id| *id == "i1" || *id == "i3"),
+            "an ssh incident must be recalled semantically, got {ids:?}"
+        );
+        assert!(
+            !ids.contains(&"i2"),
+            "the unrelated backup memory must not rank in the top-2, got {ids:?}"
+        );
+
+        // semantic:true with no query text → 400 (nothing to embed).
+        let (s, _) = recall_mem(&state, "soc", json!({"semantic": true})).await;
+        assert_eq!(s, StatusCode::BAD_REQUEST, "semantic recall needs a `query` to embed");
+
+        // A metadata filter still narrows semantic recall.
+        store_mem(
+            &state,
+            "soc",
+            json!({"text":"ssh attack from host 9.9.9.9","id":"i4","metadata":{"sev":"high"}}),
+        )
+        .await;
+        let (_, body) = recall_mem(
+            &state,
+            "soc",
+            json!({"query":"ssh attack","semantic":true,"k":10,"filter":{"term":{"metadata.sev":"high"}}}),
+        )
+        .await;
+        let hits = body["hits"].as_array().unwrap();
+        assert!(!hits.is_empty(), "filtered semantic recall returns the high-sev memory");
+        assert!(
+            hits.iter().all(|h| h["id"] == "i4"),
+            "only the high-sev memory passes the filter"
+        );
     }
 }
