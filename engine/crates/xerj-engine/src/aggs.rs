@@ -7502,11 +7502,15 @@ pub(crate) fn run_top_hits_with_total(
                     hit_obj.insert("_version".to_string(), version);
                 }
             }
-            // Honor top_hits `seq_no_primary_term: true` — emit _seq_no and
-            // _primary_term (placeholder values; real values would come from
-            // the doc's seq_no metadata).
+            // Honor top_hits `seq_no_primary_term: true` — emit the doc's
+            // real `_seq_no` (already enriched onto each corpus doc; the
+            // top_hits sort path reads the same field) and `_primary_term`.
+            // `_primary_term` is fixed at 1 (single-shard convention, matching
+            // the main search-hit path). Fall back to 0 only when the doc
+            // carries no `_seq_no`.
             if params.get("seq_no_primary_term").and_then(Value::as_bool).unwrap_or(false) {
-                hit_obj.insert("_seq_no".to_string(), json!(0));
+                let sn = doc.get("_seq_no").and_then(Value::as_i64).unwrap_or(0);
+                hit_obj.insert("_seq_no".to_string(), json!(sn));
                 hit_obj.insert("_primary_term".to_string(), json!(1));
             }
 

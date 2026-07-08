@@ -338,13 +338,16 @@ sequence number and primary term:
   - match:  { hits.total.value: 3 }
   - length: { aggregations.page.buckets: 2 }
   - match:  { aggregations.page.buckets.0.key: 1 }
-  - gte:    { aggregations.page.buckets.0.top_hits.hits.hits.0._seq_no: 0 }
-  - gte:    { aggregations.page.buckets.0.top_hits.hits.hits.0._primary_term: 0 }
-  - gte:    { aggregations.page.buckets.0.top_hits.hits.hits.1._seq_no: 0 }
-  - gte:    { aggregations.page.buckets.0.top_hits.hits.hits.1._primary_term: 0 }
+  # Exact _seq_no: the three docs were bulk-indexed in order on a single
+  # shard, so they carry seq_no 0, 1, 2. page-1 holds docs 0 and 1;
+  # page-2 holds doc 2. _primary_term is the single-shard convention (1).
+  - match:  { aggregations.page.buckets.0.top_hits.hits.hits.0._seq_no: 0 }
+  - match:  { aggregations.page.buckets.0.top_hits.hits.hits.0._primary_term: 1 }
+  - match:  { aggregations.page.buckets.0.top_hits.hits.hits.1._seq_no: 1 }
+  - match:  { aggregations.page.buckets.0.top_hits.hits.hits.1._primary_term: 1 }
   - match:  { aggregations.page.buckets.1.key: 2 }
-  - gte:    { aggregations.page.buckets.1.top_hits.hits.hits.0._seq_no: 0 }
-  - gte:    { aggregations.page.buckets.1.top_hits.hits.hits.0._primary_term: 0 }
+  - match:  { aggregations.page.buckets.1.top_hits.hits.hits.0._seq_no: 2 }
+  - match:  { aggregations.page.buckets.1.top_hits.hits.hits.0._primary_term: 1 }
 
 ---
 synthetic _source:
