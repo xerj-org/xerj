@@ -1,0 +1,57 @@
+# semantic_text auto-embed on the BULK auto-id path — regression lock.
+#
+# Bug (fixed): the `_bulk` turbo ingest path stores raw NDJSON bytes and
+# defers parsing to flush, so it never ran `apply_semantic_embeddings`.
+# Auto-id `index` actions (no `_id`) were routed through that turbo batch,
+# so documents bulk-loaded into a `semantic_text` index landed with an
+# EMPTY companion vector column — and `semantic`/`knn` search silently
+# returned ZERO hits (HTTP 200, no error). Explicit-id and `create`
+# actions took the per-doc path and embedded correctly, which masked the
+# bug in the recipes (they set an explicit `_id`).
+#
+# Fix: bulk.rs routes any index that declares a `semantic_text` field
+# through the per-doc path (like the existing strict-date / dynamic-copy
+# guards) so embedding runs regardless of how `_id` is assigned.
+#
+# This test bulk-indexes with NO `_id` (auto-generated) and asserts the
+# semantic query finds the docs. Before the fix hits.total.value was 0.
+
+setup:
+  - do:
+      indices.create:
+        index: semantic-bulk-autoid
+        body:
+          mappings:
+            properties:
+              body:
+                type: semantic_text
+
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - index:
+              _index: semantic-bulk-autoid
+          - body: "a hungry dog chased the ball across the green park"
+          - index:
+              _index: semantic-bulk-autoid
+          - body: "investors sold technology shares amid rising interest rates"
+
+---
+"semantic query finds auto-id bulk-indexed docs (companion vector was embedded)":
+  - do:
+      search:
+        index: semantic-bulk-autoid
+        body:
+          size: 1
+          query:
+            semantic:
+              field: body
+              query: "a dog ran after a ball in the park"
+              k: 10
+
+  # Both auto-id bulk docs carry a vector → pool total is 2 (was 0 pre-fix).
+  - match: { hits.total.value: 2 }
+  - length: { hits.hits: 1 }
+  # The vocabulary-overlapping doc must rank first.
+  - match: { hits.hits.0._source.body: "a hungry dog chased the ball across the green park" }

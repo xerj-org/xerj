@@ -821,6 +821,33 @@ pub async fn process_bulk_with_opts(
         has
     };
 
+    // Same gate for `semantic_text` fields: those auto-embed on ingest,
+    // which only the per-doc path does. The turbo auto-id batch path
+    // stores raw bytes and never embeds, so auto-id bulk docs into a
+    // semantic_text index would land unvectorised and `semantic`/`knn`
+    // search would silently return nothing. Route them through the slow
+    // path so `apply_semantic_embeddings` runs.
+    let mut index_needs_embedding: HashMap<String, bool> = HashMap::new();
+    let index_has_embedding = |target: &str, cache: &mut HashMap<String, bool>| -> bool {
+        if let Some(b) = cache.get(target) {
+            return *b;
+        }
+        let has = engine
+            .index_mappings
+            .get(target)
+            .map(|m| {
+                let props = m.get("properties").cloned().or_else(|| {
+                    m.get("mappings")
+                        .and_then(|mm| mm.get("properties"))
+                        .cloned()
+                });
+                mapping_has_semantic_text(&props.unwrap_or(Value::Null))
+            })
+            .unwrap_or(false);
+        cache.insert(target.to_string(), has);
+        has
+    };
+
     for action in parsed {
         // `index` with no `if_seq_no` / `routing` goes through the
         // turbo batch path. Actions that carry CAS or routing metadata
@@ -835,7 +862,8 @@ pub async fn process_bulk_with_opts(
             && action.dynamic_templates.is_none()
             && action.pipeline.is_none()
             && !index_has_strict_date(&action.target_index, &mut index_needs_date_validation)
-            && !index_has_dynamic_copy(&action.target_index, &mut index_needs_dynamic_copy);
+            && !index_has_dynamic_copy(&action.target_index, &mut index_needs_dynamic_copy)
+            && !index_has_embedding(&action.target_index, &mut index_needs_embedding);
         if is_plain_index {
             match action.doc_id {
                 None => {
@@ -1741,6 +1769,31 @@ fn mapping_has_strict_date(props: &Value) -> bool {
         }
         if let Some(sub) = spec.get("properties") {
             if mapping_has_strict_date(sub) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// True when any field in the mapping is a `semantic_text` field. Such
+/// fields auto-embed their text into a companion `<field>_vector` at
+/// ingest, which only happens on the per-doc `index_document` path
+/// (`Index::apply_semantic_embeddings`). The turbo auto-id batch path
+/// stores the raw NDJSON bytes and never parses/embeds them, so an index
+/// with a `semantic_text` field MUST be routed through the per-doc path —
+/// otherwise auto-id bulk docs land with an empty vector column and
+/// `semantic`/`knn` search silently returns nothing.
+fn mapping_has_semantic_text(props: &Value) -> bool {
+    let Some(obj) = props.as_object() else {
+        return false;
+    };
+    for (_, spec) in obj {
+        if spec.get("type").and_then(Value::as_str) == Some("semantic_text") {
+            return true;
+        }
+        if let Some(sub) = spec.get("properties") {
+            if mapping_has_semantic_text(sub) {
                 return true;
             }
         }
