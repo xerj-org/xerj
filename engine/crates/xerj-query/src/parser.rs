@@ -307,7 +307,7 @@ pub fn parse_query(json: &Value) -> Result<QueryNode> {
         "has_child" => parse_has_child(params),
         "has_parent" => parse_has_parent(params),
         "more_like_this" => parse_more_like_this(params),
-        "percolate" => Ok(QueryNode::MatchNone), // percolate not supported
+        "percolate" => parse_percolate(params),
         "pinned" => parse_pinned(params),
         // ── Span queries ───────────────────────────────────────────────────────
         "span_term" => parse_span_term(params),
@@ -2824,6 +2824,49 @@ fn parse_more_like_this(params: &Value) -> Result<QueryNode> {
 ///   }
 /// }
 /// ```
+/// Parse a `percolate` query.
+///
+/// Only the inline-document form is supported:
+/// ```json
+/// { "field": "query", "document": { … } }
+/// { "field": "query", "documents": [ { … }, … ] }
+/// ```
+/// The index/id fetch form (`{ "field": "query", "index": "...", "id": "..." }`)
+/// is rejected with a 400 rather than silently returning nothing.
+fn parse_percolate(params: &Value) -> Result<QueryNode> {
+    let obj = params
+        .as_object()
+        .ok_or_else(|| qerr("`percolate` must be an object"))?;
+
+    let field = string_field(obj, "field")?;
+
+    let documents: Vec<Value> = if let Some(doc) = obj.get("document") {
+        if !doc.is_object() {
+            return invalid("`percolate.document` must be an object");
+        }
+        vec![doc.clone()]
+    } else if let Some(docs) = obj.get("documents") {
+        let arr = docs
+            .as_array()
+            .ok_or_else(|| qerr("`percolate.documents` must be an array"))?;
+        if arr.iter().any(|d| !d.is_object()) {
+            return invalid("`percolate.documents` must contain only objects");
+        }
+        arr.clone()
+    } else {
+        return invalid(
+            "`percolate` requires an inline `document` or `documents`; the \
+             index/id document-fetch form is not supported",
+        );
+    };
+
+    if documents.is_empty() {
+        return invalid("`percolate` requires at least one document");
+    }
+
+    Ok(QueryNode::Percolate { field, documents })
+}
+
 fn parse_pinned(params: &Value) -> Result<QueryNode> {
     let obj = params
         .as_object()
@@ -4375,5 +4418,52 @@ mod tests {
             }
         }));
         assert!(matches!(node, QueryNode::Bool { .. }));
+    }
+
+    // ── percolate ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_percolate_single_document() {
+        let node = q(json!({
+            "percolate": { "field": "query", "document": { "message": "hi" } }
+        }));
+        match node {
+            QueryNode::Percolate { field, documents } => {
+                assert_eq!(field, "query");
+                assert_eq!(documents.len(), 1);
+                assert_eq!(documents[0]["message"], json!("hi"));
+            }
+            other => panic!("expected percolate, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_percolate_multiple_documents() {
+        let node = q(json!({
+            "percolate": {
+                "field": "query",
+                "documents": [ { "message": "a" }, { "message": "b" } ]
+            }
+        }));
+        match node {
+            QueryNode::Percolate { documents, .. } => assert_eq!(documents.len(), 2),
+            other => panic!("expected percolate, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_percolate_missing_document_is_400() {
+        // Neither `document` nor `documents` present.
+        assert!(parse_query(&json!({ "percolate": { "field": "query" } })).is_err());
+        // Index/id fetch form is rejected.
+        assert!(parse_query(&json!({
+            "percolate": { "field": "query", "index": "i", "id": "1" }
+        }))
+        .is_err());
+        // Missing field is rejected.
+        assert!(parse_query(&json!({
+            "percolate": { "document": { "m": "x" } }
+        }))
+        .is_err());
     }
 }

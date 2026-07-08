@@ -12110,6 +12110,7 @@ fn is_doc_scan_query(q: &QueryNode) -> bool {
             | QueryNode::Constant { .. }
             | QueryNode::Boosted { .. }
             | QueryNode::Intervals { .. }
+            | QueryNode::Percolate { .. }
     )
 }
 
@@ -13343,6 +13344,22 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
             let tokens: Vec<String> = intervals_tokenise(&text);
             let intervals = intervals_eval(rule, &tokens);
             !intervals.is_empty()
+        }
+
+        // Percolate (reverse search): this stored doc's `field` holds a
+        // serialized ES query. Parse it and report a match iff that stored
+        // query matches at least one of the supplied inline documents.
+        // A missing field or an unparseable stored query => no match.
+        QueryNode::Percolate { field, documents } => {
+            let stored = match get_field_value(source, field) {
+                Some(v) if v.is_object() => v,
+                _ => return false,
+            };
+            let stored_q = match xerj_query::parse_query(&stored) {
+                Ok(q) => q,
+                Err(_) => return false,
+            };
+            documents.iter().any(|d| doc_matches_query(&stored_q, d))
         }
 
         _ => false,
@@ -16480,5 +16497,87 @@ mod fts_projection_tests {
         collect_fts_query_fields(&q, &mut out);
         out.sort();
         assert_eq!(out, vec!["model".to_string(), "status".to_string()]);
+    }
+}
+
+#[cfg(test)]
+mod percolate_tests {
+    use super::*;
+    use serde_json::json;
+    use xerj_query::ast::QueryNode;
+
+    /// A stored percolator doc holds a serialized query in `query`; the
+    /// percolate query matches that stored doc iff the stored query matches
+    /// one of the supplied inline documents.
+    #[test]
+    fn percolate_term_match_and_miss() {
+        let stored = json!({ "query": { "term": { "message": "bonsai" } } });
+
+        let q_hit = QueryNode::Percolate {
+            field: "query".into(),
+            documents: vec![json!({ "message": "bonsai" })],
+        };
+        assert!(
+            doc_matches_query(&q_hit, &stored),
+            "term matches inline doc"
+        );
+
+        let q_miss = QueryNode::Percolate {
+            field: "query".into(),
+            documents: vec![json!({ "message": "cactus" })],
+        };
+        assert!(
+            !doc_matches_query(&q_miss, &stored),
+            "term does not match a different value"
+        );
+    }
+
+    #[test]
+    fn percolate_range_and_bool() {
+        let stored_range = json!({ "query": { "range": { "price": { "gte": 10, "lte": 20 } } } });
+        let q = QueryNode::Percolate {
+            field: "query".into(),
+            documents: vec![json!({ "price": 15 })],
+        };
+        assert!(doc_matches_query(&q, &stored_range));
+        let q_out = QueryNode::Percolate {
+            field: "query".into(),
+            documents: vec![json!({ "price": 25 })],
+        };
+        assert!(!doc_matches_query(&q_out, &stored_range));
+
+        let stored_bool = json!({
+            "query": {
+                "bool": {
+                    "must": [
+                        { "term": { "message": "foo" } },
+                        { "range": { "price": { "gte": 5 } } }
+                    ]
+                }
+            }
+        });
+        let q_bool = QueryNode::Percolate {
+            field: "query".into(),
+            documents: vec![json!({ "message": "foo", "price": 9 })],
+        };
+        assert!(doc_matches_query(&q_bool, &stored_bool));
+        let q_bool_miss = QueryNode::Percolate {
+            field: "query".into(),
+            documents: vec![json!({ "message": "foo", "price": 1 })],
+        };
+        assert!(!doc_matches_query(&q_bool_miss, &stored_bool));
+    }
+
+    #[test]
+    fn percolate_missing_or_unparseable_field_is_no_match() {
+        let stored = json!({ "message": "no query here" });
+        let q = QueryNode::Percolate {
+            field: "query".into(),
+            documents: vec![json!({ "message": "anything" })],
+        };
+        assert!(!doc_matches_query(&q, &stored));
+
+        let stored2 = json!({ "query": "not-an-object" });
+        assert!(!doc_matches_query(&q, &stored2));
     }
 }

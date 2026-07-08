@@ -586,6 +586,10 @@ fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
         // Named: plan the inner query; name annotation has no effect on planning.
         QueryNode::Named { query, .. } => plan_node(*query, schema),
 
+        // Percolate: pure doc-scan (reverse match). The plan is ignored by the
+        // engine's doc-scan path; MatchAll satisfies exhaustiveness here.
+        QueryNode::Percolate { .. } => ExecutionPlan::MatchAll,
+
         // ── Span queries — treat as doc-scans ────────────────────────────────
         QueryNode::SpanTerm { field, value } => ExecutionPlan::FtsScan {
             field,

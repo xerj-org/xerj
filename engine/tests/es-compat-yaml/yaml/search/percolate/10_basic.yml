@@ -1,0 +1,78 @@
+setup:
+  - do:
+      indices.create:
+        index: queries
+        body:
+          mappings:
+            properties:
+              query:
+                type: percolator
+              message:
+                type: text
+              price:
+                type: integer
+
+  # Index four percolator documents: a match, a term, a range and a bool.
+  - do:
+      bulk:
+        refresh: true
+        body:
+        - '{ "index" : { "_index" : "queries", "_id" : "match" } }'
+        - '{ "query": { "match": { "message": "bonsai tree" } } }'
+        - '{ "index" : { "_index" : "queries", "_id" : "term" } }'
+        - '{ "query": { "term": { "message": "cactus" } } }'
+        - '{ "index" : { "_index" : "queries", "_id" : "range" } }'
+        - '{ "query": { "range": { "price": { "gte": 10, "lte": 20 } } } }'
+        - '{ "index" : { "_index" : "queries", "_id" : "bool" } }'
+        - '{ "query": { "bool": { "must": [ { "match": { "message": "bonsai" } }, { "range": { "price": { "gte": 5 } } } ] } } }'
+
+---
+"percolate matches the match + bool stored queries":
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: queries
+        body:
+          query:
+            percolate:
+              field: query
+              document:
+                message: "a lovely bonsai tree"
+                price: 15
+
+  # The `match` percolator (message contains bonsai/tree) and the `bool`
+  # percolator (bonsai AND price>=5) match; the `term`(cactus) and `range`
+  # (10..20 only, but bool also needs price>=5 which 15 satisfies) —
+  # note range 10..20 with price 15 also matches.
+  - match: { hits.total: 3 }
+
+---
+"percolate matches only the term stored query":
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: queries
+        body:
+          query:
+            percolate:
+              field: query
+              document:
+                message: "cactus"
+                price: 100
+
+  - match: { hits.total: 1 }
+  - match: { hits.hits.0._id: "term" }
+
+---
+"percolate missing document is a 400":
+
+  - do:
+      catch: bad_request
+      search:
+        index: queries
+        body:
+          query:
+            percolate:
+              field: query

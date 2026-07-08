@@ -521,6 +521,17 @@ pub enum QueryNode {
         max_query_terms: u32,
     },
 
+    /// Percolate query — reverse search. Each document stored in the index
+    /// holds a serialized query in its `field` (a `percolator`-typed field);
+    /// this query matches those stored documents whose stored query matches
+    /// one of the supplied inline `documents`.
+    Percolate {
+        /// Name of the percolator field holding the stored query object.
+        field: String,
+        /// One or more inline documents to test the stored queries against.
+        documents: Vec<serde_json::Value>,
+    },
+
     /// Pinned query — ensures specific document IDs appear first in results.
     Pinned {
         /// IDs to pin to the top of results.
