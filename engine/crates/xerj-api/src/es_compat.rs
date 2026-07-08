@@ -7608,12 +7608,19 @@ pub async fn search(
                                 continue;
                             }
                             "_version" => {
-                                // ES returns _version as doc_values. xerj
-                                // doesn't track per-doc version separately;
-                                // emit 1 as a placeholder for newly-indexed
-                                // docs (the common case covered by the
-                                // metadata-fetch test).
-                                fmap.insert("_version".to_string(), Value::Array(vec![json!(1)]));
+                                // Echo the caller-supplied external `_version`
+                                // (`version_type=external[_gte]`) from the same
+                                // map the top-level and inner_hits `_version`
+                                // paths use. Internal per-doc version increments
+                                // aren't tracked yet, so freshly-indexed docs
+                                // default to 1.
+                                let v = state
+                                    .engine
+                                    .get_index(&idx_name)
+                                    .ok()
+                                    .and_then(|idx| idx.external_versions.get(&h.id).map(|v| *v))
+                                    .unwrap_or(1);
+                                fmap.insert("_version".to_string(), Value::Array(vec![json!(v)]));
                                 continue;
                             }
                             _ => {}

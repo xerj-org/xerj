@@ -1243,3 +1243,29 @@ object with subobjects false and dynamic false:
               my.nested.keyword.field: abc
 
   - match: { hits.total.value: 1 }
+
+---
+"fetch _version echoes external version":
+  - do:
+      indices.create:
+        index: ver_test
+
+  # Index a doc carrying an explicit external version.
+  - do:
+      index:
+        index: ver_test
+        id: "1"
+        version: 5
+        version_type: external
+        refresh: true
+        body:
+          field: foo
+
+  - do:
+      search:
+        index: ver_test
+        body:
+          fields: [ "_version" ]
+
+  # Before the fix the Fields API hardcoded 1; now it echoes the caller's 5.
+  - match: { hits.hits.0.fields._version.0: 5 }
