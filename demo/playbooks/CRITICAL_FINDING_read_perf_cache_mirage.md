@@ -110,18 +110,21 @@ Measured UNCACHED (novel params every call, 300k-doc flushed segment; median):
 
 All conformance-gated: full ES-compat YAML **1360 / 0** at every step.
 
-### Known remaining read costs (honest)
-- **Mid-cardinality keyword selective term** (e.g. a field with ~3000 values,
-  ~100 matches / 300k): ~26 ms — the keyword pre-filter build scans the
-  forward `ords` array O(N) because keyword columns have no ord→positions
-  index (numerics do, via their sorted index). Still a ~4× win over the prior
-  full-parse scan, but the fix is a flush-time keyword posting/inverted
-  structure. **Next lever.**
+### Known remaining read costs (honest, mechanism confirmed by instrumentation)
+- **A selective term whose matches are SPREAD across all 16 shard-segments**
+  (e.g. a ~3000-value field, ~100 matches / 300k, ~7 per shard): ~26–35 ms.
+  Mechanism (measured, not guessed): the pre-filter *build* is ~8 µs/segment —
+  negligible. The cost is that EVERY one of the 16 sharded stored-sections has
+  a few matches, so all 16 get opened + decompressed + scanned (~2 ms each) on
+  a cold/novel query. A term confined to ONE shard (e.g. a unique id) returns
+  `Some(∅)` for the other 15 segments → they are skipped → ~3 ms. So the lever
+  is **per-segment cold stored-section decompress** (retain/warm decoded
+  sections across a varied query workload, or cheapen the decode), i.e. **F2**,
+  NOT the term pre-filter. **Next lever.**
 - **bool with `should` / `must_not`, or all-broad conjuncts**: no single-
   conjunct superset is valid (or none is selective) → full scan (still exact,
   just unoptimised).
-- Cross-segment/merge warmth (F2) was not the bottleneck in these
-  measurements (aggs are single-digit ms cold with novel filters).
 
 Net: the common uncached read shapes are now **single-digit ms**, not seconds.
-The remaining keyword-posting work is the last O(N) read path of note.
+The remaining lever is F2 (per-segment decoded-section warmth) for selective
+terms fanned across every shard — a decompress cost, not a scan or build cost.
