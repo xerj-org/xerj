@@ -130,7 +130,7 @@
       <span class="card-k">AMBIENT SCRIBE</span>
       <span class="card-t">ENCOUNTER +<br><span class="accent">HISTORY</span></span>
       <span class="card-b">Encounter transcripts + patient history retrieved in real time. Hybrid keyword + vector against chart data. Agent memory per encounter.</span>
-      <span class="card-facts">· &lt; 40 ms hybrid p95<br>· in-session retrieval<br>· per-encounter audit</span>
+      <span class="card-facts">· hybrid keyword + vector<br>· in-session retrieval<br>· per-encounter audit</span>
     </div>
     <div class="card">
       <span class="card-k">CLINICAL DECISION</span>
@@ -181,8 +181,8 @@
   <h2 class="scene">RETRIEVAL<br><span class="accent">CLINICIANS DON'T NOTICE.</span></h2>
   <div class="cmp">
     <div class="head"><span class="cell">METRIC</span><span class="cell xy">XERJ</span><span class="cell es">LEGACY STACK</span></div>
-    <div class="row"><span class="cell name">Hybrid retrieval p95 · 1 B vectors</span><span class="cell xy">38 ms</span><span class="cell es">100–250 ms</span></div>
-    <div class="row"><span class="cell name">Ambient-scribe lookup</span><span class="cell xy">&lt; 40 ms</span><span class="cell es">typically &gt; 150 ms</span></div>
+    <div class="row"><span class="cell name">kNN retrieval · k=10 · p50</span><span class="cell xy">0.78 ms</span><span class="cell es">2.64 ms — 3.4×</span></div>
+    <div class="row"><span class="cell name">Ambient-scribe lookup</span><span class="cell xy">in-session</span><span class="cell es">multi-hop plumbing</span></div>
     <div class="row"><span class="cell name">Vector memory · 10 M × 1.5 K</span><span class="cell xy">18 GB (SQ8)</span><span class="cell es">92 GB (float32) — 5.1×</span></div>
     <div class="row"><span class="cell name">Recall @ 10 vs float32</span><span class="cell xy">&lt; 0.5 pp loss</span><span class="cell es">baseline</span></div>
     <div class="row"><span class="cell name">Per-query PHI audit</span><span class="cell xy">native · explain-plan</span><span class="cell es">application plumbing</span></div>

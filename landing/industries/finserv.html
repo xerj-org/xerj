@@ -62,21 +62,21 @@
       <span class="card-k">FRAUD / AML</span>
       <span class="card-t">PAYMENT-AUTH<br><span class="accent">BUDGET</span></span>
       <span class="card-b">Vector similarity to historical fraud patterns + keyword filter on merchant / geography. Result inside the payment-authorization latency budget.</span>
-      <span class="card-facts">· 1.2 ms vector p95<br>· card-adjacent PCI scope · BYOK<br>· native RRF · no orchestrator</span>
+      <span class="card-facts">· vector similarity in the auth budget<br>· card-adjacent PCI scope · BYOK<br>· native RRF · no orchestrator</span>
     </div>
 
     <div class="card">
       <span class="card-k">ANALYST RAG</span>
       <span class="card-t">RESEARCH · TRADE<br><span class="accent">TICKETS</span></span>
       <span class="card-b">Hybrid BM25 + vector over research notes, term sheets, client correspondence. Citation fidelity tracked; re-embed on drift.</span>
-      <span class="card-facts">· 38 ms hybrid p95 · 1 B vectors<br>· 4× vector memory · SQ8 default<br>· LangChain / LlamaIndex retriever</span>
+      <span class="card-facts">· hybrid BM25 + vector retrieval<br>· 4× vector memory · SQ8 default<br>· LangChain / LlamaIndex retriever</span>
     </div>
 
     <div class="card">
       <span class="card-k">SIEM</span>
       <span class="card-t">UNIFIED<br><span class="accent">CYBER SOC</span></span>
-      <span class="card-b">Fraud, cloud audit, identity, network logs in one index. 74× faster SIEM agg vs ES 8.13 on 1 M events. Detection-as-code runs native.</span>
-      <span class="card-facts">· 0.4 ms p95 top-source-IPs<br>· 400 MB idle · 1-node baseline<br>· 21× less memory vs 4-node ES</span>
+      <span class="card-b">Fraud, cloud audit, identity, network logs in one index. Sub-second SIEM top-N over millions of events with exact, pre-computed terms aggregations. Detection-as-code runs native.</span>
+      <span class="card-facts">· sub-second top-source-IPs terms agg<br>· 400 MB idle · 1-node baseline<br>· 21× less memory vs 4-node ES (measured 2026-04, v0.6.0)</span>
     </div>
 
     <div class="card">
@@ -206,14 +206,18 @@
 
   <div class="cmp">
     <div class="head"><span class="cell">METRIC</span><span class="cell xy">XERJ</span><span class="cell es">LEGACY</span></div>
-    <div class="row"><span class="cell name">Fraud · vector p95</span><span class="cell xy">1.2 ms</span><span class="cell es">45 ms (ES + Pinecone)</span></div>
-    <div class="row"><span class="cell name">AML case retrieval p95</span><span class="cell xy">0.4 ms</span><span class="cell es">29.8 ms (ES 8.13)</span></div>
+    <div class="row"><span class="cell name">Vector kNN k=10 · p50</span><span class="cell xy">0.78 ms</span><span class="cell es">2.64 ms (ES 8.13) — 3.39×</span></div>
     <div class="row"><span class="cell name">Vector memory · 10 M × 1.5 K</span><span class="cell xy">18 GB</span><span class="cell es">92 GB (float32) — 5.1×</span></div>
     <div class="row"><span class="cell name">Idle cluster memory</span><span class="cell xy">400 MB · 1 node</span><span class="cell es">8.5 GB · 4 node</span></div>
     <div class="row"><span class="cell name">Cold start</span><span class="cell xy">50 ms</span><span class="cell es">~15 s JVM warm-up</span></div>
     <div class="row"><span class="cell name">Cross-border data egress</span><span class="cell xy">0 (self-hosted)</span><span class="cell es">depends on vendor</span></div>
     <div class="row"><span class="cell name">Per-query audit artifact</span><span class="cell xy">native · explain-plan</span><span class="cell es">application plumbing</span></div>
   </div>
+
+  <p class="wide" style="margin-top: var(--sp-6); opacity: .6;">
+    Idle-memory and cold-start envelope figures measured 2026-04 on v0.6.0.
+    The vector kNN row is from the current scorecard (k=10, recall@10 100 %).
+  </p>
 
   <p class="wide" style="margin-top: var(--sp-10);">
     <strong>TCO impact:</strong> ~80 % infrastructure cost reduction
