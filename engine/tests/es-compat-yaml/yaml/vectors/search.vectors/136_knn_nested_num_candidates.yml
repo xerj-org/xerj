@@ -1,0 +1,95 @@
+setup:
+  - do:
+      indices.create:
+        index: nested_nc
+        body:
+          settings:
+            index:
+              number_of_shards: 1
+          mappings:
+            properties:
+              name:
+                type: keyword
+              nested:
+                type: nested
+                properties:
+                  paragraph_id:
+                    type: keyword
+                  vector:
+                    type: dense_vector
+                    dims: 3
+                    index: true
+                    similarity: l2_norm
+
+  # Five parent docs; each has one nested vector. The query vector [1,0,0]
+  # is closest to doc "1", then "2", … "5" by descending similarity.
+  - do:
+      bulk:
+        refresh: true
+        body:
+        - '{ "index": { "_index": "nested_nc", "_id": "1" } }'
+        - '{ "name": "a", "nested": [ { "paragraph_id": 0, "vector": [1.0, 0.0, 0.0] } ] }'
+        - '{ "index": { "_index": "nested_nc", "_id": "2" } }'
+        - '{ "name": "b", "nested": [ { "paragraph_id": 0, "vector": [0.9, 0.1, 0.0] } ] }'
+        - '{ "index": { "_index": "nested_nc", "_id": "3" } }'
+        - '{ "name": "c", "nested": [ { "paragraph_id": 0, "vector": [0.7, 0.3, 0.0] } ] }'
+        - '{ "index": { "_index": "nested_nc", "_id": "4" } }'
+        - '{ "name": "d", "nested": [ { "paragraph_id": 0, "vector": [0.4, 0.6, 0.0] } ] }'
+        - '{ "index": { "_index": "nested_nc", "_id": "5" } }'
+        - '{ "name": "e", "nested": [ { "paragraph_id": 0, "vector": [0.0, 1.0, 0.0] } ] }'
+
+---
+"nested knn with num_candidates larger than k parses and returns top-k":
+
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: nested_nc
+        body:
+          size: 3
+          query:
+            nested:
+              path: nested
+              query:
+                knn:
+                  field: nested.vector
+                  query_vector: [1.0, 0.0, 0.0]
+                  k: 3
+                  num_candidates: 5
+
+  - length: { hits.hits: 3 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.1._id: "2" }
+  - match: { hits.hits.2._id: "3" }
+
+---
+"nested knn num_candidates widens the post-filter candidate pool":
+
+  # With a post-filter (name != a) and a large num_candidates, the vector
+  # search keeps enough candidates that the best surviving parent ("2") is
+  # still found. A too-small num_candidates would truncate to just "1" and
+  # then the post-filter would drop it, returning zero hits.
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: nested_nc
+        body:
+          size: 3
+          query:
+            bool:
+              must:
+                - nested:
+                    path: nested
+                    query:
+                      knn:
+                        field: nested.vector
+                        query_vector: [1.0, 0.0, 0.0]
+                        k: 1
+                        num_candidates: 5
+              filter:
+                - bool:
+                    must_not:
+                      - term:
+                          name: "a"
+
+  - match: { hits.hits.0._id: "2" }

@@ -210,6 +210,7 @@ fn rewrite_once(query: QueryNode) -> (QueryNode, bool) {
             field,
             vector,
             k,
+            num_candidates,
             filter,
             boost,
         } => match filter {
@@ -218,6 +219,7 @@ fn rewrite_once(query: QueryNode) -> (QueryNode, bool) {
                     field,
                     vector,
                     k,
+                    num_candidates,
                     filter: None,
                     boost,
                 },
@@ -230,6 +232,7 @@ fn rewrite_once(query: QueryNode) -> (QueryNode, bool) {
                         field,
                         vector,
                         k,
+                        num_candidates,
                         filter: Some(Box::new(f2)),
                         boost,
                     },

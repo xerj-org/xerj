@@ -2137,11 +2137,17 @@ fn parse_knn(params: &Value) -> Result<QueryNode> {
         .ok_or_else(|| qerr("`knn` must be an object"))?;
 
     let field = string_field(obj, "field")?;
+    let num_candidates = obj
+        .get("num_candidates")
+        .and_then(|v| v.as_u64())
+        .map(|n| n as usize);
+    // `k` derivation is unchanged: explicit `k`, else `num_candidates`, else 10.
     let k = obj
         .get("k")
         .and_then(|v| v.as_u64())
-        .or_else(|| obj.get("num_candidates").and_then(|v| v.as_u64()))
-        .unwrap_or(10) as usize;
+        .map(|n| n as usize)
+        .or(num_candidates)
+        .unwrap_or(10);
 
     let vector = obj
         .get("query_vector")
@@ -2168,6 +2174,7 @@ fn parse_knn(params: &Value) -> Result<QueryNode> {
         field,
         vector,
         k,
+        num_candidates,
         filter,
         boost,
     })
@@ -4289,6 +4296,49 @@ mod tests {
             assert!(filter.is_none());
         } else {
             panic!("wrong variant");
+        }
+    }
+
+    #[test]
+    fn test_knn_num_candidates_independent_of_k() {
+        // num_candidates is carried through as its own value; k stays explicit.
+        let node = q(json!({
+            "knn": {
+                "field": "embedding",
+                "query_vector": [0.1, 0.2, 0.3],
+                "k": 3,
+                "num_candidates": 50
+            }
+        }));
+        match node {
+            QueryNode::Knn {
+                k, num_candidates, ..
+            } => {
+                assert_eq!(k, 3);
+                assert_eq!(num_candidates, Some(50));
+            }
+            other => panic!("expected knn, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_knn_k_defaults_to_num_candidates_when_k_omitted() {
+        // With k omitted, k still derives from num_candidates (unchanged).
+        let node = q(json!({
+            "knn": {
+                "field": "embedding",
+                "query_vector": [0.1],
+                "num_candidates": 7
+            }
+        }));
+        match node {
+            QueryNode::Knn {
+                k, num_candidates, ..
+            } => {
+                assert_eq!(k, 7);
+                assert_eq!(num_candidates, Some(7));
+            }
+            other => panic!("expected knn, got {:?}", other),
         }
     }
 

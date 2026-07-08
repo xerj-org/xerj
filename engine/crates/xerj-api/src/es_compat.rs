@@ -21128,6 +21128,7 @@ fn knn_body_to_query_node(knn_val: &Value) -> xerj_query::ast::QueryNode {
         field,
         vector,
         k,
+        num_candidates,
         filter: None,
         boost,
     }
@@ -21136,16 +21137,22 @@ fn knn_body_to_query_node(knn_val: &Value) -> xerj_query::ast::QueryNode {
 /// Serialise a `QueryNode` to a `Value` for embedding into a bool query.
 fn knn_query_node_to_json(node: &xerj_query::ast::QueryNode) -> Value {
     if let xerj_query::ast::QueryNode::Knn {
-        field, vector, k, ..
+        field,
+        vector,
+        k,
+        num_candidates,
+        ..
     } = node
     {
-        json!({
-            "knn": {
-                "field": field,
-                "query_vector": vector,
-                "k": k
-            }
-        })
+        let mut knn = json!({
+            "field": field,
+            "query_vector": vector,
+            "k": k
+        });
+        if let Some(nc) = num_candidates {
+            knn["num_candidates"] = json!(nc);
+        }
+        json!({ "knn": knn })
     } else {
         serde_json::to_value(node).unwrap_or(json!({"match_all": {}}))
     }

@@ -739,6 +739,7 @@ mod tests {
                     field: "vec".to_string(),
                     vector: vec![0.1],
                     k: 10,
+                    num_candidates: None,
                     filter: None,
                     boost: None,
                 },
@@ -777,6 +778,7 @@ mod tests {
             field: "embedding".to_string(),
             vector: vec![0.1, 0.2, 0.3],
             k: 20,
+            num_candidates: None,
             filter: None,
             boost: None,
         };
@@ -797,6 +799,7 @@ mod tests {
                         field: "vec".to_string(),
                         vector: vec![1.0],
                         k: 5,
+                        num_candidates: None,
                         filter: None,
                         boost: None,
                     },

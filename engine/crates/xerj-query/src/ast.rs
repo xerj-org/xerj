@@ -372,6 +372,11 @@ pub enum QueryNode {
         field: String,
         vector: Vec<f32>,
         k: usize,
+        /// Approximate-search fan-out: how many candidate neighbours the
+        /// ANN index gathers before selecting the top `k`. `None` lets the
+        /// executor default it to `k`; ES clamps it to `>= k`.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        num_candidates: Option<usize>,
         #[serde(skip_serializing_if = "Option::is_none")]
         filter: Option<Box<QueryNode>>,
         #[serde(skip_serializing_if = "Option::is_none")]

@@ -4630,7 +4630,9 @@ impl Index {
         // A Knn filter (sub-query) is applied as a doc_matches_query
         // pre-filter before the top-k extraction so filter semantics
         // match ES.
-        if let Some((field, query_vec, k, filter_opt)) = peel_knn_query(query) {
+        // Top-level pure-knn is exact brute force with a pre-filter only, so
+        // `num_candidates` (the ANN fan-out) has no effect and is ignored here.
+        if let Some((field, query_vec, k, _num_candidates, filter_opt)) = peel_knn_query(query) {
             let similarity = {
                 let schema = self.schema.read().await;
                 lookup_vector_similarity(&schema.schema, &field)
@@ -4644,20 +4646,25 @@ impl Index {
         // returns parents in similarity-descending order. We implement
         // the same by flattening the nested array per parent doc and
         // taking the max score across elements.
-        if let Some((nested_path, field, query_vec, k, pre_filter, post_filter)) =
-            peel_nested_knn_query(query)
+        if let Some((
+            nested_path,
+            field,
+            query_vec,
+            k,
+            num_candidates_opt,
+            pre_filter,
+            post_filter,
+        )) = peel_nested_knn_query(query)
         {
             let similarity = {
                 let schema = self.schema.read().await;
                 lookup_vector_similarity(&schema.schema, &field)
             };
-            // ES semantics: `num_candidates` caps how many docs the
-            // vector search returns before the outer bool.must clauses
-            // post-filter. We don't currently plumb `num_candidates`
-            // through the parser, so default to `k` (which is what ES
-            // uses when `num_candidates` is omitted — the knn spec
-            // requires one of them to be set).
-            let num_candidates = k;
+            // ES semantics: `num_candidates` caps how many docs the vector
+            // search returns before the outer bool.must clauses post-filter.
+            // It defaults to `k` when omitted and is clamped to `>= k` (a
+            // smaller fan-out than the requested top-k makes no sense).
+            let num_candidates = num_candidates_opt.unwrap_or(k).max(k);
             return self
                 .run_nested_knn_brute_force(
                     request,
@@ -10891,15 +10898,31 @@ fn compute_vector_similarity(sim: &str, a: &[f32], b: &[f32]) -> f32 {
 ///
 /// Filters attached to the Knn node are preserved; filters attached to the
 /// wrapping Bool are merged in via Bool::filter semantics.
-fn peel_knn_query(q: &QueryNode) -> Option<(String, Vec<f32>, usize, Option<Box<QueryNode>>)> {
+#[allow(clippy::type_complexity)]
+fn peel_knn_query(
+    q: &QueryNode,
+) -> Option<(
+    String,
+    Vec<f32>,
+    usize,
+    Option<usize>,
+    Option<Box<QueryNode>>,
+)> {
     match q {
         QueryNode::Knn {
             field,
             vector,
             k,
+            num_candidates,
             filter,
             ..
-        } => Some((field.clone(), vector.clone(), *k, filter.clone())),
+        } => Some((
+            field.clone(),
+            vector.clone(),
+            *k,
+            *num_candidates,
+            filter.clone(),
+        )),
         QueryNode::Constant { query, .. }
         | QueryNode::Boosted { query, .. }
         | QueryNode::Named { query, .. } => peel_knn_query(query),
@@ -10919,7 +10942,7 @@ fn peel_knn_query(q: &QueryNode) -> Option<(String, Vec<f32>, usize, Option<Box<
             if candidates.len() != 1 {
                 return None;
             }
-            let (f, v, k, inner_filter) = peel_knn_query(candidates[0])?;
+            let (f, v, k, nc, inner_filter) = peel_knn_query(candidates[0])?;
             // Combine inner_filter + bool's filter clauses.
             let mut merged_filters: Vec<QueryNode> = filter.clone();
             if let Some(fi) = inner_filter {
@@ -10936,7 +10959,7 @@ fn peel_knn_query(q: &QueryNode) -> Option<(String, Vec<f32>, usize, Option<Box<
                     minimum_should_match: None,
                 })),
             };
-            Some((f, v, k, final_filter))
+            Some((f, v, k, nc, final_filter))
         }
         _ => None,
     }
@@ -11106,6 +11129,7 @@ fn peel_hybrid_query(
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn peel_nested_knn_query(
     q: &QueryNode,
 ) -> Option<(
@@ -11113,6 +11137,7 @@ fn peel_nested_knn_query(
     String,
     Vec<f32>,
     usize,
+    Option<usize>,
     Option<Box<QueryNode>>,
     Option<Box<QueryNode>>,
 )> {
@@ -11190,7 +11215,7 @@ fn peel_nested_knn_query(
         QueryNode::Nested { path, query, .. } => (path.clone(), query.as_ref()),
         _ => return None,
     };
-    let (field, vector, k, inner_filter) = peel_knn_query(inner_q)?;
+    let (field, vector, k, num_candidates, inner_filter) = peel_knn_query(inner_q)?;
     // Knn's own filter sub-query is a pre-filter.
     let mut pre_all: Vec<QueryNode> = pre_filters;
     if let Some(f) = inner_filter {
@@ -11214,6 +11239,7 @@ fn peel_nested_knn_query(
         field,
         vector,
         k,
+        num_candidates,
         to_box(pre_all),
         to_box(post_filters),
     ))
@@ -16579,5 +16605,64 @@ mod percolate_tests {
 
         let stored2 = json!({ "query": "not-an-object" });
         assert!(!doc_matches_query(&q, &stored2));
+    }
+}
+
+#[cfg(test)]
+mod knn_num_candidates_tests {
+    use super::*;
+    use xerj_query::ast::QueryNode;
+
+    fn nested_knn(num_candidates: Option<usize>) -> QueryNode {
+        QueryNode::Nested {
+            path: "passages".into(),
+            query: Box::new(QueryNode::Knn {
+                field: "passages.vec".into(),
+                vector: vec![1.0, 0.0, 0.0],
+                k: 2,
+                num_candidates,
+                filter: None,
+                boost: None,
+            }),
+            score_mode: None,
+        }
+    }
+
+    /// `num_candidates` is peeled out of a nested knn query as its own value.
+    #[test]
+    fn peel_nested_carries_num_candidates() {
+        let q = nested_knn(Some(10));
+        let peeled = peel_nested_knn_query(&q).expect("nested knn peels");
+        // Tuple: (path, field, vector, k, num_candidates, pre, post).
+        assert_eq!(peeled.0, "passages");
+        assert_eq!(peeled.3, 2, "k");
+        assert_eq!(peeled.4, Some(10), "num_candidates");
+    }
+
+    /// When omitted, num_candidates peels to None (the caller then defaults
+    /// it to k and clamps to >= k).
+    #[test]
+    fn peel_nested_num_candidates_none_when_omitted() {
+        let q = nested_knn(None);
+        let peeled = peel_nested_knn_query(&q).expect("nested knn peels");
+        assert_eq!(peeled.4, None);
+    }
+
+    /// Top-level knn peels num_candidates too (ignored by exact brute force,
+    /// but still surfaced).
+    #[test]
+    fn peel_top_level_carries_num_candidates() {
+        let q = QueryNode::Knn {
+            field: "vec".into(),
+            vector: vec![0.1, 0.2],
+            k: 5,
+            num_candidates: Some(64),
+            filter: None,
+            boost: None,
+        };
+        let peeled = peel_knn_query(&q).expect("knn peels");
+        // Tuple: (field, vector, k, num_candidates, filter).
+        assert_eq!(peeled.2, 5, "k");
+        assert_eq!(peeled.3, Some(64), "num_candidates");
     }
 }
