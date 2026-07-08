@@ -80,6 +80,19 @@ rustls = "0.23"
 rcgen = "0.13"
 # Metrics
 prometheus = "0.13"
+# gRPC (XerjSearch service on :8081). Default features only — the `tls`
+# feature is intentionally OFF so tonic pulls no crypto backend (no
+# aws-lc-rs / vendored OpenSSL); the gRPC listener speaks plaintext h2c,
+# while the REST/ES listeners keep terminating TLS via axum-server+ring.
+tonic = { version = "0.12", default-features = false, features = ["channel", "codegen", "prost", "router", "server"] }
+prost = "0.13"
+# Build-time codegen. `protox` is a PURE-RUST protobuf compiler, so the
+# build needs NO `protoc` binary on the host — critical for the
+# cross-compile matrix (musl/aarch64/windows/macos) where a host protoc
+# is not guaranteed. It emits a FileDescriptorSet that tonic-build turns
+# into Rust via `compile_fds` (never shelling out to protoc).
+tonic-build = { version = "0.12", default-features = false, features = ["prost", "transport"] }
+protox = "0.7"
 # HTTP client (for embedding proxy)
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "http2", "charset"] }
 # Testing

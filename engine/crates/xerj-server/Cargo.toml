@@ -13,6 +13,7 @@ path = "src/main.rs"
 [dependencies]
 xerj-common  = { path = "../xerj-common" }
 xerj-engine  = { path = "../xerj-engine" }
+xerj-query   = { path = "../xerj-query" }
 xerj-api     = { path = "../xerj-api" }
 xerj-storage = { path = "../xerj-storage" }
 xerj-fts     = { path = "../xerj-fts" }
@@ -45,6 +46,10 @@ memmap2 = { workspace = true }
 memchr = { workspace = true }
 rayon = { workspace = true }
 
+# gRPC server: the real XerjSearch service on :8081 (proto: ../../proto/xerj.proto).
+tonic.workspace = true
+prost.workspace = true
+
 # Use jemalloc as the global allocator.  The default glibc malloc causes
 # pathological memory retention under heavy churn (ingest → flush → ingest)
 # because it never returns freed heap pages to the OS.  jemalloc is
@@ -52,6 +57,13 @@ rayon = { workspace = true }
 # RSS back down after each flush — critical under the 4 GB cgroup cap.
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = "0.6"
+
+[build-dependencies]
+# Compile ../../proto/xerj.proto → Rust at build time. `protox` parses the
+# .proto in pure Rust (no host protoc); `tonic-build` turns the resulting
+# FileDescriptorSet into the client + server stubs via `compile_fds`.
+tonic-build = { workspace = true }
+protox = { workspace = true }
 
 [dev-dependencies]
 # HTTPS round-trip test against the in-process rustls listener.

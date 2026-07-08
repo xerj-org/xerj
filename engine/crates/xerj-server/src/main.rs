@@ -6,7 +6,7 @@
 //!
 //! - Native REST  — default :8080
 //! - ES-compat    — default :9200
-//! - gRPC         — default :8081 (placeholder in v0.1)
+//! - gRPC         — default :8081 (XerjSearch service, plaintext h2c)
 //!
 //! Shuts down gracefully on SIGTERM or SIGINT.
 //!
@@ -47,6 +47,8 @@ use xerj_cluster::{transport::TcpTransport, ClusterNode, ClusterRunner};
 use xerj_common::{config::Config, metrics::Metrics};
 use xerj_console_api::{state::ClusterMode, ConsoleState};
 use xerj_engine::Engine;
+
+mod grpc;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CLI
@@ -136,7 +138,7 @@ fn print_banner(cfg: &Config, startup_ms: u128) {
     println!();
     println!(" Native REST  :{} [{}]", cfg.server.rest_port, tls);
     println!(" ES-compat    :{} [{}]", cfg.server.es_compat_port, tls);
-    println!(" gRPC         :{} [placeholder]", cfg.server.grpc_port);
+    println!(" gRPC         :{} [h2c]", cfg.server.grpc_port);
     println!(" Data dir     {}", cfg.server.data_dir);
     println!(" Started in   {}ms", startup_ms);
     println!();
@@ -417,39 +419,6 @@ async fn serve(
 
     info!("{name} shut down cleanly");
     Ok(())
-}
-
-/// gRPC is a placeholder in v0.1 — binds the port and immediately closes
-/// connections so clients receive a clean "connection refused" alternative
-/// rather than no response.
-async fn serve_grpc_placeholder(addr: SocketAddr) {
-    match TcpListener::bind(addr).await {
-        Ok(listener) => {
-            info!("gRPC placeholder bound on {addr} (not yet implemented)");
-            // The placeholder exits on the same SIGTERM/SIGINT signals that
-            // shut the REST listeners down — without this, the accept loop
-            // is infinite and the parent `tokio::join!(rest, es, grpc)` in
-            // main never returns, so the engine's `flush_all_force` shutdown
-            // hook never runs.  Caught by the durability bench at
-            // 2026-04-25 (regression alongside B-2b's flush hook).
-            loop {
-                tokio::select! {
-                    accepted = listener.accept() => match accepted {
-                        Ok(_conn) => {} // drop immediately
-                        Err(e) => {
-                            warn!("gRPC placeholder accept error: {e}");
-                            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-                        }
-                    },
-                    _ = shutdown_signal() => {
-                        info!("gRPC placeholder shut down cleanly");
-                        return;
-                    }
-                }
-            }
-        }
-        Err(e) => warn!("gRPC placeholder: could not bind {addr}: {e}"),
-    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1113,8 +1082,14 @@ async fn async_main() -> Result<()> {
         }
     });
 
+    // Real tonic XerjSearch service. Exits on the same SIGTERM/SIGINT as the
+    // REST listeners so `tokio::join!` below returns and the shutdown flush
+    // hook runs. A bind/transport failure is logged, not fatal.
+    let grpc_state = state.clone();
     let grpc = tokio::spawn(async move {
-        serve_grpc_placeholder(grpc_addr).await;
+        if let Err(e) = grpc::serve_grpc(grpc_addr, grpc_state, shutdown_signal()).await {
+            error!("gRPC server: {e:#}");
+        }
     });
 
     // 14. Wait for all servers (they exit together on shutdown)
