@@ -53,6 +53,25 @@
 
   - match: {hits.total: 1}
 
+  # Grouped sub-query: `field:(foo OR bar)` — parenthesized OR group.
+  # The doc `{field: "foo bar"}` matches on either term.
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test
+        q: field:(foo OR bar)
+
+  - match: {hits.total: 1}
+
+  # Grouped OR where only one arm matches still returns the doc.
+  - do:
+      search:
+        rest_total_hits_as_int: true
+        index: test
+        q: field:(foo OR xyz)
+
+  - match: {hits.total: 1}
+
   - do:
       search:
         rest_total_hits_as_int: true

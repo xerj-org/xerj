@@ -309,15 +309,23 @@ fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
         }
 
         QueryNode::QueryString { query, .. } => {
-            // Treat as a full-scan with score for now.  A proper query-string
-            // parser would produce a full QueryNode tree; that is future work.
+            // Fallback only: the common case is lowered into a Bool tree by
+            // try_lower_query_string (parser.rs), so this branch is reached
+            // only for inputs that could not be translated. Split the raw
+            // query on whitespace and OR the tokens across `_all` rather than
+            // searching for the entire raw string as one opaque token (which
+            // would never match). This is an approximation — operators
+            // (AND/OR/NOT, +/-, parens, phrases, field:value) are not honored
+            // on this path — but it yields sensible hits instead of none.
+            let tokens: Vec<String> = query.split_whitespace().map(str::to_string).collect();
+            let cost = 15.0 * tokens.len().max(1) as f64;
             ExecutionPlan::FtsSearch {
                 field: "_all".to_string(),
-                tokens: vec![query],
+                tokens,
                 require_all: false,
                 phrase: false,
                 slop: 0,
-                cost: 15.0,
+                cost,
             }
         }
 
