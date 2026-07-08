@@ -19656,7 +19656,7 @@ pub async fn security_authenticate(State(_state): State<AppState>) -> impl IntoR
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn security_create_api_key(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     body: Option<Json<Value>>,
 ) -> impl IntoResponse {
     let payload = body.map(|Json(v)| v);
@@ -19671,12 +19671,31 @@ pub async fn security_create_api_key(
         .and_then(|b| b.get("expiration"))
         .cloned()
         .unwrap_or(Value::Null);
-    // Well-formed, unique-per-call key material. Not re-authenticatable.
+    // Well-formed, unique-per-call key material.
     let key_id = Uuid::new_v4().to_string();
     let raw_secret = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
     let api_key = base64_encode(&raw_secret);
     // ES returns base64("id:api_key") as the `encoded` credential.
     let encoded = base64_encode(&format!("{key_id}:{api_key}"));
+
+    // Persist the key so the auth middleware can re-authenticate an inbound
+    // `Authorization: ApiKey <encoded>` header. `encoded` decodes to
+    // `id:api_key`, so the stored secret is the `api_key` value. In-memory
+    // only (lost on restart); role_descriptors are accepted but not enforced
+    // (every key authenticates as the single superuser).
+    let now_ms = Utc::now().timestamp_millis().max(0) as u64;
+    let expiration_ms = parse_api_key_expiration_ms(expiration.as_str(), now_ms);
+    state.engine.api_keys.insert(
+        key_id.clone(),
+        xerj_engine::engine::ApiKeyRecord {
+            name: name.clone(),
+            secret: api_key.clone(),
+            creation_ms: now_ms,
+            expiration_ms,
+            invalidated: false,
+        },
+    );
+
     Json(json!({
         "id": key_id,
         "name": name,
@@ -19685,6 +19704,63 @@ pub async fn security_create_api_key(
         "encoded": encoded
     }))
     .into_response()
+}
+
+/// Parse an ES time-value expiration (e.g. `"7d"`, `"1h"`, `"30m"`, `"500ms"`)
+/// into an ABSOLUTE expiration in epoch milliseconds relative to `now_ms`.
+/// Returns `None` when the spec is absent or unparseable — meaning the key
+/// never expires.
+fn parse_api_key_expiration_ms(spec: Option<&str>, now_ms: u64) -> Option<u64> {
+    let s = spec?.trim();
+    if s.is_empty() {
+        return None;
+    }
+    // Split the leading number from the trailing unit.
+    let split = s.find(|c: char| c.is_ascii_alphabetic())?;
+    let (num, unit) = s.split_at(split);
+    let n: u64 = num.trim().parse().ok()?;
+    let per_ms: u64 = match unit.trim() {
+        "d" => 86_400_000,
+        "h" => 3_600_000,
+        "m" => 60_000,
+        "s" => 1_000,
+        "ms" => 1,
+        _ => return None,
+    };
+    now_ms.checked_add(n.checked_mul(per_ms)?)
+}
+
+/// Minimal base64 decoder (standard alphabet, tolerates `=` padding). Mirrors
+/// [`base64_encode`]; returns `None` on any invalid input. Used by the auth
+/// middleware to decode an `Authorization: ApiKey <encoded>` credential.
+pub fn base64_decode(input: &str) -> Option<Vec<u8>> {
+    fn val(c: u8) -> Option<u32> {
+        match c {
+            b'A'..=b'Z' => Some((c - b'A') as u32),
+            b'a'..=b'z' => Some((c - b'a' + 26) as u32),
+            b'0'..=b'9' => Some((c - b'0' + 52) as u32),
+            b'+' => Some(62),
+            b'/' => Some(63),
+            _ => None,
+        }
+    }
+    let bytes: Vec<u8> = input.bytes().filter(|&b| b != b'=').collect();
+    let mut out = Vec::with_capacity(bytes.len() * 3 / 4);
+    for chunk in bytes.chunks(4) {
+        let mut acc = 0u32;
+        let mut bits = 0u32;
+        for &b in chunk {
+            acc = (acc << 6) | val(b)?;
+            bits += 6;
+        }
+        // Emit the fully-formed bytes (drop the leftover partial bits from
+        // the dropped padding).
+        while bits >= 8 {
+            bits -= 8;
+            out.push(((acc >> bits) & 0xFF) as u8);
+        }
+    }
+    Some(out)
 }
 
 /// Minimal base64 encoder (standard alphabet, no padding variant for ES compat).

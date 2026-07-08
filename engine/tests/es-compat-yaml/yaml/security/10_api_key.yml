@@ -1,0 +1,14 @@
+---
+"create API key returns a well-formed, re-authenticatable credential":
+  # The yaml runner boots XERJ --insecure (auth disabled), so the
+  # authenticate round-trip can't be exercised here — that is covered by a
+  # Rust integration test. This asserts the create response shape/values.
+  - do:
+      security.create_api_key:
+        body:
+          name: kibana
+
+  - match: { name: kibana }
+  - is_true: id
+  - is_true: api_key
+  - is_true: encoded

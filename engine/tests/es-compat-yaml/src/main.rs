@@ -1355,6 +1355,9 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
             ("PUT".into(), format!("/_ccr/auto_follow/{}", name), body)
         }
 
+        // Security — API keys
+        "security.create_api_key" => ("POST".into(), "/_security/api_key".into(), body),
+
         // Catch-all
         _ => {
             let path = format!("/{}", action.replace('.', "/"));

@@ -133,6 +133,25 @@ pub struct DataStream {
     pub generation: u64,
 }
 
+/// A created API key, kept in memory so the key can be re-authenticated by
+/// the auth middleware. Lost on restart (no persistence yet) and not yet
+/// revocable via the DELETE/query endpoints — those are follow-ups.
+#[derive(Debug, Clone)]
+pub struct ApiKeyRecord {
+    /// Caller-supplied key name (informational).
+    pub name: String,
+    /// The secret half of the credential — the `api_key` value returned to
+    /// the caller, i.e. the part after `id:` in the decoded `ApiKey` header.
+    pub secret: String,
+    /// Creation time in epoch milliseconds.
+    pub creation_ms: u64,
+    /// Absolute expiration in epoch milliseconds, or `None` if the key never
+    /// expires.
+    pub expiration_ms: Option<u64>,
+    /// Set once the key has been invalidated (revoked).
+    pub invalidated: bool,
+}
+
 // ── Engine ────────────────────────────────────────────────────────────────────
 
 /// Top-level engine — manages multiple named indices.
@@ -184,6 +203,10 @@ pub struct Engine {
     pub rollup_jobs: Arc<DashMap<String, Value>>,
     /// CCR auto-follow pattern name → pattern JSON
     pub ccr_auto_follow: Arc<DashMap<String, Value>>,
+    /// API key id → record. Populated by `POST /_security/api_key` so the
+    /// auth middleware can re-authenticate `Authorization: ApiKey <encoded>`.
+    /// In-memory only (lost on restart).
+    pub api_keys: Arc<DashMap<String, ApiKeyRecord>>,
     /// legacy index template name (v1 /_template) → template JSON
     pub legacy_templates: Arc<DashMap<String, Value>>,
     /// pipeline_name → compiled, executable Pipeline (typed transform pipeline)
@@ -273,6 +296,7 @@ impl Engine {
             frozen_indices: Arc::new(DashMap::new()),
             rollup_jobs: Arc::new(DashMap::new()),
             ccr_auto_follow: Arc::new(DashMap::new()),
+            api_keys: Arc::new(DashMap::new()),
             legacy_templates: Arc::new(DashMap::new()),
             transform_pipelines: Arc::new(DashMap::new()),
             pits: Arc::new(DashMap::new()),
