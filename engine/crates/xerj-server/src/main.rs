@@ -356,9 +356,12 @@ async fn shutdown_signal() {
     #[cfg(not(unix))]
     let sigterm = std::future::pending::<()>();
 
+    // `shutdown_signal()` is awaited once per listener (native REST, ES-compat,
+    // gRPC), so all of them wake on the same Ctrl-C. Log the banner only once.
+    static SHUTDOWN_LOGGED: std::sync::Once = std::sync::Once::new();
     tokio::select! {
-        _ = ctrl_c  => { info!("SIGINT received — shutting down"); }
-        _ = sigterm => { info!("SIGTERM received — shutting down"); }
+        _ = ctrl_c  => { SHUTDOWN_LOGGED.call_once(|| info!("SIGINT received — shutting down")); }
+        _ = sigterm => { SHUTDOWN_LOGGED.call_once(|| info!("SIGTERM received — shutting down")); }
     }
 }
 
