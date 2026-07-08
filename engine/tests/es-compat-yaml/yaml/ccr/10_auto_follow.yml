@@ -1,0 +1,16 @@
+---
+"CCR auto-follow pattern fails loud with 501":
+  # Creating an auto-follow pattern used to fabricate {acknowledged:true}
+  # while nothing ever replicated. It must now return an honest 501.
+  - do:
+      catch: /not_implemented/
+      ccr.put_auto_follow_pattern:
+        name: my-pattern
+        body:
+          remote_cluster: leader
+          leader_index_patterns:
+            - "logs-*"
+          follow_index_pattern: "{{leader_index}}-copy"
+
+  - match: { error.type: not_implemented_exception }
+  - match: { status: 501 }

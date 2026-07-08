@@ -1348,6 +1348,12 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
         }
         "close_point_in_time" => ("DELETE".into(), "/_pit".into(), body),
 
+        // Cross-cluster replication auto-follow patterns
+        "ccr.put_auto_follow_pattern" => {
+            let name = get_param_str(params, "name").unwrap_or_default();
+            ("PUT".into(), format!("/_ccr/auto_follow/{}", name), body)
+        }
+
         // Catch-all
         _ => {
             let path = format!("/{}", action.replace('.', "/"));

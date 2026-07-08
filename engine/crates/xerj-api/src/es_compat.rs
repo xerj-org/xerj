@@ -24220,63 +24220,35 @@ pub async fn ccr_info(
 // DELETE /_ccr/auto_follow/{name}
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub async fn put_ccr_auto_follow(
-    State(state): State<AppState>,
-    Path(name): Path<String>,
-    Json(body): Json<Value>,
-) -> impl IntoResponse {
-    state.engine.ccr_auto_follow.insert(name, body);
-    Json(json!({ "acknowledged": true }))
+// Auto-follow patterns were persisted into `engine.ccr_auto_follow` and
+// acknowledged, but that DashMap has ZERO consumers — no background loop
+// ever reads it to actually replicate leader indices. The client believed
+// a replication pattern was active while nothing was ever followed. Fail
+// loud with an honest 501, matching the sibling ccr_follow/pause/resume/
+// unfollow handlers above.
+
+pub async fn put_ccr_auto_follow(Path(_name): Path<String>) -> impl IntoResponse {
+    crate::stub::not_implemented_yet(
+        "Cross-cluster replication (CCR) auto-follow",
+        "v1.x",
+        "xerj is single-cluster; CCR is not on the v1.0 roadmap.",
+    )
 }
 
-pub async fn get_ccr_auto_follow(
-    State(state): State<AppState>,
-    Path(name): Path<String>,
-) -> impl IntoResponse {
-    if name == "_all" || name == "*" {
-        let patterns: Vec<Value> = state
-            .engine
-            .ccr_auto_follow
-            .iter()
-            .map(|e| {
-                let mut v = e.value().clone();
-                if let Some(obj) = v.as_object_mut() {
-                    obj.insert("name".to_string(), json!(e.key().clone()));
-                }
-                v
-            })
-            .collect();
-        return Json(json!({ "patterns": patterns })).into_response();
-    }
-    match state.engine.ccr_auto_follow.get(&name) {
-        Some(p) => {
-            let mut v = p.clone();
-            if let Some(obj) = v.as_object_mut() {
-                obj.insert("name".to_string(), json!(name));
-            }
-            Json(json!({ "patterns": [v] })).into_response()
-        }
-        None => {
-            let e = xerj_common::XerjError::index_not_found(format!(
-                "auto-follow pattern [{name}] not found"
-            ));
-            ApiError::new(e).into_response()
-        }
-    }
+pub async fn get_ccr_auto_follow(Path(_name): Path<String>) -> impl IntoResponse {
+    crate::stub::not_implemented_yet(
+        "Cross-cluster replication (CCR) auto-follow",
+        "v1.x",
+        "xerj is single-cluster; CCR is not on the v1.0 roadmap.",
+    )
 }
 
-pub async fn delete_ccr_auto_follow(
-    State(state): State<AppState>,
-    Path(name): Path<String>,
-) -> impl IntoResponse {
-    if state.engine.ccr_auto_follow.remove(&name).is_some() {
-        Json(json!({ "acknowledged": true })).into_response()
-    } else {
-        let e = xerj_common::XerjError::index_not_found(format!(
-            "auto-follow pattern [{name}] not found"
-        ));
-        ApiError::new(e).into_response()
-    }
+pub async fn delete_ccr_auto_follow(Path(_name): Path<String>) -> impl IntoResponse {
+    crate::stub::not_implemented_yet(
+        "Cross-cluster replication (CCR) auto-follow",
+        "v1.x",
+        "xerj is single-cluster; CCR is not on the v1.0 roadmap.",
+    )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
