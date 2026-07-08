@@ -3522,6 +3522,15 @@ impl Index {
                 }
             }
         } else {
+            // Per-chunk (passage) companion: multi-chunk `semantic_text` docs
+            // persist their per-passage vectors under `<field>_chunks` at
+            // ingest. When present we score by the BEST-matching passage
+            // (max-sim) rather than the single pooled vector — a query that
+            // matches one section of a long document ranks that document on
+            // that section, not on the whole-doc average. Plain `dense_vector`
+            // kNN and short single-chunk docs have no such companion, so they
+            // fall through to the exact single-vector scan below (unchanged).
+            let chunk_field = format!("{field}_chunks");
             for (id, src) in candidates {
                 // Apply filter: if the filter doesn't match this doc, skip.
                 if let Some(ref f) = filter {
@@ -3533,21 +3542,45 @@ impl Index {
                         continue;
                     }
                 }
-                let vec_val = match get_field_value(&src, field) {
-                    Some(v) => v,
-                    None => continue,
+                let score = if let Some(Value::Array(chunks)) = get_field_value(&src, &chunk_field)
+                {
+                    // Best-matching passage over the stored chunk vectors.
+                    let mut best: Option<f32> = None;
+                    for cv in &chunks {
+                        let dv: Vec<f32> = match cv {
+                            Value::Array(a) => a
+                                .iter()
+                                .filter_map(|v| v.as_f64().map(|f| f as f32))
+                                .collect(),
+                            _ => continue,
+                        };
+                        if dv.len() != query_vec.len() {
+                            continue;
+                        }
+                        let s = compute_vector_similarity(similarity, query_vec, &dv);
+                        best = Some(best.map_or(s, |b| b.max(s)));
+                    }
+                    match best {
+                        Some(s) => s,
+                        None => continue,
+                    }
+                } else {
+                    let vec_val = match get_field_value(&src, field) {
+                        Some(v) => v,
+                        None => continue,
+                    };
+                    let doc_vec: Vec<f32> = match &vec_val {
+                        Value::Array(arr) => arr
+                            .iter()
+                            .filter_map(|v| v.as_f64().map(|f| f as f32))
+                            .collect(),
+                        _ => continue,
+                    };
+                    if doc_vec.len() != query_vec.len() {
+                        continue;
+                    }
+                    compute_vector_similarity(similarity, query_vec, &doc_vec)
                 };
-                let doc_vec: Vec<f32> = match &vec_val {
-                    Value::Array(arr) => arr
-                        .iter()
-                        .filter_map(|v| v.as_f64().map(|f| f as f32))
-                        .collect(),
-                    _ => continue,
-                };
-                if doc_vec.len() != query_vec.len() {
-                    continue;
-                }
-                let score = compute_vector_similarity(similarity, query_vec, &doc_vec);
                 scored.push((id, score, src));
             }
         }
@@ -3748,11 +3781,10 @@ impl Index {
                 continue;
             };
             let text = text.to_string();
-            let vec = if let Some(proxy) = &*self.embedding_proxy {
-                // Chunk long text before embedding so a single document maps to
-                // a chunk-aware vector instead of one embedding of the whole
-                // (possibly truncated) field. Short text (<= chunk_size) yields
-                // one chunk == the exact pre-chunking behavior.
+            // Chunk once and embed EACH overlapping chunk. `chunk_vecs` is one
+            // embedding per passage (>= 1). Short text (<= chunk_size) yields a
+            // single chunk == the exact pre-chunking behavior.
+            let chunk_vecs: Vec<Vec<f32>> = if let Some(proxy) = &*self.embedding_proxy {
                 let chunks = semantic_chunker().chunk(&text, None);
                 let chunk_texts: Vec<String> = if chunks.len() <= 1 {
                     vec![text.clone()]
@@ -3764,20 +3796,35 @@ impl Index {
                         "semantic_text embed failed for field [{field}]: {e}"
                     )))
                 })?;
-                let vs: Vec<Vec<f32>> = vs.into_iter().filter(|v| !v.is_empty()).collect();
-                match vs.len() {
-                    0 => continue,
-                    // Single chunk: return the embedding as-is (pre-chunking
-                    // behavior — no re-normalization).
-                    1 => vs.into_iter().next().unwrap(),
-                    // Multiple chunks: L2-normalize each, mean-pool, re-normalize.
-                    _ => mean_pool_normalize(&vs),
-                }
+                vs.into_iter().filter(|v| !v.is_empty()).collect()
             } else {
-                local_chunk_embed(&text, dims)
+                local_chunk_vectors(&text, dims)
             };
-            let arr: Vec<Value> = vec.into_iter().map(|f| Value::from(f as f64)).collect();
-            obj.insert(target, Value::Array(arr));
+            // Pooled vector for `target`: single chunk is stored as-is (no
+            // re-normalization, matching pre-chunking behavior); multiple
+            // chunks are L2-normalized, mean-pooled, then re-normalized. This
+            // keeps `target` back-compatible for plain kNN and for callers
+            // that read the companion vector directly.
+            let pooled = match chunk_vecs.len() {
+                0 => continue,
+                1 => chunk_vecs[0].clone(),
+                _ => mean_pool_normalize(&chunk_vecs),
+            };
+            let arr: Vec<Value> = pooled.into_iter().map(|f| Value::from(f as f64)).collect();
+            obj.insert(target.clone(), Value::Array(arr));
+            // Per-chunk passage vectors — persisted ONLY when the document
+            // actually spans more than one chunk, under `<target>_chunks` as an
+            // array of vectors. Semantic search prefers these and scores by the
+            // best-matching passage (max-sim) instead of the blurred pooled
+            // average. Single-chunk docs store nothing extra, so their `_source`
+            // and single-vector scoring are byte-identical to before.
+            if chunk_vecs.len() > 1 {
+                let chunks_json: Vec<Value> = chunk_vecs
+                    .iter()
+                    .map(|cv| Value::Array(cv.iter().map(|f| Value::from(*f as f64)).collect()))
+                    .collect();
+                obj.insert(format!("{target}_chunks"), Value::Array(chunks_json));
+            }
         }
         Ok(source)
     }
@@ -16412,19 +16459,35 @@ fn mean_pool_normalize(vectors: &[Vec<f32>]) -> Vec<f32> {
     acc
 }
 
+/// Chunk `text` and embed each overlapping chunk with the built-in *local*
+/// embedder, returning one unit-norm vector per passage. Short text
+/// (<= chunk_size) produces a single chunk, so the result is
+/// `vec![local_embed(text, dims)]`. This is the per-chunk primitive used by
+/// the auto-embed-on-ingest path to persist passage vectors for max-sim
+/// semantic scoring.
+fn local_chunk_vectors(text: &str, dims: usize) -> Vec<Vec<f32>> {
+    let chunks = semantic_chunker().chunk(text, None);
+    if chunks.len() <= 1 {
+        return vec![xerj_ai::local::local_embed(text, dims)];
+    }
+    chunks
+        .iter()
+        .map(|c| xerj_ai::local::local_embed(&c.text, dims))
+        .collect()
+}
+
 /// Chunk `text` and mean-pool the per-chunk *local* embeddings into a single
 /// unit-norm vector of length `dims`. Short text (<= chunk_size) produces a
 /// single chunk, so the result is exactly `local_embed(text, dims)` — a no-op
-/// relative to the pre-chunking behavior.
+/// relative to the pre-chunking behavior. Retained as the reference pooled
+/// path the per-chunk tests assert against (the ingest path now stores the
+/// per-chunk vectors directly via [`local_chunk_vectors`]).
+#[cfg(test)]
 fn local_chunk_embed(text: &str, dims: usize) -> Vec<f32> {
-    let chunks = semantic_chunker().chunk(text, None);
-    if chunks.len() <= 1 {
-        return xerj_ai::local::local_embed(text, dims);
+    let vecs = local_chunk_vectors(text, dims);
+    if vecs.len() <= 1 {
+        return vecs.into_iter().next().unwrap_or_default();
     }
-    let vecs: Vec<Vec<f32>> = chunks
-        .iter()
-        .map(|c| xerj_ai::local::local_embed(&c.text, dims))
-        .collect();
     mean_pool_normalize(&vecs)
 }
 
@@ -17404,5 +17467,70 @@ mod chunk_embed_tests {
         let pooled = mean_pool_normalize(&[a, b]);
         assert_eq!(pooled.len(), DEFAULT_DIMS);
         assert!((l2_norm(&pooled) - 1.0).abs() < 1e-4);
+    }
+
+    /// `local_chunk_vectors` returns one unit-norm vector PER passage for a
+    /// multi-chunk document, and pooling those equals `local_chunk_embed`.
+    #[test]
+    fn chunk_vectors_are_per_passage_and_pool_consistently() {
+        let text =
+            "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. "
+                .repeat(20);
+        let n_chunks = semantic_chunker().chunk(&text, None).len();
+        assert!(n_chunks > 1, "fixture must span multiple chunks");
+
+        let vecs = local_chunk_vectors(&text, DEFAULT_DIMS);
+        assert_eq!(vecs.len(), n_chunks, "one vector per chunk");
+        for v in &vecs {
+            assert_eq!(v.len(), DEFAULT_DIMS);
+            assert!(
+                (l2_norm(v) - 1.0).abs() < 1e-4,
+                "each passage vector unit-norm"
+            );
+        }
+        // Pooling the per-chunk vectors reproduces the pooled companion.
+        assert_eq!(
+            mean_pool_normalize(&vecs),
+            local_chunk_embed(&text, DEFAULT_DIMS)
+        );
+    }
+
+    /// The whole point of per-chunk storage: a query that matches ONE buried
+    /// passage of a long document scores higher against the best chunk
+    /// (max-sim) than against the blurred whole-document pooled vector. This
+    /// is the vector-level invariant the ingest+query wiring relies on.
+    #[test]
+    fn max_sim_over_chunks_beats_pooled_for_a_buried_passage() {
+        // A long document whose passages cover distinct topics; the topic of
+        // interest ("photosynthesis chloroplast ...") is only ONE passage.
+        let filler =
+            "quarterly revenue guidance and operating margins for the fiscal year. ".repeat(12);
+        let target_passage =
+            "photosynthesis converts sunlight into chemical energy inside the chloroplast \
+             of a plant cell using chlorophyll pigments. ";
+        let doc = format!("{filler}{target_passage}{filler}");
+        assert!(
+            semantic_chunker().chunk(&doc, None).len() > 1,
+            "doc must span multiple chunks"
+        );
+
+        let query = "how does chlorophyll drive photosynthesis in a chloroplast";
+        let q = local_embed(query, DEFAULT_DIMS);
+
+        // Pooled: the whole-doc average vector (what we stored before).
+        let pooled = local_chunk_embed(&doc, DEFAULT_DIMS);
+        let pooled_score = compute_vector_similarity("cosine", &q, &pooled);
+
+        // Per-chunk: best-matching passage (what semantic search now uses).
+        let chunk_vecs = local_chunk_vectors(&doc, DEFAULT_DIMS);
+        let max_sim = chunk_vecs
+            .iter()
+            .map(|cv| compute_vector_similarity("cosine", &q, cv))
+            .fold(f32::MIN, f32::max);
+
+        assert!(
+            max_sim > pooled_score,
+            "best-passage max-sim ({max_sim}) should beat pooled ({pooled_score})"
+        );
     }
 }

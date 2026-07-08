@@ -8,6 +8,7 @@ These are practical "how do I actually do X" recipes, not an API reference (that
 |---|---|---|
 | [Give an AI agent long-term memory](./agentic-memory.md) | A memory-backed agent using the `/_memory` API (store, semantic + keyword recall, metadata filters, forgetting, per-agent isolation) | [`agent_memory.py`](../examples/agentic-memory/agent_memory.py) |
 | [Semantic search & RAG](./semantic-search-rag.md) | Retrieval by meaning with `semantic_text` (auto-embed on ingest, no separate vector DB) | [`rag_demo.py`](../examples/semantic-search-rag/rag_demo.py) |
+| [Passage retrieval on long docs](./passage-retrieval.md) | `semantic_text` auto-embeds every overlapping passage; a long doc competes on any one of its sections via best-passage (max-sim) scoring — 98% top-3 vs 32% pooled | [`passage_demo.py`](../examples/passage-retrieval/passage_demo.py) |
 | [Log analytics](./log-analytics.md) | From raw logs to dashboards — error rates, p95 latency, top services via aggregations | [`log_analytics.py`](../examples/log-analytics/log_analytics.py) |
 | [Vector search (kNN)](./vector-search-knn.md) | Nearest-neighbor similarity search over `dense_vector` (HNSW), with filters | [`knn_demo.py`](../examples/vector-search-knn/knn_demo.py) |
 | [Vector quantization](./vector-quantization.md) | Opt a `dense_vector` field into scalar8 (`int8_hnsw`) — 4× smaller vectors, recall@10 ≈ 0.99 | [`quant_demo.py`](../examples/vector-quantization/quant_demo.py) |

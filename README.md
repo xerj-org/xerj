@@ -249,10 +249,12 @@ If a test expects a response and XERJ returns something different, that's a bug 
 XERJ ships full-text, aggregation, log-analytics, dense-vector kNN, and hybrid search. **rc-2** added three AI-adjacent capabilities (each conformance-gated and verified by real requests):
 
 - **Auto-embed on ingest + a built-in embedder** — `semantic_text` works with zero external config; the built-in embedder is lexical (a bundled *neural* model is still future work).
+- **Ingest-time chunk-embedding** — long `semantic_text` values embed **per overlapping passage**, and `semantic` search scores by the best-matching passage (max-sim), so a long document is retrievable on any one of its sections.
 - **Agent-memory REST API** — `POST /_memory/{ns}` store, `/_recall` (kNN or BM25 + metadata filter), list/forget/drop; namespaced and offline.
-- **Anomaly detection (`_ml`)** — real statistical detectors with baseline + deviation scoring (on-demand; continuous datafeeds and forecasting are future work).
+- **Anomaly detection (`_ml`)** — real statistical detectors with baseline + deviation scoring, on-demand **and** via continuous `_ml/datafeeds` (a background job re-scores a live index on a timer; forecasting is still future work).
+- **Vector quantization** — opt a `dense_vector` field into **scalar8** (`int8_hnsw`) for ~4× smaller vectors at recall@10 ≈ 0.99.
 
-Still planned: a bundled neural embedding model, an ingest-time chunk-embedding pipeline, continuous anomaly datafeeds, and distributed-clustering hardening. See [ROADMAP.md](./ROADMAP.md) for the full status and honest limitations.
+Still planned: a bundled neural embedding model and distributed-clustering hardening. See [ROADMAP.md](./ROADMAP.md) for the full status and honest limitations.
 
 ---
 

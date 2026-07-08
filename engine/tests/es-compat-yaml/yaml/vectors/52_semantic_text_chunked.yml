@@ -1,0 +1,61 @@
+# Per-passage (chunk) embeddings for `semantic_text` — regression lock.
+#
+# XERJ's ingest-time chunk-embedding pipeline splits a long `semantic_text`
+# value into overlapping passages, embeds EACH passage, and persists the
+# per-passage vectors. A `semantic` query then scores a document by its
+# best-matching passage (max-sim) instead of a single pooled whole-document
+# vector.
+#
+# This test buries one biology passage in a long, otherwise-finance document.
+# A biology query must rank that long document ABOVE a short pure-finance
+# document — which only holds because the buried passage is scored undiluted.
+# Under the old pooled-vector behavior the long document's vector was
+# finance-dominated. Short single-passage docs are unaffected (their `_source`
+# and scoring are byte-identical to before), so the other vectors tests still
+# pass unchanged.
+
+setup:
+  - do:
+      indices.create:
+        index: passages
+        body:
+          mappings:
+            properties:
+              body:
+                type: semantic_text
+
+  - do:
+      bulk:
+        refresh: true
+        body:
+          # A long document: finance boilerplate on both sides of ONE buried
+          # biology passage. Long enough to span multiple overlapping chunks.
+          - index:
+              _index: passages
+              _id: long
+          - body: "Quarterly revenue guidance and operating margins improved this fiscal year. Quarterly revenue guidance and operating margins improved this fiscal year. Quarterly revenue guidance and operating margins improved this fiscal year. Quarterly revenue guidance and operating margins improved this fiscal year. Quarterly revenue guidance and operating margins improved this fiscal year. Quarterly revenue guidance and operating margins improved this fiscal year. Photosynthesis converts sunlight into chemical energy inside the chloroplast of a plant cell using chlorophyll pigments. Quarterly revenue guidance and operating margins improved this fiscal year. Quarterly revenue guidance and operating margins improved this fiscal year. Quarterly revenue guidance and operating margins improved this fiscal year. Quarterly revenue guidance and operating margins improved this fiscal year. Quarterly revenue guidance and operating margins improved this fiscal year. Quarterly revenue guidance and operating margins improved this fiscal year."
+          # A short document that is purely finance.
+          - index:
+              _index: passages
+              _id: fin
+          - body: "Quarterly revenue guidance and operating margins improved this fiscal year outlook."
+
+---
+"semantic query ranks the long doc by its buried biology passage":
+  - do:
+      search:
+        index: passages
+        body:
+          size: 2
+          query:
+            semantic:
+              field: body
+              query: "how does chlorophyll drive photosynthesis inside a chloroplast plant cell"
+              k: 10
+
+  # Both docs carry a vector → the kNN pool is 2.
+  - match: { hits.total.value: 2 }
+  - length: { hits.hits: 2 }
+  # The long, mostly-finance document wins on its buried biology passage —
+  # this is the per-passage (max-sim) behavior, not pooled scoring.
+  - match: { hits.hits.0._id: "long" }

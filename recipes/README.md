@@ -23,6 +23,7 @@ xerj --insecure --data-dir ./data &
 
 # 3. run any recipe
 python3 recipes/semantic_search.py
+python3 recipes/passage_search.py
 python3 recipes/rag_app.py
 python3 recipes/memory_agent.py     # run twice — memory persists
 python3 recipes/log_anomaly.py
@@ -37,6 +38,7 @@ Every recipe honors `XERJ_URL` (default `http://localhost:9200`).
 | File | What it shows | Real workload |
 |---|---|---|
 | [`semantic_search.py`](semantic_search.py) | BM25 vs semantic vs hybrid (RRF) retrieval on one `semantic_text` field | `demo/data/ai_kb.ndjson` — 40 hand-written AI-engineering articles |
+| [`passage_search.py`](passage_search.py) | **Per-passage** retrieval on long docs: `semantic_text` auto-embeds every overlapping chunk, so a long document competes on any one of its sections (98% top-3 vs 32% for a single pooled vector) | Same 40 articles + a long "compendium" of all 40 |
 | [`rag_app.py`](rag_app.py) | A full RAG pipeline: HTML→text→chunk→index→hybrid-retrieve→answer, with a retrieval eval and citations | XERJ's own docs (`landing/docs/*.html`) — ~96 chunks over 23 pages |
 | [`memory_agent.py`](memory_agent.py) | A triage agent with **persistent** long-term memory via the `/_memory` API: recall similar past incidents, decide, remember | Real OpenSSH attack capture (`engine/demo-data/ssh_one.ndjson`, logpai/loghub) |
 | [`log_anomaly.py`](log_anomaly.py) | Statistical anomaly detection (`_ml`) finding brute-force spikes over a moving baseline, then attributing the worst hour | Same real SSH capture (655k events) |
@@ -46,6 +48,9 @@ Every recipe honors `XERJ_URL` (default `http://localhost:9200`).
 
 - **semantic_text auto-embedding** — documents embed at ingest with no
   config; `semantic` queries embed the question the same way.
+- **ingest-time chunk-embedding** — long `semantic_text` values are split
+  into overlapping passages and embedded per-passage; `semantic` scores a
+  document by its best-matching passage (max-sim), not a pooled average.
 - **hybrid queries** — `bool`/`match` fused with `semantic`/`knn` via
   Reciprocal Rank Fusion in one query tree.
 - **Agent-Memory API** — `POST /_memory/{ns}`, `_recall`, backed by a

@@ -40,7 +40,29 @@ A namespaced agent-memory API, backed by regular XERJ indices (reusing document 
 A real statistical detector replaces the empty compat stubs:
 `PUT /_ml/anomaly_detectors/{id}` (create: source index, time field, function `count|mean|min|max|sum`, bucket span, threshold), `GET` (fetch/list — returns real jobs), `POST /_ml/anomaly_detectors/{id}/_score` (buckets the source over time, builds a moving mean/stddev baseline, flags buckets deviating beyond the threshold with a normalized anomaly score), `DELETE`. Live-verified: a 500-value spike among 24 baseline buckets of ~10 was correctly flagged (`is_anomaly:true`, `anomaly_score:100`), and `DELETE` removed the job from subsequent `GET`s.
 
-- **Limitation:** on-demand scoring only (`POST _score`) — no continuous datafeed scheduler, no forecasting, no influencers/model-plot, single-node config registry. When the baseline std_dev is 0 the z-score is a placeholder (`1000000`). `_cat/ml/datafeeds` and `_cat/ml/trained_models` remain valid empty stubs.
+- **Limitation:** on-demand scoring only (`POST _score`) — no continuous datafeed scheduler, no forecasting, no influencers/model-plot, single-node config registry. When the baseline std_dev is 0 the z-score is a placeholder (`1000000`). `_cat/ml/datafeeds` and `_cat/ml/trained_models` remain valid empty stubs. (The continuous datafeed scheduler has since landed — see below.)
+
+## Landed since rc-2 (on `main`, unreleased)
+
+These shipped after rc-2 during the RC3 gap-closure and AI-use-case pass. Each is conformance-gated (full ES-compat YAML suite green) and ships a runnable recipe + docs.
+
+### 4. Real scalar8 vector quantization (serving path) ✅
+
+A `dense_vector` field can opt into **scalar8** (int8) quantization via `index_options.type: int8_hnsw`. The kNN *serving* path scores against 1-byte-per-dimension codes (≈4× smaller vector working set) while `_source` still returns the original float32 vectors. Live-verified on a 128-dim corpus: **recall@10 ≈ 0.99** vs exact float32, footprint 512 → 128 B/vec. Recipe: `recipes/vector_quantization.py`; guide: `docs/recipes/vector-quantization.md`.
+
+- **Limitation:** `binary` (1-bit) is still rejected at startup rather than faked; scalar4/offload remain future work.
+
+### 5. Continuous anomaly datafeeds (`_ml/datafeeds`) ✅
+
+The datafeed scheduler that rc-2 lacked: `PUT/GET/DELETE /_ml/datafeeds/{id}` + `_start`/`_stop`, and `GET /_ml/anomaly_detectors/{job}/results/records`. A background task re-buckets a live index on a timer and appends newly-flagged anomaly records you poll — a second spike is detected with no second call. Live-verified end-to-end. Recipe: `recipes/anomaly_datafeed.py`; guide: `docs/recipes/continuous-anomaly-datafeeds.md`.
+
+- **Limitation:** single-node scheduler; no forecasting/influencers.
+
+### 6. Ingest-time chunk-embedding pipeline (per-passage vectors) ✅
+
+Long `semantic_text` values are split into overlapping passages, embedded **per passage**, and the per-passage vectors persisted (in `<field>_vector_chunks`, only when a value spans >1 passage). A `semantic` query scores each document by its **best-matching passage** (max-sim) instead of a single pooled vector, so a long document competes on any one of its sections. Live-verified: on 40 articles + a compendium of all 40, the compendium reached top-3 for **98%** of single-topic queries with per-passage scoring vs **32%** pooled. Short single-passage values are byte-identical to before. Recipe: `recipes/passage_search.py`; guide: `docs/recipes/passage-retrieval.md`.
+
+- **Limitation:** the built-in embedder is still lexical (per-passage vectors are only as good as the embedder); a bundled neural model remains future work. A field that is *also* scalar8-quantized scores against the pooled vector (per-passage max-sim is exact-f32 only).
 
 ## Partial / in progress
 
@@ -82,8 +104,7 @@ Counting these toward "supported query types" overstates correctness — they re
 ### Neural embeddings & richer ML
 
 - A bundled/local **neural** embedding model (the current built-in embedder is lexical).
-- An ingest-time embedding pipeline with the existing text chunker (overlapping chunks → per-chunk vectors).
-- Continuous anomaly datafeeds (real-time jobs) and forecasting for capacity/write-load signals.
+- Forecasting for capacity/write-load signals (continuous `_ml` datafeeds have landed — see "Landed since rc-2"; the ingest-time per-passage chunk-embedding pipeline has also landed).
 
 ### Correctness of stubbed surface
 
