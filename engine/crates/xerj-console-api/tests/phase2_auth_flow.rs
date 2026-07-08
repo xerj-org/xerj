@@ -24,7 +24,11 @@ use serde_json::{json, Value};
 use tempfile::TempDir;
 use tower::ServiceExt;
 use xerj_common::config::Config;
-use xerj_console_api::{state::ClusterMode, xerj_console_router, ConsoleState};
+use xerj_console_api::{
+    auth::{sessions, store},
+    state::ClusterMode,
+    xerj_console_router, ConsoleState,
+};
 use xerj_engine::Engine;
 
 async fn boot() -> (Engine, Router, TempDir, String) {
@@ -70,6 +74,54 @@ fn post_json(path: &str, body: Value) -> Request<Body> {
         .header("content-type", "application/json")
         .body(Body::from(body.to_string()))
         .unwrap()
+}
+
+fn post_json_cookie(path: &str, body: Value, cookie: &str) -> Request<Body> {
+    Request::builder()
+        .method("POST")
+        .uri(path)
+        .header("content-type", "application/json")
+        .header("cookie", cookie)
+        .body(Body::from(body.to_string()))
+        .unwrap()
+}
+
+/// Boot a console with a single active user of the given role plus a signed
+/// session cookie for them, bypassing the WebAuthn dance the same way the
+/// phase-3 suite does. Returns the engine (for direct store assertions), the
+/// router, the cookie header value, and the temp dir (kept alive by the
+/// caller so the data dir isn't reaped mid-test).
+async fn boot_with_role(role: &str) -> (Engine, Router, String, TempDir) {
+    let dir = TempDir::new().unwrap();
+    let mut cfg = Config::default();
+    cfg.server.data_dir = dir.path().to_str().unwrap().to_string();
+    let engine = Engine::new(cfg).expect("engine");
+    let outcome = xerj_console_api::bootstrap::run(&engine, dir.path(), "http://localhost:9200")
+        .await
+        .expect("bootstrap");
+    let state = ConsoleState::new(
+        engine.clone(),
+        "local".into(),
+        outcome.master_key,
+        ClusterMode::Standalone,
+    );
+
+    let user = store::User {
+        id: format!("{role}-test"),
+        email: format!("{role}@example.com"),
+        display_name: role.to_string(),
+        role: role.to_string(),
+        status: store::UserStatus::Active,
+        created_at: xerj_console_api::time::now_iso(),
+        last_seen_at: Some(xerj_console_api::time::now_iso()),
+    };
+    store::upsert_user(&engine, &user).await.unwrap();
+    let (_session, signed) = sessions::mint_session(&state, &user.id, "passkey", None, None)
+        .await
+        .unwrap();
+    let cookie = format!("xerj_session={signed}");
+
+    (engine, xerj_console_router(state), cookie, dir)
 }
 
 #[tokio::test]
@@ -353,6 +405,7 @@ async fn known_routes_grew() {
     assert!(routes.len() >= 10, "phase 2 must register 10+ routes");
     for required in &[
         "/_xerj-console/api/v1/auth/magic/redeem",
+        "/_xerj-console/api/v1/auth/magic/issue",
         "/_xerj-console/api/v1/auth/passkey/begin",
         "/_xerj-console/api/v1/auth/passkey/finish",
         "/_xerj-console/api/v1/auth/login/begin",
@@ -363,4 +416,123 @@ async fn known_routes_grew() {
     ] {
         assert!(routes.contains(required), "missing route: {required}");
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Magic-link issue (admin invite)
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn magic_issue_as_admin_provisions_pending_invitee_and_redeems() {
+    let (engine, router, cookie, _dir) = boot_with_role("admin").await;
+
+    // Admin mints an invite for a brand-new address.
+    let r = router
+        .clone()
+        .oneshot(post_json_cookie(
+            "/_xerj-console/api/v1/auth/magic/issue",
+            json!({ "email": "invitee@example.com", "role": "editor" }),
+            &cookie,
+        ))
+        .await
+        .unwrap();
+    let (status, body) = body_json(r).await;
+    assert_eq!(status, 200, "issue: {body}");
+    let token = body["data"]["token"].as_str().unwrap().to_string();
+    assert!(token.len() > 30, "token looks too short: {body}");
+    assert_eq!(body["data"]["role"], "editor");
+    assert_eq!(body["data"]["purpose"], "invite");
+    assert_eq!(body["data"]["email"], "invitee@example.com");
+    assert!(
+        body["data"]["link"]
+            .as_str()
+            .unwrap()
+            .contains("/setup#token="),
+        "issue must return a setup link: {body}"
+    );
+
+    // A *pending* invitee row now exists with the requested role.
+    let invitee = store::find_user_by_email(&engine, "invitee@example.com")
+        .await
+        .unwrap()
+        .expect("invitee must be provisioned");
+    assert_eq!(invitee.status, store::UserStatus::Pending);
+    assert_eq!(invitee.role, "editor");
+
+    // The freshly-issued token redeems into an enrollment session bound to
+    // the invited identity. (The invitee only flips to active once they
+    // finish enrolling a passkey, which needs a real authenticator, so this
+    // is as far as a server-only test can drive it.)
+    let r = router
+        .clone()
+        .oneshot(post_json(
+            "/_xerj-console/api/v1/auth/magic/redeem",
+            json!({ "token": token }),
+        ))
+        .await
+        .unwrap();
+    let (status, body) = body_json(r).await;
+    assert_eq!(status, 200, "redeem: {body}");
+    assert_eq!(body["data"]["role"], "editor");
+    assert_eq!(body["data"]["email"], "invitee@example.com");
+    assert!(
+        body["data"]["enrollment_session_id"]
+            .as_str()
+            .unwrap()
+            .len()
+            > 30
+    );
+
+    // Single-use: the invite cannot be redeemed a second time.
+    let r = router
+        .oneshot(post_json(
+            "/_xerj-console/api/v1/auth/magic/redeem",
+            json!({ "token": token }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 401, "an issued invite must be single-use");
+}
+
+#[tokio::test]
+async fn magic_issue_requires_admin_or_owner() {
+    // An authenticated but under-privileged session must be forbidden.
+    let (_engine, router, cookie, _dir) = boot_with_role("viewer").await;
+    let r = router
+        .oneshot(post_json_cookie(
+            "/_xerj-console/api/v1/auth/magic/issue",
+            json!({ "email": "someone@example.com", "role": "viewer" }),
+            &cookie,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 403, "a viewer must not be able to invite");
+}
+
+#[tokio::test]
+async fn magic_issue_admin_cannot_grant_owner() {
+    // Privilege ceiling: an admin cannot mint an owner-role invite.
+    let (_engine, router, cookie, _dir) = boot_with_role("admin").await;
+    let r = router
+        .oneshot(post_json_cookie(
+            "/_xerj-console/api/v1/auth/magic/issue",
+            json!({ "email": "boss@example.com", "role": "owner" }),
+            &cookie,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 403, "admin must not be able to mint an owner");
+}
+
+#[tokio::test]
+async fn magic_issue_without_session_returns_401() {
+    let (_engine, router, _cookie, _dir) = boot_with_role("admin").await;
+    let r = router
+        .oneshot(post_json(
+            "/_xerj-console/api/v1/auth/magic/issue",
+            json!({ "email": "someone@example.com", "role": "viewer" }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 401, "unauthenticated issue must be rejected");
 }

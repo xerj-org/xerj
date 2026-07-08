@@ -52,6 +52,11 @@ pub fn xerj_console_router(state: ConsoleState) -> Router {
             "/_xerj-console/api/v1/auth/magic/redeem",
             post(auth::magic::redeem),
         )
+        // ── API: invite issue (owner/admin session required) ───────────────
+        .route(
+            "/_xerj-console/api/v1/auth/magic/issue",
+            post(auth::magic::issue),
+        )
         .route(
             "/_xerj-console/api/v1/auth/passkey/begin",
             post(auth::passkey::begin),
@@ -141,6 +146,7 @@ pub fn known_routes() -> &'static [&'static str] {
         "/_xerj-console/*rest",
         "/_xerj-console/api/v1/cluster/info",
         "/_xerj-console/api/v1/auth/magic/redeem",
+        "/_xerj-console/api/v1/auth/magic/issue",
         "/_xerj-console/api/v1/auth/passkey/begin",
         "/_xerj-console/api/v1/auth/passkey/finish",
         "/_xerj-console/api/v1/auth/login/begin",
