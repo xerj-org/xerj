@@ -26,6 +26,7 @@ python3 recipes/semantic_search.py
 python3 recipes/rag_app.py
 python3 recipes/memory_agent.py     # run twice — memory persists
 python3 recipes/log_anomaly.py
+python3 recipes/vector_quantization.py
 ```
 
 Every recipe honors `XERJ_URL` (default `http://localhost:9200`).

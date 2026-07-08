@@ -26,7 +26,7 @@ export XERJ_URL="http://127.0.0.1:${ESPORT}"
 
 "$XERJ_BIN" --insecure --config "$DATA/xerj.toml" >"$DATA/server.log" 2>&1 &
 SRV=$!
-trap 'kill "$SRV" 2>/dev/null || true; rm -rf "$DATA"' EXIT INT TERM
+trap 'kill "$SRV" 2>/dev/null || true; wait "$SRV" 2>/dev/null || true; rm -rf "$DATA" 2>/dev/null || true' EXIT INT TERM
 
 i=0
 until curl -fsS "$XERJ_URL/" >/dev/null 2>&1; do
@@ -35,7 +35,7 @@ until curl -fsS "$XERJ_URL/" >/dev/null 2>&1; do
 done
 
 rc=0
-for r in semantic_search rag_app memory_agent log_anomaly; do
+for r in semantic_search rag_app memory_agent log_anomaly vector_quantization; do
   printf '\n═══ %s ═══\n' "$r"
   if python3 "$ROOT/recipes/$r.py"; then :; else echo "FAILED: $r"; rc=1; fi
 done
