@@ -57,20 +57,60 @@ block on the merge lock, WHY are they 19.5 s? Candidates to instrument next:
    flush) — but that was ~60-90 ms historically, not 19.5 s, so it's at most a
    contributor.
 
-## Next-iteration plan (focused, gated)
-1. Clean minimal repro: modest sustained writer (~120k/s, non-colliding, no
-   early cap), merges ON, measure SUCCESSFUL range-agg p99 + capture a stack
-   sample (or add temporary `XERJ_DBG_MIXED` timing spans around
-   memtable-scan / segment-fan-out / lock-acquire in the read path) to
-   attribute the 19.5 s to a specific span. Isolate one variable at a time.
-2. Separately, a clean repro of the `store_exception` (slow reader + concurrent
-   merge + deferred GC). If real, fix by pinning segment files for a
-   snapshot's lifetime (epoch/refcount on the segment set the reader holds).
-3. Only then implement — likely: (a) reader snapshot pins files against GC
-   (closes the race and lets deferred GC stay), and/or (b) cut the read's
-   per-segment fan-out cost so it never runs multi-second under a churny
-   segment set. Hard gate: full ES-compat YAML 1360/0 + the clean mixed repro
-   showing p99 back to low-double-digit ms + no store_exception.
+## UPDATE — gdb root-cause session (2026-07-08, same day)
+Built a symbolicated binary (`RUSTFLAGS=-C force-frame-pointers=yes
+CARGO_PROFILE_RELEASE_STRIP=false CARGO_PROFILE_RELEASE_DEBUG=1`; the release
+profile has `strip=true` so a plain `debug=1` is NOT enough) and attached gdb
+during live stalls (`scratchpad/gdb_catch.sh` fires a range-agg read, snapshots
+all threads if it's still running after 0.6 s). Caught 8.5 s / 20.9 s / 7.5 s
+reads with full stacks. Findings:
 
-Use a worktree agent for the implementation (delicate hot-path, per the
-established pattern) with the clean repro as the win metric.
+**CONFIRMED (transferable):**
+- The stall is **LOCK-BOUND, not CPU-bound.** During a 20.9 s read: CPU ~306 %
+  (~3 of 32 cores), and **358–362 of 363 threads SLEEPING** (`/proc` state S,
+  not D). This definitively refutes CPU-scheduling contention (matches the
+  prior dedicated-merge-pool A/B refutation) — the read WAITS, it does not work.
+- The contention is on **`FtsMemtable` per-shard `parking_lot::RwLock`.** Stacks
+  show readers parked in `RwLock::read`→`lock_shared_slow` and a writer parked
+  in `RwLock::write`→`wait_for_readers` — the classic parking_lot
+  writer-preference cascade (new readers queue behind a waiting writer). Also
+  ~294 `xerj-rt` runtime threads exist (worker+blocking pool), almost all
+  parked.
+- The slow range-agg READ itself has NO frames on any stack → it is
+  **async-suspended at an `.await`**, waiting, not running.
+
+**CRITICAL REPRO CORRECTION (honesty — my numbers were unrepresentative):**
+`scratchpad/load_driver.py` wrote with **explicit `_id`s** →
+`process_bulk_with_opts`→`index_document`→`ShardedFtsMemtable::remove`
+(memtable.rs:619) takes a shard **write lock PER DOCUMENT** (remove-before-
+insert). The real benchmark (`bench-matrix.mjs:424,470`) writes **auto-id
+`{"index":{}}`** → the turbo/chunked path (one write lock per ~512-doc chunk).
+So my ~20 s stalls are **amplified ~100×** by an unrepresentative write path;
+the real magnitude is the documented **62–152 ms**. Additionally, the captured
+readers were mostly `shard_loads()` (index.rs:2290) — the **flush SCHEDULER**,
+i.e. write-side self-contention, NOT the read path. So I did NOT yet capture the
+representative read-under-write contention. (Disciplined check: I verified the
+benchmark's write mode BEFORE "fixing" the per-doc `remove()` — which would have
+been chasing an artifact.)
+
+## Corrected next-iteration plan (focused, gated)
+1. **Representative repro:** rewrite the load driver to use **auto-id
+   `{"index":{}}`** (turbo path) like the real benchmark, sustained ~120k/s,
+   merges ON. Re-attach gdb during a stall and identify (a) which lock the
+   range-agg READ future ultimately awaits/blocks on, and (b) which thread
+   HOLDS it and for how long. The mechanism is almost certainly still
+   `FtsMemtable` shard RwLock, but under the turbo writer the magnitude and the
+   exact holder differ — capture it, don't assume.
+2. Likely fix directions (design carefully, do NOT rush): make read-path shard
+   access not starve under writers — e.g. snapshot the memtable via an Arc/
+   epoch so reads are lock-free, or split the read fold so it never holds
+   `s.read()` across expensive work, or bias the lock toward readers. Each is a
+   delicate hot-path change.
+3. The `store_exception` file-race flag still stands — clean repro separately;
+   fix by pinning segment files per reader snapshot.
+Hard gate for any fix: full ES-compat YAML 1360/0 + the representative auto-id
+repro showing mixed p99 back to low-double-digit ms + no store_exception. Use a
+worktree agent for the implementation.
+
+Artifacts: `scratchpad/gdb_catch.sh`, `scratchpad/load_driver.py` (NOTE: fix to
+auto-id), `scratchpad/gdb_dump_*.txt` (symbolicated stacks).
