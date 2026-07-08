@@ -40,3 +40,38 @@ setup:
   - match: { hits.total.value: 1 }
   - match: { hits.hits.0._id: "1" }
 
+---
+"Test combined_fields default-operator (OR) with tokens scattered across fields":
+  - requires:
+      cluster_features: ["gte_v7.13.0"]
+      reason: "combined fields query was introduced in 7.13"
+  # `clocks` occurs only in `title`; `happening` occurs only in `abstract`.
+  # No single field contains the whole query, so the default-operator (OR)
+  # case must POOL tokens across fields — otherwise the doc silently
+  # returned 0 hits. The scored path must also give it a non-zero _score.
+  - do:
+      search:
+        index: test
+        body:
+          query:
+            combined_fields:
+              query: "clocks happening"
+              fields: ["title", "abstract"]
+
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "1" }
+  - gt: { hits.hits.0._score: 0.0 }
+
+  # A single scattered token still matches under OR.
+  - do:
+      search:
+        index: test
+        body:
+          query:
+            combined_fields:
+              query: "clocks nonexistentword"
+              fields: ["title", "abstract"]
+
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "1" }
+

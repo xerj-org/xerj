@@ -12785,6 +12785,20 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                     .filter(|t| !t.is_empty())
                     .collect();
                 tokens.iter().all(|t| combined_tokens.contains(t.as_str()))
+            } else if is_cross && !tokens.is_empty() {
+                // cross_fields + operator OR (the default, used by
+                // `combined_fields`): admit the hit if ANY query token
+                // appears in the pooled (combined) text of the listed
+                // fields. Without this, a multi-token query whose tokens
+                // are scattered across fields fell through to the
+                // substring-of-whole-query branch below and returned 0
+                // hits even though every token was present somewhere.
+                let combined = field_texts.join(" ");
+                let combined_tokens: std::collections::HashSet<&str> = combined
+                    .split(|c: char| !c.is_alphanumeric())
+                    .filter(|t| !t.is_empty())
+                    .collect();
+                tokens.iter().any(|t| combined_tokens.contains(t.as_str()))
             } else if is_and && !tokens.is_empty() {
                 // best_fields + operator AND: a single field must hold
                 // every token.
@@ -14100,6 +14114,7 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
         } => {
             let q_lower = query.to_lowercase();
             let outer_boost = boost.unwrap_or(1.0);
+            let is_cross = matches!(match_type, xerj_query::ast::MultiMatchType::CrossFields);
             let mut sum_score = 0.0f32;
             let mut max_score = 0.0f32;
             let mut matched = false;
@@ -14116,6 +14131,53 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
                 }
             }
             if !matched {
+                // cross_fields (combined_fields) pools tokens across fields:
+                // a multi-token query whose tokens are scattered across the
+                // fields matches even though no single field contains the
+                // whole query. Mirror the doc_matches_query pooling so such
+                // hits score non-zero (was returning 0.0 → dropped by scored
+                // paths / rescore). Score is the fraction of query tokens
+                // present in the pooled text, times the outer boost.
+                if is_cross {
+                    let tokens: Vec<&str> = q_lower
+                        .split(|c: char| !c.is_alphanumeric())
+                        .filter(|t| !t.is_empty())
+                        .collect();
+                    if !tokens.is_empty() {
+                        let combined = fields
+                            .iter()
+                            .filter_map(|fs| {
+                                let (f, _) = parse_field_boost(fs);
+                                match get_field_value(source, f) {
+                                    Some(Value::String(s)) => Some(s.to_lowercase()),
+                                    Some(Value::Array(arr)) => Some(
+                                        arr.iter()
+                                            .map(|v| match v {
+                                                Value::String(s) => s.to_lowercase(),
+                                                other => other.to_string(),
+                                            })
+                                            .collect::<Vec<_>>()
+                                            .join(" "),
+                                    ),
+                                    Some(other) => Some(other.to_string().to_lowercase()),
+                                    None => None,
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                            .join(" ");
+                        let combined_tokens: std::collections::HashSet<&str> = combined
+                            .split(|c: char| !c.is_alphanumeric())
+                            .filter(|t| !t.is_empty())
+                            .collect();
+                        let hits = tokens
+                            .iter()
+                            .filter(|t| combined_tokens.contains(**t))
+                            .count();
+                        if hits > 0 {
+                            return (hits as f32 / tokens.len() as f32) * outer_boost;
+                        }
+                    }
+                }
                 return 0.0;
             }
             let combined = if matches!(match_type, xerj_query::ast::MultiMatchType::MostFields) {
