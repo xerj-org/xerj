@@ -64,14 +64,14 @@
       <span class="card-k">01 · SECURITY ANALYTICS</span>
       <span class="card-t">SIEM AT<br><span class="accent">AI SPEED.</span></span>
       <span class="card-b">
-        SIEM queries run in milliseconds instead of seconds. 74×
-        faster top-source-IPs on 1 M events. Agents triage tier-1
-        without budget-burn. MTTD drops.
+        SIEM queries run in milliseconds instead of seconds. Exact,
+        pre-computed terms aggregations over millions of events.
+        Agents triage tier-1 without budget-burn. MTTD drops.
       </span>
       <span class="card-facts">
         FOR CISO · SOC LEAD<br>
-        74× FASTER SIEM AGG · 0.4 MS P95 · 1 M EVENTS<br>
-        21× LESS MEMORY vs 4-NODE ES
+        SUB-SECOND SIEM TOP-N OVER MILLIONS OF EVENTS<br>
+        21× LESS MEMORY vs 4-NODE ES · MEASURED 2026-04 · v0.6.0
       </span>
       <span class="card-cta">EXPLORE SECURITY ANALYTICS  →</span>
     </a>
@@ -86,7 +86,7 @@
       </span>
       <span class="card-facts">
         FOR CDO · CAIO · AI PLATFORM<br>
-        38 MS HYBRID P95 · 1 B VECTORS<br>
+        HYBRID BM25 + HNSW · NATIVE RRF<br>
         4× MEMORY vs FLOAT32 · SQ8 DEFAULT
       </span>
       <span class="card-cta">EXPLORE AI SEARCH &amp; RAG  →</span>
@@ -119,7 +119,8 @@
       <span class="card-facts">
         FOR VP ENG · CTO · PLATFORM<br>
         21× LESS IDLE MEMORY<br>
-        13 MB STATIC BINARY vs 620 MB JAR+JRE
+        13 MB STATIC BINARY vs 620 MB JAR+JRE<br>
+        MEASURED 2026-04 · v0.6.0
       </span>
       <span class="card-cta">EXPLORE ES REPLACEMENT  →</span>
     </a>
@@ -128,14 +129,14 @@
       <span class="card-k">05 · OPERATIONAL INTELLIGENCE</span>
       <span class="card-t">INGEST +<br><span class="accent">QUERY.</span></span>
       <span class="card-b">
-        80 K events/sec sustained ingest AND 0.4 ms aggregations on
-        the same node. Lock-free readers mean flush never blocks
-        your on-call agent.
+        80 K events/sec sustained ingest AND millisecond terms
+        aggregations on the same node. Lock-free readers mean flush
+        never blocks your on-call agent.
       </span>
       <span class="card-facts">
         FOR SRE · DEVOPS · PLATFORM<br>
-        89× FASTER NGINX TERMS AGG<br>
-        2.8× LESS DISK · 85 MB PER 1 M EVENTS
+        LINE-RATE INGEST · MS TERMS AGGS ON ONE NODE<br>
+        ~1.2× SMALLER ON DISK THAN ES (MEASURED) · 85 MB PER 1 M EVENTS
       </span>
       <span class="card-cta">EXPLORE OPS INTELLIGENCE  →</span>
     </a>
