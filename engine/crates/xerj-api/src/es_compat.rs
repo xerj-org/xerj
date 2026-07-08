@@ -22629,10 +22629,15 @@ mod rank_eval_metric_tests {
     fn err_uses_cascade_probabilities() {
         // max_grade 3, denom 8; R=[7/8,0,1/8] → 0.875 + 0 + (1/3)(0.125)(0.125)
         let expected = 0.875 + (1.0 / 3.0) * 0.125 * 0.125;
-        assert!((score("expected_reciprocal_rank", json!({"maximum_relevance":3}), false)
-            - expected)
-            .abs()
-            < 1e-9);
+        assert!(
+            (score(
+                "expected_reciprocal_rank",
+                json!({"maximum_relevance":3}),
+                false
+            ) - expected)
+                .abs()
+                < 1e-9
+        );
     }
 
     #[test]
@@ -22644,7 +22649,14 @@ mod rank_eval_metric_tests {
             ("dcg", score("dcg", json!({}), false)),
             ("ndcg", score("dcg", json!({}), true)),
             ("mrr", score("mean_reciprocal_rank", json!({}), false)),
-            ("err", score("expected_reciprocal_rank", json!({"maximum_relevance":3}), false)),
+            (
+                "err",
+                score(
+                    "expected_reciprocal_rank",
+                    json!({"maximum_relevance":3}),
+                    false,
+                ),
+            ),
         ] {
             assert!(
                 (val - precision).abs() > 1e-6,
@@ -23226,48 +23238,43 @@ pub async fn delete_ml_anomaly_detector(
     }
 }
 
-/// POST /_ml/anomaly_detectors/{id}/_score — bucket the source index, compute
-/// the metric per bucket, build a moving baseline, and score each bucket.
+/// Why the shared detector-scoring core failed. Callers map this to either an
+/// ES error response (the on-demand `_score` endpoint) or a logged skip (the
+/// continuous datafeed background scorer).
+enum ScoreDetectorError {
+    /// The detector's source index does not exist.
+    IndexNotFound(String),
+    /// Query parse / search failure, already shaped as a `XerjError`.
+    Xerj(xerj_common::XerjError),
+}
+
+/// Core anomaly scoring shared by the on-demand `_score` endpoint and the
+/// continuous datafeed scorer. Buckets `detector.source_index` over its
+/// `time_field` by `bucket_span`, reduces each bucket to one number via the
+/// detector's `function`, builds a moving mean/stddev baseline from the prior
+/// *normal* buckets, and returns one record per scored bucket (every bucket, in
+/// time order — warm-up buckets carry `note: insufficient_baseline`, each other
+/// record carries `is_anomaly` / `anomaly_score`). No dedup or filtering happens
+/// here; callers post-process. This is the single source of truth for the
+/// scoring math so the two entry points can never drift.
 ///
-/// Optional body overrides: `{"query": {…}}` to restrict the source docs, and
-/// `{"anomaly_threshold": N}` to override the detector's threshold for this run.
-pub async fn score_ml_anomaly_detector(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-    body: OptionalJson<Value>,
-) -> impl IntoResponse {
-    let detector = match state.ml_detectors.get(&id) {
-        Some(d) => d.value().clone(),
-        None => {
-            return ml_error(
-                StatusCode::NOT_FOUND,
-                "resource_not_found_exception",
-                &format!("No known job with id '{}'", id),
-            )
-        }
-    };
-
-    let idx = match state.engine.get_index(&detector.source_index) {
-        Ok(i) => i,
-        Err(_) => {
-            return ml_error(
-                StatusCode::NOT_FOUND,
-                "index_not_found_exception",
-                &format!("no such index [{}]", detector.source_index),
-            )
-        }
-    };
-
-    let body = body.0.unwrap_or_else(|| json!({}));
-    let query = body
-        .get("query")
-        .cloned()
-        .unwrap_or_else(|| json!({ "match_all": {} }));
-    let threshold = body
-        .get("anomaly_threshold")
-        .and_then(Value::as_f64)
-        .filter(|v| *v > 0.0)
-        .unwrap_or(detector.anomaly_threshold);
+/// `fresh` forces an uncached read: XERJ's query cache is keyed on
+/// `(body_hash, dataset_version)`, and unflushed (memtable-only) writes do not
+/// bump `dataset_version`, so an identical repeated query can be served a stale
+/// result until the next flush. The continuous datafeed scorer re-issues the
+/// *same* body every tick against a live-updating index, so it sets `fresh` to
+/// always see new buckets. The on-demand `_score` endpoint leaves it `false`,
+/// preserving its existing (cache-eligible) behavior exactly.
+async fn score_detector_records(
+    engine: &Engine,
+    detector: &MlDetector,
+    query: &Value,
+    threshold: f64,
+    fresh: bool,
+) -> Result<Vec<Value>, ScoreDetectorError> {
+    let idx = engine
+        .get_index(&detector.source_index)
+        .map_err(|_| ScoreDetectorError::IndexNotFound(detector.source_index.clone()))?;
 
     let (metric_agg, needs_field) =
         ml_metric_agg(&detector.function).unwrap_or(("value_count", false));
@@ -23290,17 +23297,18 @@ pub async fn score_ml_anomaly_detector(
         "aggs": { "xerj_ml_buckets": bucket_agg },
     });
 
-    let req = match parse_request(&search_body) {
-        Ok(r) => r,
-        Err(e) => {
-            return ApiError::new(xerj_common::XerjError::invalid_query(e.to_string()))
-                .into_response()
-        }
-    };
-    let result = match idx.search(&req).await {
-        Ok(r) => r,
-        Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
-    };
+    let mut req = parse_request(&search_body).map_err(|e| {
+        ScoreDetectorError::Xerj(xerj_common::XerjError::invalid_query(e.to_string()))
+    })?;
+    // Bypass the (body_hash, dataset_version) query cache so a re-scored,
+    // live-updating index reflects buckets added since the last identical call.
+    if fresh {
+        req.profile = true;
+    }
+    let result = idx
+        .search(&req)
+        .await
+        .map_err(|e| ScoreDetectorError::Xerj(xerj_common::XerjError::from(e)))?;
 
     let buckets = result
         .aggs
@@ -23315,7 +23323,6 @@ pub async fn score_ml_anomaly_detector(
     const MIN_BASELINE: usize = 4;
     let mut normal: Vec<f64> = Vec::new();
     let mut records: Vec<Value> = Vec::new();
-    let mut anomaly_count = 0usize;
 
     for b in &buckets {
         let ts_ms = b.get("key").and_then(Value::as_i64).unwrap_or(0);
@@ -23390,13 +23397,69 @@ pub async fn score_ml_anomaly_detector(
         }));
 
         if is_anomaly {
-            anomaly_count += 1;
             // Do NOT fold anomalies back into the baseline — a spike must not
             // poison the expectation for subsequent buckets.
         } else {
             normal.push(actual);
         }
     }
+
+    Ok(records)
+}
+
+/// POST /_ml/anomaly_detectors/{id}/_score — bucket the source index, compute
+/// the metric per bucket, build a moving baseline, and score each bucket.
+///
+/// Optional body overrides: `{"query": {…}}` to restrict the source docs, and
+/// `{"anomaly_threshold": N}` to override the detector's threshold for this run.
+pub async fn score_ml_anomaly_detector(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    body: OptionalJson<Value>,
+) -> impl IntoResponse {
+    let detector = match state.ml_detectors.get(&id) {
+        Some(d) => d.value().clone(),
+        None => {
+            return ml_error(
+                StatusCode::NOT_FOUND,
+                "resource_not_found_exception",
+                &format!("No known job with id '{}'", id),
+            )
+        }
+    };
+
+    let body = body.0.unwrap_or_else(|| json!({}));
+    let query = body
+        .get("query")
+        .cloned()
+        .unwrap_or_else(|| json!({ "match_all": {} }));
+    let threshold = body
+        .get("anomaly_threshold")
+        .and_then(Value::as_f64)
+        .filter(|v| *v > 0.0)
+        .unwrap_or(detector.anomaly_threshold);
+
+    let records =
+        match score_detector_records(&state.engine, &detector, &query, threshold, false).await {
+            Ok(r) => r,
+            Err(ScoreDetectorError::IndexNotFound(idx)) => {
+                return ml_error(
+                    StatusCode::NOT_FOUND,
+                    "index_not_found_exception",
+                    &format!("no such index [{}]", idx),
+                )
+            }
+            Err(ScoreDetectorError::Xerj(x)) => return ApiError::new(x).into_response(),
+        };
+
+    let anomaly_count = records
+        .iter()
+        .filter(|r| {
+            r.get("is_anomaly")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+        })
+        .count();
 
     // Anomalies ranked by score, most-severe first.
     let mut anomalies: Vec<Value> = records
@@ -23437,6 +23500,437 @@ pub async fn score_ml_anomaly_detector(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// _ml datafeeds — continuous anomaly-detection scoring
+//
+// A datafeed references an existing detector (`job_id`) and, once started,
+// re-scores the detector's series every `frequency_secs`, appending only NEW
+// flagged buckets to the job's in-memory results store. The scoring math is the
+// shared `score_detector_records` above, so a datafeed and the on-demand
+// `_score` endpoint agree bucket-for-bucket.
+// ─────────────────────────────────────────────────────────────────────────────
+
+use crate::state::MlDatafeed;
+use xerj_engine::Engine;
+
+/// Cap on stored anomaly records per job (oldest evicted first).
+const ML_MAX_RECORDS_PER_JOB: usize = 10_000;
+
+/// ES-shaped JSON view of a datafeed config for the `/_ml/datafeeds` responses.
+fn ml_datafeed_json(f: &MlDatafeed) -> Value {
+    json!({
+        "datafeed_id": f.datafeed_id,
+        "job_id": f.job_id,
+        "state": f.state,
+        "indices": f.indices,
+        "query": f.query,
+        "frequency": format!("{}s", f.frequency_secs),
+    })
+}
+
+/// Turn one scored bucket (from `score_detector_records`) into an ES-shaped
+/// anomaly result record for the job's results store. Reuses the fields the
+/// `_score` endpoint already emits, plus `job_id`, `record_score` (ES's name
+/// for the 0..100 severity), `typical` (ES's name for `expected`), and
+/// `bucket_span`.
+fn ml_anomaly_record(job_id: &str, bucket_span: &str, rec: &Value) -> Value {
+    let score = rec
+        .get("anomaly_score")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    let expected = rec.get("expected").cloned().unwrap_or(Value::Null);
+    json!({
+        "job_id": job_id,
+        "result_type": "record",
+        "timestamp": rec.get("timestamp").cloned().unwrap_or(Value::Null),
+        "timestamp_iso": rec.get("timestamp_iso").cloned().unwrap_or(Value::Null),
+        "actual": rec.get("actual").cloned().unwrap_or(Value::Null),
+        "typical": expected.clone(),
+        "expected": expected,
+        "std_dev": rec.get("std_dev").cloned().unwrap_or(Value::Null),
+        "z_score": rec.get("z_score").cloned().unwrap_or(Value::Null),
+        "record_score": score,
+        "anomaly_score": score,
+        "bucket_span": bucket_span,
+        "is_anomaly": true,
+    })
+}
+
+/// Run one scoring pass for a datafeed: score the detector over the datafeed's
+/// query/indices, append any NEW anomaly records (bucket timestamp strictly
+/// greater than `since_ms`) to the job's results store (bounded), and return
+/// the new high-water bucket timestamp so the next pass can dedupe. Best effort:
+/// a scoring error (e.g. index not yet created) yields no new records and leaves
+/// the cursor unchanged.
+async fn datafeed_score_pass(
+    engine: &Engine,
+    results: &dashmap::DashMap<String, Vec<Value>>,
+    detector: &MlDetector,
+    feed: &MlDatafeed,
+    since_ms: Option<i64>,
+) -> (Option<i64>, usize) {
+    // The datafeed's indices override the detector's source_index when set.
+    let mut det = detector.clone();
+    if let Some(first) = feed.indices.iter().find(|s| !s.is_empty()) {
+        det.source_index = first.clone();
+    }
+    // `fresh = true`: the datafeed re-issues the same body every tick against a
+    // live index, so it must bypass the stale-prone query cache.
+    let records = match score_detector_records(
+        engine,
+        &det,
+        &feed.query,
+        det.anomaly_threshold,
+        true,
+    )
+    .await
+    {
+        Ok(r) => r,
+        Err(_) => return (since_ms, 0),
+    };
+
+    let mut cursor = since_ms;
+    let mut fresh: Vec<Value> = Vec::new();
+    for rec in &records {
+        let ts = rec.get("timestamp").and_then(Value::as_i64).unwrap_or(0);
+        let is_new = since_ms.map(|c| ts > c).unwrap_or(true);
+        if is_new
+            && rec
+                .get("is_anomaly")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+        {
+            fresh.push(ml_anomaly_record(&feed.job_id, &det.bucket_span, rec));
+        }
+        // Advance the high-water mark past every scored bucket (not just
+        // anomalies) so the next pass only considers later buckets.
+        cursor = Some(cursor.map_or(ts, |c| c.max(ts)));
+    }
+
+    let appended = fresh.len();
+    if !fresh.is_empty() {
+        let mut entry = results.entry(feed.job_id.clone()).or_default();
+        entry.extend(fresh);
+        if entry.len() > ML_MAX_RECORDS_PER_JOB {
+            let excess = entry.len() - ML_MAX_RECORDS_PER_JOB;
+            entry.drain(0..excess);
+        }
+    }
+    (cursor, appended)
+}
+
+/// Spawn the recurring background scorer for a started datafeed. Ticks every
+/// `frequency_secs`; on each tick it re-scores incrementally and appends only
+/// new anomaly records. Breaks cleanly when the datafeed is stopped/deleted or
+/// its job disappears. The first `interval` tick fires immediately and is
+/// consumed here (the synchronous start pass already covered "now").
+fn spawn_datafeed_task(state: AppState, feed_id: String) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        let freq = state
+            .ml_datafeeds
+            .get(&feed_id)
+            .map(|f| f.frequency_secs)
+            .unwrap_or(60)
+            .max(1);
+        let mut ticker = tokio::time::interval(std::time::Duration::from_secs(freq));
+        ticker.tick().await; // consume the immediate first tick
+        loop {
+            ticker.tick().await;
+            // Snapshot the datafeed; stop when gone or no longer started.
+            let feed = match state.ml_datafeeds.get(&feed_id) {
+                Some(f) if f.state == "started" => f.value().clone(),
+                _ => break,
+            };
+            let detector = match state.ml_detectors.get(&feed.job_id) {
+                Some(d) => d.value().clone(),
+                None => break,
+            };
+            let (cursor, _appended) = datafeed_score_pass(
+                &state.engine,
+                &state.ml_results,
+                &detector,
+                &feed,
+                feed.last_scored_ms,
+            )
+            .await;
+            // Persist the cursor unless a concurrent _stop already flipped state.
+            if let Some(mut f) = state.ml_datafeeds.get_mut(&feed_id) {
+                if f.state == "started" {
+                    f.last_scored_ms = cursor;
+                }
+            }
+        }
+    })
+}
+
+/// PUT /_ml/datafeeds/{feed_id} — create/replace a datafeed for a job.
+pub async fn put_ml_datafeed(
+    State(state): State<AppState>,
+    Path(feed_id): Path<String>,
+    body: OptionalJson<Value>,
+) -> impl IntoResponse {
+    let body = body.0.unwrap_or_else(|| json!({}));
+
+    let job_id = match body.get("job_id").and_then(Value::as_str) {
+        Some(j) if !j.is_empty() => j.to_string(),
+        _ => {
+            return ml_error(
+                StatusCode::BAD_REQUEST,
+                "illegal_argument_exception",
+                "datafeed requires a `job_id`",
+            )
+        }
+    };
+
+    // The referenced job (detector) must exist.
+    let detector = match state.ml_detectors.get(&job_id) {
+        Some(d) => d.value().clone(),
+        None => {
+            return ml_error(
+                StatusCode::NOT_FOUND,
+                "resource_not_found_exception",
+                &format!("No known job with id '{}'", job_id),
+            )
+        }
+    };
+
+    // indices: string or [string]; default to the detector's source_index.
+    let mut indices: Vec<String> = match body.get("indices").or_else(|| body.get("indexes")) {
+        Some(Value::String(s)) => vec![s.clone()],
+        Some(Value::Array(a)) => a
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::to_string)
+            .collect(),
+        _ => Vec::new(),
+    };
+    if indices.is_empty() {
+        indices = vec![detector.source_index.clone()];
+    }
+
+    let query = body
+        .get("query")
+        .cloned()
+        .unwrap_or_else(|| json!({ "match_all": {} }));
+
+    let frequency_secs = match body.get("frequency") {
+        Some(Value::String(s)) => parse_keep_alive_to_secs(s).unwrap_or(60),
+        Some(Value::Number(n)) => n.as_u64().unwrap_or(60).max(1),
+        _ => 60,
+    };
+
+    // Replacing an existing datafeed: abort any running scorer to avoid orphans.
+    if let Some((_, h)) = state.ml_datafeed_tasks.remove(&feed_id) {
+        h.abort();
+    }
+
+    let feed = MlDatafeed {
+        datafeed_id: feed_id.clone(),
+        job_id,
+        indices,
+        query,
+        frequency_secs,
+        state: "stopped".to_string(),
+        last_scored_ms: None,
+    };
+    state.ml_datafeeds.insert(feed_id.clone(), feed.clone());
+    MlDatafeed::save_all(&state.config.server.data_dir, &state.ml_datafeeds);
+
+    (StatusCode::OK, Json(ml_datafeed_json(&feed))).into_response()
+}
+
+/// GET /_ml/datafeeds/{feed_id} — fetch a single datafeed.
+pub async fn get_ml_datafeed(
+    State(state): State<AppState>,
+    Path(feed_id): Path<String>,
+) -> impl IntoResponse {
+    match state.ml_datafeeds.get(&feed_id) {
+        Some(f) => Json(json!({
+            "count": 1,
+            "datafeeds": [ml_datafeed_json(f.value())],
+        }))
+        .into_response(),
+        None => ml_error(
+            StatusCode::NOT_FOUND,
+            "resource_not_found_exception",
+            &format!("No datafeed with id [{}] exists", feed_id),
+        ),
+    }
+}
+
+/// GET /_ml/datafeeds — list all datafeeds.
+pub async fn list_ml_datafeeds(State(state): State<AppState>) -> impl IntoResponse {
+    let mut feeds: Vec<Value> = state
+        .ml_datafeeds
+        .iter()
+        .map(|e| ml_datafeed_json(e.value()))
+        .collect();
+    feeds.sort_by(|a, b| {
+        a.get("datafeed_id")
+            .and_then(Value::as_str)
+            .cmp(&b.get("datafeed_id").and_then(Value::as_str))
+    });
+    Json(json!({ "count": feeds.len(), "datafeeds": feeds }))
+}
+
+/// DELETE /_ml/datafeeds/{feed_id} — remove a datafeed (must be stopped).
+pub async fn delete_ml_datafeed(
+    State(state): State<AppState>,
+    Path(feed_id): Path<String>,
+) -> impl IntoResponse {
+    match state.ml_datafeeds.get(&feed_id) {
+        Some(f) if f.state == "started" => {
+            return ml_error(
+                StatusCode::CONFLICT,
+                "status_exception",
+                &format!(
+                    "Cannot delete datafeed [{}] while its status is started",
+                    feed_id
+                ),
+            )
+        }
+        Some(_) => {}
+        None => {
+            return ml_error(
+                StatusCode::NOT_FOUND,
+                "resource_not_found_exception",
+                &format!("No datafeed with id [{}] exists", feed_id),
+            )
+        }
+    }
+    if let Some((_, h)) = state.ml_datafeed_tasks.remove(&feed_id) {
+        h.abort();
+    }
+    state.ml_datafeeds.remove(&feed_id);
+    MlDatafeed::save_all(&state.config.server.data_dir, &state.ml_datafeeds);
+    Json(json!({ "acknowledged": true })).into_response()
+}
+
+/// POST /_ml/datafeeds/{feed_id}/_start — mark started, run one synchronous
+/// scoring pass now (so results are immediately queryable), then spawn a
+/// background task that re-scores every `frequency_secs`.
+pub async fn start_ml_datafeed(
+    State(state): State<AppState>,
+    Path(feed_id): Path<String>,
+) -> impl IntoResponse {
+    let feed = match state.ml_datafeeds.get(&feed_id) {
+        Some(f) => f.value().clone(),
+        None => {
+            return ml_error(
+                StatusCode::NOT_FOUND,
+                "resource_not_found_exception",
+                &format!("No datafeed with id [{}] exists", feed_id),
+            )
+        }
+    };
+    let detector = match state.ml_detectors.get(&feed.job_id) {
+        Some(d) => d.value().clone(),
+        None => {
+            return ml_error(
+                StatusCode::NOT_FOUND,
+                "resource_not_found_exception",
+                &format!("No known job with id '{}'", feed.job_id),
+            )
+        }
+    };
+
+    // Mark started and reset the dedup cursor: a _start begins a fresh run,
+    // re-scoring the series from scratch.
+    if let Some(mut f) = state.ml_datafeeds.get_mut(&feed_id) {
+        f.state = "started".to_string();
+        f.last_scored_ms = None;
+    }
+    // Fresh results for this run so a restart (or a re-created job of the same
+    // id) doesn't accumulate stale records from a previous datafeed.
+    state.ml_results.remove(&feed.job_id);
+
+    // One synchronous scoring pass so records are immediately available.
+    let (cursor, _appended) =
+        datafeed_score_pass(&state.engine, &state.ml_results, &detector, &feed, None).await;
+    if let Some(mut f) = state.ml_datafeeds.get_mut(&feed_id) {
+        f.last_scored_ms = cursor;
+    }
+    MlDatafeed::save_all(&state.config.server.data_dir, &state.ml_datafeeds);
+
+    // Replace any prior task, then spawn the recurring background scorer.
+    if let Some((_, h)) = state.ml_datafeed_tasks.remove(&feed_id) {
+        h.abort();
+    }
+    let handle = spawn_datafeed_task(state.clone(), feed_id.clone());
+    state.ml_datafeed_tasks.insert(feed_id, handle);
+
+    Json(json!({ "started": true })).into_response()
+}
+
+/// POST /_ml/datafeeds/{feed_id}/_stop — mark stopped and abort the task.
+pub async fn stop_ml_datafeed(
+    State(state): State<AppState>,
+    Path(feed_id): Path<String>,
+) -> impl IntoResponse {
+    let existed = state
+        .ml_datafeeds
+        .get_mut(&feed_id)
+        .map(|mut f| {
+            f.state = "stopped".to_string();
+        })
+        .is_some();
+    if !existed {
+        return ml_error(
+            StatusCode::NOT_FOUND,
+            "resource_not_found_exception",
+            &format!("No datafeed with id [{}] exists", feed_id),
+        );
+    }
+    MlDatafeed::save_all(&state.config.server.data_dir, &state.ml_datafeeds);
+    if let Some((_, h)) = state.ml_datafeed_tasks.remove(&feed_id) {
+        h.abort();
+    }
+    Json(json!({ "stopped": true })).into_response()
+}
+
+/// GET /_ml/anomaly_detectors/{job_id}/results/records — anomaly records for a
+/// job, produced by its started datafeed(s). Optional `record_score` filter
+/// (min severity, query param or body) and `size` cap (query param or body).
+pub async fn get_ml_records(
+    State(state): State<AppState>,
+    Path(job_id): Path<String>,
+    Query(params): Query<HashMap<String, String>>,
+    body: OptionalJson<Value>,
+) -> impl IntoResponse {
+    let body = body.0.unwrap_or_else(|| json!({}));
+
+    let min_score = params
+        .get("record_score")
+        .and_then(|s| s.parse::<f64>().ok())
+        .or_else(|| body.get("record_score").and_then(Value::as_f64));
+    let size = params
+        .get("size")
+        .and_then(|s| s.parse::<usize>().ok())
+        .or_else(|| body.get("size").and_then(Value::as_u64).map(|n| n as usize));
+
+    let mut records: Vec<Value> = state
+        .ml_results
+        .get(&job_id)
+        .map(|e| e.value().clone())
+        .unwrap_or_default();
+
+    if let Some(min) = min_score {
+        records.retain(|r| r.get("record_score").and_then(Value::as_f64).unwrap_or(0.0) >= min);
+    }
+    // Chronological order (records are appended in time order, but be explicit).
+    records.sort_by(|a, b| {
+        a.get("timestamp")
+            .and_then(Value::as_i64)
+            .unwrap_or(0)
+            .cmp(&b.get("timestamp").and_then(Value::as_i64).unwrap_or(0))
+    });
+    if let Some(n) = size {
+        records.truncate(n);
+    }
+
+    Json(json!({ "count": records.len(), "records": records })).into_response()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // _cat/ml APIs
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -23471,15 +23965,32 @@ pub async fn cat_ml_anomaly_detectors(State(state): State<AppState>) -> impl Int
         .into_response()
 }
 
-pub async fn cat_ml_datafeeds() -> impl IntoResponse {
+/// GET /_cat/ml/datafeeds — one line per real datafeed.
+/// Columns: id state job_id
+pub async fn cat_ml_datafeeds(State(state): State<AppState>) -> impl IntoResponse {
+    let mut lines: Vec<String> = state
+        .ml_datafeeds
+        .iter()
+        .map(|e| {
+            let f = e.value();
+            format!("{} {} {}", f.datafeed_id, f.state, f.job_id)
+        })
+        .collect();
+    lines.sort();
+    let body = if lines.is_empty() {
+        String::new()
+    } else {
+        lines.join("\n") + "\n"
+    };
     (
         StatusCode::OK,
         [(
             axum::http::header::CONTENT_TYPE,
             "text/plain; charset=utf-8",
         )],
-        "",
+        body,
     )
+        .into_response()
 }
 
 pub async fn cat_ml_trained_models() -> impl IntoResponse {
@@ -25116,6 +25627,201 @@ mod ml_anomaly_tests {
     #[test]
     fn score_zero_threshold_is_safe() {
         assert_eq!(ml_anomaly_score(5.0, 0.0), 0.0);
+    }
+}
+
+#[cfg(test)]
+mod ml_datafeed_tests {
+    use super::*;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+        types::{FieldConfig, FieldType, Schema},
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.keep();
+        let mut config = Config::default();
+        config.server.data_dir = path.to_str().unwrap().to_string();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn body_json(resp: axum::response::Response) -> (StatusCode, Value) {
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap_or_default();
+        let value = serde_json::from_slice::<Value>(&bytes).unwrap_or(Value::Null);
+        (status, value)
+    }
+
+    /// End-to-end: ingest a spiky per-minute series, create a detector, PUT a
+    /// datafeed, _start it (synchronous first pass), read results/records and
+    /// assert the injected spike shows up; then _stop and check the DELETE
+    /// lifecycle (409 while started, ok while stopped).
+    #[tokio::test]
+    async fn datafeed_start_scores_and_lifecycle() {
+        let state = test_state();
+
+        // Index cpu_metrics: one doc per minute, spike at minute 12.
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("@timestamp", FieldType::Date))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("cpu", FieldType::Double))
+            .unwrap();
+        state.engine.create_index("cpu_metrics", schema).unwrap();
+        let idx = state.engine.get_index("cpu_metrics").unwrap();
+
+        let base = Utc.with_ymd_and_hms(2026, 7, 6, 0, 0, 0).single().unwrap();
+        let cpu = [
+            19.0, 21.0, 20.0, 20.0, 22.0, 18.0, 21.0, 20.0, 19.0, 21.0, 20.0, 22.0, 96.0, 20.0,
+            21.0, 19.0,
+        ];
+        let mut batch: Vec<(String, Value, std::sync::Arc<[u8]>)> = Vec::new();
+        for (i, v) in cpu.iter().enumerate() {
+            let ts = base + chrono::Duration::minutes(i as i64);
+            let doc = json!({
+                "@timestamp": ts.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+                "cpu": v,
+            });
+            let bytes: std::sync::Arc<[u8]> =
+                std::sync::Arc::from(serde_json::to_vec(&doc).unwrap());
+            batch.push((format!("m{i:02}"), doc, bytes));
+        }
+        idx.index_batch_turbo(batch, false, false).await.unwrap();
+
+        let spike_ms = (base + chrono::Duration::minutes(12)).timestamp_millis();
+
+        // Create the detector (job).
+        let resp = put_ml_anomaly_detector(
+            State(state.clone()),
+            Path("cpu-spike".to_string()),
+            OptionalJson(Some(json!({
+                "source_index": "cpu_metrics",
+                "time_field": "@timestamp",
+                "function": "mean",
+                "field": "cpu",
+                "bucket_span": "1m",
+            }))),
+        )
+        .await
+        .into_response();
+        assert!(resp.status().is_success(), "put detector");
+
+        // Create the datafeed referencing the job; short frequency.
+        let resp = put_ml_datafeed(
+            State(state.clone()),
+            Path("cpu-feed".to_string()),
+            OptionalJson(Some(json!({ "job_id": "cpu-spike", "frequency": "1s" }))),
+        )
+        .await
+        .into_response();
+        let (st, body) = body_json(resp).await;
+        assert!(st.is_success(), "put datafeed: {body}");
+        assert_eq!(body["datafeed_id"], "cpu-feed");
+        assert_eq!(body["job_id"], "cpu-spike");
+        assert_eq!(body["state"], "stopped");
+
+        // PUT with an unknown job must 404.
+        let resp = put_ml_datafeed(
+            State(state.clone()),
+            Path("bad-feed".to_string()),
+            OptionalJson(Some(json!({ "job_id": "no-such-job" }))),
+        )
+        .await
+        .into_response();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND, "put datafeed bad job");
+
+        // Start: runs one synchronous scoring pass now.
+        let resp = start_ml_datafeed(State(state.clone()), Path("cpu-feed".to_string()))
+            .await
+            .into_response();
+        let (st, body) = body_json(resp).await;
+        assert!(st.is_success(), "start datafeed: {body}");
+        assert_eq!(body["started"], true);
+
+        // Results/records must contain the spike bucket.
+        let resp = get_ml_records(
+            State(state.clone()),
+            Path("cpu-spike".to_string()),
+            Query(HashMap::new()),
+            OptionalJson(None),
+        )
+        .await
+        .into_response();
+        let (st, body) = body_json(resp).await;
+        assert!(st.is_success(), "get records");
+        let records = body["records"].as_array().expect("records array");
+        assert!(
+            !records.is_empty(),
+            "expected >=1 anomaly record, got none: {body}"
+        );
+        assert!(
+            records
+                .iter()
+                .any(|r| r["timestamp"].as_i64() == Some(spike_ms)),
+            "expected an anomaly record at the spike timestamp {spike_ms}: {body}"
+        );
+        assert!(records.iter().all(|r| r["job_id"] == "cpu-spike"));
+        assert!(records.iter().all(|r| r["record_score"].is_number()));
+
+        // record_score filter above the top score returns nothing.
+        let resp = get_ml_records(
+            State(state.clone()),
+            Path("cpu-spike".to_string()),
+            Query(HashMap::from([(
+                "record_score".to_string(),
+                "101".to_string(),
+            )])),
+            OptionalJson(None),
+        )
+        .await
+        .into_response();
+        let (_st, body) = body_json(resp).await;
+        assert_eq!(body["count"], 0, "record_score=101 filters everything");
+
+        // Datafeed reports started.
+        let resp = get_ml_datafeed(State(state.clone()), Path("cpu-feed".to_string()))
+            .await
+            .into_response();
+        let (_st, body) = body_json(resp).await;
+        assert_eq!(body["datafeeds"][0]["state"], "started");
+
+        // DELETE while started => 409.
+        let resp = delete_ml_datafeed(State(state.clone()), Path("cpu-feed".to_string()))
+            .await
+            .into_response();
+        assert_eq!(
+            resp.status(),
+            StatusCode::CONFLICT,
+            "delete started datafeed must 409"
+        );
+
+        // Stop => stopped.
+        let resp = stop_ml_datafeed(State(state.clone()), Path("cpu-feed".to_string()))
+            .await
+            .into_response();
+        let (st, body) = body_json(resp).await;
+        assert!(st.is_success());
+        assert_eq!(body["stopped"], true);
+        let resp = get_ml_datafeed(State(state.clone()), Path("cpu-feed".to_string()))
+            .await
+            .into_response();
+        let (_st, body) = body_json(resp).await;
+        assert_eq!(body["datafeeds"][0]["state"], "stopped");
+
+        // DELETE while stopped => ok.
+        let resp = delete_ml_datafeed(State(state.clone()), Path("cpu-feed".to_string()))
+            .await
+            .into_response();
+        assert!(resp.status().is_success(), "delete stopped datafeed");
     }
 }
 

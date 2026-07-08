@@ -291,6 +291,99 @@ impl MlDetector {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// MlDatafeed — a continuous anomaly-detection datafeed
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A datafeed continuously scores new data for an existing anomaly detector
+/// (its `job_id`). When started it re-scores the detector's series every
+/// `frequency_secs` and appends any newly-flagged anomaly buckets to the job's
+/// results store, so a client can poll them via
+/// `GET /_ml/anomaly_detectors/{job_id}/results/records`.
+///
+/// This is the ES `_ml/datafeeds` surface: a datafeed references a job, pulls
+/// from one or more `indices` through an optional `query`, and runs on a fixed
+/// `frequency`. The scoring model is the same transparent moving mean/stddev
+/// z-score used by the on-demand `_score` endpoint — no opaque model.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct MlDatafeed {
+    /// User-supplied datafeed id (path segment, unique per node).
+    pub datafeed_id: String,
+    /// The anomaly-detector (`job_id`) this datafeed feeds. Must reference an
+    /// existing detector.
+    pub job_id: String,
+    /// Indices the datafeed reads from. Defaults to the detector's
+    /// `source_index` when omitted at create time.
+    #[serde(default)]
+    pub indices: Vec<String>,
+    /// Query restricting which docs feed the buckets (default `match_all`).
+    #[serde(default = "default_match_all_query")]
+    pub query: serde_json::Value,
+    /// How often (seconds) the started datafeed re-scores; clamped to `>= 1`.
+    #[serde(default = "default_frequency_secs")]
+    pub frequency_secs: u64,
+    /// Lifecycle state: `"started"` or `"stopped"`.
+    #[serde(default = "default_datafeed_state")]
+    pub state: String,
+    /// Highest bucket timestamp (epoch millis) already scored, used to emit only
+    /// NEW anomaly records on each pass. Runtime-only — never persisted, and
+    /// reset on load so a restart re-scores cleanly against the (in-memory)
+    /// results store.
+    #[serde(skip)]
+    pub last_scored_ms: Option<i64>,
+}
+
+pub fn default_match_all_query() -> serde_json::Value {
+    serde_json::json!({ "match_all": {} })
+}
+
+pub fn default_frequency_secs() -> u64 {
+    60
+}
+
+pub fn default_datafeed_state() -> String {
+    "stopped".to_string()
+}
+
+impl MlDatafeed {
+    /// Absolute path of the on-disk datafeed registry file.
+    fn registry_path(data_dir: &str) -> std::path::PathBuf {
+        std::path::Path::new(data_dir)
+            .join("_ml")
+            .join("datafeeds.json")
+    }
+
+    /// Load all persisted datafeeds. Runtime state (`state`, cursor) is reset:
+    /// background scoring tasks and the results store are in-memory only and do
+    /// not survive a restart, so a freshly-loaded datafeed is always `stopped`.
+    pub fn load_all(data_dir: &str) -> DashMap<String, MlDatafeed> {
+        let map = DashMap::new();
+        let path = Self::registry_path(data_dir);
+        if let Ok(bytes) = std::fs::read(&path) {
+            if let Ok(list) = serde_json::from_slice::<Vec<MlDatafeed>>(&bytes) {
+                for mut d in list {
+                    d.state = "stopped".to_string();
+                    d.last_scored_ms = None;
+                    map.insert(d.datafeed_id.clone(), d);
+                }
+            }
+        }
+        map
+    }
+
+    /// Persist the full registry to disk (best effort — swallows I/O errors).
+    pub fn save_all(data_dir: &str, registry: &DashMap<String, MlDatafeed>) {
+        let path = Self::registry_path(data_dir);
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let list: Vec<MlDatafeed> = registry.iter().map(|e| e.value().clone()).collect();
+        if let Ok(bytes) = serde_json::to_vec_pretty(&list) {
+            let _ = std::fs::write(&path, bytes);
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // AppState
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -328,6 +421,17 @@ pub struct AppState {
     /// create/delete. Backs the `PUT/GET/DELETE /_ml/anomaly_detectors/{id}`,
     /// `POST /_ml/anomaly_detectors/{id}/_score`, and `_cat/ml` endpoints.
     pub ml_detectors: Arc<DashMap<String, MlDetector>>,
+    /// Registry of continuous datafeed configs, keyed by datafeed id. Loaded
+    /// from `<data_dir>/_ml/datafeeds.json` at startup and re-persisted on every
+    /// create/delete/start/stop. Backs the `/_ml/datafeeds/*` endpoints.
+    pub ml_datafeeds: Arc<DashMap<String, MlDatafeed>>,
+    /// Anomaly records produced by started datafeeds, keyed by `job_id`. Bounded
+    /// (last ~10k records per job). In-memory only — not persisted, does not
+    /// survive a restart. Backs `GET /_ml/anomaly_detectors/{job_id}/results/records`.
+    pub ml_results: Arc<DashMap<String, Vec<serde_json::Value>>>,
+    /// Live background scoring tasks, keyed by datafeed id. Aborted on `_stop`
+    /// (and replaced on a re-`_start`). In-memory only.
+    pub ml_datafeed_tasks: Arc<DashMap<String, tokio::task::JoinHandle<()>>>,
 }
 
 impl AppState {
@@ -350,6 +454,7 @@ impl AppState {
         })));
         let watcher_active = Arc::new(AtomicBool::new(true));
         let ml_detectors = Arc::new(MlDetector::load_all(&config.server.data_dir));
+        let ml_datafeeds = Arc::new(MlDatafeed::load_all(&config.server.data_dir));
         Self {
             config: Arc::new(config),
             engine: Arc::new(engine),
@@ -358,6 +463,9 @@ impl AppState {
             license,
             watcher_active,
             ml_detectors,
+            ml_datafeeds,
+            ml_results: Arc::new(DashMap::new()),
+            ml_datafeed_tasks: Arc::new(DashMap::new()),
         }
     }
 

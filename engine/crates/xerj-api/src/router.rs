@@ -568,6 +568,26 @@ pub fn build_es_compat_router(state: AppState) -> Router {
             "/_ml/anomaly_detectors/:id/_score",
             post(es_compat::score_ml_anomaly_detector),
         )
+        .route(
+            "/_ml/anomaly_detectors/:id/results/records",
+            get(es_compat::get_ml_records),
+        )
+        // ── _ml continuous datafeeds ──────────────────────────────────────────
+        .route("/_ml/datafeeds", get(es_compat::list_ml_datafeeds))
+        .route(
+            "/_ml/datafeeds/:id",
+            put(es_compat::put_ml_datafeed)
+                .get(es_compat::get_ml_datafeed)
+                .delete(es_compat::delete_ml_datafeed),
+        )
+        .route(
+            "/_ml/datafeeds/:id/_start",
+            post(es_compat::start_ml_datafeed),
+        )
+        .route(
+            "/_ml/datafeeds/:id/_stop",
+            post(es_compat::stop_ml_datafeed),
+        )
         // ── _cat/ml APIs ──────────────────────────────────────────────────────
         .route(
             "/_cat/ml/anomaly_detectors",
