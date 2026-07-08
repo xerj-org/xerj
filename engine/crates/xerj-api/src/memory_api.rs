@@ -8,8 +8,8 @@
 //!
 //! Endpoints (mounted on the ES-compat router):
 //! ```text
-//! POST   /_memory/{namespace}            store   — {text, metadata?, vector?, id?} → {id, created}
-//! POST   /_memory/{namespace}/_recall    recall  — {query?, vector?, semantic?, k?, filter?} → {hits:[…]}
+//! POST   /_memory/{namespace}            store   — {text, metadata?, vector?, id?, dedup?, dedup_threshold?} → {id, created} | {id, created:false, deduplicated:true}
+//! POST   /_memory/{namespace}/_recall    recall  — {query?, vector?, semantic?, k?, filter?, recency_weight?} → {hits:[…]}
 //! GET    /_memory/{namespace}            list    — {count, entries:[…]} (bounded, recent first)
 //! DELETE /_memory/{namespace}/{id}       forget  — delete one entry
 //! DELETE /_memory/{namespace}            drop    — drop the whole namespace
@@ -52,6 +52,12 @@ const LIST_LIMIT: usize = 100;
 
 /// Default number of memories returned by `_recall` when `k` is omitted.
 const DEFAULT_K: usize = 10;
+
+/// Default cosine-similarity threshold for opt-in semantic dedup in `store`.
+/// XERJ's cosine `_score` is the cosine similarity itself (0..1), so a stored
+/// memory whose nearest existing neighbour scores at or above this is treated
+/// as a near-duplicate and skipped.
+const DEFAULT_DEDUP_THRESHOLD: f32 = 0.95;
 
 /// Resolve a namespace to its backing index name.
 fn backing_index(namespace: &str) -> String {
@@ -196,6 +202,67 @@ pub struct StoreBody {
     /// Optional explicit ID. Auto-generated (UUID) when omitted.
     #[serde(default)]
     pub id: Option<String>,
+    /// Opt-in semantic dedup. When `true`, before indexing we probe the backing
+    /// index for the single nearest existing memory — kNN when a `vector` is
+    /// supplied, server-side `semantic` recall over `text` otherwise — and, if
+    /// its cosine `_score` meets `dedup_threshold`, skip the write and return
+    /// the existing entry with `created:false, deduplicated:true`. Defaults to
+    /// `false` so existing callers keep storing every entry (backward-compatible).
+    #[serde(default)]
+    pub dedup: Option<bool>,
+    /// Cosine-similarity threshold in `[0, 1]` for `dedup`. Defaults to 0.95.
+    /// Ignored unless `dedup` is `true`.
+    #[serde(default)]
+    pub dedup_threshold: Option<f32>,
+}
+
+/// Best-effort semantic-dedup probe. Returns the single nearest existing memory
+/// as `(id, cosine_score)`, or `None` when the namespace is empty / the probe
+/// cannot run. Uses kNN over the stored `vector` when a caller embedding is
+/// supplied, otherwise server-side `semantic` recall over the `text`
+/// semantic_text field (the same embedder used at store time). Any probe error
+/// (empty index, schema mismatch) is treated as "no duplicate" so dedup is
+/// strictly best-effort and never blocks a legitimate write.
+async fn dedup_probe(
+    state: &AppState,
+    index: &str,
+    text: &str,
+    vector: Option<&[f32]>,
+) -> Option<(String, f32)> {
+    let mut search_body = EsSearchBody {
+        size: 1,
+        ..Default::default()
+    };
+    match vector {
+        Some(vec) if !vec.is_empty() => {
+            search_body.knn = Some(json!({ "field": "vector", "query_vector": vec, "k": 1 }));
+        }
+        _ => {
+            if text.is_empty() {
+                return None;
+            }
+            search_body.query =
+                Some(json!({ "semantic": { "field": "text", "query": text, "k": 1 } }));
+        }
+    }
+
+    let resp = es_compat::search(
+        State(state.clone()),
+        Path(index.to_string()),
+        axum::extract::Query(EsSearchQueryParams::default()),
+        OptionalJson(Some(search_body)),
+    )
+    .await
+    .into_response();
+
+    let (status, body) = drain_json(resp).await;
+    if !status.is_success() {
+        return None;
+    }
+    let hit = body.pointer("/hits/hits/0")?;
+    let id = hit.get("_id").and_then(Value::as_str)?.to_string();
+    let score = hit.get("_score").and_then(Value::as_f64)? as f32;
+    Some((id, score))
 }
 
 /// `POST /_memory/{namespace}` — store a memory entry.
@@ -222,6 +289,29 @@ pub async fn store(
     let dims = body.vector.as_ref().map(|v| v.len());
     if let Err(resp) = ensure_backing_index(&state, &index, dims).await {
         return resp;
+    }
+
+    // Opt-in semantic dedup: skip the write when a near-identical memory already
+    // exists. Off by default; only runs when the caller sets `dedup: true`.
+    if body.dedup == Some(true) {
+        let threshold = body.dedup_threshold.unwrap_or(DEFAULT_DEDUP_THRESHOLD);
+        if let Some((existing_id, score)) =
+            dedup_probe(&state, &index, &body.text, body.vector.as_deref()).await
+        {
+            if score >= threshold {
+                return (
+                    StatusCode::OK,
+                    Json(json!({
+                        "id": existing_id,
+                        "namespace": namespace,
+                        "created": false,
+                        "deduplicated": true,
+                        "score": score,
+                    })),
+                )
+                    .into_response();
+            }
+        }
     }
 
     let id = body.id.unwrap_or_else(|| Uuid::new_v4().to_string());
@@ -289,6 +379,14 @@ pub struct RecallBody {
     /// `filter` so it narrows — but does not score — the recalled set.
     #[serde(default)]
     pub filter: Option<Value>,
+    /// Optional recency blend weight in `[0, 1]`. When present, recall
+    /// over-fetches candidates and re-ranks by
+    /// `blended = (1 - w) * norm_score + w * norm_recency`, where both terms are
+    /// min-max normalized across the candidate set and `norm_recency` is derived
+    /// from each memory's `stored_at`. `0` = pure relevance, `1` = pure recency.
+    /// Absent → existing relevance-only behavior is preserved exactly.
+    #[serde(default)]
+    pub recency_weight: Option<f32>,
 }
 
 /// `POST /_memory/{namespace}/_recall` — recall the top-k relevant memories.
@@ -306,8 +404,16 @@ pub async fn recall(
         semantic: None,
         k: None,
         filter: None,
+        recency_weight: None,
     });
     let k = body.k.unwrap_or(DEFAULT_K).max(1);
+    // Recency blending needs a wider candidate pool than the final k so the
+    // re-rank can actually promote recent-but-slightly-less-relevant memories.
+    let recency_weight = body.recency_weight.map(|w| w.clamp(0.0, 1.0));
+    let fetch = match recency_weight {
+        Some(_) => (k * 4).max(50),
+        None => k,
+    };
     let index = backing_index(&namespace);
 
     // Unknown namespace → no memories (also enforces isolation cleanly).
@@ -317,13 +423,13 @@ pub async fn recall(
 
     // Build the search body, reusing the proven kNN / BM25 / filter paths.
     let mut search_body = EsSearchBody {
-        size: k,
+        size: fetch,
         ..Default::default()
     };
 
     if let Some(vec) = body.vector {
         // (1) Caller-supplied embedding → pure kNN over the stored `vector`.
-        let knn = json!({ "field": "vector", "query_vector": vec, "k": k });
+        let knn = json!({ "field": "vector", "query_vector": vec, "k": fetch });
         match body.filter {
             Some(filter) => {
                 // kNN with a metadata pre-filter: express kNN as a bool `must`
@@ -355,7 +461,7 @@ pub async fn recall(
         // pre-filter inside the engine), so pass the metadata filter there
         // rather than wrapping in a `bool` — a `semantic` node nested in a
         // `bool` is not dispatched to the vector path.
-        let mut semantic = json!({ "field": "text", "query": q, "k": k });
+        let mut semantic = json!({ "field": "text", "query": q, "k": fetch });
         if let Some(filter) = body.filter {
             semantic["filter"] = filter;
         }
@@ -386,8 +492,25 @@ pub async fn recall(
         return error_response(status, format!("recall failed: {body}"));
     }
 
-    let hits = extract_hits(&body);
+    let hits = match recency_weight {
+        Some(w) => blend_recency(&body, w, k),
+        None => extract_hits(&body),
+    };
     Json(json!({ "hits": hits, "namespace": namespace })).into_response()
+}
+
+/// Map a single ES search hit into the agent-memory hit shape.
+fn map_hit(h: &Value) -> Value {
+    let src = h.get("_source");
+    json!({
+        "id": h.get("_id").cloned().unwrap_or(Value::Null),
+        "text": src.and_then(|s| s.get("text")).cloned().unwrap_or(Value::Null),
+        "metadata": src
+            .and_then(|s| s.get("metadata"))
+            .cloned()
+            .unwrap_or(Value::Null),
+        "score": h.get("_score").cloned().unwrap_or(Value::Null),
+    })
 }
 
 /// Map an ES search response into the agent-memory hit shape.
@@ -395,23 +518,64 @@ fn extract_hits(search_response: &Value) -> Vec<Value> {
     search_response
         .pointer("/hits/hits")
         .and_then(Value::as_array)
-        .map(|arr| {
-            arr.iter()
-                .map(|h| {
-                    let src = h.get("_source");
-                    json!({
-                        "id": h.get("_id").cloned().unwrap_or(Value::Null),
-                        "text": src.and_then(|s| s.get("text")).cloned().unwrap_or(Value::Null),
-                        "metadata": src
-                            .and_then(|s| s.get("metadata"))
-                            .cloned()
-                            .unwrap_or(Value::Null),
-                        "score": h.get("_score").cloned().unwrap_or(Value::Null),
-                    })
-                })
-                .collect()
-        })
+        .map(|arr| arr.iter().map(map_hit).collect())
         .unwrap_or_default()
+}
+
+/// Re-rank recall hits by a recency-blended score and truncate to `k`.
+///
+/// For each candidate, `blended = (1 - w) * norm_score + w * norm_recency`,
+/// where `norm_score` and `norm_recency` are min-max normalized across the
+/// candidate set (relevance `_score` and `stored_at` respectively). `w = 0`
+/// reduces to pure relevance order; `w = 1` to pure recency. The returned hits
+/// keep the original relevance `_score` in their `score` field — only the order
+/// (and truncation to `k`) reflects the blend.
+fn blend_recency(search_response: &Value, w: f32, k: usize) -> Vec<Value> {
+    let hits = match search_response
+        .pointer("/hits/hits")
+        .and_then(Value::as_array)
+    {
+        Some(h) if !h.is_empty() => h,
+        _ => return Vec::new(),
+    };
+
+    let scores: Vec<f64> = hits
+        .iter()
+        .map(|h| h.get("_score").and_then(Value::as_f64).unwrap_or(0.0))
+        .collect();
+    let times: Vec<f64> = hits
+        .iter()
+        .map(|h| {
+            h.pointer("/_source/stored_at")
+                .and_then(Value::as_f64)
+                .unwrap_or(0.0)
+        })
+        .collect();
+
+    let smin = scores.iter().copied().fold(f64::INFINITY, f64::min);
+    let smax = scores.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    let tmin = times.iter().copied().fold(f64::INFINITY, f64::min);
+    let tmax = times.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    // Uniform values (hi == lo) normalize to 0.0 so that dimension contributes
+    // nothing to the blend rather than dividing by zero.
+    let norm = |v: f64, lo: f64, hi: f64| if hi > lo { (v - lo) / (hi - lo) } else { 0.0 };
+    let w = w as f64;
+
+    let mut ranked: Vec<(f64, &Value)> = hits
+        .iter()
+        .zip(scores.iter().zip(times.iter()))
+        .map(|(h, (&sc, &tm))| {
+            let blended = (1.0 - w) * norm(sc, smin, smax) + w * norm(tm, tmin, tmax);
+            (blended, h)
+        })
+        .collect();
+
+    ranked.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    ranked
+        .into_iter()
+        .take(k)
+        .map(|(_, h)| map_hit(h))
+        .collect()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -747,6 +911,126 @@ mod tests {
         assert!(
             hits.iter().all(|h| h["id"] == "i4"),
             "only the high-sev memory passes the filter"
+        );
+    }
+
+    async fn count_of(state: &AppState, ns: &str) -> u64 {
+        let resp = list(State(state.clone()), Path(ns.to_string())).await;
+        let (_, body) = drain_json(resp).await;
+        body["count"].as_u64().unwrap()
+    }
+
+    /// Opt-in semantic dedup: storing the same text twice with `dedup:true`
+    /// keeps the namespace at one entry (2nd store is deduplicated), a distinct
+    /// text still stores, and omitting `dedup` keeps the backward-compatible
+    /// store-everything default.
+    #[tokio::test]
+    async fn store_semantic_dedup() {
+        let state = test_state();
+        let dup = "the sprint planning meeting is at noon on friday";
+
+        // First store → created.
+        let (s, b) = store_mem(&state, "dd", json!({"text": dup, "dedup": true})).await;
+        assert_eq!(s, StatusCode::CREATED);
+        assert_eq!(b["created"], json!(true));
+        let first_id = b["id"].as_str().unwrap().to_string();
+
+        // Same text again with dedup:true → deduplicated, not created.
+        let (s, b) = store_mem(&state, "dd", json!({"text": dup, "dedup": true})).await;
+        assert_eq!(s, StatusCode::OK, "a deduplicated store is not a creation");
+        assert_eq!(b["created"], json!(false));
+        assert_eq!(b["deduplicated"], json!(true));
+        assert_eq!(
+            b["id"].as_str().unwrap(),
+            first_id,
+            "dedup returns the id of the existing near-duplicate"
+        );
+        assert_eq!(
+            count_of(&state, "dd").await,
+            1,
+            "dedup keeps a single entry"
+        );
+
+        // A distinct memory still stores under dedup:true.
+        let (s, b) = store_mem(
+            &state,
+            "dd",
+            json!({"text": "quarterly revenue grew twelve percent", "dedup": true}),
+        )
+        .await;
+        assert_eq!(s, StatusCode::CREATED);
+        assert_eq!(b["created"], json!(true));
+        assert_eq!(
+            count_of(&state, "dd").await,
+            2,
+            "distinct text is not a dup"
+        );
+
+        // dedup omitted → default OFF, the duplicate IS stored (backward-compat).
+        let (s, b) = store_mem(&state, "dd", json!({"text": dup})).await;
+        assert_eq!(s, StatusCode::CREATED);
+        assert_eq!(b["created"], json!(true));
+        assert_eq!(
+            count_of(&state, "dd").await,
+            3,
+            "dedup defaults OFF: omitting it stores duplicates"
+        );
+    }
+
+    /// Recency-blended recall: given an older perfect-relevance memory and a
+    /// newer near-relevance one, `recency_weight=0.9` surfaces the newer memory
+    /// first, while `recency_weight=0` preserves pure relevance order.
+    #[tokio::test]
+    async fn recall_recency_blend_reranks() {
+        let state = test_state();
+
+        // Old memory: exact match to the query vector → highest relevance.
+        let (s, _) = store_mem(
+            &state,
+            "rc",
+            json!({"text": "old note", "vector": [1.0, 0.0, 0.0], "id": "old"}),
+        )
+        .await;
+        assert_eq!(s, StatusCode::CREATED);
+
+        // Guarantee a strictly later `stored_at` for the newer memory.
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+
+        // New memory: slightly lower relevance (cosine ~0.994) but more recent.
+        let (s, _) = store_mem(
+            &state,
+            "rc",
+            json!({"text": "new note", "vector": [0.9, 0.1, 0.0], "id": "new"}),
+        )
+        .await;
+        assert_eq!(s, StatusCode::CREATED);
+
+        // recency_weight = 0 → pure relevance: the exact-match old note is first.
+        let (_, b) = recall_mem(
+            &state,
+            "rc",
+            json!({"vector": [1.0, 0.0, 0.0], "k": 2, "recency_weight": 0.0}),
+        )
+        .await;
+        let hits = b["hits"].as_array().unwrap();
+        assert_eq!(hits.len(), 2);
+        assert_eq!(
+            hits[0]["id"], "old",
+            "recency_weight=0 must preserve pure relevance order"
+        );
+
+        // recency_weight = 0.9 → recency dominates: the newer note ranks first.
+        let (_, b) = recall_mem(
+            &state,
+            "rc",
+            json!({"vector": [1.0, 0.0, 0.0], "k": 2, "recency_weight": 0.9}),
+        )
+        .await;
+        let hits = b["hits"].as_array().unwrap();
+        assert_eq!(hits.len(), 2);
+        assert_eq!(
+            hits[0]["id"], "new",
+            "recency_weight=0.9 must surface the most recent memory first"
         );
     }
 }
