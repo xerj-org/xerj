@@ -13,6 +13,7 @@ These are practical "how do I actually do X" recipes, not an API reference (that
 | [Vector quantization](./vector-quantization.md) | Opt a `dense_vector` field into scalar8 (`int8_hnsw`) — 4× smaller vectors, recall@10 ≈ 0.99 | [`quant_demo.py`](../examples/vector-quantization/quant_demo.py) |
 | [Hybrid search](./hybrid-search.md) | Keyword + vector in one query — results neither BM25 nor kNN finds alone | [`hybrid_search.py`](../examples/hybrid-search/hybrid_search.py) |
 | [Anomaly detection](./anomaly-detection.md) | Statistical `_ml` detectors that flag spikes in metrics/logs | [`anomaly_detection.py`](../examples/anomaly-detection/anomaly_detection.py) |
+| [Continuous anomaly datafeeds](./continuous-anomaly-datafeeds.md) | A live `_ml` datafeed that re-scores an index on a timer and stores new anomaly records you poll | [`datafeed_demo.py`](../examples/continuous-anomaly-datafeeds/datafeed_demo.py) |
 | [Migrate from Elasticsearch](./migrate-from-elasticsearch.md) | Point your existing ES client at XERJ — same wire, change the URL | [`migrate_demo.sh`](../examples/migrate-from-elasticsearch/migrate_demo.sh) |
 
 Every example is stdlib-only Python 3 or plain `curl` — no dependencies to install. Start XERJ (`./target/release/xerj --data-dir ./data --insecure`), then run any example.
