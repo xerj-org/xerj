@@ -44,10 +44,11 @@
 
 use super::*;
 use crate::aggs::{
-    apply_bucket_pipeline_ops, calendar_bucket_key, detect_fractional_digits, doc_count_weight,
-    doc_matches_filter, extract_date_ms_values, extract_field_values, extract_numeric,
-    extract_numeric_values, format_histogram_key, format_number_pattern, format_range_val,
-    get_nested_field, interval_to_ms, is_calendar_interval, next_calendar_bucket, parse_date_ms,
+    apply_bucket_pipeline_ops, auto_date_offset_ms, auto_date_pick_interval, calendar_bucket_key,
+    detect_fractional_digits, doc_count_weight, doc_matches_filter, extract_date_ms_values,
+    extract_field_values, extract_numeric, extract_numeric_values, format_histogram_key,
+    format_number_pattern, format_range_val, get_nested_field, interval_to_ms,
+    is_calendar_interval, matrix_stats_from_rows, next_calendar_bucket, parse_date_ms,
     render_date_format, render_iso_date, resolve_sibling_pipelines, run_pipeline_agg, run_sampler,
     run_top_hits_with_total, typed_term_key,
 };
@@ -1060,6 +1061,25 @@ impl<'a> FastCtx<'a> {
                 }
                 self.exec_percentile_ranks(params)
             }
+            "missing" => {
+                if sub.is_some() {
+                    return None;
+                }
+                self.exec_missing(params)
+            }
+            "median_absolute_deviation" => {
+                if sub.is_some() {
+                    return None;
+                }
+                self.exec_median_absolute_deviation(params)
+            }
+            "matrix_stats" => {
+                if sub.is_some() {
+                    return None;
+                }
+                self.exec_matrix_stats(params)
+            }
+            "auto_date_histogram" => self.exec_auto_date_histogram(params, sub),
             "terms" => self.exec_terms(params, sub),
             "cardinality" => self.exec_cardinality(params, sub),
             "range" => self.exec_range(params, sub),
@@ -1482,6 +1502,283 @@ impl<'a> FastCtx<'a> {
                 .collect();
             Some(json!({ "values": arr }))
         }
+    }
+
+    // ── missing / median_absolute_deviation / matrix_stats / auto_date_histogram ──
+    //
+    // Four more O(N) brute leaves (`run_aggs_with_all` materialised every live
+    // doc — ~1 s / 100 k) rerouted through the doc-values columns.  Each bails
+    // (`None` → brute) on any option that would change value gathering or
+    // rendering, and (via the `exec_agg` whitelist) under a top-level query
+    // filter, so what it serves is byte-identical to its brute counterpart for
+    // the shapes it accepts (modulo the documented float-summation-order and
+    // array-skip divergences the other fast-agg leaves already carry).
+
+    /// `missing` — count of docs where `field` has no value.  The brute
+    /// `run_missing` walks `get_nested_field(doc, field).is_null()`; served
+    /// columnar that is `total − present` = each segment column's null count
+    /// (whole segment when the field's column is absent) plus the exact
+    /// `is_null` walk over the small memtable.  Only `{field}` (and the
+    /// `missing`-placeholder short-circuit → `doc_count: 0`, matching brute) is
+    /// accepted; `run_missing` ignores sub-aggs, so the `exec_agg` arm bails on
+    /// any sub.
+    fn exec_missing(&self, params: &Value) -> Option<Value> {
+        if !params_only(params, &["field", "missing"]) {
+            return None;
+        }
+        let field = params.get("field").and_then(Value::as_str)?;
+        // `missing` placeholder present → every doc has a synthetic value →
+        // count collapses to 0 (identical to brute `has_missing_default`).
+        if params.get("missing").is_some() {
+            return Some(json!({ "doc_count": 0 }));
+        }
+        let mut missing: u64 = 0;
+        for seg in &self.segs {
+            match seg.cols.get(field) {
+                Some(Column::Numeric(n)) => missing += n.null_bitmap.len(),
+                Some(Column::Keyword(k)) => missing += k.null_bitmap.len(),
+                // Field absent from this segment's columns → every row missing.
+                None => missing += seg.docs as u64,
+            }
+        }
+        for doc in self.mem().iter() {
+            if get_nested_field(doc, field).is_null() {
+                missing += 1;
+            }
+        }
+        Some(json!({ "doc_count": missing }))
+    }
+
+    /// `median_absolute_deviation` — `median(|x_i − median(x)|)`.  XERJ's brute
+    /// path is EXACT (sort + positional median), not ES's TDigest, so the
+    /// columnar value equals brute byte-for-byte and differs from ES only by
+    /// the TDigest approximation error (same accepted divergence as
+    /// `percentiles`).  The sorted column (`gather_numeric_sorted`) gives the
+    /// first median for free; the abs-deviations need one O(N) map + an
+    /// `select_nth_unstable` (same positional order-statistics the brute full
+    /// sort would land on).  `compression` (a TDigest knob) is tolerated and
+    /// ignored since we are exact; `missing` / `format` change value gathering
+    /// so they bail to brute (not in the whitelist).
+    fn exec_median_absolute_deviation(&self, params: &Value) -> Option<Value> {
+        if !params_only(params, &["field", "compression"]) {
+            return None;
+        }
+        let field = params.get("field").and_then(Value::as_str)?;
+        let nums = self.gather_numeric_sorted(field)?;
+        if nums.is_empty() {
+            return Some(json!({ "value": Value::Null }));
+        }
+        let n = nums.len();
+        let median = if n % 2 == 0 {
+            (nums[n / 2 - 1] + nums[n / 2]) / 2.0
+        } else {
+            nums[n / 2]
+        };
+        let mut dev: Vec<f64> = nums.iter().map(|x| (x - median).abs()).collect();
+        let cmp = |a: &f64, b: &f64| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal);
+        let m = dev.len();
+        let mad = if m % 2 == 0 {
+            // `select_nth_unstable_by(m/2)` places the (m/2)-th order statistic
+            // at `m/2` and leaves everything before it ≤ it, so the low middle
+            // is the max of that left partition — exactly the two positions a
+            // full sort would read.
+            let hi = {
+                let (_, p, _) = dev.select_nth_unstable_by(m / 2, cmp);
+                *p
+            };
+            let lo = dev[..m / 2]
+                .iter()
+                .copied()
+                .fold(f64::NEG_INFINITY, f64::max);
+            (lo + hi) / 2.0
+        } else {
+            let (_, p, _) = dev.select_nth_unstable_by(m / 2, cmp);
+            *p
+        };
+        Some(json!({ "value": mad }))
+    }
+
+    /// `matrix_stats` — single columnar pass gathering, per doc where EVERY
+    /// requested field is present, a value vector straight from the numeric
+    /// `.dv` columns, then the identical count/mean/variance/skewness/kurtosis
+    /// + pairwise covariance/correlation reduction as brute
+    /// (`matrix_stats_from_rows`, shared).  Only the plain `{fields}` form is
+    /// served; `mode` (multi-value collapse), `missing` (per-field default) and
+    /// the `__xy_f32_fields__` sentinel (float-precision round-trip, injected by
+    /// the REST layer only when a `type: float` field is involved) all change
+    /// value gathering, so their presence bails to the exact brute reducer.
+    fn exec_matrix_stats(&self, params: &Value) -> Option<Value> {
+        if !params_only(params, &["fields"]) {
+            return None;
+        }
+        let fields: Vec<String> = params
+            .get("fields")
+            .and_then(Value::as_array)
+            .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .unwrap_or_default();
+        if fields.is_empty() {
+            return Some(json!({ "doc_count": 0, "fields": [] }));
+        }
+        // Every field must be a scalar numeric doc-value column everywhere
+        // (keyword / mixed / non-numeric memtable value → bail to brute).
+        for f in &fields {
+            match self.seg_field_kind(f) {
+                Ok(Some(ColKind::Numeric)) | Ok(None) => {}
+                _ => return None,
+            }
+            if !self.mem_field_numeric_safe(f) {
+                return None;
+            }
+        }
+        let k = fields.len();
+        let mut rows: Vec<Vec<f64>> = Vec::new();
+        // Memtable docs first (brute-parity scalar extraction); a doc is
+        // included only when every field resolves to a number.
+        for doc in self.mem().iter() {
+            let mut row = Vec::with_capacity(k);
+            let mut valid = true;
+            for f in &fields {
+                match extract_numeric(doc, f) {
+                    Some(v) => row.push(v),
+                    None => {
+                        valid = false;
+                        break;
+                    }
+                }
+            }
+            if valid {
+                rows.push(row);
+            }
+        }
+        // Segment rows — join the fields' columns by row id.  If any field's
+        // column is absent for the whole segment, no row there can be valid.
+        for seg in &self.segs {
+            let mut cols: Vec<&NumericColumn> = Vec::with_capacity(k);
+            let mut all_present = true;
+            for f in &fields {
+                match seg.cols.get(f) {
+                    Some(Column::Numeric(n)) => cols.push(n),
+                    _ => {
+                        all_present = false;
+                        break;
+                    }
+                }
+            }
+            if !all_present {
+                continue;
+            }
+            for row_id in 0..seg.docs {
+                let mut row = Vec::with_capacity(k);
+                let mut valid = true;
+                for n in &cols {
+                    // `NumericColumn` stores f64 BITS — decode before use.
+                    match n.get(row_id) {
+                        Some(bits) => row.push(f64::from_bits(bits as u64)),
+                        None => {
+                            valid = false;
+                            break;
+                        }
+                    }
+                }
+                if valid {
+                    rows.push(row);
+                }
+            }
+        }
+        // Reduction is permutation-invariant up to float ULPs, so the
+        // memtable-first row order (vs brute corpus order) only moves the
+        // result within the documented summation-order tolerance.
+        Some(matrix_stats_from_rows(fields, rows))
+    }
+
+    /// `auto_date_histogram` — compute the date column's min/max columnar, pick
+    /// the same rounding interval as brute (`auto_date_pick_interval` — the ES
+    /// sec/min/hour/day/month/year ladder), then bucket via the EXISTING
+    /// columnar `exec_date_histogram` with that fixed interval and annotate the
+    /// chosen `interval`.  Byte-identical to brute `run_auto_date_histogram`
+    /// (which delegates to `run_date_histogram` the same way) for every case it
+    /// serves.  Only `{field, buckets}` is accepted; the week/month/quarter
+    /// intervals (`7d`/`30d`/`90d`) carry a non-zero grid `offset` that
+    /// `exec_date_histogram` doesn't model, so those bail to brute.
+    fn exec_auto_date_histogram(&self, params: &Value, sub: Option<&Value>) -> Option<Value> {
+        if !params_only(params, &["field", "buckets"]) {
+            return None;
+        }
+        let field = params.get("field").and_then(Value::as_str)?;
+        match self.seg_field_kind(field) {
+            // Keyword = ISO-string date column; Numeric = epoch-ms column.
+            Ok(Some(ColKind::Keyword)) | Ok(Some(ColKind::Numeric)) | Ok(None) => {}
+            _ => return None,
+        }
+        let target_buckets = params.get("buckets").and_then(Value::as_u64).unwrap_or(10) as usize;
+
+        // Columnar min/max of the parsed date, mirroring the brute
+        // `parse_date_ms(get_nested_field(...))` collection.
+        let mut min_ts = i64::MAX;
+        let mut max_ts = i64::MIN;
+        let mut any = false;
+        for seg in &self.segs {
+            match seg.cols.get(field) {
+                Some(Column::Numeric(n)) => {
+                    if n.live_count > 0 {
+                        // f64::from_bits epoch-ms; exact as i64 (< 2^53).
+                        let lo = n.live_min as i64;
+                        let hi = n.live_max as i64;
+                        if lo < min_ts {
+                            min_ts = lo;
+                        }
+                        if hi > max_ts {
+                            max_ts = hi;
+                        }
+                        any = true;
+                    }
+                }
+                Some(Column::Keyword(k)) => {
+                    let ord_ms = self.date_ord_index(seg, field)?;
+                    for (ord, &ms) in ord_ms.iter().enumerate() {
+                        if ms == i64::MIN || k.per_ord_count.get(ord).copied().unwrap_or(0) == 0 {
+                            continue;
+                        }
+                        if ms < min_ts {
+                            min_ts = ms;
+                        }
+                        if ms > max_ts {
+                            max_ts = ms;
+                        }
+                        any = true;
+                    }
+                }
+                None => {}
+            }
+        }
+        for doc in self.mem().iter() {
+            if let Some(ms) = parse_date_ms(get_nested_field(doc, field)) {
+                if ms < min_ts {
+                    min_ts = ms;
+                }
+                if ms > max_ts {
+                    max_ts = ms;
+                }
+                any = true;
+            }
+        }
+        if !any {
+            // No parseable dates — brute returns this exact empty shape.
+            return Some(json!({ "buckets": [], "interval": "1d" }));
+        }
+
+        let (interval_label, interval_ms) = auto_date_pick_interval(min_ts, max_ts, target_buckets);
+        // 7d/30d/90d need a non-zero grid offset the columnar date_histogram
+        // doesn't model → hand those back to the exact brute path.
+        if auto_date_offset_ms(interval_label, interval_ms, min_ts) != 0 {
+            return None;
+        }
+        let synth = json!({ "field": field, "fixed_interval": interval_label });
+        let mut result = self.exec_date_histogram(&synth, sub)?;
+        if let Some(obj) = result.as_object_mut() {
+            obj.insert("interval".to_string(), json!(interval_label));
+        }
+        Some(result)
     }
 
     // ── shared fused row pass ────────────────────────────────────────────
