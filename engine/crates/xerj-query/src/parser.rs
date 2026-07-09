@@ -1552,10 +1552,17 @@ fn parse_qs_unary(
             // A bare term containing `*` or `?` is a Lucene wildcard —
             // emit a Wildcard query so `q=shor*` / `q=te?t` match text
             // tokens with the expected substitution semantics.
+            //
+            // ES lowercases wildcard/prefix terms in `query_string` (the field's
+            // search analyzer normalizes them) — e.g. `q=field:BA*` matches the
+            // indexed lowercased token `bar`.  The raw `wildcard` query does NOT
+            // analyze its pattern (case-sensitive), so this lowering lives HERE
+            // in the query_string path only.  Harmless for keyword fields, whose
+            // FST-wildcard route case-folds both sides regardless.
             if value.contains('*') || value.contains('?') {
                 return Some(QueryNode::Wildcard {
                     field: f,
-                    value,
+                    value: value.to_lowercase(),
                     boost: None,
                 });
             }
