@@ -542,6 +542,16 @@ pub struct Index {
     /// segment id at the merge-completion site alongside the other caches.
     id_pos_cache: Arc<dashmap::DashMap<String, Arc<std::collections::HashMap<String, u32>>>>,
 
+    /// Per-segment `stored-position → seq_no` map for the scored-family
+    /// columnar fast path. Segment ROW order is NOT insertion order (the
+    /// 16-shard memtable flush + merges interleave rows), but ES's score
+    /// tie-break is Lucene doc id = arrival order = our seq_no — so tied
+    /// top-k selection must rank rows by seq, not by row index. Built once
+    /// per segment from the (cached) `id_pos_map_for` + version map; only
+    /// consulted under `!deletes_present` (seq of a live id is then stable),
+    /// and evicted by segment id at the merge-completion site.
+    row_seq_cache: Arc<dashmap::DashMap<String, Arc<Vec<u64>>>>,
+
     /// Per-segment cache of decoded `Vec<Value>` from the stored section.
     /// KNN search and segment-scan get-document paths used to call
     /// `decode_stored` + `simd_json::serde::from_slice` *every* time —
@@ -820,6 +830,7 @@ impl Index {
             stored_slices_build_locks: Arc::new(dashmap::DashMap::new()),
             range_prefilter_cache: Arc::new(dashmap::DashMap::new()),
             id_pos_cache: Arc::new(dashmap::DashMap::new()),
+            row_seq_cache: Arc::new(dashmap::DashMap::new()),
             stored_value_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache_bytes: Arc::new(AtomicU64::new(0)),
@@ -996,6 +1007,7 @@ impl Index {
             stored_slices_build_locks: Arc::new(dashmap::DashMap::new()),
             range_prefilter_cache: Arc::new(dashmap::DashMap::new()),
             id_pos_cache: Arc::new(dashmap::DashMap::new()),
+            row_seq_cache: Arc::new(dashmap::DashMap::new()),
             stored_value_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache_bytes: Arc::new(AtomicU64::new(0)),
@@ -3078,6 +3090,7 @@ impl Index {
             for id in &dropped_seg_ids {
                 self.dv_cache.remove(id.as_str());
                 self.id_pos_cache.remove(id.as_str());
+                self.row_seq_cache.remove(id.as_str());
                 self.stored_value_cache.remove(id.as_str());
                 if let Some((_, slices)) = self.stored_slices_cache.remove(id.as_str()) {
                     self.stored_slices_cache_bytes
@@ -5553,18 +5566,44 @@ impl Index {
         // a token like "claude" can never match the keyword term
         // "claude-haiku-4-5", which made multi_match / query_string /
         // simple_query_string return 0 hits on keyword-only mappings.
-        let (text_fields, exact_fields): (Vec<String>, std::collections::HashSet<String>) = {
+        // `kw_fields` / `num_fields` / `bool_fields` are the schema-typed
+        // field sets the scored-family fast-path gate needs: `exact_fields`
+        // alone can't prove "keyword" (it also holds numerics/dates/bools),
+        // and Text fields must NEVER enter the columnar scorer (they get
+        // Keyword dv columns but ES analyzes them).
+        let (text_fields, exact_fields, kw_fields, num_fields, bool_fields): (
+            Vec<String>,
+            std::collections::HashSet<String>,
+            std::collections::HashSet<String>,
+            std::collections::HashSet<String>,
+            std::collections::HashSet<String>,
+        ) = {
             let schema_guard = self.schema.read().await;
             let mut tf: Vec<String> = Vec::new();
             let mut ef: std::collections::HashSet<String> = std::collections::HashSet::new();
+            let mut kw: std::collections::HashSet<String> = std::collections::HashSet::new();
+            let mut num: std::collections::HashSet<String> = std::collections::HashSet::new();
+            let mut bf: std::collections::HashSet<String> = std::collections::HashSet::new();
             for f in &schema_guard.schema.fields {
                 if matches!(f.field_type, FieldType::Text) {
                     tf.push(f.name.clone());
                 } else {
                     ef.insert(f.name.clone());
                 }
+                match f.field_type {
+                    FieldType::Keyword => {
+                        kw.insert(f.name.clone());
+                    }
+                    FieldType::Long | FieldType::Double => {
+                        num.insert(f.name.clone());
+                    }
+                    FieldType::Boolean => {
+                        bf.insert(f.name.clone());
+                    }
+                    _ => {}
+                }
             }
-            (tf, ef)
+            (tf, ef, kw, num, bf)
         };
 
         // ── Fast path: count-only shortcut ────────────────────────────────
@@ -5624,7 +5663,26 @@ impl Index {
         // instead of walking every match to tally `hits.total`.  For query
         // shapes the shortcut can't resolve it returns `None` (cheaply) and we
         // fall back to the full counting scan — so this is always safe.
-        let shortcut_count: Option<u64> = self.try_shortcut_count(query, &snap, is_match_all).await;
+        // Probe the scored-family columnar fast path EARLY (the executor
+        // itself runs after the agg fast-paths below): when it is going to
+        // run, `try_shortcut_count` is dead weight — the executor supplies
+        // the exact `hits.total` itself — yet costs several ms on some
+        // shapes (live-measured: a boolean-column `term` under `must_not`
+        // spent ~6 ms here, dominating the fast path's single-digit budget).
+        // If the executor later bails at runtime (missing column, etc.) the
+        // stored scan simply runs in full-counting mode — correct, just not
+        // F1-bounded.
+        let scored_plan: Option<ScoredPlan> =
+            scored_fast_plan(query, request, size, &kw_fields, &num_fields, &bool_fields);
+        let scored_fast_ready: bool = scored_plan.is_some()
+            && !(snap.segments.iter().any(|m| m.has_tombstones)
+                || self.store.version_map.ghost_events() > 0)
+            && self.memtable.doc_count() == 0;
+        let shortcut_count: Option<u64> = if scored_fast_ready {
+            None
+        } else {
+            self.try_shortcut_count(query, &snap, is_match_all).await
+        };
 
         // Whether this query resolves to an FTS (inverted-index) search.  The
         // FTS scored path already counts authoritatively via `seg_hits.len()`
@@ -5754,6 +5812,33 @@ impl Index {
             }
         }
 
+        // ── Columnar scored-family fast path ──────────────────────────────
+        // `dis_max` / `boosting` / `pinned` / scoring `bool` on keyword
+        // fields, scored with EXACT ES BM25 (global term stats from the
+        // doc-values columns) instead of the IDF-less brute scorer, with the
+        // global top-k selected by (score, insertion order) — see
+        // `scored_fast_plan` (shape gate) + `scored_columnar` (executor).
+        // Bails (leaving `scored_fast_applied = false`) for any uncovered
+        // shape, deletes, non-empty memtable, or missing/nulled columns —
+        // the brute path below then behaves byte-for-byte as before.
+        let mut scored_fast_applied = false;
+        if let Some(plan) = &scored_plan {
+            if scored_fast_ready && !deletes_present {
+                if let Some((hits, total)) = self.scored_columnar(
+                    plan,
+                    &snap.segments,
+                    &segments_dir,
+                    materialisation_limit,
+                ) {
+                    seen_ids.clear();
+                    seen_ids.extend(hits.iter().map(|h| h.id.clone()));
+                    all_hits = hits;
+                    total_count = total;
+                    scored_fast_applied = true;
+                }
+            }
+        }
+
         if precomputed_aggs.is_some() {
             // Skip the entire segment loop — the fast agg path already
             // computed everything we need.  `total_count` is set above.
@@ -5776,10 +5861,10 @@ impl Index {
             // ever returns None for MatchAll).
             let seg_docs: u64 = snap.segments.iter().map(|m| m.doc_count).sum();
             total_count += seg_docs;
-        } else if fs_fast_applied {
-            // Columnar function_score fast path already produced the global
-            // top-k (`all_hits`) and the exact live total (`total_count`);
-            // skip the stored-doc scan entirely.
+        } else if fs_fast_applied || scored_fast_applied {
+            // A columnar fast path (function_score fvf or scored-family)
+            // already produced the global top-k (`all_hits`) and the exact
+            // total (`total_count`); skip the stored-doc scan entirely.
         } else {
             // Decide up-front whether this query needs FTS side-cars at all.
             // For term/range/etc. queries we skip FtsIndexReader::open
@@ -6628,7 +6713,14 @@ impl Index {
 
         // --- Apply pinned query: boost pinned IDs to the top ---
         // Assign pinned IDs a score higher than any organic result so they sort first.
-        if let QueryNode::Pinned { ids, .. } = query {
+        // Skipped when the scored-family columnar path ran: it already
+        // assigned the EXACT ES pin scores (1.7014…e38 family) and this
+        // rewrite would clobber them with the legacy max_organic+1+rank
+        // fakes (it also only sees hits already inside the bounded
+        // collector, which is why pins never floated on the brute path).
+        if scored_fast_applied {
+            // exact pin scores already in place
+        } else if let QueryNode::Pinned { ids, .. } = query {
             let max_organic_score = final_hits
                 .iter()
                 .map(|h| h.score)
@@ -6766,7 +6858,13 @@ impl Index {
         // docs get 1.0" and "docs with rare terms rank higher" for
         // diversified_sampler / top_hits / 115_multi / interval_query
         // ordering.
-        if !final_hits.is_empty() && request.sort.is_empty() && query_uses_bool_text(&request.query)
+        // (`!scored_fast_applied`: the columnar scored path already produced
+        // exact ES BM25 scores — this heuristic rescore would rewrite
+        // range-less scoring bools with ≥2 clauses.)
+        if !scored_fast_applied
+            && !final_hits.is_empty()
+            && request.sort.is_empty()
+            && query_uses_bool_text(&request.query)
         {
             let field_term_pairs = collect_match_field_terms(&request.query);
             if !field_term_pairs.is_empty() {
@@ -6812,7 +6910,11 @@ impl Index {
 
         // --- Score normalization: normalize BM25 scores to [0, max_score] ---
         // When scores are extremely low (BM25 near-zero), fall back to simple TF-IDF scoring.
-        if !final_hits.is_empty() && request.sort.is_empty() {
+        // (`!scored_fast_applied`: a term with n ≈ N legitimately scores
+        // < 0.001 under exact BM25 — e.g. status:ok over the 100k bench
+        // corpus scores 0.012563465, but boosting×0.3 shapes go lower — and
+        // this data-dependent fallback would silently rewrite exact scores.)
+        if !scored_fast_applied && !final_hits.is_empty() && request.sort.is_empty() {
             let max_score = final_hits
                 .iter()
                 .map(|h| h.score)
@@ -6928,6 +7030,7 @@ impl Index {
             total_count = self.live_doc_count();
         } else if !count_only
             && !query_needs_fts
+            && !scored_fast_applied
             && (scan_hit_cap || sort_candidates_narrowed)
             && !deletes_present
         {
@@ -9272,6 +9375,470 @@ impl Index {
         Some((hits, total))
     }
 
+    /// Columnar exact-BM25 executor for the scored family
+    /// (`dis_max` / `boosting` / `pinned` / scoring `bool`) — the shapes
+    /// admitted by [`scored_fast_plan`].
+    ///
+    /// Walks every segment row straight from the doc-values columns,
+    /// computes the EXACT ES score per matching row (per-clause BM25
+    /// constants from GLOBAL term stats — see [`bm25_keyword_term_score`] —
+    /// combined per shape with ES/Lucene's float widths), keeps the global
+    /// top-`cap` by `(score DESC, seq_no ASC)` (= arrival order = ES's
+    /// Lucene-doc-id `_doc` tie-break; scores here are massively tied so
+    /// score-only selection would return an arbitrary tied subset, and
+    /// segment ROW order is NOT arrival order — the sharded memtable flush
+    /// interleaves rows — so rows are ranked via the cached per-segment
+    /// `row_seqs_for` map, the same key the caller's final sort re-derives
+    /// per hit via `lookup_seq_no`), and hydrates
+    /// `_source` only for the winners via the F2 random-access slice path.
+    /// Also returns the EXACT match total (`track_total_hits: true`).
+    ///
+    /// Returns `None` — caller falls back to the unchanged brute scan — when
+    /// the memtable is non-empty, any referenced column is missing /
+    /// kind-mismatched / row-count-mismatched, any SCORING field has nulls
+    /// (the null-free gate simultaneously guarantees `N == Σ doc_count` for
+    /// the idf and excludes array-valued docs, which the column builder
+    /// records as nulls), or a pinned id can't be resolved through a
+    /// complete per-segment `_id → position` map. The caller additionally
+    /// gates on `!deletes_present`, so every row is live and each `_id`
+    /// occupies exactly one segment position.
+    fn scored_columnar(
+        &self,
+        plan: &ScoredPlan,
+        segments: &[xerj_storage::segment::SegmentMeta],
+        segments_dir: &std::path::Path,
+        cap: usize,
+    ) -> Option<(Vec<Hit>, u64)> {
+        use xerj_storage::doc_values::{Column, KeywordColumn, NumericColumn};
+
+        // The memtable has no doc-values columns, and its rows would need
+        // their own global-stats treatment — serve fully-flushed data only.
+        if self.memtable.doc_count() != 0 {
+            return None;
+        }
+
+        // Flat clause lists. Order matters: bool scores must-then-should.
+        let scoring: Vec<&ScoredLeaf> = match plan {
+            ScoredPlan::DisMax { clauses, .. } => clauses.iter().collect(),
+            ScoredPlan::Boosting { positive, .. } => vec![positive],
+            ScoredPlan::Pinned { organic, .. } => vec![organic],
+            ScoredPlan::Bool { must, should, .. } => must.iter().chain(should.iter()).collect(),
+        };
+        let filters: Vec<&ScoredFilterLeaf> = match plan {
+            ScoredPlan::Boosting { negative, .. } => vec![negative],
+            ScoredPlan::Bool {
+                filter, must_not, ..
+            } => filter.iter().chain(must_not.iter()).collect(),
+            _ => Vec::new(),
+        };
+
+        // ── Phase 1: per-segment columns + GLOBAL term stats ──────────────
+        // idf uses the field's docCount as N; the null-free scoring-column
+        // gate forces it to equal Σ segment doc_count (bench mapping has no
+        // nulls, so this coincides with ES's field docCount).
+        let mut seg_cols = Vec::with_capacity(segments.len());
+        let mut seg_seqs: Vec<Arc<Vec<u64>>> = Vec::with_capacity(segments.len());
+        for meta in segments {
+            seg_cols.push(self.dv_columns_for(segments_dir, &meta.id)?);
+            seg_seqs.push(self.row_seqs_for(meta.id.as_str(), meta.doc_count)?);
+        }
+        let mut total_docs: u64 = 0;
+        let mut df: Vec<u64> = vec![0; scoring.len()];
+        for (meta, cols) in segments.iter().zip(seg_cols.iter()) {
+            total_docs += meta.doc_count;
+            for (ci, leaf) in scoring.iter().enumerate() {
+                let Some(Column::Keyword(k)) = cols.get(leaf.field.as_str()) else {
+                    return None;
+                };
+                if k.doc_count as u64 != meta.doc_count || !k.null_bitmap.is_empty() {
+                    return None;
+                }
+                if let Some(ord) = k.ord_for_term(&leaf.term) {
+                    df[ci] += k.per_ord_count.get(ord as usize).copied().unwrap_or(0) as u64;
+                }
+            }
+            for fl in &filters {
+                match fl {
+                    ScoredFilterLeaf::KeywordTerm { field, .. }
+                    | ScoredFilterLeaf::KeywordTerms { field, .. } => {
+                        let Some(Column::Keyword(k)) = cols.get(field.as_str()) else {
+                            return None;
+                        };
+                        if k.doc_count as u64 != meta.doc_count {
+                            return None;
+                        }
+                    }
+                    ScoredFilterLeaf::NumericWindow { field, .. } => {
+                        let Some(Column::Numeric(n)) = cols.get(field.as_str()) else {
+                            return None;
+                        };
+                        if n.doc_count as u64 != meta.doc_count {
+                            return None;
+                        }
+                    }
+                }
+            }
+        }
+        // Per-clause BM25 constant (exact ES float32 op sequence). A clause
+        // whose term is absent everywhere (df = 0) never matches a row, so
+        // its (unused) score value is irrelevant.
+        let clause_scores: Vec<f32> = df
+            .iter()
+            .map(|&n| bm25_keyword_term_score(n, total_docs))
+            .collect();
+
+        // Per-row evaluators over one segment's columns.
+        struct ScoreEval<'a> {
+            col: &'a KeywordColumn,
+            ord: Option<u32>,
+        }
+        impl ScoreEval<'_> {
+            #[inline]
+            fn matches(&self, row: u32) -> bool {
+                // Scoring columns are verified null-free in phase 1.
+                match self.ord {
+                    Some(o) => self.col.ords[row as usize] == o,
+                    None => false,
+                }
+            }
+        }
+        enum FilterEval<'a> {
+            Kw {
+                col: &'a KeywordColumn,
+                // Hoisted `null_bitmap.is_empty()`: per-row `contains` on a
+                // RoaringBitmap is the dominant cost of the walk; null-free
+                // columns (the common case) skip it entirely.
+                no_nulls: bool,
+                ords: Vec<u32>, // sorted; empty = matches nothing here
+            },
+            Num {
+                col: &'a NumericColumn,
+                no_nulls: bool,
+                min: f64,
+                max: f64,
+                min_inc: bool,
+                max_inc: bool,
+            },
+        }
+        impl FilterEval<'_> {
+            #[inline]
+            fn matches(&self, row: u32) -> bool {
+                match self {
+                    FilterEval::Kw {
+                        col,
+                        no_nulls,
+                        ords,
+                    } => {
+                        (*no_nulls || !col.null_bitmap.contains(row))
+                            && ords.binary_search(&col.ords[row as usize]).is_ok()
+                    }
+                    FilterEval::Num {
+                        col,
+                        no_nulls,
+                        min,
+                        max,
+                        min_inc,
+                        max_inc,
+                    } => {
+                        if !*no_nulls && col.null_bitmap.contains(row) {
+                            return false;
+                        }
+                        // Numeric dv columns store the f64 bit-pattern.
+                        let v = f64::from_bits(col.data[row as usize] as u64);
+                        (if *min_inc { v >= *min } else { v > *min })
+                            && (if *max_inc { v <= *max } else { v < *max })
+                    }
+                }
+            }
+        }
+
+        // ── Phase 2: row walk — exact per-row score + exact total ─────────
+        // Candidate = (score, seq_no, segment, row); seq_no is the ES-parity
+        // tie-break key, (segment, row) locates the stored slice.
+        let mut cands: Vec<(f32, u64, u32, u32)> = Vec::new();
+        let mut total: u64 = 0;
+        for (si, (meta, cols)) in segments.iter().zip(seg_cols.iter()).enumerate() {
+            let seqs: &[u64] = &seg_seqs[si];
+            let si = si as u32;
+            let mut sev: Vec<ScoreEval> = Vec::with_capacity(scoring.len());
+            for leaf in &scoring {
+                let Some(Column::Keyword(k)) = cols.get(leaf.field.as_str()) else {
+                    return None;
+                };
+                sev.push(ScoreEval {
+                    col: k,
+                    ord: k.ord_for_term(&leaf.term),
+                });
+            }
+            let mut fev: Vec<FilterEval> = Vec::with_capacity(filters.len());
+            for fl in &filters {
+                match fl {
+                    ScoredFilterLeaf::KeywordTerm { field, term } => {
+                        let Some(Column::Keyword(k)) = cols.get(field.as_str()) else {
+                            return None;
+                        };
+                        fev.push(FilterEval::Kw {
+                            col: k,
+                            no_nulls: k.null_bitmap.is_empty(),
+                            ords: k.ord_for_term(term).into_iter().collect(),
+                        });
+                    }
+                    ScoredFilterLeaf::KeywordTerms { field, terms } => {
+                        let Some(Column::Keyword(k)) = cols.get(field.as_str()) else {
+                            return None;
+                        };
+                        let mut ords: Vec<u32> =
+                            terms.iter().filter_map(|t| k.ord_for_term(t)).collect();
+                        ords.sort_unstable();
+                        ords.dedup();
+                        fev.push(FilterEval::Kw {
+                            col: k,
+                            no_nulls: k.null_bitmap.is_empty(),
+                            ords,
+                        });
+                    }
+                    ScoredFilterLeaf::NumericWindow {
+                        field,
+                        min,
+                        max,
+                        min_inc,
+                        max_inc,
+                    } => {
+                        let Some(Column::Numeric(n)) = cols.get(field.as_str()) else {
+                            return None;
+                        };
+                        fev.push(FilterEval::Num {
+                            col: n,
+                            no_nulls: n.null_bitmap.is_empty(),
+                            min: *min,
+                            max: *max,
+                            min_inc: *min_inc,
+                            max_inc: *max_inc,
+                        });
+                    }
+                }
+            }
+            let doc_count = meta.doc_count as u32;
+            match plan {
+                ScoredPlan::DisMax { tie_breaker, .. } => {
+                    // Lucene DisjunctionMaxScorer: scoreSum accumulated in
+                    // double over the float32 clause scores, scoreMax kept
+                    // as float32, result
+                    // (float)(max + (sum − max) · tieBreaker).
+                    let tie = *tie_breaker as f64;
+                    for row in 0..doc_count {
+                        let mut sum = 0.0_f64;
+                        let mut max = 0.0_f32;
+                        let mut any = false;
+                        for (ci, ev) in sev.iter().enumerate() {
+                            if ev.matches(row) {
+                                any = true;
+                                let s = clause_scores[ci];
+                                sum += s as f64;
+                                if s > max {
+                                    max = s;
+                                }
+                            }
+                        }
+                        if !any {
+                            continue;
+                        }
+                        total += 1;
+                        let score = (max as f64 + (sum - max as f64) * tie) as f32;
+                        cands.push((score, seqs[row as usize], si, row));
+                    }
+                }
+                ScoredPlan::Boosting { negative_boost, .. } => {
+                    // Docs matching only the negative do NOT match at all;
+                    // negative-matching positives take a plain f32 multiply
+                    // (verified bit-exact vs ES `_explain` "product of:").
+                    let ps = clause_scores[0];
+                    let (pos, neg) = (&sev[0], &fev[0]);
+                    for row in 0..doc_count {
+                        if !pos.matches(row) {
+                            continue;
+                        }
+                        total += 1;
+                        let score = if neg.matches(row) {
+                            ps * *negative_boost
+                        } else {
+                            ps
+                        };
+                        cands.push((score, seqs[row as usize], si, row));
+                    }
+                }
+                ScoredPlan::Pinned { .. } => {
+                    // Organic rows only; pins are overlaid in phase 4.
+                    let org = &sev[0];
+                    let s = clause_scores[0];
+                    for row in 0..doc_count {
+                        if org.matches(row) {
+                            total += 1;
+                            cands.push((s, seqs[row as usize], si, row));
+                        }
+                    }
+                }
+                ScoredPlan::Bool {
+                    must,
+                    should,
+                    filter,
+                    ..
+                } => {
+                    let n_must = must.len();
+                    let n_filter = filter.len();
+                    // ES default minimum_should_match: 1 when the bool has
+                    // ONLY should (no must/filter — must_not doesn't count),
+                    // else 0.
+                    let required_should: usize =
+                        usize::from(n_must == 0 && n_filter == 0 && !should.is_empty());
+                    'rows: for row in 0..doc_count {
+                        for ev in &sev[..n_must] {
+                            if !ev.matches(row) {
+                                continue 'rows;
+                            }
+                        }
+                        for (fi, ev) in fev.iter().enumerate() {
+                            let m = ev.matches(row);
+                            if fi < n_filter {
+                                // filter clause: must match, contributes 0.
+                                if !m {
+                                    continue 'rows;
+                                }
+                            } else if m {
+                                // must_not clause: must NOT match.
+                                continue 'rows;
+                            }
+                        }
+                        // Σ in f64 of the f32 clause scores (must, then
+                        // matching should), single cast to f32 — Lucene's
+                        // double-accumulating sum scorer.
+                        let mut sum = 0.0_f64;
+                        for &cs in &clause_scores[..n_must] {
+                            sum += cs as f64;
+                        }
+                        let mut should_matched = 0usize;
+                        for ci in n_must..sev.len() {
+                            if sev[ci].matches(row) {
+                                should_matched += 1;
+                                sum += clause_scores[ci] as f64;
+                            }
+                        }
+                        if should_matched < required_should {
+                            continue 'rows;
+                        }
+                        total += 1;
+                        cands.push((sum as f32, seqs[row as usize], si, row));
+                    }
+                }
+            }
+        }
+
+        // ── Phase 3: global top-`cap` by (score DESC, seq_no ASC) ─────────
+        // The composite key is a TOTAL order (live seq_nos are unique under
+        // the caller's `!deletes_present` gate), so the kept SET is exactly
+        // ES's: arrival order == Lucene `_doc` order. Final page ordering is
+        // re-derived by the caller's (score desc, seq_no asc) sort, which
+        // uses the same key per hit via `lookup_seq_no`.
+        let cmp = |a: &(f32, u64, u32, u32), b: &(f32, u64, u32, u32)| {
+            b.0.partial_cmp(&a.0)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.1.cmp(&b.1))
+        };
+        let keep = cap.min(cands.len());
+        if keep > 0 && cands.len() > keep {
+            cands.select_nth_unstable_by(keep - 1, cmp);
+            cands.truncate(keep);
+        }
+
+        // ── Phase 4: pinned overlay ───────────────────────────────────────
+        // A pinned doc at 0-based position `i` of the P-length ids array
+        // gets the CONSTANT score bits `0x7F00_0001 + (P − i)` (base
+        // Float.MAX_VALUE/2; verified against ES for P = 1..4). Positions
+        // count over the FULL ids array including ids that don't exist; a
+        // missing id simply produces no hit. Pinned ids that exist are
+        // ALWAYS hits — organic non-matches join the result (total += 1),
+        // organic matches are re-scored in place (total unchanged).
+        if let ScoredPlan::Pinned { ids, organic } = plan {
+            if ids.len() > cap {
+                return None;
+            }
+            let p = ids.len() as u32;
+            let mut maps = Vec::with_capacity(segments.len());
+            for meta in segments {
+                maps.push(self.id_pos_map_for(meta.id.as_str(), meta.doc_count)?);
+            }
+            for (i, id) in ids.iter().enumerate() {
+                let mut found: Option<(u32, u32)> = None;
+                for (si, map) in maps.iter().enumerate() {
+                    if let Some(&pos) = map.get(id) {
+                        found = Some((si as u32, pos));
+                        break;
+                    }
+                }
+                let Some((si, row)) = found else {
+                    continue; // id not in the index → no hit, no shift
+                };
+                let pin_score = f32::from_bits(0x7F00_0001_u32 + (p - i as u32));
+                if let Some(c) = cands.iter_mut().find(|c| c.2 == si && c.3 == row) {
+                    // Organic match that survived selection → re-score.
+                    c.0 = pin_score;
+                } else {
+                    // Either an organic match truncated out of the top-`cap`
+                    // (already counted in `total`) or a pure pin (count it).
+                    let organic_matched = {
+                        let Some(Column::Keyword(k)) =
+                            seg_cols[si as usize].get(organic.field.as_str())
+                        else {
+                            return None;
+                        };
+                        k.ord_for_term(&organic.term)
+                            .is_some_and(|o| k.ords[row as usize] == o)
+                    };
+                    if !organic_matched {
+                        total += 1;
+                    }
+                    cands.push((pin_score, seg_seqs[si as usize][row as usize], si, row));
+                }
+            }
+            // Pins outscore everything finite — re-rank + re-truncate.
+            cands.sort_unstable_by(cmp);
+            cands.truncate(cap);
+        }
+
+        // ── Phase 5: hydrate winners via F2 offset slices ─────────────────
+        // Identical to `function_score_columnar` hydration, except each hit
+        // carries its COMPUTED score (there is no post-loop re-applier for
+        // these shapes; the caller's score sort finalises the order).
+        let mut hits: Vec<Hit> = Vec::with_capacity(cands.len());
+        let mut seen: HashSet<String> = HashSet::with_capacity(cands.len());
+        for (score, _seq, si, row) in cands {
+            let meta = &segments[si as usize];
+            let slices = self.stored_slices_for(meta.id.as_str(), meta.doc_count)?;
+            let &(start, end) = slices.offsets.get(row as usize)?;
+            let slice = slices.bytes.get(start as usize..end as usize)?;
+            let doc: Value = serde_json::from_slice(slice).ok()?;
+            let id = doc
+                .get("_id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            if id.is_empty() || !seen.insert(id.clone()) {
+                continue;
+            }
+            let source = doc.get("_source").cloned().unwrap_or(doc);
+            hits.push(Hit {
+                id,
+                score,
+                source,
+                sort: Vec::new(),
+                explain: None,
+                highlight: None,
+                matched_queries: Vec::new(),
+            });
+        }
+        Some((hits, total))
+    }
+
     /// Cache-backed reader for a segment's parsed stored section.
     ///
     /// First call for a segment opens the segment, decodes the Stored
@@ -9541,6 +10108,25 @@ impl Index {
         }
         let arc = Arc::new(map);
         self.id_pos_cache
+            .insert(seg_id.to_string(), Arc::clone(&arc));
+        Some(arc)
+    }
+
+    /// Lazily-built, cached `stored-position → seq_no` array for a segment
+    /// (see `row_seq_cache`). Returns `None` when the segment has no complete
+    /// id index or any id has no live version-map entry — callers then bail
+    /// to the brute path. Only meaningful under `!deletes_present`.
+    fn row_seqs_for(&self, seg_id: &str, expect_docs: u64) -> Option<Arc<Vec<u64>>> {
+        if let Some(entry) = self.row_seq_cache.get(seg_id) {
+            return Some(Arc::clone(entry.value()));
+        }
+        let map = self.id_pos_map_for(seg_id, expect_docs)?;
+        let mut seqs: Vec<u64> = vec![u64::MAX; expect_docs as usize];
+        for (id, &pos) in map.iter() {
+            seqs[pos as usize] = self.lookup_seq_no(id)?;
+        }
+        let arc = Arc::new(seqs);
+        self.row_seq_cache
             .insert(seg_id.to_string(), Arc::clone(&arc));
         Some(arc)
     }
@@ -18055,6 +18641,319 @@ fn function_score_fast_fvf<'q>(
         return None;
     }
     f.field_value_factor.as_ref()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scored-family columnar fast path (dis_max / boosting / pinned / scoring bool)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A scoring leaf accepted by the scored-family columnar fast path: a
+/// `term` (or `match`, which the keyword analyzer reduces to the identical
+/// whole-value term) on a keyword-typed field with default boost. ES scores
+/// it as BM25 with `tf = 1` and norms omitted — see
+/// [`bm25_keyword_term_score`].
+struct ScoredLeaf {
+    field: String,
+    term: String,
+}
+
+/// A filter-context leaf accepted by the scored-family columnar fast path.
+/// Filter leaves never contribute to the score — they only constrain which
+/// rows match (`filter` / `must_not` / `boosting.negative`).
+enum ScoredFilterLeaf {
+    /// `term`/`match` on a keyword field (single whole-value term).
+    KeywordTerm { field: String, term: String },
+    /// `terms` on a keyword field (OR over whole-value terms).
+    KeywordTerms { field: String, terms: Vec<String> },
+    /// `term` on a numeric/boolean field, or `range` on a numeric field —
+    /// both evaluate as an inclusive/exclusive f64 window over the numeric
+    /// doc-values column (a term is the degenerate `[v, v]` window;
+    /// booleans map to 1.0/0.0, matching the column encoding).
+    NumericWindow {
+        field: String,
+        min: f64,
+        max: f64,
+        min_inc: bool,
+        max_inc: bool,
+    },
+}
+
+/// The exact query shape the scored-family columnar executor serves.
+/// Built by [`scored_fast_plan`]; anything it can't express bails to the
+/// unchanged brute path.
+enum ScoredPlan {
+    /// `dis_max` over scoring leaves: per doc,
+    /// `score = max + tie_breaker · Σ(others)` over MATCHING clauses.
+    DisMax {
+        clauses: Vec<ScoredLeaf>,
+        tie_breaker: f32,
+    },
+    /// `boosting`: positive must match; a doc also matching `negative` has
+    /// its score multiplied by `negative_boost`.
+    Boosting {
+        positive: ScoredLeaf,
+        negative: ScoredFilterLeaf,
+        negative_boost: f32,
+    },
+    /// `pinned`: organic scoring leaf below constant-score pins.
+    Pinned {
+        ids: Vec<String>,
+        organic: ScoredLeaf,
+    },
+    /// Scoring `bool`: `score = Σ` of matching must+should leaf scores;
+    /// `filter`/`must_not` constrain only.
+    Bool {
+        must: Vec<ScoredLeaf>,
+        should: Vec<ScoredLeaf>,
+        filter: Vec<ScoredFilterLeaf>,
+        must_not: Vec<ScoredFilterLeaf>,
+    },
+}
+
+/// ES/Lucene-9 exact BM25 score of a `term` query on a keyword field
+/// (`boost = 1`), for a term with document frequency `n` in a null-free
+/// field over `total_docs` documents.
+///
+/// Keyword fields omit norms, so `dl = avgdl = 1` and `freq = 1`; with
+/// `k1 = 1.2`, `b = 0.75` (ES `LegacyBM25Similarity` defaults) the whole
+/// per-doc score collapses to a per-term CONSTANT. Lucene caches the
+/// RECIPROCAL norm (`1 / (k1·((1−b)+b·dl/avgdl))`) and computes
+/// `weight − weight/(1 + freq·normInv)` in float32 — which is algebraically
+/// `weight·tf` but ROUNDS differently: every "equivalent" ordering
+/// (weight·tf, double-precision intermediates) came out +1 ULP high on live
+/// ES 8.13.4 probes. The op sequence below reproduces ES bit-for-bit
+/// (verified: status:ok n=98752/N=100000 → 0.012563465 = 0x3c4dd6fe;
+/// model:claude-haiku-4-5 n=27744 → 1.2821424 = 0x3fa41d3e).
+fn bm25_keyword_term_score(n: u64, total_docs: u64) -> f32 {
+    // idf in f64, single cast to f32 (matches Lucene's `(float)` on the
+    // double-precision idf expression).
+    let idf_f32 =
+        (1.0_f64 + (total_docs as f64 - n as f64 + 0.5) / (n as f64 + 0.5)).ln() as f32;
+    // weight = query_boost(1.0) · (k1+1) · idf, all float32.
+    let weight = 2.2_f32 * idf_f32;
+    // Reciprocal cached norm for the norms-omitted case: 1/(k1·1) = 1/1.2,
+    // computed in float32 (bits 0x3f555555).
+    let norm_inv = 1.0_f32 / 1.2_f32;
+    // denom = 1 + freq·normInv with freq = 1 (bits 0x3feaaaab = 1.8333333).
+    let denom = 1.0_f32 + 1.0_f32 * norm_inv;
+    weight - weight / denom
+}
+
+/// Gate + extractor for the scored-family columnar fast path.
+///
+/// Returns `Some(plan)` iff the request is exactly a shape
+/// [`Index::scored_columnar`] can serve byte-for-byte vs ES:
+/// a plain top-k page (same request-plainness bail list as
+/// [`function_score_fast_fvf`]) whose query is one of
+///
+///   1. `dis_max` over scoring leaves (any `tie_breaker`);
+///   2. `boosting { positive: scoring leaf, negative: filter leaf,
+///      negative_boost ≥ 0 }`;
+///   3. `pinned { ids (non-empty, no duplicates), organic: scoring leaf }`;
+///   4. `bool` whose `must`/`should` are scoring leaves (at least one —
+///      filter-only bools stay on today's proven path), whose
+///      `filter`/`must_not` are filter leaves, with no
+///      `minimum_should_match`.
+///
+/// A scoring leaf is a `term`/`match` on a KEYWORD-typed field (schema
+/// `FieldType::Keyword` — `exact_fields` is NOT sufficient, it also holds
+/// numerics/dates) with boost absent or exactly 1.0. Filter leaves also
+/// admit keyword `terms`, numeric/boolean `term`, and numeric `range` with
+/// numeric bounds. Every other shape returns `None` → unchanged brute path.
+fn scored_fast_plan(
+    query: &QueryNode,
+    request: &SearchRequest,
+    size: usize,
+    keyword_fields: &HashSet<String>,
+    numeric_fields: &HashSet<String>,
+    boolean_fields: &HashSet<String>,
+) -> Option<ScoredPlan> {
+    // Request-level plainness — identical to `function_score_fast_fvf`.
+    if size == 0
+        || request.aggs.is_some()
+        || request.min_score.is_some()
+        || !request.sort.is_empty()
+        || !request.rescore.is_empty()
+        || request.collapse.is_some()
+        || request.search_after.is_some()
+        || request.highlight.is_some()
+        || request.explain
+        || request.script_fields.is_some()
+        || !request.fields.is_empty()
+    {
+        return None;
+    }
+
+    fn boost_ok(b: &Option<f32>) -> bool {
+        b.map_or(true, |v| v == 1.0)
+    }
+
+    let scoring_leaf = |node: &QueryNode| -> Option<ScoredLeaf> {
+        match node {
+            QueryNode::Term {
+                field,
+                value: Value::String(s),
+                boost,
+            } if keyword_fields.contains(field) && boost_ok(boost) => Some(ScoredLeaf {
+                field: field.clone(),
+                term: s.clone(),
+            }),
+            QueryNode::Match {
+                field,
+                query,
+                analyzer: None,
+                boost,
+                minimum_should_match: None,
+                ..
+            } if keyword_fields.contains(field) && boost_ok(boost) => Some(ScoredLeaf {
+                field: field.clone(),
+                term: query.clone(),
+            }),
+            _ => None,
+        }
+    };
+
+    let filter_leaf = |node: &QueryNode| -> Option<ScoredFilterLeaf> {
+        if let Some(l) = scoring_leaf(node) {
+            return Some(ScoredFilterLeaf::KeywordTerm {
+                field: l.field,
+                term: l.term,
+            });
+        }
+        match node {
+            QueryNode::Terms {
+                field,
+                values,
+                boost,
+            } if keyword_fields.contains(field) && boost_ok(boost) => {
+                let mut terms = Vec::with_capacity(values.len());
+                for v in values {
+                    match v {
+                        Value::String(s) => terms.push(s.clone()),
+                        _ => return None,
+                    }
+                }
+                Some(ScoredFilterLeaf::KeywordTerms {
+                    field: field.clone(),
+                    terms,
+                })
+            }
+            QueryNode::Term {
+                field,
+                value,
+                boost,
+            } if boost_ok(boost) => {
+                let v: f64 = if numeric_fields.contains(field) {
+                    // `as_f64` is None for Bool/String values → bail (the
+                    // brute path keeps ES's coercion semantics).
+                    value.as_f64()?
+                } else if boolean_fields.contains(field) {
+                    // Boolean dv columns store 1.0/0.0 — map the query value
+                    // ourselves (`as_f64` is None for `Value::Bool`).
+                    match value {
+                        Value::Bool(true) => 1.0,
+                        Value::Bool(false) => 0.0,
+                        _ => return None,
+                    }
+                } else {
+                    return None;
+                };
+                Some(ScoredFilterLeaf::NumericWindow {
+                    field: field.clone(),
+                    min: v,
+                    max: v,
+                    min_inc: true,
+                    max_inc: true,
+                })
+            }
+            QueryNode::Range {
+                field,
+                gte,
+                gt,
+                lte,
+                lt,
+                boost,
+            } if numeric_fields.contains(field) && boost_ok(boost) => {
+                let (min, min_inc) = match (gte, gt) {
+                    (Some(v), None) => (v.as_f64()?, true),
+                    (None, Some(v)) => (v.as_f64()?, false),
+                    (None, None) => (f64::NEG_INFINITY, true),
+                    _ => return None,
+                };
+                let (max, max_inc) = match (lte, lt) {
+                    (Some(v), None) => (v.as_f64()?, true),
+                    (None, Some(v)) => (v.as_f64()?, false),
+                    (None, None) => (f64::INFINITY, true),
+                    _ => return None,
+                };
+                Some(ScoredFilterLeaf::NumericWindow {
+                    field: field.clone(),
+                    min,
+                    max,
+                    min_inc,
+                    max_inc,
+                })
+            }
+            _ => None,
+        }
+    };
+
+    match query {
+        QueryNode::DisMax {
+            queries,
+            tie_breaker,
+        } if !queries.is_empty() => {
+            let clauses: Vec<ScoredLeaf> =
+                queries.iter().map(&scoring_leaf).collect::<Option<_>>()?;
+            Some(ScoredPlan::DisMax {
+                clauses,
+                tie_breaker: *tie_breaker,
+            })
+        }
+        QueryNode::Boosting {
+            positive,
+            negative,
+            negative_boost,
+        } if negative_boost.is_finite() && *negative_boost >= 0.0 => {
+            Some(ScoredPlan::Boosting {
+                positive: scoring_leaf(positive)?,
+                negative: filter_leaf(negative)?,
+                negative_boost: *negative_boost,
+            })
+        }
+        QueryNode::Pinned { ids, organic } if !ids.is_empty() => {
+            // Duplicate pinned ids would need ES's dedup semantics — bail.
+            let mut seen: HashSet<&str> = HashSet::with_capacity(ids.len());
+            if !ids.iter().all(|id| seen.insert(id.as_str())) {
+                return None;
+            }
+            Some(ScoredPlan::Pinned {
+                ids: ids.clone(),
+                organic: scoring_leaf(organic)?,
+            })
+        }
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            minimum_should_match: None,
+        } if !must.is_empty() || !should.is_empty() => {
+            let m: Vec<ScoredLeaf> = must.iter().map(&scoring_leaf).collect::<Option<_>>()?;
+            let s: Vec<ScoredLeaf> = should.iter().map(&scoring_leaf).collect::<Option<_>>()?;
+            let f: Vec<ScoredFilterLeaf> =
+                filter.iter().map(&filter_leaf).collect::<Option<_>>()?;
+            let mn: Vec<ScoredFilterLeaf> =
+                must_not.iter().map(&filter_leaf).collect::<Option<_>>()?;
+            Some(ScoredPlan::Bool {
+                must: m,
+                should: s,
+                filter: f,
+                must_not: mn,
+            })
+        }
+        _ => None,
+    }
 }
 
 /// Default chunk size (characters) for auto-embed-on-ingest chunking.
