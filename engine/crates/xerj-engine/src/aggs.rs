@@ -3261,6 +3261,17 @@ fn run_matrix_stats(params: &Value, docs: &[Value]) -> Value {
             rows.push(row);
         }
     }
+    matrix_stats_from_rows(fields, rows)
+}
+
+/// Reduce pre-collapsed per-doc value rows (one `f64` per requested field, for
+/// docs where every field resolved) into the ES `matrix_stats` response body:
+/// per-field count/mean/variance/skewness/kurtosis plus the pairwise
+/// covariance and correlation matrices, emitted in ES's reverse-input field
+/// order.  Split out of `run_matrix_stats` so the columnar fast-agg path
+/// (`FastCtx::exec_matrix_stats`) can feed rows gathered straight from the
+/// numeric `.dv` columns through the identical math.
+pub(crate) fn matrix_stats_from_rows(fields: Vec<String>, rows: Vec<Vec<f64>>) -> Value {
     let n = rows.len();
     if n == 0 {
         return json!({"doc_count": 0, "fields": []});
@@ -8743,7 +8754,7 @@ fn run_multi_terms(
 // integer-unit pair — `7d` instead of `1w`, `30d` instead of `1M`.
 // The YAML tests assert on the `7d` / `30d` rendering, so we store the
 // canonical form here.
-const AUTO_DATE_INTERVALS: &[(&str, i64)] = &[
+pub(crate) const AUTO_DATE_INTERVALS: &[(&str, i64)] = &[
     ("1ms", 1),
     ("1s", 1_000),
     ("10s", 10_000),
@@ -8794,24 +8805,7 @@ fn run_auto_date_histogram(
     // behaviour of flooring the min to the interval boundary and counting
     // how many bucket slots span [floor(min), ceil(max)] — docs that
     // straddle a boundary occupy two separate buckets.
-    let chosen = AUTO_DATE_INTERVALS
-        .iter()
-        .min_by_key(|(_, interval_ms)| {
-            let min_floor = min_ts.div_euclid(*interval_ms) * interval_ms;
-            let max_floor = max_ts.div_euclid(*interval_ms) * interval_ms;
-            let num_buckets = ((max_floor - min_floor) / interval_ms + 1).max(1) as usize;
-            // Prefer `num_buckets <= target_buckets`; break ties by closeness.
-            // ES: "Choose the smallest interval such that bucket count ≤ target".
-            // Represent as a lexicographic key: (overflow, |diff|) — overflow=1
-            // when exceeding target, 0 otherwise; then minimize diff.
-            let diff = num_buckets as i64 - target_buckets as i64;
-            let overflow = if diff > 0 { 1i64 } else { 0 };
-            (overflow, diff.abs())
-        })
-        .copied()
-        .unwrap_or(("1d", 86_400_000));
-
-    let (interval_label, interval_ms) = chosen;
+    let (interval_label, interval_ms) = auto_date_pick_interval(min_ts, max_ts, target_buckets);
 
     // For non-calendar intervals (ms, s, m, h, d multiples), ES anchors
     // the bucket grid to the floor-of-day of the earliest doc rather
@@ -8820,15 +8814,7 @@ fn run_auto_date_histogram(
     // pin to (e.g. expected first bucket = 2020-03-01, the data min).
     // Compute the required `offset` (ms) relative to the current grid
     // and pass it through to date_histogram.
-    let offset_ms: i64 =
-        if interval_label == "7d" || interval_label == "30d" || interval_label == "90d" {
-            let day_ms = 86_400_000i64;
-            let min_day = min_ts.div_euclid(day_ms) * day_ms;
-            let grid_floor = min_day.div_euclid(interval_ms) * interval_ms;
-            min_day - grid_floor
-        } else {
-            0
-        };
+    let offset_ms: i64 = auto_date_offset_ms(interval_label, interval_ms, min_ts);
     let offset_str = if offset_ms == 0 {
         String::new()
     } else {
@@ -8854,6 +8840,48 @@ fn run_auto_date_histogram(
     }
     let _ = interval_ms; // used only for bucket count estimation
     result
+}
+
+/// Pick the `auto_date_histogram` rounding interval: the entry from the
+/// `AUTO_DATE_INTERVALS` ladder whose floor-to-floor bucket count over
+/// `[min_ts, max_ts]` is closest to `target_buckets` without exceeding it
+/// (ties break toward the smaller interval — ES's "smallest interval whose
+/// bucket count ≤ target").  Shared by the brute `run_auto_date_histogram`
+/// and the columnar `FastCtx::exec_auto_date_histogram` so both choose the
+/// identical `(label, interval_ms)`.
+pub(crate) fn auto_date_pick_interval(
+    min_ts: i64,
+    max_ts: i64,
+    target_buckets: usize,
+) -> (&'static str, i64) {
+    AUTO_DATE_INTERVALS
+        .iter()
+        .min_by_key(|(_, interval_ms)| {
+            let min_floor = min_ts.div_euclid(*interval_ms) * interval_ms;
+            let max_floor = max_ts.div_euclid(*interval_ms) * interval_ms;
+            let num_buckets = ((max_floor - min_floor) / interval_ms + 1).max(1) as usize;
+            let diff = num_buckets as i64 - target_buckets as i64;
+            let overflow = if diff > 0 { 1i64 } else { 0 };
+            (overflow, diff.abs())
+        })
+        .copied()
+        .unwrap_or(("1d", 86_400_000))
+}
+
+/// The bucket-grid `offset` (ms) that `auto_date_histogram` applies for the
+/// week/month/quarter intervals (`7d`/`30d`/`90d`) so the first bucket starts
+/// on the earliest doc's day rather than the epoch-anchored grid; zero for
+/// every other interval.  Shared with the fast path so its `offset != 0` bail
+/// exactly matches the brute delegation.
+pub(crate) fn auto_date_offset_ms(interval_label: &str, interval_ms: i64, min_ts: i64) -> i64 {
+    if interval_label == "7d" || interval_label == "30d" || interval_label == "90d" {
+        let day_ms = 86_400_000i64;
+        let min_day = min_ts.div_euclid(day_ms) * day_ms;
+        let grid_floor = min_day.div_euclid(interval_ms) * interval_ms;
+        min_day - grid_floor
+    } else {
+        0
+    }
 }
 
 // ── Fast DocValues aggregation path ──────────────────────────────────────────
