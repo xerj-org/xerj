@@ -5000,6 +5000,12 @@ impl Index {
         // we still need a hint for top-k; use the materialisation limit.
         let fetch_limit: usize = materialisation_limit;
 
+        // Columnar function_score fast-path probe (borrows `query`). `Some` iff
+        // the request is exactly `function_score { match_all, field_value_factor }`
+        // on a plain size>0 page — see `function_score_fast_fvf`.
+        let fs_fast_fvf: Option<&FieldValueFactor> =
+            function_score_fast_fvf(query, request, size);
+
         // Determine whether we need hit *sources* at all.
         // - size > 0          → sources for hits output
         // - rescore/highlight → mutate source after collection
@@ -5719,6 +5725,35 @@ impl Index {
             || self.store.version_map.ghost_events() > 0;
 
         phase_marks.push(("fast_aggs+gates", phase_t0.elapsed().as_millis() as u64));
+
+        // ── Columnar function_score fast path ─────────────────────────────
+        // `function_score { match_all, field_value_factor }` scored straight
+        // from the numeric doc-values column + live memtable sources, selecting
+        // the GLOBAL top-(from+size) and hydrating `_source` only for the
+        // winners — replacing the brute stored scan that parses every doc, keeps
+        // only the arrival-order first-`materialisation_limit` matches, AND
+        // (pre-existing bug) applies the function twice. Bails (leaving
+        // `fs_fast_applied = false`) for any uncovered shape, when deletes are
+        // present, or on a non-finite/negative score — in which case the brute
+        // fallback below reproduces ES behaviour (incl. the error path) exactly.
+        let mut fs_fast_applied = false;
+        if let Some(fvf) = fs_fast_fvf {
+            if !deletes_present {
+                if let Some((hits, total)) = self.function_score_columnar(
+                    fvf,
+                    &snap.segments,
+                    &segments_dir,
+                    materialisation_limit,
+                ) {
+                    seen_ids.clear();
+                    seen_ids.extend(hits.iter().map(|h| h.id.clone()));
+                    all_hits = hits;
+                    total_count = total;
+                    fs_fast_applied = true;
+                }
+            }
+        }
+
         if precomputed_aggs.is_some() {
             // Skip the entire segment loop — the fast agg path already
             // computed everything we need.  `total_count` is set above.
@@ -5741,6 +5776,10 @@ impl Index {
             // ever returns None for MatchAll).
             let seg_docs: u64 = snap.segments.iter().map(|m| m.doc_count).sum();
             total_count += seg_docs;
+        } else if fs_fast_applied {
+            // Columnar function_score fast path already produced the global
+            // top-k (`all_hits`) and the exact live total (`total_count`);
+            // skip the stored-doc scan entirely.
         } else {
             // Decide up-front whether this query needs FTS side-cars at all.
             // For term/range/etc. queries we skip FtsIndexReader::open
@@ -9080,6 +9119,157 @@ impl Index {
         self.dv_cache
             .insert(segment_id.to_string(), Arc::clone(&arc));
         Some(arc)
+    }
+
+    /// Columnar `function_score { match_all, field_value_factor }` fast path.
+    ///
+    /// Scores EVERY live document — segment rows straight from the numeric
+    /// doc-values column, plus the in-memory memtable sources — through the
+    /// exact [`compute_field_value_factor`] the brute path uses, selects the
+    /// GLOBAL top-`cap` by that score, and hydrates `_source` only for the
+    /// winners via the F2 random-access slice path. This replaces the brute
+    /// stored scan, which (a) parses every doc's JSON and (b) only ranks the
+    /// arrival-order first-`cap` matches, so on a >`cap`-doc corpus its top-k
+    /// is not the true top-k.
+    ///
+    /// Returns `None` — so the caller falls back to the unchanged brute scan —
+    /// for any segment lacking a numeric dv column for the field, a shape/count
+    /// mismatch, a malformed stored slice, or any per-row score that is
+    /// non-finite / negative (the ES `illegal_argument_exception` path, which
+    /// the brute fallback reproduces with the exact reason + doc index).
+    ///
+    /// Emitted hits carry the BASE match_all score (`1.0`); the caller's
+    /// existing post-loop runs `apply_function_score` exactly once to set the
+    /// final ES score — i.e. this path is single-application (correct vs ES),
+    /// whereas the legacy brute path double-applies (squares) the function.
+    /// The caller only reaches here with `deletes_present == false`, so every
+    /// non-tombstoned row/entry is live.
+    fn function_score_columnar(
+        &self,
+        fvf: &FieldValueFactor,
+        segments: &[xerj_storage::segment::SegmentMeta],
+        segments_dir: &std::path::Path,
+        cap: usize,
+    ) -> Option<(Vec<Hit>, u64)> {
+        use xerj_storage::doc_values::Column;
+        let field = fvf.field.as_str();
+
+        enum Cand {
+            Mem(u32),
+            Seg(u32, u32),
+        }
+        let mut cands: Vec<(f32, Cand)> = Vec::new();
+
+        // ── Live memtable docs ────────────────────────────────────────────
+        // Sources are already parsed Values in memory; score them through the
+        // identical `compute_field_value_factor` for byte-for-byte parity.
+        let mem_docs = self.memtable.all_docs_with_sources_arc();
+        for (i, (id, source)) in mem_docs.iter().enumerate() {
+            if let Some(ver) = self.store.version_map.get(id) {
+                if ver.deleted {
+                    continue;
+                }
+            }
+            let score = compute_field_value_factor(fvf, source);
+            if !score.is_finite() || score < 0.0 {
+                return None;
+            }
+            cands.push((score, Cand::Mem(i as u32)));
+        }
+
+        // ── Segment numeric doc-values columns ────────────────────────────
+        // Score each row straight from the f64 dv value through the SAME
+        // `fvf_score_from_raw` the brute scorer uses (a null/absent row scores
+        // as `fvf.missing`/0.0, identical to a missing `_source` field) — no
+        // per-row `_source`/`Value`/map lookup.
+        for (si, meta) in segments.iter().enumerate() {
+            let cols = self.dv_columns_for(segments_dir, &meta.id)?;
+            let Some(Column::Numeric(n)) = cols.get(field) else {
+                return None;
+            };
+            if n.doc_count as u64 != meta.doc_count {
+                return None;
+            }
+            for row in 0..n.doc_count {
+                let raw = if n.null_bitmap.contains(row) {
+                    None
+                } else {
+                    // Numeric dv columns store the f64 bit-pattern.
+                    Some(f64::from_bits(n.data[row as usize] as u64))
+                };
+                let score = fvf_score_from_raw(fvf, raw);
+                if !score.is_finite() || score < 0.0 {
+                    return None;
+                }
+                cands.push((score, Cand::Seg(si as u32, row)));
+            }
+        }
+
+        // Authoritative, delete-aware, de-duplicated live count == ES match_all
+        // total (caller guarantees `deletes_present == false`).
+        let total = self.store.version_map.live_count() as u64;
+
+        // ── Global top-`cap` selection by score (descending) ──────────────
+        let keep = cap.min(cands.len());
+        if keep > 0 && cands.len() > keep {
+            cands.select_nth_unstable_by(keep - 1, |a, b| {
+                b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal)
+            });
+            cands.truncate(keep);
+        }
+
+        // ── Hydrate winners (final ordering + tie-break happen in the caller's
+        // post-loop score sort, keyed by the re-applied function score) ──────
+        let mut hits: Vec<Hit> = Vec::with_capacity(keep);
+        let mut seen: HashSet<String> = HashSet::with_capacity(keep);
+        for (_score, cand) in cands {
+            match cand {
+                Cand::Mem(i) => {
+                    let (id, source) = &mem_docs[i as usize];
+                    if !seen.insert(id.clone()) {
+                        continue;
+                    }
+                    hits.push(Hit {
+                        id: id.clone(),
+                        score: 1.0,
+                        source: (**source).clone(),
+                        sort: Vec::new(),
+                        explain: None,
+                        highlight: None,
+                        matched_queries: Vec::new(),
+                    });
+                }
+                Cand::Seg(si, row) => {
+                    let meta = &segments[si as usize];
+                    let slices = self.stored_slices_for(meta.id.as_str(), meta.doc_count)?;
+                    let &(start, end) = slices.offsets.get(row as usize)?;
+                    let slice = slices.bytes.get(start as usize..end as usize)?;
+                    // serde_json (not simd_json) for the per-doc slice parse:
+                    // only `cap` winners are parsed, and serde handles every
+                    // raw-bytes-flush payload correctly (see `stored_values_for`).
+                    let doc: Value = serde_json::from_slice(slice).ok()?;
+                    let id = doc
+                        .get("_id")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string();
+                    if id.is_empty() || !seen.insert(id.clone()) {
+                        continue;
+                    }
+                    let source = doc.get("_source").cloned().unwrap_or(doc);
+                    hits.push(Hit {
+                        id,
+                        score: 1.0,
+                        source,
+                        sort: Vec::new(),
+                        explain: None,
+                        highlight: None,
+                        matched_queries: Vec::new(),
+                    });
+                }
+            }
+        }
+        Some((hits, total))
     }
 
     /// Cache-backed reader for a segment's parsed stored section.
@@ -17758,34 +17948,113 @@ fn apply_modifier(value: f64, modifier: Modifier) -> f64 {
     }
 }
 
-/// Compute the score contribution from a field_value_factor function.
-fn compute_field_value_factor(fvf: &FieldValueFactor, source: &Value) -> f32 {
-    let raw_value = get_field_value(source, &fvf.field)
-        .and_then(|v| match &v {
-            Value::Number(n) => n.as_f64(),
-            Value::String(s) => s.parse::<f64>().ok(),
-            _ => None,
-        })
-        .or(fvf.missing)
-        .unwrap_or(0.0);
-
-    // ES throws `illegal_argument_exception` when the combination of
-    // value + modifier would produce a non-finite / NaN score (for
-    // example ln1p on qty=-1 → ln(0) = -∞). Propagate NaN here so the
-    // caller can surface the error with the exact ES reason string.
+/// Core `field_value_factor` arithmetic, shared by the brute scorer
+/// ([`compute_field_value_factor`]) and the columnar fast path
+/// ([`Index::function_score_columnar`]) so the two can NEVER diverge. `raw` is
+/// the already-extracted numeric field value (`None` ⇒ the field is
+/// absent/null, so `fvf.missing`/0.0 is used).
+///
+/// ES applies `factor` to the value BEFORE the modifier —
+/// `score = modifier(factor * value)`, NOT `factor * modifier(value)`
+/// (org.elasticsearch.common.lucene.search.function.FieldValueFactorFunction:
+/// `double val = value * boostFactor; modifier.apply(val)`). Live-verified
+/// against ES 8.13.4: log1p, factor 2, cost_usd 0.019019 →
+/// log10(1 + 2·v) = 0.016213 (ES), not 2·log10(1 + v) = 0.016365.
+///
+/// Returns `f32::NAN` on an ES domain violation (e.g. ln1p on `factor*value ≤
+/// -1`) so the caller surfaces `illegal_argument_exception` with the exact ES
+/// reason string.
+#[inline]
+fn fvf_score_from_raw(fvf: &FieldValueFactor, raw: Option<f64>) -> f32 {
+    let raw_value = raw.or(fvf.missing).unwrap_or(0.0);
+    let scaled = raw_value * fvf.factor as f64;
     let domain_violation = match fvf.modifier {
-        Modifier::Ln | Modifier::Log => raw_value <= 0.0,
-        Modifier::Ln1p | Modifier::Log1p => raw_value <= -1.0,
-        Modifier::Ln2p | Modifier::Log2p => raw_value <= -2.0,
-        Modifier::Sqrt => raw_value < 0.0,
+        Modifier::Ln | Modifier::Log => scaled <= 0.0,
+        Modifier::Ln1p | Modifier::Log1p => scaled <= -1.0,
+        Modifier::Ln2p | Modifier::Log2p => scaled <= -2.0,
+        Modifier::Sqrt => scaled < 0.0,
         _ => false,
     };
     if domain_violation {
         return f32::NAN;
     }
+    apply_modifier(scaled, fvf.modifier) as f32
+}
 
-    let modified = apply_modifier(raw_value, fvf.modifier);
-    (modified * fvf.factor as f64) as f32
+/// Compute the score contribution from a field_value_factor function.
+fn compute_field_value_factor(fvf: &FieldValueFactor, source: &Value) -> f32 {
+    let raw = get_field_value(source, &fvf.field).and_then(|v| match &v {
+        Value::Number(n) => n.as_f64(),
+        Value::String(s) => s.parse::<f64>().ok(),
+        _ => None,
+    });
+    fvf_score_from_raw(fvf, raw)
+}
+
+/// Gate + extractor for the columnar `function_score` fast path.
+///
+/// Returns `Some(&field_value_factor)` iff the request is exactly the shape the
+/// columnar path can serve byte-for-byte: a top-level
+/// `function_score { query: match_all, field_value_factor: … }` with default
+/// `score_mode`/`boost_mode` (both `multiply`), no `max_boost`, and a *single*
+/// bare `field_value_factor` function (no `filter`/`weight`/`random_score`/
+/// `script_score`/`script`/`distance_feature`/`rank_feature`/`_name` — any of
+/// which would need `_source` or the doc id beyond the scored field), on a
+/// "plain" request (`size > 0`, and no aggs/min_score/sort/rescore/collapse/
+/// search_after/highlight/explain/script_fields/fields). Every other shape
+/// returns `None` so the caller runs the unchanged brute stored-scan path.
+fn function_score_fast_fvf<'q>(
+    query: &'q QueryNode,
+    request: &SearchRequest,
+    size: usize,
+) -> Option<&'q FieldValueFactor> {
+    // Request-level plainness: anything that reshapes selection / total /
+    // per-hit output beyond a straight top-k page is left to the brute path.
+    if size == 0
+        || request.aggs.is_some()
+        || request.min_score.is_some()
+        || !request.sort.is_empty()
+        || !request.rescore.is_empty()
+        || request.collapse.is_some()
+        || request.search_after.is_some()
+        || request.highlight.is_some()
+        || request.explain
+        || request.script_fields.is_some()
+        || !request.fields.is_empty()
+    {
+        return None;
+    }
+    let QueryNode::FunctionScore {
+        query: inner,
+        functions,
+        score_mode,
+        boost_mode,
+        max_boost,
+    } = query
+    else {
+        return None;
+    };
+    if !matches!(inner.as_ref(), QueryNode::MatchAll)
+        || max_boost.is_some()
+        || *score_mode != ScoreMode::Multiply
+        || *boost_mode != BoostMode::Multiply
+        || functions.len() != 1
+    {
+        return None;
+    }
+    let f = &functions[0];
+    if f.filter.is_some()
+        || f.weight.is_some()
+        || f.random_score.is_some()
+        || f.script_score.is_some()
+        || f.script_source.is_some()
+        || f.distance_feature.is_some()
+        || f.rank_feature.is_some()
+        || f.name.is_some()
+    {
+        return None;
+    }
+    f.field_value_factor.as_ref()
 }
 
 /// Default chunk size (characters) for auto-embed-on-ingest chunking.
