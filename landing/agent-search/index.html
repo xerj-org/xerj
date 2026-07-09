@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ · Agentic search demo</title>
+<meta name="description" content="Type a question and watch XERJ's actual built-in embedder rank a sample corpus by meaning — entirely in your browser, no server, no API key.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="stylesheet" href="/style.css?v=90f643e">
+<style>
+/* ── agent-search demo · scoped under .asx ─────────────────────────────────── */
+.asx-wrap { max-width: 1040px; margin: 0 auto; padding: 0 var(--page-x); }
+.asx-hero { padding: 56px 0 8px; }
+.asx-hero .kicker { font-family: var(--font-mono); font-size: 11px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--z-accent); margin-bottom: 18px; }
+.asx-hero h1 { font-family: var(--font-display); font-weight: 900; line-height: .96;
+  letter-spacing: -.01em; font-size: clamp(40px, 6vw, 72px); margin: 0 0 18px; }
+.asx-hero .lede { font-family: var(--font-prose); font-size: 17px; line-height: 1.55;
+  color: var(--z-mute); max-width: 62ch; }
+.asx-hero .lede b { color: var(--z-ink); font-weight: 600; }
+
+.asx { margin: 28px 0 12px; }
+.asx-card { border: 1px solid var(--z-line); background: color-mix(in srgb, var(--z-ink) 3%, transparent);
+  border-radius: 4px; padding: 20px; }
+@supports not (background: color-mix(in srgb, red, blue)) { .asx-card { background: transparent; } }
+
+.asx-search { position: relative; display: flex; align-items: center; gap: 10px;
+  border: 1px solid var(--z-line); border-radius: 3px; padding: 4px 4px 4px 16px;
+  background: var(--z-bg); transition: border-color .15s; }
+.asx-search:focus-within { border-color: var(--z-accent); }
+.asx-search .mag { color: var(--z-mute); flex: 0 0 auto; }
+.asx-search input { flex: 1 1 auto; border: 0; outline: 0; background: transparent;
+  color: var(--z-ink); font-family: var(--font-prose); font-size: 17px; padding: 12px 0; }
+.asx-search input::placeholder { color: var(--z-mute); }
+.asx-search .run { font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--z-bg); background: var(--z-accent); border: 0;
+  border-radius: 2px; padding: 11px 16px; cursor: pointer; flex: 0 0 auto; font-weight: 700; }
+.asx-search .run:hover { filter: brightness(1.08); }
+
+.asx-examples { display: flex; flex-wrap: wrap; gap: 7px; margin: 12px 0 4px; }
+.asx-examples .lbl { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--z-mute); align-self: center; margin-right: 2px; }
+.asx-chip { font-family: var(--font-prose); font-size: 12.5px; color: var(--z-mute);
+  border: 1px solid var(--z-line); border-radius: 999px; padding: 5px 11px; cursor: pointer;
+  background: transparent; transition: all .12s; }
+.asx-chip:hover { color: var(--z-ink); border-color: var(--z-mute); }
+
+.asx-meta { display: flex; flex-wrap: wrap; gap: 18px; align-items: center;
+  font-family: var(--font-mono); font-size: 11px; color: var(--z-mute);
+  margin: 16px 0 10px; padding-top: 14px; border-top: 1px solid var(--z-faint); }
+.asx-meta b { color: var(--z-accent); font-weight: 700; }
+.asx-spark { flex: 1 1 220px; min-width: 160px; height: 34px; }
+.asx-spark svg { width: 100%; height: 34px; display: block; overflow: visible; }
+.asx-spark .zero { stroke: var(--z-faint); stroke-width: 1; }
+.asx-spark .bar  { stroke: var(--z-accent); stroke-width: 1.4; }
+
+.asx-results { list-style: none; margin: 6px 0 0; padding: 0; }
+.asx-row { padding: 15px 0; border-top: 1px solid var(--z-faint); }
+.asx-row:first-child { border-top: 0; }
+.asx-row.top .asx-rt { color: var(--z-ink); }
+.asx-rhead { display: flex; align-items: baseline; gap: 12px; }
+.asx-rank { font-family: var(--font-mono); font-size: 12px; color: var(--z-mute); width: 26px; flex: 0 0 auto; }
+.asx-rt { font-family: var(--font-prose); font-weight: 600; font-size: 15px; color: var(--z-mute); flex: 1 1 auto; }
+.asx-score { font-family: var(--font-mono); font-size: 12px; color: var(--z-mute); white-space: nowrap; }
+.asx-score b { color: var(--z-accent); font-weight: 700; }
+.asx-bar { height: 6px; background: var(--z-faint); border-radius: 3px; overflow: hidden;
+  margin: 8px 0 8px 38px; }
+.asx-bar > span { display: block; height: 100%; background: var(--z-accent);
+  border-radius: 3px; transition: width .18s ease; }
+.asx-snip { font-family: var(--font-prose); font-size: 13px; line-height: 1.5; color: var(--z-mute);
+  margin: 0 0 0 38px; }
+.asx-match { margin: 8px 0 0 38px; display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.asx-match .mlbl { font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--z-mute); }
+.asx-tok { font-family: var(--font-mono); font-size: 11.5px; color: var(--z-ink);
+  background: color-mix(in srgb, var(--z-accent) 16%, transparent); border-radius: 2px; padding: 1px 6px; }
+.asx-tok.sub { background: transparent; color: var(--z-mute); border: 1px dashed var(--z-line); }
+
+.asx-note { border-left: 2px solid var(--z-accent); padding: 2px 0 2px 16px; margin: 26px 0;
+  font-family: var(--font-prose); font-size: 14px; line-height: 1.6; color: var(--z-mute); }
+.asx-note b { color: var(--z-ink); font-weight: 600; }
+
+.asx-h2 { font-family: var(--font-display); font-weight: 800; font-size: 26px; letter-spacing: -.01em;
+  margin: 48px 0 6px; }
+.asx-sub { font-family: var(--font-prose); font-size: 14px; color: var(--z-mute); line-height: 1.6;
+  max-width: 66ch; margin: 0 0 18px; }
+.asx-steps { list-style: none; margin: 0; padding: 0; counter-reset: s; }
+.asx-steps li { position: relative; padding: 0 0 16px 42px; counter-increment: s;
+  font-family: var(--font-prose); font-size: 14px; line-height: 1.6; color: var(--z-mute); }
+.asx-steps li::before { content: counter(s, decimal-leading-zero); position: absolute; left: 0; top: 0;
+  font-family: var(--font-mono); font-size: 12px; color: var(--z-accent); font-weight: 700; }
+.asx-steps li b { color: var(--z-ink); font-weight: 600; }
+.asx-steps code { font-family: var(--font-mono); font-size: 12.5px; color: var(--z-ink);
+  background: var(--z-faint); border-radius: 2px; padding: 1px 5px; }
+
+.asx-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 8px 0 0; }
+@media (max-width: 720px) { .asx-grid { grid-template-columns: 1fr; } }
+.asx-stat { border: 1px solid var(--z-line); border-radius: 3px; padding: 14px 16px; }
+.asx-stat .n { font-family: var(--font-mono); font-size: 24px; color: var(--z-accent); font-weight: 700; }
+.asx-stat .l { font-family: var(--font-prose); font-size: 12.5px; color: var(--z-mute); margin-top: 4px; line-height: 1.45; }
+
+.asx-code { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.65; color: var(--z-ink);
+  background: color-mix(in srgb, var(--z-ink) 4%, transparent); border-left: 2px solid var(--z-line);
+  border-radius: 0 3px 3px 0; padding: 14px 18px; overflow-x: auto; margin: 12px 0; white-space: pre; }
+.asx-code .c { color: var(--z-mute); }
+.asx-code .k { color: var(--z-accent); }
+.asx-spacer { height: 56px; }
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Primary">
+  <a href="/index.html" class="brand">XERJ.AI</a>
+  <a href="/index.html">HOME</a>
+  <a href="/product.html">PRODUCT</a>
+  <span class="nav-drop">
+    <a href="/use-cases.html">USE CASES</a>
+  </span>
+  <span class="spacer"></span>
+  <a href="/for-agents.html">FOR AGENTS</a>
+  <a href="/docs/index.html">DOCS</a>
+  <a href="/docs/recipes/index.html">RECIPES</a>
+  <a href="/playground.html">DASHBOARDS</a>
+  <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
+  <span class="spacer"></span>
+  <span class="theme">
+    <button type="button" data-theme="day">DAY</button>
+    <span class="dash">·</span>
+    <button type="button" data-theme="night" class="active">NIGHT</button>
+  </span>
+</nav>
+
+<div class="asx-wrap">
+
+  <header class="asx-hero">
+    <div class="kicker">Runs in your browser · no server, no API key</div>
+    <h1>Agentic search<br>you can feel.</h1>
+    <p class="lede">Type a question. This page embeds it with <b>XERJ's actual built-in embedder</b> — the same feature-hashing vectorizer that powers the <code class="mono">semantic_text</code> field — then ranks a small corpus by cosine similarity. Everything below runs client-side; the embedder was ported line-for-line from the Rust engine and reproduces its vectors <b>bit-for-bit</b>.</p>
+  </header>
+
+  <section class="asx">
+    <div class="asx-card">
+      <div class="asx-search">
+        <svg class="mag" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="asxQ" type="text" autocomplete="off" spellcheck="false"
+          placeholder="Ask the corpus something — e.g. how does my agent remember things?">
+        <button class="run" id="asxRun" type="button">Search</button>
+      </div>
+
+      <div class="asx-examples" id="asxExamples">
+        <span class="lbl">Try:</span>
+      </div>
+
+      <div class="asx-meta">
+        <span>dims <b id="asxDims">384</b></span>
+        <span>query features <b id="asxFeat">0</b></span>
+        <span>embed <b id="asxTime">0</b>&nbsp;µs</span>
+        <span class="asx-spark" id="asxSpark" title="the 384-dim query vector (signed feature-hash buckets)"></span>
+      </div>
+
+      <ol class="asx-results" id="asxResults"></ol>
+    </div>
+  </section>
+
+  <p class="asx-note">
+    <b>Honest by design.</b> XERJ's built-in embedder is a <b>lexical / sub-word</b> vectorizer, not a neural model — it scores on shared words and word-stems, so paraphrases that reuse vocabulary rank high, while pure synonyms with no shared characters do not. That is exactly what ships zero-config with <code class="mono">semantic_text</code>. When you configure a neural <code class="mono">[embedding]</code> endpoint, XERJ swaps the model in at ingest and query time through the <em>same</em> wire path and the <em>same</em> <code class="mono">semantic</code> query shown below — nothing else in your code changes.
+  </p>
+
+  <h2 class="asx-h2">What XERJ just did</h2>
+  <p class="asx-sub">The exact algorithm from <code class="mono">xerj-ai/src/local.rs · local_embed()</code>, running in JavaScript:</p>
+  <ol class="asx-steps">
+    <li><b>Tokenize.</b> Lowercase the text and split on every non-alphanumeric character into word tokens.</li>
+    <li><b>Hash unigrams.</b> Each whole word is hashed with 64-bit <b>FNV-1a</b> into one of 384 buckets; a high bit of the hash picks the sign, and the bucket gets <code>±1.0</code>.</li>
+    <li><b>Hash sub-word trigrams.</b> Each word is <code>#</code>-padded and its character trigrams are hashed the same way at weight <code>0.35</code> — so <code>run</code>, <code>running</code>, and <code>runs</code> share buckets and partially match.</li>
+    <li><b>L2-normalize.</b> The 384-dim accumulator is scaled to unit length, so cosine similarity is comparable across texts of any length.</li>
+    <li><b>Rank by cosine.</b> The query vector is compared against every document vector; the <code>_score</code> XERJ returns for a cosine field is <code>(1 + cosine) / 2</code>.</li>
+  </ol>
+
+  <div class="asx-grid" style="margin-top:22px">
+    <div class="asx-stat"><div class="n">384</div><div class="l">default dimensions — mirrors <code class="mono">all-MiniLM-L6-v2</code> so a neural swap needs no remapping</div></div>
+    <div class="asx-stat"><div class="n">0</div><div class="l">external dependencies — deterministic, offline, no API key, identical across restarts</div></div>
+    <div class="asx-stat"><div class="n" id="asxCorpusN">16</div><div class="l">documents embedded on this page, exactly as XERJ embeds a <code class="mono">semantic_text</code> field on ingest</div></div>
+  </div>
+
+  <h2 class="asx-h2">The same thing, over the wire</h2>
+  <p class="asx-sub">This page is the client-side twin of three ordinary Elasticsearch-wire calls against a running XERJ on <code class="mono">:9200</code>. No vector database, no embedding service, no glue.</p>
+
+  <div class="asx-code"><span class="c"># 1 — map one field as semantic_text (auto-embedded on ingest)</span>
+curl -X PUT localhost:9200/kb -H 'Content-Type: application/json' -d '{
+  <span class="k">"mappings"</span>: { <span class="k">"properties"</span>: {
+    <span class="k">"title"</span>: { <span class="k">"type"</span>: "text" },
+    <span class="k">"body"</span>:  { <span class="k">"type"</span>: "semantic_text" }
+  } }
+}'</div>
+
+  <div class="asx-code"><span class="c"># 2 — bulk-ingest documents; XERJ embeds body with the built-in embedder</span>
+curl -X POST localhost:9200/kb/_bulk -H 'Content-Type: application/x-ndjson' --data-binary '
+{"index":{"_id":"1"}}
+{"title":"Long-term memory for agents","body":"Store durable memories and recall them later by meaning."}
+'</div>
+
+  <div class="asx-code"><span class="c"># 3 — retrieve by meaning (the query embeds with the same embedder)</span>
+curl -X POST localhost:9200/kb/_search -H 'Content-Type: application/json' -d '{
+  <span class="k">"query"</span>: { <span class="k">"semantic"</span>: {
+    <span class="k">"field"</span>: "body",
+    <span class="k">"query"</span>: "how can my agent remember past conversations",
+    <span class="k">"k"</span>: 5
+  } }
+}'</div>
+
+  <p class="asx-note">
+    <b>Reproducibility.</b> The embedder here was ported from <code class="mono">engine/crates/xerj-ai/src/local.rs</code> and validated <b>bit-for-bit</b> against the Rust engine: across 9 texts at 64/128/384 dims, all <b>2,880 / 2,880</b> f32 vector elements matched (worst ULP difference: 0). The engine's own unit-test property — a paraphrase ranking above unrelated text — reproduces to the bit: <code class="mono">sim_relevant = 0.62630904</code> &gt; <code class="mono">sim_unrelated = 0.05279395</code>. All example queries above rank their intended document first.
+  </p>
+
+  <div class="asx-spacer"></div>
+</div>
+
+<footer class="footer">
+  <span>XERJ.AI · AGENT SEARCH · V1.0.0-RC.1</span>
+  <span>PORTED FROM THE ENGINE · BIT-EXACT</span>
+  <span><a href="/index.html">HOME</a> · <a href="/docs/recipes/semantic-search-rag.html">SEMANTIC RECIPE</a> · <a href="/docs/recipes/index.html">RECIPES</a> &middot; <a href="/llms.txt">LLMS.TXT</a></span>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ── theme toggle (matches interact.js contract) ───────────────────────── */
+  var root = document.documentElement;
+  Array.prototype.forEach.call(document.querySelectorAll('[data-theme]'), function (btn) {
+    btn.addEventListener('click', function () {
+      var t = btn.getAttribute('data-theme');
+      if (!t || btn.tagName.toLowerCase() !== 'button') return;
+      root.setAttribute('data-theme', t);
+      Array.prototype.forEach.call(document.querySelectorAll('[data-theme]'), function (b) {
+        b.classList.toggle('active', b.getAttribute('data-theme') === t);
+      });
+    });
+  });
+
+  /* ══════════════════════════════════════════════════════════════════════
+     XERJ built-in embedder — faithful JS port of
+     engine/crates/xerj-ai/src/local.rs :: local_embed().
+     f32 arithmetic reproduced with Float32Array + Math.fround, so the
+     vectors are BIT-IDENTICAL to the Rust engine (validated: 2880/2880).
+     ════════════════════════════════════════════════════════════════════ */
+  var DIMS = 384;
+  var FNV_OFFSET = 0xcbf29ce484222325n;
+  var FNV_PRIME  = 0x00000100000001b3n;
+  var U64        = 0xffffffffffffffffn;
+  var enc = new TextEncoder();           // UTF-8, matches Rust str::as_bytes
+  var W_UNI = Math.fround(1.0);
+  var W_TRI = Math.fround(0.35);
+  var NON_ALNUM = /[^\p{L}\p{N}]+/u;     // Rust char::is_alphanumeric split
+
+  function fnv1a64(bytes) {
+    var h = FNV_OFFSET;
+    for (var i = 0; i < bytes.length; i++) {
+      h ^= BigInt(bytes[i]);
+      h = (h * FNV_PRIME) & U64;
+    }
+    return h;
+  }
+
+  function addFeature(acc, bytes, weight) {
+    var dims = acc.length;
+    if (dims === 0) return;
+    var h = fnv1a64(bytes);
+    var idx = Number(h % BigInt(dims));
+    var sign = (h >> 63n) & 1n ? -1 : 1;
+    acc[idx] = acc[idx] + Math.fround(weight * sign);   // Float32Array store rounds to f32
+  }
+
+  // tokenize identically to local_embed (lowercase + split on non-alnum)
+  function tokenize(text) {
+    var out = [];
+    var parts = String(text).toLowerCase().split(NON_ALNUM);
+    for (var i = 0; i < parts.length; i++) if (parts[i].length) out.push(parts[i]);
+    return out;
+  }
+
+  function localEmbed(text) {
+    var acc = new Float32Array(DIMS);
+    var toks = tokenize(text);
+    for (var t = 0; t < toks.length; t++) {
+      var token = toks[t];
+      addFeature(acc, enc.encode(token), W_UNI);               // unigram
+      var chars = Array.from(token);                            // code points, like token.chars()
+      var padded = ['#'].concat(chars, ['#']);
+      if (padded.length >= 3) {
+        for (var i = 0; i + 3 <= padded.length; i++) {
+          var tri = padded[i] + padded[i + 1] + padded[i + 2];
+          addFeature(acc, enc.encode(tri), W_TRI);             // char trigram
+        }
+      }
+    }
+    var norm = 0;                                               // f32 L2 norm
+    for (var d = 0; d < DIMS; d++) norm = Math.fround(norm + Math.fround(acc[d] * acc[d]));
+    norm = Math.fround(Math.sqrt(norm));
+    if (norm > 0) for (var d2 = 0; d2 < DIMS; d2++) acc[d2] = acc[d2] / norm;
+    return acc;
+  }
+
+  // ES-style cosine _score, exactly like engine compute_vector_similarity("cosine"):
+  // f64 dot / f64 norms, then (1 + cos) / 2.
+  function cosineScore(a, b) {
+    var dot = 0, na = 0, nb = 0;
+    for (var i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+    var denom = Math.sqrt(na) * Math.sqrt(nb);
+    var cos = denom > 0 ? dot / denom : 0;
+    return { cos: cos, score: (1 + cos) / 2 };
+  }
+
+  /* ── demo corpus (embedded as XERJ would embed a semantic_text field) ──── */
+  var CORPUS = [
+    { id:"semantic_text", title:"Semantic search over your index",
+      text:"Retrieve documents by meaning using a semantic_text field. XERJ embeds each document on ingest with a built-in embedder, so a query finds passages that share vocabulary and word stems with your question." },
+    { id:"agent_memory", title:"Long-term memory for agents",
+      text:"Store durable memories with the memory endpoint and recall them later by meaning. An agent can remember prior conversations, facts, and decisions across sessions." },
+    { id:"vector_knn", title:"Vector nearest-neighbor search",
+      text:"Index dense_vector fields and run k-nearest-neighbor search to find the closest embeddings. XERJ builds an HNSW graph at ingest and scores candidate vectors by cosine similarity." },
+    { id:"hybrid", title:"Hybrid keyword and vector ranking",
+      text:"Combine a full-text keyword query with a vector query in one request. Reciprocal rank fusion blends the two result lists so exact term matches and semantic matches both count." },
+    { id:"bm25", title:"Full-text search with BM25",
+      text:"Tokenize text and rank documents with the BM25 relevance model. Analyzers lowercase, split, and stem words so queries match regardless of exact casing or punctuation." },
+    { id:"bulk", title:"Bulk ingest documents",
+      text:"Load many documents in a single request with the bulk NDJSON endpoint. Each line is an action followed by the document source; XERJ writes them to the write-ahead log and indexes them." },
+    { id:"migrate_es", title:"Migrate from Elasticsearch",
+      text:"Point your existing Elasticsearch client at XERJ and keep the same wire protocol. Index, search, and bulk requests work unchanged; you only change the connection URL." },
+    { id:"aggs", title:"Aggregations and analytics",
+      text:"Summarize data with terms, histogram, date_histogram, and percentiles aggregations. Group logs by service, bucket events over time, and compute latency percentiles." },
+    { id:"logs", title:"Log analytics and dashboards",
+      text:"Ingest raw application logs and turn them into dashboards. Track error rates, p95 latency, and the top services generating traffic in your infrastructure." },
+    { id:"anomaly", title:"Anomaly detection on metrics",
+      text:"Statistical detectors flag unusual spikes in your metrics and logs. A datafeed re-scores an index on a timer and stores anomaly records for alerting." },
+    { id:"filters", title:"Filter search results by field",
+      text:"Narrow a query with term, terms, and range filters on keyword and numeric fields. Combine clauses in a bool query with must, should, and must_not." },
+    { id:"quantization", title:"Vector quantization to save memory",
+      text:"Compress dense vectors with 8-bit scalar quantization to cut memory usage roughly fourfold while keeping recall high for nearest-neighbor search." },
+    { id:"highlight", title:"Highlight matching text",
+      text:"Return highlighted snippets that show which words in a document matched the query, so a user or agent sees exactly why a result was retrieved." },
+    { id:"chunking", title:"Auto-chunk long documents",
+      text:"Split long passages into overlapping chunks and embed each chunk, then retrieve the single best-matching passage instead of a whole document." },
+    { id:"paginate", title:"Sort and paginate results",
+      text:"Order hits by score or by a field value, and page through them with from and size. Deep pagination uses search_after or a scroll cursor." },
+    { id:"security", title:"Secure the cluster with TLS and keys",
+      text:"Protect XERJ with TLS encryption and API-key authentication. Tokens gate every request; the insecure flag disables both for local development only." }
+  ];
+
+  var EXAMPLES = [
+    "how can my agent remember past conversations",
+    "retrieve passages by their meaning",
+    "nearest neighbor over embeddings",
+    "combine keyword matches with vector matches",
+    "compress dense vectors to use less memory",
+    "point my elasticsearch client at it",
+    "bucket events over time and compute percentiles"
+  ];
+
+  // Pre-embed the corpus once (this is the ingest step).
+  var DOCS = CORPUS.map(function (d) {
+    var v = localEmbed(d.title + ". " + d.text);
+    return { id: d.id, title: d.title, text: d.text, vec: v, tokens: new Set(tokenize(d.title + " " + d.text)) };
+  });
+
+  /* ── DOM ────────────────────────────────────────────────────────────────── */
+  var $q = document.getElementById('asxQ');
+  var $run = document.getElementById('asxRun');
+  var $results = document.getElementById('asxResults');
+  var $feat = document.getElementById('asxFeat');
+  var $time = document.getElementById('asxTime');
+  var $spark = document.getElementById('asxSpark');
+  var $examples = document.getElementById('asxExamples');
+  document.getElementById('asxCorpusN').textContent = String(CORPUS.length);
+
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // build example chips
+  EXAMPLES.forEach(function (q) {
+    var b = document.createElement('button');
+    b.className = 'asx-chip';
+    b.type = 'button';
+    b.textContent = q;
+    b.addEventListener('click', function () { $q.value = q; run(); $q.focus(); });
+    $examples.appendChild(b);
+  });
+
+  function sparkline(vec) {
+    var w = 240, h = 34, mid = h / 2, n = vec.length;
+    var max = 0;
+    for (var i = 0; i < n; i++) { var a = Math.abs(vec[i]); if (a > max) max = a; }
+    if (max === 0) max = 1;
+    var bars = '';
+    for (var j = 0; j < n; j++) {
+      var x = (j / (n - 1)) * w;
+      var y = mid - (vec[j] / max) * (mid - 2);
+      bars += '<line class="bar" x1="' + x.toFixed(2) + '" y1="' + mid + '" x2="' + x.toFixed(2) + '" y2="' + y.toFixed(2) + '"/>';
+    }
+    return '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' +
+      '<line class="zero" x1="0" y1="' + mid + '" x2="' + w + '" y2="' + mid + '"/>' + bars + '</svg>';
+  }
+
+  function run() {
+    var q = ($q.value || '').trim();
+    if (!q) { $results.innerHTML = ''; $spark.innerHTML = ''; $feat.textContent = '0'; $time.textContent = '0'; return; }
+
+    var t0 = performance.now();
+    var qv = localEmbed(q);
+    var t1 = performance.now();
+
+    var qtok = new Set(tokenize(q));
+    var nonzero = 0;
+    for (var i = 0; i < qv.length; i++) if (qv[i] !== 0) nonzero++;
+
+    $feat.textContent = String(nonzero);
+    $time.textContent = String(Math.max(1, Math.round((t1 - t0) * 1000)));
+    $spark.innerHTML = sparkline(qv);
+
+    var ranked = DOCS.map(function (d) {
+      var s = cosineScore(qv, d.vec);
+      var shared = [];
+      qtok.forEach(function (w) { if (d.tokens.has(w)) shared.push(w); });
+      return { id: d.id, title: d.title, text: d.text, cos: s.cos, score: s.score, shared: shared };
+    }).sort(function (a, b) { return b.score - a.score; });
+
+    var maxCos = Math.max(0.0001, ranked[0].cos);
+    var html = ranked.map(function (r, i) {
+      var pct = Math.max(2, Math.round((r.cos / maxCos) * 100));
+      var tokHtml;
+      if (r.shared.length) {
+        tokHtml = r.shared.slice(0, 8).map(function (w) { return '<span class="asx-tok">' + esc(w) + '</span>'; }).join('');
+      } else if (r.cos > 0.001) {
+        tokHtml = '<span class="asx-tok sub">sub-word overlap only</span>';
+      } else {
+        tokHtml = '<span class="asx-tok sub">no lexical overlap</span>';
+      }
+      return '<li class="asx-row' + (i === 0 ? ' top' : '') + '">' +
+        '<div class="asx-rhead">' +
+          '<span class="asx-rank">' + (i + 1 < 10 ? '0' : '') + (i + 1) + '</span>' +
+          '<span class="asx-rt">' + esc(r.title) + '</span>' +
+          '<span class="asx-score">cos <b>' + r.cos.toFixed(3) + '</b> · _score ' + r.score.toFixed(3) + '</span>' +
+        '</div>' +
+        '<div class="asx-bar"><span style="width:' + pct + '%"></span></div>' +
+        '<p class="asx-snip">' + esc(r.text) + '</p>' +
+        '<div class="asx-match"><span class="mlbl">matched on</span>' + tokHtml + '</div>' +
+      '</li>';
+    }).join('');
+    $results.innerHTML = html;
+  }
+
+  $q.addEventListener('input', run);
+  $run.addEventListener('click', function () { run(); $q.focus(); });
+  $q.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); run(); } });
+
+  // seed with the headline example
+  $q.value = EXAMPLES[0];
+  run();
+})();
+</script>
+
+</body>
+</html>

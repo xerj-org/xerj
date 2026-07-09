@@ -1,0 +1,276 @@
+[
+  {
+    "name": "xerj_search",
+    "description": "Run a lexical / structured search against a XERJ index using the Elasticsearch-compatible Query DSL. Use this for keyword, phrase, boolean, range, and term filtering — anything where you already know the fields and values you are matching on, not for meaning-based recall. The call maps directly to `POST /{index}/_search` on the XERJ REST API (default port 9200); the `query` object is passed through verbatim as the ES `query` clause, so any DSL clause XERJ supports (`match`, `match_phrase`, `term`, `terms`, `range`, `bool`, `prefix`, `wildcard`, `exists`, `multi_match`) is valid. Results come back as standard ES hits with `_id`, `_score`, and `_source`.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "string",
+          "description": "Name of the XERJ index to search. May be a single index, a comma-separated list, or a wildcard pattern (e.g. \"logs-*\")."
+        },
+        "query": {
+          "type": "object",
+          "description": "An Elasticsearch Query DSL clause. Examples: {\"match\":{\"title\":\"quarterly report\"}}, {\"term\":{\"status\":\"open\"}}, {\"range\":{\"price\":{\"gte\":10,\"lte\":50}}}, or a compound {\"bool\":{\"must\":[...],\"filter\":[...],\"must_not\":[...]}}. Passed through unchanged as the request body's `query` field.",
+          "additionalProperties": true
+        },
+        "size": {
+          "type": "integer",
+          "description": "Maximum number of hits to return. Defaults to 10.",
+          "minimum": 0,
+          "default": 10
+        },
+        "from": {
+          "type": "integer",
+          "description": "Offset of the first hit to return, for pagination. Defaults to 0.",
+          "minimum": 0,
+          "default": 0
+        },
+        "sort": {
+          "description": "Optional ES sort specification, e.g. [{\"timestamp\":\"desc\"}] or [\"_score\"]. Omit to sort by relevance score.",
+          "type": ["array", "object", "string"]
+        },
+        "source": {
+          "description": "Controls which fields of `_source` are returned. Pass true/false to include/exclude all, or an array of field names to include a subset. Maps to the ES `_source` request parameter.",
+          "type": ["boolean", "array", "string"]
+        },
+        "aggs": {
+          "type": "object",
+          "description": "Optional Elasticsearch aggregations object (metric, bucket, or pipeline aggregations). Maps to the request body's `aggs` field. Note: aggregations are not supported together with hybrid-fusion queries.",
+          "additionalProperties": true
+        },
+        "track_total_hits": {
+          "description": "Whether to compute the exact total hit count. Pass true for an exact count, false for a fast approximate/capped count, or an integer to cap the tracked total. Maps to the ES `track_total_hits` field.",
+          "type": ["boolean", "integer"]
+        }
+      },
+      "required": ["index", "query"]
+    }
+  },
+  {
+    "name": "xerj_semantic_search",
+    "description": "Search a XERJ index by meaning rather than exact keywords, over a `semantic_text` field. XERJ embeds the query string server-side with its built-in embedder and ranks documents by vector similarity — there is no external embedding provider or API key required, and the same embedder is used at ingest and query time. The call is issued as `POST /{index}/_search` with body {\"query\":{\"semantic\":{\"field\":...,\"query\":...,\"k\":...}}}; the target `field` must have been mapped as `semantic_text` so XERJ auto-embedded it at ingest. Use this for natural-language recall, RAG retrieval, and 'find things like this sentence' lookups.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "string",
+          "description": "Name of the XERJ index to search."
+        },
+        "field": {
+          "type": "string",
+          "description": "The `semantic_text` field to match against. This field must have been declared as type `semantic_text` in the index mapping so XERJ auto-embedded its contents at ingest time."
+        },
+        "query": {
+          "type": "string",
+          "description": "Natural-language query text. XERJ embeds this string server-side with its built-in embedder and ranks by similarity to the stored document vectors."
+        },
+        "k": {
+          "type": "integer",
+          "description": "Number of nearest neighbours to retrieve from the vector index. Defaults to 10.",
+          "minimum": 1,
+          "default": 10
+        },
+        "filter": {
+          "type": "object",
+          "description": "Optional Elasticsearch query clause used as a pre-filter (e.g. {\"term\":{\"category\":\"docs\"}}). It narrows the candidate set before similarity ranking but does not contribute to the score.",
+          "additionalProperties": true
+        },
+        "size": {
+          "type": "integer",
+          "description": "Maximum number of hits to return in the response. Independent of `k`, which controls how many neighbours the vector search considers. Defaults to 10.",
+          "minimum": 0,
+          "default": 10
+        }
+      },
+      "required": ["index", "field", "query"]
+    }
+  },
+  {
+    "name": "xerj_vector_search",
+    "description": "Run a k-nearest-neighbour (kNN) search over a `dense_vector` field using a caller-supplied query embedding. XERJ performs EXACT brute-force distance scoring at query time — an HNSW graph is built at ingest, but there is no query-time HNSW traversal or `ef_search` parameter to tune, so results are exact rather than approximate. The call is issued as `POST /{index}/_search` using the ES 8.x top-level `knn` clause {\"knn\":{\"field\":...,\"query_vector\":[...],\"k\":...}}. Use this when you have already computed an embedding for the query (from any model) and want the nearest stored vectors; if you only have text and the field is `semantic_text`, use xerj_semantic_search instead.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "string",
+          "description": "Name of the XERJ index to search."
+        },
+        "field": {
+          "type": "string",
+          "description": "The `dense_vector` field to run the kNN search against. Its declared dimension must match the length of `query_vector`."
+        },
+        "query_vector": {
+          "type": "array",
+          "description": "The query embedding as a flat array of floating-point numbers. Its length must equal the mapped dimension of `field`.",
+          "items": { "type": "number" }
+        },
+        "k": {
+          "type": "integer",
+          "description": "Number of nearest neighbours to return. Defaults to 10.",
+          "minimum": 1,
+          "default": 10
+        },
+        "num_candidates": {
+          "type": "integer",
+          "description": "Size of the candidate pool considered before selecting the top k. Optional; when omitted XERJ derives it from k. Because scoring is exact brute-force, this mainly bounds the result set rather than trading accuracy for speed.",
+          "minimum": 1
+        },
+        "filter": {
+          "type": "object",
+          "description": "Optional Elasticsearch query clause used as a kNN pre-filter (e.g. {\"term\":{\"lang\":\"en\"}}). Narrows the candidate set before distance scoring.",
+          "additionalProperties": true
+        },
+        "size": {
+          "type": "integer",
+          "description": "Maximum number of hits to return in the response. Defaults to 10.",
+          "minimum": 0,
+          "default": 10
+        }
+      },
+      "required": ["index", "field", "query_vector"]
+    }
+  },
+  {
+    "name": "xerj_hybrid_search",
+    "description": "Combine two or more sub-queries (typically a lexical BM25 query and a semantic/vector query) into a single ranked result set using score fusion. The call is issued as `POST /{index}/_search` with body {\"query\":{\"hybrid\":{\"queries\":[{\"query\":{...},\"weight\":...}],\"fusion\":\"rrf\"}}}; each entry in `queries` wraps a standard XERJ query clause and an optional weight. Fusion is either \"rrf\" (reciprocal rank fusion, default, rank-based) or \"linear\" (weighted sum of normalized scores) — the \"learned\" strategy is NOT implemented and will return an error, so do not use it. Aggregations cannot be combined with a hybrid query.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "string",
+          "description": "Name of the XERJ index to search."
+        },
+        "queries": {
+          "type": "array",
+          "description": "The sub-queries to fuse. Each element is an object with a `query` (any XERJ/ES query clause, including `semantic` or `knn`) and an optional `weight`. Typically one lexical clause (e.g. `match`) and one semantic/vector clause.",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "object",
+                "description": "A XERJ/Elasticsearch query clause, e.g. {\"match\":{\"body\":\"vpn outage\"}} or {\"semantic\":{\"field\":\"body\",\"query\":\"vpn outage\",\"k\":50}}.",
+                "additionalProperties": true
+              },
+              "weight": {
+                "type": "number",
+                "description": "Relative weight for this sub-query in fusion. Defaults to 1.0.",
+                "default": 1.0
+              }
+            },
+            "required": ["query"]
+          }
+        },
+        "fusion": {
+          "type": "string",
+          "description": "Score-fusion strategy. \"rrf\" = reciprocal rank fusion (default); \"linear\" = weighted sum of normalized scores. The \"learned\" strategy is not supported and returns an error.",
+          "enum": ["rrf", "linear"],
+          "default": "rrf"
+        },
+        "rrf_k": {
+          "type": "integer",
+          "description": "Rank constant for reciprocal rank fusion (only used when fusion is \"rrf\"). Larger values flatten the influence of rank position. Defaults to 60. Maps to the object form fusion {\"type\":\"rrf\",\"k\":<rrf_k>}.",
+          "minimum": 1,
+          "default": 60
+        },
+        "size": {
+          "type": "integer",
+          "description": "Maximum number of fused hits to return. Defaults to 10.",
+          "minimum": 0,
+          "default": 10
+        }
+      },
+      "required": ["index", "queries"]
+    }
+  },
+  {
+    "name": "xerj_memory_store",
+    "description": "Persist a memory (a piece of text an agent wants to remember) into a namespaced XERJ agent-memory store. The call maps to `POST /_memory/{namespace}`; the text is stored in a `semantic_text` field and auto-embedded by XERJ's built-in embedder so it becomes recallable by meaning with no external embedding service. Namespaces isolate memories — a recall in one namespace never sees another's — so use a stable namespace per agent, user, or session. Optionally supply a precomputed `vector`, arbitrary `metadata`, an explicit `id`, and opt-in semantic deduplication.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "description": "Memory namespace (isolation boundary). Must start with a lowercase letter or digit and contain only a-z, 0-9, '_', '-', '.' (max 200 chars). Each namespace is backed by its own index."
+        },
+        "text": {
+          "type": "string",
+          "description": "The memory text to store. Always indexed for BM25 and auto-embedded (via the built-in embedder) for semantic recall."
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Optional arbitrary metadata object (tags, source, timestamps, etc.). Recall can pre-filter on these under the `metadata.` prefix, e.g. {\"term\":{\"metadata.topic\":\"billing\"}}.",
+          "additionalProperties": true
+        },
+        "vector": {
+          "type": "array",
+          "description": "Optional caller-supplied dense embedding for the memory. When present it is stored as a `dense_vector` and enables kNN recall with your own embedding model.",
+          "items": { "type": "number" }
+        },
+        "id": {
+          "type": "string",
+          "description": "Optional explicit ID for the memory. A UUID is generated when omitted."
+        },
+        "dedup": {
+          "type": "boolean",
+          "description": "Opt-in semantic deduplication. When true, XERJ probes the nearest existing memory before writing and, if its cosine similarity meets `dedup_threshold`, skips the write and returns the existing entry instead. Defaults to false.",
+          "default": false
+        },
+        "dedup_threshold": {
+          "type": "number",
+          "description": "Cosine-similarity threshold in [0,1] used when `dedup` is true. Defaults to 0.95. Ignored unless `dedup` is true.",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.95
+        }
+      },
+      "required": ["namespace", "text"]
+    }
+  },
+  {
+    "name": "xerj_memory_recall",
+    "description": "Recall the most relevant memories from a namespaced XERJ agent-memory store. The call maps to `POST /_memory/{namespace}/_recall` and supports three retrieval modes, chosen by which inputs you supply: pass a `vector` for kNN recall over your own embedding; set `semantic: true` with a `query` for meaning-based recall where XERJ embeds the query server-side (no external embedding key); or pass just `query` text for BM25 relevance. Results return as {\"hits\":[{\"id\",\"text\",\"metadata\",\"score\"}], \"namespace\"}. An optional `filter` narrows by metadata and `recency_weight` blends recency into the ranking.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "description": "Memory namespace to recall from. An unknown namespace returns an empty hit list."
+        },
+        "query": {
+          "type": "string",
+          "description": "Query text. Used for BM25 text recall by default, or as the string XERJ embeds server-side when `semantic` is true. Required for semantic mode."
+        },
+        "vector": {
+          "type": "array",
+          "description": "Optional query embedding. When supplied, recall runs as kNN over stored vectors and takes precedence over `query`/`semantic`.",
+          "items": { "type": "number" }
+        },
+        "semantic": {
+          "type": "boolean",
+          "description": "When true, XERJ embeds `query` server-side with the same built-in embedder used at store time and recalls by vector similarity — no client-side embedding needed. Requires a non-empty `query`. Ignored when an explicit `vector` is given. Defaults to false (BM25 text recall).",
+          "default": false
+        },
+        "k": {
+          "type": "integer",
+          "description": "Number of memories to return. Defaults to 10.",
+          "minimum": 1,
+          "default": 10
+        },
+        "filter": {
+          "type": "object",
+          "description": "Optional Elasticsearch query clause pre-filter over stored metadata, e.g. {\"term\":{\"metadata.topic\":\"cats\"}}. Applied as a `filter` so it narrows without affecting the score.",
+          "additionalProperties": true
+        },
+        "recency_weight": {
+          "type": "number",
+          "description": "Optional recency blend in [0,1]. 0 = pure relevance (default behaviour when omitted), 1 = pure recency; intermediate values re-rank candidates by a normalized mix of similarity and how recently each memory was stored.",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": ["namespace"]
+    }
+  }
+]

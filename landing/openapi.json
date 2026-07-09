@@ -1,0 +1,563 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "XERJ REST API (Elasticsearch-compatible)",
+    "version": "1.0",
+    "summary": "Core index, ingest, search, and agent-memory endpoints for XERJ.",
+    "description": "XERJ is an Elasticsearch-compatible search engine written in Rust. This document covers the core REST surface that backs the six canonical agent operations: index creation, document ingest (single and bulk), search (lexical, semantic, vector/kNN, and hybrid), and namespaced agent memory (store + recall). The search endpoint is a single verb whose behaviour is selected by the request body: a `semantic` query for meaning-based recall, a top-level `knn` clause for exact vector search, or a `hybrid` query for score fusion. Semantic and semantic-memory features use XERJ's built-in embedder and require no external embedding provider or API key. Vector (kNN) search is exact brute-force at query time (HNSW is built at ingest; there is no query-time HNSW traversal or ef_search parameter).",
+    "contact": { "name": "XERJ", "url": "https://xerj.org" },
+    "license": { "name": "Apache-2.0", "identifier": "Apache-2.0" }
+  },
+  "servers": [
+    { "url": "http://localhost:9200", "description": "Local XERJ node (ES-compatible REST surface)." }
+  ],
+  "security": [
+    {},
+    { "ApiKey": [] }
+  ],
+  "paths": {
+    "/{index}": {
+      "parameters": [
+        { "$ref": "#/components/parameters/IndexPath" }
+      ],
+      "put": {
+        "operationId": "createIndex",
+        "summary": "Create an index",
+        "description": "Create an index with optional mappings and settings. To enable semantic search, map a field as `semantic_text` (XERJ auto-embeds it at ingest with the built-in embedder). To enable vector/kNN search, map a `dense_vector` field with `dims` set to your embedding dimension.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateIndexBody" },
+              "examples": {
+                "semantic_and_vector": {
+                  "summary": "Index with a semantic_text field and a dense_vector field",
+                  "value": {
+                    "mappings": {
+                      "properties": {
+                        "title": { "type": "text" },
+                        "body": { "type": "semantic_text" },
+                        "embedding": { "type": "dense_vector", "dims": 384, "similarity": "cosine" },
+                        "status": { "type": "keyword" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Index created.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AcknowledgedResponse" },
+                "example": { "acknowledged": true, "shards_acknowledged": true, "index": "docs" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/{index}/_doc": {
+      "parameters": [
+        { "$ref": "#/components/parameters/IndexPath" }
+      ],
+      "post": {
+        "operationId": "indexDocumentAuto",
+        "summary": "Index a document (auto-generated id)",
+        "description": "Index a single JSON document; the id is auto-generated. Fields mapped as `semantic_text` are embedded server-side at ingest so they become recallable by meaning.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Document" },
+              "examples": {
+                "doc": {
+                  "value": {
+                    "title": "VPN outage postmortem",
+                    "body": "Users could not connect to the corporate VPN for 40 minutes.",
+                    "status": "published"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Document indexed.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/IndexDocResponse" },
+                "example": { "_index": "docs", "_id": "n2b8a", "result": "created", "_version": 1 }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/{index}/_doc/{id}": {
+      "parameters": [
+        { "$ref": "#/components/parameters/IndexPath" },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "description": "Document id.",
+          "schema": { "type": "string" }
+        }
+      ],
+      "put": {
+        "operationId": "indexDocument",
+        "summary": "Index a document with an explicit id",
+        "description": "Create or overwrite a document at the given id.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Document" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Document updated.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/IndexDocResponse" }
+              }
+            }
+          },
+          "201": {
+            "description": "Document created.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/IndexDocResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/{index}/_search": {
+      "parameters": [
+        { "$ref": "#/components/parameters/IndexPath" }
+      ],
+      "post": {
+        "operationId": "search",
+        "summary": "Search an index (lexical, semantic, vector, or hybrid)",
+        "description": "Single search endpoint whose behaviour is selected by the request body. Use a Query DSL clause in `query` for lexical/structured search, a `semantic` query for meaning-based recall over a `semantic_text` field, a top-level `knn` clause for exact vector search over a `dense_vector` field, or a `hybrid` query to fuse multiple sub-queries with RRF or linear fusion. Aggregations cannot be combined with a hybrid query.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SearchBody" },
+              "examples": {
+                "lexical": {
+                  "summary": "Lexical / structured search (xerj_search)",
+                  "value": {
+                    "query": { "bool": { "must": [ { "match": { "body": "vpn outage" } } ], "filter": [ { "term": { "status": "published" } } ] } },
+                    "size": 10
+                  }
+                },
+                "semantic": {
+                  "summary": "Semantic search over a semantic_text field (xerj_semantic_search)",
+                  "value": {
+                    "query": { "semantic": { "field": "body", "query": "how do I connect to the vpn", "k": 10 } },
+                    "size": 10
+                  }
+                },
+                "vector_knn": {
+                  "summary": "Exact vector / kNN search (xerj_vector_search)",
+                  "value": {
+                    "knn": { "field": "embedding", "query_vector": [0.12, -0.03, 0.47], "k": 10, "num_candidates": 100 },
+                    "size": 10
+                  }
+                },
+                "hybrid": {
+                  "summary": "Hybrid search with RRF fusion (xerj_hybrid_search)",
+                  "value": {
+                    "query": {
+                      "hybrid": {
+                        "queries": [
+                          { "query": { "match": { "body": "vpn outage" } }, "weight": 1.0 },
+                          { "query": { "semantic": { "field": "body", "query": "cannot connect to vpn", "k": 50 } }, "weight": 1.0 }
+                        ],
+                        "fusion": "rrf"
+                      }
+                    },
+                    "size": 10
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SearchResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/_bulk": {
+      "post": {
+        "operationId": "bulk",
+        "summary": "Bulk index / update / delete",
+        "description": "Bulk endpoint using newline-delimited JSON (NDJSON). Each operation is two lines: an action line (`index`, `create`, `update`, or `delete`) followed by the source document (omitted for `delete`). The body must be sent as `application/x-ndjson` and terminated by a trailing newline.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-ndjson": {
+              "schema": {
+                "type": "string",
+                "description": "Newline-delimited JSON. One action line per operation, optionally followed by a source line."
+              },
+              "example": "{\"index\":{\"_index\":\"docs\",\"_id\":\"1\"}}\n{\"title\":\"first\",\"body\":\"hello world\"}\n{\"index\":{\"_index\":\"docs\",\"_id\":\"2\"}}\n{\"title\":\"second\",\"body\":\"goodbye world\"}\n"
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Per-item results. Inspect `errors` and each item's status.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BulkResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/_memory/{namespace}": {
+      "parameters": [
+        { "$ref": "#/components/parameters/NamespacePath" }
+      ],
+      "post": {
+        "operationId": "memoryStore",
+        "summary": "Store an agent memory",
+        "description": "Persist a memory into a namespaced agent-memory store (xerj_memory_store). The text is stored in a `semantic_text` field and auto-embedded by the built-in embedder so it is recallable by meaning with no external embedding service. Namespaces isolate memories from one another.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/MemoryStoreBody" },
+              "examples": {
+                "store": {
+                  "value": {
+                    "text": "The customer prefers email over phone contact.",
+                    "metadata": { "topic": "preferences", "user": "u-42" }
+                  }
+                },
+                "store_with_dedup": {
+                  "value": {
+                    "text": "The customer prefers email over phone contact.",
+                    "dedup": true,
+                    "dedup_threshold": 0.95
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Memory stored.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MemoryStoreResponse" },
+                "example": { "id": "6f1c...", "namespace": "agent-1", "created": true }
+              }
+            }
+          },
+          "200": {
+            "description": "Deduplicated — a near-duplicate memory already exists; the existing entry is returned.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MemoryStoreResponse" },
+                "example": { "id": "6f1c...", "namespace": "agent-1", "created": false, "deduplicated": true }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/_memory/{namespace}/_recall": {
+      "parameters": [
+        { "$ref": "#/components/parameters/NamespacePath" }
+      ],
+      "post": {
+        "operationId": "memoryRecall",
+        "summary": "Recall agent memories",
+        "description": "Recall the most relevant memories from a namespace (xerj_memory_recall). Three retrieval modes are chosen by input: supply a `vector` for kNN over your own embedding; set `semantic: true` with a `query` for server-side embedded recall (no external key); or pass just `query` for BM25 text recall. An optional metadata `filter` narrows the set and `recency_weight` blends recency into the ranking.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/MemoryRecallBody" },
+              "examples": {
+                "semantic_recall": {
+                  "summary": "Server-side semantic recall (no external embedding key)",
+                  "value": { "query": "how does the customer want to be contacted", "semantic": true, "k": 5 }
+                },
+                "text_recall_with_filter": {
+                  "summary": "BM25 recall narrowed by metadata",
+                  "value": { "query": "contact preference", "k": 5, "filter": { "term": { "metadata.user": "u-42" } } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recalled memories, most relevant first.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MemoryRecallResponse" },
+                "example": {
+                  "namespace": "agent-1",
+                  "hits": [
+                    { "id": "6f1c...", "text": "The customer prefers email over phone contact.", "metadata": { "topic": "preferences", "user": "u-42" }, "score": 0.91 }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Optional API-key authentication via the `Authorization` header. XERJ accepts both `Authorization: Bearer <key>` and `Authorization: ApiKey <key>`. Authentication is disabled by default; when it is not enabled, requests without an `Authorization` header are accepted (hence the empty top-level security requirement)."
+      }
+    },
+    "parameters": {
+      "IndexPath": {
+        "name": "index",
+        "in": "path",
+        "required": true,
+        "description": "Index name. May be a single index, a comma-separated list, or a wildcard pattern for search.",
+        "schema": { "type": "string" }
+      },
+      "NamespacePath": {
+        "name": "namespace",
+        "in": "path",
+        "required": true,
+        "description": "Agent-memory namespace. Starts with a lowercase letter or digit; allowed characters are a-z, 0-9, '_', '-', '.' (max 200 chars).",
+        "schema": { "type": "string", "maxLength": 200, "pattern": "^[a-z0-9][a-z0-9_.-]*$" }
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Error. XERJ returns an Elasticsearch-shaped error envelope.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "CreateIndexBody": {
+        "type": "object",
+        "description": "Index definition. Both fields are optional.",
+        "properties": {
+          "settings": {
+            "type": "object",
+            "description": "Index settings (e.g. number_of_shards, analysis).",
+            "additionalProperties": true
+          },
+          "mappings": {
+            "type": "object",
+            "description": "Field mappings. Use type `semantic_text` for semantic search and `dense_vector` (with `dims`) for vector/kNN search.",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "AcknowledgedResponse": {
+        "type": "object",
+        "properties": {
+          "acknowledged": { "type": "boolean" },
+          "shards_acknowledged": { "type": "boolean" },
+          "index": { "type": "string" }
+        }
+      },
+      "Document": {
+        "type": "object",
+        "description": "An arbitrary JSON document whose fields conform to the index mapping.",
+        "additionalProperties": true
+      },
+      "IndexDocResponse": {
+        "type": "object",
+        "properties": {
+          "_index": { "type": "string" },
+          "_id": { "type": "string" },
+          "_version": { "type": "integer" },
+          "result": { "type": "string", "enum": ["created", "updated"] }
+        }
+      },
+      "SearchBody": {
+        "type": "object",
+        "description": "Search request. Provide a `query` clause and/or a top-level `knn` clause. The `query` may itself be a `semantic` or `hybrid` clause.",
+        "properties": {
+          "query": {
+            "type": "object",
+            "description": "An Elasticsearch Query DSL clause. Supports standard clauses (match, term, terms, range, bool, prefix, wildcard, exists, multi_match) plus XERJ's `semantic` and `hybrid` clauses.",
+            "additionalProperties": true
+          },
+          "knn": {
+            "$ref": "#/components/schemas/KnnClause"
+          },
+          "size": { "type": "integer", "minimum": 0, "default": 10, "description": "Maximum number of hits to return." },
+          "from": { "type": "integer", "minimum": 0, "default": 0, "description": "Offset of the first hit, for pagination." },
+          "sort": { "description": "Sort specification, e.g. [{\"timestamp\":\"desc\"}].", "type": ["array", "object", "string"] },
+          "_source": { "description": "Which source fields to return: true/false, or an array of field names.", "type": ["boolean", "array", "string"] },
+          "aggs": { "type": "object", "description": "Aggregations. Not supported together with a hybrid query.", "additionalProperties": true },
+          "highlight": { "type": "object", "description": "Highlight configuration.", "additionalProperties": true },
+          "track_total_hits": { "description": "true/false, or an integer cap, controlling exact total-hit counting.", "type": ["boolean", "integer"] }
+        },
+        "additionalProperties": true
+      },
+      "KnnClause": {
+        "type": "object",
+        "description": "ES 8.x top-level kNN clause. Scoring is exact brute-force at query time.",
+        "properties": {
+          "field": { "type": "string", "description": "The `dense_vector` field to search." },
+          "query_vector": { "type": "array", "items": { "type": "number" }, "description": "Query embedding; length must equal the field's mapped `dims`." },
+          "k": { "type": "integer", "minimum": 1, "default": 10, "description": "Number of nearest neighbours to return." },
+          "num_candidates": { "type": "integer", "minimum": 1, "description": "Optional candidate-pool size before selecting top k." }
+        },
+        "required": ["field", "query_vector"]
+      },
+      "SearchResponse": {
+        "type": "object",
+        "description": "Elasticsearch-shaped search response.",
+        "properties": {
+          "took": { "type": "integer" },
+          "timed_out": { "type": "boolean" },
+          "_shards": { "type": "object", "additionalProperties": true },
+          "hits": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "object",
+                "properties": {
+                  "value": { "type": "integer" },
+                  "relation": { "type": "string", "enum": ["eq", "gte"] }
+                }
+              },
+              "max_score": { "type": ["number", "null"] },
+              "hits": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "_index": { "type": "string" },
+                    "_id": { "type": "string" },
+                    "_score": { "type": ["number", "null"] },
+                    "_source": { "type": "object", "additionalProperties": true }
+                  }
+                }
+              }
+            }
+          },
+          "aggregations": { "type": "object", "additionalProperties": true }
+        }
+      },
+      "BulkResponse": {
+        "type": "object",
+        "properties": {
+          "took": { "type": "integer" },
+          "errors": { "type": "boolean" },
+          "items": {
+            "type": "array",
+            "items": { "type": "object", "additionalProperties": true }
+          }
+        }
+      },
+      "MemoryStoreBody": {
+        "type": "object",
+        "properties": {
+          "text": { "type": "string", "description": "The memory text. Indexed for BM25 and auto-embedded for semantic recall." },
+          "metadata": { "type": "object", "additionalProperties": true, "description": "Optional arbitrary metadata; recall can pre-filter under the `metadata.` prefix." },
+          "vector": { "type": "array", "items": { "type": "number" }, "description": "Optional caller-supplied embedding, stored as a dense_vector for kNN recall." },
+          "id": { "type": "string", "description": "Optional explicit id; a UUID is generated when omitted." },
+          "dedup": { "type": "boolean", "default": false, "description": "Opt-in semantic deduplication." },
+          "dedup_threshold": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.95, "description": "Cosine-similarity threshold used when dedup is true." }
+        },
+        "required": ["text"]
+      },
+      "MemoryStoreResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "namespace": { "type": "string" },
+          "created": { "type": "boolean" },
+          "deduplicated": { "type": "boolean" }
+        }
+      },
+      "MemoryRecallBody": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "Query text for BM25 recall, or the string embedded server-side when `semantic` is true (required in semantic mode)." },
+          "vector": { "type": "array", "items": { "type": "number" }, "description": "Optional query embedding; runs kNN and takes precedence over query/semantic." },
+          "semantic": { "type": "boolean", "default": false, "description": "Embed `query` server-side and recall by similarity. Requires non-empty `query`. Ignored when `vector` is given." },
+          "k": { "type": "integer", "minimum": 1, "default": 10, "description": "Number of memories to return." },
+          "filter": { "type": "object", "additionalProperties": true, "description": "Optional ES query clause pre-filter over metadata." },
+          "recency_weight": { "type": "number", "minimum": 0, "maximum": 1, "description": "Optional recency blend in [0,1]. 0 = pure relevance (default when omitted), 1 = pure recency." }
+        }
+      },
+      "MemoryRecallResponse": {
+        "type": "object",
+        "properties": {
+          "namespace": { "type": "string" },
+          "hits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "text": { "type": "string" },
+                "metadata": { "type": ["object", "null"], "additionalProperties": true },
+                "score": { "type": ["number", "null"] }
+              }
+            }
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "reason": { "type": "string" }
+            },
+            "additionalProperties": true
+          },
+          "status": { "type": "integer" }
+        }
+      }
+    }
+  }
+}
