@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ · Docs · Recipe · Index a folder of PDFs, Word docs &amp; web pages</title>
+<meta name="description" content="Point an AI agent at a recursive folder of mixed-format documents (PDF, DOCX, HTML, Markdown, TXT). One xerj-index pass extracts, chunks and auto-embeds every file, then lexical, semantic and hybrid search return ranked, cited passages — where plain grep is structurally blind to PDF/DOCX bytes and must load whole large files into context.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="stylesheet" href="/style.css?v=90f643e">
+</head>
+<body>
+
+
+<nav class="nav" aria-label="Primary">
+  <a href="/index.html" class="brand">XERJ.AI</a>
+  <a href="/index.html">HOME</a>
+  <a href="/product.html">PRODUCT</a>
+  <span class="nav-drop">
+    <a href="/use-cases.html">USE CASES</a>
+  </span>
+  <span class="spacer"></span>
+  <a href="/for-agents.html">FOR AGENTS</a>
+  <a href="/docs/index.html">DOCS</a>
+  <a href="/docs/recipes/index.html" class="active">RECIPES</a>
+  <a href="/playground.html">DASHBOARDS</a>
+  <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
+  <span class="spacer"></span>
+  <span class="theme">
+    <button type="button" data-theme="day">DAY</button>
+    <span class="dash">·</span>
+    <button type="button" data-theme="night" class="active">NIGHT</button>
+  </span>
+</nav>
+
+<div class="docs-search" id="docsSearch">
+  <input type="text" id="docsSearchInput" placeholder="Search docs · keys, flags, endpoints, playbooks…" aria-label="Search docs" autocomplete="off" spellcheck="false">
+  <span class="hint">⌘ K</span>
+  <div class="results" id="docsSearchResults" aria-live="polite"></div>
+</div>
+
+<div class="docs-shell">
+<nav class="docs-nav" aria-label="Docs">  <div class="group">
+    <span class="label">START</span>
+    <a href="/docs/index.html" class=""><span class="eyebrow">01</span>Overview</a>
+      <a href="/docs/quickstart.html" class=""><span class="eyebrow">02</span>Quickstart</a>
+      <a href="/docs/install.html" class=""><span class="eyebrow">03</span>Install</a>
+      <a href="/docs/migration-from-es.html" class=""><span class="eyebrow">04</span>Migrate from ES</a>
+  </div>
+  <div class="group">
+    <span class="label">REFERENCE</span>
+    <a href="/docs/cli.html" class=""><span class="eyebrow">01</span>CLI</a>
+      <a href="/docs/config.html" class=""><span class="eyebrow">02</span>Config TOML</a>
+      <a href="/docs/env.html" class=""><span class="eyebrow">03</span>Environment</a>
+      <a href="/docs/api-native.html" class=""><span class="eyebrow">04</span>Native REST API</a>
+      <a href="/docs/api-es-compat.html" class=""><span class="eyebrow">05</span>ES-compat API</a>
+  </div>
+  <div class="group">
+    <span class="label">DATA MODEL</span>
+    <a href="/docs/queries.html" class=""><span class="eyebrow">01</span>Query types</a>
+      <a href="/docs/aggregations.html" class=""><span class="eyebrow">02</span>Aggregations</a>
+      <a href="/docs/analyzers.html" class=""><span class="eyebrow">03</span>Analyzers</a>
+      <a href="/docs/vectors.html" class=""><span class="eyebrow">04</span>Vectors & HNSW</a>
+  </div>
+  <div class="group">
+    <span class="label">ENGINE</span>
+    <a href="/docs/ingest.html" class=""><span class="eyebrow">01</span>Ingest pipelines</a>
+      <a href="/docs/storage.html" class=""><span class="eyebrow">02</span>Storage & WAL</a>
+      <a href="/docs/compression.html" class=""><span class="eyebrow">03</span>Compression</a>
+      <a href="/docs/clustering.html" class=""><span class="eyebrow">04</span>Clustering</a>
+      <a href="/docs/metrics.html" class=""><span class="eyebrow">05</span>Metrics</a>
+      <a href="/docs/security.html" class=""><span class="eyebrow">06</span>Auth & TLS</a>
+  </div>
+  <div class="group">
+    <span class="label">OPERATIONS</span>
+    <a href="/docs/operations.html" class=""><span class="eyebrow">01</span>Running in production</a>
+      <a href="/docs/backup-restore.html" class=""><span class="eyebrow">02</span>Backup & restore</a>
+      <a href="/docs/upgrades.html" class=""><span class="eyebrow">03</span>Upgrades</a>
+      <a href="/docs/troubleshooting.html" class=""><span class="eyebrow">04</span>Troubleshooting</a>
+  </div>
+  <div class="group">
+    <span class="label">PLAYBOOKS</span>
+    <a href="/docs/playbooks/siem.html" class=""><span class="eyebrow">01</span>SIEM</a>
+      <a href="/docs/playbooks/log-analytics.html" class=""><span class="eyebrow">02</span>Log analytics</a>
+      <a href="/docs/playbooks/vector-search.html" class=""><span class="eyebrow">03</span>Vector · RAG</a>
+      <a href="/docs/playbooks/full-text.html" class=""><span class="eyebrow">04</span>Full-text search</a>
+      <a href="/docs/playbooks/observability.html" class=""><span class="eyebrow">05</span>Observability</a>
+  </div>
+  <div class="group">
+    <span class="label">RECIPES</span>
+    <a href="/docs/recipes/index.html" class=""><span class="eyebrow">00</span>All recipes</a>
+    <a href="/docs/recipes/semantic-search-rag.html" class=""><span class="eyebrow">01</span>Semantic search &amp; RAG</a>
+    <a href="/docs/recipes/agentic-memory.html" class=""><span class="eyebrow">02</span>Agent memory</a>
+    <a href="/docs/recipes/passage-retrieval.html" class=""><span class="eyebrow">03</span>Passage retrieval</a>
+    <a href="/docs/recipes/vector-search-knn.html" class=""><span class="eyebrow">04</span>Vector search &middot; kNN</a>
+    <a href="/docs/recipes/vector-quantization.html" class=""><span class="eyebrow">05</span>Vector quantization</a>
+    <a href="/docs/recipes/hybrid-search.html" class=""><span class="eyebrow">06</span>Hybrid search</a>
+    <a href="/docs/recipes/log-analytics.html" class=""><span class="eyebrow">07</span>Log analytics</a>
+    <a href="/docs/recipes/anomaly-detection.html" class=""><span class="eyebrow">08</span>Anomaly detection</a>
+    <a href="/docs/recipes/continuous-anomaly-datafeeds.html" class=""><span class="eyebrow">09</span>Anomaly datafeeds</a>
+    <a href="/docs/recipes/migrate-from-elasticsearch.html" class=""><span class="eyebrow">10</span>Migrate from ES</a>
+    <a href="/docs/recipes/document-folder-index.html" class="active"><span class="eyebrow">11</span>Doc folder index</a>
+  </div>
+</nav>
+
+<main class="docs-content">
+  <!-- Print-only branded header (hidden on screen, visible in PDF) -->
+  <div class="print-header" style="display:none;">XERJ.AI</div>
+
+  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span><a href="/docs/recipes/index.html">RECIPES</a><span class="sep">·</span>INDEX A FOLDER OF DOCS
+    <button class="pdf-btn" onclick="window.print()" title="Save this page as PDF">
+      <svg viewBox="0 0 24 24"><path d="M12 3v12M12 15l-4-4M12 15l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+      PDF
+    </button>
+  </div>
+  <div class="kicker"><span>RECIPE · 11</span></div>
+  <h1>Index a folder of PDFs, Word docs &amp; web pages</h1>
+
+
+  <p><strong>Goal:</strong> point an AI agent at a real, messy shared drive — an HR handbook in <strong>PDF</strong>, an on-call runbook in <strong>Word</strong>, a product FAQ in <strong>HTML</strong>, architecture notes in <strong>Markdown</strong>, meeting notes in <strong>plain text</strong> — and let it answer questions with <em>cited passages</em>, regardless of format.</p>
+
+  <p>The obvious shell-only approach is to <code class="inline">grep</code>/<code class="inline">rg</code> the files. It hits a hard ceiling almost immediately: it <strong>cannot read a PDF or a <code class="inline">.docx</code></strong> (they are compressed binary containers, so the answer is simply invisible), and to actually quote an answer buried in a large document it must slurp the <strong>whole file</strong> into the model's context window. (A fair grep of the question's own terms <em>does</em> find differently-phrased plaintext answers — so we do not claim a meaning-understanding edge; see the honest scorecard below.)</p>
+
+  <p>With XERJ, one <code class="inline">xerj-index</code> pass walks the tree, extracts text from <em>every</em> format, chunks it, auto-embeds each chunk with the built-in embedder, and bulk-indexes into a single <code class="inline">docfolder</code> index. The agent then searches it three ways — <strong>lexical</strong>, <strong>semantic</strong>, and <strong>hybrid</strong> — and gets back ranked, cited passages.</p>
+
+  <blockquote>
+    <p><strong>Everything on this page was measured live.</strong> The numbers come from a real run of the indexer + comparison harness in <a href="https://github.com/xerj-org/xerj/tree/main/demo/usecases/doc-index"><code class="inline">demo/usecases/doc-index</code></a> against a live XERJ node — a fictional-company corpus ("Northwind Robotics") of <strong>29 files</strong> across PDF/DOCX/HTML/MD/TXT (including four realistically large ≥60 KB documents), indexed into <strong>420 chunks</strong>, scored over a <strong>22-question</strong> ground-truth set. Nothing here is hand-tuned or aspirational; the raw <code class="inline">results.json</code> and <code class="inline">SCORECARD.md</code> ship next to the scripts so you can reproduce it. The grep baseline is run fairly — it searches the union of each query's keywords <em>and</em> the salient tokens of the question itself.</p>
+  </blockquote>
+
+  <hr>
+
+  <h2>The problem, made concrete: grep can't read a PDF</h2>
+  <p>The HR handbook is a real PDF. Ask it "how many weeks of paid parental leave do employees receive?" and grep the salient terms — <code class="inline">rg</code> returns <strong>nothing</strong>, because the file is a FlateDecode-compressed binary stream, not text:</p>
+<pre class="code">$ file corpus/hr/handbook.pdf
+corpus/hr/handbook.pdf: PDF document, version 1.7, 5 page(s)
+
+$ head -c 96 corpus/hr/handbook.pdf | cat -v
+%PDF-1.7
+%M-CM-$M-CM-&lt;M-CM-6M-CM-^_
+2 0 obj
+&lt;&lt;/Length 3 0 R/Filter/FlateDecode&gt;&gt;
+stream
+x^]XMM-KM-dF...          # compressed bytes — no readable words
+
+$ rg -i -F -e 'parental leave' -e 'paid leave' corpus/
+   # (exit 1, no matches — rg detects the NUL bytes and skips the file)</pre>
+
+  <p>The answer <em>is</em> in there — it is just locked inside the binary. Run a proper extractor and you can see it:</p>
+<pre class="code">$ pdftotext -layout corpus/hr/handbook.pdf - | grep -i 'parental leave'
+Parental leave
+Paid parental leave is 16 weeks for eligible full-time staff.</pre>
+
+  <p>That extraction step is exactly what <code class="inline">xerj-index</code> does for every file — and then it chunks, embeds, and indexes the result so you can search it. A naive grep agent is structurally blind to it.</p>
+
+  <hr>
+
+  <h2>1. Create the <code class="inline">docfolder</code> index</h2>
+  <p>Two fields carry the document text. <code class="inline">body</code> is mapped as <code class="inline">semantic_text</code> — XERJ auto-embeds it on ingest for meaning-aware retrieval — and <code class="inline">body_text</code> is a plain <code class="inline">text</code> field holding the <em>same</em> chunk for BM25 lexical / <code class="inline">match</code>. The rest are cheap keyword/metadata fields so you can filter by folder or format and cite the source path.</p>
+<pre class="code">curl -X PUT localhost:9209/docfolder -H 'Content-Type: application/json' -d '{
+  "mappings": {
+    "properties": {
+      "path":      { "type": "keyword" },
+      "dir":       { "type": "keyword" },
+      "format":    { "type": "keyword" },
+      "title":     { "type": "text" },
+      "chunk_id":  { "type": "integer" },
+      "body":      { "type": "semantic_text" },
+      "body_text": { "type": "text" }
+    }
+  }
+}'</pre>
+
+  <blockquote>
+    <p><strong>Port note.</strong> This walkthrough talks to a node on <code class="inline">:9209</code> — the port the demo harness uses so it never collides with anything else on the box. XERJ's default ES-compat port is <code class="inline">:9200</code>; use whichever you started the node on (the scripts honour <code class="inline">XERJ_PORT</code>).</p>
+  </blockquote>
+
+  <h2>2. Index the folder in one pass</h2>
+  <p>The <code class="inline">xerj-index.mjs</code> indexer (pure Node, no npm dependencies) walks the folder recursively, extracts text per format, chunks it to ~800 characters with ~100 characters of sentence-boundary overlap, and bulk-indexes each chunk. Extraction uses the right tool for each format:</p>
+  <ul>
+    <li><code class="inline">.pdf</code> → <code class="inline">pdftotext -layout</code> (poppler-utils)</li>
+    <li><code class="inline">.docx</code> → <code class="inline">soffice --headless --convert-to txt</code> (LibreOffice), falling back to unzipping <code class="inline">word/document.xml</code> and stripping tags</li>
+    <li><code class="inline">.html</code> → strip <code class="inline">&lt;script&gt;</code>/<code class="inline">&lt;style&gt;</code>/tags to text (pure Node)</li>
+    <li><code class="inline">.md</code> / <code class="inline">.txt</code> → read as text (light Markdown de-syntaxing)</li>
+  </ul>
+<pre class="code">$ XERJ_PORT=9209 node xerj-index.mjs --recreate
+[index] created 'docfolder' with SPEC mappings
+[ok] corpus/hr/handbook.pdf (pdf) → 4 chunks
+[ok] corpus/engineering/oncall-runbook.docx (docx) → 2 chunks
+[ok] corpus/product/faq.html (html) → 1 chunks
+...
+===== xerj-index summary =====
+files walked      : 29
+chunks produced   : 420
+chunks indexed    : 420
+chunks errored    : 0
+files skipped     : 0
+elapsed ms        : 1339</pre>
+
+  <p>Measured result: <strong>29 files → 420 chunks, 0 errored, 0 skipped, in 1339 ms</strong>. Confirm the index is populated:</p>
+<pre class="code">$ curl -s localhost:9209/docfolder/_count
+{"count":420,"_shards":{"total":1,"successful":1,"failed":0}}</pre>
+
+  <p>A single file lands as several rows (one per chunk), each with its own <code class="inline">path</code>, <code class="inline">format</code>, <code class="inline">chunk_id</code>, and an auto-embedded <code class="inline">body</code>. That is what makes retrieval <em>passage-level</em>: you get the paragraph that answers the question, not the whole 5-page PDF.</p>
+
+  <h2>3. Search it three ways</h2>
+
+  <h3>Lexical — <code class="inline">match</code> on <code class="inline">body_text</code></h3>
+  <p>Plain BM25 over the extracted text. Good when the query words are literally in the doc:</p>
+<pre class="code">curl -s localhost:9209/docfolder/_search -H 'Content-Type: application/json' -d '{
+  "size": 5,
+  "query": { "match": { "body_text": "default API rate limit" } }
+}'</pre>
+<pre class="code">{
+  "hits": { "hits": [
+    { "_index": "docfolder", "_source": {
+        "path": "corpus/engineering/architecture/data-pipeline.md",
+        "format": "md", "title": "Data Pipeline Notes",
+        "body_text": "... The default API rate limit is 1000 requests per minute per client key. ..."
+    } }
+  ] }
+}
+// _score + body_vector trimmed for brevity — top hit shown</pre>
+
+  <h3>Semantic — <code class="inline">semantic</code> on <code class="inline">body</code></h3>
+  <p>The user rarely uses the doc's exact words. Ask "what is Northwind's policy on remote work versus coming into the office?" — the facilities note never says "remote work," it says staff "may work from home up to three days a week." The <code class="inline">semantic</code> query retrieves it by embedding (word/sub-word) overlap in one shot, without your having to guess synonyms. Be honest about the scope, though: a diligent grep of the question's <em>own</em> salient terms ("work", "office") lands the same line — on differently-phrased plaintext the two approaches <strong>tie</strong> (see the robustness row below). The convenience is single-query retrieval, not a capability grep lacks:</p>
+<pre class="code">curl -s localhost:9209/docfolder/_search -H 'Content-Type: application/json' -d '{
+  "size": 5,
+  "query": { "semantic": { "field": "body",
+             "query": "policy on remote work versus coming into the office", "k": 5 } }
+}'</pre>
+<pre class="code">{
+  "hits": { "hits": [
+    { "_index": "docfolder", "_source": {
+        "path": "corpus/operations/facilities.md",
+        "format": "md", "title": "Facilities and Ways of Working",
+        "body_text": "... Northwind runs a distributed-first culture, and staff may work
+                       from home up to three days a week. Teams come into the office on the
+                       remaining days for planning, workshops, and hands-on time ..."
+    } }
+  ] }
+}</pre>
+
+  <h3>Hybrid — fuse both with RRF</h3>
+  <p>The default the harness scores with: fan out a <code class="inline">match</code> on <code class="inline">body_text</code> and a <code class="inline">semantic</code> query on <code class="inline">body</code>, then fuse the two rankings with Reciprocal Rank Fusion. This is what answers the parental-leave question that grep could not touch:</p>
+<pre class="code">curl -s localhost:9209/docfolder/_search -H 'Content-Type: application/json' -d '{
+  "size": 5,
+  "query": {
+    "hybrid": {
+      "queries": [
+        { "query": { "match": { "body_text": "weeks of paid parental leave" } } },
+        { "query": { "semantic": { "field": "body",
+                     "query": "weeks of paid parental leave", "k": 5 } } }
+      ],
+      "fusion": "rrf"
+    }
+  }
+}'</pre>
+  <p>Measured response — the answer chunk from the binary PDF ranks #1, and every hit carries its source path so the agent can cite it (query latency for this one was <strong>116.09 ms</strong>):</p>
+<pre class="code">{
+  "hits": { "hits": [
+    { "_index": "docfolder", "_source": {
+        "path": "corpus/hr/handbook.pdf", "format": "pdf", "title": "handbook",
+        "body_text": "... Parental leave. Paid parental leave is 16 weeks for eligible
+                       full-time staff. Parental leave is available to all full-time
+                       employees after one year of continuous service ..."
+    } },
+    { "_source": { "path": "corpus/hr/benefits/leave-policy.docx",     "format": "docx" } },
+    { "_source": { "path": "corpus/hr/employee-handbook.html",         "format": "html" } }
+  ] }
+}
+// 5 chunks returned across 3 files (top 3 shown); RRF _score + body_vector trimmed</pre>
+
+  <hr>
+
+  <h2>The measured scorecard: XERJ vs. a fair shell-only grep</h2>
+  <p>The harness runs both approaches over the same 22 ground-truth questions. A query "hits" if any returned passage contains the known answer substring. The grep baseline is <strong>fair</strong>: it searches the union of each query's curated keywords <em>and</em> the salient tokens of the question itself, so it is never rigged to dodge the answer's own line. The questions are split into four honest buckets:</p>
+  <ul>
+    <li><strong>binary_only</strong> (7) — the answer lives <em>only</em> inside a PDF or DOCX. XERJ extracted it; grep is structurally blind. <strong>This is the headline — a capability grep lacks.</strong></li>
+    <li><strong>large_literal</strong> (4) — the answer is a literal string buried inside a realistically <em>large</em> (≥60 KB) document. A fair grep <em>finds</em> the line, but must load the whole file to quote/verify it; XERJ returns one ranked passage. This is where the context-efficiency win shows up honestly.</li>
+    <li><strong>robustness</strong> (5) — the answer is phrased differently than the question, in a plaintext file grep can read. A fair grep of the question's own terms matches the same line XERJ's lexical embedder finds, so this is expected to <strong>tie</strong> — kept to show single-query convenience, not a meaning win.</li>
+    <li><strong>literal</strong> (6) — the answer is a literal substring in a small plaintext file. Both approaches should find these; the honest control that checks XERJ isn't just inflating the easy cases.</li>
+  </ul>
+
+<pre class="code">Metric                                   XERJ            Baseline (grep)
+-------------------------------------    ------------    ---------------
+Overall coverage                         21/22 (95.5%)   14/22 (63.6%)
+binary_only  (PDF/DOCX-only)  HEADLINE   6/7             0/7
+large_literal (buried in ≥60 KB doc)     4/4             3/4
+robustness   (differently phrased)       5/5             5/5   ← tie
+literal      (plaintext substring)       6/6             6/6
+Query latency p50 / mean / max (ms)      61.23 / 64.9 / 116.09
+Index build time (ms)                    1339</pre>
+
+  <p>Coverage by the format the answer lives in — the binary formats are the whole story:</p>
+<pre class="code">Format   Queries   XERJ            Baseline
+------   -------   -----------     ----------
+docx     3         2/3 (66.7%)     0/3 (0%)
+pdf      5         5/5 (100%)      0/5 (0%)
+html     5         5/5 (100%)      5/5 (100%)
+md       7         7/7 (100%)      7/7 (100%)
+txt      2         2/2 (100%)      2/2 (100%)</pre>
+
+  <p>The decisive gap is exactly where you'd predict, and only there: on answers locked in PDF/DOCX, grep gets <strong>0/7</strong> and XERJ gets <strong>6/7</strong> (it misses one — see the honest miss below). On the plaintext buckets a <em>fair</em> grep keeps up — <strong>robustness ties 5/5</strong> and the <strong>literal control ties 6/6</strong> — so XERJ is not winning the cases grep can actually read. What XERJ adds on those is single-query, ranked retrieval and, on large documents, far less context.</p>
+
+  <h3>Context efficiency — real, but scale-dependent (not flat)</h3>
+  <p>To quote or verify an answer, the grep baseline must open the answer-containing file the hit lives in; XERJ returns just the ranked passage(s). The baseline is charged <strong>only that single answer file</strong> (<code class="inline">statSync(answer_path)</code>), and <strong>0 bytes on any query it cannot answer</strong> — never the false-positive files its broad terms also matched. Measured that way, the win is genuine but <strong>scale-dependent</strong>: large on big documents, and it INVERTS on tiny ones:</p>
+<pre class="code">View                                     Baseline B   XERJ B    Ratio
+--------------------------------------   ----------   -------   --------
+large_literal (returned passages)          192,782    11,180    17.24×   ← THE REAL WIN
+large_literal (single best passage)        192,782     2,250    85.68×
+literal (returned passages)                  4,741    20,965     0.23×   ← INVERTS on tiny files
+literal (single best passage)                4,741     3,930     1.21×
+answerable (all 14 baseline answers)       202,063    50,750     3.98×
+naive overall (all 22 queries)             202,063    79,872     2.53×   ← NOT a claim*</pre>
+  <p>* The naive whole-corpus ratio <strong>flatters the blind baseline</strong> — it opens 0 bytes on every query it cannot answer — so we do not lean on it. The headline rests on the <code class="inline">large_literal</code> ratio (<strong>17.24×</strong>); on the small-file <code class="inline">literal</code> set the same metric drops to <strong>0.23×</strong>, because a handful of returned passages can meet or exceed a tiny whole file. Side by side — large_literal <strong>17.24×</strong> vs. literal <strong>0.23×</strong> — <em>is</em> the scale-dependence, measured rather than asserted; that is why the corpus deliberately includes four ≥60 KB documents, to show the win where it is real. <em>(Diagnostic only, used in no ratio or claim: had the baseline instead been charged every file its broad terms matched — false positives included — the total would be 4,218,746 bytes.)</em></p>
+
+  <hr>
+
+  <h2>Honest caveats</h2>
+  <p>This repo has a standing honesty bar. Read these before you rely on any of the above.</p>
+
+  <ul>
+    <li><strong>The built-in embedder is <em>lexical</em>, not neural.</strong> XERJ's zero-config embedder is a deterministic feature-hashing model (384 dimensions, L2-normalised → cosine). It captures word / sub-word overlap, not deep meaning. That is exactly why the <code class="inline">robustness</code> bucket is an honest <strong>5/5 tie</strong>: a fair grep of the question's own terms matches the same lines XERJ's lexical embedder finds. We make <strong>no</strong> "beats grep on meaning" claim. For production-grade semantics, point the <code class="inline">semantic_text</code> field at an external OpenAI-compatible <code class="inline">/v1/embeddings</code> endpoint; the ingest and query paths are identical.</li>
+    <li><strong>kNN is exact brute-force at query time.</strong> The semantic sub-query scans every chunk vector. That's fine (and gives exact results) at this corpus size — the measured max query latency was <strong>116.09 ms</strong> over 420 chunks — but latency grows with the number of vectors scanned.</li>
+    <li><strong>Extraction quality is only as good as the extractor.</strong> <code class="inline">pdftotext</code>/<code class="inline">soffice</code> handle digital PDFs and Word files well, but a <em>scanned</em> PDF (an image of text) yields nothing without an OCR step, which this recipe does not include. Garbled extraction = garbled index. The indexer logs and skips files it cannot read rather than crashing.</li>
+    <li><strong>Context efficiency is real, but scale-dependent — not free on tiny files.</strong> The baseline is charged only the single answer-containing file it must open (and 0 bytes when it cannot answer at all). On the <code class="inline">large_literal</code> set XERJ returns <strong>17.24×</strong> less context than the whole answer files a fair grep must open (85.68× on a single best passage). But on the small-file <code class="inline">literal</code> set the same metric INVERTS to <strong>0.23×</strong> — a few returned passages can exceed a tiny whole file — and the naive whole-corpus ratio (2.53×) flatters the blind baseline, so we headline the measured large-document number, not the naive one. The context win appears as documents grow, and honestly disappears on tiny ones.</li>
+    <li><strong>The one miss (q05).</strong> "What is the acknowledgement SLA for a Sev-1 incident?" — the answer, "within 5 minutes," lives in <code class="inline">oncall-runbook.docx</code>. It <em>was</em> extracted and indexed (a direct <code class="inline">match_phrase</code> on the live index returns exactly that chunk), but for this phrasing hybrid ranking pushes it out of the top-5: the answer chunk lacks the word "SLA," and larger incident-heavy docs outrank it. So <code class="inline">binary_only</code> is honestly XERJ 6/7 — still strictly &gt; the baseline's 0/7. We did not change the retrieval strategy to force this to pass.</li>
+    <li><strong>The baseline could be upgraded.</strong> A script agent <em>could</em> shell out to <code class="inline">pdftotext</code>/<code class="inline">soffice</code> and close the binary gap. But it would still have no ranking, no per-chunk retrieval, no semantic layer, and would keep paying the whole-file context cost. XERJ's win is not "it can read PDFs" alone — it's format-agnostic extraction <em>plus</em> chunked, ranked, context-aware retrieval with a real (if shallow) semantic layer.</li>
+  </ul>
+
+  <hr>
+
+  <h2>Reproduce it yourself</h2>
+  <p>The whole thing — corpus generator, indexer, grep baseline, and comparison harness — lives in <a href="https://github.com/xerj-org/xerj/tree/main/demo/usecases/doc-index"><code class="inline">demo/usecases/doc-index</code></a>. Prereqs: Node 18+ (tested on v24), <code class="inline">pdftotext</code> (poppler-utils), <code class="inline">soffice</code>/LibreOffice, and <code class="inline">rg</code> (ripgrep). Then:</p>
+<pre class="code"># 1. Start a throwaway XERJ (ES-compat wire; default port :9200)
+xerj --insecure --data-dir ./docfolder-data
+
+# 2. Point the scripts at your node's port (the demo assumes :9209)
+export XERJ_PORT=9200
+
+# 3. (Optional) regenerate the fictional corpus + ground-truth queries.json
+node gen-corpus.mjs
+
+# 4. Extract, chunk, embed and bulk-index the whole folder
+node xerj-index.mjs --recreate
+
+# 5. Score XERJ vs the grep baseline → writes results.json + SCORECARD.md
+node compare.mjs</pre>
+
+  <p>Open <code class="inline">SCORECARD.md</code> for the per-query table and the honest verdict, or <code class="inline">results.json</code> for the machine-readable numbers. The full contract these scripts obey — index mappings, chunking, query schema, scoring, and the gate — is documented in <code class="inline">SPEC.md</code> and the deliverable's <code class="inline">README.md</code>. Every figure on this page is emitted by that run; nothing is hardcoded.</p>
+
+  <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
+  <div class="print-footer" style="display:none;">
+    <span>XERJ.AI · V0.1 · 2026-04-16</span>
+    <a href="https://xerj.org/docs/">https://xerj.org/docs/</a>
+    <span>Recipe · Index a folder of docs</span>
+  </div>
+</main>
+</div>
+
+<footer class="footer">
+  <span>XERJ.AI · DOCS · V1.0.0-RC.1</span>
+  <span>READ THE SOURCE</span>
+  <span><a href="/index.html">HOME</a> · <a href="/product.html">PRODUCT</a> · <a href="/brand.html">BRAND</a> · <a href="/playground.html">DASHBOARDS</a> &middot; <a href="/llms.txt">LLMS.TXT</a></span>
+</footer>
+
+<script type="application/json" id="docs-index">[{"title":"Overview","slug":"/docs/index.html","kicker":"START","snip":""},{"title":"Quickstart","slug":"/docs/quickstart.html","kicker":"START","snip":""},{"title":"Install","slug":"/docs/install.html","kicker":"START","snip":""},{"title":"Migrate from ES","slug":"/docs/migration-from-es.html","kicker":"START","snip":""},{"title":"CLI","slug":"/docs/cli.html","kicker":"REFERENCE","snip":""},{"title":"Config TOML","slug":"/docs/config.html","kicker":"REFERENCE","snip":""},{"title":"Environment","slug":"/docs/env.html","kicker":"REFERENCE","snip":""},{"title":"Native REST API","slug":"/docs/api-native.html","kicker":"REFERENCE","snip":""},{"title":"ES-compat API","slug":"/docs/api-es-compat.html","kicker":"REFERENCE","snip":""},{"title":"Query types","slug":"/docs/queries.html","kicker":"DATA MODEL","snip":""},{"title":"Aggregations","slug":"/docs/aggregations.html","kicker":"DATA MODEL","snip":""},{"title":"Analyzers","slug":"/docs/analyzers.html","kicker":"DATA MODEL","snip":""},{"title":"Vectors & HNSW","slug":"/docs/vectors.html","kicker":"DATA MODEL","snip":""},{"title":"Ingest pipelines","slug":"/docs/ingest.html","kicker":"ENGINE","snip":""},{"title":"Storage & WAL","slug":"/docs/storage.html","kicker":"ENGINE","snip":""},{"title":"Compression","slug":"/docs/compression.html","kicker":"ENGINE","snip":""},{"title":"Clustering","slug":"/docs/clustering.html","kicker":"ENGINE","snip":""},{"title":"Metrics","slug":"/docs/metrics.html","kicker":"ENGINE","snip":""},{"title":"Auth & TLS","slug":"/docs/security.html","kicker":"ENGINE","snip":""},{"title":"Running in production","slug":"/docs/operations.html","kicker":"OPERATIONS","snip":""},{"title":"Backup & restore","slug":"/docs/backup-restore.html","kicker":"OPERATIONS","snip":""},{"title":"Upgrades","slug":"/docs/upgrades.html","kicker":"OPERATIONS","snip":""},{"title":"Troubleshooting","slug":"/docs/troubleshooting.html","kicker":"OPERATIONS","snip":""},{"title":"SIEM","slug":"/docs/playbooks/siem.html","kicker":"PLAYBOOKS","snip":""},{"title":"Log analytics","slug":"/docs/playbooks/log-analytics.html","kicker":"PLAYBOOKS","snip":""},{"title":"Vector · RAG","slug":"/docs/playbooks/vector-search.html","kicker":"PLAYBOOKS","snip":""},{"title":"Full-text search","slug":"/docs/playbooks/full-text.html","kicker":"PLAYBOOKS","snip":""},{"title":"Observability","slug":"/docs/playbooks/observability.html","kicker":"PLAYBOOKS","snip":""},{"title":"CLI · --config","slug":"/docs/cli.html#config-flag","kicker":"CLI","snip":"-c, --config <PATH>  Path to the TOML config file."},{"title":"CLI · --data-dir","slug":"/docs/cli.html#data-dir-flag","kicker":"CLI","snip":"-d, --data-dir <PATH>  Override [server] data_dir at the command line."},{"title":"CLI · --insecure","slug":"/docs/cli.html#insecure-flag","kicker":"CLI","snip":"-k, --insecure  Disable TLS and API-key auth. Dev only."},{"title":"[server] rest_port","slug":"/docs/config.html#server","kicker":"CONFIG","snip":"u16 · default 8080 · Native REST API listener port."},{"title":"[server] es_compat_port","slug":"/docs/config.html#server","kicker":"CONFIG","snip":"u16 · default 9200 · Elasticsearch-wire-format port. 0 to disable."},{"title":"[storage] wal_sync","slug":"/docs/config.html#storage","kicker":"CONFIG","snip":"enum · default batched · sync · batched · async. Durability knob."},{"title":"[vector] hnsw_ef_search","slug":"/docs/config.html#vector","kicker":"CONFIG","snip":"u32 · default 100 · Accepted for ES-compat; query kNN is exact brute-force."},{"title":"[vector] default_quantization","slug":"/docs/config.html#vector","kicker":"CONFIG","snip":"enum · none · scalar8 · scalar4 · binary."},{"title":"GET /v1/health","slug":"/docs/api-native.html#health","kicker":"NATIVE API","snip":"Liveness + readiness. {status, uptime_s, version}."},{"title":"GET /v1/metrics","slug":"/docs/api-native.html#metrics","kicker":"NATIVE API","snip":"Prometheus text format. Scrape-friendly."},{"title":"POST /v1/indices/:name/turbo-ingest","slug":"/docs/api-native.html#turbo-ingest","kicker":"NATIVE API","snip":"NDJSON bulk path with parallel tokenization."},{"title":"POST /v1/indices/:name/search","slug":"/docs/api-native.html#search","kicker":"NATIVE API","snip":"Unified query endpoint — full-text, term, range, KNN, hybrid."},{"title":"POST /:index/_bulk","slug":"/docs/api-es-compat.html#bulk","kicker":"ES API","snip":"NDJSON bulk. Actions: index, create, update, delete."},{"title":"POST /:index/_search","slug":"/docs/api-es-compat.html#search","kicker":"ES API","snip":"ES query DSL. Drop-in migration path."},{"title":"match_all","slug":"/docs/queries.html#match-all","kicker":"QUERY","snip":"Everything in the index."},{"title":"bool","slug":"/docs/queries.html#bool","kicker":"QUERY","snip":"must / should / must_not / filter clauses."},{"title":"knn","slug":"/docs/queries.html#knn","kicker":"QUERY","snip":"Exact (brute-force) vector kNN; HNSW built at ingest."},{"title":"semantic_search","slug":"/docs/queries.html#semantic-search","kicker":"QUERY","snip":"Embed the query at query time."},{"title":"hybrid","slug":"/docs/queries.html#hybrid","kicker":"QUERY","snip":"RRF / linear fusion of sub-queries."},{"title":"terms aggregation","slug":"/docs/aggregations.html#terms","kicker":"AGG","snip":"Exact, pre-computed terms histograms over keyword fields."},{"title":"date_histogram","slug":"/docs/aggregations.html#date-histogram","kicker":"AGG","snip":"Time-bucketed counts."},{"title":"HNSW","slug":"/docs/vectors.html#hnsw","kicker":"VECTORS","snip":"Hierarchical graph index, built at ingest. m, ef_construction."},{"title":"SQ8 quantization","slug":"/docs/vectors.html#quantization","kicker":"VECTORS","snip":"8-bit scalar quantization. 4× memory reduction."},{"title":"turbo-ingest","slug":"/docs/ingest.html#turbo","kicker":"INGEST","snip":"NDJSON bulk path. Parallel tokenization across cores."},{"title":"delta-of-delta","slug":"/docs/compression.html#delta-of-delta","kicker":"COMPRESSION","snip":"Timestamp encoding. Apache/Nginx/ISO auto-detect."},{"title":"dictionary encoding","slug":"/docs/compression.html#dictionary","kicker":"COMPRESSION","snip":"Up to 256 unique strings per column."},{"title":"api_key","slug":"/docs/security.html#api-key","kicker":"SECURITY","snip":"Static admin key. Auto-generated on first run."},{"title":"SIEM playbook","slug":"/docs/playbooks/siem.html","kicker":"PLAYBOOK","snip":"Terms agg over source IPs for SIEM, with detection rules."},{"title":"RAG playbook","slug":"/docs/playbooks/vector-search.html","kicker":"PLAYBOOK","snip":"Embeddings, HNSW, hybrid search, BM25 + kNN fusion."},{"title":"[cluster] enabled","slug":"/docs/config.html#cluster","kicker":"CONFIG","snip":"bool · default false · Enable multi-node Raft cluster mode."},{"title":"[cluster] peers","slug":"/docs/config.html#cluster","kicker":"CONFIG","snip":"array · \"node_id=host:port\" · At least one peer per node."},{"title":"[cluster] port","slug":"/docs/config.html#cluster","kicker":"CONFIG","snip":"u16 · default 9300 · Intra-cluster Raft + search port."},{"title":"[embedding] default_endpoint","slug":"/docs/config.html#embedding","kicker":"CONFIG","snip":"string · OpenAI-compatible embeddings URL for auto-embedding on ingest."},{"title":"[embedding] default_model","slug":"/docs/config.html#embedding","kicker":"CONFIG","snip":"string · Model name (e.g. text-embedding-3-small, nomic-embed-text)."},{"title":"Raft","slug":"/docs/clustering.html","kicker":"CLUSTER","snip":"Embedded Raft — leader election, log replication, metadata only."},{"title":"Node draining","slug":"/docs/clustering.html","kicker":"CLUSTER","snip":"POST /v1/cluster/nodes/:id/drain before maintenance."},{"title":"Region split/merge","slug":"/docs/clustering.html","kicker":"CLUSTER","snip":"Range partitions auto-split at byte threshold, merge back when small."},{"title":"Systemd unit","slug":"/docs/operations.html","kicker":"OPS","snip":"Production unit file with hardening directives."},{"title":"Readiness probe","slug":"/docs/operations.html","kicker":"OPS","snip":"GET /v1/health/ready — only 200 once WAL replay is complete."},{"title":"Config reload","slug":"/docs/operations.html","kicker":"OPS","snip":"SIGHUP reloads most keys without restart."},{"title":"Hot backup","slug":"/docs/backup-restore.html","kicker":"OPS","snip":"rsync the data dir after POST /v1/admin/flush."},{"title":"S3 backup","slug":"/docs/backup-restore.html","kicker":"OPS","snip":"POST /v1/admin/backup → any S3-compatible endpoint."},{"title":"Rolling upgrade","slug":"/docs/upgrades.html","kicker":"OPS","snip":"Drain → stop → upgrade → start → activate, per node."},{"title":"Merge pressure","slug":"/docs/troubleshooting.html","kicker":"OPS","snip":"Segment count climbing → raise merge.max_concurrent + io_rate."},{"title":"Cluster flapping","slug":"/docs/troubleshooting.html","kicker":"OPS","snip":"Leader changes every few seconds → raise cluster.tick_ms."},{"title":"WAL replay failed","slug":"/docs/troubleshooting.html","kicker":"OPS","snip":"xerj verify --repair-wal truncates at last valid entry."},{"title": "Recipes", "slug": "/docs/recipes/index.html", "kicker": "RECIPES", "snip": "Task-oriented AI & search recipes, each verified end-to-end against a live XERJ."},{"title": "Semantic search & RAG", "slug": "/docs/recipes/semantic-search-rag.html", "kicker": "RECIPE", "snip": "Retrieval by meaning with semantic_text — auto-embed on ingest, no separate vector DB."},{"title": "Agent memory", "slug": "/docs/recipes/agentic-memory.html", "kicker": "RECIPE", "snip": "Long-term memory for agents via /_memory — store, recall, forget, per-agent isolation."},{"title": "Passage retrieval", "slug": "/docs/recipes/passage-retrieval.html", "kicker": "RECIPE", "snip": "Auto-chunk long docs; best-passage (max-sim) scoring — 98% top-3."},{"title": "Vector search · kNN", "slug": "/docs/recipes/vector-search-knn.html", "kicker": "RECIPE", "snip": "Nearest-neighbor over dense_vector (HNSW) with filters."},{"title": "Vector quantization", "slug": "/docs/recipes/vector-quantization.html", "kicker": "RECIPE", "snip": "int8_hnsw scalar8 — 4× smaller vectors, recall@10 ≈ 0.99."},{"title": "Hybrid search", "slug": "/docs/recipes/hybrid-search.html", "kicker": "RECIPE", "snip": "Keyword + vector in one query — RRF fusion."},{"title": "Log analytics", "slug": "/docs/recipes/log-analytics.html", "kicker": "RECIPE", "snip": "Raw logs to dashboards — error rates, p95 latency, top services."},{"title": "Anomaly detection", "slug": "/docs/recipes/anomaly-detection.html", "kicker": "RECIPE", "snip": "Statistical _ml detectors that flag spikes in metrics/logs."},{"title": "Anomaly datafeeds", "slug": "/docs/recipes/continuous-anomaly-datafeeds.html", "kicker": "RECIPE", "snip": "Live _ml datafeed re-scores an index on a timer, stores anomaly records."},{"title": "Migrate from ES", "slug": "/docs/recipes/migrate-from-elasticsearch.html", "kicker": "RECIPE", "snip": "Point your existing ES client at XERJ — same wire, change the URL."},{"title": "Index a folder of mixed docs", "slug": "/docs/recipes/document-folder-index.html", "kicker": "RECIPE", "snip": "Walk a folder of PDF/DOCX/HTML/MD/TXT, extract + chunk + embed, then lexical/semantic/hybrid search — grep can't read a PDF."}]</script>
+
+<script>
+  // IIFE — js-auth navigates between decrypted pages in the same
+  // JS realm, so const bindings must be lexically scoped.
+  (function () {
+    const root = document.documentElement;
+    for (const btn of document.querySelectorAll('[data-theme]')) {
+      btn.addEventListener('click', () => {
+        const t = btn.getAttribute('data-theme');
+        root.setAttribute('data-theme', t);
+        for (const b of document.querySelectorAll('[data-theme]')) {
+          b.classList.toggle('active', b.getAttribute('data-theme') === t);
+        }
+      });
+    }
+
+    // Client-side docs search — filters the inline JSON index.
+    const searchEl    = document.getElementById('docsSearch');
+    const inputEl     = document.getElementById('docsSearchInput');
+    const resultsEl   = document.getElementById('docsSearchResults');
+    const indexJson   = document.getElementById('docs-index');
+    if (searchEl && inputEl && resultsEl && indexJson) {
+      let index = [];
+      try { index = JSON.parse(indexJson.textContent || '[]'); } catch {}
+      const render = (q) => {
+        const query = q.trim().toLowerCase();
+        if (!query) { searchEl.classList.remove('active'); resultsEl.innerHTML = ''; return; }
+        const scored = [];
+        for (const e of index) {
+          const hay = (e.title + ' ' + (e.kicker || '') + ' ' + (e.snip || '')).toLowerCase();
+          if (hay.includes(query)) {
+            let score = 0;
+            if (e.title.toLowerCase().includes(query)) score += 10;
+            if ((e.kicker || '').toLowerCase() === query.toUpperCase()) score += 5;
+            if ((e.snip || '').toLowerCase().includes(query)) score += 1;
+            scored.push({ e, score });
+          }
+        }
+        scored.sort((a, b) => b.score - a.score);
+        const top = scored.slice(0, 20);
+        if (top.length === 0) {
+          resultsEl.innerHTML = '<div class="no-results">NO MATCHES — TRY A SHORTER QUERY</div>';
+        } else {
+          resultsEl.innerHTML = top.map(({e}) => {
+            const kicker = e.kicker || '';
+            const snip = e.snip ? '<div class="snip">' + escHtml(e.snip) + '</div>' : '';
+            return '<a href="' + e.slug + '">' +
+              '<span class="kicker">' + escHtml(kicker) + '</span>' +
+              '<span class="title">' + escHtml(e.title) + '</span>' +
+              snip + '</a>';
+          }).join('');
+        }
+        searchEl.classList.add('active');
+      };
+      const escHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      inputEl.addEventListener('input', (e) => render(e.target.value));
+      inputEl.addEventListener('focus', () => { if (inputEl.value) render(inputEl.value); });
+      document.addEventListener('keydown', (e) => {
+        if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          inputEl.focus();
+          inputEl.select();
+        }
+        if (e.key === 'Escape' && document.activeElement === inputEl) {
+          inputEl.value = '';
+          searchEl.classList.remove('active');
+          resultsEl.innerHTML = '';
+          inputEl.blur();
+        }
+      });
+    }
+  })();
+</script>
+
+</body>
+</html>

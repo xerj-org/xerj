@@ -72,6 +72,7 @@ The six canonical operations an agent uses, each grounded in a real endpoint:
 - [Anomaly detection](https://xerj.org/docs/recipes/anomaly-detection.html): score records against an anomaly detector.
 - [Continuous anomaly datafeeds](https://xerj.org/docs/recipes/continuous-anomaly-datafeeds.html): stream data through `_ml/datafeeds`.
 - [Migrate from Elasticsearch](https://xerj.org/docs/recipes/migrate-from-elasticsearch.html): move an ES workload onto XERJ.
+- [Index a folder of mixed-format docs](https://xerj.org/docs/recipes/document-folder-index.html): walk a recursive folder of PDF/DOCX/HTML/MD/TXT → extract + chunk + auto-embed → lexical/semantic/hybrid search returns ranked, cited passages (measured 21/22 answered vs a fair grep baseline's 14/22; the decisive win is binary_only 6/7 vs 0/7 — grep is structurally blind to binary PDF/DOCX; the differently-phrased set is an honest tie because the built-in embedder is lexical, not neural).
 
 ## Optional
 

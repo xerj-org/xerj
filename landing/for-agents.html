@@ -149,6 +149,60 @@ $ curl -sXPOST localhost:9200/_memory/agent-demo/_recall \
   </p>
 </section>
 
+<!-- WORKED EXAMPLE · DOCUMENT FOLDER ------------------------->
+<section class="scene-section" style="border-top:0;">
+  <div class="kicker"><span>WORKED EXAMPLE · GIVE AN AGENT A SEARCHABLE DOCUMENT FOLDER</span></div>
+  <p class="lead" style="max-width:760px;">
+    Point the agent at a messy folder of real documents — PDF, DOCX, HTML,
+    Markdown, plain text. One indexing pass walks the tree, extracts the text
+    from <em>every</em> format, chunks it, and bulk-indexes into XERJ with an
+    auto-embedded <code class="inline">semantic_text</code> body. After that the
+    agent just asks questions over <code class="inline">:9200</code> and gets
+    back ranked, cited passages — no whole-file re-reads, no format blind spots.
+  </p>
+<pre class="code"># one-time: walk ./corpus, extract every format, chunk, bulk-index into `docfolder`
+$ node xerj-index.mjs ./corpus          # 29 files → 420 chunks · 1339 ms
+
+# the agent asks a question — hybrid = BM25 on body_text, fused (rrf)
+# with semantic recall on the auto-embedded body
+$ curl -sXPOST localhost:9200/docfolder/_search \
+    -H 'content-type: application/json' \
+    -d '{"size":5,"query":{"hybrid":{"queries":[
+          {"query":{"match":{"body_text":"weeks of paid parental leave?"}}},
+          {"query":{"semantic":{"field":"body","query":"weeks of paid parental leave?","k":5}}}],
+        "fusion":"rrf"}}}'</pre>
+  <p class="lead" style="max-width:760px;">
+    On a 22-question set over that folder, this beat a <em>fair</em> shell-only
+    agent that greps the raw files (searching the question's own terms, not a
+    rigged keyword list): <strong>21/22 (95.5%)</strong> answered versus
+    <strong>14/22 (63.6%)</strong>. The decisive, capability-based gap is on
+    answers that live only inside a PDF or DOCX — grep sees compressed bytes and
+    matches nothing: <strong>6/7 vs 0/7</strong>. On the plaintext buckets a fair
+    grep keeps up: differently-phrased answers <strong>tie 5/5 vs 5/5</strong>,
+    and the literal control <strong>ties 6/6 vs 6/6</strong> — so XERJ is not
+    winning the cases grep can actually read. What it adds there is single-query,
+    ranked retrieval and, on large documents, far less context: over the
+    large-document set it returns <strong>17.24×</strong> fewer bytes than the
+    whole answer files a fair grep must open — where the baseline is charged only
+    the single answer-containing file it must open to read the line, nothing else.
+    Query latency was p50 <strong>61.23&nbsp;ms</strong> (max 116.09&nbsp;ms).
+  </p>
+  <p class="lead" style="max-width:760px;">
+    Honest scope, the same standard as everywhere on this page: the built-in
+    <code class="inline">semantic_text</code> embedder is a
+    <strong>lexical feature-hashing model (384-dim cosine), not neural</strong>,
+    so its matching is word/sub-word overlap, not deep understanding — which is
+    exactly why the differently-phrased set is a tie, not a XERJ win;
+    <code class="inline">knn</code> is exact brute-force at this corpus size. And
+    the context win is <strong>scale-dependent</strong>: on the large-document set
+    it is <strong>17.24×</strong>, but on tiny plaintext files it INVERTS to
+    <strong>0.23×</strong> — returning a few ranked passages can cost <em>more</em>
+    than reading the small file whole — so we don't claim it there. The full
+    corpus, query set, scorecard, and run steps are in the
+    <a href="/docs/recipes/document-folder-index.html">document-folder-index recipe</a>.
+  </p>
+</section>
+
 <!-- HONESTY -------------------------------------------------->
 <section class="scene-section" style="border-top:0;">
   <div class="kicker"><span>WHAT IS HONEST TO CLAIM</span></div>
@@ -190,6 +244,11 @@ $ curl -sXPOST localhost:9200/_memory/agent-demo/_recall \
       <span class="num">RECIPE</span>
       <span class="title">Semantic search &amp; RAG</span>
       <p class="lead">Retrieval by meaning with <code class="inline">semantic_text</code> — no separate vector DB.</p>
+    </a>
+    <a class="recipe" href="/docs/recipes/document-folder-index.html">
+      <span class="num">RECIPE</span>
+      <span class="title">Index a document folder</span>
+      <p class="lead">Give an agent format-agnostic search over a folder of PDF, DOCX, HTML &amp; Markdown — walk, extract, chunk, hybrid-query.</p>
     </a>
     <a class="recipe" href="/docs/api-es-compat.html">
       <span class="num">REFERENCE</span>
