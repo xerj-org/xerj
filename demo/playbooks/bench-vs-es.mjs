@@ -12,6 +12,20 @@
 import fs from 'node:fs';
 import { execSync } from 'node:child_process';
 
+// ── DEPRECATION GUARD (quarantine) — H5 ─────────────────────────────────────
+// This harness uses a NON-CANONICAL transport (Node's global fetch/undici, no
+// shared keep-alive agent) and would overwrite a canonical scorecard file
+// (BENCHMARK_VS_ES.md). The canonical, honesty-audited harness is
+// demo/playbooks/bench-matrix.mjs. Refuse to run (exit 2) unless the operator
+// explicitly sets FORCE_LEGACY_BENCH=1.
+process.stderr.write(
+  'DEPRECATED — use bench-matrix.mjs; this harness uses a non-canonical transport ' +
+  'and must not overwrite SCORECARD.md/BENCHMARK_VS_ES.md\n');
+if (process.env.FORCE_LEGACY_BENCH !== '1') {
+  process.stderr.write('   refusing to run (would overwrite a canonical benchmark file). Set FORCE_LEGACY_BENCH=1 to override.\n');
+  process.exit(2);
+}
+
 const N = parseInt(process.argv[2] || '100000', 10);
 const ENGINES = [
   { name: 'XERJ', url: process.argv[3] || 'http://localhost:9200' },

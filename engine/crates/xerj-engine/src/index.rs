@@ -530,6 +530,18 @@ pub struct Index {
     /// follow-up) and evicted by segment id at merge retire.
     range_prefilter_cache: Arc<dashmap::DashMap<String, Arc<HashSet<u32>>>>,
 
+    /// Per-segment `_id → stored-position` index, built lazily on the first
+    /// `ids` query that touches a segment and reused thereafter.  An `ids`
+    /// query used to full-scan every stored doc (O(N) brace-walk + parse)
+    /// just to find a handful of primary keys — 128 ms to return 3 docs at
+    /// 100k, scaling linearly with the corpus.  With this map an `ids` query
+    /// resolves each requested id to its stored position (like GET
+    /// `_doc/{id}` / `_mget`) and hydrates only those positions via the
+    /// `StoredSlices` offset index, so it is O(#ids) and FLAT vs corpus
+    /// size.  Segments are immutable → the map never goes stale; evicted by
+    /// segment id at the merge-completion site alongside the other caches.
+    id_pos_cache: Arc<dashmap::DashMap<String, Arc<std::collections::HashMap<String, u32>>>>,
+
     /// Per-segment cache of decoded `Vec<Value>` from the stored section.
     /// KNN search and segment-scan get-document paths used to call
     /// `decode_stored` + `simd_json::serde::from_slice` *every* time —
@@ -807,6 +819,7 @@ impl Index {
             sort_shadow_fields: Arc::new(dashmap::DashMap::new()),
             stored_slices_build_locks: Arc::new(dashmap::DashMap::new()),
             range_prefilter_cache: Arc::new(dashmap::DashMap::new()),
+            id_pos_cache: Arc::new(dashmap::DashMap::new()),
             stored_value_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache_bytes: Arc::new(AtomicU64::new(0)),
@@ -982,6 +995,7 @@ impl Index {
             sort_shadow_fields: Arc::new(dashmap::DashMap::new()),
             stored_slices_build_locks: Arc::new(dashmap::DashMap::new()),
             range_prefilter_cache: Arc::new(dashmap::DashMap::new()),
+            id_pos_cache: Arc::new(dashmap::DashMap::new()),
             stored_value_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache: Arc::new(dashmap::DashMap::new()),
             stored_slices_cache_bytes: Arc::new(AtomicU64::new(0)),
@@ -3063,6 +3077,7 @@ impl Index {
             self.query_cache.clear();
             for id in &dropped_seg_ids {
                 self.dv_cache.remove(id.as_str());
+                self.id_pos_cache.remove(id.as_str());
                 self.stored_value_cache.remove(id.as_str());
                 if let Some((_, slices)) = self.stored_slices_cache.remove(id.as_str()) {
                     self.stored_slices_cache_bytes
@@ -4501,7 +4516,15 @@ impl Index {
         // - `request.scroll.is_some()` / scroll cursor (stateful).
         // - `request.search_after.is_some()` (cursor-based pagination
         //   could collide with cached state).
-        let cache_eligible = !request.profile && request.search_after.is_none();
+        // XERJ_DISABLE_QUERY_CACHE=1 turns off the whole-result cache so a
+        // benchmark measures true per-request execution on every call (no
+        // took_ms=0 clone). Read once. Normal operation is unaffected.
+        let cache_eligible = !request.profile && request.search_after.is_none() && {
+            static DISABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+            !*DISABLED.get_or_init(|| {
+                matches!(std::env::var("XERJ_DISABLE_QUERY_CACHE").as_deref(), Ok("1") | Ok("true"))
+            })
+        };
         let cache_key: Option<(u64, u64)> = if cache_eligible {
             // Hash the request via its serde_json representation,
             // streaming the serializer output STRAIGHT INTO the hasher.
@@ -5864,31 +5887,52 @@ impl Index {
                         };
 
                         // Counting is DECOUPLED from materialisation on the
-                        // scored FTS path.  `FtsSearcher::execute` builds the
-                        // FULL hit set regardless of `limit` (it only sorts and
-                        // truncates afterwards), so requesting `usize::MAX`
-                        // costs nothing extra over `fetch_limit` and yields the
-                        // EXACT segment match count.  Previously the size>0 path
-                        // passed `fetch_limit` and tallied `total_count` per
-                        // materialised hit, so `hits.total` was capped at the
-                        // ~256 materialisation limit while size:0 (which used
-                        // `usize::MAX`) was exact — DEFECT #3.  Now both paths
-                        // add the full `seg_hits.len()` so the count agrees, and
-                        // we materialise *sources* for only the top
-                        // `materialisation_limit` hits.  The held-in-full list
-                        // is just the lightweight (doc_id, score) `ScoredHit`s
-                        // — no source is materialised beyond the page, so the
-                        // capped-RAM OOM guard is preserved.
-                        let limit = usize::MAX;
+                        // scored FTS path.  `search_bounded` returns the EXACT
+                        // segment match `seg_total` (counted over the full match
+                        // set, independent of the page cap) alongside the best
+                        // `cap` hits.  Previously the size>0 path passed
+                        // `fetch_limit` and tallied `total_count` per materialised
+                        // hit, so `hits.total` was capped at the ~256
+                        // materialisation limit while size:0 (which used
+                        // `usize::MAX`) was exact — DEFECT #3.  Now both paths add
+                        // the full `seg_total` so the count agrees, and we
+                        // materialise *sources* for only the top
+                        // `materialisation_limit` hits.
+                        //
+                        // PERF (bounded top-N): the old code built + fully sorted
+                        // the ENTIRE match set per segment even for size:10 —
+                        // O(N log N) on tens of thousands of hits.  On the common
+                        // path (no field sort, not count-only, no deletes) only
+                        // the top `materialisation_limit` sources are ever
+                        // materialised (the loop below breaks there), so we cap
+                        // the collector heap at `materialisation_limit`: O(N log
+                        // cap) work, O(cap) memory, byte-identical top-k prefix.
+                        // The three cases that consume PAST the page cap keep the
+                        // legacy full-set path (`usize::MAX`):
+                        //   * `sort_topk.is_some()` — the field-sort arm narrows
+                        //     *every* matching doc_id to sort candidates.
+                        //   * `count_only` — wants the exact total with no page
+                        //     cap (and never materialises).
+                        //   * `deletes_present` — tombstones/superseded dups can
+                        //     skip past `materialisation_limit` matches while
+                        //     filling the page, so the page needs more than the
+                        //     top-`cap` by score.
+                        let fts_cap = if count_only || sort_topk.is_some() || deletes_present {
+                            usize::MAX
+                        } else {
+                            materialisation_limit
+                        };
                         if fts_has_field {
-                            if let Ok(seg_hits) = searcher.search(&fq, limit, false) {
+                            if let Ok((seg_hits, seg_total)) =
+                                searcher.search_bounded(&fq, fts_cap, false)
+                            {
                                 // FTS is authoritative for this segment (field
                                 // present + searcher ran) — mark handled the same
                                 // way for count-only and size>0 so the fall-through
                                 // decision (and thus the count) agrees.
                                 fts_handled = true;
                                 // Exact count — identical for count_only and size>0.
-                                total_count += seg_hits.len() as u64;
+                                total_count += seg_total;
                                 // Field-sorted FTS (e.g. bool/match under the
                                 // implicit `@timestamp desc` index sort): the
                                 // legacy arm below decodes + parses the WHOLE
@@ -5957,91 +6001,140 @@ impl Index {
                                     && !seg_hits.is_empty()
                                     && all_hits.len() < materialisation_limit
                                 {
-                                    // Merge-race hardening (2026-07): NEVER
-                                    // silently skip a snapshot segment that
-                                    // fails to open — under the read-lease fix
-                                    // its files are guaranteed present, so an
-                                    // open failure is real corruption and must
-                                    // fail the query, not shrink its results.
-                                    {
-                                        let seg_reader = self.store.open_segment_arc(&seg_id)?;
-                                        if let Ok(Some(stored_bytes_raw)) =
-                                            seg_reader.section(SectionType::Stored)
-                                        {
-                                            let stored_bytes =
-                                                match xerj_storage::stored_codec::decode_stored(
-                                                    stored_bytes_raw,
-                                                ) {
-                                                    Ok(b) => b,
-                                                    Err(_) => continue,
-                                                };
-                                            // serde_json — see ffd49ac, simd_json
-                                            // silently corrupts some M7 raw-bytes
-                                            // payloads.
-                                            if let Ok(docs) =
-                                                serde_json::from_slice::<Vec<Value>>(&stored_bytes)
-                                            {
-                                                for sh in &seg_hits {
-                                                    // Page full — the rest are
-                                                    // already counted in
-                                                    // `total_count`, so stop
-                                                    // decoding sources.  When a
-                                                    // field sort is active we must
-                                                    // NOT stop: every match has to
-                                                    // be offered to the bounded
-                                                    // top-N heap so the survivors
-                                                    // are the GLOBAL top-N by the
-                                                    // sort key, not the highest-
-                                                    // scoring prefix.
-                                                    if sort_topk.is_none()
-                                                        && all_hits.len() >= materialisation_limit
-                                                    {
-                                                        break;
-                                                    }
-                                                    let doc = match docs.get(sh.doc_id as usize) {
-                                                        Some(d) => d,
-                                                        None => continue,
-                                                    };
-                                                    let id = doc
-                                                        .get("_id")
-                                                        .and_then(Value::as_str)
-                                                        .unwrap_or("")
-                                                        .to_string();
-                                                    if let Some(ver) =
-                                                        self.store.version_map.get(&id)
-                                                    {
-                                                        if ver.deleted {
-                                                            continue;
-                                                        }
-                                                    }
-                                                    // Dedup against memtable/earlier
-                                                    // segments WITHOUT touching
-                                                    // `total_count` (already tallied
-                                                    // above via `seg_hits.len()`).
-                                                    if seen_ids.contains(&id) {
-                                                        continue;
-                                                    }
-                                                    let source = doc
-                                                        .get("_source")
-                                                        .cloned()
-                                                        .unwrap_or(Value::Null);
-                                                    seen_ids.insert(id.clone());
-                                                    let hit = Hit {
-                                                        id,
-                                                        score: sh.score,
-                                                        source,
-                                                        sort: Vec::new(),
-                                                        explain: None,
-                                                        highlight: None,
-                                                        matched_queries: Vec::new(),
-                                                    };
-                                                    if let Some(topk) = sort_topk.as_mut() {
-                                                        topk.offer(hit);
-                                                    } else {
-                                                        all_hits.push(hit);
+                                    // F2 RANDOM-ACCESS source hydration.  The
+                                    // scored FTS page needs `_source` for only
+                                    // the top-(from+size) matched doc_ids, yet
+                                    // the legacy path decoded the ENTIRE stored
+                                    // section (`from_slice::<Vec<Value>>`,
+                                    // ~10 MB / O(N) per 100k docs) just to index
+                                    // them — the dominant size>0 scored-read cost
+                                    // (~485 ms at size:10 vs ~1 ms at size:0).
+                                    // Reuse the per-segment offset index
+                                    // (`stored_slices_for`, the SAME
+                                    // random-access mechanism the term /
+                                    // doc-values page hydration uses) to parse
+                                    // ONLY the page's doc slices: O(page) parses
+                                    // on a warm segment.  Each slice is a
+                                    // complete top-level `{...}` object (see
+                                    // `brace_walk_offsets`), so parsing it with
+                                    // the SAME `serde_json` parser the legacy
+                                    // path used yields a byte-identical
+                                    // `_source` — we deliberately do NOT switch
+                                    // to simd_json here (the M7 raw-bytes
+                                    // payload corruption noted below still
+                                    // applies).
+                                    let slices_opt =
+                                        self.stored_slices_for(seg_id.as_str(), meta.doc_count);
+                                    // Legacy whole-section fallback ONLY when the
+                                    // offset index can't be built (open/decode
+                                    // failure or a malformed/incomplete section).
+                                    // Merge-race hardening (2026-07): a genuine
+                                    // segment-open failure must FAIL the query
+                                    // (`?`), not silently shrink its results —
+                                    // under the read-lease fix the files are
+                                    // guaranteed present, so an open error is
+                                    // real corruption.
+                                    let whole_fallback: Option<Vec<Value>> =
+                                        if slices_opt.is_some() {
+                                            None
+                                        } else {
+                                            let seg_reader =
+                                                self.store.open_segment_arc(&seg_id)?;
+                                            match seg_reader.section(SectionType::Stored) {
+                                                Ok(Some(raw)) => {
+                                                    match xerj_storage::stored_codec::decode_stored(
+                                                        raw,
+                                                    ) {
+                                                        // serde_json — see ffd49ac,
+                                                        // simd_json silently
+                                                        // corrupts some M7
+                                                        // raw-bytes payloads.
+                                                        Ok(b) => serde_json::from_slice::<
+                                                            Vec<Value>,
+                                                        >(
+                                                            &b
+                                                        )
+                                                        .ok(),
+                                                        Err(_) => None,
                                                     }
                                                 }
-                                                // `docs` dropped at end of block.
+                                                _ => None,
+                                            }
+                                        };
+                                    if slices_opt.is_some() || whole_fallback.is_some() {
+                                        // Owned parsed doc for a stored position,
+                                        // shared by both source layouts.  The
+                                        // slice arm parses one object on demand;
+                                        // the fallback clones from the fully
+                                        // decoded Vec.
+                                        let fetch_doc = |pos: u32| -> Option<Value> {
+                                            if let Some(slices) = slices_opt.as_deref() {
+                                                let &(start, end) =
+                                                    slices.offsets.get(pos as usize)?;
+                                                let slice = slices
+                                                    .bytes
+                                                    .get(start as usize..end as usize)?;
+                                                serde_json::from_slice::<Value>(slice).ok()
+                                            } else {
+                                                whole_fallback
+                                                    .as_ref()
+                                                    .and_then(|d| d.get(pos as usize).cloned())
+                                            }
+                                        };
+                                        for sh in &seg_hits {
+                                            // Page full — the rest are already
+                                            // counted in `total_count`, so stop
+                                            // decoding sources.  When a field
+                                            // sort is active we must NOT stop:
+                                            // every match has to be offered to
+                                            // the bounded top-N heap so the
+                                            // survivors are the GLOBAL top-N by
+                                            // the sort key, not the highest-
+                                            // scoring prefix.
+                                            if sort_topk.is_none()
+                                                && all_hits.len() >= materialisation_limit
+                                            {
+                                                break;
+                                            }
+                                            let doc = match fetch_doc(sh.doc_id) {
+                                                Some(d) => d,
+                                                None => continue,
+                                            };
+                                            let id = doc
+                                                .get("_id")
+                                                .and_then(Value::as_str)
+                                                .unwrap_or("")
+                                                .to_string();
+                                            if let Some(ver) = self.store.version_map.get(&id) {
+                                                if ver.deleted {
+                                                    continue;
+                                                }
+                                            }
+                                            // Dedup against memtable/earlier
+                                            // segments WITHOUT touching
+                                            // `total_count` (already tallied
+                                            // above via `seg_total`).
+                                            if seen_ids.contains(&id) {
+                                                continue;
+                                            }
+                                            let source = doc
+                                                .get("_source")
+                                                .cloned()
+                                                .unwrap_or(Value::Null);
+                                            seen_ids.insert(id.clone());
+                                            let hit = Hit {
+                                                id,
+                                                score: sh.score,
+                                                source,
+                                                sort: Vec::new(),
+                                                explain: None,
+                                                highlight: None,
+                                                matched_queries: Vec::new(),
+                                            };
+                                            if let Some(topk) = sort_topk.as_mut() {
+                                                topk.offer(hit);
+                                            } else {
+                                                all_hits.push(hit);
                                             }
                                         }
                                     }
@@ -6127,6 +6220,20 @@ impl Index {
                         )
                     } else if let QueryNode::Terms { field, values, .. } = query {
                         self.build_term_prefilter_cached(&segments_dir, &seg_id, field, values)
+                    } else if let QueryNode::Ids { values } = query {
+                        // Resolve primary keys to stored positions via the
+                        // per-segment id index (the GET `_doc/{id}` / `_mget`
+                        // lookup), so an `ids` query hydrates O(#ids) positions
+                        // instead of scanning the whole collection.  Gated on
+                        // `!deletes_present`: with overwrites/tombstones a live
+                        // id can occupy positions in more than one segment, so
+                        // the scan's delete-aware `_id` matching is used
+                        // instead.
+                        if deletes_present {
+                            None
+                        } else {
+                            self.build_ids_prefilter_cached(&seg_id, meta.doc_count, values)
+                        }
                     } else if matches!(query, QueryNode::Bool { .. }) {
                         // Pure-conjunction bool: parse only the most-selective
                         // conjunct's docs; `doc_matches_query` re-tests the full
@@ -8054,6 +8161,184 @@ impl Index {
     ///     - If the segment has no FTS data for the field at all, the
     ///       shortcut is abandoned (return `None`) because the segment
     ///       would otherwise undercount.
+    /// Exact match count for a `bool` that carries `should` and/or `must_not`
+    /// clauses — the shapes the fused must/filter-intersection arm bails on.
+    /// Resolves every leaf clause to its doc-values position set per segment
+    /// and combines them with set algebra:
+    ///   required = ∩(must, filter);  should = positions in ≥k should sets;
+    ///   result   = (required ∩ should) − ∪(must_not).
+    /// Only Term/Terms/Range leaves are resolvable; anything else → `None`
+    /// (caller keeps the counting scan).  Conservative guards make a
+    /// delete-blind / memtable-blind count impossible to mistake for
+    /// authoritative: bails on any ghost (overwrite/tombstone) event and on a
+    /// non-empty memtable.  `minimum_should_match` percentages/field/script →
+    /// `None`.
+    fn bool_should_mustnot_count(
+        &self,
+        must: &[QueryNode],
+        should: &[QueryNode],
+        must_not: &[QueryNode],
+        filter: &[QueryNode],
+        minimum_should_match: &Option<xerj_query::ast::MinShouldMatch>,
+        snap: &xerj_storage::index_store::IndexSnapshot,
+    ) -> Option<u64> {
+        // Delete/memtable blindness guards — an authoritative count must be
+        // exact against live docs, and these sets only see flushed physical
+        // segment docs.
+        if self.store.version_map.ghost_events() > 0 {
+            return None;
+        }
+        if self.memtable.doc_count() > 0 {
+            return None;
+        }
+
+        // Effective minimum_should_match required-count.
+        let k: u32 = if should.is_empty() {
+            0
+        } else {
+            let default = if must.is_empty() && filter.is_empty() {
+                1
+            } else {
+                0
+            };
+            match minimum_should_match {
+                None => default,
+                Some(xerj_query::ast::MinShouldMatch::Fixed(n)) => *n,
+                // Percentage / per-doc field / script — not resolvable here.
+                Some(_) => return None,
+            }
+        };
+        // `should` only filters when at least one clause is required (k >= 1).
+        let should_active = !should.is_empty() && k >= 1;
+
+        let resolve = |cols: &std::collections::BTreeMap<
+            String,
+            xerj_storage::doc_values::Column,
+        >,
+                       clause: &QueryNode|
+         -> Option<HashSet<u32>> {
+            let clause = match clause {
+                QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => {
+                    query.as_ref()
+                }
+                _ => clause,
+            };
+            match clause {
+                QueryNode::Term { field, value, .. } => {
+                    seg_term_positions(cols, field, std::slice::from_ref(value))
+                }
+                QueryNode::Terms { field, values, .. } => seg_term_positions(cols, field, values),
+                QueryNode::Range {
+                    field,
+                    gte,
+                    gt,
+                    lte,
+                    lt,
+                    ..
+                } => seg_range_positions(
+                    cols,
+                    field,
+                    gte.as_ref(),
+                    gt.as_ref(),
+                    lte.as_ref(),
+                    lt.as_ref(),
+                ),
+                _ => None,
+            }
+        };
+
+        let segments_dir = self.data_dir.join("segments");
+        // Per-(segment, shape) count cache so the warm/repeat query doesn't
+        // rebuild the position sets each call (the whole-result cache may be
+        // off).  Segments are immutable → the cached seg count never staleness.
+        let cache_key: Option<String> =
+            serde_json::to_string(&(must, should, must_not, filter, k)).ok();
+        let mut total: u64 = 0;
+        for meta in &snap.segments {
+            if meta.doc_count == 0 {
+                continue;
+            }
+            if let Some(ck) = &cache_key {
+                if let Some(hit) = self
+                    .shortcut_count_cache
+                    .get(&(meta.id.to_string(), ck.clone()))
+                {
+                    total = total.saturating_add(*hit.value());
+                    continue;
+                }
+            }
+            let cols = self.dv_columns_for(&segments_dir, &meta.id)?;
+
+            // Required conjunction: intersection of must + filter sets.
+            let required: Option<HashSet<u32>> = if must.is_empty() && filter.is_empty() {
+                None
+            } else {
+                let mut sets: Vec<HashSet<u32>> = Vec::new();
+                for c in must.iter().chain(filter.iter()) {
+                    sets.push(resolve(&cols, c)?);
+                }
+                sets.sort_by_key(|s| s.len());
+                let mut it = sets.into_iter();
+                let mut acc = it.next().unwrap_or_default();
+                for s in it {
+                    acc.retain(|p| s.contains(p));
+                    if acc.is_empty() {
+                        break;
+                    }
+                }
+                Some(acc)
+            };
+
+            // must_not union.
+            let mut mnot: HashSet<u32> = HashSet::new();
+            for c in must_not {
+                mnot.extend(resolve(&cols, c)?);
+            }
+
+            let seg_count: u64 = if should_active {
+                // Positions matching >= k of the should sets, then filtered by
+                // the required set and the must_not exclusion.
+                let mut hits: std::collections::HashMap<u32, u32> =
+                    std::collections::HashMap::new();
+                for c in should {
+                    for p in resolve(&cols, c)? {
+                        *hits.entry(p).or_insert(0) += 1;
+                    }
+                }
+                let mut cnt: u64 = 0;
+                for (p, h) in hits.iter() {
+                    if *h < k {
+                        continue;
+                    }
+                    if let Some(req) = &required {
+                        if !req.contains(p) {
+                            continue;
+                        }
+                    }
+                    if mnot.contains(p) {
+                        continue;
+                    }
+                    cnt += 1;
+                }
+                cnt
+            } else if let Some(req) = &required {
+                req.iter().filter(|p| !mnot.contains(p)).count() as u64
+            } else {
+                // No required, no active should → all docs minus must_not.
+                (meta.doc_count).saturating_sub(mnot.len() as u64)
+            };
+            if let Some(ck) = &cache_key {
+                if self.shortcut_count_cache.len() >= SHORTCUT_COUNT_CACHE_MAX {
+                    self.shortcut_count_cache.clear();
+                }
+                self.shortcut_count_cache
+                    .insert((meta.id.to_string(), ck.clone()), seg_count);
+            }
+            total = total.saturating_add(seg_count);
+        }
+        Some(total)
+    }
+
     async fn try_shortcut_count(
         &self,
         query: &QueryNode,
@@ -8075,16 +8360,29 @@ impl Index {
             should,
             must_not,
             filter,
-            ..
+            minimum_should_match,
         } = query
         {
+            // `should`/`must_not` shapes: resolve via per-segment doc-values
+            // set algebra (the fused must/filter anchor-walk below only does
+            // pure conjunctions).  `None` from the helper (unresolvable leaf /
+            // ghost / non-empty memtable) falls through to the scan.
+            if !should.is_empty() || !must_not.is_empty() {
+                return self.bool_should_mustnot_count(
+                    must,
+                    should,
+                    must_not,
+                    filter,
+                    minimum_should_match,
+                    snap,
+                );
+            }
             // Combine must + filter — both behave identically for counting.
             let mut all_must: Vec<&QueryNode> = must.iter().collect();
             for f in filter {
                 all_must.push(f);
             }
-            // No should/must_not support yet (would need bitmap union/diff).
-            if !should.is_empty() || !must_not.is_empty() || all_must.is_empty() {
+            if all_must.is_empty() {
                 return None;
             }
             // Every must child must be a Term or Range we can resolve via
@@ -8524,6 +8822,91 @@ impl Index {
             return Some(seg_matches + mem_matches);
         }
 
+        // `terms` — union of exact per-value doc-values counts.  Distinct
+        // values on a single-valued keyword/numeric column are disjoint, so
+        // the summed doc-freqs are exact.  Conservative guards (ghost /
+        // non-empty memtable) keep the delete/memtable-blind count from ever
+        // standing in as authoritative; the ordinary scan handles those cases.
+        if let QueryNode::Terms { field, values, .. } = query {
+            use xerj_storage::doc_values::Column;
+            if self.store.version_map.ghost_events() > 0 || self.memtable.doc_count() > 0 {
+                return None;
+            }
+            let field_str = field.as_str();
+            let segments_dir = self.data_dir.join("segments");
+            let mut seg_matches: u64 = 0;
+            for meta in &snap.segments {
+                if meta.doc_count == 0 {
+                    continue;
+                }
+                let cols = self.dv_columns_for(&segments_dir, &meta.id)?;
+                match cols.get(field_str) {
+                    Some(Column::Keyword(k)) => {
+                        let mut seen: HashSet<String> = HashSet::new();
+                        for v in values {
+                            let raw = match v {
+                                Value::String(s) => s.clone(),
+                                other => other.to_string(),
+                            };
+                            if seen.insert(raw.clone()) {
+                                seg_matches = seg_matches.saturating_add(k.doc_freq(&raw) as u64);
+                            }
+                        }
+                    }
+                    Some(Column::Numeric(n)) => {
+                        let mut seen: HashSet<u64> = HashSet::new();
+                        for v in values {
+                            let f = v.as_f64()?;
+                            if seen.insert(f.to_bits()) {
+                                seg_matches = seg_matches
+                                    .saturating_add(n.range_count(f, f, true, true));
+                            }
+                        }
+                    }
+                    None => return None, // no dv column → can't count safely
+                }
+            }
+            return Some(seg_matches);
+        }
+
+        // `exists` — provable only for the DENSE case: a field whose column
+        // has no nulls and covers every doc means every doc has a scalar value
+        // (arrays / objects / json-null leave the null bitmap non-empty), so
+        // all docs match.  Any null / partial coverage / missing column, or a
+        // non-empty memtable, abandons to the scan — which resolves
+        // `get_field_value(...).is_some()` exactly (incl. arrays, dotted
+        // paths).  Meta fields are always present.
+        if let QueryNode::Exists { field } = query {
+            use xerj_storage::doc_values::Column;
+            if self.store.version_map.ghost_events() > 0 || self.memtable.doc_count() > 0 {
+                return None;
+            }
+            match field.as_str() {
+                "_id" | "_index" | "_seq_no" | "_version" | "_primary_term" => {
+                    return Some(self.live_doc_count());
+                }
+                _ => {}
+            }
+            let segments_dir = self.data_dir.join("segments");
+            let mut seg_matches: u64 = 0;
+            for meta in &snap.segments {
+                if meta.doc_count == 0 {
+                    continue;
+                }
+                let cols = self.dv_columns_for(&segments_dir, &meta.id)?;
+                let (null_empty, dcount) = match cols.get(field.as_str()) {
+                    Some(Column::Keyword(k)) => (k.null_bitmap.is_empty(), k.doc_count as u64),
+                    Some(Column::Numeric(n)) => (n.null_bitmap.is_empty(), n.doc_count as u64),
+                    None => return None, // can't prove presence → scan
+                };
+                if !null_empty || dcount != meta.doc_count {
+                    return None; // sparse / partial → scan (may still match arrays)
+                }
+                seg_matches = seg_matches.saturating_add(meta.doc_count);
+            }
+            return Some(seg_matches);
+        }
+
         // Only handle single Term queries for now; Bool goes through
         // the regular path until a Bool-specific shortcut lands.
         let (field, value) = match query {
@@ -8866,6 +9249,86 @@ impl Index {
                 Some(Arc::new(set))
             }
         }
+    }
+
+    /// Lazily-built, cached `_id → stored-position` index for a segment.
+    ///
+    /// Reuses the decompressed `StoredSlices` (offset index) and extracts each
+    /// doc's `_id` from the leading bytes of its stored slice, so an `ids`
+    /// query can resolve primary keys to positions instead of scanning the
+    /// whole section.  Built once per segment (segments are immutable) and
+    /// evicted by id at the merge-completion site.
+    ///
+    /// Returns `None` when the slices can't be decoded OR when the map does
+    /// not cover EVERY doc (a stored doc that carries no `_id` — the raw-source
+    /// flush shape — can't be indexed here); the caller then falls back to the
+    /// stored-doc scan, which has the identical `_id` resolution semantics, so
+    /// no match is ever lost.
+    fn id_pos_map_for(
+        &self,
+        seg_id: &str,
+        expect_docs: u64,
+    ) -> Option<Arc<std::collections::HashMap<String, u32>>> {
+        if let Some(entry) = self.id_pos_cache.get(seg_id) {
+            return Some(Arc::clone(entry.value()));
+        }
+        let slices = self.stored_slices_for(seg_id, expect_docs)?;
+        let mut map: std::collections::HashMap<String, u32> =
+            std::collections::HashMap::with_capacity(slices.offsets.len());
+        for (pos, &(start, end)) in slices.offsets.iter().enumerate() {
+            let slice = slices.bytes.get(start as usize..end as usize)?;
+            let id = match extract_stored_id(slice) {
+                Some(id) => id,
+                None => {
+                    // Escape-bearing or unusual layout — fall back to a full
+                    // parse for just this doc to recover its `_id`.
+                    let mut buf = slice.to_vec();
+                    match simd_json::serde::from_slice::<Value>(&mut buf) {
+                        Ok(v) => match v.get("_id").and_then(Value::as_str) {
+                            Some(s) => s.to_string(),
+                            None => continue,
+                        },
+                        Err(_) => continue,
+                    }
+                }
+            };
+            map.insert(id, pos as u32);
+        }
+        // Only cache + serve a COMPLETE map (every stored doc has an `_id`);
+        // otherwise defer to the scan so a doc without a stored `_id` is not
+        // silently dropped from `ids` results.
+        if map.len() as u64 != expect_docs {
+            return None;
+        }
+        let arc = Arc::new(map);
+        self.id_pos_cache
+            .insert(seg_id.to_string(), Arc::clone(&arc));
+        Some(arc)
+    }
+
+    /// Position pre-filter for an `ids` query: resolve each requested id to its
+    /// stored position via the cached `_id → position` index.  Returns
+    /// `Some(∅)` when none of the ids live in this segment (caller skips it),
+    /// `Some(set)` with the resolved positions, or `None` when the segment has
+    /// no complete id index (→ full scan, still correct).
+    ///
+    /// Callers gate this on `!deletes_present`: with no overwrites/tombstones
+    /// each live id occupies exactly one segment position, so the resolved
+    /// positions are the exact match set.
+    fn build_ids_prefilter_cached(
+        &self,
+        seg_id: &str,
+        expect_docs: u64,
+        values: &[String],
+    ) -> Option<Arc<HashSet<u32>>> {
+        let map = self.id_pos_map_for(seg_id, expect_docs)?;
+        let mut set: HashSet<u32> = HashSet::with_capacity(values.len());
+        for id in values {
+            if let Some(&pos) = map.get(id) {
+                set.insert(pos);
+            }
+        }
+        Some(Arc::new(set))
     }
 
     /// Superset pre-filter for a pure-conjunction `bool` (`must` + `filter`
@@ -15431,6 +15894,154 @@ struct SortCandidates {
 /// walk to `scan_stored_section_into`, minus every per-doc parse.  Returns
 /// however many complete objects it found (caller compares against the
 /// segment doc count to reject malformed sections).
+/// Extract the `_id` string value from a stored-doc slice
+/// (`{"_id":"<value>",...}`) without a full JSON parse.  Returns `None` when
+/// the slice does not begin with an `_id` string key, or when the value
+/// contains a JSON escape (`\`), in which case the caller falls back to a full
+/// parse.  This is the hot path for building the per-segment id→position map:
+/// the common append-only corpus has escape-free ids, so it stays a cheap
+/// prefix scan.
+fn extract_stored_id(slice: &[u8]) -> Option<String> {
+    let n = slice.len();
+    let mut i = 0usize;
+    // Leading whitespace + opening brace.
+    while i < n && slice[i].is_ascii_whitespace() {
+        i += 1;
+    }
+    if i >= n || slice[i] != b'{' {
+        return None;
+    }
+    i += 1;
+    while i < n && slice[i].is_ascii_whitespace() {
+        i += 1;
+    }
+    // Expect the `_id` key verbatim as the first field.
+    const KEY: &[u8] = b"\"_id\"";
+    if i + KEY.len() > n || &slice[i..i + KEY.len()] != KEY {
+        return None;
+    }
+    i += KEY.len();
+    while i < n && slice[i].is_ascii_whitespace() {
+        i += 1;
+    }
+    if i >= n || slice[i] != b':' {
+        return None;
+    }
+    i += 1;
+    while i < n && slice[i].is_ascii_whitespace() {
+        i += 1;
+    }
+    if i >= n || slice[i] != b'"' {
+        return None; // non-string _id (unexpected) → fall back
+    }
+    i += 1;
+    let val_start = i;
+    while i < n {
+        match slice[i] {
+            b'\\' => return None, // escape present → let the caller full-parse
+            b'"' => {
+                return std::str::from_utf8(&slice[val_start..i])
+                    .ok()
+                    .map(str::to_string)
+            }
+            _ => i += 1,
+        }
+    }
+    None
+}
+
+/// Exact set of stored positions matching a `term`/`terms` value list in one
+/// segment, resolved from the segment's doc-values columns.  Keyword fields
+/// enumerate positions carrying any of the terms' ordinals; numeric fields
+/// union the degenerate `[v, v]` ranges.  `Some(∅)` = no value present in this
+/// segment; `None` = the field has no dv column or a value isn't numeric on a
+/// numeric column (→ caller abandons the shortcut).  Mirrors
+/// `build_term_prefilter_cached` but operates on already-loaded columns.
+fn seg_term_positions(
+    cols: &std::collections::BTreeMap<String, xerj_storage::doc_values::Column>,
+    field: &str,
+    values: &[Value],
+) -> Option<HashSet<u32>> {
+    use xerj_storage::doc_values::Column;
+    match cols.get(field)? {
+        Column::Keyword(k) => {
+            let mut ords: HashSet<u32> = HashSet::new();
+            for v in values {
+                let term = match v {
+                    Value::String(s) => s.clone(),
+                    other => other.to_string(),
+                };
+                if let Some(ord) = k.ord_for_term(&term) {
+                    ords.insert(ord);
+                }
+            }
+            let mut set: HashSet<u32> = HashSet::new();
+            if ords.is_empty() {
+                return Some(set); // no listed value present in this segment
+            }
+            for (pos, o) in k.ords.iter().enumerate() {
+                if ords.contains(o) && !k.null_bitmap.contains(pos as u32) {
+                    set.insert(pos as u32);
+                }
+            }
+            Some(set)
+        }
+        Column::Numeric(n) => {
+            let mut set: HashSet<u32> = HashSet::new();
+            for v in values {
+                let f = v.as_f64()?;
+                set.extend(n.range_doc_ids(f, f, true, true));
+            }
+            Some(set)
+        }
+    }
+}
+
+/// Exact set of stored positions matching a numeric `range` in one segment.
+/// `None` when the field has no numeric dv column or a bound is a
+/// non-numeric, non-date string (→ caller abandons the shortcut).
+fn seg_range_positions(
+    cols: &std::collections::BTreeMap<String, xerj_storage::doc_values::Column>,
+    field: &str,
+    gte: Option<&Value>,
+    gt: Option<&Value>,
+    lte: Option<&Value>,
+    lt: Option<&Value>,
+) -> Option<HashSet<u32>> {
+    use xerj_storage::doc_values::Column;
+    let parse = |v: Option<&Value>| -> Option<Option<f64>> {
+        match v {
+            None => Some(None),
+            Some(Value::Number(_)) => Some(v.and_then(|x| x.as_f64())),
+            Some(Value::String(s)) => {
+                if let Ok(f) = s.parse::<f64>() {
+                    return Some(Some(f));
+                }
+                crate::aggs::parse_date_ms(&Value::String(s.clone())).map(|ms| Some(ms as f64))
+            }
+            _ => None,
+        }
+    };
+    let gte = parse(gte)?;
+    let gt = parse(gt)?;
+    let lte = parse(lte)?;
+    let lt = parse(lt)?;
+    let (lo, lo_incl) = match (gte, gt) {
+        (Some(v), _) => (v, true),
+        (None, Some(v)) => (v, false),
+        (None, None) => (f64::NEG_INFINITY, true),
+    };
+    let (hi, hi_incl) = match (lte, lt) {
+        (Some(v), _) => (v, true),
+        (None, Some(v)) => (v, false),
+        (None, None) => (f64::INFINITY, true),
+    };
+    let Column::Numeric(n) = cols.get(field)? else {
+        return None;
+    };
+    Some(n.range_doc_ids(lo, hi, lo_incl, hi_incl).into_iter().collect())
+}
+
 fn brace_walk_offsets(bytes: &[u8]) -> Vec<(u32, u32)> {
     let n = bytes.len();
     let mut out: Vec<(u32, u32)> = Vec::new();
@@ -16376,9 +16987,24 @@ fn collect_fts_query_fields(q: &FtsQuery, out: &mut Vec<String>) {
                 out.push(p.field.clone());
             }
         }
+        FtsQuery::PhrasePrefix(p) => {
+            if !out.contains(&p.field) {
+                out.push(p.field.clone());
+            }
+        }
         FtsQuery::Prefix(p) => {
             if !out.contains(&p.field) {
                 out.push(p.field.clone());
+            }
+        }
+        FtsQuery::Wildcard(w) => {
+            if !out.contains(&w.field) {
+                out.push(w.field.clone());
+            }
+        }
+        FtsQuery::Fuzzy(f) => {
+            if !out.contains(&f.field) {
+                out.push(f.field.clone());
             }
         }
         FtsQuery::Bool(b) => {
@@ -16705,6 +17331,246 @@ fn query_node_to_fts(
                 bool_q = bool_q.should(FtsQuery::Term(FtsTerm::new(field, &token.text)));
             }
             Some(FtsQuery::Bool(Box::new(bool_q)))
+        }
+        QueryNode::MatchPhrase {
+            field,
+            query,
+            slop,
+            analyzer,
+            boost,
+        } => {
+            // match_phrase on a KEYWORD field: the field is not tokenized, so
+            // the query analyzes (keyword analyzer) to a single whole-value
+            // token — i.e. exact whole-value equality, identical to `match` on
+            // a keyword field (which projects to Term above and is a proven,
+            // tested path).  Route through the postings/term index instead of
+            // the per-doc brute scan: `is_doc_scan_query` keeps MatchPhrase in
+            // the doc-scan set, but returning `Some` here makes `needs_fts`
+            // true so the FTS path runs FIRST and sets `fts_handled`, skipping
+            // the O(N·field_len) stored scan that made keyword match_phrase
+            // multi-second (5.6 s / 100k).
+            let b = boost.unwrap_or(1.0);
+            if exact_fields.contains(field.as_str()) {
+                return Some(FtsQuery::Term(FtsTerm::boosted(
+                    field.as_str(),
+                    query.as_str(),
+                    b,
+                )));
+            }
+            // TEXT field, slop 0, default (standard) analyzer: the FTS segment
+            // stores term POSITIONS for analyzed text (store_positions=true), so
+            // route to a positional phrase intersection bounded to candidate
+            // docs (`FtsQuery::Phrase`) instead of the O(N·field_len) stored
+            // scan.  The query is analyzed with the SAME standard analyzer the
+            // field was indexed with (tokenize + lowercase, no stemming), so the
+            // phrase terms line up byte-for-byte with the indexed terms — and
+            // lowercasing makes it case-insensitive exactly like ES's analyzed
+            // phrase.  slop>0 and non-standard analyzers keep the stored scan
+            // (None): the sloppy/analyzer semantics stay on the proven path.
+            if *slop == 0
+                && text_fields.iter().any(|f| f == field)
+                && matches!(analyzer.as_deref(), None | Some("standard"))
+            {
+                let registry = AnalyzerRegistry::default();
+                let analyzer = registry.get_analyzer("standard")?;
+                let tokens = analyzer.analyze(query);
+                if tokens.is_empty() {
+                    // Empty analyzed phrase — fall back to the stored scan.
+                    return None;
+                }
+                if tokens.len() == 1 {
+                    return Some(FtsQuery::Term(FtsTerm::boosted(
+                        field.as_str(),
+                        &tokens[0].text,
+                        b,
+                    )));
+                }
+                return Some(FtsQuery::Phrase(xerj_fts::search::PhraseQuery {
+                    field: field.clone(),
+                    terms: tokens.iter().map(|t| t.text.clone()).collect(),
+                    slop: 0,
+                    boost: b,
+                }));
+            }
+            None
+        }
+        QueryNode::MatchPhrasePrefix {
+            field,
+            query,
+            max_expansions,
+        } => {
+            // match_phrase_prefix on a KEYWORD field: single whole-value token
+            // whose last (only) term is a prefix → a prefix query over the
+            // keyword value (ES default max_expansions 50).  Same O(N)
+            // brute-scan cliff as match_phrase (5.0 s / 100k) until routed
+            // through the FST term dictionary.
+            if exact_fields.contains(field.as_str()) {
+                return Some(FtsQuery::Prefix(xerj_fts::search::PrefixQuery {
+                    field: field.clone(),
+                    prefix: query.clone(),
+                    boost: 1.0,
+                    max_expansions: *max_expansions as usize,
+                    constant_score: false,
+                }));
+            }
+            // TEXT field: analyze the query with the standard analyzer (the
+            // indexing analyzer) — the leading tokens form an ordered phrase and
+            // the LAST token is a prefix expanded against the field's term
+            // dictionary (bounded by `max_expansions`).  Positional, bounded to
+            // candidate docs, instead of the O(N) stored scan.  The analyzer
+            // lowercases every token, so the head phrase and the prefix are
+            // case-insensitive exactly like ES (which analyzes the input).
+            if text_fields.iter().any(|f| f == field) {
+                let registry = AnalyzerRegistry::default();
+                let analyzer = registry.get_analyzer("standard")?;
+                let tokens = analyzer.analyze(query);
+                if tokens.is_empty() {
+                    return None;
+                }
+                return Some(FtsQuery::PhrasePrefix(xerj_fts::search::PhrasePrefixQuery {
+                    field: field.clone(),
+                    terms: tokens.iter().map(|t| t.text.clone()).collect(),
+                    max_expansions: *max_expansions as usize,
+                    boost: 1.0,
+                }));
+            }
+            None
+        }
+        QueryNode::Prefix { field, value, boost } => {
+            // `prefix` on a KEYWORD field: whole-value, case-sensitive prefix
+            // match over the keyword FST term dictionary — byte-identical to ES
+            // `prefix` on a keyword field (default case-sensitive, matches the
+            // whole indexed value).  Mirrors the match_phrase_prefix keyword arm
+            // above, routing through the postings/FST index instead of the O(N)
+            // per-doc stored scan that made keyword `prefix` ~160 ms / 100k.  If
+            // the keyword sidecar is absent for a segment, `fts_handled` stays
+            // false and the query falls back to the (correct) brute scan.
+            //
+            // Unlike match_phrase_prefix, an ES `prefix` query has NO
+            // `max_expansions` cap — it matches EVERY term sharing the prefix —
+            // so we expand without bound (`usize::MAX`) to keep `hits.total`
+            // exact.  TEXT fields keep the doc-scan (None): their prefix runs
+            // against analyzed tokens, which the FST-whole-value route can't
+            // reproduce.
+            if exact_fields.contains(field.as_str()) {
+                return Some(FtsQuery::Prefix(xerj_fts::search::PrefixQuery {
+                    field: field.clone(),
+                    prefix: value.clone(),
+                    boost: boost.unwrap_or(1.0),
+                    max_expansions: usize::MAX,
+                    constant_score: false,
+                }));
+            }
+            // TEXT field: expand the prefix against the analyzed term dictionary
+            // (each indexed term is a lowercased token).  ES does NOT analyze
+            // the prefix pattern — it is matched CASE-SENSITIVELY against the
+            // already-lowercased terms, so an uppercase pattern matches nothing.
+            // `expand_prefix` is a raw `starts_with` (no folding), reproducing
+            // that exactly.  No `max_expansions` cap (ES `prefix` matches every
+            // term sharing the prefix) so `hits.total` stays exact.  ES rewrites
+            // `prefix` to a `constant_score` query, so every match scores `boost`
+            // (`constant_score: true`).
+            if text_fields.iter().any(|f| f == field) {
+                return Some(FtsQuery::Prefix(xerj_fts::search::PrefixQuery {
+                    field: field.clone(),
+                    prefix: value.clone(),
+                    boost: boost.unwrap_or(1.0),
+                    max_expansions: usize::MAX,
+                    constant_score: true,
+                }));
+            }
+            None
+        }
+        QueryNode::Wildcard { field, value, boost } => {
+            // `wildcard` on a KEYWORD field: expand the keyword FST term
+            // dictionary to every term matching the pattern (`*`=0+ chars,
+            // `?`=1 char) and score each as a term.  The searcher's expansion
+            // predicate is byte-identical to `doc_matches_query`'s wildcard arm
+            // (case-insensitive, whole-value OR sub-token), so the hit set is
+            // exactly the doc-scan's — only sourced from the term dictionary
+            // (≪ docs) instead of a per-doc O(N) scan (~150 ms/100k → ~1 ms).
+            //
+            // Case-insensitivity is REQUIRED, not a shortcut: XERJ's parser
+            // drops `case_insensitive` and rewrites `term{case_insensitive:true}`
+            // to a Wildcard, both relying on the matcher folding case — so a
+            // case-sensitive FST route would break those (passing) paths.
+            // TEXT fields keep the doc-scan (None): analyzed-token semantics.
+            if exact_fields.contains(field.as_str()) {
+                return Some(FtsQuery::Wildcard(xerj_fts::search::WildcardQuery {
+                    field: field.clone(),
+                    pattern: value.clone(),
+                    boost: boost.unwrap_or(1.0),
+                    case_insensitive: true,
+                    constant_score: false,
+                }));
+            }
+            // TEXT field: expand the pattern against the analyzed term
+            // dictionary CASE-SENSITIVELY.  Indexed text terms are lowercased by
+            // the standard analyzer; ES does not analyze a RAW `wildcard`
+            // pattern, so it is matched literally against those terms (an
+            // uppercase pattern matches nothing).  `case_insensitive: false`
+            // gives exactly that.  (query_string lowercases its wildcard terms
+            // at parse time, so `q=field:BA*` still matches — that lowering is
+            // done in the parser, not here.)  ES rewrites `wildcard` to a
+            // `constant_score` query, so every match scores `boost`.
+            if text_fields.iter().any(|f| f == field) {
+                return Some(FtsQuery::Wildcard(xerj_fts::search::WildcardQuery {
+                    field: field.clone(),
+                    pattern: value.clone(),
+                    boost: boost.unwrap_or(1.0),
+                    case_insensitive: false,
+                    constant_score: true,
+                }));
+            }
+            None
+        }
+        QueryNode::Fuzzy {
+            field,
+            value,
+            fuzziness,
+        } => {
+            // `fuzzy` on a KEYWORD field: expand the keyword FST term dictionary
+            // to every term within `max_edits` Damerau-Levenshtein distance and
+            // score each as a term.  `max_edits` is resolved HERE (AUTO depends
+            // on the query term length) so the searcher stays type-agnostic.
+            // The searcher's distance predicate is byte-identical to
+            // `doc_matches_query`'s fuzzy arm (case-insensitive, transpositions
+            // on, whole-value OR sub-token) — same hit set as the doc scan,
+            // sourced from the term dictionary (~260 ms/100k → ~1 ms).  TEXT
+            // fields keep the doc-scan (None).
+            if exact_fields.contains(field.as_str()) {
+                let max_edits = match fuzziness {
+                    Fuzziness::Auto => auto_fuzziness(value),
+                    Fuzziness::Fixed(n) => *n as usize,
+                };
+                return Some(FtsQuery::Fuzzy(xerj_fts::search::FuzzyQuery {
+                    field: field.clone(),
+                    value: value.clone(),
+                    max_edits,
+                    boost: 1.0,
+                    case_insensitive: true,
+                }));
+            }
+            // TEXT field: expand the term dictionary within `max_edits`
+            // Damerau-Levenshtein distance of the RAW query value.  ES does not
+            // lowercase the fuzzy query term, and the indexed text terms are
+            // lowercased — so distance is measured case-sensitively against the
+            // lowercased terms (`case_insensitive: false`), matching ES (an
+            // uppercase query term is `len` edits away and matches nothing).
+            if text_fields.iter().any(|f| f == field) {
+                let max_edits = match fuzziness {
+                    Fuzziness::Auto => auto_fuzziness(value),
+                    Fuzziness::Fixed(n) => *n as usize,
+                };
+                return Some(FtsQuery::Fuzzy(xerj_fts::search::FuzzyQuery {
+                    field: field.clone(),
+                    value: value.clone(),
+                    max_edits,
+                    boost: 1.0,
+                    case_insensitive: false,
+                }));
+            }
+            None
         }
         _ => None,
     }
@@ -17367,6 +18233,154 @@ mod fts_projection_tests {
                 assert_eq!(model_whole, 1);
             }
             other => panic!("expected dis_max, got {:?}", other),
+        }
+    }
+
+    /// match_phrase on a KEYWORD field projects to a single whole-value term
+    /// (routed through the postings index instead of the O(N) brute scan that
+    /// made keyword match_phrase multi-second). ES: match_phrase on keyword is
+    /// exact whole-value equality, identical to `match` on keyword.
+    #[test]
+    fn match_phrase_keyword_projects_whole_value_term() {
+        let q = QueryNode::MatchPhrase {
+            field: "top_doc".into(),
+            query: "runbook/oncall.md".into(),
+            slop: 0,
+            analyzer: None,
+            boost: None,
+        };
+        let fq = query_node_to_fts(&q, &[], &kw(&["top_doc"])).expect("keyword phrase projects");
+        match fq {
+            FtsQuery::Term(t) => {
+                assert_eq!(t.field, "top_doc");
+                assert_eq!(t.term, "runbook/oncall.md", "whole value, not tokens");
+            }
+            other => panic!("expected single whole-value term, got {:?}", other),
+        }
+    }
+
+    /// match_phrase on a TEXT field (slop 0, default analyzer) projects to a
+    /// positional `FtsQuery::Phrase` over the STANDARD-analyzed query tokens —
+    /// the segment stores term positions for analyzed text, so this routes
+    /// through the bounded positional intersection instead of the O(N) stored
+    /// scan.
+    #[test]
+    fn match_phrase_text_field_projects_positional_phrase() {
+        let q = QueryNode::MatchPhrase {
+            field: "body".into(),
+            query: "Quick Brown Fox".into(),
+            slop: 0,
+            analyzer: None,
+            boost: None,
+        };
+        let fq = query_node_to_fts(&q, &["body".to_string()], &kw(&[])).expect("text phrase projects");
+        match fq {
+            FtsQuery::Phrase(p) => {
+                assert_eq!(p.field, "body");
+                // standard analyzer lowercases + tokenizes on word boundaries.
+                assert_eq!(p.terms, vec!["quick", "brown", "fox"]);
+                assert_eq!(p.slop, 0);
+            }
+            other => panic!("expected positional phrase, got {:?}", other),
+        }
+    }
+
+    /// match_phrase with slop > 0 on a TEXT field keeps the stored-doc scan
+    /// (the proven sloppy-phrase semantics), so it must NOT project to FTS.
+    #[test]
+    fn match_phrase_text_slop_falls_back_to_scan() {
+        let q = QueryNode::MatchPhrase {
+            field: "body".into(),
+            query: "quick fox".into(),
+            slop: 2,
+            analyzer: None,
+            boost: None,
+        };
+        assert!(
+            query_node_to_fts(&q, &["body".to_string()], &kw(&[])).is_none(),
+            "slop>0 text phrase must fall back to the stored-doc scan"
+        );
+    }
+
+    /// prefix / wildcard / fuzzy on a TEXT field expand against the analyzed
+    /// term dictionary CASE-SENSITIVELY (indexed text terms are lowercased; ES
+    /// does not analyze the pattern), and match_phrase_prefix routes to the
+    /// positional phrase-prefix executor.
+    #[test]
+    fn text_multiterm_queries_project_case_sensitively() {
+        let tf = ["body".to_string()];
+        // prefix
+        let q = QueryNode::Prefix {
+            field: "body".into(),
+            value: "run".into(),
+            boost: None,
+        };
+        match query_node_to_fts(&q, &tf, &kw(&[])).expect("text prefix projects") {
+            FtsQuery::Prefix(p) => {
+                assert_eq!(p.prefix, "run", "pattern NOT lowercased/analyzed");
+                assert_eq!(p.max_expansions, usize::MAX);
+            }
+            other => panic!("expected prefix, got {:?}", other),
+        }
+        // wildcard — case-sensitive (case_insensitive=false) for text
+        let q = QueryNode::Wildcard {
+            field: "body".into(),
+            value: "run*".into(),
+            boost: None,
+        };
+        match query_node_to_fts(&q, &tf, &kw(&[])).expect("text wildcard projects") {
+            FtsQuery::Wildcard(w) => {
+                assert_eq!(w.pattern, "run*");
+                assert!(!w.case_insensitive, "text wildcard is case-sensitive");
+            }
+            other => panic!("expected wildcard, got {:?}", other),
+        }
+        // fuzzy — case-sensitive for text
+        let q = QueryNode::Fuzzy {
+            field: "body".into(),
+            value: "runbok".into(),
+            fuzziness: Fuzziness::Fixed(1),
+        };
+        match query_node_to_fts(&q, &tf, &kw(&[])).expect("text fuzzy projects") {
+            FtsQuery::Fuzzy(f) => {
+                assert_eq!(f.value, "runbok");
+                assert_eq!(f.max_edits, 1);
+                assert!(!f.case_insensitive, "text fuzzy is case-sensitive");
+            }
+            other => panic!("expected fuzzy, got {:?}", other),
+        }
+        // match_phrase_prefix — positional phrase-prefix over analyzed tokens
+        let q = QueryNode::MatchPhrasePrefix {
+            field: "body".into(),
+            query: "status ok log".into(),
+            max_expansions: 50,
+        };
+        match query_node_to_fts(&q, &tf, &kw(&[])).expect("text mpp projects") {
+            FtsQuery::PhrasePrefix(p) => {
+                assert_eq!(p.terms, vec!["status", "ok", "log"]);
+                assert_eq!(p.max_expansions, 50);
+            }
+            other => panic!("expected phrase_prefix, got {:?}", other),
+        }
+    }
+
+    /// match_phrase_prefix on a KEYWORD field projects to a prefix query over
+    /// the whole value (FST term-dictionary route, not the O(N) brute scan).
+    #[test]
+    fn match_phrase_prefix_keyword_projects_prefix() {
+        let q = QueryNode::MatchPhrasePrefix {
+            field: "top_doc".into(),
+            query: "runbook/on".into(),
+            max_expansions: 50,
+        };
+        let fq = query_node_to_fts(&q, &[], &kw(&["top_doc"])).expect("keyword prefix projects");
+        match fq {
+            FtsQuery::Prefix(p) => {
+                assert_eq!(p.field, "top_doc");
+                assert_eq!(p.prefix, "runbook/on");
+                assert_eq!(p.max_expansions, 50);
+            }
+            other => panic!("expected prefix query, got {:?}", other),
         }
     }
 

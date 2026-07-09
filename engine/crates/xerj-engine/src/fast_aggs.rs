@@ -1042,6 +1042,24 @@ impl<'a> FastCtx<'a> {
                 }
                 self.exec_metric_top(metric_kind_of(agg_type)?, params)
             }
+            "extended_stats" => {
+                if sub.is_some() {
+                    return None;
+                }
+                self.exec_extended_stats(params)
+            }
+            "percentiles" => {
+                if sub.is_some() {
+                    return None;
+                }
+                self.exec_percentiles(params)
+            }
+            "percentile_ranks" => {
+                if sub.is_some() {
+                    return None;
+                }
+                self.exec_percentile_ranks(params)
+            }
             "terms" => self.exec_terms(params, sub),
             "cardinality" => self.exec_cardinality(params, sub),
             "range" => self.exec_range(params, sub),
@@ -1165,6 +1183,305 @@ impl<'a> FastCtx<'a> {
             Self::fold_mem_metric(d, &spec, &mut acc);
         }
         Some(Self::emit_metric(kind, &acc))
+    }
+
+    // ── extended_stats / percentiles / percentile_ranks (columnar) ───────
+    //
+    // These three leaves were the last O(N) brute-force uncached reads: the
+    // pre-fix path fell into `run_aggs_with_all`, which decompresses +
+    // JSON-parses EVERY live doc before `run_extended_stats` /
+    // `run_percentiles` / `run_percentile_ranks` even see a value (~650 ms on
+    // a 100 k corpus).  Served columnar they are a single linear fold over the
+    // per-segment numeric `.dv` column (extended_stats) or a read of the
+    // already-sorted column index (percentiles / percentile_ranks), dropping
+    // to low-ms.  Each is byte-identical to its brute counterpart for the
+    // shapes it accepts (modulo float-summation order — the same documented
+    // divergence the other metric leaves carry), and bails (`None` → brute)
+    // on any option that would change value gathering or rendering
+    // (`missing`, `format`, `hdr`, `tdigest`) and under a top-level query
+    // filter (handled by the whitelist in `exec_agg`).
+
+    /// Gather every live numeric value of `field` (segments + memtable) into a
+    /// single ascending-sorted `Vec<f64>`, mirroring the brute
+    /// `nums.sort_by(partial_cmp)` collection so percentile interpolation is
+    /// byte-identical.  Returns `None` when the field isn't a scalar numeric
+    /// everywhere (keyword column, or a memtable doc holds a non-number) — the
+    /// caller then bails to the exact brute path.
+    ///
+    /// Each segment's `.dv` numeric column already carries a `sorted`
+    /// value-index (`Vec<(bits, doc_id)>`, ascending by f64), so the common
+    /// single-segment / no-memtable case is a pure O(N) copy with no sort.
+    fn gather_numeric_sorted(&self, field: &str) -> Option<Vec<f64>> {
+        match self.seg_field_kind(field) {
+            Ok(Some(ColKind::Keyword)) | Err(()) => return None,
+            _ => {}
+        }
+        if !self.mem_field_numeric_safe(field) {
+            return None;
+        }
+        let mut capacity = self.mem().len();
+        for s in &self.segs {
+            if let Some(Column::Numeric(n)) = s.cols.get(field) {
+                capacity += n.live_count as usize;
+            }
+        }
+        let mut vals: Vec<f64> = Vec::with_capacity(capacity);
+        for s in &self.segs {
+            match s.cols.get(field) {
+                Some(Column::Numeric(n)) => {
+                    for (bits, _) in &n.sorted {
+                        vals.push(f64::from_bits(*bits as u64));
+                    }
+                }
+                Some(Column::Keyword(_)) => return None,
+                None => {}
+            }
+        }
+        // The collected values are already globally sorted iff they came from a
+        // single pre-sorted column source and the memtable added none.
+        let mut pre_sorted = self.segs.len() <= 1;
+        for doc in self.mem().iter() {
+            if let Some(v) = extract_numeric(doc, field) {
+                vals.push(v);
+                pre_sorted = false;
+            }
+        }
+        if !pre_sorted {
+            vals.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        }
+        Some(vals)
+    }
+
+    /// `extended_stats` — single columnar pass computing count / sum /
+    /// sum_of_squares / min / max, then the same exact-arithmetic moments +
+    /// `std_deviation_bounds` (honouring `sigma`, default 2) as
+    /// `run_extended_stats`.  Whitelisted params only; `missing` / `format`
+    /// bail to brute.
+    fn exec_extended_stats(&self, params: &Value) -> Option<Value> {
+        if !params_only(params, &["field", "sigma"]) {
+            return None;
+        }
+        let field = params.get("field").and_then(Value::as_str)?;
+        match self.seg_field_kind(field) {
+            Ok(Some(ColKind::Keyword)) | Err(()) => return None,
+            _ => {}
+        }
+        if !self.mem_field_numeric_safe(field) {
+            return None;
+        }
+
+        let mut count: u64 = 0;
+        let mut sum: f64 = 0.0;
+        let mut sum_sq: f64 = 0.0;
+        let mut min = f64::INFINITY;
+        let mut max = f64::NEG_INFINITY;
+        let mut fold = |v: f64| {
+            count += 1;
+            sum += v;
+            sum_sq += v * v;
+            if v < min {
+                min = v;
+            }
+            if v > max {
+                max = v;
+            }
+        };
+        for s in &self.segs {
+            match s.cols.get(field) {
+                Some(Column::Numeric(n)) => {
+                    if n.null_bitmap.is_empty() {
+                        for &bits in &n.data {
+                            fold(f64::from_bits(bits as u64));
+                        }
+                    } else {
+                        for row in 0..n.doc_count {
+                            if !n.null_bitmap.contains(row) {
+                                fold(f64::from_bits(n.data[row as usize] as u64));
+                            }
+                        }
+                    }
+                }
+                Some(Column::Keyword(_)) => return None,
+                None => {}
+            }
+        }
+        for doc in self.mem().iter() {
+            if let Some(v) = extract_numeric(doc, field) {
+                fold(v);
+            }
+        }
+
+        if count == 0 {
+            // Mirror run_extended_stats' empty shape exactly: `sum` is a real
+            // zero, every higher-order moment is null.
+            return Some(json!({
+                "count": 0, "min": Value::Null, "max": Value::Null,
+                "avg": Value::Null, "sum": 0.0, "sum_of_squares": Value::Null,
+                "variance": Value::Null, "variance_population": Value::Null,
+                "variance_sampling": Value::Null,
+                "std_deviation": Value::Null,
+                "std_deviation_population": Value::Null,
+                "std_deviation_sampling": Value::Null,
+                "std_deviation_bounds": {
+                    "upper": Value::Null, "lower": Value::Null,
+                    "upper_population": Value::Null, "lower_population": Value::Null,
+                    "upper_sampling": Value::Null, "lower_sampling": Value::Null,
+                }
+            }));
+        }
+
+        let avg = sum / count as f64;
+        let variance_pop = (sum_sq / count as f64) - avg * avg;
+        let variance_pop = variance_pop.max(0.0);
+        let variance_samp = if count > 1 {
+            variance_pop * count as f64 / (count - 1) as f64
+        } else {
+            0.0
+        };
+        let std_deviation = variance_pop.max(0.0).sqrt();
+        let std_deviation_samp = variance_samp.max(0.0).sqrt();
+        let sigma = params.get("sigma").and_then(Value::as_f64).unwrap_or(2.0);
+
+        Some(json!({
+            "count": count,
+            "min": min,
+            "max": max,
+            "avg": avg,
+            "sum": sum,
+            "sum_of_squares": sum_sq,
+            "variance": variance_pop,
+            "variance_population": variance_pop,
+            "variance_sampling": variance_samp,
+            "std_deviation": std_deviation,
+            "std_deviation_population": std_deviation,
+            "std_deviation_sampling": std_deviation_samp,
+            "std_deviation_bounds": {
+                "upper": avg + sigma * std_deviation,
+                "lower": avg - sigma * std_deviation,
+                "upper_population": avg + sigma * std_deviation,
+                "lower_population": avg - sigma * std_deviation,
+                "upper_sampling": avg + sigma * std_deviation_samp,
+                "lower_sampling": avg - sigma * std_deviation_samp,
+            }
+        }))
+    }
+
+    /// `percentiles` — the ES-default (non-hdr) algorithm is exact linear
+    /// interpolation over the sorted values (`run_percentiles`), so the
+    /// columnar path reads the pre-sorted column index and applies the
+    /// identical `rank = (pct/100)*(N-1)` interpolation.  Honours `percents`
+    /// (default `[1,5,25,50,75,95,99]`) and `keyed` (default true); `hdr` /
+    /// `missing` / `format` / `tdigest` bail to brute.
+    fn exec_percentiles(&self, params: &Value) -> Option<Value> {
+        if !params_only(params, &["field", "percents", "keyed"]) {
+            return None;
+        }
+        let field = params.get("field").and_then(Value::as_str)?;
+        let percents: Vec<f64> = params
+            .get("percents")
+            .and_then(Value::as_array)
+            .map(|arr| arr.iter().filter_map(Value::as_f64).collect())
+            .unwrap_or_else(|| vec![1.0, 5.0, 25.0, 50.0, 75.0, 95.0, 99.0]);
+        let keyed = params.get("keyed").and_then(Value::as_bool).unwrap_or(true);
+
+        let nums = self.gather_numeric_sorted(field)?;
+        let compute = |pct: f64| -> Option<f64> {
+            if nums.is_empty() {
+                return None;
+            }
+            let rank = (pct / 100.0) * (nums.len() as f64 - 1.0);
+            let lo = rank.floor() as usize;
+            let hi = (lo + 1).min(nums.len() - 1);
+            let frac = rank - rank.floor();
+            Some(nums[lo] * (1.0 - frac) + nums[hi] * frac)
+        };
+
+        if keyed {
+            let values: Map<String, Value> = percents
+                .iter()
+                .map(|&pct| {
+                    let key = format!("{:.1}", pct);
+                    let val = match compute(pct) {
+                        Some(v) => serde_json::Number::from_f64(v)
+                            .map(Value::Number)
+                            .unwrap_or(Value::Null),
+                        None => Value::Null,
+                    };
+                    (key, val)
+                })
+                .collect();
+            Some(json!({ "values": values }))
+        } else {
+            let arr: Vec<Value> = percents
+                .iter()
+                .map(|&pct| {
+                    let val = match compute(pct) {
+                        Some(v) => serde_json::Number::from_f64(v)
+                            .map(Value::Number)
+                            .unwrap_or(Value::Null),
+                        None => Value::Null,
+                    };
+                    let key_num = serde_json::Number::from_f64(pct)
+                        .map(Value::Number)
+                        .unwrap_or(Value::Null);
+                    json!({ "key": key_num, "value": val })
+                })
+                .collect();
+            Some(json!({ "values": arr }))
+        }
+    }
+
+    /// `percentile_ranks` — for each target value, the fraction of the corpus
+    /// at or below it, ×100.  Byte-identical to `run_percentile_ranks`: the
+    /// sorted column index turns each brute `filter(v <= t).count()` into a
+    /// `partition_point` (same exact count).  `hdr` / `missing` / `format`
+    /// bail to brute.
+    fn exec_percentile_ranks(&self, params: &Value) -> Option<Value> {
+        if !params_only(params, &["field", "values", "keyed"]) {
+            return None;
+        }
+        let field = params.get("field").and_then(Value::as_str)?;
+        let targets = match params.get("values").and_then(Value::as_array) {
+            Some(v) => v,
+            None => return Some(json!({ "values": {} })),
+        };
+        let keyed = params.get("keyed").and_then(Value::as_bool).unwrap_or(true);
+
+        let nums = self.gather_numeric_sorted(field)?;
+        let total = nums.len() as f64;
+        // `nums` is ascending, so the count of values <= t is a partition_point.
+        let rank_of = |t: f64| -> f64 {
+            if total == 0.0 {
+                0.0
+            } else {
+                let below = nums.partition_point(|&v| v <= t) as f64;
+                (below / total) * 100.0
+            }
+        };
+
+        if keyed {
+            let mut result = Map::new();
+            for target in targets {
+                if let Some(t) = target.as_f64() {
+                    result.insert(format!("{}", t), json!(rank_of(t)));
+                }
+            }
+            Some(json!({ "values": result }))
+        } else {
+            let arr: Vec<Value> = targets
+                .iter()
+                .filter_map(|target| target.as_f64())
+                .map(|t| {
+                    let key_json = if t.fract() == 0.0 {
+                        json!(t as i64)
+                    } else {
+                        json!(t)
+                    };
+                    json!({ "key": key_json, "value": rank_of(t) })
+                })
+                .collect();
+            Some(json!({ "values": arr }))
+        }
     }
 
     // ── shared fused row pass ────────────────────────────────────────────
