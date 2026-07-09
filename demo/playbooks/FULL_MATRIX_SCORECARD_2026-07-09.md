@@ -34,6 +34,29 @@
 > filter/weight/random_score/script, non-match_all base, deletes present) still bail to the brute path and
 > remain a (correct-for-those-shapes-later) LOSS — tracked with boosting/dis_max/pinned/bool-should/MLT.
 
+> **UPDATE 2026-07-09 (batch 12, commit `0f6cc83`) — two compat debts closed.** `auto_date_histogram`
+> sub-day bucket grids now anchor to the min-doc base unit exactly like ES (byte-identical buckets on
+> the matrix request + all in-scope probes); `percentile_ranks`/`percentiles` keys now use ES's Java
+> `Double.toString` format (`"200.0"`, `"1.0E7"`). Gate 1360/0/3; zero regression (byte-diff sweep).
+> Pre-existing defects put on the ledger (NOT from this diff): `buckets=100` auto_date_histogram ladder
+> has a 15m rung ES lacks; global naive-vs-Kahan float drift (~1e-13 rel) on `sum` values.
+>
+> **UPDATE 2026-07-09 (batch 5, commit `faa47c5`) — the scored-family CORRECTNESS defect is fixed;
+> 3 cells flip LOSS → WIN. GRAND TOTAL: 45 WIN / 26 LOSS / 11 TIE.** `dis_max`/`boosting`/`pinned`/
+> `bool(must+filter+should+must_not)` were returning flat/constant scores (IDF-less brute scorer,
+> arrival-order top-k, pinned ids not pinned) at 97–151ms (re-measured up to 328ms). A `scored_fast_plan`
+> shape gate now routes plain top-k pages onto a columnar doc-values path with real ES scoring math
+> (BM25 idf on keyword leaves, `tie_breaker`, `negative_boost`, pinned float-to-top, bool sum).
+> Adversarially verified **bit-for-bit vs live ES 8.13.4: 32/32 gated-in cases** (f32 score bit patterns,
+> ids in order, max_score, total value+relation) on both 1-segment AND 50-segment indexes, incl.
+> tie_breaker 0/0.3/1.0, negative_boost 0..1, pinned nonexistent/12>size pins, track_total_hits
+> default/false/int, size:0, deep from+size. A/B vs a baseline binary proved zero out-of-gate changes.
+> p50 vs ES: boosting **5.0 vs 7.1 WIN**, pinned **2.3 vs 5.6 WIN**, bool **3.8 vs 5.5 WIN**, dis_max
+> 3.1 vs 2.0 honest small LOSS (was 328ms + wrong results). Gate 1360/0/3 run twice. NEW pre-existing
+> defect tickets: out-of-gate scored shapes (clause boost≠1, `minimum_should_match`, range-as-scoring-
+> leaf, filter-only bool) still flat-1.0 brute vs ES; **acknowledged deletes are RESURRECTED after
+> SIGTERM restart** (reproduced on the baseline binary too — durability bug, next batch).
+
 **Original MEASUREMENT + compatibility audit at engine `bd3bb41` (pre-`0325fb7`). No engine code was changed for this snapshot; nothing was committed at snapshot time.**
 
 This scorecard **replaces the discredited "81 W / 91" headline number.** That number was a
