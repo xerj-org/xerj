@@ -261,45 +261,138 @@ section.section-split > .split-viz  { min-width: 0; }
    so the full title hero fits a 1080px viewport without scrolling. */
 section.hero-split {
   align-items: center;
-  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  /* give the demo the larger track so it reads as a background surface,
+     not a side widget; copy keeps enough width for the h1's fixed lines */
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: var(--sp-8);
 }
+/* Cinematic black top screen: a full-bleed PURE-black band behind the WHOLE first
+   screen (nav + hero), 100vw so it breaks out of the max-width body column and
+   covers the gutters, fading to the page colour (--z-bg #0b0b0d) just past the
+   hero. This lets the frameless #000 demo video melt into the hero with no
+   two-tone at the nav. Sits at z-index:-1 (behind all content; the transparent
+   nav + hero copy show on top). Dark theme only — the light theme keeps its bg
+   so the hero's dark copy stays readable. */
+/* body's own background must be transparent, else its opaque --z-bg paints OVER
+   the z-index:-1 band and hides it (the band then never shows). html keeps the
+   page colour; the band paints over html, behind the transparent body content. */
+body { position: relative; background: transparent; }
+body::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(180deg, #000 0, #000 78vh, var(--z-bg) 97vh);
+  pointer-events: none;
+}
+html[data-theme='day'] body { background: transparent; }
+html[data-theme='day'] body::before { display: none; }
 section.hero-split .lead { margin-bottom: 0; }
 @media (min-width: 961px) {
   section.hero-split h1.hero { font-size: clamp(96px, 8.3vw, 160px); }
 }
 .hero-demo {
   width: 100%;
-  max-width: 600px;
+  max-width: 900px;
   justify-self: end;
 }
 
-.hero-demo video {
+/* Frameless "stage": the video is the cover background of a larger
+   container, lifted off the page by a shadow instead of a border, with
+   a centered play button. Clicking the still (anywhere) starts it; once
+   playing, native controls take over and the overlays fade away. */
+.hero-demo-stage {
+  position: relative;
   width: 100%;
-  display: block;
-  background: #000;
-  border: 1px solid var(--z-line);
-  border-radius: 6px;
-  /* the demo mp4 is 1440x900 — pin the box to its true 8:5 frame so
-     the player never crops or letterboxes the recording */
+  /* the demo mp4 is 1440x900 (8:5); the stage matches it so cover fill
+     neither crops nor letterboxes */
   aspect-ratio: 8 / 5;
-  object-fit: contain;
+  background: #000;
+  /* edge-to-edge video background — no rounded corners, no frame, no border */
+  overflow: hidden;
+  cursor: pointer;
 }
-.hero-demo-caption {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  margin-top: 10px;
-  color: var(--z-mute);
+.hero-demo-stage video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  /* feather the video's outer edges to transparent so its rectangle dissolves
+     into the black hero (no visible boundary) — the actual "integration". The
+     stage's #000 (== the black page) shows through the feathered edge. */
+  -webkit-mask-image: radial-gradient(126% 116% at 50% 47%, #000 66%, transparent 100%);
+          mask-image: radial-gradient(126% 116% at 50% 47%, #000 66%, transparent 100%);
 }
-.hero-demo-caption a {
-  color: var(--z-accent);
-  text-decoration: none;
-  white-space: nowrap;
+/* soft vignette over the still frame; fades out once playing */
+.hero-demo-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(130% 130% at 50% 45%, rgba(0, 0, 0, .10), rgba(0, 0, 0, .58));
+  pointer-events: none;
+  transition: opacity .45s ease;
 }
-.hero-demo-caption a:hover { text-decoration: underline; }
+.hero-demo-stage.is-playing::after { opacity: 0; }
+
+.hero-demo-play {
+  position: absolute;
+  /* centre-left: vertically centred on the left edge */
+  top: 50%;
+  left: 24px;
+  transform: translateY(-50%);
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, .55);
+  background: rgba(12, 12, 14, .42);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  transition: transform .18s ease, background .18s ease, border-color .18s ease, opacity .35s ease;
+}
+.hero-demo-play svg {
+  width: 24px;
+  height: 24px;
+  fill: #fff;
+  margin-left: 3px; /* optically centre the triangle */
+  transition: fill .18s ease;
+}
+.hero-demo-stage:hover .hero-demo-play,
+.hero-demo-play:focus-visible {
+  transform: translateY(-50%) scale(1.08);
+  background: var(--z-accent);
+  border-color: var(--z-accent);
+  outline: none;
+}
+.hero-demo-stage:hover .hero-demo-play svg,
+.hero-demo-play:focus-visible svg { fill: #0b0b0d; }
+.hero-demo-stage.is-playing .hero-demo-play { opacity: 0; pointer-events: none; }
+
+.hero-demo-label {
+  position: absolute;
+  left: 16px;
+  bottom: 13px;
+  font-size: 11px;
+  letter-spacing: .14em;
+  color: rgba(255, 255, 255, .85);
+  text-shadow: 0 1px 5px rgba(0, 0, 0, .7);
+  pointer-events: none;
+  transition: opacity .35s ease;
+}
+.hero-demo-stage.is-playing .hero-demo-label { opacity: 0; }
+
 @media (max-width: 960px) {
-  .hero-demo-caption span { font-size: 10px; }
+  .hero-demo-play { width: 54px; height: 54px; top: 50%; left: 16px; }
+  .hero-demo-play svg { width: 20px; height: 20px; }
 }
 section.section-split .scene { margin-bottom: var(--sp-4); }
 section.section-split p.wide { max-width: none; }
@@ -2166,3 +2259,177 @@ pre.tree .c { color: var(--z-mute); }
   .print-footer a { color: #a06800; text-decoration: none; }
   .print-footer a::after { content: "" !important; }
 }
+
+/* ============================================================
+   INTERACTIVE HERO CHARTS  (charts.js progressive enhancement)
+   ------------------------------------------------------------
+   charts.js upgrades svg.chart[data-chart] in place: hover/focus
+   highlight, click-to-zoom (scatter) / lock (latency), a stat
+   card, a reset button and a keyboard-focusable legend. The
+   static SVG remains the no-JS fallback; these rules only take
+   effect once JS adds .is-interactive to the svg and builds the
+   .chart-wrap / .chart-card / .chart-legend around it. Nothing
+   here can widen the page (card + button are absolutely placed
+   inside .chart-wrap; the legend flex-wraps).
+   ============================================================ */
+
+/* Positioning context so the card + reset button stay inside the
+   chart's own box. Width follows the block-level svg (100%). */
+.chart-wrap { position: relative; width: 100%; }
+
+/* Interactive groups -------------------------------------------------- */
+svg.chart.is-interactive .cl,
+svg.chart.is-interactive .ser {
+  cursor: pointer;
+  transition: opacity .2s ease, color .2s ease;
+}
+svg.chart.is-interactive .cl .cl-dot,
+svg.chart.is-interactive .cl .cl-label,
+svg.chart.is-interactive .ser polyline,
+svg.chart.is-interactive .ser text {
+  transition: opacity .2s ease, stroke-width .2s ease;
+}
+
+/* dim = every non-active group; active = accent + full opacity */
+.cl.is-dim  { opacity: 0.12; }
+.ser.is-dim { opacity: 0.15; }
+
+.cl.is-active { color: var(--z-accent); }
+.cl.is-active .cl-dot { opacity: 1; }
+.cl.is-active .cl-label { color: var(--z-accent); }
+
+.ser.is-active { color: var(--z-accent); }
+.ser.is-active polyline { stroke-opacity: 1; stroke-width: 2; }
+.ser.is-active text { opacity: 1; }
+
+/* Focus-visible outlines on the SVG groups */
+svg.chart.is-interactive .cl:focus-visible,
+svg.chart.is-interactive .ser:focus-visible {
+  outline: 2px solid var(--z-accent);
+  outline-offset: 2px;
+}
+
+/* Stat card ----------------------------------------------------------- */
+.chart-card {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  pointer-events: none;         /* clicks fall through to the background */
+  max-width: 62%;
+  padding: 8px 11px;
+  background: var(--z-bg);
+  border: 1px solid var(--z-line);
+  border-left: 2px solid var(--z-accent);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  font-family: var(--font-mono);
+  opacity: 0;
+  transform: translateY(-3px);
+  transition: opacity .18s ease, transform .18s ease;
+}
+.chart-card.is-shown { opacity: 1; transform: none; }
+.chart-card .cc-title {
+  display: block;
+  font-family: var(--font-data);
+  font-weight: 700;
+  letter-spacing: 1px;
+  font-size: 12px;
+  color: var(--z-accent);
+}
+.chart-card .cc-meta {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--z-mute);
+}
+
+/* Reset button (scatter zoom only) ------------------------------------ */
+.chart-reset {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 3;
+  display: none;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: var(--z-bg);
+  border: 1px solid var(--z-line);
+  color: var(--z-ink);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: color .2s ease, border-color .2s ease;
+}
+.chart-reset.is-shown { display: inline-flex; }
+.chart-reset:hover,
+.chart-reset:focus-visible { color: var(--z-accent); border-color: var(--z-accent); }
+.chart-reset:focus-visible { outline: 2px solid var(--z-accent); outline-offset: 2px; }
+
+/* Legend chips -------------------------------------------------------- */
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 12px;
+}
+.chart-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  padding: 4px 9px;
+  background: transparent;
+  border: 1px solid var(--z-line);
+  color: var(--z-mute);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: color .2s ease, border-color .2s ease;
+}
+.chart-chip:hover,
+.chart-chip.is-active { color: var(--z-ink); border-color: var(--z-accent); }
+.chart-chip[aria-pressed="true"] { color: var(--z-accent); border-color: var(--z-accent); }
+.chart-chip.is-dim { opacity: 0.4; }
+.chart-chip:focus-visible { outline: 2px solid var(--z-accent); outline-offset: 2px; }
+
+.chart-chip .chip-sw {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;     /* tracks chip colour; inline opacity mirrors the cluster */
+}
+.chart-chip .chip-sw-line { width: 14px; height: 3px; border-radius: 1px; }
+.chart-chip.is-active .chip-sw,
+.chart-chip[aria-pressed="true"] .chip-sw { background: var(--z-accent); opacity: 1 !important; }
+.chart-chip .chip-tx { white-space: nowrap; }
+.chart-chip .chip-ct {
+  color: var(--z-mute);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+/* Respect reduced-motion: no transitions (JS also jumps the zoom) */
+@media (prefers-reduced-motion: reduce) {
+  svg.chart.is-interactive .cl,
+  svg.chart.is-interactive .ser,
+  svg.chart.is-interactive .cl .cl-dot,
+  svg.chart.is-interactive .cl .cl-label,
+  svg.chart.is-interactive .ser polyline,
+  svg.chart.is-interactive .ser text,
+  .chart-card,
+  .chart-reset,
+  .chart-chip { transition: none !important; }
+}
+
+/* Keep everything inside 360px viewports (no horizontal overflow) */
+@media (max-width: 480px) {
+  .chart-card { max-width: 80%; padding: 6px 8px; }
+  .chart-card .cc-title { font-size: 11px; }
+  .chart-card .cc-meta { font-size: 10px; }
+  .chart-chip { font-size: 10px; padding: 3px 7px; gap: 6px; }
+}
+
