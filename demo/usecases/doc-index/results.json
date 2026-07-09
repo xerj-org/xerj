@@ -1,0 +1,712 @@
+{
+  "generated_at": "2026-07-09T05:12:07.563Z",
+  "node": "http://localhost:9209",
+  "index": "docfolder",
+  "index_doc_count": 420,
+  "size": 5,
+  "retrieval_mode": "hybrid",
+  "semantic_subquery_errored": false,
+  "xerj_query_example": {
+    "size": 5,
+    "query": {
+      "hybrid": {
+        "queries": [
+          {
+            "query": {
+              "match": {
+                "body_text": "<question>"
+              }
+            }
+          },
+          {
+            "query": {
+              "semantic": {
+                "field": "body",
+                "query": "<question>",
+                "k": 5
+              }
+            }
+          }
+        ],
+        "fusion": "rrf"
+      }
+    }
+  },
+  "index_build_ms": 1339,
+  "honesty": {
+    "embedder": "XERJ built-in embedder is lexical feature-hashing (384-dim cosine), NOT neural; \"semantic\"/robustness wins are word/sub-word overlap, not deep meaning. On plaintext a fair grep of the question's own terms ties it.",
+    "knn": "kNN is exact brute-force at query time (fine at this corpus size).",
+    "baseline": "Baseline is a FAIR shell-only agent: ripgrep over raw bytes for the union of the curated keywords AND the salient tokens of the question itself. It could shell out to pdftotext, but would still lose on format coverage at scale, ranking, per-chunk retrieval, and whole-file context cost.",
+    "context": "Context efficiency is measured ONLY over queries the baseline answers, charging the baseline ONLY the single answer-containing file it must open (statSync(answer_path).size) — never the false-positive files its broad terms also matched (kept as a labelled diagnostic). It is a real win only on large documents (large_literal ≫ 1×) and INVERTS on tiny plaintext files (literal ≈ 1× or below), which is why BOTH buckets are shown side by side. The naive overall ratio flatters the blind baseline — it now literally opens 0 bytes on every query it cannot answer — and is reported for transparency, not as a claim."
+  },
+  "totals": {
+    "queries": 22,
+    "xerj_hits": 21,
+    "baseline_hits": 14,
+    "xerj_coverage_pct": 95.5,
+    "baseline_coverage_pct": 63.6
+  },
+  "per_match_type": {
+    "binary_only": {
+      "total": 7,
+      "xerj_hits": 6,
+      "baseline_hits": 0,
+      "xerj_only": 6,
+      "xerj_coverage_pct": 85.7,
+      "baseline_coverage_pct": 0
+    },
+    "large_literal": {
+      "total": 4,
+      "xerj_hits": 4,
+      "baseline_hits": 3,
+      "xerj_only": 1,
+      "xerj_coverage_pct": 100,
+      "baseline_coverage_pct": 75
+    },
+    "robustness": {
+      "total": 5,
+      "xerj_hits": 5,
+      "baseline_hits": 5,
+      "xerj_only": 0,
+      "xerj_coverage_pct": 100,
+      "baseline_coverage_pct": 100
+    },
+    "literal": {
+      "total": 6,
+      "xerj_hits": 6,
+      "baseline_hits": 6,
+      "xerj_only": 0,
+      "xerj_coverage_pct": 100,
+      "baseline_coverage_pct": 100
+    }
+  },
+  "per_format": {
+    "docx": {
+      "total": 3,
+      "xerj_hits": 2,
+      "baseline_hits": 0,
+      "xerj_coverage_pct": 66.7,
+      "baseline_coverage_pct": 0
+    },
+    "html": {
+      "total": 5,
+      "xerj_hits": 5,
+      "baseline_hits": 5,
+      "xerj_coverage_pct": 100,
+      "baseline_coverage_pct": 100
+    },
+    "md": {
+      "total": 7,
+      "xerj_hits": 7,
+      "baseline_hits": 7,
+      "xerj_coverage_pct": 100,
+      "baseline_coverage_pct": 100
+    },
+    "pdf": {
+      "total": 5,
+      "xerj_hits": 5,
+      "baseline_hits": 0,
+      "xerj_coverage_pct": 100,
+      "baseline_coverage_pct": 0
+    },
+    "txt": {
+      "total": 2,
+      "xerj_hits": 2,
+      "baseline_hits": 2,
+      "xerj_coverage_pct": 100,
+      "baseline_coverage_pct": 100
+    }
+  },
+  "match_type_hits": {
+    "binary_only": {
+      "total": 7,
+      "xerj": 6,
+      "baseline": 0,
+      "xerj_only_wins": 6
+    },
+    "large_literal": {
+      "total": 4,
+      "xerj": 4,
+      "baseline": 3,
+      "xerj_only_wins": 1
+    },
+    "robustness": {
+      "total": 5,
+      "xerj": 5,
+      "baseline": 5,
+      "xerj_only_wins": 0
+    },
+    "literal": {
+      "total": 6,
+      "xerj": 6,
+      "baseline": 6,
+      "xerj_only_wins": 0
+    }
+  },
+  "context_cost": {
+    "method": "Baseline is charged ONLY the size of the single answer-containing file it must open (statSync(answer_path).size) when it hits, else 0. False-positive term-matched files are NOT charged; their total is kept as a labelled diagnostic (diagnostic_all_matched_bytes). grep -n yields a matching line, but to quote/verify an answer reliably an agent opens the whole answer file — that single file is the charge.",
+    "naive_overall": {
+      "note": "flatters the blind baseline — it now literally opens 0 bytes on every query it cannot answer — NOT a claim",
+      "baseline_total_bytes": 202063,
+      "xerj_total_bytes": 79872,
+      "baseline_tokens_approx": 50516,
+      "xerj_tokens_approx": 19968,
+      "ratio_baseline_over_xerj": 2.53
+    },
+    "answerable": {
+      "queries": 14,
+      "baseline_bytes": 202063,
+      "xerj_returned_bytes": 50750,
+      "baseline_tokens_approx": 50516,
+      "xerj_tokens_approx": 12688,
+      "context_ratio_answerable": 3.98
+    },
+    "large_literal": {
+      "queries": 3,
+      "baseline_bytes": 192782,
+      "xerj_returned_bytes": 11180,
+      "xerj_best_passage_bytes": 2250,
+      "context_ratio_large_literal": 17.24,
+      "context_ratio_large_literal_best_passage": 85.68
+    },
+    "literal": {
+      "queries": 6,
+      "baseline_bytes": 4741,
+      "xerj_returned_bytes": 20965,
+      "xerj_best_passage_bytes": 3930,
+      "context_ratio_literal": 0.23,
+      "context_ratio_literal_best_passage": 1.21
+    },
+    "diagnostic_all_matched_bytes": {
+      "note": "DIAGNOSTIC ONLY — sum over ALL queries of the size of EVERY file the baseline's broad terms matched (false-positive files included). This is the pre-fix inflated charge; NOT used in any ratio or claim.",
+      "baseline_all_matched_bytes_total": 4218746
+    }
+  },
+  "latency": {
+    "xerj_p50_ms": 61.23,
+    "xerj_mean_ms": 64.9,
+    "xerj_max_ms": 116.09
+  },
+  "gate": {
+    "pass": true,
+    "checks": {
+      "overall_coverage_ge_baseline": true,
+      "binary_only_strictly_higher": true,
+      "large_literal_context_ratio_gt_1": true
+    },
+    "robustness_tie_note": "robustness reported honestly (XERJ 5/5 vs baseline 5/5); a lexical embedder ties a fair grep — not gated."
+  },
+  "queries": [
+    {
+      "id": "q01",
+      "question": "How many weeks of paid parental leave do employees receive?",
+      "match_type": "binary_only",
+      "answer_format": "pdf",
+      "answer_path": "corpus/hr/handbook.pdf",
+      "expect_substring": "16 weeks",
+      "xerj_hit": true,
+      "baseline_hit": false,
+      "xerj_latency_ms": 116.09,
+      "xerj_returned_bytes": 3433,
+      "xerj_best_passage_bytes": 737,
+      "answer_file_bytes": 32959,
+      "baseline_context_bytes": 0,
+      "baseline_all_matched_bytes": 197133,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/hr/handbook.pdf",
+        "corpus/hr/benefits/leave-policy.docx",
+        "corpus/hr/employee-handbook.html"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "q02",
+      "question": "How many days of paid time off do full-time employees accrue per year?",
+      "match_type": "binary_only",
+      "answer_format": "pdf",
+      "answer_path": "corpus/hr/handbook.pdf",
+      "expect_substring": "22 days",
+      "xerj_hit": true,
+      "baseline_hit": false,
+      "xerj_latency_ms": 71.74,
+      "xerj_returned_bytes": 3771,
+      "xerj_best_passage_bytes": 737,
+      "answer_file_bytes": 32959,
+      "baseline_context_bytes": 0,
+      "baseline_all_matched_bytes": 197808,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/hr/handbook.pdf",
+        "corpus/hr/employee-handbook.html"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "q03",
+      "question": "How many days of bereavement leave are provided per event?",
+      "match_type": "binary_only",
+      "answer_format": "docx",
+      "answer_path": "corpus/hr/benefits/leave-policy.docx",
+      "expect_substring": "5 working days",
+      "xerj_hit": true,
+      "baseline_hit": false,
+      "xerj_latency_ms": 63.15,
+      "xerj_returned_bytes": 3621,
+      "xerj_best_passage_bytes": 693,
+      "answer_file_bytes": 6096,
+      "baseline_context_bytes": 0,
+      "baseline_all_matched_bytes": 197796,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/hr/benefits/leave-policy.docx",
+        "corpus/hr/employee-handbook.html"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "q04",
+      "question": "After how long does an unacknowledged page escalate to the secondary on-call engineer?",
+      "match_type": "binary_only",
+      "answer_format": "docx",
+      "answer_path": "corpus/engineering/oncall-runbook.docx",
+      "expect_substring": "15 minutes",
+      "xerj_hit": true,
+      "baseline_hit": false,
+      "xerj_latency_ms": 74.96,
+      "xerj_returned_bytes": 3661,
+      "xerj_best_passage_bytes": 733,
+      "answer_file_bytes": 6163,
+      "baseline_context_bytes": 0,
+      "baseline_all_matched_bytes": 198770,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/engineering/runbooks/major-incident-runbook.txt",
+        "corpus/engineering/oncall-runbook.docx",
+        "corpus/hr/employee-handbook.html"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "q05",
+      "question": "What is the acknowledgement SLA for a Sev-1 incident?",
+      "match_type": "binary_only",
+      "answer_format": "docx",
+      "answer_path": "corpus/engineering/oncall-runbook.docx",
+      "expect_substring": "within 5 minutes",
+      "xerj_hit": false,
+      "baseline_hit": false,
+      "xerj_latency_ms": 61.92,
+      "xerj_returned_bytes": 3703,
+      "xerj_best_passage_bytes": 809,
+      "answer_file_bytes": 6163,
+      "baseline_context_bytes": 0,
+      "baseline_all_matched_bytes": 196317,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/engineering/api-reference.md",
+        "corpus/engineering/runbooks/major-incident-runbook.txt",
+        "corpus/meetings/2044-q1-planning.txt",
+        "corpus/hr/employee-handbook.html"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "q06",
+      "question": "How long must customer transaction records be retained?",
+      "match_type": "binary_only",
+      "answer_format": "pdf",
+      "answer_path": "corpus/security/data-classification.pdf",
+      "expect_substring": "7 years",
+      "xerj_hit": true,
+      "baseline_hit": false,
+      "xerj_latency_ms": 70.71,
+      "xerj_returned_bytes": 3780,
+      "xerj_best_passage_bytes": 710,
+      "answer_file_bytes": 29326,
+      "baseline_context_bytes": 0,
+      "baseline_all_matched_bytes": 197649,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/security/data-classification.pdf",
+        "corpus/engineering/api-reference.md",
+        "corpus/engineering/runbooks/major-incident-runbook.txt"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "q07",
+      "question": "What is the domestic meal per diem rate?",
+      "match_type": "binary_only",
+      "answer_format": "pdf",
+      "answer_path": "corpus/finance/expense-policy.pdf",
+      "expect_substring": "$75 per day",
+      "xerj_hit": true,
+      "baseline_hit": false,
+      "xerj_latency_ms": 62.48,
+      "xerj_returned_bytes": 3728,
+      "xerj_best_passage_bytes": 693,
+      "answer_file_bytes": 31751,
+      "baseline_context_bytes": 0,
+      "baseline_all_matched_bytes": 196826,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/finance/expense-policy.pdf",
+        "corpus/engineering/architecture/data-pipeline.md",
+        "corpus/engineering/runbooks/major-incident-runbook.txt",
+        "corpus/hr/employee-handbook.html"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "ll01",
+      "question": "How much is the employee referral bonus for a successful hire?",
+      "match_type": "large_literal",
+      "answer_format": "html",
+      "answer_path": "corpus/hr/employee-handbook.html",
+      "expect_substring": "$3,000 per successful hire",
+      "xerj_hit": true,
+      "baseline_hit": true,
+      "xerj_latency_ms": 59.57,
+      "xerj_returned_bytes": 3702,
+      "xerj_best_passage_bytes": 786,
+      "answer_file_bytes": 62204,
+      "baseline_context_bytes": 62204,
+      "baseline_all_matched_bytes": 195057,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/hr/employee-handbook.html",
+        "corpus/meetings/2044-q1-planning.txt",
+        "corpus/engineering/runbooks/major-incident-runbook.txt"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "ll02",
+      "question": "What is the default value of the ingest max_batch_size parameter?",
+      "match_type": "large_literal",
+      "answer_format": "md",
+      "answer_path": "corpus/engineering/api-reference.md",
+      "expect_substring": "defaults to 4096 records",
+      "xerj_hit": true,
+      "baseline_hit": true,
+      "xerj_latency_ms": 60.41,
+      "xerj_returned_bytes": 3765,
+      "xerj_best_passage_bytes": 765,
+      "answer_file_bytes": 64837,
+      "baseline_context_bytes": 64837,
+      "baseline_all_matched_bytes": 195245,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/engineering/api-reference.md",
+        "corpus/engineering/runbooks/major-incident-runbook.txt",
+        "corpus/hr/employee-handbook.html"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "ll03",
+      "question": "How quickly must a public status-page update be posted after declaring a Sev-1?",
+      "match_type": "large_literal",
+      "answer_format": "txt",
+      "answer_path": "corpus/engineering/runbooks/major-incident-runbook.txt",
+      "expect_substring": "within twenty minutes",
+      "xerj_hit": true,
+      "baseline_hit": true,
+      "xerj_latency_ms": 60.08,
+      "xerj_returned_bytes": 3713,
+      "xerj_best_passage_bytes": 699,
+      "answer_file_bytes": 65741,
+      "baseline_context_bytes": 65741,
+      "baseline_all_matched_bytes": 195532,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/engineering/runbooks/major-incident-runbook.txt",
+        "corpus/engineering/oncall-runbook.docx",
+        "corpus/engineering/api-reference.md"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "ll04",
+      "question": "Within how many days must critical vulnerabilities be remediated?",
+      "match_type": "large_literal",
+      "answer_format": "pdf",
+      "answer_path": "corpus/security/information-security-policy.pdf",
+      "expect_substring": "within seven days",
+      "xerj_hit": true,
+      "baseline_hit": false,
+      "xerj_latency_ms": 58.56,
+      "xerj_returned_bytes": 3425,
+      "xerj_best_passage_bytes": 673,
+      "answer_file_bytes": 129864,
+      "baseline_context_bytes": 0,
+      "baseline_all_matched_bytes": 196546,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/security/information-security-policy.pdf",
+        "corpus/hr/employee-handbook.html",
+        "corpus/finance/expense-policy.pdf"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "s01",
+      "question": "What is Northwind's policy on remote work versus coming into the office?",
+      "match_type": "robustness",
+      "answer_format": "md",
+      "answer_path": "corpus/operations/facilities.md",
+      "expect_substring": "three days a week",
+      "xerj_hit": true,
+      "baseline_hit": true,
+      "xerj_latency_ms": 62.32,
+      "xerj_returned_bytes": 3834,
+      "xerj_best_passage_bytes": 751,
+      "answer_file_bytes": 770,
+      "baseline_context_bytes": 770,
+      "baseline_all_matched_bytes": 204563,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/hr/employee-handbook.html",
+        "corpus/operations/facilities.md"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "s02",
+      "question": "How does a user recover access to a locked account?",
+      "match_type": "robustness",
+      "answer_format": "html",
+      "answer_path": "corpus/security/access-control.html",
+      "expect_substring": "self-service portal",
+      "xerj_hit": true,
+      "baseline_hit": true,
+      "xerj_latency_ms": 62.99,
+      "xerj_returned_bytes": 3699,
+      "xerj_best_passage_bytes": 661,
+      "answer_file_bytes": 842,
+      "baseline_context_bytes": 842,
+      "baseline_all_matched_bytes": 196355,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/security/access-control.html",
+        "corpus/hr/employee-handbook.html",
+        "corpus/engineering/runbooks/major-incident-runbook.txt",
+        "corpus/security/information-security-policy.pdf"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "s03",
+      "question": "What developer hardware is issued to a newly hired engineer on their first day?",
+      "match_type": "robustness",
+      "answer_format": "md",
+      "answer_path": "corpus/engineering/onboarding.md",
+      "expect_substring": "16-inch developer workstation",
+      "xerj_hit": true,
+      "baseline_hit": true,
+      "xerj_latency_ms": 60.06,
+      "xerj_returned_bytes": 3781,
+      "xerj_best_passage_bytes": 738,
+      "answer_file_bytes": 832,
+      "baseline_context_bytes": 832,
+      "baseline_all_matched_bytes": 200772,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/engineering/onboarding.md",
+        "corpus/operations/facilities.md",
+        "corpus/hr/employee-handbook.html"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "s04",
+      "question": "Which data store backs the inventory and SKU records?",
+      "match_type": "robustness",
+      "answer_format": "md",
+      "answer_path": "corpus/engineering/architecture/system-overview.md",
+      "expect_substring": "PostgreSQL 15 cluster",
+      "xerj_hit": true,
+      "baseline_hit": true,
+      "xerj_latency_ms": 60.04,
+      "xerj_returned_bytes": 3476,
+      "xerj_best_passage_bytes": 760,
+      "answer_file_bytes": 1105,
+      "baseline_context_bytes": 1105,
+      "baseline_all_matched_bytes": 195368,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/engineering/api-reference.md",
+        "corpus/engineering/architecture/system-overview.md"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "s05",
+      "question": "What can a customer do if they want to send a purchased unit back?",
+      "match_type": "robustness",
+      "answer_format": "html",
+      "answer_path": "corpus/product/faq.html",
+      "expect_substring": "full reimbursement",
+      "xerj_hit": true,
+      "baseline_hit": true,
+      "xerj_latency_ms": 60.88,
+      "xerj_returned_bytes": 3815,
+      "xerj_best_passage_bytes": 781,
+      "answer_file_bytes": 991,
+      "baseline_context_bytes": 991,
+      "baseline_all_matched_bytes": 198030,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/product/faq.html",
+        "corpus/hr/employee-handbook.html",
+        "corpus/engineering/runbooks/major-incident-runbook.txt"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "l01",
+      "question": "What is the default API rate limit?",
+      "match_type": "literal",
+      "answer_format": "md",
+      "answer_path": "corpus/engineering/architecture/data-pipeline.md",
+      "expect_substring": "1000 requests per minute",
+      "xerj_hit": true,
+      "baseline_hit": true,
+      "xerj_latency_ms": 59.43,
+      "xerj_returned_bytes": 3788,
+      "xerj_best_passage_bytes": 743,
+      "answer_file_bytes": 783,
+      "baseline_context_bytes": 783,
+      "baseline_all_matched_bytes": 196826,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/engineering/api-reference.md",
+        "corpus/engineering/architecture/data-pipeline.md",
+        "corpus/engineering/runbooks/major-incident-runbook.txt"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "l02",
+      "question": "What port does the ingest service listen on?",
+      "match_type": "literal",
+      "answer_format": "md",
+      "answer_path": "corpus/engineering/architecture/system-overview.md",
+      "expect_substring": "port 8412",
+      "xerj_hit": true,
+      "baseline_hit": true,
+      "xerj_latency_ms": 61.11,
+      "xerj_returned_bytes": 3867,
+      "xerj_best_passage_bytes": 760,
+      "answer_file_bytes": 1105,
+      "baseline_context_bytes": 1105,
+      "baseline_all_matched_bytes": 200764,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/engineering/api-reference.md",
+        "corpus/engineering/architecture/system-overview.md",
+        "corpus/engineering/runbooks/major-incident-runbook.txt"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "l03",
+      "question": "When is the weekly engineering sync held?",
+      "match_type": "literal",
+      "answer_format": "md",
+      "answer_path": "corpus/meetings/decision-log.md",
+      "expect_substring": "Wednesday at 10:00",
+      "xerj_hit": true,
+      "baseline_hit": true,
+      "xerj_latency_ms": 60.09,
+      "xerj_returned_bytes": 2991,
+      "xerj_best_passage_bytes": 605,
+      "answer_file_bytes": 643,
+      "baseline_context_bytes": 643,
+      "baseline_all_matched_bytes": 195610,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/meetings/decision-log.md",
+        "corpus/engineering/onboarding.md",
+        "corpus/meetings/2044-q1-planning.txt",
+        "corpus/engineering/runbooks/major-incident-runbook.txt"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "l04",
+      "question": "What uptime does the platform SLA guarantee?",
+      "match_type": "literal",
+      "answer_format": "html",
+      "answer_path": "corpus/product/faq.html",
+      "expect_substring": "99.9% uptime",
+      "xerj_hit": true,
+      "baseline_hit": true,
+      "xerj_latency_ms": 58.16,
+      "xerj_returned_bytes": 3623,
+      "xerj_best_passage_bytes": 781,
+      "answer_file_bytes": 991,
+      "baseline_context_bytes": 991,
+      "baseline_all_matched_bytes": 68849,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/product/faq.html",
+        "corpus/support/troubleshooting.md",
+        "corpus/engineering/api-reference.md",
+        "corpus/engineering/runbooks/major-incident-runbook.txt",
+        "corpus/security/information-security-policy.pdf"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "l05",
+      "question": "Who must approve purchases over the standard threshold?",
+      "match_type": "literal",
+      "answer_format": "html",
+      "answer_path": "corpus/finance/procurement.html",
+      "expect_substring": "Director of Operations",
+      "xerj_hit": true,
+      "baseline_hit": true,
+      "xerj_latency_ms": 61.34,
+      "xerj_returned_bytes": 3280,
+      "xerj_best_passage_bytes": 548,
+      "answer_file_bytes": 722,
+      "baseline_context_bytes": 722,
+      "baseline_all_matched_bytes": 198316,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/finance/procurement.html",
+        "corpus/engineering/runbooks/major-incident-runbook.txt",
+        "corpus/security/data-classification.pdf",
+        "corpus/hr/employee-handbook.html",
+        "corpus/legal/contractor-terms.docx"
+      ],
+      "xerj_error": null
+    },
+    {
+      "id": "l06",
+      "question": "What is the Q3 target for warehouse pick accuracy?",
+      "match_type": "literal",
+      "answer_format": "txt",
+      "answer_path": "corpus/product/roadmap.txt",
+      "expect_substring": "99.5% pick accuracy",
+      "xerj_hit": true,
+      "baseline_hit": true,
+      "xerj_latency_ms": 61.68,
+      "xerj_returned_bytes": 3416,
+      "xerj_best_passage_bytes": 493,
+      "answer_file_bytes": 497,
+      "baseline_context_bytes": 497,
+      "baseline_all_matched_bytes": 198614,
+      "xerj_returned": 5,
+      "xerj_cite_paths": [
+        "corpus/meetings/2044-q1-planning.txt",
+        "corpus/engineering/architecture/system-overview.md",
+        "corpus/engineering/api-reference.md",
+        "corpus/product/roadmap.txt"
+      ],
+      "xerj_error": null
+    }
+  ]
+}
