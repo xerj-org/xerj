@@ -1081,6 +1081,8 @@ impl<'a> FastCtx<'a> {
             }
             "auto_date_histogram" => self.exec_auto_date_histogram(params, sub),
             "terms" => self.exec_terms(params, sub),
+            "rare_terms" => self.exec_rare_terms(params, sub),
+            "significant_terms" => self.exec_significant_terms(params, sub),
             "cardinality" => self.exec_cardinality(params, sub),
             "range" => self.exec_range(params, sub),
             "date_range" => self.exec_date_range(params, sub),
@@ -2588,6 +2590,160 @@ impl<'a> FastCtx<'a> {
             "doc_count_error_upper_bound": 0,
             "sum_other_doc_count": 0,
             "buckets": buckets
+        }))
+    }
+
+    // ── rare_terms ───────────────────────────────────────────────────────
+
+    /// Columnar `rare_terms`: `terms` restricted to the low-frequency tail
+    /// (buckets whose GLOBAL `doc_count <= max_doc_count`, default 1).
+    ///
+    /// Brute (`run_rare_terms`) JSON-walks every doc to build `term → doc`
+    /// indices, then keeps the rare tail — O(N) (≈1 s / 100 k docs). This arm
+    /// reuses the exact per-term counting of `exec_terms`' whole-segment
+    /// shortcut (segments' `per_ord_count` + the memtable columnar folder), then
+    /// applies the same rare filter and the same `count asc, key asc` ordering
+    /// and typed-key bucket rendering the brute path uses — so the result is
+    /// byte-identical, just O(distinct terms) instead of O(N).
+    ///
+    /// Deliberately narrow — bails (`None` → exact brute) on anything the
+    /// counting/rendering can't reproduce exactly: sub-aggs (need per-bucket
+    /// docs), `include`/`exclude`/`missing`/`precision` (params_only), a
+    /// non-keyword field (numeric/bool/date term-key subtleties render
+    /// differently), a dotted field, or a memtable shape the columnar folder
+    /// can't count (arrays / `_doc_count` weights). A top-level query filter is
+    /// already gated out by `exec_agg` (rare_terms is not in its allowlist).
+    fn exec_rare_terms(&self, params: &Value, sub: Option<&Value>) -> Option<Value> {
+        if sub.is_some() {
+            return None;
+        }
+        if !params_only(params, &["field", "max_doc_count"]) {
+            return None;
+        }
+        // `exec_agg` only reaches this arm when there is no top-level query
+        // filter (rare_terms is not in the filtered-executor allowlist), so the
+        // corpus is the whole index — matching `run_rare_terms(docs=all_docs)`.
+        debug_assert!(self.top_filter.is_none());
+        let field = params.get("field").and_then(Value::as_str)?;
+        if field.contains('.') {
+            return None;
+        }
+        let max_doc_count = params
+            .get("max_doc_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(1);
+        // Keyword-only: a numeric/bool/date-numeric term column would render its
+        // keys differently from the brute string path.
+        match self.seg_field_kind(field) {
+            Ok(Some(ColKind::Keyword)) | Ok(None) => {}
+            _ => return None,
+        }
+
+        // Whole-corpus per-term counts (identical to `exec_terms`' `!has_row_work`
+        // shortcut): segments' `per_ord_count` + the memtable columnar folder.
+        let mut counts: HashMap<String, u64> = HashMap::new();
+        for seg in &self.segs {
+            match seg.cols.get(field) {
+                Some(Column::Keyword(k)) => {
+                    for (ord, &cnt) in k.per_ord_count.iter().enumerate() {
+                        // Skip empty-string values — `run_rare_terms` drops them
+                        // (`extract_field_values` → `if v.is_empty() continue`).
+                        if cnt > 0 && !k.terms[ord].is_empty() {
+                            *counts.entry(k.terms[ord].clone()).or_default() += cnt as u64;
+                        }
+                    }
+                }
+                None => {}            // field absent in this segment → no terms
+                _ => return None,     // non-keyword column for a keyword field → bail
+            }
+        }
+        match self.idx.memtable.terms_counts_columnar(field) {
+            Some((mem_counts, _missing)) => {
+                for (term, cnt) in mem_counts {
+                    if cnt > 0 && !term.is_empty() {
+                        *counts.entry(term).or_default() += cnt;
+                    }
+                }
+            }
+            // Array-valued field / `_doc_count` weights the columnar folder
+            // can't reproduce → exact brute.
+            None => return None,
+        }
+
+        // Rare filter + brute ordering (`count asc, key asc`, no truncation —
+        // rare_terms has no `size`), mirroring `run_rare_terms`.
+        let mut entries: Vec<(String, u64)> = counts
+            .into_iter()
+            .filter(|(_, c)| *c <= max_doc_count)
+            .collect();
+        entries.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+
+        let buckets: Vec<Value> = entries
+            .into_iter()
+            .map(|(key, count)| {
+                let (typed_key, key_as_string) = typed_term_key(&key);
+                let mut b = Map::new();
+                b.insert("key".to_string(), typed_key);
+                if let Some(kas) = key_as_string {
+                    b.insert("key_as_string".to_string(), json!(kas));
+                }
+                b.insert("doc_count".to_string(), json!(count));
+                Value::Object(b)
+            })
+            .collect();
+
+        Some(json!({ "buckets": buckets }))
+    }
+
+    // ── significant_terms (degenerate no-query case only) ─────────────────
+
+    /// Columnar `significant_terms` for the ONE case that is provably an empty
+    /// result: no top-level query and no `background_filter`, so the foreground
+    /// set equals the background set (the whole index). Every term then has
+    /// `fg_freq == bg_freq`, so the JLH significance score is exactly `0.0` for
+    /// all terms, and with the default `min_doc_count >= 2` (no threshold
+    /// bypass) every term is dropped — brute (`run_significant_terms`) returns
+    /// `{doc_count: N, bg_count: N, buckets: []}`. This arm returns the same in
+    /// O(1)+segment-count instead of the O(N) double JSON walk (≈1 s / 100 k).
+    ///
+    /// Everything else bails to exact brute (`None`): a `background_filter`
+    /// (foreground != background), `min_doc_count <= 1` (threshold bypass keeps
+    /// score-0 terms in a HashMap-order-dependent, non-reproducible order),
+    /// sub-aggs, or any param outside `field`/`size`/`min_doc_count`. A
+    /// top-level query filter is already gated out by `exec_agg`
+    /// (significant_terms is not in its allowlist), which is exactly what makes
+    /// foreground == background here.
+    fn exec_significant_terms(&self, params: &Value, sub: Option<&Value>) -> Option<Value> {
+        if sub.is_some() {
+            return None;
+        }
+        if !params_only(params, &["field", "size", "min_doc_count"]) {
+            return None; // background_filter / include / exclude / … → brute
+        }
+        debug_assert!(self.top_filter.is_none());
+        // Field must exist as a real agg field (keyword or numeric). `None`
+        // (fully unmapped) still yields empty buckets in brute, but keep the arm
+        // to the mapped case so `doc_count`/`bg_count` are unambiguous.
+        params.get("field").and_then(Value::as_str)?;
+        // Default ES `min_doc_count` is 3; only `<= 1` bypasses the score-0
+        // filter (and produces non-reproducible ordering) → brute.
+        let min_doc_count = params
+            .get("min_doc_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(3);
+        if min_doc_count <= 1 {
+            return None;
+        }
+        // Whole-corpus live doc count = brute's `result_docs.len()` ==
+        // `all_docs.len()` (no deletes on the fast path; `run_significant_terms`
+        // counts docs, unweighted). Foreground == background ⇒ every term scores
+        // 0.0 ⇒ empty buckets.
+        let total: u64 = self.segs.iter().map(|s| s.docs as u64).sum::<u64>()
+            + self.idx.memtable.doc_count() as u64;
+        Some(json!({
+            "doc_count": total,
+            "bg_count": total,
+            "buckets": [],
         }))
     }
 

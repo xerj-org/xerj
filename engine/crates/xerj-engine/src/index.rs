@@ -8695,11 +8695,34 @@ impl Index {
                     continue;
                 }
                 let cols = self.dv_columns_for(&segments_dir, &meta.id)?;
-                let col = match cols.get(field_str) {
-                    Some(xerj_storage::doc_values::Column::Numeric(n)) => n,
-                    _ => return None, // abandon — no numeric column
-                };
-                seg_matches = seg_matches.saturating_add(col.range_count(lo, hi, lo_incl, hi_incl));
+                match cols.get(field_str) {
+                    Some(xerj_storage::doc_values::Column::Numeric(n)) => {
+                        seg_matches = seg_matches
+                            .saturating_add(n.range_count(lo, hi, lo_incl, hi_incl));
+                    }
+                    // DATE fields (e.g. `@timestamp`) are date-shaped Keyword dv
+                    // columns, not Numeric — without this arm the shortcut
+                    // abandoned and the stored scan tallied EVERY matching doc
+                    // (O(N), the 340 ms cliff). The sorted epoch shadow gives the
+                    // EXACT count via two bisects (same encoding + bounds
+                    // derivation as the range dv prefilter). `None` from the
+                    // shadow (nulls / ineligible column) abandons → full scan,
+                    // still exact.
+                    Some(xerj_storage::doc_values::Column::Keyword(_)) => {
+                        let shadow = self.sorted_shadow_for(
+                            &segments_dir,
+                            &meta.id,
+                            field_str,
+                            meta.doc_count,
+                        )?;
+                        let (slo, slo_incl, shi, shi_incl) =
+                            shadow_range_bounds(gte.as_ref(), gt.as_ref(), lte.as_ref(), lt.as_ref())?;
+                        seg_matches = seg_matches.saturating_add(shadow_range_count(
+                            &shadow, slo, shi, slo_incl, shi_incl,
+                        ));
+                    }
+                    None => return None, // abandon — field absent in this segment
+                }
             }
 
             // Memtable side — abandon the shortcut if the memtable has
@@ -9119,17 +9142,21 @@ impl Index {
                 _ => None,
             }
         };
-        let gte = parse(gte)?;
-        let gt = parse(gt)?;
-        let lte = parse(lte)?;
-        let lt = parse(lt)?;
+        // Numeric-scale bounds (parse_date_ms → epoch-ms f64) for the
+        // `Column::Numeric` arm. The ORIGINAL `gte/gt/lte/lt` `&Value` params
+        // are left un-shadowed so the date-shadow fallback below can re-derive
+        // its bounds on the shadow's own epoch scale.
+        let gte_n = parse(gte)?;
+        let gt_n = parse(gt)?;
+        let lte_n = parse(lte)?;
+        let lt_n = parse(lt)?;
 
-        let (lo, lo_incl) = match (gte, gt) {
+        let (lo, lo_incl) = match (gte_n, gt_n) {
             (Some(v), _) => (v, true),
             (None, Some(v)) => (v, false),
             (None, None) => (f64::NEG_INFINITY, true),
         };
-        let (hi, hi_incl) = match (lte, lt) {
+        let (hi, hi_incl) = match (lte_n, lt_n) {
             (Some(v), _) => (v, true),
             (None, Some(v)) => (v, false),
             (None, None) => (f64::INFINITY, true),
@@ -9162,10 +9189,32 @@ impl Index {
         }
 
         let cols = self.dv_columns_for(segments_dir, segment_id)?;
-        let Some(Column::Numeric(n)) = cols.get(field) else {
-            return None;
+        let matching: Vec<u32> = match cols.get(field) {
+            Some(Column::Numeric(n)) => n.range_doc_ids(lo, hi, lo_incl, hi_incl),
+            // DATE fields (e.g. `@timestamp`) are stored as date-shaped Keyword
+            // dv columns, NOT `Column::Numeric`, so the arm above missed and the
+            // whole query fell to a full O(N) stored-section scan. Their sorted
+            // epoch shadow uses the SAME `(f64-bits-as-i64, pos)` encoding as
+            // `NumericColumn.sorted` (sorted by f64 value ascending, one entry
+            // per segment doc, built by `build_sort_shadow` only when the column
+            // is dense with no nulls), so the identical O(log n + |matches|)
+            // bisect applies. Bounds are re-derived on the shadow's OWN epoch
+            // scale via `sort_date_normalize` — the exact fn that produced the
+            // shadow keys — so bound and key compare on the same scale (exact
+            // for the consistent-precision date fields every real ES mapping
+            // uses). The stored scan re-tests the full query per admitted
+            // position (`doc_matches_query`), so a superset is always safe; an
+            // unparseable bound or a column with null/absent values (shadow →
+            // `None`) → full scan, still correct.
+            Some(Column::Keyword(k)) => {
+                let seg_doc_count = k.doc_count as u64;
+                let shadow =
+                    self.sorted_shadow_for(segments_dir, segment_id, field, seg_doc_count)?;
+                let (slo, slo_incl, shi, shi_incl) = shadow_range_bounds(gte, gt, lte, lt)?;
+                shadow_range_positions(&shadow, slo, shi, slo_incl, shi_incl)
+            }
+            None => return None,
         };
-        let matching = n.range_doc_ids(lo, hi, lo_incl, hi_incl);
         let built: Arc<HashSet<u32>> = Arc::new(matching.into_iter().collect());
         if self.range_prefilter_cache.len() >= 32 {
             self.range_prefilter_cache.clear();
@@ -16162,6 +16211,113 @@ fn build_sort_shadow(
         }
         None => None,
     }
+}
+
+/// Re-derive a `Range` query's `[lo,hi]` bounds on the sort-shadow's epoch
+/// scale for the date-shaped-Keyword fallback in `build_range_prefilter_cached`.
+///
+/// The shadow's per-doc key is `sort_date_normalize(value).as_f64()`, so a
+/// string bound is normalised with the SAME `sort_date_normalize` function —
+/// bound and key are then byte-identical functions of their date string, and
+/// the bisect is exact for any consistent-precision date field. A numeric bound
+/// is taken verbatim (a raw epoch against an epoch column). Returns `None` for a
+/// bound shape neither date-parseable nor numeric → caller bails to the full
+/// scan (still correct).
+fn shadow_range_bounds(
+    gte: Option<&Value>,
+    gt: Option<&Value>,
+    lte: Option<&Value>,
+    lt: Option<&Value>,
+) -> Option<(f64, bool, f64, bool)> {
+    let key = |v: Option<&Value>| -> Option<Option<f64>> {
+        match v {
+            None => Some(None),
+            Some(Value::Number(n)) => Some(n.as_f64()),
+            Some(Value::String(s)) => {
+                if let Some(f) = sort_date_normalize(s).and_then(|x| x.as_f64()) {
+                    Some(Some(f))
+                } else if let Ok(f) = s.parse::<f64>() {
+                    Some(Some(f))
+                } else {
+                    None // unparseable bound → bail to brute
+                }
+            }
+            _ => None,
+        }
+    };
+    let gte = key(gte)?;
+    let gt = key(gt)?;
+    let lte = key(lte)?;
+    let lt = key(lt)?;
+    let (lo, lo_incl) = match (gte, gt) {
+        (Some(v), _) => (v, true),
+        (None, Some(v)) => (v, false),
+        (None, None) => (f64::NEG_INFINITY, true),
+    };
+    let (hi, hi_incl) = match (lte, lt) {
+        (Some(v), _) => (v, true),
+        (None, Some(v)) => (v, false),
+        (None, None) => (f64::INFINITY, true),
+    };
+    Some((lo, lo_incl, hi, hi_incl))
+}
+
+/// Two binary searches over a sort shadow (`(f64-bits-as-i64, pos)` sorted by
+/// f64 value ascending) collecting the positions whose key falls in the range —
+/// the exact bisect `NumericColumn::range_doc_ids` performs, applied to the
+/// date-shaped-Keyword epoch shadow.
+fn shadow_range_positions(
+    shadow: &[(i64, u32)],
+    lo: f64,
+    hi: f64,
+    lo_incl: bool,
+    hi_incl: bool,
+) -> Vec<u32> {
+    if shadow.is_empty() {
+        return Vec::new();
+    }
+    let lo_idx = if lo_incl {
+        shadow.partition_point(|(v, _)| f64::from_bits(*v as u64) < lo)
+    } else {
+        shadow.partition_point(|(v, _)| f64::from_bits(*v as u64) <= lo)
+    };
+    let hi_idx = if hi_incl {
+        shadow.partition_point(|(v, _)| f64::from_bits(*v as u64) <= hi)
+    } else {
+        shadow.partition_point(|(v, _)| f64::from_bits(*v as u64) < hi)
+    };
+    if lo_idx >= hi_idx {
+        return Vec::new();
+    }
+    shadow[lo_idx..hi_idx].iter().map(|(_, d)| *d).collect()
+}
+
+/// Count-only twin of `shadow_range_positions` — the exact match count via two
+/// `partition_point`s over the date-shaped-Keyword epoch shadow, mirroring
+/// `NumericColumn::range_count`. Used as the authoritative `shortcut_count` for
+/// a `range(<date field>)` so the stored scan can early-break at
+/// `size` instead of tallying every matching doc.
+fn shadow_range_count(
+    shadow: &[(i64, u32)],
+    lo: f64,
+    hi: f64,
+    lo_incl: bool,
+    hi_incl: bool,
+) -> u64 {
+    if shadow.is_empty() {
+        return 0;
+    }
+    let lo_idx = if lo_incl {
+        shadow.partition_point(|(v, _)| f64::from_bits(*v as u64) < lo)
+    } else {
+        shadow.partition_point(|(v, _)| f64::from_bits(*v as u64) <= lo)
+    };
+    let hi_idx = if hi_incl {
+        shadow.partition_point(|(v, _)| f64::from_bits(*v as u64) <= hi)
+    } else {
+        shadow.partition_point(|(v, _)| f64::from_bits(*v as u64) < hi)
+    };
+    (hi_idx.saturating_sub(lo_idx)) as u64
 }
 
 /// The read-path caches a freshly-published segment must be warm in so
