@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ.ai — For AI · the search, data &amp; memory layer for agents</title>
+<link rel="canonical" href="https://xerj.org/for-agents.html">
+
+<meta name="description" content="XERJ is the search, data, and memory layer for AI agents — an Elasticsearch-compatible engine on :9200. Keyword, semantic, vector, and hybrid search plus per-agent memory, in one binary, no external embedding key.">
+<meta property="og:title" content="XERJ.ai — the search, data & memory layer for AI agents">
+<meta property="og:description" content="Six operations an agent needs — search, semantic, vector, hybrid, memory store & recall — over one Elasticsearch-compatible binary. Runnable curl on :9200.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="stylesheet" href="/style.css?v=sc0706">
+</head>
+<body>
+
+<!-- nav -->
+<nav class="nav" aria-label="Primary">
+  <a href="/index.html" class="brand">XERJ.AI</a>
+  <a href="/index.html">HOME</a>
+  <a href="/product.html">PRODUCT</a>
+  <span class="nav-drop">
+    <a href="/use-cases.html">USE CASES</a>
+  </span>
+  <span class="spacer"></span>
+  <a href="/for-agents.html" class="active">FOR AGENTS</a>
+  <a href="/docs/index.html">DOCS</a>
+  <a href="/docs/recipes/index.html">RECIPES</a>
+  <a href="/playground.html">DASHBOARDS</a>
+  <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
+  <span class="theme">
+    <button type="button" data-theme="day">DAY</button>
+    <span class="dash">·</span>
+    <button type="button" data-theme="night" class="active">NIGHT</button>
+  </span>
+</nav>
+
+<!-- HERO ---------------------------------------------------->
+<section class="scene-section">
+  <div class="kicker">
+    <span>FOR AI</span><span class="dash">·</span>
+    <span>BUILD WITH XERJ</span><span class="dash">·</span>
+    <span>PORT 9200</span>
+  </div>
+
+  <h1 class="hero">THE SEARCH · DATA ·<br><span class="accent">MEMORY</span> LAYER<br>FOR AI AGENTS.</h1>
+
+  <p class="lead">
+    An agent needs to find things, find them by meaning, remember what it
+    learns, and recall it later. XERJ is one Elasticsearch-compatible binary
+    that does all four — keyword, semantic, vector, and hybrid search plus a
+    per-agent memory store — over plain HTTP on
+    <span class="mono">:9200</span>. No SDK, no signup, no external embedding
+    key. If your agent can make an HTTP request, it can use XERJ.
+  </p>
+</section>
+
+<!-- HOW AN AGENT TALKS TO IT --------------------------------->
+<section class="scene-section" style="border-top:0;">
+  <div class="kicker"><span>30 SECONDS · STORE, THEN RECALL BY MEANING</span></div>
+  <p class="lead" style="max-width:760px;">
+    Store what an agent learned, then recall it with a question that shares no
+    keywords — no vectors supplied, no index to create first. This is a real
+    run against an empty XERJ.
+  </p>
+<pre class="code">$ curl -sXPOST localhost:9200/_memory/agent-demo \
+    -H 'content-type: application/json' \
+    -d '{"text":"The user prefers metric units and a dark UI theme.","metadata":{"kind":"preference"}}'
+{"created":true,"id":"77eff57b-e432-431c-8b49-8a16b33ab551","namespace":"agent-demo"}
+
+$ curl -sXPOST localhost:9200/_memory/agent-demo/_recall \
+    -H 'content-type: application/json' \
+    -d '{"query":"what display settings does the user like?","semantic":true,"k":1}'
+{"hits":[{"id":"77eff57b-e432-431c-8b49-8a16b33ab551",
+          "metadata":{"kind":"preference"},
+          "score":0.655571460723877,
+          "text":"The user prefers metric units and a dark UI theme."}],
+ "namespace":"agent-demo"}</pre>
+  <p class="lead" style="max-width:760px;">
+    <code class="mono">"semantic":true</code> tells XERJ to embed the question
+    server-side and match by similarity — the recall text never contains the
+    words "display" or "settings".
+  </p>
+</section>
+
+<!-- THREE PILLARS -------------------------------------------->
+<section class="scene-section" style="border-top:0;">
+  <div class="kicker"><span>THREE JOBS · ONE BINARY</span></div>
+  <div class="recipes" style="grid-template-columns:repeat(3,1fr);">
+    <a class="recipe" href="/docs/agents/endpoints.html#search">
+      <span class="num">01 · SEARCH</span>
+      <span class="title">Find anything, four ways</span>
+      <p class="lead">Keyword &amp; structured (<code class="inline">match</code>, <code class="inline">term</code>, <code class="inline">bool</code>), <code class="inline">semantic</code> retrieval by meaning, exact <code class="inline">knn</code> vector search, and <code class="inline">hybrid</code> fusion — all on the same ES-compatible <code class="inline">_search</code> endpoint.</p>
+      <span class="meta">POST /:index/_search</span>
+    </a>
+    <a class="recipe" href="/docs/agents/endpoints.html#data">
+      <span class="num">02 · DATA</span>
+      <span class="title">Index &amp; read your docs</span>
+      <p class="lead">Create indices with <code class="inline">semantic_text</code> and <code class="inline">dense_vector</code> mappings; write with <code class="inline">_doc</code> or NDJSON <code class="inline">_bulk</code>; read, filter, and aggregate. The wire an existing Elasticsearch client already speaks.</p>
+      <span class="meta">PUT /:index · POST /:index/_bulk</span>
+    </a>
+    <a class="recipe" href="/docs/agents/endpoints.html#memory-store">
+      <span class="num">03 · MEMORY</span>
+      <span class="title">Per-agent memory</span>
+      <p class="lead">A dedicated <code class="inline">/_memory/{ns}</code> store — remember a fact, recall it by meaning / keyword / vector, filter by metadata, forget. Each namespace is a physically isolated index, so agents never read each other's memories.</p>
+      <span class="meta">POST /_memory/:ns · /_recall</span>
+    </a>
+  </div>
+</section>
+
+<!-- THE SIX OPS ---------------------------------------------->
+<section class="scene-section" style="border-top:0;">
+  <div class="kicker"><span>THE SIX CANONICAL AGENT OPERATIONS</span></div>
+  <div class="api">
+    <div class="head">OPERATION</div>
+    <div class="head">CALL</div>
+    <div class="head">DOES</div>
+
+    <div class="cell m">xerj_search</div>
+    <div class="cell p">POST /:index/_search</div>
+    <div class="cell dsc">Keyword + structured relevance (BM25 &amp; filters).</div>
+
+    <div class="cell m">xerj_semantic_search</div>
+    <div class="cell p">semantic query</div>
+    <div class="cell dsc">Retrieve by meaning; the server embeds the query text.</div>
+
+    <div class="cell m">xerj_vector_search</div>
+    <div class="cell p">knn</div>
+    <div class="cell dsc">Exact nearest-neighbor over <code class="inline">dense_vector</code>.</div>
+
+    <div class="cell m">xerj_hybrid_search</div>
+    <div class="cell p">hybrid query</div>
+    <div class="cell dsc">Fuse keyword + vector with <code class="inline">rrf</code> / <code class="inline">linear</code>.</div>
+
+    <div class="cell m">xerj_memory_store</div>
+    <div class="cell p">POST /_memory/:ns</div>
+    <div class="cell dsc">Remember a fact (text auto-embedded).</div>
+
+    <div class="cell m">xerj_memory_recall</div>
+    <div class="cell p">POST /_memory/:ns/_recall</div>
+    <div class="cell dsc">Recall top-k by meaning, keyword, or vector.</div>
+  </div>
+  <p class="lead" style="max-width:760px;">
+    Exact request and response shapes for every operation are on the
+    <a href="/docs/agents/endpoints.html">endpoint contract</a>.
+  </p>
+</section>
+
+<!-- HONESTY -------------------------------------------------->
+<section class="scene-section" style="border-top:0;">
+  <div class="kicker"><span>WHAT IS HONEST TO CLAIM</span></div>
+  <p class="lead" style="max-width:760px;">
+    XERJ describes only what actually runs. Two things worth knowing:
+  </p>
+  <ul class="pitch" style="max-width:760px;">
+    <li>The <strong>built-in embedder is deterministic and local</strong> — zero-config and no external key, which is why every example here reproduces offline. For production-grade semantic quality, point a <code class="inline">semantic_text</code> field at your own OpenAI-compatible embeddings endpoint, or pass your own vectors. The request shapes do not change.</li>
+    <li><strong><code class="inline">knn</code> is exact at query time</strong> — every candidate vector is scored, so recall is exact; there is no approximate query-time traversal to tune.</li>
+    <li>Unimplemented paths <strong>fail loudly</strong> — e.g. <code class="inline">hybrid</code> fusion <code class="inline">"learned"</code> returns a clear error instead of silently substituting another strategy.</li>
+  </ul>
+</section>
+
+<!-- RESOURCES ------------------------------------------------>
+<section class="scene-section" style="border-top:0;">
+  <div class="kicker"><span>START BUILDING</span></div>
+  <div class="recipes" style="grid-template-columns:repeat(3,1fr);">
+    <a class="recipe" href="/docs/agents/quickstart.html">
+      <span class="num">QUICKSTART</span>
+      <span class="title">Boot → store → recall → search</span>
+      <p class="lead">Five runnable curl steps against a fresh XERJ, real output at every step.</p>
+    </a>
+    <a class="recipe" href="/docs/agents/endpoints.html">
+      <span class="num">CONTRACT</span>
+      <span class="title">Endpoint reference</span>
+      <p class="lead">Method, path, request body and response shape for all six operations.</p>
+    </a>
+    <a class="recipe" href="/docs/agents/index.html">
+      <span class="num">OVERVIEW</span>
+      <span class="title">Build with XERJ</span>
+      <p class="lead">The mental model and the map of the whole agent surface.</p>
+    </a>
+    <a class="recipe" href="/docs/recipes/agentic-memory.html">
+      <span class="num">RECIPE</span>
+      <span class="title">Give an agent memory</span>
+      <p class="lead">A memory-backed agent — store, recall, filter, forget, per-agent isolation.</p>
+    </a>
+    <a class="recipe" href="/docs/recipes/semantic-search-rag.html">
+      <span class="num">RECIPE</span>
+      <span class="title">Semantic search &amp; RAG</span>
+      <p class="lead">Retrieval by meaning with <code class="inline">semantic_text</code> — no separate vector DB.</p>
+    </a>
+    <a class="recipe" href="/docs/api-es-compat.html">
+      <span class="num">REFERENCE</span>
+      <span class="title">ES-compatible API</span>
+      <p class="lead">The full Elasticsearch-wire surface your existing client already targets.</p>
+    </a>
+  </div>
+</section>
+
+<!-- FOR MACHINES -------------------------------------------->
+<section class="scene-section" style="border-top:0;">
+  <div class="kicker"><span>FOR MACHINES · DISCOVER XERJ</span></div>
+  <p class="lead" style="max-width:760px;">
+    Point a crawler or an agent's tool-discovery step at these. Both are served
+    from the site root and describe the same operations documented above.
+  </p>
+  <ul class="pitch" style="max-width:760px;">
+    <li><a href="/llms.txt"><code class="inline">/llms.txt</code></a> — a plain-text manifest of the base URL, the six agent operations, and the honesty caveats, written for an LLM to read directly.</li>
+    <li><a href="/openapi.json"><code class="inline">/openapi.json</code></a> — an OpenAPI description of the endpoints, for tool/codegen pipelines.</li>
+  </ul>
+</section>
+
+<!-- CTA ------------------------------------------------------>
+<a href="/docs/agents/quickstart.html" class="cta">
+  <span>RUN THE AGENT QUICKSTART</span>
+  <span class="arrow">→</span>
+</a>
+
+<footer class="footer">
+  <span>XERJ.AI · FOR AI · V1.0.0-RC.1</span>
+  <span>ONE BINARY. THREE STORES.</span>
+  <span><a href="/index.html">HOME</a> · <a href="/docs/index.html">DOCS</a> · <a href="/docs/recipes/index.html">RECIPES</a> · <a href="/playground.html">DASHBOARDS</a> &middot; <a href="/llms.txt">LLMS.TXT</a></span>
+</footer>
+
+<script>
+  // Theme toggle — mirrors the site-wide day/night switch.
+  (function () {
+    const root = document.documentElement;
+    for (const btn of document.querySelectorAll('[data-theme]')) {
+      btn.addEventListener('click', () => {
+        const t = btn.getAttribute('data-theme');
+        root.setAttribute('data-theme', t);
+        for (const b of document.querySelectorAll('[data-theme]')) {
+          b.classList.toggle('active', b.getAttribute('data-theme') === t);
+        }
+      });
+    }
+  })();
+</script>
+
+</body>
+</html>

@@ -4179,6 +4179,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "xerj-mcp"
+version = "1.0.0-rc.1"
+dependencies = [
+ "anyhow",
+ "reqwest",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "xerj-query"
 version = "1.0.0-rc.1"
 dependencies = [

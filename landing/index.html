@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>XERJ.ai — AI-native storage for the agent era</title>
+<link rel="canonical" href="https://xerj.org/">
+
 <meta name="description" content="One Rust binary, ES-wire-compatible search + vector + logs. Head-to-head vs Elasticsearch 8.13, wins and losses published in demo/playbooks/SCORECARD.md.">
 <meta property="og:title" content="XERJ.ai — storage for the agent era">
 <meta property="og:description" content="An AI-native, Elasticsearch-wire-compatible search + vector + log engine in Rust. Apache-2.0, no lock-in. Live playground + reproducible head-to-head benchmarks.">
@@ -24,6 +26,7 @@
     <a href="/use-cases.html" class="">USE CASES</a>
   </span>
   <span class="spacer"></span>
+  <a href="/for-agents.html">FOR AGENTS</a>
   <a href="/docs/index.html">DOCS</a>
   <a href="/docs/recipes/index.html">RECIPES</a>
   <a href="/playground.html">DASHBOARDS</a>
@@ -142,7 +145,7 @@
 
   <p class="wide">
     Hybrid search in XERJ isn't an orchestration layer stitching two
-    systems together. BM25 and HNSW share one query tree, one cost
+    systems together. BM25 and vector kNN share one query tree, one cost
     model, one execution pass — with proper RRF score fusion built in,
     not bolted on. The service graph shows real traffic: api-gateway fans
     into five indexes without the double-call to ES + Pinecone.
@@ -244,7 +247,7 @@
   </div>
   <div class="row">
     <div class="k">Vector index</div>
-    <div class="v">HNSW · cosine / L2 / dot · SQ8 / SQ4 / binary quantization · max 16,384 dims (ES caps at 4,096)</div>
+    <div class="v">HNSW graph built at ingest · exact (brute-force) kNN at query time · cosine / L2 / dot · SQ8 / SQ4 / binary quantization · max 16,384 dims (ES caps at 4,096)</div>
   </div>
   <div class="row">
     <div class="k">AI-native</div>
@@ -268,7 +271,7 @@
 <footer class="footer">
   <span>XERJ.AI · V0.1 · 2026</span>
   <span>STORAGE FOR THE AGENT ERA</span>
-  <span><a href="/product.html">PRODUCT</a> · <a href="/docs/index.html">DOCS</a> · <a href="/brand.html">BRAND</a> · <a href="/playground.html">DASHBOARDS</a></span>
+  <span><a href="/product.html">PRODUCT</a> · <a href="/docs/index.html">DOCS</a> · <a href="/brand.html">BRAND</a> · <a href="/playground.html">DASHBOARDS</a> &middot; <a href="/llms.txt">LLMS.TXT</a></span>
 </footer>
 
 <script>

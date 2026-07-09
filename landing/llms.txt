@@ -1,0 +1,79 @@
+# XERJ
+
+> XERJ is an Elasticsearch-compatible search, vector, and memory engine written in Rust. It speaks the Elasticsearch 8.x REST wire protocol, so any ES client library works unchanged — and it adds first-class primitives that AI agents need: semantic search, exact kNN vector search, hybrid retrieval, and namespaced agent memory. No external embedding API key is required: a zero-config built-in embedder ships in the binary.
+
+XERJ is built to be an AI agent's search / data / long-term-memory layer. An agent can point an Elasticsearch client at XERJ, or call the raw REST endpoints below. Everything here is reproducible against a running XERJ node — nothing on this page is aspirational.
+
+- Base URL (Elasticsearch-compatible REST): `http://localhost:9200` (default listen address; substitute your host).
+- Handshake: `GET /` returns `{"version":{"number":"8.13.0", ...},"tagline":"You Know, for Search"}`. XERJ advertises ES 8.13.0 wire compatibility.
+- Native REST surface (non-ES): `http://localhost:8080` (see /docs/api-native.html). The AI operations below all live on the `:9200` ES-compatible surface.
+- Auth: send an API key / basic-auth header if the node was started with auth enabled; a node started `--insecure` needs none.
+
+## Caveats (read before you rely on a capability)
+
+> - **kNN is EXACT at query time.** Vector scoring is an exhaustive brute-force scan over the field. `num_candidates` is accepted for ES compatibility but there is NO approximate HNSW graph traversal / `ef_search` at query time. Results are exact; latency scales with the number of vectors scanned.
+> - **Hybrid fusion is `rrf` or `linear` ONLY.** `fusion:"learned"` is NOT implemented and fails loudly with `hybrid fusion learned is not yet supported; use rrf or linear`. Do not depend on learned fusion.
+> - **The built-in embedder is lexical, not neural.** Semantic search and agent-memory recall use a deterministic feature-hashing embedder (384 dimensions by default, L2-normalised → cosine). It captures word / sub-word overlap, not deep semantic meaning. Point `semantic_text` at an external `inference_id`/`inference_endpoint` if you need neural embeddings.
+
+## Core agent operations
+
+The six canonical operations an agent uses, each grounded in a real endpoint:
+
+- **xerj_search** — lexical / structured search. `POST /{index}/_search` with a standard ES query body, e.g. `{"query":{"match":{"title":"rust search"}}}`. Supports `match`, `match_phrase`, `term`, `terms`, `range`, `bool`, `prefix`, `wildcard`, `exists`, `ids`, `fuzzy`, `query_string`, and more, plus `aggs`, `sort`, `from`/`size`, `_source`, `highlight`.
+- **xerj_semantic_search** — meaning-ish search over a `semantic_text` field (auto-embedded at ingest). `POST /{index}/_search` with `{"query":{"semantic":{"field":"body","query":"how do I rotate keys","k":10}}}`. `k` defaults to 10; `size` controls how many hits are returned.
+- **xerj_vector_search** — exact kNN over a `dense_vector` field. `POST /{index}/_search` with `{"query":{"knn":{"field":"embedding","query_vector":[…],"k":10,"num_candidates":100,"filter":{…}}}}`, or the top-level `{"knn":{…}}` form. Bring your own query vector.
+- **xerj_hybrid_search** — fuse lexical + vector/semantic results. `POST /{index}/_search` with `{"query":{"hybrid":{"queries":[{"query":{"match":{"body":"q"}},"weight":1.0},{"query":{"knn":{…}},"weight":1.0}],"fusion":"rrf"}}}`. `fusion` is `"rrf"` (default, k=60) or `"linear"`.
+- **xerj_memory_store** — write a memory into a namespace. `POST /_memory/{namespace}` with `{"text":"user prefers dark mode","metadata":{…},"id":"opt","vector":[…]?,"dedup":true?,"dedup_threshold":0.95?}`. Text is auto-embedded by the built-in embedder; namespaces are isolated.
+- **xerj_memory_recall** — recall memories by meaning. `POST /_memory/{namespace}/_recall` with `{"query":"what UI theme?","semantic":true,"k":5,"filter":{…}?,"recency_weight":0.2?}`. Modes (in order): explicit `vector` kNN → `semantic:true` (server embeds `query`) → plain `query` text (BM25).
+
+## Endpoint map (Elasticsearch-compatible, :9200)
+
+- `GET /` — node/version handshake (tagline "You Know, for Search").
+- `PUT /{index}` — create an index; body may carry `mappings` (declare `semantic_text` / `dense_vector` fields here).
+- `GET /{index}` · `DELETE /{index}` · `HEAD /{index}` — index get / delete / exists.
+- `PUT /{index}/_mapping` · `GET /{index}/_mapping` — update / read field mappings.
+- `POST /{index}/_doc` — index a document with an auto-generated ID.
+- `PUT /{index}/_doc/{id}` · `GET` · `DELETE` · `HEAD` — index / get / delete / exists a document by ID.
+- `POST /{index}/_update/{id}` — partial / scripted update.
+- `POST /_bulk` and `POST /{index}/_bulk` — bulk index/create/update/delete (NDJSON: action line + doc line).
+- `POST /{index}/_search` (also `GET`) — search: full query DSL, `semantic`, `knn`, `hybrid`, top-level `knn`, `aggs`, `sort`, `_source`, `highlight`.
+- `POST /_search` — search across all indices.
+- `POST /{index}/_count` · `GET /{index}/_count` — count matching docs.
+- `POST /{index}/_delete_by_query` · `POST /{index}/_update_by_query` — bulk mutate by query.
+- `POST /_mget` · `POST /{index}/_mget` — multi-get by ID.
+- `POST /_msearch` — multi-search in one round trip.
+- `POST /_memory/{namespace}` — store a memory (also `GET` list, `DELETE` drop namespace).
+- `POST /_memory/{namespace}/_recall` — recall memories by meaning.
+- `DELETE /_memory/{namespace}/{id}` — forget one memory.
+- `GET /_cluster/health` · `GET /_cat/indices` — health & index listing.
+
+## Key docs
+
+- [Quickstart](https://xerj.org/docs/quickstart.html): install, start a node, first index + search in minutes.
+- [Install](https://xerj.org/docs/install.html): binaries, `/get` installer, supported targets.
+- [ES-compatible API](https://xerj.org/docs/api-es-compat.html): the Elasticsearch REST surface XERJ speaks.
+- [Native API](https://xerj.org/docs/api-native.html): the non-ES `:8080` surface (turbo ingest, schema, admin).
+- [Queries](https://xerj.org/docs/queries.html): supported query DSL, including `semantic`, `knn`, `hybrid`.
+- [Vectors](https://xerj.org/docs/vectors.html): `dense_vector` fields, kNN, quantization.
+- [Aggregations](https://xerj.org/docs/aggregations.html): supported aggregation types.
+- [Ingest](https://xerj.org/docs/ingest.html): bulk, pipelines, and ingest paths.
+- [Migration from Elasticsearch](https://xerj.org/docs/migration-from-es.html): point an existing ES client/workload at XERJ.
+- [Recipes index](https://xerj.org/docs/recipes/index.html): copy-pasteable, validated end-to-end guides.
+
+## Recipes (validated, end-to-end)
+
+- [Semantic search & RAG](https://xerj.org/docs/recipes/semantic-search-rag.html): `semantic_text` field → `semantic` query → grounded generation.
+- [Agent memory](https://xerj.org/docs/recipes/agentic-memory.html): `/_memory` store + recall as an agent's long-term memory.
+- [Passage retrieval](https://xerj.org/docs/recipes/passage-retrieval.html): chunk documents and retrieve the best passages.
+- [Vector search (kNN)](https://xerj.org/docs/recipes/vector-search-knn.html): `dense_vector` + exact kNN with pre-filtering.
+- [Vector quantization](https://xerj.org/docs/recipes/vector-quantization.html): opt into scalar8 (SQ8) to shrink vector memory.
+- [Hybrid search](https://xerj.org/docs/recipes/hybrid-search.html): fuse lexical + vector with RRF or linear fusion.
+- [Log analytics](https://xerj.org/docs/recipes/log-analytics.html): ingest logs and run aggregations.
+- [Anomaly detection](https://xerj.org/docs/recipes/anomaly-detection.html): score records against an anomaly detector.
+- [Continuous anomaly datafeeds](https://xerj.org/docs/recipes/continuous-anomaly-datafeeds.html): stream data through `_ml/datafeeds`.
+- [Migrate from Elasticsearch](https://xerj.org/docs/recipes/migrate-from-elasticsearch.html): move an ES workload onto XERJ.
+
+## Optional
+
+- [Full machine-readable reference](https://xerj.org/llms-full.txt): expanded capability contract, field types, request/response shapes, and the complete endpoint catalogue.
+- [GitHub](https://github.com/xerj-org/xerj): source for the Rust engine and API crates.

@@ -1,3 +1,7 @@
 User-agent: *
 Allow: /
-Sitemap: https://xerj.ai/sitemap.xml
+
+# AI agents: start here — concise capability + API map
+# https://xerj.org/llms.txt  (full reference: /llms-full.txt)
+
+Sitemap: https://xerj.org/sitemap.xml
