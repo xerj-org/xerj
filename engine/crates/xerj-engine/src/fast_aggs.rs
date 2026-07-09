@@ -48,7 +48,8 @@ use crate::aggs::{
     detect_fractional_digits, doc_count_weight, doc_matches_filter, extract_date_ms_values,
     extract_field_values, extract_numeric, extract_numeric_values, format_histogram_key,
     format_number_pattern, format_range_val, get_nested_field, interval_to_ms,
-    is_calendar_interval, matrix_stats_from_rows, next_calendar_bucket, parse_date_ms,
+    is_calendar_interval, java_double_str, matrix_stats_from_rows, next_calendar_bucket,
+    parse_date_ms, parse_offset_ms,
     render_date_format, render_iso_date, resolve_sibling_pipelines, run_pipeline_agg, run_sampler,
     run_top_hits_with_total, typed_term_key,
 };
@@ -1422,7 +1423,8 @@ impl<'a> FastCtx<'a> {
             let values: Map<String, Value> = percents
                 .iter()
                 .map(|&pct| {
-                    let key = format!("{:.1}", pct);
+                    // ES keys with `String.valueOf(double)` — "25.0", "99.99".
+                    let key = java_double_str(pct);
                     let val = match compute(pct) {
                         Some(v) => serde_json::Number::from_f64(v)
                             .map(Value::Number)
@@ -1480,27 +1482,23 @@ impl<'a> FastCtx<'a> {
                 (below / total) * 100.0
             }
         };
+        // ES sorts the requested values ascending before rendering, keys the
+        // keyed map with `String.valueOf(double)` ("200.0"), and renders the
+        // keyed=false key as a double (200.0) — byte-identical to brute
+        // `run_percentile_ranks`.
+        let mut sorted: Vec<f64> = targets.iter().filter_map(Value::as_f64).collect();
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         if keyed {
             let mut result = Map::new();
-            for target in targets {
-                if let Some(t) = target.as_f64() {
-                    result.insert(format!("{}", t), json!(rank_of(t)));
-                }
+            for &t in &sorted {
+                result.insert(java_double_str(t), json!(rank_of(t)));
             }
             Some(json!({ "values": result }))
         } else {
-            let arr: Vec<Value> = targets
+            let arr: Vec<Value> = sorted
                 .iter()
-                .filter_map(|target| target.as_f64())
-                .map(|t| {
-                    let key_json = if t.fract() == 0.0 {
-                        json!(t as i64)
-                    } else {
-                        json!(t)
-                    };
-                    json!({ "key": key_json, "value": rank_of(t) })
-                })
+                .map(|&t| json!({ "key": t, "value": rank_of(t) }))
                 .collect();
             Some(json!({ "values": arr }))
         }
@@ -1699,9 +1697,10 @@ impl<'a> FastCtx<'a> {
     /// columnar `exec_date_histogram` with that fixed interval and annotate the
     /// chosen `interval`.  Byte-identical to brute `run_auto_date_histogram`
     /// (which delegates to `run_date_histogram` the same way) for every case it
-    /// serves.  Only `{field, buckets}` is accepted; the week/month/quarter
-    /// intervals (`7d`/`30d`/`90d`) carry a non-zero grid `offset` that
-    /// `exec_date_histogram` doesn't model, so those bail to brute.
+    /// serves.  Only `{field, buckets}` is accepted.  Multi-unit intervals
+    /// (`3h`/`12h`/`5m`/…/`7d`/`30d`/`90d`) carry the ES min-doc-anchored grid
+    /// `offset` (`auto_date_offset_ms`), which the columnar
+    /// `exec_date_histogram` applies on its fixed-interval grid.
     fn exec_auto_date_histogram(&self, params: &Value, sub: Option<&Value>) -> Option<Value> {
         if !params_only(params, &["field", "buckets"]) {
             return None;
@@ -1770,12 +1769,17 @@ impl<'a> FastCtx<'a> {
         }
 
         let (interval_label, interval_ms) = auto_date_pick_interval(min_ts, max_ts, target_buckets);
-        // 7d/30d/90d need a non-zero grid offset the columnar date_histogram
-        // doesn't model → hand those back to the exact brute path.
-        if auto_date_offset_ms(interval_label, interval_ms, min_ts) != 0 {
-            return None;
+        // Multi-unit intervals (3h/12h/5m/…/7d/30d/90d) carry the ES
+        // min-doc-anchored grid offset (see `auto_date_offset_ms`); pass it to
+        // the columnar date_histogram exactly like the brute path does.
+        let offset_ms = auto_date_offset_ms(interval_label, interval_ms, min_ts);
+        let mut synth = json!({ "field": field, "fixed_interval": interval_label });
+        if offset_ms != 0 {
+            synth
+                .as_object_mut()
+                .unwrap()
+                .insert("offset".to_string(), json!(format!("+{}ms", offset_ms)));
         }
-        let synth = json!({ "field": field, "fixed_interval": interval_label });
         let mut result = self.exec_date_histogram(&synth, sub)?;
         if let Some(obj) = result.as_object_mut() {
             obj.insert("interval".to_string(), json!(interval_label));
@@ -3681,6 +3685,7 @@ impl<'a> FastCtx<'a> {
                 "format",
                 "keyed",
                 "min_doc_count",
+                "offset",
             ],
         ) {
             return None;
@@ -3703,11 +3708,23 @@ impl<'a> FastCtx<'a> {
             .unwrap_or("1d");
         let interval_ms = interval_to_ms(interval_str)?;
         let use_calendar = is_calendar_interval(interval_str);
+        // Fixed-interval grid `offset` (e.g. "+3600000ms" from the
+        // auto_date_histogram anchoring, or a user "+30m"): shift the grid by
+        // `offset_ms`, exactly the brute `to_local`/`to_utc` pair.  Calendar
+        // intervals with an offset keep going through the brute path.
+        let offset_ms = params
+            .get("offset")
+            .and_then(Value::as_str)
+            .and_then(parse_offset_ms)
+            .unwrap_or(0);
+        if offset_ms != 0 && use_calendar {
+            return None;
+        }
         let bucket_of = |ms: i64| -> i64 {
             if use_calendar {
                 calendar_bucket_key(ms, interval_str)
             } else {
-                ms.div_euclid(interval_ms) * interval_ms
+                (ms - offset_ms).div_euclid(interval_ms) * interval_ms + offset_ms
             }
         };
         let next_bucket = |key: i64| -> i64 {

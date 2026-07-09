@@ -5815,7 +5815,9 @@ fn run_percentiles(params: &Value, docs: &[Value]) -> Value {
         let values: serde_json::Map<String, Value> = percents
             .iter()
             .map(|&pct| {
-                let key = format!("{:.1}", pct);
+                // ES keys with `String.valueOf(double)` — "25.0", "99.9",
+                // and "99.99" stays "99.99" (NOT rounded to one decimal).
+                let key = java_double_str(pct);
                 let val = match compute(pct) {
                     Some(v) => serde_json::Number::from_f64(v)
                         .map(Value::Number)
@@ -8807,13 +8809,15 @@ fn run_auto_date_histogram(
     // straddle a boundary occupy two separate buckets.
     let (interval_label, interval_ms) = auto_date_pick_interval(min_ts, max_ts, target_buckets);
 
-    // For non-calendar intervals (ms, s, m, h, d multiples), ES anchors
-    // the bucket grid to the floor-of-day of the earliest doc rather
-    // than epoch 0. For 7d specifically this makes the first bucket
-    // start on the same day as the earliest doc, which the YAML tests
-    // pin to (e.g. expected first bucket = 2020-03-01, the data min).
-    // Compute the required `offset` (ms) relative to the current grid
-    // and pass it through to date_histogram.
+    // For multi-unit intervals (3h/12h, 5m/…/30m, 10s/30s, 7d/30d/90d), ES
+    // anchors the bucket grid to the earliest doc floored to the interval's
+    // BASE unit (hour/minute/second/day) rather than epoch 0 — see
+    // `auto_date_offset_ms`. For 7d this makes the first bucket start on the
+    // same day as the earliest doc, which the YAML tests pin to (e.g.
+    // expected first bucket = 2020-03-01, the data min); for 3h it makes the
+    // first bucket start on the earliest doc's hour (live-ES verified).
+    // Compute the required `offset` (ms) relative to the epoch grid and pass
+    // it through to date_histogram.
     let offset_ms: i64 = auto_date_offset_ms(interval_label, interval_ms, min_ts);
     let offset_str = if offset_ms == 0 {
         String::new()
@@ -8842,13 +8846,34 @@ fn run_auto_date_histogram(
     result
 }
 
+/// The BASE unit (ms) of an `auto_date_histogram` ladder rung: ES builds each
+/// rounding as (unit, innerInterval) — second×{1,10,30}, minute×{1,5,10,30},
+/// hour×{1,3,12}, day×{1,7,30,90} in this ladder's rendering — and both the
+/// bucket-count estimate and the grid anchor operate on unit-floored
+/// timestamps.  Single-unit rungs return their own interval (their grid is
+/// epoch-aligned anyway).
+pub(crate) fn auto_date_unit_ms(interval_label: &str, interval_ms: i64) -> i64 {
+    match interval_label {
+        "10s" | "30s" => 1_000,
+        "5m" | "10m" | "15m" | "30m" => 60_000,
+        "3h" | "12h" => 3_600_000,
+        "7d" | "30d" | "90d" => 86_400_000,
+        _ => interval_ms,
+    }
+}
+
 /// Pick the `auto_date_histogram` rounding interval: the entry from the
-/// `AUTO_DATE_INTERVALS` ladder whose floor-to-floor bucket count over
-/// `[min_ts, max_ts]` is closest to `target_buckets` without exceeding it
-/// (ties break toward the smaller interval — ES's "smallest interval whose
-/// bucket count ≤ target").  Shared by the brute `run_auto_date_histogram`
-/// and the columnar `FastCtx::exec_auto_date_histogram` so both choose the
-/// identical `(label, interval_ms)`.
+/// `AUTO_DATE_INTERVALS` ladder whose bucket count over `[min_ts, max_ts]`
+/// is closest to `target_buckets` without exceeding it (ties break toward
+/// the smaller interval — ES's "smallest interval whose bucket count ≤
+/// target").  The count is taken on ES's grid: timestamps floored to the
+/// rung's BASE unit, grid anchored at the earliest unit bucket (NOT epoch) —
+/// live-ES verified (e.g. a 07:07:13→09:36:59 corpus at buckets:5 yields
+/// `30m` in ES because the min-anchored 30m grid spans exactly 5 buckets,
+/// while the epoch grid would need 6).  Shared by the brute
+/// `run_auto_date_histogram` and the columnar
+/// `FastCtx::exec_auto_date_histogram` so both choose the identical
+/// `(label, interval_ms)`.
 pub(crate) fn auto_date_pick_interval(
     min_ts: i64,
     max_ts: i64,
@@ -8856,9 +8881,10 @@ pub(crate) fn auto_date_pick_interval(
 ) -> (&'static str, i64) {
     AUTO_DATE_INTERVALS
         .iter()
-        .min_by_key(|(_, interval_ms)| {
-            let min_floor = min_ts.div_euclid(*interval_ms) * interval_ms;
-            let max_floor = max_ts.div_euclid(*interval_ms) * interval_ms;
+        .min_by_key(|(label, interval_ms)| {
+            let unit_ms = auto_date_unit_ms(label, *interval_ms);
+            let min_floor = min_ts.div_euclid(unit_ms) * unit_ms;
+            let max_floor = max_ts.div_euclid(unit_ms) * unit_ms;
             let num_buckets = ((max_floor - min_floor) / interval_ms + 1).max(1) as usize;
             let diff = num_buckets as i64 - target_buckets as i64;
             let overflow = if diff > 0 { 1i64 } else { 0 };
@@ -8868,20 +8894,30 @@ pub(crate) fn auto_date_pick_interval(
         .unwrap_or(("1d", 86_400_000))
 }
 
-/// The bucket-grid `offset` (ms) that `auto_date_histogram` applies for the
-/// week/month/quarter intervals (`7d`/`30d`/`90d`) so the first bucket starts
-/// on the earliest doc's day rather than the epoch-anchored grid; zero for
-/// every other interval.  Shared with the fast path so its `offset != 0` bail
-/// exactly matches the brute delegation.
+/// The bucket-grid `offset` (ms) that `auto_date_histogram` applies for every
+/// multi-unit interval so the grid is anchored the way ES anchors it.  ES
+/// (`AutoDateHistogramAggregator` + `InternalAutoDateHistogram.reduce`) rounds
+/// each doc down to the interval's BASE UNIT (second for `10s`/`30s`, minute
+/// for `5m`/`10m`/`15m`/`30m`, hour for `3h`/`12h`, day for `7d`/`30d`/`90d`),
+/// gap-fills, then merges consecutive unit buckets in `innerInterval` groups
+/// anchored at the EARLIEST unit bucket — so e.g. a `3h` grid whose earliest
+/// doc is 19:47 starts at 19:00 (the min doc's hour), NOT the epoch-aligned
+/// 18:00.  Verified against live ES 8.13.4 (auto_date_histogram buckets:24 on
+/// the 100k corpus → first bucket 19:00; plain date_histogram fixed_interval
+/// 3h on the same corpus stays epoch-anchored at 18:00).  Single-unit
+/// intervals (1s/1m/1h/1d/…) are already epoch-aligned, so their offset is 0.
+/// Shared by the brute `run_auto_date_histogram` and the columnar
+/// `FastCtx::exec_auto_date_histogram` so both anchor identically.
 pub(crate) fn auto_date_offset_ms(interval_label: &str, interval_ms: i64, min_ts: i64) -> i64 {
-    if interval_label == "7d" || interval_label == "30d" || interval_label == "90d" {
-        let day_ms = 86_400_000i64;
-        let min_day = min_ts.div_euclid(day_ms) * day_ms;
-        let grid_floor = min_day.div_euclid(interval_ms) * interval_ms;
-        min_day - grid_floor
-    } else {
-        0
+    let unit_ms = auto_date_unit_ms(interval_label, interval_ms);
+    if unit_ms == interval_ms {
+        // 1ms/1s/1m/1h/1d are their own unit (epoch-aligned grid, offset 0);
+        // 1y keeps the epoch-anchored 365d grid (existing behaviour).
+        return 0;
     }
+    let min_unit = min_ts.div_euclid(unit_ms) * unit_ms;
+    let grid_floor = min_unit.div_euclid(interval_ms) * interval_ms;
+    min_unit - grid_floor
 }
 
 // ── Fast DocValues aggregation path ──────────────────────────────────────────
@@ -9936,6 +9972,42 @@ fn run_date_range(
 
 // ── percentile_ranks aggregation ─────────────────────────────────────────────
 
+/// Render a double exactly the way Java's `Double.toString` does — ES keys
+/// its `percentiles` / `percentile_ranks` keyed values-maps with
+/// `String.valueOf(double)`, so `200` becomes `"200.0"`, `99.9` stays
+/// `"99.9"`, `1e7` becomes `"1.0E7"` and `0.0001` becomes `"1.0E-4"`
+/// (live-ES 8.13.4 verified).  Java prints the shortest decimal that
+/// round-trips (same rule as Rust's `{:?}`), plain decimal for
+/// `1e-3 <= |v| < 1e7`, computerized scientific notation (`d.dddE±x`, no `+`,
+/// no zero-padding, at least one fractional digit) outside that range.
+pub(crate) fn java_double_str(v: f64) -> String {
+    if v.is_nan() {
+        return "NaN".to_string();
+    }
+    if v.is_infinite() {
+        return if v > 0.0 { "Infinity" } else { "-Infinity" }.to_string();
+    }
+    if v == 0.0 {
+        return if v.is_sign_negative() { "-0.0" } else { "0.0" }.to_string();
+    }
+    let a = v.abs();
+    if (1e-3..1e7).contains(&a) {
+        // Rust's `{:?}` is the shortest round-trip decimal with a mandatory
+        // fractional part — identical to Java in this range.
+        format!("{:?}", v)
+    } else {
+        // `{:e}` gives `mEx` shortest form (e.g. "1e7", "1.5e-8"); Java wants
+        // an explicit fractional digit and an uppercase `E`.
+        let s = format!("{:e}", v);
+        let (m, e) = s.split_once('e').unwrap_or((s.as_str(), "0"));
+        if m.contains('.') {
+            format!("{}E{}", m, e)
+        } else {
+            format!("{}.0E{}", m, e)
+        }
+    }
+}
+
 fn run_percentile_ranks(params: &Value, docs: &[Value]) -> Value {
     let field = params.get("field").and_then(Value::as_str).unwrap_or("");
     let values = match params.get("values").and_then(Value::as_array) {
@@ -9957,39 +10029,31 @@ fn run_percentile_ranks(params: &Value, docs: &[Value]) -> Value {
     nums.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
     let total = nums.len() as f64;
+    // ES sorts the requested values ascending before rendering (live-ES
+    // verified: values [99.9, 0.5, 200] come back keyed 0.5, 99.9, 200.0).
+    let mut targets: Vec<f64> = values.iter().filter_map(Value::as_f64).collect();
+    targets.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let rank_of = |t: f64| -> f64 {
+        if total == 0.0 {
+            0.0
+        } else {
+            let below = nums.iter().filter(|&&v| v <= t).count() as f64;
+            (below / total) * 100.0
+        }
+    };
     if keyed {
+        // ES keys the map with `String.valueOf(double)` — "200.0", "99.9".
         let mut result = serde_json::Map::new();
-        for target in values {
-            if let Some(t) = target.as_f64() {
-                let rank = if total == 0.0 {
-                    0.0
-                } else {
-                    let below = nums.iter().filter(|&&v| v <= t).count() as f64;
-                    (below / total) * 100.0
-                };
-                result.insert(format!("{}", t), json!(rank));
-            }
+        for &t in &targets {
+            result.insert(java_double_str(t), json!(rank_of(t)));
         }
         json!({"values": result})
     } else {
-        // keyed=false: emit [{key: N, value: P}, ...]
-        let arr: Vec<Value> = values
+        // keyed=false: emit [{key: N, value: P}, ...]; ES renders the key as
+        // a double (200.0), never an integer.
+        let arr: Vec<Value> = targets
             .iter()
-            .filter_map(|target| target.as_f64())
-            .map(|t| {
-                let rank = if total == 0.0 {
-                    0.0
-                } else {
-                    let below = nums.iter().filter(|&&v| v <= t).count() as f64;
-                    (below / total) * 100.0
-                };
-                let key_json = if t.fract() == 0.0 {
-                    json!(t as i64)
-                } else {
-                    json!(t)
-                };
-                json!({ "key": key_json, "value": rank })
-            })
+            .map(|&t| json!({ "key": t, "value": rank_of(t) }))
             .collect();
         json!({ "values": arr })
     }
