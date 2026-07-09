@@ -1,6 +1,40 @@
 # XERJ vs Elasticsearch — DEFINITIVE Full-Matrix Scorecard (2026-07-09)
 
-**This is a MEASUREMENT + compatibility audit. No engine code was changed; nothing was committed.**
+> **UPDATE 2026-07-09 (post-snapshot, commit `0325fb7`) — four ~1s brute aggs flipped LOSS → WIN.**
+> `missing` (642→0.16ms), `median_absolute_deviation` (612→0.29ms), `matrix_stats` (654→2.49ms),
+> `auto_date_histogram` (824→0.13ms) were routed through the columnar doc-values fast path — all four
+> now BEAT ES, ES-YAML gate held 1360/0/3, fast output byte-identical to brute (independently
+> adversarially verified, no fast-but-wrong). **Revised counts: basic aggs 21W/4L/6T; Table A total
+> 36W/31L/10T; GRAND TOTAL 39 WIN / 32 LOSS / 11 TIE.** Caveat: `auto_date_histogram` is a perf-only
+> win — its sub-day bucket-grid anchoring still diverges from ES (epoch-anchored 18:00 vs ES
+> earliest-hour 19:00; a PRE-EXISTING brute-vs-ES gap in shared `run_date_histogram`, tracked as a
+> separate compat fix).
+>
+> **UPDATE 2026-07-09 (batch 2, commit `9379578`) — 2 more aggs flipped LOSS → WIN + a 340ms cliff eliminated.**
+> `rare_terms` (996→0.3ms, 14× ES) and `significant_terms` no-query (1061→0.07ms, 15× ES) are now columnar
+> WINs (exact buckets). `range(@timestamp)`'s 340ms O(N) cliff is **eliminated** → 1.4–3.2ms with EXACT ES
+> hit-parity on every form (gte/lte, gt/lt, open-ended, boundary) via a date-shadow range prefilter +
+> authoritative shadow count — but it stays an honest **LOSS** (~1–3ms behind ES's sub-ms floor; the empty
+> range is now a TIE), so the query W/L count is unchanged while its absolute latency dropped 100×.
+> `significant_terms` WITH a top-level query stays on brute (matching ES's JLH heuristic is high-risk).
+> **Revised counts: basic aggs 23W/2L/6T (only scripted_metric + composite still LOSS); GRAND TOTAL
+> 41 WIN / 30 LOSS / 11 TIE.** The tables below remain the original bd3bb41 snapshot.
+>
+> **UPDATE 2026-07-09 (batch 3) — `function_score(field_value_factor)` flipped LOSS → WIN + a latent correctness bug fixed.**
+> The `function_score{match_all, field_value_factor}` shape was on the brute JSON-parse-everything path:
+> **136.9→1.35ms (~100×), a 47× LOSS becomes a ~2.1× WIN vs ES** (ES 2.92ms). It was also the first fix
+> for the latent scored-top-k defect: the old brute path returned the wrong top-10 (256 arrival-order cap,
+> not the global top-k) AND double-applied the function (`fvf²`) with the wrong factor/modifier order. The
+> new columnar path (walk the numeric doc-values column, score via shared `fvf_score_from_raw`, global
+> TopN heap, F2 hydrate winners) is now **byte-identical to ES 8.13.4 top-10** on the 100k single-segment
+> corpus (same _ids, same order, _score within 1e-6, max_score 0.016213253 on both). ES-YAML gate held
+> **1360/0/3**; the `ln1p(-1)→NaN` error path still bails to brute and returns ES's exact
+> `illegal_argument_exception`. **Revised counts: GRAND TOTAL 42 WIN / 29 LOSS / 11 TIE.** Caveat: only
+> the covered `function_score` shape is fixed; other shapes (max_boost, multiple functions,
+> filter/weight/random_score/script, non-match_all base, deletes present) still bail to the brute path and
+> remain a (correct-for-those-shapes-later) LOSS — tracked with boosting/dis_max/pinned/bool-should/MLT.
+
+**Original MEASUREMENT + compatibility audit at engine `bd3bb41` (pre-`0325fb7`). No engine code was changed for this snapshot; nothing was committed at snapshot time.**
 
 This scorecard **replaces the discredited "81 W / 91" headline number.** That number was a
 mirage: it was measured with the **open-loop, 200 req/s coordinated-omission driver**
