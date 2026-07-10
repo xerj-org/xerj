@@ -47,8 +47,7 @@ static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 #[cfg(not(target_env = "msvc"))]
 #[allow(non_upper_case_globals)]
 #[export_name = "_rjem_malloc_conf"]
-pub static malloc_conf: &[u8] =
-    b"background_thread:true,dirty_decay_ms:1000,muzzy_decay_ms:1000\0";
+pub static malloc_conf: &[u8] = b"background_thread:true,dirty_decay_ms:1000,muzzy_decay_ms:1000\0";
 
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -121,7 +120,7 @@ fn parse_args() -> CliArgs {
 
 fn print_help() {
     println!(
-        "xerj v{} — byte-perfect from design to code\n\
+        "xerj v{} — the unified search engine for AI (Elasticsearch wire-compatible)\n\
          \n\
          USAGE:\n\
              xerj [OPTIONS]\n\
@@ -162,7 +161,7 @@ fn print_banner(cfg: &Config, startup_ms: u128) {
         env!("CARGO_PKG_VERSION")
     );
     println!();
-    println!(" byte-perfect from design to code");
+    println!(" the unified search engine for AI — connect, autoindex, query");
     println!();
     println!(" Native REST  :{} [{}]", cfg.server.rest_port, tls);
     println!(" ES-compat    :{} [{}]", cfg.server.es_compat_port, tls);
