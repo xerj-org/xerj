@@ -406,6 +406,37 @@ fn encode_v2_columns(
             best_cross_dep_source(&dict_encoded, cix, col)
         })
         .collect();
+
+    // CYCLE BREAKER (2026-07, S1 root cause): `best_cross_dep_source`
+    // admits ANY dict-encodable column as a source — including integer
+    // columns that are themselves about to be CrossDep-encoded.  Two
+    // mutually-deterministic low-cardinality integer columns (e.g.
+    // `a = i%5`, `b = (i%5)*7`) each picked the other as source, writing
+    // a dependency CYCLE to disk that `decode_stored_v2` can never
+    // resolve ("cross_dep src not resolved") — the whole stored section
+    // became undecodable and the merge loss-amplifier destroyed every
+    // doc in the segment.  Fix: any column chosen as a CrossDep SOURCE
+    // must materialise in decode pass 1, so clear its OWN cross_dep_src
+    // (it falls back to DictBitpack — it is dict-encodable and
+    // ≤ CROSS_DEP_MAX_SRC_CARDINALITY ≤ DICT_MAX_CARDINALITY by
+    // admission, so the compression give-up is negligible).  This
+    // structurally rules out cycles AND multi-hop forward chains: every
+    // surviving CrossDep target's source is a pass-1 codec.
+    let cross_dep_src: Vec<Option<usize>> = {
+        let chosen_sources: rustc_hash::FxHashSet<usize> =
+            cross_dep_src.iter().flatten().copied().collect();
+        cross_dep_src
+            .iter()
+            .enumerate()
+            .map(|(cix, src)| {
+                if chosen_sources.contains(&cix) {
+                    None
+                } else {
+                    *src
+                }
+            })
+            .collect()
+    };
     let cross_us = t_cross.elapsed().as_micros();
     let t_cols = std::time::Instant::now();
 
@@ -586,27 +617,65 @@ fn decode_stored_v2(body: &[u8]) -> Result<Vec<u8>> {
         col_data.push(values);
     }
 
-    // Second pass: resolve deferred CROSS_DEP columns now that all
+    // Second pass: resolve deferred CROSS_DEP columns now that the pass-1
     // source columns are materialised.
+    //
+    // FIXPOINT (2026-07, S1 decode hardening): the old resolver was a
+    // SINGLE sweep in column-index order — a CrossDep column whose source
+    // was a LATER CrossDep column (forward reference) failed with
+    // "cross_dep src not resolved" and the entire stored section became
+    // undecodable, which the merge path then amplified into wholesale doc
+    // loss.  Now we sweep repeatedly, resolving every column whose source
+    // has materialised, until either all are resolved or a sweep makes no
+    // progress.  No-progress means a true dependency CYCLE on disk
+    // (mathematically unrecoverable — the mode tables of both columns
+    // reference each other's values); we return a hard error so callers
+    // (e.g. the merge loss-firewall) PRESERVE the segment instead of
+    // dropping its docs.  The encode-side cycle breaker stops new cycles
+    // from being written; this loop recovers forward-chain segments
+    // already on disk.
     let col_name_to_ix: HashMap<String, usize> = col_names
         .iter()
         .enumerate()
         .map(|(i, n)| (n.clone(), i))
         .collect();
-    for cix in 0..col_data.len() {
-        if col_data[cix].len() == 1 {
-            if let serde_json::Value::Object(ref m) = col_data[cix][0] {
+    let is_deferred = |col: &Vec<serde_json::Value>| -> Option<Vec<u8>> {
+        if col.len() == 1 {
+            if let serde_json::Value::Object(ref m) = col[0] {
                 if let Some(serde_json::Value::Array(bytes_arr)) = m.get("__deferred_cross_dep__") {
-                    let payload: Vec<u8> = bytes_arr
-                        .iter()
-                        .filter_map(|v| v.as_u64().map(|u| u as u8))
-                        .collect();
-                    let resolved =
-                        decode_cross_dep(&payload, num_docs, &col_data, &col_name_to_ix)?;
-                    col_data[cix] = resolved;
-                    continue;
+                    return Some(
+                        bytes_arr
+                            .iter()
+                            .filter_map(|v| v.as_u64().map(|u| u as u8))
+                            .collect(),
+                    );
                 }
             }
+        }
+        None
+    };
+    loop {
+        let mut progressed = false;
+        let mut still_deferred = 0usize;
+        for cix in 0..col_data.len() {
+            let Some(payload) = is_deferred(&col_data[cix]) else {
+                continue;
+            };
+            match decode_cross_dep(&payload, num_docs, &col_data, &col_name_to_ix)? {
+                Some(resolved) => {
+                    col_data[cix] = resolved;
+                    progressed = true;
+                }
+                None => still_deferred += 1,
+            }
+        }
+        if still_deferred == 0 {
+            break;
+        }
+        if !progressed {
+            return Err(StorageError::Other(anyhow::anyhow!(
+                "cross_dep dependency cycle: {still_deferred} column(s) unresolvable"
+            )));
         }
     }
 
@@ -1073,12 +1142,19 @@ fn encode_cross_dep<B: std::borrow::Borrow<serde_json::Value>>(
     (final_out, true)
 }
 
+/// Decode one deferred CROSS_DEP column.
+///
+/// Returns `Ok(None)` when the SOURCE column is itself a still-deferred
+/// CROSS_DEP placeholder — the fixpoint loop in `decode_stored_v2` retries
+/// it on the next round once the source has materialised.  (Pre-2026-07
+/// this case was a hard error inside a single-pass resolver: any forward
+/// reference or cycle made the whole stored section undecodable.)
 fn decode_cross_dep(
     payload: &[u8],
     num_docs: usize,
     col_data: &[Vec<serde_json::Value>],
     col_name_to_ix: &HashMap<String, usize>,
-) -> Result<Vec<serde_json::Value>> {
+) -> Result<Option<Vec<serde_json::Value>>> {
     if payload.is_empty() {
         return Err(StorageError::Other(anyhow::anyhow!("cross_dep empty")));
     }
@@ -1117,11 +1193,9 @@ fn decode_cross_dep(
         .get(src_ix)
         .ok_or_else(|| StorageError::Other(anyhow::anyhow!("cross_dep src missing")))?;
     if src_col.len() != num_docs {
-        // Source column was itself a CROSS_DEP and not yet resolved.  Caller
-        // should have resolved RHS first.  Bail with a clear error.
-        return Err(StorageError::Other(anyhow::anyhow!(
-            "cross_dep src not resolved"
-        )));
+        // Source column is itself a CROSS_DEP that has not been resolved
+        // yet — tell the fixpoint loop to retry this column next round.
+        return Ok(None);
     }
     let (_src_entries, src_ids) = dict_encode_column(src_col)
         .ok_or_else(|| StorageError::Other(anyhow::anyhow!("cross_dep re-dict src failed")))?;
@@ -1164,7 +1238,7 @@ fn decode_cross_dep(
             result.push(serde_json::Value::Number(v.into()));
         }
     }
-    Ok(result)
+    Ok(Some(result))
 }
 
 fn decode_raw_json(payload: &[u8]) -> Result<Vec<serde_json::Value>> {

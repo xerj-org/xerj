@@ -913,9 +913,32 @@ impl Index {
             for replay_entry in xerj_storage::wal::replay_all_sorted(&wal_dir) {
                 match replay_entry.entry {
                     WalEntry::Index { doc_id, source } => {
-                        mem.remove(&doc_id);
-                        mem.insert(doc_id, &source, &schema.schema, replay_entry.seq_no);
-                        replayed += 1;
+                        // Replay idempotence (2026-07, S2): mirror of the
+                        // storage-memtable rule in `IndexStore::replay_wal`.
+                        // If the version map (segments rebuilt + storage
+                        // replay, which ran inside `IndexStore::open`) shows
+                        // this doc live and SEGMENT-resident at seq >= this
+                        // op, the exact same (or a newer) version is already
+                        // in a segment — the pre-restart shutdown flush
+                        // persisted it while batch-6 delete-pinning kept its
+                        // WAL shard.  Inserting it here created an equal-seq
+                        // FTS-memtable duplicate that inflated term/count
+                        // paths (counts saw both copies; hit lists dedup by
+                        // _id which masked it in search results).
+                        let already_persisted = match store.version_map.get(&doc_id) {
+                            Some(e) => {
+                                !e.deleted
+                                    && e.seq_no >= replay_entry.seq_no
+                                    && &*e.segment_id
+                                        != xerj_storage::version_map::IN_MEMORY_SEGMENT_ID
+                            }
+                            None => false,
+                        };
+                        if !already_persisted {
+                            mem.remove(&doc_id);
+                            mem.insert(doc_id, &source, &schema.schema, replay_entry.seq_no);
+                            replayed += 1;
+                        }
                     }
                     WalEntry::Delete { doc_id } => {
                         mem.remove(&doc_id);
@@ -2660,6 +2683,20 @@ impl Index {
         let mut queue_iter = launch_queue.into_iter();
         let mut pending = queue_iter.next();
 
+        // LOSS FIREWALL (2026-07, S1): count batches that ABORTED because an
+        // input segment could not be fully read (open / decode-stored / parse
+        // failure) or the output could not be written.  Pre-fix, a decode
+        // failure was `warn!(...); continue;` — the merge output was still
+        // committed by `apply_merge`, which REMOVED the unread input segment
+        // from the snapshot and deleted its files: every doc in it was
+        // silently and permanently lost (live-verified: 752 → 254 docs on a
+        // 48-segment forcemerge whose intermediate carried a CrossDep cycle,
+        // see stored_codec.rs).  A merge must never commit unless every input
+        // doc was read — aborted batches keep their inputs untouched and the
+        // pass returns an ERROR so callers (forcemerge HTTP → 500, background
+        // task → error log) hear about it loudly instead of losing data.
+        let failed_batches = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+
         let spawn_one = |batch: Vec<xerj_storage::segment::SegmentId>,
                          metas: Vec<xerj_storage::segment::SegmentMeta>|
          -> JoinHandle<Option<MergeOutput>> {
@@ -2669,6 +2706,7 @@ impl Index {
             let segments_dir_for_task = segments_dir.clone();
             let batch_for_task = batch;
             let metas_for_task = metas;
+            let failed_for_task = Arc::clone(&failed_batches);
 
             tokio::task::spawn_blocking(move || -> Option<MergeOutput> {
                 // Entire merge encode runs on the dedicated SMALL merge
@@ -2754,23 +2792,64 @@ impl Index {
                         min_seq = min_seq.min(meta.min_seq_no);
                         max_seq = max_seq.max(meta.max_seq_no);
                         let seg_path = segments_dir_for_task.join(&meta.seg_path);
+                        // LOSS FIREWALL (S1): every failure to fully read an
+                        // input segment ABORTS the whole batch (`return None`
+                        // — inputs stay live in the snapshot, nothing is
+                        // committed or deleted).  The old `continue` dropped
+                        // the segment's docs from the merge output while
+                        // `apply_merge` still removed the input: silent,
+                        // permanent data loss.
                         let reader = match SegmentReader::open(&seg_path) {
                             Ok(r) => r,
                             Err(e) => {
-                                tracing::warn!(?seg_path, "merge: failed to open segment: {e}");
-                                continue;
+                                tracing::error!(
+                                    ?seg_path,
+                                    "merge ABORTED: failed to open input segment \
+                                     (inputs preserved, no docs dropped): {e}"
+                                );
+                                failed_for_task.fetch_add(1, Ordering::Relaxed);
+                                return None;
                             }
                         };
                         let stored_bytes_raw = match reader.section(SectionType::Stored) {
                             Ok(Some(b)) => b,
-                            _ => continue,
+                            Ok(None) => {
+                                // A doc-less segment legitimately has no
+                                // stored section; a doc-CARRYING one missing
+                                // it would lose docs — abort.
+                                if meta.doc_count == 0 {
+                                    continue;
+                                }
+                                tracing::error!(
+                                    ?seg_path,
+                                    doc_count = meta.doc_count,
+                                    "merge ABORTED: input segment has docs but no \
+                                     stored section (inputs preserved)"
+                                );
+                                failed_for_task.fetch_add(1, Ordering::Relaxed);
+                                return None;
+                            }
+                            Err(e) => {
+                                tracing::error!(
+                                    ?seg_path,
+                                    "merge ABORTED: failed to read stored section \
+                                     (inputs preserved, no docs dropped): {e}"
+                                );
+                                failed_for_task.fetch_add(1, Ordering::Relaxed);
+                                return None;
+                            }
                         };
                         let stored_bytes =
                             match xerj_storage::stored_codec::decode_stored(stored_bytes_raw) {
                                 Ok(b) => b,
                                 Err(e) => {
-                                    tracing::warn!("merge: failed to decode stored section: {e}");
-                                    continue;
+                                    tracing::error!(
+                                        ?seg_path,
+                                        "merge ABORTED: failed to decode stored section \
+                                         (inputs preserved, no docs dropped): {e}"
+                                    );
+                                    failed_for_task.fetch_add(1, Ordering::Relaxed);
+                                    return None;
                                 }
                             };
                         // `Box<RawValue>` uses a serde-private newtype tag that
@@ -2789,10 +2868,13 @@ impl Index {
                             match serde_json::from_slice(&stored_bytes) {
                                 Ok(d) => d,
                                 Err(e) => {
-                                    tracing::warn!(
-                                        "merge: failed to parse stored as RawValue: {e}"
+                                    tracing::error!(
+                                        ?seg_path,
+                                        "merge ABORTED: failed to parse stored as RawValue \
+                                         (inputs preserved, no docs dropped): {e}"
                                     );
-                                    continue;
+                                    failed_for_task.fetch_add(1, Ordering::Relaxed);
+                                    return None;
                                 }
                             };
 
@@ -2800,7 +2882,17 @@ impl Index {
                             let raw_str = raw.get();
                             let id_seq: IdSeq = match serde_json::from_str(raw_str) {
                                 Ok(v) => v,
-                                Err(_) => continue,
+                                Err(e) => {
+                                    // A doc we cannot even extract (_id, _seq_no)
+                                    // from must not be silently dropped either.
+                                    tracing::error!(
+                                        ?seg_path,
+                                        "merge ABORTED: stored doc failed _id/_seq_no \
+                                         parse (inputs preserved): {e}"
+                                    );
+                                    failed_for_task.fetch_add(1, Ordering::Relaxed);
+                                    return None;
+                                }
                             };
                             if id_seq.id.is_empty() {
                                 continue;
@@ -2853,21 +2945,24 @@ impl Index {
                     let mut writer = match SegmentWriter::new(&segments_dir_for_task, 1, 0, 0) {
                         Ok(w) => w,
                         Err(e) => {
-                            tracing::warn!("merge: failed to create writer: {e}");
+                            tracing::error!("merge ABORTED: failed to create writer: {e}");
+                            failed_for_task.fetch_add(1, Ordering::Relaxed);
                             return None;
                         }
                     };
                     let encoded = xerj_storage::stored_codec::encode_stored_v2(&merged_json_buf);
                     drop(merged_json_buf);
                     if let Err(e) = writer.add_section(SectionType::Stored, &encoded) {
-                        tracing::warn!("merge: failed to add section: {e}");
+                        tracing::error!("merge ABORTED: failed to add section: {e}");
+                        failed_for_task.fetch_add(1, Ordering::Relaxed);
                         return None;
                     }
 
                     let merged_meta = match writer.finish(live_doc_count, min_seq, max_seq) {
                         Ok(m) => m,
                         Err(e) => {
-                            tracing::warn!("merge: failed to finish segment: {e}");
+                            tracing::error!("merge ABORTED: failed to finish segment: {e}");
+                            failed_for_task.fetch_add(1, Ordering::Relaxed);
                             return None;
                         }
                     };
@@ -3080,7 +3175,10 @@ impl Index {
                     }
                 }
                 Ok(None) => {}
-                Err(e) => tracing::warn!("merge: spawn_blocking panicked: {e}"),
+                Err(e) => {
+                    tracing::error!("merge: spawn_blocking panicked: {e}");
+                    failed_batches.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                }
             }
             // Top up in_flight.
             if let Some((batch, metas)) = pending.take() {
@@ -3128,6 +3226,25 @@ impl Index {
                     .retain(|k, _| !k.starts_with(&shadow_prefix));
                 self.stored_slices_build_locks.remove(id.as_str());
             }
+        }
+
+        // LOSS FIREWALL (S1): surface aborted batches as a hard error AFTER
+        // the successful batches' cache eviction above (their apply_merge
+        // already committed and must stay coherent).  Aborted batches kept
+        // their input segments — no document was dropped — but the caller
+        // must hear about it: `_forcemerge` returns HTTP 500 instead of
+        // pretending the index converged, and the background merge task
+        // logs an error every pass until the offending segment is repaired.
+        let failed = failed_batches.load(std::sync::atomic::Ordering::Relaxed);
+        if failed > 0 {
+            return Err(EngineError::Common(xerj_common::XerjError::internal(
+                format!(
+                    "merge pass aborted {failed} batch(es): an input segment could not \
+                     be fully read or the output could not be written; input segments \
+                     were preserved (no documents dropped, {merged_batches} other \
+                     batch(es) merged)"
+                ),
+            )));
         }
 
         Ok(merged_batches)
