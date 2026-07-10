@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XERJ.ai — AI-native storage for the agent era</title>
+<title>XERJ.ai — the search engine built for AI agents</title>
 <link rel="canonical" href="https://xerj.org/">
 
-<meta name="description" content="One Rust binary, ES-wire-compatible search + vector + logs. Head-to-head vs Elasticsearch 8.13, wins and losses published in demo/playbooks/SCORECARD.md.">
-<meta property="og:title" content="XERJ.ai — storage for the agent era">
-<meta property="og:description" content="An AI-native, Elasticsearch-wire-compatible search + vector + log engine in Rust. Apache-2.0, no lock-in. Live playground + reproducible head-to-head benchmarks.">
+<meta name="description" content="The search engine built for AI agents. One command — xerj autoindex <folder> — turns mixed-format files into typed, queryable indices with zero config. Agent memory, hybrid retrieval, one Rust binary on the ES wire. Wins and losses published.">
+<meta property="og:title" content="XERJ.ai — the search engine built for AI agents">
+<meta property="og:description" content="Point xerj autoindex at a folder and agents can query it — zero config. Per-agent memory, hybrid BM25 + vector retrieval, one Elasticsearch-wire-compatible Rust binary. Apache-2.0, no lock-in. Verified recipes + reproducible head-to-head benchmarks.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -50,14 +50,16 @@
     <h1 class="hero"><span class="accent">XERJ.</span><br>ONE ENGINE.<br>ZERO STACK.</h1>
 
     <p class="lead">
-      An AI-native search engine for what keyword search can't do —
-      <strong>agent memory</strong>, <strong>semantic search &amp; RAG</strong>,
-      <strong>hybrid</strong> BM25&nbsp;+&nbsp;vector retrieval,
-      <strong>auto-embedding</strong> on ingest, and <strong>anomaly
-      detection</strong> — with no bolt-on vector database and no glue code.
-      One binary that speaks the Elasticsearch wire protocol, released under
-      <strong>Apache&#8209;2.0</strong>: no lock-in, no SSPL, no per-feature
-      gates. Yours to run, fork, and build on.
+      The search engine built for AI agents. Point
+      <code class="inline">xerj&nbsp;autoindex</code> at a folder and it
+      becomes typed, queryable indices — <strong>zero configuration</strong>.
+      Give agents <strong>long-term memory</strong>, <strong>semantic search
+      &amp; RAG</strong>, <strong>hybrid</strong> BM25&nbsp;+&nbsp;vector
+      retrieval, <strong>auto-embedding</strong> on ingest, and
+      <strong>anomaly detection</strong> — no bolt-on vector database, no
+      glue code. One binary that speaks the Elasticsearch wire protocol,
+      released under <strong>Apache&#8209;2.0</strong>: no lock-in, no SSPL,
+      no per-feature gates. Yours to run, fork, and build on.
     </p>
   </div>
 
@@ -87,31 +89,122 @@
   <p class="viz-caption">Five LLM models tracked in real time. P95 latency, 60-second window. Ribbon depth encodes model generation. This is one XERJ query — not five dashboards stitched together.</p>
 </section>
 
-<!-- TICKER — 3 key benchmarks --------------------------------->
-<section class="scene-section" style="border-top:0; padding-top:0;">
-  <div class="ticker">
+<!-- 01 — POINT XERJ AT A FOLDER ------------------------------->
+<section class="scene-section">
+  <div class="kicker"><span class="accent">01</span><span class="dash">·</span><span>POINT XERJ AT A FOLDER · ZERO CONFIG</span></div>
+  <h2 class="scene">ONE COMMAND.<br><span class="accent">ANY FOLDER.</span></h2>
+
+  <p class="wide">
+    The fastest way to make data useful to an AI agent is to not write a
+    pipeline at all. <code class="inline">xerj autoindex &lt;folder&gt;</code>
+    — a subcommand of the same binary — walks the tree, sniffs every file's
+    format by <strong>content</strong> (extensions are never trusted) across
+    13 format families — JSONL, JSON, dialect-sniffed CSV, logs, SQL dumps,
+    SQLite, PDF, DOCX, HTML, XML, YAML, plain text, gzip — infers field
+    types and date encodings from the data itself, writes explicit mappings,
+    and streams everything in with idempotent IDs. Junk files are recorded,
+    never fatal. It ends by writing a catalog index — the data map — so the
+    agent's first question, <em>"what is even in here?"</em>, is answered by
+    the engine. Real captured run:
+  </p>
+
+<pre class="code">$ xerj autoindex ./sample
+autoindex: 4 files (0 MB) under /tmp/xerj-pubpass/sample
+phase A: sniffing + sampling 4 files…
+phase A: 3 datasets inferred, 1 junk/skipped files
+phase B: indexing 3 files with 8 workers → http://localhost:9280
+
+done in 0.2s — 3 datasets, 5801 records live, 0 junk records, 1 junk/skipped files
+  ax-logs                                        5000 docs
+  ax-exports                                      800 docs
+  ax-docs                                           1 docs
+
+next: `xerj autoindex map --url http://localhost:9280` for the data map; search via GET /ax-*/_search</pre>
+
+  <div class="ticker" style="margin-top:var(--sp-6);">
     <div class="tk">
-      <div class="eyebrow">XERJ vs ES · SIEM TOP-IP · P95</div>
-      <div class="value"><span class="accent">1.15×</span> FASTER</div>
-      <div class="hint">terms agg 1.34 ms vs ES 1.54 ms · demo/playbooks/SCORECARD.md</div>
+      <div class="eyebrow">GROUND-TRUTH EXAM · 1,995 FILES / 518 MB</div>
+      <div class="value"><span class="accent">80/81</span> CHECKS</div>
+      <div class="hint">secret-manifest corpus, 25 formats · the one miss: a Shift-JIS file indexed as mojibake</div>
     </div>
     <div class="tk">
-      <div class="eyebrow">XERJ vs ES · COLD START</div>
-      <div class="value"><span class="accent">SUB-SECOND</span> START</div>
-      <div class="hint">static binary · no JVM warm-up, no heap to size</div>
+      <div class="eyebrow">518 MB → LIVE, TYPED INDICES</div>
+      <div class="value"><span class="accent">38.1&nbsp;s</span></div>
+      <div class="hint">31 datasets · 2,018,398 records · ~38–51 s across runs · 33.7k rec/s end-to-end on 923 MB</div>
     </div>
     <div class="tk">
-      <div class="eyebrow">XERJ vs ES · INDEX ON DISK</div>
-      <div class="value"><span class="accent">1.20×</span> SMALLER</div>
-      <div class="hint">index on-disk 672.5 MB vs ES 806.7 MB · demo/playbooks/SCORECARD.md</div>
+      <div class="eyebrow">RESUMABLE · IDEMPOTENT</div>
+      <div class="value"><span class="accent">KILL&nbsp;-9</span> SAFE</div>
+      <div class="hint">journal resume converges to identical final counts · client memory flat ~250 MB at 5× input growth</div>
     </div>
   </div>
-  <p class="viz-caption" style="margin-top:var(--sp-4);"><a class="mono" href="/benchmarks/" style="color:var(--z-mute);">FULL BENCHMARK METHODOLOGY + REPRODUCTION →</a></p>
+
+  <p class="wide" style="margin-top:var(--sp-6);">
+    Honesty first: in a controlled 10-question exam on that 518&nbsp;MB corpus,
+    a XERJ-backed agent scored 9 correct + 1 partial vs a fair grep/python
+    baseline's 10/10 — <strong>a tie on accuracy, not a rout</strong>. What
+    XERJ wins is structural: a full corpus inventory in 4 API calls,
+    sub-second aggregations over millions of rows, and uniform access to
+    SQLite, DOCX, gzip, and decimal-comma CSV through one API — the
+    advantages that matter at scale, over remote/API-only access, and under
+    repeated querying. The pipeline is streaming and resumable, verified on
+    multi-GB corpora.
+  </p>
+  <p class="viz-caption"><a class="mono" href="/docs/recipes/zero-config-autoindex.html" style="color:var(--z-mute);">THE FULL RECIPE, EVERY NUMBER TRACED TO A RUN →</a></p>
 </section>
 
-<!-- 01 — UNIFIED DATA LAYER ---------------------------------->
+<!-- 02 — BUILT FOR AGENTS ------------------------------------->
 <section class="scene-section">
-  <div class="kicker"><span class="accent">01</span><span class="dash">·</span><span>XERJ REPLACES THREE SYSTEMS</span></div>
+  <div class="kicker"><span class="accent">02</span><span class="dash">·</span><span>BUILT FOR AGENTS · MEMORY · RECIPES</span></div>
+  <h2 class="scene">AGENTS ARE<br><span class="accent">THE CUSTOMER.</span></h2>
+
+  <p class="wide">
+    Every operation an agent needs is a plain HTTP call on
+    <span class="mono">:9200</span> — no SDK, no signup, no external
+    embedding key. Store what an agent learns, recall it later by meaning
+    (the built-in embedder is lexical hash-based — honest hybrid
+    lexical+vector retrieval, not neural understanding). Each namespace is
+    physically isolated, so agents never read each other's memories. Real
+    run against an empty XERJ:
+  </p>
+
+<pre class="code">$ curl -sXPOST localhost:9200/_memory/agent-demo \
+    -H 'content-type: application/json' \
+    -d '{"text":"The user prefers metric units and a dark UI theme.","metadata":{"kind":"preference"}}'
+{"created":true,"id":"77eff57b-e432-431c-8b49-8a16b33ab551","namespace":"agent-demo"}
+
+$ curl -sXPOST localhost:9200/_memory/agent-demo/_recall \
+    -H 'content-type: application/json' \
+    -d '{"query":"what display settings does the user like?","semantic":true,"k":1}'
+{"hits":[{"id":"77eff57b-e432-431c-8b49-8a16b33ab551",
+          "score":0.655571460723877,
+          "text":"The user prefers metric units and a dark UI theme."}],  // metadata trimmed
+ "namespace":"agent-demo"}</pre>
+
+  <div class="recipes" style="grid-template-columns:repeat(3,1fr); margin-top:var(--sp-6);">
+    <a class="recipe" href="/docs/recipes/zero-config-autoindex.html">
+      <span class="num">RECIPE · FLAGSHIP</span>
+      <span class="title">Zero-config indexing</span>
+      <p class="lead"><code class="inline">xerj autoindex &lt;folder&gt;</code> — sniffed formats, inferred mappings, a self-describing data map, resumable idempotent ingest.</p>
+    </a>
+    <a class="recipe" href="/docs/recipes/agentic-memory.html">
+      <span class="num">RECIPE</span>
+      <span class="title">Give an agent memory</span>
+      <p class="lead">The <code class="inline">/_memory</code> REST API — store, recall by meaning / keyword / vector, filter, forget, per-agent isolation.</p>
+    </a>
+    <a class="recipe" href="/docs/recipes/index.html">
+      <span class="num">DOCS</span>
+      <span class="title">All 12 recipes</span>
+      <p class="lead">First-class documentation, each validated end-to-end against a live XERJ — RAG, hybrid search, log analytics, anomaly detection, ES migration.</p>
+    </a>
+  </div>
+
+  <p class="viz-caption"><a class="mono" href="/for-agents.html" style="color:var(--z-mute);">THE FULL AGENT SURFACE — SEVEN OPERATIONS + LLMS.TXT →</a></p>
+</section>
+
+<!-- 03 — UNIFIED DATA LAYER ---------------------------------->
+<section class="scene-section">
+  <div class="kicker"><span class="accent">03</span><span class="dash">·</span><span>XERJ REPLACES THREE SYSTEMS</span></div>
   <h2 class="scene">LOGS.<br>VECTORS.<br><span class="accent">AGENT MEMORY.</span></h2>
 
   <p class="wide">
@@ -140,9 +233,9 @@
   </div>
 </section>
 
-<!-- 02 — HYBRID SEARCH ---------------------------------------->
+<!-- 04 — HYBRID SEARCH ---------------------------------------->
 <section class="scene-section">
-  <div class="kicker"><span class="accent">02</span><span class="dash">·</span><span>XERJ NATIVE HYBRID SEARCH</span></div>
+  <div class="kicker"><span class="accent">04</span><span class="dash">·</span><span>XERJ NATIVE HYBRID SEARCH</span></div>
   <h2 class="scene">ONE PASS.<br><span class="accent">ONE HOP.</span></h2>
 
   <p class="wide">
@@ -189,10 +282,10 @@
   </div>
 </section>
 
-<!-- 03 — COST VISIBILITY -------------------------------------->
+<!-- 05 — COST VISIBILITY -------------------------------------->
 <section class="scene-section section-split">
   <div class="split-copy">
-    <div class="kicker"><span class="accent">03</span><span class="dash">·</span><span>XERJ COST VISIBILITY</span></div>
+    <div class="kicker"><span class="accent">05</span><span class="dash">·</span><span>XERJ COST VISIBILITY</span></div>
     <h2 class="scene">WATCH THE<br><span class="accent">MONEY MOVE.</span></h2>
     <p class="wide">
       Spend shouldn't be a monthly surprise. XERJ encodes cost directly
@@ -226,9 +319,32 @@
   </form>
 </section>
 
+<!-- BENCHMARKS — SUPPORTING EVIDENCE -------------------------->
+<section class="scene-section">
+  <div class="kicker"><span class="accent">06</span><span class="dash">·</span><span>SUPPORTING EVIDENCE · XERJ vs ELASTICSEARCH 8.13.4</span></div>
+  <div class="ticker">
+    <div class="tk">
+      <div class="eyebrow">FULL QUERY MATRIX · CLOSED-LOOP · CACHE OFF</div>
+      <div class="value"><span class="accent">45W</span> · 26L · 11T</div>
+      <div class="hint">vs live ES 8.13.4 · losses published too · demo/playbooks/FULL_MATRIX_SCORECARD_2026-07-09.md</div>
+    </div>
+    <div class="tk">
+      <div class="eyebrow">XERJ vs ES · BULK INGEST</div>
+      <div class="value"><span class="accent">1.54×</span> FASTER</div>
+      <div class="hint">same corpus, closed-loop · acked deletes survive SIGTERM/SIGKILL restarts (11/11 crash cells)</div>
+    </div>
+    <div class="tk">
+      <div class="eyebrow">XERJ vs ES · INDEX ON DISK</div>
+      <div class="value"><span class="accent">1.23×</span> SMALLER</div>
+      <div class="hint">index on-disk 9.85 MB vs ES 12.07 MB, same corpus · demo/playbooks/FULL_MATRIX_SCORECARD_2026-07-09.md</div>
+    </div>
+  </div>
+  <p class="viz-caption" style="margin-top:var(--sp-4);">The engine numbers back the use cases up — they are not the product. kNN recall was a 1.00 tie (both exact on this setup). <a class="mono" href="/benchmarks/" style="color:var(--z-mute);">FULL BENCHMARK METHODOLOGY + REPRODUCTION →</a></p>
+</section>
+
 <!-- ENGINE --------------------------------------------------->
-<section class="scene-section" id="engine">
-  <div class="kicker"><span class="accent">04</span><span class="dash">·</span><span>INSIDE XERJ</span></div>
+<section class="scene-section" id="engine" style="border-top:0;">
+  <div class="kicker"><span class="accent">07</span><span class="dash">·</span><span>INSIDE XERJ</span></div>
   <h2 class="scene">ONE BINARY.<br>NO JVM.<br><span class="accent">NO COMPROMISES.</span></h2>
 
   <p class="wide">
@@ -249,7 +365,7 @@
   </div>
   <div class="row">
     <div class="k">Vector index</div>
-    <div class="v">HNSW graph built at ingest · exact (brute-force) kNN at query time · cosine / L2 / dot · SQ8 / SQ4 / binary quantization · max 16,384 dims (ES caps at 4,096)</div>
+    <div class="v">Exact (brute-force) kNN at query time — every candidate scored, recall 1.00, no approximate traversal to tune · cosine / L2 / dot · SQ8 / SQ4 / binary quantization · max 16,384 dims (ES caps at 4,096)</div>
   </div>
   <div class="row">
     <div class="k">AI-native</div>

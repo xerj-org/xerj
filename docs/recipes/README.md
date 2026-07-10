@@ -6,6 +6,7 @@ These are practical "how do I actually do X" recipes, not an API reference (that
 
 | Recipe | What you build | Example |
 |---|---|---|
+| [Zero-config indexing: make any folder AI-searchable](./zero-config-indexing.md) | `xerj autoindex <folder>` — content-sniffed formats, inferred mappings, hostile CSV/HTML/binary handled, a catalog + data map for agents, resumable and idempotent | built into the `xerj` binary — no script needed |
 | [Give an AI agent long-term memory](./agentic-memory.md) | A memory-backed agent using the `/_memory` API (store, semantic + keyword recall, metadata filters, forgetting, per-agent isolation) | [`agent_memory.py`](../examples/agentic-memory/agent_memory.py) |
 | [Semantic search & RAG](./semantic-search-rag.md) | Retrieval by meaning with `semantic_text` (auto-embed on ingest, no separate vector DB) | [`rag_demo.py`](../examples/semantic-search-rag/rag_demo.py) |
 | [Passage retrieval on long docs](./passage-retrieval.md) | `semantic_text` auto-embeds every overlapping passage; a long doc competes on any one of its sections via best-passage (max-sim) scoring — 98% top-3 vs 32% pooled | [`passage_demo.py`](../examples/passage-retrieval/passage_demo.py) |
@@ -17,4 +18,4 @@ These are practical "how do I actually do X" recipes, not an API reference (that
 | [Continuous anomaly datafeeds](./continuous-anomaly-datafeeds.md) | A live `_ml` datafeed that re-scores an index on a timer and stores new anomaly records you poll | [`datafeed_demo.py`](../examples/continuous-anomaly-datafeeds/datafeed_demo.py) |
 | [Migrate from Elasticsearch](./migrate-from-elasticsearch.md) | Point your existing ES client at XERJ — same wire, change the URL | [`migrate_demo.sh`](../examples/migrate-from-elasticsearch/migrate_demo.sh) |
 
-Every example is stdlib-only Python 3 or plain `curl` — no dependencies to install. Start XERJ (`./target/release/xerj --data-dir ./data --insecure`), then run any example.
+Every example is stdlib-only Python 3, plain `curl`, or the `xerj` binary itself — no dependencies to install. Start XERJ (`./target/release/xerj --data-dir ./data --insecure`), then run any example.

@@ -1,16 +1,20 @@
 # XERJ — Full capability & API reference (machine-readable)
 
-> XERJ is an Elasticsearch-compatible search, vector, and memory engine written in Rust.
-> It speaks the Elasticsearch 8.x REST wire protocol and adds AI-native primitives:
-> semantic search, exact kNN vector search, hybrid retrieval, and namespaced agent memory.
-> A zero-config embedder is built into the binary, so semantic search and agent memory
-> work with NO external embedding API key.
+> XERJ is the search engine built for AI agents, written in Rust.
+> One command — `xerj autoindex <folder>` — turns a folder of mixed-format files into
+> typed, queryable, self-describing indices with zero configuration. On top of that,
+> agents get an Elasticsearch-8.x-compatible REST API with AI-native primitives:
+> semantic search, exact kNN vector search, hybrid retrieval, and namespaced agent
+> memory. A zero-config embedder is built into the binary, so semantic search and
+> agent memory work with NO external embedding API key. ES wire compatibility is the
+> transport, not the product.
 
 This document is the expanded, agent-oriented reference. The short front door is at
-/llms.txt. Every endpoint and request shape below is grounded in the running engine
-(xerj-api: es_compat.rs, native.rs, memory_api.rs, router.rs). Where a capability is
-partial, stubbed, or compatibility-only, it is called out explicitly — do not infer
-capabilities that are not stated here.
+/llms.txt. Every endpoint, command, and request shape below is grounded in the running
+engine and CLI (xerj-api: es_compat.rs, native.rs, memory_api.rs, router.rs; the
+`autoindex` subcommand of the `xerj` binary). Where a capability is partial, stubbed,
+or compatibility-only, it is called out explicitly — do not infer capabilities that
+are not stated here.
 
 Canonical domain: xerj.org
 Source: https://github.com/xerj-org/xerj
@@ -22,6 +26,7 @@ Source: https://github.com/xerj-org/xerj
 Surfaces (two independent HTTP routers over separate listeners):
   - Elasticsearch-compatible REST: default http://localhost:9200
       This is the surface AI agents and ES client libraries should use.
+      The `xerj autoindex` CLI is a pure client of this surface.
   - Native XERJ REST:              default http://localhost:8080
       Non-ES endpoints (turbo ingest, schema evolve, admin, metrics).
       See https://xerj.org/docs/api-native.html
@@ -42,6 +47,7 @@ Auth:
   - A node started with `--insecure` requires no auth.
   - Otherwise send the credential the node was configured with (API key or basic auth)
     in the `Authorization` header. See https://xerj.org/docs/security.html
+  - The `autoindex` CLI takes `--api-key <K>` or env `XERJ_API_KEY`.
 
 Content types:
   - JSON for document / search / memory bodies.
@@ -52,9 +58,10 @@ Content types:
 =====================================================================
 
 - kNN vector search is EXACT (brute-force) at query time.
-  Vectors are scanned exhaustively and scored exactly. `num_candidates` is accepted
-  for ES request compatibility, but there is NO approximate HNSW graph traversal and
-  NO `ef_search` at query time. Latency scales with the number of vectors scanned.
+  Vectors are scanned exhaustively and scored exactly (recall 1.00). `num_candidates`
+  is accepted for ES request compatibility, but there is NO approximate HNSW graph
+  traversal and NO `ef_search` at query time. Latency scales with the number of
+  vectors scanned. Never assume ANN-style speed from this engine.
 
 - Hybrid fusion supports `rrf` and `linear` ONLY.
   `fusion:"learned"` is NOT implemented and returns a loud error:
@@ -63,23 +70,96 @@ Content types:
 - The built-in embedder is LEXICAL, not neural.
   It is a deterministic feature-hashing ("hashing vectoriser") embedder: word unigrams
   and intra-word character trigrams hashed into a fixed-width, L2-normalised f32 vector
-  (default 384 dims → cosine similarity). It captures lexical / sub-word overlap, not
-  deep meaning. For neural embeddings, declare `semantic_text` with an external
+  (default 384 dims → cosine similarity). What you get is hybrid lexical+vector
+  retrieval — lexical / sub-word overlap, NOT deep semantic understanding or
+  synonym-level recall. For neural embeddings, declare `semantic_text` with an external
   `inference_id` / `inference_endpoint`, or index your own vectors into a `dense_vector`
   field and use `knn`.
 
+- Ingest scale: streaming and resumable, multi-GB verified — NOT TB-scale end-to-end.
+  The `autoindex` ingest pipeline streams with flat client memory (peak client RSS
+  ~250 MB even at 5× input growth) and resumes after `kill -9` via a journal with
+  idempotent `_id`s. The CLIENT architecture is TB-ready; the SERVER is not yet: it
+  currently retains heap per indexed doc (ticketed defect — OOM around ~42 GB of
+  server heap at ~4.5M docs). Do not plan corpora beyond a few million documents
+  until that fix lands.
+
 - The fully-exercised, AI-core surface is: index & mapping management, `_doc` CRUD,
   `_bulk`, `_search` (full DSL + `semantic`/`knn`/`hybrid`), `_count`, `_mget`,
-  `_msearch`, and the `/_memory` API. Many cluster / _cat / x-pack / _ml / _ccr /
-  _rollup / _watcher / snapshot endpoints exist primarily for Elasticsearch and Kibana
-  CLIENT compatibility and vary in depth; verify the specific behaviour you need against
-  your own node or the docs rather than assuming full parity.
+  `_msearch`, the `/_memory` API, and the `autoindex` CLI. Many cluster / _cat /
+  x-pack / _ml / _ccr / _rollup / _watcher / snapshot endpoints exist primarily for
+  Elasticsearch and Kibana CLIENT compatibility and vary in depth; verify the specific
+  behaviour you need against your own node or the docs rather than assuming full parity.
 
-- No performance or benchmark numbers are asserted here. Measure on your workload.
+- Performance is supporting evidence, not the headline. In a closed-loop, cache-off
+  benchmark vs live Elasticsearch 8.13.4, XERJ measured 45 wins / 26 losses / 11 ties
+  across the full query matrix, with a 1.54× bulk-ingest win, a disk-footprint win,
+  and kNN recall 1.00 (a tie — both exact on that setup). Acked deletes survive
+  SIGTERM/SIGKILL restarts (11/11 adversarial crash cells). Measure on your workload.
 
 =====================================================================
-3. THE SIX CANONICAL AGENT OPERATIONS
+3. THE SEVEN CANONICAL AGENT OPERATIONS
 =====================================================================
+
+--- 3.0 xerj_autoindex — make a folder searchable (CLI, zero config) --
+Ships inside the `xerj` binary itself — no sidecar tool, no Python dependency. It is
+a pure ES-compat HTTP client feature (it does not link the engine), so it works
+against any XERJ endpoint — local, remote, or one you did not start — and cannot
+destabilize the server.
+
+  xerj autoindex <folder> [--url http://localhost:9200] [--api-key K] [--workers N]
+                          [--bulk-mb N] [--prefix ax] [--state-dir P] [--fresh]
+                          [--follow-symlinks] [--max-file-gb N] [--sample N]
+                          [--no-semantic] [--dry-run] [--json] [--quiet]
+  xerj autoindex map      [--url U] [--json] [--dataset SLUG]
+  xerj autoindex status   [--url U] [--state-dir P]
+
+Exit codes: 0 complete · 3 completed-with-junk (junk recorded, never fatal) ·
+2 usage · 1 endpoint unreachable / journal-config mismatch.
+
+Pipeline: walk → sniff → sample → infer → map → extract → bulk → correlate →
+catalog → verify.
+  - Formats are detected by CONTENT SNIFFING (magic bytes) — extensions are never
+    trusted (a JSON file wearing a `.pdf` extension is indexed as JSON; verified).
+    Streaming extractors cover: JSON/JSONL, CSV (dialect detection: comma/semicolon/
+    tab, decimal comma, quoted multiline fields, BOM), structured logs, SQL dumps,
+    SQLite, PDF, DOCX, HTML, XML, YAML, plain text, and gzip-compressed variants.
+  - Types are INFERRED from bounded samples (default 500 records/file, `--sample N`):
+    long/double/boolean/date/keyword/text, keyword-vs-text by cardinality, entity
+    signals (emails, IPs, UUIDs, URLs), and date ENCODINGS — ISO-ms, epoch-ms,
+    nginx CLF, MySQL datetime, RFC-2822 — all normalized to a single typed `date`
+    field (mapped `strict_date_optional_time||epoch_millis`; verified).
+  - Explicit mappings are PUT per dataset before ingest (this is the point: XERJ's
+    dynamic mapping is coarse, so the client infers, maps, validates, and coerces
+    every record before it ships). Prose bodies get `semantic_text` unless
+    `--no-semantic`.
+  - Full files (not just samples) stream through parallel workers into `_bulk`
+    requests with deterministic, idempotent `_id`s.
+  - Cross-dataset key-overlap and time-alignment correlations are detected and
+    recorded, so an agent knows which indices to join before it queries.
+  - Everything discovered is written to the `autoindex-catalog` index: datasets,
+    per-field types/semantics/cardinality/examples, time ranges, correlations, junk
+    files with reasons, and engine gotchas (including the lexical-embedder honesty
+    note). Junk is skipped and recorded, never fatal.
+  - A resume journal (default `~/.xerj/autoindex/<hash>/`, `--state-dir`) makes
+    re-runs safe: a `kill -9` mid-run followed by a re-run converged to identical
+    counts across all datasets, no duplicates (verified).
+
+Agent discovery flow:
+  1. xerj autoindex /data --url http://host:9200
+  2. xerj autoindex map --url http://host:9200 --json     # or:
+     GET  /_cat/indices                                    # list the new ax-* indices
+     POST /autoindex-catalog/_search                       # the raw self-describing catalog
+  3. POST /ax-*/_search with any operation in this section.
+  4. Re-run any time; `xerj autoindex status` shows journal + live counts.
+
+Verified results (all trace to recorded runs, 2026-07-09):
+  - 80/81 itemized ground-truth checks on a 1,995-file / 518 MB / 25-format corpus
+    with a secret manifest. The one miss: a Shift-JIS note indexed as mojibake.
+  - 518 MB → 31 datasets / 2,018,398 records in ~38–51 s across runs.
+  - Whole-pipeline 33.7k records/s on a 923 MB corpus (server-bound, not
+    extractor-bound); client peak RSS flat ~250 MB at 5× input growth.
+  - Scale caveat: see §2 (server-side ingest heap is the current end-to-end limit).
 
 --- 3.1 xerj_search — lexical / structured search -------------------
 POST /{index}/_search
@@ -159,8 +239,55 @@ Other memory endpoints:
   DELETE /_memory/{namespace}          → drop the whole namespace: { "namespace","dropped":bool }
 
 =====================================================================
-4. INDEX & MAPPING — declaring AI fields
+4. USE CASES & RECIPES  (first-class documentation)
 =====================================================================
+
+Recipes are copy-pasteable, end-to-end validated guides — every command and number
+in them was captured from a live run. Catalog: https://xerj.org/docs/recipes/index.html
+
+Flagship — zero-config folder indexing:
+  https://xerj.org/docs/recipes/zero-config-autoindex.html
+  One command over a folder of hostile mixed-format files (decimal-comma CSV,
+  binary junk, HTML, JSONL logs) → typed indices + a data map → real questions
+  answered with plain ES queries. Evaluation artifacts (methodology, transcripts,
+  scale-prover harness): https://github.com/xerj-org/xerj/tree/main/demo/usecases/autoindex
+  Honest evaluation (fair-baseline discipline; ground truth pre-recorded before any
+  agent ran): a Claude Code agent with only the XERJ API scored 9 correct + 1 partial
+  of 10 vs a grep/python baseline's 10/10 on a 518 MB LOCAL corpus — a tie on
+  accuracy, not a rout. XERJ's genuine wins were structural: zero-config orientation
+  (complete folder inventory in 4 API calls), sub-second aggregations over millions
+  of rows, and uniform access to binary/hostile formats (SQLite, DOCX, gzip,
+  semicolon/decimal-comma CSV appear as ordinary indices). grep was fine for
+  narrative lookups and strictly better at byte-level forensics. The structural
+  advantages are expected to matter most at larger scale, over remote/API-only
+  access, and under repeated querying — scenarios the exam did not test. The claim
+  is zero-config parity plus better aggregation ergonomics, not "beats grep at
+  everything".
+
+Agent memory:
+  https://xerj.org/docs/recipes/agentic-memory.html
+  `/_memory` store + recall (§3.5–3.6) as an agent's persistent long-term memory:
+  namespaces, dedup, metadata filters, recency blending.
+
+Document-folder indexing (prior use case):
+  https://xerj.org/docs/recipes/document-folder-index.html
+  Recursive PDF/DOCX/HTML/MD/TXT → extract + chunk + auto-embed → ranked, cited
+  passages. Measured 21/22 questions answered vs a fair grep baseline's 14/22;
+  the decisive win is binary_only 6/7 vs 0/7 (grep is structurally blind to binary
+  PDF/DOCX); the differently-phrased set is an honest tie because the built-in
+  embedder is lexical, not neural.
+
+Also validated end-to-end: semantic search & RAG, passage retrieval, vector search
+(kNN), vector quantization (SQ8), hybrid search, log analytics, anomaly detection,
+continuous anomaly datafeeds, migrate-from-Elasticsearch — all linked from the
+recipes index above.
+
+=====================================================================
+5. INDEX & MAPPING — declaring AI fields
+=====================================================================
+
+(`xerj autoindex` does all of this for you from inference; this section is for
+declaring fields yourself.)
 
 Create an index with AI-capable fields:
   PUT /articles
@@ -191,7 +318,7 @@ Supported mapping field types (ES type string → internal):
   dense_vector, semantic_text, geo_point, binary, nested, object (default for unknown types).
 
 =====================================================================
-5. SEARCH DSL — supported query types
+6. SEARCH DSL — supported query types
 =====================================================================
 
 Full-text / term-level:
@@ -213,7 +340,7 @@ Aggregations:
   date_histogram, percentiles, filter, missing, composite.
 
 =====================================================================
-6. ENDPOINT CATALOGUE (Elasticsearch-compatible surface, :9200)
+7. ENDPOINT CATALOGUE (Elasticsearch-compatible surface, :9200)
 =====================================================================
 
 Cluster / node / cat:
@@ -270,6 +397,14 @@ Agent memory (see §3.5–3.6):
   POST     /_memory/{namespace}/_recall
   DELETE   /_memory/{namespace}/{id}
 
+Autoindex artifacts (written by the `xerj autoindex` CLI, §3.0 — ordinary indices,
+query them like any other):
+  POST /autoindex-catalog/_search         the self-describing catalog: datasets,
+                                          per-field types/semantics/cardinality/
+                                          examples, time ranges, cross-dataset
+                                          correlations, junk report, engine gotchas
+  POST /ax-*/_search                      the indexed datasets (default `--prefix ax`)
+
 Compatibility surfaces (ES/Kibana clients; depth varies — verify against your node):
   _snapshot/*, _ilm/policy/*, _data_stream/*, _enrich/policy/*, _watcher/*,
   _transform/*, _rollup/*, _ccr/*, _ml/anomaly_detectors/*, _ml/datafeeds/*,
@@ -281,10 +416,14 @@ Native surface (:8080) highlights (see /docs/api-native.html):
   GET  /v1/health, GET /v1/metrics (Prometheus), GET/POST schema & pipeline mgmt.
 
 =====================================================================
-7. MINIMAL END-TO-END (semantic + memory)
+8. MINIMAL END-TO-END (autoindex + semantic + memory)
 =====================================================================
 
-# 1. create an index with a semantic field
+# 0. make an existing folder searchable — one command, zero config
+xerj autoindex ~/my-data-folder            # then: xerj autoindex map
+# → ax-* indices + the autoindex-catalog index, queryable below
+
+# 1. or declare an index with a semantic field yourself
 PUT /notes  { "mappings": { "properties": { "body": { "type": "semantic_text" } } } }
 
 # 2. ingest (body auto-embeds)
@@ -300,9 +439,13 @@ POST /_memory/agent-42  { "text": "user asked about key rotation cadence" }
 POST /_memory/agent-42/_recall  { "query": "what did they ask about security", "semantic": true, "k": 3 }
 
 =====================================================================
-8. FURTHER READING
+9. FURTHER READING
 =====================================================================
   Quickstart .............. https://xerj.org/docs/quickstart.html
+  Recipes (use cases) ..... https://xerj.org/docs/recipes/index.html
+  Autoindex recipe ........ https://xerj.org/docs/recipes/zero-config-autoindex.html
+  Agent memory recipe ..... https://xerj.org/docs/recipes/agentic-memory.html
+  Doc-folder recipe ....... https://xerj.org/docs/recipes/document-folder-index.html
   ES-compat API ........... https://xerj.org/docs/api-es-compat.html
   Native API .............. https://xerj.org/docs/api-native.html
   Queries ................. https://xerj.org/docs/queries.html
@@ -310,5 +453,5 @@ POST /_memory/agent-42/_recall  { "query": "what did they ask about security", "
   Aggregations ............ https://xerj.org/docs/aggregations.html
   Ingest .................. https://xerj.org/docs/ingest.html
   Migration from ES ....... https://xerj.org/docs/migration-from-es.html
-  Recipes ................. https://xerj.org/docs/recipes/index.html
+  Autoindex evaluation .... https://github.com/xerj-org/xerj/tree/main/demo/usecases/autoindex
   Front door (short) ...... https://xerj.org/llms.txt
