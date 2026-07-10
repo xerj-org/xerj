@@ -17150,6 +17150,21 @@ fn warm_segment_at_publish(
     seg_id: &str,
     expect_docs: u64,
 ) {
+    // Sustained-ingest escape hatch: XERJ_NO_PUBLISH_WARM=1 skips ALL
+    // publish-time cache warming (stored slices + dv columns + sort
+    // shadows).  Queries fall back to per-query decode-on-miss — the
+    // pre-warm status quo.  Used to keep resident heap bounded during
+    // multi-tens-of-millions-doc bulk loads where warming every flushed
+    // segment retains ~10-15x the raw corpus in anon memory.
+    static NO_WARM: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
+        matches!(
+            std::env::var("XERJ_NO_PUBLISH_WARM").as_deref(),
+            Ok("1") | Ok("true")
+        )
+    });
+    if *NO_WARM {
+        return;
+    }
     // 1. Stored slices.
     if !caches.slices.contains_key(seg_id) {
         let built: Option<Arc<StoredSlices>> = (|| {
