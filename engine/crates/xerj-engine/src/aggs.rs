@@ -3665,6 +3665,12 @@ pub fn render_date_format(
     epoch_ms: i64,
     dt: chrono::DateTime<chrono::Utc>,
 ) -> String {
+    // ES format chains ("fmt1||fmt2"): rendering uses the FIRST format of
+    // the chain (verified live on ES 8.13.4).  Mapping-declared chains are
+    // already normalised at the es_compat injection site; this covers
+    // request-level chains defensively.  Byte-identical no-op for all
+    // non-chained formats (b7 DEFECT 2).
+    let fmt = fmt.map(|f| f.split("||").next().unwrap_or(f).trim());
     match fmt {
         Some("epoch_millis") => epoch_ms.to_string(),
         Some("epoch_second") => (epoch_ms / 1000).to_string(),
@@ -3693,6 +3699,42 @@ pub fn render_date_format(
         }
         _ => dt.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string(),
     }
+}
+
+/// `true` when `fmt` is one of the named ES date-format aliases that
+/// `render_date_format` resolves via its alias table above.  Callers that
+/// feed a format straight to `java_to_strftime` (e.g. `run_date_range`'s
+/// render closure) must check this first — translating an alias NAME as a
+/// SimpleDateFormat pattern emits its letters as pattern tokens
+/// ("strict_date_optional_time" → garbage).  Keep in sync with the match
+/// arms of `render_date_format`.
+pub(crate) fn is_named_date_format(fmt: &str) -> bool {
+    matches!(
+        fmt,
+        "epoch_millis"
+            | "epoch_second"
+            | "strict_date_optional_time"
+            | "strict_date_optional_time_nanos"
+            | "iso8601"
+            | "date_optional_time"
+            | "basic_date"
+            | "basic_date_time"
+            | "basic_time"
+            | "date"
+            | "strict_date"
+            | "date_hour_minute_second"
+            | "strict_date_hour_minute_second"
+            | "date_time"
+            | "strict_date_time"
+            | "hour"
+            | "hour_minute_second"
+            | "year"
+            | "strict_year"
+            | "year_month"
+            | "strict_year_month"
+            | "year_month_day"
+            | "strict_year_month_day"
+    )
 }
 
 /// Translate a small subset of Java SimpleDateFormat patterns into
@@ -9768,7 +9810,13 @@ fn run_date_range(
         .get("keyed")
         .and_then(Value::as_bool)
         .unwrap_or(false);
-    let user_fmt = params.get("format").and_then(Value::as_str);
+    // First-of-chain normalisation ("fmt1||fmt2" → "fmt1") mirrors
+    // render_date_format — ES renders chained formats with the first
+    // component (verified live on 8.13.4, b7 DEFECT 2 date_range arm).
+    let user_fmt = params
+        .get("format")
+        .and_then(Value::as_str)
+        .map(|f| f.split("||").next().unwrap_or(f).trim());
     let missing_ms: Option<i64> = params.get("missing").and_then(parse_date_ms);
     let tz_param = params.get("time_zone").and_then(Value::as_str);
 
@@ -9809,6 +9857,17 @@ fn run_date_range(
         // rules. Otherwise use the default ISO form with detected precision.
         if let Some(fmt) = user_fmt {
             let offset = tz_param.and_then(|tz| fixed_offset_for_tz_at(tz, ms));
+            // Named ES format aliases (e.g. `strict_date_optional_time`, the
+            // first component of the default mapping chain) must go through
+            // render_date_format's alias table — feeding the NAME to
+            // java_to_strftime would translate its letters as pattern tokens
+            // (b7 DEFECT 2, date_range arm).  tz-shifted rendering keeps the
+            // legacy pattern path below.
+            if offset.is_none() && is_named_date_format(fmt) {
+                let dt_utc = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms)
+                    .unwrap_or_default();
+                return render_date_format(Some(fmt), ms, dt_utc);
+            }
             let pat = java_to_strftime(fmt);
             let out = if let Some(off) = offset {
                 let dt_utc =

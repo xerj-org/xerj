@@ -5401,7 +5401,16 @@ pub async fn search(
                     fspec
                         .get("format")
                         .and_then(Value::as_str)
-                        .map(String::from)
+                        // ES format chains ("strict_date_optional_time||epoch_millis"):
+                        // bucket keys print with the FIRST format of the chain
+                        // (verified live on ES 8.13.4). Injecting the raw chain
+                        // made every renderer fall through to java_to_strftime,
+                        // which echoed the chain string itself as key_as_string
+                        // (b7 DEFECT 2). Normalise to the first component here so
+                        // every downstream consumer (date_histogram brute +
+                        // columnar, date_range, composite, and the parse side)
+                        // sees a single resolvable format.
+                        .map(|f| f.split("||").next().unwrap_or(f).trim().to_string())
                 };
                 fn inject_format(v: &mut Value, lookup: &dyn Fn(&str) -> Option<String>) {
                     match v {
