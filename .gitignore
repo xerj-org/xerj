@@ -86,6 +86,7 @@ engine/build.log
 # Internal go-to-market material — not part of the OSS engine.
 # (Recommended for a separate repo; see docs/RELEASE_HYGIENE_AUDIT.md.)
 brief/
+gtm/
 landing/resources/xerj-sales-kit.zip
 
 # Re-include root OSS scaffolding so the default *.md / no-extension
