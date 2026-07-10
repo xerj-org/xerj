@@ -86,7 +86,7 @@ We ran the same model (headless Claude Code) against the 518 MB corpus twice: on
 - **Truly open.** Apache-2.0 licensed. No SSPL, no source-available asterisks, no per-feature license gates.
 - **One engine, four workloads.** Full-text BM25, exact dense-vector kNN (100% recall), the standard aggregation suite, and columnar log analytics — all in the same process, over the same wire protocol.
 - **A single native binary.** Roughly a ~23 MB statically-linked executable. Sub-second start, no JVM, no heap-tuning ritual.
-- **Honest, reproducible benchmarks — as supporting evidence.** Measured head-to-head against a live Elasticsearch 8.13.4, the latest closed-loop, cache-off matrix scores **45 wins / 26 losses / 11 ties** for XERJ. Results — wins *and* losses — are published at [xerj.org/benchmarks](https://xerj.org/benchmarks) and reproducible from the scripts in this repo (see [Benchmarks](#benchmarks)).
+- **Honest, reproducible benchmarks — as supporting evidence.** Measured head-to-head against a live Elasticsearch 8.13.4, the latest closed-loop, cache-off matrix scores **42 wins / 28 losses / 12 ties** for XERJ. Results — wins *and* losses — are published at [xerj.org/benchmarks](https://xerj.org/benchmarks) and reproducible from the scripts in this repo (see [Benchmarks](#benchmarks)).
 - **Written in Rust.** Memory-safe, `panic = "abort"`, fat-LTO release builds. Embedded Raft consensus (no external Raft dependency) for cluster metadata.
 
 ---
@@ -215,7 +215,7 @@ The [ES-YAML conformance suite](#running-the-conformance-tests) — 1,363 cases 
 
 ## Benchmarks
 
-Performance is supporting evidence for the use cases above, not the headline — and it is measured honestly. XERJ is benchmarked head-to-head against a live **Elasticsearch 8.13.4** across a full matrix covering ingest, full-text search, aggregations, and vector search. The latest closed-loop, cache-off run scores **45 wins / 26 losses / 11 ties** for XERJ, including a **1.54× ingest win**, a disk-footprint win, and kNN recall 1.00 (a tie). Acked deletes survive `SIGTERM`/`SIGKILL` restarts — 11 of 11 adversarial crash cells pass. Full per-cell results: [`demo/playbooks/FULL_MATRIX_SCORECARD_2026-07-09.md`](./demo/playbooks/FULL_MATRIX_SCORECARD_2026-07-09.md).
+Performance is supporting evidence for the use cases above, not the headline — and it is measured honestly. XERJ is benchmarked head-to-head against a live **Elasticsearch 8.13.4** across a full matrix covering ingest, full-text search, aggregations, and vector search. The latest closed-loop, cache-off run scores **42 wins / 28 losses / 12 ties** for XERJ, including a **1.54× ingest win**, a disk-footprint win, and kNN recall 1.00 (a tie). Acked deletes survive `SIGTERM`/`SIGKILL` restarts — 11 of 11 adversarial crash cells pass. Full per-cell results: [`demo/playbooks/FULL_MATRIX_SCORECARD_2026-07-10.md`](./demo/playbooks/FULL_MATRIX_SCORECARD_2026-07-10.md).
 
 The methodology and results — including the cases where Elasticsearch wins — are also published at **[xerj.org/benchmarks](https://xerj.org/benchmarks)**. The benchmarks are reproducible: the harness and playbooks live under [`demo/playbooks`](./demo/playbooks) in this repository. We publish results warts-and-all rather than cherry-picking; treat any number you cannot reproduce with skepticism.
 
