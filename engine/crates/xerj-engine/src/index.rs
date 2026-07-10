@@ -598,6 +598,15 @@ pub struct Index {
     /// by wholesale clear at `SHORTCUT_COUNT_CACHE_MAX` since query
     /// shapes are client-supplied.
     shortcut_count_cache: Arc<dashmap::DashMap<(String, String), u64>>,
+    /// Per-segment GHOST-position bitmap for the flush→merge window
+    /// (b7 DEFECT 1c): bit `pos` set ⇔ the stored doc at `pos` is
+    /// tombstoned or superseded per the version map.  Keyed by segment
+    /// id, value carries the `ghost_events` epoch it was built at — any
+    /// new overwrite/delete bumps the epoch and forces a rebuild, and a
+    /// merge replaces the segment id, so a stale bitmap can never be
+    /// served.  Only ever consulted while `deletes_present` is true;
+    /// bounded by wholesale clear (see `ghost_positions_for`).
+    ghost_positions_cache: Arc<dashmap::DashMap<String, (u64, Arc<Vec<u64>>)>>,
     /// Regexp term-dictionary expansion cache — keyed by
     /// `(segment_id, field, pattern)`, holds the exact union doc count
     /// plus the first `REGEXP_EXPANSION_POS_CAP` matching doc positions
@@ -837,6 +846,7 @@ impl Index {
             decoded_stored_cache: Arc::new(dashmap::DashMap::new()),
             decoded_stored_cache_bytes: Arc::new(AtomicU64::new(0)),
             shortcut_count_cache: Arc::new(dashmap::DashMap::new()),
+            ghost_positions_cache: Arc::new(dashmap::DashMap::new()),
             regexp_expand_cache: Arc::new(dashmap::DashMap::new()),
             fast_date_cache: Arc::new(dashmap::DashMap::new()),
             fast_date_sorted_cache: Arc::new(dashmap::DashMap::new()),
@@ -1014,6 +1024,7 @@ impl Index {
             decoded_stored_cache: Arc::new(dashmap::DashMap::new()),
             decoded_stored_cache_bytes: Arc::new(AtomicU64::new(0)),
             shortcut_count_cache: Arc::new(dashmap::DashMap::new()),
+            ghost_positions_cache: Arc::new(dashmap::DashMap::new()),
             regexp_expand_cache: Arc::new(dashmap::DashMap::new()),
             fast_date_cache: Arc::new(dashmap::DashMap::new()),
             fast_date_sorted_cache: Arc::new(dashmap::DashMap::new()),
@@ -5210,7 +5221,13 @@ impl Index {
         // long-held read locks from blocking concurrent document indexing.
         enum MemSnapshot {
             Empty,
-            FtsHits(Vec<(String, f32)>), // (doc_id, score) from inverted index
+            /// (doc_id, score) pairs from the inverted index, plus the
+            /// UNCOLLECTED matching-doc remainder beyond the fetch cap —
+            /// like `DocValuesHits`, it still counts toward `hits.total`
+            /// (pre-fix the variant carried no remainder and size>0 match
+            /// totals capped the memtable contribution at ~256 — b7
+            /// DEFECT 1b).
+            FtsHits(Vec<(String, f32)>, u64),
             AllDocIds(Vec<String>, u64), // MatchAll: bounded IDs + uncollected remainder count
             /// Fast DocValues hit: (doc_id, internal_index) pairs — source is NOT
             /// cloned here; it will be fetched only for the final page of hits.
@@ -5313,13 +5330,20 @@ impl Index {
                 // was ~15 ms of pure String allocation, just to have the
                 // segment `try_shortcut_count` path overwrite the count
                 // a moment later.
-                if count_only && matches!(query, QueryNode::Term { .. } | QueryNode::Bool { .. }) {
-                    // For `size:0 + term/bool` the segment
-                    // `try_shortcut_count` path handles the count from
-                    // doc-values directly. We exclude `Range` here
-                    // because non-indexed range fields don't have
-                    // doc-values in the segment shortcut and would be
-                    // silently undercounted.
+                if count_only && memtable_count_covered_by_shortcut(query) {
+                    // For `size:0` + the exact shapes `try_shortcut_count`
+                    // resolves memtable-aware (single Term, conjunctive
+                    // Term/Range bool — see the helper's doc) the segment
+                    // shortcut handles the count from doc-values directly,
+                    // memtable included.  `Range` stays excluded because
+                    // non-indexed range fields don't have doc-values in the
+                    // segment shortcut and would be silently undercounted.
+                    // Bool shapes the shortcut does NOT resolve (a Match
+                    // child, any should/must_not) fall through to the same
+                    // fused/doc-scan arms the size>0 path uses — pre-fix
+                    // they took `Empty` here and their `_count`/`size:0`
+                    // totals silently excluded every memtable-resident doc
+                    // (b7 DEFECT 1a).
                     MemSnapshot::Empty
                 } else if let Some((hits, total)) = (|| {
                     // Fused columnar term/range/bool: ONE position walk
@@ -5370,12 +5394,20 @@ impl Index {
             } else {
                 let query_text = extract_query_text(query);
                 if let Some(text) = query_text {
-                    // FTS path: use the inverted index.  For count_only
-                    // queries the default `fetch_limit` (= max(from+size+100,
-                    // 256)) under-counts because the searcher truncates
-                    // the hit list — request a much larger cap so the
-                    // memtable contribution to total_count is accurate.
-                    let mem_limit = if count_only { usize::MAX } else { fetch_limit };
+                    // FTS path: use the inverted index.  Counting is
+                    // decoupled from materialisation (`_with_total`), so the
+                    // fetch cap no longer truncates `hits.total` (b7 DEFECT
+                    // 1b).  GHOST WINDOW (b7 DEFECT 1c mirror): with any
+                    // overwrite/delete recorded, the consume arm filters
+                    // each memtable hit against the version map — that needs
+                    // the COMPLETE hit list (an uncollected remainder can't
+                    // be liveness-checked), mirroring the segment side's
+                    // `fts_cap = usize::MAX` under `deletes_present`.
+                    let mem_limit = if self.store.version_map.ghost_events() > 0 {
+                        usize::MAX
+                    } else {
+                        fetch_limit
+                    };
                     // For a single-field Match, restrict FTS to that
                     // field — otherwise docs that store the query tokens
                     // in a *different* field (incl. dynamically-ignored
@@ -5396,11 +5428,17 @@ impl Index {
                     let mut field_boosts: std::collections::HashMap<String, f32> =
                         std::collections::HashMap::new();
                     collect_field_boosts(query, &mut field_boosts);
-                    let hits =
-                        mem.search_text_boosted(&text, &field_filter, mem_limit, &field_boosts);
+                    let (hits, mem_total) = mem.search_text_boosted_with_total(
+                        &text,
+                        &field_filter,
+                        mem_limit,
+                        &field_boosts,
+                    );
                     if !hits.is_empty() {
+                        let uncollected = mem_total.saturating_sub(hits.len() as u64);
                         MemSnapshot::FtsHits(
                             hits.into_iter().map(|h| (h.doc_id, h.score)).collect(),
+                            uncollected,
                         )
                     } else {
                         MemSnapshot::Empty
@@ -5426,15 +5464,34 @@ impl Index {
 
         let dbg_mem_arm: &'static str = match &mem_snapshot {
             MemSnapshot::Empty => "empty",
-            MemSnapshot::FtsHits(_) => "fts",
+            MemSnapshot::FtsHits(..) => "fts",
             MemSnapshot::AllDocIds(..) => "allids",
             MemSnapshot::DocValuesHits(..) => "dv",
             MemSnapshot::DocsForScan(_) => "scan",
         };
         match mem_snapshot {
             MemSnapshot::Empty => {}
-            MemSnapshot::FtsHits(hits) => {
+            MemSnapshot::FtsHits(hits, uncollected) => {
+                // GHOST-WINDOW liveness (b7 DEFECT 1c mirror): once any
+                // overwrite/delete has been recorded, admit only hits whose
+                // LIVE version is memtable-resident and not tombstoned —
+                // the segment materialisation applies the same rule.  Zero
+                // work (and `uncollected` possibly non-zero) on the
+                // ghost-free path; with ghosts the snapshot was taken
+                // uncapped, so `uncollected == 0` and the filter sees every
+                // hit.
+                let ghost_filter = self.store.version_map.ghost_events() > 0;
                 for (doc_id, score) in hits {
+                    if ghost_filter {
+                        if let Some(ver) = self.store.version_map.get(&doc_id) {
+                            if ver.deleted
+                                || ver.segment_id.as_ref()
+                                    != xerj_storage::version_map::IN_MEMORY_SEGMENT_ID
+                            {
+                                continue;
+                            }
+                        }
+                    }
                     admit_hit!(Hit {
                         id: doc_id,
                         score,
@@ -5445,6 +5502,9 @@ impl Index {
                         matched_queries: Vec::new(),
                     });
                 }
+                // Beyond-cap remainder still counts toward hits.total
+                // (mirrors AllDocIds / DocValuesHits).
+                total_count += uncollected;
             }
             MemSnapshot::AllDocIds(ids, uncollected) => {
                 // Bounded id page: the remainder still counts toward
@@ -5992,7 +6052,14 @@ impl Index {
                     // so we never decode the postings list.  This is the
                     // bug fix that pulls `match field:term` from
                     // truncated-256-hits to exact total.
-                    if count_only {
+                    // `!deletes_present` (b7 DEFECT 1c): `term_doc_freq` is
+                    // the segment's PHYSICAL postings count — in the
+                    // flush→merge ghost window it counts tombstoned docs and
+                    // superseded old versions.  With ghosts present, fall
+                    // through to `search_bounded` + the liveness-filtered
+                    // tally below (same correctness-over-speed convention as
+                    // the F1 / size:0 shortcut gates).
+                    if count_only && !deletes_present {
                         if let Some(FtsQuery::Term(t)) = fts_query.as_ref() {
                             if let Some(df) = reader.term_doc_freq(&t.field, &t.term) {
                                 total_count += df as u64;
@@ -6066,7 +6133,42 @@ impl Index {
                                 // decision (and thus the count) agrees.
                                 fts_handled = true;
                                 // Exact count — identical for count_only and size>0.
-                                total_count += seg_total;
+                                // GHOST WINDOW (b7 DEFECT 1c): `seg_total` is the
+                                // segment's PHYSICAL match count — between a flush
+                                // that wrote tombstones/overwrites and the merge
+                                // that purges them it counts deleted docs and
+                                // superseded old versions (live-observed 40 vs
+                                // ES 26).  With ghosts present the hit list is
+                                // complete (`fts_cap == usize::MAX` above), so
+                                // tally only positions that are LIVE per the
+                                // version map, via the per-(segment, ghost-epoch)
+                                // cached bitmap.  Physical-count fallback only if
+                                // the stored section can't be indexed (legacy
+                                // behaviour, matching the materialisation
+                                // fallback's failure mode).
+                                if deletes_present {
+                                    match self
+                                        .ghost_positions_for(seg_id.as_str(), meta.doc_count)
+                                    {
+                                        Some(ghosts) => {
+                                            let live = seg_hits
+                                                .iter()
+                                                .filter(|sh| {
+                                                    ghosts
+                                                        .get((sh.doc_id / 64) as usize)
+                                                        .is_none_or(|w| {
+                                                            (w >> (sh.doc_id % 64)) & 1 == 0
+                                                        })
+                                                })
+                                                .count()
+                                                as u64;
+                                            total_count += live;
+                                        }
+                                        None => total_count += seg_total,
+                                    }
+                                } else {
+                                    total_count += seg_total;
+                                }
                                 // Field-sorted FTS (e.g. bool/match under the
                                 // implicit `@timestamp desc` index sort): the
                                 // legacy arm below decodes + parses the WHOLE
@@ -6240,7 +6342,23 @@ impl Index {
                                                 .unwrap_or("")
                                                 .to_string();
                                             if let Some(ver) = self.store.version_map.get(&id) {
-                                                if ver.deleted {
+                                                // Tombstoned, or SUPERSEDED —
+                                                // the live version resides in
+                                                // a newer segment or the
+                                                // memtable, so this segment's
+                                                // stored copy is a stale
+                                                // ghost.  Pre-fix only
+                                                // `deleted` was checked and
+                                                // the OLDEST segment's copy
+                                                // won the `seen_ids` dedup:
+                                                // `_search` served the stale
+                                                // gen-0 `_source` for
+                                                // overwritten ids while
+                                                // `GET /_doc` returned gen-1
+                                                // (b7 DEFECT 1c).
+                                                if ver.deleted
+                                                    || ver.segment_id.as_ref() != seg_id.as_str()
+                                                {
                                                     continue;
                                                 }
                                             }
@@ -8534,15 +8652,12 @@ impl Index {
             for f in filter {
                 all_must.push(f);
             }
-            if all_must.is_empty() {
+            // Shape gate SHARED with the `count_only` memtable-skip in
+            // `search_inner` (b7 DEFECT 1a) — the two sites must never
+            // drift: non-empty conjunction of plain Term/Range children
+            // only; anything else abandons to the scan.
+            if !memtable_count_covered_by_shortcut(query) {
                 return None;
-            }
-            // Every must child must be a Term or Range we can resolve via
-            // doc-values; otherwise abandon.
-            for child in &all_must {
-                if !matches!(child, QueryNode::Term { .. } | QueryNode::Range { .. }) {
-                    return None;
-                }
             }
 
             let segments_dir = self.data_dir.join("segments");
@@ -10589,6 +10704,52 @@ impl Index {
                 .fetch_add(sz, Ordering::Relaxed);
         }
         Some(slices)
+    }
+
+    /// Per-segment GHOST-position bitmap (b7 DEFECT 1c): bit `pos` set ⇔
+    /// the stored doc at `pos` is tombstoned or superseded — its live
+    /// version resides in another segment or the memtable per the version
+    /// map — so FTS postings for it must not count toward `hits.total`.
+    ///
+    /// Built once per (segment, `ghost_events` epoch) from the stored
+    /// `_id`s and cached; per-query filtering is then a bitmap test.  The
+    /// build is O(segment docs) `_id` parses, paid only while ghosts exist
+    /// (the window closes at the next merge, which also retires the
+    /// segment id) — the same correctness-over-speed convention as the
+    /// F1 / batch-6 delete-aware count gates.  `None` when the stored
+    /// section can't be sliced or a doc can't be parsed; the caller falls
+    /// back to the legacy physical count.
+    fn ghost_positions_for(&self, seg_id: &str, expect_docs: u64) -> Option<Arc<Vec<u64>>> {
+        let epoch = self.store.version_map.ghost_events();
+        if let Some(entry) = self.ghost_positions_cache.get(seg_id) {
+            if entry.value().0 == epoch {
+                return Some(Arc::clone(&entry.value().1));
+            }
+        }
+        let slices = self.stored_slices_for(seg_id, expect_docs)?;
+        let mut bm = vec![0u64; slices.offsets.len().div_ceil(64)];
+        for (pos, &(start, end)) in slices.offsets.iter().enumerate() {
+            let slice = slices.bytes.get(start as usize..end as usize)?;
+            let doc: Value = serde_json::from_slice(slice).ok()?;
+            let id = doc.get("_id").and_then(Value::as_str).unwrap_or("");
+            let ghost = match self.store.version_map.get(id) {
+                Some(ver) => ver.deleted || ver.segment_id.as_ref() != seg_id,
+                // Not in the version map → nothing has ever superseded it.
+                None => false,
+            };
+            if ghost {
+                bm[pos / 64] |= 1u64 << (pos % 64);
+            }
+        }
+        let bm = Arc::new(bm);
+        // Bounded like `shortcut_count_cache`: wholesale clear — entries
+        // are per-segment (not query-shaped) so the cap is generous.
+        if self.ghost_positions_cache.len() >= 512 {
+            self.ghost_positions_cache.clear();
+        }
+        self.ghost_positions_cache
+            .insert(seg_id.to_string(), (epoch, Arc::clone(&bm)));
+        Some(bm)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -13679,6 +13840,46 @@ fn infer_field_type(val: &Value) -> FieldType {
 /// Returns `(doc_id, internal_memtable_index)` pairs WITHOUT cloning source.
 /// The caller defers source fetching until after scoring and pagination so only
 /// the final `from+size` hits pay the clone cost.
+/// Shapes whose `count_only` total the segment `try_shortcut_count` path
+/// resolves MEMTABLE-AWARE, so `search_inner` may skip the memtable
+/// snapshot (`MemSnapshot::Empty`) without dropping unflushed docs from
+/// `_count`/`size:0` totals:
+///   * a single `Term` — memtable side counted via the sharded doc-values
+///     count maps (Term arm of `try_shortcut_count`);
+///   * a conjunctive `Bool` (empty should/must_not, non-empty must+filter)
+///     whose every must/filter child is a plain `Term`/`Range` — memtable
+///     side counted via the fused `doc_values_bool_query` walk (Bool arm).
+/// Every other shape makes `try_shortcut_count` return `None` — a Bool
+/// with a Match child fails its child check, and any should/must_not Bool
+/// bails on a non-empty memtable (`bool_should_mustnot_count`) — so the
+/// fallback scan would run with the memtable contribution already
+/// discarded: those shapes MUST take the same memtable arms the size>0
+/// path uses (b7 DEFECT 1a: bool(match+term) `_count` silently excluded
+/// every memtable-resident doc).  Used by BOTH the `count_only` memtable
+/// gate and the `try_shortcut_count` Bool arm so the two sites cannot
+/// drift.
+fn memtable_count_covered_by_shortcut(query: &QueryNode) -> bool {
+    match query {
+        QueryNode::Term { .. } => true,
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            ..
+        } => {
+            should.is_empty()
+                && must_not.is_empty()
+                && !(must.is_empty() && filter.is_empty())
+                && must
+                    .iter()
+                    .chain(filter.iter())
+                    .all(|c| matches!(c, QueryNode::Term { .. } | QueryNode::Range { .. }))
+        }
+        _ => false,
+    }
+}
+
 /// Lower a `bool { must/filter: [Term|Range…] }` (no should / must_not) —
 /// or a bare Term / Range — to fused columnar memtable predicates: the
 /// memtable twin of the `try_shortcut_count` Bool segment arm.  `None` for
