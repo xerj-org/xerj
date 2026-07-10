@@ -74,10 +74,7 @@ impl Embedder {
     /// Embed a batch of texts into vectors. Order matches the input.
     pub async fn embed_batch(&self, texts: Vec<String>) -> Result<Vec<Vec<f32>>> {
         match self {
-            Embedder::Lexical => Ok(texts
-                .iter()
-                .map(|t| local_embed(t, DEFAULT_DIMS))
-                .collect()),
+            Embedder::Lexical => Ok(texts.iter().map(|t| local_embed(t, DEFAULT_DIMS)).collect()),
             Embedder::Proxy(proxy) => proxy
                 .embed_batch(texts)
                 .await

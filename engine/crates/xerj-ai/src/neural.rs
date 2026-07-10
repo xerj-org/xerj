@@ -303,7 +303,10 @@ mod tests {
 
         // Each vector is L2-normalized, so cosine == dot product.
         let norm0 = cosine(&vecs[0], &vecs[0]).sqrt();
-        assert!((norm0 - 1.0).abs() < 1e-3, "vectors should be L2-normalized");
+        assert!(
+            (norm0 - 1.0).abs() < 1e-3,
+            "vectors should be L2-normalized"
+        );
 
         let sim_paraphrase = cosine(&vecs[0], &vecs[1]);
         let sim_unrelated = cosine(&vecs[0], &vecs[2]);

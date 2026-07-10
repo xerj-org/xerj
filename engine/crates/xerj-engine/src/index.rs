@@ -10464,8 +10464,10 @@ impl Index {
                 .unwrap_or(std::cmp::Ordering::Equal)
                 .then_with(|| a.1.cmp(&b.1))
         };
-        let mut cands: Vec<(f32, u64, u32, u32)> =
-            heap.into_iter().map(|c| (c.score, c.seq, c.si, c.row)).collect();
+        let mut cands: Vec<(f32, u64, u32, u32)> = heap
+            .into_iter()
+            .map(|c| (c.score, c.seq, c.si, c.row))
+            .collect();
 
         // ── Phase 4: pinned overlay ───────────────────────────────────────
         // A pinned doc at 0-based position `i` of the P-length ids array
@@ -13218,7 +13220,8 @@ fn build_highlight_fragments(
 /// still returns a helpful 400.
 fn make_embedder(cfg: &xerj_common::config::EmbeddingConfig) -> xerj_ai::Embedder {
     let mode = cfg.mode.trim().to_ascii_lowercase();
-    let want_proxy = mode == "proxy" || (mode != "neural" && mode != "lexical" && !cfg.default_endpoint.is_empty());
+    let want_proxy = mode == "proxy"
+        || (mode != "neural" && mode != "lexical" && !cfg.default_endpoint.is_empty());
 
     if mode == "neural" {
         return make_neural_embedder(cfg);
