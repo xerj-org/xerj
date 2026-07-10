@@ -31,6 +31,25 @@
 #[global_allocator]
 static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
+// jemalloc runtime config (read at process start via the `_rjem_malloc_conf`
+// symbol — tikv-jemalloc is built with the `_rjem_` prefix, so plain
+// `MALLOC_CONF` is IGNORED; only `_RJEM_MALLOC_CONF` or this symbol work).
+//
+// Why this is load-bearing: jemalloc's decay-based purging only runs inside
+// allocator ticks and, without background threads, effectively never returns
+// dirty pages under sustained multi-arena ingest churn.  Measured on a
+// 62M-record bulk load: anon RSS grew ~4-5 KB per ingested doc (~15x the raw
+// corpus, 83 GB at 15.5M docs) until the kernel OOM-killed the server, while
+// live heap was a fraction of that.  `background_thread:true` +
+// 1 s dirty/muzzy decay purges freed pages continuously; the same load then
+// holds a flat working-set RSS.  Ingest throughput cost measured: none
+// (within noise, ~36k docs/s single-index bulk either way).
+#[cfg(not(target_env = "msvc"))]
+#[allow(non_upper_case_globals)]
+#[export_name = "_rjem_malloc_conf"]
+pub static malloc_conf: &[u8] =
+    b"background_thread:true,dirty_decay_ms:1000,muzzy_decay_ms:1000\0";
+
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
@@ -113,6 +132,11 @@ fn print_help() {
              --insecure, -k         Disable TLS\n\
              --help,     -h         Show this help\n\
              --version,  -V         Print version and exit\n\
+         \n\
+         SUBCOMMANDS:\n\
+             xerj index      <opts>          direct NDJSON → engine ingest (see xerj index --help)\n\
+             xerj autoindex  <folder> [opts] zero-config folder discovery + indexing (see xerj autoindex --help)\n\
+             xerj autoindex  map             print the discovered data map\n\
          \n\
          ENVIRONMENT:\n\
              XERJ_LOG     Log level filter (default: info)\n\
@@ -893,6 +917,14 @@ async fn async_main() -> Result<()> {
     if matches!(argv1.as_deref(), Some("index")) {
         let cmd = parse_index_args();
         return run_cli_index(cmd).await;
+    }
+    if matches!(argv1.as_deref(), Some("autoindex")) {
+        // Zero-config folder discovery + indexing over the ES-compat API.
+        // Fully synchronous internally — run it off the async runtime.
+        let code = tokio::task::spawn_blocking(xerj_autoindex::run_cli)
+            .await
+            .unwrap_or(1);
+        std::process::exit(code);
     }
 
     // 0. Record startup time as early as possible.

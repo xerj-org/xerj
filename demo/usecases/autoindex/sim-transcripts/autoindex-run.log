@@ -1,0 +1,49 @@
+autoindex: 1995 files (494 MB) under /tmp/xerj-discover/corpus
+phase A: sniffing + sampling 1995 files…
+phase A: 31 datasets inferred, 2 junk/skipped files
+phase B: indexing 1993 files with 8 workers → http://localhost:9274
+  [52/1993] db/backup-2026-04-01.sql (208524 records)
+  [200/1993] events/2026/03/06/events-14.jsonl (2000 records)
+  [400/1993] events/2026/03/01/events-00.jsonl (2000 records)
+  [600/1993] docs/html/kb/kb-0251.html (1 records)
+  [800/1993] docs/html/kb/kb-0396.html (1 records)
+  [1000/1993] docs/html/runbooks/runbook-025.html (1 records)
+  [1200/1993] api/fixtures/fixture-0036.json (1 records)
+  [1400/1993] api/usage/t-acme/2026-03-30.json (2 records)
+  [1600/1993] notes/meetings/note-0362.txt (1 records)
+  [1800/1993] notes/planning/note-0334.txt (1 records)
+
+done in 38.1s — 31 datasets, 2018398 records live, 0 junk records, 3 junk/skipped files
+  ax-events                                    744000 docs
+  ax-logs-nginx                                434000 docs
+  ax-logs-app                                  279000 docs
+  ax-db-orders                                 120000 docs
+  ax-metrics-telemetry                         120000 docs
+  ax-db-audit-log                               80000 docs
+  ax-events-archive                             80000 docs
+  ax-db-sensor-readings                         60000 docs
+  ax-exports-csv-orders-march                   50000 docs
+  ax-exports-csv-sensoren-export-maerz          40000 docs
+  ax-db-chat-usage                               8016 docs
+  ax-docs-html                                    600 docs
+  ax-db-users                                     500 docs
+  ax-exports-csv-users                            500 docs
+  ax-notes                                        402 docs
+  ax-api-usage                                    310 docs
+  ax-db-devices                                   300 docs
+  ax-events-archive-events-2026-02-27-part0        297 docs
+  ax-api-fixtures                                 245 docs
+  ax-exports-xml                                  100 docs
+  ax-config-services                               30 docs
+  ax-docs-feeds                                    30 docs
+  ax-docs                                          24 docs
+  ax-config-xml                                    16 docs
+  ax-docs-docx                                     12 docs
+  ax-db-tenants                                     8 docs
+  ax-docs-reference                                 3 docs
+  ax-docs-reference-information-security-pol          2 docs
+  ax-config                                         1 docs
+  ax-config-security                                1 docs
+  ax-exports                                        1 docs
+
+next: `xerj autoindex map --url http://localhost:9274` for the data map; search via GET /ax-*/_search
