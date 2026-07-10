@@ -92,7 +92,7 @@ Content types:
   behaviour you need against your own node or the docs rather than assuming full parity.
 
 - Performance is supporting evidence, not the headline. In a closed-loop, cache-off
-  benchmark vs live Elasticsearch 8.13.4, XERJ measured 45 wins / 26 losses / 11 ties
+  benchmark vs live Elasticsearch 8.13.4, XERJ measured 42 wins / 28 losses / 12 ties
   across the full query matrix, with a 1.54× bulk-ingest win, a disk-footprint win,
   and kNN recall 1.00 (a tie — both exact on that setup). Acked deletes survive
   SIGTERM/SIGKILL restarts (11/11 adversarial crash cells). Measure on your workload.

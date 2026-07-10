@@ -47,7 +47,7 @@ Copy-pasteable, live-validated guides — this is first-class documentation, not
 - **Agent long-term memory** — [Agent memory recipe](https://xerj.org/docs/recipes/agentic-memory.html): `/_memory` store + recall as an agent's persistent, namespaced memory (dedup, metadata filters, recency blending).
 - **Index a folder of documents** — [Document-folder recipe](https://xerj.org/docs/recipes/document-folder-index.html): recursive PDF/DOCX/HTML/MD/TXT → extract + chunk + auto-embed → ranked, cited passages (measured 21/22 answered vs a fair grep baseline's 14/22; the decisive win is binary_only 6/7 vs 0/7 — grep is structurally blind to binary PDF/DOCX; the differently-phrased set is an honest tie because the built-in embedder is lexical, not neural).
 
-Supporting evidence, not the headline: in a closed-loop, cache-off benchmark vs live Elasticsearch 8.13.4, XERJ scored 45 wins / 26 losses / 11 ties across the full query matrix, with a 1.54× bulk-ingest win, a disk-footprint win, and kNN recall 1.00 (tie — both exact on this setup). Acked deletes survive SIGTERM/SIGKILL restarts (11/11 adversarial crash cells). Measure on your own workload.
+Supporting evidence, not the headline: in a closed-loop, cache-off benchmark vs live Elasticsearch 8.13.4, XERJ scored 42 wins / 28 losses / 12 ties across the full query matrix, with a 1.54× bulk-ingest win, a disk-footprint win, and kNN recall 1.00 (tie — both exact on this setup). Acked deletes survive SIGTERM/SIGKILL restarts (11/11 adversarial crash cells). Measure on your own workload.
 
 ## Endpoint map (Elasticsearch-compatible, :9200)
 
