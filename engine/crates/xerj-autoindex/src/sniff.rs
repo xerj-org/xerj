@@ -351,7 +351,7 @@ fn sniff_csv_dialect(nonblank: &[&str]) -> Option<CsvDialect> {
     }
     let sample: Vec<&str> = nonblank.iter().take(64).copied().collect();
     let mut best: Option<(u8, usize)> = None; // (delim, field count)
-    for delim in [b',', b';', b'\t', b'|'] {
+    for delim in *b",;\t|" {
         let counts: Vec<usize> = sample
             .iter()
             .map(|l| split_quoted(l, delim).len())

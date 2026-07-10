@@ -6652,7 +6652,7 @@ pub async fn search(
                 let mut kept: Vec<(String, xerj_query::executor::Hit)> = Vec::new();
                 let mut inserted: std::collections::HashSet<String> =
                     std::collections::HashSet::new();
-                for (_k, &idx) in first_by_key.iter() {
+                for &idx in first_by_key.values() {
                     let (idx_name, h) = &merged_hits[idx];
                     let kk = key_of(&h.source);
                     if inserted.insert(kk.clone()) {
@@ -9533,7 +9533,7 @@ pub async fn search(
                 "searches": [{
                     "query": [{
                         "type": "MatchQuery",
-                        "description": format!("{:?}", &search_req.query).chars().take(80).collect::<String>(),
+                        "description": format!("{:?}", search_req.query).chars().take(80).collect::<String>(),
                         "time_in_nanos": took_ms * 1_000_000u64,
                         "breakdown": {
                             "initialize": 0u64,
