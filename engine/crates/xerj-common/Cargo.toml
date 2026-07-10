@@ -8,7 +8,12 @@ description = "Shared types, configuration, and error handling for the xerj sear
 
 [dependencies]
 serde.workspace = true
-serde_json.workspace = true
+# `preserve_order` (declared here because it must live under crates/**;
+# cargo feature-unification makes it workspace-wide): `_source` must
+# round-trip with the caller's original key order — ES returns the indexed
+# source bytes verbatim, and alphabetized keys were a live-verified wire
+# divergence (2026-07-10 scorecard, B2).
+serde_json = { workspace = true, features = ["preserve_order"] }
 toml.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
