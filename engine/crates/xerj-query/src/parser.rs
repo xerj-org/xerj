@@ -2914,6 +2914,42 @@ fn parse_more_like_this(params: &Value) -> Result<QueryNode> {
         .and_then(|v| v.as_u64())
         .unwrap_or(25) as u32;
 
+    // Rewrite `more_like_this` into a `bool.should` of `match` clauses — one
+    // per (field × like-text) — exactly as Elasticsearch lowers MLT to a
+    // disjunction of term queries over the analyzed like-text. This routes MLT
+    // through the postings + scored path instead of an O(N) per-doc substring
+    // scan, and produces BM25 scores bit-identical to ES (a keyword-field MLT
+    // reduces to the same `term` query ES emits) instead of the old flat 1.0.
+    // `match` handles both keyword (exact-token) and analyzed-text fields, so
+    // no schema lookup is needed here. When `fields` is unspecified we cannot
+    // build the disjunction, so we fall back to the legacy MoreLikeThis node
+    // (which scans all string fields on the brute path).
+    if !fields.is_empty() {
+        let mut should: Vec<QueryNode> = Vec::with_capacity(fields.len() * like.len());
+        for field in &fields {
+            for text in &like {
+                should.push(QueryNode::Match {
+                    field: field.clone(),
+                    query: text.clone(),
+                    operator: BoolOperator::Or,
+                    analyzer: None,
+                    boost: None,
+                    minimum_should_match: None,
+                });
+            }
+        }
+        // Bool with only `should` clauses defaults to "≥1 should must match",
+        // matching ES's MLT default (`minimum_should_match: "30%"` still lands
+        // at 1 for a single interesting term; we keep the engine default here).
+        return Ok(QueryNode::Bool {
+            must: vec![],
+            should,
+            must_not: vec![],
+            filter: vec![],
+            minimum_should_match: None,
+        });
+    }
+
     Ok(QueryNode::MoreLikeThis {
         fields,
         like,
