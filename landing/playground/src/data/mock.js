@@ -116,7 +116,7 @@ const buildAiOverview = (rand, range) => {
   const topDocs = pareto(
     ['runbook/oncall.md','rfc/042-retention.md','arch/cluster-design.md',
      'rfc/039-hybrid-search.md','runbook/incident-1411.md','policy/pii.md',
-     'arch/hnsw-internals.md','rfc/051-agent-memory.md','docs/query-dsl.md',
+     'arch/vector-internals.md','rfc/051-agent-memory.md','docs/query-dsl.md',
      'rfc/048-embed-proxy.md','runbook/billing-sync.md','docs/ingest-api.md'],
     Math.round(totalQueries * 0.7), { alpha: 0.75, rand }
   );
@@ -191,7 +191,7 @@ const buildRagQuality = (rand, range) => {
     { id: 'q4', label: 'hybrid search score fusion' },
     { id: 'q5', label: 'mmap segment format' },
     { id: 'q6', label: 'WAL recovery procedure' },
-    { id: 'q7', label: 'what is HNSW recall' },
+    { id: 'q7', label: 'what is kNN recall' },
     { id: 'q8', label: 'pricing large context' },
   ];
   const chunks = [
@@ -199,7 +199,7 @@ const buildRagQuality = (rand, range) => {
     { id: 'c2', label: 'rfc/042-retention.md#cost' },
     { id: 'c3', label: 'rfc/051-agent-memory.md#dedup' },
     { id: 'c4', label: 'rfc/039-hybrid-search.md#rrf' },
-    { id: 'c5', label: 'arch/hnsw-internals.md' },
+    { id: 'c5', label: 'arch/vector-internals.md' },
     { id: 'c6', label: 'runbook/wal-recovery.md' },
     { id: 'c7', label: 'docs/query-dsl.md#knn' },
     { id: 'c8', label: 'rfc/048-embed-proxy.md' },
@@ -276,7 +276,7 @@ const buildRagQuality = (rand, range) => {
 };
 
 // ==========================================================
-// VECTOR INDEX  — HNSW + embedding space
+// VECTOR INDEX  — vectors + embedding space
 // ==========================================================
 const buildVectorIndex = (rand, range) => {
   const n = points(range);
@@ -387,7 +387,7 @@ const buildAgentMemory = (rand, range) => {
     { label: 'pricing context for large enterprise',          value: 1920 },
     { label: 'hybrid search fusion score explanation',        value: 1612 },
     { label: 'WAL recovery tail loss (0.0014%)',              value: 1402 },
-    { label: 'HNSW recall vs build time tradeoff',            value: 1180 },
+    { label: 'kNN recall vs quantization tradeoff',            value: 1180 },
     { label: 'agent memory dedup rules (semantic)',           value:  980 },
     { label: 'mmap segment format roadmap',                   value:  770 },
     { label: 'flush policy triggers (investigate)',           value:  612 },
@@ -575,7 +575,7 @@ const BODY_TEMPLATES = [
   (r) => `flush segment=seg-${Math.floor(r() * 999)} docs=${Math.floor(40000 + r() * 80000)} took_ms=${Math.round(180 + r() * 220)}`,
   (r) => `merge segments=[seg-${Math.floor(r() * 99)},seg-${Math.floor(r() * 99)}] out=seg-${Math.floor(r() * 999)} ratio=${(0.42 + r() * 0.3).toFixed(2)}`,
   (r) => `slow_query took_ms=${Math.round(820 + r() * 1800)} plan="BoolQuery(Must(Match(message)))" index="logs-prod"`,
-  (r) => `hnsw_recall k=10 recall=${(0.94 + r() * 0.05).toFixed(3)} ef_search=${Math.floor(32 + r() * 96)}`,
+  (r) => `sq8_recall k=10 recall=${(0.94 + r() * 0.05).toFixed(3)} quant=scalar8`,
   (r) => `agent_memory op=insert agent=oncall-triage key="cluster-reset" score=${(0.72 + r() * 0.25).toFixed(2)}`,
   (r) => `ingest_batch index=logs-prod docs=${Math.floor(1000 + r() * 9000)} wal_lag_ms=${Math.round(2 + r() * 18)}`,
   (r) => `oom_score=${Math.round(100 + r() * 800)} rss_mb=${Math.round(1200 + r() * 2600)} pid=${Math.floor(1000 + r() * 9000)}`,

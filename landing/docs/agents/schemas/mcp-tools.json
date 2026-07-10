@@ -82,7 +82,7 @@
     },
     {
       "name": "xerj_vector_search",
-      "description": "Run an EXACT k-nearest-neighbour search over a `dense_vector` field with a caller-supplied embedding. XERJ scores by exact brute-force distance at query time (HNSW is built at ingest; there is no query-time HNSW traversal or ef_search). Backed by POST /{index}/_search using the top-level `knn` clause.",
+      "description": "Run an EXACT k-nearest-neighbour search over a `dense_vector` field with a caller-supplied embedding. XERJ scores by exact brute-force distance at query time (there is no HNSW/ANN index or query-time traversal, and no ef_search parameter — results are exact, recall 1.00). Backed by POST /{index}/_search using the top-level `knn` clause.",
       "inputSchema": {
         "type": "object",
         "properties": {
