@@ -1,0 +1,4 @@
+{"ticket_id": 5001, "status": "closed", "priority": "high", "summary": "Users cannot sign in after the mobile update", "team": "auth"}
+{"ticket_id": 5002, "status": "open", "priority": "low", "summary": "Export button greyed out on the reporting page", "team": "data"}
+{"ticket_id": 5003, "status": "open", "priority": "high", "summary": "Latency doubled for EU customers during peak hours", "team": "platform"}
+{"ticket_id": 5004, "status": "closed", "priority": "medium", "summary": "Refund not received after cancellation", "team": "billing"}
