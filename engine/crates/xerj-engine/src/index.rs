@@ -5330,7 +5330,18 @@ impl Index {
                 // was ~15 ms of pure String allocation, just to have the
                 // segment `try_shortcut_count` path overwrite the count
                 // a moment later.
-                if count_only && memtable_count_covered_by_shortcut(query) {
+                if count_only
+                    && memtable_count_covered_by_shortcut(query)
+                    && self.store.version_map.ghost_events() == 0
+                {
+                    // NOTE the ghost_events guard (b8 T2b): with ghosts
+                    // present `try_shortcut_count` discards its result
+                    // (the `!deletes_present` gate) and the counting scan
+                    // then runs — it must see the memtable, otherwise
+                    // memtable-resident matches count as 0 (unrefreshed
+                    // `_count`/`size:0` = 0 while `size:10` returned the
+                    // docs).  The fast Empty path is kept for the clean
+                    // case where the shortcut IS authoritative.
                     // For `size:0` + the exact shapes `try_shortcut_count`
                     // resolves memtable-aware (single Term, conjunctive
                     // Term/Range bool — see the helper's doc) the segment
@@ -7359,6 +7370,13 @@ impl Index {
                         if let Some(ver) = self.store.version_map.get(id_ref) {
                             if ver.deleted {
                                 continue;
+                            }
+                            // Superseded stale copy (b8 DEFECT T2) —
+                            // merge.rs stale-copy predicate.
+                            if let Some(doc_seq) = d.get("_seq_no").and_then(Value::as_u64) {
+                                if doc_seq < ver.seq_no {
+                                    continue;
+                                }
                             }
                         }
                         let id_owned = id_ref.to_string();
@@ -10790,6 +10808,12 @@ impl Index {
                 if ver.deleted {
                     continue;
                 }
+                // Superseded stale copy (b8 DEFECT T2) — merge.rs predicate.
+                if let Some(doc_seq) = doc.get("_seq_no").and_then(Value::as_u64) {
+                    if doc_seq < ver.seq_no {
+                        continue;
+                    }
+                }
             }
             *total_count += 1;
             if seen_ids.contains(id_ref) {
@@ -10877,6 +10901,12 @@ impl Index {
             if let Some(ver) = self.store.version_map.get(id_ref) {
                 if ver.deleted {
                     continue;
+                }
+                // Superseded stale copy (b8 DEFECT T2) — merge.rs predicate.
+                if let Some(doc_seq) = doc.get("_seq_no").and_then(Value::as_u64) {
+                    if doc_seq < ver.seq_no {
+                        continue;
+                    }
                 }
             }
             // Re-test the full query — the pre-filter is only a superset.
@@ -11334,6 +11364,16 @@ impl Index {
             if let Some(ver) = self.store.version_map.get(id_ref) {
                 if ver.deleted {
                     continue;
+                }
+                // Superseded stale copy (b8 DEFECT T2): the live version
+                // per the version map has a strictly newer seq than this
+                // stored envelope's `_seq_no` (same predicate the merge
+                // purge uses, merge.rs stale-copy skip).  Raw-source docs
+                // without `_seq_no` keep the pre-fix behavior.
+                if let Some(doc_seq) = doc.get("_seq_no").and_then(Value::as_u64) {
+                    if doc_seq < ver.seq_no {
+                        continue;
+                    }
                 }
             }
 
@@ -17875,6 +17915,28 @@ fn json_compare(a: &Value, b: &Value) -> i32 {
     if let (Some(na), Some(nb)) = (a.as_f64(), b.as_f64()) {
         return na.partial_cmp(&nb).map(|o| o as i32).unwrap_or(0);
     }
+    // Cross-type Number vs String: coerce the string via EXACTLY the
+    // count-path chain (`s.parse::<f64>()` then `parse_date_ms`) so the
+    // stored-scan/hydrate re-test admits precisely the set the dv
+    // prefilter / count shortcut computed.  Pre-fix a Number(epoch-ms)
+    // doc value vs String("2026-02-01") bound fell through to the
+    // lexicographic `json_to_str` compare where "1770…" < "2026-…"
+    // always, so lower-bounded ranges returned `size:10` total=0 while
+    // `_count`/`size:0` were correct (b8 DEFECT T1).  Non-coercible
+    // strings fall through to the existing paths unchanged.
+    match (a, b) {
+        (Value::Number(_), Value::String(sb)) => {
+            if let (Some(na), Some(nb)) = (a.as_f64(), coerce_range_bound_f64(sb)) {
+                return na.partial_cmp(&nb).map(|o| o as i32).unwrap_or(0);
+            }
+        }
+        (Value::String(sa), Value::Number(_)) => {
+            if let (Some(na), Some(nb)) = (coerce_range_bound_f64(sa), b.as_f64()) {
+                return na.partial_cmp(&nb).map(|o| o as i32).unwrap_or(0);
+            }
+        }
+        _ => {}
+    }
     // Date-aware path: when both operands are strings and both parse
     // as dates (including French `lun./déc./…` abbreviations), use
     // timestamp ordering rather than lexicographic ordering.
@@ -17887,6 +17949,18 @@ fn json_compare(a: &Value, b: &Value) -> i32 {
     let sa = json_to_str(a);
     let sb = json_to_str(b);
     sa.cmp(&sb) as i32
+}
+
+/// Coerce a range-bound string to `f64` on the SAME scale the count
+/// paths use (`try_shortcut_count` Range arm / `build_range_prefilter_cached`):
+/// numeric parse first, then `parse_date_ms` to epoch-millis.  Keeping
+/// this chain identical guarantees the `_count == size:0 == size:10`
+/// invariant for ranges on date/numeric fields.
+fn coerce_range_bound_f64(s: &str) -> Option<f64> {
+    if let Ok(f) = s.parse::<f64>() {
+        return Some(f);
+    }
+    crate::aggs::parse_date_ms(&Value::String(s.to_string())).map(|ms| ms as f64)
 }
 
 /// Parse a date string via the standard `parse_date_ms` path *and*
