@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Main server binary for the xerj search engine"
+description = "xerj — the unified search engine for AI: full-text, vectors, hybrid retrieval, agent memory, and log analytics in one binary; zero-config folder onboarding via `xerj autoindex`; Elasticsearch wire-compatible"
 
 [[bin]]
 name = "xerj"
