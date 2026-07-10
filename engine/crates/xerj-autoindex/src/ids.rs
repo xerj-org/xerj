@@ -39,7 +39,10 @@ pub fn doc_id(dataset_slug: &str, file_key: &str, locator: &str) -> String {
 
 /// Deterministic state-dir key for (root, url, prefix).
 pub fn state_key(root: &str, url: &str, prefix: &str) -> String {
-    format!("{:016x}", xxh3_64(format!("{root}\x00{url}\x00{prefix}").as_bytes()))
+    format!(
+        "{:016x}",
+        xxh3_64(format!("{root}\x00{url}\x00{prefix}").as_bytes())
+    )
 }
 
 #[cfg(test)]

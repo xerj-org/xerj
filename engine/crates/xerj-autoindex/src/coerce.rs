@@ -17,7 +17,7 @@ pub enum Coerce {
 }
 
 pub fn enc_from_str(s: &str) -> Option<DateEnc> {
-    for e in [
+    [
         DateEnc::Rfc3339,
         DateEnc::IsoNaive,
         DateEnc::SpaceNaive,
@@ -26,12 +26,9 @@ pub fn enc_from_str(s: &str) -> Option<DateEnc> {
         DateEnc::Rfc2822,
         DateEnc::EpochMillis,
         DateEnc::EpochSeconds,
-    ] {
-        if e.as_str() == s {
-            return Some(e);
-        }
-    }
-    None
+    ]
+    .into_iter()
+    .find(|e| e.as_str() == s)
 }
 
 /// Build the coercion plan from the (serialized) field specs.
@@ -78,10 +75,7 @@ fn coerce_value(v: &Value, kind: &Coerce) -> Option<Value> {
         return None;
     }
     if let Value::Array(a) = v {
-        let out: Vec<Value> = a
-            .iter()
-            .filter_map(|e| coerce_value(e, kind))
-            .collect();
+        let out: Vec<Value> = a.iter().filter_map(|e| coerce_value(e, kind)).collect();
         return if out.is_empty() {
             None
         } else {
@@ -133,9 +127,7 @@ fn coerce_value(v: &Value, kind: &Coerce) -> Option<Value> {
             Value::String(s) => Some(Value::String(s.clone())),
             Value::Number(n) => Some(Value::String(n.to_string())),
             Value::Bool(b) => Some(Value::String(b.to_string())),
-            Value::Object(m) => Some(Value::String(
-                serde_json::to_string(m).unwrap_or_default(),
-            )),
+            Value::Object(m) => Some(Value::String(serde_json::to_string(m).unwrap_or_default())),
             _ => None,
         },
     }

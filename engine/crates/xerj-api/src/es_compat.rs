@@ -4111,11 +4111,6 @@ fn is_lone_doc_sort(v: &Value) -> bool {
     }
 }
 
-/// Parse ES sort spec into a Vec<SortField>.
-///
-/// ES sort can be:
-/// - `"_score"` / `"_doc"` (string)
-/// - `[{"field": "asc"}, {"field": {"order": "desc", "missing": "_last"}}]`
 /// Widen an f32 score to the f64 that prints as the SHORTEST f32 repr —
 /// ES serializes scores as Java floats (`448.4`), while a raw `as f64`
 /// bit-widening prints `448.3999938964844` on the wire. Order-preserving
@@ -4124,6 +4119,11 @@ fn score_wire(v: f32) -> f64 {
     v.to_string().parse().unwrap_or(v as f64)
 }
 
+/// Parse ES sort spec into a Vec<SortField>.
+///
+/// ES sort can be:
+/// - `"_score"` / `"_doc"` (string)
+/// - `[{"field": "asc"}, {"field": {"order": "desc", "missing": "_last"}}]`
 fn parse_sort(sort_val: &Value) -> Vec<xerj_query::sort::SortField> {
     use xerj_query::sort::{SortField, SortMissing, SortMode, SortOrder};
     let mut fields: Vec<SortField> = Vec::new();
@@ -6822,25 +6822,26 @@ pub async fn search(
     // sort at parse time): live-verified on ES 8.13.4, `[{"_score":"asc"}]`
     // and `["_score","_doc"]` both return `max_score: null` while their
     // hits still carry `_score` values.
-    let sort_tracks_scores =
-        search_req.sort.is_empty() || body.track_scores.unwrap_or(false);
+    let sort_tracks_scores = search_req.sort.is_empty() || body.track_scores.unwrap_or(false);
     let max_score = if sort_tracks_scores {
         let explicit_field_sort =
             !search_req.sort.is_empty() && search_req.sort.iter().any(|s| !s.is_score());
         if explicit_field_sort {
             // Prefer the per-index pre-collapse population max; fall back to the
             // (possibly collapsed/paged) merged hit set when unavailable.
-            merged_population_max.map(|m| score_wire(m as f32)).or_else(|| {
-                merged_hits
-                    .iter()
-                    .map(|(_, h)| score_wire(h.score))
-                    .fold(None, |acc: Option<f64>, s| {
-                        Some(match acc {
-                            Some(m) if m >= s => m,
-                            _ => s,
-                        })
-                    })
-            })
+            merged_population_max
+                .map(|m| score_wire(m as f32))
+                .or_else(|| {
+                    merged_hits.iter().map(|(_, h)| score_wire(h.score)).fold(
+                        None,
+                        |acc: Option<f64>, s| {
+                            Some(match acc {
+                                Some(m) if m >= s => m,
+                                _ => s,
+                            })
+                        },
+                    )
+                })
         } else {
             merged_hits.first().map(|(_, h)| score_wire(h.score))
         }

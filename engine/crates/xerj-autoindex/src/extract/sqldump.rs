@@ -97,15 +97,11 @@ pub fn extract(
                                         if let Some((t, cols)) = parse_insert_head(&head) {
                                             cur_table = t;
                                             cur_cols = if cols.is_empty() {
-                                                tables
-                                                    .get(&cur_table)
-                                                    .cloned()
-                                                    .unwrap_or_default()
+                                                tables.get(&cur_table).cloned().unwrap_or_default()
                                             } else {
                                                 cols
                                             };
-                                            let e =
-                                                stmt_ord.entry(cur_table.clone()).or_insert(0);
+                                            let e = stmt_ord.entry(cur_table.clone()).or_insert(0);
                                             cur_stmt = *e;
                                             *e += 1;
                                             tuple_ord = 0;
@@ -428,7 +424,14 @@ fn process_statement_head(head: &str, tables: &mut HashMap<String, Vec<String>>)
     }
     parts.push(part);
     const NON_COLS: [&str; 8] = [
-        "primary", "key", "unique", "constraint", "foreign", "index", "check", "fulltext",
+        "primary",
+        "key",
+        "unique",
+        "constraint",
+        "foreign",
+        "index",
+        "check",
+        "fulltext",
     ];
     for p in parts {
         let p = p.trim();
