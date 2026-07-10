@@ -9,6 +9,9 @@ node_modules/
 # as HTML under landing/docs/.
 *.md
 
+# Re-include: the public agent/reviewer guide at the repo root.
+!AGENTS.md
+
 # Re-include: user-feedback corpus (Kibana + Elasticsearch theme
 # write-ups that drive XERJ design decisions). These are the
 # research artifacts we want in the repo.
@@ -20,7 +23,9 @@ node_modules/
 # Re-include: engine working notes for future Claude sessions
 # (session log in git form — motivations, benchmark results,
 # architecture decisions).
-!engine/CLAUDE.md
+# NOTE: CLAUDE.md files are INTERNAL-ONLY (user directive 2026-07-10)
+# and must never be tracked/pushed; the public agent-facing guide is
+# the root AGENTS.md.
 !engine/README.md
 !engine/ARCHITECTURE_*.md
 !engine/BATTLE_*.md

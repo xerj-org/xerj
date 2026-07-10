@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>AISE — Xerj demo screencast (v2)</title>
+<html><head><meta charset="UTF-8"><title>XERJ — product tour</title>
 <style>
   body { background:#0b0b0d; color:#f3f3ee; font-family:"Inter",system-ui,sans-serif;
          margin:0; padding:24px; min-height:100vh; }
@@ -22,18 +22,18 @@
 </style></head>
 <body>
   <div class="video-wrap">
-    <h1>AISE · Xerj demo · v4</h1>
-    <div class="meta">~3 min 45 sec · 1440×900 · captured 2026-04-28 · every CLI line, every dashboard number, every passkey ceremony — real-time on this machine</div>
+    <h1>XERJ · Product Tour</h1>
+    <div class="meta">~90 seconds · one 22 MB binary, no JVM · Elasticsearch-compatible API · live AI-telemetry dashboards</div>
     <video id="vid" controls preload="auto" playsinline></video>
 
     <div style="margin: 16px 0 0; display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
-      <a id="dl-link" href="aise-demo.mp4" download="xerj-aise-demo.mp4"
+      <a id="dl-link" href="xerj-biz-demo.mp4" download="xerj-demo.mp4"
          style="display: inline-flex; align-items: center; gap: 8px;
                 background: #ffc400; color: #0b0b0d;
                 font-family: 'Big Shoulders Display',sans-serif; font-weight: 800; font-size: 18px;
                 letter-spacing: 0.06em; text-transform: uppercase;
                 padding: 12px 22px; border-radius: 4px; text-decoration: none;">
-        ↓ Download MP4 (9 MB)
+        ↓ Download MP4 (8 MB)
       </a>
       <span style="font-size: 13px; color: #6b6b75;">
         Press <code style="background:rgba(255,196,0,0.15); color:#ffc400; padding:1px 6px; border-radius:3px;">space</code>
@@ -48,41 +48,29 @@
       (function () {
         const t = Date.now();
         const v = document.getElementById('vid');
-        v.src = 'aise-demo.mp4?v=' + t;
+        v.src = 'xerj-biz-demo.mp4?v=' + t;
         const dl = document.getElementById('dl-link');
-        dl.href = 'aise-demo.mp4?v=' + t;
+        dl.href = 'xerj-biz-demo.mp4?v=' + t;
       })();
     </script>
     <div class="summary">
-      <h2>Six scenes, ~225 s total</h2>
-      <table>
-        <tr><th>Time</th><th>Scene</th><th>What's on screen</th></tr>
-        <tr><td>0–8s</td><td>Setup tooltip</td><td><strong>Xerj</strong> is the search engine. <strong>Xerj Console</strong> is the typography-first UX bundled <em>inside the same binary</em>. One file, no JVM, no separate Kibana to install.</td></tr>
-        <tr><td>8–55s</td><td>Launch Xerj</td><td><code>ls -lh xerj</code> — 22 MB binary. <code>./xerj --insecure --data-dir …</code>. Boot log highlights <code>xerj v1.0.0-rc.1 starting</code>. Then the boxed <strong>XERJ CONSOLE · first-launch setup</strong> banner — tooltip explicitly notes this is Xerj Console's claim flow, the <em>server</em> is already up. Proof: <code>curl /</code> returns <code>cluster_name=xerj</code>, <code>/_cluster/health</code> = green, <code>ss -lntp</code> shows ports 8080 (native) + 9200 (ES-compat) listening.</td></tr>
-        <tr><td>55–80s</td><td>Show data file</td><td><code>head -1 chat-events.ndjson | jq</code> reveals the LLM-telemetry shape — <code>model: claude-haiku-4-5</code>, <code>prompt_tokens</code>, <code>cost_usd</code>. Same model name you'll see on the dashboard's BY MODEL chart at scene 6.</td></tr>
-        <tr><td>80–115s</td><td>Bulk ingest</td><td>Single visible <code>curl POST /_bulk</code> for chat-events. Response: <code>took:104ms · errors:false · n:4008 · first:201 · last:201</code>. Verified with <code>_cat/indices/chat-events</code> showing 4 008 docs. Off-screen the orchestrator pushes the other five corpora silently so dashboards have data.</td></tr>
-        <tr><td>115–145s</td><td>Verify</td><td>Run the EXACT aggregation the AI Overview adapter sends: <code>queries:4008 · tokens_M:44 · cost_usd:38 · models:{sonnet:1390, haiku:1110, opus:889, gpt-5:372, gemini-3:158, llama-4:90}</code>. Bucket sum = 4 008 = full corpus.</td></tr>
-        <tr><td>145–165s</td><td>Open Xerj Console</td><td>Browser opens magic-link, types <code>demo@xerj.ai</code> + <code>Demo Owner</code>, virtual WebAuthn enrols passkey, redirect to <code>/_xerj-console/</code>.</td></tr>
-        <tr><td>165–225s</td><td>Walk Xerj Console UX</td><td>
-          <ul>
-            <li><strong>DATA</strong> — six ingested indices visible on LOCAL XERJ cluster, 12.4 M docs total</li>
-            <li><strong>DISCOVER</strong> — interactive query console</li>
-            <li><strong>AI · OVERVIEW</strong> — 3.7K queries, 40.4M tokens, $35 (numbers slightly different from verify scene because of 24h time-filter)</li>
-            <li><strong>RAG · QUALITY</strong> — same data, different shape: hybrid recall, citation rate, top docs</li>
-            <li><strong>VECTOR · INDEX</strong> — 6.39M ops, 1536-d HNSW, 0.94 recall</li>
-            <li><strong>AGENT · MEMORY</strong> — 1.78M entries, 32.3% dedup rate, 78.3% recall, 8 agents</li>
-            <li><strong>ALERTS</strong> — rule-based + anomaly destinations</li>
-            <li><strong>SETTINGS</strong> — Demo Owner / OWNER role / passkey only / dashboard list</li>
-          </ul>
-        </td></tr>
-      </table>
-
-      <h2>Three points the v2 demo answers explicitly</h2>
-      <ol>
-        <li><strong>Why does the boot banner say "XERJ CONSOLE"?</strong> Because Xerj Console (the bundled UI) prints its own first-launch claim banner. The server (Xerj) prints its own version line one paragraph above; v2 highlights it.</li>
-        <li><strong>Where do the dashboards come from?</strong> Eight templates ship as code under <code>xerj-ux/src/dashboards/*.js</code>, bundled into the binary at compile time. The <strong>data</strong> they render comes from whatever you POST to <code>/_bulk</code>; users can rename / hide / clone via the SETTINGS section but the templates are versioned with the code.</li>
-        <li><strong>How is the data added to a dashboard?</strong> It isn't — pull-based. Drop docs into the <code>chat-events</code> / <code>vector-ops</code> / <code>agent-memory</code> / <code>anomalies</code> / <code>ingest-events</code> / <code>ai-kb</code> indices and the matching dashboards' adapters auto-pick them up via <code>_search</code> aggregations. No "connect data source to dashboard" step required.</li>
-      </ol>
+      <h2>What the tour shows</h2>
+      <p>A single-take walkthrough of <strong>XERJ</strong> — one self-contained binary that speaks the
+      Elasticsearch REST API and ships its typography-first console <em>inside the same executable</em>
+      (no JVM, no separate Kibana). The tour opens on live operational dashboards built for AI/LLM
+      workloads and moves through the console's sections:</p>
+      <ul>
+        <li><strong>AI · OVERVIEW</strong> — query volume, token spend, and cost broken down by model.</li>
+        <li><strong>RAG · QUALITY</strong> — grounding score, hallucination rate, retrieval hit rate, and citation counts.</li>
+        <li><strong>VECTOR · INDEX</strong> — vector search throughput and recall.</li>
+        <li><strong>AGENT · MEMORY</strong> — stored entries, dedup rate, recall, and per-agent activity.</li>
+        <li><strong>DATA / DISCOVER / ALERTS / SETTINGS</strong> — the indices behind the dashboards, an
+        interactive query console, alert destinations, and role/passkey settings.</li>
+      </ul>
+      <p>Every number on screen is rendered from documents posted to XERJ over its
+      <code>/_bulk</code> and <code>/_search</code> endpoints — the same API an Elasticsearch client
+      already uses. Prefer the short loop? The animated preview on the
+      <a href="/" style="color:#ffc400;">home page</a> is a clip of this same tour.</p>
     </div>
   </div>
 </body></html>

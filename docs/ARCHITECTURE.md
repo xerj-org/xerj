@@ -3,13 +3,16 @@
 This document orients contributors to how XERJ is put together: the crate layout,
 the path a search request takes, and the path an indexed document takes. It is a
 map, not a specification — the source is authoritative, and
-[`engine/CLAUDE.md`](../engine/CLAUDE.md) is the canonical quick reference for
+[`AGENTS.md`](../AGENTS.md) is the canonical quick reference for
 build/run/test commands and the supported ES surface.
 
-XERJ is an Elasticsearch-wire-compatible search, vector, and log-analytics engine
-written in Rust and published under Apache-2.0. It speaks the Elasticsearch 8.x
-HTTP protocol, so existing ES clients, dashboards, and ingest tooling can talk to
-it unchanged.
+XERJ is an AI-native search, vector, and log-analytics engine written from
+scratch in Rust and published under Apache-2.0 — designed for AI-agent workloads
+(zero-config `autoindex` onboarding, agent data map, `/_memory`), sharing no code
+or architecture with Elasticsearch or Lucene. It additionally speaks the
+Elasticsearch 8.x HTTP protocol as a zero-migration adoption bridge, so existing
+ES clients, dashboards, and ingest tooling talk to it unchanged (see
+[WHY_XERJ.md](./WHY_XERJ.md) for the design rationale).
 
 ## Bird's-eye view
 
@@ -48,7 +51,7 @@ pipeline plugins).
 | `xerj-query` | Query DSL: AST (`ast.rs`), ES JSON parser (`parser.rs`), planner, rewriter, executor. |
 | `xerj-storage` | WAL, sharded memtable, segments, version map, index store. |
 | `xerj-fts` | Full-text search: BM25 scoring, analyzer registry, postings lists. |
-| `xerj-vector` | Dense-vector HNSW index for k-NN / semantic search. |
+| `xerj-vector` | Dense-vector k-NN / semantic search (ES-compat queries are served by an exact scan — recall 1.00; an HNSW implementation exists in-crate but is not on the query path). |
 | `xerj-logs` | Columnar log ingestion and retention. |
 | `xerj-ai` | Text chunking, embedding proxy, memory store. |
 | `xerj-compress` | Block compression codecs (LZ4, Zstd). |
@@ -79,8 +82,8 @@ HTTP POST /{index}/_search
 A query is matched against **both** the in-memory memtable and the on-disk segments,
 and the results are merged so that freshly written documents are immediately
 searchable. For `size > 0` requests, hit materialization is bounded to the top
-`from + size` candidates. k-NN and hybrid queries fan the vector portion out to the
-HNSW index in `xerj-vector` and combine scores in the same executor.
+`from + size` candidates. k-NN and hybrid queries evaluate the vector portion in
+`xerj-vector` (exact scan, recall 1.00) and combine scores in the same executor.
 
 ## The ingest path
 
@@ -121,18 +124,20 @@ Engine::new() scans data_dir/
 
 Elasticsearch compatibility is verified by the `es-yaml-runner` harness against the
 ES 8.13 REST-API-spec YAML suites (search, aggregations, vectors, bulk, indices,
-scroll, cluster). XERJ currently passes 1,326 of 1,329 cases. The YAML tests are the
+scroll, cluster). XERJ currently passes 1,360 of 1,363 cases (3 skipped). The YAML tests are the
 source of truth: if XERJ returns a different response than a test expects, XERJ is
-considered wrong. See `engine/CLAUDE.md` for how to run the suites and the full list
+considered wrong. See the README's "Running the conformance tests" section for how to run the suites and the full list
 of supported query types and aggregations.
 
-Performance is tracked with a reproducible 91-cell head-to-head matrix against
-Elasticsearch 8.13, published at <https://xerj.org/benchmarks>. The scorecard is
-deliberately honest about both wins and losses.
+Performance is tracked with a reproducible full-matrix head-to-head against live
+Elasticsearch 8.13.4, published at <https://xerj.org/benchmarks> (per-cell results
+in `demo/playbooks/FULL_MATRIX_SCORECARD_*.md`). The scorecard is deliberately
+honest about both wins and losses — numbers are only published after an
+independent adversarial re-measure.
 
 ## Where to read more
 
-- [`engine/CLAUDE.md`](../engine/CLAUDE.md) — build/run/test commands, crate table,
+- [`AGENTS.md`](../AGENTS.md) — agent/reviewer guide: positioning, ground rules,
   and the authoritative Architecture Overview (sharded ingest, WAL, search flow).
 - `engine/releases/v0.1.0/reports/` — dated engineering reports, including
   `BENCHMARK_VS_ES_2026-06-30_phase2.md` (benchmark methodology and results) and the

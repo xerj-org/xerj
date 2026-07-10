@@ -534,6 +534,19 @@ impl WalWriter {
 
     /// Write a checkpoint file for the current generation.
     pub fn checkpoint(&mut self, max_seq_no: SeqNo) -> Result<()> {
+        // STALE-CHECKPOINT FIX (2026-07, S3): never checkpoint an EMPTY
+        // active generation.  There is nothing to cover (the previous
+        // generation's checkpoint, if any, still exists), and because
+        // `force_rotate` deliberately no-ops on empty generations, the
+        // .wchk written here would sit on the very generation that
+        // receives FUTURE appends.  Combined with a restart-regressed seq
+        // counter that state made `WalReader::replay` discard every
+        // post-restart acked op (seq_no <= checkpoint.max_seq_no) — byte-
+        // verified as wchk=(offset=16, max_seq_no=X) next to tail entries
+        // seq 1..K in the same shard file, 100% tail loss.
+        if self.current_offset <= WAL_HEADER_LEN {
+            return Ok(());
+        }
         self.sync()?;
         let chkpt = WalCheckpoint {
             generation: self.generation,
@@ -741,21 +754,23 @@ impl WalReader {
         let (latest_gen, _) = find_latest_generation(&self.dir)?;
 
         // Determine the starting generation and offset from the checkpoint
-        let (start_gen, skip_up_to_seq) = match read_checkpoint(&self.dir, latest_gen) {
+        let checkpoint = match read_checkpoint(&self.dir, latest_gen) {
             Ok(c) => {
                 // debug: fires per WAL (16 shards × every index) at startup.
                 debug!(
                     generation = c.generation,
                     max_seq_no = c.max_seq_no,
+                    offset = c.offset,
                     "replaying from checkpoint"
                 );
-                (c.generation, c.max_seq_no)
+                Some(c)
             }
             Err(_) => {
                 debug!("no checkpoint found, replaying from generation 0");
-                (0u64, 0u64)
+                None
             }
         };
+        let start_gen = checkpoint.as_ref().map(|c| c.generation).unwrap_or(0);
 
         // Collect all generations >= start_gen
         let mut gens: Vec<u64> = fs::read_dir(&self.dir)
@@ -770,7 +785,7 @@ impl WalReader {
         let dir = self.dir.clone();
         let iter = gens.into_iter().flat_map(move |gen| {
             let path = wal_path(&dir, gen);
-            read_wal_file(path, skip_up_to_seq)
+            read_wal_file(path, checkpoint.clone())
         });
 
         Ok(iter)
@@ -839,9 +854,22 @@ pub fn replay_all_sorted(wal_root: &Path) -> Vec<ReplayEntry> {
     all_entries
 }
 
-/// Read all entries from a single WAL file, skipping those with seq_no <=
-/// `skip_up_to_seq`.
-fn read_wal_file(path: PathBuf, skip_up_to_seq: SeqNo) -> Vec<Result<ReplayEntry>> {
+/// Read all entries from a single WAL file, skipping those already covered
+/// by `checkpoint`.
+///
+/// OFFSET-BOUNDED SKIP (2026-07, S3 hardening): an entry is "covered" only
+/// when it sits BEFORE the checkpointed byte offset of the checkpointed
+/// generation (or in an older generation).  A checkpoint by construction
+/// covers exactly the bytes `[0, checkpoint.offset)` of its generation —
+/// anything appended past that offset was written AFTER the checkpoint and
+/// must replay regardless of its seq_no.  The old rule (`seq_no <=
+/// checkpoint.max_seq_no`, applied file-wide) silently discarded every
+/// post-restart acked op whenever the seq counter had regressed across a
+/// restart (stale .wchk with max_seq_no=X on the active generation, tail
+/// entries seq 1..K <= X) — 100% loss of the acked tail.  It also protects
+/// against the flush-checkpoint race where a reserved-but-unflushed seq
+/// range is covered by a concurrent checkpoint's max_seq.
+fn read_wal_file(path: PathBuf, checkpoint: Option<WalCheckpoint>) -> Vec<Result<ReplayEntry>> {
     let file = match File::open(&path) {
         Ok(f) => f,
         Err(e) => return vec![Err(e.into())],
@@ -929,9 +957,14 @@ fn read_wal_file(path: PathBuf, skip_up_to_seq: SeqNo) -> Vec<Result<ReplayEntry
         let this_offset = file_offset;
         file_offset += entry_total;
 
-        // Skip entries already covered by checkpoint
-        if seq_no <= skip_up_to_seq {
-            continue;
+        // Skip entries already covered by the checkpoint — see the
+        // offset-bounded rule in the function docs.
+        if let Some(c) = &checkpoint {
+            let positionally_covered = generation < c.generation
+                || (generation == c.generation && this_offset < c.offset);
+            if positionally_covered && seq_no <= c.max_seq_no {
+                continue;
+            }
         }
 
         // Check and strip the compression flag from op_code.

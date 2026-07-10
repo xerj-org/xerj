@@ -1,0 +1,11 @@
+autoindex: 4 files (0 MB) under /tmp/xerj-pubpass/sample
+phase A: sniffing + sampling 4 files…
+phase A: 3 datasets inferred, 1 junk/skipped files
+phase B: indexing 3 files with 8 workers → http://localhost:9280
+
+done in 0.2s — 3 datasets, 5801 records live, 0 junk records, 1 junk/skipped files
+  ax-logs                                        5000 docs
+  ax-exports                                      800 docs
+  ax-docs                                           1 docs
+
+next: `xerj autoindex map --url http://localhost:9280` for the data map; search via GET /ax-*/_search

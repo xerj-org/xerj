@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ · Docs · For AI · Endpoint contract</title>
+<meta name="description" content="The XERJ agent endpoint contract: method, path, request body and response shape for search, semantic, vector, hybrid, and the /_memory API.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="stylesheet" href="/style.css?v=90f643e">
+</head>
+<body>
+
+
+<nav class="nav" aria-label="Primary">
+  <a href="/index.html" class="brand">XERJ.AI</a>
+  <a href="/index.html">HOME</a>
+  <a href="/product.html">PRODUCT</a>
+  <span class="nav-drop">
+    <a href="/use-cases.html">USE CASES</a>
+  </span>
+  <span class="spacer"></span>
+  <a href="/for-agents.html">FOR AGENTS</a>
+  <a href="/docs/index.html" class="active">DOCS</a>
+  <a href="/docs/recipes/index.html">RECIPES</a>
+  <a href="/playground.html">DASHBOARDS</a>
+  <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
+  <span class="spacer"></span>
+  <span class="theme">
+    <button type="button" data-theme="day">DAY</button>
+    <span class="dash">·</span>
+    <button type="button" data-theme="night" class="active">NIGHT</button>
+  </span>
+</nav>
+
+<div class="docs-search" id="docsSearch">
+  <input type="text" id="docsSearchInput" placeholder="Search docs · keys, flags, endpoints, playbooks…" aria-label="Search docs" autocomplete="off" spellcheck="false">
+  <span class="hint">⌘ K</span>
+  <div class="results" id="docsSearchResults" aria-live="polite"></div>
+</div>
+
+<div class="docs-shell">
+<nav class="docs-nav" aria-label="Docs">  <div class="group">
+    <span class="label">FOR AI · AGENTS</span>
+    <a href="/for-agents.html" class=""><span class="eyebrow">00</span>For AI (hub)</a>
+      <a href="/docs/agents/index.html" class=""><span class="eyebrow">01</span>Overview</a>
+      <a href="/docs/agents/quickstart.html" class=""><span class="eyebrow">02</span>Agent quickstart</a>
+      <a href="/docs/agents/endpoints.html" class="active"><span class="eyebrow">03</span>Endpoint contract</a>
+  </div>
+  <div class="group">
+    <span class="label">START</span>
+    <a href="/docs/index.html" class=""><span class="eyebrow">01</span>Overview</a>
+      <a href="/docs/quickstart.html" class=""><span class="eyebrow">02</span>Quickstart</a>
+      <a href="/docs/install.html" class=""><span class="eyebrow">03</span>Install</a>
+      <a href="/docs/migration-from-es.html" class=""><span class="eyebrow">04</span>Migrate from ES</a>
+  </div>
+  <div class="group">
+    <span class="label">REFERENCE</span>
+    <a href="/docs/cli.html" class=""><span class="eyebrow">01</span>CLI</a>
+      <a href="/docs/config.html" class=""><span class="eyebrow">02</span>Config TOML</a>
+      <a href="/docs/env.html" class=""><span class="eyebrow">03</span>Environment</a>
+      <a href="/docs/api-native.html" class=""><span class="eyebrow">04</span>Native REST API</a>
+      <a href="/docs/api-es-compat.html" class=""><span class="eyebrow">05</span>ES-compat API</a>
+  </div>
+  <div class="group">
+    <span class="label">DATA MODEL</span>
+    <a href="/docs/queries.html" class=""><span class="eyebrow">01</span>Query types</a>
+      <a href="/docs/aggregations.html" class=""><span class="eyebrow">02</span>Aggregations</a>
+      <a href="/docs/analyzers.html" class=""><span class="eyebrow">03</span>Analyzers</a>
+      <a href="/docs/vectors.html" class=""><span class="eyebrow">04</span>Vectors & kNN</a>
+  </div>
+  <div class="group">
+    <span class="label">ENGINE</span>
+    <a href="/docs/ingest.html" class=""><span class="eyebrow">01</span>Ingest pipelines</a>
+      <a href="/docs/storage.html" class=""><span class="eyebrow">02</span>Storage & WAL</a>
+      <a href="/docs/compression.html" class=""><span class="eyebrow">03</span>Compression</a>
+      <a href="/docs/clustering.html" class=""><span class="eyebrow">04</span>Clustering</a>
+      <a href="/docs/metrics.html" class=""><span class="eyebrow">05</span>Metrics</a>
+      <a href="/docs/security.html" class=""><span class="eyebrow">06</span>Auth & TLS</a>
+  </div>
+  <div class="group">
+    <span class="label">OPERATIONS</span>
+    <a href="/docs/operations.html" class=""><span class="eyebrow">01</span>Running in production</a>
+      <a href="/docs/backup-restore.html" class=""><span class="eyebrow">02</span>Backup & restore</a>
+      <a href="/docs/upgrades.html" class=""><span class="eyebrow">03</span>Upgrades</a>
+      <a href="/docs/troubleshooting.html" class=""><span class="eyebrow">04</span>Troubleshooting</a>
+  </div>
+  <div class="group">
+    <span class="label">RECIPES</span>
+    <a href="/docs/recipes/index.html" class=""><span class="eyebrow">00</span>All recipes</a>
+    <a href="/docs/recipes/semantic-search-rag.html" class=""><span class="eyebrow">01</span>Semantic search &amp; RAG</a>
+    <a href="/docs/recipes/agentic-memory.html" class=""><span class="eyebrow">02</span>Agent memory</a>
+    <a href="/docs/recipes/hybrid-search.html" class=""><span class="eyebrow">06</span>Hybrid search</a>
+    <a href="/docs/recipes/vector-search-knn.html" class=""><span class="eyebrow">04</span>Vector search &middot; kNN</a>
+  </div>
+</nav>
+
+<main class="docs-content">
+  <!-- Print-only branded header (hidden on screen, visible in PDF) -->
+  <div class="print-header" style="display:none;">XERJ.AI</div>
+
+  <div class="breadcrumb"><a href="/docs/index.html">DOCS</a><span class="sep">·</span><a href="/docs/agents/index.html">FOR AI</a><span class="sep">·</span>ENDPOINT CONTRACT
+    <button class="pdf-btn" onclick="window.print()" title="Save this page as PDF">
+      <svg viewBox="0 0 24 24"><path d="M12 3v12M12 15l-4-4M12 15l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+      PDF
+    </button>
+  </div>
+  <div class="kicker"><span>FOR AI · 03</span></div>
+  <h1>Endpoint contract</h1>
+
+  <p>The exact wire contract for the six agent operations plus the data endpoints they build on. Everything is on port <code class="inline">9200</code>, JSON in and JSON out. Optional fields are marked <code class="inline">?</code>. Response shapes are shown as they actually come back from a live XERJ.</p>
+
+  <h2>At a glance</h2>
+  <div class="api">
+    <div class="head">METHOD</div>
+    <div class="head">PATH</div>
+    <div class="head">DESCRIPTION</div>
+
+    <div class="cell m">POST</div>
+    <div class="cell p"><a href="#search">/:index/_search</a></div>
+    <div class="cell dsc"><code class="inline">xerj_search</code> — keyword / structured (<code class="inline">match</code>, <code class="inline">term</code>, <code class="inline">bool</code>, <code class="inline">range</code>).</div>
+
+    <div class="cell m">POST</div>
+    <div class="cell p"><a href="#semantic">/:index/_search</a></div>
+    <div class="cell dsc"><code class="inline">xerj_semantic_search</code> — <code class="inline">semantic</code> query; server embeds the query text.</div>
+
+    <div class="cell m">POST</div>
+    <div class="cell p"><a href="#vector">/:index/_search</a></div>
+    <div class="cell dsc"><code class="inline">xerj_vector_search</code> — top-level <code class="inline">knn</code>, exact nearest-neighbor.</div>
+
+    <div class="cell m">POST</div>
+    <div class="cell p"><a href="#hybrid">/:index/_search</a></div>
+    <div class="cell dsc"><code class="inline">xerj_hybrid_search</code> — <code class="inline">hybrid</code> query; <code class="inline">rrf</code> or <code class="inline">linear</code> fusion.</div>
+
+    <div class="cell m">POST</div>
+    <div class="cell p"><a href="#memory-store">/_memory/:ns</a></div>
+    <div class="cell dsc"><code class="inline">xerj_memory_store</code> — store a memory (text auto-embedded).</div>
+
+    <div class="cell m">POST</div>
+    <div class="cell p"><a href="#memory-recall">/_memory/:ns/_recall</a></div>
+    <div class="cell dsc"><code class="inline">xerj_memory_recall</code> — recall top-k by meaning / keyword / vector.</div>
+
+    <div class="cell m">GET</div>
+    <div class="cell p"><a href="#memory-list">/_memory/:ns</a></div>
+    <div class="cell dsc">List recent entries in a namespace (bounded, recent first).</div>
+
+    <div class="cell m">DELETE</div>
+    <div class="cell p"><a href="#memory-forget">/_memory/:ns/:id</a></div>
+    <div class="cell dsc">Forget one memory. <code class="inline">DELETE /_memory/:ns</code> drops the namespace.</div>
+
+    <div class="cell m">PUT</div>
+    <div class="cell p"><a href="#data">/:index</a></div>
+    <div class="cell dsc">Create an index with a mapping (<code class="inline">semantic_text</code>, <code class="inline">dense_vector</code>, …).</div>
+
+    <div class="cell m">POST/PUT</div>
+    <div class="cell p"><a href="#data">/:index/_doc</a></div>
+    <div class="cell dsc">Index a document. <code class="inline">POST</code> = auto-id, <code class="inline">PUT /_doc/:id</code> = explicit id.</div>
+
+    <div class="cell m">POST</div>
+    <div class="cell p"><a href="#data">/:index/_bulk</a></div>
+    <div class="cell dsc">NDJSON bulk: <code class="inline">index</code>, <code class="inline">create</code>, <code class="inline">update</code>, <code class="inline">delete</code>.</div>
+  </div>
+  <p class="source-note">Routes: engine/crates/xerj-api/src/router.rs · handlers: es_compat.rs, memory_api.rs</p>
+
+  <h2 id="search">xerj_search — keyword &amp; structured</h2>
+  <p>Standard ES query DSL on <code class="inline">POST /{index}/_search</code>: <code class="inline">match</code> (BM25 full-text), <code class="inline">term</code>/<code class="inline">terms</code> (exact), <code class="inline">range</code>, <code class="inline">bool</code> (<code class="inline">must</code>/<code class="inline">should</code>/<code class="inline">must_not</code>/<code class="inline">filter</code>), plus <code class="inline">from</code>, <code class="inline">size</code>, <code class="inline">sort</code>, <code class="inline">_source</code>, <code class="inline">aggs</code>, <code class="inline">highlight</code>. See the full <a href="/docs/queries.html">query-types reference</a>.</p>
+<pre class="code">POST /notes/_search
+{"query": {"match": {"body": "deployment"}}, "size": 5, "_source": ["body"]}
+
+→ {"hits": {"total": {"value": 1, "relation": "eq"},
+            "hits": [{"_id": "1", "_score": 0.28…,
+                      "_source": {"body": "How do I roll back a bad deployment?"}}]}}</pre>
+
+  <h2 id="semantic">xerj_semantic_search — retrieve by meaning</h2>
+  <p>Requires a field mapped as <code class="inline">semantic_text</code> (see <a href="#data">creating an index</a>). XERJ auto-embeds that field on ingest into a companion <code class="inline">&lt;field&gt;_vector</code>; the <code class="inline">semantic</code> query embeds the query text the same way and ranks by vector similarity — <strong>no client-side embedding, no external key.</strong></p>
+  <table>
+    <thead><tr><th>Field</th><th>Type</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code class="inline">field</code></td><td>string</td><td>The <code class="inline">semantic_text</code> field to search.</td></tr>
+      <tr><td><code class="inline">query</code></td><td>string</td><td>Natural-language query. Embedded server-side.</td></tr>
+      <tr><td><code class="inline">k</code>?</td><td>int</td><td>Neighbors to retrieve (default 10).</td></tr>
+      <tr><td><code class="inline">filter</code>?</td><td>query</td><td>Pre-filter clause applied before scoring.</td></tr>
+      <tr><td><code class="inline">boost</code>?</td><td>float</td><td>Score multiplier for this clause.</td></tr>
+    </tbody>
+  </table>
+<pre class="code">POST /notes/_search
+{"query": {"semantic": {"field": "body", "query": "undo a failed rollout", "k": 2}},
+ "_source": ["body"]}
+
+→ top hit _id "2" — "Reverting a broken release to the previous version." (shares no words)</pre>
+  <p><strong>Honesty:</strong> the zero-config built-in embedder is deterministic and lexical, not a large neural model — great for offline, reproducible retrieval. For production semantic quality, map the field with an <code class="inline">inference_id</code> / <code class="inline">inference_endpoint</code> pointing at your own OpenAI-compatible embeddings service; the query shape is unchanged.</p>
+
+  <h2 id="vector">xerj_vector_search — exact kNN</h2>
+  <p>Bring your own embeddings: map a <code class="inline">dense_vector</code> field, store vectors on each doc, and pass a <code class="inline">query_vector</code> as a <strong>top-level</strong> <code class="inline">knn</code> block (ES 8.x shape).</p>
+  <table>
+    <thead><tr><th>Field</th><th>Type</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code class="inline">field</code></td><td>string</td><td>The <code class="inline">dense_vector</code> field.</td></tr>
+      <tr><td><code class="inline">query_vector</code></td><td>float[]</td><td>Query embedding (same dims as the field). <code class="inline">vector</code> also accepted.</td></tr>
+      <tr><td><code class="inline">k</code>?</td><td>int</td><td>Neighbors to return (default 10).</td></tr>
+      <tr><td><code class="inline">num_candidates</code>?</td><td>int</td><td>Accepted for ES compatibility.</td></tr>
+    </tbody>
+  </table>
+<pre class="code">POST /notes/_search
+{"knn": {"field": "embedding", "query_vector": [0.1, 0.9, 0.0], "k": 2},
+ "_source": ["body"]}
+
+→ [("1", 1.0), ("2", 0.9998)]   # exact cosine scores</pre>
+  <p><strong>Honesty:</strong> <code class="inline">knn</code> is <strong>exact (brute-force) at query time</strong> — every candidate vector is scored, so recall is exact and there is no approximate query-time traversal to tune. (There is no HNSW/ANN traversal at query time — latency scales with vectors scanned, so do not assume ANN-style speed.)</p>
+
+  <h2 id="hybrid">xerj_hybrid_search — fuse keyword + vector</h2>
+  <p>Run several sub-queries and fuse their rankings in one call. Each entry in <code class="inline">queries</code> is <code class="inline">{"query": {…}, "weight"?: float}</code>; <code class="inline">fusion</code> is <code class="inline">"rrf"</code> (reciprocal-rank fusion, default) or <code class="inline">"linear"</code> (weighted score sum).</p>
+<pre class="code">POST /notes/_search
+{"query": {"hybrid": {
+   "queries": [
+     {"query": {"match": {"body": "rollback deployment"}}},
+     {"query": {"knn": {"field": "embedding", "query_vector": [0.1,0.9,0.0], "k": 3}}}
+   ],
+   "fusion": "rrf"
+ }},
+ "_source": ["body"]}
+
+→ fused ranking over both sub-queries (RRF k=60)</pre>
+  <p><strong>Honesty:</strong> only <code class="inline">rrf</code> and <code class="inline">linear</code> are implemented. Requesting <code class="inline">"fusion":"learned"</code> fails loudly:</p>
+<pre class="code">→ "reason": "parse error: hybrid fusion learned is not yet supported; use rrf or linear"</pre>
+
+  <h2 id="memory-store">xerj_memory_store</h2>
+  <p><code class="inline">POST /_memory/{namespace}</code>. The namespace is created on first store. A memory needs at least <code class="inline">text</code> <em>or</em> a <code class="inline">vector</code>. Text is always BM25-indexed and auto-embedded (so it is semantically recallable); a supplied <code class="inline">vector</code> additionally enables kNN recall.</p>
+  <table>
+    <thead><tr><th>Field</th><th>Type</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code class="inline">text</code></td><td>string</td><td>The memory. Auto-embedded + BM25-indexed.</td></tr>
+      <tr><td><code class="inline">metadata</code>?</td><td>object</td><td>Arbitrary tags; subfields filterable as <code class="inline">metadata.x</code>.</td></tr>
+      <tr><td><code class="inline">vector</code>?</td><td>float[]</td><td>Your own embedding; enables kNN recall. Fixes the namespace's vector dims.</td></tr>
+      <tr><td><code class="inline">id</code>?</td><td>string</td><td>Explicit id; a UUID is generated if omitted.</td></tr>
+      <tr><td><code class="inline">dedup</code>?</td><td>bool</td><td>If <code class="inline">true</code>, skip storing a near-duplicate of an existing memory.</td></tr>
+      <tr><td><code class="inline">dedup_threshold</code>?</td><td>float</td><td>Cosine threshold for <code class="inline">dedup</code> (default 0.95).</td></tr>
+    </tbody>
+  </table>
+<pre class="code">POST /_memory/agent-demo
+{"text": "The user prefers metric units and a dark UI theme.", "metadata": {"kind": "preference"}}
+
+→ 201 {"created": true, "id": "77eff57b-…", "namespace": "agent-demo"}
+   # dedup hit → 200 {"created": false, "deduplicated": true, "id": "…", "score": 0.97}</pre>
+
+  <h2 id="memory-recall">xerj_memory_recall</h2>
+  <p><code class="inline">POST /_memory/{namespace}/_recall</code>. The body picks the mode: an explicit <code class="inline">vector</code> → kNN; else <code class="inline">"semantic": true</code> with a <code class="inline">query</code> → server-side semantic recall; else <code class="inline">query</code> alone → BM25; empty body → recent memories.</p>
+  <table>
+    <thead><tr><th>Field</th><th>Type</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code class="inline">query</code>?</td><td>string</td><td>Text query — BM25, or embedded when <code class="inline">semantic:true</code>.</td></tr>
+      <tr><td><code class="inline">semantic</code>?</td><td>bool</td><td>Embed <code class="inline">query</code> server-side and recall by similarity.</td></tr>
+      <tr><td><code class="inline">vector</code>?</td><td>float[]</td><td>Recall by kNN against a supplied embedding. Wins over <code class="inline">query</code>.</td></tr>
+      <tr><td><code class="inline">k</code>?</td><td>int</td><td>Number of memories to return (default 10).</td></tr>
+      <tr><td><code class="inline">filter</code>?</td><td>query</td><td>Metadata pre-filter, e.g. <code class="inline">{"term":{"metadata.kind":"preference"}}</code>.</td></tr>
+      <tr><td><code class="inline">recency_weight</code>?</td><td>float</td><td>Blend recency into ranking in <code class="inline">[0,1]</code> (0 = pure relevance).</td></tr>
+    </tbody>
+  </table>
+<pre class="code">POST /_memory/agent-demo/_recall
+{"query": "what display settings does the user like?", "semantic": true, "k": 2}
+
+→ {"hits": [{"id": "77eff57b-…", "text": "The user prefers metric units and a dark UI theme.",
+             "metadata": {"kind": "preference"}, "score": 0.6555…}],
+   "namespace": "agent-demo"}</pre>
+  <p>Recall of an unknown namespace returns <code class="inline">{"hits": [], "namespace": …}</code> — isolation is structural: each namespace is a physically separate index, so a recall in one can never read another.</p>
+
+  <h2 id="memory-list">List a namespace</h2>
+  <p><code class="inline">GET /_memory/{namespace}</code> returns a bounded, recent-first view for debugging/audit (up to 100 entries) — not a full export.</p>
+<pre class="code">GET /_memory/agent-demo
+→ {"namespace": "agent-demo", "exists": true, "count": 2,
+   "entries": [{"id": "…", "text": "…", "metadata": {…}, "score": 1.0}, …]}</pre>
+
+  <h2 id="memory-forget">Forget</h2>
+<pre class="code">DELETE /_memory/agent-demo/77eff57b-…   → {"forgotten": true,  "id": "77eff57b-…", "namespace": "agent-demo"}
+DELETE /_memory/agent-demo              → {"dropped": true, "namespace": "agent-demo"}</pre>
+
+  <h2 id="data">Data endpoints the ops build on</h2>
+  <p>To use <code class="inline">semantic</code>, <code class="inline">knn</code>, or <code class="inline">hybrid</code> over your own data you first create an index and put documents in it. These are the standard ES-compatible calls (full reference: <a href="/docs/api-es-compat.html">ES-compat API</a>).</p>
+<pre class="code"># create an index with a semantic_text + dense_vector mapping
+PUT /notes
+{"mappings": {"properties": {
+   "body":      {"type": "semantic_text"},
+   "embedding": {"type": "dense_vector", "dims": 3, "similarity": "cosine"}
+}}}
+→ {"acknowledged": true, "shards_acknowledged": true, "index": "notes"}
+
+# index a document with an EXPLICIT id (PUT) …
+PUT /notes/_doc/1
+{"body": "How do I roll back a bad deployment?", "embedding": [0.1, 0.9, 0.0]}
+→ {"_index": "notes", "_id": "1", "result": "created", …}
+
+# … or with an AUTO id (POST, no id in the path)
+POST /notes/_doc
+{"body": "A note without an id", "embedding": [0.2, 0.7, 0.1]}
+→ {"_id": "&lt;uuid&gt;", "result": "created", …}
+
+# bulk NDJSON (Content-Type: application/x-ndjson)
+POST /logs/_bulk
+{"index":{"_id":"1"}}
+{"service":"auth","level":"error","message":"login failed"}
+→ {"errors": false, "items": [{"index": {"status": 201, …}}]}</pre>
+  <p>Freshly indexed documents become searchable after a refresh; call <code class="inline">POST /{index}/_refresh</code> in a test loop, or rely on the periodic refresh in normal operation.</p>
+
+  <div class="next">
+      <div class="step"><span class="dir">◀ PREV</span><a href="/docs/agents/quickstart.html">Agent quickstart</a></div>
+      <div class="step right"><span class="dir">NEXT ▶</span><a href="/docs/recipes/index.html">All recipes</a></div>
+    </div>
+
+  <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
+  <div class="print-footer" style="display:none;">
+    <span>XERJ.AI · FOR AI · ENDPOINT CONTRACT</span>
+    <a href="https://xerj.org/docs/agents/endpoints.html">https://xerj.org/docs/agents/endpoints.html</a>
+    <span>Endpoint contract</span>
+  </div>
+</main>
+
+</div>
+
+<footer class="footer">
+  <span>XERJ.AI · DOCS · V1.0.0-RC.1</span>
+  <span>READ THE SOURCE</span>
+  <span><a href="/index.html">HOME</a> · <a href="/product.html">PRODUCT</a> · <a href="/brand.html">BRAND</a> · <a href="/playground.html">DASHBOARDS</a> &middot; <a href="/llms.txt">LLMS.TXT</a></span>
+</footer>
+
+<script type="application/json" id="docs-index">[{"title":"Overview","slug":"/docs/index.html","kicker":"START","snip":""},{"title":"Quickstart","slug":"/docs/quickstart.html","kicker":"START","snip":""},{"title":"Install","slug":"/docs/install.html","kicker":"START","snip":""},{"title":"Migrate from ES","slug":"/docs/migration-from-es.html","kicker":"START","snip":""},{"title":"CLI","slug":"/docs/cli.html","kicker":"REFERENCE","snip":""},{"title":"Config TOML","slug":"/docs/config.html","kicker":"REFERENCE","snip":""},{"title":"Environment","slug":"/docs/env.html","kicker":"REFERENCE","snip":""},{"title":"Native REST API","slug":"/docs/api-native.html","kicker":"REFERENCE","snip":""},{"title":"ES-compat API","slug":"/docs/api-es-compat.html","kicker":"REFERENCE","snip":""},{"title":"Query types","slug":"/docs/queries.html","kicker":"DATA MODEL","snip":""},{"title":"Aggregations","slug":"/docs/aggregations.html","kicker":"DATA MODEL","snip":""},{"title":"Analyzers","slug":"/docs/analyzers.html","kicker":"DATA MODEL","snip":""},{"title":"Vectors & kNN","slug":"/docs/vectors.html","kicker":"DATA MODEL","snip":""},{"title":"Ingest pipelines","slug":"/docs/ingest.html","kicker":"ENGINE","snip":""},{"title":"Storage & WAL","slug":"/docs/storage.html","kicker":"ENGINE","snip":""},{"title":"Compression","slug":"/docs/compression.html","kicker":"ENGINE","snip":""},{"title":"Clustering","slug":"/docs/clustering.html","kicker":"ENGINE","snip":""},{"title":"Metrics","slug":"/docs/metrics.html","kicker":"ENGINE","snip":""},{"title":"Auth & TLS","slug":"/docs/security.html","kicker":"ENGINE","snip":""},{"title":"Running in production","slug":"/docs/operations.html","kicker":"OPERATIONS","snip":""},{"title":"Backup & restore","slug":"/docs/backup-restore.html","kicker":"OPERATIONS","snip":""},{"title":"Upgrades","slug":"/docs/upgrades.html","kicker":"OPERATIONS","snip":""},{"title":"Troubleshooting","slug":"/docs/troubleshooting.html","kicker":"OPERATIONS","snip":""},{"title":"SIEM","slug":"/docs/playbooks/siem.html","kicker":"PLAYBOOKS","snip":""},{"title":"Log analytics","slug":"/docs/playbooks/log-analytics.html","kicker":"PLAYBOOKS","snip":""},{"title":"Vector · RAG","slug":"/docs/playbooks/vector-search.html","kicker":"PLAYBOOKS","snip":""},{"title":"Full-text search","slug":"/docs/playbooks/full-text.html","kicker":"PLAYBOOKS","snip":""},{"title":"Observability","slug":"/docs/playbooks/observability.html","kicker":"PLAYBOOKS","snip":""},{"title":"CLI · --config","slug":"/docs/cli.html#config-flag","kicker":"CLI","snip":"-c, --config <PATH>  Path to the TOML config file."},{"title":"CLI · --data-dir","slug":"/docs/cli.html#data-dir-flag","kicker":"CLI","snip":"-d, --data-dir <PATH>  Override [server] data_dir at the command line."},{"title":"CLI · --insecure","slug":"/docs/cli.html#insecure-flag","kicker":"CLI","snip":"-k, --insecure  Disable TLS and API-key auth. Dev only."},{"title":"[server] rest_port","slug":"/docs/config.html#server","kicker":"CONFIG","snip":"u16 · default 8080 · Native REST API listener port."},{"title":"[server] es_compat_port","slug":"/docs/config.html#server","kicker":"CONFIG","snip":"u16 · default 9200 · Elasticsearch-wire-format port. 0 to disable."},{"title":"[storage] wal_sync","slug":"/docs/config.html#storage","kicker":"CONFIG","snip":"enum · default batched · sync · batched · async. Durability knob."},{"title":"[vector] hnsw_ef_search","slug":"/docs/config.html#vector","kicker":"CONFIG","snip":"u32 · default 100 · Accepted but has no effect — query-time kNN is exact brute-force."},{"title":"[vector] default_quantization","slug":"/docs/config.html#vector","kicker":"CONFIG","snip":"enum · none · scalar8 · scalar4 · binary."},{"title":"GET /v1/health","slug":"/docs/api-native.html#health","kicker":"NATIVE API","snip":"Liveness + readiness. {status, uptime_s, version}."},{"title":"GET /v1/metrics","slug":"/docs/api-native.html#metrics","kicker":"NATIVE API","snip":"Prometheus text format. Scrape-friendly."},{"title":"POST /v1/indices/:name/turbo-ingest","slug":"/docs/api-native.html#turbo-ingest","kicker":"NATIVE API","snip":"NDJSON bulk path with parallel tokenization."},{"title":"POST /v1/indices/:name/search","slug":"/docs/api-native.html#search","kicker":"NATIVE API","snip":"Unified query endpoint — full-text, term, range, KNN, hybrid."},{"title":"POST /:index/_bulk","slug":"/docs/api-es-compat.html#bulk","kicker":"ES API","snip":"NDJSON bulk. Actions: index, create, update, delete."},{"title":"POST /:index/_search","slug":"/docs/api-es-compat.html#search","kicker":"ES API","snip":"ES query DSL. Drop-in migration path."},{"title":"match_all","slug":"/docs/queries.html#match-all","kicker":"QUERY","snip":"Everything in the index."},{"title":"bool","slug":"/docs/queries.html#bool","kicker":"QUERY","snip":"must / should / must_not / filter clauses."},{"title":"knn","slug":"/docs/queries.html#knn","kicker":"QUERY","snip":"Exact (brute-force) vector kNN — 100% recall, no ANN index used."},{"title":"semantic_search","slug":"/docs/queries.html#semantic-search","kicker":"QUERY","snip":"Embed the query at query time."},{"title":"hybrid","slug":"/docs/queries.html#hybrid","kicker":"QUERY","snip":"RRF / linear fusion of sub-queries."},{"title":"terms aggregation","slug":"/docs/aggregations.html#terms","kicker":"AGG","snip":"Exact, pre-computed terms histograms over keyword fields."},{"title":"date_histogram","slug":"/docs/aggregations.html#date-histogram","kicker":"AGG","snip":"Time-bucketed counts."},{"title":"Exact kNN","slug":"/docs/vectors.html#knn-query","kicker":"VECTORS","snip":"Exact brute-force scan over stored vectors — 100% recall, no ANN traversal."},{"title":"SQ8 quantization","slug":"/docs/vectors.html#quantization","kicker":"VECTORS","snip":"8-bit scalar quantization. 4× memory reduction."},{"title":"turbo-ingest","slug":"/docs/ingest.html#turbo","kicker":"INGEST","snip":"NDJSON bulk path. Parallel tokenization across cores."},{"title":"delta-of-delta","slug":"/docs/compression.html#delta-of-delta","kicker":"COMPRESSION","snip":"Timestamp encoding. Apache/Nginx/ISO auto-detect."},{"title":"dictionary encoding","slug":"/docs/compression.html#dictionary","kicker":"COMPRESSION","snip":"Up to 256 unique strings per column."},{"title":"api_key","slug":"/docs/security.html#api-key","kicker":"SECURITY","snip":"Static admin key. Auto-generated on first run."},{"title":"SIEM playbook","slug":"/docs/playbooks/siem.html","kicker":"PLAYBOOK","snip":"Terms agg over source IPs for SIEM, with detection rules."},{"title":"RAG playbook","slug":"/docs/playbooks/vector-search.html","kicker":"PLAYBOOK","snip":"Embeddings, exact kNN, hybrid search, BM25 + kNN fusion."},{"title":"[cluster] enabled","slug":"/docs/config.html#cluster","kicker":"CONFIG","snip":"bool · default false · Enable multi-node Raft cluster mode."},{"title":"[cluster] peers","slug":"/docs/config.html#cluster","kicker":"CONFIG","snip":"array · \"node_id=host:port\" · At least one peer per node."},{"title":"[cluster] port","slug":"/docs/config.html#cluster","kicker":"CONFIG","snip":"u16 · default 9300 · Intra-cluster Raft + search port."},{"title":"[embedding] default_endpoint","slug":"/docs/config.html#embedding","kicker":"CONFIG","snip":"string · OpenAI-compatible embeddings URL for auto-embedding on ingest."},{"title":"[embedding] default_model","slug":"/docs/config.html#embedding","kicker":"CONFIG","snip":"string · Model name (e.g. text-embedding-3-small, nomic-embed-text)."},{"title":"Raft","slug":"/docs/clustering.html","kicker":"CLUSTER","snip":"Embedded Raft — leader election, log replication, metadata only."},{"title":"Node draining","slug":"/docs/clustering.html","kicker":"CLUSTER","snip":"POST /v1/cluster/nodes/:id/drain before maintenance."},{"title":"Region split/merge","slug":"/docs/clustering.html","kicker":"CLUSTER","snip":"Range partitions auto-split at byte threshold, merge back when small."},{"title":"Systemd unit","slug":"/docs/operations.html","kicker":"OPS","snip":"Production unit file with hardening directives."},{"title":"Readiness probe","slug":"/docs/operations.html","kicker":"OPS","snip":"GET /v1/health/ready — only 200 once WAL replay is complete."},{"title":"Config reload","slug":"/docs/operations.html","kicker":"OPS","snip":"SIGHUP reloads most keys without restart."},{"title":"Hot backup","slug":"/docs/backup-restore.html","kicker":"OPS","snip":"rsync the data dir after POST /v1/admin/flush."},{"title":"S3 backup","slug":"/docs/backup-restore.html","kicker":"OPS","snip":"POST /v1/admin/backup → any S3-compatible endpoint."},{"title":"Rolling upgrade","slug":"/docs/upgrades.html","kicker":"OPS","snip":"Drain → stop → upgrade → start → activate, per node."},{"title":"Merge pressure","slug":"/docs/troubleshooting.html","kicker":"OPS","snip":"Segment count climbing → raise merge.max_concurrent + io_rate."},{"title":"Cluster flapping","slug":"/docs/troubleshooting.html","kicker":"OPS","snip":"Leader changes every few seconds → raise cluster.tick_ms."},{"title":"WAL replay failed","slug":"/docs/troubleshooting.html","kicker":"OPS","snip":"xerj verify --repair-wal truncates at last valid entry."},{"title":"Recipes","slug":"/docs/recipes/index.html","kicker":"RECIPES","snip":"Task-oriented AI & search recipes, each verified end-to-end against a live XERJ."},{"title":"Semantic search & RAG","slug":"/docs/recipes/semantic-search-rag.html","kicker":"RECIPE","snip":"Retrieval by meaning with semantic_text — auto-embed on ingest, no separate vector DB."},{"title":"Agent memory","slug":"/docs/recipes/agentic-memory.html","kicker":"RECIPE","snip":"Long-term memory for agents via /_memory — store, recall, forget, per-agent isolation."},{"title":"Passage retrieval","slug":"/docs/recipes/passage-retrieval.html","kicker":"RECIPE","snip":"Auto-chunk long docs; best-passage (max-sim) scoring — 98% top-3."},{"title":"Vector search · kNN","slug":"/docs/recipes/vector-search-knn.html","kicker":"RECIPE","snip":"Nearest-neighbor over dense_vector — exact brute-force — with filters."},{"title":"Vector quantization","slug":"/docs/recipes/vector-quantization.html","kicker":"RECIPE","snip":"int8_hnsw scalar8 — 4× smaller vectors, recall@10 ≈ 0.99."},{"title":"Hybrid search","slug":"/docs/recipes/hybrid-search.html","kicker":"RECIPE","snip":"Keyword + vector in one query — RRF fusion."},{"title":"Log analytics","slug":"/docs/recipes/log-analytics.html","kicker":"RECIPE","snip":"Raw logs to dashboards — error rates, p95 latency, top services."},{"title":"Anomaly detection","slug":"/docs/recipes/anomaly-detection.html","kicker":"RECIPE","snip":"Statistical _ml detectors that flag spikes in metrics/logs."},{"title":"Anomaly datafeeds","slug":"/docs/recipes/continuous-anomaly-datafeeds.html","kicker":"RECIPE","snip":"Live _ml datafeed re-scores an index on a timer, stores anomaly records."},{"title":"Migrate from ES","slug":"/docs/recipes/migrate-from-elasticsearch.html","kicker":"RECIPE","snip":"Point your existing ES client at XERJ — same wire, change the URL."},{"title":"For AI · Build with XERJ","slug":"/for-agents.html","kicker":"AI","snip":"The search, data & memory layer for AI agents — one binary on :9200."},{"title":"Agents · Overview","slug":"/docs/agents/index.html","kicker":"AI","snip":"The 6 canonical agent ops: search, semantic, vector, hybrid, memory store/recall."},{"title":"Agent quickstart","slug":"/docs/agents/quickstart.html","kicker":"AI","snip":"Boot XERJ, store a memory, recall by meaning, semantic search — runnable curl on :9200."},{"title":"Agent endpoints","slug":"/docs/agents/endpoints.html","kicker":"AI","snip":"Endpoint contract table: method, path, request body, response shape."},{"title":"xerj_memory_store","slug":"/docs/agents/endpoints.html#memory-store","kicker":"AGENT OP","snip":"POST /_memory/{ns} — store a memory (text auto-embedded, or bring your own vector)."},{"title":"xerj_memory_recall","slug":"/docs/agents/endpoints.html#memory-recall","kicker":"AGENT OP","snip":"POST /_memory/{ns}/_recall — recall top-k by meaning (semantic), keyword (BM25) or vector (kNN)."},{"title":"xerj_semantic_search","slug":"/docs/agents/endpoints.html#semantic","kicker":"AGENT OP","snip":"semantic query over a semantic_text field — the server embeds the query text."},{"title":"xerj_vector_search","slug":"/docs/agents/endpoints.html#vector","kicker":"AGENT OP","snip":"knn over dense_vector — exact nearest-neighbor at query time."},{"title":"xerj_hybrid_search","slug":"/docs/agents/endpoints.html#hybrid","kicker":"AGENT OP","snip":"hybrid query — fuse BM25 + vector with rrf or linear fusion."}]</script>
+
+<script>
+  // IIFE — js-auth navigates between decrypted pages in the same
+  // JS realm, so const bindings must be lexically scoped.
+  (function () {
+    const root = document.documentElement;
+    for (const btn of document.querySelectorAll('[data-theme]')) {
+      btn.addEventListener('click', () => {
+        const t = btn.getAttribute('data-theme');
+        root.setAttribute('data-theme', t);
+        for (const b of document.querySelectorAll('[data-theme]')) {
+          b.classList.toggle('active', b.getAttribute('data-theme') === t);
+        }
+      });
+    }
+
+    // Client-side docs search — filters the inline JSON index.
+    const searchEl    = document.getElementById('docsSearch');
+    const inputEl     = document.getElementById('docsSearchInput');
+    const resultsEl   = document.getElementById('docsSearchResults');
+    const indexJson   = document.getElementById('docs-index');
+    if (searchEl && inputEl && resultsEl && indexJson) {
+      let index = [];
+      try { index = JSON.parse(indexJson.textContent || '[]'); } catch {}
+      const render = (q) => {
+        const query = q.trim().toLowerCase();
+        if (!query) { searchEl.classList.remove('active'); resultsEl.innerHTML = ''; return; }
+        const scored = [];
+        for (const e of index) {
+          const hay = (e.title + ' ' + (e.kicker || '') + ' ' + (e.snip || '')).toLowerCase();
+          if (hay.includes(query)) {
+            let score = 0;
+            if (e.title.toLowerCase().includes(query)) score += 10;
+            if ((e.kicker || '').toLowerCase() === query.toUpperCase()) score += 5;
+            if ((e.snip || '').toLowerCase().includes(query)) score += 1;
+            scored.push({ e, score });
+          }
+        }
+        scored.sort((a, b) => b.score - a.score);
+        const top = scored.slice(0, 20);
+        if (top.length === 0) {
+          resultsEl.innerHTML = '<div class="no-results">NO MATCHES — TRY A SHORTER QUERY</div>';
+        } else {
+          resultsEl.innerHTML = top.map(({e}) => {
+            const kicker = e.kicker || '';
+            const snip = e.snip ? '<div class="snip">' + escHtml(e.snip) + '</div>' : '';
+            return '<a href="' + e.slug + '">' +
+              '<span class="kicker">' + escHtml(kicker) + '</span>' +
+              '<span class="title">' + escHtml(e.title) + '</span>' +
+              snip + '</a>';
+          }).join('');
+        }
+        searchEl.classList.add('active');
+      };
+      const escHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      inputEl.addEventListener('input', (e) => render(e.target.value));
+      inputEl.addEventListener('focus', () => { if (inputEl.value) render(inputEl.value); });
+      document.addEventListener('keydown', (e) => {
+        if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          inputEl.focus();
+          inputEl.select();
+        }
+        if (e.key === 'Escape' && document.activeElement === inputEl) {
+          inputEl.value = '';
+          searchEl.classList.remove('active');
+          resultsEl.innerHTML = '';
+          inputEl.blur();
+        }
+      });
+    }
+  })();
+</script>
+
+
+</body>
+</html>

@@ -914,6 +914,40 @@ impl ShardedFtsMemtable {
         limit: usize,
         field_boosts: &std::collections::HashMap<String, f32>,
     ) -> Vec<MemtableHit> {
+        self.search_text_boosted_inner(query, fields, limit, limit, field_boosts)
+            .0
+    }
+
+    /// `search_text_boosted` with counting DECOUPLED from materialisation:
+    /// returns the top-`limit` hits plus the EXACT number of matching docs
+    /// across all shards, independent of `limit`.  Shards are searched
+    /// uncapped — the per-match score-map entry is paid either way; only
+    /// the `MemtableHit` materialisation grows — which is exactly the cost
+    /// the `count_only` path already paid via `usize::MAX`.  This is the
+    /// memtable twin of the segment `search_bounded` (hits, seg_total)
+    /// contract: pre-fix, size>0 match totals capped the memtable
+    /// contribution at the ~256 fetch limit (b7 DEFECT 1b).
+    pub fn search_text_boosted_with_total(
+        &self,
+        query: &str,
+        fields: &[&str],
+        limit: usize,
+        field_boosts: &std::collections::HashMap<String, f32>,
+    ) -> (Vec<MemtableHit>, u64) {
+        self.search_text_boosted_inner(query, fields, limit, usize::MAX, field_boosts)
+    }
+
+    /// Shared body: `shard_limit` caps each shard's hit materialisation
+    /// (`usize::MAX` ⇒ the returned total is the exact global match count);
+    /// `limit` caps the merged, score-sorted result.
+    fn search_text_boosted_inner(
+        &self,
+        query: &str,
+        fields: &[&str],
+        limit: usize,
+        shard_limit: usize,
+        field_boosts: &std::collections::HashMap<String, f32>,
+    ) -> (Vec<MemtableHit>, u64) {
         // Pre-pass: tokenise the query (use any shard's analyzer — they're
         // all the same registry-provided one) and aggregate per-term
         // global doc_freq + per-field global stats.
@@ -925,11 +959,11 @@ impl ShardedFtsMemtable {
         });
         let analyzer = match analyzer {
             Some(a) => a,
-            None => return Vec::new(),
+            None => return (Vec::new(), 0),
         };
         let q_tokens = analyzer.analyze(query);
         if q_tokens.is_empty() {
-            return Vec::new();
+            return (Vec::new(), 0);
         }
 
         // Delete-aware BM25 collection statistics (Lucene/ES parity): the
@@ -997,7 +1031,7 @@ impl ShardedFtsMemtable {
             all.extend(s.read().search_text_with_global_stats(
                 query,
                 fields,
-                limit,
+                shard_limit,
                 global_doc_count,
                 &global_avg_field_len,
                 &term_global_df,
@@ -1009,8 +1043,12 @@ impl ShardedFtsMemtable {
                 .partial_cmp(&a.score)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
+        // A doc_id lives in exactly ONE shard, so `all` has no duplicates:
+        // its pre-truncation length IS the exact global match count when
+        // `shard_limit == usize::MAX` (a lower bound otherwise).
+        let total = all.len() as u64;
         all.truncate(limit);
-        all
+        (all, total)
     }
 
     /// Drop-in replacement for the old single-memtable `insert` used by

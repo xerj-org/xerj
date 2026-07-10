@@ -1,0 +1,255 @@
+{
+  "tools": [
+    {
+      "name": "xerj_search",
+      "description": "Run a lexical / structured search against a XERJ index using the Elasticsearch-compatible Query DSL (keyword, phrase, boolean, range, term). Backed by POST /{index}/_search on the XERJ REST API (port 9200); the `query` object is sent verbatim as the ES `query` clause.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "string",
+            "description": "Name of the XERJ index (single, comma-separated list, or wildcard like \"logs-*\")."
+          },
+          "query": {
+            "type": "object",
+            "description": "An Elasticsearch Query DSL clause, e.g. {\"match\":{\"title\":\"quarterly report\"}}, {\"term\":{\"status\":\"open\"}}, {\"range\":{\"price\":{\"gte\":10}}}, or {\"bool\":{\"must\":[...],\"filter\":[...]}}.",
+            "additionalProperties": true
+          },
+          "size": {
+            "type": "integer",
+            "description": "Maximum number of hits to return. Defaults to 10.",
+            "minimum": 0
+          },
+          "from": {
+            "type": "integer",
+            "description": "Offset of the first hit, for pagination. Defaults to 0.",
+            "minimum": 0
+          },
+          "sort": {
+            "type": ["array", "object", "string"],
+            "description": "Optional ES sort spec, e.g. [{\"timestamp\":\"desc\"}]. Omit for relevance order."
+          },
+          "source": {
+            "type": ["boolean", "array", "string"],
+            "description": "Controls returned `_source` fields: true/false for all, or an array of field names."
+          },
+          "aggs": {
+            "type": "object",
+            "description": "Optional ES aggregations object. Not supported together with hybrid-fusion queries.",
+            "additionalProperties": true
+          },
+          "track_total_hits": {
+            "type": ["boolean", "integer"],
+            "description": "true for an exact total hit count, false for a fast approximate count, or an integer cap."
+          }
+        },
+        "required": ["index", "query"]
+      }
+    },
+    {
+      "name": "xerj_semantic_search",
+      "description": "Search a XERJ index by meaning over a `semantic_text` field. XERJ embeds the query server-side with its built-in embedder (no external key) and ranks by vector similarity. Backed by POST /{index}/_search with body {\"query\":{\"semantic\":{\"field\":...,\"query\":...,\"k\":...}}}.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "index": { "type": "string", "description": "Name of the XERJ index to search." },
+          "field": {
+            "type": "string",
+            "description": "The `semantic_text` field to match. Must be mapped as `semantic_text` so XERJ auto-embedded it at ingest."
+          },
+          "query": {
+            "type": "string",
+            "description": "Natural-language query text; embedded server-side and matched by similarity."
+          },
+          "k": {
+            "type": "integer",
+            "description": "Number of nearest neighbours to retrieve. Defaults to 10.",
+            "minimum": 1
+          },
+          "filter": {
+            "type": "object",
+            "description": "Optional ES query clause pre-filter, e.g. {\"term\":{\"category\":\"docs\"}}. Narrows candidates without scoring.",
+            "additionalProperties": true
+          },
+          "size": {
+            "type": "integer",
+            "description": "Maximum hits to return in the response (independent of k). Defaults to 10.",
+            "minimum": 0
+          }
+        },
+        "required": ["index", "field", "query"]
+      }
+    },
+    {
+      "name": "xerj_vector_search",
+      "description": "Run an EXACT k-nearest-neighbour search over a `dense_vector` field with a caller-supplied embedding. XERJ scores by exact brute-force distance at query time (there is no HNSW/ANN index or query-time traversal, and no ef_search parameter — results are exact, recall 1.00). Backed by POST /{index}/_search using the top-level `knn` clause.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "index": { "type": "string", "description": "Name of the XERJ index to search." },
+          "field": {
+            "type": "string",
+            "description": "The `dense_vector` field; its dimension must match `query_vector`'s length."
+          },
+          "query_vector": {
+            "type": "array",
+            "description": "Query embedding as a flat array of numbers, length equal to the field's mapped dimension.",
+            "items": { "type": "number" }
+          },
+          "k": {
+            "type": "integer",
+            "description": "Number of nearest neighbours to return. Defaults to 10.",
+            "minimum": 1
+          },
+          "num_candidates": {
+            "type": "integer",
+            "description": "Optional candidate-pool size before selecting top k. Scoring is exact, so this mainly bounds the result set.",
+            "minimum": 1
+          },
+          "filter": {
+            "type": "object",
+            "description": "Optional ES query clause used as a kNN pre-filter, e.g. {\"term\":{\"lang\":\"en\"}}.",
+            "additionalProperties": true
+          },
+          "size": {
+            "type": "integer",
+            "description": "Maximum hits to return in the response. Defaults to 10.",
+            "minimum": 0
+          }
+        },
+        "required": ["index", "field", "query_vector"]
+      }
+    },
+    {
+      "name": "xerj_hybrid_search",
+      "description": "Fuse two or more sub-queries (e.g. a lexical BM25 query and a semantic/vector query) into one ranked result set. Backed by POST /{index}/_search with body {\"query\":{\"hybrid\":{\"queries\":[{\"query\":{...},\"weight\":...}],\"fusion\":\"rrf\"}}}. Fusion is \"rrf\" (default) or \"linear\"; \"learned\" is not implemented and errors. Aggregations cannot be combined with a hybrid query.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "index": { "type": "string", "description": "Name of the XERJ index to search." },
+          "queries": {
+            "type": "array",
+            "description": "Sub-queries to fuse; each has a `query` (any XERJ/ES clause including `semantic` or `knn`) and an optional `weight`.",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "properties": {
+                "query": {
+                  "type": "object",
+                  "description": "A XERJ/Elasticsearch query clause, e.g. {\"match\":{\"body\":\"vpn outage\"}} or {\"semantic\":{\"field\":\"body\",\"query\":\"vpn outage\",\"k\":50}}.",
+                  "additionalProperties": true
+                },
+                "weight": {
+                  "type": "number",
+                  "description": "Relative weight in fusion. Defaults to 1.0."
+                }
+              },
+              "required": ["query"]
+            }
+          },
+          "fusion": {
+            "type": "string",
+            "description": "Fusion strategy: \"rrf\" (reciprocal rank fusion, default) or \"linear\" (weighted sum of normalized scores). \"learned\" is unsupported and returns an error.",
+            "enum": ["rrf", "linear"]
+          },
+          "rrf_k": {
+            "type": "integer",
+            "description": "Rank constant for RRF (only when fusion is \"rrf\"). Defaults to 60. Maps to fusion {\"type\":\"rrf\",\"k\":<rrf_k>}.",
+            "minimum": 1
+          },
+          "size": {
+            "type": "integer",
+            "description": "Maximum number of fused hits to return. Defaults to 10.",
+            "minimum": 0
+          }
+        },
+        "required": ["index", "queries"]
+      }
+    },
+    {
+      "name": "xerj_memory_store",
+      "description": "Persist a memory into a namespaced XERJ agent-memory store. Backed by POST /_memory/{namespace}; text is stored in a `semantic_text` field and auto-embedded by XERJ's built-in embedder (no external embedding service). Namespaces isolate memories. Optionally supply a precomputed vector, metadata, an explicit id, and opt-in semantic dedup.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Memory namespace (isolation boundary). Starts with a lowercase letter or digit; allowed chars a-z 0-9 _ - . (max 200)."
+          },
+          "text": {
+            "type": "string",
+            "description": "The memory text. Indexed for BM25 and auto-embedded for semantic recall."
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Optional arbitrary metadata (tags, source, timestamps). Recall can pre-filter under the `metadata.` prefix.",
+            "additionalProperties": true
+          },
+          "vector": {
+            "type": "array",
+            "description": "Optional caller-supplied embedding, stored as a `dense_vector` to enable kNN recall.",
+            "items": { "type": "number" }
+          },
+          "id": {
+            "type": "string",
+            "description": "Optional explicit ID; a UUID is generated when omitted."
+          },
+          "dedup": {
+            "type": "boolean",
+            "description": "When true, skip the write if the nearest existing memory's similarity meets `dedup_threshold`. Defaults to false."
+          },
+          "dedup_threshold": {
+            "type": "number",
+            "description": "Cosine-similarity threshold in [0,1] for dedup. Defaults to 0.95. Ignored unless dedup is true.",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": ["namespace", "text"]
+      }
+    },
+    {
+      "name": "xerj_memory_recall",
+      "description": "Recall the most relevant memories from a namespaced XERJ store. Backed by POST /_memory/{namespace}/_recall. Three modes by input: pass `vector` for kNN over your own embedding; set `semantic: true` with `query` for server-side embedded recall (no external key); or pass just `query` for BM25 recall. Returns {\"hits\":[{\"id\",\"text\",\"metadata\",\"score\"}],\"namespace\"}.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "namespace": {
+            "type": "string",
+            "description": "Namespace to recall from. Unknown namespace returns an empty hit list."
+          },
+          "query": {
+            "type": "string",
+            "description": "Query text for BM25 recall, or the string embedded server-side when `semantic` is true (required in semantic mode)."
+          },
+          "vector": {
+            "type": "array",
+            "description": "Optional query embedding; runs kNN over stored vectors and takes precedence over query/semantic.",
+            "items": { "type": "number" }
+          },
+          "semantic": {
+            "type": "boolean",
+            "description": "When true, XERJ embeds `query` server-side and recalls by similarity. Requires non-empty `query`. Ignored when `vector` is given. Defaults to false."
+          },
+          "k": {
+            "type": "integer",
+            "description": "Number of memories to return. Defaults to 10.",
+            "minimum": 1
+          },
+          "filter": {
+            "type": "object",
+            "description": "Optional ES query clause pre-filter over metadata, e.g. {\"term\":{\"metadata.topic\":\"cats\"}}.",
+            "additionalProperties": true
+          },
+          "recency_weight": {
+            "type": "number",
+            "description": "Optional recency blend in [0,1]. 0 = pure relevance (default when omitted), 1 = pure recency.",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": ["namespace"]
+      }
+    }
+  ]
+}

@@ -24,6 +24,7 @@
     <a href="/use-cases.html" class="active">USE CASES</a>
   </span>
   <span class="spacer"></span>
+  <a href="/for-agents.html">FOR AGENTS</a>
   <a href="/docs/index.html">DOCS</a>
   <a href="/docs/recipes/index.html">RECIPES</a>
   <a href="/playground.html">DASHBOARDS</a>
@@ -48,7 +49,7 @@
 <div class="uc-hero">
   <div class="uc-eyebrow">USE CASE · AI SEARCH & RETRIEVAL</div>
   <h1>AI-NATIVE<br>SEARCH &<br><span class="accent">RETRIEVAL.</span></h1>
-  <p class="uc-lead">Your RAG pipeline has a vector database that doesn't know about text, and a text search engine that doesn't know about vectors. XERJ runs BM25 and HNSW in one query tree, one cost model, one execution pass — so hybrid search is a feature, not an integration project.</p>
+  <p class="uc-lead">Your RAG pipeline has a vector database that doesn't know about text, and a text search engine that doesn't know about vectors. XERJ runs BM25 and exact vector kNN in one query tree, one cost model, one execution pass — so hybrid search is a feature, not an integration project.</p>
 </div>
 
 <!-- Hero chart -->
@@ -75,7 +76,7 @@
   </div>
   <div class="solve">
     <h3>THE XERJ ANSWER</h3>
-    <ul><li><strong>One engine for text + vectors.</strong> BM25 and HNSW share one planner. A hybrid query is one POST, not two API calls stitched together.</li><li><strong>SQ8 quantization built in.</strong> Vectors store as int8 — a quarter the size of float32 — so large vector sets fit comfortably on a single node.</li><li><strong>Semantic search at query time.</strong> Configure an embedding endpoint and XERJ auto-embeds the query — no client-side embedding step.</li><li><strong>No data sync.</strong> Text and vectors live in the same index, the same document, the same WAL. One write path, one consistency model.</li></ul>
+    <ul><li><strong>One engine for text + vectors.</strong> BM25 and vector kNN share one planner. A hybrid query is one POST, not two API calls stitched together.</li><li><strong>SQ8 quantization built in.</strong> Vectors store as int8 — a quarter the size of float32 — so large vector sets fit comfortably on a single node.</li><li><strong>Semantic search at query time.</strong> Configure an embedding endpoint and XERJ auto-embeds the query — no client-side embedding step.</li><li><strong>No data sync.</strong> Text and vectors live in the same index, the same document, the same WAL. One write path, one consistency model.</li></ul>
   </div>
 </div>
 
@@ -90,7 +91,7 @@
   <div class="stat">
     <div class="num">1</div>
     <div class="label">QUERY FOR HYBRID SEARCH</div>
-    <div class="ctx">BM25 + HNSW fusion in one execution pass</div>
+    <div class="ctx">BM25 + kNN fusion in one execution pass</div>
   </div>
 
   <div class="stat">
@@ -188,7 +189,7 @@
 <footer class="footer">
   <span>XERJ.AI · USE CASES · V0.1</span>
   <span>STORAGE FOR THE AGENT ERA</span>
-  <span><a href="/index.html">HOME</a> · <a href="/use-cases.html">ALL USE CASES</a> · <a href="/docs/index.html">DOCS</a> · <a href="/playground.html">DASHBOARDS</a></span>
+  <span><a href="/index.html">HOME</a> · <a href="/use-cases.html">ALL USE CASES</a> · <a href="/docs/index.html">DOCS</a> · <a href="/playground.html">DASHBOARDS</a> &middot; <a href="/llms.txt">LLMS.TXT</a></span>
 </footer>
 
 <script>

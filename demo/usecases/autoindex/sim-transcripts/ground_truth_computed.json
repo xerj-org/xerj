@@ -1,0 +1,80 @@
+{
+ "q4_revenue_per_tenant": {
+  "t-northwind": 2576038.83,
+  "t-umbrella": 2545167.14,
+  "t-stark": 2474356.62,
+  "t-acme": 2459395.16,
+  "t-globex": 2375772.85,
+  "t-initech": 365333.1,
+  "t-hooli": 286890.65,
+  "t-wonka": 177467.09
+ },
+ "q4_order_count_per_tenant": {
+  "t-globex": 21350,
+  "t-northwind": 23422,
+  "t-umbrella": 22966,
+  "t-stark": 22124,
+  "t-acme": 22506,
+  "t-hooli": 2648,
+  "t-initech": 3303,
+  "t-wonka": 1681
+ },
+ "q4_total_orders": 120000,
+ "sql_order_status_dist": {
+  "pending": 10762,
+  "paid": 98454,
+  "refunded": 6075,
+  "failed": 4709
+ },
+ "q6_status_march_events": {
+  "ok": 684343,
+  "error": 29910,
+  "timeout": 18613,
+  "throttled": 11134
+ },
+ "q6_march_total": 744000,
+ "q6_status_archive": {
+  "null": 297,
+  "ok": 73604,
+  "throttled": 1234,
+  "error": 3152,
+  "timeout": 2010
+ },
+ "q6_archive_total": 80297,
+ "q6_status_combined": {
+  "ok": 757947,
+  "error": 33062,
+  "timeout": 20623,
+  "throttled": 12368,
+  "null": 297
+ },
+ "q7_models": {
+  "PX-9": 78,
+  "TH-100": 77,
+  "PX-11": 74,
+  "TH-200": 71
+ },
+ "q7_devices_per_tenant": {
+  "t-globex": 75,
+  "t-northwind": 68,
+  "t-acme": 55,
+  "t-stark": 52,
+  "t-umbrella": 50
+ },
+ "q5_sqlite_devices": 300,
+ "q5_sqlite_sensor_devices": 300,
+ "sqlite_sensor_rows": 60000,
+ "q5_metrics_devices": 300,
+ "q5_csv_devices": 300,
+ "q8_max_temp": 98.6,
+ "q8_max_row": {
+  "geraet": "dev-903fba",
+  "zeitpunkt": "2026-03-22T18:02:57Z",
+  "temperatur_c": "98,6",
+  "luftfeuchte_pct": "76,2",
+  "standort": "Pune"
+ },
+ "q8_avg_temp": 58.044,
+ "q8_rows": 40000,
+ "q5_overlap_all3": 300
+}

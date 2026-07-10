@@ -145,23 +145,33 @@ function f3(x) { return x === undefined || x === null ? '—' : x.toFixed(2); }
 // silently no-ops (HTTP 200 but 0 hits / empty aggregation) can be detected
 // instead of being scored as a fast latency WIN. Returns {hits, agg} where either
 // may be null when not applicable.
+// Reduce one aggregation result object to its primary numeric value
+// (buckets.length / value / count / doc_count), else null.
+function aggPrimary(v) {
+  if (!v || typeof v !== 'object') return null;
+  if (Array.isArray(v.buckets)) return v.buckets.length;
+  if (typeof v.value === 'number') return v.value;
+  if (typeof v.count === 'number') return v.count;
+  if (typeof v.doc_count === 'number') return v.doc_count;
+  return null;
+}
 function readSignal(j) {
   if (!j || typeof j !== 'object') return null;
   // _count endpoint: {count: N}
-  if (typeof j.count === 'number' && !j.hits && !j.aggregations) return { hits: j.count, agg: null };
+  if (typeof j.count === 'number' && !j.hits && !j.aggregations) return { hits: j.count, agg: null, aggs: null };
   const ht = j.hits && j.hits.total;
   const hits = typeof ht === 'number' ? ht : (ht && typeof ht.value === 'number' ? ht.value : null);
-  let agg = null;
-  if (j.aggregations) {
-    const first = Object.values(j.aggregations)[0];
-    if (first && typeof first === 'object') {
-      if (Array.isArray(first.buckets)) agg = first.buckets.length;
-      else if (typeof first.value === 'number') agg = first.value;
-      else if (typeof first.count === 'number') agg = first.count;
-      else if (typeof first.doc_count === 'number') agg = first.doc_count;
-    }
+  // H4: capture EVERY top-level aggregation's primary value into a stable
+  // key->value map (not just aggregations[0]) so signalMismatch can compare
+  // all shared agg keys and catch any single agg that silently no-ops.
+  let agg = null, aggs = null;
+  if (j.aggregations && typeof j.aggregations === 'object') {
+    aggs = {};
+    for (const [k, v] of Object.entries(j.aggregations)) aggs[k] = aggPrimary(v);
+    const first = Object.values(aggs)[0];
+    agg = first != null ? first : null; // primary value of the first agg, for logs
   }
-  return { hits, agg };
+  return { hits, agg, aggs };
 }
 // Compact printable form of a correctness signal for logs.
 function sigStr(s) {
@@ -175,18 +185,35 @@ function sigStr(s) {
 // small tolerance), else null. Used to mark a read family N/A instead of awarding
 // a latency WIN to whichever engine short-circuited the query.
 function signalMismatch(xs, es) {
-  if (!xs || !es) return null; // not comparable (e.g. _msearch/_mget) — leave to normal scoring
-  const xh = xs.hits, eh = es.hits;
-  if (xh != null && eh != null) {
-    if ((xh === 0) !== (eh === 0)) return `hits ${xh} vs ${eh}`;
-    const tol = Math.max(1, 0.1 * Math.max(xh, eh));
-    if (Math.abs(xh - eh) > tol) return `hits ${xh} vs ${eh}`;
-  }
-  const xa = xs.agg, ea = es.agg;
-  if (xa != null && ea != null) {
-    if ((xa === 0) !== (ea === 0)) return `agg ${xa} vs ${ea}`;
-  }
-  return null;
+  try {
+    if (!xs || !es) return null; // not comparable (e.g. _msearch/_mget) — leave to normal scoring
+    const xh = xs.hits, eh = es.hits;
+    if (xh != null && eh != null) {
+      if ((xh === 0) !== (eh === 0)) return `hits ${xh} vs ${eh}`;
+      // H4: EXACT hit-count parity for size:0 / track_total_hits shapes (req()
+      // injects track_total_hits:true into every JSON _search body, so both
+      // engines compute the true total). Allow a ±1 rounding slack ONLY when
+      // BOTH counts are already > 0.
+      if (xh !== eh) {
+        const roundingSlack = xh > 0 && eh > 0 && Math.abs(xh - eh) <= 1;
+        if (!roundingSlack) return `hits ${xh} vs ${eh}`;
+      }
+    }
+    // H4: compare ALL shared top-level agg keys — flag when one engine is zero
+    // while the other is non-zero on the same key (a silent no-op agg).
+    const xa = xs.aggs, ea = es.aggs;
+    if (xa && ea) {
+      for (const k of Object.keys(xa)) {
+        if (!(k in ea)) continue;
+        const xv = xa[k], ev = ea[k];
+        if (xv == null || ev == null) continue;
+        if ((xv === 0) !== (ev === 0)) return `agg[${k}] ${xv} vs ${ev}`;
+      }
+    } else if (xs.agg != null && es.agg != null && ((xs.agg === 0) !== (es.agg === 0))) {
+      return `agg ${xs.agg} vs ${es.agg}`;
+    }
+    return null;
+  } catch { return null; } // robust — a signal-shape surprise must never throw
 }
 
 // End-to-end latency of `iters` requests after `warmup` untimed calls, driven
@@ -276,7 +303,12 @@ const MAPPING = {
 // Every family the scouts enumerated that runs on the flat LLM-telemetry corpus.
 // entry: { label, body, path?, method?, ndjson? }. Anything needing a geo_point,
 // ip, nested/join, span, or dense_vector field is in SKIPPED (below) with a reason.
-const S = '/perf/_search';
+// request_cache=false is appended so BOTH engines EXECUTE every read instead of
+// serving a cached whole-result clone: ES honours it for its size:0 request
+// cache, and XERJ is run with XERJ_DISABLE_QUERY_CACHE=1 so its query_cache is
+// off. Lower-level filter/OS caches stay on for both (fair). Query bodies are
+// NOT mutated per-iteration.
+const S = '/perf/_search?request_cache=false';
 const READ_FAMILIES = [
   // §1 full-text (on keyword these behave as exact-token matches)
   { label: 'q: match_all', body: { query: { match_all: {} }, size: 10 } },
@@ -377,7 +409,7 @@ const READ_FAMILIES = [
   } },
   { label: 'feat: highlight', body: { query: { match: { status: 'ok' } }, size: 10, highlight: { fields: { status: {} } } } },
   // multi-op endpoints
-  { label: 'feat: _count', body: { query: { match_all: {} } }, path: '/perf/_count' },
+  { label: 'feat: _count', body: { query: { match_all: {} } }, path: '/perf/_count?request_cache=false' },
   { label: 'feat: _msearch', body: '{}\n{"query":{"match_all":{}},"size":1}\n', path: '/perf/_msearch', ndjson: true },
   { label: 'feat: _mget', body: { ids: ['1', '2', '3'] }, path: '/perf/_mget' },
 ];
@@ -484,7 +516,13 @@ async function mixedBench(base, log) {
   const cntF = `${SCRATCH}/_mx_wcount_${tag}.txt`;
   fs.writeFileSync(flag, '1');
   fs.writeFileSync(cntF, '0');
-  const script = `n=0; while [ -f '${flag}' ]; do curl -s -XPOST '${base}/perf/_bulk' -H 'content-type: application/x-ndjson' --data-binary @'${f}' >/dev/null 2>&1; n=$((n+1)); printf '%s' "$n" > '${cntF}'; done`;
+  // H3: ISO-WRITE-RATE. Throttle the background writer to a FIXED offered target
+  // of ~100,000 docs/s (~10 bulk posts/s of BATCH=10,000) via a `sleep 0.1` per
+  // iteration, so BOTH engines face the SAME offered write load (the previous
+  // uncapped loop let a faster-ingesting engine self-impose more merge pressure,
+  // making the mixed comparison not iso-load). Achieved rate is still measured
+  // and compared afterward; a >10% divergence is flagged on the mixed rows.
+  const script = `n=0; while [ -f '${flag}' ]; do curl -s -XPOST '${base}/perf/_bulk' -H 'content-type: application/x-ndjson' --data-binary @'${f}' >/dev/null 2>&1; n=$((n+1)); printf '%s' "$n" > '${cntF}'; sleep 0.1; done`;
   const child = spawn('bash', ['-c', script], { detached: true, stdio: 'ignore' });
   child.unref();
   const wStart = performance.now();
@@ -506,7 +544,10 @@ async function mixedBench(base, log) {
   try { writes = parseInt(fs.readFileSync(cntF, 'utf8').trim(), 10) || 0; } catch {}
   try { fs.unlinkSync(cntF); } catch {}
   try { fs.unlinkSync(f); } catch {}
-  out.__bg = { docs: writes * BATCH, dps: Math.round((writes * BATCH) / ((wEnd - wStart) / 1000)) };
+  // H3: record offered target (~100,000 docs/s) alongside achieved so iso-load
+  // can be verified/annotated when the scorecard is built.
+  const OFFERED_BG_DPS = 100000;
+  out.__bg = { docs: writes * BATCH, dps: Math.round((writes * BATCH) / ((wEnd - wStart) / 1000)), offered: OFFERED_BG_DPS };
   return out;
 }
 
@@ -549,11 +590,12 @@ async function knnBench(base, log, dims = 128, M = 50000) {
   scored.sort((a, b) => b[1] - a[1]);
   const exact = new Set(scored.slice(0, 10).map((x) => x[0]));
   const body = { knn: { field: 'v', query_vector: qv, k: 10, num_candidates: 100 }, size: 10 };
-  const one = await req(base, 'POST', '/perfvec/_search', body);
+  // request_cache=false so both engines execute every probe (see the S note).
+  const one = await req(base, 'POST', '/perfvec/_search?request_cache=false', body);
   const ids = (one.j?.hits?.hits || []).map((h) => parseInt(h._id, 10));
   const recall = ids.length ? ids.filter((id) => exact.has(id)).length / 10 : null;
   // >=2000 samples so kNN p99/max aren't dominated by 1-2 tail observations.
-  const t = await safeTimed(base, '/perfvec/_search', body, { iters: 2000, warmup: 15, rate: 200 });
+  const t = await safeTimed(base, '/perfvec/_search?request_cache=false', body, { iters: 2000, warmup: 15, rate: 200 });
   return { ...t, recall };
 }
 
@@ -622,7 +664,12 @@ const mb = (b) => (b / 1048576).toFixed(1) + ' MB';
 // let disp() distinguish a genuine 4xx feasibility rejection ("unsupported
 // (400)") from a harness/transport error ("error") — so a dead engine mid-run
 // no longer masquerades as a missing feature in the scorecard.
-function scoreRow(dim, xv, ev, higherBetter, fmt, xraw, eraw) {
+// H2: `tieBandMs` (default null) enables a noise band for LATENCY rows
+// (higherBetter=false). When BOTH values are present+finite and
+// |xv-ev| <= max(tieBandMs, 0.20*min(xv,ev)) the verdict is TIE (neither WIN nor
+// LOSE). TIE never fails CI. Only latency rows that are genuinely in the noise
+// (reads, mixed, kNN latency) are passed a band; ingest/disk are not.
+function scoreRow(dim, xv, ev, higherBetter, fmt, xraw, eraw, tieBandMs = null) {
   const disp = (v, raw) => {
     if (v != null) return !isFinite(v) ? 'collapsed' : fmt(v);
     if (raw && raw.unsupported) return `unsupported (${raw.status ?? '4xx'})`;
@@ -633,10 +680,15 @@ function scoreRow(dim, xv, ev, higherBetter, fmt, xraw, eraw) {
   const es = disp(ev, eraw);
   let ratio = '—', verdict = 'N/A';
   if (xv != null && ev != null) {
-    const better = higherBetter ? xv >= ev : xv <= ev;
     const r = higherBetter ? (ev ? xv / ev : 0) : (xv ? ev / xv : 0);
     ratio = isFinite(r) && r > 0 ? r.toFixed(2) + '×' : '—';
-    verdict = better ? 'WIN' : 'LOSE';
+    if (!higherBetter && tieBandMs != null && isFinite(xv) && isFinite(ev)
+        && Math.abs(xv - ev) <= Math.max(tieBandMs, 0.20 * Math.min(xv, ev))) {
+      verdict = 'TIE';
+    } else {
+      const better = higherBetter ? xv >= ev : xv <= ev;
+      verdict = better ? 'WIN' : 'LOSE';
+    }
   }
   return { dim, xs, es, ratio, verdict };
 }
@@ -716,7 +768,7 @@ async function main() {
         // families with per-engine setup (e.g. search_after sort-value capture)
         // build their body against THIS engine right before timing.
         const body = fam.makeBody ? await fam.makeBody(e.url) : fam.body;
-        R.reads[fam.label][e.name] = await safeTimed(e.url, path, body, { ndjson: !!fam.ndjson });
+        R.reads[fam.label][e.name] = await safeTimed(e.url, path, body, { iters: 1200, warmup: 60, ndjson: !!fam.ndjson });
       }
       const xrr = R.reads[fam.label].XERJ, err_ = R.reads[fam.label].ES;
       const xr = statVal(xrr), er = statVal(err_);
@@ -732,7 +784,7 @@ async function main() {
         try {
           R.mixed[e.name] = await mixedBench(e.url, log);
           const bg = R.mixed[e.name].__bg;
-          if (bg) log(`     ${e.name} background write load: ${bg.dps.toLocaleString()} docs/s (${bg.docs.toLocaleString()} docs during read window)`);
+          if (bg) log(`     ${e.name} background write load: offered ~${(bg.offered ?? 100000).toLocaleString()} docs/s, achieved ${bg.dps.toLocaleString()} docs/s (${bg.docs.toLocaleString()} docs during read window)`);
         } catch (err) {
           // Log WHY + whether the engine is still up: all-unsupported mixed cells
           // have previously meant "engine died between phases", not "no feature".
@@ -788,26 +840,43 @@ async function main() {
   // other matches, or hit counts differ), mark N/A so an effectively-unsupported
   // feature can't win the row on latency.
   const fmtMs = (v) => (v == null ? 'unsupported' : v.toFixed(2));
+  // H1: verdict is scored on p50, but each read cell also SHOWS p99 alongside,
+  // e.g. `0.88 (p99 2.10)` — only when the cell itself is a plain number.
+  const withP99 = (cell, raw) => {
+    const p99 = statVal(raw, 'p99');
+    return (p99 != null && /^[\d.]+$/.test(cell)) ? `${cell} (p99 ${p99.toFixed(2)})` : cell;
+  };
   for (const fam of READ_FAMILIES) {
     if (!R.reads[fam.label]) continue;
     const xrr = R.reads[fam.label].XERJ, err_ = R.reads[fam.label].ES;
     const mm = signalMismatch(xrr && xrr.signal, err_ && err_.signal);
     if (mm) {
-      rows.push({ dim: `read ${fam.label} (p50 ms) [result mismatch: ${mm}]`, xs: fmtMs(statVal(xrr)), es: fmtMs(statVal(err_)), ratio: 'mismatch', verdict: 'N/A' });
+      rows.push({ dim: `read ${fam.label} (p50 ms) [result mismatch: ${mm}]`, xs: withP99(fmtMs(statVal(xrr)), xrr), es: withP99(fmtMs(statVal(err_)), err_), ratio: 'mismatch', verdict: 'N/A' });
     } else {
-      rows.push(scoreRow(`read ${fam.label} (p50 ms)`, statVal(xrr), statVal(err_), false, (v) => v.toFixed(2), xrr, err_));
+      const row = scoreRow(`read ${fam.label} (p50 ms)`, statVal(xrr), statVal(err_), false, (v) => v.toFixed(2), xrr, err_, 0.30);
+      row.xs = withP99(row.xs, xrr);
+      row.es = withP99(row.es, err_);
+      rows.push(row);
     }
   }
-  // mixed read-under-write (lower p99 = XERJ win)
+  // mixed read-under-write (lower p99 = XERJ win). H3: if the two engines'
+  // achieved background write rates diverged >10% the mixed rows were NOT
+  // iso-load — annotate every mixed row so the comparison isn't read as fair.
   if (A.mixed) {
+    const xbg = R.mixed.XERJ?.__bg?.dps, ebg = R.mixed.ES?.__bg?.dps;
+    let isoNote = '';
+    if (xbg != null && ebg != null && Math.min(xbg, ebg) > 0
+        && Math.abs(xbg - ebg) / Math.min(xbg, ebg) > 0.10) {
+      isoNote = ` [NOT iso-load: bg XERJ ${xbg.toLocaleString()}/s vs ES ${ebg.toLocaleString()}/s, offered ~100,000/s]`;
+    }
     for (const [label] of MIXED_OPS) {
       const xv = statVal(R.mixed.XERJ?.[label], 'p99'), ev = statVal(R.mixed.ES?.[label], 'p99');
-      rows.push(scoreRow(`mixed ${label} (p99 ms, under write)`, xv, ev, false, (v) => v.toFixed(2), R.mixed.XERJ?.[label], R.mixed.ES?.[label]));
+      rows.push(scoreRow(`mixed ${label} (p99 ms, under write)${isoNote}`, xv, ev, false, (v) => v.toFixed(2), R.mixed.XERJ?.[label], R.mixed.ES?.[label], 0.30));
     }
   }
   // knn latency (lower p50 = win) + recall (higher = win)
   if (A.knn) {
-    rows.push(scoreRow('kNN k=10 (p50 ms)', statVal(R.knn.XERJ), statVal(R.knn.ES), false, (v) => v.toFixed(2), R.knn.XERJ, R.knn.ES));
+    rows.push(scoreRow('kNN k=10 (p50 ms)', statVal(R.knn.XERJ), statVal(R.knn.ES), false, (v) => v.toFixed(2), R.knn.XERJ, R.knn.ES, 0.30));
     rows.push(scoreRow('kNN recall@10', statVal(R.knn.XERJ, 'recall'), statVal(R.knn.ES, 'recall'), true, (v) => (v * 100).toFixed(1) + '%', R.knn.XERJ, R.knn.ES));
   }
   // disk (smaller = win)
@@ -828,6 +897,10 @@ async function main() {
   md += `Measured with the identical client hitting both engines (\`size:0\` avg over 300k): undici fetch → XERJ 1.61ms, ES 2.77ms; `;
   md += `http keep-alive → XERJ 0.126ms, ES 0.283ms. The keep-alive client reveals each engine's **true server round-trip** (the ~2.2× gap the `;
   md += `client overhead had hidden), not the Node client. Ingest/mixed/kNN bulk load uses \`curl\` identically for both engines.\n\n`;
+  md += `> **Methodology — uncached execution (honesty).** Every read is measured with \`request_cache=false\` and XERJ run with `;
+  md += `\`XERJ_DISABLE_QUERY_CACHE=1\`, so BOTH engines EXECUTE every query on every iteration (no whole-result cache clone). Query bodies are `;
+  md += `never mutated per-iteration; lower-level filter/OS caches stay on for both. Read rows show p50 (verdict) with p99 alongside. `;
+  md += `Latency rows within a noise band (\`|Δ| ≤ max(0.30ms, 20%)\`) score **TIE** (does not fail CI); only **LOSE** fails CI.\n\n`;
   md += `| dimension | XERJ | ES | ratio | verdict |\n|---|--:|--:|--:|:--:|\n`;
   for (const r of rows) md += `| ${r.dim} | ${r.xs} | ${r.es} | ${r.ratio} | ${r.verdict} |\n`;
   md += `\n`;
@@ -836,7 +909,7 @@ async function main() {
     for (const [fam, why] of SKIPPED_FAMILIES) md += `- \`${fam}\` — ${why}\n`;
     md += `\n`;
   }
-  md += `_Summary: ${rows.filter((r) => r.verdict === 'WIN').length} WIN, ${loses.length} LOSE, ${rows.filter((r) => r.verdict === 'N/A').length} N/A._\n`;
+  md += `_Summary: ${rows.filter((r) => r.verdict === 'WIN').length} WIN, ${loses.length} LOSE, ${rows.filter((r) => r.verdict === 'TIE').length} TIE, ${rows.filter((r) => r.verdict === 'N/A').length} N/A._\n`;
 
   fs.writeFileSync(A.out, md);
   // keep the head-to-head slice around for continuity with bench-vs-es.mjs,

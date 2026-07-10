@@ -1,0 +1,6 @@
+[server]
+rest_port = 9380
+grpc_port = 9381
+es_compat_port = 9280
+data_dir = "/tmp/xerj-pubpass/data"
+bind_address = "127.0.0.1"

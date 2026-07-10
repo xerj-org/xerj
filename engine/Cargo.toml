@@ -12,9 +12,11 @@ members = [
     "crates/xerj-ai",
     "crates/xerj-compress",
     "crates/xerj-engine",
+    "crates/xerj-mcp",
     "crates/xerj-wasm",
     "crates/xerj-cluster",
     "crates/xerj-console-api",
+    "crates/xerj-autoindex",
     "tests/es-compat-yaml",
 ]
 
