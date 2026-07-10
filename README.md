@@ -1,6 +1,6 @@
 # XERJ
 
-**The AI-native search engine — purpose-built for AI agents, written from scratch in Rust. Speaks the Elasticsearch wire protocol so your existing stack works unchanged.**
+**The unified search engine for AI — full-text, vectors, hybrid retrieval, agent memory, and log analytics in one from-scratch Rust binary. Connect it, run `xerj autoindex`, and your data is queryable. Speaks the Elasticsearch wire protocol so your existing stack works unchanged.**
 
 [![CI](https://github.com/xerj-org/xerj/actions/workflows/ci.yml/badge.svg)](https://github.com/xerj-org/xerj/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
@@ -29,7 +29,7 @@
   <img src="docs/media/dashboard-agent-memory.png" width="270" alt="Agent-memory dashboard">
 </p>
 
-XERJ is built AI-first: its primary customer is an AI agent that has to answer questions about data it has never seen. Point `xerj autoindex` at a folder — no scripting, no mappings, no reading files by hand — and the agent gets a self-describing, queryable dataset over the ordinary Elasticsearch REST API. Because XERJ speaks the ES wire protocol, existing ES clients, dashboards, and tooling talk to it unchanged. Under the hood it combines full-text search (BM25), exact dense-vector kNN, aggregations, and log analytics in a single native binary — no JVM, sub-second cold start. It is released under **Apache-2.0**, a genuinely open license, as an alternative to Elasticsearch's move to SSPL.
+XERJ is one engine that replaces the whole retrieval stack an AI system normally assembles — search engine + vector database + embedding service + memory store + log analytics — with a single binary and a two-step integration: **connect, then `xerj autoindex` your data. It works.** No mappings to design, no pipelines to script, no external embedding service to stand up, no separate vector DB to sync. Its primary customer is an AI agent that must answer questions about data it has never seen: autoindex hands the agent typed, self-describing, queryable indices plus a data map, over the ordinary Elasticsearch REST API. Because XERJ speaks the ES wire protocol, existing ES clients, dashboards, and tooling talk to it unchanged. Under the hood it combines full-text search (BM25), exact dense-vector kNN, aggregations, and log analytics in a single native binary — no JVM, sub-second cold start. It is released under **Apache-2.0**, a genuinely open license, as an alternative to Elasticsearch's move to SSPL.
 
 ---
 

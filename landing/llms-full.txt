@@ -1,13 +1,15 @@
 # XERJ — Full capability & API reference (machine-readable)
 
-> XERJ is the search engine built for AI agents, written in Rust.
-> One command — `xerj autoindex <folder>` — turns a folder of mixed-format files into
-> typed, queryable, self-describing indices with zero configuration. On top of that,
-> agents get an Elasticsearch-8.x-compatible REST API with AI-native primitives:
-> semantic search, exact kNN vector search, hybrid retrieval, and namespaced agent
-> memory. A zero-config embedder is built into the binary, so semantic search and
-> agent memory work with NO external embedding API key. ES wire compatibility is the
-> transport, not the product.
+> XERJ is the unified search engine for AI, written in Rust: connect it, run
+> `xerj autoindex`, and it works. One command — `xerj autoindex <folder>` — turns a
+> folder of mixed-format files into typed, queryable, self-describing indices with
+> zero configuration. One binary replaces the retrieval stack an AI system normally
+> assembles (search engine + vector DB + embedding service + memory store + log
+> analytics): agents get an Elasticsearch-8.x-compatible REST API with AI-native
+> primitives — semantic search, exact kNN vector search, hybrid retrieval, and
+> namespaced agent memory. A zero-config embedder is built into the binary, so
+> semantic search and agent memory work with NO external embedding API key. ES wire
+> compatibility is the transport, not the product.
 
 This document is the expanded, agent-oriented reference. The short front door is at
 /llms.txt. Every endpoint, command, and request shape below is grounded in the running
