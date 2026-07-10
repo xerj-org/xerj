@@ -463,12 +463,15 @@ pub struct Index {
     /// runs hold the snapshot for the duration of one batch.
     merge_config: xerj_common::config::MergeConfig,
 
-    /// Optional embedding proxy used by the `semantic` query type
-    /// (v0.7-P2). None when `Config.embedding.default_endpoint` is
-    /// empty — semantic queries then return a clear 400 telling the
-    /// operator to configure an endpoint. Reused across queries
-    /// (semaphore + retry budget are per-proxy).
-    embedding_proxy: Arc<Option<xerj_ai::embed::EmbeddingProxy>>,
+    /// Embedding backend for `semantic` / `semantic_text` (v0.7-P2).
+    /// One of lexical (built-in, default), an external proxy, or the
+    /// built-in neural BERT embedder — selected by `Config.embedding.mode`.
+    /// [`xerj_ai::Embedder::is_active`] is false only for the lexical
+    /// fallback; an active backend embeds arbitrary query text, while the
+    /// lexical fallback embeds only `semantic_text` fields (embedded the
+    /// same way at ingest). Reused across queries (proxy semaphore / neural
+    /// model are shared behind the `Arc`).
+    embedder: Arc<xerj_ai::Embedder>,
 
     // ── Per-index metrics ─────────────────────────────────────────────────────
     /// Total search queries executed.
@@ -836,7 +839,7 @@ impl Index {
             )),
             merge_in_progress: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             merge_config: config.merge.clone(),
-            embedding_proxy: Arc::new(make_embedding_proxy(&config.embedding)),
+            embedder: Arc::new(make_embedder(&config.embedding)),
             dv_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_fields: Arc::new(dashmap::DashMap::new()),
@@ -1037,7 +1040,7 @@ impl Index {
             )),
             merge_in_progress: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             merge_config: config.merge.clone(),
-            embedding_proxy: Arc::new(make_embedding_proxy(&config.embedding)),
+            embedder: Arc::new(make_embedder(&config.embedding)),
             dv_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_fields: Arc::new(dashmap::DashMap::new()),
@@ -3854,16 +3857,18 @@ impl Index {
         };
 
         // Embed the query text with the effective embedder:
-        //   * EmbeddingProxy when configured (high-quality, same as ingest),
-        //   * else the built-in deterministic embedder — but ONLY for
+        //   * An ACTIVE backend (neural BERT or external proxy) embeds the
+        //     query text directly — the same backend used at ingest.
+        //   * Otherwise the built-in lexical embedder — but ONLY for
         //     `semantic_text` fields, which were embedded that same way at
         //     ingest. A `semantic` query against a plain dense_vector field
-        //     with no proxy configured still returns the original 400 (there
+        //     with no active backend still returns the original 400 (there
         //     is no comparable stored vector to match against).
-        let query_vec = if let Some(proxy) = &*self.embedding_proxy {
-            // `embed_batch` takes Vec<String>; we only have one text but the
-            // proxy's batching keeps the wire format stable for callers.
-            let mut vectors = proxy
+        let query_vec = if self.embedder.is_active() {
+            // `embed_batch` takes Vec<String>; we only have one text but
+            // batching keeps the wire format stable for callers.
+            let mut vectors = self
+                .embedder
                 .embed_batch(vec![text.to_string()])
                 .await
                 .map_err(|e| {
@@ -3875,7 +3880,7 @@ impl Index {
                 Some(v) if !v.is_empty() => v,
                 _ => {
                     return Err(EngineError::Common(xerj_common::XerjError::invalid_query(
-                        "embedding proxy returned no vector for semantic query",
+                        "embedder returned no vector for semantic query",
                     )));
                 }
             }
@@ -3884,8 +3889,9 @@ impl Index {
         } else {
             return Err(EngineError::Common(xerj_common::XerjError::invalid_query(
                 "semantic query requires either a `semantic_text` field (auto-embedded \
-                     with the built-in embedder) or `embedding.default_endpoint` configured \
-                     to an OpenAI-compatible /v1/embeddings endpoint.",
+                     with the built-in lexical embedder) or an active embedding backend \
+                     (`embedding.mode = \"neural\"`, or `\"proxy\"` with \
+                     `embedding.default_endpoint` set to an OpenAI-compatible endpoint).",
             )));
         };
 
@@ -3944,20 +3950,23 @@ impl Index {
             // Chunk once and embed EACH overlapping chunk. `chunk_vecs` is one
             // embedding per passage (>= 1). Short text (<= chunk_size) yields a
             // single chunk == the exact pre-chunking behavior.
-            let chunk_vecs: Vec<Vec<f32>> = if let Some(proxy) = &*self.embedding_proxy {
+            let chunk_vecs: Vec<Vec<f32>> = if self.embedder.is_active() {
+                // Active backend (neural or proxy): chunk, then embed each
+                // passage. The same backend + chunking is used at query time.
                 let chunks = semantic_chunker().chunk(&text, None);
                 let chunk_texts: Vec<String> = if chunks.len() <= 1 {
                     vec![text.clone()]
                 } else {
                     chunks.iter().map(|c| c.text.clone()).collect()
                 };
-                let vs = proxy.embed_batch(chunk_texts).await.map_err(|e| {
+                let vs = self.embedder.embed_batch(chunk_texts).await.map_err(|e| {
                     EngineError::Common(xerj_common::XerjError::invalid_query(format!(
                         "semantic_text embed failed for field [{field}]: {e}"
                     )))
                 })?;
                 vs.into_iter().filter(|v| !v.is_empty()).collect()
             } else {
+                // Lexical fallback: deterministic per-chunk feature-hash.
                 local_chunk_vectors(&text, dims)
             };
             // Pooled vector for `target`: single chunk is stored as-is (no
@@ -6205,9 +6214,13 @@ impl Index {
         let mut scored_fast_applied = false;
         if let Some(plan) = &scored_plan {
             if scored_fast_ready {
-                if let Some((hits, total)) =
-                    self.scored_columnar(plan, &snap.segments, &segments_dir, materialisation_limit)
-                {
+                if let Some((hits, total)) = self.scored_columnar(
+                    plan,
+                    &snap.segments,
+                    &segments_dir,
+                    materialisation_limit,
+                    from + size,
+                ) {
                     seen_ids.clear();
                     seen_ids.extend(hits.iter().map(|h| h.id.clone()));
                     all_hits = hits;
@@ -7304,14 +7317,23 @@ impl Index {
                     hit.score = *score;
                 }
             }
-            let seq = |id: &str| self.lookup_seq_no(id).unwrap_or(u64::MAX);
-            final_hits.sort_by(|a, b| {
-                b.score
-                    .partial_cmp(&a.score)
+            // Precompute seq_no ONCE per hit, not once per comparison. The
+            // former `seq(&a.id)`/`seq(&b.id)` closure did a `VersionMap`
+            // dashmap string-hash get inside the comparator — O(n log n) gets
+            // per page sort (~6% of a `term` page in the P1 profile). Decorate
+            // with the resolved seq_no, then sort on the plain u64.
+            let mut decorated: Vec<(u64, Hit)> = std::mem::take(&mut final_hits)
+                .into_iter()
+                .map(|h| (self.lookup_seq_no(&h.id).unwrap_or(u64::MAX), h))
+                .collect();
+            decorated.sort_by(|a, b| {
+                b.1.score
+                    .partial_cmp(&a.1.score)
                     .unwrap_or(std::cmp::Ordering::Equal)
-                    .then_with(|| seq(&a.id).cmp(&seq(&b.id)))
-                    .then_with(|| a.id.cmp(&b.id))
+                    .then_with(|| a.0.cmp(&b.0))
+                    .then_with(|| a.1.id.cmp(&b.1.id))
             });
+            final_hits = decorated.into_iter().map(|(_, h)| h).collect();
         }
 
         // --- IDF-weighted rescore for Bool queries with multiple terms ---
@@ -10055,6 +10077,7 @@ impl Index {
         segments: &[xerj_storage::segment::SegmentMeta],
         segments_dir: &std::path::Path,
         cap: usize,
+        page: usize,
     ) -> Option<(Vec<Hit>, u64)> {
         use xerj_storage::doc_values::Column;
 
@@ -10215,7 +10238,22 @@ impl Index {
         // ── Phase 2: row walk — exact per-row score + exact total ─────────
         // Candidate = (score, seq_no, segment, row); seq_no is the ES-parity
         // tie-break key, (segment, row) locates the stored slice.
-        let mut cands: Vec<(f32, u64, u32, u32)> = Vec::new();
+        //
+        // P1 bounded top-k: instead of pushing EVERY match into an unbounded
+        // Vec and `select_nth`-ing the lot (the profiled tuple-storm: ~98k
+        // pushes + a 100k-element select for `term(status)`), keep only the
+        // `keep_target` best under `(score DESC, seq_no ASC)` in a size-capped
+        // heap. `total` is still tallied over every match (exact, ghost-aware)
+        // — only the MATERIALISED set is bounded. Pinned keeps the full `cap`
+        // headroom its phase-4 overlay needs; every other exact plan keeps
+        // exactly the `from+size` page (drops the 256-doc hydration floor).
+        let keep_target: usize = if matches!(plan, ScoredPlan::Pinned { .. }) {
+            cap
+        } else {
+            page.min(cap)
+        };
+        let mut heap: std::collections::BinaryHeap<TopKCand> =
+            std::collections::BinaryHeap::with_capacity(keep_target.saturating_add(1));
         let mut total: u64 = 0;
         for (si, (meta, cols)) in segments.iter().zip(seg_cols.iter()).enumerate() {
             let seqs: &[u64] = &seg_seqs[si];
@@ -10313,7 +10351,16 @@ impl Index {
                         }
                         if let Some(score) = root.eval(row, &sev, &fev, &clause_scores) {
                             total += 1;
-                            cands.push((score, seqs[row as usize], si, row));
+                            push_topk(
+                                &mut heap,
+                                keep_target,
+                                TopKCand {
+                                    score,
+                                    seq: seqs[row as usize],
+                                    si,
+                                    row,
+                                },
+                            );
                         }
                     }
                 }
@@ -10333,7 +10380,16 @@ impl Index {
                         } else {
                             ps
                         };
-                        cands.push((score, seqs[row as usize], si, row));
+                        push_topk(
+                            &mut heap,
+                            keep_target,
+                            TopKCand {
+                                score,
+                                seq: seqs[row as usize],
+                                si,
+                                row,
+                            },
+                        );
                     }
                 }
                 ScoredPlan::Pinned { .. } => {
@@ -10346,7 +10402,16 @@ impl Index {
                         }
                         if org.matches(row) {
                             total += 1;
-                            cands.push((s, seqs[row as usize], si, row));
+                            push_topk(
+                                &mut heap,
+                                keep_target,
+                                TopKCand {
+                                    score: s,
+                                    seq: seqs[row as usize],
+                                    si,
+                                    row,
+                                },
+                            );
                         }
                     }
                 }
@@ -10370,28 +10435,37 @@ impl Index {
                             }
                         }
                         total += 1;
-                        cands.push((*score, seqs[row as usize], si, row));
+                        push_topk(
+                            &mut heap,
+                            keep_target,
+                            TopKCand {
+                                score: *score,
+                                seq: seqs[row as usize],
+                                si,
+                                row,
+                            },
+                        );
                     }
                 }
             }
         }
 
-        // ── Phase 3: global top-`cap` by (score DESC, seq_no ASC) ─────────
-        // The composite key is a TOTAL order (live seq_nos are unique under
-        // the caller's `!deletes_present` gate), so the kept SET is exactly
-        // ES's: arrival order == Lucene `_doc` order. Final page ordering is
-        // re-derived by the caller's (score desc, seq_no asc) sort, which
-        // uses the same key per hit via `lookup_seq_no`.
+        // ── Phase 3: drain the bounded top-k ──────────────────────────────
+        // The heap already holds exactly the `keep_target` best under the
+        // TOTAL order `(score DESC, seq_no ASC)` (live seq_nos are unique
+        // under the caller's `!deletes_present` gate), so this SET is exactly
+        // ES's: arrival order == Lucene `_doc` order — the same kept set the
+        // former `select_nth_unstable_by(keep-1)` produced, without the
+        // 98k-tuple storm. Heap order is arbitrary; the final page order is
+        // re-derived by the caller's `(score desc, seq_no asc)` sort (or
+        // phase-4's `cmp` for pinned), so we leave it unsorted here.
         let cmp = |a: &(f32, u64, u32, u32), b: &(f32, u64, u32, u32)| {
             b.0.partial_cmp(&a.0)
                 .unwrap_or(std::cmp::Ordering::Equal)
                 .then_with(|| a.1.cmp(&b.1))
         };
-        let keep = cap.min(cands.len());
-        if keep > 0 && cands.len() > keep {
-            cands.select_nth_unstable_by(keep - 1, cmp);
-            cands.truncate(keep);
-        }
+        let mut cands: Vec<(f32, u64, u32, u32)> =
+            heap.into_iter().map(|c| (c.score, c.seq, c.si, c.row)).collect();
 
         // ── Phase 4: pinned overlay ───────────────────────────────────────
         // A pinned doc at 0-based position `i` of the P-length ids array
@@ -13128,31 +13202,82 @@ fn build_highlight_fragments(
     fragments
 }
 
-/// Build an `EmbeddingProxy` from `Config.embedding`. Returns `None`
-/// when no endpoint is configured — semantic queries then return a
-/// helpful 400 ("configure embedding.default_endpoint") instead of
-/// a runtime crash.
-fn make_embedding_proxy(
-    cfg: &xerj_common::config::EmbeddingConfig,
-) -> Option<xerj_ai::embed::EmbeddingProxy> {
-    if cfg.default_endpoint.is_empty() {
-        return None;
+/// Build the effective [`xerj_ai::Embedder`] from `Config.embedding`.
+///
+/// Backend selection follows `embedding.mode`:
+///   * `"proxy"` — external OpenAI-compatible endpoint (requires
+///     `default_endpoint`).
+///   * `"neural"` — the built-in BERT embedder (requires the `neural`
+///     cargo feature; falls back to lexical with a warning otherwise).
+///   * `"lexical"` — the built-in feature-hash embedder.
+///   * `"auto"` (default / unknown) — proxy when `default_endpoint` is set,
+///     else lexical. Preserves the historical behavior exactly.
+///
+/// Any misconfiguration degrades to the lexical fallback (never a crash);
+/// a `semantic` query with no active backend against a plain vector field
+/// still returns a helpful 400.
+fn make_embedder(cfg: &xerj_common::config::EmbeddingConfig) -> xerj_ai::Embedder {
+    let mode = cfg.mode.trim().to_ascii_lowercase();
+    let want_proxy = mode == "proxy" || (mode != "neural" && mode != "lexical" && !cfg.default_endpoint.is_empty());
+
+    if mode == "neural" {
+        return make_neural_embedder(cfg);
     }
-    let proxy_cfg = xerj_ai::embed::EmbeddingProxyConfig {
-        endpoint: cfg.default_endpoint.clone(),
-        api_key: std::env::var("XERJ_EMBEDDING_API_KEY").ok(),
-        model: cfg.default_model.clone(),
-        timeout_secs: cfg.timeout_ms / 1000,
-        max_concurrent: 4,
-        max_retries: 3,
-    };
-    match xerj_ai::embed::EmbeddingProxy::new(proxy_cfg) {
-        Ok(p) => Some(p),
-        Err(e) => {
-            warn!(error = %e, "embedding proxy init failed — semantic queries will 400");
-            None
+
+    if want_proxy {
+        if cfg.default_endpoint.is_empty() {
+            warn!("embedding.mode=proxy but embedding.default_endpoint is empty — falling back to lexical");
+            return xerj_ai::Embedder::lexical();
         }
+        let proxy_cfg = xerj_ai::embed::EmbeddingProxyConfig {
+            endpoint: cfg.default_endpoint.clone(),
+            api_key: std::env::var("XERJ_EMBEDDING_API_KEY").ok(),
+            model: cfg.default_model.clone(),
+            timeout_secs: cfg.timeout_ms / 1000,
+            max_concurrent: 4,
+            max_retries: 3,
+        };
+        return match xerj_ai::embed::EmbeddingProxy::new(proxy_cfg) {
+            Ok(p) => {
+                info!(endpoint = %cfg.default_endpoint, "embedding backend: external proxy");
+                xerj_ai::Embedder::proxy(p)
+            }
+            Err(e) => {
+                warn!(error = %e, "embedding proxy init failed — falling back to lexical");
+                xerj_ai::Embedder::lexical()
+            }
+        };
     }
+
+    xerj_ai::Embedder::lexical()
+}
+
+/// Construct the built-in neural embedder when compiled in; otherwise warn
+/// and fall back to lexical so a `mode=neural` config never bricks startup.
+#[cfg(feature = "neural")]
+fn make_neural_embedder(cfg: &xerj_common::config::EmbeddingConfig) -> xerj_ai::Embedder {
+    let model_id = if cfg.neural_model.trim().is_empty() {
+        xerj_ai::neural::DEFAULT_MODEL_ID.to_string()
+    } else {
+        cfg.neural_model.clone()
+    };
+    let neural_cfg = xerj_ai::neural::NeuralConfig {
+        model_id,
+        cache_dir: (!cfg.model_cache_dir.is_empty()).then(|| cfg.model_cache_dir.clone().into()),
+        local_dir: (!cfg.local_model_dir.is_empty()).then(|| cfg.local_model_dir.clone().into()),
+    };
+    info!(model = %neural_cfg.model_id, "embedding backend: built-in neural BERT (loads on first use)");
+    xerj_ai::Embedder::neural(neural_cfg)
+}
+
+#[cfg(not(feature = "neural"))]
+fn make_neural_embedder(_cfg: &xerj_common::config::EmbeddingConfig) -> xerj_ai::Embedder {
+    warn!(
+        "embedding.mode=neural requested but this binary was built without the `neural` \
+         cargo feature — falling back to the built-in lexical embedder. Rebuild with \
+         `--features neural` (xerj-server) to enable in-process BERT embeddings."
+    );
+    xerj_ai::Embedder::lexical()
 }
 
 // ── HNSW persistence helpers (module-level, called from sync `Index::open`)
@@ -19999,6 +20124,68 @@ fn bm25_keyword_term_score(n: u64, total_docs: u64, boost: f32) -> f32 {
 /// finite non-negative boost. Filter leaves also admit keyword `terms`
 /// and numeric `range` with numeric bounds. Every other shape returns
 /// `None` → unchanged brute path.
+/// Bounded top-k candidate for the columnar scored path. Ordered so the
+/// heap's MAX is the WORST-kept element (lowest score, then highest
+/// seq_no) — popping it evicts exactly the row a full `(score DESC,
+/// seq_no ASC)` `select_nth` would have dropped. This lets the phase-2
+/// row walk keep only the `from+size` (or `cap`) it needs instead of
+/// pushing every match into an unbounded Vec and `select_nth`-ing the
+/// lot (the P1 tuple-storm cost).
+#[derive(Clone, Copy)]
+struct TopKCand {
+    score: f32,
+    seq: u64,
+    si: u32,
+    row: u32,
+}
+impl PartialEq for TopKCand {
+    fn eq(&self, o: &Self) -> bool {
+        self.score.to_bits() == o.score.to_bits() && self.seq == o.seq
+    }
+}
+impl Eq for TopKCand {}
+impl Ord for TopKCand {
+    fn cmp(&self, o: &Self) -> std::cmp::Ordering {
+        // `self` is GREATER (more evictable) when it would sort LATER under
+        // the final `(score DESC, seq_no ASC)` order: lower score first,
+        // then higher seq_no. seq_no is unique under the caller's
+        // `!deletes_present` gate, so this is a strict total order and the
+        // kept SET is bit-identical to `select_nth_unstable_by`'s.
+        o.score
+            .partial_cmp(&self.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| self.seq.cmp(&o.seq))
+    }
+}
+impl PartialOrd for TopKCand {
+    fn partial_cmp(&self, o: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(o))
+    }
+}
+
+/// Push `c` into a bounded max-heap top-k of capacity `cap`. Retains the
+/// `cap` best under `(score DESC, seq_no ASC)`: the heap's peek is the
+/// worst kept, evicted only when `c` is strictly better. O(1) amortised
+/// on an already-full heap when `c` loses (the common case once the page
+/// is filled from the ascending-seq prefix), O(log cap) on a swap.
+#[inline]
+fn push_topk(heap: &mut std::collections::BinaryHeap<TopKCand>, cap: usize, c: TopKCand) {
+    if cap == 0 {
+        return;
+    }
+    if heap.len() < cap {
+        heap.push(c);
+    } else if let Some(worst) = heap.peek() {
+        // `c` beats the worst kept iff it sorts EARLIER (strictly Less
+        // under the eviction Ord). Ties (same score bits + seq) can't
+        // occur under the unique-seq gate, so `Less` is the only swap.
+        if c.cmp(worst) == std::cmp::Ordering::Less {
+            heap.pop();
+            heap.push(c);
+        }
+    }
+}
+
 fn scored_fast_plan(
     query: &QueryNode,
     request: &SearchRequest,

@@ -18,11 +18,20 @@ Run it:
 Optional env:
     XERJ_URL   (default http://localhost:9200)
 
-To use a real neural embedding model instead of the built-in lexical
-embedder, point XERJ at any OpenAI-compatible endpoint in xerj.toml:
-    [embedding]
-    default_endpoint = "https://api.openai.com/v1/embeddings"
-    default_model    = "text-embedding-3-small"
+The built-in default embedder is *lexical* (feature-hashing), not neural.
+For real neural semantics — with no change to the index, mapping, or the
+three queries below — pick a different backend when you start the server:
+
+    # Built-in neural BERT (all-MiniLM-L6-v2), in-process, downloads once.
+    # Requires a binary built with `--features neural`.
+    xerj --insecure --data-dir ./data --embed-mode neural
+
+    # …or any external OpenAI-compatible endpoint (bring your own model):
+    xerj --insecure --data-dir ./data --embed-mode proxy
+    # with, in xerj.toml:
+    #   [embedding]
+    #   default_endpoint = "https://api.openai.com/v1/embeddings"
+    #   default_model    = "text-embedding-3-small"
 """
 
 import json

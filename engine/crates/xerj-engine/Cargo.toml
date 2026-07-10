@@ -45,6 +45,13 @@ xxhash-rust = { workspace = true }
 # — SipHash was >21% of on-CPU time under the shard write locks at c8.
 rustc-hash = { workspace = true }
 
+[features]
+default = []
+# Built-in neural BERT embedder (candle). Propagates to xerj-ai. Off by
+# default so the standard build stays lean and cross-compiles without the
+# candle/tokenizer toolchain; enable via xerj-server's `neural` feature.
+neural = ["xerj-ai/neural"]
+
 [dev-dependencies]
 tempfile  = { workspace = true }
 tokio     = { workspace = true, features = ["rt-multi-thread", "macros"] }

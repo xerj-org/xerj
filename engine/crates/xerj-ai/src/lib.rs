@@ -3,18 +3,24 @@
 //! AI-native features for the xerj search engine.
 //!
 //! Provides:
+//! - [`embedder`] — Unified backend handle (lexical / proxy / neural) used by the engine
 //! - [`embed`]   — Embedding proxy: async HTTP client for OpenAI-compatible embedding APIs
 //! - [`local`]   — Built-in zero-config deterministic text embedder (feature hashing)
+//! - [`neural`]  — Built-in neural BERT sentence embedder via candle (feature `neural`)
 //! - [`chunker`] — Text chunking with sentence-aware splitting and overlap
 //! - [`memory`]  — Agent memory: semantic dedup + recency-blended recall
 
 pub mod chunker;
 pub mod embed;
+pub mod embedder;
 pub mod local;
 pub mod memory;
+#[cfg(feature = "neural")]
+pub mod neural;
 
 pub use chunker::{Chunk, TextChunker};
 pub use embed::{EmbeddingProxy, EmbeddingProxyConfig};
+pub use embedder::Embedder;
 pub use local::{local_embed, DEFAULT_DIMS};
 pub use memory::{AgentMemory, MemoryEntry};
 

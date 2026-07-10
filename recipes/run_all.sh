@@ -35,8 +35,15 @@ until curl -fsS "$XERJ_URL/" >/dev/null 2>&1; do
 done
 
 rc=0
-for r in semantic_search passage_search rag_app memory_agent log_anomaly anomaly_datafeed vector_quantization; do
+for r in semantic_search all_way_search passage_search rag_app memory_agent log_anomaly anomaly_datafeed vector_quantization; do
   printf '\n═══ %s ═══\n' "$r"
   if python3 "$ROOT/recipes/$r.py"; then :; else echo "FAILED: $r"; rc=1; fi
 done
+
+# autoindex_semantic.sh is self-contained (starts its own server), so it runs
+# outside the shared instance above. It prefers a neural binary and falls back
+# to lexical with a note, so it is safe to smoke-run with any build.
+printf '\n═══ autoindex_semantic ═══\n'
+if "$ROOT/recipes/autoindex_semantic.sh" "$XERJ_BIN"; then :; else echo "FAILED: autoindex_semantic"; rc=1; fi
+
 exit "$rc"
