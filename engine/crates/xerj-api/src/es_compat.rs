@@ -5178,6 +5178,10 @@ pub async fn search(
             std::collections::HashSet::new();
         let mut split_kw_fields: std::collections::HashSet<String> =
             std::collections::HashSet::new();
+        // Numeric/boolean-typed fields: `match` on them rewrites to the
+        // equivalent exact `term` (see the mapping walk below).
+        let mut exact_value_fields: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
         for ix in &index_names {
             if let Some(m) = state.engine.index_mappings.get(*ix) {
                 let mapping = m.clone();
@@ -5188,32 +5192,50 @@ pub async fn search(
                     .cloned();
                 if let Some(Value::Object(props)) = props {
                     for (name, spec) in props {
-                        if spec.get("type").and_then(Value::as_str) == Some("keyword") {
-                            keyword_fields.insert(name.clone());
-                            if spec
-                                .get("split_queries_on_whitespace")
-                                .and_then(Value::as_bool)
-                                .unwrap_or(false)
-                            {
-                                split_kw_fields.insert(name);
+                        match spec.get("type").and_then(Value::as_str) {
+                            Some("keyword") => {
+                                keyword_fields.insert(name.clone());
+                                if spec
+                                    .get("split_queries_on_whitespace")
+                                    .and_then(Value::as_bool)
+                                    .unwrap_or(false)
+                                {
+                                    split_kw_fields.insert(name);
+                                }
                             }
+                            // `match` on numeric/boolean fields is NOT
+                            // analyzed either — ES executes it as the
+                            // equivalent `term` query (numerics score a
+                            // constant 1.0·boost per hit — points carry
+                            // no BM25 stats; booleans score BM25 on the
+                            // T/F term). Live-verified vs ES 8.13.4:
+                            // match num:42 → 1.0 where the tokenizing
+                            // Match path BM25-scored it 7.6.
+                            Some(
+                                "long" | "integer" | "short" | "byte" | "double" | "float"
+                                | "half_float" | "scaled_float" | "unsigned_long" | "boolean",
+                            ) => {
+                                exact_value_fields.insert(name.clone());
+                            }
+                            _ => {}
                         }
                     }
                 }
             }
         }
-        if !keyword_fields.is_empty() {
+        if !keyword_fields.is_empty() || !exact_value_fields.is_empty() {
             fn rewrite(
                 v: &mut Value,
                 kw: &std::collections::HashSet<String>,
                 split: &std::collections::HashSet<String>,
+                exact: &std::collections::HashSet<String>,
             ) {
                 match v {
                     Value::Object(obj) => {
                         let mut new_node: Option<(String, Value)> = None;
                         if let Some(m_val) = obj.get("match").and_then(|m| m.as_object()) {
                             if let Some((field, raw)) = m_val.iter().next() {
-                                if kw.contains(field) {
+                                if kw.contains(field) || exact.contains(field) {
                                     // Preserve a per-clause `boost` through the
                                     // rewrite: ES folds the match boost into the
                                     // term weight, so dropping it here silently
@@ -5292,26 +5314,26 @@ pub async fn search(
                         let keys: Vec<String> = obj.keys().cloned().collect();
                         for k in keys {
                             if let Some(c) = obj.get_mut(&k) {
-                                rewrite(c, kw, split);
+                                rewrite(c, kw, split, exact);
                             }
                         }
                     }
                     Value::Array(arr) => {
                         for item in arr {
-                            rewrite(item, kw, split);
+                            rewrite(item, kw, split, exact);
                         }
                     }
                     _ => {}
                 }
             }
             if let Some(q) = body.query.as_mut() {
-                rewrite(q, &keyword_fields, &split_kw_fields);
+                rewrite(q, &keyword_fields, &split_kw_fields, &exact_value_fields);
             }
             if let Some(aggs) = body.aggs.as_mut() {
-                rewrite(aggs, &keyword_fields, &split_kw_fields);
+                rewrite(aggs, &keyword_fields, &split_kw_fields, &exact_value_fields);
             }
             if let Some(aggs) = body.aggregations.as_mut() {
-                rewrite(aggs, &keyword_fields, &split_kw_fields);
+                rewrite(aggs, &keyword_fields, &split_kw_fields, &exact_value_fields);
             }
         }
     }
