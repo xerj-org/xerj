@@ -5842,7 +5842,7 @@ impl Index {
         if precomputed_aggs.is_some() {
             // Skip the entire segment loop — the fast agg path already
             // computed everything we need.  `total_count` is set above.
-        } else if count_only && shortcut_count.is_some() {
+        } else if count_only && shortcut_count.is_some() && !deletes_present {
             // Overwrite `total_count` — the memtable/bounded-collector scan
             // above has already looked at the memtable, but we want an
             // authoritative per-shape count, not the sum of two sources.
@@ -5854,6 +5854,16 @@ impl Index {
             // top (from+size) hit *sources* still get materialised.  Their
             // `total_count` is overwritten with `shortcut_count` after the
             // loop, and the scan runs in bounded (`count_authoritative`) mode.
+            //
+            // `!deletes_present` (2026-07, delete-durability batch): the
+            // shortcut is DELETE-BLIND (physical postings, not live docs).
+            // Pre-fix this size:0 branch took it unconditionally, so a
+            // `{size:0, query:{term:…}}` total counted version-map-deleted
+            // segment-resident docs (live-observed: 50 where truth was 0,
+            // while the same query with size>0 correctly returned 0).  Same
+            // correctness-over-speed gate as the size>0 `count_authoritative`
+            // path below; with ghosts present we fall through to the full
+            // delete-aware counting scan.
             total_count = shortcut_count.unwrap();
         } else if is_match_all && count_only {
             // Legacy MatchAll fast path (covers the `try_shortcut_count`
