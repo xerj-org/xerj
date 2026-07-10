@@ -321,7 +321,7 @@ curl -X POST localhost:9200/kb/_search -H 'Content-Type: application/json' -d '{
     { id:"agent_memory", title:"Long-term memory for agents",
       text:"Store durable memories with the memory endpoint and recall them later by meaning. An agent can remember prior conversations, facts, and decisions across sessions." },
     { id:"vector_knn", title:"Vector nearest-neighbor search",
-      text:"Index dense_vector fields and run k-nearest-neighbor search to find the closest embeddings. XERJ builds an HNSW graph at ingest and scores candidate vectors by cosine similarity." },
+      text:"Index dense_vector fields and run k-nearest-neighbor search to find the closest embeddings. XERJ scores candidate vectors by exact cosine similarity at query time — 100% recall, no approximate ANN index." },
     { id:"hybrid", title:"Hybrid keyword and vector ranking",
       text:"Combine a full-text keyword query with a vector query in one request. Reciprocal rank fusion blends the two result lists so exact term matches and semantic matches both count." },
     { id:"bm25", title:"Full-text search with BM25",

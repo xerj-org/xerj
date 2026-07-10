@@ -88,7 +88,7 @@
   },
   {
     "name": "xerj_vector_search",
-    "description": "Run a k-nearest-neighbour (kNN) search over a `dense_vector` field using a caller-supplied query embedding. XERJ performs EXACT brute-force distance scoring at query time — an HNSW graph is built at ingest, but there is no query-time HNSW traversal or `ef_search` parameter to tune, so results are exact rather than approximate. The call is issued as `POST /{index}/_search` using the ES 8.x top-level `knn` clause {\"knn\":{\"field\":...,\"query_vector\":[...],\"k\":...}}. Use this when you have already computed an embedding for the query (from any model) and want the nearest stored vectors; if you only have text and the field is `semantic_text`, use xerj_semantic_search instead.",
+    "description": "Run a k-nearest-neighbour (kNN) search over a `dense_vector` field using a caller-supplied query embedding. XERJ performs EXACT brute-force distance scoring at query time — there is no HNSW/ANN index or query-time traversal, and no `ef_search` parameter to tune, so results are exact rather than approximate (recall 1.00). The call is issued as `POST /{index}/_search` using the ES 8.x top-level `knn` clause {\"knn\":{\"field\":...,\"query_vector\":[...],\"k\":...}}. Use this when you have already computed an embedding for the query (from any model) and want the nearest stored vectors; if you only have text and the field is `semantic_text`, use xerj_semantic_search instead.",
     "input_schema": {
       "type": "object",
       "properties": {

@@ -1282,7 +1282,7 @@
     name: "Vector \xB7 Index",
     render: ({ data, time }) => ({
       title: "VECTOR \xB7 INDEX",
-      kicker: "HNSW \xB7 EMBEDDINGS \xB7 HYBRID",
+      kicker: "EXACT kNN \xB7 EMBEDDINGS \xB7 HYBRID",
       meta: [time, "XERJ-VECTOR"],
       panels: [
         {
@@ -2271,7 +2271,7 @@
         inner = q ? { match_phrase: { message: q } } : { match_all: {} };
         break;
       case "knn":
-        inner = { knn: { field: "embedding", query_vector: "<inline>", k: 10, ef_search: 96 } };
+        inner = { knn: { field: "embedding", query_vector: "<inline>", k: 10, num_candidates: 96 } };
         break;
       case "semantic":
         inner = { semantic: { field: "embedding", query: q || "*", model: "text-embed-3" } };
@@ -2313,13 +2313,13 @@
         root.op = "Hybrid(rrf,60)";
         root.children.push(
           { op: "MatchQuery", field: "message", value: q || "*", estimate: Math.round(total * 1.8), cost: Math.round(total * 1.8 + 20) },
-          { op: "KnnQuery", field: "embedding", value: "k=20 ef_search=96", estimate: 20, cost: 420 }
+          { op: "KnnQuery", field: "embedding", value: "k=20 exact-scan", estimate: 20, cost: 420 }
         );
         break;
       case "knn":
         root.op = "KnnQuery";
         root.field = "embedding";
-        root.value = "k=10 ef_search=96";
+        root.value = "k=10 exact-scan";
         root.estimate = 10;
         root.cost = 310;
         break;
@@ -2607,7 +2607,7 @@
               { label: "upstream 5xx > 1%", value: 12 },
               { label: "wal lag > 50ms", value: 11 },
               { label: "cache hit rate < 50%", value: 9 },
-              { label: "hnsw recall < 95%", value: 7 }
+              { label: "sq8 recall < 95%", value: 7 }
             ],
             total: 132,
             n: 8
@@ -2623,7 +2623,7 @@
             { at: "23:13:51", sev: "warn", msg: "auth failures > 10/min \xB7 14 failed logins \xB7 src=45.137.21.4" },
             { at: "23:13:22", sev: "warn", msg: "upstream 5xx > 1% \xB7 1.8% on /api/v2/checkout" },
             { at: "23:12:48", sev: "info", msg: "disk utilization > 90% \xB7 ip-10-0-4-73 \xB7 92%" },
-            { at: "23:12:09", sev: "err", msg: "hnsw recall < 95% \xB7 embeddings index \xB7 93.7%" },
+            { at: "23:12:09", sev: "err", msg: "sq8 recall < 95% \xB7 embeddings index \xB7 93.7%" },
             { at: "23:11:44", sev: "warn", msg: "memtable ratio > 0.8 \xB7 logs-prod \xB7 0.84" },
             { at: "23:11:03", sev: "info", msg: "wal lag > 50ms \xB7 ingest-worker \xB7 62ms" },
             { at: "23:10:41", sev: "warn", msg: "cache hit rate < 50% \xB7 /api/v2/search \xB7 42%" }
@@ -2759,7 +2759,7 @@ file, the rule stops \u2014 no orphaned state.`
       { name: "doc_id", type: "keyword", indexed: true, cardinality: 12e8, encoding: "UVARINT", ratio: 0.44 },
       { name: "chunk_id", type: "keyword", indexed: true, cardinality: 12e8, encoding: "UVARINT", ratio: 0.44 },
       { name: "text", type: "text", indexed: true, cardinality: 11e8, encoding: "ZSTD", ratio: 0.18 },
-      { name: "embedding", type: "dense_vector", indexed: true, cardinality: null, encoding: "HNSW+SQ8", ratio: 0.22 },
+      { name: "embedding", type: "dense_vector", indexed: true, cardinality: null, encoding: "SQ8", ratio: 0.22 },
       { name: "model", type: "keyword", indexed: true, cardinality: 6, encoding: "DICT", ratio: 0.04 },
       { name: "dim", type: "integer", indexed: false, cardinality: 4, encoding: "DICT", ratio: 0.04 }
     ],
@@ -2777,7 +2777,7 @@ file, the rule stops \u2014 no orphaned state.`
       { name: "agent", type: "keyword", indexed: true, cardinality: 8, encoding: "DICT", ratio: 0.04 },
       { name: "op", type: "keyword", indexed: true, cardinality: 5, encoding: "DICT", ratio: 0.04 },
       { name: "key", type: "keyword", indexed: true, cardinality: 24e5, encoding: "UVARINT", ratio: 0.44 },
-      { name: "embedding", type: "dense_vector", indexed: true, cardinality: null, encoding: "HNSW+SQ8", ratio: 0.22 },
+      { name: "embedding", type: "dense_vector", indexed: true, cardinality: null, encoding: "SQ8", ratio: 0.22 },
       { name: "score", type: "float", indexed: true, cardinality: 1e3, encoding: "FOR+RLE", ratio: 0.18 },
       { name: "dedup_of", type: "keyword", indexed: true, cardinality: 86e4, encoding: "UVARINT", ratio: 0.44 }
     ]
@@ -3770,7 +3770,7 @@ ${secondary}`;
         "rfc/039-hybrid-search.md",
         "runbook/incident-1411.md",
         "policy/pii.md",
-        "arch/hnsw-internals.md",
+        "arch/vector-internals.md",
         "rfc/051-agent-memory.md",
         "docs/query-dsl.md",
         "rfc/048-embed-proxy.md",
@@ -3840,7 +3840,7 @@ ${secondary}`;
       { id: "q4", label: "hybrid search score fusion" },
       { id: "q5", label: "mmap segment format" },
       { id: "q6", label: "WAL recovery procedure" },
-      { id: "q7", label: "what is HNSW recall" },
+      { id: "q7", label: "what is kNN recall" },
       { id: "q8", label: "pricing large context" }
     ];
     const chunks = [
@@ -3848,7 +3848,7 @@ ${secondary}`;
       { id: "c2", label: "rfc/042-retention.md#cost" },
       { id: "c3", label: "rfc/051-agent-memory.md#dedup" },
       { id: "c4", label: "rfc/039-hybrid-search.md#rrf" },
-      { id: "c5", label: "arch/hnsw-internals.md" },
+      { id: "c5", label: "arch/vector-internals.md" },
       { id: "c6", label: "runbook/wal-recovery.md" },
       { id: "c7", label: "docs/query-dsl.md#knn" },
       { id: "c8", label: "rfc/048-embed-proxy.md" },
@@ -4024,7 +4024,7 @@ ${secondary}`;
       { label: "pricing context for large enterprise", value: 1920 },
       { label: "hybrid search fusion score explanation", value: 1612 },
       { label: "WAL recovery tail loss (0.0014%)", value: 1402 },
-      { label: "HNSW recall vs build time tradeoff", value: 1180 },
+      { label: "kNN recall vs quantization tradeoff", value: 1180 },
       { label: "agent memory dedup rules (semantic)", value: 980 },
       { label: "mmap segment format roadmap", value: 770 },
       { label: "flush policy triggers (investigate)", value: 612 }
@@ -4237,7 +4237,7 @@ ${secondary}`;
     (r) => `flush segment=seg-${Math.floor(r() * 999)} docs=${Math.floor(4e4 + r() * 8e4)} took_ms=${Math.round(180 + r() * 220)}`,
     (r) => `merge segments=[seg-${Math.floor(r() * 99)},seg-${Math.floor(r() * 99)}] out=seg-${Math.floor(r() * 999)} ratio=${(0.42 + r() * 0.3).toFixed(2)}`,
     (r) => `slow_query took_ms=${Math.round(820 + r() * 1800)} plan="BoolQuery(Must(Match(message)))" index="logs-prod"`,
-    (r) => `hnsw_recall k=10 recall=${(0.94 + r() * 0.05).toFixed(3)} ef_search=${Math.floor(32 + r() * 96)}`,
+    (r) => `sq8_recall k=10 recall=${(0.94 + r() * 0.05).toFixed(3)} quant=scalar8`,
     (r) => `agent_memory op=insert agent=oncall-triage key="cluster-reset" score=${(0.72 + r() * 0.25).toFixed(2)}`,
     (r) => `ingest_batch index=logs-prod docs=${Math.floor(1e3 + r() * 9e3)} wal_lag_ms=${Math.round(2 + r() * 18)}`,
     (r) => `oom_score=${Math.round(100 + r() * 800)} rss_mb=${Math.round(1200 + r() * 2600)} pid=${Math.floor(1e3 + r() * 9e3)}`,
