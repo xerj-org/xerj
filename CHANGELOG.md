@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc.3] - 2026-07-10
+
+Third release candidate. Headline: XERJ gains a **built-in neural embedder** —
+real in-process BERT semantics with no Python and no external service — behind a
+single backend-agnostic embedding handle, plus two new end-to-end-validated
+retrieval recipes.
+
+### Added
+
+- **Built-in neural BERT embedder (`xerj-ai`, feature `neural`).** A pure-Rust
+  sentence encoder via `candle` (default `all-MiniLM-L6-v2`, 384-dim) that runs
+  in-process and downloads its weights once on first use (or reads them from
+  `embedding.local_model_dir` for air-gapped deployments). Off by default so the
+  standard binary stays ~23 MB and dependency-light; build with
+  `cargo build --release -p xerj-server --features neural` to include it.
+- **Unified three-backend embedding handle (`xerj_ai::Embedder`).** `semantic_text`
+  ingest and `semantic`/`hybrid` queries run through one of three interchangeable
+  backends — **lexical** (default, zero-dep feature-hash), **neural** (built-in
+  BERT), or **proxy** (external OpenAI-compatible `/v1/embeddings`) — selected with
+  `embedding.mode`, the `--embed-mode` flag, or `XERJ_EMBED_MODE`. Misconfiguration
+  degrades to lexical, never a crash; `auto` preserves the historical behaviour.
+- **Recipe — All-you-can-eat search.** One corpus retrieved five ways from a single
+  index: full-text (BM25), semantic, vector kNN (more-like-this), hybrid (RRF), and
+  semantic-scoped-by-keyword-filter. Guide `docs/recipes/all-way-search.md`,
+  runnable `recipes/all_way_search.py`.
+- **Recipe — Zero-config folder → neural semantic search.** `xerj autoindex` a
+  mixed-format folder against a `--embed-mode neural` server, then search the
+  discovered prose by meaning while structured files stay exactly filterable. Guide
+  `docs/recipes/autoindex-semantic-search.md`, runnable `recipes/autoindex_semantic.sh`,
+  sample corpus `demo/data/support-folder/`.
+
+### Changed
+
+- `--embed-mode {lexical|neural|proxy|auto}` CLI flag and `XERJ_EMBED_MODE` env on
+  the server; new `embedding.{mode,neural_model,model_cache_dir,local_model_dir}`
+  config keys.
+- Documentation updated for honesty consistency (README, AGENTS.md, ROADMAP.md,
+  llms.txt, recipe guides): the **default** embedder is lexical; the neural embedder
+  is an **opt-in** upgrade — output is only described as neural when that mode runs.
+
 ## [1.0.0-rc.1] - 2026-07-06
 
 First public release candidate of XERJ — an Elasticsearch-wire-compatible search,
