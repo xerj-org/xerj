@@ -35,10 +35,11 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
             let mut best: Option<(String, usize)> = None;
             for (k, vv) in obj.iter() {
                 if let Value::Array(a) = vv {
-                    if a.len() >= 2 && a.iter().all(|e| e.is_object()) {
-                        if best.as_ref().map(|(_, n)| a.len() > *n).unwrap_or(true) {
-                            best = Some((k.clone(), a.len()));
-                        }
+                    if a.len() >= 2
+                        && a.iter().all(|e| e.is_object())
+                        && best.as_ref().map(|(_, n)| a.len() > *n).unwrap_or(true)
+                    {
+                        best = Some((k.clone(), a.len()));
                     }
                 }
             }

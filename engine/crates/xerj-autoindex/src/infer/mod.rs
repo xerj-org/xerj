@@ -126,7 +126,8 @@ impl FieldAcc {
 
     fn note_distinct(&mut self, s: &str) {
         if self.distinct.len() < DISTINCT_CAP {
-            self.distinct.insert(xxhash_rust::xxh3::xxh3_64(s.as_bytes()));
+            self.distinct
+                .insert(xxhash_rust::xxh3::xxh3_64(s.as_bytes()));
         } else {
             self.distinct_overflow = true;
         }
@@ -293,8 +294,7 @@ pub fn infer_fields(
                 .unwrap();
             spec.es_type = "date".into();
             spec.date_enc = Some(elected.as_str().into());
-            let mut ev: Vec<(DateEnc, u64)> =
-                acc.date_hits.iter().map(|(k, v)| (*k, *v)).collect();
+            let mut ev: Vec<(DateEnc, u64)> = acc.date_hits.iter().map(|(k, v)| (*k, *v)).collect();
             ev.sort();
             spec.date_evidence = ev
                 .iter()
@@ -326,9 +326,7 @@ pub fn infer_fields(
                     spec.date_enc = Some(enc.as_str().into());
                     spec.date_evidence =
                         vec![format!("{}: {} (range-guarded)", enc.as_str(), acc.long_ok)];
-                    let to_dt = |v: i64| {
-                        dates::parse_epoch(v).map(|(d, _)| d)
-                    };
+                    let to_dt = |v: i64| dates::parse_epoch(v).map(|(d, _)| d);
                     if let (Some(a), Some(b)) = (to_dt(lo), to_dt(hi)) {
                         spec.date_min = Some(dates::to_rfc3339_millis(&a));
                         spec.date_max = Some(dates::to_rfc3339_millis(&b));
@@ -370,8 +368,8 @@ pub fn infer_fields(
         } else {
             acc.distinct.len() as f64 / n as f64
         };
-        let is_keyword = (p95_len <= 128 && p95_tok <= 3)
-            || (!acc.distinct_overflow && card_ratio < 0.1);
+        let is_keyword =
+            (p95_len <= 128 && p95_tok <= 3) || (!acc.distinct_overflow && card_ratio < 0.1);
         let is_text = p95_tok > 8 || p95_len > 256;
         spec.es_type = if is_keyword && !is_text {
             "keyword".into()
@@ -394,7 +392,8 @@ pub fn infer_fields(
                 let spec = &mut specs[idx];
                 spec.es_type = "date".into();
                 spec.date_enc = Some(enc.as_str().into());
-                spec.notes.push("epoch corroborated by sibling date field range".into());
+                spec.notes
+                    .push("epoch corroborated by sibling date field range".into());
                 spec.date_min = Some(dates::to_rfc3339_millis(&a));
                 spec.date_max = Some(dates::to_rfc3339_millis(&b));
             }
@@ -410,9 +409,9 @@ pub fn infer_fields(
             .max_by(|a, b| a.1.avg_len.partial_cmp(&b.1.avg_len).unwrap());
         if let Some((i, _)) = best {
             specs[i].es_type = "semantic_text".into();
-            specs[i]
-                .notes
-                .push("hybrid lexical+vector body (hash-bucket embedder — lexical, not neural)".into());
+            specs[i].notes.push(
+                "hybrid lexical+vector body (hash-bucket embedder — lexical, not neural)".into(),
+            );
         }
     }
 
@@ -431,9 +430,10 @@ pub fn infer_fields(
         specs.truncate(MAX_FIELDS_PER_DATASET);
         specs.sort_by(|a, b| a.name.cmp(&b.name));
         if let Some(first) = specs.first_mut() {
-            first
-                .notes
-                .push(format!("dataset field cap hit; unmapped overflow fields: {}", overflow.join(", ")));
+            first.notes.push(format!(
+                "dataset field cap hit; unmapped overflow fields: {}",
+                overflow.join(", ")
+            ));
         }
     }
     specs

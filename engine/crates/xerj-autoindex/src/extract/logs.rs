@@ -139,18 +139,17 @@ fn parse_line(line: &str, kind: Kind) -> Option<Map<String, Value>> {
 /// raw message is kept.
 fn lift_kv(msg: &str, m: &mut Map<String, Value>) {
     let t = templates();
-    let pairs: Vec<(String, String)> = t
-        .kv
-        .captures_iter(msg)
-        .map(|c| {
-            let k = c.get(1).unwrap().as_str().to_string();
-            let mut v = c.get(2).unwrap().as_str().to_string();
-            if v.starts_with('"') && v.ends_with('"') && v.len() >= 2 {
-                v = v[1..v.len() - 1].replace("\\\"", "\"");
-            }
-            (k, v)
-        })
-        .collect();
+    let pairs: Vec<(String, String)> =
+        t.kv.captures_iter(msg)
+            .map(|c| {
+                let k = c.get(1).unwrap().as_str().to_string();
+                let mut v = c.get(2).unwrap().as_str().to_string();
+                if v.starts_with('"') && v.ends_with('"') && v.len() >= 2 {
+                    v = v[1..v.len() - 1].replace("\\\"", "\"");
+                }
+                (k, v)
+            })
+            .collect();
     if pairs.len() >= 2 {
         let mut message_set = false;
         for (k, v) in pairs {

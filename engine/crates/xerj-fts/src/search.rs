@@ -25,6 +25,9 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+/// Per-term phrase postings: `doc_id → (term_freq, positions)`.
+type TermPostingsMap = std::collections::HashMap<u32, (u32, Vec<u32>)>;
+
 // ── Scored hit ────────────────────────────────────────────────────────────────
 
 /// One scored result document.
@@ -591,8 +594,7 @@ impl FtsSearcher {
         // implementation `.find()`-scanned each other term's FULL posting list
         // for every anchor doc (O(anchor_df × other_df), quadratic on common
         // terms like a non-stop-worded "the").
-        let mut term_maps: Vec<(std::collections::HashMap<u32, (u32, Vec<u32>)>, u32)> =
-            Vec::with_capacity(pq.terms.len());
+        let mut term_maps: Vec<(TermPostingsMap, u32)> = Vec::with_capacity(pq.terms.len());
         for term in &pq.terms {
             let tp = match self.reader.lookup_term(&pq.field, term) {
                 Some(tp) => tp,
@@ -602,10 +604,9 @@ impl FtsSearcher {
                 Some(d) => d,
                 None => return Ok(Vec::new()),
             };
-            let mut reader =
-                PostingsReader::new_with_positions(post_data, tp.doc_frequency, true);
-            let mut map: std::collections::HashMap<u32, (u32, Vec<u32>)> =
-                std::collections::HashMap::with_capacity(tp.doc_frequency as usize);
+            let mut reader = PostingsReader::new_with_positions(post_data, tp.doc_frequency, true);
+            let mut map: TermPostingsMap =
+                TermPostingsMap::with_capacity(tp.doc_frequency as usize);
             while let Some(p) = reader.next() {
                 map.insert(p.doc_id, (p.term_freq, p.positions));
             }
@@ -624,7 +625,7 @@ impl FtsSearcher {
         let scorer = self.make_scorer(&pq.field);
         let mut hits = Vec::new();
 
-        'doc: for (&doc_id, _) in &term_maps[min_idx].0 {
+        'doc: for &doc_id in term_maps[min_idx].0.keys() {
             // Gather each term's positions for this doc, in TERM ORDER (raw —
             // no offset games; the matcher below handles adjacency + slop).
             let mut all_positions: Vec<&Vec<u32>> = Vec::with_capacity(pq.terms.len());
@@ -1681,21 +1682,48 @@ mod tests {
         // Case-sensitive wildcard: "R*" matches, "r*" does not.
         let mut ci = WildcardQuery::new("body", "R*");
         ci.case_insensitive = false;
-        assert_eq!(searcher.search(&Query::Wildcard(ci), 10, false).unwrap().len(), 1);
+        assert_eq!(
+            searcher
+                .search(&Query::Wildcard(ci), 10, false)
+                .unwrap()
+                .len(),
+            1
+        );
         let mut cs = WildcardQuery::new("body", "r*");
         cs.case_insensitive = false;
-        assert_eq!(searcher.search(&Query::Wildcard(cs), 10, false).unwrap().len(), 0);
+        assert_eq!(
+            searcher
+                .search(&Query::Wildcard(cs), 10, false)
+                .unwrap()
+                .len(),
+            0
+        );
         // Case-insensitive (keyword-style) wildcard: "r*" DOES match.
         let ki = WildcardQuery::new("body", "r*"); // default case_insensitive = true
-        assert_eq!(searcher.search(&Query::Wildcard(ki), 10, false).unwrap().len(), 1);
+        assert_eq!(
+            searcher
+                .search(&Query::Wildcard(ki), 10, false)
+                .unwrap()
+                .len(),
+            1
+        );
 
         // Case-sensitive fuzzy: "Rist" (1 edit from "Rust") matches; "rist" does not.
         let mut fz = FuzzyQuery::new("body", "Rist", 1);
         fz.case_insensitive = false;
-        assert_eq!(searcher.search(&Query::Fuzzy(fz), 10, false).unwrap().len(), 1);
+        assert_eq!(
+            searcher.search(&Query::Fuzzy(fz), 10, false).unwrap().len(),
+            1
+        );
         let mut fzl = FuzzyQuery::new("body", "rist", 1);
         fzl.case_insensitive = false;
-        assert_eq!(searcher.search(&Query::Fuzzy(fzl), 10, false).unwrap().len(), 0);
+        assert_eq!(
+            searcher
+                .search(&Query::Fuzzy(fzl), 10, false)
+                .unwrap()
+                .len(),
+            0
+        );
     }
 
     #[test]
@@ -1763,7 +1791,14 @@ mod tests {
                 assert!(w[0].score >= w[1].score);
             }
 
-            for cap in [0usize, 1, 2, 3, total_full as usize, total_full as usize + 5] {
+            for cap in [
+                0usize,
+                1,
+                2,
+                3,
+                total_full as usize,
+                total_full as usize + 5,
+            ] {
                 let (bounded, total) = searcher.search_bounded(q, cap, false).unwrap();
 
                 // (1) Exact total is independent of the page cap.

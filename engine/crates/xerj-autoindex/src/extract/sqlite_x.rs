@@ -63,8 +63,7 @@ pub fn extract(path: &Path, per_table_limit: Option<u64>, sink: Sink) -> Result<
             let start_col = if has_rowid { 1 } else { 0 };
             let rowid: Option<i64> = if has_rowid { row.get(0).ok() } else { None };
             let mut fields = Map::new();
-            for i in start_col..ncols {
-                let name = &col_names[i];
+            for (i, name) in col_names.iter().enumerate().take(ncols).skip(start_col) {
                 let v = match row.get_ref(i) {
                     Ok(v) => v,
                     Err(_) => continue,
