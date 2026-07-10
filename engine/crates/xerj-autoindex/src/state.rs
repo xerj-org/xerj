@@ -198,7 +198,7 @@ impl Journal {
         self.append(&v)?;
         self.done.insert(fd.file_key.clone(), fd.clone());
         // fsync batched: every 32 completions
-        if self.done.len() % 32 == 0 {
+        if self.done.len().is_multiple_of(32) {
             self.file.sync_data().ok();
         }
         Ok(())

@@ -390,7 +390,10 @@ async fn call_tool(ctx: &Ctx, msg: &Value) -> Value {
         Some(n) => n,
         None => return tool_text("missing tool `name`", true),
     };
-    let args = params.get("arguments").cloned().unwrap_or_else(|| json!({}));
+    let args = params
+        .get("arguments")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
 
     let result = match name {
         "xerj_search" => build_search(&args),
@@ -653,7 +656,10 @@ mod tests {
         .unwrap();
         assert_eq!(path, "/h/_search");
         assert_eq!(body["query"]["hybrid"]["fusion"], "rrf");
-        assert_eq!(body["query"]["hybrid"]["queries"].as_array().unwrap().len(), 2);
+        assert_eq!(
+            body["query"]["hybrid"]["queries"].as_array().unwrap().len(),
+            2
+        );
         assert_eq!(body["size"], 10);
     }
 

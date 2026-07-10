@@ -785,7 +785,7 @@ impl WalReader {
         let dir = self.dir.clone();
         let iter = gens.into_iter().flat_map(move |gen| {
             let path = wal_path(&dir, gen);
-            read_wal_file(path, checkpoint.clone())
+            read_wal_file(path, checkpoint)
         });
 
         Ok(iter)
@@ -960,8 +960,8 @@ fn read_wal_file(path: PathBuf, checkpoint: Option<WalCheckpoint>) -> Vec<Result
         // Skip entries already covered by the checkpoint — see the
         // offset-bounded rule in the function docs.
         if let Some(c) = &checkpoint {
-            let positionally_covered = generation < c.generation
-                || (generation == c.generation && this_offset < c.offset);
+            let positionally_covered =
+                generation < c.generation || (generation == c.generation && this_offset < c.offset);
             if positionally_covered && seq_no <= c.max_seq_no {
                 continue;
             }

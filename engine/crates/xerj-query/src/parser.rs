@@ -1131,6 +1131,10 @@ fn try_lower_query_string(
 }
 
 #[derive(Debug, Clone)]
+// `Range` (a field + four `Option<Value>` bounds) dwarfs the unit
+// operator variants; QsTok is a short-lived per-parse token buffer, so
+// boxing it would cost more indirection than the transient size saves.
+#[allow(clippy::large_enum_variant)]
 enum QsTok {
     Term(String, String),   // (field, value) — field empty if unqualified
     Phrase(String, String), // (field, value)

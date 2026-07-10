@@ -86,7 +86,9 @@ impl Es {
             return Ok(());
         }
         let text = resp.text().unwrap_or_default();
-        if text.contains("resource_already_exists") || status.as_u16() == 400 && text.contains("exists") {
+        if text.contains("resource_already_exists")
+            || status.as_u16() == 400 && text.contains("exists")
+        {
             return Ok(());
         }
         Err(anyhow!("PUT /{index} failed: {status} {text}"))
@@ -122,8 +124,9 @@ impl Es {
                                 if op.get("error").is_some() {
                                     item_errors += 1;
                                     if first_error.is_none() {
-                                        first_error =
-                                            Some(op["error"].to_string().chars().take(300).collect());
+                                        first_error = Some(
+                                            op["error"].to_string().chars().take(300).collect(),
+                                        );
                                     }
                                 }
                             }

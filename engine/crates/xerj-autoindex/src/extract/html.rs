@@ -4,9 +4,7 @@
 //! one record per row with header-derived field names; otherwise one
 //! document record {title, headings, body}.
 
-use super::{
-    emit_document, sanitize_field_name, ExtractStats, RawRecord, Sink, MAX_WHOLE_FILE,
-};
+use super::{emit_document, sanitize_field_name, ExtractStats, RawRecord, Sink, MAX_WHOLE_FILE};
 use anyhow::Result;
 use serde_json::{Map, Value};
 use std::path::Path;
@@ -104,7 +102,9 @@ fn stem_of(path: &Path) -> String {
 fn looks_like_header(row: &[String]) -> bool {
     let numericish = |s: &str| {
         let t = s.trim();
-        !t.is_empty() && t.chars().all(|c| c.is_ascii_digit() || matches!(c, '.' | ',' | '-'))
+        !t.is_empty()
+            && t.chars()
+                .all(|c| c.is_ascii_digit() || matches!(c, '.' | ',' | '-'))
     };
     !row.is_empty() && row.iter().all(|c| !numericish(c) && !c.trim().is_empty())
 }
@@ -123,7 +123,10 @@ fn dominant_table(doc: &Doc) -> Option<(&Vec<Vec<String>>, bool)> {
         if consistent * 10 < rows.len() * 9 {
             continue;
         }
-        if best.map(|b| rows.len() > doc.tables[b].len()).unwrap_or(true) {
+        if best
+            .map(|b| rows.len() > doc.tables[b].len())
+            .unwrap_or(true)
+        {
             best = Some(i);
         }
     }
@@ -194,7 +197,10 @@ fn parse(html: &str) -> Doc {
         if bytes[i] == b'<' {
             // comment?
             if html[i..].starts_with("<!--") {
-                i = html[i..].find("-->").map(|p| i + p + 3).unwrap_or(bytes.len());
+                i = html[i..]
+                    .find("-->")
+                    .map(|p| i + p + 3)
+                    .unwrap_or(bytes.len());
                 continue;
             }
             // parse tag
@@ -263,7 +269,8 @@ fn parse(html: &str) -> Doc {
                         cur_row.push(c);
                     }
                     if !cur_row.is_empty() {
-                        table_header_flags.push(cur_row_th.iter().all(|&b| b) && !cur_row_th.is_empty());
+                        table_header_flags
+                            .push(cur_row_th.iter().all(|&b| b) && !cur_row_th.is_empty());
                         cur_table.push(std::mem::take(&mut cur_row));
                     }
                     if !cur_table.is_empty() {
@@ -278,7 +285,8 @@ fn parse(html: &str) -> Doc {
                         cur_row.push(c);
                     }
                     if !cur_row.is_empty() {
-                        table_header_flags.push(cur_row_th.iter().all(|&b| b) && !cur_row_th.is_empty());
+                        table_header_flags
+                            .push(cur_row_th.iter().all(|&b| b) && !cur_row_th.is_empty());
                         cur_table.push(std::mem::take(&mut cur_row));
                     }
                     cur_row_th.clear();
@@ -290,17 +298,24 @@ fn parse(html: &str) -> Doc {
                     cur_row_th.push(name == "th");
                     cur_cell = Some(String::new());
                 }
-                (false, "br") | (false, "p") | (true, "p") | (false, "div") | (true, "div")
-                | (false, "li") | (true, "tr") => {
-                    if !doc.body.ends_with('\n') && !doc.body.is_empty() {
-                        doc.body.push('\n');
-                    }
+                (false, "br")
+                | (false, "p")
+                | (true, "p")
+                | (false, "div")
+                | (true, "div")
+                | (false, "li")
+                | (true, "tr")
+                    if !doc.body.ends_with('\n') && !doc.body.is_empty() =>
+                {
+                    doc.body.push('\n');
                 }
                 _ => {}
             }
             i = tag_end + 1;
         } else {
-            let next = memchr::memchr(b'<', &bytes[i..]).map(|p| i + p).unwrap_or(bytes.len());
+            let next = memchr::memchr(b'<', &bytes[i..])
+                .map(|p| i + p)
+                .unwrap_or(bytes.len());
             cur_text.push_str(&decode_entities(&html[i..next]));
             i = next;
         }
