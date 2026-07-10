@@ -1,147 +1,101 @@
-# XERJ-vs-ES Benchmark Battle Plan — close all 8 LOSE cells, honestly
+# XERJ-vs-ES All-Wins Battle Plan — v2 (2026-07-10, rewritten on HEAD post-batch-12b)
 
-**Goal:** 100% ES compatibility **and** XERJ winning **every** cell of the matrix (zero LOSE), with an **honest** scorecard and website.
-**Baseline:** Jul-6 SCORECARD.md (`caa607a` era) = **81 WIN / 8 LOSE / 2 N/A**. HEAD at time of writing: `2022a3b` on `fix/sort-topn-correctness`.
-**Source of the 8 losses (verified against `demo/playbooks/SCORECARD.md`):**
+**Goal:** every matrix cell an honest WIN vs live ES 8.13.4 — query cache OFF (`XERJ_DISABLE_QUERY_CACHE=1`, env-verified), `request_cache=false` both engines, closed-loop, warm-8 → p50/p99 × 50, correctness-checked per cell (top-10 ids + f32 score bits + max_score + totals vs ES). **A faster-but-wrong cell is a LOSS.** Methodology = `FULL_MATRIX_SCORECARD_2026-07-10.md`, verbatim bodies from `bench-matrix.mjs`.
 
-| # | Cell (SCORECARD row) | XERJ | ES | Ratio | Verdict |
-|---|---|---|---|---|---|
-| 1 | read agg: filter (p50 ms) | 0.93 | 0.71 | 0.77× | LOSE |
-| 2 | read pipe: sum_bucket (p50 ms) | 1.19 | 1.12 | 0.94× | LOSE |
-| 3 | read pipe: derivative (p50 ms) | 1.13 | 0.67 | 0.60× | LOSE |
-| 4 | mixed match_all (p99 ms, under write) | 65.48 | 2.30 | 0.04× | LOSE |
-| 5 | mixed bool (p99 ms, under write) | 63.07 | 9.55 | 0.15× | LOSE |
-| 6 | mixed range (p99 ms, under write) | 151.89 | 5.11 | 0.03× | LOSE |
-| 7 | mixed terms (p99 ms, under write) | 61.84 | 2.70 | 0.04× | LOSE |
-| 8 | mixed cardinality (p99 ms, under write) | 98.92 | 18.84 | 0.19× | LOSE |
+**Baseline (this plan's ground truth):** HEAD re-measure 2026-07-10 (`results-2026-07-10-HEAD.json`, /tmp/xerj-allwins) = **Table A 46 W / 25 L / 6 T / 2 ES-REJECTS; grand total with Table B carried: 49 W / 26 L / 7 T.** Batch 12b verified live: `ids` LOSS→WIN (score 1.0 exact), `_mget` LOSS→WIN (1397 ms → 0.14 ms, source key order byte-matches ES), 5 agg band-edge TIE→WIN. Hit totals 79/79 identical to ES; no fast-but-wrong WIN survives. Box was noisier than the 07-10 audit (both engines' floors ~2-3× inflated symmetrically) — verdicts trustworthy, magnitudes inflated.
 
-The 8 split into **three families** with different truths:
-- **Cells 4–8 (mixed p99):** ONE architectural mechanism — reads fold the **live, mutable** memtable under the **same per-shard `parking_lot::RwLock` the writer mutates**, inside `block_in_place`, under a 300 req/s **open-loop** driver → coordinated-omission snowball. This is the dominant, real, CI-failing loss.
-- **Cells 2–3 (pipeline p50):** **measurement noise**, not a deficiency — identical code path to pipeline cells that WIN (avg_bucket 2.13×, cumulative_sum 4.71×). Sub-ms p50 with 120 iters is inside the harness jitter band.
-- **Cell 1 (filter p50):** a real but **tiny** O(N) columnar fold with per-row virtual dispatch; ~0.22 ms over XERJ's own agg floor, partly noise.
+This version REPLACES the v1 plan (Jul-6 8-loss era). Status of v1 items:
+- **Website false claims (v1 §3b): DONE** — commit `1401c4b` deployed; 89×/74×/2.8× removed sitewide. Residual debt: site read numbers must be refreshed from the honest cache-off scorecard after this campaign.
+- **Harness honesty (v1 §3a): DONE** — cache-off + closed-loop + correctness columns are now the standing methodology (the 07-10 scorecard). Open-loop magnitudes repudiated (saturation artifacts, 2-77× inflated).
+- **Mixed read-under-write p99 (v1 cells 4-8): SEPARATE TRACK** — not in the 79-cell matrix. Root cause stands (live-memtable reads under the writer's per-shard RwLock; see `MIXED_READ_UNDER_WRITE_FINDING_2026-07-08.md`, memory `mixed-p99-root-cause`). M1 (ArcSwap immutable mem-view) remains the fix; do not conflate with this matrix campaign.
 
 ---
 
-## 1. The 8 losses: root cause → chosen fix → effort → expected result
+## 1. The floor is not the problem — the engine walk is (2026-07-10 wire-level profile)
 
-| # | Cell | Root-cause one-liner (code-grounded) | Chosen fix | Effort | Expected result |
-|---|---|---|---|---|---|
-| 4 | mixed **match_all** p99 (0.04×) | Pure lock-contention floor: `doc_ids_bounded` (memtable.rs:725) fans all 16 shards `s.read()` while the turbo writer holds `s.write()` per 512-doc chunk (index.rs MEMTABLE_INSERT_CHUNK); `block_in_place` pins a worker per stall; 300 req/s open-loop piles up. Compute is cheap → 65 ms is ~pure contention. | **M1** lock-free memtable read snapshot (+ **M2** kill the snowball) | L (+M) | ~65 ms → single-digit ms (sub-2 ms quiescent already achieved). **WIN** |
-| 7 | mixed **terms** p99 (0.04×) | Same floor; `terms_counts_columnar` (memtable.rs:1184) fold is cheap → 62 ms is contention. | **M1** (+M2) | L | ~62 ms → single-digit ms. **WIN** |
-| 5 | mixed **bool** p99 (0.15×) | Contention **+** O(memtable) hydration: `mem_bool_preds` bails on the `match` clause → `DocsForScan(all_docs_with_sources_arc)` hydrates the whole memtable per read (memtable.rs:751). | **M3** lift `match` on keyword→Term (bounded columnar path) **+ M1/M2** | S + L | ~63 ms → single-digit ms. **WIN** |
-| 6 | mixed **range** p99 (0.03×, worst) | Contention **+** O(memtable) numeric walk: `doc_values_bool_hits` (memtable.rs:2625) scans all `0..n` per shard for the exact total on a broad `cost_usd>=0.01`, even for size:10. | **M4** per-shard sorted numeric index → top-(from+size)+total in O(log N+k) **+ M1/M2** | M + L | ~152 ms → single-digit ms. **WIN (highest single-cell lever)** |
-| 8 | mixed **cardinality** p99 (0.19×) | Contention; the bench op is **UNFILTERED** so `e69f80e` (filtered branch) does NOT touch it; extra 16-shard read-lock round (`terms_counts_columnar` rayon fan-out) adds ~33 ms over match_all. | **M1/M2** (+ optional: fold extra lock rounds, drop rayon par_iter) | L | ~99 ms → ~ES 18.8 ms or better. **WIN** |
-| 1 | read agg: **filter** p50 (0.77×) | Real O(N) columnar fold: `exec_filter`→`fused_seg_pass` (fast_aggs.rs:1177) scans every row with a non-inlinable `&mut dyn FnMut` slot call + `SegPred`/`MetricKind` enum dispatch; `doc_count` incremented in the hot closure instead of O(1) `per_ord_count`. Gap ~0.22 ms, partly noise. | **F1** monomorphize single-leaf-pred filter+metric fold **+ F2** O(1) doc_count via `per_ord_count` | S + S | 0.93 → ~0.6–0.7 ms → parity/**WIN** |
-| 2 | read pipe: **sum_bucket** p50 (0.94×) | **Not slower server-side.** Same `date_histogram`+`sum` parent + O(#buckets) sibling reduction as avg_bucket (WINs 2.13×). 120-iter open-loop p50 lands bimodally (~0.37 vs ~1.16 ms) — GC/scheduler beat vs the 5 ms cadence. | **H2** harness noise-band TIE + raise iters (+ optional H-eng variance trim) | S | Moves to **TIE** (server times equal within noise). Removes the false LOSE. |
-| 3 | read pipe: **derivative** p50 (0.60×) | Identical to #2: nested pipeline via `apply_bucket_pipeline_ops`, same parent as serial_diff (WINs 2.56×). 0.60×/0.94× are noise artifacts; ES itself shows the same spread (derivative 0.67 vs sum_bucket 1.12). | **H2** (as #2) | S | Moves to **TIE**. Removes the false LOSE. |
+Profiled on the live box (tcpdump on lo, strace -T both servers, perf on a symbolized scratch build, XERJ phase log, the harness's exact node:http client). Full numbers in the floor-profile section of the campaign session; structure:
 
-**Net:** 5 mixed cells flip via one architectural fix (M1) + tail control (M2) + two cheap per-cell levers (M3/M4). 1 filter cell flips via a small monomorphization (F1/F2). 2 pipeline cells were never real losses — they resolve to TIE the moment the harness stops scoring sub-ms noise as LOSE (H2).
+- **XERJ's HTTP floor BEATS ES 3-5×.** `_count` server dwell is **0.058 ms total** (recv + axum + auth/UUID/Trace/CORS middleware + route + serialize + writev) vs ES 0.304 ms. Both engines emit exactly ONE response packet, ONE read() client-side; XERJ's bodies are *smaller*. There is **no transport/response-path/client deficit** — the 2026-07-06 "~0.9 ms XERJ-specific client cost" is REFUTED (that was the undici tax, paid equally by both, plus engine-side agg cliffs since fixed).
+- **Every microsecond of every loss above ~0.06 ms is engine execution.** On `term(status)` size:10 (4.4 vs 0.92 ms on the noisy box): perf shows 42% score-and-collect-every-match (ClauseEval::eval over all 100k rows, 98,752 candidate tuples pushed), 7.5% select_nth over 98,752, ~10% hydrating **256 stored docs for a 10-doc page** (`materialisation_limit=(from+size+100).max(256)`, index.rs:5187), ~6% final page sort whose comparator calls `lookup_seq_no` (dashmap string-hash) **per comparison**, 2.5% realloc growing an unreserved cands Vec.
+- Behavioral isolation: same query size:0 = 0.39 ms vs size:10 = 5.9 ms. The count is free; the *hits page* costs everything.
+- ES answers the same scored top-10 in ~0.6-0.9 ms because it never scores all matches (impact-based skipping) and fetches exactly 10 stored docs.
 
----
+**Conclusion: the all-wins lever is bounded top-k collection + bounded hydration, not caching, not transport.** No query-result caching anywhere in this plan.
 
-## 2. Execution order (biggest impact / lowest risk first)
+## 2. Current loss map (26), grouped by root cause
 
-The 5 mixed cells are the dominant loss and share **one mechanism**, so the engine work leads with that family. But two things must land **first** for integrity and to make the final proof trustworthy: the harness-honesty fixes (which also *legitimately* close cells 2 & 3) and the website corrections. Engine fixes (M-series, F-series) have **no dependency** on the harness work and can proceed in parallel — but the **final all-wins re-measurement (§4) must run on the fixed, honest harness.**
+| class | cells | root cause |
+|---|---|---|
+| **A. Constant-score O(matches) walk** (12) | match_all, term(status), term(cache_hit), constant_score, exists, range(latency_ms), range(@timestamp), range(cost_usd), terms(model), deep from+size, prefix(model), wildcard(model) | Every per-row score is a per-segment constant, yet scored_columnar walks all 100k rows, pushes up to 98,752 candidates, select_nth's them, then hydrates 256 docs for a 10-doc page. All TIE-ORDER or EXACT correctness. Includes the two "floor" ranges and deep-paging. |
+| **B. Ord-bucketed scored top-k** (8) | match(model), match_phrase(top_doc), match_bool_prefix, multi_match, query_string, simple_query_string, dis_max, bool m+f+s+mn | Scoring leaves are keyword terms → per-doc score depends only on *which terms match* = a small set of score classes (per-ord constants). Today: full scored walk O(matches). Two carry pre-existing scoring defects that must be fixed first (match_bool_prefix 2.52-vs-1.0, multi_match 1 ulp). |
+| **C. Term-expansion scoring defect** (1) | fuzzy(model) | Same class-B walk + XERJ omits ES's fuzziness discount (SCORE-DIVERGE) — correctness first, then class-B machinery with per-ord (edit-distance-discounted) scores. |
+| **D. O(N) brute cliff** (1) | more_like_this — 325 ms, flat-1.0 scores (wrong) | Never routed off the stored-doc brute scan; MLT term selection + real scoring missing. |
+| **E. Script execution** (1) | scripted_metric — 1189 ms vs ES 6.6 | Both engines are O(N); ES JIT-compiles Painless, XERJ interprets per doc (~12 µs/doc vs ~65 ns/doc). JVM-vs-Rust is irrelevant while one side interprets. |
+| **F. Response-path / de-route** (2) | highlight (26-ulp de-route off exact-BM25, ticket #3), _msearch (+0.67 ms envelope) | highlight bails the query off the scored_fast_plan path; _msearch pays per-sub-search floor overhead. |
+| **G. kNN** (1, Table B) | kNN latency 120× (recall TIE 1.0) | Brute vector scan; `xerj-vector/src/hnsw.rs` exists (HnswIndex/HnswParams exported) but is UNWIRED into indexing/search. |
 
-### Phase 0 — Integrity & harness (prerequisite; closes #2, #3; unblocks honest §4)
-Low risk, mandatory. Details in §3.
-- **H1 — Kill the read query-cache mirage.** Vary a param per iteration (novel term/id/range value) so every read misses `query_cache` (index.rs:4504 has no size gate; a hit at 4536 returns a `took_ms=0` clone). Report **p50 AND p99 uncached**. ⚠️ This may **expose new losses among the current 81 WINs** — that is the point; the honest uncached baseline is unknown until measured.
-- **H2 — Noise-band + iters.** In `bench-matrix.mjs` raise read iters 120→≥1000, warmup 15→≥50, and make `scoreRow` (line 625) return **TIE** when `|xerj−es| ≤ max(0.30 ms, 20% of faster engine)`. Print both p50s regardless. **Closes #2 and #3 legitimately.**
-- **H3 — Iso-write-rate for mixed.** Throttle the detached `_bulk` writer to an identical target docs/s both engines sustain; log **offered-vs-achieved** write rate per engine next to p99 (today XERJ accepts ~1.5× faster → more merge pressure → inflated p99).
-- **H4 — Real correctness gate.** `readSignal`/`signalMismatch` currently check only `aggregations[0]` and tolerate 10% hit drift. Compare the **full aggregation subtree** (incl. scored pipeline values) and tighten hit-count tolerance to **0** for exact-count shapes.
-- **H5 — Quarantine stale harnesses.** `bench-vs-es.mjs` (undici/closed-loop, writes the canonical `BENCHMARK_VS_ES.md`) and `bench.mjs` (points "ES" at :9200 = XERJ) must refuse to overwrite canonical files + print a deprecation banner, or be deleted.
-- **H6 — Add a deletes-present read family** (see §5 sticky-gate risk) so future scorecards can't hide the O(N) downgrade the append-only corpus masks.
-
-### Phase 1 — Mixed read-under-write (cells 4–8, the dominant loss)
-Ship the fast, lower-risk mitigations first to compress the tail, then the real ES-parity fix.
-1. **M2 (M, medium risk) — Kill the coordinated-omission snowball.** (a) Bound in-flight searches with a fair admission semaphore and shed/timeout queued searches **before** they run; the cooperative deadline already exists (index.rs:4780–4795) but is **dead code** under `block_in_place` — wire it so stalled searches return `timed_out:true` (ES semantics). (b) Stop `block_in_place` pinning a whole worker on a contended memtable lock — `try_read` + short bounded wait + cooperative yield, or move the fan-out to a bounded blocking pool. **Compresses the 62–152 ms tails to low-double-digit ms even before M1.**
-2. **M3 (S, low risk) — bool.** In `mem_bool_preds`, resolve `match` on a keyword/exact field (single analyzed token) to a **Term** predicate so the bench bool takes `doc_values_bool_query` instead of `DocsForScan` hydration. Same design as segment bool prefilter `77586f0`; per-doc `doc_matches_query` recheck already drops false positives. Self-contained.
-3. **M4 (M, medium risk) — range.** Bound `doc_values_bool_hits` (memtable.rs:2625): for unsorted size:N range with no aggs, resolve page+count via a per-shard **sorted numeric index** (reuse the `sort_cand_cache` machinery, memtable.rs:648–717) → top-(from+size) in O(log N + k); derive total from sorted bounds (delete-aware live count). Removes the worst-cell O(N) walk.
-4. **M1 (L, high risk) — the real ES-parity fix.** Lock-free memtable **read snapshot**: publish a per-shard `ArcSwap<ImmutableMemView>` the writer refreshes at a bounded cadence (the *exact* pattern the store already uses for segments — `ArcSwap<IndexSnapshot>`, lock-free load at index_store.rs:1450). All reads (`doc_ids_bounded`, `doc_values_bool_query`, `terms_counts_columnar`, `all_docs_with_sources_arc`) load an `Arc`/len and **never block on ingest**. This is the **only** fix that touches match_all's pure-contention floor and closes all 5 cells. Hard-gate on ES-YAML **1360/0** + ingest throughput (must not regress the beat-ES ingest win — a per-doc snapshot rebuild historically regressed ingest ~4×) + the auto-id mixed repro.
-   - **Cardinality note:** confirm-and-close — do **not** expect a re-measure to move cell 8 without M1/M2; `e69f80e` fixed only the *filtered* branch and the bench op is unfiltered. Optional follow-ups once M1 lands: fold the extra 16-shard lock rounds into one `s.read()` pass and read keyword-dict KEYS directly (O(distinct)) instead of `terms_counts_columnar`; drop the rayon `par_iter` (memtable.rs:1184) for a serial loop to trim dispatch jitter.
-5. **M5 (S, do NOT ship as primary) — flush cadence hedge.** Right-size/stagger the per-shard flush threshold toward ES's ~512 MB-buffer cadence to shrink O(N) arms + write-lock windows. **Gaming risk** if tuned to the test window — principled production default only, complement to M1/M2, never standalone.
-
-### Phase 2 — read agg: filter (cell 1) — parallelizable, low risk
-6. **F1 (S) — Monomorphize** the single-leaf-predicate filter+metric fold: when `exec_filter`'s compiled pred is a single `TermKw/TermsKw/RangeNum/MatchAll` and metrics are few, bypass `fused_seg_pass` + the `&mut dyn FnMut` closure and run a tight raw-slice loop (`if ords[row]==ord { acc.add(f64::from_bits(data[row])) }`) so the compiler auto-vectorizes. Factor one shared `#[inline]` fold fn + assert equality vs the brute path in a unit test.
-7. **F2 (S) — Decouple doc_count** from the fold: compute the bucket count via `per_ord_count`/`range_count` (O(1)/O(log n)) instead of `count += 1` in the hot closure.
-   - Defer **F3** (ord→rows postings on `KeywordColumn`) and **F4** (non-allocating numeric range-rows iterator) unless the cell fails to flip — they generalize the whole filter/filters/adjacency_matrix family but add per-column memory/decode cost.
-
-**Rationale for ordering:** Phase 0 is a hard prerequisite (honesty + fair §4) and freely closes 2 of 8. Within Phase 1, M2/M3 are lower-risk and pay off the tail immediately, de-risking the L-effort M1 that ultimately flips all five. Phase 2 is small and independent — run it in a parallel worktree.
+Open correctness tickets riding along: **#3** highlight de-route (class F), **#5** match_all-family page/tie order (ids 0,60,82 vs ES 0,1,2 — class A fixes it structurally: first-k-in-seq-order IS ES's order on this corpus), **#6** function_score tied-rank 4-9 order (WIN cell, flag only), fuzzy/mbp/mlt/multi_match scoring (classes B/C/D), Kahan F64-DRIFT (~1e-14, flagged not verdict-moving).
 
 ---
 
-## 3. Dishonest-win & stale-website items to correct (integrity — blocking)
+## 3. Ranked batches (cells-flipped per unit risk; every batch gated ES-YAML 1360/0 ×2 + bit-exact top-10 correctness vs live ES + no regression on current WINs)
 
-### 3a. Harness dishonesty (must fix before publishing any new scorecard)
-- **[HIGH] Read WINs are a query-cache mirage.** Static read bodies + `dataset_version` frozen during the zero-write read phase ⇒ calls 2..N are `took_ms=0` cache clones (index.rs:4504/4536) while ES really executes. Smoking gun: XERJ size:10 p50 is a flat 1.33–1.46 ms across wildcard/regexp/boosting/function_score/pinned while ES shows a real spread (9.10/34.42/39.25); `search_after` (the one `cache_eligible=false` family) is 3× slower. **Fix = H1.** Until then, **do not publish static-body read WINs.**
-- **[MED] Reads scored on p50 only** = deterministically the cache-hit value for a 1-miss/135-hit distribution. **Fix = H1/H2** (report p50 **and** p99 uncached).
-- **[MED] Mixed is not iso-write-rate** — uncapped `curl` writer loop; XERJ endures more merge pressure. **Fix = H3.**
-- **[MED] Correctness checks only `aggregations[0]`** with 10% hit tolerance → a silently no-op'd pipeline agg can still score a latency WIN. **Fix = H4.**
-- **[LOW] Ingest WIN doesn't equalize durability** (ES defaults `translog.durability=request` fsync-per-bulk). Pin durability equally or footnote.
-- **[LOW] Stale sibling harnesses** overwrite canonical files with undici/closed-loop numbers and a :9200-as-ES bug. **Fix = H5.**
+### P1 — Constant-score short-circuit + hydration floor (class A) — **expected 10-12 flips** — size: 1-2 days — risk LOW-MED
+The single highest-leverage batch on the board.
+1. **Short-circuit in `scored_columnar` (index.rs:10052):** when every scoring leaf's per-row score is a per-segment constant (bare keyword/bool term, constant_score, filter-only bool, match_all, exists, numeric range, ord-SET constants for prefix/wildcard/terms), the kept set under (score desc, seq_no asc) is provably the FIRST (from+size) matching rows in seq order (the phase-3 total-order proof already in the code). Collect them with early exit; never push 98,752 candidates, never select_nth.
+2. **Exact totals without the walk:** single term = the per-ord `df` phase 1 already reads for idf (ghost-corrected only when ghosts exist); match_all = shortcut_count (already wired); numeric range = binary search over the existing sort_shadow sorted column; prefix/wildcard/terms = sum of per_ord_count over matching ords.
+3. **Drop the 256-doc hydration floor for proven-exact sets:** scored_columnar's kept set is exact → hydrate exactly from+size (keep the padding on the brute path where it guards dedup/ties). index.rs:5187.
+4. **Micro:** precompute seq_no per hit before the final page sort (kill the per-COMPARISON `lookup_seq_no` dashmap get); `cands.reserve(df)` on paths that still walk.
 
-### 3b. Website staleness (landing/**/*.html vs Jul-6 SCORECARD)
-- **[HIGH] Remove "89× faster NGINX terms agg"** — **zero** backing measurement anywhere in the repo (fabricated). Files: `landing/solutions/index.html:136`, `landing/resources/index.html:138`. Real terms-agg = **1.15×**.
-- **[HIGH] Remove/re-measure "74× SIEM terms agg — 0.4 ms vs 29.8 ms"** — stale April v0.6.0 (`FEATURE_FAIRNESS_REVIEW_v0.6.0_2026-04-25.md:267`, "not re-run"), measured under the *repudiated* cache-mirage methodology (`2ff3e9a`), and **contradicted by the same site's own 1.15×** row. Appears in 30+ spots incl. `landing/docs/index.html:115`, `landing/industries/{index,finserv,public-sector}.html`, `landing/solutions/index.html:72`, `landing/docs/playbooks/siem.html:105`, `landing/docs/aggregations.html:121`, **plus a shared docs footer + JSON search-index snippet duplicated across ~30 `landing/docs/*.html`** (quickstart, storage, config, api-native, vectors, ingest, compression…). Fix the shared footer + docs-index JSON **once**.
-- **[MED] Legacy envelope battery (300× cold start / 21× less memory / 56× binary)** — April v0.6.0 data, none in SCORECARD, current build is v1.0.0-rc.1. Files: `landing/industries/public-sector.html:233-235`, `finserv.html:78`, `solutions/index.html:115`, `resources/index.html:131`. **Re-confirm on rc.1 or date-stamp "measured 2026-04, v0.6.0".**
-- **[MED] "2.8× less disk vs ES"** contradicts measured **1.20×** (XERJ 672.5 MB / ES 806.7 MB). 2.8× is the *internal* raw-input compression ratio, not vs ES. `landing/solutions/index.html:137`. **Correct to 1.20× or relabel as raw compression.**
-- **[MED] Vector/hybrid claims** ("1B vectors · 38 ms hybrid p95", "1.2 ms vs 45 ms ES+Pinecone", "AML p95 0.4 ms vs 29.8 ms" which **relabels the SIEM terms-agg pair as vector retrieval**) — no backing benchmark; only kNN backing is SCORECARD `kNN k=10` 0.78 ms p50, 3.39×, recall 100%. Files: `landing/industries/{finserv,healthcare}.html`. **Verify or remove; stop relabeling terms-agg as vector retrieval.**
-- **[LOW] `demo/index.html` "6,008,939 docs/s"** is an April in-memtable peak on a different (LabSZ) corpus; sustained scorecard ingest is 119k–388k docs/s. **Clarify labeling (peak in-memtable, April, LabSZ).**
-- **Baseline (NO ACTION):** `use-cases.html`, `use-cases/*.html`, `benchmarks/index.html`, `product.html`, `docs/recipes/migrate-from-elasticsearch.html` are faithful row-for-row copies of the scorecard and honestly disclose the 5 mixed LOSSES — **use them as the correction template.**
+Expected (scorecard-quiet magnitudes): term(status) 1.37→~0.2, term(cache_hit) 1.75→~0.2, constant_score 1.00→~0.15, match_all 0.97→~0.2, exists 0.60→~0.15, range ×3 → ~0.2, terms 1.88→~0.3, deep from+size 1.98→~0.5, prefix/wildcard 5.85/5.71→~0.5 — vs ES floors 0.16-1.05. **Also structurally closes ticket #5** (first-k-in-seq-order = insertion order = ES's 0,1,2,… page order on this corpus). Risk: narrow semantics gate, brute path stays the fallback, tie order (seq asc) unchanged; main hazard is the totals path when ghosts exist → gate on `ghost_events==0` per segment, fall back to walk otherwise. Gate additionally on a deletes-present A/B (inject 1 delete, assert totals + page still ES-exact via fallback).
 
----
+### P2 — Ord-bucketed scored top-k (classes B + C) — **expected 6-8 flips** — size: 2-4 days — risk MED
+When all scoring leaves are keyword-ord leaves (the entire bench FTS family — these fields are keywords), per-doc score = f(matched-term set) → enumerate the small set of score classes descending; within each class, rows in seq order until k filled; totals per class from per_ord_count / posting intersections. This is the honest analogue of Lucene's impact-based skipping — semantically general (any keyword-leaf scored query), not corpus-tuned.
+- **Correctness FIRST, same batch (fast-but-wrong = LOSS):** fix `match_bool_prefix` (2.52 vs ES 1.0), `multi_match` 1-ulp, `fuzzy` fuzziness discount (per-ord score = term score × discount(edit distance) — the class machinery handles per-ord varying constants natively). Bit-exactness gate vs live ES on all 8 cells before timing.
+- Targets: match(model) 4.05→sub-ms, match_phrase 2.68→sub-ms (keyword phrase ≡ term), simple_query_string 3.33, query_string 3.69, multi_match 5.74, dis_max 4.50 (2-term union = ≤3 score classes), bool m+f+s+mn 5.73 (the should-scoring is the classed part; filters prefilter), match_bool_prefix 4.88.
+- Risk: dis_max/bool score composition across classes must reproduce batch-10/11's exact BM25 composition (reuse ScoredClause tree verbatim — only the *collection* changes, never the arithmetic). bool is the marginal one (ES 5.27-7.43 audit floor): if the class machinery lands, XERJ's floor advantage (0.06 vs 0.30 ms) should decide it; 3-round band-edge audit required.
+- **Out of scope here:** true text-field BM25 top-k (varying tf/norms) = impact-ordered postings / block-max WAND — the multi-day infra item. Not needed for any current Table-A loss (all scoring leaves in the matrix are keyword/numeric), needed only if future matrix rows add text-field relevance races.
 
-## 4. Re-measurement protocol (QUIET box) to prove all-wins
+### P3 — Response path: raw _source splice + highlight re-route + _msearch (class F) — **expected 2 flips + cements P1** — size: 1 day — risk MED
+1. **Raw `_source` splice** (ES's own approach): F2 `stored_slices_for` already yields each row's raw stored bytes — emit them verbatim into the response instead of serde_json → Value → clone → IndexMap → re-serialize per hit (scored_columnar phase 5 ~index.rs:10465 + API serialize). Kills ~10-30% CPU on hits pages, makes _source wire divergence structurally impossible (12b's preserve_order becomes moot). Fall back to the parsed path for _source filtering/highlight-needs-tree.
+2. **highlight (ticket #3):** stop de-routing off scored_fast_plan when `highlight` is present — score on the exact path, then fragment ONLY the top-k page docs. Fixes the 26-ulp diverge AND the 3.46 ms delta together.
+3. **_msearch:** the +0.67 ms is N× per-sub-search floor; after P1 each sub-search floor drops to ~0.1 ms → flips on its own; add a single-pass envelope parse if residual.
 
-Run **only after** Phase 0 (fair harness) lands, and after each engine fix, on an isolated machine.
+### P4 — more_like_this (class D) — **expected 1 flip + kills the worst query cliff** — size: 1-2 days — risk MED
+The bench body is MLT with **like-TEXT** (`like: 'runbook/oncall.md'`, fields `[top_doc]`, min_term_freq/min_doc_freq 1 — verified in bench-matrix.mjs:324), no seed-doc fetch needed: analyze the like-text into terms, ES's MLT term selection (tf-idf ranking, max_query_terms=25 default) over the same per-ord df stats P1 reads, then execute as an OR of selected terms through **P2's class machinery**. Must fix the flat-1.0 scoring (SCORE-DIVERGE) to ES's MLT scoring in the same batch. 325 ms → low-single-digit ms vs ES 0.66; depends on P2. Exactness vs ES's MLT selection heuristics is the re-spin risk — budget one correctness iteration.
 
-**Environment**
-- Dedicated, otherwise-idle box; CPU governor `performance`; disable other services. **Both engines on the same box, benchmarked sequentially (never concurrently)** except the mixed phase which is intra-engine read+write.
-- **XERJ = current HEAD `--release` build** (`cargo build --release -p xerj-engine`), served on `:9200`. **Real Elasticsearch on `:9201`** (a genuine ES node — NOT the `bench.mjs` :9200-as-ES bug). Record both versions in the scorecard header.
-- **Durability parity:** `index.translog.durability=request` on ES (its default) and confirm XERJ WAL fsyncs per `_bulk` equivalently — or footnote the difference (§3a low).
+### P5 — scripted_metric: script→columnar compilation (class E) — **expected 1 flip** — size: 1-3 days — risk LOW-MED
+Script shape VERIFIED (bench-matrix.mjs:358): `init: state.s=0; map: state.s+=doc.latency_ms.value; combine: return state.s; reduce: sum over states` — i.e. a columnar sum over `latency_ms`, the exact fold the already-winning `sum` agg does in 0.05 ms. Build a small Painless-subset compiler (state fields, `doc.<f>.value` access, `+ - * /`, accumulate, reduce-loop) that lowers map/combine/reduce to a closure over the existing numeric columns; interpreter stays as the general fallback and the A/B oracle (compiled result must be value-identical to interpreted AND to ES). 1189 ms → target <1 ms (ES 6.6). Honest bound: scripts outside the subset still take the interpreter — the CELL flips, the general script story doesn't.
 
-**Read families (cache-fair)**
-- **Uncached:** vary a param per iteration so every call misses XERJ `query_cache` (novel term/id/range value per iter). Force-merge both engines to **1 segment** before the read phase for determinism; `track_total_hits:true` (exact totals already forced).
-- **iters ≥ 1000, warmup ≥ 50.** Report **p50 AND p99**. Apply the H2 noise-band (TIE within `max(0.30 ms, 20%)`), and print a **trimmed-min** alongside p50 to expose the true server floor.
+### P6 — kNN: wire hnsw.rs (class G, Table B) — **expected 1 flip** — size: multi-day — risk MED
+`xerj-vector` already exports `HnswIndex`/`HnswParams` — unwired. Wire: build per-segment HNSW at flush/merge (100k × dims, M=16 graph ≈ ~13 MB — trivial), search path with ef_search tuned so recall ≥ ES's (current recall TIE at 1.00 must NOT drop — recall is a correctness gate here; a faster-but-lower-recall kNN is a LOSS by campaign rules). 120× behind → ES-class single-digit ms. Requires an ES-writable bench window for Table B re-measure (current ES /bench is READ-ONLY — schedule a separate seeded ES index or a sanctioned re-run).
 
-**Mixed read-under-write (cells 4–8)**
-- Keep open-loop (`iters:3000, warmup:20, rate:300`, bench-matrix.mjs:497) **but throttle the `_bulk` writer to a fixed target docs/s both engines sustain**; log offered-vs-achieved per engine. Reject the run if achieved rates diverge >10%.
-- Report p99 (primary) + max. Confirm via a repeat that stalls no longer snowball after load stops (the M2 signature).
+### P7 — Full honest re-measure + band-edge audit + publish
+After each batch and finally: quiet box (no chrome/profilers — the 07-10 caveat), fresh XERJ boot with env-verified cache-off, identical seeded corpus, full 79-cell matrix + Table B, **3-round audit on every band-edge cell** (the bool/composite lesson: main-run TIE ≠ verdict; 3/3 rounds decide). Only then update SCORECARD/README/llms/site (site still carries pre-campaign read numbers).
 
-**Correctness gates (block the timing if any fail)**
-- ES-YAML compatibility **1360/0** green (hard gate for M1/M3/M4).
-- H4 full-aggregation-subtree signal match + `hits.total` exact (tolerance 0).
-- Agg A/B: `XERJ_DISABLE_FAST_AGGS=1` vs fast path byte-identical on filter/cardinality/date_histogram.
-- For sort/size>0 changes: assert `hits.total` correctness on a **>materialisation_limit (~256)** sorted result set, not just latency (§5).
-
-**Deletes-present family (H6)**
-- Load `/perf` append-only, snapshot p50 for `term(status)`, `range(cost_usd)`, sort-heavy, `search_after`; then inject **one DELETE/UPDATE** (bumps `ghost_events`) and re-measure the SAME cells. A step-change to O(N) exposes the sticky-gate downgrade the append-only scorecard hides.
-
-**Verdict**
-- Run the full matrix **3×**; require **stable ordering** (no bimodal label flips) before declaring a win.
-- **Pass = every cell ratio ≥ 1.0, or TIE within the noise-band; zero LOSE**, on the honest (uncached, iso-write-rate) harness. Regenerate SCORECARD.md and reconcile the website (§3b) to the new numbers in the same PR.
+**Ordering rationale:** P1 flips ~half the board alone at the lowest risk and unblocks nothing. P2 is the second half of the query board and P4's prerequisite. P3 is cheap and hardens P1's wins + closes 2 tickets. P5/P6 are independent silos (parallelizable in worktrees). Mixed-p99 (M1 ArcSwap mem-view) stays a separate track — it shares no code path with these batches.
 
 ---
 
-## 5. Open risks
+## 4. All-wins feasibility — honest verdict per remaining loss
 
-**Engine-fix risks**
-- **M1 hot-path (high):** epoch/ArcSwap consistency vs `remove()` deletes and `drain_shard_inner`'s `std::mem::take` flush drain must invalidate cleanly; transient double-buffer memory; **must not add a per-doc snapshot rebuild** (historically regressed ingest ~4×). Gate: ES-YAML 1360/0 + ingest throughput + auto-id mixed repro.
-- **M2 load-shedding:** shed/timeout must return `timed_out:true` (ES-compatible) and not starve aggs; dedicated pool sizing needs the mixed repro as a behavior gate.
-- **M4 sorted numeric index:** adds ingest-side cost — must not regress the beat-ES ingest win; exact broad-range `hits.total` must stay correct (delete-aware live count); A/B a >256-match memtable range.
-- **M5 flush cadence = gaming risk:** never tune to the test window; principled production default traded against memory/recovery/segment fan-out only.
-- **F1/F2 drift:** duplicated fold logic can diverge from brute (null handling, `f64::from_bits` decode, value_count presence) — one shared `#[inline]` fn + equality unit test.
+**Flippable with engineering (high confidence, existing data structures only):** the 12 class-A cells (P1 — the floor profile PROVES the entire deficit is walk+hydration and XERJ's HTTP floor already beats ES 3-5×; `_count` dwell 0.058 vs 0.304 ms is the existence proof), highlight, _msearch, deep-paging (P3), and — contingent on the correctness fixes landing bit-exact — the 8 class-B/C cells (P2). That is 22-23 of 26.
 
-**Measurement risk (the big one)**
-- **H1 may reveal NEW losses among the current 81 WINs.** The static-body read wins are cache clones; the true **uncached** p50/p99 is unknown until measured. The "all-wins" target must be re-baselined against honest numbers, and some read cells (wildcard/regexp/boosting/function_score/pinned, which sit at a suspicious flat 1.33–1.46 ms today) may need their own engine work. **Budget for this.**
+**Flippable with engineering, moderate uncertainty:** more_like_this (P4 — mechanism is clear; ES MLT heuristic exactness is the schedule risk). bool m+f+s+mn and query_string are the two marginal cells where ES's floor is only ~20-30% ahead — P1+P2 should decide them via XERJ's 5× floor advantage, but they are band-edge and could land TIE; call them 85%.
 
-**Regression risks already in the tree (append-only scorecard hides them)**
-- **[HIGH — verify shipping binary] `a93354a` arithmetic delete-gate** caused a real append-only regression (2 dup docs/merge pinned the gate ON → every size>0 term/range/bool to O(N)). HEAD `2022a3b` uses the `ghost_events` signal (index.rs:5695 — **confirmed**). A/B `a93354a` (arithmetic) vs HEAD on mixed range/terms/match_all + static term(status)/range(cost_usd)/bool to prove the fix and quantify what was avoided.
-- **[MED] Sticky `ghost_events` gate.** `ghost_events` is monotonic `fetch_add`, never reset by merge/flush (version_map.rs:167/268/287/315). **One** update/delete pins `deletes_present=true` forever → forces size>0 term/range/bool hits.total back to O(N) delete-aware count (index.rs:5773) **and** disables sort-candidate prefilters (index.rs:6101/6135). Bench hides it (append-only auto-id `{"index":{}}`), but any real workload or any demo playbook that deletes/updates before reads permanently downgrades. **Mitigation:** H6 deletes-present family; consider clearing/re-deriving the ghost signal after a full merge.
-- **[MED] `b79a8c2` unconditional `try_shortcut_count`** on every size>0 query (index.rs:5598) — wasted doc-values/FST work on selective and deletes-present reads; absolute regression below pre-F1 baseline when `deletes_present` (full scan **plus** unused shortcut). A/B `b79a8c2^` vs `b79a8c2` on selective (`ids`, `term(cache_hit)`) vs non-selective (`range(cost_usd)`, `term(status)`) + mixed range (cold-segment shortcut) — report **p99**, the effect hides in the tail.
-- **[MED] `b79a8c2` early-break in scan order** (index.rs:5801) can drop true top-N from later segments on field/_score-sorted size>0 — the reason `fix/sort-topn-correctness` exists. HEAD compensates with `sort_topk` + `build_sort_candidates_prefilter` (index.rs:6100–6155), which itself already produced a "512-vs-847306" hits.total regression once (in-code note 6176–6180) and silently disables under `deletes_present`. **A/B must assert hits.total (not just latency)** on sort-heavy / search_after / range(@timestamp) / deep from+size, incl. a deletes-present variant.
-- **[LOW] `2ff3e9a` is docs-only** (one new .md, 0 code) — exclude from A/B.
+**Flippable only with new infra (sized):** scripted_metric — needs a script→columnar mini-compiler (1-3 days; P5); NOT structurally hard — ES is also O(N), it just JIT-compiles while XERJ interprets, and the bench script is verified to be a plain columnar sum (`state.s+=doc.latency_ms.value`) that the already-winning `sum` agg computes in 0.05 ms; a compiled Rust fold beats JIT'd Painless comfortably. kNN latency — needs the already-written `hnsw.rs` wired into flush/merge + search (multi-day; P6), an ES-writable re-measure window, and recall held at 1.00 (a recall drop is a LOSS by campaign rules).
 
-**Integrity/scope**
-- Website corrections (§3b) touch ~30 duplicated docs pages via a shared footer/search-index — fix once at the source template, verify no page still renders 74×/89×/2.8×.
-- Every commit on `xerj-org/xerj` must be authored as **xerj-org** (per memory) — no other author identities anywhere.
+**Structurally hard / not winnable as specified:** (a) the 7 TIEs at the mutual sub-ms floor (match_none, terms agg, filters→now WIN, composite, random_sampler, _count, kNN recall): where both engines sit inside the 0.30 ms band with XERJ already ≤ ES, a WIN verdict is arithmetically impossible without ES slowing down — changing the band to manufacture wins would be gaming. Honest campaign end-state = **0 LOSSES, every TIE with XERJ ≤ ES p50, every WIN correctness-clean**. (b) ES-REJECTS ×2 (ES refuses the body) — unscoreable. (c) Nothing else on the board is structurally ES-favored: no remaining loss depends on JVM magic, postings formats XERJ lacks are only needed for text-field relevance races not in the matrix, and the transport myth is dead.
+
+**Net:** 24/26 losses have a concrete engineering path on existing infra; 2/26 need sized new infra (script compiler, HNSW wiring) that is real but bounded. Zero losses are "ES is unbeatable here."
+
+---
+
+## 5. Standing rules & risks
+
+- **No query-result caching anywhere.** Cache stays OFF in every measurement; every fix must be per-request compute. The 2026-07-01 mirage does not get a sequel.
+- **Correctness before speed, per cell:** top-10 ids + f32 bits + max_score + totals vs live ES before any timing counts; deletes-present A/B for every path that trusts flush-time stats (`ghost_events` gate); the 1360/0 ES-YAML gate ×2 per batch.
+- **1360-gate risk:** P1/P2 touch scored_columnar/scored_fast_plan — the batch-5/10/11 exactness suites must be re-run bit-exact (the composition arithmetic is reused verbatim; only collection order changes). P3's raw splice must A/B byte-identical bodies vs the parsed path on the full matrix.
+- **Regression tripwires that bit us before:** sticky `ghost_events` downgrades (one delete flips paths — every P1 shortcut needs the fallback proven), function_score off-gate brute (ticket: any body-shape drift re-routes — extend the gate tests), aliases don't survive restart (side-finding — file separately, breaks restart-based harnesses), `took` as_millis truncation (cosmetic; fix to micros opportunistically).
+- **Measurement discipline:** quiet box or don't publish; timing.lock protocol between agents; 3-round audit for band-edge verdicts; magnitudes from noisy windows are structure-only.
+- Git: nothing committed from measurement sessions; batches commit as xerj-org only, after gates.

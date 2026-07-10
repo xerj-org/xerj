@@ -2,8 +2,15 @@ name: Release
 
 on:
   push:
+    # Publishing releases is tag-gated (see the `release` job's `if:`).
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
+    # ALSO build the full cross-target matrix on every push to main —
+    # artifacts only, no GitHub Release. This catches cross-compilation
+    # breakage (musl, aarch64, Windows OpenSSL, macOS) that the CI
+    # workflow's single linux-gnu build cannot, so a real tag never
+    # discovers a broken target for the first time at release time.
+    branches: [main]
   workflow_dispatch:
     inputs:
       tag:
@@ -12,6 +19,12 @@ on:
 
 permissions:
   contents: write
+
+# Cancel a superseded main-branch build when new commits land; tag runs
+# use the immutable ref so they never cancel each other.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
 
 # Opt every JS action into Node 24 so the runner skips the Node 20
 # deprecation warning (removal date 2026-09-16). All the action
