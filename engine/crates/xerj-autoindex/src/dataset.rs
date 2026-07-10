@@ -185,7 +185,7 @@ fn assign_slugs(clusters: &mut [Cluster], rels: &[String]) {
     for &i in &order {
         by_base.entry(bases[i].clone()).or_default().push(i);
     }
-    for (_, idxs) in by_base.iter() {
+    for idxs in by_base.values() {
         if idxs.len() < 2 {
             continue;
         }

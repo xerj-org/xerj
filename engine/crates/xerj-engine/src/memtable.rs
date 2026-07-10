@@ -2692,13 +2692,12 @@ impl FtsMemtable {
                             return None;
                         }
                         cols.push(Col::Kw(col, value.as_str()));
-                    } else if let Some(col) = self.doc_values.numeric.get(field.as_str()) {
+                    } else {
                         // Numeric term predicate: exact f64 equality (the
                         // predicate value was lowered to its string form).
+                        let col = self.doc_values.numeric.get(field.as_str())?;
                         let needle = value.parse::<f64>().ok()?;
                         cols.push(Col::NumEq(col, needle));
-                    } else {
-                        return None;
                     }
                 }
                 MemBoolPred::Range {
@@ -2807,11 +2806,10 @@ impl FtsMemtable {
                             return None;
                         }
                         cols.push(Col::Kw(col, value.as_str()));
-                    } else if let Some(col) = self.doc_values.numeric.get(field.as_str()) {
+                    } else {
+                        let col = self.doc_values.numeric.get(field.as_str())?;
                         let needle = value.parse::<f64>().ok()?;
                         cols.push(Col::NumEq(col, needle));
-                    } else {
-                        return None;
                     }
                 }
                 MemBoolPred::Range {

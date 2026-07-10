@@ -1080,10 +1080,9 @@ fn tokenize_script(s: &str, params: &HashMap<String, f64>) -> Option<Vec<Tok>> {
             if let Some(rest) = ident.strip_prefix("params.") {
                 let v = *params.get(rest)?;
                 toks.push(Tok::Num(v));
-            } else if let Some(v) = params.get(ident) {
-                toks.push(Tok::Num(*v));
             } else {
-                return None;
+                let v = *params.get(ident)?;
+                toks.push(Tok::Num(v));
             }
             continue;
         }

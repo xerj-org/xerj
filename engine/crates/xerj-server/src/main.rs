@@ -251,7 +251,7 @@ fn ensure_admin_key(cfg: &mut Config) -> Result<()> {
     println!("╔══════════════════════════════════════════════════╗");
     println!("║  First-run: admin API key auto-generated         ║");
     println!("║                                                  ║");
-    println!("║  {:<48} ║", &key);
+    println!("║  {:<48} ║", key);
     println!("║                                                  ║");
     println!("║  Keep this secret. Written to:                   ║");
     println!("║  {:<48} ║", format!("{}/admin.key", cfg.server.data_dir));
