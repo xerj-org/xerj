@@ -1,0 +1,13 @@
+<!doctype html>
+<html><head><title>Postmortem: search outage</title></head>
+<body>
+<h1>Postmortem: search outage</h1>
+<h2>Summary</h2>
+<p>On 2026-03-04 the search service degraded for 41 minutes. The first
+report came from user u-0042, whose saved-search alerts stopped firing.</p>
+<h2>Root cause</h2>
+<p>A misconfigured cache eviction loop starved the query executor.
+Checkout and billing were unaffected.</p>
+<h2>Action items</h2>
+<p>Add an alert on executor queue depth; audit eviction settings.</p>
+</body></html>

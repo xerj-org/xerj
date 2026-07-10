@@ -1,0 +1,42 @@
+{
+    "_shards": {
+        "failed": 0,
+        "skipped": 0,
+        "successful": 1,
+        "total": 1
+    },
+    "aggregations": {
+        "by_service": {
+            "buckets": [
+                {
+                    "doc_count": 11,
+                    "key": "auth"
+                },
+                {
+                    "doc_count": 6,
+                    "key": "billing"
+                },
+                {
+                    "doc_count": 6,
+                    "key": "checkout"
+                },
+                {
+                    "doc_count": 5,
+                    "key": "search"
+                }
+            ],
+            "doc_count_error_upper_bound": 0,
+            "sum_other_doc_count": 0
+        }
+    },
+    "hits": {
+        "hits": [],
+        "max_score": null,
+        "total": {
+            "relation": "eq",
+            "value": 28
+        }
+    },
+    "timed_out": false,
+    "took": 13
+}

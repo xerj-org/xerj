@@ -41,7 +41,7 @@ function buildDsl({ q, type, index, filters }) {
     }
     case 'prefix':   inner = q ? { prefix: { message: q } } : { match_all: {} }; break;
     case 'phrase':   inner = q ? { match_phrase: { message: q } } : { match_all: {} }; break;
-    case 'knn':      inner = { knn: { field: 'embedding', query_vector: '<inline>', k: 10, ef_search: 96 } }; break;
+    case 'knn':      inner = { knn: { field: 'embedding', query_vector: '<inline>', k: 10, num_candidates: 96 } }; break;
     case 'semantic': inner = { semantic: { field: 'embedding', query: q || '*', model: 'text-embed-3' } }; break;
     case 'hybrid':   inner = { hybrid: {
                         fusion: 'rrf',
@@ -78,13 +78,13 @@ function buildPlan({ type, q, filters }, total) {
       root.op = 'Hybrid(rrf,60)';
       root.children.push(
         { op: 'MatchQuery', field: 'message', value: q || '*', estimate: Math.round(total * 1.8), cost: Math.round(total * 1.8 + 20) },
-        { op: 'KnnQuery',    field: 'embedding', value: 'k=20 ef_search=96', estimate: 20, cost: 420 },
+        { op: 'KnnQuery',    field: 'embedding', value: 'k=20 exact-scan', estimate: 20, cost: 420 },
       );
       break;
     case 'knn':
       root.op = 'KnnQuery';
       root.field = 'embedding';
-      root.value = 'k=10 ef_search=96';
+      root.value = 'k=10 exact-scan';
       root.estimate = 10;
       root.cost = 310;
       break;

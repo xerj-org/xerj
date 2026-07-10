@@ -1,0 +1,214 @@
+# Data map (xerj autoindex)
+
+run `run-20260710T035838Z-d0ce` — root `/tmp/xerj-pubpass/sample` — 4 files, 5801 records indexed, 0 junk records, wall 0.2s
+
+## Datasets
+
+| index | records | files | formats | time field | time range |
+|---|---|---|---|---|---|
+| `ax-logs` | 5000 | 1 | ["jsonl"] | ts | 2026-03-01T00:00:10.000Z → 2026-03-06T03:35:38.000Z |
+| `ax-exports` | 800 | 1 | ["csv"] | zeitpunkt | 2026-03-01T00:00:00.000Z → 2026-03-28T00:00:00.000Z |
+| `ax-docs` | 1 | 1 | ["html"] | — | — |
+
+### `ax-logs`
+
+| field | type | semantic | cardinality | null% | examples |
+|---|---|---|---|---|---|
+| `latency_ms` | long | — | 160 | 0% | `16`, `18`, `14` |
+| `level` | keyword | — | 3 | 0% | `INFO`, `WARN`, `ERROR` |
+| `message` | text | — | 500 | 0% | `billing handled request for u-0012 in 16`, `checkout handled request for u-0054 in 1`, `billing handled request for u-0108 in 14` |
+| `service` | keyword | — | 4 | 0% | `billing`, `checkout`, `search` |
+| `ts` | date (rfc3339) | — | 500 | 0% | `2026-03-01T00:00:10.000Z`, `2026-03-01T00:01:40.000Z`, `2026-03-01T00:03:00.000Z` |
+| `user` | keyword | — | 185 | 0% | `u-0012`, `u-0054`, `u-0108` |
+
+Ready-to-send queries:
+
+**Exact filter on user** — `POST /ax-logs/_search`
+
+```json
+{
+  "query": {
+    "term": {
+      "user": "u-0012"
+    }
+  },
+  "size": 3
+}
+```
+
+**Full-text (BM25) match on message** — `POST /ax-logs/_search`
+
+```json
+{
+  "query": {
+    "match": {
+      "message": "checkout"
+    }
+  },
+  "size": 3
+}
+```
+
+**Daily activity (date_histogram on ts)** — `POST /ax-logs/_search`
+
+```json
+{
+  "aggs": {
+    "per_day": {
+      "date_histogram": {
+        "calendar_interval": "day",
+        "field": "ts"
+      }
+    }
+  },
+  "size": 0
+}
+```
+
+### `ax-exports`
+
+| field | type | semantic | cardinality | null% | examples |
+|---|---|---|---|---|---|
+| `geraet` | keyword | — | 40 | 0% | `dev-035`, `dev-002`, `dev-025` |
+| `ort` | keyword | — | 1 | 0% | `Pune` |
+| `temperatur_c` | double | — | 394 | 0% | `71.5`, `35.7`, `52.1` |
+| `zeitpunkt` | date (date-only) | — | 28 | 0% | `2026-03-01`, `2026-03-02`, `2026-03-03` |
+
+Ready-to-send queries:
+
+**Exact filter on geraet** — `POST /ax-exports/_search`
+
+```json
+{
+  "query": {
+    "term": {
+      "geraet": "dev-035"
+    }
+  },
+  "size": 3
+}
+```
+
+**Daily activity (date_histogram on zeitpunkt)** — `POST /ax-exports/_search`
+
+```json
+{
+  "aggs": {
+    "per_day": {
+      "date_histogram": {
+        "calendar_interval": "day",
+        "field": "zeitpunkt"
+      }
+    }
+  },
+  "size": 0
+}
+```
+
+### `ax-docs`
+
+semantic body field: `body` (hybrid lexical+vector — hash-bucket embedder, lexical, not neural)
+
+| field | type | semantic | cardinality | null% | examples |
+|---|---|---|---|---|---|
+| `body` | semantic_text | — | 1 | 0% | `Postmortem: search outage
+
+Summary
+
+On 2` |
+| `headings` | keyword | — | 4 | 0% | `Postmortem: search outage`, `Summary`, `Root cause` |
+| `title` | keyword | — | 1 | 0% | `Postmortem: search outage` |
+
+Ready-to-send queries:
+
+**Exact filter on headings** — `POST /ax-docs/_search`
+
+```json
+{
+  "query": {
+    "term": {
+      "headings": "Postmortem: search outage"
+    }
+  },
+  "size": 3
+}
+```
+
+**Full-text (BM25) match on body** — `POST /ax-docs/_search`
+
+```json
+{
+  "query": {
+    "match": {
+      "body": "degraded"
+    }
+  },
+  "size": 3
+}
+```
+
+**Hybrid lexical+vector (RRF) on body — hash-bucket embedder, lexical not neural** — `POST /ax-docs/_search`
+
+```json
+{
+  "query": {
+    "hybrid": {
+      "queries": [
+        {
+          "query": {
+            "match": {
+              "body": "degraded"
+            }
+          },
+          "weight": 1
+        },
+        {
+          "query": {
+            "semantic": {
+              "field": "body",
+              "query": "degraded"
+            }
+          },
+          "weight": 1
+        }
+      ]
+    }
+  },
+  "size": 3
+}
+```
+
+note: strip *_vector from hits client-side (semantic queries ignore _source filtering)
+
+**Top values of headings** — `POST /ax-docs/_search`
+
+```json
+{
+  "aggs": {
+    "top": {
+      "terms": {
+        "field": "headings",
+        "size": 10
+      }
+    }
+  },
+  "size": 0
+}
+```
+
+Notes:
+- body: hybrid lexical+vector body (hash-bucket embedder — lexical, not neural)
+
+## Junk / skipped (1 files recorded, never fatal)
+
+- `docs/opaque.bin` — junk (binary content (unknown))
+
+## Gotchas (verified on this engine)
+
+- hybrid search: use {"query":{"hybrid":{"queries":[…]}}} ONLY — retriever.rrf is a silent stub and rank.rrf is ignored on this engine
+- the semantic embedder is hash-bucket LEXICAL (384-dim): this is hybrid lexical+vector retrieval, NOT neural semantic understanding
+- semantic queries ignore _source filtering and return the ~8KB *_vector field in _source — strip client-side
+- exact filters use TOP-LEVEL keyword fields (term on .keyword subfields returns 0 hits on this engine)
+- all dates are normalized to RFC3339 UTC millis; mappings use strict_date_optional_time||epoch_millis
+- query all data with the wildcard index pattern (e.g. ax-*) or comma lists — never multi-index aliases (they resolve to the first index only)
+- documents were indexed with refresh at the end of the run; new writes need _refresh before they are searchable

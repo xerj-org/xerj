@@ -1,7 +1,7 @@
 // ============================================================
 // Dashboard — VECTOR INDEX
 //
-// HNSW health + embedding space. Answers: where do my
+// Vector-index health + embedding space. Answers: where do my
 // embeddings live, how is recall holding up, what is the
 // shape of my corpus in vector space?
 // ============================================================
@@ -19,7 +19,7 @@ export const vectorIndex = {
   name: 'Vector · Index',
   render: ({ data, time }) => ({
     title:  'VECTOR · INDEX',
-    kicker: 'HNSW · EMBEDDINGS · HYBRID',
+    kicker: 'EXACT kNN · EMBEDDINGS · HYBRID',
     meta:   [time, 'XERJ-VECTOR'],
     panels: [
 

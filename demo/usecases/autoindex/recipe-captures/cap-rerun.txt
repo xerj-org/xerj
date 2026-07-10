@@ -1,0 +1,11 @@
+autoindex: 4 files (0 MB) under /tmp/xerj-pubpass/sample
+resuming from journal /tmp/xerj-pubpass/state/journal.ndjson (3 files already done)
+phase B: indexing 0 files with 8 workers → http://localhost:9280
+(resumed run: key-overlap correlations kept from the original run's catalog)
+
+done in 0.0s — 3 datasets, 5801 records live, 0 junk records, 1 junk/skipped files
+  ax-logs                                        5000 docs
+  ax-exports                                      800 docs
+  ax-docs                                           1 docs
+
+next: `xerj autoindex map --url http://localhost:9280` for the data map; search via GET /ax-*/_search

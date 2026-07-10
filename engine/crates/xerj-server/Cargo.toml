@@ -23,6 +23,7 @@ xerj-ai      = { path = "../xerj-ai" }
 xerj-compress = { path = "../xerj-compress" }
 xerj-cluster  = { path = "../xerj-cluster" }
 xerj-console-api     = { path = "../xerj-console-api" }
+xerj-autoindex = { path = "../xerj-autoindex" }
 
 tokio.workspace = true
 axum.workspace = true

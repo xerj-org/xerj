@@ -9,6 +9,19 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
+// ── DEPRECATION GUARD (quarantine) — H5 ─────────────────────────────────────
+// This harness uses a NON-CANONICAL transport (Node's global fetch/undici, no
+// shared keep-alive agent) and writes a canonical benchmark file (BENCHMARK.md).
+// The canonical, honesty-audited harness is demo/playbooks/bench-matrix.mjs.
+// Refuse to run (exit 2) unless the operator explicitly sets FORCE_LEGACY_BENCH=1.
+process.stderr.write(
+  'DEPRECATED — use bench-matrix.mjs; this harness uses a non-canonical transport ' +
+  'and must not overwrite SCORECARD.md/BENCHMARK_VS_ES.md\n');
+if (process.env.FORCE_LEGACY_BENCH !== '1') {
+  process.stderr.write('   refusing to run (would overwrite a canonical benchmark file). Set FORCE_LEGACY_BENCH=1 to override.\n');
+  process.exit(2);
+}
+
 const ES = 'http://localhost:9200';
 const ROOT = path.dirname(new URL(import.meta.url).pathname);
 const N = parseInt(process.argv[2] || '200000', 10);

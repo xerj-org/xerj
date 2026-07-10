@@ -1,0 +1,24 @@
+[package]
+name = "xerj-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Model Context Protocol (MCP) stdio server exposing the 6 canonical XERJ agent operations as thin proxies to an ES-compatible XERJ endpoint"
+
+[[bin]]
+name = "xerj-mcp"
+path = "src/main.rs"
+
+[dependencies]
+# Async runtime (needs `io-std` for stdin/stdout, `rt-multi-thread`, `macros`).
+tokio = { workspace = true }
+# HTTP client used to proxy every tool call to the running XERJ engine.
+# Inherits the workspace's default-features=false + rustls-tls config, so it
+# builds in the same offline/cross-compile matrix as the rest of the tree.
+reqwest = { workspace = true }
+# All request/response bodies are handled as untyped JSON `Value`s — no
+# bespoke serde structs, which keeps the wire contract identical to what the
+# engine already accepts.
+serde_json = { workspace = true }
+anyhow = { workspace = true }

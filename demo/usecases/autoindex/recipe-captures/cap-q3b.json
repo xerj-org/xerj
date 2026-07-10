@@ -1,0 +1,27 @@
+{
+    "_shards": {
+        "failed": 0,
+        "skipped": 0,
+        "successful": 1,
+        "total": 1
+    },
+    "hits": {
+        "hits": [
+            {
+                "_id": "9bd43f90277a9b10c6ef3e4cbea213ac",
+                "_index": "ax-docs",
+                "_score": 0.3646431863307953,
+                "_source": {
+                    "title": "Postmortem: search outage"
+                }
+            }
+        ],
+        "max_score": 0.3646431863307953,
+        "total": {
+            "relation": "eq",
+            "value": 1
+        }
+    },
+    "timed_out": false,
+    "took": 0
+}

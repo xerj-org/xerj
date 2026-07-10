@@ -341,7 +341,19 @@ fn parse_match_all(params: &Value) -> Result<QueryNode> {
     if !params.is_object() && !params.is_null() {
         return invalid("`match_all` value must be an object");
     }
-    Ok(QueryNode::MatchAll)
+    // ES scores `match_all { boost }` as exactly `boost` per hit — the
+    // same constant-score semantics as `constant_score { match_all }`
+    // (live-verified vs ES 8.13.4: boost 3.5 → every _score 3.5, boost
+    // 0.0 → 0.0). Dropping the boost scored every doc 1.0. Only wrap
+    // when it changes anything so the plain `match_all` keeps its
+    // dedicated fast paths.
+    match params.get("boost").and_then(|v| v.as_f64()) {
+        Some(b) if (b as f32) != 1.0 => Ok(QueryNode::Constant {
+            score: b as f32,
+            query: Box::new(QueryNode::MatchAll),
+        }),
+        _ => Ok(QueryNode::MatchAll),
+    }
 }
 
 fn parse_match(params: &Value) -> Result<QueryNode> {
@@ -1552,10 +1564,17 @@ fn parse_qs_unary(
             // A bare term containing `*` or `?` is a Lucene wildcard —
             // emit a Wildcard query so `q=shor*` / `q=te?t` match text
             // tokens with the expected substitution semantics.
+            //
+            // ES lowercases wildcard/prefix terms in `query_string` (the field's
+            // search analyzer normalizes them) — e.g. `q=field:BA*` matches the
+            // indexed lowercased token `bar`.  The raw `wildcard` query does NOT
+            // analyze its pattern (case-sensitive), so this lowering lives HERE
+            // in the query_string path only.  Harmless for keyword fields, whose
+            // FST-wildcard route case-folds both sides regardless.
             if value.contains('*') || value.contains('?') {
                 return Some(QueryNode::Wildcard {
                     field: f,
-                    value,
+                    value: value.to_lowercase(),
                     boost: None,
                 });
             }
@@ -2031,8 +2050,28 @@ fn parse_bool(params: &Value) -> Result<QueryNode> {
     let must_not = parse_clause_list(obj, "must_not")?;
     let filter = parse_clause_list(obj, "filter")?;
 
+    // A `boost` on a compound clause must PROPAGATE into the leaf
+    // weights (Lucene multiplies the parent boost into each child's
+    // weight — weights compose multiplicatively down the tree).
+    // Previously dropped silently. The `Boosted` wrapper carries it;
+    // every matching/filter path peels the wrapper, and the scored
+    // paths compose it into the leaves.
+    let boost = obj
+        .get("boost")
+        .and_then(|v| v.as_f64())
+        .map(|b| b as f32)
+        .filter(|b| *b != 1.0);
+
     if must.is_empty() && should.is_empty() && must_not.is_empty() && filter.is_empty() {
-        return Ok(QueryNode::MatchAll);
+        // Empty bool == match_all; with a boost, ES scores it `boost`
+        // per hit (constant-score semantics), like `match_all{boost}`.
+        return Ok(match boost {
+            Some(b) => QueryNode::Constant {
+                score: b,
+                query: Box::new(QueryNode::MatchAll),
+            },
+            None => QueryNode::MatchAll,
+        });
     }
 
     let minimum_should_match = obj
@@ -2040,12 +2079,19 @@ fn parse_bool(params: &Value) -> Result<QueryNode> {
         .map(parse_min_should_match)
         .transpose()?;
 
-    Ok(QueryNode::Bool {
+    let node = QueryNode::Bool {
         must,
         should,
         must_not,
         filter,
         minimum_should_match,
+    };
+    Ok(match boost {
+        Some(b) => QueryNode::Boosted {
+            boost: b,
+            query: Box::new(node),
+        },
+        None => node,
     })
 }
 
@@ -2059,13 +2105,20 @@ fn parse_constant_score(params: &Value) -> Result<QueryNode> {
         .ok_or_else(|| qerr("`constant_score` requires a `filter` clause"))?;
     let query = parse_query(filter_val)?;
 
-    // Flatten: constant_score is just a score wrapper. Every search path
-    // already handles the inner query type (Range, Term, Bool, etc).
-    // Keeping the Constant wrapper caused the query to miss fast paths
-    // in is_doc_scan_query, try_doc_values_query, and try_shortcut_count.
-    // Return the inner query directly — scoring doesn't change (all
-    // matched docs get score 1.0 regardless).
-    Ok(query)
+    // Keep the Constant wrapper: ES scores every `constant_score` hit as
+    // exactly `boost` (default 1.0) — flattening returned the INNER query's
+    // score instead (live-diverged vs ES 8.13.4: constant_score(term,
+    // boost=2.5) scored 1.693… where ES returns 2.5 per hit).  The fast
+    // paths the old flatten protected (is_doc_scan_query,
+    // try_doc_values_query, try_shortcut_count, query_node_to_fts,
+    // doc_matches_query, query_node_to_agg_filter) all peel
+    // `QueryNode::Constant` today, and the scored-family columnar path
+    // serves the keyword-filter shape bit-exactly.
+    let boost = obj.get("boost").and_then(|v| v.as_f64()).unwrap_or(1.0) as f32;
+    Ok(QueryNode::Constant {
+        score: boost,
+        query: Box::new(query),
+    })
 }
 
 fn parse_boosting(params: &Value) -> Result<QueryNode> {
@@ -2125,9 +2178,18 @@ fn parse_dis_max(params: &Value) -> Result<QueryNode> {
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0) as f32;
 
-    Ok(QueryNode::DisMax {
+    let node = QueryNode::DisMax {
         queries,
         tie_breaker,
+    };
+    // Compound-clause boost — same propagation contract as `bool` (see
+    // `parse_bool`): wrap, don't drop.
+    Ok(match obj.get("boost").and_then(|v| v.as_f64()) {
+        Some(b) if (b as f32) != 1.0 => QueryNode::Boosted {
+            boost: b as f32,
+            query: Box::new(node),
+        },
+        _ => node,
     })
 }
 
@@ -3739,7 +3801,15 @@ mod tests {
 
     #[test]
     fn test_match_all_with_boost() {
-        assert_eq!(q(json!({"match_all": {"boost": 2.0}})), QueryNode::MatchAll);
+        // ES scores match_all{boost} as `boost` per hit (constant-score
+        // semantics) — the boost must not be dropped.
+        assert_eq!(
+            q(json!({"match_all": {"boost": 2.0}})),
+            QueryNode::Constant {
+                score: 2.0,
+                query: Box::new(QueryNode::MatchAll),
+            }
+        );
     }
 
     #[test]
@@ -4080,17 +4150,34 @@ mod tests {
 
     #[test]
     fn test_constant_score() {
-        // constant_score is flattened to its inner filter (see
-        // parse_constant_score for rationale — keeps fast paths in
-        // is_doc_scan_query / try_doc_values_query / try_shortcut_count
-        // available since matched docs all score 1.0 anyway).
+        // constant_score keeps its Constant wrapper: ES scores every hit as
+        // exactly `boost` (default 1.0), NOT the inner query's score — the
+        // old flatten returned the inner term's brute score (live-diverged
+        // vs ES 8.13.4). Matching fast paths peel the wrapper instead.
         let node = q(json!({
             "constant_score": {
                 "filter": {"term": {"status": "active"}},
                 "boost": 1.5
             }
         }));
-        assert!(matches!(node, QueryNode::Term { .. }));
+        match node {
+            QueryNode::Constant { score, query } => {
+                assert_eq!(score, 1.5);
+                assert!(matches!(*query, QueryNode::Term { .. }));
+            }
+            other => panic!("expected Constant wrapper, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_constant_score_default_boost() {
+        let node = q(json!({
+            "constant_score": {"filter": {"term": {"status": "active"}}}
+        }));
+        match node {
+            QueryNode::Constant { score, .. } => assert_eq!(score, 1.0),
+            other => panic!("expected Constant wrapper, got {other:?}"),
+        }
     }
 
     // ── parent-child join (unsupported) ────────────────────────────────────────
