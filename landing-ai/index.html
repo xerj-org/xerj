@@ -129,6 +129,20 @@ footer{padding:48px var(--page-x);border-top:1px solid var(--z-line);
   margin:0 auto;display:flex;gap:24px;flex-wrap:wrap}
 footer .spacer{flex:1}
 
+/* lead form */
+.lead-form{margin-top:40px;display:flex;gap:12px;flex-wrap:wrap;align-items:stretch;max-width:720px}
+.lead-form input{flex:1;min-width:260px;background:var(--z-bg);border:1px solid var(--z-line);
+  color:var(--z-ink);font-family:var(--font-mono);font-size:14px;padding:14px 18px;outline:none}
+.lead-form input:focus{border-color:var(--z-accent)}
+.lead-form button{background:none;border:1px solid var(--z-accent);color:var(--z-accent);
+  font-family:var(--font-mono);font-size:13px;letter-spacing:var(--track-ui);
+  padding:14px 28px;cursor:pointer;text-transform:uppercase}
+.lead-form button:hover{background:var(--z-accent);color:var(--z-bg)}
+.lead-form button:disabled{opacity:.5;cursor:default}
+.lead-form .note{flex-basis:100%;font-family:var(--font-mono);font-size:11px;
+  letter-spacing:.06em;color:var(--z-mute)}
+.lead-form .note.ok{color:var(--z-accent)}
+
 /* schema svg text */
 .schema text{font-family:'JetBrains Mono',monospace}
 </style>
@@ -155,8 +169,9 @@ footer .spacer{flex:1}
   <h1 class="hero">YOUR DATA LAKE<br>IS <span class="accent">ASLEEP.</span></h1>
   <p class="lead">
     You paid to land every byte — into the lake, the warehouse, and a dozen
-    SaaS silos. And none of it can answer a question. Not for your analysts,
-    not for your copilots, not for the AI agents you're deploying this year.
+    SaaS silos. They became data graveyards: none of it can answer a
+    question. Not for your analysts, not for your copilots, not for the AI
+    agents you're deploying this year.
     <strong>XERJ.AI activates enterprise data where it lives</strong> — one
     unified search layer inside your data pipeline. No migration to a search
     cloud. No copy of your data in someone else's account. And nobody —
@@ -284,11 +299,12 @@ footer .spacer{flex:1}
 
 <!-- ───────────────────────── 01 PROBLEM ───────────────────────── -->
 <section class="block" id="problem">
-  <div class="kicker"><span class="accent">01</span>· THE PROBLEM · DARK DATA</div>
-  <h2 class="scene">THE MODERN DATA STACK STORES EVERYTHING<br>AND ANSWERS <span class="accent">NOTHING.</span></h2>
+  <div class="kicker"><span class="accent">01</span>· THE PROBLEM · DATA GRAVEYARDS</div>
+  <h2 class="scene">YOUR LAKE ISN’T A LAKE.<br>IT’S A <span class="accent">DATA GRAVEYARD.</span></h2>
   <p class="body">
     The lake was supposed to democratize data. What it actually did was
-    democratize <b>storage</b>. Petabytes land every day — and become
+    democratize <b>storage</b>: the modern data stack stores everything and
+    answers nothing. Petabytes land every day — and become
     write-only. The warehouse answers the SQL you planned for last quarter;
     nothing answers the question your incident channel is asking right now.
     And the moment someone says <b>"can we search it?"</b>, the answer is a
@@ -297,9 +313,10 @@ footer .spacer{flex:1}
   </p>
   <div class="cols">
     <div class="cell">
-      <h3>Dead on arrival</h3>
+      <h3>Buried on arrival</h3>
       <p>Data teams estimate the majority of enterprise data is never read
-      after it lands. It's not a lake — it's a <b>landfill with a catalog</b>.</p>
+      again after it lands. Every silo is another headstone: <b>the lake, the
+      warehouse, the SaaS exports — graveyards with a catalog</b>.</p>
     </div>
     <div class="cell">
       <h3>Invisible to your AI</h3>
@@ -402,12 +419,6 @@ footer .spacer{flex:1}
     written to be read by machines. Activation is what turns "we have a
     copilot" into <b>"our copilot knows our business."</b>
   </p>
-  <div class="proof">
-    <div class="p"><div class="n">1</div><div class="l">binary replaces search + vector DB + embedding svc + memory store</div></div>
-    <div class="p"><div class="n">80/81</div><div class="l">adversarial ground-truth checks, zero-config activation</div></div>
-    <div class="p"><div class="n">1,360</div><div class="l">of 1,363 Elasticsearch conformance cases pass</div></div>
-    <div class="p"><div class="n">11/11</div><div class="l">crash cells: acked writes &amp; deletes survive kill -9</div></div>
-  </div>
 </section>
 
 <!-- ───────────────────────── 05 GOVERNANCE ───────────────────────── -->
@@ -469,10 +480,30 @@ footer .spacer{flex:1}
     one of your real datasets, in your environment, in the first session.
     Design partners shape the connector and governance roadmap.
   </p>
-  <div class="hero-ctas">
-    <a class="primary" href="mailto:hello@xerj.ai?subject=XERJ.AI%20early%20access">Request early access →</a>
+  <form class="lead-form" id="leadForm" action="#" method="post" novalidate>
+    <input type="email" name="email" placeholder="you@company.com" required aria-label="Work email" autocomplete="email">
+    <button type="submit">REQUEST EARLY ACCESS →</button>
+    <span class="note">We keep your email to follow up about XERJ.AI early access — nothing else. No spam, no reselling.</span>
+    <span class="note ok" id="leadOk" hidden>Received — we’ll be in touch about early access.</span>
+  </form>
+  <div class="hero-ctas" style="margin-top:24px">
     <a href="https://xerj.org">Explore the open-source engine</a>
   </div>
+  <script>
+  (function(){
+    var f=document.getElementById('leadForm');
+    f.addEventListener('submit',function(e){
+      e.preventDefault();
+      var email=f.querySelector('input[type=email]').value.trim();
+      if(!email||email.indexOf('@')<0)return;
+      fetch('/lead',{method:'POST',headers:{'content-type':'application/json'},
+        body:JSON.stringify({email:email,source:'xerj-ai-enterprise'}),keepalive:true}).catch(function(){});
+      f.querySelector('input').disabled=true;
+      f.querySelector('button').disabled=true;
+      document.getElementById('leadOk').hidden=false;
+    });
+  })();
+  </script>
 </section>
 
 </div>
