@@ -479,6 +479,36 @@ impl IndexStore {
             tracing::warn!("segment-dir GC failed: {e}");
         }
 
+        // SEQ-COUNTER SEEDING (2026-07, S3 root cause): the counter starts at
+        // 1 and, pre-fix, was only ever raised from seqs found in surviving
+        // WAL files (`WalWriter::open`) and replayed entries.  After a flush
+        // + WAL maintenance (checkpoint + rotate + prune) every WAL shard is
+        // an empty active generation, so a restart RESET the counter to ~1
+        // while segments held seqs up to X — and the stale checkpoint on the
+        // active generation (max_seq_no = X) then made the NEXT replay
+        // discard every post-restart acked op (seqs 1..K <= X): 100% loss of
+        // the post-restart tail.  Seed the counter from the durable segment
+        // metadata (snapshot.max_seq_no plus every registered/recovered
+        // segment's max_seq_no) so global seq monotonicity holds across
+        // restarts — the invariant every checkpoint and version-map
+        // comparison silently assumes.
+        {
+            let snap = store.snapshot.load();
+            let durable_max = snap
+                .segments
+                .iter()
+                .map(|s| s.max_seq_no)
+                .max()
+                .unwrap_or(0)
+                .max(snap.max_seq_no);
+            drop(snap);
+            if durable_max > 0 {
+                store
+                    .seq_counter
+                    .fetch_max(durable_max + 1, Ordering::AcqRel);
+            }
+        }
+
         // Replay WAL to rebuild in-memory state (these override segment entries).
         store.replay_wal(&wal_dir)?;
 
@@ -1983,16 +2013,49 @@ impl IndexStore {
             match replay_entry.entry {
                 WalEntry::Index { doc_id, source } => {
                     let seq_no = replay_entry.seq_no;
-                    self.version_map
-                        .set(&doc_id, seq_no, IN_MEMORY_SEGMENT_ID, false);
-                    let shard = self.shard_for(&doc_id);
-                    let mut mem = self.memtable_shards[shard].lock().unwrap();
-                    mem.push(MemEntry {
-                        seq_no,
-                        doc_id,
-                        source: Some(std::sync::Arc::new(source)),
-                        source_bytes: std::sync::Arc::from(&[][..]),
-                    });
+                    // Replay idempotence (2026-07, S2): if the version map —
+                    // rebuilt from segments BEFORE replay — already shows this
+                    // doc live in a real segment at seq_no >= this op, the
+                    // exact same op (equal seq: the shutdown flush persisted
+                    // it) or a newer version is already segment-durable.
+                    // Re-materialising it in the memtable created a SECOND
+                    // copy of the same (id, seq_no): the strict `doc_seq <
+                    // ver.seq_no` stale-copy predicates on the count paths
+                    // don't skip an equal-seq segment copy, so counts were
+                    // inflated after a SIGTERM restart whose WAL shard was
+                    // pinned by an unpersisted delete (batch-6 pinning
+                    // correctly preserved the shard, preserving the already-
+                    // flushed overwrite entries with it).  Skip the memtable
+                    // push and version_map set; the seq counter is still
+                    // fetch_max'd below.
+                    //
+                    // Caveat: legacy segments without a `.ids` sidecar
+                    // rebuild version-map seqs by approximation
+                    // (`rebuild_version_map_from_segments`); with the seq
+                    // counter now seeded from segment metadata on open, any
+                    // post-flush update carries a seq strictly greater than
+                    // its segment's max_seq_no, so the approximation cannot
+                    // shadow a genuinely newer WAL-only version.
+                    let already_persisted = match self.version_map.get(&doc_id) {
+                        Some(e) => {
+                            !e.deleted
+                                && e.seq_no >= seq_no
+                                && &*e.segment_id != IN_MEMORY_SEGMENT_ID
+                        }
+                        None => false,
+                    };
+                    if !already_persisted {
+                        self.version_map
+                            .set(&doc_id, seq_no, IN_MEMORY_SEGMENT_ID, false);
+                        let shard = self.shard_for(&doc_id);
+                        let mut mem = self.memtable_shards[shard].lock().unwrap();
+                        mem.push(MemEntry {
+                            seq_no,
+                            doc_id,
+                            source: Some(std::sync::Arc::new(source)),
+                            source_bytes: std::sync::Arc::from(&[][..]),
+                        });
+                    }
                 }
                 WalEntry::Delete { doc_id } => {
                     let seq_no = replay_entry.seq_no;
