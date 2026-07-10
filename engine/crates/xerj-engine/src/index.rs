@@ -6205,9 +6205,13 @@ impl Index {
         let mut scored_fast_applied = false;
         if let Some(plan) = &scored_plan {
             if scored_fast_ready {
-                if let Some((hits, total)) =
-                    self.scored_columnar(plan, &snap.segments, &segments_dir, materialisation_limit)
-                {
+                if let Some((hits, total)) = self.scored_columnar(
+                    plan,
+                    &snap.segments,
+                    &segments_dir,
+                    materialisation_limit,
+                    from + size,
+                ) {
                     seen_ids.clear();
                     seen_ids.extend(hits.iter().map(|h| h.id.clone()));
                     all_hits = hits;
@@ -7304,14 +7308,23 @@ impl Index {
                     hit.score = *score;
                 }
             }
-            let seq = |id: &str| self.lookup_seq_no(id).unwrap_or(u64::MAX);
-            final_hits.sort_by(|a, b| {
-                b.score
-                    .partial_cmp(&a.score)
+            // Precompute seq_no ONCE per hit, not once per comparison. The
+            // former `seq(&a.id)`/`seq(&b.id)` closure did a `VersionMap`
+            // dashmap string-hash get inside the comparator — O(n log n) gets
+            // per page sort (~6% of a `term` page in the P1 profile). Decorate
+            // with the resolved seq_no, then sort on the plain u64.
+            let mut decorated: Vec<(u64, Hit)> = std::mem::take(&mut final_hits)
+                .into_iter()
+                .map(|h| (self.lookup_seq_no(&h.id).unwrap_or(u64::MAX), h))
+                .collect();
+            decorated.sort_by(|a, b| {
+                b.1.score
+                    .partial_cmp(&a.1.score)
                     .unwrap_or(std::cmp::Ordering::Equal)
-                    .then_with(|| seq(&a.id).cmp(&seq(&b.id)))
-                    .then_with(|| a.id.cmp(&b.id))
+                    .then_with(|| a.0.cmp(&b.0))
+                    .then_with(|| a.1.id.cmp(&b.1.id))
             });
+            final_hits = decorated.into_iter().map(|(_, h)| h).collect();
         }
 
         // --- IDF-weighted rescore for Bool queries with multiple terms ---
@@ -10055,6 +10068,7 @@ impl Index {
         segments: &[xerj_storage::segment::SegmentMeta],
         segments_dir: &std::path::Path,
         cap: usize,
+        page: usize,
     ) -> Option<(Vec<Hit>, u64)> {
         use xerj_storage::doc_values::Column;
 
@@ -10215,7 +10229,22 @@ impl Index {
         // ── Phase 2: row walk — exact per-row score + exact total ─────────
         // Candidate = (score, seq_no, segment, row); seq_no is the ES-parity
         // tie-break key, (segment, row) locates the stored slice.
-        let mut cands: Vec<(f32, u64, u32, u32)> = Vec::new();
+        //
+        // P1 bounded top-k: instead of pushing EVERY match into an unbounded
+        // Vec and `select_nth`-ing the lot (the profiled tuple-storm: ~98k
+        // pushes + a 100k-element select for `term(status)`), keep only the
+        // `keep_target` best under `(score DESC, seq_no ASC)` in a size-capped
+        // heap. `total` is still tallied over every match (exact, ghost-aware)
+        // — only the MATERIALISED set is bounded. Pinned keeps the full `cap`
+        // headroom its phase-4 overlay needs; every other exact plan keeps
+        // exactly the `from+size` page (drops the 256-doc hydration floor).
+        let keep_target: usize = if matches!(plan, ScoredPlan::Pinned { .. }) {
+            cap
+        } else {
+            page.min(cap)
+        };
+        let mut heap: std::collections::BinaryHeap<TopKCand> =
+            std::collections::BinaryHeap::with_capacity(keep_target.saturating_add(1));
         let mut total: u64 = 0;
         for (si, (meta, cols)) in segments.iter().zip(seg_cols.iter()).enumerate() {
             let seqs: &[u64] = &seg_seqs[si];
@@ -10313,7 +10342,16 @@ impl Index {
                         }
                         if let Some(score) = root.eval(row, &sev, &fev, &clause_scores) {
                             total += 1;
-                            cands.push((score, seqs[row as usize], si, row));
+                            push_topk(
+                                &mut heap,
+                                keep_target,
+                                TopKCand {
+                                    score,
+                                    seq: seqs[row as usize],
+                                    si,
+                                    row,
+                                },
+                            );
                         }
                     }
                 }
@@ -10333,7 +10371,16 @@ impl Index {
                         } else {
                             ps
                         };
-                        cands.push((score, seqs[row as usize], si, row));
+                        push_topk(
+                            &mut heap,
+                            keep_target,
+                            TopKCand {
+                                score,
+                                seq: seqs[row as usize],
+                                si,
+                                row,
+                            },
+                        );
                     }
                 }
                 ScoredPlan::Pinned { .. } => {
@@ -10346,7 +10393,16 @@ impl Index {
                         }
                         if org.matches(row) {
                             total += 1;
-                            cands.push((s, seqs[row as usize], si, row));
+                            push_topk(
+                                &mut heap,
+                                keep_target,
+                                TopKCand {
+                                    score: s,
+                                    seq: seqs[row as usize],
+                                    si,
+                                    row,
+                                },
+                            );
                         }
                     }
                 }
@@ -10370,28 +10426,37 @@ impl Index {
                             }
                         }
                         total += 1;
-                        cands.push((*score, seqs[row as usize], si, row));
+                        push_topk(
+                            &mut heap,
+                            keep_target,
+                            TopKCand {
+                                score: *score,
+                                seq: seqs[row as usize],
+                                si,
+                                row,
+                            },
+                        );
                     }
                 }
             }
         }
 
-        // ── Phase 3: global top-`cap` by (score DESC, seq_no ASC) ─────────
-        // The composite key is a TOTAL order (live seq_nos are unique under
-        // the caller's `!deletes_present` gate), so the kept SET is exactly
-        // ES's: arrival order == Lucene `_doc` order. Final page ordering is
-        // re-derived by the caller's (score desc, seq_no asc) sort, which
-        // uses the same key per hit via `lookup_seq_no`.
+        // ── Phase 3: drain the bounded top-k ──────────────────────────────
+        // The heap already holds exactly the `keep_target` best under the
+        // TOTAL order `(score DESC, seq_no ASC)` (live seq_nos are unique
+        // under the caller's `!deletes_present` gate), so this SET is exactly
+        // ES's: arrival order == Lucene `_doc` order — the same kept set the
+        // former `select_nth_unstable_by(keep-1)` produced, without the
+        // 98k-tuple storm. Heap order is arbitrary; the final page order is
+        // re-derived by the caller's `(score desc, seq_no asc)` sort (or
+        // phase-4's `cmp` for pinned), so we leave it unsorted here.
         let cmp = |a: &(f32, u64, u32, u32), b: &(f32, u64, u32, u32)| {
             b.0.partial_cmp(&a.0)
                 .unwrap_or(std::cmp::Ordering::Equal)
                 .then_with(|| a.1.cmp(&b.1))
         };
-        let keep = cap.min(cands.len());
-        if keep > 0 && cands.len() > keep {
-            cands.select_nth_unstable_by(keep - 1, cmp);
-            cands.truncate(keep);
-        }
+        let mut cands: Vec<(f32, u64, u32, u32)> =
+            heap.into_iter().map(|c| (c.score, c.seq, c.si, c.row)).collect();
 
         // ── Phase 4: pinned overlay ───────────────────────────────────────
         // A pinned doc at 0-based position `i` of the P-length ids array
@@ -19999,6 +20064,68 @@ fn bm25_keyword_term_score(n: u64, total_docs: u64, boost: f32) -> f32 {
 /// finite non-negative boost. Filter leaves also admit keyword `terms`
 /// and numeric `range` with numeric bounds. Every other shape returns
 /// `None` → unchanged brute path.
+/// Bounded top-k candidate for the columnar scored path. Ordered so the
+/// heap's MAX is the WORST-kept element (lowest score, then highest
+/// seq_no) — popping it evicts exactly the row a full `(score DESC,
+/// seq_no ASC)` `select_nth` would have dropped. This lets the phase-2
+/// row walk keep only the `from+size` (or `cap`) it needs instead of
+/// pushing every match into an unbounded Vec and `select_nth`-ing the
+/// lot (the P1 tuple-storm cost).
+#[derive(Clone, Copy)]
+struct TopKCand {
+    score: f32,
+    seq: u64,
+    si: u32,
+    row: u32,
+}
+impl PartialEq for TopKCand {
+    fn eq(&self, o: &Self) -> bool {
+        self.score.to_bits() == o.score.to_bits() && self.seq == o.seq
+    }
+}
+impl Eq for TopKCand {}
+impl Ord for TopKCand {
+    fn cmp(&self, o: &Self) -> std::cmp::Ordering {
+        // `self` is GREATER (more evictable) when it would sort LATER under
+        // the final `(score DESC, seq_no ASC)` order: lower score first,
+        // then higher seq_no. seq_no is unique under the caller's
+        // `!deletes_present` gate, so this is a strict total order and the
+        // kept SET is bit-identical to `select_nth_unstable_by`'s.
+        o.score
+            .partial_cmp(&self.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| self.seq.cmp(&o.seq))
+    }
+}
+impl PartialOrd for TopKCand {
+    fn partial_cmp(&self, o: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(o))
+    }
+}
+
+/// Push `c` into a bounded max-heap top-k of capacity `cap`. Retains the
+/// `cap` best under `(score DESC, seq_no ASC)`: the heap's peek is the
+/// worst kept, evicted only when `c` is strictly better. O(1) amortised
+/// on an already-full heap when `c` loses (the common case once the page
+/// is filled from the ascending-seq prefix), O(log cap) on a swap.
+#[inline]
+fn push_topk(heap: &mut std::collections::BinaryHeap<TopKCand>, cap: usize, c: TopKCand) {
+    if cap == 0 {
+        return;
+    }
+    if heap.len() < cap {
+        heap.push(c);
+    } else if let Some(worst) = heap.peek() {
+        // `c` beats the worst kept iff it sorts EARLIER (strictly Less
+        // under the eviction Ord). Ties (same score bits + seq) can't
+        // occur under the unique-seq gate, so `Less` is the only swap.
+        if c.cmp(worst) == std::cmp::Ordering::Less {
+            heap.pop();
+            heap.push(c);
+        }
+    }
+}
+
 fn scored_fast_plan(
     query: &QueryNode,
     request: &SearchRequest,
