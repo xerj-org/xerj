@@ -65,12 +65,14 @@ Every recipe honors `XERJ_URL` (default `http://localhost:9200`).
 
 ## Honest notes
 
-- The built-in embedder is **lexical** (feature-hashing over word +
-  character n-grams, L2-normalized), not neural. It captures vocabulary
-  overlap well and is perfect for offline demos and CI, but it won't
-  match true synonyms. For production semantics, point XERJ at an
-  OpenAI-compatible embeddings endpoint (`[embedding]` in `xerj.toml`) —
-  the recipes need no change.
+- The **default** built-in embedder is **lexical** (feature-hashing over
+  word + character n-grams, L2-normalized), not neural. It captures
+  vocabulary overlap well and is perfect for offline demos and CI, but it
+  won't match true synonyms. For real neural semantics — with no change to
+  any recipe — start the server with a different `--embed-mode`: `neural`
+  (built-in in-process BERT, all-MiniLM-L6-v2, downloads once on first use;
+  build with `--features neural`) or `proxy` (any OpenAI-compatible
+  embeddings endpoint, set `[embedding] default_endpoint` in `xerj.toml`).
 - `memory_agent.py` recalls with **text (BM25) relevance** scores
   (unbounded, higher = better) by default. Add `"semantic": true` to the
   `_recall` body to have XERJ embed the query server-side and recall by

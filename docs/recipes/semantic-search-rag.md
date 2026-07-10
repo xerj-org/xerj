@@ -138,38 +138,62 @@ Q: 'get my money back after buying'
    semantic top -> kb-2 Refund policy
 ```
 
-## Honest limitation: the built-in embedder is *lexical*, not neural
+## Three embedding backends: lexical (default), built-in neural, or bring-your-own
+
+The `semantic_text` mapping and the `semantic` query are **identical** across all
+three backends — you pick the backend once, at the server, and every ingest and
+query uses it. Choose with `--embed-mode` (or `embedding.mode` in config, or the
+`XERJ_EMBED_MODE` env var):
+
+| `--embed-mode` | Backend | Quality | Setup |
+|---|---|---|---|
+| `lexical` *(default)* | Built-in feature-hash | Lexical overlap only | None — offline, deterministic |
+| `neural` | Built-in **BERT** (all-MiniLM-L6-v2) via `candle` | True neural semantics | One-time model download on first use; binary built `--features neural` |
+| `proxy` | Any external OpenAI-compatible `/v1/embeddings` | Whatever model you point at | Set `embedding.default_endpoint` |
+
+### The default is lexical — know where it stops
 
 The zero-config embedder is a **lexical** model — it maps overlapping and related
 vocabulary into vector space. It shines when the question and the answer share
 *some* terms (a synonym here, a rephrase there), which covers a lot of real
 support/FAQ traffic. It is **not** a neural sentence embedder and won't capture
-deep semantics with no lexical bridge.
-
-Concretely, from this same KB:
+deep semantics with no lexical bridge. Concretely, from this same KB:
 
 ```
 Q: 'how do I rotate my API key'
-   semantic top -> kb-5 Rate limits   (expected kb-1)
+   semantic top -> kb-5 Rate limits   (expected kb-1)   # lexical mode
 ```
 
 The doc is *titled* "Rotating an API key," but only its **body** is embedded, and
-the body never uses the word "rotate" — so a pure "rotate" paraphrase misses. Two
-honest takeaways:
+the body never uses the word "rotate" — so a pure "rotate" paraphrase misses in
+lexical mode.
+
+### Upgrade to real neural semantics — still one binary, still in place
+
+```bash
+# Built-in neural embedder — downloads all-MiniLM-L6-v2 (~90 MB) once, then
+# runs in-process (pure Rust, no Python, no external service, air-gap friendly
+# via embedding.local_model_dir). Requires a binary built with --features neural.
+xerj --insecure --data-dir ./data --embed-mode neural
+```
+
+With `--embed-mode neural`, the "rotate" paraphrase above lands on `kb-1` — the
+BERT encoder captures that *rotate ≈ regenerate ≈ replace* even with no shared
+term. Measured on the standard sentence-similarity pair, the built-in neural
+embedder scores a paraphrase at cosine **0.72** vs an unrelated sentence at
+**−0.04**; the lexical embedder cannot separate them that way.
+
+Two honest takeaways that still apply in every mode:
 
 - **Embed the text that carries the meaning.** If titles matter, index them into
   the `semantic_text` field too (or add a second `semantic_text` field and combine
   with `hybrid`), so the vocabulary the user might use is actually in the vector.
-- **For production-grade semantics, wire an external embeddings endpoint.** XERJ
-  will call any OpenAI-compatible `/v1/embeddings` service. Set
-  `embedding.default_endpoint` in config, or point a field at it in the mapping
-  via `inference_endpoint` / `inference_id`. The `semantic` query and the ingest
-  path are identical — you just get neural-quality vectors instead of the built-in
-  lexical ones. (Anomaly-style continuous re-embedding isn't a thing here;
-  embedding happens at ingest time.)
+- **Bring your own model when you need a specific one.** `--embed-mode proxy` with
+  `embedding.default_endpoint` calls any OpenAI-compatible `/v1/embeddings`
+  service (OpenAI, Cohere, a local vLLM, etc.). Embedding happens at ingest time.
 
-Everything above is `semantic_text` + the built-in embedder — no external service
-was configured for this recipe.
+Everything in the numbered walk-through above uses the default lexical embedder —
+no external service was configured for this recipe.
 
 ---
 

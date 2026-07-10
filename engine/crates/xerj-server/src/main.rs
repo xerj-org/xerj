@@ -77,6 +77,7 @@ struct CliArgs {
     config: Option<PathBuf>,
     data_dir: Option<String>,
     insecure: bool,
+    embed_mode: Option<String>,
 }
 
 fn parse_args() -> CliArgs {
@@ -84,6 +85,7 @@ fn parse_args() -> CliArgs {
     let mut config = None;
     let mut data_dir = None;
     let mut insecure = false;
+    let mut embed_mode = None;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -95,6 +97,9 @@ fn parse_args() -> CliArgs {
             }
             "--insecure" | "-k" => {
                 insecure = true;
+            }
+            "--embed-mode" => {
+                embed_mode = args.next();
             }
             "--help" | "-h" => {
                 print_help();
@@ -115,6 +120,7 @@ fn parse_args() -> CliArgs {
         config,
         data_dir,
         insecure,
+        embed_mode,
     }
 }
 
@@ -129,6 +135,9 @@ fn print_help() {
              --config,   -c <PATH>  Path to TOML config file\n\
              --data-dir, -d <PATH>  Override data directory\n\
              --insecure, -k         Disable TLS\n\
+             --embed-mode <MODE>    Embedding backend: lexical | neural | proxy | auto\n\
+                                    (neural = built-in BERT, downloads on first use;\n\
+                                     requires a binary built with --features neural)\n\
              --help,     -h         Show this help\n\
              --version,  -V         Print version and exit\n\
          \n\
@@ -138,8 +147,9 @@ fn print_help() {
              xerj autoindex  map             print the discovered data map\n\
          \n\
          ENVIRONMENT:\n\
-             XERJ_LOG     Log level filter (default: info)\n\
-             XERJ_CONFIG  Config file path\n",
+             XERJ_LOG         Log level filter (default: info)\n\
+             XERJ_CONFIG      Config file path\n\
+             XERJ_EMBED_MODE  Embedding backend (lexical|neural|proxy|auto)\n",
         env!("CARGO_PKG_VERSION")
     );
 }
@@ -229,6 +239,25 @@ fn load_config(args: &CliArgs) -> Result<Config> {
         warn!("--insecure: TLS and auth disabled");
         cfg.tls.enabled = false;
         cfg.auth.enabled = false;
+    }
+
+    // Embedding backend override: `--embed-mode` flag or `XERJ_EMBED_MODE`
+    // env (flag wins). Accepts `lexical` | `neural` | `proxy` | `auto`.
+    if let Some(mode) = args
+        .embed_mode
+        .clone()
+        .or_else(|| std::env::var("XERJ_EMBED_MODE").ok())
+    {
+        let mode = mode.trim().to_ascii_lowercase();
+        match mode.as_str() {
+            "lexical" | "neural" | "proxy" | "auto" => {
+                info!("embedding.mode = {mode} (from CLI/env)");
+                cfg.embedding.mode = mode;
+            }
+            other => {
+                warn!("ignoring unknown --embed-mode '{other}' (use lexical|neural|proxy|auto)");
+            }
+        }
     }
 
     Ok(cfg)
@@ -570,6 +599,7 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
         config: cmd.config.clone(),
         data_dir: cmd.data_dir.clone(),
         insecure: true,
+        embed_mode: None,
     };
     let mut cfg = load_config(&fake_cli)?;
     cfg.tls.enabled = false;

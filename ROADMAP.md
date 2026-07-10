@@ -26,7 +26,7 @@ These three shipped in rc-2 (each conformance-gated at 1,326 / 1,329 and verifie
 
 `semantic_text` now works end to end with **zero external configuration**. Indexing a document into a `semantic_text` field auto-embeds its text (previously returned `405`), and the `semantic` query embeds the query text with the same embedder and runs kNN — no external service required. Live-verified: a `semantic_text` doc indexed with no embedder configured returned `201`, and a `semantic` query ranked the intended doc first. A configured external `/v1/embeddings` proxy is still used, at higher quality, when `embedding.default_endpoint` is set.
 
-- **Limitation:** the built-in embedder is a deterministic **lexical** model (feature-hashed word unigrams + character trigrams, L2-normalized) — it captures vocabulary/sub-word overlap, not deep semantics. This is observable live: a vocabulary-sharing query out-scored a true paraphrase. Paraphrases that share vocabulary rank correctly; truly-synonymous text with no word overlap will not. For production-grade semantics, configure the external proxy. A bundled neural model remains future work.
+- **Limitation:** the **default** built-in embedder is a deterministic **lexical** model (feature-hashed word unigrams + character trigrams, L2-normalized) — it captures vocabulary/sub-word overlap, not deep semantics. This is observable live: a vocabulary-sharing query out-scored a true paraphrase. Paraphrases that share vocabulary rank correctly; truly-synonymous text with no word overlap will not. For real neural semantics you now have two drop-in upgrades with no mapping/query change: the built-in **neural** BERT embedder (`--embed-mode neural`, opt-in behind `--features neural`, downloads all-MiniLM-L6-v2 on first use — see "Neural embeddings" below), or the external `/v1/embeddings` **proxy** (`--embed-mode proxy` + `embedding.default_endpoint`).
 
 ### 2. Agent-memory REST API ✅ (rc-2)
 
@@ -62,7 +62,7 @@ The datafeed scheduler that rc-2 lacked: `PUT/GET/DELETE /_ml/datafeeds/{id}` + 
 
 Long `semantic_text` values are split into overlapping passages, embedded **per passage**, and the per-passage vectors persisted (in `<field>_vector_chunks`, only when a value spans >1 passage). A `semantic` query scores each document by its **best-matching passage** (max-sim) instead of a single pooled vector, so a long document competes on any one of its sections. Live-verified: on 40 articles + a compendium of all 40, the compendium reached top-3 for **98%** of single-topic queries with per-passage scoring vs **32%** pooled. Short single-passage values are byte-identical to before. Recipe: `recipes/passage_search.py`; guide: `docs/recipes/passage-retrieval.md`.
 
-- **Limitation:** the built-in embedder is still lexical (per-passage vectors are only as good as the embedder); a bundled neural model remains future work. A field that is *also* scalar8-quantized scores against the pooled vector (per-passage max-sim is exact-f32 only).
+- **Limitation:** per-passage vectors are only as good as the active embedder. The default is lexical; switch to `--embed-mode neural` (built-in BERT) or `--embed-mode proxy` for neural-quality passage vectors — the chunk-embedding pipeline is backend-agnostic. A field that is *also* scalar8-quantized scores against the pooled vector (per-passage max-sim is exact-f32 only).
 
 ## Partial / in progress
 
@@ -103,7 +103,7 @@ Counting these toward "supported query types" overstates correctness — they re
 
 ### Neural embeddings & richer ML
 
-- A bundled/local **neural** embedding model (the current built-in embedder is lexical).
+- A built-in **neural** embedder has **landed** (opt-in): `--embed-mode neural` runs an in-process BERT sentence encoder (all-MiniLM-L6-v2, 384-dim) via `candle` — pure Rust, no Python, no external service, air-gap friendly (`embedding.local_model_dir`). It is behind the `neural` cargo feature so the default release binary stays ~23 MB and dependency-free. **Remaining work:** ship it in the default binary (or a separate `xerj-neural` artifact) so no rebuild is needed, and offer a larger/higher-quality default model.
 - Forecasting for capacity/write-load signals (continuous `_ml` datafeeds have landed — see "Landed since rc-2"; the ingest-time per-passage chunk-embedding pipeline has also landed).
 
 ### Correctness of stubbed surface

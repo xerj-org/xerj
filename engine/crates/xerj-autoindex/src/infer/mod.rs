@@ -410,7 +410,7 @@ pub fn infer_fields(
         if let Some((i, _)) = best {
             specs[i].es_type = "semantic_text".into();
             specs[i].notes.push(
-                "hybrid lexical+vector body (hash-bucket embedder — lexical, not neural)".into(),
+                "hybrid lexical+vector body (embedded server-side: lexical by default, neural/proxy if configured)".into(),
             );
         }
     }

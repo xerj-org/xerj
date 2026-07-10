@@ -625,12 +625,30 @@ impl Default for LogsConfig {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// External embedding service settings.
+/// Embedding backend settings.
 ///
-/// **4 settings.**
+/// XERJ can embed `semantic_text` fields three ways, chosen by [`mode`]:
+///   * `"lexical"` — the zero-dependency built-in feature-hash embedder
+///     (deterministic, 384-dim, no model, no network). This is the honest
+///     default: lexical, *not* neural semantic understanding.
+///   * `"neural"` — a built-in BERT sentence embedder (all-MiniLM-L6-v2 by
+///     default) that runs in-process via `candle`. The model weights are
+///     downloaded once on first use (or read from [`local_model_dir`] for
+///     air-gapped deployments). Requires the binary to be built with the
+///     `neural` cargo feature; otherwise this falls back to lexical.
+///   * `"proxy"` — call an external OpenAI-compatible `/v1/embeddings`
+///     endpoint ([`default_endpoint`]). Lets customers plug in ANY embedding
+///     model / provider they already run.
+///   * `"auto"` (default) — use the proxy when [`default_endpoint`] is set,
+///     otherwise lexical. This preserves the historical behavior exactly.
+///
+/// **8 settings.**
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct EmbeddingConfig {
+    /// Backend selector: `"auto"` (default), `"lexical"`, `"neural"`, or
+    /// `"proxy"`. Unknown values are treated as `"auto"`.
+    pub mode: String,
     /// OpenAI-compatible endpoint URL (default: `""` — disabled).
     pub default_endpoint: String,
     /// Model name to request from the endpoint (default: `""`).
@@ -639,15 +657,29 @@ pub struct EmbeddingConfig {
     pub batch_size: usize,
     /// HTTP timeout for embedding requests in ms (default: `5000`).
     pub timeout_ms: u64,
+    /// Neural backend: HuggingFace model id to load (default
+    /// `sentence-transformers/all-MiniLM-L6-v2`, a 384-dim sentence encoder).
+    pub neural_model: String,
+    /// Neural backend: directory to cache downloaded model weights. Empty
+    /// (default) uses the standard HuggingFace cache (`~/.cache/huggingface`).
+    pub model_cache_dir: String,
+    /// Neural backend: if set, load `config.json`, `tokenizer.json`, and the
+    /// safetensors weights from this local directory instead of downloading
+    /// — for air-gapped / offline deployments. Empty (default) = download.
+    pub local_model_dir: String,
 }
 
 impl Default for EmbeddingConfig {
     fn default() -> Self {
         Self {
+            mode: "auto".to_string(),
             default_endpoint: String::new(),
             default_model: String::new(),
             batch_size: 64,
             timeout_ms: 5000,
+            neural_model: "sentence-transformers/all-MiniLM-L6-v2".to_string(),
+            model_cache_dir: String::new(),
+            local_model_dir: String::new(),
         }
     }
 }

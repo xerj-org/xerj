@@ -53,7 +53,7 @@ pub fn catalog_mapping() -> Value {
 
 pub const GOTCHAS: &[&str] = &[
     "hybrid search: use {\"query\":{\"hybrid\":{\"queries\":[…]}}} ONLY — retriever.rrf is a silent stub and rank.rrf is ignored on this engine",
-    "the semantic embedder is hash-bucket LEXICAL (384-dim): this is hybrid lexical+vector retrieval, NOT neural semantic understanding",
+    "semantic_text fields are embedded server-side: the DEFAULT is the built-in LEXICAL feature-hash embedder (384-dim hybrid lexical+vector, NOT neural) — start the server with `--embed-mode neural` (built-in BERT) or `--embed-mode proxy` for true neural semantics",
     "semantic queries ignore _source filtering and return the ~8KB *_vector field in _source — strip client-side",
     "exact filters use TOP-LEVEL keyword fields (term on .keyword subfields returns 0 hits on this engine)",
     "all dates are normalized to RFC3339 UTC millis; mappings use strict_date_optional_time||epoch_millis",
@@ -180,7 +180,7 @@ pub fn build_sample_queries(pd: &PlanDataset, correlations: &[KeyCorr]) -> Vec<V
         if let Some(sf) = &pd.semantic_field {
             out.push(json!({
                 "class": "hybrid_lexical_vector",
-                "title": format!("Hybrid lexical+vector (RRF) on {sf} — hash-bucket embedder, lexical not neural"),
+                "title": format!("Hybrid lexical+vector (RRF) on {sf} — embedder set server-side (lexical by default; neural/proxy if configured)"),
                 "request": format!("POST /{}/_search", pd.index),
                 "body": {"query": {"hybrid": {"queries": [
                     {"query": {"match": {(sf.clone()): word.clone()}}, "weight": 1},
@@ -296,7 +296,7 @@ pub fn render_map(
         s.push_str(&format!("### `{}`\n\n", g("index_name")));
         if let Some(sem) = d.get("semantic_field").filter(|v| v.is_string()) {
             s.push_str(&format!(
-                "semantic body field: `{}` (hybrid lexical+vector — hash-bucket embedder, lexical, not neural)\n\n",
+                "semantic body field: `{}` (hybrid lexical+vector; embedder set server-side — lexical by default, neural/proxy if configured)\n\n",
                 pretty_val(sem)
             ));
         }

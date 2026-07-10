@@ -56,6 +56,14 @@ prost.workspace = true
 # because it never returns freed heap pages to the OS.  jemalloc is
 # fragmentation-friendly and actively madvise()'s freed ranges, which brings
 # RSS back down after each flush — critical under the 4 GB cgroup cap.
+[features]
+default = []
+# Ship the built-in neural BERT embedder (candle + MiniLM, download-on-
+# first-run). Off by default; build the release binary with
+# `cargo build --release -p xerj-server --features neural` to enable
+# in-process neural embeddings (set `embedding.mode = "neural"` at runtime).
+neural = ["xerj-engine/neural"]
+
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = "0.6"
 

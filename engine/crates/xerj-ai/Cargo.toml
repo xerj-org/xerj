@@ -16,5 +16,22 @@ tracing.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 
+# Built-in neural embedder (candle + MiniLM), download-on-first-run.
+# Feature-gated so the default build stays dependency-light and the
+# lexical embedder remains the zero-dep fallback. When `neural` is off,
+# none of this compiles.
+candle-core = { version = "0.9", optional = true }
+candle-nn = { version = "0.9", optional = true }
+candle-transformers = { version = "0.9", optional = true }
+tokenizers = { version = "0.21", optional = true, default-features = false, features = ["fancy-regex"] }
+# `ureq` (sync, blocking) pulls rustls by default — pure-Rust TLS, no OpenSSL,
+# so the neural feature cross-compiles cleanly to musl/aarch64/windows.
+hf-hub = { version = "0.4", optional = true, default-features = false, features = ["ureq"] }
+
+[features]
+default = []
+# Bundles the neural BERT embedder. Adds ~candle + tokenizers to the build.
+neural = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers", "dep:hf-hub"]
+
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

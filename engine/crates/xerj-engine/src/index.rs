@@ -463,12 +463,15 @@ pub struct Index {
     /// runs hold the snapshot for the duration of one batch.
     merge_config: xerj_common::config::MergeConfig,
 
-    /// Optional embedding proxy used by the `semantic` query type
-    /// (v0.7-P2). None when `Config.embedding.default_endpoint` is
-    /// empty — semantic queries then return a clear 400 telling the
-    /// operator to configure an endpoint. Reused across queries
-    /// (semaphore + retry budget are per-proxy).
-    embedding_proxy: Arc<Option<xerj_ai::embed::EmbeddingProxy>>,
+    /// Embedding backend for `semantic` / `semantic_text` (v0.7-P2).
+    /// One of lexical (built-in, default), an external proxy, or the
+    /// built-in neural BERT embedder — selected by `Config.embedding.mode`.
+    /// [`xerj_ai::Embedder::is_active`] is false only for the lexical
+    /// fallback; an active backend embeds arbitrary query text, while the
+    /// lexical fallback embeds only `semantic_text` fields (embedded the
+    /// same way at ingest). Reused across queries (proxy semaphore / neural
+    /// model are shared behind the `Arc`).
+    embedder: Arc<xerj_ai::Embedder>,
 
     // ── Per-index metrics ─────────────────────────────────────────────────────
     /// Total search queries executed.
@@ -836,7 +839,7 @@ impl Index {
             )),
             merge_in_progress: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             merge_config: config.merge.clone(),
-            embedding_proxy: Arc::new(make_embedding_proxy(&config.embedding)),
+            embedder: Arc::new(make_embedder(&config.embedding)),
             dv_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_fields: Arc::new(dashmap::DashMap::new()),
@@ -1037,7 +1040,7 @@ impl Index {
             )),
             merge_in_progress: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             merge_config: config.merge.clone(),
-            embedding_proxy: Arc::new(make_embedding_proxy(&config.embedding)),
+            embedder: Arc::new(make_embedder(&config.embedding)),
             dv_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_fields: Arc::new(dashmap::DashMap::new()),
@@ -3854,16 +3857,18 @@ impl Index {
         };
 
         // Embed the query text with the effective embedder:
-        //   * EmbeddingProxy when configured (high-quality, same as ingest),
-        //   * else the built-in deterministic embedder — but ONLY for
+        //   * An ACTIVE backend (neural BERT or external proxy) embeds the
+        //     query text directly — the same backend used at ingest.
+        //   * Otherwise the built-in lexical embedder — but ONLY for
         //     `semantic_text` fields, which were embedded that same way at
         //     ingest. A `semantic` query against a plain dense_vector field
-        //     with no proxy configured still returns the original 400 (there
+        //     with no active backend still returns the original 400 (there
         //     is no comparable stored vector to match against).
-        let query_vec = if let Some(proxy) = &*self.embedding_proxy {
-            // `embed_batch` takes Vec<String>; we only have one text but the
-            // proxy's batching keeps the wire format stable for callers.
-            let mut vectors = proxy
+        let query_vec = if self.embedder.is_active() {
+            // `embed_batch` takes Vec<String>; we only have one text but
+            // batching keeps the wire format stable for callers.
+            let mut vectors = self
+                .embedder
                 .embed_batch(vec![text.to_string()])
                 .await
                 .map_err(|e| {
@@ -3875,7 +3880,7 @@ impl Index {
                 Some(v) if !v.is_empty() => v,
                 _ => {
                     return Err(EngineError::Common(xerj_common::XerjError::invalid_query(
-                        "embedding proxy returned no vector for semantic query",
+                        "embedder returned no vector for semantic query",
                     )));
                 }
             }
@@ -3884,8 +3889,9 @@ impl Index {
         } else {
             return Err(EngineError::Common(xerj_common::XerjError::invalid_query(
                 "semantic query requires either a `semantic_text` field (auto-embedded \
-                     with the built-in embedder) or `embedding.default_endpoint` configured \
-                     to an OpenAI-compatible /v1/embeddings endpoint.",
+                     with the built-in lexical embedder) or an active embedding backend \
+                     (`embedding.mode = \"neural\"`, or `\"proxy\"` with \
+                     `embedding.default_endpoint` set to an OpenAI-compatible endpoint).",
             )));
         };
 
@@ -3944,20 +3950,23 @@ impl Index {
             // Chunk once and embed EACH overlapping chunk. `chunk_vecs` is one
             // embedding per passage (>= 1). Short text (<= chunk_size) yields a
             // single chunk == the exact pre-chunking behavior.
-            let chunk_vecs: Vec<Vec<f32>> = if let Some(proxy) = &*self.embedding_proxy {
+            let chunk_vecs: Vec<Vec<f32>> = if self.embedder.is_active() {
+                // Active backend (neural or proxy): chunk, then embed each
+                // passage. The same backend + chunking is used at query time.
                 let chunks = semantic_chunker().chunk(&text, None);
                 let chunk_texts: Vec<String> = if chunks.len() <= 1 {
                     vec![text.clone()]
                 } else {
                     chunks.iter().map(|c| c.text.clone()).collect()
                 };
-                let vs = proxy.embed_batch(chunk_texts).await.map_err(|e| {
+                let vs = self.embedder.embed_batch(chunk_texts).await.map_err(|e| {
                     EngineError::Common(xerj_common::XerjError::invalid_query(format!(
                         "semantic_text embed failed for field [{field}]: {e}"
                     )))
                 })?;
                 vs.into_iter().filter(|v| !v.is_empty()).collect()
             } else {
+                // Lexical fallback: deterministic per-chunk feature-hash.
                 local_chunk_vectors(&text, dims)
             };
             // Pooled vector for `target`: single chunk is stored as-is (no
@@ -13193,31 +13202,82 @@ fn build_highlight_fragments(
     fragments
 }
 
-/// Build an `EmbeddingProxy` from `Config.embedding`. Returns `None`
-/// when no endpoint is configured — semantic queries then return a
-/// helpful 400 ("configure embedding.default_endpoint") instead of
-/// a runtime crash.
-fn make_embedding_proxy(
-    cfg: &xerj_common::config::EmbeddingConfig,
-) -> Option<xerj_ai::embed::EmbeddingProxy> {
-    if cfg.default_endpoint.is_empty() {
-        return None;
+/// Build the effective [`xerj_ai::Embedder`] from `Config.embedding`.
+///
+/// Backend selection follows `embedding.mode`:
+///   * `"proxy"` — external OpenAI-compatible endpoint (requires
+///     `default_endpoint`).
+///   * `"neural"` — the built-in BERT embedder (requires the `neural`
+///     cargo feature; falls back to lexical with a warning otherwise).
+///   * `"lexical"` — the built-in feature-hash embedder.
+///   * `"auto"` (default / unknown) — proxy when `default_endpoint` is set,
+///     else lexical. Preserves the historical behavior exactly.
+///
+/// Any misconfiguration degrades to the lexical fallback (never a crash);
+/// a `semantic` query with no active backend against a plain vector field
+/// still returns a helpful 400.
+fn make_embedder(cfg: &xerj_common::config::EmbeddingConfig) -> xerj_ai::Embedder {
+    let mode = cfg.mode.trim().to_ascii_lowercase();
+    let want_proxy = mode == "proxy" || (mode != "neural" && mode != "lexical" && !cfg.default_endpoint.is_empty());
+
+    if mode == "neural" {
+        return make_neural_embedder(cfg);
     }
-    let proxy_cfg = xerj_ai::embed::EmbeddingProxyConfig {
-        endpoint: cfg.default_endpoint.clone(),
-        api_key: std::env::var("XERJ_EMBEDDING_API_KEY").ok(),
-        model: cfg.default_model.clone(),
-        timeout_secs: cfg.timeout_ms / 1000,
-        max_concurrent: 4,
-        max_retries: 3,
-    };
-    match xerj_ai::embed::EmbeddingProxy::new(proxy_cfg) {
-        Ok(p) => Some(p),
-        Err(e) => {
-            warn!(error = %e, "embedding proxy init failed — semantic queries will 400");
-            None
+
+    if want_proxy {
+        if cfg.default_endpoint.is_empty() {
+            warn!("embedding.mode=proxy but embedding.default_endpoint is empty — falling back to lexical");
+            return xerj_ai::Embedder::lexical();
         }
+        let proxy_cfg = xerj_ai::embed::EmbeddingProxyConfig {
+            endpoint: cfg.default_endpoint.clone(),
+            api_key: std::env::var("XERJ_EMBEDDING_API_KEY").ok(),
+            model: cfg.default_model.clone(),
+            timeout_secs: cfg.timeout_ms / 1000,
+            max_concurrent: 4,
+            max_retries: 3,
+        };
+        return match xerj_ai::embed::EmbeddingProxy::new(proxy_cfg) {
+            Ok(p) => {
+                info!(endpoint = %cfg.default_endpoint, "embedding backend: external proxy");
+                xerj_ai::Embedder::proxy(p)
+            }
+            Err(e) => {
+                warn!(error = %e, "embedding proxy init failed — falling back to lexical");
+                xerj_ai::Embedder::lexical()
+            }
+        };
     }
+
+    xerj_ai::Embedder::lexical()
+}
+
+/// Construct the built-in neural embedder when compiled in; otherwise warn
+/// and fall back to lexical so a `mode=neural` config never bricks startup.
+#[cfg(feature = "neural")]
+fn make_neural_embedder(cfg: &xerj_common::config::EmbeddingConfig) -> xerj_ai::Embedder {
+    let model_id = if cfg.neural_model.trim().is_empty() {
+        xerj_ai::neural::DEFAULT_MODEL_ID.to_string()
+    } else {
+        cfg.neural_model.clone()
+    };
+    let neural_cfg = xerj_ai::neural::NeuralConfig {
+        model_id,
+        cache_dir: (!cfg.model_cache_dir.is_empty()).then(|| cfg.model_cache_dir.clone().into()),
+        local_dir: (!cfg.local_model_dir.is_empty()).then(|| cfg.local_model_dir.clone().into()),
+    };
+    info!(model = %neural_cfg.model_id, "embedding backend: built-in neural BERT (loads on first use)");
+    xerj_ai::Embedder::neural(neural_cfg)
+}
+
+#[cfg(not(feature = "neural"))]
+fn make_neural_embedder(_cfg: &xerj_common::config::EmbeddingConfig) -> xerj_ai::Embedder {
+    warn!(
+        "embedding.mode=neural requested but this binary was built without the `neural` \
+         cargo feature — falling back to the built-in lexical embedder. Rebuild with \
+         `--features neural` (xerj-server) to enable in-process BERT embeddings."
+    );
+    xerj_ai::Embedder::lexical()
 }
 
 // ── HNSW persistence helpers (module-level, called from sync `Index::open`)
