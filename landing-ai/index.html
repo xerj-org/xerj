@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XERJ.AI — Activate your data lake. Search everything where it lives.</title>
+<meta name="description" content="Your data lake stores everything and answers nothing. XERJ.AI is the unified activation layer that makes lakes, warehouses, and enterprise apps searchable in place — no cloud migration, no per-GB storage bill. Data stays where it lives. Governed, secured, AI-ready.">
+<meta property="og:title" content="XERJ.AI — the data activation layer">
+<meta property="og:description" content="Lakes, warehouses, and SaaS silos, activated in place: one unified search layer for your enterprise and your AI. Data never leaves. Nobody charges you to store your own data.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   XERJ.AI — enterprise site. Same object as xerj.org:
+   typography-first, 1px lines only, no icons, no shadows,
+   no filled shapes. Night palette is primary.
+   ============================================================ */
+:root{
+  --z-bg:#0b0b0d; --z-ink:#f4f2ec; --z-mute:#8a8680;
+  --z-faint:#2b2a28; --z-line:#3a3836; --z-accent:#ffc400;
+  --font-display:'Big Shoulders Display','Inter',system-ui,sans-serif;
+  --font-prose:'Inter',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono','IBM Plex Mono',monospace;
+  --track-ui:.14em; --page-x:64px; --max-w:1440px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--z-bg);color:var(--z-ink);
+  font-family:var(--font-prose);font-size:16px;line-height:1.6;}
+a{color:inherit;text-decoration:none;border-bottom:1px solid var(--z-line)}
+a:hover{border-bottom-color:var(--z-accent);color:var(--z-accent)}
+.wrap{max-width:var(--max-w);margin:0 auto;padding:0 var(--page-x)}
+@media(max-width:900px){:root{--page-x:20px}}
+.accent{color:var(--z-accent)}
+.mute{color:var(--z-mute)}
+.mono{font-family:var(--font-mono)}
+code{font-family:var(--font-mono);font-size:.9em;color:var(--z-accent)}
+
+/* nav */
+nav{display:flex;align-items:baseline;gap:24px;padding:28px var(--page-x);
+  border-bottom:1px solid var(--z-line);font-family:var(--font-mono);
+  font-size:12px;letter-spacing:var(--track-ui);text-transform:uppercase;
+  max-width:var(--max-w);margin:0 auto;flex-wrap:wrap}
+nav .brand{font-family:var(--font-display);font-weight:900;font-size:22px;
+  letter-spacing:.04em}
+nav .spacer{flex:1}
+nav a{border-bottom:none;color:var(--z-mute)}
+nav a:hover{color:var(--z-accent)}
+nav a.cta{color:var(--z-accent);border:1px solid var(--z-accent);
+  padding:8px 16px}
+
+/* hero */
+.hero-sec{padding:96px 0 48px;border-bottom:1px solid var(--z-line)}
+.kicker{font-family:var(--font-mono);font-size:12px;letter-spacing:var(--track-ui);
+  text-transform:uppercase;color:var(--z-mute);margin-bottom:24px}
+.kicker .accent{margin-right:8px}
+h1.hero{font-family:var(--font-display);font-weight:900;line-height:.92;
+  font-size:clamp(56px,9vw,128px);margin:0 0 32px;letter-spacing:.005em;
+  text-transform:uppercase}
+.lead{font-size:20px;line-height:1.65;max-width:820px;color:var(--z-ink)}
+.lead strong{color:var(--z-accent);font-weight:600}
+.hero-ctas{margin-top:40px;display:flex;gap:16px;flex-wrap:wrap;
+  font-family:var(--font-mono);font-size:13px;letter-spacing:var(--track-ui);
+  text-transform:uppercase}
+.hero-ctas a{border:1px solid var(--z-line);padding:14px 28px}
+.hero-ctas a.primary{border-color:var(--z-accent);color:var(--z-accent)}
+.hero-ctas a:hover{border-color:var(--z-accent)}
+
+/* schema */
+.schema{padding:64px 0;border-bottom:1px solid var(--z-line)}
+.schema svg{width:100%;height:auto;display:block}
+.schema .caption{font-family:var(--font-mono);font-size:12px;
+  letter-spacing:var(--track-ui);text-transform:uppercase;color:var(--z-mute);
+  margin-top:20px;text-align:center}
+
+/* sections */
+section.block{padding:96px 0;border-bottom:1px solid var(--z-line)}
+h2.scene{font-family:var(--font-display);font-weight:800;
+  font-size:clamp(36px,5vw,64px);line-height:1;margin:16px 0 32px;
+  text-transform:uppercase;letter-spacing:.01em}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:1px;background:var(--z-line);border:1px solid var(--z-line);margin-top:48px}
+.cols .cell{background:var(--z-bg);padding:32px}
+.cell h3{font-family:var(--font-mono);font-size:13px;font-weight:700;
+  letter-spacing:var(--track-ui);text-transform:uppercase;
+  color:var(--z-accent);margin:0 0 16px}
+.cell p{margin:0;color:var(--z-mute);font-size:15px}
+.cell p b{color:var(--z-ink);font-weight:600}
+.tag{font-family:var(--font-mono);font-size:10px;letter-spacing:var(--track-ui);
+  text-transform:uppercase;border:1px solid var(--z-line);padding:2px 8px;
+  color:var(--z-mute);margin-left:8px;white-space:nowrap}
+.tag.ship{border-color:var(--z-accent);color:var(--z-accent)}
+.bigquote{font-family:var(--font-display);font-weight:700;
+  font-size:clamp(24px,3.4vw,44px);line-height:1.15;max-width:1000px;
+  text-transform:uppercase;margin:48px 0 0}
+.bigquote .accent{color:var(--z-accent)}
+p.body{max-width:760px;color:var(--z-mute);font-size:17px}
+p.body b{color:var(--z-ink);font-weight:600}
+
+/* steps */
+.steps{margin-top:48px;border-top:1px solid var(--z-line)}
+.step{display:grid;grid-template-columns:120px 260px 1fr;gap:32px;
+  padding:40px 0;border-bottom:1px solid var(--z-line);align-items:baseline}
+@media(max-width:900px){.step{grid-template-columns:1fr}}
+.step .num{font-family:var(--font-display);font-weight:900;font-size:56px;
+  color:var(--z-faint);line-height:1}
+.step h3{font-family:var(--font-display);font-weight:800;font-size:28px;
+  margin:0;text-transform:uppercase}
+.step p{margin:0;color:var(--z-mute);font-size:15px;max-width:640px}
+.step p b{color:var(--z-ink)}
+
+/* proof strip */
+.proof{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:1px;background:var(--z-line);border:1px solid var(--z-line);margin-top:48px}
+.proof .p{background:var(--z-bg);padding:28px 32px}
+.proof .n{font-family:var(--font-display);font-weight:900;font-size:40px;
+  color:var(--z-accent);line-height:1}
+.proof .l{font-family:var(--font-mono);font-size:11px;
+  letter-spacing:var(--track-ui);text-transform:uppercase;color:var(--z-mute);
+  margin-top:8px}
+
+/* cta */
+.cta-sec{padding:120px 0;text-align:left}
+.cta-sec .hero-ctas{margin-top:40px}
+footer{padding:48px var(--page-x);border-top:1px solid var(--z-line);
+  font-family:var(--font-mono);font-size:12px;letter-spacing:var(--track-ui);
+  text-transform:uppercase;color:var(--z-mute);max-width:var(--max-w);
+  margin:0 auto;display:flex;gap:24px;flex-wrap:wrap}
+footer .spacer{flex:1}
+
+/* schema svg text */
+.schema text{font-family:'JetBrains Mono',monospace}
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="brand"><span class="accent">XERJ</span>.AI</span>
+  <span class="mute">·</span>
+  <span class="mute">THE DATA ACTIVATION LAYER</span>
+  <span class="spacer"></span>
+  <a href="#problem">Problem</a>
+  <a href="#how">How it works</a>
+  <a href="#governance">Governance</a>
+  <a href="#opencore">Open core</a>
+  <a href="#access" class="cta">Early access</a>
+</nav>
+
+<div class="wrap">
+
+<!-- ───────────────────────── HERO ───────────────────────── -->
+<div class="hero-sec">
+  <div class="kicker"><span class="accent">XERJ.AI</span>· FOR THE ENTERPRISE · SEARCH-ACTIVATE, DON'T MIGRATE</div>
+  <h1 class="hero">YOUR DATA LAKE<br>IS <span class="accent">ASLEEP.</span></h1>
+  <p class="lead">
+    You paid to land every byte — into the lake, the warehouse, and a dozen
+    SaaS silos. And none of it can answer a question. Not for your analysts,
+    not for your copilots, not for the AI agents you're deploying this year.
+    <strong>XERJ.AI activates enterprise data where it lives</strong> — one
+    unified search layer inside your data pipeline. No migration to a search
+    cloud. No copy of your data in someone else's account. And nobody —
+    including us — charges you to store your own data.
+  </p>
+  <div class="hero-ctas">
+    <a href="#access" class="primary">Request early access →</a>
+    <a href="#how">See how it works</a>
+  </div>
+</div>
+
+<!-- ───────────────────────── SCHEMA ───────────────────────── -->
+<div class="schema" id="schema">
+<svg viewBox="0 0 1440 620" role="img" aria-label="XERJ.AI architecture: enterprise data sources on the left stay where they are; the XERJ.AI unified activation layer in the middle indexes them in place; AI agents, copilots, applications and analysts query through one API on the right.">
+  <!-- column headers -->
+  <text x="240" y="36" text-anchor="middle" fill="#8a8680" font-size="13" letter-spacing="2">WHERE YOUR DATA LIVES</text>
+  <text x="720" y="36" text-anchor="middle" fill="#ffc400" font-size="13" letter-spacing="2">XERJ.AI — UNIFIED ACTIVATION LAYER</text>
+  <text x="1200" y="36" text-anchor="middle" fill="#8a8680" font-size="13" letter-spacing="2">WHO GETS ANSWERS</text>
+
+  <!-- ── LEFT: sources ── -->
+  <g stroke="#3a3836" fill="none" stroke-width="1">
+    <rect x="80" y="70"  width="320" height="96"/>
+    <rect x="80" y="190" width="320" height="96"/>
+    <rect x="80" y="310" width="320" height="96"/>
+    <rect x="80" y="430" width="320" height="96"/>
+  </g>
+  <text x="100" y="100" fill="#f4f2ec" font-size="15" font-weight="700">DATA LAKE</text>
+  <text x="100" y="124" fill="#8a8680" font-size="12">S3 · HDFS · Parquet · JSONL · logs</text>
+  <text x="100" y="144" fill="#8a8680" font-size="12">object storage you already own</text>
+
+  <text x="100" y="220" fill="#f4f2ec" font-size="15" font-weight="700">WAREHOUSE</text>
+  <text x="100" y="244" fill="#8a8680" font-size="12">Snowflake · BigQuery · Redshift</text>
+  <text x="100" y="264" fill="#8a8680" font-size="12">exports &amp; unload paths</text>
+
+  <text x="100" y="340" fill="#f4f2ec" font-size="15" font-weight="700">ENTERPRISE APPS</text>
+  <text x="100" y="364" fill="#8a8680" font-size="12">Salesforce · Workday · ServiceNow</text>
+  <text x="100" y="384" fill="#8a8680" font-size="12">SharePoint · Jira — via connectors</text>
+
+  <text x="100" y="460" fill="#f4f2ec" font-size="15" font-weight="700">FILES &amp; SYSTEMS</text>
+  <text x="100" y="484" fill="#8a8680" font-size="12">PDF · DOCX · SQLite · SQL dumps</text>
+  <text x="100" y="504" fill="#8a8680" font-size="12">CSV · XML · YAML · app logs</text>
+
+  <!-- ── CENTER: XERJ.AI layer ── -->
+  <rect x="560" y="70" width="320" height="456" fill="none" stroke="#ffc400" stroke-width="1.5"/>
+  <text x="720" y="112" text-anchor="middle" fill="#ffc400" font-size="22" font-weight="800" letter-spacing="3">XERJ.AI</text>
+  <line x1="590" y1="132" x2="850" y2="132" stroke="#3a3836" stroke-width="1"/>
+
+  <text x="590" y="168" fill="#f4f2ec" font-size="13" font-weight="700">1 · DISCOVER</text>
+  <text x="590" y="188" fill="#8a8680" font-size="12">zero-config: formats, types, joins</text>
+  <text x="590" y="206" fill="#8a8680" font-size="12">inferred — no mappings, no pipelines</text>
+
+  <text x="590" y="244" fill="#f4f2ec" font-size="13" font-weight="700">2 · INDEX IN PLACE</text>
+  <text x="590" y="264" fill="#8a8680" font-size="12">index lives beside the data,</text>
+  <text x="590" y="282" fill="#8a8680" font-size="12">in your VPC / on-prem / air-gapped</text>
+
+  <text x="590" y="320" fill="#f4f2ec" font-size="13" font-weight="700">3 · GOVERN</text>
+  <text x="590" y="340" fill="#8a8680" font-size="12">residency by construction · auth</text>
+  <text x="590" y="358" fill="#8a8680" font-size="12">namespaces · audit &amp; RBAC program</text>
+
+  <line x1="590" y1="384" x2="850" y2="384" stroke="#3a3836" stroke-width="1"/>
+  <text x="590" y="416" fill="#f4f2ec" font-size="13" font-weight="700">ONE API</text>
+  <text x="590" y="438" fill="#8a8680" font-size="12">keyword · semantic · vector · hybrid</text>
+  <text x="590" y="456" fill="#8a8680" font-size="12">agent memory · data map</text>
+  <text x="590" y="482" fill="#ffc400" font-size="12">Elasticsearch wire-compatible —</text>
+  <text x="590" y="500" fill="#ffc400" font-size="12">your existing tooling just works</text>
+
+  <!-- ── RIGHT: consumers ── -->
+  <g stroke="#3a3836" fill="none" stroke-width="1">
+    <rect x="1040" y="70"  width="320" height="96"/>
+    <rect x="1040" y="190" width="320" height="96"/>
+    <rect x="1040" y="310" width="320" height="96"/>
+    <rect x="1040" y="430" width="320" height="96"/>
+  </g>
+  <text x="1060" y="100" fill="#f4f2ec" font-size="15" font-weight="700">AI AGENTS &amp; COPILOTS</text>
+  <text x="1060" y="124" fill="#8a8680" font-size="12">orient via the data map, then query —</text>
+  <text x="1060" y="144" fill="#8a8680" font-size="12">machine-readable docs built in</text>
+
+  <text x="1060" y="220" fill="#f4f2ec" font-size="15" font-weight="700">LLM / RAG APPLICATIONS</text>
+  <text x="1060" y="244" fill="#8a8680" font-size="12">hybrid retrieval + agent memory</text>
+  <text x="1060" y="264" fill="#8a8680" font-size="12">without a separate vector DB</text>
+
+  <text x="1060" y="340" fill="#f4f2ec" font-size="15" font-weight="700">ANALYSTS &amp; TEAMS</text>
+  <text x="1060" y="364" fill="#8a8680" font-size="12">ask across every silo at once —</text>
+  <text x="1060" y="384" fill="#8a8680" font-size="12">entities, incidents, aggregations</text>
+
+  <text x="1060" y="460" fill="#f4f2ec" font-size="15" font-weight="700">EXISTING ES TOOLING</text>
+  <text x="1060" y="484" fill="#8a8680" font-size="12">dashboards, clients, muscle memory —</text>
+  <text x="1060" y="504" fill="#8a8680" font-size="12">point them at XERJ.AI unchanged</text>
+
+  <!-- ── arrows: sources → layer (dashed = indexed in place, data doesn't move) ── -->
+  <g stroke="#8a8680" stroke-width="1" stroke-dasharray="5 5" fill="none">
+    <line x1="400" y1="118" x2="560" y2="150"/>
+    <line x1="400" y1="238" x2="560" y2="250"/>
+    <line x1="400" y1="358" x2="560" y2="330"/>
+    <line x1="400" y1="478" x2="560" y2="430"/>
+  </g>
+  <!-- arrowheads -->
+  <g fill="none" stroke="#8a8680" stroke-width="1">
+    <path d="M560 150 l-10 -7 M560 150 l-12 2"/>
+    <path d="M560 250 l-11 -5 M560 250 l-11 5"/>
+    <path d="M560 330 l-12 -2 M560 330 l-10 7"/>
+    <path d="M560 430 l-12 -1 M560 430 l-9 8"/>
+  </g>
+  <text x="470" y="88" fill="#8a8680" font-size="11" transform="rotate(0)">indexed in place</text>
+  <text x="452" y="560" fill="#8a8680" font-size="12">- - -  dashed: the data itself never moves</text>
+
+  <!-- ── arrows: layer → consumers (solid = answers) ── -->
+  <g stroke="#ffc400" stroke-width="1" fill="none">
+    <line x1="880" y1="150" x2="1040" y2="118"/>
+    <line x1="880" y1="250" x2="1040" y2="238"/>
+    <line x1="880" y1="330" x2="1040" y2="358"/>
+    <line x1="880" y1="430" x2="1040" y2="478"/>
+  </g>
+  <g fill="none" stroke="#ffc400" stroke-width="1">
+    <path d="M1040 118 l-12 -2 M1040 118 l-9 8"/>
+    <path d="M1040 238 l-11 -5 M1040 238 l-11 5"/>
+    <path d="M1040 358 l-10 -7 M1040 358 l-12 2"/>
+    <path d="M1040 478 l-9 -8 M1040 478 l-12 1"/>
+  </g>
+  <text x="905" y="88" fill="#ffc400" font-size="11">answers, one API</text>
+  <text x="905" y="560" fill="#ffc400" font-size="12">——  solid: answers flow out; bytes at rest stay yours</text>
+</svg>
+<div class="caption">the activation layer sits inside your pipeline — beside the data, never between you and it</div>
+</div>
+
+<!-- ───────────────────────── 01 PROBLEM ───────────────────────── -->
+<section class="block" id="problem">
+  <div class="kicker"><span class="accent">01</span>· THE PROBLEM · DARK DATA</div>
+  <h2 class="scene">THE MODERN DATA STACK STORES EVERYTHING<br>AND ANSWERS <span class="accent">NOTHING.</span></h2>
+  <p class="body">
+    The lake was supposed to democratize data. What it actually did was
+    democratize <b>storage</b>. Petabytes land every day — and become
+    write-only. The warehouse answers the SQL you planned for last quarter;
+    nothing answers the question your incident channel is asking right now.
+    And the moment someone says <b>"can we search it?"</b>, the answer is a
+    six-month project: ETL pipelines, a managed search cluster in someone
+    else's cloud, per-GB pricing on a second copy of data you already own.
+  </p>
+  <div class="cols">
+    <div class="cell">
+      <h3>Dead on arrival</h3>
+      <p>Data teams estimate the majority of enterprise data is never read
+      after it lands. It's not a lake — it's a <b>landfill with a catalog</b>.</p>
+    </div>
+    <div class="cell">
+      <h3>Invisible to your AI</h3>
+      <p>Your copilots and agents can see the internet, but not your own
+      Parquet, your Salesforce history, or last night's logs. <b>Enterprise AI
+      is blind exactly where it should be smartest.</b></p>
+    </div>
+    <div class="cell">
+      <h3>The migration tax</h3>
+      <p>Cloud search services charge you to <b>move</b> your data, then to
+      <b>store</b> it again, then per node to <b>query</b> it. You pay three
+      times to ask your own data a question.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── 02 THE SHIFT ───────────────────────── -->
+<section class="block" id="shift">
+  <div class="kicker"><span class="accent">02</span>· THE SHIFT · ACTIVATE IN PLACE</div>
+  <h2 class="scene">SEARCH-ACTIVATE.<br><span class="accent">DON'T MIGRATE.</span></h2>
+  <p class="body">
+    Snowflake separated compute from storage and rebuilt the warehouse around
+    that idea. <b>XERJ.AI separates search from storage</b> and rebuilds
+    enterprise search around it: the activation layer deploys inside your
+    pipeline — your VPC, your on-prem racks, even air-gapped — and indexes
+    data <b>where it already lives</b>. The index sits beside the data. The
+    data itself never moves.
+  </p>
+  <div class="bigquote">
+    THINK OF IT AS A <span class="accent">LOCAL SNOWFLAKE FOR SEARCH</span> —
+    EXCEPT NOBODY CHARGES YOU TO STORE YOUR OWN DATA.
+  </div>
+  <div class="cols">
+    <div class="cell">
+      <h3>Data stays where it is</h3>
+      <p>No ETL-to-search pipelines. No second copy in a vendor cloud. Your
+      storage bill stays <b>your</b> storage bill — S3, HDFS, disk, wherever
+      the bytes already rest.</p>
+    </div>
+    <div class="cell">
+      <h3>Part of the pipeline, not a detour</h3>
+      <p>The activation layer is a stage in your data pipeline, not a
+      destination you export to. Land data as you do today; it becomes
+      <b>searchable as a side effect</b>.</p>
+    </div>
+    <div class="cell">
+      <h3>Priced for activation, not bytes</h3>
+      <p>You're charged for what XERJ.AI <b>does</b> — activation and
+      answers — never for bytes at rest. Storing your own data is not a
+      billable event.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── 03 HOW IT WORKS ───────────────────────── -->
+<section class="block" id="how">
+  <div class="kicker"><span class="accent">03</span>· HOW IT WORKS · THREE MOVES</div>
+  <h2 class="scene">CONNECT. ACTIVATE. <span class="accent">ASK.</span></h2>
+  <div class="steps">
+    <div class="step">
+      <div class="num">01</div>
+      <h3>Connect <span class="tag ship">shipped</span><span class="tag">connectors: early access</span></h3>
+      <p>Point XERJ.AI at what you have: lake buckets, warehouse exports,
+      file shares, databases, log streams — <b>shipping today</b>. Managed
+      connectors for Salesforce, Workday, ServiceNow, and SharePoint are the
+      first wave of the early-access program.</p>
+    </div>
+    <div class="step">
+      <div class="num">02</div>
+      <h3>Activate <span class="tag ship">shipped</span></h3>
+      <p>Zero-config discovery does what your ingestion team used to:
+      content-sniffs every format (never trusts extensions), infers types
+      and date encodings, detects cross-dataset join keys, and writes a
+      <b>self-describing data map</b>. In an adversarial evaluation on a
+      1,995-file mixed corpus it passed <b>80 of 81</b> ground-truth checks —
+      with zero per-corpus configuration.</p>
+    </div>
+    <div class="step">
+      <div class="num">03</div>
+      <h3>Ask <span class="tag ship">shipped</span></h3>
+      <p>One API for keyword, semantic, vector, and hybrid search plus
+      built-in agent memory — <b>Elasticsearch wire-compatible</b>, so the
+      dashboards, clients, and muscle memory your teams already have work
+      unchanged. Your AI agents orient themselves via the data map and
+      machine-readable docs; no human briefing required.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── 04 ENTERPRISE AI ───────────────────────── -->
+<section class="block" id="ai">
+  <div class="kicker"><span class="accent">04</span>· BUILT FOR ENTERPRISE AI</div>
+  <h2 class="scene">YOUR AI IS ONLY AS SMART<br>AS THE DATA IT CAN <span class="accent">SEE.</span></h2>
+  <p class="body">
+    Every enterprise AI initiative hits the same wall: the model is capable,
+    but the data is dark. XERJ.AI was designed with the AI agent as the
+    <b>primary user</b> — not an afterthought. Agents get a data map that
+    answers "what is in here?", retrieval that works without an external
+    embedding service, durable memory across sessions, and documentation
+    written to be read by machines. Activation is what turns "we have a
+    copilot" into <b>"our copilot knows our business."</b>
+  </p>
+  <div class="proof">
+    <div class="p"><div class="n">1</div><div class="l">binary replaces search + vector DB + embedding svc + memory store</div></div>
+    <div class="p"><div class="n">80/81</div><div class="l">adversarial ground-truth checks, zero-config activation</div></div>
+    <div class="p"><div class="n">1,360</div><div class="l">of 1,363 Elasticsearch conformance cases pass</div></div>
+    <div class="p"><div class="n">11/11</div><div class="l">crash cells: acked writes &amp; deletes survive kill -9</div></div>
+  </div>
+</section>
+
+<!-- ───────────────────────── 05 GOVERNANCE ───────────────────────── -->
+<section class="block" id="governance">
+  <div class="kicker"><span class="accent">05</span>· GOVERNANCE &amp; SECURITY</div>
+  <h2 class="scene">RESIDENCY BY <span class="accent">CONSTRUCTION.</span></h2>
+  <p class="body">
+    Most search architectures make governance hard because the data moves.
+    XERJ.AI makes it tractable because it doesn't: <b>the index lives beside
+    the data, inside your boundary</b>. What crosses the wire is answers —
+    not your corpus.
+  </p>
+  <div class="cols">
+    <div class="cell">
+      <h3>Your boundary <span class="tag ship">shipped</span></h3>
+      <p>Deploys in your VPC, on-prem, or fully air-gapped. One static
+      binary, no JVM, no phone-home. <b>If your network can't reach us,
+      XERJ.AI still works.</b></p>
+    </div>
+    <div class="cell">
+      <h3>Access control <span class="tag ship">shipped</span></h3>
+      <p>API-key and basic auth, TLS, per-namespace isolation for agent
+      memory, and an insecure-by-explicit-flag-only posture for dev.</p>
+    </div>
+    <div class="cell">
+      <h3>Enterprise program <span class="tag">early access</span></h3>
+      <p>RBAC with field-level controls, SSO/SAML, audit trails, and
+      connector-level governance (respecting source-system permissions for
+      Salesforce &amp; co.) are being built <b>with</b> design partners — not
+      announced after the fact.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── 06 OPEN CORE ───────────────────────── -->
+<section class="block" id="opencore">
+  <div class="kicker"><span class="accent">06</span>· OPEN CORE · NO BLACK BOX</div>
+  <h2 class="scene">THE ENGINE IS OPEN.<br>THE TRUST IS <span class="accent">EARNED.</span></h2>
+  <p class="body">
+    XERJ.AI is built on the open-source <a href="https://xerj.org">XERJ
+    engine</a> (Apache-2.0) — a from-scratch Rust engine, not an
+    Elasticsearch fork. Its benchmarks are published <b>wins and losses
+    both</b>, with root causes; its durability claims are enforced by
+    adversarial crash testing; its docs state what is lexical vs neural,
+    exact vs approximate. You can read every line of the engine your data
+    runs on. <b>That is the level of honesty your procurement and your
+    security team should demand from anyone touching your data.</b>
+  </p>
+</section>
+
+<!-- ───────────────────────── 07 CTA ───────────────────────── -->
+<section class="cta-sec" id="access">
+  <div class="kicker"><span class="accent">07</span>· EARLY ACCESS · DESIGN PARTNERS</div>
+  <h2 class="scene">BRING ONE DEAD BUCKET.<br>LEAVE WITH IT <span class="accent">ANSWERING.</span></h2>
+  <p class="body">
+    The early-access program is deliberately small: teams with a real dark-data
+    problem — a lake nobody can search, an AI initiative starved of enterprise
+    context, a search bill that scales with bytes instead of value. We activate
+    one of your real datasets, in your environment, in the first session.
+    Design partners shape the connector and governance roadmap.
+  </p>
+  <div class="hero-ctas">
+    <a class="primary" href="mailto:hello@xerj.ai?subject=XERJ.AI%20early%20access">Request early access →</a>
+    <a href="https://xerj.org">Explore the open-source engine</a>
+  </div>
+</section>
+
+</div>
+
+<footer>
+  <span><span class="accent">XERJ</span>.AI — THE DATA ACTIVATION LAYER</span>
+  <span class="spacer"></span>
+  <span>BUILT ON THE OPEN-SOURCE XERJ ENGINE · <a href="https://xerj.org">XERJ.ORG</a></span>
+  <span>© 2026 XERJ</span>
+</footer>
+
+</body>
+</html>

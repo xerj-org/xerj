@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 620"  data-label="XERJ.AI architecture: enterprise data sources on the left stay where they are; the XERJ.AI unified activation layer in the middle indexes them in place; AI agents, copilots, applications and analysts query through one API on the right.">
+  <rect width="1440" height="620" fill="#0b0b0d"/>
+  <style>text{font-family:"JetBrains Mono",monospace}</style>
+  <!-- column headers -->
+  <text x="240" y="36" text-anchor="middle" fill="#8a8680" font-size="13" letter-spacing="2">WHERE YOUR DATA LIVES</text>
+  <text x="720" y="36" text-anchor="middle" fill="#ffc400" font-size="13" letter-spacing="2">XERJ.AI — UNIFIED ACTIVATION LAYER</text>
+  <text x="1200" y="36" text-anchor="middle" fill="#8a8680" font-size="13" letter-spacing="2">WHO GETS ANSWERS</text>
+
+  <!-- ── LEFT: sources ── -->
+  <g stroke="#3a3836" fill="none" stroke-width="1">
+    <rect x="80" y="70"  width="320" height="96"/>
+    <rect x="80" y="190" width="320" height="96"/>
+    <rect x="80" y="310" width="320" height="96"/>
+    <rect x="80" y="430" width="320" height="96"/>
+  </g>
+  <text x="100" y="100" fill="#f4f2ec" font-size="15" font-weight="700">DATA LAKE</text>
+  <text x="100" y="124" fill="#8a8680" font-size="12">S3 · HDFS · Parquet · JSONL · logs</text>
+  <text x="100" y="144" fill="#8a8680" font-size="12">object storage you already own</text>
+
+  <text x="100" y="220" fill="#f4f2ec" font-size="15" font-weight="700">WAREHOUSE</text>
+  <text x="100" y="244" fill="#8a8680" font-size="12">Snowflake · BigQuery · Redshift</text>
+  <text x="100" y="264" fill="#8a8680" font-size="12">exports &amp; unload paths</text>
+
+  <text x="100" y="340" fill="#f4f2ec" font-size="15" font-weight="700">ENTERPRISE APPS</text>
+  <text x="100" y="364" fill="#8a8680" font-size="12">Salesforce · Workday · ServiceNow</text>
+  <text x="100" y="384" fill="#8a8680" font-size="12">SharePoint · Jira — via connectors</text>
+
+  <text x="100" y="460" fill="#f4f2ec" font-size="15" font-weight="700">FILES &amp; SYSTEMS</text>
+  <text x="100" y="484" fill="#8a8680" font-size="12">PDF · DOCX · SQLite · SQL dumps</text>
+  <text x="100" y="504" fill="#8a8680" font-size="12">CSV · XML · YAML · app logs</text>
+
+  <!-- ── CENTER: XERJ.AI layer ── -->
+  <rect x="560" y="70" width="320" height="456" fill="none" stroke="#ffc400" stroke-width="1.5"/>
+  <text x="720" y="112" text-anchor="middle" fill="#ffc400" font-size="22" font-weight="800" letter-spacing="3">XERJ.AI</text>
+  <line x1="590" y1="132" x2="850" y2="132" stroke="#3a3836" stroke-width="1"/>
+
+  <text x="590" y="168" fill="#f4f2ec" font-size="13" font-weight="700">1 · DISCOVER</text>
+  <text x="590" y="188" fill="#8a8680" font-size="12">zero-config: formats, types, joins</text>
+  <text x="590" y="206" fill="#8a8680" font-size="12">inferred — no mappings, no pipelines</text>
+
+  <text x="590" y="244" fill="#f4f2ec" font-size="13" font-weight="700">2 · INDEX IN PLACE</text>
+  <text x="590" y="264" fill="#8a8680" font-size="12">index lives beside the data,</text>
+  <text x="590" y="282" fill="#8a8680" font-size="12">in your VPC / on-prem / air-gapped</text>
+
+  <text x="590" y="320" fill="#f4f2ec" font-size="13" font-weight="700">3 · GOVERN</text>
+  <text x="590" y="340" fill="#8a8680" font-size="12">residency by construction · auth</text>
+  <text x="590" y="358" fill="#8a8680" font-size="12">namespaces · audit &amp; RBAC program</text>
+
+  <line x1="590" y1="384" x2="850" y2="384" stroke="#3a3836" stroke-width="1"/>
+  <text x="590" y="416" fill="#f4f2ec" font-size="13" font-weight="700">ONE API</text>
+  <text x="590" y="438" fill="#8a8680" font-size="12">keyword · semantic · vector · hybrid</text>
+  <text x="590" y="456" fill="#8a8680" font-size="12">agent memory · data map</text>
+  <text x="590" y="482" fill="#ffc400" font-size="12">Elasticsearch wire-compatible —</text>
+  <text x="590" y="500" fill="#ffc400" font-size="12">your existing tooling just works</text>
+
+  <!-- ── RIGHT: consumers ── -->
+  <g stroke="#3a3836" fill="none" stroke-width="1">
+    <rect x="1040" y="70"  width="320" height="96"/>
+    <rect x="1040" y="190" width="320" height="96"/>
+    <rect x="1040" y="310" width="320" height="96"/>
+    <rect x="1040" y="430" width="320" height="96"/>
+  </g>
+  <text x="1060" y="100" fill="#f4f2ec" font-size="15" font-weight="700">AI AGENTS &amp; COPILOTS</text>
+  <text x="1060" y="124" fill="#8a8680" font-size="12">orient via the data map, then query —</text>
+  <text x="1060" y="144" fill="#8a8680" font-size="12">machine-readable docs built in</text>
+
+  <text x="1060" y="220" fill="#f4f2ec" font-size="15" font-weight="700">LLM / RAG APPLICATIONS</text>
+  <text x="1060" y="244" fill="#8a8680" font-size="12">hybrid retrieval + agent memory</text>
+  <text x="1060" y="264" fill="#8a8680" font-size="12">without a separate vector DB</text>
+
+  <text x="1060" y="340" fill="#f4f2ec" font-size="15" font-weight="700">ANALYSTS &amp; TEAMS</text>
+  <text x="1060" y="364" fill="#8a8680" font-size="12">ask across every silo at once —</text>
+  <text x="1060" y="384" fill="#8a8680" font-size="12">entities, incidents, aggregations</text>
+
+  <text x="1060" y="460" fill="#f4f2ec" font-size="15" font-weight="700">EXISTING ES TOOLING</text>
+  <text x="1060" y="484" fill="#8a8680" font-size="12">dashboards, clients, muscle memory —</text>
+  <text x="1060" y="504" fill="#8a8680" font-size="12">point them at XERJ.AI unchanged</text>
+
+  <!-- ── arrows: sources → layer (dashed = indexed in place, data doesn't move) ── -->
+  <g stroke="#8a8680" stroke-width="1" stroke-dasharray="5 5" fill="none">
+    <line x1="400" y1="118" x2="560" y2="150"/>
+    <line x1="400" y1="238" x2="560" y2="250"/>
+    <line x1="400" y1="358" x2="560" y2="330"/>
+    <line x1="400" y1="478" x2="560" y2="430"/>
+  </g>
+  <!-- arrowheads -->
+  <g fill="none" stroke="#8a8680" stroke-width="1">
+    <path d="M560 150 l-10 -7 M560 150 l-12 2"/>
+    <path d="M560 250 l-11 -5 M560 250 l-11 5"/>
+    <path d="M560 330 l-12 -2 M560 330 l-10 7"/>
+    <path d="M560 430 l-12 -1 M560 430 l-9 8"/>
+  </g>
+  <text x="470" y="88" fill="#8a8680" font-size="11" transform="rotate(0)">indexed in place</text>
+  <text x="452" y="560" fill="#8a8680" font-size="12">- - -  dashed: the data itself never moves</text>
+
+  <!-- ── arrows: layer → consumers (solid = answers) ── -->
+  <g stroke="#ffc400" stroke-width="1" fill="none">
+    <line x1="880" y1="150" x2="1040" y2="118"/>
+    <line x1="880" y1="250" x2="1040" y2="238"/>
+    <line x1="880" y1="330" x2="1040" y2="358"/>
+    <line x1="880" y1="430" x2="1040" y2="478"/>
+  </g>
+  <g fill="none" stroke="#ffc400" stroke-width="1">
+    <path d="M1040 118 l-12 -2 M1040 118 l-9 8"/>
+    <path d="M1040 238 l-11 -5 M1040 238 l-11 5"/>
+    <path d="M1040 358 l-10 -7 M1040 358 l-12 2"/>
+    <path d="M1040 478 l-9 -8 M1040 478 l-12 1"/>
+  </g>
+  <text x="905" y="88" fill="#ffc400" font-size="11">answers, one API</text>
+  <text x="905" y="560" fill="#ffc400" font-size="12">——  solid: answers flow out; bytes at rest stay yours</text>
+</svg>
