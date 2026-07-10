@@ -4472,6 +4472,49 @@ impl Index {
 
         // Search segments for the stored document.
         let snap = self.store.snapshot();
+
+        // ── Primary-key fast path (B2, 2026-07-10 scorecard) ─────────────
+        // Resolve the id to its stored position via the same per-segment
+        // `_id → position` index the `ids` query uses, then hydrate ONLY
+        // that doc's slice through the `StoredSlices` offset index.  The
+        // legacy loop below decompresses + parses the ENTIRE stored section
+        // per lookup (~470 ms/id at 100 k docs), which made `_mget` ~4
+        // orders of magnitude slower than the ids-query path serving the
+        // same lookup.  Falls through to the full scan when any piece is
+        // unavailable (id index incomplete, slice cache miss, parse error).
+        if let Some(ver) = self.store.version_map.get(id) {
+            let seg_id: std::sync::Arc<str> = std::sync::Arc::clone(&ver.segment_id);
+            drop(ver);
+            if let Some(meta) = snap.segments.iter().find(|m| m.id.as_str() == &*seg_id) {
+                if let (Some(pos_map), Some(slices)) = (
+                    self.id_pos_map_for(&seg_id, meta.doc_count),
+                    self.stored_slices_for(&seg_id, meta.doc_count),
+                ) {
+                    if let Some(&pos) = pos_map.get(id) {
+                        if let Some(&(start, end)) = slices.offsets.get(pos as usize) {
+                            if let Some(slice) =
+                                slices.bytes.get(start as usize..end as usize)
+                            {
+                                // serde_json (not simd_json): same root cause
+                                // as the KNN cache — see ffd49ac.
+                                if let Ok(doc) = serde_json::from_slice::<Value>(slice) {
+                                    if doc.get("_id").and_then(Value::as_str) == Some(id) {
+                                        self.metric_get_exists_count
+                                            .fetch_add(1, Ordering::Relaxed);
+                                        self.metric_get_total_ms.fetch_add(
+                                            get_started.elapsed().as_millis() as u64,
+                                            Ordering::Relaxed,
+                                        );
+                                        return Ok(doc.get("_source").cloned());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         for meta in snap.segments.iter().rev() {
             // Check version map: is this doc in this segment?
             if let Some(ver) = self.store.version_map.get(id) {
@@ -5219,6 +5262,90 @@ impl Index {
             _ => None,
         };
 
+        // Determine text fields once outside the segment loop to avoid
+        // re-acquiring the schema read lock on every segment iteration.
+        //
+        // `exact_fields` mirrors `build_fts_field_configs`: every non-Text
+        // schema field (keyword / numeric / date / bool / ip) is FTS-indexed
+        // with the `keyword` analyzer — the WHOLE value is one case-preserved
+        // token.  The query side (query_node_to_fts) must therefore look
+        // these fields up by whole value, never by standard-analyzer tokens:
+        // a token like "claude" can never match the keyword term
+        // "claude-haiku-4-5", which made multi_match / query_string /
+        // simple_query_string return 0 hits on keyword-only mappings.
+        // `kw_fields` / `num_fields` / `bool_fields` are the schema-typed
+        // field sets the scored-family fast-path gate needs: `exact_fields`
+        // alone can't prove "keyword" (it also holds numerics/dates/bools),
+        // and Text fields must NEVER enter the columnar scorer (they get
+        // Keyword dv columns but ES analyzes them).
+        let (text_fields, exact_fields, kw_fields, num_fields, bool_fields): (
+            Vec<String>,
+            std::collections::HashSet<String>,
+            std::collections::HashSet<String>,
+            std::collections::HashSet<String>,
+            std::collections::HashSet<String>,
+        ) = {
+            let schema_guard = self.schema.read().await;
+            let mut tf: Vec<String> = Vec::new();
+            let mut ef: std::collections::HashSet<String> = std::collections::HashSet::new();
+            let mut kw: std::collections::HashSet<String> = std::collections::HashSet::new();
+            let mut num: std::collections::HashSet<String> = std::collections::HashSet::new();
+            let mut bf: std::collections::HashSet<String> = std::collections::HashSet::new();
+            for f in &schema_guard.schema.fields {
+                if matches!(f.field_type, FieldType::Text) {
+                    tf.push(f.name.clone());
+                } else {
+                    ef.insert(f.name.clone());
+                }
+                match f.field_type {
+                    FieldType::Keyword => {
+                        kw.insert(f.name.clone());
+                    }
+                    FieldType::Long | FieldType::Double => {
+                        num.insert(f.name.clone());
+                    }
+                    FieldType::Boolean => {
+                        bf.insert(f.name.clone());
+                    }
+                    _ => {}
+                }
+            }
+            (tf, ef, kw, num, bf)
+        };
+
+        // ── B3: peeled function_score for the brute path ──────────────────
+        // The single scoring clause of the request when it is a (wrapped)
+        // function_score — the brute scan's per-doc scorer (`score_doc`)
+        // composes it exactly once, and the post-loop then only validates.
+        let peeled_fs: Option<(&QueryNode, f32)> = peel_function_score_boosted(query);
+        // Early deletes probe (own snapshot): decides whether the gated
+        // columnar fs path CAN run below, which in turn decides whether the
+        // brute score-ranked collector must own the hits instead.
+        let fs_deletes_early: bool = peeled_fs.is_some()
+            && (self
+                .store
+                .snapshot()
+                .segments
+                .iter()
+                .any(|m| m.has_tombstones)
+                || self.store.version_map.ghost_events() > 0);
+        // Brute function_score requests (any shape the columnar gate below
+        // won't serve: aggs/min_score/explain/max_boost/weight/filter/
+        // boost≠1/non-match_all inner/score-asc sort/deletes-present) route
+        // hits through a bounded top-k heap keyed on the FINAL score.  The
+        // arrival-order `all_hits` cap used to keep the first ~cap matches
+        // in scan order — on a >cap corpus the returned "top-k" wasn't the
+        // top-k at all (2026-07-10 scorecard, B3).
+        let fs_topk_active: bool = peeled_fs.is_some()
+            && size > 0
+            && !field_sort_active
+            && request.search_after.is_none()
+            && request
+                .sort
+                .iter()
+                .all(|sf| sf.is_score() || sf.is_doc_order())
+            && !(fs_fast_fvf.is_some() && !fs_deletes_early);
+
         let mut sort_topk: Option<SortTopK> = if field_sort_active {
             Some(SortTopK::new(
                 Arc::new(request.sort.clone()),
@@ -5229,9 +5356,130 @@ impl Index {
                 // materialisation cap.
                 after_norm.clone(),
             ))
+        } else if fs_topk_active {
+            // Score-keyed global top-k for the brute function_score path.
+            // An explicit all-`_score` sort (e.g. `[{"_score":"asc"}]`)
+            // keeps its requested order; the default is score-descending.
+            let keys: Vec<xerj_query::sort::SortField> = if request.sort.is_empty() {
+                vec![xerj_query::sort::SortField::score_desc()]
+            } else {
+                request.sort.clone()
+            };
+            Some(SortTopK::new(
+                Arc::new(keys),
+                materialisation_limit,
+                None,
+            ))
         } else {
             None
         };
+
+        // Exact `hits.total` under `min_score`: ES counts only docs whose
+        // FINAL score clears the threshold.  The score-ranked fs scan
+        // visits and scores EVERY match, so the per-doc scorer tallies
+        // passers here and the post-loop overwrites `total_count` with it.
+        let fs_min_tally: Option<f64> = if fs_topk_active {
+            request.min_score
+        } else {
+            None
+        };
+        let fs_min_passed = std::sync::atomic::AtomicU64::new(0);
+        // Population max over every score the brute scorer computes.  Under
+        // a field sort only ~page hits survive the heap, but ES's
+        // `track_scores: true` max_score is the max over ALL matches — the
+        // scan scores every match, so this accumulator sees it (f32 bits:
+        // for non-negative IEEE floats, integer max == float max).
+        let scored_max_bits = std::sync::atomic::AtomicU32::new(0);
+
+        // Whether the query tree can read `_id` from the scored source
+        // (an `ids` clause anywhere).  Stored segment sources don't carry
+        // `_id`, so scoring must inject it exactly like the match check
+        // does — without this, `ids` hits scored 0.0 where ES returns the
+        // constant 1.0 (2026-07-10 scorecard, B1).  Serialized-form probe,
+        // computed ONCE per query (mirrors the memtable DocsForScan arm).
+        let query_may_read_id: bool = serde_json::to_string(query)
+            .map(|s| s.contains("_id") || s.contains("Ids") || s.contains("ids"))
+            .unwrap_or(true);
+
+        // Constant BM25 base score when the scoring surface (the peeled
+        // function_score's inner query, or the whole query) is a single
+        // keyword/bool/numeric leaf — the exact ES score `scored_columnar`
+        // would compute, made available to the brute per-doc scorer for
+        // shapes the columnar executor doesn't serve (field sorts,
+        // track_scores, function_score inners).
+        let leaf_base_const: Option<f32> = {
+            let score_target: &QueryNode = match peeled_fs {
+                Some((fs_node, _)) => match fs_node {
+                    QueryNode::FunctionScore { query: inner, .. } => inner.as_ref(),
+                    _ => query,
+                },
+                None => query,
+            };
+            self.leaf_constant_score(score_target, &kw_fields, &num_fields, &bool_fields)
+        };
+
+        // ── Per-doc brute scorer ──────────────────────────────────────────
+        // THE scoring entry point for every brute scan path (memtable
+        // doc-scan + all three segment scan loops).  Composes a peeled
+        // function_score exactly once with full ES semantics:
+        //   base = inner-query score × outer boost (Lucene propagates the
+        //   query-level boost into the SUBQUERY weight — `_explain` shows
+        //   `*:*^3.0` = 3.0 as the base branch) → per-function
+        //   weight/filter → score_mode → max_boost cap on the function
+        //   score → boost_mode combine(base, fn).  Live-verified on ES
+        //   8.13.4 (`boost:3`, fvf(rank=5)): multiply 15, sum 8, avg 4,
+        //   max 5, min 3, replace 5 (boost inert when base is discarded)
+        //   — NOT `combine(...) × boost`, which is only equivalent for
+        //   boost_mode=multiply.
+        // Callers only score docs that already MATCHED the query, so the
+        // leaf constant applies unconditionally when present.
+        let score_doc = |source: &Value, id: &str| -> f32 {
+            let injected: Option<Value> = if query_may_read_id && source.get("_id").is_none() {
+                source.as_object().map(|obj| {
+                    let mut o = obj.clone();
+                    o.insert("_id".to_string(), Value::String(id.to_string()));
+                    Value::Object(o)
+                })
+            } else {
+                None
+            };
+            let src: &Value = injected.as_ref().unwrap_or(source);
+            let score = if let Some((fs_node, outer_boost)) = peeled_fs {
+                if let QueryNode::FunctionScore {
+                    query: inner,
+                    functions,
+                    score_mode,
+                    boost_mode,
+                    max_boost,
+                } = fs_node
+                {
+                    let base = leaf_base_const
+                        .unwrap_or_else(|| score_query_against_doc(inner, src))
+                        * outer_boost;
+                    let mut fn_score =
+                        apply_function_score(id, src, functions, *score_mode, base);
+                    if let Some(cap) = max_boost {
+                        fn_score = fn_score.min(*cap);
+                    }
+                    combine_scores(base, fn_score, *boost_mode)
+                } else {
+                    score_query_against_doc(query, src)
+                }
+            } else {
+                leaf_base_const.unwrap_or_else(|| score_query_against_doc(query, src))
+            };
+            if let Some(min) = fs_min_tally {
+                if score.is_finite() && f64::from(score) >= min {
+                    fs_min_passed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                }
+            }
+            if score > 0.0 && score.is_finite() {
+                scored_max_bits
+                    .fetch_max(score.to_bits(), std::sync::atomic::Ordering::Relaxed);
+            }
+            score
+        };
+        let score_doc: &(dyn Fn(&Value, &str) -> f32 + Send + Sync) = &score_doc;
 
         // Helper: admit a hit into the bounded `all_hits` collector.
         //
@@ -5725,7 +5973,7 @@ impl Index {
                                     continue;
                                 }
                             }
-                            let score = score_query_against_doc(query, &source);
+                            let score = score_doc(&source, &doc_id);
                             admit_hit!(Hit {
                                 id: doc_id,
                                 score,
@@ -5747,56 +5995,6 @@ impl Index {
         let snap = self.store.snapshot();
         let segments_dir = self.data_dir.join("segments");
 
-        // Determine text fields once outside the segment loop to avoid
-        // re-acquiring the schema read lock on every segment iteration.
-        //
-        // `exact_fields` mirrors `build_fts_field_configs`: every non-Text
-        // schema field (keyword / numeric / date / bool / ip) is FTS-indexed
-        // with the `keyword` analyzer — the WHOLE value is one case-preserved
-        // token.  The query side (query_node_to_fts) must therefore look
-        // these fields up by whole value, never by standard-analyzer tokens:
-        // a token like "claude" can never match the keyword term
-        // "claude-haiku-4-5", which made multi_match / query_string /
-        // simple_query_string return 0 hits on keyword-only mappings.
-        // `kw_fields` / `num_fields` / `bool_fields` are the schema-typed
-        // field sets the scored-family fast-path gate needs: `exact_fields`
-        // alone can't prove "keyword" (it also holds numerics/dates/bools),
-        // and Text fields must NEVER enter the columnar scorer (they get
-        // Keyword dv columns but ES analyzes them).
-        let (text_fields, exact_fields, kw_fields, num_fields, bool_fields): (
-            Vec<String>,
-            std::collections::HashSet<String>,
-            std::collections::HashSet<String>,
-            std::collections::HashSet<String>,
-            std::collections::HashSet<String>,
-        ) = {
-            let schema_guard = self.schema.read().await;
-            let mut tf: Vec<String> = Vec::new();
-            let mut ef: std::collections::HashSet<String> = std::collections::HashSet::new();
-            let mut kw: std::collections::HashSet<String> = std::collections::HashSet::new();
-            let mut num: std::collections::HashSet<String> = std::collections::HashSet::new();
-            let mut bf: std::collections::HashSet<String> = std::collections::HashSet::new();
-            for f in &schema_guard.schema.fields {
-                if matches!(f.field_type, FieldType::Text) {
-                    tf.push(f.name.clone());
-                } else {
-                    ef.insert(f.name.clone());
-                }
-                match f.field_type {
-                    FieldType::Keyword => {
-                        kw.insert(f.name.clone());
-                    }
-                    FieldType::Long | FieldType::Double => {
-                        num.insert(f.name.clone());
-                    }
-                    FieldType::Boolean => {
-                        bf.insert(f.name.clone());
-                    }
-                    _ => {}
-                }
-            }
-            (tf, ef, kw, num, bf)
-        };
 
         // ── Fast path: count-only shortcut ────────────────────────────────
         //
@@ -6356,6 +6554,7 @@ impl Index {
                                                 sort_topk.as_mut().expect("gated on is_some"),
                                                 &mut seen_ids,
                                                 &mut discard,
+                                                score_doc,
                                             );
                                             fts_sorted_handled = true;
                                         }
@@ -6746,6 +6945,7 @@ impl Index {
                                     sort_topk.as_mut().expect("gated on is_some"),
                                     &mut seen_ids,
                                     &mut total_count,
+                                    score_doc,
                                 );
                                 dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
                                 true
@@ -6784,6 +6984,7 @@ impl Index {
                             &mut deadline_exceeded,
                             &mut dbg_walked,
                             &mut dbg_admitted,
+                            score_doc,
                         );
                         dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
                     } else if let Some(warm_slices) = (!sorted_candidates_path)
@@ -6828,6 +7029,7 @@ impl Index {
                                     &mut total_count,
                                     &mut all_hits,
                                     &mut seen_ids,
+                                    score_doc,
                                 );
                             }
                             _ => {
@@ -6848,6 +7050,7 @@ impl Index {
                                     &mut deadline_exceeded,
                                     &mut dbg_walked,
                                     &mut dbg_admitted,
+                                    score_doc,
                                 );
                             }
                         }
@@ -6893,6 +7096,7 @@ impl Index {
                                     &mut deadline_exceeded,
                                     &mut dbg_walked,
                                     &mut dbg_admitted,
+                                    score_doc,
                                 );
                                 dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
                                 // Cache only a COMPLETE offsets map (a
@@ -6997,81 +7201,89 @@ impl Index {
             }
         }
 
-        // --- Apply function score modifications ---
-        // Unwrap `Named` / `Constant` / `Boosted` wrappers so a
-        // function_score nested inside a named query still runs.
-        // Also peels through a Bool whose ONLY scoring clause is a
-        // function_score (filter[] clauses are unscored constraints
-        // already enforced by the matcher).
-        fn peel_function_score(q: &QueryNode) -> Option<&QueryNode> {
-            match q {
-                QueryNode::FunctionScore { .. } => Some(q),
-                QueryNode::Named { query, .. }
-                | QueryNode::Constant { query, .. }
-                | QueryNode::Boosted { query, .. } => peel_function_score(query),
-                QueryNode::Bool {
-                    must,
-                    should,
-                    must_not,
-                    ..
-                } => {
-                    if !must_not.is_empty() {
-                        return None;
-                    }
-                    // Find the single scoring clause across must+should.
-                    // bool.filter is unscored (no contribution) — it's a
-                    // pure constraint already enforced by the matcher,
-                    // so it doesn't disrupt FunctionScore peeling.
-                    let scoring: Vec<&QueryNode> = must.iter().chain(should.iter()).collect();
-                    if scoring.len() == 1 {
-                        peel_function_score(scoring[0])
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            }
-        }
-        if let Some(QueryNode::FunctionScore {
-            functions,
-            score_mode,
-            boost_mode,
-            max_boost,
-            ..
-        }) = peel_function_score(query)
-        {
-            for (doc_idx, hit) in final_hits.iter_mut().enumerate() {
-                let query_score = hit.score;
-                let fn_score =
-                    apply_function_score(&hit.id, &hit.source, functions, *score_mode, query_score);
-                let combined = combine_scores(query_score, fn_score, *boost_mode);
-                // ES rejects non-finite or negative scores here with
-                // `illegal_argument_exception`. Match the exact reason
-                // text so the YAML test's root_cause.reason comparison
-                // succeeds.
-                if !combined.is_finite() || combined < 0.0 {
-                    let label = if combined.is_nan() {
-                        "NaN".to_string()
-                    } else if combined.is_infinite() {
-                        if combined > 0.0 {
-                            "Infinity".into()
-                        } else {
-                            "-Infinity".into()
+        // --- Apply / validate function scores ---
+        // B3 (2026-07-10 scorecard, pre-batch-3 defect): the brute stored
+        // scan used to score each doc through `score_query_against_doc` —
+        // which already composes the function_score — and then this
+        // post-loop applied the function a SECOND time, squaring the score
+        // on every non-gated shape (any sort/aggs/min_score/max_boost/
+        // weight/filter/boost≠1/non-match_all inner, or deletes present).
+        //
+        // The contract now is:
+        //   * brute scan paths score every hit through the `score_doc`
+        //     closure, which composes the peeled function_score exactly
+        //     ONCE (base → per-function weights → score_mode → max_boost
+        //     cap → boost_mode → outer wrapper boost);
+        //   * the gated columnar path (`function_score_columnar`) still
+        //     emits BASE match_all scores and relies on THIS loop for its
+        //     single application (`fs_fast_applied == true`) — unchanged,
+        //     keeping the batch-3 verified cell bit-exact;
+        //   * either way the loop validates the FINAL score exactly like
+        //     ES (`illegal_argument_exception` on NaN/±Inf/negative).
+        if let Some((fs_node, fs_outer_boost)) = peeled_fs {
+            if let QueryNode::FunctionScore {
+                functions,
+                score_mode,
+                boost_mode,
+                max_boost,
+                ..
+            } = fs_node
+            {
+                for (doc_idx, hit) in final_hits.iter_mut().enumerate() {
+                    let combined = if fs_fast_applied {
+                        // Query-level boost multiplies the BASE score
+                        // BEFORE the boost_mode combine (Lucene bakes it
+                        // into the subquery weight — see `score_doc`).
+                        // The columnar gate only fires with boost == 1
+                        // (a `Boosted` wrapper defeats it), so this is
+                        // currently a no-op kept for order-correctness.
+                        let query_score = hit.score * fs_outer_boost;
+                        let mut fn_score = apply_function_score(
+                            &hit.id,
+                            &hit.source,
+                            functions,
+                            *score_mode,
+                            query_score,
+                        );
+                        // ES caps the COMBINED FUNCTION score (not the
+                        // final) at `max_boost`, before boost_mode
+                        // composition — live-verified on ES 8.13.4:
+                        // boost_mode=sum + inner boost 3 + max_boost 100
+                        // scores 103, outer boost 2 + max_boost 100
+                        // scores 200.
+                        if let Some(cap) = max_boost {
+                            fn_score = fn_score.min(*cap);
                         }
+                        combine_scores(query_score, fn_score, *boost_mode)
                     } else {
-                        format!("{combined}")
+                        // Brute scan hits already carry the fully-composed
+                        // final score (single application in `score_doc`).
+                        hit.score
                     };
-                    return Err(EngineError::Common(
-                        xerj_common::XerjError::invalid_query(format!(
-                            "function score query returned an invalid score: {label} for doc: {doc_idx}; score must be a non-negative real number"
-                        )),
-                    ));
+                    // ES rejects non-finite or negative scores here with
+                    // `illegal_argument_exception`. Match the exact reason
+                    // text so the YAML test's root_cause.reason comparison
+                    // succeeds.
+                    if !combined.is_finite() || combined < 0.0 {
+                        let label = if combined.is_nan() {
+                            "NaN".to_string()
+                        } else if combined.is_infinite() {
+                            if combined > 0.0 {
+                                "Infinity".into()
+                            } else {
+                                "-Infinity".into()
+                            }
+                        } else {
+                            format!("{combined}")
+                        };
+                        return Err(EngineError::Common(
+                            xerj_common::XerjError::invalid_query(format!(
+                                "function score query returned an invalid score: {label} for doc: {doc_idx}; score must be a non-negative real number"
+                            )),
+                        ));
+                    }
+                    hit.score = combined;
                 }
-                hit.score = if let Some(cap) = max_boost {
-                    combined.min(*cap)
-                } else {
-                    combined
-                };
             }
         }
 
@@ -7344,13 +7556,24 @@ impl Index {
 
         // --- Apply min_score threshold ---
         // ES drops hits below min_score before pagination + aggregations
-        // + total counting. Compute the drop count and subtract from
-        // total_count so hits.total reflects the post-filter count.
+        // + total counting.
         if let Some(min_score) = request.min_score {
             let before = final_hits.len();
             final_hits.retain(|h| (h.score as f64) >= min_score);
             let dropped = before - final_hits.len();
-            total_count = total_count.saturating_sub(dropped as u64);
+            if fs_min_tally.is_some() {
+                // Brute function_score path: the scan scored EVERY match
+                // through `score_doc`, which tallied the docs whose FINAL
+                // score clears the threshold — that tally IS the exact
+                // ES `hits.total`.  (The materialised-drop subtraction
+                // below only sees the ≤cap page and left `total` at the
+                // raw match count on a >cap corpus: 100000 vs ES's 373 on
+                // the live-verified min_score cell.)
+                total_count = fs_min_passed.load(std::sync::atomic::Ordering::Relaxed);
+            } else {
+                // Legacy shapes: drop count among materialised hits.
+                total_count = total_count.saturating_sub(dropped as u64);
+            }
         }
 
         // --- Collect matched_queries for named queries ---
@@ -7734,6 +7957,21 @@ impl Index {
             .fold(None, |acc: Option<f32>, s| {
                 Some(acc.map_or(s, |m| m.max(s)))
             });
+        // Fold in the scan-wide max from the brute scorer: under a field
+        // sort the heap only kept ~page hits, but ES's max_score covers
+        // every match. Rescore mutates scores after the scan, so the scan
+        // max is stale there — skip.
+        let population_max_score: Option<f32> = if request.rescore.is_empty() {
+            let scan_max = f32::from_bits(
+                scored_max_bits.load(std::sync::atomic::Ordering::Relaxed),
+            );
+            match population_max_score {
+                Some(m) if scan_max > m => Some(scan_max),
+                other => other,
+            }
+        } else {
+            population_max_score
+        };
 
         // --- Apply field collapsing (deduplicate by field value, keep top hit per value) ---
         // Skipped here when rescore was present (we already collapsed before rescore).
@@ -9689,6 +9927,139 @@ impl Index {
     /// -inclusive docFreq/docCount until a merge purges them) while
     /// matching/totals are liveness-filtered via `ghost_positions_for`;
     /// `Pinned` still bails whenever any ghost event was recorded.
+    /// Constant ES BM25 base score of a single scoring LEAF query — a
+    /// `term`/`match` on a keyword, boolean or numeric field (the batch-11
+    /// keyword scored surface) — derived from the SAME physical dv-column
+    /// stats `scored_columnar` uses (Lucene-parity: ghost rows included).
+    ///
+    /// Keyword fields omit norms and have `freq = 1`, so the per-doc BM25
+    /// score is a per-term constant; numeric leaves score the constant
+    /// `boost` (ES points carry no BM25 stats). Used by the brute per-doc
+    /// scorer for shapes the columnar executor doesn't serve (field sorts,
+    /// `track_scores`, function_score inners) so their `_score`s match ES
+    /// instead of the IDF-less flat scorer. `None` (→ legacy flat scoring)
+    /// when the query isn't such a leaf, the memtable is non-empty, or any
+    /// segment lacks a clean column.
+    fn leaf_constant_score(
+        &self,
+        q: &QueryNode,
+        kw_fields: &HashSet<String>,
+        num_fields: &HashSet<String>,
+        bool_fields: &HashSet<String>,
+    ) -> Option<f32> {
+        use xerj_storage::doc_values::Column;
+        if self.memtable.doc_count() != 0 {
+            return None;
+        }
+        enum LeafConst {
+            Keyword(String),
+            BoolEq(f64),
+            Numeric,
+        }
+        let mut node = q;
+        while let QueryNode::Named { query, .. } = node {
+            node = query;
+        }
+        let (field, kind, boost): (&str, LeafConst, f32) = match node {
+            QueryNode::Term {
+                field,
+                value: Value::String(term),
+                boost,
+            } if kw_fields.contains(field) => {
+                (field, LeafConst::Keyword(term.clone()), boost.unwrap_or(1.0))
+            }
+            QueryNode::Term {
+                field,
+                value,
+                boost,
+            } if bool_fields.contains(field) => {
+                let v = match value {
+                    Value::Bool(true) => 1.0,
+                    Value::Bool(false) => 0.0,
+                    Value::String(s) if s == "true" => 1.0,
+                    Value::String(s) if s == "false" => 0.0,
+                    _ => return None,
+                };
+                (field, LeafConst::BoolEq(v), boost.unwrap_or(1.0))
+            }
+            QueryNode::Term {
+                field,
+                value,
+                boost,
+            } if num_fields.contains(field) => {
+                value.as_f64()?;
+                (field, LeafConst::Numeric, boost.unwrap_or(1.0))
+            }
+            QueryNode::Match {
+                field,
+                query,
+                analyzer: None,
+                boost,
+                minimum_should_match: None,
+                ..
+            } if kw_fields.contains(field) => {
+                (field, LeafConst::Keyword(query.clone()), boost.unwrap_or(1.0))
+            }
+            QueryNode::Match {
+                field,
+                query,
+                analyzer: None,
+                boost,
+                minimum_should_match: None,
+                ..
+            } if num_fields.contains(field) => {
+                query.parse::<f64>().ok()?;
+                (field, LeafConst::Numeric, boost.unwrap_or(1.0))
+            }
+            _ => return None,
+        };
+        if !boost.is_finite() || boost < 0.0 {
+            return None;
+        }
+        if matches!(kind, LeafConst::Numeric) {
+            return Some(boost);
+        }
+        let snap = self.store.snapshot();
+        let segments_dir = self.data_dir.join("segments");
+        let mut total_docs: u64 = 0;
+        let mut df: u64 = 0;
+        for meta in snap.segments.iter() {
+            let cols = self.dv_columns_for(&segments_dir, &meta.id)?;
+            total_docs += meta.doc_count;
+            match &kind {
+                LeafConst::Keyword(term) => {
+                    let Some(Column::Keyword(k)) = cols.get(field) else {
+                        return None;
+                    };
+                    if k.doc_count as u64 != meta.doc_count || !k.null_bitmap.is_empty() {
+                        return None;
+                    }
+                    if let Some(ord) = k.ord_for_term(term) {
+                        df += k.per_ord_count.get(ord as usize).copied().unwrap_or(0) as u64;
+                    }
+                }
+                LeafConst::BoolEq(v) => {
+                    let Some(Column::Numeric(nc)) = cols.get(field) else {
+                        return None;
+                    };
+                    if nc.doc_count as u64 != meta.doc_count || !nc.null_bitmap.is_empty() {
+                        return None;
+                    }
+                    df += nc
+                        .data
+                        .iter()
+                        .filter(|&&b| f64::from_bits(b as u64) == *v)
+                        .count() as u64;
+                }
+                LeafConst::Numeric => unreachable!(),
+            }
+        }
+        if total_docs == 0 || df == 0 {
+            return None;
+        }
+        Some(bm25_keyword_term_score(df, total_docs, boost))
+    }
+
     fn scored_columnar(
         &self,
         plan: &ScoredPlan,
@@ -10940,11 +11311,16 @@ impl Index {
         &self,
         slices: &StoredSlices,
         candidates: &SortCandidates,
-        query: &QueryNode,
+        // Retained for signature parity with the sibling scan loops; the
+        // score now comes from `scorer` (which closes over the query).
+        _query: &QueryNode,
         is_match_all: bool,
         topk: &mut SortTopK,
         seen_ids: &mut HashSet<String>,
         total_count: &mut u64,
+        // Per-doc scorer from `search_inner` (`score_doc`): single-applies
+        // any peeled function_score and resolves `_id` for ids clauses.
+        scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
     ) {
         // Walk candidates in page order (best-first).  Their primary sort
         // key is already known from the dv shadow, so once the heap is
@@ -10991,7 +11367,7 @@ impl Index {
             let score = if is_match_all {
                 1.0
             } else {
-                score_query_against_doc(query, source_ref)
+                scorer(source_ref, id_ref)
             };
             let key = compute_sort_values(source_ref, score, id_ref, topk.fields.as_slice());
             if !topk.would_admit(&key) {
@@ -11044,6 +11420,9 @@ impl Index {
         total_count: &mut u64,
         all_hits: &mut Vec<Hit>,
         seen_ids: &mut HashSet<String>,
+        // Per-doc scorer from `search_inner` (`score_doc`): single-applies
+        // any peeled function_score and resolves `_id` for ids clauses.
+        scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
     ) {
         let mut positions: Vec<u32> = pre_filter.iter().copied().collect();
         positions.sort_unstable();
@@ -11113,7 +11492,7 @@ impl Index {
             let score = if is_match_all {
                 1.0
             } else {
-                score_query_against_doc(query, &source)
+                scorer(&source, &id)
             };
             seen_ids.insert(id.clone());
             all_hits.push(Hit {
@@ -11392,6 +11771,9 @@ impl Index {
         // Diagnostics: docs brace-walked and hits admitted by THIS call.
         dbg_walked: &mut u64,
         dbg_admitted: &mut u64,
+        // Per-doc scorer from `search_inner` (`score_doc`): single-applies
+        // any peeled function_score and resolves `_id` for ids clauses.
+        scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
     ) {
         // Fast path: scan one doc at a time with a hand-rolled array splitter.
         // The stored section is always shaped as `[{...}, {...}, ...]` (a
@@ -11600,7 +11982,7 @@ impl Index {
                 let score = if is_match_all {
                     1.0
                 } else {
-                    score_query_against_doc(query, source_ref)
+                    scorer(source_ref, id_ref)
                 };
                 let key = compute_sort_values(source_ref, score, id_ref, topk.fields.as_slice());
                 if !topk.would_admit(&key) {
@@ -11646,7 +12028,7 @@ impl Index {
             let score = if is_match_all {
                 1.0
             } else {
-                score_query_against_doc(query, &source)
+                scorer(&source, &id)
             };
 
             seen_ids.insert(id.clone());
@@ -16526,6 +16908,35 @@ fn apply_rescore(hits: &mut [Hit], stage: &RescoreQuery) {
 /// This is a lightweight scoring function used by the rescore step.
 /// It does not use BM25 — it returns 1.0 if the document matches, 0.0 if not,
 /// multiplied by any boost factor on the query.
+/// True when the query tree contains an `ids` clause anywhere under the
+/// common wrappers/compounds. Used by the Bool scorer arm to keep the
+/// injected-`_id` ids match from leaking a score into filter context
+/// (ES: filter clauses contribute 0 — a pure-`filter:[ids]` bool scores
+/// 0.0, live-verified on 8.13.4).
+fn query_tree_contains_ids(q: &QueryNode) -> bool {
+    match q {
+        QueryNode::Ids { .. } => true,
+        QueryNode::Boosted { query, .. }
+        | QueryNode::Constant { query, .. }
+        | QueryNode::Named { query, .. }
+        | QueryNode::FunctionScore { query, .. } => query_tree_contains_ids(query),
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            ..
+        } => must
+            .iter()
+            .chain(should)
+            .chain(must_not)
+            .chain(filter)
+            .any(query_tree_contains_ids),
+        QueryNode::DisMax { queries, .. } => queries.iter().any(query_tree_contains_ids),
+        _ => false,
+    }
+}
+
 fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
     match q {
         QueryNode::MatchAll => 1.0,
@@ -16616,9 +17027,32 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             for sub in should {
                 score += score_query_against_doc(sub, source);
             }
-            let _ = (filter, must_not, minimum_should_match);
+            let _ = (must_not, minimum_should_match);
             if score == 0.0 {
-                1.0
+                // ids clauses score their exact constant (`boost`,
+                // default 1.0; 0.0 in filter context) — live-verified on
+                // 8.13.4: `bool{filter:[ids]}` scores 0.0 and
+                // `bool{must:[ids boost:0]}` scores 0.0. Without this
+                // carve-out the 1.0 fallback below (a) leaks the `_id`
+                // injected by the brute scorer (`score_doc`) into filter
+                // context — a regression over the pre-B1 binary, which
+                // returned 0.0 there — and (b) inflates a legitimate
+                // zero sum from a boost-0 ids clause. Scoped to
+                // ids-bearing bools only: other zero-sum shapes
+                // (term/match/exists/… in pure-filter bools) kept the
+                // pre-existing 1.0 fallback both before and after B1 and
+                // are tracked as a separate, broader filter-context
+                // defect.
+                if must
+                    .iter()
+                    .chain(should)
+                    .chain(filter)
+                    .any(query_tree_contains_ids)
+                {
+                    0.0
+                } else {
+                    1.0
+                }
             } else {
                 score
             }
@@ -16714,17 +17148,23 @@ fn score_query_against_doc(q: &QueryNode, source: &Value) -> f32 {
             functions,
             score_mode,
             boost_mode,
-            ..
+            max_boost,
         } => {
             // Score the inner query, then run the function scores against
             // it — same flow as the main search path, but executed on
-            // demand for rescore.
+            // demand for rescore / nested (non-peelable) function_score.
             if !doc_matches_query(query, source) {
                 return 0.0;
             }
             let inner = score_query_against_doc(query, source);
             let doc_id = source.get("_id").and_then(Value::as_str).unwrap_or("");
-            let fn_score = apply_function_score(doc_id, source, functions, *score_mode, inner);
+            let mut fn_score =
+                apply_function_score(doc_id, source, functions, *score_mode, inner);
+            // `max_boost` caps the combined FUNCTION score before
+            // boost_mode composition (ES semantics — see the post-loop).
+            if let Some(cap) = max_boost {
+                fn_score = fn_score.min(*cap);
+            }
             combine_scores(inner, fn_score, *boost_mode)
         }
         QueryNode::Intervals { field, .. } => {
@@ -17989,8 +18429,12 @@ fn compute_sort_values(
     let mut sort_vals: Vec<Value> = Vec::with_capacity(sort_fields.len());
     for sf in sort_fields {
         let v = if sf.is_score() {
+            // Widen through the SHORTEST f32 repr, not a raw `as f64` bit
+            // widening: ES serializes scores as Java floats (448.4), and
+            // `448.39999_f32 as f64` prints 448.3999938964844 on the wire.
+            let wire: f64 = score.to_string().parse().unwrap_or(score as f64);
             Value::Number(
-                serde_json::Number::from_f64(score as f64).unwrap_or(serde_json::Number::from(0)),
+                serde_json::Number::from_f64(wire).unwrap_or(serde_json::Number::from(0)),
             )
         } else if sf.is_doc_order() || sf.field == "_id" {
             // `_id` (and `_doc`) is doc metadata, NOT part of `_source`, so a
@@ -20239,6 +20683,50 @@ fn compute_random_score(doc_id: &str, rs: &RandomScore) -> f32 {
 }
 
 /// Apply all score functions to a document and combine them according to score_mode.
+/// Peel wrappers down to a `function_score` that is the request's single
+/// scoring clause, accumulating the multiplicative boost of any `Boosted`
+/// wrappers crossed on the way (ES multiplies an outer query boost into
+/// the BASE query score BEFORE the boost_mode combine — Lucene bakes it
+/// into the subquery weight; live-verified on 8.13.4: `boost:3` +
+/// fvf(rank=5) scores 15/8/4/5/3/5 for multiply/sum/avg/max/min/replace).
+///
+/// Unwraps `Named` / `Constant` / `Boosted`, and a `Bool` whose ONLY
+/// scoring clause (across must+should, no must_not) is the function_score
+/// — `bool.filter` clauses are unscored constraints already enforced by
+/// the matcher.  Returns the `FunctionScore` node and the outer boost
+/// product, or `None` when the tree has no single peelable function_score
+/// (nested/mixed shapes score through `score_query_against_doc`'s own
+/// FunctionScore arm — a single application either way).
+fn peel_function_score_boosted(q: &QueryNode) -> Option<(&QueryNode, f32)> {
+    match q {
+        QueryNode::FunctionScore { .. } => Some((q, 1.0)),
+        QueryNode::Boosted { query, boost } => {
+            peel_function_score_boosted(query).map(|(n, b)| (n, b * *boost))
+        }
+        QueryNode::Named { query, .. } | QueryNode::Constant { query, .. } => {
+            peel_function_score_boosted(query)
+        }
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            ..
+        } => {
+            if !must_not.is_empty() {
+                return None;
+            }
+            // Find the single scoring clause across must+should.
+            let scoring: Vec<&QueryNode> = must.iter().chain(should.iter()).collect();
+            if scoring.len() == 1 {
+                peel_function_score_boosted(scoring[0])
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
 fn apply_function_score(
     doc_id: &str,
     source: &Value,
@@ -20251,6 +20739,11 @@ fn apply_function_score(
     }
 
     let mut fn_scores: Vec<f32> = Vec::new();
+    // Per-function weights, parallel to `fn_scores` — `avg` is the
+    // WEIGHTED average Σ(wᵢ·vᵢ)/Σwᵢ in ES (live-verified on 8.13.4:
+    // fvf=2238 w=1 + weight-only w=4 under score_mode=avg scores
+    // (2238+4·4/4)/(1+4)=448.4, not the plain mean 1121).
+    let mut fn_weights: Vec<f32> = Vec::new();
 
     for func in functions {
         // Check filter: if present, doc must match.
@@ -20309,6 +20802,7 @@ fn apply_function_score(
         }
 
         fn_scores.push(score);
+        fn_weights.push(func.weight.unwrap_or(1.0));
     }
 
     if fn_scores.is_empty() {
@@ -20319,7 +20813,15 @@ fn apply_function_score(
     match score_mode {
         ScoreMode::Multiply => fn_scores.iter().product(),
         ScoreMode::Sum => fn_scores.iter().sum(),
-        ScoreMode::Avg => fn_scores.iter().sum::<f32>() / fn_scores.len() as f32,
+        // Weighted average (scores already include their weight factor).
+        ScoreMode::Avg => {
+            let wsum: f32 = fn_weights.iter().sum();
+            if wsum == 0.0 {
+                fn_scores.iter().sum::<f32>() / fn_scores.len() as f32
+            } else {
+                fn_scores.iter().sum::<f32>() / wsum
+            }
+        }
         ScoreMode::First => fn_scores[0],
         ScoreMode::Max => fn_scores.iter().cloned().fold(f32::NEG_INFINITY, f32::max),
         ScoreMode::Min => fn_scores.iter().cloned().fold(f32::INFINITY, f32::min),
