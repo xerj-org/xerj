@@ -634,8 +634,9 @@ impl Default for LogsConfig {
 ///   * `"neural"` — a built-in BERT sentence embedder (all-MiniLM-L6-v2 by
 ///     default) that runs in-process via `candle`. The model weights are
 ///     downloaded once on first use (or read from [`local_model_dir`] for
-///     air-gapped deployments). Requires the binary to be built with the
-///     `neural` cargo feature; otherwise this falls back to lexical.
+///     air-gapped deployments). The neural backend ships in the standard
+///     binary; a `--no-default-features` slim build omits it and falls back
+///     to lexical.
 ///   * `"proxy"` — call an external OpenAI-compatible `/v1/embeddings`
 ///     endpoint ([`default_endpoint`]). Lets customers plug in ANY embedding
 ///     model / provider they already run.

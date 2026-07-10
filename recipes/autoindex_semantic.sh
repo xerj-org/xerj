@@ -14,15 +14,16 @@
 #
 # Usage:  recipes/autoindex_semantic.sh [path-to-xerj-binary]
 #
-# Requires a xerj binary built with the neural feature:
-#     cd engine && cargo build --release -p xerj-server --features neural
+# The neural embedder ships in the standard xerj binary — no special build.
+# (A `--no-default-features` slim build omits it and falls back to lexical,
+# which this script detects and notes.)
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 XERJ_BIN="${1:-$ROOT/engine/target/release/xerj}"
 [ -x "$XERJ_BIN" ] || XERJ_BIN=$(command -v xerj) || {
-  echo "error: no xerj binary. Build it with:" >&2
-  echo "  cd engine && cargo build --release -p xerj-server --features neural" >&2
+  echo "error: no xerj binary. Get one with 'curl -fsSL https://xerj.org/get | sh'" >&2
+  echo "       or build it: cd engine && cargo build --release -p xerj-server" >&2
   exit 1
 }
 FOLDER="$ROOT/demo/data/support-folder"
@@ -53,8 +54,8 @@ until curl -fsS "$URL/" >/dev/null 2>&1; do
 done
 
 if ! grep -q "neural" "$DATA/server.log"; then
-  echo "note: this binary has no neural backend — falling back to the lexical"
-  echo "      embedder. Rebuild with --features neural for real neural semantics."
+  echo "note: this is a slim build with no neural backend — falling back to the"
+  echo "      lexical embedder. The standard release binary has neural built in."
   echo
 fi
 

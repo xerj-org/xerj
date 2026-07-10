@@ -16,12 +16,14 @@ retrieval recipes.
 
 ### Added
 
-- **Built-in neural BERT embedder (`xerj-ai`, feature `neural`).** A pure-Rust
-  sentence encoder via `candle` (default `all-MiniLM-L6-v2`, 384-dim) that runs
-  in-process and downloads its weights once on first use (or reads them from
-  `embedding.local_model_dir` for air-gapped deployments). Off by default so the
-  standard binary stays ~23 MB and dependency-light; build with
-  `cargo build --release -p xerj-server --features neural` to include it.
+- **Built-in neural BERT embedder — shipped in the binary.** A pure-Rust sentence
+  encoder via `candle` (default `all-MiniLM-L6-v2`, 384-dim) that runs in-process
+  and **downloads its weights (~90 MB) automatically on first use** (or reads them
+  from `embedding.local_model_dir` for air-gapped deployments). It is compiled into
+  the default release binary — end users just add `--embed-mode neural` at runtime,
+  no special build and no separate binary. A progress bar and one-time-download log
+  make the first run legible. The binary is ~36 MB as a result; a
+  `--no-default-features` slim build without the neural backend is ~23 MB.
 - **Unified three-backend embedding handle (`xerj_ai::Embedder`).** `semantic_text`
   ingest and `semantic`/`hybrid` queries run through one of three interchangeable
   backends — **lexical** (default, zero-dep feature-hash), **neural** (built-in

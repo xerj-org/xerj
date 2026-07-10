@@ -36,9 +36,9 @@ recipes/autoindex_semantic.sh
 ```
 
 For **real neural** semantics in the semantic/hybrid recipes, start the
-server with `--embed-mode neural` (build with `--features neural`); the
-default binary uses the lexical embedder. `autoindex_semantic.sh` does this
-for you.
+server with `--embed-mode neural` — the neural embedder ships in the binary
+and its model auto-downloads on first use; the default mode is lexical.
+`autoindex_semantic.sh` does this for you.
 
 Every recipe honors `XERJ_URL` (default `http://localhost:9200`).
 
@@ -81,8 +81,8 @@ Every recipe honors `XERJ_URL` (default `http://localhost:9200`).
   vocabulary overlap well and is perfect for offline demos and CI, but it
   won't match true synonyms. For real neural semantics — with no change to
   any recipe — start the server with a different `--embed-mode`: `neural`
-  (built-in in-process BERT, all-MiniLM-L6-v2, downloads once on first use;
-  build with `--features neural`) or `proxy` (any OpenAI-compatible
+  (built-in in-process BERT, all-MiniLM-L6-v2, shipped in the binary; the
+  model auto-downloads on first use) or `proxy` (any OpenAI-compatible
   embeddings endpoint, set `[embedding] default_endpoint` in `xerj.toml`).
 - `memory_agent.py` recalls with **text (BM25) relevance** scores
   (unbounded, higher = better) by default. Add `"semantic": true` to the

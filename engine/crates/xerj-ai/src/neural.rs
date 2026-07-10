@@ -221,13 +221,19 @@ fn find_local_weights(dir: &Path) -> Result<PathBuf> {
 }
 
 /// Download (or read from cache) the model files from the HuggingFace Hub.
+///
+/// The first launch with `--embed-mode neural` on a fresh machine pulls the
+/// weights (~90 MB for MiniLM); every launch after that is an instant cache
+/// hit. We surface that clearly so a user staring at a terminal knows the
+/// one-time download is happening rather than a hang. A progress bar is shown
+/// (hf-hub writes it to stderr) for the same reason.
 fn resolve_from_hub(
     model_id: &str,
     cache_dir: Option<&Path>,
 ) -> Result<(PathBuf, PathBuf, PathBuf)> {
     use hf_hub::api::sync::ApiBuilder;
 
-    let mut builder = ApiBuilder::new().with_progress(false);
+    let mut builder = ApiBuilder::new().with_progress(true);
     if let Some(dir) = cache_dir {
         builder = builder.with_cache_dir(dir.to_path_buf());
     }
@@ -236,17 +242,34 @@ fn resolve_from_hub(
         .with_context(|| "init HuggingFace hub client")?;
     let repo = api.model(model_id.to_string());
 
+    // Small metadata first (fast), then the big weights file. If the weights
+    // are not already cached, this is the one-time download.
     let config = repo
         .get("config.json")
         .with_context(|| format!("fetch config.json for {model_id}"))?;
     let tokenizer = repo
         .get("tokenizer.json")
         .with_context(|| format!("fetch tokenizer.json for {model_id}"))?;
+    let cached = config
+        .parent()
+        .map(|d| d.join("model.safetensors").exists())
+        .unwrap_or(false);
+    if !cached {
+        tracing::info!(
+            model = %model_id,
+            "neural embedder: downloading model weights from HuggingFace \
+             (one-time, ~90 MB for MiniLM; cached for every later start)…"
+        );
+    }
     let weights = repo.get("model.safetensors").with_context(|| {
         format!(
-            "fetch model.safetensors for {model_id} (candle requires safetensors weights)"
+            "fetch model.safetensors for {model_id} (candle requires safetensors weights). \
+             If this host has no internet, pre-download the model and point \
+             `embedding.local_model_dir` at the folder holding config.json / \
+             tokenizer.json / model.safetensors."
         )
     })?;
+    tracing::info!(model = %model_id, "neural embedder: model ready");
     Ok((config, tokenizer, weights))
 }
 

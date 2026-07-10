@@ -23,7 +23,8 @@ Run it:
 
 For REAL neural semantics (recommended — modes 2/4/5 get much sharper),
 start the server with the built-in BERT embedder instead of the default
-lexical one (needs a binary built with `--features neural`):
+lexical one. It ships in the binary; just add the flag (the model
+auto-downloads on first use):
 
     xerj --insecure --data-dir ./data --embed-mode neural
 

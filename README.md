@@ -43,8 +43,8 @@ What is actually designed differently — for AI-agent workloads specifically, w
 - **A data map built for model orientation** — `xerj autoindex map` and the catalog index answer an agent's real first question, *"what is in here?"*, with counts, types, example values, ready-to-send queries, and known gotchas. Orientation designed for LLMs, not for humans with dashboards.
 - **Agent memory as a first-class API** — `/_memory/{ns}` store/recall with namespace isolation, semantic recall, dedup, metadata filters, and recency blending. Not a plugin; part of the engine.
 - **Machine-readable onboarding** — [llms.txt](https://xerj.org/llms.txt), agent tool schemas (OpenAI / MCP / Anthropic), [for-agents docs](https://xerj.org/for-agents.html). The documentation treats an LLM as a first-class reader, including honest caveat blocks it can rely on.
-- **Batteries-included retrieval** — a built-in zero-config embedder (lexical feature-hashing by default, documented honestly as such; an optional in-process **neural** BERT embedder and any external embeddings endpoint are drop-in alternatives) plus server-side hybrid RRF/linear fusion: BM25 + vector + hybrid out of the box, no external inference service required.
-- **A single ~23 MB static binary, no JVM, sub-second start** — small enough that an agent can spawn a search engine as a subprocess tool, on any of 8 released targets.
+- **Batteries-included retrieval** — a built-in zero-config embedder (lexical feature-hashing by default, documented honestly as such) plus a real in-process **neural** BERT embedder shipped in the same binary (`--embed-mode neural`, model auto-downloads on first use) and any external embeddings endpoint as a third option — all behind server-side hybrid RRF/linear fusion: BM25 + vector + hybrid out of the box, no external inference service required.
+- **A single ~36 MB static binary, no JVM, sub-second start** — batteries included: the neural embedder is built in (activate with `--embed-mode neural`; a `--no-default-features` slim build is ~23 MB). Small enough that an agent can spawn a search engine as a subprocess tool, on any of 8 released targets.
 - **Exact kNN with recall 1.00 by construction** — the trade-off (latency scales with vectors scanned) is documented instead of hidden behind ANN defaults.
 - **Engineering-first internals** — columnar aggregation fast paths, doc-value prefilters, WAL-shard-pinned delete durability (verified by adversarial crash matrices), Rust memory safety. The head-to-head wins vs Elasticsearch concentrate exactly where agents live: aggregations, ingest throughput, and disk footprint.
 
@@ -104,7 +104,7 @@ We ran the same model (headless Claude Code) against the 518 MB corpus twice: on
 - **Drop-in ES wire compatibility.** Implements the Elasticsearch REST surface — index/document APIs, `_search`, `_bulk`, aggregations, kNN, scroll, aliases, templates. Validated against **1,360 of 1,363** ES-YAML conformance cases extracted from Elasticsearch 8.13 source.
 - **Truly open.** Apache-2.0 licensed. No SSPL, no source-available asterisks, no per-feature license gates.
 - **One engine, four workloads.** Full-text BM25, exact dense-vector kNN (100% recall), the standard aggregation suite, and columnar log analytics — all in the same process, over the same wire protocol.
-- **A single native binary.** Roughly a ~23 MB statically-linked executable. Sub-second start, no JVM, no heap-tuning ritual.
+- **A single native binary.** Roughly a ~36 MB statically-linked executable with the neural embedder built in (~23 MB as a `--no-default-features` slim build). Sub-second start, no JVM, no heap-tuning ritual.
 - **Honest, reproducible benchmarks — as supporting evidence.** Measured head-to-head against a live Elasticsearch 8.13.4, the latest closed-loop, cache-off matrix scores **42 wins / 28 losses / 12 ties** for XERJ. Results — wins *and* losses — are published at [xerj.org/benchmarks](https://xerj.org/benchmarks) and reproducible from the scripts in this repo (see [Benchmarks](#benchmarks)).
 - **Written in Rust.** Memory-safe, `panic = "abort"`, fat-LTO release builds. Embedded Raft consensus (no external Raft dependency) for cluster metadata.
 
@@ -222,7 +222,7 @@ XERJ implements the Elasticsearch REST wire protocol. Because it is wire-compati
 
 `match_all`, `match_none`, `match`, `match_phrase`, `match_phrase_prefix`, `multi_match`, `term`, `terms`, `range`, `prefix`, `wildcard`, `exists`, `ids`, `bool`, `fuzzy`, `regexp`, `query_string`, `simple_query_string`, `constant_score`, `boosting`, `dis_max`, `geo_distance`, `knn`, `semantic`, `hybrid`.
 
-> **Vector & semantic search notes.** `knn` (exact dense-vector search — brute-force scan, 100% recall; no ANN index yet) and `hybrid` (BM25 + kNN in one request) run entirely inside XERJ. As of **rc-2**, `semantic_text` fields **auto-embed on ingest** and the `semantic` query works with no external service. XERJ has **three interchangeable embedding backends**, selected with `--embed-mode` (or `embedding.mode`): **`lexical`** (default) — the built-in, zero-config feature-hash embedder (lexical, *not* neural); **`neural`** — a built-in **BERT sentence embedder** (all-MiniLM-L6-v2) that runs in-process via `candle`, downloading the model once on first use (build with `--features neural`); and **`proxy`** — any external OpenAI-compatible `/v1/embeddings` endpoint (`embedding.default_endpoint`). The default binary ships the lexical embedder to stay ~23 MB and dependency-free; see the [roadmap](#roadmap). rc-2 also adds an **agent-memory REST API** (`/_memory/{ns}`) and **anomaly detection** (`/_ml/anomaly_detectors`).
+> **Vector & semantic search notes.** `knn` (exact dense-vector search — brute-force scan, 100% recall; no ANN index yet) and `hybrid` (BM25 + kNN in one request) run entirely inside XERJ. `semantic_text` fields **auto-embed on ingest** and the `semantic` query works with no external service. XERJ has **three interchangeable embedding backends**, selected with `--embed-mode` (or `embedding.mode`): **`lexical`** (default) — the built-in, zero-config feature-hash embedder (lexical, *not* neural); **`neural`** — a built-in **BERT sentence embedder** (all-MiniLM-L6-v2) that runs in-process via `candle`; and **`proxy`** — any external OpenAI-compatible `/v1/embeddings` endpoint (`embedding.default_endpoint`). **The neural embedder ships in the binary** — just start the server with `--embed-mode neural` and the model (~90 MB) downloads itself on first use, then runs from cache; no separate build, no external service, air-gap friendly (`embedding.local_model_dir`). rc-2 also adds an **agent-memory REST API** (`/_memory/{ns}`) and **anomaly detection** (`/_ml/anomaly_detectors`).
 
 **Supported aggregations**
 
@@ -254,7 +254,7 @@ XERJ is a Cargo workspace under [`engine/`](./engine). The crates:
 | `xerj-fts` | Full-text search: BM25 scoring, analyzer registry, postings lists. |
 | `xerj-vector` | Dense-vector index for kNN / semantic search (exact brute-force scan, 100% recall). |
 | `xerj-logs` | Columnar log ingestion and retention. |
-| `xerj-ai` | Text chunking and the three embedding backends behind one `Embedder` handle — the built-in lexical embedder, an optional in-process **neural** BERT embedder (`candle` + MiniLM, feature `neural`), and an embedding proxy (external OpenAI-compatible API) — all powering the `semantic` query. The memory store is exposed over the REST API at `/_memory/{ns}` (store / `_recall` / list / forget), shipped in rc-2 — see the [roadmap](#roadmap). |
+| `xerj-ai` | Text chunking and the three embedding backends behind one `Embedder` handle — the built-in lexical embedder, a built-in in-process **neural** BERT embedder (`candle` + MiniLM, shipped in the binary), and an embedding proxy (external OpenAI-compatible API) — all powering the `semantic` query. The memory store is exposed over the REST API at `/_memory/{ns}` (store / `_recall` / list / forget), shipped in rc-2 — see the [roadmap](#roadmap). |
 | `xerj-compress` | Block compression codecs (LZ4, Zstd). |
 | `xerj-common` | Shared types: `Config`, `Schema`, `FieldType`, `XerjError`. |
 | `xerj-cluster` | Embedded Raft consensus for cluster metadata (no external Raft dependency). |
@@ -314,13 +314,13 @@ If a test expects a response and XERJ returns something different, that's a bug 
 
 XERJ ships full-text, aggregation, log-analytics, dense-vector kNN, and hybrid search. **rc-2** added three AI-adjacent capabilities (each conformance-gated and verified by real requests):
 
-- **Auto-embed on ingest + three embedding backends** — `semantic_text` works with zero external config on the default **lexical** embedder; opt into a built-in **neural** BERT embedder (`--embed-mode neural`, `--features neural`, model downloads on first use) or an external **proxy** (`--embed-mode proxy`) with no change to your mappings or queries.
+- **Auto-embed on ingest + three embedding backends** — `semantic_text` works with zero external config on the default **lexical** embedder; switch to the **neural** BERT embedder built into the binary (`--embed-mode neural`, model auto-downloads on first use) or an external **proxy** (`--embed-mode proxy`) with no change to your mappings or queries.
 - **Ingest-time chunk-embedding** — long `semantic_text` values embed **per overlapping passage**, and `semantic` search scores by the best-matching passage (max-sim), so a long document is retrievable on any one of its sections.
 - **Agent-memory REST API** — `POST /_memory/{ns}` store, `/_recall` (kNN or BM25 + metadata filter), list/forget/drop; namespaced and offline.
 - **Anomaly detection (`_ml`)** — real statistical detectors with baseline + deviation scoring, on-demand **and** via continuous `_ml/datafeeds` (a background job re-scores a live index on a timer; forecasting is still future work).
 - **Vector quantization** — opt a `dense_vector` field into **scalar8** (`int8_hnsw`) for ~4× smaller vectors at recall@10 ≈ 0.99.
 
-Still planned: shipping the neural embedder in the default release binary (it's opt-in behind `--features neural` today to keep the default ~23 MB and dependency-free) and distributed-clustering hardening. See [ROADMAP.md](./ROADMAP.md) for the full status and honest limitations.
+The built-in neural embedder now **ships in the default release binary** (activate with `--embed-mode neural`; model auto-downloads on first use). Still planned: distributed-clustering hardening and a larger/higher-quality default model option. See [ROADMAP.md](./ROADMAP.md) for the full status and honest limitations.
 
 ---
 

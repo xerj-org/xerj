@@ -20,13 +20,13 @@ The sample folder it indexes lives at [`demo/data/support-folder/`](../../demo/d
 
 ## 1. Start the server with the neural embedder
 
-The only prerequisite for *real* semantics: build with the `neural` feature and
-select it at startup. The model downloads once on first use, then runs from a
-local cache (air-gap friendly via `embedding.local_model_dir`).
+The only prerequisite for *real* semantics: select it at startup. The neural
+embedder ships in the standard binary — no special build — and the model
+downloads once on first use, then runs from a local cache (air-gap friendly via
+`embedding.local_model_dir`).
 
 ```bash
-cd engine && cargo build --release -p xerj-server --features neural
-target/release/xerj --insecure --data-dir ./data --embed-mode neural
+xerj --insecure --data-dir ./data --embed-mode neural
 ```
 
 Drop `--embed-mode neural` and everything below still works — it just uses the

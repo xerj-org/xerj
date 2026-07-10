@@ -22,8 +22,8 @@ The built-in default embedder is *lexical* (feature-hashing), not neural.
 For real neural semantics — with no change to the index, mapping, or the
 three queries below — pick a different backend when you start the server:
 
-    # Built-in neural BERT (all-MiniLM-L6-v2), in-process, downloads once.
-    # Requires a binary built with `--features neural`.
+    # Built-in neural BERT (all-MiniLM-L6-v2), in-process — shipped in the
+    # binary; the model auto-downloads (~90 MB) on first use, then caches.
     xerj --insecure --data-dir ./data --embed-mode neural
 
     # …or any external OpenAI-compatible endpoint (bring your own model):

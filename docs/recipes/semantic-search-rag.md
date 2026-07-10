@@ -148,7 +148,7 @@ query uses it. Choose with `--embed-mode` (or `embedding.mode` in config, or the
 | `--embed-mode` | Backend | Quality | Setup |
 |---|---|---|---|
 | `lexical` *(default)* | Built-in feature-hash | Lexical overlap only | None — offline, deterministic |
-| `neural` | Built-in **BERT** (all-MiniLM-L6-v2) via `candle` | True neural semantics | One-time model download on first use; binary built `--features neural` |
+| `neural` | Built-in **BERT** (all-MiniLM-L6-v2) via `candle` | True neural semantics | None — ships in the binary; model auto-downloads on first use |
 | `proxy` | Any external OpenAI-compatible `/v1/embeddings` | Whatever model you point at | Set `embedding.default_endpoint` |
 
 ### The default is lexical — know where it stops
@@ -171,9 +171,9 @@ lexical mode.
 ### Upgrade to real neural semantics — still one binary, still in place
 
 ```bash
-# Built-in neural embedder — downloads all-MiniLM-L6-v2 (~90 MB) once, then
-# runs in-process (pure Rust, no Python, no external service, air-gap friendly
-# via embedding.local_model_dir). Requires a binary built with --features neural.
+# Built-in neural embedder — ships in the binary; downloads all-MiniLM-L6-v2
+# (~90 MB) once on first use, then runs in-process (pure Rust, no Python, no
+# external service, air-gap friendly via embedding.local_model_dir).
 xerj --insecure --data-dir ./data --embed-mode neural
 ```
 

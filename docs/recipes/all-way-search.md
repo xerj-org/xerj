@@ -23,7 +23,7 @@ Runnable version: [`docs/examples/all-way-search/all_way_search.py`](../examples
 > BERT embedder — one flag, no change to the mapping or any query:
 >
 > ```bash
-> # needs a binary built with --features neural; model downloads once
+> # the neural embedder ships in the binary; the model auto-downloads on first use
 > xerj --insecure --data-dir ./data --embed-mode neural
 > ```
 

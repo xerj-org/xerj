@@ -13273,9 +13273,10 @@ fn make_neural_embedder(cfg: &xerj_common::config::EmbeddingConfig) -> xerj_ai::
 #[cfg(not(feature = "neural"))]
 fn make_neural_embedder(_cfg: &xerj_common::config::EmbeddingConfig) -> xerj_ai::Embedder {
     warn!(
-        "embedding.mode=neural requested but this binary was built without the `neural` \
-         cargo feature — falling back to the built-in lexical embedder. Rebuild with \
-         `--features neural` (xerj-server) to enable in-process BERT embeddings."
+        "embedding.mode=neural requested but this is a slim build (compiled with \
+         `--no-default-features`, no neural backend) — falling back to the built-in lexical \
+         embedder. The standard release binary ships the neural embedder; use it, or rebuild \
+         xerj-server with default features."
     );
     xerj_ai::Embedder::lexical()
 }

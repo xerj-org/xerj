@@ -57,11 +57,13 @@ prost.workspace = true
 # fragmentation-friendly and actively madvise()'s freed ranges, which brings
 # RSS back down after each flush — critical under the 4 GB cgroup cap.
 [features]
-default = []
-# Ship the built-in neural BERT embedder (candle + MiniLM, download-on-
-# first-run). Off by default; build the release binary with
-# `cargo build --release -p xerj-server --features neural` to enable
-# in-process neural embeddings (set `embedding.mode = "neural"` at runtime).
+# The shipped binary is batteries-included: the built-in neural BERT
+# embedder (candle + MiniLM) is ON by default, so end users just add
+# `--embed-mode neural` at runtime and the model downloads itself on first
+# use — no special build, no separate binary. Build with
+# `--no-default-features` for a slimmer binary without the neural backend
+# (the lexical + proxy backends still work).
+default = ["neural"]
 neural = ["xerj-engine/neural"]
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]

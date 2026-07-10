@@ -136,8 +136,12 @@ fn print_help() {
              --data-dir, -d <PATH>  Override data directory\n\
              --insecure, -k         Disable TLS\n\
              --embed-mode <MODE>    Embedding backend: lexical | neural | proxy | auto\n\
-                                    (neural = built-in BERT, downloads on first use;\n\
-                                     requires a binary built with --features neural)\n\
+                                      lexical  built-in feature-hash (default; offline, not neural)\n\
+                                      neural   built-in BERT (all-MiniLM-L6-v2) — real semantics,\n\
+                                               in-process; auto-downloads the model (~90 MB) on\n\
+                                               first use, then runs from cache. Just add the flag.\n\
+                                      proxy    external OpenAI-compatible /v1/embeddings endpoint\n\
+                                      auto     proxy if embedding.default_endpoint is set, else lexical\n\
              --help,     -h         Show this help\n\
              --version,  -V         Print version and exit\n\
          \n\

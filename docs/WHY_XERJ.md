@@ -25,7 +25,7 @@ The autoindex pipeline was verified adversarially: 80/81 ground-truth checks on 
 
 ## Engineering positions (where XERJ deliberately differs)
 
-- **One static binary (~23 MB), no JVM.** Sub-second cold start. An agent can spawn its own search engine as a subprocess tool. Operationally: no heap tuning, no GC pauses.
+- **One static binary (~36 MB, neural embedder included), no JVM.** Sub-second cold start. An agent can spawn its own search engine as a subprocess tool. Operationally: no heap tuning, no GC pauses. (A `--no-default-features` slim build without the neural backend is ~23 MB.)
 - **Columnar aggregation fast paths + doc-value prefilters.** The analytical questions agents actually ask (counts, cardinalities, histograms, percentiles over millions of rows) are served from columnar data, not stored-document scans. This is where XERJ *beats* Elasticsearch in the head-to-head.
 - **Exact kNN, recall 1.00 by construction.** No ANN index is built or traversed; the latency trade-off is documented, not hidden behind approximate defaults. (An HNSW implementation exists in the codebase but the ES-compat query path is intentionally exact.)
 - **Built-in zero-config embedder.** Lexical feature-hashing (384-dim) — documented honestly as *hybrid lexical+vector*, never claimed to be neural. Semantic-ish retrieval works offline with zero external dependencies; point `semantic_text` at an external inference endpoint when you need real embeddings.
