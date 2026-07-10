@@ -348,6 +348,36 @@ pub struct IndexStore {
     /// is already unlinked at retire time, so `recover_orphaned_segments`
     /// can never resurrect them as duplicates).
     retired_segments: Mutex<Vec<SegmentId>>,
+    /// Delete-durability fix (2026-07): `doc_id → (delete seq_no, wal
+    /// shard)` for every acknowledged delete whose ONLY durable record
+    /// is still its `WalEntry::Delete` in the WAL.
+    ///
+    /// Background: a delete is expressed as (a) a WAL entry, (b) an
+    /// in-RAM version-map tombstone, and (c) the FTS/storage memtables
+    /// dropping the doc.  Segment flushes carry NO tombstones the
+    /// reopen path can see (`rebuild_version_map_from_segments` loads
+    /// every segment-resident doc as live), so until a background merge
+    /// physically drops the doc from all segments, the WAL entry is the
+    /// only thing standing between an acked delete and resurrection on
+    /// restart.  Pre-fix, every flush's WAL maintenance (checkpoint +
+    /// force-rotate + prune) destroyed those entries — `prune()` deletes
+    /// any rotated generation that has a checkpoint file, regardless of
+    /// the checkpoint's `max_seq_no` — so `DELETE → ack → _flush/_refresh
+    /// /shutdown → restart` brought the docs back (batch-5 adversarial
+    /// verifier, 2026-07-09).
+    ///
+    /// Invariant: WAL maintenance MUST NOT checkpoint/rotate/prune a WAL
+    /// shard that appears in this map ("pinned").  Entries are recorded
+    /// BEFORE the WAL append (so a maintenance pass that rechecks under
+    /// the WAL shard mutex can never miss a racing delete) and removed
+    /// by `sweep_pending_deletes` once the delete is subsumed — i.e. the
+    /// doc was re-indexed with a newer seq_no AND that newer version has
+    /// been flushed into a real segment.  Deletes that are never
+    /// subsumed pin their WAL shard (bounded retention growth on
+    /// delete-heavy workloads) — the accepted RC trade-off; the durable
+    /// design is segment-level tombstones (see SectionType::Tombstones
+    /// note in the flush path).
+    pending_deletes: Mutex<std::collections::HashMap<String, (SeqNo, usize)>>,
 }
 
 const WAL_MAINTENANCE_INTERVAL_MS: u64 = 1_000;
@@ -407,6 +437,7 @@ impl IndexStore {
             last_wal_maintenance_ms: AtomicU64::new(0),
             read_leases: std::sync::atomic::AtomicUsize::new(0),
             retired_segments: Mutex::new(Vec::new()),
+            pending_deletes: Mutex::new(std::collections::HashMap::new()),
         });
 
         // Rebuild version map from flushed segments first (so WAL replay can
@@ -977,11 +1008,37 @@ impl IndexStore {
         let entry = WalEntry::Delete {
             doc_id: doc_id.to_owned(),
         };
+        let ws = self.wal_shard_for(doc_id);
+        // Delete-durability: pin this WAL shard BEFORE appending the
+        // Delete entry.  WAL maintenance rechecks `pending_deletes`
+        // under the WAL shard mutex, so ordering the map insert before
+        // the append guarantees maintenance can never checkpoint+rotate+
+        // prune a generation containing this Delete: if maintenance
+        // acquired the shard mutex after our append, our insert is
+        // already visible to its recheck.  The placeholder seq_no is
+        // fixed up right after the append assigns the real one.
+        self.pending_deletes
+            .lock()
+            .unwrap()
+            .insert(doc_id.to_owned(), (SeqNo::MAX, ws));
         let seq_no = {
-            let ws = self.wal_shard_for(doc_id);
             let mut wal = self.wal_lock_shard(ws);
-            wal.append(&entry)?
+            match wal.append(&entry) {
+                Ok(s) => s,
+                Err(e) => {
+                    // Nothing reached the WAL — unpin so the shard's
+                    // maintenance isn't blocked forever by a failed op.
+                    self.pending_deletes.lock().unwrap().remove(doc_id);
+                    return Err(e);
+                }
+            }
         };
+        if let Some(slot) = self.pending_deletes.lock().unwrap().get_mut(doc_id) {
+            // Keep the larger seq if a concurrent re-delete raced us.
+            if slot.0 == SeqNo::MAX || slot.0 < seq_no {
+                slot.0 = seq_no;
+            }
+        }
 
         self.version_map
             .delete(doc_id, seq_no, IN_MEMORY_SEGMENT_ID)?;
@@ -1201,7 +1258,20 @@ impl IndexStore {
             writer.add_section(SectionType::Stored, &encoded)?;
         }
 
-        // Build tombstone section if any deletes
+        // Build tombstone section if any deletes.
+        //
+        // HONESTY NOTE (2026-07, delete-durability fix): this section is
+        // currently WRITE-ONLY — nothing in the tree reads it back at
+        // reopen (`rebuild_version_map_from_segments` loads every doc
+        // from `.ids` sidecars / stored sections as live and never looks
+        // at SectionType::Tombstones), so writing it does NOT make
+        // deletes durable.  Restart durability of acked deletes is
+        // instead guaranteed by WAL-shard pinning (`pending_deletes` —
+        // see `IndexStore::delete` / `sweep_pending_deletes`).  Kept for
+        // format stability; the principled follow-up is to write
+        // `(doc_id, seq_no)` tombstones here on the ENGINE flush path
+        // too and apply them seq-aware at reopen, which would replace
+        // the WAL pinning.
         let tombstone_ids: Vec<&str> = entries
             .iter()
             .filter(|e| e.source.is_none())
@@ -1390,8 +1460,19 @@ impl IndexStore {
             // mode.  Clean shutdown / explicit `_flush` persists via
             // `force_wal_maintenance()`.
             self.save_snapshot()?;
-            for ws in &self.wal_shards {
+            // Delete-durability: unpin deletes subsumed by flushed newer
+            // versions, then skip maintenance on any shard whose WAL is
+            // still the only durable record of an acked delete.
+            self.sweep_pending_deletes();
+            for (ws_idx, ws) in self.wal_shards.iter().enumerate() {
                 let mut wal = ws.lock().unwrap();
+                if self.wal_shard_pinned_by_pending_delete(ws_idx) {
+                    debug!(
+                        shard = ws_idx,
+                        "WAL maintenance skipped: shard pinned by unpersisted delete"
+                    );
+                    continue;
+                }
                 wal.checkpoint(max_seq)?;
                 // Disk-space fix (2026-07): force-rotate + prune instead of
                 // `rotate_if_large(64 MB)`.  The checkpoint we just wrote
@@ -1464,12 +1545,68 @@ impl IndexStore {
         self.seq_counter.load(std::sync::atomic::Ordering::Acquire)
     }
 
+    /// Delete-durability: drop `pending_deletes` entries whose delete has
+    /// been SUBSUMED by a newer, segment-durable version of the same doc —
+    /// the version map shows the doc live with a seq_no newer than the
+    /// delete AND pointing at a real segment (the flush repointed it off
+    /// `__memtable__`).  Once that newer copy is in a segment, reopen
+    /// rebuilds the doc from it (max-seq-wins) and the old `WalEntry::
+    /// Delete` is no longer load-bearing, so its WAL shard can resume
+    /// checkpoint/rotate/prune.
+    ///
+    /// Deliberately conservative: tombstoned docs stay pinned even after
+    /// a background merge physically drops them from the merged segments,
+    /// because an older copy of the doc may still live in a segment that
+    /// was NOT part of the merge — clearing on "merge purged it" alone
+    /// would resurrect from that older segment.  Cost: WAL retention on
+    /// delete-heavy indices (bounded by delete volume, zero on append-only
+    /// workloads).  Runs only on the 1s-gated / explicit maintenance
+    /// paths — never on the ingest hot path.
+    fn sweep_pending_deletes(&self) {
+        let mut pending = self.pending_deletes.lock().unwrap();
+        if pending.is_empty() {
+            return;
+        }
+        pending.retain(|doc_id, &mut (del_seq, _)| {
+            match self.version_map.get(doc_id) {
+                // Subsumed: live, strictly newer, and already flushed
+                // into a real segment → safe to unpin.
+                Some(e) if !e.deleted && e.seq_no > del_seq => {
+                    &*e.segment_id == IN_MEMORY_SEGMENT_ID
+                }
+                // Tombstoned / missing / older-or-equal seq: the WAL
+                // Delete entry is still the only durable record.
+                _ => true,
+            }
+        });
+    }
+
+    /// Delete-durability: true if WAL shard `shard_idx` still holds an
+    /// unpersisted acked delete and therefore MUST NOT be checkpointed,
+    /// rotated, or pruned (`WalWriter::prune` deletes any rotated
+    /// generation that has a checkpoint file — irrespective of the
+    /// checkpoint's `max_seq_no` — so a checkpoint alone already dooms
+    /// the Delete entries).  Callers hold the shard's WAL mutex when
+    /// they consult this, which combined with the insert-before-append
+    /// ordering in [`IndexStore::delete`] makes the check race-free.
+    fn wal_shard_pinned_by_pending_delete(&self, shard_idx: usize) -> bool {
+        let pending = self.pending_deletes.lock().unwrap();
+        pending.values().any(|&(_, ws)| ws == shard_idx)
+    }
+
     /// Write a checkpoint to ALL WAL shards with the given max_seq_no.
     /// Used by `Index::flush` to write a global checkpoint after
     /// multi-shard parallel flush.
     pub fn wal_checkpoint_all(&self, max_seq: SeqNo) -> Result<()> {
-        for ws in &self.wal_shards {
+        self.sweep_pending_deletes();
+        for (ws_idx, ws) in self.wal_shards.iter().enumerate() {
             let mut wal = ws.lock().unwrap();
+            // Delete-durability: a checkpoint alone already marks the
+            // shard's current generation prunable, so pinned shards must
+            // skip it (see `wal_shard_pinned_by_pending_delete`).
+            if self.wal_shard_pinned_by_pending_delete(ws_idx) {
+                continue;
+            }
             wal.checkpoint(max_seq)?;
         }
         Ok(())
@@ -1492,8 +1629,22 @@ impl IndexStore {
         // on-disk snapshot covering every segment whose WAL is about to
         // be dropped.  Mirrors the coupling in the gated flush path.
         self.save_snapshot()?;
-        for ws in &self.wal_shards {
+        // Delete-durability: same shard-pinning rule as the gated
+        // background path — an explicit `_flush`/`_refresh`/shutdown
+        // flush must not destroy the WAL Delete entries that are the
+        // only durable record of acked deletes (pre-fix this very call,
+        // reached from `Index::flush` — including the SIGTERM final
+        // flush — pruned them and deleted docs resurrected on restart).
+        self.sweep_pending_deletes();
+        for (ws_idx, ws) in self.wal_shards.iter().enumerate() {
             let mut wal = ws.lock().unwrap();
+            if self.wal_shard_pinned_by_pending_delete(ws_idx) {
+                debug!(
+                    shard = ws_idx,
+                    "forced WAL maintenance skipped: shard pinned by unpersisted delete"
+                );
+                continue;
+            }
             wal.checkpoint(max_seq)?;
             wal.force_rotate()?;
             wal.prune()?;
@@ -1845,9 +1996,30 @@ impl IndexStore {
                 }
                 WalEntry::Delete { doc_id } => {
                     let seq_no = replay_entry.seq_no;
-                    self.version_map
+                    let applied = self
+                        .version_map
                         .delete(&doc_id, seq_no, IN_MEMORY_SEGMENT_ID)
-                        .ok();
+                        .unwrap_or(false);
+                    // Delete-durability: re-pin the WAL shard whenever the
+                    // tombstone applied to a doc that still exists (it may
+                    // be live in a segment) — this Delete entry remains the
+                    // only durable record of the delete, so maintenance
+                    // after THIS restart must keep refusing to prune it;
+                    // otherwise the delete survives one restart and the doc
+                    // resurrects on the next.  A delete that applied to
+                    // nothing (doc already merge-purged from every segment,
+                    // or already tombstoned by an earlier pinned entry) is
+                    // vacuous and must not pin the shard forever.
+                    // Superseded pins (doc re-indexed later in the replay
+                    // stream) are cleared by the next
+                    // `sweep_pending_deletes` once the newer version is
+                    // segment-resident.
+                    if applied {
+                        self.pending_deletes
+                            .lock()
+                            .unwrap()
+                            .insert(doc_id.clone(), (seq_no, self.wal_shard_for(&doc_id)));
+                    }
                     let shard = self.shard_for(&doc_id);
                     let mut mem = self.memtable_shards[shard].lock().unwrap();
                     mem.push(MemEntry {
