@@ -13779,10 +13779,8 @@ fn peel_nested_knn_query(
                 }
                 let (inner, mut pre, mut post) = if let Some((i, _)) = nested_from_must {
                     walk(&must[i])?
-                } else if let Some(i) = nested_from_should {
-                    walk(&should[i])?
                 } else {
-                    return None;
+                    walk(&should[nested_from_should?])?
                 };
                 // Siblings in must → post-filters.
                 for (i, c) in must.iter().enumerate() {
@@ -15240,11 +15238,7 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
             doc_matches_query(query, source)
         }
 
-        QueryNode::Boosting {
-            positive,
-            negative: _,
-            ..
-        } => {
+        QueryNode::Boosting { positive, .. } => {
             // A doc must match the positive query to be returned.
             doc_matches_query(positive, source)
             // (score penalty for matching negative is handled in scoring, not filtering)
@@ -19108,35 +19102,26 @@ fn query_node_to_fts(
             // project (Term/Range/etc. all project to None, so classic
             // filters keep taking the doc-scan path as before).
             for sub in must.iter().chain(filter.iter()) {
-                if let Some(fq) = query_node_to_fts(sub, text_fields, exact_fields) {
-                    bool_q = bool_q.must(fq);
-                    projected_any = true;
-                } else {
-                    return None;
-                }
+                let fq = query_node_to_fts(sub, text_fields, exact_fields)?;
+                bool_q = bool_q.must(fq);
+                projected_any = true;
             }
             for sub in should {
-                if let Some(fq) = query_node_to_fts(sub, text_fields, exact_fields) {
-                    bool_q = bool_q.should(fq);
-                    projected_any = true;
-                } else {
-                    // A `should` clause that can't be projected to FTS (e.g.
-                    // MatchPhrase over indexed phrases) must NOT be silently
-                    // dropped — dropping it makes the bool LESS permissive and
-                    // loses docs that match only via that clause. Fall back to
-                    // the stored-doc scan, which handles every child shape.
-                    return None;
-                }
+                // A `should` clause that can't be projected to FTS (e.g.
+                // MatchPhrase over indexed phrases) must NOT be silently
+                // dropped — dropping it makes the bool LESS permissive and
+                // loses docs that match only via that clause. Fall back to
+                // the stored-doc scan, which handles every child shape.
+                let fq = query_node_to_fts(sub, text_fields, exact_fields)?;
+                bool_q = bool_q.should(fq);
+                projected_any = true;
             }
             // `must_not` children that don't project are similar: dropping
             // a must_not relaxes the filter, which is wrong.
             for sub in must_not {
-                if let Some(fq) = query_node_to_fts(sub, text_fields, exact_fields) {
-                    bool_q = bool_q.must_not(fq);
-                    projected_any = true;
-                } else {
-                    return None;
-                }
+                let fq = query_node_to_fts(sub, text_fields, exact_fields)?;
+                bool_q = bool_q.must_not(fq);
+                projected_any = true;
             }
             if !projected_any {
                 return None;
