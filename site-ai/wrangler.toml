@@ -1,0 +1,12 @@
+# Cloudflare Pages project config for the XERJ.AI enterprise site.
+# SEPARATE project + SEPARATE leads bucket from the OSS xerj.org site —
+# always deploy from THIS directory (cd site-ai && npx wrangler pages deploy)
+# so the root wrangler.toml (project "xerj", bucket xerj-leads) can never
+# hijack the bindings again.
+name = "xerj-ai"
+pages_build_output_dir = "public"
+compatibility_date = "2024-09-01"
+
+[[r2_buckets]]
+binding = "LEADS"
+bucket_name = "xerj-ai-leads"
