@@ -77,8 +77,7 @@ pub struct DatasetDocInput<'a> {
 
 pub fn dataset_doc(inp: &DatasetDocInput) -> (String, Value) {
     let id = format!("ds:{}", inp.pd.slug);
-    let fields_json =
-        serde_json::to_string(&inp.pd.specs).unwrap_or_else(|_| "[]".into());
+    let fields_json = serde_json::to_string(&inp.pd.specs).unwrap_or_else(|_| "[]".into());
     let doc = json!({
         "doc_kind": "dataset",
         "slug": inp.pd.slug,
@@ -102,6 +101,7 @@ pub fn dataset_doc(inp: &DatasetDocInput) -> (String, Value) {
     (id, doc)
 }
 
+#[allow(clippy::too_many_arguments)] // 1:1 with the file-status doc's fields
 pub fn file_doc(
     file_key: &str,
     path: &str,
@@ -139,9 +139,7 @@ pub fn build_sample_queries(pd: &PlanDataset, correlations: &[KeyCorr]) -> Vec<V
     // 1. exact filter: keyword field, low-ish cardinality, best coverage
     let filter_field = specs
         .iter()
-        .filter(|s| {
-            s.es_type == "keyword" && s.cardinality_est >= 2 && !s.examples.is_empty()
-        })
+        .filter(|s| s.es_type == "keyword" && s.cardinality_est >= 2 && !s.examples.is_empty())
         .max_by(|a, b| {
             let score = |s: &crate::infer::FieldSpec| {
                 let card_bonus = if s.cardinality_est <= 1000 { 1.0 } else { 0.0 };
@@ -161,9 +159,7 @@ pub fn build_sample_queries(pd: &PlanDataset, correlations: &[KeyCorr]) -> Vec<V
     // 2. full text
     let text_field = specs
         .iter()
-        .filter(|s| {
-            (s.es_type == "text" || s.es_type == "semantic_text") && !s.examples.is_empty()
-        })
+        .filter(|s| (s.es_type == "text" || s.es_type == "semantic_text") && !s.examples.is_empty())
         .max_by(|a, b| a.avg_len.partial_cmp(&b.avg_len).unwrap());
     if let Some(f) = text_field {
         let word = f
@@ -285,7 +281,11 @@ pub fn render_map(
             g("record_count"),
             g("file_count"),
             g("formats"),
-            if g("time_field").is_empty() { "—".into() } else { g("time_field") },
+            if g("time_field").is_empty() {
+                "—".into()
+            } else {
+                g("time_field")
+            },
             range
         ));
     }
@@ -340,7 +340,10 @@ pub fn render_map(
                     ));
                 }
                 if specs.len() > 40 {
-                    s.push_str(&format!("| … {} more fields | | | | | |\n", specs.len() - 40));
+                    s.push_str(&format!(
+                        "| … {} more fields | | | | | |\n",
+                        specs.len() - 40
+                    ));
                 }
                 s.push('\n');
             }
@@ -349,10 +352,16 @@ pub fn render_map(
         if let Some(qs) = d.get("sample_queries_json").and_then(|v| v.as_array()) {
             s.push_str("Ready-to-send queries:\n\n");
             for q in qs {
-                if let Some(qv) = q.as_str().and_then(|t| serde_json::from_str::<Value>(t).ok()) {
+                if let Some(qv) = q
+                    .as_str()
+                    .and_then(|t| serde_json::from_str::<Value>(t).ok())
+                {
                     let title = qv.get("title").map(pretty_val).unwrap_or_default();
-                    s.push_str(&format!("**{}** — `{}`\n\n", title,
-                        qv.get("request").map(pretty_val).unwrap_or_default()));
+                    s.push_str(&format!(
+                        "**{}** — `{}`\n\n",
+                        title,
+                        qv.get("request").map(pretty_val).unwrap_or_default()
+                    ));
                     if let Some(body) = qv.get("body") {
                         s.push_str("```json\n");
                         s.push_str(&serde_json::to_string_pretty(body).unwrap_or_default());
@@ -465,7 +474,13 @@ fn pretty_val(v: &Value) -> String {
 /// make the rendered map read as a binary file).
 fn clean(s: &str) -> String {
     s.chars()
-        .map(|c| if c.is_control() && c != '\n' && c != '\t' { '\u{FFFD}' } else { c })
+        .map(|c| {
+            if c.is_control() && c != '\n' && c != '\t' {
+                '\u{FFFD}'
+            } else {
+                c
+            }
+        })
         .collect()
 }
 

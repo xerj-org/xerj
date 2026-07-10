@@ -134,7 +134,9 @@ pub fn coerce_to_date(v: &serde_json::Value, elected: Option<DateEnc>) -> Option
             match elected {
                 Some(DateEnc::EpochSeconds) => {
                     if (EPOCH_S_MIN..=EPOCH_S_MAX).contains(&i) {
-                        Utc.timestamp_opt(i, 0).single().map(|d| to_rfc3339_millis(&d))
+                        Utc.timestamp_opt(i, 0)
+                            .single()
+                            .map(|d| to_rfc3339_millis(&d))
                     } else {
                         parse_epoch(i).map(|(d, _)| to_rfc3339_millis(&d))
                     }
@@ -167,10 +169,7 @@ mod tests {
             assert_eq!(e, enc, "{s}");
             assert!(dt.timestamp() > 0);
         }
-        assert_eq!(
-            parse_epoch(1773107846071).unwrap().1,
-            DateEnc::EpochMillis
-        );
+        assert_eq!(parse_epoch(1773107846071).unwrap().1, DateEnc::EpochMillis);
         assert_eq!(parse_epoch(1773107846).unwrap().1, DateEnc::EpochSeconds);
         assert!(parse_epoch(42).is_none());
         assert!(parse_date_str("not a date").is_none());

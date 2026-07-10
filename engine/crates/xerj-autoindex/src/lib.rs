@@ -104,7 +104,10 @@ fn scan_file(path: &Path, size: u64, sample: usize, max_file_gb: u64) -> FileSca
     if whole_file && size > max_file_gb * GB {
         out.junk = Some((
             "skipped".into(),
-            format!("oversized for non-streaming family {} (> {max_file_gb} GB)", sn.family.as_str()),
+            format!(
+                "oversized for non-streaming family {} (> {max_file_gb} GB)",
+                sn.family.as_str()
+            ),
         ));
         out.sniffed = Some(sn);
         return out;
@@ -151,10 +154,7 @@ fn scan_file(path: &Path, size: u64, sample: usize, max_file_gb: u64) -> FileSca
             }
         }
     }
-    out.sketches = groups
-        .into_iter()
-        .map(|(g, (f, n))| (g, f, n))
-        .collect();
+    out.sketches = groups.into_iter().map(|(g, (f, n))| (g, f, n)).collect();
     out.sketches.sort_by(|a, b| a.0.cmp(&b.0));
     out.sniffed = Some(sn);
     out
@@ -224,7 +224,8 @@ fn run_index(cfg: IndexCfg) -> Result<i32> {
         .state_dir
         .clone()
         .unwrap_or_else(|| state::default_state_dir(&root_str, &cfg.url, &cfg.prefix));
-    let mut journal = state::Journal::open(&state_dir, &root_str, &cfg.url, &cfg.prefix, cfg.fresh)?;
+    let mut journal =
+        state::Journal::open(&state_dir, &root_str, &cfg.url, &cfg.prefix, cfg.fresh)?;
     let run_id = journal.run_id.clone();
     if journal.resumed && !cfg.quiet {
         eprintln!(
@@ -375,8 +376,11 @@ fn run_index(cfg: IndexCfg) -> Result<i32> {
     }
 
     let done0 = journal.done_keys();
-    let planned_junk: std::collections::HashSet<&str> =
-        plan.junk_files.iter().map(|j| j.file_key.as_str()).collect();
+    let planned_junk: std::collections::HashSet<&str> = plan
+        .junk_files
+        .iter()
+        .map(|j| j.file_key.as_str())
+        .collect();
     let mut new_unplanned: Vec<JunkFile> = Vec::new();
     let mut todo: Vec<usize> = Vec::new();
     for i in 0..files.len() {
@@ -452,10 +456,7 @@ fn run_index(cfg: IndexCfg) -> Result<i32> {
                     let mut send_err: Option<String> = None;
                     {
                         let mut sink = |rec: extract::RawRecord| -> bool {
-                            let Some(slug) = asg
-                                .get(&rec.group)
-                                .or_else(|| asg.get(&None))
-                            else {
+                            let Some(slug) = asg.get(&rec.group).or_else(|| asg.get(&None)) else {
                                 file_junk += 1;
                                 return true;
                             };
@@ -473,10 +474,7 @@ fn run_index(cfg: IndexCfg) -> Result<i32> {
                             fields.insert("ax_locator".into(), Value::String(rec.locator.clone()));
                             fields.insert("ax_dataset".into(), Value::String(slug.clone()));
                             fields.insert("ax_run".into(), Value::String(run_id.clone()));
-                            fields.insert(
-                                "ax_format".into(),
-                                Value::String(format_str(Some(&sn))),
-                            );
+                            fields.insert("ax_format".into(), Value::String(format_str(Some(&sn))));
                             let id = ids::doc_id(slug, key, &rec.locator);
                             let action = json!({"index": {"_index": rt.index, "_id": id}});
                             buf.extend_from_slice(action.to_string().as_bytes());
@@ -553,11 +551,7 @@ fn run_index(cfg: IndexCfg) -> Result<i32> {
                     }
                     records_total.fetch_add(file_records, Ordering::Relaxed);
                     junk_records.fetch_add(file_junk, Ordering::Relaxed);
-                    if let Some(rt) = fa
-                        .assignments
-                        .first()
-                        .and_then(|(_, slug)| ds_rt.get(slug))
-                    {
+                    if let Some(rt) = fa.assignments.first().and_then(|(_, slug)| ds_rt.get(slug)) {
                         rt.bytes.fetch_add(
                             f.size / fa.assignments.len().max(1) as u64,
                             Ordering::Relaxed,
@@ -578,11 +572,8 @@ fn run_index(cfg: IndexCfg) -> Result<i32> {
                         })
                         .ok();
                     let dn = files_done.fetch_add(1, Ordering::Relaxed) + 1;
-                    if !cfg.quiet && (dn % 200 == 0 || f.size > 5 * (1 << 20)) {
-                        eprintln!(
-                            "  [{dn}/{n_todo}] {} ({} records)",
-                            f.rel, file_records
-                        );
+                    if !cfg.quiet && (dn.is_multiple_of(200) || f.size > 5 * (1 << 20)) {
+                        eprintln!("  [{dn}/{n_todo}] {} ({} records)", f.rel, file_records);
                     }
                 }
             });
@@ -717,10 +708,7 @@ fn run_index(cfg: IndexCfg) -> Result<i32> {
             .collect();
         formats.sort();
         formats.dedup();
-        let (tmin, tmax) = ds_timerange
-            .get(&d.slug)
-            .cloned()
-            .unwrap_or((None, None));
+        let (tmin, tmax) = ds_timerange.get(&d.slug).cloned().unwrap_or((None, None));
         let (id, doc) = catalog::dataset_doc(&catalog::DatasetDocInput {
             pd: d,
             record_count: *ds_counts.get(&d.slug).unwrap_or(&0),
@@ -842,11 +830,14 @@ fn run_index(cfg: IndexCfg) -> Result<i32> {
             .iter()
             .map(|d| (&d.index, *ds_counts.get(&d.slug).unwrap_or(&0)))
             .collect();
-        rows.sort_by(|a, b| b.1.cmp(&a.1));
+        rows.sort_by_key(|r| std::cmp::Reverse(r.1));
         for (idx, cnt) in rows {
             println!("  {idx:<40} {cnt:>10} docs");
         }
-        println!("\nnext: `xerj autoindex map --url {}` for the data map; search via GET /{}-*/_search", cfg.url, cfg.prefix);
+        println!(
+            "\nnext: `xerj autoindex map --url {}` for the data map; search via GET /{}-*/_search",
+            cfg.url, cfg.prefix
+        );
     }
     Ok(if junk_total_records > 0 || !all_junk.is_empty() {
         3
@@ -890,11 +881,7 @@ fn run_map(cfg: MapCfg) -> Result<i32> {
             {"term": {"slug": slug}}
         ]}});
     }
-    let datasets = fetch(
-        ds_query,
-        500,
-        Some(json!([{"record_count": "desc"}])),
-    )?;
+    let datasets = fetch(ds_query, 500, Some(json!([{"record_count": "desc"}])))?;
     if datasets.is_empty() {
         eprintln!(
             "no autoindex catalog found at {} (index {}) — run `xerj autoindex <folder>` first",
@@ -926,7 +913,10 @@ fn run_map(cfg: MapCfg) -> Result<i32> {
                 .map(|s| s.to_string());
             all.retain(|c| {
                 c.get("corr_kind").and_then(|k| k.as_str()) != Some(kind)
-                    || c.get("run_id").and_then(|r| r.as_str()).map(|s| s.to_string()) == latest
+                    || c.get("run_id")
+                        .and_then(|r| r.as_str())
+                        .map(|s| s.to_string())
+                        == latest
             });
         }
         all
@@ -992,16 +982,11 @@ fn run_status(cfg: StatusCfg) -> Result<i32> {
                 if let Ok(v) = serde_json::from_str::<Value>(&line) {
                     match v.get("kind").and_then(|k| k.as_str()) {
                         Some("run") => {
-                            root = v
-                                .get("root")
-                                .and_then(|r| r.as_str())
-                                .unwrap_or("")
-                                .into()
+                            root = v.get("root").and_then(|r| r.as_str()).unwrap_or("").into()
                         }
                         Some("file_done") => {
                             done += 1;
-                            records +=
-                                v.get("records").and_then(|r| r.as_u64()).unwrap_or(0);
+                            records += v.get("records").and_then(|r| r.as_u64()).unwrap_or(0);
                         }
                         Some("finish") => finished = true,
                         _ => {}

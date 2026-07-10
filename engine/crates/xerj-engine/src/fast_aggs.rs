@@ -49,9 +49,8 @@ use crate::aggs::{
     extract_field_values, extract_numeric, extract_numeric_values, format_histogram_key,
     format_number_pattern, format_range_val, get_nested_field, interval_to_ms,
     is_calendar_interval, java_double_str, matrix_stats_from_rows, next_calendar_bucket,
-    parse_date_ms, parse_offset_ms,
-    render_date_format, render_iso_date, resolve_sibling_pipelines, run_pipeline_agg, run_sampler,
-    run_top_hits_with_total, typed_term_key,
+    parse_date_ms, parse_offset_ms, render_date_format, render_iso_date, resolve_sibling_pipelines,
+    run_pipeline_agg, run_sampler, run_top_hits_with_total, typed_term_key,
 };
 use crate::memtable::MemBoolPred;
 use serde_json::{json, Map, Value};
@@ -1577,7 +1576,7 @@ impl<'a> FastCtx<'a> {
         let mut dev: Vec<f64> = nums.iter().map(|x| (x - median).abs()).collect();
         let cmp = |a: &f64, b: &f64| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal);
         let m = dev.len();
-        let mad = if m % 2 == 0 {
+        let mad = if m.is_multiple_of(2) {
             // `select_nth_unstable_by(m/2)` places the (m/2)-th order statistic
             // at `m/2` and leaves everything before it ≤ it, so the low middle
             // is the max of that left partition — exactly the two positions a
@@ -1601,7 +1600,7 @@ impl<'a> FastCtx<'a> {
     /// `matrix_stats` — single columnar pass gathering, per doc where EVERY
     /// requested field is present, a value vector straight from the numeric
     /// `.dv` columns, then the identical count/mean/variance/skewness/kurtosis
-    /// + pairwise covariance/correlation reduction as brute
+    /// plus pairwise covariance/correlation reduction as brute
     /// (`matrix_stats_from_rows`, shared).  Only the plain `{fields}` form is
     /// served; `mode` (multi-value collapse), `missing` (per-field default) and
     /// the `__xy_f32_fields__` sentinel (float-precision round-trip, injected by
@@ -1614,7 +1613,11 @@ impl<'a> FastCtx<'a> {
         let fields: Vec<String> = params
             .get("fields")
             .and_then(Value::as_array)
-            .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default();
         if fields.is_empty() {
             return Some(json!({ "doc_count": 0, "fields": [] }));
@@ -2657,8 +2660,8 @@ impl<'a> FastCtx<'a> {
                         }
                     }
                 }
-                None => {}            // field absent in this segment → no terms
-                _ => return None,     // non-keyword column for a keyword field → bail
+                None => {}        // field absent in this segment → no terms
+                _ => return None, // non-keyword column for a keyword field → bail
             }
         }
         match self.idx.memtable.terms_counts_columnar(field) {

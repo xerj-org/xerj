@@ -121,12 +121,8 @@ pub fn key_overlaps(cands: &[Candidate]) -> Vec<KeyCorr> {
             } else {
                 "moderate"
             };
-            let mut examples: Vec<String> = a
-                .values
-                .intersection(&b.values)
-                .take(20)
-                .cloned()
-                .collect();
+            let mut examples: Vec<String> =
+                a.values.intersection(&b.values).take(20).cloned().collect();
             examples.sort();
             out.push(KeyCorr {
                 a_slug: a.slug.clone(),
@@ -211,7 +207,12 @@ pub struct TimeSeries {
 }
 
 /// Fetch a day (or hour when span < 7d) histogram for a dataset time field.
-pub fn fetch_histogram(es: &Es, slug: &str, index: &str, field: &str) -> Result<Option<TimeSeries>> {
+pub fn fetch_histogram(
+    es: &Es,
+    slug: &str,
+    index: &str,
+    field: &str,
+) -> Result<Option<TimeSeries>> {
     let fetch = |interval: &str| -> Result<Vec<(i64, u64)>> {
         let body = json!({"size":0,"aggs":{"t":{"date_histogram":{
             "field": field, "calendar_interval": interval}}}});
@@ -220,12 +221,7 @@ pub fn fetch_histogram(es: &Es, slug: &str, index: &str, field: &str) -> Result<
             .and_then(|b| b.as_array())
             .map(|arr| {
                 arr.iter()
-                    .filter_map(|b| {
-                        Some((
-                            b.get("key")?.as_i64()?,
-                            b.get("doc_count")?.as_u64()?,
-                        ))
-                    })
+                    .filter_map(|b| Some((b.get("key")?.as_i64()?, b.get("doc_count")?.as_u64()?)))
                     .collect()
             })
             .unwrap_or_default())
@@ -308,7 +304,7 @@ pub fn time_alignment(series: &[TimeSeries]) -> Vec<Value> {
             } else {
                 None
             };
-            peaks.sort_by(|x, y| y.0.cmp(&x.0));
+            peaks.sort_by_key(|p| std::cmp::Reverse(p.0));
             let top: Vec<String> = peaks
                 .iter()
                 .take(3)

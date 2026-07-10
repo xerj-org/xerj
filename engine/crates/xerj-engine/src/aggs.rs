@@ -9864,8 +9864,8 @@ fn run_date_range(
             // (b7 DEFECT 2, date_range arm).  tz-shifted rendering keeps the
             // legacy pattern path below.
             if offset.is_none() && is_named_date_format(fmt) {
-                let dt_utc = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms)
-                    .unwrap_or_default();
+                let dt_utc =
+                    chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms).unwrap_or_default();
                 return render_date_format(Some(fmt), ms, dt_utc);
             }
             let pat = java_to_strftime(fmt);

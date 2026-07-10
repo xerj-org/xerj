@@ -302,8 +302,7 @@ fn txt_kind(nonblank: &[&str]) -> Family {
     if nonblank.is_empty() {
         return Family::TxtLines;
     }
-    let avg_len =
-        nonblank.iter().map(|l| l.len()).sum::<usize>() as f64 / nonblank.len() as f64;
+    let avg_len = nonblank.iter().map(|l| l.len()).sum::<usize>() as f64 / nonblank.len() as f64;
     if avg_len > 60.0 {
         Family::TxtProse
     } else {
@@ -353,7 +352,10 @@ fn sniff_csv_dialect(nonblank: &[&str]) -> Option<CsvDialect> {
     let sample: Vec<&str> = nonblank.iter().take(64).copied().collect();
     let mut best: Option<(u8, usize)> = None; // (delim, field count)
     for delim in [b',', b';', b'\t', b'|'] {
-        let counts: Vec<usize> = sample.iter().map(|l| split_quoted(l, delim).len()).collect();
+        let counts: Vec<usize> = sample
+            .iter()
+            .map(|l| split_quoted(l, delim).len())
+            .collect();
         let first = counts[0];
         if first < 2 {
             continue;
@@ -379,7 +381,9 @@ fn sniff_csv_dialect(nonblank: &[&str]) -> Option<CsvDialect> {
     let has_header = {
         let mut distinct = std::collections::HashSet::new();
         let all_nonnum = head_fields.iter().all(|f| !numericish(f));
-        let all_distinct = head_fields.iter().all(|f| distinct.insert(f.trim().to_string()));
+        let all_distinct = head_fields
+            .iter()
+            .all(|f| distinct.insert(f.trim().to_string()));
         let body_has_num = sample
             .iter()
             .skip(1)
@@ -424,7 +428,10 @@ mod tests {
     #[test]
     fn sniff_families() {
         assert_eq!(classify("{\"a\":1}\n{\"a\":2}\n{\"a\":3}\n"), Family::Jsonl);
-        assert_eq!(classify("{\n  \"a\": 1,\n  \"b\": [1,2]\n}\n"), Family::Json);
+        assert_eq!(
+            classify("{\n  \"a\": 1,\n  \"b\": [1,2]\n}\n"),
+            Family::Json
+        );
         assert_eq!(
             classify("<!DOCTYPE html>\n<html><head></head></html>"),
             Family::Html
@@ -433,10 +440,7 @@ mod tests {
             classify("<?xml version='1.0'?>\n<r><a>1</a></r>"),
             Family::Xml
         );
-        assert_eq!(
-            classify("a,b,c\n1,2,3\n4,5,6\n"),
-            Family::Csv
-        );
+        assert_eq!(classify("a,b,c\n1,2,3\n4,5,6\n"), Family::Csv);
         assert_eq!(
             classify("CREATE TABLE `t` (\n `a` int\n);\nINSERT INTO `t` VALUES (1);\n"),
             Family::SqlDump

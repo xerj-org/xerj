@@ -84,7 +84,14 @@ pub fn read_capped_line(r: &mut dyn std::io::BufRead, out: &mut Vec<u8>) -> Resu
 }
 
 fn trim_ws(b: &[u8]) -> &[u8] {
-    let start = b.iter().position(|c| !c.is_ascii_whitespace()).unwrap_or(b.len());
-    let end = b.iter().rposition(|c| !c.is_ascii_whitespace()).map(|i| i + 1).unwrap_or(start);
+    let start = b
+        .iter()
+        .position(|c| !c.is_ascii_whitespace())
+        .unwrap_or(b.len());
+    let end = b
+        .iter()
+        .rposition(|c| !c.is_ascii_whitespace())
+        .map(|i| i + 1)
+        .unwrap_or(start);
     &b[start..end]
 }
