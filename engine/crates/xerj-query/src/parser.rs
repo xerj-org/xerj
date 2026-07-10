@@ -341,7 +341,19 @@ fn parse_match_all(params: &Value) -> Result<QueryNode> {
     if !params.is_object() && !params.is_null() {
         return invalid("`match_all` value must be an object");
     }
-    Ok(QueryNode::MatchAll)
+    // ES scores `match_all { boost }` as exactly `boost` per hit — the
+    // same constant-score semantics as `constant_score { match_all }`
+    // (live-verified vs ES 8.13.4: boost 3.5 → every _score 3.5, boost
+    // 0.0 → 0.0). Dropping the boost scored every doc 1.0. Only wrap
+    // when it changes anything so the plain `match_all` keeps its
+    // dedicated fast paths.
+    match params.get("boost").and_then(|v| v.as_f64()) {
+        Some(b) if (b as f32) != 1.0 => Ok(QueryNode::Constant {
+            score: b as f32,
+            query: Box::new(QueryNode::MatchAll),
+        }),
+        _ => Ok(QueryNode::MatchAll),
+    }
 }
 
 fn parse_match(params: &Value) -> Result<QueryNode> {
@@ -2038,8 +2050,28 @@ fn parse_bool(params: &Value) -> Result<QueryNode> {
     let must_not = parse_clause_list(obj, "must_not")?;
     let filter = parse_clause_list(obj, "filter")?;
 
+    // A `boost` on a compound clause must PROPAGATE into the leaf
+    // weights (Lucene multiplies the parent boost into each child's
+    // weight — weights compose multiplicatively down the tree).
+    // Previously dropped silently. The `Boosted` wrapper carries it;
+    // every matching/filter path peels the wrapper, and the scored
+    // paths compose it into the leaves.
+    let boost = obj
+        .get("boost")
+        .and_then(|v| v.as_f64())
+        .map(|b| b as f32)
+        .filter(|b| *b != 1.0);
+
     if must.is_empty() && should.is_empty() && must_not.is_empty() && filter.is_empty() {
-        return Ok(QueryNode::MatchAll);
+        // Empty bool == match_all; with a boost, ES scores it `boost`
+        // per hit (constant-score semantics), like `match_all{boost}`.
+        return Ok(match boost {
+            Some(b) => QueryNode::Constant {
+                score: b,
+                query: Box::new(QueryNode::MatchAll),
+            },
+            None => QueryNode::MatchAll,
+        });
     }
 
     let minimum_should_match = obj
@@ -2047,12 +2079,19 @@ fn parse_bool(params: &Value) -> Result<QueryNode> {
         .map(parse_min_should_match)
         .transpose()?;
 
-    Ok(QueryNode::Bool {
+    let node = QueryNode::Bool {
         must,
         should,
         must_not,
         filter,
         minimum_should_match,
+    };
+    Ok(match boost {
+        Some(b) => QueryNode::Boosted {
+            boost: b,
+            query: Box::new(node),
+        },
+        None => node,
     })
 }
 
@@ -2139,9 +2178,18 @@ fn parse_dis_max(params: &Value) -> Result<QueryNode> {
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0) as f32;
 
-    Ok(QueryNode::DisMax {
+    let node = QueryNode::DisMax {
         queries,
         tie_breaker,
+    };
+    // Compound-clause boost — same propagation contract as `bool` (see
+    // `parse_bool`): wrap, don't drop.
+    Ok(match obj.get("boost").and_then(|v| v.as_f64()) {
+        Some(b) if (b as f32) != 1.0 => QueryNode::Boosted {
+            boost: b as f32,
+            query: Box::new(node),
+        },
+        _ => node,
     })
 }
 
@@ -3753,7 +3801,15 @@ mod tests {
 
     #[test]
     fn test_match_all_with_boost() {
-        assert_eq!(q(json!({"match_all": {"boost": 2.0}})), QueryNode::MatchAll);
+        // ES scores match_all{boost} as `boost` per hit (constant-score
+        // semantics) — the boost must not be dropped.
+        assert_eq!(
+            q(json!({"match_all": {"boost": 2.0}})),
+            QueryNode::Constant {
+                score: 2.0,
+                query: Box::new(QueryNode::MatchAll),
+            }
+        );
     }
 
     #[test]
