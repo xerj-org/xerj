@@ -6,9 +6,9 @@
 <title>XERJ.ai — For AI · the search, data &amp; memory layer for agents</title>
 <link rel="canonical" href="https://xerj.org/for-agents.html">
 
-<meta name="description" content="XERJ is the search, data, and memory layer for AI agents — an Elasticsearch-compatible engine on :9200. Keyword, semantic, vector, and hybrid search plus per-agent memory, in one binary, no external embedding key.">
+<meta name="description" content="XERJ is the search, data, and memory layer for AI agents — an Elasticsearch-compatible engine on :9200. Zero-config folder indexing with xerj autoindex, keyword, semantic, vector, and hybrid search plus per-agent memory, in one binary, no external embedding key.">
 <meta property="og:title" content="XERJ.ai — the search, data & memory layer for AI agents">
-<meta property="og:description" content="Six operations an agent needs — search, semantic, vector, hybrid, memory store & recall — over one Elasticsearch-compatible binary. Runnable curl on :9200.">
+<meta property="og:description" content="Seven operations an agent needs — autoindex a folder, search, semantic, vector, hybrid, memory store & recall — over one Elasticsearch-compatible binary. Runnable curl on :9200.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -49,12 +49,56 @@
   <h1 class="hero">THE SEARCH · DATA ·<br><span class="accent">MEMORY</span> LAYER<br>FOR AI AGENTS.</h1>
 
   <p class="lead">
-    An agent needs to find things, find them by meaning, remember what it
-    learns, and recall it later. XERJ is one Elasticsearch-compatible binary
-    that does all four — keyword, semantic, vector, and hybrid search plus a
-    per-agent memory store — over plain HTTP on
+    An agent needs to turn raw files into something it can query, find
+    things, find them by meaning, remember what it learns, and recall it
+    later. XERJ is one Elasticsearch-compatible binary that does all five —
+    zero-config folder indexing (<code class="inline">xerj autoindex</code>)
+    plus keyword, semantic, vector, and hybrid search plus a per-agent
+    memory store — over plain HTTP on
     <span class="mono">:9200</span>. No SDK, no signup, no external embedding
     key. If your agent can make an HTTP request, it can use XERJ.
+  </p>
+</section>
+
+<!-- GIVE AN AGENT A FOLDER ------------------------------------>
+<section class="scene-section" style="border-top:0;">
+  <div class="kicker"><span>ONE COMMAND · GIVE AN AGENT A FOLDER</span></div>
+  <p class="lead" style="max-width:760px;">
+    Handed a pile of files nobody documented? <code class="inline">xerj
+    autoindex</code> content-sniffs every file (extensions are never
+    trusted) across 13 format families — JSONL, JSON, dialect-sniffed CSV,
+    logs, SQL dumps, SQLite, PDF, DOCX, HTML, XML, YAML, plain text, gzip —
+    infers types and date encodings, writes explicit mappings, and streams
+    everything in with idempotent IDs. The agent flow is three steps:
+  </p>
+<pre class="code"># 1. index — one command, no per-corpus flags; junk is recorded, never fatal
+$ xerj autoindex ./folder
+
+# 2. orient — the engine describes the folder back to the agent
+$ xerj autoindex map                       # or: POST /autoindex-catalog/_search
+#    → datasets, counts, per-field types with real examples, time ranges,
+#      cross-dataset key correlations, junk report, verified engine gotchas
+
+# 3. query — plain ES queries over the new ax-* indices
+$ curl -sXPOST localhost:9200/ax-logs/_search -H 'content-type: application/json' \
+    -d '{"size":0,"query":{"term":{"level":"ERROR"}},
+         "aggs":{"by_service":{"terms":{"field":"service"}}}}'</pre>
+  <p class="lead" style="max-width:760px;">
+    In the recorded evaluation, the XERJ-backed agent reached for <code class="inline">terms</code>,
+    <code class="inline">cardinality</code>, <code class="inline">sum</code> /
+    <code class="inline">max</code>, <code class="inline">date_histogram</code>,
+    <code class="inline">_count</code>, and full-text queries — and all 10 of
+    its runs consulted the catalog first. Verified: 80/81 ground-truth checks on a
+    1,995-file / 518&nbsp;MB secret-manifest corpus (the one miss: a Shift-JIS
+    file indexed as mojibake); 31 datasets / 2,018,398 records live in
+    38.1&nbsp;s; <code class="inline">kill -9</code> resume converges to
+    identical counts. Honest result from the controlled agent exam: a
+    XERJ-backed agent tied a fair grep/python baseline on accuracy
+    (9&nbsp;+&nbsp;1 partial of 10 vs 10/10) on that local corpus — XERJ's
+    wins are structural: orientation in 4 API calls, sub-second aggregations
+    over millions of rows, uniform access to SQLite / DOCX / gzip /
+    decimal-comma CSV, and remote/API-only access. Full walkthrough:
+    <a href="/docs/recipes/zero-config-autoindex.html">the zero-config indexing recipe</a>.
   </p>
 </section>
 
@@ -86,10 +130,16 @@ $ curl -sXPOST localhost:9200/_memory/agent-demo/_recall \
   </p>
 </section>
 
-<!-- THREE PILLARS -------------------------------------------->
+<!-- FOUR PILLARS ---------------------------------------------->
 <section class="scene-section" style="border-top:0;">
-  <div class="kicker"><span>THREE JOBS · ONE BINARY</span></div>
-  <div class="recipes" style="grid-template-columns:repeat(3,1fr);">
+  <div class="kicker"><span>FOUR JOBS · ONE BINARY</span></div>
+  <div class="recipes" style="grid-template-columns:repeat(4,1fr);">
+    <a class="recipe" href="/docs/recipes/zero-config-autoindex.html">
+      <span class="num">00 · DISCOVER</span>
+      <span class="title">Point it at a folder</span>
+      <p class="lead"><code class="inline">xerj autoindex &lt;folder&gt;</code> — content-sniffed formats, inferred types, explicit mappings, idempotent resumable ingest, and a self-describing catalog (<code class="inline">autoindex-catalog</code>) agents query to orient.</p>
+      <span class="meta">xerj autoindex · map · status</span>
+    </a>
     <a class="recipe" href="/docs/agents/endpoints.html#search">
       <span class="num">01 · SEARCH</span>
       <span class="title">Find anything, four ways</span>
@@ -111,13 +161,17 @@ $ curl -sXPOST localhost:9200/_memory/agent-demo/_recall \
   </div>
 </section>
 
-<!-- THE SIX OPS ---------------------------------------------->
+<!-- THE SEVEN OPS --------------------------------------------->
 <section class="scene-section" style="border-top:0;">
-  <div class="kicker"><span>THE SIX CANONICAL AGENT OPERATIONS</span></div>
+  <div class="kicker"><span>THE SEVEN CANONICAL AGENT OPERATIONS</span></div>
   <div class="api">
     <div class="head">OPERATION</div>
     <div class="head">CALL</div>
     <div class="head">DOES</div>
+
+    <div class="cell m">xerj_autoindex</div>
+    <div class="cell p">xerj autoindex &lt;folder&gt;</div>
+    <div class="cell dsc">Make a folder searchable, zero config — sniffed formats, inferred mappings, self-describing catalog.</div>
 
     <div class="cell m">xerj_search</div>
     <div class="cell p">POST /:index/_search</div>
@@ -144,8 +198,12 @@ $ curl -sXPOST localhost:9200/_memory/agent-demo/_recall \
     <div class="cell dsc">Recall top-k by meaning, keyword, or vector.</div>
   </div>
   <p class="lead" style="max-width:760px;">
-    Exact request and response shapes for every operation are on the
-    <a href="/docs/agents/endpoints.html">endpoint contract</a>.
+    Exact request and response shapes for every HTTP operation are on the
+    <a href="/docs/agents/endpoints.html">endpoint contract</a>;
+    <code class="inline">xerj_autoindex</code> is a CLI subcommand of the
+    <code class="inline">xerj</code> binary — its full contract is in the
+    <a href="/docs/recipes/zero-config-autoindex.html">recipe</a> and
+    <a href="/llms-full.txt"><code class="inline">/llms-full.txt</code></a>.
   </p>
 </section>
 
@@ -235,6 +293,11 @@ $ curl -sXPOST localhost:9200/docfolder/_search \
       <span class="title">Build with XERJ</span>
       <p class="lead">The mental model and the map of the whole agent surface.</p>
     </a>
+    <a class="recipe" href="/docs/recipes/zero-config-autoindex.html">
+      <span class="num">RECIPE · FLAGSHIP</span>
+      <span class="title">Zero-config indexing</span>
+      <p class="lead"><code class="inline">xerj autoindex</code> — any folder → typed, queryable, self-describing indices. Every number traces to a run.</p>
+    </a>
     <a class="recipe" href="/docs/recipes/agentic-memory.html">
       <span class="num">RECIPE</span>
       <span class="title">Give an agent memory</span>
@@ -266,7 +329,7 @@ $ curl -sXPOST localhost:9200/docfolder/_search \
     from the site root and describe the same operations documented above.
   </p>
   <ul class="pitch" style="max-width:760px;">
-    <li><a href="/llms.txt"><code class="inline">/llms.txt</code></a> — a plain-text manifest of the base URL, the six agent operations, and the honesty caveats, written for an LLM to read directly.</li>
+    <li><a href="/llms.txt"><code class="inline">/llms.txt</code></a> — a plain-text manifest of the base URL, the seven agent operations (autoindex included), and the honesty caveats, written for an LLM to read directly.</li>
     <li><a href="/openapi.json"><code class="inline">/openapi.json</code></a> — an OpenAPI description of the endpoints, for tool/codegen pipelines.</li>
   </ul>
 </section>

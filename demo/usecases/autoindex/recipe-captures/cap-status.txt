@@ -1,0 +1,7 @@
+journal /tmp/xerj-pubpass/state/journal.ndjson — root /tmp/xerj-pubpass/sample — 3 files done, 5801 records, FINISHED
+
+live indices at http://localhost:9280:
+  ax-logs                                        5000 docs
+  ax-docs                                           1 docs
+  ax-exports                                      800 docs
+  autoindex-catalog                                 9 docs

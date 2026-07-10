@@ -1,0 +1,262 @@
+[2m2026-07-10T03:58:15.136156Z[0m [32m INFO[0m [2mxerj[0m[2m:[0m xerj v1.0.0-rc.1 starting
+[2m2026-07-10T03:58:15.136190Z[0m [32m INFO[0m [2mxerj[0m[2m:[0m loading config from /tmp/xerj-pubpass/xerj.toml
+[2m2026-07-10T03:58:15.136282Z[0m [33m WARN[0m [2mxerj[0m[2m:[0m --insecure: TLS and auth disabled
+[2m2026-07-10T03:58:15.136502Z[0m [32m INFO[0m [2mxerj[0m[2m:[0m Cluster mode disabled — running in single-node mode
+[2m2026-07-10T03:58:15.136533Z[0m [32m INFO[0m [2mxerj_console_api::bootstrap[0m[2m:[0m generated xerj-console master key [3mpath[0m[2m=[0m/tmp/xerj-pubpass/data/.xerj_master_key
+[2m2026-07-10T03:58:15.136943Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m IndexStore opened [3mdata_dir[0m[2m=[0m"/tmp/xerj-pubpass/data/.xerj_users"
+[2m2026-07-10T03:58:15.137098Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_users"
+[2m2026-07-10T03:58:15.137180Z[0m [32m INFO[0m [2mxerj_engine::engine[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_users"
+[2m2026-07-10T03:58:15.137181Z[0m [32m INFO[0m [2mxerj_console_api::indices[0m[2m:[0m created xerj-console system index [3mindex[0m[2m=[0m".xerj_users"
+[2m2026-07-10T03:58:15.137188Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m merge background task started [3minterval_secs[0m[2m=[0m5
+[2m2026-07-10T03:58:15.137509Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m IndexStore opened [3mdata_dir[0m[2m=[0m"/tmp/xerj-pubpass/data/.xerj_passkeys"
+[2m2026-07-10T03:58:15.137573Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_passkeys"
+[2m2026-07-10T03:58:15.137732Z[0m [32m INFO[0m [2mxerj_engine::engine[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_passkeys"
+[2m2026-07-10T03:58:15.137734Z[0m [32m INFO[0m [2mxerj_console_api::indices[0m[2m:[0m created xerj-console system index [3mindex[0m[2m=[0m".xerj_passkeys"
+[2m2026-07-10T03:58:15.137741Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m merge background task started [3minterval_secs[0m[2m=[0m5
+[2m2026-07-10T03:58:15.138048Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m IndexStore opened [3mdata_dir[0m[2m=[0m"/tmp/xerj-pubpass/data/.xerj_magic_links"
+[2m2026-07-10T03:58:15.138106Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_magic_links"
+[2m2026-07-10T03:58:15.138179Z[0m [32m INFO[0m [2mxerj_engine::engine[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_magic_links"
+[2m2026-07-10T03:58:15.138180Z[0m [32m INFO[0m [2mxerj_console_api::indices[0m[2m:[0m created xerj-console system index [3mindex[0m[2m=[0m".xerj_magic_links"
+[2m2026-07-10T03:58:15.138184Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m merge background task started [3minterval_secs[0m[2m=[0m5
+[2m2026-07-10T03:58:15.159644Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m IndexStore opened [3mdata_dir[0m[2m=[0m"/tmp/xerj-pubpass/data/.xerj_sessions"
+[2m2026-07-10T03:58:15.159711Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_sessions"
+[2m2026-07-10T03:58:15.159782Z[0m [32m INFO[0m [2mxerj_engine::engine[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_sessions"
+[2m2026-07-10T03:58:15.159783Z[0m [32m INFO[0m [2mxerj_console_api::indices[0m[2m:[0m created xerj-console system index [3mindex[0m[2m=[0m".xerj_sessions"
+[2m2026-07-10T03:58:15.159793Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m merge background task started [3minterval_secs[0m[2m=[0m5
+[2m2026-07-10T03:58:15.160082Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m IndexStore opened [3mdata_dir[0m[2m=[0m"/tmp/xerj-pubpass/data/.xerj_api_tokens"
+[2m2026-07-10T03:58:15.160151Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_api_tokens"
+[2m2026-07-10T03:58:15.160248Z[0m [32m INFO[0m [2mxerj_engine::engine[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_api_tokens"
+[2m2026-07-10T03:58:15.160250Z[0m [32m INFO[0m [2mxerj_console_api::indices[0m[2m:[0m created xerj-console system index [3mindex[0m[2m=[0m".xerj_api_tokens"
+[2m2026-07-10T03:58:15.160252Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m merge background task started [3minterval_secs[0m[2m=[0m5
+[2m2026-07-10T03:58:15.160559Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m IndexStore opened [3mdata_dir[0m[2m=[0m"/tmp/xerj-pubpass/data/.xerj_idp_config"
+[2m2026-07-10T03:58:15.160652Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_idp_config"
+[2m2026-07-10T03:58:15.160726Z[0m [32m INFO[0m [2mxerj_engine::engine[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_idp_config"
+[2m2026-07-10T03:58:15.160727Z[0m [32m INFO[0m [2mxerj_console_api::indices[0m[2m:[0m created xerj-console system index [3mindex[0m[2m=[0m".xerj_idp_config"
+[2m2026-07-10T03:58:15.160747Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m merge background task started [3minterval_secs[0m[2m=[0m5
+[2m2026-07-10T03:58:15.161045Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m IndexStore opened [3mdata_dir[0m[2m=[0m"/tmp/xerj-pubpass/data/.xerj_cluster_state"
+[2m2026-07-10T03:58:15.161099Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_cluster_state"
+[2m2026-07-10T03:58:15.161256Z[0m [32m INFO[0m [2mxerj_engine::engine[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_cluster_state"
+[2m2026-07-10T03:58:15.161257Z[0m [32m INFO[0m [2mxerj_console_api::indices[0m[2m:[0m created xerj-console system index [3mindex[0m[2m=[0m".xerj_cluster_state"
+[2m2026-07-10T03:58:15.161262Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m merge background task started [3minterval_secs[0m[2m=[0m5
+[2m2026-07-10T03:58:15.185083Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m IndexStore opened [3mdata_dir[0m[2m=[0m"/tmp/xerj-pubpass/data/.xerj_connections"
+[2m2026-07-10T03:58:15.185260Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_connections"
+[2m2026-07-10T03:58:15.185508Z[0m [32m INFO[0m [2mxerj_engine::engine[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_connections"
+[2m2026-07-10T03:58:15.185512Z[0m [32m INFO[0m [2mxerj_console_api::indices[0m[2m:[0m created xerj-console system index [3mindex[0m[2m=[0m".xerj_connections"
+[2m2026-07-10T03:58:15.185584Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m merge background task started [3minterval_secs[0m[2m=[0m5
+[2m2026-07-10T03:58:15.185963Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m IndexStore opened [3mdata_dir[0m[2m=[0m"/tmp/xerj-pubpass/data/.xerj_prefs"
+[2m2026-07-10T03:58:15.186038Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_prefs"
+[2m2026-07-10T03:58:15.186130Z[0m [32m INFO[0m [2mxerj_engine::engine[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_prefs"
+[2m2026-07-10T03:58:15.186131Z[0m [32m INFO[0m [2mxerj_console_api::indices[0m[2m:[0m created xerj-console system index [3mindex[0m[2m=[0m".xerj_prefs"
+[2m2026-07-10T03:58:15.186176Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m merge background task started [3minterval_secs[0m[2m=[0m5
+[2m2026-07-10T03:58:15.186468Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m IndexStore opened [3mdata_dir[0m[2m=[0m"/tmp/xerj-pubpass/data/.xerj_dashboards"
+[2m2026-07-10T03:58:15.186693Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_dashboards"
+[2m2026-07-10T03:58:15.186764Z[0m [32m INFO[0m [2mxerj_engine::engine[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_dashboards"
+[2m2026-07-10T03:58:15.186765Z[0m [32m INFO[0m [2mxerj_console_api::indices[0m[2m:[0m created xerj-console system index [3mindex[0m[2m=[0m".xerj_dashboards"
+[2m2026-07-10T03:58:15.186802Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m merge background task started [3minterval_secs[0m[2m=[0m5
+[2m2026-07-10T03:58:15.187077Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m IndexStore opened [3mdata_dir[0m[2m=[0m"/tmp/xerj-pubpass/data/.xerj_views"
+[2m2026-07-10T03:58:15.187133Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_views"
+[2m2026-07-10T03:58:15.187207Z[0m [32m INFO[0m [2mxerj_engine::engine[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_views"
+[2m2026-07-10T03:58:15.187208Z[0m [32m INFO[0m [2mxerj_console_api::indices[0m[2m:[0m created xerj-console system index [3mindex[0m[2m=[0m".xerj_views"
+[2m2026-07-10T03:58:15.187231Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m merge background task started [3minterval_secs[0m[2m=[0m5
+[2m2026-07-10T03:58:15.187526Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m IndexStore opened [3mdata_dir[0m[2m=[0m"/tmp/xerj-pubpass/data/.xerj_alert_rules"
+[2m2026-07-10T03:58:15.187581Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_alert_rules"
+[2m2026-07-10T03:58:15.187651Z[0m [32m INFO[0m [2mxerj_engine::engine[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_alert_rules"
+[2m2026-07-10T03:58:15.187652Z[0m [32m INFO[0m [2mxerj_console_api::indices[0m[2m:[0m created xerj-console system index [3mindex[0m[2m=[0m".xerj_alert_rules"
+[2m2026-07-10T03:58:15.187670Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m merge background task started [3minterval_secs[0m[2m=[0m5
+[2m2026-07-10T03:58:15.187954Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m IndexStore opened [3mdata_dir[0m[2m=[0m"/tmp/xerj-pubpass/data/.xerj_alert_fires"
+[2m2026-07-10T03:58:15.188004Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_alert_fires"
+[2m2026-07-10T03:58:15.188074Z[0m [32m INFO[0m [2mxerj_engine::engine[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_alert_fires"
+[2m2026-07-10T03:58:15.188075Z[0m [32m INFO[0m [2mxerj_console_api::indices[0m[2m:[0m created xerj-console system index [3mindex[0m[2m=[0m".xerj_alert_fires"
+[2m2026-07-10T03:58:15.188091Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m merge background task started [3minterval_secs[0m[2m=[0m5
+[2m2026-07-10T03:58:15.188367Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m IndexStore opened [3mdata_dir[0m[2m=[0m"/tmp/xerj-pubpass/data/.xerj_audit"
+[2m2026-07-10T03:58:15.188424Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_audit"
+[2m2026-07-10T03:58:15.188497Z[0m [32m INFO[0m [2mxerj_engine::engine[0m[2m:[0m index created [3mname[0m[2m=[0m".xerj_audit"
+[2m2026-07-10T03:58:15.188498Z[0m [32m INFO[0m [2mxerj_console_api::indices[0m[2m:[0m created xerj-console system index [3mindex[0m[2m=[0m".xerj_audit"
+[2m2026-07-10T03:58:15.188515Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m merge background task started [3minterval_secs[0m[2m=[0m5
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ XERJ CONSOLE  ·  first-launch setup                                          │
+│                                                                              │
+│ Open this link in your browser to claim the owner account by                 │
+│ enrolling a passkey.  Valid for 30 minutes.  Single use.                     │
+│                                                                              │
+├──────────────────────────────────────────────────────────────────────────────┤
+  http://127.0.0.1:9280/_xerj-console/setup#token=xvk9D8edmZ6_M14lmpR4jnUevHn_BbziKFjRSd0t108
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│ Need a fresh link?  `xerj admin magic-link --role owner`                     │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+[2m2026-07-10T03:58:15.189898Z[0m [32m INFO[0m [2mxerj[0m[2m:[0m startup complete in 53ms
+
+  ██╗  ██╗███████╗██████╗      ██╗
+  ╚██╗██╔╝██╔════╝██╔══██╗     ██║
+   ╚███╔╝ █████╗  ██████╔╝     ██║
+   ██╔██╗ ██╔══╝  ██╔══██╗██   ██║
+  ██╔╝ ██╗███████╗██║  ██║╚█████╔╝
+  ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝ ╚════╝   v1.0.0-rc.1
+
+ byte-perfect from design to code
+
+ Native REST  :9380 [plain]
+ ES-compat    :9280 [plain]
+ gRPC         :9381 [h2c]
+ Data dir     /tmp/xerj-pubpass/data
+ Started in   53ms
+
+ Xerj Console UI    http://localhost:9280/_xerj-console/  (40 files bundled)
+
+ ┌─ Deployment posture (see PATH_TO_100_PCT_v0.6.0_to_v1.0.md) ──
+ │ ⚠  TLS:    listener is plain TCP — terminate TLS at a reverse proxy
+ │           (or enable in-process TLS: tls.enabled = true)
+ │ ⚠  Auth:   DISABLED (--insecure) — anyone on the network can write
+ │ ⚠  Audit:  request tracing only — tamper-evident WORM audit log v0.9
+ │ ⚠  Encryption-at-rest: not engine-level — use OS FDE or S3 SSE for now
+ └────────────────────────────────────────────────────────────────
+
+[2m2026-07-10T03:58:15.189970Z[0m [32m INFO[0m [2mxerj[0m[2m:[0m native REST listening on 127.0.0.1:9380
+[2m2026-07-10T03:58:15.190021Z[0m [32m INFO[0m [2mxerj[0m[2m:[0m ES-compat listening on 127.0.0.1:9280
+[2m2026-07-10T03:58:15.190016Z[0m [32m INFO[0m [2mxerj::grpc[0m[2m:[0m gRPC XerjSearch listening on 127.0.0.1:9381
+[2m2026-07-10T03:58:31.455222Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m IndexStore opened [3mdata_dir[0m[2m=[0m"/tmp/xerj-pubpass/data/ax-docs"
+[2m2026-07-10T03:58:31.455340Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m index created [3mname[0m[2m=[0m"ax-docs"
+[2m2026-07-10T03:58:31.455446Z[0m [32m INFO[0m [2mxerj_engine::engine[0m[2m:[0m index created [3mname[0m[2m=[0m"ax-docs"
+[2m2026-07-10T03:58:31.455457Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m merge background task started [3minterval_secs[0m[2m=[0m5
+[2m2026-07-10T03:58:31.476661Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m IndexStore opened [3mdata_dir[0m[2m=[0m"/tmp/xerj-pubpass/data/ax-exports"
+[2m2026-07-10T03:58:31.476767Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m index created [3mname[0m[2m=[0m"ax-exports"
+[2m2026-07-10T03:58:31.476890Z[0m [32m INFO[0m [2mxerj_engine::engine[0m[2m:[0m index created [3mname[0m[2m=[0m"ax-exports"
+[2m2026-07-10T03:58:31.476911Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m merge background task started [3minterval_secs[0m[2m=[0m5
+[2m2026-07-10T03:58:31.477517Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m IndexStore opened [3mdata_dir[0m[2m=[0m"/tmp/xerj-pubpass/data/ax-logs"
+[2m2026-07-10T03:58:31.477623Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m index created [3mname[0m[2m=[0m"ax-logs"
+[2m2026-07-10T03:58:31.477746Z[0m [32m INFO[0m [2mxerj_engine::engine[0m[2m:[0m index created [3mname[0m[2m=[0m"ax-logs"
+[2m2026-07-10T03:58:31.477753Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m merge background task started [3minterval_secs[0m[2m=[0m5
+[2m2026-07-10T03:58:31.478190Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m IndexStore opened [3mdata_dir[0m[2m=[0m"/tmp/xerj-pubpass/data/autoindex-catalog"
+[2m2026-07-10T03:58:31.478260Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m index created [3mname[0m[2m=[0m"autoindex-catalog"
+[2m2026-07-10T03:58:31.478332Z[0m [32m INFO[0m [2mxerj_engine::engine[0m[2m:[0m index created [3mname[0m[2m=[0m"autoindex-catalog"
+[2m2026-07-10T03:58:31.478345Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m merge background task started [3minterval_secs[0m[2m=[0m5
+[2m2026-07-10T03:58:31.612454Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"54ea4636-a892-4368-b4db-7a1acac7e702" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m6 [3mmax_seq[0m[2m=[0m6
+[2m2026-07-10T03:58:31.612850Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"04fec697-54e4-4a6c-a260-44de1f7d497c" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m1 [3mmax_seq[0m[2m=[0m1
+[2m2026-07-10T03:58:31.612897Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"04fec697-54e4-4a6c-a260-44de1f7d497c" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T03:58:31.612906Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"54ea4636-a892-4368-b4db-7a1acac7e702" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T03:58:31.613246Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"a12d6653-08dc-494e-8583-03c984b841fa" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m7 [3mmax_seq[0m[2m=[0m7
+[2m2026-07-10T03:58:31.613266Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"a12d6653-08dc-494e-8583-03c984b841fa" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T03:58:31.613292Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"9e278d15-4811-4716-a9b2-346e8345fe80" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m2 [3mmax_seq[0m[2m=[0m2
+[2m2026-07-10T03:58:31.613313Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"9e278d15-4811-4716-a9b2-346e8345fe80" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T03:58:31.615742Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"cafaa0d7-ac36-402c-96ff-79d9dd643295" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m5 [3mmax_seq[0m[2m=[0m5
+[2m2026-07-10T03:58:31.615753Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"9b90a0c7-22f6-4e88-bf8a-95268b2a0126" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m4 [3mmax_seq[0m[2m=[0m4
+[2m2026-07-10T03:58:31.615758Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"cafaa0d7-ac36-402c-96ff-79d9dd643295" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T03:58:31.615772Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"9b90a0c7-22f6-4e88-bf8a-95268b2a0126" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T03:58:31.615800Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"549650be-b4e3-4d3f-9590-7f08ebb03978" [3mdoc_count[0m[2m=[0m2 [3mmin_seq[0m[2m=[0m3 [3mmax_seq[0m[2m=[0m8
+[2m2026-07-10T03:58:31.615820Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"549650be-b4e3-4d3f-9590-7f08ebb03978" [3mdoc_count[0m[2m=[0m2
+[2m2026-07-10T03:58:36.479746Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m run_merge_once: scheduling batches [3mnum_segments_in[0m[2m=[0m7 [3mnum_batches[0m[2m=[0m1
+[2m2026-07-10T03:58:36.484045Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m merge applied [3mmerged[0m[2m=[0m7
+[2m2026-07-10T03:58:36.489036Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m segment merge complete [3mmerged_id[0m[2m=[0m"651833fd-cb0e-4085-98e3-25f8db565356" [3minputs[0m[2m=[0m7 [3mlive_docs[0m[2m=[0m8 [3mremoved_files[0m[2m=[0m1365 [3mremoved_mb[0m[2m=[0m0 [3mdeferred[0m[2m=[0mfalse
+[2m2026-07-10T03:58:39.189328Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"2d1e1550-e911-4424-b9ec-6b26a9759237" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m16 [3mmax_seq[0m[2m=[0m16
+[2m2026-07-10T03:58:39.189354Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"33d386d2-eebd-4e00-b9c3-842d8a415f39" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m10 [3mmax_seq[0m[2m=[0m10
+[2m2026-07-10T03:58:39.189362Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"2d1e1550-e911-4424-b9ec-6b26a9759237" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T03:58:39.189371Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"33d386d2-eebd-4e00-b9c3-842d8a415f39" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T03:58:39.189396Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"bce45b37-2f4a-4ea3-af64-36833c6eb72d" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m11 [3mmax_seq[0m[2m=[0m11
+[2m2026-07-10T03:58:39.189429Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"bce45b37-2f4a-4ea3-af64-36833c6eb72d" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T03:58:39.189910Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"8adf283b-d027-4576-b145-e3bd8c2af36c" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m12 [3mmax_seq[0m[2m=[0m12
+[2m2026-07-10T03:58:39.190010Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"8adf283b-d027-4576-b145-e3bd8c2af36c" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T03:58:39.192925Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"a4efef29-338f-4d55-adb3-a8673cb7feef" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m14 [3mmax_seq[0m[2m=[0m14
+[2m2026-07-10T03:58:39.192964Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"9550457a-584c-43c6-bb30-63efcc6aea0b" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m9 [3mmax_seq[0m[2m=[0m9
+[2m2026-07-10T03:58:39.192986Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"9550457a-584c-43c6-bb30-63efcc6aea0b" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T03:58:39.192963Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"a4efef29-338f-4d55-adb3-a8673cb7feef" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T03:58:39.193013Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"6129ea81-de05-402f-8a91-99a012736323" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m15 [3mmax_seq[0m[2m=[0m15
+[2m2026-07-10T03:58:39.193028Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"6129ea81-de05-402f-8a91-99a012736323" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T03:58:39.193035Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"268256dd-92f2-4f91-b23e-7ee5b40538b0" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m13 [3mmax_seq[0m[2m=[0m13
+[2m2026-07-10T03:58:39.193049Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"268256dd-92f2-4f91-b23e-7ee5b40538b0" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T03:58:41.491125Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m run_merge_once: scheduling batches [3mnum_segments_in[0m[2m=[0m9 [3mnum_batches[0m[2m=[0m1
+[2m2026-07-10T03:58:41.497169Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m merge applied [3mmerged[0m[2m=[0m9
+[2m2026-07-10T03:58:41.503093Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m segment merge complete [3mmerged_id[0m[2m=[0m"3a77ef2c-753a-491f-bca5-52b61166007a" [3minputs[0m[2m=[0m9 [3mlive_docs[0m[2m=[0m9 [3mremoved_files[0m[2m=[0m1755 [3mremoved_mb[0m[2m=[0m0 [3mdeferred[0m[2m=[0mfalse
+[2m2026-07-10T04:00:43.247498Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"69d20a86-b046-4e69-ab1e-ad5c23b09efe" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m18 [3mmax_seq[0m[2m=[0m18
+[2m2026-07-10T04:00:43.247548Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"69d20a86-b046-4e69-ab1e-ad5c23b09efe" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T04:00:43.247572Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"52c8f3b8-f8a3-4385-b69c-fbf5c22cdb59" [3mdoc_count[0m[2m=[0m2 [3mmin_seq[0m[2m=[0m19 [3mmax_seq[0m[2m=[0m24
+[2m2026-07-10T04:00:43.247610Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"52c8f3b8-f8a3-4385-b69c-fbf5c22cdb59" [3mdoc_count[0m[2m=[0m2
+[2m2026-07-10T04:00:43.247732Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"b943c017-c295-4121-b263-ab2c397009b6" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m22 [3mmax_seq[0m[2m=[0m22
+[2m2026-07-10T04:00:43.247756Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"b943c017-c295-4121-b263-ab2c397009b6" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T04:00:43.250375Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"7bf2a1a2-c6e5-4ded-905e-0778157513a4" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m23 [3mmax_seq[0m[2m=[0m23
+[2m2026-07-10T04:00:43.250377Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"845ff684-26dc-455b-b1b3-1aefc19bd725" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m20 [3mmax_seq[0m[2m=[0m20
+[2m2026-07-10T04:00:43.250392Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"7c2cb62a-c8e1-4761-bd98-cde0c5039011" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m17 [3mmax_seq[0m[2m=[0m17
+[2m2026-07-10T04:00:43.250393Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"7bf2a1a2-c6e5-4ded-905e-0778157513a4" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T04:00:43.250403Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"845ff684-26dc-455b-b1b3-1aefc19bd725" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T04:00:43.250412Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"7c2cb62a-c8e1-4761-bd98-cde0c5039011" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T04:00:43.250464Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"2a6c9ae8-26fd-4de3-a043-33ed49f45740" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m21 [3mmax_seq[0m[2m=[0m21
+[2m2026-07-10T04:00:43.250481Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"2a6c9ae8-26fd-4de3-a043-33ed49f45740" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T04:00:46.537815Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m run_merge_once: scheduling batches [3mnum_segments_in[0m[2m=[0m8 [3mnum_batches[0m[2m=[0m1
+[2m2026-07-10T04:00:46.541921Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m merge applied [3mmerged[0m[2m=[0m8
+[2m2026-07-10T04:00:46.547099Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m segment merge complete [3mmerged_id[0m[2m=[0m"ebd7f784-9d7c-4f81-b011-82db9e366509" [3minputs[0m[2m=[0m8 [3mlive_docs[0m[2m=[0m9 [3mremoved_files[0m[2m=[0m1560 [3mremoved_mb[0m[2m=[0m0 [3mdeferred[0m[2m=[0mfalse
+[2m2026-07-10T04:03:47.963038Z[0m [32m INFO[0m [2mxerj[0m[2m:[0m SIGTERM received — shutting down
+[2m2026-07-10T04:03:47.963245Z[0m [32m INFO[0m [2mxerj[0m[2m:[0m native REST shut down cleanly
+[2m2026-07-10T04:03:47.963531Z[0m [32m INFO[0m [2mxerj[0m[2m:[0m ES-compat shut down cleanly
+[2m2026-07-10T04:03:47.963578Z[0m [32m INFO[0m [2mxerj[0m[2m:[0m flushing in-memory state before exit…
+[2m2026-07-10T04:03:47.971607Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"7e51524f-4247-4603-8f3c-0cbf0d934f23" [3mdoc_count[0m[2m=[0m327 [3mmin_seq[0m[2m=[0m5004 [3mmax_seq[0m[2m=[0m9995
+[2m2026-07-10T04:03:47.971801Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"b1651701-643d-4caf-b842-7737505bb9b0" [3mdoc_count[0m[2m=[0m312 [3mmin_seq[0m[2m=[0m5003 [3mmax_seq[0m[2m=[0m9996
+[2m2026-07-10T04:03:47.971947Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"840362b2-83fd-49f9-87b1-c0abb2a54980" [3mdoc_count[0m[2m=[0m305 [3mmin_seq[0m[2m=[0m5031 [3mmax_seq[0m[2m=[0m9993
+[2m2026-07-10T04:03:47.971988Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"7e51524f-4247-4603-8f3c-0cbf0d934f23" [3mdoc_count[0m[2m=[0m327
+[2m2026-07-10T04:03:47.972081Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"6c7c7414-6623-4b2a-bc6f-c93ad111ca8d" [3mdoc_count[0m[2m=[0m319 [3mmin_seq[0m[2m=[0m5011 [3mmax_seq[0m[2m=[0m9999
+[2m2026-07-10T04:03:47.972116Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"b1651701-643d-4caf-b842-7737505bb9b0" [3mdoc_count[0m[2m=[0m312
+[2m2026-07-10T04:03:47.972320Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"840362b2-83fd-49f9-87b1-c0abb2a54980" [3mdoc_count[0m[2m=[0m305
+[2m2026-07-10T04:03:47.972478Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"6c7c7414-6623-4b2a-bc6f-c93ad111ca8d" [3mdoc_count[0m[2m=[0m319
+[2m2026-07-10T04:03:47.977709Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"d5c0934b-a705-4a35-b3fb-11a853d42bd6" [3mdoc_count[0m[2m=[0m291 [3mmin_seq[0m[2m=[0m5052 [3mmax_seq[0m[2m=[0m9998
+[2m2026-07-10T04:03:47.977946Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"d5c0934b-a705-4a35-b3fb-11a853d42bd6" [3mdoc_count[0m[2m=[0m291
+[2m2026-07-10T04:03:47.978165Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"af0cd808-6800-40a9-98a2-79a4e780c264" [3mdoc_count[0m[2m=[0m333 [3mmin_seq[0m[2m=[0m5010 [3mmax_seq[0m[2m=[0m9986
+[2m2026-07-10T04:03:47.978397Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"af0cd808-6800-40a9-98a2-79a4e780c264" [3mdoc_count[0m[2m=[0m333
+[2m2026-07-10T04:03:47.978834Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"9065194e-259f-4de1-ae97-bebc7afd87d1" [3mdoc_count[0m[2m=[0m302 [3mmin_seq[0m[2m=[0m5017 [3mmax_seq[0m[2m=[0m9968
+[2m2026-07-10T04:03:47.979134Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"9065194e-259f-4de1-ae97-bebc7afd87d1" [3mdoc_count[0m[2m=[0m302
+[2m2026-07-10T04:03:47.979237Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"f35bda6d-4d61-4b00-ac3c-ef2d72c2e182" [3mdoc_count[0m[2m=[0m317 [3mmin_seq[0m[2m=[0m5024 [3mmax_seq[0m[2m=[0m9982
+[2m2026-07-10T04:03:47.979539Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"f35bda6d-4d61-4b00-ac3c-ef2d72c2e182" [3mdoc_count[0m[2m=[0m317
+[2m2026-07-10T04:03:47.983778Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"e2126684-fa23-463c-a563-0c1d9484a0c2" [3mdoc_count[0m[2m=[0m326 [3mmin_seq[0m[2m=[0m5013 [3mmax_seq[0m[2m=[0m9977
+[2m2026-07-10T04:03:47.984020Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"e2126684-fa23-463c-a563-0c1d9484a0c2" [3mdoc_count[0m[2m=[0m326
+[2m2026-07-10T04:03:47.984149Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"2e0593a5-dc2b-49fa-a449-3cf57ff5705f" [3mdoc_count[0m[2m=[0m324 [3mmin_seq[0m[2m=[0m5001 [3mmax_seq[0m[2m=[0m9997
+[2m2026-07-10T04:03:47.984196Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"4ff8148e-bcc5-4c86-a40d-c71be0286ef3" [3mdoc_count[0m[2m=[0m320 [3mmin_seq[0m[2m=[0m5016 [3mmax_seq[0m[2m=[0m9975
+[2m2026-07-10T04:03:47.984425Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"2e0593a5-dc2b-49fa-a449-3cf57ff5705f" [3mdoc_count[0m[2m=[0m324
+[2m2026-07-10T04:03:47.984436Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"4ff8148e-bcc5-4c86-a40d-c71be0286ef3" [3mdoc_count[0m[2m=[0m320
+[2m2026-07-10T04:03:47.984547Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"1a35873a-2f84-4c3e-95ee-ba3dc4346d19" [3mdoc_count[0m[2m=[0m284 [3mmin_seq[0m[2m=[0m5002 [3mmax_seq[0m[2m=[0m10000
+[2m2026-07-10T04:03:47.984743Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"1a35873a-2f84-4c3e-95ee-ba3dc4346d19" [3mdoc_count[0m[2m=[0m284
+[2m2026-07-10T04:03:47.989374Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"a7b33a24-80ac-4f79-af69-653e34fb2350" [3mdoc_count[0m[2m=[0m274 [3mmin_seq[0m[2m=[0m5005 [3mmax_seq[0m[2m=[0m9989
+[2m2026-07-10T04:03:47.989529Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"1c1c10d8-04d5-475b-ba4a-4b79285438e0" [3mdoc_count[0m[2m=[0m316 [3mmin_seq[0m[2m=[0m5006 [3mmax_seq[0m[2m=[0m9974
+[2m2026-07-10T04:03:47.989585Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"a7b33a24-80ac-4f79-af69-653e34fb2350" [3mdoc_count[0m[2m=[0m274
+[2m2026-07-10T04:03:47.989605Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"59cbd3fb-86c6-4f4c-92fc-879f9555435a" [3mdoc_count[0m[2m=[0m335 [3mmin_seq[0m[2m=[0m5022 [3mmax_seq[0m[2m=[0m9988
+[2m2026-07-10T04:03:47.989758Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"1c1c10d8-04d5-475b-ba4a-4b79285438e0" [3mdoc_count[0m[2m=[0m316
+[2m2026-07-10T04:03:47.989934Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"05c18503-9d49-4a5d-894a-be0640f450a4" [3mdoc_count[0m[2m=[0m315 [3mmin_seq[0m[2m=[0m5015 [3mmax_seq[0m[2m=[0m9954
+[2m2026-07-10T04:03:47.989942Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"59cbd3fb-86c6-4f4c-92fc-879f9555435a" [3mdoc_count[0m[2m=[0m335
+[2m2026-07-10T04:03:47.990187Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"05c18503-9d49-4a5d-894a-be0640f450a4" [3mdoc_count[0m[2m=[0m315
+[2m2026-07-10T04:03:47.993204Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"93cc9fcc-f45c-4de4-ba9f-2f19a3163eed" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m2 [3mmax_seq[0m[2m=[0m2
+[2m2026-07-10T04:03:47.993221Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"93cc9fcc-f45c-4de4-ba9f-2f19a3163eed" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T04:03:47.995085Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"0c2ea4c5-33b3-4572-831a-aba36806d1ef" [3mdoc_count[0m[2m=[0m44 [3mmin_seq[0m[2m=[0m810 [3mmax_seq[0m[2m=[0m1595
+[2m2026-07-10T04:03:47.995091Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"19da23f0-6d3b-4698-ac19-2363389601fe" [3mdoc_count[0m[2m=[0m38 [3mmin_seq[0m[2m=[0m815 [3mmax_seq[0m[2m=[0m1597
+[2m2026-07-10T04:03:47.995136Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"19da23f0-6d3b-4698-ac19-2363389601fe" [3mdoc_count[0m[2m=[0m38
+[2m2026-07-10T04:03:47.995148Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"0c2ea4c5-33b3-4572-831a-aba36806d1ef" [3mdoc_count[0m[2m=[0m44
+[2m2026-07-10T04:03:47.995346Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"515c8dcc-ae1f-49f5-a586-4e4340217934" [3mdoc_count[0m[2m=[0m60 [3mmin_seq[0m[2m=[0m820 [3mmax_seq[0m[2m=[0m1586
+[2m2026-07-10T04:03:47.995386Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"515c8dcc-ae1f-49f5-a586-4e4340217934" [3mdoc_count[0m[2m=[0m60
+[2m2026-07-10T04:03:47.995606Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"90b8a34a-7343-4f61-831f-cfc105cccac8" [3mdoc_count[0m[2m=[0m45 [3mmin_seq[0m[2m=[0m814 [3mmax_seq[0m[2m=[0m1546
+[2m2026-07-10T04:03:47.995645Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"90b8a34a-7343-4f61-831f-cfc105cccac8" [3mdoc_count[0m[2m=[0m45
+[2m2026-07-10T04:03:47.996291Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"000cc95c-1872-4e3d-a4f5-e216647b064e" [3mdoc_count[0m[2m=[0m44 [3mmin_seq[0m[2m=[0m818 [3mmax_seq[0m[2m=[0m1591
+[2m2026-07-10T04:03:47.996326Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"000cc95c-1872-4e3d-a4f5-e216647b064e" [3mdoc_count[0m[2m=[0m44
+[2m2026-07-10T04:03:47.996488Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"98000904-bed8-4f5d-97d8-971b5fdf181b" [3mdoc_count[0m[2m=[0m55 [3mmin_seq[0m[2m=[0m804 [3mmax_seq[0m[2m=[0m1564
+[2m2026-07-10T04:03:47.996524Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"98000904-bed8-4f5d-97d8-971b5fdf181b" [3mdoc_count[0m[2m=[0m55
+[2m2026-07-10T04:03:47.996686Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"d1532ec5-df89-4e11-bfe4-4698a8e50a49" [3mdoc_count[0m[2m=[0m42 [3mmin_seq[0m[2m=[0m817 [3mmax_seq[0m[2m=[0m1563
+[2m2026-07-10T04:03:47.996727Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"d1532ec5-df89-4e11-bfe4-4698a8e50a49" [3mdoc_count[0m[2m=[0m42
+[2m2026-07-10T04:03:47.996812Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"5d432938-3563-4487-847f-d05f990adfb8" [3mdoc_count[0m[2m=[0m56 [3mmin_seq[0m[2m=[0m802 [3mmax_seq[0m[2m=[0m1579
+[2m2026-07-10T04:03:47.996856Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"5d432938-3563-4487-847f-d05f990adfb8" [3mdoc_count[0m[2m=[0m56
+[2m2026-07-10T04:03:47.997359Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"d7d0d9e4-ca61-4284-81b5-f90170904942" [3mdoc_count[0m[2m=[0m46 [3mmin_seq[0m[2m=[0m825 [3mmax_seq[0m[2m=[0m1588
+[2m2026-07-10T04:03:47.997394Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"d7d0d9e4-ca61-4284-81b5-f90170904942" [3mdoc_count[0m[2m=[0m46
+[2m2026-07-10T04:03:47.997836Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"61f96fb1-9aba-4405-be58-4e1b315b093e" [3mdoc_count[0m[2m=[0m43 [3mmin_seq[0m[2m=[0m842 [3mmax_seq[0m[2m=[0m1589
+[2m2026-07-10T04:03:47.997870Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"61f96fb1-9aba-4405-be58-4e1b315b093e" [3mdoc_count[0m[2m=[0m43
+[2m2026-07-10T04:03:47.997906Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"34f9f8a8-3731-432c-87d4-c954f9d2d521" [3mdoc_count[0m[2m=[0m55 [3mmin_seq[0m[2m=[0m896 [3mmax_seq[0m[2m=[0m1596
+[2m2026-07-10T04:03:47.997908Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"15af0096-178d-4860-830b-9b9c8b1e124a" [3mdoc_count[0m[2m=[0m46 [3mmin_seq[0m[2m=[0m809 [3mmax_seq[0m[2m=[0m1600
+[2m2026-07-10T04:03:47.997949Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"15af0096-178d-4860-830b-9b9c8b1e124a" [3mdoc_count[0m[2m=[0m46
+[2m2026-07-10T04:03:47.997946Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"34f9f8a8-3731-432c-87d4-c954f9d2d521" [3mdoc_count[0m[2m=[0m55
+[2m2026-07-10T04:03:47.998988Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"ed4c5927-460c-4e50-8560-874dee043c81" [3mdoc_count[0m[2m=[0m58 [3mmin_seq[0m[2m=[0m805 [3mmax_seq[0m[2m=[0m1598
+[2m2026-07-10T04:03:47.999013Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"9bb0fe25-19e7-4399-9ef9-123603ea68c0" [3mdoc_count[0m[2m=[0m56 [3mmin_seq[0m[2m=[0m801 [3mmax_seq[0m[2m=[0m1594
+[2m2026-07-10T04:03:47.999031Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"ed4c5927-460c-4e50-8560-874dee043c81" [3mdoc_count[0m[2m=[0m58
+[2m2026-07-10T04:03:47.999062Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"9bb0fe25-19e7-4399-9ef9-123603ea68c0" [3mdoc_count[0m[2m=[0m56
+[2m2026-07-10T04:03:47.999120Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"c5601b47-614d-418d-8238-fd8a224a0087" [3mdoc_count[0m[2m=[0m51 [3mmin_seq[0m[2m=[0m866 [3mmax_seq[0m[2m=[0m1577
+[2m2026-07-10T04:03:47.999160Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"c5601b47-614d-418d-8238-fd8a224a0087" [3mdoc_count[0m[2m=[0m51
+[2m2026-07-10T04:03:47.999187Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"bcce3609-e246-4610-9ac4-bcaa6bf43f5c" [3mdoc_count[0m[2m=[0m61 [3mmin_seq[0m[2m=[0m812 [3mmax_seq[0m[2m=[0m1578
+[2m2026-07-10T04:03:47.999229Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"bcce3609-e246-4610-9ac4-bcaa6bf43f5c" [3mdoc_count[0m[2m=[0m61
+[2m2026-07-10T04:03:48.000062Z[0m [32m INFO[0m [2mxerj_storage::index_store[0m[2m:[0m segment flushed [3msegment_id[0m[2m=[0m"b4da6958-ac67-4546-a32a-ca9b09fa58c9" [3mdoc_count[0m[2m=[0m1 [3mmin_seq[0m[2m=[0m1 [3mmax_seq[0m[2m=[0m1
+[2m2026-07-10T04:03:48.000077Z[0m [32m INFO[0m [2mxerj_engine::index[0m[2m:[0m memtable flushed to segment with FTS index [3msegment_id[0m[2m=[0m"b4da6958-ac67-4546-a32a-ca9b09fa58c9" [3mdoc_count[0m[2m=[0m1
+[2m2026-07-10T04:03:48.002712Z[0m [32m INFO[0m [2mxerj[0m[2m:[0m final flush complete in 39ms
+[2m2026-07-10T04:03:48.002716Z[0m [32m INFO[0m [2mxerj[0m[2m:[0m xerj v1.0.0-rc.1 stopped. Goodbye.
