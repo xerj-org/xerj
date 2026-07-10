@@ -3772,6 +3772,20 @@ fn build_search_request(
     if let Some(sort_val) = &body.sort {
         let sort_fields = parse_sort(sort_val);
         req.sort = sort_fields;
+        // ES treats a sort that is nothing but `_score` DESC exactly like
+        // no sort at all: hits carry no `sort` arrays, `max_score` is
+        // populated, and ties break by doc order (live-verified on ES
+        // 8.13.4: `sort:["_score"]` / `[{"_score":"desc"}]` responses are
+        // wire-identical to omitting `sort`, while `[{"_score":"asc"}]`
+        // and mixed sorts DO emit sort arrays with `max_score: null`).
+        if !req.sort.is_empty()
+            && req
+                .sort
+                .iter()
+                .all(|sf| sf.is_score() && sf.order == xerj_query::sort::SortOrder::Desc)
+        {
+            req.sort = Vec::new();
+        }
     }
 
     // Parse highlight.
@@ -4102,6 +4116,14 @@ fn is_lone_doc_sort(v: &Value) -> bool {
 /// ES sort can be:
 /// - `"_score"` / `"_doc"` (string)
 /// - `[{"field": "asc"}, {"field": {"order": "desc", "missing": "_last"}}]`
+/// Widen an f32 score to the f64 that prints as the SHORTEST f32 repr —
+/// ES serializes scores as Java floats (`448.4`), while a raw `as f64`
+/// bit-widening prints `448.3999938964844` on the wire. Order-preserving
+/// (shortest round-trip is monotone), so comparisons are unaffected.
+fn score_wire(v: f32) -> f64 {
+    v.to_string().parse().unwrap_or(v as f64)
+}
+
 fn parse_sort(sort_val: &Value) -> Vec<xerj_query::sort::SortField> {
     use xerj_query::sort::{SortField, SortMissing, SortMode, SortOrder};
     let mut fields: Vec<SortField> = Vec::new();
@@ -6795,19 +6817,23 @@ pub async fn search(
     // necessarily the highest-scoring one and `max_score` must reflect
     // the population max across the merged hit set (search/111
     // `track_scores: true` with `sort: user_id asc`).
-    let sort_tracks_scores = search_req.sort.is_empty()
-        || search_req.sort.iter().all(|s| s.is_score())
-        || body.track_scores.unwrap_or(false);
+    // NOTE: a sort containing ONLY `_score` keys does NOT populate
+    // `max_score` unless it is pure `_score` DESC (normalized to an empty
+    // sort at parse time): live-verified on ES 8.13.4, `[{"_score":"asc"}]`
+    // and `["_score","_doc"]` both return `max_score: null` while their
+    // hits still carry `_score` values.
+    let sort_tracks_scores =
+        search_req.sort.is_empty() || body.track_scores.unwrap_or(false);
     let max_score = if sort_tracks_scores {
         let explicit_field_sort =
             !search_req.sort.is_empty() && search_req.sort.iter().any(|s| !s.is_score());
         if explicit_field_sort {
             // Prefer the per-index pre-collapse population max; fall back to the
             // (possibly collapsed/paged) merged hit set when unavailable.
-            merged_population_max.or_else(|| {
+            merged_population_max.map(|m| score_wire(m as f32)).or_else(|| {
                 merged_hits
                     .iter()
-                    .map(|(_, h)| h.score as f64)
+                    .map(|(_, h)| score_wire(h.score))
                     .fold(None, |acc: Option<f64>, s| {
                         Some(match acc {
                             Some(m) if m >= s => m,
@@ -6816,7 +6842,7 @@ pub async fn search(
                     })
             })
         } else {
-            merged_hits.first().map(|(_, h)| h.score as f64)
+            merged_hits.first().map(|(_, h)| score_wire(h.score))
         }
     } else {
         None
@@ -8856,7 +8882,21 @@ pub async fn search(
             EsHit {
                 index: idx_name.clone(),
                 id: h.id.clone(),
-                score: Some(h.score as f64),
+                // ES only computes (and emits) per-hit `_score` when scores
+                // are tracked: no sort (a pure `_score` DESC sort was
+                // normalized to "no sort" at parse), an explicit
+                // `track_scores: true`, or `_score` appearing among the
+                // sort keys. Field-sorted hits otherwise carry
+                // `_score: null` (live-verified on ES 8.13.4 — the B4
+                // "sort-heavy _score-vs-null" wire divergence).
+                score: if search_req.sort.is_empty()
+                    || body.track_scores.unwrap_or(false)
+                    || search_req.sort.iter().any(|s| s.is_score())
+                {
+                    Some(score_wire(h.score))
+                } else {
+                    None
+                },
                 version: if emit_version {
                     // Prefer the external-version map (set by
                     // `version_type=external[_gte]`) so reindexes with
@@ -8874,7 +8914,11 @@ pub async fn search(
                 primary_term: real_primary_term,
                 source,
                 fields: fields_map,
-                sort: if h.sort.is_empty() {
+                // No requested sort (incl. a pure `_score` DESC sort
+                // normalized away at parse) → no `sort` arrays on the wire,
+                // even when the engine's internal score-ranked collector
+                // populated `h.sort` (ES emits none for score-sorted hits).
+                sort: if h.sort.is_empty() || search_req.sort.is_empty() {
                     None
                 } else {
                     // Apply each SortField's `format` (e.g.
@@ -11729,11 +11773,14 @@ pub async fn mget(
 
         match idx.get_document(&req_doc.id).await {
             Ok(Some(source)) => {
+                // Real per-doc `_seq_no` — same source the `_search` hit
+                // metadata uses (`lookup_seq_no`); was hardcoded 0.
+                let seq_no = idx.lookup_seq_no(&req_doc.id).unwrap_or(0);
                 docs.push(json!({
                     "_index": req_doc.index,
                     "_id": req_doc.id,
                     "_version": 1,
-                    "_seq_no": 0,
+                    "_seq_no": seq_no,
                     "_primary_term": 1,
                     "found": true,
                     "_source": source,
@@ -11810,15 +11857,20 @@ pub async fn mget_index(
     for (ix, id) in &entries {
         match state.engine.get_index(ix) {
             Ok(idx) => match idx.get_document(id).await {
-                Ok(Some(source)) => docs.push(json!({
-                    "_index": ix,
-                    "_id": id,
-                    "_version": 1,
-                    "_seq_no": 0,
-                    "_primary_term": 1,
-                    "found": true,
-                    "_source": source,
-                })),
+                Ok(Some(source)) => {
+                    // Real per-doc `_seq_no` (was hardcoded 0) — matches the
+                    // `_search` hit metadata path.
+                    let seq_no = idx.lookup_seq_no(id).unwrap_or(0);
+                    docs.push(json!({
+                        "_index": ix,
+                        "_id": id,
+                        "_version": 1,
+                        "_seq_no": seq_no,
+                        "_primary_term": 1,
+                        "found": true,
+                        "_source": source,
+                    }))
+                }
                 _ => docs.push(json!({
                     "_index": ix,
                     "_id": id,

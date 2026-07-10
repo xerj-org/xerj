@@ -1019,7 +1019,23 @@ fn parse_ids(params: &Value) -> Result<QueryNode> {
         })
         .collect::<Result<Vec<_>>>()?;
 
-    Ok(QueryNode::Ids { values })
+    let node = QueryNode::Ids { values };
+    // `ids.boost` IS the hit score: ES scores an ids query as the constant
+    // `boost` (default 1.0) — live-verified on 8.13.4: boost 2.0 / 0.37 /
+    // 0.0 all come back verbatim as `_score`. Carried as a `Boosted`
+    // wrapper (whose scorer arm already yields the constant `boost` on
+    // match) instead of a new AST field, so match semantics are untouched.
+    // Was silently dropped (always scored 1.0).
+    if let Some(boost) = obj.get("boost").and_then(|v| v.as_f64()) {
+        let boost = boost as f32;
+        if boost != 1.0 {
+            return Ok(QueryNode::Boosted {
+                boost,
+                query: Box::new(node),
+            });
+        }
+    }
+    Ok(node)
 }
 
 fn parse_query_string(params: &Value) -> Result<QueryNode> {
@@ -2416,13 +2432,31 @@ fn parse_function_score(params: &Value) -> Result<QueryNode> {
         .and_then(|v| v.as_f64())
         .map(|b| b as f32);
 
-    let node = QueryNode::FunctionScore {
+    let mut node = QueryNode::FunctionScore {
         query: Box::new(query),
         functions,
         score_mode,
         boost_mode,
         max_boost,
     };
+    // `function_score.boost` multiplies the BASE query score BEFORE the
+    // boost_mode combine (Lucene propagates the boost into the subquery
+    // weight; `_explain` shows `*:*^3.0` = 3.0 as the base branch).
+    // Live-verified on ES 8.13.4: `{boost:3, fvf(rank=5)}` scores 15
+    // (multiply), 8 (sum), 4 (avg), 5 (max), 3 (min), and 5 (replace —
+    // the boost has NO effect when the base is discarded). The engine's
+    // `peel_function_score_boosted` recovers this wrapper's boost and
+    // applies it to the base with exactly those semantics. Was silently
+    // dropped.
+    if let Some(boost) = obj.get("boost").and_then(|v| v.as_f64()) {
+        let boost = boost as f32;
+        if boost != 1.0 {
+            node = QueryNode::Boosted {
+                boost,
+                query: Box::new(node),
+            };
+        }
+    }
     Ok(maybe_named(node, name))
 }
 
