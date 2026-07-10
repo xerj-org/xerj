@@ -2066,13 +2066,20 @@ fn parse_constant_score(params: &Value) -> Result<QueryNode> {
         .ok_or_else(|| qerr("`constant_score` requires a `filter` clause"))?;
     let query = parse_query(filter_val)?;
 
-    // Flatten: constant_score is just a score wrapper. Every search path
-    // already handles the inner query type (Range, Term, Bool, etc).
-    // Keeping the Constant wrapper caused the query to miss fast paths
-    // in is_doc_scan_query, try_doc_values_query, and try_shortcut_count.
-    // Return the inner query directly — scoring doesn't change (all
-    // matched docs get score 1.0 regardless).
-    Ok(query)
+    // Keep the Constant wrapper: ES scores every `constant_score` hit as
+    // exactly `boost` (default 1.0) — flattening returned the INNER query's
+    // score instead (live-diverged vs ES 8.13.4: constant_score(term,
+    // boost=2.5) scored 1.693… where ES returns 2.5 per hit).  The fast
+    // paths the old flatten protected (is_doc_scan_query,
+    // try_doc_values_query, try_shortcut_count, query_node_to_fts,
+    // doc_matches_query, query_node_to_agg_filter) all peel
+    // `QueryNode::Constant` today, and the scored-family columnar path
+    // serves the keyword-filter shape bit-exactly.
+    let boost = obj.get("boost").and_then(|v| v.as_f64()).unwrap_or(1.0) as f32;
+    Ok(QueryNode::Constant {
+        score: boost,
+        query: Box::new(query),
+    })
 }
 
 fn parse_boosting(params: &Value) -> Result<QueryNode> {
@@ -4087,17 +4094,34 @@ mod tests {
 
     #[test]
     fn test_constant_score() {
-        // constant_score is flattened to its inner filter (see
-        // parse_constant_score for rationale — keeps fast paths in
-        // is_doc_scan_query / try_doc_values_query / try_shortcut_count
-        // available since matched docs all score 1.0 anyway).
+        // constant_score keeps its Constant wrapper: ES scores every hit as
+        // exactly `boost` (default 1.0), NOT the inner query's score — the
+        // old flatten returned the inner term's brute score (live-diverged
+        // vs ES 8.13.4). Matching fast paths peel the wrapper instead.
         let node = q(json!({
             "constant_score": {
                 "filter": {"term": {"status": "active"}},
                 "boost": 1.5
             }
         }));
-        assert!(matches!(node, QueryNode::Term { .. }));
+        match node {
+            QueryNode::Constant { score, query } => {
+                assert_eq!(score, 1.5);
+                assert!(matches!(*query, QueryNode::Term { .. }));
+            }
+            other => panic!("expected Constant wrapper, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_constant_score_default_boost() {
+        let node = q(json!({
+            "constant_score": {"filter": {"term": {"status": "active"}}}
+        }));
+        match node {
+            QueryNode::Constant { score, .. } => assert_eq!(score, 1.0),
+            other => panic!("expected Constant wrapper, got {other:?}"),
+        }
     }
 
     // ── parent-child join (unsupported) ────────────────────────────────────────

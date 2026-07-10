@@ -5214,8 +5214,15 @@ pub async fn search(
                         if let Some(m_val) = obj.get("match").and_then(|m| m.as_object()) {
                             if let Some((field, raw)) = m_val.iter().next() {
                                 if kw.contains(field) {
+                                    // Preserve a per-clause `boost` through the
+                                    // rewrite: ES folds the match boost into the
+                                    // term weight, so dropping it here silently
+                                    // de-boosted `{"match": {kw: {"query": …,
+                                    // "boost": N}}}`.
+                                    let mut boost: Option<Value> = None;
                                     let value = match raw {
                                         Value::Object(inner) => {
+                                            boost = inner.get("boost").cloned();
                                             inner.get("query").cloned().unwrap_or(raw.clone())
                                         }
                                         _ => raw.clone(),
@@ -5237,6 +5244,9 @@ pub async fn search(
                                                     .collect();
                                                 let mut terms = serde_json::Map::new();
                                                 terms.insert(field.clone(), Value::Array(arr));
+                                                if let Some(b) = boost.clone() {
+                                                    terms.insert("boost".to_string(), b);
+                                                }
                                                 new_node = Some((
                                                     "terms".to_string(),
                                                     Value::Object(terms),
@@ -5249,6 +5259,12 @@ pub async fn search(
                                                 } else {
                                                     Value::String(toks[0].to_string())
                                                 };
+                                                let v = match boost.clone() {
+                                                    Some(b) => serde_json::json!({
+                                                        "value": v, "boost": b
+                                                    }),
+                                                    None => v,
+                                                };
                                                 term.insert(field.clone(), v);
                                                 new_node =
                                                     Some(("term".to_string(), Value::Object(term)));
@@ -5257,7 +5273,13 @@ pub async fn search(
                                     } else {
                                         // Plain keyword → exact term.
                                         let mut term = serde_json::Map::new();
-                                        term.insert(field.clone(), value);
+                                        let v = match boost.clone() {
+                                            Some(b) => serde_json::json!({
+                                                "value": value, "boost": b
+                                            }),
+                                            None => value,
+                                        };
+                                        term.insert(field.clone(), v);
                                         new_node = Some(("term".to_string(), Value::Object(term)));
                                     }
                                 }
