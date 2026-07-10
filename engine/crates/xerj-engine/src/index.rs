@@ -62,6 +62,10 @@ mod fast_aggs;
 fn query_node_to_agg_filter(node: &QueryNode) -> Option<Value> {
     match node {
         QueryNode::MatchAll => Some(serde_json::json!({ "match_all": {} })),
+        // `constant_score` is pure filter context — matching is exactly the
+        // inner filter's (the wrapper only changes scores, which a size:0
+        // agg never sees).
+        QueryNode::Constant { query, .. } => query_node_to_agg_filter(query),
         // Exact term — keyword (string) values only.  Numeric/bool term keys
         // have typed-coercion subtleties, so bail (brute path handles them).
         QueryNode::Term {
@@ -5862,10 +5866,11 @@ impl Index {
         // F1-bounded.
         let scored_plan: Option<ScoredPlan> =
             scored_fast_plan(query, request, size, &kw_fields, &num_fields, &bool_fields);
-        let scored_fast_ready: bool = scored_plan.is_some()
-            && !(snap.segments.iter().any(|m| m.has_tombstones)
-                || self.store.version_map.ghost_events() > 0)
-            && self.memtable.doc_count() == 0;
+        // Deletes/ghosts no longer bail the plan: `scored_columnar` is
+        // ghost-aware (physical Lucene-parity term stats, liveness-filtered
+        // matching via the per-segment ghost bitmaps). Only a non-empty
+        // memtable — rows with no doc-values columns — keeps the brute path.
+        let scored_fast_ready: bool = scored_plan.is_some() && self.memtable.doc_count() == 0;
         let shortcut_count: Option<u64> = if scored_fast_ready {
             None
         } else {
@@ -6011,7 +6016,7 @@ impl Index {
         // the brute path below then behaves byte-for-byte as before.
         let mut scored_fast_applied = false;
         if let Some(plan) = &scored_plan {
-            if scored_fast_ready && !deletes_present {
+            if scored_fast_ready {
                 if let Some((hits, total)) = self.scored_columnar(
                     plan,
                     &snap.segments,
@@ -7095,6 +7100,17 @@ impl Index {
             // produced reverse-of-insertion order for unsorted match-all
             // results (see search/380_sort_segments_on_timestamp.yml's
             // "NOT sorted on timestamp" sub-test).
+            // Top-level `constant_score`: every hit's `_score` is exactly
+            // the wrapper's boost (f32) — ES semantics — regardless of which
+            // matching path produced the hit (FTS text filters score BM25
+            // internally, memtable hits carry 1.0, …). Overwriting BEFORE
+            // the sort makes every score tied, so the ordering collapses to
+            // seq_no ASC = arrival = ES `_doc` order.
+            if let QueryNode::Constant { score, .. } = query {
+                for hit in final_hits.iter_mut() {
+                    hit.score = *score;
+                }
+            }
             let seq = |id: &str| self.lookup_seq_no(id).unwrap_or(u64::MAX);
             final_hits.sort_by(|a, b| {
                 b.score
@@ -7120,6 +7136,9 @@ impl Index {
         if !scored_fast_applied
             && !final_hits.is_empty()
             && request.sort.is_empty()
+            // Top-level constant_score: scores are the wrapper's constant —
+            // the hit-set idf heuristic must not rewrite them.
+            && !matches!(query, QueryNode::Constant { .. })
             && query_uses_bool_text(&request.query)
         {
             let field_term_pairs = collect_match_field_terms(&request.query);
@@ -7170,7 +7189,13 @@ impl Index {
         // < 0.001 under exact BM25 — e.g. status:ok over the 100k bench
         // corpus scores 0.012563465, but boosting×0.3 shapes go lower — and
         // this data-dependent fallback would silently rewrite exact scores.)
-        if !scored_fast_applied && !final_hits.is_empty() && request.sort.is_empty() {
+        if !scored_fast_applied
+            && !final_hits.is_empty()
+            && request.sort.is_empty()
+            // Top-level constant_score with a small boost (< 0.001) is a
+            // legitimate constant — never TF-IDF-rewrite it.
+            && !matches!(query, QueryNode::Constant { .. })
+        {
             let max_score = final_hits
                 .iter()
                 .map(|h| h.score)
@@ -9659,9 +9684,11 @@ impl Index {
     /// (the null-free gate simultaneously guarantees `N == Σ doc_count` for
     /// the idf and excludes array-valued docs, which the column builder
     /// records as nulls), or a pinned id can't be resolved through a
-    /// complete per-segment `_id → position` map. The caller additionally
-    /// gates on `!deletes_present`, so every row is live and each `_id`
-    /// occupies exactly one segment position.
+    /// complete per-segment `_id → position` map. Deletes/overwrites are
+    /// handled ghost-aware: term stats stay PHYSICAL (Lucene's deleted-doc
+    /// -inclusive docFreq/docCount until a merge purges them) while
+    /// matching/totals are liveness-filtered via `ghost_positions_for`;
+    /// `Pinned` still bails whenever any ghost event was recorded.
     fn scored_columnar(
         &self,
         plan: &ScoredPlan,
@@ -9677,16 +9704,34 @@ impl Index {
             return None;
         }
 
+        // Ghost-aware (Lucene delete semantics): term stats stay PHYSICAL —
+        // per-ord counts and segment doc_counts include deleted/superseded
+        // rows exactly like Lucene's docFreq/docCount until a merge purges
+        // them — while MATCHING (hits + total) is liveness-filtered through
+        // the per-segment ghost bitmaps. With no ghost event ever recorded
+        // (the common /bench case) the bitmap lookup is skipped entirely.
+        let any_ghosts = self.store.version_map.ghost_events() > 0;
+        // Pinned under ghosts would need a superseded-aware `_id → position`
+        // map (an updated doc's id resolves in BOTH its old and new
+        // segments) — keep the brute path there.
+        if any_ghosts && matches!(plan, ScoredPlan::Pinned { .. }) {
+            return None;
+        }
+
         // Flat clause lists. Order matters: bool scores must-then-should.
         let scoring: Vec<&ScoredLeaf> = match plan {
             ScoredPlan::DisMax { clauses, .. } => clauses.iter().collect(),
             ScoredPlan::Boosting { positive, .. } => vec![positive],
             ScoredPlan::Pinned { organic, .. } => vec![organic],
             ScoredPlan::Bool { must, should, .. } => must.iter().chain(should.iter()).collect(),
+            ScoredPlan::Filtered { .. } => Vec::new(),
         };
         let filters: Vec<&ScoredFilterLeaf> = match plan {
             ScoredPlan::Boosting { negative, .. } => vec![negative],
             ScoredPlan::Bool {
+                filter, must_not, ..
+            }
+            | ScoredPlan::Filtered {
                 filter, must_not, ..
             } => filter.iter().chain(must_not.iter()).collect(),
             _ => Vec::new(),
@@ -9698,23 +9743,55 @@ impl Index {
         // nulls, so this coincides with ES's field docCount).
         let mut seg_cols = Vec::with_capacity(segments.len());
         let mut seg_seqs: Vec<Arc<Vec<u64>>> = Vec::with_capacity(segments.len());
+        let mut seg_ghosts: Vec<Option<Arc<Vec<u64>>>> = Vec::with_capacity(segments.len());
         for meta in segments {
             seg_cols.push(self.dv_columns_for(segments_dir, &meta.id)?);
             seg_seqs.push(self.row_seqs_for(meta.id.as_str(), meta.doc_count)?);
+            seg_ghosts.push(if any_ghosts {
+                let bm = self.ghost_positions_for(meta.id.as_str(), meta.doc_count)?;
+                // All-zero bitmap (e.g. post-merge segments after the ghosts
+                // were purged) → skip the per-row test for this segment.
+                if bm.iter().any(|w| *w != 0) {
+                    Some(bm)
+                } else {
+                    None
+                }
+            } else {
+                None
+            });
         }
         let mut total_docs: u64 = 0;
         let mut df: Vec<u64> = vec![0; scoring.len()];
         for (meta, cols) in segments.iter().zip(seg_cols.iter()) {
             total_docs += meta.doc_count;
             for (ci, leaf) in scoring.iter().enumerate() {
-                let Some(Column::Keyword(k)) = cols.get(leaf.field.as_str()) else {
-                    return None;
-                };
-                if k.doc_count as u64 != meta.doc_count || !k.null_bitmap.is_empty() {
-                    return None;
-                }
-                if let Some(ord) = k.ord_for_term(&leaf.term) {
-                    df[ci] += k.per_ord_count.get(ord as usize).copied().unwrap_or(0) as u64;
+                match &leaf.kind {
+                    ScoredLeafKind::Keyword(term) => {
+                        let Some(Column::Keyword(k)) = cols.get(leaf.field.as_str()) else {
+                            return None;
+                        };
+                        if k.doc_count as u64 != meta.doc_count || !k.null_bitmap.is_empty() {
+                            return None;
+                        }
+                        if let Some(ord) = k.ord_for_term(term) {
+                            df[ci] +=
+                                k.per_ord_count.get(ord as usize).copied().unwrap_or(0) as u64;
+                        }
+                    }
+                    ScoredLeafKind::BoolEq(v) => {
+                        let Some(Column::Numeric(nc)) = cols.get(leaf.field.as_str()) else {
+                            return None;
+                        };
+                        if nc.doc_count as u64 != meta.doc_count || !nc.null_bitmap.is_empty() {
+                            return None;
+                        }
+                        // Physical df (ghost rows included — Lucene stats).
+                        df[ci] += nc
+                            .data
+                            .iter()
+                            .filter(|&&b| f64::from_bits(b as u64) == *v)
+                            .count() as u64;
+                    }
                 }
             }
             for fl in &filters {
@@ -9744,21 +9821,33 @@ impl Index {
         // its (unused) score value is irrelevant.
         let clause_scores: Vec<f32> = df
             .iter()
-            .map(|&n| bm25_keyword_term_score(n, total_docs))
+            .zip(scoring.iter())
+            .map(|(&n, leaf)| bm25_keyword_term_score(n, total_docs, leaf.boost))
             .collect();
 
         // Per-row evaluators over one segment's columns.
-        struct ScoreEval<'a> {
-            col: &'a KeywordColumn,
-            ord: Option<u32>,
+        enum ScoreEval<'a> {
+            Kw {
+                col: &'a KeywordColumn,
+                ord: Option<u32>,
+            },
+            Bool {
+                col: &'a NumericColumn,
+                val: f64,
+            },
         }
         impl ScoreEval<'_> {
             #[inline]
             fn matches(&self, row: u32) -> bool {
                 // Scoring columns are verified null-free in phase 1.
-                match self.ord {
-                    Some(o) => self.col.ords[row as usize] == o,
-                    None => false,
+                match self {
+                    ScoreEval::Kw { col, ord } => match ord {
+                        Some(o) => col.ords[row as usize] == *o,
+                        None => false,
+                    },
+                    ScoreEval::Bool { col, val } => {
+                        f64::from_bits(col.data[row as usize] as u64) == *val
+                    }
                 }
             }
         }
@@ -9822,13 +9911,23 @@ impl Index {
             let si = si as u32;
             let mut sev: Vec<ScoreEval> = Vec::with_capacity(scoring.len());
             for leaf in &scoring {
-                let Some(Column::Keyword(k)) = cols.get(leaf.field.as_str()) else {
-                    return None;
-                };
-                sev.push(ScoreEval {
-                    col: k,
-                    ord: k.ord_for_term(&leaf.term),
-                });
+                match &leaf.kind {
+                    ScoredLeafKind::Keyword(term) => {
+                        let Some(Column::Keyword(k)) = cols.get(leaf.field.as_str()) else {
+                            return None;
+                        };
+                        sev.push(ScoreEval::Kw {
+                            col: k,
+                            ord: k.ord_for_term(term),
+                        });
+                    }
+                    ScoredLeafKind::BoolEq(v) => {
+                        let Some(Column::Numeric(nc)) = cols.get(leaf.field.as_str()) else {
+                            return None;
+                        };
+                        sev.push(ScoreEval::Bool { col: nc, val: *v });
+                    }
+                }
             }
             let mut fev: Vec<FilterEval> = Vec::with_capacity(filters.len());
             for fl in &filters {
@@ -9879,6 +9978,14 @@ impl Index {
                 }
             }
             let doc_count = meta.doc_count as u32;
+            // Liveness test (only segments with ≥1 ghost row pay it).
+            let ghost_bm: Option<&[u64]> = seg_ghosts[si as usize].as_deref().map(|v| &v[..]);
+            let is_ghost = |row: u32| -> bool {
+                match ghost_bm {
+                    Some(bm) => (bm[(row / 64) as usize] >> (row % 64)) & 1 == 1,
+                    None => false,
+                }
+            };
             match plan {
                 ScoredPlan::DisMax { tie_breaker, .. } => {
                     // Lucene DisjunctionMaxScorer: scoreSum accumulated in
@@ -9887,6 +9994,9 @@ impl Index {
                     // (float)(max + (sum − max) · tieBreaker).
                     let tie = *tie_breaker as f64;
                     for row in 0..doc_count {
+                        if is_ghost(row) {
+                            continue;
+                        }
                         let mut sum = 0.0_f64;
                         let mut max = 0.0_f32;
                         let mut any = false;
@@ -9915,7 +10025,7 @@ impl Index {
                     let ps = clause_scores[0];
                     let (pos, neg) = (&sev[0], &fev[0]);
                     for row in 0..doc_count {
-                        if !pos.matches(row) {
+                        if is_ghost(row) || !pos.matches(row) {
                             continue;
                         }
                         total += 1;
@@ -9932,6 +10042,9 @@ impl Index {
                     let org = &sev[0];
                     let s = clause_scores[0];
                     for row in 0..doc_count {
+                        if is_ghost(row) {
+                            continue;
+                        }
                         if org.matches(row) {
                             total += 1;
                             cands.push((s, seqs[row as usize], si, row));
@@ -9942,16 +10055,24 @@ impl Index {
                     must,
                     should,
                     filter,
+                    min_should,
                     ..
                 } => {
                     let n_must = must.len();
                     let n_filter = filter.len();
-                    // ES default minimum_should_match: 1 when the bool has
-                    // ONLY should (no must/filter — must_not doesn't count),
-                    // else 0.
-                    let required_should: usize =
-                        usize::from(n_must == 0 && n_filter == 0 && !should.is_empty());
+                    // Explicit integer minimum_should_match wins; ES default
+                    // otherwise: 1 when the bool has ONLY should (no
+                    // must/filter — must_not doesn't count), else 0.
+                    let required_should: usize = match min_should {
+                        Some(n) => *n as usize,
+                        None => {
+                            usize::from(n_must == 0 && n_filter == 0 && !should.is_empty())
+                        }
+                    };
                     'rows: for row in 0..doc_count {
+                        if is_ghost(row) {
+                            continue 'rows;
+                        }
                         for ev in &sev[..n_must] {
                             if !ev.matches(row) {
                                 continue 'rows;
@@ -9988,6 +10109,29 @@ impl Index {
                         }
                         total += 1;
                         cands.push((sum as f32, seqs[row as usize], si, row));
+                    }
+                }
+                ScoredPlan::Filtered { score, filter, .. } => {
+                    // Pure filter context: every live row matching all
+                    // `filter` and no `must_not` scores the CONSTANT
+                    // (constant_score → boost; filter-only bool → 0.0).
+                    let n_filter = filter.len();
+                    'frows: for row in 0..doc_count {
+                        if is_ghost(row) {
+                            continue 'frows;
+                        }
+                        for (fi, ev) in fev.iter().enumerate() {
+                            let m = ev.matches(row);
+                            if fi < n_filter {
+                                if !m {
+                                    continue 'frows;
+                                }
+                            } else if m {
+                                continue 'frows;
+                            }
+                        }
+                        total += 1;
+                        cands.push((*score, seqs[row as usize], si, row));
                     }
                 }
             }
@@ -10045,14 +10189,23 @@ impl Index {
                 } else {
                     // Either an organic match truncated out of the top-`cap`
                     // (already counted in `total`) or a pure pin (count it).
-                    let organic_matched = {
-                        let Some(Column::Keyword(k)) =
-                            seg_cols[si as usize].get(organic.field.as_str())
-                        else {
-                            return None;
-                        };
-                        k.ord_for_term(&organic.term)
-                            .is_some_and(|o| k.ords[row as usize] == o)
+                    let organic_matched = match &organic.kind {
+                        ScoredLeafKind::Keyword(term) => {
+                            let Some(Column::Keyword(k)) =
+                                seg_cols[si as usize].get(organic.field.as_str())
+                            else {
+                                return None;
+                            };
+                            k.ord_for_term(term).is_some_and(|o| k.ords[row as usize] == o)
+                        }
+                        ScoredLeafKind::BoolEq(v) => {
+                            let Some(Column::Numeric(nc)) =
+                                seg_cols[si as usize].get(organic.field.as_str())
+                            else {
+                                return None;
+                            };
+                            f64::from_bits(nc.data[row as usize] as u64) == *v
+                        }
                     };
                     if !organic_matched {
                         total += 1;
@@ -18439,6 +18592,12 @@ fn query_node_to_fts(
             None
         }
         QueryNode::MatchNone => None,
+        // `constant_score`: MATCHING is the inner query's (so text filters
+        // keep the inverted-index path); the wrapper's constant score is
+        // applied post-hoc by the top-level override in `search` (the
+        // keyword-schema shape is served bit-exactly by `scored_columnar`
+        // before this projection is ever consulted).
+        QueryNode::Constant { query, .. } => query_node_to_fts(query, text_fields, exact_fields),
         QueryNode::Match {
             field,
             query,
@@ -19071,7 +19230,23 @@ fn function_score_fast_fvf<'q>(
 /// [`bm25_keyword_term_score`].
 struct ScoredLeaf {
     field: String,
-    term: String,
+    kind: ScoredLeafKind,
+    /// Per-clause query boost, applied INSIDE the BM25 weight the way
+    /// Lucene does (`weight = boost · (k1+1) · idf`, all float32) — NOT
+    /// post-multiplied onto the finished score, which rounds differently.
+    boost: f32,
+}
+
+/// What a scoring leaf matches on. Both kinds score the identical
+/// norms-omitted BM25 constant ([`bm25_keyword_term_score`]) — ES indexes
+/// booleans as `T`/`F` terms, so a `term` on a boolean field is scored
+/// exactly like a keyword term (live-verified: `flag:true` df=1500/N=3000
+/// scores ln 2 = 0.6931472 on ES 8.13.4).
+enum ScoredLeafKind {
+    /// Whole-value keyword term.
+    Keyword(String),
+    /// Boolean-field term; the numeric dv column stores 1.0/0.0.
+    BoolEq(f64),
 }
 
 /// A filter-context leaf accepted by the scored-family columnar fast path.
@@ -19118,12 +19293,24 @@ enum ScoredPlan {
         organic: ScoredLeaf,
     },
     /// Scoring `bool`: `score = Σ` of matching must+should leaf scores;
-    /// `filter`/`must_not` constrain only.
+    /// `filter`/`must_not` constrain only. `min_should` is an explicit
+    /// integer `minimum_should_match` (`None` → ES default: 1 when the
+    /// bool has only `should` scoring clauses, else 0).
     Bool {
         must: Vec<ScoredLeaf>,
         should: Vec<ScoredLeaf>,
         filter: Vec<ScoredFilterLeaf>,
         must_not: Vec<ScoredFilterLeaf>,
+        min_should: Option<u32>,
+    },
+    /// Pure filter context with a CONSTANT per-hit score:
+    /// `constant_score { filter }` (score = its `boost`, f32) and
+    /// filter-only `bool` (score = 0.0 — ES scores filter context 0).
+    /// Every row matching all `filter` and no `must_not` leaves is a hit.
+    Filtered {
+        filter: Vec<ScoredFilterLeaf>,
+        must_not: Vec<ScoredFilterLeaf>,
+        score: f32,
     },
 }
 
@@ -19141,13 +19328,16 @@ enum ScoredPlan {
 /// ES 8.13.4 probes. The op sequence below reproduces ES bit-for-bit
 /// (verified: status:ok n=98752/N=100000 → 0.012563465 = 0x3c4dd6fe;
 /// model:claude-haiku-4-5 n=27744 → 1.2821424 = 0x3fa41d3e).
-fn bm25_keyword_term_score(n: u64, total_docs: u64) -> f32 {
+fn bm25_keyword_term_score(n: u64, total_docs: u64, boost: f32) -> f32 {
     // idf in f64, single cast to f32 (matches Lucene's `(float)` on the
     // double-precision idf expression).
     let idf_f32 =
         (1.0_f64 + (total_docs as f64 - n as f64 + 0.5) / (n as f64 + 0.5)).ln() as f32;
-    // weight = query_boost(1.0) · (k1+1) · idf, all float32.
-    let weight = 2.2_f32 * idf_f32;
+    // weight = boost · (k1+1) · idf, all float32, Lucene's evaluation
+    // order (`boost * (k1+1)` first, then `· idf` — BM25Similarity's
+    // BM25Scorer ctor). Live-validated bit-exact for boost = 3 / 2 / 0.3
+    // against ES 8.13.4 `_explain` on the /bench corpus.
+    let weight = (2.2_f32 * boost) * idf_f32;
     // Reciprocal cached norm for the norms-omitted case: 1/(k1·1) = 1/1.2,
     // computed in float32 (bits 0x3f555555).
     let norm_inv = 1.0_f32 / 1.2_f32;
@@ -19172,9 +19362,15 @@ fn bm25_keyword_term_score(n: u64, total_docs: u64) -> f32 {
 ///      `filter`/`must_not` are filter leaves, with no
 ///      `minimum_should_match`.
 ///
+/// Additionally: a bare scoring leaf (routed as a single-must bool), a
+/// `constant_score { filter leaf }` (every hit scores exactly f32(boost)),
+/// a filter-only bool (score 0.0 — ES filter context), and integer
+/// `minimum_should_match` on scoring bools.
+///
 /// A scoring leaf is a `term`/`match` on a KEYWORD-typed field (schema
 /// `FieldType::Keyword` — `exact_fields` is NOT sufficient, it also holds
-/// numerics/dates) with boost absent or exactly 1.0. Filter leaves also
+/// numerics/dates) with any finite non-negative boost (boost-in-weight,
+/// Lucene order). Filter leaves also
 /// admit keyword `terms`, numeric/boolean `term`, and numeric `range` with
 /// numeric bounds. Every other shape returns `None` → unchanged brute path.
 fn scored_fast_plan(
@@ -19204,6 +19400,15 @@ fn scored_fast_plan(
     fn boost_ok(b: &Option<f32>) -> bool {
         b.map_or(true, |v| v == 1.0)
     }
+    // Scoring leaves accept ANY finite non-negative boost — it feeds the
+    // BM25 weight (Lucene boost-in-weight, see `bm25_keyword_term_score`).
+    fn scoring_boost(b: &Option<f32>) -> Option<f32> {
+        match b {
+            None => Some(1.0),
+            Some(v) if v.is_finite() && *v >= 0.0 => Some(*v),
+            Some(_) => None,
+        }
+    }
 
     let scoring_leaf = |node: &QueryNode| -> Option<ScoredLeaf> {
         match node {
@@ -19211,10 +19416,30 @@ fn scored_fast_plan(
                 field,
                 value: Value::String(s),
                 boost,
-            } if keyword_fields.contains(field) && boost_ok(boost) => Some(ScoredLeaf {
+            } if keyword_fields.contains(field) => Some(ScoredLeaf {
                 field: field.clone(),
-                term: s.clone(),
+                kind: ScoredLeafKind::Keyword(s.clone()),
+                boost: scoring_boost(boost)?,
             }),
+            QueryNode::Term {
+                field,
+                value,
+                boost,
+            } if boolean_fields.contains(field) => {
+                // ES coerces "true"/"false" strings; scored as a T/F term.
+                let v = match value {
+                    Value::Bool(true) => 1.0,
+                    Value::Bool(false) => 0.0,
+                    Value::String(s) if s == "true" => 1.0,
+                    Value::String(s) if s == "false" => 0.0,
+                    _ => return None,
+                };
+                Some(ScoredLeaf {
+                    field: field.clone(),
+                    kind: ScoredLeafKind::BoolEq(v),
+                    boost: scoring_boost(boost)?,
+                })
+            }
             QueryNode::Match {
                 field,
                 query,
@@ -19222,9 +19447,10 @@ fn scored_fast_plan(
                 boost,
                 minimum_should_match: None,
                 ..
-            } if keyword_fields.contains(field) && boost_ok(boost) => Some(ScoredLeaf {
+            } if keyword_fields.contains(field) => Some(ScoredLeaf {
                 field: field.clone(),
-                term: query.clone(),
+                kind: ScoredLeafKind::Keyword(query.clone()),
+                boost: scoring_boost(boost)?,
             }),
             _ => None,
         }
@@ -19232,9 +19458,18 @@ fn scored_fast_plan(
 
     let filter_leaf = |node: &QueryNode| -> Option<ScoredFilterLeaf> {
         if let Some(l) = scoring_leaf(node) {
-            return Some(ScoredFilterLeaf::KeywordTerm {
-                field: l.field,
-                term: l.term,
+            return Some(match l.kind {
+                ScoredLeafKind::Keyword(term) => ScoredFilterLeaf::KeywordTerm {
+                    field: l.field,
+                    term,
+                },
+                ScoredLeafKind::BoolEq(v) => ScoredFilterLeaf::NumericWindow {
+                    field: l.field,
+                    min: v,
+                    max: v,
+                    min_inc: true,
+                    max_inc: true,
+                },
             });
         }
         match node {
@@ -19354,8 +19589,20 @@ fn scored_fast_plan(
             should,
             must_not,
             filter,
-            minimum_should_match: None,
+            minimum_should_match,
         } if !must.is_empty() || !should.is_empty() => {
+            // Explicit integer minimum_should_match (≥1, applied to a
+            // non-empty should list). Percentage / combination forms and
+            // an explicit 0 keep the brute path.
+            let min_should: Option<u32> = match minimum_should_match {
+                None => None,
+                Some(xerj_query::ast::MinShouldMatch::Fixed(n))
+                    if *n >= 1 && !should.is_empty() =>
+                {
+                    Some(*n)
+                }
+                Some(_) => return None,
+            };
             let m: Vec<ScoredLeaf> = must.iter().map(&scoring_leaf).collect::<Option<_>>()?;
             let s: Vec<ScoredLeaf> = should.iter().map(&scoring_leaf).collect::<Option<_>>()?;
             let f: Vec<ScoredFilterLeaf> =
@@ -19367,8 +19614,51 @@ fn scored_fast_plan(
                 should: s,
                 filter: f,
                 must_not: mn,
+                min_should,
             })
         }
+        // Filter-only bool: ES scores filter context 0.0 (the brute path's
+        // 1.0 floor diverged on every hit). minimum_should_match without
+        // should clauses is ignored by ES, but bail conservatively.
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            minimum_should_match: None,
+        } if must.is_empty()
+            && should.is_empty()
+            && (!filter.is_empty() || !must_not.is_empty()) =>
+        {
+            let f: Vec<ScoredFilterLeaf> =
+                filter.iter().map(&filter_leaf).collect::<Option<_>>()?;
+            let mn: Vec<ScoredFilterLeaf> =
+                must_not.iter().map(&filter_leaf).collect::<Option<_>>()?;
+            Some(ScoredPlan::Filtered {
+                filter: f,
+                must_not: mn,
+                score: 0.0,
+            })
+        }
+        // `constant_score { filter, boost }`: every hit scores exactly
+        // f32(boost) — the wrapper's score, never the inner query's.
+        QueryNode::Constant { score, query } if score.is_finite() => {
+            Some(ScoredPlan::Filtered {
+                filter: vec![filter_leaf(query)?],
+                must_not: Vec::new(),
+                score: *score,
+            })
+        }
+        // Bare scoring leaf (`term` on a keyword field, or `match` the
+        // keyword rewrite reduced to one): identical to a single-must bool
+        // (Σ over one clause is the identity), so reuse that executor arm.
+        QueryNode::Term { .. } | QueryNode::Match { .. } => Some(ScoredPlan::Bool {
+            must: vec![scoring_leaf(query)?],
+            should: Vec::new(),
+            filter: Vec::new(),
+            must_not: Vec::new(),
+            min_should: None,
+        }),
         _ => None,
     }
 }
