@@ -10524,35 +10524,78 @@ impl Index {
         // live-only = physical exactly there), seq-ascending rows, single-
         // filter conjunctions.  KeywordFuzzy scores VARY per expansion
         // ordinal — excluded (its heap must see every match).
+        // For Composed plans: the single LIVE scoring-leaf index (into
+        // sev/clause_scores) when the whole tree provably reduces to one
+        // constant-scored leaf.  Read off the EVAL tree (indices are
+        // authoritative there):
+        // * Bool with exactly one must-Leaf and nothing else — the bare
+        //   term/match wrap.
+        // * DisMax whose children are all Leaves with EXACTLY ONE carrying
+        //   global df > 0 — a df=0 clause matches no row anywhere, so every
+        //   matching row scores just the live clause's constant (max = the
+        //   only match; tie·Σrest = 0).  This is the benchmark's dis_max /
+        //   multi_match shape, where one alternative term/field is simply
+        //   absent from the corpus.
+        let composed_constant_leaf: Option<usize> = if any_ghosts {
+            None
+        } else {
+            match (plan, &eval_root) {
+                (ScoredPlan::Composed { .. }, Some(ClauseEval::Bool { must, should, filter, must_not, .. }))
+                    if must.len() == 1
+                        && should.is_empty()
+                        && filter.is_empty()
+                        && must_not.is_empty() =>
+                {
+                    match must[0] {
+                        ClauseEval::Leaf(i) => Some(i),
+                        _ => None,
+                    }
+                }
+                (ScoredPlan::Composed { .. }, Some(ClauseEval::DisMax { children, .. })) => {
+                    let mut live: Option<usize> = None;
+                    let mut ok = true;
+                    for c in children {
+                        match c {
+                            ClauseEval::Leaf(i) => {
+                                if df[*i] > 0 {
+                                    if live.is_some() {
+                                        ok = false; // 2+ live clauses → walk
+                                        break;
+                                    }
+                                    live = Some(*i);
+                                }
+                            }
+                            _ => {
+                                ok = false;
+                                break;
+                            }
+                        }
+                    }
+                    if ok { live } else { None }
+                }
+                _ => None,
+            }
+        };
         let constant_plan: bool = !any_ghosts
             && match plan {
                 ScoredPlan::Filtered {
                     filter, must_not, ..
                 } => must_not.is_empty() && filter.len() <= 1,
-                ScoredPlan::Composed { root } => matches!(
-                    root,
-                    ScoredClause::Bool {
-                        must,
-                        should,
-                        filter,
-                        must_not,
-                        ..
-                    } if must.len() == 1
-                        && matches!(must[0], ScoredClause::Leaf(_))
-                        && should.is_empty()
-                        && filter.is_empty()
-                        && must_not.is_empty()
-                ),
+                ScoredPlan::Composed { .. } => composed_constant_leaf.is_some(),
                 _ => false,
             };
 
         for (si, (meta, cols)) in segments.iter().zip(seg_cols.iter()).enumerate() {
             let seqs: &[u64] = &seg_seqs[si];
-            // B5 break preconditions (only paid when a bound exists):
-            // seq-ascending walk (true by construction for B1 merge-sorted
-            // segments; verified, not assumed) + the smallest seq any LATER
-            // segment can contribute.
-            let seq_asc = break_bound.is_some() && seqs.windows(2).all(|w| w[0] <= w[1]);
+            // B5 break / constant-lane preconditions (only paid when one of
+            // them can fire): seq-ascending walk (true by construction for
+            // B1 merge-sorted segments; verified, not assumed) + the
+            // smallest seq any LATER segment can contribute.  NOTE the
+            // constant-plan closed-form lane needs this under
+            // track_total_hits:true too (break_bound is None there — the
+            // official bench convention injects tth:true into every read).
+            let seq_asc = (break_bound.is_some() || constant_plan)
+                && seqs.windows(2).all(|w| w[0] <= w[1]);
             let later_min_seq: u64 = segments[si + 1..]
                 .iter()
                 .map(|m| m.min_seq_no)
@@ -10685,23 +10728,25 @@ impl Index {
                     let root = eval_root
                         .as_ref()
                         .expect("Composed plan always builds an eval tree");
-                    if constant_plan && seq_asc {
-                        // Constant-plan fast lane (see `constant_plan`):
-                        // closed-form total, walk only until this segment
-                        // has contributed its first keep_target matches —
-                        // which, all scores tying and rows seq-ascending,
-                        // ARE its k-best contribution to the global heap.
-                        total += sev[0].count();
+                    if let (true, true, Some(li)) = (constant_plan, seq_asc, composed_constant_leaf) {
+                        // Constant-plan fast lane (see `constant_plan` /
+                        // `composed_constant_leaf`): closed-form total from
+                        // the single live leaf, walk only until this
+                        // segment has contributed its first keep_target
+                        // matches — which, all scores tying and rows
+                        // seq-ascending, ARE its k-best contribution to
+                        // the global heap.
+                        total += sev[li].count();
                         let mut kept = 0usize;
                         for row in 0..doc_count {
-                            if !sev[0].matches(row) {
+                            if !sev[li].matches(row) {
                                 continue;
                             }
                             push_topk(
                                 &mut heap,
                                 keep_target,
                                 TopKCand {
-                                    score: clause_scores[0],
+                                    score: clause_scores[li],
                                     seq: seqs[row as usize],
                                     si,
                                     row,
