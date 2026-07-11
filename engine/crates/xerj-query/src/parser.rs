@@ -3538,11 +3538,18 @@ fn parse_match_bool_prefix(params: &Value) -> Result<QueryNode> {
     }
 
     if raw_tokens.len() == 1 {
+        // Single token: the whole match_bool_prefix collapses to one
+        // standalone prefix clause, which ES rewrites to ConstantScore
+        // (flat 1.0, no BM25) exactly like a top-level `prefix` query —
+        // the same MultiTermQuery rewrite 4c69c05 threaded through
+        // parse_prefix/parse_wildcard; this site was missed (live: xerj
+        // max_score 2.5210621 vs ES 1.0).  Multi-token keeps BM25 (the
+        // trailing prefix is one clause among scored Match clauses).
         return Ok(QueryNode::Prefix {
             field,
             value: fold(&raw_tokens[0]),
             boost: None,
-            constant_score: false,
+            constant_score: true,
         });
     }
 

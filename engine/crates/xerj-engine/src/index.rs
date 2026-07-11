@@ -10282,7 +10282,9 @@ impl Index {
             for fl in &filters {
                 match fl {
                     ScoredFilterLeaf::KeywordTerm { field, .. }
-                    | ScoredFilterLeaf::KeywordTerms { field, .. } => {
+                    | ScoredFilterLeaf::KeywordTerms { field, .. }
+                    | ScoredFilterLeaf::KeywordPrefix { field, .. }
+                    | ScoredFilterLeaf::KeywordWildcard { field, .. } => {
                         let Some(Column::Keyword(k)) = cols.get(field.as_str()) else {
                             return None;
                         };
@@ -10381,6 +10383,45 @@ impl Index {
                             terms.iter().filter_map(|t| k.ord_for_term(t)).collect();
                         ords.sort_unstable();
                         ords.dedup();
+                        fev.push(FilterEval::Kw {
+                            col: k,
+                            no_nulls: k.null_bitmap.is_empty(),
+                            ords,
+                        });
+                    }
+                    ScoredFilterLeaf::KeywordPrefix { field, prefix } => {
+                        let Some(Column::Keyword(k)) = cols.get(field.as_str()) else {
+                            return None;
+                        };
+                        // `terms` is lexicographically sorted: the prefix's
+                        // matches form the contiguous ordinal range
+                        // [lo, hi) bounded by two partition_points.
+                        let lo = k.terms.partition_point(|t| t.as_str() < prefix.as_str());
+                        let hi = lo + k.terms[lo..].partition_point(|t| t.starts_with(prefix.as_str()));
+                        fev.push(FilterEval::Kw {
+                            col: k,
+                            no_nulls: k.null_bitmap.is_empty(),
+                            ords: (lo as u32..hi as u32).collect(),
+                        });
+                    }
+                    ScoredFilterLeaf::KeywordWildcard { field, pattern } => {
+                        let Some(Column::Keyword(k)) = cols.get(field.as_str()) else {
+                            return None;
+                        };
+                        // Narrow to the leading literal's prefix range, then
+                        // run the SAME matcher as the brute path over the
+                        // (distinct) dictionary terms so match semantics
+                        // cannot drift.
+                        let lit: &str = pattern
+                            .split(['*', '?'])
+                            .next()
+                            .unwrap_or("");
+                        let lo = k.terms.partition_point(|t| t.as_str() < lit);
+                        let hi = lo + k.terms[lo..].partition_point(|t| t.starts_with(lit));
+                        let ords: Vec<u32> = (lo..hi)
+                            .filter(|&o| wildcard_match(&k.terms[o], pattern))
+                            .map(|o| o as u32)
+                            .collect();
                         fev.push(FilterEval::Kw {
                             col: k,
                             no_nulls: k.null_bitmap.is_empty(),
@@ -20118,6 +20159,16 @@ enum ScoredFilterLeaf {
     KeywordTerm { field: String, term: String },
     /// `terms` on a keyword field (OR over whole-value terms).
     KeywordTerms { field: String, terms: Vec<String> },
+    /// Standalone constant-score `prefix` on a keyword field — resolved
+    /// per segment to the contiguous ordinal range of matching dictionary
+    /// terms (`terms` is lexicographically sorted, so two partition_points
+    /// bound the prefix).  LOSS_BATTLE_PLAN B3.
+    KeywordPrefix { field: String, prefix: String },
+    /// Standalone constant-score `wildcard` on a keyword field — resolved
+    /// per segment by matching the (distinct) dictionary terms with the
+    /// SAME `wildcard_match` the brute path uses, narrowed to the leading
+    /// literal's prefix range first.
+    KeywordWildcard { field: String, pattern: String },
     /// `term` on a numeric/boolean field, or `range` on a numeric field —
     /// both evaluate as an inclusive/exclusive f64 window over the numeric
     /// doc-values column (a term is the degenerate `[v, v]` window;
@@ -20621,6 +20672,41 @@ fn scored_fast_plan(
                 organic: scoring_leaf(organic, 1.0, &fs)?,
             })
         }
+        // Standalone constant-score keyword prefix / wildcard
+        // (LOSS_BATTLE_PLAN B3): ES rewrites these MultiTermQueries to
+        // ConstantScore — every match scores f32(boost), no BM25 — so they
+        // are exactly a Filtered plan whose filter is the dictionary
+        // ordinal range/set of matching terms.  The `constant_score: true`
+        // flag (4c69c05) is the discriminator that keeps every
+        // internally-lowered BM25 prefix/wildcard (query_string,
+        // term{case_insensitive}, multi-token match_bool_prefix trailing
+        // prefix) on the brute path, and non-keyword fields bail.
+        QueryNode::Prefix {
+            field,
+            value,
+            boost,
+            constant_score: true,
+        } if fs.kw.contains(field) => Some(ScoredPlan::Filtered {
+            filter: vec![ScoredFilterLeaf::KeywordPrefix {
+                field: field.clone(),
+                prefix: value.clone(),
+            }],
+            must_not: Vec::new(),
+            score: scoring_boost(boost)?,
+        }),
+        QueryNode::Wildcard {
+            field,
+            value,
+            boost,
+            constant_score: true,
+        } if fs.kw.contains(field) => Some(ScoredPlan::Filtered {
+            filter: vec![ScoredFilterLeaf::KeywordWildcard {
+                field: field.clone(),
+                pattern: value.clone(),
+            }],
+            must_not: Vec::new(),
+            score: scoring_boost(boost)?,
+        }),
         // Filter-only bool: ES scores filter context 0.0 (the brute path's
         // 1.0 floor diverged on every hit). minimum_should_match without
         // should clauses is ignored by ES, but bail conservatively.
