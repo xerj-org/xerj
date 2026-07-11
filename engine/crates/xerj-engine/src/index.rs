@@ -6302,6 +6302,13 @@ impl Index {
                     &segments_dir,
                     materialisation_limit,
                     from + size,
+                    // tth early-termination limit (LOSS_BATTLE_PLAN B5):
+                    // only the capped-count mode may stop early; explicit
+                    // `track_total_hits: true`/`false` keep the exact walk.
+                    match request.track_total_hits {
+                        xerj_query::ast::TrackTotalHits::Limit(n) => Some(n),
+                        _ => None,
+                    },
                 ) {
                     seen_ids.clear();
                     seen_ids.extend(hits.iter().map(|h| h.id.clone()));
@@ -10160,6 +10167,7 @@ impl Index {
         segments_dir: &std::path::Path,
         cap: usize,
         page: usize,
+        total_limit: Option<u64>,
     ) -> Option<(Vec<Hit>, u64)> {
         use xerj_storage::doc_values::Column;
 
@@ -10376,6 +10384,68 @@ impl Index {
             })
             .collect();
 
+        // ── tth early termination (LOSS_BATTLE_PLAN B5) ───────────────────
+        // ES's TOP_SCORES collector stops counting once the capped total is
+        // exceeded and the top-k can no longer change; xerj walked every row
+        // to tally an exact total the renderer then capped to (limit, gte)
+        // anyway.  `break_bound` is a static UPPER bound on any row's score
+        // (per-plan; None disables).  The walk may stop when ALL hold:
+        //   total > limit          (strict — renderer emits (limit, gte)),
+        //   heap full at keep_target,
+        //   worst-kept score ≥ bound as f64  (no remaining row can beat it),
+        //   walk seq-ascending + current seq ≥ worst seq and every later
+        //   segment's min_seq_no > worst seq  (equal-score ties break by
+        //   seq ASC, so later rows can't displace the kept set either).
+        // Boosting (negative_boost can exceed 1) and Pinned (phase-4
+        // overlay needs full headroom) never break.
+        // A BM25 clause whose term is absent everywhere (df = 0) never
+        // matches a row, but its unused clause_scores entry is the HUGE
+        // idf-of-nothing constant — it must contribute 0 to the bound or
+        // the bound is never reachable (live: multi_match's dead top_doc
+        // clause pushed the bound to ~27 and disabled the break).
+        // NumericEq leaves carry no df; their boost score stands.
+        fn clause_eval_max(
+            ev: &ClauseEval,
+            clause_scores: &[f32],
+            df: &[u64],
+            scoring: &[&ScoredLeaf],
+        ) -> f64 {
+            match ev {
+                ClauseEval::Leaf(i) => match &scoring[*i].kind {
+                    ScoredLeafKind::Keyword(_) | ScoredLeafKind::BoolEq(_) if df[*i] == 0 => 0.0,
+                    _ => clause_scores[*i] as f64,
+                },
+                ClauseEval::Bool { must, should, .. } => {
+                    must.iter()
+                        .map(|c| clause_eval_max(c, clause_scores, df, scoring))
+                        .sum::<f64>()
+                        + should
+                            .iter()
+                            .map(|c| clause_eval_max(c, clause_scores, df, scoring))
+                            .sum::<f64>()
+                }
+                ClauseEval::DisMax { children, tie } => {
+                    let maxes: Vec<f64> = children
+                        .iter()
+                        .map(|c| clause_eval_max(c, clause_scores, df, scoring))
+                        .collect();
+                    let m = maxes.iter().cloned().fold(0.0_f64, f64::max);
+                    let sum: f64 = maxes.iter().sum();
+                    m + *tie * (sum - m)
+                }
+            }
+        }
+        let break_bound: Option<f64> = match (total_limit, plan) {
+            (Some(_), ScoredPlan::Filtered { score, .. }) => Some(*score as f64),
+            (Some(_), ScoredPlan::KeywordFuzzy { boost, .. }) => fuzzy_stats
+                .as_ref()
+                .map(|(_, blend)| bm25_keyword_term_score(*blend, total_docs, *boost) as f64),
+            (Some(_), ScoredPlan::Composed { .. }) => eval_root
+                .as_ref()
+                .map(|r| clause_eval_max(r, &clause_scores, &df, &scoring)),
+            _ => None,
+        };
+
         // ── Phase 2: row walk — exact per-row score + exact total ─────────
         // Candidate = (score, seq_no, segment, row); seq_no is the ES-parity
         // tie-break key, (segment, row) locates the stored slice.
@@ -10396,8 +10466,19 @@ impl Index {
         let mut heap: std::collections::BinaryHeap<TopKCand> =
             std::collections::BinaryHeap::with_capacity(keep_target.saturating_add(1));
         let mut total: u64 = 0;
+        let limit_val: u64 = total_limit.unwrap_or(u64::MAX);
         for (si, (meta, cols)) in segments.iter().zip(seg_cols.iter()).enumerate() {
             let seqs: &[u64] = &seg_seqs[si];
+            // B5 break preconditions (only paid when a bound exists):
+            // seq-ascending walk (true by construction for B1 merge-sorted
+            // segments; verified, not assumed) + the smallest seq any LATER
+            // segment can contribute.
+            let seq_asc = break_bound.is_some() && seqs.windows(2).all(|w| w[0] <= w[1]);
+            let later_min_seq: u64 = segments[si + 1..]
+                .iter()
+                .map(|m| m.min_seq_no)
+                .min()
+                .unwrap_or(u64::MAX);
             let si = si as u32;
             let mut sev: Vec<ScoreEval> = Vec::with_capacity(scoring.len());
             for leaf in &scoring {
@@ -10541,6 +10622,24 @@ impl Index {
                                     row,
                                 },
                             );
+                            // B5 tth break — see `break_bound`.  Checked
+                            // every 64th match to keep the hot loop lean.
+                            if let Some(bound) = break_bound {
+                                if total & 63 == 0
+                                    && seq_asc
+                                    && total > limit_val
+                                    && heap.len() == keep_target
+                                {
+                                    if let Some(w) = heap.peek() {
+                                        if (w.score as f64) >= bound
+                                            && seqs[row as usize] >= w.seq
+                                            && later_min_seq > w.seq
+                                        {
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -10625,6 +10724,24 @@ impl Index {
                                 row,
                             },
                         );
+                        // B5 tth break — see `break_bound`.  Checked
+                        // every 64th match to keep the hot loop lean.
+                        if let Some(bound) = break_bound {
+                            if total & 63 == 0
+                                && seq_asc
+                                && total > limit_val
+                                && heap.len() == keep_target
+                            {
+                                if let Some(w) = heap.peek() {
+                                    if (w.score as f64) >= bound
+                                        && seqs[row as usize] >= w.seq
+                                        && later_min_seq > w.seq
+                                    {
+                                        break 'frows;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 ScoredPlan::KeywordFuzzy {
@@ -10680,6 +10797,24 @@ impl Index {
                                 row,
                             },
                         );
+                        // B5 tth break — see `break_bound`.  Checked
+                        // every 64th match to keep the hot loop lean.
+                        if let Some(bound) = break_bound {
+                            if total & 63 == 0
+                                && seq_asc
+                                && total > limit_val
+                                && heap.len() == keep_target
+                            {
+                                if let Some(w) = heap.peek() {
+                                    if (w.score as f64) >= bound
+                                        && seqs[row as usize] >= w.seq
+                                        && later_min_seq > w.seq
+                                    {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
