@@ -351,3 +351,35 @@ probe, delete any pre-d49410c cached expected-response snapshot. Zero engine cod
 | B6 | term(cache_hit) | LOSS→near-parity (+~0.5ms off all size:10 cells) |
 | B7 | range, deep-from | 2 LOSS→parity |
 | B0 | composite | stale DIFF→MATCH (harness) |
+
+---
+
+# CAMPAIGN RESULT — 2026-07-11 (all batches landed)
+
+Final fair scorecard (13 cells, live ES 8.13.4 on :9201, identical reseeded
+100k corpus, `XERJ_DISABLE_QUERY_CACHE=1` + `request_cache=false`, closed-loop
+keep-alive p50/40, per-cell response-value cross-check):
+
+**WIN 2 · TIE 11 · LOSS 0 — correctness 13/13 MATCH.**
+
+| batch | commit | what | headline |
+|---|---|---|---|
+| B1 | ee9cd44 | seq_no-sorted merges + settled leaf semantics | 6 DIFF:top cells → MATCH; match_all/deep pages == ES |
+| B2 | a2b246c | multi_match → columnar dis_max | 1-ulp max_score dead, bit-exact |
+| B3 | 08080bf | constant-score prefix/wildcard/mbp columnar | wildcard 4.4→0.7ms; mbp max_score 1.0 |
+| B4 | 7d077aa | keyword fuzzy blended-frequency plan | 1.2020086 bit-exact; 2.2→0.36ms |
+| B5 | 211185b | tth early termination + df=0 bound fix | scored family → ES-floor parity; bool → WIN |
+| B6+B7 | 45ba120 | match_all/terms/exists Filtered plans; prefilter partial-select; page-cap | range 2.04→0.23 (faster than ES); terms/exists → TIE |
+| B7b | 4a22d2b | page-offset hydration (constant-score) | deep-from 1.42→0.45-0.70 → TIE |
+
+ES-YAML gate 1360/0/3 held on every batch.
+
+Open follow-up tickets surfaced during the campaign:
+1. query_string wildcard/prefix lowerings keep BM25; live ES constant-scores
+   them (xerj 1.5038949 vs ES 1.0) — pre-existing, found by B3 controls.
+2. Empty beyond-end pages: ES reports the POPULATION max_score (e.g.
+   4.3832374 with 0 hits), xerj null — pre-existing (brute path too).
+3. Deep-from for NON-constant scored plans still hydrates all from+size
+   (page-offset would drop the max_score carrier — needs a design).
+4. dis_max (tie>0, >1 live clause): static bound unreachable — the true
+   fix is WAND/impact-style per-clause reasoning (NEEDS_INFRA).
