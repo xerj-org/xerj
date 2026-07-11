@@ -10210,6 +10210,9 @@ impl Index {
                 filters.extend(filter.iter().chain(must_not.iter()));
                 None
             }
+            // KeywordFuzzy resolves its expansions from the dictionaries in
+            // Phase 1 (`fuzzy_stats`) — no flat leaf/filter lists.
+            ScoredPlan::KeywordFuzzy { .. } => None,
         };
 
         // ── Phase 1: per-segment columns + GLOBAL term stats ──────────────
@@ -10303,6 +10306,60 @@ impl Index {
                 }
             }
         }
+        // ── KeywordFuzzy global expansion stats (LOSS_BATTLE_PLAN B4) ────
+        // term → (folded Damerau dist, Σ df) over ALL segments'
+        // dictionaries, plus the blended df (max Σdf across expansions —
+        // ES TopTermsBlendedFreqScoringRewrite).  The match predicate is
+        // the same folded whole-value-or-sub-token test as
+        // `xerj_fts::search::expand_fuzzy` / the doc-scan fuzzy arm.
+        // Sub-token-only matches (an intentional xerj leniency ES lacks)
+        // can carry a whole-value dist > max_edits; their sim clamps to
+        // ≥ 0 so the extra hits score deterministically.
+        let fuzzy_stats: Option<(HashMap<String, (usize, u64)>, u64)> = match plan {
+            ScoredPlan::KeywordFuzzy {
+                field,
+                value,
+                max_edits,
+                ..
+            } => {
+                let q_folded = value.to_lowercase();
+                let term_matches = |folded: &str| -> bool {
+                    if levenshtein_distance(folded, &q_folded) <= *max_edits {
+                        return true;
+                    }
+                    folded
+                        .split(|c: char| !c.is_alphanumeric())
+                        .filter(|t| !t.is_empty())
+                        .any(|tok| levenshtein_distance(tok, &q_folded) <= *max_edits)
+                };
+                let mut map: HashMap<String, (usize, u64)> = HashMap::new();
+                for (meta, cols) in segments.iter().zip(seg_cols.iter()) {
+                    let Some(Column::Keyword(k)) = cols.get(field.as_str()) else {
+                        return None;
+                    };
+                    // Same null-free/coverage gate as the KeywordTerm
+                    // scoring arm: a null row's ords entry is not
+                    // meaningful, so nullable columns keep the brute path.
+                    if k.doc_count as u64 != meta.doc_count || !k.null_bitmap.is_empty() {
+                        return None;
+                    }
+                    for (ord, term) in k.terms.iter().enumerate() {
+                        let folded = term.to_lowercase();
+                        if term_matches(&folded) {
+                            let seg_df =
+                                k.per_ord_count.get(ord).copied().unwrap_or(0) as u64;
+                            let dist = levenshtein_distance(&folded, &q_folded);
+                            let e = map.entry(term.clone()).or_insert((dist, 0));
+                            e.1 += seg_df;
+                        }
+                    }
+                }
+                let blend = map.values().map(|(_, n)| *n).max().unwrap_or(0);
+                Some((map, blend))
+            }
+            _ => None,
+        };
+
         // Per-clause score constant: exact ES float32 BM25 op sequence for
         // keyword/boolean terms (a clause whose term is absent everywhere —
         // df = 0 — never matches a row, so its unused value is irrelevant);
@@ -10563,6 +10620,61 @@ impl Index {
                             keep_target,
                             TopKCand {
                                 score: *score,
+                                seq: seqs[row as usize],
+                                si,
+                                row,
+                            },
+                        );
+                    }
+                }
+                ScoredPlan::KeywordFuzzy {
+                    field,
+                    value,
+                    boost,
+                    ..
+                } => {
+                    // Per-ord score LUT for THIS segment's dictionary:
+                    // matching ords score bm25(df_blend, N, boost·sim),
+                    // everything else is a non-match sentinel (NaN).  The
+                    // column is null-free (Phase-1 gate), so `ords[row]`
+                    // is meaningful for every live row.
+                    let Some(Column::Keyword(k)) = cols.get(field.as_str()) else {
+                        return None;
+                    };
+                    let (fmap, blend) = fuzzy_stats
+                        .as_ref()
+                        .expect("KeywordFuzzy always builds fuzzy_stats");
+                    let q_cp = value.chars().count();
+                    let mut ord_scores: Vec<f32> = vec![f32::NAN; k.terms.len()];
+                    for (ord, term) in k.terms.iter().enumerate() {
+                        if let Some((dist, _)) = fmap.get(term) {
+                            // FuzzyTermsEnum: 1 − dist/min(cpLen); exact
+                            // match keeps 1.0.  Clamp at 0 for the
+                            // sub-token-only extras (see fuzzy_stats).
+                            let sim: f32 = if *dist == 0 {
+                                1.0
+                            } else {
+                                let ml = q_cp.min(term.chars().count()).max(1);
+                                (1.0 - (*dist as f32) / (ml as f32)).max(0.0)
+                            };
+                            ord_scores[ord] =
+                                bm25_keyword_term_score(*blend, total_docs, boost * sim);
+                        }
+                    }
+                    for row in 0..doc_count {
+                        if is_ghost(row) {
+                            continue;
+                        }
+                        let s = ord_scores[k.ords[row as usize] as usize];
+                        if s.is_nan() {
+                            continue;
+                        }
+                        total += 1;
+                        push_topk(
+                            &mut heap,
+                            keep_target,
+                            TopKCand {
+                                score: s,
                                 seq: seqs[row as usize],
                                 si,
                                 row,
@@ -20214,6 +20326,25 @@ enum ScoredPlan {
         must_not: Vec<ScoredFilterLeaf>,
         score: f32,
     },
+    /// Standalone `fuzzy` on a keyword field (LOSS_BATTLE_PLAN B4).  ES
+    /// rewrites fuzzy to a blended-frequency disjunction over the
+    /// dictionary expansions (TopTermsBlendedFreqScoringRewrite): every
+    /// expansion is scored with the MAX docFreq across the blend, and each
+    /// expansion's weight carries FuzzyTermsEnum's similarity boost
+    /// `1 − dist/min(cpLen(term), cpLen(query))` (Damerau distance —
+    /// transpositions count 1, ES `fuzzy_transpositions: true`).
+    /// Live-verified: ES max_score 1.2020086 == bm25_keyword_term_score
+    /// (df_blend, N, 0.9375) for dist 1 over 16 code points.  A keyword
+    /// column is single-valued, so each row matches at most one expansion
+    /// and scores that expansion's constant.  The expansion predicate is
+    /// the SAME folded whole-value-or-sub-token test as the FTS/doc-scan
+    /// paths, so the hit set cannot drift from the brute path.
+    KeywordFuzzy {
+        field: String,
+        value: String,
+        max_edits: usize,
+        boost: f32,
+    },
 }
 
 /// ES/Lucene-9 exact BM25 score of a `term` query on a keyword field
@@ -20707,6 +20838,26 @@ fn scored_fast_plan(
             must_not: Vec::new(),
             score: scoring_boost(boost)?,
         }),
+        // Standalone fuzzy on a keyword field (LOSS_BATTLE_PLAN B4):
+        // blended-frequency expansion scoring on the columnar path — see
+        // ScoredPlan::KeywordFuzzy.  `max_edits` resolves here (AUTO
+        // depends on the query term length), mirroring query_node_to_fts.
+        QueryNode::Fuzzy {
+            field,
+            value,
+            fuzziness,
+        } if fs.kw.contains(field) => {
+            let max_edits = match fuzziness {
+                Fuzziness::Auto => auto_fuzziness(value),
+                Fuzziness::Fixed(n) => *n as usize,
+            };
+            Some(ScoredPlan::KeywordFuzzy {
+                field: field.clone(),
+                value: value.clone(),
+                max_edits,
+                boost: 1.0,
+            })
+        }
         // Filter-only bool: ES scores filter context 0.0 (the brute path's
         // 1.0 floor diverged on every hit). minimum_should_match without
         // should clauses is ignored by ES, but bail conservatively.
