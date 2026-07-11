@@ -109,3 +109,6 @@ landing/resources/xerj-sales-kit.zip
 demo/screenshots/manifest.json
 demo/.flow-data/
 demo/.flow-chrome/
+
+# Local ES 8.13.4 reference node for fair benchmarking (never committed)
+.es-local/

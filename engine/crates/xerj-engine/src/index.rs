@@ -2795,6 +2795,24 @@ impl Index {
                     // all stored docs even if a doc fails the FTS/DV re-parse.
                     let mut ids_pairs: Vec<(u64, String)> = Vec::new();
 
+                    // ES tie-order parity (LOSS_BATTLE_PLAN B1): collect every
+                    // surviving doc as (seq_no, _id, raw JSON) FIRST, then sort
+                    // globally by _seq_no and derive ALL four merge outputs
+                    // (stored bytes / .ids side-car / FTS input / DV input) from
+                    // that ONE sorted stream.  Ingest hash-routes docs across 16
+                    // memtable shards and each shard flushes its own segment, so
+                    // input-order concatenation scrambled physical row order vs
+                    // insertion (_seq_no) order — ES tie-breaks equal scores by
+                    // internal doc id == arrival order, so every constant-score
+                    // top-k diverged from ES.  With physical == seq order the
+                    // existing doc-position tie-breaks ARE the ES tie-break; no
+                    // comparator changes anywhere.  Memory: the owned raw copy
+                    // replaces the same bytes that previously went straight into
+                    // `merged_json_buf` (drained into it below), so the peak
+                    // stays ~1× stored size + the fts_input Values, unchanged
+                    // from the M5.22 profile.
+                    let mut survivors: Vec<(u64, String, String)> = Vec::new();
+
                     for meta in &metas_for_task {
                         min_seq = min_seq.min(meta.min_seq_no);
                         max_seq = max_seq.max(meta.max_seq_no);
@@ -2913,34 +2931,53 @@ impl Index {
                                 }
                             }
 
-                            // Survives — append raw bytes to the merged buffer.
-                            if !first_doc {
-                                merged_json_buf.push(b',');
-                            }
-                            first_doc = false;
-                            merged_json_buf.extend_from_slice(raw_str.as_bytes());
-                            live_doc_count += 1;
-                            ids_pairs.push((id_seq.seq_no, id_seq.id.to_string()));
-
-                            // Per-doc Value parse for FTS / DV builders.
-                            let doc_value: Value = match serde_json::from_str(raw_str) {
-                                Ok(v) => v,
-                                Err(_) => continue,
-                            };
-                            let id_str = id_seq.id.to_string();
-                            let source = doc_value.get("_source").cloned().unwrap_or(Value::Null);
-                            let mut fields: HashMap<String, String> = HashMap::new();
-                            if let Some(obj) = source.as_object() {
-                                for (key, val) in obj {
-                                    let text = extract_field_text(val);
-                                    if !text.is_empty() {
-                                        fields.insert(key.clone(), text);
-                                    }
-                                }
-                            }
-                            fts_input.push((id_str, fields, source));
+                            // Survives — hold (seq, id, raw) for the global
+                            // _seq_no-ordered build below.
+                            survivors.push((
+                                id_seq.seq_no,
+                                id_seq.id.to_string(),
+                                raw_str.to_string(),
+                            ));
                         }
                         // raw_docs + stored_bytes drop here — segment RAM reclaimed.
+                    }
+
+                    // Global insertion-order (_seq_no) sort — see the B1 note
+                    // above.  seq_nos are unique per surviving doc (stale /
+                    // duplicate copies were filtered by the version map).
+                    survivors.sort_unstable_by_key(|(seq, _, _)| *seq);
+
+                    // Single sorted stream → all four outputs.  `into_iter`
+                    // frees each raw String right after its bytes are copied
+                    // into `merged_json_buf`, keeping peak memory ~1× stored.
+                    for (seq_no, id_str, raw_str) in survivors {
+                        if !first_doc {
+                            merged_json_buf.push(b',');
+                        }
+                        first_doc = false;
+                        merged_json_buf.extend_from_slice(raw_str.as_bytes());
+                        live_doc_count += 1;
+                        // Pushed BEFORE the per-doc Value parse that can
+                        // `continue` — the .ids side-car must cover every
+                        // stored doc (alignment invariant, see above).
+                        ids_pairs.push((seq_no, id_str.clone()));
+
+                        // Per-doc Value parse for FTS / DV builders.
+                        let doc_value: Value = match serde_json::from_str(&raw_str) {
+                            Ok(v) => v,
+                            Err(_) => continue,
+                        };
+                        let source = doc_value.get("_source").cloned().unwrap_or(Value::Null);
+                        let mut fields: HashMap<String, String> = HashMap::new();
+                        if let Some(obj) = source.as_object() {
+                            for (key, val) in obj {
+                                let text = extract_field_text(val);
+                                if !text.is_empty() {
+                                    fields.insert(key.clone(), text);
+                                }
+                            }
+                        }
+                        fts_input.push((id_str, fields, source));
                     }
 
                     if live_doc_count == 0 {
@@ -4063,6 +4100,7 @@ impl Index {
                 script_fields: None,
                 fields: Vec::new(),
                 profile: false,
+                leaf_ts_field: None,
             };
             // Box::pin to break the type-recursion (search_inner ↔
             // run_hybrid both async fn).
@@ -4997,6 +5035,50 @@ impl Index {
                 "read",
             )));
         }
+
+        // Implicit @timestamp "sort segments on timestamp" handling (see
+        // `SearchRequest::leaf_ts_field`).  Two regimes:
+        //
+        // * SETTLED (empty memtable, ≤1 segment — the read-mostly steady
+        //   state): apply NO ordering at all.  A single seq-ordered segment
+        //   (the B1 merge invariant) already reads back in arrival order,
+        //   which is exactly what real ES 8.13.4 returns on the same
+        //   single-segment index — leaf ordering over one leaf is a no-op
+        //   there, hits keep `_score` 1.0 and `max_score` 1.0.  The old
+        //   injected per-doc sort diverged from ES here on all three axes
+        //   (page windows, equal-ts lex re-order, max_score null) —
+        //   live-verified.
+        //
+        // * UNSETTLED (buffered memtable docs, or multiple segments):
+        //   xerj's visibility units don't line up with ES's
+        //   refresh-generation leaves (a `?refresh=true` doc stays
+        //   memtable-resident here but is its own newest-first leaf in ES),
+        //   and the final hit ordering ties break by global seq — so
+        //   segment-level iteration order can't reproduce ES's leaf order.
+        //   Keep the historical injected per-doc `@timestamp desc` sort for
+        //   this window — the behaviour the ES conformance contract
+        //   (search/380_sort_segments_on_timestamp.yml) validates.
+        let leaf_fallback_request: Option<SearchRequest> = match request.leaf_ts_field.as_deref() {
+            Some(ts_field)
+                if matches!(request.query, QueryNode::MatchAll)
+                    && request.sort.is_empty()
+                    && (self.memtable.doc_count() > 0
+                        || self.store.snapshot().segments.len() > 1) =>
+            {
+                let mut r = request.clone();
+                r.sort = vec![xerj_query::sort::SortField {
+                    field: ts_field.to_string(),
+                    order: xerj_query::sort::SortOrder::Desc,
+                    mode: xerj_query::sort::SortMode::default(),
+                    missing: xerj_query::sort::SortMissing::default(),
+                    format: None,
+                }];
+                r.leaf_ts_field = None;
+                Some(r)
+            }
+            _ => None,
+        };
+        let request: &SearchRequest = leaf_fallback_request.as_ref().unwrap_or(request);
 
         // ── Cooperative deadline ──────────────────────────────────────────
         // The `tokio::time::timeout` wrapper in `search()` is DEAD CODE on

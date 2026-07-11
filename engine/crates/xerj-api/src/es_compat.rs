@@ -4862,9 +4862,13 @@ pub async fn search(
     // declared at create time (or after close/reopen picks up the current
     // mapping). Mirror that behaviour using the `__xy_index_sort_*` hints
     // stored in settings at create / reopen time.
+    //
+    // For the implicit auto-@timestamp hint this is LEAF ordering, not a
+    // per-doc sort — see `implicit_leaf_ts` below.
+    let mut implicit_leaf_ts: Option<String> = None;
     if index_names.len() == 1 {
         let idx_name = index_names[0];
-        let (sort_field, sort_order, explicit) = state
+        let (sort_field, sort_order, explicit, reopen_derived) = state
             .engine
             .index_settings
             .get(idx_name)
@@ -4883,9 +4887,13 @@ pub async fn search(
                     .get("__xy_index_sort_explicit")
                     .and_then(Value::as_bool)
                     .unwrap_or(false);
-                (f, o, ex)
+                let ro = s
+                    .get("__xy_index_sort_reopen")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+                (f, o, ex, ro)
             })
-            .unwrap_or((None, "desc".to_string(), false));
+            .unwrap_or((None, "desc".to_string(), false, false));
         if let Some(f) = sort_field {
             // Apply the index sort ONLY for an EXPLICITLY declared
             // `index.sort` (settings), when no sort was requested or the
@@ -4906,15 +4914,24 @@ pub async fn search(
             // 1.5 M docs (~2-7 s each, `walked=1500002 admitted=250252
             // allhits_cap=false`) while the same query with an explicit
             // `sort: _doc` took 45 ms.
-            // For the implicit auto-@timestamp hint, only match_all-shaped
-            // queries get the injected sort: that is the query shape the ES
-            // conformance contract observes (search/380_sort_segments_on_
-            // timestamp.yml), and the engine serves it via the bounded
-            // sorted-DV candidates path (O(from+size) per segment).
-            // Filtered queries (term/range/bool) skip the injection — in
-            // real ES the physical index sort doesn't impose a query-time
-            // global sort on them either, and routing them through the
-            // top-N heap costs a full O(total-docs) walk per request.
+            // For the implicit auto-@timestamp hint, real ES (7.16+
+            // "sort segments on timestamp") orders the LEAVES — segments
+            // are read newest-max-@timestamp-first while docs inside each
+            // segment keep arrival order, scores stay 1.0 and max_score
+            // stays 1.0.  The old implementation approximated that with an
+            // injected per-doc `@timestamp desc` sort, which diverges from
+            // real ES on any settled index: page windows are cut by
+            // timestamp value (from:500 returned timestamp-ranked ids, ES
+            // returns arrival ids 500..549), equal timestamps re-ordered
+            // lexicographically by _id, and the sort suppressed max_score
+            // (null vs ES 1.0) — all three live-verified against ES 8.13.4.
+            // So for the implicit hint pass a leaf-order flag to the engine
+            // instead (`SearchRequest::leaf_ts_field`), only for the
+            // match_all-shaped sortless requests the old injection covered
+            // (the shape search/380_sort_segments_on_timestamp.yml
+            // observes).  Filtered queries (term/range/bool) are untouched
+            // — real ES's segment ordering doesn't impose a query-time
+            // global sort on them either.
             let implicit_ok = body.query.is_none()
                 || body
                     .query
@@ -4922,11 +4939,26 @@ pub async fn search(
                     .and_then(|q| q.as_object())
                     .map(|o| o.len() == 1 && o.contains_key("match_all"))
                     .unwrap_or(false);
-            let apply = (explicit || implicit_ok)
-                && (body.sort.is_none()
-                    || (explicit && body.sort.as_ref().map(is_lone_doc_sort).unwrap_or(false)));
-            if apply {
-                body.sort = Some(json!([{ f: { "order": sort_order } }]));
+            if explicit {
+                // Explicitly declared `index.sort` (settings): keep the
+                // injected per-doc sort — ES returns docs in index-sort
+                // order for sortless and `sort: _doc` requests there.
+                let apply = body.sort.is_none()
+                    || body.sort.as_ref().map(is_lone_doc_sort).unwrap_or(false);
+                if apply {
+                    body.sort = Some(json!([{ f: { "order": sort_order } }]));
+                }
+            } else if implicit_ok && body.sort.is_none() {
+                if reopen_derived {
+                    // Reopen-derived hint: the close-time full-drain flush
+                    // already consolidated the per-refresh leaves ES would
+                    // have kept, so settled leaf ordering can't reproduce
+                    // the reopen contract — keep the historical per-doc
+                    // sort for these indices (see the `_open` handler).
+                    body.sort = Some(json!([{ f: { "order": sort_order } }]));
+                } else {
+                    implicit_leaf_ts = Some(f);
+                }
             }
         }
     }
@@ -6118,7 +6150,13 @@ pub async fn search(
         .collect();
 
     let search_req = match build_search_request(&body, aggs_value) {
-        Ok(r) => r,
+        Ok(mut r) => {
+            // ES 7.16 leaf ordering for the implicit auto-@timestamp hint
+            // (see the injection block above) — internal field, never on
+            // the wire.
+            r.leaf_ts_field = implicit_leaf_ts;
+            r
+        }
         Err(e) => return ApiError::new(e).into_response(),
     };
 
@@ -16956,6 +16994,16 @@ pub async fn open_index(
                 };
                 merged.insert("__xy_index_sort_field".to_string(), json!("@timestamp"));
                 merged.insert("__xy_index_sort_order".to_string(), json!("desc"));
+                // Reopen-derived hint (dynamic @timestamp picked up at
+                // close/open): `_close` drains the whole memtable into ONE
+                // consolidated segment, so the per-refresh leaf structure ES
+                // preserves is already gone by the first post-reopen search.
+                // Mark the provenance so the search path keeps the
+                // historical per-doc `@timestamp desc` sort for these
+                // indices (the 380_sort_segments_on_timestamp.yml reopen
+                // contract) instead of the settled leaf-order semantics
+                // reserved for create-time-mapped indices.
+                merged.insert("__xy_index_sort_reopen".to_string(), json!(true));
                 state
                     .engine
                     .index_settings

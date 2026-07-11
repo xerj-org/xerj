@@ -238,6 +238,7 @@ pub fn parse_request(body: &Value) -> Result<SearchRequest> {
         collapse: None,
         rescore: Vec::new(),
         min_score: None,
+        leaf_ts_field: None,
     })
 }
 

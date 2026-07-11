@@ -972,6 +972,18 @@ pub struct SearchRequest {
     /// dropped before pagination, aggregations, and total counting.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_score: Option<f64>,
+
+    /// INTERNAL (never on the wire — `serde(skip)`): iterate segments in
+    /// per-segment-max-of-this-date-field DESC order for sortless
+    /// match_all-shaped requests.  This is ES 7.16's "sort segments on
+    /// timestamp" LEAF ordering for indices that map `@timestamp` at
+    /// create time: segments are read newest-first while docs inside each
+    /// segment keep arrival order and hits keep `_score` 1.0 / max_score
+    /// 1.0.  Set by the ES-compat layer; replaces the old injected per-doc
+    /// `@timestamp desc` sort, which diverged from real ES on settled
+    /// indices (wrong page windows + `max_score: null`).
+    #[serde(skip)]
+    pub leaf_ts_field: Option<String>,
 }
 
 fn default_query() -> QueryNode {
@@ -1002,6 +1014,7 @@ impl Default for SearchRequest {
             collapse: None,
             rescore: Vec::new(),
             min_score: None,
+            leaf_ts_field: None,
         }
     }
 }

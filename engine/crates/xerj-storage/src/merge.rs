@@ -302,6 +302,15 @@ impl MergeExecutor {
             }
         }
 
+        // Emit the merged segment in global insertion (_seq_no) order.  Inputs
+        // are per-memtable-shard segments (hash-partitioned by _id), so plain
+        // concatenation scrambles physical row order vs arrival order; ES
+        // tie-breaks equal scores by internal doc id == arrival order, and the
+        // engine-side merge (index.rs merge_pass_locked) applies the same sort.
+        merged_docs.sort_unstable_by_key(|doc| {
+            doc.get("_seq_no").and_then(|v| v.as_u64()).unwrap_or(0)
+        });
+
         let live_doc_count = merged_docs.len() as u64;
 
         // Write merged segment — inherit schema version from the snapshot if available
