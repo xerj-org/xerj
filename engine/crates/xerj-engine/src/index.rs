@@ -14173,19 +14173,23 @@ fn strip_nested_path_in_query(q: &QueryNode, path: &str) -> QueryNode {
             field,
             value,
             boost,
+            constant_score,
         } => QueryNode::Prefix {
             field: strip(field),
             value: value.clone(),
             boost: *boost,
+            constant_score: *constant_score,
         },
         QueryNode::Wildcard {
             field,
             value,
             boost,
+            constant_score,
         } => QueryNode::Wildcard {
             field: strip(field),
             value: value.clone(),
             boost: *boost,
+            constant_score: *constant_score,
         },
         QueryNode::Exists { field } => QueryNode::Exists {
             field: strip(field),
@@ -19395,6 +19399,7 @@ fn query_node_to_fts(
             field,
             value,
             boost,
+            constant_score,
         } => {
             // `prefix` on a KEYWORD field: whole-value, case-sensitive prefix
             // match over the keyword FST term dictionary — byte-identical to ES
@@ -19417,7 +19422,11 @@ fn query_node_to_fts(
                     prefix: value.clone(),
                     boost: boost.unwrap_or(1.0),
                     max_expansions: usize::MAX,
-                    constant_score: false,
+                    // ES rewrites a standalone `prefix` query to a constant_score
+                    // (every keyword match scores `boost`, no BM25).  The shared
+                    // query_string / match_bool_prefix lowerings pass `false` and
+                    // keep BM25.
+                    constant_score: *constant_score,
                 }));
             }
             // TEXT field: expand the prefix against the analyzed term dictionary
@@ -19444,6 +19453,7 @@ fn query_node_to_fts(
             field,
             value,
             boost,
+            constant_score,
         } => {
             // `wildcard` on a KEYWORD field: expand the keyword FST term
             // dictionary to every term matching the pattern (`*`=0+ chars,
@@ -19464,7 +19474,11 @@ fn query_node_to_fts(
                     pattern: value.clone(),
                     boost: boost.unwrap_or(1.0),
                     case_insensitive: true,
-                    constant_score: false,
+                    // ES rewrites a standalone `wildcard` query to a
+                    // constant_score.  The `term{case_insensitive}` /
+                    // query_string lowerings that SHARE this node pass `false`
+                    // and keep BM25 — do not blanket-flip this.
+                    constant_score: *constant_score,
                 }));
             }
             // TEXT field: expand the pattern against the analyzed term
@@ -21287,6 +21301,7 @@ mod fts_projection_tests {
             field: "body".into(),
             value: "run".into(),
             boost: None,
+            constant_score: true,
         };
         match query_node_to_fts(&q, &tf, &kw(&[])).expect("text prefix projects") {
             FtsQuery::Prefix(p) => {
@@ -21300,6 +21315,7 @@ mod fts_projection_tests {
             field: "body".into(),
             value: "run*".into(),
             boost: None,
+            constant_score: true,
         };
         match query_node_to_fts(&q, &tf, &kw(&[])).expect("text wildcard projects") {
             FtsQuery::Wildcard(w) => {

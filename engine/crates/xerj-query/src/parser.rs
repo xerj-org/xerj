@@ -590,6 +590,7 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
                     field: field.to_string(),
                     value: tokens[0].clone(),
                     boost: fb,
+                    constant_score: false,
                 };
                 should.push(prefix);
                 continue;
@@ -619,6 +620,7 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
                 field: field.to_string(),
                 value: tokens[last].clone(),
                 boost: None,
+                constant_score: false,
             });
             let (im, is, imm) = if operator_and {
                 (inner_clauses, vec![], None)
@@ -724,6 +726,7 @@ fn parse_term(params: &Value) -> Result<QueryNode> {
                     field,
                     value: val_str,
                     boost,
+                    constant_score: false,
                 };
                 return Ok(maybe_named(node, name));
             }
@@ -937,6 +940,7 @@ fn parse_prefix(params: &Value) -> Result<QueryNode> {
             field,
             value: value.to_string(),
             boost: None,
+            constant_score: true,
         });
     }
 
@@ -954,6 +958,7 @@ fn parse_prefix(params: &Value) -> Result<QueryNode> {
         field,
         value,
         boost,
+        constant_score: true,
     })
 }
 
@@ -973,6 +978,7 @@ fn parse_wildcard(params: &Value) -> Result<QueryNode> {
             field,
             value: value.to_string(),
             boost: None,
+            constant_score: true,
         });
     }
 
@@ -990,6 +996,7 @@ fn parse_wildcard(params: &Value) -> Result<QueryNode> {
         field,
         value,
         boost,
+        constant_score: true,
     })
 }
 
@@ -1596,6 +1603,7 @@ fn parse_qs_unary(
                     field: f,
                     value: value.to_lowercase(),
                     boost: None,
+                    constant_score: false,
                 });
             }
             Some(QueryNode::Match {
@@ -3533,6 +3541,7 @@ fn parse_match_bool_prefix(params: &Value) -> Result<QueryNode> {
             field,
             value: fold(&raw_tokens[0]),
             boost: None,
+            constant_score: false,
         });
     }
 
@@ -3564,6 +3573,7 @@ fn parse_match_bool_prefix(params: &Value) -> Result<QueryNode> {
         field: field.clone(),
         value: fold(&raw_tokens[last_idx]),
         boost: None,
+        constant_score: false,
     });
 
     // operator:and → every clause must match; otherwise should + mm.

@@ -617,6 +617,7 @@ fn parse_condition(tokens: &[Token], pos: &mut usize) -> Result<QueryNode, Strin
                 field: field.clone(),
                 value: pattern,
                 boost: None,
+                constant_score: false,
             }
         }
         "not_like" => {
@@ -633,6 +634,7 @@ fn parse_condition(tokens: &[Token], pos: &mut usize) -> Result<QueryNode, Strin
                     field: field.clone(),
                     value: pattern,
                     boost: None,
+                    constant_score: false,
                 }],
                 minimum_should_match: None,
             }

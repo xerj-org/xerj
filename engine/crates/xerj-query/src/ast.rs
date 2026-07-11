@@ -265,6 +265,13 @@ pub struct DistanceFeature {
     pub origin: serde_json::Value,
 }
 
+/// serde `skip_serializing_if` helper: omit a `bool` field when it is `false`
+/// so query round-trips stay byte-identical to their pre-`constant_score` form.
+#[inline]
+fn is_false(b: &bool) -> bool {
+    !*b
+}
+
 /// A single node in the query tree.
 ///
 /// All query types — leaf and compound — are variants of this one enum.
@@ -343,6 +350,12 @@ pub enum QueryNode {
         value: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         boost: Option<f32>,
+        /// True when this node came from a *standalone* `{prefix:{…}}` query,
+        /// which ES rewrites to a `constant_score` (every match scores `boost`,
+        /// no BM25).  False for internally-generated prefixes (query_string,
+        /// match_bool_prefix) that keep BM25 scoring.
+        #[serde(default, skip_serializing_if = "is_false")]
+        constant_score: bool,
     },
 
     /// Wildcard pattern match (`?` = any char, `*` = zero-or-more chars).
@@ -351,6 +364,11 @@ pub enum QueryNode {
         value: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         boost: Option<f32>,
+        /// True when this node came from a *standalone* `{wildcard:{…}}` query,
+        /// which ES rewrites to a `constant_score`.  False for the shared
+        /// `term{case_insensitive}` / query_string lowerings that keep BM25.
+        #[serde(default, skip_serializing_if = "is_false")]
+        constant_score: bool,
     },
 
     /// Matches documents where the field has any non-null value.
