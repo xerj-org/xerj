@@ -6254,6 +6254,37 @@ impl Index {
         let deletes_present: bool = snap.segments.iter().any(|m| m.has_tombstones)
             || self.store.version_map.ghost_events() > 0;
 
+        // LOSS_BATTLE_PLAN B6 — page-cap materialisation.  The +100/256
+        // hydration slack in `materialisation_limit` buys headroom against
+        // memtable/segment dedup overlap and version-map rejections; with an
+        // empty memtable and no ghosts neither exists, so on the strictly
+        // safe unsorted page path a `size:10` query only ever needs
+        // `from+size` stored-doc parses (live: the 256-doc floor was ~60% of
+        // the range/term page cost).  Every excluded shape (sorts, aggs —
+        // the brute agg fallback aggregates the materialised sources —
+        // rescore/collapse/highlight/explain, min_score, count-only,
+        // pinned's phase-4 overlay headroom) keeps the original slack
+        // byte-for-byte.  Shadowed AFTER the memtable snapshot: the gate
+        // requires the memtable be empty, so the earlier `fetch_limit` uses
+        // are untouched.
+        let materialisation_limit: usize = if mem_doc_count == 0
+            && !deletes_present
+            && size > 0
+            && request.sort.is_empty()
+            && sort_topk.is_none()
+            && request.aggs.is_none()
+            && request.rescore.is_empty()
+            && request.collapse.is_none()
+            && request.highlight.is_none()
+            && request.min_score.is_none()
+            && !request.explain
+            && !matches!(query, QueryNode::Pinned { .. })
+        {
+            from + size
+        } else {
+            materialisation_limit
+        };
+
         phase_marks.push(("fast_aggs+gates", phase_t0.elapsed().as_millis() as u64));
 
         // ── Columnar function_score fast path ─────────────────────────────
@@ -11860,8 +11891,28 @@ impl Index {
         // any peeled function_score and resolves `_id` for ids clauses.
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
     ) {
+        // LOSS_BATTLE_PLAN B7: don't fully sort 27k-100k cached positions
+        // per query.  With an authoritative count the hit loop below breaks
+        // at `materialisation_limit` anyway — partial-select the smallest
+        // `limit` positions (O(n) + O(limit·log limit)) and sort just that
+        // prefix; the tail's order is never observed.  Truncation cannot
+        // under-fill the page: `count_authoritative` holds only when the
+        // shortcut count is trusted, which requires !deletes_present (no
+        // version-map rejections) and a dv-derived EXACT position set
+        // (term/terms by ordinal, range by the numeric/epoch sorted index,
+        // ids by primary key) — the per-doc re-test below is
+        // belt-and-braces for those shapes, not a filter.  A count_only
+        // pass re-tests every position but is order-blind — skip sorting
+        // entirely.  The exact-total scan path (count_authoritative =
+        // false) keeps the full sort: its hit ORDER is the response order.
         let mut positions: Vec<u32> = pre_filter.iter().copied().collect();
-        positions.sort_unstable();
+        if count_authoritative && !count_only && positions.len() > materialisation_limit {
+            positions.select_nth_unstable(materialisation_limit - 1);
+            positions.truncate(materialisation_limit);
+            positions.sort_unstable();
+        } else if !count_only {
+            positions.sort_unstable();
+        }
         for pos in positions {
             if count_authoritative && !count_only && all_hits.len() >= materialisation_limit {
                 break;
@@ -20936,6 +20987,66 @@ fn scored_fast_plan(
             Some(ScoredPlan::Pinned {
                 ids: ids.clone(),
                 organic: scoring_leaf(organic, 1.0, &fs)?,
+            })
+        }
+        // match_all / terms / exists as constant-score Filtered plans
+        // (LOSS_BATTLE_PLAN B7): each is "every matching live row scores a
+        // flat constant" — exactly the Filtered executor, which since B5
+        // early-terminates the count at the tth limit and hydrates only
+        // the page.  ES semantics: match_all scores its boost (default
+        // 1.0); a top-level `terms` scores constant 1.0 (its boost
+        // multiplies); `exists` scores constant 1.0.  Field-shape gates
+        // (null-free, full-coverage columns) live in the executor; any
+        // bail keeps the brute path byte-for-byte.
+        QueryNode::MatchAll => Some(ScoredPlan::Filtered {
+            filter: Vec::new(),
+            must_not: Vec::new(),
+            score: 1.0,
+        }),
+        QueryNode::Terms {
+            field,
+            values,
+            boost,
+        } if fs.kw.contains(field) && !values.is_empty() => {
+            let mut terms = Vec::with_capacity(values.len());
+            for v in values {
+                match v {
+                    Value::String(s) => terms.push(s.clone()),
+                    _ => return None,
+                }
+            }
+            Some(ScoredPlan::Filtered {
+                filter: vec![ScoredFilterLeaf::KeywordTerms {
+                    field: field.clone(),
+                    terms,
+                }],
+                must_not: Vec::new(),
+                score: scoring_boost(boost)?,
+            })
+        }
+        // `exists` on a keyword field: matches every row whose ord set is
+        // non-empty — the full dictionary prefix range (prefix "").  On a
+        // numeric field: the unbounded window.  Nullable columns bail in
+        // the executor (null rows must NOT match), keeping brute exactness.
+        QueryNode::Exists { field } if fs.kw.contains(field) => Some(ScoredPlan::Filtered {
+            filter: vec![ScoredFilterLeaf::KeywordPrefix {
+                field: field.clone(),
+                prefix: String::new(),
+            }],
+            must_not: Vec::new(),
+            score: 1.0,
+        }),
+        QueryNode::Exists { field } if fs.num.contains(field) || fs.boolean.contains(field) => {
+            Some(ScoredPlan::Filtered {
+                filter: vec![ScoredFilterLeaf::NumericWindow {
+                    field: field.clone(),
+                    min: f64::NEG_INFINITY,
+                    max: f64::INFINITY,
+                    min_inc: true,
+                    max_inc: true,
+                }],
+                must_not: Vec::new(),
+                score: 1.0,
             })
         }
         // Standalone constant-score keyword prefix / wildcard
