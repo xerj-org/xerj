@@ -6325,14 +6325,18 @@ impl Index {
         // shape, deletes, non-empty memtable, or missing/nulled columns —
         // the brute path below then behaves byte-for-byte as before.
         let mut scored_fast_applied = false;
+        // Set when scored_columnar already dropped the first `from` candidates
+        // (page-offset hydration) — the final pagination then skips 0.
+        let mut scored_from_applied = false;
         if let Some(plan) = &scored_plan {
             if scored_fast_ready {
-                if let Some((hits, total)) = self.scored_columnar(
+                if let Some((hits, total, from_applied)) = self.scored_columnar(
                     plan,
                     &snap.segments,
                     &segments_dir,
                     materialisation_limit,
                     from + size,
+                    from,
                     // tth early-termination limit (LOSS_BATTLE_PLAN B5):
                     // only the capped-count mode may stop early; explicit
                     // `track_total_hits: true`/`false` keep the exact walk.
@@ -6346,6 +6350,7 @@ impl Index {
                     all_hits = hits;
                     total_count = total;
                     scored_fast_applied = true;
+                    scored_from_applied = from_applied;
                 }
             }
         }
@@ -8111,7 +8116,11 @@ impl Index {
         let page: Vec<Hit> = if size == 0 {
             Vec::new()
         } else {
-            final_hits.into_iter().skip(from).take(size).collect()
+            final_hits
+                .into_iter()
+                .skip(if scored_from_applied { 0 } else { from })
+                .take(size)
+                .collect()
         };
 
         // --- Apply _source filtering ---
@@ -10198,8 +10207,9 @@ impl Index {
         segments_dir: &std::path::Path,
         cap: usize,
         page: usize,
+        page_from: usize,
         total_limit: Option<u64>,
-    ) -> Option<(Vec<Hit>, u64)> {
+    ) -> Option<(Vec<Hit>, u64, bool)> {
         use xerj_storage::doc_values::Column;
 
         // The memtable has no doc-values columns, and its rows would need
@@ -10935,6 +10945,23 @@ impl Index {
             cands.truncate(cap);
         }
 
+        // ── Page-offset hydration (deep `from` — LOSS_BATTLE_PLAN B7b) ────
+        // For CONSTANT-score plans the caller's final (score DESC, seq ASC)
+        // sort + `skip(from)` can be applied HERE on the un-hydrated
+        // candidate tuples, so only the `size`-doc page pays the
+        // stored-slice parse (from:500/size:50 previously hydrated all
+        // 550).  Constant scores keep max_score safe (every hit ties, so
+        // dropping the head changes nothing); non-constant plans keep full
+        // hydration — their max_score derives from the best hit, which
+        // `skip(from)` would drop.  The caller is told `from` was applied
+        // and skips 0 (returned flag).
+        let from_applied = page_from > 0 && matches!(plan, ScoredPlan::Filtered { .. });
+        if from_applied {
+            cands.sort_unstable_by(cmp);
+            let cut = page_from.min(cands.len());
+            cands.drain(..cut);
+        }
+
         // ── Phase 5: hydrate winners via F2 offset slices ─────────────────
         // Identical to `function_score_columnar` hydration, except each hit
         // carries its COMPUTED score (there is no post-loop re-applier for
@@ -10966,7 +10993,7 @@ impl Index {
                 matched_queries: Vec::new(),
             });
         }
-        Some((hits, total))
+        Some((hits, total, from_applied))
     }
 
     /// Cache-backed reader for a segment's parsed stored section.
