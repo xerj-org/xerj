@@ -20548,6 +20548,54 @@ fn scored_fast_plan(
             QueryNode::Term { .. } | QueryNode::Match { .. } => {
                 Some(ScoredClause::Leaf(scoring_leaf(node, mult, fs)?))
             }
+            // multi_match(best_fields) over keyword/numeric fields lowers to
+            // ES's own rewrite: dis_max over per-field match leaves with
+            // tie_breaker 0.0 (the best_fields default — the parser drops a
+            // request-level tie_breaker, so this matches the brute path's
+            // fidelity too).  LOSS_BATTLE_PLAN B2 — zero new scoring code:
+            // each leaf is exactly the Match-on-kw/num arm of scoring_leaf,
+            // so scores ride the proven ES-bit-exact bm25_keyword_term_score
+            // path.  Gates: best_fields only, no analyzer, no `field^boost`
+            // syntax, every field kw/num — anything else returns None and
+            // keeps today's FTS brute path.  The keyword analyzer emits the
+            // whole query as ONE token, so `operator` can't change semantics
+            // for admitted fields.  The multi_match boost distributes over
+            // dis_max (max(b·x) + t·Σ(b·rest) == b·(max + t·Σrest) for
+            // b ≥ 0), matching Lucene's boost-in-weight composition.
+            QueryNode::MultiMatch {
+                fields,
+                query: mm_query,
+                match_type: xerj_query::ast::MultiMatchType::BestFields,
+                analyzer: None,
+                boost,
+                ..
+            } if !fields.is_empty() => {
+                let b = mult * scoring_boost(boost)?;
+                let clauses: Vec<ScoredClause> = fields
+                    .iter()
+                    .map(|f| {
+                        if f.contains('^') {
+                            return None; // per-field boost syntax — brute path
+                        }
+                        let kind = if fs.kw.contains(f) {
+                            ScoredLeafKind::Keyword(mm_query.clone())
+                        } else if fs.num.contains(f) {
+                            ScoredLeafKind::NumericEq(mm_query.parse::<f64>().ok()?)
+                        } else {
+                            return None; // text/unknown field — brute path
+                        };
+                        Some(ScoredClause::Leaf(ScoredLeaf {
+                            field: f.clone(),
+                            kind,
+                            boost: b,
+                        }))
+                    })
+                    .collect::<Option<_>>()?;
+                Some(ScoredClause::DisMax {
+                    clauses,
+                    tie_breaker: 0.0,
+                })
+            }
             _ => None,
         }
     }
@@ -20619,11 +20667,13 @@ fn scored_fast_plan(
         }
         // Scoring bool / dis_max tree, possibly `Boosted`-wrapped, or a
         // bare scoring leaf (wrapped as a single-must bool — Σ over one
-        // clause is the identity).
+        // clause is the identity).  MultiMatch rides the same route via its
+        // scoring_clause dis_max lowering (LOSS_BATTLE_PLAN B2).
         QueryNode::Bool { .. }
         | QueryNode::DisMax { .. }
         | QueryNode::Boosted { .. }
         | QueryNode::Term { .. }
+        | QueryNode::MultiMatch { .. }
         | QueryNode::Match { .. } => {
             let root = match scoring_clause(query, 1.0, &fs)? {
                 leaf @ ScoredClause::Leaf(_) => ScoredClause::Bool {
