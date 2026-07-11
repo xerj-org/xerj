@@ -10508,6 +10508,44 @@ impl Index {
             std::collections::BinaryHeap::with_capacity(keep_target.saturating_add(1));
         let mut total: u64 = 0;
         let limit_val: u64 = total_limit.unwrap_or(u64::MAX);
+
+        // ── Closed-form totals for CONSTANT-score plans (floor batch) ─────
+        // For a plan whose every hit scores the same constant — Filtered
+        // (≤1 filter, no must_not) and single-leaf Composed (the bare
+        // term/match wrap) — the exact total is pure column arithmetic:
+        // Σ per_ord_count over the resolved keyword ordinals, or a
+        // partition_point pair over the numeric sorted index.  The row walk
+        // then only has to FILL THE PAGE: with all scores tying and a
+        // seq-ascending walk, the first keep_target matches ARE the k-best
+        // set the heap would keep.  This replaces walking ~2.3× the tth
+        // limit to count matches row by row — live-profiled at ~0.35ms of
+        // pure eval on `term` at 43% selectivity, the whole residual floor
+        // gap vs ES.  Gates: no ghosts (per_ord_count / sorted are
+        // live-only = physical exactly there), seq-ascending rows, single-
+        // filter conjunctions.  KeywordFuzzy scores VARY per expansion
+        // ordinal — excluded (its heap must see every match).
+        let constant_plan: bool = !any_ghosts
+            && match plan {
+                ScoredPlan::Filtered {
+                    filter, must_not, ..
+                } => must_not.is_empty() && filter.len() <= 1,
+                ScoredPlan::Composed { root } => matches!(
+                    root,
+                    ScoredClause::Bool {
+                        must,
+                        should,
+                        filter,
+                        must_not,
+                        ..
+                    } if must.len() == 1
+                        && matches!(must[0], ScoredClause::Leaf(_))
+                        && should.is_empty()
+                        && filter.is_empty()
+                        && must_not.is_empty()
+                ),
+                _ => false,
+            };
+
         for (si, (meta, cols)) in segments.iter().zip(seg_cols.iter()).enumerate() {
             let seqs: &[u64] = &seg_seqs[si];
             // B5 break preconditions (only paid when a bound exists):
@@ -10647,6 +10685,35 @@ impl Index {
                     let root = eval_root
                         .as_ref()
                         .expect("Composed plan always builds an eval tree");
+                    if constant_plan && seq_asc {
+                        // Constant-plan fast lane (see `constant_plan`):
+                        // closed-form total, walk only until this segment
+                        // has contributed its first keep_target matches —
+                        // which, all scores tying and rows seq-ascending,
+                        // ARE its k-best contribution to the global heap.
+                        total += sev[0].count();
+                        let mut kept = 0usize;
+                        for row in 0..doc_count {
+                            if !sev[0].matches(row) {
+                                continue;
+                            }
+                            push_topk(
+                                &mut heap,
+                                keep_target,
+                                TopKCand {
+                                    score: clause_scores[0],
+                                    seq: seqs[row as usize],
+                                    si,
+                                    row,
+                                },
+                            );
+                            kept += 1;
+                            if kept >= keep_target {
+                                break;
+                            }
+                        }
+                        continue;
+                    }
                     for row in 0..doc_count {
                         if is_ghost(row) {
                             continue;
@@ -10736,6 +10803,39 @@ impl Index {
                     }
                 }
                 ScoredPlan::Filtered { score, filter, .. } => {
+                    if constant_plan && seq_asc {
+                        // Constant-plan fast lane (see `constant_plan`):
+                        // closed-form total (empty filter == every live
+                        // row), walk only to fill this segment's page
+                        // contribution.
+                        total += match fev.first() {
+                            Some(ev) => ev.count(),
+                            None => meta.doc_count,
+                        };
+                        let mut kept = 0usize;
+                        for row in 0..doc_count {
+                            if let Some(ev) = fev.first() {
+                                if !ev.matches(row) {
+                                    continue;
+                                }
+                            }
+                            push_topk(
+                                &mut heap,
+                                keep_target,
+                                TopKCand {
+                                    score: *score,
+                                    seq: seqs[row as usize],
+                                    si,
+                                    row,
+                                },
+                            );
+                            kept += 1;
+                            if kept >= keep_target {
+                                break;
+                            }
+                        }
+                        continue;
+                    }
                     // Pure filter context: every live row matching all
                     // `filter` and no `must_not` scores the CONSTANT
                     // (constant_score → boost; filter-only bool → 0.0).
@@ -20248,6 +20348,29 @@ impl ScoreEval<'_> {
             ScoreEval::Bool { col, val } => f64::from_bits(col.data[row as usize] as u64) == *val,
         }
     }
+
+    /// Exact live match count for this segment via column arithmetic —
+    /// the constant-plan closed-form total (see `scored_columnar`).
+    /// Mirrors `matches` exactly: keyword = per_ord_count of the resolved
+    /// ordinal; numeric/boolean = the sorted live-value index's equal
+    /// range.  Only meaningful under the caller's no-ghost gate.
+    fn count(&self) -> u64 {
+        match self {
+            ScoreEval::Kw { col, ord } => ord
+                .and_then(|o| col.per_ord_count.get(o as usize))
+                .copied()
+                .unwrap_or(0) as u64,
+            ScoreEval::Bool { col, val } => {
+                let lo = col
+                    .sorted
+                    .partition_point(|&(b, _)| f64::from_bits(b as u64) < *val);
+                let hi = col
+                    .sorted
+                    .partition_point(|&(b, _)| f64::from_bits(b as u64) <= *val);
+                (hi - lo) as u64
+            }
+        }
+    }
 }
 /// Per-row filter-leaf evaluator over one segment's columns.
 enum FilterEval<'a> {
@@ -20295,6 +20418,40 @@ impl FilterEval<'_> {
                 let v = f64::from_bits(col.data[row as usize] as u64);
                 (if *min_inc { v >= *min } else { v > *min })
                     && (if *max_inc { v <= *max } else { v < *max })
+            }
+        }
+    }
+
+    /// Exact live match count for this segment via column arithmetic — the
+    /// closed-form total behind the constant-plan fast lane (see
+    /// `scored_columnar`).  Keyword: Σ per_ord_count over the resolved
+    /// ordinals (nulls carry no ordinal, matching `matches`' null
+    /// exclusion).  Numeric: a partition_point pair over the sorted
+    /// live-value index.  Only meaningful under the caller's no-ghost gate
+    /// (live == physical there).
+    fn count(&self) -> u64 {
+        match self {
+            FilterEval::Kw { col, ords, .. } => ords
+                .iter()
+                .map(|&o| col.per_ord_count.get(o as usize).copied().unwrap_or(0) as u64)
+                .sum(),
+            FilterEval::Num {
+                col,
+                min,
+                max,
+                min_inc,
+                max_inc,
+                ..
+            } => {
+                let lo = col.sorted.partition_point(|&(b, _)| {
+                    let v = f64::from_bits(b as u64);
+                    if *min_inc { v < *min } else { v <= *min }
+                });
+                let hi = col.sorted.partition_point(|&(b, _)| {
+                    let v = f64::from_bits(b as u64);
+                    if *max_inc { v <= *max } else { v < *max }
+                });
+                (hi - lo) as u64
             }
         }
     }
