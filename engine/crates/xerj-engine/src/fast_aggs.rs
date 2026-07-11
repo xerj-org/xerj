@@ -1095,8 +1095,91 @@ impl<'a> FastCtx<'a> {
             "variable_width_histogram" => self.exec_vwh(params, sub),
             "date_histogram" => self.exec_date_histogram(params, sub),
             "histogram" => self.exec_histogram(params, sub),
+            "scripted_metric" => {
+                if sub.is_some() {
+                    return None;
+                }
+                self.exec_scripted_metric(params)
+            }
             _ => None,
         }
+    }
+
+    // ── scripted_metric (reducible sum shape) ────────────────────────────
+    //
+    // The interpreter path (`aggs::run_scripted_metric`) runs only inside the
+    // brute `run_aggs_with_all`, which first decompresses + JSON-parses EVERY
+    // live doc, then tree-walks the map script per doc (≈730 ms on a 100 k
+    // corpus).  When the four scripts form the canonical "sum one numeric doc
+    // field" shape (`aggs::scripted_metric_sum_field`), the whole aggregation
+    // is exactly `Σ doc.FIELD.value` over the matched docs — served here off the
+    // numeric `.dv` column with no materialisation.
+    //
+    // Correctness contract (byte-identical to the interpreter):
+    // * Painless long arithmetic renders an INTEGER as long as every summed
+    //   value is integral (`num_binop`'s `both_int` rule); the moment a
+    //   fractional value — or a missing field (`doc.F.value` → Null, which
+    //   flips the accumulator to a float) — participates, the result becomes a
+    //   float.  We therefore serve ONLY the wholly-integral, no-missing case
+    //   and render `{"value": <i64>}`; anything else bails (`None`) to the exact
+    //   interpreter.  Integer sums below 2^53 are order-independent in f64, so
+    //   the columnar summation order is irrelevant to the emitted value.
+    // * A top-level query filter never reaches here (scripted_metric is absent
+    //   from `exec_agg`'s filtered whitelist, so `top_filter.is_some()` already
+    //   returned `None`).
+    fn exec_scripted_metric(&self, params: &Value) -> Option<Value> {
+        let field = crate::aggs::scripted_metric_sum_field(params)?;
+        if self.seg_field_kind(&field).ok()? != Some(ColKind::Numeric) {
+            return None;
+        }
+
+        // ~9.007e15 == 2^53: the largest magnitude whose integer neighbours are
+        // all exactly representable in f64 (mirrors `num_binop`'s int-shape cap).
+        const INT_SAFE_ABS: f64 = 9.007e15;
+        let mut sum = 0f64;
+
+        // Segments: every doc in the segment must contribute a live, integral
+        // value (no missing → no interpreter Null → stays integer).
+        for s in &self.segs {
+            if s.docs == 0 {
+                continue;
+            }
+            match s.cols.get(&field) {
+                Some(Column::Numeric(n)) => {
+                    if !n.null_bitmap.is_empty() || n.live_count != s.docs as u64 {
+                        return None; // some doc lacks the field
+                    }
+                    for bits in &n.data {
+                        let v = f64::from_bits(*bits as u64);
+                        if v.fract() != 0.0 {
+                            return None; // fractional → float result
+                        }
+                        sum += v;
+                    }
+                }
+                _ => return None, // field absent in this segment
+            }
+        }
+
+        // Memtable docs (usually empty on the drained-corpus fast path): each
+        // must carry the field as an integral number, else bail.
+        for doc in self.mem().iter() {
+            match doc.get(&field) {
+                Some(Value::Number(num)) => {
+                    let v = num.as_f64()?;
+                    if v.fract() != 0.0 {
+                        return None;
+                    }
+                    sum += v;
+                }
+                _ => return None,
+            }
+        }
+
+        if !sum.is_finite() || sum.abs() >= INT_SAFE_ABS {
+            return None; // interpreter would flip to float shape here
+        }
+        Some(json!({ "value": sum as i64 }))
     }
 
     // ── top-level metric ─────────────────────────────────────────────────

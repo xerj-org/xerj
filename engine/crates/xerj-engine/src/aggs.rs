@@ -10204,6 +10204,122 @@ fn run_scripted_metric(params: &Value, docs: &[Value]) -> Value {
     json!({"value": reduce_val})
 }
 
+/// Recognise the canonical "sum a single numeric doc field" `scripted_metric`
+/// shape and, when it matches, return the field name so the columnar fast path
+/// (`fast_aggs::FastCtx::exec_scripted_metric`) can serve it off doc-values
+/// instead of interpreting the script per doc over a materialised JSON corpus.
+///
+/// Exact shape (whitespace-insensitive — matched on the parsed AST):
+/// ```painless
+///   init_script:    state.S = 0
+///   map_script:     state.S += doc.FIELD.value
+///   combine_script: return state.S
+///   reduce_script:  <type> T = 0; for (V in states) { T += V } return T
+/// ```
+/// Any deviation returns `None` and the caller keeps the exact interpreter.
+/// The reduce is required to be a plain sum-over-states so that — under our
+/// single-shard model where `states == [combine_val]` — the reduced value is
+/// exactly the per-shard sum; the fast path may then emit that sum directly.
+pub(crate) fn scripted_metric_sum_field(params: &Value) -> Option<String> {
+    let src_of = |key: &str| -> Option<String> {
+        params.get(key).and_then(|v| {
+            v.as_str()
+                .map(String::from)
+                .or_else(|| v.get("source").and_then(Value::as_str).map(String::from))
+        })
+    };
+    let init = parse_script(&src_of("init_script")?).ok()?;
+    let map = parse_script(&src_of("map_script")?).ok()?;
+    let combine = parse_script(&src_of("combine_script")?).ok()?;
+
+    // `state.<name>` accessor: Member(Ident("state"), name).
+    fn state_field(e: &PlExpr) -> Option<&str> {
+        match e {
+            PlExpr::Member(base, name) => match &**base {
+                PlExpr::Ident(root) if root == "state" => Some(name.as_str()),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+    // `doc.<field>.value` accessor: Member(Member(Ident("doc"), field), "value").
+    fn doc_value_field(e: &PlExpr) -> Option<&str> {
+        match e {
+            PlExpr::Member(base, val) if val == "value" => match &**base {
+                PlExpr::Member(doc, field) => match &**doc {
+                    PlExpr::Ident(root) if root == "doc" => Some(field.as_str()),
+                    _ => None,
+                },
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    // init: `state.<acc> = 0`
+    let acc = match init.as_slice() {
+        [PlStmt::Assign(lhs, PlExpr::Num(n))] if *n == 0.0 => state_field(lhs)?,
+        _ => return None,
+    };
+    // map: `state.<acc> += doc.<field>.value`
+    let field = match map.as_slice() {
+        [PlStmt::AugAssign(lhs, op, rhs)] if *op == "+=" && state_field(lhs) == Some(acc) => {
+            doc_value_field(rhs)?
+        }
+        _ => return None,
+    };
+    // combine: `return state.<acc>` — makes the per-shard combine value exactly
+    // the accumulated sum (`state.<acc>`).  Required: a combine that fails to
+    // parse or is absent would make the interpreter return the whole `state`
+    // object (`{acc: sum}`), not the scalar sum.
+    match combine.as_slice() {
+        [PlStmt::Return(e)] if state_field(e) == Some(acc) => {}
+        _ => return None,
+    }
+
+    // reduce: under our single-shard model `states == [combine_val]`, so the
+    // reduced value must equal `combine_val` (the sum).  Two accepted cases,
+    // both yielding exactly the sum — mirroring `run_scripted_metric`:
+    //   1. reduce is absent OR fails to parse → the interpreter's `reduce_ast`
+    //      is `None` and it returns `combine_val` unchanged.  (The canonical
+    //      `for (s in states) t += s` body is BRACELESS, which the Painless
+    //      subset parser rejects — this is the common real-world shape.)
+    //   2. reduce parses to `<type> t = 0; for (v in states) { t += v }
+    //      return t` — sum-over-states of the single element == that element.
+    // Anything that parses to some OTHER computation is rejected (its result
+    // need not equal the sum).
+    if let Some(reduce_src) = src_of("reduce_script") {
+        if let Ok(reduce) = parse_script(&reduce_src) {
+            // Canonical sum-over-states, else bail.
+            let reduce_acc = match reduce.first() {
+                Some(PlStmt::Decl(name, PlExpr::Num(n))) if *n == 0.0 => name.as_str(),
+                _ => return None,
+            };
+            if reduce.len() != 3 {
+                return None;
+            }
+            match &reduce[1] {
+                PlStmt::ForIn(v, PlExpr::Ident(container), body) if container == "states" => {
+                    match body.as_slice() {
+                        [PlStmt::AugAssign(PlExpr::Ident(a), op, PlExpr::Ident(s))]
+                            if *op == "+=" && a.as_str() == reduce_acc && s == v => {}
+                        _ => return None,
+                    }
+                }
+                _ => return None,
+            }
+            match &reduce[2] {
+                PlStmt::Return(PlExpr::Ident(r)) if r == reduce_acc => {}
+                _ => return None,
+            }
+        }
+        // parse error → interpreter falls back to combine_val == sum → accept.
+    }
+    // absent reduce → interpreter uses combine_val == sum → accept.
+
+    Some(field.to_string())
+}
+
 #[derive(Debug, Clone)]
 enum PlTok {
     Ident(String),
