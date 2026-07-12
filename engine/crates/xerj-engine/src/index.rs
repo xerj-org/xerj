@@ -535,7 +535,7 @@ pub struct Index {
     /// wholesale clear at 32 entries (worst-case tens of MB per merged-
     /// segment entry — a roaring bitmap representation is the durable
     /// follow-up) and evicted by segment id at merge retire.
-    range_prefilter_cache: Arc<dashmap::DashMap<String, Arc<HashSet<u32>>>>,
+    range_prefilter_cache: Arc<dashmap::DashMap<String, Arc<PrefilterSet>>>,
 
     /// Per-segment `_id → stored-position` index, built lazily on the first
     /// `ids` query that touches a segment and reused thereafter.  An `ids`
@@ -6871,7 +6871,7 @@ impl Index {
                     // sorted-candidates path is provably safe; the plain
                     // position pre-filter below is derived from it.
                     let mut sort_cand: Option<SortCandidates> = None;
-                    let pre_filter: Option<Arc<HashSet<u32>>> = if let QueryNode::Range {
+                    let pre_filter: Option<Arc<PrefilterSet>> = if let QueryNode::Range {
                         field,
                         gte,
                         gt,
@@ -6907,12 +6907,12 @@ impl Index {
                                     meta.doc_count,
                                     topk,
                                     materialisation_limit,
-                                    base_set,
+                                    &base_set.set,
                                 );
                             }
                         }
                         match &sort_cand {
-                            Some(sc) => Some(Arc::new(sc.set.clone())),
+                            Some(sc) => Some(Arc::new(PrefilterSet::from_set(sc.set.clone()))),
                             None => base,
                         }
                     } else if let QueryNode::Term { field, value, .. } = query {
@@ -6968,7 +6968,9 @@ impl Index {
                                 materialisation_limit,
                             )
                         });
-                        sort_cand.as_ref().map(|sc| Arc::new(sc.set.clone()))
+                        sort_cand
+                            .as_ref()
+                            .map(|sc| Arc::new(PrefilterSet::from_set(sc.set.clone())))
                     } else if let QueryNode::Regexp { field, pattern } = query {
                         // Dictionary-expansion pre-filter (mirrors the
                         // `try_shortcut_count` Regexp arm).  When the
@@ -7007,7 +7009,7 @@ impl Index {
                             cap,
                             regexp_field_is_keyword,
                         )
-                        .map(Arc::new)
+                        .map(|s| Arc::new(PrefilterSet::from_set(s)))
                     } else {
                         None
                     };
@@ -7102,7 +7104,7 @@ impl Index {
                             &mut total_count,
                             &mut all_hits,
                             &mut seen_ids,
-                            pre_filter.as_deref(),
+                            pre_filter.as_deref().map(|p| &p.set),
                             sort_topk.as_mut(),
                             None,
                             Some(search_deadline),
@@ -7168,7 +7170,7 @@ impl Index {
                                     &mut total_count,
                                     &mut all_hits,
                                     &mut seen_ids,
-                                    pre_filter.as_deref(),
+                                    pre_filter.as_deref().map(|p| &p.set),
                                     sort_topk.as_mut(),
                                     None,
                                     Some(search_deadline),
@@ -7214,7 +7216,7 @@ impl Index {
                                     &mut total_count,
                                     &mut all_hits,
                                     &mut seen_ids,
-                                    pre_filter.as_deref(),
+                                    pre_filter.as_deref().map(|p| &p.set),
                                     sort_topk.as_mut(),
                                     if want_cache { Some(&mut offsets) } else { None },
                                     Some(search_deadline),
@@ -11486,7 +11488,7 @@ impl Index {
         gt: Option<&Value>,
         lte: Option<&Value>,
         lt: Option<&Value>,
-    ) -> Option<Arc<HashSet<u32>>> {
+    ) -> Option<Arc<PrefilterSet>> {
         use xerj_storage::doc_values::Column;
 
         let parse = |v: Option<&Value>| -> Option<Option<f64>> {
@@ -11575,7 +11577,7 @@ impl Index {
             }
             None => return None,
         };
-        let built: Arc<HashSet<u32>> = Arc::new(matching.into_iter().collect());
+        let built: Arc<PrefilterSet> = Arc::new(PrefilterSet::from_vec(matching));
         if self.range_prefilter_cache.len() >= 32 {
             self.range_prefilter_cache.clear();
         }
@@ -11610,7 +11612,7 @@ impl Index {
         segment_id: &str,
         field: &str,
         values: &[Value],
-    ) -> Option<Arc<HashSet<u32>>> {
+    ) -> Option<Arc<PrefilterSet>> {
         use xerj_storage::doc_values::Column;
         // Selectivity ceiling: above this the match set is large enough that
         // the ordinary scan's F1 early-break already bounds the parse to
@@ -11633,7 +11635,7 @@ impl Index {
                     }
                     set.extend(n.range_doc_ids(f, f, true, true));
                 }
-                Some(Arc::new(set))
+                Some(Arc::new(PrefilterSet::from_set(set)))
             }
             Column::Keyword(k) => {
                 let mut set: HashSet<u32> = HashSet::new();
@@ -11655,7 +11657,7 @@ impl Index {
                         }
                     }
                 }
-                Some(Arc::new(set))
+                Some(Arc::new(PrefilterSet::from_set(set)))
             }
         }
     }
@@ -11764,7 +11766,7 @@ impl Index {
         seg_id: &str,
         expect_docs: u64,
         values: &[String],
-    ) -> Option<Arc<HashSet<u32>>> {
+    ) -> Option<Arc<PrefilterSet>> {
         let map = self.id_pos_map_for(seg_id, expect_docs)?;
         let mut set: HashSet<u32> = HashSet::with_capacity(values.len());
         for id in values {
@@ -11772,7 +11774,7 @@ impl Index {
                 set.insert(pos);
             }
         }
-        Some(Arc::new(set))
+        Some(Arc::new(PrefilterSet::from_set(set)))
     }
 
     /// Superset pre-filter for a pure-conjunction `bool` (`must` + `filter`
@@ -11796,7 +11798,7 @@ impl Index {
         segments_dir: &std::path::Path,
         segment_id: &str,
         query: &QueryNode,
-    ) -> Option<Arc<HashSet<u32>>> {
+    ) -> Option<Arc<PrefilterSet>> {
         let QueryNode::Bool {
             must,
             should,
@@ -11814,7 +11816,7 @@ impl Index {
         // Resolve a single leaf clause to its COMPLETE match-position set for
         // this segment (term/terms/range only). `None` = not resolvable to a
         // complete set (e.g. a `match`/`wildcard` clause).
-        let resolve = |child: &QueryNode| -> Option<Arc<HashSet<u32>>> {
+        let resolve = |child: &QueryNode| -> Option<Arc<PrefilterSet>> {
             let child = match child {
                 QueryNode::Constant { query, .. } | QueryNode::Boosted { query, .. } => {
                     query.as_ref()
@@ -11861,7 +11863,7 @@ impl Index {
         // stored-scan re-runs the full bool per admitted doc, refining it to
         // the exact match set and applying `should` boosts + `must_not`.
         if !must.is_empty() || !filter.is_empty() {
-            let mut best: Option<Arc<HashSet<u32>>> = None;
+            let mut best: Option<Arc<PrefilterSet>> = None;
             for child in must.iter().chain(filter.iter()) {
                 if let Some(set) = resolve(child) {
                     if set.is_empty() {
@@ -11891,9 +11893,9 @@ impl Index {
                 if union.len() + set.len() > BOOL_PREFILTER_CAP {
                     return None; // too broad to be worth prefiltering
                 }
-                union.extend(set.iter().copied());
+                union.extend(set.sorted.iter().copied());
             }
-            return Some(Arc::new(union));
+            return Some(Arc::new(PrefilterSet::from_set(union)));
         }
 
         // Pure `must_not` (or nothing resolvable) → base set is ~all docs; no
@@ -12355,7 +12357,7 @@ impl Index {
     fn hydrate_prefiltered_unsorted(
         &self,
         slices: &StoredSlices,
-        pre_filter: &HashSet<u32>,
+        pre_filter: &PrefilterSet,
         query: &QueryNode,
         is_match_all: bool,
         count_only: bool,
@@ -12368,29 +12370,17 @@ impl Index {
         // any peeled function_score and resolves `_id` for ids clauses.
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
     ) {
-        // LOSS_BATTLE_PLAN B7: don't fully sort 27k-100k cached positions
-        // per query.  With an authoritative count the hit loop below breaks
-        // at `materialisation_limit` anyway — partial-select the smallest
-        // `limit` positions (O(n) + O(limit·log limit)) and sort just that
-        // prefix; the tail's order is never observed.  Truncation cannot
-        // under-fill the page: `count_authoritative` holds only when the
-        // shortcut count is trusted, which requires !deletes_present (no
-        // version-map rejections) and a dv-derived EXACT position set
-        // (term/terms by ordinal, range by the numeric/epoch sorted index,
-        // ids by primary key) — the per-doc re-test below is
-        // belt-and-braces for those shapes, not a filter.  A count_only
-        // pass re-tests every position but is order-blind — skip sorting
-        // entirely.  The exact-total scan path (count_authoritative =
-        // false) keeps the full sort: its hit ORDER is the response order.
-        let mut positions: Vec<u32> = pre_filter.iter().copied().collect();
-        if count_authoritative && !count_only && positions.len() > materialisation_limit {
-            positions.select_nth_unstable(materialisation_limit - 1);
-            positions.truncate(materialisation_limit);
-            positions.sort_unstable();
-        } else if !count_only {
-            positions.sort_unstable();
-        }
-        for pos in positions {
+        // LOSS_BATTLE_PLAN B7 (completed): the positions arrive PRE-SORTED
+        // ascending from the cached `PrefilterSet` — zero per-query set
+        // collection, selection, or sorting.  With an authoritative count
+        // the hit loop breaks at `materialisation_limit`, so a broad cached
+        // filter (range matching the whole corpus) costs O(page) per query;
+        // the exact-total path (`count_authoritative == false`) walks every
+        // position exactly as before, in the same ascending (== response)
+        // order.  Pre-fix this function collected the whole `HashSet` into
+        // a Vec and `select_nth`ed it PER QUERY — a stable ~0.17 ms tax on
+        // a 10-doc page over a 100k-position cached set.
+        for &pos in pre_filter.sorted.iter() {
             if count_authoritative && !count_only && all_hits.len() >= materialisation_limit {
                 break;
             }
@@ -18600,6 +18590,52 @@ impl SortTopK {
 struct SortCandidates {
     set: HashSet<u32>,
     ordered: Vec<(i64, u32)>,
+}
+
+/// Stored-position pre-filter with BOTH representations, built ONCE per
+/// (segment, query-shape) — segments are immutable, so neither ever goes
+/// stale:
+/// - `sorted`: positions ascending (== response/arrival order after the
+///   seq_no-ordered merge). `hydrate_prefiltered_unsorted` iterates this
+///   directly and early-breaks at the page cap, making a broad cached
+///   filter (e.g. a `range(@timestamp)` matching the whole corpus) cost
+///   O(page) per query. Pre-fix the hydrate collected + `select_nth`ed the
+///   whole `HashSet` PER QUERY — a stable ~0.17 ms tax on a 10-doc page
+///   over 100k cached positions (LOSS_BATTLE_PLAN B7 residual).
+/// - `set`: O(1) positional membership for the linear scan paths
+///   (`scan_stored_section_into`, `narrow_matches_to_sort_candidates`),
+///   bit-identical semantics to the pre-fix code.
+struct PrefilterSet {
+    set: HashSet<u32>,
+    sorted: Vec<u32>,
+}
+
+impl PrefilterSet {
+    /// Build from a position vector (any order; sorted + deduped here).
+    fn from_vec(mut positions: Vec<u32>) -> Self {
+        positions.sort_unstable();
+        positions.dedup();
+        let set: HashSet<u32> = positions.iter().copied().collect();
+        Self {
+            set,
+            sorted: positions,
+        }
+    }
+
+    /// Build from an existing membership set (sorts once at build time).
+    fn from_set(set: HashSet<u32>) -> Self {
+        let mut sorted: Vec<u32> = set.iter().copied().collect();
+        sorted.sort_unstable();
+        Self { set, sorted }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.sorted.is_empty()
+    }
+
+    fn len(&self) -> usize {
+        self.sorted.len()
+    }
 }
 
 /// One balanced-brace pass over a `[{...}, {...}, ...]` stored section,
