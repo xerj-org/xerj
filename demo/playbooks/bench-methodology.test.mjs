@@ -33,18 +33,29 @@ async function closedLoop(port, iters = 40, warm = 5) {
   return pct(lat, 50);
 }
 // Byte-for-byte the same scheme as bench-matrix.mjs timed(): fixed cadence,
-// coordinated-omission correction lat = end - min(intended, actualStart).
+// hybrid sleep+spin pacer (H5 — setTimeout's 0.5-1.5ms overshoot otherwise
+// lands inside lat[] and dominates sub-ms measurements), hot event loop during
+// the timed window (H5b — the epoll wake while awaiting each response is
+// bimodal 0.3-1.5ms and phase-locks per measurement), coordinated-omission
+// correction lat = end - min(intended, actualStart).
+const SPIN_MS = 1.5;
 async function openLoop(port, { iters = 300, rate = 200, warm = 10 } = {}) {
   for (let i = 0; i < warm; i++) await hit(port);
-  const lat = new Array(iters), tasks = new Array(iters), t0 = performance.now();
+  const lat = new Array(iters), tasks = new Array(iters);
+  let hot = true;
+  (function hotloop() { if (hot) setImmediate(hotloop); })();
+  const t0 = performance.now();
   for (let i = 0; i < iters; i++) {
     const intended = t0 + (i / rate) * 1000;
     tasks[i] = (async () => {
-      const w = intended - performance.now(); if (w > 0) await new Promise((r) => setTimeout(r, w));
+      const w = intended - performance.now();
+      if (w > SPIN_MS) await new Promise((r) => setTimeout(r, w - SPIN_MS));
+      while (performance.now() < intended) { /* spin to the exact instant */ }
       const s = performance.now(); await hit(port); lat[i] = performance.now() - Math.min(intended, s);
     })();
   }
   await Promise.all(tasks);
+  hot = false;
   return pct(lat, 50);
 }
 

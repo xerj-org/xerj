@@ -239,6 +239,11 @@ function signalMismatch(xs, es) {
 // (a request can never be "faster than it started") while preserving CO exactly
 // in the backlog regime. Applied identically to both engines. Also reports
 // offered vs achieved rate so the load level is visible.
+// Pacer spin window (ms): the deadline residue that is busy-waited instead of
+// slept. Must exceed Node's worst observed setTimeout overshoot (~1.3ms) and
+// stay well under the request cadence (5ms at rate 200) so consecutive slots'
+// spins never overlap.
+const SPIN_MS = 1.5;
 async function timed(base, p, body, opts = {}) {
   const { iters = 120, warmup = 15, method = 'POST', ndjson = false, rate = 200 } = opts;
   const chk = await req(base, method, p, body, ndjson);
@@ -251,12 +256,44 @@ async function timed(base, p, body, opts = {}) {
   for (let i = 0; i < warmup; i++) await req(base, method, p, body, ndjson);
   const lat = new Array(iters);
   const tasks = new Array(iters);
+  // H5b: keep the event loop HOT for the duration of the timed window. The
+  // send side is fixed by the sleep+spin pacer below, but the RESPONSE side
+  // still slept in epoll while awaiting each reply — and that wake
+  // (timer-phase + idle-core C-state, ~0.3-1.5ms, bimodal and phase-locked
+  // per measurement) landed inside lat[]. At sub-ms engine latencies it WAS
+  // the verdict: per-(cell x run) either engine could draw the slow mode for
+  // a whole measurement, defeating even median-of-3. A self-requeueing
+  // setImmediate keeps libuv polling IO with a zero timeout, so responses
+  // are processed the moment they arrive (cost: one busy core, timed window
+  // only, identical for both engines). Cross-checked against a raw-socket
+  // busy-poll client (scratchpad/busy_probe.py): with H5+H5b the Node
+  // numbers reproduce the raw-socket server turnaround to within ~0.1ms
+  // with run-to-run p50 drift ~0.02ms (was: bimodal 0.4ms-vs-2ms lottery).
+  let hot = true;
+  (function hotloop() { if (hot) setImmediate(hotloop); })();
   const t0 = performance.now();
   for (let i = 0; i < iters; i++) {
     const intended = t0 + (i / rate) * 1000; // fixed cadence, independent of prior responses
     tasks[i] = (async () => {
+      // H5: hybrid sleep+spin pacer. setTimeout alone OVERSHOOTS its deadline
+      // by 0.5-1.5ms (Node timer granularity + event-loop phase), and that
+      // overshoot lands inside lat[] (lat = end - intended when start >=
+      // intended). At sub-ms engine latencies the overshoot IS the
+      // measurement: per-(cell x run) the timer phase-locks into a fast or a
+      // slow mode, so the p50 verdict became a client-phase lottery —
+      // live-verified 2026-07-12: multi_match / query_string drew persistent
+      // median-of-3 LOSEs (xerj "1.69ms" vs es 1.05) while the SAME cells on
+      // the SAME corpus measured closed-loop 0.30 vs 0.48 / 0.33 vs 0.66 in
+      // XERJ's favour with server took=0, and a rate-swept open-loop probe
+      // (20..400/s) had XERJ ahead at every rate. Sleep to ~SPIN_MS short of
+      // the deadline, then busy-wait the residue so the request leaves at the
+      // intended instant. Applied identically to both engines. A genuinely
+      // busy event loop still pushes `start` past `intended` (the spin loop
+      // body never runs then), so real backlog is still charged — the
+      // coordinated-omission correction is untouched.
       const wait = intended - performance.now();
-      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+      if (wait > SPIN_MS) await new Promise((r) => setTimeout(r, wait - SPIN_MS));
+      while (performance.now() < intended) { /* <=SPIN_MS busy-wait to the exact instant */ }
       const start = performance.now();       // when the request actually left the client
       await req(base, method, p, body, ndjson);
       // service time + scheduling backlog; == end - intended when start >= intended.
@@ -264,6 +301,7 @@ async function timed(base, p, body, opts = {}) {
     })();
   }
   await Promise.all(tasks);
+  hot = false; // release the H5b hot loop (frees the busy core between cells)
   const wallMs = performance.now() - t0;
   return {
     mean: lat.reduce((a, b) => a + b, 0) / lat.length,
