@@ -432,9 +432,19 @@ pub struct Index {
     /// `hnsw_id_map.len()` and `doc_count` unchanged, so the coverage guard
     /// cannot see it — this flag disables the HNSW query path (brute force
     /// serves instead) while ingest-side graph maintenance continues.
-    /// Sticky for the process lifetime; persisted back into ids.json so a
-    /// later flush of the still-stale graph cannot re-stamp it as fresh.
+    /// Persisted back into ids.json so a later flush of the still-stale
+    /// graph cannot re-stamp it as fresh. Cleared ONLY by the background
+    /// stale rebuild (RC4 W2 item 17, `rebuild_hnsw_from_docs`) once the
+    /// graph has been re-derived from the authoritative doc set.
     hnsw_stale: Arc<std::sync::atomic::AtomicBool>,
+    /// True while `rebuild_hnsw_from_docs` is running (RC4 W2 item 17):
+    /// guards against double-spawn and is surfaced in stats so operators
+    /// can distinguish "healing" from "permanently degraded".
+    hnsw_rebuilding: Arc<std::sync::atomic::AtomicBool>,
+    /// JoinHandle of the in-flight stale rebuild, aborted by
+    /// `abort_background_tasks` so an unfinished rebuild can't hold the
+    /// runtime (or the index Arc) alive across shutdown.
+    hnsw_rebuild_task: Arc<parking_lot::Mutex<Option<tokio::task::JoinHandle<()>>>>,
     /// Per-field SQ8 (scalar8) code stores for the kNN serving path.
     ///
     /// Keyed by dense_vector field name. Populated only for fields whose
@@ -850,6 +860,8 @@ impl Index {
             hnsw_next_id: Arc::new(AtomicU64::new(1)),
             hnsw_field: Arc::new(std::sync::RwLock::new(None)),
             hnsw_stale: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            hnsw_rebuilding: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            hnsw_rebuild_task: Arc::new(parking_lot::Mutex::new(None)),
             sq8_stores: Arc::new(RwLock::new(HashMap::new())),
             metric_query_count: Arc::new(AtomicU64::new(0)),
             metric_query_total_ms: Arc::new(AtomicU64::new(0)),
@@ -1008,11 +1020,14 @@ impl Index {
             Self::resolve_flush_thresholds(config.storage.flush_size_mb);
 
         // Try to reload a previously-persisted HNSW snapshot. If both
-        // graph.bin and ids.json exist and validate, we skip the
-        // O(N log N) WAL-replay rebuild and load the byte-identical
-        // graph that was running pre-restart. Any error => None and the
-        // first kNN search after a vector ingest re-creates the graph.
-        let loaded_hnsw = load_hnsw_artifacts_sync(&index_dir.join("hnsw"));
+        // graph.bin and ids.json exist, validate, and the pinned field is
+        // dense_vector-mapped (RC4 W2 item 16 — unmapped/legacy graphs are
+        // refused at load), we skip the O(N log N) rebuild and load the
+        // byte-identical graph that was running pre-restart.
+        let dv_fields_at_open = collect_dense_vector_fields(&schema.schema);
+        let loaded_hnsw = load_hnsw_artifacts_sync(&index_dir.join("hnsw"), &|f: &str| {
+            dv_fields_at_open.iter().any(|df| df == f)
+        });
         let initial_hnsw = loaded_hnsw.as_ref().map(|_| ()).is_some();
         let (hnsw_init, id_map_init, id_rev_init, next_id_init, hnsw_field_init, hnsw_stale_init) =
             match loaded_hnsw {
@@ -1024,15 +1039,15 @@ impl Index {
                     // `id_map.len() == doc_count` coverage guard still
                     // passes (len and count both unchanged). A stamp
                     // mismatch therefore marks the graph stale: ingest keeps
-                    // maintaining it, but the kNN query path stays on exact
-                    // brute force. Legacy snapshots without a `field` stamp
-                    // never serve queries anyway (field gate), so they are
-                    // not marked stale.
-                    let stale = match (l.field.as_ref(), l.seq_no) {
-                        (Some(_), Some(stamp)) => l.stale || stamp != store.current_seq_no(),
-                        (Some(_), None) => true, // fielded snapshot without a stamp: distrust
-                        (None, _) => false,      // legacy snapshot: field-gated off already
-                    };
+                    // maintaining it and the kNN query path stays on exact
+                    // brute force until the background stale rebuild
+                    // (spawned at the end of open — RC4 W2 item 17)
+                    // re-derives the WAL-tail divergence and clears the
+                    // flag. (The loader gate guarantees `field` is Some.)
+                    let stale = l.stale
+                        || l
+                            .seq_no
+                            .map_or(true, |stamp| stamp != store.current_seq_no());
                     (Some(l.graph), l.id_map, l.id_rev, l.next_id, l.field, stale)
                 }
                 None => (None, HashMap::new(), HashMap::new(), 1, None, false),
@@ -1077,6 +1092,8 @@ impl Index {
             hnsw_next_id: Arc::new(AtomicU64::new(next_id_init)),
             hnsw_field: Arc::new(std::sync::RwLock::new(hnsw_field_init)),
             hnsw_stale: Arc::new(std::sync::atomic::AtomicBool::new(hnsw_stale_init)),
+            hnsw_rebuilding: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            hnsw_rebuild_task: Arc::new(parking_lot::Mutex::new(None)),
             sq8_stores: Arc::new(RwLock::new(HashMap::new())),
             metric_query_count: Arc::new(AtomicU64::new(0)),
             metric_query_total_ms: Arc::new(AtomicU64::new(0)),
@@ -1118,6 +1135,11 @@ impl Index {
             merge_task: Arc::new(parking_lot::Mutex::new(None)),
         });
         index.spawn_merge_task(5);
+        // RC4 W2 item 17: a flush-time-stale HNSW snapshot used to stay
+        // stale for the rest of the process lifetime (ingest kept paying
+        // full graph-maintenance cost while the ANN path never served).
+        // Heal it in the background from the authoritative doc set.
+        index.spawn_hnsw_rebuild_if_stale();
         Ok(index)
     }
 
@@ -3468,6 +3490,14 @@ impl Index {
         if let Some(handle) = self.merge_task.lock().take() {
             handle.abort();
         }
+        // RC4 W2 item 17: an in-flight HNSW stale rebuild must not hold
+        // the runtime (or the index Arc) alive across shutdown. Aborting
+        // mid-rebuild is safe: `hnsw_stale` is only cleared AFTER a
+        // convergent pass, so an interrupted rebuild leaves the ANN path
+        // disabled (brute force serves) and the next open retries.
+        if let Some(handle) = self.hnsw_rebuild_task.lock().take() {
+            handle.abort();
+        }
     }
 
     /// Update a document with upsert support.
@@ -3588,45 +3618,22 @@ impl Index {
             return;
         }
 
-        // No pinned field yet. Cheap sync pre-screen (same shape as the
-        // legacy scan): bail before any async lock when the doc carries no
-        // top-level all-numbers array — log/text workloads take this exit.
+        // No pinned field yet. Cheap sync pre-screen: bail before any async
+        // lock when the doc carries no top-level all-numbers array —
+        // log/text workloads take this exit.
+        //
+        // (RC4 W2 item 16: the legacy-graph maintenance block that used to
+        // live here — per-doc first-numeric-array inserts into a graph
+        // loaded from a pre-field-stamp snapshot — is gone. Field-less and
+        // non-dense_vector-pinned snapshots are no longer loaded at all
+        // (see the load gate in `Index::open`), so a live graph always has
+        // a pinned dense_vector field and takes the fast path above.)
         let has_candidate = obj.values().any(|v| {
             v.as_array()
                 .map(|arr| !arr.is_empty() && arr.iter().all(Value::is_number))
                 .unwrap_or(false)
         });
         if !has_candidate {
-            return;
-        }
-
-        if self.hnsw.read().await.is_some() {
-            // Legacy graph (loaded from a pre-field-stamp snapshot, so no
-            // pinned field): keep the historical per-doc first-field insert
-            // so its maintenance semantics don't shift under a running
-            // process. The HNSW query path never engages for these graphs
-            // (field gate), so this can't affect search results.
-            for (_field, val) in obj {
-                if let Some(arr) = val.as_array() {
-                    let all_numbers = !arr.is_empty() && arr.iter().all(|v| v.is_number());
-                    if !all_numbers {
-                        continue;
-                    }
-                    let vector: Vec<f32> = arr
-                        .iter()
-                        .filter_map(|v| v.as_f64().map(|f| f as f32))
-                        .collect();
-                    if vector.is_empty() {
-                        continue;
-                    }
-                    if self.hnsw_insert_vector(doc_id, vector).await {
-                        // Only use the first vector field found.
-                        break;
-                    }
-                    // Mismatched dimension — legacy behavior falls through
-                    // to the next candidate field.
-                }
-            }
             return;
         }
 
@@ -3657,9 +3664,16 @@ impl Index {
     ///      all-numbers array (the bench PUTs an explicit dense_vector
     ///      mapping for `v`);
     ///   2. the first schema dense_vector field (pin to the mapping even if
-    ///      this particular doc lacks it);
-    ///   3. no dense_vector mapping at all → the doc's first top-level
-    ///      all-numbers array field (legacy heuristic).
+    ///      this particular doc lacks it).
+    ///
+    /// A graph is ONLY ever built for an explicit dense_vector mapping.
+    /// RC4 W2 item 16 deleted the historical heuristic 3 ("no dense_vector
+    /// mapping → the doc's first top-level all-numbers array field"): it
+    /// auto-built and persisted an HNSW graph for ANY numeric-array field —
+    /// a `ports: [80, 443]` log workload silently pinned a full f32 slab +
+    /// graph in RAM forever (585 KB per 2 k docs, growing with every doc,
+    /// reloaded on every restart) that no realistic query ever used. That
+    /// was an RSS-runaway feeder, not a feature.
     async fn choose_hnsw_field(&self, source: &Value) -> Option<String> {
         let dv_fields: Vec<String> = {
             let schema = self.schema.read().await;
@@ -3671,17 +3685,7 @@ impl Index {
         {
             return Some(f.clone());
         }
-        if let Some(f) = dv_fields.first() {
-            return Some(f.clone());
-        }
-        source.as_object().and_then(|obj| {
-            obj.iter().find_map(|(name, val)| match val {
-                Value::Array(arr) if !arr.is_empty() && arr.iter().all(|v| v.is_number()) => {
-                    Some(name.clone())
-                }
-                _ => None,
-            })
-        })
+        dv_fields.into_iter().next()
     }
 
     /// Insert one doc's vector into the HNSW graph (creating the graph on
@@ -3753,6 +3757,301 @@ impl Index {
             .into_iter()
             .filter_map(|(node_id, dist)| id_rev.get(&node_id).map(|doc_id| (doc_id.clone(), dist)))
             .collect()
+    }
+
+    /// Spawn the background stale-HNSW heal (RC4 W2 item 17) if the loaded
+    /// snapshot was marked flush-time stale. No-op when the graph is fresh,
+    /// absent, field-less, or a rebuild is already in flight.
+    ///
+    /// Pre-fix behavior: `hnsw_stale` was sticky for the process lifetime —
+    /// after any unclean shutdown the ANN path was disabled forever while
+    /// every ingested doc kept paying full O(log N) graph maintenance, and
+    /// nothing surfaced the degradation. The rebuild re-derives exactly the
+    /// WAL-tail divergence and re-enables the ANN path; staleness/rebuild
+    /// state is surfaced via [`Index::hnsw_stats`].
+    pub fn spawn_hnsw_rebuild_if_stale(self: &Arc<Self>) {
+        if !self.hnsw_stale.load(Ordering::Acquire) {
+            return;
+        }
+        if self.hnsw_field.read().unwrap().is_none() {
+            return;
+        }
+        // Single-flight: swap-in true; if it was already true a rebuild is
+        // running and will publish its own outcome.
+        if self
+            .hnsw_rebuilding
+            .swap(true, std::sync::atomic::Ordering::AcqRel)
+        {
+            return;
+        }
+        let weak = Arc::downgrade(self);
+        let handle = tokio::spawn(async move {
+            let idx = match weak.upgrade() {
+                Some(a) => a,
+                None => return,
+            };
+            info!(
+                index = idx.name.as_str(),
+                "HNSW stale rebuild started (background)"
+            );
+            let started = std::time::Instant::now();
+            let healed = idx.rebuild_hnsw_from_docs().await;
+            idx.hnsw_rebuilding
+                .store(false, std::sync::atomic::Ordering::Release);
+            match healed {
+                Ok(true) => info!(
+                    index = idx.name.as_str(),
+                    elapsed_ms = started.elapsed().as_millis() as u64,
+                    "HNSW stale rebuild complete — ANN path re-enabled"
+                ),
+                Ok(false) => warn!(
+                    index = idx.name.as_str(),
+                    "HNSW stale rebuild did not converge — staying on exact brute force"
+                ),
+                Err(e) => warn!(
+                    index = idx.name.as_str(),
+                    error = %e,
+                    "HNSW stale rebuild failed — staying on exact brute force"
+                ),
+            }
+        });
+        let mut slot = self.hnsw_rebuild_task.lock();
+        if let Some(prev) = slot.replace(handle) {
+            prev.abort();
+        }
+    }
+
+    /// Re-derive the HNSW graph from the authoritative doc set and clear
+    /// `hnsw_stale` (RC4 W2 item 17). Returns `Ok(true)` once converged.
+    ///
+    /// Cost model: the loaded snapshot already matches every doc that was
+    /// flushed before the stamp — only the WAL tail diverges. Each pass
+    /// walks all live docs (memtable first, then segments, with the same
+    /// version-map/`_seq_no`/first-seen discipline as
+    /// `run_knn_brute_force`) and
+    ///   * skips docs whose graph vector already bit-matches the doc
+    ///     source (`HnswIndex::vector_matches` — the overwhelming
+    ///     majority), so a pass is O(N·dim) compares;
+    ///   * re-inserts diverged docs via `hnsw_insert_vector` (tombstones
+    ///     the old node) — O(tail · log N);
+    ///   * prunes id-map entries whose doc no longer exists (WAL-tail
+    ///     deletes), version-map-confirmed so a doc that flushed
+    ///     mid-collection is never mistaken for deleted.
+    ///
+    /// CONVERGENCE UNDER CONCURRENT WRITES: live ingest maintains the graph
+    /// itself, but a rebuild insert computed from a pre-update source could
+    /// land AFTER the live insert of the newer vector and silently re-stale
+    /// the graph. The seq_no re-check catches exactly that window: a pass
+    /// only counts as convergent when no write advanced the WAL during it;
+    /// otherwise another (cheap, compare-mostly) pass runs. After
+    /// MAX_PASSES of sustained racing the graph stays stale — brute force
+    /// keeps serving correct results and the next restart tries again.
+    async fn rebuild_hnsw_from_docs(&self) -> Result<bool> {
+        const MAX_PASSES: usize = 5;
+        let field = match self.hnsw_field.read().unwrap().clone() {
+            Some(f) => f,
+            None => return Ok(false),
+        };
+        if self.hnsw.read().await.is_none() {
+            return Ok(false);
+        }
+
+        'passes: for pass in 1..=MAX_PASSES {
+            let seq_start = self.store.current_seq_no();
+            let mut walked = 0u64;
+            let mut compared = 0u64;
+            let mut reinserted = 0u64;
+
+            // Live-doc walk. Memtable BEFORE the segment snapshot: a shard
+            // flush completing mid-pass then presents the doc in both (the
+            // `seen` set dedups) instead of in neither.
+            let mut seen: HashSet<String> = HashSet::new();
+            let mem_docs = self.memtable.all_docs_with_sources();
+            for (doc_id, src) in &mem_docs {
+                seen.insert(doc_id.clone());
+                if let Some(vector) = extract_numeric_vector(src, &field) {
+                    compared += 1;
+                    if !self.hnsw_vector_current(doc_id, &vector).await {
+                        if self.hnsw_insert_vector(doc_id, vector).await {
+                            reinserted += 1;
+                        }
+                    }
+                }
+                walked += 1;
+                if walked & 1023 == 0 {
+                    tokio::task::yield_now().await;
+                }
+            }
+            drop(mem_docs);
+
+            let snap = self.store.snapshot();
+            for meta in snap.segments.iter() {
+                let docs_arc = match self.stored_values_for(&meta.id) {
+                    Some(a) => a,
+                    None => {
+                        // Segment unreadable (transient I/O, or merged away
+                        // under this pass's snapshot). Its docs may include
+                        // WAL-tail-updated vectors, so clearing staleness
+                        // without comparing them would be silently wrong —
+                        // retry the whole pass on a fresh snapshot instead.
+                        warn!(
+                            index = self.name.as_str(),
+                            segment = meta.id.as_str(),
+                            pass,
+                            "HNSW rebuild: segment not readable — retrying pass"
+                        );
+                        continue 'passes;
+                    }
+                };
+                for doc in docs_arc.iter() {
+                    let id = match doc.get("_id").and_then(Value::as_str) {
+                        Some(s) => s,
+                        None => continue,
+                    };
+                    if let Some(ver) = self.store.version_map.get(id) {
+                        if ver.deleted {
+                            continue;
+                        }
+                        // Superseded stale copy (same predicate as
+                        // run_knn_brute_force): never let an updated doc's
+                        // pre-update segment copy shadow the live one.
+                        if let Some(doc_seq) = doc.get("_seq_no").and_then(Value::as_u64) {
+                            if doc_seq < ver.seq_no {
+                                continue;
+                            }
+                        }
+                    }
+                    if !seen.insert(id.to_string()) {
+                        continue;
+                    }
+                    let src_owned;
+                    let src: &Value = match doc.get("_source") {
+                        Some(s) => s,
+                        None => {
+                            let mut d = doc.clone();
+                            if let Some(obj) = d.as_object_mut() {
+                                obj.remove("_id");
+                            }
+                            src_owned = d;
+                            &src_owned
+                        }
+                    };
+                    if let Some(vector) = extract_numeric_vector(src, &field) {
+                        compared += 1;
+                        if !self.hnsw_vector_current(id, &vector).await {
+                            if self.hnsw_insert_vector(id, vector).await {
+                                reinserted += 1;
+                            }
+                        }
+                    }
+                    walked += 1;
+                    if walked & 1023 == 0 {
+                        tokio::task::yield_now().await;
+                    }
+                }
+            }
+
+            // Prune graphed docs that are no longer live — WAL-tail deletes
+            // the flush-time id_map still carries.
+            let prune_candidates: Vec<(String, u64)> = {
+                let id_map = self.hnsw_id_map.read().await;
+                id_map
+                    .iter()
+                    .filter(|(doc_id, _)| !seen.contains(*doc_id))
+                    .map(|(doc_id, node)| (doc_id.clone(), *node))
+                    .collect()
+            };
+            let mut pruned = 0u64;
+            for (doc_id, node_id) in prune_candidates {
+                // Version-map confirm: prune only genuinely-gone docs. A doc
+                // the walk missed because it flushed mid-pass keeps a live
+                // version entry and therefore its node.
+                let gone = match self.store.version_map.get(&doc_id) {
+                    Some(e) => e.deleted,
+                    None => true,
+                };
+                if !gone {
+                    continue;
+                }
+                {
+                    // Re-check the mapping still points at the node we saw —
+                    // a concurrent re-index replaces the mapping and must
+                    // keep its fresh node.
+                    let mut id_map = self.hnsw_id_map.write().await;
+                    if id_map.get(&doc_id) != Some(&node_id) {
+                        continue;
+                    }
+                    id_map.remove(&doc_id);
+                }
+                self.hnsw_id_rev.write().await.remove(&node_id);
+                if let Some(h) = self.hnsw.read().await.as_ref() {
+                    h.mark_deleted(node_id);
+                }
+                pruned += 1;
+            }
+
+            let seq_end = self.store.current_seq_no();
+            if seq_end == seq_start {
+                self.hnsw_stale
+                    .store(false, std::sync::atomic::Ordering::Release);
+                info!(
+                    index = self.name.as_str(),
+                    pass, compared, reinserted, pruned, "HNSW rebuild pass converged"
+                );
+                // Persist the healed graph + fresh stamp so the next
+                // restart doesn't redo the work.
+                let _ = self.save_hnsw_to_disk().await;
+                return Ok(true);
+            }
+            info!(
+                index = self.name.as_str(),
+                pass,
+                reinserted,
+                pruned,
+                seq_start,
+                seq_end,
+                "HNSW rebuild pass raced concurrent writes — repeating"
+            );
+        }
+        Ok(false)
+    }
+
+    /// True when `doc_id` has a graph node whose stored vector bit-matches
+    /// `vector` (rebuild fast path — no insert needed).
+    async fn hnsw_vector_current(&self, doc_id: &str, vector: &[f32]) -> bool {
+        let node = match self.hnsw_id_map.read().await.get(doc_id) {
+            Some(n) => *n,
+            None => return false,
+        };
+        let guard = self.hnsw.read().await;
+        guard
+            .as_ref()
+            .map(|h| h.vector_matches(node, vector))
+            .unwrap_or(false)
+    }
+
+    /// Live HNSW/ANN health for stats surfacing (RC4 W2 item 17): pre-fix,
+    /// a permanently-stale (brute-force-only) index was indistinguishable
+    /// from a healthy one from the outside.
+    pub async fn hnsw_stats(&self) -> Value {
+        let (present, nodes, tombstones) = {
+            let guard = self.hnsw.read().await;
+            match guard.as_ref() {
+                Some(h) => (true, h.len() as u64, h.tombstone_count() as u64),
+                None => (false, 0, 0),
+            }
+        };
+        serde_json::json!({
+            "present": present,
+            "field": self.hnsw_field.read().unwrap().clone(),
+            "nodes": nodes,
+            "tombstones": tombstones,
+            "doc_coverage": self.hnsw_id_map.read().await.len() as u64,
+            "stale": self.hnsw_stale.load(Ordering::Acquire),
+            "rebuilding": self
+                .hnsw_rebuilding
+                .load(std::sync::atomic::Ordering::Acquire),
+        })
     }
 
     /// Read the running counter of update operations that detected no
@@ -4851,7 +5150,13 @@ impl Index {
     /// present and self-consistent), `Ok(false)` if no snapshot
     /// exists or load failed (caller falls back to WAL replay).
     pub async fn load_hnsw_from_disk(&self) -> Result<bool> {
-        let loaded = match load_hnsw_artifacts_sync(&self.hnsw_dir()) {
+        let dv_fields = {
+            let schema = self.schema.read().await;
+            collect_dense_vector_fields(&schema.schema)
+        };
+        let loaded = match load_hnsw_artifacts_sync(&self.hnsw_dir(), &|f: &str| {
+            dv_fields.iter().any(|df| df == f)
+        }) {
             Some(l) => l,
             None => return Ok(false),
         };
@@ -4862,12 +5167,12 @@ impl Index {
         drop(id_map);
         drop(id_rev);
         self.hnsw_next_id.store(loaded.next_id, Ordering::Relaxed);
-        // Same field-identity + freshness-stamp handling as Index::open.
-        let stale = match (loaded.field.as_ref(), loaded.seq_no) {
-            (Some(_), Some(stamp)) => loaded.stale || stamp != self.store.current_seq_no(),
-            (Some(_), None) => true,
-            (None, _) => false,
-        };
+        // Same freshness-stamp handling as Index::open (the loader gate
+        // guarantees `field` is Some).
+        let stale = loaded.stale
+            || loaded
+                .seq_no
+                .map_or(true, |stamp| stamp != self.store.current_seq_no());
         *self.hnsw_field.write().unwrap() = loaded.field;
         self.hnsw_stale
             .store(stale, std::sync::atomic::Ordering::Release);
@@ -15187,19 +15492,18 @@ struct LoadedHnsw {
     stale: bool,
 }
 
-fn load_hnsw_artifacts_sync(hnsw_dir: &Path) -> Option<LoadedHnsw> {
+fn load_hnsw_artifacts_sync(
+    hnsw_dir: &Path,
+    field_is_dense_vector: &dyn Fn(&str) -> bool,
+) -> Option<LoadedHnsw> {
     let graph_path = hnsw_dir.join("graph.bin");
     let ids_path = hnsw_dir.join("ids.json");
     if !graph_path.exists() || !ids_path.exists() {
         return None;
     }
-    let graph = match xerj_vector::HnswIndex::load_from(&graph_path) {
-        Ok(g) => g,
-        Err(e) => {
-            warn!(error = %e, "HNSW load: graph file rejected — falling back to WAL replay");
-            return None;
-        }
-    };
+    // ids.json FIRST (cheap): the mapping gate below must run before the
+    // potentially-huge graph parse so a rejected snapshot never even
+    // transiently occupies RAM.
     let ids_bytes = match std::fs::read(&ids_path) {
         Ok(b) => b,
         Err(e) => {
@@ -15214,6 +15518,36 @@ fn load_hnsw_artifacts_sync(hnsw_dir: &Path) -> Option<LoadedHnsw> {
             return None;
         }
     };
+    // Mapping gate (RC4 W2 item 16): a graph is only legitimate for an
+    // explicit dense_vector-mapped field. Snapshots pinned to anything
+    // else — heuristic-3 graphs from pre-fix builds (e.g. `ports`) and
+    // legacy field-less snapshots (which the query path's field gate
+    // already never served) — are refused: they were pure RAM +
+    // per-ingest maintenance cost with no query benefit. The files are
+    // left on disk untouched (never destructive at open: a transiently
+    // unreadable schema.json must not delete a legitimate graph).
+    let field = ids
+        .get("field")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    match field.as_deref() {
+        Some(f) if field_is_dense_vector(f) => {}
+        Some(f) => {
+            warn!(
+                field = f,
+                "HNSW load: snapshot pinned to a non-dense_vector field — refused \
+                 (map the field as dense_vector to re-enable it)"
+            );
+            return None;
+        }
+        None => {
+            info!(
+                "HNSW load: legacy field-less snapshot refused — the graph never \
+                 served queries; it will be rebuilt from a dense_vector mapping if one exists"
+            );
+            return None;
+        }
+    }
     let next_id = ids.get("next_id").and_then(|v| v.as_u64()).unwrap_or(1);
     let map_obj = match ids.get("map").and_then(|v| v.as_object()) {
         Some(m) => m,
@@ -15230,13 +15564,17 @@ fn load_hnsw_artifacts_sync(hnsw_dir: &Path) -> Option<LoadedHnsw> {
             id_rev.insert(nid, doc_id.clone());
         }
     }
-    // Integrity stamp (see save_hnsw_to_disk). All three keys are optional
-    // so legacy snapshots keep loading: missing `field` → legacy graph
-    // (query path disabled by the field gate, ingest behavior retained).
-    let field = ids
-        .get("field")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string());
+    let graph = match xerj_vector::HnswIndex::load_from(&graph_path) {
+        Ok(g) => g,
+        Err(e) => {
+            warn!(error = %e, "HNSW load: graph file rejected — falling back to WAL replay");
+            return None;
+        }
+    };
+    // Integrity stamp (see save_hnsw_to_disk): `seq_no` records the WAL
+    // position at save time, `stale` persists an already-detected
+    // staleness so a later flush of a still-stale graph cannot re-stamp
+    // it as fresh.
     let seq_no = ids.get("seq_no").and_then(|v| v.as_u64());
     let stale = ids.get("stale").and_then(|v| v.as_bool()).unwrap_or(false);
     Some(LoadedHnsw {

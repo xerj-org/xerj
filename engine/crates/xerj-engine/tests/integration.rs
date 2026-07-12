@@ -3102,7 +3102,15 @@ async fn test_knn_vector_search() {
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
 
-    engine.create_index("vectors", Schema::empty()).unwrap();
+    // RC4 W2 item 16: an HNSW graph is only built for an explicit
+    // dense_vector mapping (unmapped numeric arrays no longer auto-build
+    // one), so this graph-path test declares the mapping.
+    let mut schema = Schema::empty();
+    let mut vf = FieldConfig::new("embedding", FieldType::Vector);
+    vf.options.dimensions = Some(4);
+    vf.options.similarity = Some("cosine".to_string());
+    schema.fields.push(vf);
+    engine.create_index("vectors", schema).unwrap();
     let idx = engine.get_index("vectors").unwrap();
 
     // Index documents with 4-dimensional embedding vectors.

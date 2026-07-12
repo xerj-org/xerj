@@ -494,6 +494,19 @@ impl HnswIndex {
         self.inner.read().unwrap().tomb_ids.len()
     }
 
+    /// True when node `id` exists and stores exactly `v` (bit-exact f32
+    /// compare). Used by the stale-graph rebuild (RC4 W2 item 17) to skip
+    /// re-inserting docs whose graph vector already matches the document
+    /// source, making a rebuild pass O(N·dim) compares + O(changed·log N)
+    /// inserts instead of a full O(N·log N) reconstruction.
+    pub fn vector_matches(&self, id: u64, v: &[f32]) -> bool {
+        let g = self.inner.read().unwrap();
+        match g.slot_of.get(&id) {
+            Some(&slot) => g.vec_of(slot) == v,
+            None => false,
+        }
+    }
+
     pub fn params(&self) -> &HnswParams {
         &self.params
     }
