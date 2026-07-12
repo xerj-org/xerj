@@ -142,9 +142,14 @@ impl Config {
             }
         }
 
-        // Storage: WAL batch interval sanity
+        // Storage: WAL batch interval sanity (documented range: 1..=10000).
         if self.storage.wal_batch_ms == 0 {
             return Err(XerjError::config("storage.wal_batch_ms must be > 0"));
+        }
+        if self.storage.wal_batch_ms > 10_000 {
+            return Err(XerjError::config(
+                "storage.wal_batch_ms must be <= 10000 (10 s)",
+            ));
         }
 
         // Merge: min_segments must be >= 2
@@ -322,11 +327,21 @@ pub struct TlsConfig {
 pub struct StorageConfig {
     /// WAL fsync strategy: `"sync"`, `"batched"`, or `"async"` (default: `"batched"`).
     ///
-    /// - `"sync"` — fsync after every write. Safest, slowest.
-    /// - `"batched"` — fsync every `wal_batch_ms`. Good balance.
-    /// - `"async"` — never fsync. Fastest, least durable.
+    /// - `"sync"` — fsync before every acknowledgement.  On the bulk API
+    ///   this is one fsync per bulk request (group commit), matching ES's
+    ///   per-request translog fsync granularity. Safest, slowest.
+    /// - `"batched"` — writes reach the kernel immediately (process-crash
+    ///   durable); a background loop fsyncs every `wal_batch_ms`, bounding
+    ///   the power-loss window. Good balance.
+    /// - `"async"` — never fsync; the OS decides when to write back.
+    ///   Fastest, least durable.
+    ///
+    /// RC4 W1 #9: `"sync"` was previously ignored on the bulk ingest paths
+    /// (fsync only via the undocumented `XERJ_STRICT_SYNC` env var) and
+    /// the `wal_batch_ms` loop did not exist. Both are honored now.
     pub wal_sync: WalSync,
     /// How often to fsync the WAL when `wal_sync = "batched"` (default: `100` ms).
+    /// Range: 1..=10000.
     pub wal_batch_ms: u64,
     /// Maximum WAL file size before it is rolled over (default: `512` MiB).
     pub wal_max_size_mb: u64,

@@ -225,6 +225,10 @@ pub struct WalWriter {
     current_offset: u64,
     max_size_bytes: u64,
     sync_mode: SyncMode,
+    /// True when bytes were appended since the last `fsync` — consumed by
+    /// the `wal_batch_ms` background fsync loop (RC4 W1 #9) so idle shards
+    /// don't get pointless fsyncs.
+    dirty: bool,
     /// Shared sequence number counter — also used by the index store.
     pub seq_counter: Arc<AtomicU64>,
 }
@@ -266,6 +270,7 @@ impl WalWriter {
             current_offset,
             max_size_bytes,
             sync_mode,
+            dirty: false,
             seq_counter,
         })
     }
@@ -329,6 +334,7 @@ impl WalWriter {
 
         let written = 4 + 8 + 1 + payload.len() as u64 + 4;
         self.current_offset += written;
+        self.dirty = true;
 
         if self.sync_mode == SyncMode::Strict {
             self.sync()?;
@@ -428,9 +434,16 @@ impl WalWriter {
 
         let written = 4 + 8 + 1 + payload.len() as u64 + 4;
         self.current_offset += written;
+        self.dirty = true;
 
         if self.sync_mode == SyncMode::Strict {
             self.sync()?;
+        } else {
+            // Durability consistency with `append` (RC4 W1 #8/#9): drain
+            // the BufWriter to the kernel page cache before the caller
+            // acks, so a SIGKILL cannot lose an acked single-doc append
+            // that was still sitting in the userspace buffer.
+            self.writer.flush()?;
         }
         Ok(seq_no)
     }
@@ -447,6 +460,7 @@ impl WalWriter {
         }
         self.writer.write_all(frames)?;
         self.current_offset += total_written;
+        self.dirty = true;
         if self.sync_mode == SyncMode::Strict {
             self.sync()?;
         }
@@ -527,6 +541,7 @@ impl WalWriter {
         // Single write_all — one BufWriter call for the whole batch.
         self.writer.write_all(&out)?;
         self.current_offset += written_total;
+        self.dirty = true;
 
         if self.sync_mode == SyncMode::Strict {
             self.sync()?;
@@ -538,7 +553,15 @@ impl WalWriter {
     pub fn sync(&mut self) -> Result<()> {
         self.writer.flush()?;
         self.writer.get_ref().sync_all()?;
+        self.dirty = false;
         Ok(())
+    }
+
+    /// True when bytes were appended since the last `fsync`.  Consumed by
+    /// the `wal_batch_ms` background fsync loop so idle shards are not
+    /// pointlessly fsynced (RC4 W1 #9).
+    pub fn is_dirty(&self) -> bool {
+        self.dirty
     }
 
     /// Flush the BufWriter to the kernel without a `fsync(2)`.

@@ -15028,10 +15028,19 @@ fn store_config_from(config: &Config) -> IndexStoreConfig {
             SyncMode::Batched
         }
     };
+    // RC4 W1 #9 — plumb the fsync cadence for the batched-mode background
+    // fsync loop.  Only `wal_sync = "batched"` gets the loop: "sync"
+    // fsyncs inline per request, "async" is the explicit never-fsync
+    // opt-out (both are expressed as wal_batch_ms = 0 here).
+    let wal_batch_ms = match config.storage.wal_sync {
+        xerj_common::config::WalSync::Batched => config.storage.wal_batch_ms,
+        xerj_common::config::WalSync::Sync | xerj_common::config::WalSync::Async => 0,
+    };
     IndexStoreConfig {
         memtable_max_bytes: (config.storage.flush_size_mb * 1024 * 1024) as usize,
         wal_max_size_bytes: config.storage.wal_max_size_mb * 1024 * 1024,
         sync_mode,
+        wal_batch_ms,
         schema_version: 1,
         storage_mode: xerj_storage::StorageMode::Local,
         num_wal_shards: config.engine.ingest_shards,

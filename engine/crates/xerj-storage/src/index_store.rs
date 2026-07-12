@@ -240,7 +240,26 @@ pub struct IndexStoreConfig {
     /// Maximum WAL file size before rotation.
     pub wal_max_size_bytes: u64,
     /// WAL sync mode.
+    ///
+    /// RC4 W1 #9 — this is now honored EVERYWHERE, including the bulk
+    /// paths (`wal_append_batch` / `wal_append_batch_raw`), which
+    /// previously forced Batched behaviour and only fsynced via the
+    /// `XERJ_STRICT_SYNC` env var — silently ignoring an operator's
+    /// explicit `wal_sync = "sync"` opt-in.
+    ///
+    /// - `Strict`  (`wal_sync = "sync"`): fsync before every ack.  On the
+    ///   bulk paths this is one fsync per bulk request (group commit) —
+    ///   the same granularity as ES's per-request translog fsync.
+    /// - `Batched` (`wal_sync = "batched"`): writes reach the kernel page
+    ///   cache before ack (process-crash durable); a background loop
+    ///   fsyncs every dirty WAL shard every `wal_batch_ms` (power-loss
+    ///   window bounded to `wal_batch_ms`).
     pub sync_mode: SyncMode,
+    /// RC4 W1 #9 — fsync cadence (milliseconds) of the background WAL
+    /// fsync loop when `sync_mode == Batched`.  `0` disables the loop
+    /// (used by `wal_sync = "async"`: never fsync, OS decides — and by
+    /// unit tests that don't want the thread).
+    pub wal_batch_ms: u64,
     /// Schema version for new segments.
     pub schema_version: u32,
     /// Storage destination for flushed segments.
@@ -257,11 +276,32 @@ impl Default for IndexStoreConfig {
             memtable_max_bytes: 32 * 1024 * 1024,  // 32 MiB
             wal_max_size_bytes: 128 * 1024 * 1024, // 128 MiB
             sync_mode: SyncMode::Batched,
+            wal_batch_ms: 0,
             schema_version: 1,
             storage_mode: StorageMode::Local,
             num_wal_shards: 1,
         }
     }
+}
+
+/// RC4 W1 #9 — one-time loud warning when `XERJ_SKIP_WAL` disables the
+/// write-ahead log entirely.  Pre-fix the env var was honored silently;
+/// an operator (or stray benchmark script) could run a production node
+/// with ZERO durability and nothing in the logs saying so.
+fn warn_skip_wal_once() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        warn!(
+            "XERJ_SKIP_WAL is set: the write-ahead log is DISABLED. \
+             Acknowledged writes exist only in memory until a segment \
+             flush — ANY crash loses them. Never use this outside \
+             throwaway benchmarks."
+        );
+        eprintln!(
+            "WARNING: XERJ_SKIP_WAL is set — WAL disabled, acked writes are \
+             NOT crash-durable. Never use this outside throwaway benchmarks."
+        );
+    });
 }
 
 // ── IndexStore ────────────────────────────────────────────────────────────────
@@ -511,6 +551,35 @@ impl IndexStore {
 
         // Replay WAL to rebuild in-memory state (these override segment entries).
         store.replay_wal(&wal_dir)?;
+
+        // RC4 W1 #9 — the `wal_batch_ms` fsync loop.  The config has
+        // documented `wal_sync = "batched"` as "fsync every wal_batch_ms"
+        // since 0.x, but nothing implemented it: the only fsyncs happened
+        // at flush/rotate boundaries, so the real power-loss window was
+        // unbounded (up to `flush_interval_secs`).  A detached thread now
+        // fsyncs every DIRTY WAL shard on the configured cadence.  It
+        // holds only a Weak ref — the loop exits within one tick of the
+        // store being dropped.  Strict mode fsyncs inline per request and
+        // Async mode opts out of fsync entirely; neither spawns the loop
+        // (wal_batch_ms is forced to 0 for them by `store_config_from`).
+        if store.config.sync_mode == SyncMode::Batched && store.config.wal_batch_ms > 0 {
+            let weak: std::sync::Weak<IndexStore> = Arc::downgrade(&store);
+            let period = std::time::Duration::from_millis(store.config.wal_batch_ms);
+            let _ = std::thread::Builder::new()
+                .name("xerj-wal-fsync".into())
+                .spawn(move || loop {
+                    std::thread::sleep(period);
+                    let Some(s) = weak.upgrade() else { break };
+                    for shard in &s.wal_shards {
+                        let mut wal = shard.lock().unwrap();
+                        if wal.is_dirty() {
+                            if let Err(e) = wal.sync() {
+                                warn!("wal_batch_ms fsync failed: {e}");
+                            }
+                        }
+                    }
+                });
+        }
 
         info!(data_dir = ?data_dir, "IndexStore opened");
         Ok(store)
@@ -2305,6 +2374,7 @@ impl IndexStore {
         }
 
         if std::env::var("XERJ_SKIP_WAL").is_ok() {
+            warn_skip_wal_once();
             let n = docs.len() as u64;
             let start_seq = self
                 .seq_counter
@@ -2384,13 +2454,21 @@ impl IndexStore {
         {
             let ws = self.wal_shard_for(&docs[0].0);
             let mut wal = self.wal_lock_shard(ws);
+            // Suppress the writer's per-append fsync while the pre-framed
+            // batch is emitted, then issue at most ONE sync for the whole
+            // batch below (group commit).
             let saved_mode = wal.sync_mode();
             wal.set_sync_mode(SyncMode::Batched);
             wal.append_frames_locked(&frames, total_written)?;
-            let strict_sync = std::env::var("XERJ_STRICT_SYNC")
-                .map(|v| !v.is_empty() && v != "0")
-                .unwrap_or(false);
-            let sync_result = if strict_sync {
+            // RC4 W1 #9 — honor the operator's configured durability.
+            // Pre-fix this path fsynced ONLY when the undocumented
+            // XERJ_STRICT_SYNC env var was set; `wal_sync = "sync"` in the
+            // config was silently ignored on every bulk request.
+            let strict = self.config.sync_mode == SyncMode::Strict
+                || std::env::var("XERJ_STRICT_SYNC")
+                    .map(|v| !v.is_empty() && v != "0")
+                    .unwrap_or(false);
+            let sync_result = if strict {
                 wal.sync()
             } else {
                 wal.soft_flush()
@@ -2445,6 +2523,7 @@ impl IndexStore {
         // only do CRC32 + a single `write_all` of the pre-framed
         // batch buffer.
         if std::env::var("XERJ_SKIP_WAL").is_ok() {
+            warn_skip_wal_once();
             let n = docs.len() as u64;
             let start_seq = self
                 .seq_counter
@@ -2548,32 +2627,24 @@ impl IndexStore {
             let saved_mode = wal.sync_mode();
             wal.set_sync_mode(SyncMode::Batched);
             wal.append_frames_locked(&frames, total_written)?;
-            // M5.4 — SKIP the per-batch fsync on the bulk hot path.
+            // M5.4 — skip the per-batch fsync on the DEFAULT (batched)
+            // bulk hot path: each fsync(2) is ~1 ms on NVMe, ~8 % of
+            // ingest wall time at 76 batches/s.  Without it the WAL
+            // bytes are in the kernel page cache — a process crash
+            // loses nothing; power loss is bounded by the `wal_batch_ms`
+            // background fsync loop (RC4 W1 #9).
             //
-            // Pre-M5.4 each bulk batch called `wal.sync()` which
-            // issues a `fsync(2)` — on NVMe that's ~1 ms of wall
-            // time.  At 76 batches/sec (380 k/s ingest) that's
-            // 76 ms/sec of fsync blocking = ~8 % of the ingest
-            // wall time, spent purely on filesystem round-trips.
-            //
-            // Durability trade-off: without per-batch fsync, the
-            // WAL bytes are buffered in the kernel page cache.  A
-            // process crash loses nothing (the kernel flushes on
-            // close).  A kernel crash / power loss between batches
-            // can lose the last N seconds of data — same window as
-            // a segment flush interval anyway.  The WAL still does
-            // a periodic `sync` at rotation boundaries and at flush
-            // time, and the segment commit path calls `fsync` on
-            // the finished .seg file before the snapshot swap, so
-            // acknowledged-and-flushed data is never lost.
-            //
-            // Setting `SyncMode::NoSync` via the `XERJ_STRICT_SYNC`
-            // env var re-enables per-batch fsync for workloads
-            // that need it.
-            let strict_sync = std::env::var("XERJ_STRICT_SYNC")
-                .map(|v| !v.is_empty() && v != "0")
-                .unwrap_or(false);
-            let sync_result = if strict_sync {
+            // RC4 W1 #9 — `wal_sync = "sync"` (SyncMode::Strict) is now
+            // HONORED here: one fsync per bulk request before the ack
+            // (group commit — the same granularity as ES's per-request
+            // translog fsync).  Pre-fix the config was silently ignored
+            // and only the undocumented XERJ_STRICT_SYNC env var (kept
+            // as an override) forced the fsync.
+            let strict = self.config.sync_mode == SyncMode::Strict
+                || std::env::var("XERJ_STRICT_SYNC")
+                    .map(|v| !v.is_empty() && v != "0")
+                    .unwrap_or(false);
+            let sync_result = if strict {
                 wal.sync()
             } else {
                 // Just flush the BufWriter to the kernel, skip

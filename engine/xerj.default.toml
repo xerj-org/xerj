@@ -76,12 +76,17 @@ key_path = ""
 
 # WAL fsync strategy. Controls the durability/throughput trade-off.
 #
-#   "sync"    — fsync after every write. Maximum durability; lowest throughput.
-#               Use for financial or compliance workloads.
-#   "batched" — fsync every wal_batch_ms milliseconds. Good balance.
+#   "sync"    — fsync before every acknowledgement (one fsync per bulk
+#               request — group commit, same granularity as Elasticsearch's
+#               per-request translog fsync). Maximum durability; lowest
+#               throughput. Use for financial or compliance workloads.
+#   "batched" — writes reach the kernel before the ack (process-crash
+#               durable); a background loop fsyncs every wal_batch_ms,
+#               bounding the power-loss window to wal_batch_ms.
 #               Default and recommended for most workloads.
 #   "async"   — never fsync; OS decides when to flush. Maximum throughput.
-#               Risk of losing up to ~1 second of data on crash.
+#               Power loss can lose un-flushed data; a process crash alone
+#               loses nothing (writes are in the kernel page cache).
 wal_sync = "batched"
 
 # How often to fsync the WAL when wal_sync = "batched" (milliseconds).
