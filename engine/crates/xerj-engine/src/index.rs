@@ -10914,6 +10914,16 @@ impl Index {
                                 }
                             }
                             total += 1;
+                            // Count-only (size:0 → keep_target 0): the
+                            // score-class check exists only to fill the
+                            // two-valued page — skip it; under a tth cap
+                            // stop once (limit, gte) is guaranteed.
+                            if keep_target == 0 {
+                                if total > limit_val {
+                                    break 'brows;
+                                }
+                                continue 'brows;
+                            }
                             let (score, kept) = if sev[*sh].matches(row) {
                                 (*hi, &mut kept_hi)
                             } else {
@@ -11024,6 +11034,14 @@ impl Index {
                         }
                         if let Some(score) = root.eval(row, &sev, &fev, &clause_scores) {
                             total += 1;
+                            // Count-only (size:0): nothing to keep — under a
+                            // tth cap stop once (limit, gte) is guaranteed.
+                            if keep_target == 0 {
+                                if total > limit_val {
+                                    break;
+                                }
+                                continue;
+                            }
                             push_topk(
                                 &mut heap,
                                 keep_target,
@@ -11066,6 +11084,14 @@ impl Index {
                             continue;
                         }
                         total += 1;
+                        // Count-only (size:0): membership is positive-only —
+                        // the negative rescale can't change the count.
+                        if keep_target == 0 {
+                            if total > limit_val {
+                                break;
+                            }
+                            continue;
+                        }
                         let score = if neg.matches(row) {
                             ps * *negative_boost
                         } else {
@@ -11159,6 +11185,14 @@ impl Index {
                             }
                         }
                         total += 1;
+                        // Count-only (size:0): nothing to keep — under a
+                        // tth cap stop once (limit, gte) is guaranteed.
+                        if keep_target == 0 {
+                            if total > limit_val {
+                                break 'frows;
+                            }
+                            continue 'frows;
+                        }
                         push_topk(
                             &mut heap,
                             keep_target,
@@ -11232,6 +11266,14 @@ impl Index {
                             continue;
                         }
                         total += 1;
+                        // Count-only (size:0): nothing to keep — under a
+                        // tth cap stop once (limit, gte) is guaranteed.
+                        if keep_target == 0 {
+                            if total > limit_val {
+                                break;
+                            }
+                            continue;
+                        }
                         push_topk(
                             &mut heap,
                             keep_target,
@@ -21189,7 +21231,7 @@ fn push_topk(heap: &mut std::collections::BinaryHeap<TopKCand>, cap: usize, c: T
 fn scored_fast_plan(
     query: &QueryNode,
     request: &SearchRequest,
-    size: usize,
+    _size: usize,
     keyword_fields: &HashSet<String>,
     numeric_fields: &HashSet<String>,
     boolean_fields: &HashSet<String>,
@@ -21202,8 +21244,17 @@ fn scored_fast_plan(
     // dropped e.g. `match(status)+highlight` to the brute FTS walk over
     // every match (~2.5× ES); the columnar page is byte-identical, so the
     // shared highlighter emits byte-identical fragments.
-    if size == 0
-        || request.aggs.is_some()
+    //
+    // `size == 0` is ADMITTED (count-only mode): the executor's Phase-2
+    // walk tallies the exact ghost-aware total with `keep_target == 0`
+    // (`push_topk` is a no-op at cap 0), returning `(vec![], total)` —
+    // the renderer emits `hits: []`, `max_score: null` exactly like the
+    // brute path. Pre-fix a scored `{size:0}` body (and `_count` with any
+    // scored query, which synthesizes one) fell to the brute FTS
+    // enumeration of EVERY match: live-measured 127 ms for the benchmark
+    // bool body and 167 ms for dis_max vs ES 0.2-0.3 ms — the largest
+    // ratio on the board (LOSS_BATTLE_PLAN "size:0 / _count brute cliff").
+    if request.aggs.is_some()
         || request.min_score.is_some()
         || !request.sort.is_empty()
         || !request.rescore.is_empty()

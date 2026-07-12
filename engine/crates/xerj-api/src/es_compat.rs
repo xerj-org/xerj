@@ -9220,6 +9220,30 @@ pub async fn search(
         })
     };
 
+    // ES 8.x emits `"terminated_early": false` (immediately after
+    // `timed_out`) on the hits-skipping exact-count path: `size: 0` +
+    // explicit `track_total_hits: true`, without aggregations. Live-probed
+    // against ES 8.13.4: `sort`/`min_score`/`terminate_after` do NOT
+    // suppress it, any `aggs` does, and tth default/`false`/`N` never emit
+    // it. serde_json runs with `preserve_order`, so rebuild the map to
+    // splice the key at ES's exact position (byte-parity).
+    if body.size == 0
+        && matches!(body.track_total_hits, Some(Value::Bool(true)))
+        && body.aggs.is_none()
+        && body.aggregations.is_none()
+    {
+        if let Some(obj) = response_body.as_object_mut() {
+            let mut rebuilt = serde_json::Map::with_capacity(obj.len() + 1);
+            for (k, v) in obj.iter() {
+                rebuilt.insert(k.clone(), v.clone());
+                if k == "timed_out" {
+                    rebuilt.insert("terminated_early".to_string(), Value::Bool(false));
+                }
+            }
+            *obj = rebuilt;
+        }
+    }
+
     // Surface the synthesized `_shards.failures` array for an HDR-percentiles
     // negative-value shard failure (the `failed`/`successful` counts were
     // already adjusted via `shards_failed_count` above).

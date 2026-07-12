@@ -28,10 +28,14 @@ fn matched_queries_is_empty(v: &Value) -> bool {
 pub struct EsShards {
     pub total: u32,
     pub successful: u32,
-    pub failed: u32,
-    /// Skipped shards (search responses only).
+    /// Skipped shards (search responses only). Declared BEFORE `failed`
+    /// because serde emits fields in declaration order and ES 8.x renders
+    /// search `_shards` as {total, successful, skipped, failed} — write
+    /// responses omit `skipped` (None) and keep ES's {total, successful,
+    /// failed}. Live-verified against ES 8.13.4 (byte-parity sweep).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub skipped: Option<u32>,
+    pub failed: u32,
 }
 
 impl EsShards {
