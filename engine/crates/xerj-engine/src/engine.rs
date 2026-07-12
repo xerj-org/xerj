@@ -447,22 +447,23 @@ impl Engine {
                     .map(|s| s.trim().to_string())
                     .filter(|s| !s.is_empty())
                     .unwrap_or_else(|| "unknown".to_string());
-                Err(EngineError::Common(xerj_common::XerjError::config(format!(
-                    "data dir '{}' is already in use by another running xerj process \
+                Err(EngineError::Common(xerj_common::XerjError::config(
+                    format!(
+                        "data dir '{}' is already in use by another running xerj process \
                      (pid {holder}, lock file '{}') — refusing to start. Two processes \
                      serving one data dir would replay each other's WAL and corrupt \
                      segments; stop the other process or point this one at its own \
                      server.data_dir.",
-                    data_dir.display(),
-                    lock_path.display(),
-                ))))
+                        data_dir.display(),
+                        lock_path.display(),
+                    ),
+                )))
             }
-            Err(std::fs::TryLockError::Error(e)) => Err(EngineError::Common(
-                xerj_common::XerjError::config(format!(
-                    "failed to acquire node lock '{}': {e}",
-                    lock_path.display()
-                )),
-            )),
+            Err(std::fs::TryLockError::Error(e)) => {
+                Err(EngineError::Common(xerj_common::XerjError::config(
+                    format!("failed to acquire node lock '{}': {e}", lock_path.display()),
+                )))
+            }
         }
     }
 
@@ -572,9 +573,8 @@ impl Engine {
     fn spawn_search_context_sweeper(&self) {
         let scrolls = Arc::clone(&self.scrolls);
         let async_searches = Arc::clone(&self.async_searches);
-        let interval = std::time::Duration::from_secs(
-            self.config.search_context.sweep_interval_secs.max(1),
-        );
+        let interval =
+            std::time::Duration::from_secs(self.config.search_context.sweep_interval_secs.max(1));
         tokio::spawn(async move {
             let mut tick = tokio::time::interval(interval);
             // Skip the immediate first tick — Engine::new just ran, so

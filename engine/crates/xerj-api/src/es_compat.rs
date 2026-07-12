@@ -13230,8 +13230,7 @@ pub async fn next_scroll(
                 .or(params.scroll.as_deref())
                 .and_then(parse_keep_alive_to_secs)
             {
-                let capped =
-                    ka_secs.min(state.config.search_context.scroll_max_keep_alive_secs);
+                let capped = ka_secs.min(state.config.search_context.scroll_max_keep_alive_secs);
                 ctx.keep_alive = std::time::Duration::from_secs(capped);
             }
             ctx.expires_at = now + ctx.keep_alive;
@@ -22739,8 +22738,7 @@ pub async fn async_search_get(
                 .as_deref()
                 .and_then(parse_keep_alive_to_secs)
             {
-                let capped =
-                    ka_secs.min(state.config.search_context.async_max_keep_alive_secs);
+                let capped = ka_secs.min(state.config.search_context.async_max_keep_alive_secs);
                 entry["expiration_time_in_millis"] = json!(now_ms + (capped as i64) * 1000);
             }
             Json(entry.clone()).into_response()
