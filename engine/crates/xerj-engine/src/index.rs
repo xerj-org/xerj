@@ -14586,7 +14586,13 @@ fn apply_highlight(hits: Vec<Hit>, hl: &HighlightRequest, query: &QueryNode) -> 
                         Value::String(s) => s.clone(),
                         other => other.to_string(),
                     };
-                    let text_lower = text.to_lowercase();
+                    // Lowercasing can change byte length (e.g. `İ` U+0130 is
+                    // 2 bytes but lowercases to 3), so byte offsets found in
+                    // `text_lower` are NOT valid indices into `text`. Build a
+                    // per-character offset table alongside the lowercased text
+                    // so matches can be translated back to original-text char
+                    // boundaries (fixes the multibyte highlight SIGABRT).
+                    let (text_lower, lower_map) = build_lower_offset_map(&text);
                     let has_any = query_terms.iter().any(|t| text_lower.contains(t.as_str()));
                     if !has_any {
                         continue;
@@ -14600,6 +14606,7 @@ fn apply_highlight(hits: Vec<Hit>, hl: &HighlightRequest, query: &QueryNode) -> 
                         vec![highlight_full_text(
                             &text,
                             &text_lower,
+                            &lower_map,
                             &query_terms,
                             pre,
                             post,
@@ -14609,6 +14616,7 @@ fn apply_highlight(hits: Vec<Hit>, hl: &HighlightRequest, query: &QueryNode) -> 
                         build_highlight_fragments(
                             &text,
                             &text_lower,
+                            &lower_map,
                             &query_terms,
                             pre,
                             post,
@@ -14694,16 +14702,72 @@ fn collect_highlight_terms(query: &QueryNode, out: &mut Vec<String>) {
 /// extracts a window of `frag_size` bytes centred on each match.  Windows are
 /// snapped to UTF-8 character boundaries so the output is always valid UTF-8.
 /// Returns up to `num_frags` non-overlapping fragments with `pre`/`post` tags.
+/// Build the lowercased form of `text` together with a per-original-character
+/// offset table mapping lowercased byte offsets back to original byte spans.
+///
+/// Rust's `char::to_lowercase` can change both the byte length and the
+/// character count of a codepoint (`İ` U+0130 → `i` + combining dot above,
+/// 2 bytes → 3 bytes), so a byte offset located by searching the lowercased
+/// text is **not** a valid index into the original text. Each entry is
+/// `(lower_start, orig_start, orig_end)`: the byte offset in the lowercased
+/// string where an original character's lowercased bytes begin, and that
+/// original character's `[start, end)` byte span in `text`. The string is
+/// lowercased character-by-character so it stays perfectly consistent with
+/// the table (this can differ from `str::to_lowercase` only in locale edge
+/// cases like Greek final sigma, which is irrelevant to substring matching).
+fn build_lower_offset_map(text: &str) -> (String, Vec<(usize, usize, usize)>) {
+    let mut lower = String::with_capacity(text.len());
+    let mut entries: Vec<(usize, usize, usize)> = Vec::with_capacity(text.len());
+    for (orig_start, ch) in text.char_indices() {
+        let lower_start = lower.len();
+        for lc in ch.to_lowercase() {
+            lower.push(lc);
+        }
+        entries.push((lower_start, orig_start, orig_start + ch.len_utf8()));
+    }
+    (lower, entries)
+}
+
+/// Translate a byte span `[lo_start, lo_end)` located in the lowercased text
+/// into the covering byte span in the original text, using the table from
+/// [`build_lower_offset_map`]. The returned span fully contains every original
+/// character that contributed any byte to the lowercased span, and both
+/// endpoints are guaranteed to sit on original-text character boundaries — so
+/// slicing `text[oa..ob]` can never panic on a multibyte codepoint.
+fn lower_span_to_orig(
+    entries: &[(usize, usize, usize)],
+    orig_len: usize,
+    lo_start: usize,
+    lo_end: usize,
+) -> (usize, usize) {
+    if entries.is_empty() || lo_end <= lo_start {
+        return (0, 0);
+    }
+    // First entry always has lower_start == 0, so partition_point >= 1 and the
+    // saturating_sub(1) below never underflows.
+    let si = entries
+        .partition_point(|e| e.0 <= lo_start)
+        .saturating_sub(1);
+    let oa = entries[si].1;
+    let ei = entries
+        .partition_point(|e| e.0 <= lo_end - 1)
+        .saturating_sub(1);
+    let ob = entries[ei].2.max(oa);
+    (oa.min(orig_len), ob.min(orig_len))
+}
+
 /// Render the full source text with every match of every query term
 /// wrapped in the pre/post tags. Used when the caller requests
 /// `number_of_fragments: 0`, which disables fragmenting.
 fn highlight_full_text(
     text: &str,
     text_lower: &str,
+    lower_map: &[(usize, usize, usize)],
     terms: &[String],
     pre: &str,
     post: &str,
 ) -> String {
+    let orig_len = text.len();
     let mut spans: Vec<(usize, usize)> = Vec::new();
     for term in terms {
         if term.is_empty() {
@@ -14712,7 +14776,12 @@ fn highlight_full_text(
         let mut start = 0;
         while let Some(pos) = text_lower[start..].find(term.as_str()) {
             let abs = start + pos;
-            spans.push((abs, abs + term.len()));
+            // Translate the lowercased-text match offsets back to original
+            // text char boundaries before recording the span.
+            let (oa, ob) = lower_span_to_orig(lower_map, orig_len, abs, abs + term.len());
+            if ob > oa {
+                spans.push((oa, ob));
+            }
             start = abs + term.len();
         }
     }
@@ -14749,19 +14818,27 @@ fn highlight_full_text(
 fn build_highlight_fragments(
     text: &str,
     text_lower: &str,
+    lower_map: &[(usize, usize, usize)],
     terms: &[String],
     pre: &str,
     post: &str,
     frag_size: usize,
     num_frags: usize,
 ) -> Vec<String> {
-    // Collect all match byte-offsets (start, end) across all terms.
+    let orig_len = text.len();
+    // Collect all match byte-offsets (start, end) across all terms, translated
+    // from the lowercased text back into ORIGINAL-text char boundaries. All the
+    // window math below operates on `text` (the original), so mixing in
+    // lowercased offsets would slice through multibyte codepoints and panic.
     let mut match_positions: Vec<(usize, usize)> = Vec::new();
     for term in terms {
         let mut start = 0;
         while let Some(pos) = text_lower[start..].find(term.as_str()) {
             let abs = start + pos;
-            match_positions.push((abs, abs + term.len()));
+            let (oa, ob) = lower_span_to_orig(lower_map, orig_len, abs, abs + term.len());
+            if ob > oa {
+                match_positions.push((oa, ob));
+            }
             start = abs + term.len();
             if match_positions.len() > num_frags * 4 {
                 break; // enough candidates — stop scanning early
@@ -23712,6 +23789,82 @@ mod percolate_tests {
 
         let stored2 = json!({ "query": "not-an-object" });
         assert!(!doc_matches_query(&q, &stored2));
+    }
+}
+
+#[cfg(test)]
+mod highlight_multibyte_tests {
+    //! Regression tests for the multibyte-highlight SIGABRT: a term whose
+    //! byte offset in the lowercased text does not line up with the original
+    //! text (because lowercasing `İ` U+0130 grows 2 bytes → 3) used to make
+    //! the renderer slice the ORIGINAL string at a lowercased offset, yielding
+    //! `end byte index 15 is out of bounds for string of length 14` and
+    //! aborting the whole server (index.rs:14727). All slicing now goes through
+    //! [`lower_span_to_orig`], which maps back to original char boundaries.
+    use super::*;
+
+    #[test]
+    fn offset_map_translates_i_dot_above() {
+        // "İa": İ = 2 bytes original, lowercases to `i` + combining dot = 3.
+        let (lower, map) = build_lower_offset_map("İa");
+        assert_eq!(lower, "i\u{307}a");
+        assert_eq!(map, vec![(0, 0, 2), (3, 2, 3)]);
+        // The 'a' sits at byte 3 in the lowercased text but byte 2 in the
+        // original. A naive slice at 3 would land past the İ inside a 3-byte
+        // string. The mapping must recover the original [2,3) span.
+        let orig_len = "İa".len();
+        assert_eq!(lower_span_to_orig(&map, orig_len, 3, 4), (2, 3));
+        // Matching the İ itself (via lowercased 'i') covers the whole char.
+        assert_eq!(lower_span_to_orig(&map, orig_len, 0, 1), (0, 2));
+    }
+
+    #[test]
+    fn full_text_highlight_after_multibyte_does_not_panic() {
+        // This is the exact shape that crashed: a normal token ("cafe")
+        // preceded by an İ so the lowercased offsets are shifted +1.
+        let text = "İstanbul cafe";
+        let (lower, map) = build_lower_offset_map(text);
+        let terms = vec!["cafe".to_string()];
+        let out = highlight_full_text(text, &lower, &map, &terms, "<em>", "</em>");
+        assert_eq!(out, "İstanbul <em>cafe</em>");
+    }
+
+    #[test]
+    fn full_text_highlight_match_at_very_end() {
+        // Term is the final character right after the İ — the offset in the
+        // lowercased text points one byte past the end of the original string.
+        let text = "İa";
+        let (lower, map) = build_lower_offset_map(text);
+        let terms = vec!["a".to_string()];
+        let out = highlight_full_text(text, &lower, &map, &terms, "<em>", "</em>");
+        assert_eq!(out, "İ<em>a</em>");
+    }
+
+    #[test]
+    fn fragment_highlight_after_multibyte_does_not_panic() {
+        let text = "İstanbul cafe";
+        let (lower, map) = build_lower_offset_map(text);
+        let terms = vec!["cafe".to_string()];
+        let frags = build_highlight_fragments(text, &lower, &map, &terms, "<em>", "</em>", 150, 3);
+        assert_eq!(frags.len(), 1);
+        assert!(
+            frags[0].contains("<em>cafe</em>"),
+            "fragment should wrap the match: {:?}",
+            frags[0]
+        );
+        // The İ context must survive intact (valid UTF-8, no mangled bytes).
+        assert!(frags[0].contains('İ'), "context preserved: {:?}", frags[0]);
+    }
+
+    #[test]
+    fn multiple_multibyte_chars_and_matches() {
+        // Several length-growing chars before/around matches to exercise the
+        // cumulative offset drift.
+        let text = "İİ dodo İ cafe";
+        let (lower, map) = build_lower_offset_map(text);
+        let terms = vec!["dodo".to_string(), "cafe".to_string()];
+        let out = highlight_full_text(text, &lower, &map, &terms, "<em>", "</em>");
+        assert_eq!(out, "İİ <em>dodo</em> İ <em>cafe</em>");
     }
 }
 
