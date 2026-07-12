@@ -5595,7 +5595,8 @@ impl Index {
                                 }
                             }
                             seen_ids.insert(hit.id.clone());
-                            topk.offer(hit);
+                            let seq = self.lookup_seq_no(&hit.id).unwrap_or(u64::MAX);
+                            topk.offer(hit, seq);
                         }
                     } else if all_hits.len() < materialisation_limit && !seen_ids.contains(&hit.id)
                     {
@@ -5631,15 +5632,19 @@ impl Index {
                             if !rejected {
                                 let source = src_arc.map(|a| (*a).clone()).unwrap_or(Value::Null);
                                 seen_ids.insert(id.clone());
-                                topk.offer(Hit {
-                                    id,
-                                    score: 1.0,
-                                    source,
-                                    sort: Vec::new(),
-                                    explain: None,
-                                    highlight: None,
-                                    matched_queries: Vec::new(),
-                                });
+                                let seq = self.lookup_seq_no(&id).unwrap_or(u64::MAX);
+                                topk.offer(
+                                    Hit {
+                                        id,
+                                        score: 1.0,
+                                        source,
+                                        sort: Vec::new(),
+                                        explain: None,
+                                        highlight: None,
+                                        matched_queries: Vec::new(),
+                                    },
+                                    seq,
+                                );
                             }
                         }
                     } else if all_hits.len() < materialisation_limit {
@@ -6834,7 +6839,9 @@ impl Index {
                                                 matched_queries: Vec::new(),
                                             };
                                             if let Some(topk) = sort_topk.as_mut() {
-                                                topk.offer(hit);
+                                                let seq =
+                                                    self.lookup_seq_no(&hit.id).unwrap_or(u64::MAX);
+                                                topk.offer(hit, seq);
                                             } else {
                                                 all_hits.push(hit);
                                             }
@@ -7417,11 +7424,21 @@ impl Index {
             for hit in &mut final_hits {
                 hit.sort = compute_sort_values(&hit.source, hit.score, &hit.id, sort_fields);
             }
-            // Sort by the populated sort keys.
-            final_hits.sort_by(|a, b| {
-                xerj_query::sort::compare_sort_keys(&a.sort, &b.sort, sort_fields)
-                    .then_with(|| a.id.cmp(&b.id))
+            // Sort by the populated sort keys.  Key ties break by seq_no
+            // ASC (insertion order == ES internal doc-id order post-B1),
+            // the SAME chain as `SortHeapEntry::cmp`, so the heap's
+            // eviction choices and this final ordering agree.  `_id` is a
+            // last-resort fallback for unresolvable seqs only.
+            let mut decorated: Vec<(u64, Hit)> = std::mem::take(&mut final_hits)
+                .into_iter()
+                .map(|h| (self.lookup_seq_no(&h.id).unwrap_or(u64::MAX), h))
+                .collect();
+            decorated.sort_by(|a, b| {
+                xerj_query::sort::compare_sort_keys(&a.1.sort, &b.1.sort, sort_fields)
+                    .then_with(|| a.0.cmp(&b.0))
+                    .then_with(|| a.1.id.cmp(&b.1.id))
             });
+            final_hits = decorated.into_iter().map(|(_, h)| h).collect();
         } else {
             // Default: sort by score descending, with insertion-order
             // (seq_no ASC) as the secondary key so ties resolve to "doc
@@ -12256,15 +12273,19 @@ impl Index {
             }
             let id = id_ref.to_string();
             seen_ids.insert(id.clone());
-            topk.offer_keyed(Hit {
-                id,
-                score,
-                source: source_ref.clone(),
-                sort: key,
-                explain: None,
-                highlight: None,
-                matched_queries: Vec::new(),
-            });
+            let seq = self.lookup_seq_no(&id).unwrap_or(u64::MAX);
+            topk.offer_keyed(
+                Hit {
+                    id,
+                    score,
+                    source: source_ref.clone(),
+                    sort: key,
+                    explain: None,
+                    highlight: None,
+                    matched_queries: Vec::new(),
+                },
+                seq,
+            );
         }
     }
 
@@ -12891,15 +12912,19 @@ impl Index {
                 }
                 let id: String = id_ref.to_string();
                 seen_ids.insert(id.clone());
-                topk.offer_keyed(Hit {
-                    id,
-                    score,
-                    source: source_ref.clone(),
-                    sort: key,
-                    explain: None,
-                    highlight: None,
-                    matched_queries: Vec::new(),
-                });
+                let seq = self.lookup_seq_no(&id).unwrap_or(u64::MAX);
+                topk.offer_keyed(
+                    Hit {
+                        id,
+                        score,
+                        source: source_ref.clone(),
+                        sort: key,
+                        explain: None,
+                        highlight: None,
+                        matched_queries: Vec::new(),
+                    },
+                    seq,
+                );
                 continue;
             }
 
@@ -18384,6 +18409,16 @@ fn match_any_field_wildcard(source: &Value, field_pattern: &str, query_lower: &s
 // O(from+size), preserving F1's win.
 struct SortHeapEntry {
     hit: Hit,
+    /// Insertion-order tie-break (ES semantics): when sort keys compare
+    /// equal, ES emits hits in internal doc-id order == arrival order.
+    /// Post-B1 (seq_no-sorted merges) that is exactly `seq_no` ASC.  The
+    /// former `_id`-lexicographic tie-break returned "11, 12035, …, 4019"
+    /// where ES returns "11, 4019, 8027, …" (live-verified DIFF on the
+    /// sort-heavy cell, 2026-07-11).  Resolved via `lookup_seq_no` at the
+    /// call site — the SAME routine the score-sort path decorates with —
+    /// so heap eviction and final ordering agree across memtable/segment
+    /// sources.  `u64::MAX` when unresolvable (falls to the `_id` chain).
+    seq: u64,
     fields: Arc<Vec<xerj_query::sort::SortField>>,
 }
 impl PartialEq for SortHeapEntry {
@@ -18400,6 +18435,7 @@ impl PartialOrd for SortHeapEntry {
 impl Ord for SortHeapEntry {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         xerj_query::sort::compare_sort_keys(&self.hit.sort, &other.hit.sort, &self.fields)
+            .then_with(|| self.seq.cmp(&other.seq))
             .then_with(|| self.hit.id.cmp(&other.hit.id))
     }
 }
@@ -18463,21 +18499,23 @@ impl SortTopK {
         true
     }
     /// Offer a fully-sourced hit.  Computes its sort key from `_source`,
-    /// then delegates to `offer_keyed`.
-    fn offer(&mut self, mut hit: Hit) {
+    /// then delegates to `offer_keyed`.  `seq` is the hit's insertion-order
+    /// tie-break (see `SortHeapEntry::seq`).
+    fn offer(&mut self, mut hit: Hit, seq: u64) {
         hit.sort = compute_sort_values(&hit.source, hit.score, &hit.id, &self.fields);
-        self.offer_keyed(hit);
+        self.offer_keyed(hit, seq);
     }
     /// Offer a hit whose `sort` key is already computed.  Applies the
     /// cursor + heap-worst rejection, inserts into the bounded heap, and
     /// evicts the current worst (the element that sorts last) when over
     /// capacity.
-    fn offer_keyed(&mut self, hit: Hit) {
+    fn offer_keyed(&mut self, hit: Hit, seq: u64) {
         if !self.would_admit(&hit.sort) {
             return;
         }
         self.heap.push(SortHeapEntry {
             hit,
+            seq,
             fields: Arc::clone(&self.fields),
         });
         if self.heap.len() > self.cap {
@@ -19399,7 +19437,22 @@ fn compute_sort_values(
             // reindex) compare correctly. Matches ES, which echoes the id.
             Value::String(id.to_string())
         } else {
-            let raw = get_field_value(source, &sf.field).unwrap_or(Value::Null);
+            // `.keyword` is ES's conventional multi-field sub-type on
+            // dynamic/keyword fields: sorting on `foo.keyword` reads the
+            // keyword doc values DERIVED from `foo`'s string value, so when
+            // the literal path is absent from `_source`, fall back to the
+            // base field (same convention as `docvalue_fields` in
+            // es_compat.rs).  Without this the key resolved Null for every
+            // doc and the whole result set "tied" — an ordering defect the
+            // old `_id`-lexicographic tie-break happened to mask on the
+            // synthetic-source YAML suite (ids 1..4 in lex order matched
+            // the value order by luck; the seq_no tie-break exposed it).
+            let raw = get_field_value(source, &sf.field)
+                .or_else(|| {
+                    let base = sf.field.strip_suffix(".keyword")?;
+                    get_field_value(source, base)
+                })
+                .unwrap_or(Value::Null);
             match raw {
                 Value::String(ref s) if looks_like_date(s) => {
                     date_string_to_epoch(s).unwrap_or(raw)
