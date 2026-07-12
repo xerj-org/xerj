@@ -727,6 +727,17 @@ fn parse_term(params: &Value) -> Result<QueryNode> {
                     field,
                     value: val_str,
                     boost,
+                    // KNOWN DIFF (live-verified vs ES 8.13.4): ES lowers
+                    // `term{case_insensitive:true}` to a case-insensitive
+                    // automaton query with the CONSTANT_SCORE rewrite
+                    // (max_score 1.0), while this keeps BM25 (1.2821425).
+                    // `constant_score: true` here is NOT safe yet: it
+                    // admits the shape to the columnar KeywordWildcard
+                    // leaf, whose dictionary narrowing is CASE-SENSITIVE —
+                    // a mixed-case value then returns 0 hits (hit-set
+                    // regression ≫ score diff). Fixing the score requires
+                    // threading `case_insensitive` through
+                    // QueryNode::Wildcard into the columnar/FST arms.
                     constant_score: false,
                 };
                 return Ok(maybe_named(node, name));
@@ -1600,11 +1611,20 @@ fn parse_qs_unary(
             // in the query_string path only.  Harmless for keyword fields, whose
             // FST-wildcard route case-folds both sides regardless.
             if value.contains('*') || value.contains('?') {
+                // ES's query_string parser produces a WildcardQuery (or
+                // PrefixQuery for a trailing `*`) with the default
+                // CONSTANT_SCORE rewrite — every match scores a flat 1.0
+                // (× boost), no BM25 — exactly like the standalone
+                // `wildcard` / `prefix` queries (4c69c05).  Live-verified
+                // vs ES 8.13.4: `model:claude-*` → max_score 1.0,
+                // `model:claude-* AND status:ok` → 1.0 + BM25(status:ok).
+                // `constant_score: true` also admits the keyword shape to
+                // the columnar Filtered plan (seq-ascending → ES tie order).
                 return Some(QueryNode::Wildcard {
                     field: f,
                     value: value.to_lowercase(),
                     boost: None,
-                    constant_score: false,
+                    constant_score: true,
                 });
             }
             Some(QueryNode::Match {
