@@ -271,6 +271,39 @@ fn load_config(args: &CliArgs) -> Result<Config> {
 // Admin API key
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Write a secret to `path`, readable by the owner only (0600) — the same
+/// posture as the Xerj Console master key (`bootstrap.rs`,
+/// `set_owner_readable_only`).
+///
+/// RC4 W2 #21: the admin API key and the TLS private key were written with
+/// `std::fs::write`, which creates files as `0666 & !umask` = 0664 on stock
+/// Linux — group/world-readable secrets. On unix the file is now *created*
+/// 0600 (`OpenOptions::mode`), so there is no window where another user can
+/// open it; the explicit `set_permissions` afterwards tightens files that
+/// already exist from an earlier version (a create mode never applies to a
+/// pre-existing file).
+fn write_secret_file(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+
+    let mut opts = std::fs::OpenOptions::new();
+    opts.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.mode(0o600);
+    }
+    let mut f = opts.open(path)?;
+    f.write_all(contents)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perm = f.metadata()?.permissions();
+        perm.set_mode(0o600);
+        f.set_permissions(perm)?;
+    }
+    Ok(())
+}
+
 fn ensure_admin_key(cfg: &mut Config) -> Result<()> {
     if !cfg.auth.enabled || !cfg.auth.admin_api_key.is_empty() {
         return Ok(());
@@ -293,7 +326,10 @@ fn ensure_admin_key(cfg: &mut Config) -> Result<()> {
 
     let data_dir = Path::new(&cfg.server.data_dir);
     if std::fs::create_dir_all(data_dir).is_ok() {
-        let _ = std::fs::write(data_dir.join("admin.key"), &key);
+        // 0600 — this file IS the admin credential (RC4 W2 #21).
+        if let Err(e) = write_secret_file(&data_dir.join("admin.key"), key.as_bytes()) {
+            warn!("could not persist admin.key: {e}");
+        }
     }
 
     cfg.auth.admin_api_key = key;
@@ -317,6 +353,51 @@ fn ensure_tls_cert(cfg: &mut Config) -> Result<()> {
             "using TLS cert from {} / {}",
             cfg.tls.cert_path, cfg.tls.key_path
         );
+        // RC4 W2 #21 (legacy remediation): versions before this fix wrote the
+        // auto-generated key 0664, and this reuse path never rewrites the
+        // file — without a fixup here an old deployment keeps its
+        // world-readable TLS key forever. Tighten it to 0600 *only* when it
+        // is OUR auto-generated key (`<data_dir>/xerj.key`); an
+        // operator-supplied key may be group-readable by design (e.g. an
+        // ssl-cert group shared across services), so warn without touching
+        // their permissions.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let key_path = Path::new(&cfg.tls.key_path);
+            if let Ok(meta) = std::fs::metadata(key_path) {
+                let mode = meta.permissions().mode() & 0o777;
+                if mode & 0o077 != 0 {
+                    let autogen = Path::new(&cfg.server.data_dir).join("xerj.key");
+                    // Canonicalize both sides so `./data/xerj.key` and an
+                    // absolute spelling of the same file compare equal.
+                    let is_autogen = key_path
+                        .canonicalize()
+                        .ok()
+                        .zip(autogen.canonicalize().ok())
+                        .map(|(a, b)| a == b)
+                        .unwrap_or(false);
+                    if is_autogen {
+                        let mut perm = meta.permissions();
+                        perm.set_mode(0o600);
+                        match std::fs::set_permissions(key_path, perm) {
+                            Ok(()) => {
+                                info!("tightened {} to 0600 (was {mode:o})", cfg.tls.key_path)
+                            }
+                            Err(e) => warn!(
+                                "could not tighten {} (mode {mode:o}) to 0600: {e}",
+                                cfg.tls.key_path
+                            ),
+                        }
+                    } else {
+                        warn!(
+                            "TLS private key {} is group/world-readable (mode {mode:o}) — consider chmod 0600",
+                            cfg.tls.key_path
+                        );
+                    }
+                }
+            }
+        }
         return Ok(());
     }
 
@@ -331,9 +412,11 @@ fn ensure_tls_cert(cfg: &mut Config) -> Result<()> {
     let cert_path = data_dir.join("xerj.crt");
     let key_path = data_dir.join("xerj.key");
 
+    // The certificate is public material — default perms are fine.  The
+    // private key is a secret: created 0600 (RC4 W2 #21).
     std::fs::write(&cert_path, cert.cert.pem())
         .with_context(|| format!("write cert to {}", cert_path.display()))?;
-    std::fs::write(&key_path, cert.key_pair.serialize_pem())
+    write_secret_file(&key_path, cert.key_pair.serialize_pem().as_bytes())
         .with_context(|| format!("write key to {}", key_path.display()))?;
 
     cfg.tls.cert_path = cert_path.to_string_lossy().into_owned();
@@ -1340,9 +1423,9 @@ mod tls_tests {
     }
 }
 
-/// RC4 W2 #20 regression test. Like `tls_tests` above, it lives in the
-/// binary crate because `spawn_periodic_flusher` is a private item of
-/// `main.rs`.
+/// RC4 W2 #20/#21 regression tests. Like `tls_tests` above, these live in
+/// the binary crate because `spawn_periodic_flusher` / `write_secret_file`
+/// are private items of `main.rs`.
 #[cfg(test)]
 mod server_correctness_tests {
     use super::*;
@@ -1421,5 +1504,37 @@ mod server_correctness_tests {
             flushed,
             "periodic flusher never flushed the over-threshold replayed memtable"
         );
+    }
+
+    /// RC4 W2 #21: secrets written by the server (admin API key, TLS
+    /// private key) must be owner-readable only, and a pre-existing
+    /// group/world-readable secret from an earlier version must be
+    /// tightened when rewritten.
+    #[cfg(unix)]
+    #[test]
+    fn write_secret_file_creates_owner_only_and_tightens_existing() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = TempDir::new().unwrap();
+
+        // Fresh file: created 0600 regardless of umask.
+        let fresh = dir.path().join("admin.key");
+        write_secret_file(&fresh, b"sekrit").unwrap();
+        let mode = std::fs::metadata(&fresh).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600, "fresh secret must be 0600, got {mode:o}");
+        assert_eq!(std::fs::read(&fresh).unwrap(), b"sekrit");
+
+        // Pre-existing 0664 file (as written by versions before this fix):
+        // rewriting it must tighten the mode, not inherit it.
+        let stale = dir.path().join("xerj.key");
+        std::fs::write(&stale, b"old").unwrap();
+        let mut perm = std::fs::metadata(&stale).unwrap().permissions();
+        perm.set_mode(0o664);
+        std::fs::set_permissions(&stale, perm).unwrap();
+
+        write_secret_file(&stale, b"new").unwrap();
+        let mode = std::fs::metadata(&stale).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600, "rewritten secret must be tightened to 0600");
+        assert_eq!(std::fs::read(&stale).unwrap(), b"new");
     }
 }
