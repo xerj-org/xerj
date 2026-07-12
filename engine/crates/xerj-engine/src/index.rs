@@ -21225,6 +21225,27 @@ fn scored_fast_plan(
                 kind: ScoredLeafKind::NumericEq(query.parse::<f64>().ok()?),
                 boost: mult * scoring_boost(boost)?,
             }),
+            // match_phrase on a KEYWORD field: the keyword analyzer emits one
+            // whole-value token, so the "phrase" degenerates to exact term
+            // equality — identical semantics AND scoring to `match` on the
+            // same keyword field (the arm above; ES builds the same
+            // TermQuery). Mirrors the FTS lowering in `query_node_to_fts`
+            // (which routes keyword match_phrase to `FtsTerm`), but lands on
+            // the columnar TopKCand path instead of the O(matches) postings
+            // enumeration. `slop` is irrelevant for a single-position term
+            // (Lucene ignores slop on 1-term phrases); a custom `analyzer`
+            // bails to the brute path.
+            QueryNode::MatchPhrase {
+                field,
+                query,
+                analyzer: None,
+                boost,
+                ..
+            } if fs.kw.contains(field) => Some(ScoredLeaf {
+                field: field.clone(),
+                kind: ScoredLeafKind::Keyword(query.clone()),
+                boost: mult * scoring_boost(boost)?,
+            }),
             _ => None,
         }
     }
@@ -21366,7 +21387,7 @@ fn scored_fast_plan(
                     tie_breaker: *tie_breaker,
                 })
             }
-            QueryNode::Term { .. } | QueryNode::Match { .. } => {
+            QueryNode::Term { .. } | QueryNode::Match { .. } | QueryNode::MatchPhrase { .. } => {
                 Some(ScoredClause::Leaf(scoring_leaf(node, mult, fs)?))
             }
             // multi_match(best_fields) over keyword/numeric fields lowers to
@@ -21610,7 +21631,8 @@ fn scored_fast_plan(
         | QueryNode::Boosted { .. }
         | QueryNode::Term { .. }
         | QueryNode::MultiMatch { .. }
-        | QueryNode::Match { .. } => {
+        | QueryNode::Match { .. }
+        | QueryNode::MatchPhrase { .. } => {
             let root = match scoring_clause(query, 1.0, &fs)? {
                 leaf @ ScoredClause::Leaf(_) => ScoredClause::Bool {
                     must: vec![leaf],
