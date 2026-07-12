@@ -4843,3 +4843,114 @@ async fn test_restore_snapshot_honors_indices_filter() {
     );
 }
 
+/// Blocker 7: top-level kNN semantics, verified against live ES 8.13.4 on
+/// 2026-07-12 with this exact corpus:
+///   * `knn.filter` pre-filters candidates (ES returned ids 1,3);
+///   * `knn.similarity` (raw cosine cutoff) drops sub-threshold docs from
+///     hits AND `hits.total` (ES: total 2, ids 1,2);
+///   * `boost` multiplies scores AFTER the cutoff (ES: 2.0 / ~1.9939);
+///   * multiple knn clauses (`bool.should` of Knn nodes — the compat layer's
+///     synthesis of the `knn: [...]` array) run per-clause top-k and SUM
+///     scores over the union (ES: total 2, both scored 1.0).
+#[tokio::test]
+async fn test_knn_filter_similarity_boost_and_multi_clause() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    let mut schema = Schema::empty();
+    let mut vf = FieldConfig::new("v", FieldType::Vector);
+    vf.options.dimensions = Some(3);
+    vf.options.similarity = Some("cosine".to_string());
+    schema.fields.push(vf);
+    schema
+        .fields
+        .push(FieldConfig::new("tag", FieldType::Keyword));
+    engine.create_index("knnidx", schema).unwrap();
+    let idx = engine.get_index("knnidx").unwrap();
+
+    idx.index_document(Some("1".into()), json!({"v": [1.0, 0.0, 0.0], "tag": "a"}))
+        .await
+        .unwrap();
+    idx.index_document(Some("2".into()), json!({"v": [0.9, 0.1, 0.0], "tag": "b"}))
+        .await
+        .unwrap();
+    idx.index_document(Some("3".into()), json!({"v": [0.0, 1.0, 0.0], "tag": "a"}))
+        .await
+        .unwrap();
+
+    let run = |body: Value| {
+        let req = parse_request(&body).expect("parse_request");
+        let idx = idx.clone();
+        async move { idx.search(&req).await.unwrap() }
+    };
+
+    // knn.filter: only tag=a docs may enter the top-k (ES: ids 1,3).
+    let filtered = run(json!({
+        "query": {"knn": {"field": "v", "query_vector": [1.0, 0.0, 0.0], "k": 2,
+                           "filter": {"term": {"tag": "a"}}}},
+        "size": 10
+    }))
+    .await;
+    let ids: Vec<&str> = filtered.hits.iter().map(|h| h.id.as_str()).collect();
+    assert_eq!(
+        ids,
+        vec!["1", "3"],
+        "filter must exclude tag=b from the pool"
+    );
+
+    // knn.similarity: raw cosine cutoff 0.9 keeps ids 1,2 only, and the
+    // excluded doc leaves hits.total too (ES: total 2).
+    let cut = run(json!({
+        "query": {"knn": {"field": "v", "query_vector": [1.0, 0.0, 0.0], "k": 3,
+                           "similarity": 0.9}},
+        "size": 10
+    }))
+    .await;
+    assert_eq!(
+        cut.total.value, 2,
+        "sub-threshold doc must leave hits.total"
+    );
+    let ids: Vec<&str> = cut.hits.iter().map(|h| h.id.as_str()).collect();
+    assert_eq!(ids, vec!["1", "2"]);
+
+    // boost multiplies AFTER the cutoff (ES: scores 2.0 and ~1.9939).
+    let boosted = run(json!({
+        "query": {"knn": {"field": "v", "query_vector": [1.0, 0.0, 0.0], "k": 3,
+                           "similarity": 0.9, "boost": 2.0}},
+        "size": 10
+    }))
+    .await;
+    assert_eq!(boosted.total.value, 2);
+    assert!(
+        (boosted.hits[0].score - 2.0).abs() < 1e-3,
+        "top score must be 2.0, got {}",
+        boosted.hits[0].score
+    );
+    assert!(
+        (boosted.hits[1].score - 1.9939).abs() < 1e-3,
+        "second score must be ~1.9939, got {}",
+        boosted.hits[1].score
+    );
+
+    // Multi-knn union: per-clause top-1, summed scores over the dedup'd
+    // union (ES: total 2, ids {1,3}, each scored 1.0).
+    let multi = run(json!({
+        "query": {"bool": {"should": [
+            {"knn": {"field": "v", "query_vector": [1.0, 0.0, 0.0], "k": 1}},
+            {"knn": {"field": "v", "query_vector": [0.0, 1.0, 0.0], "k": 1}}
+        ]}},
+        "size": 10
+    }))
+    .await;
+    assert_eq!(multi.total.value, 2, "union of the two top-1 pools");
+    let mut ids: Vec<&str> = multi.hits.iter().map(|h| h.id.as_str()).collect();
+    ids.sort_unstable();
+    assert_eq!(ids, vec!["1", "3"]);
+    for h in &multi.hits {
+        assert!(
+            (h.score - 1.0).abs() < 1e-3,
+            "per-clause exact-match scores must both be 1.0, got {}",
+            h.score
+        );
+    }
+}

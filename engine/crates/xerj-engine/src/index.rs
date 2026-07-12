@@ -3919,6 +3919,7 @@ impl Index {
     /// behaviour (BBQ disk quantisation, IVF clustering) are not
     /// necessary for wire-correctness on these tests because the
     /// expected doc order is deterministic given exact scoring.
+    #[allow(clippy::too_many_arguments)]
     pub async fn run_knn_brute_force(
         &self,
         request: &SearchRequest,
@@ -3927,6 +3928,8 @@ impl Index {
         k: usize,
         filter: Option<Box<QueryNode>>,
         similarity: &str,
+        boost: Option<f32>,
+        min_similarity: Option<f32>,
     ) -> Result<SearchResult> {
         let started = std::time::Instant::now();
 
@@ -4167,10 +4170,87 @@ impl Index {
             }
         }
 
+        // ── ES `knn.similarity` cutoff ─────────────────────────────────
+        // Convert the RAW-metric threshold into the equivalent
+        // transformed-score threshold (the same transform
+        // `compute_vector_similarity` applies to candidates) and drop
+        // everything below it BEFORE ranking, so `hits.total` reflects
+        // the cutoff — ES 8.13 excludes sub-threshold docs from hits AND
+        // total (live-verified 2026-07-12).
+        if let Some(raw) = min_similarity {
+            let cut = raw_similarity_to_score(similarity, raw);
+            scored.retain(|(_, s, _)| *s >= cut);
+        }
+        // ES applies `boost` to the final `_score` AFTER the similarity
+        // cutoff (a boosted sub-threshold doc stays excluded; a boosted
+        // passing doc scores `transform(sim) * boost`).
+        if let Some(b) = boost {
+            if (b - 1.0).abs() > f32::EPSILON {
+                for (_, s, _) in scored.iter_mut() {
+                    *s *= b;
+                }
+            }
+        }
+
         // ── Rank, cap the candidate pool at k, then paginate ──────────
         // (shared with the HNSW path so hits format / total semantics
         // cannot drift between the exact and approximate executors)
         Ok(knn_result_from_scored(request, scored, k, started))
+    }
+
+    /// PURE multi-KNN executor (the ES top-level `knn: [...]` array form,
+    /// synthesised by the compat layer as `bool.should` of Knn nodes).
+    ///
+    /// ES 8.13 semantics (live-verified 2026-07-12 against 8.13.4):
+    ///   * each clause independently retrieves its own top `k_i`;
+    ///   * a doc found by multiple clauses scores the SUM of its
+    ///     per-clause scores (each already boosted/cut per clause);
+    ///   * `hits.total` is the size of the deduplicated union.
+    async fn run_multi_knn_brute_force(
+        &self,
+        request: &SearchRequest,
+        clauses: Vec<PeeledKnn>,
+    ) -> Result<SearchResult> {
+        let started = std::time::Instant::now();
+        let mut merged: Vec<(String, f32, Value)> = Vec::new();
+        let mut slot_by_id: HashMap<String, usize> = HashMap::new();
+        let mut k_sum: usize = 0;
+        for clause in clauses {
+            k_sum = k_sum.saturating_add(clause.k);
+            let similarity = {
+                let schema = self.schema.read().await;
+                lookup_vector_similarity(&schema.schema, &clause.field)
+            };
+            // Per-clause top-k: window the sub-search to exactly the
+            // clause's own pool so the union matches ES's per-clause
+            // retrieval (from/size pagination applies to the MERGED
+            // list below, not to each clause).
+            let mut sub_request = request.clone();
+            sub_request.from = 0;
+            sub_request.size = clause.k;
+            let sub = self
+                .run_knn_brute_force(
+                    &sub_request,
+                    &clause.field,
+                    &clause.vector,
+                    clause.k,
+                    clause.filter,
+                    &similarity,
+                    clause.boost,
+                    clause.similarity,
+                )
+                .await?;
+            for hit in sub.hits {
+                match slot_by_id.get(&hit.id) {
+                    Some(&i) => merged[i].1 += hit.score,
+                    None => {
+                        slot_by_id.insert(hit.id.clone(), merged.len());
+                        merged.push((hit.id, hit.score, hit.source));
+                    }
+                }
+            }
+        }
+        Ok(knn_result_from_scored(request, merged, k_sum, started))
     }
 
     /// Brute-force nested KNN: score each parent by the best (max)
@@ -4271,8 +4351,17 @@ impl Index {
             )));
         };
 
-        self.run_knn_brute_force(request, &knn_field, &query_vec, k, filter, &similarity)
-            .await
+        self.run_knn_brute_force(
+            request,
+            &knn_field,
+            &query_vec,
+            k,
+            filter,
+            &similarity,
+            None,
+            None,
+        )
+        .await
     }
 
     /// Auto-embed `semantic_text` fields on ingest.
@@ -5513,12 +5602,25 @@ impl Index {
         // exact brute-force scan below. Filtered knn stays exact brute
         // force with a pre-filter, where `num_candidates` (the ANN fan-out)
         // has no effect.
-        if let Some((field, query_vec, k, num_candidates, filter_opt)) = peel_knn_query(query) {
+        if let Some(peeled) = peel_knn_query(query) {
+            let PeeledKnn {
+                field,
+                vector: query_vec,
+                k,
+                num_candidates,
+                filter: filter_opt,
+                boost,
+                similarity: min_similarity,
+            } = peeled;
             let similarity = {
                 let schema = self.schema.read().await;
                 lookup_vector_similarity(&schema.schema, &field)
             };
-            if filter_opt.is_none() {
+            // The HNSW ANN path serves only the PLAIN case: no filter, no
+            // boost, no similarity cutoff. Boost/cutoff requests go exact
+            // brute force where both are applied in the right order
+            // (cutoff on the unboosted transformed score, then boost).
+            if filter_opt.is_none() && boost.is_none() && min_similarity.is_none() {
                 if let Some(result) = self
                     .run_knn_hnsw(request, &field, &query_vec, k, num_candidates, &similarity)
                     .await
@@ -5527,8 +5629,24 @@ impl Index {
                 }
             }
             return self
-                .run_knn_brute_force(request, &field, &query_vec, k, filter_opt, &similarity)
+                .run_knn_brute_force(
+                    request,
+                    &field,
+                    &query_vec,
+                    k,
+                    filter_opt,
+                    &similarity,
+                    boost,
+                    min_similarity,
+                )
                 .await;
+        }
+        // PURE multi-KNN (the ES `knn: [...]` array form): every clause runs
+        // its own exact top-k, scores are SUMMED for docs found by more than
+        // one clause, and `hits.total` is the size of the deduplicated union
+        // — matching ES 8.13 multi-kNN semantics (live-verified 2026-07-12).
+        if let Some(clauses) = peel_multi_knn_query(query) {
+            return self.run_multi_knn_brute_force(request, clauses).await;
         }
         // Nested `knn` query: `nested { path: P, query: { knn { field: P.vec } } }`.
         // ES scores each parent by the best-matching nested element and
@@ -15232,6 +15350,30 @@ pub fn resolve_field_alias(schema: &Schema, field: &str) -> String {
 /// scores stay byte-identical between the brute-force knn path and
 /// the script_score-via-Painless path, which is what
 /// 46_knn_search_bbq_ivf's "rescore vector consistency" tests assert.
+/// Convert an ES `knn.similarity` RAW-metric threshold into the equivalent
+/// transformed `_score` threshold, using the SAME transforms
+/// `compute_vector_similarity` applies to candidates:
+///   cosine / dot_product → (1 + raw) / 2
+///   l2_norm (raw = max distance) → 1 / (1 + raw²)
+///   max_inner_product → raw < 0 ? 1/(1 - raw) : raw + 1
+/// These mirror ES 8.13's `DenseVectorFieldMapper.VectorSimilarity#score`.
+fn raw_similarity_to_score(sim: &str, raw: f32) -> f32 {
+    let raw = raw as f64;
+    let score: f64 = match sim {
+        "l2_norm" => 1.0 / (1.0 + raw * raw),
+        "max_inner_product" => {
+            if raw < 0.0 {
+                1.0 / (1.0 - raw)
+            } else {
+                raw + 1.0
+            }
+        }
+        // cosine (default) and dot_product share the same transform.
+        _ => (1.0 + raw) / 2.0,
+    };
+    score as f32
+}
+
 fn compute_vector_similarity(sim: &str, a: &[f32], b: &[f32]) -> f32 {
     debug_assert_eq!(a.len(), b.len());
     let dot: f64 = a
@@ -15391,23 +15533,32 @@ fn collect_dense_vector_fields(schema: &Schema) -> Vec<String> {
     out
 }
 
+/// A top-level KNN query unwrapped for the short-circuit executor.
+#[derive(Debug, Clone)]
+struct PeeledKnn {
+    field: String,
+    vector: Vec<f32>,
+    k: usize,
+    num_candidates: Option<usize>,
+    filter: Option<Box<QueryNode>>,
+    /// Multiplied into every hit's score AFTER the similarity cutoff
+    /// (mirrors ES: the cutoff applies to raw similarity, boost to the
+    /// final `_score`). Wrapping `Boosted` nodes multiply in here too.
+    boost: Option<f32>,
+    /// ES `knn.similarity` raw-metric cutoff (see `QueryNode::Knn`).
+    similarity: Option<f32>,
+}
+
 /// Unwrap a top-level Knn query, optionally nested under a single transparent
 /// wrapper (Boosted, Constant, Named, or a single-clause Bool must/should).
-/// Returns `(field, query_vector, k, filter)` when the query is a KNN
-/// short-circuit candidate, `None` otherwise.
+/// Returns the peeled spec when the query is a KNN short-circuit candidate,
+/// `None` otherwise.
 ///
 /// Filters attached to the Knn node are preserved; filters attached to the
-/// wrapping Bool are merged in via Bool::filter semantics.
-#[allow(clippy::type_complexity)]
-fn peel_knn_query(
-    q: &QueryNode,
-) -> Option<(
-    String,
-    Vec<f32>,
-    usize,
-    Option<usize>,
-    Option<Box<QueryNode>>,
-)> {
+/// wrapping Bool are merged in via Bool::filter semantics. A wrapping
+/// `Boosted` multiplies into the knn boost so `{"knn": {..., "boost": b}}`
+/// and `bool.should=[{knn}]`-style wrappers score identically to ES.
+fn peel_knn_query(q: &QueryNode) -> Option<PeeledKnn> {
     match q {
         QueryNode::Knn {
             field,
@@ -15415,17 +15566,23 @@ fn peel_knn_query(
             k,
             num_candidates,
             filter,
-            ..
-        } => Some((
-            field.clone(),
-            vector.clone(),
-            *k,
-            *num_candidates,
-            filter.clone(),
-        )),
-        QueryNode::Constant { query, .. }
-        | QueryNode::Boosted { query, .. }
-        | QueryNode::Named { query, .. } => peel_knn_query(query),
+            boost,
+            similarity,
+        } => Some(PeeledKnn {
+            field: field.clone(),
+            vector: vector.clone(),
+            k: *k,
+            num_candidates: *num_candidates,
+            filter: filter.clone(),
+            boost: *boost,
+            similarity: *similarity,
+        }),
+        QueryNode::Boosted { query, boost } => {
+            let mut peeled = peel_knn_query(query)?;
+            peeled.boost = Some(boost * peeled.boost.unwrap_or(1.0));
+            Some(peeled)
+        }
+        QueryNode::Constant { query, .. } | QueryNode::Named { query, .. } => peel_knn_query(query),
         QueryNode::Bool {
             must,
             should,
@@ -15442,13 +15599,13 @@ fn peel_knn_query(
             if candidates.len() != 1 {
                 return None;
             }
-            let (f, v, k, nc, inner_filter) = peel_knn_query(candidates[0])?;
+            let mut peeled = peel_knn_query(candidates[0])?;
             // Combine inner_filter + bool's filter clauses.
             let mut merged_filters: Vec<QueryNode> = filter.clone();
-            if let Some(fi) = inner_filter {
+            if let Some(fi) = peeled.filter.take() {
                 merged_filters.push(*fi);
             }
-            let final_filter: Option<Box<QueryNode>> = match merged_filters.len() {
+            peeled.filter = match merged_filters.len() {
                 0 => None,
                 1 => Some(Box::new(merged_filters.into_iter().next().unwrap())),
                 _ => Some(Box::new(QueryNode::Bool {
@@ -15459,7 +15616,43 @@ fn peel_knn_query(
                     minimum_should_match: None,
                 })),
             };
-            Some((f, v, k, nc, final_filter))
+            Some(peeled)
+        }
+        _ => None,
+    }
+}
+
+/// Unwrap a PURE multi-KNN query: a `bool` whose `should` clauses are ALL
+/// Knn nodes (>= 2) and nothing else. This is the shape the ES-compat layer
+/// synthesises for the top-level `knn: [...]` array form. Returns the peeled
+/// clauses, or `None` for any other shape (which falls through to the
+/// generic path, exactly as before).
+fn peel_multi_knn_query(q: &QueryNode) -> Option<Vec<PeeledKnn>> {
+    match q {
+        QueryNode::Named { query, .. } => peel_multi_knn_query(query),
+        QueryNode::Bool {
+            must,
+            should,
+            filter,
+            must_not,
+            minimum_should_match,
+        } => {
+            if !must.is_empty()
+                || !filter.is_empty()
+                || !must_not.is_empty()
+                || minimum_should_match.is_some()
+                || should.len() < 2
+            {
+                return None;
+            }
+            let mut out: Vec<PeeledKnn> = Vec::with_capacity(should.len());
+            for clause in should {
+                match clause {
+                    QueryNode::Knn { .. } => out.push(peel_knn_query(clause)?),
+                    _ => return None,
+                }
+            }
+            Some(out)
         }
         _ => None,
     }
@@ -15713,7 +15906,14 @@ fn peel_nested_knn_query(
         QueryNode::Nested { path, query, .. } => (path.clone(), query.as_ref()),
         _ => return None,
     };
-    let (field, vector, k, num_candidates, inner_filter) = peel_knn_query(inner_q)?;
+    let peeled = peel_knn_query(inner_q)?;
+    let (field, vector, k, num_candidates, inner_filter) = (
+        peeled.field,
+        peeled.vector,
+        peeled.k,
+        peeled.num_candidates,
+        peeled.filter,
+    );
     // Knn's own filter sub-query is a pre-filter.
     let mut pre_all: Vec<QueryNode> = pre_filters;
     if let Some(f) = inner_filter {
@@ -23709,6 +23909,7 @@ mod knn_num_candidates_tests {
                 num_candidates,
                 filter: None,
                 boost: None,
+                similarity: None,
             }),
             score_mode: None,
         }
@@ -23745,11 +23946,78 @@ mod knn_num_candidates_tests {
             num_candidates: Some(64),
             filter: None,
             boost: None,
+            similarity: None,
         };
         let peeled = peel_knn_query(&q).expect("knn peels");
-        // Tuple: (field, vector, k, num_candidates, filter).
-        assert_eq!(peeled.2, 5, "k");
-        assert_eq!(peeled.3, Some(64), "num_candidates");
+        assert_eq!(peeled.k, 5, "k");
+        assert_eq!(peeled.num_candidates, Some(64), "num_candidates");
+    }
+
+    /// A wrapping `Boosted` multiplies into the peeled knn boost, and the
+    /// knn node's own `boost`/`similarity` are carried through the peel.
+    #[test]
+    fn peel_carries_boost_and_similarity() {
+        let inner = QueryNode::Knn {
+            field: "vec".into(),
+            vector: vec![0.1, 0.2],
+            k: 5,
+            num_candidates: None,
+            filter: None,
+            boost: Some(2.0),
+            similarity: Some(0.9),
+        };
+        let q = QueryNode::Boosted {
+            boost: 3.0,
+            query: Box::new(inner),
+        };
+        let peeled = peel_knn_query(&q).expect("knn peels");
+        assert_eq!(peeled.boost, Some(6.0), "outer boost multiplies inner");
+        assert_eq!(peeled.similarity, Some(0.9), "similarity carried");
+    }
+
+    /// `bool.should` of >= 2 knn clauses (the ES `knn: [...]` array form)
+    /// peels as a multi-knn; any non-knn sibling clause disqualifies it.
+    #[test]
+    fn peel_multi_knn_shapes() {
+        let knn = |x: f32| QueryNode::Knn {
+            field: "vec".into(),
+            vector: vec![x, 0.0],
+            k: 3,
+            num_candidates: None,
+            filter: None,
+            boost: None,
+            similarity: None,
+        };
+        let pure = QueryNode::Bool {
+            must: vec![],
+            should: vec![knn(1.0), knn(0.5)],
+            filter: vec![],
+            must_not: vec![],
+            minimum_should_match: None,
+        };
+        let clauses = peel_multi_knn_query(&pure).expect("pure multi-knn peels");
+        assert_eq!(clauses.len(), 2);
+        assert_eq!(clauses[0].k, 3);
+
+        let hybrid = QueryNode::Bool {
+            must: vec![],
+            should: vec![
+                knn(1.0),
+                QueryNode::Term {
+                    field: "tag".into(),
+                    value: serde_json::json!("a"),
+                    boost: None,
+                },
+                knn(0.5),
+            ],
+            filter: vec![],
+            must_not: vec![],
+            minimum_should_match: None,
+        };
+        assert!(
+            peel_multi_knn_query(&hybrid).is_none(),
+            "non-knn sibling must fall through to the generic path"
+        );
     }
 }
 

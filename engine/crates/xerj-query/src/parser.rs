@@ -2273,13 +2273,36 @@ fn parse_knn(params: &Value) -> Result<QueryNode> {
         })
         .collect::<Result<Vec<f32>>>()?;
 
-    let filter = obj
-        .get("filter")
-        .map(parse_query)
-        .transpose()?
-        .map(Box::new);
+    // ES accepts `filter` as a single query object OR an array of queries
+    // (implicitly ANDed, exactly like `bool.filter`).
+    let filter = match obj.get("filter") {
+        None => None,
+        Some(Value::Array(arr)) => {
+            let parsed: Vec<QueryNode> = arr.iter().map(parse_query).collect::<Result<_>>()?;
+            match parsed.len() {
+                0 => None,
+                1 => Some(Box::new(parsed.into_iter().next().unwrap())),
+                _ => Some(Box::new(QueryNode::Bool {
+                    must: Vec::new(),
+                    should: Vec::new(),
+                    filter: parsed,
+                    must_not: Vec::new(),
+                    minimum_should_match: None,
+                })),
+            }
+        }
+        Some(single) => Some(Box::new(parse_query(single)?)),
+    };
 
     let boost = obj.get("boost").and_then(|v| v.as_f64()).map(|b| b as f32);
+
+    // ES `knn.similarity` — raw-metric similarity cutoff (docs below it
+    // are not matches). Kept raw here; the executor converts it into the
+    // equivalent transformed-score threshold per the field's metric.
+    let similarity = obj
+        .get("similarity")
+        .and_then(|v| v.as_f64())
+        .map(|s| s as f32);
 
     Ok(QueryNode::Knn {
         field,
@@ -2288,6 +2311,7 @@ fn parse_knn(params: &Value) -> Result<QueryNode> {
         num_candidates,
         filter,
         boost,
+        similarity,
     })
 }
 

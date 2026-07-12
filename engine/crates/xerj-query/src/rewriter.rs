@@ -213,6 +213,7 @@ fn rewrite_once(query: QueryNode) -> (QueryNode, bool) {
             num_candidates,
             filter,
             boost,
+            similarity,
         } => match filter {
             None => (
                 QueryNode::Knn {
@@ -222,6 +223,7 @@ fn rewrite_once(query: QueryNode) -> (QueryNode, bool) {
                     num_candidates,
                     filter: None,
                     boost,
+                    similarity,
                 },
                 false,
             ),
@@ -235,6 +237,7 @@ fn rewrite_once(query: QueryNode) -> (QueryNode, bool) {
                         num_candidates,
                         filter: Some(Box::new(f2)),
                         boost,
+                        similarity,
                     },
                     changed,
                 )
