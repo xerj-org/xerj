@@ -90,7 +90,6 @@ impl TextChunker {
 
         let mut chunks = Vec::new();
         let mut chunk_start_char = 0usize; // char index
-        let step = self.chunk_size - self.overlap;
 
         while chunk_start_char < char_count {
             let chunk_end_char = (chunk_start_char + self.chunk_size).min(char_count);
@@ -126,13 +125,39 @@ impl TextChunker {
                 break;
             }
 
-            // Advance by step, but account for the overlap
-            let next_start = chunk_start_char + step;
-            if next_start >= char_count {
-                break;
-            }
-            chunk_start_char = next_start;
+            // Advance from the ACTUAL break, not by a fixed
+            // `chunk_size - overlap` step from the chunk start (RC4 W2
+            // item 18): when the break landed before `start + chunk_size`
+            // (early sentence/word boundary), the fixed step skipped the
+            // chars in `break_char..start + step` — up to `chunk_size/4`
+            // minus overlap chars (64 with the auto-embed 512/64 defaults)
+            // silently absent from every chunk and every passage vector.
+            // Starting the next chunk `overlap` chars before the previous
+            // chunk's real end guarantees contiguous coverage and exactly
+            // `overlap` shared chars. The `max(start + 1)` clamp guarantees
+            // forward progress for degenerate configs whose overlap reaches
+            // back past the early break.
+            chunk_start_char = break_char
+                .saturating_sub(self.overlap)
+                .max(chunk_start_char + 1);
         }
+
+        // Coverage assertion (debug builds): every non-whitespace char of
+        // the input lies inside at least one chunk. Only whitespace may be
+        // skipped (whitespace-only chunks are intentionally dropped above).
+        debug_assert!(
+            {
+                let mut covered = vec![false; text.len()];
+                for c in &chunks {
+                    for b in &mut covered[c.start_offset..c.end_offset] {
+                        *b = true;
+                    }
+                }
+                text.char_indices()
+                    .all(|(i, ch)| covered[i] || ch.is_whitespace())
+            },
+            "TextChunker dropped non-whitespace input between chunks"
+        );
 
         chunks
     }
@@ -233,6 +258,84 @@ mod tests {
     fn empty_text_returns_empty() {
         let chunker = TextChunker::new(100, 10);
         assert!(chunker.chunk("", None).is_empty());
+    }
+
+    /// Every non-whitespace byte of `text` must be covered by at least one
+    /// chunk's `[start_offset, end_offset)` range. (Whitespace-only regions
+    /// may legitimately be skipped: whitespace-only chunks are dropped.)
+    fn assert_full_coverage(text: &str, chunks: &[Chunk], ctx: &str) {
+        let mut covered = vec![false; text.len()];
+        for c in chunks {
+            for b in &mut covered[c.start_offset..c.end_offset] {
+                *b = true;
+            }
+        }
+        let bytes = text.as_bytes();
+        let dropped: Vec<usize> = covered
+            .iter()
+            .enumerate()
+            .filter(|(i, cov)| !**cov && !bytes[*i].is_ascii_whitespace())
+            .map(|(i, _)| i)
+            .collect();
+        assert!(
+            dropped.is_empty(),
+            "{ctx}: chunker dropped {} non-whitespace byte(s); first gap at byte {} ({:?}...)",
+            dropped.len(),
+            dropped[0],
+            &text[dropped[0]..(dropped[0] + 24).min(text.len())]
+        );
+    }
+
+    /// Regression (RC4 W2 item 18): the chunker advanced by a fixed
+    /// `chunk_size - overlap` step from the chunk START even when the chunk
+    /// actually ENDED earlier at a sentence/word break, silently omitting
+    /// the bytes between the actual break and the fixed step — up to
+    /// `chunk_size/4 - overlap` chars per boundary (64 with the auto-embed
+    /// 512/64 defaults). Those bytes appeared in no chunk and therefore in
+    /// no passage vector.
+    #[test]
+    fn no_text_dropped_after_early_sentence_break() {
+        // Layout (single-byte chars so byte == char offsets):
+        //   [0..390)   words, ending with '.' at 390 and ' ' at 391
+        //   [392..600) one unbroken run of 'z' (no space, no period)
+        // With chunk_size=512/overlap=64 the sentence-break search window
+        // for the first chunk is [384..512): the only break is at 392, so
+        // chunk 0 = [0..392). The fixed-step advance then started chunk 1
+        // at 448, dropping the 56 bytes [392..448) forever.
+        let mut text = String::new();
+        while text.len() < 385 {
+            text.push_str("lorem ipsum dolor sit amet consectetur ");
+        }
+        text.truncate(390);
+        text.push('.');
+        text.push(' ');
+        while text.len() < 600 {
+            text.push('z');
+        }
+        let chunker = TextChunker::new(512, 64);
+        let chunks = chunker.chunk(&text, None);
+        assert_full_coverage(&text, &chunks, "early-sentence-break");
+    }
+
+    /// Coverage must hold across assorted chunk_size/overlap combinations
+    /// and break-density profiles (sentence-heavy, word-only, break-free).
+    #[test]
+    fn full_coverage_across_configs() {
+        let sentence_heavy = "The quick brown fox jumps over the lazy dog. ".repeat(60);
+        let word_only = "wordy ".repeat(400);
+        let break_free = "x".repeat(2000);
+        let mixed = format!(
+            "{}{}{}",
+            "Intro sentence here. ",
+            "y".repeat(700),
+            " Tail words follow the blob. ".repeat(30)
+        );
+        for text in [&sentence_heavy, &word_only, &break_free, &mixed] {
+            for (cs, ov) in [(512, 64), (100, 20), (80, 15), (64, 0), (50, 10), (256, 128)] {
+                let chunks = TextChunker::new(cs, ov).chunk(text, None);
+                assert_full_coverage(text, &chunks, &format!("cs={cs} ov={ov}"));
+            }
+        }
     }
 
     #[test]
