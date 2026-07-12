@@ -3200,6 +3200,58 @@ impl Index {
                         })
                         .await;
                     }
+                    // Mixed-RUW: seed the merged segment's SHORTCUT-COUNT
+                    // cache from its inputs, BEFORE the swap makes it
+                    // visible.  Per-segment shortcut counts are PHYSICAL
+                    // (delete-blind — the `deletes_present` gate discards
+                    // them globally when ghosts exist) and segments are
+                    // disjoint doc sets, so for any cached query shape the
+                    // merged segment's count is EXACTLY the sum of its
+                    // inputs' cached counts — PROVIDED the merge dropped no
+                    // docs (output doc_count == Σ input doc_counts; a merge
+                    // that dropped superseded/tombstoned docs skips seeding
+                    // and the first query rebuilds as before).  Without
+                    // this, the first count-bearing query after every merge
+                    // publish re-ran the O(doc_count) fused per-segment
+                    // walk INLINE — live-measured 477 ms at a 2.3M-doc
+                    // output, with the single-flight/cold-miss convoying
+                    // every concurrent same-shape reader behind it (the
+                    // mixed `bool` p99 cliff, 431-452 ms at iso 40k docs/s).
+                    {
+                        let inputs: std::collections::HashSet<&str> =
+                            batch_slice.iter().map(|s| s.as_str()).collect();
+                        let pre = self.store.snapshot();
+                        let in_metas: Vec<&xerj_storage::segment::SegmentMeta> = pre
+                            .segments
+                            .iter()
+                            .filter(|m| inputs.contains(m.id.as_str()))
+                            .collect();
+                        let input_docs: u64 = in_metas.iter().map(|m| m.doc_count).sum();
+                        if in_metas.len() == batch_slice.len()
+                            && merged_meta.doc_count == input_docs
+                        {
+                            // shape → (inputs seen with this shape, running sum)
+                            let mut sums: HashMap<String, (usize, u64)> = HashMap::new();
+                            for e in self.shortcut_count_cache.iter() {
+                                let (seg, shape) = e.key();
+                                if inputs.contains(seg.as_str()) {
+                                    let ent = sums.entry(shape.clone()).or_insert((0, 0));
+                                    ent.0 += 1;
+                                    ent.1 = ent.1.saturating_add(*e.value());
+                                }
+                            }
+                            for (shape, (n, sum)) in sums {
+                                // Only when EVERY input had the shape cached
+                                // is the sum the complete merged count.
+                                if n == batch_slice.len()
+                                    && self.shortcut_count_cache.len() < SHORTCUT_COUNT_CACHE_MAX
+                                {
+                                    self.shortcut_count_cache
+                                        .insert((merged_meta.id.to_string(), shape), sum);
+                                }
+                            }
+                        }
+                    }
                     if let Err(e) = self.store.apply_merge(&batch_slice, merged_meta.clone()) {
                         tracing::warn!("merge: apply_merge failed: {e}");
                         // The pre-warmed slices belong to a segment that
@@ -3210,6 +3262,10 @@ impl Index {
                             self.stored_slices_cache_bytes
                                 .fetch_sub(slices.retained_bytes(), Ordering::Relaxed);
                         }
+                        // Seeded shortcut counts for a segment that never
+                        // became visible — drop them.
+                        self.shortcut_count_cache
+                            .retain(|(seg, _), _| seg != merged_meta.id.as_str());
                     } else {
                         // Write the merge output's `.ids` side-car AFTER the
                         // merge is committed: if we crashed before
@@ -6030,6 +6086,32 @@ impl Index {
         // consumer here either feeds a total that a later `live_doc_count()`
         // overwrites (match_all) or gates the empty-memtable fast path, both
         // tolerant of a one-instant-stale count.
+        // ── Point-in-time capture ORDER (mixed-RUW Fix 1) ─────────────────
+        // Take the SEGMENT snapshot BEFORE the memtable walk.  Flushes are
+        // drain-first (`do_flush_shard` Phase 1 empties the shard under the
+        // FTS write lock; Phase 2 installs the segment), so with this order
+        // a doc can never be visible to BOTH captures: installed-before-snap
+        // implies drained-before-snap implies absent from the later memtable
+        // walk/clone.  The historical layout (snapshot taken ~350 lines
+        // below, AFTER the memtable arms) let a flush that drained after the
+        // walk and installed before the snapshot surface the same docs in
+        // both — a transient DOUBLE-COUNT of `hits.total` under sustained
+        // writes.  The remaining race (drained before snap, installed after)
+        // is a transient undercount during an in-flight flush — the
+        // pre-existing, self-healing behaviour.
+        let snap = self.store.snapshot();
+        // Exact memtable match total captured by the fused DV walk below and
+        // threaded into `try_shortcut_count`, whose bool-conjunction arm
+        // then skips its DUPLICATE memtable walk (mixed-RUW Fix 1: the
+        // second walk was 6-8 ms of the bool p99 at a deep memtable).
+        // INVARIANT (b7 DEFECT 1a guard): `Some` ONLY when a memtable DV
+        // walk (`doc_values_bool_query` — fused or limit-0 count-only — or
+        // the single-leaf `try_doc_values_query`) actually EXECUTED for
+        // this query.  Every other arm leaves `None` — the unlowerable-pred
+        // `MemSnapshot::Empty` fallback (no walk ran; the shortcut's own
+        // recount is the ONLY memtable authority there), the aggs/sort-gated
+        // paths, FTS, DocsForScan, and match_all.
+        let mut mem_matches_known: Option<u64> = None;
         let mem_doc_count = self.memtable.doc_count();
         let mem_snapshot = {
             let mem = &*self.memtable;
@@ -6122,22 +6204,67 @@ impl Index {
                     // then runs — it must see the memtable, otherwise
                     // memtable-resident matches count as 0 (unrefreshed
                     // `_count`/`size:0` = 0 while `size:10` returned the
-                    // docs).  The fast Empty path is kept for the clean
-                    // case where the shortcut IS authoritative.
-                    // For `size:0` + the exact shapes `try_shortcut_count`
-                    // resolves memtable-aware (single Term, conjunctive
-                    // Term/Range bool — see the helper's doc) the segment
-                    // shortcut handles the count from doc-values directly,
-                    // memtable included.  `Range` stays excluded because
-                    // non-indexed range fields don't have doc-values in the
-                    // segment shortcut and would be silently undercounted.
-                    // Bool shapes the shortcut does NOT resolve (a Match
-                    // child, any should/must_not) fall through to the same
-                    // fused/doc-scan arms the size>0 path uses — pre-fix
-                    // they took `Empty` here and their `_count`/`size:0`
-                    // totals silently excluded every memtable-resident doc
-                    // (b7 DEFECT 1a).
-                    MemSnapshot::Empty
+                    // docs).
+                    //
+                    // Mixed-RUW Fix 1 extension: this arm used to take
+                    // `MemSnapshot::Empty` (zero memtable work) on the
+                    // promise that `try_shortcut_count` resolves these
+                    // shapes MEMTABLE-AWARE.  That promise breaks when the
+                    // shortcut abandons on its SEGMENT side (a queried
+                    // field with no usable segment DV column / term-dict
+                    // entry → `None`): the fallback counting scan then ran
+                    // with the memtable already skipped, silently excluding
+                    // every memtable-resident match from `_count`/`size:0`
+                    // totals — a live b7 DEFECT 1a instance (verified on
+                    // c6cbe9f: bare term on a memtable-only field → size:0
+                    // = 0 while size:5 returns the doc; conjunctive
+                    // bool(term+range on a float field) → size:0 = segment
+                    // count only).  So instead of skipping, run the SAME
+                    // fused columnar walk the size>0 path uses at LIMIT 0 —
+                    // count-only, zero id materialisation, zero allocation,
+                    // tens of µs at the (Fix 2) capped memtable depth — and
+                    // publish the total as `mem_matches_known`:
+                    //   * shortcut resolves → it consumes the walk total
+                    //     (bool arm) or computes its own count-map total
+                    //     (term arm) and OVERWRITES `total_count` — one
+                    //     memtable walk either way (the historical layout
+                    //     was zero-walk here + a duplicate recount walk in
+                    //     the bool arm);
+                    //   * shortcut ABANDONS → the counting scan now runs
+                    //     with the memtable contribution already admitted
+                    //     by the `DocValuesHits` consume arm below — the
+                    //     b7-1a hole is closed.
+                    // Preds that don't lower (CIDR-shaped term values,
+                    // non-numeric range bounds, a queried field absent from
+                    // one shard's columns — `doc_values_bool_hits` is
+                    // all-or-nothing per shard) fall THROUGH to the same
+                    // `try_doc_values_query`/`DocsForScan` arms the size>0
+                    // path uses, so the count keeps the memtable
+                    // contribution under a segment-side shortcut abandon —
+                    // taking `Empty` here re-opened the hole for exactly
+                    // those shapes (live-verified: the missing-bearing
+                    // float-field bool below counted 14 seg-only vs 29).
+                    mem_matches_known = mem_bool_preds(query)
+                        .and_then(|preds| mem.doc_values_bool_query(&preds, 0))
+                        .map(|(_, total)| total);
+                    if let Some(total) = mem_matches_known {
+                        MemSnapshot::DocValuesHits(Vec::new(), total)
+                    } else if let Some((hits, total)) = try_doc_values_query(
+                        query,
+                        mem,
+                        // Unsorted count query: only the total matters, but
+                        // mirror the size>0 arm's bounded materialisation
+                        // (the consume arm tolerates unused ids).
+                        materialisation_limit,
+                    ) {
+                        mem_matches_known = Some(total);
+                        let uncollected = total.saturating_sub(hits.len() as u64);
+                        MemSnapshot::DocValuesHits(hits, uncollected)
+                    } else {
+                        // Brute per-doc scan — same authority the size>0
+                        // path falls back to; `doc_matches_query` semantics.
+                        MemSnapshot::DocsForScan(mem.all_docs_with_sources_arc())
+                    }
                 } else if let Some((hits, total)) = (|| {
                     // Fused columnar term/range/bool: ONE position walk
                     // per shard, bounded id materialisation, exact total.
@@ -6155,6 +6282,9 @@ impl Index {
                     mem.doc_values_bool_query(&preds, materialisation_limit)
                 })() {
                     let uncollected = total.saturating_sub(hits.len() as u64);
+                    // Fused walk RAN: publish its exact point-in-time total
+                    // so the shortcut count doesn't re-walk the memtable.
+                    mem_matches_known = Some(total);
                     MemSnapshot::DocValuesHits(hits, uncollected)
                 } else if let Some((hits, total)) = try_doc_values_query(
                     query,
@@ -6173,6 +6303,12 @@ impl Index {
                     // DocValues fast path for queries that actually need
                     // the hit list (size > 0 or sort-on-field).
                     let uncollected = total.saturating_sub(hits.len() as u64);
+                    // Single-leaf DV walk RAN: publish its exact total (the
+                    // bool-conjunction shortcut arm never consumes it for
+                    // these shapes — bare Term/Range take their own arms —
+                    // but the capture keeps the invariant uniform: Some ⇔
+                    // a memtable DV walk executed for this query).
+                    mem_matches_known = Some(total);
                     MemSnapshot::DocValuesHits(hits, uncollected)
                 } else {
                     // Composite queries (e.g. bool) that the memtable DV
@@ -6405,7 +6541,10 @@ impl Index {
         }
 
         // --- Segment search ---
-        let snap = self.store.snapshot();
+        // `snap` is captured ABOVE the memtable arms (see the point-in-time
+        // capture ORDER comment there): segment snapshot strictly before the
+        // memtable walk, so a drain-first flush can never double-surface a
+        // doc in both captures.
         let segments_dir = self.data_dir.join("segments");
 
         // ── Fast path: count-only shortcut ────────────────────────────────
@@ -6484,7 +6623,8 @@ impl Index {
         let shortcut_count: Option<u64> = if scored_fast_ready {
             None
         } else {
-            self.try_shortcut_count(query, &snap, is_match_all).await
+            self.try_shortcut_count(query, &snap, is_match_all, mem_matches_known)
+                .await
         };
 
         // Whether this query resolves to an FTS (inverted-index) search.  The
@@ -7206,6 +7346,17 @@ impl Index {
                         ..
                     } = query
                     {
+                        // The sorted-narrowing path below consumes the
+                        // COMPLETE match set whatever its size (the top-cap
+                        // cut needs every candidate) — only that caller may
+                        // request an uncapped build.  Plain scans cap at the
+                        // term-prefilter ceiling: broader sets don't help
+                        // the F1 early-break scan and their O(matches)
+                        // HashSet build is the post-merge p99 cliff.
+                        let wants_narrowing = sort_topk.is_some()
+                            && shortcut_count.is_some()
+                            && !deletes_present
+                            && !count_only;
                         let base = self.build_range_prefilter_cached(
                             &segments_dir,
                             &seg_id,
@@ -7214,6 +7365,11 @@ impl Index {
                             gt.as_ref(),
                             lte.as_ref(),
                             lt.as_ref(),
+                            if wants_narrowing {
+                                usize::MAX
+                            } else {
+                                RANGE_PREFILTER_CAP
+                            },
                         );
                         // Field-sorted Range whose exact total comes from
                         // the dv shortcut: narrow the (possibly huge)
@@ -9533,11 +9689,22 @@ impl Index {
         Some(total)
     }
 
+    /// `mem_matches_known` (mixed-RUW Fix 1): the exact memtable match
+    /// total already computed by `search_inner`'s fused DV walk for THIS
+    /// query — `Some` if and only if that walk executed (see the capture
+    /// sites in the mem-snapshot block).  Consumed ONLY by the
+    /// bool-conjunction arm below to skip its duplicate
+    /// `doc_values_bool_query` recount; every other arm (Term count-maps,
+    /// Range per-value walk, match_all live count, Regexp) keeps its own
+    /// memtable authority — the Range arm in particular lowers bounds
+    /// differently (date-string bounds via `parse_date_ms`, per-VALUE
+    /// iteration, distinct abandon semantics) and MUST NOT be substituted.
     async fn try_shortcut_count(
         &self,
         query: &QueryNode,
         snap: &xerj_storage::index_store::IndexSnapshot,
         is_match_all: bool,
+        mem_matches_known: Option<u64>,
     ) -> Option<u64> {
         // Unwrap wrapper queries so constant_score and boosted
         // queries benefit from the same fast paths.
@@ -9802,7 +9969,19 @@ impl Index {
             // (the read-under-write bool collapse, WARN mem_admit term).
             // When the columns can't serve the predicates we keep the
             // per-doc scan but share sources via Arc instead of cloning.
-            let mem_matches: u64 = if self.memtable.doc_count() == 0 {
+            //
+            // Fix 1 (mixed-RUW): when `search_inner`'s fused DV arm already
+            // walked the memtable for this query (size>0, no sort/aggs),
+            // reuse ITS exact total instead of walking a second time —
+            // that duplicate recount was ~6-8 ms of the bool p99 at a deep
+            // memtable, and reusing the snapshot-time total also makes
+            // `hits` and `hits.total` come from ONE point-in-time walk.
+            // `mem_matches_known` is `Some` ONLY when that walk executed
+            // (capture-site invariant); on the size:0/count paths it is
+            // `None` and this recount stays the sole memtable authority.
+            let mem_matches: u64 = if let Some(known) = mem_matches_known {
+                known
+            } else if self.memtable.doc_count() == 0 {
                 0
             } else if let Some((_, total)) = mem_bool_preds(query)
                 .and_then(|preds| self.memtable.doc_values_bool_query(&preds, 0))
@@ -9927,12 +10106,13 @@ impl Index {
             // via `for_each_numeric_value` since `shards` is private.
             //
             // NOTE: a bounded-delta sorted numeric index was trialled here to
-            // make this O(log n + tail).  At the hardcoded 500k-doc flush cap
-            // (~31k docs/shard) the memtable numeric column is small enough
-            // that this branch-free linear f64 scan (memory-bandwidth bound,
-            // tens of µs) BEATS a maintained sorted structure — the structure's
-            // per-flush rebuild + sort + high-cardinality (cost_usd double)
-            // count-map churn regressed range p99.  Kept the linear scan.
+            // make this O(log n + tail).  At the shipped 128k-doc global flush
+            // cap (`FLUSH_DOC_THRESHOLD_DEFAULT`, ~8k docs/shard; historically
+            // 500k/~31k) the memtable numeric column is small enough that this
+            // branch-free linear f64 scan (memory-bandwidth bound, tens of µs)
+            // BEATS a maintained sorted structure — the structure's per-flush
+            // rebuild + sort + high-cardinality (cost_usd double) count-map
+            // churn regressed range p99.  Kept the linear scan.
             if self.memtable.doc_count() > 0 {
                 let mut has_any = false;
                 self.memtable.for_each_numeric_value(field_str, |_| {
@@ -11896,6 +12076,22 @@ impl Index {
     /// positions matching a `Range` query, used to skip over non-matching
     /// docs in the stored-section scan.
     #[allow(clippy::too_many_arguments)] // ES range bounds (gte/gt/lte/lt) + segment identity
+    /// `cap` — selectivity ceiling (mixed-RUW): above this many matches the
+    /// builder returns `None` WITHOUT materialising the set, exactly like
+    /// `build_term_prefilter_cached`'s `TERM_PREFILTER_CAP`.  A broad range
+    /// (the mixed cells' `latency_ms >= 200` matches ~87% of the corpus)
+    /// gains nothing from a prefilter — the F1 early-break / full scan is
+    /// already the right path — but the build cost is O(matches) HashSet
+    /// inserts: 100-300 ms at a 1-2M-doc merge output, paid by the FIRST
+    /// query after every merge publish while the single-flight lock convoys
+    /// every concurrent same-shape query behind it (live-measured 46→311 ms
+    /// growing with index size; the mixed bool p99 cliff).  The cheap
+    /// `range_count`/`shadow_range_count` bisects decide the bail BEFORE any
+    /// allocation.  Callers that NEED the complete set regardless of size —
+    /// the field-sorted Range `sort_candidates_narrowed` path — pass
+    /// `usize::MAX`.  The cache key deliberately EXCLUDES the cap: a set
+    /// built uncapped is identical to (and valid for) any capped request.
+    #[allow(clippy::too_many_arguments)]
     fn build_range_prefilter_cached(
         &self,
         segments_dir: &std::path::Path,
@@ -11905,6 +12101,7 @@ impl Index {
         gt: Option<&Value>,
         lte: Option<&Value>,
         lt: Option<&Value>,
+        cap: usize,
     ) -> Option<Arc<PrefilterSet>> {
         use xerj_storage::doc_values::Column;
 
@@ -11969,7 +12166,13 @@ impl Index {
 
         let cols = self.dv_columns_for(segments_dir, segment_id)?;
         let matching: Vec<u32> = match cols.get(field) {
-            Some(Column::Numeric(n)) => n.range_doc_ids(lo, hi, lo_incl, hi_incl),
+            Some(Column::Numeric(n)) => {
+                // Selectivity precheck (two bisects) BEFORE materialising.
+                if n.range_count(lo, hi, lo_incl, hi_incl) as usize > cap {
+                    return None;
+                }
+                n.range_doc_ids(lo, hi, lo_incl, hi_incl)
+            }
             // DATE fields (e.g. `@timestamp`) are stored as date-shaped Keyword
             // dv columns, NOT `Column::Numeric`, so the arm above missed and the
             // whole query fell to a full O(N) stored-section scan. Their sorted
@@ -11990,6 +12193,10 @@ impl Index {
                 let shadow =
                     self.sorted_shadow_for(segments_dir, segment_id, field, seg_doc_count)?;
                 let (slo, slo_incl, shi, shi_incl) = shadow_range_bounds(gte, gt, lte, lt)?;
+                // Same selectivity precheck on the shadow scale.
+                if shadow_range_count(&shadow, slo, shi, slo_incl, shi_incl) as usize > cap {
+                    return None;
+                }
                 shadow_range_positions(&shadow, slo, shi, slo_incl, shi_incl)
             }
             None => return None,
@@ -12265,6 +12472,7 @@ impl Index {
                     gt.as_ref(),
                     lte.as_ref(),
                     lt.as_ref(),
+                    BOOL_PREFILTER_CAP,
                 ),
                 _ => None,
             }
@@ -19833,16 +20041,39 @@ fn phase_log_threshold_ms() -> u64 {
 /// per-doc locking that once regressed ingest 4×).
 const MEMTABLE_INSERT_CHUNK: usize = 512;
 
-/// Default GLOBAL doc-count auto-flush sanity cap (across all ingest
-/// shards; per-shard trigger is this / shard_count).  This is a
-/// SECONDARY guard — the byte budget (`flush_size_mb`) is the primary
-/// flush driver.  It exists only to bound the posting-map growth of a
-/// pathological tiny-doc workload between byte checkpoints.  Sized so
-/// that for realistic log docs the BYTE budget always trips first: at
-/// 16 shards a 4 M cap is 250 k docs/shard, which for ~300-byte docs is
-/// far more than a 512 MiB/16 = 32 MiB shard-buffer holds, so the
-/// byte trigger dominates as intended.  See `resolve_flush_thresholds`.
-const FLUSH_DOC_THRESHOLD_DEFAULT: usize = 4_000_000;
+/// Default GLOBAL doc-count auto-flush cap (across all ingest shards;
+/// per-shard trigger is this / shard_count → 8 k docs/shard at 16
+/// shards).  Mixed-RUW Fix 2: this is now the PRIMARY flush driver for
+/// small-doc sustained-write workloads, deliberately.  Read-under-write
+/// latency scales with buffered memtable DEPTH — every non-covered query
+/// walks (or clones) the live memtable per request — so an unbounded
+/// buffer converts write throughput directly into read p99.  At the old
+/// 4 M cap (250 k docs/shard) a sustained 40-65 k docs/s writer grew the
+/// memtable to ~400 k docs between byte-budget flushes and the five
+/// mixed read-under-write p99s collapsed (live-verified precursor:
+/// XERJ_FLUSH_DOCS=64000 halved all five at 65.9 k docs/s sustained).
+/// 128 k (not 64 k) after a live A/B at iso 40 k docs/s offered load:
+/// 64 k produced a ~4 k-doc segment every ~100 ms and a merge pass every
+/// ~10 s whose publish-coincident cold work dominated the bool-cell p99
+/// (144 ms even with publish-time count seeding); 128 k halves the
+/// flush/merge cadence (bool p99 17 ms same box) while the walk depth a
+/// request can observe stays trivially bounded (8 k docs/shard).  The
+/// byte budget (`flush_size_mb`, default 512 MiB → 32 MiB/shard) still
+/// trips first for docs larger than ~4 KiB, keeping RAM bounded on
+/// fat-doc workloads.  ES analogue: its default 1 s refresh_interval at
+/// 40 k docs/s cuts ~40 k-doc segments — the same cadence order.
+/// Env-overridable via `XERJ_FLUSH_DOCS` — see
+/// `resolve_flush_thresholds`.
+const FLUSH_DOC_THRESHOLD_DEFAULT: usize = 128_000;
+
+/// Selectivity ceiling for the plain-scan RANGE prefilter (mirrors
+/// `TERM_PREFILTER_CAP` / `BOOL_PREFILTER_CAP`): above this many matches the
+/// prefilter is skipped — the F1 early-break scan is already the right path
+/// for broad ranges, and the O(matches) set build was the post-merge-publish
+/// p99 convoy on the mixed read-under-write cells.  The field-sorted Range
+/// narrowing caller bypasses the cap (`usize::MAX`) because the top-cap cut
+/// needs the complete candidate set.
+const RANGE_PREFILTER_CAP: usize = 65_536;
 
 /// Cached per-shard flush-trigger STAGGER fraction (`XERJ_FLUSH_STAGGER`,
 /// default 0 = off).  When >0, shard `i`'s per-shard threshold is scaled

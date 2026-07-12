@@ -319,3 +319,56 @@ file-disjoint, full-suite-gated). Final: **1325 / 1326 pass (99.9%), 1 fail, 3 s
 - No other doc in that bucket has exactly `{order_datetime, products}` ignored (004 also has email+newsletter; 006 also has date_of_birth+ip+newsletter).
 
 So one of the two assertions must fail for any consistent ES-faithful validation — it cannot be closed without breaking `location: 3`. Left as the sole documented residual; **100% of the internally-consistent assertions pass.**
+
+---
+
+## 15. Live-found: explicit-null range matching + the size:0 memtable count hole (2026-07-12)
+
+Found while landing the mixed read-under-write work (regression test for the
+fused-memtable-total threading). Both live-verified on c6cbe9f (i.e. both
+PRE-DATE that work); one is fixed by it, one remains open.
+
+**FIXED — `size:0`/`_count` silently dropped memtable-resident matches when the
+segment shortcut abandoned (b7 DEFECT 1a family).** The `count_only` fast path
+skipped the memtable snapshot (`MemSnapshot::Empty`) for single-`term` /
+conjunctive `bool(term/range)` shapes on the promise that the doc-values
+shortcut counts memtable-aware. When the shortcut abandoned on its SEGMENT side
+(queried field missing from a segment's DV columns / term dictionary — e.g. a
+brand-new field that only exists in unflushed docs, or a float field whose
+segment column typing bails the conjunction walk), the fallback counting scan
+ran with the memtable already skipped. Live repro on c6cbe9f: bare `term` on a
+memtable-only field → `size:5` returns the doc, `size:0`/`_count` say **0**;
+`bool(term + range-on-float-field)` with buffered docs → `size:0` = segment
+count only (14 vs the true 29). Fixed 2026-07-12 (mixed-RUW commit): the count
+path now runs the same fused columnar walk as `size>0` at limit 0 and threads
+its exact total, so an abandoning shortcut can no longer orphan the memtable
+contribution. Pinned by `test_fused_memtable_total_matches_shortcut_recount`.
+
+**OPEN — explicit JSON `null` matches `range` on the segment stored-scan
+path.** Docs indexed with an explicit `"field": null` (NOT absent-key) can be
+returned by a `range` query once flushed to a segment whose DV column cannot
+serve the conjunction (the stored-doc scan's `doc_matches_query` compares the
+JSON null). Live repro (identical on c6cbe9f and the mixed-RUW build): 40-doc
+segment with `cost_usd: null` on every 5th doc, query `bool{term(status),
+range(cost_usd gte 0.05)}` → XERJ hits include 3 explicit-null docs (total 32),
+ES 8.13.4 answers 29. ABSENT-key docs behave correctly (29/29/29 both engines),
+so the exposure is explicit-null ingest only. Not covered by the ES-YAML suite
+(1360/0/3 green with the defect present). Fix belongs with the
+`json_compare`/null-semantics rework; out of scope for the mixed-RUW batch.
+
+**OPEN — sustained-ingest memory growth (pre-existing, control-verified
+2026-07-12).** Under a MemoryMax=8G cgroup and a sustained open-loop
+40k docs/s bulk writer (10k-doc `_bulk` every 250ms) on a fresh index, the
+server's RSS grows to the 8 GiB cap and the kernel OOM-kills it in ~3-4
+minutes (~9-12M docs ingested), with read latencies death-spiraling
+(1.8s → 6.3s) in the final ~60s of memory pressure. CONTROL: the pre-mixed-RUW
+binary (c6cbe9f, 4M-doc flush threshold) dies ~60s FASTER on the identical
+soak with larger spikes (2.1-5.6s), peak also pinned at the cap — so the
+growth PRE-DATES the 128k flush-cadence change (which mildly extends
+survival) and matches the 2026-07-09 unbounded-RSS OOM history (112 GB on an
+uncapped box). Benchmark windows (~65s, ~2.4M docs) stay well under the cap.
+Suspects for a future session: unbudgeted per-segment cache families under
+segment churn (dv columns cache has no byte budget; stored-slices does), WAL
+retention across checkpoint, drained-memtable Arc retention on the flush
+path. Repro: scratchpad soak_mixed.sh under `systemd-run --user --scope -p
+MemoryMax=8G`.

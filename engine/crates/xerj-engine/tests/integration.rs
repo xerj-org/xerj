@@ -4524,3 +4524,132 @@ async fn test_dashboard_summary_size_is_measured_bytes() {
         "measured size should differ from the removed docs*200+memtable*500 heuristic"
     );
 }
+
+// ── Mixed-RUW Fix 1: fused memtable-walk total == shortcut recount ────────────
+//
+// `search_inner` captures the fused DV walk's exact memtable total
+// (`mem_matches_known`) at mem-snapshot time and threads it into
+// `try_shortcut_count`, whose bool-conjunction arm consumes it instead of
+// re-walking the memtable (the historical duplicate recount).  This test pins
+// the equivalence contract on a POPULATED memtable (one flushed segment +
+// unflushed buffered docs, with missing-value (absent-key) and multi-valued numeric
+// fields): for term / conjunctive-bool / range shapes, the size>0 total
+// (fused walk + threaded count), the size:0 total (the shortcut's own
+// recount — the ONLY memtable authority on that path, b7 DEFECT 1a), and the
+// fully-materialised hit count must all agree.  A drift between the fused
+// walk's semantics and the recount's would surface here as a total mismatch.
+#[tokio::test]
+async fn test_fused_memtable_total_matches_shortcut_recount() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    engine.create_index("ruw", Schema::empty()).unwrap();
+    let idx = engine.get_index("ruw").unwrap();
+
+    let mk_doc = |i: usize, wave: &str| {
+        let mut d = json!({
+            "status": if i % (if wave == "seg" { 2 } else { 3 }) == 0 { "ok" } else { "error" },
+            "latency_ms": i * if wave == "seg" { 10 } else { 7 },
+            // multi-valued numeric on every 4th doc, scalar otherwise
+            "codes": if i % 4 == 0 { json!([i, i + 100]) } else { json!(i) },
+        });
+        // MISSING field on every 5th doc (ES "missing value" semantics: the
+        // doc matches no range on the field).  Deliberately the ABSENT-KEY
+        // flavour, NOT explicit JSON `null`: explicit null has a
+        // PRE-EXISTING segment-side divergence — live-verified byte-identical
+        // on c6cbe9f, i.e. BEFORE the mixed-RUW change — where the hit path
+        // admits 3 explicit-null docs a `range gte` must exclude and the
+        // size:0 count disagrees (32 / 17 where ES 8.13.4 answers 29 / 29).
+        // That defect is orthogonal to the total-threading this test pins
+        // and is recorded in demo/playbooks/ES_COMPATIBILITY.md; absent-key
+        // docs (this flavour) agree with ES exactly (29/29/29 live-verified
+        // on both engines).
+        if i % 5 != 0 {
+            d["cost_usd"] = json!((i as f64) * 0.01);
+        }
+        d
+    };
+
+    // Wave 1 → flushed to a segment (so seg_matches is non-trivial).
+    for i in 0..40 {
+        idx.index_document(Some(format!("seg-{i}")), mk_doc(i, "seg"))
+            .await
+            .unwrap();
+    }
+    idx.flush().await.unwrap();
+
+    // Wave 2 → stays memtable-resident (the fused walk's subject).
+    for i in 0..60 {
+        idx.index_document(Some(format!("mem-{i}")), mk_doc(i, "mem"))
+            .await
+            .unwrap();
+    }
+    let stats = idx.stats().await;
+    assert!(
+        stats.memtable_doc_count >= 60,
+        "wave 2 must be memtable-resident for this test to bite (got {})",
+        stats.memtable_doc_count
+    );
+
+    let shapes: Vec<(&str, Value)> = vec![
+        ("term", json!({ "term": { "status": "ok" } })),
+        (
+            "bool(term+range)",
+            json!({ "bool": {
+                "must": [{ "term": { "status": "ok" } }],
+                "filter": [{ "range": { "latency_ms": { "gte": 50, "lte": 300 } } }]
+            } }),
+        ),
+        (
+            "bool(range on missing-bearing)",
+            json!({ "bool": {
+                "must": [{ "term": { "status": "ok" } }],
+                "filter": [{ "range": { "cost_usd": { "gte": 0.05 } } }]
+            } }),
+        ),
+        (
+            "bool(range on multi-valued)",
+            json!({ "bool": {
+                "filter": [
+                    { "term": { "status": "ok" } },
+                    { "range": { "codes": { "gte": 4 } } }
+                ]
+            } }),
+        ),
+        (
+            "range(single-valued)",
+            json!({ "range": { "latency_ms": { "gte": 50 } } }),
+        ),
+        (
+            "range(missing-bearing)",
+            json!({ "range": { "cost_usd": { "gte": 0.05 } } }),
+        ),
+    ];
+    for (label, q) in shapes {
+        let full = idx
+            .search(&make_search_with_size(q.clone(), 10_000))
+            .await
+            .unwrap();
+        let ground_truth = full.hits.len() as u64;
+        assert!(ground_truth > 0, "{label}: shape must match something");
+        assert_eq!(
+            full.total.value, ground_truth,
+            "{label}: size=10k total must equal materialised hit count"
+        );
+        let paged = idx
+            .search(&make_search_with_size(q.clone(), 5))
+            .await
+            .unwrap();
+        assert_eq!(
+            paged.total.value, ground_truth,
+            "{label}: size=5 total (fused walk + threaded mem_matches_known)"
+        );
+        let count = idx
+            .search(&make_search_with_size(q.clone(), 0))
+            .await
+            .unwrap();
+        assert_eq!(
+            count.total.value, ground_truth,
+            "{label}: size=0 total (shortcut recount is the memtable authority)"
+        );
+    }
+}
