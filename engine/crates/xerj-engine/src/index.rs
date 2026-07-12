@@ -10551,6 +10551,22 @@ impl Index {
                         _ => None,
                     }
                 }
+                // Pure-should single leaf (the simple_query_string /
+                // lone-should lowering): default minimum_should_match for a
+                // must-less bool is 1, so the match set and the score are
+                // exactly the leaf's — identical semantics to the must wrap.
+                (ScoredPlan::Composed { .. }, Some(ClauseEval::Bool { must, should, filter, must_not, required_should, .. }))
+                    if must.is_empty()
+                        && should.len() == 1
+                        && *required_should <= 1
+                        && filter.is_empty()
+                        && must_not.is_empty() =>
+                {
+                    match should[0] {
+                        ClauseEval::Leaf(i) => Some(i),
+                        _ => None,
+                    }
+                }
                 (ScoredPlan::Composed { .. }, Some(ClauseEval::DisMax { children, .. })) => {
                     let mut live: Option<usize> = None;
                     let mut ok = true;
@@ -10585,6 +10601,56 @@ impl Index {
                 _ => false,
             };
 
+        // Flat all-constant CONJUNCTION (query_string `a:x AND b:y`, bool
+        // must[+filter/must_not] of constant leaves, no should): every
+        // matching row scores the SAME f32(Σ f64 must-constants) — the
+        // Bool group's one-cast rounding for a fixed match set.  The exact
+        // total still needs the walk (conjunction counts aren't
+        // closed-form), but a flat short-circuit loop over the ord/window
+        // tests replaces the per-row tree recursion, leaves ordered
+        // rarest-df-first, and hit-pushing stops once the page is full.
+        let flat_conjunction: Option<(
+            Vec<usize>,
+            std::ops::Range<usize>,
+            std::ops::Range<usize>,
+            f32,
+        )> = if any_ghosts || composed_constant_leaf.is_some() {
+            None
+        } else {
+            match (plan, &eval_root) {
+                (
+                    ScoredPlan::Composed { .. },
+                    Some(ClauseEval::Bool {
+                        must,
+                        should,
+                        filter,
+                        must_not,
+                        ..
+                    }),
+                ) if !must.is_empty() && should.is_empty() => {
+                    let mut idx = Vec::with_capacity(must.len());
+                    let mut ok = true;
+                    for c in must {
+                        match c {
+                            ClauseEval::Leaf(i) => idx.push(*i),
+                            _ => {
+                                ok = false;
+                                break;
+                            }
+                        }
+                    }
+                    if ok {
+                        let s = idx.iter().map(|&i| clause_scores[i] as f64).sum::<f64>() as f32;
+                        idx.sort_by_key(|&i| df[i]); // rarest first → earliest short-circuit
+                        Some((idx, filter.clone(), must_not.clone(), s))
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            }
+        };
+
         for (si, (meta, cols)) in segments.iter().zip(seg_cols.iter()).enumerate() {
             let seqs: &[u64] = &seg_seqs[si];
             // B5 break / constant-lane preconditions (only paid when one of
@@ -10594,7 +10660,7 @@ impl Index {
             // constant-plan closed-form lane needs this under
             // track_total_hits:true too (break_bound is None there — the
             // official bench convention injects tth:true into every read).
-            let seq_asc = (break_bound.is_some() || constant_plan)
+            let seq_asc = (break_bound.is_some() || constant_plan || flat_conjunction.is_some())
                 && seqs.windows(2).all(|w| w[0] <= w[1]);
             let later_min_seq: u64 = segments[si + 1..]
                 .iter()
@@ -10728,6 +10794,52 @@ impl Index {
                     let root = eval_root
                         .as_ref()
                         .expect("Composed plan always builds an eval tree");
+                    if let (true, Some((leaves, f_rng, mn_rng, cscore))) =
+                        (seq_asc, &flat_conjunction)
+                    {
+                        // Flat conjunction walk (see `flat_conjunction`).
+                        let mut kept = 0usize;
+                        'crows: for row in 0..doc_count {
+                            for &li in leaves {
+                                if !sev[li].matches(row) {
+                                    continue 'crows;
+                                }
+                            }
+                            for fi in f_rng.clone() {
+                                if !fev[fi].matches(row) {
+                                    continue 'crows;
+                                }
+                            }
+                            for fi in mn_rng.clone() {
+                                if fev[fi].matches(row) {
+                                    continue 'crows;
+                                }
+                            }
+                            total += 1;
+                            if kept < keep_target {
+                                push_topk(
+                                    &mut heap,
+                                    keep_target,
+                                    TopKCand {
+                                        score: *cscore,
+                                        seq: seqs[row as usize],
+                                        si,
+                                        row,
+                                    },
+                                );
+                                kept += 1;
+                            } else if total > limit_val {
+                                // (tth Limit only) page full + count strictly
+                                // past the cap: the renderer emits
+                                // (limit, gte) either way, this segment
+                                // already contributed its k best (constant
+                                // scores, seq-asc), and later segments still
+                                // walk for their own contributions.
+                                break 'crows;
+                            }
+                        }
+                        continue;
+                    }
                     if let (true, true, Some(li)) = (constant_plan, seq_asc, composed_constant_leaf) {
                         // Constant-plan fast lane (see `constant_plan` /
                         // `composed_constant_leaf`): closed-form total from
