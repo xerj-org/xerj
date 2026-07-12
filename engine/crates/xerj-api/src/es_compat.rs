@@ -10607,7 +10607,6 @@ async fn process_bulk_body(
                 // Map common per-item error phrases to their ES exception
                 // type names so clients can match on `error.type`.
                 let error_type = if e.starts_with("if _id is specified")
-                    || e.contains("invalid document JSON")
                     || e.contains("missing document body")
                     || e.contains("unknown action type")
                     || e.contains("no write index is defined")
@@ -10618,7 +10617,13 @@ async fn process_bulk_body(
                     "version_conflict_engine_exception"
                 } else if e.contains("index not found") || e.starts_with("no such index") {
                     "index_not_found_exception"
-                } else if e.contains("dynamic template") || e.contains("failed to parse field") {
+                } else if e.contains("dynamic template")
+                    || e.contains("failed to parse field")
+                    // Malformed doc-body JSON on a bulk item: ES 8.13
+                    // reports `document_parsing_exception` ("[1:1] failed
+                    // to parse: ..."), not illegal_argument.
+                    || e.contains("invalid document JSON")
+                {
                     "document_parsing_exception"
                 } else {
                     "engine_exception"

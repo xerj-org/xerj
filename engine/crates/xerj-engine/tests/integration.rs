@@ -4653,3 +4653,63 @@ async fn test_fused_memtable_total_matches_shortcut_recount() {
         );
     }
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// RC4 Stream B regressions — silent wrong data
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Blocker 3: a malformed doc line under a bulk `index` action used to be
+/// stored as EMPTY `{}` with `201 / errors:false` (the turbo-raw path
+/// deferred the parse and `.unwrap_or({})`-ed the failure). ES rejects the
+/// item with a per-item 400 `document_parsing_exception`; the engine must
+/// reject it per-item and must not store anything.
+#[tokio::test]
+async fn test_bulk_index_malformed_doc_rejected_per_item() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    let body = concat!(
+        "{\"index\":{\"_index\":\"b3\",\"_id\":\"bad\"}}\n",
+        "{\"broken json here\n",
+        "{\"index\":{\"_index\":\"b3\",\"_id\":\"good\"}}\n",
+        "{\"v\":\"ok\"}\n",
+    );
+    let result = xerj_engine::bulk::process_bulk(&engine, None, body).await;
+    assert!(result.errors, "bulk response must flag errors:true");
+    assert_eq!(result.items.len(), 2);
+
+    let bad = &result.items[0];
+    assert_eq!(bad.status, 400, "malformed item must be a per-item 400");
+    assert!(
+        bad.error
+            .as_deref()
+            .unwrap_or("")
+            .contains("invalid document JSON"),
+        "error must say the document JSON is invalid, got: {:?}",
+        bad.error
+    );
+
+    let good = &result.items[1];
+    assert_eq!(good.status, 201, "valid sibling item must still index");
+
+    // The malformed doc must NOT be stored (it used to land as `{}`).
+    let idx = engine.get_index("b3").unwrap();
+    let all = idx
+        .search(&make_search(json!({"match_all": {}})))
+        .await
+        .unwrap();
+    assert_eq!(all.total.value, 1, "only the valid doc may be stored");
+    assert_eq!(all.hits[0].id, "good");
+
+    // Valid JSON that is NOT an object is rejected too (ES errors on it).
+    let body2 = "{\"index\":{\"_index\":\"b3\",\"_id\":\"arr\"}}\n[1,2,3]\n";
+    let r2 = xerj_engine::bulk::process_bulk(&engine, None, body2).await;
+    assert!(r2.errors);
+    assert_eq!(r2.items[0].status, 400);
+    let all2 = idx
+        .search(&make_search(json!({"match_all": {}})))
+        .await
+        .unwrap();
+    assert_eq!(all2.total.value, 1, "non-object body must not be stored");
+}
+
