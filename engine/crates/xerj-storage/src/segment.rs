@@ -419,6 +419,13 @@ impl SegmentWriter {
         }
         std::fs::rename(&sidx_tmp, &sidx_path)?;
 
+        // RC4 W1 #10 — make the renames themselves power-loss durable.
+        // The file CONTENTS were fsynced above, but a rename only becomes
+        // durable when the parent directory is fsynced; without this a
+        // power loss could leave a fully-written segment invisible in the
+        // directory while the WAL entries it covers were already pruned.
+        xerj_common::fsio::fsync_dir(&self.dir)?;
+
         debug!(id = %self.id, size = buf.len(), doc_count, "segment written");
 
         Ok(SegmentMeta {

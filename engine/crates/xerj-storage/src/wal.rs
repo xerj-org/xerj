@@ -24,8 +24,8 @@
 //!
 //! ## Checkpoint file (`<gen>.wchk`)
 //!
-//! Written after a successful segment flush; used to skip already-flushed
-//! entries during replay.
+//! Written after a successful segment flush **only when every entry of the
+//! generation is provably durable** (see the RC4 W1 #8 note below).
 //!
 //! ```text
 //!   generation  u64
@@ -37,8 +37,33 @@
 //! ## Generation rotation
 //!
 //! When the current WAL file exceeds `wal_max_size_bytes` the writer opens a
-//! new file with `generation + 1`.  Old files whose entries are fully covered
-//! by the checkpoint are deleted by [`WalWriter::prune`].
+//! new file with `generation + 1`.  Old generations are deleted by
+//! [`WalWriter::prune_verified`] once **every entry they hold** is verified
+//! durable-or-superseded.
+//!
+//! ## Durability contract (RC4 Wave-1 blocker #8)
+//!
+//! A WAL byte may be destroyed (pruned) or ignored (skipped at replay)
+//! **only** if the entry it belongs to is provably durable in a flushed
+//! segment or superseded by a newer durable/replayable version.  Two
+//! mechanisms enforce this:
+//!
+//! 1. **Replay replays everything.**  Checkpoints are no longer used to
+//!    skip entries at replay: both replay consumers (the storage memtable
+//!    rebuild and the engine FTS memtable rebuild) are idempotent — they
+//!    check the segment-rebuilt version map and skip entries whose doc is
+//!    already segment-resident at an equal-or-newer seq.  The pre-fix skip
+//!    rule (`positionally-covered && seq_no <= checkpoint.max_seq_no`)
+//!    silently discarded acked-but-unflushed entries whenever a checkpoint
+//!    over-covered — e.g. the flush path checkpointing
+//!    `current_seq_no()-1` while other shards' memtables still held acked
+//!    docs with smaller seqs.  Live-verified as 50/50 acked-doc loss on
+//!    kill -9 racing `_flush` (RC4 review, stream C).
+//!
+//! 2. **Prune verifies per entry.**  [`WalWriter::prune_verified`] decodes
+//!    every entry of a candidate generation and deletes the file only if
+//!    the caller-supplied verifier proves every single entry durable.  A
+//!    generation holding even one acked-but-unflushed entry is retained.
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
@@ -567,60 +592,112 @@ impl WalWriter {
         Ok(())
     }
 
-    /// Remove WAL generations whose entries are fully covered by a checkpoint.
+    /// Current active generation number.
+    pub fn active_generation(&self) -> u64 {
+        self.generation
+    }
+
+    /// Read every decodable entry of generation `gen` from disk.
     ///
-    /// V4 M4 — extended semantics: any generation file with `gen < self.generation`
-    /// that has its own checkpoint (`gen.wchk`) is safe to delete because the
-    /// checkpoint guarantees all its entries are already durable in segments.
-    /// This lets `finalize_flush_with_publisher → rotate_if_large → prune`
-    /// actually reclaim space instead of keeping old WAL files indefinitely.
-    pub fn prune(&self) -> Result<()> {
+    /// Returns `(entries, clean)` where `clean == true` means the file was
+    /// decoded to the end without a single framing/CRC/JSON error.  Callers
+    /// verifying prunability MUST treat `clean == false` as "cannot prove
+    /// anything about the undecodable tail" and retain the generation.
+    ///
+    /// For the ACTIVE generation the caller must hold the WAL mutex (this
+    /// is a `&self` read of an append-only file; the writer soft-flushes
+    /// on every append so the on-disk prefix is complete up to
+    /// `current_offset`).
+    pub fn read_generation_entries(&self, gen: u64) -> (Vec<ReplayEntry>, bool) {
+        let path = wal_path(&self.dir, gen);
+        if !path.exists() {
+            return (Vec::new(), true);
+        }
+        let results = read_wal_file(path);
+        let clean = results.iter().all(|r| r.is_ok());
+        let entries = results.into_iter().filter_map(|r| r.ok()).collect();
+        (entries, clean)
+    }
+
+    /// RC4 W1 #8 — remove WAL generations whose entries are **all verified
+    /// durable-or-superseded** by the caller-supplied predicate.
+    ///
+    /// This replaces the pre-fix `prune()` whose rule was "gen < active &&
+    /// gen has a checkpoint file".  That rule destroyed acked-but-unflushed
+    /// entries: the flush path checkpointed every shard with a *global*
+    /// max_seq (`current_seq_no()-1`, or a sibling shard's segment max)
+    /// and a full-file offset, so a generation still holding entries whose
+    /// docs lived only in the memtable got a checkpoint and was deleted —
+    /// kill -9 then lost every one of those acked docs (live-verified
+    /// 50/50 loss).
+    ///
+    /// New rule: decode every entry of every `gen < active_generation` and
+    /// delete the file only when
+    ///   1. the file decodes cleanly end-to-end (no torn/corrupt frames), and
+    ///   2. `verify(entry, seq_no)` returns true for EVERY entry.
+    ///
+    /// The verifier is supplied by `IndexStore` and proves an entry durable
+    /// via the version map (doc segment-resident at `>=` seq, superseded by
+    /// a newer retained version, or tombstoned by a retained delete).
+    ///
+    /// ENOENT on `remove_file` is benign: sharded flushes run in parallel
+    /// and every one of them prunes ALL WAL shards; two concurrent
+    /// maintenance passes can race to delete the same file — the loser
+    /// gets NotFound.
+    ///
+    /// Returns the number of generations pruned.
+    pub fn prune_verified(
+        &self,
+        verify: &dyn Fn(&WalEntry, SeqNo) -> bool,
+    ) -> Result<usize> {
         let active_gen = self.generation;
         let entries = fs::read_dir(&self.dir)?;
-        // Collect (gen, path, is_wal_file, is_checkpoint_file) tuples.
         let mut wal_files: Vec<(u64, std::path::PathBuf)> = Vec::new();
-        let mut chkpt_files: std::collections::HashSet<u64> = std::collections::HashSet::new();
         for entry in entries.flatten() {
             let name = entry.file_name();
             let name_str = name.to_string_lossy();
             if name_str.ends_with(".wal") {
                 if let Some(gen) = parse_wal_generation(&name_str) {
-                    wal_files.push((gen, entry.path()));
-                }
-            } else if let Some(stem) = name_str.strip_suffix(".wchk") {
-                if let Ok(gen) = u64::from_str_radix(stem, 16) {
-                    chkpt_files.insert(gen);
+                    if gen < active_gen {
+                        wal_files.push((gen, entry.path()));
+                    }
                 }
             }
         }
 
-        // Delete every .wal file whose generation is strictly older than
-        // the active generation AND has its own checkpoint.  Also delete
-        // the stale checkpoint files once their corresponding wal is gone.
-        //
-        // ENOENT on `remove_file` is benign: sharded flushes run in
-        // parallel and every one of them calls `prune()` across ALL WAL
-        // shards (see `finalize_flush_with_publisher`).  Two concurrent
-        // flushes can both see the same old-generation .wal file in
-        // `read_dir` and race to delete it; the loser gets NotFound.
-        // Pre-fix, that loser's whole flush aborted with "No such file"
-        // and its shard's data was left in the memtable for the next
-        // tick — measurable as ~1/5 shard-flushes failing on sustained
-        // 20 M ingest.
+        let mut pruned = 0usize;
         for (gen, path) in &wal_files {
-            if *gen < active_gen && chkpt_files.contains(gen) {
-                match fs::remove_file(path) {
-                    Ok(()) => debug!(gen, "pruned WAL file"),
-                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                        debug!(gen, "WAL file already pruned by sibling flush — ok");
-                    }
-                    Err(e) => return Err(e.into()),
-                }
-                let ck = checkpoint_path(&self.dir, *gen);
-                let _ = fs::remove_file(&ck);
+            let (gen_entries, clean) = self.read_generation_entries(*gen);
+            if !clean {
+                // Undecodable bytes — cannot prove them durable; keep the
+                // generation.  (Torn tails from a previous crash park here
+                // until the Wave-2 torn-tail truncation lands.)
+                debug!(gen, "WAL generation retained: undecodable entries");
+                continue;
             }
+            let all_durable = gen_entries.iter().all(|e| verify(&e.entry, e.seq_no));
+            if !all_durable {
+                debug!(
+                    gen,
+                    entries = gen_entries.len(),
+                    "WAL generation retained: holds acked-but-unflushed entries"
+                );
+                continue;
+            }
+            match fs::remove_file(path) {
+                Ok(()) => {
+                    pruned += 1;
+                    debug!(gen, entries = gen_entries.len(), "pruned WAL generation");
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                    debug!(gen, "WAL file already pruned by sibling flush — ok");
+                }
+                Err(e) => return Err(e.into()),
+            }
+            let ck = checkpoint_path(&self.dir, *gen);
+            let _ = fs::remove_file(&ck);
         }
-        Ok(())
+        Ok(pruned)
     }
 
     fn rotate(&mut self) -> Result<()> {
@@ -748,44 +825,34 @@ impl WalReader {
         }
     }
 
-    /// Return an iterator of all entries that are NOT yet covered by a
-    /// checkpoint, ordered by sequence number.
+    /// Return an iterator over **every** entry in every surviving WAL
+    /// generation, ordered by sequence number within each file.
+    ///
+    /// RC4 W1 #8 — replay no longer consults checkpoints to skip entries.
+    /// Both replay consumers (`IndexStore::replay_wal` and the engine FTS
+    /// memtable rebuild) are idempotent: they skip entries whose doc is
+    /// already segment-resident at an equal-or-newer seq via the
+    /// segment-rebuilt version map.  Skipping at the WAL layer, by
+    /// contrast, silently DISCARDED acked-but-unflushed entries whenever a
+    /// checkpoint over-covered (stale checkpoints, global max_seq written
+    /// onto per-shard files, full-file offsets recorded while sibling
+    /// memtables still held acked docs).  Surviving generations are exactly
+    /// the not-yet-verified-durable set (see `prune_verified`), so the
+    /// replay cost of reading them in full is proportional to the data
+    /// that genuinely needs recovery.
     pub fn replay(&self) -> Result<impl Iterator<Item = Result<ReplayEntry>> + '_> {
-        let (latest_gen, _) = find_latest_generation(&self.dir)?;
-
-        // Determine the starting generation and offset from the checkpoint
-        let checkpoint = match read_checkpoint(&self.dir, latest_gen) {
-            Ok(c) => {
-                // debug: fires per WAL (16 shards × every index) at startup.
-                debug!(
-                    generation = c.generation,
-                    max_seq_no = c.max_seq_no,
-                    offset = c.offset,
-                    "replaying from checkpoint"
-                );
-                Some(c)
-            }
-            Err(_) => {
-                debug!("no checkpoint found, replaying from generation 0");
-                None
-            }
-        };
-        let start_gen = checkpoint.as_ref().map(|c| c.generation).unwrap_or(0);
-
-        // Collect all generations >= start_gen
         let mut gens: Vec<u64> = fs::read_dir(&self.dir)
             .into_iter()
             .flatten()
             .flatten()
             .filter_map(|e| parse_wal_generation(&e.file_name().to_string_lossy()))
-            .filter(|&g| g >= start_gen)
             .collect();
         gens.sort_unstable();
 
         let dir = self.dir.clone();
         let iter = gens.into_iter().flat_map(move |gen| {
             let path = wal_path(&dir, gen);
-            read_wal_file(path, checkpoint)
+            read_wal_file(path)
         });
 
         Ok(iter)
@@ -854,22 +921,16 @@ pub fn replay_all_sorted(wal_root: &Path) -> Vec<ReplayEntry> {
     all_entries
 }
 
-/// Read all entries from a single WAL file, skipping those already covered
-/// by `checkpoint`.
+/// Read all entries from a single WAL file.
 ///
-/// OFFSET-BOUNDED SKIP (2026-07, S3 hardening): an entry is "covered" only
-/// when it sits BEFORE the checkpointed byte offset of the checkpointed
-/// generation (or in an older generation).  A checkpoint by construction
-/// covers exactly the bytes `[0, checkpoint.offset)` of its generation —
-/// anything appended past that offset was written AFTER the checkpoint and
-/// must replay regardless of its seq_no.  The old rule (`seq_no <=
-/// checkpoint.max_seq_no`, applied file-wide) silently discarded every
-/// post-restart acked op whenever the seq counter had regressed across a
-/// restart (stale .wchk with max_seq_no=X on the active generation, tail
-/// entries seq 1..K <= X) — 100% loss of the acked tail.  It also protects
-/// against the flush-checkpoint race where a reserved-but-unflushed seq
-/// range is covered by a concurrent checkpoint's max_seq.
-fn read_wal_file(path: PathBuf, checkpoint: Option<WalCheckpoint>) -> Vec<Result<ReplayEntry>> {
+/// RC4 W1 #8: checkpoint-based skipping is GONE from replay (see
+/// `WalReader::replay` docs).  The 2026-07 S3 "offset-bounded skip"
+/// hardening was the previous, weaker containment of the same bug class
+/// (stale/over-broad checkpoints discarding acked entries); removing the
+/// skip entirely is its logical conclusion — replay-side loss is now
+/// structurally impossible, and dedup of already-flushed entries is the
+/// job of the idempotent replay consumers.
+fn read_wal_file(path: PathBuf) -> Vec<Result<ReplayEntry>> {
     let file = match File::open(&path) {
         Ok(f) => f,
         Err(e) => return vec![Err(e.into())],
@@ -956,16 +1017,6 @@ fn read_wal_file(path: PathBuf, checkpoint: Option<WalCheckpoint>) -> Vec<Result
         let entry_total = 4u64 + 8 + 1 + entry_len as u64 + 4;
         let this_offset = file_offset;
         file_offset += entry_total;
-
-        // Skip entries already covered by the checkpoint — see the
-        // offset-bounded rule in the function docs.
-        if let Some(c) = &checkpoint {
-            let positionally_covered =
-                generation < c.generation || (generation == c.generation && this_offset < c.offset);
-            if positionally_covered && seq_no <= c.max_seq_no {
-                continue;
-            }
-        }
 
         // Check and strip the compression flag from op_code.
         let is_compressed = (op_code & OP_COMPRESSED_FLAG) != 0;
@@ -1123,6 +1174,11 @@ fn create_wal_file(path: &Path, generation: u64) -> io::Result<File> {
     OpenOptions::new().append(true).open(path)
 }
 
+/// Read a generation's checkpoint file.  Replay no longer consumes
+/// checkpoints (RC4 W1 #8); they are still WRITTEN — with verified-safe
+/// values only — for data-dir compatibility with older binaries whose
+/// replay/prune still read them.  Kept for tests and offline tooling.
+#[allow(dead_code)]
 fn read_checkpoint(dir: &Path, generation: u64) -> io::Result<WalCheckpoint> {
     let path = checkpoint_path(dir, generation);
     let mut f = File::open(&path)?;
@@ -1180,7 +1236,13 @@ mod tests {
     }
 
     #[test]
-    fn checkpoint_skips_old_entries() {
+    fn replay_ignores_checkpoints_and_returns_everything() {
+        // RC4 W1 #8: checkpoints must never cause replay to discard
+        // entries.  Pre-fix, a checkpoint with max_seq_no=3 made replay
+        // skip seqs 1..3 — if any of those were acked-but-unflushed
+        // (over-broad checkpoint), they were silently lost.  Replay now
+        // returns every surviving entry; dedup of genuinely-flushed docs
+        // is the idempotent replay consumers' job (version-map guarded).
         let dir = tempfile::tempdir().unwrap();
         let seq_ctr = Arc::new(AtomicU64::new(1));
         let mut w = WalWriter::open(
@@ -1197,15 +1259,66 @@ mod tests {
             })
             .unwrap();
         }
-        // Checkpoint after seq 3
+        // A (deliberately over-broad) checkpoint after seq 3.
         w.checkpoint(3).unwrap();
         drop(w);
 
         let reader = WalReader::new(dir.path());
         let entries: Vec<_> = reader.replay().unwrap().collect();
-        // Only seq 4 and 5 should be returned (seq_no=4,5 since we started at 1)
-        assert!(entries.iter().all(|e| e.as_ref().unwrap().seq_no > 3));
-        assert_eq!(entries.len(), 2);
+        assert_eq!(entries.len(), 5, "replay must return ALL entries");
+    }
+
+    #[test]
+    fn prune_verified_retains_generations_with_unflushed_entries() {
+        // RC4 W1 #8 core regression at the WAL layer: a rotated
+        // generation holding even one entry the verifier cannot prove
+        // durable must survive prune; fully-verified generations are
+        // deleted.
+        let dir = tempfile::tempdir().unwrap();
+        let seq_ctr = Arc::new(AtomicU64::new(1));
+        let mut w = WalWriter::open(
+            dir.path(),
+            64 * 1024 * 1024,
+            SyncMode::Batched,
+            Arc::clone(&seq_ctr),
+        )
+        .unwrap();
+
+        // Gen 0: seqs 1..=3.  Rotate.  Gen 1: seqs 4..=5.  Rotate.
+        for i in 0..3 {
+            w.append(&WalEntry::Delete {
+                doc_id: format!("g0-{i}"),
+            })
+            .unwrap();
+        }
+        w.force_rotate().unwrap();
+        for i in 0..2 {
+            w.append(&WalEntry::Delete {
+                doc_id: format!("g1-{i}"),
+            })
+            .unwrap();
+        }
+        w.force_rotate().unwrap();
+
+        // Verifier: everything with seq <= 3 is durable; seq 4+ is not
+        // (i.e. gen 1 holds acked-but-unflushed entries).
+        let pruned = w.prune_verified(&|_e, seq| seq <= 3).unwrap();
+        assert_eq!(pruned, 1, "exactly gen 0 must be pruned");
+
+        // Gen 1's entries must still replay in full.
+        let reader = WalReader::new(dir.path());
+        let survivors: Vec<_> = reader
+            .replay()
+            .unwrap()
+            .map(|r| r.unwrap().seq_no)
+            .collect();
+        assert_eq!(survivors, vec![4, 5], "unverified generation retained");
+
+        // Once the verifier can prove everything, the rest is reclaimed.
+        let pruned2 = w.prune_verified(&|_e, _seq| true).unwrap();
+        assert_eq!(pruned2, 1);
+        let reader = WalReader::new(dir.path());
+        assert_eq!(reader.replay().unwrap().count(), 0);
     }
 
     #[test]

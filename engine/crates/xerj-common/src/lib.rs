@@ -21,6 +21,7 @@
 
 pub mod config;
 pub mod error;
+pub mod fsio;
 pub mod metrics;
 pub mod schema;
 pub mod types;
