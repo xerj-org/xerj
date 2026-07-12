@@ -6918,17 +6918,66 @@ impl Index {
                     } else if let QueryNode::Term { field, value, .. } = query {
                         // Selective `term`: parse only the matching stored
                         // positions instead of the whole section (id lookups,
-                        // `code:500`). A field sort still gets a complete set
-                        // (the builder never caps a set it returns), so the
-                        // top-N heap sees every match.
-                        self.build_term_prefilter_cached(
-                            &segments_dir,
-                            &seg_id,
-                            field,
-                            std::slice::from_ref(value),
-                        )
+                        // `code:500`). Without a field sort the builder's
+                        // complete set feeds the bounded arrival-order
+                        // collector; WITH a field sort the complete set used
+                        // to be offered wholesale to the top-N heap —
+                        // O(matches) simd_json parses per query (~185 ms for
+                        // a 37k-match term on the 100k bench corpus, vs ES
+                        // ~2 ms). Narrow it to the per-segment top-cap by
+                        // primary sort key exactly like the Range arm above:
+                        // the term prefilter set is EXACT (every position is
+                        // a genuine match), the scan-tallied total is partial
+                        // by design and overwritten with `shortcut_count`
+                        // post-loop (`sort_candidates_narrowed`).
+                        if let Some(topk) = sort_topk.as_ref() {
+                            if shortcut_count.is_some() && !deletes_present && !count_only {
+                                sort_cand = self.narrow_term_values_to_sort_candidates(
+                                    &segments_dir,
+                                    &seg_id,
+                                    meta.doc_count,
+                                    topk,
+                                    materialisation_limit,
+                                    field,
+                                    std::slice::from_ref(value),
+                                );
+                            }
+                        }
+                        match &sort_cand {
+                            Some(sc) => Some(Arc::new(PrefilterSet::from_set(sc.set.clone()))),
+                            None => self.build_term_prefilter_cached(
+                                &segments_dir,
+                                &seg_id,
+                                field,
+                                std::slice::from_ref(value),
+                            ),
+                        }
                     } else if let QueryNode::Terms { field, values, .. } = query {
-                        self.build_term_prefilter_cached(&segments_dir, &seg_id, field, values)
+                        // Same field-sort narrowing as the Term arm (the
+                        // candidate set is the exact union of per-value
+                        // match sets).
+                        if let Some(topk) = sort_topk.as_ref() {
+                            if shortcut_count.is_some() && !deletes_present && !count_only {
+                                sort_cand = self.narrow_term_values_to_sort_candidates(
+                                    &segments_dir,
+                                    &seg_id,
+                                    meta.doc_count,
+                                    topk,
+                                    materialisation_limit,
+                                    field,
+                                    values,
+                                );
+                            }
+                        }
+                        match &sort_cand {
+                            Some(sc) => Some(Arc::new(PrefilterSet::from_set(sc.set.clone()))),
+                            None => self.build_term_prefilter_cached(
+                                &segments_dir,
+                                &seg_id,
+                                field,
+                                values,
+                            ),
+                        }
                     } else if let QueryNode::Ids { values } = query {
                         // Resolve primary keys to stored positions via the
                         // per-segment id index (the GET `_doc/{id}` / `_mget`
@@ -12111,6 +12160,128 @@ impl Index {
         cap: usize,
         matches: &HashSet<u32>,
     ) -> Option<SortCandidates> {
+        self.narrow_pred_to_sort_candidates(
+            segments_dir,
+            segment_id,
+            seg_doc_count,
+            topk,
+            cap,
+            &|pos| matches.contains(&pos),
+        )
+    }
+
+    /// Field-sort candidate narrowing for Term/Terms queries WITHOUT
+    /// materialising the match set: the per-position membership test is a
+    /// dv-column equality probe (keyword ordinal / numeric f64-bits), so a
+    /// low-selectivity term (e.g. `status:"ok"` matching 98% of the corpus,
+    /// above `TERM_PREFILTER_CAP`) narrows in O(cap) shadow steps instead of
+    /// building a 100k-entry position set — or, pre-fix, full-scanning the
+    /// segment because the capped prefilter builder bailed.
+    ///
+    /// Membership semantics mirror `build_term_prefilter_cached` exactly
+    /// (dv ord equality per value, f64-bits equality for numerics, nulls
+    /// never match) plus the boolean-field 1.0/0.0 numeric encoding
+    /// (`ScoredLeafKind::BoolEq` precedent, index.rs:12746).  Values the
+    /// builder would bail on (non-numeric value against a numeric column)
+    /// bail here too → full scan keeps ES coercion semantics.  A value
+    /// absent from the keyword dictionary contributes zero matches, exactly
+    /// like the builder's `ord_for_term` miss.
+    ///
+    /// Same output contract as `narrow_matches_to_sort_candidates`: the
+    /// caller must source `hits.total` independently (shortcut count).
+    fn narrow_term_values_to_sort_candidates(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        seg_doc_count: u64,
+        topk: &SortTopK,
+        cap: usize,
+        field: &str,
+        values: &[Value],
+    ) -> Option<SortCandidates> {
+        use xerj_storage::doc_values::Column;
+        let cols = self.dv_columns_for(segments_dir, segment_id)?;
+        match cols.get(field)? {
+            Column::Keyword(k) => {
+                let mut target_ords: Vec<u32> = Vec::with_capacity(values.len());
+                for v in values {
+                    let term = match v {
+                        Value::String(s) => s.clone(),
+                        other => other.to_string(),
+                    };
+                    if let Some(ord) = k.ord_for_term(&term) {
+                        target_ords.push(ord);
+                    }
+                }
+                if target_ords.is_empty() {
+                    // No queried value exists in this segment → provably
+                    // zero matches here (Some(∅) lets the caller skip the
+                    // segment's stored bytes entirely).
+                    return Some(SortCandidates {
+                        set: HashSet::new(),
+                        ordered: Vec::new(),
+                    });
+                }
+                self.narrow_pred_to_sort_candidates(
+                    segments_dir,
+                    segment_id,
+                    seg_doc_count,
+                    topk,
+                    cap,
+                    &|pos| {
+                        !k.null_bitmap.contains(pos)
+                            && k.ords
+                                .get(pos as usize)
+                                .is_some_and(|o| target_ords.contains(o))
+                    },
+                )
+            }
+            Column::Numeric(n) => {
+                let mut targets: Vec<f64> = Vec::with_capacity(values.len());
+                for v in values {
+                    let t = match v {
+                        // Boolean-mapped fields are stored as 1.0/0.0 in the
+                        // numeric dv column (BoolEq encoding).
+                        Value::Bool(true) => 1.0,
+                        Value::Bool(false) => 0.0,
+                        // Strings etc. → bail; the full scan keeps ES's
+                        // coercion semantics (same as the prefilter builder).
+                        _ => v.as_f64()?,
+                    };
+                    targets.push(t);
+                }
+                self.narrow_pred_to_sort_candidates(
+                    segments_dir,
+                    segment_id,
+                    seg_doc_count,
+                    topk,
+                    cap,
+                    &|pos| {
+                        !n.null_bitmap.contains(pos)
+                            && n.data
+                                .get(pos as usize)
+                                .is_some_and(|&b| targets.contains(&f64::from_bits(b as u64)))
+                    },
+                )
+            }
+        }
+    }
+
+    /// Shared shadow walk behind `narrow_matches_to_sort_candidates` /
+    /// `narrow_term_values_to_sort_candidates`: walk the segment's
+    /// primary-sort-key shadow in page order (cursor-bounded), keep
+    /// positions accepted by `matches_pos`, stop after `cap` plus boundary
+    /// ties (so the heap's full-key/_id comparison arbitrates equal
+    /// primaries).
+    fn narrow_pred_to_sort_candidates(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        seg_doc_count: u64,
+        topk: &SortTopK,
+        cap: usize,
+        matches_pos: &dyn Fn(u32) -> bool,
+    ) -> Option<SortCandidates> {
         use xerj_query::sort::SortOrder;
         let sf = topk.fields.first()?;
         if sf.is_score() || sf.is_doc_order() {
@@ -12132,7 +12303,7 @@ impl Index {
         };
         let cap = cap.max(1);
         let len = sorted.len();
-        let mut ordered: Vec<(i64, u32)> = Vec::with_capacity(cap.min(matches.len()) + 8);
+        let mut ordered: Vec<(i64, u32)> = Vec::with_capacity(cap + 8);
         let mut boundary: Option<i64> = None;
         let mut walk = |it: &mut dyn Iterator<Item = &(i64, u32)>| {
             for &(kb, pos) in it {
@@ -12141,12 +12312,12 @@ impl Index {
                     if kb != b {
                         break;
                     }
-                    if matches.contains(&pos) {
+                    if matches_pos(pos) {
                         ordered.push((kb, pos));
                     }
                     continue;
                 }
-                if matches.contains(&pos) {
+                if matches_pos(pos) {
                     ordered.push((kb, pos));
                     if ordered.len() >= cap {
                         boundary = Some(kb);
