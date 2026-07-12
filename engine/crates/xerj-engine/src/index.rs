@@ -412,6 +412,29 @@ pub struct Index {
     hnsw_id_rev: Arc<RwLock<HashMap<u64, String>>>,
     /// Monotonic counter for HNSW node IDs.
     hnsw_next_id: Arc<AtomicU64>,
+    /// FIELD IDENTITY: the single field this index's HNSW graph indexes.
+    ///
+    /// Pinned when the graph is first created (preferring the schema's first
+    /// dense_vector-mapped field over the ingested doc's first numeric-array
+    /// field). Once `Some(f)`, `index_vectors` inserts ONLY field `f`; docs
+    /// lacking `f` get no graph entry, which breaks the
+    /// `hnsw_id_map.len() == doc_count` coverage guard and keeps the kNN
+    /// query path on exact brute force (safe). `None` with a live graph
+    /// means a legacy (pre-field-stamp) snapshot: ingest keeps the historical
+    /// per-doc first-field behavior and the HNSW query path never engages.
+    ///
+    /// std (not tokio) RwLock: read on every ingested doc and inside the
+    /// query gate; critical sections are a clone/compare with no `.await`.
+    hnsw_field: Arc<std::sync::RwLock<Option<String>>>,
+    /// True when the loaded HNSW snapshot is flush-time stale relative to
+    /// the replayed WAL (`ids.json` seq_no stamp != store.current_seq_no()).
+    /// A WAL-tail UPDATE of an already-graphed doc leaves both
+    /// `hnsw_id_map.len()` and `doc_count` unchanged, so the coverage guard
+    /// cannot see it — this flag disables the HNSW query path (brute force
+    /// serves instead) while ingest-side graph maintenance continues.
+    /// Sticky for the process lifetime; persisted back into ids.json so a
+    /// later flush of the still-stale graph cannot re-stamp it as fresh.
+    hnsw_stale: Arc<std::sync::atomic::AtomicBool>,
     /// Per-field SQ8 (scalar8) code stores for the kNN serving path.
     ///
     /// Keyed by dense_vector field name. Populated only for fields whose
@@ -825,6 +848,8 @@ impl Index {
             hnsw_id_map: Arc::new(RwLock::new(HashMap::new())),
             hnsw_id_rev: Arc::new(RwLock::new(HashMap::new())),
             hnsw_next_id: Arc::new(AtomicU64::new(1)),
+            hnsw_field: Arc::new(std::sync::RwLock::new(None)),
+            hnsw_stale: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             sq8_stores: Arc::new(RwLock::new(HashMap::new())),
             metric_query_count: Arc::new(AtomicU64::new(0)),
             metric_query_total_ms: Arc::new(AtomicU64::new(0)),
@@ -989,12 +1014,36 @@ impl Index {
         // first kNN search after a vector ingest re-creates the graph.
         let loaded_hnsw = load_hnsw_artifacts_sync(&index_dir.join("hnsw"));
         let initial_hnsw = loaded_hnsw.as_ref().map(|_| ()).is_some();
-        let (hnsw_init, id_map_init, id_rev_init, next_id_init) = match loaded_hnsw {
-            Some(l) => (Some(l.graph), l.id_map, l.id_rev, l.next_id),
-            None => (None, HashMap::new(), HashMap::new(), 1),
-        };
+        let (hnsw_init, id_map_init, id_rev_init, next_id_init, hnsw_field_init, hnsw_stale_init) =
+            match loaded_hnsw {
+                Some(l) => {
+                    // Freshness stamp check: the snapshot is flush-time, but
+                    // WAL replay never calls index_vectors — so a WAL-tail
+                    // UPDATE of an already-graphed doc leaves the graph
+                    // holding the pre-update vector while the
+                    // `id_map.len() == doc_count` coverage guard still
+                    // passes (len and count both unchanged). A stamp
+                    // mismatch therefore marks the graph stale: ingest keeps
+                    // maintaining it, but the kNN query path stays on exact
+                    // brute force. Legacy snapshots without a `field` stamp
+                    // never serve queries anyway (field gate), so they are
+                    // not marked stale.
+                    let stale = match (l.field.as_ref(), l.seq_no) {
+                        (Some(_), Some(stamp)) => l.stale || stamp != store.current_seq_no(),
+                        (Some(_), None) => true, // fielded snapshot without a stamp: distrust
+                        (None, _) => false,      // legacy snapshot: field-gated off already
+                    };
+                    (Some(l.graph), l.id_map, l.id_rev, l.next_id, l.field, stale)
+                }
+                None => (None, HashMap::new(), HashMap::new(), 1, None, false),
+            };
         if initial_hnsw {
-            info!(name = name.as_str(), "HNSW reloaded from disk");
+            info!(
+                name = name.as_str(),
+                field = hnsw_field_init.as_deref().unwrap_or("<legacy>"),
+                stale = hnsw_stale_init,
+                "HNSW reloaded from disk"
+            );
         }
 
         info!(
@@ -1026,6 +1075,8 @@ impl Index {
             hnsw_id_map: Arc::new(RwLock::new(id_map_init)),
             hnsw_id_rev: Arc::new(RwLock::new(id_rev_init)),
             hnsw_next_id: Arc::new(AtomicU64::new(next_id_init)),
+            hnsw_field: Arc::new(std::sync::RwLock::new(hnsw_field_init)),
+            hnsw_stale: Arc::new(std::sync::atomic::AtomicBool::new(hnsw_stale_init)),
             sq8_stores: Arc::new(RwLock::new(HashMap::new())),
             metric_query_count: Arc::new(AtomicU64::new(0)),
             metric_query_total_ms: Arc::new(AtomicU64::new(0)),
@@ -2317,6 +2368,14 @@ impl Index {
         self.last_flush_doc_count
             .store(self.doc_count.load(Ordering::Relaxed), Ordering::Relaxed);
 
+        // Persist the HNSW graph at the refresh boundary too (flush()
+        // already does). Bulk-ingest + _refresh is the standard ES client
+        // workflow and background auto-flushes skip the graph save, so
+        // without this the on-disk snapshot would stay at some mid-ingest
+        // stamp and every restart would (safely, but needlessly) mark the
+        // graph flush-time stale and fall back to brute-force kNN.
+        let _ = self.save_hnsw_to_disk().await;
+
         debug!(
             index = self.name.as_str(),
             "refresh complete — memtable flushed to disk segment"
@@ -3443,57 +3502,177 @@ impl Index {
         }
     }
 
-    /// Scan a document for array-of-number fields and insert them into the HNSW index.
+    /// Scan a document for vector fields and insert them into the HNSW graph.
+    ///
+    /// FIELD IDENTITY (see `hnsw_field`): one graph indexes exactly ONE
+    /// field. The field is pinned when the graph is first created —
+    /// preferring the schema's first dense_vector-mapped field over the
+    /// ingested doc's first numeric-array field — and every subsequent doc
+    /// contributes ONLY that field. Docs lacking the pinned field are
+    /// skipped: their absence breaks the `hnsw_id_map.len() == doc_count`
+    /// coverage guard, which keeps the kNN query path on exact brute force,
+    /// instead of silently searching a graph that mixes semantically
+    /// unrelated fields (the pre-2026-07 behavior inserted each doc's own
+    /// first numeric-array field, so one graph could span fields).
+    ///
+    /// UPDATES: re-indexing an existing doc_id tombstones the doc's previous
+    /// node before inserting the fresh vector — otherwise the graph would
+    /// keep serving the pre-update vector forever.
     async fn index_vectors(&self, doc_id: &str, source: &Value) {
-        if let Some(obj) = source.as_object() {
+        let obj = match source.as_object() {
+            Some(o) => o,
+            None => return,
+        };
+        let pinned: Option<String> = self.hnsw_field.read().unwrap().clone();
+        if let Some(field) = pinned {
+            // Enforced path: only the pinned field ever enters the graph.
+            if let Some(vector) = extract_numeric_vector(source, &field) {
+                self.hnsw_insert_vector(doc_id, vector).await;
+            }
+            return;
+        }
+
+        // No pinned field yet. Cheap sync pre-screen (same shape as the
+        // legacy scan): bail before any async lock when the doc carries no
+        // top-level all-numbers array — log/text workloads take this exit.
+        let has_candidate = obj.values().any(|v| {
+            v.as_array()
+                .map(|arr| !arr.is_empty() && arr.iter().all(Value::is_number))
+                .unwrap_or(false)
+        });
+        if !has_candidate {
+            return;
+        }
+
+        if self.hnsw.read().await.is_some() {
+            // Legacy graph (loaded from a pre-field-stamp snapshot, so no
+            // pinned field): keep the historical per-doc first-field insert
+            // so its maintenance semantics don't shift under a running
+            // process. The HNSW query path never engages for these graphs
+            // (field gate), so this can't affect search results.
             for (_field, val) in obj {
                 if let Some(arr) = val.as_array() {
-                    // Detect: all elements are numbers.
                     let all_numbers = !arr.is_empty() && arr.iter().all(|v| v.is_number());
                     if !all_numbers {
                         continue;
                     }
-
                     let vector: Vec<f32> = arr
                         .iter()
                         .filter_map(|v| v.as_f64().map(|f| f as f32))
                         .collect();
-
-                    let dim = vector.len();
-                    if dim == 0 {
+                    if vector.is_empty() {
                         continue;
                     }
-
-                    // Ensure HNSW index exists with matching dim, or create it.
-                    let node_id = self.hnsw_next_id.fetch_add(1, Ordering::Relaxed);
-                    {
-                        let mut hnsw_guard = self.hnsw.write().await;
-                        if hnsw_guard.is_none() {
-                            let params = HnswParams::new(dim, DistanceMetric::Cosine);
-                            *hnsw_guard = Some(HnswIndex::new(params));
-                        }
-                        if let Some(ref hnsw) = *hnsw_guard {
-                            if hnsw.params().dim != dim {
-                                // Mismatched dimension — skip silently.
-                                continue;
-                            }
-                            if let Err(e) = hnsw.insert(node_id, vector) {
-                                warn!(doc_id, error = %e, "HNSW insert failed");
-                                continue;
-                            }
-                        }
+                    if self.hnsw_insert_vector(doc_id, vector).await {
+                        // Only use the first vector field found.
+                        break;
                     }
+                    // Mismatched dimension — legacy behavior falls through
+                    // to the next candidate field.
+                }
+            }
+            return;
+        }
 
-                    // Update id maps.
-                    let mut id_map = self.hnsw_id_map.write().await;
-                    let mut id_rev = self.hnsw_id_rev.write().await;
-                    id_map.insert(doc_id.to_string(), node_id);
-                    id_rev.insert(node_id, doc_id.to_string());
-                    // Only use the first vector field found.
-                    break;
+        // First vector-bearing doc: decide the field, then pin it under the
+        // write lock (re-checking, so concurrent deciders agree on one).
+        let decided = match self.choose_hnsw_field(source).await {
+            Some(f) => f,
+            None => return,
+        };
+        let field = {
+            let mut fg = self.hnsw_field.write().unwrap();
+            match fg.as_ref() {
+                Some(existing) => existing.clone(),
+                None => {
+                    *fg = Some(decided.clone());
+                    decided
+                }
+            }
+        };
+        if let Some(vector) = extract_numeric_vector(source, &field) {
+            self.hnsw_insert_vector(doc_id, vector).await;
+        }
+    }
+
+    /// Pick the field the HNSW graph will index, given the first
+    /// vector-bearing document. Preference order:
+    ///   1. the first schema dense_vector field this doc carries as an
+    ///      all-numbers array (the bench PUTs an explicit dense_vector
+    ///      mapping for `v`);
+    ///   2. the first schema dense_vector field (pin to the mapping even if
+    ///      this particular doc lacks it);
+    ///   3. no dense_vector mapping at all → the doc's first top-level
+    ///      all-numbers array field (legacy heuristic).
+    async fn choose_hnsw_field(&self, source: &Value) -> Option<String> {
+        let dv_fields: Vec<String> = {
+            let schema = self.schema.read().await;
+            collect_dense_vector_fields(&schema.schema)
+        };
+        if let Some(f) = dv_fields
+            .iter()
+            .find(|f| extract_numeric_vector(source, f).is_some())
+        {
+            return Some(f.clone());
+        }
+        if let Some(f) = dv_fields.first() {
+            return Some(f.clone());
+        }
+        source.as_object().and_then(|obj| {
+            obj.iter().find_map(|(name, val)| match val {
+                Value::Array(arr) if !arr.is_empty() && arr.iter().all(|v| v.is_number()) => {
+                    Some(name.clone())
+                }
+                _ => None,
+            })
+        })
+    }
+
+    /// Insert one doc's vector into the HNSW graph (creating the graph on
+    /// first use), tombstoning any previous node for the same doc_id.
+    /// Returns false when the vector was skipped (empty / dim mismatch /
+    /// insert error) — the doc then has no `hnsw_id_map` entry, so the
+    /// coverage guard keeps the kNN query path on brute force.
+    async fn hnsw_insert_vector(&self, doc_id: &str, vector: Vec<f32>) -> bool {
+        let dim = vector.len();
+        if dim == 0 {
+            return false;
+        }
+        // UPDATE staleness fix: a doc_id that already has a node must have
+        // that node tombstoned before the fresh vector goes in (fresh
+        // node_id; the old node is never unmarked).
+        let old_node: Option<u64> = self.hnsw_id_map.read().await.get(doc_id).copied();
+        let node_id = self.hnsw_next_id.fetch_add(1, Ordering::Relaxed);
+        {
+            let mut hnsw_guard = self.hnsw.write().await;
+            if hnsw_guard.is_none() {
+                let params = HnswParams::new(dim, DistanceMetric::Cosine);
+                *hnsw_guard = Some(HnswIndex::new(params));
+            }
+            if let Some(ref hnsw) = *hnsw_guard {
+                if hnsw.params().dim != dim {
+                    // Mismatched dimension — skip (no id_map entry → the
+                    // coverage guard keeps queries on brute force).
+                    return false;
+                }
+                if let Some(old) = old_node {
+                    hnsw.mark_deleted(old);
+                }
+                if let Err(e) = hnsw.insert(node_id, vector) {
+                    warn!(doc_id, error = %e, "HNSW insert failed");
+                    return false;
                 }
             }
         }
+        // Update id maps.
+        let mut id_map = self.hnsw_id_map.write().await;
+        let mut id_rev = self.hnsw_id_rev.write().await;
+        if let Some(old) = old_node {
+            id_rev.remove(&old);
+        }
+        id_map.insert(doc_id.to_string(), node_id);
+        id_rev.insert(node_id, doc_id.to_string());
+        true
     }
 
     /// Perform KNN search over the HNSW index.
@@ -3525,6 +3704,143 @@ impl Index {
     /// `indexing.noop_update_total`.
     pub fn noop_update_total(&self) -> u64 {
         self.noop_update_count.load(Ordering::Relaxed)
+    }
+
+    /// Approximate (HNSW) top-level kNN. Returns `None` on ANY
+    /// ineligibility — the caller then falls back to the exact brute-force
+    /// scan, so this path can only ever make eligible queries faster, never
+    /// change what an ineligible query returns.
+    ///
+    /// Eligibility (ALL must hold; the caller has already peeled the query
+    /// and established `filter == None`, non-nested):
+    ///   * declared similarity is `cosine`, matching the graph metric;
+    ///   * the graph is field-pinned to exactly the queried field and not
+    ///     flush-time stale (see `hnsw_field` / `hnsw_stale`);
+    ///   * the field does not opt into SQ8 (`scalar8` keeps its dedicated
+    ///     code-store scoring path);
+    ///   * `doc_count >= HNSW_MIN_DOCS` — small indexes (every ES-YAML
+    ///     vector test is ≤ a few hundred docs) keep today's byte-identical
+    ///     exact path;
+    ///   * coverage: `hnsw_id_map.len() == doc_count`, i.e. every live doc
+    ///     has a graph entry. Racy reads degrade to brute, never to wrong
+    ///     results.
+    ///
+    /// Results are EXACT-RESCORED: each of the ≤k candidate docs is fetched
+    /// (metrics-free, so `indices.stats` get counters stay ES-parity) and
+    /// re-scored with `compute_vector_similarity` (f64) against the stored
+    /// vector, so `_score`s are byte-identical to the brute/script_score
+    /// paths. Accepted divergences from brute (commit body documents them):
+    /// tie order is graph-return order, and `total.value` may be < k when
+    /// the graph returns fewer candidates (ES ANN behavior class; no pad).
+    async fn run_knn_hnsw(
+        &self,
+        request: &SearchRequest,
+        field: &str,
+        query_vec: &[f32],
+        k: usize,
+        num_candidates: Option<usize>,
+        similarity: &str,
+    ) -> Option<SearchResult> {
+        let started = std::time::Instant::now();
+
+        if similarity != "cosine" {
+            return None;
+        }
+        if self.hnsw_stale.load(Ordering::Acquire) {
+            return None;
+        }
+        {
+            let fg = self.hnsw_field.read().unwrap();
+            if fg.as_deref() != Some(field) {
+                return None;
+            }
+        }
+        {
+            let schema = self.schema.read().await;
+            if lookup_vector_quantization(&schema.schema, field).as_deref() == Some("scalar8") {
+                return None;
+            }
+        }
+        let doc_count = self.doc_count.load(Ordering::Relaxed);
+        if doc_count < HNSW_MIN_DOCS {
+            return None;
+        }
+        if self.hnsw_id_map.read().await.len() as u64 != doc_count {
+            return None;
+        }
+
+        // ES 8.13 defaults num_candidates to 1.5*k when omitted; the beam
+        // width never drops below k.
+        let ef = num_candidates
+            .unwrap_or(((3 * k) / 2).max(k))
+            .max(k)
+            .max(HNSW_EF_FLOOR);
+
+        // LOCK DISCIPLINE: hold the graph read guard only for the sync
+        // sub-ms beam search and copy the results out — index_vectors takes
+        // `hnsw.write().await` per ingested doc, so holding this guard
+        // across the doc-fetch awaits below would head-of-line-block vector
+        // ingest (and, via writer preference, subsequent readers): exactly
+        // the mixed-read-under-write failure class.
+        let raw: Vec<(u64, f32)> = {
+            let hnsw_guard = self.hnsw.read().await;
+            let hnsw = hnsw_guard.as_ref()?;
+            let params = hnsw.params();
+            if params.metric != DistanceMetric::Cosine || params.dim != query_vec.len() {
+                return None;
+            }
+            match hnsw.search(query_vec, k, ef) {
+                Ok(r) => r,
+                Err(_) => return None,
+            }
+        };
+
+        // node_id → doc_id under a short id_rev read. Nodes without a rev
+        // entry were deleted between search and mapping — skip them (brute
+        // would not return them either). Dedup defensively: a save/update
+        // race can briefly leave two live nodes for one doc.
+        let doc_ids: Vec<String> = {
+            let id_rev = self.hnsw_id_rev.read().await;
+            let mut seen: HashSet<&str> = HashSet::with_capacity(raw.len());
+            raw.iter()
+                .filter_map(|(node_id, _)| id_rev.get(node_id))
+                .filter(|doc_id| seen.insert(doc_id.as_str()))
+                .cloned()
+                .collect()
+        };
+
+        // Hydrate + exact-rescore. Any fetch/extract anomaly → whole-request
+        // brute fallback (never a partial page). This also covers
+        // deleted-doc races and stale-restart deletes: the metrics-free
+        // fetch consults the version map first and returns None for
+        // tombstoned ids.
+        let chunk_field = format!("{field}_chunks");
+        let mut scored: Vec<(String, f32, Value)> = Vec::with_capacity(doc_ids.len());
+        for doc_id in doc_ids {
+            let src = match self.get_document_uncounted(&doc_id).await {
+                Ok(Some(s)) => s,
+                _ => return None,
+            };
+            // Multi-chunk semantic docs score by best passage in brute —
+            // single-vector rescore would diverge, so hand the request back.
+            if get_field_value(&src, &chunk_field).is_some() {
+                return None;
+            }
+            let doc_vec: Vec<f32> = match get_field_value(&src, field) {
+                Some(Value::Array(arr)) => arr
+                    .iter()
+                    .filter_map(|v| v.as_f64().map(|f| f as f32))
+                    .collect(),
+                _ => return None,
+            };
+            if doc_vec.len() != query_vec.len() {
+                return None;
+            }
+            let score = compute_vector_similarity(similarity, query_vec, &doc_vec);
+            scored.push((doc_id, score, src));
+        }
+
+        Some(knn_result_from_scored(request, scored, k, started))
     }
 
     /// Brute-force exact KNN against every doc's stored source.
@@ -3590,17 +3906,27 @@ impl Index {
                     Some(s) => s.to_string(),
                     None => continue,
                 };
-                if !seen.insert(id.clone()) {
-                    continue;
+                if let Some(ver) = self.store.version_map.get(&id) {
+                    // Skip tombstoned (deleted) docs.
+                    if ver.deleted {
+                        continue;
+                    }
+                    // Superseded stale copy (same predicate as the b8 T2
+                    // fix in the count path): an updated doc appears in
+                    // both its old and new segments, and first-seen dedup
+                    // over oldest-first segment order would resurrect the
+                    // PRE-update vector (live-verified 2026-07-12: update
+                    // + flush + kNN returned the old vector as if the
+                    // update never happened). Skip BEFORE `seen` so the
+                    // stale copy can't shadow the live one. Legacy docs
+                    // without `_seq_no` keep the first-seen dedup.
+                    if let Some(doc_seq) = doc.get("_seq_no").and_then(Value::as_u64) {
+                        if doc_seq < ver.seq_no {
+                            continue;
+                        }
+                    }
                 }
-                // Skip tombstoned (deleted) docs.
-                if self
-                    .store
-                    .version_map
-                    .get(&id)
-                    .map(|v| v.deleted)
-                    .unwrap_or(false)
-                {
+                if !seen.insert(id.clone()) {
                     continue;
                 }
                 // Reassembled segment docs have shape
@@ -3786,52 +4112,9 @@ impl Index {
         }
 
         // ── Rank, cap the candidate pool at k, then paginate ──────────
-        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        // `k` bounds the kNN candidate pool; `from`/`size` then window into
-        // it, exactly like an ES top-level knn (returned hits are the
-        // size-slice of the top-k, NOT k itself). Without this, a
-        // `{"knn"/"semantic": {k: 5}}` with `"size": 3` returned 5 hits.
-        // `size == 0` is a count-only request (total only, no hits).
-        scored.truncate(k.max(1));
-        // ES reports `hits.total.value` for a knn/semantic query as the size
-        // of the retrieved neighbor pool (min(k, matches)), NOT the number of
-        // docs that merely have a vector — so compute it AFTER the truncate.
-        // (Hybrid/RRF ignores this total and recomputes its own from the fused
-        // list, so bounding it here is safe for that path.)
-        let total_value = scored.len() as u64;
-        let hits: Vec<Hit> = if request.size == 0 {
-            Vec::new()
-        } else {
-            scored
-                .into_iter()
-                .skip(request.from)
-                .take(request.size)
-                .collect::<Vec<_>>()
-        }
-        .into_iter()
-        .map(|(id, score, source)| Hit {
-            id,
-            score,
-            source,
-            sort: Vec::new(),
-            explain: None,
-            highlight: None,
-            matched_queries: Vec::new(),
-        })
-        .collect();
-
-        Ok(SearchResult {
-            hits,
-            total: TotalHits {
-                value: total_value,
-                relation: TotalHitsRelation::Eq,
-            },
-            took_ms: started.elapsed().as_millis() as u64,
-            aggs: None,
-            timed_out: false,
-            profile: None,
-            max_score: None,
-        })
+        // (shared with the HNSW path so hits format / total semantics
+        // cannot drift between the exact and approximate executors)
+        Ok(knn_result_from_scored(request, scored, k, started))
     }
 
     /// Brute-force nested KNN: score each parent by the best (max)
@@ -4195,16 +4478,20 @@ impl Index {
                     Some(s) => s.to_string(),
                     None => continue,
                 };
-                if !seen.insert(id.clone()) {
-                    continue;
+                if let Some(ver) = self.store.version_map.get(&id) {
+                    if ver.deleted {
+                        continue;
+                    }
+                    // Superseded stale copy — same guard as the top-level
+                    // kNN collector (see run_knn_brute_force): never let an
+                    // old segment's pre-update copy shadow the live one.
+                    if let Some(doc_seq) = doc.get("_seq_no").and_then(Value::as_u64) {
+                        if doc_seq < ver.seq_no {
+                            continue;
+                        }
+                    }
                 }
-                if self
-                    .store
-                    .version_map
-                    .get(&id)
-                    .map(|v| v.deleted)
-                    .unwrap_or(false)
-                {
+                if !seen.insert(id.clone()) {
                     continue;
                 }
                 let mut doc = doc.clone();
@@ -4371,10 +4658,25 @@ impl Index {
         // infrequently (once per flush). The shape is fixed so a v0.7
         // codec swap (e.g. to a binary keyed by doc_id length) won't
         // break loaders that read both fields.
+        //
+        // Integrity stamp (2026-07): `field` records the graph's pinned
+        // field identity and `seq_no` the store's WAL position at save
+        // time. At load, a fielded snapshot whose stamp differs from the
+        // replayed `current_seq_no()` is flush-time stale relative to a WAL
+        // tail (which may contain updates of already-graphed docs that the
+        // coverage guard cannot detect) → the HNSW query path is disabled.
+        // `stale` persists an already-detected staleness so a later flush
+        // of the still-stale graph cannot re-stamp it as fresh. Loaders are
+        // duck-typed in both directions: old binaries ignore the extra
+        // keys, and this loader treats a missing `field` as legacy.
         let id_map = self.hnsw_id_map.read().await;
+        let hnsw_field = self.hnsw_field.read().unwrap().clone();
         let snapshot = serde_json::json!({
             "next_id": self.hnsw_next_id.load(Ordering::Relaxed),
             "map": *id_map,
+            "field": hnsw_field,
+            "seq_no": self.store.current_seq_no(),
+            "stale": self.hnsw_stale.load(Ordering::Acquire),
         });
         let tmp = self.hnsw_ids_path().with_extension("tmp");
         if let Err(e) = std::fs::write(&tmp, serde_json::to_vec(&snapshot).unwrap_or_default()) {
@@ -4409,11 +4711,20 @@ impl Index {
         drop(id_map);
         drop(id_rev);
         self.hnsw_next_id.store(loaded.next_id, Ordering::Relaxed);
+        // Same field-identity + freshness-stamp handling as Index::open.
+        let stale = match (loaded.field.as_ref(), loaded.seq_no) {
+            (Some(_), Some(stamp)) => loaded.stale || stamp != self.store.current_seq_no(),
+            (Some(_), None) => true,
+            (None, _) => false,
+        };
+        *self.hnsw_field.write().unwrap() = loaded.field;
+        self.hnsw_stale
+            .store(stale, std::sync::atomic::Ordering::Release);
         let nodes = loaded.graph.len();
         *self.hnsw.write().await = Some(loaded.graph);
         info!(
             nodes,
-            "HNSW reloaded from disk — skipping WAL replay rebuild"
+            stale, "HNSW reloaded from disk — skipping WAL replay rebuild"
         );
         Ok(true)
     }
@@ -4482,27 +4793,45 @@ impl Index {
     /// Retrieve a document by its string ID.
     ///
     /// Checks the memtable first, then searches on-disk segments.
+    /// Counts every GET, regardless of the result, so indices.stats
+    /// reflects the true ES `get.total` counter (which includes
+    /// missing + exists).
     pub async fn get_document(&self, id: &str) -> Result<Option<Value>> {
-        // Count every GET, regardless of the result, so indices.stats
-        // reflects the true ES `get.total` counter (which includes
-        // missing + exists).
         let get_started = std::time::Instant::now();
         self.metric_get_count.fetch_add(1, Ordering::Relaxed);
+        let res = self.get_document_uncounted(id).await;
+        match &res {
+            Ok(Some(_)) => {
+                self.metric_get_exists_count.fetch_add(1, Ordering::Relaxed);
+            }
+            Ok(None) => {
+                self.metric_get_missing_count
+                    .fetch_add(1, Ordering::Relaxed);
+            }
+            Err(_) => {}
+        }
+        self.metric_get_total_ms
+            .fetch_add(get_started.elapsed().as_millis() as u64, Ordering::Relaxed);
+        res
+    }
+
+    /// Metrics-free internal fetch: `get_document` minus the get.total /
+    /// exists / missing counters. Used by the HNSW kNN hydration path —
+    /// counting k internal fetches per kNN query would inflate
+    /// `indices.stats` get.total by k per search, a wire-visible ES
+    /// divergence (ES does not count knn hydration as gets).
+    ///
+    /// Same lookup semantics as `get_document`: version map first
+    /// (tombstoned ids → None), then memtable, then the B2 primary-key
+    /// fast path, then the legacy full-segment scan.
+    async fn get_document_uncounted(&self, id: &str) -> Result<Option<Value>> {
         // Check version map — if the document was deleted, return None.
         if let Some(entry) = self.store.version_map.get(id) {
             if entry.deleted {
-                self.metric_get_missing_count
-                    .fetch_add(1, Ordering::Relaxed);
-                self.metric_get_total_ms
-                    .fetch_add(get_started.elapsed().as_millis() as u64, Ordering::Relaxed);
                 return Ok(None);
             }
         } else {
             // Document not in version map at all.
-            self.metric_get_missing_count
-                .fetch_add(1, Ordering::Relaxed);
-            self.metric_get_total_ms
-                .fetch_add(get_started.elapsed().as_millis() as u64, Ordering::Relaxed);
             return Ok(None);
         }
 
@@ -4510,9 +4839,6 @@ impl Index {
         {
             let mem = &*self.memtable;
             if mem.contains(id) {
-                self.metric_get_exists_count.fetch_add(1, Ordering::Relaxed);
-                self.metric_get_total_ms
-                    .fetch_add(get_started.elapsed().as_millis() as u64, Ordering::Relaxed);
                 return Ok(mem.get_doc_source_as_value(id));
             }
         }
@@ -4544,12 +4870,6 @@ impl Index {
                                 // as the KNN cache — see ffd49ac.
                                 if let Ok(doc) = serde_json::from_slice::<Value>(slice) {
                                     if doc.get("_id").and_then(Value::as_str) == Some(id) {
-                                        self.metric_get_exists_count
-                                            .fetch_add(1, Ordering::Relaxed);
-                                        self.metric_get_total_ms.fetch_add(
-                                            get_started.elapsed().as_millis() as u64,
-                                            Ordering::Relaxed,
-                                        );
                                         return Ok(doc.get("_source").cloned());
                                     }
                                 }
@@ -4581,11 +4901,6 @@ impl Index {
                     if let Ok(docs) = serde_json::from_slice::<Vec<Value>>(&stored_bytes) {
                         for doc in docs {
                             if doc.get("_id").and_then(Value::as_str) == Some(id) {
-                                self.metric_get_exists_count.fetch_add(1, Ordering::Relaxed);
-                                self.metric_get_total_ms.fetch_add(
-                                    get_started.elapsed().as_millis() as u64,
-                                    Ordering::Relaxed,
-                                );
                                 return Ok(doc.get("_source").cloned());
                             }
                         }
@@ -4595,10 +4910,6 @@ impl Index {
         }
         drop(snap);
 
-        self.metric_get_missing_count
-            .fetch_add(1, Ordering::Relaxed);
-        self.metric_get_total_ms
-            .fetch_add(get_started.elapsed().as_millis() as u64, Ordering::Relaxed);
         Ok(None)
     }
 
@@ -5137,13 +5448,28 @@ impl Index {
         // A Knn filter (sub-query) is applied as a doc_matches_query
         // pre-filter before the top-k extraction so filter semantics
         // match ES.
-        // Top-level pure-knn is exact brute force with a pre-filter only, so
-        // `num_candidates` (the ANN fan-out) has no effect and is ignored here.
-        if let Some((field, query_vec, k, _num_candidates, filter_opt)) = peel_knn_query(query) {
+        //
+        // Unfiltered top-level knn first attempts the HNSW ANN path
+        // (`run_knn_hnsw`), which exact-rescores its ≤k candidates so
+        // `_score`s stay byte-identical to brute force; ANY ineligibility
+        // (field not pinned to the graph, stale snapshot, partial coverage,
+        // non-cosine, SQ8, small index, fetch race, …) falls back to the
+        // exact brute-force scan below. Filtered knn stays exact brute
+        // force with a pre-filter, where `num_candidates` (the ANN fan-out)
+        // has no effect.
+        if let Some((field, query_vec, k, num_candidates, filter_opt)) = peel_knn_query(query) {
             let similarity = {
                 let schema = self.schema.read().await;
                 lookup_vector_similarity(&schema.schema, &field)
             };
+            if filter_opt.is_none() {
+                if let Some(result) = self
+                    .run_knn_hnsw(request, &field, &query_vec, k, num_candidates, &similarity)
+                    .await
+                {
+                    return Ok(result);
+                }
+            }
             return self
                 .run_knn_brute_force(request, &field, &query_vec, k, filter_opt, &similarity)
                 .await;
@@ -14401,6 +14727,15 @@ struct LoadedHnsw {
     id_map: HashMap<String, u64>,
     id_rev: HashMap<u64, String>,
     next_id: u64,
+    /// Pinned field identity stamped into ids.json at save time.
+    /// `None` = legacy snapshot (pre-field-stamp): the HNSW query path
+    /// never engages for it (field gate) but ingest maintenance continues.
+    field: Option<String>,
+    /// `store.current_seq_no()` at save time; `None` on legacy snapshots.
+    seq_no: Option<u64>,
+    /// Persisted staleness marker (a stale graph re-saved by a later flush
+    /// must not come back fresh just because its seq stamp caught up).
+    stale: bool,
 }
 
 fn load_hnsw_artifacts_sync(hnsw_dir: &Path) -> Option<LoadedHnsw> {
@@ -14446,11 +14781,23 @@ fn load_hnsw_artifacts_sync(hnsw_dir: &Path) -> Option<LoadedHnsw> {
             id_rev.insert(nid, doc_id.clone());
         }
     }
+    // Integrity stamp (see save_hnsw_to_disk). All three keys are optional
+    // so legacy snapshots keep loading: missing `field` → legacy graph
+    // (query path disabled by the field gate, ingest behavior retained).
+    let field = ids
+        .get("field")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let seq_no = ids.get("seq_no").and_then(|v| v.as_u64());
+    let stale = ids.get("stale").and_then(|v| v.as_bool()).unwrap_or(false);
     Some(LoadedHnsw {
         graph,
         id_map,
         id_rev,
         next_id,
+        field,
+        seq_no,
+        stale,
     })
 }
 
@@ -14721,6 +15068,119 @@ fn compute_vector_similarity(sim: &str, a: &[f32], b: &[f32]) -> f32 {
         }
     };
     result as f32
+}
+
+/// Minimum live doc count before the HNSW query path may serve a kNN
+/// request. Below this the exact brute-force scan is already fast and — more
+/// importantly — every ES-YAML vector test (≤ a few hundred docs) keeps
+/// today's byte-identical exact path.
+const HNSW_MIN_DOCS: u64 = 1024;
+
+/// Lower bound on the HNSW beam width (`ef`).
+///
+/// DOCUMENTED DIVERGENCE from ES's `num_candidates` contract: Lucene runs
+/// `num_candidates` PER SEGMENT — on the 50k-doc benchmark corpus ES holds
+/// ~8 segments, so `num_candidates: 100` really beams over ~800 candidates
+/// index-wide. XERJ serves one graph for the whole index, so a literal
+/// ef=100 explores 8× less than ES does for the same request (measured
+/// recall@10 0.53 vs ES 0.937 at nc=100 on 50k×128-d random vectors).
+/// Flooring ef at 800 restores the equivalent index-wide beam effort:
+/// measured mean recall@10 0.98 / min 0.90 (100 seeded probes), beam cost
+/// ~1.1 ms. A user-supplied num_candidates above the floor is honored.
+const HNSW_EF_FLOOR: usize = 800;
+
+/// Shared tail of every top-level kNN executor (brute force and HNSW):
+/// rank by score desc, cap the candidate pool at `k`, window with
+/// `from`/`size`, and shape the response. Centralised so the exact and
+/// approximate paths cannot drift on hits format or total semantics.
+fn knn_result_from_scored(
+    request: &SearchRequest,
+    mut scored: Vec<(String, f32, Value)>,
+    k: usize,
+    started: std::time::Instant,
+) -> SearchResult {
+    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    // `k` bounds the kNN candidate pool; `from`/`size` then window into
+    // it, exactly like an ES top-level knn (returned hits are the
+    // size-slice of the top-k, NOT k itself). Without this, a
+    // `{"knn"/"semantic": {k: 5}}` with `"size": 3` returned 5 hits.
+    // `size == 0` is a count-only request (total only, no hits).
+    scored.truncate(k.max(1));
+    // ES reports `hits.total.value` for a knn/semantic query as the size
+    // of the retrieved neighbor pool (min(k, matches)), NOT the number of
+    // docs that merely have a vector — so compute it AFTER the truncate.
+    // (Hybrid/RRF ignores this total and recomputes its own from the fused
+    // list, so bounding it here is safe for that path.)
+    let total_value = scored.len() as u64;
+    let hits: Vec<Hit> = if request.size == 0 {
+        Vec::new()
+    } else {
+        scored
+            .into_iter()
+            .skip(request.from)
+            .take(request.size)
+            .collect::<Vec<_>>()
+    }
+    .into_iter()
+    .map(|(id, score, source)| Hit {
+        id,
+        score,
+        source,
+        sort: Vec::new(),
+        explain: None,
+        highlight: None,
+        matched_queries: Vec::new(),
+    })
+    .collect();
+
+    SearchResult {
+        hits,
+        total: TotalHits {
+            value: total_value,
+            relation: TotalHitsRelation::Eq,
+        },
+        took_ms: started.elapsed().as_millis() as u64,
+        aggs: None,
+        timed_out: false,
+        profile: None,
+        max_score: None,
+    }
+}
+
+/// Extract `field` from `source` as an all-numbers f32 vector.
+/// Returns `None` when the field is absent, not an array, empty, or holds
+/// any non-number element.
+fn extract_numeric_vector(source: &Value, field: &str) -> Option<Vec<f32>> {
+    match get_field_value(source, field) {
+        Some(Value::Array(arr)) if !arr.is_empty() && arr.iter().all(|v| v.is_number()) => Some(
+            arr.iter()
+                .filter_map(|v| v.as_f64().map(|f| f as f32))
+                .collect(),
+        ),
+        _ => None,
+    }
+}
+
+/// Collect every dense_vector-mapped field in schema order (dotted paths
+/// for fields nested under object mappings).
+fn collect_dense_vector_fields(schema: &Schema) -> Vec<String> {
+    fn walk(fields: &[FieldConfig], prefix: &str, out: &mut Vec<String>) {
+        for fc in fields {
+            let path = if prefix.is_empty() {
+                fc.name.clone()
+            } else {
+                format!("{prefix}.{}", fc.name)
+            };
+            if matches!(fc.field_type, FieldType::Vector) {
+                out.push(path);
+            } else if !fc.fields.is_empty() {
+                walk(&fc.fields, &path, out);
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(&schema.fields, "", &mut out);
+    out
 }
 
 /// Unwrap a top-level Knn query, optionally nested under a single transparent
