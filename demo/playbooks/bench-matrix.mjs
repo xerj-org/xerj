@@ -21,6 +21,7 @@
 //   node demo/playbooks/bench-matrix.mjs --xerj http://localhost:9200 --es http://localhost:9201
 //   node demo/playbooks/bench-matrix.mjs --reads-only
 //   node demo/playbooks/bench-matrix.mjs --ingest-only --docs 1m --clients 1,4,8
+//   node demo/playbooks/bench-matrix.mjs --mixed-only   # just the read-under-write cells
 //
 // Requires: Node 24, curl on PATH. Reads go through Node-core http keep-alive
 // (NOT the global fetch/undici — see the transport note above req()). No deps
@@ -553,14 +554,28 @@ async function mixedBench(base, log) {
   const flag = `${SCRATCH}/_mx_run_${tag}.flag`;
   const cntF = `${SCRATCH}/_mx_wcount_${tag}.txt`;
   fs.writeFileSync(flag, '1');
-  fs.writeFileSync(cntF, '0');
-  // H3: ISO-WRITE-RATE. Throttle the background writer to a FIXED offered target
-  // of ~100,000 docs/s (~10 bulk posts/s of BATCH=10,000) via a `sleep 0.1` per
-  // iteration, so BOTH engines face the SAME offered write load (the previous
-  // uncapped loop let a faster-ingesting engine self-impose more merge pressure,
-  // making the mixed comparison not iso-load). Achieved rate is still measured
-  // and compared afterward; a >10% divergence is flagged on the mixed rows.
-  const script = `n=0; while [ -f '${flag}' ]; do curl -s -XPOST '${base}/perf/_bulk' -H 'content-type: application/x-ndjson' --data-binary @'${f}' >/dev/null 2>&1; n=$((n+1)); printf '%s' "$n" > '${cntF}'; sleep 0.1; done`;
+  fs.writeFileSync(cntF, '0 0');
+  // H4: OPEN-LOOP ISO-WRITE-RATE (supersedes H3's closed-loop throttle). The old
+  // writer awaited each curl before its `sleep 0.1`, so the offered rate was
+  // BATCH/(bulk_time + 0.1s) — a slower-ingesting engine automatically received
+  // LESS write load exactly when it stalled, and the two engines never faced the
+  // same schedule (NOT iso-load). This writer runs a fixed ABSOLUTE-DEADLINE
+  // schedule: one BATCH=10k bulk launched every 250ms (offered 40,000 docs/s)
+  // anchored to t0 — deadlines never slip, and curl-spawn overhead cannot
+  // undershoot the target the way a bare `sleep 0.25` pacer would. The identical
+  // script template drives BOTH engines (only the target URL differs).
+  // In-flight bulks are launched with a plain `curl ... &` so they land in THIS
+  // shell's job table and are genuinely countable via `jobs -r` (bash reports
+  // the invoking shell's jobs inside command substitution; a `( curl & )`
+  // subshell would disown them and make the guard a no-op). A tick that finds
+  // >2 bulks still in flight SKIPS its launch and increments the overrun
+  // counter — bounded queueing: a stalled engine sees bounded back-pressure
+  // instead of an unbounded curl pile-up, and the skip is REPORTED, never
+  // silently absorbed. After a stall the past-deadline ticks fire immediately
+  // (bounded by the same guard) until the schedule re-anchors to wall clock.
+  const PERIOD_NS = 250000000; // 250ms → 4 × BATCH(10k)/s = 40k docs/s offered
+  const OFFERED_BG_DPS = 40000;
+  const script = `n=0; over=0; i=0; t0=$(date +%s%N); while [ -f '${flag}' ]; do i=$((i+1)); tgt=$((t0 + i * ${PERIOD_NS})); now=$(date +%s%N); if [ "$now" -lt "$tgt" ]; then d=$((tgt - now)); sleep "$(printf '%d.%09d' $((d / 1000000000)) $((d % 1000000000)))"; fi; [ -f '${flag}' ] || break; if [ "$(jobs -r | wc -l)" -gt 2 ]; then over=$((over+1)); else curl -s -o /dev/null -XPOST '${base}/perf/_bulk' -H 'content-type: application/x-ndjson' --data-binary @'${f}' & n=$((n+1)); fi; printf '%s %s' "$n" "$over" > '${cntF}'; done; wait`;
   const child = spawn('bash', ['-c', script], { detached: true, stdio: 'ignore' });
   child.unref();
   const wStart = performance.now();
@@ -574,18 +589,35 @@ async function mixedBench(base, log) {
     log(`     mixed ${label}: p99 ${f3(statVal(out[label], 'p99'))}ms max ${f3(statVal(out[label], 'max'))}ms (achieved ${out[label] && out[label].achievedRate != null ? out[label].achievedRate : '—'}/s, under write load)`);
   }
   // stop the writer and measure achieved background throughput
-  try { fs.unlinkSync(flag); } catch {}            // loop exits after its current curl
+  try { fs.unlinkSync(flag); } catch {}            // loop exits at its next deadline check
   await new Promise((r) => setTimeout(r, 300));
   try { process.kill(-child.pid); } catch {}       // kill the detached process group (bash + curl)
   const wEnd = performance.now();
-  let writes = 0;
-  try { writes = parseInt(fs.readFileSync(cntF, 'utf8').trim(), 10) || 0; } catch {}
+  let writes = 0, overruns = 0;
+  try {
+    const parts = fs.readFileSync(cntF, 'utf8').trim().split(/\s+/);
+    writes = parseInt(parts[0], 10) || 0;
+    overruns = parseInt(parts[1], 10) || 0;
+  } catch {}
   try { fs.unlinkSync(cntF); } catch {}
   try { fs.unlinkSync(f); } catch {}
-  // H3: record offered target (~100,000 docs/s) alongside achieved so iso-load
-  // can be verified/annotated when the scorecard is built.
-  const OFFERED_BG_DPS = 100000;
-  out.__bg = { docs: writes * BATCH, dps: Math.round((writes * BATCH) / ((wEnd - wStart) / 1000)), offered: OFFERED_BG_DPS };
+  // End-of-window doc visibility, per each engine's OWN semantics: ES `_count`
+  // excludes not-yet-refreshed docs (it is NOT memtable depth); XERJ counts
+  // memtable-resident docs. Reported as context, never scored.
+  const vis = await req(base, 'GET', '/perf/_count');
+  // H4: record the open-loop mode + offered target + overruns alongside
+  // achieved so the scorecard can verify/annotate iso-load on every mixed row
+  // (and never silently compare open-loop rows against historical closed-loop
+  // rows). achieved (`dps`) counts LAUNCHED bulks; ticks skipped by the
+  // in-flight guard are `overruns`.
+  out.__bg = {
+    mode: 'open-loop',
+    offered: OFFERED_BG_DPS,
+    docs: writes * BATCH,
+    dps: Math.round((writes * BATCH) / ((wEnd - wStart) / 1000)),
+    overruns,
+    visibleDocs: vis.j?.count ?? null,
+  };
   return out;
 }
 
@@ -665,6 +697,7 @@ function parseArgs(argv) {
     clients: '1', docs: '100k,1m',
     xerj: 'http://localhost:9200', es: 'http://localhost:9201',
     mixed: false, knn: false, out: DEFAULT_OUT, readsOnly: false, ingestOnly: false,
+    mixedOnly: false,
   };
   for (let i = 2; i < argv.length; i++) {
     let t = argv[i], inlineVal;
@@ -678,6 +711,10 @@ function parseArgs(argv) {
       case '--es': a.es = val(); break;
       case '--out': a.out = val(); break;
       case '--mixed': a.mixed = true; break;
+      // mixed-only: skip the ingest matrix + read families (mixedBench builds
+      // its own /perf corpus) — for fast engine-fix iteration on the mixed
+      // cells. The emitted scorecard then contains ONLY mixed + disk rows.
+      case '--mixed-only': a.mixedOnly = true; a.mixed = true; break;
       case '--knn': a.knn = true; break;
       case '--reads-only': a.readsOnly = true; break;
       case '--ingest-only': a.ingestOnly = true; break;
@@ -747,7 +784,7 @@ async function main() {
   log(`   clients: ${A.clientsList.join(', ')}`);
   log(`   xerj:    ${A.xerj}`);
   log(`   es:      ${A.es}`);
-  log(`   modes:   reads=${!A.ingestOnly} ingest=${!A.readsOnly} mixed=${A.mixed} knn=${A.knn}`);
+  log(`   modes:   reads=${!A.ingestOnly && !A.mixedOnly} ingest=${!A.readsOnly && !A.mixedOnly} mixed=${A.mixed} knn=${A.knn}${A.mixedOnly ? ' (mixed-only)' : ''}`);
   log('══════════════════════════════════════════════════════════════');
 
   // health check (non-fatal)
@@ -760,7 +797,7 @@ async function main() {
   const R = { ingest: {}, reads: {}, mixed: {}, knn: {}, disk: {} };
 
   // ── ingest matrix ──
-  if (!A.readsOnly) {
+  if (!A.readsOnly && !A.mixedOnly) {
     for (const docs of A.docsList) {
       for (const clients of A.clientsList) {
         const key = `${humanDocs(docs)} × c${clients}`;
@@ -781,6 +818,7 @@ async function main() {
 
   // ── reads (+ mixed + knn) ──
   if (!A.ingestOnly) {
+    if (!A.mixedOnly) {
     // guarantee a consistent read corpus on each engine
     for (const e of engines) {
       if (!alive[e.name]) continue;
@@ -849,6 +887,7 @@ async function main() {
       log(`   [read] ${fam.label.padEnd(38)} XERJ p50 ${f3(xr)} (${sigStr(xrr && xrr.signal)})  ES p50 ${f3(er)} (${sigStr(err_ && err_.signal)})${retries ? ` [median of ${retries + 1}]` : ''}${mm ? `  [MISMATCH: ${mm}]` : ''}`);
     }
     for (const [fam, why] of SKIPPED_FAMILIES) log(`   [skip] ${fam} — ${why}`);
+    } // end !A.mixedOnly (seed + quiesce + read families)
 
     if (A.mixed) {
       for (const e of engines) {
@@ -857,7 +896,7 @@ async function main() {
         try {
           R.mixed[e.name] = await mixedBench(e.url, log);
           const bg = R.mixed[e.name].__bg;
-          if (bg) log(`     ${e.name} background write load: offered ~${(bg.offered ?? 100000).toLocaleString()} docs/s, achieved ${bg.dps.toLocaleString()} docs/s (${bg.docs.toLocaleString()} docs during read window)`);
+          if (bg) log(`     ${e.name} background write load [${bg.mode ?? 'closed-loop'}]: offered ${(bg.offered ?? 0).toLocaleString()} docs/s, achieved ${bg.dps.toLocaleString()} docs/s (${bg.docs.toLocaleString()} docs launched, ${bg.overruns ?? 0} overrun ticks, visible docs ${bg.visibleDocs == null ? 'unknown' : bg.visibleDocs.toLocaleString()})`);
         } catch (err) {
           // Log WHY + whether the engine is still up: all-unsupported mixed cells
           // have previously meant "engine died between phases", not "no feature".
@@ -932,15 +971,24 @@ async function main() {
       rows.push(row);
     }
   }
-  // mixed read-under-write (lower p99 = XERJ win). H3: if the two engines'
-  // achieved background write rates diverged >10% the mixed rows were NOT
-  // iso-load — annotate every mixed row so the comparison isn't read as fair.
+  // mixed read-under-write (lower p99 = XERJ win). H4: EVERY mixed row is
+  // annotated with the writer mode, so historical closed-loop rows can never
+  // be silently compared against open-loop rows. Iso-load is DECLARED only
+  // when BOTH engines ran the open-loop writer AND achieved within ~5% of the
+  // offered target; anything else carries an explicit NOT-iso flag.
   if (A.mixed) {
-    const xbg = R.mixed.XERJ?.__bg?.dps, ebg = R.mixed.ES?.__bg?.dps;
-    let isoNote = '';
-    if (xbg != null && ebg != null && Math.min(xbg, ebg) > 0
-        && Math.abs(xbg - ebg) / Math.min(xbg, ebg) > 0.10) {
-      isoNote = ` [NOT iso-load: bg XERJ ${xbg.toLocaleString()}/s vs ES ${ebg.toLocaleString()}/s, offered ~100,000/s]`;
+    const xB = R.mixed.XERJ?.__bg, eB = R.mixed.ES?.__bg;
+    const xbg = xB?.dps, ebg = eB?.dps;
+    const offered = xB?.offered ?? eB?.offered ?? null;
+    const openLoop = xB?.mode === 'open-loop' && eB?.mode === 'open-loop';
+    const within5 = (v) => v != null && offered != null && offered > 0
+      && Math.abs(v - offered) / offered <= 0.05;
+    let isoNote;
+    if (openLoop && within5(xbg) && within5(ebg)) {
+      isoNote = ` [iso-load open-loop ${offered.toLocaleString()}/s: XERJ ach ${xbg.toLocaleString()}/s, ES ach ${ebg.toLocaleString()}/s]`;
+    } else {
+      const fmt = (v) => (v == null ? '?' : v.toLocaleString());
+      isoNote = ` [NOT iso-load (${xB?.mode ?? 'closed-loop'}): bg XERJ ${fmt(xbg)}/s vs ES ${fmt(ebg)}/s, offered ${offered == null ? '?' : offered.toLocaleString()}/s]`;
     }
     for (const [label] of MIXED_OPS) {
       const xv = statVal(R.mixed.XERJ?.[label], 'p99'), ev = statVal(R.mixed.ES?.[label], 'p99');
@@ -974,6 +1022,23 @@ async function main() {
   md += `\`XERJ_DISABLE_QUERY_CACHE=1\`, so BOTH engines EXECUTE every query on every iteration (no whole-result cache clone). Query bodies are `;
   md += `never mutated per-iteration; lower-level filter/OS caches stay on for both. Read rows show p50 (verdict) with p99 alongside. `;
   md += `Latency rows within a noise band (\`|Δ| ≤ max(0.30ms, 20%)\`) score **TIE** (does not fail CI); only **LOSE** fails CI.\n\n`;
+  if (A.mixed && (R.mixed.XERJ?.__bg || R.mixed.ES?.__bg)) {
+    md += `> **Methodology — mixed read-under-write (iso-load).** The background writer is OPEN-LOOP: one \`BATCH\`=10k \`_bulk\` `;
+    md += `launched every 250ms on an absolute-deadline schedule (offered **40,000 docs/s**), byte-identical for both engines, `;
+    md += `independent of how long each bulk takes (a closed-loop writer would offer LESS load to a stalling engine exactly when `;
+    md += `it stalls). At most 3 bulks in flight; a tick finding >2 in flight skips and counts an **overrun**. Every mixed row is `;
+    md += `annotated with the writer mode + achieved rates; iso-load is declared only when BOTH engines achieve within ~5% of the `;
+    md += `offered target. Rows from older CLOSED-LOOP runs are not comparable to open-loop rows.\n`;
+    for (const nm of ['XERJ', 'ES']) {
+      const b = R.mixed[nm]?.__bg;
+      if (!b) continue;
+      md += `> ${nm}: mode ${b.mode ?? 'closed-loop'}, offered ${b.offered == null ? '—' : b.offered.toLocaleString()}/s, `;
+      md += `achieved ${b.dps.toLocaleString()}/s (${b.docs.toLocaleString()} docs launched, ${(b.overruns ?? 0).toLocaleString()} overrun ticks), `;
+      md += `end-of-window visible docs ${b.visibleDocs == null ? 'unknown' : b.visibleDocs.toLocaleString()} `;
+      md += `(each engine's own visibility semantics: ES \`_count\` excludes unrefreshed docs — it is not memtable depth).\n`;
+    }
+    md += `\n`;
+  }
   md += `| dimension | XERJ | ES | ratio | verdict |\n|---|--:|--:|--:|:--:|\n`;
   for (const r of rows) md += `| ${r.dim} | ${r.xs} | ${r.es} | ${r.ratio} | ${r.verdict} |\n`;
   md += `\n`;
