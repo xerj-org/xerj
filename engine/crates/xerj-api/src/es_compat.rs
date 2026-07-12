@@ -2030,6 +2030,15 @@ pub struct EsSearchBody {
     /// `_seq_no` at-or-below the snapshot taken at PIT open time.
     #[serde(default)]
     pub pit: Option<Value>,
+    /// Request-level timeout in ES time-units (`"100ms"`, `"2s"`, bare
+    /// number = millis). Parsed into `SearchRequest.timeout_ms` — the
+    /// wall-clock deadline every cooperative check in the engine polls.
+    /// RC4 blocker 12: this field did not exist, so `{"timeout": "1ms"}`
+    /// was silently dropped by serde, `timeout_ms` stayed `None` (30 s
+    /// engine default), and the deadline machinery was never armed
+    /// (live: a 1 ms-timeout wildcard ran 3.7 s with `timed_out: false`).
+    #[serde(default)]
+    pub timeout: Option<String>,
 }
 
 impl Default for EsSearchBody {
@@ -2064,6 +2073,7 @@ impl Default for EsSearchBody {
             version: None,
             slice: None,
             pit: None,
+            timeout: None,
         }
     }
 }
@@ -3679,6 +3689,38 @@ fn default_size() -> usize {
 }
 
 /// Build a `SearchRequest` from the ES body, forwarding all relevant options.
+/// Parse an ES time-units string to milliseconds: `"500ms"`, `"30s"`,
+/// `"2m"`, `"1h"`, `"1d"`, `"5micros"`, `"100nanos"`, bare number =
+/// millis. Sub-millisecond values round up to 1 ms so `timeout=100nanos`
+/// still arms a (minimal) deadline instead of none at all.
+fn parse_time_to_millis(s: &str) -> Option<u64> {
+    let s = s.trim();
+    if s.is_empty() {
+        return None;
+    }
+    if let Some(n) = s.strip_suffix("nanos") {
+        let v: u64 = n.parse().ok()?;
+        return Some((v / 1_000_000).max(1));
+    }
+    if let Some(n) = s.strip_suffix("micros") {
+        let v: u64 = n.parse().ok()?;
+        return Some((v / 1_000).max(1));
+    }
+    if let Some(n) = s.strip_suffix("ms") {
+        let v: u64 = n.parse().ok()?;
+        return Some(v.max(1));
+    }
+    let (digits, mul_ms) = match s.as_bytes().last()? {
+        b's' => (&s[..s.len() - 1], 1_000u64),
+        b'm' => (&s[..s.len() - 1], 60_000),
+        b'h' => (&s[..s.len() - 1], 3_600_000),
+        b'd' => (&s[..s.len() - 1], 86_400_000),
+        _ => (s, 1), // bare number → milliseconds (ES convention)
+    };
+    let n: u64 = digits.parse().ok()?;
+    Some(n.saturating_mul(mul_ms).max(1))
+}
+
 fn build_search_request(
     body: &EsSearchBody,
     aggs_value: Option<Value>,
@@ -3708,6 +3750,14 @@ fn build_search_request(
     req.size = body.size;
     req.from = body.from;
     req.explain = body.explain;
+
+    // Request-level timeout (RC4 blocker 12): arm the engine's
+    // cooperative wall-clock deadline. Unparsable values are ignored
+    // (engine default 30 s) rather than 400 — matching our lenient
+    // handling of other ES time-unit params.
+    if req.timeout_ms.is_none() {
+        req.timeout_ms = body.timeout.as_deref().and_then(parse_time_to_millis);
+    }
 
     // Forward aggs.
     if req.aggs.is_none() {
@@ -4339,6 +4389,12 @@ pub struct EsSearchQueryParams {
     pub search_type: Option<String>,
     pub scroll: Option<String>,
     pub track_total_hits: Option<String>,
+    /// Request-level search timeout (`?timeout=100ms`) — same semantics
+    /// as the body's `timeout` (body wins when both are set). RC4
+    /// blocker 12: previously this param (and the body field) were
+    /// silently dropped, so the engine's cooperative deadline was never
+    /// armed and `timeout` could not fire.
+    pub timeout: Option<String>,
     /// ES 7+ compat: when true, return `hits.total` as a bare integer
     /// instead of `{value, relation}`. Many ES YAML tests set this.
     pub rest_total_hits_as_int: Option<String>,
@@ -4522,6 +4578,11 @@ pub async fn search(
                 body.version = Some(true);
             }
         }
+    }
+    // `?timeout=100ms` → promote to body (body wins when both set) so
+    // build_search_request arms the cooperative deadline (RC4 blocker 12).
+    if body.timeout.is_none() {
+        body.timeout = params.timeout.clone();
     }
     // ── Scroll support ──────────────────────────────────────────────────────
     // If `?scroll=1m` is present, snapshot all matching hits into a scroll
@@ -12924,6 +12985,7 @@ pub async fn search_with_scroll(
         version: body.version,
         slice: body.slice.clone(),
         pit: body.pit.clone(),
+        timeout: body.timeout.clone(),
     };
     // page_size: what the caller requested (or default 10)
     let page_size = body.size;

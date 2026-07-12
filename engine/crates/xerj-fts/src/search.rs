@@ -424,11 +424,57 @@ pub struct FtsSearcher {
     /// Kept for future use: query-time analysis (e.g., synonym expansion, normalization).
     #[allow(dead_code)]
     registry: Arc<AnalyzerRegistry>,
+    /// Cooperative wall-clock deadline (RC4 blocker 12). Multi-term
+    /// expansion (prefix/wildcard/fuzzy) walks the WHOLE term dictionary
+    /// — O(unique terms) predicate probes, multi-second on wide
+    /// vocabularies — and the engine runs searches to completion inside
+    /// `block_in_place`, so the outer `tokio::time::timeout` can never
+    /// interrupt it. When set, the expansion loops poll this every 1 024
+    /// terms and stop early, latching [`Self::deadline_tripped`] so the
+    /// caller returns partial results with `timed_out: true` (ES shard
+    /// timeout semantics).
+    deadline: Option<std::time::Instant>,
+    /// Set when any cooperative deadline check fired — results from this
+    /// searcher are partial. Atomic (not `Cell`) so the searcher stays
+    /// `Sync`.
+    deadline_tripped: std::sync::atomic::AtomicBool,
 }
 
 impl FtsSearcher {
     pub fn new(reader: Arc<FtsIndexReader>, registry: Arc<AnalyzerRegistry>) -> Self {
-        Self { reader, registry }
+        Self {
+            reader,
+            registry,
+            deadline: None,
+            deadline_tripped: std::sync::atomic::AtomicBool::new(false),
+        }
+    }
+
+    /// Builder: arm the cooperative deadline. `None` disables (default).
+    pub fn with_deadline(mut self, deadline: Option<std::time::Instant>) -> Self {
+        self.deadline = deadline;
+        self
+    }
+
+    /// True when any expansion loop stopped early because the deadline
+    /// passed — the hits/totals produced by this searcher are partial.
+    pub fn deadline_tripped(&self) -> bool {
+        self.deadline_tripped
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Poll the deadline (called every N iterations, not every item):
+    /// true once the deadline has passed, latching `deadline_tripped`.
+    #[inline]
+    fn deadline_hit(&self) -> bool {
+        match self.deadline {
+            Some(d) if std::time::Instant::now() >= d => {
+                self.deadline_tripped
+                    .store(true, std::sync::atomic::Ordering::Relaxed);
+                true
+            }
+            _ => false,
+        }
     }
 
     /// Execute a query and return up to `limit` scored hits, sorted by descending score.
@@ -707,6 +753,11 @@ impl FtsSearcher {
         let mut score_map: std::collections::HashMap<u32, (f32, Option<QueryExplanation>)> =
             std::collections::HashMap::new();
         for exp in &expansions {
+            // Cooperative deadline (RC4 blocker 12): each expansion runs a
+            // full positional phrase query — poll per expansion.
+            if self.deadline_hit() {
+                break;
+            }
             let mut terms: Vec<String> = head.to_vec();
             terms.push(exp.clone());
             let pq = PhraseQuery {
@@ -750,13 +801,25 @@ impl FtsSearcher {
     }
 
     fn expand_prefix(&self, field: &str, prefix: &str, max: usize) -> Vec<String> {
-        // Use the reader's all_terms which does an FST stream scan
-        let all_terms = self.reader.all_terms(field);
-        all_terms
-            .into_iter()
-            .filter(|t| t.starts_with(prefix))
-            .take(max)
-            .collect()
+        // Streaming FST scan with a cooperative deadline poll every 1 024
+        // terms (RC4 blocker 12) — a wide dictionary made the old
+        // materialise-then-filter walk a multi-second uninterruptible unit.
+        let mut out: Vec<String> = Vec::new();
+        let mut seen = 0usize;
+        self.reader.for_each_term(field, |t| {
+            seen += 1;
+            if seen & 1023 == 0 && self.deadline_hit() {
+                return false;
+            }
+            if t.starts_with(prefix) {
+                out.push(t.to_owned());
+                if out.len() >= max {
+                    return false;
+                }
+            }
+            true
+        });
+        out
     }
 
     // ── Wildcard query ──────────────────────────────────────────────────────────
@@ -777,20 +840,36 @@ impl FtsSearcher {
     ///   the standard analyzer and ES does not lowercase the pattern, so an
     ///   uppercase pattern correctly matches nothing.
     fn expand_wildcard(&self, field: &str, pattern: &str, case_insensitive: bool) -> Vec<String> {
+        // Streaming FST scan + deadline poll every 1 024 terms (RC4
+        // blocker 12): the per-term wildcard walk over a wide dictionary
+        // was the reproduced 3.7 s uninterruptible unit.
+        let mut out: Vec<String> = Vec::new();
+        let mut seen = 0usize;
         if case_insensitive {
             let pat_lc = pattern.to_lowercase();
-            self.reader
-                .all_terms(field)
-                .into_iter()
-                .filter(|t| term_matches_wildcard(t, &pat_lc))
-                .collect()
+            self.reader.for_each_term(field, |t| {
+                seen += 1;
+                if seen & 1023 == 0 && self.deadline_hit() {
+                    return false;
+                }
+                if term_matches_wildcard(t, &pat_lc) {
+                    out.push(t.to_owned());
+                }
+                true
+            });
         } else {
-            self.reader
-                .all_terms(field)
-                .into_iter()
-                .filter(|t| wildcard_match(t, pattern))
-                .collect()
+            self.reader.for_each_term(field, |t| {
+                seen += 1;
+                if seen & 1023 == 0 && self.deadline_hit() {
+                    return false;
+                }
+                if wildcard_match(t, pattern) {
+                    out.push(t.to_owned());
+                }
+                true
+            });
         }
+        out
     }
 
     // ── Fuzzy query ─────────────────────────────────────────────────────────────
@@ -817,20 +896,36 @@ impl FtsSearcher {
         max_edits: usize,
         case_insensitive: bool,
     ) -> Vec<String> {
+        // Streaming FST scan + deadline poll every 1 024 terms (RC4
+        // blocker 12): per-term edit distance is the most expensive
+        // expansion predicate — the reproduced 8.3 s uninterruptible unit.
+        let mut out: Vec<String> = Vec::new();
+        let mut seen = 0usize;
         if case_insensitive {
             let q_lower = value.to_lowercase();
-            self.reader
-                .all_terms(field)
-                .into_iter()
-                .filter(|t| term_matches_fuzzy(t, &q_lower, max_edits))
-                .collect()
+            self.reader.for_each_term(field, |t| {
+                seen += 1;
+                if seen & 1023 == 0 && self.deadline_hit() {
+                    return false;
+                }
+                if term_matches_fuzzy(t, &q_lower, max_edits) {
+                    out.push(t.to_owned());
+                }
+                true
+            });
         } else {
-            self.reader
-                .all_terms(field)
-                .into_iter()
-                .filter(|t| levenshtein_distance(t, value) <= max_edits)
-                .collect()
+            self.reader.for_each_term(field, |t| {
+                seen += 1;
+                if seen & 1023 == 0 && self.deadline_hit() {
+                    return false;
+                }
+                if levenshtein_distance(t, value) <= max_edits {
+                    out.push(t.to_owned());
+                }
+                true
+            });
         }
+        out
     }
 
     /// Run one term query per expanded term and merge their per-doc scores — the
@@ -854,6 +949,12 @@ impl FtsSearcher {
         if constant_score {
             let mut docs: std::collections::HashSet<u32> = std::collections::HashSet::new();
             for term in terms {
+                // Cooperative deadline (RC4 blocker 12): a pathological
+                // pattern can expand to hundreds of thousands of terms,
+                // each with its own postings walk — poll per term.
+                if self.deadline_hit() {
+                    break;
+                }
                 let tp = match self.reader.lookup_term(field, term) {
                     Some(tp) => tp,
                     None => continue,
@@ -881,6 +982,11 @@ impl FtsSearcher {
         let mut score_map: std::collections::HashMap<u32, (f32, Option<QueryExplanation>)> =
             std::collections::HashMap::new();
         for term in terms {
+            // Cooperative deadline (RC4 blocker 12) — see the
+            // constant_score arm above.
+            if self.deadline_hit() {
+                break;
+            }
             let tq = TermQuery::boosted(field, term, boost);
             let term_hits = self.execute_term(&tq, explain)?;
             for hit in term_hits {
@@ -1723,6 +1829,54 @@ mod tests {
                 .unwrap()
                 .len(),
             0
+        );
+    }
+
+    #[test]
+    fn wildcard_expansion_respects_cooperative_deadline() {
+        // RC4 blocker 12 regression: multi-term expansion must stop at the
+        // cooperative deadline and latch `deadline_tripped` so the engine
+        // returns partial results with `timed_out: true`. Pre-fix the
+        // expansion walked the entire dictionary regardless of the request
+        // timeout (live: `timeout: 1ms` wildcard ran 3.7 s, fuzzy 8.3 s,
+        // both `timed_out: false`).
+        let dir = TempDir::new().unwrap();
+        let registry = Arc::new(AnalyzerRegistry::default());
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg0", Arc::clone(&registry));
+        let cfg = FieldIndexConfig {
+            analyzer: "whitespace".to_owned(),
+            ..Default::default()
+        };
+        writer.configure_field("body", cfg);
+        // 5 000 unique terms — enough that the every-1 024-terms poll fires.
+        let text: String = (0..5000)
+            .map(|i| format!("term{i:05}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        writer.add_document(0, &[("body".to_owned(), text)].into_iter().collect());
+        writer.finish().unwrap();
+        let reader = Arc::new(FtsIndexReader::open(dir.path(), "seg0", &["body"]).unwrap());
+
+        let mut wq = WildcardQuery::new("body", "term*");
+        wq.case_insensitive = false;
+        let q = Query::Wildcard(wq);
+
+        // Unarmed searcher (default): full expansion, flag stays clear.
+        let searcher = FtsSearcher::new(Arc::clone(&reader), Arc::clone(&registry));
+        let hits = searcher.search(&q, 10, false).unwrap();
+        assert_eq!(hits.len(), 1, "the one doc matches via full expansion");
+        assert!(!searcher.deadline_tripped(), "no deadline → never tripped");
+
+        // Deadline already in the past: expansion stops at the first poll,
+        // the search still returns Ok (graceful partial, not an error), and
+        // the trip is latched for the caller to surface as timed_out:true.
+        let expired = FtsSearcher::new(reader, registry).with_deadline(Some(
+            std::time::Instant::now() - std::time::Duration::from_millis(1),
+        ));
+        let _ = expired.search(&q, 10, false).unwrap();
+        assert!(
+            expired.deadline_tripped(),
+            "expired deadline must latch deadline_tripped"
         );
     }
 
