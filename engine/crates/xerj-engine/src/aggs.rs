@@ -3870,6 +3870,29 @@ pub(crate) fn parse_date_ms(val: &Value) -> Option<i64> {
             if let Ok(dt) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
                 return Some(dt.and_hms_opt(0, 0, 0)?.and_utc().timestamp_millis());
             }
+            // Partial ISO dates (`strict_date_optional_time` accepts them and
+            // ES indexes them min-filled): `2026-02` → 2026-02-01T00:00:00,
+            // `2026-02-15T08` / `2026-02-15T08:30` → minutes/seconds zeroed.
+            // Bare 4-digit years are intentionally NOT parsed here — a doc
+            // value of "2026" is far more likely a numeric string, and the
+            // final i64 fallback below keeps its numeric interpretation.
+            if let Ok(ym) = chrono::NaiveDate::parse_from_str(&format!("{s}-01"), "%Y-%m-%d") {
+                if s.len() == 7 && s.as_bytes()[4] == b'-' {
+                    return Some(ym.and_hms_opt(0, 0, 0)?.and_utc().timestamp_millis());
+                }
+            }
+            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M") {
+                return Some(dt.and_utc().timestamp_millis());
+            }
+            if s.len() == 13 && s.as_bytes()[10] == b'T' {
+                // Hour-partial (`2026-02-15T08`): append minutes so the
+                // pattern terminates cleanly, then treat as HH:00.
+                if let Ok(dt) =
+                    chrono::NaiveDateTime::parse_from_str(&format!("{s}:00"), "%Y-%m-%dT%H:%M")
+                {
+                    return Some(dt.and_utc().timestamp_millis());
+                }
+            }
             // Slash-separated form `YYYY/MM/DD` is accepted by ES via the
             // default date mapping — treat it as YMD at UTC midnight.
             if let Ok(dt) = chrono::NaiveDate::parse_from_str(s, "%Y/%m/%d") {

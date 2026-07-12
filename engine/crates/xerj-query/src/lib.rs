@@ -49,6 +49,7 @@
 //! | AI-native | `knn`, `semantic`, `hybrid` |
 
 pub mod ast;
+pub mod dates;
 pub mod error;
 pub mod executor;
 pub mod parser;

@@ -106,10 +106,37 @@ impl IntoResponse for ApiError {
         // Try to extract index name for root_cause annotation.
         let index_name = extract_index_name(&self.inner);
 
+        // ES date-resolution errors from the range parser (invalid `format`
+        // pattern, value that fails an explicit format, malformed date
+        // math).  The query crate's Display wraps them as
+        // `parse error: <msg>`; strip that so the reason matches ES
+        // byte-for-byte, and surface ES's exception types
+        // (`illegal_argument_exception` for a bad format string,
+        // `parse_exception` in root_cause for unparseable values/math).
+        let mut reason = reason;
+        let mut date_root: Option<&'static str> = None;
+        {
+            let stripped = reason.strip_prefix("parse error: ").unwrap_or(&reason);
+            if stripped.starts_with("Invalid format: [") {
+                reason = stripped.to_string();
+                error_type = "illegal_argument_exception".into();
+                status_code = 400;
+                date_root = Some("illegal_argument_exception");
+            } else if stripped.starts_with("failed to parse date field [")
+                || stripped.starts_with("operator not supported for date math [")
+            {
+                reason = stripped.to_string();
+                status_code = 400;
+                date_root = Some("parse_exception");
+            }
+        }
+
         // ES specific-case: `failed to create query:` comes from shard-
         // level query builders and reports `query_shard_exception` in
         // root_cause while keeping the outer wrapper as its usual type.
-        let root_type = if reason.starts_with("failed to create query:") {
+        let root_type = if let Some(rt) = date_root {
+            rt.to_string()
+        } else if reason.starts_with("failed to create query:") {
             "query_shard_exception".to_string()
         } else if reason.starts_with("function score query returned an invalid score:") {
             // ES validates function_score results and raises

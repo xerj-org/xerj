@@ -23,6 +23,7 @@ use crate::ast::{
     MinShouldMatch, Modifier, MultiMatchType, QueryNode, RandomScore, ScoreFunction, ScoreMode,
     SearchRequest, SourceFilter, TrackTotalHits, WeightedQuery,
 };
+use crate::dates;
 use crate::error::{ParseError, QueryError, Result};
 use crate::sort::{SortField, SortMissing, SortMode, SortOrder};
 
@@ -796,46 +797,64 @@ fn parse_terms(params: &Value) -> Result<QueryNode> {
     })
 }
 
-/// Resolve an ES date-math expression like `now`, `now-24h`, `now+1d/d`
-/// to a concrete ISO-8601 timestamp string usable by the executor's
-/// JSON-scan range comparator. Returns `None` when the input is not
-/// a recognised `now…` form (caller leaves the value untouched in
-/// that case so non-date string bounds round-trip unchanged).
-fn resolve_now_expr(expr: &str) -> Option<String> {
-    let rest = expr.strip_prefix("now")?;
-    let base = chrono::Utc::now();
-    let mut delta_secs: i64 = 0;
-    let (sign, rest) = if let Some(r) = rest.strip_prefix('+') {
-        (1i64, r)
-    } else if let Some(r) = rest.strip_prefix('-') {
-        (-1i64, r)
-    } else if rest.is_empty() || rest.starts_with('/') {
-        (0, rest)
-    } else {
-        return None;
+/// The format string ES reports in `failed to parse date field` errors when
+/// no explicit `format` was given.
+const DEFAULT_DATE_FORMAT: &str = "strict_date_optional_time||epoch_millis";
+
+/// Map a [`dates::DateResolveError`] to the exact ES error message.  `fmt` is
+/// the explicit `format` parameter, if any.
+fn date_resolve_err(e: dates::DateResolveError, fmt: Option<&str>, value: &str) -> QueryError {
+    use dates::DateResolveError::*;
+    let msg = match e {
+        UnknownPatternLetter(c) => format!(
+            "Invalid format: [{}]: Unknown pattern letter: {c}",
+            fmt.unwrap_or_default()
+        ),
+        UnparseableValue(v) => {
+            let f = fmt.unwrap_or(DEFAULT_DATE_FORMAT);
+            format!(
+                "failed to parse date field [{v}] with format [{f}]: \
+                 [failed to parse date field [{v}] with format [{f}]]"
+            )
+        }
+        BadDateMath(m) => {
+            let _ = value; // value context already inside the math substring
+            format!("operator not supported for date math [{m}]")
+        }
     };
-    if sign != 0 {
-        let delta_end = rest.find('/').unwrap_or(rest.len());
-        let delta_expr = &rest[..delta_end];
-        let (num_part, unit_part): (String, String) = delta_expr
-            .chars()
-            .partition(|c| c.is_ascii_digit() || *c == '.');
-        let n: f64 = num_part.parse().ok()?;
-        let secs = match unit_part.as_str() {
-            "ms" => n / 1000.0,
-            "s" => n,
-            "m" => n * 60.0,
-            "h" => n * 3600.0,
-            "d" => n * 86_400.0,
-            "w" => n * 7.0 * 86_400.0,
-            "M" => n * 30.0 * 86_400.0,
-            "y" => n * 365.0 * 86_400.0,
-            _ => return None,
-        };
-        delta_secs = (sign as f64 * secs) as i64;
+    QueryError::Parse(ParseError::Invalid(msg))
+}
+
+/// Resolve one range bound per ES date semantics (rounding, `format`,
+/// date math).  `round_up` is true for `lte`/`gt` bounds.  Non-date-shaped
+/// values under the default format pass through unchanged so keyword and
+/// numeric ranges keep their comparator semantics.
+fn resolve_range_bound(
+    v: Value,
+    round_up: bool,
+    formats: Option<&[dates::DateFmt]>,
+    fmt_raw: Option<&str>,
+) -> Result<Value> {
+    match &v {
+        Value::String(s) => match dates::resolve_date_bound_str(s, round_up, formats) {
+            Ok(Some(iso)) => Ok(Value::String(iso)),
+            Ok(None) => Ok(v),
+            Err(e) => Err(date_resolve_err(e, fmt_raw, s)),
+        },
+        Value::Number(n) => match formats {
+            // ES stringifies numbers under an explicit date format
+            // (`gte: 1500, format: "uuuu"` parses "1500" as a year).
+            Some(fmts) => match dates::resolve_date_bound_num(n, round_up, fmts) {
+                Ok(Some(iso)) => Ok(Value::String(iso)),
+                Ok(None) => Ok(v),
+                Err(e) => Err(date_resolve_err(e, fmt_raw, &n.to_string())),
+            },
+            // Default format: numbers are epoch-millis instants — the
+            // engine's numeric comparator already handles them exactly.
+            None => Ok(v),
+        },
+        _ => Ok(v),
     }
-    let dt = base + chrono::Duration::seconds(delta_secs);
-    Some(dt.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string())
 }
 
 fn parse_range(params: &Value) -> Result<QueryNode> {
@@ -862,64 +881,34 @@ fn parse_range(params: &Value) -> Result<QueryNode> {
         .and_then(|v| v.as_f64())
         .map(|b| b as f32);
 
-    // ES date math: `gte: "now-24h"` etc. resolve at query-time against
-    // wall clock. Without this, downstream `doc_matches_query` would
-    // compare `"now-24h"` as a literal string against doc values and
-    // fail to match anything for date fields.
-    let resolve_now = |v: Value| -> Value {
-        match &v {
-            Value::String(s) if s.trim_start().starts_with("now") => {
-                if let Some(iso) = resolve_now_expr(s.trim()) {
-                    Value::String(iso)
-                } else {
-                    v
-                }
-            }
-            _ => v,
+    // ES date bound resolution — date math (`now-24h`, `2026-01-01||+1M/d`),
+    // partial-date round-up/round-down fills (`lte: "2026-02"` covers through
+    // 2026-02-01T23:59:59.999), and the `format` parameter (`uuuu`,
+    // `dd/MM/yyyy`, `epoch_millis`, …).  Bounds resolve to canonical ISO
+    // instants here so every downstream comparator (JSON-scan, doc-values
+    // prefilter, memtable) sees the same concrete value.  An invalid
+    // `format` or a value that fails an explicit format is a hard 400,
+    // matching live ES 8.13.4.
+    let fmt_raw = inner.get("format").and_then(|v| v.as_str());
+    let formats = match fmt_raw {
+        Some(f) => {
+            Some(dates::compile_formats(f).map_err(|e| date_resolve_err(e, fmt_raw, ""))?)
         }
+        None => None,
     };
+    // Round-up bounds: `lte` includes its whole covered interval, `gt`
+    // excludes its whole covered interval.  `gte`/`lt` round down.
     if let Some(v) = gte.take() {
-        gte = Some(resolve_now(v));
+        gte = Some(resolve_range_bound(v, false, formats.as_deref(), fmt_raw)?);
     }
     if let Some(v) = gt.take() {
-        gt = Some(resolve_now(v));
+        gt = Some(resolve_range_bound(v, true, formats.as_deref(), fmt_raw)?);
     }
     if let Some(v) = lte.take() {
-        lte = Some(resolve_now(v));
+        lte = Some(resolve_range_bound(v, true, formats.as_deref(), fmt_raw)?);
     }
     if let Some(v) = lt.take() {
-        lt = Some(resolve_now(v));
-    }
-
-    // `format: uuuu` (year-only): ES resolves the bound as year-first-day
-    // (YEAR-01-01T00:00:00) and applies range rounding at day granularity —
-    // gte floors to 00:00:00, lte ceils to 23:59:59.999 of the same first
-    // day. So `gte:1500 lte:1500` matches only docs on 1500-01-01, not the
-    // whole year.
-    if let Some(fmt) = inner.get("format").and_then(|v| v.as_str()) {
-        let rewrite = |b: Value, upper: bool| -> Value {
-            let year: Option<i64> = match &b {
-                Value::Number(n) => n.as_i64(),
-                Value::String(s) => s.trim().parse::<i64>().ok(),
-                _ => None,
-            };
-            let Some(y) = year else { return b };
-            if !matches!(fmt, "uuuu" | "yyyy" | "year") {
-                return b;
-            }
-            let iso = if upper {
-                format!("{:04}-01-01T23:59:59.999Z", y)
-            } else {
-                format!("{:04}-01-01T00:00:00.000Z", y)
-            };
-            Value::String(iso)
-        };
-        if let Some(v) = gte.take() {
-            gte = Some(rewrite(v, false));
-        }
-        if let Some(v) = lte.take() {
-            lte = Some(rewrite(v, true));
-        }
+        lt = Some(resolve_range_bound(v, false, formats.as_deref(), fmt_raw)?);
     }
 
     if gte.is_none() && gt.is_none() && lte.is_none() && lt.is_none() {
@@ -1174,9 +1163,11 @@ enum QsTok {
 }
 
 /// Parse a range bound value from a Lucene query_string range expression.
-/// Numbers become JSON numbers (so the Range matcher compares numerically),
-/// `now`-style date math resolves to an ISO timestamp, and everything else
-/// stays a string. Surrounding quotes are stripped; `*` / empty → open end.
+/// Numbers become JSON numbers (so the Range matcher compares numerically)
+/// and everything else stays a string — date math / partial-date resolution
+/// happens in the callers (`qs_parse_bracket_range` / `qs_parse_cmp_range`),
+/// which know whether the bound rounds up or down. Surrounding quotes are
+/// stripped; `*` / empty → open end.
 fn qs_range_bound(raw: &str) -> Option<Value> {
     let mut t = raw.trim();
     if t.len() >= 2 && t.starts_with('"') && t.ends_with('"') {
@@ -1193,12 +1184,16 @@ fn qs_range_bound(raw: &str) -> Option<Value> {
             return Some(Value::from(f));
         }
     }
-    if t.starts_with("now") {
-        if let Some(iso) = resolve_now_expr(t) {
-            return Some(Value::String(iso));
-        }
-    }
     Some(Value::String(t.to_string()))
+}
+
+/// Apply ES date semantics (rounding + date math, default format) to one
+/// query_string range bound.
+fn qs_resolve_bound(v: Option<Value>, round_up: bool) -> Result<Option<Value>> {
+    match v {
+        Some(b) => Ok(Some(resolve_range_bound(b, round_up, None, None)?)),
+        None => Ok(None),
+    }
 }
 
 /// Parse a bracket range (`[A TO B]` / `{A TO B}` / mixed) starting at byte
@@ -1234,15 +1229,17 @@ fn qs_parse_bracket_range(q: &str, field: &str, open: usize) -> Result<(QsTok, u
         ));
     }
     let (mut gt, mut gte, mut lt, mut lte) = (None, None, None, None);
+    // ES rounding: exclusive lower (`gt`) and inclusive upper (`lte`) round
+    // up; the other two round down.
     if inclusive_lo {
-        gte = lo;
+        gte = qs_resolve_bound(lo, false)?;
     } else {
-        gt = lo;
+        gt = qs_resolve_bound(lo, true)?;
     }
     if inclusive_hi {
-        lte = hi;
+        lte = qs_resolve_bound(hi, true)?;
     } else {
-        lt = hi;
+        lt = qs_resolve_bound(hi, false)?;
     }
     Ok((
         QsTok::Range {
@@ -1287,11 +1284,12 @@ fn qs_parse_cmp_range(q: &str, field: &str, rest: &str, mut i: usize) -> Result<
         ))
     })?;
     let (mut gt, mut gte, mut lt, mut lte) = (None, None, None, None);
+    // ES rounding: `>` and `<=` round the bound up, `>=` and `<` round down.
     match op {
-        ">" => gt = Some(bound),
-        ">=" => gte = Some(bound),
-        "<" => lt = Some(bound),
-        _ => lte = Some(bound),
+        ">" => gt = Some(resolve_range_bound(bound, true, None, None)?),
+        ">=" => gte = Some(resolve_range_bound(bound, false, None, None)?),
+        "<" => lt = Some(resolve_range_bound(bound, false, None, None)?),
+        _ => lte = Some(resolve_range_bound(bound, true, None, None)?),
     }
     Ok((
         QsTok::Range {
@@ -4478,13 +4476,16 @@ mod tests {
 
     #[test]
     fn test_query_string_range_date() {
+        // Date bounds resolve with ES rounding semantics: `>` (exclusive
+        // lower) rounds UP to the last ms of the covered day, `>=`/`<=`
+        // round down/up respectively — live-verified vs ES 8.13.4.
         let (field, gt, ..) = expect_range(qs("ts:>2020-01-01"));
         assert_eq!(field, "ts");
-        assert_eq!(gt, Some(json!("2020-01-01")));
+        assert_eq!(gt, Some(json!("2020-01-01T23:59:59.999Z")));
         let (field, _, gte, _, lte) = expect_range(qs("ts:[2020-01-01 TO 2020-12-31]"));
         assert_eq!(field, "ts");
-        assert_eq!(gte, Some(json!("2020-01-01")));
-        assert_eq!(lte, Some(json!("2020-12-31")));
+        assert_eq!(gte, Some(json!("2020-01-01T00:00:00.000Z")));
+        assert_eq!(lte, Some(json!("2020-12-31T23:59:59.999Z")));
     }
 
     #[test]
