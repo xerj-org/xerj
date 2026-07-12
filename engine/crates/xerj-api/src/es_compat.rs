@@ -18078,7 +18078,8 @@ pub async fn get_snapshot(
 pub async fn restore_snapshot(
     State(state): State<AppState>,
     Path((repo, snapshot)): Path<(String, String)>,
-    _body: Option<Json<Value>>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+    body: Option<Json<Value>>,
 ) -> impl IntoResponse {
     let repo_config = match state.engine.snapshot_repos.get(&repo) {
         Some(cfg) => cfg.clone(),
@@ -18093,8 +18094,80 @@ pub async fn restore_snapshot(
         .and_then(Value::as_str)
         .unwrap_or("/tmp/xerj-snapshots");
 
-    match state.engine.restore_snapshot(repo_path, &snapshot).await {
-        Ok(()) => Json(json!({ "accepted": true })).into_response(),
+    let body = body.map(|Json(b)| b).unwrap_or(Value::Null);
+
+    // Restore options that would CHANGE what gets written (index renames,
+    // per-index setting rewrites, feature states) are not implemented.
+    // Fail loud rather than restoring something other than what was asked
+    // for — ignoring a rename_pattern would clobber the source index.
+    for unsupported in [
+        "rename_pattern",
+        "rename_replacement",
+        "feature_states",
+        "index_settings",
+        "ignore_index_settings",
+    ] {
+        if body.get(unsupported).is_some() {
+            let reason =
+                format!("restore option [{unsupported}] is not supported by this XERJ version");
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": {
+                        "root_cause": [{ "type": "illegal_argument_exception", "reason": reason }],
+                        "type": "illegal_argument_exception",
+                        "reason": reason,
+                    },
+                    "status": 400,
+                })),
+            )
+                .into_response();
+        }
+    }
+
+    // ES accepts `indices` as an array of names/patterns or a single
+    // (possibly comma-separated) string; absent means "all indices in
+    // the snapshot".
+    let indices: Option<Vec<String>> = match body.get("indices") {
+        Some(Value::Array(arr)) => Some(
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect(),
+        ),
+        Some(Value::String(s)) => Some(vec![s.clone()]),
+        _ => None,
+    };
+
+    let wait_for_completion = params
+        .get("wait_for_completion")
+        .map(|v| v == "true")
+        .unwrap_or(false);
+
+    match state
+        .engine
+        .restore_snapshot(repo_path, &snapshot, indices)
+        .await
+    {
+        // Restores run synchronously either way; `wait_for_completion`
+        // only selects the ES response shape (accepted vs full info).
+        Ok(restored) => {
+            if wait_for_completion {
+                Json(json!({
+                    "snapshot": {
+                        "snapshot": snapshot,
+                        "indices": restored,
+                        "shards": {
+                            "total": restored.len(),
+                            "failed": 0,
+                            "successful": restored.len(),
+                        }
+                    }
+                }))
+                .into_response()
+            } else {
+                Json(json!({ "accepted": true })).into_response()
+            }
+        }
         Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
     }
 }

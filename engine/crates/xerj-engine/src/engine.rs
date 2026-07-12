@@ -1034,7 +1034,25 @@ impl Engine {
     }
 
     /// Restore a snapshot: copies files back and reopens the indices.
-    pub async fn restore_snapshot(&self, repo_path: &str, name: &str) -> Result<()> {
+    ///
+    /// `indices` is the ES restore-body `indices` filter: a list of index
+    /// names / wildcard patterns (each entry may itself be a comma-separated
+    /// multi-target expression, ES accepts both the string and array forms).
+    /// `None` / empty restores every index in the snapshot (ES default).
+    /// A non-wildcard entry that matches nothing in the snapshot is an
+    /// error — silently restoring nothing (or worse, everything) would
+    /// misreport what was rewritten. Returns the list of index names
+    /// actually restored.
+    ///
+    /// This filter used to be IGNORED entirely: a restore request naming
+    /// one index rewrote EVERY index in the snapshot with snapshot-time
+    /// state, destroying all writes made since (live-verified 2026-07-12).
+    pub async fn restore_snapshot(
+        &self,
+        repo_path: &str,
+        name: &str,
+        indices: Option<Vec<String>>,
+    ) -> Result<Vec<String>> {
         let snap_dir = std::path::Path::new(repo_path).join(name);
         let manifest_path = snap_dir.join("manifest.json");
 
@@ -1042,7 +1060,7 @@ impl Engine {
         let manifest: Value =
             serde_json::from_slice(&manifest_bytes).map_err(EngineError::Serde)?;
 
-        let index_names: Vec<String> = manifest
+        let snapshot_indices: Vec<String> = manifest
             .get("indices")
             .and_then(Value::as_array)
             .map(|arr| {
@@ -1051,6 +1069,43 @@ impl Engine {
                     .collect::<Vec<String>>()
             })
             .unwrap_or_default();
+
+        // Apply the `indices` filter. Split each entry on commas, then match
+        // each pattern against the snapshot's indices (glob `*` wildcards,
+        // same matcher the search path uses for index selectors).
+        let patterns: Vec<String> = indices
+            .unwrap_or_default()
+            .iter()
+            .flat_map(|entry| entry.split(','))
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        let index_names: Vec<String> = if patterns.is_empty() {
+            snapshot_indices
+        } else {
+            let mut selected: Vec<String> = Vec::new();
+            for pat in &patterns {
+                let matched: Vec<&String> = snapshot_indices
+                    .iter()
+                    .filter(|n| glob_match(pat, n))
+                    .collect();
+                if matched.is_empty() && !pat.contains('*') {
+                    // ES: restore of an index absent from the snapshot fails
+                    // loud (snapshot_restore_exception). Mirror that. The
+                    // repo's filesystem path is deliberately NOT echoed.
+                    return Err(EngineError::Common(xerj_common::XerjError::invalid_query(
+                        format!("[{name}] no index matches [{pat}] in snapshot"),
+                    )));
+                }
+                for m in matched {
+                    if !selected.contains(m) {
+                        selected.push(m.clone());
+                    }
+                }
+            }
+            selected
+        };
 
         for idx_name in &index_names {
             let src_dir = snap_dir.join(idx_name.as_str());
@@ -1091,8 +1146,13 @@ impl Engine {
             }
         }
 
-        info!(snapshot = name, repo = repo_path, "snapshot restored");
-        Ok(())
+        info!(
+            snapshot = name,
+            repo = repo_path,
+            indices = ?index_names,
+            "snapshot restored"
+        );
+        Ok(index_names)
     }
 } // end impl Engine
 

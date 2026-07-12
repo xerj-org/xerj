@@ -4768,3 +4768,78 @@ async fn test_semantic_text_match_survives_flush() {
     );
 }
 
+/// Blocker 5: snapshot RESTORE ignored the request `indices` filter and
+/// rewrote EVERY index in the snapshot with snapshot-time state, silently
+/// destroying all writes made since. The filter must select exactly the
+/// requested indices (with wildcard support) and error on unknown names.
+#[tokio::test]
+async fn test_restore_snapshot_honors_indices_filter() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    let repo = dir.path().join("snaprepo");
+    let repo_path = repo.to_str().unwrap();
+
+    for name in ["s1", "s2"] {
+        engine.create_index(name, Schema::empty()).unwrap();
+        let idx = engine.get_index(name).unwrap();
+        idx.index_document(Some("d1".into()), json!({"v": "original"}))
+            .await
+            .unwrap();
+    }
+    engine
+        .create_snapshot(
+            repo_path,
+            "snap1",
+            Some(vec!["s1".to_string(), "s2".to_string()]),
+        )
+        .await
+        .unwrap();
+
+    // Post-snapshot write to s2 — must SURVIVE a restore of s1 only.
+    engine
+        .get_index("s2")
+        .unwrap()
+        .index_document(Some("d2".into()), json!({"v": "after-snapshot"}))
+        .await
+        .unwrap();
+
+    let restored = engine
+        .restore_snapshot(repo_path, "snap1", Some(vec!["s1".to_string()]))
+        .await
+        .unwrap();
+    assert_eq!(restored, vec!["s1".to_string()]);
+
+    let s2 = engine.get_index("s2").unwrap();
+    let post = s2
+        .search(&make_search(json!({"match_all": {}})))
+        .await
+        .unwrap();
+    assert_eq!(
+        post.total.value, 2,
+        "restore of s1 must not roll back s2 (it used to clobber every index)"
+    );
+
+    // An index name absent from the snapshot errors loud (never a no-op).
+    assert!(engine
+        .restore_snapshot(repo_path, "snap1", Some(vec!["nope".to_string()]))
+        .await
+        .is_err());
+
+    // Wildcards select within the snapshot.
+    let both = engine
+        .restore_snapshot(repo_path, "snap1", Some(vec!["s*".to_string()]))
+        .await
+        .unwrap();
+    assert_eq!(both.len(), 2, "s* must match both snapshot indices");
+    let s2_rolled = engine
+        .get_index("s2")
+        .unwrap()
+        .search(&make_search(json!({"match_all": {}})))
+        .await
+        .unwrap();
+    assert_eq!(
+        s2_rolled.total.value, 1,
+        "explicitly-selected s2 rolls back to snapshot state"
+    );
+}
+
