@@ -3679,11 +3679,69 @@ fn default_size() -> usize {
 }
 
 /// Build a `SearchRequest` from the ES body, forwarding all relevant options.
+/// Walk a request JSON subtree for inline Painless script sources — values
+/// under a `script` key or any `*_script` key (e.g. scripted_metric's
+/// `map_script`) — and validate each against the engine's script resource
+/// limits. Returns the first limit-violation message, if any.
+///
+/// Only genuine limit violations (oversized source, or nesting depth beyond
+/// the parser's cap) are reported. Ordinary scripts — including ones outside
+/// our Painless subset — return `None` so they keep degrading gracefully at
+/// score time rather than turning into spurious 400s (which would break
+/// otherwise-passing requests and the ES-compat gate). This is the request-time
+/// guard that converts an adversarial deeply-nested `script_score` from a
+/// process-aborting stack overflow into a clean 400.
+fn find_script_limit_violation(v: &Value) -> Option<String> {
+    match v {
+        Value::Object(map) => {
+            for (k, val) in map {
+                if k == "script" || k.ends_with("_script") {
+                    let src = match val {
+                        Value::String(s) => Some(s.as_str()),
+                        Value::Object(o) => o.get("source").and_then(Value::as_str),
+                        _ => None,
+                    };
+                    if let Some(src) = src {
+                        if let Err(e) = xerj_engine::painless::check_script_limits(src) {
+                            return Some(e);
+                        }
+                    }
+                }
+                if let Some(hit) = find_script_limit_violation(val) {
+                    return Some(hit);
+                }
+            }
+            None
+        }
+        Value::Array(arr) => arr.iter().find_map(find_script_limit_violation),
+        _ => None,
+    }
+}
+
 fn build_search_request(
     body: &EsSearchBody,
     aggs_value: Option<Value>,
 ) -> Result<xerj_query::ast::SearchRequest, xerj_common::XerjError> {
     use xerj_query::ast::SourceFilter;
+
+    // Reject scripts that exceed the engine's resource limits up front with a
+    // 400, before they reach the per-document scoring path (where a deeply
+    // nested script would otherwise overflow the stack and abort the server).
+    for v in [
+        body.query.as_ref(),
+        body.rescore.as_ref(),
+        body.sort.as_ref(),
+        body.script_fields.as_ref(),
+        body.runtime_mappings.as_ref(),
+        aggs_value.as_ref(),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        if let Some(msg) = find_script_limit_violation(v) {
+            return Err(xerj_common::XerjError::invalid_query(msg));
+        }
+    }
 
     let query_val = body.query.clone().unwrap_or(json!({ "match_all": {} }));
 

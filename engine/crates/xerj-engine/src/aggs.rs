@@ -10555,11 +10555,34 @@ fn lex_script(src: &str) -> Result<Vec<PlTok>, String> {
     Ok(out)
 }
 
+/// Maximum recursive nesting depth accepted by the scripted-metric
+/// recursive-descent parser. Mirrors `painless::MAX_PARSE_DEPTH`: an
+/// unauthenticated deeply-nested script would otherwise overflow the worker
+/// stack and abort the process.
+const MAX_SCRIPT_PARSE_DEPTH: usize = 100;
+/// Maximum recursive AST-evaluation depth for scripted-metric scripts.
+const MAX_SCRIPT_EVAL_DEPTH: usize = 500;
+/// Maximum accepted scripted-metric script source length (bytes).
+const MAX_SCRIPT_SRC_LEN: usize = 64 * 1024;
+
 struct PlParser {
     toks: Vec<PlTok>,
     pos: usize,
+    /// Current recursive-descent nesting depth.
+    depth: usize,
 }
 impl PlParser {
+    fn descend(&mut self) -> Result<(), String> {
+        self.depth += 1;
+        if self.depth > MAX_SCRIPT_PARSE_DEPTH {
+            Err("compile error: script exceeds maximum nesting depth".to_string())
+        } else {
+            Ok(())
+        }
+    }
+    fn ascend(&mut self) {
+        self.depth = self.depth.saturating_sub(1);
+    }
     fn peek(&self) -> Option<&PlTok> {
         self.toks.get(self.pos)
     }
@@ -10592,6 +10615,13 @@ impl PlParser {
         Ok(out)
     }
     fn parse_stmt(&mut self) -> Result<PlStmt, String> {
+        // Depth-guard statement nesting (for / if / block bodies).
+        self.descend()?;
+        let out = self.parse_stmt_inner();
+        self.ascend();
+        out
+    }
+    fn parse_stmt_inner(&mut self) -> Result<PlStmt, String> {
         if let Some(PlTok::Ident(kw)) = self.peek().cloned() {
             if kw == "return" {
                 self.bump();
@@ -10774,6 +10804,15 @@ impl PlParser {
         self.parse_ternary()
     }
     fn parse_ternary(&mut self) -> Result<PlExpr, String> {
+        // parse_expr → parse_ternary funnels every expression re-entry
+        // (parens, array elems, ctor/call args, subscripts, ternary arms), so
+        // guarding it bounds the whole expression-grammar recursion.
+        self.descend()?;
+        let out = self.parse_ternary_inner();
+        self.ascend();
+        out
+    }
+    fn parse_ternary_inner(&mut self) -> Result<PlExpr, String> {
         let cond = self.parse_binary(1)?;
         if matches!(self.peek(), Some(PlTok::Question)) {
             self.bump();
@@ -10812,6 +10851,14 @@ impl PlParser {
         }
     }
     fn parse_unary(&mut self) -> Result<PlExpr, String> {
+        // Guard unary chains (`----x`, `!!!x`) which recurse through
+        // parse_unary directly and bypass the parse_ternary guard.
+        self.descend()?;
+        let out = self.parse_unary_inner();
+        self.ascend();
+        out
+    }
+    fn parse_unary_inner(&mut self) -> Result<PlExpr, String> {
         if let Some(PlTok::Op("-")) = self.peek() {
             self.bump();
             let e = self.parse_unary()?;
@@ -10977,9 +11024,50 @@ fn binop_prec(op: &str) -> u8 {
 }
 
 fn parse_script(src: &str) -> Result<Vec<PlStmt>, String> {
+    if src.len() > MAX_SCRIPT_SRC_LEN {
+        return Err(format!(
+            "compile error: script source is {} bytes, exceeds the {}-byte limit",
+            src.len(),
+            MAX_SCRIPT_SRC_LEN
+        ));
+    }
     let toks = lex_script(src)?;
-    let mut p = PlParser { toks, pos: 0 };
+    let mut p = PlParser {
+        toks,
+        pos: 0,
+        depth: 0,
+    };
     p.parse_stmts(false)
+}
+
+thread_local! {
+    /// Per-thread AST-evaluation recursion depth for scripted-metric scripts.
+    /// `ScriptCtx` is threaded by `&mut`, so a `Cell` field can't be borrowed
+    /// alongside the recursive `&mut ctx` calls; a thread-local sidesteps the
+    /// borrow conflict (eval runs synchronously on one thread per script).
+    static SCRIPT_EVAL_DEPTH: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// RAII guard bounding scripted-metric AST-evaluation recursion depth so a
+/// deep (or long flat) AST returns an error instead of overflowing the stack.
+struct ScriptEvalDepthGuard;
+impl ScriptEvalDepthGuard {
+    fn enter() -> Result<Self, String> {
+        SCRIPT_EVAL_DEPTH.with(|d| {
+            let cur = d.get();
+            if cur >= MAX_SCRIPT_EVAL_DEPTH {
+                Err("script evaluation exceeded maximum depth".to_string())
+            } else {
+                d.set(cur + 1);
+                Ok(ScriptEvalDepthGuard)
+            }
+        })
+    }
+}
+impl Drop for ScriptEvalDepthGuard {
+    fn drop(&mut self) {
+        SCRIPT_EVAL_DEPTH.with(|d| d.set(d.get().saturating_sub(1)));
+    }
 }
 
 fn exec_stmts(stmts: &[PlStmt], ctx: &mut ScriptCtx) -> Result<Option<Value>, String> {
@@ -10992,6 +11080,7 @@ fn exec_stmts(stmts: &[PlStmt], ctx: &mut ScriptCtx) -> Result<Option<Value>, St
 }
 
 fn exec_stmt(stmt: &PlStmt, ctx: &mut ScriptCtx) -> Result<Option<Value>, String> {
+    let _guard = ScriptEvalDepthGuard::enter()?;
     match stmt {
         PlStmt::Return(e) => Ok(Some(eval_expr(e, ctx)?)),
         PlStmt::Decl(name, e) => {
@@ -11062,6 +11151,7 @@ fn is_truthy(v: &Value) -> bool {
 /// Resolve `doc.field.value` or `doc["field"].value` by accessing the
 /// current doc's source; return the first value for multi-valued fields.
 fn eval_expr(e: &PlExpr, ctx: &mut ScriptCtx) -> Result<Value, String> {
+    let _guard = ScriptEvalDepthGuard::enter()?;
     match e {
         PlExpr::Num(n) => Ok(json!(n)),
         PlExpr::Str(s) => Ok(Value::String(s.clone())),
@@ -11596,6 +11686,31 @@ fn run_ip_range(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    // Regression: a deeply nested scripted-metric script must not overflow the
+    // recursive-descent parser (which would abort the whole server). The guard
+    // returns an Err instead. If it regresses, this test process itself
+    // stack-overflows and aborts, so it can never silently pass.
+    #[test]
+    fn scripted_metric_deep_nesting_does_not_overflow() {
+        let src = format!("return {}1.0{};", "(".repeat(5000), ")".repeat(5000));
+        let r = parse_script(&src);
+        assert!(r.is_err(), "expected depth-limit error, got {:?}", r);
+    }
+
+    #[test]
+    fn scripted_metric_oversized_source_rejected() {
+        let src = format!("return {};", "1.0".repeat(MAX_SCRIPT_SRC_LEN));
+        let r = parse_script(&src);
+        assert!(r.is_err(), "expected length-limit error, got {:?}", r);
+    }
+
+    #[test]
+    fn scripted_metric_normal_script_still_parses() {
+        // A realistic scripted-metric map body still parses fine.
+        let r = parse_script("state.sum = 0.0; for (t in doc['v']) { state.sum += t; }");
+        assert!(r.is_ok(), "normal script should parse: {:?}", r);
+    }
 
     fn docs() -> Vec<Value> {
         vec![

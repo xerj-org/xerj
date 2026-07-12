@@ -92,6 +92,9 @@ pub struct PainlessCtx<'a> {
     /// non-runtime contexts (script_score, rescore, etc.) where emit()
     /// is not used.
     pub emits: std::cell::RefCell<Vec<PainlessValue>>,
+    /// Current AST-evaluation recursion depth. Guards `eval_expr`/`exec_stmt`
+    /// against stack overflow on a deeply-nested (or long flat) AST.
+    eval_depth: std::cell::Cell<usize>,
 }
 
 impl<'a> PainlessCtx<'a> {
@@ -101,6 +104,7 @@ impl<'a> PainlessCtx<'a> {
             params,
             score,
             emits: std::cell::RefCell::new(Vec::new()),
+            eval_depth: std::cell::Cell::new(0),
         }
     }
     pub fn take_emits(&self) -> Vec<PainlessValue> {
@@ -341,16 +345,65 @@ enum Stmt {
     Block(Vec<Stmt>),
 }
 
+// ── Resource limits ──────────────────────────────────────────────────────────
+
+/// Maximum recursive nesting depth accepted by the recursive-descent parser
+/// (nested parens, unary chains, ternaries, nested blocks). An unauthenticated
+/// caller could otherwise submit a ~3 KB script of nested parens whose parse
+/// recursion overflows the (2 MB) worker-thread stack and aborts the entire
+/// process. ~100 is far below the empirically-observed overflow (~3000) yet
+/// comfortably above any legitimate hand-written or generated script.
+pub(crate) const MAX_PARSE_DEPTH: usize = 100;
+
+/// Maximum recursive AST-evaluation depth. Bounds `eval_expr`/`exec_stmt`
+/// recursion so a deep AST (including flat left-associative operator chains
+/// like `1+1+1+…` which the parser builds with a loop, not recursion, and so
+/// are NOT limited by [`MAX_PARSE_DEPTH`]) cannot overflow the stack at score
+/// time.
+pub(crate) const MAX_EVAL_DEPTH: usize = 500;
+
+/// Maximum accepted script source length in bytes. Matches Elasticsearch's
+/// default `script.max_size_in_bytes` (64 KiB) and bounds the size of any AST
+/// we build (and later drop) from a single request.
+pub(crate) const MAX_SCRIPT_LEN: usize = 64 * 1024;
+
+/// Sentinel error returned when [`MAX_PARSE_DEPTH`] is exceeded. Callers
+/// (`check_script_limits`) match on it to distinguish "too complex" (a 400)
+/// from ordinary syntax errors (which degrade gracefully at runtime).
+pub(crate) const TOO_DEEP_MSG: &str = "compile error: script exceeds maximum nesting depth";
+
 // ── Parser ───────────────────────────────────────────────────────────────────
 
 struct Parser<'a> {
     toks: &'a [Tok],
     pos: usize,
+    /// Current recursive-descent nesting depth (guards against stack overflow
+    /// on adversarial deeply-nested input).
+    depth: usize,
 }
 
 impl<'a> Parser<'a> {
     fn new(toks: &'a [Tok]) -> Self {
-        Self { toks, pos: 0 }
+        Self {
+            toks,
+            pos: 0,
+            depth: 0,
+        }
+    }
+    /// Enter one recursion level, failing (instead of overflowing the stack)
+    /// once [`MAX_PARSE_DEPTH`] is exceeded. Paired with [`Parser::ascend`] on
+    /// the success path; on the error path the whole parse is abandoned so the
+    /// unbalanced counter is irrelevant.
+    fn descend(&mut self) -> Result<(), String> {
+        self.depth += 1;
+        if self.depth > MAX_PARSE_DEPTH {
+            Err(TOO_DEEP_MSG.to_string())
+        } else {
+            Ok(())
+        }
+    }
+    fn ascend(&mut self) {
+        self.depth = self.depth.saturating_sub(1);
     }
     fn peek(&self) -> Option<&Tok> {
         self.toks.get(self.pos)
@@ -394,6 +447,13 @@ impl<'a> Parser<'a> {
         Ok(out)
     }
     fn parse_stmt(&mut self) -> Result<Stmt, String> {
+        // Depth-guard statement nesting (blocks / if / for bodies).
+        self.descend()?;
+        let out = self.parse_stmt_inner();
+        self.ascend();
+        out
+    }
+    fn parse_stmt_inner(&mut self) -> Result<Stmt, String> {
         // `if (...) { ... } else { ... }`
         if self.match_keyword("if") {
             self.expect_punct('(')?;
@@ -464,6 +524,15 @@ impl<'a> Parser<'a> {
         self.parse_assign()
     }
     fn parse_assign(&mut self) -> Result<Expr, String> {
+        // Every expression re-entry (parens, index keys, call args, ternary
+        // arms, assignment RHS) funnels through parse_assign, so guarding it
+        // here bounds the whole expression-grammar recursion by nesting depth.
+        self.descend()?;
+        let out = self.parse_assign_inner();
+        self.ascend();
+        out
+    }
+    fn parse_assign_inner(&mut self) -> Result<Expr, String> {
         let lhs = self.parse_ternary()?;
         if self.match_punct('=') {
             // Disambiguate from `==` already consumed by parse_compare.
@@ -573,6 +642,14 @@ impl<'a> Parser<'a> {
         Ok(lhs)
     }
     fn parse_unary(&mut self) -> Result<Expr, String> {
+        // Guard unary chains (`----x`, `!!!x`), which recurse through
+        // parse_unary itself and so bypass the parse_assign guard.
+        self.descend()?;
+        let out = self.parse_unary_inner();
+        self.ascend();
+        out
+    }
+    fn parse_unary_inner(&mut self) -> Result<Expr, String> {
         if self.match_punct('-') {
             let e = self.parse_unary()?;
             return Ok(Expr::Unary("-".into(), Box::new(e)));
@@ -662,7 +739,64 @@ impl<'a> Parser<'a> {
 
 // ── Evaluation ───────────────────────────────────────────────────────────────
 
+/// RAII guard that bounds AST-evaluation recursion depth. Incremented on
+/// entry to `eval_expr`/`exec_stmt`, decremented on scope exit (including the
+/// `?` early-return paths), so a pathological AST returns an error instead of
+/// overflowing the worker-thread stack.
+struct EvalDepthGuard<'a>(&'a std::cell::Cell<usize>);
+impl<'a> EvalDepthGuard<'a> {
+    fn enter(cell: &'a std::cell::Cell<usize>) -> Result<Self, String> {
+        let d = cell.get();
+        if d >= MAX_EVAL_DEPTH {
+            return Err("script evaluation exceeded maximum depth".to_string());
+        }
+        cell.set(d + 1);
+        Ok(EvalDepthGuard(cell))
+    }
+}
+impl Drop for EvalDepthGuard<'_> {
+    fn drop(&mut self) {
+        self.0.set(self.0.get().saturating_sub(1));
+    }
+}
+
+/// Validate a script against the parser/length resource limits WITHOUT running
+/// it, so the request layer can reject an abusive script with a 400 up front.
+///
+/// Returns `Err` **only** for limit violations (source too long, or nesting
+/// depth beyond [`MAX_PARSE_DEPTH`]). Ordinary syntax errors — including
+/// constructs outside our Painless subset — return `Ok(())` so they keep
+/// degrading gracefully at runtime (unchanged behavior), rather than becoming
+/// spurious 400s that would break otherwise-passing requests.
+pub fn check_script_limits(src: &str) -> Result<(), String> {
+    if src.len() > MAX_SCRIPT_LEN {
+        return Err(format!(
+            "compile error: script source is {} bytes, exceeds the {}-byte limit",
+            src.len(),
+            MAX_SCRIPT_LEN
+        ));
+    }
+    // The tokenizer is non-recursive; a tokenizer error is a plain syntax
+    // problem, so let the runtime path handle it (don't 400).
+    let toks = match tokenize(src) {
+        Ok(t) => t,
+        Err(_) => return Ok(()),
+    };
+    let mut p = Parser::new(&toks);
+    match p.parse_program() {
+        Err(e) if e == TOO_DEEP_MSG => Err(e),
+        _ => Ok(()),
+    }
+}
+
 pub fn eval_painless(src: &str, ctx: &PainlessCtx) -> Result<PainlessValue, String> {
+    if src.len() > MAX_SCRIPT_LEN {
+        return Err(format!(
+            "script source is {} bytes, exceeds the {}-byte limit",
+            src.len(),
+            MAX_SCRIPT_LEN
+        ));
+    }
     let toks = tokenize(src)?;
     let mut p = Parser::new(&toks);
     let stmts = p.parse_program()?;
@@ -693,6 +827,7 @@ fn exec_stmt(
     ctx: &PainlessCtx,
     env: &mut HashMap<String, PainlessValue>,
 ) -> Result<ExecOutcome, String> {
+    let _guard = EvalDepthGuard::enter(&ctx.eval_depth)?;
     match s {
         Stmt::Return(opt) => {
             let v = match opt {
@@ -730,6 +865,7 @@ fn eval_expr(
     ctx: &PainlessCtx,
     env: &mut HashMap<String, PainlessValue>,
 ) -> Result<PainlessValue, String> {
+    let _guard = EvalDepthGuard::enter(&ctx.eval_depth)?;
     match e {
         Expr::Number(n) => Ok(PainlessValue::Number(*n)),
         Expr::String(s) => Ok(PainlessValue::String(s.clone())),
@@ -1287,5 +1423,101 @@ mod tests {
         let params = json!({});
         let v = eval_painless("Math.max(1.5, 2.5)", &ctx(&doc, &params, 0.0)).unwrap();
         assert!((v.as_f64().unwrap() - 2.5).abs() < 1e-9);
+    }
+
+    // ── Resource-limit / stack-overflow guards ───────────────────────────────
+    // Regression tests for the unauthenticated remote crash: a deeply nested
+    // script used to overflow the parser's (or evaluator's) recursion and abort
+    // the whole process. These MUST return an `Err` — if the guard regresses,
+    // the test process itself stack-overflows and aborts (a hard failure), so
+    // the test can never silently pass.
+
+    #[test]
+    fn deeply_nested_parens_do_not_overflow_parser() {
+        let doc = json!({});
+        let params = json!({});
+        // ~5000 nested parens — well beyond the ~3000 that overflowed the
+        // real server before the guard.
+        let src = format!("{}1.0{}", "(".repeat(5000), ")".repeat(5000));
+        let r = eval_painless(&src, &ctx(&doc, &params, 0.0));
+        assert!(r.is_err(), "expected depth-limit error, got {:?}", r);
+        assert_eq!(r.unwrap_err(), TOO_DEEP_MSG);
+    }
+
+    #[test]
+    fn deeply_nested_unary_do_not_overflow_parser() {
+        let doc = json!({});
+        let params = json!({});
+        // Unary chains recurse through parse_unary directly. Use `!` (logical
+        // NOT): unlike `-`, consecutive `!` are NOT collapsed into a multi-char
+        // token by the lexer, so this genuinely drives deep unary recursion.
+        let src = format!("{}true", "!".repeat(5000));
+        let r = eval_painless(&src, &ctx(&doc, &params, 0.0));
+        assert!(r.is_err(), "expected depth-limit error, got {:?}", r);
+        assert_eq!(r.unwrap_err(), TOO_DEEP_MSG);
+    }
+
+    #[test]
+    fn long_flat_binary_chain_does_not_overflow_evaluator() {
+        let doc = json!({});
+        let params = json!({});
+        // A flat `1+1+1+…` chain is parsed with a LOOP (not deep recursion),
+        // so it passes the parser but builds a deep left-leaning AST that the
+        // evaluator would recurse over. The eval-depth guard must catch it.
+        let src = format!("1{}", "+1".repeat(5000));
+        let r = eval_painless(&src, &ctx(&doc, &params, 0.0));
+        assert!(
+            r.is_err(),
+            "expected eval-depth error on deep AST, got {:?}",
+            r
+        );
+    }
+
+    #[test]
+    fn oversized_source_rejected() {
+        let doc = json!({});
+        let params = json!({});
+        let src = format!("{} + 1.0", "1.0".repeat(MAX_SCRIPT_LEN));
+        let r = eval_painless(&src, &ctx(&doc, &params, 0.0));
+        assert!(r.is_err(), "expected length-limit error, got {:?}", r);
+    }
+
+    #[test]
+    fn check_script_limits_flags_nesting_but_ignores_plain_syntax_errors() {
+        // Nesting past the cap → reported (becomes a 400 at the request layer).
+        let deep = format!("{}1.0{}", "(".repeat(5000), ")".repeat(5000));
+        assert!(check_script_limits(&deep).is_err());
+
+        // Oversized → reported.
+        let big = "1.0".repeat(MAX_SCRIPT_LEN);
+        assert!(check_script_limits(&big).is_err());
+
+        // Deep unary chain past the cap → reported (use `!`; see note above).
+        let deep_unary = format!("{}true", "!".repeat(5000));
+        assert!(
+            check_script_limits(&deep_unary).is_err(),
+            "deep unary should be flagged by the parse-depth guard"
+        );
+
+        // A normal, valid script → OK.
+        assert!(check_script_limits("doc['x'].value * 2 + _score").is_ok());
+
+        // An unsupported-but-shallow script (syntax our subset rejects) must
+        // NOT be flagged — it should keep degrading gracefully at runtime, not
+        // turn into a spurious 400.
+        assert!(check_script_limits("some garbage )(").is_ok());
+    }
+
+    #[test]
+    fn normal_script_still_evaluates_after_guards() {
+        let doc = json!({"x": 4});
+        let params = json!({"m": 3});
+        // Moderate nesting well within limits still works.
+        let v = eval_painless(
+            "((doc['x'].value + 1) * params.m)",
+            &ctx(&doc, &params, 0.0),
+        )
+        .unwrap();
+        assert!((v.as_f64().unwrap() - 15.0).abs() < 1e-9);
     }
 }
