@@ -13297,6 +13297,12 @@ pub struct ReindexSource {
     pub query: Option<Value>,
     #[serde(default = "reindex_default_size")]
     pub size: usize,
+    /// ES reindex-from-remote spec (`{"host": "http://...", ...}`).
+    /// XERJ does not implement remote reindex; this field is captured so
+    /// the handler can reject the request instead of silently reindexing
+    /// LOCAL data (which reported success against the wrong source).
+    #[serde(default)]
+    pub remote: Option<Value>,
 }
 
 fn reindex_default_size() -> usize {
@@ -13314,6 +13320,42 @@ pub async fn reindex(
 ) -> impl IntoResponse {
     let started = Instant::now();
     let _task = state.tasks.register("indices:data/write/reindex");
+
+    // Reindex-from-remote is NOT supported: reject it up front. This used
+    // to be silently ignored — the handler reindexed the LOCAL index named
+    // in `source.index` and reported success, which is silent wrong data
+    // for a caller expecting a remote pull. Mirror ES's default posture
+    // (an empty `reindex.remote.whitelist` rejects every remote host with
+    // a 400 illegal_argument_exception of this exact shape).
+    if let Some(remote) = body.source.remote.as_ref() {
+        let host = remote
+            .get("host")
+            .and_then(Value::as_str)
+            .unwrap_or("<missing host>");
+        // ES formats the host as `host:port` (no scheme) in the reason.
+        let host_no_scheme = host
+            .strip_prefix("https://")
+            .or_else(|| host.strip_prefix("http://"))
+            .unwrap_or(host)
+            .trim_end_matches('/');
+        let reason = format!(
+            "[{host_no_scheme}] not whitelisted in reindex.remote.whitelist \
+             (reindex from remote is not supported by this XERJ version)"
+        );
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "root_cause": [{ "type": "illegal_argument_exception", "reason": reason }],
+                    "type": "illegal_argument_exception",
+                    "reason": reason,
+                },
+                "status": 400,
+            })),
+        )
+            .into_response();
+    }
+
     let source_name = &body.source.index;
     let dest_name = &body.dest.index;
 
