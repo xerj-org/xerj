@@ -1064,6 +1064,21 @@ mod tests {
     }
 
     #[test]
+    fn shipped_default_config_parses_and_validates() {
+        // rc.3 regression: the shipped engine/xerj.default.toml failed to
+        // parse (`unknown field hnsw_offload_threshold`, line 223) so the
+        // documented `--config xerj.default.toml` invocation was a dead
+        // boot. Every sub-config is `deny_unknown_fields`, so ANY key that
+        // drifts out of the schema kills the boot — guard the shipped file
+        // byte-for-byte at compile time.
+        let toml_src = include_str!("../../../xerj.default.toml");
+        let cfg = Config::from_toml_str(toml_src)
+            .expect("shipped xerj.default.toml must parse against the current Config schema");
+        cfg.validate()
+            .expect("shipped xerj.default.toml must pass Config::validate");
+    }
+
+    #[test]
     fn count_user_facing_settings() {
         // 47 user-facing settings:
         //   server: 5      (rest_port, grpc_port, es_compat_port, data_dir, bind_address)

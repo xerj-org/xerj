@@ -136,6 +136,38 @@ jobs:
         working-directory: engine
         run: cargo build --release -p xerj-server -p es-yaml-runner
 
+      # rc.3 regression: the shipped xerj.default.toml failed to parse
+      # (`unknown field hnsw_offload_threshold`) so the documented
+      # `--config` invocation was a dead boot. Boot the real binary with
+      # the real shipped file and require it to answer HTTP before the
+      # conformance server takes port 9200. Runs from a temp dir because
+      # the shipped config uses a relative `data_dir = "./data"`, and
+      # accepts any HTTP status (auth is enabled in the shipped config,
+      # so an unauthenticated probe legitimately gets 401).
+      - name: Shipped default config boots (rc.3 regression)
+        run: |
+          set -euo pipefail
+          SMOKE="$(mktemp -d)"
+          cd "$SMOKE"
+          "$GITHUB_WORKSPACE/engine/target/release/xerj" \
+            --config "$GITHUB_WORKSPACE/engine/xerj.default.toml" > server.log 2>&1 &
+          SMOKE_PID=$!
+          up=""
+          for _ in $(seq 1 80); do
+            code="$(curl -s -m1 -o /dev/null -w '%{http_code}' localhost:9200/ || true)"
+            if [ "$code" != "000" ] && [ -n "$code" ]; then up="$code"; break; fi
+            if ! kill -0 "$SMOKE_PID" 2>/dev/null; then break; fi
+            sleep 0.25
+          done
+          if [ -z "$up" ]; then
+            echo "xerj failed to boot with the shipped xerj.default.toml"
+            cat server.log
+            exit 1
+          fi
+          echo "shipped-config boot OK (HTTP $up)"
+          kill "$SMOKE_PID" 2>/dev/null || true
+          wait "$SMOKE_PID" 2>/dev/null || true
+
       - name: Boot xerj
         working-directory: engine
         run: |
