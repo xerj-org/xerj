@@ -6880,6 +6880,25 @@ pub async fn search(
                         },
                     )
                 })
+        } else if search_req.from > 0 && search_req.size > 0 {
+            // ES's no-sort `max_score` is the top COLLECTED doc's score —
+            // the population max — which `from` skips past but does not
+            // erase (live-verified on ES 8.13.4: pinned/bool deep pages
+            // keep the global max even when every higher scorer sits
+            // before `from`, and a beyond-end page reports it with 0
+            // hits). xerj used to report the PAGE head, under-reporting
+            // whenever the head of the ranking was skipped. from == 0
+            // keeps the page-head read (it IS the max under score-DESC
+            // order — byte-identical); size == 0 keeps ES's null.
+            let page_head = merged_hits.first().map(|(_, h)| score_wire(h.score));
+            match (
+                merged_population_max.map(|m| score_wire(m as f32)),
+                page_head,
+            ) {
+                (Some(p), Some(h)) => Some(if p >= h { p } else { h }),
+                (Some(p), None) => Some(p),
+                (None, h) => h,
+            }
         } else {
             merged_hits.first().map(|(_, h)| score_wire(h.score))
         }

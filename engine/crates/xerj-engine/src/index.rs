@@ -10761,7 +10761,8 @@ impl Index {
             let seq_asc = (break_bound.is_some()
                 || constant_plan
                 || flat_conjunction.is_some()
-                || flat_bool2.is_some())
+                || flat_bool2.is_some()
+                || matches!(plan, ScoredPlan::Pinned { .. }))
                 && seqs.windows(2).all(|w| w[0] <= w[1]);
             let later_min_seq: u64 = segments[si + 1..]
                 .iter()
@@ -11115,6 +11116,47 @@ impl Index {
                     // Organic rows only; pins are overlaid in phase 4.
                     let org = &sev[0];
                     let s = clause_scores[0];
+                    if seq_asc {
+                        // Constant-organic fast lane (mirror of the
+                        // `constant_plan` lane): Pinned bails on entry
+                        // whenever any ghost event was recorded, so the
+                        // closed-form column count IS the exact live
+                        // total, and — every organic hit scoring the same
+                        // per-term constant with rows seq-ascending — the
+                        // first keep_target matches ARE this segment's
+                        // k-best contribution (identical to what the
+                        // full-walk heap kept: the seq-smallest cap
+                        // matches). Phase 4 re-scores/adds pins with its
+                        // own independent organic-match test on the
+                        // columns, so stopping the walk early never
+                        // loses a pin. Replaces the profiled 100k-row
+                        // walk + ~98.7k heap pushes for a 10-doc page.
+                        let seg_matches = org.count();
+                        total += seg_matches;
+                        if seg_matches > 0 {
+                            let mut kept = 0usize;
+                            for row in 0..doc_count {
+                                if !org.matches(row) {
+                                    continue;
+                                }
+                                push_topk(
+                                    &mut heap,
+                                    keep_target,
+                                    TopKCand {
+                                        score: s,
+                                        seq: seqs[row as usize],
+                                        si,
+                                        row,
+                                    },
+                                );
+                                kept += 1;
+                                if kept >= keep_target {
+                                    break;
+                                }
+                            }
+                        }
+                        continue;
+                    }
                     for row in 0..doc_count {
                         if is_ghost(row) {
                             continue;
@@ -21630,9 +21672,17 @@ fn scored_fast_plan(
             if !ids.iter().all(|id| seen.insert(id.as_str())) {
                 return None;
             }
+            // ES's pinned DROPS every boost inside the organic query —
+            // Lucene's CappedScoreQuery wrapper does not propagate the
+            // boost into the organic weight (live-verified on ES 8.13.4:
+            // organic term^2.5, bool>term^2.5 and constant_score boost
+            // 1.7 all score UNBOOSTED 0.012563465 / 1.0). Mirror it by
+            // scoring the admitted organic leaf at boost 1.0.
+            let mut organic = scoring_leaf(organic, 1.0, &fs)?;
+            organic.boost = 1.0;
             Some(ScoredPlan::Pinned {
                 ids: ids.clone(),
-                organic: scoring_leaf(organic, 1.0, &fs)?,
+                organic,
             })
         }
         // match_all / terms / exists as constant-score Filtered plans
