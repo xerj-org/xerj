@@ -219,13 +219,20 @@ and greedily hops toward the nearest region, giving roughly O(log N)
 search that stays fast as the corpus grows. XERJ builds with
 `ef_construction = 200` for high recall; at query time `num_candidates`
 controls the search-time breadth (the ANN analog of `ef_search`) — raise
-it to trade latency for recall, lower it for speed.
+it to trade latency for recall (XERJ floors the beam at 800 to match
+Elasticsearch's per-segment candidate semantics).
 
-Because it's *approximate*, ANN can in principle miss a true neighbor.
-For a corpus this small the result is **exact** — the script above
+Because it's *approximate*, ANN can in principle miss a true neighbor —
+so XERJ gates the graph path and exact-rescores what it returns: only an
+**unfiltered** `knn` on a full-precision cosine field with **≥1,024 docs**
+is HNSW-served (measured recall@10 1.00 on the official bench query,
+100-probe mean 0.976), and its candidates are rescored with the exact
+similarity so returned scores match the exact path bit-for-bit. Filtered
+kNN, non-cosine metrics, SQ8-quantized fields, and small corpora run the
+exact brute-force scan. This recipe's 8-row corpus is far below that
+threshold, so its queries ran the **exact** path — the script above
 measures **recall@k = 1.000** against a brute-force cosine ground truth
-on every query, confirming HNSW returned the identical top-k. The knobs
-above only start to matter at scale.
+on every query. The knobs above only start to matter at scale.
 
 ---
 

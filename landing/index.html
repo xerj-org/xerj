@@ -339,7 +339,7 @@ $ curl -sXPOST localhost:9200/_memory/agent-demo/_recall \
       <div class="hint">index on-disk 9.85 MB vs ES 12.07 MB, same corpus · demo/playbooks/FULL_MATRIX_SCORECARD_2026-07-09.md</div>
     </div>
   </div>
-  <p class="viz-caption" style="margin-top:var(--sp-4);">The engine numbers back the use cases up — they are not the product. kNN recall was a 1.00 tie (both exact on this setup). <a class="mono" href="/benchmarks/" style="color:var(--z-mute);">FULL BENCHMARK METHODOLOGY + REPRODUCTION →</a></p>
+  <p class="viz-caption" style="margin-top:var(--sp-4);">The engine numbers back the use cases up — they are not the product. kNN recall@10 measured 1.00 (unfiltered kNN is now HNSW-served with exact rescoring — re-measured 1.00 vs ES 8.13.4's 0.80 on the official bench cell). <a class="mono" href="/benchmarks/" style="color:var(--z-mute);">FULL BENCHMARK METHODOLOGY + REPRODUCTION →</a></p>
 </section>
 
 <!-- ENGINE --------------------------------------------------->
@@ -365,7 +365,7 @@ $ curl -sXPOST localhost:9200/_memory/agent-demo/_recall \
   </div>
   <div class="row">
     <div class="k">Vector index</div>
-    <div class="v">Exact (brute-force) kNN at query time — every candidate scored, recall 1.00, no approximate traversal to tune · cosine / L2 / dot · SQ8 / SQ4 / binary quantization · max 16,384 dims (ES caps at 4,096)</div>
+    <div class="v">HNSW-served kNN with exact rescoring on unfiltered queries (measured recall@10 1.00 on the official bench query) · exact brute-force scan for filtered / quantized / small-index shapes · cosine / L2 / dot · SQ8 / SQ4 / binary quantization · max 16,384 dims (ES caps at 4,096)</div>
   </div>
   <div class="row">
     <div class="k">AI-native</div>

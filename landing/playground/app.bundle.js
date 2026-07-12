@@ -1282,7 +1282,7 @@
     name: "Vector \xB7 Index",
     render: ({ data, time }) => ({
       title: "VECTOR \xB7 INDEX",
-      kicker: "EXACT kNN \xB7 EMBEDDINGS \xB7 HYBRID",
+      kicker: "kNN \xB7 EMBEDDINGS \xB7 HYBRID",
       meta: [time, "XERJ-VECTOR"],
       panels: [
         {

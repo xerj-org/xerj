@@ -6,7 +6,7 @@
 > zero configuration. One binary replaces the retrieval stack an AI system normally
 > assembles (search engine + vector DB + embedding service + memory store + log
 > analytics): agents get an Elasticsearch-8.x-compatible REST API with AI-native
-> primitives — semantic search, exact kNN vector search, hybrid retrieval, and
+> primitives — semantic search, kNN vector search, hybrid retrieval, and
 > namespaced agent memory. A zero-config embedder is built into the binary, so
 > semantic search and agent memory work with NO external embedding API key. ES wire
 > compatibility is the transport, not the product.
@@ -73,11 +73,18 @@ Content types:
 2. HONESTY / CAPABILITY BOUNDARIES  (read this before relying on anything)
 =====================================================================
 
-- kNN vector search is EXACT (brute-force) at query time.
-  Vectors are scanned exhaustively and scored exactly (recall 1.00). `num_candidates`
-  is accepted for ES request compatibility, but there is NO approximate HNSW graph
-  traversal and NO `ef_search` at query time. Latency scales with the number of
-  vectors scanned. Never assume ANN-style speed from this engine.
+- kNN is HNSW-served (approximate) when unfiltered, exact brute-force otherwise.
+  An unfiltered `knn` (top-level or query form) on a full-precision cosine field with
+  >=1,024 docs is served by a beam search over a persisted HNSW graph; the candidates
+  are exact-rescored, so returned `_score`s match the exact path bit-for-bit.
+  `num_candidates` is the beam width (floored at 800 to match ES's per-segment
+  candidate semantics; ES's 1.5×k default applies when omitted). Measured on the
+  50k × 128-d bench corpus: recall@10 1.00 on the official bench query; 100-probe
+  mean 0.976 / min 0.90 (ES 8.13.4 same protocol: 0.937 / 0.70). Recall on the ANN
+  path is measured, not guaranteed, and it can return fewer than k hits. Filtered or
+  nested kNN, non-cosine similarity, SQ8-quantized fields, indexes under 1,024 docs,
+  a stale graph, and `semantic` / `_memory` vector recall all use the EXACT
+  brute-force scan (recall 1.00 by construction; latency scales with vectors scanned).
 
 - Hybrid fusion supports `rrf` and `linear` ONLY.
   `fusion:"learned"` is NOT implemented and returns a loud error:
@@ -110,7 +117,9 @@ Content types:
 - Performance is supporting evidence, not the headline. In a closed-loop, cache-off
   benchmark vs live Elasticsearch 8.13.4, XERJ measured 42 wins / 28 losses / 12 ties
   across the full query matrix, with a 1.54× bulk-ingest win, a disk-footprint win,
-  and kNN recall 1.00 (a tie — both exact on that setup). Acked deletes survive
+  and kNN recall@10 1.00 (measured; unfiltered kNN is now HNSW-served with exact
+  rescoring — re-measured 1.00 on the official bench query vs ES 8.13.4's 0.80).
+  Acked deletes survive
   SIGTERM/SIGKILL restarts (11/11 adversarial crash cells). Measure on your workload.
 
 =====================================================================
@@ -194,7 +203,7 @@ POST /{index}/_search
   - `k` defaults to 10. `filter` and `boost` are accepted inside the `semantic` object.
   - `size` controls how many hits are returned (independent of `k`).
 
---- 3.3 xerj_vector_search — exact kNN over dense_vector ------------
+--- 3.3 xerj_vector_search — kNN over dense_vector ------------------
 Prereq: the field must be mapped as `dense_vector` (with `dims`). Bring your own query vector.
 Form A (inside query):
   POST /{index}/_search
@@ -202,7 +211,7 @@ Form A (inside query):
       "field": "embedding",
       "query_vector": [0.12, -0.03, ...],
       "k": 10,
-      "num_candidates": 100,        // accepted for compat; scan is exact
+      "num_candidates": 100,        // ANN beam width when HNSW-served; no effect on the exact filtered scan
       "filter": { "term": { "lang": "en" } },
       "boost": 1.0 } } }
 Form B (top-level knn, ES 8.x style):
@@ -210,6 +219,7 @@ Form B (top-level knn, ES 8.x style):
   { "knn": { "field": "embedding", "query_vector": [...], "k": 10 }, "size": 10 }
   - `query_vector` (alias `vector`) is required.
   - If both top-level `knn` and a `query` are present they are combined as a bool `should`.
+  - Unfiltered kNN is HNSW-served with exact rescoring; filtered kNN runs the exact scan (see §2).
 
 --- 3.4 xerj_hybrid_search — fuse lexical + vector/semantic ---------
 POST /{index}/_search
@@ -325,8 +335,8 @@ dense_vector:
   - `dims` (required for meaningful kNN), `similarity` (default "cosine").
   - Quantization: `index_options.type` of `int8_hnsw` / `int8_flat`, or field-level
     `quantization:"scalar8"`, opts the field into the serving-path SQ8 code store
-    (~1 byte/dim). Other families keep the exact full-precision f32 scan. kNN remains
-    EXACT at query time regardless (see §2).
+    (~1 byte/dim). SQ8 fields are always served by the exact code scan; unfiltered kNN
+    on full-precision fields is HNSW-served with exact rescoring (see §2).
 
 Supported mapping field types (ES type string → internal):
   text, keyword (also constant_keyword, wildcard), long (also integer/short/byte/unsigned_long),
@@ -343,7 +353,8 @@ Full-text / term-level:
   simple_query_string, constant_score, boosting, dis_max.
 
 Vector / semantic / hybrid:
-  knn (exact; also top-level knn form), semantic (over semantic_text), hybrid (rrf|linear).
+  knn (HNSW-served unfiltered / exact filtered; also top-level knn form),
+  semantic (over semantic_text), hybrid (rrf|linear).
 
 Compound / geo:
   bool (must / should / must_not / filter), function_score, geo_distance.

@@ -19,7 +19,7 @@ export const vectorIndex = {
   name: 'Vector · Index',
   render: ({ data, time }) => ({
     title:  'VECTOR · INDEX',
-    kicker: 'EXACT kNN · EMBEDDINGS · HYBRID',
+    kicker: 'kNN · EMBEDDINGS · HYBRID',
     meta:   [time, 'XERJ-VECTOR'],
     panels: [
 

@@ -51,7 +51,7 @@ pipeline plugins).
 | `xerj-query` | Query DSL: AST (`ast.rs`), ES JSON parser (`parser.rs`), planner, rewriter, executor. |
 | `xerj-storage` | WAL, sharded memtable, segments, version map, index store. |
 | `xerj-fts` | Full-text search: BM25 scoring, analyzer registry, postings lists. |
-| `xerj-vector` | Dense-vector k-NN / semantic search (ES-compat queries are served by an exact scan — recall 1.00; an HNSW implementation exists in-crate but is not on the query path). |
+| `xerj-vector` | Dense-vector k-NN / semantic search: a persisted HNSW graph serves unfiltered kNN with exact rescoring; filtered shapes and every fallback use the exact scan. |
 | `xerj-logs` | Columnar log ingestion and retention. |
 | `xerj-ai` | Text chunking, embedding proxy, memory store. |
 | `xerj-compress` | Block compression codecs (LZ4, Zstd). |
@@ -83,7 +83,8 @@ A query is matched against **both** the in-memory memtable and the on-disk segme
 and the results are merged so that freshly written documents are immediately
 searchable. For `size > 0` requests, hit materialization is bounded to the top
 `from + size` candidates. k-NN and hybrid queries evaluate the vector portion in
-`xerj-vector` (exact scan, recall 1.00) and combine scores in the same executor.
+`xerj-vector` (unfiltered top-level kNN via the persisted HNSW graph with exact
+rescoring; other shapes via the exact scan) and combine scores in the same executor.
 
 ## The ingest path
 

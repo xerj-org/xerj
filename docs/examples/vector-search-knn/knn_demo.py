@@ -131,8 +131,11 @@ for h in knn_hits:
 
 top3_ids = [h[0] for h in knn_hits]
 top3_cats = [h[3] for h in knn_hits]
-# RECALL CHECK: compare the ANN (HNSW) result against the brute-force exact
+# RECALL CHECK: compare the served result against the brute-force exact
 # top-k computed independently in this script — that's the real recall@k.
+# (An 8-row corpus is below the 1,024-doc HNSW threshold, so XERJ serves
+# these queries on the exact path; at scale, unfiltered kNN is HNSW-served
+# with exact rescoring.)
 exact3 = exact_topk(query_vec, catalog, 3)
 recall3 = recall_at_k(top3_ids, exact3)
 print("  exact top-3 (brute-force cosine):", exact3)
@@ -197,7 +200,7 @@ assert all(h[3] == "vehicle" for h in veh), veh
 assert recall_veh == 1.0, (veh_ids, exact_veh)
 print("  OK: vehicle query returns only vehicles")
 
-# Overall: HNSW matched brute-force exact on every query in this run.
+# Overall: the served results matched brute-force exact on every query in this run.
 overall = (recall3 + recall_veh) / 2
 print("\nMEASURED recall vs brute-force exact across queries: %.3f (%s)"
       % (overall, "exact" if overall == 1.0 else "approximate"))

@@ -92,7 +92,7 @@
     "type": "function",
     "function": {
       "name": "xerj_vector_search",
-      "description": "Run an EXACT k-nearest-neighbour search over a `dense_vector` field with a caller-supplied embedding. XERJ scores by exact brute-force distance at query time (there is no HNSW/ANN index or query-time traversal, and no ef_search parameter — results are exact, recall 1.00). Maps to POST /{index}/_search with the top-level `knn` clause. Use when you already have a query embedding.",
+      "description": "Run a k-nearest-neighbour search over a `dense_vector` field with a caller-supplied embedding. Unfiltered kNN on a full-precision cosine field (>=1,024 docs) is HNSW-served (approximate) with exact rescoring — measured recall@10 1.00 on the official bench query, 100-probe mean 0.976; num_candidates sets the beam width (floored at 800). Filtered kNN, non-cosine metrics, SQ8 fields, and small indexes run an exact brute-force scan (recall 1.00). Maps to POST /{index}/_search with the top-level `knn` clause. Use when you already have a query embedding.",
       "parameters": {
         "type": "object",
         "properties": {
@@ -116,7 +116,7 @@
           },
           "num_candidates": {
             "type": "integer",
-            "description": "Optional candidate-pool size before selecting top k. Scoring is exact, so this mainly bounds the result set.",
+            "description": "Optional candidate-pool size before selecting top k. On the HNSW-served (unfiltered) path this is the ANN beam width (floored at 800); on the exact filtered scan it has no effect on results.",
             "minimum": 1
           },
           "filter": {
