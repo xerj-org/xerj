@@ -94,12 +94,29 @@ pub struct IndexTemplate {
 }
 
 /// Active scroll context holding all matching hits.
+///
+/// Each context pins a fully-hydrated `Vec<Hit>` snapshot, so its lifetime
+/// must be bounded: pre-rc.4 contexts lived until an explicit
+/// `DELETE /_search/scroll` and accumulated forever otherwise (RC4
+/// blocker 11). Every context now carries an `expires_at` deadline
+/// (from the request's `scroll=…` keep-alive, capped by
+/// `Config.search_context.scroll_max_keep_alive_secs`), refreshed on each
+/// continuation, enforced on access, and swept in the background.
 pub struct ScrollContext {
     pub index: String,
     pub hits: Vec<xerj_query::executor::Hit>,
     pub position: usize,
     pub page_size: usize,
     pub created: Instant,
+    /// The keep-alive window last requested for this context. A
+    /// continuation without an explicit `scroll` parameter re-arms the
+    /// deadline with this same duration (ES keeps the context alive for
+    /// the previous keep-alive in that case).
+    pub keep_alive: std::time::Duration,
+    /// Wall-clock deadline after which the context is dead: continuations
+    /// return the same 404 as an unknown id, and the background sweeper
+    /// (or an opportunistic sweep on open) frees the pinned hits.
+    pub expires_at: Instant,
 }
 
 /// Point-in-time search context — snapshots the set of indices and the
@@ -384,6 +401,14 @@ impl Engine {
         // Instant compare) and bounded by the live PIT count.
         engine.spawn_pit_sweeper();
 
+        // Spawn the scroll + async-search context sweeper (RC4 blocker
+        // 11) — the scroll/async twin of the PIT sweeper above. Each
+        // scroll pins a full Vec<Hit> and each async search pins its
+        // response JSON; without a sweeper both maps grow until an
+        // explicit client DELETE, i.e. forever under normal client
+        // behavior.
+        engine.spawn_search_context_sweeper();
+
         Ok(engine)
     }
 
@@ -487,6 +512,112 @@ impl Engine {
                     remaining = pits.len(),
                     "PIT sweep dropped expired contexts",
                 );
+            }
+        });
+    }
+
+    /// Drop scroll contexts whose `expires_at` is in the past. Mirrors
+    /// [`Engine::sweep_expired_pits`]: cheap O(N) walk, run by the
+    /// background sweeper and opportunistically before opening a new
+    /// scroll so a tight open-without-clear loop self-bounds.
+    pub fn sweep_expired_scrolls(&self) -> usize {
+        let now = Instant::now();
+        let expired: Vec<String> = self
+            .scrolls
+            .iter()
+            .filter(|e| e.value().expires_at <= now)
+            .map(|e| e.key().clone())
+            .collect();
+        for id in &expired {
+            self.scrolls.remove(id);
+        }
+        expired.len()
+    }
+
+    /// Drop stored async-search results whose `expiration_time_in_millis`
+    /// is in the past. The expiry lives inside the stored response JSON
+    /// (it is part of the ES wire format), so the sweep reads it from
+    /// there; a malformed/missing field counts as expired — every writer
+    /// sets it, so that arm only fires on corruption.
+    pub fn sweep_expired_async_searches(&self) -> usize {
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(i64::MAX);
+        let expired: Vec<String> = self
+            .async_searches
+            .iter()
+            .filter(|e| {
+                e.value()
+                    .get("expiration_time_in_millis")
+                    .and_then(Value::as_i64)
+                    .map(|exp| exp <= now_ms)
+                    .unwrap_or(true)
+            })
+            .map(|e| e.key().clone())
+            .collect();
+        for id in &expired {
+            self.async_searches.remove(id);
+        }
+        expired.len()
+    }
+
+    /// Background sweeper for scroll + async-search contexts (RC4
+    /// blocker 11) — the twin of [`Engine::spawn_pit_sweeper`].
+    ///
+    /// Deliberately captures ONLY the two context maps (never a full
+    /// `Engine` clone): the engine holds the data-dir `node.lock`, and a
+    /// long-lived task owning an `Engine` clone would keep that lock
+    /// alive after the last user-visible engine is dropped.
+    fn spawn_search_context_sweeper(&self) {
+        let scrolls = Arc::clone(&self.scrolls);
+        let async_searches = Arc::clone(&self.async_searches);
+        let interval = std::time::Duration::from_secs(
+            self.config.search_context.sweep_interval_secs.max(1),
+        );
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(interval);
+            // Skip the immediate first tick — Engine::new just ran, so
+            // both maps are empty.
+            tick.tick().await;
+            loop {
+                tick.tick().await;
+                let now = Instant::now();
+                let expired_scrolls: Vec<String> = scrolls
+                    .iter()
+                    .filter(|e| e.value().expires_at <= now)
+                    .map(|e| e.key().clone())
+                    .collect();
+                for id in &expired_scrolls {
+                    scrolls.remove(id);
+                }
+                let now_ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_millis() as i64)
+                    .unwrap_or(i64::MAX);
+                let expired_async: Vec<String> = async_searches
+                    .iter()
+                    .filter(|e| {
+                        e.value()
+                            .get("expiration_time_in_millis")
+                            .and_then(Value::as_i64)
+                            .map(|exp| exp <= now_ms)
+                            .unwrap_or(true)
+                    })
+                    .map(|e| e.key().clone())
+                    .collect();
+                for id in &expired_async {
+                    async_searches.remove(id);
+                }
+                if !expired_scrolls.is_empty() || !expired_async.is_empty() {
+                    tracing::debug!(
+                        swept_scrolls = expired_scrolls.len(),
+                        swept_async = expired_async.len(),
+                        remaining_scrolls = scrolls.len(),
+                        remaining_async = async_searches.len(),
+                        "search-context sweep dropped expired contexts",
+                    );
+                }
             }
         });
     }
