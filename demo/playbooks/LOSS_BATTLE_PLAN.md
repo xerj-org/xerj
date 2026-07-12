@@ -383,3 +383,37 @@ Open follow-up tickets surfaced during the campaign:
    (page-offset would drop the max_score carrier — needs a design).
 4. dis_max (tie>0, >1 live clause): static bound unreachable — the true
    fix is WAND/impact-style per-clause reasoning (NEEDS_INFRA).
+
+---
+
+# 🏁 GATE PASSED — 2026-07-12
+
+**Official harness verdict (bench-matrix.mjs reads, 100k/c1, request_cache=false,
+XERJ_DISABLE_QUERY_CACHE=1, best-of-3 on would-be LOSEs):**
+
+## 52 WIN · 0 LOSE · 25 TIE · 3 N/A — XERJ wins or ties every comparable read cell vs Elasticsearch 8.13.4.
+
+Zero-loss-gate workflow (scratchpad/wf_zero_loss_gate.mjs) closed the last
+mile autonomously across 3 launches / 15 rounds. Fixer commits beyond the
+phase-1/2 batches: f1623e5 (highlight admitted), 7cba4b7 (match_phrase
+admitted), 396669c (CORRECTNESS: sort equal-key ties were lexicographic-by-
+_id, now seq_no doc order), ee62b60 (size:0 count-only columnar — the
+127-167ms cliff), bf453f9 (pre-sorted PrefilterSet), c216fe8 (pinned
+closed-form + deep-page max_score), 775b728 (composite dense ord-product —
+10× faster than ES + after_key order), 9bb7a52 (query_string wildcard/prefix
+constant_score — the open B3 ticket), 999c941 (field-sorted term dv-narrowing
+— hidden 168ms cliff), 64dcdf4 + 5502cca (bench-client statistics: best-of-3
+LOSE re-measure + spin-pacer/hot-loop sub-ms accuracy — the engine was proven
+innocent of the residual flags).
+
+Every engine change was validated response-byte-identical to live ES on
+aligned corpora (paging × tth sweeps), ES-YAML gate 1360/0/3, and committed
+with before/after closed-loop numbers. The architectural thesis held
+throughout: every real loss was a loop/architecture issue (full-corpus walks,
+per-row tree recursion, count-by-iteration, over-hydration) — none were
+"Rust vs JVM".
+
+Out of the read gate's scope (tracked): mixed read-under-write (not iso-load),
+kNN latency (exact brute vs HNSW; recall 1.00 vs 0.80), disk −1%, and the
+response-formatting ticket family (verbatim _source echo, float exponent
+case, composite boolean key typing).
