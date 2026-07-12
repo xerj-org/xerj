@@ -768,7 +768,14 @@ impl FtsIndexWriter {
             out.extend_from_slice(&compressed);
             out
         };
-        fs::write(&post_path, &post_bytes_wrapped)
+        // RC4 W1 #10 — every FTS side-car write below goes through the
+        // durable tmp+fsync+rename+dir-fsync pattern.  These files are
+        // part of the segment publish chain: the WAL entries they cover
+        // are pruned ~1 s after the flush, so side-cars sitting only in
+        // the volatile page cache meant a power loss could leave a
+        // registered segment with missing/torn FTS data (silently wrong
+        // query results or unreadable fields) with no WAL to recover from.
+        xerj_common::fsio::write_file_durable(&post_path, &post_bytes_wrapped)
             .with_context(|| format!("writing postings to {:?}", post_path))?;
 
         // 3. Build and write FST (term → meta byte offset).
@@ -782,8 +789,12 @@ impl FtsIndexWriter {
         // inside the meta's flat array — `meta[offset..offset + 24]`
         // holds df + ttf + postings_offset + length, so one FST hit →
         // one bounded mmap read.
+        // FST streams into a same-directory temp file; fsync + rename +
+        // dir-fsync publishes it durably (RC4 W1 #10 — see the postings
+        // note above).
+        let fst_tmp = segment_dir.join(format!("{}.{}.fst.tmp", segment_id, field_name));
         let fst_file = BufWriter::new(
-            File::create(&fst_path).with_context(|| format!("creating FST file {:?}", fst_path))?,
+            File::create(&fst_tmp).with_context(|| format!("creating FST file {:?}", fst_tmp))?,
         );
         let mut fst_builder = MapBuilder::new(fst_file).with_context(|| "creating FST builder")?;
 
@@ -799,7 +810,18 @@ impl FtsIndexWriter {
                     .with_context(|| format!("inserting term '{}' into FST", term))?;
             }
         }
-        fst_builder.finish().with_context(|| "finishing FST")?;
+        let mut fst_out = fst_builder
+            .into_inner()
+            .with_context(|| "finishing FST")?;
+        fst_out.flush().with_context(|| "flushing FST")?;
+        fst_out
+            .get_ref()
+            .sync_all()
+            .with_context(|| "fsyncing FST")?;
+        drop(fst_out);
+        fs::rename(&fst_tmp, &fst_path)
+            .with_context(|| format!("publishing FST {:?}", fst_path))?;
+        xerj_common::fsio::fsync_dir(segment_dir).with_context(|| "fsyncing segment dir (fst)")?;
 
         // 4. Write meta in the ZFM4 format — Zstd-19 envelope around
         //    the per-term records section; ZFM3-compatible header so
@@ -812,7 +834,7 @@ impl FtsIndexWriter {
             &sorted_terms,
             &term_postings,
         )?;
-        fs::write(&meta_path, &meta_bytes)
+        xerj_common::fsio::write_file_durable(&meta_path, &meta_bytes)
             .with_context(|| format!("writing meta to {:?}", meta_path))?;
 
         // 5. Write norms file — V4 M4.7 compact format.
@@ -852,15 +874,14 @@ impl FtsIndexWriter {
             (0, &dense[..])
         };
 
-        let norms_file = File::create(&norms_path)
-            .with_context(|| format!("creating norms file {:?}", norms_path))?;
-        let mut norms_writer = BufWriter::new(norms_file);
-        norms_writer.write_all(NORMS_MAGIC)?;
-        norms_writer.write_u8(encoding)?;
-        norms_writer.write_u32::<LittleEndian>(dense_len as u32)?;
-        norms_writer.write_u32::<LittleEndian>(payload.len() as u32)?;
-        norms_writer.write_all(payload)?;
-        norms_writer.flush()?;
+        let mut norms_bytes: Vec<u8> = Vec::with_capacity(4 + 1 + 4 + 4 + payload.len());
+        norms_bytes.extend_from_slice(NORMS_MAGIC);
+        norms_bytes.push(encoding);
+        norms_bytes.extend_from_slice(&(dense_len as u32).to_le_bytes());
+        norms_bytes.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+        norms_bytes.extend_from_slice(payload);
+        xerj_common::fsio::write_file_durable(&norms_path, &norms_bytes)
+            .with_context(|| format!("writing norms to {:?}", norms_path))?;
 
         Ok(())
     }

@@ -8838,17 +8838,23 @@ impl Index {
                 }
             }
         }
-        // Force a global WAL checkpoint + rotate + prune at the user-
-        // visible flush boundary.  `finalize_flush_with_publisher` now
-        // time-gates this work (1 s window) on the hot per-shard path;
-        // the final flush must bypass the gate so the CLI session's
-        // last segment is definitely checkpointed when the CLI exits.
-        {
-            let seq = self.store.current_seq_no();
-            if seq > 0 {
-                let _ = self.store.force_wal_maintenance(seq.saturating_sub(1));
-            }
-        }
+        // Force a global WAL maintenance pass (verified checkpoint +
+        // rotate + prune) at the user-visible flush boundary.
+        // `finalize_flush_with_publisher` time-gates this work (1 s
+        // window) on the hot per-shard path; the final flush must bypass
+        // the gate so the CLI session's last segment is definitely
+        // checkpointed when the CLI exits.
+        //
+        // RC4 W1 #8 — this used to pass `current_seq_no() - 1` as the
+        // checkpoint watermark: the LIVE global counter, covering every
+        // acked-but-unflushed doc in existence (docs bulked into other
+        // shards, docs that landed between a shard's drain and this
+        // call).  Maintenance then rotated + pruned their WAL entries
+        // while the docs still lived only in memtables — kill -9 lost
+        // all of them (live repro: 50/50 acked docs gone).  The durable
+        // watermark is now derived inside the store from the persisted
+        // snapshot, and prune verifies every entry before destroying it.
+        let _ = self.store.force_wal_maintenance();
         // Flushing moves data from memtable → segments, which changes
         // what the shortcut count paths compute.  Bump the dataset
         // version so the response cache invalidates. P3.2: the new
@@ -9404,6 +9410,12 @@ fn pad_with_none<T>(v: &mut Vec<Option<T>>, target_len: usize) {
 }
 
 /// Encode columns to bytes and write them to `{segment_id}.dv`.
+///
+/// RC4 W1 #10 — durable write (tmp + fsync + rename + dir fsync): the
+/// `.dv` side-car is part of the segment publish chain whose WAL entries
+/// are pruned ~1 s after the flush; a plain `fs::write` left it in the
+/// volatile page cache, so a power loss after the prune produced a
+/// segment whose doc-values had evaporated.
 fn write_doc_values_sidecar(
     segments_dir: &std::path::Path,
     segment_id: &str,
@@ -9411,7 +9423,7 @@ fn write_doc_values_sidecar(
 ) -> std::io::Result<()> {
     let path = segments_dir.join(format!("{segment_id}.dv"));
     let bytes = xerj_storage::doc_values::encode_columns(columns);
-    std::fs::write(&path, bytes)
+    xerj_common::fsio::write_file_durable(&path, &bytes)
 }
 
 /// Load `{segment_id}.dv`, returning an empty map if the file doesn't
@@ -15016,10 +15028,19 @@ fn store_config_from(config: &Config) -> IndexStoreConfig {
             SyncMode::Batched
         }
     };
+    // RC4 W1 #9 — plumb the fsync cadence for the batched-mode background
+    // fsync loop.  Only `wal_sync = "batched"` gets the loop: "sync"
+    // fsyncs inline per request, "async" is the explicit never-fsync
+    // opt-out (both are expressed as wal_batch_ms = 0 here).
+    let wal_batch_ms = match config.storage.wal_sync {
+        xerj_common::config::WalSync::Batched => config.storage.wal_batch_ms,
+        xerj_common::config::WalSync::Sync | xerj_common::config::WalSync::Async => 0,
+    };
     IndexStoreConfig {
         memtable_max_bytes: (config.storage.flush_size_mb * 1024 * 1024) as usize,
         wal_max_size_bytes: config.storage.wal_max_size_mb * 1024 * 1024,
         sync_mode,
+        wal_batch_ms,
         schema_version: 1,
         storage_mode: xerj_storage::StorageMode::Local,
         num_wal_shards: config.engine.ingest_shards,

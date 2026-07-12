@@ -240,7 +240,26 @@ pub struct IndexStoreConfig {
     /// Maximum WAL file size before rotation.
     pub wal_max_size_bytes: u64,
     /// WAL sync mode.
+    ///
+    /// RC4 W1 #9 — this is now honored EVERYWHERE, including the bulk
+    /// paths (`wal_append_batch` / `wal_append_batch_raw`), which
+    /// previously forced Batched behaviour and only fsynced via the
+    /// `XERJ_STRICT_SYNC` env var — silently ignoring an operator's
+    /// explicit `wal_sync = "sync"` opt-in.
+    ///
+    /// - `Strict`  (`wal_sync = "sync"`): fsync before every ack.  On the
+    ///   bulk paths this is one fsync per bulk request (group commit) —
+    ///   the same granularity as ES's per-request translog fsync.
+    /// - `Batched` (`wal_sync = "batched"`): writes reach the kernel page
+    ///   cache before ack (process-crash durable); a background loop
+    ///   fsyncs every dirty WAL shard every `wal_batch_ms` (power-loss
+    ///   window bounded to `wal_batch_ms`).
     pub sync_mode: SyncMode,
+    /// RC4 W1 #9 — fsync cadence (milliseconds) of the background WAL
+    /// fsync loop when `sync_mode == Batched`.  `0` disables the loop
+    /// (used by `wal_sync = "async"`: never fsync, OS decides — and by
+    /// unit tests that don't want the thread).
+    pub wal_batch_ms: u64,
     /// Schema version for new segments.
     pub schema_version: u32,
     /// Storage destination for flushed segments.
@@ -257,11 +276,32 @@ impl Default for IndexStoreConfig {
             memtable_max_bytes: 32 * 1024 * 1024,  // 32 MiB
             wal_max_size_bytes: 128 * 1024 * 1024, // 128 MiB
             sync_mode: SyncMode::Batched,
+            wal_batch_ms: 0,
             schema_version: 1,
             storage_mode: StorageMode::Local,
             num_wal_shards: 1,
         }
     }
+}
+
+/// RC4 W1 #9 — one-time loud warning when `XERJ_SKIP_WAL` disables the
+/// write-ahead log entirely.  Pre-fix the env var was honored silently;
+/// an operator (or stray benchmark script) could run a production node
+/// with ZERO durability and nothing in the logs saying so.
+fn warn_skip_wal_once() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        warn!(
+            "XERJ_SKIP_WAL is set: the write-ahead log is DISABLED. \
+             Acknowledged writes exist only in memory until a segment \
+             flush — ANY crash loses them. Never use this outside \
+             throwaway benchmarks."
+        );
+        eprintln!(
+            "WARNING: XERJ_SKIP_WAL is set — WAL disabled, acked writes are \
+             NOT crash-durable. Never use this outside throwaway benchmarks."
+        );
+    });
 }
 
 // ── IndexStore ────────────────────────────────────────────────────────────────
@@ -378,6 +418,33 @@ pub struct IndexStore {
     /// design is segment-level tombstones (see SectionType::Tombstones
     /// note in the flush path).
     pending_deletes: Mutex<std::collections::HashMap<String, (SeqNo, usize)>>,
+    /// RC4 W1 #8 follow-up — per-generation verification verdict cache for
+    /// the verified WAL prune, keyed by `(wal_shard, generation)`.
+    ///
+    /// Without it, every 1 s maintenance tick re-decoded EVERY retained
+    /// rotated generation end-to-end (LZ4 + serde_json per entry) just to
+    /// re-discover that some entries were still unflushed — O(retained WAL
+    /// bytes) of parse work per tick, i.e. potentially many seconds' worth
+    /// of ingest re-parsed every second on a busy shard between flushes.
+    /// Verdicts are stable (durability proofs are monotone: seqs only
+    /// grow, a doc's segment residency never reverts to `__memtable__`
+    /// for the same-or-older seq), so a generation is decoded ONCE; later
+    /// ticks re-check only its remaining unproven `(doc_id, seq)` pairs
+    /// against the version map and prune once the list drains.
+    wal_prune_cache: Mutex<std::collections::HashMap<(usize, u64), WalGenVerdict>>,
+}
+
+/// Cached verification state of one rotated WAL generation.
+enum WalGenVerdict {
+    /// Every entry proven durable-or-superseded — prunable now.
+    Durable,
+    /// Entries still unproven at last check: `(is_delete, doc_id, seq)`.
+    /// Re-verified against the version map on each maintenance tick;
+    /// drained-to-empty ⇒ Durable.
+    Unproven(Vec<(bool, String, SeqNo)>),
+    /// The file failed to decode end-to-end (torn tail from a crash) —
+    /// never prunable this process lifetime; skipped without re-decoding.
+    Undecodable,
 }
 
 const WAL_MAINTENANCE_INTERVAL_MS: u64 = 1_000;
@@ -438,6 +505,7 @@ impl IndexStore {
             read_leases: std::sync::atomic::AtomicUsize::new(0),
             retired_segments: Mutex::new(Vec::new()),
             pending_deletes: Mutex::new(std::collections::HashMap::new()),
+            wal_prune_cache: Mutex::new(std::collections::HashMap::new()),
         });
 
         // Rebuild version map from flushed segments first (so WAL replay can
@@ -511,6 +579,35 @@ impl IndexStore {
 
         // Replay WAL to rebuild in-memory state (these override segment entries).
         store.replay_wal(&wal_dir)?;
+
+        // RC4 W1 #9 — the `wal_batch_ms` fsync loop.  The config has
+        // documented `wal_sync = "batched"` as "fsync every wal_batch_ms"
+        // since 0.x, but nothing implemented it: the only fsyncs happened
+        // at flush/rotate boundaries, so the real power-loss window was
+        // unbounded (up to `flush_interval_secs`).  A detached thread now
+        // fsyncs every DIRTY WAL shard on the configured cadence.  It
+        // holds only a Weak ref — the loop exits within one tick of the
+        // store being dropped.  Strict mode fsyncs inline per request and
+        // Async mode opts out of fsync entirely; neither spawns the loop
+        // (wal_batch_ms is forced to 0 for them by `store_config_from`).
+        if store.config.sync_mode == SyncMode::Batched && store.config.wal_batch_ms > 0 {
+            let weak: std::sync::Weak<IndexStore> = Arc::downgrade(&store);
+            let period = std::time::Duration::from_millis(store.config.wal_batch_ms);
+            let _ = std::thread::Builder::new()
+                .name("xerj-wal-fsync".into())
+                .spawn(move || loop {
+                    std::thread::sleep(period);
+                    let Some(s) = weak.upgrade() else { break };
+                    for shard in &s.wal_shards {
+                        let mut wal = shard.lock().unwrap();
+                        if wal.is_dirty() {
+                            if let Err(e) = wal.sync() {
+                                warn!("wal_batch_ms fsync failed: {e}");
+                            }
+                        }
+                    }
+                });
+        }
 
         info!(data_dir = ?data_dir, "IndexStore opened");
         Ok(store)
@@ -764,7 +861,14 @@ impl IndexStore {
             .data_dir
             .join("segments")
             .join(format!("{segment_id}.ids"));
-        std::fs::write(&ids_path, &buf)
+        // RC4 W1 #10 — durable write (tmp + fsync + rename + dir fsync).
+        // The `.ids` side-car is the recovery marker
+        // `recover_orphaned_segments` relies on when a crash lands between
+        // the snapshot publish and the debounced `save_snapshot`; the WAL
+        // entries it supersedes are pruned within ~1 s of the flush.  A
+        // plain `fs::write` left it in the page cache — power loss after
+        // the prune GC'd the fully-flushed segment as an orphan.
+        xerj_common::fsio::write_file_durable(&ids_path, &buf)
     }
 
     /// Unlink every on-disk file belonging to the given segment ids — the
@@ -1490,39 +1594,24 @@ impl IndexStore {
             // mode.  Clean shutdown / explicit `_flush` persists via
             // `force_wal_maintenance()`.
             self.save_snapshot()?;
-            // Delete-durability: unpin deletes subsumed by flushed newer
-            // versions, then skip maintenance on any shard whose WAL is
-            // still the only durable record of an acked delete.
-            self.sweep_pending_deletes();
-            for (ws_idx, ws) in self.wal_shards.iter().enumerate() {
-                let mut wal = ws.lock().unwrap();
-                if self.wal_shard_pinned_by_pending_delete(ws_idx) {
-                    debug!(
-                        shard = ws_idx,
-                        "WAL maintenance skipped: shard pinned by unpersisted delete"
-                    );
-                    continue;
-                }
-                wal.checkpoint(max_seq)?;
-                // Disk-space fix (2026-07): force-rotate + prune instead of
-                // `rotate_if_large(64 MB)`.  The checkpoint we just wrote
-                // records the shard's FULL current file length (we hold the
-                // shard mutex, so `offset == current_offset`), i.e. the
-                // whole active generation is covered — rotating now lets
-                // `prune()` reclaim it.  The old 64 MB threshold never
-                // fired on realistic workloads: with 16 WAL shards a 1 M-doc
-                // ingest leaves 10-35 MB per shard file, so ~490 MB of WAL
-                // that was already durable in segments sat on disk forever
-                // (the explicit `_flush` path has done force-rotate via
-                // `force_wal_maintenance` since the 2026-04-25 head-to-head;
-                // this mirrors it on the background flush path).  Rotation
-                // churn stays bounded by the surrounding 1 s
-                // `WAL_MAINTENANCE_INTERVAL_MS` gate — at most one
-                // rotation per shard per second, and `force_rotate` no-ops
-                // on generations with no data past the header.
-                wal.force_rotate()?;
-                wal.prune()?;
-            }
+            // RC4 W1 #8 — verified maintenance (see
+            // `wal_maintain_all_verified`).  The pre-fix loop here
+            // checkpointed EVERY shard with THIS segment's `max_seq` and
+            // the shard's full file offset, then force-rotated and pruned
+            // — destroying acked-but-unflushed entries on sibling shards
+            // (their memtable docs can carry seqs below a fresh segment's
+            // max) and on THIS shard (docs appended between the drain and
+            // this maintenance tick).  Live-verified as the 50/50 kill-9
+            // acked-loss repro.  The durable watermark passed for the
+            // compat checkpoint is the max seq registered in the snapshot
+            // we just persisted — never a live counter.
+            //
+            // Disk-space behaviour is preserved: fully-durable generations
+            // still rotate + prune on the same 1 s cadence; generations
+            // holding unproven entries are retained (that retention IS the
+            // fix) and reclaimed on a later tick once their docs flush.
+            let durable_max = self.snapshot.load().max_seq_no;
+            self.wal_maintain_all_verified(durable_max)?;
         }
 
         info!(segment_id, doc_count, min_seq, max_seq, "segment flushed");
@@ -1613,10 +1702,7 @@ impl IndexStore {
 
     /// Delete-durability: true if WAL shard `shard_idx` still holds an
     /// unpersisted acked delete and therefore MUST NOT be checkpointed,
-    /// rotated, or pruned (`WalWriter::prune` deletes any rotated
-    /// generation that has a checkpoint file — irrespective of the
-    /// checkpoint's `max_seq_no` — so a checkpoint alone already dooms
-    /// the Delete entries).  Callers hold the shard's WAL mutex when
+    /// rotated, or pruned.  Callers hold the shard's WAL mutex when
     /// they consult this, which combined with the insert-before-append
     /// ordering in [`IndexStore::delete`] makes the check race-free.
     fn wal_shard_pinned_by_pending_delete(&self, shard_idx: usize) -> bool {
@@ -1624,61 +1710,227 @@ impl IndexStore {
         pending.values().any(|&(_, ws)| ws == shard_idx)
     }
 
-    /// Write a checkpoint to ALL WAL shards with the given max_seq_no.
-    /// Used by `Index::flush` to write a global checkpoint after
-    /// multi-shard parallel flush.
-    pub fn wal_checkpoint_all(&self, max_seq: SeqNo) -> Result<()> {
-        self.sweep_pending_deletes();
-        for (ws_idx, ws) in self.wal_shards.iter().enumerate() {
-            let mut wal = ws.lock().unwrap();
-            // Delete-durability: a checkpoint alone already marks the
-            // shard's current generation prunable, so pinned shards must
-            // skip it (see `wal_shard_pinned_by_pending_delete`).
-            if self.wal_shard_pinned_by_pending_delete(ws_idx) {
-                continue;
-            }
-            wal.checkpoint(max_seq)?;
+    /// RC4 W1 #8 — the per-entry durability proof used by WAL maintenance.
+    ///
+    /// Returns true iff destroying this WAL entry cannot lose data:
+    ///
+    /// - `Index`: the doc is tombstoned at an equal-or-newer seq (the
+    ///   tombstoning delete is itself WAL-pinned until subsumed, so replay
+    ///   reconstructs the deletion); OR a strictly newer version of the doc
+    ///   exists (whose own WAL entry is retained until IT is durable — the
+    ///   proof chains); OR this exact version has been flushed into a real
+    ///   segment (version map repointed off `__memtable__`, which happens
+    ///   only after the segment + its side-cars are durably on disk — see
+    ///   the blocker-#10 fsync barrier in `finalize_flush_with_publisher`).
+    /// - `Delete`: subsumed — the doc was re-indexed strictly newer AND
+    ///   that version is segment-resident (mirrors
+    ///   `sweep_pending_deletes`).  A load-bearing tombstone is never
+    ///   prunable.
+    /// - `UpdateMapping`: always — `schema.json` is written atomically at
+    ///   update time and replaying the entry is a no-op.
+    ///
+    /// `None` from the version map is conservatively NOT durable: it can
+    /// mean "version map not yet updated for a just-appended doc" (the
+    /// batch paths append to the WAL before the version-map set).
+    fn wal_entry_durable(&self, entry: &WalEntry, seq: SeqNo) -> bool {
+        match entry {
+            WalEntry::Index { doc_id, .. } => self.wal_pair_durable(false, doc_id, seq),
+            WalEntry::Delete { doc_id } => self.wal_pair_durable(true, doc_id, seq),
+            WalEntry::UpdateMapping { .. } => true,
         }
-        Ok(())
     }
 
-    /// Unconditionally run WAL maintenance (checkpoint + force-rotate +
-    /// prune) across all shards.  Bypasses the
-    /// `WAL_MAINTENANCE_INTERVAL_MS` gate that
-    /// `finalize_flush_with_publisher` uses on the hot flush path.
-    /// Called by `Index::flush()` (the final drain / user-triggered
-    /// `_flush`) so disk cleanup happens immediately — matches ES's
-    /// `_flush`-time translog rollover semantics where every user
-    /// flush rotates and prunes.  The periodic background tick
-    /// continues to use the 64 MB threshold (amortises rotation
-    /// churn under sustained ingest), but explicit user flushes get
-    /// the unconditional rotation so disk gets reclaimed promptly.
-    pub fn force_wal_maintenance(&self, max_seq: SeqNo) -> Result<()> {
-        // P2.3 — persist the (possibly debounced) snapshot before pruning
-        // so an explicit `_flush` / clean shutdown always leaves the
-        // on-disk snapshot covering every segment whose WAL is about to
-        // be dropped.  Mirrors the coupling in the gated flush path.
-        self.save_snapshot()?;
-        // Delete-durability: same shard-pinning rule as the gated
-        // background path — an explicit `_flush`/`_refresh`/shutdown
-        // flush must not destroy the WAL Delete entries that are the
-        // only durable record of acked deletes (pre-fix this very call,
-        // reached from `Index::flush` — including the SIGTERM final
-        // flush — pruned them and deleted docs resurrected on restart).
+    /// Core of [`wal_entry_durable`](Self::wal_entry_durable), operating on
+    /// the `(is_delete, doc_id, seq)` shape the prune cache stores.
+    fn wal_pair_durable(&self, is_delete: bool, doc_id: &str, seq: SeqNo) -> bool {
+        if is_delete {
+            match self.version_map.get(doc_id) {
+                Some(e) if !e.deleted => {
+                    e.seq_no > seq && &*e.segment_id != IN_MEMORY_SEGMENT_ID
+                }
+                _ => false,
+            }
+        } else {
+            match self.version_map.get(doc_id) {
+                Some(e) if e.deleted => e.seq_no >= seq,
+                Some(e) => {
+                    e.seq_no > seq
+                        || (e.seq_no == seq && &*e.segment_id != IN_MEMORY_SEGMENT_ID)
+                }
+                None => false,
+            }
+        }
+    }
+
+    /// RC4 W1 #8 — verified WAL maintenance across all shards.
+    ///
+    /// Replaces the pre-fix `checkpoint(global_max_seq) + force_rotate +
+    /// prune` loop, which destroyed acked-but-unflushed entries two ways:
+    ///
+    /// 1. The checkpoint was written with a GLOBAL max_seq
+    ///    (`current_seq_no()-1` from `Index::flush`, or a sibling shard's
+    ///    segment max) and the shard's FULL current offset — covering
+    ///    entries whose docs still lived only in a memtable.  Replay then
+    ///    skipped them (loss channel closed by making replay ignore
+    ///    checkpoints), and
+    /// 2. `prune()` deleted any rotated generation that had a checkpoint
+    ///    file, destroying those same entries outright (loss channel
+    ///    closed by per-entry verified pruning).
+    ///
+    /// New per-shard flow (under the shard's WAL mutex):
+    /// - skip entirely if the shard is pinned by an unpersisted delete;
+    /// - decode the ACTIVE generation once and check every entry against
+    ///   [`wal_entry_durable`](Self::wal_entry_durable);
+    /// - if fully durable: write a checkpoint (safe values — kept for
+    ///   data-dir compatibility with older binaries) and force-rotate so
+    ///   the generation becomes prunable;
+    /// - if it holds any unproven entry: force-rotate WITHOUT a
+    ///   checkpoint (freezes the generation; per-pair re-verification
+    ///   reclaims it on a later tick once everything in it flushed);
+    /// - the rotated generation's verdict (durable / unproven pairs /
+    ///   undecodable) is recorded in `wal_prune_cache` so no frozen file
+    ///   is ever decoded twice — later ticks only re-check the cached
+    ///   unproven pairs against the version map (see the cache's doc
+    ///   comment for the O(retained WAL bytes)/tick problem this solves);
+    /// - prune every rotated generation whose verdict has drained to
+    ///   Durable.
+    ///
+    /// The caller must persist the snapshot (`save_snapshot`) BEFORE this
+    /// runs so every segment the proofs point at is registered on disk.
+    fn wal_maintain_all_verified(&self, durable_max_seq: SeqNo) -> Result<()> {
         self.sweep_pending_deletes();
         for (ws_idx, ws) in self.wal_shards.iter().enumerate() {
             let mut wal = ws.lock().unwrap();
             if self.wal_shard_pinned_by_pending_delete(ws_idx) {
                 debug!(
                     shard = ws_idx,
-                    "forced WAL maintenance skipped: shard pinned by unpersisted delete"
+                    "WAL maintenance skipped: shard pinned by unpersisted delete"
                 );
                 continue;
             }
-            wal.checkpoint(max_seq)?;
-            wal.force_rotate()?;
-            wal.prune()?;
+            // Drain the userspace buffer so the on-disk active generation
+            // is complete before we decode it.
+            wal.soft_flush()?;
+            let active_gen = wal.active_generation();
+            let (entries, clean) = wal.read_generation_entries(active_gen);
+            let unproven = self.collect_unproven(&entries);
+            if clean && unproven.is_empty() {
+                if !entries.is_empty() {
+                    wal.checkpoint(durable_max_seq)?;
+                }
+                wal.force_rotate()?;
+            } else {
+                wal.force_rotate()?;
+            }
+            // Record the verdict for the generation we just froze (if the
+            // rotate was a no-op — empty generation — there is nothing to
+            // record).
+            if wal.active_generation() != active_gen {
+                let verdict = if !clean {
+                    WalGenVerdict::Undecodable
+                } else if unproven.is_empty() {
+                    WalGenVerdict::Durable
+                } else {
+                    WalGenVerdict::Unproven(unproven)
+                };
+                self.wal_prune_cache
+                    .lock()
+                    .unwrap()
+                    .insert((ws_idx, active_gen), verdict);
+            }
+
+            // Prune pass over all rotated generations, cache-first.
+            for gen in wal.rotated_generations()? {
+                let mut cache = self.wal_prune_cache.lock().unwrap();
+                let verdict = cache.entry((ws_idx, gen)).or_insert_with(|| {
+                    // Cache miss: a generation rotated by the size-based
+                    // append path, or retained across a restart.  Decode
+                    // it exactly once.
+                    let (gen_entries, gen_clean) = wal.read_generation_entries(gen);
+                    if !gen_clean {
+                        WalGenVerdict::Undecodable
+                    } else {
+                        let pairs = self.collect_unproven(&gen_entries);
+                        if pairs.is_empty() {
+                            WalGenVerdict::Durable
+                        } else {
+                            WalGenVerdict::Unproven(pairs)
+                        }
+                    }
+                });
+                let prunable = match verdict {
+                    WalGenVerdict::Durable => true,
+                    WalGenVerdict::Undecodable => {
+                        debug!(gen, shard = ws_idx, "WAL generation retained: undecodable");
+                        false
+                    }
+                    WalGenVerdict::Unproven(pairs) => {
+                        // Cheap re-check: version-map lookups only.
+                        pairs.retain(|(is_delete, doc_id, seq)| {
+                            !self.wal_pair_durable(*is_delete, doc_id, *seq)
+                        });
+                        if pairs.is_empty() {
+                            *verdict = WalGenVerdict::Durable;
+                            true
+                        } else {
+                            debug!(
+                                gen,
+                                shard = ws_idx,
+                                unproven = pairs.len(),
+                                "WAL generation retained: acked-but-unflushed entries"
+                            );
+                            false
+                        }
+                    }
+                };
+                if prunable {
+                    wal.delete_generation(gen)?;
+                    cache.remove(&(ws_idx, gen));
+                }
+            }
         }
+        Ok(())
+    }
+
+    /// Collect the `(is_delete, doc_id, seq)` pairs of every entry NOT yet
+    /// provable durable (mapping updates are always durable and never
+    /// collected).
+    fn collect_unproven(
+        &self,
+        entries: &[crate::wal::ReplayEntry],
+    ) -> Vec<(bool, String, SeqNo)> {
+        entries
+            .iter()
+            .filter(|e| !self.wal_entry_durable(&e.entry, e.seq_no))
+            .filter_map(|e| match &e.entry {
+                WalEntry::Index { doc_id, .. } => Some((false, doc_id.clone(), e.seq_no)),
+                WalEntry::Delete { doc_id } => Some((true, doc_id.clone(), e.seq_no)),
+                WalEntry::UpdateMapping { .. } => None,
+            })
+            .collect()
+    }
+
+    /// Unconditionally run verified WAL maintenance across all shards.
+    /// Bypasses the `WAL_MAINTENANCE_INTERVAL_MS` gate that
+    /// `finalize_flush_with_publisher` uses on the hot flush path.
+    /// Called by `Index::flush()` (the final drain / user-triggered
+    /// `_flush`) so disk cleanup happens immediately — matches ES's
+    /// `_flush`-time translog rollover semantics.
+    ///
+    /// RC4 W1 #8 — signature change: the old `max_seq: SeqNo` parameter
+    /// is gone.  `Index::flush` passed `current_seq_no() - 1`, which
+    /// covered every acked-but-unflushed doc in existence and was the
+    /// direct trigger of the 50/50 kill-9 loss repro.  The durable
+    /// watermark is now computed internally from the persisted snapshot
+    /// (max seq actually resident in flushed segments).
+    pub fn force_wal_maintenance(&self) -> Result<()> {
+        // P2.3 — persist the (possibly debounced) snapshot before pruning
+        // so an explicit `_flush` / clean shutdown always leaves the
+        // on-disk snapshot covering every segment whose WAL is about to
+        // be dropped.  Mirrors the coupling in the gated flush path.
+        self.save_snapshot()?;
+        let durable_max = self.snapshot.load().max_seq_no;
+        self.wal_maintain_all_verified(durable_max)?;
         let now_ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis() as u64)
@@ -1867,13 +2119,28 @@ impl IndexStore {
             std::thread::current().id(),
         );
         let tmp = path.with_extension(format!("tmp.{nonce}"));
-        std::fs::write(&tmp, &bytes)?;
+        // RC4 W1 #10 — the snapshot is the manifest that makes flushed
+        // segments discoverable on restart, and WAL maintenance prunes the
+        // covered entries immediately after this returns.  Both the file
+        // bytes and the rename must therefore be durable BEFORE the prune
+        // barrier: write + fsync the tmp, rename, fsync the directory.
+        // Pre-fix (`fs::write` + `rename`, no fsync anywhere) a power loss
+        // within the writeback window could leave an old/absent
+        // snapshot.json next to an already-pruned WAL — flushed segments
+        // then got GC'd as orphans on reopen (acked-data loss).
+        {
+            use std::io::Write as _;
+            let mut f = std::fs::File::create(&tmp)?;
+            f.write_all(&bytes)?;
+            f.sync_all()?;
+        }
         // Atomic rename onto the real path.  Last writer wins on the
         // final snapshot contents, but that's fine: each caller sees
         // the same `self.snapshot.load()` atomically-swapped payload
         // (arc_swap), so there is no content-level race — only the
         // filesystem tmp name was the contention source.
         std::fs::rename(&tmp, &path)?;
+        xerj_common::fsio::fsync_dir(&self.data_dir)?;
         Ok(())
     }
 
@@ -2235,6 +2502,7 @@ impl IndexStore {
         }
 
         if std::env::var("XERJ_SKIP_WAL").is_ok() {
+            warn_skip_wal_once();
             let n = docs.len() as u64;
             let start_seq = self
                 .seq_counter
@@ -2314,13 +2582,21 @@ impl IndexStore {
         {
             let ws = self.wal_shard_for(&docs[0].0);
             let mut wal = self.wal_lock_shard(ws);
+            // Suppress the writer's per-append fsync while the pre-framed
+            // batch is emitted, then issue at most ONE sync for the whole
+            // batch below (group commit).
             let saved_mode = wal.sync_mode();
             wal.set_sync_mode(SyncMode::Batched);
             wal.append_frames_locked(&frames, total_written)?;
-            let strict_sync = std::env::var("XERJ_STRICT_SYNC")
-                .map(|v| !v.is_empty() && v != "0")
-                .unwrap_or(false);
-            let sync_result = if strict_sync {
+            // RC4 W1 #9 — honor the operator's configured durability.
+            // Pre-fix this path fsynced ONLY when the undocumented
+            // XERJ_STRICT_SYNC env var was set; `wal_sync = "sync"` in the
+            // config was silently ignored on every bulk request.
+            let strict = self.config.sync_mode == SyncMode::Strict
+                || std::env::var("XERJ_STRICT_SYNC")
+                    .map(|v| !v.is_empty() && v != "0")
+                    .unwrap_or(false);
+            let sync_result = if strict {
                 wal.sync()
             } else {
                 wal.soft_flush()
@@ -2375,6 +2651,7 @@ impl IndexStore {
         // only do CRC32 + a single `write_all` of the pre-framed
         // batch buffer.
         if std::env::var("XERJ_SKIP_WAL").is_ok() {
+            warn_skip_wal_once();
             let n = docs.len() as u64;
             let start_seq = self
                 .seq_counter
@@ -2478,32 +2755,24 @@ impl IndexStore {
             let saved_mode = wal.sync_mode();
             wal.set_sync_mode(SyncMode::Batched);
             wal.append_frames_locked(&frames, total_written)?;
-            // M5.4 — SKIP the per-batch fsync on the bulk hot path.
+            // M5.4 — skip the per-batch fsync on the DEFAULT (batched)
+            // bulk hot path: each fsync(2) is ~1 ms on NVMe, ~8 % of
+            // ingest wall time at 76 batches/s.  Without it the WAL
+            // bytes are in the kernel page cache — a process crash
+            // loses nothing; power loss is bounded by the `wal_batch_ms`
+            // background fsync loop (RC4 W1 #9).
             //
-            // Pre-M5.4 each bulk batch called `wal.sync()` which
-            // issues a `fsync(2)` — on NVMe that's ~1 ms of wall
-            // time.  At 76 batches/sec (380 k/s ingest) that's
-            // 76 ms/sec of fsync blocking = ~8 % of the ingest
-            // wall time, spent purely on filesystem round-trips.
-            //
-            // Durability trade-off: without per-batch fsync, the
-            // WAL bytes are buffered in the kernel page cache.  A
-            // process crash loses nothing (the kernel flushes on
-            // close).  A kernel crash / power loss between batches
-            // can lose the last N seconds of data — same window as
-            // a segment flush interval anyway.  The WAL still does
-            // a periodic `sync` at rotation boundaries and at flush
-            // time, and the segment commit path calls `fsync` on
-            // the finished .seg file before the snapshot swap, so
-            // acknowledged-and-flushed data is never lost.
-            //
-            // Setting `SyncMode::NoSync` via the `XERJ_STRICT_SYNC`
-            // env var re-enables per-batch fsync for workloads
-            // that need it.
-            let strict_sync = std::env::var("XERJ_STRICT_SYNC")
-                .map(|v| !v.is_empty() && v != "0")
-                .unwrap_or(false);
-            let sync_result = if strict_sync {
+            // RC4 W1 #9 — `wal_sync = "sync"` (SyncMode::Strict) is now
+            // HONORED here: one fsync per bulk request before the ack
+            // (group commit — the same granularity as ES's per-request
+            // translog fsync).  Pre-fix the config was silently ignored
+            // and only the undocumented XERJ_STRICT_SYNC env var (kept
+            // as an override) forced the fsync.
+            let strict = self.config.sync_mode == SyncMode::Strict
+                || std::env::var("XERJ_STRICT_SYNC")
+                    .map(|v| !v.is_empty() && v != "0")
+                    .unwrap_or(false);
+            let sync_result = if strict {
                 wal.sync()
             } else {
                 // Just flush the BufWriter to the kernel, skip
@@ -2562,6 +2831,197 @@ mod tests {
             },
         )
         .unwrap()
+    }
+
+    /// RC4 W1 #8 regression — bulk-during-flush + kill -9 must lose ZERO
+    /// acked writes.
+    ///
+    /// Live repro this encodes (stream C evidence, 2026-07-12): 50 000-doc
+    /// bulk A, `_flush` dispatched, 50-doc bulk B acked while A's flush
+    /// finalize was in flight, kill -9 after the flush returned, restart →
+    /// `total=50000`, bulk-B survivors **0/50**.  Root cause: flush-time
+    /// WAL maintenance checkpointed every shard with a global max_seq
+    /// (`current_seq_no()-1` / the fresh segment's max) + full file
+    /// offset, then `prune()` deleted any checkpointed generation — B's
+    /// WAL entries (memtable-only) were destroyed while B sat in RAM.
+    ///
+    /// In-process kill simulation: `drop(store)` without a flush is
+    /// equivalent to SIGKILL for durability purposes — the memtable (RAM)
+    /// is gone, and the WAL bytes that survive are exactly those the
+    /// appends already pushed to the kernel (every batched append
+    /// soft-flushes, so the userspace buffer is empty at kill time).
+    #[test]
+    fn bulk_during_flush_kill9_loses_zero_acked_writes() {
+        let dir = tempfile::tempdir().unwrap();
+        {
+            let store = open_test_store(dir.path());
+
+            // Bulk A: acked, then drained for a flush (segment write "in
+            // flight" — this is the `_flush` racing point).
+            for i in 0..100 {
+                store
+                    .index(format!("a{i}"), serde_json::json!({"v": i}))
+                    .unwrap();
+            }
+            let drained = store.take_memtable_for_flush().unwrap();
+
+            // Bulk B: 50 docs acked AFTER the drain — they miss the
+            // in-flight segment and live only in WAL + memtable.
+            for i in 0..50 {
+                store
+                    .index(format!("b{i}"), serde_json::json!({"v": 100000 + i}))
+                    .unwrap();
+            }
+
+            // Finalize A's flush — runs the gated WAL maintenance
+            // (pre-fix: checkpoint covering B + rotate + prune = B's WAL
+            // destroyed).
+            store
+                .finalize_flush_with_publisher(drained, |_| Ok(()))
+                .unwrap();
+            // The user-visible flush boundary forces maintenance again
+            // (pre-fix with `current_seq_no() - 1`).
+            store.force_wal_maintenance().unwrap();
+
+            // kill -9.
+            drop(store);
+        }
+
+        // Restart: every acked write must be recoverable.
+        let store2 = open_test_store(dir.path());
+        for i in 0..100 {
+            let e = store2.version_map.get(&format!("a{i}"));
+            assert!(
+                e.map(|e| !e.deleted).unwrap_or(false),
+                "flushed doc a{i} lost after kill+restart"
+            );
+        }
+        let mut lost = Vec::new();
+        for i in 0..50 {
+            let alive = store2
+                .version_map
+                .get(&format!("b{i}"))
+                .map(|e| !e.deleted)
+                .unwrap_or(false);
+            if !alive {
+                lost.push(i);
+            }
+        }
+        assert!(
+            lost.is_empty(),
+            "acked bulk-during-flush docs lost after kill -9: {}/50 (ids {:?})",
+            lost.len(),
+            lost
+        );
+    }
+
+    /// RC4 W1 #8 — after everything is flushed and maintenance runs, the
+    /// verified prune must still reclaim the WAL (no retention leak from
+    /// the new conservatism).
+    #[test]
+    fn verified_prune_still_reclaims_fully_flushed_wal() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = open_test_store(dir.path());
+        for i in 0..100 {
+            store
+                .index(format!("d{i}"), serde_json::json!({"v": i}))
+                .unwrap();
+        }
+        store.flush().unwrap().expect("segment");
+        store.force_wal_maintenance().unwrap();
+
+        // All docs are segment-resident → every generation must be gone
+        // except the fresh empty active one.
+        let wal_dir = store.wal_dir();
+        let mut wal_bytes = 0u64;
+        let mut wal_files = 0usize;
+        for entry in walk_wal_files(&wal_dir) {
+            wal_files += 1;
+            wal_bytes += entry;
+        }
+        // Each surviving file may only be an empty active generation
+        // (16-byte header).
+        assert!(
+            wal_bytes <= wal_files as u64 * 16,
+            "fully-flushed WAL not reclaimed: {wal_files} files, {wal_bytes} bytes"
+        );
+    }
+
+    /// RC4 W1 #8 follow-up — a generation frozen with unproven entries is
+    /// retained via the verdict cache (no re-decode on later ticks) and
+    /// pruned by the cached-pairs recheck once a later flush makes its
+    /// entries durable.
+    #[test]
+    fn prune_cache_reclaims_after_late_flush() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = open_test_store(dir.path());
+
+        for i in 0..20 {
+            store
+                .index(format!("a{i}"), serde_json::json!({"v": i}))
+                .unwrap();
+        }
+        let drained = store.take_memtable_for_flush().unwrap();
+        // Acked while the flush is in flight — unproven at maintenance #1.
+        for i in 0..10 {
+            store
+                .index(format!("late{i}"), serde_json::json!({"v": i}))
+                .unwrap();
+        }
+        store
+            .finalize_flush_with_publisher(drained, |_| Ok(()))
+            .unwrap();
+        store.force_wal_maintenance().unwrap();
+
+        // The late docs' generation must be retained (bytes on disk).
+        let retained: u64 = walk_wal_files(&store.wal_dir()).iter().sum();
+        assert!(
+            retained > walk_wal_files(&store.wal_dir()).len() as u64 * 16,
+            "late docs' WAL generation must be retained while unflushed"
+        );
+
+        // A later flush makes them durable; the cached-pairs recheck must
+        // then reclaim everything.
+        store.flush().unwrap().expect("late docs flush");
+        store.force_wal_maintenance().unwrap();
+        let files = walk_wal_files(&store.wal_dir());
+        let bytes: u64 = files.iter().sum();
+        assert!(
+            bytes <= files.len() as u64 * 16,
+            "WAL not reclaimed after late flush: {} files, {bytes} bytes",
+            files.len()
+        );
+
+        // And nothing was lost.
+        drop(store);
+        let store2 = open_test_store(dir.path());
+        for i in 0..10 {
+            assert!(
+                store2
+                    .version_map
+                    .get(&format!("late{i}"))
+                    .map(|e| !e.deleted)
+                    .unwrap_or(false),
+                "late{i} lost"
+            );
+        }
+    }
+
+    fn walk_wal_files(root: &Path) -> Vec<u64> {
+        let mut sizes = Vec::new();
+        let mut dirs = vec![root.to_path_buf()];
+        while let Some(d) = dirs.pop() {
+            let Ok(rd) = std::fs::read_dir(&d) else { continue };
+            for e in rd.flatten() {
+                let p = e.path();
+                if p.is_dir() {
+                    dirs.push(p);
+                } else if p.extension().map(|x| x == "wal").unwrap_or(false) {
+                    sizes.push(e.metadata().map(|m| m.len()).unwrap_or(0));
+                }
+            }
+        }
+        sizes
     }
 
     #[test]
