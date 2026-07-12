@@ -1297,6 +1297,45 @@ impl FtsIndexReader {
             .map(|idx| loaded.norms[idx].1)
     }
 
+    /// Stream every term of `field` through `f` in lexicographic order,
+    /// stopping as soon as `f` returns `false`.
+    ///
+    /// Unlike [`Self::all_terms`] this never materialises the dictionary —
+    /// multi-term expansion (prefix/wildcard/fuzzy) walks dictionaries with
+    /// millions of entries, and building a `Vec<String>` first both doubles
+    /// the walk cost and makes the whole enumeration an uninterruptible
+    /// unit (RC4 blocker 12: search `timeout` could never fire during
+    /// expansion). The callback's `bool` return is the cooperative
+    /// cancellation hook.
+    pub fn for_each_term<F: FnMut(&str) -> bool>(&self, field: &str, mut f: F) {
+        let Some(loaded) = self.fields.get(field) else {
+            return;
+        };
+        use fst::Streamer;
+        match &loaded.fst {
+            FstData::Mmap(m) => {
+                let mut stream = m.stream();
+                while let Some((key, _)) = stream.next() {
+                    if let Ok(s) = std::str::from_utf8(key) {
+                        if !f(s) {
+                            return;
+                        }
+                    }
+                }
+            }
+            FstData::Owned(m) => {
+                let mut stream = m.stream();
+                while let Some((key, _)) = stream.next() {
+                    if let Ok(s) = std::str::from_utf8(key) {
+                        if !f(s) {
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// Enumerate all terms in a field (lexicographic order, for debugging/admin).
     pub fn all_terms(&self, field: &str) -> Vec<String> {
         let Some(loaded) = self.fields.get(field) else {

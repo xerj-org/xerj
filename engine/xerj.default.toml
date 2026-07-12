@@ -212,20 +212,13 @@ hnsw_ef_search = 100
 #   "none"    — Full float32 (highest accuracy; highest memory usage).
 #   "scalar8" — 8-bit scalar quantization (~4× memory saving; ~1–2% accuracy loss).
 #               Recommended for most workloads.
-#   "scalar4" — 4-bit scalar quantization (~8× memory saving; ~2–4% accuracy loss).
-#               Use when vector count is very large and memory is constrained.
-#               xerj can also switch to scalar4 automatically when vector count
-#               exceeds `hnsw_offload_threshold` (see below).
-#   "binary"  — 1-bit binary quantization (~32× memory saving; ~10% accuracy loss).
-#               Best for extremely large vector collections.
+#
+# "binary" (1-bit) is recognised but NOT implemented in this build — the
+# engine rejects it at startup rather than silently storing full-precision
+# vectors while claiming a 32× saving. 4-bit ("scalar4") quantization and
+# automatic quantization downgrade are not implemented either and have no
+# settings here.
 default_quantization = "scalar8"
-
-# Vector count threshold for automatic scalar4 quantization.
-# When the number of vectors in an index exceeds this value, xerj automatically
-# downgrades new vectors to 4-bit (scalar4) quantization to reduce RAM usage.
-# Set to 0 to disable automatic downgrade (default: 0 — disabled).
-# Typical value: 1_000_000 (1 million vectors).
-hnsw_offload_threshold = 0
 
 # Maximum supported vector dimensionality.
 # Vectors with more dimensions than this are rejected at ingest time.

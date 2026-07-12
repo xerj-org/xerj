@@ -7079,6 +7079,11 @@ impl Index {
 
                 // Try FTS path first if we have an FTS query.
                 let mut fts_handled = false;
+                // Set when the FTS searcher's cooperative deadline fired
+                // mid-expansion (RC4 blocker 12) — its hits/total for this
+                // segment are partial and the response must say
+                // `timed_out: true`.
+                let mut fts_deadline_tripped = false;
                 let t_fts = std::time::Instant::now();
                 let reader_opt = if needs_fts {
                     FtsIndexReader::open(&fts_dir, &seg_id, &field_refs).ok()
@@ -7088,8 +7093,17 @@ impl Index {
                 dbg_fts_ms += t_fts.elapsed().as_millis() as u64;
                 if let Some(reader) = reader_opt {
                     let reader = Arc::new(reader);
+                    // Arm the cooperative deadline (RC4 blocker 12): the
+                    // searcher's multi-term expansions (prefix / wildcard /
+                    // fuzzy term-dictionary walks) are otherwise
+                    // uninterruptible units that the outer tokio timeout
+                    // can never preempt (`block_in_place` completes the
+                    // whole search on first poll — live: `timeout: 1ms`
+                    // wildcard ran 3.7 s / fuzzy 8.3 s with
+                    // `timed_out: false`).
                     let searcher =
-                        FtsSearcher::new(Arc::clone(&reader), Arc::clone(&self.registry));
+                        FtsSearcher::new(Arc::clone(&reader), Arc::clone(&self.registry))
+                            .with_deadline(Some(search_deadline));
                     let fts_query = query_node_to_fts(query, &text_fields, &exact_fields);
 
                     // Count-only fast path for single-term FTS queries:
@@ -7169,9 +7183,14 @@ impl Index {
                             materialisation_limit
                         };
                         if fts_has_field {
-                            if let Ok((seg_hits, seg_total)) =
-                                searcher.search_bounded(&fq, fts_cap, false)
-                            {
+                            let bounded = searcher.search_bounded(&fq, fts_cap, false);
+                            // Record a deadline trip regardless of Ok/Err —
+                            // the expansion may have stopped early either
+                            // way (RC4 blocker 12).
+                            if searcher.deadline_tripped() {
+                                fts_deadline_tripped = true;
+                            }
+                            if let Ok((seg_hits, seg_total)) = bounded {
                                 // FTS is authoritative for this segment (field
                                 // present + searcher ran) — mark handled the same
                                 // way for count-only and size>0 so the fall-through
@@ -7435,6 +7454,15 @@ impl Index {
                             }
                         }
                     } // close fts_has_field
+                }
+
+                // Propagate an FTS expansion deadline trip into the
+                // response-level flag (RC4 blocker 12): the segment's FTS
+                // hits/total above are partial, so the response must carry
+                // `timed_out: true` even if this was the last segment (no
+                // later between-segment check would run).
+                if fts_deadline_tripped {
+                    deadline_exceeded = true;
                 }
 
                 // If FTS didn't handle it, fall through to stored-doc scan.

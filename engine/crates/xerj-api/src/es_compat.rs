@@ -2030,6 +2030,15 @@ pub struct EsSearchBody {
     /// `_seq_no` at-or-below the snapshot taken at PIT open time.
     #[serde(default)]
     pub pit: Option<Value>,
+    /// Request-level timeout in ES time-units (`"100ms"`, `"2s"`, bare
+    /// number = millis). Parsed into `SearchRequest.timeout_ms` — the
+    /// wall-clock deadline every cooperative check in the engine polls.
+    /// RC4 blocker 12: this field did not exist, so `{"timeout": "1ms"}`
+    /// was silently dropped by serde, `timeout_ms` stayed `None` (30 s
+    /// engine default), and the deadline machinery was never armed
+    /// (live: a 1 ms-timeout wildcard ran 3.7 s with `timed_out: false`).
+    #[serde(default)]
+    pub timeout: Option<String>,
 }
 
 impl Default for EsSearchBody {
@@ -2064,6 +2073,7 @@ impl Default for EsSearchBody {
             version: None,
             slice: None,
             pit: None,
+            timeout: None,
         }
     }
 }
@@ -3678,7 +3688,6 @@ fn default_size() -> usize {
     10
 }
 
-/// Build a `SearchRequest` from the ES body, forwarding all relevant options.
 /// Walk a request JSON subtree for inline Painless script sources — values
 /// under a `script` key or any `*_script` key (e.g. scripted_metric's
 /// `map_script`) — and validate each against the engine's script resource
@@ -3718,6 +3727,39 @@ fn find_script_limit_violation(v: &Value) -> Option<String> {
     }
 }
 
+/// Parse an ES time-units string to milliseconds: `"500ms"`, `"30s"`,
+/// `"2m"`, `"1h"`, `"1d"`, `"5micros"`, `"100nanos"`, bare number =
+/// millis. Sub-millisecond values round up to 1 ms so `timeout=100nanos`
+/// still arms a (minimal) deadline instead of none at all.
+fn parse_time_to_millis(s: &str) -> Option<u64> {
+    let s = s.trim();
+    if s.is_empty() {
+        return None;
+    }
+    if let Some(n) = s.strip_suffix("nanos") {
+        let v: u64 = n.parse().ok()?;
+        return Some((v / 1_000_000).max(1));
+    }
+    if let Some(n) = s.strip_suffix("micros") {
+        let v: u64 = n.parse().ok()?;
+        return Some((v / 1_000).max(1));
+    }
+    if let Some(n) = s.strip_suffix("ms") {
+        let v: u64 = n.parse().ok()?;
+        return Some(v.max(1));
+    }
+    let (digits, mul_ms) = match s.as_bytes().last()? {
+        b's' => (&s[..s.len() - 1], 1_000u64),
+        b'm' => (&s[..s.len() - 1], 60_000),
+        b'h' => (&s[..s.len() - 1], 3_600_000),
+        b'd' => (&s[..s.len() - 1], 86_400_000),
+        _ => (s, 1), // bare number → milliseconds (ES convention)
+    };
+    let n: u64 = digits.parse().ok()?;
+    Some(n.saturating_mul(mul_ms).max(1))
+}
+
+/// Build a `SearchRequest` from the ES body, forwarding all relevant options.
 fn build_search_request(
     body: &EsSearchBody,
     aggs_value: Option<Value>,
@@ -3766,6 +3808,14 @@ fn build_search_request(
     req.size = body.size;
     req.from = body.from;
     req.explain = body.explain;
+
+    // Request-level timeout (RC4 blocker 12): arm the engine's
+    // cooperative wall-clock deadline. Unparsable values are ignored
+    // (engine default 30 s) rather than 400 — matching our lenient
+    // handling of other ES time-unit params.
+    if req.timeout_ms.is_none() {
+        req.timeout_ms = body.timeout.as_deref().and_then(parse_time_to_millis);
+    }
 
     // Forward aggs.
     if req.aggs.is_none() {
@@ -4397,6 +4447,12 @@ pub struct EsSearchQueryParams {
     pub search_type: Option<String>,
     pub scroll: Option<String>,
     pub track_total_hits: Option<String>,
+    /// Request-level search timeout (`?timeout=100ms`) — same semantics
+    /// as the body's `timeout` (body wins when both are set). RC4
+    /// blocker 12: previously this param (and the body field) were
+    /// silently dropped, so the engine's cooperative deadline was never
+    /// armed and `timeout` could not fire.
+    pub timeout: Option<String>,
     /// ES 7+ compat: when true, return `hits.total` as a bare integer
     /// instead of `{value, relation}`. Many ES YAML tests set this.
     pub rest_total_hits_as_int: Option<String>,
@@ -4581,6 +4637,11 @@ pub async fn search(
             }
         }
     }
+    // `?timeout=100ms` → promote to body (body wins when both set) so
+    // build_search_request arms the cooperative deadline (RC4 blocker 12).
+    if body.timeout.is_none() {
+        body.timeout = params.timeout.clone();
+    }
     // ── Scroll support ──────────────────────────────────────────────────────
     // If `?scroll=1m` is present, snapshot all matching hits into a scroll
     // context and return the first page + `_scroll_id`. Subsequent pages
@@ -4592,6 +4653,16 @@ pub async fn search(
     let is_scroll_request = params.scroll.is_some();
     let scroll_page_size = body.size;
     if is_scroll_request {
+        // RC4 blocker 11: enforce the open-scroll cap BEFORE running the
+        // search — each context pins a fully-hydrated Vec<Hit>, so an
+        // uncapped open loop is an unauthenticated memory DoS. Expired
+        // contexts are swept opportunistically first so the cap counts
+        // only live contexts.
+        state.engine.sweep_expired_scrolls();
+        let scroll_cap = state.config.search_context.max_open_scrolls;
+        if state.engine.scrolls.len() >= scroll_cap {
+            return too_many_scroll_contexts(scroll_cap);
+        }
         // Cap scroll snapshot at 10k hits — matches the default max_result_window.
         body.size = 10_000;
         body.from = 0;
@@ -9831,12 +9902,27 @@ pub async fn search(
             .map(|s| s.to_string())
             .unwrap_or_default();
         let scroll_id = Uuid::new_v4().to_string();
+        // TTL (RC4 blocker 11): every context expires. `?scroll=1m` is the
+        // keep-alive; unparsable/absent falls back to the configured
+        // default, and everything is capped at the configured max so a
+        // client cannot pin the snapshot for 30 days.
+        let sc_cfg = &state.config.search_context;
+        let keep_alive_secs = params
+            .scroll
+            .as_deref()
+            .and_then(parse_keep_alive_to_secs)
+            .unwrap_or(sc_cfg.scroll_default_keep_alive_secs)
+            .min(sc_cfg.scroll_max_keep_alive_secs);
+        let keep_alive = std::time::Duration::from_secs(keep_alive_secs);
+        let now = Instant::now();
         let ctx = xerj_engine::engine::ScrollContext {
             index: scroll_index,
             hits: snapshot,
             position: scroll_page_size,
             page_size: scroll_page_size,
-            created: Instant::now(),
+            created: now,
+            keep_alive,
+            expires_at: now + keep_alive,
         };
         state.engine.scrolls.insert(scroll_id.clone(), ctx);
         response_body["_scroll_id"] = Value::String(scroll_id);
@@ -12644,7 +12730,11 @@ pub async fn index_stats(
             "current": 0,
         },
         "search": {
-            "open_contexts": 0,
+            // Live open-context counts (RC4 blocker 11): scrolls are
+            // engine-global (a context spans indices), reported here so
+            // the TTL sweeper and 429 cap are observable. Previously
+            // hardcoded 0.
+            "open_contexts": state.engine.scrolls.len(),
             "query_total": 0,
             "query_time_in_millis": 0,
             "query_current": 0,
@@ -12653,7 +12743,7 @@ pub async fn index_stats(
             "fetch_current": 0,
             "scroll_total": 0,
             "scroll_time_in_millis": 0,
-            "scroll_current": 0,
+            "scroll_current": state.engine.scrolls.len(),
             "suggest_total": 0,
             "suggest_time_in_millis": 0,
             "suggest_current": 0,
@@ -13008,6 +13098,17 @@ pub async fn search_with_scroll(
     let started = Instant::now();
     let body = body.into_or_default();
 
+    // RC4 blocker 11: same open-scroll cap as the `?scroll=` path on
+    // `_search` — checked up front so the full-corpus snapshot below is
+    // never even computed for a request that cannot get a context.
+    if params.scroll.is_some() {
+        state.engine.sweep_expired_scrolls();
+        let scroll_cap = state.config.search_context.max_open_scrolls;
+        if state.engine.scrolls.len() >= scroll_cap {
+            return too_many_scroll_contexts(scroll_cap);
+        }
+    }
+
     // Resolve aliases and expand comma-separated indices.
     let index_names: Vec<String> = index
         .split(',')
@@ -13047,6 +13148,7 @@ pub async fn search_with_scroll(
         version: body.version,
         slice: body.slice.clone(),
         pit: body.pit.clone(),
+        timeout: body.timeout.clone(),
     };
     // page_size: what the caller requested (or default 10)
     let page_size = body.size;
@@ -13132,12 +13234,24 @@ pub async fn search_with_scroll(
             })
             .collect();
 
+        // TTL (RC4 blocker 11) — mirrors the `_search?scroll=` site.
+        let sc_cfg = &state.config.search_context;
+        let keep_alive_secs = params
+            .scroll
+            .as_deref()
+            .and_then(parse_keep_alive_to_secs)
+            .unwrap_or(sc_cfg.scroll_default_keep_alive_secs)
+            .min(sc_cfg.scroll_max_keep_alive_secs);
+        let keep_alive = std::time::Duration::from_secs(keep_alive_secs);
+        let now = Instant::now();
         let ctx = xerj_engine::engine::ScrollContext {
             index: index.clone(),
             hits: hits_only,
             position: page_size,
             page_size,
-            created: Instant::now(),
+            created: now,
+            keep_alive,
+            expires_at: now + keep_alive,
         };
         state.engine.scrolls.insert(scroll_id.clone(), ctx);
 
@@ -13257,6 +13371,33 @@ pub async fn next_scroll(
 
     match state.engine.scrolls.get_mut(&scroll_id) {
         Some(mut ctx) => {
+            // Keep-alive enforcement (RC4 blocker 11): an expired context
+            // is gone even if the background sweeper hasn't collected it
+            // yet — same 404 as an unknown id, matching ES.
+            let now = Instant::now();
+            if ctx.expires_at <= now {
+                drop(ctx); // release the DashMap shard guard before remove
+                state.engine.scrolls.remove(&scroll_id);
+                let e = xerj_common::XerjError::index_not_found(format!(
+                    "No search context found for id [{scroll_id}]"
+                ));
+                return ApiError::new(e).into_response();
+            }
+            // Re-arm the deadline: an explicit `scroll` on the continuation
+            // (body wins over query param, like scroll_id) sets a new
+            // keep-alive (capped); absent → the previous keep-alive window
+            // restarts from now, matching ES.
+            if let Some(ka_secs) = body
+                .scroll
+                .as_deref()
+                .or(params.scroll.as_deref())
+                .and_then(parse_keep_alive_to_secs)
+            {
+                let capped = ka_secs.min(state.config.search_context.scroll_max_keep_alive_secs);
+                ctx.keep_alive = std::time::Duration::from_secs(capped);
+            }
+            ctx.expires_at = now + ctx.keep_alive;
+
             let page_size = ctx.page_size.max(1);
             let position = ctx.position;
             let total = ctx.hits.len() as u64;
@@ -22659,9 +22800,24 @@ pub(crate) fn build_inner_hits(
 // DELETE /_async_search/{id}   — delete stored result
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Query params for `_async_search` submit/get. Only `keep_alive` changes
+/// behavior (result TTL); `wait_for_completion_timeout` and
+/// `keep_on_completion` are accepted for wire compatibility — searches run
+/// synchronously here, so every response is already complete.
+#[derive(Debug, Default, Deserialize)]
+pub struct AsyncSearchParams {
+    #[serde(default)]
+    pub keep_alive: Option<String>,
+    #[serde(default)]
+    pub wait_for_completion_timeout: Option<String>,
+    #[serde(default)]
+    pub keep_on_completion: Option<String>,
+}
+
 pub async fn async_search_submit(
     State(state): State<AppState>,
     Path(index): Path<String>,
+    Query(params): Query<AsyncSearchParams>,
     body: OptionalJson<EsSearchBody>,
 ) -> impl IntoResponse {
     let mut body = body.into_or_default();
@@ -22669,6 +22825,15 @@ pub async fn async_search_submit(
     // only ({"value":10000,"relation":"gte"} beyond), same as `_search`.
     if body.track_total_hits.is_none() {
         body.track_total_hits = Some(json!(10_000));
+    }
+
+    // RC4 blocker 11: stored async results are TTL'd AND capped. Sweep
+    // expired entries first so the cap counts only live results, then
+    // refuse (429) rather than pinning yet another response JSON forever.
+    state.engine.sweep_expired_async_searches();
+    let async_cap = state.config.search_context.max_open_async_searches;
+    if state.engine.async_searches.len() >= async_cap {
+        return too_many_async_searches(async_cap);
     }
 
     let idx = match state.engine.get_or_create_index(&index) {
@@ -22689,8 +22854,19 @@ pub async fn async_search_submit(
     };
     let took_ms = started.elapsed().as_millis() as u64;
 
+    // TTL (RC4 blocker 11): honor the request's `keep_alive` (pre-rc.4 it
+    // was parsed nowhere and every result silently got 5 minutes), fall
+    // back to the configured default, cap at the configured max. The
+    // expiry is enforced on GET and by the background sweeper.
+    let sc_cfg = &state.config.search_context;
+    let keep_alive_secs = params
+        .keep_alive
+        .as_deref()
+        .and_then(parse_keep_alive_to_secs)
+        .unwrap_or(sc_cfg.async_default_keep_alive_secs)
+        .min(sc_cfg.async_max_keep_alive_secs);
     let now_ms = chrono::Utc::now().timestamp_millis();
-    let exp_ms = now_ms + 5 * 60 * 1000; // 5 minute expiry
+    let exp_ms = now_ms + (keep_alive_secs as i64) * 1000;
 
     // Build a normal search response body to embed.
     let max_score = result.hits.first().map(|h| h.score as f64);
@@ -22748,9 +22924,35 @@ pub async fn async_search_submit(
 pub async fn async_search_get(
     State(state): State<AppState>,
     Path(id): Path<String>,
+    Query(params): Query<AsyncSearchParams>,
 ) -> impl IntoResponse {
-    match state.engine.async_searches.get(&id) {
-        Some(result) => Json(result.clone()).into_response(),
+    let now_ms = chrono::Utc::now().timestamp_millis();
+    match state.engine.async_searches.get_mut(&id) {
+        Some(mut entry) => {
+            // Expiry enforcement on read (RC4 blocker 11): a result past
+            // its keep-alive is gone even before the sweeper collects it.
+            let expired = entry
+                .get("expiration_time_in_millis")
+                .and_then(Value::as_i64)
+                .map(|exp| exp <= now_ms)
+                .unwrap_or(true);
+            if expired {
+                drop(entry); // release the DashMap shard guard before remove
+                state.engine.async_searches.remove(&id);
+                return async_search_not_found(&id);
+            }
+            // `GET …?keep_alive=…` extends the stored result's TTL (ES
+            // semantics), capped like submit.
+            if let Some(ka_secs) = params
+                .keep_alive
+                .as_deref()
+                .and_then(parse_keep_alive_to_secs)
+            {
+                let capped = ka_secs.min(state.config.search_context.async_max_keep_alive_secs);
+                entry["expiration_time_in_millis"] = json!(now_ms + (capped as i64) * 1000);
+            }
+            Json(entry.clone()).into_response()
+        }
         // Unknown id → ES returns 404 resource_not_found, not a 500.
         None => async_search_not_found(&id),
     }
@@ -22764,6 +22966,49 @@ pub async fn async_search_delete(
         Some(_) => Json(json!({ "acknowledged": true })).into_response(),
         None => async_search_not_found(&id),
     }
+}
+
+/// ES-shaped 429 for exceeding the open-scroll-contexts cap (RC4
+/// blocker 11). Mirrors ES's `search.max_open_scroll_context` rejection
+/// text, naming xerj's own setting key.
+fn too_many_scroll_contexts(cap: usize) -> axum::response::Response {
+    let reason = format!(
+        "Trying to create too many scroll contexts. Must be less than or equal to: [{cap}]. \
+         This limit can be set by changing the [search_context.max_open_scrolls] setting."
+    );
+    (
+        StatusCode::TOO_MANY_REQUESTS,
+        Json(json!({
+            "error": {
+                "root_cause": [{ "type": "exception", "reason": reason }],
+                "type": "exception",
+                "reason": reason,
+            },
+            "status": 429,
+        })),
+    )
+        .into_response()
+}
+
+/// ES-shaped 429 for exceeding the stored-async-search cap (RC4 blocker 11).
+fn too_many_async_searches(cap: usize) -> axum::response::Response {
+    let reason = format!(
+        "Trying to store too many async searches. Must be less than or equal to: [{cap}]. \
+         This limit can be set by changing the [search_context.max_open_async_searches] \
+         setting, or free slots with DELETE /_async_search/<id>."
+    );
+    (
+        StatusCode::TOO_MANY_REQUESTS,
+        Json(json!({
+            "error": {
+                "root_cause": [{ "type": "exception", "reason": reason }],
+                "type": "exception",
+                "reason": reason,
+            },
+            "status": 429,
+        })),
+    )
+        .into_response()
 }
 
 /// ES-shaped 404 for an unknown async-search id.

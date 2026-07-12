@@ -76,6 +76,8 @@ pub struct Config {
     pub cluster: ClusterConfig,
     /// Point-in-time TTL + sweep cadence — 3 settings.
     pub pit: PitConfig,
+    /// Scroll + async-search context TTLs and open-context caps — 7 settings.
+    pub search_context: SearchContextConfig,
 }
 
 // Total: 5+2+3+10+5+3+1+6+2+4+3+4+3 = 51 fields
@@ -940,6 +942,60 @@ impl Default for PitConfig {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Scroll + async-search context lifecycle settings (RC4 blocker 11).
+///
+/// **7 settings.**
+///
+/// Every open scroll context pins a fully-hydrated `Vec<Hit>` snapshot and
+/// every stored async-search result pins its response JSON. Before v1.0.0-rc.4
+/// neither was ever expired or capped — an unauthenticated client that opened
+/// scrolls in a loop (or simply never called DELETE /_search/scroll) grew the
+/// process RSS without bound. These settings mirror the PIT lifecycle: a TTL
+/// on every context (refreshed by the `scroll`/`keep_alive` parameters), a
+/// background sweeper, and a hard cap on concurrently-open contexts (requests
+/// beyond the cap get 429, like ES's `search.max_open_scroll_context`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct SearchContextConfig {
+    /// Default scroll TTL when `?scroll=…` carries no parsable duration
+    /// (default: 60 seconds). ES requires the duration; we degrade to this
+    /// default rather than 400.
+    pub scroll_default_keep_alive_secs: u64,
+    /// Hard cap on any scroll keep-alive (default: 86 400 = 24 h — mirrors
+    /// ES `search.max_keep_alive`). Larger requests are capped silently.
+    pub scroll_max_keep_alive_secs: u64,
+    /// Maximum concurrently-open scroll contexts (default: 500 — mirrors
+    /// ES `search.max_open_scroll_context`). Opening more returns 429.
+    pub max_open_scrolls: usize,
+    /// Default async-search result TTL when the submit request carries no
+    /// `keep_alive` (default: 300 seconds, the pre-rc.4 hardcoded expiry).
+    pub async_default_keep_alive_secs: u64,
+    /// Hard cap on any async-search `keep_alive` (default: 86 400 = 24 h).
+    pub async_max_keep_alive_secs: u64,
+    /// Maximum concurrently-stored async-search results (default: 500).
+    /// Submitting more returns 429.
+    pub max_open_async_searches: usize,
+    /// How often the background sweeper drops expired scroll and
+    /// async-search contexts (default: 30 seconds).
+    pub sweep_interval_secs: u64,
+}
+
+impl Default for SearchContextConfig {
+    fn default() -> Self {
+        Self {
+            scroll_default_keep_alive_secs: 60,
+            scroll_max_keep_alive_secs: 86_400,
+            max_open_scrolls: 500,
+            async_default_keep_alive_secs: 300,
+            async_max_keep_alive_secs: 86_400,
+            max_open_async_searches: 500,
+            sweep_interval_secs: 30,
+        }
+    }
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Tests
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1076,6 +1132,21 @@ mod tests {
             VectorConfig::default().default_quantization,
             VectorQuantization::None
         );
+    }
+
+    #[test]
+    fn shipped_default_config_parses_and_validates() {
+        // rc.3 regression: the shipped engine/xerj.default.toml failed to
+        // parse (`unknown field hnsw_offload_threshold`, line 223) so the
+        // documented `--config xerj.default.toml` invocation was a dead
+        // boot. Every sub-config is `deny_unknown_fields`, so ANY key that
+        // drifts out of the schema kills the boot — guard the shipped file
+        // byte-for-byte at compile time.
+        let toml_src = include_str!("../../../xerj.default.toml");
+        let cfg = Config::from_toml_str(toml_src)
+            .expect("shipped xerj.default.toml must parse against the current Config schema");
+        cfg.validate()
+            .expect("shipped xerj.default.toml must pass Config::validate");
     }
 
     #[test]

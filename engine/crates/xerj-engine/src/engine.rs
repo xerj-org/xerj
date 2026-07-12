@@ -94,12 +94,29 @@ pub struct IndexTemplate {
 }
 
 /// Active scroll context holding all matching hits.
+///
+/// Each context pins a fully-hydrated `Vec<Hit>` snapshot, so its lifetime
+/// must be bounded: pre-rc.4 contexts lived until an explicit
+/// `DELETE /_search/scroll` and accumulated forever otherwise (RC4
+/// blocker 11). Every context now carries an `expires_at` deadline
+/// (from the request's `scroll=…` keep-alive, capped by
+/// `Config.search_context.scroll_max_keep_alive_secs`), refreshed on each
+/// continuation, enforced on access, and swept in the background.
 pub struct ScrollContext {
     pub index: String,
     pub hits: Vec<xerj_query::executor::Hit>,
     pub position: usize,
     pub page_size: usize,
     pub created: Instant,
+    /// The keep-alive window last requested for this context. A
+    /// continuation without an explicit `scroll` parameter re-arms the
+    /// deadline with this same duration (ES keeps the context alive for
+    /// the previous keep-alive in that case).
+    pub keep_alive: std::time::Duration,
+    /// Wall-clock deadline after which the context is dead: continuations
+    /// return the same 404 as an unknown id, and the background sweeper
+    /// (or an opportunistic sweep on open) frees the pinned hits.
+    pub expires_at: Instant,
 }
 
 /// Point-in-time search context — snapshots the set of indices and the
@@ -256,6 +273,18 @@ pub struct Engine {
     /// `ShardRouter::update_from_metadata` whenever the Raft log
     /// commits a new shard assignment.
     pub shard_router: Arc<parking_lot::RwLock<xerj_cluster::router::ShardRouter>>,
+
+    /// Exclusive advisory lock on `<data_dir>/node.lock`, held for the
+    /// engine's whole lifetime (RC4 blocker 13). Acquired in
+    /// [`Engine::new`] BEFORE any index is opened (i.e. before any WAL
+    /// replay or segment flush can touch the directory), so a second
+    /// xerj process pointed at a live data dir fails fast instead of
+    /// replaying the WAL and flushing duplicate segments into it — the
+    /// classic systemd double-start corruption. The lock is an OS-level
+    /// `flock`-style lock (`std::fs::File::try_lock`), so it dies with
+    /// the process: a `kill -9` releases it automatically and a stale
+    /// `node.lock` file never blocks the next boot.
+    _node_lock: Arc<std::fs::File>,
 }
 
 impl Engine {
@@ -263,6 +292,12 @@ impl Engine {
     pub fn new(config: Config) -> Result<Self> {
         let data_dir = PathBuf::from(&config.server.data_dir);
         std::fs::create_dir_all(&data_dir)?;
+
+        // Data-dir exclusivity (RC4 blocker 13): take the node lock BEFORE
+        // scanning/opening any index below — Index::open replays the WAL
+        // and can flush segments, which must never happen while another
+        // process serves the same directory.
+        let node_lock = Arc::new(Self::acquire_node_lock(&data_dir)?);
 
         // Apply operator-tunable aggregation bucket cap. Stored in a static
         // AtomicUsize inside aggs.rs so all per-bucket-allocator hot loops
@@ -316,6 +351,7 @@ impl Engine {
             shard_router: Arc::new(parking_lot::RwLock::new(
                 xerj_cluster::router::ShardRouter::new(1),
             )),
+            _node_lock: node_lock,
         };
 
         // Scan data_dir for existing index directories.
@@ -365,7 +401,70 @@ impl Engine {
         // Instant compare) and bounded by the live PIT count.
         engine.spawn_pit_sweeper();
 
+        // Spawn the scroll + async-search context sweeper (RC4 blocker
+        // 11) — the scroll/async twin of the PIT sweeper above. Each
+        // scroll pins a full Vec<Hit> and each async search pins its
+        // response JSON; without a sweeper both maps grow until an
+        // explicit client DELETE, i.e. forever under normal client
+        // behavior.
+        engine.spawn_search_context_sweeper();
+
         Ok(engine)
+    }
+
+    /// Acquire the exclusive `<data_dir>/node.lock` advisory lock (RC4
+    /// blocker 13 — data-dir exclusivity).
+    ///
+    /// Uses `std::fs::File::try_lock` (flock-style, non-blocking): if
+    /// another process already holds the lock we fail fast with the
+    /// holder's pid instead of replaying its WAL and flushing duplicate
+    /// segments into a live directory. On success our own pid is written
+    /// into the file purely as a diagnostic for the *next* contender —
+    /// exclusivity comes from the OS lock, never from the pid content,
+    /// so a stale file left by `kill -9` (lock auto-released at process
+    /// death) can never wedge a reboot.
+    fn acquire_node_lock(data_dir: &std::path::Path) -> Result<std::fs::File> {
+        use std::io::Write;
+        let lock_path = data_dir.join("node.lock");
+        // Never O_TRUNC here: truncation must only happen AFTER the lock
+        // is ours, or a losing contender would erase the holder's pid.
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(&lock_path)?;
+        match file.try_lock() {
+            Ok(()) => {
+                let _ = file.set_len(0);
+                let _ = writeln!(&file, "{}", std::process::id());
+                let _ = file.sync_all();
+                Ok(file)
+            }
+            Err(std::fs::TryLockError::WouldBlock) => {
+                let holder = std::fs::read_to_string(&lock_path)
+                    .ok()
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or_else(|| "unknown".to_string());
+                Err(EngineError::Common(xerj_common::XerjError::config(
+                    format!(
+                        "data dir '{}' is already in use by another running xerj process \
+                     (pid {holder}, lock file '{}') — refusing to start. Two processes \
+                     serving one data dir would replay each other's WAL and corrupt \
+                     segments; stop the other process or point this one at its own \
+                     server.data_dir.",
+                        data_dir.display(),
+                        lock_path.display(),
+                    ),
+                )))
+            }
+            Err(std::fs::TryLockError::Error(e)) => {
+                Err(EngineError::Common(xerj_common::XerjError::config(
+                    format!("failed to acquire node lock '{}': {e}", lock_path.display()),
+                )))
+            }
+        }
     }
 
     /// Drop PIT contexts whose `expires_at` is in the past. Cheap
@@ -414,6 +513,111 @@ impl Engine {
                     remaining = pits.len(),
                     "PIT sweep dropped expired contexts",
                 );
+            }
+        });
+    }
+
+    /// Drop scroll contexts whose `expires_at` is in the past. Mirrors
+    /// [`Engine::sweep_expired_pits`]: cheap O(N) walk, run by the
+    /// background sweeper and opportunistically before opening a new
+    /// scroll so a tight open-without-clear loop self-bounds.
+    pub fn sweep_expired_scrolls(&self) -> usize {
+        let now = Instant::now();
+        let expired: Vec<String> = self
+            .scrolls
+            .iter()
+            .filter(|e| e.value().expires_at <= now)
+            .map(|e| e.key().clone())
+            .collect();
+        for id in &expired {
+            self.scrolls.remove(id);
+        }
+        expired.len()
+    }
+
+    /// Drop stored async-search results whose `expiration_time_in_millis`
+    /// is in the past. The expiry lives inside the stored response JSON
+    /// (it is part of the ES wire format), so the sweep reads it from
+    /// there; a malformed/missing field counts as expired — every writer
+    /// sets it, so that arm only fires on corruption.
+    pub fn sweep_expired_async_searches(&self) -> usize {
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(i64::MAX);
+        let expired: Vec<String> = self
+            .async_searches
+            .iter()
+            .filter(|e| {
+                e.value()
+                    .get("expiration_time_in_millis")
+                    .and_then(Value::as_i64)
+                    .map(|exp| exp <= now_ms)
+                    .unwrap_or(true)
+            })
+            .map(|e| e.key().clone())
+            .collect();
+        for id in &expired {
+            self.async_searches.remove(id);
+        }
+        expired.len()
+    }
+
+    /// Background sweeper for scroll + async-search contexts (RC4
+    /// blocker 11) — the twin of [`Engine::spawn_pit_sweeper`].
+    ///
+    /// Deliberately captures ONLY the two context maps (never a full
+    /// `Engine` clone): the engine holds the data-dir `node.lock`, and a
+    /// long-lived task owning an `Engine` clone would keep that lock
+    /// alive after the last user-visible engine is dropped.
+    fn spawn_search_context_sweeper(&self) {
+        let scrolls = Arc::clone(&self.scrolls);
+        let async_searches = Arc::clone(&self.async_searches);
+        let interval =
+            std::time::Duration::from_secs(self.config.search_context.sweep_interval_secs.max(1));
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(interval);
+            // Skip the immediate first tick — Engine::new just ran, so
+            // both maps are empty.
+            tick.tick().await;
+            loop {
+                tick.tick().await;
+                let now = Instant::now();
+                let expired_scrolls: Vec<String> = scrolls
+                    .iter()
+                    .filter(|e| e.value().expires_at <= now)
+                    .map(|e| e.key().clone())
+                    .collect();
+                for id in &expired_scrolls {
+                    scrolls.remove(id);
+                }
+                let now_ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_millis() as i64)
+                    .unwrap_or(i64::MAX);
+                let expired_async: Vec<String> = async_searches
+                    .iter()
+                    .filter(|e| {
+                        e.value()
+                            .get("expiration_time_in_millis")
+                            .and_then(Value::as_i64)
+                            .map(|exp| exp <= now_ms)
+                            .unwrap_or(true)
+                    })
+                    .map(|e| e.key().clone())
+                    .collect();
+                for id in &expired_async {
+                    async_searches.remove(id);
+                }
+                if !expired_scrolls.is_empty() || !expired_async.is_empty() {
+                    tracing::debug!(
+                        swept_scrolls = expired_scrolls.len(),
+                        swept_async = expired_async.len(),
+                        remaining_scrolls = scrolls.len(),
+                        remaining_async = async_searches.len(),
+                        "search-context sweep dropped expired contexts",
+                    );
+                }
             }
         });
     }
