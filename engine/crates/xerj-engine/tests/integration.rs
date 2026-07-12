@@ -4713,3 +4713,58 @@ async fn test_bulk_index_malformed_doc_rejected_per_item() {
     assert_eq!(all2.total.value, 1, "non-object body must not be stored");
 }
 
+/// Blocker 4: match/BM25 over a `semantic_text` field returned hits from the
+/// memtable but ZERO once flushed — the field's schema type (Object) gave it
+/// the whole-value keyword analyzer in the segment FTS. The es_compat mapper
+/// now types it Text (+ embedding config); this exercises exactly that shape.
+#[tokio::test]
+async fn test_semantic_text_match_survives_flush() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    // The schema shape es_compat produces for `"type": "semantic_text"`:
+    // lexical side = Text (standard analyzer, positions), plus an embedding
+    // config producing the companion `content_vector`.
+    let mut schema = Schema::empty();
+    let mut fc = FieldConfig::new("content", FieldType::Text);
+    fc.options.dimensions = Some(16);
+    fc.options.similarity = Some("cosine".to_string());
+    fc.embedding = Some(xerj_common::types::EmbeddingConfig {
+        endpoint: None,
+        model: None,
+        target_field: Some("content_vector".to_string()),
+    });
+    schema.fields.push(fc);
+    engine.create_index("sem", schema).unwrap();
+    let idx = engine.get_index("sem").unwrap();
+
+    idx.index_document(
+        Some("1".into()),
+        json!({"content": "the quick brown fox jumps over the lazy dog"}),
+    )
+    .await
+    .unwrap();
+
+    let pre = idx
+        .search(&make_search(json!({"match": {"content": "quick fox"}})))
+        .await
+        .unwrap();
+    assert_eq!(pre.total.value, 1, "pre-flush match must hit");
+
+    idx.flush().await.unwrap();
+
+    let post = idx
+        .search(&make_search(json!({"match": {"content": "quick fox"}})))
+        .await
+        .unwrap();
+    assert_eq!(
+        post.total.value, 1,
+        "post-flush match must still hit (segment FTS must standard-analyze semantic_text)"
+    );
+    // The auto-embed side must be unaffected by the lexical type change.
+    assert!(
+        post.hits[0].source.get("content_vector").is_some(),
+        "companion embedding vector missing from _source"
+    );
+}
+

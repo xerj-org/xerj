@@ -10894,7 +10894,16 @@ fn es_properties_to_fields(properties: &Value) -> Vec<FieldConfig> {
 
 fn es_type_to_native(es_type: &str) -> FieldType {
     match es_type {
-        "text" => FieldType::Text,
+        // `semantic_text` carries plain text in `_source` (the derived
+        // embedding lives in the companion `<field>_vector` field), so on
+        // the LEXICAL side it must behave exactly like `text`: schema type
+        // Text puts it in the search path's `text_fields` set and gives it
+        // the standard analyzer + positions in the segment FTS built at
+        // flush. It used to fall through to `Object`, which FTS-indexes
+        // the whole value as ONE keyword token — match/BM25 then found the
+        // doc pre-flush (memtable scan) but ZERO hits post-flush (segment
+        // FTS had no standard-analyzed tokens for the field).
+        "text" | "semantic_text" => FieldType::Text,
         "keyword" | "constant_keyword" | "wildcard" => FieldType::Keyword,
         "long" | "integer" | "short" | "byte" | "unsigned_long" => FieldType::Long,
         "double" | "float" | "half_float" | "scaled_float" => FieldType::Double,
