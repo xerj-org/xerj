@@ -4823,13 +4823,19 @@ impl Index {
             "seq_no": self.store.current_seq_no(),
             "stale": self.hnsw_stale.load(Ordering::Acquire),
         });
-        let tmp = self.hnsw_ids_path().with_extension("tmp");
-        if let Err(e) = std::fs::write(&tmp, serde_json::to_vec(&snapshot).unwrap_or_default()) {
+        // Durable atomic publish (RC4 W2 item 19 — same treatment as
+        // graph.bin in HnswIndex::save_to): fsync file + rename + fsync
+        // parent dir, so power loss can't leave a torn/evaporating
+        // ids.json. Write order is graph.bin THEN ids.json: a crash
+        // between the two renames leaves new-graph/old-ids, whose seq_no
+        // stamp then mismatches the replayed WAL position → the loader
+        // marks the pair stale and the rebuild path re-derives it (never
+        // serves a mixed pair).
+        if let Err(e) = xerj_common::fsio::write_file_durable(
+            &self.hnsw_ids_path(),
+            &serde_json::to_vec(&snapshot).unwrap_or_default(),
+        ) {
             warn!(error = %e, "HNSW save: ids.json write failed");
-            return Ok(());
-        }
-        if let Err(e) = std::fs::rename(&tmp, self.hnsw_ids_path()) {
-            warn!(error = %e, "HNSW save: ids.json rename failed");
             return Ok(());
         }
         debug!(
