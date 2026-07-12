@@ -10651,6 +10651,60 @@ impl Index {
             }
         };
 
+        // Flat MUST+ONE-SHOULD bool (the benchmark's 4-clause shape): with
+        // all-leaf constant clauses the per-row score is TWO-VALUED —
+        // hi = f32(Σmust + should) when the should matches, lo = f32(Σmust)
+        // otherwise (each the Bool group's one-cast rounding for its fixed
+        // match set).  One flat pass counts the exact total and keeps the
+        // first keep_target rows of EACH value class (seq-asc ⇒ those are
+        // the classes' k-best); the global heap then merges hi before lo.
+        let flat_bool2: Option<(Vec<usize>, usize, std::ops::Range<usize>, std::ops::Range<usize>, f32, f32)> =
+            if any_ghosts || composed_constant_leaf.is_some() || flat_conjunction.is_some() {
+                None
+            } else {
+                match (plan, &eval_root) {
+                    (
+                        ScoredPlan::Composed { .. },
+                        Some(ClauseEval::Bool {
+                            must,
+                            should,
+                            filter,
+                            must_not,
+                            required_should,
+                            ..
+                        }),
+                    ) if !must.is_empty() && should.len() == 1 && *required_should == 0 => {
+                        let mut idx = Vec::with_capacity(must.len());
+                        let mut ok = true;
+                        for c in must {
+                            match c {
+                                ClauseEval::Leaf(i) => idx.push(*i),
+                                _ => {
+                                    ok = false;
+                                    break;
+                                }
+                            }
+                        }
+                        let sh = match should[0] {
+                            ClauseEval::Leaf(i) => Some(i),
+                            _ => None,
+                        };
+                        match (ok, sh) {
+                            (true, Some(sh)) => {
+                                let base: f64 =
+                                    idx.iter().map(|&i| clause_scores[i] as f64).sum();
+                                let lo = base as f32;
+                                let hi = (base + clause_scores[sh] as f64) as f32;
+                                idx.sort_by_key(|&i| df[i]);
+                                Some((idx, sh, filter.clone(), must_not.clone(), hi, lo))
+                            }
+                            _ => None,
+                        }
+                    }
+                    _ => None,
+                }
+            };
+
         for (si, (meta, cols)) in segments.iter().zip(seg_cols.iter()).enumerate() {
             let seqs: &[u64] = &seg_seqs[si];
             // B5 break / constant-lane preconditions (only paid when one of
@@ -10660,7 +10714,10 @@ impl Index {
             // constant-plan closed-form lane needs this under
             // track_total_hits:true too (break_bound is None there — the
             // official bench convention injects tth:true into every read).
-            let seq_asc = (break_bound.is_some() || constant_plan || flat_conjunction.is_some())
+            let seq_asc = (break_bound.is_some()
+                || constant_plan
+                || flat_conjunction.is_some()
+                || flat_bool2.is_some())
                 && seqs.windows(2).all(|w| w[0] <= w[1]);
             let later_min_seq: u64 = segments[si + 1..]
                 .iter()
@@ -10794,6 +10851,55 @@ impl Index {
                     let root = eval_root
                         .as_ref()
                         .expect("Composed plan always builds an eval tree");
+                    if let (true, Some((leaves, sh, f_rng, mn_rng, hi, lo))) =
+                        (seq_asc, &flat_bool2)
+                    {
+                        // Flat must+one-should walk (see `flat_bool2`).
+                        let mut kept_hi = 0usize;
+                        let mut kept_lo = 0usize;
+                        'brows: for row in 0..doc_count {
+                            for &li in leaves {
+                                if !sev[li].matches(row) {
+                                    continue 'brows;
+                                }
+                            }
+                            for fi in f_rng.clone() {
+                                if !fev[fi].matches(row) {
+                                    continue 'brows;
+                                }
+                            }
+                            for fi in mn_rng.clone() {
+                                if fev[fi].matches(row) {
+                                    continue 'brows;
+                                }
+                            }
+                            total += 1;
+                            let (score, kept) = if sev[*sh].matches(row) {
+                                (*hi, &mut kept_hi)
+                            } else {
+                                (*lo, &mut kept_lo)
+                            };
+                            if *kept < keep_target {
+                                push_topk(
+                                    &mut heap,
+                                    keep_target,
+                                    TopKCand {
+                                        score,
+                                        seq: seqs[row as usize],
+                                        si,
+                                        row,
+                                    },
+                                );
+                                *kept += 1;
+                            } else if kept_hi >= keep_target
+                                && kept_lo >= keep_target
+                                && total > limit_val
+                            {
+                                break 'brows;
+                            }
+                        }
+                        continue;
+                    }
                     if let (true, Some((leaves, f_rng, mn_rng, cscore))) =
                         (seq_asc, &flat_conjunction)
                     {
