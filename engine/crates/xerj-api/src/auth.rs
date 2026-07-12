@@ -20,17 +20,29 @@ use crate::state::AppState;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Probe endpoints exempted from authentication.
+///
+/// `/health/live` and `/health/ready` are the conventional Kubernetes liveness
+/// and readiness paths that container `HEALTHCHECK`s (see `engine/Dockerfile`)
+/// and Helm chart probes hit **without** credentials. Gating them behind auth
+/// makes every hardened deployment crashloop: the moment `auth.enabled = true`,
+/// the kubelet's probe (and Docker's `curl -fsS .../health/ready`) receives a
+/// 401, is marked unhealthy, and the pod is restarted forever. Both handlers
+/// are dependency-free and expose no index data (they answer a bare
+/// `"live"`/`"ready"` string), so leaving them open is safe.
+pub const AUTH_EXEMPT_PATHS: [&str; 2] = ["/health/live", "/health/ready"];
+
 /// Axum middleware that enforces API key authentication.
 ///
 /// Call via `middleware::from_fn_with_state(state, auth_middleware)` in the
 /// router builders.
 pub async fn auth_middleware(State(state): State<AppState>, req: Request, next: Next) -> Response {
-    let cfg = &state.config.auth;
-
-    // Skip auth when disabled or no admin key is configured.
-    if !cfg.enabled || cfg.admin_api_key.is_empty() {
+    // Kubernetes / Docker probes must stay reachable without credentials, or a
+    // hardened (auth-enabled) deployment crashloops. See `AUTH_EXEMPT_PATHS`.
+    if AUTH_EXEMPT_PATHS.contains(&req.uri().path()) {
         return next.run(req).await;
     }
+
     // Xerj Console lives in a peer router (mounted by `xerj-server` via
     // `Router::merge`) and runs its own session-cookie auth, so this
     // middleware never sees `/_xerj-console/*` requests — no path-prefix
@@ -42,19 +54,41 @@ pub async fn auth_middleware(State(state): State<AppState>, req: Request, next: 
         .get(axum::http::header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok());
 
-    let provided_key = match auth_header {
-        Some(h) => extract_key(h),
-        None => None,
-    };
+    if is_authorized(&state, auth_header) {
+        next.run(req).await
+    } else {
+        unauthorized_response()
+    }
+}
 
-    match provided_key {
+/// The shared authorization decision, enforced identically by the HTTP
+/// `auth_middleware` and the gRPC auth interceptor (`xerj-server::grpc`) so both
+/// API surfaces require the same credentials.
+///
+/// Returns `true` when the request may proceed:
+/// - auth is disabled, or no admin key is configured (open mode — matches the
+///   `--insecure` / first-run posture); or
+/// - the `Authorization` value carries the configured admin/superuser key; or
+/// - it carries a key minted by `POST /_security/api_key` (presented as
+///   `ApiKey <base64(id:api_key)>`) that is valid, not expired, and not
+///   invalidated.
+///
+/// `auth_header` is the raw `Authorization` header / `authorization` metadata
+/// value (e.g. `"ApiKey abc"` or `"Bearer abc"`), or `None` when absent.
+pub fn is_authorized(state: &AppState, auth_header: Option<&str>) -> bool {
+    let cfg = &state.config.auth;
+
+    // Skip auth when disabled or no admin key is configured.
+    if !cfg.enabled || cfg.admin_api_key.is_empty() {
+        return true;
+    }
+
+    match auth_header.and_then(extract_key) {
         // Fast path: the configured admin/superuser key.
-        Some(key) if key == cfg.admin_api_key => next.run(req).await,
-        // A key minted by `POST /_security/api_key`, presented as
-        // `Authorization: ApiKey <base64(id:api_key)>`, that is valid, not
-        // expired, and not invalidated.
-        Some(key) if authenticate_api_key(&state, key) => next.run(req).await,
-        _ => unauthorized_response(),
+        Some(key) if key == cfg.admin_api_key => true,
+        // A key minted by `POST /_security/api_key`.
+        Some(key) if authenticate_api_key(state, key) => true,
+        _ => false,
     }
 }
 
@@ -291,6 +325,46 @@ mod tests {
             status,
             StatusCode::UNAUTHORIZED,
             "invalidated key should 401"
+        );
+    }
+
+    /// Regression for the RC4 blocker: `/health/live` + `/health/ready` must
+    /// stay reachable without credentials even when auth is enabled, so Docker
+    /// HEALTHCHECKs and k8s probes don't crashloop on a hardened deployment.
+    /// Every other route must still demand a key.
+    #[tokio::test]
+    async fn health_probes_bypass_auth_when_enabled() {
+        let admin = "admin-secret-key";
+        let state = test_state(admin);
+        let app = Router::new()
+            .route("/health/live", get(|| async { "live" }))
+            .route("/health/ready", get(|| async { "ready" }))
+            .route("/_cluster/health", get(|| async { "data" }))
+            .layer(middleware::from_fn_with_state(
+                state.clone(),
+                auth_middleware,
+            ))
+            .with_state(state);
+
+        // Probes answer 200 with NO credentials, even though auth is on.
+        let (status, _) = send(&app, "GET", "/health/live", None, "").await;
+        assert_eq!(status, StatusCode::OK, "liveness must bypass auth");
+        let (status, _) = send(&app, "GET", "/health/ready", None, "").await;
+        assert_eq!(status, StatusCode::OK, "readiness must bypass auth");
+
+        // A normal endpoint still requires the key.
+        let (status, _) = send(&app, "GET", "/_cluster/health", None, "").await;
+        assert_eq!(
+            status,
+            StatusCode::UNAUTHORIZED,
+            "data endpoint must still 401 without a key"
+        );
+        let admin_hdr = format!("ApiKey {admin}");
+        let (status, _) = send(&app, "GET", "/_cluster/health", Some(&admin_hdr), "").await;
+        assert_eq!(
+            status,
+            StatusCode::OK,
+            "data endpoint must pass with the admin key"
         );
     }
 }

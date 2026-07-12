@@ -260,15 +260,62 @@ impl XerjSearch for GrpcService {
     }
 }
 
+/// gRPC authentication interceptor.
+///
+/// Runs before every RPC (unary and streaming) and enforces the **same**
+/// API-key credentials as the REST / ES-compat `auth_middleware`, via the
+/// shared [`xerj_api::auth::is_authorized`] decision. Without it the gRPC
+/// listener was fully unauthenticated even with `auth.enabled = true`: any
+/// client on the network could read, write, and delete documents (the listener
+/// binds `server.bind_address`, default `0.0.0.0`).
+///
+/// The credential is read from the `authorization` request metadata
+/// (`ApiKey <key>` or `Bearer <key>`), mirroring the HTTP `Authorization`
+/// header. When auth is disabled (or no admin key is configured — e.g.
+/// `--insecure` / first run) the interceptor is a no-op, matching the HTTP
+/// surface exactly.
+///
+/// Note: the tonic listener speaks plaintext h2c (TLS terminates at a reverse
+/// proxy or the in-process TLS on the REST/ES listeners), so in an untrusted
+/// network the port should still sit behind TLS termination — but it is no
+/// longer an unauthenticated open door.
+#[derive(Clone)]
+struct GrpcAuth {
+    state: AppState,
+}
+
+impl tonic::service::Interceptor for GrpcAuth {
+    fn call(&mut self, request: Request<()>) -> Result<Request<()>, Status> {
+        let auth_header = request
+            .metadata()
+            .get("authorization")
+            .and_then(|v| v.to_str().ok());
+
+        if xerj_api::auth::is_authorized(&self.state, auth_header) {
+            Ok(request)
+        } else {
+            Err(Status::unauthenticated(
+                "missing or invalid API key in authorization metadata",
+            ))
+        }
+    }
+}
+
 /// Serve the `XerjSearch` gRPC service on `addr` until `shutdown` resolves.
 ///
 /// Returns `Err` if the port cannot be bound or the transport fails; callers
 /// log-and-continue so a gRPC bind failure never takes the whole server down.
+///
+/// Every RPC is guarded by [`GrpcAuth`], which enforces the same API-key auth
+/// as the REST / ES-compat listeners.
 pub async fn serve_grpc<F>(addr: SocketAddr, state: AppState, shutdown: F) -> anyhow::Result<()>
 where
     F: std::future::Future<Output = ()> + Send + 'static,
 {
-    let svc = XerjSearchServer::new(GrpcService::new(state));
+    let interceptor = GrpcAuth {
+        state: state.clone(),
+    };
+    let svc = XerjSearchServer::with_interceptor(GrpcService::new(state), interceptor);
     info!("gRPC XerjSearch listening on {addr}");
     tonic::transport::Server::builder()
         .add_service(svc)
@@ -290,6 +337,17 @@ mod tests {
     fn app_state(dir: &TempDir) -> AppState {
         let mut config = Config::default();
         config.server.data_dir = dir.path().to_str().unwrap().to_string();
+        let metrics = Metrics::new().expect("metrics init");
+        let engine = Engine::new(config.clone()).expect("engine init");
+        AppState::new(config, engine, metrics)
+    }
+
+    /// Like `app_state`, but with API-key auth enabled and a fixed admin key.
+    fn app_state_with_auth(dir: &TempDir, admin_key: &str) -> AppState {
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_str().unwrap().to_string();
+        config.auth.enabled = true;
+        config.auth.admin_api_key = admin_key.to_string();
         let metrics = Metrics::new().expect("metrics init");
         let engine = Engine::new(config.clone()).expect("engine init");
         AppState::new(config, engine, metrics)
@@ -403,6 +461,124 @@ mod tests {
             .expect("delete rpc")
             .into_inner();
         assert_eq!(deleted.result, "deleted");
+
+        // Shut the server down cleanly.
+        let _ = tx.send(());
+        let _ = server.await;
+    }
+
+    /// Regression for the RC4 security blocker: with `auth.enabled = true` the
+    /// gRPC listener was fully unauthenticated — any client could read, write,
+    /// and delete. Every RPC must now demand a valid API key (via the
+    /// `authorization` metadata), and a correct key must still work end-to-end.
+    #[tokio::test]
+    async fn grpc_enforces_auth_when_enabled() {
+        use tonic::Code;
+
+        let dir = TempDir::new().unwrap();
+        let admin = "grpc-admin-secret";
+        let state = app_state_with_auth(&dir, admin);
+
+        let port = free_port();
+        let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
+        let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+        let server = tokio::spawn(serve_grpc(addr, state, async move {
+            let _ = rx.await;
+        }));
+
+        let url = format!("http://127.0.0.1:{port}");
+        let mut client = connect(&url).await;
+
+        // The admin key as an `authorization` metadata value.
+        let auth = format!("ApiKey {admin}");
+        let key_val: tonic::metadata::MetadataValue<tonic::metadata::Ascii> = auth.parse().unwrap();
+
+        // ── Unauthenticated calls are rejected across read/write/delete ──────
+        let e = client
+            .health(pb::HealthRequest {})
+            .await
+            .expect_err("unauth health must be rejected");
+        assert_eq!(e.code(), Code::Unauthenticated, "health: {e:?}");
+
+        let e = client
+            .search(pb::SearchRequest {
+                index: "grpc_auth".into(),
+                query_json: String::new(),
+                size: 0,
+                from: 0,
+            })
+            .await
+            .expect_err("unauth search must be rejected");
+        assert_eq!(e.code(), Code::Unauthenticated, "search: {e:?}");
+
+        let e = client
+            .index(pb::IndexRequest {
+                index: "grpc_auth".into(),
+                id: "x".into(),
+                source_json: r#"{"a":1}"#.into(),
+            })
+            .await
+            .expect_err("unauth index(write) must be rejected");
+        assert_eq!(e.code(), Code::Unauthenticated, "index: {e:?}");
+
+        let e = client
+            .get_document(pb::GetRequest {
+                index: "grpc_auth".into(),
+                id: "x".into(),
+            })
+            .await
+            .expect_err("unauth get must be rejected");
+        assert_eq!(e.code(), Code::Unauthenticated, "get: {e:?}");
+
+        let e = client
+            .delete_document(pb::DeleteRequest {
+                index: "grpc_auth".into(),
+                id: "x".into(),
+            })
+            .await
+            .expect_err("unauth delete must be rejected");
+        assert_eq!(e.code(), Code::Unauthenticated, "delete: {e:?}");
+
+        // ── A wrong key is rejected ─────────────────────────────────────────
+        let mut bad = tonic::Request::new(pb::HealthRequest {});
+        bad.metadata_mut()
+            .insert("authorization", "ApiKey wrong-key".parse().unwrap());
+        let e = client
+            .health(bad)
+            .await
+            .expect_err("wrong key must be rejected");
+        assert_eq!(e.code(), Code::Unauthenticated, "wrong-key: {e:?}");
+
+        // ── The correct admin key works end-to-end (write → read → delete) ──
+        let mut req = tonic::Request::new(pb::IndexRequest {
+            index: "grpc_auth".into(),
+            id: "x".into(),
+            source_json: r#"{"a":1}"#.into(),
+        });
+        req.metadata_mut().insert("authorization", key_val.clone());
+        let indexed = client.index(req).await.expect("authed index").into_inner();
+        assert_eq!(indexed.result, "created");
+
+        let mut req = tonic::Request::new(pb::GetRequest {
+            index: "grpc_auth".into(),
+            id: "x".into(),
+        });
+        req.metadata_mut().insert("authorization", key_val.clone());
+        let got = client
+            .get_document(req)
+            .await
+            .expect("authed get")
+            .into_inner();
+        assert!(got.found, "authed get should find the doc");
+
+        let mut req = tonic::Request::new(pb::HealthRequest {});
+        req.metadata_mut().insert("authorization", key_val.clone());
+        let h = client
+            .health(req)
+            .await
+            .expect("authed health")
+            .into_inner();
+        assert!(!h.status.is_empty(), "authed health status must be set");
 
         // Shut the server down cleanly.
         let _ = tx.send(());
