@@ -10395,8 +10395,7 @@ impl Index {
                     for (ord, term) in k.terms.iter().enumerate() {
                         let folded = term.to_lowercase();
                         if term_matches(&folded) {
-                            let seg_df =
-                                k.per_ord_count.get(ord).copied().unwrap_or(0) as u64;
+                            let seg_df = k.per_ord_count.get(ord).copied().unwrap_or(0) as u64;
                             let dist = levenshtein_distance(&folded, &q_folded);
                             let e = map.entry(term.clone()).or_insert((dist, 0));
                             e.1 += seg_df;
@@ -10540,11 +10539,19 @@ impl Index {
             None
         } else {
             match (plan, &eval_root) {
-                (ScoredPlan::Composed { .. }, Some(ClauseEval::Bool { must, should, filter, must_not, .. }))
-                    if must.len() == 1
-                        && should.is_empty()
-                        && filter.is_empty()
-                        && must_not.is_empty() =>
+                (
+                    ScoredPlan::Composed { .. },
+                    Some(ClauseEval::Bool {
+                        must,
+                        should,
+                        filter,
+                        must_not,
+                        ..
+                    }),
+                ) if must.len() == 1
+                    && should.is_empty()
+                    && filter.is_empty()
+                    && must_not.is_empty() =>
                 {
                     match must[0] {
                         ClauseEval::Leaf(i) => Some(i),
@@ -10555,12 +10562,21 @@ impl Index {
                 // lone-should lowering): default minimum_should_match for a
                 // must-less bool is 1, so the match set and the score are
                 // exactly the leaf's — identical semantics to the must wrap.
-                (ScoredPlan::Composed { .. }, Some(ClauseEval::Bool { must, should, filter, must_not, required_should, .. }))
-                    if must.is_empty()
-                        && should.len() == 1
-                        && *required_should <= 1
-                        && filter.is_empty()
-                        && must_not.is_empty() =>
+                (
+                    ScoredPlan::Composed { .. },
+                    Some(ClauseEval::Bool {
+                        must,
+                        should,
+                        filter,
+                        must_not,
+                        required_should,
+                        ..
+                    }),
+                ) if must.is_empty()
+                    && should.len() == 1
+                    && *required_should <= 1
+                    && filter.is_empty()
+                    && must_not.is_empty() =>
                 {
                     match should[0] {
                         ClauseEval::Leaf(i) => Some(i),
@@ -10587,7 +10603,11 @@ impl Index {
                             }
                         }
                     }
-                    if ok { live } else { None }
+                    if ok {
+                        live
+                    } else {
+                        None
+                    }
                 }
                 _ => None,
             }
@@ -10658,52 +10678,57 @@ impl Index {
         // match set).  One flat pass counts the exact total and keeps the
         // first keep_target rows of EACH value class (seq-asc ⇒ those are
         // the classes' k-best); the global heap then merges hi before lo.
-        let flat_bool2: Option<(Vec<usize>, usize, std::ops::Range<usize>, std::ops::Range<usize>, f32, f32)> =
-            if any_ghosts || composed_constant_leaf.is_some() || flat_conjunction.is_some() {
-                None
-            } else {
-                match (plan, &eval_root) {
-                    (
-                        ScoredPlan::Composed { .. },
-                        Some(ClauseEval::Bool {
-                            must,
-                            should,
-                            filter,
-                            must_not,
-                            required_should,
-                            ..
-                        }),
-                    ) if !must.is_empty() && should.len() == 1 && *required_should == 0 => {
-                        let mut idx = Vec::with_capacity(must.len());
-                        let mut ok = true;
-                        for c in must {
-                            match c {
-                                ClauseEval::Leaf(i) => idx.push(*i),
-                                _ => {
-                                    ok = false;
-                                    break;
-                                }
+        let flat_bool2: Option<(
+            Vec<usize>,
+            usize,
+            std::ops::Range<usize>,
+            std::ops::Range<usize>,
+            f32,
+            f32,
+        )> = if any_ghosts || composed_constant_leaf.is_some() || flat_conjunction.is_some() {
+            None
+        } else {
+            match (plan, &eval_root) {
+                (
+                    ScoredPlan::Composed { .. },
+                    Some(ClauseEval::Bool {
+                        must,
+                        should,
+                        filter,
+                        must_not,
+                        required_should,
+                        ..
+                    }),
+                ) if !must.is_empty() && should.len() == 1 && *required_should == 0 => {
+                    let mut idx = Vec::with_capacity(must.len());
+                    let mut ok = true;
+                    for c in must {
+                        match c {
+                            ClauseEval::Leaf(i) => idx.push(*i),
+                            _ => {
+                                ok = false;
+                                break;
                             }
-                        }
-                        let sh = match should[0] {
-                            ClauseEval::Leaf(i) => Some(i),
-                            _ => None,
-                        };
-                        match (ok, sh) {
-                            (true, Some(sh)) => {
-                                let base: f64 =
-                                    idx.iter().map(|&i| clause_scores[i] as f64).sum();
-                                let lo = base as f32;
-                                let hi = (base + clause_scores[sh] as f64) as f32;
-                                idx.sort_by_key(|&i| df[i]);
-                                Some((idx, sh, filter.clone(), must_not.clone(), hi, lo))
-                            }
-                            _ => None,
                         }
                     }
-                    _ => None,
+                    let sh = match should[0] {
+                        ClauseEval::Leaf(i) => Some(i),
+                        _ => None,
+                    };
+                    match (ok, sh) {
+                        (true, Some(sh)) => {
+                            let base: f64 = idx.iter().map(|&i| clause_scores[i] as f64).sum();
+                            let lo = base as f32;
+                            let hi = (base + clause_scores[sh] as f64) as f32;
+                            idx.sort_by_key(|&i| df[i]);
+                            Some((idx, sh, filter.clone(), must_not.clone(), hi, lo))
+                        }
+                        _ => None,
+                    }
                 }
-            };
+                _ => None,
+            }
+        };
 
         for (si, (meta, cols)) in segments.iter().zip(seg_cols.iter()).enumerate() {
             let seqs: &[u64] = &seg_seqs[si];
@@ -10780,7 +10805,8 @@ impl Index {
                         // matches form the contiguous ordinal range
                         // [lo, hi) bounded by two partition_points.
                         let lo = k.terms.partition_point(|t| t.as_str() < prefix.as_str());
-                        let hi = lo + k.terms[lo..].partition_point(|t| t.starts_with(prefix.as_str()));
+                        let hi =
+                            lo + k.terms[lo..].partition_point(|t| t.starts_with(prefix.as_str()));
                         fev.push(FilterEval::Kw {
                             col: k,
                             no_nulls: k.null_bitmap.is_empty(),
@@ -10795,10 +10821,7 @@ impl Index {
                         // run the SAME matcher as the brute path over the
                         // (distinct) dictionary terms so match semantics
                         // cannot drift.
-                        let lit: &str = pattern
-                            .split(['*', '?'])
-                            .next()
-                            .unwrap_or("");
+                        let lit: &str = pattern.split(['*', '?']).next().unwrap_or("");
                         let lo = k.terms.partition_point(|t| t.as_str() < lit);
                         let hi = lo + k.terms[lo..].partition_point(|t| t.starts_with(lit));
                         let ords: Vec<u32> = (lo..hi)
@@ -10946,7 +10969,8 @@ impl Index {
                         }
                         continue;
                     }
-                    if let (true, true, Some(li)) = (constant_plan, seq_asc, composed_constant_leaf) {
+                    if let (true, true, Some(li)) = (constant_plan, seq_asc, composed_constant_leaf)
+                    {
                         // Constant-plan fast lane (see `constant_plan` /
                         // `composed_constant_leaf`): closed-form total from
                         // the single live leaf, walk only until this
@@ -20708,11 +20732,19 @@ impl FilterEval<'_> {
             } => {
                 let lo = col.sorted.partition_point(|&(b, _)| {
                     let v = f64::from_bits(b as u64);
-                    if *min_inc { v < *min } else { v <= *min }
+                    if *min_inc {
+                        v < *min
+                    } else {
+                        v <= *min
+                    }
                 });
                 let hi = col.sorted.partition_point(|&(b, _)| {
                     let v = f64::from_bits(b as u64);
-                    if *max_inc { v <= *max } else { v < *max }
+                    if *max_inc {
+                        v <= *max
+                    } else {
+                        v < *max
+                    }
                 });
                 (hi - lo) as u64
             }
