@@ -422,6 +422,41 @@ async fn shutdown_signal() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Periodic background flush
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Spawn the periodic background flush task: every `every`, flush any index
+/// whose memtable is over its configured thresholds
+/// (`Engine::flush_all_if_needed`).
+///
+/// This is the safety net for memtable state the write-path flush scheduler
+/// (`maybe_spawn_flush`, which only runs inside write requests) cannot see:
+///
+/// - WAL replay at boot can leave an index over-threshold before any write
+///   arrives;
+/// - a write-path flush skipped under flush-permit exhaustion is never
+///   retried if the writes stop.
+///
+/// Runs until aborted (the caller aborts it after the listeners exit, right
+/// before the final `flush_all_force`). `MissedTickBehavior::Delay` keeps a
+/// flush that overruns the interval from being punished with an immediate
+/// burst of catch-up ticks.
+fn spawn_periodic_flusher(
+    engine: std::sync::Arc<Engine>,
+    every: std::time::Duration,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(every);
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        interval.tick().await; // consume the immediate first tick
+        loop {
+            interval.tick().await;
+            engine.flush_all_if_needed().await;
+        }
+    })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Server runners
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1128,16 +1163,10 @@ async fn async_main() -> Result<()> {
         .context("parse gRPC bind address")?;
 
     // 12. Background flush timer
-    let flush_interval = std::time::Duration::from_secs(cfg.storage.flush_interval_secs);
-    let flush_engine = state.engine.clone();
-    let flusher = tokio::spawn(async move {
-        let mut interval = tokio::time::interval(flush_interval);
-        interval.tick().await; // skip the immediate first tick
-        loop {
-            interval.tick().await;
-            flush_engine.flush_all_if_needed().await;
-        }
-    });
+    let flusher = spawn_periodic_flusher(
+        state.engine.clone(),
+        std::time::Duration::from_secs(cfg.storage.flush_interval_secs),
+    );
 
     // 13. Start servers concurrently
     let rest_tls = tls_config.clone();
@@ -1165,8 +1194,20 @@ async fn async_main() -> Result<()> {
     });
 
     // 14. Wait for all servers (they exit together on shutdown)
-    flusher.abort(); // flusher runs until servers stop
     let _ = tokio::join!(rest, es, grpc);
+
+    // Servers are down — stop the periodic flusher BEFORE the final
+    // synchronous flush below so its next tick can't race
+    // `flush_all_force` during shutdown.
+    //
+    // RC4 W2 #20: this abort used to sit ABOVE the `join!`, killing the
+    // flusher milliseconds after it was spawned.  `flush_interval_secs`
+    // was inert for the entire life of the server: an over-threshold
+    // memtable that the write-path flush scheduler missed (WAL replay at
+    // boot, flush-permit exhaustion on the last write) sat in memory —
+    // pinning its WAL generations on disk — until shutdown or the next
+    // explicit `_flush`.
+    flusher.abort();
 
     // 15. Final synchronous flush across every index.
     //
@@ -1295,6 +1336,90 @@ mod tls_tests {
         assert!(
             res.is_err(),
             "missing cert with TLS enabled must error, not downgrade"
+        );
+    }
+}
+
+/// RC4 W2 #20 regression test. Like `tls_tests` above, it lives in the
+/// binary crate because `spawn_periodic_flusher` is a private item of
+/// `main.rs`.
+#[cfg(test)]
+mod server_correctness_tests {
+    use super::*;
+    use tempfile::TempDir;
+    use xerj_common::types::Schema;
+
+    /// RC4 W2 #20: the periodic flusher must actually flush an
+    /// over-threshold memtable on its interval.
+    ///
+    /// Phase 1 lands ~2 MiB of docs under huge thresholds (memtable + WAL
+    /// only, no segments) and drops the engine WITHOUT the shutdown flush —
+    /// exactly what a crash leaves behind. Phase 2 reopens the same data
+    /// dir with a 1 MiB flush threshold: WAL replay leaves the memtable
+    /// over threshold with no writes arriving, so the ONLY mechanism that
+    /// can flush it is the periodic flusher. Before the fix,
+    /// `flusher.abort()` ran before `tokio::join!`, so this state persisted
+    /// until shutdown and the flush below never happened.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn periodic_flusher_flushes_replayed_over_threshold_memtable() {
+        let dir = TempDir::new().unwrap();
+        let data_dir = dir.path().to_str().unwrap().to_string();
+
+        // Phase 1: memtable + WAL only, then drop without flushing.
+        {
+            let mut cfg = Config::default();
+            cfg.server.data_dir = data_dir.clone();
+            cfg.storage.flush_size_mb = 4096; // never cross in this phase
+            cfg.storage.flush_interval_secs = 3600;
+            let engine = Engine::new(cfg).unwrap();
+            engine.create_index("t20", Schema::empty()).unwrap();
+            let idx = engine.get_index("t20").unwrap();
+            let body = "x".repeat(1024);
+            for i in 0..2048u32 {
+                idx.index_document(
+                    Some(i.to_string()),
+                    serde_json::json!({ "body": body, "n": i }),
+                )
+                .await
+                .unwrap();
+            }
+            let stats = engine.index_stats("t20").await.unwrap();
+            assert_eq!(
+                stats.segment_count, 0,
+                "phase 1 must stay memtable-only (raise thresholds if this fires)"
+            );
+        }
+
+        // Phase 2: reopen with a 1 MiB threshold — replay puts the
+        // memtable over threshold; no writes arrive.
+        let mut cfg = Config::default();
+        cfg.server.data_dir = data_dir;
+        cfg.storage.flush_size_mb = 1;
+        cfg.storage.flush_interval_secs = 3600; // irrelevant; we drive our own timer
+        let engine = std::sync::Arc::new(Engine::new(cfg).unwrap());
+
+        // WAL replay alone must not flush — otherwise this test would pass
+        // without the flusher and prove nothing.
+        let stats = engine.index_stats("t20").await.unwrap();
+        assert_eq!(
+            stats.segment_count, 0,
+            "WAL replay must not flush by itself"
+        );
+
+        let flusher = spawn_periodic_flusher(engine.clone(), std::time::Duration::from_millis(100));
+
+        let mut flushed = false;
+        for _ in 0..50 {
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            if engine.index_stats("t20").await.unwrap().segment_count > 0 {
+                flushed = true;
+                break;
+            }
+        }
+        flusher.abort();
+        assert!(
+            flushed,
+            "periodic flusher never flushed the over-threshold replayed memtable"
         );
     }
 }
