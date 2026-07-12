@@ -673,24 +673,9 @@ impl WalWriter {
         &self,
         verify: &dyn Fn(&WalEntry, SeqNo) -> bool,
     ) -> Result<usize> {
-        let active_gen = self.generation;
-        let entries = fs::read_dir(&self.dir)?;
-        let mut wal_files: Vec<(u64, std::path::PathBuf)> = Vec::new();
-        for entry in entries.flatten() {
-            let name = entry.file_name();
-            let name_str = name.to_string_lossy();
-            if name_str.ends_with(".wal") {
-                if let Some(gen) = parse_wal_generation(&name_str) {
-                    if gen < active_gen {
-                        wal_files.push((gen, entry.path()));
-                    }
-                }
-            }
-        }
-
         let mut pruned = 0usize;
-        for (gen, path) in &wal_files {
-            let (gen_entries, clean) = self.read_generation_entries(*gen);
+        for gen in self.rotated_generations()? {
+            let (gen_entries, clean) = self.read_generation_entries(gen);
             if !clean {
                 // Undecodable bytes — cannot prove them durable; keep the
                 // generation.  (Torn tails from a previous crash park here
@@ -707,20 +692,42 @@ impl WalWriter {
                 );
                 continue;
             }
-            match fs::remove_file(path) {
-                Ok(()) => {
-                    pruned += 1;
-                    debug!(gen, entries = gen_entries.len(), "pruned WAL generation");
-                }
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                    debug!(gen, "WAL file already pruned by sibling flush — ok");
-                }
-                Err(e) => return Err(e.into()),
+            if self.delete_generation(gen)? {
+                pruned += 1;
+                debug!(gen, entries = gen_entries.len(), "pruned WAL generation");
             }
-            let ck = checkpoint_path(&self.dir, *gen);
-            let _ = fs::remove_file(&ck);
         }
         Ok(pruned)
+    }
+
+    /// List every on-disk generation strictly older than the active one
+    /// (i.e. rotated, frozen files — the prune candidates).
+    pub fn rotated_generations(&self) -> Result<Vec<u64>> {
+        let active_gen = self.generation;
+        let mut gens: Vec<u64> = fs::read_dir(&self.dir)?
+            .flatten()
+            .filter_map(|e| parse_wal_generation(&e.file_name().to_string_lossy()))
+            .filter(|&g| g < active_gen)
+            .collect();
+        gens.sort_unstable();
+        Ok(gens)
+    }
+
+    /// Delete a generation's `.wal` file (and its stale `.wchk`).  Returns
+    /// `Ok(true)` when this call removed the file, `Ok(false)` when a
+    /// sibling maintenance pass got there first (ENOENT — benign: sharded
+    /// flushes prune all WAL shards in parallel).
+    pub fn delete_generation(&self, gen: u64) -> Result<bool> {
+        let removed = match fs::remove_file(wal_path(&self.dir, gen)) {
+            Ok(()) => true,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                debug!(gen, "WAL file already pruned by sibling flush — ok");
+                false
+            }
+            Err(e) => return Err(e.into()),
+        };
+        let _ = fs::remove_file(checkpoint_path(&self.dir, gen));
+        Ok(removed)
     }
 
     fn rotate(&mut self) -> Result<()> {

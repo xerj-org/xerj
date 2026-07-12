@@ -418,6 +418,33 @@ pub struct IndexStore {
     /// design is segment-level tombstones (see SectionType::Tombstones
     /// note in the flush path).
     pending_deletes: Mutex<std::collections::HashMap<String, (SeqNo, usize)>>,
+    /// RC4 W1 #8 follow-up — per-generation verification verdict cache for
+    /// the verified WAL prune, keyed by `(wal_shard, generation)`.
+    ///
+    /// Without it, every 1 s maintenance tick re-decoded EVERY retained
+    /// rotated generation end-to-end (LZ4 + serde_json per entry) just to
+    /// re-discover that some entries were still unflushed — O(retained WAL
+    /// bytes) of parse work per tick, i.e. potentially many seconds' worth
+    /// of ingest re-parsed every second on a busy shard between flushes.
+    /// Verdicts are stable (durability proofs are monotone: seqs only
+    /// grow, a doc's segment residency never reverts to `__memtable__`
+    /// for the same-or-older seq), so a generation is decoded ONCE; later
+    /// ticks re-check only its remaining unproven `(doc_id, seq)` pairs
+    /// against the version map and prune once the list drains.
+    wal_prune_cache: Mutex<std::collections::HashMap<(usize, u64), WalGenVerdict>>,
+}
+
+/// Cached verification state of one rotated WAL generation.
+enum WalGenVerdict {
+    /// Every entry proven durable-or-superseded — prunable now.
+    Durable,
+    /// Entries still unproven at last check: `(is_delete, doc_id, seq)`.
+    /// Re-verified against the version map on each maintenance tick;
+    /// drained-to-empty ⇒ Durable.
+    Unproven(Vec<(bool, String, SeqNo)>),
+    /// The file failed to decode end-to-end (torn tail from a crash) —
+    /// never prunable this process lifetime; skipped without re-decoding.
+    Undecodable,
 }
 
 const WAL_MAINTENANCE_INTERVAL_MS: u64 = 1_000;
@@ -478,6 +505,7 @@ impl IndexStore {
             read_leases: std::sync::atomic::AtomicUsize::new(0),
             retired_segments: Mutex::new(Vec::new()),
             pending_deletes: Mutex::new(std::collections::HashMap::new()),
+            wal_prune_cache: Mutex::new(std::collections::HashMap::new()),
         });
 
         // Rebuild version map from flushed segments first (so WAL replay can
@@ -1706,21 +1734,31 @@ impl IndexStore {
     /// batch paths append to the WAL before the version-map set).
     fn wal_entry_durable(&self, entry: &WalEntry, seq: SeqNo) -> bool {
         match entry {
-            WalEntry::Index { doc_id, .. } => match self.version_map.get(doc_id) {
+            WalEntry::Index { doc_id, .. } => self.wal_pair_durable(false, doc_id, seq),
+            WalEntry::Delete { doc_id } => self.wal_pair_durable(true, doc_id, seq),
+            WalEntry::UpdateMapping { .. } => true,
+        }
+    }
+
+    /// Core of [`wal_entry_durable`](Self::wal_entry_durable), operating on
+    /// the `(is_delete, doc_id, seq)` shape the prune cache stores.
+    fn wal_pair_durable(&self, is_delete: bool, doc_id: &str, seq: SeqNo) -> bool {
+        if is_delete {
+            match self.version_map.get(doc_id) {
+                Some(e) if !e.deleted => {
+                    e.seq_no > seq && &*e.segment_id != IN_MEMORY_SEGMENT_ID
+                }
+                _ => false,
+            }
+        } else {
+            match self.version_map.get(doc_id) {
                 Some(e) if e.deleted => e.seq_no >= seq,
                 Some(e) => {
                     e.seq_no > seq
                         || (e.seq_no == seq && &*e.segment_id != IN_MEMORY_SEGMENT_ID)
                 }
                 None => false,
-            },
-            WalEntry::Delete { doc_id } => match self.version_map.get(doc_id) {
-                Some(e) if !e.deleted => {
-                    e.seq_no > seq && &*e.segment_id != IN_MEMORY_SEGMENT_ID
-                }
-                _ => false,
-            },
-            WalEntry::UpdateMapping { .. } => true,
+            }
         }
     }
 
@@ -1741,15 +1779,21 @@ impl IndexStore {
     ///
     /// New per-shard flow (under the shard's WAL mutex):
     /// - skip entirely if the shard is pinned by an unpersisted delete;
-    /// - decode the ACTIVE generation and check every entry against
+    /// - decode the ACTIVE generation once and check every entry against
     ///   [`wal_entry_durable`](Self::wal_entry_durable);
     /// - if fully durable: write a checkpoint (safe values — kept for
     ///   data-dir compatibility with older binaries) and force-rotate so
     ///   the generation becomes prunable;
     /// - if it holds any unproven entry: force-rotate WITHOUT a
-    ///   checkpoint (freezes the generation; per-entry verification
+    ///   checkpoint (freezes the generation; per-pair re-verification
     ///   reclaims it on a later tick once everything in it flushed);
-    /// - `prune_verified` every rotated generation.
+    /// - the rotated generation's verdict (durable / unproven pairs /
+    ///   undecodable) is recorded in `wal_prune_cache` so no frozen file
+    ///   is ever decoded twice — later ticks only re-check the cached
+    ///   unproven pairs against the version map (see the cache's doc
+    ///   comment for the O(retained WAL bytes)/tick problem this solves);
+    /// - prune every rotated generation whose verdict has drained to
+    ///   Durable.
     ///
     /// The caller must persist the snapshot (`save_snapshot`) BEFORE this
     /// runs so every segment the proofs point at is registered on disk.
@@ -1769,17 +1813,101 @@ impl IndexStore {
             wal.soft_flush()?;
             let active_gen = wal.active_generation();
             let (entries, clean) = wal.read_generation_entries(active_gen);
-            let all_durable =
-                clean && entries.iter().all(|e| self.wal_entry_durable(&e.entry, e.seq_no));
-            if all_durable {
-                wal.checkpoint(durable_max_seq)?;
+            let unproven = self.collect_unproven(&entries);
+            if clean && unproven.is_empty() {
+                if !entries.is_empty() {
+                    wal.checkpoint(durable_max_seq)?;
+                }
                 wal.force_rotate()?;
-            } else if !entries.is_empty() {
+            } else {
                 wal.force_rotate()?;
             }
-            wal.prune_verified(&|entry, seq| self.wal_entry_durable(entry, seq))?;
+            // Record the verdict for the generation we just froze (if the
+            // rotate was a no-op — empty generation — there is nothing to
+            // record).
+            if wal.active_generation() != active_gen {
+                let verdict = if !clean {
+                    WalGenVerdict::Undecodable
+                } else if unproven.is_empty() {
+                    WalGenVerdict::Durable
+                } else {
+                    WalGenVerdict::Unproven(unproven)
+                };
+                self.wal_prune_cache
+                    .lock()
+                    .unwrap()
+                    .insert((ws_idx, active_gen), verdict);
+            }
+
+            // Prune pass over all rotated generations, cache-first.
+            for gen in wal.rotated_generations()? {
+                let mut cache = self.wal_prune_cache.lock().unwrap();
+                let verdict = cache.entry((ws_idx, gen)).or_insert_with(|| {
+                    // Cache miss: a generation rotated by the size-based
+                    // append path, or retained across a restart.  Decode
+                    // it exactly once.
+                    let (gen_entries, gen_clean) = wal.read_generation_entries(gen);
+                    if !gen_clean {
+                        WalGenVerdict::Undecodable
+                    } else {
+                        let pairs = self.collect_unproven(&gen_entries);
+                        if pairs.is_empty() {
+                            WalGenVerdict::Durable
+                        } else {
+                            WalGenVerdict::Unproven(pairs)
+                        }
+                    }
+                });
+                let prunable = match verdict {
+                    WalGenVerdict::Durable => true,
+                    WalGenVerdict::Undecodable => {
+                        debug!(gen, shard = ws_idx, "WAL generation retained: undecodable");
+                        false
+                    }
+                    WalGenVerdict::Unproven(pairs) => {
+                        // Cheap re-check: version-map lookups only.
+                        pairs.retain(|(is_delete, doc_id, seq)| {
+                            !self.wal_pair_durable(*is_delete, doc_id, *seq)
+                        });
+                        if pairs.is_empty() {
+                            *verdict = WalGenVerdict::Durable;
+                            true
+                        } else {
+                            debug!(
+                                gen,
+                                shard = ws_idx,
+                                unproven = pairs.len(),
+                                "WAL generation retained: acked-but-unflushed entries"
+                            );
+                            false
+                        }
+                    }
+                };
+                if prunable {
+                    wal.delete_generation(gen)?;
+                    cache.remove(&(ws_idx, gen));
+                }
+            }
         }
         Ok(())
+    }
+
+    /// Collect the `(is_delete, doc_id, seq)` pairs of every entry NOT yet
+    /// provable durable (mapping updates are always durable and never
+    /// collected).
+    fn collect_unproven(
+        &self,
+        entries: &[crate::wal::ReplayEntry],
+    ) -> Vec<(bool, String, SeqNo)> {
+        entries
+            .iter()
+            .filter(|e| !self.wal_entry_durable(&e.entry, e.seq_no))
+            .filter_map(|e| match &e.entry {
+                WalEntry::Index { doc_id, .. } => Some((false, doc_id.clone(), e.seq_no)),
+                WalEntry::Delete { doc_id } => Some((true, doc_id.clone(), e.seq_no)),
+                WalEntry::UpdateMapping { .. } => None,
+            })
+            .collect()
     }
 
     /// Unconditionally run verified WAL maintenance across all shards.
@@ -2817,6 +2945,66 @@ mod tests {
             wal_bytes <= wal_files as u64 * 16,
             "fully-flushed WAL not reclaimed: {wal_files} files, {wal_bytes} bytes"
         );
+    }
+
+    /// RC4 W1 #8 follow-up — a generation frozen with unproven entries is
+    /// retained via the verdict cache (no re-decode on later ticks) and
+    /// pruned by the cached-pairs recheck once a later flush makes its
+    /// entries durable.
+    #[test]
+    fn prune_cache_reclaims_after_late_flush() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = open_test_store(dir.path());
+
+        for i in 0..20 {
+            store
+                .index(format!("a{i}"), serde_json::json!({"v": i}))
+                .unwrap();
+        }
+        let drained = store.take_memtable_for_flush().unwrap();
+        // Acked while the flush is in flight — unproven at maintenance #1.
+        for i in 0..10 {
+            store
+                .index(format!("late{i}"), serde_json::json!({"v": i}))
+                .unwrap();
+        }
+        store
+            .finalize_flush_with_publisher(drained, |_| Ok(()))
+            .unwrap();
+        store.force_wal_maintenance().unwrap();
+
+        // The late docs' generation must be retained (bytes on disk).
+        let retained: u64 = walk_wal_files(&store.wal_dir()).iter().sum();
+        assert!(
+            retained > walk_wal_files(&store.wal_dir()).len() as u64 * 16,
+            "late docs' WAL generation must be retained while unflushed"
+        );
+
+        // A later flush makes them durable; the cached-pairs recheck must
+        // then reclaim everything.
+        store.flush().unwrap().expect("late docs flush");
+        store.force_wal_maintenance().unwrap();
+        let files = walk_wal_files(&store.wal_dir());
+        let bytes: u64 = files.iter().sum();
+        assert!(
+            bytes <= files.len() as u64 * 16,
+            "WAL not reclaimed after late flush: {} files, {bytes} bytes",
+            files.len()
+        );
+
+        // And nothing was lost.
+        drop(store);
+        let store2 = open_test_store(dir.path());
+        for i in 0..10 {
+            assert!(
+                store2
+                    .version_map
+                    .get(&format!("late{i}"))
+                    .map(|e| !e.deleted)
+                    .unwrap_or(false),
+                "late{i} lost"
+            );
+        }
     }
 
     fn walk_wal_files(root: &Path) -> Vec<u64> {
