@@ -21109,7 +21109,14 @@ fn scored_fast_plan(
     numeric_fields: &HashSet<String>,
     boolean_fields: &HashSet<String>,
 ) -> Option<ScoredPlan> {
-    // Request-level plainness — identical to `function_score_fast_fvf`.
+    // Request-level plainness — like `function_score_fast_fvf`, except
+    // `highlight` is admitted: highlighting is pure page post-processing
+    // (`apply_highlight(page, hl_req, query)` runs on the final rendered
+    // page regardless of which executor produced it, and reads only the
+    // hit `_source` + the query AST — no scan-time state). Bailing on it
+    // dropped e.g. `match(status)+highlight` to the brute FTS walk over
+    // every match (~2.5× ES); the columnar page is byte-identical, so the
+    // shared highlighter emits byte-identical fragments.
     if size == 0
         || request.aggs.is_some()
         || request.min_score.is_some()
@@ -21117,7 +21124,6 @@ fn scored_fast_plan(
         || !request.rescore.is_empty()
         || request.collapse.is_some()
         || request.search_after.is_some()
-        || request.highlight.is_some()
         || request.explain
         || request.script_fields.is_some()
         || !request.fields.is_empty()
