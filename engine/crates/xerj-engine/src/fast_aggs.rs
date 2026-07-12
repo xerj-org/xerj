@@ -3524,6 +3524,72 @@ impl<'a> FastCtx<'a> {
                 Some(c) => c,
                 None => continue, // some source field absent → no docs from this segment
             };
+            // Dense lane: when the ord cross-product is small, count into a
+            // flat array indexed by the combined ordinal — no per-row Vec
+            // allocation, no hashing.  Row loop is then just c column loads
+            // and one add per doc.
+            const DENSE_CAP: usize = 1 << 16;
+            let dims: Vec<usize> = cols.iter().map(|k| k.terms.len().max(1)).collect();
+            let mut dense_total: usize = 1;
+            let mut dense_ok = true;
+            for &d in &dims {
+                match dense_total.checked_mul(d) {
+                    Some(t) if t <= DENSE_CAP => dense_total = t,
+                    _ => {
+                        dense_ok = false;
+                        break;
+                    }
+                }
+            }
+            if dense_ok {
+                let mut dense: Vec<u64> = vec![0; dense_total];
+                let no_nulls = cols.iter().all(|k| k.null_bitmap.is_empty())
+                    && cols.iter().all(|k| k.ords.len() >= seg.docs as usize);
+                if no_nulls {
+                    if cols.len() == 2 {
+                        // Hot shape (two keyword sources): tight two-slice walk.
+                        let a = &cols[0].ords;
+                        let b = &cols[1].ords;
+                        let n1 = dims[1];
+                        for row in 0..seg.docs as usize {
+                            dense[a[row] as usize * n1 + b[row] as usize] += 1;
+                        }
+                    } else {
+                        for row in 0..seg.docs as usize {
+                            let mut idx = 0usize;
+                            for (ci, k) in cols.iter().enumerate() {
+                                idx = idx * dims[ci] + k.ords[row] as usize;
+                            }
+                            dense[idx] += 1;
+                        }
+                    }
+                } else {
+                    'dense_rows: for row in 0..seg.docs {
+                        let mut idx = 0usize;
+                        for (ci, k) in cols.iter().enumerate() {
+                            match k.ord_for(row) {
+                                Some(o) => idx = idx * dims[ci] + o as usize,
+                                None => continue 'dense_rows,
+                            }
+                        }
+                        dense[idx] += 1;
+                    }
+                }
+                for (idx, &c) in dense.iter().enumerate() {
+                    if c == 0 {
+                        continue;
+                    }
+                    let mut rem = idx;
+                    let mut key: Vec<String> = vec![String::new(); cols.len()];
+                    for i in (0..cols.len()).rev() {
+                        let o = rem % dims[i];
+                        rem /= dims[i];
+                        key[i] = cols[i].terms[o].clone();
+                    }
+                    *counts.entry(key).or_insert(0) += c;
+                }
+                continue;
+            }
             let mut local: HashMap<Vec<u32>, u64> = HashMap::new();
             'rows: for row in 0..seg.docs {
                 let mut key: Vec<u32> = Vec::with_capacity(cols.len());
@@ -3604,13 +3670,14 @@ impl<'a> FastCtx<'a> {
             .last()
             .and_then(|b| b.get("key").cloned())
             .unwrap_or(Value::Null);
-        let mut out = json!({ "buckets": result_buckets });
+        // ES serializes `after_key` BEFORE `buckets`; with preserve_order
+        // enabled the insertion order here is the response byte order.
+        let mut obj = serde_json::Map::new();
         if !after_key.is_null() {
-            if let Some(obj) = out.as_object_mut() {
-                obj.insert("after_key".into(), after_key);
-            }
+            obj.insert("after_key".into(), after_key);
         }
-        Some(out)
+        obj.insert("buckets".into(), Value::Array(result_buckets));
+        Some(Value::Object(obj))
     }
 
     // ── sampler / random_sampler ─────────────────────────────────────────

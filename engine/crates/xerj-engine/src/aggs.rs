@@ -6435,13 +6435,15 @@ fn run_composite(
         .and_then(|b| b.get("key").cloned())
         .unwrap_or(Value::Null);
 
-    let mut out = json!({ "buckets": result_buckets });
+    // ES serializes `after_key` BEFORE `buckets` (see ES
+    // InternalComposite#doXContentBody); with preserve_order enabled the
+    // insertion order here is the response byte order.
+    let mut obj = serde_json::Map::new();
     if !after_key.is_null() {
-        if let Some(obj) = out.as_object_mut() {
-            obj.insert("after_key".into(), after_key);
-        }
+        obj.insert("after_key".into(), after_key);
     }
-    out
+    obj.insert("buckets".into(), Value::Array(result_buckets));
+    Value::Object(obj)
 }
 
 // ── Significant terms aggregation ─────────────────────────────────────────────
