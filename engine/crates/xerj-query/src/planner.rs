@@ -749,6 +749,7 @@ mod tests {
                     num_candidates: None,
                     filter: None,
                     boost: None,
+                    similarity: None,
                 },
                 term_node("status", "ok"),
             ],
@@ -788,6 +789,7 @@ mod tests {
             num_candidates: None,
             filter: None,
             boost: None,
+            similarity: None,
         };
         let plan = plan_query(q, &empty_schema()).unwrap();
         assert!(matches!(plan, ExecutionPlan::VectorScan { k: 20, .. }));
@@ -809,6 +811,7 @@ mod tests {
                         num_candidates: None,
                         filter: None,
                         boost: None,
+                        similarity: None,
                     },
                     weight: 0.5,
                 },

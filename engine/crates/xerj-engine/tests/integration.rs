@@ -4653,3 +4653,304 @@ async fn test_fused_memtable_total_matches_shortcut_recount() {
         );
     }
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// RC4 Stream B regressions — silent wrong data
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Blocker 3: a malformed doc line under a bulk `index` action used to be
+/// stored as EMPTY `{}` with `201 / errors:false` (the turbo-raw path
+/// deferred the parse and `.unwrap_or({})`-ed the failure). ES rejects the
+/// item with a per-item 400 `document_parsing_exception`; the engine must
+/// reject it per-item and must not store anything.
+#[tokio::test]
+async fn test_bulk_index_malformed_doc_rejected_per_item() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    let body = concat!(
+        "{\"index\":{\"_index\":\"b3\",\"_id\":\"bad\"}}\n",
+        "{\"broken json here\n",
+        "{\"index\":{\"_index\":\"b3\",\"_id\":\"good\"}}\n",
+        "{\"v\":\"ok\"}\n",
+    );
+    let result = xerj_engine::bulk::process_bulk(&engine, None, body).await;
+    assert!(result.errors, "bulk response must flag errors:true");
+    assert_eq!(result.items.len(), 2);
+
+    let bad = &result.items[0];
+    assert_eq!(bad.status, 400, "malformed item must be a per-item 400");
+    assert!(
+        bad.error
+            .as_deref()
+            .unwrap_or("")
+            .contains("invalid document JSON"),
+        "error must say the document JSON is invalid, got: {:?}",
+        bad.error
+    );
+
+    let good = &result.items[1];
+    assert_eq!(good.status, 201, "valid sibling item must still index");
+
+    // The malformed doc must NOT be stored (it used to land as `{}`).
+    let idx = engine.get_index("b3").unwrap();
+    let all = idx
+        .search(&make_search(json!({"match_all": {}})))
+        .await
+        .unwrap();
+    assert_eq!(all.total.value, 1, "only the valid doc may be stored");
+    assert_eq!(all.hits[0].id, "good");
+
+    // Valid JSON that is NOT an object is rejected too (ES errors on it).
+    let body2 = "{\"index\":{\"_index\":\"b3\",\"_id\":\"arr\"}}\n[1,2,3]\n";
+    let r2 = xerj_engine::bulk::process_bulk(&engine, None, body2).await;
+    assert!(r2.errors);
+    assert_eq!(r2.items[0].status, 400);
+    let all2 = idx
+        .search(&make_search(json!({"match_all": {}})))
+        .await
+        .unwrap();
+    assert_eq!(all2.total.value, 1, "non-object body must not be stored");
+}
+
+/// Blocker 4: match/BM25 over a `semantic_text` field returned hits from the
+/// memtable but ZERO once flushed — the field's schema type (Object) gave it
+/// the whole-value keyword analyzer in the segment FTS. The es_compat mapper
+/// now types it Text (+ embedding config); this exercises exactly that shape.
+#[tokio::test]
+async fn test_semantic_text_match_survives_flush() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    // The schema shape es_compat produces for `"type": "semantic_text"`:
+    // lexical side = Text (standard analyzer, positions), plus an embedding
+    // config producing the companion `content_vector`.
+    let mut schema = Schema::empty();
+    let mut fc = FieldConfig::new("content", FieldType::Text);
+    fc.options.dimensions = Some(16);
+    fc.options.similarity = Some("cosine".to_string());
+    fc.embedding = Some(xerj_common::types::EmbeddingConfig {
+        endpoint: None,
+        model: None,
+        target_field: Some("content_vector".to_string()),
+    });
+    schema.fields.push(fc);
+    engine.create_index("sem", schema).unwrap();
+    let idx = engine.get_index("sem").unwrap();
+
+    idx.index_document(
+        Some("1".into()),
+        json!({"content": "the quick brown fox jumps over the lazy dog"}),
+    )
+    .await
+    .unwrap();
+
+    let pre = idx
+        .search(&make_search(json!({"match": {"content": "quick fox"}})))
+        .await
+        .unwrap();
+    assert_eq!(pre.total.value, 1, "pre-flush match must hit");
+
+    idx.flush().await.unwrap();
+
+    let post = idx
+        .search(&make_search(json!({"match": {"content": "quick fox"}})))
+        .await
+        .unwrap();
+    assert_eq!(
+        post.total.value, 1,
+        "post-flush match must still hit (segment FTS must standard-analyze semantic_text)"
+    );
+    // The auto-embed side must be unaffected by the lexical type change.
+    assert!(
+        post.hits[0].source.get("content_vector").is_some(),
+        "companion embedding vector missing from _source"
+    );
+}
+
+/// Blocker 5: snapshot RESTORE ignored the request `indices` filter and
+/// rewrote EVERY index in the snapshot with snapshot-time state, silently
+/// destroying all writes made since. The filter must select exactly the
+/// requested indices (with wildcard support) and error on unknown names.
+#[tokio::test]
+async fn test_restore_snapshot_honors_indices_filter() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    let repo = dir.path().join("snaprepo");
+    let repo_path = repo.to_str().unwrap();
+
+    for name in ["s1", "s2"] {
+        engine.create_index(name, Schema::empty()).unwrap();
+        let idx = engine.get_index(name).unwrap();
+        idx.index_document(Some("d1".into()), json!({"v": "original"}))
+            .await
+            .unwrap();
+    }
+    engine
+        .create_snapshot(
+            repo_path,
+            "snap1",
+            Some(vec!["s1".to_string(), "s2".to_string()]),
+        )
+        .await
+        .unwrap();
+
+    // Post-snapshot write to s2 — must SURVIVE a restore of s1 only.
+    engine
+        .get_index("s2")
+        .unwrap()
+        .index_document(Some("d2".into()), json!({"v": "after-snapshot"}))
+        .await
+        .unwrap();
+
+    let restored = engine
+        .restore_snapshot(repo_path, "snap1", Some(vec!["s1".to_string()]))
+        .await
+        .unwrap();
+    assert_eq!(restored, vec!["s1".to_string()]);
+
+    let s2 = engine.get_index("s2").unwrap();
+    let post = s2
+        .search(&make_search(json!({"match_all": {}})))
+        .await
+        .unwrap();
+    assert_eq!(
+        post.total.value, 2,
+        "restore of s1 must not roll back s2 (it used to clobber every index)"
+    );
+
+    // An index name absent from the snapshot errors loud (never a no-op).
+    assert!(engine
+        .restore_snapshot(repo_path, "snap1", Some(vec!["nope".to_string()]))
+        .await
+        .is_err());
+
+    // Wildcards select within the snapshot.
+    let both = engine
+        .restore_snapshot(repo_path, "snap1", Some(vec!["s*".to_string()]))
+        .await
+        .unwrap();
+    assert_eq!(both.len(), 2, "s* must match both snapshot indices");
+    let s2_rolled = engine
+        .get_index("s2")
+        .unwrap()
+        .search(&make_search(json!({"match_all": {}})))
+        .await
+        .unwrap();
+    assert_eq!(
+        s2_rolled.total.value, 1,
+        "explicitly-selected s2 rolls back to snapshot state"
+    );
+}
+
+/// Blocker 7: top-level kNN semantics, verified against live ES 8.13.4 on
+/// 2026-07-12 with this exact corpus:
+///   * `knn.filter` pre-filters candidates (ES returned ids 1,3);
+///   * `knn.similarity` (raw cosine cutoff) drops sub-threshold docs from
+///     hits AND `hits.total` (ES: total 2, ids 1,2);
+///   * `boost` multiplies scores AFTER the cutoff (ES: 2.0 / ~1.9939);
+///   * multiple knn clauses (`bool.should` of Knn nodes — the compat layer's
+///     synthesis of the `knn: [...]` array) run per-clause top-k and SUM
+///     scores over the union (ES: total 2, both scored 1.0).
+#[tokio::test]
+async fn test_knn_filter_similarity_boost_and_multi_clause() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    let mut schema = Schema::empty();
+    let mut vf = FieldConfig::new("v", FieldType::Vector);
+    vf.options.dimensions = Some(3);
+    vf.options.similarity = Some("cosine".to_string());
+    schema.fields.push(vf);
+    schema
+        .fields
+        .push(FieldConfig::new("tag", FieldType::Keyword));
+    engine.create_index("knnidx", schema).unwrap();
+    let idx = engine.get_index("knnidx").unwrap();
+
+    idx.index_document(Some("1".into()), json!({"v": [1.0, 0.0, 0.0], "tag": "a"}))
+        .await
+        .unwrap();
+    idx.index_document(Some("2".into()), json!({"v": [0.9, 0.1, 0.0], "tag": "b"}))
+        .await
+        .unwrap();
+    idx.index_document(Some("3".into()), json!({"v": [0.0, 1.0, 0.0], "tag": "a"}))
+        .await
+        .unwrap();
+
+    let run = |body: Value| {
+        let req = parse_request(&body).expect("parse_request");
+        let idx = idx.clone();
+        async move { idx.search(&req).await.unwrap() }
+    };
+
+    // knn.filter: only tag=a docs may enter the top-k (ES: ids 1,3).
+    let filtered = run(json!({
+        "query": {"knn": {"field": "v", "query_vector": [1.0, 0.0, 0.0], "k": 2,
+                           "filter": {"term": {"tag": "a"}}}},
+        "size": 10
+    }))
+    .await;
+    let ids: Vec<&str> = filtered.hits.iter().map(|h| h.id.as_str()).collect();
+    assert_eq!(
+        ids,
+        vec!["1", "3"],
+        "filter must exclude tag=b from the pool"
+    );
+
+    // knn.similarity: raw cosine cutoff 0.9 keeps ids 1,2 only, and the
+    // excluded doc leaves hits.total too (ES: total 2).
+    let cut = run(json!({
+        "query": {"knn": {"field": "v", "query_vector": [1.0, 0.0, 0.0], "k": 3,
+                           "similarity": 0.9}},
+        "size": 10
+    }))
+    .await;
+    assert_eq!(
+        cut.total.value, 2,
+        "sub-threshold doc must leave hits.total"
+    );
+    let ids: Vec<&str> = cut.hits.iter().map(|h| h.id.as_str()).collect();
+    assert_eq!(ids, vec!["1", "2"]);
+
+    // boost multiplies AFTER the cutoff (ES: scores 2.0 and ~1.9939).
+    let boosted = run(json!({
+        "query": {"knn": {"field": "v", "query_vector": [1.0, 0.0, 0.0], "k": 3,
+                           "similarity": 0.9, "boost": 2.0}},
+        "size": 10
+    }))
+    .await;
+    assert_eq!(boosted.total.value, 2);
+    assert!(
+        (boosted.hits[0].score - 2.0).abs() < 1e-3,
+        "top score must be 2.0, got {}",
+        boosted.hits[0].score
+    );
+    assert!(
+        (boosted.hits[1].score - 1.9939).abs() < 1e-3,
+        "second score must be ~1.9939, got {}",
+        boosted.hits[1].score
+    );
+
+    // Multi-knn union: per-clause top-1, summed scores over the dedup'd
+    // union (ES: total 2, ids {1,3}, each scored 1.0).
+    let multi = run(json!({
+        "query": {"bool": {"should": [
+            {"knn": {"field": "v", "query_vector": [1.0, 0.0, 0.0], "k": 1}},
+            {"knn": {"field": "v", "query_vector": [0.0, 1.0, 0.0], "k": 1}}
+        ]}},
+        "size": 10
+    }))
+    .await;
+    assert_eq!(multi.total.value, 2, "union of the two top-1 pools");
+    let mut ids: Vec<&str> = multi.hits.iter().map(|h| h.id.as_str()).collect();
+    ids.sort_unstable();
+    assert_eq!(ids, vec!["1", "3"]);
+    for h in &multi.hits {
+        assert!(
+            (h.score - 1.0).abs() < 1e-3,
+            "per-clause exact-match scores must both be 1.0, got {}",
+            h.score
+        );
+    }
+}

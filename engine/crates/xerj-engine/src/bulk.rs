@@ -537,7 +537,63 @@ pub async fn process_bulk_with_opts(
                     // actions still need the parsed Value because they
                     // take different code paths below — but `index` is
                     // the dominant one on ingest benchmarks.
+                    //
+                    // The bytes are still VALIDATED here (syntax + top-level
+                    // object) via `IgnoredAny`, which walks the JSON without
+                    // building a Value tree — no per-key String allocations,
+                    // so the turbo win (skipping the tree build) is kept.
+                    // Without this, a malformed doc line was deferred to the
+                    // background parse whose `.unwrap_or({})` stored the doc
+                    // as EMPTY `{}` while the response said 201/errors:false
+                    // — silent data loss. ES rejects the item with a 400
+                    // `document_parsing_exception` instead; mirror that.
                     if action_type == "index" {
+                        if let Err(e) =
+                            serde_json::from_slice::<serde::de::IgnoredAny>(dl.as_bytes())
+                        {
+                            return ParseOutcome::Err(
+                                BulkItemResult {
+                                    action: action_type.to_string(),
+                                    index: target_index,
+                                    id: doc_id.unwrap_or_default(),
+                                    status: 400,
+                                    result: None,
+                                    error: Some(format!(
+                                        "failed to parse: invalid document JSON: {e}"
+                                    )),
+                                    get_source: None,
+                                },
+                                *item_index,
+                            );
+                        }
+                        // ES requires the doc body to be a JSON object;
+                        // a bare array / scalar is rejected per-item
+                        // (ES 8.13: `not_x_content_exception`; we report
+                        // the same condition as a 400 parse error).
+                        let is_object = dl
+                            .as_bytes()
+                            .iter()
+                            .find(|b| !b" \t\r\n".contains(b))
+                            .map(|b| *b == b'{')
+                            .unwrap_or(false);
+                        if !is_object {
+                            return ParseOutcome::Err(
+                                BulkItemResult {
+                                    action: action_type.to_string(),
+                                    index: target_index,
+                                    id: doc_id.unwrap_or_default(),
+                                    status: 400,
+                                    result: None,
+                                    error: Some(
+                                        "failed to parse: invalid document JSON: \
+                                         document body must be a JSON object"
+                                            .to_string(),
+                                    ),
+                                    get_source: None,
+                                },
+                                *item_index,
+                            );
+                        }
                         let bytes: std::sync::Arc<[u8]> = std::sync::Arc::from(dl.as_bytes());
                         (None, bytes)
                     } else {
@@ -992,8 +1048,26 @@ pub async fn process_bulk_with_opts(
         // WAL write, storage memtable (_source), AND FTS memtable
         // (search + aggregations) in one call — no separate raw insert.
         for (item_idx, doc_id, doc_bytes) in batch {
-            let source = serde_json::from_slice::<Value>(&doc_bytes)
-                .unwrap_or(Value::Object(serde_json::Map::new()));
+            // The parse stage already validated these bytes (syntax +
+            // object-ness), so this parse cannot fail in practice — but
+            // never fall back to indexing an EMPTY doc: a `{}` here would
+            // be silent data loss reported as success. Fail the item loud.
+            let source = match serde_json::from_slice::<Value>(&doc_bytes) {
+                Ok(v) => v,
+                Err(e) => {
+                    items[item_idx] = Some(BulkItemResult {
+                        action: "index".into(),
+                        index: index_name.clone(),
+                        id: doc_id,
+                        status: 400,
+                        result: None,
+                        error: Some(format!("failed to parse: invalid document JSON: {e}")),
+                        get_source: None,
+                    });
+                    errors = true;
+                    continue;
+                }
+            };
             tracing::debug!(
                 doc_id = doc_id.as_str(),
                 source = %source,

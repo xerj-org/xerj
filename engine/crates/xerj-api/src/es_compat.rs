@@ -4861,50 +4861,141 @@ pub async fn search(
     // profile builder still needs to know whether this was a knn search.
     let original_knn: Option<Value> = body.knn.clone();
 
+    // Normalise the top-level `knn` spec. ES accepts an object OR an array
+    // of clauses; the array form used to fall through every `.get(...)` in
+    // this block (arrays have no keys) and silently return ZERO hits. A
+    // single-element array is exactly the object form; a multi-element
+    // array is the ES multi-kNN search (per-clause top-k, summed scores).
+    let knn_norm: Option<Value> = match body.knn.clone() {
+        Some(Value::Array(arr)) if arr.is_empty() => {
+            let reason = "[knn] must not be empty";
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": {
+                        "root_cause": [{ "type": "illegal_argument_exception", "reason": reason }],
+                        "type": "illegal_argument_exception",
+                        "reason": reason,
+                    },
+                    "status": 400,
+                })),
+            )
+                .into_response();
+        }
+        Some(Value::Array(arr)) if arr.len() == 1 => Some(arr.into_iter().next().unwrap()),
+        other => other,
+    };
+
+    // Per-clause effective k (explicit `k`, else `num_candidates`, else 10 —
+    // the same derivation the query parser applies).
+    fn knn_clause_k(knn_val: &Value) -> usize {
+        let num_candidates = knn_val
+            .get("num_candidates")
+            .and_then(Value::as_u64)
+            .map(|n| n as usize);
+        knn_val
+            .get("k")
+            .and_then(Value::as_u64)
+            .map(|n| n as usize)
+            .or(num_candidates)
+            .unwrap_or(10)
+    }
+
+    // Pass the ES knn spec through to the query DSL `knn` node VERBATIM —
+    // field, query_vector, k, num_candidates, filter (object or array),
+    // boost, and similarity all reach the parser. The old path round-tripped
+    // through a lossy QueryNode builder that DROPPED `filter` (unfiltered
+    // results ranked above filtered ones), `similarity` (sub-threshold docs
+    // returned), and `boost`.
+    fn knn_spec_to_query_json(knn_val: &Value) -> Value {
+        let mut knn = serde_json::Map::new();
+        for key in [
+            "field",
+            "query_vector",
+            "k",
+            "num_candidates",
+            "filter",
+            "boost",
+            "similarity",
+        ] {
+            if let Some(v) = knn_val.get(key) {
+                knn.insert(key.to_string(), v.clone());
+            }
+        }
+        json!({ "knn": knn })
+    }
+
     // ES knn semantics: a pure (non-hybrid) `knn` search returns at most `k`
-    // nearest neighbours, further bounded by the request `size`, and reports
-    // `hits.total` as the number of candidates actually returned — NOT the
-    // brute-force match count over the whole index. Capture that cap here,
-    // before the knn query is folded into a `bool` and `body.size` is bumped.
+    // nearest neighbours (summed across clauses for the array form), further
+    // bounded by the request `size`, and reports `hits.total` as the number
+    // of candidates actually returned — NOT the brute-force match count over
+    // the whole index. Capture that cap here, before the knn query is folded
+    // into a `bool` and `body.size` is bumped.
     // Hybrid knn (knn + a sibling `query`) keeps normal scoring/counting.
     let knn_total_cap: Option<usize> =
-        body.knn
+        knn_norm
             .as_ref()
             .filter(|_| body.query.is_none())
             .map(|knn_val| {
-                let num_candidates = knn_val
-                    .get("num_candidates")
-                    .and_then(Value::as_u64)
-                    .map(|n| n as usize);
-                let k = knn_val
-                    .get("k")
-                    .and_then(Value::as_u64)
-                    .map(|n| n as usize)
-                    .or(num_candidates)
-                    .unwrap_or(10);
-                k.min(body.size)
+                let k_total = match knn_val {
+                    Value::Array(arr) => arr
+                        .iter()
+                        .fold(0usize, |acc, c| acc.saturating_add(knn_clause_k(c))),
+                    single => knn_clause_k(single),
+                };
+                k_total.min(body.size)
             });
 
-    // If top-level "knn" is present, synthesise a Knn query and merge with any "query".
-    let effective_body: EsSearchBody = if let Some(ref knn_val) = body.knn {
-        let knn_query = knn_body_to_query_node(knn_val);
+    // If top-level "knn" is present, synthesise knn query node(s) and merge
+    // with any "query".
+    let effective_body: EsSearchBody = if let Some(ref knn_val) = knn_norm {
+        let (knn_query_json, k_total) = match knn_val {
+            Value::Array(arr) => {
+                if body.query.is_some() {
+                    // Multiple knn clauses + a sibling `query` need ES's
+                    // full score-union executor; XERJ does not implement
+                    // that combination. Fail loud instead of silently
+                    // dropping the knn contributions.
+                    let reason = "multiple [knn] clauses combined with a [query] are not \
+                                  supported by this XERJ version; run the knn array \
+                                  without [query], or a single knn clause with [query]";
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(json!({
+                            "error": {
+                                "root_cause": [{ "type": "illegal_argument_exception", "reason": reason }],
+                                "type": "illegal_argument_exception",
+                                "reason": reason,
+                            },
+                            "status": 400,
+                        })),
+                    )
+                        .into_response();
+                }
+                let clauses: Vec<Value> = arr.iter().map(knn_spec_to_query_json).collect();
+                let k_total = arr
+                    .iter()
+                    .fold(0usize, |acc, c| acc.saturating_add(knn_clause_k(c)));
+                (json!({ "bool": { "should": clauses } }), k_total)
+            }
+            single => (knn_spec_to_query_json(single), knn_clause_k(single)),
+        };
         let merged_query = if let Some(ref existing_q) = body.query {
             // Hybrid: combine knn + query as a bool should.
             json!({
                 "bool": {
                     "should": [
                         existing_q,
-                        knn_query_node_to_json(&knn_query)
+                        knn_query_json
                     ]
                 }
             })
         } else {
-            knn_query_node_to_json(&knn_query)
+            knn_query_json
         };
-        let k = knn_val.get("k").and_then(Value::as_u64).unwrap_or(10) as usize;
         EsSearchBody {
             query: Some(merged_query),
-            size: body.size.max(k),
+            size: body.size.max(k_total),
             knn: None,
             ..body.clone()
         }
@@ -10665,7 +10756,6 @@ async fn process_bulk_body(
                 // Map common per-item error phrases to their ES exception
                 // type names so clients can match on `error.type`.
                 let error_type = if e.starts_with("if _id is specified")
-                    || e.contains("invalid document JSON")
                     || e.contains("missing document body")
                     || e.contains("unknown action type")
                     || e.contains("no write index is defined")
@@ -10676,7 +10766,13 @@ async fn process_bulk_body(
                     "version_conflict_engine_exception"
                 } else if e.contains("index not found") || e.starts_with("no such index") {
                     "index_not_found_exception"
-                } else if e.contains("dynamic template") || e.contains("failed to parse field") {
+                } else if e.contains("dynamic template")
+                    || e.contains("failed to parse field")
+                    // Malformed doc-body JSON on a bulk item: ES 8.13
+                    // reports `document_parsing_exception` ("[1:1] failed
+                    // to parse: ..."), not illegal_argument.
+                    || e.contains("invalid document JSON")
+                {
                     "document_parsing_exception"
                 } else {
                     "engine_exception"
@@ -10947,7 +11043,16 @@ fn es_properties_to_fields(properties: &Value) -> Vec<FieldConfig> {
 
 fn es_type_to_native(es_type: &str) -> FieldType {
     match es_type {
-        "text" => FieldType::Text,
+        // `semantic_text` carries plain text in `_source` (the derived
+        // embedding lives in the companion `<field>_vector` field), so on
+        // the LEXICAL side it must behave exactly like `text`: schema type
+        // Text puts it in the search path's `text_fields` set and gives it
+        // the standard analyzer + positions in the segment FTS built at
+        // flush. It used to fall through to `Object`, which FTS-indexes
+        // the whole value as ONE keyword token — match/BM25 then found the
+        // doc pre-flush (memtable scan) but ZERO hits post-flush (segment
+        // FTS had no standard-analyzed tokens for the field).
+        "text" | "semantic_text" => FieldType::Text,
         "keyword" | "constant_keyword" | "wildcard" => FieldType::Keyword,
         "long" | "integer" | "short" | "byte" | "unsigned_long" => FieldType::Long,
         "double" | "float" | "half_float" | "scaled_float" => FieldType::Double,
@@ -13341,6 +13446,12 @@ pub struct ReindexSource {
     pub query: Option<Value>,
     #[serde(default = "reindex_default_size")]
     pub size: usize,
+    /// ES reindex-from-remote spec (`{"host": "http://...", ...}`).
+    /// XERJ does not implement remote reindex; this field is captured so
+    /// the handler can reject the request instead of silently reindexing
+    /// LOCAL data (which reported success against the wrong source).
+    #[serde(default)]
+    pub remote: Option<Value>,
 }
 
 fn reindex_default_size() -> usize {
@@ -13358,6 +13469,42 @@ pub async fn reindex(
 ) -> impl IntoResponse {
     let started = Instant::now();
     let _task = state.tasks.register("indices:data/write/reindex");
+
+    // Reindex-from-remote is NOT supported: reject it up front. This used
+    // to be silently ignored — the handler reindexed the LOCAL index named
+    // in `source.index` and reported success, which is silent wrong data
+    // for a caller expecting a remote pull. Mirror ES's default posture
+    // (an empty `reindex.remote.whitelist` rejects every remote host with
+    // a 400 illegal_argument_exception of this exact shape).
+    if let Some(remote) = body.source.remote.as_ref() {
+        let host = remote
+            .get("host")
+            .and_then(Value::as_str)
+            .unwrap_or("<missing host>");
+        // ES formats the host as `host:port` (no scheme) in the reason.
+        let host_no_scheme = host
+            .strip_prefix("https://")
+            .or_else(|| host.strip_prefix("http://"))
+            .unwrap_or(host)
+            .trim_end_matches('/');
+        let reason = format!(
+            "[{host_no_scheme}] not whitelisted in reindex.remote.whitelist \
+             (reindex from remote is not supported by this XERJ version)"
+        );
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {
+                    "root_cause": [{ "type": "illegal_argument_exception", "reason": reason }],
+                    "type": "illegal_argument_exception",
+                    "reason": reason,
+                },
+                "status": 400,
+            })),
+        )
+            .into_response();
+    }
+
     let source_name = &body.source.index;
     let dest_name = &body.dest.index;
 
@@ -18122,7 +18269,8 @@ pub async fn get_snapshot(
 pub async fn restore_snapshot(
     State(state): State<AppState>,
     Path((repo, snapshot)): Path<(String, String)>,
-    _body: Option<Json<Value>>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+    body: Option<Json<Value>>,
 ) -> impl IntoResponse {
     let repo_config = match state.engine.snapshot_repos.get(&repo) {
         Some(cfg) => cfg.clone(),
@@ -18137,8 +18285,80 @@ pub async fn restore_snapshot(
         .and_then(Value::as_str)
         .unwrap_or("/tmp/xerj-snapshots");
 
-    match state.engine.restore_snapshot(repo_path, &snapshot).await {
-        Ok(()) => Json(json!({ "accepted": true })).into_response(),
+    let body = body.map(|Json(b)| b).unwrap_or(Value::Null);
+
+    // Restore options that would CHANGE what gets written (index renames,
+    // per-index setting rewrites, feature states) are not implemented.
+    // Fail loud rather than restoring something other than what was asked
+    // for — ignoring a rename_pattern would clobber the source index.
+    for unsupported in [
+        "rename_pattern",
+        "rename_replacement",
+        "feature_states",
+        "index_settings",
+        "ignore_index_settings",
+    ] {
+        if body.get(unsupported).is_some() {
+            let reason =
+                format!("restore option [{unsupported}] is not supported by this XERJ version");
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "error": {
+                        "root_cause": [{ "type": "illegal_argument_exception", "reason": reason }],
+                        "type": "illegal_argument_exception",
+                        "reason": reason,
+                    },
+                    "status": 400,
+                })),
+            )
+                .into_response();
+        }
+    }
+
+    // ES accepts `indices` as an array of names/patterns or a single
+    // (possibly comma-separated) string; absent means "all indices in
+    // the snapshot".
+    let indices: Option<Vec<String>> = match body.get("indices") {
+        Some(Value::Array(arr)) => Some(
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect(),
+        ),
+        Some(Value::String(s)) => Some(vec![s.clone()]),
+        _ => None,
+    };
+
+    let wait_for_completion = params
+        .get("wait_for_completion")
+        .map(|v| v == "true")
+        .unwrap_or(false);
+
+    match state
+        .engine
+        .restore_snapshot(repo_path, &snapshot, indices)
+        .await
+    {
+        // Restores run synchronously either way; `wait_for_completion`
+        // only selects the ES response shape (accepted vs full info).
+        Ok(restored) => {
+            if wait_for_completion {
+                Json(json!({
+                    "snapshot": {
+                        "snapshot": snapshot,
+                        "indices": restored,
+                        "shards": {
+                            "total": restored.len(),
+                            "failed": 0,
+                            "successful": restored.len(),
+                        }
+                    }
+                }))
+                .into_response()
+            } else {
+                Json(json!({ "accepted": true })).into_response()
+            }
+        }
         Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
     }
 }
@@ -21530,74 +21750,6 @@ pub(crate) fn get_source_value_by_path(source: &Value, path: &str) -> Option<Val
     }
     let segs: Vec<&str> = path.split('.').collect();
     walk(source, &segs)
-}
-
-/// Parse the ES 8.x top-level `knn` spec into a `QueryNode::Knn`.
-///
-/// `k` defaults to `num_candidates` when unset (ES accepts either in
-/// some contexts — e.g. `knn: { num_candidates: 1 }` means retrieve 1
-/// candidate and return 1), otherwise defaults to 10.
-fn knn_body_to_query_node(knn_val: &Value) -> xerj_query::ast::QueryNode {
-    let field = knn_val
-        .get("field")
-        .and_then(Value::as_str)
-        .unwrap_or("embedding")
-        .to_string();
-    let vector: Vec<f32> = knn_val
-        .get("query_vector")
-        .and_then(Value::as_array)
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_f64().map(|f| f as f32))
-                .collect()
-        })
-        .unwrap_or_default();
-    let num_candidates = knn_val
-        .get("num_candidates")
-        .and_then(Value::as_u64)
-        .map(|n| n as usize);
-    let k = knn_val
-        .get("k")
-        .and_then(Value::as_u64)
-        .map(|n| n as usize)
-        .or(num_candidates)
-        .unwrap_or(10);
-    let boost = knn_val
-        .get("boost")
-        .and_then(Value::as_f64)
-        .map(|f| f as f32);
-    xerj_query::ast::QueryNode::Knn {
-        field,
-        vector,
-        k,
-        num_candidates,
-        filter: None,
-        boost,
-    }
-}
-
-/// Serialise a `QueryNode` to a `Value` for embedding into a bool query.
-fn knn_query_node_to_json(node: &xerj_query::ast::QueryNode) -> Value {
-    if let xerj_query::ast::QueryNode::Knn {
-        field,
-        vector,
-        k,
-        num_candidates,
-        ..
-    } = node
-    {
-        let mut knn = json!({
-            "field": field,
-            "query_vector": vector,
-            "k": k
-        });
-        if let Some(nc) = num_candidates {
-            knn["num_candidates"] = json!(nc);
-        }
-        json!({ "knn": knn })
-    } else {
-        serde_json::to_value(node).unwrap_or(json!({"match_all": {}}))
-    }
 }
 
 /// Build inner_hits for a nested query.

@@ -444,6 +444,12 @@ pub enum QueryNode {
         filter: Option<Box<QueryNode>>,
         #[serde(skip_serializing_if = "Option::is_none")]
         boost: Option<f32>,
+        /// ES `knn.similarity`: the minimum RAW similarity (in the field's
+        /// metric space — cosine value, dot product, or l2 distance) a
+        /// vector must reach to count as a match. Docs below the cutoff
+        /// are excluded from hits AND from `hits.total`. `None` = no cutoff.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        similarity: Option<f32>,
     },
 
     /// Natural-language semantic search — text is embedded at query time.
