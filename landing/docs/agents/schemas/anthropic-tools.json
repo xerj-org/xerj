@@ -88,7 +88,7 @@
   },
   {
     "name": "xerj_vector_search",
-    "description": "Run a k-nearest-neighbour (kNN) search over a `dense_vector` field using a caller-supplied query embedding. XERJ performs EXACT brute-force distance scoring at query time — there is no HNSW/ANN index or query-time traversal, and no `ef_search` parameter to tune, so results are exact rather than approximate (recall 1.00). The call is issued as `POST /{index}/_search` using the ES 8.x top-level `knn` clause {\"knn\":{\"field\":...,\"query_vector\":[...],\"k\":...}}. Use this when you have already computed an embedding for the query (from any model) and want the nearest stored vectors; if you only have text and the field is `semantic_text`, use xerj_semantic_search instead.",
+    "description": "Run a k-nearest-neighbour (kNN) search over a `dense_vector` field using a caller-supplied query embedding. Unfiltered kNN on a full-precision cosine field (>=1,024 docs) is served by a persisted HNSW graph (approximate) with exact rescoring of candidates — measured recall@10 1.00 on the official bench query (100-probe mean 0.976), and returned _score values match the exact path bit-for-bit; `num_candidates` sets the beam width (floored at 800). Filtered kNN, non-cosine metrics, SQ8-quantized fields, and small indexes run an exact brute-force scan (recall 1.00). The call is issued as `POST /{index}/_search` using the ES 8.x top-level `knn` clause {\"knn\":{\"field\":...,\"query_vector\":[...],\"k\":...}}. Use this when you have already computed an embedding for the query (from any model) and want the nearest stored vectors; if you only have text and the field is `semantic_text`, use xerj_semantic_search instead.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -113,7 +113,7 @@
         },
         "num_candidates": {
           "type": "integer",
-          "description": "Size of the candidate pool considered before selecting the top k. Optional; when omitted XERJ derives it from k. Because scoring is exact brute-force, this mainly bounds the result set rather than trading accuracy for speed.",
+          "description": "Size of the candidate pool considered before selecting the top k. Optional; when omitted XERJ derives it from k (ES default 1.5x k). On the HNSW-served (unfiltered) path this is the ANN beam width, floored at 800 to match ES's per-segment semantics — it trades latency for recall; on the exact filtered scan it has no effect on results.",
           "minimum": 1
         },
         "filter": {

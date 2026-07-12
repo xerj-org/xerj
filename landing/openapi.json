@@ -4,7 +4,7 @@
     "title": "XERJ REST API (Elasticsearch-compatible)",
     "version": "1.0",
     "summary": "Core index, ingest, search, and agent-memory endpoints for XERJ.",
-    "description": "XERJ is an Elasticsearch-compatible search engine written in Rust. This document covers the core REST surface that backs the six canonical agent operations: index creation, document ingest (single and bulk), search (lexical, semantic, vector/kNN, and hybrid), and namespaced agent memory (store + recall). The search endpoint is a single verb whose behaviour is selected by the request body: a `semantic` query for meaning-based recall, a top-level `knn` clause for exact vector search, or a `hybrid` query for score fusion. Semantic and semantic-memory features use XERJ's built-in embedder and require no external embedding provider or API key. Vector (kNN) search is exact brute-force at query time — 100% recall; there is no HNSW/ANN index or query-time traversal, and no ef_search parameter.",
+    "description": "XERJ is an Elasticsearch-compatible search engine written in Rust. This document covers the core REST surface that backs the six canonical agent operations: index creation, document ingest (single and bulk), search (lexical, semantic, vector/kNN, and hybrid), and namespaced agent memory (store + recall). The search endpoint is a single verb whose behaviour is selected by the request body: a `semantic` query for meaning-based recall, a top-level `knn` clause for vector search, or a `hybrid` query for score fusion. Semantic and semantic-memory features use XERJ's built-in embedder and require no external embedding provider or API key. Unfiltered vector (kNN) search is served by a persisted HNSW graph (approximate) with exact rescoring of candidates — measured recall@10 1.00 on the official bench query, 100-probe mean 0.976; num_candidates sets the beam width (floored at 800). Filtered kNN and other ineligible shapes (non-cosine, SQ8, indexes under 1,024 docs) run an exact brute-force scan (recall 1.00).",
     "contact": { "name": "XERJ", "url": "https://xerj.org" },
     "license": { "name": "Apache-2.0", "identifier": "Apache-2.0" }
   },
@@ -151,7 +151,7 @@
       "post": {
         "operationId": "search",
         "summary": "Search an index (lexical, semantic, vector, or hybrid)",
-        "description": "Single search endpoint whose behaviour is selected by the request body. Use a Query DSL clause in `query` for lexical/structured search, a `semantic` query for meaning-based recall over a `semantic_text` field, a top-level `knn` clause for exact vector search over a `dense_vector` field, or a `hybrid` query to fuse multiple sub-queries with RRF or linear fusion. Aggregations cannot be combined with a hybrid query.",
+        "description": "Single search endpoint whose behaviour is selected by the request body. Use a Query DSL clause in `query` for lexical/structured search, a `semantic` query for meaning-based recall over a `semantic_text` field, a top-level `knn` clause for vector search over a `dense_vector` field, or a `hybrid` query to fuse multiple sub-queries with RRF or linear fusion. Aggregations cannot be combined with a hybrid query.",
         "requestBody": {
           "required": true,
           "content": {
@@ -439,7 +439,7 @@
       },
       "KnnClause": {
         "type": "object",
-        "description": "ES 8.x top-level kNN clause. Scoring is exact brute-force at query time.",
+        "description": "ES 8.x top-level kNN clause. Unfiltered kNN is HNSW-served with exact rescoring; filtered kNN runs the exact brute-force scan.",
         "properties": {
           "field": { "type": "string", "description": "The `dense_vector` field to search." },
           "query_vector": { "type": "array", "items": { "type": "number" }, "description": "Query embedding; length must equal the field's mapped `dims`." },

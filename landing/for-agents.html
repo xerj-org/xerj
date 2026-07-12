@@ -269,7 +269,7 @@ $ curl -sXPOST localhost:9200/docfolder/_search \
   </p>
   <ul class="pitch" style="max-width:760px;">
     <li>The <strong>built-in embedder is deterministic and local</strong> — zero-config and no external key, which is why every example here reproduces offline. For production-grade semantic quality, point a <code class="inline">semantic_text</code> field at your own OpenAI-compatible embeddings endpoint, or pass your own vectors. The request shapes do not change.</li>
-    <li><strong><code class="inline">knn</code> is exact at query time</strong> — every candidate vector is scored, so recall is exact; there is no approximate query-time traversal to tune.</li>
+    <li><strong><code class="inline">knn</code> is HNSW-served (approximate) when unfiltered, exact brute-force otherwise</strong> — unfiltered kNN on a full-precision cosine field (≥1,024 docs) runs a persisted-HNSW beam search with exact rescoring (measured recall@10 1.00 on the official bench query, 100-probe mean 0.976); <code class="inline">num_candidates</code> sets the beam width. Filtered kNN, non-cosine metrics, SQ8 fields, and small indexes are scored exhaustively (recall 1.00).</li>
     <li>Unimplemented paths <strong>fail loudly</strong> — e.g. <code class="inline">hybrid</code> fusion <code class="inline">"learned"</code> returns a clear error instead of silently substituting another strategy.</li>
   </ul>
 </section>

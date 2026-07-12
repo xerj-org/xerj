@@ -13,15 +13,17 @@
 //! |------------------------|---------------------------------------|-----------------|
 //! | `xerj_search`          | `POST /{index}/_search`               | ES query-DSL search (full-text / keyword / structured) |
 //! | `xerj_semantic_search` | `POST /{index}/_search` (`semantic`)  | server-side lexical embedding, no external key |
-//! | `xerj_vector_search`   | `POST /{index}/_search` (`knn`)       | **exact brute-force** kNN over a `dense_vector` field |
+//! | `xerj_vector_search`   | `POST /{index}/_search` (`knn`)       | kNN over a `dense_vector` field (HNSW-served unfiltered, exact filtered) |
 //! | `xerj_hybrid_search`   | `POST /{index}/_search` (`hybrid`)    | RRF or linear fusion of sub-queries |
 //! | `xerj_memory_store`    | `POST /_memory/{ns}`                  | namespaced agent-memory write |
 //! | `xerj_memory_recall`   | `POST /_memory/{ns}/_recall`          | recall by meaning (BM25 / semantic / vector) |
 //!
 //! ## Honesty notes (must match the engine, never oversell)
 //!
-//! * kNN is **exact brute-force at query time** — there is no query-time HNSW
-//!   traversal / `ef_search`. The tool description says so.
+//! * Unfiltered kNN is **HNSW-served with exact rescoring** (measured recall@10
+//!   1.00 on the official bench query); filtered kNN and other ineligible shapes
+//!   (non-cosine, SQ8, small indexes) run the exact brute-force scan. The tool
+//!   description says so.
 //! * `hybrid` supports `fusion: "rrf"` and `"linear"` only. `"learned"` is
 //!   forwarded verbatim and the engine rejects it loudly; the schema therefore
 //!   advertises only `rrf`/`linear`.
@@ -187,7 +189,7 @@ fn initialize_result(msg: &Value) -> Value {
              xerj_search for full-text/keyword/structured queries (ES query DSL), \
              xerj_semantic_search for meaning-based recall over a semantic_text \
              field (embedding is server-side, no key), xerj_vector_search for \
-             exact kNN over a dense_vector field, xerj_hybrid_search to fuse \
+             kNN over a dense_vector field, xerj_hybrid_search to fuse \
              lexical + vector results (rrf|linear), and xerj_memory_store / \
              xerj_memory_recall for durable agent memory recalled by meaning.",
     })
@@ -266,9 +268,12 @@ fn tool_specs() -> Value {
         {
             "name": "xerj_vector_search",
             "description":
-                "Exact k-nearest-neighbour search over a `dense_vector` field, given a \
-                 caller-supplied query vector. NOTE: kNN is EXACT BRUTE-FORCE at query \
-                 time (HNSW is built at ingest; there is no query-time ef_search). \
+                "K-nearest-neighbour search over a `dense_vector` field, given a \
+                 caller-supplied query vector. NOTE: unfiltered kNN is HNSW-served \
+                 (approximate) with exact rescoring — measured recall@10 1.00 on the \
+                 official bench query; num_candidates sets the beam width (floored at \
+                 800). Filtered kNN, non-cosine metrics, SQ8 fields, and small indexes \
+                 run an exact brute-force scan. \
                  Proxies POST /{index}/_search with a top-level {\"knn\":{...}}.",
             "inputSchema": {
                 "type": "object",
