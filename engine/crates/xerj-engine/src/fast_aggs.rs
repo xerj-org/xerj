@@ -2643,10 +2643,13 @@ impl<'a> FastCtx<'a> {
 
         // Order + truncate, mirroring run_terms' default and _count/_key
         // orders (cmp_terms_by_orders with no sub-agg references).
-        let mut candidates: Vec<(String, TermState)> = terms_map
-            .into_iter()
-            .filter(|(_, st)| st.count >= min_doc_count)
-            .collect();
+        //
+        // The min_doc_count filter is NOT applied before the sort: ES drops
+        // min_doc_count failures at final reduce, AFTER the shard-size cut.
+        // `apply_terms_size_pipeline` reproduces the exact ES single-shard
+        // staging (shard cut → silent min drop → size cut) and returns the
+        // REAL sum_other_doc_count — byte-identical to the brute run_terms.
+        let mut candidates: Vec<(String, TermState)> = terms_map.into_iter().collect();
         candidates.sort_by(|a, b| {
             cmp_by_orders(
                 &(a.0.clone(), a.1.count),
@@ -2654,9 +2657,17 @@ impl<'a> FastCtx<'a> {
                 &orders,
             )
         });
-        if let Some(n) = cap {
-            candidates.truncate(n);
-        }
+        let shard_size_param: Option<usize> = params
+            .get("shard_size")
+            .and_then(Value::as_u64)
+            .map(|v| v as usize);
+        let (candidates, sum_other_doc_count) = crate::aggs::apply_terms_size_pipeline(
+            candidates,
+            |r| r.1.count,
+            cap,
+            shard_size_param,
+            min_doc_count,
+        );
 
         let mut buckets: Vec<Value> = Vec::with_capacity(candidates.len());
         for (key, st) in candidates {
@@ -2678,7 +2689,7 @@ impl<'a> FastCtx<'a> {
 
         Some(json!({
             "doc_count_error_upper_bound": 0,
-            "sum_other_doc_count": 0,
+            "sum_other_doc_count": sum_other_doc_count,
             "buckets": buckets
         }))
     }

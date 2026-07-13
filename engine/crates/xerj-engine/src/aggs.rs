@@ -9,7 +9,8 @@
 //!
 //! Concrete implications:
 //! - `terms` bucket `doc_count` is always precise — `doc_count_error_upper_bound`
-//!   is always 0 and `sum_other_doc_count` is 0 for results within `size`.
+//!   is always 0, and `sum_other_doc_count` is the exact total of the doc
+//!   counts truncated away by `size`/`shard_size` (0 when nothing was cut).
 //! - `cardinality` returns the true distinct count, not an HLL estimate.
 //! - There is no `"relation": "gte"` approximation on total hits.
 //!
@@ -2685,14 +2686,15 @@ fn run_terms(
                 .collect()
         });
 
-    // Apply min_doc_count filter before sorting — ES default is 1, tests set
-    // values as low as 0 (to force empty-term buckets into the output).
+    // Collection-time filters only (partition + include/exclude) — these
+    // terms never existed as buckets, so they don't count toward
+    // `sum_other_doc_count` (verified vs live ES). The `min_doc_count`
+    // filter is NOT applied here: ES applies it at final reduce, after the
+    // shard-size cut — `apply_terms_size_pipeline` below reproduces that
+    // ordering so both the bucket set and the "other" count match ES.
     let mut candidates: Vec<(String, u64)> = counts
         .into_iter()
-        .filter(|(k, c)| {
-            if *c < min_doc_count {
-                return false;
-            }
+        .filter(|(k, _c)| {
             if let (Some(p), Some(n)) = (partition, num_partitions) {
                 if n > 0 {
                     // ES uses Murmur3_32 (`StringHelper.murmurhash3_x86_32`)
@@ -2773,9 +2775,15 @@ fn run_terms(
     let mut sorted: Vec<(String, u64, Option<Value>)> = pre_computed;
     sorted.sort_by(|a, b| cmp_terms_by_orders(a, b, &orders));
 
-    if let Some(n) = cap {
-        sorted.truncate(n);
-    }
+    // ES single-shard truncation accounting: shard-size cut →
+    // min_doc_count reduce-drop → size cut; cut/overflowed bucket counts
+    // accumulate into the REAL sum_other_doc_count (previously hardcoded 0).
+    let shard_size_param: Option<usize> = params
+        .get("shard_size")
+        .and_then(Value::as_u64)
+        .map(|v| v as usize);
+    let (sorted, sum_other_doc_count) =
+        apply_terms_size_pipeline(sorted, |r| r.1, cap, shard_size_param, min_doc_count);
 
     let buckets: Vec<Value> = sorted
         .into_iter()
@@ -2827,9 +2835,68 @@ fn run_terms(
 
     json!({
         "doc_count_error_upper_bound": 0,
-        "sum_other_doc_count": 0,
+        "sum_other_doc_count": sum_other_doc_count,
         "buckets": buckets
     })
+}
+
+/// Apply Elasticsearch's (single-shard) terms-agg size pipeline to an
+/// already-ordered candidate list and compute the real
+/// `sum_other_doc_count`. Semantics verified against live ES 8.13.4:
+///
+///   1. Shard select — the shard keeps the top `shard_size` buckets in the
+///      requested order (default `size*1.5 + 10`, and never below `size`,
+///      matching `BucketUtils.suggestShardSideQueueSize` + ES's
+///      shard_size >= size reset). Buckets cut here count toward
+///      `sum_other_doc_count`.
+///   2. Final reduce — buckets failing `min_doc_count` are dropped
+///      SILENTLY (their counts do NOT go to "other"; verified live);
+///      passing buckets beyond `size` overflow into "other".
+///
+/// `cap == None` is xerj's `size: 0` extension (return every bucket): no
+/// truncation happens, only the `min_doc_count` filter, and "other" is 0.
+///
+/// Shared by `run_terms`, `run_multi_terms`, the columnar
+/// `fast_aggs::exec_terms` arm and the doc-values fast paths so the
+/// bucket set AND the "other" count stay byte-identical across paths.
+pub(crate) fn apply_terms_size_pipeline<T>(
+    rows: Vec<T>,
+    count_of: impl Fn(&T) -> u64,
+    cap: Option<usize>,
+    shard_size_param: Option<usize>,
+    min_doc_count: u64,
+) -> (Vec<T>, u64) {
+    let mut rows = rows;
+    match cap {
+        Some(size) => {
+            let mut sum_other: u64 = 0;
+            let shard_size = shard_size_param
+                .unwrap_or(size + size / 2 + 10)
+                .max(size);
+            if rows.len() > shard_size {
+                for r in &rows[shard_size..] {
+                    sum_other += count_of(r);
+                }
+                rows.truncate(shard_size);
+            }
+            let mut fin: Vec<T> = Vec::with_capacity(rows.len().min(size));
+            for r in rows {
+                if count_of(&r) < min_doc_count {
+                    continue; // ES final-reduce silent drop
+                }
+                if fin.len() >= size {
+                    sum_other += count_of(&r);
+                } else {
+                    fin.push(r);
+                }
+            }
+            (fin, sum_other)
+        }
+        None => {
+            rows.retain(|r| count_of(r) >= min_doc_count);
+            (rows, 0)
+        }
+    }
 }
 
 /// ES returns typed terms-bucket keys: numbers as numbers, booleans as
@@ -8749,17 +8816,51 @@ fn run_multi_terms(
 
     // Sort by doc_count descending. Partial-sort: O(M) select_nth_unstable_by
     // + O(N log N) prefix sort, vs O(M log M) for full sort. Wins big for
-    // wide multi-terms aggs over high-cardinality compound keys.
+    // wide multi-terms aggs over high-cardinality compound keys. The
+    // partial-select boundary is ES's shard_size (>= size), because the
+    // buckets cut there only need their SUMMED doc count (for
+    // sum_other_doc_count), not their order.
     let cmp = |a: &(Vec<String>, Vec<usize>), b: &(Vec<String>, Vec<usize>)| {
         b.1.len().cmp(&a.1.len()).then_with(|| a.0.cmp(&b.0))
     };
     let mut sorted: Vec<(Vec<String>, Vec<usize>)> = bucket_map.into_iter().collect();
-    let n = size.min(sorted.len());
-    if n > 0 && n < sorted.len() {
-        sorted.select_nth_unstable_by(n, cmp);
-        sorted.truncate(n);
+    let min_doc_count = params
+        .get("min_doc_count")
+        .and_then(Value::as_u64)
+        .unwrap_or(1);
+    let shard_size_param: Option<usize> = params
+        .get("shard_size")
+        .and_then(Value::as_u64)
+        .map(|v| v as usize);
+    // `size: 0` mirrors the terms-agg xerj extension: return all buckets.
+    let cap: Option<usize> = if size == 0 { None } else { Some(size) };
+    let mut sum_other_doc_count: u64 = 0;
+    let mut effective_shard_size: Option<usize> = None;
+    if let Some(sz) = cap {
+        let shard_size = shard_size_param.unwrap_or(sz + sz / 2 + 10).max(sz);
+        effective_shard_size = Some(shard_size);
+        if shard_size < sorted.len() {
+            sorted.select_nth_unstable_by(shard_size, cmp);
+            for (_, d) in &sorted[shard_size..] {
+                sum_other_doc_count += d.len() as u64;
+            }
+            sorted.truncate(shard_size);
+        }
     }
     sorted.sort_by(cmp);
+    // Final reduce: min_doc_count silent drop + size cut → other (same
+    // ES single-shard accounting as run_terms). The shard cut already
+    // happened above at `effective_shard_size`; passing the same value
+    // makes the pipeline's internal cut a no-op (rows.len() <= shard_size)
+    // so nothing is double-counted.
+    let (sorted, overflow_other) = apply_terms_size_pipeline(
+        sorted,
+        |r| r.1.len() as u64,
+        cap,
+        effective_shard_size,
+        min_doc_count,
+    );
+    sum_other_doc_count += overflow_other;
 
     let buckets: Vec<Value> = sorted
         .iter()
@@ -8787,7 +8888,7 @@ fn run_multi_terms(
 
     json!({
         "doc_count_error_upper_bound": 0,
-        "sum_other_doc_count": 0,
+        "sum_other_doc_count": sum_other_doc_count,
         "buckets": buckets
     })
 }
@@ -9163,9 +9264,20 @@ pub fn run_agg_fast(
             } else {
                 sorted.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
             }
-            if let Some(n) = cap {
-                sorted.truncate(n);
-            }
+            // Same ES single-shard truncation accounting as `run_terms`
+            // (shard-size cut → min_doc_count reduce-drop → size cut) so
+            // this doc-values arm emits the identical bucket set and the
+            // REAL sum_other_doc_count.
+            let min_doc_count = params
+                .get("min_doc_count")
+                .and_then(Value::as_u64)
+                .unwrap_or(1);
+            let shard_size_param: Option<usize> = params
+                .get("shard_size")
+                .and_then(Value::as_u64)
+                .map(|v| v as usize);
+            let (sorted, sum_other_doc_count) =
+                apply_terms_size_pipeline(sorted, |r| r.1, cap, shard_size_param, min_doc_count);
 
             let buckets: Vec<Value> = sorted
                 .into_iter()
@@ -9174,7 +9286,7 @@ pub fn run_agg_fast(
 
             FastAggResult::Value(json!({
                 "doc_count_error_upper_bound": 0,
-                "sum_other_doc_count": 0,
+                "sum_other_doc_count": sum_other_doc_count,
                 "buckets": buckets
             }))
         }
@@ -9388,9 +9500,20 @@ pub fn run_agg_fast_filtered(
             } else {
                 sorted.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
             }
-            if let Some(n) = cap {
-                sorted.truncate(n);
-            }
+            // Same ES single-shard truncation accounting as `run_terms`
+            // (shard-size cut → min_doc_count reduce-drop → size cut) so
+            // this doc-values arm emits the identical bucket set and the
+            // REAL sum_other_doc_count.
+            let min_doc_count = params
+                .get("min_doc_count")
+                .and_then(Value::as_u64)
+                .unwrap_or(1);
+            let shard_size_param: Option<usize> = params
+                .get("shard_size")
+                .and_then(Value::as_u64)
+                .map(|v| v as usize);
+            let (sorted, sum_other_doc_count) =
+                apply_terms_size_pipeline(sorted, |r| r.1, cap, shard_size_param, min_doc_count);
 
             let buckets: Vec<Value> = sorted
                 .into_iter()
@@ -9399,7 +9522,7 @@ pub fn run_agg_fast_filtered(
 
             FastAggResult::Value(json!({
                 "doc_count_error_upper_bound": 0,
-                "sum_other_doc_count": 0,
+                "sum_other_doc_count": sum_other_doc_count,
                 "buckets": buckets
             }))
         }
