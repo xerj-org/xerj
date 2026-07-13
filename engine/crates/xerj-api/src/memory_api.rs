@@ -10,10 +10,33 @@
 //! ```text
 //! POST   /_memory/{namespace}            store   — {text, metadata?, vector?, id?, dedup?, dedup_threshold?} → {id, created} | {id, created:false, deduplicated:true}
 //! POST   /_memory/{namespace}/_recall    recall  — {query?, vector?, semantic?, k?, filter?, recency_weight?} → {hits:[…]}
-//! GET    /_memory/{namespace}            list    — {count, entries:[…]} (bounded, recent first)
+//! GET    /_memory/{namespace}?from&size  list    — {count, entries:[…], next} (paged, recent first)
 //! DELETE /_memory/{namespace}/{id}       forget  — delete one entry
 //! DELETE /_memory/{namespace}            drop    — drop the whole namespace
 //! ```
+//!
+//! ## Pagination (item 12)
+//!
+//! `GET /_memory/{namespace}` pages the namespace with `from` (offset, default
+//! 0; `after` is accepted as an alias) and `size` (page size, default 100,
+//! capped at [`MAX_LIST_SIZE`]). Before this the endpoint silently truncated at
+//! 100 entries with no way to see the rest — an agent introspecting a large
+//! namespace got a partial, unmarked view. The response now carries `count`
+//! (the true total) and a `next` cursor (`{from, size}` for the next page, or
+//! `null` on the last page). Deep offsets are bounded by the backing index's
+//! `max_result_window`; for exhaustive retrieval prefer `_recall`.
+//!
+//! ## Authorization model (item 12)
+//!
+//! ⚠️ The `/_memory/*` endpoints are guarded ONLY by the process-wide API-key
+//! auth middleware (the admin key or any key minted via
+//! `POST /_security/api_key`). There is **no per-namespace authorization**: any
+//! credential that can reach the node can read, write, and drop **every**
+//! namespace. Namespaces isolate data *by name* (a recall in `agent-a` never
+//! returns `agent-b`'s memories), NOT by credential — do not treat a namespace
+//! as a security boundary between mutually-distrusting tenants. Per-namespace
+//! access control depends on the deferred RBAC enforcement (see
+//! `xerj_engine::rbac`).
 //!
 //! Recall has three modes, tried in order: an explicit query `vector` (kNN over
 //! a caller-supplied embedding) → `semantic: true` (the server embeds `query`
@@ -47,8 +70,14 @@ use crate::state::AppState;
 /// through `/_memory/*`.
 const MEMORY_PREFIX: &str = ".xerj-memory-";
 
-/// Maximum number of entries returned by the introspection (`GET`) endpoint.
+/// Default page size for the introspection (`GET`) endpoint when `size` is
+/// omitted. Callers page further with `from`/`size` (see [`ListParams`]).
 const LIST_LIMIT: usize = 100;
+
+/// Hard cap on a single `list` page `size`, so one call can't ask the backing
+/// index for an unbounded result set (memory-safety). Deep pagination uses
+/// `from` across multiple calls.
+const MAX_LIST_SIZE: usize = 1000;
 
 /// Default number of memories returned by `_recall` when `k` is omitted.
 const DEFAULT_K: usize = 10;
@@ -625,11 +654,43 @@ fn blend_recency(search_response: &Value, w: f32, k: usize) -> Vec<Value> {
 // List / introspect
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// `GET /_memory/{namespace}` — count + most-recent entries (bounded).
-pub async fn list(State(state): State<AppState>, Path(namespace): Path<String>) -> Response {
+/// Query params for the paged `list` endpoint (item 12).
+///
+/// Deliberately lenient on unknown params (no `deny_unknown_fields`): the
+/// previous handler took no query at all and ignored everything, so a client
+/// appending a benign ES-ism like `?pretty` / `?human` / `?format=json` must
+/// keep working. Only `from` / `after` / `size` are interpreted.
+#[derive(Debug, Default, Deserialize)]
+pub struct ListParams {
+    /// Zero-based offset of the first entry to return. Default 0.
+    #[serde(default)]
+    pub from: Option<usize>,
+    /// Alias for `from` (an `after`-style cursor). `from` wins if both given.
+    #[serde(default)]
+    pub after: Option<usize>,
+    /// Page size. Default [`LIST_LIMIT`] (100), capped at [`MAX_LIST_SIZE`].
+    #[serde(default)]
+    pub size: Option<usize>,
+}
+
+/// `GET /_memory/{namespace}` — count + a page of most-recent entries.
+///
+/// Pages with `from`/`size` (item 12); see the module-level docs for the
+/// pagination and (no-per-namespace) authorization model.
+pub async fn list(
+    State(state): State<AppState>,
+    Path(namespace): Path<String>,
+    axum::extract::Query(params): axum::extract::Query<ListParams>,
+) -> Response {
     if let Err(reason) = validate_namespace(&namespace) {
         return error_response(StatusCode::BAD_REQUEST, reason);
     }
+    // `from`/`after` are aliases (offset cursor); `size` is clamped to
+    // [1, MAX_LIST_SIZE] so a caller can neither page from a negative offset
+    // nor pull an unbounded set in one call.
+    let from = params.from.or(params.after).unwrap_or(0);
+    let size = params.size.unwrap_or(LIST_LIMIT).clamp(1, MAX_LIST_SIZE);
+
     let index = backing_index(&namespace);
     if !index_exists(&state, &index) {
         return Json(json!({
@@ -637,13 +698,17 @@ pub async fn list(State(state): State<AppState>, Path(namespace): Path<String>) 
             "exists": false,
             "count": 0,
             "entries": [],
+            "from": from,
+            "size": size,
+            "next": Value::Null,
         }))
         .into_response();
     }
 
     let search_body = EsSearchBody {
         query: Some(json!({ "match_all": {} })),
-        size: LIST_LIMIT,
+        from,
+        size,
         // Recent-first. `unmapped_type` guards a namespace whose entries were
         // all created before `stored_at` existed (defensive; we always store it).
         sort: Some(json!([{ "stored_at": { "order": "desc", "unmapped_type": "long" } }])),
@@ -670,11 +735,20 @@ pub async fn list(State(state): State<AppState>, Path(namespace): Path<String>) 
         .and_then(Value::as_u64)
         .unwrap_or(0);
     let entries = extract_hits(&body);
+    // `next` cursor: present only when more entries remain past this page.
+    let next = if (from as u64) + (entries.len() as u64) < count {
+        json!({ "from": from + entries.len(), "size": size })
+    } else {
+        Value::Null
+    };
     Json(json!({
         "namespace": namespace,
         "exists": true,
         "count": count,
         "entries": entries,
+        "from": from,
+        "size": size,
+        "next": next,
     }))
     .into_response()
 }
@@ -958,9 +1032,122 @@ mod tests {
     }
 
     async fn count_of(state: &AppState, ns: &str) -> u64 {
-        let resp = list(State(state.clone()), Path(ns.to_string())).await;
+        let resp = list(
+            State(state.clone()),
+            Path(ns.to_string()),
+            axum::extract::Query(ListParams::default()),
+        )
+        .await;
         let (_, body) = drain_json(resp).await;
         body["count"].as_u64().unwrap()
+    }
+
+    async fn list_page(state: &AppState, ns: &str, params: ListParams) -> Value {
+        let resp = list(
+            State(state.clone()),
+            Path(ns.to_string()),
+            axum::extract::Query(params),
+        )
+        .await;
+        let (s, body) = drain_json(resp).await;
+        assert_eq!(s, StatusCode::OK, "list must 200");
+        body
+    }
+
+    /// Item 12: `list` pages a namespace larger than the default page with
+    /// `from`/`size` and exposes a `next` cursor — the old endpoint silently
+    /// capped at 100 with no way to reach the rest.
+    #[tokio::test]
+    async fn list_paginates_beyond_default_limit() {
+        let state = test_state();
+        // 150 entries — more than the default page (LIST_LIMIT = 100).
+        for i in 0..150 {
+            let (s, _) = store_mem(
+                &state,
+                "big",
+                json!({"text": format!("memory number {i}"), "id": format!("m{i:03}")}),
+            )
+            .await;
+            assert_eq!(s, StatusCode::CREATED);
+        }
+
+        // Default page: true count is 150, exactly 100 entries returned, and a
+        // `next` cursor points at offset 100.
+        let p1 = list_page(&state, "big", ListParams::default()).await;
+        assert_eq!(
+            p1["count"].as_u64().unwrap(),
+            150,
+            "count is the true total"
+        );
+        assert_eq!(
+            p1["entries"].as_array().unwrap().len(),
+            100,
+            "default page returns LIST_LIMIT entries"
+        );
+        assert_eq!(
+            p1["next"]["from"].as_u64().unwrap(),
+            100,
+            "next cursor at 100"
+        );
+        assert_eq!(p1["next"]["size"].as_u64().unwrap(), 100);
+
+        // Second page via the cursor: the remaining 50, and `next` is null.
+        let p2 = list_page(
+            &state,
+            "big",
+            ListParams {
+                from: Some(100),
+                after: None,
+                size: Some(100),
+            },
+        )
+        .await;
+        assert_eq!(
+            p2["entries"].as_array().unwrap().len(),
+            50,
+            "from=100 returns the final 50 entries"
+        );
+        assert!(p2["next"].is_null(), "last page has no next cursor");
+
+        // `size` is clamped to MAX_LIST_SIZE (asking for more still succeeds).
+        let big = list_page(
+            &state,
+            "big",
+            ListParams {
+                from: Some(0),
+                after: None,
+                size: Some(10_000),
+            },
+        )
+        .await;
+        assert_eq!(
+            big["size"].as_u64().unwrap(),
+            MAX_LIST_SIZE as u64,
+            "size clamped"
+        );
+        assert_eq!(
+            big["entries"].as_array().unwrap().len(),
+            150,
+            "a large (clamped) page still returns all 150"
+        );
+        assert!(big["next"].is_null());
+
+        // `after` is accepted as an alias for `from`.
+        let aliased = list_page(
+            &state,
+            "big",
+            ListParams {
+                from: None,
+                after: Some(100),
+                size: Some(100),
+            },
+        )
+        .await;
+        assert_eq!(
+            aliased["entries"].as_array().unwrap().len(),
+            50,
+            "after=100 aliases from=100"
+        );
     }
 
     /// Opt-in semantic dedup: storing the same text twice with `dedup:true`
