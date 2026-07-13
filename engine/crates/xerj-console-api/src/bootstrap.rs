@@ -52,6 +52,12 @@ pub async fn run(
 
     indices::ensure_all(engine)?;
 
+    // Materialise the built-in dashboards as editable backend data. Idempotent
+    // and safe on every boot: creates any missing default, never clobbers an
+    // operator's edits, and only re-syncs untouched defaults when the shipped
+    // seed revision is bumped. See `crate::seed`.
+    crate::seed::seed_default_dashboards(engine).await?;
+
     let magic_link = if has_any_active_user(engine).await? {
         None
     } else {

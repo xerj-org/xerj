@@ -151,6 +151,10 @@ fn schema_for(index: &str) -> Schema {
             add(&mut s, "owner", FieldType::Keyword);
             add(&mut s, "org_id", FieldType::Keyword);
             add(&mut s, "visibility", FieldType::Keyword);
+            // Provenance marker for seeded built-ins; typed so admin tooling
+            // can filter managed vs user dashboards. Panel contents stay
+            // untyped in `_source` (see the panel-schema doc in dashboards.rs).
+            add(&mut s, "managed", FieldType::Boolean);
             add(&mut s, "name", FieldType::Keyword);
             add(&mut s, "section", FieldType::Keyword);
             add(&mut s, "group", FieldType::Keyword);

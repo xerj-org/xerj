@@ -87,10 +87,17 @@ impl IntoResponse for ConsoleApiError {
             tracing::error!(error = %self, "xerj-console internal error");
         }
 
+        // Emit the API-contract keys (`code`/`message`) alongside the legacy
+        // (`type`/`reason`) pair. `code` uses the contract vocabulary
+        // (`conflict|forbidden|not_found|bad_request`, …) via `kind`, so the
+        // SPA can read the documented shape while older readers still find
+        // `type`/`reason`. Purely additive — no existing consumer breaks.
         let body = json!({
             "error": {
-                "type":   self.kind(),
-                "reason": display,
+                "code":    self.kind(),
+                "message": display,
+                "type":    self.kind(),
+                "reason":  display,
             }
         });
 

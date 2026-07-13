@@ -34,6 +34,44 @@ use crate::response::{created, no_content, ok};
 use crate::state::ConsoleState;
 use crate::time::now_iso;
 
+/// A durable dashboard.
+///
+/// # Panel schema (convention inside `panels[]`)
+///
+/// The engine stores `panels` **opaquely** — it is a `Vec<Value>` here and an
+/// untyped array in the mapping (deliberately *not* typed in
+/// [`crate::indices`]).  The frontend panel-builder and the seeding module
+/// ([`crate::seed`]) agree on this shape, and it round-trips through
+/// create/replace/patch byte-for-byte:
+///
+/// ```jsonc
+/// {
+///   "id": "queries",                 // stable & unique within the dashboard
+///   "type": "metric|line|topn|heatmap|table|events|markdown|ribbon3d|…",
+///   "title": "LLM QUERIES",          // supersedes the old `eyebrow`
+///   "layout": { "x": 0, "y": 0, "w": 4, "h": 2 },
+///        // FREE-FORM grid: x/w in 12-col units, y/h in row units. Subsumes
+///        // the old bare `cols` (== w) and enables drag / move / resize /
+///        // height.
+///   "query": {                       // null for static panels (markdown)
+///     "index": "logs-*",
+///     "time_field": "@timestamp",
+///     "dsl":  { /* ES query DSL — reuses the ES-compat search port */ },
+///     "aggs": { /* ES aggs */ }
+///   },
+///   "viz":  { "unit": "queries", "value_field": "…", "spark": true, … },
+///        // type-specific display config
+///   "drilldown": { "to": "<dashId>", "filter_field": "intent" } | null,
+///   "builtin":   "ai-overview/queries" | null
+///        // provenance key for seeded panels still resolved through the
+///        // shipped mock renderer; null for user-authored data-driven panels.
+/// }
+/// ```
+///
+/// Per-panel geometry, query, and viz all live here; the dashboard-level time
+/// / filter context lives in the top-level `time_default` + `filters_default`.
+/// There is intentionally **no per-panel PATCH**: `panels` replaces wholesale
+/// (dashboards are small — the frontend sends the full array on save).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Dashboard {
     pub id: String,
@@ -42,8 +80,16 @@ pub struct Dashboard {
     pub org_id: String,
     /// `private` (only owner sees / writes), `shared` (every user in
     /// the org reads, only `editor` and up writes), `default` (engine-
-    /// provisioned read-only built-in dashboards).
+    /// provisioned built-in dashboards — editable by admin/owner, never
+    /// deletable; see `managed`).
     pub visibility: String,
+    /// `true` for engine-seeded built-in dashboards ([`crate::seed`]). A
+    /// managed doc is editable by admin/owner (so layout/title/panel edits
+    /// persist) but cannot be deleted, and re-seed leaves it alone once it has
+    /// been edited (`version > 1`). User-authored dashboards are always
+    /// `managed: false` — clients cannot mint a managed doc through `create`.
+    #[serde(default)]
+    pub managed: bool,
     pub name: String,
     #[serde(default)]
     pub section: Option<String>,
@@ -107,6 +153,11 @@ pub struct PatchBody {
     pub filters_default: Option<Value>,
     #[serde(default)]
     pub time_default: Option<String>,
+    /// Accepted for a full-object round-trip, but only applied when the caller
+    /// is admin/owner (see `apply_managed`). `owner` / `org_id` / `created_at`
+    /// are intentionally absent — they are create-only and never patchable.
+    #[serde(default)]
+    pub managed: Option<bool>,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -171,7 +222,7 @@ pub async fn create(
     sess: AuthSession,
     Json(body): Json<CreateBody>,
 ) -> ConsoleResult<Response> {
-    enforce_can_write_visibility(&sess, &body.visibility)?;
+    enforce_can_set_visibility(&sess, &body.visibility, None)?;
     let id = uuid::Uuid::new_v4().to_string();
     let now = now_iso();
     let dash = Dashboard {
@@ -179,6 +230,9 @@ pub async fn create(
         owner: sess.user.id.clone(),
         org_id: default_org(),
         visibility: body.visibility,
+        // Clients never mint managed docs — only the seeder (and the
+        // admin/owner-only `_bulk` path) can set `managed: true`.
+        managed: false,
         name: body.name,
         section: body.section,
         group: body.group,
@@ -215,6 +269,21 @@ pub struct ReplaceBody {
     pub filters_default: Value,
     #[serde(default)]
     pub time_default: Option<String>,
+    /// See [`PatchBody::managed`] — applied only for admin/owner; create-only
+    /// fields (`owner`/`org_id`/`created_at`) are never accepted here.
+    #[serde(default)]
+    pub managed: Option<bool>,
+}
+
+/// Body for `POST /dashboards/_bulk` — whole-set save + uniform seeding path.
+#[derive(Debug, Deserialize, Default)]
+pub struct BulkBody {
+    /// Full dashboard objects (each MUST carry an `id`); upserted in place.
+    #[serde(default)]
+    pub upserts: Vec<Value>,
+    /// Ids to soft-delete.
+    #[serde(default)]
+    pub deletes: Vec<String>,
 }
 
 pub async fn replace(
@@ -227,7 +296,7 @@ pub async fn replace(
     let mut dash = read_required(&state, &id).await?;
     enforce_write(&sess, &dash)?;
     enforce_etag(&headers, dash.version)?;
-    enforce_can_write_visibility(&sess, &body.visibility)?;
+    enforce_can_set_visibility(&sess, &body.visibility, Some(&dash.visibility))?;
 
     dash.name = body.name;
     dash.visibility = body.visibility;
@@ -236,6 +305,7 @@ pub async fn replace(
     dash.panels = body.panels;
     dash.filters_default = body.filters_default;
     dash.time_default = body.time_default;
+    apply_managed(&sess, &mut dash, body.managed);
     dash.version += 1;
     dash.updated_at = now_iso();
 
@@ -263,7 +333,7 @@ pub async fn patch(
         dash.name = name;
     }
     if let Some(visibility) = body.visibility {
-        enforce_can_write_visibility(&sess, &visibility)?;
+        enforce_can_set_visibility(&sess, &visibility, Some(&dash.visibility))?;
         dash.visibility = visibility;
     }
     if let Some(section) = body.section {
@@ -281,6 +351,7 @@ pub async fn patch(
     if let Some(td) = body.time_default {
         dash.time_default = Some(td);
     }
+    apply_managed(&sess, &mut dash, body.managed);
 
     dash.version += 1;
     dash.updated_at = now_iso();
@@ -300,11 +371,83 @@ pub async fn delete(
     Path(id): Path<String>,
 ) -> ConsoleResult<Response> {
     let mut dash = read_required(&state, &id).await?;
+    // Seeded / managed defaults are editable but not deletable, so a re-seed
+    // always has a canonical row to keep in sync and an operator can't nuke a
+    // shipped dashboard by accident.
+    if dash.managed || dash.visibility == "default" {
+        return Err(ConsoleApiError::Forbidden(
+            "managed default dashboards cannot be deleted".into(),
+        ));
+    }
     enforce_write(&sess, &dash)?;
     dash.deleted_at = Some(now_iso());
     dash.version += 1;
     write_doc(&state, &dash).await?;
     Ok(no_content())
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BULK (whole-set save + uniform seeding path)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// `POST /dashboards/_bulk` — upsert a set of full dashboards and/or
+/// soft-delete a set of ids in one call.  This is a **privileged** operation
+/// (it can set `owner` / `managed` / `visibility` freely), so it is limited to
+/// admin/owner roles.  The frontend uses it for a whole-set save; seeding uses
+/// the same shape server-side.
+pub async fn bulk(
+    State(state): State<ConsoleState>,
+    sess: AuthSession,
+    Json(body): Json<BulkBody>,
+) -> ConsoleResult<Response> {
+    match sess.user.role.as_str() {
+        "admin" | "owner" => require_active(&sess)?,
+        _ => {
+            return Err(ConsoleApiError::Forbidden(
+                "bulk dashboard write requires admin or owner".into(),
+            ))
+        }
+    }
+
+    let now = now_iso();
+    let mut upserted: Vec<String> = Vec::with_capacity(body.upserts.len());
+    for raw in body.upserts {
+        let mut dash: Dashboard = serde_json::from_value(raw).map_err(|e| {
+            ConsoleApiError::BadRequest(format!("invalid dashboard in upsert: {e}"))
+        })?;
+        if dash.id.trim().is_empty() {
+            return Err(ConsoleApiError::BadRequest(
+                "upsert entry missing id".into(),
+            ));
+        }
+        validate_visibility_value(&dash.visibility)?;
+        if dash.org_id.trim().is_empty() {
+            dash.org_id = default_org();
+        }
+        if dash.created_at.trim().is_empty() {
+            dash.created_at = now.clone();
+        }
+        dash.version = dash.version.max(1);
+        dash.updated_at = now.clone();
+        write_doc(&state, &dash).await?;
+        upserted.push(dash.id);
+    }
+
+    let mut deleted: Vec<String> = Vec::with_capacity(body.deletes.len());
+    for id in body.deletes {
+        // Ignore ids that are already gone (idempotent).
+        if let Ok(mut dash) = read_required(&state, &id).await {
+            dash.deleted_at = Some(now.clone());
+            dash.version += 1;
+            write_doc(&state, &dash).await?;
+            deleted.push(id);
+        }
+    }
+
+    Ok(ok(
+        json!({ "upserted": upserted, "deleted": deleted }),
+        None,
+    ))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -334,8 +477,10 @@ async fn read_required(state: &ConsoleState, id: &str) -> ConsoleResult<Dashboar
 
 async fn write_doc(state: &ConsoleState, dash: &Dashboard) -> ConsoleResult<()> {
     let idx = state.engine.get_index(indices::DASHBOARDS)?;
-    let _ = idx.delete_document(&dash.id).await;
-    idx.create_document(dash.id.clone(), serde_json::to_value(dash)?)
+    // Single in-place upsert (one WAL append) instead of delete-then-create,
+    // so a crash between the two operations can never leave the id missing
+    // (durability, design C.2). `index_document` overwrites an existing id.
+    idx.index_document(Some(dash.id.clone()), serde_json::to_value(dash)?)
         .await?;
     Ok(())
 }
@@ -351,10 +496,18 @@ fn enforce_read(sess: &AuthSession, dash: &Dashboard) -> ConsoleResult<()> {
 }
 
 fn enforce_write(sess: &AuthSession, dash: &Dashboard) -> ConsoleResult<()> {
-    if dash.visibility == "default" {
-        return Err(ConsoleApiError::Forbidden(
-            "default dashboards are read-only".into(),
-        ));
+    // Managed / default-visibility dashboards used to be flatly read-only.
+    // They are now *editable* by admin/owner so the seeded defaults are true
+    // editable data — layout, title, and panel edits persist. Lower roles
+    // still can't touch them, and DELETE is blocked for everyone (see
+    // `delete`). Re-seed leaves any edited default alone (version > 1).
+    if dash.managed || dash.visibility == "default" {
+        return match sess.user.role.as_str() {
+            "admin" | "owner" => require_active(sess),
+            _ => Err(ConsoleApiError::Forbidden(
+                "managed dashboards are editable only by admin or owner".into(),
+            )),
+        };
     }
     if dash.owner == sess.user.id {
         return require_active(sess);
@@ -368,23 +521,47 @@ fn enforce_write(sess: &AuthSession, dash: &Dashboard) -> ConsoleResult<()> {
     Err(ConsoleApiError::Forbidden("not your dashboard".into()))
 }
 
-fn enforce_can_write_visibility(sess: &AuthSession, visibility: &str) -> ConsoleResult<()> {
-    if visibility == "default" {
-        // Only the owner can mint default-visibility dashboards. (For
-        // v1.0 this prevents an editor from sneaking up an unkillable
-        // dashboard; in practice we don't surface a UI for it yet.)
-        if sess.user.role != "owner" {
-            return Err(ConsoleApiError::Forbidden(
-                "only owner can create default-visibility dashboards".into(),
-            ));
-        }
+/// Reject an unknown visibility string (used on every write path).
+fn validate_visibility_value(visibility: &str) -> ConsoleResult<()> {
+    match visibility {
+        "private" | "shared" | "default" => Ok(()),
+        other => Err(ConsoleApiError::BadRequest(format!(
+            "unknown visibility '{other}'"
+        ))),
     }
-    if visibility != "private" && visibility != "shared" && visibility != "default" {
-        return Err(ConsoleApiError::BadRequest(format!(
-            "unknown visibility '{visibility}'"
-        )));
+}
+
+/// Validate the requested visibility and guard *escalation* to `default` by a
+/// non-owner. The escalation guard fires only when the new visibility is
+/// `default` **and differs** from the doc's current visibility — so an admin
+/// editing an already-`default` seeded dashboard isn't blocked from keeping it
+/// default; only minting a fresh unkillable default is owner-only. Pass
+/// `current = None` on create.
+fn enforce_can_set_visibility(
+    sess: &AuthSession,
+    new_visibility: &str,
+    current: Option<&str>,
+) -> ConsoleResult<()> {
+    validate_visibility_value(new_visibility)?;
+    if new_visibility == "default" && current != Some("default") && sess.user.role != "owner" {
+        return Err(ConsoleApiError::Forbidden(
+            "only owner can create default-visibility dashboards".into(),
+        ));
     }
     Ok(())
+}
+
+/// Apply a requested `managed` flag change. `managed` is a privileged
+/// provenance marker: only admin/owner may change it (this prevents an editor
+/// from making a shared dashboard un-deletable). Any other caller's value is
+/// ignored and the existing flag is preserved, so a full-object round-trip
+/// from a normal user is safe.
+fn apply_managed(sess: &AuthSession, dash: &mut Dashboard, requested: Option<bool>) {
+    if let Some(m) = requested {
+        if matches!(sess.user.role.as_str(), "admin" | "owner") {
+            dash.managed = m;
+        }
+    }
 }
 
 fn require_active(sess: &AuthSession) -> ConsoleResult<()> {

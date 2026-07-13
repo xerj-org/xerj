@@ -22,6 +22,8 @@
 //! User-state (drop the localStorage hacks):
 //! - [`prefs`] — `GET/PUT /prefs`.
 //! - [`dashboards`] — full CRUD with If-Match etag concurrency.
+//! - [`seed`] — first-launch materialisation of the 13 built-in dashboards
+//!   as editable backend data (idempotent, revisioned).
 //! - [`views`] — saved views CRUD.
 //! - [`data_sources`] — `/data-sources/connections` + descendants
 //!   (read-only MVP backed by an auto-provisioned `built-in` adapter).
@@ -49,6 +51,7 @@ pub mod indices;
 pub mod prefs;
 pub mod response;
 pub mod router;
+pub mod seed;
 pub mod spa;
 pub mod state;
 pub mod time;
