@@ -304,18 +304,41 @@ impl SectionEntry {
 // ── SegmentMeta ───────────────────────────────────────────────────────────────
 
 /// Lightweight metadata kept in memory for a segment.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// ## Upgrade hygiene (RC4 W3 #10)
+///
+/// This struct is serialized into the on-disk `snapshot.json` manifest that
+/// makes flushed segments discoverable on restart. To keep that manifest
+/// forward/backward compatible across xerj versions, every *descriptive*
+/// field carries `#[serde(default)]` so that a newer field added in a later
+/// release does not break an older snapshot open, and an older snapshot
+/// missing a field written by a newer release still loads (the field takes
+/// its default). serde already ignores unknown fields, so the reverse
+/// direction (older binary, newer manifest) works too.
+///
+/// The identity/locator fields (`id`, `seg_path`) are deliberately left
+/// REQUIRED: a segment entry that lacks them is meaningless, so a manifest
+/// missing them is treated as corruption (deserialization fails) rather than
+/// silently loading a broken entry.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SegmentMeta {
     pub id: SegmentId,
+    #[serde(default)]
     pub doc_count: u64,
+    #[serde(default)]
     pub size_bytes: u64,
+    #[serde(default)]
     pub min_seq_no: SeqNo,
+    #[serde(default)]
     pub max_seq_no: SeqNo,
+    #[serde(default)]
     pub created_at_ms: u64,
+    #[serde(default)]
     pub has_tombstones: bool,
     /// Relative path of the `.seg` file from the index root.
     pub seg_path: String,
     /// Relative path of the `.sidx` file from the index root.
+    #[serde(default)]
     pub sidx_path: String,
 }
 
