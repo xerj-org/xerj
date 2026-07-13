@@ -70,6 +70,17 @@
       } catch (e) {
         console.warn('[xerj-console sync]', e);
       }
+
+      // Pull the durable dashboard set (GET /dashboards) BEFORE app.js's
+      // first paint so the nav + declarative panels render from the
+      // backend, not just the localStorage cache. Best-effort: on failure
+      // the store keeps its LS cache (offline/dev still works).
+      try {
+        const ds = await import('./src/data/dashboard-store.js');
+        await ds.hydrate();
+      } catch (e) {
+        console.warn('[xerj-console dashboards]', e);
+      }
     } catch (e) {
       // Engine unreachable (offline dev, hot-reload mid-flight) —
       // load the SPA anyway so the user sees an error state instead

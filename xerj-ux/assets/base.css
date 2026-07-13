@@ -1126,24 +1126,25 @@ button {
   z-index: 50;
 }
 
-/* Top strip — EDIT MODE label + drag/resize/remove tips. Lives in the
-   page's top padding, never overlaps content. */
+/* Top strip — EDIT MODE label + tips. Now a NORMAL-FLOW, sticky element
+   rendered below the sub-nav (Issue 3 fix): it can never overlap the
+   dashboard sub-nav row because it comes after it in the document, and
+   it sticks just under the viewport top while scrolling. */
 .edit-strip-top {
-  position: fixed;
-  /* Sit just inside the top edge of the .edit-frame (top: 150px). */
-  top: 158px;
-  left: 28px;
-  right: 28px;
+  position: sticky;
+  top: 8px;
   display: flex;
   gap: var(--sp-3);
   align-items: baseline;
+  margin: 0 0 var(--sp-3);
   font-family: var(--font-data);
   font-size: var(--fs-11);
   letter-spacing: var(--track-ui);
   text-transform: uppercase;
-  pointer-events: none;
-  z-index: 51;
-  padding: 0 8px;
+  z-index: 40;
+  padding: 6px 8px;
+  border-top: 1px solid var(--z-faint);
+  border-bottom: 1px solid var(--z-faint);
   background: var(--z-paper);
 }
 .edit-strip-top .marker {
@@ -1198,12 +1199,52 @@ button {
   outline-offset: 10px;
   position: relative;
   z-index: 1;
+  /* Reserve a 24px chrome strip so the drag grip (top-left) and the edit
+     toolbar (top-right) never sit on top of the panel title/eyebrow —
+     the Issue-3 overlap fix. */
+  padding-top: 24px;
   transition: outline-color 120ms;
 }
 .panel.edit:hover { outline-color: var(--z-ink); }
 .panel.edit.dragging { opacity: 0.35; }
+.panel.edit.dragging-geom { opacity: 0.9; outline-color: var(--z-accent); z-index: 6; }
 .panel.edit.drop-before { outline-color: var(--z-accent); }
 .panel.edit.drop-after  { outline-color: var(--z-accent); }
+
+/* Top-left drag GRIP — the move affordance. Lives in its own 20px strip
+   so the whole panel body stays interactive. */
+.panel-grip {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 20px; height: 20px; line-height: 20px;
+  text-align: center;
+  color: var(--z-mute);
+  font-size: var(--fs-13);
+  cursor: grab;
+  user-select: none;
+  z-index: 5;
+}
+.panel-grip:hover { color: var(--z-ink); }
+.panel-grip:active { cursor: grabbing; color: var(--z-accent); }
+
+/* SE-corner + right-edge + bottom-edge resize handles (declarative panels).
+   Positioned just INSIDE the panel edges — the declarative canvas sets
+   `overflow: hidden` on panels, which would clip anything placed outside
+   (negative offsets), making the handles unhittable. */
+.panel-resize { position: absolute; z-index: 5; }
+.panel-resize.e  { top: 24px; bottom: 14px; right: 0; width: 12px; cursor: ew-resize; }
+.panel-resize.s  { left: 24px; right: 14px; bottom: 0; height: 12px; cursor: ns-resize; }
+.panel-resize.se { right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize; }
+.panel-resize.se::after {
+  content: '';
+  position: absolute; right: 3px; bottom: 3px;
+  width: 9px; height: 9px;
+  border-right: 1px solid var(--z-mute);
+  border-bottom: 1px solid var(--z-mute);
+}
+.panel.user-panel.edit:hover .panel-resize.se::after,
+.panel-resize.se:hover::after { border-color: var(--z-accent); }
 
 /* (legacy inline grid header removed; now lives in .edit-strip-bottom) */
 
@@ -1226,20 +1267,27 @@ button {
 
 .panel-edit {
   position: absolute;
-  top: -30px;
-  left: 0;
+  top: 0;
   right: 0;
-  display: flex;
-  gap: var(--sp-3);
+  left: auto;
+  display: inline-flex;
+  gap: 6px;
   align-items: baseline;
+  max-width: 100%;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  justify-content: flex-end;
   font-family: var(--font-data);
   font-size: var(--fs-11);
   letter-spacing: var(--track-ui);
   text-transform: uppercase;
-  z-index: 3;
+  z-index: 4;
+  padding: 2px 2px 2px 10px;
+  background: var(--z-paper);
   pointer-events: none;
 }
 .panel-edit > * { pointer-events: auto; }
+.panel-edit button { background: none; border: 0; font: inherit; cursor: pointer; }
 .panel-edit .colsLabel {
   color: var(--z-accent);
   font-weight: 700;
@@ -1259,12 +1307,17 @@ button {
 .panel-edit .sizes button:hover { color: var(--z-ink); }
 .panel-edit .sizes button.active { color: var(--z-accent); font-weight: 700; }
 .panel-edit .remove {
-  margin-left: auto;
+  margin-left: 6px;
   color: var(--z-mute);
   font-family: var(--font-data);
   font-size: var(--fs-13);
 }
 .panel-edit .remove:hover { color: var(--z-accent); }
+/* Declarative user-panel toolbar bits: the w×h readout + QUERY button. */
+.panel-edit .wh { color: var(--z-accent); font-weight: 700; letter-spacing: 0.1em; }
+.panel-edit .wh .x { color: var(--z-mute); margin: 0 1px; font-weight: 400; }
+.panel-edit .cfg { color: var(--z-mute); font-weight: 700; letter-spacing: 0.12em; }
+.panel-edit .cfg:hover { color: var(--z-accent); }
 
 /* The +ADD picker at the bottom of the canvas */
 .add-picker {
@@ -1287,6 +1340,105 @@ button {
   padding: 2px 0;
 }
 .add-picker .types button:hover { color: var(--z-accent); }
+
+/* + ADD PANEL launcher for declarative dashboards. */
+.add-panel-btn {
+  background: none;
+  border: 1px solid var(--z-accent);
+  color: var(--z-accent);
+  font: inherit;
+  font-family: var(--font-data);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: var(--fs-11);
+  padding: 6px 14px;
+  cursor: pointer;
+  margin-right: var(--sp-3);
+}
+.add-panel-btn:hover { background: var(--z-accent); color: var(--z-paper); }
+.empty-dash { padding: var(--sp-8) 0; font-size: var(--fs-13); text-align: center; letter-spacing: 0.06em; }
+
+/* ============================================================
+   Free-form declarative canvas + panel builder (net-new dashboards)
+   ============================================================ */
+
+/* Explicit-placement grid: panels carry grid-column/grid-row inline
+   (x/y/w/h). A fixed row track maps `h` to pixels; denser gaps than the
+   editorial 12-col reading canvas so panels tile like a real dashboard. */
+.canvas.declarative {
+  align-items: stretch;
+  grid-auto-rows: 132px;
+  column-gap: var(--sp-2);
+  row-gap: var(--sp-2);
+}
+.canvas.declarative .panel { overflow: hidden; min-width: 0; }
+.canvas.declarative .panel.user-panel { display: flex; flex-direction: column; }
+
+/* The inline panel configurator (viz + index/query + live preview). */
+.builder {
+  margin-top: var(--sp-6);
+  padding-top: var(--sp-3);
+  border-top: 1px dashed var(--z-faint);
+  font-family: var(--font-data);
+}
+.builder-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: var(--sp-3); }
+.builder-head .key { color: var(--z-accent); font-size: var(--fs-13); }
+.builder-x { background: none; border: 0; color: var(--z-mute); cursor: pointer; font: inherit; }
+.builder-x:hover { color: var(--z-accent); }
+.builder-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-6); }
+.builder-form { display: flex; flex-direction: column; gap: var(--sp-3); }
+.builder-field { display: flex; flex-direction: column; gap: 6px; }
+.builder-field > .key { color: var(--z-mute); }
+.viz-tiles { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.viz-tiles button,
+.btn-row button {
+  background: none; border: 0; font: inherit; cursor: pointer;
+  color: var(--z-mute);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  font-size: var(--fs-11); padding: 2px 0;
+}
+.viz-tiles button:hover, .btn-row button:hover { color: var(--z-ink); }
+.viz-tiles button.active, .btn-row button.active { color: var(--z-accent); font-weight: 700; }
+.btn-row { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.btn-row .sep { color: var(--z-faint); }
+.builder-select,
+.builder-input {
+  background: transparent;
+  color: var(--z-ink);
+  border: 0;
+  border-bottom: 1px solid var(--z-faint);
+  font: inherit;
+  font-family: var(--font-data);
+  padding: 4px 2px;
+}
+.builder-select:focus, .builder-input:focus { outline: none; border-bottom-color: var(--z-accent); }
+.builder-input.short { max-width: 10ch; }
+.builder-actions { display: flex; align-items: baseline; gap: var(--sp-3); margin-top: var(--sp-2); }
+.builder-save {
+  background: none;
+  border: 1px solid var(--z-accent);
+  color: var(--z-accent);
+  font: inherit; font-family: var(--font-data);
+  text-transform: uppercase; letter-spacing: 0.12em;
+  padding: 6px 16px; cursor: pointer;
+}
+.builder-save:hover { background: var(--z-accent); color: var(--z-paper); }
+.builder-cancel {
+  background: none; border: 0; color: var(--z-mute);
+  font: inherit; font-family: var(--font-data);
+  text-transform: uppercase; letter-spacing: 0.12em; cursor: pointer;
+}
+.builder-cancel:hover { color: var(--z-ink); }
+.builder-preview .key { color: var(--z-mute); }
+.builder-preview-box {
+  margin-top: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px dashed var(--z-faint);
+  min-height: 168px;
+}
+@media (max-width: 900px) {
+  .builder-grid { grid-template-columns: 1fr; gap: var(--sp-4); }
+}
 
 /* ============================================================
    Mobile / tablet responsive rules
@@ -1342,6 +1494,11 @@ button {
   }
   .canvas > * { grid-column: 1 / -1 !important; }
   .canvas.edit { grid-auto-rows: auto; }
+  /* Declarative geometry degrades gracefully: ignore x/y, stack panels by
+     (y,x) document order at full width. */
+  .canvas.declarative { grid-auto-rows: auto; }
+  .canvas.declarative > * { grid-row: auto !important; }
+  .builder-grid { grid-template-columns: 1fr; }
 
   .panel { min-width: 0; max-width: 100%; }
 
