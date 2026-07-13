@@ -432,6 +432,17 @@ pub struct Index {
     hnsw_id_rev: Arc<RwLock<HashMap<u64, String>>>,
     /// Monotonic counter for HNSW node IDs.
     hnsw_next_id: Arc<AtomicU64>,
+    /// Number of distinct live docs that CARRY the pinned vector field (item
+    /// 8). This is the coverage-gate denominator: the ANN query path may only
+    /// serve when `hnsw_id_map.len() == vector_doc_count`, i.e. every
+    /// vector-bearing doc made it into the graph. The old gate compared
+    /// against the index-global `doc_count`, so a SINGLE doc lacking the
+    /// vector field (a mixed log/vector corpus) left `id_map.len() < doc_count`
+    /// forever and silently pinned the whole index on O(N) brute force.
+    /// Incremented once per doc-id newly added to the graph, decremented on
+    /// delete; never above the true count (over-count on updates biases the
+    /// gate to brute, which is safe).
+    vector_doc_count: Arc<AtomicU64>,
     /// FIELD IDENTITY: the single field this index's HNSW graph indexes.
     ///
     /// Pinned when the graph is first created (preferring the schema's first
@@ -878,6 +889,7 @@ impl Index {
             hnsw_id_map: Arc::new(RwLock::new(HashMap::new())),
             hnsw_id_rev: Arc::new(RwLock::new(HashMap::new())),
             hnsw_next_id: Arc::new(AtomicU64::new(1)),
+            vector_doc_count: Arc::new(AtomicU64::new(0)),
             hnsw_field: Arc::new(std::sync::RwLock::new(None)),
             hnsw_stale: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             hnsw_rebuilding: Arc::new(std::sync::atomic::AtomicBool::new(false)),
@@ -1071,6 +1083,11 @@ impl Index {
                 }
                 None => (None, HashMap::new(), HashMap::new(), 1, None, false),
             };
+        // Item 8: seed the coverage-gate denominator from the persisted graph.
+        // At flush time the graph covered every vector-bearing doc, so the
+        // reloaded `id_map.len()` IS the vector-doc count. If the snapshot is
+        // stale, `hnsw_stale` already forces brute regardless of this value.
+        let vector_doc_count_init = id_map_init.len() as u64;
         if initial_hnsw {
             info!(
                 name = name.as_str(),
@@ -1109,6 +1126,7 @@ impl Index {
             hnsw_id_map: Arc::new(RwLock::new(id_map_init)),
             hnsw_id_rev: Arc::new(RwLock::new(id_rev_init)),
             hnsw_next_id: Arc::new(AtomicU64::new(next_id_init)),
+            vector_doc_count: Arc::new(AtomicU64::new(vector_doc_count_init)),
             hnsw_field: Arc::new(std::sync::RwLock::new(hnsw_field_init)),
             hnsw_stale: Arc::new(std::sync::atomic::AtomicBool::new(hnsw_stale_init)),
             hnsw_rebuilding: Arc::new(std::sync::atomic::AtomicBool::new(false)),
@@ -1223,6 +1241,9 @@ impl Index {
                 "write",
             )));
         }
+        // Process-wide admission: disk flood-stage block (item 3) + parent
+        // memory circuit breaker (item 1). Fires before any per-index work.
+        self.governor_write_gate()?;
         // Invalidate the response cache: every doc write bumps the
         // dataset version, which is part of the cache key, so old
         // entries become invisible to lookups.  No clear() needed —
@@ -1432,6 +1453,9 @@ impl Index {
                 "write",
             )));
         }
+        // Process-wide admission: disk flood-stage block (item 3) + parent
+        // memory circuit breaker (item 1). Fires before any per-index work.
+        self.governor_write_gate()?;
 
         // ── Back-pressure ─────────────────────────────────────────────────
         // Reject the batch with 429 ResourceExhausted if the memtable is
@@ -1746,6 +1770,9 @@ impl Index {
                 "write",
             )));
         }
+        // Process-wide admission: disk flood-stage block (item 3) + parent
+        // memory circuit breaker (item 1). Fires before any per-index work.
+        self.governor_write_gate()?;
 
         let hard_block = self.flush_byte_threshold.saturating_mul(3);
         let soft_block = self.flush_byte_threshold.saturating_mul(2);
@@ -2259,6 +2286,9 @@ impl Index {
                 "write",
             )));
         }
+        // Process-wide admission: disk flood-stage block (item 3) + parent
+        // memory circuit breaker (item 1). Fires before any per-index work.
+        self.governor_write_gate()?;
 
         let batch_len = docs.len();
         let index_start = std::time::Instant::now();
@@ -2353,6 +2383,9 @@ impl Index {
                 "write",
             )));
         }
+        // Process-wide admission: disk flood-stage block (item 3) + parent
+        // memory circuit breaker (item 1). Fires before any per-index work.
+        self.governor_write_gate()?;
 
         // Fail with 409 if a live document already exists with this id.
         let already_exists = {
@@ -3855,6 +3888,15 @@ impl Index {
         // that node tombstoned before the fresh vector goes in (fresh
         // node_id; the old node is never unmarked).
         let old_node: Option<u64> = self.hnsw_id_map.read().await.get(doc_id).copied();
+        if old_node.is_none() {
+            // Item 8: a new vector-bearing doc-id. Counted on ATTEMPT (here),
+            // not on success below: if the insert then fails (dim mismatch /
+            // graph error), `id_map.len()` stays behind `vector_doc_count`,
+            // which holds the coverage gate on brute force — the safe
+            // direction (a doc that isn't in the graph must not be answered
+            // from it). An update (old_node.is_some()) is already counted.
+            self.vector_doc_count.fetch_add(1, Ordering::Relaxed);
+        }
         let node_id = self.hnsw_next_id.fetch_add(1, Ordering::Relaxed);
         {
             let mut hnsw_guard = self.hnsw.write().await;
@@ -4140,6 +4182,12 @@ impl Index {
                 if let Some(h) = self.hnsw.read().await.as_ref() {
                     h.mark_deleted(node_id);
                 }
+                // Item 8: pruned doc leaves the coverage-gate denominator.
+                self.vector_doc_count
+                    .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
+                        Some(v.saturating_sub(1))
+                    })
+                    .ok();
                 pruned += 1;
             }
 
@@ -4194,12 +4242,26 @@ impl Index {
                 None => (false, 0, 0),
             }
         };
+        let graphed = self.hnsw_id_map.read().await.len() as u64;
+        // Item 8: coverage is graphed-docs / vector-bearing-docs. `covered`
+        // means the ANN path is eligible (every vector doc is in the graph);
+        // it stays `true` even when many docs lack the vector field (they are
+        // not vector docs and belong in neither the graph nor a brute scan).
+        let vector_docs = self.vector_doc_count.load(Ordering::Relaxed);
+        let doc_count = self.doc_count.load(Ordering::Relaxed);
+        let covered = present && graphed == vector_docs && !self.hnsw_stale.load(Ordering::Acquire);
         serde_json::json!({
             "present": present,
             "field": self.hnsw_field.read().unwrap().clone(),
             "nodes": nodes,
             "tombstones": tombstones,
-            "doc_coverage": self.hnsw_id_map.read().await.len() as u64,
+            "doc_coverage": graphed,
+            // How many live docs carry the pinned vector field. The ANN gate
+            // compares this against `doc_coverage`, NOT the index-wide
+            // `total_docs` — a mixed corpus can be fully covered.
+            "vector_doc_count": vector_docs,
+            "total_docs": doc_count,
+            "covered": covered,
             "stale": self.hnsw_stale.load(Ordering::Acquire),
             "rebuilding": self
                 .hnsw_rebuilding
@@ -4226,12 +4288,14 @@ impl Index {
     ///     flush-time stale (see `hnsw_field` / `hnsw_stale`);
     ///   * the field does not opt into SQ8 (`scalar8` keeps its dedicated
     ///     code-store scoring path);
-    ///   * `doc_count >= HNSW_MIN_DOCS` — small indexes (every ES-YAML
-    ///     vector test is ≤ a few hundred docs) keep today's byte-identical
-    ///     exact path;
-    ///   * coverage: `hnsw_id_map.len() == doc_count`, i.e. every live doc
-    ///     has a graph entry. Racy reads degrade to brute, never to wrong
-    ///     results.
+    ///   * `vector_doc_count >= HNSW_MIN_DOCS` — small vector sets (every
+    ///     ES-YAML vector test is ≤ a few hundred docs) keep today's
+    ///     byte-identical exact path;
+    ///   * coverage: `hnsw_id_map.len() == vector_doc_count` (item 8), i.e.
+    ///     every doc that CARRIES the pinned vector field has a graph entry.
+    ///     Docs lacking the field are not vector docs and belong in neither
+    ///     the graph nor a brute scan, so a mixed corpus can be fully covered.
+    ///     Racy reads degrade to brute, never to wrong results.
     ///
     /// Results are EXACT-RESCORED: each of the ≤k candidate docs is fetched
     /// (metrics-free, so `indices.stats` get counters stay ES-parity) and
@@ -4269,11 +4333,22 @@ impl Index {
                 return None;
             }
         }
-        let doc_count = self.doc_count.load(Ordering::Relaxed);
-        if doc_count < HNSW_MIN_DOCS {
+        // Item 8: both the min-size threshold and the coverage check are gated
+        // on the count of docs that CARRY the pinned vector field
+        // (`vector_doc_count`), NOT the index-global `doc_count`. The graph only
+        // ever holds vector-bearing docs, so its size and coverage are a
+        // function of that count. The old `id_map.len() == doc_count` test meant
+        // a SINGLE doc lacking the vector field (a mixed log/vector corpus) left
+        // `id_map.len() < doc_count` forever, silently pinning the WHOLE index
+        // on O(N) brute force. A doc without the field is correctly absent from
+        // both the graph and a brute scan, so ANN and brute return identical
+        // results. A racy read (id_map.len() != vector_doc_count) degrades to
+        // brute — never to wrong results.
+        let vector_doc_count = self.vector_doc_count.load(Ordering::Relaxed);
+        if vector_doc_count < HNSW_MIN_DOCS {
             return None;
         }
-        if self.hnsw_id_map.read().await.len() as u64 != doc_count {
+        if self.hnsw_id_map.read().await.len() as u64 != vector_doc_count {
             return None;
         }
 
@@ -4348,6 +4423,18 @@ impl Index {
             scored.push((doc_id, score, src));
         }
 
+        // Item 8: this line is only reached when the coverage gate admitted
+        // the ANN path (`hnsw_id_map.len() == vector_doc_count`). Logged so a
+        // mixed-corpus query (docs without the vector field present) is
+        // observably served by HNSW rather than silently pinned on brute.
+        debug!(
+            index = self.name.as_str(),
+            field,
+            vector_doc_count = self.vector_doc_count.load(Ordering::Relaxed),
+            total_docs = self.doc_count.load(Ordering::Relaxed),
+            candidates = scored.len(),
+            "knn served via HNSW (coverage gate passed)"
+        );
         Some(knn_result_from_scored(request, scored, k, started))
     }
 
@@ -4780,9 +4867,11 @@ impl Index {
                 .embed_batch(vec![text.to_string()])
                 .await
                 .map_err(|e| {
-                    EngineError::Common(xerj_common::XerjError::invalid_query(format!(
-                        "semantic embed failed: {e}"
-                    )))
+                    // Item 9: preserve the embedder's 5xx class. An embedding
+                    // backend outage/misconfig is NOT a client query error;
+                    // wrapping it as invalid_query (400) hid proxy failures
+                    // behind a 400 and drove clients to retry a broken backend.
+                    EngineError::Common(embed_backend_error(e, "semantic query embed failed"))
                 })?;
             match vectors.pop() {
                 Some(v) if !v.is_empty() => v,
@@ -4877,9 +4966,12 @@ impl Index {
                     chunks.iter().map(|c| c.text.clone()).collect()
                 };
                 let vs = self.embedder.embed_batch(chunk_texts).await.map_err(|e| {
-                    EngineError::Common(xerj_common::XerjError::invalid_query(format!(
-                        "semantic_text embed failed for field [{field}]: {e}"
-                    )))
+                    // Item 9: preserve the embedder's 5xx class on ingest too —
+                    // a proxy outage must not masquerade as a 400 bad document.
+                    EngineError::Common(embed_backend_error(
+                        e,
+                        &format!("semantic_text embed failed for field [{field}]"),
+                    ))
                 })?;
                 vs.into_iter().filter(|v| !v.is_empty()).collect()
             } else {
@@ -5317,6 +5409,11 @@ impl Index {
         let mut id_rev = self.hnsw_id_rev.write().await;
         *id_map = loaded.id_map;
         *id_rev = loaded.id_rev;
+        // Item 8: re-seed the coverage-gate denominator from the reloaded
+        // graph (every graphed doc is a vector doc). Staleness is handled
+        // separately by `hnsw_stale`.
+        self.vector_doc_count
+            .store(id_map.len() as u64, Ordering::Relaxed);
         drop(id_map);
         drop(id_rev);
         self.hnsw_next_id.store(loaded.next_id, Ordering::Relaxed);
@@ -5633,6 +5730,9 @@ impl Index {
                 "write",
             )));
         }
+        // Process-wide admission: disk flood-stage block (item 3) + parent
+        // memory circuit breaker (item 1). Fires before any per-index work.
+        self.governor_write_gate()?;
         self.dataset_version.fetch_add(1, Ordering::Release);
 
         // Optimistic concurrency check (see index_document_with_version for
@@ -5728,6 +5828,12 @@ impl Index {
             // gets a fresh node_id (the old one stays tombstoned).
             self.hnsw_id_map.write().await.remove(id);
             self.hnsw_id_rev.write().await.remove(&node_id);
+            // Item 8: this doc leaves the coverage-gate denominator.
+            self.vector_doc_count
+                .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
+                    Some(v.saturating_sub(1))
+                })
+                .ok();
         }
 
         if existed {
@@ -5984,10 +6090,22 @@ impl Index {
             }
         }
 
-        // Acquire a query permit before proceeding.  This bounds the number of
-        // queries executing concurrently against this index to 64 (the semaphore
-        // capacity), preventing a single hot index from starving others in a
-        // multi-tenant deployment.  The permit is automatically released when
+        // Item 2 — global search pool. Acquire a PROCESS-WIDE search permit
+        // sized from `limits.max_concurrent_searches` before proceeding. The
+        // per-index semaphore below only ever bounded one index (and was a
+        // hardcoded 64), so N hot indices could still run N×64 searches at
+        // once with no global ceiling. The global permit caps total in-flight
+        // searches across every index; excess searches queue on it, exactly
+        // like ES's search thread pool bounds active workers. Held (via
+        // `_global_permit`) for the whole call; released on drop.
+        let _global_permit = match crate::governor::global() {
+            Some(g) => Some(g.acquire_search().await?),
+            None => None,
+        };
+
+        // Acquire a per-index query permit too.  This bounds concurrency
+        // against a single index, preventing one hot index from monopolising
+        // the global pool.  The permit is automatically released when
         // `_permit` is dropped at the end of this call.
         let _permit = self.max_concurrent_queries.acquire().await.map_err(|_| {
             EngineError::Common(xerj_common::XerjError::internal(
@@ -5996,6 +6114,29 @@ impl Index {
         })?;
 
         let search_start = std::time::Instant::now();
+
+        // Item 1: per-query memory guard (`max_query_memory_mb`). Estimate the
+        // hydration cost of the requested result window (from + size hits, each
+        // materialised with its `_source` and scoring scratch) and reject
+        // up-front with a 429 `circuit_breaking_exception` if it would exceed
+        // the budget — before the Vec<Hit> is allocated. This is the
+        // request-scoped breaker; the parent (memtable/RSS) breaker is the
+        // process-wide one. A no-op when no governor is installed or the
+        // budget is 0 (disabled). At the 512 MiB default a full 10 000-hit
+        // window (~10 MiB) is nowhere near the cap, so normal search is
+        // unaffected; the guard only bites pathological windows or a
+        // deliberately low operator budget.
+        if let Some(g) = crate::governor::global() {
+            if g.query_memory_enabled() {
+                // Conservative per-hit estimate: stored source + collector
+                // scratch. Deep windows dominate query memory in practice.
+                const EST_BYTES_PER_HIT: u64 = 1024;
+                let window = (request.from as u64).saturating_add(request.size as u64);
+                let est = window.saturating_mul(EST_BYTES_PER_HIT);
+                g.check_query_alloc(est, "result-window hydration")
+                    .map_err(EngineError::Common)?;
+            }
+        }
 
         // Determine the timeout: use the request-level timeout if set, otherwise
         // fall back to the default of 30 seconds.
@@ -9822,6 +9963,27 @@ impl Index {
     }
 
     // ── Index blocks ──────────────────────────────────────────────────────────
+
+    /// Process-wide write admission (RC4 W3 items 1 & 3). Applies, in order:
+    ///
+    ///   1. the disk flood-stage block (item 3) — a 429 `cluster_block_exception`
+    ///      `read_only_allow_delete` when the data-dir filesystem is over the
+    ///      watermark, before the WAL can be driven to `ENOSPC`;
+    ///   2. the parent memory circuit breaker (item 1) — a 429
+    ///      `circuit_breaking_exception` when the summed memtable footprint or
+    ///      the process RSS is over budget, so a 429 beats the OOM-killer.
+    ///
+    /// A no-op when no governor is installed (engine-only unit tests that
+    /// build an `Index` directly), so their behaviour is unchanged.
+    #[inline]
+    fn governor_write_gate(&self) -> Result<()> {
+        if let Some(g) = crate::governor::global() {
+            g.check_disk_block(self.name.as_str())
+                .map_err(EngineError::Common)?;
+            g.check_ingest_admission().map_err(EngineError::Common)?;
+        }
+        Ok(())
+    }
 
     /// Returns true if the write block is set on this index.
     pub async fn is_write_blocked(&self) -> bool {
@@ -15734,6 +15896,17 @@ fn build_highlight_fragments(
 /// Any misconfiguration degrades to the lexical fallback (never a crash);
 /// a `semantic` query with no active backend against a plain vector field
 /// still returns a helpful 400.
+/// Map an embedder failure to the correct ES class (item 9). An embedding
+/// backend outage or misconfiguration is a server-side (5xx) failure, never a
+/// 400 `invalid_query`: downgrading it hid proxy failures behind a client
+/// error and drove clients to retry a broken backend. Produces an
+/// `EmbeddingError` (500, `circuit_breaking_exception`) with `ctx` prepended.
+/// Takes `impl Display` because the `Embedder` surfaces `anyhow::Error` (the
+/// classification of transient-vs-permanent already happened inside the proxy).
+fn embed_backend_error(e: impl std::fmt::Display, ctx: &str) -> xerj_common::XerjError {
+    xerj_common::XerjError::embedding(format!("{ctx}: {e}"))
+}
+
 fn make_embedder(cfg: &xerj_common::config::EmbeddingConfig) -> xerj_ai::Embedder {
     let mode = cfg.mode.trim().to_ascii_lowercase();
     let want_proxy = mode == "proxy"

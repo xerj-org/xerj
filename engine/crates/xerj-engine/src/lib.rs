@@ -20,6 +20,7 @@ pub mod aggs;
 pub mod audit;
 pub mod bulk;
 pub mod engine;
+pub mod governor;
 pub mod index;
 pub mod memtable;
 pub mod painless;

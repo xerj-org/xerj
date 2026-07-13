@@ -1251,6 +1251,13 @@ async fn async_main() -> Result<()> {
         std::time::Duration::from_secs(cfg.storage.flush_interval_secs),
     );
 
+    // 12b. Resource governor sampler (RC4 W3 items 1 & 3): refreshes the
+    //      process-wide memtable / RSS / disk-usage atomics that drive the
+    //      parent circuit breaker and the disk flood-stage write block. This
+    //      is the structural guard against the 112 GiB OOM class — writes get
+    //      a 429 circuit_breaking_exception before the kernel OOM-kills us.
+    state.engine.spawn_resource_sampler();
+
     // 13. Start servers concurrently
     let rest_tls = tls_config.clone();
     let rest = tokio::spawn(async move {

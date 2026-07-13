@@ -90,6 +90,37 @@ struct EmbedDatum {
     index: usize,
 }
 
+/// A single embedding attempt's failure, tagged with whether a retry could
+/// plausibly succeed (item 9). Only `retryable` failures are re-attempted by
+/// [`EmbeddingProxy::send_with_retry`]; a permanent failure (4xx client error,
+/// contract violation) returns immediately instead of stalling ~2 min/doc.
+struct EmbedFailure {
+    err: XerjError,
+    retryable: bool,
+}
+
+impl EmbedFailure {
+    fn transient(err: XerjError) -> Self {
+        Self {
+            err,
+            retryable: true,
+        }
+    }
+    fn permanent(err: XerjError) -> Self {
+        Self {
+            err,
+            retryable: false,
+        }
+    }
+}
+
+/// Whether an upstream HTTP status warrants a retry (item 9). Server errors
+/// (5xx), rate-limit (429), and request-timeout (408) are transient; all
+/// other 4xx client errors are permanent (fail fast).
+fn status_is_retryable(code: u16) -> bool {
+    code >= 500 || code == 429 || code == 408
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // EmbeddingProxy
 // ─────────────────────────────────────────────────────────────────────────────
@@ -163,9 +194,23 @@ impl EmbeddingProxy {
 
             match self.send_once(texts, model).await {
                 Ok(result) => return Ok(result),
-                Err(e) => {
-                    debug!("embed attempt {attempt} failed: {e}");
-                    last_err = e;
+                Err(EmbedFailure {
+                    err,
+                    retryable: false,
+                }) => {
+                    // Non-transient: a 4xx client error (bad model / bad key /
+                    // malformed payload) or a contract violation from the
+                    // upstream. Retrying just stalls ~max_retries × backoff
+                    // (≈2 min/doc) to arrive at the same failure. Fail fast.
+                    warn!("embed failed (non-transient, not retrying): {err}");
+                    return Err(err);
+                }
+                Err(EmbedFailure {
+                    err,
+                    retryable: true,
+                }) => {
+                    debug!("embed attempt {attempt} failed (transient): {err}");
+                    last_err = err;
                 }
             }
         }
@@ -173,7 +218,11 @@ impl EmbeddingProxy {
         Err(last_err)
     }
 
-    async fn send_once(&self, texts: &[String], model: &str) -> Result<Vec<Vec<f32>>> {
+    async fn send_once(
+        &self,
+        texts: &[String],
+        model: &str,
+    ) -> std::result::Result<Vec<Vec<f32>>, EmbedFailure> {
         let body = EmbedRequest {
             input: texts,
             model,
@@ -188,35 +237,44 @@ impl EmbeddingProxy {
             req = req.header("Authorization", format!("Bearer {key}"));
         }
 
-        let resp = req
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| XerjError::embedding(format!("HTTP request: {e}")))?;
+        // Transport-level failures (connection refused, DNS, timeout) are
+        // transient: the proxy may be restarting or briefly unreachable.
+        let resp = req.json(&body).send().await.map_err(|e| {
+            EmbedFailure::transient(XerjError::embedding(format!("HTTP request: {e}")))
+        })?;
 
         if !resp.status().is_success() {
             let status = resp.status();
+            // Classify by status (item 9): 5xx are server-side and transient;
+            // 429 (rate limit) and 408 (request timeout) are transient; every
+            // other 4xx is a permanent client error — a wrong model, a bad API
+            // key, or a malformed request — that no amount of retrying fixes.
+            let retryable = status_is_retryable(status.as_u16());
             let body = resp.text().await.unwrap_or_default();
-            return Err(XerjError::embedding(format!(
-                "embedding API returned {status}: {body}"
-            )));
+            let err = XerjError::embedding(format!("embedding API returned {status}: {body}"));
+            return Err(if retryable {
+                EmbedFailure::transient(err)
+            } else {
+                EmbedFailure::permanent(err)
+            });
         }
 
-        let response: EmbedResponse = resp
-            .json()
-            .await
-            .map_err(|e| XerjError::embedding(format!("response parse: {e}")))?;
+        // A 200 with an unparseable / short body is a contract violation, not
+        // a transient blip — don't spin on it.
+        let response: EmbedResponse = resp.json().await.map_err(|e| {
+            EmbedFailure::permanent(XerjError::embedding(format!("response parse: {e}")))
+        })?;
 
         // Sort by index to restore original order
         let mut data = response.data;
         data.sort_by_key(|d| d.index);
 
         if data.len() != texts.len() {
-            return Err(XerjError::embedding(format!(
+            return Err(EmbedFailure::permanent(XerjError::embedding(format!(
                 "expected {} embeddings, got {}",
                 texts.len(),
                 data.len()
-            )));
+            ))));
         }
 
         Ok(data.into_iter().map(|d| d.embedding).collect())
@@ -265,4 +323,64 @@ mod tests {
 
     // Note: actual HTTP tests require a live embedding endpoint.
     // Integration tests should use a mock server (e.g., wiremock).
+
+    #[test]
+    fn status_classification_item9() {
+        // Permanent client errors → fail fast.
+        assert!(!status_is_retryable(400)); // bad request
+        assert!(!status_is_retryable(401)); // bad api key
+        assert!(!status_is_retryable(403)); // forbidden
+        assert!(!status_is_retryable(404)); // wrong model / endpoint
+        assert!(!status_is_retryable(422)); // unprocessable payload
+                                            // Transient → retry.
+        assert!(status_is_retryable(408)); // request timeout
+        assert!(status_is_retryable(429)); // rate limited
+        assert!(status_is_retryable(500)); // internal
+        assert!(status_is_retryable(502)); // bad gateway
+        assert!(status_is_retryable(503)); // unavailable (proxy restarting)
+    }
+
+    #[tokio::test]
+    async fn permanent_4xx_fails_fast_no_retry() {
+        // A proxy that always 404s a bad model: with max_retries=5 and a
+        // 200ms base backoff, the OLD code would sleep 200+400+800+1600+3200ms
+        // ≈ 6.2s before giving up. Classified as permanent, we return on the
+        // first attempt — well under the first backoff.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let handle = std::thread::spawn(move || {
+            use std::io::{Read, Write};
+            // Serve a few 404s so a retrying client would keep hitting us.
+            for _ in 0..8 {
+                if let Ok((mut s, _)) = listener.accept() {
+                    let mut buf = [0u8; 1024];
+                    let _ = s.read(&mut buf);
+                    let body = "{\"error\":\"model not found\"}";
+                    let resp = format!(
+                        "HTTP/1.1 404 Not Found\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                        body.len(),
+                        body
+                    );
+                    let _ = s.write_all(resp.as_bytes());
+                }
+            }
+        });
+
+        let mut cfg =
+            EmbeddingProxyConfig::new(format!("http://{addr}/v1/embeddings"), "bad-model");
+        cfg.max_retries = 5;
+        let proxy = EmbeddingProxy::new(cfg).unwrap();
+
+        let start = std::time::Instant::now();
+        let res = proxy.embed(String::from("hello")).await;
+        let elapsed = start.elapsed();
+
+        assert!(res.is_err(), "a 404 must surface as an error");
+        // Fail-fast: no backoff sleeps at all (first backoff is 200ms).
+        assert!(
+            elapsed < Duration::from_millis(200),
+            "permanent 4xx should not retry; took {elapsed:?}"
+        );
+        drop(handle); // listener already closed by loop exit
+    }
 }
