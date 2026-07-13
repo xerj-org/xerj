@@ -460,17 +460,24 @@ async fn build_tls_config(cfg: &Config) -> Result<Option<RustlsConfig>> {
 // Observability
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn init_tracing() {
+fn init_tracing(logging: &xerj_common::config::LoggingConfig) {
     let filter = EnvFilter::try_from_env("XERJ_LOG")
         .or_else(|_| EnvFilter::try_from_env("RUST_LOG"))
         .unwrap_or_else(|_| EnvFilter::new("info"));
 
-    tracing_subscriber::fmt()
+    let builder = tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_target(true)
-        .with_thread_ids(false)
-        .compact()
-        .init();
+        .with_thread_ids(false);
+
+    // RC4-W4 item 6: JSON structured logs for shippers, or compact text
+    // (default). Both branches call `.init()` so the differing builder types
+    // never need to unify.
+    if logging.is_json() {
+        builder.json().init();
+    } else {
+        builder.compact().init();
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -714,8 +721,6 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
     use std::sync::Arc as StdArc;
     use tokio::sync::Semaphore;
 
-    init_tracing();
-
     // Load config but override to a minimal in-process shape.
     let fake_cli = CliArgs {
         config: cmd.config.clone(),
@@ -724,6 +729,8 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
         embed_mode: None,
     };
     let mut cfg = load_config(&fake_cli)?;
+    // Tracing after config so the [logging] format applies (RC4-W4 item 6).
+    init_tracing(&cfg.logging);
     cfg.tls.enabled = false;
     cfg.auth.enabled = false;
     cfg.cluster.enabled = false;
@@ -1084,13 +1091,15 @@ async fn async_main() -> Result<()> {
     // 1. CLI args
     let args = parse_args();
 
-    // 2. Tracing (must be first so startup is logged)
-    init_tracing();
+    // 2. Config — loaded before tracing so the [logging] format (text/json)
+    //    governs the very first startup line (RC4-W4 item 6). A config-load
+    //    failure still surfaces via the returned Result → stderr.
+    let mut cfg = load_config(&args)?;
+
+    // 3. Tracing
+    init_tracing(&cfg.logging);
 
     info!("xerj v{} starting", env!("CARGO_PKG_VERSION"));
-
-    // 3. Config
-    let mut cfg = load_config(&args)?;
 
     // 4. Data directory
     std::fs::create_dir_all(&cfg.server.data_dir)

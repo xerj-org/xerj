@@ -900,6 +900,9 @@ pub async fn delete_index(
 
     for name in &to_delete {
         let _ = state.engine.delete_index(name).await;
+        // RC4-W4 item 5: drop the index's per-index metric label series so it
+        // doesn't linger for the process lifetime after the index is gone.
+        state.metrics.prune_index_labels(name);
     }
     Json(EsDeleteIndexResponse::ok()).into_response()
 }
@@ -7297,12 +7300,6 @@ pub async fn search(
         .unwrap_or(search_selector_has_wildcard);
 
     for idx_name in &index_names {
-        state
-            .metrics
-            .queries_by_index
-            .with_label_values(&[idx_name])
-            .inc();
-
         let idx = match state.engine.get_index(idx_name) {
             Ok(i) => i,
             Err(e) => {
@@ -7313,6 +7310,17 @@ pub async fn search(
                 return ApiError::new(xerj_common::XerjError::from(e)).into_response();
             }
         };
+
+        // RC4-W4 item 5: record the per-index query metric only AFTER the index
+        // resolves. Incrementing before resolution let a query against a
+        // nonexistent index (`no_such_index_xyz`) mint a
+        // `queries_by_index{index="no_such_index_xyz"}` label series that
+        // lived forever — an unbounded-cardinality leak driven by client input.
+        state
+            .metrics
+            .queries_by_index
+            .with_label_values(&[idx_name])
+            .inc();
 
         // Spawn on a new task so that a panic is caught by the JoinHandle rather
         // than propagating up and crashing the server.
@@ -7942,13 +7950,21 @@ pub async fn search(
 
     let took_ms = started.elapsed().as_millis() as u64;
     state.metrics.query_latency.observe(took_ms as f64 / 1000.0);
-    // v0.8 8-P6: record into the slow query log if over the threshold.
+    // v0.8 8-P6 / RC4-W4 item 3: record into the slow query log if over the
+    // threshold. `maybe_record` also emits the unified slow-query tracing line
+    // (same runtime threshold as the ring buffer), and captures the query body
+    // so the entry is actionable.
     state.engine.slow_query.maybe_record(
         index.as_str(),
         "search",
         started.elapsed(),
         merged_hits.len() as u64,
         if body.aggs.is_some() { "with-aggs" } else { "" },
+        &body
+            .query
+            .as_ref()
+            .map(|q| q.to_string())
+            .unwrap_or_default(),
     );
     // v0.9 9-P4: append to the audit log (subject is "anonymous" until
     // RBAC middleware wires through the authenticated user in v0.9-beta).
@@ -13190,6 +13206,138 @@ pub async fn mget_index(
     }
 
     Json(json!({ "docs": docs })).into_response()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /_cat/ann  &  GET /_cat/ann/{index}   (XERJ extension — RC4-W4 item 7)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Query params for `/_cat/ann`. `v` (a valueless flag) adds a header row;
+/// `format=json` returns a JSON array instead of the plain-text table.
+#[derive(Debug, Deserialize, Default)]
+pub struct CatAnnParams {
+    #[serde(default)]
+    pub v: Option<String>,
+    #[serde(default)]
+    pub format: Option<String>,
+}
+
+/// `GET /_cat/ann` — ANN/HNSW health for every index.
+///
+/// Surfaces the same live state as `GET /{index}/_stats`'s `hnsw` block, but in
+/// the `_cat` tabular family operators already reach for. Its reason to exist:
+/// a vector index that is `stale` or under-`covered` silently degrades kNN to
+/// exact brute force, and without this the only signal was a per-index `_stats`
+/// call. Columns: index present field nodes tombstones vector_docs coverage
+/// covered stale rebuilding.
+pub async fn cat_ann(
+    State(state): State<AppState>,
+    Query(params): Query<CatAnnParams>,
+) -> impl IntoResponse {
+    cat_ann_inner(state, None, params).await
+}
+
+/// `GET /_cat/ann/{index}` — health for the named index / comma-list / pattern.
+pub async fn cat_ann_index(
+    State(state): State<AppState>,
+    Path(index): Path<String>,
+    Query(params): Query<CatAnnParams>,
+) -> impl IntoResponse {
+    cat_ann_inner(state, Some(index), params).await
+}
+
+async fn cat_ann_inner(
+    state: AppState,
+    index: Option<String>,
+    params: CatAnnParams,
+) -> axum::response::Response {
+    let all = state.engine.index_name_list();
+    // Resolve the target set (mirrors _cat/indices selector rules: a concrete
+    // name matching nothing 404s; a wildcard matching nothing is an empty 200).
+    let targets: Vec<String> = match index.as_deref() {
+        None => all,
+        Some(sel) => {
+            let parts: Vec<&str> = sel
+                .split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .collect();
+            for &p in &parts {
+                let is_wild = p == "_all" || p == "*" || p.contains('*');
+                if !is_wild && !all.iter().any(|n| n == p) {
+                    return ApiError::new(xerj_common::XerjError::index_not_found(p))
+                        .into_response();
+                }
+            }
+            all.into_iter()
+                .filter(|n| {
+                    parts
+                        .iter()
+                        .any(|&p| p == "_all" || p == "*" || n == p || glob_match_simple(p, n))
+                })
+                .collect()
+        }
+    };
+
+    let mut rows: Vec<(String, Value)> = Vec::new();
+    for name in &targets {
+        if let Ok(idx) = state.engine.get_index(name) {
+            rows.push((name.clone(), idx.hnsw_stats().await));
+        }
+    }
+    rows.sort_by(|a, b| a.0.cmp(&b.0));
+
+    if params.format.as_deref() == Some("json") {
+        let arr: Vec<Value> = rows
+            .iter()
+            .map(|(name, s)| {
+                json!({
+                    "index": name,
+                    "present": s["present"],
+                    "field": s["field"],
+                    "nodes": s["nodes"],
+                    "tombstones": s["tombstones"],
+                    "vector_docs": s["vector_doc_count"],
+                    "coverage": s["doc_coverage"],
+                    "covered": s["covered"],
+                    "stale": s["stale"],
+                    "rebuilding": s["rebuilding"],
+                })
+            })
+            .collect();
+        return Json(arr).into_response();
+    }
+
+    let mut out = String::new();
+    if params.v.is_some() {
+        out.push_str(
+            "index present field nodes tombstones vector_docs coverage covered stale rebuilding\n",
+        );
+    }
+    for (name, s) in &rows {
+        out.push_str(&format!(
+            "{} {} {} {} {} {} {} {} {} {}\n",
+            name,
+            s["present"].as_bool().unwrap_or(false),
+            s["field"].as_str().unwrap_or("-"),
+            s["nodes"].as_u64().unwrap_or(0),
+            s["tombstones"].as_u64().unwrap_or(0),
+            s["vector_doc_count"].as_u64().unwrap_or(0),
+            s["doc_coverage"].as_u64().unwrap_or(0),
+            s["covered"].as_bool().unwrap_or(false),
+            s["stale"].as_bool().unwrap_or(false),
+            s["rebuilding"].as_bool().unwrap_or(false),
+        ));
+    }
+    (
+        StatusCode::OK,
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
+        out,
+    )
+        .into_response()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

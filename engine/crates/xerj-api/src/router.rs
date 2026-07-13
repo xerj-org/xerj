@@ -17,10 +17,12 @@ use axum::{
     Router,
 };
 use tower_http::{
+    classify::{ServerErrorsAsFailures, SharedClassifier},
     cors::{AllowOrigin, Any, CorsLayer},
     limit::RequestBodyLimitLayer,
-    trace::TraceLayer,
+    trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
 };
+use tracing::Level;
 use uuid::Uuid;
 use xerj_common::config::CorsConfig;
 
@@ -56,6 +58,7 @@ use crate::{auth::auth_middleware, es_compat, memory_api, native, state::AppStat
 /// ```
 pub fn build_native_router(state: AppState) -> Router {
     let body_limit = state.config.limits.max_body_bytes;
+    let access_log = state.config.logging.access_log;
     // Build the CORS layer before `state` is moved into the auth middleware.
     let cors = cors_layer(&state.config.cors);
     // Note: this router does NOT serve `/_xerj-console/*` — that namespace is
@@ -148,7 +151,7 @@ pub fn build_native_router(state: AppState) -> Router {
         // Middleware stack (applied outermost-last)
         .layer(middleware::from_fn_with_state(state, auth_middleware))
         .layer(middleware::from_fn(request_id_middleware))
-        .layer(TraceLayer::new_for_http())
+        .layer(trace_layer(access_log))
         .layer(cors)
         // Reject requests with a body larger than the configured limit (OOM guard).
         // Disable axum's built-in 2MB default so RequestBodyLimitLayer is the only
@@ -186,6 +189,7 @@ pub fn build_native_router(state: AppState) -> Router {
 /// ```
 pub fn build_es_compat_router(state: AppState) -> Router {
     let body_limit = state.config.limits.max_body_bytes;
+    let access_log = state.config.logging.access_log;
     // Build the CORS layer before `state` is moved into the auth middleware.
     let cors = cors_layer(&state.config.cors);
     Router::new()
@@ -196,6 +200,12 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         // ── See `native.rs::liveness` for design rationale.
         .route("/health/live", get(native::liveness))
         .route("/health/ready", get(native::readiness))
+        // ── Prometheus scrape (RC4-W4 item 4) ──────────────────────────────
+        // Mounted on the ES-compat port too so `:9200`-only deployments (the
+        // common Elastic-drop-in posture, where the native `:8080` listener is
+        // firewalled off) can still scrape metrics. Same handler as the native
+        // router; gated by the optional read-only `auth.metrics_token`.
+        .route("/v1/metrics", get(native::metrics))
         // ── Cluster-level ──────────────────────────────────────────────────
         .route("/", get(es_compat::es_info))
         .route("/_cluster/health", get(es_compat::cluster_health))
@@ -208,6 +218,12 @@ pub fn build_es_compat_router(state: AppState) -> Router {
             "/_cat/indices/:pattern",
             get(es_compat::cat_indices_pattern),
         )
+        // XERJ extension (RC4-W4 item 7): per-index ANN/HNSW health as a _cat
+        // table so a brute-force-degraded (stale / partially-covered) vector
+        // index stops being silent. No ES equivalent, so it can't collide with
+        // the parity surface.
+        .route("/_cat/ann", get(es_compat::cat_ann))
+        .route("/_cat/ann/:index", get(es_compat::cat_ann_index))
         .route("/_cat/health", get(es_compat::cat_health))
         .route("/_cat/nodes", get(es_compat::cat_nodes))
         .route("/_cat/aliases", get(es_compat::cat_aliases))
@@ -684,7 +700,7 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         .layer(middleware::from_fn_with_state(state, auth_middleware))
         .layer(middleware::from_fn(es_headers_middleware))
         .layer(middleware::from_fn(request_id_middleware))
-        .layer(TraceLayer::new_for_http())
+        .layer(trace_layer(access_log))
         .layer(cors)
         // Reject requests with a body larger than the configured limit (OOM guard).
         // Disable axum's built-in 2MB default so RequestBodyLimitLayer is the only
@@ -769,6 +785,27 @@ fn cors_layer(cfg: &CorsConfig) -> CorsLayer {
             Method::PATCH,
         ])
         .allow_headers(Any)
+}
+
+/// Build the request-tracing layer (RC4-W4 item 6).
+///
+/// When `access_log` is true, the span + request/response events are emitted at
+/// INFO, so an operator gets one access line per request (method, path, status,
+/// latency) under the default `info` filter. When false they stay at DEBUG —
+/// silent by default, preserving today's quiet output — without forcing the
+/// global filter down to debug. Both arms produce the same concrete type (the
+/// level is a runtime field on the `Default*` responders), so this returns one
+/// layer regardless of the flag.
+fn trace_layer(access_log: bool) -> TraceLayer<SharedClassifier<ServerErrorsAsFailures>> {
+    let level = if access_log {
+        Level::INFO
+    } else {
+        Level::DEBUG
+    };
+    TraceLayer::new_for_http()
+        .make_span_with(DefaultMakeSpan::new().level(level))
+        .on_request(DefaultOnRequest::new().level(level))
+        .on_response(DefaultOnResponse::new().level(level))
 }
 
 /// Middleware that injects a UUID request ID into extensions and response headers.

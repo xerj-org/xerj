@@ -80,12 +80,14 @@ pub struct Config {
     pub pit: PitConfig,
     /// Scroll + async-search context TTLs and open-context caps — 7 settings.
     pub search_context: SearchContextConfig,
+    /// Structured logging + access log — 2 settings.
+    pub logging: LoggingConfig,
 }
 
-// Total: 5+2+2+3+10+5+3+1+6+2+4+3+4+3 = 53 fields (incl. cors: 2)
-// `Default` is derived — every field is a sub-config that implements
-// `Default`, so the derive produces exactly the same all-defaults value
-// the manual impl used to build by hand.
+// Total: 5+3+2+3+10+5+3+1+6+2+4+3+4+3+2 = 56 fields (incl. cors: 2, auth: 3,
+// logging: 2). `Default` is derived — every field is a sub-config that
+// implements `Default`, so the derive produces exactly the same all-defaults
+// value the manual impl used to build by hand.
 
 impl Config {
     /// Load configuration from a TOML file.
@@ -215,6 +217,14 @@ impl Config {
 
         self.engine.validate()?;
 
+        // Logging: format must be one of the two supported line formats.
+        let fmt = self.logging.format.as_str();
+        if !fmt.eq_ignore_ascii_case("text") && !fmt.eq_ignore_ascii_case("json") {
+            return Err(XerjError::config(format!(
+                "logging.format must be \"text\" or \"json\" (got {fmt:?})"
+            )));
+        }
+
         Ok(())
     }
 
@@ -275,7 +285,7 @@ impl Default for ServerConfig {
 
 /// Authentication settings.
 ///
-/// **2 settings.**
+/// **3 settings.**
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct AuthConfig {
@@ -290,6 +300,16 @@ pub struct AuthConfig {
     /// Leave empty in production; the engine writes the generated key to
     /// `<data_dir>/admin.key` on startup.
     pub admin_api_key: String,
+    /// Optional read-only metrics scrape token (default: `""` — disabled).
+    ///
+    /// When set AND auth is enabled, a caller presenting this exact token
+    /// (`Authorization: Bearer <token>` or `ApiKey <token>`) may scrape
+    /// `GET /v1/metrics` — and ONLY that endpoint — without the admin key.
+    /// This lets an operator hand Prometheus a low-privilege scrape credential
+    /// that can read metrics but cannot touch index data. The admin key still
+    /// works for `/v1/metrics`; when this is empty, metrics require the admin
+    /// key like any other endpoint (unchanged behavior).
+    pub metrics_token: String,
 }
 
 impl Default for AuthConfig {
@@ -297,7 +317,48 @@ impl Default for AuthConfig {
         Self {
             enabled: true,
             admin_api_key: String::new(),
+            metrics_token: String::new(),
         }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Structured logging + access-log settings (RC4-W4 item 6).
+///
+/// **2 settings.**
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct LoggingConfig {
+    /// Log line format:
+    /// - `"text"` (default) — human-readable compact one-liners.
+    /// - `"json"` — one JSON object per line, for structured log shippers
+    ///   (Loki / Elastic / Datadog). Field names follow tracing's JSON schema.
+    ///
+    /// Validated at load time; any other value is rejected.
+    pub format: String,
+    /// Emit an INFO-level access log line per HTTP request (method, path,
+    /// status, latency) via the tower-http request-tracing layer.
+    ///
+    /// Default `false`: request tracing stays at DEBUG (silent under the
+    /// default `info` filter), preserving today's quiet startup. Turn on for
+    /// request-level observability without dropping the global filter to debug.
+    pub access_log: bool,
+}
+
+impl Default for LoggingConfig {
+    fn default() -> Self {
+        Self {
+            format: "text".into(),
+            access_log: false,
+        }
+    }
+}
+
+impl LoggingConfig {
+    /// True when JSON line format is requested (case-insensitive).
+    pub fn is_json(&self) -> bool {
+        self.format.eq_ignore_ascii_case("json")
     }
 }
 
@@ -1231,9 +1292,9 @@ mod tests {
 
     #[test]
     fn count_user_facing_settings() {
-        // 47 user-facing settings:
+        // 50 user-facing settings:
         //   server: 5      (rest_port, grpc_port, es_compat_port, data_dir, bind_address)
-        //   auth:   2      (enabled, admin_api_key)
+        //   auth:   3      (enabled, admin_api_key, metrics_token)   ← RC4-W4 item 4
         //   tls:    3      (enabled, cert_path, key_path)
         //   storage: 10    (wal_sync, wal_batch_ms, wal_max_size_mb, flush_size_mb,
         //                   flush_interval_secs, backend, s3_bucket, s3_prefix,
@@ -1247,9 +1308,10 @@ mod tests {
         //   embedding: 4   (default_endpoint, default_model, batch_size, timeout_ms)
         //   limits: 3      (max_query_memory_mb, max_concurrent_searches, max_fields_per_index)
         //   indexing: 3    (turbo_batch_size, turbo_parallel, turbo_fast_analyzer)
+        //   logging: 2     (format, access_log)                      ← RC4-W4 item 6
         //   ─────────
-        //   total: 47 fields, minus 1 auto-generated (admin_api_key) = 46 meaningful user settings
-        let total: usize = 5 + 2 + 3 + 10 + 5 + 3 + 1 + 6 + 2 + 4 + 3 + 3;
-        assert_eq!(total, 47);
+        //   total: 50 fields, minus 1 auto-generated (admin_api_key) = 49 meaningful user settings
+        let total: usize = 5 + 3 + 3 + 10 + 5 + 3 + 1 + 6 + 2 + 4 + 3 + 3 + 2;
+        assert_eq!(total, 50);
     }
 }

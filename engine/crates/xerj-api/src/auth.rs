@@ -43,6 +43,15 @@ pub async fn auth_middleware(State(state): State<AppState>, req: Request, next: 
         return next.run(req).await;
     }
 
+    // RC4-W4 item 4: optional read-only metrics token. When configured, a
+    // caller presenting the exact token may scrape `/v1/metrics` — and ONLY
+    // that endpoint — without the admin key, so Prometheus can be handed a
+    // low-privilege scrape credential that cannot read index data. The admin
+    // key still works for metrics via the normal path below.
+    if req.uri().path() == "/v1/metrics" && metrics_token_authorized(&state, &req) {
+        return next.run(req).await;
+    }
+
     // Xerj Console lives in a peer router (mounted by `xerj-server` via
     // `Router::merge`) and runs its own session-cookie auth, so this
     // middleware never sees `/_xerj-console/*` requests — no path-prefix
@@ -96,6 +105,25 @@ pub fn is_authorized(state: &AppState, auth_header: Option<&str>) -> bool {
         Some(key) if authenticate_api_key(state, key) => true,
         _ => false,
     }
+}
+
+/// Decide whether a request to `/v1/metrics` may proceed on the strength of
+/// the read-only `auth.metrics_token` alone (RC4-W4 item 4).
+///
+/// Returns `false` (falls through to normal auth) when the token is unset or
+/// the presented credential doesn't match it. The comparison is constant-time,
+/// matching the admin-key path — a scrape token is still a shared secret.
+fn metrics_token_authorized(state: &AppState, req: &Request) -> bool {
+    let token = &state.config.auth.metrics_token;
+    if token.is_empty() {
+        return false;
+    }
+    req.headers()
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(extract_key)
+        .map(|k| constant_time_eq(k.as_bytes(), token.as_bytes()))
+        .unwrap_or(false)
 }
 
 /// Re-authenticate a created API key credential.
@@ -369,6 +397,61 @@ mod tests {
         ));
         assert!(!is_authorized(&state, Some("ApiKey short")));
         assert!(!is_authorized(&state, None));
+    }
+
+    /// RC4-W4 item 4: the read-only `metrics_token` scrapes `/v1/metrics` and
+    /// ONLY `/v1/metrics`. It is not a blanket bypass — a data endpoint still
+    /// 401s with it, and metrics still 401 with no credential at all.
+    #[tokio::test]
+    async fn metrics_token_scopes_to_metrics_only() {
+        let admin = "admin-secret-key";
+        let metrics_tok = "scrape-only-token";
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.keep();
+        let mut config = Config::default();
+        config.server.data_dir = path.to_str().unwrap().to_string();
+        config.auth.enabled = true;
+        config.auth.admin_api_key = admin.to_string();
+        config.auth.metrics_token = metrics_tok.to_string();
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        let state = AppState::new(config, engine, metrics);
+
+        let app = Router::new()
+            .route("/v1/metrics", get(|| async { "metrics" }))
+            .route("/_cluster/health", get(|| async { "data" }))
+            .layer(middleware::from_fn_with_state(
+                state.clone(),
+                auth_middleware,
+            ))
+            .with_state(state);
+
+        let tok_hdr = format!("Bearer {metrics_tok}");
+        // The scrape token reads metrics …
+        let (status, _) = send(&app, "GET", "/v1/metrics", Some(&tok_hdr), "").await;
+        assert_eq!(
+            status,
+            StatusCode::OK,
+            "metrics token must scrape /v1/metrics"
+        );
+        // … but NOTHING else.
+        let (status, _) = send(&app, "GET", "/_cluster/health", Some(&tok_hdr), "").await;
+        assert_eq!(
+            status,
+            StatusCode::UNAUTHORIZED,
+            "metrics token must not read index data"
+        );
+        // The admin key still works for metrics.
+        let admin_hdr = format!("ApiKey {admin}");
+        let (status, _) = send(&app, "GET", "/v1/metrics", Some(&admin_hdr), "").await;
+        assert_eq!(status, StatusCode::OK, "admin key still scrapes metrics");
+        // A missing credential still 401s — the token is opt-in, not open.
+        let (status, _) = send(&app, "GET", "/v1/metrics", None, "").await;
+        assert_eq!(
+            status,
+            StatusCode::UNAUTHORIZED,
+            "metrics still demands a credential"
+        );
     }
 
     /// Regression for the RC4 blocker: `/health/live` + `/health/ready` must
