@@ -3,9 +3,11 @@
 use std::time::Instant;
 
 use axum::{
-    extract::{Path, Query, State},
-    http::StatusCode,
-    response::IntoResponse,
+    async_trait,
+    body::Bytes,
+    extract::{FromRequest, Path, Query, Request, State},
+    http::{header, StatusCode},
+    response::{IntoResponse, Response},
     Json,
 };
 use chrono::{Datelike, TimeZone, Timelike, Utc};
@@ -2139,6 +2141,547 @@ impl Default for EsSearchBody {
             pit: None,
             timeout: None,
         }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Request-validation bundle (RC4 Wave-3 item 4) — the silent-wrong-query class.
+//
+// Each shape below reproduces live ES 8.13.4 status + JSON so an existing ES
+// client sees the same 400 it would from a real cluster instead of a
+// misleading 200 with default (match-all) semantics.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Full set of top-level keys ES 8.13.4 accepts on the `_search` request
+/// source (live-probed against the reference cluster), NOT merely the subset
+/// `EsSearchBody` models. Keys ES accepts but xerj does not act on
+/// (`terminate_after`, `post_filter`, `stats`, `ext`) stay accepted-and-ignored
+/// exactly as before — only genuinely-unknown keys are rejected.
+const ES_SEARCH_TOP_LEVEL_KEYS: &[&str] = &[
+    "query",
+    "from",
+    "size",
+    "timeout",
+    "terminate_after",
+    "min_score",
+    "post_filter",
+    "sort",
+    "track_scores",
+    "track_total_hits",
+    "indices_boost",
+    "_source",
+    "fields",
+    "docvalue_fields",
+    "stored_fields",
+    "script_fields",
+    "runtime_mappings",
+    "highlight",
+    "suggest",
+    "rescore",
+    "explain",
+    "version",
+    "seq_no_primary_term",
+    "aggs",
+    "aggregations",
+    "collapse",
+    "slice",
+    "search_after",
+    "pit",
+    "knn",
+    "profile",
+    "stats",
+    "ext",
+];
+
+/// A minimal position-tracking JSON scanner used solely to locate the first
+/// unknown top-level key in a `_search` body and report the ES-style
+/// (token-type, 1-based line, 1-based col) of its *value*. Deliberately
+/// conservative: on anything it does not understand it stops and reports "no
+/// unknown key", so genuinely malformed JSON falls through to the normal
+/// serde parse error rather than a misleading unknown-key message.
+struct SearchKeyScanner<'a> {
+    b: &'a [u8],
+    i: usize,
+    line: usize,
+    col: usize,
+}
+
+impl<'a> SearchKeyScanner<'a> {
+    fn new(b: &'a [u8]) -> Self {
+        Self {
+            b,
+            i: 0,
+            line: 1,
+            col: 1,
+        }
+    }
+    #[inline]
+    fn cur(&self) -> Option<u8> {
+        self.b.get(self.i).copied()
+    }
+    /// Advance one byte, keeping `line`/`col` pointed at the byte now under
+    /// the cursor (1-based, matching Jackson's reporting).
+    #[inline]
+    fn adv(&mut self) {
+        if let Some(c) = self.cur() {
+            if c == b'\n' {
+                self.line += 1;
+                self.col = 1;
+            } else {
+                self.col += 1;
+            }
+            self.i += 1;
+        }
+    }
+    fn skip_ws(&mut self) {
+        while let Some(c) = self.cur() {
+            if matches!(c, b' ' | b'\t' | b'\r' | b'\n') {
+                self.adv();
+            } else {
+                break;
+            }
+        }
+    }
+    /// At an opening quote, consume a whole JSON string and return its bytes as
+    /// a lossy String (escape decoding is irrelevant here — no allow-listed key
+    /// contains an escape). Advances past the closing quote; `None` if
+    /// unterminated.
+    fn read_string(&mut self) -> Option<String> {
+        if self.cur() != Some(b'"') {
+            return None;
+        }
+        self.adv(); // opening quote
+        let mut s = String::new();
+        while let Some(c) = self.cur() {
+            match c {
+                b'"' => {
+                    self.adv();
+                    return Some(s);
+                }
+                b'\\' => {
+                    self.adv();
+                    if let Some(e) = self.cur() {
+                        s.push(e as char);
+                        self.adv();
+                    }
+                }
+                _ => {
+                    s.push(c as char);
+                    self.adv();
+                }
+            }
+        }
+        None
+    }
+    /// Skip a complete JSON value (object/array/string/primitive). Returns
+    /// false if it runs off the end.
+    fn skip_value(&mut self) -> bool {
+        self.skip_ws();
+        match self.cur() {
+            Some(b'"') => self.read_string().is_some(),
+            Some(b'{') | Some(b'[') => {
+                let mut depth = 0isize;
+                loop {
+                    match self.cur() {
+                        Some(b'"') => {
+                            if self.read_string().is_none() {
+                                return false;
+                            }
+                        }
+                        Some(b'{') | Some(b'[') => {
+                            depth += 1;
+                            self.adv();
+                        }
+                        Some(b'}') | Some(b']') => {
+                            depth -= 1;
+                            self.adv();
+                            if depth == 0 {
+                                return true;
+                            }
+                        }
+                        Some(_) => self.adv(),
+                        None => return false,
+                    }
+                }
+            }
+            Some(_) => {
+                while let Some(c) = self.cur() {
+                    if matches!(c, b',' | b'}' | b']' | b' ' | b'\t' | b'\r' | b'\n') {
+                        break;
+                    }
+                    self.adv();
+                }
+                true
+            }
+            None => false,
+        }
+    }
+}
+
+/// Classify a JSON value's first byte into ES's XContent token name.
+fn es_value_token(first: u8) -> &'static str {
+    match first {
+        b'"' => "VALUE_STRING",
+        b'{' => "START_OBJECT",
+        b'[' => "START_ARRAY",
+        b't' | b'f' => "VALUE_BOOLEAN",
+        b'n' => "VALUE_NULL",
+        _ => "VALUE_NUMBER",
+    }
+}
+
+/// Scan a raw `_search` body for the first top-level key ES would reject as
+/// unknown. Returns `(key, token_type, line, col)` — line/col are the 1-based
+/// position of the offending *value*, matching ES 8.13.4. `None` when every
+/// root key is allow-listed, or when the body is not a plain object / is too
+/// malformed to scan (serde then owns the error).
+fn first_unknown_search_key(bytes: &[u8]) -> Option<(String, &'static str, usize, usize)> {
+    let mut s = SearchKeyScanner::new(bytes);
+    s.skip_ws();
+    if s.cur() != Some(b'{') {
+        return None;
+    }
+    s.adv(); // consume '{'
+    loop {
+        s.skip_ws();
+        match s.cur() {
+            Some(b'}') => return None,
+            Some(b',') => {
+                s.adv();
+                continue;
+            }
+            Some(b'"') => {}
+            _ => return None,
+        }
+        let key = s.read_string()?;
+        s.skip_ws();
+        if s.cur() != Some(b':') {
+            return None;
+        }
+        s.adv(); // consume ':'
+        s.skip_ws();
+        let vc = s.cur()?;
+        if !ES_SEARCH_TOP_LEVEL_KEYS.contains(&key.as_str()) {
+            return Some((key, es_value_token(vc), s.line, s.col));
+        }
+        if !s.skip_value() {
+            return None;
+        }
+    }
+}
+
+/// Build ES's `parsing_exception` body for an unknown top-level search key
+/// (item 4a): `Unknown key for a VALUE_STRING in [foo].` with line/col.
+fn unknown_search_key_body(key: &str, token: &str, line: usize, col: usize) -> Value {
+    let reason = format!("Unknown key for a {token} in [{key}].");
+    json!({
+        "error": {
+            "root_cause": [{ "type": "parsing_exception", "reason": reason, "line": line, "col": col }],
+            "type": "parsing_exception",
+            "reason": reason,
+            "line": line,
+            "col": col,
+        },
+        "status": 400,
+    })
+}
+
+fn unknown_search_key_error(key: &str, token: &str, line: usize, col: usize) -> Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(unknown_search_key_body(key, token, line, col)),
+    )
+        .into_response()
+}
+
+/// ES's shard-level validation envelope: a 400 `search_phase_execution_exception`
+/// ("all shards failed") wrapping an `illegal_argument_exception` root cause.
+/// Matches the house style xerj already uses for `_seq_no` sort rejections and
+/// ES's own search_after / rescore validation errors (items 4b, 4c).
+fn search_shard_validation_body(reason: &str) -> Value {
+    json!({
+        "error": {
+            "root_cause": [{ "type": "illegal_argument_exception", "reason": reason }],
+            "type": "search_phase_execution_exception",
+            "reason": "all shards failed",
+        },
+        "status": 400,
+    })
+}
+
+fn search_shard_validation_error(reason: &str) -> Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(search_shard_validation_body(reason)),
+    )
+        .into_response()
+}
+
+/// Count `(total, field)` sort clauses in a raw ES `sort` value the way ES does
+/// for search_after: `total` counts every clause; `field` counts only clauses
+/// that are not `_score` (a `_score`-only sort produces no field for the
+/// FieldDoc, so search_after over it is rejected with "Sort must contain at
+/// least one field.").
+fn count_sort_clauses(sort: &Value) -> (usize, usize) {
+    fn clause_field(v: &Value) -> Option<&str> {
+        match v {
+            Value::String(s) => Some(s.as_str()),
+            Value::Object(o) => o.keys().next().map(String::as_str),
+            _ => None,
+        }
+    }
+    match sort {
+        Value::String(_) | Value::Object(_) => {
+            (1, usize::from(clause_field(sort) != Some("_score")))
+        }
+        Value::Array(arr) => (
+            arr.len(),
+            arr.iter()
+                .filter(|e| clause_field(e) != Some("_score"))
+                .count(),
+        ),
+        _ => (0, 0),
+    }
+}
+
+/// True when `sort` is effectively "sort by relevance descending" — a single
+/// `_score` clause with default/DESC order, or the bare string `"_score"`. ES
+/// permits `rescore` alongside such a sort but rejects any other sort
+/// ("Cannot use [sort] option in conjunction with [rescore].", item 4c).
+fn is_pure_score_desc_sort(sort: &Value) -> bool {
+    fn clause_is_score_desc(v: &Value) -> bool {
+        match v {
+            Value::String(s) => s == "_score",
+            Value::Object(o) => {
+                if o.len() != 1 {
+                    return false;
+                }
+                let (k, ord) = o.iter().next().unwrap();
+                if k != "_score" {
+                    return false;
+                }
+                match ord {
+                    // `{"_score": "desc"}` — default order is DESC.
+                    Value::String(s) => s.eq_ignore_ascii_case("desc"),
+                    // `{"_score": {"order": "desc"}}`; absent order → DESC.
+                    Value::Object(oo) => oo
+                        .get("order")
+                        .and_then(Value::as_str)
+                        .map(|s| s.eq_ignore_ascii_case("desc"))
+                        .unwrap_or(true),
+                    _ => false,
+                }
+            }
+            _ => false,
+        }
+    }
+    match sort {
+        Value::String(s) => s == "_score",
+        Value::Object(_) => clause_is_score_desc(sort),
+        Value::Array(arr) => arr.len() == 1 && clause_is_score_desc(&arr[0]),
+        _ => false,
+    }
+}
+
+/// Reject the search-body semantic combinations ES rejects at query-build time
+/// (items 4b + 4c). Returns `Some(response)` with the ES-shaped 400 when
+/// invalid; `None` when the body is acceptable.
+fn validate_search_after_rescore(body: &EsSearchBody) -> Option<Response> {
+    // rescore is incompatible with any sort other than relevance (_score DESC).
+    if body.rescore.is_some() {
+        if let Some(sort) = body.sort.as_ref() {
+            if !is_pure_score_desc_sort(sort) {
+                return Some(search_shard_validation_error(
+                    "Cannot use [sort] option in conjunction with [rescore].",
+                ));
+            }
+        }
+    }
+    // search_after arity / field validation. Non-array search_after is left to
+    // the engine (a documented minor gap — ES reports it as a token-level
+    // parsing_exception which needs the raw byte offset we no longer hold here).
+    if let Some(Value::Array(arr)) = body.search_after.as_ref() {
+        let (total_sort, field_sort) = body.sort.as_ref().map(count_sort_clauses).unwrap_or((0, 0));
+        if field_sort == 0 {
+            return Some(search_shard_validation_error(
+                "Sort must contain at least one field.",
+            ));
+        }
+        if arr.is_empty() {
+            return Some(search_shard_validation_error(
+                "Values must contains at least one value.",
+            ));
+        }
+        if arr.len() != total_sort {
+            return Some(search_shard_validation_error(&format!(
+                "search_after has {} value(s) but sort has {}.",
+                arr.len(),
+                total_sort
+            )));
+        }
+    }
+    None
+}
+
+/// Build ES's `illegal_argument_exception` for an unparseable integer URL
+/// parameter (item 4d): `?size=abc` → a JSON 400 with a `number_format_exception`
+/// cause, instead of axum's default `text/plain` 400.
+fn int_param_parse_body(param: &str, value: &str) -> Value {
+    let reason = format!("Failed to parse int parameter [{param}] with value [{value}]");
+    json!({
+        "error": {
+            "root_cause": [{ "type": "illegal_argument_exception", "reason": reason }],
+            "type": "illegal_argument_exception",
+            "reason": reason,
+            "caused_by": {
+                "type": "number_format_exception",
+                "reason": format!("For input string: \"{value}\""),
+            },
+        },
+        "status": 400,
+    })
+}
+
+fn int_param_parse_error(param: &str, value: &str) -> Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(int_param_parse_body(param, value)),
+    )
+        .into_response()
+}
+
+/// ES's `illegal_argument_exception` for a scroll id that cannot be decoded
+/// (item 4e): `Cannot parse scroll id`, 400. Previously xerj answered 404
+/// `index_not_found_exception` with the whole "No search context found for id
+/// […]" sentence mis-stuffed into `root_cause[].index`.
+fn cannot_parse_scroll_id_body() -> Value {
+    json!({
+        "error": {
+            "root_cause": [{ "type": "illegal_argument_exception", "reason": "Cannot parse scroll id" }],
+            "type": "illegal_argument_exception",
+            "reason": "Cannot parse scroll id",
+            "caused_by": { "type": "e_o_f_exception", "reason": Value::Null },
+        },
+        "status": 400,
+    })
+}
+
+fn cannot_parse_scroll_id() -> Response {
+    (StatusCode::BAD_REQUEST, Json(cannot_parse_scroll_id_body())).into_response()
+}
+
+/// ES's 404 for a well-formed scroll id whose search context is gone
+/// (expired/cleared/unknown): `search_context_missing_exception` inside the
+/// shard-failure envelope — NOT an `index_not_found_exception` carrying the
+/// sentence as an index name.
+fn search_context_missing_body(scroll_id: &str) -> Value {
+    let reason = format!("No search context found for id [{scroll_id}]");
+    json!({
+        "error": {
+            "root_cause": [{ "type": "search_context_missing_exception", "reason": reason }],
+            "type": "search_phase_execution_exception",
+            "reason": "all shards failed",
+        },
+        "status": 404,
+    })
+}
+
+fn search_context_missing(scroll_id: &str) -> Response {
+    (
+        StatusCode::NOT_FOUND,
+        Json(search_context_missing_body(scroll_id)),
+    )
+        .into_response()
+}
+
+/// Body extractor for `_search` that layers ES 8.13.4's deny-unknown-key
+/// behaviour on top of `OptionalJson<EsSearchBody>` (item 4a): a bogus
+/// top-level key is rejected with the exact ES `parsing_exception` instead of
+/// being silently dropped and answered with a default match-all 200. Empty
+/// body → `None` (match-all default); malformed JSON and non-JSON
+/// `Content-Type` behave exactly like `OptionalJson`.
+pub struct EsSearchJson(pub Option<EsSearchBody>);
+
+impl EsSearchJson {
+    #[inline]
+    pub fn into_or_default(self) -> EsSearchBody {
+        self.0.unwrap_or_default()
+    }
+}
+
+/// Rejection for [`EsSearchJson`]: either a stock `OptionalJson` failure
+/// (body-read / malformed-JSON / unsupported media type) or an unknown
+/// top-level search key.
+pub enum EsSearchJsonRejection {
+    Optional(crate::extract::OptionalJsonRejection),
+    UnknownKey {
+        key: String,
+        token: &'static str,
+        line: usize,
+        col: usize,
+    },
+}
+
+impl IntoResponse for EsSearchJsonRejection {
+    fn into_response(self) -> Response {
+        match self {
+            EsSearchJsonRejection::Optional(r) => r.into_response(),
+            EsSearchJsonRejection::UnknownKey {
+                key,
+                token,
+                line,
+                col,
+            } => unknown_search_key_error(&key, token, line, col),
+        }
+    }
+}
+
+#[async_trait]
+impl<S: Send + Sync> FromRequest<S> for EsSearchJson {
+    type Rejection = EsSearchJsonRejection;
+
+    async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
+        use crate::extract::OptionalJsonRejection;
+        let ct = req
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_owned);
+
+        let bytes = Bytes::from_request(req, state)
+            .await
+            .map_err(|e| EsSearchJsonRejection::Optional(OptionalJsonRejection::BodyRead(e)))?;
+
+        if bytes.is_empty() {
+            return Ok(EsSearchJson(None));
+        }
+
+        if let Some(ct_str) = ct {
+            let lower = ct_str.to_ascii_lowercase();
+            let is_json = lower.contains("json") || lower.starts_with("text/plain");
+            if !is_json {
+                return Err(EsSearchJsonRejection::Optional(
+                    OptionalJsonRejection::UnsupportedMediaType(ct_str),
+                ));
+            }
+        }
+
+        // Deny unknown top-level keys (ES parity) before the typed parse, so
+        // the client sees the offending key rather than a downstream match-all
+        // 200. The scanner is conservative and bails to the serde error on
+        // malformed input.
+        if let Some((key, token, line, col)) = first_unknown_search_key(&bytes) {
+            return Err(EsSearchJsonRejection::UnknownKey {
+                key,
+                token,
+                line,
+                col,
+            });
+        }
+
+        let value: EsSearchBody = serde_json::from_slice(&bytes)
+            .map_err(|e| EsSearchJsonRejection::Optional(OptionalJsonRejection::JsonParse(e)))?;
+        Ok(EsSearchJson(Some(value)))
     }
 }
 
@@ -4490,10 +5033,12 @@ fn parse_highlight(hl_val: &Value) -> Option<xerj_query::ast::HighlightRequest> 
 pub struct EsSearchQueryParams {
     /// Simple query string — `?q=title:rust`.
     pub q: Option<String>,
-    /// Maximum hits to return.
-    pub size: Option<usize>,
-    /// Start offset.
-    pub from: Option<usize>,
+    /// Maximum hits to return. Kept as a raw string so `?size=abc` reaches the
+    /// handler (which returns an ES-shaped 400) instead of failing at the axum
+    /// `Query` layer with a `text/plain` 400 (item 4d).
+    pub size: Option<String>,
+    /// Start offset. Raw string for the same reason as `size`.
+    pub from: Option<String>,
     /// Sort field — `price:desc` or `_score`.
     pub sort: Option<String>,
     /// Comma-separated list of source fields to include.
@@ -4569,7 +5114,7 @@ pub struct EsSearchQueryParams {
 pub async fn search_all(
     State(state): State<AppState>,
     Query(params): Query<EsSearchQueryParams>,
-    body: OptionalJson<EsSearchBody>,
+    body: EsSearchJson,
 ) -> impl IntoResponse {
     search(State(state), Path("*".to_string()), Query(params), body).await
 }
@@ -4578,7 +5123,7 @@ pub async fn search(
     State(state): State<AppState>,
     Path(index): Path<String>,
     Query(params): Query<EsSearchQueryParams>,
-    body: OptionalJson<EsSearchBody>,
+    body: EsSearchJson,
 ) -> impl IntoResponse {
     let started = Instant::now();
     // Closed-index handling is deferred to after index resolution below so
@@ -4679,11 +5224,20 @@ pub async fn search(
         }
         body.query = Some(json!({ "query_string": qs }));
     }
-    if let Some(size) = params.size {
-        body.size = size;
+    // Parse `?size=` / `?from=` here (not at the axum `Query` layer) so a
+    // non-numeric value yields ES's JSON `illegal_argument_exception` rather
+    // than axum's `text/plain` 400 (item 4d).
+    if let Some(ref size_s) = params.size {
+        match size_s.parse::<usize>() {
+            Ok(n) => body.size = n,
+            Err(_) => return int_param_parse_error("size", size_s),
+        }
     }
-    if let Some(from) = params.from {
-        body.from = from;
+    if let Some(ref from_s) = params.from {
+        match from_s.parse::<usize>() {
+            Ok(n) => body.from = n,
+            Err(_) => return int_param_parse_error("from", from_s),
+        }
     }
     // URL-level `seq_no_primary_term=true` / `version=true` promote the
     // corresponding body flag when the caller didn't already set one.
@@ -4738,6 +5292,18 @@ pub async fn search(
             body.sort = Some(sort_val);
         }
     }
+
+    // Reject the search-body semantic combinations ES rejects at query-build
+    // time (items 4b + 4c): search_after without/against the wrong sort arity,
+    // and rescore alongside a non-relevance sort. Silently ignored before this
+    // (200 with wrong results); now the ES-shaped 400. Placed after the URL
+    // `?sort=` merge so a URL-provided sort counts toward the arity/field rules
+    // exactly as ES does (URL sort + body search_after is valid; URL sort +
+    // body rescore is rejected — both live-verified).
+    if let Some(err) = validate_search_after_rescore(&body) {
+        return err;
+    }
+
     // `?_source=field1,field2`
     if let Some(ref src_str) = params.source {
         if body.source.is_none() {
@@ -13672,6 +14238,12 @@ pub async fn next_scroll(
         }
     };
 
+    // An id xerj never issued (its scroll ids are v4 UUIDs) cannot name a
+    // context: ES answers 400 `Cannot parse scroll id`, not a 404 (item 4e).
+    if Uuid::parse_str(&scroll_id).is_err() {
+        return cannot_parse_scroll_id();
+    }
+
     match state.engine.scrolls.get_mut(&scroll_id) {
         Some(mut ctx) => {
             // Keep-alive enforcement (RC4 blocker 11): an expired context
@@ -13681,10 +14253,7 @@ pub async fn next_scroll(
             if ctx.expires_at <= now {
                 drop(ctx); // release the DashMap shard guard before remove
                 state.engine.scrolls.remove(&scroll_id);
-                let e = xerj_common::XerjError::index_not_found(format!(
-                    "No search context found for id [{scroll_id}]"
-                ));
-                return ApiError::new(e).into_response();
+                return search_context_missing(&scroll_id);
             }
             // Re-arm the deadline: an explicit `scroll` on the continuation
             // (body wins over query param, like scroll_id) sets a new
@@ -13795,12 +14364,7 @@ pub async fn next_scroll(
             }
             Json(resp).into_response()
         }
-        None => {
-            let e = xerj_common::XerjError::index_not_found(format!(
-                "No search context found for id [{scroll_id}]"
-            ));
-            ApiError::new(e).into_response()
-        }
+        None => search_context_missing(&scroll_id),
     }
 }
 
@@ -26878,5 +27442,300 @@ mod reindex_keyset_tests {
             n as u64,
             "every source doc must be reindexed (a from-offset pager truncates at ~10k)"
         );
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RC4 Wave-3 item 4 — request-validation bundle tests.
+//
+// Every golden below was captured live from the ES 8.13.4 reference cluster
+// (`da95df1`) so each assertion is a byte-for-byte xerj==ES check on the
+// error shape, not a xerj-invented expectation.
+// ─────────────────────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod request_validation_tests {
+    use super::*;
+    use serde_json::json;
+
+    // ── item 4a: deny_unknown_fields (scanner: token type + 1-based line/col) ──
+    #[test]
+    fn unknown_key_number_value_reports_es_token_and_col() {
+        // ES: "Unknown key for a VALUE_NUMBER in [bogus_key]." line 1 col 39.
+        let body = br#"{"query":{"match_all":{}},"bogus_key":123}"#;
+        assert_eq!(
+            first_unknown_search_key(body),
+            Some(("bogus_key".to_string(), "VALUE_NUMBER", 1, 39))
+        );
+    }
+
+    #[test]
+    fn unknown_key_string_value_col() {
+        // ES: "Unknown key for a VALUE_STRING in [foobar]." line 1 col 20.
+        let body = br#"{"size":5,"foobar":"hello"}"#;
+        assert_eq!(
+            first_unknown_search_key(body),
+            Some(("foobar".to_string(), "VALUE_STRING", 1, 20))
+        );
+    }
+
+    #[test]
+    fn unknown_key_all_value_tokens() {
+        assert_eq!(
+            first_unknown_search_key(br#"{"badobj":{"a":1}}"#),
+            Some(("badobj".to_string(), "START_OBJECT", 1, 11))
+        );
+        assert_eq!(
+            first_unknown_search_key(br#"{"badarr":[1,2]}"#),
+            Some(("badarr".to_string(), "START_ARRAY", 1, 11))
+        );
+        assert_eq!(
+            first_unknown_search_key(br#"{"badbool":true}"#),
+            Some(("badbool".to_string(), "VALUE_BOOLEAN", 1, 12))
+        );
+        assert_eq!(
+            first_unknown_search_key(br#"{"badnull":null}"#),
+            Some(("badnull".to_string(), "VALUE_NULL", 1, 12))
+        );
+    }
+
+    #[test]
+    fn top_level_match_is_unknown() {
+        // The gate's "Search body without query element" case: a bare `match`
+        // at the search-source top level is not a query wrapper → rejected.
+        assert_eq!(
+            first_unknown_search_key(br#"{"match":{"foo":"bar"}}"#),
+            Some(("match".to_string(), "START_OBJECT", 1, 10))
+        );
+    }
+
+    #[test]
+    fn multiline_body_reports_line_and_col() {
+        let body = b"{\n  \"bogus\": 1\n}";
+        assert_eq!(
+            first_unknown_search_key(body),
+            Some(("bogus".to_string(), "VALUE_NUMBER", 2, 12))
+        );
+    }
+
+    #[test]
+    fn all_allow_listed_keys_pass() {
+        // Every key ES accepts on the search source must NOT be flagged.
+        let body = br#"{"query":{"match_all":{}},"size":5,"from":0,"sort":["name"],
+            "_source":true,"aggs":{},"post_filter":{},"terminate_after":10,
+            "stats":["a"],"ext":{},"track_total_hits":true,"min_score":0.5,
+            "search_after":["x"],"collapse":{"field":"f"},"pit":{"id":"z"}}"#;
+        assert_eq!(first_unknown_search_key(body), None);
+    }
+
+    #[test]
+    fn braces_inside_string_values_do_not_desync_scanner() {
+        // A '{' or '"' inside a string value must not be mistaken for
+        // structure and surface an inner key as top-level.
+        let body = br#"{"query":{"match":{"msg":"a {curly} brace and \"quoted\" text"}}}"#;
+        assert_eq!(first_unknown_search_key(body), None);
+    }
+
+    #[test]
+    fn non_object_body_defers_to_serde() {
+        assert_eq!(first_unknown_search_key(br#"[1,2,3]"#), None);
+        assert_eq!(first_unknown_search_key(br#""just a string""#), None);
+        assert_eq!(first_unknown_search_key(br#"not json at all"#), None);
+    }
+
+    #[test]
+    fn unknown_key_body_matches_es_golden() {
+        // Live ES 8.13.4 for {"foobar":"hello"} at col 20.
+        let es = json!({
+            "error": {
+                "root_cause": [{
+                    "type": "parsing_exception",
+                    "reason": "Unknown key for a VALUE_STRING in [foobar].",
+                    "line": 1, "col": 20
+                }],
+                "type": "parsing_exception",
+                "reason": "Unknown key for a VALUE_STRING in [foobar].",
+                "line": 1, "col": 20
+            },
+            "status": 400
+        });
+        assert_eq!(unknown_search_key_body("foobar", "VALUE_STRING", 1, 20), es);
+    }
+
+    // ── item 4b: search_after sort counting ──
+    #[test]
+    fn sort_clause_counting_matches_es_semantics() {
+        assert_eq!(count_sort_clauses(&json!(["name"])), (1, 1));
+        assert_eq!(count_sort_clauses(&json!(["_score"])), (1, 0));
+        assert_eq!(count_sort_clauses(&json!(["name", "_score"])), (2, 1));
+        assert_eq!(count_sort_clauses(&json!(["name", "age"])), (2, 2));
+        assert_eq!(count_sort_clauses(&json!("name")), (1, 1));
+        assert_eq!(count_sort_clauses(&json!({"name": "desc"})), (1, 1));
+        assert_eq!(count_sort_clauses(&json!({"_score": "desc"})), (1, 0));
+    }
+
+    #[test]
+    fn search_after_without_field_sort_rejected() {
+        // No sort at all, and a _score-only sort, both → "Sort must contain
+        // at least one field." (ES fires this before arity).
+        for sort in [None, Some(json!(["_score"]))] {
+            let body = EsSearchBody {
+                sort,
+                search_after: Some(json!(["alice"])),
+                ..Default::default()
+            };
+            let v = validate_search_after_rescore(&body);
+            assert!(v.is_some());
+        }
+    }
+
+    #[test]
+    fn search_after_arity_mismatch_message_matches_es() {
+        let body = EsSearchBody {
+            sort: Some(json!(["name"])),
+            search_after: Some(json!(["alice", "extra"])),
+            ..Default::default()
+        };
+        assert!(validate_search_after_rescore(&body).is_some());
+        // Golden reason string, per live ES.
+        assert_eq!(
+            search_shard_validation_body("search_after has 2 value(s) but sort has 1."),
+            json!({
+                "error": {
+                    "root_cause": [{
+                        "type": "illegal_argument_exception",
+                        "reason": "search_after has 2 value(s) but sort has 1."
+                    }],
+                    "type": "search_phase_execution_exception",
+                    "reason": "all shards failed"
+                },
+                "status": 400
+            })
+        );
+    }
+
+    #[test]
+    fn search_after_matching_arity_accepted() {
+        // Includes the mixed field+_score case (arity counts _score).
+        for (sort, sa) in [
+            (json!(["name"]), json!(["alice"])),
+            (json!(["name", "_score"]), json!(["alice", 1.5])),
+            (json!({"name": "desc"}), json!(["alice"])),
+        ] {
+            let body = EsSearchBody {
+                sort: Some(sort.clone()),
+                search_after: Some(sa.clone()),
+                ..Default::default()
+            };
+            assert!(
+                validate_search_after_rescore(&body).is_none(),
+                "sort={sort} search_after={sa} should be valid"
+            );
+        }
+    }
+
+    // ── item 4c: rescore + sort ──
+    #[test]
+    fn pure_score_desc_sort_detection() {
+        assert!(is_pure_score_desc_sort(&json!(["_score"])));
+        assert!(is_pure_score_desc_sort(&json!([{"_score": "desc"}])));
+        assert!(is_pure_score_desc_sort(&json!("_score")));
+        assert!(is_pure_score_desc_sort(&json!({"_score": "desc"})));
+        assert!(!is_pure_score_desc_sort(&json!([{"_score": "asc"}])));
+        assert!(!is_pure_score_desc_sort(&json!(["_score", "name"])));
+        assert!(!is_pure_score_desc_sort(&json!(["name"])));
+        assert!(!is_pure_score_desc_sort(
+            &json!({"_score": {"order": "asc"}})
+        ));
+    }
+
+    #[test]
+    fn rescore_with_field_sort_rejected_but_score_sort_ok() {
+        let rescore = Some(json!({"query": {"rescore_query": {"match_all": {}}}}));
+        // field sort + rescore → reject
+        let bad = EsSearchBody {
+            sort: Some(json!(["name"])),
+            rescore: rescore.clone(),
+            ..Default::default()
+        };
+        assert!(validate_search_after_rescore(&bad).is_some());
+        // _score sort (or no sort) + rescore → allow
+        for sort in [
+            None,
+            Some(json!(["_score"])),
+            Some(json!([{"_score": "desc"}])),
+        ] {
+            let ok = EsSearchBody {
+                sort,
+                rescore: rescore.clone(),
+                ..Default::default()
+            };
+            assert!(validate_search_after_rescore(&ok).is_none());
+        }
+    }
+
+    // ── item 4d: size=abc ──
+    #[test]
+    fn int_param_parse_body_matches_es_golden() {
+        let es = json!({
+            "error": {
+                "root_cause": [{
+                    "type": "illegal_argument_exception",
+                    "reason": "Failed to parse int parameter [size] with value [abc]"
+                }],
+                "type": "illegal_argument_exception",
+                "reason": "Failed to parse int parameter [size] with value [abc]",
+                "caused_by": {
+                    "type": "number_format_exception",
+                    "reason": "For input string: \"abc\""
+                }
+            },
+            "status": 400
+        });
+        assert_eq!(int_param_parse_body("size", "abc"), es);
+    }
+
+    // ── item 4e: scroll_id ──
+    #[test]
+    fn cannot_parse_scroll_id_matches_es_golden() {
+        let es = json!({
+            "error": {
+                "root_cause": [{
+                    "type": "illegal_argument_exception",
+                    "reason": "Cannot parse scroll id"
+                }],
+                "type": "illegal_argument_exception",
+                "reason": "Cannot parse scroll id",
+                "caused_by": { "type": "e_o_f_exception", "reason": null }
+            },
+            "status": 400
+        });
+        assert_eq!(cannot_parse_scroll_id_body(), es);
+    }
+
+    #[test]
+    fn search_context_missing_shape() {
+        let v = search_context_missing_body("2937355");
+        assert_eq!(v["status"], json!(404));
+        assert_eq!(
+            v["error"]["root_cause"][0]["type"],
+            json!("search_context_missing_exception")
+        );
+        assert_eq!(
+            v["error"]["root_cause"][0]["reason"],
+            json!("No search context found for id [2937355]")
+        );
+        assert_eq!(
+            v["error"]["type"],
+            json!("search_phase_execution_exception")
+        );
+        // The sentence must NOT be smuggled into an `index` field.
+        assert!(v["error"]["root_cause"][0].get("index").is_none());
+    }
+
+    #[test]
+    fn valid_uuid_is_not_undecodable() {
+        // xerj issues v4 UUIDs; those must reach the context lookup, not 400.
+        assert!(uuid::Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").is_ok());
+        assert!(uuid::Uuid::parse_str("not-a-real-scroll-id").is_err());
     }
 }

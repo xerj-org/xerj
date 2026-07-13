@@ -28,11 +28,20 @@ use xerj_common::XerjError;
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// A single cause entry inside the ES `root_cause` array.
+///
+/// Field order matches ES byte-for-byte for `index_not_found_exception`:
+/// `type, reason, resource.type, resource.id, index_uuid, index`.
 #[derive(Debug, Serialize)]
 pub struct EsRootCause {
     #[serde(rename = "type")]
     pub error_type: String,
     pub reason: String,
+    #[serde(rename = "resource.type", skip_serializing_if = "Option::is_none")]
+    pub resource_type: Option<String>,
+    #[serde(rename = "resource.id", skip_serializing_if = "Option::is_none")]
+    pub resource_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub index_uuid: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub index: Option<String>,
 }
@@ -44,6 +53,14 @@ pub struct EsErrorBody {
     #[serde(rename = "type")]
     pub error_type: String,
     pub reason: String,
+    #[serde(rename = "resource.type", skip_serializing_if = "Option::is_none")]
+    pub resource_type: Option<String>,
+    #[serde(rename = "resource.id", skip_serializing_if = "Option::is_none")]
+    pub resource_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub index_uuid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub index: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_id: Option<String>,
 }
@@ -150,11 +167,39 @@ impl IntoResponse for ApiError {
             error_type.clone()
         };
 
+        // ES decorates `index_not_found_exception` with
+        // `resource.type`/`resource.id`/`index_uuid` and repeats `index` +
+        // `reason` at the top level, phrasing the reason as
+        // `no such index [name]`. Only apply this when the name is a real
+        // index name — several other 404s reuse this variant to carry a
+        // sentence (e.g. "index template [x] missing"), which must keep its
+        // existing shape. (RC4 Wave-3 item 4f.)
+        let (res_type, res_id, res_uuid, top_index) =
+            if matches!(self.inner, XerjError::IndexNotFound { .. }) {
+                match index_name.as_deref() {
+                    Some(n) if is_plain_index_name(n) => {
+                        reason = format!("no such index [{n}]");
+                        (
+                            Some("index_or_alias".to_string()),
+                            Some(n.to_string()),
+                            Some("_na_".to_string()),
+                            Some(n.to_string()),
+                        )
+                    }
+                    _ => (None, None, None, None),
+                }
+            } else {
+                (None, None, None, None)
+            };
+
         let http_status =
             StatusCode::from_u16(status_code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
         let root_cause = vec![EsRootCause {
             error_type: root_type,
             reason: reason.clone(),
+            resource_type: res_type.clone(),
+            resource_id: res_id.clone(),
+            index_uuid: res_uuid.clone(),
             index: index_name,
         }];
 
@@ -163,6 +208,10 @@ impl IntoResponse for ApiError {
                 root_cause,
                 error_type,
                 reason,
+                resource_type: res_type,
+                resource_id: res_id,
+                index_uuid: res_uuid,
+                index: top_index,
                 request_id: self.request_id,
             },
             status: status_code,
@@ -251,6 +300,15 @@ fn extract_index_name(e: &XerjError) -> Option<String> {
         XerjError::IndexBlocked { index, .. } => Some(index.clone()),
         _ => None,
     }
+}
+
+/// Whether a string is a plausible concrete index/alias name rather than one
+/// of the sentence-style messages some 404s smuggle through `IndexNotFound`
+/// (e.g. "index template [x] missing"). ES index names cannot contain spaces
+/// or brackets, so those characters reliably distinguish the two — only real
+/// names receive the `resource.*` / `no such index [name]` ES treatment.
+fn is_plain_index_name(name: &str) -> bool {
+    !name.is_empty() && !name.contains([' ', '[', ']'])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -36,7 +36,8 @@ use serde_json::{json, Value};
 use uuid::Uuid;
 
 use crate::es_compat::{
-    self, DeleteDocParams, DeleteIndexParams, EsSearchBody, EsSearchQueryParams, IndexDocParams,
+    self, DeleteDocParams, DeleteIndexParams, EsSearchBody, EsSearchJson, EsSearchQueryParams,
+    IndexDocParams,
 };
 use crate::extract::OptionalJson;
 use crate::state::AppState;
@@ -250,7 +251,7 @@ async fn dedup_probe(
         State(state.clone()),
         Path(index.to_string()),
         axum::extract::Query(EsSearchQueryParams::default()),
-        OptionalJson(Some(search_body)),
+        EsSearchJson(Some(search_body)),
     )
     .await
     .into_response();
@@ -525,7 +526,7 @@ pub async fn recall(
         State(state.clone()),
         Path(index.clone()),
         axum::extract::Query(EsSearchQueryParams::default()),
-        OptionalJson(Some(search_body)),
+        EsSearchJson(Some(search_body)),
     )
     .await
     .into_response();
@@ -655,7 +656,7 @@ pub async fn list(State(state): State<AppState>, Path(namespace): Path<String>) 
         State(state.clone()),
         Path(index.clone()),
         axum::extract::Query(EsSearchQueryParams::default()),
-        OptionalJson(Some(search_body)),
+        EsSearchJson(Some(search_body)),
     )
     .await
     .into_response();
