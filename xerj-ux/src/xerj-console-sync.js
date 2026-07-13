@@ -22,13 +22,15 @@ import { api } from './xerj-console-auth.js';
 // ── Keys we mirror as a single `/prefs` document. ────────────────────────────
 // `xerj.search` is intentionally excluded — it's the search box's last
 // query, which is per-tab ephemera, not "user prefs".
-// `xerj.dashboards` IS included: it carries the user's dashboard
-// metadata (renames, order, hidden flags, user-cloned dashboards),
-// which the demo wants to persist across sessions and machines.
-// Per-dashboard panel layouts (`xerj.layout.<id>`) and per-dashboard
-// filters (`xerj.filters.<id>`) are aggregated into one `layouts` and
-// `filters` map respectively, since the count is unbounded and the
-// /prefs schema doesn't accept dynamic key prefixes.
+// `xerj.dashboards` is NO LONGER mirrored here: user dashboards now live
+// in the durable `/dashboards` CRUD surface (see data/dashboard-store.js),
+// not the /prefs blob. Mirroring it here caused a double-write AND the
+// diff-baseline bug below silently dropped it anyway.
+// Per-dashboard panel layouts (`xerj.layout.<id>`) — DEFAULT-dashboard
+// column/order/hidden overrides only — and per-dashboard filters
+// (`xerj.filters.<id>`) are aggregated into one `layouts` and `filters`
+// map respectively, since the count is unbounded and the /prefs schema
+// doesn't accept dynamic key prefixes.
 const PREF_KEYS = [
   'xerj.theme',
   'xerj.time',
@@ -38,7 +40,6 @@ const PREF_KEYS = [
   'xerj.refresh',
   'xerj.mobile',
   'xerj.edit',
-  'xerj.dashboards',
 ];
 
 const VIEWS_KEY = 'xerj.views';
@@ -60,6 +61,11 @@ async function pullPrefs() {
   try { server = await api('GET', '/prefs'); }
   catch (e) { console.warn('[xerj-console-sync] /prefs unreachable:', e.message); return; }
   if (!server || typeof server !== 'object') return;
+  // Capture the raw server doc so startPush() can baseline against what
+  // the SERVER actually holds — not against current localStorage — which
+  // is what fixes the "locally-present, server-absent key never pushes"
+  // diff bug.
+  lastServerPrefs = server;
   // Server doc shape mirrors a flat key/value map. Translate `theme`,
   // `time`, `cluster`… back into `xerj.theme`, `xerj.time`,
   // `xerj.cluster`… so the existing SPA reads pick them up.
@@ -110,19 +116,41 @@ async function pullViews() {
 
 let lastPushedPrefs = null;
 let lastPushedViewsKey = '';
+let lastServerPrefs = null;    // raw /prefs doc captured by pullPrefs
 let pushTimer = null;
 
 /** Start the periodic push tick. Idempotent. */
 export function startPush() {
   if (pushTimer) return;
-  // Initial state — taken AFTER pullAll so we don't immediately push
-  // back what we just pulled.
-  lastPushedPrefs = snapshotPrefs();
+  // Baseline against the SERVER's values only — NOT current localStorage.
+  // The old code snapshotted localStorage here, so any key already present
+  // locally at boot was treated as "already pushed" and never sent (the
+  // reason the user's dashboards/layouts silently failed to persist). By
+  // baselining from `lastServerPrefs`, every local key the server is
+  // missing diffs dirty and pushes on the first tick.
+  lastPushedPrefs = serverBaselinePrefs();
   lastPushedViewsKey = readViewsRaw();
   pushTimer = setInterval(() => { pushIfDirty().catch(() => {}); }, 1500);
 }
 
+// Stable, order-independent JSON so two snapshots with the same content
+// but different key insertion order still compare equal (no spurious push).
+function sortDeep(v) {
+  if (Array.isArray(v)) return v.map(sortDeep);
+  if (v && typeof v === 'object') {
+    const out = {};
+    for (const k of Object.keys(v).sort()) out[k] = sortDeep(v[k]);
+    return out;
+  }
+  return v;
+}
+function stableStringify(obj) { return JSON.stringify(sortDeep(obj)); }
+
 function snapshotPrefs() {
+  return stableStringify(buildPrefsFromLocalStorage());
+}
+
+function buildPrefsFromLocalStorage() {
   const out = {};
   for (const fullKey of PREF_KEYS) {
     const short = fullKey.replace(/^xerj\./, '');
@@ -145,7 +173,38 @@ function snapshotPrefs() {
   } catch {}
   if (Object.keys(layouts).length) out.layouts = layouts;
   if (Object.keys(filters).length) out.filters = filters;
-  return JSON.stringify(out);
+  return out;
+}
+
+// Rebuild the "already-pushed" baseline from the SERVER doc, coercing to
+// the same string shape snapshotPrefs uses. Keys the server didn't return
+// are OMITTED — so a locally-present-but-server-absent key diffs dirty.
+function serverBaselinePrefs() {
+  const server = lastServerPrefs || {};
+  const out = {};
+  for (const fullKey of PREF_KEYS) {
+    const short = fullKey.replace(/^xerj\./, '');
+    if (server[short] !== undefined && server[short] !== null) {
+      out[short] = typeof server[short] === 'string' ? server[short] : JSON.stringify(server[short]);
+    }
+  }
+  const coerceMap = (m) => {
+    const o = {};
+    for (const [id, raw] of Object.entries(m || {})) {
+      if (raw == null) continue;
+      o[id] = typeof raw === 'string' ? raw : JSON.stringify(raw);
+    }
+    return o;
+  };
+  if (server.layouts && typeof server.layouts === 'object') {
+    const l = coerceMap(server.layouts);
+    if (Object.keys(l).length) out.layouts = l;
+  }
+  if (server.filters && typeof server.filters === 'object') {
+    const f = coerceMap(server.filters);
+    if (Object.keys(f).length) out.filters = f;
+  }
+  return stableStringify(out);
 }
 
 function readViewsRaw() {

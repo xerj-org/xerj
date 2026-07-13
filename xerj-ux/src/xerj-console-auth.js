@@ -7,11 +7,27 @@
 
 const API = '/_xerj-console/api/v1';
 
-export async function api(method, path, body) {
+/**
+ * Low-level fetch wrapper that returns the FULL parsed envelope plus the
+ * concurrency etag. Callers that need `meta.etag` (dashboards CRUD →
+ * optimistic If-Match) use this; the thin `api()` below is unchanged for
+ * every existing call site.
+ *
+ *   method, path       — as api()
+ *   body               — JSON-serialised when defined; a 204 (empty) body
+ *                        yields `data: null`
+ *   extraHeaders       — merged over the defaults (e.g. `If-Match`)
+ *
+ * Returns `{ data, meta, etag, status }`. `etag` prefers the `ETag`
+ * response header and falls back to `meta.etag` in the body. On a non-2xx
+ * the thrown Error carries `.status` and `.code` so callers can branch on
+ * 409 (stale etag) / 404 / 403 without string-matching.
+ */
+export async function apiRaw(method, path, body, extraHeaders) {
   const init = {
     method,
     credentials: 'same-origin',
-    headers: { 'accept': 'application/json' },
+    headers: { 'accept': 'application/json', ...(extraHeaders || {}) },
   };
   if (body !== undefined) {
     init.headers['content-type'] = 'application/json';
@@ -21,12 +37,32 @@ export async function api(method, path, body) {
   let payload = null;
   try { payload = await r.json(); } catch {}
   if (!r.ok) {
-    const reason = payload && payload.error
-      ? `${payload.error.type}: ${payload.error.reason}`
+    const err = payload && payload.error;
+    // The engine emits `{type,reason}`; the shared contract documents
+    // `{code,message}`. Accept either so this client survives both.
+    const code = err ? (err.type || err.code) : undefined;
+    const reason = err
+      ? (err.reason || err.message || err.type || err.code || `HTTP ${r.status}`)
       : `HTTP ${r.status}`;
-    throw new Error(reason);
+    const e = new Error(code ? `${code}: ${reason}` : reason);
+    e.status = r.status;
+    e.code = code;
+    e.payload = payload;
+    throw e;
   }
-  return payload && payload.data !== undefined ? payload.data : payload;
+  const bodyEtag = payload && payload.meta && payload.meta.etag;
+  const etag = r.headers.get('ETag') || bodyEtag || null;
+  return {
+    data: payload && payload.data !== undefined ? payload.data : payload,
+    meta: (payload && payload.meta) || null,
+    etag,
+    status: r.status,
+  };
+}
+
+export async function api(method, path, body, extraHeaders) {
+  const { data } = await apiRaw(method, path, body, extraHeaders);
+  return data;
 }
 
 // ─── Magic-link redemption ───────────────────────────────────────────────────

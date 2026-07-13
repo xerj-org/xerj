@@ -15,7 +15,10 @@ import { hitsToCsv, downloadText, svgToPng } from './data/export.js';
 import {
   mergedDashboards, renameDashboard, reorderDashboards, setHidden,
   createUserDashboard, deleteUserDashboard, isUserDash, resetAll as resetDashboards,
+  getDoc, patchPanels, setOnChange,
 } from './data/dashboard-store.js';
+import { renderDeclarativePanel } from './ux/panel-render.js';
+import { panelResult, fetchPanel, onPanelData } from './data/panel-query.js';
 import {
   listClusters, listIndices, listFields, listClustersSync,
   defaultClusterId, setDefaultCluster,
@@ -467,10 +470,17 @@ async function buildSectionData(sectionId) {
 }
 
 function loadAllLayouts() {
+  // Iterate ALL `xerj.layout.*` keys — not just registry ids — so
+  // layouts synced down from /prefs.layouts (which may include ids this
+  // build doesn't ship, or default-dashboard overrides hydrated on
+  // another machine) are picked up instead of silently dropped.
   const out = {};
-  for (const id of Object.keys(registry)) {
+  const prefix = 'xerj.layout.';
+  for (const k of Object.keys(localStorage)) {
+    if (!k.startsWith(prefix)) continue;
+    const id = k.slice(prefix.length);
     try {
-      const raw = localStorage.getItem(LS.layout(id));
+      const raw = localStorage.getItem(k);
       if (raw) out[id] = JSON.parse(raw);
     } catch { /* ignore corrupt */ }
   }
@@ -553,29 +563,134 @@ function mutate(dashId, defaultPanels, fn) {
 }
 
 // ---------- render ----------------------------------------
-const SIZES = [2, 3, 4, 6, 8, 12];
+// Quick-size presets kept as a panel-toolbar convenience (the 6 discrete
+// spans are no longer the ONLY resize path — declarative user panels get
+// free w×h drag-resize; see the pointer handlers below).
+const SIZES = [3, 4, 6, 8, 12];
+const GRID_COLS = 12;
+const ROW_H = 132;          // px per grid row-unit in declarative canvases
+const DEFAULT_GEOM = { x: 0, y: 0, w: 6, h: 2 };
+
+// ---- declarative geometry helpers ------------------------
+function clampInt(v, lo, hi) { v = Math.round(Number(v) || 0); return Math.max(lo, Math.min(hi, v)); }
+function panelGeom(p) {
+  const g = p.geometry || {};
+  const w = clampInt(g.w ?? DEFAULT_GEOM.w, 1, GRID_COLS);
+  return {
+    x: clampInt(g.x ?? DEFAULT_GEOM.x, 0, GRID_COLS - w),
+    y: Math.max(0, Math.round(Number(g.y) || 0)),
+    w,
+    h: Math.max(1, Math.round(Number(g.h) || DEFAULT_GEOM.h)),
+  };
+}
+/** Next free row below everything, full-width-ish default slot. */
+function nextGeometry(panels) {
+  let maxBottom = 0;
+  for (const p of panels || []) {
+    const g = panelGeom(p);
+    maxBottom = Math.max(maxBottom, g.y + g.h);
+  }
+  return { x: 0, y: maxBottom, w: 6, h: 2 };
+}
+/** Kibana-style vertical compaction: push overlapping panels down so no
+ *  two panels occupy the same cell. Stable by (y, x). */
+function compact(panels) {
+  const sorted = panels
+    .map((p, i) => ({ p, g: panelGeom(p), i }))
+    .sort((a, b) => (a.g.y - b.g.y) || (a.g.x - b.g.x) || (a.i - b.i));
+  const placed = [];
+  const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  for (const item of sorted) {
+    const g = { ...item.g };
+    let moved = true;
+    while (moved) {
+      moved = false;
+      for (const q of placed) {
+        if (overlaps(g, q.g)) { g.y = q.g.y + q.g.h; moved = true; }
+      }
+    }
+    placed.push({ p: item.p, g });
+  }
+  return placed.map(({ p, g }) => ({ ...p, geometry: g }));
+}
+
+// ---- builder (per-panel configurator) state --------------
+const builder = {
+  open: false,
+  editingId: null,     // panel id when editing an existing panel, else null
+  viz: 'topn',
+  index: '',
+  kind: 'terms',
+  field: 'level',
+  metric: 'count',
+  size: 8,
+  interval: '1h',
+  q: '',
+  title: '',
+  time: false,
+  preview: null,       // { status, html } cache of the live preview
+  previewKey: '',
+};
+let BUILDER_INDICES = [];   // cached index list for the picker
+let BUILDER_FIELDS = [];    // cached field list for the current index
 
 function renderEditChrome(p) {
   const sizes = SIZES.map((s) =>
     `<button type="button" data-panel="${esc(p.id)}" data-size="${s}" class="${p.cols === s ? 'active' : ''}" aria-pressed="${p.cols === s}">${s}</button>`
-  ).join('<span class="sep">·</span>');
-  const frac = Math.max(0, Math.min(12, p.cols)) / 12;
-  const meterFill = (frac * 96).toFixed(1);
-  const meter = `
-    <svg class="meter" viewBox="0 0 96 6" preserveAspectRatio="none" aria-hidden="true">
-      <line x1="0" y1="5" x2="96" y2="5" stroke="currentColor" stroke-width="1" stroke-opacity="0.25"/>
-      <line x1="0" y1="5" x2="${meterFill}" y2="5" stroke="var(--z-accent)" stroke-width="1"/>
-    </svg>`;
+  ).join('');
+  // Compact single-line toolbar so it fits the reserved 24px strip even on
+  // dense 2-col tiles (Issue 3): a small n/12 readout + size presets + ✕.
   return `
+  <span class="panel-grip" aria-hidden="true">⠿</span>
   <div class="panel-edit" aria-label="Edit panel">
-    <span class="colsLabel"><span class="max">COL</span> ${p.cols}<span class="slash">/</span><span class="max">12</span></span>
-    ${meter}
+    <span class="wh mono">${p.cols}<span class="x">/</span>12</span>
     <span class="sizes">${sizes}</span>
     <button type="button" class="remove" data-panel="${esc(p.id)}" data-remove aria-label="Remove">✕</button>
   </div>`;
 }
 
-function renderPanel(p, data, editMode) {
+// Declarative user-panel chrome: a top-left drag GRIP + a top-right
+// toolbar (never in title flow) + SE/E/S resize handles.
+function renderUserPanelChrome(p) {
+  const g = panelGeom(p);
+  const presets = SIZES.map((s) =>
+    `<button type="button" data-user-size="${s}" data-panel="${esc(p.id)}" class="${g.w === s ? 'active' : ''}">${s}</button>`
+  ).join('<span class="sep">·</span>');
+  return `
+  <span class="panel-grip" data-grip="${esc(p.id)}" title="Drag to move" aria-label="Move panel">⠿</span>
+  <div class="panel-edit user" aria-label="Edit panel">
+    <span class="wh mono">${g.w}<span class="x">×</span>${g.h}</span>
+    <span class="sizes">${presets}</span>
+    <button type="button" class="cfg" data-user-config="${esc(p.id)}" title="Edit query / viz">QUERY</button>
+    <button type="button" class="remove" data-user-remove="${esc(p.id)}" aria-label="Remove">✕</button>
+  </div>
+  <span class="panel-resize e"  data-resize="e"  data-panel="${esc(p.id)}" aria-hidden="true"></span>
+  <span class="panel-resize s"  data-resize="s"  data-panel="${esc(p.id)}" aria-hidden="true"></span>
+  <span class="panel-resize se" data-resize="se" data-panel="${esc(p.id)}" aria-hidden="true"></span>`;
+}
+
+function renderPanel(p, data, editMode, ctx) {
+  // Declarative user panels: explicit x/y/w/h placement + per-panel live
+  // query (data/panel-query.js) rendered through the shared chart
+  // catalog (ux/panel-render.js). Chrome is out of title flow.
+  if (p.source === 'user') {
+    const g = panelGeom(p);
+    let inner;
+    try {
+      inner = renderDeclarativePanel(p, panelResult(p, ctx || {}));
+    } catch (err) {
+      inner = `<div class="panel-empty mono faint">PANEL ERROR · ${esc((err.message || err) + '').slice(0, 80)}</div>`;
+    }
+    const style = `grid-column:${g.x + 1}/span ${g.w}; grid-row:${g.y + 1}/span ${g.h};`;
+    const chrome = editMode ? renderUserPanelChrome(p) : '';
+    return `
+  <section class="panel user-panel${editMode ? ' edit' : ''}" data-panel="${esc(p.id)}" data-user-panel="1" style="${style}">
+    ${chrome}
+    ${p.title ? `<div class="key">${esc(p.title)}</div>` : ''}
+    ${inner}
+  </section>`;
+  }
+
   let inner = '';
   try {
     if (p.source === 'added') {
@@ -611,7 +726,18 @@ function renderPanel(p, data, editMode) {
   </section>`;
 }
 
-function renderAddPicker() {
+function renderAddPicker(dash) {
+  // Declarative user dashboards get the real builder: + ADD PANEL opens
+  // an inline configurator (viz type → index/query → live preview).
+  if (dash && dash.declarative) {
+    if (builder.open) return renderBuilder();
+    return `
+  <div class="add-picker">
+    <button type="button" class="add-panel-btn" data-builder-open>+ ADD PANEL</button>
+    <span class="mono faint">BUILD A PANEL FROM ANY INDEX · PICK A VISUALIZATION + QUERY</span>
+  </div>`;
+  }
+  // Default (code) dashboards keep the quick chart-type add picker.
   const items = chartTypeList.map((t) =>
     `<button type="button" data-add="${esc(t.id)}" title="${esc(t.describe || '')}">${esc(t.name)}</button>`
   ).join('<span class="sep">·</span>');
@@ -619,6 +745,115 @@ function renderAddPicker() {
   <div class="add-picker">
     <span class="key" style="color:var(--z-accent);">+ ADD PANEL</span>
     <span class="types">${items}</span>
+  </div>`;
+}
+
+// Build a declarative panel object from the current builder state.
+function builderPanelDraft() {
+  const autoTitle = (builder.field
+    ? `${builder.field} · ${chartTypes[builder.viz]?.name || builder.viz}`
+    : (chartTypes[builder.viz]?.name || builder.viz)).toUpperCase();
+  return {
+    id: builder.editingId || ('p-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)),
+    title: (builder.title || autoTitle),
+    viz: { type: builder.viz, options: {} },
+    query: {
+      index: builder.index,
+      kind: builder.kind,
+      q: builder.q || '',
+      field: builder.field || '',
+      metric: builder.metric || 'count',
+      size: Number(builder.size) || 8,
+      interval: builder.interval || '1h',
+      time: !!builder.time,
+    },
+    geometry: builder._geometry || null,
+  };
+}
+
+const VIZ_LIST = ['metric', 'spark', 'gauge', 'line', 'bar', 'histogram', 'dist', 'topn', 'treemap', 'table', 'events'];
+const KINDS = ['count', 'metric', 'timeseries', 'terms', 'search'];
+const METRICS = ['count', 'sum', 'avg', 'max', 'min'];
+
+// The inline configurator rendered in place of the ADD picker.
+function renderBuilder() {
+  const b = builder;
+  const vizTiles = VIZ_LIST.map((id) =>
+    `<button type="button" data-builder-viz="${id}" class="${b.viz === id ? 'active' : ''}" title="${esc(chartTypes[id]?.describe || '')}">${esc(chartTypes[id]?.name || id)}</button>`
+  ).join('');
+  const idxDatalist = BUILDER_INDICES.map((i) => `<option value="${esc(i.name)}"></option>`).join('');
+  const kindBtns = KINDS.map((k) =>
+    `<button type="button" data-builder-kind="${k}" class="${b.kind === k ? 'active' : ''}">${k.toUpperCase()}</button>`).join('<span class="sep">·</span>');
+  const metricBtns = METRICS.map((m) =>
+    `<button type="button" data-builder-metric="${m}" class="${b.metric === m ? 'active' : ''}">${m.toUpperCase()}</button>`).join('<span class="sep">·</span>');
+  const fieldList = BUILDER_FIELDS.map((f) => `<option value="${esc(f.name)}"></option>`).join('');
+  const needsField = b.kind === 'terms' || b.kind === 'metric' || (b.kind === 'timeseries' && b.metric !== 'count');
+  const needsSize = b.kind === 'terms';
+  const needsInterval = b.kind === 'timeseries';
+  const preview = b.preview && b.preview.html
+    ? b.preview.html
+    : `<div class="panel-empty mono faint">${b.preview && b.preview.status === 'loading' ? 'RUNNING PREVIEW…' : 'PREVIEW APPEARS HERE'}</div>`;
+
+  return `
+  <div class="builder" role="dialog" aria-label="Configure panel">
+    <div class="builder-head">
+      <span class="key" style="color:var(--z-accent);">${b.editingId ? 'EDIT PANEL' : '+ NEW PANEL'}</span>
+      <button type="button" class="builder-x" data-builder-cancel aria-label="Close">✕</button>
+    </div>
+    <div class="builder-grid">
+      <div class="builder-col builder-form">
+        <label class="builder-field">
+          <span class="key">1 · VISUALIZATION</span>
+          <span class="viz-tiles">${vizTiles}</span>
+        </label>
+        <label class="builder-field">
+          <span class="key">2 · INDEX</span>
+          <input type="text" data-builder-index list="builder-indices" value="${esc(b.index)}" placeholder="e.g. logs-prod" class="builder-input" />
+          <datalist id="builder-indices">${idxDatalist}</datalist>
+        </label>
+        <label class="builder-field">
+          <span class="key">3 · QUERY KIND</span>
+          <span class="btn-row">${kindBtns}</span>
+        </label>
+        ${needsField ? `
+        <label class="builder-field">
+          <span class="key">FIELD</span>
+          <input type="text" data-builder-field list="builder-fields" value="${esc(b.field)}" placeholder="e.g. level" class="builder-input" />
+          <datalist id="builder-fields">${fieldList}</datalist>
+        </label>` : ''}
+        ${(b.kind === 'metric' || b.kind === 'timeseries' || b.kind === 'terms') ? `
+        <label class="builder-field">
+          <span class="key">METRIC</span>
+          <span class="btn-row">${metricBtns}</span>
+        </label>` : ''}
+        ${needsSize ? `
+        <label class="builder-field">
+          <span class="key">TOP N</span>
+          <input type="number" min="1" max="50" data-builder-size value="${esc(b.size)}" class="builder-input short" />
+        </label>` : ''}
+        ${needsInterval ? `
+        <label class="builder-field">
+          <span class="key">INTERVAL</span>
+          <input type="text" data-builder-interval value="${esc(b.interval)}" placeholder="1h" class="builder-input short" />
+        </label>` : ''}
+        <label class="builder-field">
+          <span class="key">FILTER (KQL)</span>
+          <input type="text" data-builder-q value="${esc(b.q)}" placeholder="optional · e.g. level:error" class="builder-input" />
+        </label>
+        <label class="builder-field">
+          <span class="key">TITLE</span>
+          <input type="text" data-builder-title value="${esc(b.title)}" placeholder="auto" class="builder-input" />
+        </label>
+        <div class="builder-actions">
+          <button type="button" class="builder-save" data-builder-save>${b.editingId ? 'SAVE CHANGES' : 'ADD PANEL'}</button>
+          <button type="button" class="builder-cancel" data-builder-cancel>CANCEL</button>
+        </div>
+      </div>
+      <div class="builder-col builder-preview">
+        <span class="key">LIVE PREVIEW</span>
+        <div class="builder-preview-box">${preview}</div>
+      </div>
+    </div>
   </div>`;
 }
 
@@ -640,11 +875,24 @@ async function render() {
   }
 
   const activeFilters = currentFilters();
+  // A declarative (net-new) user dashboard runs a live query PER PANEL
+  // (data/panel-query.js) rather than a single whole-dashboard fetch.
+  const isDeclarative = !!(dash.isUser && dash.declarative);
+  const panelCtx = {
+    range: state.time,
+    customRange: state.time === 'CUSTOM' ? state.timeCustom : null,
+    cluster: state.cluster,
+  };
   let data;
   let fetchErr = null;
   // Section-level views (data/settings/users/alerts) get their own
   // context builder. Everything else goes through the regular query.
-  if (state.section === 'data' || state.section === 'settings') {
+  if (isDeclarative) {
+    data = {};
+    state.fetchErr = null;
+    // NOTE: index priming happens in openBuilder(), NOT here — calling it
+    // per-render would re-enter render() and loop.
+  } else if (state.section === 'data' || state.section === 'settings') {
     try {
       data = await buildSectionData(state.section);
     } catch (err) {
@@ -691,27 +939,44 @@ async function render() {
       view.title = (dash.name || view.title || '').toUpperCase();
     }
   } catch {}
-  const merged = mergeLayout(view.panels, state.layouts[dash.id]);
-  const panelsHtml = merged.length
-    ? merged.map((p) => renderPanel(p, data, state.edit)).join('')
-    : `<div class="mono faint" style="grid-column: span 12; padding:var(--sp-6) 0;">All panels hidden. Click RESET to restore defaults.</div>`;
 
-  // Police-strip frame: a fixed-position overlay that lives in the page's
-  // existing margins, so entering edit mode never shifts content. The frame
-  // itself is a 1px dashed border around the viewport; the top strip carries
-  // the EDIT MODE label and tips; the bottom strip carries the column index.
-  const editFrame = state.edit ? `
-    <div class="edit-frame" aria-hidden="true"></div>
+  let panelsHtml;
+  let panelCount;
+  if (isDeclarative) {
+    // Geometry lives IN the panels (x/y/w/h) — no separate layout
+    // override. Compact so a stale overlap never hides a panel.
+    const panels = compact(view.panels || []);
+    panelCount = panels.length;
+    panelsHtml = panels.length
+      ? panels.map((p) => renderPanel(p, data, state.edit, panelCtx)).join('')
+      : `<div class="empty-dash mono faint" style="grid-column:1/span 12;">${
+          state.edit
+            ? 'EMPTY DASHBOARD · CLICK <span class="accent">+ ADD PANEL</span> BELOW TO BUILD YOUR FIRST PANEL'
+            : 'EMPTY DASHBOARD · TOGGLE <span class="accent">EDIT</span> TO ADD PANELS'
+        }</div>`;
+  } else {
+    const merged = mergeLayout(view.panels, state.layouts[dash.id]);
+    panelCount = merged.length;
+    panelsHtml = merged.length
+      ? merged.map((p) => renderPanel(p, data, state.edit, panelCtx)).join('')
+      : `<div class="mono faint" style="grid-column: span 12; padding:var(--sp-6) 0;">All panels hidden. Click RESET to restore defaults.</div>`;
+  }
+
+  // Edit chrome. The EDIT-MODE top strip now lives in NORMAL FLOW
+  // (sticky) right below the sub-nav so it never overlaps the dashboard
+  // sub-nav row (Issue 3). The dashed frame + numbered bottom strip stay
+  // as fixed, non-interactive overlays behind the panels.
+  const editTips = isDeclarative
+    ? 'DRAG THE <span class="key-bind">⠿</span> GRIP TO MOVE · DRAG AN EDGE / CORNER TO RESIZE · <span class="key-bind">QUERY</span> TO RECONFIGURE'
+    : 'DRAG PANEL TO REORDER · CLICK A <span class="key-bind">NUMBER</span> TO RESIZE · <span class="key-bind">✕</span> TO REMOVE';
+  const editStripFlow = state.edit ? `
     <div class="edit-strip-top" role="status">
       <span class="marker">EDIT MODE</span>
-      <span class="tips">
-        DRAG PANEL TO REORDER ·
-        CLICK A <span class="key-bind">NUMBER</span> TO RESIZE ·
-        <span class="key-bind">✕</span> TO REMOVE ·
-        SCROLL FOR <span class="key-bind">+ ADD</span>
-      </span>
-      <span class="meta">${esc(dash.name.toUpperCase())} · ${merged.length} PANELS</span>
-    </div>
+      <span class="tips">${editTips}</span>
+      <span class="meta">${esc(dash.name.toUpperCase())} · ${panelCount} PANELS</span>
+    </div>` : '';
+  const editFrame = state.edit ? `
+    <div class="edit-frame" aria-hidden="true"></div>
     <div class="edit-strip-bottom" aria-hidden="true">${
       Array.from({ length: 12 }, (_, i) => `<span>${String(i + 1).padStart(2, '0')}</span>`).join('')
     }</div>
@@ -719,12 +984,14 @@ async function render() {
   const gridOverlay = state.edit
     ? `<div class="edit-grid" aria-hidden="true">${'<span></span>'.repeat(12)}</div>`
     : '';
-  const addHtml = state.edit ? renderAddPicker() : '';
+  const addHtml = state.edit ? renderAddPicker(dash) : '';
 
   // Section-level views (alerts, data, users, settings) don't show the
   // inline time control — the time range is a dashboards-section concept.
   const hideTimeCtrl = state.section !== 'dashboards' && state.section !== 'discover';
-  const showFilterBar = state.section === 'dashboards';
+  // Declarative user dashboards query per-panel; the dashboard-level KQL
+  // bar / saved views don't apply, so hide them (time range still does).
+  const showFilterBar = state.section === 'dashboards' && !isDeclarative;
   const filterBarHtml = showFilterBar
     ? FilterBar({ filters: activeFilters, kql: serializeKql(activeFilters) })
     : '';
@@ -759,7 +1026,8 @@ async function render() {
     ${hideTimeCtrl ? '' : `<div class="dash-ctrls">${TimeCtrl({ active: state.time, custom: state.timeCustom })}${refreshHtml}${clusterHtml}</div>`}
     ${filterBarHtml}
     ${savedViewsHtml}
-    <main class="canvas${state.edit ? ' edit' : ''}" aria-label="${esc(dash.name)}">${gridOverlay}${panelsHtml}</main>
+    ${editStripFlow}
+    <main class="canvas${state.edit ? ' edit' : ''}${isDeclarative ? ' declarative' : ''}" aria-label="${esc(dash.name)}">${gridOverlay}${panelsHtml}</main>
     ${addHtml}
     ${state.mobile ? '</div><div class="iphone-home-bar"></div></div>' : ''}
     ${Footer()}
@@ -781,10 +1049,299 @@ async function render() {
   }
 }
 
+// ==========================================================
+// Declarative (net-new) user-dashboard subsystem
+//   • panel builder (viz + index/query + live preview)
+//   • per-panel mutation → PATCH panels[]
+//   • free-form pointer drag-move + edge/corner resize
+// ==========================================================
+
+/** The active dashboard IF it's a declarative user dashboard, else null. */
+function activeUserDash() {
+  const all = mergedDashboards(defaults, { includeHidden: true });
+  const d = all.find((x) => x.id === state.route);
+  return d && d.isUser && d.declarative ? d : null;
+}
+
+/** Clone the doc's panels[], apply fn, compact, persist (optimistic) + render. */
+function userPanelsMutate(id, fn) {
+  const doc = getDoc(id);
+  if (!doc) return;
+  const panels = (Array.isArray(doc.panels) ? doc.panels : []).map((p) => ({ ...p }));
+  const next = fn(panels) || panels;
+  patchPanels(id, compact(next));
+  render();
+}
+
+// ---- panel builder ---------------------------------------
+let BUILDER_INDICES_LOADED = false;
+async function ensureBuilderIndices(force) {
+  if (BUILDER_INDICES_LOADED && !force) return;
+  // Mark loaded BEFORE the await so a concurrent/re-entrant render can't
+  // spawn a second fetch → render → fetch loop.
+  BUILDER_INDICES_LOADED = true;
+  try {
+    const list = await listIndices(defaultClusterId());
+    BUILDER_INDICES = (list || []).filter((i) => i && i.name);
+    if (!builder.index && BUILDER_INDICES.length) builder.index = BUILDER_INDICES[0].name;
+    if (builder.open) render();
+  } catch {
+    BUILDER_INDICES_LOADED = false;   // allow a later retry
+  }
+}
+async function ensureBuilderFields(index) {
+  if (!index) { BUILDER_FIELDS = []; return; }
+  try {
+    // Populate the field datalist silently — do NOT render() here, or a
+    // render mid-keystroke in the index input would steal focus. The new
+    // suggestions surface on the next natural render (viz/kind click, etc).
+    BUILDER_FIELDS = (await listFields(index)) || [];
+  } catch { BUILDER_FIELDS = []; }
+}
+
+function openBuilder(editingId) {
+  const dash = activeUserDash();
+  if (!dash) return;
+  builder.open = true;
+  builder.editingId = editingId || null;
+  builder.preview = null;
+  builder._geometry = null;
+  if (editingId) {
+    const p = (getDoc(dash.id)?.panels || []).find((x) => x.id === editingId);
+    if (p) {
+      builder.viz = p.viz?.type || 'topn';
+      builder.index = p.query?.index || builder.index;
+      builder.kind = p.query?.kind || 'terms';
+      builder.field = p.query?.field || '';
+      builder.metric = p.query?.metric || 'count';
+      builder.size = p.query?.size || 8;
+      builder.interval = p.query?.interval || '1h';
+      builder.q = p.query?.q || '';
+      builder.title = p.title || '';
+      builder.time = !!p.query?.time;
+      builder._geometry = p.geometry || null;
+    }
+  } else {
+    builder.viz = builder.viz || 'topn';
+    builder.kind = builder.kind || 'terms';
+    builder.field = builder.field || 'level';
+    builder.metric = builder.metric || 'count';
+    builder.q = '';
+    builder.title = '';
+  }
+  ensureBuilderIndices();
+  ensureBuilderFields(builder.index);
+  render();
+  previewNow();
+}
+
+function closeBuilder() {
+  builder.open = false;
+  builder.editingId = null;
+  builder.preview = null;
+  render();
+}
+
+let previewSeq = 0;
+let previewTimer = null;
+function previewSoon() { clearTimeout(previewTimer); previewTimer = setTimeout(previewNow, 250); }
+function paintPreview() {
+  const box = document.querySelector('.builder-preview-box');
+  if (!box) return;
+  if (builder.preview && builder.preview.html) box.innerHTML = builder.preview.html;
+  else if (builder.preview && builder.preview.status === 'loading') box.innerHTML = '<div class="panel-empty mono faint">RUNNING PREVIEW…</div>';
+}
+async function previewNow() {
+  clearTimeout(previewTimer);
+  const draft = builderPanelDraft();
+  if (!draft.query.index || !draft.query.kind) { builder.preview = null; paintPreview(); return; }
+  ensureBuilderFields(draft.query.index);   // refresh field suggestions (debounced via previewNow)
+  const my = ++previewSeq;
+  builder.preview = { status: 'loading', html: '' };
+  paintPreview();
+  try {
+    const res = await fetchPanel(draft, { range: state.time });
+    if (my !== previewSeq) return;
+    builder.preview = { status: 'ready', html: renderDeclarativePanel(draft, { status: 'ready', data: res }) };
+  } catch (e) {
+    if (my !== previewSeq) return;
+    builder.preview = { status: 'error', html: `<div class="panel-empty mono faint">PREVIEW ERROR · ${esc(String(e.message || e)).slice(0, 80)}</div>` };
+  }
+  paintPreview();
+}
+
+function commitBuilder() {
+  const dash = activeUserDash();
+  if (!dash) return;
+  const draft = builderPanelDraft();
+  if (!draft.query.index) return;
+  builder.open = false;
+  builder.editingId = null;
+  builder.preview = null;
+  userPanelsMutate(dash.id, (panels) => {
+    const idx = panels.findIndex((p) => p.id === draft.id);
+    if (idx >= 0) {
+      draft.geometry = draft.geometry || panels[idx].geometry || nextGeometry(panels);
+      panels[idx] = draft;
+    } else {
+      draft.geometry = draft.geometry || nextGeometry(panels);
+      panels.push(draft);
+    }
+    return panels;
+  });
+  requestAnimationFrame(() => {
+    try {
+      const el = document.querySelector(`.panel[data-panel="${CSS.escape(draft.id)}"]`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch { /* ignore */ }
+  });
+}
+
+// Click handling for builder + user-panel chrome. Returns true if handled.
+function handleDeclClick(e) {
+  if (e.target.closest('[data-builder-open]')) { openBuilder(); return true; }
+  if (e.target.closest('[data-builder-cancel]')) { closeBuilder(); return true; }
+  const viz = e.target.closest('[data-builder-viz]');
+  if (viz) { builder.viz = viz.getAttribute('data-builder-viz'); render(); previewNow(); return true; }
+  const kind = e.target.closest('[data-builder-kind]');
+  if (kind) { builder.kind = kind.getAttribute('data-builder-kind'); render(); previewNow(); return true; }
+  const metric = e.target.closest('[data-builder-metric]');
+  if (metric) { builder.metric = metric.getAttribute('data-builder-metric'); render(); previewNow(); return true; }
+  if (e.target.closest('[data-builder-save]')) { commitBuilder(); return true; }
+  const cfg = e.target.closest('[data-user-config]');
+  if (cfg) { openBuilder(cfg.getAttribute('data-user-config')); return true; }
+  const rm = e.target.closest('[data-user-remove]');
+  if (rm) {
+    const id = rm.getAttribute('data-user-remove');
+    const dash = activeUserDash();
+    if (dash) userPanelsMutate(dash.id, (panels) => panels.filter((p) => p.id !== id));
+    return true;
+  }
+  const usz = e.target.closest('[data-user-size]');
+  if (usz) {
+    const pid = usz.getAttribute('data-panel');
+    const w = clampInt(usz.getAttribute('data-user-size'), 1, GRID_COLS);
+    const dash = activeUserDash();
+    if (dash) userPanelsMutate(dash.id, (panels) => {
+      const idx = panels.findIndex((p) => p.id === pid);
+      if (idx >= 0) {
+        const g = panelGeom(panels[idx]);
+        panels[idx] = { ...panels[idx], geometry: { ...g, w, x: Math.min(g.x, GRID_COLS - w) } };
+      }
+      return panels;
+    });
+    return true;
+  }
+  return false;
+}
+
+// Text-input handling for the builder (no full re-render → focus preserved).
+function handleDeclInput(e) {
+  const t = e.target;
+  if (!t || !t.matches) return false;
+  if (t.matches('[data-builder-index]'))    { builder.index = t.value.trim(); previewSoon(); return true; }
+  if (t.matches('[data-builder-field]'))    { builder.field = t.value; previewSoon(); return true; }
+  if (t.matches('[data-builder-size]'))     { builder.size = t.value; previewSoon(); return true; }
+  if (t.matches('[data-builder-interval]')) { builder.interval = t.value; previewSoon(); return true; }
+  if (t.matches('[data-builder-q]'))        { builder.q = t.value; previewSoon(); return true; }
+  if (t.matches('[data-builder-title]'))    { builder.title = t.value; return true; }
+  return false;
+}
+
+// ---- free-form pointer drag-move + resize ----------------
+let geomDrag = null;
+
+function cellMetrics(canvasEl) {
+  const rect = canvasEl.getBoundingClientRect();
+  const cs = getComputedStyle(canvasEl);
+  const colGap = parseFloat(cs.columnGap) || 16;
+  const rowGap = parseFloat(cs.rowGap) || 16;
+  const colW = (rect.width - colGap * (GRID_COLS - 1)) / GRID_COLS;
+  return { pitchX: colW + colGap, pitchY: ROW_H + rowGap };
+}
+
+function startGeomDrag(e, mode, panelId) {
+  if (!state.edit) return;
+  // `panelId` identifies the panel; the doc is the ACTIVE DASHBOARD's doc
+  // (getDoc/userPanelsMutate are keyed by dashboard id, not panel id).
+  const dash = activeUserDash();
+  if (!dash) return;
+  const doc = getDoc(dash.id);
+  const panelEl = e.target.closest('.panel');
+  const canvasEl = panelEl && panelEl.closest('.canvas');
+  if (!panelEl || !canvasEl || !doc) return;
+  const p = (doc.panels || []).find((x) => x.id === panelId);
+  if (!p) return;
+  e.preventDefault();
+  const m = cellMetrics(canvasEl);
+  geomDrag = {
+    dashId: dash.id, panelId, mode, panelEl,
+    startX: e.clientX, startY: e.clientY,
+    startGeom: panelGeom(p),
+    pitchX: m.pitchX, pitchY: m.pitchY,
+    cur: panelGeom(p),
+  };
+  panelEl.classList.add('dragging-geom');
+  try { e.target.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+}
+
+function moveGeomDrag(e) {
+  if (!geomDrag) return;
+  const d = geomDrag;
+  const dCol = Math.round((e.clientX - d.startX) / d.pitchX);
+  const dRow = Math.round((e.clientY - d.startY) / d.pitchY);
+  const g = { ...d.startGeom };
+  if (d.mode === 'move') {
+    g.x = clampInt(d.startGeom.x + dCol, 0, GRID_COLS - d.startGeom.w);
+    g.y = Math.max(0, d.startGeom.y + dRow);
+  } else {
+    if (d.mode === 'e' || d.mode === 'se') g.w = clampInt(d.startGeom.w + dCol, 1, GRID_COLS - d.startGeom.x);
+    if (d.mode === 's' || d.mode === 'se') g.h = Math.max(1, d.startGeom.h + dRow);
+  }
+  d.cur = g;
+  d.panelEl.style.gridColumn = `${g.x + 1}/span ${g.w}`;
+  d.panelEl.style.gridRow = `${g.y + 1}/span ${g.h}`;
+  const wh = d.panelEl.querySelector('.panel-edit .wh');
+  if (wh) wh.innerHTML = `${g.w}<span class="x">×</span>${g.h}`;
+}
+
+function endGeomDrag() {
+  if (!geomDrag) return;
+  const d = geomDrag;
+  geomDrag = null;
+  d.panelEl.classList.remove('dragging-geom');
+  const g = d.cur;
+  const s = d.startGeom;
+  if (g.x !== s.x || g.y !== s.y || g.w !== s.w || g.h !== s.h) {
+    userPanelsMutate(d.dashId, (panels) => {
+      const idx = panels.findIndex((p) => p.id === d.panelId);
+      if (idx >= 0) panels[idx] = { ...panels[idx], geometry: g };
+      return panels;
+    });
+  }
+}
+
+document.addEventListener('pointerdown', (e) => {
+  const grip = e.target.closest('[data-grip]');
+  if (grip) { startGeomDrag(e, 'move', grip.getAttribute('data-grip')); return; }
+  const rz = e.target.closest('[data-resize]');
+  if (rz) { startGeomDrag(e, rz.getAttribute('data-resize'), rz.getAttribute('data-panel')); }
+});
+document.addEventListener('pointermove', moveGeomDrag);
+document.addEventListener('pointerup', endGeomDrag);
+document.addEventListener('pointercancel', endGeomDrag);
+
+// Builder text inputs (input event — no re-render, keeps focus).
+document.addEventListener('input', (e) => { handleDeclInput(e); });
+
 // ---------- event delegation ------------------------------
 let dragSrcId = null;
 
 document.addEventListener('click', (e) => {
+  // Declarative user-dashboard chrome (builder + user-panel toolbar).
+  // Handled first so its specific data-* attrs never fall through to the
+  // default-dashboard handlers below.
+  if (handleDeclClick(e)) { e.preventDefault(); return; }
   // Primary nav: top-level product section
   const secA = e.target.closest('[data-section]');
   if (secA) {
@@ -1118,11 +1675,13 @@ document.addEventListener('click', (e) => {
   if (mgClone) {
     const id = mgClone.getAttribute('data-mg-clone');
     const current = mergedDashboards(defaults, { includeHidden: true }).find((d) => d.id === id);
-    const name = prompt('Clone "' + (current?.name || id) + '" as:', (current?.name || 'Untitled') + ' (copy)');
-    if (name) {
-      const newId = createUserDashboard({ name, fromId: id });
+    // POST a real durable doc, then route to it in edit mode. Rename is
+    // inline (contenteditable scene title) — no window.prompt.
+    (async () => {
+      const newId = await createUserDashboard({ name: (current?.name || 'Untitled') + ' (copy)', fromId: id });
+      state.edit = true; localStorage.setItem(LS.edit, '1');
       location.hash = '#/dashboards/' + newId;
-    }
+    })();
     return;
   }
   const mgDelete = e.target.closest('[data-mg-delete]');
@@ -1140,12 +1699,16 @@ document.addEventListener('click', (e) => {
   }
   const mgNew = e.target.closest('[data-mg-new]');
   if (mgNew) {
-    const fromId = mgNew.getAttribute('data-mg-new');
-    const name = prompt(fromId ? 'New dashboard from "' + fromId + '" · Name:' : 'New blank dashboard · Name:', 'Untitled');
-    if (name) {
-      const newId = createUserDashboard({ name, fromId: fromId || null });
+    const fromId = mgNew.getAttribute('data-mg-new') || null;
+    // Net-new = declarative shell (empty panels[]) → POST a real doc,
+    // route to it in edit mode, and auto-open the panel builder. Naming
+    // is inline via the contenteditable scene title (no window.prompt).
+    (async () => {
+      const newId = await createUserDashboard({ name: fromId ? 'Copy of ' + fromId : 'Untitled dashboard', fromId });
+      state.edit = true; localStorage.setItem(LS.edit, '1');
       location.hash = '#/dashboards/' + newId;
-    }
+      if (!fromId) setTimeout(() => { if (activeUserDash()) openBuilder(); }, 80);
+    })();
     return;
   }
   const mgCluster = e.target.closest('[data-mg-cluster]');
@@ -1359,5 +1922,19 @@ if (state.refresh > 0) setRefreshInterval(state.refresh);
 
 // Restore mobile preview class if it was active.
 if (state.mobile) document.documentElement.classList.add('mobile-preview');
+
+// Re-render when the dashboard store reconciles (e.g. a 409 re-GET, or a
+// late hydrate refresh) so the nav / panels reflect the durable set.
+setOnChange(() => { if (!geomDrag) render(); });
+
+// Re-render when a per-panel query settles — but never while the user is
+// mid drag/resize or typing in the builder (that would nuke the gesture
+// or steal input focus).
+onPanelData(() => {
+  if (geomDrag) return;
+  const ae = document.activeElement;
+  if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'SELECT' || ae.isContentEditable)) return;
+  render();
+});
 
 render();
