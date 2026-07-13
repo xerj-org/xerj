@@ -2872,6 +2872,15 @@ impl Index {
                     // from the M5.22 profile.
                     let mut survivors: Vec<(u64, String, String)> = Vec::new();
 
+                    // RC4 W2 #14 — union of the inputs' SEQ-AWARE tombstone
+                    // sections (ZTB2), max seq per doc.  A load-bearing
+                    // tombstone (doc deleted, an OLDER copy possibly live in
+                    // a segment OUTSIDE this batch) must survive the merge:
+                    // its input segment is removed by `apply_merge`, so
+                    // without carry-forward the next restart's rebuild would
+                    // resurrect the older copy.
+                    let mut tomb_union: HashMap<String, u64> = HashMap::new();
+
                     for meta in &metas_for_task {
                         min_seq = min_seq.min(meta.min_seq_no);
                         max_seq = max_seq.max(meta.max_seq_no);
@@ -2895,6 +2904,55 @@ impl Index {
                                 return None;
                             }
                         };
+                        // Collect tombstones BEFORE the stored-section read:
+                        // tombstone-only segments (doc_count 0) `continue`
+                        // out of the doc pass below but their pairs must
+                        // still ride along.  A tombstone section that fails
+                        // to read/decode aborts the batch like any other
+                        // unreadable input (dropping it silently would
+                        // resurrect deleted docs after the inputs are gone).
+                        if meta.has_tombstones {
+                            match reader.section(SectionType::Tombstones) {
+                                Ok(Some(tb)) => {
+                                    match xerj_storage::segment::decode_tombstones_v2(tb) {
+                                        Some(pairs) => {
+                                            for (seq, id) in pairs {
+                                                let e = tomb_union.entry(id).or_insert(0);
+                                                if seq > *e {
+                                                    *e = seq;
+                                                }
+                                            }
+                                        }
+                                        None if tb.starts_with(b"ZTB2") => {
+                                            // Corrupt V2 payload — dropping it
+                                            // silently would resurrect deleted
+                                            // docs once the input is removed.
+                                            tracing::error!(
+                                                ?seg_path,
+                                                "merge ABORTED: corrupt ZTB2 tombstone \
+                                                 section (inputs preserved)"
+                                            );
+                                            failed_for_task.fetch_add(1, Ordering::Relaxed);
+                                            return None;
+                                        }
+                                        // Legacy id-only JSON payload: no seq
+                                        // info — those deletes are WAL-pinned,
+                                        // not segment-durable; nothing to carry.
+                                        None => {}
+                                    }
+                                }
+                                Ok(None) => {}
+                                Err(e) => {
+                                    tracing::error!(
+                                        ?seg_path,
+                                        "merge ABORTED: failed to read tombstone section \
+                                         (inputs preserved): {e}"
+                                    );
+                                    failed_for_task.fetch_add(1, Ordering::Relaxed);
+                                    return None;
+                                }
+                            }
+                        }
                         let stored_bytes_raw = match reader.section(SectionType::Stored) {
                             Ok(Some(b)) => b,
                             Ok(None) => {
@@ -3061,6 +3119,45 @@ impl Index {
                         return None;
                     }
 
+                    // RC4 W2 #14 — carry still-load-bearing tombstones into
+                    // the merged output.  GC rule (mirrors the
+                    // `sweep_pending_deletes` unpin proof): a tombstone
+                    // subsumed by a strictly newer, SEGMENT-durable live
+                    // version can be dropped — every rebuild would ignore it
+                    // anyway (max-seq-wins).  Everything else is carried:
+                    // an older copy of the doc may live in a segment outside
+                    // this batch, and the tombstone is what keeps it dead
+                    // across restarts.
+                    let tomb_carry: Vec<(u64, String)> = tomb_union
+                        .into_iter()
+                        .filter(|(id, seq)| match store_for_task.version_map.get(id) {
+                            Some(e)
+                                if !e.deleted
+                                    && e.seq_no > *seq
+                                    && &*e.segment_id
+                                        != xerj_storage::version_map::IN_MEMORY_SEGMENT_ID =>
+                            {
+                                false
+                            }
+                            _ => true,
+                        })
+                        .map(|(id, seq)| (seq, id))
+                        .collect();
+                    if !tomb_carry.is_empty() {
+                        let pair_refs: Vec<(u64, &str)> = tomb_carry
+                            .iter()
+                            .map(|(seq, id)| (*seq, id.as_str()))
+                            .collect();
+                        if let Err(e) = writer.add_section(
+                            SectionType::Tombstones,
+                            xerj_storage::segment::encode_tombstones_v2(&pair_refs),
+                        ) {
+                            tracing::error!("merge ABORTED: failed to add tombstone section: {e}");
+                            failed_for_task.fetch_add(1, Ordering::Relaxed);
+                            return None;
+                        }
+                    }
+
                     let merged_meta = match writer.finish(live_doc_count, min_seq, max_seq) {
                         Ok(m) => m,
                         Err(e) => {
@@ -3131,6 +3228,21 @@ impl Index {
                                 *seq_no,
                                 Arc::clone(&merged_arc),
                                 false,
+                            );
+                        }
+                        // RC4 W2 #14 — repoint carried tombstones onto the
+                        // merged segment BEFORE `apply_merge` runs: its
+                        // `remove_segment` purges every entry still pointing
+                        // at a merged-away input, and a purged tombstone
+                        // would resurrect the doc in live search.  Guarded
+                        // (`set_if_latest`): a doc re-indexed while the
+                        // merge ran keeps its newer live entry.
+                        for (seq, id) in &tomb_carry {
+                            store_for_task.version_map.set_if_latest(
+                                id.as_str(),
+                                *seq,
+                                Arc::clone(&merged_arc),
+                                true,
                             );
                         }
                     }
@@ -5003,10 +5115,33 @@ impl Index {
         if let Some(ver) = self.store.version_map.get(id) {
             let seg_id: std::sync::Arc<str> = std::sync::Arc::clone(&ver.segment_id);
             drop(ver);
-            if let Some(meta) = snap.segments.iter().find(|m| m.id.as_str() == &*seg_id) {
+            // RC4 W2 #15 — resolve the owning segment's doc_count from the
+            // snapshot, FALLING BACK to the on-disk segment header when the
+            // id isn't listed there.  During a merge there is a window
+            // between the version-map repoint (`set_if_latest` onto the
+            // merged id, inside the merge task) and the snapshot publish
+            // (`apply_merge`) — pre-fix, a GET in that window found no
+            // snapshot meta, every legacy-loop segment was skipped by the
+            // "not this segment" check below, and an EXISTING doc returned
+            // 404 (live repro: 47 transient 404s hammering 8 ids through
+            // one forcemerge).  The merged segment file is fully durable
+            // before the repoint (`SegmentWriter::finish` fsyncs), and
+            // `open_segment_arc` derives `{id}.seg` for ids missing from
+            // the snapshot, so opening it directly is race-free.
+            let seg_doc_count: Option<u64> =
+                match snap.segments.iter().find(|m| m.id.as_str() == &*seg_id) {
+                    Some(meta) => Some(meta.doc_count),
+                    None if &*seg_id != xerj_storage::version_map::IN_MEMORY_SEGMENT_ID => self
+                        .store
+                        .open_segment_arc(&seg_id)
+                        .ok()
+                        .map(|r| r.header().doc_count),
+                    None => None,
+                };
+            if let Some(doc_count) = seg_doc_count {
                 if let (Some(pos_map), Some(slices)) = (
-                    self.id_pos_map_for(&seg_id, meta.doc_count),
-                    self.stored_slices_for(&seg_id, meta.doc_count),
+                    self.id_pos_map_for(&seg_id, doc_count),
+                    self.stored_slices_for(&seg_id, doc_count),
                 ) {
                     if let Some(&pos) = pos_map.get(id) {
                         if let Some(&(start, end)) = slices.offsets.get(pos as usize) {
@@ -5047,6 +5182,36 @@ impl Index {
                         for doc in docs {
                             if doc.get("_id").and_then(Value::as_str) == Some(id) {
                                 return Ok(doc.get("_source").cloned());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // RC4 W2 #15 — last-resort direct open for the merge-publish
+        // window: the version map points at a segment the snapshot does
+        // not list (merged output between repoint and `apply_merge`) and
+        // the slice-cache fast path above couldn't serve it (e.g. caches
+        // not yet warm).  Decode that one segment's stored section
+        // directly rather than 404-ing an existing doc.
+        if let Some(ver) = self.store.version_map.get(id) {
+            let seg_id: std::sync::Arc<str> = std::sync::Arc::clone(&ver.segment_id);
+            drop(ver);
+            if &*seg_id != xerj_storage::version_map::IN_MEMORY_SEGMENT_ID
+                && !snap.segments.iter().any(|m| m.id.as_str() == &*seg_id)
+            {
+                if let Ok(reader) = self.store.open_segment_arc(&seg_id) {
+                    if let Ok(Some(stored_bytes_raw)) = reader.section(SectionType::Stored) {
+                        if let Ok(stored_bytes) =
+                            xerj_storage::stored_codec::decode_stored(stored_bytes_raw)
+                        {
+                            if let Ok(docs) = serde_json::from_slice::<Vec<Value>>(&stored_bytes) {
+                                for doc in docs {
+                                    if doc.get("_id").and_then(Value::as_str) == Some(id) {
+                                        return Ok(doc.get("_source").cloned());
+                                    }
+                                }
                             }
                         }
                     }
