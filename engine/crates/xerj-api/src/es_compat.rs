@@ -9520,6 +9520,30 @@ pub async fn search(
         })
     };
 
+    // PIT searches echo the (still-valid) `pit_id` back in the response —
+    // ES 8.x places it as the FIRST key, before `took` (live-verified on
+    // 8.13.4).  Clients' PIT + search_after loops read the id off every
+    // page and thread it into the next request, so omitting it breaks the
+    // canonical pagination pattern (ES helpers fail with a missing-pit_id
+    // error).  xerj PIT ids are stable, so the echoed id is the request id.
+    if pit_context.is_some() {
+        if let Some(pit_id) = body
+            .pit
+            .as_ref()
+            .and_then(|p| p.get("id"))
+            .and_then(Value::as_str)
+        {
+            if let Some(obj) = response_body.as_object_mut() {
+                let mut rebuilt = serde_json::Map::with_capacity(obj.len() + 1);
+                rebuilt.insert("pit_id".to_string(), Value::String(pit_id.to_string()));
+                for (k, v) in obj.iter() {
+                    rebuilt.insert(k.clone(), v.clone());
+                }
+                *obj = rebuilt;
+            }
+        }
+    }
+
     // ES 8.x emits `"terminated_early": false` (immediately after
     // `timed_out`) on the hits-skipping exact-count path: `size: 0` +
     // explicit `track_total_hits: true`, without aggregations. Live-probed
@@ -14217,6 +14241,25 @@ async fn msearch_impl(
         });
         if let Some(aggs) = merged_aggs {
             resp["aggregations"] = aggs;
+        }
+        // PIT sub-searches echo the pit_id first, exactly like `_search`
+        // (ES 8.x msearch items carry it too — same search_after loop
+        // contract per item).
+        if pit_context.is_some() {
+            if let Some(pit_id) = search_body_val
+                .get("pit")
+                .and_then(|p| p.get("id"))
+                .and_then(Value::as_str)
+            {
+                if let Some(obj) = resp.as_object_mut() {
+                    let mut rebuilt = serde_json::Map::with_capacity(obj.len() + 1);
+                    rebuilt.insert("pit_id".to_string(), Value::String(pit_id.to_string()));
+                    for (k, v) in obj.iter() {
+                        rebuilt.insert(k.clone(), v.clone());
+                    }
+                    *obj = rebuilt;
+                }
+            }
         }
         responses.push(resp);
     }

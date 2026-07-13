@@ -356,7 +356,14 @@ pub async fn store(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Request body for `POST /_memory/{namespace}/_recall`.
+///
+/// Unknown fields are rejected with a 400 (`deny_unknown_fields`): a typo'd
+/// key used to be silently ignored, degrading the request to a match-all
+/// that returned arbitrary memories at score 1.0 — the worst possible
+/// failure mode for an agent that trusts its recall results.  Exactly one
+/// of `vector` or `query` must be supplied (enforced in [`recall`]).
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RecallBody {
     /// Free-text query → BM25 recall over stored text.
     #[serde(default)]
@@ -398,14 +405,50 @@ pub async fn recall(
     if let Err(reason) = validate_namespace(&namespace) {
         return error_response(StatusCode::BAD_REQUEST, reason);
     }
-    let body = body.0.unwrap_or(RecallBody {
-        query: None,
-        vector: None,
-        semantic: None,
-        k: None,
-        filter: None,
-        recency_weight: None,
-    });
+    // Recall must say what to recall BY: exactly one of `vector` (a query
+    // embedding) or `query` (text).  A missing body, both-at-once, or an
+    // empty `query` are hard 400s — the old lenient fallback degraded every
+    // malformed request to match-all and handed back arbitrary memories at
+    // score 1.0.  (Unknown keys are already rejected at deserialization via
+    // `deny_unknown_fields`.)  Recent-memory listing lives at
+    // `GET /_memory/{namespace}`, which needs no query.
+    let Some(body) = body.0 else {
+        return error_response(
+            StatusCode::BAD_REQUEST,
+            "recall requires a JSON body with exactly one of `vector` (query \
+             embedding) or `query` (text); list recent memories with GET \
+             /_memory/{namespace} instead",
+        );
+    };
+    match (body.vector.is_some(), body.query.is_some()) {
+        (true, true) => {
+            return error_response(
+                StatusCode::BAD_REQUEST,
+                "supply exactly one of `vector` or `query`, not both",
+            );
+        }
+        (false, false) => {
+            return error_response(
+                StatusCode::BAD_REQUEST,
+                "recall requires exactly one of `vector` (query embedding) or \
+                 `query` (text); list recent memories with GET \
+                 /_memory/{namespace} instead",
+            );
+        }
+        _ => {}
+    }
+    if body.vector.is_none() && body.query.as_deref().is_some_and(str::is_empty) {
+        return error_response(
+            StatusCode::BAD_REQUEST,
+            "`query` must be a non-empty string",
+        );
+    }
+    if body.vector.as_deref().is_some_and(<[f32]>::is_empty) {
+        return error_response(
+            StatusCode::BAD_REQUEST,
+            "`vector` must be a non-empty array of numbers",
+        );
+    }
     let k = body.k.unwrap_or(DEFAULT_K).max(1);
     // Recency blending needs a wider candidate pool than the final k so the
     // re-rank can actually promote recent-but-slightly-less-relevant memories.
