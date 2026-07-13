@@ -64,6 +64,20 @@ pub struct VersionEntry {
     pub segment_id: Arc<str>,
     /// `true` if the document has been deleted (tombstoned).
     pub deleted: bool,
+    /// ES `_version`: per-document write counter, starting at 1 on first
+    /// index and incremented by every subsequent index or delete of the
+    /// same `doc_id` (deletes bump it too — the tombstone carries the
+    /// bumped version, matching ES delete responses).
+    ///
+    /// Physical repoints (flush moving a doc from the memtable to its
+    /// segment, merges repointing surviving docs) do NOT bump it: they
+    /// re-record the same logical write.
+    ///
+    /// Restart caveat: the map is rebuilt from segments + WAL tail on
+    /// open, so the counter restarts from the recovered history rather
+    /// than the true lifetime write count (CAS is unaffected — it
+    /// compares `seq_no`, which is durable).
+    pub version: u64,
 }
 
 // ── VersionMap ───────────────────────────────────────────────────────────────
@@ -145,28 +159,55 @@ impl VersionMap {
         seq_no: SeqNo,
         segment_id: impl Into<Arc<str>>,
         deleted: bool,
-    ) {
+    ) -> u64 {
         let doc_id = doc_id.into();
         debug!(?doc_id, seq_no, "version_map::set");
-        let old = self.inner.insert(
-            doc_id,
-            VersionEntry {
-                seq_no,
-                segment_id: segment_id.into(),
-                deleted,
-            },
-        );
+        use dashmap::mapref::entry::Entry;
+        // Per-doc `_version`: a STRICTLY newer seq is a new logical write
+        // (bump); an equal seq is a physical repoint of the same write
+        // (keep); an older seq only occurs on replay/recovery re-sets of
+        // an already-superseded copy (keep — the newer write already
+        // counted itself).  Computed and written under the dashmap shard
+        // guard so racing writers on the same key each derive from the
+        // exact entry they displace.
+        let (version, was_overwrite, old_was_live) = match self.inner.entry(doc_id) {
+            Entry::Occupied(mut occ) => {
+                let old_seq = occ.get().seq_no;
+                let old_live = !occ.get().deleted;
+                let version = if seq_no > old_seq {
+                    occ.get().version + 1
+                } else {
+                    occ.get().version
+                };
+                occ.insert(VersionEntry {
+                    seq_no,
+                    segment_id: segment_id.into(),
+                    deleted,
+                    version,
+                });
+                (version, old_seq != seq_no, old_live)
+            }
+            Entry::Vacant(vac) => {
+                vac.insert(VersionEntry {
+                    seq_no,
+                    segment_id: segment_id.into(),
+                    deleted,
+                    version: 1,
+                });
+                (1, false, false)
+            }
+        };
         // Overwrite or delete — a superseded/tombstoned physical copy now
         // exists somewhere until merged away.  A same-seq_no re-set is NOT
         // an overwrite: the flush path repoints every drained doc's entry
         // from `__memtable__` to its segment id with the seq_no unchanged
         // (live-verified: counting those flipped the gate ON for every
         // flushed doc and re-disabled all fast paths under pure appends).
-        let is_overwrite = old.as_ref().is_some_and(|e| e.seq_no != seq_no);
-        if is_overwrite || deleted {
+        if was_overwrite || deleted {
             self.ghost_events.fetch_add(1, Ordering::Relaxed);
         }
-        self.live_delta(old.is_some_and(|e| !e.deleted), !deleted);
+        self.live_delta(old_was_live, !deleted);
+        version
     }
 
     /// Record `doc_id → (seq_no, segment_id)` only if `seq_no` is >= the
@@ -204,10 +245,16 @@ impl VersionMap {
         match self.inner.entry(doc_id) {
             Entry::Occupied(mut occ) => {
                 if seq_no >= occ.get().seq_no {
+                    // Physical repoint of an already-counted write — the
+                    // per-doc `_version` is carried over unchanged (A1-A3).
+                    let version = occ.get().version;
+                    // Capture the displaced entry for live/ghost accounting
+                    // (RC4 W2 #14).
                     let old = occ.insert(VersionEntry {
                         seq_no,
                         segment_id: segment_id.into(),
                         deleted,
+                        version,
                     });
                     // Mirror `set`: a same-seq repoint is NOT an overwrite
                     // (see the flush-repoint note there); a tombstone that
@@ -224,6 +271,7 @@ impl VersionMap {
                     seq_no,
                     segment_id: segment_id.into(),
                     deleted,
+                    version: 1,
                 });
                 if deleted {
                     self.ghost_events.fetch_add(1, Ordering::Relaxed);
@@ -280,10 +328,13 @@ impl VersionMap {
                     }
                 }
                 let was_live = !occ.get().deleted;
+                // A CAS write is a genuine new logical write.
+                let version = occ.get().version + 1;
                 occ.insert(VersionEntry {
                     seq_no: new_seq_no,
                     segment_id: new_segment_id,
                     deleted,
+                    version,
                 });
                 self.ghost_events.fetch_add(1, Ordering::Relaxed);
                 self.live_delta(was_live, !deleted);
@@ -302,6 +353,7 @@ impl VersionMap {
                     seq_no: new_seq_no,
                     segment_id: new_segment_id,
                     deleted,
+                    version: 1,
                 });
                 if deleted {
                     self.ghost_events.fetch_add(1, Ordering::Relaxed);
@@ -327,10 +379,15 @@ impl VersionMap {
                 if entry.deleted {
                     return Ok(false); // already deleted
                 }
+                // ES bumps `_version` on delete: the tombstone carries the
+                // bumped value (surfaced in the delete response, and a
+                // subsequent re-index continues from it).
+                let version = entry.version + 1;
                 *entry = VersionEntry {
                     seq_no,
                     segment_id: segment_id.into(),
                     deleted: true,
+                    version,
                 };
                 self.ghost_events.fetch_add(1, Ordering::Relaxed);
                 self.live_delta(true, false);
@@ -338,6 +395,53 @@ impl VersionMap {
             }
             None => Ok(false),
         }
+    }
+
+    /// Repoint a document's entry at a new segment WITHOUT counting a new
+    /// logical write.  Used by the flush path: a drained memtable doc keeps
+    /// its seq_no and `_version`, only its physical home changes.
+    ///
+    /// - Entry present with the SAME `seq_no` → swap `segment_id`, keep
+    ///   `version` / `deleted` / counters untouched.
+    /// - Entry present with a DIFFERENT `seq_no` → no-op.  Covers both a
+    ///   superseded duplicate in the drained batch (an older copy of a doc
+    ///   that was overwritten in the same memtable generation) and a doc
+    ///   that was updated or deleted after the drain — clobbering either
+    ///   would resurrect a stale version (the old unconditional `set` here
+    ///   transiently did exactly that).
+    /// - No entry → record it (recovery parity with the old `set` call).
+    pub fn repoint(&self, doc_id: &str, seq_no: SeqNo, segment_id: impl Into<Arc<str>>) {
+        use dashmap::mapref::entry::Entry;
+        match self.inner.entry(doc_id.to_owned()) {
+            Entry::Occupied(mut occ) => {
+                if occ.get().seq_no == seq_no {
+                    occ.get_mut().segment_id = segment_id.into();
+                }
+            }
+            Entry::Vacant(vac) => {
+                vac.insert(VersionEntry {
+                    seq_no,
+                    segment_id: segment_id.into(),
+                    deleted: false,
+                    version: 1,
+                });
+                self.live_delta(false, true);
+            }
+        }
+    }
+
+    /// Bump the `_version` of an EXISTING tombstone and return the bumped
+    /// value.  ES semantics for `DELETE` of an already-deleted document:
+    /// the delete reports `result: not_found` (404) but still increments
+    /// the document's version, and a later re-index continues from it.
+    /// Returns `None` when the doc is unknown or live.
+    pub fn bump_tombstone_version(&self, doc_id: &str) -> Option<u64> {
+        let mut entry = self.inner.get_mut(doc_id)?;
+        if !entry.deleted {
+            return None;
+        }
+        entry.version += 1;
+        Some(entry.version)
     }
 
     /// Remove all entries whose `segment_id` is in `stale_segment_ids`.
@@ -374,9 +478,9 @@ impl VersionMap {
     {
         for (doc_id, seq_no, segment_id, deleted) in entries {
             // Only update if the incoming entry is newer
-            let should_insert = match self.inner.get(&doc_id) {
-                Some(existing) => seq_no > existing.seq_no,
-                None => true,
+            let (should_insert, version) = match self.inner.get(&doc_id) {
+                Some(existing) => (seq_no > existing.seq_no, existing.version + 1),
+                None => (true, 1),
             };
             if should_insert {
                 let old = self.inner.insert(
@@ -385,6 +489,7 @@ impl VersionMap {
                         seq_no,
                         segment_id: Arc::from(segment_id),
                         deleted,
+                        version,
                     },
                 );
                 self.live_delta(old.is_some_and(|e| !e.deleted), !deleted);
@@ -448,6 +553,74 @@ mod tests {
         assert_eq!(e.seq_no, 10);
         assert_eq!(&*e.segment_id, "seg-a");
         assert!(!e.deleted);
+        assert_eq!(e.version, 1);
+    }
+
+    #[test]
+    fn version_bumps_on_newer_seq_only() {
+        let vm = VersionMap::new();
+        assert_eq!(vm.set("d", 1, "__memtable__", false), 1);
+        // Overwrite with a newer seq bumps.
+        assert_eq!(vm.set("d", 5, "__memtable__", false), 2);
+        // Same-seq repoint (flush) keeps the version.
+        assert_eq!(vm.set("d", 5, "seg-a", false), 2);
+        // Stale replay of an older copy keeps the version.
+        assert_eq!(vm.set("d", 1, "seg-a", false), 2);
+    }
+
+    #[test]
+    fn delete_bumps_version_and_reindex_continues() {
+        let vm = VersionMap::new();
+        vm.set("d", 1, "s", false); // v1
+        vm.set("d", 2, "s", false); // v2
+        vm.delete("d", 3, "s").unwrap(); // tombstone carries v3
+        assert_eq!(vm.get("d").unwrap().version, 3);
+        assert_eq!(vm.set("d", 4, "s", false), 4); // recreate → v4
+    }
+
+    #[test]
+    fn bump_tombstone_version_only_on_tombstones() {
+        let vm = VersionMap::new();
+        assert_eq!(vm.bump_tombstone_version("ghost"), None);
+        vm.set("d", 1, "s", false);
+        assert_eq!(vm.bump_tombstone_version("d"), None); // live
+        vm.delete("d", 2, "s").unwrap(); // v2 tombstone
+        assert_eq!(vm.bump_tombstone_version("d"), Some(3));
+        assert_eq!(vm.bump_tombstone_version("d"), Some(4));
+        // A recreate continues from the bumped tombstone version.
+        assert_eq!(vm.set("d", 3, "s", false), 5);
+    }
+
+    #[test]
+    fn repoint_swaps_segment_without_bumping() {
+        let vm = VersionMap::new();
+        vm.set("d", 1, "__memtable__", false);
+        vm.set("d", 2, "__memtable__", false); // v2 (overwrite in memtable)
+        let ghosts_before = vm.ghost_events();
+
+        // Flush replays BOTH drained copies; only the live seq repoints.
+        vm.repoint("d", 1, "seg-a"); // superseded duplicate → no-op
+        let e = vm.get("d").unwrap();
+        assert_eq!(
+            (&*e.segment_id, e.seq_no, e.version),
+            ("__memtable__", 2, 2)
+        );
+        vm.repoint("d", 2, "seg-a");
+        let e = vm.get("d").unwrap();
+        assert_eq!((&*e.segment_id, e.seq_no, e.version), ("seg-a", 2, 2));
+        assert_eq!(vm.ghost_events(), ghosts_before);
+
+        // A doc deleted after the drain is NOT resurrected by the repoint.
+        vm.delete("d", 3, "__memtable__").unwrap();
+        vm.repoint("d", 2, "seg-b");
+        assert!(vm.get("d").unwrap().deleted);
+        assert_eq!(vm.get("d").unwrap().seq_no, 3);
+
+        // Unknown doc → recorded live (recovery parity with the old set()).
+        vm.repoint("x", 7, "seg-a");
+        let e = vm.get("x").unwrap();
+        assert_eq!((e.seq_no, e.version, e.deleted), (7, 1, false));
+        assert_eq!(vm.live_count(), 1); // "x" live, "d" tombstoned
     }
 
     #[test]

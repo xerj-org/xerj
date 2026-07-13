@@ -149,6 +149,26 @@ pub struct IndexResponse {
     pub result: String,
 }
 
+/// Outcome of a single-document delete (ES `DELETE /{index}/_doc/{id}`).
+///
+/// `found == true`  → the doc was live and is now tombstoned; `seq_no` is
+/// the tombstone's internal (1-based) WAL seq and `version` the bumped
+/// per-doc version (ES semantics: deletes increment `_version`).
+///
+/// `found == false` → nothing was deleted (`result: not_found`). `version`
+/// still reports the ES-visible version: an existing tombstone is bumped
+/// and persisted (matching ES, where a not-found delete still versions the
+/// tombstone), an unknown id reports 1. `seq_no` carries the tombstone's
+/// seq when one exists, else the index's latest assigned seq (xerj does
+/// not consume a new seq_no for a not-found delete — divergence from ES
+/// in the reported VALUE only).
+#[derive(Debug, Clone)]
+pub struct DeleteDocOutcome {
+    pub found: bool,
+    pub seq_no: u64,
+    pub version: u64,
+}
+
 /// Per-field encoding statistics, derived from `FieldAnalyzer`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FieldEncodingInfo {
@@ -1258,8 +1278,16 @@ impl Index {
         // Detect whether this is an overwrite (existing doc) vs a new
         // insert BEFORE writing to storage. Used to set the response
         // `result` field to "updated" / "created" per ES semantics so
-        // HTTP-layer 200/201 bulk status mapping works.
-        let existed_before = self.store.version_map.get(&doc_id).is_some();
+        // HTTP-layer 200/201 bulk status mapping works. A tombstoned doc
+        // counts as NOT existing: ES reports re-index-after-delete as
+        // `created`/201 (while its `_version` still continues from the
+        // tombstone).
+        let existed_before = self
+            .store
+            .version_map
+            .get(&doc_id)
+            .map(|e| !e.deleted)
+            .unwrap_or(false);
 
         // Write to storage WAL.
         let seq_no = self.store.index(&doc_id, source.clone())?;
@@ -1272,8 +1300,22 @@ impl Index {
             mem.insert(doc_id.clone(), &source, &schema_guard.schema, seq_no);
         }
 
-        // Bump counter.
-        let version = self.doc_count.fetch_add(1, Ordering::Relaxed) + 1;
+        // Bump counter (flush thresholds / stats bookkeeping only — NOT the
+        // response `_version`, which is per-doc).
+        self.doc_count.fetch_add(1, Ordering::Relaxed);
+
+        // Real per-doc `_version`: `store.index` just recorded this write
+        // in the version map (1 on first index, +1 per overwrite, deletes
+        // included). The previous code reported the index-global doc_count
+        // here, so any write to doc B inflated the next reported version
+        // of doc A (live-verified: three PUTs to the same id after other
+        // writes reported 4, 5, 6).
+        let version = self
+            .store
+            .version_map
+            .get(&doc_id)
+            .map(|e| e.version)
+            .unwrap_or(1);
 
         // Auto-evolve schema for new fields.
         // Fast path: skip the schema read lock every doc when schema is stable.
@@ -5357,6 +5399,28 @@ impl Index {
         })
     }
 
+    /// Look up the ES `_version` for a live document by id.
+    ///
+    /// The external-version map wins (docs written with
+    /// `version_type=external[_gte]` must echo the caller's version, per
+    /// ES), falling back to the engine-tracked per-doc write counter.
+    /// Returns `None` when the doc is unknown or tombstoned.
+    pub fn lookup_version(&self, id: &str) -> Option<u64> {
+        let tracked = self.store.version_map.get(id).and_then(|entry| {
+            if entry.deleted {
+                None
+            } else {
+                Some(entry.version)
+            }
+        })?;
+        Some(
+            self.external_versions
+                .get(id)
+                .map(|v| *v)
+                .unwrap_or(tracked),
+        )
+    }
+
     /// Retrieve a document by its string ID.
     ///
     /// Checks the memtable first, then searches on-disk segments.
@@ -5534,7 +5598,34 @@ impl Index {
     }
 
     /// Delete a document by ID.
+    ///
+    /// Thin compatibility wrapper over [`Self::delete_document_versioned`]
+    /// (no optimistic-concurrency check). Returns whether a live document
+    /// was found and tombstoned.
     pub async fn delete_document(&self, id: &str) -> Result<bool> {
+        self.delete_document_versioned(id, None, None)
+            .await
+            .map(|outcome| outcome.found)
+    }
+
+    /// Delete a document by ID with ES delete semantics.
+    ///
+    /// When `if_seq_no` is supplied (internal 1-based form), the delete is
+    /// conditional: the doc's current seq_no must match or a
+    /// `VersionConflict` is returned — including when the doc does not
+    /// exist (ES returns 409 for a conditional delete of a missing doc).
+    /// xerj is single-shard with `primary_term` fixed at 1, so a supplied
+    /// `if_primary_term` is accepted but only `if_seq_no` is compared
+    /// (same treatment as `index_document_with_version`).
+    ///
+    /// Unconditional deletes of a missing doc return `found: false` with
+    /// the ES-visible version bookkeeping described on [`DeleteDocOutcome`].
+    pub async fn delete_document_versioned(
+        &self,
+        id: &str,
+        if_seq_no: Option<u64>,
+        if_primary_term: Option<u64>,
+    ) -> Result<DeleteDocOutcome> {
         // Check write block.
         if self.is_write_blocked().await {
             return Err(EngineError::Common(xerj_common::XerjError::index_blocked(
@@ -5543,6 +5634,32 @@ impl Index {
             )));
         }
         self.dataset_version.fetch_add(1, Ordering::Release);
+
+        // Optimistic concurrency check (see index_document_with_version for
+        // the if_primary_term rationale).
+        let _ = if_primary_term;
+        if let Some(expected_seq) = if_seq_no {
+            match self.store.version_map.get(id) {
+                Some(entry) if !entry.deleted => {
+                    if entry.seq_no != expected_seq {
+                        return Err(EngineError::Common(
+                            xerj_common::XerjError::version_conflict(
+                                id,
+                                expected_seq,
+                                entry.seq_no,
+                            ),
+                        ));
+                    }
+                }
+                // Missing or tombstoned doc + conditional delete → conflict
+                // (ES: "required seqNo [N] ... but no document was found").
+                _ => {
+                    return Err(EngineError::Common(
+                        xerj_common::XerjError::version_conflict(id, expected_seq, 0),
+                    ));
+                }
+            }
+        }
 
         // Check whether the document actually exists and is not already deleted.
         let is_live = self
@@ -5562,10 +5679,28 @@ impl Index {
         let should_delete = is_live || in_memtable;
 
         if !should_delete {
-            return Ok(false);
+            // ES `result: not_found` bookkeeping: a repeat delete of a
+            // tombstoned doc still bumps (and persists) the tombstone's
+            // version; a never-seen id reports version 1. No WAL entry or
+            // seq_no is consumed for a not-found delete.
+            let existing = self.store.version_map.get(id);
+            let version = self
+                .store
+                .version_map
+                .bump_tombstone_version(id)
+                .unwrap_or(1);
+            let seq_no = existing
+                .map(|e| e.seq_no)
+                .unwrap_or_else(|| self.store.current_seq_no().saturating_sub(1));
+            return Ok(DeleteDocOutcome {
+                found: false,
+                seq_no,
+                version,
+            });
         }
 
-        let existed = self.store.delete(id)?.is_some();
+        let deleted_seq = self.store.delete(id)?;
+        let existed = deleted_seq.is_some();
 
         // Remove from memtable.
         {
@@ -5598,7 +5733,36 @@ impl Index {
         if existed {
             self.doc_count.fetch_sub(1, Ordering::Relaxed);
         }
-        Ok(existed || in_memtable)
+
+        let found = existed || in_memtable;
+        if !found {
+            // Raced away between the liveness check and store.delete —
+            // report as not_found (same bookkeeping as the early return).
+            let version = self
+                .store
+                .version_map
+                .bump_tombstone_version(id)
+                .unwrap_or(1);
+            return Ok(DeleteDocOutcome {
+                found: false,
+                seq_no: self.store.current_seq_no().saturating_sub(1),
+                version,
+            });
+        }
+
+        // The tombstone entry now carries the bumped per-doc version.
+        let version = self
+            .store
+            .version_map
+            .get(id)
+            .map(|e| e.version)
+            .unwrap_or(1);
+        let seq_no = deleted_seq.unwrap_or_else(|| self.store.current_seq_no().saturating_sub(1));
+        Ok(DeleteDocOutcome {
+            found: true,
+            seq_no,
+            version,
+        })
     }
 
     /// Update a document by merging a partial document into the existing source.

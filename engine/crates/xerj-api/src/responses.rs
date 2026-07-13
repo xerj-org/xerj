@@ -129,11 +129,19 @@ pub struct EsDocResponse {
 }
 
 impl EsDocResponse {
-    pub fn created(index: impl Into<String>, id: impl Into<String>, seq_no: u64) -> Self {
+    /// `result: "created"` — `version` is NOT always 1: a re-index after a
+    /// delete reports `created` while `_version` continues from the
+    /// tombstone (ES 8.13.4 live-verified).
+    pub fn created(
+        index: impl Into<String>,
+        id: impl Into<String>,
+        version: u64,
+        seq_no: u64,
+    ) -> Self {
         Self {
             index: index.into(),
             id: id.into(),
-            version: 1,
+            version,
             result: "created".to_string(),
             shards: EsShards::single_success(),
             seq_no,
@@ -160,18 +168,23 @@ impl EsDocResponse {
 }
 
 /// Response to `GET /{index}/_doc/{id}`.
+///
+/// The metadata fields are `Option` because ES omits `_version` /
+/// `_seq_no` / `_primary_term` entirely on a not-found GET — the 404 body
+/// is exactly `{"_index": ..., "_id": ..., "found": false}` (live-verified
+/// against ES 8.13.4).
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EsGetResponse {
     #[serde(rename = "_index")]
     pub index: String,
     #[serde(rename = "_id")]
     pub id: String,
-    #[serde(rename = "_version")]
-    pub version: u64,
-    #[serde(rename = "_seq_no")]
-    pub seq_no: u64,
-    #[serde(rename = "_primary_term")]
-    pub primary_term: u64,
+    #[serde(rename = "_version", skip_serializing_if = "Option::is_none")]
+    pub version: Option<u64>,
+    #[serde(rename = "_seq_no", skip_serializing_if = "Option::is_none")]
+    pub seq_no: Option<u64>,
+    #[serde(rename = "_primary_term", skip_serializing_if = "Option::is_none")]
+    pub primary_term: Option<u64>,
     pub found: bool,
     #[serde(rename = "_source", skip_serializing_if = "Option::is_none")]
     pub source: Option<Value>,
@@ -188,9 +201,9 @@ impl EsGetResponse {
         Self {
             index: index.into(),
             id: id.into(),
-            version,
-            seq_no,
-            primary_term: 1,
+            version: Some(version),
+            seq_no: Some(seq_no),
+            primary_term: Some(1),
             found: true,
             source: Some(source),
         }
@@ -200,9 +213,9 @@ impl EsGetResponse {
         Self {
             index: index.into(),
             id: id.into(),
-            version: 0,
-            seq_no: 0,
-            primary_term: 0,
+            version: None,
+            seq_no: None,
+            primary_term: None,
             found: false,
             source: None,
         }
@@ -228,12 +241,37 @@ pub struct EsDeleteDocResponse {
 }
 
 impl EsDeleteDocResponse {
-    pub fn deleted(index: impl Into<String>, id: impl Into<String>, seq_no: u64) -> Self {
+    pub fn deleted(
+        index: impl Into<String>,
+        id: impl Into<String>,
+        version: u64,
+        seq_no: u64,
+    ) -> Self {
         Self {
             index: index.into(),
             id: id.into(),
-            version: 1,
+            version,
             result: "deleted".to_string(),
+            shards: EsShards::single_success(),
+            seq_no,
+            primary_term: 1,
+        }
+    }
+
+    /// ES 404 body for a delete that found nothing: same shape as a
+    /// successful delete but `result: "not_found"` (live-verified against
+    /// ES 8.13.4 — the version bookkeeping still advances).
+    pub fn not_found(
+        index: impl Into<String>,
+        id: impl Into<String>,
+        version: u64,
+        seq_no: u64,
+    ) -> Self {
+        Self {
+            index: index.into(),
+            id: id.into(),
+            version,
+            result: "not_found".to_string(),
             shards: EsShards::single_success(),
             seq_no,
             primary_term: 1,
