@@ -184,6 +184,14 @@ impl VersionMap {
     ///   resurrect the stale version.
     ///
     /// Atomic per key via the dashmap entry API.
+    ///
+    /// Live/ghost accounting (RC4 W2 #14): applies the same deltas as
+    /// [`set`](Self::set) whenever it actually replaces/creates an entry.
+    /// For the historical merge-repoint caller this is a no-op delta
+    /// (same seq, live→live), so behavior is unchanged there; the
+    /// tombstone-persistence paths (flush repoint, segment-tombstone
+    /// rebuild apply) rely on the accounting being correct for
+    /// live→deleted transitions.
     pub fn set_if_latest(
         &self,
         doc_id: impl Into<String>,
@@ -196,11 +204,19 @@ impl VersionMap {
         match self.inner.entry(doc_id) {
             Entry::Occupied(mut occ) => {
                 if seq_no >= occ.get().seq_no {
-                    occ.insert(VersionEntry {
+                    let old = occ.insert(VersionEntry {
                         seq_no,
                         segment_id: segment_id.into(),
                         deleted,
                     });
+                    // Mirror `set`: a same-seq repoint is NOT an overwrite
+                    // (see the flush-repoint note there); a tombstone that
+                    // REPLACES a live entry is a ghost event.
+                    let is_overwrite = old.seq_no != seq_no;
+                    if is_overwrite || (deleted && !old.deleted) {
+                        self.ghost_events.fetch_add(1, Ordering::Relaxed);
+                    }
+                    self.live_delta(!old.deleted, !deleted);
                 }
             }
             Entry::Vacant(vac) => {
@@ -209,6 +225,10 @@ impl VersionMap {
                     segment_id: segment_id.into(),
                     deleted,
                 });
+                if deleted {
+                    self.ghost_events.fetch_add(1, Ordering::Relaxed);
+                }
+                self.live_delta(false, !deleted);
             }
         }
     }

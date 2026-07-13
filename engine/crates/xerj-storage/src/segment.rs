@@ -127,6 +127,75 @@ impl SectionType {
     }
 }
 
+// ── Seq-aware tombstone section codec (RC4 W2 #14) ───────────────────────────
+//
+// `SectionType::Tombstones` payload, version 2:
+//
+//   "ZTB2"   4 bytes magic
+//   u32      pair count
+//   lz4_flex::compress_prepend_size(body) where body repeats:
+//     u64  delete seq_no (LE)
+//     u16  id_len (LE)
+//     id_len bytes UTF-8 doc_id
+//
+// V2 makes acked deletes SEGMENT-DURABLE: reopen applies these pairs
+// max-seq-wins against the doc entries rebuilt from `.ids`/stored, so a
+// delete survives restart without its WAL entry — which is what finally
+// lets WAL maintenance unpin delete-bearing shards (the pre-fix pinning
+// retained one WAL generation per shard FOREVER after a single plain
+// delete).  The legacy payload (a bare JSON array of doc_id strings,
+// written since the 2026-07 delete-durability fix but never read) has no
+// seq information and is IGNORED by `decode_tombstones_v2` — those
+// deletes remain protected by WAL pinning exactly as before.
+
+/// Encode `(delete_seq_no, doc_id)` pairs as a ZTB2 tombstone section.
+pub fn encode_tombstones_v2(pairs: &[(u64, &str)]) -> Vec<u8> {
+    let mut body: Vec<u8> =
+        Vec::with_capacity(pairs.iter().map(|(_, id)| 8 + 2 + id.len()).sum::<usize>());
+    for (seq, id) in pairs {
+        body.extend_from_slice(&seq.to_le_bytes());
+        body.extend_from_slice(&(id.len() as u16).to_le_bytes());
+        body.extend_from_slice(id.as_bytes());
+    }
+    let compressed = lz4_flex::compress_prepend_size(&body);
+    let mut out = Vec::with_capacity(8 + compressed.len());
+    out.extend_from_slice(b"ZTB2");
+    out.extend_from_slice(&(pairs.len() as u32).to_le_bytes());
+    out.extend_from_slice(&compressed);
+    out
+}
+
+/// Decode a ZTB2 tombstone section.  Returns `None` for the legacy
+/// id-only JSON payload (no seq info — cannot be applied safely) or any
+/// malformed input.
+pub fn decode_tombstones_v2(bytes: &[u8]) -> Option<Vec<(u64, String)>> {
+    if bytes.len() < 8 || &bytes[..4] != b"ZTB2" {
+        return None;
+    }
+    let count = u32::from_le_bytes(bytes[4..8].try_into().ok()?) as usize;
+    let body = lz4_flex::decompress_size_prepended(&bytes[8..]).ok()?;
+    let mut out = Vec::with_capacity(count);
+    let mut pos = 0usize;
+    for _ in 0..count {
+        if pos + 10 > body.len() {
+            return None;
+        }
+        let seq = u64::from_le_bytes(body[pos..pos + 8].try_into().ok()?);
+        pos += 8;
+        let id_len = u16::from_le_bytes(body[pos..pos + 2].try_into().ok()?) as usize;
+        pos += 2;
+        if pos + id_len > body.len() {
+            return None;
+        }
+        let id = std::str::from_utf8(&body[pos..pos + id_len])
+            .ok()?
+            .to_string();
+        pos += id_len;
+        out.push((seq, id));
+    }
+    Some(out)
+}
+
 // ── SegmentHeader ─────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]

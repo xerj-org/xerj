@@ -676,6 +676,37 @@ impl IndexStore {
             let seg_path = segments_dir.join(&seg_filename);
             let ids_path = segments_dir.join(format!("{prefix}.ids"));
 
+            // RC4 W2 #14 — TOMBSTONE-ONLY orphan (doc_count 0, ZTB2
+            // section, no `.ids` — written by `persist_pending_tombstones`
+            // whose crash-window is prune-before-snapshot-save).  The
+            // `.seg` file itself is the durability marker: `finish()`
+            // fsyncs file + dir before anything can reference it, and
+            // `SegmentReader::open` re-validates the whole-file CRC here.
+            // Without resurrection the on-open cleanup would delete it —
+            // and with the delete's WAL entry already pruned, the doc
+            // would come back from the dead.
+            if let Ok(reader) = SegmentReader::open(&seg_path) {
+                let hdr = reader.header();
+                if hdr.doc_count == 0 && (hdr.flags & 0x0001) != 0 {
+                    let seg_meta = match std::fs::metadata(&seg_path) {
+                        Ok(m) => m,
+                        Err(_) => continue,
+                    };
+                    recovered.push(SegmentMeta {
+                        id: prefix.to_string(),
+                        doc_count: 0,
+                        size_bytes: seg_meta.len(),
+                        min_seq_no: hdr.min_seq_no,
+                        max_seq_no: hdr.max_seq_no,
+                        created_at_ms: hdr.created_at_ms,
+                        has_tombstones: true,
+                        seg_path: seg_filename,
+                        sidx_path: format!("{prefix}.sidx"),
+                    });
+                    continue;
+                }
+            }
+
             // .ids sidecar must exist — it's the last write of the flush
             // sequence, so its presence implies the segment is complete.
             let ids_bytes = match std::fs::read(&ids_path) {
@@ -726,10 +757,15 @@ impl IndexStore {
                 continue;
             }
 
-            // Sanity-check the segment file itself opens.
-            if SegmentReader::open(&seg_path).is_err() {
-                continue;
-            }
+            // Sanity-check the segment file itself opens, and preserve
+            // its tombstone flag (RC4 W2 #14 — a resurrected
+            // delete-carrying segment must keep `has_tombstones` so the
+            // rebuild applies its ZTB2 pairs and the deletes_present
+            // gates stay on).
+            let has_tombstones = match SegmentReader::open(&seg_path) {
+                Ok(r) => (r.header().flags & 0x0001) != 0,
+                Err(_) => continue,
+            };
 
             let seg_meta = match std::fs::metadata(&seg_path) {
                 Ok(m) => m,
@@ -749,7 +785,7 @@ impl IndexStore {
                 min_seq_no: min_seq,
                 max_seq_no: max_seq,
                 created_at_ms,
-                has_tombstones: false,
+                has_tombstones,
                 seg_path: seg_filename,
                 sidx_path: format!("{prefix}.sidx"),
             });
@@ -1392,27 +1428,26 @@ impl IndexStore {
             writer.add_section(SectionType::Stored, &encoded)?;
         }
 
-        // Build tombstone section if any deletes.
-        //
-        // HONESTY NOTE (2026-07, delete-durability fix): this section is
-        // currently WRITE-ONLY — nothing in the tree reads it back at
-        // reopen (`rebuild_version_map_from_segments` loads every doc
-        // from `.ids` sidecars / stored sections as live and never looks
-        // at SectionType::Tombstones), so writing it does NOT make
-        // deletes durable.  Restart durability of acked deletes is
-        // instead guaranteed by WAL-shard pinning (`pending_deletes` —
-        // see `IndexStore::delete` / `sweep_pending_deletes`).  Kept for
-        // format stability; the principled follow-up is to write
-        // `(doc_id, seq_no)` tombstones here on the ENGINE flush path
-        // too and apply them seq-aware at reopen, which would replace
-        // the WAL pinning.
-        let tombstone_ids: Vec<&str> = entries
+        // Build the SEQ-AWARE tombstone section (ZTB2) for any drained
+        // deletes (RC4 W2 #14).  Reopen now APPLIES these pairs
+        // (`rebuild_version_map_from_segments`, max-seq-wins), which makes
+        // the delete segment-durable and lets `sweep_pending_deletes`
+        // unpin the WAL shard once this segment lands — pre-fix the
+        // pinning was FOREVER for a plain never-re-indexed delete (live
+        // repro: one DELETE → WAL grew 866 KB → 3 MB across 6 flushed
+        // rounds and was never pruned again).  The engine flush path
+        // drains its own memtable (no delete entries here); its deletes
+        // are persisted by `persist_pending_tombstones` on the
+        // maintenance tick instead.  The pre-fix payload (JSON id array,
+        // write-only, no seqs) is dropped; ZTB2 is self-describing and
+        // old sections are ignored by the decoder.
+        let tombstone_pairs: Vec<(u64, &str)> = entries
             .iter()
             .filter(|e| e.source.is_none())
-            .map(|e| e.doc_id.as_str())
+            .map(|e| (e.seq_no, e.doc_id.as_str()))
             .collect();
-        if !tombstone_ids.is_empty() {
-            let ts_bytes = serde_json::to_vec(&tombstone_ids)?;
+        if !tombstone_pairs.is_empty() {
+            let ts_bytes = crate::segment::encode_tombstones_v2(&tombstone_pairs);
             writer.add_section(SectionType::Tombstones, &ts_bytes)?;
         }
 
@@ -1513,6 +1548,23 @@ impl IndexStore {
                     std::sync::Arc::clone(&segment_id_arc),
                     false,
                 );
+            } else {
+                // RC4 W2 #14 — repoint the delete's tombstone off
+                // `__memtable__` onto the segment that now durably
+                // carries it (the ZTB2 section written above; the
+                // segment + section were fsynced by `writer.finish`).
+                // Guarded (`set_if_latest`): a doc re-indexed while this
+                // flush ran has a strictly newer live entry that must
+                // not be clobbered back to deleted.  Once
+                // segment-resident, `sweep_pending_deletes` unpins the
+                // WAL shard and `wal_pair_durable` lets the Delete
+                // entry prune.
+                self.version_map.set_if_latest(
+                    &entry.doc_id,
+                    entry.seq_no,
+                    std::sync::Arc::clone(&segment_id_arc),
+                    true,
+                );
             }
         }
         if prof {
@@ -1593,6 +1645,14 @@ impl IndexStore {
             // widens that already-handled window; it adds no new failure
             // mode.  Clean shutdown / explicit `_flush` persists via
             // `force_wal_maintenance()`.
+            // RC4 W2 #14 — persist still-memtable-resident acked deletes
+            // as a tombstone-only segment BEFORE the snapshot save, so
+            // the save registers it and the prune below can release the
+            // deletes' WAL pins.  Best-effort: on failure the deletes
+            // simply stay WAL-pinned (retention, not loss).
+            if let Err(e) = self.persist_pending_tombstones() {
+                warn!(error = %e, "tombstone persistence failed — deletes stay WAL-pinned");
+            }
             self.save_snapshot()?;
             // RC4 W1 #8 — verified maintenance (see
             // `wal_maintain_all_verified`).  The pre-fix loop here
@@ -1693,11 +1753,97 @@ impl IndexStore {
                 Some(e) if !e.deleted && e.seq_no > del_seq => {
                     &*e.segment_id == IN_MEMORY_SEGMENT_ID
                 }
-                // Tombstoned / missing / older-or-equal seq: the WAL
-                // Delete entry is still the only durable record.
+                // RC4 W2 #14 — tombstone persisted: the delete (or an
+                // equal-or-newer one) is recorded in a segment's ZTB2
+                // tombstone section (the repoint off `__memtable__`
+                // happens only after the segment is durably on disk),
+                // so reopen reconstructs it without the WAL entry →
+                // unpin.  Pre-fix, a plain never-re-indexed delete
+                // matched the `_ => true` arm FOREVER and its WAL shard
+                // never checkpointed/rotated/pruned again.
+                Some(e) if e.deleted && e.seq_no >= del_seq => {
+                    &*e.segment_id == IN_MEMORY_SEGMENT_ID
+                }
+                // Missing / older live seq: the WAL Delete entry is
+                // still the only durable record.
                 _ => true,
             }
         });
+    }
+
+    /// RC4 W2 #14 — make every still-memtable-resident acked delete
+    /// segment-durable by writing a dedicated TOMBSTONE-ONLY segment
+    /// (doc_count = 0, single ZTB2 `Tombstones` section).
+    ///
+    /// The engine flush path drains its own memtable, so plain deletes
+    /// (which live only in `pending_deletes` + the version map) never
+    /// reach `finalize_flush_with_publisher`'s tombstone section.  This
+    /// runs on the WAL-maintenance paths (1 s gated tick + explicit
+    /// `force_wal_maintenance`) right before the snapshot is persisted:
+    /// collect → write segment (fsynced by `SegmentWriter::finish`) →
+    /// repoint the version-map tombstones onto it → publish to the
+    /// snapshot.  The subsequent `save_snapshot()` + verified prune then
+    /// see a segment-resident tombstone and release the WAL pin.
+    ///
+    /// Crash-window: a crash after the prune but before `save_snapshot`
+    /// is covered by `recover_orphaned_segments`, which resurrects
+    /// orphan tombstone-only segments from their (CRC-validated) header.
+    fn persist_pending_tombstones(&self) -> Result<()> {
+        // Collect deletes whose tombstone is still memtable-resident.
+        let pairs: Vec<(u64, String)> = {
+            let pending = self.pending_deletes.lock().unwrap();
+            if pending.is_empty() {
+                return Ok(());
+            }
+            pending
+                .keys()
+                .filter_map(|doc_id| match self.version_map.get(doc_id) {
+                    Some(e) if e.deleted && &*e.segment_id == IN_MEMORY_SEGMENT_ID => {
+                        Some((e.seq_no, doc_id.clone()))
+                    }
+                    _ => None,
+                })
+                .collect()
+        };
+        if pairs.is_empty() {
+            return Ok(());
+        }
+
+        let min_seq = pairs.iter().map(|(s, _)| *s).min().unwrap_or(0);
+        let max_seq = pairs.iter().map(|(s, _)| *s).max().unwrap_or(0);
+        let pair_refs: Vec<(u64, &str)> = pairs.iter().map(|(s, id)| (*s, id.as_str())).collect();
+
+        let segments_dir = self.data_dir.join("segments");
+        let mut writer = SegmentWriter::new(&segments_dir, self.config.schema_version, 0, 0)?;
+        writer.add_section(
+            SectionType::Tombstones,
+            crate::segment::encode_tombstones_v2(&pair_refs),
+        )?;
+        // doc_count 0: tombstone-only.  finish() fsyncs file + dir.
+        let meta = writer.finish(0, min_seq, max_seq)?;
+
+        // Segment is durable — repoint the tombstones onto it (guarded:
+        // a doc re-indexed since collection keeps its newer live entry).
+        let seg_arc: std::sync::Arc<str> = std::sync::Arc::from(meta.id.as_str());
+        for (seq, doc_id) in &pairs {
+            self.version_map.set_if_latest(
+                doc_id.as_str(),
+                *seq,
+                std::sync::Arc::clone(&seg_arc),
+                true,
+            );
+        }
+
+        // Publish so the caller's save_snapshot() registers it on disk.
+        self.snapshot
+            .rcu(|old| Arc::new(old.with_new_segment(meta.clone())));
+
+        info!(
+            segment_id = meta.id.as_str(),
+            tombstones = pairs.len(),
+            "tombstone-only segment persisted (acked deletes now segment-durable)"
+        );
+        Ok(())
     }
 
     /// Delete-durability: true if WAL shard `shard_idx` still holds an
@@ -1745,17 +1891,19 @@ impl IndexStore {
     fn wal_pair_durable(&self, is_delete: bool, doc_id: &str, seq: SeqNo) -> bool {
         if is_delete {
             match self.version_map.get(doc_id) {
-                Some(e) if !e.deleted => {
-                    e.seq_no > seq && &*e.segment_id != IN_MEMORY_SEGMENT_ID
-                }
+                Some(e) if !e.deleted => e.seq_no > seq && &*e.segment_id != IN_MEMORY_SEGMENT_ID,
+                // RC4 W2 #14 — the tombstone itself (this delete or a
+                // newer one) is segment-resident: reopen rebuilds the
+                // deletion from the ZTB2 section, the WAL entry is no
+                // longer load-bearing.
+                Some(e) if e.deleted => e.seq_no >= seq && &*e.segment_id != IN_MEMORY_SEGMENT_ID,
                 _ => false,
             }
         } else {
             match self.version_map.get(doc_id) {
                 Some(e) if e.deleted => e.seq_no >= seq,
                 Some(e) => {
-                    e.seq_no > seq
-                        || (e.seq_no == seq && &*e.segment_id != IN_MEMORY_SEGMENT_ID)
+                    e.seq_no > seq || (e.seq_no == seq && &*e.segment_id != IN_MEMORY_SEGMENT_ID)
                 }
                 None => false,
             }
@@ -1895,10 +2043,7 @@ impl IndexStore {
     /// Collect the `(is_delete, doc_id, seq)` pairs of every entry NOT yet
     /// provable durable (mapping updates are always durable and never
     /// collected).
-    fn collect_unproven(
-        &self,
-        entries: &[crate::wal::ReplayEntry],
-    ) -> Vec<(bool, String, SeqNo)> {
+    fn collect_unproven(&self, entries: &[crate::wal::ReplayEntry]) -> Vec<(bool, String, SeqNo)> {
         entries
             .iter()
             .filter(|e| !self.wal_entry_durable(&e.entry, e.seq_no))
@@ -1924,6 +2069,11 @@ impl IndexStore {
     /// watermark is now computed internally from the persisted snapshot
     /// (max seq actually resident in flushed segments).
     pub fn force_wal_maintenance(&self) -> Result<()> {
+        // RC4 W2 #14 — see the gated call site: segment-persist acked
+        // deletes so their WAL pins can be released by the prune below.
+        if let Err(e) = self.persist_pending_tombstones() {
+            warn!(error = %e, "tombstone persistence failed — deletes stay WAL-pinned");
+        }
         // P2.3 — persist the (possibly debounced) snapshot before pruning
         // so an explicit `_flush` / clean shutdown always leaves the
         // on-disk snapshot covering every segment whose WAL is about to
@@ -2036,16 +2186,17 @@ impl IndexStore {
         // stays consistent with ITS snapshot instead of silently skipping
         // the segment (the merge-race undercount bug).  For a genuinely
         // unknown id the open below fails and the error propagates.
+        // RC4 W2 #15 — no `exists()` pre-check on the fallback path.  The
+        // old `exists()`-then-open was a TOCTOU: a retire sweep unlinking
+        // the file between the two calls turned a benign "segment gone"
+        // into a raw io::Error surfacing as a 500 (the mixed-RUW
+        // `store_exception` file race), while an `exists() == false` for
+        // a file mid-rename produced a spurious SegmentNotFound.  The
+        // open itself is now the single authority: a NotFound from it is
+        // mapped to `SegmentNotFound` below.
         let seg_path: String = match snap.segments.iter().find(|s| s.id == segment_id) {
             Some(m) => m.seg_path.clone(),
-            None => {
-                let fallback = format!("{segment_id}.seg");
-                let is_local = matches!(self.config.storage_mode, StorageMode::Local);
-                if is_local && !self.data_dir.join("segments").join(&fallback).exists() {
-                    return Err(StorageError::SegmentNotFound(segment_id.to_owned()));
-                }
-                fallback
-            }
+            None => format!("{segment_id}.seg"),
         };
         drop(snap);
 
@@ -2077,7 +2228,16 @@ impl IndexStore {
                 crate::segment::SegmentReader::open(cache_path)?
             }
         } else {
-            crate::segment::SegmentReader::open(local_path)?
+            match crate::segment::SegmentReader::open(local_path) {
+                Ok(r) => r,
+                // Typed not-found (RC4 W2 #15): the file was already
+                // retired/unlinked — callers treat SegmentNotFound as
+                // "skip / stale snapshot", not as an internal error.
+                Err(StorageError::Io(e)) if e.kind() == std::io::ErrorKind::NotFound => {
+                    return Err(StorageError::SegmentNotFound(segment_id.to_owned()));
+                }
+                Err(e) => return Err(e),
+            }
         };
         let arc = Arc::new(reader);
         self.seg_reader_cache
@@ -2261,8 +2421,53 @@ impl IndexStore {
             }
         }
 
-        if total > 0 {
-            info!(total, "version map rebuilt from segments");
+        // RC4 W2 #14 — apply SEGMENT-DURABLE tombstones (ZTB2 sections),
+        // max-seq-wins against the doc entries loaded above.  This is
+        // what lets an acked delete survive a restart WITHOUT its WAL
+        // entry (whose retention used to pin the shard's prune forever).
+        // Runs after ALL doc entries are loaded so ordering across
+        // segments cannot matter: a tombstone only lands if no
+        // strictly-newer live version exists anywhere
+        // (`set_if_latest`, and delete-vs-doc seqs are never equal).
+        // Legacy id-only JSON tombstone sections decode to `None` and
+        // are skipped — those deletes are still WAL-pinned as before.
+        let mut tombstones_applied = 0usize;
+        for meta in &snap.segments {
+            if !meta.has_tombstones {
+                continue;
+            }
+            let seg_path = segments_dir.join(&meta.seg_path);
+            let reader = match SegmentReader::open(&seg_path) {
+                Ok(r) => r,
+                Err(e) => {
+                    warn!(segment = %meta.id, error = %e, "cannot open segment for tombstone rebuild");
+                    continue;
+                }
+            };
+            let ts_bytes = match reader.section(SectionType::Tombstones) {
+                Ok(Some(b)) => b,
+                _ => continue,
+            };
+            let Some(pairs) = crate::segment::decode_tombstones_v2(ts_bytes) else {
+                continue; // legacy id-only payload — no seqs, skip
+            };
+            let seg_id_arc: std::sync::Arc<str> = std::sync::Arc::from(meta.id.as_str());
+            for (seq, doc_id) in pairs {
+                self.version_map.set_if_latest(
+                    doc_id,
+                    seq,
+                    std::sync::Arc::clone(&seg_id_arc),
+                    true,
+                );
+                tombstones_applied += 1;
+            }
+        }
+
+        if total > 0 || tombstones_applied > 0 {
+            info!(
+                total,
+                tombstones_applied, "version map rebuilt from segments"
+            );
         }
         Ok(())
     }
@@ -2326,6 +2531,32 @@ impl IndexStore {
                 }
                 WalEntry::Delete { doc_id } => {
                     let seq_no = replay_entry.seq_no;
+                    // RC4 W2 #14 — seq-aware replay:
+                    //
+                    // (a) STALE delete (the map — rebuilt from segments,
+                    //     including ZTB2 tombstones — already holds a
+                    //     strictly newer state for the doc): skip.
+                    //     `VersionMap::delete` is seq-blind; pre-fix a
+                    //     retained old Delete entry could tombstone a
+                    //     NEWER segment-resident version whose own WAL
+                    //     entry had already been pruned.
+                    // (b) Tombstone already SEGMENT-resident at >= seq
+                    //     (rebuilt from a ZTB2 section): the deletion is
+                    //     durable without this WAL entry — don't re-apply,
+                    //     don't re-pin, don't re-materialise a memtable
+                    //     tombstone (which would re-flush it forever).
+                    let cur = self.version_map.get(&doc_id);
+                    let stale = cur.as_ref().is_some_and(|e| e.seq_no > seq_no);
+                    let already_durable = cur.as_ref().is_some_and(|e| {
+                        e.deleted && e.seq_no >= seq_no && &*e.segment_id != IN_MEMORY_SEGMENT_ID
+                    });
+                    if stale || already_durable {
+                        let _ = self
+                            .seq_counter
+                            .fetch_max(replay_entry.seq_no + 1, Ordering::AcqRel);
+                        count += 1;
+                        continue;
+                    }
                     let applied = self
                         .version_map
                         .delete(&doc_id, seq_no, IN_MEMORY_SEGMENT_ID)
@@ -2343,7 +2574,8 @@ impl IndexStore {
                     // Superseded pins (doc re-indexed later in the replay
                     // stream) are cleared by the next
                     // `sweep_pending_deletes` once the newer version is
-                    // segment-resident.
+                    // segment-resident (or once the tombstone itself is
+                    // persisted by `persist_pending_tombstones`).
                     if applied {
                         self.pending_deletes
                             .lock()
@@ -2596,11 +2828,7 @@ impl IndexStore {
                 || std::env::var("XERJ_STRICT_SYNC")
                     .map(|v| !v.is_empty() && v != "0")
                     .unwrap_or(false);
-            let sync_result = if strict {
-                wal.sync()
-            } else {
-                wal.soft_flush()
-            };
+            let sync_result = if strict { wal.sync() } else { wal.soft_flush() };
             wal.set_sync_mode(saved_mode);
             sync_result?;
         }
@@ -3007,11 +3235,207 @@ mod tests {
         }
     }
 
+    /// RC4 W2 #14 regression — a plain, never-re-indexed DELETE must not
+    /// pin its WAL shard forever.  Pre-fix: the delete's tombstone lived
+    /// only in RAM + WAL, `sweep_pending_deletes` never unpinned it, and
+    /// maintenance skipped the shard for the life of the process (live
+    /// repro: single-shard WAL grew 866 KB → 3.06 MB across 6 flushed
+    /// rounds, control index pruned to 16 B).  Post-fix the flush writes
+    /// a seq-aware ZTB2 tombstone, the version map repoints it
+    /// segment-resident, sweep unpins, prune reclaims — and the delete
+    /// STAYS durable across BOTH the first and second restart (the
+    /// second restart is the resurrection trap: no WAL entry left).
+    #[test]
+    fn plain_delete_unpins_wal_and_stays_deleted_across_restarts() {
+        let dir = tempfile::tempdir().unwrap();
+        {
+            let store = open_test_store(dir.path());
+            for i in 0..50 {
+                store
+                    .index(format!("d{i}"), serde_json::json!({"v": i}))
+                    .unwrap();
+            }
+            store.flush().unwrap().expect("segment");
+
+            // The plain delete — tombstone only, never re-indexed.
+            store.delete("d7").unwrap().expect("d7 existed");
+
+            // Flush drains the delete into a ZTB2 tombstone section;
+            // maintenance must then be able to unpin + reclaim the WAL.
+            for i in 50..60 {
+                store
+                    .index(format!("d{i}"), serde_json::json!({"v": i}))
+                    .unwrap();
+            }
+            store.flush().unwrap().expect("segment 2");
+            store.force_wal_maintenance().unwrap();
+
+            let files = walk_wal_files(&store.wal_dir());
+            let bytes: u64 = files.iter().sum();
+            assert!(
+                bytes <= files.len() as u64 * 16,
+                "delete-bearing WAL must be reclaimed once the tombstone is \
+                 segment-resident (pre-fix: pinned forever): {} files, {bytes} bytes",
+                files.len()
+            );
+            drop(store);
+        }
+
+        // Restart 1: the delete must hold WITHOUT its WAL entry.
+        {
+            let store2 = open_test_store(dir.path());
+            let e = store2.version_map.get("d7");
+            assert!(
+                e.map(|e| e.deleted).unwrap_or(true),
+                "d7 resurrected after restart 1 (tombstone not rebuilt from segment)"
+            );
+            assert!(
+                store2
+                    .version_map
+                    .get("d8")
+                    .map(|e| !e.deleted)
+                    .unwrap_or(false),
+                "sibling doc d8 must stay live"
+            );
+            drop(store2);
+        }
+        // Restart 2 (the resurrection trap when durability leaned on a
+        // replayed-then-repinned WAL entry).
+        let store3 = open_test_store(dir.path());
+        assert!(
+            store3
+                .version_map
+                .get("d7")
+                .map(|e| e.deleted)
+                .unwrap_or(true),
+            "d7 resurrected after restart 2"
+        );
+        for i in [0usize, 8, 49, 59] {
+            assert!(
+                store3
+                    .version_map
+                    .get(&format!("d{i}"))
+                    .map(|e| !e.deleted)
+                    .unwrap_or(false),
+                "live doc d{i} lost"
+            );
+        }
+    }
+
+    /// RC4 W2 #14 — engine-path shape: the delete's tombstone never flows
+    /// through a data flush (the engine drains its own memtable), so
+    /// maintenance itself must persist it (tombstone-only segment) and
+    /// then reclaim the WAL.  Survives restart with the WAL gone.
+    #[test]
+    fn maintenance_persists_pending_tombstones_without_data_flush() {
+        let dir = tempfile::tempdir().unwrap();
+        {
+            let store = open_test_store(dir.path());
+            for i in 0..20 {
+                store
+                    .index(format!("e{i}"), serde_json::json!({"v": i}))
+                    .unwrap();
+            }
+            store.flush().unwrap().expect("segment");
+            store.force_wal_maintenance().unwrap();
+
+            // Delete with NO subsequent data flush — only maintenance runs
+            // (the engine flush path never hands deletes to finalize).
+            store.delete("e3").unwrap().expect("e3 existed");
+            store.force_wal_maintenance().unwrap();
+
+            let files = walk_wal_files(&store.wal_dir());
+            let bytes: u64 = files.iter().sum();
+            assert!(
+                bytes <= files.len() as u64 * 16,
+                "maintenance must persist the pending tombstone and reclaim \
+                 the WAL: {} files, {bytes} bytes",
+                files.len()
+            );
+            // A tombstone-only segment must be registered.
+            let snap = store.snapshot.load();
+            assert!(
+                snap.segments
+                    .iter()
+                    .any(|m| m.doc_count == 0 && m.has_tombstones),
+                "tombstone-only segment missing from snapshot"
+            );
+            drop(store);
+        }
+
+        let store2 = open_test_store(dir.path());
+        assert!(
+            store2
+                .version_map
+                .get("e3")
+                .map(|e| e.deleted)
+                .unwrap_or(true),
+            "e3 resurrected after restart (tombstone-only segment not applied)"
+        );
+        assert!(
+            store2
+                .version_map
+                .get("e4")
+                .map(|e| !e.deleted)
+                .unwrap_or(false),
+            "sibling doc e4 must stay live"
+        );
+    }
+
+    /// RC4 W2 #14 — crash-window coverage: a tombstone-only segment left
+    /// ORPHANED (crash between the WAL prune and `save_snapshot`) must be
+    /// resurrected on reopen, not GC'd — with the WAL entry pruned it is
+    /// the only remaining record of the delete.
+    #[test]
+    fn orphan_tombstone_only_segment_is_resurrected() {
+        let dir = tempfile::tempdir().unwrap();
+        let snapshot_backup;
+        {
+            let store = open_test_store(dir.path());
+            for i in 0..10 {
+                store
+                    .index(format!("o{i}"), serde_json::json!({"v": i}))
+                    .unwrap();
+            }
+            store.flush().unwrap().expect("segment");
+            store.force_wal_maintenance().unwrap();
+            // Snapshot state BEFORE the delete becomes segment-durable.
+            snapshot_backup = std::fs::read(dir.path().join("snapshot.json")).unwrap();
+
+            store.delete("o5").unwrap().expect("o5 existed");
+            store.force_wal_maintenance().unwrap(); // persists tombstone + prunes WAL
+            drop(store);
+        }
+        // Simulate the crash window: the persisted snapshot never saw the
+        // tombstone-only segment (WAL already pruned).
+        std::fs::write(dir.path().join("snapshot.json"), &snapshot_backup).unwrap();
+
+        let store2 = open_test_store(dir.path());
+        assert!(
+            store2
+                .version_map
+                .get("o5")
+                .map(|e| e.deleted)
+                .unwrap_or(true),
+            "o5 resurrected: orphan tombstone-only segment was not recovered"
+        );
+        assert!(
+            store2
+                .version_map
+                .get("o4")
+                .map(|e| !e.deleted)
+                .unwrap_or(false),
+            "sibling doc o4 must stay live"
+        );
+    }
+
     fn walk_wal_files(root: &Path) -> Vec<u64> {
         let mut sizes = Vec::new();
         let mut dirs = vec![root.to_path_buf()];
         while let Some(d) = dirs.pop() {
-            let Ok(rd) = std::fs::read_dir(&d) else { continue };
+            let Ok(rd) = std::fs::read_dir(&d) else {
+                continue;
+            };
             for e in rd.flatten() {
                 let p = e.path();
                 if p.is_dir() {
