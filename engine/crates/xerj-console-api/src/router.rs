@@ -103,6 +103,13 @@ pub fn xerj_console_router(state: ConsoleState) -> Router {
             "/_xerj-console/api/v1/dashboards",
             get(dashboards::list).post(dashboards::create),
         )
+        // Static `_bulk` sits beside the `:id` param route below; matchit
+        // gives the static segment priority, so a POST to `_bulk` never
+        // lands on the `:id` handler.
+        .route(
+            "/_xerj-console/api/v1/dashboards/_bulk",
+            post(dashboards::bulk),
+        )
         .route(
             "/_xerj-console/api/v1/dashboards/:id",
             get(dashboards::get_one)
@@ -159,6 +166,7 @@ pub fn known_routes() -> &'static [&'static str] {
         "/_xerj-console/api/v1/auth/api-tokens/:id",
         "/_xerj-console/api/v1/prefs",
         "/_xerj-console/api/v1/dashboards",
+        "/_xerj-console/api/v1/dashboards/_bulk",
         "/_xerj-console/api/v1/dashboards/:id",
         "/_xerj-console/api/v1/views",
         "/_xerj-console/api/v1/views/:id",
