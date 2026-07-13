@@ -12099,4 +12099,168 @@ mod tests {
         let rust_avg = buckets[1]["avg_score"]["value"].as_f64().unwrap();
         assert!((rust_avg - 15.0).abs() < 0.001);
     }
+
+    // ── RC4-W2 item 5: sum_other_doc_count / ES size pipeline ───────────
+
+    /// Serializes the RC4-W2 agg tests: `multi_terms_past_bucket_cap_...`
+    /// temporarily shrinks the process-global `max_buckets()` to 3, and the
+    /// skewed-corpus tests build 5 distinct buckets — running them
+    /// concurrently would flake. Every test in this block takes the lock.
+    static AGG_CAP_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Skewed corpus: a=5 b=4 c=3 d=2 e=1 (15 docs). All expectations in
+    /// the pipeline tests below were verified against live ES 8.13.4.
+    fn skewed_docs() -> Vec<Value> {
+        let mut docs = Vec::new();
+        for (tag, n) in [("a", 5), ("b", 4), ("c", 3), ("d", 2), ("e", 1)] {
+            for _ in 0..n {
+                docs.push(json!({ "tag": tag }));
+            }
+        }
+        docs
+    }
+
+    #[test]
+    fn terms_sum_other_doc_count_on_truncation() {
+        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let agg = json!({ "t": { "terms": { "field": "tag", "size": 2 } } });
+        let result = run_aggs(&agg, &skewed_docs());
+        let buckets = result["t"]["buckets"].as_array().unwrap();
+        assert_eq!(buckets.len(), 2);
+        assert_eq!(buckets[0]["key"], "a");
+        assert_eq!(buckets[1]["key"], "b");
+        // ES: 3 + 2 + 1 docs live in cut buckets.
+        assert_eq!(result["t"]["sum_other_doc_count"], 6);
+    }
+
+    #[test]
+    fn terms_min_doc_count_drops_silently_within_shard_size() {
+        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        // size=3 → default shard_size 14 covers all 5 buckets; b/c/d/e fail
+        // min_doc_count=5 at final reduce and are dropped WITHOUT counting
+        // toward other (live-ES-verified).
+        let agg = json!({ "t": { "terms": { "field": "tag", "size": 3, "min_doc_count": 5 } } });
+        let result = run_aggs(&agg, &skewed_docs());
+        let buckets = result["t"]["buckets"].as_array().unwrap();
+        assert_eq!(buckets.len(), 1);
+        assert_eq!(buckets[0]["key"], "a");
+        assert_eq!(result["t"]["sum_other_doc_count"], 0);
+    }
+
+    #[test]
+    fn terms_shard_size_cut_feeds_sum_other() {
+        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        // size=2, shard_size=3, min_doc_count=3: shard set [a,b,c]; d,e cut
+        // at the shard boundary (+3); c passes min but overflows size (+3).
+        let agg = json!({ "t": { "terms": {
+            "field": "tag", "size": 2, "shard_size": 3, "min_doc_count": 3 } } });
+        let result = run_aggs(&agg, &skewed_docs());
+        let buckets = result["t"]["buckets"].as_array().unwrap();
+        assert_eq!(buckets.len(), 2);
+        assert_eq!(result["t"]["sum_other_doc_count"], 6);
+    }
+
+    #[test]
+    fn multi_terms_sum_other_doc_count_on_truncation() {
+        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let mut docs = skewed_docs();
+        for d in &mut docs {
+            d["s"] = json!("x");
+        }
+        let agg = json!({ "t": { "multi_terms": {
+            "terms": [ {"field": "tag"}, {"field": "s"} ], "size": 2 } } });
+        let result = run_aggs(&agg, &docs);
+        let buckets = result["t"]["buckets"].as_array().unwrap();
+        assert_eq!(buckets.len(), 2);
+        assert_eq!(result["t"]["sum_other_doc_count"], 6);
+    }
+
+    // ── RC4-W2 item 7: composite key typing from the field mapping ──────
+
+    #[test]
+    fn composite_keyword_keys_stay_strings_and_sort_lexicographically() {
+        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let docs = vec![
+            json!({"agent": "007"}),
+            json!({"agent": "9"}),
+            json!({"agent": "10"}),
+            json!({"agent": "x1"}),
+        ];
+        // With the mapping sentinel, "007" must NOT become the number 7 and
+        // the order is UTF-8 lexicographic: "007" < "10" < "9" < "x1"
+        // (live-ES-verified).
+        let agg = json!({ "c": { "composite": {
+            "size": 10,
+            "sources": [ { "a": { "terms": { "field": "agent" } } } ],
+            "__xy_field_types__": { "agent": "keyword" }
+        } } });
+        let result = run_aggs(&agg, &docs);
+        let keys: Vec<&Value> = result["c"]["buckets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|b| &b["key"]["a"])
+            .collect();
+        assert_eq!(
+            keys,
+            vec![&json!("007"), &json!("10"), &json!("9"), &json!("x1")]
+        );
+    }
+
+    #[test]
+    fn composite_boolean_keys_are_json_bools() {
+        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let docs = vec![
+            json!({"active": true}),
+            json!({"active": false}),
+            json!({"active": true}),
+        ];
+        let agg = json!({ "c": { "composite": {
+            "size": 10,
+            "sources": [ { "b": { "terms": { "field": "active" } } } ],
+            "__xy_field_types__": { "active": "boolean" }
+        } } });
+        let result = run_aggs(&agg, &docs);
+        let buckets = result["c"]["buckets"].as_array().unwrap();
+        assert_eq!(buckets[0]["key"]["b"], json!(false));
+        assert_eq!(buckets[0]["doc_count"], 1);
+        assert_eq!(buckets[1]["key"]["b"], json!(true));
+        assert_eq!(buckets[1]["doc_count"], 2);
+        assert_eq!(result["c"]["after_key"]["b"], json!(true));
+    }
+
+    #[test]
+    fn composite_unmapped_field_keeps_legacy_heuristic() {
+        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        // No sentinel → numeric-looking strings keep the historical
+        // number-typed behavior (unmapped/dynamic fields).
+        let docs = vec![json!({"n": 7}), json!({"n": 10})];
+        let agg = json!({ "c": { "composite": {
+            "size": 10,
+            "sources": [ { "n": { "terms": { "field": "n" } } } ]
+        } } });
+        let result = run_aggs(&agg, &docs);
+        let buckets = result["c"]["buckets"].as_array().unwrap();
+        assert_eq!(buckets[0]["key"]["n"], json!(7));
+        assert_eq!(buckets[1]["key"]["n"], json!(10));
+    }
+
+    // ── RC4-W2 item 8: multi_terms raises too_many_buckets past the cap ─
+
+    #[test]
+    fn multi_terms_past_bucket_cap_errors_instead_of_silent_drop() {
+        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let old_cap = max_buckets();
+        set_max_buckets(3);
+        let docs: Vec<Value> = (0..5).map(|i| json!({ "k": format!("k{i}") })).collect();
+        let agg = json!({ "t": { "multi_terms": { "terms": [ {"field": "k"} ], "size": 2 } } });
+        let result = run_aggs(&agg, &docs);
+        set_max_buckets(old_cap);
+        let err = result["t"]["error"].as_str().unwrap_or_default();
+        assert!(
+            err.contains("Trying to create too many buckets"),
+            "expected too_many_buckets error, got {result}"
+        );
+        assert_eq!(result["t"]["__error_status__"], json!(400));
+    }
 }
