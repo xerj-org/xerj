@@ -40,7 +40,12 @@ pub use index_store::{
     DrainedMemtable, FsckReport, FsckSectionReport, FsckSegmentReport, IndexSnapshot, IndexStore,
     IndexStoreConfig, StorageMode,
 };
-pub use merge::{MergeExecutor, MergePolicy, SizeTieredMergePolicy};
+// `MergeExecutor` is intentionally NOT re-exported here: it is a
+// `#[doc(hidden)]`, storage-crate-only test helper with real footguns
+// (Stored-only output + wrong-order repoint — see its doc comment). The
+// running engine merges via its own path (`Index::merge_pass_locked`). Only
+// the merge *policy* is public, because the engine shares it.
+pub use merge::{MergePolicy, SizeTieredMergePolicy};
 pub use segment::{SectionType, SegmentId, SegmentMeta, SegmentReader, SegmentWriter};
 pub use version_map::VersionMap;
 pub use wal::{WalEntry, WalReader, WalWriter};
@@ -95,6 +100,18 @@ pub enum StorageError {
 
     #[error("Merge aborted: {0}")]
     MergeAborted(String),
+
+    /// The on-disk data directory could not be safely opened — either its
+    /// `snapshot.json` manifest is present but unparseable, or its format
+    /// marker records a newer format version than this binary supports.
+    ///
+    /// This is a REFUSE-TO-OPEN error on purpose: silently treating an
+    /// unreadable manifest as "no segments" turns every segment on disk
+    /// into an orphan, which the on-open GC then deletes — total, silent
+    /// data loss. Refusing lets an operator investigate (restore a backup,
+    /// run the right binary) with the data still intact on disk.
+    #[error("Incompatible or corrupt data directory: {0}")]
+    IncompatibleDataDir(String),
 
     #[error(transparent)]
     Other(#[from] anyhow::Error),

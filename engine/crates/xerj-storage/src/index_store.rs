@@ -35,6 +35,34 @@ use crate::version_map::{VersionMap, IN_MEMORY_SEGMENT_ID};
 use crate::wal::{SyncMode, WalEntry, WalWriter};
 use crate::{Result, SeqNo, StorageError};
 
+// ── Data-directory format marker (RC4 W3 #10) ─────────────────────────────────
+
+/// On-disk format version of the *data directory* as a whole — distinct from
+/// the per-segment `.seg` `FORMAT_VERSION` in `segment.rs`. Bumped only on an
+/// incompatible change to the data-dir layout / manifest. A binary refuses to
+/// open a data dir whose recorded marker version is greater than this, because
+/// opening data written in a format it does not understand risks silent
+/// corruption or loss.
+const DATA_DIR_FORMAT_VERSION: u32 = 1;
+
+/// Name of the format-marker file written at the data-dir root.
+const DATA_DIR_META_FILE: &str = "xerj_meta.json";
+
+/// Contents of `xerj_meta.json`.
+///
+/// `format_version` is REQUIRED — a marker file that lacks it is treated as
+/// corrupt (deserialization fails → refuse to open). Provenance fields carry
+/// `#[serde(default)]` so the marker tolerates field additions across
+/// versions the same way the manifest does.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct DataDirMeta {
+    /// Data-dir layout version this directory was last written with.
+    format_version: u32,
+    /// Best-effort provenance for operators; ignored by the version gate.
+    #[serde(default)]
+    xerj_version: String,
+}
+
 // ── IndexSnapshot ─────────────────────────────────────────────────────────────
 
 /// Immutable snapshot of the active segments at a point in time.
@@ -42,13 +70,25 @@ use crate::{Result, SeqNo, StorageError};
 /// Stored inside `ArcSwap<IndexSnapshot>`.  Readers load a copy of the `Arc`
 /// (cheap, no lock) and can iterate the segment list without holding any mutex.
 /// Writers create a new `IndexSnapshot` with the updated list and swap it in.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// ## Upgrade hygiene (RC4 W3 #10)
+///
+/// `segments` is REQUIRED with no serde default: it is the core of the
+/// manifest, so a `snapshot.json` that lacks it (e.g. a truncated `{}` or a
+/// wrong-shaped file) fails to deserialize and is refused rather than
+/// silently loaded as an empty snapshot — which would orphan (and then GC)
+/// every segment on disk. The other fields carry `#[serde(default)]` so a
+/// manifest written by a different xerj version, missing one of them, still
+/// loads.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct IndexSnapshot {
     /// Ordered list of active segments (oldest first).
     pub segments: Vec<SegmentMeta>,
     /// Snapshot generation — incremented on every flush/merge.
+    #[serde(default)]
     pub generation: u64,
     /// The highest seq_no covered by segments in this snapshot.
+    #[serde(default)]
     pub max_seq_no: SeqNo,
 }
 
@@ -457,6 +497,12 @@ impl IndexStore {
         let data_dir = data_dir.as_ref().to_path_buf();
         std::fs::create_dir_all(&data_dir)?;
 
+        // RC4 W3 #10 — gate on the data-dir format marker BEFORE any
+        // destructive step (WAL open, snapshot load, orphan GC). A dir
+        // written by a newer xerj, or one with a corrupt marker, is refused
+        // here with all data still intact on disk.
+        Self::check_data_dir_version(&data_dir)?;
+
         let wal_dir = data_dir.join("wal");
         let segments_dir = data_dir.join("segments");
         std::fs::create_dir_all(&wal_dir)?;
@@ -482,8 +528,11 @@ impl IndexStore {
             wal_shards.push(Mutex::new(w));
         }
 
-        // Load the persisted snapshot (segment registry)
-        let snapshot = Self::load_snapshot(&data_dir).unwrap_or_else(|_| IndexSnapshot::empty());
+        // Load the persisted snapshot (segment registry). A PRESENT-but-
+        // unparseable manifest is refused (Err propagates out of open) rather
+        // than silently treated as empty — see `load_snapshot`. A genuinely
+        // absent manifest (fresh index) yields an empty snapshot.
+        let snapshot = Self::load_snapshot(&data_dir)?.unwrap_or_else(IndexSnapshot::empty);
 
         let version_map = Arc::new(VersionMap::new());
 
@@ -608,6 +657,14 @@ impl IndexStore {
                     }
                 });
         }
+
+        // RC4 W3 #10 — the open fully succeeded; stamp the data-dir format
+        // marker so this and future opens are versioned. Fresh dirs and
+        // upgraded rc3-vintage dirs (no prior marker) get stamped; an
+        // existing marker is left untouched. This runs only after every
+        // recovery/GC step above succeeded, so a refused open never leaves a
+        // misleading marker behind.
+        Self::stamp_data_dir_version(&data_dir)?;
 
         info!(data_dir = ?data_dir, "IndexStore opened");
         Ok(store)
@@ -2314,10 +2371,107 @@ impl IndexStore {
         Ok(())
     }
 
-    fn load_snapshot(data_dir: &Path) -> Result<IndexSnapshot> {
+    /// Load the persisted segment manifest (`snapshot.json`).
+    ///
+    /// Return contract (RC4 W3 #10):
+    /// - `Ok(None)` — the manifest is genuinely ABSENT (a fresh index that
+    ///   has never flushed). The caller starts from an empty snapshot; the
+    ///   WAL replay that follows reconstructs any un-flushed docs.
+    /// - `Ok(Some(snap))` — the manifest is present and parsed.
+    /// - `Err(IncompatibleDataDir)` — the manifest is PRESENT but could not
+    ///   be parsed. This is refused LOUDLY instead of being silently mapped
+    ///   to an empty snapshot. Pre-fix, `open()` did
+    ///   `load_snapshot(..).unwrap_or_else(|_| IndexSnapshot::empty())`, so a
+    ///   single unreadable byte in `snapshot.json` made every `.seg` on disk
+    ///   an orphan — which `cleanup_orphaned_segment_files` then DELETED:
+    ///   total, silent data loss on one bad read. Refusing keeps the data on
+    ///   disk for an operator to recover.
+    fn load_snapshot(data_dir: &Path) -> Result<Option<IndexSnapshot>> {
         let path = Self::snapshot_path(data_dir);
-        let bytes = std::fs::read(&path)?;
-        Ok(serde_json::from_slice(&bytes)?)
+        let bytes = match std::fs::read(&path) {
+            Ok(b) => b,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
+        match serde_json::from_slice::<IndexSnapshot>(&bytes) {
+            Ok(snap) => Ok(Some(snap)),
+            Err(e) => Err(StorageError::IncompatibleDataDir(format!(
+                "index manifest {} is present but could not be parsed ({e}). \
+                 Refusing to open: treating it as empty would orphan and then \
+                 delete every segment on disk. Restore snapshot.json from a \
+                 backup, or from an interrupted-write `.tmp.*` sibling in the \
+                 same directory.",
+                path.display()
+            ))),
+        }
+    }
+
+    /// Path of the data-dir format marker.
+    fn data_dir_meta_path(data_dir: &Path) -> PathBuf {
+        data_dir.join(DATA_DIR_META_FILE)
+    }
+
+    /// Verify the data-dir format marker is compatible with this binary,
+    /// BEFORE any potentially-destructive open step runs (snapshot load,
+    /// orphan GC). Called first thing in `open()`.
+    ///
+    /// - Marker ABSENT → OK. Either a brand-new data dir or one written by a
+    ///   pre-marker (rc3-vintage) xerj; both are safe to open, and `open()`
+    ///   stamps a marker on success so subsequent opens are versioned.
+    /// - Marker present, parses, `format_version <= DATA_DIR_FORMAT_VERSION`
+    ///   → OK.
+    /// - Marker present, parses, `format_version` GREATER than ours → REFUSE
+    ///   (a newer xerj wrote this dir; we may not understand its layout).
+    /// - Marker present but UNPARSEABLE → REFUSE (corrupt marker).
+    fn check_data_dir_version(data_dir: &Path) -> Result<()> {
+        let path = Self::data_dir_meta_path(data_dir);
+        let bytes = match std::fs::read(&path) {
+            Ok(b) => b,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(e) => return Err(e.into()),
+        };
+        let meta: DataDirMeta = serde_json::from_slice(&bytes).map_err(|e| {
+            StorageError::IncompatibleDataDir(format!(
+                "data-dir format marker {} is present but unparseable ({e}). \
+                 Refusing to open so segments are not GC'd as orphans. Restore \
+                 a backup or run the matching xerj version.",
+                path.display()
+            ))
+        })?;
+        if meta.format_version > DATA_DIR_FORMAT_VERSION {
+            return Err(StorageError::IncompatibleDataDir(format!(
+                "data dir {} was written by a newer xerj (data-dir format \
+                 version {}); this binary supports up to {}. Refusing to open \
+                 — upgrade xerj to a build that understands format {}.",
+                data_dir.display(),
+                meta.format_version,
+                DATA_DIR_FORMAT_VERSION,
+                meta.format_version
+            )));
+        }
+        Ok(())
+    }
+
+    /// Stamp the current format marker at the data-dir root if none exists.
+    /// Called at the END of a successful `open()`, so fresh dirs and upgraded
+    /// rc3-vintage dirs (which had no marker) both become versioned. Never
+    /// overwrites an existing (already-compatible) marker, and a failed open
+    /// never reaches here — so a dir we refused to open is not left with a
+    /// misleading marker.
+    fn stamp_data_dir_version(data_dir: &Path) -> Result<()> {
+        let path = Self::data_dir_meta_path(data_dir);
+        if path.exists() {
+            return Ok(());
+        }
+        let meta = DataDirMeta {
+            format_version: DATA_DIR_FORMAT_VERSION,
+            xerj_version: env!("CARGO_PKG_VERSION").to_string(),
+        };
+        let bytes = serde_json::to_vec(&meta)?;
+        // Durable write — the marker gates future opens; a torn/absent marker
+        // must not silently re-appear as "no marker" and skip the version gate.
+        xerj_common::fsio::write_file_durable(&path, &bytes)?;
+        Ok(())
     }
 
     // ── Segment version map rebuild ───────────────────────────────────────────
@@ -3783,5 +3937,217 @@ mod tests {
                 "crash leftovers must be cleaned on open"
             );
         }
+    }
+
+    // ── RC4 W3 #10 — data-dir format marker + refuse-on-corrupt-snapshot ──────
+
+    /// Ingest `n` docs and flush, so the dir has a real `snapshot.json`
+    /// manifest plus segment files. Returns the doc-ids written.
+    fn flush_n_docs(dir: &Path, n: usize) -> Vec<String> {
+        let ids: Vec<String> = (0..n).map(|i| format!("doc-{i}")).collect();
+        {
+            let store = open_test_store(dir);
+            for id in &ids {
+                store
+                    .index(id.clone(), serde_json::json!({"v": id}))
+                    .unwrap();
+            }
+            store.flush().unwrap().expect("a segment was written");
+            drop(store);
+        }
+        ids
+    }
+
+    fn assert_all_served(store: &Arc<IndexStore>, ids: &[String]) {
+        for id in ids {
+            let entry = store.version_map.get(id);
+            assert!(
+                entry.as_ref().map(|e| !e.deleted).unwrap_or(false),
+                "doc {id} must be live and served after reopen"
+            );
+        }
+    }
+
+    /// A successful open stamps the data-dir format marker.
+    #[test]
+    fn open_stamps_data_dir_format_marker() {
+        let dir = tempfile::tempdir().unwrap();
+        let marker = dir.path().join(DATA_DIR_META_FILE);
+        assert!(!marker.exists(), "fresh dir has no marker yet");
+
+        let store = open_test_store(dir.path());
+        drop(store);
+
+        assert!(marker.exists(), "open() must stamp {DATA_DIR_META_FILE}");
+        let meta: DataDirMeta = serde_json::from_slice(&std::fs::read(&marker).unwrap()).unwrap();
+        assert_eq!(meta.format_version, DATA_DIR_FORMAT_VERSION);
+    }
+
+    /// THE UPGRADE PATH: an rc3-vintage data dir has NO format marker (rc3
+    /// never wrote one). Reopening under this (rc4) binary must serve every
+    /// doc AND stamp a marker so subsequent opens are versioned. This is the
+    /// "open an rc3-vintage fixture and serve it" test.
+    #[test]
+    fn rc3_vintage_dir_without_marker_opens_and_serves() {
+        let dir = tempfile::tempdir().unwrap();
+        let ids = flush_n_docs(dir.path(), 12);
+
+        // Simulate rc3 vintage: delete the marker this binary stamped.
+        let marker = dir.path().join(DATA_DIR_META_FILE);
+        std::fs::remove_file(&marker).unwrap();
+        assert!(!marker.exists());
+
+        // Reopen — must succeed and serve every doc.
+        let store2 = open_test_store(dir.path());
+        assert!(
+            !store2.snapshot().segments.is_empty(),
+            "rc3 segments must be loaded, not orphaned"
+        );
+        assert_all_served(&store2, &ids);
+
+        // The upgrade re-stamps the marker.
+        assert!(marker.exists(), "reopen must re-stamp the format marker");
+    }
+
+    /// serde(default) hygiene: a manifest written by a different xerj version
+    /// that OMITS optional segment/snapshot fields still loads (missing
+    /// fields take their defaults) rather than failing to deserialize.
+    #[test]
+    fn snapshot_missing_optional_fields_still_loads() {
+        let dir = tempfile::tempdir().unwrap();
+        let ids = flush_n_docs(dir.path(), 8);
+
+        // Rewrite snapshot.json stripping fields we marked #[serde(default)]:
+        // per-segment `sidx_path` / `has_tombstones` / `created_at_ms`, and
+        // the snapshot-level `generation`.
+        let snap_path = dir.path().join("snapshot.json");
+        let mut v: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&snap_path).unwrap()).unwrap();
+        v.as_object_mut().unwrap().remove("generation");
+        for seg in v["segments"].as_array_mut().unwrap() {
+            let o = seg.as_object_mut().unwrap();
+            o.remove("sidx_path");
+            o.remove("has_tombstones");
+            o.remove("created_at_ms");
+        }
+        std::fs::write(&snap_path, serde_json::to_vec(&v).unwrap()).unwrap();
+
+        let store2 = open_test_store(dir.path());
+        assert!(!store2.snapshot().segments.is_empty());
+        assert_all_served(&store2, &ids);
+    }
+
+    /// THE DATA-LOSS GUARD: a PRESENT-but-corrupt `snapshot.json` must make
+    /// open REFUSE loudly (Err), NOT silently return an empty store. And the
+    /// refusal must happen before the orphan GC, so every segment file is
+    /// still on disk afterwards. Then restoring a valid manifest reopens
+    /// cleanly and serves the data — proving the refusal preserved it.
+    #[test]
+    fn corrupt_snapshot_is_refused_and_segments_preserved() {
+        let dir = tempfile::tempdir().unwrap();
+        let ids = flush_n_docs(dir.path(), 10);
+
+        let snap_path = dir.path().join("snapshot.json");
+        let good_bytes = std::fs::read(&snap_path).unwrap();
+
+        // Count the segment files that exist before the bad open.
+        let segments_dir = dir.path().join("segments");
+        let seg_files_before: Vec<_> = std::fs::read_dir(&segments_dir)
+            .unwrap()
+            .flatten()
+            .filter(|e| e.file_name().to_string_lossy().ends_with(".seg"))
+            .map(|e| e.path())
+            .collect();
+        assert!(!seg_files_before.is_empty());
+
+        // Corrupt the manifest (a torn write — invalid JSON).
+        std::fs::write(&snap_path, b"{\"segments\": [ {\"id\": \"deadbeef\", tr").unwrap();
+
+        // Open must REFUSE, not return an empty store.
+        let err = match IndexStore::open(
+            dir.path(),
+            IndexStoreConfig {
+                sync_mode: SyncMode::Batched,
+                ..Default::default()
+            },
+        ) {
+            Ok(_) => panic!("corrupt snapshot must refuse to open, not silently empty"),
+            Err(e) => e,
+        };
+        assert!(
+            matches!(err, StorageError::IncompatibleDataDir(_)),
+            "expected IncompatibleDataDir, got {err:?}"
+        );
+
+        // Every segment file must survive the refused open (no orphan GC ran).
+        for p in &seg_files_before {
+            assert!(
+                p.exists(),
+                "segment file {p:?} must NOT be deleted when the manifest is corrupt"
+            );
+        }
+
+        // Restore the good manifest → opens cleanly and serves everything.
+        std::fs::write(&snap_path, &good_bytes).unwrap();
+        let store2 = open_test_store(dir.path());
+        assert_all_served(&store2, &ids);
+    }
+
+    /// The version gate refuses a data dir written by a NEWER xerj (marker
+    /// format_version greater than this binary supports), and accepts it
+    /// again once the marker is compatible.
+    #[test]
+    fn newer_format_marker_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let ids = flush_n_docs(dir.path(), 5);
+
+        let marker = dir.path().join(DATA_DIR_META_FILE);
+        let future = serde_json::json!({
+            "format_version": DATA_DIR_FORMAT_VERSION + 1,
+            "xerj_version": "9.9.9-from-the-future",
+        });
+        std::fs::write(&marker, serde_json::to_vec(&future).unwrap()).unwrap();
+
+        let err = match IndexStore::open(
+            dir.path(),
+            IndexStoreConfig {
+                sync_mode: SyncMode::Batched,
+                ..Default::default()
+            },
+        ) {
+            Ok(_) => panic!("a newer-format data dir must be refused"),
+            Err(e) => e,
+        };
+        assert!(
+            matches!(err, StorageError::IncompatibleDataDir(_)),
+            "expected IncompatibleDataDir, got {err:?}"
+        );
+
+        // Segments preserved (refusal is before any GC).
+        let segments_dir = dir.path().join("segments");
+        assert!(std::fs::read_dir(&segments_dir)
+            .unwrap()
+            .flatten()
+            .any(|e| e.file_name().to_string_lossy().ends_with(".seg")));
+
+        // Compatible marker → opens and serves.
+        let ok = serde_json::json!({ "format_version": DATA_DIR_FORMAT_VERSION });
+        std::fs::write(&marker, serde_json::to_vec(&ok).unwrap()).unwrap();
+        let store2 = open_test_store(dir.path());
+        assert_all_served(&store2, &ids);
+    }
+
+    /// A genuinely ABSENT manifest (a fresh index that never flushed) must
+    /// still open as empty — the refuse-on-corrupt change must not break the
+    /// happy path of a brand-new data dir.
+    #[test]
+    fn absent_snapshot_opens_empty_without_error() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(!dir.path().join("snapshot.json").exists());
+        let store = open_test_store(dir.path());
+        assert_eq!(store.snapshot().segments.len(), 0);
+        // And ingest still works on the fresh store.
+        store.index("x", serde_json::json!({"a": 1})).unwrap();
+        assert!(store.version_map.get("x").is_some());
     }
 }

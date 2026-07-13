@@ -200,8 +200,35 @@ impl Default for MergeConfig {
 
 // ── MergeExecutor ─────────────────────────────────────────────────────────────
 
-/// Reads multiple segments, writes one merged segment, and applies the result
-/// to the [`IndexStore`] atomically.
+/// **Not part of the supported public API — the server does NOT use this.**
+///
+/// The running engine merges through its own path
+/// (`xerj-engine::index::Index::merge_pass_locked`, driven by
+/// `spawn_merge_task`); `MergeExecutor` is a legacy, storage-crate-only
+/// helper kept solely as a convenience for in-crate unit tests. It is
+/// `#[doc(hidden)]` and no longer re-exported at the crate root because it
+/// has two footguns that make it unsafe to call on a real index:
+///
+/// 1. **It emits Stored-only segments.** `execute_merge` copies only the
+///    `Stored` section of its inputs into the output segment — it drops the
+///    `Fts` postings, `Columns` doc-values, `Points` BKD trees, `Vectors`,
+///    and `Schema` sections entirely. A segment produced this way is
+///    unqueryable by full-text / aggregation / kNN paths; the engine's own
+///    merge rebuilds every section from the live in-memory index instead.
+///
+/// 2. **It repoints in the wrong order.** It calls
+///    [`IndexStore::apply_merge`] (which atomically swaps the snapshot to
+///    reference the new segment and retires the inputs) *before* it updates
+///    the version map to point the merged docs at the new segment id. A
+///    concurrent reader in that window can resolve a doc to an input segment
+///    that has already been retired → a spurious miss. The engine path
+///    publishes the version-map repoint and the snapshot swap in the safe
+///    order.
+///
+/// Do not wire this into any production path. If you need the merge policy,
+/// use [`SizeTieredMergePolicy`] (which *is* public and shared with the
+/// engine); the execution belongs to the engine.
+#[doc(hidden)]
 pub struct MergeExecutor {
     store: Arc<IndexStore>,
     config: MergeConfig,
@@ -307,9 +334,8 @@ impl MergeExecutor {
         // concatenation scrambles physical row order vs arrival order; ES
         // tie-breaks equal scores by internal doc id == arrival order, and the
         // engine-side merge (index.rs merge_pass_locked) applies the same sort.
-        merged_docs.sort_unstable_by_key(|doc| {
-            doc.get("_seq_no").and_then(|v| v.as_u64()).unwrap_or(0)
-        });
+        merged_docs
+            .sort_unstable_by_key(|doc| doc.get("_seq_no").and_then(|v| v.as_u64()).unwrap_or(0));
 
         let live_doc_count = merged_docs.len() as u64;
 
