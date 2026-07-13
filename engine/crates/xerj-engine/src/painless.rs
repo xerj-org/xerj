@@ -957,8 +957,7 @@ fn eval_expr(
                             return Ok(PainlessValue::Bool(if op == "==" { eq } else { !eq }));
                         }
                         "<" | "<=" | ">" | ">=" if a_is_str && b_is_str => {
-                            if let (PainlessValue::String(x), PainlessValue::String(y)) =
-                                (&av, &bv)
+                            if let (PainlessValue::String(x), PainlessValue::String(y)) = (&av, &bv)
                             {
                                 let ord = x.cmp(y);
                                 let res = match op.as_str() {

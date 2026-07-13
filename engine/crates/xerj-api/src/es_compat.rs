@@ -5795,10 +5795,7 @@ pub async fn search(
                                                         .and_then(Value::as_str)
                                                     {
                                                         if let Some(t) = types.get(f) {
-                                                            local.insert(
-                                                                f.to_string(),
-                                                                t.clone(),
-                                                            );
+                                                            local.insert(f.to_string(), t.clone());
                                                         }
                                                     }
                                                 }

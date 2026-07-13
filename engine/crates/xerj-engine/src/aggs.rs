@@ -2870,9 +2870,7 @@ pub(crate) fn apply_terms_size_pipeline<T>(
     match cap {
         Some(size) => {
             let mut sum_other: u64 = 0;
-            let shard_size = shard_size_param
-                .unwrap_or(size + size / 2 + 10)
-                .max(size);
+            let shard_size = shard_size_param.unwrap_or(size + size / 2 + 10).max(size);
             if rows.len() > shard_size {
                 for r in &rows[shard_size..] {
                     sum_other += count_of(r);
@@ -5981,8 +5979,13 @@ pub(crate) enum CompositeKeyKind {
 
 pub(crate) fn composite_kind_of(mapping_type: Option<&str>) -> CompositeKeyKind {
     match mapping_type {
-        Some("keyword") | Some("text") | Some("wildcard") | Some("constant_keyword")
-        | Some("match_only_text") | Some("ip") | Some("version") => CompositeKeyKind::Str,
+        Some("keyword")
+        | Some("text")
+        | Some("wildcard")
+        | Some("constant_keyword")
+        | Some("match_only_text")
+        | Some("ip")
+        | Some("version") => CompositeKeyKind::Str,
         Some("boolean") => CompositeKeyKind::Bool,
         Some("long") | Some("integer") | Some("short") | Some("byte") | Some("unsigned_long") => {
             CompositeKeyKind::Int
