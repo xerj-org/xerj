@@ -255,9 +255,12 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         .route("/_analyze", post(es_compat::analyze_text_global))
         // ── Document operations ────────────────────────────────────────────
         .route("/:index/_doc", post(es_compat::index_doc_auto))
+        // POST with an explicit id is the same index op as PUT (auto-create
+        // included) in ES — it was missing here and returned 405.
         .route(
             "/:index/_doc/:id",
             put(es_compat::index_doc)
+                .post(es_compat::index_doc)
                 .get(es_compat::get_doc)
                 .delete(es_compat::delete_doc)
                 .head(es_compat::head_doc),
