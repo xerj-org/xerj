@@ -1012,7 +1012,12 @@ pub async fn process_bulk_with_opts(
                 // Whole-batch failure (e.g. ResourceExhausted → 429):
                 // mark every item in the batch with the same status.
                 let status = match &e {
-                    EngineError::Common(xerj_common::XerjError::ResourceExhausted { .. }) => 429,
+                    EngineError::Common(xerj_common::XerjError::ResourceExhausted { .. })
+                    | EngineError::Common(xerj_common::XerjError::CircuitBreaking { .. }) => 429,
+                    EngineError::Common(xerj_common::XerjError::IndexBlocked {
+                        block_type,
+                        ..
+                    }) if block_type.contains("read_only_allow_delete") => 429,
                     _ => 500,
                 };
                 for item_idx in item_indices {
@@ -1105,7 +1110,14 @@ pub async fn process_bulk_with_opts(
                     let status = match &e {
                         EngineError::Common(xerj_common::XerjError::ResourceExhausted {
                             ..
-                        }) => 429,
+                        })
+                        | EngineError::Common(xerj_common::XerjError::CircuitBreaking { .. }) => {
+                            429
+                        }
+                        EngineError::Common(xerj_common::XerjError::IndexBlocked {
+                            block_type,
+                            ..
+                        }) if block_type.contains("read_only_allow_delete") => 429,
                         _ => 500,
                     };
                     items[item_idx] = Some(BulkItemResult {
@@ -1550,7 +1562,12 @@ pub async fn process_bulk_with_opts(
                 let status = match &e {
                     EngineError::Common(xerj_common::XerjError::VersionConflict { .. }) => 409,
                     EngineError::Common(xerj_common::XerjError::DocumentNotFound { .. }) => 404,
-                    EngineError::Common(xerj_common::XerjError::ResourceExhausted { .. }) => 429,
+                    EngineError::Common(xerj_common::XerjError::ResourceExhausted { .. })
+                    | EngineError::Common(xerj_common::XerjError::CircuitBreaking { .. }) => 429,
+                    EngineError::Common(xerj_common::XerjError::IndexBlocked {
+                        block_type,
+                        ..
+                    }) if block_type.contains("read_only_allow_delete") => 429,
                     _ => 500,
                 };
                 items[item_idx] = Some(BulkItemResult {

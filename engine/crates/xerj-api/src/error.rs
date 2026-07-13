@@ -93,6 +93,17 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let mut status_code = self.inner.http_status();
 
+        // ES parity: an explicit write/metadata block is 403
+        // (`FORBIDDEN/…/cluster_block_exception`), but the disk *flood-stage*
+        // block (`read_only_allow_delete`) is rejected with HTTP 429
+        // (`TOO_MANY_REQUESTS/12/disk usage exceeded flood-stage watermark`).
+        // Both keep the `cluster_block_exception` type; only the status differs.
+        if let XerjError::IndexBlocked { block_type, .. } = &self.inner {
+            if block_type.contains("read_only_allow_delete") {
+                status_code = 429;
+            }
+        }
+
         let mut error_type = xerj_error_type(&self.inner);
         // ES wraps mapping/query errors with a specific phrasing in `reason`;
         // our Display impl adds a "invalid mapping:" / "invalid query:" prefix
@@ -198,6 +209,7 @@ impl IntoResponse for ApiError {
 /// | `TlsError` | `connect_exception` | 500 |
 /// | `EmbeddingError` | `circuit_breaking_exception` | 500 |
 /// | `ResourceExhausted` | `es_rejected_execution_exception` | 429 |
+/// | `CircuitBreaking` | `circuit_breaking_exception` | 429 |
 /// | `VersionConflict` | `version_conflict_engine_exception` | 409 |
 /// | `ResultWindowTooLarge` | `illegal_argument_exception` | 400 |
 /// | `IndexBlocked` | `cluster_block_exception` | 403 |
@@ -227,6 +239,8 @@ fn xerj_error_type(e: &XerjError) -> String {
         XerjError::EmbeddingError { .. } => "circuit_breaking_exception",
         // ── Resource limits ───────────────────────────────────────────────
         XerjError::ResourceExhausted { .. } => "es_rejected_execution_exception",
+        // ── Circuit breaker (parent memory breaker) ───────────────────────
+        XerjError::CircuitBreaking { .. } => "circuit_breaking_exception",
         // ── Optimistic concurrency ────────────────────────────────────────
         XerjError::VersionConflict { .. } => "version_conflict_engine_exception",
         // ── Result window ─────────────────────────────────────────────────

@@ -706,7 +706,7 @@ impl Default for EmbeddingConfig {
 
 /// Resource limits.
 ///
-/// **7 settings.**
+/// **10 settings.**
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LimitsConfig {
@@ -741,6 +741,34 @@ pub struct LimitsConfig {
     /// accumulator boundary, not after sort, so memory never grows
     /// past the cap.
     pub max_buckets: usize,
+    /// Process-wide ceiling on the total bytes buffered across ALL indices'
+    /// memtables (default: `0` = auto-derive to 25% of system RAM, floored
+    /// at 2048 MiB). This is the parent circuit breaker for the ingest path:
+    /// per-index back-pressure only bounds one index at `~3×flush_size_mb`,
+    /// so `N` indices could buffer `N × 1.5 GiB` with no global ceiling —
+    /// the structural cause of the 112 GiB OOM. When the summed memtable
+    /// footprint crosses this budget, writes are rejected with HTTP 429
+    /// `circuit_breaking_exception` instead of growing until the kernel
+    /// OOM-kills the process.
+    pub max_total_memtable_mb: u64,
+    /// RSS admission watermark, as a percentage of the effective process
+    /// memory limit (default: `95`). The effective limit is the cgroup
+    /// memory limit when one is set (e.g. under `systemd-run -p MemoryMax=`
+    /// or a container), else total system RAM. When resident set size
+    /// crosses this fraction of the limit, writes are rejected with HTTP 429
+    /// `circuit_breaking_exception` so a 429 beats the OOM-killer. Mirrors
+    /// Elasticsearch's real-memory parent circuit breaker (default 95%).
+    /// Set to `0` to disable the RSS admission check.
+    pub memory_watermark_percent: u8,
+    /// Disk flood-stage watermark, as a percentage of the data-dir
+    /// filesystem that is *used* (default: `95`). A background `statvfs`
+    /// poll auto-engages a write block when used space crosses this
+    /// threshold, mirroring Elasticsearch's
+    /// `cluster.routing.allocation.disk.watermark.flood_stage`. This
+    /// prevents the engine from writing until `ENOSPC`, which poisons the
+    /// WAL. The block clears automatically once usage drops back below the
+    /// threshold. Set to `0` to disable the disk watermark.
+    pub disk_flood_stage_percent: u8,
 }
 
 impl Default for LimitsConfig {
@@ -753,6 +781,9 @@ impl Default for LimitsConfig {
             max_result_window: 10_000,
             max_mget_docs: 10_000,
             max_buckets: 65_536,
+            max_total_memtable_mb: 0, // 0 = auto-derive (25% RAM, floor 2 GiB)
+            memory_watermark_percent: 95,
+            disk_flood_stage_percent: 95,
         }
     }
 }

@@ -304,6 +304,15 @@ impl Engine {
         // can read it with no plumbing through every agg signature.
         crate::aggs::set_max_buckets(config.limits.max_buckets);
 
+        // Initialise the process-wide resource governor (parent circuit
+        // breaker) from config: the memtable byte budget, RSS watermark,
+        // per-query memory guard, global search pool, and disk flood-stage
+        // block. Idempotent — a second in-process Engine (tests) re-uses the
+        // first governor. The background sampler that drives its trip flags
+        // is started by `spawn_resource_sampler`, called once the engine is
+        // Arc-wrapped.
+        crate::governor::init(&config);
+
         let engine = Self {
             config: Arc::new(config),
             indices: Arc::new(DashMap::new()),
@@ -1109,6 +1118,89 @@ impl Engine {
     /// coupling to the full engine internals.
     pub fn config(&self) -> &Config {
         &self.config
+    }
+
+    /// Sum of every open index's live memtable footprint, in bytes. This is
+    /// the quantity the process-wide memtable budget (item 1) is checked
+    /// against — per-index back-pressure only ever sees one index's slice.
+    pub fn total_memtable_bytes(&self) -> u64 {
+        self.indices
+            .iter()
+            .map(|e| e.value().memtable_bytes() as u64)
+            .sum()
+    }
+
+    /// Spawn the background resource sampler (item 1/3): every
+    /// [`crate::governor::SAMPLE_INTERVAL_MS`] it refreshes the governor's
+    /// summed-memtable / RSS / disk-usage atomics, which drive the hot-path
+    /// admission checks. Uses a `Weak` self-pointer so it exits when the
+    /// engine is dropped. Idempotent-safe to call once after Arc-wrapping.
+    ///
+    /// LOAD-BEARING: runs on a dedicated OS thread, NOT a `tokio::spawn` task.
+    /// The whole point of the parent breaker is to fire under a runaway ingest
+    /// load — exactly the condition that saturates the tokio worker pool. A
+    /// tokio-task sampler starves under that load: its `interval.tick()` wakes
+    /// but never gets scheduled, so the trip flags never flip and the process
+    /// OOMs anyway (observed: a MemoryMax=2G ingest reached the 2G cap and was
+    /// OOM-killed while `memory_tripped` stayed false). A plain thread with
+    /// `std::thread::sleep` is immune to runtime starvation. All work here is
+    /// sync (DashMap scan + two syscalls), so no runtime is needed.
+    pub fn spawn_resource_sampler(self: &Arc<Self>) {
+        // Nothing to drive the flags if the governor was never installed.
+        if crate::governor::global().is_none() {
+            return;
+        }
+        let period = std::time::Duration::from_millis(crate::governor::SAMPLE_INTERVAL_MS);
+
+        // ── Thread A: memory + disk ──────────────────────────────────────
+        // Touches NO engine lock — just `/proc/self/statm` + `statvfs`. Kept
+        // on its own thread so a memtable-sum stall (below) can NEVER delay
+        // the memory breaker: the observed OOM was exactly RSS climbing past
+        // the watermark while the sampler was blocked summing memtables under
+        // a turbo batch's shard write-locks. Uses a `Weak` liveness check to
+        // exit when the engine is dropped.
+        let weak_a = Arc::downgrade(self);
+        let data_dir = self.data_dir.to_string_lossy().to_string();
+        let _ = std::thread::Builder::new()
+            .name("xerj-mem-sampler".to_string())
+            .spawn(move || {
+                tracing::info!(
+                    period_ms = crate::governor::SAMPLE_INTERVAL_MS,
+                    "memory/disk sampler thread started (parent circuit breaker)"
+                );
+                loop {
+                    std::thread::sleep(period);
+                    if weak_a.strong_count() == 0 {
+                        return; // engine dropped
+                    }
+                    let governor = match crate::governor::global() {
+                        Some(g) => g,
+                        None => return,
+                    };
+                    let rss = crate::governor::current_rss_bytes();
+                    let disk_pct = crate::governor::disk_used_pct(&data_dir);
+                    governor.refresh_memory_disk(rss, disk_pct);
+                }
+            });
+
+        // ── Thread B: summed memtable budget ─────────────────────────────
+        // Reads a lock on every memtable shard, so it may briefly block under
+        // a turbo batch — that is fine here, isolated from the memory breaker.
+        let weak_b = Arc::downgrade(self);
+        let _ = std::thread::Builder::new()
+            .name("xerj-memtable-sampler".to_string())
+            .spawn(move || loop {
+                std::thread::sleep(period);
+                let engine = match weak_b.upgrade() {
+                    Some(e) => e,
+                    None => return, // engine dropped
+                };
+                let governor = match crate::governor::global() {
+                    Some(g) => g,
+                    None => return,
+                };
+                governor.refresh_memtable(engine.total_memtable_bytes());
+            });
     }
 
     // ── Transform pipeline methods ────────────────────────────────────────────

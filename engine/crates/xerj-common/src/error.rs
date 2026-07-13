@@ -80,6 +80,17 @@ pub enum XerjError {
     #[error("resource exhausted: {reason}")]
     ResourceExhausted { reason: String },
 
+    // ── Circuit breaker ────────────────────────────────────────────────────
+    /// A memory circuit breaker tripped: admitting the request would push the
+    /// process past its memtable / RSS budget. Surfaced as HTTP 429
+    /// `circuit_breaking_exception`, mirroring Elasticsearch's parent breaker.
+    /// Distinct from [`ResourceExhausted`] (thread-pool queue rejection →
+    /// `es_rejected_execution_exception`). Display is the bare reason (no
+    /// type prefix): the ES mapper already emits the `circuit_breaking_exception`
+    /// `type`, so the reason should read like ES's (e.g. "[parent] …").
+    #[error("{reason}")]
+    CircuitBreaking { reason: String },
+
     // ── Optimistic concurrency ─────────────────────────────────────────────
     /// Optimistic concurrency control check failed (if_seq_no / if_primary_term).
     #[error(
@@ -197,6 +208,12 @@ impl XerjError {
         }
     }
 
+    pub fn circuit_breaking(reason: impl Into<String>) -> Self {
+        Self::CircuitBreaking {
+            reason: reason.into(),
+        }
+    }
+
     pub fn internal(reason: impl Into<String>) -> Self {
         Self::Internal {
             reason: reason.into(),
@@ -239,7 +256,7 @@ impl XerjError {
             | Self::ResultWindowTooLarge { .. } => 400,
             Self::IndexBlocked { .. } => 403,
             Self::AuthError { .. } => 401,
-            Self::ResourceExhausted { .. } => 429,
+            Self::ResourceExhausted { .. } | Self::CircuitBreaking { .. } => 429,
             Self::StorageError { .. }
             | Self::WalError { .. }
             | Self::SerializationError { .. }
@@ -254,6 +271,7 @@ impl XerjError {
         matches!(
             self,
             Self::ResourceExhausted { .. }
+                | Self::CircuitBreaking { .. }
                 | Self::StorageError { .. }
                 | Self::WalError { .. }
                 | Self::EmbeddingError { .. }
