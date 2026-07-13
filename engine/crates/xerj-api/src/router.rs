@@ -10,18 +10,19 @@
 
 use axum::{
     extract::{DefaultBodyLimit, Request},
-    http::HeaderValue,
+    http::{HeaderValue, Method},
     middleware::{self, Next},
     response::Response,
     routing::{delete, get, post, put},
     Router,
 };
 use tower_http::{
-    cors::{Any, CorsLayer},
+    cors::{AllowOrigin, Any, CorsLayer},
     limit::RequestBodyLimitLayer,
     trace::TraceLayer,
 };
 use uuid::Uuid;
+use xerj_common::config::CorsConfig;
 
 use crate::{auth::auth_middleware, es_compat, memory_api, native, state::AppState};
 
@@ -55,6 +56,8 @@ use crate::{auth::auth_middleware, es_compat, memory_api, native, state::AppStat
 /// ```
 pub fn build_native_router(state: AppState) -> Router {
     let body_limit = state.config.limits.max_body_bytes;
+    // Build the CORS layer before `state` is moved into the auth middleware.
+    let cors = cors_layer(&state.config.cors);
     // Note: this router does NOT serve `/_xerj-console/*` — that namespace is
     // owned by the `xerj-console-api` crate, mounted by `xerj-server` as a
     // peer router via `Router::merge`. Engine API and Xerj Console API are
@@ -146,7 +149,7 @@ pub fn build_native_router(state: AppState) -> Router {
         .layer(middleware::from_fn_with_state(state, auth_middleware))
         .layer(middleware::from_fn(request_id_middleware))
         .layer(TraceLayer::new_for_http())
-        .layer(cors_layer())
+        .layer(cors)
         // Reject requests with a body larger than the configured limit (OOM guard).
         // Disable axum's built-in 2MB default so RequestBodyLimitLayer is the only
         // gate — bulk ingests legitimately exceed 2MB.
@@ -182,6 +185,8 @@ pub fn build_native_router(state: AppState) -> Router {
 /// ```
 pub fn build_es_compat_router(state: AppState) -> Router {
     let body_limit = state.config.limits.max_body_bytes;
+    // Build the CORS layer before `state` is moved into the auth middleware.
+    let cors = cors_layer(&state.config.cors);
     Router::new()
         // (Xerj Console SPA + API — `/_xerj-console/*` — is served by xerj-console-api,
         // merged at the server level. See xerj-server/src/main.rs.)
@@ -675,7 +680,7 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         .layer(middleware::from_fn(es_headers_middleware))
         .layer(middleware::from_fn(request_id_middleware))
         .layer(TraceLayer::new_for_http())
-        .layer(cors_layer())
+        .layer(cors)
         // Reject requests with a body larger than the configured limit (OOM guard).
         // Disable axum's built-in 2MB default so RequestBodyLimitLayer is the only
         // gate — bulk ingests legitimately exceed 2MB.
@@ -706,11 +711,58 @@ async fn es_headers_middleware(req: Request, next: Next) -> Response {
     resp
 }
 
-/// CORS layer: allow all origins (suitable for dev; restrict in production).
-fn cors_layer() -> CorsLayer {
+/// Build the CORS layer from config. **Default restrictive** (item 5).
+///
+/// The pre-RC4 layer hard-coded `allow_origin(Any) / allow_methods(Any) /
+/// allow_headers(Any)` with no knob, so `Access-Control-Allow-Origin: *` was
+/// returned to every browser — any page on the web could script authenticated
+/// cross-origin requests against a reachable node. This reads
+/// [`CorsConfig`]:
+///
+/// - `allow_any_origin = true` → the legacy wide-open policy (opt-in, dev only).
+/// - non-empty `allowed_origins` → reflect only those exact origins, with a
+///   fixed method set; other origins get no `Access-Control-Allow-Origin`.
+/// - default (empty list, `allow_any_origin = false`) → emit **no** CORS
+///   headers at all, so browsers permit same-origin requests only. Non-browser
+///   clients (curl, SDKs, Kibana) are unaffected because they ignore CORS.
+fn cors_layer(cfg: &CorsConfig) -> CorsLayer {
+    if cfg.allow_any_origin {
+        // Opt-in dev escape hatch — restores the legacy wide-open behavior.
+        return CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods(Any)
+            .allow_headers(Any);
+    }
+    if cfg.allowed_origins.is_empty() {
+        // Restrictive default: no `allow_origin` configured → tower-http emits
+        // no `Access-Control-Allow-Origin`, so cross-origin browser reads fail.
+        return CorsLayer::new();
+    }
+    // Reflect only the explicitly allow-listed origins. Entries that don't
+    // parse as a header value are dropped (logged once at build time) rather
+    // than silently widening the policy.
+    let origins: Vec<HeaderValue> = cfg
+        .allowed_origins
+        .iter()
+        .filter_map(|o| match o.parse::<HeaderValue>() {
+            Ok(v) => Some(v),
+            Err(_) => {
+                tracing::warn!(origin = %o, "ignoring un-parseable cors.allowed_origins entry");
+                None
+            }
+        })
+        .collect();
     CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
+        .allow_origin(AllowOrigin::list(origins))
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+            Method::HEAD,
+            Method::OPTIONS,
+            Method::PATCH,
+        ])
         .allow_headers(Any)
 }
 
@@ -731,3 +783,79 @@ async fn request_id_middleware(mut req: Request, next: Next) -> Response {
 /// the request ID without regenerating it.
 #[derive(Clone, Debug)]
 pub struct RequestId(pub String);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tests — CORS policy (item 5)
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{body::Body, http::Request, routing::get, Router};
+    use tower::ServiceExt; // oneshot
+
+    fn app(cfg: CorsConfig) -> Router {
+        Router::new()
+            .route("/", get(|| async { "ok" }))
+            .layer(cors_layer(&cfg))
+    }
+
+    /// The `Access-Control-Allow-Origin` value the layer returns for a browser
+    /// request carrying `Origin: <origin>` (None = header absent).
+    async fn acao(cfg: CorsConfig, origin: &str) -> Option<String> {
+        let req = Request::builder()
+            .uri("/")
+            .header("origin", origin)
+            .body(Body::empty())
+            .unwrap();
+        let resp = app(cfg).oneshot(req).await.unwrap();
+        resp.headers()
+            .get("access-control-allow-origin")
+            .map(|v| v.to_str().unwrap().to_string())
+    }
+
+    /// DEFAULT RESTRICTIVE: an out-of-the-box node emits no
+    /// `Access-Control-Allow-Origin`, so a browser blocks the cross-origin read.
+    #[tokio::test]
+    async fn cors_default_restrictive_emits_no_acao() {
+        assert_eq!(
+            acao(CorsConfig::default(), "https://evil.example").await,
+            None,
+            "default config must not emit Access-Control-Allow-Origin"
+        );
+    }
+
+    /// An explicit allow-list reflects ONLY the listed origins; anything else
+    /// gets no ACAO header (so the browser blocks it).
+    #[tokio::test]
+    async fn cors_allowlist_reflects_only_listed_origins() {
+        let cfg = CorsConfig {
+            allowed_origins: vec!["https://good.example".into()],
+            allow_any_origin: false,
+        };
+        assert_eq!(
+            acao(cfg.clone(), "https://good.example").await.as_deref(),
+            Some("https://good.example"),
+            "listed origin is reflected"
+        );
+        assert_eq!(
+            acao(cfg, "https://evil.example").await,
+            None,
+            "un-listed origin must get no ACAO"
+        );
+    }
+
+    /// The `allow_any_origin` dev escape hatch restores the wildcard policy.
+    #[tokio::test]
+    async fn cors_any_origin_optin_is_wildcard() {
+        let cfg = CorsConfig {
+            allowed_origins: vec![],
+            allow_any_origin: true,
+        };
+        assert_eq!(
+            acao(cfg, "https://anything.example").await.as_deref(),
+            Some("*"),
+            "allow_any_origin must restore Access-Control-Allow-Origin: *"
+        );
+    }
+}
