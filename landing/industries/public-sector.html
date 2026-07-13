@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>XERJ.ai — Public Sector</title>
-<meta name="description" content="XERJ for government, defense, and intelligence. Air-gap-capable, FedRAMP/IL5 track, 13 MB binary, SBOM.">
+<meta name="description" content="XERJ for government, defense, and intelligence. Air-gap-capable, FedRAMP/IL5 track, ~36 MB static binary, SBOM.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -47,7 +47,7 @@
   <h1 class="hero" style="font-size: var(--fs-96);">GOVERNMENT<br>AI.<br><span class="accent">SOVEREIGN.</span></h1>
   <p class="lead" style="max-width:720px;">
     Public-sector AI cannot depend on a retrieval vendor reachable
-    over the commercial internet. XERJ is a 13 MB static binary
+    over the commercial internet. XERJ is a ~36 MB static binary
     that runs inside a sealed rack, a SCIF, or a national-cloud
     enclave — zero telemetry egress when air-gap mode is on.
   </p>
@@ -228,13 +228,13 @@
 
 <!-- MEASURED OUTCOMES -->
 <section class="scene-section">
-  <div class="kicker"><span>MEASURED 2026-04 · v0.6.0</span><span class="dash">·</span><span>vs LEGACY STACK</span></div>
+  <div class="kicker"><span>XERJ v1.0.0-rc.3</span><span class="dash">·</span><span>vs A JVM ES INSTALL / ES 8.13.4</span></div>
   <h2 class="scene">FITS INSIDE<br><span class="accent">ATO ENVELOPES.</span></h2>
   <div class="cmp">
     <div class="head"><span class="cell">METRIC</span><span class="cell xy">XERJ</span><span class="cell es">LEGACY</span></div>
-    <div class="row"><span class="cell name">Binary footprint</span><span class="cell xy">13 MB</span><span class="cell es">~620 MB · JAR + JRE · 56×</span></div>
-    <div class="row"><span class="cell name">Cold start</span><span class="cell xy">50 ms</span><span class="cell es">~15 s JVM warm-up · 300×</span></div>
-    <div class="row"><span class="cell name">Idle memory</span><span class="cell xy">400 MB</span><span class="cell es">8.5 GB · 4-node · 21×</span></div>
+    <div class="row"><span class="cell name">Binary footprint</span><span class="cell xy">~36 MB</span><span class="cell es">~620 MB · JAR + JRE · ~17×</span></div>
+    <div class="row"><span class="cell name">Cold start</span><span class="cell xy">&lt; 1 s</span><span class="cell es">~15 s JVM warm-up</span></div>
+    <div class="row"><span class="cell name">On-disk index</span><span class="cell xy">176 MB</span><span class="cell es">283 MB · ES 8.13.4 · 1.61×</span></div>
     <div class="row"><span class="cell name">Network dependencies</span><span class="cell xy">0 external</span><span class="cell es">varies</span></div>
     <div class="row"><span class="cell name">Offline-install time</span><span class="cell xy">&lt; 5 min</span><span class="cell es">hours (JRE · deps)</span></div>
     <div class="row"><span class="cell name">Audit artifact per query</span><span class="cell xy">explain-plan native</span><span class="cell es">application plumbing</span></div>

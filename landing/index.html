@@ -325,18 +325,18 @@ $ curl -sXPOST localhost:9200/_memory/agent-demo/_recall \
   <div class="ticker">
     <div class="tk">
       <div class="eyebrow">FULL QUERY MATRIX · CLOSED-LOOP · CACHE OFF</div>
-      <div class="value"><span class="accent">42W</span> · 28L · 12T</div>
-      <div class="hint">vs live ES 8.13.4 · losses published too · demo/playbooks/FULL_MATRIX_SCORECARD_2026-07-10.md</div>
+      <div class="value"><span class="accent">55W</span> · 26T · 4L</div>
+      <div class="hint">vs live ES 8.13.4 · 3 N/A · the 4 losses are all read-under-write p99 (published too) · demo/playbooks/SCORECARD.md</div>
     </div>
     <div class="tk">
       <div class="eyebrow">XERJ vs ES · BULK INGEST</div>
-      <div class="value"><span class="accent">1.54×</span> FASTER</div>
-      <div class="hint">same corpus, closed-loop · acked deletes survive SIGTERM/SIGKILL restarts (11/11 crash cells)</div>
+      <div class="value"><span class="accent">1.72×</span> FASTER</div>
+      <div class="hint">191k vs 111k docs/s, same corpus, closed-loop · acked deletes survive SIGTERM/SIGKILL restarts (11/11 crash cells)</div>
     </div>
     <div class="tk">
       <div class="eyebrow">XERJ vs ES · INDEX ON DISK</div>
-      <div class="value"><span class="accent">1.23×</span> SMALLER</div>
-      <div class="hint">index on-disk 9.85 MB vs ES 12.07 MB, same corpus · demo/playbooks/FULL_MATRIX_SCORECARD_2026-07-09.md</div>
+      <div class="value"><span class="accent">1.61×</span> SMALLER</div>
+      <div class="hint">index on-disk 176 MB vs ES 283 MB, same corpus · demo/playbooks/SCORECARD.md</div>
     </div>
   </div>
   <p class="viz-caption" style="margin-top:var(--sp-4);">The engine numbers back the use cases up — they are not the product. kNN recall@10 measured 1.00 (unfiltered kNN is now HNSW-served with exact rescoring — re-measured 1.00 vs ES 8.13.4's 0.80 on the official bench cell). <a class="mono" href="/benchmarks/" style="color:var(--z-mute);">FULL BENCHMARK METHODOLOGY + REPRODUCTION →</a></p>

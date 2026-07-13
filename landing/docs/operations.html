@@ -213,7 +213,7 @@ scrape_configs:
   <h2>Capacity planning</h2>
   <p>Three numbers dominate sizing. Pick the largest and plan around it.</p>
   <div class="enum-list">
-    <div class="item">Disk<span class="dsc"><strong>2.8× compression</strong> on SIEM-shaped data is the working number. Reserve 30% headroom for merges — a merge of two 5 GiB segments needs 10 GiB free temporarily.</span></div>
+    <div class="item">Disk<span class="dsc">A <strong>~1.6× smaller on-disk footprint than Elasticsearch</strong> is the working number (measured 1.61× vs ES 8.13.4; varies by data shape). Reserve 30% headroom for merges — a merge of two 5 GiB segments needs 10 GiB free temporarily.</span></div>
     <div class="item">RAM<span class="dsc">~400 MB idle baseline. Vector fields add ~<code class="inline">dims × 4</code> bytes per vector at float32 (~<code class="inline">dims × 1</code> with scalar8 quantization). Memtables are bounded by <code class="inline">flush_size_mb</code> per index.</span></div>
     <div class="item">CPU<span class="dsc">One turbo-ingest pass pins one core per <code class="inline">turbo_parallel</code> worker. Leave at least 2 cores free for the query path on busy nodes.</span></div>
   </div>

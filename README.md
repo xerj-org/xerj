@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/xerj-org/xerj/actions/workflows/ci.yml/badge.svg)](https://github.com/xerj-org/xerj/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0--rc.1-orange.svg)](https://github.com/xerj-org/xerj/releases)
+[![Version](https://img.shields.io/badge/version-1.0.0--rc.3-orange.svg)](https://github.com/xerj-org/xerj/releases)
 [![Rust](https://img.shields.io/badge/Rust-stable-000000.svg?logo=rust)](https://www.rust-lang.org/)
 [![ES conformance](https://img.shields.io/badge/ES%20conformance-1360%2F1363-brightgreen.svg)](https://xerj.org/benchmarks)
 
@@ -105,7 +105,7 @@ We ran the same model (headless Claude Code) against the 518 MB corpus twice: on
 - **Truly open.** Apache-2.0 licensed. No SSPL, no source-available asterisks, no per-feature license gates.
 - **One engine, four workloads.** Full-text BM25, dense-vector kNN (HNSW-served with exact rescoring; measured recall@10 1.00 on the bench corpus), the standard aggregation suite, and columnar log analytics — all in the same process, over the same wire protocol.
 - **A single native binary.** Roughly a ~36 MB statically-linked executable with the neural embedder built in (~23 MB as a `--no-default-features` slim build). Sub-second start, no JVM, no heap-tuning ritual.
-- **Honest, reproducible benchmarks — as supporting evidence.** Measured head-to-head against a live Elasticsearch 8.13.4, the latest closed-loop, cache-off matrix scores **42 wins / 28 losses / 12 ties** for XERJ. Results — wins *and* losses — are published at [xerj.org/benchmarks](https://xerj.org/benchmarks) and reproducible from the scripts in this repo (see [Benchmarks](#benchmarks)).
+- **Honest, reproducible benchmarks — as supporting evidence.** Measured head-to-head against a live Elasticsearch 8.13.4, the latest closed-loop, cache-off matrix scores **55 wins / 26 ties / 4 losses (3 N/A)** for XERJ — including a **1.72× ingest win**, a **1.61× smaller on-disk footprint**, and kNN recall@10 1.00. All 4 losses are the same architectural gap: read p99 while a high-rate writer runs (mixed read-under-write). Results — wins *and* losses — are published at [xerj.org/benchmarks](https://xerj.org/benchmarks) and reproducible from the scripts in this repo (see [Benchmarks](#benchmarks)).
 - **Written in Rust.** Memory-safe, `panic = "abort"`, fat-LTO release builds. Embedded Raft consensus (no external Raft dependency) for cluster metadata.
 
 ---
@@ -234,9 +234,23 @@ The [ES-YAML conformance suite](#running-the-conformance-tests) — 1,363 cases 
 
 ## Benchmarks
 
-Performance is supporting evidence for the use cases above, not the headline — and it is measured honestly. XERJ is benchmarked head-to-head against a live **Elasticsearch 8.13.4** across a full matrix covering ingest, full-text search, aggregations, and vector search. The latest closed-loop, cache-off run scores **42 wins / 28 losses / 12 ties** for XERJ, including a **1.54× ingest win**, a disk-footprint win, and measured kNN recall@10 1.00 (that run predates HNSW serving; unfiltered kNN is now HNSW-served with exact rescoring — re-measured 1.00 on the official bench query vs ES 8.13.4's 0.80). Reading the losses honestly: most raw-query losses are sub-millisecond floor differences (XERJ ~1–2 ms vs ES ~0.5–1.5 ms p50, correctness-verified bit-exact), while XERJ's wins concentrate where agent workloads live — aggregations (often order-of-magnitude), ingest throughput, and disk. Acked deletes survive `SIGTERM`/`SIGKILL` restarts — 11 of 11 adversarial crash cells pass. Full per-cell results: [`demo/playbooks/FULL_MATRIX_SCORECARD_2026-07-10.md`](./demo/playbooks/FULL_MATRIX_SCORECARD_2026-07-10.md).
+Performance is supporting evidence for the use cases above, not the headline — and it is measured honestly. XERJ is benchmarked head-to-head against a live **Elasticsearch 8.13.4** across a full matrix covering ingest, full-text search, aggregations, vector search, and reads issued under a concurrent write flood. The latest closed-loop, cache-off run scores **55 wins / 26 ties / 4 losses (3 N/A)** for XERJ, including a **1.72× ingest win** (191k vs 111k docs/s), a **1.61× smaller on-disk footprint** (176 vs 283 MB), and kNN recall@10 1.00 (unfiltered kNN is now HNSW-served with exact rescoring; k=10 latency ties ES at ~1.8 ms). Reading the losses honestly: **all 4 losses are the same architectural gap** — read p99 while a high-rate writer runs (mixed read-under-write: XERJ ~10–14 ms vs ES ~3–7 ms p99, live-memtable reads under the writer's per-shard lock, tracked in [`MIXED_READ_UNDER_WRITE_FINDING_2026-07-08.md`](./demo/playbooks/MIXED_READ_UNDER_WRITE_FINDING_2026-07-08.md)) — while XERJ's wins concentrate where agent workloads live: aggregations (often order-of-magnitude), ingest throughput, and disk. Acked deletes survive `SIGTERM`/`SIGKILL` restarts — 11 of 11 adversarial crash cells pass. Full per-cell results: [`demo/playbooks/SCORECARD.md`](./demo/playbooks/SCORECARD.md).
 
 The methodology and results — including the cases where Elasticsearch wins — are also published at **[xerj.org/benchmarks](https://xerj.org/benchmarks)**. The benchmarks are reproducible: the harness and playbooks live under [`demo/playbooks`](./demo/playbooks) in this repository. We publish results warts-and-all rather than cherry-picking; treat any number you cannot reproduce with skepticism.
+
+---
+
+## Durability
+
+XERJ's write-ahead log (WAL) is **process-crash durable by default and power-loss durable on request**. The trade-off is a single `[storage]` config knob, `wal_sync`, and the default is deliberately set *below* Elasticsearch's request-fsync default in exchange for ingest throughput:
+
+- **`wal_sync = "batched"` (default)** — every write reaches the kernel immediately, so an XERJ *process* crash (`SIGKILL`, panic, `kill -9`) loses nothing. A background loop `fsync`s on a timer (`wal_batch_ms`, default `100` ms), so a **power loss or kernel panic** can lose at most the last ~100 ms of acknowledged writes. This is *below* Elasticsearch's default (`index.translog.durability: request`, which fsyncs before acking every request) — a deliberate throughput trade.
+- **`wal_sync = "sync"`** — `fsync` before acknowledging (one fsync per `_bulk` request = group commit), matching Elasticsearch's per-request translog fsync. **Power-loss durable** — this is the opt-in for workloads that require it, at a throughput cost. (Honored on the bulk paths and paired with the `wal_batch_ms` loop as of the RC4 hardening pass; earlier builds silently ignored `"sync"` on bulk.)
+- **`wal_sync = "async"`** — never fsync; the OS decides when to flush. Fastest, least durable.
+
+Acknowledged **deletes** are segment-durable: a delete tombstone pins its WAL shard until it is flushed to a segment, so acked deletes survive `SIGTERM`/`SIGKILL` restarts (verified: 11 of 11 adversarial crash cells).
+
+> **Honest caveat.** The default (`batched`) trades a bounded (~100 ms) power-loss window for ingest speed. If your deployment must not lose an acknowledged write on power loss, set `wal_sync = "sync"` in the `[storage]` config block.
 
 ---
 

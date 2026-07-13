@@ -77,7 +77,7 @@
       <span class="card-k">SIEM</span>
       <span class="card-t">UNIFIED<br><span class="accent">CYBER SOC</span></span>
       <span class="card-b">Fraud, cloud audit, identity, network logs in one index. Sub-second SIEM top-N over millions of events with exact, pre-computed terms aggregations. Detection-as-code runs native.</span>
-      <span class="card-facts">· sub-second top-source-IPs terms agg<br>· 400 MB idle · 1-node baseline<br>· 21× less memory vs 4-node ES (measured 2026-04, v0.6.0)</span>
+      <span class="card-facts">· sub-second top-source-IPs terms agg<br>· single-node baseline, no JVM<br>· aggregations often 10×+ faster vs live ES 8.13.4</span>
     </div>
 
     <div class="card">
@@ -209,14 +209,14 @@
     <div class="head"><span class="cell">METRIC</span><span class="cell xy">XERJ</span><span class="cell es">LEGACY</span></div>
     <div class="row"><span class="cell name">Vector kNN k=10 · p50</span><span class="cell xy">0.78 ms</span><span class="cell es">2.64 ms (ES 8.13) — 3.39×</span></div>
     <div class="row"><span class="cell name">Vector memory · 10 M × 1.5 K</span><span class="cell xy">18 GB</span><span class="cell es">92 GB (float32) — 5.1×</span></div>
-    <div class="row"><span class="cell name">Idle cluster memory</span><span class="cell xy">400 MB · 1 node</span><span class="cell es">8.5 GB · 4 node</span></div>
-    <div class="row"><span class="cell name">Cold start</span><span class="cell xy">50 ms</span><span class="cell es">~15 s JVM warm-up</span></div>
+    <div class="row"><span class="cell name">On-disk index</span><span class="cell xy">176 MB</span><span class="cell es">283 MB · ES 8.13.4 · 1.61×</span></div>
+    <div class="row"><span class="cell name">Cold start</span><span class="cell xy">&lt; 1 s</span><span class="cell es">~15 s JVM warm-up</span></div>
     <div class="row"><span class="cell name">Cross-border data egress</span><span class="cell xy">0 (self-hosted)</span><span class="cell es">depends on vendor</span></div>
     <div class="row"><span class="cell name">Per-query audit artifact</span><span class="cell xy">native · explain-plan</span><span class="cell es">application plumbing</span></div>
   </div>
 
   <p class="wide" style="margin-top: var(--sp-6); opacity: .6;">
-    Idle-memory and cold-start envelope figures measured 2026-04 on v0.6.0.
+    On-disk and ingest figures are from the reproducible closed-loop scorecard vs live ES 8.13.4; cold start is sub-second (readiness ~100 ms).
     The vector kNN row is from the current scorecard (k=10, recall@10 100 %).
   </p>
 

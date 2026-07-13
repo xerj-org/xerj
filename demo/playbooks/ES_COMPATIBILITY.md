@@ -372,3 +372,18 @@ segment churn (dv columns cache has no byte budget; stored-slices does), WAL
 retention across checkpoint, drained-memtable Arc retention on the flush
 path. Repro: scratchpad soak_mixed.sh under `systemd-run --user --scope -p
 MemoryMax=8G`.
+
+---
+
+## 16. rc-3 / rc-4 addendum — surfaces closed since the audit (2026-07-12)
+
+The sections above predate the **rc-3** release and the **RC4** hardening pass. Net changes to the compatibility picture, each verified against HEAD:
+
+- **ES-YAML wire-conformance is now 1,360 / 1,363** (1,360 pass · 0 fail · 3 skip) — this is the CI-gating number; a single unexpected failure fails the build. (Supersedes the "stale, 2026-04-17" row in §1 and the 99.9% of §14; the suite itself grew.)
+- **TLS/HTTPS** — the REST + ES-compat listeners now terminate TLS **in-process** via rustls (`xerj-server/src/main.rs` `build_tls_config` → `RustlsConfig::from_pem_file`; the startup banner prints "TLS: in-process rustls termination active"). The audited plain-`TcpListener`-only state is gone; `--insecure` still selects plaintext for local dev.
+- **`percolate`** — a real reverse-search doc-scan (each indexed doc stores a query; the supplied `document`/`documents` are matched against it), replacing the former hard-coded `MatchNone`.
+- **`script_fields`** — real per-hit Painless evaluation with `index.max_script_fields` enforcement (was a silent `null`, fixed `65ce844`). Relatedly, **`scripted_metric`** now runs a real single-shard `init`/`map`/`combine`/`reduce` interpreter, and **`significant_terms`** computes real JLH significance scoring — both previously empty/`null`.
+- **`has_child` / `has_parent`** — now **fail loud (400)** at parse time instead of returning unfiltered flat hits.
+- **HNSW-served kNN** — unfiltered, cosine, full-precision kNN on indexes ≥1,024 docs is now served by a persisted HNSW graph with exact rescoring (measured recall@10 1.00 on the bench query; filtered/nested/SQ8/small-index shapes keep the exact brute-force scan). **`scalar8` (`int8_hnsw`)** has a real serving path (~4× smaller vector working set, recall@10 ≈ 0.99); `binary` (1-bit) is still rejected at startup.
+
+Still **not** compatible (unchanged, single-node by design): true multi-node sharding/replication, CCR, and full ML. The float-to-integer truncation and scored-`hits.total` defects flagged in §1/§8 are tracked separately — this addendum does not claim them closed. See ROADMAP.md and STUB_AUDIT.md for the full tracked list.
