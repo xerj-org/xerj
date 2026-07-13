@@ -188,6 +188,9 @@ pub async fn delete_index(
         )
         .into_response();
     }
+    // RC4-W4 item 5: drop the deleted index's per-index metric label series so
+    // it doesn't linger for the process lifetime.
+    state.metrics.prune_index_labels(&name);
 
     let took_ms = started.elapsed().as_millis() as u64;
     let resp = NativeResponse::new(
@@ -469,6 +472,23 @@ pub async fn search(
             state
                 .metrics
                 .record_query(&name, query_type, took_ms as f64 / 1000.0);
+            // RC4-W4 item 3: the native search path must feed the slow-query
+            // log too (previously ONLY the ES-compat `_search` handler did, so
+            // a slow query via `/v1/indices/:name/search` was invisible to the
+            // operator ring buffer and the tracing line). `maybe_record` emits
+            // both, gated on the shared runtime threshold, and captures the
+            // query body.
+            state.engine.slow_query.maybe_record(
+                &name,
+                "search",
+                started.elapsed(),
+                result.hits.len() as u64,
+                "",
+                &query_body
+                    .get("query")
+                    .map(|q| q.to_string())
+                    .unwrap_or_default(),
+            );
 
             let hits: Vec<Value> = result
                 .hits
@@ -879,6 +899,11 @@ pub async fn rbac_delete_role(
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn metrics(State(state): State<AppState>) -> impl IntoResponse {
+    // RC4-W4 item 4: reconcile the query-cache gauges from the engine's own
+    // per-index counters at scrape time (the engine owns the truth; Prometheus
+    // lives at the API layer). Cheap: a sum over the open-index set.
+    let (qc_hits, qc_misses) = state.engine.query_cache_totals();
+    state.metrics.set_query_cache(qc_hits, qc_misses);
     match state.metrics.gather_text() {
         Ok(text) => (
             StatusCode::OK,

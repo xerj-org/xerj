@@ -9,7 +9,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::{RwLock, Semaphore};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 use xerj_common::config::Config;
 use xerj_common::schema::ManagedSchema;
@@ -410,6 +410,13 @@ pub struct Index {
     request_cache_seen: Arc<RwLock<RequestCacheSeen>>,
     request_cache_hits: Arc<AtomicU64>,
     request_cache_misses: Arc<AtomicU64>,
+    /// Internal query-result cache hit/miss counters (RC4-W4 item 4). Distinct
+    /// from `request_cache_*` above (the ES `request_cache=true` seen-set):
+    /// these track the `query_cache` result cache consulted on every
+    /// cache-eligible search. Summed across all indices and surfaced on
+    /// `/v1/metrics` as `xerj_query_cache_{hits,misses}`.
+    query_cache_hits: Arc<AtomicU64>,
+    query_cache_misses: Arc<AtomicU64>,
     registry: Arc<AnalyzerRegistry>,
     data_dir: PathBuf,
     /// Doc count threshold for auto-flush (default: 10,000).
@@ -875,6 +882,8 @@ impl Index {
             request_cache_seen: Arc::new(RwLock::new(RequestCacheSeen::with_capacity(65_536))),
             request_cache_hits: Arc::new(AtomicU64::new(0)),
             request_cache_misses: Arc::new(AtomicU64::new(0)),
+            query_cache_hits: Arc::new(AtomicU64::new(0)),
+            query_cache_misses: Arc::new(AtomicU64::new(0)),
             registry,
             data_dir: index_dir,
             flush_doc_threshold,
@@ -1114,6 +1123,8 @@ impl Index {
             request_cache_seen: Arc::new(RwLock::new(RequestCacheSeen::with_capacity(65_536))),
             request_cache_hits: Arc::new(AtomicU64::new(0)),
             request_cache_misses: Arc::new(AtomicU64::new(0)),
+            query_cache_hits: Arc::new(AtomicU64::new(0)),
+            query_cache_misses: Arc::new(AtomicU64::new(0)),
             registry,
             data_dir: index_dir,
             flush_doc_threshold,
@@ -5537,6 +5548,17 @@ impl Index {
         self.request_cache_misses.load(Ordering::Relaxed)
     }
 
+    /// Cumulative internal query-result cache hits/misses for this index
+    /// (RC4-W4 item 4). Summed across indices by [`Engine::query_cache_totals`]
+    /// and surfaced on `/v1/metrics`.
+    pub fn query_cache_hit_count(&self) -> u64 {
+        self.query_cache_hits.load(Ordering::Relaxed)
+    }
+
+    pub fn query_cache_miss_count(&self) -> u64 {
+        self.query_cache_misses.load(Ordering::Relaxed)
+    }
+
     /// Look up the latest `seq_no` for a document by id via the version
     /// map. Returns `None` when the doc is unknown or tombstoned.
     ///
@@ -6052,11 +6074,16 @@ impl Index {
         };
         if let Some(key) = cache_key {
             if let Some(entry) = self.query_cache.get(&key) {
+                // Query-cache HIT (RC4-W4 item 4).
+                self.query_cache_hits.fetch_add(1, Ordering::Relaxed);
                 let mut cloned = (**entry.value()).clone();
                 cloned.took_ms = 0;
                 self.metric_query_count.fetch_add(1, Ordering::Relaxed);
                 return Ok(cloned);
             }
+            // Query-cache MISS: eligible + keyed, but not present. The request
+            // proceeds to single-flight coalescing / real execution below.
+            self.query_cache_misses.fetch_add(1, Ordering::Relaxed);
         }
 
         // ── Single-flight coalescing ────────────────────────────────────
@@ -6227,23 +6254,11 @@ impl Index {
                 self.metric_query_count.fetch_add(1, Ordering::Relaxed);
                 self.metric_query_total_ms
                     .fetch_add(took_ms, Ordering::Relaxed);
-                // Slow query logging.
-                let query_summary = summarize_query(&request.query);
-                if took_ms >= 5_000 {
-                    error!(
-                        took_ms,
-                        index = self.name.as_str(),
-                        query = %query_summary,
-                        "slow query"
-                    );
-                } else if took_ms >= 1_000 {
-                    warn!(
-                        took_ms,
-                        index = self.name.as_str(),
-                        query = %query_summary,
-                        "slow query"
-                    );
-                }
+                // Slow-query observability (tracing warn/error + the operator
+                // ring buffer) is emitted once, at the API boundary, via
+                // `SlowQueryLog::maybe_record` — RC4-W4 item 3 unified the two
+                // so they share the single runtime threshold knob instead of
+                // this path's old hardcoded 1s/5s tracing thresholds.
                 // Populate the response cache.  Bound the cache to ~1k
                 // entries by truncating when it grows; for hot dashboards
                 // the working set is far smaller and the cheap O(n)
@@ -15266,57 +15281,6 @@ fn apply_collapse_with_inner(
         result.push(lead);
     }
     result
-}
-
-/// Produce a short human-readable summary of a query for logging.
-fn summarize_query(query: &QueryNode) -> String {
-    match query {
-        QueryNode::MatchAll => "match_all".to_string(),
-        QueryNode::MatchNone => "match_none".to_string(),
-        QueryNode::Match { field, query, .. } => {
-            format!("match({}:{})", field, &query[..query.len().min(50)])
-        }
-        QueryNode::Term { field, value, .. } => format!(
-            "term({}:{})",
-            field,
-            value.to_string().chars().take(50).collect::<String>()
-        ),
-        QueryNode::Terms { field, values, .. } => {
-            format!("terms({}, {} values)", field, values.len())
-        }
-        QueryNode::Range { field, .. } => format!("range({})", field),
-        QueryNode::Bool {
-            must,
-            should,
-            filter,
-            must_not,
-            ..
-        } => {
-            format!(
-                "bool(must={}, should={}, filter={}, must_not={})",
-                must.len(),
-                should.len(),
-                filter.len(),
-                must_not.len()
-            )
-        }
-        QueryNode::MultiMatch { query, fields, .. } => {
-            format!(
-                "multi_match({}, {} fields)",
-                &query[..query.len().min(50)],
-                fields.len()
-            )
-        }
-        QueryNode::QueryString { query, .. } => {
-            format!("query_string({})", &query[..query.len().min(50)])
-        }
-        QueryNode::Ids { values } => format!("ids({} ids)", values.len()),
-        QueryNode::Knn { field, .. } => format!("knn({})", field),
-        QueryNode::Nested { path, .. } => format!("nested({})", path),
-        QueryNode::MoreLikeThis { like, .. } => format!("more_like_this({} texts)", like.len()),
-        QueryNode::Pinned { ids, .. } => format!("pinned({} ids)", ids.len()),
-        other => format!("{:?}", other).chars().take(100).collect(),
-    }
 }
 
 /// Apply `_source` filtering to all hits.

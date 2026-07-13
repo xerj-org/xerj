@@ -1019,6 +1019,20 @@ impl Engine {
         self.indices.iter().map(|e| e.key().clone()).collect()
     }
 
+    /// Sum the internal query-result cache hit/miss counters across every open
+    /// index (RC4-W4 item 4). Returns `(hits, misses)`. Reconciled into the
+    /// `xerj_query_cache_{hits,misses}` gauges by the `/v1/metrics` handler at
+    /// scrape time — the engine owns the truth, the API layer owns Prometheus.
+    pub fn query_cache_totals(&self) -> (u64, u64) {
+        let mut hits = 0u64;
+        let mut misses = 0u64;
+        for entry in self.indices.iter() {
+            hits = hits.saturating_add(entry.value().query_cache_hit_count());
+            misses = misses.saturating_add(entry.value().query_cache_miss_count());
+        }
+        (hits, misses)
+    }
+
     pub async fn list_indices(&self) -> Vec<IndexInfo> {
         let mut list = Vec::new();
         for entry in self.indices.iter() {

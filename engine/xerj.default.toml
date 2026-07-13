@@ -52,6 +52,13 @@ enabled = true
 # filesystem permissions (chmod 600).
 admin_api_key = ""
 
+# Optional read-only metrics scrape token (leave empty to disable).
+# When set AND auth is enabled, a caller presenting this exact token
+# (Authorization: Bearer <token>) may scrape GET /v1/metrics — and ONLY that
+# endpoint — without the admin key. Hand this to Prometheus so the scraper has
+# a low-privilege credential that can read metrics but not index data.
+metrics_token = ""
+
 # ── TLS (3 settings) ──────────────────────────────────────────────────────────
 
 [tls]
@@ -324,3 +331,19 @@ turbo_parallel = true
 # This increases ingest throughput at the cost of reduced search recall
 # (e.g. "running" will not match "run").
 turbo_fast_analyzer = false
+
+# ── Logging (2 settings) ──────────────────────────────────────────────────────
+
+[logging]
+
+# Log line format:
+#   "text" — human-readable compact one-liners (default).
+#   "json" — one JSON object per line, for structured log shippers
+#            (Loki / Elastic / Datadog).
+format = "text"
+
+# Emit an INFO-level access log line per HTTP request (method, path, status,
+# latency). Default false: request tracing stays at DEBUG (silent under the
+# default `info` filter). Turn on for request-level observability without
+# dropping the global log filter down to debug.
+access_log = false

@@ -83,6 +83,16 @@ pub struct Metrics {
     pub active_searches: IntGauge,
     /// Size of the WAL on disk in bytes.
     pub wal_size_bytes: IntGauge,
+
+    // ── Query cache (RC4-W4 item 4) ───────────────────────────────────────────
+    /// Cumulative internal query-result cache hits across all indices. Exposed
+    /// as a gauge because it is reconciled from the engine's own atomic counters
+    /// at scrape time (Prometheus `IntCounter` has no set()); the value is
+    /// monotonic across a process lifetime, so `hits / (hits + misses)` gives
+    /// the cache hit ratio directly.
+    pub query_cache_hits: IntGauge,
+    /// Cumulative internal query-result cache misses across all indices.
+    pub query_cache_misses: IntGauge,
 }
 
 impl Metrics {
@@ -229,6 +239,18 @@ impl Metrics {
         ))
         .map_err(|e| XerjError::internal(format!("metrics: {e}")))?;
 
+        let query_cache_hits = IntGauge::with_opts(Opts::new(
+            "xerj_query_cache_hits",
+            "Cumulative internal query-result cache hits across all indices",
+        ))
+        .map_err(|e| XerjError::internal(format!("metrics: {e}")))?;
+
+        let query_cache_misses = IntGauge::with_opts(Opts::new(
+            "xerj_query_cache_misses",
+            "Cumulative internal query-result cache misses across all indices",
+        ))
+        .map_err(|e| XerjError::internal(format!("metrics: {e}")))?;
+
         // ── Register everything ───────────────────────────────────────────────
         macro_rules! reg {
             ($metric:expr) => {
@@ -255,6 +277,8 @@ impl Metrics {
         reg!(memory_usage);
         reg!(active_searches);
         reg!(wal_size_bytes);
+        reg!(query_cache_hits);
+        reg!(query_cache_misses);
 
         Ok(Self {
             registry,
@@ -275,7 +299,16 @@ impl Metrics {
             memory_usage,
             active_searches,
             wal_size_bytes,
+            query_cache_hits,
+            query_cache_misses,
         })
+    }
+
+    /// Reconcile the query-cache gauges from the engine's cumulative counters.
+    /// Called by the `/v1/metrics` handler at scrape time.
+    pub fn set_query_cache(&self, hits: u64, misses: u64) {
+        self.query_cache_hits.set(hits as i64);
+        self.query_cache_misses.set(misses as i64);
     }
 
     // ── Scrape helpers ────────────────────────────────────────────────────────
@@ -321,6 +354,17 @@ impl Metrics {
         self.docs_indexed_by_index
             .with_label_values(&[index])
             .inc_by(n);
+    }
+
+    /// Drop the per-index label series for `index` (RC4-W4 item 5).
+    ///
+    /// Called when an index is deleted so its `queries_by_index` /
+    /// `docs_indexed_by_index` label series don't linger for the lifetime of
+    /// the process (unbounded metric cardinality). Removing a label that was
+    /// never created is a harmless no-op — the error is ignored.
+    pub fn prune_index_labels(&self, index: &str) {
+        let _ = self.queries_by_index.remove_label_values(&[index]);
+        let _ = self.docs_indexed_by_index.remove_label_values(&[index]);
     }
 
     /// Record a completed query.
