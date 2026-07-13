@@ -9654,6 +9654,62 @@ pub async fn search(
         }
     }
 
+    // An aggregation runner can embed a hard failure — e.g. too_many_buckets
+    // from histogram / date_histogram / multi_terms — as
+    // `{"error": "<reason>", "__error_status__": 400}` inside its slot of the
+    // result tree. ES surfaces these as a real HTTP 400
+    // search_phase_execution_exception caused by too_many_buckets_exception
+    // (verified against live ES 8.13.4); previously xerj leaked the raw
+    // marker object inline under HTTP 200.
+    if let Some(aggs) = merged_aggs.as_ref() {
+        fn find_embedded_agg_error(v: &Value) -> Option<String> {
+            match v {
+                Value::Object(obj) => {
+                    if let (Some(Value::String(msg)), Some(st)) =
+                        (obj.get("error"), obj.get("__error_status__"))
+                    {
+                        if st.is_number() {
+                            return Some(msg.clone());
+                        }
+                    }
+                    obj.values().find_map(find_embedded_agg_error)
+                }
+                Value::Array(arr) => arr.iter().find_map(find_embedded_agg_error),
+                _ => None,
+            }
+        }
+        if let Some(reason) = find_embedded_agg_error(aggs) {
+            if reason.contains("Trying to create too many buckets") {
+                let max_b: u64 = reason
+                    .split('[')
+                    .nth(1)
+                    .and_then(|s| s.split(']').next())
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(65_536);
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "error": {
+                            "root_cause": [],
+                            "type": "search_phase_execution_exception",
+                            "reason": "",
+                            "phase": "fetch",
+                            "grouped": true,
+                            "failed_shards": [],
+                            "caused_by": {
+                                "type": "too_many_buckets_exception",
+                                "reason": reason,
+                                "max_buckets": max_b
+                            }
+                        },
+                        "status": 400
+                    })),
+                )
+                    .into_response();
+            }
+        }
+    }
+
     // Apply typed_keys: prefix each aggregation name with its type.
     if let Some(mut aggs) = merged_aggs {
         strip_internal_tracking(&mut aggs);

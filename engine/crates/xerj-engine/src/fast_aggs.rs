@@ -4134,7 +4134,8 @@ impl<'a> FastCtx<'a> {
                         "error": format!(
                             "Trying to create too many buckets. Must be less than or equal to: [{}] but this number of buckets was exceeded. This limit can be set by changing the [search.max_buckets] cluster level setting.",
                             MAX_BUCKETS
-                        )
+                        ),
+                        "__error_status__": 400u32,
                     }));
                 }
                 probe = next_bucket(probe);

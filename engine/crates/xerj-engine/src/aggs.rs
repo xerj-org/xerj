@@ -4555,7 +4555,8 @@ fn run_date_histogram(
                     "error": format!(
                         "Trying to create too many buckets. Must be less than or equal to: [{}] but this number of buckets was exceeded. This limit can be set by changing the [search.max_buckets] cluster level setting.",
                         MAX_BUCKETS
-                    )
+                    ),
+                    "__error_status__": 400u32,
                 });
             }
             probe = if use_calendar {
@@ -8948,6 +8949,19 @@ fn run_multi_terms(
             .collect();
         if bucket_map.contains_key(&key) || bucket_map.len() < bucket_cap {
             bucket_map.entry(key).or_default().push(i);
+        } else {
+            // Materialising another bucket would blow the search.max_buckets
+            // cap. Raise too_many_buckets — exactly like date_histogram /
+            // histogram already do — instead of silently dropping every
+            // bucket past the cap (which corrupted both the top-N selection
+            // and the doc counts).
+            return json!({
+                "error": format!(
+                    "Trying to create too many buckets. Must be less than or equal to: [{}] but this number of buckets was exceeded. This limit can be set by changing the [search.max_buckets] cluster level setting.",
+                    bucket_cap
+                ),
+                "__error_status__": 400u32,
+            });
         }
     }
 
