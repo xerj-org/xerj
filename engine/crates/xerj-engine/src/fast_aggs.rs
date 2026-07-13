@@ -3487,11 +3487,14 @@ impl<'a> FastCtx<'a> {
         if sub.is_some() {
             return None;
         }
-        if !params_only(params, &["sources", "size"]) {
+        // `__xy_field_types__` is the HTTP layer's mapping-type sentinel
+        // (item 7 key typing) — metadata, not a user param.
+        if !params_only(params, &["sources", "size", "__xy_field_types__"]) {
             return None;
         }
         let sources = params.get("sources").and_then(Value::as_array)?;
         let size = params.get("size").and_then(Value::as_u64).unwrap_or(10) as usize;
+        let field_types = params.get("__xy_field_types__").and_then(Value::as_object);
 
         // All sources must be plain `terms` over keyword columns.
         let mut src_names: Vec<String> = Vec::new();
@@ -3521,6 +3524,16 @@ impl<'a> FastCtx<'a> {
         if src_names.is_empty() {
             return Some(json!({ "buckets": [] }));
         }
+        // Mapping-driven key kinds, identical to run_composite's — keeps
+        // this arm byte-identical to brute for sorting AND key typing.
+        let kinds: Vec<crate::aggs::CompositeKeyKind> = src_fields
+            .iter()
+            .map(|f| {
+                crate::aggs::composite_kind_of(
+                    field_types.and_then(|m| m.get(f)).and_then(Value::as_str),
+                )
+            })
+            .collect();
 
         let mut counts: HashMap<Vec<String>, u64> = HashMap::new();
         for seg in &self.segs {
@@ -3651,7 +3664,7 @@ impl<'a> FastCtx<'a> {
         }
 
         let mut sorted_keys: Vec<Vec<String>> = counts.keys().cloned().collect();
-        sorted_keys.sort_by(|a, b| composite_cmp(a, b));
+        sorted_keys.sort_by(|a, b| composite_cmp(a, b, &kinds));
         sorted_keys.truncate(size);
 
         let result_buckets: Vec<Value> = sorted_keys
@@ -3660,18 +3673,14 @@ impl<'a> FastCtx<'a> {
                 let mut key_obj = Map::new();
                 for (i, name) in src_names.iter().enumerate() {
                     let val = key.get(i).cloned().unwrap_or_default();
-                    if let Ok(n) = val.parse::<i64>() {
-                        key_obj.insert(name.clone(), json!(n));
-                    } else if let Ok(f) = val.parse::<f64>() {
-                        key_obj.insert(
-                            name.clone(),
-                            serde_json::Number::from_f64(f)
-                                .map(Value::Number)
-                                .unwrap_or(Value::String(val.clone())),
-                        );
-                    } else {
-                        key_obj.insert(name.clone(), Value::String(val));
-                    }
+                    let kind = kinds
+                        .get(i)
+                        .copied()
+                        .unwrap_or(crate::aggs::CompositeKeyKind::Heuristic);
+                    key_obj.insert(
+                        name.clone(),
+                        crate::aggs::composite_typed_key_value(kind, &val),
+                    );
                 }
                 json!({ "key": Value::Object(key_obj), "doc_count": counts[key] })
             })
@@ -4574,15 +4583,22 @@ fn cmp_by_orders(
 
 /// Composite key comparison for terms-only sources (mirror of the brute
 /// sort: numeric when both sides parse as f64, else lexicographic; asc).
-fn composite_cmp(a: &[String], b: &[String]) -> std::cmp::Ordering {
+/// Per-source composite key comparison — delegates each part to the
+/// mapping-driven `composite_part_cmp` so this fast arm sorts exactly
+/// like the brute `run_composite` (keyword sources lexicographic,
+/// numeric mappings numeric, unmapped → legacy parse heuristic).
+fn composite_cmp(
+    a: &[String],
+    b: &[String],
+    kinds: &[crate::aggs::CompositeKeyKind],
+) -> std::cmp::Ordering {
     use std::cmp::Ordering;
     for i in 0..a.len().min(b.len()) {
-        let (av, bv) = (&a[i], &b[i]);
-        let cmp = if let (Ok(an), Ok(bn)) = (av.parse::<f64>(), bv.parse::<f64>()) {
-            an.partial_cmp(&bn).unwrap_or(Ordering::Equal)
-        } else {
-            av.cmp(bv)
-        };
+        let kind = kinds
+            .get(i)
+            .copied()
+            .unwrap_or(crate::aggs::CompositeKeyKind::Heuristic);
+        let cmp = crate::aggs::composite_part_cmp(kind, false, &a[i], &b[i]);
         if cmp != Ordering::Equal {
             return cmp;
         }

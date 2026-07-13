@@ -5691,6 +5691,150 @@ pub async fn search(
         }
     }
 
+    // Annotate every `composite` agg with `__xy_field_types__`: the mapping
+    // type of each of its `terms` sources' fields. The engine types the
+    // composite bucket keys from the SOURCE FIELD MAPPING (keyword → string,
+    // boolean → true/false, numerics → numbers) instead of string-parse
+    // heuristics that corrupted keyword values like "007" into the number 7
+    // and rendered booleans as the strings "true"/"false".
+    {
+        fn gather_composite_terms_fields(v: &Value, out: &mut std::collections::HashSet<String>) {
+            match v {
+                Value::Object(obj) => {
+                    if let Some(sources) = obj
+                        .get("composite")
+                        .and_then(|c| c.get("sources"))
+                        .and_then(Value::as_array)
+                    {
+                        for src in sources {
+                            if let Some(src_obj) = src.as_object() {
+                                for spec in src_obj.values() {
+                                    if let Some(f) = spec
+                                        .get("terms")
+                                        .and_then(|t| t.get("field"))
+                                        .and_then(Value::as_str)
+                                    {
+                                        out.insert(f.to_string());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    for c in obj.values() {
+                        gather_composite_terms_fields(c, out);
+                    }
+                }
+                Value::Array(arr) => {
+                    for item in arr {
+                        gather_composite_terms_fields(item, out);
+                    }
+                }
+                _ => {}
+            }
+        }
+        let mut wanted: std::collections::HashSet<String> = std::collections::HashSet::new();
+        if let Some(aggs) = body.aggs.as_ref() {
+            gather_composite_terms_fields(aggs, &mut wanted);
+        }
+        if let Some(aggs) = body.aggregations.as_ref() {
+            gather_composite_terms_fields(aggs, &mut wanted);
+        }
+        if !wanted.is_empty() {
+            // Resolve a (possibly dotted / multi-field) path against a
+            // mapping `properties` object: `user.name` walks properties,
+            // `agent.keyword` walks multi-`fields`.
+            fn type_in_props(props: &Value, field: &str) -> Option<String> {
+                let mut cur = props;
+                let mut parts = field.split('.').peekable();
+                while let Some(part) = parts.next() {
+                    let spec = cur.get(part)?;
+                    if parts.peek().is_none() {
+                        return spec.get("type").and_then(Value::as_str).map(str::to_string);
+                    }
+                    cur = spec.get("properties").or_else(|| spec.get("fields"))?;
+                }
+                None
+            }
+            let mut types: serde_json::Map<String, Value> = serde_json::Map::new();
+            for f in &wanted {
+                for ix in &index_names {
+                    if let Some(m) = state.engine.index_mappings.get(*ix) {
+                        let mapping = m.clone();
+                        let props = mapping
+                            .get("mappings")
+                            .and_then(|mm| mm.get("properties"))
+                            .or_else(|| mapping.get("properties"))
+                            .cloned();
+                        if let Some(p) = props {
+                            if let Some(t) = type_in_props(&p, f) {
+                                types.insert(f.clone(), Value::String(t));
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            if !types.is_empty() {
+                fn annotate(v: &mut Value, types: &serde_json::Map<String, Value>) {
+                    match v {
+                        Value::Object(obj) => {
+                            if let Some(comp) =
+                                obj.get_mut("composite").and_then(|c| c.as_object_mut())
+                            {
+                                if !comp.contains_key("__xy_field_types__") {
+                                    let mut local = serde_json::Map::new();
+                                    if let Some(sources) =
+                                        comp.get("sources").and_then(Value::as_array)
+                                    {
+                                        for src in sources {
+                                            if let Some(src_obj) = src.as_object() {
+                                                for spec in src_obj.values() {
+                                                    if let Some(f) = spec
+                                                        .get("terms")
+                                                        .and_then(|t| t.get("field"))
+                                                        .and_then(Value::as_str)
+                                                    {
+                                                        if let Some(t) = types.get(f) {
+                                                            local.insert(
+                                                                f.to_string(),
+                                                                t.clone(),
+                                                            );
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if !local.is_empty() {
+                                        comp.insert(
+                                            "__xy_field_types__".to_string(),
+                                            Value::Object(local),
+                                        );
+                                    }
+                                }
+                            }
+                            for c in obj.values_mut() {
+                                annotate(c, types);
+                            }
+                        }
+                        Value::Array(arr) => {
+                            for item in arr {
+                                annotate(item, types);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                if let Some(aggs) = body.aggs.as_mut() {
+                    annotate(aggs, &types);
+                }
+                if let Some(aggs) = body.aggregations.as_mut() {
+                    annotate(aggs, &types);
+                }
+            }
+        }
+    }
+
     // Inject the mapping's per-field date `format` into date_histogram /
     // date_range / range agg bodies that don't carry an explicit
     // `format`. ES uses the mapping's format to render bucket keys

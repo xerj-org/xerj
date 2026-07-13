@@ -5958,6 +5958,114 @@ fn run_percentiles(params: &Value, docs: &[Value]) -> Value {
 
 // ── Composite aggregation ─────────────────────────────────────────────────────
 
+/// Key typing for a composite `terms` source, derived from the source
+/// field's MAPPING type. The HTTP layer injects the participating fields'
+/// mapping types into the composite params as `__xy_field_types__`
+/// (`{"field": "keyword", ...}`) — the same sentinel pattern
+/// `__xy_f32_fields__` uses for matrix_stats.
+///
+/// ES types composite keys from the field's `DocValueFormat`: keyword
+/// values stay strings (so `"007"` is NOT corrupted to the number 7 and
+/// keys sort lexicographically), booleans become JSON `true`/`false`,
+/// numeric fields become numbers. `Heuristic` (no mapping info available)
+/// preserves the legacy parse-based guess for unmapped fields.
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum CompositeKeyKind {
+    Str,
+    Bool,
+    Int,
+    Float,
+    Heuristic,
+}
+
+pub(crate) fn composite_kind_of(mapping_type: Option<&str>) -> CompositeKeyKind {
+    match mapping_type {
+        Some("keyword") | Some("text") | Some("wildcard") | Some("constant_keyword")
+        | Some("match_only_text") | Some("ip") | Some("version") => CompositeKeyKind::Str,
+        Some("boolean") => CompositeKeyKind::Bool,
+        Some("long") | Some("integer") | Some("short") | Some("byte") | Some("unsigned_long") => {
+            CompositeKeyKind::Int
+        }
+        Some("double") | Some("float") | Some("half_float") | Some("scaled_float") => {
+            CompositeKeyKind::Float
+        }
+        _ => CompositeKeyKind::Heuristic,
+    }
+}
+
+/// Render one composite key part as its JSON value according to the
+/// source kind. Fallbacks never panic: a value that doesn't parse under
+/// its declared kind degrades to a string (never silently to a wrong
+/// number).
+pub(crate) fn composite_typed_key_value(kind: CompositeKeyKind, val: &str) -> Value {
+    match kind {
+        CompositeKeyKind::Str => Value::String(val.to_string()),
+        CompositeKeyKind::Bool => match val {
+            "true" => Value::Bool(true),
+            "false" => Value::Bool(false),
+            _ => Value::String(val.to_string()),
+        },
+        CompositeKeyKind::Float => {
+            // ES renders double keys with their fraction (2 → 2.0).
+            if let Ok(f) = val.parse::<f64>() {
+                serde_json::Number::from_f64(f)
+                    .map(Value::Number)
+                    .unwrap_or_else(|| Value::String(val.to_string()))
+            } else {
+                Value::String(val.to_string())
+            }
+        }
+        CompositeKeyKind::Int | CompositeKeyKind::Heuristic => {
+            if let Ok(n) = val.parse::<i64>() {
+                json!(n)
+            } else if let Ok(f) = val.parse::<f64>() {
+                serde_json::Number::from_f64(f)
+                    .map(Value::Number)
+                    .unwrap_or_else(|| Value::String(val.to_string()))
+            } else {
+                Value::String(val.to_string())
+            }
+        }
+    }
+}
+
+/// Compare two composite key parts under a source kind.
+/// `numeric_hint` is the legacy "source type is histogram/date_histogram"
+/// flag that forces numeric comparison in Heuristic mode.
+pub(crate) fn composite_part_cmp(
+    kind: CompositeKeyKind,
+    numeric_hint: bool,
+    av: &str,
+    bv: &str,
+) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+    let numeric_cmp = |av: &str, bv: &str| -> Option<Ordering> {
+        match (av.parse::<f64>(), bv.parse::<f64>()) {
+            (Ok(an), Ok(bn)) => an.partial_cmp(&bn),
+            _ => None,
+        }
+    };
+    match kind {
+        // ES sorts keyword terms by their UTF-8 bytes ("10" < "9") and
+        // booleans false < true ("false" < "true" lexicographically).
+        CompositeKeyKind::Str | CompositeKeyKind::Bool => av.cmp(bv),
+        CompositeKeyKind::Int | CompositeKeyKind::Float => {
+            numeric_cmp(av, bv).unwrap_or_else(|| av.cmp(bv))
+        }
+        CompositeKeyKind::Heuristic => {
+            if numeric_hint {
+                let an: f64 = av.parse().unwrap_or(0.0);
+                let bn: f64 = bv.parse().unwrap_or(0.0);
+                an.partial_cmp(&bn).unwrap_or(Ordering::Equal)
+            } else if let Some(o) = numeric_cmp(av, bv) {
+                o
+            } else {
+                av.cmp(bv)
+            }
+        }
+    }
+}
+
 fn run_composite(
     params: &Value,
     sub_aggs: Option<&Value>,
@@ -6230,6 +6338,25 @@ fn run_composite(
         .iter()
         .map(|(_, src_type, _, _)| src_type == "geotile_grid")
         .collect();
+    // Mapping-driven key typing for `terms` sources (item 7): the HTTP
+    // layer injects `__xy_field_types__` = {field → mapping type}. Sources
+    // without mapping info (or non-terms sources) stay on the legacy
+    // parse heuristic.
+    let field_types = params.get("__xy_field_types__").and_then(Value::as_object);
+    let kinds: Vec<CompositeKeyKind> = source_defs
+        .iter()
+        .map(|(_, src_type, field, _)| {
+            if src_type == "terms" {
+                composite_kind_of(
+                    field_types
+                        .and_then(|m| m.get(field))
+                        .and_then(Value::as_str),
+                )
+            } else {
+                CompositeKeyKind::Heuristic
+            }
+        })
+        .collect();
     /// Parse a geotile key `"z/x/y"` into a (z, x, y) tuple for
     /// numeric sorting; returns `(0, 0, 0)` on parse error.
     fn geotile_parse(s: &str) -> (i64, i64, i64) {
@@ -6259,14 +6386,13 @@ fn run_composite(
             } else if geotile_src.get(i).copied().unwrap_or(false) {
                 // Geotile keys sort by (zoom, x, y) numerically.
                 geotile_parse(av).cmp(&geotile_parse(bv))
-            } else if numeric_src.get(i).copied().unwrap_or(false)
-                || (av.parse::<f64>().is_ok() && bv.parse::<f64>().is_ok())
-            {
-                let an: f64 = av.parse().unwrap_or(0.0);
-                let bn: f64 = bv.parse().unwrap_or(0.0);
-                an.partial_cmp(&bn).unwrap_or(Ordering::Equal)
             } else {
-                av.cmp(bv)
+                composite_part_cmp(
+                    kinds.get(i).copied().unwrap_or(CompositeKeyKind::Heuristic),
+                    numeric_src.get(i).copied().unwrap_or(false),
+                    av,
+                    bv,
+                )
             };
             let cmp = if orders.get(i).copied().unwrap_or(true) {
                 cmp
@@ -6371,14 +6497,13 @@ fn run_composite(
                     Ordering::Greater
                 } else if geotile_src.get(i).copied().unwrap_or(false) {
                     geotile_parse(av).cmp(&geotile_parse(bv))
-                } else if numeric_src.get(i).copied().unwrap_or(false)
-                    || (av.parse::<f64>().is_ok() && bv.parse::<f64>().is_ok())
-                {
-                    let an: f64 = av.parse().unwrap_or(0.0);
-                    let bn: f64 = bv.parse().unwrap_or(0.0);
-                    an.partial_cmp(&bn).unwrap_or(Ordering::Equal)
                 } else {
-                    av.cmp(bv)
+                    composite_part_cmp(
+                        kinds.get(i).copied().unwrap_or(CompositeKeyKind::Heuristic),
+                        numeric_src.get(i).copied().unwrap_or(false),
+                        av,
+                        bv,
+                    )
                 };
                 let c = if orders.get(i).copied().unwrap_or(true) {
                     c
@@ -6457,7 +6582,19 @@ fn run_composite(
                     } else {
                         key_obj.insert(src_name.clone(), Value::String(val));
                     }
-                } else if src_type == "histogram" || src_type == "terms" {
+                } else if src_type == "terms" {
+                    // Mapping-typed key (item 7): keyword stays a string
+                    // ("007" is not corrupted to 7), boolean becomes JSON
+                    // true/false, numeric mappings become numbers. Unmapped
+                    // fields keep the legacy parse heuristic.
+                    key_obj.insert(
+                        src_name.clone(),
+                        composite_typed_key_value(
+                            kinds.get(i).copied().unwrap_or(CompositeKeyKind::Heuristic),
+                            &val,
+                        ),
+                    );
+                } else if src_type == "histogram" {
                     if let Ok(n) = val.parse::<i64>() {
                         key_obj.insert(src_name.clone(), json!(n));
                     } else if let Ok(f) = val.parse::<f64>() {
