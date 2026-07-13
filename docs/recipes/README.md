@@ -19,5 +19,6 @@ These are practical "how do I actually do X" recipes, not an API reference (that
 | [Anomaly detection](./anomaly-detection.md) | Statistical `_ml` detectors that flag spikes in metrics/logs | [`anomaly_detection.py`](../examples/anomaly-detection/anomaly_detection.py) |
 | [Continuous anomaly datafeeds](./continuous-anomaly-datafeeds.md) | A live `_ml` datafeed that re-scores an index on a timer and stores new anomaly records you poll | [`datafeed_demo.py`](../examples/continuous-anomaly-datafeeds/datafeed_demo.py) |
 | [Migrate from Elasticsearch](./migrate-from-elasticsearch.md) | Point your existing ES client at XERJ — same wire, change the URL | [`migrate_demo.sh`](../examples/migrate-from-elasticsearch/migrate_demo.sh) |
+| [Production deployment](./production-deployment.md) | The hardened posture: in-process TLS + API-key auth, health-probe & gRPC posture, air-gapped neural-model staging, and copying data out of a live Elasticsearch (scroll + bulk) | inline `curl` + `bash` |
 
 Every example is stdlib-only Python 3, plain `curl`, or the `xerj` binary itself — no dependencies to install. Start XERJ (`./target/release/xerj --data-dir ./data --insecure`), then run any example.
