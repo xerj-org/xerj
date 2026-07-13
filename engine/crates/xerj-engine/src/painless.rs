@@ -932,6 +932,48 @@ fn eval_expr(
                 };
                 return Ok(PainlessValue::String(format!("{sa}{sb}")));
             }
+            // ES Painless compares Strings as STRINGS, not numbers.
+            // `==`/`!=` follow `def` equality (Object.equals): two Strings
+            // compare by content, and a String never equals a non-String
+            // (number/bool/null). Relational operators between two Strings
+            // compare lexicographically (String.compareTo order; note ES
+            // itself throws a script_exception for `<` on Strings — we
+            // degrade to compareTo ordering instead of erroring, in line
+            // with this subset's graceful-degradation contract).
+            //
+            // Previously both operands fell through to `as_f64().unwrap_or(0.0)`,
+            // so every string compared equal to every other string (and to
+            // null): `doc['color'].value == 'red'` matched ALL docs.
+            {
+                let a_is_str = matches!(av, PainlessValue::String(_));
+                let b_is_str = matches!(bv, PainlessValue::String(_));
+                if a_is_str || b_is_str {
+                    match op.as_str() {
+                        "==" | "!=" => {
+                            let eq = match (&av, &bv) {
+                                (PainlessValue::String(x), PainlessValue::String(y)) => x == y,
+                                _ => false,
+                            };
+                            return Ok(PainlessValue::Bool(if op == "==" { eq } else { !eq }));
+                        }
+                        "<" | "<=" | ">" | ">=" if a_is_str && b_is_str => {
+                            if let (PainlessValue::String(x), PainlessValue::String(y)) =
+                                (&av, &bv)
+                            {
+                                let ord = x.cmp(y);
+                                let res = match op.as_str() {
+                                    "<" => ord == std::cmp::Ordering::Less,
+                                    "<=" => ord != std::cmp::Ordering::Greater,
+                                    ">" => ord == std::cmp::Ordering::Greater,
+                                    _ => ord != std::cmp::Ordering::Less,
+                                };
+                                return Ok(PainlessValue::Bool(res));
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
             let an = av.as_f64().unwrap_or(0.0);
             let bn = bv.as_f64().unwrap_or(0.0);
             let r = match op.as_str() {
@@ -1519,5 +1561,66 @@ mod tests {
         )
         .unwrap();
         assert!((v.as_f64().unwrap() - 15.0).abs() < 1e-9);
+    }
+
+    // ── String comparison semantics (RC4 W2 item 6) ─────────────────────
+    //
+    // Regression: string operands used to coerce to 0.0 on both sides of
+    // every comparison, so `doc['color'].value == 'red'` was true for ALL
+    // docs. Strings must compare as strings (ES `def` equality semantics).
+
+    fn eval_bool(src: &str, doc: &Value) -> bool {
+        let params = json!({});
+        eval_painless(src, &ctx(doc, &params, 0.0))
+            .unwrap()
+            .as_bool()
+    }
+
+    #[test]
+    fn string_equality_compares_content() {
+        let doc = json!({"color": "blue"});
+        assert!(!eval_bool("doc['color'].value == 'red'", &doc));
+        assert!(eval_bool("doc['color'].value == 'blue'", &doc));
+        assert!(eval_bool("doc['color'].value != 'red'", &doc));
+        assert!(!eval_bool("doc['color'].value != 'blue'", &doc));
+    }
+
+    #[test]
+    fn string_vs_non_string_is_not_equal() {
+        let doc = json!({"color": "red", "n": 5});
+        // ES Painless def equality: String.equals(non-String) is false.
+        assert!(!eval_bool("doc['color'].value == 5", &doc));
+        assert!(eval_bool("doc['color'].value != 5", &doc));
+        assert!(!eval_bool("doc['color'].value == null", &doc));
+        // Numeric string does NOT numerically equal a number.
+        let doc2 = json!({"tag": "5"});
+        assert!(!eval_bool("doc['tag'].value == 5", &doc2));
+    }
+
+    #[test]
+    fn string_relational_is_lexicographic() {
+        let doc = json!({"color": "blue"});
+        assert!(eval_bool("doc['color'].value < 'red'", &doc));
+        assert!(eval_bool("doc['color'].value <= 'blue'", &doc));
+        assert!(!eval_bool("doc['color'].value > 'red'", &doc));
+        assert!(eval_bool("'9' > '10'", &doc)); // lexicographic, not numeric
+    }
+
+    #[test]
+    fn string_equality_in_ternary_and_params() {
+        let doc = json!({"color": "green"});
+        let params = json!({"want": "green"});
+        let v = eval_painless(
+            "doc['color'].value == params.want ? 'A' : 'B'",
+            &ctx(&doc, &params, 0.0),
+        )
+        .unwrap();
+        match v {
+            PainlessValue::String(s) => assert_eq!(s, "A"),
+            other => panic!("expected string, got {:?}", other),
+        }
+        // Numbers still compare numerically.
+        assert!(eval_bool("1 + 1 == 2", &doc));
+        assert!(eval_bool("doc['color'].value.length() == 5", &doc));
     }
 }
