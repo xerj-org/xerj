@@ -103,9 +103,9 @@ Content types:
   The `autoindex` ingest pipeline streams with flat client memory (peak client RSS
   ~250 MB even at 5× input growth) and resumes after `kill -9` via a journal with
   idempotent `_id`s. The CLIENT architecture is TB-ready; the SERVER is not yet: it
-  currently retains heap per indexed doc (ticketed defect — OOM around ~42 GB of
-  server heap at ~4.5M docs). Do not plan corpora beyond a few million documents
-  until that fix lands.
+  currently retains heap per indexed doc — an open, tracked RSS-runaway defect (the
+  exact ceiling depends on the box and document shape, so no single figure is quoted).
+  Do not plan corpora beyond a few million documents until that fix lands.
 
 - The fully-exercised, AI-core surface is: index & mapping management, `_doc` CRUD,
   `_bulk`, `_search` (full DSL + `semantic`/`knn`/`hybrid`), `_count`, `_mget`,
@@ -115,11 +115,12 @@ Content types:
   behaviour you need against your own node or the docs rather than assuming full parity.
 
 - Performance is supporting evidence, not the headline. In a closed-loop, cache-off
-  benchmark vs live Elasticsearch 8.13.4, XERJ measured 42 wins / 28 losses / 12 ties
-  across the full query matrix, with a 1.54× bulk-ingest win, a disk-footprint win,
-  and kNN recall@10 1.00 (measured; unfiltered kNN is now HNSW-served with exact
-  rescoring — re-measured 1.00 on the official bench query vs ES 8.13.4's 0.80).
-  Acked deletes survive
+  benchmark vs live Elasticsearch 8.13.4, XERJ measured 55 wins / 26 ties / 4 losses
+  (3 N/A) across the full matrix, with a 1.72× bulk-ingest win (191k vs 111k docs/s),
+  a 1.61× smaller on-disk footprint, and kNN recall@10 1.00 (unfiltered kNN is now
+  HNSW-served with exact rescoring; k=10 latency ties ES at ~1.8 ms). All 4 losses are
+  the same architectural gap — read p99 under a concurrent write flood (mixed
+  read-under-write); they are published, not hidden. Acked deletes survive
   SIGTERM/SIGKILL restarts (11/11 adversarial crash cells). Measure on your workload.
 
 =====================================================================

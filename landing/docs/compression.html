@@ -118,7 +118,7 @@
   <h1>Compression & encodings</h1>
 
 
-  <p>XERJ uses two layers of compression. <strong>Column encodings</strong> are chosen per-field at write time based on the column's shape. <strong>Block compression</strong> runs over the encoded column data. The two together account for the 2.8× disk win over Elasticsearch on SIEM workloads.</p>
+  <p>XERJ uses two layers of compression. <strong>Column encodings</strong> are chosen per-field at write time based on the column's shape. <strong>Block compression</strong> runs over the encoded column data. The two together give XERJ a smaller on-disk footprint than Elasticsearch — measured 1.61× smaller vs ES 8.13.4 on the reproducible telemetry-corpus scorecard (the exact ratio varies by data shape).</p>
 
   <h2>Block compression</h2>
   <p>Three levels, controlled by <code class="inline">[compression] level</code>:</p>
