@@ -415,12 +415,11 @@ pub async fn search(
         }
     };
 
-    state.metrics.queries_executed.inc();
-    state
-        .metrics
-        .queries_by_index
-        .with_label_values(&[&name])
-        .inc();
+    // RC4 W4 item 2: track in-flight searches on this path too, so the
+    // `active_searches` gauge reflects native-API concurrency (decremented on
+    // drop, any return below). The cumulative counters + latency histograms are
+    // recorded once at completion via `record_query`.
+    let _search_guard = state.metrics.active_search_guard();
 
     // Build a query body for the parser.
     let query_body = if let Some(q_str) = &req.q {
@@ -457,10 +456,19 @@ pub async fn search(
         }
     };
 
+    let query_type = if req.q.is_some() {
+        "multi_match"
+    } else {
+        crate::es_compat::top_level_query_type(&req.query)
+    };
     match idx.search(&search_req).await {
         Ok(result) => {
             let took_ms = started.elapsed().as_millis() as u64;
-            state.metrics.query_latency.observe(took_ms as f64 / 1000.0);
+            // RC4 W4 item 2: one call records the global counter, the per-index
+            // counter, and both latency histograms (overall + by query type).
+            state
+                .metrics
+                .record_query(&name, query_type, took_ms as f64 / 1000.0);
 
             let hits: Vec<Value> = result
                 .hits

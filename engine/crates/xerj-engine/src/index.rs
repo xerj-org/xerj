@@ -1395,6 +1395,10 @@ impl Index {
         self.metric_index_count.fetch_add(1, Ordering::Relaxed);
         self.metric_index_total_ms
             .fetch_add(index_elapsed_ms, Ordering::Relaxed);
+        // RC4 W4 item 2: end-to-end latency of this single-document index call.
+        if let Some(m) = crate::engine_metrics() {
+            m.observe_index(index_elapsed_ms as f64 / 1000.0);
+        }
 
         debug!(doc_id = doc_id.as_str(), seq_no, "document indexed");
 
@@ -1587,7 +1591,12 @@ impl Index {
             })
             .collect();
 
+        let wal_t = std::time::Instant::now();
         let seq_nos = self.store.wal_append_batch(&wal_refs)?;
+        // RC4 W4 item 2: WAL durability-write latency.
+        if let Some(m) = crate::engine_metrics() {
+            m.observe_wal_write(wal_t.elapsed().as_secs_f64());
+        }
         let t3_dur = t3.elapsed();
 
         // ── M5.1 HOT PATH: one shard lock per BATCH ───────────────────────
@@ -1738,6 +1747,10 @@ impl Index {
             .fetch_add(batch_len as u64, Ordering::Relaxed);
         self.metric_index_total_ms
             .fetch_add(elapsed_ms, Ordering::Relaxed);
+        // RC4 W4 item 2: end-to-end latency of this indexing (batch) call.
+        if let Some(m) = crate::engine_metrics() {
+            m.observe_index(elapsed_ms as f64 / 1000.0);
+        }
 
         debug!(batch = batch_len, elapsed_ms, "turbo batch indexed");
 
@@ -1829,7 +1842,12 @@ impl Index {
             .map(|(id, bytes)| (id.clone(), Arc::clone(&null_val), Arc::clone(bytes)))
             .collect();
 
+        let wal_t = std::time::Instant::now();
         let seq_nos = self.store.wal_append_batch(&wal_refs)?;
+        // RC4 W4 item 2: WAL durability-write latency.
+        if let Some(m) = crate::engine_metrics() {
+            m.observe_wal_write(wal_t.elapsed().as_secs_f64());
+        }
         if prof {
             p_wal_us = p_t.elapsed().as_micros();
         }
@@ -2016,6 +2034,10 @@ impl Index {
             .fetch_add(batch_len as u64, Ordering::Relaxed);
         self.metric_index_total_ms
             .fetch_add(elapsed_ms, Ordering::Relaxed);
+        // RC4 W4 item 2: end-to-end latency of this indexing (batch) call.
+        if let Some(m) = crate::engine_metrics() {
+            m.observe_index(elapsed_ms as f64 / 1000.0);
+        }
 
         Ok(responses)
     }
@@ -2094,7 +2116,12 @@ impl Index {
 
         // Fast-path WAL append: no Arc<Value> wrapper, no per-batch Vec
         // allocation.  `wal_append_batch_raw` borrows docs directly.
+        let wal_t = std::time::Instant::now();
         let seq_nos = self.store.wal_append_batch_raw(&docs)?;
+        // RC4 W4 item 2: WAL durability-write latency.
+        if let Some(m) = crate::engine_metrics() {
+            m.observe_wal_write(wal_t.elapsed().as_secs_f64());
+        }
 
         // Use the instance method so routing matches the actual configured
         // shard count. The previous `Self::shard_for` was hardcoded to a
@@ -2163,6 +2190,10 @@ impl Index {
             .fetch_add(batch_len as u64, Ordering::Relaxed);
         self.metric_index_total_ms
             .fetch_add(elapsed_ms, Ordering::Relaxed);
+        // RC4 W4 item 2: end-to-end latency of this indexing (batch) call.
+        if let Some(m) = crate::engine_metrics() {
+            m.observe_index(elapsed_ms as f64 / 1000.0);
+        }
 
         Ok(batch_len)
     }
@@ -2363,6 +2394,10 @@ impl Index {
             .fetch_add(batch_len as u64, Ordering::Relaxed);
         self.metric_index_total_ms
             .fetch_add(elapsed_ms, Ordering::Relaxed);
+        // RC4 W4 item 2: end-to-end latency of this indexing (batch) call.
+        if let Some(m) = crate::engine_metrics() {
+            m.observe_index(elapsed_ms as f64 / 1000.0);
+        }
 
         debug!(
             batch = batch_len,
@@ -2628,7 +2663,19 @@ impl Index {
         }
         // Ensure we clear the flag on every exit path.
         let _clear = MergeFlagClear(&self.merge_in_progress);
-        self.merge_pass_locked(None).await
+        // RC4 W4 item 2: record merge latency, but only for passes that
+        // actually merged segments (n > 0). A pass that finds nothing to merge
+        // returns immediately and must not pollute `merge_duration`.
+        let merge_start = std::time::Instant::now();
+        let result = self.merge_pass_locked(None).await;
+        if let Ok(n) = &result {
+            if *n > 0 {
+                if let Some(m) = crate::engine_metrics() {
+                    m.observe_merge(merge_start.elapsed().as_secs_f64());
+                }
+            }
+        }
+        result
     }
 
     /// True while a merge pass (background or forced) holds the merge flag.
@@ -2680,6 +2727,7 @@ impl Index {
         }
         let _clear = MergeFlagClear(&self.merge_in_progress);
 
+        let merge_start = std::time::Instant::now();
         let mut total = 0usize;
         loop {
             let n = self.merge_pass_locked(Some(target)).await?;
@@ -2687,6 +2735,15 @@ impl Index {
             let seg_count = self.store.snapshot().segments.len();
             if n == 0 || seg_count <= target {
                 break;
+            }
+        }
+        // RC4 W4 item 2: record operator-triggered forcemerge latency (the whole
+        // convergence) when it actually merged something, so `merge_duration`
+        // reflects forcemerges too — background merges are recorded separately
+        // in `run_merge_once`.
+        if total > 0 {
+            if let Some(m) = crate::engine_metrics() {
+                m.observe_merge(merge_start.elapsed().as_secs_f64());
             }
         }
         Ok(total)
@@ -14726,6 +14783,22 @@ impl Index {
 /// 3. Build the FTS inverted index files for the new segment using ordinal
 ///    positions (0, 1, 2, …) so that the segment search path can look up
 ///    stored docs by their ordinal.
+/// RAII timer that records one `flush_duration` (seconds) observation when it
+/// drops — i.e. when `do_flush_shard` returns on any path. It holds an owned
+/// `Arc<Metrics>` cloned from the process-global handle so it survives across
+/// the `.await`s in the flush, and is a no-op when metrics are not installed.
+struct FlushDurationTimer {
+    start: std::time::Instant,
+    metrics: Option<std::sync::Arc<xerj_common::metrics::Metrics>>,
+}
+impl Drop for FlushDurationTimer {
+    fn drop(&mut self) {
+        if let Some(m) = &self.metrics {
+            m.observe_flush(self.start.elapsed().as_secs_f64());
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)] // free fn threading the full flush-pipeline dependency set
 async fn do_flush_shard(
     shard_idx: usize,
@@ -14890,6 +14963,14 @@ async fn do_flush_shard(
     let (drained_fts, storage_drained) = match drained_opt {
         Some(pair) => pair,
         None => return Ok(()),
+    };
+
+    // RC4 W4 item 2: record flush latency. Armed only past the empty-drain
+    // early-return above, so the histogram reflects real segment builds; fires
+    // on drop when this fn returns (covers the multiple Ok(()) exits below).
+    let _flush_timer = FlushDurationTimer {
+        start: std::time::Instant::now(),
+        metrics: crate::engine_metrics().cloned(),
     };
 
     // ── Phase 2: build segment + FTS side-cars without holding any lock ───

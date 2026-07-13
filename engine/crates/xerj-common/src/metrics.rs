@@ -308,12 +308,41 @@ impl Metrics {
         self.docs_indexed_by_index.with_label_values(&[index]).inc();
     }
 
+    /// Record `n` documents successfully indexed into `index` in a single
+    /// batch. Increments the global and per-index counters with one atomic
+    /// `inc_by` each — cheaper on the hot bulk path than calling
+    /// [`Self::record_doc_indexed`] per document (which contends the global
+    /// counter once per doc). A no-op when `n == 0`.
+    pub fn record_docs_indexed(&self, index: &str, n: u64) {
+        if n == 0 {
+            return;
+        }
+        self.docs_indexed.inc_by(n);
+        self.docs_indexed_by_index
+            .with_label_values(&[index])
+            .inc_by(n);
+    }
+
     /// Record a completed query.
     ///
     /// Increments counters and records latency histograms.
     pub fn record_query(&self, index: &str, query_type: &str, latency_secs: f64) {
         self.queries_executed.inc();
         self.queries_by_index.with_label_values(&[index]).inc();
+        self.query_latency.observe(latency_secs);
+        self.query_latency_by_type
+            .with_label_values(&[query_type])
+            .observe(latency_secs);
+    }
+
+    /// Record the index-agnostic side of a completed query: the global counter
+    /// and both the overall and by-type latency histograms — but NOT
+    /// `queries_by_index`. Use this when the caller increments
+    /// `queries_by_index` itself, once per *resolved* concrete index (a
+    /// multi-index or wildcard search touches several), which is more accurate
+    /// than attributing the whole request to a single raw label.
+    pub fn record_query_global(&self, query_type: &str, latency_secs: f64) {
+        self.queries_executed.inc();
         self.query_latency.observe(latency_secs);
         self.query_latency_by_type
             .with_label_values(&[query_type])
@@ -333,6 +362,33 @@ impl Metrics {
         ActiveSearchGuard {
             gauge: self.active_searches.clone(),
         }
+    }
+
+    // ── Type-erased observe helpers ───────────────────────────────────────────
+    //
+    // These let crates that do NOT depend on the `prometheus` crate (e.g.
+    // `xerj-engine`) record into the duration histograms at their real call
+    // sites without ever naming a `prometheus` type. `secs` is the observed
+    // duration in seconds (Prometheus convention).
+
+    /// Observe one completed memtable→segment flush, in seconds.
+    pub fn observe_flush(&self, secs: f64) {
+        self.flush_duration.observe(secs);
+    }
+
+    /// Observe one completed segment merge, in seconds.
+    pub fn observe_merge(&self, secs: f64) {
+        self.merge_duration.observe(secs);
+    }
+
+    /// Observe one WAL append (durability write) latency, in seconds.
+    pub fn observe_wal_write(&self, secs: f64) {
+        self.wal_write_latency.observe(secs);
+    }
+
+    /// Observe one end-to-end indexing (ingest) operation latency, in seconds.
+    pub fn observe_index(&self, secs: f64) {
+        self.index_latency.observe(secs);
     }
 }
 

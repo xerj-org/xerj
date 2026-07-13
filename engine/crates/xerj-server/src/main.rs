@@ -1216,6 +1216,17 @@ async fn async_main() -> Result<()> {
     // 9b. Application state
     let state = AppState::new(cfg.clone(), engine, metrics);
 
+    // 9b-i. Observability wiring (RC4 W4 item 2).
+    //   (a) Install the process-wide metrics handle the engine records
+    //       flush/merge/WAL/index-latency observations into — the flush, merge
+    //       and WAL write sites live deep in xerj-engine, which is built before
+    //       `Metrics` exists and holds no handle to it.
+    //   (b) Spawn the 10 s gauge refresher that keeps doc_count / segment_count
+    //       / wal_size_bytes / memory_usage live (otherwise a flat zero even at
+    //       millions of docs, hiding the RSS-runaway and WAL-growth signals).
+    xerj_engine::set_engine_metrics(state.metrics.clone());
+    tokio::spawn(xerj_api::es_compat::run_metrics_gauge_loop(state.clone()));
+
     // 9c. Routers — engine and Xerj Console are *peer* surfaces.  Each crate
     //     builds a complete Router (routes + its own auth + its own
     //     middleware) and `xerj-server` merges them onto the same TCP
