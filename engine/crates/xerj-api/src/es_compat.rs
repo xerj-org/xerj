@@ -26599,6 +26599,7 @@ mod reindex_keyset_tests {
                 index: "src".into(),
                 query: None,
                 size: 1000,
+                remote: None,
             },
             dest: ReindexDest {
                 index: "dst".into(),
