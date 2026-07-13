@@ -9,7 +9,8 @@
 //!
 //! Concrete implications:
 //! - `terms` bucket `doc_count` is always precise — `doc_count_error_upper_bound`
-//!   is always 0 and `sum_other_doc_count` is 0 for results within `size`.
+//!   is always 0, and `sum_other_doc_count` is the exact total of the doc
+//!   counts truncated away by `size`/`shard_size` (0 when nothing was cut).
 //! - `cardinality` returns the true distinct count, not an HLL estimate.
 //! - There is no `"relation": "gte"` approximation on total hits.
 //!
@@ -2685,14 +2686,15 @@ fn run_terms(
                 .collect()
         });
 
-    // Apply min_doc_count filter before sorting — ES default is 1, tests set
-    // values as low as 0 (to force empty-term buckets into the output).
+    // Collection-time filters only (partition + include/exclude) — these
+    // terms never existed as buckets, so they don't count toward
+    // `sum_other_doc_count` (verified vs live ES). The `min_doc_count`
+    // filter is NOT applied here: ES applies it at final reduce, after the
+    // shard-size cut — `apply_terms_size_pipeline` below reproduces that
+    // ordering so both the bucket set and the "other" count match ES.
     let mut candidates: Vec<(String, u64)> = counts
         .into_iter()
-        .filter(|(k, c)| {
-            if *c < min_doc_count {
-                return false;
-            }
+        .filter(|(k, _c)| {
             if let (Some(p), Some(n)) = (partition, num_partitions) {
                 if n > 0 {
                     // ES uses Murmur3_32 (`StringHelper.murmurhash3_x86_32`)
@@ -2773,9 +2775,15 @@ fn run_terms(
     let mut sorted: Vec<(String, u64, Option<Value>)> = pre_computed;
     sorted.sort_by(|a, b| cmp_terms_by_orders(a, b, &orders));
 
-    if let Some(n) = cap {
-        sorted.truncate(n);
-    }
+    // ES single-shard truncation accounting: shard-size cut →
+    // min_doc_count reduce-drop → size cut; cut/overflowed bucket counts
+    // accumulate into the REAL sum_other_doc_count (previously hardcoded 0).
+    let shard_size_param: Option<usize> = params
+        .get("shard_size")
+        .and_then(Value::as_u64)
+        .map(|v| v as usize);
+    let (sorted, sum_other_doc_count) =
+        apply_terms_size_pipeline(sorted, |r| r.1, cap, shard_size_param, min_doc_count);
 
     let buckets: Vec<Value> = sorted
         .into_iter()
@@ -2827,9 +2835,66 @@ fn run_terms(
 
     json!({
         "doc_count_error_upper_bound": 0,
-        "sum_other_doc_count": 0,
+        "sum_other_doc_count": sum_other_doc_count,
         "buckets": buckets
     })
+}
+
+/// Apply Elasticsearch's (single-shard) terms-agg size pipeline to an
+/// already-ordered candidate list and compute the real
+/// `sum_other_doc_count`. Semantics verified against live ES 8.13.4:
+///
+///   1. Shard select — the shard keeps the top `shard_size` buckets in the
+///      requested order (default `size*1.5 + 10`, and never below `size`,
+///      matching `BucketUtils.suggestShardSideQueueSize` + ES's
+///      shard_size >= size reset). Buckets cut here count toward
+///      `sum_other_doc_count`.
+///   2. Final reduce — buckets failing `min_doc_count` are dropped
+///      SILENTLY (their counts do NOT go to "other"; verified live);
+///      passing buckets beyond `size` overflow into "other".
+///
+/// `cap == None` is xerj's `size: 0` extension (return every bucket): no
+/// truncation happens, only the `min_doc_count` filter, and "other" is 0.
+///
+/// Shared by `run_terms`, `run_multi_terms`, the columnar
+/// `fast_aggs::exec_terms` arm and the doc-values fast paths so the
+/// bucket set AND the "other" count stay byte-identical across paths.
+pub(crate) fn apply_terms_size_pipeline<T>(
+    rows: Vec<T>,
+    count_of: impl Fn(&T) -> u64,
+    cap: Option<usize>,
+    shard_size_param: Option<usize>,
+    min_doc_count: u64,
+) -> (Vec<T>, u64) {
+    let mut rows = rows;
+    match cap {
+        Some(size) => {
+            let mut sum_other: u64 = 0;
+            let shard_size = shard_size_param.unwrap_or(size + size / 2 + 10).max(size);
+            if rows.len() > shard_size {
+                for r in &rows[shard_size..] {
+                    sum_other += count_of(r);
+                }
+                rows.truncate(shard_size);
+            }
+            let mut fin: Vec<T> = Vec::with_capacity(rows.len().min(size));
+            for r in rows {
+                if count_of(&r) < min_doc_count {
+                    continue; // ES final-reduce silent drop
+                }
+                if fin.len() >= size {
+                    sum_other += count_of(&r);
+                } else {
+                    fin.push(r);
+                }
+            }
+            (fin, sum_other)
+        }
+        None => {
+            rows.retain(|r| count_of(r) >= min_doc_count);
+            (rows, 0)
+        }
+    }
 }
 
 /// ES returns typed terms-bucket keys: numbers as numbers, booleans as
@@ -4511,7 +4576,8 @@ fn run_date_histogram(
                     "error": format!(
                         "Trying to create too many buckets. Must be less than or equal to: [{}] but this number of buckets was exceeded. This limit can be set by changing the [search.max_buckets] cluster level setting.",
                         MAX_BUCKETS
-                    )
+                    ),
+                    "__error_status__": 400u32,
                 });
             }
             probe = if use_calendar {
@@ -5914,6 +5980,119 @@ fn run_percentiles(params: &Value, docs: &[Value]) -> Value {
 
 // ── Composite aggregation ─────────────────────────────────────────────────────
 
+/// Key typing for a composite `terms` source, derived from the source
+/// field's MAPPING type. The HTTP layer injects the participating fields'
+/// mapping types into the composite params as `__xy_field_types__`
+/// (`{"field": "keyword", ...}`) — the same sentinel pattern
+/// `__xy_f32_fields__` uses for matrix_stats.
+///
+/// ES types composite keys from the field's `DocValueFormat`: keyword
+/// values stay strings (so `"007"` is NOT corrupted to the number 7 and
+/// keys sort lexicographically), booleans become JSON `true`/`false`,
+/// numeric fields become numbers. `Heuristic` (no mapping info available)
+/// preserves the legacy parse-based guess for unmapped fields.
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum CompositeKeyKind {
+    Str,
+    Bool,
+    Int,
+    Float,
+    Heuristic,
+}
+
+pub(crate) fn composite_kind_of(mapping_type: Option<&str>) -> CompositeKeyKind {
+    match mapping_type {
+        Some("keyword")
+        | Some("text")
+        | Some("wildcard")
+        | Some("constant_keyword")
+        | Some("match_only_text")
+        | Some("ip")
+        | Some("version") => CompositeKeyKind::Str,
+        Some("boolean") => CompositeKeyKind::Bool,
+        Some("long") | Some("integer") | Some("short") | Some("byte") | Some("unsigned_long") => {
+            CompositeKeyKind::Int
+        }
+        Some("double") | Some("float") | Some("half_float") | Some("scaled_float") => {
+            CompositeKeyKind::Float
+        }
+        _ => CompositeKeyKind::Heuristic,
+    }
+}
+
+/// Render one composite key part as its JSON value according to the
+/// source kind. Fallbacks never panic: a value that doesn't parse under
+/// its declared kind degrades to a string (never silently to a wrong
+/// number).
+pub(crate) fn composite_typed_key_value(kind: CompositeKeyKind, val: &str) -> Value {
+    match kind {
+        CompositeKeyKind::Str => Value::String(val.to_string()),
+        CompositeKeyKind::Bool => match val {
+            "true" => Value::Bool(true),
+            "false" => Value::Bool(false),
+            _ => Value::String(val.to_string()),
+        },
+        CompositeKeyKind::Float => {
+            // ES renders double keys with their fraction (2 → 2.0).
+            if let Ok(f) = val.parse::<f64>() {
+                serde_json::Number::from_f64(f)
+                    .map(Value::Number)
+                    .unwrap_or_else(|| Value::String(val.to_string()))
+            } else {
+                Value::String(val.to_string())
+            }
+        }
+        CompositeKeyKind::Int | CompositeKeyKind::Heuristic => {
+            if let Ok(n) = val.parse::<i64>() {
+                json!(n)
+            } else if let Ok(f) = val.parse::<f64>() {
+                serde_json::Number::from_f64(f)
+                    .map(Value::Number)
+                    .unwrap_or_else(|| Value::String(val.to_string()))
+            } else {
+                Value::String(val.to_string())
+            }
+        }
+    }
+}
+
+/// Compare two composite key parts under a source kind.
+/// `numeric_hint` is the legacy "source type is histogram/date_histogram"
+/// flag that forces numeric comparison in Heuristic mode.
+pub(crate) fn composite_part_cmp(
+    kind: CompositeKeyKind,
+    numeric_hint: bool,
+    av: &str,
+    bv: &str,
+) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+    let numeric_cmp = |av: &str, bv: &str| -> Option<Ordering> {
+        match (av.parse::<f64>(), bv.parse::<f64>()) {
+            (Ok(an), Ok(bn)) => an.partial_cmp(&bn),
+            _ => None,
+        }
+    };
+    match kind {
+        // ES sorts keyword terms by their UTF-8 bytes ("10" < "9") and
+        // booleans false < true ("false" < "true" lexicographically).
+        CompositeKeyKind::Str | CompositeKeyKind::Bool => av.cmp(bv),
+        CompositeKeyKind::Int | CompositeKeyKind::Float => {
+            numeric_cmp(av, bv).unwrap_or_else(|| av.cmp(bv))
+        }
+        CompositeKeyKind::Heuristic => {
+            if numeric_hint {
+                let an: f64 = av.parse().unwrap_or(0.0);
+                let bn: f64 = bv.parse().unwrap_or(0.0);
+                an.partial_cmp(&bn).unwrap_or(Ordering::Equal)
+            } else if let Some(o) = numeric_cmp(av, bv) {
+                o
+            } else {
+                av.cmp(bv)
+            }
+        }
+    }
+}
+
 fn run_composite(
     params: &Value,
     sub_aggs: Option<&Value>,
@@ -6186,6 +6365,25 @@ fn run_composite(
         .iter()
         .map(|(_, src_type, _, _)| src_type == "geotile_grid")
         .collect();
+    // Mapping-driven key typing for `terms` sources (item 7): the HTTP
+    // layer injects `__xy_field_types__` = {field → mapping type}. Sources
+    // without mapping info (or non-terms sources) stay on the legacy
+    // parse heuristic.
+    let field_types = params.get("__xy_field_types__").and_then(Value::as_object);
+    let kinds: Vec<CompositeKeyKind> = source_defs
+        .iter()
+        .map(|(_, src_type, field, _)| {
+            if src_type == "terms" {
+                composite_kind_of(
+                    field_types
+                        .and_then(|m| m.get(field))
+                        .and_then(Value::as_str),
+                )
+            } else {
+                CompositeKeyKind::Heuristic
+            }
+        })
+        .collect();
     /// Parse a geotile key `"z/x/y"` into a (z, x, y) tuple for
     /// numeric sorting; returns `(0, 0, 0)` on parse error.
     fn geotile_parse(s: &str) -> (i64, i64, i64) {
@@ -6215,14 +6413,13 @@ fn run_composite(
             } else if geotile_src.get(i).copied().unwrap_or(false) {
                 // Geotile keys sort by (zoom, x, y) numerically.
                 geotile_parse(av).cmp(&geotile_parse(bv))
-            } else if numeric_src.get(i).copied().unwrap_or(false)
-                || (av.parse::<f64>().is_ok() && bv.parse::<f64>().is_ok())
-            {
-                let an: f64 = av.parse().unwrap_or(0.0);
-                let bn: f64 = bv.parse().unwrap_or(0.0);
-                an.partial_cmp(&bn).unwrap_or(Ordering::Equal)
             } else {
-                av.cmp(bv)
+                composite_part_cmp(
+                    kinds.get(i).copied().unwrap_or(CompositeKeyKind::Heuristic),
+                    numeric_src.get(i).copied().unwrap_or(false),
+                    av,
+                    bv,
+                )
             };
             let cmp = if orders.get(i).copied().unwrap_or(true) {
                 cmp
@@ -6327,14 +6524,13 @@ fn run_composite(
                     Ordering::Greater
                 } else if geotile_src.get(i).copied().unwrap_or(false) {
                     geotile_parse(av).cmp(&geotile_parse(bv))
-                } else if numeric_src.get(i).copied().unwrap_or(false)
-                    || (av.parse::<f64>().is_ok() && bv.parse::<f64>().is_ok())
-                {
-                    let an: f64 = av.parse().unwrap_or(0.0);
-                    let bn: f64 = bv.parse().unwrap_or(0.0);
-                    an.partial_cmp(&bn).unwrap_or(Ordering::Equal)
                 } else {
-                    av.cmp(bv)
+                    composite_part_cmp(
+                        kinds.get(i).copied().unwrap_or(CompositeKeyKind::Heuristic),
+                        numeric_src.get(i).copied().unwrap_or(false),
+                        av,
+                        bv,
+                    )
                 };
                 let c = if orders.get(i).copied().unwrap_or(true) {
                     c
@@ -6413,7 +6609,19 @@ fn run_composite(
                     } else {
                         key_obj.insert(src_name.clone(), Value::String(val));
                     }
-                } else if src_type == "histogram" || src_type == "terms" {
+                } else if src_type == "terms" {
+                    // Mapping-typed key (item 7): keyword stays a string
+                    // ("007" is not corrupted to 7), boolean becomes JSON
+                    // true/false, numeric mappings become numbers. Unmapped
+                    // fields keep the legacy parse heuristic.
+                    key_obj.insert(
+                        src_name.clone(),
+                        composite_typed_key_value(
+                            kinds.get(i).copied().unwrap_or(CompositeKeyKind::Heuristic),
+                            &val,
+                        ),
+                    );
+                } else if src_type == "histogram" {
                     if let Ok(n) = val.parse::<i64>() {
                         key_obj.insert(src_name.clone(), json!(n));
                     } else if let Ok(f) = val.parse::<f64>() {
@@ -8767,22 +8975,69 @@ fn run_multi_terms(
             .collect();
         if bucket_map.contains_key(&key) || bucket_map.len() < bucket_cap {
             bucket_map.entry(key).or_default().push(i);
+        } else {
+            // Materialising another bucket would blow the search.max_buckets
+            // cap. Raise too_many_buckets — exactly like date_histogram /
+            // histogram already do — instead of silently dropping every
+            // bucket past the cap (which corrupted both the top-N selection
+            // and the doc counts).
+            return json!({
+                "error": format!(
+                    "Trying to create too many buckets. Must be less than or equal to: [{}] but this number of buckets was exceeded. This limit can be set by changing the [search.max_buckets] cluster level setting.",
+                    bucket_cap
+                ),
+                "__error_status__": 400u32,
+            });
         }
     }
 
     // Sort by doc_count descending. Partial-sort: O(M) select_nth_unstable_by
     // + O(N log N) prefix sort, vs O(M log M) for full sort. Wins big for
-    // wide multi-terms aggs over high-cardinality compound keys.
+    // wide multi-terms aggs over high-cardinality compound keys. The
+    // partial-select boundary is ES's shard_size (>= size), because the
+    // buckets cut there only need their SUMMED doc count (for
+    // sum_other_doc_count), not their order.
     let cmp = |a: &(Vec<String>, Vec<usize>), b: &(Vec<String>, Vec<usize>)| {
         b.1.len().cmp(&a.1.len()).then_with(|| a.0.cmp(&b.0))
     };
     let mut sorted: Vec<(Vec<String>, Vec<usize>)> = bucket_map.into_iter().collect();
-    let n = size.min(sorted.len());
-    if n > 0 && n < sorted.len() {
-        sorted.select_nth_unstable_by(n, cmp);
-        sorted.truncate(n);
+    let min_doc_count = params
+        .get("min_doc_count")
+        .and_then(Value::as_u64)
+        .unwrap_or(1);
+    let shard_size_param: Option<usize> = params
+        .get("shard_size")
+        .and_then(Value::as_u64)
+        .map(|v| v as usize);
+    // `size: 0` mirrors the terms-agg xerj extension: return all buckets.
+    let cap: Option<usize> = if size == 0 { None } else { Some(size) };
+    let mut sum_other_doc_count: u64 = 0;
+    let mut effective_shard_size: Option<usize> = None;
+    if let Some(sz) = cap {
+        let shard_size = shard_size_param.unwrap_or(sz + sz / 2 + 10).max(sz);
+        effective_shard_size = Some(shard_size);
+        if shard_size < sorted.len() {
+            sorted.select_nth_unstable_by(shard_size, cmp);
+            for (_, d) in &sorted[shard_size..] {
+                sum_other_doc_count += d.len() as u64;
+            }
+            sorted.truncate(shard_size);
+        }
     }
     sorted.sort_by(cmp);
+    // Final reduce: min_doc_count silent drop + size cut → other (same
+    // ES single-shard accounting as run_terms). The shard cut already
+    // happened above at `effective_shard_size`; passing the same value
+    // makes the pipeline's internal cut a no-op (rows.len() <= shard_size)
+    // so nothing is double-counted.
+    let (sorted, overflow_other) = apply_terms_size_pipeline(
+        sorted,
+        |r| r.1.len() as u64,
+        cap,
+        effective_shard_size,
+        min_doc_count,
+    );
+    sum_other_doc_count += overflow_other;
 
     let buckets: Vec<Value> = sorted
         .iter()
@@ -8810,7 +9065,7 @@ fn run_multi_terms(
 
     json!({
         "doc_count_error_upper_bound": 0,
-        "sum_other_doc_count": 0,
+        "sum_other_doc_count": sum_other_doc_count,
         "buckets": buckets
     })
 }
@@ -9186,9 +9441,20 @@ pub fn run_agg_fast(
             } else {
                 sorted.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
             }
-            if let Some(n) = cap {
-                sorted.truncate(n);
-            }
+            // Same ES single-shard truncation accounting as `run_terms`
+            // (shard-size cut → min_doc_count reduce-drop → size cut) so
+            // this doc-values arm emits the identical bucket set and the
+            // REAL sum_other_doc_count.
+            let min_doc_count = params
+                .get("min_doc_count")
+                .and_then(Value::as_u64)
+                .unwrap_or(1);
+            let shard_size_param: Option<usize> = params
+                .get("shard_size")
+                .and_then(Value::as_u64)
+                .map(|v| v as usize);
+            let (sorted, sum_other_doc_count) =
+                apply_terms_size_pipeline(sorted, |r| r.1, cap, shard_size_param, min_doc_count);
 
             let buckets: Vec<Value> = sorted
                 .into_iter()
@@ -9197,7 +9463,7 @@ pub fn run_agg_fast(
 
             FastAggResult::Value(json!({
                 "doc_count_error_upper_bound": 0,
-                "sum_other_doc_count": 0,
+                "sum_other_doc_count": sum_other_doc_count,
                 "buckets": buckets
             }))
         }
@@ -9411,9 +9677,20 @@ pub fn run_agg_fast_filtered(
             } else {
                 sorted.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
             }
-            if let Some(n) = cap {
-                sorted.truncate(n);
-            }
+            // Same ES single-shard truncation accounting as `run_terms`
+            // (shard-size cut → min_doc_count reduce-drop → size cut) so
+            // this doc-values arm emits the identical bucket set and the
+            // REAL sum_other_doc_count.
+            let min_doc_count = params
+                .get("min_doc_count")
+                .and_then(Value::as_u64)
+                .unwrap_or(1);
+            let shard_size_param: Option<usize> = params
+                .get("shard_size")
+                .and_then(Value::as_u64)
+                .map(|v| v as usize);
+            let (sorted, sum_other_doc_count) =
+                apply_terms_size_pipeline(sorted, |r| r.1, cap, shard_size_param, min_doc_count);
 
             let buckets: Vec<Value> = sorted
                 .into_iter()
@@ -9422,7 +9699,7 @@ pub fn run_agg_fast_filtered(
 
             FastAggResult::Value(json!({
                 "doc_count_error_upper_bound": 0,
-                "sum_other_doc_count": 0,
+                "sum_other_doc_count": sum_other_doc_count,
                 "buckets": buckets
             }))
         }
@@ -11844,5 +12121,169 @@ mod tests {
         // rust bucket avg = (10+20)/2 = 15
         let rust_avg = buckets[1]["avg_score"]["value"].as_f64().unwrap();
         assert!((rust_avg - 15.0).abs() < 0.001);
+    }
+
+    // ── RC4-W2 item 5: sum_other_doc_count / ES size pipeline ───────────
+
+    /// Serializes the RC4-W2 agg tests: `multi_terms_past_bucket_cap_...`
+    /// temporarily shrinks the process-global `max_buckets()` to 3, and the
+    /// skewed-corpus tests build 5 distinct buckets — running them
+    /// concurrently would flake. Every test in this block takes the lock.
+    static AGG_CAP_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Skewed corpus: a=5 b=4 c=3 d=2 e=1 (15 docs). All expectations in
+    /// the pipeline tests below were verified against live ES 8.13.4.
+    fn skewed_docs() -> Vec<Value> {
+        let mut docs = Vec::new();
+        for (tag, n) in [("a", 5), ("b", 4), ("c", 3), ("d", 2), ("e", 1)] {
+            for _ in 0..n {
+                docs.push(json!({ "tag": tag }));
+            }
+        }
+        docs
+    }
+
+    #[test]
+    fn terms_sum_other_doc_count_on_truncation() {
+        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let agg = json!({ "t": { "terms": { "field": "tag", "size": 2 } } });
+        let result = run_aggs(&agg, &skewed_docs());
+        let buckets = result["t"]["buckets"].as_array().unwrap();
+        assert_eq!(buckets.len(), 2);
+        assert_eq!(buckets[0]["key"], "a");
+        assert_eq!(buckets[1]["key"], "b");
+        // ES: 3 + 2 + 1 docs live in cut buckets.
+        assert_eq!(result["t"]["sum_other_doc_count"], 6);
+    }
+
+    #[test]
+    fn terms_min_doc_count_drops_silently_within_shard_size() {
+        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        // size=3 → default shard_size 14 covers all 5 buckets; b/c/d/e fail
+        // min_doc_count=5 at final reduce and are dropped WITHOUT counting
+        // toward other (live-ES-verified).
+        let agg = json!({ "t": { "terms": { "field": "tag", "size": 3, "min_doc_count": 5 } } });
+        let result = run_aggs(&agg, &skewed_docs());
+        let buckets = result["t"]["buckets"].as_array().unwrap();
+        assert_eq!(buckets.len(), 1);
+        assert_eq!(buckets[0]["key"], "a");
+        assert_eq!(result["t"]["sum_other_doc_count"], 0);
+    }
+
+    #[test]
+    fn terms_shard_size_cut_feeds_sum_other() {
+        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        // size=2, shard_size=3, min_doc_count=3: shard set [a,b,c]; d,e cut
+        // at the shard boundary (+3); c passes min but overflows size (+3).
+        let agg = json!({ "t": { "terms": {
+            "field": "tag", "size": 2, "shard_size": 3, "min_doc_count": 3 } } });
+        let result = run_aggs(&agg, &skewed_docs());
+        let buckets = result["t"]["buckets"].as_array().unwrap();
+        assert_eq!(buckets.len(), 2);
+        assert_eq!(result["t"]["sum_other_doc_count"], 6);
+    }
+
+    #[test]
+    fn multi_terms_sum_other_doc_count_on_truncation() {
+        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let mut docs = skewed_docs();
+        for d in &mut docs {
+            d["s"] = json!("x");
+        }
+        let agg = json!({ "t": { "multi_terms": {
+            "terms": [ {"field": "tag"}, {"field": "s"} ], "size": 2 } } });
+        let result = run_aggs(&agg, &docs);
+        let buckets = result["t"]["buckets"].as_array().unwrap();
+        assert_eq!(buckets.len(), 2);
+        assert_eq!(result["t"]["sum_other_doc_count"], 6);
+    }
+
+    // ── RC4-W2 item 7: composite key typing from the field mapping ──────
+
+    #[test]
+    fn composite_keyword_keys_stay_strings_and_sort_lexicographically() {
+        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let docs = vec![
+            json!({"agent": "007"}),
+            json!({"agent": "9"}),
+            json!({"agent": "10"}),
+            json!({"agent": "x1"}),
+        ];
+        // With the mapping sentinel, "007" must NOT become the number 7 and
+        // the order is UTF-8 lexicographic: "007" < "10" < "9" < "x1"
+        // (live-ES-verified).
+        let agg = json!({ "c": { "composite": {
+            "size": 10,
+            "sources": [ { "a": { "terms": { "field": "agent" } } } ],
+            "__xy_field_types__": { "agent": "keyword" }
+        } } });
+        let result = run_aggs(&agg, &docs);
+        let keys: Vec<&Value> = result["c"]["buckets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|b| &b["key"]["a"])
+            .collect();
+        assert_eq!(
+            keys,
+            vec![&json!("007"), &json!("10"), &json!("9"), &json!("x1")]
+        );
+    }
+
+    #[test]
+    fn composite_boolean_keys_are_json_bools() {
+        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let docs = vec![
+            json!({"active": true}),
+            json!({"active": false}),
+            json!({"active": true}),
+        ];
+        let agg = json!({ "c": { "composite": {
+            "size": 10,
+            "sources": [ { "b": { "terms": { "field": "active" } } } ],
+            "__xy_field_types__": { "active": "boolean" }
+        } } });
+        let result = run_aggs(&agg, &docs);
+        let buckets = result["c"]["buckets"].as_array().unwrap();
+        assert_eq!(buckets[0]["key"]["b"], json!(false));
+        assert_eq!(buckets[0]["doc_count"], 1);
+        assert_eq!(buckets[1]["key"]["b"], json!(true));
+        assert_eq!(buckets[1]["doc_count"], 2);
+        assert_eq!(result["c"]["after_key"]["b"], json!(true));
+    }
+
+    #[test]
+    fn composite_unmapped_field_keeps_legacy_heuristic() {
+        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        // No sentinel → numeric-looking strings keep the historical
+        // number-typed behavior (unmapped/dynamic fields).
+        let docs = vec![json!({"n": 7}), json!({"n": 10})];
+        let agg = json!({ "c": { "composite": {
+            "size": 10,
+            "sources": [ { "n": { "terms": { "field": "n" } } } ]
+        } } });
+        let result = run_aggs(&agg, &docs);
+        let buckets = result["c"]["buckets"].as_array().unwrap();
+        assert_eq!(buckets[0]["key"]["n"], json!(7));
+        assert_eq!(buckets[1]["key"]["n"], json!(10));
+    }
+
+    // ── RC4-W2 item 8: multi_terms raises too_many_buckets past the cap ─
+
+    #[test]
+    fn multi_terms_past_bucket_cap_errors_instead_of_silent_drop() {
+        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let old_cap = max_buckets();
+        set_max_buckets(3);
+        let docs: Vec<Value> = (0..5).map(|i| json!({ "k": format!("k{i}") })).collect();
+        let agg = json!({ "t": { "multi_terms": { "terms": [ {"field": "k"} ], "size": 2 } } });
+        let result = run_aggs(&agg, &docs);
+        set_max_buckets(old_cap);
+        let err = result["t"]["error"].as_str().unwrap_or_default();
+        assert!(
+            err.contains("Trying to create too many buckets"),
+            "expected too_many_buckets error, got {result}"
+        );
+        assert_eq!(result["t"]["__error_status__"], json!(400));
     }
 }
