@@ -3147,6 +3147,135 @@ async fn test_knn_vector_search() {
     );
 }
 
+/// RC4 W2 item 16 regression: unmapped numeric arrays (`ports: [80,443]`
+/// log workloads) must NOT auto-build or persist an HNSW graph — only an
+/// explicit dense_vector mapping may. Pre-fix, choose_hnsw_field's
+/// heuristic 3 pinned the doc's first numeric-array field and built a
+/// full graph (RAM + disk + per-ingest maintenance) that never served.
+#[tokio::test]
+async fn test_hnsw_requires_dense_vector_mapping() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    // Unmapped index: numeric arrays must not create a graph.
+    engine.create_index("portslogs", Schema::empty()).unwrap();
+    let idx = engine.get_index("portslogs").unwrap();
+    for i in 0..50 {
+        idx.index_document(
+            Some(format!("d{i}")),
+            json!({ "src": format!("10.0.0.{i}"), "ports": [80, 443, i] }),
+        )
+        .await
+        .unwrap();
+    }
+    idx.flush().await.unwrap();
+    let stats = idx.hnsw_stats().await;
+    assert_eq!(
+        stats["present"],
+        json!(false),
+        "unmapped numeric arrays must not build an HNSW graph, got {stats}"
+    );
+    let hnsw_dir = dir.path().join("portslogs").join("hnsw");
+    assert!(
+        !hnsw_dir.exists(),
+        "no hnsw artifacts may be persisted for unmapped arrays"
+    );
+
+    // A dense_vector-mapped index still builds one (graph-build intact).
+    let mut schema = Schema::empty();
+    let mut vf = FieldConfig::new("v", FieldType::Vector);
+    vf.options.dimensions = Some(4);
+    vf.options.similarity = Some("cosine".to_string());
+    schema.fields.push(vf);
+    engine.create_index("mapped", schema).unwrap();
+    let mapped = engine.get_index("mapped").unwrap();
+    for i in 0..5 {
+        mapped
+            .index_document(Some(format!("m{i}")), json!({ "v": [i, 1.0, 0.0, 0.0] }))
+            .await
+            .unwrap();
+    }
+    let s = mapped.hnsw_stats().await;
+    assert_eq!(
+        s["present"],
+        json!(true),
+        "mapped dense_vector field must still build the graph, got {s}"
+    );
+    assert_eq!(s["field"], json!("v"));
+    assert_eq!(s["doc_coverage"], json!(5));
+}
+
+/// RC4 W2 item 17 regression: a flush-time-stale HNSW snapshot (seq_no
+/// stamp != replayed WAL position — what an unclean shutdown with a WAL
+/// tail produces) must be healed by the background rebuild at open.
+/// Pre-fix, `hnsw_stale` was sticky for the process lifetime: the ANN
+/// path stayed disabled forever while ingest kept paying full graph
+/// maintenance, invisibly.
+#[tokio::test]
+async fn test_hnsw_stale_snapshot_rebuilds_on_open() {
+    let dir = TempDir::new().unwrap();
+    let mut schema = Schema::empty();
+    let mut vf = FieldConfig::new("v", FieldType::Vector);
+    vf.options.dimensions = Some(4);
+    vf.options.similarity = Some("cosine".to_string());
+    schema.fields.push(vf);
+
+    {
+        let engine = make_engine(&dir);
+        engine.create_index("vecs", schema).unwrap();
+        let idx = engine.get_index("vecs").unwrap();
+        for i in 0..6 {
+            idx.index_document(Some(format!("d{i}")), json!({ "v": [i, 1.0, 0.5, 0.25] }))
+                .await
+                .unwrap();
+        }
+        // Persists the graph + ids.json with a fresh seq_no stamp.
+        idx.flush().await.unwrap();
+    }
+
+    // Simulate the unclean-shutdown divergence: forge a stamp mismatch in
+    // ids.json (the loader must then distrust the flush-time graph).
+    let ids_path = dir.path().join("vecs").join("hnsw").join("ids.json");
+    let mut ids: Value = serde_json::from_slice(&std::fs::read(&ids_path).unwrap()).unwrap();
+    ids["seq_no"] = json!(999_999u64);
+    std::fs::write(&ids_path, serde_json::to_vec(&ids).unwrap()).unwrap();
+
+    // Reopen: the graph loads stale and the background rebuild must
+    // converge, clear the flag, and leave every doc graphed.
+    let engine = make_engine(&dir);
+    let idx = engine.get_index("vecs").unwrap();
+    let mut healed = false;
+    let mut last = json!(null);
+    for _ in 0..100 {
+        last = idx.hnsw_stats().await;
+        if last["present"] == json!(true)
+            && last["stale"] == json!(false)
+            && last["rebuilding"] == json!(false)
+        {
+            healed = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert!(
+        healed,
+        "stale HNSW snapshot must be healed by the background rebuild; last stats: {last}"
+    );
+    assert_eq!(
+        last["doc_coverage"],
+        json!(6),
+        "all docs graphed after heal: {last}"
+    );
+
+    // The healed graph serves: nearest neighbour of d5's exact vector is d5.
+    let results = idx.knn_search(&[5.0, 1.0, 0.5, 0.25], 1).await;
+    assert_eq!(
+        results.first().map(|(id, _)| id.as_str()),
+        Some("d5"),
+        "healed graph must serve correct nearest neighbours, got {results:?}"
+    );
+}
+
 /// Regression for the "semantic/knn query ignores `size`" bug (returned `k`
 /// hits instead of `size`). ES semantics for a top-level knn/semantic query:
 /// `k` bounds the neighbor pool, `from`/`size` then window into it, and

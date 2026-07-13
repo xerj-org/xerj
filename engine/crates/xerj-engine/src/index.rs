@@ -1045,8 +1045,7 @@ impl Index {
                     // re-derives the WAL-tail divergence and clears the
                     // flag. (The loader gate guarantees `field` is Some.)
                     let stale = l.stale
-                        || l
-                            .seq_no
+                        || l.seq_no
                             .map_or(true, |stamp| stamp != store.current_seq_no());
                     (Some(l.graph), l.id_map, l.id_rev, l.next_id, l.field, stale)
                 }

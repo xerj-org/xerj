@@ -331,7 +331,14 @@ mod tests {
             " Tail words follow the blob. ".repeat(30)
         );
         for text in [&sentence_heavy, &word_only, &break_free, &mixed] {
-            for (cs, ov) in [(512, 64), (100, 20), (80, 15), (64, 0), (50, 10), (256, 128)] {
+            for (cs, ov) in [
+                (512, 64),
+                (100, 20),
+                (80, 15),
+                (64, 0),
+                (50, 10),
+                (256, 128),
+            ] {
                 let chunks = TextChunker::new(cs, ov).chunk(text, None);
                 assert_full_coverage(text, &chunks, &format!("cs={cs} ov={ov}"));
             }
