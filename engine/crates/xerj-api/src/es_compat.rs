@@ -391,26 +391,89 @@ async fn cluster_health_inner(
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn cat_indices(State(state): State<AppState>) -> impl IntoResponse {
+    cat_indices_inner(state, None).await
+}
+
+/// `GET /_cat/indices/{pattern}` — the per-index / pattern-scoped variant.
+///
+/// Historically 404 (only the whole-cluster `/_cat/indices` was routed), which
+/// forced clients to fetch the entire listing and filter client-side — the
+/// exact workaround baked into our own migrate example. ES serves this path
+/// directly, so we do too.
+pub async fn cat_indices_pattern(
+    State(state): State<AppState>,
+    Path(pattern): Path<String>,
+) -> impl IntoResponse {
+    cat_indices_inner(state, Some(pattern)).await
+}
+
+async fn cat_indices_inner(state: AppState, pattern: Option<String>) -> axum::response::Response {
     let indices = state.engine.list_indices().await;
+
+    // Narrow to the path pattern when present (`/_cat/indices/{pattern}`):
+    // a comma-separated list of concrete names and/or `*` globs. ES rules:
+    //   • a CONCRETE name matching nothing → 404 index_not_found_exception
+    //   • a WILDCARD matching nothing      → empty 200
+    // Absent pattern lists the whole cluster (unchanged behavior).
+    let selected: Vec<&xerj_engine::engine::IndexInfo> = match pattern.as_deref() {
+        None => indices.iter().collect(),
+        Some(pat) => {
+            let parts: Vec<&str> = pat
+                .split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .collect();
+            for &p in &parts {
+                let is_wildcard = p == "_all" || p == "*" || p.contains('*');
+                if !is_wildcard && !indices.iter().any(|i| i.name == p) {
+                    return ApiError::new(xerj_common::XerjError::index_not_found(p))
+                        .into_response();
+                }
+            }
+            indices
+                .iter()
+                .filter(|info| {
+                    parts.iter().any(|&p| {
+                        p == "_all"
+                            || p == "*"
+                            || info.name == p
+                            || glob_match_simple(p, &info.name)
+                    })
+                })
+                .collect()
+        }
+    };
+
     let mut lines = Vec::new();
-    for info in &indices {
+    for info in &selected {
         // Real on-disk size: recursive byte sum of the index's data_dir.
-        // Single-shard (pri=1, rep=0), so store.size == pri.store.size.
+        // Single-shard (pri=1, rep=0), so store.size == pri.store.size, and
+        // dataset.size (the 8.13 column) equals store.size for a fully-mounted
+        // (non-partial, non-searchable-snapshot) shard.
         let size = state
             .engine
             .get_index(&info.name)
             .map(|idx| dir_size_bytes(idx.data_dir()))
             .unwrap_or(0);
+        let hsize = human_bytes(size);
         lines.push(format!(
-            "green open {} {} 1 0 {} 0 {}b {}b",
+            "green open {} {} 1 0 {} 0 {} {} {}",
             info.name,
-            Uuid::new_v4(),
+            // Emit the stable REAL settings uuid (the same value
+            // GET /{index}/_settings returns), not a fresh random one per call.
+            stable_index_uuid(&info.name),
             info.doc_count,
-            size,
-            size,
+            hsize,
+            hsize,
+            hsize,
         ));
     }
-    let body = lines.join("\n") + "\n";
+    // ES returns an empty body (not a bare newline) when nothing matches.
+    let body = if lines.is_empty() {
+        String::new()
+    } else {
+        lines.join("\n") + "\n"
+    };
     (
         StatusCode::OK,
         [(
@@ -420,6 +483,54 @@ pub async fn cat_indices(State(state): State<AppState>) -> impl IntoResponse {
         body,
     )
         .into_response()
+}
+
+/// Format a raw byte count the way ES `_cat` columns do (`ByteSizeValue`):
+/// the largest unit that keeps the value ≥ 1, one decimal place with a
+/// trailing `.0` dropped; plain bytes carry no decimal (`260b`, `5.1kb`,
+/// `1.9mb`). Previously `_cat/indices` emitted raw `{n}b` for every size.
+fn human_bytes(bytes: u64) -> String {
+    const KB: f64 = 1024.0;
+    const MB: f64 = 1024.0 * 1024.0;
+    const GB: f64 = 1024.0 * 1024.0 * 1024.0;
+    const TB: f64 = 1024.0 * 1024.0 * 1024.0 * 1024.0;
+    let b = bytes as f64;
+    let (val, unit) = if b >= TB {
+        (b / TB, "tb")
+    } else if b >= GB {
+        (b / GB, "gb")
+    } else if b >= MB {
+        (b / MB, "mb")
+    } else if b >= KB {
+        (b / KB, "kb")
+    } else {
+        return format!("{bytes}b");
+    };
+    let s = format!("{val:.1}");
+    let s = s.strip_suffix(".0").unwrap_or(&s);
+    format!("{s}{unit}")
+}
+
+/// A stable, deterministic UUID for an index, derived from its name.
+///
+/// `_cat/indices` used to mint a fresh `Uuid::new_v4()` on every request, so
+/// the uuid column changed each call and never matched the `index.uuid`
+/// returned by `GET /{index}/_settings`. ES returns the same real settings
+/// uuid in both places. We derive it deterministically from the index name so
+/// both endpoints agree and the value is stable across requests and restarts
+/// (no persistence path needed). `DefaultHasher` uses fixed keys, so this is
+/// reproducible across processes.
+fn stable_index_uuid(name: &str) -> String {
+    use std::hash::{Hash, Hasher};
+    let mut hi = std::collections::hash_map::DefaultHasher::new();
+    name.hash(&mut hi);
+    let high = hi.finish();
+    let mut lo = std::collections::hash_map::DefaultHasher::new();
+    // Distinct salt so the two 64-bit halves are independent.
+    0x9E37_79B9_7F4A_7C15u64.hash(&mut lo);
+    name.hash(&mut lo);
+    let low = lo.finish();
+    Uuid::from_u128(((high as u128) << 64) | (low as u128)).to_string()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1006,6 +1117,13 @@ fn merge_settings_defaults(user_settings: &Value, provided_name: &str, human: bo
 
     if let Some(obj) = raw_inner.as_object() {
         for (k, v) in obj {
+            // Internal bookkeeping keys (index-sort hints written at create
+            // time) are not ES index settings — never surface them in the
+            // settings response. They were leaking into GET /{index}/_settings
+            // for any index with an @timestamp-derived or explicit index sort.
+            if k.starts_with("__xy_") {
+                continue;
+            }
             // ES coerces numeric settings to strings in the response.
             let coerced = match v {
                 Value::Number(n) => Value::String(n.to_string()),
@@ -1021,9 +1139,12 @@ fn merge_settings_defaults(user_settings: &Value, provided_name: &str, human: bo
     inner
         .entry("creation_date".to_string())
         .or_insert_with(|| Value::String(now_ms.to_string()));
-    inner
-        .entry("uuid".to_string())
-        .or_insert_with(|| Value::String(Uuid::new_v4().to_string()));
+    // Emit the stable, deterministic index uuid — the SAME value
+    // _cat/indices reports — rather than a fresh random one per request.
+    inner.insert(
+        "uuid".to_string(),
+        Value::String(stable_index_uuid(provided_name)),
+    );
     let version = inner
         .entry("version".to_string())
         .or_insert_with(|| json!({ "created": "8130099" }));

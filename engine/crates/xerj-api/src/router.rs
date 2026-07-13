@@ -168,6 +168,7 @@ pub fn build_native_router(state: AppState) -> Router {
 /// GET    /                                  es_info
 /// GET    /_cluster/health                   cluster_health
 /// GET    /_cat/indices                      cat_indices
+/// GET    /_cat/indices/:pattern             cat_indices_pattern
 /// POST   /_bulk                             global_bulk
 /// PUT    /:index                            create_index
 /// DELETE /:index                            delete_index
@@ -203,6 +204,10 @@ pub fn build_es_compat_router(state: AppState) -> Router {
             get(es_compat::cluster_health_for_index),
         )
         .route("/_cat/indices", get(es_compat::cat_indices))
+        .route(
+            "/_cat/indices/:pattern",
+            get(es_compat::cat_indices_pattern),
+        )
         .route("/_cat/health", get(es_compat::cat_health))
         .route("/_cat/nodes", get(es_compat::cat_nodes))
         .route("/_cat/aliases", get(es_compat::cat_aliases))

@@ -113,14 +113,11 @@ for b in agg["buckets"]:
 '
 
 # 6) _cat/indices — operational sanity check, human-readable table.
-#    Note: XERJ serves the whole-cluster _cat/indices listing (which also
-#    includes its .xerj_* system indices). It does NOT serve the per-index
-#    _cat/indices/<name> path (404), so filter client-side as shown.
-say "6. GET /_cat/indices?v  (ops table — includes .xerj_* system indices)"
+say "6. GET /_cat/indices?v  (ops table)"
 curl -s "$ES/_cat/indices?v"
 echo
-echo "--- your index only (client-side filter) ---"
-curl -s "$ES/_cat/indices?v" | grep -E ' products ' || true
+echo "--- your index only (server-side, standard ES path) ---"
+curl -s "$ES/_cat/indices/products?v"
 
 echo
 echo "All standard Elasticsearch calls succeeded against XERJ at $ES"

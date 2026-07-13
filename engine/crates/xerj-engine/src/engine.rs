@@ -1379,12 +1379,24 @@ impl Engine {
         let snap_dir = std::path::Path::new(repo_path).join(name);
         std::fs::create_dir_all(&snap_dir).map_err(EngineError::Io)?;
 
+        // Wall-clock start, captured BEFORE the flush+copy work so
+        // duration_in_millis reflects the real elapsed time (it was hardcoded
+        // to 0 because start_time == end_time were sampled at the same instant
+        // after the copy).
+        let start_ms = now_millis();
+
         let target_indices: Vec<String> = match indices {
             Some(list) if !list.is_empty() => list,
-            _ => self.indices.iter().map(|e| e.key().clone()).collect(),
+            // ES excludes system indices from an all-indices snapshot; exclude
+            // our `.xerj_*` internals (auth, sessions, dashboards, …) by
+            // default so a plain snapshot captures only user data.
+            _ => self
+                .indices
+                .iter()
+                .map(|e| e.key().clone())
+                .filter(|n| !is_system_index(n))
+                .collect(),
         };
-
-        let mut manifest_indices: Vec<Value> = Vec::new();
 
         for idx_name in &target_indices {
             let idx = match self.indices.get(idx_name.as_str()) {
@@ -1399,21 +1411,16 @@ impl Engine {
             let dst_dir = snap_dir.join(idx_name);
             std::fs::create_dir_all(&dst_dir).map_err(EngineError::Io)?;
 
+            // Copy everything recursively (WAL + segments + schema). The
+            // per-file list is intentionally discarded: it was serialized into
+            // the response as `index_files` (~170 KB of dead weight that ES
+            // never returns and `restore_snapshot` never reads — restore copies
+            // the snapshot dir back wholesale and reopens by index name).
             let mut files: Vec<String> = Vec::new();
-
-            // Copy everything recursively (WAL + segments + schema).
             copy_dir_recursive(&src_dir, &dst_dir, &mut files).map_err(EngineError::Io)?;
-
-            manifest_indices.push(serde_json::json!({
-                "name": idx_name,
-                "files": files,
-            }));
         }
 
-        let now_ms = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as i64;
+        let end_ms = now_millis();
 
         let manifest = serde_json::json!({
             "snapshot": name,
@@ -1421,16 +1428,15 @@ impl Engine {
             "version": "8.13.0",
             "indices": target_indices,
             "state": "SUCCESS",
-            "start_time_in_millis": now_ms,
-            "end_time_in_millis": now_ms,
-            "duration_in_millis": 0,
+            "start_time_in_millis": start_ms,
+            "end_time_in_millis": end_ms,
+            "duration_in_millis": (end_ms - start_ms).max(0),
             "failures": [],
             "shards": {
                 "total": target_indices.len(),
                 "failed": 0,
                 "successful": target_indices.len(),
             },
-            "index_files": manifest_indices,
         });
 
         let manifest_path = snap_dir.join("manifest.json");
@@ -1490,13 +1496,25 @@ impl Engine {
             .collect();
 
         let index_names: Vec<String> = if patterns.is_empty() {
+            // Default restore: every index in the snapshot EXCEPT `.xerj_*`
+            // system indices (ES excludes system indices from a default
+            // restore). Snapshots taken by this build already omit them, but a
+            // snapshot written by an older build may still carry them.
             snapshot_indices
+                .into_iter()
+                .filter(|n| !is_system_index(n))
+                .collect()
         } else {
             let mut selected: Vec<String> = Vec::new();
             for pat in &patterns {
+                // A wildcard never matches a `.xerj_*` system index (ES `*`
+                // semantics); only a pattern that explicitly targets the
+                // dot-namespace (`.xerj_*`, `.xerj_users`, …) may.
+                let targets_system = pat.starts_with('.');
                 let matched: Vec<&String> = snapshot_indices
                     .iter()
                     .filter(|n| glob_match(pat, n))
+                    .filter(|n| targets_system || !is_system_index(n))
                     .collect();
                 if matched.is_empty() && !pat.contains('*') {
                     // ES: restore of an index absent from the snapshot fails
@@ -1565,6 +1583,21 @@ impl Engine {
 } // end impl Engine
 
 // ── Private helpers ───────────────────────────────────────────────────────────
+
+/// Milliseconds since the Unix epoch (wall clock).
+fn now_millis() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64
+}
+
+/// A XERJ-internal system index (`.xerj_*`: auth, sessions, dashboards,
+/// audit, …). ES hides its own system indices from default snapshot/restore;
+/// we do the same for ours so `_snapshot`/`_restore` operate on user data.
+pub(crate) fn is_system_index(name: &str) -> bool {
+    name.starts_with(".xerj_")
+}
 
 /// Recursively copy all files from `src` to `dst`, recording relative paths in `files`.
 fn copy_dir_recursive(
