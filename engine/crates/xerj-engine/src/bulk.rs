@@ -454,7 +454,15 @@ pub async fn process_bulk_with_opts(
                         .get("pipeline")
                         .and_then(Value::as_str)
                         .map(str::to_owned);
-                    if_seq_no_per_item = meta.get("if_seq_no").and_then(Value::as_u64);
+                    // Wire → internal seq translation: ES numbers seq_no
+                    // from 0 on the wire, the internal WAL counter from 1.
+                    // The CAS compare (index_document_with_version) runs on
+                    // internal seqs, so a `_seq_no` captured from any read
+                    // or write response round-trips through bulk CAS.
+                    if_seq_no_per_item = meta
+                        .get("if_seq_no")
+                        .and_then(Value::as_u64)
+                        .map(|s| s.saturating_add(1));
                     if_primary_term_per_item = meta.get("if_primary_term").and_then(Value::as_u64);
                     routing_per_item = meta
                         .get("routing")

@@ -1572,7 +1572,12 @@ pub async fn index_doc_auto(
     match idx.index_document(None, doc).await {
         Ok(resp) => {
             state.metrics.record_doc_indexed(&index);
-            let er = EsDocResponse::created(&index, &resp.id, resp.seq_no);
+            let er = EsDocResponse::created(
+                &index,
+                &resp.id,
+                resp.version,
+                resp.seq_no.saturating_sub(1),
+            );
             (StatusCode::CREATED, Json(er)).into_response()
         }
         Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
@@ -1689,11 +1694,22 @@ pub async fn index_doc(
     // op_type=create means fail if document already exists.
     let is_create_op = params.op_type.as_deref() == Some("create");
 
+    // The wire (ES) numbers seq_no from 0; the internal WAL counter from 1.
+    // `if_seq_no` arrives in ES form → +1 before the engine CAS compare
+    // (which runs on internal seqs), so a value read from GET/_search/_mget
+    // or a previous write response round-trips correctly.
+    let if_seq_no_internal = params.if_seq_no.map(|s| s.saturating_add(1));
+
     if is_create_op {
         match idx.create_document(id.clone(), doc).await {
             Ok(resp) => {
                 state.metrics.record_doc_indexed(&index);
-                let er = EsDocResponse::created(&index, &resp.id, resp.seq_no);
+                let er = EsDocResponse::created(
+                    &index,
+                    &resp.id,
+                    resp.version,
+                    resp.seq_no.saturating_sub(1),
+                );
                 (StatusCode::CREATED, Json(er)).into_response()
             }
             Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
@@ -1708,7 +1724,7 @@ pub async fn index_doc(
                 idx.index_document_with_version(
                     Some(id.clone()),
                     doc,
-                    params.if_seq_no,
+                    if_seq_no_internal,
                     params.if_primary_term,
                 )
                 .await
@@ -1717,7 +1733,7 @@ pub async fn index_doc(
             idx.index_document_with_version(
                 Some(id.clone()),
                 doc,
-                params.if_seq_no,
+                if_seq_no_internal,
                 params.if_primary_term,
             )
             .await
@@ -1726,12 +1742,17 @@ pub async fn index_doc(
             Ok(resp) => {
                 state.metrics.record_doc_indexed(&index);
                 let is_update = resp.result == "updated";
-                let mut er = EsDocResponse::created(&index, &resp.id, resp.seq_no);
-                er.version = resp.version;
-                let status = if is_update {
-                    StatusCode::OK
+                let wire_seq = resp.seq_no.saturating_sub(1);
+                let (er, status) = if is_update {
+                    (
+                        EsDocResponse::updated(&index, &resp.id, resp.version, wire_seq),
+                        StatusCode::OK,
+                    )
                 } else {
-                    StatusCode::CREATED
+                    (
+                        EsDocResponse::created(&index, &resp.id, resp.version, wire_seq),
+                        StatusCode::CREATED,
+                    )
                 };
                 (status, Json(er)).into_response()
             }
@@ -1793,7 +1814,12 @@ pub async fn create_doc(
     match idx.create_document(id.clone(), doc).await {
         Ok(resp) => {
             state.metrics.record_doc_indexed(&index);
-            let er = EsDocResponse::created(&index, &resp.id, resp.seq_no);
+            let er = EsDocResponse::created(
+                &index,
+                &resp.id,
+                resp.version,
+                resp.seq_no.saturating_sub(1),
+            );
             (StatusCode::CREATED, Json(er)).into_response()
         }
         Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
@@ -1837,7 +1863,14 @@ pub async fn get_doc(
         Ok(Some(source)) => {
             // Apply _source filtering based on query params.
             let filtered = apply_get_doc_source_filter(source, &params);
-            let resp = EsGetResponse::found(&index, &id, 1, 1, filtered);
+            // Real per-doc metadata (was hardcoded `_version: 1` /
+            // `_seq_no: 1`, which broke read-then-CAS flows): same
+            // resolvers `_mget` and `_search` hits use. `lookup_seq_no`
+            // yields the ES wire form (0-based); `lookup_version` prefers
+            // an external version when one was supplied.
+            let version = idx.lookup_version(&id).unwrap_or(1);
+            let seq_no = idx.lookup_seq_no(&id).unwrap_or(0);
+            let resp = EsGetResponse::found(&index, &id, version, seq_no, filtered);
             Json(resp).into_response()
         }
         Ok(None) => {
@@ -1913,24 +1946,55 @@ fn source_field_matches(field: &str, pattern: &str) -> bool {
 pub struct DeleteDocParams {
     /// `refresh=true|wait_for` — accepted without error; memtable is always visible.
     pub refresh: Option<String>,
+    /// Optimistic concurrency: expected sequence number (ES wire form, 0-based).
+    pub if_seq_no: Option<u64>,
+    /// Optimistic concurrency: expected primary term (must accompany if_seq_no).
+    pub if_primary_term: Option<u64>,
 }
 
 pub async fn delete_doc(
     State(state): State<AppState>,
     Path((index, id)): Path<(String, String)>,
-    Query(_params): Query<DeleteDocParams>,
+    Query(params): Query<DeleteDocParams>,
 ) -> impl IntoResponse {
     let idx = match state.engine.get_index(&index) {
         Ok(i) => i,
         Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
     };
 
-    match idx.delete_document(&id).await {
-        Ok(_) => {
-            let seq_no = current_timestamp_micros();
-            let resp = EsDeleteDocResponse::deleted(&index, &id, seq_no);
+    // Wire → internal seq translation, same convention as the index path.
+    let if_seq_no_internal = params.if_seq_no.map(|s| s.saturating_add(1));
+
+    match idx
+        .delete_document_versioned(&id, if_seq_no_internal, params.if_primary_term)
+        .await
+    {
+        // Live doc tombstoned → 200 `deleted` with the doc's REAL bumped
+        // version and the tombstone's seq (ES wire form).  Was: always
+        // 200 `deleted` `_version: 1` with a timestamp-garbage seq_no,
+        // even for missing docs and ignored CAS params.
+        Ok(outcome) if outcome.found => {
+            let resp = EsDeleteDocResponse::deleted(
+                &index,
+                &id,
+                outcome.version,
+                outcome.seq_no.saturating_sub(1),
+            );
             Json(resp).into_response()
         }
+        // Nothing to delete → ES answers 404 with a RESULT body (not an
+        // error body): `result: "not_found"`, version bookkeeping still
+        // advancing (live-verified against ES 8.13.4).
+        Ok(outcome) => {
+            let resp = EsDeleteDocResponse::not_found(
+                &index,
+                &id,
+                outcome.version,
+                outcome.seq_no.saturating_sub(1),
+            );
+            (StatusCode::NOT_FOUND, Json(resp)).into_response()
+        }
+        // CAS mismatch surfaces as 409 version_conflict_engine_exception.
         Err(e) => ApiError::new(xerj_common::XerjError::from(e)).into_response(),
     }
 }
@@ -7965,17 +8029,14 @@ pub async fn search(
                                 continue;
                             }
                             "_version" => {
-                                // Echo the caller-supplied external `_version`
-                                // (`version_type=external[_gte]`) from the same
-                                // map the top-level and inner_hits `_version`
-                                // paths use. Internal per-doc version increments
-                                // aren't tracked yet, so freshly-indexed docs
-                                // default to 1.
+                                // Real per-doc `_version` via the same
+                                // resolver GET/_mget use (external-version
+                                // map wins, then the engine write counter).
                                 let v = state
                                     .engine
                                     .get_index(&idx_name)
                                     .ok()
-                                    .and_then(|idx| idx.external_versions.get(&h.id).map(|v| *v))
+                                    .and_then(|idx| idx.lookup_version(&h.id))
                                     .unwrap_or(1);
                                 fmap.insert("_version".to_string(), Value::Array(vec![json!(v)]));
                                 continue;
@@ -9045,15 +9106,14 @@ pub async fn search(
                                 hit_obj.insert("_score".to_string(), score);
                             }
                             if emit_version_ih {
-                                // Look up the external version map so
-                                // inner_hits reflect the caller-supplied
-                                // `_version` just like top-level hits.
+                                // Real per-doc `_version` (external map
+                                // wins) so inner_hits match top-level hits.
                                 let id_str = m.get("_id").and_then(Value::as_str).unwrap_or("");
                                 let v = state
                                     .engine
                                     .get_index(&idx_name)
                                     .ok()
-                                    .and_then(|idx| idx.external_versions.get(id_str).map(|v| *v))
+                                    .and_then(|idx| idx.lookup_version(id_str))
                                     .unwrap_or(1);
                                 hit_obj.insert("_version".to_string(), json!(v));
                             }
@@ -9176,15 +9236,16 @@ pub async fn search(
                     None
                 },
                 version: if emit_version {
-                    // Prefer the external-version map (set by
-                    // `version_type=external[_gte]`) so reindexes with
-                    // explicit versions echo the caller's value.
-                    let ext = state
+                    // Real per-doc `_version` via the shared resolver
+                    // (external-version map wins so reindexes with
+                    // `version_type=external[_gte]` echo the caller's
+                    // value, then the engine write counter).
+                    state
                         .engine
                         .get_index(&idx_name)
                         .ok()
-                        .and_then(|idx| idx.external_versions.get(&h.id).map(|v| *v));
-                    ext.or(Some(1))
+                        .and_then(|idx| idx.lookup_version(&h.id))
+                        .or(Some(1))
                 } else {
                     None
                 },
@@ -11524,7 +11585,7 @@ pub async fn update_doc(
                             &index,
                             &resp.id,
                             resp.version,
-                            resp.seq_no,
+                            resp.seq_no.saturating_sub(1),
                         );
                         Json(er).into_response()
                     }
@@ -11550,7 +11611,8 @@ pub async fn update_doc(
                             let er = crate::responses::EsDocResponse::created(
                                 &index,
                                 &resp.id,
-                                resp.seq_no,
+                                resp.version,
+                                resp.seq_no.saturating_sub(1),
                             );
                             Json(er).into_response()
                         }
@@ -11574,7 +11636,7 @@ pub async fn update_doc(
                 &index,
                 &resp.id,
                 resp.version,
-                resp.seq_no,
+                resp.seq_no.saturating_sub(1),
             );
             Json(er).into_response()
         }
@@ -12104,13 +12166,15 @@ pub async fn mget(
 
         match idx.get_document(&req_doc.id).await {
             Ok(Some(source)) => {
-                // Real per-doc `_seq_no` — same source the `_search` hit
-                // metadata uses (`lookup_seq_no`); was hardcoded 0.
+                // Real per-doc `_seq_no` / `_version` — same resolvers the
+                // `_search` hit metadata and GET `_doc` use; were hardcoded
+                // 0 / 1.
                 let seq_no = idx.lookup_seq_no(&req_doc.id).unwrap_or(0);
+                let version = idx.lookup_version(&req_doc.id).unwrap_or(1);
                 docs.push(json!({
                     "_index": req_doc.index,
                     "_id": req_doc.id,
-                    "_version": 1,
+                    "_version": version,
                     "_seq_no": seq_no,
                     "_primary_term": 1,
                     "found": true,
@@ -12189,13 +12253,14 @@ pub async fn mget_index(
         match state.engine.get_index(ix) {
             Ok(idx) => match idx.get_document(id).await {
                 Ok(Some(source)) => {
-                    // Real per-doc `_seq_no` (was hardcoded 0) — matches the
-                    // `_search` hit metadata path.
+                    // Real per-doc `_seq_no` / `_version` (were hardcoded
+                    // 0 / 1) — matches the `_search` hit metadata path.
                     let seq_no = idx.lookup_seq_no(id).unwrap_or(0);
+                    let version = idx.lookup_version(id).unwrap_or(1);
                     docs.push(json!({
                         "_index": ix,
                         "_id": id,
-                        "_version": 1,
+                        "_version": version,
                         "_seq_no": seq_no,
                         "_primary_term": 1,
                         "found": true,

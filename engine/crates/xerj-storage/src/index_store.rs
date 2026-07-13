@@ -1502,16 +1502,26 @@ impl IndexStore {
         post_finish(&meta)?;
         let prof_pf_us = t_pf.elapsed().as_micros();
 
-        // Update version map: point live docs at the new segment
+        // Update version map: point live docs at the new segment.
+        //
+        // `repoint` (not `set`): the drained entries include superseded
+        // duplicates (a doc overwritten within the same memtable
+        // generation drains once per write), and a doc can be updated or
+        // deleted concurrently after the drain.  The old unconditional
+        // `set` transiently clobbered the newer entry with the stale
+        // copy's seq_no (and, with per-doc `_version` tracking, would
+        // spuriously bump the version once per duplicate).  `repoint`
+        // only swaps the segment id when the entry still carries exactly
+        // this seq_no — same-generation duplicates and post-drain
+        // updates/deletes are left untouched.
         let t_vm = std::time::Instant::now();
         let segment_id_arc: std::sync::Arc<str> = std::sync::Arc::from(segment_id.as_str());
         for entry in &entries {
             if entry.source.is_some() {
-                self.version_map.set(
+                self.version_map.repoint(
                     &entry.doc_id,
                     entry.seq_no,
                     std::sync::Arc::clone(&segment_id_arc),
-                    false,
                 );
             }
         }
