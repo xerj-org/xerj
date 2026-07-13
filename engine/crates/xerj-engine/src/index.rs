@@ -7990,17 +7990,20 @@ impl Index {
         if scored_fast_applied {
             // exact pin scores already in place
         } else if let QueryNode::Pinned { ids, .. } = query {
-            let max_organic_score = final_hits
-                .iter()
-                .map(|h| h.score)
-                .fold(f32::NEG_INFINITY, f32::max);
-            let pin_score = (max_organic_score + 1.0).max(1.0);
+            // ES pin scores are sentinel constants descending one float ULP
+            // per rank from just above 2^127 (1.7014124e38 for the first pin
+            // with two ids — live-verified vs ES 8.13.4).  The columnar
+            // Pinned fast path already emits exactly these
+            // (`f32::from_bits(0x7F00_0001 + (p - rank))`); use the same
+            // formula here so `max_score` (population max, reported even on
+            // empty beyond-end pages) and per-hit `_score` values match ES
+            // regardless of which execution path served the query.  The old
+            // `max_organic + 1 + (p - rank)` fakes leaked small integers
+            // (4.0/3.0) into `max_score` where ES reports the sentinel.
+            let p = ids.len() as u32;
             for hit in &mut final_hits {
-                if ids.iter().any(|pid| pid == &hit.id) {
-                    // Give pinned docs a very high score so they sort first.
-                    // Use index in the ids list to preserve pinned ordering.
-                    let rank = ids.iter().position(|pid| pid == &hit.id).unwrap_or(0);
-                    hit.score = pin_score + (ids.len() - rank) as f32;
+                if let Some(rank) = ids.iter().position(|pid| pid == &hit.id) {
+                    hit.score = f32::from_bits(0x7F00_0001_u32 + (p - rank as u32));
                 }
             }
         }
