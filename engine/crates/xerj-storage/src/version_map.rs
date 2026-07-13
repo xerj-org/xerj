@@ -538,7 +538,8 @@ mod tests {
     fn version_bumps_on_newer_seq_only() {
         let vm = VersionMap::new();
         assert_eq!(vm.set("d", 1, "__memtable__", false), 1);
-        assert_eq!(vm.set("d", 5, "__memtable__", false), 2); // overwrite
+        // Overwrite with a newer seq bumps.
+        assert_eq!(vm.set("d", 5, "__memtable__", false), 2);
         // Same-seq repoint (flush) keeps the version.
         assert_eq!(vm.set("d", 5, "seg-a", false), 2);
         // Stale replay of an older copy keeps the version.
@@ -578,7 +579,10 @@ mod tests {
         // Flush replays BOTH drained copies; only the live seq repoints.
         vm.repoint("d", 1, "seg-a"); // superseded duplicate → no-op
         let e = vm.get("d").unwrap();
-        assert_eq!((&*e.segment_id, e.seq_no, e.version), ("__memtable__", 2, 2));
+        assert_eq!(
+            (&*e.segment_id, e.seq_no, e.version),
+            ("__memtable__", 2, 2)
+        );
         vm.repoint("d", 2, "seg-a");
         let e = vm.get("d").unwrap();
         assert_eq!((&*e.segment_id, e.seq_no, e.version), ("seg-a", 2, 2));
