@@ -66,7 +66,7 @@
 //!    generation holding even one acked-but-unflushed entry is retained.
 
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
+use std::io::{self, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -85,6 +85,17 @@ use crate::{Result, SeqNo, StorageError};
 
 const WAL_MAGIC: &[u8; 4] = b"ZWAL";
 const WAL_HEADER_LEN: u64 = 16; // magic(4) + generation(8) + reserved(4)
+
+/// Frame overhead: entry_len(4) + seq_no(8) + op(1) + crc32(4).
+const WAL_FRAME_OVERHEAD: usize = 17;
+
+/// Sanity cap on a single frame's payload length.  Anything larger is
+/// treated as framing corruption (a garbage length field would otherwise
+/// make the scanner skip gigabytes past real frames).
+const WAL_MAX_ENTRY_LEN: u32 = 1 << 30; // 1 GiB
+
+/// BufWriter capacity shared by open/rotate/recovery reseats.
+const WAL_BUF_CAP: usize = 8 * 1024 * 1024;
 
 // Op codes
 const OP_INDEX: u8 = 0x01;
@@ -210,6 +221,60 @@ impl WalCheckpoint {
     }
 }
 
+// ── WalFile ──────────────────────────────────────────────────────────────────
+
+/// Thin `File` wrapper the `BufWriter` sits on.  Exists for two reasons:
+///
+/// 1. Gives the RC4 W2 #13 recovery path a single place to reseat the
+///    writer on a fresh fd after a torn write.
+/// 2. Test-only fault injection: `fail_after` is a remaining-byte budget —
+///    once it hits zero every write returns `ENOSPC`, and a write that
+///    crosses the boundary is PARTIAL first (exactly how a filling disk
+///    tears a frame).  Zero-cost in release builds (the field doesn't
+///    exist and `write` delegates directly).
+pub(crate) struct WalFile {
+    file: File,
+    #[cfg(test)]
+    fail_after: Option<u64>,
+}
+
+impl WalFile {
+    fn new(file: File) -> Self {
+        Self {
+            file,
+            #[cfg(test)]
+            fail_after: None,
+        }
+    }
+
+    fn file(&self) -> &File {
+        &self.file
+    }
+}
+
+impl Write for WalFile {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        #[cfg(test)]
+        {
+            if let Some(budget) = self.fail_after {
+                let allowed = (budget as usize).min(buf.len());
+                if allowed == 0 && !buf.is_empty() {
+                    // ENOSPC — "No space left on device"
+                    return Err(io::Error::from_raw_os_error(28));
+                }
+                let n = self.file.write(&buf[..allowed])?;
+                self.fail_after = Some(budget - n as u64);
+                return Ok(n);
+            }
+        }
+        self.file.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.file.flush()
+    }
+}
+
 // ── WalWriter ────────────────────────────────────────────────────────────────
 
 /// Appends entries to the Write-Ahead Log.
@@ -218,10 +283,34 @@ impl WalCheckpoint {
 /// so multiple threads can serialize through it.  WAL writes are deliberately
 /// **synchronous**: `append` takes a `&mut self` and does a blocking write so
 /// the caller knows data is durable (in `Strict` mode) before returning.
+///
+/// ## Torn-frame recovery (RC4 W2 #13)
+///
+/// Every append path holds the invariant *"the on-disk file ends at a frame
+/// boundary and the userspace buffer is empty between appends"*:
+///
+/// - each append drains the `BufWriter` before returning (Strict fsyncs,
+///   Batched flushes to the kernel), so a frame is either fully in the
+///   kernel or the append reports an error;
+/// - on ANY write/flush/fsync error the writer runs
+///   [`recover_after_write_error`](Self::recover_after_write_error): the
+///   buffered torn bytes are DISCARDED (never flushed later), the file is
+///   truncated back to the last good frame boundary, and the failed op is
+///   NACKed.  If the truncate itself fails, the writer rotates to a fresh
+///   generation (the old file keeps a torn TAIL, which replay tolerates);
+///   if even that fails, the writer is poisoned — every subsequent append
+///   fails fast (and re-attempts the fresh-generation heal) instead of
+///   appending after a torn frame.
+///
+/// Pre-fix, a partial frame write (ENOSPC, EIO) left torn bytes MID-FILE
+/// once later appends succeeded: replay stopped at the tear and silently
+/// dropped every acked entry after it (live repro: `PUT a2` acked, gone
+/// after restart; garbage frame headers even poisoned the seq counter via
+/// the unvalidated open-time scan).
 pub struct WalWriter {
     dir: PathBuf,
     generation: u64,
-    writer: BufWriter<File>,
+    writer: BufWriter<WalFile>,
     current_offset: u64,
     max_size_bytes: u64,
     sync_mode: SyncMode,
@@ -229,6 +318,11 @@ pub struct WalWriter {
     /// the `wal_batch_ms` background fsync loop (RC4 W1 #9) so idle shards
     /// don't get pointless fsyncs.
     dirty: bool,
+    /// Set when torn-frame recovery could neither truncate nor rotate
+    /// (e.g. disk completely full).  Appends fail fast while set; each
+    /// append first re-attempts the fresh-generation heal so the writer
+    /// self-recovers once space frees up.
+    poisoned: bool,
     /// Shared sequence number counter — also used by the index store.
     pub seq_counter: Arc<AtomicU64>,
 }
@@ -238,6 +332,20 @@ impl WalWriter {
     ///
     /// If a WAL file for the latest generation already exists it is opened for
     /// append; otherwise a new generation-0 file is created.
+    ///
+    /// RC4 W2 #13 — the active generation's tail is HEALED before any new
+    /// append can land after it.  Pre-fix, `open` appended at the raw file
+    /// length: a torn frame left by a crash/ENOSPC then sat MID-FILE under
+    /// freshly-acked entries, and the next replay silently dropped every
+    /// entry after the tear.  Now:
+    ///
+    /// - clean file → append at its end (unchanged);
+    /// - torn TAIL (garbage after the last valid frame, no valid frame
+    ///   beyond it) → truncate the garbage, append at the boundary;
+    /// - mid-file corruption (valid frames RESUME after a bad region —
+    ///   disk rot or a legacy-binary tear) → freeze the file untouched
+    ///   (replay boundary-resync still recovers its parseable entries;
+    ///   prune retains it) and start a fresh generation for appends.
     pub fn open(
         dir: impl AsRef<Path>,
         max_size_bytes: u64,
@@ -248,29 +356,79 @@ impl WalWriter {
         fs::create_dir_all(&dir)?;
 
         // Find the highest existing generation
-        let (generation, start_seq) = find_latest_generation(&dir)?;
+        let (generation, max_seq) = find_latest_generation(&dir)?;
 
-        // Sync the seq counter with what was recovered from the WAL
-        if start_seq > seq_counter.load(Ordering::Acquire) {
-            seq_counter.store(start_seq, Ordering::Release);
+        // Sync the seq counter with what was recovered from the WAL.  The
+        // counter holds the NEXT seq to assign, so seed it one PAST the
+        // highest valid frame (`max_seq` itself would make the next
+        // append duplicate an existing seq — pre-fix this was masked by
+        // the replay path's own `fetch_max(seq + 1)`).  `fetch_max`
+        // rather than store: 16 shard writers share one counter.
+        if max_seq > 0 {
+            seq_counter.fetch_max(max_seq + 1, Ordering::AcqRel);
         }
 
         let path = wal_path(&dir, generation);
-        let file = if path.exists() {
-            OpenOptions::new().append(true).open(&path)?
+        let (generation, file, current_offset) = if path.exists() {
+            match scan_wal_tail(&path) {
+                Ok(WalTailScan::Clean { end }) => {
+                    let f = OpenOptions::new().append(true).open(&path)?;
+                    (generation, f, end)
+                }
+                Ok(WalTailScan::TornTail { last_good_end }) => {
+                    // Truncate the torn bytes so appends land on a frame
+                    // boundary.  Failure to truncate falls back to a
+                    // fresh generation (the tear stays a TAIL tear).
+                    match truncate_wal_file(&path, last_good_end) {
+                        Ok(f) => {
+                            warn!(
+                                generation,
+                                last_good_end,
+                                "WAL open: healed torn tail (crash/ENOSPC leftover) by truncation"
+                            );
+                            (generation, f, last_good_end)
+                        }
+                        Err(e) => {
+                            warn!(
+                                generation,
+                                error = %e,
+                                "WAL open: torn-tail truncate failed — freezing generation, appending to a fresh one"
+                            );
+                            let next = generation + 1;
+                            let f = create_wal_file(&wal_path(&dir, next), next)?;
+                            (next, f, WAL_HEADER_LEN)
+                        }
+                    }
+                }
+                Ok(WalTailScan::MidFileCorruption) | Err(_) => {
+                    // Valid frames resume after a bad region (or the file
+                    // is unreadable): truncating would DESTROY acked
+                    // entries.  Freeze the file for replay's boundary
+                    // resync + prune retention; append to a fresh
+                    // generation.
+                    warn!(
+                        generation,
+                        "WAL open: mid-file corruption detected — freezing generation, appending to a fresh one"
+                    );
+                    let next = generation + 1;
+                    let f = create_wal_file(&wal_path(&dir, next), next)?;
+                    (next, f, WAL_HEADER_LEN)
+                }
+            }
         } else {
-            create_wal_file(&path, generation)?
+            let f = create_wal_file(&path, generation)?;
+            (generation, f, WAL_HEADER_LEN)
         };
-        let current_offset = file.metadata()?.len();
 
         Ok(Self {
             dir,
             generation,
-            writer: BufWriter::with_capacity(8 * 1024 * 1024, file),
+            writer: BufWriter::with_capacity(WAL_BUF_CAP, WalFile::new(file)),
             current_offset,
             max_size_bytes,
             sync_mode,
             dirty: false,
+            poisoned: false,
             seq_counter,
         })
     }
@@ -291,6 +449,7 @@ impl WalWriter {
     ///
     /// In `Strict` mode this flushes + fsyncs before returning.
     pub fn append(&mut self, entry: &WalEntry) -> Result<SeqNo> {
+        self.ensure_writable()?;
         // Rotate if the file is too large
         if self.current_offset > self.max_size_bytes {
             self.rotate()?;
@@ -314,6 +473,33 @@ impl WalWriter {
             (raw_payload, base_op_code)
         };
 
+        self.write_one_frame_recovered(seq_no, op_code, &payload)?;
+
+        debug!(seq_no, op = op_code, "WAL append");
+        Ok(seq_no)
+    }
+
+    /// Frame-write core shared by `append` / `append_index_raw`: CRC +
+    /// framing + drain, wrapped in torn-frame recovery (RC4 W2 #13).  On
+    /// error the WAL is restored to the frame boundary captured at entry
+    /// and the error propagates (the op is NACKed but the log stays
+    /// clean for every previously-acked entry).
+    fn write_one_frame_recovered(
+        &mut self,
+        seq_no: SeqNo,
+        op_code: u8,
+        payload: &[u8],
+    ) -> Result<()> {
+        let frame_start = self.current_offset;
+        let res = self.write_one_frame_inner(seq_no, op_code, payload);
+        if let Err(e) = res {
+            self.recover_after_write_error(frame_start, &e);
+            return Err(e);
+        }
+        Ok(())
+    }
+
+    fn write_one_frame_inner(&mut self, seq_no: SeqNo, op_code: u8, payload: &[u8]) -> Result<()> {
         // CRC covers seq_no(8) + op(1) + payload(n)
         let mut hasher = Crc32Hasher::new();
         let mut seq_buf = [0u8; 8];
@@ -322,17 +508,17 @@ impl WalWriter {
             .unwrap();
         hasher.update(&seq_buf);
         hasher.update(&[op_code]);
-        hasher.update(&payload);
+        hasher.update(payload);
         let crc = hasher.finalize();
 
         let entry_len = payload.len() as u32;
         self.writer.write_u32::<LittleEndian>(entry_len)?;
         self.writer.write_u64::<LittleEndian>(seq_no)?;
         self.writer.write_u8(op_code)?;
-        self.writer.write_all(&payload)?;
+        self.writer.write_all(payload)?;
         self.writer.write_u32::<LittleEndian>(crc)?;
 
-        let written = 4 + 8 + 1 + payload.len() as u64 + 4;
+        let written = WAL_FRAME_OVERHEAD as u64 + payload.len() as u64;
         self.current_offset += written;
         self.dirty = true;
 
@@ -346,9 +532,7 @@ impl WalWriter {
             // Mirrors what `wal_append_batch` does after its frame write.
             self.writer.flush()?;
         }
-
-        debug!(seq_no, op = op_code, bytes = written, "WAL append");
-        Ok(seq_no)
+        Ok(())
     }
 
     /// V4 M4.8 — raw-bytes fast path for `WalEntry::Index`.
@@ -366,6 +550,7 @@ impl WalWriter {
     /// upstream `serde_json::Value::clone()` it replaced accounts for ~30 %
     /// of per-doc CPU.
     pub fn append_index_raw(&mut self, doc_id: &str, source_bytes: &[u8]) -> Result<SeqNo> {
+        self.ensure_writable()?;
         if self.current_offset > self.max_size_bytes {
             self.rotate()?;
         }
@@ -415,54 +600,48 @@ impl WalWriter {
             (raw_payload, base_op_code)
         };
 
-        let mut hasher = Crc32Hasher::new();
-        let mut seq_buf = [0u8; 8];
-        (&mut seq_buf[..])
-            .write_u64::<LittleEndian>(seq_no)
-            .unwrap();
-        hasher.update(&seq_buf);
-        hasher.update(&[op_code]);
-        hasher.update(&payload);
-        let crc = hasher.finalize();
-
-        let entry_len = payload.len() as u32;
-        self.writer.write_u32::<LittleEndian>(entry_len)?;
-        self.writer.write_u64::<LittleEndian>(seq_no)?;
-        self.writer.write_u8(op_code)?;
-        self.writer.write_all(&payload)?;
-        self.writer.write_u32::<LittleEndian>(crc)?;
-
-        let written = 4 + 8 + 1 + payload.len() as u64 + 4;
-        self.current_offset += written;
-        self.dirty = true;
-
-        if self.sync_mode == SyncMode::Strict {
-            self.sync()?;
-        } else {
-            // Durability consistency with `append` (RC4 W1 #8/#9): drain
-            // the BufWriter to the kernel page cache before the caller
-            // acks, so a SIGKILL cannot lose an acked single-doc append
-            // that was still sitting in the userspace buffer.
-            self.writer.flush()?;
-        }
+        // Durability consistency with `append` (RC4 W1 #8/#9): the frame
+        // core drains the BufWriter to the kernel page cache before the
+        // caller acks, so a SIGKILL cannot lose an acked single-doc
+        // append that was still sitting in the userspace buffer.  Torn
+        // writes are rolled back by the shared recovery (RC4 W2 #13).
+        self.write_one_frame_recovered(seq_no, op_code, &payload)?;
         Ok(seq_no)
     }
 
     /// Write a pre-assembled batch of framed bytes.  Caller must hold
     /// the WAL mutex.  `total_written` is the byte count to add to
     /// `current_offset`.
+    ///
+    /// RC4 W2 #13 — Batched mode now DRAINS the BufWriter before
+    /// returning (Strict already fsynced).  This makes the caller's
+    /// follow-up `soft_flush()` a no-op and, crucially, keeps the
+    /// "buffer empty between appends" invariant the torn-frame recovery
+    /// relies on: an error anywhere in this batch rolls the WAL back to
+    /// the batch's start boundary and NACKs the whole batch.
     pub fn append_frames_locked(&mut self, frames: &[u8], total_written: u64) -> Result<()> {
         if frames.is_empty() {
             return Ok(());
         }
+        self.ensure_writable()?;
         if self.current_offset > self.max_size_bytes {
             self.rotate()?;
         }
-        self.writer.write_all(frames)?;
-        self.current_offset += total_written;
-        self.dirty = true;
-        if self.sync_mode == SyncMode::Strict {
-            self.sync()?;
+        let frame_start = self.current_offset;
+        let res: Result<()> = (|| {
+            self.writer.write_all(frames)?;
+            self.current_offset += total_written;
+            self.dirty = true;
+            if self.sync_mode == SyncMode::Strict {
+                self.sync()?;
+            } else {
+                self.writer.flush()?;
+            }
+            Ok(())
+        })();
+        if let Err(e) = res {
+            self.recover_after_write_error(frame_start, &e);
+            return Err(e);
         }
         Ok(())
     }
@@ -481,6 +660,7 @@ impl WalWriter {
         if pre_built.is_empty() {
             return Ok(Vec::new());
         }
+        self.ensure_writable()?;
         if self.current_offset > self.max_size_bytes {
             self.rotate()?;
         }
@@ -539,12 +719,23 @@ impl WalWriter {
         }
 
         // Single write_all — one BufWriter call for the whole batch.
-        self.writer.write_all(&out)?;
-        self.current_offset += written_total;
-        self.dirty = true;
-
-        if self.sync_mode == SyncMode::Strict {
-            self.sync()?;
+        // Drain in Batched mode too (see `append_frames_locked`); errors
+        // roll the WAL back to the batch boundary and NACK the batch.
+        let frame_start = self.current_offset;
+        let res: Result<()> = (|| {
+            self.writer.write_all(&out)?;
+            self.current_offset += written_total;
+            self.dirty = true;
+            if self.sync_mode == SyncMode::Strict {
+                self.sync()?;
+            } else {
+                self.writer.flush()?;
+            }
+            Ok(())
+        })();
+        if let Err(e) = res {
+            self.recover_after_write_error(frame_start, &e);
+            return Err(e);
         }
         Ok(seq_nos)
     }
@@ -552,9 +743,130 @@ impl WalWriter {
     /// Flush the write buffer and call `fsync`.
     pub fn sync(&mut self) -> Result<()> {
         self.writer.flush()?;
-        self.writer.get_ref().sync_all()?;
+        self.writer.get_ref().file().sync_all()?;
         self.dirty = false;
         Ok(())
+    }
+
+    // ── Torn-frame recovery (RC4 W2 #13) ─────────────────────────────────
+
+    /// Fail-fast gate at the top of every append path.  A poisoned writer
+    /// (recovery exhausted both truncate and rotate — e.g. disk full)
+    /// re-attempts the fresh-generation heal on every call so the WAL
+    /// self-recovers the moment space frees up; until then appends error
+    /// instead of writing after a torn frame.
+    fn ensure_writable(&mut self) -> Result<()> {
+        if !self.poisoned {
+            return Ok(());
+        }
+        if self.try_reseat_fresh_generation() {
+            warn!(
+                generation = self.generation,
+                "WAL writer self-healed onto a fresh generation after earlier unrecoverable write error"
+            );
+            return Ok(());
+        }
+        Err(StorageError::WalCorrupt(
+            self.current_offset,
+            "WAL writer poisoned by an unrecoverable write error (disk full?); \
+             append refused to avoid tearing the log"
+                .to_string(),
+        ))
+    }
+
+    /// Restore the invariant "file ends at a frame boundary, buffer is
+    /// empty" after a failed append/flush/fsync:
+    ///
+    /// 1. Reseat the BufWriter on a fresh dup of the fd, DISCARDING any
+    ///    buffered torn bytes (`into_parts` — never flushed), and truncate
+    ///    the file back to `frame_start` (the last good boundary captured
+    ///    before the failed frame started).
+    /// 2. If the truncate fails, rotate to a brand-new generation — the
+    ///    old file keeps at worst a torn TAIL, which replay tolerates and
+    ///    open() heals.
+    /// 3. If even that fails, poison the writer (appends fail fast and
+    ///    keep re-trying step 2 via `ensure_writable`).
+    fn recover_after_write_error(&mut self, frame_start: u64, cause: &StorageError) {
+        let reseat: io::Result<WalFile> = (|| {
+            let dup = self.writer.get_ref().file().try_clone()?;
+            // Defensive min(): under the drain-per-append invariant the
+            // file can only be AT or PAST the boundary; never extend it
+            // (set_len past EOF would zero-fill — manufactured garbage).
+            let len = dup.metadata()?.len();
+            let target = frame_start.min(len);
+            dup.set_len(target)?;
+            dup.sync_all()?;
+            Ok(WalFile::new(dup))
+        })();
+        match reseat {
+            Ok(fresh) => {
+                let old = std::mem::replace(
+                    &mut self.writer,
+                    BufWriter::with_capacity(WAL_BUF_CAP, fresh),
+                );
+                // Discard buffered torn bytes WITHOUT flushing them.
+                let _ = old.into_parts();
+                self.current_offset = frame_start;
+                self.poisoned = false;
+                warn!(
+                    generation = self.generation,
+                    frame_start,
+                    error = %cause,
+                    "WAL append failed — torn frame discarded, log truncated to last good frame boundary"
+                );
+                return;
+            }
+            Err(e) => {
+                warn!(
+                    generation = self.generation,
+                    error = %e,
+                    "WAL torn-frame truncate failed — trying a fresh generation"
+                );
+            }
+        }
+        if self.try_reseat_fresh_generation() {
+            warn!(
+                generation = self.generation,
+                error = %cause,
+                "WAL append failed — recovered onto a fresh generation (old tail tear is replay-safe)"
+            );
+        } else {
+            self.poisoned = true;
+            tracing::error!(
+                generation = self.generation,
+                error = %cause,
+                "WAL unrecoverable after write error — writer poisoned; appends fail fast until a heal succeeds"
+            );
+        }
+    }
+
+    /// Step 2/3 of recovery: seat the writer on a brand-new generation
+    /// file, discarding whatever the old BufWriter still buffered.
+    /// Returns false when even creating the new file fails (disk full).
+    fn try_reseat_fresh_generation(&mut self) -> bool {
+        let next = self.generation + 1;
+        match create_wal_file(&wal_path(&self.dir, next), next) {
+            Ok(f) => {
+                self.generation = next;
+                let old = std::mem::replace(
+                    &mut self.writer,
+                    BufWriter::with_capacity(WAL_BUF_CAP, WalFile::new(f)),
+                );
+                let _ = old.into_parts();
+                self.current_offset = WAL_HEADER_LEN;
+                self.poisoned = false;
+                true
+            }
+            Err(_) => false,
+        }
+    }
+
+    /// Test-only ENOSPC injection: remaining-byte budget on the underlying
+    /// file — writes crossing it are partial-then-error, exactly like a
+    /// filling disk.  `None` clears the fault.
+    #[cfg(test)]
+    pub(crate) fn inject_write_fault(&mut self, budget: Option<u64>) {
+        self.writer.get_mut().fail_after = budget;
     }
 
     /// True when bytes were appended since the last `fsync`.  Consumed by
@@ -669,10 +981,7 @@ impl WalWriter {
     /// gets NotFound.
     ///
     /// Returns the number of generations pruned.
-    pub fn prune_verified(
-        &self,
-        verify: &dyn Fn(&WalEntry, SeqNo) -> bool,
-    ) -> Result<usize> {
+    pub fn prune_verified(&self, verify: &dyn Fn(&WalEntry, SeqNo) -> bool) -> Result<usize> {
         let mut pruned = 0usize;
         for gen in self.rotated_generations()? {
             let (gen_entries, clean) = self.read_generation_entries(gen);
@@ -732,10 +1041,15 @@ impl WalWriter {
 
     fn rotate(&mut self) -> Result<()> {
         self.sync()?;
-        self.generation += 1;
-        let path = wal_path(&self.dir, self.generation);
-        let file = create_wal_file(&path, self.generation)?;
-        self.writer = BufWriter::with_capacity(8 * 1024 * 1024, file);
+        // Bump the generation only AFTER the new file exists: bumping
+        // first meant a failed create left `generation` pointing past the
+        // file still being appended — `rotated_generations()` then listed
+        // the ACTIVE file as a prune candidate.
+        let next = self.generation + 1;
+        let path = wal_path(&self.dir, next);
+        let file = create_wal_file(&path, next)?;
+        self.generation = next;
+        self.writer = BufWriter::with_capacity(WAL_BUF_CAP, WalFile::new(file));
         self.current_offset = WAL_HEADER_LEN;
         debug!(
             generation = self.generation,
@@ -951,6 +1265,135 @@ pub fn replay_all_sorted(wal_root: &Path) -> Vec<ReplayEntry> {
     all_entries
 }
 
+// ── Frame-level parsing (shared by replay, tail-heal, seq scan) ──────────────
+
+/// Outcome of parsing one raw frame at `off` in a fully-read WAL file.
+enum RawFrame<'a> {
+    /// `off` is exactly the end of the buffer — clean end of file.
+    End,
+    /// A CRC-valid frame: `(seq_no, op_code, payload, end_offset)`.
+    Frame {
+        seq_no: SeqNo,
+        op_code: u8,
+        payload: &'a [u8],
+        end: usize,
+    },
+    /// The bytes at `off` do not form a complete valid frame (truncated
+    /// header/payload, implausible length, or CRC mismatch).
+    Corrupt,
+}
+
+/// Parse the frame starting at `off`.  Integrity gate is the CRC over
+/// seq_no + op + payload; a frame that passes it is genuine (2^-32 for
+/// random bytes, further narrowed by the length/op sanity checks used
+/// by the resync scan).
+fn parse_raw_frame(buf: &[u8], off: usize) -> RawFrame<'_> {
+    if off == buf.len() {
+        return RawFrame::End;
+    }
+    if off + 13 > buf.len() {
+        return RawFrame::Corrupt; // truncated header
+    }
+    let entry_len = u32::from_le_bytes(buf[off..off + 4].try_into().unwrap());
+    if entry_len > WAL_MAX_ENTRY_LEN {
+        return RawFrame::Corrupt;
+    }
+    let total = WAL_FRAME_OVERHEAD + entry_len as usize;
+    if off + total > buf.len() {
+        return RawFrame::Corrupt; // truncated payload/crc
+    }
+    let seq_no = u64::from_le_bytes(buf[off + 4..off + 12].try_into().unwrap());
+    let op_code = buf[off + 12];
+    let payload = &buf[off + 13..off + 13 + entry_len as usize];
+    let stored_crc = u32::from_le_bytes(
+        buf[off + 13 + entry_len as usize..off + total]
+            .try_into()
+            .unwrap(),
+    );
+
+    let mut hasher = Crc32Hasher::new();
+    hasher.update(&buf[off + 4..off + 12]); // seq_no LE bytes
+    hasher.update(&[op_code]);
+    hasher.update(payload);
+    if hasher.finalize() != stored_crc {
+        return RawFrame::Corrupt;
+    }
+    RawFrame::Frame {
+        seq_no,
+        op_code,
+        payload,
+        end: off + total,
+    }
+}
+
+/// Scan forward from `from` for the next offset that parses as a
+/// CRC-valid frame with a KNOWN op code — the boundary-resync primitive.
+/// The op-code check (8 valid values of 256) stacks with the CRC to make
+/// a false resync on garbage astronomically unlikely.
+fn scan_next_valid_frame(buf: &[u8], from: usize) -> Option<usize> {
+    let mut c = from;
+    while c + WAL_FRAME_OVERHEAD <= buf.len() {
+        // Cheap pre-filter before paying a CRC: plausible op byte.
+        let op = buf.get(c + 12).copied().unwrap_or(0);
+        if WalOpCode::from_u8(op & !OP_COMPRESSED_FLAG).is_some() {
+            if let RawFrame::Frame { .. } = parse_raw_frame(buf, c) {
+                return Some(c);
+            }
+        }
+        c += 1;
+    }
+    None
+}
+
+/// Writer-side verdict on the ACTIVE generation's on-disk state, used by
+/// `WalWriter::open` to decide where appends may land (RC4 W2 #13).
+enum WalTailScan {
+    /// Every byte parses cleanly: append at `end` (== file length).
+    Clean { end: u64 },
+    /// Garbage after the last valid frame with NO valid frame beyond it —
+    /// the classic crash/ENOSPC tail tear.  Truncate to `last_good_end`.
+    TornTail { last_good_end: u64 },
+    /// A bad region followed by more valid frames (or an unreadable
+    /// header): truncation would destroy acked entries — freeze the file
+    /// and append to a fresh generation instead.
+    MidFileCorruption,
+}
+
+/// Classify the tail state of a WAL file (see [`WalTailScan`]).
+fn scan_wal_tail(path: &Path) -> io::Result<WalTailScan> {
+    let buf = fs::read(path)?;
+    if buf.len() < WAL_HEADER_LEN as usize || &buf[..4] != WAL_MAGIC {
+        // Unreadable header (e.g. crash during file creation) — never
+        // append after it.
+        return Ok(WalTailScan::MidFileCorruption);
+    }
+    let mut off = WAL_HEADER_LEN as usize;
+    loop {
+        match parse_raw_frame(&buf, off) {
+            RawFrame::End => return Ok(WalTailScan::Clean { end: off as u64 }),
+            RawFrame::Frame { end, .. } => off = end,
+            RawFrame::Corrupt => {
+                return if scan_next_valid_frame(&buf, off + 1).is_some() {
+                    Ok(WalTailScan::MidFileCorruption)
+                } else {
+                    Ok(WalTailScan::TornTail {
+                        last_good_end: off as u64,
+                    })
+                };
+            }
+        }
+    }
+}
+
+/// Truncate a WAL file to `len` and reopen it for append, fsyncing the
+/// truncation so the healed boundary is durable.
+fn truncate_wal_file(path: &Path, len: u64) -> io::Result<File> {
+    let f = OpenOptions::new().append(true).open(path)?;
+    f.set_len(len)?;
+    f.sync_all()?;
+    Ok(f)
+}
+
 /// Read all entries from a single WAL file.
 ///
 /// RC4 W1 #8: checkpoint-based skipping is GONE from replay (see
@@ -960,156 +1403,145 @@ pub fn replay_all_sorted(wal_root: &Path) -> Vec<ReplayEntry> {
 /// skip entirely is its logical conclusion — replay-side loss is now
 /// structurally impossible, and dedup of already-flushed entries is the
 /// job of the idempotent replay consumers.
+///
+/// RC4 W2 #13 — BOUNDARY RESYNC: a corrupt region no longer aborts the
+/// whole file.  Pre-fix the parser `break`-ed at the first bad frame, so
+/// a mid-file tear (crash/ENOSPC leftover appended over by a pre-fix
+/// binary, or disk rot) silently dropped every acked entry after it
+/// (live repro: acked `PUT a2` gone after restart, WARN-only).  Now the
+/// parser records one `Err` per bad region and RESUMES at the next
+/// CRC-valid frame boundary; the `Err` keeps the file "unclean" so
+/// `prune_verified` retains it.  Frames whose framing is intact but
+/// whose payload fails to decode (lz4/json/op-mismatch) also record an
+/// `Err` and CONTINUE at the next frame instead of dropping the rest of
+/// the file.
 fn read_wal_file(path: PathBuf) -> Vec<Result<ReplayEntry>> {
-    let file = match File::open(&path) {
-        Ok(f) => f,
+    let buf = match fs::read(&path) {
+        Ok(b) => b,
         Err(e) => return vec![Err(e.into())],
     };
-    let mut reader = BufReader::new(file);
-
-    // Read + validate header
-    let mut magic = [0u8; 4];
-    if reader.read_exact(&mut magic).is_err() {
+    if buf.len() < 4 {
         return vec![];
     }
-    if &magic != WAL_MAGIC {
+    if &buf[..4] != WAL_MAGIC {
         return vec![Err(StorageError::InvalidMagic {
             expected: WAL_MAGIC,
-            actual: magic.to_vec(),
+            actual: buf[..4].to_vec(),
         })];
     }
-    let generation = match reader.read_u64::<LittleEndian>() {
-        Ok(g) => g,
-        Err(e) => return vec![Err(e.into())],
-    };
-    let _reserved = reader.read_u32::<LittleEndian>(); // ignored
+    if buf.len() < WAL_HEADER_LEN as usize {
+        return vec![];
+    }
+    let generation = u64::from_le_bytes(buf[4..12].try_into().unwrap());
 
-    let mut file_offset = WAL_HEADER_LEN;
-    let mut results = Vec::new();
+    let mut results: Vec<Result<ReplayEntry>> = Vec::new();
+    let mut off = WAL_HEADER_LEN as usize;
 
     loop {
-        let entry_len = match reader.read_u32::<LittleEndian>() {
-            Ok(l) => l,
-            Err(ref e) if e.kind() == io::ErrorKind::UnexpectedEof => break,
-            Err(e) => {
-                results.push(Err(e.into()));
-                break;
-            }
-        };
-        let seq_no = match reader.read_u64::<LittleEndian>() {
-            Ok(s) => s,
-            Err(e) => {
-                results.push(Err(e.into()));
-                break;
-            }
-        };
-        let op_code = match reader.read_u8() {
-            Ok(o) => o,
-            Err(e) => {
-                results.push(Err(e.into()));
-                break;
-            }
-        };
-        let mut payload = vec![0u8; entry_len as usize];
-        if let Err(e) = reader.read_exact(&mut payload) {
-            results.push(Err(StorageError::WalCorrupt(
-                file_offset,
-                format!("gen={generation} truncated payload: {e}"),
-            )));
-            break;
-        }
-        let stored_crc = match reader.read_u32::<LittleEndian>() {
-            Ok(c) => c,
-            Err(e) => {
-                results.push(Err(e.into()));
-                break;
-            }
-        };
-
-        // Verify CRC
-        let mut hasher = Crc32Hasher::new();
-        let mut seq_buf = [0u8; 8];
-        (&mut seq_buf[..])
-            .write_u64::<LittleEndian>(seq_no)
-            .unwrap();
-        hasher.update(&seq_buf);
-        hasher.update(&[op_code]);
-        hasher.update(&payload);
-        let computed_crc = hasher.finalize();
-        if stored_crc != computed_crc {
-            results.push(Err(StorageError::ChecksumMismatch {
-                expected: stored_crc,
-                actual: computed_crc,
-            }));
-            break;
-        }
-
-        let entry_total = 4u64 + 8 + 1 + entry_len as u64 + 4;
-        let this_offset = file_offset;
-        file_offset += entry_total;
-
-        // Check and strip the compression flag from op_code.
-        let is_compressed = (op_code & OP_COMPRESSED_FLAG) != 0;
-        let raw_op_code = op_code & !OP_COMPRESSED_FLAG;
-
-        // Decode the entry
-        let op = match WalOpCode::from_u8(raw_op_code) {
-            Some(o) => o,
-            None => {
-                warn!(
-                    op_code = raw_op_code,
-                    "unknown WAL op code — skipping entry"
-                );
-                continue;
-            }
-        };
-
-        // Decompress payload if compressed.
-        let payload = if is_compressed {
-            match decompress_size_prepended(&payload) {
-                Ok(dec) => dec,
-                Err(e) => {
-                    results.push(Err(StorageError::WalCorrupt(
-                        this_offset,
-                        format!("gen={generation} lz4 decompression failed: {e}"),
-                    )));
-                    break;
+        match parse_raw_frame(&buf, off) {
+            RawFrame::End => break,
+            RawFrame::Corrupt => {
+                match scan_next_valid_frame(&buf, off + 1) {
+                    Some(next) => {
+                        warn!(
+                            generation,
+                            offset = off,
+                            resync_at = next,
+                            "WAL corrupt region mid-file — resynced to next valid frame \
+                             boundary (entries in the gap are lost; file retained by prune)"
+                        );
+                        results.push(Err(StorageError::WalCorrupt(
+                            off as u64,
+                            format!("gen={generation} corrupt region at {off}, resynced at {next}"),
+                        )));
+                        off = next;
+                    }
+                    None => {
+                        // Torn tail — everything before it was recovered.
+                        results.push(Err(StorageError::WalCorrupt(
+                            off as u64,
+                            format!("gen={generation} truncated/torn tail"),
+                        )));
+                        break;
+                    }
                 }
             }
-        } else {
-            payload
-        };
+            RawFrame::Frame {
+                seq_no,
+                op_code,
+                payload,
+                end,
+            } => {
+                let this_offset = off as u64;
+                off = end;
 
-        let entry: WalEntry = match serde_json::from_slice(&payload) {
-            Ok(e) => e,
-            Err(e) => {
-                results.push(Err(StorageError::WalCorrupt(
-                    this_offset,
-                    format!("gen={generation} json error op={op:?}: {e}"),
-                )));
-                break;
+                // Check and strip the compression flag from op_code.
+                let is_compressed = (op_code & OP_COMPRESSED_FLAG) != 0;
+                let raw_op_code = op_code & !OP_COMPRESSED_FLAG;
+
+                let op = match WalOpCode::from_u8(raw_op_code) {
+                    Some(o) => o,
+                    None => {
+                        warn!(
+                            op_code = raw_op_code,
+                            "unknown WAL op code — skipping entry"
+                        );
+                        continue;
+                    }
+                };
+
+                // Decompress payload if compressed.
+                let payload_owned: Vec<u8>;
+                let payload_bytes: &[u8] = if is_compressed {
+                    match decompress_size_prepended(payload) {
+                        Ok(dec) => {
+                            payload_owned = dec;
+                            &payload_owned
+                        }
+                        Err(e) => {
+                            results.push(Err(StorageError::WalCorrupt(
+                                this_offset,
+                                format!("gen={generation} lz4 decompression failed: {e}"),
+                            )));
+                            continue;
+                        }
+                    }
+                } else {
+                    payload
+                };
+
+                let entry: WalEntry = match serde_json::from_slice(payload_bytes) {
+                    Ok(e) => e,
+                    Err(e) => {
+                        results.push(Err(StorageError::WalCorrupt(
+                            this_offset,
+                            format!("gen={generation} json error op={op:?}: {e}"),
+                        )));
+                        continue;
+                    }
+                };
+
+                // Sanity-check op code matches enum variant
+                let expected_op = match &entry {
+                    WalEntry::Index { .. } => WalOpCode::Index,
+                    WalEntry::Delete { .. } => WalOpCode::Delete,
+                    WalEntry::UpdateMapping { .. } => WalOpCode::UpdateMapping,
+                };
+                if op != expected_op {
+                    results.push(Err(StorageError::WalCorrupt(
+                        this_offset,
+                        format!("op code mismatch: header={op:?}, payload={expected_op:?}"),
+                    )));
+                    continue;
+                }
+
+                results.push(Ok(ReplayEntry {
+                    seq_no,
+                    entry,
+                    file_offset: this_offset,
+                }));
             }
-        };
-
-        // Sanity-check op code matches enum variant
-        let expected_op = match &entry {
-            WalEntry::Index { .. } => WalOpCode::Index,
-            WalEntry::Delete { .. } => WalOpCode::Delete,
-            WalEntry::UpdateMapping { .. } => WalOpCode::UpdateMapping,
-        };
-        if op != expected_op {
-            results.push(Err(StorageError::WalCorrupt(
-                this_offset,
-                format!("op code mismatch: header={op:?}, payload={expected_op:?}"),
-            )));
-            break;
         }
-
-        results.push(Ok(ReplayEntry {
-            seq_no,
-            entry,
-            file_offset: this_offset,
-        }));
     }
 
     // M5.8 — sort by seq_no so that the M5.8 lock-free WAL writer path
@@ -1160,31 +1592,31 @@ fn find_latest_generation(dir: &Path) -> Result<(u64, SeqNo)> {
     Ok((max_gen, max_seq))
 }
 
+/// RC4 W2 #13 — the seq scan only trusts CRC-VALID frames.  The pre-fix
+/// version read raw `(len, seq)` headers with zero validation and seeked
+/// past `len`: a 40-byte garbage tail parsed as seq_no
+/// 0xABAB_ABAB_ABAB_ABAB and permanently jumped the global seq counter to
+/// ~1.2e19 (live-reproduced: the next acked PUT returned that _seq_no).
+/// Corrupt regions are skipped via the same boundary resync replay uses.
 fn scan_seq_nos(path: PathBuf) -> io::Result<Option<SeqNo>> {
-    let file = File::open(&path)?;
-    let mut reader = BufReader::new(file);
-
-    let mut magic = [0u8; 4];
-    if reader.read_exact(&mut magic).is_err() {
+    let buf = fs::read(&path)?;
+    if buf.len() < WAL_HEADER_LEN as usize || &buf[..4] != WAL_MAGIC {
         return Ok(None);
     }
-    if &magic != WAL_MAGIC {
-        return Ok(None);
-    }
-    let _ = reader.read_u64::<LittleEndian>()?; // generation
-    let _ = reader.read_u32::<LittleEndian>()?; // reserved
-
     let mut max_seq = None;
+    let mut off = WAL_HEADER_LEN as usize;
     loop {
-        let entry_len = match reader.read_u32::<LittleEndian>() {
-            Ok(l) => l,
-            Err(ref e) if e.kind() == io::ErrorKind::UnexpectedEof => break,
-            Err(e) => return Err(e),
-        };
-        let seq_no = reader.read_u64::<LittleEndian>()?;
-        max_seq = Some(max_seq.unwrap_or(0).max(seq_no));
-        let _op = reader.read_u8()?;
-        reader.seek(SeekFrom::Current(entry_len as i64 + 4))?; // skip payload + crc
+        match parse_raw_frame(&buf, off) {
+            RawFrame::End => break,
+            RawFrame::Frame { seq_no, end, .. } => {
+                max_seq = Some(max_seq.unwrap_or(0).max(seq_no));
+                off = end;
+            }
+            RawFrame::Corrupt => match scan_next_valid_frame(&buf, off + 1) {
+                Some(next) => off = next,
+                None => break,
+            },
+        }
     }
     Ok(max_seq)
 }
@@ -1365,6 +1797,256 @@ mod tests {
         w.append(&WalEntry::Delete { doc_id: "a".into() }).unwrap();
         w.append(&WalEntry::Delete { doc_id: "b".into() }).unwrap();
         assert!(w.generation > 0, "should have rotated");
+    }
+
+    // ── RC4 W2 #13 — torn-frame / ENOSPC hardening ─────────────────────
+
+    /// ENOSPC injection: a mid-frame write error must NOT poison the
+    /// generation.  Pre-fix the torn bytes stayed in the stream, later
+    /// acked appends landed after them, and replay dropped everything
+    /// from the tear onward.  Post-fix the failed frame is rolled back
+    /// (truncate + buffer discard), the failed op is NACKed, and the log
+    /// stays byte-clean for both earlier and later acked entries.
+    #[test]
+    fn enospc_mid_frame_rolls_back_and_wal_stays_clean() {
+        let dir = tempfile::tempdir().unwrap();
+        let seq_ctr = Arc::new(AtomicU64::new(1));
+        let mut w = WalWriter::open(
+            dir.path(),
+            64 * 1024 * 1024,
+            SyncMode::Batched,
+            Arc::clone(&seq_ctr),
+        )
+        .unwrap();
+
+        // A — acked.
+        let seq_a = w
+            .append(&WalEntry::Index {
+                doc_id: "a".into(),
+                source: serde_json::json!({"v": 1}),
+            })
+            .unwrap();
+
+        // B — disk "fills up" 10 bytes into the frame: partial write,
+        // then ENOSPC.  The append must error (NACK).
+        w.inject_write_fault(Some(10));
+        let err = w.append(&WalEntry::Index {
+            doc_id: "b".into(),
+            source: serde_json::json!({"v": 2, "pad": "x".repeat(64)}),
+        });
+        assert!(err.is_err(), "append during ENOSPC must NACK");
+
+        // Space frees up (recovery reseated the writer on a clean fd, so
+        // the fault is naturally gone) — C is acked.
+        let seq_c = w
+            .append(&WalEntry::Index {
+                doc_id: "c".into(),
+                source: serde_json::json!({"v": 3}),
+            })
+            .unwrap();
+
+        // The active generation must decode CLEAN end-to-end: exactly
+        // A and C, no torn bytes anywhere.
+        let (entries, clean) = w.read_generation_entries(w.active_generation());
+        assert!(
+            clean,
+            "WAL generation must stay clean after ENOSPC rollback"
+        );
+        let ids: Vec<String> = entries
+            .iter()
+            .map(|e| match &e.entry {
+                WalEntry::Index { doc_id, .. } => doc_id.clone(),
+                other => panic!("unexpected entry {other:?}"),
+            })
+            .collect();
+        assert_eq!(ids, vec!["a".to_string(), "c".to_string()]);
+        drop(w);
+
+        // Replay agrees: every acked entry, zero errors.
+        let reader = WalReader::new(dir.path());
+        let replayed: Vec<_> = reader.replay().unwrap().collect();
+        assert_eq!(replayed.len(), 2);
+        let seqs: Vec<u64> = replayed
+            .iter()
+            .map(|r| r.as_ref().unwrap().seq_no)
+            .collect();
+        assert_eq!(seqs, vec![seq_a, seq_c]);
+    }
+
+    /// Batch-path variant of the ENOSPC rollback: the whole batch is
+    /// NACKed and rolled back to the batch's start boundary.
+    #[test]
+    fn enospc_mid_batch_rolls_back_whole_batch() {
+        let dir = tempfile::tempdir().unwrap();
+        let seq_ctr = Arc::new(AtomicU64::new(1));
+        let mut w = WalWriter::open(
+            dir.path(),
+            64 * 1024 * 1024,
+            SyncMode::Batched,
+            Arc::clone(&seq_ctr),
+        )
+        .unwrap();
+
+        w.append(&WalEntry::Delete { doc_id: "a".into() }).unwrap();
+
+        let (_seqs, frames, total) = wal_build_frames_lockfree(
+            &seq_ctr,
+            &[
+                br#"{"Index":{"doc_id":"b1","source":{}}}"#.to_vec(),
+                br#"{"Index":{"doc_id":"b2","source":{}}}"#.to_vec(),
+            ],
+        );
+        w.inject_write_fault(Some(7));
+        assert!(
+            w.append_frames_locked(&frames, total).is_err(),
+            "batch during ENOSPC must NACK"
+        );
+
+        let seq_c = w.append(&WalEntry::Delete { doc_id: "c".into() }).unwrap();
+        let (entries, clean) = w.read_generation_entries(w.active_generation());
+        assert!(clean);
+        assert_eq!(entries.len(), 2, "only a and c survive: {entries:?}");
+        assert_eq!(entries[1].seq_no, seq_c);
+    }
+
+    /// Crash-torn tail heal at open: a partial frame left at the file
+    /// tail (kill -9 / ENOSPC without in-process recovery) must be
+    /// truncated on reopen so new acked appends land on a frame boundary.
+    /// Pre-fix, open() appended at the raw file length — the tear became
+    /// MID-FILE corruption and replay dropped every later acked entry
+    /// (live repro: acked a2 404 after restart), while the unvalidated
+    /// seq scan even seeded the counter from the garbage
+    /// (0xABABABABABABABAB = 12370169555311111083).
+    #[test]
+    fn open_heals_torn_tail_and_preserves_later_acked_appends() {
+        let dir = tempfile::tempdir().unwrap();
+        let seq_ctr = Arc::new(AtomicU64::new(1));
+        let mut w = WalWriter::open(
+            dir.path(),
+            64 * 1024 * 1024,
+            SyncMode::Batched,
+            Arc::clone(&seq_ctr),
+        )
+        .unwrap();
+        let gen0 = w.active_generation();
+        let seq_a = w
+            .append(&WalEntry::Index {
+                doc_id: "a1".into(),
+                source: serde_json::json!({"msg": "first acked doc"}),
+            })
+            .unwrap();
+        drop(w);
+
+        // Simulate the crash-torn partial frame.
+        let path = dir.path().join(format!("{gen0:016x}.wal"));
+        {
+            use std::io::Write as _;
+            let mut f = OpenOptions::new().append(true).open(&path).unwrap();
+            f.write_all(&[0xAB; 40]).unwrap();
+        }
+
+        // Reopen — the torn tail must be healed and the seq counter must
+        // NOT be poisoned by the garbage header.
+        let seq_ctr2 = Arc::new(AtomicU64::new(1));
+        let mut w2 = WalWriter::open(
+            dir.path(),
+            64 * 1024 * 1024,
+            SyncMode::Batched,
+            Arc::clone(&seq_ctr2),
+        )
+        .unwrap();
+        let seq_b = w2
+            .append(&WalEntry::Index {
+                doc_id: "a2".into(),
+                source: serde_json::json!({"msg": "second acked doc"}),
+            })
+            .unwrap();
+        assert_eq!(
+            seq_b,
+            seq_a + 1,
+            "seq counter must continue from the last VALID frame, not garbage"
+        );
+        drop(w2);
+
+        // Both acked docs replay, with zero errors.
+        let reader = WalReader::new(dir.path());
+        let replayed: Vec<_> = reader.replay().unwrap().collect();
+        let mut ids = Vec::new();
+        for r in &replayed {
+            let e = r.as_ref().expect("no corrupt entries after heal");
+            if let WalEntry::Index { doc_id, .. } = &e.entry {
+                ids.push(doc_id.clone());
+            }
+        }
+        assert_eq!(ids, vec!["a1".to_string(), "a2".to_string()]);
+    }
+
+    /// Mid-file corruption with parseable frames after it (disk rot, or a
+    /// tear appended over by a pre-fix binary): replay must RESYNC at the
+    /// next valid frame boundary and recover the later acked entries
+    /// (pre-fix: silently dropped), while the file stays "unclean" so the
+    /// verified prune retains it.
+    #[test]
+    fn replay_resyncs_past_midfile_corruption() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut w = make_writer(dir.path());
+        let gen0 = w.active_generation();
+        for id in ["a", "b", "c"] {
+            w.append(&WalEntry::Index {
+                doc_id: id.into(),
+                source: serde_json::json!({"pad": "p".repeat(32), "id": id}),
+            })
+            .unwrap();
+        }
+        drop(w);
+
+        // Corrupt ONE byte inside b's frame (payload region), leaving a
+        // parseable frame after it.
+        let path = dir.path().join(format!("{gen0:016x}.wal"));
+        let mut bytes = fs::read(&path).unwrap();
+        // Find b's frame: parse frame 1's end (a), flip a byte in the
+        // middle of the second frame's payload.
+        let first_end = match parse_raw_frame(&bytes, WAL_HEADER_LEN as usize) {
+            RawFrame::Frame { end, .. } => end,
+            _ => panic!("first frame must parse"),
+        };
+        bytes[first_end + 20] ^= 0xFF;
+        fs::write(&path, &bytes).unwrap();
+
+        let results = read_wal_file(path.clone());
+        let ok_ids: Vec<String> = results
+            .iter()
+            .filter_map(|r| r.as_ref().ok())
+            .map(|e| match &e.entry {
+                WalEntry::Index { doc_id, .. } => doc_id.clone(),
+                other => panic!("unexpected {other:?}"),
+            })
+            .collect();
+        assert_eq!(
+            ok_ids,
+            vec!["a".to_string(), "c".to_string()],
+            "entries after the corrupt region must be recovered via resync"
+        );
+        assert!(
+            results.iter().any(|r| r.is_err()),
+            "the corrupt region must surface as an error (keeps prune conservative)"
+        );
+
+        // Writer-side: open() must FREEZE this generation (mid-file
+        // corruption is never truncated — that would destroy c) and seat
+        // appends on a fresh one.
+        let w2 = WalWriter::open(
+            dir.path(),
+            64 * 1024 * 1024,
+            SyncMode::Batched,
+            Arc::new(AtomicU64::new(1)),
+        )
+        .unwrap();
+        assert_eq!(
+            w2.active_generation(),
+            gen0 + 1,
+            "mid-file-corrupt generation must be frozen, not appended to"
+        );
     }
 
     #[test]
