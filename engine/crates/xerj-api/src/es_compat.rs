@@ -20616,14 +20616,29 @@ pub async fn security_create_api_key(
     // ES returns base64("id:api_key") as the `encoded` credential.
     let encoded = base64_encode(&format!("{key_id}:{api_key}"));
 
+    // Honest surface (item 6): `role_descriptors` are accepted for ES/Kibana
+    // wire-compatibility but NOT enforced — every key authenticates as the
+    // single superuser. Warn loudly so an operator relying on scoped keys is
+    // not silently over-privileged. (Full per-key RBAC is deferred.)
+    if payload
+        .as_ref()
+        .and_then(|b| b.get("role_descriptors"))
+        .is_some_and(|v| !v.is_null() && v != &json!({}))
+    {
+        tracing::warn!(
+            key = %name,
+            "POST /_security/api_key: role_descriptors are NOT enforced; the \
+             minted key has full superuser access. See rbac docs."
+        );
+    }
+
     // Persist the key so the auth middleware can re-authenticate an inbound
     // `Authorization: ApiKey <encoded>` header. `encoded` decodes to
-    // `id:api_key`, so the stored secret is the `api_key` value. In-memory
-    // only (lost on restart); role_descriptors are accepted but not enforced
-    // (every key authenticates as the single superuser).
+    // `id:api_key`, so the stored secret is the `api_key` value. Persisted
+    // across restarts via `persist_api_key` (item 6: `<data_dir>/api_keys.json`).
     let now_ms = Utc::now().timestamp_millis().max(0) as u64;
     let expiration_ms = parse_api_key_expiration_ms(expiration.as_str(), now_ms);
-    state.engine.api_keys.insert(
+    state.engine.persist_api_key(
         key_id.clone(),
         xerj_engine::engine::ApiKeyRecord {
             name: name.clone(),

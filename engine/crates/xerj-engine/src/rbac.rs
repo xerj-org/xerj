@@ -1,18 +1,22 @@
-//! Role-based access control — v0.9 9-P2 (skeleton).
+//! Role-based access control — data model only. **NOT ENFORCED.**
 //!
-//! Minimal RBAC primitives that downstream auth middleware can grow
-//! into.  v0.9.0-alpha.1 ships:
+//! ⚠️ HONEST-SURFACE WARNING (RC4 item 6): the types below store roles, but
+//! **nothing in the auth path consults them.** `is_authorized`
+//! (`xerj-api::auth`) is binary — a request either carries the admin key / a
+//! valid minted API key (→ full superuser access) or it is rejected. A role
+//! `PUT` via `/_security/role/{name}` is recorded and can be read back, but it
+//! grants and restricts **nothing**; every authenticated caller is superuser.
+//! The `/_security/role*` handlers therefore stamp every response with
+//! `"enforced": false` so an operator cannot mistake this for a working
+//! authorization system. Full RBAC enforcement (per-request privilege checks,
+//! per-key `role_descriptors`, FLS/DLS) is DEFERRED.
 //!
+//! What ships today:
 //! - `Privilege` enum covering the seven core ops (read / write / admin
 //!   index, snapshot create / restore, security admin, audit read).
 //! - `Role` — name + privileges + index-pattern allow list.
 //! - `RoleStore` — in-memory map of roles, default seeded with
-//!   `admin`, `write`, `read`, `read_only_index`, `snapshot_admin`.
-//!
-//! v0.9.0-beta.1 will wire these into the auth middleware on every
-//! handler and add the `PUT /_security/role/{name}` /
-//! `PUT /_security/user/{name}` endpoints.  Field-level / document-level
-//! security (FLS / DLS) lands in v0.9.0-rc.1.
+//!   `admin`, `write`, `read`, `read_only_index`, `snapshot_admin`, `auditor`.
 
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
