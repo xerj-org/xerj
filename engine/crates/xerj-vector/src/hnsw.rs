@@ -494,6 +494,19 @@ impl HnswIndex {
         self.inner.read().unwrap().tomb_ids.len()
     }
 
+    /// True when node `id` exists and stores exactly `v` (bit-exact f32
+    /// compare). Used by the stale-graph rebuild (RC4 W2 item 17) to skip
+    /// re-inserting docs whose graph vector already matches the document
+    /// source, making a rebuild pass O(N·dim) compares + O(changed·log N)
+    /// inserts instead of a full O(N·log N) reconstruction.
+    pub fn vector_matches(&self, id: u64, v: &[f32]) -> bool {
+        let g = self.inner.read().unwrap();
+        match g.slot_of.get(&id) {
+            Some(&slot) => g.vec_of(slot) == v,
+            None => false,
+        }
+    }
+
     pub fn params(&self) -> &HnswParams {
         &self.params
     }
@@ -711,14 +724,14 @@ impl HnswIndex {
     // becomes O(file size / disk bw) and the graph is byte-identical
     // to what was running pre-restart.
 
-    /// Atomically write the graph to `path`. Writes to `<path>.tmp`
-    /// then `rename`s, so a crash during save leaves either the old
-    /// file or no file (caller falls back to WAL replay).
+    /// Atomically **and durably** write the graph to `path` (temp file +
+    /// fsync + rename + parent-dir fsync via `xerj_common::fsio`), so a
+    /// crash or power loss during save leaves either the old file or the
+    /// complete new file (caller falls back to WAL replay when absent).
     pub fn save_to(&self, path: &Path) -> Result<()> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(io_to_xerj)?;
         }
-        let tmp_path = path.with_extension("tmp");
         let mut buf: Vec<u8> = Vec::with_capacity(1024 * 1024);
 
         buf.write_all(HNSW_MAGIC).map_err(io_to_xerj)?;
@@ -781,9 +794,16 @@ impl HnswIndex {
         let crc = crc32fast::hash(&buf);
         buf.write_u32::<LittleEndian>(crc).map_err(io_to_xerj)?;
 
-        // Atomic publish.
-        std::fs::write(&tmp_path, &buf).map_err(io_to_xerj)?;
-        std::fs::rename(&tmp_path, path).map_err(io_to_xerj)?;
+        // Atomic + durable publish (RC4 W2 item 19). The previous
+        // fs::write + rename left both the file bytes and the directory
+        // entry in the volatile page cache: a power loss shortly after a
+        // flush could leave a truncated/empty graph.bin (CRC-rejected at
+        // the next open) or no file at all — and because the id-map/graph
+        // pair then fails to load or fails its freshness stamp, every kNN
+        // after recovery silently degraded to permanent-stale/brute.
+        // write_file_durable fsyncs the temp file, renames, then fsyncs
+        // the parent directory so the rename itself survives power loss.
+        xerj_common::fsio::write_file_durable(path, &buf).map_err(io_to_xerj)?;
         debug!(
             path = %path.display(),
             bytes = buf.len(),

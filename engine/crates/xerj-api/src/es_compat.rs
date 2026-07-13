@@ -12572,10 +12572,18 @@ pub async fn index_stats(
                     )
                 })
                 .unwrap_or((0, false));
+            // XERJ extension (RC4 W2 item 17): live ANN/HNSW health —
+            // `stale`/`rebuilding` make a brute-force-degraded index
+            // observable (pre-fix it looked identical to a healthy one).
+            let hnsw = match state.engine.get_index(name) {
+                Ok(idx) => idx.hnsw_stats().await,
+                Err(_) => json!({ "present": false }),
+            };
             let primaries = json!({
                 "docs": { "count": doc_count, "deleted": 0 },
                 "store": { "size_in_bytes": store_size_bytes },
                 "dense_vector": dv,
+                "hnsw": hnsw,
                 "merges": {
                     "current": if merging { 1 } else { 0 },
                     "current_docs": 0,
@@ -12692,6 +12700,14 @@ pub async fn index_stats(
             Err(_) => (0, 0, 0, 0, 0, 0, 0),
         };
     let dense_vector_stats = per_index_dense_vector_stats(&state, &index);
+    // XERJ extension (RC4 W2 item 17): live ANN/HNSW health — surfacing
+    // `stale`/`rebuilding` makes a brute-force-degraded index observable
+    // (pre-fix, permanent staleness after an unclean shutdown was
+    // indistinguishable from a healthy index).
+    let hnsw_stats = match state.engine.get_index(&index) {
+        Ok(idx) => idx.hnsw_stats().await,
+        Err(_) => json!({ "present": false }),
+    };
     // Merge status + real segment count so benchmarks can verify the
     // index is merge-quiescent (merges.current == 0) before measuring.
     let (seg_count, merges_current) = state
@@ -12708,6 +12724,7 @@ pub async fn index_stats(
         "docs": { "count": doc_count, "deleted": 0 },
         "store": { "size_in_bytes": store_size_bytes },
         "dense_vector": dense_vector_stats,
+        "hnsw": hnsw_stats,
         "indexing": {
             "index_total": doc_count,
             "index_time_in_millis": 0,
