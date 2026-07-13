@@ -785,11 +785,24 @@ pub async fn audit_verify(State(state): State<AppState>) -> impl IntoResponse {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// v0.9 9-P2 — Role store admin
+// v0.9 9-P2 — Role store admin — data model only, NOT ENFORCED (RC4 item 6)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Honest-surface banner stamped on every `/_security/role*` response. Roles
+/// are stored and round-trip, but the auth path never consults them — every
+/// authenticated caller is superuser. See `xerj_engine::rbac` module docs.
+const RBAC_NOT_ENFORCED_WARNING: &str =
+    "roles are stored but NOT enforced: every authenticated caller has full \
+     superuser access regardless of any role assignment. Full RBAC enforcement \
+     is deferred.";
+
 pub async fn rbac_list_roles(State(state): State<AppState>) -> impl IntoResponse {
-    Json(serde_json::json!({ "roles": state.engine.roles.list() })).into_response()
+    Json(serde_json::json!({
+        "roles": state.engine.roles.list(),
+        "enforced": false,
+        "warning": RBAC_NOT_ENFORCED_WARNING,
+    }))
+    .into_response()
 }
 
 pub async fn rbac_get_role(
@@ -797,7 +810,12 @@ pub async fn rbac_get_role(
     axum::extract::Path(name): axum::extract::Path<String>,
 ) -> impl IntoResponse {
     match state.engine.roles.get(&name) {
-        Some(r) => Json(r).into_response(),
+        Some(r) => Json(serde_json::json!({
+            "role": r,
+            "enforced": false,
+            "warning": RBAC_NOT_ENFORCED_WARNING,
+        }))
+        .into_response(),
         None => (
             axum::http::StatusCode::NOT_FOUND,
             format!("role '{name}' not found"),
@@ -815,7 +833,18 @@ pub async fn rbac_put_role(
     // Caller may omit the name field; the URL is authoritative.
     r.name = name;
     state.engine.roles.put(r.clone());
-    Json(r).into_response()
+    // Loud signal that this PUT grants/restricts nothing (item 6).
+    tracing::warn!(
+        role = %r.name,
+        "PUT /_security/role: role stored but NOT enforced — caller remains superuser"
+    );
+    Json(serde_json::json!({
+        "role": r,
+        "created": true,
+        "enforced": false,
+        "warning": RBAC_NOT_ENFORCED_WARNING,
+    }))
+    .into_response()
 }
 
 pub async fn rbac_delete_role(
@@ -823,7 +852,12 @@ pub async fn rbac_delete_role(
     axum::extract::Path(name): axum::extract::Path<String>,
 ) -> impl IntoResponse {
     match state.engine.roles.delete(&name) {
-        Some(_) => (axum::http::StatusCode::OK, "deleted").into_response(),
+        Some(_) => Json(serde_json::json!({
+            "deleted": true,
+            "enforced": false,
+            "warning": RBAC_NOT_ENFORCED_WARNING,
+        }))
+        .into_response(),
         None => (
             axum::http::StatusCode::NOT_FOUND,
             format!("role '{name}' not found"),

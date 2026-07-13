@@ -151,9 +151,15 @@ pub struct DataStream {
 }
 
 /// A created API key, kept in memory so the key can be re-authenticated by
-/// the auth middleware. Lost on restart (no persistence yet) and not yet
-/// revocable via the DELETE/query endpoints — those are follow-ups.
-#[derive(Debug, Clone)]
+/// the auth middleware.
+///
+/// Persisted across restarts (item 6): every mutation rewrites
+/// `<data_dir>/api_keys.json` (0600, atomic) and the file is reloaded on boot,
+/// so a key minted by `POST /_security/api_key` keeps working after the node
+/// restarts — before this, the map was in-memory only and every restart
+/// silently invalidated all minted keys (Kibana/agents would 401 until re-set).
+/// Serialized as JSON, so the fields must stay `serde`-round-trippable.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiKeyRecord {
     /// Caller-supplied key name (informational).
     pub name: String,
@@ -167,6 +173,41 @@ pub struct ApiKeyRecord {
     pub expiration_ms: Option<u64>,
     /// Set once the key has been invalidated (revoked).
     pub invalidated: bool,
+}
+
+/// Atomically write a **secret** file (API-key store) with owner-only (0600)
+/// permissions. The temp file is created 0600 *before* any bytes are written so
+/// the secret is never briefly world-readable, then renamed over the target
+/// (the rename carries the 0600 inode). On non-unix, perms are left to the OS
+/// default. Mirrors `index::write_file_atomic` but hardens the mode.
+fn write_secret_file_atomic(path: &std::path::Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write as _;
+    let tmp = path.with_extension("tmp");
+    {
+        let mut opts = std::fs::OpenOptions::new();
+        opts.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt as _;
+            opts.mode(0o600);
+        }
+        let mut f = opts.open(&tmp)?;
+        f.write_all(bytes)?;
+        f.sync_all()?;
+    }
+    // Tighten an already-existing tmp inode too (create() reuses perms).
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        std::fs::set_permissions(&tmp, std::fs::Permissions::from_mode(0o600))?;
+    }
+    std::fs::rename(&tmp, path)?;
+    if let Some(parent) = path.parent() {
+        if let Ok(dir) = std::fs::File::open(parent) {
+            let _ = dir.sync_all();
+        }
+    }
+    Ok(())
 }
 
 // ── Engine ────────────────────────────────────────────────────────────────────
@@ -402,6 +443,11 @@ impl Engine {
                 }
             }
         }
+
+        // Restore persisted API keys (item 6) so keys minted before a restart
+        // still authenticate. Must run before the server starts accepting
+        // requests (i.e. here in `new`), and is cheap (one small JSON file).
+        engine.load_persisted_api_keys();
 
         // Spawn the PIT sweeper. Pre-v0.6.2 PITs accumulated forever;
         // every open without close was a memory leak. The sweeper
@@ -748,6 +794,72 @@ impl Engine {
             }
             Err(e) => {
                 warn!(index = name, error = %e, "ignoring corrupt es_mapping.json");
+            }
+        }
+    }
+
+    /// Path of the persisted API-key store (`<data_dir>/api_keys.json`).
+    fn api_keys_path(&self) -> PathBuf {
+        self.data_dir.join("api_keys.json")
+    }
+
+    /// Insert (or overwrite) an API key and durably persist the whole store
+    /// (item 6). The auth middleware re-authenticates `Authorization: ApiKey
+    /// <encoded>` against `api_keys`; before this, that map lived only in
+    /// memory, so a restart silently invalidated every minted key. Now each
+    /// mutation snapshots the full map to `<data_dir>/api_keys.json` (0600,
+    /// atomic temp+rename), reloaded on boot.
+    ///
+    /// The write is best-effort: a persistence failure is logged but does not
+    /// fail the create — the key still works until the next restart, matching
+    /// the old behavior rather than regressing key creation.
+    pub fn persist_api_key(&self, id: String, record: ApiKeyRecord) {
+        self.api_keys.insert(id, record);
+        self.flush_api_keys();
+    }
+
+    /// Serialize the current `api_keys` map to `<data_dir>/api_keys.json`
+    /// atomically with owner-only (0600) permissions — the file holds key
+    /// secrets, so it must never be group/world readable.
+    fn flush_api_keys(&self) {
+        let snapshot: std::collections::HashMap<String, ApiKeyRecord> = self
+            .api_keys
+            .iter()
+            .map(|e| (e.key().clone(), e.value().clone()))
+            .collect();
+        let bytes = match serde_json::to_vec_pretty(&snapshot) {
+            Ok(b) => b,
+            Err(e) => {
+                warn!(error = %e, "failed to serialize api_keys for persistence");
+                return;
+            }
+        };
+        if let Err(e) = write_secret_file_atomic(&self.api_keys_path(), &bytes) {
+            warn!(error = %e, "failed to persist api_keys.json (keys work until restart)");
+        }
+    }
+
+    /// Load persisted API keys from `<data_dir>/api_keys.json` into the
+    /// in-memory map on boot. A missing file is normal (fresh node / no keys
+    /// ever minted); a corrupt file is logged and ignored (the node still
+    /// boots — the admin key path is unaffected).
+    fn load_persisted_api_keys(&self) {
+        let path = self.api_keys_path();
+        let Ok(bytes) = std::fs::read(&path) else {
+            return;
+        };
+        match serde_json::from_slice::<std::collections::HashMap<String, ApiKeyRecord>>(&bytes) {
+            Ok(map) => {
+                let n = map.len();
+                for (id, rec) in map {
+                    self.api_keys.insert(id, rec);
+                }
+                if n > 0 {
+                    info!(count = n, "restored persisted API keys");
+                }
+            }
+            Err(e) => {
+                warn!(error = %e, "ignoring corrupt api_keys.json");
             }
         }
     }

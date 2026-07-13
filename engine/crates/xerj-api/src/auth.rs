@@ -84,8 +84,14 @@ pub fn is_authorized(state: &AppState, auth_header: Option<&str>) -> bool {
     }
 
     match auth_header.and_then(extract_key) {
-        // Fast path: the configured admin/superuser key.
-        Some(key) if key == cfg.admin_api_key => true,
+        // The configured admin/superuser key. Compared in constant time
+        // (item 7): a plain `==` short-circuits on the first mismatching byte,
+        // leaking the shared-secret prefix length via response timing. The
+        // created-key path already used `constant_time_eq`; the admin key —
+        // the single most valuable credential in the system — must not be
+        // weaker. `constant_time_eq` still returns early on a length mismatch,
+        // which only reveals the key *length*, matching the created-key path.
+        Some(key) if constant_time_eq(key.as_bytes(), cfg.admin_api_key.as_bytes()) => true,
         // A key minted by `POST /_security/api_key`.
         Some(key) if authenticate_api_key(state, key) => true,
         _ => false,
@@ -326,6 +332,36 @@ mod tests {
             StatusCode::UNAUTHORIZED,
             "invalidated key should 401"
         );
+    }
+
+    /// Item 7: the admin key is authenticated through the constant-time
+    /// comparator. Functionally this must be indistinguishable from `==`: the
+    /// exact key authenticates, and a same-length-but-wrong key (the case a
+    /// naive early-exit `==` would leak byte-by-byte) is rejected.
+    #[tokio::test]
+    async fn admin_key_constant_time_accepts_exact_rejects_wrong() {
+        let admin = "admin-secret-key-0123456789abcdef";
+        let state = test_state(admin);
+
+        // Exact key authenticates.
+        assert!(is_authorized(&state, Some(&format!("ApiKey {admin}"))));
+        assert!(is_authorized(&state, Some(&format!("Bearer {admin}"))));
+
+        // Same length, differs only in the LAST byte — the worst case for an
+        // early-exit `==` (it would compare all but one byte before failing).
+        let mut wrong = admin.to_string();
+        wrong.pop();
+        wrong.push('X');
+        assert_eq!(wrong.len(), admin.len(), "wrong key must match length");
+        assert!(!is_authorized(&state, Some(&format!("ApiKey {wrong}"))));
+
+        // Differs only in the FIRST byte, and a length mismatch, both rejected.
+        assert!(!is_authorized(
+            &state,
+            Some("ApiKey Xdmin-secret-key-0123456789abcdef")
+        ));
+        assert!(!is_authorized(&state, Some("ApiKey short")));
+        assert!(!is_authorized(&state, None));
     }
 
     /// Regression for the RC4 blocker: `/health/live` + `/health/ready` must

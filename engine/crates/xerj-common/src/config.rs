@@ -50,6 +50,8 @@ pub struct Config {
     pub server: ServerConfig,
     /// Authentication — 2 settings.
     pub auth: AuthConfig,
+    /// CORS (cross-origin browser access) — 2 settings. Default restrictive.
+    pub cors: CorsConfig,
     /// TLS — 3 settings.
     pub tls: TlsConfig,
     /// Write-ahead log and flush behaviour — 5 settings.
@@ -80,7 +82,7 @@ pub struct Config {
     pub search_context: SearchContextConfig,
 }
 
-// Total: 5+2+3+10+5+3+1+6+2+4+3+4+3 = 51 fields
+// Total: 5+2+2+3+10+5+3+1+6+2+4+3+4+3 = 53 fields (incl. cors: 2)
 // `Default` is derived — every field is a sub-config that implements
 // `Default`, so the derive produces exactly the same all-defaults value
 // the manual impl used to build by hand.
@@ -295,6 +297,53 @@ impl Default for AuthConfig {
         Self {
             enabled: true,
             admin_api_key: String::new(),
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Cross-Origin Resource Sharing (CORS) settings.
+///
+/// **2 settings.**
+///
+/// DEFAULT RESTRICTIVE (RC4 item 5): out of the box the server emits **no**
+/// `Access-Control-Allow-Origin` header, so a browser blocks every cross-origin
+/// read. The pre-RC4 build hard-coded `Access-Control-Allow-Origin: *` /
+/// `-Methods: *` / `-Headers: *` with no knob — any web page on the internet
+/// could script authenticated reads/writes against a XERJ node reachable from
+/// the victim's browser.
+///
+/// This restrictive default does **not** affect:
+/// - the bundled Xerj Console (served same-origin from the same listener — CORS
+///   never applies to same-origin requests);
+/// - non-browser clients: `curl`, the shipped recipes, SDKs, and Kibana (which
+///   talks to ES server-side) all ignore CORS entirely.
+///
+/// To allow a browser SPA hosted on another origin, set
+/// `allowed_origins = ["https://app.example.com"]`. Set
+/// `allow_any_origin = true` **only** for local development to restore the old
+/// wide-open behavior.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct CorsConfig {
+    /// Explicit allow-list of browser `Origin`s permitted to make cross-origin
+    /// requests, e.g. `["https://app.example.com"]`. Empty by default
+    /// (restrictive). Each entry must be a full origin (scheme + host + optional
+    /// port); entries that don't parse as an HTTP header value are ignored.
+    pub allowed_origins: Vec<String>,
+    /// Escape hatch restoring the pre-RC4 wide-open policy
+    /// (`Access-Control-Allow-Origin: *`, any method, any header). Default
+    /// `false`. Enable **only** for local development — a public node with this
+    /// on is scriptable by any web page.
+    pub allow_any_origin: bool,
+}
+
+impl Default for CorsConfig {
+    fn default() -> Self {
+        Self {
+            allowed_origins: Vec::new(),
+            allow_any_origin: false,
         }
     }
 }
