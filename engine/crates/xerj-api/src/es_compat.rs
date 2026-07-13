@@ -5240,6 +5240,76 @@ pub async fn search_all(
     search(State(state), Path("*".to_string()), Query(params), body).await
 }
 
+/// Bounded top-level query-type label for the `query_latency_by_type`
+/// histogram. Returns the outermost query clause name (e.g. `bool`, `term`,
+/// `match`) when it is one of the known Elasticsearch query types, `match_all`
+/// when the request has no `query`, and `other` for anything unrecognised — so
+/// the Prometheus label set stays bounded no matter what a client sends.
+pub(crate) fn top_level_query_type(body_query: &Option<serde_json::Value>) -> &'static str {
+    // Bounded allow-list of ES top-level query clause names.
+    const KNOWN: &[&str] = &[
+        "match_all",
+        "match_none",
+        "match",
+        "match_phrase",
+        "match_phrase_prefix",
+        "multi_match",
+        "combined_fields",
+        "term",
+        "terms",
+        "terms_set",
+        "range",
+        "exists",
+        "prefix",
+        "wildcard",
+        "regexp",
+        "fuzzy",
+        "ids",
+        "bool",
+        "boosting",
+        "constant_score",
+        "dis_max",
+        "function_score",
+        "nested",
+        "has_child",
+        "has_parent",
+        "parent_id",
+        "geo_distance",
+        "geo_bounding_box",
+        "geo_shape",
+        "geo_polygon",
+        "shape",
+        "more_like_this",
+        "script",
+        "script_score",
+        "wrapper",
+        "pinned",
+        "rank_feature",
+        "distance_feature",
+        "intervals",
+        "query_string",
+        "simple_query_string",
+        "percolate",
+        "knn",
+        "span_near",
+        "span_term",
+        "span_first",
+        "span_or",
+        "span_not",
+    ];
+    let Some(q) = body_query else {
+        return "match_all";
+    };
+    match q.as_object().and_then(|o| o.keys().next()) {
+        Some(first) => KNOWN
+            .iter()
+            .copied()
+            .find(|&k| k == first.as_str())
+            .unwrap_or("other"),
+        None => "match_all",
+    }
+}
+
 pub async fn search(
     State(state): State<AppState>,
     Path(index): Path<String>,
@@ -5531,7 +5601,13 @@ pub async fn search(
     // `?typed_keys` — prefix agg names with their type in the response.
     let typed_keys = params.typed_keys.is_some();
 
-    state.metrics.queries_executed.inc();
+    // RC4 W4 item 2: bracket the live-search gauge for this request. The guard
+    // increments `active_searches` now and decrements on drop (any return path
+    // below), so `/metrics` reflects real in-flight search concurrency.
+    // `queries_by_index` is recorded per resolved index in the loop below;
+    // `queries_executed` + the latency histograms via `record_query_global` at
+    // completion.
+    let _search_guard = state.metrics.active_search_guard();
 
     // Support comma-separated multi-index with wildcard patterns:
     // /index1,index2/_search   — comma-separated exact names
@@ -7941,7 +8017,16 @@ pub async fn search(
     }
 
     let took_ms = started.elapsed().as_millis() as u64;
-    state.metrics.query_latency.observe(took_ms as f64 / 1000.0);
+    // RC4 W4 item 2: record the index-agnostic side of the completed search —
+    // the global `queries_executed` counter plus BOTH latency histograms
+    // (overall + by query type, which were previously never recorded).
+    // `queries_by_index` is deliberately NOT touched here: it is already
+    // incremented once per *resolved* concrete index in the loop above, which
+    // correctly attributes multi-index / wildcard searches (vs. this handler's
+    // single raw target label). Replaces the bare `query_latency.observe`.
+    state
+        .metrics
+        .record_query_global(top_level_query_type(&body.query), took_ms as f64 / 1000.0);
     // v0.8 8-P6: record into the slow query log if over the threshold.
     state.engine.slow_query.maybe_record(
         index.as_str(),
@@ -11789,8 +11874,23 @@ async fn process_bulk_body(
     // statuses.
     let all_backpressure = !result.items.is_empty() && result.items.iter().all(|i| i.status == 429);
 
+    // RC4 W4 item 2: tally successfully-written docs per index so the
+    // `docs_indexed` / `docs_indexed_by_index` counters reflect bulk ingest.
+    // The bulk pipeline is the demo's primary ingest path and previously never
+    // touched these counters — they read 0 even at millions of docs. Tallied
+    // locally and flushed with one `inc_by` per index after the loop (keeps the
+    // global atomic off the per-doc hot path). `item.index` here is the
+    // concrete resolved index, so the label set stays bounded.
+    let mut docs_indexed_tally: std::collections::HashMap<String, u64> =
+        std::collections::HashMap::new();
     let mut items: Vec<EsBulkItem> = Vec::with_capacity(result.items.len());
     for item in result.items {
+        if item.error.is_none()
+            && (200..300).contains(&item.status)
+            && matches!(item.action.as_str(), "index" | "create" | "update")
+        {
+            *docs_indexed_tally.entry(item.index.clone()).or_insert(0) += 1;
+        }
         let get = item.get_source.clone().map(|s| {
             serde_json::json!({
                 "found": true,
@@ -11850,6 +11950,12 @@ async fn process_bulk_body(
             },
         };
         items.push(action);
+    }
+
+    // RC4 W4 item 2: flush the per-index docs-indexed tally (one atomic inc_by
+    // per index) now the whole batch is accounted for.
+    for (idx_name, n) in &docs_indexed_tally {
+        state.metrics.record_docs_indexed(idx_name, *n);
     }
 
     let resp = EsBulkResponse {
@@ -13699,8 +13805,13 @@ pub async fn index_stats(
         "dense_vector": dense_vector_stats,
         "hnsw": hnsw_stats,
         "indexing": {
-            "index_total": doc_count,
-            "index_time_in_millis": 0,
+            // Real cumulative indexing counters (RC4 W4 item 1): plumbed from
+            // the per-index `metric_index_count` / `metric_index_total_ms`
+            // atomics (index.rs), which every ingest path increments. Noop
+            // updates early-return before `index_document`, so — as in ES —
+            // they land in `noop_update_total` and NOT `index_total`.
+            "index_total": stats.index_count,
+            "index_time_in_millis": stats.index_total_ms,
             "index_current": 0,
             "index_failed": 0,
             "delete_total": 0,
@@ -13725,8 +13836,13 @@ pub async fn index_stats(
             // the TTL sweeper and 429 cap are observable. Previously
             // hardcoded 0.
             "open_contexts": state.engine.scrolls.len(),
-            "query_total": 0,
-            "query_time_in_millis": 0,
+            // Real cumulative search counters (RC4 W4 item 1): plumbed from the
+            // per-index `metric_query_count` / `metric_query_total_ms` atomics
+            // (index.rs), incremented on every `Index::search`. Previously
+            // hardcoded 0 — `_stats.search.query_total` stayed 0 after real
+            // searches.
+            "query_total": stats.query_count,
+            "query_time_in_millis": stats.query_total_ms,
             "query_current": 0,
             "fetch_total": 0,
             "fetch_time_in_millis": 0,
@@ -16295,6 +16411,15 @@ fn glob_match_simple(pattern: &str, name: &str) -> bool {
 
 pub async fn nodes_stats(State(state): State<AppState>) -> impl IntoResponse {
     let (_idx_count, total_docs, store_bytes) = real_index_totals(&state).await;
+    // Live cumulative search + indexing counters, summed across all indices.
+    let (query_total, query_time_ms, index_total, index_time_ms) =
+        real_node_search_index_totals(&state).await;
+    // Real CPU-worker thread count. XERJ sizes its rayon ingest pool and the
+    // global search fan-out pool to the number of available cores (see
+    // xerj-engine/src/lib.rs); this is that number, not the old hardcoded 4.
+    let cpu_threads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(8);
 
     // Real RSS, host memory, and CPU utilisation from /proc.
     let rss_bytes = read_rss_bytes().unwrap_or(0);
@@ -16340,23 +16465,32 @@ pub async fn nodes_stats(State(state): State<AppState>) -> impl IntoResponse {
                         "heap_used_percent": heap_used_pct,
                         "non_heap_used_in_bytes": 0,
                     },
-                    "gc": {
-                        "collectors": {
-                            "young": { "collection_count": 0, "collection_time_in_millis": 0 },
-                            "old": { "collection_count": 0, "collection_time_in_millis": 0 },
-                        }
-                    }
+                    // NOTE (RC4 W4 item 1, honesty policy): the `jvm.gc`
+                    // collector stats are OMITTED, not faked. XERJ is a native
+                    // Rust engine with no garbage collector, so there are no GC
+                    // young/old collection counts to report. The `jvm.mem`
+                    // block is retained because ES health/monitoring clients
+                    // key on it, and its values are real (process RSS vs host
+                    // memory).
                 },
                 "thread_pool": {
-                    "search": { "threads": 4, "queue": 0, "active": 0, "rejected": 0 },
-                    "write": { "threads": 4, "queue": 0, "active": 0, "rejected": 0 },
-                    "bulk": { "threads": 4, "queue": 0, "active": 0, "rejected": 0 },
+                    // Real CPU-worker thread counts (was a hardcoded 4). Search
+                    // fan-out runs on the global rayon pool and ingest on the
+                    // dedicated ingest pool, both sized to available cores.
+                    // `queue`/`active`/`rejected` are an instantaneous idle
+                    // snapshot (not persistently instrumented) and stay 0.
+                    "search": { "threads": cpu_threads, "queue": 0, "active": 0, "rejected": 0 },
+                    "write": { "threads": cpu_threads, "queue": 0, "active": 0, "rejected": 0 },
+                    "bulk": { "threads": cpu_threads, "queue": 0, "active": 0, "rejected": 0 },
                 },
                 "indices": {
                     "docs": { "count": total_docs, "deleted": 0 },
                     "store": { "size_in_bytes": store_bytes },
-                    "indexing": { "index_total": 0, "index_time_in_millis": 0 },
-                    "search": { "query_total": 0, "query_time_in_millis": 0 },
+                    // Real cumulative counters summed across all indices
+                    // (RC4 W4 item 1): previously hardcoded 0, so node-stats
+                    // dashboards flatlined under load.
+                    "indexing": { "index_total": index_total, "index_time_in_millis": index_time_ms },
+                    "search": { "query_total": query_total, "query_time_in_millis": query_time_ms },
                     // Dense-vector off-heap stats. Populated when at
                     // least one index has a dense_vector field with
                     // BBQ index_options. Per-quantisation-type byte
@@ -27202,6 +27336,73 @@ async fn real_index_totals(state: &AppState) -> (usize, u64, u64) {
         }
     }
     (indices.len(), total_docs, store_bytes)
+}
+
+/// Sum the live per-index search + indexing counters across every index,
+/// for the node-level `_nodes/stats` `indices.{indexing,search}` rollup.
+///
+/// Returns `(query_total, query_time_ms, index_total, index_time_ms)` read
+/// from the same per-index atomics that back `GET /{index}/_stats`
+/// (`metric_query_count` / `metric_query_total_ms` / `metric_index_count` /
+/// `metric_index_total_ms` in index.rs). Previously the node rollup
+/// hardcoded these to 0, so ES node-stats dashboards flatlined even under
+/// heavy load.
+async fn real_node_search_index_totals(state: &AppState) -> (u64, u64, u64, u64) {
+    let indices = state.engine.list_indices().await;
+    let (mut q_total, mut q_ms, mut i_total, mut i_ms) = (0u64, 0u64, 0u64, 0u64);
+    for info in &indices {
+        if let Ok(s) = state.engine.index_stats(&info.name).await {
+            q_total += s.query_count;
+            q_ms += s.query_total_ms;
+            i_total += s.index_count;
+            i_ms += s.index_total_ms;
+        }
+    }
+    (q_total, q_ms, i_total, i_ms)
+}
+
+/// Refresh the process-level Prometheus gauges from live engine state. Reads
+/// only cheap snapshots (a lock-free store RCU snapshot per index plus a stat
+/// of each WAL dir), so it is safe to call on a short interval.
+async fn refresh_metric_gauges(state: &AppState) {
+    let indices = state.engine.list_indices().await;
+    let mut total_docs: i64 = 0;
+    let mut total_segments: i64 = 0;
+    let mut wal_bytes: i64 = 0;
+    for info in &indices {
+        total_docs += info.doc_count as i64;
+        if let Ok(idx) = state.engine.get_index(&info.name) {
+            total_segments += idx.store_snapshot().segments.len() as i64;
+            // WAL files live under `<index>/wal/*.wal`; sum just that subtree so
+            // the gauge tracks WAL growth (the WAL-runaway ticket) and not the
+            // segments alongside it.
+            wal_bytes += dir_size_bytes(&idx.data_dir().join("wal")) as i64;
+        }
+    }
+    state.metrics.doc_count.set(total_docs);
+    state.metrics.segment_count.set(total_segments);
+    state.metrics.wal_size_bytes.set(wal_bytes);
+    // Real process RSS (the RSS-runaway ticket's key signal).
+    if let Some(rss) = read_rss_bytes() {
+        state.metrics.memory_usage.set(rss as i64);
+    }
+}
+
+/// Background loop that refreshes the Prometheus gauges
+/// (`doc_count` / `segment_count` / `wal_size_bytes` / `memory_usage`) every
+/// 10 s. These are otherwise never written, so before this task `/metrics`
+/// reported them as a flat zero even at millions of docs — hiding exactly the
+/// RSS-runaway and WAL-growth signals operators need. The server spawns this
+/// once at startup. `tokio::time::interval` fires its first tick immediately,
+/// so the gauges are populated on the first pass rather than reading zero for
+/// the first 10 s.
+pub async fn run_metrics_gauge_loop(state: AppState) {
+    let mut ticker = tokio::time::interval(std::time::Duration::from_secs(10));
+    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    loop {
+        ticker.tick().await;
+        refresh_metric_gauges(&state).await;
+    }
 }
 
 #[cfg(test)]

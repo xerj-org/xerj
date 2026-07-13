@@ -38,6 +38,34 @@ pub use index::{
 };
 pub use memtable::FtsMemtable;
 
+// ── Process-global metrics handle ─────────────────────────────────────────────
+//
+// Flush, merge, and WAL writes happen deep in the engine, whose types are
+// constructed (`Index::open`) before the server's `Metrics` instance exists and
+// without a handle to it. Rather than thread `Arc<Metrics>` through every
+// constructor and the free-fn flush pipeline, the server installs the single
+// process-wide `Metrics` here once at startup (there is exactly one per
+// process). Call sites record via `engine_metrics()` — a no-op when unset
+// (e.g. in unit tests), so the engine never fabricates observations.
+//
+// This mirrors the `OnceLock` pattern the rayon pools below already use.
+static ENGINE_METRICS: std::sync::OnceLock<std::sync::Arc<xerj_common::metrics::Metrics>> =
+    std::sync::OnceLock::new();
+
+/// Install the process-wide metrics handle the engine records into. Idempotent;
+/// the first call wins (later calls are ignored). Called once by the server at
+/// startup with the same `Metrics` the HTTP `/metrics` endpoint scrapes.
+pub fn set_engine_metrics(metrics: std::sync::Arc<xerj_common::metrics::Metrics>) {
+    let _ = ENGINE_METRICS.set(metrics);
+}
+
+/// The installed metrics handle, or `None` if the server has not installed one
+/// (unit tests, embedded uses). Engine call sites guard on this so recording is
+/// a no-op when metrics are not wired.
+pub fn engine_metrics() -> Option<&'static std::sync::Arc<xerj_common::metrics::Metrics>> {
+    ENGINE_METRICS.get()
+}
+
 // ── Ingest/flush/merge rayon pool ────────────────────────────────────────────
 
 /// Dedicated rayon pool for ingest-side CPU work: bulk-body parse, P2.1
