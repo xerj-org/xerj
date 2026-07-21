@@ -83,9 +83,20 @@ fn query_node_to_agg_filter(node: &QueryNode) -> Option<Value> {
             }
             Some(serde_json::json!({ "terms": { field: Value::Array(strs) } }))
         }
-        // Numeric range only — every present bound must be a JSON number
-        // (date-string bounds compile differently and are left to the brute
-        // path).
+        // Numeric **or** date/keyword-string range.  Every present bound must
+        // be a JSON number, or every present bound must be a string — a mixed
+        // pair has no single columnar form and stays on the brute path.
+        //
+        // String bounds are what a date range looks like here: the parser has
+        // already resolved date math and rounding into the canonical RFC3339
+        // `%Y-%m-%dT%H:%M:%S%.3fZ` form, and the `.dv` builder files a date's
+        // string `_source` value under `Column::Keyword`, so `fast_aggs`
+        // serves these via `Pred::RangeKw` (lexicographic == chronological for
+        // that fixed-width form; it re-checks the invariant per segment).
+        // Rejecting them here previously dropped every date-filtered
+        // aggregation onto the full `_source` scan — ~9.9 s for a one-day
+        // window over 1.12 M docs, versus ~0.16 s for the same aggregation
+        // with no date filter at all.
         QueryNode::Range {
             field,
             gte,
@@ -94,11 +105,20 @@ fn query_node_to_agg_filter(node: &QueryNode) -> Option<Value> {
             lt,
             ..
         } => {
+            let present: Vec<&Value> = [gte, gt, lte, lt].iter().filter_map(|o| o.as_ref()).collect();
+            if present.is_empty() {
+                return None;
+            }
+            let all_num = present.iter().all(|v| v.is_number());
+            let all_str = present.iter().all(|v| v.is_string());
+            if !all_num && !all_str {
+                return None;
+            }
             let mut bounds = serde_json::Map::new();
             for (k, opt) in [("gte", gte), ("gt", gt), ("lte", lte), ("lt", lt)] {
                 if let Some(v) = opt {
                     match v {
-                        Value::Number(_) => {
+                        Value::Number(_) | Value::String(_) => {
                             bounds.insert(k.to_string(), v.clone());
                         }
                         _ => return None,

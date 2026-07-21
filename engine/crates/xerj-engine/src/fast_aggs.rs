@@ -3472,6 +3472,12 @@ impl<'a> FastCtx<'a> {
                 Ok(Some(ColKind::Numeric)) | Ok(None) => Some(()),
                 _ => None,
             },
+            // Lexicographic range — keyword-backed columns only (this is the
+            // shape a `date` field takes; see `Pred::RangeKw`).
+            Pred::RangeKw { field, .. } => match self.seg_field_kind(field) {
+                Ok(Some(ColKind::Keyword)) | Ok(None) => Some(()),
+                _ => None,
+            },
             Pred::And(subs) => {
                 for s in subs {
                     self.check_pred_kinds(s)?;
@@ -4642,6 +4648,34 @@ enum Pred {
         hi: f64,
         hi_incl: bool,
     },
+    /// Lexicographic range over a keyword-backed column.  This is what serves
+    /// **date** ranges: the `.dv` builder keys columns off the stored JSON
+    /// type, and a date's `_source` value is a *string*, so date fields live in
+    /// `Column::Keyword`, not `Column::Numeric`.  Before this variant existed,
+    /// `{"range":{"<date>":{…}}}` compiled to `RangeNum`, hit the
+    /// `Column::Keyword => return None` arm in `resolve_pred`, and bailed the
+    /// entire aggregation to the brute `_source` path — measured at ~9.9 s for
+    /// a one-day window over 1.12 M docs versus ~0.16 s for the same agg with
+    /// no date filter (i.e. *narrowing* the query made it ~60× slower).
+    ///
+    /// Correctness rests on ordinal order == value order.  `KeywordColumn`
+    /// assigns ordinals in lexicographic order, so this is exact whenever
+    /// lexicographic order agrees with the field's semantic order:
+    ///   * keyword fields — ES range semantics *are* lexicographic;
+    ///   * date fields — true for the canonical fixed-width RFC3339
+    ///     `%Y-%m-%dT%H:%M:%S%.3fZ` form the query parser emits and the
+    ///     ingest path normalises to.
+    /// `resolve_pred` enforces that invariant per segment and bails to brute
+    /// on any dictionary that is not uniformly canonical, so a mixed-width
+    /// column (e.g. hand-indexed `"2026-06-01"` alongside full timestamps)
+    /// keeps the exact legacy behaviour rather than silently mis-ranging.
+    RangeKw {
+        field: String,
+        lo: Option<String>,
+        lo_incl: bool,
+        hi: Option<String>,
+        hi_incl: bool,
+    },
     /// Conjunction of leaf predicates — a `bool` with only `must`/`filter`
     /// clauses (produced by `compile_top_pred` for the top-level query filter;
     /// `compile_pred` never yields this, so the filter/filters/adjacency
@@ -4767,6 +4801,44 @@ fn compile_pred(filter: &Value) -> Option<Pred> {
             {
                 return None;
             }
+            // String bounds → lexicographic (keyword/date) range.  All present
+            // bounds must agree on kind; a mixed `{gte: 1, lt: "2026-01-01"}`
+            // has no single columnar form, so it stays on the brute path.
+            let str_bounds = ["gte", "gt", "lte", "lt"]
+                .iter()
+                .filter_map(|k| bo.get(*k))
+                .all(|v| v.is_string());
+            let any_bound = ["gte", "gt", "lte", "lt"].iter().any(|k| bo.contains_key(*k));
+            if any_bound && str_bounds {
+                let get_str = |k: &str| -> Option<Option<String>> {
+                    match bo.get(k) {
+                        None => Some(None),
+                        Some(Value::String(s)) => Some(Some(s.clone())),
+                        Some(_) => None,
+                    }
+                };
+                let gte = get_str("gte")?;
+                let gt = get_str("gt")?;
+                let lte = get_str("lte")?;
+                let lt = get_str("lt")?;
+                let (lo, lo_incl) = match (gte, gt) {
+                    (Some(v), _) => (Some(v), true),
+                    (None, Some(v)) => (Some(v), false),
+                    (None, None) => (None, true),
+                };
+                let (hi, hi_incl) = match (lte, lt) {
+                    (Some(v), _) => (Some(v), true),
+                    (None, Some(v)) => (Some(v), false),
+                    (None, None) => (None, true),
+                };
+                return Some(Pred::RangeKw {
+                    field: field.clone(),
+                    lo,
+                    lo_incl,
+                    hi,
+                    hi_incl,
+                });
+            }
             let get_num = |k: &str| -> Option<Option<f64>> {
                 match bo.get(k) {
                     None => Some(None),
@@ -4806,6 +4878,9 @@ enum SegPred<'a> {
     /// Last bool = column has no nulls (hoisted roaring probe).
     KwEq(&'a KeywordColumn, u32, bool),
     KwIn(&'a KeywordColumn, Vec<u32>, bool),
+    /// Half-open ordinal window `[lo_ord, hi_ord)` over a keyword column's
+    /// lexicographically-sorted dictionary.  Last bool = column has no nulls.
+    KwRange(&'a KeywordColumn, u32, u32, bool),
     Num(&'a NumericColumn, f64, bool, f64, bool, bool),
     /// Conjunction — every sub-predicate must match the row.
     And(Vec<SegPred<'a>>),
@@ -4832,6 +4907,66 @@ fn resolve_pred<'a>(
                     SegPred::Never
                 } else {
                     SegPred::KwIn(k, ords, k.null_bitmap.is_empty())
+                }
+            }
+            Some(Column::Numeric(_)) => return None,
+            None => SegPred::Never,
+        },
+        Pred::RangeKw {
+            field,
+            lo,
+            lo_incl,
+            hi,
+            hi_incl,
+        } => match cols.get(field) {
+            Some(Column::Keyword(k)) => {
+                let terms = &k.terms;
+                if terms.is_empty() {
+                    return Some(SegPred::Never);
+                }
+                // Order-safety gate (see `Pred::RangeKw`).  Ordinals are
+                // lexicographic; we may only use them as a value range when
+                // byte order is guaranteed to agree with the field's semantic
+                // order.  Equal-width strings give that unconditionally — it
+                // is exactly the shape of canonical RFC3339
+                // `%Y-%m-%dT%H:%M:%S%.3fZ` timestamps, and of fixed-width
+                // keyword codes.  Anything ragged (mixed `"2026-06-01"` and
+                // `"2026-06-01T00:00:00.000Z"`, or free-text keywords) bails
+                // to the exact brute path rather than risk a wrong window.
+                let width = terms[0].len();
+                if !terms.iter().all(|t| t.len() == width) {
+                    return None;
+                }
+                if lo.as_ref().is_some_and(|s| s.len() != width)
+                    || hi.as_ref().is_some_and(|s| s.len() != width)
+                {
+                    return None;
+                }
+                // Half-open ordinal window over the sorted dictionary.
+                let lo_ord = match lo {
+                    None => 0u32,
+                    Some(b) => terms.partition_point(|t| {
+                        if *lo_incl {
+                            t.as_str() < b.as_str()
+                        } else {
+                            t.as_str() <= b.as_str()
+                        }
+                    }) as u32,
+                };
+                let hi_ord = match hi {
+                    None => terms.len() as u32,
+                    Some(b) => terms.partition_point(|t| {
+                        if *hi_incl {
+                            t.as_str() <= b.as_str()
+                        } else {
+                            t.as_str() < b.as_str()
+                        }
+                    }) as u32,
+                };
+                if lo_ord >= hi_ord {
+                    SegPred::Never
+                } else {
+                    SegPred::KwRange(k, lo_ord, hi_ord, k.null_bitmap.is_empty())
                 }
             }
             Some(Column::Numeric(_)) => return None,
@@ -4887,6 +5022,17 @@ fn seg_pred_matches(sp: &SegPred<'_>, row: u32) -> bool {
                 None => false,
             }
         }
+        SegPred::KwRange(k, lo_ord, hi_ord, no_nulls) => {
+            let o = if *no_nulls {
+                k.ords.get(row as usize).copied()
+            } else {
+                k.ord_for(row)
+            };
+            match o {
+                Some(o) => o >= *lo_ord && o < *hi_ord,
+                None => false,
+            }
+        }
         SegPred::Num(n, lo, lo_incl, hi, hi_incl, no_nulls) => {
             if !*no_nulls && n.null_bitmap.contains(row) {
                 return false;
@@ -4909,6 +5055,12 @@ fn seg_pred_count(sp: &SegPred<'_>, docs: u32) -> u64 {
             .iter()
             .map(|o| k.per_ord_count.get(*o as usize).copied().unwrap_or(0) as u64)
             .sum(),
+        // O(window) over the per-ordinal histogram — no row scan needed.
+        SegPred::KwRange(k, lo_ord, hi_ord, _) => k
+            .per_ord_count
+            .get(*lo_ord as usize..*hi_ord as usize)
+            .map(|s| s.iter().map(|c| *c as u64).sum())
+            .unwrap_or(0),
         SegPred::Num(n, lo, lo_incl, hi, hi_incl, _) => n.range_count(*lo, *hi, *lo_incl, *hi_incl),
         // Conjunction has no O(1) form — count matching rows directly.  Only
         // reached from the top-level filter count (compile_pred, used by the
@@ -5137,4 +5289,121 @@ fn vwh_cluster(vals: &[(f64, u64)], num_buckets: usize) -> Vec<VwhBucket> {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod range_kw_tests {
+    use super::*;
+    use xerj_storage::doc_values::KeywordColumn;
+
+    /// Canonical RFC3339 timestamps, 24 chars — the shape the query parser
+    /// emits and the ingest path normalises to.
+    fn ts(day: u32, hour: u32) -> String {
+        format!("2026-06-{day:02}T{hour:02}:00:00.000Z")
+    }
+
+    /// One doc per (day, hour) over 3 days × 24 hours.
+    fn cols() -> std::collections::BTreeMap<String, Column> {
+        let mut vals: Vec<Option<String>> = Vec::new();
+        for day in 1..=3u32 {
+            for hour in 0..24u32 {
+                vals.push(Some(ts(day, hour)));
+            }
+        }
+        let k = KeywordColumn::from_iter(vals).expect("build column");
+        let mut m = std::collections::BTreeMap::new();
+        m.insert("ts".to_string(), Column::Keyword(k));
+        m
+    }
+
+    fn count(pred: &Pred, cols: &std::collections::BTreeMap<String, Column>, docs: u32) -> u64 {
+        let sp = resolve_pred(cols, pred).expect("resolvable");
+        let by_count = seg_pred_count(&sp, docs);
+        let by_scan = (0..docs).filter(|r| seg_pred_matches(&sp, *r)).count() as u64;
+        assert_eq!(by_count, by_scan, "seg_pred_count disagrees with row scan");
+        by_count
+    }
+
+    fn rng(lo: Option<&str>, lo_incl: bool, hi: Option<&str>, hi_incl: bool) -> Pred {
+        Pred::RangeKw {
+            field: "ts".into(),
+            lo: lo.map(str::to_string),
+            lo_incl,
+            hi: hi.map(str::to_string),
+            hi_incl,
+        }
+    }
+
+    #[test]
+    fn half_open_day_window_is_exact() {
+        let c = cols();
+        // [day2 00:00, day3 00:00) == all 24 hours of day 2.
+        let p = rng(Some(&ts(2, 0)), true, Some(&ts(3, 0)), false);
+        assert_eq!(count(&p, &c, 72), 24);
+    }
+
+    #[test]
+    fn inclusive_upper_includes_the_boundary_instant() {
+        let c = cols();
+        let p = rng(Some(&ts(2, 0)), true, Some(&ts(2, 23)), true);
+        assert_eq!(count(&p, &c, 72), 24);
+        // Exclusive upper drops exactly the last hour.
+        let p = rng(Some(&ts(2, 0)), true, Some(&ts(2, 23)), false);
+        assert_eq!(count(&p, &c, 72), 23);
+    }
+
+    #[test]
+    fn exclusive_lower_drops_the_boundary_instant() {
+        let c = cols();
+        let p = rng(Some(&ts(2, 0)), false, Some(&ts(3, 0)), false);
+        assert_eq!(count(&p, &c, 72), 23);
+    }
+
+    #[test]
+    fn open_ended_bounds() {
+        let c = cols();
+        assert_eq!(count(&rng(None, true, Some(&ts(2, 0)), false), &c, 72), 24);
+        assert_eq!(count(&rng(Some(&ts(3, 0)), true, None, true), &c, 72), 24);
+        assert_eq!(count(&rng(None, true, None, true), &c, 72), 72);
+    }
+
+    #[test]
+    fn empty_and_out_of_range_windows() {
+        let c = cols();
+        assert_eq!(count(&rng(Some("2026-07-01T00:00:00.000Z"), true, None, true), &c, 72), 0);
+        assert_eq!(count(&rng(None, true, Some("2026-05-01T00:00:00.000Z"), false), &c, 72), 0);
+    }
+
+    /// The order-safety gate: a dictionary mixing widths (a hand-indexed
+    /// `"2026-06-02"` next to full timestamps) must BAIL, not mis-range.
+    #[test]
+    fn ragged_dictionary_bails_to_brute() {
+        let mut vals: Vec<Option<String>> = (0..24).map(|h| Some(ts(2, h))).collect();
+        vals.push(Some("2026-06-02".to_string()));
+        let k = KeywordColumn::from_iter(vals).expect("build column");
+        let mut m = std::collections::BTreeMap::new();
+        m.insert("ts".to_string(), Column::Keyword(k));
+        let p = rng(Some(&ts(2, 0)), true, Some(&ts(3, 0)), false);
+        assert!(resolve_pred(&m, &p).is_none(), "ragged dictionary must bail");
+    }
+
+    /// A bound whose width disagrees with the dictionary must bail too.
+    #[test]
+    fn unnormalised_bound_bails_to_brute() {
+        let c = cols();
+        let p = rng(Some("2026-06-02"), true, Some("2026-06-03"), false);
+        assert!(resolve_pred(&c, &p).is_none(), "short bound must bail");
+    }
+
+    /// A numeric column under a lexicographic range must bail (the date/keyword
+    /// split is decided by the stored JSON type, not the mapping).
+    #[test]
+    fn numeric_column_bails() {
+        use xerj_storage::doc_values::NumericColumn;
+        let mut m = std::collections::BTreeMap::new();
+        let n = NumericColumn::from_iter((0..10).map(|i| Some((i as f64).to_bits() as i64)));
+        m.insert("ts".to_string(), Column::Numeric(n));
+        let p = rng(Some(&ts(2, 0)), true, None, true);
+        assert!(resolve_pred(&m, &p).is_none());
+    }
 }
