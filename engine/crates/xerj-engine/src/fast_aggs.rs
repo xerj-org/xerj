@@ -1020,6 +1020,14 @@ impl<'a> FastCtx<'a> {
         // supported set covers the filtered-metric benchmark (avg/sum/…), the
         // common filtered `terms` dashboard, and `global` (which ignores the
         // filter entirely — it reduces over the whole corpus).
+        // `extended_stats` and the percentile family joined this list once
+        // their value gathering became filter-aware (`gather_numeric_sorted`
+        // gates on the `sorted` index's doc_id; `exec_extended_stats` gates
+        // its fold on the row).  Before that they were excluded for
+        // CORRECTNESS, not speed — folding every row under a filter would
+        // report whole-index statistics for a filtered query.  The exclusion
+        // meant a filtered `percentiles` fell to the O(N) `_source` scan:
+        // measured 11.9 s on 1.12 M docs, 70 s on 5.6 M.
         if self.top_filter.is_some()
             && !matches!(
                 agg_type,
@@ -1032,6 +1040,10 @@ impl<'a> FastCtx<'a> {
                     | "terms"
                     | "cardinality"
                     | "global"
+                    | "extended_stats"
+                    | "percentiles"
+                    | "percentile_ranks"
+                    | "median_absolute_deviation"
             )
         {
             return None;
@@ -1303,8 +1315,10 @@ impl<'a> FastCtx<'a> {
     // shapes it accepts (modulo float-summation order — the same documented
     // divergence the other metric leaves carry), and bails (`None` → brute)
     // on any option that would change value gathering or rendering
-    // (`missing`, `format`, `hdr`, `tdigest`) and under a top-level query
-    // filter (handled by the whitelist in `exec_agg`).
+    // (`missing`, `format`, `hdr`, `tdigest`).  A top-level query filter is
+    // now threaded through the gathering itself (per-row `seg_pred_matches`
+    // on the `sorted` index / the fold, plus `doc_matches_filter` on the
+    // memtable), so these leaves no longer bail when a filter is present.
 
     /// Gather every live numeric value of `field` (segments + memtable) into a
     /// single ascending-sorted `Vec<f64>`, mirroring the brute
@@ -1332,12 +1346,33 @@ impl<'a> FastCtx<'a> {
         }
         let mut vals: Vec<f64> = Vec::with_capacity(capacity);
         for s in &self.segs {
+            // Under a top-level query filter, gather ONLY matching rows.  The
+            // `sorted` index carries each value's `doc_id`, so the filter is a
+            // per-row gate that preserves ascending order — no re-sort needed
+            // and no separate pass.  Without this the percentile family had to
+            // bail whenever a filter was present (the whitelist in `exec_agg`),
+            // which is what dropped every filtered `percentiles` /
+            // `percentile_ranks` / `median_absolute_deviation` onto the O(N)
+            // `_source` scan.
+            let seg_pred = match &self.top_filter {
+                Some(p) => Some(resolve_pred(&s.cols, p)?),
+                None => None,
+            };
             match s.cols.get(field) {
-                Some(Column::Numeric(n)) => {
-                    for (bits, _) in &n.sorted {
-                        vals.push(f64::from_bits(*bits as u64));
+                Some(Column::Numeric(n)) => match &seg_pred {
+                    None => {
+                        for (bits, _) in &n.sorted {
+                            vals.push(f64::from_bits(*bits as u64));
+                        }
                     }
-                }
+                    Some(sp) => {
+                        for (bits, doc_id) in &n.sorted {
+                            if seg_pred_matches(sp, *doc_id) {
+                                vals.push(f64::from_bits(*bits as u64));
+                            }
+                        }
+                    }
+                },
                 Some(Column::Keyword(_)) => return None,
                 None => {}
             }
@@ -1345,7 +1380,15 @@ impl<'a> FastCtx<'a> {
         // The collected values are already globally sorted iff they came from a
         // single pre-sorted column source and the memtable added none.
         let mut pre_sorted = self.segs.len() <= 1;
+        // Memtable docs are gated by the same `doc_matches_filter` the brute
+        // path uses, so the gathered multiset is identical either way.
+        let mem_filter = self.top_filter_query.clone();
         for doc in self.mem().iter() {
+            if let Some(q) = &mem_filter {
+                if !doc_matches_filter(doc, q) {
+                    continue;
+                }
+            }
             if let Some(v) = extract_numeric(doc, field) {
                 vals.push(v);
                 pre_sorted = false;
@@ -1392,15 +1435,35 @@ impl<'a> FastCtx<'a> {
             }
         };
         for s in &self.segs {
+            // Filter-aware fold: with a top-level query filter present, only
+            // matching rows contribute.  Previously this loop was
+            // filter-blind, which is why `extended_stats` had to be excluded
+            // from the filtered whitelist in `exec_agg` — folding every row
+            // under a filter would have reported whole-index moments for a
+            // filtered query (silently wrong, not merely slow).
+            let seg_pred = match &self.top_filter {
+                Some(p) => Some(resolve_pred(&s.cols, p)?),
+                None => None,
+            };
             match s.cols.get(field) {
                 Some(Column::Numeric(n)) => {
-                    if n.null_bitmap.is_empty() {
-                        for &bits in &n.data {
-                            fold(f64::from_bits(bits as u64));
+                    let no_nulls = n.null_bitmap.is_empty();
+                    match &seg_pred {
+                        None if no_nulls => {
+                            for &bits in &n.data {
+                                fold(f64::from_bits(bits as u64));
+                            }
                         }
-                    } else {
-                        for row in 0..n.doc_count {
-                            if !n.null_bitmap.contains(row) {
+                        _ => {
+                            for row in 0..n.doc_count {
+                                if !no_nulls && n.null_bitmap.contains(row) {
+                                    continue;
+                                }
+                                if let Some(sp) = &seg_pred {
+                                    if !seg_pred_matches(sp, row) {
+                                        continue;
+                                    }
+                                }
                                 fold(f64::from_bits(n.data[row as usize] as u64));
                             }
                         }
@@ -1410,7 +1473,13 @@ impl<'a> FastCtx<'a> {
                 None => {}
             }
         }
+        let mem_filter = self.top_filter_query.clone();
         for doc in self.mem().iter() {
+            if let Some(q) = &mem_filter {
+                if !doc_matches_filter(doc, q) {
+                    continue;
+                }
+            }
             if let Some(v) = extract_numeric(doc, field) {
                 fold(v);
             }
