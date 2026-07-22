@@ -1108,9 +1108,8 @@ impl Index {
                     // (spawned at the end of open — RC4 W2 item 17)
                     // re-derives the WAL-tail divergence and clears the
                     // flag. (The loader gate guarantees `field` is Some.)
-                    let stale = l.stale
-                        || l.seq_no
-                            .map_or(true, |stamp| stamp != store.current_seq_no());
+                    let stale =
+                        l.stale || l.seq_no.is_none_or(|stamp| stamp != store.current_seq_no());
                     (Some(l.graph), l.id_map, l.id_rev, l.next_id, l.field, stale)
                 }
                 None => (None, HashMap::new(), HashMap::new(), 1, None, false),
@@ -3317,16 +3316,13 @@ impl Index {
                     // across restarts.
                     let tomb_carry: Vec<(u64, String)> = tomb_union
                         .into_iter()
-                        .filter(|(id, seq)| match store_for_task.version_map.get(id) {
-                            Some(e)
-                                if !e.deleted
-                                    && e.seq_no > *seq
-                                    && &*e.segment_id
-                                        != xerj_storage::version_map::IN_MEMORY_SEGMENT_ID =>
-                            {
-                                false
-                            }
-                            _ => true,
+                        .filter(|(id, seq)| {
+                            !matches!(store_for_task.version_map.get(id),
+                                Some(e)
+                                    if !e.deleted
+                                        && e.seq_no > *seq
+                                        && &*e.segment_id
+                                            != xerj_storage::version_map::IN_MEMORY_SEGMENT_ID)
                         })
                         .map(|(id, seq)| (seq, id))
                         .collect();
@@ -4157,10 +4153,10 @@ impl Index {
                 seen.insert(doc_id.clone());
                 if let Some(vector) = extract_numeric_vector(src, &field) {
                     compared += 1;
-                    if !self.hnsw_vector_current(doc_id, &vector).await {
-                        if self.hnsw_insert_vector(doc_id, vector).await {
-                            reinserted += 1;
-                        }
+                    if !self.hnsw_vector_current(doc_id, &vector).await
+                        && self.hnsw_insert_vector(doc_id, vector).await
+                    {
+                        reinserted += 1;
                     }
                 }
                 walked += 1;
@@ -4224,10 +4220,10 @@ impl Index {
                     };
                     if let Some(vector) = extract_numeric_vector(src, &field) {
                         compared += 1;
-                        if !self.hnsw_vector_current(id, &vector).await {
-                            if self.hnsw_insert_vector(id, vector).await {
-                                reinserted += 1;
-                            }
+                        if !self.hnsw_vector_current(id, &vector).await
+                            && self.hnsw_insert_vector(id, vector).await
+                        {
+                            reinserted += 1;
                         }
                     }
                     walked += 1;
@@ -5513,7 +5509,7 @@ impl Index {
         let stale = loaded.stale
             || loaded
                 .seq_no
-                .map_or(true, |stamp| stamp != self.store.current_seq_no());
+                .is_none_or(|stamp| stamp != self.store.current_seq_no());
         *self.hnsw_field.write().unwrap() = loaded.field;
         self.hnsw_stale
             .store(stale, std::sync::atomic::Ordering::Release);
@@ -10378,6 +10374,19 @@ fn build_doc_value_columns<'a>(
     // O(docs × fields) memory but much smaller than the segment itself.
     let mut numeric: BTreeMap<String, Vec<Option<i64>>> = BTreeMap::new();
     let mut keyword: BTreeMap<String, Vec<Option<String>>> = BTreeMap::new();
+    // Fields that carry an ARRAY value in ANY doc of this segment.  The
+    // one-slot-per-row column cannot represent a multi-valued doc, and
+    // filing it as null makes the column LIE: every consumer (count
+    // shortcut, prefilters, fast aggs) treats a PRESENT column as exact,
+    // so a range that should match `[5, 105]` silently drops the doc —
+    // live-verified: bool(term + range-on-multi-valued) at size:0 counted
+    // 27 of 37 whenever the flush landed all docs in one segment (the
+    // 2-core CI shape; ≥32-core boxes scatter docs across shards, the
+    // array-only segments then have no column and the shortcut abandons
+    // to the correct brute scan).  A poisoned field therefore ships NO
+    // column at all — consumers take the same abandon-to-scan path they
+    // already take for a field that is absent from the segment.
+    let mut multi_valued: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     let mut total_docs: usize = 0;
     for src in sources {
@@ -10430,9 +10439,19 @@ fn build_doc_value_columns<'a>(
                     let v = (if *b { 1.0_f64 } else { 0.0_f64 }).to_bits() as i64;
                     col.push(Some(v));
                 }
+                Value::Array(_) if !multi_valued.contains(field.as_str()) => {
+                    multi_valued.insert(field.clone());
+                }
                 _ => {}
             }
         }
+    }
+
+    // Drop every column whose field was multi-valued anywhere in the
+    // segment (see `multi_valued` above) — no column beats a lying one.
+    for f in &multi_valued {
+        numeric.remove(f);
+        keyword.remove(f);
     }
 
     // Pad every column to total_docs so position == doc_id.
@@ -11843,6 +11862,7 @@ impl Index {
         Some(bm25_keyword_term_score(df, total_docs, boost))
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn scored_columnar(
         &self,
         plan: &ScoredPlan,
@@ -13792,6 +13812,7 @@ impl Index {
     ///
     /// Same output contract as `narrow_matches_to_sort_candidates`: the
     /// caller must source `hits.total` independently (shortcut count).
+    #[allow(clippy::too_many_arguments)]
     fn narrow_term_values_to_sort_candidates(
         &self,
         segments_dir: &std::path::Path,
@@ -14833,6 +14854,7 @@ impl Index {
 /// 3. Build the FTS inverted index files for the new segment using ordinal
 ///    positions (0, 1, 2, …) so that the segment search path can look up
 ///    stored docs by their ordinal.
+///
 /// RAII timer that records one `flush_duration` (seconds) observation when it
 /// drops — i.e. when `do_flush_shard` returns on any path. It holds an owned
 /// `Arc<Metrics>` cloned from the process-global handle so it survives across
@@ -15779,9 +15801,7 @@ fn lower_span_to_orig(
         .partition_point(|e| e.0 <= lo_start)
         .saturating_sub(1);
     let oa = entries[si].1;
-    let ei = entries
-        .partition_point(|e| e.0 <= lo_end - 1)
-        .saturating_sub(1);
+    let ei = entries.partition_point(|e| e.0 < lo_end).saturating_sub(1);
     let ob = entries[ei].2.max(oa);
     (oa.min(orig_len), ob.min(orig_len))
 }
@@ -15845,6 +15865,7 @@ fn highlight_full_text(
     out
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_highlight_fragments(
     text: &str,
     text_lower: &str,
