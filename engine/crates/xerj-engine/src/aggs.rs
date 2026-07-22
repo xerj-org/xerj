@@ -5223,6 +5223,75 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
                                     return false;
                                 }
                             }
+                        } else {
+                            // Non-numeric value — a date or a keyword.  Before
+                            // this branch existed the `if let Some(n)` above
+                            // simply fell through, so a range over a DATE field
+                            // matched **every** document unconditionally: no
+                            // bound was ever compared. That silently inflated
+                            // any date-filtered agg served over memtable-
+                            // resident docs (measured: a one-day window on a
+                            // 1.12 M-doc index reported 135,972 hits instead of
+                            // 40,000 — the whole 95,972-doc memtable admitted
+                            // wholesale).
+                            //
+                            // Dates compare as instants (so `2026-06-17` and
+                            // `2026-06-17T00:00:00.000Z` are the same point);
+                            // anything that is not a date on both sides falls
+                            // back to lexicographic comparison, which is ES's
+                            // keyword-range semantics.
+                            let raw = Value::String(values[0].clone());
+                            let doc_ms = parse_date_ms(&raw);
+                            let bound_ms = |k: &str| -> Option<i64> {
+                                bounds.get(k).and_then(parse_date_ms)
+                            };
+                            if let Some(v) = doc_ms {
+                                if let Some(b) = bound_ms("gte") {
+                                    if v < b {
+                                        return false;
+                                    }
+                                }
+                                if let Some(b) = bound_ms("gt") {
+                                    if v <= b {
+                                        return false;
+                                    }
+                                }
+                                if let Some(b) = bound_ms("lte") {
+                                    if v > b {
+                                        return false;
+                                    }
+                                }
+                                if let Some(b) = bound_ms("lt") {
+                                    if v >= b {
+                                        return false;
+                                    }
+                                }
+                            } else {
+                                let s = values[0].as_str();
+                                let bound_str = |k: &str| -> Option<&str> {
+                                    bounds.get(k).and_then(Value::as_str)
+                                };
+                                if let Some(b) = bound_str("gte") {
+                                    if s < b {
+                                        return false;
+                                    }
+                                }
+                                if let Some(b) = bound_str("gt") {
+                                    if s <= b {
+                                        return false;
+                                    }
+                                }
+                                if let Some(b) = bound_str("lte") {
+                                    if s > b {
+                                        return false;
+                                    }
+                                }
+                                if let Some(b) = bound_str("lt") {
+                                    if s >= b {
+                                        return false;
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -12285,5 +12354,73 @@ mod tests {
             "expected too_many_buckets error, got {result}"
         );
         assert_eq!(result["t"]["__error_status__"], json!(400));
+    }
+}
+
+#[cfg(test)]
+mod date_range_filter_tests {
+    use super::doc_matches_filter;
+    use serde_json::json;
+
+    /// Regression: a `range` over a DATE field used to match every document.
+    /// `doc_matches_filter` parsed the value as `f64`, a timestamp string
+    /// failed to parse, and the whole bounds check was skipped — so no bound
+    /// was ever compared and the doc fell through as a match. Any aggregation
+    /// that evaluated a date filter over memtable-resident docs silently
+    /// over-counted (measured: 135,972 hits reported for a one-day window whose
+    /// true size was 40,000).
+    #[test]
+    fn date_range_excludes_documents_outside_the_window() {
+        let inside = json!({"ts": "2026-06-17T04:00:00.000Z"});
+        let before = json!({"ts": "2026-06-16T23:59:59.999Z"});
+        let after = json!({"ts": "2026-06-18T00:00:00.000Z"});
+        let f = json!({"range": {"ts": {"gte": "2026-06-17T00:00:00.000Z",
+                                        "lt":  "2026-06-18T00:00:00.000Z"}}});
+        assert!(doc_matches_filter(&inside, &f), "in-window doc must match");
+        assert!(!doc_matches_filter(&before, &f), "doc before window must NOT match");
+        assert!(!doc_matches_filter(&after, &f), "doc at exclusive upper must NOT match");
+    }
+
+    /// Bounds are compared as instants, so differing-but-equivalent renderings
+    /// of the same moment agree.
+    #[test]
+    fn date_bounds_compare_as_instants_not_strings() {
+        let doc = json!({"ts": "2026-06-17T00:00:00.000Z"});
+        assert!(doc_matches_filter(&doc, &json!({"range": {"ts": {"gte": "2026-06-17"}}})));
+        assert!(!doc_matches_filter(&doc, &json!({"range": {"ts": {"gt": "2026-06-17"}}})));
+        // Same instant expressed with an offset.
+        let f = json!({"range": {"ts": {"gte": "2026-06-17T02:00:00.000+02:00"}}});
+        assert!(doc_matches_filter(&doc, &f));
+    }
+
+    /// Inclusive/exclusive bounds on both ends.
+    #[test]
+    fn date_bound_inclusivity() {
+        let doc = json!({"ts": "2026-06-17T00:00:00.000Z"});
+        for (bound, expect) in [("gte", true), ("gt", false), ("lte", true), ("lt", false)] {
+            let f = json!({"range": {"ts": {bound: "2026-06-17T00:00:00.000Z"}}});
+            assert_eq!(
+                doc_matches_filter(&doc, &f),
+                expect,
+                "boundary instant under `{bound}`"
+            );
+        }
+    }
+
+    /// Non-date strings keep ES's lexicographic keyword-range semantics.
+    #[test]
+    fn keyword_range_is_lexicographic() {
+        let f = json!({"range": {"service": {"gte": "m", "lt": "q"}}});
+        assert!(doc_matches_filter(&json!({"service": "payments"}), &f));
+        assert!(!doc_matches_filter(&json!({"service": "auth"}), &f));
+        assert!(!doc_matches_filter(&json!({"service": "search"}), &f));
+    }
+
+    /// Numeric ranges are untouched by the new branch.
+    #[test]
+    fn numeric_range_still_works() {
+        let f = json!({"range": {"status": {"gte": 500}}});
+        assert!(doc_matches_filter(&json!({"status": 503}), &f));
+        assert!(!doc_matches_filter(&json!({"status": 200}), &f));
     }
 }

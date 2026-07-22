@@ -5091,3 +5091,195 @@ async fn test_knn_filter_similarity_boost_and_multi_clause() {
         );
     }
 }
+
+// ── Filtered statistics on the columnar fast path ─────────────────────────────
+//
+// `extended_stats` and the percentile family used to be excluded from the
+// fast path whenever a top-level query filter was present, because their value
+// gathering was filter-blind — folding every row under a filter would report
+// whole-index statistics for a filtered query. The exclusion was a correctness
+// guard, and it dropped those aggs onto the O(N) `_source` scan (measured
+// 48.8 s vs 0.19 s on a 5.6 M-doc index).
+//
+// The gathering is now filter-aware, so these assert the thing that could
+// silently regress: a filtered statistic must describe ONLY the matching docs.
+// The index is sized past `FAST_AGG_MIN_DOCS` (10 000) so the columnar path is
+// actually the one under test — below that threshold the brute path serves it
+// and the test would pass vacuously.
+
+/// 12 000 docs: `group` alternates a/b, `v` is 1.0 for group a and 100.0 for
+/// group b. Any filter-blind fold is then trivially detectable — it sees both
+/// populations instead of one.
+async fn seed_filtered_stats_index(idx: &std::sync::Arc<xerj_engine::Index>) {
+    let mut docs = Vec::new();
+    for i in 0..12_000u32 {
+        let group = if i % 2 == 0 { "a" } else { "b" };
+        let v = if i % 2 == 0 { 1.0 } else { 100.0 };
+        docs.push(json!({ "group": group, "v": v, "i": i }));
+    }
+    for (i, d) in docs.into_iter().enumerate() {
+        idx.index_document(Some(i.to_string()), d).await.unwrap();
+    }
+    idx.flush().await.unwrap();
+}
+
+#[tokio::test]
+async fn test_filtered_extended_stats_sees_only_matching_docs() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    engine.create_index("fstats", Schema::empty()).unwrap();
+    let idx = engine.get_index("fstats").unwrap();
+    seed_filtered_stats_index(&idx).await;
+
+    let req = parse_request(&json!({
+        "query": { "term": { "group": "b" } },
+        "size": 0,
+        "aggs": { "es": { "extended_stats": { "field": "v" } } }
+    }))
+    .unwrap();
+    let res = idx.search(&req).await.unwrap();
+    let es = &res.aggs.as_ref().unwrap()["es"];
+
+    // Group b only: 6 000 docs, every value 100.0.
+    assert_eq!(es["count"].as_u64().unwrap(), 6_000, "count must exclude group a");
+    assert_eq!(es["min"].as_f64().unwrap(), 100.0);
+    assert_eq!(es["max"].as_f64().unwrap(), 100.0);
+    assert_eq!(es["avg"].as_f64().unwrap(), 100.0, "avg of a filter-blind fold would be 50.5");
+    // Constant population → zero variance. A filter-blind fold gives ~2450.
+    assert!(
+        es["variance"].as_f64().unwrap() < 1e-6,
+        "variance must be ~0 for a constant population, got {}",
+        es["variance"]
+    );
+}
+
+#[tokio::test]
+async fn test_filtered_percentiles_see_only_matching_docs() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    engine.create_index("fpct", Schema::empty()).unwrap();
+    let idx = engine.get_index("fpct").unwrap();
+    seed_filtered_stats_index(&idx).await;
+
+    for (group, expect) in [("a", 1.0), ("b", 100.0)] {
+        let req = parse_request(&json!({
+            "query": { "term": { "group": group } },
+            "size": 0,
+            "aggs": { "p": { "percentiles": { "field": "v", "percents": [50, 99] } } }
+        }))
+        .unwrap();
+        let res = idx.search(&req).await.unwrap();
+        let vals = &res.aggs.as_ref().unwrap()["p"]["values"];
+        // Every value in the matching set is identical, so every percentile is
+        // that value. A filter-blind gather would mix 1.0 and 100.0 and put p50
+        // somewhere between them.
+        for pct in ["50.0", "99.0"] {
+            assert_eq!(
+                vals[pct].as_f64().unwrap(),
+                expect,
+                "group {group} p{pct} must reflect only matching docs"
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn test_filtered_median_absolute_deviation_sees_only_matching_docs() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    engine.create_index("fmad", Schema::empty()).unwrap();
+    let idx = engine.get_index("fmad").unwrap();
+    seed_filtered_stats_index(&idx).await;
+
+    let req = parse_request(&json!({
+        "query": { "term": { "group": "a" } },
+        "size": 0,
+        "aggs": { "m": { "median_absolute_deviation": { "field": "v" } } }
+    }))
+    .unwrap();
+    let res = idx.search(&req).await.unwrap();
+    let mad = res.aggs.as_ref().unwrap()["m"]["value"]
+        .as_f64()
+        .unwrap();
+    // Constant population → MAD 0. Filter-blind would give ~49.5.
+    assert!(mad < 1e-6, "MAD must be ~0 for a constant population, got {mad}");
+}
+
+#[tokio::test]
+async fn test_unfiltered_statistics_are_unchanged() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    engine.create_index("ufstats", Schema::empty()).unwrap();
+    let idx = engine.get_index("ufstats").unwrap();
+    seed_filtered_stats_index(&idx).await;
+
+    let req = parse_request(&json!({
+        "query": { "match_all": {} },
+        "size": 0,
+        "aggs": {
+            "es": { "extended_stats": { "field": "v" } },
+            "p":  { "percentiles": { "field": "v", "percents": [50] } }
+        }
+    }))
+    .unwrap();
+    let res = idx.search(&req).await.unwrap();
+    let aggs = res.aggs.as_ref().unwrap();
+    // Whole corpus: 12 000 docs, half 1.0 and half 100.0 → mean 50.5.
+    assert_eq!(aggs["es"]["count"].as_u64().unwrap(), 12_000);
+    assert!((aggs["es"]["avg"].as_f64().unwrap() - 50.5).abs() < 1e-9);
+    assert_eq!(aggs["es"]["min"].as_f64().unwrap(), 1.0);
+    assert_eq!(aggs["es"]["max"].as_f64().unwrap(), 100.0);
+    assert!(aggs["p"]["values"]["50.0"].as_f64().is_some());
+}
+
+/// Regression: highlighting used to run AFTER `_source` filtering, so a request
+/// that excluded the highlighted field silently got no `highlight` key at all —
+/// 200 OK, no error. That made the token-efficient shape impossible: to obtain a
+/// ~160-byte fragment you also had to ship the entire field. ES treats the two
+/// as independent; highlighting resolves against the stored document.
+#[tokio::test]
+async fn test_highlight_survives_source_filtering() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    engine.create_index("hl", Schema::empty()).unwrap();
+    let idx = engine.get_index("hl").unwrap();
+
+    idx.index_document(
+        Some("1".into()),
+        json!({
+            "path": "src/lib.rs",
+            "body": "the neural embedder is loaded lazily on first use and cached behind an Arc"
+        }),
+    )
+    .await
+    .unwrap();
+    idx.flush().await.unwrap();
+
+    // `body` is deliberately EXCLUDED from _source — only `path` comes back.
+    let req = parse_request(&json!({
+        "query": { "match": { "body": "neural embedder" } },
+        "size": 1,
+        "_source": ["path"],
+        "highlight": { "fields": { "body": { "fragment_size": 80, "number_of_fragments": 1 } } }
+    }))
+    .unwrap();
+    let res = idx.search(&req).await.unwrap();
+    let hit = &res.hits[0];
+
+    let hl = hit
+        .highlight
+        .as_ref()
+        .expect("highlight must be present even when _source excludes the field");
+    let frag = &hl["body"][0];
+    assert!(frag.contains("<em>"), "fragment must carry highlight tags: {frag}");
+    assert!(
+        frag.to_lowercase().contains("neural") || frag.to_lowercase().contains("embedder"),
+        "fragment must surround the match: {frag}"
+    );
+    // And `_source` filtering still applies — the caller does NOT pay for `body`.
+    assert!(
+        hit.source.get("body").is_none(),
+        "_source filtering must still exclude body; caller should not pay for it"
+    );
+    assert!(hit.source.get("path").is_some(), "requested field must survive");
+}
