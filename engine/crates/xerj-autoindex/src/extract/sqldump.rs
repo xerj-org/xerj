@@ -37,7 +37,15 @@ pub fn extract(
     let mut stmt_ord: HashMap<String, u64> = HashMap::new();
 
     let mut state = St::Head;
-    let mut head = String::new();
+    // Byte buffers, NOT `String`.  These accumulate raw input bytes; pushing
+    // them as `b as char` (the previous form) reinterprets any byte >= 0x80 as
+    // a Latin-1 codepoint that re-encodes to TWO UTF-8 bytes, so byte offsets
+    // into the buffer stop being char boundaries.  `head[..6]` then panicked
+    // on perfectly ordinary UTF-8 input — an em-dash in a comment was enough,
+    // and because the workspace builds with `panic = "abort"` it killed the
+    // whole `autoindex` run rather than skipping one file.  For `sval` the
+    // same cast silently produced mojibake for every non-ASCII string value.
+    let mut head: Vec<u8> = Vec::new();
     let mut head_quote: Option<u8> = None;
 
     let mut cur_table = String::new();
@@ -45,7 +53,7 @@ pub fn extract(
     let mut cur_stmt = 0u64;
     let mut tuple_ord = 0u64;
     let mut values: Vec<Value> = Vec::new();
-    let mut sval = String::new(); // current string value
+    let mut sval: Vec<u8> = Vec::new(); // current string value (raw bytes)
     let mut maybe_end = false; // saw closing ' — is it '' escape?
     let mut esc = false;
 
@@ -67,13 +75,13 @@ pub fn extract(
                                 head_quote = None;
                             }
                             if head.len() < HEAD_CAP {
-                                head.push(b as char);
+                                head.push(b);
                             }
                         }
                         None => {
                             if b == b'\'' || b == b'"' {
                                 head_quote = Some(b);
-                                head.push(b as char);
+                                head.push(b);
                             } else if b == b';' {
                                 process_statement_head(&head, &mut tables);
                                 head.clear();
@@ -84,15 +92,17 @@ pub fn extract(
                                     i += 1;
                                     continue;
                                 }
-                                head.push(b as char);
+                                head.push(b);
                                 // did we just complete the VALUES keyword of an INSERT?
                                 if (b == b'S' || b == b's') && head.len() >= 6 {
                                     let tail = &head[head.len() - 6..];
-                                    if tail.eq_ignore_ascii_case("values")
-                                        && head.trim_start().len() >= 6
-                                        && head.trim_start()[..6].eq_ignore_ascii_case("insert")
+                                    let trimmed = trim_start_bytes(&head);
+                                    if tail.eq_ignore_ascii_case(b"values")
+                                        && trimmed.len() >= 6
+                                        && trimmed[..6].eq_ignore_ascii_case(b"insert")
                                         && !head[..head.len() - 6]
-                                            .ends_with(|c: char| c.is_ascii_alphanumeric())
+                                            .last()
+                                            .is_some_and(|c| c.is_ascii_alphanumeric())
                                     {
                                         if let Some((t, cols)) = parse_insert_head(&head) {
                                             cur_table = t;
@@ -190,21 +200,21 @@ pub fn extract(
                     if maybe_end {
                         maybe_end = false;
                         if b == b'\'' {
-                            sval.push('\'');
+                            sval.push(b'\'');
                             i += 1;
                         } else {
                             // string finished; value complete. Reprocess b in InTuple.
-                            values.push(Value::String(std::mem::take(&mut sval)));
+                            values.push(Value::String(take_utf8(&mut sval)));
                             state = St::InTuple;
                         }
                     } else if esc {
                         esc = false;
                         let c = match b {
-                            b'n' => '\n',
-                            b't' => '\t',
-                            b'r' => '\r',
-                            b'0' => '\0',
-                            other => other as char,
+                            b'n' => b'\n',
+                            b't' => b'\t',
+                            b'r' => b'\r',
+                            b'0' => 0u8,
+                            other => other,
                         };
                         sval.push(c);
                         i += 1;
@@ -219,10 +229,9 @@ pub fn extract(
                                 i += 1;
                             }
                             _ => {
-                                // bytes are pushed raw; multibyte UTF-8 comes
-                                // through byte-by-byte — collect as latin-1 then
-                                // fix below? No: push into a byte buffer instead.
-                                sval.push(b as char);
+                                // Raw byte — multibyte UTF-8 arrives byte-by-byte
+                                // and is decoded once, at value completion.
+                                sval.push(b);
                                 i += 1;
                             }
                         }
@@ -230,12 +239,12 @@ pub fn extract(
                 }
                 St::Bare => {
                     if matches!(b, b',' | b')') || b.is_ascii_whitespace() {
-                        values.push(bare_value(&std::mem::take(&mut sval)));
+                        values.push(bare_value(&take_utf8(&mut sval)));
                         state = St::InTuple;
                         // reprocess delimiter in InTuple
                     } else {
                         if sval.len() < HEAD_CAP {
-                            sval.push(b as char);
+                            sval.push(b);
                         }
                         i += 1;
                     }
@@ -328,7 +337,8 @@ fn emit_tuple(
 }
 
 /// `INSERT INTO `t` (a,b,c) VALUES` → (table, [cols])
-fn parse_insert_head(head: &str) -> Option<(String, Vec<String>)> {
+fn parse_insert_head(head: &[u8]) -> Option<(String, Vec<String>)> {
+    let head = &String::from_utf8_lossy(head);
     let re = regex::Regex::new(
         r#"(?is)^\s*insert\s+(?:ignore\s+)?into\s+[`"]?([A-Za-z0-9_.$-]+)[`"]?\s*(\(([^)]*)\))?\s*values\s*$"#,
     )
@@ -349,7 +359,8 @@ fn parse_insert_head(head: &str) -> Option<(String, Vec<String>)> {
 }
 
 /// Capture column names from a complete CREATE TABLE statement head.
-fn process_statement_head(head: &str, tables: &mut HashMap<String, Vec<String>>) {
+fn process_statement_head(head: &[u8], tables: &mut HashMap<String, Vec<String>>) {
+    let head = String::from_utf8_lossy(head);
     let trimmed = head.trim_start();
     if trimmed.len() < 12 || !trimmed[..12].eq_ignore_ascii_case("create table") {
         return;
@@ -494,5 +505,87 @@ INSERT INTO `users` (`id`,`name`) VALUES (3,'Cle, (weird)');
         assert!(recs[1].fields.get("note").is_none());
         assert_eq!(recs[2].fields["name"], serde_json::json!("Cle, (weird)"));
         assert_eq!(recs[0].group.as_deref(), Some("users"));
+    }
+}
+
+/// Leading-ASCII-whitespace trim over a raw byte buffer (the `str::trim_start`
+/// equivalent that needs no UTF-8 validity).
+fn trim_start_bytes(b: &[u8]) -> &[u8] {
+    let mut i = 0;
+    while i < b.len() && b[i].is_ascii_whitespace() {
+        i += 1;
+    }
+    &b[i..]
+}
+
+/// Drain a raw value buffer into a `String`, decoding UTF-8 once at the
+/// boundary.  Invalid sequences become U+FFFD rather than mojibake — the
+/// previous per-byte `as char` cast turned every multi-byte character into two
+/// Latin-1 characters.
+fn take_utf8(buf: &mut Vec<u8>) -> String {
+    let s = String::from_utf8_lossy(buf).into_owned();
+    buf.clear();
+    s
+}
+
+#[cfg(test)]
+mod utf8_safety_tests {
+    use super::*;
+
+    /// Regression: the head/value buffers used to be `String`s fed with
+    /// `b as char`, which turns any byte >= 0x80 into a Latin-1 codepoint that
+    /// re-encodes to TWO UTF-8 bytes. Byte offsets into the buffer then stopped
+    /// being char boundaries and `head[..6]` panicked — and with
+    /// `panic = "abort"` that killed the entire `autoindex` run instead of
+    /// skipping one file. An em-dash in a comment was enough to trigger it.
+    #[test]
+    fn trim_start_bytes_handles_multibyte_without_panicking() {
+        // "  — INSERT INTO t VALUES" — the em-dash is 3 UTF-8 bytes.
+        let raw = "  — INSERT INTO t VALUES".as_bytes();
+        let t = trim_start_bytes(raw);
+        assert!(!t.is_empty());
+        assert!(!t[0].is_ascii_whitespace());
+        // The slice that used to panic is now a plain byte slice.
+        assert!(t.len() >= 6);
+        let _ = &t[..6];
+    }
+
+    #[test]
+    fn take_utf8_round_trips_multibyte_values() {
+        let mut buf: Vec<u8> = "naïve — 日本語".as_bytes().to_vec();
+        let s = take_utf8(&mut buf);
+        assert_eq!(s, "naïve — 日本語", "multibyte values must not mojibake");
+        assert!(buf.is_empty(), "buffer must be drained");
+    }
+
+    #[test]
+    fn take_utf8_replaces_invalid_sequences_instead_of_panicking() {
+        let mut buf: Vec<u8> = vec![0xff, 0xfe, b'o', b'k'];
+        let s = take_utf8(&mut buf);
+        assert!(s.ends_with("ok"));
+        assert!(s.contains('\u{FFFD}'), "invalid bytes become U+FFFD");
+    }
+
+    /// The exact shape that crashed: a non-SQL file whose text contains an
+    /// `INSERT … VALUES` fragment alongside multibyte punctuation. The sniffer
+    /// can hand this to the SQL-dump extractor; it must not panic.
+    #[test]
+    fn insert_values_fragment_with_em_dash_does_not_panic() {
+        let src = "//! SQL dump — targeted streaming parser, O(1) memory per tuple.\n\
+                   //! No sqlparser: multi-row `INSERT … VALUES (…),(…)…` statements —\n\
+                   //! parsed byte-by-byte.\n";
+        // Drive the same keyword-detection logic the streaming loop runs.
+        let mut head: Vec<u8> = Vec::new();
+        for b in src.as_bytes() {
+            head.push(*b);
+            if (*b == b'S' || *b == b's') && head.len() >= 6 {
+                let tail = &head[head.len() - 6..];
+                let trimmed = trim_start_bytes(&head);
+                if tail.eq_ignore_ascii_case(b"values") && trimmed.len() >= 6 {
+                    // This comparison is what used to slice mid-character.
+                    let _ = trimmed[..6].eq_ignore_ascii_case(b"insert");
+                }
+            }
+        }
     }
 }

@@ -5231,3 +5231,55 @@ async fn test_unfiltered_statistics_are_unchanged() {
     assert_eq!(aggs["es"]["max"].as_f64().unwrap(), 100.0);
     assert!(aggs["p"]["values"]["50.0"].as_f64().is_some());
 }
+
+/// Regression: highlighting used to run AFTER `_source` filtering, so a request
+/// that excluded the highlighted field silently got no `highlight` key at all —
+/// 200 OK, no error. That made the token-efficient shape impossible: to obtain a
+/// ~160-byte fragment you also had to ship the entire field. ES treats the two
+/// as independent; highlighting resolves against the stored document.
+#[tokio::test]
+async fn test_highlight_survives_source_filtering() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    engine.create_index("hl", Schema::empty()).unwrap();
+    let idx = engine.get_index("hl").unwrap();
+
+    idx.index_document(
+        Some("1".into()),
+        json!({
+            "path": "src/lib.rs",
+            "body": "the neural embedder is loaded lazily on first use and cached behind an Arc"
+        }),
+    )
+    .await
+    .unwrap();
+    idx.flush().await.unwrap();
+
+    // `body` is deliberately EXCLUDED from _source — only `path` comes back.
+    let req = parse_request(&json!({
+        "query": { "match": { "body": "neural embedder" } },
+        "size": 1,
+        "_source": ["path"],
+        "highlight": { "fields": { "body": { "fragment_size": 80, "number_of_fragments": 1 } } }
+    }))
+    .unwrap();
+    let res = idx.search(&req).await.unwrap();
+    let hit = &res.hits[0];
+
+    let hl = hit
+        .highlight
+        .as_ref()
+        .expect("highlight must be present even when _source excludes the field");
+    let frag = &hl["body"][0];
+    assert!(frag.contains("<em>"), "fragment must carry highlight tags: {frag}");
+    assert!(
+        frag.to_lowercase().contains("neural") || frag.to_lowercase().contains("embedder"),
+        "fragment must surround the match: {frag}"
+    );
+    // And `_source` filtering still applies — the caller does NOT pay for `body`.
+    assert!(
+        hit.source.get("body").is_none(),
+        "_source filtering must still exclude body; caller should not pay for it"
+    );
+    assert!(hit.source.get("path").is_some(), "requested field must survive");
+}

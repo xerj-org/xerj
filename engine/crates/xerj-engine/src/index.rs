@@ -9694,15 +9694,27 @@ impl Index {
                 .collect()
         };
 
-        // --- Apply _source filtering ---
-        let page = apply_source_filter(page, &request.source);
-
-        // --- Apply highlighting ---
+        // --- Apply highlighting (BEFORE `_source` filtering) ---
+        //
+        // `apply_highlight` reads the field text out of `hit.source`.  Running
+        // it after `apply_source_filter` meant a request that excluded the
+        // highlighted field got NO highlight at all — silently, with a 200 and
+        // no `highlight` key.  ES treats the two as independent: highlighting
+        // resolves against the stored document, not against whatever `_source`
+        // projection the caller asked for.
+        //
+        // The old order made the token-efficient shape impossible. To get a
+        // ~160-byte fragment you had to also ship the whole field: a 1,536-byte
+        // body for a 160-byte answer. That matters most to the callers most
+        // likely to use highlighting — agents paying per token for context.
         let page = if let Some(hl_req) = &request.highlight {
             apply_highlight(page, hl_req, query)
         } else {
             page
         };
+
+        // --- Apply _source filtering ---
+        let page = apply_source_filter(page, &request.source);
 
         // --- Build profile data if requested ---
         let profile = if request.profile {
