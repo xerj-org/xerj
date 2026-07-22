@@ -1,7 +1,7 @@
 # XERJ rc4 — User-Feedback Delivery Scorecard & rc5 Roadmap
 
 **Date:** 2026-07-12
-**Scope:** shipped rc4 XERJ scored against the real Elasticsearch user-feedback corpus (`user-feedback/`, 41 pain-point files across 15 categories, 98 scored pain points).
+**Scope:** shipped rc4 XERJ scored against the real Elasticsearch user-feedback corpus (`user-feedback/`, 41 pain-point files across 15 categories, 98 scored pain points). Companion: `KIBANA_FEEDBACK_SCORECARD_RC4.md` scores the Console against the Kibana user-feedback corpus (107 pain points) with the same method; its top-ranked candidates feed Wave 7 below.
 **Status:** INTERNAL strategy document. This is a capability self-assessment, not marketing. The gaps are the point — do not soften them, and do not paste verbatim competitor/G2/HN/Jepsen quotes into external material.
 **Method:** each pain point was scored against current rc4 code (file:line) and the live binary (read-only probes), NOT the marketing copy.
 DELIVERED = positive proof it works today. PARTIAL = works with named limitations. GAP = the pain is not answered today (rc5 candidate). NA = does not apply to a single-binary/embedded engine.
@@ -171,6 +171,22 @@ Ranking = severity × reach (how many pain points / clusters it closes) × inver
 | **Prove the no-post-refresh global-ordinals spike** (add first-query-after-refresh probe) | LOW | M | query-performance PARTIAL → DELIVERED with evidence |
 | **Distroless/scratch container image** (or drop the ~30MB number) | LOW | M | ops-simplicity + resource-cost image-size overclaim |
 
+### Wave 7 — Console/UX (Kibana-replacement) work
+*Sourced from the Kibana-corpus scorecard (`KIBANA_FEEDBACK_SCORECARD_RC4.md`, 30 D / 60 P / 17 G over 107 pain points). Dominant finding: the engine already has the capability for roughly half the PARTIALs — the Console can't express it or wires it wrong — so most of this wave is S/M wiring. Deduped against Waves 1–6: mixed-p99 + RSS-runaway (W1), ILM/retention executor + `xerj-logs` wiring (W2), `role_descriptors` enforcement + TLS-by-default + tamper-evident audit (W4), and OpenAPI + multi-version-upgrade proof (W6) all recur verbatim in the Kibana corpus — those rows are referenced, not repeated.*
+
+| Candidate | Sev | Effort | Closes |
+|---|---|---|---|
+| **Native alerting rule engine + webhook action** (persisted tz-aware rules → tokio scheduler → fires index → templated webhook; bridge ML anomaly records; wire or hide the mock Alerts view) | HIGH | L | Kibana 07 — the only 0-DELIVERED category (4 GAP), plus SIEM detection and the anomaly→notification gap; the corpus's stated reason for choosing Graylog/Loki over ELK |
+| **Discover live-wiring batch** (sort clause into the live body, `@timestamp`→`_ts`, facet key mismatch, global time range + real date_histogram, render highlights, real-or-deleted query-plan panel) | HIGH | S–M | 5 of 8 pains in Kibana 02 — the flagship view currently no-ops/blanks/fakes against a live backend |
+| **Mock/demo honesty sweep** (render the existing ↓PNG button; UNCONFIGURED instead of canned demo data on saved panels of the 11 non-data-driven viz types; wire the mock Data section to live `_cat`/`_mapping`/`_index_template`; point the Anomaly view at `/_ml`; flip `_xpack` ml available:true) | HIGH | S–M | The shipped-mock-UI honesty debt across Kibana 01/03/06/11/15 — the Console analog of the W6 claims-reconciliation |
+| **Panel-builder expressiveness batch** (cardinality/percent metrics, table columns picker, per-panel time range, missing/other buckets, threshold colors, time-field + browser time_zone, global filters into panels, raw-DSL panel kind) | MED | M | ~10 PARTIALs across Kibana 01/03/05/10 — the reproduced engine-vs-UI gap |
+| **Hygiene + ML hardening batch** (`.keyword`→base fallback on term queries; exclude `.xerj_*` from `*` wildcards/templates; respawn started datafeeds at boot; surface datafeed errors; persist anomaly records; nested sub-paths into the field picker) | MED | S–M | The two repeated-Kibana mistakes (silent 0-hits, system-index leakage) + Kibana 11's silent-stop fragility + 05's #1 nested pain |
+| **MAP panel type** over the already-shipped geotile/geohash/geo_bounds aggs (inline-bundled world geometry, air-gapped by construction) | MED | L | Kibana 12's dominant gap — engine half already DELIVERED |
+| **Embed + share** (signed read-only embed tokens, chromeless mode, configurable SameSite; query in the share URL + COPY LINK) | MED | L | Kibana 06's embedding gap |
+| **OIDC SSO for the Console** (single IdP, PKCE, JIT provisioning onto existing invite roles) | MED | L | Kibana 08's only gap; complements the W4 RBAC enforcement row |
+| **Export completion** (full-result CSV via search_after/PIT stream + UTF-8 BOM; NDJSON dashboards/views export-import + `--seed-dir`) | LOW | M | Kibana 06's #1-ask limitation + 09's portability partial |
+| **Log-context viewer + query-bar typeahead** (±N-docs modal via sorted search_after; FST-backed field/value suggestions with hard caps) | LOW | M | Kibana 02's two decade-old outright gaps |
+
 ---
 
 ## 6. Strategic read
@@ -179,3 +195,4 @@ Ranking = severity × reach (how many pain points / clusters it closes) × inver
 - **Wave 3 is the fork in the road.** Multi-node HA is XL and changes XERJ's identity from "the simple single-node ES escape hatch" to "an HA search platform." Until it lands, the single-node SPOF, sub-ES power-loss durability, and no-scale-out ceiling are *positioning constraints, not bugs* — market to the ICP where they don't bite (dev/CI, single-node edge, cost-driven right-sizing) and stop implying HA that doesn't exist.
 - **Waves 4–6 are cheap credibility.** The security process gates and the numbers-reconciliation are small and directly protect the honesty posture that is itself a differentiator vs ES's "Documentation ≠ API ≠ Reality."
 - **The moat that already exists:** no-JVM CVE/GC elimination, Apache-2.0 trust, ES-wire reversibility, filter-pushdown HNSW, `/_memory`, and GDSR-forcemerge purge are real today and unmatched by ES. Defend and market those; fix the rest honestly.
+- **Console vs Kibana:** the dashboards rework made the Console a credible Kibana replacement for the authoring/ops core (durable CRUD, builder, one-process, no index patterns, everything-paywalled-free), but the Kibana scorecard shows the remaining debt is mostly cheap Console-to-engine wiring plus one category-sized hole (alerting, 0 DELIVERED) and a shipped-mock-UI honesty class that must be fixed or labeled before any external replacement claim — Wave 7 is that work.
