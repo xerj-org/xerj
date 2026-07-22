@@ -103,7 +103,7 @@ impl NeuralEmbedder {
         // Safetensors is memory-mapped; the file must outlive the model, which
         // it does (candle copies tensors into the VarBuilder-backed model).
         let vb = unsafe {
-            VarBuilder::from_mmaped_safetensors(&[weights_path.clone()], DTYPE, &device)
+            VarBuilder::from_mmaped_safetensors(std::slice::from_ref(&weights_path), DTYPE, &device)
                 .with_context(|| format!("map weights {}", weights_path.display()))?
         };
         let model = BertModel::load(vb, &config).map_err(|e| anyhow!("load BERT model: {e}"))?;

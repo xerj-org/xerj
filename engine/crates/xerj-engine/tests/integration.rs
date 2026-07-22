@@ -4684,10 +4684,10 @@ async fn test_fused_memtable_total_matches_shortcut_recount() {
 
     let mk_doc = |i: usize, wave: &str| {
         let mut d = json!({
-            "status": if i % (if wave == "seg" { 2 } else { 3 }) == 0 { "ok" } else { "error" },
+            "status": if i.is_multiple_of(if wave == "seg" { 2 } else { 3 }) { "ok" } else { "error" },
             "latency_ms": i * if wave == "seg" { 10 } else { 7 },
             // multi-valued numeric on every 4th doc, scalar otherwise
-            "codes": if i % 4 == 0 { json!([i, i + 100]) } else { json!(i) },
+            "codes": if i.is_multiple_of(4) { json!([i, i + 100]) } else { json!(i) },
         });
         // MISSING field on every 5th doc (ES "missing value" semantics: the
         // doc matches no range on the field).  Deliberately the ABSENT-KEY
@@ -4700,7 +4700,7 @@ async fn test_fused_memtable_total_matches_shortcut_recount() {
         // and is recorded in demo/playbooks/ES_COMPATIBILITY.md; absent-key
         // docs (this flavour) agree with ES exactly (29/29/29 live-verified
         // on both engines).
-        if i % 5 != 0 {
+        if !i.is_multiple_of(5) {
             d["cost_usd"] = json!((i as f64) * 0.01);
         }
         d

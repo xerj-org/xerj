@@ -385,7 +385,7 @@ impl LoggingConfig {
 /// `allowed_origins = ["https://app.example.com"]`. Set
 /// `allow_any_origin = true` **only** for local development to restore the old
 /// wide-open behavior.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct CorsConfig {
     /// Explicit allow-list of browser `Origin`s permitted to make cross-origin
@@ -398,15 +398,6 @@ pub struct CorsConfig {
     /// `false`. Enable **only** for local development — a public node with this
     /// on is scriptable by any web page.
     pub allow_any_origin: bool,
-}
-
-impl Default for CorsConfig {
-    fn default() -> Self {
-        Self {
-            allowed_origins: Vec::new(),
-            allow_any_origin: false,
-        }
-    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

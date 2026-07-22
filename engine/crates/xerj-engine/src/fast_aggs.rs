@@ -4734,6 +4734,7 @@ enum Pred {
     ///   * date fields — true for the canonical fixed-width RFC3339
     ///     `%Y-%m-%dT%H:%M:%S%.3fZ` form the query parser emits and the
     ///     ingest path normalises to.
+    ///
     /// `resolve_pred` enforces that invariant per segment and bails to brute
     /// on any dictionary that is not uniformly canonical, so a mixed-width
     /// column (e.g. hand-indexed `"2026-06-01"` alongside full timestamps)

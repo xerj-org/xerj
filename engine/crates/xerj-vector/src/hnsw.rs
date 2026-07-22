@@ -976,6 +976,7 @@ impl HnswIndex {
     /// Graph structure summary: (entry_point, entry_layer, level histogram,
     /// layer-0 out-degree histogram, layer-0 BFS reachable-node count from
     /// the entry point).
+    #[allow(clippy::type_complexity)]
     pub fn debug_structure(
         &self,
     ) -> (
