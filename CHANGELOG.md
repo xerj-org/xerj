@@ -7,6 +7,127 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc.4] - 2026-07-22
+
+Fourth release candidate: the **production-hardening release**. A 9-review
+release-readiness audit produced 17 blockers and ~60 follow-on items; all
+were fixed across four hardening waves and verified against the live binary
+(ES-YAML conformance 1360/1363, full-matrix benchmark 52 WIN / 0 LOSE / 25
+TIE vs live ES 8.13.4). Headline for users: acknowledged writes survive
+crashes, wrong-but-200 responses are gone, the node defends itself under
+resource pressure, and the bundled Console gains Kibana-quality editable
+dashboards.
+
+### Fixed — durability (acknowledged writes survive failure)
+
+- **Acked-write loss closed:** verified WAL prune + power-loss-ordered
+  publish chain; `wal_sync="sync"` honored on ALL bulk paths and the
+  `wal_batch_ms` fsync loop actually implemented; torn-frame recovery so a
+  disk-full/crash tear cannot poison a WAL generation; consecutive `_bulk`
+  delete actions no longer dropped; acked deletes survive restart
+  (WAL-shard pinning); delete tombstones end WAL pinning segment-durably.
+- **Merge-window reads:** GET never 404s during the merge-publish window;
+  merges can never silently drop docs; `_forcemerge` is synchronous and
+  quiescent like ES.
+- **Startup/data safety:** exclusive `node.lock` on the data dir (second
+  process fails fast); data-dir format marker refuses newer-than-supported
+  or corrupt dirs BEFORE any destructive GC; refuse-on-corrupt snapshot
+  restore; HNSW persistence fsyncs file + dir around rename; periodic
+  background flusher no longer aborted at spawn; sharded-WAL FTS replay
+  restored on reopen.
+
+### Fixed — correctness (no silent wrong answers)
+
+- **Fail-loud sweep:** the silent-wrong-query classes on `_search` are
+  rejected with real 400s (unknown fields, unsupported constructs), as are
+  CCR auto-follow (501), remote reindex, `has_child`/`has_parent`, learned
+  fusion, and SQL `HAVING` — previously all silently returned wrong data.
+- **Doc CRUD wire semantics:** real per-doc `_version` and ES seq_no
+  convention; `POST /{index}/_doc/{id}` route added; malformed bulk docs
+  rejected per-item with ES-shaped 400s instead of stored as empty `{}`.
+- **Aggregations:** real `sum_other_doc_count`; composite bucket keys typed
+  from the source field mapping; `multi_terms` raises `too_many_buckets`
+  as a real 400 past the cap; `top_hits` emits the doc's real `_seq_no`.
+- **Query semantics:** ES-exact date resolution for range bounds (rounding,
+  format, date math); Painless compares strings as strings (every string
+  previously compared equal) with depth + source-length guards; highlight
+  offsets correct on multibyte text; `combined_fields` OR pooling;
+  `query_string` fallback discloses operator handling; kNN threads
+  filter+boost through top-level kNN and honors similarity cutoffs.
+- **Doc-values counting (P0):** a `range` filter on non-numeric values
+  admitted every memtable document in `size:0`/`_count`/filter-agg paths
+  (a one-day date window over-counted 3.4×); date/keyword range bounds now
+  compile to the columnar fast path instead of falling to the brute scan.
+- **Multi-valued fields:** a field that is multi-valued anywhere in a
+  segment no longer ships a lying doc-values column that silently dropped
+  those docs from count shortcuts — consumers fall back to the exact scan.
+
+### Added — resource governance (the node defends itself)
+
+- Parent circuit breaker keyed on ACTUAL RSS, global search pool, disk
+  flood-stage watermark, per-query memory guard, ANN coverage guard, and a
+  search timeout that actually preempts term-dictionary walks; scroll and
+  async-search contexts are TTL-swept and capped. Classic node-killers
+  (huge `size`, deep pagination windows, bucket explosions) return bounded
+  400/429 instead of taking the process down.
+
+### Added — security
+
+- gRPC listener authenticated; health probes exempt from auth; constant-time
+  compare for the admin API key; `admin.key` and TLS private keys created
+  0600; CORS configurable and restrictive by default; API keys persist
+  across restart with an honest role surface; `/_memory` list paginated
+  with a documented auth model.
+
+### Added — Console: Kibana-quality editable dashboards
+
+- Durable backend CRUD for dashboards (create/replace/patch/delete with
+  ETag optimistic concurrency) — user dashboards survive localStorage
+  clears AND server restarts; a real panel builder with live preview
+  (11 viz types, index/query/metric pickers); free-form `{x,y,w,h}` panel
+  resize + move; first-launch seeding of 13 built-in dashboards as durable
+  managed rows; edit-mode chrome no longer overlaps titles or the sub-nav.
+
+### Added — observability
+
+- ES `_stats`/`_cat` surfaces and the 101-series Prometheus endpoint
+  reflect real load (docs, bytes, search/indexing counters); slow-query
+  log; structured logging minors; `_cat/indices` uuid + bytes columns and
+  ES-shaped snapshot responses.
+
+### Changed — performance
+
+- **kNN flipped:** HNSW-served top-level kNN — official benchmark cell
+  23,325 ms → 1.87 ms at recall@10 1.00 (vs ES 0.80).
+- **Date-filtered aggregations:** 41–49× (one-day window 9.9 s → 241 ms)
+  via keyword/date columnar range predicates; filtered `extended_stats` /
+  `percentiles` / `percentile_ranks` / `median_absolute_deviation` served
+  columnar with filter-aware gathers (11–264×).
+- **Scored-columnar family at the ES floor:** multi_match, query_string,
+  fuzzy, prefix/wildcard, highlight, match_phrase, deep pagination,
+  `more_like_this`, `function_score`, composite aggs, `rare_terms` /
+  `significant_terms` / percentile families — full-matrix result
+  52 WIN / 0 LOSE / 25 TIE against live ES 8.13.4.
+- Mixed read-under-write hardening: one memtable walk per query, flush cap,
+  merge-publish count seeding, open-loop iso-load writer for honest
+  measurement.
+
+### Fixed — autoindex & agent search path
+
+- `xerj autoindex` no longer aborts the whole run on ordinary UTF-8 in the
+  SQL-dump sniffer (byte-buffer accumulation; junk files are skipped and
+  recorded, never fatal) and no longer mojibakes non-ASCII SQL values.
+- `highlight` is applied before `_source` filtering, so fragment-only
+  responses work (measured: 3.2× fewer tokens into an agent context at
+  equal recall).
+
+### Docs
+
+- Honesty ledger: canonical audited scorecard, ROADMAP claims flipped to
+  measured reality, phantom-claim purge across README/site/docs.
+- Production recipes: TLS + auth hardening, air-gapped deploy, ES→XERJ
+  migration.
+
 ## [1.0.0-rc.3] - 2026-07-10
 
 Third release candidate. Headline: XERJ gains a **built-in neural embedder** —
