@@ -1,0 +1,24 @@
+
+==================================================================================
+AGENT GATE — correctness first; savings only where both paths are right
+==================================================================================
+
+task        kind       base   xerj   agree    base tok xerj tok  base s  xerj s
+lookup      lookup     OK     OK     yes             4        7    0.14    0.01
+aggregate   aggregate  OK     OK     yes            24       60    0.14    0.00
+concept     concept    BAD    OK     n/a            43      207    0.02    0.00
+join        join       OK     OK     yes             8     3987    0.02    0.00
+drilldown   drilldown  OK     OK     yes             1        8    0.03    0.00
+orient      orient     BAD    OK     n/a           172      223    0.00    0.00
+
+correct: baseline 4/6   xerj 6/6
+
+-- savings, counted ONLY over tasks BOTH paths answered correctly --
+   baseline 37 tok    xerj 4062 tok    -> XERJ uses 109.78x MORE tokens
+
+-- corpus composition (decides the result more than the engine does) --
+   36.3 MB total; 0.003 MB searchable prose/code (0.01%)
+   Retrieval savings scale with the PROSE fraction; analytics savings
+   scale with record count. A report that hides this is not a report.
+
+GATE OK — the report is trustworthy. This says nothing about who won.
