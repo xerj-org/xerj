@@ -304,16 +304,38 @@ fn txt_kind(nonblank: &[&str]) -> Family {
     }
     let avg_len = nonblank.iter().map(|l| l.len()).sum::<usize>() as f64 / nonblank.len() as f64;
     if avg_len > 60.0 {
-        Family::TxtProse
-    } else {
-        // Short lines with no structure → line records; but a handful of
-        // short lines in a note-like file is still prose.
-        if nonblank.len() <= 5 {
-            Family::TxtProse
-        } else {
-            Family::TxtLines
-        }
+        return Family::TxtProse;
     }
+    // A handful of short lines in a note-like file is still prose.
+    if nonblank.len() <= 5 {
+        return Family::TxtProse;
+    }
+
+    // Line LENGTH alone splits documents of the same kind.  A markdown
+    // postmortem with `## Headings` averages ~50 chars over 7 lines and used
+    // to land in TxtLines, while a 5-line runbook averaging 59 chars landed in
+    // TxtProse — same content type, two different families, therefore two
+    // different datasets with two different field names (`text` vs `body`).
+    // Cross-index BM25 statistics are then incomparable and a caller has to
+    // query both fields.
+    //
+    // Sentence density is the property that actually distinguishes a document
+    // from a record stream: prose lines end in terminal punctuation, whereas
+    // log lines, CSV rows and source code do not.  Measured on a mixed corpus:
+    // markdown 0.43-0.57, nginx access logs 0.00, syslog 0.20, Rust/Python/JS
+    // source 0.00-0.10.
+    let sentences = nonblank
+        .iter()
+        .filter(|l| {
+            let t = l.trim_end();
+            t.ends_with('.') || t.ends_with('!') || t.ends_with('?')
+        })
+        .count();
+    let sentence_ratio = sentences as f64 / nonblank.len() as f64;
+    if sentence_ratio >= 0.40 {
+        return Family::TxtProse;
+    }
+    Family::TxtLines
 }
 
 /// Quote-aware field split (supports " and ' quoting).
@@ -462,5 +484,102 @@ mod tests {
         assert_eq!(d.delim, b';');
         assert!(d.has_header);
         assert!(d.decimal_comma);
+    }
+}
+
+#[cfg(test)]
+mod text_family_tests {
+    use super::*;
+
+    fn kind(text: &str) -> Family {
+        let nonblank: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
+        txt_kind(&nonblank)
+    }
+
+    /// Full text classifier — access logs and syslog are claimed by the `Logs`
+    /// family before `txt_kind` is ever consulted, so they must be asserted
+    /// through the real entry point rather than against `txt_kind` directly.
+    fn classify_full(text: &str) -> Family {
+        let nonblank: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
+        classify_text(text, &nonblank)
+    }
+
+    /// Regression: a markdown document with `## Headings` averages ~50 chars
+    /// over 7 lines, which the length-only rule classified as TxtLines — the
+    /// same corpus's 5-line runbook (avg 59) went to TxtProse. Same content
+    /// type, two families, two field names, incomparable BM25 statistics.
+    #[test]
+    fn markdown_with_headings_is_prose() {
+        let md = "# Postmortem: checkout outage, 14 June 2026\n\n\
+                  ## Impact\n\
+                  Checkout was unavailable for 51 minutes.\n\n\
+                  ## Root cause\n\
+                  The payment gateway TLS certificate expired.\n\n\
+                  ## Resolution\n\
+                  We reloaded the service and added an alert.\n";
+        assert_eq!(kind(md), Family::TxtProse);
+    }
+
+    #[test]
+    fn short_runbook_is_still_prose() {
+        let md = "# Database runbook\n\n\
+                  ## Failover\n\
+                  Promote the standby with pg_ctl promote.\n\n\
+                  ## Pool exhaustion\n\
+                  Symptoms are rising p99 and pool errors in the logs.\n";
+        assert_eq!(kind(md), Family::TxtProse);
+    }
+
+    /// The record-stream side must be unaffected — these are what TxtLines is for.
+    #[test]
+    fn access_logs_stay_line_records() {
+        let log = (0..20)
+            .map(|i| format!(
+                "10.0.0.{i} - - [01/Jun/2026:10:00:00 +0000] \"GET /api/checkout HTTP/1.1\" 200 {i}00 \"-\" \"Mozilla/5.0\""
+            ))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert_eq!(classify_full(&log), Family::Logs);
+    }
+
+    #[test]
+    fn syslog_stays_line_records() {
+        // One message in five ends with a period — well under the threshold.
+        let msgs = [
+            "sshd[123]: Accepted publickey for deploy from 10.0.3.4 port 55212",
+            "kernel: Out of memory: Killed process 8123 (java)",
+            "cron[99]: session opened for user root by (uid=0)",
+            "postfix[7]: connection timed out while talking to upstream",
+            "systemd[1]: Started Daily apt download activities.",
+        ];
+        let log = (0..6)
+            .flat_map(|_| msgs.iter().map(|m| format!("Jun  1 10:00:00 host1 {m}")))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert_eq!(classify_full(&log), Family::Logs);
+    }
+
+    #[test]
+    fn source_code_stays_line_records() {
+        let code = "pub struct Pool { max: usize, in_use: usize }\n\
+                    impl Pool {\n\
+                    pub fn acquire(&mut self) -> Result<Conn, PoolError> {\n\
+                    if self.in_use >= self.max { return Err(PoolError::Exhausted); }\n\
+                    self.in_use += 1;\n\
+                    Ok(Conn::new())\n\
+                    }\n\
+                    }\n\
+                    fn helper() -> u32 { 42 }\n\
+                    const LIMIT: usize = 10;\n";
+        assert_eq!(kind(code), Family::TxtLines);
+    }
+
+    #[test]
+    fn long_lines_are_prose_regardless_of_punctuation() {
+        let t = (0..10)
+            .map(|_| "x".repeat(120))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert_eq!(kind(&t), Family::TxtProse);
     }
 }
