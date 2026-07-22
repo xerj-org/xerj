@@ -810,9 +810,7 @@ impl FtsIndexWriter {
                     .with_context(|| format!("inserting term '{}' into FST", term))?;
             }
         }
-        let mut fst_out = fst_builder
-            .into_inner()
-            .with_context(|| "finishing FST")?;
+        let mut fst_out = fst_builder.into_inner().with_context(|| "finishing FST")?;
         fst_out.flush().with_context(|| "flushing FST")?;
         fst_out
             .get_ref()

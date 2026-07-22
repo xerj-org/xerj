@@ -4877,7 +4877,9 @@ fn compile_pred(filter: &Value) -> Option<Pred> {
                 .iter()
                 .filter_map(|k| bo.get(*k))
                 .all(|v| v.is_string());
-            let any_bound = ["gte", "gt", "lte", "lt"].iter().any(|k| bo.contains_key(*k));
+            let any_bound = ["gte", "gt", "lte", "lt"]
+                .iter()
+                .any(|k| bo.contains_key(*k));
             if any_bound && str_bounds {
                 let get_str = |k: &str| -> Option<Option<String>> {
                     match bo.get(k) {
@@ -5439,8 +5441,22 @@ mod range_kw_tests {
     #[test]
     fn empty_and_out_of_range_windows() {
         let c = cols();
-        assert_eq!(count(&rng(Some("2026-07-01T00:00:00.000Z"), true, None, true), &c, 72), 0);
-        assert_eq!(count(&rng(None, true, Some("2026-05-01T00:00:00.000Z"), false), &c, 72), 0);
+        assert_eq!(
+            count(
+                &rng(Some("2026-07-01T00:00:00.000Z"), true, None, true),
+                &c,
+                72
+            ),
+            0
+        );
+        assert_eq!(
+            count(
+                &rng(None, true, Some("2026-05-01T00:00:00.000Z"), false),
+                &c,
+                72
+            ),
+            0
+        );
     }
 
     /// The order-safety gate: a dictionary mixing widths (a hand-indexed
@@ -5453,7 +5469,10 @@ mod range_kw_tests {
         let mut m = std::collections::BTreeMap::new();
         m.insert("ts".to_string(), Column::Keyword(k));
         let p = rng(Some(&ts(2, 0)), true, Some(&ts(3, 0)), false);
-        assert!(resolve_pred(&m, &p).is_none(), "ragged dictionary must bail");
+        assert!(
+            resolve_pred(&m, &p).is_none(),
+            "ragged dictionary must bail"
+        );
     }
 
     /// A bound whose width disagrees with the dictionary must bail too.

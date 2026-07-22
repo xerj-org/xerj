@@ -891,9 +891,7 @@ fn parse_range(params: &Value) -> Result<QueryNode> {
     // matching live ES 8.13.4.
     let fmt_raw = inner.get("format").and_then(|v| v.as_str());
     let formats = match fmt_raw {
-        Some(f) => {
-            Some(dates::compile_formats(f).map_err(|e| date_resolve_err(e, fmt_raw, ""))?)
-        }
+        Some(f) => Some(dates::compile_formats(f).map_err(|e| date_resolve_err(e, fmt_raw, ""))?),
         None => None,
     };
     // Round-up bounds: `lte` includes its whole covered interval, `gt`

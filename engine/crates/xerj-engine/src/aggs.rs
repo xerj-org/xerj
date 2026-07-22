@@ -5242,9 +5242,8 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
                             // keyword-range semantics.
                             let raw = Value::String(values[0].clone());
                             let doc_ms = parse_date_ms(&raw);
-                            let bound_ms = |k: &str| -> Option<i64> {
-                                bounds.get(k).and_then(parse_date_ms)
-                            };
+                            let bound_ms =
+                                |k: &str| -> Option<i64> { bounds.get(k).and_then(parse_date_ms) };
                             if let Some(v) = doc_ms {
                                 if let Some(b) = bound_ms("gte") {
                                     if v < b {
@@ -12377,8 +12376,14 @@ mod date_range_filter_tests {
         let f = json!({"range": {"ts": {"gte": "2026-06-17T00:00:00.000Z",
                                         "lt":  "2026-06-18T00:00:00.000Z"}}});
         assert!(doc_matches_filter(&inside, &f), "in-window doc must match");
-        assert!(!doc_matches_filter(&before, &f), "doc before window must NOT match");
-        assert!(!doc_matches_filter(&after, &f), "doc at exclusive upper must NOT match");
+        assert!(
+            !doc_matches_filter(&before, &f),
+            "doc before window must NOT match"
+        );
+        assert!(
+            !doc_matches_filter(&after, &f),
+            "doc at exclusive upper must NOT match"
+        );
     }
 
     /// Bounds are compared as instants, so differing-but-equivalent renderings
@@ -12386,8 +12391,14 @@ mod date_range_filter_tests {
     #[test]
     fn date_bounds_compare_as_instants_not_strings() {
         let doc = json!({"ts": "2026-06-17T00:00:00.000Z"});
-        assert!(doc_matches_filter(&doc, &json!({"range": {"ts": {"gte": "2026-06-17"}}})));
-        assert!(!doc_matches_filter(&doc, &json!({"range": {"ts": {"gt": "2026-06-17"}}})));
+        assert!(doc_matches_filter(
+            &doc,
+            &json!({"range": {"ts": {"gte": "2026-06-17"}}})
+        ));
+        assert!(!doc_matches_filter(
+            &doc,
+            &json!({"range": {"ts": {"gt": "2026-06-17"}}})
+        ));
         // Same instant expressed with an offset.
         let f = json!({"range": {"ts": {"gte": "2026-06-17T02:00:00.000+02:00"}}});
         assert!(doc_matches_filter(&doc, &f));

@@ -5141,10 +5141,18 @@ async fn test_filtered_extended_stats_sees_only_matching_docs() {
     let es = &res.aggs.as_ref().unwrap()["es"];
 
     // Group b only: 6 000 docs, every value 100.0.
-    assert_eq!(es["count"].as_u64().unwrap(), 6_000, "count must exclude group a");
+    assert_eq!(
+        es["count"].as_u64().unwrap(),
+        6_000,
+        "count must exclude group a"
+    );
     assert_eq!(es["min"].as_f64().unwrap(), 100.0);
     assert_eq!(es["max"].as_f64().unwrap(), 100.0);
-    assert_eq!(es["avg"].as_f64().unwrap(), 100.0, "avg of a filter-blind fold would be 50.5");
+    assert_eq!(
+        es["avg"].as_f64().unwrap(),
+        100.0,
+        "avg of a filter-blind fold would be 50.5"
+    );
     // Constant population → zero variance. A filter-blind fold gives ~2450.
     assert!(
         es["variance"].as_f64().unwrap() < 1e-6,
@@ -5198,11 +5206,12 @@ async fn test_filtered_median_absolute_deviation_sees_only_matching_docs() {
     }))
     .unwrap();
     let res = idx.search(&req).await.unwrap();
-    let mad = res.aggs.as_ref().unwrap()["m"]["value"]
-        .as_f64()
-        .unwrap();
+    let mad = res.aggs.as_ref().unwrap()["m"]["value"].as_f64().unwrap();
     // Constant population → MAD 0. Filter-blind would give ~49.5.
-    assert!(mad < 1e-6, "MAD must be ~0 for a constant population, got {mad}");
+    assert!(
+        mad < 1e-6,
+        "MAD must be ~0 for a constant population, got {mad}"
+    );
 }
 
 #[tokio::test]
@@ -5271,7 +5280,10 @@ async fn test_highlight_survives_source_filtering() {
         .as_ref()
         .expect("highlight must be present even when _source excludes the field");
     let frag = &hl["body"][0];
-    assert!(frag.contains("<em>"), "fragment must carry highlight tags: {frag}");
+    assert!(
+        frag.contains("<em>"),
+        "fragment must carry highlight tags: {frag}"
+    );
     assert!(
         frag.to_lowercase().contains("neural") || frag.to_lowercase().contains("embedder"),
         "fragment must surround the match: {frag}"
@@ -5281,5 +5293,8 @@ async fn test_highlight_survives_source_filtering() {
         hit.source.get("body").is_none(),
         "_source filtering must still exclude body; caller should not pay for it"
     );
-    assert!(hit.source.get("path").is_some(), "requested field must survive");
+    assert!(
+        hit.source.get("path").is_some(),
+        "requested field must survive"
+    );
 }

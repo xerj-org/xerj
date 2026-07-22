@@ -119,13 +119,23 @@ pub enum PatTok {
     /// Year; payload = minimum digit count (`yyyy` → 4).
     Year(usize),
     /// Numeric month; payload = exact-width flag (`MM` → true, `M` → false).
-    Month { two_digit: bool },
+    Month {
+        two_digit: bool,
+    },
     /// Text month name (`MMM`/`MMMM`) — English abbreviations/full names.
     MonthName,
-    Day { two_digit: bool },
-    Hour { two_digit: bool },
-    Minute { two_digit: bool },
-    Second { two_digit: bool },
+    Day {
+        two_digit: bool,
+    },
+    Hour {
+        two_digit: bool,
+    },
+    Minute {
+        two_digit: bool,
+    },
+    Second {
+        two_digit: bool,
+    },
     /// Fractional seconds (`S+`); stores as milliseconds.
     Fraction,
     /// `Z`/`X`/`x`/`z` — accepts `Z` or `±hh[:mm]` / `±hhmm` (also `UTC`/`GMT`).
@@ -232,14 +242,26 @@ fn compile_pattern(pattern: &str) -> Result<Vec<PatTok>, DateResolveError> {
                     if run >= 3 {
                         PatTok::MonthName
                     } else {
-                        PatTok::Month { two_digit: run == 2 }
+                        PatTok::Month {
+                            two_digit: run == 2,
+                        }
                     }
                 }
-                'd' => PatTok::Day { two_digit: run >= 2 },
-                'H' | 'k' => PatTok::Hour { two_digit: run >= 2 },
-                'h' | 'K' => PatTok::Hour { two_digit: run >= 2 },
-                'm' => PatTok::Minute { two_digit: run >= 2 },
-                's' => PatTok::Second { two_digit: run >= 2 },
+                'd' => PatTok::Day {
+                    two_digit: run >= 2,
+                },
+                'H' | 'k' => PatTok::Hour {
+                    two_digit: run >= 2,
+                },
+                'h' | 'K' => PatTok::Hour {
+                    two_digit: run >= 2,
+                },
+                'm' => PatTok::Minute {
+                    two_digit: run >= 2,
+                },
+                's' => PatTok::Second {
+                    two_digit: run >= 2,
+                },
                 'S' | 'n' | 'A' | 'N' => PatTok::Fraction,
                 'Z' | 'X' | 'x' | 'z' | 'V' | 'O' | 'v' => PatTok::TzOffset,
                 'E' | 'e' | 'c' => PatTok::WeekdayName,

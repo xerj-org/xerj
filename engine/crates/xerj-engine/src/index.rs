@@ -105,7 +105,10 @@ fn query_node_to_agg_filter(node: &QueryNode) -> Option<Value> {
             lt,
             ..
         } => {
-            let present: Vec<&Value> = [gte, gt, lte, lt].iter().filter_map(|o| o.as_ref()).collect();
+            let present: Vec<&Value> = [gte, gt, lte, lt]
+                .iter()
+                .filter_map(|o| o.as_ref())
+                .collect();
             if present.is_empty() {
                 return None;
             }

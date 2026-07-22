@@ -40,11 +40,7 @@ pub fn fsync_dir(dir: &Path) -> std::io::Result<()> {
 /// same target never clobber each other's temp file (see the
 /// `save_snapshot` race note in `xerj-storage`).
 pub fn write_file_durable(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    let nonce = format!(
-        "{:x}-{:?}",
-        std::process::id(),
-        std::thread::current().id()
-    );
+    let nonce = format!("{:x}-{:?}", std::process::id(), std::thread::current().id());
     let file_name = path
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
