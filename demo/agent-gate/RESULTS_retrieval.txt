@@ -1,0 +1,24 @@
+
+================================================================================
+AGENT GATE — RETRIEVAL regime (prose/code corpus)
+================================================================================
+
+question needle       base   xerj    base tok xerj tok  base s  xerj s
+certificate           MISS   OK            43       78    0.00    0.01
+stemming              MISS   OK            44       78    0.00    0.00
+promote               MISS   MISS          15       79    0.00    0.01
+fan-out               OK     OK           158       75    0.00    0.00
+at-least-once         MISS   OK            22       80    0.00    0.00
+vault                 OK     OK            38       78    0.00    0.00
+idempotency_key       OK     OK            69       79    0.00    0.00
+
+correct: baseline 3/7   xerj 6/7
+
+-- tokens over jointly-correct tasks only --
+   baseline 265 tok   xerj 232 tok   -> XERJ uses 1.14x FEWER tokens
+
+-- corpus composition --
+   53.1 KB total; 49.0 KB searchable prose/code (92.3%)
+   This is the regime where retrieval savings appear: grep's candidate
+   set grows with the corpus; ranked search returns one passage.
+

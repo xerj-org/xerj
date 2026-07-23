@@ -1,3 +1,13 @@
+> ⚠️ **STALE — sales-engineer material from April 2026 (v1.0.0-rc.1).** The
+> numbers here are out of date (conformance was 1305/1329; it is now 1360/1363,
+> and the RC1 ingest race and unfused-hybrid caveats it warns about are fixed).
+> This kit pitches XERJ to enterprise buyers; it is **not** the guide to XERJ as
+> an AI-agent tool. For that — how XERJ saves an AI coding agent time and
+> tokens, with reproducible measurements — see
+> [`demo/agent-gate/SCENARIOS.md`](agent-gate/SCENARIOS.md) and
+> [`docs/TOKEN_USAGE.md`](../docs/TOKEN_USAGE.md). Kept for reference; refresh
+> the numbers before any external use.
+
 # XERJ Demo Runbook — Enterprise AI Adoption
 
 **Audience:** sales engineers running 30–45 minute calls with prospects mid-AI transformation. Typical persona: a director of platform / head of AI infra / VP engineering at a regulated enterprise (financial services, healthcare, public sector, retail) who is actively wiring up RAG, agents, or copilots and is unhappy with the current sprawl of Elasticsearch + Pinecone/Weaviate + Splunk.
