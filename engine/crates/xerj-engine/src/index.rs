@@ -16243,9 +16243,10 @@ fn build_highlight_fragments(
 /// `EmbeddingError` (500, `circuit_breaking_exception`) with `ctx` prepended.
 /// Takes `impl Display` because the `Embedder` surfaces `anyhow::Error` (the
 /// classification of transient-vs-permanent already happened inside the proxy).
-fn is_embedding_admission_rejection(e: &anyhow::Error) -> bool {
+fn is_embedding_admission_rejection(_e: &anyhow::Error) -> bool {
     #[cfg(feature = "onnx-experimental")]
-    if e.downcast_ref::<xerj_ai::embedder::OnnxAdmissionError>()
+    if _e
+        .downcast_ref::<xerj_ai::embedder::OnnxAdmissionError>()
         .is_some()
     {
         return true;
@@ -16310,6 +16311,7 @@ fn validate_onnx_dimensions(fields: &[FieldConfig]) -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "onnx-experimental")]
 fn sha256_file(path: &Path) -> Result<String> {
     use sha2::{Digest, Sha256};
     use std::collections::HashMap;
@@ -16362,7 +16364,7 @@ fn sha256_file(path: &Path) -> Result<String> {
 fn configured_onnx_identity(
     cfg: &xerj_common::config::EmbeddingConfig,
 ) -> Result<Option<PersistedEmbeddingIdentity>> {
-    if cfg.mode.trim().to_ascii_lowercase() != "onnx-experimental" {
+    if !cfg.mode.trim().eq_ignore_ascii_case("onnx-experimental") {
         return Ok(None);
     }
     #[cfg(not(feature = "onnx-experimental"))]

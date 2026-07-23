@@ -310,7 +310,11 @@ mod section_tests {
     fn sections_are_retrieval_sized() {
         let t = doc(200, 400);
         let secs = split_sections(&t);
-        assert!(secs.len() > 10, "expected many sections, got {}", secs.len());
+        assert!(
+            secs.len() > 10,
+            "expected many sections, got {}",
+            secs.len()
+        );
         for s in &secs {
             assert!(
                 s.len() <= 2 * SECTION_CHARS,
@@ -327,12 +331,22 @@ mod section_tests {
         assert!(secs.len() >= 2);
         let mut overlaps = 0;
         for w in secs.windows(2) {
-            let prev_tail: String = w[0].chars().rev().take(60).collect::<String>().chars().rev().collect();
+            let prev_tail: String = w[0]
+                .chars()
+                .rev()
+                .take(60)
+                .collect::<String>()
+                .chars()
+                .rev()
+                .collect();
             if w[1].starts_with(&prev_tail[..prev_tail.len().min(30)]) {
                 overlaps += 1;
             }
         }
-        assert!(overlaps > 0, "no section carried an overlap from its predecessor");
+        assert!(
+            overlaps > 0,
+            "no section carried an overlap from its predecessor"
+        );
     }
 
     #[test]
@@ -341,7 +355,10 @@ mod section_tests {
         let secs = split_sections(&t);
         for i in 0..60 {
             let marker = format!("p{i} ");
-            assert!(secs.iter().any(|s| s.contains(&marker)), "paragraph {i} lost");
+            assert!(
+                secs.iter().any(|s| s.contains(&marker)),
+                "paragraph {i} lost"
+            );
         }
     }
 
