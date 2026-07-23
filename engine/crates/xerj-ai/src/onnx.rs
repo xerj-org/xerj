@@ -1,7 +1,15 @@
 //! Experimental FP32 ONNX Runtime MiniLM backend.
 //!
-//! This module is an embedding-layer prototype. It is not wired to XERJ's
-//! server or CLI. The safe `ort` API requires mutable session access, so one
+//! This backend is available end-to-end only in builds with the
+//! `onnx-experimental` feature and must be explicitly selected with local
+//! model/tokenizer paths. It is deliberately not a generic ONNX interface: the
+//! graph must be an FP32 all-MiniLM-L6-v2-compatible encoder with int64 inputs
+//! named `input_ids`, `attention_mask`, and `token_type_ids`, and a rank-3,
+//! width-384 output named `last_hidden_state` or `token_embeddings`. The
+//! tokenizer.json must come from the same model/export. XERJ attention-mask
+//! mean-pools and L2-normalizes the token output.
+//!
+//! The safe `ort` API requires mutable session access, so one
 //! session is serialized behind a mutex and aggregate throughput comes from
 //! bounded, length-aware microbatches rather than unsafe concurrent `Run`.
 
@@ -16,7 +24,7 @@ pub const MAX_TOKENS: usize = 512;
 pub const DIMS: usize = 384;
 
 /// Bounds for one offline scheduling window.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct MicrobatchConfig {
     /// Maximum inputs accepted in one call. Larger calls receive a clear
     /// backpressure error instead of allocating an unbounded queue.
@@ -58,8 +66,20 @@ pub struct OnnxEmbedder {
 
 impl OnnxEmbedder {
     pub fn load(model_path: &Path, tokenizer_path: &Path, intra_threads: usize) -> Result<Self> {
-        let mut tokenizer = Tokenizer::from_file(tokenizer_path)
-            .map_err(|e| anyhow!("load tokenizer {}: {e}", tokenizer_path.display()))?;
+        let model = std::fs::read(model_path)
+            .with_context(|| format!("read ONNX model {}", model_path.display()))?;
+        let tokenizer = std::fs::read(tokenizer_path)
+            .with_context(|| format!("read tokenizer {}", tokenizer_path.display()))?;
+        Self::load_bytes(&model, &tokenizer, intra_threads)
+    }
+
+    pub(crate) fn load_bytes(
+        model_bytes: &[u8],
+        tokenizer_bytes: &[u8],
+        intra_threads: usize,
+    ) -> Result<Self> {
+        let mut tokenizer = Tokenizer::from_bytes(tokenizer_bytes)
+            .map_err(|e| anyhow!("load tokenizer.json bytes: {e}"))?;
         tokenizer.with_padding(Some(PaddingParams {
             strategy: PaddingStrategy::BatchLongest,
             ..Default::default()
@@ -71,16 +91,29 @@ impl OnnxEmbedder {
             }))
             .map_err(|e| anyhow!("configure tokenizer truncation: {e}"))?;
 
+        let ort_log_level = match std::env::var("XERJ_ONNX_LOG")
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .as_str()
+        {
+            "verbose" | "trace" => ort::logging::LogLevel::Verbose,
+            "info" | "debug" => ort::logging::LogLevel::Info,
+            "error" => ort::logging::LogLevel::Error,
+            "fatal" => ort::logging::LogLevel::Fatal,
+            _ => ort::logging::LogLevel::Warning,
+        };
         let session = Session::builder()
             .map_err(|e| anyhow!("create ONNX Runtime session builder: {e}"))?
+            .with_log_level(ort_log_level)
+            .map_err(|e| anyhow!("configure ONNX Runtime log level: {e}"))?
             .with_optimization_level(GraphOptimizationLevel::Level3)
             .map_err(|e| anyhow!("configure ONNX graph optimizations: {e}"))?
             .with_config_entry("session.intra_op.allow_spinning", "0")
             .map_err(|e| anyhow!("disable ONNX intra-op spinning: {e}"))?
             .with_intra_threads(intra_threads.max(1))
             .map_err(|e| anyhow!("configure ONNX intra-op threads: {e}"))?
-            .commit_from_file(model_path)
-            .with_context(|| format!("load ONNX model {}", model_path.display()))?;
+            .commit_from_memory(model_bytes)
+            .context("load ONNX model bytes")?;
         Ok(Self {
             session: Mutex::new(session),
             tokenizer,

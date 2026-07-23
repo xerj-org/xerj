@@ -65,6 +65,7 @@ prost.workspace = true
 # (the lexical + proxy backends still work).
 default = ["neural"]
 neural = ["xerj-engine/neural"]
+onnx-experimental = ["xerj-engine/onnx-experimental"]
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = "0.6"

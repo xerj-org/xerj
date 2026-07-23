@@ -556,16 +556,20 @@ pub struct Index {
     /// `Config.merge` at index construction; reads are cheap and merge
     /// runs hold the snapshot for the duration of one batch.
     merge_config: xerj_common::config::MergeConfig,
+    /// Retained so a semantic field added after index creation can pin the
+    /// same embedding identity before its first document is accepted.
+    embedding_config: xerj_common::config::EmbeddingConfig,
 
     /// Embedding backend for `semantic` / `semantic_text` (v0.7-P2).
-    /// One of lexical (built-in, default), an external proxy, or the
-    /// built-in neural BERT embedder — selected by `Config.embedding.mode`.
+    /// One of lexical (built-in, default), an external proxy, the built-in
+    /// Candle neural BERT embedder, or the experimental ONNX Runtime backend
+    /// — selected by `Config.embedding.mode`.
     /// [`xerj_ai::Embedder::is_active`] is false only for the lexical
     /// fallback; an active backend embeds arbitrary query text, while the
     /// lexical fallback embeds only `semantic_text` fields (embedded the
-    /// same way at ingest). Reused across queries (proxy semaphore / neural
-    /// model are shared behind the `Arc`).
-    embedder: Arc<xerj_ai::Embedder>,
+    /// same way at ingest). Reused across queries (proxy admission state and
+    /// neural/ONNX models are shared behind the `Arc`).
+    embedder: Arc<RwLock<xerj_ai::Embedder>>,
 
     // ── Per-index metrics ─────────────────────────────────────────────────────
     /// Total search queries executed.
@@ -844,6 +848,8 @@ impl Index {
             schema,
             dynamic: xerj_common::schema::DynamicMapping::Dynamic,
         };
+        validate_embedding_identity(&index_dir, &managed.schema, &config.embedding, true, false)?;
+        let effective_embedder = make_embedder_for_schema(&managed.schema, &config.embedding)?;
 
         // Doc count is a sanity cap only — the byte threshold is the primary
         // driver.  Historically this was 10 000, which forced flushes every ~8 MB
@@ -940,7 +946,8 @@ impl Index {
             )),
             merge_in_progress: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             merge_config: config.merge.clone(),
-            embedder: Arc::new(make_embedder(&config.embedding)),
+            embedding_config: config.embedding.clone(),
+            embedder: Arc::new(RwLock::new(effective_embedder)),
             dv_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_fields: Arc::new(dashmap::DashMap::new()),
@@ -993,6 +1000,14 @@ impl Index {
 
         // Load schema from disk if it exists.
         let schema = load_schema(&index_dir).unwrap_or_else(|_| ManagedSchema::dynamic());
+        validate_embedding_identity(
+            &index_dir,
+            &schema.schema,
+            &config.embedding,
+            false,
+            segment_doc_count > 0 || store.version_map.live_count() > 0,
+        )?;
+        let effective_embedder = make_embedder_for_schema(&schema.schema, &config.embedding)?;
 
         // Load persisted settings early so we can build the registry before WAL replay.
         let settings = load_settings(&index_dir).unwrap_or(Value::Null);
@@ -1178,7 +1193,8 @@ impl Index {
             )),
             merge_in_progress: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             merge_config: config.merge.clone(),
-            embedder: Arc::new(make_embedder(&config.embedding)),
+            embedding_config: config.embedding.clone(),
+            embedder: Arc::new(RwLock::new(effective_embedder)),
             dv_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_cache: Arc::new(dashmap::DashMap::new()),
             sort_shadow_fields: Arc::new(dashmap::DashMap::new()),
@@ -1267,6 +1283,27 @@ impl Index {
         if_seq_no: Option<u64>,
         if_primary_term: Option<u64>,
     ) -> Result<IndexResponse> {
+        self.index_document_with_version_inner(id, source, if_seq_no, if_primary_term, false)
+            .await
+    }
+
+    pub(crate) async fn index_document_prepared(
+        &self,
+        id: Option<String>,
+        source: Value,
+    ) -> Result<IndexResponse> {
+        self.index_document_with_version_inner(id, source, None, None, true)
+            .await
+    }
+
+    async fn index_document_with_version_inner(
+        &self,
+        id: Option<String>,
+        source: Value,
+        if_seq_no: Option<u64>,
+        if_primary_term: Option<u64>,
+        semantic_embeddings_prepared: bool,
+    ) -> Result<IndexResponse> {
         // Check write block.
         if self.is_write_blocked().await {
             return Err(EngineError::Common(xerj_common::XerjError::index_blocked(
@@ -1321,7 +1358,11 @@ impl Index {
         // its companion vector field (`<field>_vector`) so it becomes
         // kNN-searchable. Runs before copy_to / storage so the derived vector
         // is part of `_source` and gets picked up by HNSW indexing below.
-        let source = self.apply_semantic_embeddings(source).await?;
+        let source = if semantic_embeddings_prepared {
+            source
+        } else {
+            self.apply_semantic_embeddings(source).await?
+        };
 
         // Apply copy_to: expand the source by copying field values to their target fields.
         let source = {
@@ -4939,18 +4980,19 @@ impl Index {
         };
 
         // Embed the query text with the effective embedder:
-        //   * An ACTIVE backend (neural BERT or external proxy) embeds the
-        //     query text directly — the same backend used at ingest.
+        //   * An ACTIVE backend (Candle neural BERT, experimental ONNX, or an
+        //     external proxy) embeds the query text directly — the same
+        //     backend used at ingest.
         //   * Otherwise the built-in lexical embedder — but ONLY for
         //     `semantic_text` fields, which were embedded that same way at
         //     ingest. A `semantic` query against a plain dense_vector field
         //     with no active backend still returns the original 400 (there
         //     is no comparable stored vector to match against).
-        let query_vec = if self.embedder.is_active() {
+        let embedder = self.embedder.read().await;
+        let query_vec = if embedder.is_active() {
             // `embed_batch` takes Vec<String>; we only have one text but
             // batching keeps the wire format stable for callers.
-            let mut vectors = self
-                .embedder
+            let mut vectors = embedder
                 .embed_batch(vec![text.to_string()])
                 .await
                 .map_err(|e| {
@@ -4974,8 +5016,10 @@ impl Index {
             return Err(EngineError::Common(xerj_common::XerjError::invalid_query(
                 "semantic query requires either a `semantic_text` field (auto-embedded \
                      with the built-in lexical embedder) or an active embedding backend \
-                     (`embedding.mode = \"neural\"`, or `\"proxy\"` with \
-                     `embedding.default_endpoint` set to an OpenAI-compatible endpoint).",
+                     (`embedding.mode = \"neural\"`; `\"proxy\"` with \
+                     `embedding.default_endpoint` set to an OpenAI-compatible endpoint; \
+                     or `\"onnx-experimental\"` in an ONNX-enabled build with explicit \
+                     model and tokenizer paths).",
             )));
         };
 
@@ -5001,7 +5045,22 @@ impl Index {
     /// deterministic embedder — the *same* choice made at query time so the
     /// vectors are comparable. Fields where the target already holds a value
     /// (caller pre-embedded) or whose value is not a string are left untouched.
-    async fn apply_semantic_embeddings(&self, mut source: Value) -> Result<Value> {
+    async fn apply_semantic_embeddings(&self, source: Value) -> Result<Value> {
+        self.apply_semantic_embeddings_batch(vec![source])
+            .await
+            .pop()
+            .expect("one input produces one output")
+    }
+
+    /// Prepare embeddings for several documents in shared inference windows.
+    ///
+    /// The returned vector is position-aligned with `sources`. A failed
+    /// backend window is retried per document-field job so one bad item does
+    /// not turn otherwise valid bulk items into failures.
+    pub(crate) async fn apply_semantic_embeddings_batch(
+        &self,
+        mut sources: Vec<Value>,
+    ) -> Vec<Result<Value>> {
         // Collect (field, target_field, dims) specs without holding the schema
         // lock across the (possibly async) embedding calls.
         let specs: Vec<(String, String, usize)> = {
@@ -5026,44 +5085,183 @@ impl Index {
                 .collect()
         };
         if specs.is_empty() {
-            return Ok(source);
+            return sources.into_iter().map(Ok).collect();
         }
-        let Some(obj) = source.as_object_mut() else {
-            return Ok(source);
-        };
-        for (field, target, dims) in specs {
-            // Respect a caller-supplied vector (e.g. pre-computed offline).
-            if obj.get(&target).map(|v| !v.is_null()).unwrap_or(false) {
-                continue;
-            }
-            let Some(text) = obj.get(&field).and_then(Value::as_str) else {
+
+        struct EmbedJob {
+            source_idx: usize,
+            field: String,
+            target: String,
+            dims: usize,
+            original_text: String,
+            texts: Vec<String>,
+        }
+
+        let mut jobs = Vec::<EmbedJob>::new();
+        let mut pre_failures: Vec<Option<String>> = (0..sources.len()).map(|_| None).collect();
+        let onnx_pinned = self
+            .embedding_config
+            .mode
+            .eq_ignore_ascii_case("onnx-experimental");
+        for (source_idx, source) in sources.iter().enumerate() {
+            let Some(obj) = source.as_object() else {
                 continue;
             };
-            let text = text.to_string();
-            // Chunk once and embed EACH overlapping chunk. `chunk_vecs` is one
-            // embedding per passage (>= 1). Short text (<= chunk_size) yields a
-            // single chunk == the exact pre-chunking behavior.
-            let chunk_vecs: Vec<Vec<f32>> = if self.embedder.is_active() {
-                // Active backend (neural or proxy): chunk, then embed each
-                // passage. The same backend + chunking is used at query time.
-                let chunks = semantic_chunker().chunk(&text, None);
-                let chunk_texts: Vec<String> = if chunks.len() <= 1 {
-                    vec![text.clone()]
+            for (field, target, dims) in &specs {
+                let supplied_vector = obj.get(target).map(|v| !v.is_null()).unwrap_or(false);
+                let supplied_chunks = obj
+                    .get(&format!("{target}_chunks"))
+                    .map(|v| !v.is_null())
+                    .unwrap_or(false);
+                if onnx_pinned && (supplied_vector || supplied_chunks) {
+                    pre_failures[source_idx] = Some(format!(
+                        "field [{field}]: caller-supplied derived vectors are not accepted for \
+                         an ONNX-pinned semantic index because their model identity cannot be \
+                         verified; submit text only or use a separate explicitly pre-embedded index"
+                    ));
+                    continue;
+                }
+                if supplied_vector {
+                    continue;
+                }
+                let Some(text) = obj.get(field).and_then(Value::as_str) else {
+                    continue;
+                };
+                let chunks = semantic_chunker().chunk(text, None);
+                let texts = if chunks.len() <= 1 {
+                    vec![text.to_string()]
                 } else {
                     chunks.iter().map(|c| c.text.clone()).collect()
                 };
-                let vs = self.embedder.embed_batch(chunk_texts).await.map_err(|e| {
-                    // Item 9: preserve the embedder's 5xx class on ingest too —
-                    // a proxy outage must not masquerade as a 400 bad document.
-                    EngineError::Common(embed_backend_error(
-                        e,
-                        &format!("semantic_text embed failed for field [{field}]"),
-                    ))
-                })?;
-                vs.into_iter().filter(|v| !v.is_empty()).collect()
-            } else {
-                // Lexical fallback: deterministic per-chunk feature-hash.
-                local_chunk_vectors(&text, dims)
+                jobs.push(EmbedJob {
+                    source_idx,
+                    field: field.clone(),
+                    target: target.clone(),
+                    dims: *dims,
+                    original_text: text.to_string(),
+                    texts,
+                });
+            }
+        }
+
+        let mut outputs: Vec<Option<Vec<Vec<f32>>>> = vec![None; jobs.len()];
+        let mut failures = pre_failures;
+        let mut admission_rejections = vec![false; sources.len()];
+
+        let embedder = self.embedder.read().await;
+        if embedder.is_active() {
+            // Bound caller-side windows as well as backend-internal batches.
+            // This avoids an arbitrarily large proxy payload and gives ONNX a
+            // useful cross-document scheduling window without giant padding.
+            const MAX_PASSAGES_PER_WINDOW: usize = 64;
+            let mut start = 0;
+            while start < jobs.len() {
+                let mut end = start;
+                let mut passages = 0;
+                while end < jobs.len()
+                    && (end == start || passages + jobs[end].texts.len() <= MAX_PASSAGES_PER_WINDOW)
+                {
+                    passages += jobs[end].texts.len();
+                    end += 1;
+                }
+                let texts: Vec<String> = jobs[start..end]
+                    .iter()
+                    .flat_map(|job| job.texts.iter().cloned())
+                    .collect();
+                match embedder.embed_batch(texts).await {
+                    Ok(vectors) if vectors.len() == passages => {
+                        let mut offset = 0;
+                        for job_idx in start..end {
+                            let count = jobs[job_idx].texts.len();
+                            let job_vectors = &vectors[offset..offset + count];
+                            if let Some(vector) = job_vectors
+                                .iter()
+                                .find(|vector| vector.len() != jobs[job_idx].dims)
+                            {
+                                failures[jobs[job_idx].source_idx] = Some(format!(
+                                    "field [{}]: embedding backend returned width {}, mapping requires {}",
+                                    jobs[job_idx].field,
+                                    vector.len(),
+                                    jobs[job_idx].dims
+                                ));
+                            } else {
+                                outputs[job_idx] = Some(job_vectors.to_vec());
+                            }
+                            offset += count;
+                        }
+                    }
+                    batch_result => {
+                        // Preserve per-item bulk behavior on a backend error:
+                        // retry each document-field job separately and only
+                        // fail the sources whose own retry fails.
+                        let batch_error = match batch_result {
+                            Ok(v) => format!(
+                                "embedding backend returned {} vectors for {passages} texts",
+                                v.len()
+                            ),
+                            Err(e) => e.to_string(),
+                        };
+                        tracing::warn!(
+                            error = %batch_error,
+                            jobs = end - start,
+                            passages,
+                            "semantic embedding window failed; retrying per item"
+                        );
+                        for job_idx in start..end {
+                            match embedder.embed_batch(jobs[job_idx].texts.clone()).await {
+                                Ok(v)
+                                    if v.len() == jobs[job_idx].texts.len()
+                                        && v.iter()
+                                            .all(|vector| vector.len() == jobs[job_idx].dims) =>
+                                {
+                                    outputs[job_idx] = Some(v);
+                                }
+                                Ok(v) => {
+                                    let widths = v
+                                        .iter()
+                                        .map(Vec::len)
+                                        .collect::<std::collections::BTreeSet<_>>();
+                                    failures[jobs[job_idx].source_idx] = Some(format!(
+                                        "field [{}]: embedding backend returned {} vectors with widths {:?} for {} texts; mapping requires width {}",
+                                        jobs[job_idx].field,
+                                        v.len(),
+                                        widths,
+                                        jobs[job_idx].texts.len(),
+                                        jobs[job_idx].dims,
+                                    ));
+                                }
+                                Err(e) => {
+                                    admission_rejections[jobs[job_idx].source_idx] =
+                                        is_embedding_admission_rejection(&e);
+                                    failures[jobs[job_idx].source_idx] =
+                                        Some(format!("field [{}]: {e}", jobs[job_idx].field));
+                                }
+                            }
+                        }
+                    }
+                }
+                start = end;
+            }
+        } else {
+            for (job_idx, job) in jobs.iter().enumerate() {
+                // The lexical fallback intentionally keeps its deterministic
+                // per-document chunking behavior.
+                outputs[job_idx] = Some(local_chunk_vectors(&job.original_text, job.dims));
+            }
+        }
+
+        for (job_idx, job) in jobs.into_iter().enumerate() {
+            if failures[job.source_idx].is_some() {
+                continue;
+            }
+            let chunk_vecs: Vec<Vec<f32>> = outputs[job_idx]
+                .take()
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|v| !v.is_empty())
+                .collect();
+            let Some(obj) = sources[job.source_idx].as_object_mut() else {
+                continue;
             };
             // Pooled vector for `target`: single chunk is stored as-is (no
             // re-normalization, matching pre-chunking behavior); multiple
@@ -5076,7 +5274,7 @@ impl Index {
                 _ => mean_pool_normalize(&chunk_vecs),
             };
             let arr: Vec<Value> = pooled.into_iter().map(|f| Value::from(f as f64)).collect();
-            obj.insert(target.clone(), Value::Array(arr));
+            obj.insert(job.target.clone(), Value::Array(arr));
             // Per-chunk passage vectors — persisted ONLY when the document
             // actually spans more than one chunk, under `<target>_chunks` as an
             // array of vectors. Semantic search prefers these and scores by the
@@ -5088,10 +5286,26 @@ impl Index {
                     .iter()
                     .map(|cv| Value::Array(cv.iter().map(|f| Value::from(*f as f64)).collect()))
                     .collect();
-                obj.insert(format!("{target}_chunks"), Value::Array(chunks_json));
+                obj.insert(format!("{}_chunks", job.target), Value::Array(chunks_json));
             }
         }
-        Ok(source)
+
+        sources
+            .into_iter()
+            .enumerate()
+            .map(|(idx, source)| match failures[idx].take() {
+                Some(error) if admission_rejections[idx] => Err(EngineError::Common(
+                    xerj_common::XerjError::resource_exhausted(format!(
+                        "semantic_text batch embed rejected before tokenization: {error}"
+                    )),
+                )),
+                Some(error) => Err(EngineError::Common(embed_backend_error(
+                    anyhow::anyhow!(error),
+                    "semantic_text batch embed failed",
+                ))),
+                None => Ok(source),
+            })
+            .collect()
     }
 
     /// Hybrid (multi-query + fusion) executor. Recursively runs each
@@ -10158,6 +10372,26 @@ impl Index {
 
     /// Add a field to the schema.
     pub async fn add_field(&self, field: FieldConfig) -> Result<()> {
+        let activates_embedder = schema_needs_embedder(std::slice::from_ref(&field))
+            && !schema_needs_embedder(&self.schema.read().await.schema.fields);
+        let activated = if activates_embedder {
+            Some(make_embedder(&self.embedding_config)?)
+        } else {
+            None
+        };
+        if schema_has_embeddings(std::slice::from_ref(&field)) {
+            if self
+                .embedding_config
+                .mode
+                .eq_ignore_ascii_case("onnx-experimental")
+            {
+                validate_onnx_dimensions(std::slice::from_ref(&field))?;
+            }
+            ensure_embedding_identity_for_new_field(&self.data_dir, &self.embedding_config)?;
+        }
+        if let Some(embedder) = activated {
+            *self.embedder.write().await = embedder;
+        }
         let mut schema = self.schema.write().await;
         schema.add_field(field)?;
         self.save_schema(&schema).await?;
@@ -15990,13 +16224,18 @@ fn build_highlight_fragments(
 ///     `default_endpoint`).
 ///   * `"neural"` — the built-in BERT embedder (requires the `neural`
 ///     cargo feature; falls back to lexical with a warning otherwise).
+///   * `"onnx-experimental"` — an explicit FP32 ONNX model and tokenizer
+///     loaded through ONNX Runtime (requires the `onnx-experimental` feature).
 ///   * `"lexical"` — the built-in feature-hash embedder.
 ///   * `"auto"` (default / unknown) — proxy when `default_endpoint` is set,
 ///     else lexical. Preserves the historical behavior exactly.
 ///
-/// Any misconfiguration degrades to the lexical fallback (never a crash);
-/// a `semantic` query with no active backend against a plain vector field
-/// still returns a helpful 400.
+/// Proxy initialization and an unavailable Candle feature degrade to the
+/// lexical fallback with a warning. ONNX is deliberately fail-closed: missing
+/// assets, a feature-disabled build, or an incompatible model returns an
+/// actionable configuration error instead of silently changing vector
+/// identity. A `semantic` query with no active backend against a plain vector
+/// field still returns a helpful 400.
 /// Map an embedder failure to the correct ES class (item 9). An embedding
 /// backend outage or misconfiguration is a server-side (5xx) failure, never a
 /// 400 `invalid_query`: downgrading it hid proxy failures behind a client
@@ -16004,23 +16243,389 @@ fn build_highlight_fragments(
 /// `EmbeddingError` (500, `circuit_breaking_exception`) with `ctx` prepended.
 /// Takes `impl Display` because the `Embedder` surfaces `anyhow::Error` (the
 /// classification of transient-vs-permanent already happened inside the proxy).
-fn embed_backend_error(e: impl std::fmt::Display, ctx: &str) -> xerj_common::XerjError {
+fn is_embedding_admission_rejection(e: &anyhow::Error) -> bool {
+    #[cfg(feature = "onnx-experimental")]
+    if e.downcast_ref::<xerj_ai::embedder::OnnxAdmissionError>()
+        .is_some()
+    {
+        return true;
+    }
+    false
+}
+
+fn embed_backend_error(e: anyhow::Error, ctx: &str) -> xerj_common::XerjError {
+    if is_embedding_admission_rejection(&e) {
+        return xerj_common::XerjError::resource_exhausted(format!("{ctx}: {e}"));
+    }
     xerj_common::XerjError::embedding(format!("{ctx}: {e}"))
 }
 
-fn make_embedder(cfg: &xerj_common::config::EmbeddingConfig) -> xerj_ai::Embedder {
+const EMBEDDING_IDENTITY_FILE: &str = "embedding_identity.json";
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+struct PersistedEmbeddingIdentity {
+    version: u32,
+    backend: String,
+    model_sha256: String,
+    tokenizer_sha256: String,
+    dimensions: usize,
+    pooling: String,
+    max_tokens: usize,
+}
+
+fn schema_has_embeddings(fields: &[FieldConfig]) -> bool {
+    fields
+        .iter()
+        .any(|field| field.embedding.is_some() || schema_has_embeddings(&field.fields))
+}
+
+fn schema_needs_embedder(fields: &[FieldConfig]) -> bool {
+    fields.iter().any(|field| {
+        field.embedding.is_some()
+            || matches!(field.field_type, FieldType::Vector | FieldType::Chunk)
+            || schema_needs_embedder(&field.fields)
+    })
+}
+
+fn validate_onnx_dimensions(fields: &[FieldConfig]) -> Result<()> {
+    for field in fields {
+        if field.embedding.is_some() {
+            let dims = field
+                .options
+                .dimensions
+                .unwrap_or(xerj_ai::local::DEFAULT_DIMS);
+            if dims != 384 {
+                return Err(EngineError::Common(xerj_common::XerjError::embedding(
+                    format!(
+                        "semantic field [{}] declares {dims} dimensions, but the experimental \
+                         MiniLM ONNX backend returns exactly 384. Change the mapping to 384 or \
+                         use an embedding backend matching the declared dimensions.",
+                        field.name
+                    ),
+                )));
+            }
+        }
+        validate_onnx_dimensions(&field.fields)?;
+    }
+    Ok(())
+}
+
+fn sha256_file(path: &Path) -> Result<String> {
+    use sha2::{Digest, Sha256};
+    use std::collections::HashMap;
+    use std::io::Read;
+    use std::sync::{Mutex, OnceLock};
+    use std::time::UNIX_EPOCH;
+
+    static CACHE: OnceLock<Mutex<HashMap<(PathBuf, u64, u128), String>>> = OnceLock::new();
+    let canonical = path.canonicalize().map_err(|e| {
+        EngineError::Common(xerj_common::XerjError::embedding(format!(
+            "cannot resolve embedding asset {}: {e}",
+            path.display()
+        )))
+    })?;
+    let metadata = std::fs::metadata(&canonical)?;
+    let modified = metadata
+        .modified()
+        .ok()
+        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    let key = (canonical.clone(), metadata.len(), modified);
+    let mut cache = CACHE
+        .get_or_init(|| Mutex::new(HashMap::new()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(hash) = cache.get(&key).cloned() {
+        return Ok(hash);
+    }
+    let mut file = std::fs::File::open(&canonical).map_err(|e| {
+        EngineError::Common(xerj_common::XerjError::embedding(format!(
+            "cannot fingerprint embedding asset {}: {e}",
+            path.display()
+        )))
+    })?;
+    let mut hasher = Sha256::new();
+    let mut buf = [0_u8; 1024 * 1024];
+    loop {
+        let n = file.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    let hash = format!("{:x}", hasher.finalize());
+    cache.insert(key, hash.clone());
+    Ok(hash)
+}
+
+fn configured_onnx_identity(
+    cfg: &xerj_common::config::EmbeddingConfig,
+) -> Result<Option<PersistedEmbeddingIdentity>> {
+    if cfg.mode.trim().to_ascii_lowercase() != "onnx-experimental" {
+        return Ok(None);
+    }
+    #[cfg(not(feature = "onnx-experimental"))]
+    return Err(EngineError::Common(xerj_common::XerjError::embedding(
+        "onnx-experimental was requested but this engine build does not include the \
+         onnx-experimental feature; no embedding identity marker was written",
+    )));
+    #[cfg(feature = "onnx-experimental")]
+    Ok(Some(PersistedEmbeddingIdentity {
+        version: 1,
+        backend: "onnx-experimental".into(),
+        model_sha256: sha256_file(Path::new(&cfg.onnx_model_path))?,
+        tokenizer_sha256: sha256_file(Path::new(&cfg.onnx_tokenizer_path))?,
+        dimensions: 384,
+        pooling: "attention-mask-mean+l2-normalize".into(),
+        max_tokens: 512,
+    }))
+}
+
+/// Fail closed rather than mixing vectors produced by different model,
+/// tokenizer, pooling, or backend configurations after a restart/resume.
+fn validate_embedding_identity(
+    index_dir: &Path,
+    schema: &Schema,
+    cfg: &xerj_common::config::EmbeddingConfig,
+    new_index: bool,
+    has_documents: bool,
+) -> Result<()> {
+    if !schema_has_embeddings(&schema.fields) {
+        return Ok(());
+    }
+    let marker_path = index_dir.join(EMBEDDING_IDENTITY_FILE);
+    let configured = configured_onnx_identity(cfg)?;
+    if configured.is_some() {
+        validate_onnx_dimensions(&schema.fields)?;
+    }
+    if marker_path.exists() {
+        let persisted: PersistedEmbeddingIdentity =
+            serde_json::from_slice(&std::fs::read(&marker_path)?).map_err(|e| {
+                EngineError::Common(xerj_common::XerjError::embedding(format!(
+                    "cannot read {}: {e}; restore the marker or reindex this index",
+                    marker_path.display()
+                )))
+            })?;
+        return match configured {
+            Some(current) if current == persisted => Ok(()),
+            Some(current) => Err(EngineError::Common(xerj_common::XerjError::embedding(
+                format!(
+                    "embedding identity mismatch for index {}: persisted backend={} \
+                     model={} tokenizer={}, configured backend={} model={} tokenizer={}. \
+                     Refusing to mix incompatible vector spaces. Restore the original assets \
+                     or re-run autoindex with --fresh and a new index prefix.",
+                    index_dir.display(),
+                    persisted.backend,
+                    persisted.model_sha256,
+                    persisted.tokenizer_sha256,
+                    current.backend,
+                    current.model_sha256,
+                    current.tokenizer_sha256,
+                ),
+            ))),
+            None => Err(EngineError::Common(xerj_common::XerjError::embedding(
+                format!(
+                    "index {} contains ONNX vectors but the server is configured for \
+                     embedding.mode={:?}. Restart with onnx-experimental and the original \
+                     assets, or reindex under a new prefix.",
+                    index_dir.display(),
+                    cfg.mode
+                ),
+            ))),
+        };
+    }
+    let Some(identity) = configured else {
+        return Ok(());
+    };
+    if !new_index && has_documents {
+        return Err(EngineError::Common(xerj_common::XerjError::embedding(
+            format!(
+                "existing semantic index {} has no embedding identity marker. It may contain \
+                 vectors from another backend, so ONNX cannot be enabled safely in place. \
+                 Re-run autoindex with --fresh and a new --prefix, or rebuild the index from \
+                 source.",
+                index_dir.display()
+            ),
+        )));
+    }
+    write_file_atomic(&marker_path, &serde_json::to_vec_pretty(&identity)?)?;
+    Ok(())
+}
+
+fn ensure_embedding_identity_for_new_field(
+    index_dir: &Path,
+    cfg: &xerj_common::config::EmbeddingConfig,
+) -> Result<()> {
+    let Some(configured) = configured_onnx_identity(cfg)? else {
+        return Ok(());
+    };
+    let marker_path = index_dir.join(EMBEDDING_IDENTITY_FILE);
+    if marker_path.exists() {
+        let persisted: PersistedEmbeddingIdentity =
+            serde_json::from_slice(&std::fs::read(&marker_path)?).map_err(|e| {
+                EngineError::Common(xerj_common::XerjError::embedding(format!(
+                    "cannot read {}: {e}; restore the marker or reindex this index",
+                    marker_path.display()
+                )))
+            })?;
+        if persisted != configured {
+            return Err(EngineError::Common(xerj_common::XerjError::embedding(
+                format!(
+                    "embedding identity mismatch for index {}; refusing to add a semantic \
+                     field in a different vector space. Restore the original ONNX assets or \
+                     create a new index.",
+                    index_dir.display()
+                ),
+            )));
+        }
+        return Ok(());
+    }
+    // This field does not exist yet, so existing documents cannot contain its
+    // derived vectors. Pin the identity before publishing the mapping; all
+    // later writes and restarts are then checked against it.
+    write_file_atomic(&marker_path, &serde_json::to_vec_pretty(&configured)?)?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod embedding_identity_tests {
+    use super::*;
+
+    fn semantic_schema() -> Schema {
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text).with_embedding(
+                xerj_common::types::EmbeddingConfig {
+                    endpoint: None,
+                    model: None,
+                    target_field: None,
+                },
+            ))
+            .unwrap();
+        schema
+    }
+
+    fn onnx_config(dir: &Path, suffix: &str) -> xerj_common::config::EmbeddingConfig {
+        let model = dir.join(format!("model-{suffix}.onnx"));
+        let tokenizer = dir.join(format!("tokenizer-{suffix}.json"));
+        std::fs::write(&model, format!("model-{suffix}")).unwrap();
+        std::fs::write(&tokenizer, format!("tokenizer-{suffix}")).unwrap();
+        xerj_common::config::EmbeddingConfig {
+            mode: "onnx-experimental".into(),
+            onnx_model_path: model.to_string_lossy().into_owned(),
+            onnx_tokenizer_path: tokenizer.to_string_lossy().into_owned(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn onnx_identity_is_persisted_and_matching_restart_is_allowed() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = onnx_config(dir.path(), "a");
+        validate_embedding_identity(dir.path(), &semantic_schema(), &cfg, true, false).unwrap();
+        assert!(dir.path().join(EMBEDDING_IDENTITY_FILE).is_file());
+        validate_embedding_identity(dir.path(), &semantic_schema(), &cfg, false, true).unwrap();
+    }
+
+    #[test]
+    fn changed_onnx_assets_are_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let first = onnx_config(dir.path(), "a");
+        validate_embedding_identity(dir.path(), &semantic_schema(), &first, true, false).unwrap();
+        let changed = onnx_config(dir.path(), "b");
+        let error =
+            validate_embedding_identity(dir.path(), &semantic_schema(), &changed, false, true)
+                .unwrap_err()
+                .to_string();
+        assert!(error.contains("identity mismatch"), "{error}");
+        assert!(error.contains("new index prefix"), "{error}");
+    }
+
+    #[test]
+    fn markerless_existing_index_only_fails_closed_for_onnx() {
+        let dir = tempfile::tempdir().unwrap();
+        let lexical = xerj_common::config::EmbeddingConfig::default();
+        validate_embedding_identity(dir.path(), &semantic_schema(), &lexical, false, true).unwrap();
+        let onnx = onnx_config(dir.path(), "a");
+        let error = validate_embedding_identity(dir.path(), &semantic_schema(), &onnx, false, true)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("no embedding identity marker"), "{error}");
+    }
+
+    #[test]
+    fn later_semantic_field_pins_identity_before_first_write() {
+        let dir = tempfile::tempdir().unwrap();
+        let onnx = onnx_config(dir.path(), "a");
+        ensure_embedding_identity_for_new_field(dir.path(), &onnx).unwrap();
+        assert!(dir.path().join(EMBEDDING_IDENTITY_FILE).is_file());
+        ensure_embedding_identity_for_new_field(dir.path(), &onnx).unwrap();
+    }
+
+    #[test]
+    fn onnx_rejects_non_384_semantic_mapping() {
+        let dir = tempfile::tempdir().unwrap();
+        let onnx = onnx_config(dir.path(), "a");
+        let mut schema = semantic_schema();
+        schema.fields[0].options.dimensions = Some(768);
+        let error = validate_embedding_identity(dir.path(), &schema, &onnx, true, false)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("declares 768 dimensions"), "{error}");
+        assert!(error.contains("exactly 384"), "{error}");
+    }
+
+    #[cfg(feature = "onnx-experimental")]
+    #[test]
+    fn onnx_admission_rejection_maps_to_retryable_429() {
+        let error = anyhow::Error::new(xerj_ai::embedder::OnnxAdmissionError {
+            reason: "global admission full; retry".into(),
+        });
+        let mapped = embed_backend_error(error, "semantic query embed failed");
+        assert_eq!(mapped.http_status(), 429);
+        assert!(mapped.to_string().contains("retry"));
+    }
+
+    #[cfg(feature = "onnx-experimental")]
+    #[test]
+    fn non_vector_schema_does_not_touch_onnx_assets() {
+        let config = xerj_common::config::EmbeddingConfig {
+            mode: "onnx-experimental".into(),
+            onnx_model_path: "/definitely/missing/model.onnx".into(),
+            onnx_tokenizer_path: "/definitely/missing/tokenizer.json".into(),
+            ..Default::default()
+        };
+        let embedder = make_embedder_for_schema(&Schema::empty(), &config).unwrap();
+        assert!(embedder.describe().contains("lexical"));
+
+        let mut schema = semantic_schema();
+        schema.fields[0].options.dimensions = Some(384);
+        let error = make_embedder_for_schema(&schema, &config)
+            .err()
+            .expect("semantic schema must activate and validate ONNX")
+            .to_string();
+        assert!(error.contains("readable FP32 model"), "{error}");
+    }
+}
+
+fn make_embedder(cfg: &xerj_common::config::EmbeddingConfig) -> Result<xerj_ai::Embedder> {
     let mode = cfg.mode.trim().to_ascii_lowercase();
     let want_proxy = mode == "proxy"
         || (mode != "neural" && mode != "lexical" && !cfg.default_endpoint.is_empty());
 
     if mode == "neural" {
-        return make_neural_embedder(cfg);
+        return Ok(make_neural_embedder(cfg));
+    }
+
+    if mode == "onnx-experimental" {
+        return make_onnx_embedder(cfg);
     }
 
     if want_proxy {
         if cfg.default_endpoint.is_empty() {
             warn!("embedding.mode=proxy but embedding.default_endpoint is empty — falling back to lexical");
-            return xerj_ai::Embedder::lexical();
+            return Ok(xerj_ai::Embedder::lexical());
         }
         let proxy_cfg = xerj_ai::embed::EmbeddingProxyConfig {
             endpoint: cfg.default_endpoint.clone(),
@@ -16030,7 +16635,7 @@ fn make_embedder(cfg: &xerj_common::config::EmbeddingConfig) -> xerj_ai::Embedde
             max_concurrent: 4,
             max_retries: 3,
         };
-        return match xerj_ai::embed::EmbeddingProxy::new(proxy_cfg) {
+        return Ok(match xerj_ai::embed::EmbeddingProxy::new(proxy_cfg) {
             Ok(p) => {
                 info!(endpoint = %cfg.default_endpoint, "embedding backend: external proxy");
                 xerj_ai::Embedder::proxy(p)
@@ -16039,10 +16644,100 @@ fn make_embedder(cfg: &xerj_common::config::EmbeddingConfig) -> xerj_ai::Embedde
                 warn!(error = %e, "embedding proxy init failed — falling back to lexical");
                 xerj_ai::Embedder::lexical()
             }
-        };
+        });
     }
 
-    xerj_ai::Embedder::lexical()
+    Ok(xerj_ai::Embedder::lexical())
+}
+
+fn make_embedder_for_schema(
+    schema: &Schema,
+    cfg: &xerj_common::config::EmbeddingConfig,
+) -> Result<xerj_ai::Embedder> {
+    if schema_needs_embedder(&schema.fields) {
+        make_embedder(cfg)
+    } else {
+        Ok(xerj_ai::Embedder::lexical())
+    }
+}
+
+#[cfg(feature = "onnx-experimental")]
+fn make_onnx_embedder(cfg: &xerj_common::config::EmbeddingConfig) -> Result<xerj_ai::Embedder> {
+    use std::path::PathBuf;
+    let model_path = PathBuf::from(cfg.onnx_model_path.trim());
+    let tokenizer_path = PathBuf::from(cfg.onnx_tokenizer_path.trim());
+    if cfg.onnx_model_path.trim().is_empty() || !model_path.is_file() {
+        return Err(EngineError::Common(xerj_common::XerjError::embedding(
+            format!(
+                "embedding.mode=onnx-experimental requires a readable FP32 model file; \
+                 set --onnx-model <PATH> or embedding.onnx_model_path (got {:?})",
+                cfg.onnx_model_path
+            ),
+        )));
+    }
+    if cfg.onnx_tokenizer_path.trim().is_empty() || !tokenizer_path.is_file() {
+        return Err(EngineError::Common(xerj_common::XerjError::embedding(
+            format!(
+                "embedding.mode=onnx-experimental requires the matching tokenizer.json; \
+                 set --onnx-tokenizer <PATH> or embedding.onnx_tokenizer_path (got {:?})",
+                cfg.onnx_tokenizer_path
+            ),
+        )));
+    }
+    if cfg.onnx_max_pending == 0
+        || cfg.onnx_max_batch == 0
+        || cfg.onnx_padded_token_budget == 0
+        || cfg.onnx_max_inflight_calls == 0
+        || cfg.onnx_max_input_bytes_per_call == 0
+        || cfg.onnx_max_inflight_input_bytes == 0
+        || cfg.onnx_max_input_bytes_per_call > cfg.onnx_max_inflight_input_bytes
+        || cfg.onnx_max_inflight_input_bytes > u32::MAX as usize
+    {
+        return Err(EngineError::Common(xerj_common::XerjError::embedding(
+            format!(
+                "invalid ONNX limits: pending={}, batch={}, padded_tokens={}, inflight_calls={}, \
+                 bytes_per_call={}, inflight_bytes={}; all must be non-zero, bytes_per_call \
+                 must not exceed inflight_bytes, and inflight_bytes must be <= {}",
+                cfg.onnx_max_pending,
+                cfg.onnx_max_batch,
+                cfg.onnx_padded_token_budget,
+                cfg.onnx_max_inflight_calls,
+                cfg.onnx_max_input_bytes_per_call,
+                cfg.onnx_max_inflight_input_bytes,
+                u32::MAX
+            ),
+        )));
+    }
+    let onnx_cfg = xerj_ai::embedder::OnnxConfig {
+        model_sha256: sha256_file(&model_path)?,
+        tokenizer_sha256: sha256_file(&tokenizer_path)?,
+        model_path,
+        tokenizer_path,
+        intra_threads: cfg.onnx_intra_threads.max(1),
+        microbatch: xerj_ai::onnx::MicrobatchConfig {
+            max_pending: cfg.onnx_max_pending,
+            max_batch: cfg.onnx_max_batch,
+            padded_token_budget: cfg.onnx_padded_token_budget,
+        },
+        max_inflight_calls: cfg.onnx_max_inflight_calls,
+        max_input_bytes_per_call: cfg.onnx_max_input_bytes_per_call,
+        max_inflight_input_bytes: cfg.onnx_max_inflight_input_bytes,
+    };
+    info!(
+        model = %onnx_cfg.model_path.display(),
+        tokenizer = %onnx_cfg.tokenizer_path.display(),
+        "embedding backend: experimental ONNX Runtime (loads on first use)"
+    );
+    Ok(xerj_ai::Embedder::onnx(onnx_cfg))
+}
+
+#[cfg(not(feature = "onnx-experimental"))]
+fn make_onnx_embedder(_cfg: &xerj_common::config::EmbeddingConfig) -> Result<xerj_ai::Embedder> {
+    Err(EngineError::Common(xerj_common::XerjError::embedding(
+        "embedding.mode=onnx-experimental requested, but this binary was built without it; \
+         rebuild xerj-server with --features onnx-experimental. XERJ will not silently \
+         substitute lexical vectors because that would mislabel search quality.",
+    )))
 }
 
 /// Construct the built-in neural embedder when compiled in; otherwise warn

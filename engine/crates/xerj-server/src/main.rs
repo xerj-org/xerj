@@ -78,6 +78,8 @@ struct CliArgs {
     data_dir: Option<String>,
     insecure: bool,
     embed_mode: Option<String>,
+    onnx_model: Option<String>,
+    onnx_tokenizer: Option<String>,
 }
 
 fn parse_args() -> CliArgs {
@@ -86,6 +88,8 @@ fn parse_args() -> CliArgs {
     let mut data_dir = None;
     let mut insecure = false;
     let mut embed_mode = None;
+    let mut onnx_model = None;
+    let mut onnx_tokenizer = None;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -101,6 +105,8 @@ fn parse_args() -> CliArgs {
             "--embed-mode" => {
                 embed_mode = args.next();
             }
+            "--onnx-model" => onnx_model = args.next(),
+            "--onnx-tokenizer" => onnx_tokenizer = args.next(),
             "--help" | "-h" => {
                 print_help();
                 std::process::exit(0);
@@ -121,6 +127,8 @@ fn parse_args() -> CliArgs {
         data_dir,
         insecure,
         embed_mode,
+        onnx_model,
+        onnx_tokenizer,
     }
 }
 
@@ -135,13 +143,20 @@ fn print_help() {
              --config,   -c <PATH>  Path to TOML config file\n\
              --data-dir, -d <PATH>  Override data directory\n\
              --insecure, -k         Disable TLS\n\
-             --embed-mode <MODE>    Embedding backend: lexical | neural | proxy | auto\n\
+             --embed-mode <MODE>    Embedding backend: lexical | neural | proxy | auto |\n\
+                                      onnx-experimental\n\
                                       lexical  built-in feature-hash (default; offline, not neural)\n\
                                       neural   built-in BERT (all-MiniLM-L6-v2) — real semantics,\n\
                                                in-process; auto-downloads the model (~90 MB) on\n\
                                                first use, then runs from cache. Just add the flag.\n\
                                       proxy    external OpenAI-compatible /v1/embeddings endpoint\n\
                                       auto     proxy if embedding.default_endpoint is set, else lexical\n\
+                                      onnx-experimental  local all-MiniLM-L6-v2-compatible FP32\n\
+                                               ONNX prototype; width 384, named BERT inputs and\n\
+                                               token output; requires matching tokenizer.json;\n\
+                                               no auto-download\n\
+             --onnx-model <PATH>    compatible FP32 MiniLM ONNX model\n\
+             --onnx-tokenizer <PATH> tokenizer.json from the same model/export\n\
              --help,     -h         Show this help\n\
              --version,  -V         Print version and exit\n\
          \n\
@@ -153,7 +168,9 @@ fn print_help() {
          ENVIRONMENT:\n\
              XERJ_LOG         Log level filter (default: info)\n\
              XERJ_CONFIG      Config file path\n\
-             XERJ_EMBED_MODE  Embedding backend (lexical|neural|proxy|auto)\n",
+             XERJ_EMBED_MODE  Embedding backend (lexical|neural|proxy|auto|onnx-experimental)\n\
+             XERJ_ONNX_MODEL  FP32 ONNX model path\n\
+             XERJ_ONNX_TOKENIZER matching tokenizer.json path\n",
         env!("CARGO_PKG_VERSION")
     );
 }
@@ -246,7 +263,8 @@ fn load_config(args: &CliArgs) -> Result<Config> {
     }
 
     // Embedding backend override: `--embed-mode` flag or `XERJ_EMBED_MODE`
-    // env (flag wins). Accepts `lexical` | `neural` | `proxy` | `auto`.
+    // env (flag wins). Also accepts `onnx-experimental` in a feature-enabled
+    // build with explicit model and tokenizer paths.
     if let Some(mode) = args
         .embed_mode
         .clone()
@@ -254,12 +272,69 @@ fn load_config(args: &CliArgs) -> Result<Config> {
     {
         let mode = mode.trim().to_ascii_lowercase();
         match mode.as_str() {
-            "lexical" | "neural" | "proxy" | "auto" => {
+            "lexical" | "neural" | "proxy" | "auto" | "onnx-experimental" => {
                 info!("embedding.mode = {mode} (from CLI/env)");
                 cfg.embedding.mode = mode;
             }
             other => {
-                warn!("ignoring unknown --embed-mode '{other}' (use lexical|neural|proxy|auto)");
+                anyhow::bail!("unknown --embed-mode '{other}'; use lexical|neural|proxy|auto|onnx-experimental");
+            }
+        }
+    }
+    if let Some(path) = args
+        .onnx_model
+        .clone()
+        .or_else(|| std::env::var("XERJ_ONNX_MODEL").ok())
+    {
+        cfg.embedding.onnx_model_path = path;
+    }
+    if let Some(path) = args
+        .onnx_tokenizer
+        .clone()
+        .or_else(|| std::env::var("XERJ_ONNX_TOKENIZER").ok())
+    {
+        cfg.embedding.onnx_tokenizer_path = path;
+    }
+    if cfg.embedding.mode == "onnx-experimental" {
+        #[cfg(not(feature = "onnx-experimental"))]
+        anyhow::bail!(
+            "onnx-experimental was requested, but this binary was built without it; \
+             rebuild with `cargo build --release -p xerj-server --features onnx-experimental`"
+        );
+        #[cfg(feature = "onnx-experimental")]
+        {
+            let model = Path::new(&cfg.embedding.onnx_model_path);
+            let tokenizer = Path::new(&cfg.embedding.onnx_tokenizer_path);
+            if !model.is_file() {
+                anyhow::bail!(
+                    "onnx-experimental needs a readable FP32 model file at {:?}; \
+                     pass --onnx-model <PATH> (no model is downloaded automatically)",
+                    cfg.embedding.onnx_model_path
+                );
+            }
+            if !tokenizer.is_file() {
+                anyhow::bail!(
+                    "onnx-experimental needs the matching tokenizer.json at {:?}; \
+                     pass --onnx-tokenizer <PATH>",
+                    cfg.embedding.onnx_tokenizer_path
+                );
+            }
+            if cfg.embedding.onnx_max_inflight_calls == 0
+                || cfg.embedding.onnx_max_input_bytes_per_call == 0
+                || cfg.embedding.onnx_max_inflight_input_bytes == 0
+                || cfg.embedding.onnx_max_input_bytes_per_call
+                    > cfg.embedding.onnx_max_inflight_input_bytes
+                || cfg.embedding.onnx_max_inflight_input_bytes > u32::MAX as usize
+            {
+                anyhow::bail!(
+                    "invalid ONNX admission limits: inflight_calls={}, bytes_per_call={}, \
+                     inflight_bytes={}; use non-zero values, keep bytes_per_call <= \
+                     inflight_bytes, and inflight_bytes <= {}",
+                    cfg.embedding.onnx_max_inflight_calls,
+                    cfg.embedding.onnx_max_input_bytes_per_call,
+                    cfg.embedding.onnx_max_inflight_input_bytes,
+                    u32::MAX
+                );
             }
         }
     }
@@ -461,9 +536,18 @@ async fn build_tls_config(cfg: &Config) -> Result<Option<RustlsConfig>> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 fn init_tracing(logging: &xerj_common::config::LoggingConfig) {
-    let filter = EnvFilter::try_from_env("XERJ_LOG")
+    let mut filter = EnvFilter::try_from_env("XERJ_LOG")
         .or_else(|_| EnvFilter::try_from_env("RUST_LOG"))
         .unwrap_or_else(|_| EnvFilter::new("info"));
+    let onnx_log = std::env::var("XERJ_ONNX_LOG")
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if !matches!(onnx_log.as_str(), "info" | "debug" | "verbose" | "trace") {
+        // `ort`'s tracing bridge emits allocator and graph-optimizer internals
+        // at INFO independently of the ONNX Runtime session severity. Keep
+        // normal XERJ logs concise; XERJ_ONNX_LOG explicitly opts back in.
+        filter = filter.add_directive("ort=warn".parse().expect("valid ort log directive"));
+    }
 
     let builder = tracing_subscriber::fmt()
         .with_env_filter(filter)
@@ -727,6 +811,8 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
         data_dir: cmd.data_dir.clone(),
         insecure: true,
         embed_mode: None,
+        onnx_model: None,
+        onnx_tokenizer: None,
     };
     let mut cfg = load_config(&fake_cli)?;
     // Tracing after config so the [logging] format applies (RC4-W4 item 6).

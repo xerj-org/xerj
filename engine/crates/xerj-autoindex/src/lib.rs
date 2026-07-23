@@ -491,6 +491,19 @@ fn run_index(cfg: IndexCfg) -> Result<i32> {
                             if buf.len() >= bulk_cut || buf_docs >= 5000 {
                                 match es.bulk(std::mem::take(&mut buf)) {
                                     Ok(o) => {
+                                        if o.server_errors > 0 {
+                                            send_err = Some(format!(
+                                                "bulk backend failed for {} item(s): {}. \
+                                                 Source file was not journaled complete; fix \
+                                                 the server/embedding configuration and rerun \
+                                                 autoindex to resume",
+                                                o.server_errors,
+                                                o.first_server_error
+                                                    .as_deref()
+                                                    .unwrap_or("unknown server error")
+                                            ));
+                                            return false;
+                                        }
                                         if o.item_errors > 0 {
                                             junk_records
                                                 .fetch_add(o.item_errors, Ordering::Relaxed);
@@ -533,8 +546,22 @@ fn run_index(cfg: IndexCfg) -> Result<i32> {
                     if !buf.is_empty() && send_err.is_none() {
                         match es.bulk(std::mem::take(&mut buf)) {
                             Ok(o) => {
+                                if o.server_errors > 0 {
+                                    send_err = Some(format!(
+                                        "bulk backend failed for {} item(s): {}. Source file \
+                                         was not journaled complete; fix the server/embedding \
+                                         configuration and rerun autoindex to resume",
+                                        o.server_errors,
+                                        o.first_server_error
+                                            .as_deref()
+                                            .unwrap_or("unknown server error")
+                                    ));
+                                }
                                 if o.item_errors > 0 {
-                                    junk_records.fetch_add(o.item_errors, Ordering::Relaxed);
+                                    junk_records.fetch_add(
+                                        o.item_errors.saturating_sub(o.server_errors),
+                                        Ordering::Relaxed,
+                                    );
                                 }
                             }
                             Err(e) => send_err = Some(format!("{e:#}")),
@@ -582,7 +609,12 @@ fn run_index(cfg: IndexCfg) -> Result<i32> {
 
     let bulk_errs = bulk_errors.into_inner().unwrap();
     if !bulk_errs.is_empty() {
-        eprintln!("bulk errors encountered (first few): {bulk_errs:?}");
+        anyhow::bail!(
+            "autoindex stopped with bulk/backend failures: {}. Failed source files were not \
+             journaled complete; fix the reported server or embedding configuration and rerun \
+             the same command to resume safely",
+            bulk_errs.join(" | ")
+        );
     }
 
     // ── finalize: refresh, verify, correlate, catalog ────────────────────
