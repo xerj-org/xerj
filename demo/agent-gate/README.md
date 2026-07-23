@@ -65,3 +65,19 @@ python3 demo/agent-gate/gate.py /tmp/gate-corpus
 Exit status is **0 when the report is trustworthy**, not when XERJ wins.
 It exits non-zero only if a path produced an answer the gate could not verify
 — that is, if the measurement itself is broken.
+
+## The kit
+
+| File | What it is |
+|---|---|
+| `SCENARIOS.md` | Six real Claude Code scenarios with measured before/after — start here |
+| `gate.py` | Analytics regime: record-heavy corpus (XERJ wins correctness, costs tokens) |
+| `gate_retrieval.py` | Retrieval regime: prose/code corpus (XERJ wins recall; tokens scale with size) |
+| `make_corpus.py` | Deterministic 36 MB heterogeneous corpus (logs/CSV/SQLite/docs/code) |
+| `make_corpus_prose.py` | Deterministic prose/code corpus (the regime where retrieval saves tokens) |
+| `RESULTS_analytics.txt` / `RESULTS_retrieval.txt` | Committed reference runs |
+
+Both gates share one discipline: correctness before savings, savings only over
+jointly-correct tasks, question-vocabulary baselines, both paths equally tuned,
+corpus composition beside every ratio. See the table at the top of this file
+for which historical mistake each rule prevents.
