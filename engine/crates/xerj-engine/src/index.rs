@@ -16508,6 +16508,7 @@ mod embedding_identity_tests {
         schema
     }
 
+    #[cfg(feature = "onnx-experimental")]
     fn onnx_config(dir: &Path, suffix: &str) -> xerj_common::config::EmbeddingConfig {
         let model = dir.join(format!("model-{suffix}.onnx"));
         let tokenizer = dir.join(format!("tokenizer-{suffix}.json"));
@@ -16521,6 +16522,7 @@ mod embedding_identity_tests {
         }
     }
 
+    #[cfg(feature = "onnx-experimental")]
     #[test]
     fn onnx_identity_is_persisted_and_matching_restart_is_allowed() {
         let dir = tempfile::tempdir().unwrap();
@@ -16530,6 +16532,7 @@ mod embedding_identity_tests {
         validate_embedding_identity(dir.path(), &semantic_schema(), &cfg, false, true).unwrap();
     }
 
+    #[cfg(feature = "onnx-experimental")]
     #[test]
     fn changed_onnx_assets_are_rejected() {
         let dir = tempfile::tempdir().unwrap();
@@ -16545,10 +16548,16 @@ mod embedding_identity_tests {
     }
 
     #[test]
-    fn markerless_existing_index_only_fails_closed_for_onnx() {
+    fn markerless_existing_index_allows_lexical() {
         let dir = tempfile::tempdir().unwrap();
         let lexical = xerj_common::config::EmbeddingConfig::default();
         validate_embedding_identity(dir.path(), &semantic_schema(), &lexical, false, true).unwrap();
+    }
+
+    #[cfg(feature = "onnx-experimental")]
+    #[test]
+    fn markerless_existing_index_fails_closed_for_onnx() {
+        let dir = tempfile::tempdir().unwrap();
         let onnx = onnx_config(dir.path(), "a");
         let error = validate_embedding_identity(dir.path(), &semantic_schema(), &onnx, false, true)
             .unwrap_err()
@@ -16556,6 +16565,7 @@ mod embedding_identity_tests {
         assert!(error.contains("no embedding identity marker"), "{error}");
     }
 
+    #[cfg(feature = "onnx-experimental")]
     #[test]
     fn later_semantic_field_pins_identity_before_first_write() {
         let dir = tempfile::tempdir().unwrap();
@@ -16565,6 +16575,7 @@ mod embedding_identity_tests {
         ensure_embedding_identity_for_new_field(dir.path(), &onnx).unwrap();
     }
 
+    #[cfg(feature = "onnx-experimental")]
     #[test]
     fn onnx_rejects_non_384_semantic_mapping() {
         let dir = tempfile::tempdir().unwrap();
@@ -16576,6 +16587,31 @@ mod embedding_identity_tests {
             .to_string();
         assert!(error.contains("declares 768 dimensions"), "{error}");
         assert!(error.contains("exactly 384"), "{error}");
+    }
+
+    #[cfg(not(feature = "onnx-experimental"))]
+    #[test]
+    fn onnx_configuration_fails_closed_without_compiled_feature() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = xerj_common::config::EmbeddingConfig {
+            mode: "onnx-experimental".into(),
+            onnx_model_path: dir.path().join("model.onnx").to_string_lossy().into_owned(),
+            onnx_tokenizer_path: dir
+                .path()
+                .join("tokenizer.json")
+                .to_string_lossy()
+                .into_owned(),
+            ..Default::default()
+        };
+        let error =
+            validate_embedding_identity(dir.path(), &semantic_schema(), &config, true, false)
+                .unwrap_err()
+                .to_string();
+        assert!(
+            error.contains("does not include the onnx-experimental feature"),
+            "{error}"
+        );
+        assert!(!dir.path().join(EMBEDDING_IDENTITY_FILE).exists());
     }
 
     #[cfg(feature = "onnx-experimental")]
