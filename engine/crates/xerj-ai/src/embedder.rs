@@ -25,6 +25,38 @@ use anyhow::{anyhow, Result};
 use crate::embed::EmbeddingProxy;
 use crate::local::{local_embed, DEFAULT_DIMS};
 
+#[cfg(feature = "neural")]
+type NeuralCell = tokio::sync::OnceCell<std::sync::Arc<crate::neural::NeuralEmbedder>>;
+
+/// Process-scoped registry of lazily loaded neural models. Every index builds
+/// its own [`Embedder`], but indices using the same complete neural
+/// configuration must not each load another copy of the ~90 MB model.
+///
+/// Weak values are intentional: the registry coordinates sharing without
+/// extending a model's lifetime after the last index using it is dropped.
+#[cfg(feature = "neural")]
+fn shared_neural_cell(cfg: &crate::neural::NeuralConfig) -> std::sync::Arc<NeuralCell> {
+    use std::collections::HashMap;
+    use std::sync::{Mutex, OnceLock, Weak};
+
+    static CELLS: OnceLock<Mutex<HashMap<crate::neural::NeuralConfig, Weak<NeuralCell>>>> =
+        OnceLock::new();
+
+    let mut cells = CELLS
+        .get_or_init(|| Mutex::new(HashMap::new()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(cell) = cells.get(cfg).and_then(Weak::upgrade) {
+        return cell;
+    }
+
+    // Opportunistically discard entries whose final handle has gone away.
+    cells.retain(|_, cell| cell.strong_count() > 0);
+    let cell = std::sync::Arc::new(NeuralCell::new());
+    cells.insert(cfg.clone(), std::sync::Arc::downgrade(&cell));
+    cell
+}
+
 /// A backend-agnostic text embedder shared across the engine.
 pub enum Embedder {
     /// Built-in lexical feature-hash embedder (no model, no network).
@@ -91,16 +123,14 @@ impl Embedder {
 #[cfg(feature = "neural")]
 pub struct NeuralHandle {
     cfg: crate::neural::NeuralConfig,
-    cell: tokio::sync::OnceCell<std::sync::Arc<crate::neural::NeuralEmbedder>>,
+    cell: std::sync::Arc<NeuralCell>,
 }
 
 #[cfg(feature = "neural")]
 impl NeuralHandle {
     pub fn new(cfg: crate::neural::NeuralConfig) -> Self {
-        Self {
-            cfg,
-            cell: tokio::sync::OnceCell::new(),
-        }
+        let cell = shared_neural_cell(&cfg);
+        Self { cfg, cell }
     }
 
     /// Get-or-load the model. First caller pays the (blocking) load / download;
@@ -124,5 +154,60 @@ impl NeuralHandle {
         tokio::task::spawn_blocking(move || model.embed_blocking(&texts))
             .await
             .map_err(|e| anyhow!("neural embed task panicked: {e}"))?
+    }
+}
+
+#[cfg(all(test, feature = "neural"))]
+mod neural_handle_tests {
+    use super::NeuralHandle;
+    use crate::neural::NeuralConfig;
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    #[test]
+    fn identical_configs_share_lazy_model_cell() {
+        let cfg = NeuralConfig {
+            model_id: "test/model-shared".into(),
+            cache_dir: Some(PathBuf::from("/tmp/xerj-neural-shared-cache")),
+            local_dir: None,
+        };
+        let first = NeuralHandle::new(cfg.clone());
+        let second = NeuralHandle::new(cfg);
+
+        assert!(Arc::ptr_eq(&first.cell, &second.cell));
+        assert!(first.cell.get().is_none(), "construction must remain lazy");
+    }
+
+    #[test]
+    fn distinct_configs_do_not_share_lazy_model_cell() {
+        let first = NeuralHandle::new(NeuralConfig {
+            model_id: "test/model-a".into(),
+            cache_dir: None,
+            local_dir: None,
+        });
+        let second = NeuralHandle::new(NeuralConfig {
+            model_id: "test/model-b".into(),
+            cache_dir: None,
+            local_dir: None,
+        });
+
+        assert!(!Arc::ptr_eq(&first.cell, &second.cell));
+    }
+
+    #[test]
+    fn registry_does_not_keep_unused_cells_alive() {
+        let cfg = NeuralConfig {
+            model_id: "test/model-reclaimable".into(),
+            cache_dir: None,
+            local_dir: None,
+        };
+        let weak = {
+            let handle = NeuralHandle::new(cfg.clone());
+            Arc::downgrade(&handle.cell)
+        };
+        assert!(weak.upgrade().is_none());
+
+        let replacement = NeuralHandle::new(cfg);
+        assert!(replacement.cell.get().is_none());
     }
 }

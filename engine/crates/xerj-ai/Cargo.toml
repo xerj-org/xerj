@@ -27,11 +27,23 @@ tokenizers = { version = "0.21", optional = true, default-features = false, feat
 # `ureq` (sync, blocking) pulls rustls by default — pure-Rust TLS, no OpenSSL,
 # so the neural feature cross-compiles cleanly to musl/aarch64/windows.
 hf-hub = { version = "0.4", optional = true, default-features = false, features = ["ureq"] }
+# EXPERIMENTAL GNU/Linux ONNX backend. This is deliberately separate from
+# `neural`: the production Candle backend and musl builds remain unchanged.
+ort = { version = "2.0.0-rc.12", optional = true, default-features = false, features = [
+    "std", "ndarray", "tracing", "download-binaries", "tls-rustls",
+    "copy-dylibs", "api-24",
+] }
 
 [features]
 default = []
 # Bundles the neural BERT embedder. Adds ~candle + tokenizers to the build.
 neural = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers", "dep:hf-hub"]
+# Embedding-layer prototype only; this does not add a server `--embed-mode`.
+onnx-experimental = ["dep:ort", "dep:tokenizers"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
+
+[[example]]
+name = "onnx_experimental"
+required-features = ["onnx-experimental"]

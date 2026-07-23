@@ -7,6 +7,8 @@
 //! - [`embed`]   — Embedding proxy: async HTTP client for OpenAI-compatible embedding APIs
 //! - [`local`]   — Built-in zero-config deterministic text embedder (feature hashing)
 //! - [`neural`]  — Built-in neural BERT sentence embedder via candle (feature `neural`)
+//! - `onnx`      — Experimental FP32 ONNX backend (feature `onnx-experimental`);
+//!   not wired into the server
 //! - [`chunker`] — Text chunking with sentence-aware splitting and overlap
 //! - [`memory`]  — Agent memory: semantic dedup + recency-blended recall
 
@@ -17,6 +19,8 @@ pub mod local;
 pub mod memory;
 #[cfg(feature = "neural")]
 pub mod neural;
+#[cfg(feature = "onnx-experimental")]
+pub mod onnx;
 
 pub use chunker::{Chunk, TextChunker};
 pub use embed::{EmbeddingProxy, EmbeddingProxyConfig};

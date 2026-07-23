@@ -32,7 +32,7 @@ pub const DEFAULT_MODEL_ID: &str = "sentence-transformers/all-MiniLM-L6-v2";
 const MAX_TOKENS: usize = 512;
 
 /// How to obtain the model weights.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NeuralConfig {
     /// HuggingFace model id (e.g. `sentence-transformers/all-MiniLM-L6-v2`).
     pub model_id: String,
