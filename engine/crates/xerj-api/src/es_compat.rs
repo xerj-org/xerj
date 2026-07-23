@@ -13048,11 +13048,16 @@ pub async fn count_docs(
                 continue;
             };
             if has_query {
-                let query_val = body
+                let mut query_val = body
                     .as_ref()
                     .and_then(|b| b.get("query"))
                     .cloned()
                     .unwrap_or(json!({ "match_all": {} }));
+                // Resolve `terms` lookups exactly as `_search` does — without
+                // this, `_count` silently returned 0 for a filter that
+                // `_search` counts correctly (the parser sees the raw lookup
+                // object and rejects it).
+                resolve_terms_lookups(&mut query_val, &state).await;
                 let search_body = json!({ "query": query_val, "size": 0, "from": 0 });
                 if let Ok(req) = xerj_query::parse_request(&search_body) {
                     if let Ok(result) = idx.search(&req).await {
@@ -13089,11 +13094,15 @@ pub async fn count_docs(
 
     let count = if has_query {
         // Run a search with size=0 to get the total.
-        let query_val = body
+        let mut query_val = body
             .as_ref()
             .and_then(|b| b.get("query"))
             .cloned()
             .unwrap_or(json!({ "match_all": {} }));
+        // Resolve `terms` lookups before parsing — `_search` does this at its
+        // coordination step, and `_count` must match or it silently returns 0
+        // where `_search` returns the real total.
+        resolve_terms_lookups(&mut query_val, &state).await;
         let search_body = json!({ "query": query_val, "size": 0, "from": 0 });
         match xerj_query::parse_request(&search_body) {
             Ok(req) => match idx.search(&req).await {

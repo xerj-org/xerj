@@ -43,7 +43,22 @@ pub type Sink<'a> = &'a mut dyn FnMut(RawRecord) -> bool;
 
 pub const MAX_LINE: usize = 16 << 20; // 16MB line cap
 pub const MAX_WHOLE_FILE: u64 = 64 << 20; // whole-file parse cap (json/html/yaml/txt)
-pub const SECTION_CHARS: usize = 32 << 10; // split documents at ~32KB text
+/// Target characters per document section.
+///
+/// Was 32 KB, which is a *storage* granularity, not a *retrieval* one: BM25
+/// scores per document, so a 32 KB section dilutes any match into noise and
+/// every hit drags 32 KB through `_source`.  Measured on a 460-commit history
+/// file, 32 KB sections produced 25 documents for 15,407 lines and the
+/// relevant commit was not retrievable; at 2 KB with paragraph overlap it is.
+///
+/// 2 KB is roughly the 40-line window validated for line-oriented text, and
+/// comfortably inside the 512-token limit of the built-in neural embedder, so
+/// a section maps to one vector without truncation.
+pub const SECTION_CHARS: usize = 2 << 10;
+
+/// Characters of the previous section repeated at the start of the next, so an
+/// answer spanning a boundary stays retrievable from both sides.
+pub const SECTION_OVERLAP: usize = 200;
 
 /// Open a (possibly gzipped) file as a buffered reader of DECODED-transparent
 /// bytes, optionally capped at `limit` decoded bytes (sampling).
@@ -184,22 +199,42 @@ pub fn sanitize_field_name(name: &str) -> String {
     }
 }
 
-/// Split long document text into ~32KB sections at paragraph boundaries.
+/// Split long document text into retrieval-sized sections at paragraph
+/// boundaries, repeating `SECTION_OVERLAP` characters across each boundary.
 pub fn split_sections(text: &str) -> Vec<String> {
     if text.len() <= SECTION_CHARS {
         return vec![text.to_string()];
     }
-    let mut out = Vec::new();
+    let mut out: Vec<String> = Vec::new();
     let mut cur = String::new();
+
+    fn tail(s: &str, n: usize) -> String {
+        if s.len() <= n {
+            return s.to_string();
+        }
+        let start = s
+            .char_indices()
+            .rev()
+            .take_while(|(i, _)| s.len() - *i <= n)
+            .last()
+            .map(|(i, _)| i)
+            .unwrap_or(0);
+        s[start..].to_string()
+    }
+
     for para in text.split("\n\n") {
         if !cur.is_empty() && cur.len() + para.len() > SECTION_CHARS {
-            out.push(std::mem::take(&mut cur));
+            let done = std::mem::take(&mut cur);
+            let carry = tail(&done, SECTION_OVERLAP);
+            out.push(done);
+            if !carry.is_empty() {
+                cur.push_str(&carry);
+            }
         }
         if !cur.is_empty() {
             cur.push_str("\n\n");
         }
         cur.push_str(para);
-        // pathological single paragraph
         while cur.len() > 2 * SECTION_CHARS {
             let cut = cur
                 .char_indices()
@@ -211,7 +246,7 @@ pub fn split_sections(text: &str) -> Vec<String> {
             out.push(std::mem::replace(&mut cur, rest));
         }
     }
-    if !cur.is_empty() {
+    if !cur.trim().is_empty() {
         out.push(cur);
     }
     out
@@ -250,4 +285,74 @@ pub fn emit_document(
         }
     }
     true
+}
+
+#[cfg(test)]
+mod section_tests {
+    use super::*;
+
+    fn doc(paras: usize, para_chars: usize) -> String {
+        (0..paras)
+            .map(|i| format!("p{i} ").repeat(para_chars / 4))
+            .collect::<Vec<_>>()
+            .join("\n\n")
+    }
+
+    #[test]
+    fn short_text_stays_one_section() {
+        let t = "one paragraph only";
+        assert_eq!(split_sections(t), vec![t.to_string()]);
+    }
+
+    /// Sections must be retrieval-sized. At the old 32 KB a whole commit
+    /// history collapsed into 25 documents and BM25 could not discriminate.
+    #[test]
+    fn sections_are_retrieval_sized() {
+        let t = doc(200, 400);
+        let secs = split_sections(&t);
+        assert!(secs.len() > 10, "expected many sections, got {}", secs.len());
+        for s in &secs {
+            assert!(
+                s.len() <= 2 * SECTION_CHARS,
+                "section of {} bytes exceeds 2x target",
+                s.len()
+            );
+        }
+    }
+
+    #[test]
+    fn consecutive_sections_share_an_overlap() {
+        let t = doc(120, 300);
+        let secs = split_sections(&t);
+        assert!(secs.len() >= 2);
+        let mut overlaps = 0;
+        for w in secs.windows(2) {
+            let prev_tail: String = w[0].chars().rev().take(60).collect::<String>().chars().rev().collect();
+            if w[1].starts_with(&prev_tail[..prev_tail.len().min(30)]) {
+                overlaps += 1;
+            }
+        }
+        assert!(overlaps > 0, "no section carried an overlap from its predecessor");
+    }
+
+    #[test]
+    fn no_content_is_dropped() {
+        let t = doc(60, 300);
+        let secs = split_sections(&t);
+        for i in 0..60 {
+            let marker = format!("p{i} ");
+            assert!(secs.iter().any(|s| s.contains(&marker)), "paragraph {i} lost");
+        }
+    }
+
+    /// A single paragraph larger than two sections must still be bounded.
+    #[test]
+    fn pathological_single_paragraph_is_hard_split() {
+        let t = "z".repeat(10 * SECTION_CHARS);
+        let secs = split_sections(&t);
+        assert!(secs.len() > 1);
+        for s in &secs {
+            assert!(s.len() <= 2 * SECTION_CHARS);
+        }
+    }
 }

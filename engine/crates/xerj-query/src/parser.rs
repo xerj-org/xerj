@@ -774,13 +774,23 @@ fn parse_terms(params: &Value) -> Result<QueryNode> {
     let field = field.clone();
 
     // Terms lookup: {"terms": {"category": {"index": "other", "id": "1", "path": "categories"}}}
-    // We gracefully handle this by returning MatchNone (empty results) rather than crashing.
+    //
+    // These are RESOLVED before parsing: the HTTP layer's
+    // `resolve_terms_lookups` fetches the source doc and substitutes the
+    // concrete value array, so a lookup object should not reach this parser on
+    // a supported endpoint. Reaching here means an endpoint parsed the query
+    // WITHOUT resolving first. Previously that returned `MatchNone` (empty
+    // results) with only a `warn` — a silent wrong answer: `_count` returned 0
+    // for a filter `_search` counted correctly. Fail loudly so the gap is
+    // visible instead of silently miscounting; the real fix is to resolve at
+    // the endpoint, as `_count` now does.
     if raw.is_object() {
-        tracing::warn!(
-            field = %field,
-            "terms lookup not supported — returning empty results"
-        );
-        return Ok(QueryNode::MatchNone);
+        return invalid(format!(
+            "terms lookup on `{field}` reached the query parser unresolved — \
+             the calling endpoint did not resolve `{{index, id, path}}` before \
+             parsing. It is supported on `_search`/`_count`; an endpoint that \
+             hits this needs a `resolve_terms_lookups` step."
+        ));
     }
 
     let values = raw
@@ -3947,6 +3957,33 @@ mod tests {
     #[test]
     fn test_match_none() {
         assert_eq!(q(json!({"match_none": {}})), QueryNode::MatchNone);
+    }
+
+    #[test]
+    fn test_unresolved_terms_lookup_is_a_loud_error_not_silent_empty() {
+        // An UNRESOLVED lookup object should never reach the parser on a
+        // supported endpoint (`_search`/`_count` substitute the value array
+        // first). If it does — an endpoint that forgot to resolve — this used
+        // to parse to MatchNone and log a warning, i.e. silently match nothing.
+        // It must be a hard parse error so the gap is visible.
+        let err = parse_query(&json!({
+            "terms": {"user_id": {"index": "customers", "id": "1", "path": "user_id"}}
+        }));
+        assert!(err.is_err(), "unresolved terms lookup must error, not MatchNone");
+        let msg = format!("{}", err.unwrap_err());
+        assert!(
+            msg.contains("terms lookup") && msg.contains("unresolved"),
+            "error should explain the unresolved-lookup gap, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_plain_terms_still_parses() {
+        // The literal-array form is unaffected.
+        assert!(matches!(
+            q(json!({"terms": {"svc": ["auth", "checkout"]}})),
+            QueryNode::Terms { .. }
+        ));
     }
 
     // ── match ─────────────────────────────────────────────────────────────────
