@@ -21409,7 +21409,7 @@ pub async fn xpack_info(State(state): State<AppState>) -> impl IntoResponse {
         "features": {
             "security": {
                 "available": true,
-                "enabled": true,
+                "enabled": state.config.auth.enabled,
                 "ssl": { "http": { "enabled": false }, "transport": { "enabled": false } }
             },
             "monitoring": { "available": true, "enabled": true },
@@ -21486,7 +21486,7 @@ pub async fn xpack_usage(State(state): State<AppState>) -> impl IntoResponse {
     Json(json!({
         "security": {
             "available": true,
-            "enabled": true,
+            "enabled": state.config.auth.enabled,
             "audit": { "enabled": false },
             "ip_filtering": { "pki": { "enabled": false } },
             "roles": { "native": { "size": 0, "dls": false, "fls": false }, "file": { "size": 0, "dls": false, "fls": false } },
