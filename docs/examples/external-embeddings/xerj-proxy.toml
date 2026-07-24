@@ -1,0 +1,6 @@
+[embedding]
+mode = "proxy"
+default_endpoint = "http://127.0.0.1:8900/v1/embeddings"
+default_model = "mock-embed-256"
+batch_size = 64
+timeout_ms = 5000
