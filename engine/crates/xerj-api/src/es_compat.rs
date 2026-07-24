@@ -15059,7 +15059,11 @@ pub async fn field_caps(
     Query(params): Query<FieldCapsParams>,
     _body: Option<Json<Value>>,
 ) -> impl IntoResponse {
-    // Support "*" as a wildcard for all indices.
+    // Support "*" as a wildcard for all indices, plus real glob patterns
+    // (e.g. "wiki-test*") via the same resolver used by bulk/aliases/etc —
+    // the old inline logic only special-cased bare "*"/"_all" and treated
+    // any other wildcard as a literal (non-existent) index/alias name,
+    // silently returning empty field caps for wildcarded index patterns.
     let resolved_indices: Vec<String> = if index == "*" || index == "_all" {
         state
             .engine
@@ -15069,10 +15073,7 @@ pub async fn field_caps(
             .map(|i| i.name)
             .collect()
     } else {
-        index
-            .split(',')
-            .flat_map(|n| state.engine.resolve_alias(n.trim()))
-            .collect()
+        resolve_index_selector(&state, &index).await
     };
 
     let fields_filter = params.fields.as_deref().unwrap_or("*");
