@@ -117,7 +117,10 @@ pub fn extract_lines(
 
         let mut fields = Map::new();
         fields.insert("text".into(), Value::String(text));
-        fields.insert("start_line".into(), Value::Number((start_line as u64).into()));
+        fields.insert(
+            "start_line".into(),
+            Value::Number((start_line as u64).into()),
+        );
         fields.insert("end_line".into(), Value::Number((end_line as u64).into()));
         stats.records += 1;
         let ok = sink(RawRecord {
@@ -211,9 +214,12 @@ mod chunk_tests {
         let out = run(&refs);
         assert!(out.len() >= 2, "100 lines must produce several chunks");
         for w in out.windows(2) {
-            let (_, s0, e0, _) = &w[0];
+            let (_, _s0, e0, _) = &w[0];
             let (_, s1, _, _) = &w[1];
-            assert!(s1 <= e0, "chunk {s1} must start at/before previous end {e0}");
+            assert!(
+                s1 <= e0,
+                "chunk {s1} must start at/before previous end {e0}"
+            );
             let repeated = e0 - s1 + 1;
             assert_eq!(
                 repeated as usize, CHUNK_OVERLAP,
@@ -230,7 +236,8 @@ mod chunk_tests {
         for i in 1..=95 {
             let tok = format!("unique{i}");
             assert!(
-                out.iter().any(|(t, _, _, _)| t.split('\n').any(|l| l == tok)),
+                out.iter()
+                    .any(|(t, _, _, _)| t.split('\n').any(|l| l == tok)),
                 "line {i} lost"
             );
         }
@@ -268,6 +275,9 @@ mod chunk_tests {
         let out = run(&["alpha", "", "beta", "", "gamma"]);
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].1, 1);
-        assert_eq!(out[0].2, 5, "end_line must be the real file line of `gamma`");
+        assert_eq!(
+            out[0].2, 5,
+            "end_line must be the real file line of `gamma`"
+        );
     }
 }

@@ -786,6 +786,26 @@ pub struct EmbeddingConfig {
     /// safetensors weights from this local directory instead of downloading
     /// — for air-gapped / offline deployments. Empty (default) = download.
     pub local_model_dir: String,
+    /// Experimental ONNX backend: local FP32 all-MiniLM-L6-v2-compatible
+    /// model with int64 BERT inputs and a width-384 token-embedding output.
+    /// Required when `mode = "onnx-experimental"`; never auto-downloaded.
+    pub onnx_model_path: String,
+    /// Experimental ONNX backend: tokenizer.json from the same model/export.
+    pub onnx_tokenizer_path: String,
+    /// Experimental ONNX Runtime intra-op threads (default: available CPUs).
+    pub onnx_intra_threads: usize,
+    /// Maximum texts accepted by one ONNX scheduling window.
+    pub onnx_max_pending: usize,
+    /// Maximum documents in one ONNX inference microbatch.
+    pub onnx_max_batch: usize,
+    /// Maximum batch × padded-token slots per ONNX inference microbatch.
+    pub onnx_padded_token_budget: usize,
+    /// Maximum ONNX calls admitted globally per shared model/session.
+    pub onnx_max_inflight_calls: usize,
+    /// Reject one ONNX call above this many UTF-8 input bytes before tokenizing.
+    pub onnx_max_input_bytes_per_call: usize,
+    /// Aggregate UTF-8 bytes admitted globally per shared ONNX model/session.
+    pub onnx_max_inflight_input_bytes: usize,
 }
 
 impl Default for EmbeddingConfig {
@@ -799,6 +819,17 @@ impl Default for EmbeddingConfig {
             neural_model: "sentence-transformers/all-MiniLM-L6-v2".to_string(),
             model_cache_dir: String::new(),
             local_model_dir: String::new(),
+            onnx_model_path: String::new(),
+            onnx_tokenizer_path: String::new(),
+            onnx_intra_threads: std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(1),
+            onnx_max_pending: 4096,
+            onnx_max_batch: 64,
+            onnx_padded_token_budget: 4096,
+            onnx_max_inflight_calls: 8,
+            onnx_max_input_bytes_per_call: 8 * 1024 * 1024,
+            onnx_max_inflight_input_bytes: 32 * 1024 * 1024,
         }
     }
 }

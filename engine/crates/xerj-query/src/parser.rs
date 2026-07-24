@@ -3969,7 +3969,10 @@ mod tests {
         let err = parse_query(&json!({
             "terms": {"user_id": {"index": "customers", "id": "1", "path": "user_id"}}
         }));
-        assert!(err.is_err(), "unresolved terms lookup must error, not MatchNone");
+        assert!(
+            err.is_err(),
+            "unresolved terms lookup must error, not MatchNone"
+        );
         let msg = format!("{}", err.unwrap_err());
         assert!(
             msg.contains("terms lookup") && msg.contains("unresolved"),

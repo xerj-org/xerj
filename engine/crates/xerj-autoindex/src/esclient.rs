@@ -14,7 +14,11 @@ pub struct Es {
 
 pub struct BulkOutcome {
     pub item_errors: u64,
+    /// Per-item 5xx/429 failures are backend/admission failures, not bad source
+    /// records. Callers must not journal the source file complete.
+    pub server_errors: u64,
     pub first_error: Option<String>,
+    pub first_server_error: Option<String>,
 }
 
 impl Es {
@@ -112,7 +116,9 @@ impl Es {
                 }
                 let v: Value = resp.json().context("parse bulk response")?;
                 let mut item_errors = 0u64;
+                let mut server_errors = 0u64;
                 let mut first_error = None;
+                let mut first_server_error = None;
                 if v.get("errors").and_then(|e| e.as_bool()).unwrap_or(false) {
                     if let Some(items) = v.get("items").and_then(|i| i.as_array()) {
                         for it in items {
@@ -123,6 +129,16 @@ impl Es {
                             if let Some(op) = op {
                                 if op.get("error").is_some() {
                                     item_errors += 1;
+                                    let item_status =
+                                        op.get("status").and_then(Value::as_u64).unwrap_or(500);
+                                    if item_status == 429 || item_status >= 500 {
+                                        server_errors += 1;
+                                        if first_server_error.is_none() {
+                                            first_server_error = Some(
+                                                op["error"].to_string().chars().take(500).collect(),
+                                            );
+                                        }
+                                    }
                                     if first_error.is_none() {
                                         first_error = Some(
                                             op["error"].to_string().chars().take(300).collect(),
@@ -135,7 +151,9 @@ impl Es {
                 }
                 Ok(BulkOutcome {
                     item_errors,
+                    server_errors,
                     first_error,
+                    first_server_error,
                 })
             },
         )

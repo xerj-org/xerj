@@ -51,6 +51,7 @@ default = []
 # default so the standard build stays lean and cross-compiles without the
 # candle/tokenizer toolchain; enable via xerj-server's `neural` feature.
 neural = ["xerj-ai/neural"]
+onnx-experimental = ["xerj-ai/onnx-experimental"]
 
 [dev-dependencies]
 tempfile  = { workspace = true }

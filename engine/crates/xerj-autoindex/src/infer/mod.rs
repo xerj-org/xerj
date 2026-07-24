@@ -515,7 +515,7 @@ pub fn infer_fields(
         let best = specs
             .iter()
             .enumerate()
-            .filter(|(i, s)| {
+            .filter(|(_i, s)| {
                 s.es_type == "text"
                     && s.avg_len >= 80.0
                     && fields
@@ -530,7 +530,7 @@ pub fn infer_fields(
             specs[i].notes.push(format!(
                 "hybrid lexical+vector body — elected because it looks like natural language \
                  (word_ratio {:.2}, {:.1} tokens/value); embedded server-side (lexical by \
-                 default, neural/proxy if configured)",
+                 default; Candle neural, proxy, or experimental ONNX if configured)",
                 a.map(|x| x.word_ratio()).unwrap_or(0.0),
                 a.map(|x| x.mean_tokens()).unwrap_or(0.0),
             ));

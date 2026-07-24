@@ -4905,6 +4905,107 @@ async fn test_semantic_text_match_survives_flush() {
     );
 }
 
+#[tokio::test]
+async fn test_semantic_text_bulk_preserves_item_order_status_and_vectors() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+
+    let mut schema = Schema::empty();
+    let mut fc = FieldConfig::new("content", FieldType::Text);
+    fc.options.dimensions = Some(16);
+    fc.options.similarity = Some("cosine".to_string());
+    fc.embedding = Some(xerj_common::types::EmbeddingConfig {
+        endpoint: None,
+        model: None,
+        target_field: Some("content_vector".to_string()),
+    });
+    schema.fields.push(fc);
+    engine.create_index("sem-bulk", schema).unwrap();
+
+    let body = concat!(
+        "{\"index\":{\"_index\":\"sem-bulk\",\"_id\":\"a\"}}\n",
+        "{\"content\":\"alpha financial report\"}\n",
+        "{\"index\":{\"_index\":\"sem-bulk\",\"_id\":\"b\"}}\n",
+        "{\"content\":\"beta quarterly earnings\"}\n",
+        "{\"index\":{\"_index\":\"sem-bulk\",\"_id\":\"a\"}}\n",
+        "{\"content\":\"alpha annual report updated\"}\n",
+    );
+    let result = xerj_engine::bulk::process_bulk(&engine, None, body).await;
+    assert!(!result.errors, "{:?}", result.items);
+    assert_eq!(result.items.len(), 3);
+    assert_eq!(result.items[0].id, "a");
+    assert_eq!(result.items[0].status, 201);
+    assert_eq!(result.items[1].id, "b");
+    assert_eq!(result.items[1].status, 201);
+    assert_eq!(result.items[2].id, "a");
+    assert_eq!(result.items[2].status, 200);
+
+    let idx = engine.get_index("sem-bulk").unwrap();
+    let a = idx.get_document("a").await.unwrap().unwrap();
+    let b = idx.get_document("b").await.unwrap().unwrap();
+    assert_eq!(a["content"], "alpha annual report updated");
+    assert_eq!(a["content_vector"].as_array().unwrap().len(), 16);
+    assert_eq!(b["content_vector"].as_array().unwrap().len(), 16);
+}
+
+#[cfg(feature = "onnx-experimental")]
+#[tokio::test]
+async fn test_semantic_bulk_preserves_onnx_admission_429() {
+    let dir = TempDir::new().unwrap();
+    let model = dir.path().join("model.onnx");
+    let tokenizer = dir.path().join("tokenizer.json");
+    std::fs::write(&model, b"not loaded: admission rejects first").unwrap();
+    std::fs::write(&tokenizer, b"not loaded: admission rejects first").unwrap();
+
+    let mut config = Config::default();
+    config.server.data_dir = dir.path().join("data").to_string_lossy().into_owned();
+    config.embedding.mode = "onnx-experimental".into();
+    config.embedding.onnx_model_path = model.to_string_lossy().into_owned();
+    config.embedding.onnx_tokenizer_path = tokenizer.to_string_lossy().into_owned();
+    config.embedding.onnx_max_input_bytes_per_call = 1;
+    config.embedding.onnx_max_inflight_input_bytes = 1;
+    let engine = Engine::new(config).unwrap();
+
+    let mut schema = Schema::empty();
+    let mut field = FieldConfig::new("content", FieldType::Text);
+    field.options.dimensions = Some(384);
+    field.embedding = Some(xerj_common::types::EmbeddingConfig {
+        endpoint: None,
+        model: None,
+        target_field: Some("content_vector".into()),
+    });
+    schema.fields.push(field);
+    engine.create_index("sem-onnx-overload", schema).unwrap();
+
+    let body = concat!(
+        "{\"index\":{\"_index\":\"sem-onnx-overload\",\"_id\":\"a\"}}\n",
+        "{\"content\":\"too large\"}\n",
+    );
+    let result = xerj_engine::bulk::process_bulk(&engine, None, body).await;
+    assert!(result.errors);
+    assert_eq!(result.items.len(), 1);
+    assert_eq!(result.items[0].status, 429, "{:?}", result.items[0]);
+    assert!(
+        result.items[0]
+            .error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("rejected before tokenization"),
+        "{:?}",
+        result.items[0]
+    );
+    assert!(
+        engine
+            .get_index("sem-onnx-overload")
+            .unwrap()
+            .get_document("a")
+            .await
+            .unwrap()
+            .is_none(),
+        "rejected bulk item must not be persisted"
+    );
+}
+
 /// Blocker 5: snapshot RESTORE ignored the request `indices` filter and
 /// rewrote EVERY index in the snapshot with snapshot-time state, silently
 /// destroying all writes made since. The filter must select exactly the

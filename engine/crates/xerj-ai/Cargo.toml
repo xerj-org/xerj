@@ -33,13 +33,15 @@ ort = { version = "2.0.0-rc.12", optional = true, default-features = false, feat
     "std", "ndarray", "tracing", "download-binaries", "tls-rustls",
     "copy-dylibs", "api-24",
 ] }
+sha2 = { version = "0.10", optional = true }
 
 [features]
 default = []
 # Bundles the neural BERT embedder. Adds ~candle + tokenizers to the build.
 neural = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers", "dep:hf-hub"]
-# Embedding-layer prototype only; this does not add a server `--embed-mode`.
-onnx-experimental = ["dep:ort", "dep:tokenizers"]
+# Experimental local ONNX backend; xerj-server exposes it only when the
+# feature is propagated and explicitly selected at runtime.
+onnx-experimental = ["dep:ort", "dep:tokenizers", "dep:sha2"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

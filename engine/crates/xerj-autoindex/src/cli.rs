@@ -73,6 +73,15 @@ pub fn print_help() {
              --dataset <SLUG>     (map) show a single dataset\n\
              --help, -h           this help\n\
          \n\
+         EMBEDDINGS:\n\
+             autoindex sends semantic_text to the running server; it does not choose the\n\
+             server's embedding backend. The default is lexical (not neural). For the\n\
+             experimental ONNX backend, start xerj with `--embed-mode onnx-experimental\n\
+             --onnx-model MODEL.onnx --onnx-tokenizer tokenizer.json`, then run autoindex.\n\
+             ONNX runs only for fields inferred as semantic_text (normally long body text;\n\
+             short/structured datasets may infer none). Use --dry-run or `autoindex map` to\n\
+             confirm a semantic field before attributing an indexing result to embeddings.\n\
+         \n\
          EXIT CODES: 0 complete; 3 completed-with-junk (junk recorded, never fatal);\n\
                      2 usage; 1 endpoint unreachable / journal-config mismatch\n"
     );

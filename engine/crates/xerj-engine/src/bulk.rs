@@ -40,6 +40,18 @@ pub struct BulkItemResult {
     pub get_source: Option<Value>,
 }
 
+fn engine_error_http_status(error: &EngineError) -> u16 {
+    match error {
+        EngineError::Common(xerj_common::XerjError::IndexBlocked { block_type, .. })
+            if block_type.contains("read_only_allow_delete") =>
+        {
+            429
+        }
+        EngineError::Common(error) => error.http_status(),
+        _ => 500,
+    }
+}
+
 // ── Bulk processor ────────────────────────────────────────────────────────────
 
 /// A parsed bulk action before execution.
@@ -820,6 +832,10 @@ pub async fn process_bulk_with_opts(
     // created-vs-updated / 201-vs-200 semantics turbo can't express.
     let mut auto_id_batches: HashMap<String, Vec<(usize, String, std::sync::Arc<[u8]>)>> =
         HashMap::new();
+    let mut semantic_index_batches: HashMap<
+        String,
+        Vec<(usize, Option<String>, std::sync::Arc<[u8]>)>,
+    > = HashMap::new();
     let mut non_index_actions: Vec<ParsedAction> = Vec::new();
 
     // Precompute which target indices declare any strict-format date
@@ -919,15 +935,20 @@ pub async fn process_bulk_with_opts(
         // them through the non-index path. Also divert when the index
         // has date fields with a strict `format`, so the per-item
         // validation loop can reject malformed values like ES does.
-        let is_plain_index = action.action_type == "index"
+        let has_strict_date =
+            index_has_strict_date(&action.target_index, &mut index_needs_date_validation);
+        let has_dynamic_copy =
+            index_has_dynamic_copy(&action.target_index, &mut index_needs_dynamic_copy);
+        let has_embedding = index_has_embedding(&action.target_index, &mut index_needs_embedding);
+        let has_plain_metadata = action.action_type == "index"
             && action.if_seq_no.is_none()
             && action.if_primary_term.is_none()
             && action.routing.is_none()
             && action.dynamic_templates.is_none()
             && action.pipeline.is_none()
-            && !index_has_strict_date(&action.target_index, &mut index_needs_date_validation)
-            && !index_has_dynamic_copy(&action.target_index, &mut index_needs_dynamic_copy)
-            && !index_has_embedding(&action.target_index, &mut index_needs_embedding);
+            && !has_strict_date
+            && !has_dynamic_copy;
+        let is_plain_index = has_plain_metadata && !has_embedding;
         if is_plain_index {
             match action.doc_id {
                 None => {
@@ -949,6 +970,11 @@ pub async fn process_bulk_with_opts(
                     ));
                 }
             }
+        } else if has_plain_metadata && has_embedding {
+            semantic_index_batches
+                .entry(action.target_index)
+                .or_default()
+                .push((action.item_index, action.doc_id, action.doc_bytes));
         } else {
             non_index_actions.push(action);
         }
@@ -957,6 +983,106 @@ pub async fn process_bulk_with_opts(
 
     let group_ms = t_group.elapsed().as_millis() as u64;
     let t_exec = std::time::Instant::now();
+
+    // ── semantic_text index actions: cross-document embedding windows ────
+    //
+    // Parse and prepare a target-index group together so the embedder sees
+    // useful multi-document windows. The normal per-document index method is
+    // still used after preparation; it observes the supplied companion vector
+    // and therefore preserves WAL, overwrite status, response ordering, and
+    // item-level errors.
+    for (index_name, batch) in semantic_index_batches {
+        let idx = match engine.get_or_create_index(&index_name) {
+            Ok(i) => i,
+            Err(e) => {
+                for (item_idx, id, _) in batch {
+                    items[item_idx] = Some(BulkItemResult {
+                        action: "index".into(),
+                        index: index_name.clone(),
+                        id: id.unwrap_or_default(),
+                        status: 500,
+                        result: None,
+                        error: Some(e.to_string()),
+                        get_source: None,
+                    });
+                    errors = true;
+                }
+                continue;
+            }
+        };
+
+        let mut valid_meta = Vec::with_capacity(batch.len());
+        let mut valid_sources = Vec::with_capacity(batch.len());
+        for (item_idx, id, bytes) in batch {
+            match serde_json::from_slice::<Value>(&bytes) {
+                Ok(source) => {
+                    valid_meta.push((item_idx, id));
+                    valid_sources.push(source);
+                }
+                Err(e) => {
+                    items[item_idx] = Some(BulkItemResult {
+                        action: "index".into(),
+                        index: index_name.clone(),
+                        id: id.unwrap_or_default(),
+                        status: 400,
+                        result: None,
+                        error: Some(format!("failed to parse: invalid document JSON: {e}")),
+                        get_source: None,
+                    });
+                    errors = true;
+                }
+            }
+        }
+
+        let prepared = idx.apply_semantic_embeddings_batch(valid_sources).await;
+        for ((item_idx, id), prepared_source) in valid_meta.into_iter().zip(prepared) {
+            let source = match prepared_source {
+                Ok(source) => source,
+                Err(e) => {
+                    let status = engine_error_http_status(&e);
+                    items[item_idx] = Some(BulkItemResult {
+                        action: "index".into(),
+                        index: index_name.clone(),
+                        id: id.unwrap_or_default(),
+                        status,
+                        result: None,
+                        error: Some(e.to_string()),
+                        get_source: None,
+                    });
+                    errors = true;
+                    continue;
+                }
+            };
+            let error_id = id.clone().unwrap_or_default();
+            match idx.index_document_prepared(id, source).await {
+                Ok(resp) => {
+                    let status = if resp.result == "updated" { 200 } else { 201 };
+                    items[item_idx] = Some(BulkItemResult {
+                        action: "index".into(),
+                        index: index_name.clone(),
+                        id: resp.id,
+                        status,
+                        result: Some(resp.result),
+                        error: None,
+                        get_source: None,
+                    });
+                }
+                Err(e) => {
+                    let status = engine_error_http_status(&e);
+                    items[item_idx] = Some(BulkItemResult {
+                        action: "index".into(),
+                        index: index_name.clone(),
+                        id: error_id,
+                        status,
+                        result: None,
+                        error: Some(e.to_string()),
+                        get_source: None,
+                    });
+                    errors = true;
+                }
+            }
+        }
+    }
 
     // ── Auto-id index actions: ONE turbo batch per target index ──────────
     //
