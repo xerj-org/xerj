@@ -2025,13 +2025,19 @@ impl Index {
             let analyzer = mem
                 .default_analyzer()
                 .expect("standard analyzer always present");
+            let excluded_fts_fields = crate::memtable::semantic_derived_vector_fields(schema);
             let p_t = std::time::Instant::now();
             let analyzed: Vec<Vec<(String, Vec<xerj_fts::analyzer::Token>)>> = crate::ingest_pool()
                 .install(|| {
                     sources
                         .par_iter()
                         .map(|source| {
-                            crate::memtable::analyze_doc(source.as_ref(), schema, &analyzer)
+                            crate::memtable::analyze_doc_excluding(
+                                source.as_ref(),
+                                schema,
+                                &analyzer,
+                                &excluded_fts_fields,
+                            )
                         })
                         .collect()
                 });
@@ -2292,6 +2298,9 @@ impl Index {
         let registry = Arc::clone(&self.registry);
         let data_dir = self.data_dir.clone();
         let field_configs = self.flush_signal.field_configs(&self.schema);
+        let excluded_fts_fields = self
+            .flush_signal
+            .semantic_derived_vector_fields(&self.schema);
         let dataset_version = Arc::clone(&self.dataset_version);
         let query_cache = Arc::clone(&self.query_cache);
         let warm_caches = self.publish_warm_caches();
@@ -2319,6 +2328,7 @@ impl Index {
                 registry,
                 data_dir,
                 field_configs,
+                excluded_fts_fields,
                 on_drained,
                 warm_caches,
             )
@@ -2540,9 +2550,12 @@ impl Index {
         // memtable, writes the segment file + FTS index, swaps the snapshot,
         // and checkpoints the WAL.  The drained memtable is dropped, freeing
         // all RAM.
-        let field_configs = {
+        let (field_configs, excluded_fts_fields) = {
             let schema = self.schema.read().await;
-            build_fts_field_configs(&schema.schema)
+            (
+                build_fts_field_configs(&schema.schema),
+                crate::memtable::semantic_derived_vector_fields(&schema.schema),
+            )
         };
         // Explicit refresh: wait behind any in-flight concurrent flushes
         // (semaphore has 4 permits) so the user-visible flush sees a
@@ -2563,6 +2576,7 @@ impl Index {
                 Arc::clone(&self.registry),
                 self.data_dir.clone(),
                 field_configs.clone(),
+                excluded_fts_fields.clone(),
                 || {}, // serial refresh path — no permit to drop early
                 self.publish_warm_caches(),
             )
@@ -2668,6 +2682,10 @@ impl Index {
                 let _ = field_configs_once.set(cfg.clone());
                 cfg
             };
+            let excluded_fts_fields = {
+                let schema = self.schema.read().await;
+                crate::memtable::semantic_derived_vector_fields(&schema.schema)
+            };
 
             let flush_signal_cb = Arc::clone(&self.flush_signal);
             tokio::spawn(async move {
@@ -2690,6 +2708,7 @@ impl Index {
                     registry,
                     data_dir,
                     field_configs,
+                    excluded_fts_fields,
                     on_drained,
                     warm_caches,
                 )
@@ -2894,9 +2913,12 @@ impl Index {
         // Resolve per-field analyzer configs once for FTS rebuild.  See
         // `build_fts_field_configs` — keyword/numeric fields must use the
         // `keyword` analyzer or the FST drops their values to stop-words.
-        let field_configs = {
+        let (field_configs, excluded_fts_fields) = {
             let schema = self.schema.read().await;
-            build_fts_field_configs(&schema.schema)
+            (
+                build_fts_field_configs(&schema.schema),
+                crate::memtable::semantic_derived_vector_fields(&schema.schema),
+            )
         };
         // Kept for the legacy "if !text_fields.is_empty()" branch — empty
         // here because the merge path now indexes ALL source fields, not
@@ -2996,6 +3018,7 @@ impl Index {
             let store_for_task = Arc::clone(&self.store);
             let registry_for_task = Arc::clone(&self.registry);
             let field_configs_for_task = field_configs.clone();
+            let excluded_fts_fields_for_task = excluded_fts_fields.clone();
             let segments_dir_for_task = segments_dir.clone();
             let batch_for_task = batch;
             let metas_for_task = metas;
@@ -3312,15 +3335,8 @@ impl Index {
                             Err(_) => continue,
                         };
                         let source = doc_value.get("_source").cloned().unwrap_or(Value::Null);
-                        let mut fields: HashMap<String, String> = HashMap::new();
-                        if let Some(obj) = source.as_object() {
-                            for (key, val) in obj {
-                                let text = extract_field_text(val);
-                                if !text.is_empty() {
-                                    fields.insert(key.clone(), text);
-                                }
-                            }
-                        }
+                        let fields =
+                            extract_fts_fields_excluding(&source, &excluded_fts_fields_for_task);
                         fts_input.push((id_str, fields, source));
                     }
 
@@ -10017,9 +10033,12 @@ impl Index {
 
     /// Flush the memtable to a new segment on disk, then build the FTS index.
     pub async fn flush(&self) -> Result<()> {
-        let field_configs = {
+        let (field_configs, excluded_fts_fields) = {
             let schema = self.schema.read().await;
-            build_fts_field_configs(&schema.schema)
+            (
+                build_fts_field_configs(&schema.schema),
+                crate::memtable::semantic_derived_vector_fields(&schema.schema),
+            )
         };
         // M5.15 — PARALLEL final flush.
         //
@@ -10044,6 +10063,7 @@ impl Index {
             let registry = Arc::clone(&self.registry);
             let data_dir = self.data_dir.clone();
             let field_configs = field_configs.clone();
+            let excluded_fts_fields = excluded_fts_fields.clone();
             let warm_caches = self.publish_warm_caches();
             shard_futures.push(tokio::spawn(async move {
                 let permit = sema.acquire_owned().await.ok();
@@ -10061,6 +10081,7 @@ impl Index {
                     registry,
                     data_dir,
                     field_configs,
+                    excluded_fts_fields,
                     on_drained,
                     warm_caches,
                 )
@@ -10771,7 +10792,11 @@ fn read_doc_values_sidecar(
 fn build_fts_field_configs(schema: &Schema) -> HashMap<String, xerj_fts::index::FieldIndexConfig> {
     use xerj_fts::index::FieldIndexConfig;
     let mut out = HashMap::new();
+    let excluded = crate::memtable::semantic_derived_vector_fields(schema);
     for f in &schema.fields {
+        if excluded.contains(&f.name) {
+            continue;
+        }
         let analyzer = match f.field_type {
             FieldType::Text => "standard",
             // Everything else is exact-match.  We use the registered
@@ -10808,6 +10833,25 @@ fn extract_field_text(val: &Value) -> String {
         Value::Object(_) => serde_json::to_string(val).unwrap_or_default(),
         Value::Null => String::new(),
     }
+}
+
+fn extract_fts_fields_excluding(
+    source: &Value,
+    excluded: &std::collections::HashSet<String>,
+) -> HashMap<String, String> {
+    let mut fields = HashMap::new();
+    if let Some(obj) = source.as_object() {
+        for (key, val) in obj {
+            if excluded.contains(key) {
+                continue;
+            }
+            let text = extract_field_text(val);
+            if !text.is_empty() {
+                fields.insert(key.clone(), text);
+            }
+        }
+    }
+    fields
 }
 
 // ── Short-circuit count helper ───────────────────────────────────────────────
@@ -15113,6 +15157,7 @@ async fn do_flush_shard(
     registry: Arc<AnalyzerRegistry>,
     data_dir: PathBuf,
     field_configs: HashMap<String, xerj_fts::index::FieldIndexConfig>,
+    excluded_fts_fields: std::collections::HashSet<String>,
     on_drained: impl FnOnce() + Send + 'static,
     // Publish-time cache warm (see `warm_segment_at_publish`): the index's
     // read-path caches, threaded through because this is a free fn without
@@ -15217,7 +15262,10 @@ async fn do_flush_shard(
                         } else {
                             std::sync::Arc::new(serde_json::Value::Null)
                         };
-                        let fields = crate::memtable::extract_text_fields_from(&val);
+                        let fields = crate::memtable::extract_text_fields_from_excluding(
+                            &val,
+                            &excluded_fts_fields,
+                        );
                         (doc_id.clone(), fields, val)
                     })
                     .collect()
@@ -15502,6 +15550,19 @@ impl SyncFlushCoord {
         });
         *self.field_configs_cache.write() = Some(cfg.clone());
         cfg
+    }
+
+    fn semantic_derived_vector_fields(
+        &self,
+        schema: &Arc<RwLock<ManagedSchema>>,
+    ) -> std::collections::HashSet<String> {
+        let Some(rt) = self.rt.as_ref() else {
+            return std::collections::HashSet::new();
+        };
+        rt.block_on(async {
+            let guard = schema.read().await;
+            crate::memtable::semantic_derived_vector_fields(&guard.schema)
+        })
     }
 }
 
