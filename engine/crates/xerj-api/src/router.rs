@@ -276,9 +276,9 @@ pub fn build_es_compat_router(state: AppState) -> Router {
             "/_count",
             get(es_compat::count_docs_global).post(es_compat::count_docs_global),
         )
-        .route("/:index/_refresh", post(es_compat::refresh_index))
-        .route("/:index/_analyze", post(es_compat::analyze_text))
-        .route("/_analyze", post(es_compat::analyze_text_global))
+        .route("/:index/_refresh", post(es_compat::refresh_index).get(es_compat::refresh_index))
+        .route("/:index/_analyze", post(es_compat::analyze_text).get(es_compat::analyze_text))
+        .route("/_analyze", post(es_compat::analyze_text_global).get(es_compat::analyze_text_global))
         // ── Document operations ────────────────────────────────────────────
         .route("/:index/_doc", post(es_compat::index_doc_auto))
         // POST with an explicit id is the same index op as PUT (auto-create
@@ -342,7 +342,7 @@ pub fn build_es_compat_router(state: AppState) -> Router {
             get(es_compat::field_caps).post(es_compat::field_caps),
         )
         // ── Multi-search ───────────────────────────────────────────────────
-        .route("/_msearch", post(es_compat::msearch))
+        .route("/_msearch", post(es_compat::msearch).get(es_compat::msearch))
         // Index-scoped multi-search — the path index defaults header lines
         // that omit `index`.
         .route(
@@ -483,9 +483,9 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         .route("/_nodes", get(es_compat::nodes_info))
         .route("/_nodes/:node_id/stats", get(es_compat::node_stats_by_id))
         // ── Index clone / shrink / split ────────────────────────────────────
-        .route("/:index/_clone/:target", post(es_compat::clone_index))
-        .route("/:index/_shrink/:target", post(es_compat::shrink_index))
-        .route("/:index/_split/:target", post(es_compat::split_index))
+        .route("/:index/_clone/:target", post(es_compat::clone_index).put(es_compat::clone_index))
+        .route("/:index/_shrink/:target", post(es_compat::shrink_index).put(es_compat::shrink_index))
+        .route("/:index/_split/:target", post(es_compat::split_index).put(es_compat::split_index))
         // ── Enrich Policies ─────────────────────────────────────────────────
         .route(
             "/_enrich/policy/:name",
