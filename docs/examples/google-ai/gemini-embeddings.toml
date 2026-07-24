@@ -1,0 +1,9 @@
+# XERJ + Google Gemini Embeddings API (managed).
+# Set the key:  export XERJ_EMBEDDING_API_KEY="$GEMINI_API_KEY"
+# then start:   xerj --config gemini-embeddings.toml
+[embedding]
+mode = "proxy"
+default_endpoint = "https://generativelanguage.googleapis.com/v1beta/openai/embeddings"
+default_model = "gemini-embedding-001"
+batch_size = 64
+timeout_ms = 30000
