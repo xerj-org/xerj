@@ -84,9 +84,19 @@ struct MemEntry {
 /// flush (`drain_with_sources`, `drain`) and by the rare
 /// `get_source` query path — neither is on the hot ingest loop.
 pub fn extract_text_fields_from(source: &Value) -> HashMap<String, String> {
+    extract_text_fields_from_excluding(source, &std::collections::HashSet::new())
+}
+
+pub fn extract_text_fields_from_excluding(
+    source: &Value,
+    excluded: &std::collections::HashSet<String>,
+) -> HashMap<String, String> {
     let mut out = HashMap::new();
     if let Some(obj) = source.as_object() {
         for (key, val) in obj {
+            if excluded.contains(key) {
+                continue;
+            }
             let text = extract_text_value(val);
             if !text.is_empty() {
                 out.insert(key.clone(), text);
@@ -3139,9 +3149,17 @@ impl Default for FtsMemtable {
 ///
 /// Hoisted out of `FtsMemtable::insert` so [`analyze_doc`] can run the
 /// identical walk outside the shard write lock.
-fn collect_text_fields(v: &Value, prefix: &str, out: &mut HashMap<String, String>) {
+fn collect_text_fields(
+    v: &Value,
+    prefix: &str,
+    out: &mut HashMap<String, String>,
+    excluded: &std::collections::HashSet<String>,
+) {
     if let Value::Object(obj) = v {
         for (k, val) in obj {
+            if prefix.is_empty() && excluded.contains(k) {
+                continue;
+            }
             let path = if prefix.is_empty() {
                 k.clone()
             } else {
@@ -3157,7 +3175,7 @@ fn collect_text_fields(v: &Value, prefix: &str, out: &mut HashMap<String, String
                             out.insert(path.clone(), t);
                         }
                     }
-                    collect_text_fields(val, &path, out);
+                    collect_text_fields(val, &path, out, excluded);
                 }
                 Value::Array(arr) => {
                     let joined: String = arr
@@ -3192,6 +3210,16 @@ pub fn analyze_doc(
     schema: &Schema,
     analyzer: &AnalyzerPipeline,
 ) -> Vec<(String, Vec<Token>)> {
+    let excluded = semantic_derived_vector_fields(schema);
+    analyze_doc_excluding(source, schema, analyzer, &excluded)
+}
+
+pub fn analyze_doc_excluding(
+    source: &Value,
+    schema: &Schema,
+    analyzer: &AnalyzerPipeline,
+    excluded: &std::collections::HashSet<String>,
+) -> Vec<(String, Vec<Token>)> {
     let mut text_fields: HashMap<String, String> = HashMap::new();
 
     // Index fields that are defined as Text in the schema.
@@ -3209,7 +3237,7 @@ pub fn analyze_doc(
     // Also index any string-valued field not in the schema (dynamic
     // mapping) — see `collect_text_fields`.
     if source.is_object() {
-        collect_text_fields(source, "", &mut text_fields);
+        collect_text_fields(source, "", &mut text_fields, excluded);
     }
 
     text_fields
@@ -3219,6 +3247,94 @@ pub fn analyze_doc(
             (field_name, tokens)
         })
         .collect()
+}
+
+/// Exact internal fields generated from semantic embedding mappings.
+///
+/// This is schema-derived: similarly named user fields are unaffected unless
+/// an embedding config explicitly designates them as its target.
+pub fn semantic_derived_vector_fields(schema: &Schema) -> std::collections::HashSet<String> {
+    let mut excluded = std::collections::HashSet::new();
+    for field in &schema.fields {
+        let Some(embedding) = &field.embedding else {
+            continue;
+        };
+        let target = embedding
+            .target_field
+            .clone()
+            .unwrap_or_else(|| format!("{}_vector", field.name));
+        excluded.insert(target.clone());
+        excluded.insert(format!("{target}_chunks"));
+    }
+    excluded
+}
+
+#[cfg(test)]
+mod semantic_derived_vector_exclusion_tests {
+    use super::*;
+    use serde_json::json;
+    use xerj_common::types::{EmbeddingConfig, FieldConfig, FieldType};
+
+    #[test]
+    fn derives_default_and_custom_targets_without_suffix_guessing() {
+        let mut schema = Schema::empty();
+        schema
+            .add_field(
+                FieldConfig::new("body", FieldType::Text).with_embedding(EmbeddingConfig {
+                    endpoint: None,
+                    model: None,
+                    target_field: None,
+                }),
+            )
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("summary", FieldType::Text).with_embedding(
+                EmbeddingConfig {
+                    endpoint: None,
+                    model: None,
+                    target_field: Some("summary_model_output".to_string()),
+                },
+            ))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("user_vector", FieldType::Text))
+            .unwrap();
+
+        let excluded = semantic_derived_vector_fields(&schema);
+        assert_eq!(
+            excluded,
+            std::collections::HashSet::from([
+                "body_vector".to_string(),
+                "body_vector_chunks".to_string(),
+                "summary_model_output".to_string(),
+                "summary_model_output_chunks".to_string(),
+            ])
+        );
+
+        let source = json!({
+            "body": "cash and equivalents",
+            "page": 7,
+            "user_vector": [1.0, 2.0],
+            "body_vector_backup": [3.0, 4.0],
+            "body_vector": [0.1, 0.2],
+            "body_vector_chunks": [[0.1, 0.2], [0.3, 0.4]],
+            "summary_model_output": [0.5, 0.6],
+            "summary_model_output_chunks": [[0.5, 0.6], [0.7, 0.8]]
+        });
+        let fields = extract_text_fields_from_excluding(&source, &excluded);
+        assert_eq!(fields.get("page").map(String::as_str), Some("7"));
+        assert_eq!(
+            fields.get("user_vector").map(String::as_str),
+            Some("1.0 2.0")
+        );
+        assert_eq!(
+            fields.get("body_vector_backup").map(String::as_str),
+            Some("3.0 4.0")
+        );
+        for derived in &excluded {
+            assert!(!fields.contains_key(derived));
+        }
+    }
 }
 
 /// Extract a string value from a JSON value for text indexing.

@@ -19,6 +19,102 @@ fn make_engine(dir: &TempDir) -> Engine {
     Engine::new(config).expect("engine::new")
 }
 
+#[tokio::test]
+async fn test_semantic_vectors_stay_stored_but_not_fts_indexed_after_merge_and_reopen() {
+    fn collect_names(dir: &std::path::Path, out: &mut Vec<String>) {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let entry = entry.unwrap();
+            if entry.file_type().unwrap().is_dir() {
+                collect_names(&entry.path(), out);
+            } else {
+                out.push(entry.file_name().to_string_lossy().into_owned());
+            }
+        }
+    }
+
+    async fn assert_queries(idx: &xerj_engine::Index) {
+        let semantic = idx
+            .search(&make_search(json!({
+                "semantic": {"field": "content", "query": "quarterly liquidity", "k": 10}
+            })))
+            .await
+            .unwrap();
+        assert_eq!(semantic.total.value, 2);
+        assert!(semantic.hits.iter().all(|hit| {
+            hit.source.get("custom_embedding").is_some()
+                && hit.source.get("custom_embedding_chunks").is_some()
+        }));
+
+        let lexical = idx
+            .search(&make_search(json!({
+                "match": {"content": "working capital"}
+            })))
+            .await
+            .unwrap();
+        assert_eq!(lexical.total.value, 2);
+
+        let page = idx
+            .search(&make_search(json!({
+                "term": {"page": 7}
+            })))
+            .await
+            .unwrap();
+        assert_eq!(page.total.value, 1);
+    }
+
+    let dir = TempDir::new().unwrap();
+    let mut schema = Schema::empty();
+    let mut content = FieldConfig::new("content", FieldType::Text);
+    content.options.dimensions = Some(16);
+    content.options.similarity = Some("cosine".to_string());
+    content.embedding = Some(xerj_common::types::EmbeddingConfig {
+        endpoint: None,
+        model: None,
+        target_field: Some("custom_embedding".to_string()),
+    });
+    schema.fields.push(content);
+    schema
+        .fields
+        .push(FieldConfig::new("page", FieldType::Long));
+
+    {
+        let engine = make_engine(&dir);
+        engine.create_index("sem-fts-exclusion", schema).unwrap();
+        let idx = engine.get_index("sem-fts-exclusion").unwrap();
+        let long_body = format!(
+            "quarterly liquidity evidence {}",
+            "cash assets liabilities working capital ".repeat(80)
+        );
+
+        idx.index_document(Some("a".into()), json!({"content": long_body, "page": 7}))
+            .await
+            .unwrap();
+        idx.refresh().await.unwrap();
+        idx.index_document(Some("b".into()), json!({"content": long_body, "page": 8}))
+            .await
+            .unwrap();
+        idx.refresh().await.unwrap();
+        idx.force_merge(1).await.unwrap();
+
+        assert_queries(&idx).await;
+    }
+
+    let mut names = Vec::new();
+    collect_names(dir.path(), &mut names);
+    assert!(names.iter().any(|name| name.ends_with(".content.fst")));
+    assert!(names.iter().any(|name| name.ends_with(".page.fst")));
+    assert!(!names
+        .iter()
+        .any(|name| name.ends_with(".custom_embedding.fst")));
+    assert!(!names
+        .iter()
+        .any(|name| name.ends_with(".custom_embedding_chunks.fst")));
+
+    let reopened = make_engine(&dir);
+    let idx = reopened.get_index("sem-fts-exclusion").unwrap();
+    assert_queries(&idx).await;
+}
+
 fn make_search(query_json: Value) -> SearchRequest {
     parse_request(&json!({ "query": query_json, "size": 100 })).expect("parse_request")
 }
