@@ -1,0 +1,8 @@
+# XERJ + Google EmbeddingGemma (open weights), served locally by Ollama's
+# OpenAI-compatible endpoint. Fully local, no API key, no cloud.
+[embedding]
+mode = "proxy"
+default_endpoint = "http://127.0.0.1:11434/v1/embeddings"
+default_model = "embeddinggemma"
+batch_size = 32
+timeout_ms = 30000
