@@ -21,6 +21,7 @@ use axum::{
     Json,
 };
 use serde::Serialize;
+use serde_json::{json, Value};
 use xerj_common::XerjError;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -106,8 +107,16 @@ impl From<XerjError> for ApiError {
     }
 }
 
-impl IntoResponse for ApiError {
-    fn into_response(self) -> Response {
+impl ApiError {
+    /// ES-compatible error body as a plain `Value`, for contexts that never
+    /// go through axum's `Response` type — e.g. storing the `response` of a
+    /// completed `_tasks/{id}` entry for a detached background task.
+    pub fn into_value(self) -> Value {
+        let (_, body) = self.into_parts();
+        serde_json::to_value(body).unwrap_or_else(|_| json!({}))
+    }
+
+    fn into_parts(self) -> (StatusCode, EsErrorResponse) {
         let mut status_code = self.inner.http_status();
 
         // ES parity: an explicit write/metadata block is 403
@@ -228,6 +237,13 @@ impl IntoResponse for ApiError {
             status: status_code,
         };
 
+        (http_status, body)
+    }
+}
+
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        let (http_status, body) = self.into_parts();
         (http_status, Json(body)).into_response()
     }
 }
