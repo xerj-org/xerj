@@ -17107,11 +17107,9 @@ pub struct DeleteByQueryBody {
 pub async fn delete_by_query(
     State(state): State<AppState>,
     Path(index): Path<String>,
+    Query(params): Query<HashMap<String, String>>,
     Json(body): Json<DeleteByQueryBody>,
 ) -> impl IntoResponse {
-    let started = Instant::now();
-    let _task = state.tasks.register("indices:data/write/delete/byquery");
-
     let idx = match state.engine.get_index(&index) {
         Ok(i) => i,
         Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
@@ -17126,9 +17124,40 @@ pub async fn delete_by_query(
         Err(e) => return ApiError::new(e).into_response(),
     };
 
-    let results = match idx.search(&search_req).await {
+    // ES defaults `wait_for_completion` to true (synchronous); only an
+    // explicit `false` switches to the async `{"task": "node:id"}` form.
+    let wait_for_completion = params
+        .get("wait_for_completion")
+        .map(|v| v != "false")
+        .unwrap_or(true);
+    let handle = state.tasks.register("indices:data/write/delete/byquery");
+
+    if !wait_for_completion {
+        let task_key = handle.key().to_string();
+        let spawned_key = task_key.clone();
+        let tasks = state.tasks.clone();
+        tokio::spawn(async move {
+            let response = run_delete_by_query(&idx, &search_req).await;
+            tasks.complete(&spawned_key, response);
+            drop(handle);
+        });
+        return Json(json!({ "task": task_key })).into_response();
+    }
+
+    let response = run_delete_by_query(&idx, &search_req).await;
+    drop(handle);
+    Json(response).into_response()
+}
+
+async fn run_delete_by_query(
+    idx: &xerj_engine::Index,
+    search_req: &xerj_query::SearchRequest,
+) -> Value {
+    let started = Instant::now();
+
+    let results = match idx.search(search_req).await {
         Ok(r) => r,
-        Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
+        Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_value(),
     };
 
     let total = results.hits.len() as u64;
@@ -17148,7 +17177,7 @@ pub async fn delete_by_query(
     }
 
     let took = started.elapsed().as_millis() as u64;
-    Json(json!({
+    json!({
         "took": took,
         "timed_out": false,
         "total": total,
@@ -17160,8 +17189,7 @@ pub async fn delete_by_query(
         "throttled_millis": 0,
         "requests_per_second": -1,
         "throttled_until_millis": 0,
-    }))
-    .into_response()
+    })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -17178,11 +17206,9 @@ pub struct UpdateByQueryBody {
 pub async fn update_by_query(
     State(state): State<AppState>,
     Path(index): Path<String>,
+    Query(params): Query<HashMap<String, String>>,
     Json(body): Json<UpdateByQueryBody>,
 ) -> impl IntoResponse {
-    let started = Instant::now();
-    let _task = state.tasks.register("indices:data/write/update/byquery");
-
     let idx = match state.engine.get_index(&index) {
         Ok(i) => i,
         Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
@@ -17197,19 +17223,51 @@ pub async fn update_by_query(
         Err(e) => return ApiError::new(e).into_response(),
     };
 
-    let results = match idx.search(&search_req).await {
+    // Optional painless script — when present, each matched hit's source is
+    // mutated by the script and re-indexed under its EXISTING `_id`, so the
+    // update happens in place (no duplicate-`_id` docs are appended).
+    let script = body.script.as_ref().map(extract_update_script);
+
+    // ES defaults `wait_for_completion` to true (synchronous); only an
+    // explicit `false` switches to the async `{"task": "node:id"}` form.
+    let wait_for_completion = params
+        .get("wait_for_completion")
+        .map(|v| v != "false")
+        .unwrap_or(true);
+    let handle = state.tasks.register("indices:data/write/update/byquery");
+
+    if !wait_for_completion {
+        let task_key = handle.key().to_string();
+        let spawned_key = task_key.clone();
+        let tasks = state.tasks.clone();
+        tokio::spawn(async move {
+            let response = run_update_by_query(&idx, &search_req, script).await;
+            tasks.complete(&spawned_key, response);
+            drop(handle);
+        });
+        return Json(json!({ "task": task_key })).into_response();
+    }
+
+    let response = run_update_by_query(&idx, &search_req, script).await;
+    drop(handle);
+    Json(response).into_response()
+}
+
+async fn run_update_by_query(
+    idx: &xerj_engine::Index,
+    search_req: &xerj_query::SearchRequest,
+    script: Option<(String, Value)>,
+) -> Value {
+    let started = Instant::now();
+
+    let results = match idx.search(search_req).await {
         Ok(r) => r,
-        Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
+        Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_value(),
     };
 
     let total = results.hits.len() as u64;
     let mut updated = 0u64;
     let mut failures: Vec<Value> = Vec::new();
-
-    // Optional painless script — when present, each matched hit's source is
-    // mutated by the script and re-indexed under its EXISTING `_id`, so the
-    // update happens in place (no duplicate-`_id` docs are appended).
-    let script = body.script.as_ref().map(extract_update_script);
 
     for hit in results.hits {
         if hit.source.is_null() {
@@ -17241,7 +17299,7 @@ pub async fn update_by_query(
     }
 
     let took = started.elapsed().as_millis() as u64;
-    Json(json!({
+    json!({
         "took": took,
         "timed_out": false,
         "total": total,
@@ -17254,8 +17312,7 @@ pub async fn update_by_query(
         "throttled_millis": 0,
         "requests_per_second": -1,
         "throttled_until_millis": 0,
-    }))
-    .into_response()
+    })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -21789,26 +21846,38 @@ pub async fn get_task_by_id(
     State(state): State<AppState>,
     Path(task_id): Path<String>,
 ) -> impl IntoResponse {
-    match state.tasks.get(&task_id) {
-        Some(entry) => Json(json!({
+    if let Some(entry) = state.tasks.get(&task_id) {
+        return Json(json!({
             "completed": false,
             "task": task_to_json(&entry),
         }))
-        .into_response(),
-        None => (
-            StatusCode::NOT_FOUND,
-            Json(json!({
-                "error": {
-                    "type": "resource_not_found_exception",
-                    "reason": format!(
-                        "task [{task_id}] isn't running and hasn't stored its results"
-                    ),
-                },
-                "status": 404
-            })),
-        )
-            .into_response(),
+        .into_response();
     }
+    if let Some(completed) = state.tasks.get_completed(&task_id) {
+        return Json(json!({
+            "completed": true,
+            "task": task_to_json_with_nanos(
+                &completed.entry,
+                completed.running_nanos,
+                completed.entry.is_cancelled(),
+            ),
+            "response": completed.response,
+        }))
+        .into_response();
+    }
+    (
+        StatusCode::NOT_FOUND,
+        Json(json!({
+            "error": {
+                "type": "resource_not_found_exception",
+                "reason": format!(
+                    "task [{task_id}] isn't running and hasn't stored its results"
+                ),
+            },
+            "status": 404
+        })),
+    )
+        .into_response()
 }
 
 pub async fn cancel_task(
@@ -27194,6 +27263,17 @@ fn dir_size_bytes(p: &std::path::Path) -> u64 {
 /// and order match the previous hard-coded `get_task_by_id` response — only the
 /// values are now real.
 fn task_to_json(entry: &crate::state::TaskEntry) -> Value {
+    task_to_json_with_nanos(entry, entry.running_nanos(), entry.is_cancelled())
+}
+
+/// Same as [`task_to_json`], but with `running_time_in_nanos`/`cancelled`
+/// supplied explicitly — used for completed tasks, whose running time must
+/// stay frozen at completion rather than keep growing via `entry.start_instant`.
+fn task_to_json_with_nanos(
+    entry: &crate::state::TaskEntry,
+    running_nanos: u64,
+    cancelled: bool,
+) -> Value {
     json!({
         "node": entry.node.as_str(),
         "id": entry.id,
@@ -27202,9 +27282,9 @@ fn task_to_json(entry: &crate::state::TaskEntry) -> Value {
         "status": {},
         "description": entry.action,
         "start_time_in_millis": entry.start_time_ms,
-        "running_time_in_nanos": entry.running_nanos(),
+        "running_time_in_nanos": running_nanos,
         "cancellable": true,
-        "cancelled": entry.is_cancelled(),
+        "cancelled": cancelled,
         "headers": {}
     })
 }

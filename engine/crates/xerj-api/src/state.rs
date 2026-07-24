@@ -140,7 +140,9 @@ impl TaskEntry {
 
 /// RAII handle returned by [`TaskRegistry::register`]. Dropping it (at the end
 /// of the long-running handler) removes the task from the registry, so the
-/// Tasks API only ever reflects genuinely in-flight operations.
+/// Tasks API only ever reflects genuinely in-flight operations. If the task
+/// was already finalized via [`TaskRegistry::complete`], the removal here is
+/// a no-op (the entry has already moved to the completed store).
 pub struct TaskHandle {
     inner: Arc<DashMap<String, TaskEntry>>,
     key: String,
@@ -151,6 +153,10 @@ impl TaskHandle {
     pub fn is_cancelled(&self) -> bool {
         self.cancelled.load(Ordering::Relaxed)
     }
+    /// The ES task key (`{node}:{id}`) this handle was registered under.
+    pub fn key(&self) -> &str {
+        &self.key
+    }
 }
 
 impl Drop for TaskHandle {
@@ -159,10 +165,24 @@ impl Drop for TaskHandle {
     }
 }
 
+/// Snapshot of a finished long-running task kept around so `GET
+/// /_tasks/{id}` can report `completed: true` with a final `response` —
+/// mirroring ES, which persists completed-task docs (`.tasks` index) after
+/// the in-flight entry disappears instead of turning into a 404.
+#[derive(Clone)]
+pub struct CompletedTask {
+    pub entry: TaskEntry,
+    /// `running_time_in_nanos` frozen at completion time (the live
+    /// `TaskEntry::running_nanos` would otherwise keep growing forever).
+    pub running_nanos: u64,
+    pub response: serde_json::Value,
+}
+
 /// Registry of in-flight long-running tasks. Cheaply cloneable (`Arc` inside).
 #[derive(Clone)]
 pub struct TaskRegistry {
     inner: Arc<DashMap<String, TaskEntry>>,
+    completed: Arc<DashMap<String, CompletedTask>>,
     next_id: Arc<AtomicU64>,
     node_id: Arc<String>,
 }
@@ -171,6 +191,7 @@ impl TaskRegistry {
     pub fn new(node_id: Arc<String>) -> Self {
         Self {
             inner: Arc::new(DashMap::new()),
+            completed: Arc::new(DashMap::new()),
             next_id: Arc::new(AtomicU64::new(1)),
             node_id,
         }
@@ -209,6 +230,26 @@ impl TaskRegistry {
     }
     pub fn list(&self) -> Vec<TaskEntry> {
         self.inner.iter().map(|e| e.value().clone()).collect()
+    }
+    /// Move a finished task from the in-flight registry into the completed
+    /// store, freezing its running time and attaching the final `response`.
+    /// A no-op if `key` isn't currently in-flight (e.g. already completed,
+    /// or never registered).
+    pub fn complete(&self, key: &str, response: serde_json::Value) {
+        if let Some((_, entry)) = self.inner.remove(key) {
+            let running_nanos = entry.running_nanos();
+            self.completed.insert(
+                key.to_string(),
+                CompletedTask {
+                    entry,
+                    running_nanos,
+                    response,
+                },
+            );
+        }
+    }
+    pub fn get_completed(&self, id: &str) -> Option<CompletedTask> {
+        self.completed.get(id).map(|e| e.value().clone())
     }
 }
 
