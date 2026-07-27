@@ -31,6 +31,9 @@ pub mod sql;
 pub mod turbo_ingest;
 mod write_publication;
 
+#[cfg(test)]
+mod bounded_ingest_resources_tests;
+
 // ── Re-exports ────────────────────────────────────────────────────────────────
 
 pub use engine::{Engine, HealthStatus, IndexInfo};

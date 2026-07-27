@@ -37,7 +37,7 @@ pub(crate) enum SemanticLifecycleFault {
 }
 
 #[cfg(test)]
-type SemanticLifecycleHook = std::sync::Arc<
+pub(crate) type SemanticLifecycleHook = std::sync::Arc<
     dyn Fn(&str, SemanticLifecyclePoint) -> SemanticLifecycleFault + Send + Sync + 'static,
 >;
 
@@ -102,7 +102,7 @@ pub(crate) fn semantic_lifecycle_hook(
 }
 
 #[cfg(test)]
-async fn with_semantic_lifecycle_hook<F: std::future::Future>(
+pub(crate) async fn with_semantic_lifecycle_hook<F: std::future::Future>(
     target: impl Into<String>,
     hook: SemanticLifecycleHook,
     future: F,
