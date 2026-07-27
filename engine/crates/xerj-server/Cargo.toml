@@ -66,11 +66,22 @@ prost.workspace = true
 default = ["neural"]
 neural = ["xerj-engine/neural"]
 onnx-experimental = ["xerj-engine/onnx-experimental"]
+# Diagnostic-only profiling. It is excluded from all shipped feature sets:
+# jemalloc profiling changes allocator fast paths and pprof installs SIGPROF.
+debug-profiling = [
+    "dep:jemalloc_pprof",
+    "dep:pprof",
+    "tikv-jemallocator/profiling",
+]
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = "0.6"
 tikv-jemalloc-ctl = { version = "0.6", features = ["stats"] }
 libc = "0.2"
+
+[target.'cfg(all(target_os = "linux", not(target_env = "msvc")))'.dependencies]
+jemalloc_pprof = { version = "0.8", features = ["symbolize"], optional = true }
+pprof = { version = "0.15", features = ["prost-codec"], optional = true }
 
 [build-dependencies]
 # Compile ../../proto/xerj.proto → Rust at build time. `protox` parses the
@@ -83,3 +94,4 @@ protox = { workspace = true }
 # HTTPS round-trip test against the in-process rustls listener.
 reqwest = { workspace = true }
 tempfile = { workspace = true }
+flate2 = "1"

@@ -109,3 +109,18 @@ codegen-units = 1
 strip = true
 panic = "abort"
 
+# Fast iteration profile: symbolized with thin LTO and parallel codegen.
+# It is intentionally not production-codegen-equivalent.
+[profile.profiling]
+inherits = "release"
+debug = 1
+strip = false
+lto = "thin"
+codegen-units = 16
+
+# Final confirmation profile: identical optimizer/LTO/codegen settings to
+# release, but retains symbols for pprof.
+[profile.profiling-final]
+inherits = "release"
+debug = 1
+strip = false

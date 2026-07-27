@@ -5801,3 +5801,68 @@ async fn test_highlight_survives_source_filtering() {
         "requested field must survive"
     );
 }
+
+// ── Reproduction: term/terms on a NON-FIRST array element (multi-valued keyword) ─
+// A keyword ARRAY currently stores ONLY element [0] in the single-valued
+// doc-values column (memtable `push_field`) AND the single-valued segment
+// `KeywordColumn.ords: Vec<u32>` (one ordinal per doc). So `term` on any later
+// element silently returns 0 hits — ES treats keyword arrays as multi-valued.
+// This is the reachability bug found auditing WordPress:
+// `{term:{calls:"wp_safe_remote_get"}}` missed every caller where it was not
+// the first call (found 1 of 9; grep found 14).
+//
+// The memtable half of the fix (bail array fields to the array-aware source
+// scan) is in `memtable.rs`. The COMPLETE fix additionally needs multi-valued
+// segment keyword columns (or a per-segment array-field marker that bails the
+// segment term reader to the stored-source scan) — a storage-format change.
+// Ignored until that lands; unignore to verify the full fix.
+#[ignore = "needs multi-valued segment keyword columns; memtable half fixed"]
+#[tokio::test]
+async fn test_term_matches_non_first_array_element() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    engine.create_index("arr", Schema::empty()).unwrap();
+    let idx = engine.get_index("arr").unwrap();
+
+    idx.index_document(
+        Some("1".into()),
+        json!({ "name": "d1", "calls": ["first_fn", "second_fn", "wp_safe_remote_get"] }),
+    )
+    .await
+    .unwrap();
+    idx.index_document(
+        Some("2".into()),
+        json!({ "name": "d2", "calls": ["unrelated_only"] }),
+    )
+    .await
+    .unwrap();
+
+    let r = idx
+        .search(&make_search(
+            json!({"term": {"calls": "wp_safe_remote_get"}}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(
+        r.total.value, 1,
+        "term must match a NON-FIRST array element (multi-valued keyword)"
+    );
+    assert_eq!(r.hits[0].id, "1");
+
+    let r0 = idx
+        .search(&make_search(json!({"term": {"calls": "first_fn"}})))
+        .await
+        .unwrap();
+    assert_eq!(r0.total.value, 1, "first element must still match");
+
+    let rt = idx
+        .search(&make_search(
+            json!({"terms": {"calls": ["wp_safe_remote_get"]}}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(
+        rt.total.value, 1,
+        "terms must match a NON-FIRST array element"
+    );
+}

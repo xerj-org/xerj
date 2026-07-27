@@ -195,11 +195,8 @@ fn writer_loop(rx: mpsc::Receiver<String>, dropped: Arc<AtomicU64>) {
     let output =
         std::env::var("XERJ_INGEST_MEMORY_OUTPUT").unwrap_or_else(|_| "tracing".to_string());
     if output == "tracing" {
-        loop {
-            match rx.recv() {
-                Ok(line) => tracing::info!(target: "xerj::ingest_memory", "{line}"),
-                Err(_) => break,
-            }
+        while let Ok(line) = rx.recv() {
+            tracing::info!(target: "xerj::ingest_memory", "{line}");
         }
         while let Ok(line) = rx.try_recv() {
             tracing::info!(target: "xerj::ingest_memory", "{line}");
@@ -219,15 +216,10 @@ fn writer_loop(rx: mpsc::Receiver<String>, dropped: Arc<AtomicU64>) {
             return;
         }
     };
-    loop {
-        match rx.recv() {
-            Ok(line) => {
-                if let Err(error) = writeln!(file, "{line}") {
-                    record_sink_error(&dropped, &output, &error);
-                    break;
-                }
-            }
-            Err(_) => break,
+    while let Ok(line) = rx.recv() {
+        if let Err(error) = writeln!(file, "{line}") {
+            record_sink_error(&dropped, &output, &error);
+            break;
         }
     }
     while let Ok(line) = rx.try_recv() {

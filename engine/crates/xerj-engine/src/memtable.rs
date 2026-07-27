@@ -3032,7 +3032,15 @@ impl FtsMemtable {
             // full analyzed-text source; a `term` query expects a token match
             // which only the FTS / scan path can serve.  Was an O(N) per-query
             // column prescan.
-            if self.doc_values.keyword_has_whitespace.contains(field) {
+            //
+            // Array/multi-valued bailout: a keyword ARRAY stores only its FIRST
+            // element in this single-valued column (see `push_field`), so a
+            // `term` on any non-first element would be silently missed. Bail to
+            // the array-aware source scan (`json_values_equal` matches on array
+            // membership). This is the fix for ES-incompatible term-on-array.
+            if self.doc_values.keyword_has_whitespace.contains(field)
+                || self.doc_values.array_fields.contains(field)
+            {
                 return None;
             }
             // Step 1: walk the whole column for an exact total but only clone
@@ -3080,6 +3088,12 @@ impl FtsMemtable {
     /// by the bool intersection shortcut to avoid 170k String allocations
     /// per query.
     pub fn doc_values_term_indices(&self, field: &str, value: &str) -> Option<Vec<usize>> {
+        // Array/multi-valued keyword fields keep only their first element in the
+        // single-valued column; term matching must fall back to the array-aware
+        // source scan (mirrors the bail in `doc_values_term_query`).
+        if self.doc_values.array_fields.contains(field) {
+            return None;
+        }
         let col = self.doc_values.keyword.get(field)?;
         let results: Vec<usize> = col
             .iter()
@@ -3177,7 +3191,11 @@ impl FtsMemtable {
         // from the full source string (not the token stream). A `terms`
         // query compares against tokens in that case, which doc-values
         // can't serve — bail so callers fall through to the scan path.
-        if self.doc_values.keyword_has_whitespace.contains(field) {
+        // Array/multi-valued keyword fields (only the first element is stored
+        // in the single-valued column) likewise bail to the array-aware scan.
+        if self.doc_values.keyword_has_whitespace.contains(field)
+            || self.doc_values.array_fields.contains(field)
+        {
             return None;
         }
         // Step 1: exact total, bounded doc_id materialisation.

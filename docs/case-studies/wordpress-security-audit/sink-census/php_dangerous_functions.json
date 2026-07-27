@@ -1,0 +1,1440 @@
+{
+  "meta": {
+    "title": "Comprehensive PHP dangerous-function map",
+    "purpose": "The full reference of potentially-vulnerable PHP built-ins/constructs, by category and vuln class, with the taint-relevant argument. Superset of php_sink_catalog.json. Drives the coverage census \u2014 coverage = 'every call to a catalogued function enumerated'.",
+    "arg_field": "sink_arg: 0-indexed dangerous argument, '*'=any, 'ret'=return is the sink, 'recv'=method receiver/URL set elsewhere, 'self'=language construct operand, 'cb:N'=argument N is a callable (second-order RCE if attacker-controlled)",
+    "sources": [
+      "RIPS sinks",
+      "Psalm taint sinks",
+      "exakat security",
+      "PHPCS-Security-Audit",
+      "Semgrep php",
+      "OWASP PHP dangerous functions",
+      "php.ini disable_functions guidance"
+    ]
+  },
+  "categories": {
+    "command-exec": {
+      "class": "RCE-command",
+      "kind": "call",
+      "fns": [
+        {
+          "fn": "exec",
+          "arg": 0
+        },
+        {
+          "fn": "shell_exec",
+          "arg": 0
+        },
+        {
+          "fn": "system",
+          "arg": 0
+        },
+        {
+          "fn": "passthru",
+          "arg": 0
+        },
+        {
+          "fn": "proc_open",
+          "arg": 0
+        },
+        {
+          "fn": "popen",
+          "arg": 0
+        },
+        {
+          "fn": "pcntl_exec",
+          "arg": 0
+        },
+        {
+          "fn": "expect_popen",
+          "arg": 0
+        },
+        {
+          "fn": "ssh2_exec",
+          "arg": 1
+        },
+        {
+          "fn": "ssh2_shell",
+          "arg": 0
+        },
+        {
+          "fn": "dl",
+          "arg": 0,
+          "note": "loads a native extension"
+        },
+        {
+          "fn": "w32api_invoke_function",
+          "arg": 0
+        }
+      ]
+    },
+    "backtick-operator": {
+      "class": "RCE-command",
+      "kind": "construct",
+      "fns": [
+        {
+          "fn": "shell_command_expression",
+          "arg": "self",
+          "note": "`...` backtick executes a shell command"
+        }
+      ]
+    },
+    "code-eval": {
+      "class": "RCE-code",
+      "kind": "call",
+      "fns": [
+        {
+          "fn": "eval",
+          "arg": 0
+        },
+        {
+          "fn": "assert",
+          "arg": 0,
+          "note": "string arg eval'd pre-8.0"
+        },
+        {
+          "fn": "create_function",
+          "arg": 1,
+          "note": "eval-backed; removed 8.0"
+        },
+        {
+          "fn": "preg_replace",
+          "arg": 0,
+          "note": "/e modifier eval's replacement (removed 7.0); user pattern=ReDoS"
+        },
+        {
+          "fn": "mb_ereg_replace",
+          "arg": 3,
+          "note": "'e' option evals"
+        },
+        {
+          "fn": "mb_eregi_replace",
+          "arg": 3,
+          "note": "'e' option evals"
+        },
+        {
+          "fn": "ReflectionFunction",
+          "arg": 0,
+          "note": "->invoke() runs an arbitrary function"
+        }
+      ]
+    },
+    "dynamic-callable": {
+      "class": "RCE-code-callable",
+      "kind": "call",
+      "note": "arbitrary function/method call if the callable is attacker-controlled (second-order)",
+      "fns": [
+        {
+          "fn": "call_user_func",
+          "arg": "cb:0"
+        },
+        {
+          "fn": "call_user_func_array",
+          "arg": "cb:0"
+        },
+        {
+          "fn": "call_user_method",
+          "arg": "cb:0"
+        },
+        {
+          "fn": "call_user_method_array",
+          "arg": "cb:0"
+        },
+        {
+          "fn": "forward_static_call",
+          "arg": "cb:0"
+        },
+        {
+          "fn": "forward_static_call_array",
+          "arg": "cb:0"
+        },
+        {
+          "fn": "array_map",
+          "arg": "cb:0"
+        },
+        {
+          "fn": "array_filter",
+          "arg": "cb:1"
+        },
+        {
+          "fn": "array_walk",
+          "arg": "cb:1"
+        },
+        {
+          "fn": "array_walk_recursive",
+          "arg": "cb:1"
+        },
+        {
+          "fn": "array_reduce",
+          "arg": "cb:1"
+        },
+        {
+          "fn": "array_diff_uassoc",
+          "arg": "cb:2"
+        },
+        {
+          "fn": "usort",
+          "arg": "cb:1"
+        },
+        {
+          "fn": "uasort",
+          "arg": "cb:1"
+        },
+        {
+          "fn": "uksort",
+          "arg": "cb:1"
+        },
+        {
+          "fn": "preg_replace_callback",
+          "arg": "cb:1"
+        },
+        {
+          "fn": "preg_replace_callback_array",
+          "arg": "cb:0"
+        },
+        {
+          "fn": "register_shutdown_function",
+          "arg": "cb:0"
+        },
+        {
+          "fn": "register_tick_function",
+          "arg": "cb:0"
+        },
+        {
+          "fn": "set_error_handler",
+          "arg": "cb:0"
+        },
+        {
+          "fn": "set_exception_handler",
+          "arg": "cb:0"
+        },
+        {
+          "fn": "spl_autoload_register",
+          "arg": "cb:0"
+        },
+        {
+          "fn": "ob_start",
+          "arg": "cb:0"
+        },
+        {
+          "fn": "iterator_apply",
+          "arg": "cb:1"
+        },
+        {
+          "fn": "filter_var",
+          "arg": 2,
+          "note": "FILTER_CALLBACK option runs a callable"
+        },
+        {
+          "fn": "header_register_callback",
+          "arg": "cb:0"
+        },
+        {
+          "fn": "stream_filter_register",
+          "arg": 1
+        }
+      ]
+    },
+    "deserialization": {
+      "class": "deserialization",
+      "kind": "call",
+      "note": "PHP Object Injection via magic methods (POP chains)",
+      "fns": [
+        {
+          "fn": "unserialize",
+          "arg": 0
+        },
+        {
+          "fn": "yaml_parse",
+          "arg": 0
+        },
+        {
+          "fn": "yaml_parse_file",
+          "arg": 0
+        },
+        {
+          "fn": "yaml_parse_url",
+          "arg": 0
+        },
+        {
+          "fn": "igbinary_unserialize",
+          "arg": 0
+        },
+        {
+          "fn": "msgpack_unserialize",
+          "arg": 0
+        },
+        {
+          "fn": "wddx_deserialize",
+          "arg": 0
+        },
+        {
+          "fn": "session_decode",
+          "arg": 0,
+          "note": "deserializes into $_SESSION"
+        }
+      ]
+    },
+    "file-include": {
+      "class": "LFI-RFI",
+      "kind": "construct",
+      "note": "includes AND executes the path; RFI if allow_url_include",
+      "fns": [
+        {
+          "fn": "include",
+          "arg": "self"
+        },
+        {
+          "fn": "include_once",
+          "arg": "self"
+        },
+        {
+          "fn": "require",
+          "arg": "self"
+        },
+        {
+          "fn": "require_once",
+          "arg": "self"
+        },
+        {
+          "fn": "virtual",
+          "arg": 0,
+          "kind": "call",
+          "note": "Apache subrequest"
+        }
+      ]
+    },
+    "file-read": {
+      "class": "file-read",
+      "kind": "call",
+      "note": "arbitrary file read / path traversal; several also accept URL wrappers (SSRF)",
+      "fns": [
+        {
+          "fn": "file_get_contents",
+          "arg": 0,
+          "note": "URL => SSRF; php://filter => source disclosure"
+        },
+        {
+          "fn": "file",
+          "arg": 0
+        },
+        {
+          "fn": "fopen",
+          "arg": 0,
+          "note": "URL wrappers => SSRF"
+        },
+        {
+          "fn": "readfile",
+          "arg": 0
+        },
+        {
+          "fn": "fpassthru",
+          "arg": 0
+        },
+        {
+          "fn": "fgets",
+          "arg": 0
+        },
+        {
+          "fn": "fgetc",
+          "arg": 0
+        },
+        {
+          "fn": "fread",
+          "arg": 0
+        },
+        {
+          "fn": "fscanf",
+          "arg": 0
+        },
+        {
+          "fn": "parse_ini_file",
+          "arg": 0
+        },
+        {
+          "fn": "parse_ini_string",
+          "arg": 0
+        },
+        {
+          "fn": "highlight_file",
+          "arg": 0
+        },
+        {
+          "fn": "show_source",
+          "arg": 0
+        },
+        {
+          "fn": "readlink",
+          "arg": 0
+        },
+        {
+          "fn": "realpath",
+          "arg": 0
+        },
+        {
+          "fn": "gzfile",
+          "arg": 0
+        },
+        {
+          "fn": "gzopen",
+          "arg": 0
+        },
+        {
+          "fn": "readgzfile",
+          "arg": 0
+        },
+        {
+          "fn": "bzopen",
+          "arg": 0
+        },
+        {
+          "fn": "bzread",
+          "arg": 0
+        },
+        {
+          "fn": "zip_open",
+          "arg": 0
+        },
+        {
+          "fn": "exif_read_data",
+          "arg": 0
+        },
+        {
+          "fn": "exif_thumbnail",
+          "arg": 0
+        },
+        {
+          "fn": "getimagesize",
+          "arg": 0,
+          "note": "URL => SSRF"
+        },
+        {
+          "fn": "getimagesizefromstring",
+          "arg": 0
+        },
+        {
+          "fn": "finfo_file",
+          "arg": 1
+        },
+        {
+          "fn": "mime_content_type",
+          "arg": 0
+        },
+        {
+          "fn": "imagecreatefromjpeg",
+          "arg": 0,
+          "note": "URL => SSRF"
+        },
+        {
+          "fn": "imagecreatefrompng",
+          "arg": 0
+        },
+        {
+          "fn": "imagecreatefromgif",
+          "arg": 0
+        },
+        {
+          "fn": "imagecreatefromwebp",
+          "arg": 0
+        },
+        {
+          "fn": "SplFileObject",
+          "arg": 0,
+          "kind": "method"
+        },
+        {
+          "fn": "md5_file",
+          "arg": 0
+        },
+        {
+          "fn": "sha1_file",
+          "arg": 0
+        },
+        {
+          "fn": "hash_file",
+          "arg": 1
+        },
+        {
+          "fn": "stat",
+          "arg": 0
+        },
+        {
+          "fn": "lstat",
+          "arg": 0
+        },
+        {
+          "fn": "fileperms",
+          "arg": 0
+        }
+      ]
+    },
+    "file-write": {
+      "class": "file-write",
+      "kind": "call",
+      "note": "write/overwrite; RCE if attacker controls path+content of a .php",
+      "fns": [
+        {
+          "fn": "file_put_contents",
+          "arg": 0
+        },
+        {
+          "fn": "fwrite",
+          "arg": 0,
+          "note": "handle arg"
+        },
+        {
+          "fn": "fputs",
+          "arg": 0
+        },
+        {
+          "fn": "fputcsv",
+          "arg": 0
+        },
+        {
+          "fn": "move_uploaded_file",
+          "arg": 1
+        },
+        {
+          "fn": "copy",
+          "arg": 1,
+          "note": "URL src => SSRF; dest => write"
+        },
+        {
+          "fn": "rename",
+          "arg": 1
+        },
+        {
+          "fn": "link",
+          "arg": 1
+        },
+        {
+          "fn": "symlink",
+          "arg": 1
+        },
+        {
+          "fn": "touch",
+          "arg": 0
+        },
+        {
+          "fn": "mkdir",
+          "arg": 0
+        },
+        {
+          "fn": "tempnam",
+          "arg": 0
+        },
+        {
+          "fn": "tmpfile",
+          "arg": "ret"
+        },
+        {
+          "fn": "ftruncate",
+          "arg": 0
+        },
+        {
+          "fn": "vfprintf",
+          "arg": 0
+        },
+        {
+          "fn": "fprintf",
+          "arg": 0
+        }
+      ]
+    },
+    "file-delete": {
+      "class": "file-delete",
+      "kind": "call",
+      "fns": [
+        {
+          "fn": "unlink",
+          "arg": 0
+        },
+        {
+          "fn": "rmdir",
+          "arg": 0
+        }
+      ]
+    },
+    "file-perms": {
+      "class": "file-perms",
+      "kind": "call",
+      "note": "privilege/ownership changes on a path",
+      "fns": [
+        {
+          "fn": "chmod",
+          "arg": 0
+        },
+        {
+          "fn": "chown",
+          "arg": 0
+        },
+        {
+          "fn": "chgrp",
+          "arg": 0
+        },
+        {
+          "fn": "lchown",
+          "arg": 0
+        },
+        {
+          "fn": "lchgrp",
+          "arg": 0
+        },
+        {
+          "fn": "umask",
+          "arg": 0
+        }
+      ]
+    },
+    "directory": {
+      "class": "dir-listing-traversal",
+      "kind": "call",
+      "fns": [
+        {
+          "fn": "scandir",
+          "arg": 0
+        },
+        {
+          "fn": "opendir",
+          "arg": 0
+        },
+        {
+          "fn": "readdir",
+          "arg": 0
+        },
+        {
+          "fn": "glob",
+          "arg": 0,
+          "note": "glob:// wrapper"
+        },
+        {
+          "fn": "dir",
+          "arg": 0
+        },
+        {
+          "fn": "chdir",
+          "arg": 0
+        },
+        {
+          "fn": "chroot",
+          "arg": 0
+        }
+      ]
+    },
+    "ssrf-network": {
+      "class": "SSRF",
+      "kind": "call",
+      "note": "outbound request to an attacker-chosen host; block link-local/metadata/private",
+      "fns": [
+        {
+          "fn": "fsockopen",
+          "arg": 0
+        },
+        {
+          "fn": "pfsockopen",
+          "arg": 0
+        },
+        {
+          "fn": "stream_socket_client",
+          "arg": 0
+        },
+        {
+          "fn": "stream_socket_server",
+          "arg": 0
+        },
+        {
+          "fn": "curl_exec",
+          "arg": "recv",
+          "note": "URL set via curl_setopt CURLOPT_URL"
+        },
+        {
+          "fn": "curl_multi_exec",
+          "arg": "recv"
+        },
+        {
+          "fn": "curl_setopt",
+          "arg": 2,
+          "note": "CURLOPT_URL"
+        },
+        {
+          "fn": "get_headers",
+          "arg": 0
+        },
+        {
+          "fn": "http_get",
+          "arg": 0
+        },
+        {
+          "fn": "http_post_data",
+          "arg": 0
+        },
+        {
+          "fn": "gethostbyname",
+          "arg": 0
+        },
+        {
+          "fn": "gethostbynamel",
+          "arg": 0
+        },
+        {
+          "fn": "dns_get_record",
+          "arg": 0
+        },
+        {
+          "fn": "checkdnsrr",
+          "arg": 0
+        },
+        {
+          "fn": "getmxrr",
+          "arg": 0
+        },
+        {
+          "fn": "SoapClient",
+          "arg": 0,
+          "kind": "method",
+          "note": "WSDL URL => SSRF/XXE"
+        },
+        {
+          "fn": "stream_context_create",
+          "arg": 0,
+          "note": "can set follow_location/proxy"
+        }
+      ]
+    },
+    "sql": {
+      "class": "SQLi",
+      "kind": "call",
+      "note": "raw SQL \u2014 use parameterized queries",
+      "fns": [
+        {
+          "fn": "mysqli_query",
+          "arg": 1
+        },
+        {
+          "fn": "mysqli_multi_query",
+          "arg": 1
+        },
+        {
+          "fn": "mysqli_real_query",
+          "arg": 1
+        },
+        {
+          "fn": "mysqli_prepare",
+          "arg": 1,
+          "note": "unsafe if concatenated"
+        },
+        {
+          "fn": "mysql_query",
+          "arg": 0
+        },
+        {
+          "fn": "mysql_unbuffered_query",
+          "arg": 0
+        },
+        {
+          "fn": "mysql_db_query",
+          "arg": 1
+        },
+        {
+          "fn": "pg_query",
+          "arg": 1
+        },
+        {
+          "fn": "pg_send_query",
+          "arg": 1
+        },
+        {
+          "fn": "sqlite_query",
+          "arg": 1
+        },
+        {
+          "fn": "sqlite_unbuffered_query",
+          "arg": 1
+        },
+        {
+          "fn": "sqlsrv_query",
+          "arg": 1
+        },
+        {
+          "fn": "oci_parse",
+          "arg": 1
+        },
+        {
+          "fn": "odbc_exec",
+          "arg": 1
+        },
+        {
+          "fn": "odbc_prepare",
+          "arg": 1
+        },
+        {
+          "fn": "db2_exec",
+          "arg": 1
+        },
+        {
+          "fn": "ibase_query",
+          "arg": 1
+        },
+        {
+          "fn": "mssql_query",
+          "arg": 0
+        },
+        {
+          "fn": "maxdb_query",
+          "arg": 1
+        },
+        {
+          "fn": "ingres_query",
+          "arg": 1
+        },
+        {
+          "fn": "query",
+          "arg": 0,
+          "kind": "method",
+          "note": "PDO::query / mysqli::query"
+        },
+        {
+          "fn": "exec",
+          "arg": 0,
+          "kind": "method",
+          "note": "PDO::exec (method form)"
+        }
+      ]
+    },
+    "ldap": {
+      "class": "LDAP-injection",
+      "kind": "call",
+      "fns": [
+        {
+          "fn": "ldap_search",
+          "arg": 2
+        },
+        {
+          "fn": "ldap_list",
+          "arg": 2
+        },
+        {
+          "fn": "ldap_read",
+          "arg": 2
+        },
+        {
+          "fn": "ldap_bind",
+          "arg": 1,
+          "note": "auth bypass via crafted DN/empty pw"
+        },
+        {
+          "fn": "ldap_add",
+          "arg": 2
+        },
+        {
+          "fn": "ldap_modify",
+          "arg": 2
+        },
+        {
+          "fn": "ldap_delete",
+          "arg": 1
+        }
+      ]
+    },
+    "xxe-xml": {
+      "class": "XXE",
+      "kind": "call",
+      "note": "external entity expansion => file read/SSRF; disable entities",
+      "fns": [
+        {
+          "fn": "simplexml_load_string",
+          "arg": 0
+        },
+        {
+          "fn": "simplexml_load_file",
+          "arg": 0
+        },
+        {
+          "fn": "xml_parse",
+          "arg": 1
+        },
+        {
+          "fn": "xml_parse_into_struct",
+          "arg": 1
+        },
+        {
+          "fn": "loadXML",
+          "arg": 0,
+          "kind": "method",
+          "note": "DOMDocument::loadXML"
+        },
+        {
+          "fn": "load",
+          "arg": 0,
+          "kind": "method",
+          "note": "DOMDocument::load path/URL"
+        },
+        {
+          "fn": "loadHTMLFile",
+          "arg": 0,
+          "kind": "method"
+        },
+        {
+          "fn": "open",
+          "arg": 0,
+          "kind": "method",
+          "note": "XMLReader::open"
+        },
+        {
+          "fn": "libxml_set_external_entity_loader",
+          "arg": "cb:0"
+        },
+        {
+          "fn": "transformToXml",
+          "arg": 0,
+          "kind": "method",
+          "note": "XSLTProcessor + registerPHPFunctions => RCE"
+        },
+        {
+          "fn": "loadHTML",
+          "arg": 0,
+          "kind": "method",
+          "note": "DOMDocument::loadHTML \u2014 HTML parse; entity/xxe surface"
+        },
+        {
+          "fn": "setEntityLoader",
+          "arg": "cb:0",
+          "kind": "method",
+          "note": "libxml external entity loader"
+        },
+        {
+          "fn": "setParserProperty",
+          "arg": 0,
+          "kind": "method",
+          "note": "XMLReader \u2014 can enable DTD/entity loading"
+        }
+      ]
+    },
+    "xss-output": {
+      "class": "XSS",
+      "kind": "construct",
+      "note": "raw output of unescaped data; escape per context",
+      "fns": [
+        {
+          "fn": "echo",
+          "arg": "self"
+        },
+        {
+          "fn": "print",
+          "arg": "self"
+        }
+      ]
+    },
+    "xss-output-call": {
+      "class": "XSS-or-info",
+      "kind": "call",
+      "fns": [
+        {
+          "fn": "printf",
+          "arg": 0,
+          "note": "user format-string bug"
+        },
+        {
+          "fn": "vprintf",
+          "arg": 0
+        },
+        {
+          "fn": "print_r",
+          "arg": 0,
+          "note": "outputs unless 2nd arg true"
+        },
+        {
+          "fn": "var_dump",
+          "arg": "*"
+        },
+        {
+          "fn": "var_export",
+          "arg": 0,
+          "note": "outputs unless 2nd arg true"
+        },
+        {
+          "fn": "exit",
+          "arg": 0
+        },
+        {
+          "fn": "die",
+          "arg": 0
+        },
+        {
+          "fn": "htmlspecialchars_decode",
+          "arg": 0,
+          "note": "UNDOES escaping"
+        },
+        {
+          "fn": "html_entity_decode",
+          "arg": 0,
+          "note": "UNDOES escaping"
+        }
+      ]
+    },
+    "header-redirect": {
+      "class": "header-injection-open-redirect",
+      "kind": "call",
+      "fns": [
+        {
+          "fn": "header",
+          "arg": 0,
+          "note": "Location: => open redirect; CRLF pre-5.1.2"
+        },
+        {
+          "fn": "setcookie",
+          "arg": 1
+        },
+        {
+          "fn": "setrawcookie",
+          "arg": 1
+        },
+        {
+          "fn": "session_set_cookie_params",
+          "arg": 0
+        }
+      ]
+    },
+    "variable-injection": {
+      "class": "variable-injection",
+      "kind": "call",
+      "note": "imports attacker keys into scope (register_globals-style)",
+      "fns": [
+        {
+          "fn": "extract",
+          "arg": 0
+        },
+        {
+          "fn": "parse_str",
+          "arg": 0,
+          "note": "1-arg form pollutes caller scope"
+        },
+        {
+          "fn": "mb_parse_str",
+          "arg": 0
+        },
+        {
+          "fn": "import_request_variables",
+          "arg": 0
+        },
+        {
+          "fn": "compact",
+          "arg": "*",
+          "note": "info leak if keys tainted"
+        }
+      ]
+    },
+    "regex-redos": {
+      "class": "ReDoS-or-injection",
+      "kind": "call",
+      "note": "catastrophic backtracking with a user pattern; deprecated ereg",
+      "fns": [
+        {
+          "fn": "preg_match",
+          "arg": 0,
+          "note": "user PATTERN => ReDoS"
+        },
+        {
+          "fn": "preg_match_all",
+          "arg": 0
+        },
+        {
+          "fn": "preg_split",
+          "arg": 0
+        },
+        {
+          "fn": "preg_grep",
+          "arg": 0
+        },
+        {
+          "fn": "ereg",
+          "arg": 0
+        },
+        {
+          "fn": "eregi",
+          "arg": 0
+        },
+        {
+          "fn": "ereg_replace",
+          "arg": 0
+        },
+        {
+          "fn": "eregi_replace",
+          "arg": 0
+        },
+        {
+          "fn": "mb_ereg",
+          "arg": 0
+        }
+      ]
+    },
+    "mail-injection": {
+      "class": "mail-header-injection",
+      "kind": "call",
+      "fns": [
+        {
+          "fn": "mail",
+          "arg": 3,
+          "note": "additional_headers => header injection"
+        },
+        {
+          "fn": "mb_send_mail",
+          "arg": 3
+        },
+        {
+          "fn": "imap_mail",
+          "arg": 3
+        },
+        {
+          "fn": "ezmlm_hash",
+          "arg": 0
+        }
+      ]
+    },
+    "weak-crypto": {
+      "class": "weak-crypto",
+      "kind": "call",
+      "note": "fast/broken for passwords/tokens/integrity",
+      "fns": [
+        {
+          "fn": "md5",
+          "arg": 0
+        },
+        {
+          "fn": "sha1",
+          "arg": 0
+        },
+        {
+          "fn": "crc32",
+          "arg": 0
+        },
+        {
+          "fn": "crypt",
+          "arg": 0,
+          "note": "weak without proper salt/algo"
+        },
+        {
+          "fn": "hash",
+          "arg": 1,
+          "note": "md5/sha1 for secrets"
+        },
+        {
+          "fn": "mcrypt_encrypt",
+          "arg": 0,
+          "note": "deprecated, ECB default"
+        },
+        {
+          "fn": "mcrypt_decrypt",
+          "arg": 0
+        }
+      ]
+    },
+    "weak-random": {
+      "class": "weak-random",
+      "kind": "call",
+      "note": "predictable; unfit for tokens/nonces/passwords",
+      "fns": [
+        {
+          "fn": "rand",
+          "arg": "ret"
+        },
+        {
+          "fn": "mt_rand",
+          "arg": "ret"
+        },
+        {
+          "fn": "mt_srand",
+          "arg": 0
+        },
+        {
+          "fn": "srand",
+          "arg": 0
+        },
+        {
+          "fn": "uniqid",
+          "arg": "ret"
+        },
+        {
+          "fn": "lcg_value",
+          "arg": "ret"
+        },
+        {
+          "fn": "str_shuffle",
+          "arg": 0
+        },
+        {
+          "fn": "array_rand",
+          "arg": 0
+        },
+        {
+          "fn": "shuffle",
+          "arg": 0
+        }
+      ]
+    },
+    "info-disclosure": {
+      "class": "info-disclosure",
+      "kind": "call",
+      "fns": [
+        {
+          "fn": "phpinfo",
+          "arg": "*"
+        },
+        {
+          "fn": "debug_zval_refcount",
+          "arg": 0
+        },
+        {
+          "fn": "debug_backtrace",
+          "arg": "ret"
+        },
+        {
+          "fn": "debug_print_backtrace",
+          "arg": "*"
+        },
+        {
+          "fn": "getenv",
+          "arg": 0
+        },
+        {
+          "fn": "get_cfg_var",
+          "arg": 0
+        },
+        {
+          "fn": "ini_get_all",
+          "arg": "ret"
+        },
+        {
+          "fn": "get_defined_vars",
+          "arg": "ret"
+        },
+        {
+          "fn": "getmypid",
+          "arg": "ret"
+        },
+        {
+          "fn": "posix_getpwuid",
+          "arg": 0
+        },
+        {
+          "fn": "posix_getgrgid",
+          "arg": 0
+        },
+        {
+          "fn": "posix_getpwnam",
+          "arg": 0
+        }
+      ]
+    },
+    "runtime-config": {
+      "class": "config-tamper",
+      "kind": "call",
+      "note": "changes PHP/security settings at runtime",
+      "fns": [
+        {
+          "fn": "ini_set",
+          "arg": 0
+        },
+        {
+          "fn": "ini_alter",
+          "arg": 0
+        },
+        {
+          "fn": "ini_restore",
+          "arg": 0
+        },
+        {
+          "fn": "putenv",
+          "arg": 0
+        },
+        {
+          "fn": "set_include_path",
+          "arg": 0
+        },
+        {
+          "fn": "apache_setenv",
+          "arg": 0
+        },
+        {
+          "fn": "error_reporting",
+          "arg": 0
+        },
+        {
+          "fn": "assert_options",
+          "arg": 0
+        },
+        {
+          "fn": "setlocale",
+          "arg": 1
+        }
+      ]
+    },
+    "process-control": {
+      "class": "process-control",
+      "kind": "call",
+      "note": "signal/priv/process manipulation",
+      "fns": [
+        {
+          "fn": "posix_kill",
+          "arg": 0
+        },
+        {
+          "fn": "posix_setuid",
+          "arg": 0
+        },
+        {
+          "fn": "posix_setgid",
+          "arg": 0
+        },
+        {
+          "fn": "posix_seteuid",
+          "arg": 0
+        },
+        {
+          "fn": "pcntl_fork",
+          "arg": "*"
+        },
+        {
+          "fn": "pcntl_signal",
+          "arg": "cb:1"
+        },
+        {
+          "fn": "proc_nice",
+          "arg": 0
+        },
+        {
+          "fn": "proc_terminate",
+          "arg": 0
+        },
+        {
+          "fn": "apache_child_terminate",
+          "arg": "*"
+        }
+      ]
+    },
+    "reflection-invoke": {
+      "class": "dynamic-invoke",
+      "kind": "method",
+      "note": "instantiate/invoke arbitrary class/method (gadget reach)",
+      "fns": [
+        {
+          "fn": "newInstance",
+          "arg": "*",
+          "note": "ReflectionClass::newInstance"
+        },
+        {
+          "fn": "newInstanceArgs",
+          "arg": "*"
+        },
+        {
+          "fn": "invoke",
+          "arg": "*",
+          "note": "Reflection*::invoke"
+        },
+        {
+          "fn": "invokeArgs",
+          "arg": "*"
+        },
+        {
+          "fn": "setAccessible",
+          "arg": 0,
+          "note": "bypasses visibility"
+        }
+      ]
+    },
+    "type-juggling": {
+      "class": "auth-bypass-type-juggle",
+      "kind": "call",
+      "note": "loose comparison / magic-hash / non-strict search => auth bypass",
+      "fns": [
+        {
+          "fn": "in_array",
+          "arg": 2,
+          "note": "non-strict (3rd arg false) => 0==string"
+        },
+        {
+          "fn": "array_search",
+          "arg": 2,
+          "note": "non-strict"
+        },
+        {
+          "fn": "strcmp",
+          "arg": 0,
+          "note": "array arg returns NULL, NULL==0 true"
+        },
+        {
+          "fn": "strcasecmp",
+          "arg": 0
+        },
+        {
+          "fn": "strncmp",
+          "arg": 0
+        },
+        {
+          "fn": "hash_equals",
+          "arg": 0,
+          "note": "SAFE \u2014 the correct constant-time compare"
+        }
+      ]
+    },
+    "archive-extraction": {
+      "class": "zip-slip-path-traversal",
+      "kind": "method",
+      "note": "extracting an archive writes entry paths; a `../` entry escapes the target dir (Zip Slip). Also symlink entries.",
+      "fns": [
+        {
+          "fn": "extractTo",
+          "arg": 0,
+          "note": "ZipArchive/PharData::extractTo \u2014 writes each entry; ../ escapes dir"
+        },
+        {
+          "fn": "addFile",
+          "arg": 0,
+          "note": "path added to archive"
+        },
+        {
+          "fn": "addFromString",
+          "arg": 0,
+          "note": "entry name is attacker-influenced"
+        },
+        {
+          "fn": "buildFromDirectory",
+          "arg": 0,
+          "kind": "method",
+          "note": "PharData"
+        },
+        {
+          "fn": "convertToExecutable",
+          "arg": "*",
+          "kind": "method",
+          "note": "PharData -> executable phar"
+        }
+      ]
+    },
+    "image-processing": {
+      "class": "image-rce-ssrf",
+      "kind": "method",
+      "note": "Imagick reads by URL (SSRF) and historically had delegate RCE (ImageTragick, MVG/MSL); GD from-URL is SSRF.",
+      "fns": [
+        {
+          "fn": "readImage",
+          "arg": 0,
+          "note": "Imagick::readImage \u2014 URL => SSRF; format abuse"
+        },
+        {
+          "fn": "readImageBlob",
+          "arg": 0
+        },
+        {
+          "fn": "readImageFile",
+          "arg": 0
+        },
+        {
+          "fn": "setImageFormat",
+          "arg": 0
+        }
+      ]
+    }
+  }
+}

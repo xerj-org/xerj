@@ -1084,6 +1084,19 @@ fn eval_expr(
                     "toString" => return Ok(PainlessValue::String(s.clone())),
                     "toLowerCase" => return Ok(PainlessValue::String(s.to_lowercase())),
                     "toUpperCase" => return Ok(PainlessValue::String(s.to_uppercase())),
+                    // `doc['a_date_field'].value` returns the raw ISO string
+                    // (real ES returns a JodaCompatibleZonedDateTime, which
+                    // these getters read off directly) — so date accessor
+                    // methods here parse the string on demand instead. Only
+                    // dispatches for these specific getter names, so a
+                    // genuinely non-date string field still falls through
+                    // to the "unsupported member access" error below.
+                    "getHour" | "getMinute" | "getSecond" | "getDayOfMonth" | "getMonthValue"
+                    | "getYear" | "getDayOfWeek" => {
+                        if let Some(ms) = date_value_millis(s) {
+                            return date_component(ms, member);
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -1202,6 +1215,35 @@ fn resolve_doc_member(
         }
         _ => Err(format!("unsupported doc member .{}", member)),
     }
+}
+
+/// Parse an ISO-8601-ish date string into epoch milliseconds (UTC),
+/// reusing the same parser aggregations use for date fields so a date's
+/// script-accessor components (getHour, getDayOfWeek, ...) agree with
+/// how the same value is bucketed elsewhere.
+fn date_value_millis(s: &str) -> Option<i64> {
+    crate::aggs::parse_date_ms(&Value::String(s.to_string()))
+}
+
+/// Extract one Java `ZonedDateTime`-style component (UTC) from an epoch-ms
+/// value, for the `doc['a_date_field'].value.getXxx()` accessor family.
+fn date_component(ms: i64, member: &str) -> Result<PainlessValue, String> {
+    use chrono::{Datelike, Timelike};
+    let dt = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms)
+        .ok_or_else(|| format!("invalid date value for .{}", member))?;
+    let n = match member {
+        "getHour" => dt.hour(),
+        "getMinute" => dt.minute(),
+        "getSecond" => dt.second(),
+        "getDayOfMonth" => dt.day(),
+        "getMonthValue" => dt.month(),
+        "getYear" => dt.year() as u32,
+        // Java DayOfWeek: MONDAY=1 .. SUNDAY=7 (chrono's weekday() already
+        // uses the same Monday-first ordinal via num_days_from_monday).
+        "getDayOfWeek" => dt.weekday().num_days_from_monday() + 1,
+        _ => return Err(format!("unsupported date member .{}", member)),
+    };
+    Ok(PainlessValue::Number(n as f64))
 }
 
 fn get_doc_value(doc: &Value, field: &str) -> Value {

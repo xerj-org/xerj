@@ -1,6 +1,9 @@
 # Research: AST + graph + FTS for AI vulnerability finding, at codebase scale
 
-**Status:** working prototype, verified on a realistic WordPress plugin. See
+**Status:** working prototype. Verified on a realistic WordPress plugin (PHP,
+6/6 planted bugs) and extended to **five languages** (PHP, Python, Go, Rust,
+Java) on a single tree-sitter engine, then run against **real WordPress core**
+(1,492 files, ~619k lines) to test the design at scale. See
 `docs/examples/ast-vuln-graph/` to reproduce every number below.
 
 ## The problem
@@ -107,6 +110,35 @@ language comes from XERJ. Neither alone is enough.
 - **This** → 6/6 including the interprocedural, unauth, and absence cases, and
   it hands the AI ~13× less to read.
 
+## Multi-language, and the scale test on real WordPress
+
+The taint model being *data, not code* was the claim; `scan_multilang.py` proves
+it. One tree-sitter engine, a `LANGS` config with per-language sources / sinks /
+sanitizers, and the same interprocedural walk finds the planted handler→sink bug
+in **Python, Go, Rust, Java, and PHP** — a new language is a new config row, not
+new engine code.
+
+The switch to tree-sitter also fixed the parser-coverage limitation below. On a
+full WordPress checkout, `phply` fails to parse ~37% of files (newer syntax) and
+silently skips them — the worst failure mode for an audit. `tree-sitter-php`
+parses 100%:
+
+| | phply | tree-sitter-php |
+|---|--:|--:|
+| files parsed (real WP core) | ~63% | **100%** |
+| full-tree scan time | — | **~3.6 s** for ~619k lines |
+| functions/methods indexed | — | 11,940 |
+| whole-tree tokens ("load it all") | — | ~5.2 M (unreviewable) |
+| candidate findings to triage | — | **129** |
+
+The headline is the last two rows: the graph turns a 5.2M-token tree no context
+window can hold into **129 candidate paths** an AI can actually work through.
+Honesty check — these are *candidates, not confirmed bugs*: WP core is heavily
+audited, so most of the 129 (largely `echo`/`include` hits) are already escaped
+or path-validated in ways the name-based sanitizer list doesn't yet recognize.
+The follow-on work is a context-aware WP sanitizer model, and it starts from a
+tractable 129, not from 5.2M tokens.
+
 ## Design for real WordPress scale
 
 The prototype is a plugin; core + plugins is the target. The design carries over:
@@ -142,9 +174,17 @@ analyzer. Be clear about what it is not:
   classic real bug: `esc_html` on a value placed inside an HTML attribute).
 - **CSRF/nonce is heuristic** — "state change reachable from an entry with no
   nonce call anywhere on the path." Real nonce logic can be conditional.
-- **Parser coverage.** phply is solid but not 100% on the newest PHP syntax;
-  a file that fails to parse is skipped (and should be reported, not silently
-  dropped — the same loud-skip rule autoindex needs).
+- **Parser coverage.** Solved for PHP by moving to tree-sitter (100% of real WP
+  core vs phply's ~63%). The rule stands for any parser: a file that fails to
+  parse must be reported, not silently dropped — the same loud-skip rule
+  autoindex needs.
+- **Precision on real code needs a per-framework sanitizer model.** The 5-language
+  demo is clean because the samples are minimal. On real WP core the same
+  substring/name-based sinks over-report (129 candidates, most already escaped).
+  Two concrete fixes, both known: match sinks on the AST *callee node* (done —
+  no more `exec(` matching `fsockopen(`), and resolve call edges only to
+  unambiguously-defined names (done — no more collisions across 11,940
+  functions). What remains is context-aware sanitizer recognition per framework.
 - **Every finding needs confirmation.** The point is to shrink what the AI (and
   human) read so they *can* reason about exploitability — not to auto-file CVEs.
 
@@ -155,7 +195,12 @@ analyzer. Be clear about what it is not:
    `xerj autoindex ./code` produces the graph-ready index directly.
 2. **Findings as a first-class index** with a severity/route schema, so the
    agent loop is "query findings → pull path code → confirm."
-3. **Multi-language via tree-sitter**, reusing the per-framework taint lists.
+3. ~~**Multi-language via tree-sitter**, reusing the per-framework taint lists.~~
+   **Done** — `scan_multilang.py` covers PHP/Python/Go/Rust/Java on one engine;
+   adding a language is a config row.
 4. **Loud skips** — a file that fails to parse must be reported (a silently
    dropped file in a security audit is the worst-case), matching the
    autoindex honesty rule.
+5. **Per-framework sanitizer model** — the next precision lever, to drop the real
+   WordPress candidate set from 129 toward its true positives (context-aware
+   escaper matching, path allow-lists for `include`/template loaders).

@@ -44,10 +44,18 @@ static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 // 1 s dirty/muzzy decay purges freed pages continuously; the same load then
 // holds a flat working-set RSS.  Ingest throughput cost measured: none
 // (within noise, ~36k docs/s single-index bulk either way).
-#[cfg(not(target_env = "msvc"))]
+#[cfg(all(not(target_env = "msvc"), not(feature = "debug-profiling")))]
 #[allow(non_upper_case_globals)]
 #[export_name = "_rjem_malloc_conf"]
 pub static malloc_conf: &[u8] = b"background_thread:true,dirty_decay_ms:1000,muzzy_decay_ms:1000\0";
+
+// Preserve the production decay policy. Merely compiling this feature enables
+// jemalloc's profiler; sampling remains inactive until the local controller
+// starts a bounded capture.
+#[cfg(all(not(target_env = "msvc"), feature = "debug-profiling"))]
+#[allow(non_upper_case_globals)]
+#[export_name = "_rjem_malloc_conf"]
+pub static malloc_conf: &[u8] = b"background_thread:true,dirty_decay_ms:1000,muzzy_decay_ms:1000,prof:true,prof_active:false,lg_prof_sample:19\0";
 
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
@@ -66,6 +74,8 @@ use xerj_common::{config::Config, metrics::Metrics};
 use xerj_console_api::{state::ClusterMode, ConsoleState};
 use xerj_engine::Engine;
 
+#[cfg(all(target_os = "linux", feature = "debug-profiling"))]
+mod debug_profiling;
 mod grpc;
 mod ingest_memory_trace;
 
@@ -471,6 +481,25 @@ fn ensure_admin_key(cfg: &mut Config) -> Result<()> {
         return Ok(());
     }
 
+    let data_dir = Path::new(&cfg.server.data_dir);
+    let key_path = data_dir.join("admin.key");
+
+    // A prior run may have already persisted a key — reuse it instead of
+    // minting a fresh one on every restart. A regenerated key on each
+    // restart forces every client (Kibana/OSD, MCP configs, scripts) to be
+    // manually re-pointed at the new value, which is exactly what
+    // persisting to `admin.key` in the first place was meant to avoid.
+    // Only a well-formed 64-char hex string (the shape this function itself
+    // always produces) is trusted; anything else falls through to a fresh
+    // generation rather than risk starting up with a garbled credential.
+    if let Ok(existing) = std::fs::read_to_string(&key_path) {
+        let existing = existing.trim();
+        if existing.len() == 64 && existing.bytes().all(|b| b.is_ascii_hexdigit()) {
+            cfg.auth.admin_api_key = existing.to_string();
+            return Ok(());
+        }
+    }
+
     // Generate 32 random bytes → 64-char hex string
     let raw: Vec<u8> = (0..32).map(|_| rand::random::<u8>()).collect();
     let key: String = raw.iter().map(|b| format!("{b:02x}")).collect();
@@ -486,10 +515,9 @@ fn ensure_admin_key(cfg: &mut Config) -> Result<()> {
     println!("╚══════════════════════════════════════════════════╝");
     println!();
 
-    let data_dir = Path::new(&cfg.server.data_dir);
     if std::fs::create_dir_all(data_dir).is_ok() {
         // 0600 — this file IS the admin credential (RC4 W2 #21).
-        if let Err(e) = write_secret_file(&data_dir.join("admin.key"), key.as_bytes()) {
+        if let Err(e) = write_secret_file(&key_path, key.as_bytes()) {
             warn!("could not persist admin.key: {e}");
         }
     }
@@ -1264,6 +1292,11 @@ async fn async_main() -> Result<()> {
         std::process::exit(code);
     }
 
+    // Start profiling before config loading, TLS, engine replay, and router
+    // construction so delay=0 is a genuine initialization profile.
+    #[cfg(all(target_os = "linux", feature = "debug-profiling"))]
+    let _debug_profiles = debug_profiling::spawn()?;
+
     // 0. Record startup time as early as possible.
     let startup_start = std::time::Instant::now();
 
@@ -1458,6 +1491,7 @@ async fn async_main() -> Result<()> {
     state.engine.spawn_resource_sampler();
 
     let _ingest_memory_trace = ingest_memory_trace::spawn(&state.engine);
+
     // 13. Start servers concurrently
     let rest_tls = tls_config.clone();
     let rest = tokio::spawn(async move {

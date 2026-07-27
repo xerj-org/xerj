@@ -304,6 +304,26 @@ Document-folder indexing (prior use case):
   PDF/DOCX); the differently-phrased set is an honest tie because the built-in
   embedder is lexical, not neural.
 
+AI security review of a codebase too big to read:
+  https://github.com/xerj-org/xerj/tree/main/docs/case-studies/wordpress-security-audit
+  An agent audits real WordPress core — 1,492 PHP files, ~619k lines, ~26× a 200k
+  context window — by indexing the tree as queryable facts (call graph + taint
+  facts, cap/nonce shapes, hook registrations, sanitizer-order fingerprints —
+  built in ≈3.6 s at a 100% tree-sitter-php parse rate — plus a dangerous-call-site
+  census built as a separate pass) and reading only the survivors of each query.
+  The structured audit summed to ~26k tokens vs ~5.2M just to load core once.
+  Honest findings, as the docs state them: core came back hardened on every flow
+  tested (the negative result is the result); the headline finding of three
+  Medium-severity results — wp_http_validate_url missing 169.254.0.0/16, the
+  cloud-metadata range — is a known-class limitation, explicitly not claimed as
+  a novel 0-day (the other two: a deploy-dependent ImageTragick surface in the
+  Imagick image editor, and a role-injection inconsistency in user-new.php
+  caught by the per-file sweep); published counter-examples where grep is the
+  cheaper tool; and the audit surfaced a real XERJ engine bug (term on a keyword
+  array matched only element [0] — memtable half fixed, segment half an open
+  follow-up; the playbook ships the workarounds). The method ships as a copyable
+  playbook + skill retargetable to other stacks.
+
 Also validated end-to-end: semantic search & RAG, passage retrieval, vector search
 (kNN), vector quantization (SQ8), hybrid search, log analytics, anomaly detection,
 continuous anomaly datafeeds, migrate-from-Elasticsearch — all linked from the
@@ -482,4 +502,5 @@ POST /_memory/agent-42/_recall  { "query": "what did they ask about security", "
   Ingest .................. https://xerj.org/docs/ingest.html
   Migration from ES ....... https://xerj.org/docs/migration-from-es.html
   Autoindex evaluation .... https://github.com/xerj-org/xerj/tree/main/demo/usecases/autoindex
+  Security-audit study .... https://github.com/xerj-org/xerj/tree/main/docs/case-studies/wordpress-security-audit
   Front door (short) ...... https://xerj.org/llms.txt

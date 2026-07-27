@@ -31,6 +31,41 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://xerj.org/use-cases.html</loc>
+    <lastmod>2026-07-27</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://xerj.org/use-cases/security-analytics.html</loc>
+    <lastmod>2026-07-27</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://xerj.org/use-cases/operational-intelligence.html</loc>
+    <lastmod>2026-07-27</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://xerj.org/use-cases/ai-search-retrieval.html</loc>
+    <lastmod>2026-07-27</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://xerj.org/use-cases/code-security-audit.html</loc>
+    <lastmod>2026-07-27</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://xerj.org/use-cases/elasticsearch-replacement.html</loc>
+    <lastmod>2026-07-27</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://xerj.org/use-cases/unified-observability.html</loc>
+    <lastmod>2026-07-27</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://xerj.org/brand.html</loc>
     <lastmod>2026-04-14</lastmod>
     <priority>0.7</priority>

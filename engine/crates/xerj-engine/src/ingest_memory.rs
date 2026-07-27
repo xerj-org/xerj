@@ -278,6 +278,12 @@ pub struct Ledger {
     dropped_events: AtomicU64,
 }
 
+impl Default for Ledger {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Ledger {
     pub const fn new() -> Self {
         Self {

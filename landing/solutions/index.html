@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>XERJ.ai — Solutions</title>
-<meta name="description" content="XERJ by solution — SIEM, RAG, observability, ES replacement, operational intelligence. One platform, five retrieval patterns.">
+<meta name="description" content="XERJ by solution — SIEM, RAG, observability, ES replacement, operational intelligence, AI security review. One platform, six retrieval patterns.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -42,11 +42,12 @@
   <a href="/use-cases/unified-observability.html">UNIFIED OBSERVABILITY</a>
   <a href="/use-cases/elasticsearch-replacement.html">ES REPLACEMENT</a>
   <a href="/use-cases/operational-intelligence.html">OPERATIONAL INTELLIGENCE</a>
+  <a href="/use-cases/code-security-audit.html">AI SECURITY REVIEW</a>
 </nav>
 
 <section class="scene-section" style="border-top:0; padding-top:0;">
   <div class="kicker"><span>SOLUTIONS</span><span class="dash">·</span><span>WHAT XERJ REPLACES</span></div>
-  <h1 class="hero" style="font-size: var(--fs-96);">ONE PLATFORM.<br><span class="accent">FIVE WORKLOADS.</span></h1>
+  <h1 class="hero" style="font-size: var(--fs-96);">ONE PLATFORM.<br><span class="accent">SIX WORKLOADS.</span></h1>
   <p class="lead" style="max-width:720px;">
     XERJ ships one binary. Different teams use it differently —
     SIEM analysts run one query surface, RAG platform teams run
@@ -57,7 +58,7 @@
 
 <!-- SOLUTION CARDS · simple 2-up grid, no filter overload -->
 <section class="scene-section" style="border-top:0;">
-  <div class="kicker"><span>FIVE SOLUTIONS</span><span class="dash">·</span><span>PICK THE ONE THAT FITS</span></div>
+  <div class="kicker"><span>SIX SOLUTIONS</span><span class="dash">·</span><span>PICK THE ONE THAT FITS</span></div>
 
   <div class="card-grid">
 
@@ -142,22 +143,39 @@
       <span class="card-cta">EXPLORE OPS INTELLIGENCE  →</span>
     </a>
 
+    <a class="card" href="/use-cases/code-security-audit.html">
+      <span class="card-k">06 · AI SECURITY REVIEW</span>
+      <span class="card-t">AUDIT CODE<br><span class="accent">TOO BIG TO READ.</span></span>
+      <span class="card-b">
+        An AI agent indexes a codebase as queryable facts — call
+        sites, call graph, sanitizer order — then reads only the
+        survivors. WordPress core: the structured audit summed to
+        ~26K tokens vs ~5.2M just to load the tree once.
+      </span>
+      <span class="card-facts">
+        FOR CISO · APPSEC · SECURITY RESEARCH<br>
+        619K LINES INDEXED IN ≈3.6 S · 100% PARSE RATE<br>
+        SINK-CENSUS COVERAGE PROVEN · UNEXPLAINED RESIDUAL 0
+      </span>
+      <span class="card-cta">EXPLORE AI SECURITY REVIEW  →</span>
+    </a>
+
   </div>
 </section>
 
 <!-- HOW IT ALL FITS -->
 <section class="scene-section">
-  <div class="kicker"><span>ONE PLATFORM</span><span class="dash">·</span><span>FIVE WORKLOADS</span></div>
+  <div class="kicker"><span>ONE PLATFORM</span><span class="dash">·</span><span>SIX WORKLOADS</span></div>
   <h2 class="scene">SAME ENGINE.<br><span class="accent">DIFFERENT LENSES.</span></h2>
 
   <p class="wide">
-    The five solutions above are not separate products. They are
+    The six solutions above are not separate products. They are
     lenses onto one platform. Most enterprise customers run two or
     three of them simultaneously on the same binary, the same
     segment cache, and the same audit trail.
   </p>
 
-  <svg class="diagram" viewBox="0 0 960 420" role="img" aria-label="XERJ fan-out to five retrieval lenses">
+  <svg class="diagram" viewBox="0 0 960 480" role="img" aria-label="XERJ fan-out to six retrieval lenses">
     <!-- XERJ node on left -->
     <g class="node accent"><rect x="40" y="160" width="260" height="100"/>
       <text x="56" y="184" class="label">XERJ</text>
@@ -198,9 +216,15 @@
       <text x="496" y="296" class="small">audit · capacity · cost · model-risk evidence</text>
     </g>
 
-    <g class="node mute"><rect x="40" y="340" width="900" height="48" class="dashed"/>
-      <text x="60" y="362" class="label">ONE CONTRACT · ONE ON-CALL · ONE SOC 2 SCOPE · ONE RBAC MODEL</text>
-      <text x="60" y="380" class="small">every lens above runs on the same binary, same audit trail, same RBAC</text>
+    <line x1="300" y1="255" x2="480" y2="340"/><polygon points="478,336 486,342 476,344"/>
+    <g class="node"><rect x="480" y="320" width="460" height="44"/>
+      <text x="496" y="342" class="label">CODE FACTS</text>
+      <text x="496" y="356" class="small">AI security review · call sites · call graph · invariant fingerprints</text>
+    </g>
+
+    <g class="node mute"><rect x="40" y="400" width="900" height="48" class="dashed"/>
+      <text x="60" y="422" class="label">ONE CONTRACT · ONE ON-CALL · ONE SOC 2 SCOPE · ONE RBAC MODEL</text>
+      <text x="60" y="440" class="small">every lens above runs on the same binary, same audit trail, same RBAC</text>
     </g>
   </svg>
 

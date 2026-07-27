@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>XERJ.ai — Enterprise use cases</title>
-<meta name="description" content="Five enterprise workloads. One binary. Measured benchmarks vs ES 8.13.">
+<meta name="description" content="Six enterprise workloads. One binary. Measured benchmarks vs ES 8.13.">
 <meta property="og:title" content="XERJ.ai — storage for the agent era">
 <meta property="og:description" content="An AI-native, Elasticsearch-wire-compatible search + vector + log engine in Rust. Apache-2.0, no lock-in. Live playground + reproducible head-to-head benchmarks.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -42,6 +42,7 @@
   <a href="/use-cases/security-analytics.html">SECURITY ANALYTICS</a>
   <a href="/use-cases/operational-intelligence.html">OPERATIONAL INTELLIGENCE</a>
   <a href="/use-cases/ai-search-retrieval.html">AI SEARCH</a>
+  <a href="/use-cases/code-security-audit.html">AI SECURITY REVIEW</a>
   <a href="/use-cases/elasticsearch-replacement.html">ES REPLACEMENT</a>
   <a href="/use-cases/unified-observability.html">OBSERVABILITY</a>
 </nav>
@@ -50,10 +51,11 @@
   <div class="kicker"><span>USE CASES</span><span class="dash">·</span><span>ENTERPRISE</span></div>
   <h1 class="hero" style="font-size: var(--fs-96);">REPLACE THE<br>STACK.<br><span class="accent">KEEP THE DATA.</span></h1>
   <p class="lead" style="max-width:720px;">
-    Five enterprise workloads. One binary. No Logstash, no Beats, no
+    Six enterprise workloads. One binary. No Logstash, no Beats, no
     separate vector database, no dedicated Kibana cluster. Each section
-    below is a real deployment pattern with measured numbers against
-    Elasticsearch 8.13 — and a live chart from the product dashboards.
+    below is a real deployment pattern with measured numbers — benchmarks
+    against Elasticsearch 8.13, or token costs measured on a real audit —
+    and a live chart.
   </p>
 </section>
 
@@ -416,6 +418,70 @@
       </div>
   </div>
     <p style="margin-top:14px; font-size:12px; letter-spacing:.04em; color:var(--z-mute); font-family:var(--font-data);">P50 · 1M-DOC LLM-TELEMETRY CORPUS · FULL 91-CELL MATRIX AT <a href="/benchmarks/">xerj.org/benchmarks →</a></p>
+  </div>
+</div>
+
+<!-- 06 AI SECURITY REVIEW — token cost to the answer -->
+<div class="uc-showcase">
+  <div class="uc-copy">
+    <span class="uc-num">06</span>
+    <div class="uc-title">INDEX ONCE.<br>QUERY THE<br><span class="accent">INVARIANT.</span></div>
+    <p class="uc-pitch">A method, not a target. Index a codebase once as security <em>facts</em>, compile the invariant you care about into a queryable fingerprint, query for the violators, read only the survivors. XERJ is the agent's second brain in that loop. The proof run is real WordPress core — 1,492 PHP files, indexed in ≈3.6 seconds.</p>
+    <div class="uc-metric">~26K-TOKEN STRUCTURED AUDIT vs ~5.2M TO LOAD THE TREE</div>
+    <div class="uc-persona">CISO · APPSEC ENGINEER · SECURITY RESEARCHER</div>
+    <a href="/use-cases/code-security-audit.html" class="uc-cta">FULL USE CASE →</a>
+  </div>
+  <div class="uc-viz">
+    <div class="kicker"><span>MEASURED · WORDPRESS CORE · docs/case-studies/wordpress-security-audit</span></div>
+    <div class="cmp-bars">
+    <div class="cmp-bars-head">
+      <span></span>
+      <span class="cmp-a">XERJ</span>
+      <span class="cmp-b">GREP + READ</span>
+    </div>
+    <div class="cmp-bars-row">
+        <span class="cmp-label">Sanitizer composition</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:0.1%;"></span>
+          <span class="cmp-num">~490 tok</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:90.0%;"></span>
+          <span class="cmp-num">~1,329,000 tok <span class="cmp-ratio">2,700× more</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Auth posture sweep</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:1.8%;"></span>
+          <span class="cmp-num">~6,600 tok</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:90.0%;"></span>
+          <span class="cmp-num">~335,500 tok <span class="cmp-ratio">51× more</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Reachability query</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:90.0%;"></span>
+          <span class="cmp-num">~482,800 tok</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:0.8%;"></span>
+          <span class="cmp-num">~4,300 tok <span class="cmp-ratio">112× less</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">__destruct inventory</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:90.0%;"></span>
+          <span class="cmp-num">~14,700 tok</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:4.0%;"></span>
+          <span class="cmp-num">~649 tok <span class="cmp-ratio">23× less</span></span>
+        </span>
+      </div>
+  </div>
+    <p style="margin-top:14px; font-size:12px; letter-spacing:.04em; color:var(--z-mute); font-family:var(--font-data);">TOKEN COST TO THE ANSWER · NOT LATENCY · LAST TWO ROWS: THE PUBLISHED COUNTER-EXAMPLES WHERE GREP WINS — REACHABILITY IS THE AUDIT-TIME MEASUREMENT UNDER THE KEYWORD-ARRAY TERM BUG THE AUDIT ITSELF SURFACED · SOURCES IN <a href="https://github.com/xerj-org/xerj/tree/main/docs/case-studies/wordpress-security-audit" rel="external">docs/case-studies/wordpress-security-audit →</a></p>
   </div>
 </div>
 

@@ -31,6 +31,7 @@ deterministic.
 | `ES_API_AUDIT.md` | **full ES-compat surface audit** — all 162 routes live-tested + source-classified (REAL/PARTIAL/STUB), 0 broken, with the hot-path benchmark |
 | `es_api_audit.json` | machine-readable per-endpoint verdicts + evidence |
 | `BENCHMARK.md` | bulk-ingest throughput + read/agg/kNN latency (`bench.mjs`) |
+| `debug-profiling/` | opt-in CPU/heap pprof capture, reproducibility manifest, and AI analysis prompts |
 
 ## Use cases covered
 

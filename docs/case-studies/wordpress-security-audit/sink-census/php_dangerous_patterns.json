@@ -1,0 +1,286 @@
+{
+  "meta": {
+    "title": "PHP dangerous PATTERNS (non-function vulnerability classes)",
+    "purpose": "Language-level, input-shape, and semantic vulnerabilities that are NOT a single dangerous function call \u2014 the half a sink catalog misses. Each pattern says HOW to detect it (ast=node pattern, regex, query=XERJ, manual=reasoning) so the audit can claim coverage of patterns too.",
+    "detect_kinds": {
+      "ast": "tree-sitter node pattern",
+      "regex": "exact source regex",
+      "query": "XERJ index query over facts",
+      "manual": "needs agent reasoning / schema / runtime"
+    }
+  },
+  "patterns": [
+    {
+      "id": "loose-eq",
+      "class": "type-juggling",
+      "title": "Loose == / != comparison",
+      "attack": "'0e123'==<'0e456' (magic hash), '0'==false, null==0, '1abc'==1, 'abc'==0 (pre-PHP8). Auth bypass when comparing secrets/hashes/tokens with == instead of ===.",
+      "detect": "ast: binary_expression operator in {==,!=,<>}. Flag when either side is a hash()/md5()/sha1() call, a token/password/hmac variable, or a request value.",
+      "safe": "=== / !== ; hash_equals() for secrets; password_verify() for passwords."
+    },
+    {
+      "id": "switch-loose",
+      "class": "type-juggling",
+      "title": "switch() uses loose comparison",
+      "attack": "switch($_GET['role']){case 0: admin...} \u2014 '0abc' or true loosely matches case 0.",
+      "detect": "ast: switch_statement whose condition is a request value or unhashed string.",
+      "safe": "match(true){...} (strict) or cast+validate the switch value first."
+    },
+    {
+      "id": "magic-hash",
+      "class": "type-juggling",
+      "title": "Magic-hash comparison (0e...)",
+      "attack": "md5('240610708')=='0e462097431906509019562988736854'; two 0e-prefixed hashes are equal under ==. Password/token bypass.",
+      "detect": "ast+manual: == between two hash outputs, or hash compared to a user value with ==.",
+      "safe": "hash_equals(); never == on hashes."
+    },
+    {
+      "id": "strcmp-array",
+      "class": "type-juggling",
+      "title": "strcmp/strcasecmp/strncmp with array arg returns NULL",
+      "attack": "?pw[]=x makes $_GET['pw'] an array; strcmp(array,$secret) returns NULL (+warning); if(strcmp(...)==0) => NULL==0 => TRUE => bypass.",
+      "detect": "ast+query: strcmp-family call where an argument traces to a request value with no is_string()/is_scalar() guard.",
+      "safe": "validate is_string() first; use hash_equals; check ===0 not ==0."
+    },
+    {
+      "id": "in-array-loose",
+      "class": "type-juggling",
+      "title": "in_array/array_search without strict=true",
+      "attack": "in_array('1abc',[1,2,3]) is TRUE loosely; in_array(0,['a','b']) TRUE pre-PHP8. Allow-list bypass.",
+      "detect": "ast: in_array/array_search call with <3 args (strict omitted) or 3rd arg falsey.",
+      "safe": "in_array($x,$arr,true)."
+    },
+    {
+      "id": "array-injection",
+      "class": "input-shape",
+      "title": "Array injection via param[]=",
+      "attack": "?login[]=a or login[]=a in POST makes $_POST['login'] an ARRAY. Breaks string-typed sinks: preg_match(returns false), strcmp/hash(NULL), sql (Array->'Array'), and bypasses is_string()-less checks. Also DoS/logic.",
+      "detect": "query+manual: request params used by string functions/SQL/regex without a preceding is_string()/is_scalar()/(string) cast or (array) normalisation.",
+      "safe": "cast/validate every request param to the expected type; reject arrays where scalars expected."
+    },
+    {
+      "id": "sql-truncation",
+      "class": "sql-semantic",
+      "title": "SQL column truncation (silent, non-STRICT mode)",
+      "attack": "Register user 'admin<55 spaces>x'; MySQL (non-strict) truncates to column length -> stored as 'admin' -> duplicate/overwrite admin account.",
+      "detect": "manual+schema: INSERT/UPDATE of a user-controlled string into a VARCHAR(N) unique column without an explicit length check; requires column lengths.",
+      "safe": "validate max length before insert; STRICT_ALL_TABLES; unique+trim checks."
+    },
+    {
+      "id": "charset-sqli",
+      "class": "sql-semantic",
+      "title": "Multibyte charset SQLi (addslashes/GBK bypass)",
+      "attack": "In GBK/Big5, 0xbf27 + addslashes -> 0xbf5c27 which is a valid multibyte char + a free quote -> breaks out. Defeats addslashes/manual escaping.",
+      "detect": "manual: manual escaping (addslashes/mysql_real_escape_string) with a connection charset set to a multibyte set instead of set_charset('utf8mb4').",
+      "safe": "parameterized queries; mysqli::set_charset('utf8mb4')."
+    },
+    {
+      "id": "order-by-inj",
+      "class": "sql-semantic",
+      "title": "ORDER BY / LIMIT / identifier injection",
+      "attack": "ORDER BY $_GET['sort'] \u2014 identifiers can't be bound with placeholders; direct concat = injection.",
+      "detect": "regex+query: ORDER BY/GROUP BY/LIMIT/table/column built from a request value (prepare can't bind these).",
+      "safe": "allow-list of column names; map input->fixed identifier."
+    },
+    {
+      "id": "second-order",
+      "class": "injection-flow",
+      "title": "Second-order injection (stored then used raw)",
+      "attack": "Value stored safely, later read from DB and concatenated into SQL/HTML/cmd without re-escaping. Taint 'launders' through storage.",
+      "detect": "manual: a value read from DB/option/meta reaching a sink; the taint graph must treat storage reads as tainted for stored-then-used flows.",
+      "safe": "escape at every sink, not just at input; treat DB reads as untrusted."
+    },
+    {
+      "id": "mass-assignment",
+      "class": "input-shape",
+      "title": "Mass assignment / register_globals emulation",
+      "attack": "extract($_REQUEST) or foreach($_POST as $k=>$v){$$k=$v;} or $obj->fill($_POST) overwrites vars/columns (e.g. is_admin).",
+      "detect": "ast: extract() / parse_str(1-arg) / variable_variable assignment ($$k) fed by a request array; object hydration from a raw request array.",
+      "safe": "explicit allow-list of fields; never bulk-assign request data."
+    },
+    {
+      "id": "var-variable",
+      "class": "input-shape",
+      "title": "Variable variables $$x",
+      "attack": "$$key where key is request-controlled -> arbitrary variable overwrite / info leak.",
+      "detect": "ast: variable_name whose name is itself a variable (dynamic_variable_name) fed by request.",
+      "safe": "array lookups with an allow-list, not $$."
+    },
+    {
+      "id": "null-byte",
+      "class": "input-shape",
+      "title": "Null-byte / poison-byte truncation",
+      "attack": "?file=secret.php%00.jpg truncates at NUL in include/file ops (pre-5.3.4); also %00 in strings splitting validators.",
+      "detect": "manual+regex: file/path/validator using a request value without an explicit NUL/`\\0` rejection; older PHP targets.",
+      "safe": "reject \\0; PHP>=5.3.4; realpath+allow-list."
+    },
+    {
+      "id": "path-traversal",
+      "class": "input-shape",
+      "title": "Path traversal encodings",
+      "attack": "../, ..%2f, %2e%2e%2f, ....//, absolute-path override, unicode dot. Escapes an intended base dir.",
+      "detect": "query+manual: file op / include with a request-derived path lacking realpath()-under-base or basename()+allow-list.",
+      "safe": "realpath() then verify str_starts_with(base); basename+allow-list."
+    },
+    {
+      "id": "phar-deser",
+      "class": "deserialization",
+      "title": "phar:// deserialization",
+      "attack": "phar://attacker.jpg triggers unserialize of the Phar metadata via ANY file op (file_exists/getimagesize/fopen) on an attacker-controlled path -> POP chain.",
+      "detect": "query+manual: any file op whose path can start with a user-controlled wrapper/scheme; combined with a gadget class present.",
+      "safe": "validate/deny wrappers; Phar::interceptFileFuncs; check scheme."
+    },
+    {
+      "id": "toctou",
+      "class": "race",
+      "title": "TOCTOU file race (check-then-use)",
+      "attack": "is_writable($f)/file_exists($f) then fopen/unlink($f) \u2014 attacker swaps the path (symlink) between check and use.",
+      "detect": "ast+manual: a file predicate on a path followed by an operation on the same path in a privileged context.",
+      "safe": "operate on fds (O_NOFOLLOW), atomic ops, avoid predictable temp paths."
+    },
+    {
+      "id": "timing-compare",
+      "class": "crypto-logic",
+      "title": "Non-constant-time secret comparison",
+      "attack": "if($mac == $expected) leaks byte-by-byte timing -> MAC/token forgery; also juggling.",
+      "detect": "ast: == / != / strcmp on a variable named mac/sig/hmac/token/hash/nonce.",
+      "safe": "hash_equals($known,$user)."
+    },
+    {
+      "id": "is-numeric-bypass",
+      "class": "type-confusion",
+      "title": "is_numeric / intval / filter_var bypass",
+      "attack": "is_numeric('0x1A'|'1e3'|' 12'|'+9') can be TRUE; (int)'123abc'=123; filter_var URL/EMAIL accepts javascript:, unusual hosts; is_numeric hex opens ID confusion.",
+      "detect": "ast+manual: is_numeric/ctype_digit/intval/(int)/filter_var used as the ONLY validation on a security-relevant value.",
+      "safe": "ctype_digit for digit-strings; FILTER + explicit flags; compare after cast+re-render."
+    },
+    {
+      "id": "loose-empty-isset",
+      "class": "logic",
+      "title": "empty()/isset() logic pitfalls",
+      "attack": "empty('0') and empty(0) are TRUE -> a legit '0' input treated as missing; isset() true for null-coalesced; == in guards.",
+      "detect": "manual: empty()/! on a value where '0'/0/'' are valid, in an auth/authorization/branch decision.",
+      "safe": "=== '' / array_key_exists / isset with explicit checks."
+    },
+    {
+      "id": "regex-anchor-bypass",
+      "class": "regex",
+      "title": "Regex anchor / multiline / dot bypass",
+      "attack": "preg_match('/^allowed$/',$x) \u2014 $ matches before a trailing \\n; with /m, ^/$ per line; . doesn't match \\n so payload on a second line bypasses. Also \\A\\z vs ^$.",
+      "detect": "regex+manual: a validation preg_match using ^...$ (not \\A...\\z) on a request value; check for /m and missing /s or /D.",
+      "safe": "\\A...\\z anchors; /D; reject newlines."
+    },
+    {
+      "id": "pcre-backtrack",
+      "class": "regex",
+      "title": "PCRE returns false on backtrack-limit (not 0)",
+      "attack": "On catastrophic backtracking preg_match returns FALSE, not 0; if(preg_match($bad,$x)) treats false as no-match, but code checking ==1 or !==false differs -> validator bypass + ReDoS.",
+      "detect": "ast+manual: preg_match result used in a boolean/auth branch without ===1 / preg_last_error() check; user-influenced pattern or subject length.",
+      "safe": "check ===1; bound input length; pcre.backtrack_limit."
+    },
+    {
+      "id": "session-fixation",
+      "class": "auth-session",
+      "title": "Session fixation (no regenerate on auth)",
+      "attack": "Attacker sets victim's session id pre-login; app doesn't session_regenerate_id(true) after auth -> session hijack.",
+      "detect": "query+manual: a login/privilege-elevation path with no session_regenerate_id(true) after establishing identity.",
+      "safe": "session_regenerate_id(true) on every privilege change."
+    },
+    {
+      "id": "cookie-flags",
+      "class": "auth-session",
+      "title": "Missing cookie security flags",
+      "attack": "setcookie without HttpOnly/Secure/SameSite -> XSS theft / CSRF / MITM.",
+      "detect": "ast: setcookie/setrawcookie/session_set_cookie_params with options lacking httponly|secure|samesite.",
+      "safe": "set HttpOnly+Secure+SameSite=Lax/Strict."
+    },
+    {
+      "id": "csrf-absence",
+      "class": "auth-logic",
+      "title": "State change without CSRF/nonce",
+      "attack": "A state-changing handler reachable without a verified nonce/token -> CSRF.",
+      "detect": "query: entry point performing a state change with NO nonce/token verification on the path (absence property \u2014 see the authz graph).",
+      "safe": "verify a per-user, per-action nonce/CSRF token on every state change."
+    },
+    {
+      "id": "xss-context",
+      "class": "xss",
+      "title": "Wrong-context / incomplete output escaping",
+      "attack": "htmlspecialchars without ENT_QUOTES inside an attribute; esc_html on a value placed in JS/URL/CSS context; double-encoding; json in <script> without JSON_HEX_TAG.",
+      "detect": "manual: an escaper whose context (HTML text/attr/JS/URL/CSS) does not match the output position.",
+      "safe": "context-correct escaper (attr vs html vs js vs url); ENT_QUOTES; JSON_HEX_* in <script>."
+    },
+    {
+      "id": "open-redirect",
+      "class": "redirect",
+      "title": "Open redirect",
+      "attack": "header('Location: '.$_GET['next']) or redirect($url) to //evil.com, \\evil, javascript:.",
+      "detect": "ast+query: header('Location'..)/redirect with a request-derived target lacking an allow-list/same-host check.",
+      "safe": "allow-list hosts; wp_safe_redirect; strip scheme/host."
+    },
+    {
+      "id": "host-header",
+      "class": "trust-boundary",
+      "title": "Host / X-Forwarded trust",
+      "attack": "Using $_SERVER['HTTP_HOST'] / X-Forwarded-For / X-Forwarded-Host for links, password-reset URLs, or IP allow-lists -> poisoning/spoof.",
+      "detect": "regex: $_SERVER['HTTP_HOST'|'HTTP_X_FORWARDED_*'] used in a URL, email, or access decision.",
+      "safe": "fixed site URL config; trust only vetted proxies."
+    },
+    {
+      "id": "error-suppression",
+      "class": "footgun",
+      "title": "@ error suppression hiding failures",
+      "attack": "@unserialize / @file_get_contents / @$_GET hides errors that mask a security-relevant failure or type issue.",
+      "detect": "ast: error_suppression_expression (@) on a security-relevant call.",
+      "safe": "handle errors explicitly."
+    },
+    {
+      "id": "upload-exec",
+      "class": "file-upload",
+      "title": "Unrestricted file upload -> exec",
+      "attack": "Attacker uploads shell.php / .phtml / double-ext shell.php.jpg / MIME-spoofed / .htaccess; served from an executable dir.",
+      "detect": "manual+query: move_uploaded_file/write into a web-served dir with extension/MIME derived from the upload and no allow-list / non-exec storage.",
+      "safe": "random name; extension+content allow-list; store outside web root / non-exec."
+    },
+    {
+      "id": "user-enum",
+      "class": "info-leak",
+      "title": "User enumeration (distinct response/timing)",
+      "attack": "Login/reset returns different message or timing for valid vs invalid users -> account enumeration.",
+      "detect": "manual: auth/reset flows with user-existence-dependent branches in message or timing.",
+      "safe": "uniform responses and timing."
+    },
+    {
+      "id": "option-injection",
+      "class": "argument-injection",
+      "title": "escapeshellarg does NOT stop argument/option injection",
+      "attack": "escapeshellarg only quotes a value so it can't start a NEW command \u2014 it does NOT stop the value being read as an OPTION. e.g. exec('tar '.escapeshellarg($f)) with $f='--checkpoint=1 --checkpoint-action=exec=sh evil' => tar runs a command. Same: rsync -e, mysql --, curl -o/-K, ffmpeg -f, git --upload-pack, find -exec, zip -T -TT, wget -O.",
+      "detect": "ast+manual: an exec-family call whose arg is escapeshellarg($x) BUT $x is placed where the program accepts options (no `--` separator before it, or the value can begin with `-`) and $x is request-derived.",
+      "safe": "place a literal `--` before user args; validate the value doesn't start with `-`; use array-form proc_open/exec with explicit argv; allow-list."
+    },
+    {
+      "id": "escapeshellcmd-weak",
+      "class": "argument-injection",
+      "title": "escapeshellcmd is weaker than escapeshellarg",
+      "attack": "escapeshellcmd escapes shell metacharacters of a whole COMMAND but leaves spaces/quotes so arguments still split; it also lets option injection and unbalanced-quote tricks. Often misused as if it quoted an argument.",
+      "detect": "ast: escapeshellcmd wrapping a value that is then used as an argument (not the whole command).",
+      "safe": "escapeshellarg per-argument; argv-form; never escapeshellcmd for an argument."
+    },
+    {
+      "id": "zip-slip",
+      "class": "path-traversal",
+      "title": "Archive extraction path traversal (Zip Slip)",
+      "attack": "ZipArchive::extractTo($dir) / PharData / tar writes each entry using the entry's own path; an entry named ../../wp-config.php or /etc/... escapes $dir -> arbitrary write/overwrite (RCE if a .php lands in webroot). Symlink entries read/write outside too.",
+      "detect": "query+manual: extractTo / archive extraction of an attacker-supplied archive without validating each entry path stays under the target (realpath prefix check).",
+      "safe": "iterate entries, reject absolute/`..`/symlink names, realpath-under-base each before write."
+    },
+    {
+      "id": "phar-wrapper-op",
+      "class": "deserialization",
+      "title": "phar:// via a file op on a user path (already-catalogued file ops)",
+      "attack": "Any file op (file_exists/getimagesize/fopen/is_file/md5_file) on phar://uploaded.jpg triggers unserialize of Phar metadata -> POP chain. The 'safe-looking' file op is the trigger.",
+      "detect": "query: file-read/exists ops whose path can carry a user-controlled stream wrapper (no scheme allow-list).",
+      "safe": "validate scheme; Phar::interceptFileFuncs(); deny phar://."
+    }
+  ]
+}

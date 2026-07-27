@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="night">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ.ai — Index once, query the invariant: an AI code-security audit method</title>
+<meta name="description" content="The method: read once to learn the rule, compile that invariant into a queryable fingerprint over a codebase indexed as security facts, query it so only the violators come back, then read only the survivors. Proved on real WordPress core — ~26,000 tokens for the whole structured audit vs ~5,200,000 to load the tree once. Sources in docs/case-studies/wordpress-security-audit.">
+<meta property="og:title" content="XERJ.ai — Index once, query the invariant: an AI code-security audit method">
+<meta property="og:description" content="A repeatable code-security audit method: read once to learn the rule, compile that invariant into a fingerprint over the tree indexed as taint and authorization facts, query for the violators, read only the survivors. The proof run is real WordPress core — ~26,000 tokens against ~5,200,000 to load it once, counter-examples included.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
+<link rel="stylesheet" href="/style.css?v=sc0706">
+</head>
+<body>
+
+<!-- nav -->
+<nav class="nav" aria-label="Primary">
+  <a href="/index.html" class="brand">XERJ.AI</a>
+  <a href="/index.html">HOME</a>
+  <a href="/product.html">PRODUCT</a>
+  <span class="nav-drop active">
+    <a href="/use-cases.html" class="active">USE CASES</a>
+  </span>
+  <span class="spacer"></span>
+  <a href="/for-agents.html">FOR AGENTS</a>
+  <a href="/docs/index.html">DOCS</a>
+  <a href="/docs/recipes/index.html">RECIPES</a>
+  <a href="/playground.html">DASHBOARDS</a>
+  <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
+  <span class="theme">
+    <button type="button" data-theme="day">DAY</button>
+    <span class="dash">·</span>
+    <button type="button" data-theme="night" class="active">NIGHT</button>
+  </span>
+</nav>
+
+
+<nav class="uc-subnav" aria-label="Use cases">
+  <a href="/use-cases.html">ALL USE CASES</a>
+  <a href="/use-cases/security-analytics.html">SECURITY ANALYTICS</a>
+  <a href="/use-cases/operational-intelligence.html">OPERATIONAL INTELLIGENCE</a>
+  <a href="/use-cases/ai-search-retrieval.html">AI SEARCH</a>
+  <a href="/use-cases/code-security-audit.html" class="active">AI SECURITY REVIEW</a>
+  <a href="/use-cases/elasticsearch-replacement.html">ES REPLACEMENT</a>
+  <a href="/use-cases/unified-observability.html">OBSERVABILITY</a>
+</nav>
+
+<div class="uc-hero">
+  <div class="uc-eyebrow">USE CASE · AI SECURITY REVIEW</div>
+  <h1>INDEX ONCE.<br>QUERY THE INVARIANT.<br><span class="accent">READ THE SURVIVORS.</span></h1>
+  <p class="uc-lead">This is a method, and it is four steps. Read once to learn the rule — the invariant you actually care about. Compile it into a queryable fingerprint over the tree indexed as security <em>facts</em>: one document per function carrying its taint sources, its sinks, whether it sanitizes, and its outgoing call edges. Query the fingerprint, so only the violators come back. Read only the survivors — and execute the check where the code can be executed; in the proof run that was the SSRF validator, ported and run. XERJ is the agent's second brain in that loop: it holds a whole codebase's structure as queryable facts, so the agent reasons over all of it without ever loading the whole tree into context — it reads only the survivors the queries name. The proof run below is real WordPress core — 1,492 PHP files, ~619,000 lines, about 26× a 200k-token context window — indexed in ≈3.6 seconds. The entire structured audit summed to ~26,000 tokens, against ~5,200,000 just to load the tree once.</p>
+  <div class="kicker"><span>FOR</span><span class="dash">·</span><span>CISO</span><span class="dash">·</span><span>APPSEC ENGINEER</span><span class="dash">·</span><span>SECURITY RESEARCHER</span></div>
+</div>
+
+<!-- Hero chart -->
+<section class="scene-section" style="border-top:0; padding-top:0;">
+  <div class="viz-block">
+    <div class="kicker"><span>TOKENS TO THE ANSWER · ONE ROW PER AUDIT TECHNIQUE · MEASURED ON THE PROOF RUN (WORDPRESS CORE) · EACH ROW SCALED TO ITS OWN BASELINE</span></div>
+    <div class="cmp-bars">
+    <div class="cmp-bars-head">
+      <span></span>
+      <span class="cmp-a">XERJ</span>
+      <span class="cmp-b">GREP + READ</span>
+    </div>
+    <div class="cmp-bars-row">
+        <span class="cmp-label">Sanitizer composition</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:0.1%;"></span>
+          <span class="cmp-num">~490 tok</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:90.0%;"></span>
+          <span class="cmp-num">~1,329,000 tok <span class="cmp-ratio">2,700× more</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Auth posture sweep</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:1.8%;"></span>
+          <span class="cmp-num">~6,600 tok</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:90.0%;"></span>
+          <span class="cmp-num">~335,500 tok <span class="cmp-ratio">51× more</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">Reachability query</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:90.0%;"></span>
+          <span class="cmp-num">~482,800 tok</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:0.8%;"></span>
+          <span class="cmp-num">~4,300 tok <span class="cmp-ratio">112× less</span></span>
+        </span>
+      </div><div class="cmp-bars-row">
+        <span class="cmp-label">__destruct inventory</span>
+        <span class="cmp-val cmp-a">
+          <span class="cmp-bar" style="width:90.0%;"></span>
+          <span class="cmp-num">~14,700 tok</span>
+        </span>
+        <span class="cmp-val cmp-b">
+          <span class="cmp-bar" style="width:4.0%;"></span>
+          <span class="cmp-num">~649 tok <span class="cmp-ratio">23× less</span></span>
+        </span>
+      </div>
+  </div>
+    <p style="margin-top:14px; font-size:12px; letter-spacing:.04em; color:var(--z-mute); font-family:var(--font-data);">TOKEN COST TO THE ANSWER · NOT LATENCY · THE LAST TWO ROWS ARE THE PUBLISHED COUNTER-EXAMPLES, WHERE GREP IS THE CHEAPER TOOL — REACHABILITY IS THE AUDIT-TIME MEASUREMENT, WHERE THE KEYWORD-ARRAY TERM BUG (02 BELOW) FORCED A SCROLL-AND-TRAVERSE WORKAROUND; THE ~170-TOK SINGLE QUERY IS A PROJECTION FOR AFTER THE FIX FULLY LANDS, NOT A MEASUREMENT · SOURCES IN <a href="https://github.com/xerj-org/xerj/tree/main/docs/case-studies/wordpress-security-audit" rel="external">docs/case-studies/wordpress-security-audit &rarr;</a></p>
+  </div>
+</section>
+
+<div class="pain-solve">
+  <div class="pain">
+    <h3>THE READ-EVERYTHING PROBLEM</h3>
+    <ul><li><strong>The codebase does not fit.</strong> 1,492 PHP files, ~619,000 lines, ~5,200,000 tokens just to load — roughly 26× a 200k window, which holds about 4% of core at a time.</li><li><strong>Chunking destroys the bug class you are hunting.</strong> Authorization and taint defects are interprocedural; split the tree across windows and the cross-file trace is gone before the reasoning starts.</li><li><strong>grep is file-scoped.</strong> It cannot express "a request source and a SQL sink in the same function with no sanitizer", or "an unauthenticated hook reaches a dangerous call".</li><li><strong>Skimming produces prose, not evidence.</strong> A pass over 5.2M tokens of unfamiliar code yields plausible narrative; a reviewer needs a file and a line they can open.</li><li><strong>Nothing is reproducible.</strong> Two runs read different files and reach different conclusions, and there is no artifact to re-run against next release.</li></ul>
+  </div>
+  <div class="solve">
+    <h3>THE XERJ ANSWER</h3>
+    <ul><li><strong>Index once, interrogate many times.</strong> Five live indices — 11,990 functions with taint facts, 11,990 cap/nonce shapes, 1,343 hook registrations and 2,445 sanitizer-sequence fingerprints built in ≈3.6 s at a 100% <code>tree-sitter-php</code> parse rate, plus an 11,191-site dangerous-call census built as a separate pass.</li><li><strong>Ask what grep cannot phrase.</strong> "Request source + SQL sink + no sanitizer on the path" narrowed 11,990 functions to 4 candidates in one query; grep hands you 51 whole files.</li><li><strong>Compile the invariant, query the violators.</strong> Read once to learn the rule (escaper last before the sink), index it as a fingerprint, then one query returns only the code that breaks it — a measured ~2,700× token reduction on the composition audit.</li><li><strong>The read budget goes to survivors.</strong> The whole structured audit summed to ~26,000 tokens, and every claim in it cites pulled <code>file:line</code> code rather than recollection.</li><li><strong>Coverage is provable, not asserted.</strong> 12,214 grep occurrences of the catalogued names reconciled against 10,778 AST call sites, the remaining 1,436 each proven a non-call: unexplained residual 0.</li></ul>
+  </div>
+</div>
+
+<div class="proof-row">
+
+  <div class="stat">
+    <div class="num">~26,000</div>
+    <div class="label">TOKENS FOR THE STRUCTURED AUDIT</div>
+    <div class="ctx">vs ~5,200,000 to load core once · sum of per-phase costs · the per-file sweep is a separate ~10.8M, stated below</div>
+  </div>
+
+  <div class="stat">
+    <div class="num">3.6 s</div>
+    <div class="label">TO BUILD THE SUBSTRATE</div>
+    <div class="ctx">1,492 php files · 11,990 functions · 100% parse rate</div>
+  </div>
+
+  <div class="stat">
+    <div class="num">0</div>
+    <div class="label">UNEXPLAINED SINK-CALL GAPS</div>
+    <div class="ctx">12,214 grep hits reconciled · catalogued built-ins only</div>
+  </div>
+
+</div>
+
+
+<section class="scene-section">
+  <h2 class="scene" style="font-size:var(--fs-56);">EVERY ENTRY POINT, <span class="accent">ONE QUESTION.</span></h2>
+  <p class="wide">WordPress accreted four request-entry surfaces over twenty years, and a correct check on AJAX means nothing if the same operation is reachable unguarded over REST or XML-RPC. The auth-posture facts — is the capability bound to the object, is there a nonce, which caps — are one query per surface over the index: 310 per-entry-point facts across AJAX, REST and XML-RPC, plus the 41 file-scope wp-admin handlers whose guards live in the shared preamble. Then the agent reads what looks wrong.</p>
+  <div class="bench">
+    <div class="head">SURFACE · WORDPRESS CORE</div>
+    <div class="head num">ENTRY POINTS</div>
+    <div class="head num">MISSING CAP</div>
+    <div class="head num">IDOR</div>
+
+    <div class="cell test">AJAX · <code class="inline">wp_ajax_*</code></div>
+    <div class="cell num es">97</div>
+    <div class="cell num xy">0</div>
+    <div class="cell num delta">0</div>
+    <div class="cell source">95 authenticated handlers swept for IDOR · the 2 nopriv endpoints (generate-password, heartbeat) are unauthenticated by design · a few self-scoped prefs need no cap</div>
+
+    <div class="cell test">REST · <code class="inline">*_permissions_check</code></div>
+    <div class="cell num es">107</div>
+    <div class="cell num xy">0</div>
+    <div class="cell num delta">0</div>
+    <div class="cell source">object-scoped meta-cap one hop into check_*_permission($obj) · 90 permission checks swept for IDOR (33 mutating + 57 read)</div>
+
+    <div class="cell test">admin-post / direct wp-admin</div>
+    <div class="cell num es">41</div>
+    <div class="cell num xy">0</div>
+    <div class="cell num delta">0</div>
+    <div class="cell source">file-scope handlers · guards live in the shared preamble / fall-through</div>
+
+    <div class="cell test">XML-RPC · class-wp-xmlrpc-server</div>
+    <div class="cell num es">106</div>
+    <div class="cell num xy">—</div>
+    <div class="cell num delta">—</div>
+    <div class="cell source">66 methods call login() · 68 cap-check · the unauthenticated set (pingback.*, demo.*, mt.supportedMethods) is known and intentional · the residual risk is architectural — system.multicall brute-force amplification and pingback SSRF, not a code bug</div>
+
+    <div class="cell test">Posture facts · AJAX + REST + XML-RPC</div>
+    <div class="cell num es">310</div>
+    <div class="cell num xy">0</div>
+    <div class="cell num delta">0</div>
+    <div class="cell source">the set the ~6,600-token posture query covered · the 41 admin-post handlers are file-scope guards audited separately · missing · insufficient · broken-'==' · race — all four failure classes checked on every state-changing entry point · map_meta_cap fails closed · source: AUTHENTICATION.md</div>
+  </div>
+  <p class="wide">That is the honest headline of the structural pass: on the flows tested, core is hardened. The zeros are scoped exactly as the source scopes them — no missing, insufficient, broken-'==' or race auth flaw on any state-changing entry point, and 0 IDOR across the swept sets: 95 authenticated AJAX handlers and 90 REST permission checks. The negative result is the result — and it is only worth anything because the census can show what was covered. Note precisely what those zeros are, though: they are what a presence-and-scoping model can prove. They cannot express "a guard the sibling sinks have is absent here", which is exactly the shape the later per-file read caught in <code class="inline">wp-admin/user-new.php</code> — stated in full further down.</p>
+</section>
+
+
+<section class="scene-section">
+  <div class="viz-block">
+    <div class="kicker"><span>SINK CENSUS · 11,191 CALL SITES OF 275 CATALOGUED BUILT-INS · SHARE OF THE CENSUS</span></div>
+    <div class="topn-list">
+    <div class="row">
+      <div class="row__label">xss · echo/print</div>
+      <div class="row__val">3,799</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="200.0" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">33.9%</div>
+    </div>
+    <div class="row">
+      <div class="row__label">lfi/rfi · include/require</div>
+      <div class="row__val">1,385</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="72.9" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">12.4%</div>
+    </div>
+    <div class="row">
+      <div class="row__label">type-juggle auth-bypass</div>
+      <div class="row__val">1,240</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="65.3" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">11.1%</div>
+    </div>
+    <div class="row">
+      <div class="row__label">xss-or-info · printf/var_dump</div>
+      <div class="row__val">1,034</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="54.4" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">9.2%</div>
+    </div>
+    <div class="row">
+      <div class="row__label">dynamic callables</div>
+      <div class="row__val">954</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="50.2" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">8.5%</div>
+    </div>
+    <div class="row">
+      <div class="row__label">redos · ereg</div>
+      <div class="row__val">709</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="37.3" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">6.3%</div>
+    </div>
+    <div class="row">
+      <div class="row__label">rce-code · eval/assert</div>
+      <div class="row__val">467</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="24.6" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">4.2%</div>
+    </div>
+    <div class="row">
+      <div class="row__label">file-read</div>
+      <div class="row__val">328</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="17.3" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">2.9%</div>
+    </div>
+    <div class="row">
+      <div class="row__label">sql drivers</div>
+      <div class="row__val">200</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="10.5" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">1.8%</div>
+    </div>
+    <div class="row">
+      <div class="row__label">ssrf</div>
+      <div class="row__val">107</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="5.6" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">1.0%</div>
+    </div>
+    <div class="row">
+      <div class="row__label">deserialization</div>
+      <div class="row__val">13</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="0.7" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">0.1%</div>
+    </div>
+    <div class="row">
+      <div class="row__label">rce-command</div>
+      <div class="row__val">11</div>
+      <div class="row__bar">
+        <svg class="chart" height="6" viewBox="0 0 200 6" preserveAspectRatio="none">
+          <line x1="0" y1="5" x2="0.6" y2="5" stroke="currentColor" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="row__pct">0.1%</div>
+    </div>
+    </div>
+    <p style="margin-top:14px; font-size:12px; letter-spacing:.04em; color:var(--z-mute); font-family:var(--font-data);">ALL OF CORE HOLDS 11 COMMAND-EXECUTION AND 13 DESERIALIZATION SINKS — 24/24 CARRY A FULL AGENT VERDICT; 1,472 SITES ARE QUEUED AT SEVERITY:REVIEW AND THE REMAINING ~9,700 ARE CENSUSED BUT NOT YET TRIAGED · SINK COVERAGE IS NOT TOTAL VULNERABILITY COVERAGE: LOGIC BUGS, MISSING-AUTHZ AND INCOMPLETE VALIDATORS ARE OUT OF ITS SCOPE</p>
+  </div>
+</section>
+
+
+<section class="scene-section">
+  <h2 class="scene" style="font-size:var(--fs-56);">GREP IS FILE-SCOPED. <span class="accent">THE INDEX IS NOT.</span></h2>
+  <p class="wide">"A request source and a SQL sink in the same function, with no sanitizer on the path" is not a text pattern — it is a join over facts. Asked as a query, it narrows 11,990 functions to 4 candidates that the agent then reads in full. Asked with grep, it hands you 51 whole files and a reading job.</p>
+  <pre class="code">$ curl -s "$XERJ/wpaudit/_search" -H 'Content-Type: application/json' \
+  -d '{"query":{"bool":{"filter":[
+        {"term":{"has_source":"true"}},
+        {"term":{"sinks":"sql"}},
+        {"term":{"sanit":"false"}}]}}}'
+<span class="comment"># 11,990 functions → 4 candidates · the agent reads the 4</span></pre>
+  <p class="wide">The rest of the sweep has the same shape. Only 2 of 1,343 registered hooks are unauthenticated, and the single unauth data path is <code class="inline">heartbeat_nopriv_received</code>. The check-vs-use detector returned 12 IDOR candidates, and the one genuinely risky shape — a revisions controller that checks the capability on the parent and returns by id — is explicitly guarded by a parent-mismatch 404. Twenty-three sanitizer-order flags all cleared on reading, because core holds escaper-last-before-sink everywhere. Every one of those answers is a query plus a short read, not a reading pass over the tree.</p>
+</section>
+
+
+<section class="scene-section">
+  <h2 class="scene" style="font-size:var(--fs-56);">THE HEADLINE FINDING, <span class="accent">STATED PLAINLY.</span></h2>
+  <p class="wide">Core's SSRF gatekeeper — <code class="inline">wp_http_validate_url</code>, which guards <code class="inline">wp_safe_remote_get/post/request</code> and XML-RPC pingbacks — rejects loopback, 10/8, 0/8, 172.16/12 and 192.168/16, but not 169.254.0.0/16, the link-local range that contains the cloud-metadata endpoint 169.254.169.254. CGNAT 100.64/10 and IPv6 are missing as well. It surfaced by <em>reading</em> the range coverage: a pattern scanner cannot see an allow-list that is merely incomplete.</p>
+  <p class="wide">It was then verified by execution rather than by argument. With no PHP runtime available, the validator was ported line-for-line to Python — same scheme filter, same <code class="inline">strpbrk(host, ':#?[]')</code>, same octet test — and run with real DNS resolution: 127.0.0.1, 10.1.2.3, 192.168.0.1 and [::1] were rejected, and the metadata URL was allowed. Reachability was traced to real input: <code class="inline">WP_XMLRPC_Server::pingback_ping</code> takes an attacker-supplied source URL where XML-RPC is enabled, and <code class="inline">WP_REST_URL_Details_Controller::get_remote_url</code> takes a user-supplied <code class="inline">url</code> parameter at author level. The finding was independently re-discovered by a per-file sweep at <code class="inline">wp-includes/http.php:598</code>.</p>
+  <p class="wide"><strong>The honest framing the case study insists on:</strong> this is a known-<em>class</em> limitation at Medium severity, not a novel 0-day and not claimed as one. Core has long treated <code class="inline">wp_http_validate_url</code> as best-effort and points hardening at the <code class="inline">http_request_host_is_external</code> filter; exploitation requires the SSRF path enabled in a cloud environment, and nothing was exploited here — the ALLOWED verdict is the validator's own, on a ported copy. The suggested remediation is defense-in-depth: add 169.254.0.0/16, 100.64.0.0/10 and IPv6 loopback/ULA to the default deny-list, and re-resolve the host at request time to blunt DNS-rebinding TOCTOU. And it is the headline of <em>three</em> Medium-severity results, not the only one: the other two are the deploy-dependent ImageTragick surface in the Imagick image editor, which parses uploaded image content, and the role-guard inconsistency in <code class="inline">wp-admin/user-new.php</code>, which the next section states in full. The published table carries one further numbered entry, at informational severity — an option-injection pattern in the bundled Snoopy library that traces to dead code in core and matters only to plugins — and then the documented negatives. Four findings, three of them Medium, none claimed above the severity the source assigns it.</p>
+</section>
+
+
+<section class="scene-section">
+  <h2 class="scene" style="font-size:var(--fs-56);">THE GUARD ITS SIBLINGS HAVE, <span class="accent">MISSING HERE.</span></h2>
+  <p class="wide">The second result worth stating at full length is an <em>inconsistency</em>, not an absence — and inconsistency is the shape a presence-of-a-check model is structurally unable to see. In upstream WordPress 7.0.2, <code class="inline">wp-admin/user-new.php</code> holds three sinks that assign a request-supplied role. Two call the role-editability guard <code class="inline">wp_ensure_editable_role()</code>, introduced in WordPress 6.8.0. The third does not. That half is unconditional. The escalation it enables is not, and both halves belong in the same breath: on a stock install <code class="inline">get_editable_roles()</code> returns every role, so <code class="inline">wp_ensure_editable_role()</code> is a no-op, the inviter could already assign the role legitimately, and <strong>no privilege boundary is crossed</strong> — in stock this is defense-in-depth, not escalation.</p>
+  <pre class="code"><span class="comment"># wp-admin/user-new.php — three sinks, one request-supplied role</span>
+
+<span class="comment"># line 73 · adduser + noconfirmation branch — GUARDED</span>
+wp_ensure_editable_role( $_REQUEST['role'] );
+add_existing_user_to_blog([ ... 'role' => $_REQUEST['role'] ]);
+
+<span class="comment"># line 231 · createuser branch — GUARDED</span>
+wp_ensure_editable_role( $_REQUEST['role'] );
+
+<span class="comment"># lines 95-102 · adduser email-invitation else branch — NOT GUARDED</span>
+$newuser_key = wp_generate_password( 20, false );
+add_option( 'new_user_' . $newuser_key, array(
+    'user_id' => $user_id,
+    'email'   => $user_details->user_email,
+    'role'    => $_REQUEST['role'],   <span class="comment"># stored verbatim at line 100</span>
+) );
+$roles = get_editable_roles();
+$role  = $roles[ $_REQUEST['role'] ]; <span class="comment"># AFTER the store · feeds the email text · warning, not wp_die</span></pre>
+  <p class="wide">The <code class="inline">get_editable_roles()</code> lookup two lines below the store is not a gate: it runs after the value is already persisted, it feeds the invitation email text, and an out-of-policy role produces a warning rather than a <code class="inline">wp_die</code>. The authorization that <em>is</em> present on this path is real but coarse — <code class="inline">current_user_can( 'promote_user', $target )</code> asks whether this user may promote that user at all, not whether they may hand out <em>that</em> role. Saying "there is no capability check here" would be false; saying the check is role-agnostic is the accurate claim.</p>
+  <p class="wide">Traced from the code, the trigger is one POST and one later click. Nothing below was fired at anything: these requests are reconstructed from the real implementation, and the finding was verified by <em>reading</em> WordPress 7.0.2 plus an independent agent whose only job was to refute it. No live or lab WordPress instance was attacked anywhere in this audit — the only finding verified by executing a port of core's own code was Finding 1's SSRF verdict, obtained from a ported copy of the validator. The run's other executed check was a PHP-semantics control test — whether a throwing <code class="inline">__wakeup</code> suppresses a <code class="inline">__destruct</code> gadget — run on synthetic classes in Docker PHP 7.4.33/8.0.30/8.3.32, not on WordPress code and not against any instance.</p>
+  <pre class="code"><span class="comment"># the site-admin Add User screen — the file whose lines 73 / 95-102 / 231 are quoted above</span>
+POST /wp-admin/user-new.php HTTP/1.1
+Host: site.victim.network.example
+Cookie: wordpress_logged_in_&lt;hash&gt;=&lt;restricted-admin session&gt;
+Content-Type: application/x-www-form-urlencoded
+
+action=adduser&amp;_wpnonce_add-user=&lt;nonce from the Add-User form&gt;&amp;_wp_http_referer=%2Fwp-admin%2Fuser-new.php&amp;email=attacker-alt%40example.com&amp;role=administrator
+
+<span class="comment"># noconfirmation is OMITTED — supplying it routes to the guarded line-73 branch</span>
+<span class="comment"># email must resolve to an existing user via get_user_by('email')</span>
+<span class="comment"># server effect: add_option() writes new_user_{key} = { user_id, email, role:'administrator' }</span>
+<span class="comment">#   at user-new.php:100, with no wp_ensure_editable_role() anywhere on that path</span>
+
+<span class="comment"># SECOND ORDER — the invited address, chosen by the inviter, visits the link</span>
+GET /newbloguser/&lt;key-from-email&gt;/ HTTP/1.1
+Host: site.victim.network.example
+
+<span class="comment"># maybe_add_existing_user_to_blog() in wp-includes/ms-functions.php runs on every</span>
+<span class="comment"># request (init hook), reads the tainted role back out of the option, and applies it:</span>
+<span class="comment">#   add_existing_user_to_blog() -> add_user_to_blog( $blog_id, $user_id, $role )</span>
+<span class="comment">#     apply_filters( 'can_add_user_to_blog', true, ... );  // defaults to TRUE</span>
+<span class="comment">#     $user->set_role( $role );                            // no cap / editable-role re-check</span></pre>
+  <p class="wide">There is no re-check on confirmation: the only thing standing between the stored role and <code class="inline">set_role()</code> is the default-true <code class="inline">can_add_user_to_blog</code> filter. So a role the inviter was not authorized to assign is persisted and later applied — and "later" is load-bearing, because the escalation is second-order and requires the invited, attacker-controlled address to actually visit <code class="inline">/newbloguser/&lt;key&gt;/</code>. It does not happen at store time and it does not happen without that interaction.</p>
+  <p class="wide"><strong>Everything that has to be true — with the finding, not under it.</strong> Multisite: the vulnerable branch is the multisite add-existing-user invitation flow, so a single-site install is not the target here. An authenticated session holding <code class="inline">create_users</code> and <code class="inline">promote_users</code> over the target but not <code class="inline">manage_network_users</code>. A valid <code class="inline">add-user</code> nonce harvested from the real form — the intent check is satisfied normally, not bypassed. <code class="inline">noconfirmation</code> omitted, so the email-invitation branch runs. An <code class="inline">email</code> that resolves to an existing network user, and, for the escalation to benefit anyone, an address the attacker controls. And the deciding precondition: an <code class="inline">editable_roles</code> filter that restricts this inviter below the injected role — the shape membership plugins, role managers and multi-tenant "site manager" delegation setups create. Without that filter, <code class="inline">wp_ensure_editable_role()</code> would have been a no-op anyway and the inviter could already have assigned the role. Medium, conditional, real. Not a stock-install escalation, not code execution of any kind, not unauthenticated, not instantaneous. It is worth reporting to WordPress as a hardening fix, and it is not claimed as anything beyond that. The fix is one line: call <code class="inline">wp_ensure_editable_role( $_REQUEST['role'] );</code> at the top of the email-invitation branch, matching its two siblings.</p>
+  <p class="wide"><strong>Which technique found it, and which missed it — that is the transferable part.</strong> It came out of the exhaustive per-file sweep: 883 security-relevant files, 177 review batches, 222 agents, ~10.8M tokens, ~31 minutes, 44 candidates cut to 5 by adversarial verification. The verify phase was itself truncated and the source says so: all 177 review batches finished, so every one of the 883 files was analysed, but only 36 of the 44 candidates were machine-verified — 8 were dropped when the run hit a usage limit and were hand-read by the lead afterwards, of which two remain plausible-but-unconfirmed and are excluded from the 5. It is confirmed item #1 in that table, at <code class="inline">wp-admin/user-new.php:100</code>, and one of only two the lead independently re-read; the sweep's other lead-read item is its independent re-discovery of the SSRF range gap at <code class="inline">wp-includes/http.php:598</code>, which is the control showing the sweep was working rather than lucky. (The sweep is published as <code class="inline">ZERODAY-SWEEP.md</code>; the file name describes what it went looking for, not what it found — nothing here is a 0-day, and the remaining three confirmed items sit at adversarial-verifier confidence, reported as candidates rather than asserted.) What missed it is the structural authorization graph — the cheap, fast, high-coverage pass that had already declared this area clean. The reason is exact and is the whole lesson: the graph asked <em>"is there a capability check?"</em>, <code class="inline">user-new.php</code> has one, so the file passed. A presence-of-a-check model cannot represent a <em>missing sibling guard</em>, because every predicate it evaluates returns true.</p>
+  <p class="wide"><strong>And "just read everything" would not have caught it either.</strong> Three reasons, all specific to this bug. It does not fit: core is ~5,200,000 tokens and a 200k window holds about 4%, so you must chunk — and chunking is exactly where the interprocedural flow is lost, because the tainted store is in <code class="inline">wp-admin/user-new.php</code> while the sink that applies it lives in <code class="inline">wp-includes/ms-functions.php</code>, two files away. It cannot compare siblings without a map: the defect is only visible with all three role sinks side by side, and a windowed scan reads them in different chunks and never lines them up. And it re-reads the whole tree for every new hypothesis, paying the full token cost per question. The index is what returned "every <code class="inline">add_option</code> / <code class="inline">add_existing_user_to_blog</code> call carrying a role argument" as one result set — handing the reviewer the three siblings to compare — and what let the sweep target 883 security-relevant files instead of blindly chunking 1,492. To be plain about the division of labour: XERJ did not find this bug, and no index finds bugs. It narrowed the search and put the right neighbours next to each other; the per-file agent read and the adversarial verification did the rest.</p>
+  <p class="wide"><strong>The lesson, compiled.</strong> Structural coverage and per-file reading are complementary, not competing: the graph narrows the search and <em>proves</em> coverage, while the read catches the inconsistency and logic gaps no fact schema encodes — "a capability check exists" simply cannot express "a guard its siblings have is absent here". Neither technique alone found this one. The practical dial is to run the cheap structural passes as the daily driver, at ~26,000 tokens for the whole structured audit, and the exhaustive per-file sweep at ~10.8M tokens as the periodic backstop when you suspect misses. And when the backstop finds what the graph missed, the loop closes the way it is supposed to: compile the new invariant — <em>this guard must be applied to ALL sibling sinks of the same kind, not merely present somewhere in the file</em> — into a fingerprint, and the next audit gets it for free.</p>
+</section>
+
+
+<section class="scene-section">
+  <h2 class="scene" style="font-size:var(--fs-56);">WHAT IT <span class="accent">GOT WRONG.</span></h2>
+  <p class="wide">An AI-assisted audit is only worth publishing if it reports its own failures. This one ships four, in the same repository as the findings.</p>
+  <div class="laws">
+    <div class="n">01</div>
+    <div class="law">
+      <div class="t">XERJ DOES NOT <span class="accent">FIND BUGS.</span></div>
+      <div class="b">
+        The AST taint and authorization model produces candidates; XERJ stores them
+        and answers questions about them, and a human or an agent reads the survivors.
+        Recall is bounded by that model — a source at file scope, or laundered through
+        <code class="inline">$GLOBALS</code>, is invisible to it — and the detectors have known
+        false-positive drivers. The 70 source-to-sink flows the taint pass returned are
+        high-recall candidates, not vulnerabilities: three of the top SQL flows are
+        documented false positives, and the one real candidate is gated behind an opt-in.
+      </div>
+    </div>
+
+    <div class="n">02</div>
+    <div class="law">
+      <div class="t">THE AUDIT SURFACED A <span class="accent">REAL ENGINE BUG.</span></div>
+      <div class="b">
+        A reverse call-graph query — "who calls <code class="inline">wp_safe_remote_get</code>" —
+        returned 1 hit from the structured term index against 9 from full-text and 14 files
+        from grep. A silent false negative is the worst possible error in a security audit.
+        The root cause was proven rather than guessed: a keyword field stored one value per
+        document, so for an array only element [0] was indexed — a real compatibility break,
+        since a keyword array is multi-valued in Elasticsearch. The memtable half of the fix
+        has landed; the segment half is an open design follow-up and its regression test is
+        still ignore-marked in the repo. A second, smaller bug: a boolean <code class="inline">term</code>
+        matched as a string. The audit's interprocedural conclusions were computed over pulled
+        <code class="inline">_source</code> and cross-checked against full-text and grep, never through
+        the broken path — which is why they still hold, and why the published playbook ships
+        the workarounds as caveats to the agent.
+      </div>
+    </div>
+
+    <div class="n">03</div>
+    <div class="law">
+      <div class="t">SOMETIMES <span class="accent">GREP WINS.</span></div>
+      <div class="b">
+        For the narrow question "which <code class="inline">__destruct</code> methods are dangerous" —
+        twelve short methods — grep plus reading cost ~649 tokens against XERJ's ~14,700, and both
+        returned the identical answer. The published rule is to use the cheaper tool for the question
+        at hand. An index earns its cost when the question is broad, interprocedural, or asked
+        repeatedly over the same corpus; for raw "who calls X" reachability, grep needs no index and
+        no server, and it was the more reliable tool at the time of this audit.
+      </div>
+    </div>
+
+    <div class="n">04</div>
+    <div class="law">
+      <div class="t">THE STRUCTURAL PASS <span class="accent">MISSED ONE.</span></div>
+      <div class="b">
+        The cheap, high-coverage authorization graph passed <code class="inline">wp-admin/user-new.php</code>
+        because a capability check <em>was</em> present, and a presence-of-check model cannot see a missing
+        sibling guard. The exhaustive per-file sweep — 222 agents, ~10.8M tokens, ~31 minutes over the 883
+        security-relevant files, 44 candidates cut to 5 by adversarial verification (36 of the 44 machine-verified;
+        8 dropped at a usage limit and hand-read by the lead) — caught what it missed.
+        The section above states that finding in full, including its ceiling: on a stock install
+        <code class="inline">get_editable_roles()</code> returns every role, so the guard is a no-op and no
+        privilege boundary is crossed. Neither pass alone finds it — the deep sweep is the periodic backstop,
+        the ~26,000-token structural passes are the daily driver.
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="scene-section">
+  <h2 class="scene" style="font-size:var(--fs-56);">READ THE <span class="accent">CASE STUDY.</span></h2>
+  <p class="wide">Everything above is published: the findings with their honest severities, the reproduction commands, the counter-examples where the index lost, and the verbatim prompts that drove the agent. Setup is roughly two minutes — install the extractor, clone WordPress, run three index scripts — and the method ships as a copyable skill that retargets to another stack by editing the catalog, because the taint model is data, not code.</p>
+  <div style="display:flex; gap:var(--sp-6); margin-top:var(--sp-6); flex-wrap:wrap;">
+    <a href="https://github.com/xerj-org/xerj/tree/main/docs/case-studies/wordpress-security-audit" rel="external" class="cta" style="font-size:var(--fs-20); padding:var(--sp-4) 0; border-bottom:0; flex:1; min-width:280px;">
+      <span>OPEN THE CASE STUDY</span>
+      <span class="arrow">→</span>
+    </a>
+    <a href="https://github.com/xerj-org/xerj/blob/main/docs/case-studies/wordpress-security-audit/PLAYBOOK.md" rel="external" class="cta" style="font-size:var(--fs-20); padding:var(--sp-4) 0; border-bottom:0; flex:1; min-width:280px;">
+      <span>OPEN THE PLAYBOOK</span>
+      <span class="arrow">→</span>
+    </a>
+  </div>
+</section>
+
+<section class="lead-capture" id="demo">
+  <div class="kicker"><span>READY?</span><span class="dash">·</span><span>REQUEST ACCESS</span></div>
+  <h3>RUN IT ON<br><span class="accent">YOUR DATA.</span></h3>
+  <p>Send us your stack and the invariant you actually care about — the sanitizer rule, the capability shape, the range check. We'll come back with the index schema, the queries that express it, and the token budget for the sweep.</p>
+  <form class="lead-form" id="leadForm" action="#" method="post" novalidate>
+    <input type="email" name="email" placeholder="you@company.com" required aria-label="Work email" autocomplete="email" />
+    <button type="submit" class="demo">SEE THE DEMO <span class="arrow">→</span></button>
+    <span class="note">We only use this email to follow up about XERJ — nothing else. No spam, no reselling.</span>
+    <span class="ok">✓ THANKS. WE'LL FOLLOW UP WITHIN ONE BUSINESS DAY.</span>
+  </form>
+</section>
+
+<footer class="footer">
+  <span>XERJ.AI · USE CASES · V0.1</span>
+  <span>STORAGE FOR THE AGENT ERA</span>
+  <span><a href="/index.html">HOME</a> · <a href="/use-cases.html">ALL USE CASES</a> · <a href="/docs/index.html">DOCS</a> · <a href="/playground.html">DASHBOARDS</a> &middot; <a href="/llms.txt">LLMS.TXT</a></span>
+</footer>
+
+<script>
+  (function () {
+    const root = document.documentElement;
+    for (const btn of document.querySelectorAll('[data-theme]')) {
+      btn.addEventListener('click', () => {
+        const t = btn.getAttribute('data-theme');
+        root.setAttribute('data-theme', t);
+        for (const b of document.querySelectorAll('[data-theme]')) {
+          b.classList.toggle('active', b.getAttribute('data-theme') === t);
+        }
+      });
+    }
+    const form = document.getElementById('leadForm');
+    if (form) {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const email = form.querySelector('input[type=email]').value.trim();
+        if (!email || !email.includes('@')) return;
+        console.log('[xerj lead]', email);
+        try { fetch('/lead', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: email, source: 'code-security-audit' }), keepalive: true }).catch(function () {}); } catch (_) {}
+        form.classList.add('sent');
+      });
+    }
+  })();
+</script>
+
+</body>
+</html>

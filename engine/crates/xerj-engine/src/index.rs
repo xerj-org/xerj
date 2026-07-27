@@ -10398,13 +10398,50 @@ impl Index {
                         // segment files persist, so this only fires on
                         // genuine corruption.
                         let t_dec = std::time::Instant::now();
-                        let seg_reader = self.store.open_segment_arc(&seg_id)?;
-                        if let Ok(Some(stored_bytes_raw)) = seg_reader.section(SectionType::Stored)
-                        {
-                            if let Ok(stored_bytes) =
-                                xerj_storage::stored_codec::decode_stored(stored_bytes_raw)
+                        // SINGLE-FLIGHT the cold decode: without this, N
+                        // concurrent requests racing the same cold segment
+                        // (every dashboard panel's first query after a
+                        // restart, or against any never-before-queried
+                        // segment) each paid their own full open+decompress
+                        // independently — measured ~4.5s/request under a
+                        // real 24-way concurrent burst, collapsing to
+                        // 1-5ms once any one of them had warmed the cache.
+                        // Same lock registry `stored_slices_for` already
+                        // uses for this exact reason on the sorted path.
+                        let flight = {
+                            let entry = self
+                                .stored_slices_build_locks
+                                .entry(seg_id.clone())
+                                .or_default();
+                            Arc::clone(entry.value())
+                        };
+                        let _flight_guard = flight.lock().ok();
+                        // Re-check both caches now that we hold this
+                        // segment's flight lock — another thread may have
+                        // decoded and published while we waited.
+                        let cached_bytes: Option<Vec<u8>> = self
+                            .decoded_stored_cache
+                            .get(seg_id.as_str())
+                            .map(|e| e.value().as_ref().clone())
+                            .or_else(|| {
+                                self.stored_slices_cache
+                                    .get(seg_id.as_str())
+                                    .map(|e| e.value().bytes.clone())
+                            });
+                        let stored_bytes_opt = if let Some(bytes) = cached_bytes {
+                            Some(bytes)
+                        } else {
+                            let seg_reader = self.store.open_segment_arc(&seg_id)?;
+                            match seg_reader.section(SectionType::Stored) {
+                                Ok(Some(stored_bytes_raw)) => {
+                                    xerj_storage::stored_codec::decode_stored(stored_bytes_raw).ok()
+                                }
+                                _ => None,
+                            }
+                        };
+                        dbg_decode_ms += t_dec.elapsed().as_millis() as u64;
+                        if let Some(stored_bytes) = stored_bytes_opt {
                             {
-                                dbg_decode_ms += t_dec.elapsed().as_millis() as u64;
                                 let t_scan = std::time::Instant::now();
                                 // Record per-doc offsets on the sorted path so
                                 // the decompressed section can be cached for
@@ -16549,6 +16586,10 @@ impl Index {
         // against `pre_filter`.  Position 0 = first doc in stored section.
         let mut doc_pos: u32 = 0;
 
+        // Computed once for the whole scan, not per doc — see
+        // `query_needs_id_injection`'s doc comment.
+        let needs_id_injection = query_needs_id_injection(query);
+
         loop {
             // F1b — IN-SEGMENT early stop.  The between-segment F1 break in
             // `search_inner` skips segments once the page is full and the
@@ -16685,20 +16726,26 @@ impl Index {
                 // The stored doc can be either:
                 //   {"_id":"..","_seq_no":..,"_source":{fields}}  (envelope format)
                 //   {fields}                                       (raw source, e.g. from M5.11 raw-bytes path)
-                // Try _source first; fall back to the doc itself. Inject
-                // `_id` into source so deeply-nested Ids queries (e.g.
-                // function_score → ids) can resolve it.
+                // Try _source first; fall back to the doc itself.
                 let source_ref = doc.get("_source").unwrap_or(&doc);
-                let source_with_id = if source_ref.get("_id").is_some() {
-                    source_ref.clone()
-                } else if let Some(obj) = source_ref.as_object() {
-                    let mut o = obj.clone();
-                    o.insert("_id".to_string(), Value::String(id_ref.to_string()));
-                    Value::Object(o)
+                if needs_id_injection && source_ref.get("_id").is_none() {
+                    // Inject `_id` into source so a deeply-nested Ids query
+                    // (e.g. function_score -> ids) can resolve it. Only
+                    // reached when `query_needs_id_injection` proved the
+                    // tree actually contains one — every other query shape
+                    // matches directly against the borrowed `source_ref`
+                    // below, no clone.
+                    let source_with_id = if let Some(obj) = source_ref.as_object() {
+                        let mut o = obj.clone();
+                        o.insert("_id".to_string(), Value::String(id_ref.to_string()));
+                        Value::Object(o)
+                    } else {
+                        source_ref.clone()
+                    };
+                    doc_matches_query(query, &source_with_id)
                 } else {
-                    source_ref.clone()
-                };
-                doc_matches_query(query, &source_with_id)
+                    doc_matches_query(query, source_ref)
+                }
             };
 
             if !matched {
@@ -16833,7 +16880,6 @@ impl Drop for FlushDurationTimer {
     }
 }
 
-#[allow(clippy::too_many_arguments)] // free fn threading the full flush-pipeline dependency set
 #[cfg(test)]
 #[derive(Clone)]
 struct FlushPublisherTestHook {
@@ -16846,6 +16892,7 @@ tokio::task_local! {
     static FLUSH_PUBLISHER_TEST_HOOK: FlushPublisherTestHook;
 }
 
+#[allow(clippy::too_many_arguments)] // free fn threading the full flush-pipeline dependency set
 async fn do_flush_shard(
     shard_idx: usize,
     store: Arc<IndexStore>,
@@ -20729,6 +20776,97 @@ fn postings_union_expand(
         }
     }
     (count, positions)
+}
+
+/// Whether `_id` must be injected into a doc's `_source` before
+/// `doc_matches_query` evaluates `q` against it — required only when an
+/// `Ids` clause is nested somewhere inside (a *top-level* `Ids` is already
+/// handled by the caller without needing this at all).
+///
+/// `_source` never contains `_id` itself, so `scan_stored_section_into`
+/// previously deep-cloned EVERY scanned doc's `_source` unconditionally just
+/// to splice `_id` in — for a query with no nested `Ids` anywhere (the
+/// overwhelming majority: any `term`/`match`/`match_phrase`/`query_string`/
+/// `bool` filter that isn't specifically an ids lookup), that clone is pure
+/// waste, paid on every doc regardless of whether it even matches. Measured
+/// as the dominant cost of a concurrent dashboard's wildcard `query_string`
+/// filters (~200-300µs/doc — the simd_json parse itself costs ~3µs/doc per
+/// this file's own comment).
+///
+/// This match is intentionally exhaustive (no wildcard arm): adding a new
+/// `QueryNode` variant that can nest a sub-query MUST update this function
+/// or the compiler rejects the build — so a missed variant can only ever
+/// cost the (already-paid-before-this-fix) clone, never a silently wrong
+/// match.
+fn query_needs_id_injection(q: &QueryNode) -> bool {
+    match q {
+        QueryNode::Ids { .. } => true,
+        QueryNode::MatchAll
+        | QueryNode::MatchNone
+        | QueryNode::Term { .. }
+        | QueryNode::Terms { .. }
+        | QueryNode::Range { .. }
+        | QueryNode::Prefix { .. }
+        | QueryNode::Wildcard { .. }
+        | QueryNode::Exists { .. }
+        | QueryNode::Match { .. }
+        | QueryNode::MatchPhrase { .. }
+        | QueryNode::MultiMatch { .. }
+        | QueryNode::QueryString { .. }
+        | QueryNode::Fuzzy { .. }
+        | QueryNode::Regexp { .. }
+        | QueryNode::Intervals { .. }
+        | QueryNode::MatchPhrasePrefix { .. }
+        | QueryNode::SimpleQueryString { .. }
+        | QueryNode::GeoDistance { .. }
+        | QueryNode::GeoBoundingBox { .. }
+        | QueryNode::GeoPolygon { .. }
+        | QueryNode::GeoShape { .. }
+        | QueryNode::SpanTerm { .. }
+        | QueryNode::MoreLikeThis { .. }
+        | QueryNode::Percolate { .. } => false,
+        QueryNode::Bool {
+            must,
+            should,
+            must_not,
+            filter,
+            ..
+        } => must
+            .iter()
+            .chain(should)
+            .chain(must_not)
+            .chain(filter)
+            .any(query_needs_id_injection),
+        QueryNode::Constant { query, .. }
+        | QueryNode::Boosted { query, .. }
+        | QueryNode::Named { query, .. }
+        | QueryNode::FunctionScore { query, .. }
+        | QueryNode::Nested { query, .. } => query_needs_id_injection(query),
+        QueryNode::Boosting {
+            positive, negative, ..
+        } => query_needs_id_injection(positive) || query_needs_id_injection(negative),
+        QueryNode::DisMax { queries, .. } => queries.iter().any(query_needs_id_injection),
+        QueryNode::Pinned { organic, .. } => query_needs_id_injection(organic),
+        QueryNode::HasChild { query, .. } | QueryNode::HasParent { query, .. } => {
+            query_needs_id_injection(query)
+        }
+        QueryNode::Knn { filter, .. } | QueryNode::SemanticSearch { filter, .. } => {
+            filter.as_deref().is_some_and(query_needs_id_injection)
+        }
+        QueryNode::Hybrid { queries, .. } => {
+            queries.iter().any(|wq| query_needs_id_injection(&wq.query))
+        }
+        QueryNode::SpanNear { clauses, .. } | QueryNode::SpanOr { clauses } => {
+            clauses.iter().any(query_needs_id_injection)
+        }
+        QueryNode::SpanNot { include, exclude } => {
+            query_needs_id_injection(include) || query_needs_id_injection(exclude)
+        }
+        QueryNode::SpanFirst { match_query, .. } => query_needs_id_injection(match_query),
+        QueryNode::SpanContaining { little, big } | QueryNode::SpanWithin { little, big } => {
+            query_needs_id_injection(little) || query_needs_id_injection(big)
+        }
+    }
 }
 
 /// Coerce a `lat`/`lon` object member to `f64`. Real ES accepts numeric OR
