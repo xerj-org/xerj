@@ -8570,6 +8570,16 @@ pub async fn search(
             // extraction, so the suppression is a response-time
             // decision not a data-layer decision.
             let source_body_disabled = matches!(body.source, Some(Value::Bool(false)));
+            // `stored_fields` only changes the *default* for `_source` to
+            // false when the caller left `_source` unspecified. An explicit
+            // top-level `_source` param (anything but `false`) always wins,
+            // e.g. Kibana Discover sends `stored_fields: ["*"]` together
+            // with `_source: {"excludes": []}` and still expects the full
+            // `_source` back.
+            let source_explicitly_requested = matches!(
+                &body.source,
+                Some(v) if !matches!(v, Value::Bool(false))
+            );
             let source_mapping_disabled = state
                 .engine
                 .index_mappings
@@ -8583,7 +8593,7 @@ pub async fn search(
                 .and_then(|src| src.get("enabled").and_then(Value::as_bool))
                 .map(|b| !b)
                 .unwrap_or(false);
-            let source = if suppress_source_for_stored
+            let source = if (suppress_source_for_stored && !source_explicitly_requested)
                 || source_body_disabled
                 || source_mapping_disabled
                 || h.source.is_null()
