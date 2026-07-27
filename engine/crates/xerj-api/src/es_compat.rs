@@ -1077,12 +1077,19 @@ async fn get_index_inner(
             }
             continue;
         }
-        // Exact name.
-        if all.iter().any(|info| info.name == part) {
-            if !selected.contains(&part.to_string()) {
-                selected.push(part.to_string());
+        // Exact name — resolve aliases first (a `part` matching an alias
+        // must map to its backing physical index/indices) before falling
+        // back to a literal physical-name match.
+        let mut any_found = false;
+        for real_name in state.engine.resolve_alias(part) {
+            if all.iter().any(|info| info.name == real_name) {
+                any_found = true;
+                if !selected.contains(&real_name) {
+                    selected.push(real_name);
+                }
             }
-        } else {
+        }
+        if !any_found {
             had_missing = true;
             if !ignore_unavailable {
                 // Exact missing names fail unless ignore_unavailable=true.
