@@ -25,6 +25,81 @@ pub struct MemtableHit {
     pub score: f32,
 }
 
+#[cfg(test)]
+mod ingest_memory_drain_tests {
+    use super::*;
+    use crate::ingest_memory::{Category, Ledger, Measurement};
+    use std::sync::{Arc, Barrier};
+
+    #[test]
+    fn authoritative_active_moves_to_drained_through_blocked_finalize_success_and_error() {
+        for inject_error in [false, true] {
+            let mem = ShardedFtsMemtable::new();
+            mem.insert(
+                "doc-1".to_string(),
+                &serde_json::json!({"body": "retained"}),
+                &Schema::default(),
+                1,
+            );
+            let shard = mem
+                .shard_loads()
+                .into_iter()
+                .find(|(_, docs, _)| *docs != 0)
+                .unwrap()
+                .0;
+            let ledger = Ledger::new();
+            ledger.observe(Category::MemtableActive, mem.size_bytes());
+            assert!(
+                ledger
+                    .gauge(Category::MemtableActive, Measurement::Estimated)
+                    .current
+                    > 0
+            );
+
+            let ledger: &'static Ledger = Box::leak(Box::new(ledger));
+            let (_entries, guard) = mem.drain_shard_accounted_for_test(shard, false, ledger);
+            ledger.observe(Category::MemtableActive, mem.size_bytes());
+            let entered = Arc::new(Barrier::new(2));
+            let release = Arc::new(Barrier::new(2));
+            std::thread::scope(|scope| {
+                let entered_worker = Arc::clone(&entered);
+                let release_worker = Arc::clone(&release);
+                let handle = scope.spawn(move || -> Result<(), &'static str> {
+                    let _guard = guard;
+                    entered_worker.wait();
+                    release_worker.wait();
+                    if inject_error {
+                        Err("injected finalizer error")
+                    } else {
+                        Ok(())
+                    }
+                });
+                entered.wait();
+                assert_eq!(
+                    ledger
+                        .gauge(Category::MemtableActive, Measurement::Estimated)
+                        .current,
+                    0
+                );
+                assert!(
+                    ledger
+                        .gauge(Category::FlushDrained, Measurement::Estimated)
+                        .current
+                        > 0
+                );
+                release.wait();
+                assert_eq!(handle.join().unwrap().is_err(), inject_error);
+            });
+            assert_eq!(
+                ledger
+                    .gauge(Category::FlushDrained, Measurement::Estimated)
+                    .current,
+                0
+            );
+        }
+    }
+}
+
 /// Entry stored in the memtable.
 ///
 /// Post-M4.9 the `fields: HashMap<String, String>` was removed — it was
@@ -1486,21 +1561,55 @@ impl ShardedFtsMemtable {
     /// tuples in WAL-sequence order.  Raw bytes are passed through to the
     /// segment writer so it can skip re-serializing the Value.
     pub fn drain_shard(&self, shard_idx: usize) -> Vec<(u64, String, Arc<Value>, Arc<[u8]>)> {
-        self.drain_shard_inner(shard_idx, false)
+        self.drain_shard_inner(shard_idx, false, None).0
     }
 
     /// Drain without parsing raw-bytes entries. Returns Value::Null for
     /// entries that came from insert_raw_bytes_with_seq. Use when neither
     /// FTS nor DV sidecars will be built (turbo/CLI ingest path).
     pub fn drain_shard_raw(&self, shard_idx: usize) -> Vec<(u64, String, Arc<Value>, Arc<[u8]>)> {
-        self.drain_shard_inner(shard_idx, true)
+        self.drain_shard_inner(shard_idx, true, None).0
     }
 
-    fn drain_shard_inner(
+    pub fn drain_shard_accounted(
         &self,
         shard_idx: usize,
         skip_parse: bool,
-    ) -> Vec<(u64, String, Arc<Value>, Arc<[u8]>)> {
+    ) -> (
+        Vec<(u64, String, Arc<Value>, Arc<[u8]>)>,
+        crate::ingest_memory::Retained<'static>,
+    ) {
+        let ledger = crate::ingest_memory::active_ledger();
+        let (entries, guard) = self.drain_shard_inner(shard_idx, skip_parse, ledger);
+        (
+            entries,
+            guard.unwrap_or_else(crate::ingest_memory::Retained::disabled),
+        )
+    }
+
+    #[cfg(test)]
+    pub(crate) fn drain_shard_accounted_for_test(
+        &self,
+        shard_idx: usize,
+        skip_parse: bool,
+        ledger: &'static crate::ingest_memory::Ledger,
+    ) -> (
+        Vec<(u64, String, Arc<Value>, Arc<[u8]>)>,
+        crate::ingest_memory::Retained<'static>,
+    ) {
+        let (entries, guard) = self.drain_shard_inner(shard_idx, skip_parse, Some(ledger));
+        (entries, guard.expect("test ledger always creates guard"))
+    }
+
+    fn drain_shard_inner<'a>(
+        &self,
+        shard_idx: usize,
+        skip_parse: bool,
+        ledger: Option<&'a crate::ingest_memory::Ledger>,
+    ) -> (
+        Vec<(u64, String, Arc<Value>, Arc<[u8]>)>,
+        Option<crate::ingest_memory::Retained<'a>>,
+    ) {
         // Swap the shard's maps out under the write lock (pointer moves,
         // O(1)) and deallocate them AFTER the lock is released, on a
         // detached thread.  Pre-fix the reset assignments freed the
@@ -1511,8 +1620,9 @@ impl ShardedFtsMemtable {
         // drain stalled every in-flight bulk request.  32 flushes per
         // 1 M docs × ~95 ms = a fixed ~3 s Amdahl serial term that
         // capped 8-client ingest at ~3.1× single-client throughput.
-        let (drained, dead) = {
+        let (drained, dead, drain_guard) = {
             let mut g = self.shards[shard_idx].write();
+            let removed_bytes = g.total_bytes;
             let d: Vec<MemEntry> = std::mem::take(&mut g.docs);
             let dead_index = std::mem::take(&mut g.index);
             let dead_dv = std::mem::take(&mut g.doc_values);
@@ -1520,6 +1630,17 @@ impl ShardedFtsMemtable {
             let dead_afl = std::mem::take(&mut g.avg_field_lengths);
             let dead_dii = std::mem::take(&mut g.doc_id_index);
             g.total_bytes = 0;
+            // Created while the authoritative shard lock is still held so
+            // the drained lifetime includes detached-map handoff and parsing.
+            // Periodic active-vs-drained snapshots remain best-effort because
+            // the two authorities are sampled separately.
+            let drain_guard = ledger.map(|ledger| {
+                crate::ingest_memory::Retained::for_ledger(
+                    ledger,
+                    crate::ingest_memory::Category::FlushDrained,
+                    removed_bytes,
+                )
+            });
             // Flush == merge: purge delete-aware ghost collection stats.
             g.ghost_docs = 0;
             let dead_gfl = std::mem::take(&mut g.ghost_field_len);
@@ -1529,6 +1650,7 @@ impl ShardedFtsMemtable {
                 (
                     dead_index, dead_dv, dead_fl, dead_afl, dead_dii, dead_gfl, dead_gdf,
                 ),
+                drain_guard,
             )
         };
         // Free the dead maps off the flush critical path too — the
@@ -1558,7 +1680,7 @@ impl ShardedFtsMemtable {
             })
             .collect();
         out.sort_by_key(|(seq, _, _, _)| *seq);
-        out
+        (out, drain_guard)
     }
 
     /// Check if a shard's first entry was inserted via the raw-bytes

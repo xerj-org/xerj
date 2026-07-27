@@ -12130,6 +12130,13 @@ async fn process_bulk_body(
     _started: Instant,
     opts: xerj_engine::bulk::BulkOpts,
 ) -> axum::response::Response {
+    // The request body remains owned by this handler through parsing,
+    // grouping, and publication. The opt-in guard is a single branch and
+    // performs no atomic work when tracing is disabled.
+    let _http_body_memory = xerj_engine::ingest_memory::Retained::new(
+        xerj_engine::ingest_memory::Category::HttpBody,
+        body.len(),
+    );
     let text = match std::str::from_utf8(body) {
         Ok(t) => t,
         Err(_) => {
@@ -12151,9 +12158,16 @@ async fn process_bulk_body(
     // dimensions and the instant are identical, matching ES. Returns `None`
     // when no action targets a TSDB index, so normal bulk bodies are unchanged.
     let ts_rewritten = rewrite_bulk_time_series_ids(state, default_index, text);
+    let _ts_rewritten_memory = ts_rewritten.as_ref().map(|replacement| {
+        xerj_engine::ingest_memory::Retained::new(
+            xerj_engine::ingest_memory::Category::HttpRewriteBuffer,
+            replacement.capacity(),
+        )
+    });
     let base_text: &str = ts_rewritten.as_deref().unwrap_or(text);
 
     let rewritten_body;
+    let mut rewritten_capacity = None;
     // P2.2 — the ignore_malformed rewrite parses + re-serialises EVERY
     // source line serially (client-blocking).  `apply_ignore_malformed`
     // can only modify a doc when some field in the target mapping carries
@@ -12170,8 +12184,15 @@ async fn process_bulk_body(
         base_text
     } else {
         rewritten_body = rewrite_bulk_ignore_malformed(state, default_index, base_text);
+        rewritten_capacity = Some(rewritten_body.capacity());
         &rewritten_body
     };
+    let _ignore_rewritten_memory = rewritten_capacity.map(|capacity| {
+        xerj_engine::ingest_memory::Retained::new(
+            xerj_engine::ingest_memory::Category::HttpRewriteBuffer,
+            capacity,
+        )
+    });
 
     let result =
         xerj_engine::bulk::process_bulk_with_opts(&state.engine, default_index, text_ref, opts)

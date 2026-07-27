@@ -15,6 +15,103 @@ use crate::engine::Engine;
 use crate::index::IndexResponse;
 use crate::{EngineError, Result};
 
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SemanticLifecyclePoint {
+    Grouped,
+    Parsed,
+    Prepared,
+    EmbeddingInside,
+    EmbeddingItemInside,
+    BeforePublication,
+    PublicationInside,
+    AfterPublication,
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SemanticLifecycleFault {
+    None,
+    Embedding,
+    Publication,
+}
+
+#[cfg(test)]
+type SemanticLifecycleHook = std::sync::Arc<
+    dyn Fn(&str, SemanticLifecyclePoint) -> SemanticLifecycleFault + Send + Sync + 'static,
+>;
+
+#[cfg(test)]
+tokio::task_local! {
+    static SEMANTIC_LIFECYCLE_HOOK: (String, SemanticLifecycleHook);
+    static DISABLED_SEMANTIC_COUNTERS: std::sync::Arc<DisabledSemanticCounters>;
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+struct DisabledSemanticInstrumentation {
+    schema_reads: usize,
+    guard_vectors: usize,
+    sizing_walks: usize,
+}
+
+#[cfg(test)]
+#[derive(Default)]
+struct DisabledSemanticCounters {
+    schema_reads: std::sync::atomic::AtomicUsize,
+    guard_vectors: std::sync::atomic::AtomicUsize,
+    sizing_walks: std::sync::atomic::AtomicUsize,
+}
+
+#[cfg(test)]
+impl DisabledSemanticCounters {
+    fn snapshot(&self) -> DisabledSemanticInstrumentation {
+        use std::sync::atomic::Ordering;
+        DisabledSemanticInstrumentation {
+            schema_reads: self.schema_reads.load(Ordering::Relaxed),
+            guard_vectors: self.guard_vectors.load(Ordering::Relaxed),
+            sizing_walks: self.sizing_walks.load(Ordering::Relaxed),
+        }
+    }
+}
+
+#[cfg(test)]
+fn count_disabled_semantic_access(
+    select: fn(&DisabledSemanticCounters) -> &std::sync::atomic::AtomicUsize,
+) {
+    use std::sync::atomic::Ordering;
+    let _ = DISABLED_SEMANTIC_COUNTERS.try_with(|counters| {
+        select(counters).fetch_add(1, Ordering::Relaxed);
+    });
+}
+
+#[cfg(test)]
+pub(crate) fn semantic_lifecycle_hook(
+    target: &str,
+    point: SemanticLifecyclePoint,
+) -> SemanticLifecycleFault {
+    SEMANTIC_LIFECYCLE_HOOK
+        .try_with(|(hook_target, hook)| {
+            if hook_target == "*" || hook_target == target {
+                hook(target, point)
+            } else {
+                SemanticLifecycleFault::None
+            }
+        })
+        .unwrap_or(SemanticLifecycleFault::None)
+}
+
+#[cfg(test)]
+async fn with_semantic_lifecycle_hook<F: std::future::Future>(
+    target: impl Into<String>,
+    hook: SemanticLifecycleHook,
+    future: F,
+) -> F::Output {
+    SEMANTIC_LIFECYCLE_HOOK
+        .scope((target.into(), hook), future)
+        .await
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,6 +219,30 @@ struct ParsedAction {
 /// `update` and `delete` operations are still executed individually.
 pub async fn process_bulk(engine: &Engine, default_index: Option<&str>, body: &str) -> BulkResult {
     process_bulk_with_opts(engine, default_index, body, BulkOpts::default()).await
+}
+
+fn release_raw_owner(
+    owners: &mut std::collections::HashMap<usize, (usize, crate::ingest_memory::Retained<'static>)>,
+    source: std::sync::Arc<[u8]>,
+) {
+    let owner = std::sync::Arc::as_ptr(&source) as *const () as usize;
+    // The logical owner must outlive every Arc clone. Dropping the ledger
+    // token first would publish a false zero while this clone still retains
+    // the backing allocation.
+    drop(source);
+    release_raw_owner_by_id(owners, owner);
+}
+
+fn release_raw_owner_by_id(
+    owners: &mut std::collections::HashMap<usize, (usize, crate::ingest_memory::Retained<'static>)>,
+    owner: usize,
+) {
+    if let Some((remaining, _)) = owners.get_mut(&owner) {
+        *remaining -= 1;
+        if *remaining == 0 {
+            owners.remove(&owner);
+        }
+    }
 }
 
 #[derive(Clone, Default)]
@@ -1014,11 +1135,40 @@ pub async fn process_bulk_with_opts(
     // still used after preparation; it observes the supplied companion vector
     // and therefore preserves WAL, overwrite status, response ordering, and
     // item-level errors.
+    let mut semantic_raw_memory = crate::ingest_memory::enabled().then(
+        std::collections::HashMap::<usize, (usize, crate::ingest_memory::Retained<'static>)>::new,
+    );
+    if let Some(raw_memory) = semantic_raw_memory.as_mut() {
+        for batch in semantic_index_batches.values() {
+            for (_, _, source) in batch {
+                let owner = std::sync::Arc::as_ptr(source) as *const () as usize;
+                raw_memory
+                    .entry(owner)
+                    .and_modify(|(remaining, _)| *remaining += 1)
+                    .or_insert_with(|| {
+                        (
+                            1usize,
+                            crate::ingest_memory::Retained::new(
+                                crate::ingest_memory::Category::RawSource,
+                                source.len(),
+                            ),
+                        )
+                    });
+            }
+        }
+    }
     for (index_name, batch) in semantic_index_batches {
+        #[cfg(test)]
+        let _ = semantic_lifecycle_hook(&index_name, SemanticLifecyclePoint::Grouped);
         let idx = match engine.get_or_create_index(&index_name) {
             Ok(i) => i,
             Err(e) => {
-                for (item_idx, id, _) in batch {
+                for (item_idx, id, source) in batch {
+                    if let Some(raw_memory) = semantic_raw_memory.as_mut() {
+                        release_raw_owner(raw_memory, source);
+                    } else {
+                        drop(source);
+                    }
                     items[item_idx] = Some(BulkItemResult {
                         action: "index".into(),
                         index: index_name.clone(),
@@ -1033,16 +1183,55 @@ pub async fn process_bulk_with_opts(
                 continue;
             }
         };
+        let vector_fields = if crate::ingest_memory::enabled() {
+            #[cfg(test)]
+            count_disabled_semantic_access(|counters| &counters.schema_reads);
+            idx.semantic_vector_fields().await
+        } else {
+            std::collections::HashSet::new()
+        };
 
         let mut valid_meta = Vec::with_capacity(batch.len());
         let mut valid_sources = Vec::with_capacity(batch.len());
+        let mut valid_memory = crate::ingest_memory::enabled().then(|| {
+            #[cfg(test)]
+            count_disabled_semantic_access(|counters| &counters.guard_vectors);
+            Vec::with_capacity(batch.len())
+        });
         for (item_idx, id, bytes) in batch {
-            match serde_json::from_slice::<Value>(&bytes) {
+            let parsed = serde_json::from_slice::<Value>(&bytes);
+            match parsed {
                 Ok(source) => {
+                    if let Some(valid_memory) = valid_memory.as_mut() {
+                        #[cfg(test)]
+                        count_disabled_semantic_access(|counters| &counters.sizing_walks);
+                        let parsed_document = crate::ingest_memory::Retained::new(
+                            crate::ingest_memory::Category::ParsedSource,
+                            crate::ingest_memory::estimated_json_heap_excluding(
+                                &source,
+                                &vector_fields,
+                            ),
+                        );
+                        let parsed_vector = crate::ingest_memory::Retained::new(
+                            crate::ingest_memory::Category::ParsedVector,
+                            crate::ingest_memory::vector_value_capacity(&source, &vector_fields),
+                        );
+                        valid_memory.push((parsed_document, parsed_vector));
+                    }
+                    if let Some(raw_memory) = semantic_raw_memory.as_mut() {
+                        release_raw_owner(raw_memory, bytes);
+                    } else {
+                        drop(bytes);
+                    }
                     valid_meta.push((item_idx, id));
                     valid_sources.push(source);
                 }
                 Err(e) => {
+                    if let Some(raw_memory) = semantic_raw_memory.as_mut() {
+                        release_raw_owner(raw_memory, bytes);
+                    } else {
+                        drop(bytes);
+                    }
                     items[item_idx] = Some(BulkItemResult {
                         action: "index".into(),
                         index: index_name.clone(),
@@ -1056,12 +1245,49 @@ pub async fn process_bulk_with_opts(
                 }
             }
         }
+        #[cfg(test)]
+        let _ = semantic_lifecycle_hook(&index_name, SemanticLifecyclePoint::Parsed);
 
+        // Backend-owned chunk strings, tokenizer tensors, and inference
+        // scratch are not yet logically attributed. Their effect remains
+        // visible only as allocator/RSS physical delta; it is not zero.
         let prepared = idx.apply_semantic_embeddings_batch(valid_sources).await;
+        #[cfg(test)]
+        let _ = semantic_lifecycle_hook(&index_name, SemanticLifecyclePoint::Prepared);
+        let mut valid_memory = valid_memory.map(Vec::into_iter);
         for ((item_idx, id), prepared_source) in valid_meta.into_iter().zip(prepared) {
-            let source = match prepared_source {
-                Ok(source) => source,
+            let memory = valid_memory.as_mut().and_then(Iterator::next);
+            let (source, prepared_memory) = match prepared_source {
+                Ok(source) => {
+                    let prepared_memory = if let Some((parsed_document, parsed_vector)) = memory {
+                        #[cfg(test)]
+                        count_disabled_semantic_access(|counters| &counters.sizing_walks);
+                        let prepared_document_bytes =
+                            crate::ingest_memory::estimated_json_heap_excluding(
+                                &source,
+                                &vector_fields,
+                            );
+                        let prepared_vector_bytes =
+                            crate::ingest_memory::vector_value_capacity(&source, &vector_fields);
+                        Some(crate::ingest_memory::Retained::replace_pair(
+                            parsed_document,
+                            parsed_vector,
+                            (
+                                crate::ingest_memory::Category::PreparedDocument,
+                                prepared_document_bytes,
+                            ),
+                            (
+                                crate::ingest_memory::Category::PreparedVector,
+                                prepared_vector_bytes,
+                            ),
+                        ))
+                    } else {
+                        None
+                    };
+                    (source, prepared_memory)
+                }
                 Err(e) => {
+                    drop(memory);
                     let status = engine_error_http_status(&e);
                     items[item_idx] = Some(BulkItemResult {
                         action: "index".into(),
@@ -1077,7 +1303,13 @@ pub async fn process_bulk_with_opts(
                 }
             };
             let error_id = id.clone().unwrap_or_default();
-            match idx.index_document_prepared(id, source).await {
+            #[cfg(test)]
+            let _ = semantic_lifecycle_hook(&index_name, SemanticLifecyclePoint::BeforePublication);
+            let publication = idx.index_document_prepared(id, source).await;
+            drop(prepared_memory);
+            #[cfg(test)]
+            let _ = semantic_lifecycle_hook(&index_name, SemanticLifecyclePoint::AfterPublication);
+            match publication {
                 Ok(resp) => {
                     let status = if resp.result == "updated" { 200 } else { 201 };
                     items[item_idx] = Some(BulkItemResult {
@@ -2267,5 +2499,702 @@ async fn execute_bulk_action(
         other => Err(crate::EngineError::Common(
             xerj_common::XerjError::invalid_query(format!("unknown bulk action: {other}")),
         )),
+    }
+}
+
+#[cfg(test)]
+mod semantic_lifecycle_tests {
+    use super::*;
+    use crate::ingest_memory::{Category, Ledger, Measurement};
+    use serde_json::json;
+    use std::sync::{Arc, Mutex};
+    use tempfile::TempDir;
+    use xerj_common::config::Config;
+    use xerj_common::types::{EmbeddingConfig, FieldConfig, FieldType, Schema};
+
+    fn semantic_engine(name: &str) -> (TempDir, Engine) {
+        semantic_engine_with_targets(name, &[("content", "content_vector")])
+    }
+
+    fn semantic_engine_with_targets(name: &str, targets: &[(&str, &str)]) -> (TempDir, Engine) {
+        let dir = TempDir::new().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        for (field, target) in targets {
+            let mut config = FieldConfig::new(*field, FieldType::Text);
+            config.options.dimensions = Some(16);
+            config.embedding = Some(EmbeddingConfig {
+                endpoint: None,
+                model: None,
+                target_field: Some((*target).into()),
+            });
+            schema.fields.push(config);
+        }
+        engine.create_index(name, schema).unwrap();
+        let properties = targets
+            .iter()
+            .map(|(field, _)| ((*field).to_string(), json!({"type": "semantic_text"})))
+            .collect::<serde_json::Map<_, _>>();
+        engine.put_index_mapping(name, json!({"properties": properties}));
+        (dir, engine)
+    }
+
+    fn current(ledger: &Ledger, category: Category) -> u64 {
+        ledger.gauge(category, Measurement::Estimated).current
+    }
+
+    fn all_semantic_current(ledger: &Ledger) -> u64 {
+        [
+            Category::RawSource,
+            Category::ParsedSource,
+            Category::ParsedVector,
+            Category::PreparedDocument,
+            Category::PreparedVector,
+        ]
+        .into_iter()
+        .map(|category| current(ledger, category))
+        .sum()
+    }
+
+    #[test]
+    fn raw_owner_token_outlives_every_arc_occurrence() {
+        let ledger: &'static Ledger = Box::leak(Box::new(Ledger::new()));
+        let source: Arc<[u8]> = Arc::from(&b"{\"content\":\"retained\"}"[..]);
+        let owner = Arc::as_ptr(&source) as *const () as usize;
+        let mut owners = std::collections::HashMap::from([(
+            owner,
+            (
+                2,
+                crate::ingest_memory::Retained::for_ledger(
+                    ledger,
+                    Category::RawSource,
+                    source.len(),
+                ),
+            ),
+        )]);
+        let second = Arc::clone(&source);
+
+        release_raw_owner(&mut owners, second);
+        assert_eq!(Arc::strong_count(&source), 1);
+        assert_eq!(owners.get(&owner).map(|entry| entry.0), Some(1));
+        assert_eq!(current(ledger, Category::RawSource), source.len() as u64);
+
+        release_raw_owner(&mut owners, source);
+        assert!(owners.is_empty());
+        assert_eq!(current(ledger, Category::RawSource), 0);
+    }
+
+    async fn run_case(
+        name: &str,
+        fault: SemanticLifecycleFault,
+    ) -> (
+        BulkResult,
+        &'static Ledger,
+        Vec<(SemanticLifecyclePoint, [u64; 5])>,
+    ) {
+        let (_dir, engine) = semantic_engine_with_targets(
+            name,
+            &[("content", "content_vector"), ("summary", "summary_vector")],
+        );
+        let ledger: &'static Ledger = Box::leak(Box::new(Ledger::new()));
+        // Zero-capacity rendezvous channels make every hook a genuine phase
+        // barrier: the ingest task cannot advance until the observer has read
+        // the live gauges and explicitly released it.
+        let expected = if fault == SemanticLifecycleFault::Embedding {
+            4
+        } else {
+            8
+        };
+        let (observation_tx, observation_rx) = std::sync::mpsc::sync_channel(0);
+        let (resume_tx, resume_rx) = std::sync::mpsc::sync_channel(0);
+        let resume_rx = Arc::new(Mutex::new(resume_rx));
+        let observer = std::thread::spawn(move || {
+            let mut points = Vec::with_capacity(expected);
+            for _ in 0..expected {
+                points.push(observation_rx.recv().unwrap());
+                resume_tx.send(()).unwrap();
+            }
+            points
+        });
+        let hook: SemanticLifecycleHook = Arc::new(move |_, point| {
+            observation_tx
+                .send((
+                    point,
+                    [
+                        current(ledger, Category::RawSource),
+                        current(ledger, Category::ParsedSource),
+                        current(ledger, Category::ParsedVector),
+                        current(ledger, Category::PreparedDocument),
+                        current(ledger, Category::PreparedVector),
+                    ],
+                ))
+                .unwrap();
+            resume_rx.lock().unwrap().recv().unwrap();
+            match (fault, point) {
+                (SemanticLifecycleFault::Embedding, SemanticLifecyclePoint::EmbeddingInside) => {
+                    fault
+                }
+                (
+                    SemanticLifecycleFault::Publication,
+                    SemanticLifecyclePoint::PublicationInside,
+                ) => fault,
+                _ => SemanticLifecycleFault::None,
+            }
+        });
+        let body = format!(
+            "{{\"index\":{{\"_index\":\"{name}\",\"_id\":\"one\"}}}}\n\
+             {{\"content\":\"caller supplied vector\",\
+             \"content_vector\":[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,\
+             0.9,1.0,1.1,1.2,1.3,1.4,1.5,1.6],\
+             \"summary\":\"a genuine semantic lifecycle embedding job\"}}\n"
+        );
+        let result = crate::ingest_memory::with_test_ledger(
+            ledger,
+            with_semantic_lifecycle_hook(name, hook, process_bulk(&engine, None, &body)),
+        )
+        .await;
+        let points = observer.join().unwrap();
+        (result, ledger, points)
+    }
+
+    #[tokio::test]
+    async fn semantic_lifecycle_success_balances_isolated_ledger() {
+        let (result, ledger, points) =
+            run_case("semantic-lifecycle-success", SemanticLifecycleFault::None).await;
+        assert!(!result.errors, "{:?}", result.items);
+        let phase_points: Vec<_> = points.iter().map(|(point, _)| *point).collect();
+        assert_eq!(
+            phase_points,
+            [
+                SemanticLifecyclePoint::Grouped,
+                SemanticLifecyclePoint::Parsed,
+                SemanticLifecyclePoint::EmbeddingInside,
+                SemanticLifecyclePoint::EmbeddingItemInside,
+                SemanticLifecyclePoint::Prepared,
+                SemanticLifecyclePoint::BeforePublication,
+                SemanticLifecyclePoint::PublicationInside,
+                SemanticLifecyclePoint::AfterPublication,
+            ]
+        );
+        let at = |point| points.iter().find(|(p, _)| *p == point).unwrap().1;
+        assert!(at(SemanticLifecyclePoint::Grouped)[0] > 0);
+        assert_eq!(at(SemanticLifecyclePoint::Parsed)[0], 0);
+        assert!(at(SemanticLifecyclePoint::Parsed)[1] > 0);
+        assert!(at(SemanticLifecyclePoint::EmbeddingInside)[1] > 0);
+        assert!(
+            at(SemanticLifecyclePoint::EmbeddingInside)[2] > 0,
+            "caller-supplied vector ownership must remain live while embedding is blocked"
+        );
+        assert_eq!(at(SemanticLifecyclePoint::BeforePublication)[1], 0);
+        assert!(at(SemanticLifecyclePoint::BeforePublication)[3] > 0);
+        assert!(at(SemanticLifecyclePoint::BeforePublication)[4] > 0);
+        assert_eq!(at(SemanticLifecyclePoint::AfterPublication), [0; 5]);
+        assert!(current(ledger, Category::RawSource) == 0);
+        assert!(
+            ledger
+                .gauge(Category::RawSource, Measurement::SerializedSize)
+                .peak
+                > 0
+        );
+        assert!(
+            ledger
+                .gauge(Category::ParsedSource, Measurement::Estimated)
+                .peak
+                > 0
+        );
+        assert!(
+            ledger
+                .gauge(Category::PreparedDocument, Measurement::Estimated)
+                .peak
+                > 0
+        );
+        assert!(
+            ledger
+                .gauge(Category::PreparedVector, Measurement::ExactCapacity)
+                .peak
+                > 0
+        );
+        assert_eq!(all_semantic_current(ledger), 0);
+        assert_eq!(ledger.accounting_errors(), 0);
+        assert_eq!(all_semantic_current(&crate::ingest_memory::LEDGER), 0);
+    }
+
+    #[tokio::test]
+    async fn semantic_lifecycle_embedding_error_releases_parsed_ownership() {
+        let (result, ledger, points) = run_case(
+            "semantic-lifecycle-embed-error",
+            SemanticLifecycleFault::Embedding,
+        )
+        .await;
+        assert!(result.errors);
+        assert_eq!(result.items[0].status, 400);
+        let phase_points: Vec<_> = points.iter().map(|(point, _)| *point).collect();
+        assert_eq!(
+            phase_points,
+            [
+                SemanticLifecyclePoint::Grouped,
+                SemanticLifecyclePoint::Parsed,
+                SemanticLifecyclePoint::EmbeddingInside,
+                SemanticLifecyclePoint::Prepared,
+            ]
+        );
+        let inside = points
+            .iter()
+            .find(|(point, _)| *point == SemanticLifecyclePoint::EmbeddingInside)
+            .unwrap()
+            .1;
+        assert!(inside[1] > 0);
+        assert!(
+            inside[2] > 0,
+            "caller-supplied vector ownership must remain live while embedding is blocked"
+        );
+        assert!(
+            ledger
+                .gauge(Category::ParsedSource, Measurement::Estimated)
+                .peak
+                > 0
+        );
+        assert_eq!(all_semantic_current(ledger), 0);
+        assert_eq!(ledger.accounting_errors(), 0);
+    }
+
+    #[tokio::test]
+    async fn semantic_lifecycle_publication_error_releases_prepared_ownership() {
+        let (result, ledger, points) = run_case(
+            "semantic-lifecycle-publication-error",
+            SemanticLifecycleFault::Publication,
+        )
+        .await;
+        assert!(result.errors);
+        assert_eq!(result.items[0].status, 400);
+        let phase_points: Vec<_> = points.iter().map(|(point, _)| *point).collect();
+        assert_eq!(
+            phase_points,
+            [
+                SemanticLifecyclePoint::Grouped,
+                SemanticLifecyclePoint::Parsed,
+                SemanticLifecyclePoint::EmbeddingInside,
+                SemanticLifecyclePoint::EmbeddingItemInside,
+                SemanticLifecyclePoint::Prepared,
+                SemanticLifecyclePoint::BeforePublication,
+                SemanticLifecyclePoint::PublicationInside,
+                SemanticLifecyclePoint::AfterPublication,
+            ]
+        );
+        let inside = points
+            .iter()
+            .find(|(point, _)| *point == SemanticLifecyclePoint::PublicationInside)
+            .unwrap()
+            .1;
+        assert!(inside[3] > 0);
+        assert!(inside[4] > 0);
+        assert!(
+            ledger
+                .gauge(Category::PreparedDocument, Measurement::Estimated)
+                .peak
+                > 0
+        );
+        assert!(
+            ledger
+                .gauge(Category::PreparedVector, Measurement::ExactCapacity)
+                .peak
+                > 0
+        );
+        assert_eq!(all_semantic_current(ledger), 0);
+        assert_eq!(ledger.accounting_errors(), 0);
+    }
+
+    #[tokio::test]
+    async fn semantic_lifecycle_hook_scope_is_panic_safe_and_target_specific() {
+        let (_dir, engine) = semantic_engine("semantic-lifecycle-panic");
+        let engine = Arc::new(engine);
+        let ledger: &'static Ledger = Box::leak(Box::new(Ledger::new()));
+        let hook: SemanticLifecycleHook = Arc::new(|_, point| {
+            if point == SemanticLifecyclePoint::Grouped {
+                panic!("deliberate lifecycle hook panic");
+            }
+            SemanticLifecycleFault::None
+        });
+        let body = concat!(
+            "{\"index\":{\"_index\":\"semantic-lifecycle-panic\",\"_id\":\"one\"}}\n",
+            "{\"content\":\"panic cleanup\"}\n",
+        );
+        let panic_engine = Arc::clone(&engine);
+        let task = tokio::spawn(async move {
+            crate::ingest_memory::with_test_ledger(
+                ledger,
+                with_semantic_lifecycle_hook(
+                    "semantic-lifecycle-panic",
+                    hook,
+                    process_bulk(&panic_engine, None, body),
+                ),
+            )
+            .await
+        });
+        assert!(task.await.unwrap_err().is_panic());
+        assert_eq!(all_semantic_current(ledger), 0);
+
+        let other_ledger = Box::leak(Box::new(Ledger::new()));
+        let rejecting_hook: SemanticLifecycleHook =
+            Arc::new(|_, _| SemanticLifecycleFault::Publication);
+        let result = crate::ingest_memory::with_test_ledger(
+            other_ledger,
+            with_semantic_lifecycle_hook(
+                "different-target",
+                rejecting_hook,
+                process_bulk(&engine, None, body),
+            ),
+        )
+        .await;
+        assert!(
+            !result.errors,
+            "target-specific hook leaked onto another target"
+        );
+        assert_eq!(all_semantic_current(other_ledger), 0);
+        assert_eq!(all_semantic_current(&crate::ingest_memory::LEDGER), 0);
+    }
+
+    #[tokio::test]
+    async fn semantic_lifecycle_declines_after_each_sequential_publication() {
+        let name = "semantic-lifecycle-sequential";
+        let (_dir, engine) = semantic_engine(name);
+        let ledger: &'static Ledger = Box::leak(Box::new(Ledger::new()));
+        let observations = Arc::new(Mutex::new(Vec::<(SemanticLifecyclePoint, u64, u64)>::new()));
+        let captured = Arc::clone(&observations);
+        let embedded = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let embedded_hook = Arc::clone(&embedded);
+        let hook: SemanticLifecycleHook = Arc::new(move |_, point| {
+            if point == SemanticLifecyclePoint::EmbeddingInside {
+                embedded_hook.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+            if matches!(
+                point,
+                SemanticLifecyclePoint::BeforePublication
+                    | SemanticLifecyclePoint::AfterPublication
+            ) {
+                captured.lock().unwrap().push((
+                    point,
+                    current(ledger, Category::PreparedDocument),
+                    current(ledger, Category::PreparedVector),
+                ));
+            }
+            SemanticLifecycleFault::None
+        });
+        let body = (0..3)
+            .map(|i| {
+                format!(
+                    "{{\"index\":{{\"_index\":\"{name}\",\"_id\":\"{i}\"}}}}\n\
+                     {{\"content\":\"semantic document number {i}\"}}\n"
+                )
+            })
+            .collect::<String>();
+        let result = crate::ingest_memory::with_test_ledger(
+            ledger,
+            with_semantic_lifecycle_hook(name, hook, process_bulk(&engine, None, &body)),
+        )
+        .await;
+        assert!(!result.errors, "{:?}", result.items);
+        assert!(embedded.load(std::sync::atomic::Ordering::Relaxed));
+        let observations = observations.lock().unwrap();
+        assert_eq!(observations.len(), 6);
+        for pair in observations.chunks_exact(2) {
+            assert_eq!(pair[0].0, SemanticLifecyclePoint::BeforePublication);
+            assert_eq!(pair[1].0, SemanticLifecyclePoint::AfterPublication);
+            assert!(pair[0].1 > pair[1].1);
+            assert!(pair[0].2 > pair[1].2);
+        }
+        for pair in observations.chunks_exact(2) {
+            assert!(pair[0].1 > 0);
+            assert!(pair[0].2 > 0);
+            assert_eq!(pair[1].1, 0, "published document ownership stayed charged");
+            assert_eq!(pair[1].2, 0, "published vector ownership stayed charged");
+        }
+        assert_eq!(observations.last().unwrap().1, 0);
+        assert_eq!(observations.last().unwrap().2, 0);
+        assert_eq!(all_semantic_current(ledger), 0);
+        assert_eq!(ledger.accounting_errors(), 0);
+    }
+
+    #[tokio::test]
+    async fn semantic_lifecycle_mixed_publication_outputs_balance_per_item() {
+        let name = "semantic-lifecycle-mixed";
+        let (_dir, engine) = semantic_engine(name);
+        let ledger: &'static Ledger = Box::leak(Box::new(Ledger::new()));
+        let publication = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let publication_hook = Arc::clone(&publication);
+        let points = Arc::new(Mutex::new(Vec::new()));
+        let captured_points = Arc::clone(&points);
+        let hook: SemanticLifecycleHook = Arc::new(move |_, point| {
+            captured_points.lock().unwrap().push(point);
+            if point == SemanticLifecyclePoint::PublicationInside
+                && publication_hook.fetch_add(1, std::sync::atomic::Ordering::Relaxed) == 1
+            {
+                SemanticLifecycleFault::Publication
+            } else {
+                SemanticLifecycleFault::None
+            }
+        });
+        let body = (0..3)
+            .map(|i| {
+                format!(
+                    "{{\"index\":{{\"_index\":\"{name}\",\"_id\":\"{i}\"}}}}\n\
+                     {{\"content\":\"mixed output {i}\"}}\n"
+                )
+            })
+            .collect::<String>();
+        let result = crate::ingest_memory::with_test_ledger(
+            ledger,
+            with_semantic_lifecycle_hook(name, hook, process_bulk(&engine, None, &body)),
+        )
+        .await;
+        assert!(result.errors);
+        assert_eq!(
+            result
+                .items
+                .iter()
+                .map(|item| item.status)
+                .collect::<Vec<_>>(),
+            [201, 400, 201]
+        );
+        let points = points.lock().unwrap();
+        assert!(points.contains(&SemanticLifecyclePoint::EmbeddingInside));
+        assert_eq!(
+            points
+                .iter()
+                .filter(|point| **point == SemanticLifecyclePoint::PublicationInside)
+                .count(),
+            3
+        );
+        assert_eq!(all_semantic_current(ledger), 0);
+        assert_eq!(ledger.accounting_errors(), 0);
+    }
+
+    #[tokio::test]
+    async fn semantic_lifecycle_mixed_embedding_outputs_balance_per_item() {
+        let name = "semantic-lifecycle-mixed-embedding";
+        let (_dir, engine) = semantic_engine(name);
+        let ledger: &'static Ledger = Box::leak(Box::new(Ledger::new()));
+        let item = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let item_hook = Arc::clone(&item);
+        let points = Arc::new(Mutex::new(Vec::new()));
+        let captured_points = Arc::clone(&points);
+        let hook: SemanticLifecycleHook = Arc::new(move |_, point| {
+            captured_points.lock().unwrap().push((
+                point,
+                current(ledger, Category::ParsedSource),
+                current(ledger, Category::ParsedVector),
+            ));
+            if point == SemanticLifecyclePoint::EmbeddingItemInside
+                && item_hook.fetch_add(1, std::sync::atomic::Ordering::Relaxed) == 1
+            {
+                SemanticLifecycleFault::Embedding
+            } else {
+                SemanticLifecycleFault::None
+            }
+        });
+        let body = (0..3)
+            .map(|i| {
+                format!(
+                    "{{\"index\":{{\"_index\":\"{name}\",\"_id\":\"{i}\"}}}}\n\
+                     {{\"content\":\"mixed embedding output {i}\"}}\n"
+                )
+            })
+            .collect::<String>();
+        let result = crate::ingest_memory::with_test_ledger(
+            ledger,
+            with_semantic_lifecycle_hook(name, hook, process_bulk(&engine, None, &body)),
+        )
+        .await;
+        assert!(result.errors);
+        assert_eq!(
+            result
+                .items
+                .iter()
+                .map(|item| item.status)
+                .collect::<Vec<_>>(),
+            [201, 500, 201]
+        );
+        let points = points.lock().unwrap();
+        assert!(points.iter().any(|(point, parsed, _)| *point
+            == SemanticLifecyclePoint::EmbeddingInside
+            && *parsed > 0));
+        assert_eq!(
+            points
+                .iter()
+                .filter(|(point, _, _)| *point == SemanticLifecyclePoint::EmbeddingItemInside)
+                .count(),
+            3
+        );
+        assert_eq!(
+            points
+                .iter()
+                .filter(|(point, _, _)| *point == SemanticLifecyclePoint::PublicationInside)
+                .count(),
+            2
+        );
+        assert_eq!(all_semantic_current(ledger), 0);
+        assert_eq!(ledger.accounting_errors(), 0);
+    }
+
+    #[tokio::test]
+    async fn semantic_lifecycle_covers_malformed_caller_vectors_and_literal_dotted_target() {
+        let name = "semantic-lifecycle-input-shapes";
+        let (_dir, engine) =
+            semantic_engine_with_targets(name, &[("content", "custom.vector"), ("summary", "v2")]);
+        let ledger: &'static Ledger = Box::leak(Box::new(Ledger::new()));
+        let points = Arc::new(Mutex::new(Vec::new()));
+        let captured_points = Arc::clone(&points);
+        let hook: SemanticLifecycleHook = Arc::new(move |_, point| {
+            captured_points.lock().unwrap().push(point);
+            SemanticLifecycleFault::None
+        });
+        let body = format!(
+            "{{\"index\":{{\"_index\":\"{name}\",\"_id\":\"bad\"}}}}\n\
+             {{\"content\":\n\
+             {{\"index\":{{\"_index\":\"{name}\",\"_id\":\"supplied\"}}}}\n\
+             {{\"content\":\"caller vector\",\"custom.vector\":[0.1,0.2,0.3],\
+             \"summary\":\"second target\",\"v2\":[0.4,0.5]}}\n\
+             {{\"index\":{{\"_index\":\"{name}\",\"_id\":\"derived\"}}}}\n\
+             {{\"content\":\"derive literal dotted target\",\"summary\":\"derive second\"}}\n"
+        );
+        let result = crate::ingest_memory::with_test_ledger(
+            ledger,
+            with_semantic_lifecycle_hook(name, hook, process_bulk(&engine, None, &body)),
+        )
+        .await;
+        assert!(result.errors);
+        assert_eq!(
+            result
+                .items
+                .iter()
+                .map(|item| item.status)
+                .collect::<Vec<_>>(),
+            [400, 201, 201]
+        );
+        assert!(
+            ledger
+                .gauge(Category::ParsedVector, Measurement::ExactCapacity)
+                .peak
+                > 0
+        );
+        let points = points.lock().unwrap();
+        assert!(points.contains(&SemanticLifecyclePoint::EmbeddingInside));
+        assert_eq!(
+            points
+                .iter()
+                .filter(|point| **point == SemanticLifecyclePoint::PublicationInside)
+                .count(),
+            2
+        );
+        assert!(
+            ledger
+                .gauge(Category::PreparedVector, Measurement::ExactCapacity)
+                .peak
+                > 0
+        );
+        assert_eq!(all_semantic_current(ledger), 0);
+        assert_eq!(ledger.accounting_errors(), 0);
+    }
+
+    #[tokio::test]
+    async fn semantic_lifecycle_multiple_targets_and_index_creation_failure_balance() {
+        let ok = "semantic-lifecycle-target-a";
+        let fails = "semantic-lifecycle-target-b";
+        let (dir, engine) = semantic_engine(ok);
+        let mut schema = Schema::empty();
+        let mut content = FieldConfig::new("content", FieldType::Text);
+        content.options.dimensions = Some(16);
+        content.embedding = Some(EmbeddingConfig {
+            endpoint: None,
+            model: None,
+            target_field: Some("content_vector".into()),
+        });
+        schema.fields.push(content);
+        engine.create_index(fails, schema).unwrap();
+        engine.put_index_mapping(
+            fails,
+            json!({"properties": {"content": {"type": "semantic_text"}}}),
+        );
+        let ledger: &'static Ledger = Box::leak(Box::new(Ledger::new()));
+        let engine = Arc::new(engine);
+        let hook_engine = Arc::clone(&engine);
+        let collision = dir.path().join(fails);
+        let points = Arc::new(Mutex::new(Vec::new()));
+        let captured_points = Arc::clone(&points);
+        let hook: SemanticLifecycleHook = Arc::new(move |target, point| {
+            captured_points
+                .lock()
+                .unwrap()
+                .push((target.to_string(), point));
+            if target == fails && point == SemanticLifecyclePoint::Grouped {
+                let engine = Arc::clone(&hook_engine);
+                std::thread::spawn(move || {
+                    tokio::runtime::Runtime::new()
+                        .unwrap()
+                        .block_on(engine.delete_index(fails))
+                        .unwrap();
+                })
+                .join()
+                .unwrap();
+                std::fs::write(&collision, b"blocks index directory creation").unwrap();
+            }
+            SemanticLifecycleFault::None
+        });
+        let body = format!(
+            "{{\"index\":{{\"_index\":\"{ok}\",\"_id\":\"ok\"}}}}\n\
+             {{\"content\":\"first target\"}}\n\
+             {{\"index\":{{\"_index\":\"{fails}\",\"_id\":\"fail\"}}}}\n\
+             {{\"content\":\"second target\"}}\n"
+        );
+        let result = crate::ingest_memory::with_test_ledger(
+            ledger,
+            with_semantic_lifecycle_hook("*", hook, process_bulk(&engine, None, &body)),
+        )
+        .await;
+        assert!(result.errors);
+        assert_eq!(
+            result
+                .items
+                .iter()
+                .map(|item| item.status)
+                .collect::<Vec<_>>(),
+            [201, 500]
+        );
+        let points = points.lock().unwrap();
+        assert!(points.contains(&(ok.to_string(), SemanticLifecyclePoint::EmbeddingInside)));
+        assert!(points.contains(&(ok.to_string(), SemanticLifecyclePoint::PublicationInside)));
+        assert!(points.contains(&(fails.to_string(), SemanticLifecyclePoint::Grouped)));
+        assert!(!points.contains(&(fails.to_string(), SemanticLifecyclePoint::EmbeddingInside)));
+        assert_eq!(all_semantic_current(ledger), 0);
+        assert_eq!(ledger.accounting_errors(), 0);
+    }
+
+    #[tokio::test]
+    async fn tracing_off_semantic_path_skips_all_instrumentation_structures() {
+        assert_eq!(
+            crate::ingest_memory::config().mode,
+            crate::ingest_memory::TraceMode::Off,
+            "this structural proof requires tracing to be off; it must not silently skip"
+        );
+        let name = "semantic-lifecycle-disabled";
+        let (_dir, engine) = semantic_engine(name);
+        let counters = Arc::new(DisabledSemanticCounters::default());
+        let body = format!(
+            "{{\"index\":{{\"_index\":\"{name}\",\"_id\":\"one\"}}}}\n\
+             {{\"content\":\"disabled structural proof\"}}\n"
+        );
+        let result = DISABLED_SEMANTIC_COUNTERS
+            .scope(Arc::clone(&counters), process_bulk(&engine, None, &body))
+            .await;
+        assert!(!result.errors, "{:?}", result.items);
+        assert_eq!(
+            counters.snapshot(),
+            DisabledSemanticInstrumentation::default(),
+            "tracing-off path read schema, allocated its guard vector, or walked JSON for sizing"
+        );
+        assert_eq!(all_semantic_current(&crate::ingest_memory::LEDGER), 0);
+        assert_eq!(crate::ingest_memory::LEDGER.accounting_errors(), 0);
     }
 }

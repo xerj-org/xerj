@@ -2062,6 +2062,18 @@ impl Index {
         id: Option<String>,
         source: Value,
     ) -> Result<IndexResponse> {
+        #[cfg(test)]
+        if crate::bulk::semantic_lifecycle_hook(
+            self.name.as_str(),
+            crate::bulk::SemanticLifecyclePoint::PublicationInside,
+        ) == crate::bulk::SemanticLifecycleFault::Publication
+        {
+            return Err(crate::EngineError::Common(
+                xerj_common::XerjError::invalid_query(
+                    "injected semantic publication failure inside index_document_prepared",
+                ),
+            ));
+        }
         self.index_document_with_version_inner(id, source, None, None, true)
             .await
     }
@@ -3276,6 +3288,8 @@ impl Index {
                 excluded_fts_fields,
                 on_drained,
                 warm_caches,
+                #[cfg(test)]
+                None,
             )
             .await;
             // Fallback: if do_flush_shard aborted before on_drained fired
@@ -3502,6 +3516,8 @@ impl Index {
                 excluded_fts_fields.clone(),
                 || {}, // serial refresh path — no permit to drop early
                 self.publish_warm_caches(),
+                #[cfg(test)]
+                None,
             )
             .await?;
         }
@@ -3634,6 +3650,8 @@ impl Index {
                     excluded_fts_fields,
                     on_drained,
                     warm_caches,
+                    #[cfg(test)]
+                    None,
                 )
                 .await;
                 if let Ok(mut guard) = permit_cell.lock() {
@@ -6272,6 +6290,24 @@ impl Index {
                 })
                 .collect()
         };
+        #[cfg(test)]
+        if crate::bulk::semantic_lifecycle_hook(
+            self.name.as_str(),
+            crate::bulk::SemanticLifecyclePoint::EmbeddingInside,
+        ) == crate::bulk::SemanticLifecycleFault::Embedding
+        {
+            return sources
+                .into_iter()
+                .map(|_| {
+                    Err(crate::EngineError::Common(
+                        xerj_common::XerjError::invalid_query(
+                            "injected semantic embedding failure inside \
+                             apply_semantic_embeddings_batch",
+                        ),
+                    ))
+                })
+                .collect();
+        }
         if specs.is_empty() {
             return sources.into_iter().map(Ok).collect();
         }
@@ -6292,6 +6328,16 @@ impl Index {
             .mode
             .eq_ignore_ascii_case("onnx-experimental");
         for (source_idx, source) in sources.iter().enumerate() {
+            #[cfg(test)]
+            if crate::bulk::semantic_lifecycle_hook(
+                self.name.as_str(),
+                crate::bulk::SemanticLifecyclePoint::EmbeddingItemInside,
+            ) == crate::bulk::SemanticLifecycleFault::Embedding
+            {
+                pre_failures[source_idx] =
+                    Some("injected per-item semantic embedding failure".to_string());
+                continue;
+            }
             let Some(obj) = source.as_object() else {
                 continue;
             };
@@ -6494,6 +6540,11 @@ impl Index {
                 None => Ok(source),
             })
             .collect()
+    }
+
+    pub(crate) async fn semantic_vector_fields(&self) -> std::collections::HashSet<String> {
+        let schema = self.schema.read().await;
+        crate::memtable::semantic_derived_vector_fields(&schema.schema)
     }
 
     /// Hybrid (multi-query + fusion) executor. Recursively runs each
@@ -11449,6 +11500,10 @@ impl Index {
         // bounds global flush concurrency against ingest-time
         // background flushes on other indices.
         let n_shards = self.memtable.shard_count();
+        #[cfg(test)]
+        let flush_test_hook = FLUSH_PUBLISHER_TEST_HOOK
+            .try_with(FlushPublisherTestHook::clone)
+            .ok();
         let mut shard_futures = Vec::with_capacity(n_shards);
         for shard_idx in 0..n_shards {
             let sema = Arc::clone(&self.flush_sema);
@@ -11459,6 +11514,8 @@ impl Index {
             let field_configs = field_configs.clone();
             let excluded_fts_fields = excluded_fts_fields.clone();
             let warm_caches = self.publish_warm_caches();
+            #[cfg(test)]
+            let test_hook = flush_test_hook.clone();
             shard_futures.push(tokio::spawn(async move {
                 let permit = sema.acquire_owned().await.ok();
                 let permit_cell = Arc::new(std::sync::Mutex::new(permit));
@@ -11478,6 +11535,8 @@ impl Index {
                     excluded_fts_fields,
                     on_drained,
                     warm_caches,
+                    #[cfg(test)]
+                    test_hook,
                 )
                 .await;
                 // Defensive: in case on_drained didn't fire.
@@ -16775,6 +16834,18 @@ impl Drop for FlushDurationTimer {
 }
 
 #[allow(clippy::too_many_arguments)] // free fn threading the full flush-pipeline dependency set
+#[cfg(test)]
+#[derive(Clone)]
+struct FlushPublisherTestHook {
+    callback: Arc<dyn Fn() -> bool + Send + Sync>,
+    ledger: &'static crate::ingest_memory::Ledger,
+    target_memtable: usize,
+}
+#[cfg(test)]
+tokio::task_local! {
+    static FLUSH_PUBLISHER_TEST_HOOK: FlushPublisherTestHook;
+}
+
 async fn do_flush_shard(
     shard_idx: usize,
     store: Arc<IndexStore>,
@@ -16788,6 +16859,7 @@ async fn do_flush_shard(
     // read-path caches, threaded through because this is a free fn without
     // access to `Index`.
     warm_caches: PublishWarmCaches,
+    #[cfg(test)] test_hook: Option<FlushPublisherTestHook>,
 ) -> Result<()> {
     // V4 M4.5: no outer flush_lock — concurrent flushes are allowed.  The
     // memtable write lock below is the only atomicity point we need for
@@ -16810,6 +16882,8 @@ async fn do_flush_shard(
     // the row positions in the stored section.
     // Peek BEFORE drain to determine if docs came from raw-bytes or FTS insert.
     let is_raw_bytes_path = memtable.peek_shard_has_raw_bytes(shard_idx);
+    #[cfg(test)]
+    let test_target = Arc::as_ptr(&memtable) as usize;
 
     // THROWAWAY prof: per-flush finalize breakdown, gated on XERJ_PROF.
     let prof = std::env::var_os("XERJ_PROF").is_some();
@@ -16837,13 +16911,22 @@ async fn do_flush_shard(
             std::sync::Arc<serde_json::Value>,
         )>,
         xerj_storage::index_store::DrainedMemtable,
+        crate::ingest_memory::Retained<'static>,
     )> = {
         let t_drain = std::time::Instant::now();
-        let raw = if is_raw_bytes_path {
-            memtable.drain_shard_raw(shard_idx)
+        #[cfg(test)]
+        let test_ledger = test_hook
+            .as_ref()
+            .filter(|hook| hook.target_memtable == test_target)
+            .map(|hook| hook.ledger);
+        #[cfg(test)]
+        let (raw, _drained_memory) = if let Some(ledger) = test_ledger {
+            memtable.drain_shard_accounted_for_test(shard_idx, is_raw_bytes_path, ledger)
         } else {
-            memtable.drain_shard(shard_idx)
+            memtable.drain_shard_accounted(shard_idx, is_raw_bytes_path)
         };
+        #[cfg(not(test))]
+        let (raw, _drained_memory) = memtable.drain_shard_accounted(shard_idx, is_raw_bytes_path);
         prof_drain_us = t_drain.elapsed().as_micros();
         let t_prep = std::time::Instant::now();
         let _ = &t_prep;
@@ -16922,7 +17005,7 @@ async fn do_flush_shard(
                 entries: storage_entries,
             };
             prof_prep_us = t_prep.elapsed().as_micros();
-            Some((drained_fts, storage_drained))
+            Some((drained_fts, storage_drained, _drained_memory))
         }
     };
 
@@ -16939,7 +17022,7 @@ async fn do_flush_shard(
     // tmpfs.
     on_drained();
 
-    let (drained_fts, storage_drained) = match drained_opt {
+    let (drained_fts, storage_drained, _drained_memory) = match drained_opt {
         Some(pair) => pair,
         None => return Ok(()),
     };
@@ -16972,6 +17055,17 @@ async fn do_flush_shard(
     // 50-100 ms segment write that follows, and 100K-doc/s ingest
     // bench numbers are unaffected.
     let build_fts = move |meta: &xerj_storage::segment::SegmentMeta| -> xerj_storage::Result<()> {
+        #[cfg(test)]
+        let test_callback = test_hook
+            .as_ref()
+            .filter(|hook| hook.target_memtable == test_target)
+            .map(|hook| Arc::clone(&hook.callback));
+        #[cfg(test)]
+        if let Some(callback) = test_callback {
+            if callback() {
+                return Err(std::io::Error::other("injected flush publisher failure").into());
+            }
+        }
         // Whole side-car build runs on the dedicated ingest pool so a
         // flush burst can't queue search/agg par_iters behind it on the
         // global rayon pool (read-under-write; see `crate::ingest_pool`).
@@ -28913,5 +29007,87 @@ mod write_publication_integration_tests {
         assert_eq!(aggs["max_revision"]["value"], 2.0);
         assert_eq!(aggs["tags"]["buckets"].as_array().unwrap().len(), 1);
         assert_eq!(aggs["tags"]["buckets"][0]["key"], "current");
+    }
+}
+
+#[cfg(test)]
+mod flush_memory_integration_tests {
+    use super::*;
+    use crate::ingest_memory::{Category, Ledger, Measurement};
+    use serde_json::json;
+    struct PublisherRelease(Option<std::sync::mpsc::SyncSender<()>>);
+    impl PublisherRelease {
+        fn release(&mut self) {
+            if let Some(tx) = self.0.take() {
+                let _ = tx.send(());
+            }
+        }
+    }
+    impl Drop for PublisherRelease {
+        fn drop(&mut self) {
+            self.release();
+        }
+    }
+
+    async fn run_flush_memory_case(name: &'static str, inject_error: bool) {
+        let ledger: &'static Ledger = Box::leak(Box::new(Ledger::new()));
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index(name, Schema::empty()).unwrap();
+        let idx = engine.get_index(name).unwrap();
+        idx.index_document(Some("doc".into()), json!({"body": "retained"}))
+            .await
+            .unwrap();
+        assert!(idx.memtable_bytes() > 0);
+
+        let (entered_tx, entered_rx) = std::sync::mpsc::sync_channel(1);
+        let (release_tx, release_rx) = std::sync::mpsc::sync_channel(1);
+        let mut publisher_release = PublisherRelease(Some(release_tx));
+        let entered_tx = parking_lot::Mutex::new(Some(entered_tx));
+        let release_rx = parking_lot::Mutex::new(Some(release_rx));
+        let hook = FlushPublisherTestHook {
+            callback: Arc::new(move || {
+                entered_tx.lock().take().unwrap().send(()).unwrap();
+                let _ = release_rx.lock().take().unwrap().recv();
+                inject_error
+            }),
+            ledger,
+            target_memtable: Arc::as_ptr(&idx.memtable) as usize,
+        };
+
+        let flush = {
+            let idx = Arc::clone(&idx);
+            tokio::spawn(FLUSH_PUBLISHER_TEST_HOOK.scope(hook, async move { idx.flush().await }))
+        };
+        tokio::task::spawn_blocking(move || entered_rx.recv().unwrap())
+            .await
+            .unwrap();
+        assert_eq!(idx.memtable_bytes(), 0);
+        assert!(
+            ledger
+                .gauge(Category::FlushDrained, Measurement::Estimated)
+                .current
+                > 0
+        );
+        publisher_release.release();
+        let result = flush.await.unwrap();
+        assert_eq!(result.is_err(), inject_error);
+        assert_eq!(
+            ledger
+                .gauge(Category::FlushDrained, Measurement::Estimated)
+                .current,
+            0
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn parallel_real_flushes_route_isolated_ledgers_through_success_and_error() {
+        let (success, failure) = tokio::join!(
+            run_flush_memory_case("flush-memory-success", false),
+            run_flush_memory_case("flush-memory-failure", true),
+        );
+        assert_eq!((success, failure), ((), ()));
     }
 }
