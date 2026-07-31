@@ -24,6 +24,7 @@ import {
   defaultClusterId, setDefaultCluster,
 } from './data/data-sources.js';
 import { sbBrainsPresent } from './data/brains-probe.js';
+import { dataFeaturesPresent, emptyDataFeatures } from './data/data-probe.js';
 import { activeBackendId, backendBaseUrl } from './data/backends/index.js';
 
 // ---------- state -----------------------------------------
@@ -94,7 +95,7 @@ const state = {
   // `requiresLive: '<key>'` only appears in the NAV once the matching
   // key here is true (fed by a probe against the live engine). Routes
   // and MANAGE are never filtered — a deep link must always resolve.
-  liveFeatures: { brains: false },
+  liveFeatures: { brains: false, ...emptyDataFeatures() },
 };
 // Merge any URL-seeded filters into the current dashboard's filter set.
 if (_urlState.filters) {
@@ -284,9 +285,21 @@ async function probeLiveFeatures() {
   if (_probingLive) return;
   _probingLive = true;
   try {
-    const brains = await sbBrainsPresent(backendBaseUrl(activeBackendId()));
-    if (brains !== state.liveFeatures.brains) {
-      state.liveFeatures.brains = brains;
+    const base = backendBaseUrl(activeBackendId());
+    // Two cheap probes: brains (.xerj-memory-*-edges) + the data-plane classes
+    // (chat-events, vector-ops, agent-memory, anomalies, logs-*). Each dashboard
+    // gates its nav entry on its own key so a fresh / brain-only engine never
+    // advertises a mock-filled telemetry dashboard.
+    const [brains, dataFeat] = await Promise.all([
+      sbBrainsPresent(base),
+      dataFeaturesPresent(base),
+    ]);
+    const next = { brains, ...dataFeat };
+    let changed = false;
+    for (const k of Object.keys(next)) {
+      if (next[k] !== state.liveFeatures[k]) { state.liveFeatures[k] = next[k]; changed = true; }
+    }
+    if (changed) {
       // Same guards as the store/panel re-render hooks: never nuke an
       // in-flight drag gesture or steal focus from a form field.
       const ae = document.activeElement;
@@ -900,17 +913,35 @@ async function render() {
   // the user metadata store. User-cloned dashboards inherit their
   // render from their clonedFrom template.
   const allDash = mergedDashboards(defaults, { includeHidden: true });
-  const dash = allDash.find((d) => d.id === state.route)
-    || dashboardsInSection(state.section, allDash)[0]
-    || registry['ai-overview'];
-  // NAV list only: hide live-gated dashboards until their probe says
-  // the engine has data for them (e.g. Second Brain before any
-  // `xerj brain` run). `allDash` above is deliberately NOT filtered —
-  // the deep link a fresh `xerj brain` prints must resolve instantly;
-  // the nav catches up on the next probe tick.
+  // NAV list only: hide live-gated dashboards until their probe says the engine
+  // holds their data (Second Brain before any `xerj brain`; the telemetry
+  // dashboards before anything is ingested). `allDash` stays unfiltered so a
+  // deep link resolves instantly; the nav catches up on the next probe tick.
   const navDash = mergedDashboards(defaults)
     .filter((d) => !d.requiresLive || state.liveFeatures[d.requiresLive]);
   const dashboardsForSection = dashboardsInSection('dashboards', navDash);
+  // Secondary nav: drop dashboard GROUPS that have no visible members, so an
+  // empty "Logs" group doesn't linger on a brain-only engine.
+  const activeGroups = DASHBOARD_GROUPS.filter((g) => dashboardsForSection.some((d) => d.group === g.id));
+
+  // Which dashboard to RENDER. An explicit deep link (`#/dashboards/<id>`)
+  // resolves even if that id is currently gated — a fresh `xerj brain` prints
+  // exactly such a link and it must open before the probe confirms the brain.
+  // But the DEFAULT landing must never open a gated, mock-filled dashboard: fall
+  // through to the first VISIBLE one (Second Brain on a brain-only engine, or
+  // System — always-on — on a truly empty engine).
+  const explicitDeepLink = /#\/dashboards\/[a-z0-9._-]+/i
+    .test((typeof location !== 'undefined' && location.hash) || '');
+  const routed = allDash.find((d) => d.id === state.route);
+  const routedGated = routed && routed.requiresLive && !state.liveFeatures[routed.requiresLive];
+  // Deliberately NOT synced back to state.route: keeping the (gated) default
+  // route means the fallthrough re-resolves to the first VISIBLE dashboard on
+  // every render, so the landing follows the probe — System on an empty engine,
+  // then Second Brain the moment a `xerj brain` run registers a brain. An
+  // explicit deep link sets state.route itself and takes the first branch.
+  const dash = (routed && (explicitDeepLink || !routedGated))
+    ? routed
+    : (dashboardsInSection(state.section, navDash)[0] || navDash[0] || registry['system']);
 
   // For the SEARCH dashboard, eagerly run the search so panels see hits.
   if (dash.id === 'search-discover' && !state.search.result) {
@@ -964,7 +995,7 @@ async function render() {
     }
     if (fetchErr) {
       app.innerHTML = `
-        ${Nav({ sections: SECTIONS, activeSection: state.section, dashboards: dashboardsForSection, groups: DASHBOARD_GROUPS, activeDash: dash.id, theme: state.theme, edit: state.edit, status: navStatus() })}
+        ${Nav({ sections: SECTIONS, activeSection: state.section, dashboards: dashboardsForSection, groups: activeGroups, activeDash: dash.id, theme: state.theme, edit: state.edit, status: navStatus() })}
         <div class="scene"><div class="key" style="margin-bottom:12px;">ERROR</div><h1 class="h-scene">CANNOT LOAD</h1></div>
         <pre class="mono faint" style="white-space:pre-wrap; font-size:var(--fs-13);">${esc((fetchErr && fetchErr.stack) || fetchErr)}</pre>
         <div style="margin-top:var(--sp-6);"><button type="button" data-retry class="text-btn">RETRY</button></div>`;
@@ -1053,7 +1084,7 @@ async function render() {
       sections: SECTIONS,
       activeSection: state.section,
       dashboards: dashboardsForSection,
-      groups: DASHBOARD_GROUPS,
+      groups: activeGroups,
       activeDash: dash.id,
       theme: state.theme,
       edit: state.edit,

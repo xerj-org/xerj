@@ -56,6 +56,19 @@ for (const d of [aiOverview, ragQuality, vectorIndex, agentMemory, secondBrain, 
 // Routing, MANAGE, and deep links (`#/dashboards/second-brain?...`)
 // always resolve; only nav presence is gated.
 secondBrain.requiresLive = 'brains';
+// Same gate for the data-plane dashboards: each falls back to full MOCK data
+// when its backing index is empty (data/backends/xerj.js → mock.js), so a fresh
+// or brain-only engine that showed them would advertise fabricated numbers. Each
+// earns a nav entry only once its own data-class index exists (fed by
+// data/data-probe.js → state.liveFeatures). Deep links still resolve; only nav
+// presence is gated. 'system' stays always-on (cluster stats always exist).
+aiOverview.requiresLive     = 'chat-events';
+ragQuality.requiresLive     = 'chat-events';
+vectorIndex.requiresLive    = 'vector-ops';
+agentMemory.requiresLive    = 'agent-memory';
+anomalyDetect.requiresLive  = 'anomalies';
+ingestPipeline.requiresLive = 'logs-ingest-events';
+logsOverview.requiresLive   = 'logs';
 // Search-discover gets tagged as the DISCOVER section (promoted out of the dashboards list).
 searchDiscover.section = 'discover';
 
