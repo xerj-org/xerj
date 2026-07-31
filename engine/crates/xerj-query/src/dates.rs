@@ -163,6 +163,39 @@ pub fn compile_formats(format: &str) -> Result<Vec<DateFmt>, DateResolveError> {
     format.split("||").map(compile_one_format).collect()
 }
 
+/// Does `value` parse as a valid date under any of the compiled `formats`?
+/// This is the ingest-time validation check (`ignore_malformed` decides
+/// whether a field that fails this gets dropped or the whole doc rejected),
+/// so it must match ES's actual acceptance rules precisely:
+///
+/// * A JSON number is valid input ONLY for an epoch format (`epoch_millis`/
+///   `epoch_second`) — a non-epoch format (including a *named* strict
+///   format like `strict_date_time`) never accepts a bare number, no matter
+///   how integer-shaped it looks.
+/// * A string is valid whenever ANY member of a `||`-joined format list
+///   parses it — reusing [`parse_with_format`], the same parser
+///   [`resolve_date_bound_str`] uses for range-query bounds, so named
+///   formats (`strict_date_time`, `date_optional_time`, ...) resolve to
+///   their real pattern instead of being matched as literal text.
+pub fn date_value_matches_formats(value: &serde_json::Value, formats: &[DateFmt]) -> bool {
+    match value {
+        serde_json::Value::Null => true,
+        serde_json::Value::Number(n) => {
+            formats
+                .iter()
+                .any(|f| matches!(f, DateFmt::EpochMillis | DateFmt::EpochSecond))
+                && n.as_i64().is_some()
+        }
+        serde_json::Value::String(s) => {
+            let s = s.trim();
+            formats
+                .iter()
+                .any(|f| parse_with_format(f, s, false).is_some())
+        }
+        _ => false,
+    }
+}
+
 fn compile_one_format(name: &str) -> Result<DateFmt, DateResolveError> {
     // Named builtins first (both strict_ and lenient joda names).
     let pattern: &str = match name {
@@ -830,6 +863,75 @@ mod tests {
 
     fn iso(v: &str, up: bool) -> String {
         resolve_date_bound_str(v, up, None).unwrap().unwrap()
+    }
+
+    // ── date_value_matches_formats (ingest-time ignore_malformed check) ──────
+    // Regression coverage for a real bug found live against OpenSearch's UBI
+    // sample dashboards: a named strict format like `strict_date_time` was
+    // matched as literal text (never resolving to its actual pattern), so
+    // every valid ISO string was wrongly rejected, while a bare epoch-millis
+    // number was wrongly ACCEPTED under any format, non-epoch included —
+    // exactly backwards from real Elasticsearch/OpenSearch behavior
+    // (confirmed by replaying the same mapping + documents against a real
+    // OpenSearch 2.11.1 node).
+
+    #[test]
+    fn named_strict_format_accepts_matching_iso_string() {
+        let formats = compile_formats("strict_date_time").unwrap();
+        let v = serde_json::json!("2024-01-01T00:00:00.000Z");
+        assert!(date_value_matches_formats(&v, &formats));
+    }
+
+    #[test]
+    fn named_strict_format_rejects_bare_number() {
+        // strict_date_time has no epoch_millis in its format list, so a raw
+        // number must NOT be accepted — matching real OpenSearch, which
+        // ignores this exact value under this exact mapping.
+        let formats = compile_formats("strict_date_time").unwrap();
+        let v = serde_json::json!(1717527762025i64);
+        assert!(!date_value_matches_formats(&v, &formats));
+    }
+
+    #[test]
+    fn epoch_millis_format_accepts_number_and_numeric_string() {
+        let formats = compile_formats("epoch_millis").unwrap();
+        assert!(date_value_matches_formats(
+            &serde_json::json!(1717527762025i64),
+            &formats
+        ));
+        assert!(date_value_matches_formats(
+            &serde_json::json!("1717527762025"),
+            &formats
+        ));
+    }
+
+    #[test]
+    fn combined_format_accepts_either_half() {
+        let formats = compile_formats("strict_date_time||epoch_millis").unwrap();
+        assert!(date_value_matches_formats(
+            &serde_json::json!("2024-01-01T00:00:00.000Z"),
+            &formats
+        ));
+        assert!(date_value_matches_formats(
+            &serde_json::json!(1717527762025i64),
+            &formats
+        ));
+    }
+
+    #[test]
+    fn named_strict_format_rejects_malformed_string() {
+        let formats = compile_formats("strict_date_time").unwrap();
+        let v = serde_json::json!("not-a-date");
+        assert!(!date_value_matches_formats(&v, &formats));
+    }
+
+    #[test]
+    fn null_value_always_matches() {
+        let formats = compile_formats("strict_date_time").unwrap();
+        assert!(date_value_matches_formats(
+            &serde_json::Value::Null,
+            &formats
+        ));
     }
 
     #[test]
