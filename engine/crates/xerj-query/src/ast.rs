@@ -377,6 +377,18 @@ pub enum QueryNode {
     /// Matches documents whose `_id` is in the given list.
     Ids { values: Vec<String> },
 
+    /// A standalone Painless `script` query — matches when the script
+    /// (given the doc's `_source` via `doc`/`params`) evaluates truthy.
+    /// Distinct from `script_score` (a `function_score` scoring function):
+    /// this one is a boolean filter, no scoring involved. Used e.g. by
+    /// OpenSearch's UBI sample dashboards ("Top Searches Without Results")
+    /// to filter on a computed field via a boolean Supplier-lambda script.
+    Script {
+        source: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        params: Option<serde_json::Value>,
+    },
+
     // ── Full-text ─────────────────────────────────────────────────────────────
     /// Analysed text query against a single field.
     Match {

@@ -23677,7 +23677,8 @@ fn query_needs_id_injection(q: &QueryNode) -> bool {
         | QueryNode::GeoShape { .. }
         | QueryNode::SpanTerm { .. }
         | QueryNode::MoreLikeThis { .. }
-        | QueryNode::Percolate { .. } => false,
+        | QueryNode::Percolate { .. }
+        | QueryNode::Script { .. } => false,
         QueryNode::Bool {
             must,
             should,
@@ -23914,6 +23915,25 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
                     _ => None,
                 })
                 .unwrap_or(false)
+        }
+
+        QueryNode::Script {
+            source: src,
+            params,
+        } => {
+            let empty = Value::Object(serde_json::Map::new());
+            let p = params.as_ref().unwrap_or(&empty);
+            let ctx = crate::painless::PainlessCtx::new(source, p, 0.0);
+            // ES requires a `script` query's script to return a boolean;
+            // a script that errors, or returns anything else (a number, a
+            // string, ...), never matches — real ES throws a script-cast
+            // exception in that case, which drops the doc in filter
+            // contexts, so this fails closed the same way rather than
+            // truthy-coercing a non-boolean result.
+            matches!(
+                crate::painless::eval_painless(src, &ctx),
+                Ok(crate::painless::PainlessValue::Bool(true))
+            )
         }
 
         QueryNode::Ids { values } => {
@@ -30931,6 +30951,58 @@ mod percolate_tests {
 
         let stored2 = json!({ "query": "not-an-object" });
         assert!(!doc_matches_query(&q, &stored2));
+    }
+}
+
+#[cfg(test)]
+mod script_query_tests {
+    //! A standalone `script` query is a boolean filter (no scoring), used
+    //! e.g. by OpenSearch's UBI sample dashboards to filter on a computed
+    //! field via a Painless boolean lambda. Distinct from `script_score`.
+    use super::*;
+    use serde_json::json;
+    use xerj_query::ast::QueryNode;
+
+    #[test]
+    fn script_query_matches_when_truthy() {
+        let doc = json!({"x": 10});
+        let q = QueryNode::Script {
+            source: "doc['x'].value > params.min".to_string(),
+            params: Some(json!({"min": 5})),
+        };
+        assert!(doc_matches_query(&q, &doc));
+    }
+
+    #[test]
+    fn script_query_no_match_when_falsy() {
+        let doc = json!({"x": 1});
+        let q = QueryNode::Script {
+            source: "doc['x'].value > params.min".to_string(),
+            params: Some(json!({"min": 5})),
+        };
+        assert!(!doc_matches_query(&q, &doc));
+    }
+
+    #[test]
+    fn script_query_fails_closed_on_script_error() {
+        let doc = json!({"x": 1});
+        let q = QueryNode::Script {
+            source: "this is not valid painless".to_string(),
+            params: None,
+        };
+        assert!(!doc_matches_query(&q, &doc));
+    }
+
+    #[test]
+    fn script_query_fails_closed_on_non_boolean_result() {
+        // A script that evaluates to a number (not a boolean) must not match
+        // — ES itself requires `script` queries to return a boolean.
+        let doc = json!({"x": 1});
+        let q = QueryNode::Script {
+            source: "1 + 1".to_string(),
+            params: None,
+        };
+        assert!(!doc_matches_query(&q, &doc));
     }
 }
 

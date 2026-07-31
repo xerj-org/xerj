@@ -296,6 +296,7 @@ pub fn parse_query(json: &Value) -> Result<QueryNode> {
         "wildcard" => parse_wildcard(params),
         "exists" => parse_exists(params),
         "ids" => parse_ids(params),
+        "script" => parse_script(params),
         "bool" => parse_bool(params),
         "query_string" => parse_query_string(params),
         "constant_score" => parse_constant_score(params),
@@ -1091,6 +1092,23 @@ fn parse_ids(params: &Value) -> Result<QueryNode> {
         }
     }
     Ok(node)
+}
+
+fn parse_script(params: &Value) -> Result<QueryNode> {
+    let obj = params
+        .as_object()
+        .ok_or_else(|| qerr("`script` must be an object"))?;
+    let script = obj
+        .get("script")
+        .and_then(Value::as_object)
+        .ok_or_else(|| qerr("`script.script` is required"))?;
+    let source = script
+        .get("source")
+        .and_then(Value::as_str)
+        .ok_or_else(|| qerr("`script.script.source` is required"))?
+        .to_string();
+    let params = script.get("params").cloned();
+    Ok(QueryNode::Script { source, params })
 }
 
 fn parse_query_string(params: &Value) -> Result<QueryNode> {
@@ -4346,6 +4364,43 @@ mod tests {
         } else {
             panic!("wrong variant");
         }
+    }
+
+    // ── script ────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_script_query() {
+        let node = q(json!({
+            "script": {
+                "script": {
+                    "source": "doc['x'].value > params.min",
+                    "params": {"min": 5}
+                }
+            }
+        }));
+        if let QueryNode::Script { source, params } = node {
+            assert_eq!(source, "doc['x'].value > params.min");
+            assert_eq!(params, Some(json!({"min": 5})));
+        } else {
+            panic!("wrong variant");
+        }
+    }
+
+    #[test]
+    fn test_script_query_no_params() {
+        let node = q(json!({"script": {"script": {"source": "true"}}}));
+        if let QueryNode::Script { source, params } = node {
+            assert_eq!(source, "true");
+            assert_eq!(params, None);
+        } else {
+            panic!("wrong variant");
+        }
+    }
+
+    #[test]
+    fn test_script_query_missing_source_errs() {
+        let result = parse_query(&json!({"script": {"script": {}}}));
+        assert!(result.is_err());
     }
 
     // ── bool ──────────────────────────────────────────────────────────────────
