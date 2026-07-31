@@ -24,6 +24,24 @@ fs2 = "0.4"
 # (std threads), invoked from the server binary via spawn_blocking.
 reqwest = { workspace = true, features = ["blocking"] }
 
+# --- AST code extraction (tree-sitter). Grammars expose a tree-sitter-language
+# LanguageFn, decoupled from the core version, so one core serves all. ---
+tree-sitter = "0.25"
+tree-sitter-python = "0.23"
+tree-sitter-c = "0.23"
+tree-sitter-rust = "0.23"
+tree-sitter-javascript = "0.23"
+tree-sitter-go = "0.23"
+tree-sitter-typescript = "0.23"
+tree-sitter-java = "0.23"
+tree-sitter-cpp = "0.23"
+tree-sitter-ruby = "0.23"
+tree-sitter-php = "0.23"
+tree-sitter-c-sharp = "0.23"
+tree-sitter-bash = "0.23"
+streaming-iterator = "0.1"
+
+
 # Format-family extractors (new deps, isolated to this crate):
 flate2 = "1"                                     # gzip streaming (rust backend)
 pdf_oxide = { version = "=0.3.75", default-features = false, features = ["legacy-crypto"] }

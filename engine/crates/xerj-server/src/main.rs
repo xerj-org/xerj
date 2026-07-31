@@ -44,10 +44,28 @@ static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 // 1 s dirty/muzzy decay purges freed pages continuously; the same load then
 // holds a flat working-set RSS.  Ingest throughput cost measured: none
 // (within noise, ~36k docs/s single-index bulk either way).
-#[cfg(all(not(target_env = "msvc"), not(feature = "debug-profiling")))]
+#[cfg(all(
+    not(target_env = "msvc"),
+    not(feature = "debug-profiling"),
+    target_os = "linux"
+))]
 #[allow(non_upper_case_globals)]
 #[export_name = "_rjem_malloc_conf"]
 pub static malloc_conf: &[u8] = b"background_thread:true,dirty_decay_ms:1000,muzzy_decay_ms:1000\0";
+
+// macOS (and other non-Linux unix) jemalloc has no pthread background_thread
+// support, so `background_thread:true` only prints `<jemalloc>: option
+// background_thread currently supports pthread only` on every launch (reported
+// by users running `xerj autoindex` on macOS). Keep the aggressive decay policy
+// — it still purges freed pages on allocator ticks — without the unsupported knob.
+#[cfg(all(
+    not(target_env = "msvc"),
+    not(feature = "debug-profiling"),
+    not(target_os = "linux")
+))]
+#[allow(non_upper_case_globals)]
+#[export_name = "_rjem_malloc_conf"]
+pub static malloc_conf: &[u8] = b"dirty_decay_ms:1000,muzzy_decay_ms:1000\0";
 
 // Preserve the production decay policy. Merely compiling this feature enables
 // jemalloc's profiler; sampling remains inactive until the local controller
@@ -1256,7 +1274,57 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
 ///
 /// Override with `TOKIO_WORKER_THREADS` (operators on very small or very large
 /// hosts, or wanting the stock `ncpus` behaviour, can set it explicitly).
+/// Raise the process open-file limit toward the OS hard limit before anything
+/// else runs. Every index holds segment mmaps, a WAL and a merge task, so
+/// discovering a large source tree (Django infers ~73 datasets → ~73 indices)
+/// opens thousands of descriptors. On a default macOS soft limit (often 256)
+/// the server exhausts them mid-run and index creation fails with
+/// `Too many open files` (EMFILE, os error 24) — reproduced against a real
+/// `django` clone. Bump the soft limit to the hard limit, stepping down if the
+/// kernel (`kern.maxfilesperproc` on macOS) rejects the target. Best-effort:
+/// any failure here is non-fatal (the server just runs with the inherited cap).
+#[cfg(unix)]
+fn raise_nofile_limit() {
+    unsafe {
+        let mut lim = libc::rlimit {
+            rlim_cur: 0,
+            rlim_max: 0,
+        };
+        if libc::getrlimit(libc::RLIMIT_NOFILE, &mut lim) != 0 {
+            return;
+        }
+        let cur = lim.rlim_cur;
+        // An "infinity" hard limit (macOS launchd) must be capped to a concrete
+        // value or setrlimit fails outright; 1,048,576 is generous headroom.
+        let hard = if lim.rlim_max == libc::RLIM_INFINITY {
+            1_048_576
+        } else {
+            lim.rlim_max
+        };
+        if hard <= cur {
+            return; // already at the ceiling
+        }
+        let mut want = hard;
+        loop {
+            let next = libc::rlimit {
+                rlim_cur: want,
+                rlim_max: lim.rlim_max,
+            };
+            if libc::setrlimit(libc::RLIMIT_NOFILE, &next) == 0 {
+                return; // raised
+            }
+            if want <= cur.saturating_add(1) {
+                return; // can't beat the inherited soft limit; leave it be
+            }
+            want = (want / 2).max(cur + 1);
+        }
+    }
+}
+
 fn main() -> Result<()> {
+    #[cfg(unix)]
+    raise_nofile_limit();
+
     // Dispatch before creating Tokio's pool so each PDF worker stays small.
     if matches!(std::env::args().nth(1).as_deref(), Some("__extract-pdf")) {
         std::process::exit(xerj_autoindex::extract::pdf::run_worker_cli());

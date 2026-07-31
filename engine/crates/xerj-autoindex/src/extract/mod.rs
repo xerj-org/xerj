@@ -2,6 +2,7 @@
 //! Every extractor is bounded-memory and never fatal: parse failures
 //! downgrade (family → txt → junk-with-metadata) and are counted.
 
+pub mod code;
 pub mod csv_x;
 pub mod docx;
 pub mod html;
@@ -110,6 +111,7 @@ pub fn extract(
         Family::Docx => docx::extract(path, sink),
         Family::Sqlite => sqlite_x::extract(path, limit_bytes.map(|_| 500), sink),
         Family::SqlDump => sqldump::extract(path, sn.gzip, limit_bytes, sink),
+        Family::Code => code::extract(path, sink),
         Family::Binary => Ok(ExtractStats::default()),
     }
 }

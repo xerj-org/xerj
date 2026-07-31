@@ -22,6 +22,8 @@ pub enum Family {
     Docx,
     Sqlite,
     SqlDump,
+    /// Source code — AST-parsed by the matching tree-sitter grammar.
+    Code,
     Binary,
 }
 
@@ -41,6 +43,7 @@ impl Family {
             Family::Docx => "docx",
             Family::Sqlite => "sqlite",
             Family::SqlDump => "sqldump",
+            Family::Code => "code",
             Family::Binary => "binary",
         }
     }
@@ -163,6 +166,18 @@ fn sniff_bytes(prefix: &[u8], path: &Path, gzip: bool) -> Result<Sniffed> {
         let mut s = mk(Family::Binary);
         s.binary_kind = Some("unknown".into());
         return Ok(s);
+    }
+
+    // 2b. Source code: a known code extension whose content is text. We only
+    // reach here after the binary guards above, so a text `.py`/`.rs`/`.go`/…
+    // routes to the tree-sitter AST extractor (crate::extract::code). Extension
+    // is the right signal — code vs prose is not reliably content-sniffable.
+    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+        if crate::extract::code::is_code_ext(ext) {
+            let mut s = mk(Family::Code);
+            s.encoding = encoding;
+            return Ok(s);
+        }
     }
 
     // 3. Text heuristics — complete lines only (last line may be truncated).
