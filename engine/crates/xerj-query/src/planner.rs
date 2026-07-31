@@ -590,6 +590,10 @@ fn plan_node(query: QueryNode, schema: &Schema) -> ExecutionPlan {
         // engine's doc-scan path; MatchAll satisfies exhaustiveness here.
         QueryNode::Percolate { .. } => ExecutionPlan::MatchAll,
 
+        // Script: no index can back an arbitrary Painless predicate — pure
+        // doc-scan, same as Percolate above.
+        QueryNode::Script { .. } => ExecutionPlan::MatchAll,
+
         // ── Span queries — treat as doc-scans ────────────────────────────────
         QueryNode::SpanTerm { field, value } => ExecutionPlan::FtsScan {
             field,
