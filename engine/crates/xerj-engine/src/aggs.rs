@@ -4512,6 +4512,67 @@ mod parse_date_ms_tests {
         assert_eq!(zone_offset_parses_for(&"0123456789".repeat(6554)), 0);
     }
 
+    /// The scaling loop above is true but does not DISCRIMINATE: an unbounded
+    /// scan passes it. Growing a homogeneous filler cannot expose a scan,
+    /// because a `"+"` filler contains a `+` at every length and an `"a"`
+    /// filler contains none at every length, so the scan's answer is invariant
+    /// under exactly the transformation being applied. (Verified: replacing
+    /// this function's body with the previous O(len) scan leaves that test
+    /// green.)
+    ///
+    /// The property that actually characterises the fix is that the answer is
+    /// a function of `(len, last ZONE_OFFSET_PROBE_BYTES bytes)` and nothing
+    /// else. So hold BOTH the length and the window fixed and perturb a byte
+    /// strictly below `len - ZONE_OFFSET_PROBE_BYTES`. A windowed probe cannot
+    /// see the edit; a scan can, and does — the same sweep run against the old
+    /// scan violates this on 465 of 480 cases.
+    #[test]
+    fn zone_offset_probe_ignores_every_byte_below_its_window() {
+        let tails = [
+            "+0000", "-05:30", "+00 00", "+00:::00", "aaaaaa", "abc123", "Z12345", ".102Z0",
+        ];
+        // Single-byte edits only: a lone continuation byte is not valid UTF-8,
+        // so it could never reach this function through a `&str` anyway. The
+        // `>= 0x80` arm of `is_zone_offset_separator` is exercised by the
+        // golden matrix's real multi-byte separators instead.
+        let injected = *b"+-:,a0 T.";
+        let mut checks = 0usize;
+        for tail in tails {
+            for len in [12usize, 22, 40, 97, ZONE_OFFSET_PROBE_BYTES + 512] {
+                // Need room for the tail plus at least one byte in front of
+                // the window to perturb.
+                if len < tail.len() + 1 {
+                    continue;
+                }
+                // `base` pins the window (the last six bytes) and pads in
+                // front with bytes the probe must ignore.
+                let pad = len - tail.len();
+                let base: Vec<u8> = b"a".repeat(pad).into_iter().chain(tail.bytes()).collect();
+                assert_eq!(base.len(), len);
+                let want = may_carry_zone_offset(std::str::from_utf8(&base).unwrap());
+                for &inj in &injected {
+                    // Every position strictly below the window.
+                    for pos in 0..base.len().saturating_sub(ZONE_OFFSET_PROBE_BYTES) {
+                        let mut probe = base.clone();
+                        probe[pos] = inj;
+                        let s = std::str::from_utf8(&probe).expect("ascii edit stays utf8");
+                        checks += 1;
+                        assert_eq!(
+                            may_carry_zone_offset(s),
+                            want,
+                            "probe answered differently after editing byte {pos} of {} \
+                             (below the {ZONE_OFFSET_PROBE_BYTES}-byte window) to {inj:#04x}; \
+                             the window is unmoved, so it must have read past it",
+                            base.len()
+                        );
+                    }
+                }
+            }
+        }
+        // Guard against the sweep silently becoming empty and passing.
+        assert!(checks > 1000, "sweep only ran {checks} checks");
+    }
+
     /// Golden matrix over every input class this function accepts, generated
     /// from the implementation as it stood before the issue #96 guard went in.
     /// Guarding the no-colon `%z` branch is a pure placement change, so every
