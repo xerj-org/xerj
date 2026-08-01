@@ -193,6 +193,37 @@ impl SegEntry {
     }
 }
 
+/// True when `field` is a dotted JSON path (`geo.dest`, `machine.ram`,
+/// `machine.os.keyword`) that fast_aggs cannot resolve to any column —
+/// neither the exact name nor its `.keyword`-stripped form (see
+/// `SegEntry::col`) — AND its top-level root is mapped `object`/`nested` in
+/// the schema. That combination means the field is a genuine nested
+/// sub-path fast_aggs' flat columnar storage structurally cannot reach, not
+/// a field that's simply absent from the index — an absent field's root
+/// isn't schema-mapped at all, and IS a valid empty/null result worth
+/// returning. A free function (not a `FastCtx` method) so it's testable
+/// without constructing a full `FastCtx`, which needs a real `&Index`.
+///
+/// `object_fields` holds the names of every schema field mapped `object` or
+/// `nested` — see `FastCtx::object_fields` for why a schema-based check is
+/// required here instead of a physical-column one (segments never carry a
+/// column for an object/nested field itself, only for its scalar leaves, so
+/// "does the dotted path's root resolve as a column" is always false and
+/// can't distinguish a genuinely nested path from a genuinely absent one).
+fn field_needs_brute_fallback(
+    field: &str,
+    segs: &[SegEntry],
+    object_fields: &std::collections::HashSet<String>,
+) -> bool {
+    if segs.iter().any(|s| s.col(field).is_some()) {
+        return false;
+    }
+    let Some(dot) = field.find('.') else {
+        return false;
+    };
+    object_fields.contains(&field[..dot])
+}
+
 /// Memtable docs for the fast path.
 ///
 /// `Owned` is the original brute-parity representation: every buffered doc
@@ -267,6 +298,13 @@ pub(super) struct FastCtx<'a> {
     /// the brute path renders them as "false"/"true" term keys — so the
     /// terms executor needs the mapping to reproduce that.
     bool_fields: &'a std::collections::HashSet<String>,
+    /// Schema fields mapped `object`/`nested`.  No segment ever carries a
+    /// column for an object field itself (only for its scalar leaves, and
+    /// only when those leaves happen to be top-level columns — which nested
+    /// JSON leaves never are), so a dotted field whose root is in this set
+    /// is a genuinely mapped path the columnar path structurally can't
+    /// serve, not a genuinely absent field. See `field_needs_brute_fallback`.
+    object_fields: &'a std::collections::HashSet<String>,
     /// Top-level query filter (from `{size:0, query:Q, aggs:…}`), compiled to
     /// a columnar predicate.  `None` == match_all (the whole corpus). When
     /// present, EVERY executor restricts its columnar reduction to matching
@@ -504,6 +542,7 @@ impl Index {
         snap: &xerj_storage::index_store::IndexSnapshot,
         segments_dir: &std::path::Path,
         bool_fields: &std::collections::HashSet<String>,
+        object_fields: &std::collections::HashSet<String>,
     ) -> Option<(Value, Option<u64>)> {
         if fast_aggs_disabled() {
             return None;
@@ -596,6 +635,7 @@ impl Index {
             mem_docs: std::sync::OnceLock::new(),
             needs_owned_mem,
             bool_fields,
+            object_fields,
             top_filter,
             top_filter_query,
             top_filter_mem_preds,
@@ -1006,6 +1046,7 @@ impl<'a> FastCtx<'a> {
             mem_docs: std::sync::OnceLock::new(),
             needs_owned_mem: self.needs_owned_mem,
             bool_fields: self.bool_fields,
+            object_fields: self.object_fields,
             top_filter: None,
             top_filter_query: None,
             top_filter_mem_preds: None,
@@ -1032,7 +1073,28 @@ impl<'a> FastCtx<'a> {
         Some(Value::Object(bucket))
     }
 
+    fn field_is_structurally_unsupported(&self, field: &str) -> bool {
+        field_needs_brute_fallback(field, &self.segs, self.object_fields)
+    }
+
     fn exec_agg(&self, agg_type: &str, params: &Value, sub: Option<&Value>) -> Option<Value> {
+        // A field referencing a genuinely nested JSON path has no column of
+        // its own in any segment — see `field_is_structurally_unsupported`.
+        // Every exec_* below keys off `params["field"]`, and without this
+        // check each one independently (and inconsistently) treated "no
+        // column found" the same as "field genuinely absent" — a valid ES
+        // outcome for a sparse/dynamic field — silently returning empty
+        // buckets / null metrics instead of bailing to the brute-force
+        // path, which resolves nested paths correctly by walking
+        // `_source`. Found live: `geo.dest` terms, `machine.ram` avg, and
+        // the doubly-nested `machine.os.keyword` terms all went
+        // empty/null through the fast path while a byte-identical
+        // brute-force query returned real data.
+        if let Some(field) = params.get("field").and_then(Value::as_str) {
+            if self.field_is_structurally_unsupported(field) {
+                return None;
+            }
+        }
         // Under a top-level query filter only the executors that thread the
         // filter through their columnar reduction are correct; every other
         // agg type falls back to the exact brute path (return None).  The
@@ -5444,6 +5506,125 @@ mod range_kw_tests {
             seg.col("extension.nonsense").is_none(),
             "must not fall back for suffixes other than `.keyword`"
         );
+    }
+
+    fn seg_with_cols(cols: std::collections::BTreeMap<String, Column>) -> SegEntry {
+        SegEntry {
+            id: "seg1".to_string(),
+            cols: crate::segment_cache_budget::CacheResident::uncached(cols),
+            docs: 1,
+        }
+    }
+
+    fn object_fields(names: &[&str]) -> std::collections::HashSet<String> {
+        names.iter().map(|s| s.to_string()).collect()
+    }
+
+    // Regression: a genuinely nested JSON field (`geo.dest`, `machine.ram`)
+    // has no column of its own at all — only its scalar leaves might, and
+    // nested JSON leaves never become top-level columns in the first place,
+    // so even the parent object's own name never resolves via `col()`
+    // either (proven live: `col("geo")` returned `None` on a real index
+    // despite `geo` being mapped `object`). The only reliable signal is the
+    // SCHEMA: is the dotted path's root mapped `object`/`nested`?
+    // `field_needs_brute_fallback` is the guard that makes `exec_agg` bail
+    // to the correct brute-force path for these instead of silently
+    // returning empty buckets / null metrics through the fast path. Found
+    // live: `geo.dest` terms, `machine.ram` avg, and the doubly-nested
+    // `machine.os.keyword` terms all went empty/null through fast_aggs on
+    // real Kibana/OSD sample dashboards, while the identical query against
+    // the brute-force path returned real data.
+    #[test]
+    fn nested_field_with_object_root_in_schema_needs_fallback() {
+        let cols = std::collections::BTreeMap::new();
+        let seg = seg_with_cols(cols);
+        assert!(
+            field_needs_brute_fallback("geo.dest", &[seg], &object_fields(&["geo"])),
+            "geo.dest has no column of its own and geo is mapped object — must bail to brute force"
+        );
+    }
+
+    /// The doubly-nested case (`machine.os.keyword`): only the TOP-LEVEL
+    /// root (`machine`) needs to be mapped `object` — any depth below an
+    /// object field is equally unreachable by the columnar path, so a
+    /// single root check covers doubly (or deeper) nested paths too.
+    #[test]
+    fn doubly_nested_keyword_field_needs_fallback() {
+        let cols = std::collections::BTreeMap::new();
+        let seg = seg_with_cols(cols);
+        assert!(
+            field_needs_brute_fallback("machine.os.keyword", &[seg], &object_fields(&["machine"])),
+            "machine.os.keyword's root (machine) is mapped object — must bail to brute force"
+        );
+    }
+
+    /// A genuinely absent field (never indexed at all, e.g. a typo) must
+    /// NOT be flagged — its root isn't mapped `object` (it isn't mapped at
+    /// all), so the fast path's normal empty-result behavior is correct ES
+    /// semantics, and forcing a brute-force fallback would just be wasted
+    /// work for a legitimately-empty answer.
+    #[test]
+    fn genuinely_absent_dotted_field_does_not_need_fallback() {
+        let cols = std::collections::BTreeMap::new();
+        let seg = seg_with_cols(cols);
+        assert!(
+            !field_needs_brute_fallback("nonexistent.field", &[seg], &object_fields(&["geo"])),
+            "the field's root isn't mapped object at all — a real absence, not a nested-path gap"
+        );
+    }
+
+    /// A field with no dot at all is never flagged, regardless of whether
+    /// it resolves — this guard only concerns dotted nested paths.
+    #[test]
+    fn flat_field_never_needs_fallback() {
+        let cols = std::collections::BTreeMap::new();
+        let seg = seg_with_cols(cols);
+        assert!(!field_needs_brute_fallback(
+            "extension",
+            &[seg],
+            &object_fields(&[])
+        ));
+    }
+
+    /// The already-fixed `.keyword` multi-field case (`extension.keyword`)
+    /// must NOT be flagged — `SegEntry::col` already resolves it via the
+    /// `.keyword`-stripped fallback, so the fast path stays fast for this
+    /// shape exactly as before this guard was added. `extension` is a
+    /// scalar keyword field, not an object, so it wouldn't appear in
+    /// `object_fields` in real use either.
+    #[test]
+    fn keyword_multi_field_does_not_need_fallback() {
+        let mut cols = std::collections::BTreeMap::new();
+        cols.insert(
+            "extension".to_string(),
+            Column::Keyword(KeywordColumn::from_iter(vec![Some("css".to_string())]).unwrap()),
+        );
+        let seg = seg_with_cols(cols);
+        assert!(!field_needs_brute_fallback(
+            "extension.keyword",
+            &[seg],
+            &object_fields(&[])
+        ));
+    }
+
+    /// A dotted field whose root DOES resolve as a physical column (the
+    /// pre-existing `.keyword`-stripping case from #99) must not be flagged
+    /// even if that root also happens to be schema-mapped `object` — the
+    /// physical-column check runs first and already proves the fast path
+    /// can serve it.
+    #[test]
+    fn field_resolving_via_physical_column_short_circuits_schema_check() {
+        let mut cols = std::collections::BTreeMap::new();
+        cols.insert(
+            "geo".to_string(),
+            Column::Keyword(KeywordColumn::from_iter(vec![Some("blob".to_string())]).unwrap()),
+        );
+        let seg = seg_with_cols(cols);
+        assert!(!field_needs_brute_fallback(
+            "geo.keyword",
+            &[seg],
+            &object_fields(&["geo"])
+        ));
     }
 
     fn count(pred: &Pred, cols: &std::collections::BTreeMap<String, Column>, docs: u32) -> u64 {

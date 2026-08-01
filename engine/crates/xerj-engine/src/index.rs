@@ -19131,17 +19131,42 @@ impl Index {
         // schema is the only source of truth for "render 0/1 as
         // false/true", so snapshot the boolean field names here (async
         // lock) and hand them to the sync executor.
-        let bool_fields: std::collections::HashSet<String> = {
+        //
+        // Object/nested-mapped fields never get a `.dv` column of their own
+        // (only their scalar leaves would, and nested leaves never become
+        // top-level columns at all) — a dotted field whose root is in this
+        // set (e.g. `geo.dest` under object `geo`) is a genuinely mapped
+        // path the columnar executors structurally can't reach, not a
+        // genuinely absent field, so it must fall back to the brute path
+        // instead of silently returning empty/null.
+        let (bool_fields, object_fields): (
+            std::collections::HashSet<String>,
+            std::collections::HashSet<String>,
+        ) = {
             let guard = self.schema.read().await;
-            guard
-                .schema
-                .fields
-                .iter()
-                .filter(|f| matches!(f.field_type, xerj_common::FieldType::Boolean))
-                .map(|f| f.name.clone())
-                .collect()
+            let mut bool_fields = std::collections::HashSet::new();
+            let mut object_fields = std::collections::HashSet::new();
+            for f in &guard.schema.fields {
+                match f.field_type {
+                    xerj_common::FieldType::Boolean => {
+                        bool_fields.insert(f.name.clone());
+                    }
+                    xerj_common::FieldType::Object | xerj_common::FieldType::Nested => {
+                        object_fields.insert(f.name.clone());
+                    }
+                    _ => {}
+                }
+            }
+            (bool_fields, object_fields)
         };
-        self.try_fast_aggs(aggs_def, filter, snap, segments_dir, &bool_fields)
+        self.try_fast_aggs(
+            aggs_def,
+            filter,
+            snap,
+            segments_dir,
+            &bool_fields,
+            &object_fields,
+        )
     }
 }
 
