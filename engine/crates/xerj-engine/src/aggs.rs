@@ -3970,75 +3970,121 @@ pub(crate) fn render_iso_date(
 /// shortens that prefix; all of them only push the offset further right.
 const DATE_TIME_PREFIX_MIN_LEN: usize = 11;
 
-/// Same bound when `s` carries the canonical `YYYY-MM-DDTHH:MM:SS` separators.
-///
-/// Their positions pin every field width ahead of them: byte 4 and byte 7 can
-/// only be consumed by the pattern's two `-` literals, byte 10 by its `T` and
-/// bytes 13/16 by its two `:`, and each numeric field between them is then
-/// forced to its full two digits (a one-digit field would land the following
-/// literal a byte early and the parse would fail there). Only `%S` is free to
-/// be one digit, so the datetime part ends at byte 18 at the earliest — not
-/// 19: `2025-01-02T03:04:5+00:00` really does parse, with its sign at 18.
-const DATE_TIME_CANONICAL_MIN_LEN: usize = 18;
-
 /// Bytes a `%z` offset needs after its sign: two for the hours and two for
 /// the minutes, both mandatory (`allow_missing_minutes` is off for `%z`).
 const ZONE_OFFSET_MIN_TAIL: usize = 4;
+
+/// Separator bytes the probe window budgets for between the offset's hours
+/// and its minutes — one, which is all the spellings `%z` accepts need.
+///
+/// chrono's separator scanner trims a *run* of colons and whitespace, so
+/// `+00:::00` and `+00 : 00` are legal too and put their sign further left
+/// than any constant window can reach. [`may_carry_zone_offset`] answers those
+/// by over-matching rather than by chasing the run, which is what keeps it
+/// O(1) — see there.
+const ZONE_OFFSET_MAX_SEPARATORS: usize = 1;
+
+/// Width of the fixed window at the end of a value that
+/// [`may_carry_zone_offset`] reads: the sign, `HH`, the separator budget, `MM`.
+///
+/// `%z` closes the pattern and `parse_from_str` insists the whole value be
+/// consumed, so a `%z` offset is pinned to the *end* of the value — which is
+/// what makes a constant-width window possible at all. Spellings it covers
+/// exactly, with where each puts its sign:
+///
+/// | spelling  | sign at   |
+/// |-----------|-----------|
+/// | `±HHMM`   | `len - 5` |
+/// | `±HH:MM`  | `len - 6` |
+/// | `±HH MM`  | `len - 6` |
+///
+/// `−` MINUS SIGN (U+2212) spells its sign in three bytes, of which only the
+/// last lands in the window; the high-bit test in [`is_zone_offset_sign`]
+/// catches it there. `±HH` on its own is *not* a spelling `%z` accepts —
+/// `allow_missing_minutes` is off, so chrono rejects a value that stops after
+/// the hours whatever this probe says.
+const ZONE_OFFSET_PROBE_BYTES: usize = 1 + 2 + ZONE_OFFSET_MAX_SEPARATORS + 2;
+
+/// The window is a constant, not a function of the value: that is the whole
+/// point of it, so pin it at compile time.
+const _: () = assert!(ZONE_OFFSET_PROBE_BYTES == 6);
 
 /// Could this byte be the sign that opens a `%z` zone offset?
 ///
 /// chrono accepts `+` (U+002B), `-` (U+002D) and MINUS SIGN (U+2212). The
 /// subtraction also matches `,` (U+002C) and the high-bit test matches every
-/// non-ASCII byte rather than just U+2212's lead byte — both over-match on
+/// non-ASCII byte rather than just U+2212's trailing byte — both over-match on
 /// purpose, see [`may_carry_zone_offset`].
 #[inline(always)]
 fn is_zone_offset_sign(c: u8) -> bool {
     c.wrapping_sub(b'+') <= 2 || c >= 0x80
 }
 
+/// Could this byte sit between a `%z` offset's hours and its minutes?
+///
+/// chrono trims a run of `:` and *any* Unicode whitespace there, so the ASCII
+/// set is `:` plus `\t\n\x0b\x0c\r` and space. The high-bit test stands in for
+/// the non-ASCII whitespace (and for any other byte of a multi-byte char)
+/// instead of decoding it — over-matching on purpose, as above.
+#[inline(always)]
+fn is_zone_offset_separator(c: u8) -> bool {
+    matches!(c, b':' | b' ' | 0x09..=0x0d) || c >= 0x80
+}
+
 /// Cheap shape probe: could `s` possibly carry a trailing numeric zone offset
 /// that `%z` would accept?
 ///
-/// `%z` demands an explicit sign, and that sign can only sit in a bounded
-/// window: at least [`DATE_TIME_PREFIX_MIN_LEN`] bytes of datetime must come
-/// before it, and at least [`ZONE_OFFSET_MIN_TAIL`] bytes of `HHMM` after it.
-/// Finding a sign in that window is therefore a *necessary* condition for the
-/// parse to succeed, and testing it costs a handful of byte compares instead
-/// of a doomed parse.
+/// Answering costs a length check and a look at the last
+/// [`ZONE_OFFSET_PROBE_BYTES`] bytes — no scan, and no dependence on how long
+/// `s` is. That matters because this runs per date field per document and
+/// field values are arbitrary strings: an earlier cut of this guard hunted for
+/// the sign across `[11, len - 5)`, which is O(len), and left a 64 KB value
+/// ~19x *slower* to reject than it had been with no guard at all.
+///
+/// A constant window is enough because `%z` ends the pattern and
+/// `parse_from_str` requires the whole value to be consumed, so an accepted
+/// value ends with the offset's two minute digits and everything the offset
+/// needs sits at a fixed distance from that end.
 ///
 /// The probe is deliberately one-sided: a false positive only pays for the
 /// parse that would have run anyway, whereas a false negative would change
 /// results, so every judgement call here over-matches.
 fn may_carry_zone_offset(s: &str) -> bool {
     let b = s.as_bytes();
+    // Shortest value the pattern can accept at all: the datetime prefix, the
+    // sign, and `HHMM`.
     if b.len() < DATE_TIME_PREFIX_MIN_LEN + 1 + ZONE_OFFSET_MIN_TAIL {
         return false;
     }
-    // `±HHMM` — the shape this whole branch exists for — puts the sign
-    // exactly `ZONE_OFFSET_MIN_TAIL + 1` bytes from the end, so try that
-    // single byte before scanning anything.
-    let last = b.len() - (ZONE_OFFSET_MIN_TAIL + 1);
-    if is_zone_offset_sign(b[last]) {
+    // Take a fixed-width tail and nothing else. The bound is structural —
+    // below this line there are six bytes and no slice to walk — rather than
+    // an early exit that a hostile value could talk its way out of.
+    let &[w0, w1, w2, w3, m1, m2] = &b[b.len() - ZONE_OFFSET_PROBE_BYTES..] else {
+        // Unreachable: the length check above leaves at least the window.
+        return false;
+    };
+    // `±HHMM` — the spelling this whole branch exists for — puts its sign
+    // right here, and that case is worth answering in three instructions.
+    if is_zone_offset_sign(w1) {
         return true;
     }
-    // Otherwise the sign can still be further left, with a run of colons or
-    // spaces between it and the minutes (`+00:00`, `+00 00`). Scan the rest
-    // of the window, which the canonical shape shrinks to almost nothing.
-    let lo = if b.len() > 16
-        && b[4] == b'-'
-        && b[7] == b'-'
-        && b[10] == b'T'
-        && b[13] == b':'
-        && b[16] == b':'
-    {
-        DATE_TIME_CANONICAL_MIN_LEN
-    } else {
-        DATE_TIME_PREFIX_MIN_LEN
-    };
-    if lo >= last {
-        return false;
-    }
-    b[lo..last].iter().copied().any(is_zone_offset_sign)
+    // `±HH:MM` and `±HH MM` put it one byte further left, behind a separator.
+    // A longer separator run is legal too — `+00 : 00` really does parse — and
+    // walks the sign out of the window entirely; chasing that run would cost
+    // O(len) on a value that is nothing but separators, so it is over-matched
+    // from the separators it leaves behind instead.
+    //
+    // The leading `&&` is the one branch worth keeping: an index's date field
+    // is overwhelmingly all-offset or all-offsetless, so it predicts, and
+    // taking it is what makes `…T07:31:52.102` — the shape issue #96 is about
+    // — cost two byte compares. The rest are a couple of instructions each and
+    // do not predict, so they stay bitwise.
+    is_zone_offset_separator(w3)
+        && ((is_zone_offset_sign(w0) | is_zone_offset_separator(w2))
+            // `%z` needs two minute digits, they are the value's last two
+            // bytes, and chrono rejects a first minute digit above '5'.
+            & matches!(m1, b'0'..=b'5')
+            & m2.is_ascii_digit())
 }
 
 // Test-only tally of how many times the no-colon `%z` parse actually ran on
@@ -4376,26 +4422,94 @@ mod parse_date_ms_tests {
     #[test]
     fn zone_offset_guard_bounds() {
         // The shortest datetime chrono accepts in front of an offset is 11
-        // bytes, so a sign before byte 11 cannot be an offset sign...
+        // bytes, and `HHMM` behind it is another four, so nothing under 16
+        // bytes can carry one — including a bare negative epoch...
         assert!(may_carry_zone_offset("5-1-2T3:4:5+0000"));
         assert!(!may_carry_zone_offset("2025-01-24"));
         assert!(!may_carry_zone_offset("-1737704312102"));
-        // ...and a sign needs `HHMM` behind it, so it cannot sit in the last
-        // four bytes either.
+        // ...and the offset ends the value, so a sign in the last four bytes
+        // has nowhere to put its minutes.
         assert!(!may_carry_zone_offset("2025-01-24T07:31:52.102+"));
         assert!(!may_carry_zone_offset("2025-01-24T07:31:52.1+000"));
-        // The canonical head pins the sign to byte 18 or later — 18, not 19:
-        // one-digit seconds are legal and really do parse.
+        // One separator between the hours and the minutes is in the window,
+        // and one-digit seconds in front of it are legal and really do parse.
         assert!(may_carry_zone_offset("2025-01-02T03:04:5+00:00"));
         assert_eq!(
             parse_date_ms(&Value::String("2025-01-02T03:04:5+00:00".to_string())),
             Some(1735787045000)
         );
+        // A longer separator run walks the sign out of the window, and the
+        // probe answers "maybe" rather than chase it.
+        assert!(may_carry_zone_offset("2025-01-24T07:31:52.102+00 : 00"));
         // Offsetless canonical values — the shape the guard exists to spare.
         assert!(!may_carry_zone_offset("2025-01-24T07:31:52.102"));
         assert!(!may_carry_zone_offset("2025-01-24T07:31:52"));
         // MINUS SIGN U+2212 is a zone-offset sign for chrono too.
         assert!(may_carry_zone_offset("2025-01-24T02:31:52.102\u{2212}0500"));
+    }
+
+    /// Issue #96, second cut: the probe has to cost the same on a 64 KB field
+    /// value as on a 20 byte one.
+    ///
+    /// The first cut scanned `[11, len - 5)` for a sign byte. That is O(len)
+    /// on the same per-document path this is all supposed to be making
+    /// cheaper, and it left long sign-free values several times *slower* than
+    /// they had been with no guard at all — 64 KB went 807.8 ns/op → 15617.7
+    /// ns/op. Cost is invisible to results, so pin the shape that makes it
+    /// O(1) instead of timing it: the answer is fixed by the last
+    /// [`ZONE_OFFSET_PROBE_BYTES`] bytes plus the length, so no amount of
+    /// filler in front of them can change it — not even filler made entirely
+    /// of the bytes a scan would have stopped on.
+    #[test]
+    fn zone_offset_probe_window_is_bounded() {
+        // Every tail shape that reaches a different branch of the probe.
+        let tails = [
+            "+0000",
+            "-0530",
+            "+00:00",
+            "-05:30",
+            "+00 00",
+            "+00:::00",
+            "+00",
+            "+000",
+            "Z",
+            "z",
+            "",
+            ".102",
+            ":52",
+            "00",
+            "0",
+            "x",
+            "\u{2212}0500",
+            "\u{2212}05:00",
+            "+0060",
+            "+9959",
+        ];
+        // Filler bytes chosen to be exactly what an unbounded scan hunts for.
+        let fillers = ["a", "+", "-", ":", ",", "\u{2212}", " ", "0", "-+,: "];
+        for tail in tails {
+            for filler in fillers {
+                let reps = 64 / filler.len();
+                let short = format!("{}{tail}", filler.repeat(reps));
+                let want = may_carry_zone_offset(&short);
+                for scale in [8usize, 64, 1024] {
+                    let long = format!("{}{tail}", filler.repeat(reps * scale));
+                    assert_eq!(
+                        may_carry_zone_offset(&long),
+                        want,
+                        "probe read past its window: {:?}+{tail:?} at {} bytes disagreed \
+                         with the same tail at {} bytes",
+                        filler,
+                        long.len(),
+                        short.len()
+                    );
+                }
+            }
+        }
+        // And the same property where it actually pays off: a long value must
+        // not reach the parse either.
+        assert_eq!(zone_offset_parses_for(&"lorem ipsum est ".repeat(4096)), 0);
+        assert_eq!(zone_offset_parses_for(&"0123456789".repeat(6554)), 0);
     }
 
     /// Golden matrix over every input class this function accepts, generated
