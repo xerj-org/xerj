@@ -778,6 +778,17 @@ impl Engine {
     ) -> Result<()> {
         let index_name = IndexName::new(name).map_err(EngineError::Common)?;
 
+        // Per-index authorization backstop (issue #79): a caller that may not
+        // see this name must not be able to bring it into existence either —
+        // otherwise it could squat a brain name it cannot read. Reported as a
+        // create failure rather than a distinct refusal so the two are
+        // indistinguishable. See `crate::index_guard`.
+        if !crate::index_guard::visible(name) {
+            return Err(EngineError::Common(
+                xerj_common::XerjError::index_not_found(name),
+            ));
+        }
+
         if self.indices.contains_key(name) {
             return Err(EngineError::Common(
                 xerj_common::XerjError::index_already_exists(name),
@@ -1093,6 +1104,14 @@ impl Engine {
     /// semantics) and clears the `closed_indices` flag so the name is
     /// truly gone when another test recreates it.
     pub async fn delete_index(&self, name: &str) -> Result<()> {
+        // Per-index authorization backstop (issue #79) — "destroy the brain"
+        // is the loudest door, so it is checked before the index is removed
+        // from the map. See `crate::index_guard`.
+        if !crate::index_guard::visible(name) {
+            return Err(EngineError::Common(
+                xerj_common::XerjError::index_not_found(name),
+            ));
+        }
         let idx =
             self.indices.remove(name).map(|(_, v)| v).ok_or_else(|| {
                 EngineError::Common(xerj_common::XerjError::index_not_found(name))
@@ -1130,10 +1149,24 @@ impl Engine {
 
     /// Get a reference to an index by name, resolving aliases first.
     /// If the name is an alias pointing to multiple indices, returns the first one.
+    ///
+    /// This is the single funnel every handler goes through to reach index
+    /// data, whether it read the name from the URL path, from a `_bulk` action
+    /// line, from an `_mget` `docs[]._index`, from a `terms` lookup or from the
+    /// table name inside an `_sql` statement — which is exactly why the
+    /// per-index authorization backstop is here (issue #79, see
+    /// [`crate::index_guard`]). The check runs **after** alias resolution, on
+    /// the concrete name, so pointing an alias at someone else's index cannot
+    /// launder access to it.
     pub fn get_index(&self, name: &str) -> Result<Arc<Index>> {
         // Check if name is an alias — if so, resolve to the first backing index.
         if let Some(aliased) = self.aliases.get(name) {
             if let Some(real_name) = aliased.first() {
+                if !crate::index_guard::visible(real_name) {
+                    return Err(EngineError::Common(
+                        xerj_common::XerjError::index_not_found(name),
+                    ));
+                }
                 return self
                     .indices
                     .get(real_name.as_str())
@@ -1143,6 +1176,11 @@ impl Engine {
                     });
             }
         }
+        if !crate::index_guard::visible(name) {
+            return Err(EngineError::Common(
+                xerj_common::XerjError::index_not_found(name),
+            ));
+        }
         self.indices
             .get(name)
             .map(|r| Arc::clone(r.value()))
@@ -1150,7 +1188,19 @@ impl Engine {
     }
 
     /// Return an index by name, creating it if it doesn't exist (ES behaviour).
+    ///
+    /// The visibility check is repeated here rather than left to
+    /// [`Engine::get_index`]: that call reports "not found" for a denied name,
+    /// and "not found" is precisely the branch this function answers by
+    /// **creating** the index. Without its own check, auto-create would be the
+    /// bypass (`create_index` catches it too — belt and braces on the write
+    /// door).
     pub fn get_or_create_index(&self, name: &str) -> Result<Arc<Index>> {
+        if !crate::index_guard::visible(name) {
+            return Err(EngineError::Common(
+                xerj_common::XerjError::index_not_found(name),
+            ));
+        }
         if let Ok(idx) = self.get_index(name) {
             return Ok(idx);
         }
@@ -1192,8 +1242,17 @@ impl Engine {
     /// Used by PIT expansion and other handlers that need to iterate
     /// the live index list without paying for the `list_indices`
     /// snapshot or `get_settings()` call.
+    /// Filtered to the current request's visible set (issue #79) — this and
+    /// [`Engine::list_indices`] are where `*`, `_all` and `logs-*` are turned
+    /// into concrete names, so filtering here is what makes a wildcard resolve
+    /// to "the indices you may see" instead of having to be refused outright.
+    /// Unfiltered outside a request; see [`crate::index_guard`].
     pub fn index_name_list(&self) -> Vec<String> {
-        self.indices.iter().map(|e| e.key().clone()).collect()
+        self.indices
+            .iter()
+            .map(|e| e.key().clone())
+            .filter(|n| crate::index_guard::visible(n))
+            .collect()
     }
 
     /// Sum the internal query-result cache hit/miss counters across every open
@@ -1210,9 +1269,18 @@ impl Engine {
         (hits, misses)
     }
 
+    /// Filtered to the current request's visible set — see
+    /// [`Engine::index_name_list`] and [`crate::index_guard`]. Every metadata
+    /// listing (`_cat/indices`, `_mapping`, `_alias`, `_resolve/index`,
+    /// `/v1/dashboard/summary`, cluster health) enumerates through here, so a
+    /// scoped credential gets a filtered view of the cluster rather than a
+    /// blanket refusal.
     pub async fn list_indices(&self) -> Vec<IndexInfo> {
         let mut list = Vec::new();
         for entry in self.indices.iter() {
+            if !crate::index_guard::visible(entry.key()) {
+                continue;
+            }
             let stats = entry.value().stats().await;
             list.push(IndexInfo {
                 name: stats.name,

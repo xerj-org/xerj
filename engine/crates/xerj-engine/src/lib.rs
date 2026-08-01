@@ -22,6 +22,7 @@ pub mod bulk;
 pub mod engine;
 pub mod governor;
 pub mod index;
+pub mod index_guard;
 pub mod ingest_memory;
 pub mod memtable;
 pub mod painless;

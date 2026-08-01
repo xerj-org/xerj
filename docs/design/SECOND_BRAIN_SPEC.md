@@ -501,7 +501,14 @@ Shared conventions:
   `.xerj-memory-{brain}-edges`, which sits in the reserved `.xerj-memory-*`
   namespace that `xerj-api::authz` gates on every surface — the graph API,
   `/_memory/*`, the raw ES-compat index routes and the native
-  `/v1/indices/{name}/…` routes alike. Reach: open mode (`--insecure`,
+  `/v1/indices/{name}/…` routes alike. The decision is made against the index
+  the handler **actually touches**, not the one in the URL: a route that takes
+  its index from the body (`_bulk` action lines, `_msearch` headers, `_mget`
+  `docs[]._index`, `_aliases`, `_reindex`, `terms`/`lookup` joins) is
+  authorized against what the body names, aliases are resolved to their backing
+  index before the decision, and `xerj_engine::index_guard` re-checks at the
+  point a name becomes an index so a route nobody thought of still fails
+  closed. Reach: open mode (`--insecure`,
   point-at-a-folder) and the admin key get every brain; a key minted with
   `role_descriptors` naming the index gets that brain at the granted
   privilege; a key minted without them gets **no** brain. `ego`/`overview`

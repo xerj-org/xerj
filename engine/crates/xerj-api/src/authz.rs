@@ -13,21 +13,44 @@
 //! that hold anything there are the superuser and a key explicitly granted the
 //! index by name.
 //!
-//! ## Why the boundary is not enforced in `graph_api` alone
+//! ## The mistake this file is built to make impossible
 //!
-//! A brain's edges live in an ordinary index, and `IndexName::validate`
-//! deliberately admits a leading `.`, so `.xerj-memory-{brain}-edges` is
-//! reachable through the generic ES-compat surface. An access check bolted
-//! onto the four `/_graph/*` handlers would leave `POST
-//! /.xerj-memory-{brain}-edges/_search` (read), `POST
-//! /.xerj-memory-{brain}-edges/_doc/{id}` (forge an edge around the derived-
-//! `edge_id` invariant of SECOND_BRAIN_SPEC §2.3), `DELETE
-//! /.xerj-memory-{brain}-edges` (destroy the brain) and `GET /_mapping`
-//! (enumerate every brain name) wide open — a boundary that only *looks* like
-//! one, which is worse than a documented absence. So enforcement lives here,
-//! as a middleware over the whole ES-compat router, **plus** in-handler checks
-//! in `graph_api`/`memory_api` so those handlers are safe even if mounted on a
-//! router that forgot the middleware.
+//! The first cut of #79 decided against the index named in the **URL path**.
+//! That is not the index several handlers operate on. `_msearch` takes it from
+//! an NDJSON header line, `_bulk` from an action line, `_mget` from
+//! `docs[]._index`, `_aliases` from its action list, `_reindex` from
+//! `source`/`dest`, a `terms` lookup and a `lookup` runtime field from deep
+//! inside a query, an index template from a *pattern* that will match brains
+//! created later, `_sql` from the table name in the statement — in every one of
+//! those the path index is only a *default* that the body overrides. Four of
+//! them were proven live against a running node: read another tenant's brain
+//! through `_msearch`, forge and delete its edges through `_bulk`, read a
+//! document through `_mget`, and launder a whole index into reach by pointing
+//! an alias at it.
+//!
+//! A per-handler patch list would have closed those four and left the fifth.
+//! So authorization is decided at two places that no handler can route around:
+//!
+//! 1. **Here, before the handler runs.** [`authz_middleware`] resolves the
+//!    complete target set of a request — from the path *and* from the body —
+//!    resolves aliases to concrete indices, and authorizes each one with the
+//!    privilege the request actually needs. This produces the precise
+//!    ES-shaped 403 and gets read-vs-write-vs-manage right.
+//! 2. **In the engine, at the point the name becomes an index.**
+//!    [`xerj_engine::index_guard`] installs the request's principal as a
+//!    task-local visibility rule that `Engine::get_index`,
+//!    `get_or_create_index`, `create_index`, `delete_index`,
+//!    `list_indices` and `index_name_list` all consult. A handler cannot
+//!    forget this check, because a handler does not call it — it is inside the
+//!    only funnel to index data. Anything the first layer did not know to look
+//!    for (a body shape added next year, an `_sql` table name, a scroll
+//!    context) still fails closed there.
+//!
+//! Layer 2 answers "not found" rather than "forbidden", deliberately: it makes
+//! a denied brain indistinguishable from an absent one, and it means fan-out
+//! (`POST /_search`, `_cat/indices`, `logs-*`) *filters* instead of failing —
+//! which is what lets the global verbs keep working for ordinary credentials
+//! instead of being refused wholesale.
 //!
 //! ## Enforcement points (all of them)
 //!
@@ -39,12 +62,17 @@
 //! | `GET /_graph/{brain}/overview` | `graph_api::overview` + middleware |
 //! | `POST/GET/DELETE /_memory/{ns}[/…]` (the brain's *nodes* index) | `memory_api` + middleware |
 //! | any ES-compat route naming a reserved index in the path | middleware |
-//! | any index pattern that could *match* a reserved index | middleware (patterns are rejected, not expanded) |
-//! | unnamed fan-out (`POST /_search`, `/_bulk`, `/_all/*`, …) | middleware (refused for non-superusers) |
-//! | enumeration (`GET /_mapping`, `/_cat/indices`, `/_resolve/index/*`, …) | middleware (reserved entries pruned from the response) |
+//! | any route naming an index in its **body** (`_bulk`, `_msearch`, `_mget`, `_aliases`, `_reindex`, snapshot `indices`, `terms` lookups, `lookup` runtime fields, `POST /v1/indices`) | middleware ([`body_targets`]) |
+//! | an index template whose `index_patterns` would own a brain's mapping | middleware ([`authorize_template_patterns`]) |
+//! | an **alias** pointing into the reserved namespace | middleware (resolved before the decision) + `Engine::get_index` (resolved before the guard) |
+//! | index patterns (`logs-*`, `_all`, `*`) | expanded only over the principal's visible set ([`xerj_engine::index_guard`]) |
+//! | unnamed fan-out (`POST /_search`, `/_bulk`, `/_all/*`) | authorized per named index; anything unnamed is filtered by the guard |
+//! | enumeration (`GET /_mapping`, `/_cat/indices`, `/_resolve/index/*`) | filtered at `Engine::list_indices`, then pruned in the response |
 //! | the native router's `/v1/indices/{name}/…` spelling of the same index | middleware ([`Target::Indices`] classifies both routers) |
-//! | the gRPC listener (`:8081` — `Search`/`Index`/`BulkIndex`/`Get`/`Delete` take the index from the message body) | `xerj-server::grpc`, using [`Principal::allows_index`] |
-//! | privilege escalation via `POST /_security/api_key` | `es_compat::security_create_api_key` (a non-superuser cannot mint grants it does not hold) |
+//! | the native router's body-named create (`POST /v1/indices`) | middleware ([`BodyShape::NativeCreate`]) |
+//! | the gRPC listener (`:8081`) | `xerj-server::grpc`, using [`Principal::allows_index`] |
+//! | privilege escalation via `POST /_security/api_key` | `es_compat::security_create_api_key` |
+//! | anything else that resolves an index name from anywhere | `xerj_engine::index_guard` |
 //!
 //! ## Fail-closed
 //!
@@ -55,18 +83,20 @@
 //! - a key minted with no usable `role_descriptors` → [`Principal::Unscoped`]
 //!   → **no** privilege on the reserved namespace;
 //! - an unrecognized ES privilege name → grants nothing;
-//! - a wildcard that *could* match the reserved namespace → refused, never
-//!   expanded-and-filtered;
-//! - a request whose target this module cannot resolve → refused for a scoped
-//!   principal.
+//! - a body this module must parse to find its target but cannot → deny;
+//! - a snapshot or restore that names no indices (i.e. *all* of them,
+//!   including brains) → superuser only;
+//! - an index expression that resolves to nothing this principal can see →
+//!   resolves to nothing, not to everything.
 //!
 //! ## What this does **not** claim
 //!
 //! Broad RBAC over the general ES-compat surface is still deferred: an
 //! `Unscoped` key keeps its historical superuser-equivalent reach over
 //! *ordinary* indices. This module makes the reserved namespace a real
-//! boundary; it does not turn xerj into a general multi-tenant authorization
-//! system. `xerj_engine::rbac`'s named `RoleStore` remains unenforced data.
+//! boundary and confines a `Scoped` key to its grants; it does not turn xerj
+//! into a general multi-tenant authorization system. `xerj_engine::rbac`'s
+//! named `RoleStore` remains unenforced data.
 
 // The decision functions return `Result<(), Response>` where `Err` IS the
 // ready-to-send 403. That trips `clippy::result_large_err` (an `axum::Response`
@@ -75,8 +105,11 @@
 // *is* the response.
 #![allow(clippy::result_large_err)]
 
+use std::collections::HashSet;
+use std::sync::Arc;
+
 use axum::{
-    body::Body,
+    body::{Body, Bytes},
     extract::{Request, State},
     http::{header, Method, StatusCode},
     middleware::Next,
@@ -88,6 +121,7 @@ use serde_json::Value;
 use crate::auth::{authenticate, Principal, AUTH_EXEMPT_PATHS};
 use crate::error::{EsErrorBody, EsErrorResponse, EsRootCause};
 use crate::state::AppState;
+use xerj_engine::index_guard::IndexVisibility;
 use xerj_engine::rbac::Privilege;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -125,8 +159,13 @@ pub fn memory_namespace_index(ns: &str) -> String {
 /// literal text before its first `*`, and if that prefix is a prefix of — or is
 /// prefixed by — the reserved prefix, the expression is treated as reaching it.
 /// `*`, `_all`, `.*`, `.xerj-*` and `.xerj-memory-alice*` all qualify;
-/// `logs-*` does not. Patterns are refused rather than expanded-and-filtered,
-/// so a caller can never learn what a wildcard *would* have matched.
+/// `logs-*` does not.
+///
+/// Read patterns are no longer *refused* on the strength of this — they are
+/// expanded over the principal's visible set instead, which is both safe and
+/// the only way a granted `logs-*` can work. It is still what decides whether
+/// a name a caller is about to *create* (an alias, a fresh index) is squatting
+/// the reserved namespace.
 pub fn may_reach_reserved(expression: &str) -> bool {
     let expr = expression.trim();
     if expr.is_empty() {
@@ -141,6 +180,11 @@ pub fn may_reach_reserved(expression: &str) -> bool {
     } else {
         is_reserved_index(expr)
     }
+}
+
+/// Is this expression a pattern rather than one concrete name?
+fn is_pattern(expr: &str) -> bool {
+    expr.contains('*') || expr == "_all"
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -237,6 +281,32 @@ fn es_error(status: StatusCode, reason: String) -> Response {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// The request's visible set (layer 2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Adapts a [`Principal`] to the engine's [`IndexVisibility`] hook.
+///
+/// "Visible" is *any* index privilege, not a specific one: this layer decides
+/// whether the principal may reach the index at all, which is the property that
+/// closes a body-named target the middleware did not know to parse. Which
+/// privilege the request needs on it stays the middleware's decision, so a
+/// read-only grant still cannot write through the front door.
+struct PrincipalVisibility(Principal);
+
+impl IndexVisibility for PrincipalVisibility {
+    fn visible(&self, index: &str) -> bool {
+        self.0.allows_index(index, Privilege::ReadIndex)
+            || self.0.allows_index(index, Privilege::WriteIndex)
+            || self.0.allows_index(index, Privilege::AdminIndex)
+    }
+}
+
+/// The visibility rule for `principal`, for installing around a request.
+pub fn visibility_for(principal: &Principal) -> Arc<dyn IndexVisibility> {
+    Arc::new(PrincipalVisibility(principal.clone()))
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Request classification
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -255,50 +325,15 @@ enum Target {
     Memory(String),
     /// One or more index expressions, plus where the op segment starts.
     Indices(Vec<String>, usize),
-    /// A cluster/global endpoint that carries no index in its path and reads
-    /// or writes only metadata (`/_cat/*`, `/_mapping`, `/_nodes`, …). Safe
-    /// for any authenticated principal; enumerating responses are pruned.
-    GlobalMetadata,
-    /// A cluster/global endpoint that reads or writes **document data** across
-    /// indices the path never names (`/_search`, `/_bulk`, `/_msearch`,
-    /// `/_all/*`, …). There is no target to check, so it is refused for every
-    /// non-superuser rather than allowed and hoped about.
-    GlobalFanout,
+    /// A cluster/global endpoint whose path names no index: `/_cat/*`,
+    /// `/_mapping`, `/_nodes`, but also `/_search`, `/_bulk`, `/_msearch`.
+    /// Reads are answered over the principal's visible set; mutations must
+    /// name their targets in the body (which [`body_targets`] extracts and
+    /// authorizes) or belong to a principal that holds the general surface.
+    Cluster,
     /// Not authorization-relevant (health probes, the version banner).
     Exempt,
 }
-
-/// Global endpoints that read or write document data across unnamed indices.
-/// A bare `POST /_search` fans out over *every* index, including reserved
-/// ones, and `_bulk`/`_msearch`/`_mget` take their index names from a body
-/// this middleware deliberately does not parse. None of them can be
-/// constrained without naming a target, so all of them are refused for
-/// non-superusers. Index-scoped forms (`/{index}/_search`, `/{index}/_bulk`,
-/// …) are unaffected — a caller keeps every route it can name.
-const GLOBAL_FANOUT: &[&str] = &[
-    "_search",
-    "_count",
-    "_msearch",
-    "_mget",
-    "_bulk",
-    "_reindex",
-    "_delete_by_query",
-    "_update_by_query",
-    "_explain",
-    "_validate",
-    "_knn_search",
-    "_pit",
-    "_async_search",
-    "_sql",
-    "_eql",
-    "_esql",
-    "_search_shards",
-    "_rank_eval",
-    "_termvectors",
-    "_mtermvectors",
-    "_all",
-    "*",
-];
 
 /// Read-only ops that are POSTed rather than GETed. Without this list a
 /// `POST /{index}/_search` would be classified as a write. Covers both
@@ -323,6 +358,17 @@ const POST_READ_OPS: &[&str] = &[
     "_eql",
     "_analyze",
     "_graph",
+    "_resolve",
+    "_terms_enum",
+    "_disk_usage",
+    // Cluster endpoints that carry a body but change nothing: privilege
+    // probes, template rendering, pipeline/painless simulation. Only ever
+    // consulted for POST-shaped verbs, so `PUT /_ingest/pipeline/{id}` and
+    // `PUT /_scripts/{id}` remain the mutations they are.
+    "_security",
+    "_ingest",
+    "_render",
+    "_scripts",
     // native router
     "search",
     "explain-plan",
@@ -352,9 +398,10 @@ const ADMIN_OPS: &[&str] = &[
     "_migration",
 ];
 
-/// Endpoints whose responses enumerate index names. For a non-superuser these
-/// are answered normally and then pruned of reserved entries, which is what
-/// keeps brain *names* unguessable without breaking Kibana's metadata polling.
+/// Endpoints whose responses enumerate index names. Their bodies are pruned of
+/// anything the principal may not read — a second pass over the filtering
+/// `Engine::list_indices` already does, for the handful of handlers that read
+/// the `index_settings` / `index_mappings` side maps directly.
 const ENUMERATING_ROOTS: &[&str] = &[
     "_mapping",
     "_mappings",
@@ -440,21 +487,16 @@ fn classify(path: &str) -> Target {
             (Some("indices"), Some(expr)) | (Some("schema"), Some(expr)) => {
                 Target::Indices(split_expressions(expr), 3)
             }
-            // `POST /v1/indices` takes the index name from the body, which this
-            // middleware deliberately does not parse — so it is the native
-            // router's `_bulk`: no target to authorize, therefore refused for
-            // non-superusers. ES-compat `PUT /{index}` names it in the path and
-            // still works.
-            (Some("indices"), None) => Target::GlobalFanout,
-            _ => Target::GlobalMetadata,
+            // `POST /v1/indices` names its index in the body — authorized as
+            // `BodyShape::NativeCreate`, not refused for lack of a path target.
+            _ => Target::Cluster,
         },
-        s if s.starts_with('_') || s == "*" => {
-            if GLOBAL_FANOUT.contains(&s) {
-                Target::GlobalFanout
-            } else {
-                Target::GlobalMetadata
-            }
-        }
+        // `/_all/_search` and `/*/_search` are index-scoped routes whose index
+        // happens to be a pattern — not cluster endpoints. Classifying them
+        // here is what lets them expand over the caller's visible set like any
+        // other pattern instead of being refused for naming nothing.
+        s if s == "*" || s == "_all" => Target::Indices(split_expressions(s), 1),
+        s if s.starts_with('_') => Target::Cluster,
         s => Target::Indices(split_expressions(s), 1),
     }
 }
@@ -484,6 +526,22 @@ fn required_privilege(method: &Method, segs: &[String], op_start: usize) -> Priv
         // creating or destroying it.
         None => Privilege::AdminIndex,
         _ => Privilege::WriteIndex,
+    }
+}
+
+/// Does this cluster-level request only *read*?
+///
+/// `GET`/`HEAD` always do. So does any verb whose op is one of the read ops:
+/// `POST /_search`, `/_count`, `/_msearch`, `/_mget` are the reason the global
+/// verbs are usable at all, and `DELETE /_search/scroll` / `DELETE /_pit` /
+/// `DELETE /_async_search/{id}` release a session the caller already opened.
+fn cluster_is_read(method: &Method, segs: &[String]) -> bool {
+    if method == Method::GET || method == Method::HEAD {
+        return true;
+    }
+    match segs.first().map(String::as_str) {
+        Some(op) => POST_READ_OPS.contains(&op),
+        None => true,
     }
 }
 
@@ -520,6 +578,534 @@ fn reserved_api_privilege(method: &Method, segs: &[String]) -> Privilege {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Body-named targets
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The shape in which a route's body can name the indices it operates on.
+///
+/// This table is the exhaustive answer to "which handlers take an index from
+/// the request body". It is not the *only* protection — [`PrincipalVisibility`]
+/// in the engine catches whatever is missing from it — but it is what produces
+/// a precise 403 with the right privilege instead of a downstream "not found".
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum BodyShape {
+    /// Nothing in the body names an index.
+    None,
+    /// `_bulk` NDJSON: `{"index"|"create"|"update"|"delete": {"_index": …}}`.
+    Bulk,
+    /// `_msearch` / `_msearch/template` NDJSON header lines: `{"index": …}`,
+    /// where the value may be a string or an array of strings.
+    MsearchHeaders,
+    /// `_mget`: `{"docs": [{"_index": …}]}`.
+    MgetDocs,
+    /// `POST /_aliases`: `{"actions": [{"add"|"remove"|"remove_index": …}]}`.
+    AliasActions,
+    /// `_reindex`: `{"source": {"index": …}, "dest": {"index": …}}`.
+    Reindex,
+    /// Snapshot create / restore: `{"indices": "a,b" | ["a","b"]}`.
+    SnapshotIndices,
+    /// Native `POST /v1/indices`: `{"name": …}`.
+    NativeCreate,
+    /// `PUT /{index}`: the `aliases` block creates alias names.
+    CreateIndex,
+    /// Any search-shaped body — a `terms` lookup names another index to read
+    /// its terms out of, at arbitrary depth.
+    Query,
+    /// `POST /_monitoring/bulk` writes one fixed internal index.
+    MonitoringBulk,
+    /// An index template's `index_patterns`. It names no index that exists
+    /// yet, but it decides the mapping of every index created under a matching
+    /// name later — including a brain — so the patterns are checked in their
+    /// own right by [`authorize_template_patterns`].
+    IndexTemplate,
+}
+
+/// Search-shaped ops whose body can carry a `terms` lookup.
+const QUERY_BODY_OPS: &[&str] = &[
+    "_search",
+    "_count",
+    "_explain",
+    "_validate",
+    "_delete_by_query",
+    "_update_by_query",
+    "_async_search",
+    "_eql",
+    "_rank_eval",
+    "_terms_enum",
+    "_field_caps",
+    "_knn_search",
+    "_pit",
+    "_graph",
+    "_sql",
+    "_esql",
+];
+
+/// The index `POST /_monitoring/bulk` ingests into
+/// (`es_compat::ingest_monitoring_ndjson`).
+const MONITORING_INDEX: &str = "xerj-monitoring";
+
+/// Which body shape does this route carry?
+fn body_shape(method: &Method, segs: &[String]) -> BodyShape {
+    let first = segs.first().map(String::as_str).unwrap_or("");
+    // Native router. Its ingest bodies are plain document arrays under an
+    // index named in the path; the only body-named index it has is the create.
+    if first == "v1" {
+        return match (segs.get(1).map(String::as_str), segs.len()) {
+            (Some("indices"), 2) if method == Method::POST => BodyShape::NativeCreate,
+            _ => BodyShape::None,
+        };
+    }
+    let has = |op: &str| segs.iter().any(|s| s == op);
+    if has("_bulk") {
+        return BodyShape::Bulk;
+    }
+    if has("_msearch") {
+        return BodyShape::MsearchHeaders;
+    }
+    if has("_mget") {
+        return BodyShape::MgetDocs;
+    }
+    if first == "_aliases" && method != Method::GET {
+        return BodyShape::AliasActions;
+    }
+    if first == "_reindex" {
+        return BodyShape::Reindex;
+    }
+    if first == "_snapshot" {
+        return BodyShape::SnapshotIndices;
+    }
+    if first == "_monitoring" {
+        return BodyShape::MonitoringBulk;
+    }
+    if (first == "_index_template" || first == "_template") && method != Method::GET {
+        return BodyShape::IndexTemplate;
+    }
+    if segs.len() == 1 && method == Method::PUT && !first.starts_with('_') {
+        return BodyShape::CreateIndex;
+    }
+    if QUERY_BODY_OPS.iter().any(|op| has(op)) {
+        return BodyShape::Query;
+    }
+    BodyShape::None
+}
+
+/// One index expression a request will touch, and what it needs on it.
+type Demand = (String, Privilege);
+
+/// Refuse a request whose body should have named its targets but could not be
+/// parsed. Fail-closed: an unreadable target is not an absent one.
+fn unresolvable(principal: &Principal, what: &str) -> Response {
+    tracing::debug!(
+        principal = principal.label(),
+        what,
+        "authorization refused: request body names indices but could not be resolved"
+    );
+    es_error(
+        StatusCode::FORBIDDEN,
+        format!(
+            "this credential is authorized per index, and the {what} could not be resolved from \
+             the request body; send a well-formed body that names its indices"
+        ),
+    )
+}
+
+/// Extract every index this request's **body** will touch, with the privilege
+/// it needs on each.
+///
+/// `default_index` is the path index for the index-scoped spellings
+/// (`/{index}/_bulk`, `/{index}/_msearch`, `/{index}/_mget`), which the body
+/// may override — the override being the whole bug this exists for.
+fn body_targets(
+    principal: &Principal,
+    shape: BodyShape,
+    body: &[u8],
+    default_index: Option<&str>,
+) -> Result<Vec<Demand>, Response> {
+    let mut out: Vec<Demand> = Vec::new();
+    match shape {
+        BodyShape::None => {}
+        BodyShape::MonitoringBulk => {
+            out.push((MONITORING_INDEX.to_string(), Privilege::WriteIndex))
+        }
+        BodyShape::Bulk => {
+            // NDJSON, alternating action and (except for `delete`) source
+            // lines. Every action line must parse — one that does not is a
+            // target we cannot see, so the request is refused rather than
+            // handed to a bulk pipeline that would happily route it.
+            let Ok(text) = std::str::from_utf8(body) else {
+                return Err(unresolvable(principal, "bulk action lines"));
+            };
+            // Fast path for the index-scoped spelling every client uses by
+            // default: with no `_index` anywhere in the payload, every action
+            // targets the path index, and there is nothing to find by parsing
+            // a million action lines.
+            if !text.contains("\"_index\"") {
+                if let Some(d) = default_index {
+                    out.push((d.to_string(), Privilege::WriteIndex));
+                }
+                return Ok(out);
+            }
+            let mut expect_action = true;
+            for line in text.lines() {
+                let line = line.trim();
+                if line.is_empty() {
+                    continue;
+                }
+                if !expect_action {
+                    expect_action = true;
+                    continue;
+                }
+                let Ok(action) = serde_json::from_str::<Value>(line) else {
+                    return Err(unresolvable(principal, "bulk action lines"));
+                };
+                let Some(obj) = action.as_object() else {
+                    return Err(unresolvable(principal, "bulk action lines"));
+                };
+                let Some((verb, meta)) = obj.iter().next() else {
+                    return Err(unresolvable(principal, "bulk action lines"));
+                };
+                // `delete` carries no source line; everything else does.
+                expect_action = verb == "delete";
+                let named = meta.get("_index").and_then(Value::as_str);
+                if let Some(index) = named.or(default_index) {
+                    out.push((index.to_string(), Privilege::WriteIndex));
+                }
+            }
+        }
+        BodyShape::MsearchHeaders => {
+            let Ok(text) = std::str::from_utf8(body) else {
+                return Err(unresolvable(principal, "multi-search header lines"));
+            };
+            let mut expect_header = true;
+            for line in text.lines() {
+                let line = line.trim();
+                if line.is_empty() {
+                    continue;
+                }
+                let Ok(parsed) = serde_json::from_str::<Value>(line) else {
+                    return Err(unresolvable(principal, "multi-search header lines"));
+                };
+                if expect_header {
+                    match parsed.get("index") {
+                        Some(Value::String(s)) => out.push((s.clone(), Privilege::ReadIndex)),
+                        Some(Value::Array(items)) => {
+                            for i in items {
+                                if let Some(s) = i.as_str() {
+                                    out.push((s.to_string(), Privilege::ReadIndex));
+                                }
+                            }
+                        }
+                        // A header that names no index means "the path index,
+                        // else every index" — the latter is answered over the
+                        // visible set, so nothing to demand here.
+                        _ => {
+                            if let Some(d) = default_index {
+                                out.push((d.to_string(), Privilege::ReadIndex));
+                            }
+                        }
+                    }
+                } else {
+                    // The search body half — it can still carry a terms lookup.
+                    collect_query_body_indices(&parsed, &mut out);
+                }
+                expect_header = !expect_header;
+            }
+        }
+        BodyShape::MgetDocs => {
+            let Ok(parsed) = serde_json::from_slice::<Value>(body) else {
+                return Err(unresolvable(principal, "multi-get documents"));
+            };
+            match parsed.get("docs").and_then(Value::as_array) {
+                Some(docs) => {
+                    for doc in docs {
+                        let named = doc.get("_index").and_then(Value::as_str);
+                        match named.or(default_index) {
+                            Some(index) => out.push((index.to_string(), Privilege::ReadIndex)),
+                            None => return Err(unresolvable(principal, "multi-get documents")),
+                        }
+                    }
+                }
+                // `{"ids": [...]}` short form uses the path index.
+                None => {
+                    if let Some(d) = default_index {
+                        out.push((d.to_string(), Privilege::ReadIndex));
+                    }
+                }
+            }
+        }
+        BodyShape::AliasActions => {
+            let Ok(parsed) = serde_json::from_slice::<Value>(body) else {
+                return Err(unresolvable(principal, "alias actions"));
+            };
+            let Some(actions) = parsed.get("actions").and_then(Value::as_array) else {
+                return Err(unresolvable(principal, "alias actions"));
+            };
+            for action in actions {
+                let Some(obj) = action.as_object() else {
+                    return Err(unresolvable(principal, "alias actions"));
+                };
+                for (_verb, params) in obj {
+                    // Pointing an alias at an index is a change to that index's
+                    // addressing, so it needs `manage` on it — the same
+                    // privilege `PUT /{index}/_alias/{alias}` already demands.
+                    push_names(params.get("index"), Privilege::AdminIndex, &mut out);
+                    push_names(params.get("indices"), Privilege::AdminIndex, &mut out);
+                    // …and the alias NAME is authorized in its own right, so a
+                    // caller cannot squat an alias inside the reserved
+                    // namespace and have a brain resolve through it later.
+                    push_names(params.get("alias"), Privilege::AdminIndex, &mut out);
+                    push_names(params.get("aliases"), Privilege::AdminIndex, &mut out);
+                }
+            }
+            if out.is_empty() {
+                return Err(unresolvable(principal, "alias actions"));
+            }
+        }
+        BodyShape::Reindex => {
+            let Ok(parsed) = serde_json::from_slice::<Value>(body) else {
+                return Err(unresolvable(principal, "reindex source and destination"));
+            };
+            let before = out.len();
+            if let Some(source) = parsed.get("source") {
+                push_names(source.get("index"), Privilege::ReadIndex, &mut out);
+                push_names(source.get("indices"), Privilege::ReadIndex, &mut out);
+                if let Some(q) = source.get("query") {
+                    collect_query_body_indices(q, &mut out);
+                }
+            }
+            if let Some(dest) = parsed.get("dest") {
+                push_names(dest.get("index"), Privilege::WriteIndex, &mut out);
+            }
+            if out.len() == before {
+                return Err(unresolvable(principal, "reindex source and destination"));
+            }
+        }
+        BodyShape::SnapshotIndices => {
+            // Absent `indices` means "every index on the node", which for a
+            // non-superuser would be a bulk read (or overwrite) of every
+            // brain. `decide` turns an empty demand list on this route into a
+            // refusal; here we only report what was named. A restore *writes*
+            // its targets — `decide` upgrades the privilege, since only the
+            // path says which of the two this is.
+            if let Ok(parsed) = serde_json::from_slice::<Value>(body) {
+                push_names(parsed.get("indices"), Privilege::ReadIndex, &mut out);
+            }
+        }
+        BodyShape::NativeCreate => {
+            let Ok(parsed) = serde_json::from_slice::<Value>(body) else {
+                return Err(unresolvable(principal, "index name"));
+            };
+            match parsed.get("name").and_then(Value::as_str) {
+                Some(name) => out.push((name.to_string(), Privilege::AdminIndex)),
+                None => return Err(unresolvable(principal, "index name")),
+            }
+        }
+        BodyShape::CreateIndex => {
+            // `PUT /{index}` names its index in the path (already demanded);
+            // its body can additionally mint alias names.
+            if let Ok(parsed) = serde_json::from_slice::<Value>(body) {
+                if let Some(aliases) = parsed.get("aliases").and_then(Value::as_object) {
+                    for alias in aliases.keys() {
+                        out.push((alias.clone(), Privilege::AdminIndex));
+                    }
+                }
+            }
+        }
+        BodyShape::Query => {
+            if let Ok(parsed) = serde_json::from_slice::<Value>(body) {
+                collect_query_body_indices(&parsed, &mut out);
+            }
+        }
+        // Patterns, not names — `authorize_template_patterns` handles them.
+        BodyShape::IndexTemplate => {}
+    }
+    // A bulk usually names two or three indices across a million action lines.
+    out.sort_by(|a, b| a.0.cmp(&b.0).then(rank(a.1).cmp(&rank(b.1))));
+    out.dedup();
+    Ok(out)
+}
+
+/// Stable ordering key for a privilege, so the demand list can be deduped
+/// without asking `xerj_engine::rbac` for an `Ord` it has no other use for.
+fn rank(p: Privilege) -> u8 {
+    match p {
+        Privilege::ReadIndex => 0,
+        Privilege::WriteIndex => 1,
+        Privilege::AdminIndex => 2,
+        Privilege::SnapshotCreate => 3,
+        Privilege::SnapshotRestore => 4,
+        Privilege::SecurityAdmin => 5,
+        Privilege::AuditRead => 6,
+    }
+}
+
+/// An index template applies to indices that do not exist yet, so there is no
+/// name to authorize — only a pattern. A template whose `index_patterns` can
+/// match the reserved namespace would pick the mapping of a brain created
+/// later, which is a write to that brain by another route, so a non-superuser
+/// may not register one.
+fn authorize_template_patterns(principal: &Principal, body: &[u8]) -> Result<(), Response> {
+    let Ok(parsed) = serde_json::from_slice::<Value>(body) else {
+        // Not JSON: it names no pattern, and the handler will reject it.
+        return Ok(());
+    };
+    let mut patterns: Vec<Demand> = Vec::new();
+    push_names(
+        parsed.get("index_patterns"),
+        Privilege::AdminIndex,
+        &mut patterns,
+    );
+    // ES 6-era `_template` spelled it `template`.
+    push_names(parsed.get("template"), Privilege::AdminIndex, &mut patterns);
+    for (pattern, _) in patterns {
+        if !may_reach_reserved(&pattern) {
+            continue;
+        }
+        // Only a principal that was *granted* the namespace may template over
+        // it. `Unscoped::allows_index` answers "not reserved" for a pattern
+        // like `*` — true of the literal text, useless as an answer here — so
+        // it is excluded explicitly rather than consulted.
+        let held = match principal {
+            Principal::Superuser => true,
+            Principal::Scoped { .. } => principal.allows_index(&pattern, Privilege::AdminIndex),
+            _ => false,
+        };
+        if !held {
+            return Err(forbidden(principal, &pattern, Privilege::AdminIndex));
+        }
+    }
+    Ok(())
+}
+
+/// Push a `"a"` / `"a,b"` / `["a","b"]` index field onto the demand list.
+fn push_names(v: Option<&Value>, privilege: Privilege, out: &mut Vec<Demand>) {
+    match v {
+        Some(Value::String(s)) => {
+            for part in split_expressions(s) {
+                out.push((part, privilege));
+            }
+        }
+        Some(Value::Array(items)) => {
+            for item in items {
+                if let Some(s) = item.as_str() {
+                    for part in split_expressions(s) {
+                        out.push((part, privilege));
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Collect every index a **search body** reads that the URL never names.
+///
+/// Two shapes, both found by auditing the tree rather than by being attacked —
+/// which is the point of auditing:
+///
+/// - a `terms` lookup, `{"terms": {"field": {"index": "other", "id": "1",
+///   "path": "vals"}}}`, fetches a document out of `other` and substitutes its
+///   values into the query;
+/// - a `lookup` runtime field, `{"runtime_mappings": {"f": {"type": "lookup",
+///   "target_index": "other", …}}}`, joins rows out of `other` into the hits.
+///
+/// Both are matched structurally (the full lookup triple, the `type: lookup`
+/// marker) rather than on the key name alone, so a document field that happens
+/// to be called `index` is never mistaken for one.
+fn collect_query_body_indices(q: &Value, out: &mut Vec<Demand>) {
+    match q {
+        Value::Object(obj) => {
+            if let Some(Value::Object(terms)) = obj.get("terms") {
+                for (field, spec) in terms {
+                    if field == "boost" {
+                        continue;
+                    }
+                    if let Some(s) = spec.as_object() {
+                        // Only a full lookup triple actually fetches.
+                        if s.contains_key("id") && s.contains_key("path") {
+                            if let Some(ix) = s.get("index").and_then(Value::as_str) {
+                                out.push((ix.to_string(), Privilege::ReadIndex));
+                            }
+                        }
+                    }
+                }
+            }
+            if obj.get("type").and_then(Value::as_str) == Some("lookup") {
+                if let Some(ix) = obj.get("target_index").and_then(Value::as_str) {
+                    out.push((ix.to_string(), Privilege::ReadIndex));
+                }
+            }
+            for child in obj.values() {
+                collect_query_body_indices(child, out);
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                collect_query_body_indices(item, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Alias resolution
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Resolves an alias to the indices behind it.
+///
+/// Authorization consults this **before** deciding, so `POST /pwned/_search`
+/// on an alias pointed at someone else's brain is authorized against that
+/// brain, not against the alias name. `Engine::get_index` resolves aliases too
+/// and re-checks after doing so, which is what covers an alias created between
+/// the decision and the read.
+pub trait AliasResolver {
+    fn targets(&self, name: &str) -> Option<Vec<String>>;
+}
+
+impl AliasResolver for AppState {
+    fn targets(&self, name: &str) -> Option<Vec<String>> {
+        self.engine.aliases.get(name).map(|e| e.value().clone())
+    }
+}
+
+/// No aliases at all — used by the unit tests and as the fallback when a
+/// decision is made without engine state.
+pub struct NoAliases;
+
+impl AliasResolver for NoAliases {
+    fn targets(&self, _name: &str) -> Option<Vec<String>> {
+        None
+    }
+}
+
+/// Authorize one index expression, resolving aliases first.
+///
+/// A pattern is *not* refused: it is expanded over the principal's visible set
+/// by the engine (see [`xerj_engine::index_guard`]), so a granted `logs-*`
+/// works and an ungranted `*` silently resolves to nothing instead of leaking
+/// what it would have matched.
+fn authorize_expression(
+    principal: &Principal,
+    aliases: &dyn AliasResolver,
+    expr: &str,
+    privilege: Privilege,
+) -> Result<(), Response> {
+    if is_pattern(expr) {
+        return Ok(());
+    }
+    match aliases.targets(expr) {
+        Some(backing) if !backing.is_empty() => {
+            for index in backing {
+                authorize_index(principal, &index, privilege)?;
+            }
+            Ok(())
+        }
+        _ => authorize_index(principal, expr, privilege),
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Middleware
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -528,7 +1114,7 @@ fn reserved_api_privilege(method: &Method, segs: &[String]) -> Privilege {
 /// so a pathological response cannot be turned into an OOM.
 const MAX_PRUNABLE_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
 
-/// Authorization middleware for the ES-compat router.
+/// Authorization middleware for both routers.
 ///
 /// Layered *inside* [`crate::auth::auth_middleware`] (added to the router
 /// before it, so it runs after it): authentication has already rejected
@@ -536,7 +1122,8 @@ const MAX_PRUNABLE_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
 ///
 /// A superuser — open mode (`--insecure`, point-at-a-folder) or the configured
 /// admin key — short-circuits on the first line, so the zero-configuration
-/// local path pays nothing and behaves exactly as before.
+/// local path pays nothing: no body buffering, no visibility guard, no
+/// response pruning.
 pub async fn authz_middleware(State(state): State<AppState>, req: Request, next: Next) -> Response {
     let path = req.uri().path().to_string();
     let target = classify(&path);
@@ -556,31 +1143,63 @@ pub async fn authz_middleware(State(state): State<AppState>, req: Request, next:
 
     let segs = segments(&path);
     let method = req.method().clone();
+    let shape = body_shape(&method, &segs);
 
-    if let Err(denied) = decide(&principal, &method, &segs, &target) {
+    // Buffer the body only for the routes that can name an index inside it.
+    // `Bytes` is refcounted, so handing the same buffer to the handler costs a
+    // clone of a pointer, not of the payload.
+    let (req, body) = if shape == BodyShape::None {
+        (req, Bytes::new())
+    } else {
+        let limit = state.config.limits.max_body_bytes;
+        let (parts, raw) = req.into_parts();
+        match axum::body::to_bytes(raw, limit).await {
+            Ok(bytes) => (Request::from_parts(parts, Body::from(bytes.clone())), bytes),
+            Err(_) => {
+                return es_error(
+                    StatusCode::PAYLOAD_TOO_LARGE,
+                    "request body exceeds limits.max_body_bytes and cannot be authorized"
+                        .to_string(),
+                )
+            }
+        }
+    };
+
+    if let Err(denied) = decide(&principal, &method, &segs, &target, shape, &body, &state) {
         return denied;
     }
 
-    let response = next.run(req).await;
+    // Layer 2: whatever the handler resolves from here on — including names
+    // this module never parsed — is checked against the same principal at the
+    // engine's index funnel.
+    let response =
+        xerj_engine::index_guard::scoped(visibility_for(&principal), next.run(req)).await;
     if enumerates(&segs) {
-        prune_response(response, &principal).await
+        prune_response(response, &principal, &state).await
     } else {
         response
     }
 }
 
 /// The whole decision, split out so it can be unit-tested without a router.
+#[allow(clippy::too_many_arguments)]
 fn decide(
     principal: &Principal,
     method: &Method,
     segs: &[String],
     target: &Target,
+    shape: BodyShape,
+    body: &[u8],
+    aliases: &dyn AliasResolver,
 ) -> Result<(), Response> {
     // Restated here and not only in the middleware, so this function is a
     // complete decision on its own and cannot deny the local-dev superuser if
     // it is ever called from somewhere else.
     if principal.is_superuser() {
         return Ok(());
+    }
+    if matches!(principal, Principal::Denied) {
+        return Err(forbidden(principal, "<cluster>", Privilege::ReadIndex));
     }
     match target {
         Target::Exempt => Ok(()),
@@ -593,41 +1212,96 @@ fn decide(
         Target::Indices(expressions, op_start) => {
             let privilege = required_privilege(method, segs, *op_start);
             for expr in expressions {
-                if expr.contains('*') || expr == "_all" {
-                    // A pattern is never expanded and then filtered — it is
-                    // refused outright, so a caller can never learn what it
-                    // *would* have matched. A pattern that could reach the
-                    // reserved namespace is refused for everyone below
-                    // superuser; any other pattern is refused for a scoped
-                    // principal, which must name the index it was granted, and
-                    // kept for a legacy unscoped one (`logs-*` still works).
-                    if may_reach_reserved(expr) || !matches!(principal, Principal::Unscoped { .. })
-                    {
-                        return Err(forbidden(principal, expr, privilege));
-                    }
-                    continue;
+                authorize_expression(principal, aliases, expr, privilege)?;
+            }
+            // `PUT|DELETE /{index}/_alias/{alias}` mints or drops an alias
+            // name; the name itself is a resource, or the reserved namespace
+            // could be squatted by an alias nobody authorized.
+            if segs.get(*op_start).map(String::as_str) == Some("_alias") {
+                if let Some(alias) = segs.get(op_start + 1) {
+                    authorize_index(principal, alias, Privilege::AdminIndex)?;
                 }
-                // A literal name — including a reserved one the principal was
-                // explicitly granted, which it may then use directly.
-                authorize_index(principal, expr, privilege)?;
             }
-            Ok(())
+            // The path index is the default for a body that may override it —
+            // `/{index}/_bulk`, `/{index}/_msearch`, `/{index}/_mget`.
+            let default = expressions.first().map(String::as_str);
+            authorize_body(principal, aliases, shape, body, default)
         }
-        Target::GlobalMetadata => match principal {
-            // A scoped credential names its index or gets nothing: metadata
-            // endpoints answer across the cluster, and "answer then filter" is
-            // one missed shape away from a leak.
-            Principal::Scoped { .. } | Principal::Denied => {
-                Err(forbidden(principal, "<cluster>", Privilege::ReadIndex))
+        Target::Cluster => {
+            // Snapshot and restore that name no indices cover *every* index on
+            // the node, brains included. There is no per-index decision to
+            // make, so they are superuser-only.
+            let snapshotting = segs.first().map(String::as_str) == Some("_snapshot")
+                && segs.len() >= 3
+                && method != Method::GET
+                && method != Method::HEAD;
+            let restoring = segs.last().map(String::as_str) == Some("_restore");
+            if shape == BodyShape::IndexTemplate {
+                authorize_template_patterns(principal, body)?;
             }
-            _ => Ok(()),
-        },
-        Target::GlobalFanout => Err(forbidden(
-            principal,
-            "<all indices>",
-            required_privilege(method, segs, 1),
-        )),
+            let mut demands = body_targets(principal, shape, body, None)?;
+            if restoring {
+                // A restore overwrites the indices it names.
+                for demand in demands.iter_mut() {
+                    demand.1 = Privilege::WriteIndex;
+                }
+            }
+            if snapshotting && demands.is_empty() {
+                return Err(forbidden(
+                    principal,
+                    "<all indices>",
+                    if restoring {
+                        Privilege::SnapshotRestore
+                    } else {
+                        Privilege::SnapshotCreate
+                    },
+                ));
+            }
+            for (expr, privilege) in &demands {
+                authorize_expression(principal, aliases, expr, *privilege)?;
+            }
+            if cluster_is_read(method, segs) {
+                // Cluster reads (`_cat`, `_mapping`, `_nodes`, `_cluster/*`,
+                // and the global `_search`/`_count`/`_msearch`/`_mget`) are
+                // answered over the principal's visible set, so a scoped key
+                // gets a filtered cluster rather than a blanket 403 — which is
+                // what Kibana needs to function at all.
+                return Ok(());
+            }
+            if !demands.is_empty() {
+                // A mutating cluster verb that named its targets: they are all
+                // authorized above. `POST /_bulk`, `/_reindex` and `/_aliases`
+                // live here — the global bulk is the default write path for
+                // essentially every ES client.
+                return Ok(());
+            }
+            match principal {
+                // A cluster-level mutation that names nothing: an unscoped key
+                // keeps its historical reach over the general surface, a scoped
+                // one has to name what it is changing.
+                Principal::Unscoped { .. } => Ok(()),
+                _ => Err(forbidden(
+                    principal,
+                    "<cluster>",
+                    required_privilege(method, segs, 1),
+                )),
+            }
+        }
     }
+}
+
+/// Authorize the indices a request's body names, if any.
+fn authorize_body(
+    principal: &Principal,
+    aliases: &dyn AliasResolver,
+    shape: BodyShape,
+    body: &[u8],
+    default_index: Option<&str>,
+) -> Result<(), Response> {
+    for (expr, privilege) in body_targets(principal, shape, body, default_index)? {
+        authorize_expression(principal, aliases, &expr, privilege)?;
+    }
+    Ok(())
 }
 
 /// Does this path's response enumerate index names?
@@ -649,10 +1323,13 @@ fn enumerates(segs: &[String]) -> bool {
 // Enumeration pruning
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Remove reserved index names the principal cannot read from a metadata
-/// response, so `GET /_mapping` and friends do not hand over the list of
-/// brains on the node.
-async fn prune_response(response: Response, principal: &Principal) -> Response {
+/// Remove index names the principal cannot read from a metadata response.
+///
+/// `Engine::list_indices` already filters, so most listings arrive clean; this
+/// is the second pass for the handful of handlers that read the
+/// `index_settings` / `index_mappings` side maps directly, and it is what keeps
+/// `GET /_mapping` from handing over the list of brains on the node.
+async fn prune_response(response: Response, principal: &Principal, state: &AppState) -> Response {
     let (parts, body) = response.into_parts();
     let content_type = parts
         .headers
@@ -677,18 +1354,25 @@ async fn prune_response(response: Response, principal: &Principal) -> Response {
         }
     };
 
+    // The real index names on the node. A response key is only a candidate for
+    // pruning when it IS one — otherwise `"mappings"`, `"settings"` and every
+    // other structural key would be dropped for a scoped principal, which
+    // would corrupt the very responses this is protecting. Read outside the
+    // request's visibility scope on purpose: this needs the unfiltered truth.
+    let known: HashSet<String> = state.engine.index_name_list().into_iter().collect();
+
     let pruned: Vec<u8> = if is_json {
         match serde_json::from_slice::<Value>(&bytes) {
             Ok(mut v) => {
-                prune_json(&mut v, principal);
+                prune_json(&mut v, principal, &known);
                 serde_json::to_vec(&v).unwrap_or_else(|_| bytes.to_vec())
             }
             // Not JSON after all (some `_cat` handlers answer text under a
             // JSON content type); fall through to the line filter.
-            Err(_) => prune_text(&bytes, principal),
+            Err(_) => prune_text(&bytes, principal, &known),
         }
     } else {
-        prune_text(&bytes, principal)
+        prune_text(&bytes, principal, &known)
     };
 
     let mut parts = parts;
@@ -697,36 +1381,37 @@ async fn prune_response(response: Response, principal: &Principal) -> Response {
 }
 
 /// Is this index name one the principal must not even see?
-fn hidden(name: &str, principal: &Principal) -> bool {
-    is_reserved_index(name) && !principal.allows_index(name, Privilege::ReadIndex)
+fn hidden(name: &str, principal: &Principal, known: &HashSet<String>) -> bool {
+    (is_reserved_index(name) || known.contains(name))
+        && !principal.allows_index(name, Privilege::ReadIndex)
 }
 
-/// Recursively drop reserved-index keys, string entries and `{index|name: …}`
+/// Recursively drop unreadable index keys, string entries and `{index|name: …}`
 /// records. One walk covers every metadata shape: `_mapping`/`_settings`/
 /// `_alias` (object keyed by index), `_stats`/`_cluster/state` (the same under
 /// `"indices"`), `_cat/indices?format=json` (array of `{index: …}`),
 /// `_resolve/index` (array of `{name: …}`) and `_field_caps` (array of names).
-fn prune_json(v: &mut Value, principal: &Principal) {
+fn prune_json(v: &mut Value, principal: &Principal, known: &HashSet<String>) {
     match v {
         Value::Object(map) => {
-            map.retain(|k, _| !hidden(k, principal));
+            map.retain(|k, _| !hidden(k, principal, known));
             for (_, child) in map.iter_mut() {
-                prune_json(child, principal);
+                prune_json(child, principal, known);
             }
         }
         Value::Array(items) => {
             items.retain(|item| match item {
-                Value::String(s) => !hidden(s, principal),
+                Value::String(s) => !hidden(s, principal, known),
                 Value::Object(o) => !o
                     .get("index")
                     .or_else(|| o.get("name"))
                     .and_then(|n| n.as_str())
-                    .map(|n| hidden(n, principal))
+                    .map(|n| hidden(n, principal, known))
                     .unwrap_or(false),
                 _ => true,
             });
             for item in items.iter_mut() {
-                prune_json(item, principal);
+                prune_json(item, principal, known);
             }
         }
         _ => {}
@@ -735,26 +1420,31 @@ fn prune_json(v: &mut Value, principal: &Principal) {
 
 /// Line filter for `_cat` in its default text form: a row naming a hidden
 /// index is dropped whole.
-fn prune_text(bytes: &[u8], principal: &Principal) -> Vec<u8> {
+fn prune_text(bytes: &[u8], principal: &Principal, known: &HashSet<String>) -> Vec<u8> {
     let Ok(text) = std::str::from_utf8(bytes) else {
         return bytes.to_vec();
     };
-    if !text.contains(RESERVED_INDEX_PREFIX) {
-        return bytes.to_vec();
-    }
     let mut out = String::with_capacity(text.len());
+    let mut dropped_any = false;
     for line in text.split_inclusive('\n') {
         let hides = line.split_whitespace().any(|token| {
             hidden(
                 token.trim_matches(|c: char| c == '"' || c == ','),
                 principal,
+                known,
             )
         });
-        if !hides {
+        if hides {
+            dropped_any = true;
+        } else {
             out.push_str(line);
         }
     }
-    out.into_bytes()
+    if dropped_any {
+        out.into_bytes()
+    } else {
+        bytes.to_vec()
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -764,7 +1454,7 @@ fn prune_text(bytes: &[u8], principal: &Principal) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashSet;
+    use std::collections::HashMap;
     use xerj_engine::rbac::Role;
 
     fn scoped(indices: &[&str], privileges: &[Privilege]) -> Principal {
@@ -782,6 +1472,31 @@ mod tests {
         Principal::Unscoped {
             key_id: "k2".into(),
         }
+    }
+
+    struct Map(HashMap<String, Vec<String>>);
+    impl AliasResolver for Map {
+        fn targets(&self, name: &str) -> Option<Vec<String>> {
+            self.0.get(name).cloned()
+        }
+    }
+
+    /// Run the whole decision the way the middleware does.
+    fn check(p: &Principal, method: Method, path: &str, body: &str) -> bool {
+        check_with(p, method, path, body, &NoAliases)
+    }
+
+    fn check_with(
+        p: &Principal,
+        method: Method,
+        path: &str,
+        body: &str,
+        aliases: &dyn AliasResolver,
+    ) -> bool {
+        let segs = segments(path);
+        let target = classify(path);
+        let shape = body_shape(&method, &segs);
+        decide(p, &method, &segs, &target, shape, body.as_bytes(), aliases).is_ok()
     }
 
     #[test]
@@ -822,11 +1537,16 @@ mod tests {
             classify("/_memory/alice/_recall"),
             Target::Memory("alice".into())
         );
-        assert_eq!(classify("/_search"), Target::GlobalFanout);
-        assert_eq!(classify("/_bulk"), Target::GlobalFanout);
-        assert_eq!(classify("/_all/_search"), Target::GlobalFanout);
-        assert_eq!(classify("/_mapping"), Target::GlobalMetadata);
-        assert_eq!(classify("/_cat/indices"), Target::GlobalMetadata);
+        assert_eq!(classify("/_search"), Target::Cluster);
+        assert_eq!(classify("/_bulk"), Target::Cluster);
+        assert_eq!(classify("/_mapping"), Target::Cluster);
+        assert_eq!(classify("/_cat/indices"), Target::Cluster);
+        // A pattern is an index expression, not a cluster endpoint.
+        assert_eq!(
+            classify("/_all/_search"),
+            Target::Indices(vec!["_all".into()], 1)
+        );
+        assert_eq!(classify("/*/_search"), Target::Indices(vec!["*".into()], 1));
         assert_eq!(classify("/health/live"), Target::Exempt);
         assert_eq!(classify("/"), Target::Exempt);
         assert_eq!(
@@ -838,9 +1558,59 @@ mod tests {
             classify("/v1/indices/.xerj-memory-bob-edges/search"),
             Target::Indices(vec![".xerj-memory-bob-edges".into()], 3)
         );
-        assert_eq!(classify("/v1/dashboard/summary"), Target::GlobalMetadata);
-        // Body-named index: no target, so it is fan-out, not metadata.
-        assert_eq!(classify("/v1/indices"), Target::GlobalFanout);
+        assert_eq!(classify("/v1/dashboard/summary"), Target::Cluster);
+        assert_eq!(classify("/v1/indices"), Target::Cluster);
+    }
+
+    /// Every route that can take an index name from its body must be mapped to
+    /// the shape that finds it. This is the audit, executable.
+    #[test]
+    fn body_shape_table() {
+        let cases: &[(&str, &str, BodyShape)] = &[
+            ("POST", "/_bulk", BodyShape::Bulk),
+            ("POST", "/logs/_bulk", BodyShape::Bulk),
+            ("POST", "/_msearch", BodyShape::MsearchHeaders),
+            ("POST", "/logs/_msearch", BodyShape::MsearchHeaders),
+            ("POST", "/_msearch/template", BodyShape::MsearchHeaders),
+            ("POST", "/logs/_msearch/template", BodyShape::MsearchHeaders),
+            ("POST", "/_mget", BodyShape::MgetDocs),
+            ("POST", "/logs/_mget", BodyShape::MgetDocs),
+            ("POST", "/_aliases", BodyShape::AliasActions),
+            ("POST", "/_reindex", BodyShape::Reindex),
+            ("PUT", "/_snapshot/repo/snap", BodyShape::SnapshotIndices),
+            (
+                "POST",
+                "/_snapshot/repo/snap/_restore",
+                BodyShape::SnapshotIndices,
+            ),
+            ("POST", "/v1/indices", BodyShape::NativeCreate),
+            ("PUT", "/logs-2026", BodyShape::CreateIndex),
+            ("POST", "/_monitoring/bulk", BodyShape::MonitoringBulk),
+            ("PUT", "/_index_template/t", BodyShape::IndexTemplate),
+            ("PUT", "/_template/t", BodyShape::IndexTemplate),
+            (
+                "POST",
+                "/_index_template/_simulate",
+                BodyShape::IndexTemplate,
+            ),
+            ("POST", "/_search", BodyShape::Query),
+            ("POST", "/logs/_search", BodyShape::Query),
+            ("POST", "/_count", BodyShape::Query),
+            ("POST", "/logs/_delete_by_query", BodyShape::Query),
+            ("POST", "/logs/_update_by_query", BodyShape::Query),
+            ("POST", "/_sql", BodyShape::Query),
+            ("POST", "/logs/_eql/search", BodyShape::Query),
+            // Opaque document bodies: nothing in them is an index name.
+            ("PUT", "/logs/_doc/1", BodyShape::None),
+            ("POST", "/logs/_update/1", BodyShape::None),
+            ("POST", "/v1/indices/logs/docs", BodyShape::None),
+            ("POST", "/v1/indices/logs/docs/_bulk", BodyShape::None),
+        ];
+        for (method, path, want) in cases {
+            let m: Method = method.parse().unwrap();
+            let got = body_shape(&m, &segments(path));
+            assert_eq!(got, *want, "{method} {path}");
+        }
     }
 
     #[test]
@@ -901,88 +1671,77 @@ mod tests {
             &[".xerj-memory-alice-edges", ".xerj-memory-alice"],
             &[Privilege::ReadIndex, Privilege::WriteIndex],
         );
-        let check = |p: &Principal, method: Method, path: &str| {
-            let segs = segments(path);
-            decide(p, &method, &segs, &classify(path)).is_ok()
-        };
 
         // Alice reaches her own brain …
-        assert!(check(&alice, Method::GET, "/_graph/alice/ego"));
-        assert!(check(&alice, Method::GET, "/_graph/alice/overview"));
-        assert!(check(&alice, Method::POST, "/_graph/alice/link"));
-        assert!(check(&alice, Method::POST, "/_memory/alice/_recall"));
+        assert!(check(&alice, Method::GET, "/_graph/alice/ego", ""));
+        assert!(check(&alice, Method::GET, "/_graph/alice/overview", ""));
+        assert!(check(&alice, Method::POST, "/_graph/alice/link", ""));
+        assert!(check(&alice, Method::POST, "/_memory/alice/_recall", ""));
         // … and nothing of bob's, by any door.
-        assert!(!check(&alice, Method::GET, "/_graph/bob/ego"));
-        assert!(!check(&alice, Method::GET, "/_graph/bob/overview"));
-        assert!(!check(&alice, Method::POST, "/_graph/bob/link"));
-        assert!(!check(&alice, Method::DELETE, "/_graph/bob/link/e1"));
+        assert!(!check(&alice, Method::GET, "/_graph/bob/ego", ""));
+        assert!(!check(&alice, Method::POST, "/_graph/bob/link", ""));
+        assert!(!check(&alice, Method::DELETE, "/_graph/bob/link/e1", ""));
         assert!(!check(
             &alice,
             Method::POST,
-            "/.xerj-memory-bob-edges/_search"
+            "/.xerj-memory-bob-edges/_search",
+            ""
         ));
         assert!(!check(
             &alice,
             Method::POST,
-            "/.xerj-memory-bob-edges/_doc/x"
-        ));
-        assert!(!check(&alice, Method::DELETE, "/.xerj-memory-bob-edges"));
-        assert!(!check(&alice, Method::POST, "/_memory/bob/_recall"));
-        assert!(!check(&alice, Method::GET, "/_mapping"));
-        assert!(!check(&alice, Method::GET, "/_cat/indices"));
-        assert!(!check(&alice, Method::POST, "/_search"));
-        assert!(!check(&alice, Method::POST, "/_bulk"));
-        assert!(!check(&alice, Method::GET, "/.xerj-memory-*/_search"));
-        // Including the native router's spelling of the same index.
-        assert!(!check(
-            &alice,
-            Method::POST,
-            "/v1/indices/.xerj-memory-bob-edges/search"
+            "/.xerj-memory-bob-edges/_doc/x",
+            ""
         ));
         assert!(!check(
             &alice,
             Method::DELETE,
-            "/v1/indices/.xerj-memory-bob-edges"
+            "/.xerj-memory-bob-edges",
+            ""
+        ));
+        assert!(!check(&alice, Method::POST, "/_memory/bob/_recall", ""));
+        // Including the native router's spelling of the same index.
+        assert!(!check(
+            &alice,
+            Method::POST,
+            "/v1/indices/.xerj-memory-bob-edges/search",
+            ""
         ));
         // A grant is a grant: alice may use her own backing index directly.
         assert!(check(
             &alice,
             Method::POST,
-            "/.xerj-memory-alice-edges/_search"
+            "/.xerj-memory-alice-edges/_search",
+            ""
         ));
 
         // A read-only grant does not write.
         let ro = scoped(&[".xerj-memory-alice-edges"], &[Privilege::ReadIndex]);
-        assert!(check(&ro, Method::GET, "/_graph/alice/ego"));
-        assert!(!check(&ro, Method::POST, "/_graph/alice/link"));
-        // … and does not destroy the backing index.
-        assert!(!check(&ro, Method::DELETE, "/.xerj-memory-alice-edges"));
+        assert!(check(&ro, Method::GET, "/_graph/alice/ego", ""));
+        assert!(!check(&ro, Method::POST, "/_graph/alice/link", ""));
+        assert!(!check(&ro, Method::DELETE, "/.xerj-memory-alice-edges", ""));
 
         // A legacy key with no grants: keeps ordinary indices, loses every
         // brain door. This is the fail-closed half.
         let legacy = unscoped();
-        assert!(check(&legacy, Method::POST, "/logs-2026/_search"));
-        assert!(check(&legacy, Method::GET, "/logs-*/_search"));
-        assert!(check(&legacy, Method::GET, "/_mapping"));
-        assert!(!check(&legacy, Method::GET, "/_graph/alice/ego"));
-        assert!(!check(&legacy, Method::POST, "/_memory/alice/_recall"));
+        assert!(check(&legacy, Method::POST, "/logs-2026/_search", ""));
+        assert!(check(&legacy, Method::GET, "/logs-*/_search", ""));
+        assert!(check(&legacy, Method::GET, "/_mapping", ""));
+        assert!(!check(&legacy, Method::GET, "/_graph/alice/ego", ""));
+        assert!(!check(&legacy, Method::POST, "/_memory/alice/_recall", ""));
         assert!(!check(
             &legacy,
             Method::POST,
-            "/.xerj-memory-alice-edges/_search"
+            "/.xerj-memory-alice-edges/_search",
+            ""
         ));
-        assert!(!check(&legacy, Method::GET, "/*/_search"));
-        assert!(!check(&legacy, Method::POST, "/_search"));
-        // A body-named create could squat `.xerj-memory-victim-edges`, so it is
-        // refused too; `PUT /logs-2026` names its target and still works.
-        assert!(!check(&legacy, Method::POST, "/v1/indices"));
-        assert!(check(&legacy, Method::PUT, "/logs-2026"));
+        assert!(check(&legacy, Method::PUT, "/logs-2026", ""));
 
         // No credential resolves to nothing at all.
         let denied = Principal::Denied;
-        assert!(!check(&denied, Method::GET, "/_graph/alice/ego"));
-        assert!(!check(&denied, Method::GET, "/logs/_search"));
-        assert!(!check(&denied, Method::GET, "/_mapping"));
+        assert!(!check(&denied, Method::GET, "/_graph/alice/ego", ""));
+        assert!(!check(&denied, Method::GET, "/logs/_search", ""));
+        assert!(!check(&denied, Method::GET, "/_mapping", ""));
 
         // The superuser is untouched — this is the `--insecure` path.
         let root = Principal::Superuser;
@@ -994,52 +1753,407 @@ mod tests {
             "/*/_search",
         ] {
             assert!(
-                check(&root, Method::GET, path),
+                check(&root, Method::GET, path, ""),
                 "superuser blocked on {path}"
             );
         }
     }
 
+    /// BYPASS 1-3: the index in the body is the one that gets authorized.
     #[test]
-    fn json_pruning_hides_reserved_indices() {
+    fn body_named_indices_are_authorized_not_the_path_one() {
+        let alice = scoped(
+            &[".xerj-memory-alice-edges", ".xerj-memory-alice"],
+            &[Privilege::ReadIndex, Privilege::WriteIndex],
+        );
+
+        // _msearch: the header line overrides the path index.
+        let msearch = "{\"index\":\".xerj-memory-bob-edges\"}\n{\"query\":{\"match_all\":{}}}\n";
+        assert!(!check(
+            &alice,
+            Method::POST,
+            "/.xerj-memory-alice-edges/_msearch",
+            msearch
+        ));
+        assert!(!check(&alice, Method::POST, "/_msearch", msearch));
+        // Her own brain through the same door still works.
+        let mine = "{\"index\":\".xerj-memory-alice-edges\"}\n{\"query\":{\"match_all\":{}}}\n";
+        assert!(check(&alice, Method::POST, "/_msearch", mine));
+
+        // _bulk: the action line's `_index` overrides the path index.
+        let forge =
+            "{\"index\":{\"_index\":\".xerj-memory-bob-edges\",\"_id\":\"f\"}}\n{\"src\":\"x\"}\n";
+        assert!(!check(
+            &alice,
+            Method::POST,
+            "/.xerj-memory-alice-edges/_bulk",
+            forge
+        ));
+        assert!(!check(&alice, Method::POST, "/_bulk", forge));
+        let destroy = "{\"delete\":{\"_index\":\".xerj-memory-bob-edges\",\"_id\":\"e1\"}}\n";
+        assert!(!check(&alice, Method::POST, "/_bulk", destroy));
+        // A bulk that stays inside her grant is allowed — the global `_bulk`
+        // is the default write path for every ES client and must work.
+        let ok = "{\"index\":{\"_index\":\".xerj-memory-alice-edges\",\"_id\":\"a\"}}\n{\"src\":\"x\"}\n";
+        assert!(check(&alice, Method::POST, "/_bulk", ok));
+
+        // _mget: docs[]._index overrides the path index.
+        let mget = "{\"docs\":[{\"_index\":\".xerj-memory-bob-edges\",\"_id\":\"1\"}]}";
+        assert!(!check(
+            &alice,
+            Method::POST,
+            "/.xerj-memory-alice-edges/_mget",
+            mget
+        ));
+        assert!(!check(&alice, Method::POST, "/_mget", mget));
+        assert!(check(
+            &alice,
+            Method::POST,
+            "/.xerj-memory-alice-edges/_mget",
+            "{\"ids\":[\"1\"]}"
+        ));
+
+        // An unscoped legacy key holds nothing in the reserved namespace by
+        // any of the three doors either.
+        let legacy = unscoped();
+        assert!(!check(&legacy, Method::POST, "/_msearch", msearch));
+        assert!(!check(&legacy, Method::POST, "/_bulk", forge));
+        assert!(!check(&legacy, Method::POST, "/_mget", mget));
+        // …but its ordinary-index traffic is untouched.
+        let plain = "{\"index\":{\"_index\":\"logs-2026\"}}\n{\"m\":1}\n";
+        assert!(check(&legacy, Method::POST, "/_bulk", plain));
+    }
+
+    /// BYPASS 4: `POST /_aliases` authorizes the indices it names, and an
+    /// alias already pointing into the namespace does not launder reads.
+    #[test]
+    fn aliases_cannot_launder_access() {
+        let legacy = unscoped();
+        let add =
+            "{\"actions\":[{\"add\":{\"index\":\".xerj-memory-bob-edges\",\"alias\":\"pwned\"}}]}";
+        assert!(!check(&legacy, Method::POST, "/_aliases", add));
+        // Also refused for a scoped key that holds a different brain.
+        let alice = scoped(
+            &[".xerj-memory-alice-edges"],
+            &[
+                Privilege::ReadIndex,
+                Privilege::WriteIndex,
+                Privilege::AdminIndex,
+            ],
+        );
+        assert!(!check(&alice, Method::POST, "/_aliases", add));
+        // An ordinary alias over an ordinary index still works for the legacy
+        // key that has the general surface.
+        let ordinary = "{\"actions\":[{\"add\":{\"index\":\"logs-2026\",\"alias\":\"logs\"}}]}";
+        assert!(check(&legacy, Method::POST, "/_aliases", ordinary));
+        // Squatting an alias NAME inside the reserved namespace is refused.
+        let squat =
+            "{\"actions\":[{\"add\":{\"index\":\"logs-2026\",\"alias\":\".xerj-memory-victim\"}}]}";
+        assert!(!check(&legacy, Method::POST, "/_aliases", squat));
+        // …by the path spelling too.
+        assert!(!check(
+            &legacy,
+            Method::PUT,
+            "/logs-2026/_alias/.xerj-memory-victim",
+            ""
+        ));
+
+        // Reading THROUGH an alias that already points at a brain resolves to
+        // the brain before the decision is made.
+        let mut map = HashMap::new();
+        map.insert(
+            "pwned".to_string(),
+            vec![".xerj-memory-bob-edges".to_string()],
+        );
+        let aliases = Map(map);
+        assert!(!check_with(
+            &legacy,
+            Method::POST,
+            "/pwned/_search",
+            "",
+            &aliases
+        ));
+        assert!(!check_with(
+            &legacy,
+            Method::POST,
+            "/_mget",
+            "{\"docs\":[{\"_index\":\"pwned\",\"_id\":\"1\"}]}",
+            &aliases
+        ));
+    }
+
+    /// The fifth shape, found by audit rather than by attack: a `terms` lookup
+    /// reads a document out of an index the URL never names.
+    #[test]
+    fn terms_lookup_index_is_authorized() {
+        let alice = scoped(&["logs-2026"], &[Privilege::ReadIndex]);
+        let lookup = r#"{"query":{"bool":{"filter":[{"terms":{"user":{"index":".xerj-memory-bob-edges","id":"1","path":"dst"}}}]}}}"#;
+        assert!(!check(&alice, Method::POST, "/logs-2026/_search", lookup));
+        // A lookup into an index she holds is fine.
+        let own = r#"{"query":{"terms":{"user":{"index":"logs-2026","id":"1","path":"u"}}}}"#;
+        assert!(check(&alice, Method::POST, "/logs-2026/_search", own));
+        // A plain `terms` filter (no lookup) names no index and is untouched —
+        // a document field called `index` must not be read as one.
+        let plain = r#"{"query":{"terms":{"index":["a","b"]}}}"#;
+        assert!(check(&alice, Method::POST, "/logs-2026/_search", plain));
+
+        // The same shape one layer over: a `lookup` runtime field joins rows
+        // out of another index into the hits.
+        let runtime = r#"{"runtime_mappings":{"u":{"type":"lookup","target_index":".xerj-memory-bob-edges","input_field":"src","target_field":"_id","fetch_fields":["dst"]}}}"#;
+        assert!(!check(&alice, Method::POST, "/logs-2026/_search", runtime));
+        let own = r#"{"runtime_mappings":{"u":{"type":"lookup","target_index":"logs-2026","input_field":"src","target_field":"_id"}}}"#;
+        assert!(check(&alice, Method::POST, "/logs-2026/_search", own));
+    }
+
+    /// `_reindex` reads its source and writes its destination.
+    #[test]
+    fn reindex_authorizes_source_and_destination() {
+        let p = scoped(
+            &["logs-2026", "logs-copy"],
+            &[Privilege::ReadIndex, Privilege::WriteIndex],
+        );
+        let ok = r#"{"source":{"index":"logs-2026"},"dest":{"index":"logs-copy"}}"#;
+        assert!(check(&p, Method::POST, "/_reindex", ok));
+        let steal = r#"{"source":{"index":".xerj-memory-bob-edges"},"dest":{"index":"logs-copy"}}"#;
+        assert!(!check(&p, Method::POST, "/_reindex", steal));
+        let overwrite =
+            r#"{"source":{"index":"logs-2026"},"dest":{"index":".xerj-memory-bob-edges"}}"#;
+        assert!(!check(&p, Method::POST, "/_reindex", overwrite));
+        // A body that names neither is refused rather than guessed at.
+        assert!(!check(&p, Method::POST, "/_reindex", "{}"));
+        assert!(!check(&p, Method::POST, "/_reindex", "not json"));
+    }
+
+    /// The native router's body-named create is authorized, not blanket-refused.
+    #[test]
+    fn native_body_named_create_is_authorized() {
+        let legacy = unscoped();
+        assert!(check(
+            &legacy,
+            Method::POST,
+            "/v1/indices",
+            r#"{"name":"logs-2026","fields":[]}"#
+        ));
+        assert!(!check(
+            &legacy,
+            Method::POST,
+            "/v1/indices",
+            r#"{"name":".xerj-memory-victim-edges","fields":[]}"#
+        ));
+        assert!(!check(&legacy, Method::POST, "/v1/indices", "{}"));
+    }
+
+    /// A snapshot or restore that names no indices covers every brain on the
+    /// node, so it is superuser-only.
+    #[test]
+    fn unbounded_snapshot_is_superuser_only() {
+        let legacy = unscoped();
+        assert!(!check(&legacy, Method::PUT, "/_snapshot/repo/s1", "{}"));
+        assert!(!check(
+            &legacy,
+            Method::POST,
+            "/_snapshot/repo/s1/_restore",
+            "{}"
+        ));
+        assert!(check(
+            &legacy,
+            Method::PUT,
+            "/_snapshot/repo/s1",
+            r#"{"indices":["logs-2026"]}"#
+        ));
+        assert!(!check(
+            &legacy,
+            Method::PUT,
+            "/_snapshot/repo/s1",
+            r#"{"indices":[".xerj-memory-bob-edges"]}"#
+        ));
+        assert!(check(
+            &Principal::Superuser,
+            Method::PUT,
+            "/_snapshot/repo/s1",
+            "{}"
+        ));
+    }
+
+    /// COMPATIBILITY: the regression that made the branch unusable. Every
+    /// global verb works for an ordinary credential, and a scoped key can read
+    /// cluster metadata and use a wildcard it was granted.
+    #[test]
+    fn ordinary_credentials_keep_the_global_surface() {
+        let legacy = unscoped();
+        let scoped_all = scoped(
+            &["*"],
+            &[
+                Privilege::ReadIndex,
+                Privilege::WriteIndex,
+                Privilege::AdminIndex,
+            ],
+        );
+        let logs = scoped(&["logs-*"], &[Privilege::ReadIndex, Privilege::WriteIndex]);
+
+        for p in [&legacy, &scoped_all, &logs] {
+            assert!(check(p, Method::POST, "/_search", "{}"), "global _search");
+            assert!(check(p, Method::POST, "/_count", "{}"), "global _count");
+            assert!(
+                check(p, Method::POST, "/_msearch", "{}\n{\"query\":{}}\n"),
+                "global _msearch"
+            );
+            assert!(
+                check(
+                    p,
+                    Method::POST,
+                    "/_bulk",
+                    "{\"index\":{\"_index\":\"logs-2026\"}}\n{\"m\":1}\n"
+                ),
+                "global _bulk"
+            );
+            assert!(
+                check(
+                    p,
+                    Method::POST,
+                    "/_mget",
+                    "{\"docs\":[{\"_index\":\"logs-2026\",\"_id\":\"1\"}]}"
+                ),
+                "global _mget"
+            );
+            assert!(check(p, Method::GET, "/_cluster/health", ""), "health");
+            assert!(check(p, Method::GET, "/_nodes", ""), "nodes");
+            assert!(check(p, Method::GET, "/_mapping", ""), "mapping");
+            assert!(check(p, Method::GET, "/_cat/indices", ""), "cat");
+            assert!(check(p, Method::GET, "/v1/health", ""), "native health");
+            assert!(
+                check(p, Method::GET, "/_resolve/index/logs-*", ""),
+                "resolve"
+            );
+        }
+        // A granted wildcard is usable, and an ungranted one resolves to
+        // nothing rather than 403 (the engine expands it over the visible set).
+        assert!(check(&logs, Method::GET, "/logs-*/_search", ""));
+        assert!(check(&scoped_all, Method::GET, "/logs-*/_search", ""));
+        assert!(check(&logs, Method::GET, "/.xerj-memory-*/_search", ""));
+        // A scoped key still cannot NAME another tenant's index.
+        assert!(!check(
+            &logs,
+            Method::GET,
+            "/.xerj-memory-bob-edges/_search",
+            ""
+        ));
+        // …nor mutate the cluster itself.
+        assert!(!check(&logs, Method::PUT, "/_cluster/settings", "{}"));
+        assert!(check(&legacy, Method::PUT, "/_cluster/settings", "{}"));
+    }
+
+    #[test]
+    fn json_pruning_hides_unreadable_indices() {
         let p = scoped(&[".xerj-memory-alice-edges"], &[Privilege::ReadIndex]);
+        let known: HashSet<String> = [
+            ".xerj-memory-alice-edges",
+            ".xerj-memory-bob-edges",
+            "logs-2026",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
         let mut mapping = serde_json::json!({
             ".xerj-memory-alice-edges": {"mappings": {}},
             ".xerj-memory-bob-edges": {"mappings": {}},
             "logs-2026": {"mappings": {}}
         });
-        prune_json(&mut mapping, &p);
+        prune_json(&mut mapping, &p, &known);
         assert!(mapping.get(".xerj-memory-alice-edges").is_some());
         assert!(mapping.get(".xerj-memory-bob-edges").is_none());
-        assert!(mapping.get("logs-2026").is_some());
+        // A scoped key does not see another tenant's ordinary index either …
+        assert!(mapping.get("logs-2026").is_none());
+        // … but structural keys are never mistaken for index names.
+        assert!(mapping[".xerj-memory-alice-edges"]
+            .get("mappings")
+            .is_some());
 
         // Array shapes: `_cat/indices?format=json` and `_resolve/index`.
         let mut cat = serde_json::json!([
             {"index": ".xerj-memory-bob-edges", "docs.count": "1"},
-            {"index": "logs-2026", "docs.count": "9"}
+            {"index": ".xerj-memory-alice-edges", "docs.count": "9"}
         ]);
-        prune_json(&mut cat, &p);
+        prune_json(&mut cat, &p, &known);
         assert_eq!(cat.as_array().unwrap().len(), 1);
 
-        let mut resolved = serde_json::json!({
-            "indices": [{"name": ".xerj-memory-bob-edges"}, {"name": "logs-2026"}]
-        });
-        prune_json(&mut resolved, &p);
-        assert_eq!(resolved["indices"].as_array().unwrap().len(), 1);
-
-        // Bare-string lists (`_field_caps.indices`).
-        let mut caps = serde_json::json!({"indices": [".xerj-memory-bob-edges", "logs-2026"]});
-        prune_json(&mut caps, &p);
-        assert_eq!(caps["indices"], serde_json::json!(["logs-2026"]));
+        let mut caps =
+            serde_json::json!({"indices": [".xerj-memory-bob-edges", ".xerj-memory-alice-edges"]});
+        prune_json(&mut caps, &p, &known);
+        assert_eq!(
+            caps["indices"],
+            serde_json::json!([".xerj-memory-alice-edges"])
+        );
     }
 
     #[test]
     fn text_pruning_drops_cat_rows() {
         let p = unscoped();
+        let known: HashSet<String> = ["logs-2026", ".xerj-memory-bob-edges"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
         let table = "green open logs-2026 uuid 1 0 9 0 1kb 1kb\n\
                      green open .xerj-memory-bob-edges uuid 1 0 1 0 1kb 1kb\n";
-        let out = String::from_utf8(prune_text(table.as_bytes(), &p)).unwrap();
+        let out = String::from_utf8(prune_text(table.as_bytes(), &p, &known)).unwrap();
         assert!(out.contains("logs-2026"));
         assert!(!out.contains(".xerj-memory-bob-edges"));
+    }
+
+    /// A template's patterns decide the mapping of indices that do not exist
+    /// yet, so a pattern reaching the reserved namespace is a write to a brain
+    /// by another route.
+    #[test]
+    fn index_template_patterns_cannot_reach_the_namespace() {
+        let legacy = unscoped();
+        assert!(check(
+            &legacy,
+            Method::PUT,
+            "/_index_template/logs",
+            r#"{"index_patterns":["logs-*"]}"#
+        ));
+        for patterns in [
+            r#"{"index_patterns":[".xerj-memory-*"]}"#,
+            r#"{"index_patterns":["*"]}"#,
+            r#"{"index_patterns":[".xerj-memory-bob-edges"]}"#,
+            r#"{"index_patterns":"logs-*,.xerj-*"}"#,
+        ] {
+            assert!(
+                !check(&legacy, Method::PUT, "/_index_template/grab", patterns),
+                "{patterns} must be refused"
+            );
+            assert!(
+                !check(&legacy, Method::PUT, "/_template/grab", patterns),
+                "legacy template {patterns} must be refused"
+            );
+        }
+        // The superuser still registers whatever it likes.
+        assert!(check(
+            &Principal::Superuser,
+            Method::PUT,
+            "/_index_template/grab",
+            r#"{"index_patterns":["*"]}"#
+        ));
+    }
+
+    /// The engine-side backstop is derived from the same principal, so a name
+    /// the middleware never parsed is still refused where it is resolved.
+    #[test]
+    fn visibility_matches_the_principal() {
+        let alice = scoped(&[".xerj-memory-alice-edges"], &[Privilege::ReadIndex]);
+        let v = visibility_for(&alice);
+        assert!(v.visible(".xerj-memory-alice-edges"));
+        assert!(!v.visible(".xerj-memory-bob-edges"));
+        assert!(!v.visible("logs-2026"));
+
+        let legacy = visibility_for(&unscoped());
+        assert!(legacy.visible("logs-2026"));
+        assert!(!legacy.visible(".xerj-memory-bob-edges"));
+
+        let root = visibility_for(&Principal::Superuser);
+        assert!(root.visible(".xerj-memory-bob-edges"));
+
+        let denied = visibility_for(&Principal::Denied);
+        assert!(!denied.visible("logs-2026"));
     }
 }
