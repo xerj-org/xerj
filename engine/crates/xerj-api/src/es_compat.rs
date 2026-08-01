@@ -5276,6 +5276,116 @@ pub(crate) fn script_limit_error_value(reason: &str) -> Value {
     })
 }
 
+/// The single definition of WHICH request fields the script guard walks.
+///
+/// Every search entry point resolves the guard through this enum: `_search`
+/// (and the scroll / async-search paths) via [`GuardedField::in_search_body`],
+/// `_msearch`, `_search/template` and `_msearch/template` — which hand a raw
+/// body straight to `parse_request` — via [`GuardedField::in_raw_body`]. Both
+/// resolvers are exhaustive `match`es over this enum, so a field cannot be
+/// guarded on one entry point and skipped on another.
+///
+/// The set is deliberately the fields whose values actually carry scripts to
+/// an executor. Walking a WHOLE body instead (what `_msearch` did between
+/// #115 and this fix) makes the multi-search API *stricter* than `_search`:
+/// an over-limit `script` key under an unguarded field — `highlight`,
+/// `suggest`, `docvalue_fields`, `collapse.inner_hits` — 400'd on `_msearch`
+/// while the identical body returned 200 on `_search`.
+///
+/// Top-level `knn` is deliberately not a variant. `_search` folds the spec
+/// into the guarded `query` before `build_search_request` runs, so a script
+/// under `knn.filter` is guarded there; the raw-body paths never execute a
+/// top-level `knn` at all — `parse_request` reads no such key — so nothing
+/// parked there reaches an executor. If `_msearch` ever grows top-level knn
+/// support, it needs a variant here (see
+/// `script_guard_symmetry_tests::msearch_does_not_execute_top_level_knn`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum GuardedField {
+    Query,
+    Rescore,
+    Sort,
+    ScriptFields,
+    RuntimeMappings,
+    /// `aggs`, with ES's `aggregations` spelling as an alias. The two are ONE
+    /// value, never two independently-checked keys — see [`Self::in_raw_body`].
+    Aggs,
+}
+
+impl GuardedField {
+    /// Every guarded field. Adding a variant forces both resolvers below to
+    /// be updated (their `match`es are exhaustive); add it here too so the
+    /// walk actually reaches it.
+    const ALL: [GuardedField; 6] = [
+        Self::Query,
+        Self::Rescore,
+        Self::Sort,
+        Self::ScriptFields,
+        Self::RuntimeMappings,
+        Self::Aggs,
+    ];
+
+    /// The value this field carries in a raw JSON search body.
+    ///
+    /// `aggs`/`aggregations` resolve exactly the way the executor resolves
+    /// them — `parse_request` does `obj.get("aggs").or_else(|| obj.get(
+    /// "aggregations"))` (xerj-query `parser.rs`), first spelling present
+    /// wins — and `build_search_request`'s caller does the same on the typed
+    /// body. Checking the two keys independently instead would 400 a body
+    /// whose over-limit script sits in the spelling the executor DISCARDS: a
+    /// pure false positive, and an `_msearch`-vs-`_search` split of its own.
+    fn in_raw_body(self, body: &Value) -> Option<&Value> {
+        match self {
+            Self::Query => body.get("query"),
+            Self::Rescore => body.get("rescore"),
+            Self::Sort => body.get("sort"),
+            Self::ScriptFields => body.get("script_fields"),
+            Self::RuntimeMappings => body.get("runtime_mappings"),
+            Self::Aggs => body.get("aggs").or_else(|| body.get("aggregations")),
+        }
+    }
+
+    /// The value this field carries in a typed [`EsSearchBody`]. `aggs_value`
+    /// is the caller's already-resolved `aggs`/`aggregations` pair (same
+    /// first-spelling-wins rule as [`Self::in_raw_body`]).
+    fn in_search_body<'a>(
+        self,
+        body: &'a EsSearchBody,
+        aggs_value: Option<&'a Value>,
+    ) -> Option<&'a Value> {
+        match self {
+            Self::Query => body.query.as_ref(),
+            Self::Rescore => body.rescore.as_ref(),
+            Self::Sort => body.sort.as_ref(),
+            Self::ScriptFields => body.script_fields.as_ref(),
+            Self::RuntimeMappings => body.runtime_mappings.as_ref(),
+            Self::Aggs => aggs_value,
+        }
+    }
+}
+
+/// Request-time script guard for a RAW search body — the shape `_msearch`,
+/// `_search/template` and `_msearch/template` hand straight to
+/// `parse_request`, skipping `build_search_request` and therefore the typed
+/// guard. Inspects exactly the fields `_search` inspects.
+fn find_body_script_limit_violation(body: &Value) -> Option<String> {
+    GuardedField::ALL
+        .iter()
+        .filter_map(|field| field.in_raw_body(body))
+        .find_map(find_script_limit_violation)
+}
+
+/// Request-time script guard for a typed [`EsSearchBody`] (`_search`, scroll,
+/// async search). Same field set as [`find_body_script_limit_violation`].
+fn find_search_body_script_limit_violation(
+    body: &EsSearchBody,
+    aggs_value: Option<&Value>,
+) -> Option<String> {
+    GuardedField::ALL
+        .iter()
+        .filter_map(|field| field.in_search_body(body, aggs_value))
+        .find_map(find_script_limit_violation)
+}
+
 /// Parse an ES time-units string to milliseconds: `"500ms"`, `"30s"`,
 /// `"2m"`, `"1h"`, `"1d"`, `"5micros"`, `"100nanos"`, bare number =
 /// millis. Sub-millisecond values round up to 1 ms so `timeout=100nanos`
@@ -5318,20 +5428,10 @@ fn build_search_request(
     // Reject scripts that exceed the engine's resource limits up front with a
     // 400, before they reach the per-document scoring path (where a deeply
     // nested script would otherwise overflow the stack and abort the server).
-    for v in [
-        body.query.as_ref(),
-        body.rescore.as_ref(),
-        body.sort.as_ref(),
-        body.script_fields.as_ref(),
-        body.runtime_mappings.as_ref(),
-        aggs_value.as_ref(),
-    ]
-    .into_iter()
-    .flatten()
-    {
-        if let Some(msg) = find_script_limit_violation(v) {
-            return Err(xerj_common::XerjError::invalid_query(msg));
-        }
+    // The field set lives in `GuardedField`, shared with the raw-body guard
+    // the `_msearch` / `_search/template` / `_msearch/template` paths run.
+    if let Some(msg) = find_search_body_script_limit_violation(body, aggs_value.as_ref()) {
+        return Err(xerj_common::XerjError::invalid_query(msg));
     }
 
     let query_val = body.query.clone().unwrap_or(json!({ "match_all": {} }));
@@ -18017,12 +18117,13 @@ async fn msearch_impl(
         };
 
         // Same request-time script guard `_search` applies in
-        // `build_search_request`. Without it `_msearch` was a general bypass:
-        // any script `_search` rejects up front with a 400 reached the
-        // per-document paths unchecked here. Sub-searches are independent, so
-        // the violation fails this item only (400, ES's per-item error shape)
-        // and the rest of the batch still runs.
-        if let Some(msg) = find_script_limit_violation(&search_body_val) {
+        // `build_search_request`, over the same `GuardedField` set. Without it
+        // `_msearch` was a general bypass: any script `_search` rejects up
+        // front with a 400 reached the per-document paths unchecked here.
+        // Sub-searches are independent, so the violation fails this item only
+        // (400, ES's per-item error shape) and the rest of the batch still
+        // runs.
+        if let Some(msg) = find_body_script_limit_violation(&search_body_val) {
             responses.push(json!({
                 "error": { "type": "illegal_argument_exception", "reason": msg },
                 "status": 400
@@ -24149,8 +24250,9 @@ pub async fn search_template(
 
     // A rendered template is user input like any other search body — apply
     // the same request-time script guard `_search` applies in
-    // `build_search_request`, which this path also skips.
-    if let Some(msg) = find_script_limit_violation(&search_body_val) {
+    // `build_search_request`, over the same `GuardedField` set, since this
+    // path also skips it.
+    if let Some(msg) = find_body_script_limit_violation(&search_body_val) {
         return ApiError::new(xerj_common::XerjError::invalid_query(msg)).into_response();
     }
 
@@ -24339,10 +24441,10 @@ async fn msearch_template_impl(
             continue;
         };
 
-        // Same request-time script guard as `_search`/`_msearch`; the
-        // rendered template is user input and this path skips
-        // `build_search_request` too.
-        if let Some(msg) = find_script_limit_violation(&search_body_val) {
+        // Same request-time script guard as `_search`/`_msearch`, over the
+        // same `GuardedField` set; the rendered template is user input and
+        // this path skips `build_search_request` too.
+        if let Some(msg) = find_body_script_limit_violation(&search_body_val) {
             responses.push(json!({
                 "error": { "type": "illegal_argument_exception", "reason": msg },
                 "status": 400
@@ -32409,5 +32511,484 @@ mod msearch_script_guard_tests {
             .into_response();
         let v = drain_json(resp).await;
         assert_eq!(v["responses"][0]["status"], json!(200), "{v}");
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The request-time script guard must be the SAME guard everywhere. `_search`
+// runs it over a fixed field set (`GuardedField`); the raw-body entry points —
+// `_msearch`, `_search/template`, `_msearch/template` — used to run it over the
+// WHOLE sub-request body, which made them stricter than `_search`: an
+// over-limit script sitting under a field `_search` never inspects (and, for
+// the `aggs`/`aggregations` pair, under the spelling the executor discards)
+// returned 200 from `_search` and 400 from `_msearch`.
+//
+// These tests fire ONE body at every entry point through the real router and
+// require the verdicts to match.
+// ─────────────────────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod script_guard_symmetry_tests {
+    use super::*;
+    use axum::body::{to_bytes, Body};
+    use axum::http::Request;
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    const IDX: &str = "guard-sym";
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    /// ~80 KB of right-associative ternary: over the 64 KB source limit AND
+    /// past the parser's nesting cap, so `check_script_limits` rejects it
+    /// whichever limit it reaches first.
+    fn over_limit_script() -> String {
+        let script = format!("{}1", "0?1:".repeat(20_000));
+        assert!(
+            script.len() > 64 * 1024,
+            "fixture must break the size limit"
+        );
+        script
+    }
+
+    /// One search body per guarded field, each carrying `over_limit_script()`
+    /// in the place that field would hand to an executor. The `match` is
+    /// exhaustive: a new `GuardedField` variant cannot be added without a
+    /// fixture that the router table below then fires at every entry point.
+    fn body_violating(field: GuardedField) -> Value {
+        let big = over_limit_script();
+        match field {
+            GuardedField::Query => json!({
+                "query": { "script_score": {
+                    "query": { "match_all": {} },
+                    "script": { "source": big }
+                }}
+            }),
+            GuardedField::Rescore => json!({
+                "query": { "match_all": {} },
+                "rescore": { "query": { "rescore_query": { "script_score": {
+                    "query": { "match_all": {} },
+                    "script": { "source": big }
+                }}}}
+            }),
+            GuardedField::Sort => json!({
+                "query": { "match_all": {} },
+                "sort": [{ "_script": {
+                    "type": "number",
+                    "script": { "source": big },
+                    "order": "asc"
+                }}]
+            }),
+            GuardedField::ScriptFields => json!({
+                "query": { "match_all": {} },
+                "script_fields": { "x": { "script": { "source": big } } }
+            }),
+            GuardedField::RuntimeMappings => json!({
+                "query": { "match_all": {} },
+                "runtime_mappings": { "f": { "type": "keyword", "script": { "source": big } } }
+            }),
+            GuardedField::Aggs => json!({
+                "size": 0,
+                "aggs": { "by_tag": {
+                    "terms": { "field": "tag" },
+                    "aggs": {
+                        "total": { "sum": { "field": "n" } },
+                        "ratio": { "bucket_script": {
+                            "buckets_path": { "t": "total" },
+                            "script": big
+                        }}
+                    }
+                }}
+            }),
+        }
+    }
+
+    async fn seed(state: AppState) {
+        let doc = json!({ "tag": "a", "n": 1, "body": "hello" });
+        let ndjson = format!("{{\"index\":{{\"_index\":\"{IDX}\",\"_id\":\"1\"}}}}\n{doc}\n");
+        let resp = crate::router::build_es_compat_router(state.clone())
+            .oneshot(
+                Request::post("/_bulk")
+                    .header("content-type", "application/x-ndjson")
+                    .body(Body::from(ndjson))
+                    .expect("bulk request"),
+            )
+            .await
+            .expect("bulk response");
+        assert_eq!(resp.status(), 200, "seed bulk failed");
+        let resp = crate::router::build_es_compat_router(state)
+            .oneshot(
+                Request::post(format!("/{IDX}/_refresh"))
+                    .body(Body::empty())
+                    .expect("refresh request"),
+            )
+            .await
+            .expect("refresh response");
+        assert!(
+            resp.status().is_success(),
+            "seed refresh: {}",
+            resp.status()
+        );
+    }
+
+    async fn json_response(resp: Response) -> (u16, Value) {
+        let status = resp.status().as_u16();
+        let bytes = to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap_or_default();
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
+    }
+
+    /// An `_msearch`-family verdict is the per-item status inside the 200
+    /// envelope; surface it the same way an HTTP status is surfaced so the
+    /// two shapes are comparable.
+    fn first_item_verdict(http: u16, envelope: Value) -> (u16, Value) {
+        if http != 200 {
+            return (http, envelope);
+        }
+        let item = envelope["responses"][0].clone();
+        let status = item["status"].as_u64().unwrap_or(200) as u16;
+        (status, item)
+    }
+
+    async fn search_verdict(state: AppState, body: &Value) -> (u16, Value) {
+        let resp = crate::router::build_es_compat_router(state)
+            .oneshot(
+                Request::post(format!("/{IDX}/_search"))
+                    .header("content-type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .expect("search request"),
+            )
+            .await
+            .expect("search response");
+        json_response(resp).await
+    }
+
+    async fn msearch_verdict(state: AppState, body: &Value) -> (u16, Value) {
+        let ndjson = format!("{}\n{}\n", json!({ "index": IDX }), body);
+        let resp = crate::router::build_es_compat_router(state)
+            .oneshot(
+                Request::post("/_msearch")
+                    .header("content-type", "application/x-ndjson")
+                    .body(Body::from(ndjson))
+                    .expect("msearch request"),
+            )
+            .await
+            .expect("msearch response");
+        let (http, envelope) = json_response(resp).await;
+        first_item_verdict(http, envelope)
+    }
+
+    async fn search_template_verdict(state: AppState, body: &Value) -> (u16, Value) {
+        let resp = crate::router::build_es_compat_router(state)
+            .oneshot(
+                Request::post(format!("/{IDX}/_search/template"))
+                    .header("content-type", "application/json")
+                    .body(Body::from(json!({ "source": body }).to_string()))
+                    .expect("template request"),
+            )
+            .await
+            .expect("template response");
+        json_response(resp).await
+    }
+
+    async fn msearch_template_verdict(state: AppState, body: &Value) -> (u16, Value) {
+        let ndjson = format!(
+            "{}\n{}\n",
+            json!({ "index": IDX }),
+            json!({ "source": body })
+        );
+        let resp = crate::router::build_es_compat_router(state)
+            .oneshot(
+                Request::post("/_msearch/template")
+                    .header("content-type", "application/x-ndjson")
+                    .body(Body::from(ndjson))
+                    .expect("msearch template request"),
+            )
+            .await
+            .expect("msearch template response");
+        let (http, envelope) = json_response(resp).await;
+        first_item_verdict(http, envelope)
+    }
+
+    /// Fire the identical body at every search entry point that runs the
+    /// guard, through the real router, and assert they all return `expected`.
+    async fn assert_entry_points_agree(case: &str, body: &Value, expected: u16) {
+        let state = test_state();
+        seed(state.clone()).await;
+        let verdicts = [
+            ("_search", search_verdict(state.clone(), body).await),
+            ("_msearch", msearch_verdict(state.clone(), body).await),
+            (
+                "_search/template",
+                search_template_verdict(state.clone(), body).await,
+            ),
+            (
+                "_msearch/template",
+                msearch_template_verdict(state, body).await,
+            ),
+        ];
+        for (endpoint, (status, payload)) in &verdicts {
+            assert_eq!(
+                *status, expected,
+                "{case}: {endpoint} answered {status}, expected {expected}: {payload}"
+            );
+            if expected == 400 {
+                let reason = payload["error"]["reason"].as_str().unwrap_or_default();
+                assert!(
+                    reason.contains("byte limit") || reason.contains("nesting depth"),
+                    "{case}: {endpoint} must report the script limit it broke, got {reason:?}"
+                );
+            }
+        }
+    }
+
+    /// The guard, on every entry point, for every field it covers.
+    #[tokio::test]
+    async fn over_limit_script_in_a_guarded_field_is_rejected_everywhere() {
+        for field in GuardedField::ALL {
+            assert_entry_points_agree(&format!("{field:?}"), &body_violating(field), 400).await;
+        }
+    }
+
+    /// `aggregations` is the same guarded value as `aggs`, not an extra key.
+    #[tokio::test]
+    async fn over_limit_script_under_the_aggregations_spelling_is_rejected_everywhere() {
+        let mut body = body_violating(GuardedField::Aggs);
+        let aggs = body["aggs"].take();
+        body.as_object_mut().unwrap().remove("aggs");
+        body["aggregations"] = aggs;
+        assert_entry_points_agree("aggregations spelling", &body, 400).await;
+    }
+
+    /// An oversized string outside the guarded fields is not the guard's
+    /// business. These bodies each carry the same ~80 KB script under a field
+    /// `_search` does not inspect (or, in the last case, no `script` key at
+    /// all) — every entry point must answer 200.
+    ///
+    /// Before this fix the raw-body walk made `_msearch` 400 all four of the
+    /// script-carrying ones while `_search` returned 200.
+    #[tokio::test]
+    async fn oversized_strings_outside_the_guarded_fields_are_accepted_everywhere() {
+        let big = over_limit_script();
+        let cases = [
+            (
+                "highlight",
+                json!({
+                    "query": { "match_all": {} },
+                    "highlight": { "fields": { "body": { "options": { "script": big } } } }
+                }),
+            ),
+            (
+                "suggest",
+                json!({
+                    "query": { "match_all": {} },
+                    "suggest": { "s": { "text": "hello", "term": { "field": "body", "script": big } } }
+                }),
+            ),
+            (
+                "docvalue_fields",
+                json!({
+                    "query": { "match_all": {} },
+                    "docvalue_fields": [{ "field": "n", "script": big }]
+                }),
+            ),
+            (
+                "collapse.inner_hits",
+                json!({
+                    "query": { "match_all": {} },
+                    "collapse": {
+                        "field": "tag",
+                        "inner_hits": {
+                            "name": "t",
+                            "script_fields": { "x": { "script": { "source": big } } }
+                        }
+                    }
+                }),
+            ),
+            (
+                "plain oversized query term",
+                json!({ "query": { "match": { "body": "x".repeat(70_000) } } }),
+            ),
+        ];
+        for (case, body) in cases {
+            assert_entry_points_agree(case, &body, 200).await;
+        }
+    }
+
+    /// The `aggs`/`aggregations` pair, end to end. The over-limit script sits
+    /// in the spelling the executor DISCARDS, so nothing runs it and every
+    /// entry point must answer 200 — checking the two keys independently is
+    /// what previously split `_search` (200) from `_msearch` (400).
+    #[tokio::test]
+    async fn aggs_pair_is_one_value_on_every_entry_point() {
+        let ordinary = json!({ "by_tag": { "terms": { "field": "tag" } } });
+        let violating = body_violating(GuardedField::Aggs)["aggs"].clone();
+
+        let discarded_spelling = json!({
+            "size": 0,
+            "aggs": ordinary,
+            "aggregations": violating,
+        });
+        assert_entry_points_agree(
+            "aggs ok + aggregations over-limit",
+            &discarded_spelling,
+            200,
+        )
+        .await;
+
+        let executed_spelling = json!({
+            "size": 0,
+            "aggs": violating,
+            "aggregations": ordinary,
+        });
+        assert_entry_points_agree("aggs over-limit + aggregations ok", &executed_spelling, 400)
+            .await;
+    }
+
+    /// The rule the guard has to follow, stated against the executor itself:
+    /// `parse_request` takes the first spelling present, and the guard must
+    /// inspect exactly that value.
+    #[test]
+    fn aggs_pair_resolves_the_way_parse_request_resolves_it() {
+        let ordinary = json!({ "by_tag": { "terms": { "field": "tag" } } });
+        let violating = body_violating(GuardedField::Aggs)["aggs"].clone();
+
+        let discarded_spelling = json!({ "aggs": ordinary, "aggregations": violating });
+        let req = xerj_query::parse_request(&discarded_spelling).expect("parse");
+        assert_eq!(
+            req.aggs.as_ref(),
+            Some(&ordinary),
+            "parse_request must execute the FIRST spelling"
+        );
+        assert!(
+            find_body_script_limit_violation(&discarded_spelling).is_none(),
+            "guard must inspect the value parse_request executes, not the discarded key"
+        );
+
+        let executed_spelling = json!({ "aggs": violating, "aggregations": ordinary });
+        let req = xerj_query::parse_request(&executed_spelling).expect("parse");
+        assert_eq!(
+            req.aggs.as_ref(),
+            Some(&violating),
+            "parse_request must execute the FIRST spelling"
+        );
+        assert!(
+            find_body_script_limit_violation(&executed_spelling).is_some(),
+            "guard must reject the value parse_request executes"
+        );
+    }
+
+    /// Both resolvers must cover the same fields: whatever the raw-body guard
+    /// sees, the typed `_search` guard sees too, and vice versa.
+    #[test]
+    fn raw_and_typed_resolvers_cover_the_same_fields() {
+        for field in GuardedField::ALL {
+            let body = body_violating(field);
+            let typed: EsSearchBody =
+                serde_json::from_value(body.clone()).expect("body must parse as EsSearchBody");
+            let aggs_value = typed.aggs.clone().or_else(|| typed.aggregations.clone());
+            assert!(
+                find_body_script_limit_violation(&body).is_some(),
+                "raw-body guard missed {field:?}"
+            );
+            assert!(
+                find_search_body_script_limit_violation(&typed, aggs_value.as_ref()).is_some(),
+                "typed `_search` guard missed {field:?}"
+            );
+        }
+    }
+
+    /// Symmetry must not become leniency: the bypass #115 closed stays closed.
+    /// A hostile item in a batch is still rejected on its own, and a sibling
+    /// item whose oversized string is outside the guarded fields still runs.
+    #[tokio::test]
+    async fn msearch_still_rejects_an_over_limit_script_item() {
+        let state = test_state();
+        seed(state.clone()).await;
+        let hostile = body_violating(GuardedField::Query);
+        let unguarded = json!({
+            "query": { "match_all": {} },
+            "highlight": { "fields": { "body": { "options": { "script": over_limit_script() } } } }
+        });
+        let ndjson = format!(
+            "{}\n{}\n{}\n{}\n",
+            json!({ "index": IDX }),
+            hostile,
+            json!({ "index": IDX }),
+            unguarded
+        );
+        let resp = crate::router::build_es_compat_router(state)
+            .oneshot(
+                Request::post("/_msearch")
+                    .header("content-type", "application/x-ndjson")
+                    .body(Body::from(ndjson))
+                    .expect("msearch request"),
+            )
+            .await
+            .expect("msearch response");
+        let (http, envelope) = json_response(resp).await;
+        assert_eq!(http, 200);
+        assert_eq!(
+            envelope["responses"][0]["status"],
+            json!(400),
+            "over-limit script item must still be rejected: {envelope}"
+        );
+        assert_eq!(
+            envelope["responses"][1]["status"],
+            json!(200),
+            "unguarded-field item must still run: {envelope}"
+        );
+    }
+
+    /// Why top-level `knn` is not a `GuardedField`: `_msearch` never executes
+    /// it, so a script parked there reaches no executor. The discriminator is
+    /// a `knn.filter` that matches nothing — `_search` honours it and returns
+    /// zero hits, `_msearch` ignores the whole clause and returns the doc.
+    ///
+    /// If this ever starts failing because `_msearch` grew knn support, that
+    /// path gained a script sink and `knn` must become a guarded field.
+    #[tokio::test]
+    async fn msearch_does_not_execute_top_level_knn() {
+        let state = test_state();
+        seed(state.clone()).await;
+        let body = json!({
+            "knn": {
+                "field": "vec",
+                "query_vector": [1.0],
+                "k": 1,
+                "num_candidates": 1,
+                "filter": { "term": { "tag": "no-such-tag" } }
+            }
+        });
+        let (msearch_status, msearch_item) = msearch_verdict(state.clone(), &body).await;
+        assert_eq!(msearch_status, 200, "{msearch_item}");
+        assert_eq!(
+            msearch_item["hits"]["total"]["value"],
+            json!(1),
+            "`_msearch` must be ignoring the knn clause entirely: {msearch_item}"
+        );
+
+        let (search_status, search_body) = search_verdict(state, &body).await;
+        assert_eq!(search_status, 200, "{search_body}");
+        assert_eq!(
+            search_body["hits"]["total"]["value"],
+            json!(0),
+            "`_search` must be executing the knn filter: {search_body}"
+        );
     }
 }
