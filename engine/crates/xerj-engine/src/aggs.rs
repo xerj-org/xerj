@@ -185,7 +185,25 @@ pub fn run_aggs_with_all(aggs_def: &Value, docs: &[Value], all_docs: &[Value]) -
         result.insert(agg_name.clone(), agg_result);
     }
 
+    // A bare `"_count"` buckets_path (no sibling prefix — Timelion's
+    // `.opensearch()` datasource emits exactly this for its per-bucket
+    // count metric) refers to the CONTAINING bucket's own doc_count, not
+    // a named sibling's. `docs` here already IS that bucket's doc slice at
+    // every nesting level (top-level query matches, or a terms/
+    // date_histogram bucket's filtered docs for a recursive call), so
+    // stage it under a transient `doc_count` key for `resolve_bucket_script`
+    // to read via `siblings`, then strip it back out — it isn't a real
+    // sibling agg and must not leak into the returned aggs tree. Guarded
+    // against the (unusual) case of a user-defined agg literally named
+    // `doc_count`, which must win over the synthetic value.
+    let had_doc_count = result.contains_key("doc_count");
+    if !had_doc_count {
+        result.insert("doc_count".to_string(), json!(docs.len() as u64));
+    }
     resolve_sibling_pipelines(&mut result);
+    if !had_doc_count {
+        result.remove("doc_count");
+    }
 
     Value::Object(result)
 }
@@ -990,6 +1008,41 @@ fn resolve_bucket_script(
     extra_params: &HashMap<String, f64>,
     siblings: &Map<String, Value>,
 ) -> Value {
+    // Simple string form (`"buckets_path": "some_agg"`, or the bare
+    // `"buckets_path": "_count"` Timelion's `.opensearch()` datasource
+    // emits for its per-time-bucket count metric): unlike the object form,
+    // ES binds the resolved value to the single variable `_value` in the
+    // script, regardless of the path's own name. `_count` with no sibling
+    // prefix refers to the CURRENT (immediately containing) bucket's own
+    // `doc_count` — `siblings` here IS that bucket's full map (see
+    // `fast_aggs.rs`'s `resolve_sibling_pipelines(bucket)`), so it already
+    // carries `doc_count` as a plain key alongside the sibling agg results.
+    if let Some(s) = buckets_path.as_str() {
+        let v = if s == "_count" {
+            siblings.get("doc_count").and_then(Value::as_f64)
+        } else {
+            let (sib_name, metric) = split_buckets_path(s);
+            siblings.get(sib_name).and_then(|sib| match metric {
+                Some("_count") => sib.get("doc_count").and_then(Value::as_f64),
+                Some(m) => sib.get(m).and_then(|x| {
+                    x.get("value")
+                        .and_then(Value::as_f64)
+                        .or_else(|| x.as_f64())
+                }),
+                None => sib.get("value").and_then(Value::as_f64),
+            })
+        };
+        let v = match v {
+            Some(x) => x,
+            None => return json!({"value": Value::Null}),
+        };
+        let mut params = extra_params.clone();
+        params.insert("_value".to_string(), v);
+        return match eval_script_expr(script, &params) {
+            Some(v) => json!({"value": v}),
+            None => json!({"value": Value::Null}),
+        };
+    }
     let bp = match buckets_path.as_object() {
         Some(o) => o,
         None => return json!({"value": Value::Null}),
@@ -12583,6 +12636,57 @@ mod tests {
             .as_f64()
             .expect("bucket_script must resolve _count buckets_path, not stay null");
         assert!((ratio - 0.5).abs() < 1e-9);
+    }
+
+    // Regression: `buckets_path` as a bare STRING (not an object) is ES's
+    // "simple form" — the resolved value binds to the single variable
+    // `_value` in the script, and the bare string `"_count"` (no sibling
+    // prefix at all) refers to the CURRENT bucket's own `doc_count`. This
+    // is exactly what Kibana/OSD's Timelion `.opensearch()` datasource
+    // emits for its per-time-bucket count metric
+    // (`"buckets_path": "_count", "script": {"source": "_value"}`).
+    // `resolve_bucket_script` used to require `buckets_path.as_object()`
+    // unconditionally, so this shape always fell through to `None` and
+    // returned null — every Timelion panel using a bare split (e.g. the
+    // sample Logs dashboard's "Stacked extensions over time") showed a
+    // real doc_count per bucket but an all-null/all-zero series.
+    #[test]
+    fn bucket_script_resolves_bare_string_underscore_count_buckets_path() {
+        // Nested inside a `terms` bucket, matching the real shape: bare
+        // `_count` refers to the CONTAINING bucket's own doc_count, which
+        // only exists as a concept inside a bucket (top-level results have
+        // no `doc_count`).
+        let docs = vec![
+            json!({"status": "delayed"}),
+            json!({"status": "delayed"}),
+            json!({"status": "ok"}),
+        ];
+        let agg = json!({
+            "by_status": {
+                "terms": { "field": "status" },
+                "aggs": {
+                    "count": {
+                        "bucket_script": {
+                            "buckets_path": "_count",
+                            "script": { "source": "_value", "lang": "expression" }
+                        }
+                    }
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        let buckets = result["by_status"]["buckets"]
+            .as_array()
+            .expect("terms agg must produce buckets");
+        let delayed = buckets
+            .iter()
+            .find(|b| b["key"] == "delayed")
+            .expect("delayed bucket must exist");
+        assert_eq!(delayed["doc_count"], 2);
+        let value = delayed["count"]["value"]
+            .as_f64()
+            .expect("bucket_script must resolve a bare string _count buckets_path, not stay null");
+        assert!((value - 2.0).abs() < 1e-9);
     }
 
     // Regression: the exact `bucket_script` shape Kibana/OSD's TSVB
