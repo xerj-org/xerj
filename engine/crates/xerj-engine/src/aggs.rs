@@ -1033,22 +1033,73 @@ fn resolve_bucket_script(
 
 /// Evaluate a simple arithmetic / comparison expression against a params map.
 ///
-/// Supports: numbers (incl. decimals), `params.<name>` identifiers,
+/// Supports: numbers (incl. decimals), `params.<name>` identifiers, the
+/// `null` literal (only meaningful in `==`/`!=` comparisons — matches ES
+/// bucket_script scripts like Kibana/OSD TSVB's `filter_ratio`, which
+/// guards against missing siblings with `params.x != null && ...`),
 /// operators `+ - * / %`, comparisons `< > <= >= == !=` (yield 0.0 or 1.0),
-/// logical `&&` / `||` (yield 0.0 or 1.0), and parentheses.  Honors
-/// standard precedence.  Returns `None` on parse failure.
+/// logical `&&` / `||` (yield 0.0 or 1.0), the ternary `cond ? a : b`, and
+/// parentheses. Honors standard precedence. Returns `None` on parse failure.
 fn eval_script_expr(script: &str, params: &HashMap<String, f64>) -> Option<f64> {
     let tokens = tokenize_script(script, params)?;
-    let rpn = shunting_yard(&tokens)?;
+    eval_tokens(&tokens)
+}
+
+/// Evaluate a token slice, handling the ternary operator (which the
+/// operator-precedence shunting-yard below doesn't model) by splitting on
+/// the first top-level `?` / matching `:` and recursing before falling
+/// back to ordinary shunting-yard + RPN evaluation.
+fn eval_tokens(toks: &[Tok]) -> Option<f64> {
+    if let Some((q_idx, c_idx)) = find_ternary_split(toks) {
+        let cond = eval_tokens(&toks[..q_idx])?;
+        return if cond != 0.0 {
+            eval_tokens(&toks[q_idx + 1..c_idx])
+        } else {
+            eval_tokens(&toks[c_idx + 1..])
+        };
+    }
+    let rpn = shunting_yard(toks)?;
     evaluate_rpn(&rpn)
+}
+
+/// Find the first top-level (paren-depth 0) `?` and its matching top-level
+/// `:`. Returns `None` when there's no ternary at this nesting level.
+fn find_ternary_split(toks: &[Tok]) -> Option<(usize, usize)> {
+    let mut depth = 0i32;
+    let mut q_idx = None;
+    for (i, t) in toks.iter().enumerate() {
+        match t {
+            Tok::LParen => depth += 1,
+            Tok::RParen => depth -= 1,
+            Tok::Question if depth == 0 => {
+                q_idx = Some(i);
+                break;
+            }
+            _ => {}
+        }
+    }
+    let q = q_idx?;
+    let mut depth = 0i32;
+    for (i, t) in toks.iter().enumerate().skip(q + 1) {
+        match t {
+            Tok::LParen => depth += 1,
+            Tok::RParen => depth -= 1,
+            Tok::Colon if depth == 0 => return Some((q, i)),
+            _ => {}
+        }
+    }
+    None
 }
 
 #[derive(Debug, Clone)]
 enum Tok {
     Num(f64),
+    Null,
     Op(&'static str),
     LParen,
     RParen,
+    Question,
+    Colon,
 }
 
 fn tokenize_script(s: &str, params: &HashMap<String, f64>) -> Option<Vec<Tok>> {
@@ -1087,6 +1138,8 @@ fn tokenize_script(s: &str, params: &HashMap<String, f64>) -> Option<Vec<Tok>> {
             if let Some(rest) = ident.strip_prefix("params.") {
                 let v = *params.get(rest)?;
                 toks.push(Tok::Num(v));
+            } else if ident == "null" {
+                toks.push(Tok::Null);
             } else {
                 let v = *params.get(ident)?;
                 toks.push(Tok::Num(v));
@@ -1142,6 +1195,12 @@ fn tokenize_script(s: &str, params: &HashMap<String, f64>) -> Option<Vec<Tok>> {
             ')' => {
                 toks.push(Tok::RParen);
             }
+            '?' => {
+                toks.push(Tok::Question);
+            }
+            ':' => {
+                toks.push(Tok::Colon);
+            }
             ';' => {} // ignore trailing semicolons
             _ => return None,
         }
@@ -1167,7 +1226,7 @@ fn shunting_yard(toks: &[Tok]) -> Option<Vec<Tok>> {
     let mut ops: Vec<Tok> = Vec::new();
     for t in toks {
         match t {
-            Tok::Num(_) => out.push(t.clone()),
+            Tok::Num(_) | Tok::Null => out.push(t.clone()),
             Tok::Op(o) => {
                 while let Some(Tok::Op(top)) = ops.last() {
                     if precedence(top) >= precedence(o) {
@@ -1187,6 +1246,11 @@ fn shunting_yard(toks: &[Tok]) -> Option<Vec<Tok>> {
                     }
                 }
             }
+            // `eval_tokens` always strips ternary tokens out via
+            // `find_ternary_split` before a slice reaches shunting_yard —
+            // reaching here means an unbalanced/nested `?`/`:` this
+            // evaluator doesn't support.
+            Tok::Question | Tok::Colon => return None,
         }
     }
     while let Some(op) = ops.pop() {
@@ -1198,89 +1262,96 @@ fn shunting_yard(toks: &[Tok]) -> Option<Vec<Tok>> {
     Some(out)
 }
 
+/// A resolved operand on the RPN evaluation stack — either a real number or
+/// the `null` literal, which only `==`/`!=` know how to compare against.
+#[derive(Debug, Clone, Copy)]
+enum EvalVal {
+    Num(f64),
+    Null,
+}
+
 fn evaluate_rpn(rpn: &[Tok]) -> Option<f64> {
-    let mut stack: Vec<f64> = Vec::new();
+    let mut stack: Vec<EvalVal> = Vec::new();
     for t in rpn {
         match t {
-            Tok::Num(n) => stack.push(*n),
+            Tok::Num(n) => stack.push(EvalVal::Num(*n)),
+            Tok::Null => stack.push(EvalVal::Null),
             Tok::Op(op) => {
                 let b = stack.pop()?;
                 let a = stack.pop()?;
-                let r = match *op {
-                    "+" => a + b,
-                    "-" => a - b,
-                    "*" => a * b,
-                    "/" => {
-                        if b == 0.0 {
-                            return None;
-                        } else {
-                            a / b
+                let r = if *op == "==" || *op == "!=" {
+                    let eq = match (a, b) {
+                        (EvalVal::Num(x), EvalVal::Num(y)) => (x - y).abs() < 1e-9,
+                        (EvalVal::Null, EvalVal::Null) => true,
+                        _ => false,
+                    };
+                    EvalVal::Num(if eq == (*op == "==") { 1.0 } else { 0.0 })
+                } else {
+                    let (EvalVal::Num(a), EvalVal::Num(b)) = (a, b) else {
+                        return None;
+                    };
+                    EvalVal::Num(match *op {
+                        "+" => a + b,
+                        "-" => a - b,
+                        "*" => a * b,
+                        "/" => {
+                            if b == 0.0 {
+                                return None;
+                            } else {
+                                a / b
+                            }
                         }
-                    }
-                    "%" => {
-                        if b == 0.0 {
-                            return None;
-                        } else {
-                            a % b
+                        "%" => {
+                            if b == 0.0 {
+                                return None;
+                            } else {
+                                a % b
+                            }
                         }
-                    }
-                    "<" => {
-                        if a < b {
-                            1.0
-                        } else {
-                            0.0
+                        "<" => {
+                            if a < b {
+                                1.0
+                            } else {
+                                0.0
+                            }
                         }
-                    }
-                    ">" => {
-                        if a > b {
-                            1.0
-                        } else {
-                            0.0
+                        ">" => {
+                            if a > b {
+                                1.0
+                            } else {
+                                0.0
+                            }
                         }
-                    }
-                    "<=" => {
-                        if a <= b {
-                            1.0
-                        } else {
-                            0.0
+                        "<=" => {
+                            if a <= b {
+                                1.0
+                            } else {
+                                0.0
+                            }
                         }
-                    }
-                    ">=" => {
-                        if a >= b {
-                            1.0
-                        } else {
-                            0.0
+                        ">=" => {
+                            if a >= b {
+                                1.0
+                            } else {
+                                0.0
+                            }
                         }
-                    }
-                    "==" => {
-                        if (a - b).abs() < 1e-9 {
-                            1.0
-                        } else {
-                            0.0
+                        "&&" => {
+                            if a != 0.0 && b != 0.0 {
+                                1.0
+                            } else {
+                                0.0
+                            }
                         }
-                    }
-                    "!=" => {
-                        if (a - b).abs() >= 1e-9 {
-                            1.0
-                        } else {
-                            0.0
+                        "||" => {
+                            if a != 0.0 || b != 0.0 {
+                                1.0
+                            } else {
+                                0.0
+                            }
                         }
-                    }
-                    "&&" => {
-                        if a != 0.0 && b != 0.0 {
-                            1.0
-                        } else {
-                            0.0
-                        }
-                    }
-                    "||" => {
-                        if a != 0.0 || b != 0.0 {
-                            1.0
-                        } else {
-                            0.0
-                        }
-                    }
-                    _ => return None,
+                        _ => return None,
+                    })
                 };
                 stack.push(r);
             }
@@ -1288,7 +1359,10 @@ fn evaluate_rpn(rpn: &[Tok]) -> Option<f64> {
         }
     }
     if stack.len() == 1 {
-        Some(stack[0])
+        match stack[0] {
+            EvalVal::Num(n) => Some(n),
+            EvalVal::Null => None,
+        }
     } else {
         None
     }
@@ -12260,6 +12334,66 @@ mod tests {
             .as_f64()
             .expect("bucket_script must resolve _count buckets_path, not stay null");
         assert!((ratio - 0.5).abs() < 1e-9);
+    }
+
+    // Regression: the exact `bucket_script` shape Kibana/OSD's TSVB
+    // `filter_ratio` metric generates guards its division with a ternary
+    // and explicit `null` checks — e.g.
+    // `params.numerator != null && params.denominator != null &&
+    //  params.denominator > 0 ? params.numerator / params.denominator : 0`.
+    // The script evaluator's tokenizer treated the bare word `null` as an
+    // unresolvable `params.*` identifier lookup (returning `None` and
+    // aborting the whole script), and had no support for `?:` at all — so
+    // this exact real-world script always failed to parse, independent of
+    // the `_count` buckets_path bug fixed above. Covers both null-literal
+    // comparisons and the ternary in one shot, matching the live TSVB
+    // request captured while debugging the sample Flights dashboard.
+    #[test]
+    fn bucket_script_supports_null_literal_and_ternary_like_tsvb_filter_ratio() {
+        let docs = vec![
+            json!({"status": "delayed"}),
+            json!({"status": "delayed"}),
+            json!({"status": "ok"}),
+            json!({"status": "ok"}),
+        ];
+        let agg = json!({
+            "numerator": { "filter": { "term": { "status": "delayed" } } },
+            "denominator": { "filter": { "match_all": {} } },
+            "ratio": {
+                "bucket_script": {
+                    "buckets_path": { "numerator": "numerator>_count", "denominator": "denominator>_count" },
+                    "script": "params.numerator != null && params.denominator != null && params.denominator > 0 ? params.numerator / params.denominator : 0"
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        let ratio = result["ratio"]["value"]
+            .as_f64()
+            .expect("bucket_script must evaluate the ternary/null-guarded script, not stay null");
+        assert!((ratio - 0.5).abs() < 1e-9);
+    }
+
+    // Same script, but the denominator is 0 (no docs at all): the ternary's
+    // `params.denominator > 0` guard must select the `: 0` branch instead
+    // of dividing by zero.
+    #[test]
+    fn bucket_script_ternary_false_branch_avoids_division_by_zero() {
+        let docs: Vec<Value> = vec![];
+        let agg = json!({
+            "numerator": { "filter": { "term": { "status": "delayed" } } },
+            "denominator": { "filter": { "match_all": {} } },
+            "ratio": {
+                "bucket_script": {
+                    "buckets_path": { "numerator": "numerator>_count", "denominator": "denominator>_count" },
+                    "script": "params.numerator != null && params.denominator != null && params.denominator > 0 ? params.numerator / params.denominator : 0"
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        let ratio = result["ratio"]["value"]
+            .as_f64()
+            .expect("ternary false branch must still resolve to a number");
+        assert!((ratio - 0.0).abs() < 1e-9);
     }
 
     #[test]
