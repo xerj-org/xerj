@@ -150,6 +150,14 @@ pub struct GraphExpandResult {
 /// Get a keyword column by name, or `None` when absent or numeric-typed
 /// (numeric-typed = a writer violated the §2.2 type discipline; the segment is
 /// treated as column-less rather than guessed at).
+///
+/// Raw `cols.get`, with none of `fast_aggs::dv_col`'s multi-field fallback,
+/// on purpose: every call site passes a LITERAL §2.2 envelope name (`src`,
+/// `dst`, `edge_id`, `type`, `weight`, `valid_at`, `invalid_at`). No
+/// user-supplied or mapping-derived field name reaches these lookups, so a
+/// `<field>.keyword` / `<field>.raw` multi-field suffix cannot occur here and
+/// #120's brute-vs-columnar resolution gap does not apply. A miss is also
+/// reported (`segments_without_columns`) rather than silently dropped.
 fn kw_col<'a>(cols: &'a super::DocValueMap, name: &str) -> Option<&'a KeywordColumn> {
     match cols.get(name) {
         Some(Column::Keyword(k)) => Some(k),

@@ -179,7 +179,8 @@ struct SegEntry {
 /// A text field's auto-created `.keyword` multi-field shares the *same*
 /// physical column, stored under the parent's name — this mirrors the
 /// identical `.keyword` fallback the brute-force path applies when walking
-/// `_source` directly (`flatten_to_strings` in `aggs.rs`). Without it, every
+/// `_source` directly (`extract_array_path_values` in `aggs.rs`). Without it,
+/// every
 /// fast-path reference to `<field>.keyword` silently sees no column at all,
 /// even though the data is right there under `<field>`.
 ///
@@ -202,6 +203,83 @@ impl SegEntry {
     }
 }
 
+/// True when `field` is a dotted name this segment cannot resolve to a
+/// column of its own — not even through [`dv_col`]'s `.keyword` fallback —
+/// while some ANCESTOR of it (the name minus one or more trailing
+/// `.<segment>`s) does have a column.  That is where the columnar path and
+/// the brute reference part company.
+///
+/// There is more than one brute resolver, and the one a request is actually
+/// measured against depends on which part of the request the name appears
+/// in.  They do not agree with each other, so this reports the UNION of the
+/// names any of them resolves and callers BAIL, letting whichever resolver
+/// the request reaches answer it:
+///
+/// * a top-level query filter (and every other `_source` predicate) is
+///   evaluated by `doc_matches_query` → `index.rs::get_field_value`, whose
+///   multi-field fallback RECURSES on the parent
+///   (`get_field_value(source, &field[..idx])`).  It therefore strips an
+///   UNBOUNDED number of trailing segments, provided the name it finally
+///   lands on holds a leaf value: `extension.raw.raw`,
+///   `extension.keyword.raw` and `extension.raw.raw.raw` all resolve to
+///   `extension`'s string.  Measured, not read off the source — see
+///   `tests/fast_aggs_multifield_suffix.rs`, whose brute leg returns 3 200
+///   for a `term` query on every one of those names.
+/// * an aggregation target and a `filters`/`filter` sub-predicate are
+///   resolved by `aggs::get_nested_field`, which strips exactly ONE trailing
+///   segment, so it resolves `extension.raw` but not `extension.raw.raw`;
+/// * `extract_array_path_values` (aggs.rs, just before `get_nested_field`)
+///   strips `.keyword` only.
+///
+/// [`dv_col`] deliberately strips only `.keyword`, so all of these names
+/// find no column and the fast path treats the segment as holding no such
+/// data: agg targets contribute empty buckets / null metrics and predicates
+/// resolve to `SegPred::Never`, i.e. a filtered panel silently reports a
+/// small plausible number rather than an error.
+///
+/// Resolution is deliberately NOT widened to match any one of them (see the
+/// module contract: the fast path answers only shapes it can prove
+/// byte-identical, and there is no single brute behaviour to be identical
+/// TO).  Bailing is correct against all three, because after a bail the
+/// request is answered by the very resolver it would have been measured
+/// against.
+///
+/// Ancestors are probed with a plain `cols.get` rather than [`dv_col`]: the
+/// loop already visits every prefix, so a `.keyword`-stripping probe would
+/// only re-test a prefix the next iteration reaches anyway.
+///
+/// Ancestors are probed against the doc-value columns, and those exist only
+/// for TOP-LEVEL scalar fields: `build_doc_value_columns` (index.rs) iterates
+/// only the top-level keys of `_source`, so a scalar leaf nested under an
+/// object has no column of its own either.
+///
+/// The consequence, stated honestly because an earlier draft of this comment
+/// got it wrong: this predicate closes the MULTI-FIELD-SUFFIX divergence,
+/// where the parent that owns a column is a real top-level field
+/// (`extension.raw.raw` -> `extension`). It does NOT close the general
+/// nested-OBJECT divergence: `geo.city`, a genuine nested value that brute's
+/// `get_field_value` resolves by recursing into the object, has no ancestor
+/// column at any depth, so this returns `false` and the fast path answers it
+/// as empty when brute would not. That is a separate, pre-existing divergence
+/// (it is identical before and after this change — measured `geo.city`
+/// predicate: fast 300 vs brute 11 300 on both), and it is tracked apart from
+/// the suffix problem this function is scoped to. A genuinely absent sub-path
+/// (`geo.missing`) is indistinguishable from a present one here for the same
+/// reason.
+fn dotted_suffix_diverges_from_brute(cols: &super::DocValueMap, field: &str) -> bool {
+    if dv_col(cols, field).is_some() {
+        return false;
+    }
+    let mut rest = field;
+    while let Some((ancestor, _)) = rest.rsplit_once('.') {
+        if cols.get(ancestor).is_some() {
+            return true;
+        }
+        rest = ancestor;
+    }
+    false
+}
+
 /// True when `field` is a dotted JSON path (`geo.dest`, `machine.ram`,
 /// `machine.os.keyword`) that fast_aggs cannot resolve to any column —
 /// neither the exact name nor its `.keyword`-stripped form (see
@@ -219,11 +297,24 @@ impl SegEntry {
 /// column for an object/nested field itself, only for its scalar leaves, so
 /// "does the dotted path's root resolve as a column" is always false and
 /// can't distinguish a genuinely nested path from a genuinely absent one).
+///
+/// It also covers the second, schema-independent case: a multi-field suffix
+/// (of any depth) other than `.keyword` that a brute resolver resolves by
+/// stripping and the columnar path does not — see
+/// [`dotted_suffix_diverges_from_brute`].  That check is per-segment and
+/// runs FIRST, because a name that resolves exactly in one segment but only
+/// via an ancestor in another still diverges on the second segment's rows.
 fn field_needs_brute_fallback(
     field: &str,
     segs: &[SegEntry],
     object_fields: &std::collections::HashSet<String>,
 ) -> bool {
+    if segs
+        .iter()
+        .any(|s| dotted_suffix_diverges_from_brute(&s.cols, field))
+    {
+        return true;
+    }
     if segs.iter().any(|s| s.col(field).is_some()) {
         return false;
     }
@@ -710,9 +801,21 @@ impl<'a> FastCtx<'a> {
 
     /// The column kind of `field` across all segments.  `Ok(None)` = the
     /// field appears in no segment.  Mixed numeric/keyword → `Err` (bail).
+    ///
+    /// `Err` is also returned for a multi-field suffix, at any depth, that a
+    /// brute resolver resolves by stripping and the columnar path does not
+    /// ([`dotted_suffix_diverges_from_brute`]).  Every caller already treats
+    /// `Err` as "bail to brute", and every executor that reads a column for
+    /// an agg TARGET gates on this first, so one check here closes the whole
+    /// target surface — including the sites that `continue` past a
+    /// column-less segment (`exec_terms`, `exec_date_histogram`) rather than
+    /// bailing, which is how an aggregation target silently under-returned.
     fn seg_field_kind(&self, field: &str) -> std::result::Result<Option<ColKind>, ()> {
         let mut kind: Option<ColKind> = None;
         for s in &self.segs {
+            if dotted_suffix_diverges_from_brute(&s.cols, field) {
+                return Err(());
+            }
             let k = match s.col(field) {
                 Some(Column::Numeric(_)) => ColKind::Numeric,
                 Some(Column::Keyword(_)) => ColKind::Keyword,
@@ -2252,6 +2355,13 @@ impl<'a> FastCtx<'a> {
             return None;
         }
         let field = params.get("field").and_then(Value::as_str)?;
+        // Exact-name schema lookup, deliberately (#120): `<bool>.keyword`
+        // resolves its column through `dv_col`'s parent fallback but is NOT
+        // in `bool_fields`, so `is_bool` is false and the `Numeric` arm below
+        // does not match — the request bails to brute. That is a missed
+        // optimisation, not a wrong answer: the keys can only be rendered
+        // "false"/"true" on the arm this gate refuses to take. Normalising
+        // the name here would ADD the wrong-rendering risk, not remove it.
         let is_bool = self.bool_fields.contains(field);
         match self.seg_field_kind(field) {
             Ok(Some(ColKind::Keyword)) | Ok(None) => {}
@@ -2571,6 +2681,13 @@ impl<'a> FastCtx<'a> {
         // what licenses rendering them back as "false"/"true" term keys
         // (`typed_term_key` then emits key 0/1 + key_as_string, exactly
         // like the brute path does for `Value::Bool`).
+        //
+        // The lookup is by EXACT name on purpose (#120): a bool field asked
+        // for as `<field>.keyword` resolves its numeric column via `dv_col`
+        // but is absent from `bool_fields`, so `is_bool` is false, the
+        // `Numeric` arm below does not match, and the request bails to
+        // brute. Slower, never wrong — the "keys render as strings" failure
+        // needs the arm this gate refuses.
         let is_bool = self.bool_fields.contains(field);
         match self.seg_field_kind(field) {
             Ok(Some(ColKind::Keyword)) | Ok(None) => {}
@@ -5084,6 +5201,25 @@ fn compile_pred(filter: &Value) -> Option<Pred> {
     }
 }
 
+/// What a missing column means for a predicate on `field`.
+///
+/// `Some(SegPred::Never)` is an ASSERTION that the segment genuinely holds
+/// no matching row.  That assertion only holds when EVERY brute resolver
+/// would also find nothing under this name.  For a multi-field suffix one
+/// of them resolves by stripping it is false — and the widest of them,
+/// `index.rs::get_field_value` behind a top-level query filter, strips
+/// trailing segments recursively, so `<field>.raw.raw` counts too.
+/// Returning `Never` there is how a `filters`/`filter`/top-level-query
+/// predicate reported a small plausible count instead of the real one.
+/// `None` bails the whole request to the exact brute path.
+fn miss_is_genuinely_empty<'a>(cols: &super::DocValueMap, field: &str) -> Option<SegPred<'a>> {
+    if dotted_suffix_diverges_from_brute(cols, field) {
+        None
+    } else {
+        Some(SegPred::Never)
+    }
+}
+
 enum SegPred<'a> {
     Never,
     Always,
@@ -5106,6 +5242,9 @@ enum SegPred<'a> {
 /// row — so every column lookup here MUST use [`dv_col`]'s `.keyword`
 /// fallback. Resolving the name differently from the agg targets is what
 /// turned a `<field>.keyword` filter into a silent segment-wide `Never`.
+///
+/// A miss on a name the brute reference WOULD resolve is therefore not a
+/// `Never` at all — see [`miss_is_genuinely_empty`].
 fn resolve_pred<'a>(cols: &'a super::DocValueMap, pred: &Pred) -> Option<SegPred<'a>> {
     Some(match pred {
         Pred::MatchAll => SegPred::Always,
@@ -5115,7 +5254,7 @@ fn resolve_pred<'a>(cols: &'a super::DocValueMap, pred: &Pred) -> Option<SegPred
                 None => SegPred::Never,
             },
             Some(Column::Numeric(_)) => return None,
-            None => SegPred::Never,
+            None => miss_is_genuinely_empty(cols, field)?,
         },
         Pred::TermsKw { field, values } => match dv_col(cols, field) {
             Some(Column::Keyword(k)) => {
@@ -5127,7 +5266,7 @@ fn resolve_pred<'a>(cols: &'a super::DocValueMap, pred: &Pred) -> Option<SegPred
                 }
             }
             Some(Column::Numeric(_)) => return None,
-            None => SegPred::Never,
+            None => miss_is_genuinely_empty(cols, field)?,
         },
         Pred::RangeKw {
             field,
@@ -5187,7 +5326,7 @@ fn resolve_pred<'a>(cols: &'a super::DocValueMap, pred: &Pred) -> Option<SegPred
                 }
             }
             Some(Column::Numeric(_)) => return None,
-            None => SegPred::Never,
+            None => miss_is_genuinely_empty(cols, field)?,
         },
         Pred::RangeNum {
             field,
@@ -5200,7 +5339,7 @@ fn resolve_pred<'a>(cols: &'a super::DocValueMap, pred: &Pred) -> Option<SegPred
                 SegPred::Num(n, *lo, *lo_incl, *hi, *hi_incl, n.null_bitmap.is_empty())
             }
             Some(Column::Keyword(_)) => return None,
-            None => SegPred::Never,
+            None => miss_is_genuinely_empty(cols, field)?,
         },
         Pred::And(subs) => {
             let mut resolved: Vec<SegPred<'a>> = Vec::with_capacity(subs.len());
@@ -5566,9 +5705,158 @@ mod range_kw_tests {
             seg.col("extension.keyword").is_some(),
             "must fall back to the parent column when the exact `.keyword` name has none"
         );
+        // Resolution stays narrow on purpose (#120). Widening `dv_col` would
+        // make the fast path CLAIM shapes it cannot prove byte-identical —
+        // key typing, bool rendering and composite key kinds all key off the
+        // requested name — and there is no single brute behaviour to widen
+        // TO: `index.rs::get_field_value` (top-level query filters) strips
+        // trailing segments RECURSIVELY, `aggs::get_nested_field` (agg
+        // targets, `filters` leaves) strips exactly one, and
+        // `extract_array_path_values` (just before it) strips `.keyword`
+        // only. So the
+        // contract is: resolve exactly, and BAIL to brute for anything else,
+        // which is right against all three because after a bail the request
+        // is answered by whichever of them it would have been measured
+        // against. `dotted_suffix_diverges_from_brute` is the other half —
+        // see `multi_field_suffixes_diverge_from_brute_at_any_depth` below.
         assert!(
             seg.col("extension.nonsense").is_none(),
             "must not fall back for suffixes other than `.keyword`"
+        );
+    }
+
+    /// #120: a multi-field suffix resolves on a brute path but not on the
+    /// columnar one, and NOT only at one level of suffixing.
+    /// `index.rs::get_field_value` — the resolver a top-level query filter
+    /// is measured against — recurses on the parent, so it strips trailing
+    /// segments until something leaf-valued answers: `extension.raw.raw`,
+    /// `extension.keyword.raw` and `extension.raw.raw.raw` all read
+    /// `extension`'s string. Every one of those must be reported so callers
+    /// bail, instead of being read as "this segment holds no such data".
+    #[test]
+    fn multi_field_suffixes_diverge_from_brute_at_any_depth() {
+        let k = KeywordColumn::from_iter(vec![Some("css".to_string()), Some("gz".to_string())])
+            .expect("build column");
+        let mut m = std::collections::BTreeMap::new();
+        m.insert("extension".to_string(), Column::Keyword(k));
+        for field in [
+            "extension.raw",
+            "extension.sort",
+            "extension.en",
+            // Doubly and triply suffixed: `get_field_value`'s fallback is
+            // `get_field_value(source, &field[..idx])`, i.e. recursive, so a
+            // bail keyed on the IMMEDIATE parent alone still failed closed
+            // here — the blocker this test exists for.
+            "extension.raw.raw",
+            "extension.keyword.raw",
+            "extension.raw.keyword",
+            "extension.keyword.keyword",
+            "extension.raw.raw.raw",
+        ] {
+            assert!(
+                dotted_suffix_diverges_from_brute(&m, field),
+                "brute resolves `{field}` to the `extension` column; the fast \
+                 path cannot, so it must bail rather than report an empty segment"
+            );
+        }
+        assert!(
+            !dotted_suffix_diverges_from_brute(&m, "extension"),
+            "the exact name resolves — nothing to bail for"
+        );
+        assert!(
+            !dotted_suffix_diverges_from_brute(&m, "extension.keyword"),
+            "`.keyword` already resolves through `dv_col`'s parent fallback"
+        );
+        assert!(
+            !dotted_suffix_diverges_from_brute(&m, "group"),
+            "an undotted absent field is a genuine absence"
+        );
+        // The control that stops the fix degenerating into "every dotted
+        // field goes brute". These names are GENUINELY ABSENT — no `nosuchfield`
+        // or `a` value exists — so brute's `get_field_value` recursion finds
+        // nothing too and the fast path's empty answer is correct. This is the
+        // one case where "no ancestor column" and "brute finds nothing" line
+        // up; a PRESENT nested-object value (`geo.city`) also has no ancestor
+        // column but brute DOES resolve it, which is the separate divergence
+        // called out on `dotted_suffix_diverges_from_brute` and not covered
+        // here.
+        for field in ["nosuchfield.raw", "nosuchfield.raw.raw", "a.b.c.d"] {
+            assert!(
+                !dotted_suffix_diverges_from_brute(&m, field),
+                "`{field}` is genuinely absent — brute finds nothing too, so \
+                 an empty answer is correct and bailing would be wasted work"
+            );
+        }
+    }
+
+    /// The predicate half: a miss that a brute path WOULD resolve is not a
+    /// `SegPred::Never` (an assertion that the segment matches nothing) but a
+    /// bail. `filters`/`filter`/top-level-query predicates all route through
+    /// `resolve_pred`, so this one gate covers every predicate site.
+    #[test]
+    fn suffixed_predicate_bails_instead_of_matching_nothing() {
+        let k = KeywordColumn::from_iter(vec![Some("css".to_string()), Some("gz".to_string())])
+            .expect("build column");
+        let mut m = std::collections::BTreeMap::new();
+        m.insert("extension".to_string(), Column::Keyword(k));
+        for field in [
+            "extension.raw",
+            "extension.raw.raw",
+            "extension.keyword.raw",
+            "extension.raw.keyword",
+            "extension.raw.raw.raw",
+        ] {
+            let pred = Pred::TermKw {
+                field: field.into(),
+                value: "css".into(),
+            };
+            assert!(
+                resolve_pred(&m, &pred).is_none(),
+                "`{field}` must bail the request to brute, not resolve to Never"
+            );
+        }
+        // Still `Never` (not a bail) where brute genuinely finds nothing.
+        let absent = Pred::TermKw {
+            field: "nosuchfield.raw".into(),
+            value: "css".into(),
+        };
+        assert!(
+            matches!(resolve_pred(&m, &absent), Some(SegPred::Never)),
+            "a genuinely absent dotted field must stay on the fast path as Never"
+        );
+    }
+
+    /// Agg TARGETS bail through `field_needs_brute_fallback` / the
+    /// `seg_field_kind` gate rather than skipping the segment. This asserts
+    /// the first of those; the integration suite
+    /// (`tests/fast_aggs_multifield_suffix.rs`) covers the executors.
+    #[test]
+    fn suffixed_agg_target_needs_brute_fallback() {
+        let build = || {
+            let mut cols = std::collections::BTreeMap::new();
+            cols.insert(
+                "extension".to_string(),
+                Column::Keyword(KeywordColumn::from_iter(vec![Some("css".to_string())]).unwrap()),
+            );
+            seg_with_cols(cols)
+        };
+        for field in [
+            "extension.raw",
+            "extension.raw.raw",
+            "extension.keyword.raw",
+            "extension.raw.raw.raw",
+        ] {
+            assert!(
+                field_needs_brute_fallback(field, &[build()], &object_fields(&[])),
+                "a `terms`/metric target on `{field}` must bail to brute — the \
+                 executors `continue` past a column-less segment, so it would \
+                 otherwise be built from the memtable alone"
+            );
+        }
+        assert!(
+            !field_needs_brute_fallback("nosuchfield.raw", &[build()], &object_fields(&[])),
+            "a dotted field with no ancestor column anywhere is a genuine \
+             absence and must stay on the fast path"
         );
     }
 
