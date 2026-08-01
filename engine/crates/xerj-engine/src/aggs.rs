@@ -1028,14 +1028,22 @@ fn resolve_bucket_script(
 /// Maximum nesting the `bucket_script` / `bucket_selector` expression
 /// evaluator accepts, checked on ENTRY before a single token is produced.
 ///
-/// Mirrors `sql::MAX_SQL_DEPTH` and `xerj-query`'s `MAX_QUERY_DEPTH` (both
-/// 64). The token stream this evaluator produces is consumed *recursively* —
-/// parenthesised sub-expressions, and above all the ternary `cond ? a : b`
-/// split, which re-enters the evaluator once per `?` — so an expression from
-/// an unauthenticated request is otherwise unbounded native-stack recursion.
-/// The release profile sets `panic = "abort"`, which turns that overflow into
-/// a process kill rather than an error response, so the bound has to be
-/// enforced before the recursion starts, not inside it.
+/// Mirrors `sql::MAX_SQL_DEPTH` and `xerj-query`'s `MAX_QUERY_DEPTH` (both 64).
+///
+/// This bound is PRE-EMPTIVE on the current tree, and it is worth being exact
+/// about that. The evaluator here is `tokenize_script` -> `shunting_yard` ->
+/// `evaluate_rpn`, three flat loops over a `Vec`; `?` is not even a token
+/// (`tokenize_script` returns `None` on it). Measured with this bound removed
+/// on a 2 MiB stack: an 80,001-byte / 20,000-ternary source returns `None`,
+/// and a 1,000,000-deep parenthesised expression returns `Some(1.0)`. Nothing
+/// overflows, and no released version was process-killable through this path.
+///
+/// The recursion arrives with the `eval_tokens` / `find_ternary_split`
+/// evaluator, which re-enters once per `?` and per parenthesised
+/// sub-expression. Because the release profile sets `panic = "abort"`,
+/// exhausting the stack there kills the process instead of returning an error,
+/// so the bound is enforced on ENTRY, before a single token is produced, and
+/// lands ahead of the evaluator rather than behind it.
 const MAX_EXPR_DEPTH: usize = 64;
 
 /// Sentinel returned by [`check_expr_limits`] for an expression the evaluator
@@ -1050,11 +1058,15 @@ const EXPR_TOO_DEEP_MSG: &str = "bucket script expression exceeds the maximum ne
 /// evaluator's business and keep degrading to a null bucket value.
 ///
 /// Both counts are taken over the raw source rather than the token stream,
-/// because the recursion they bound happens *while consuming* the tokens: the
-/// budget has to be known before tokenizing. Ternaries are counted rather than
-/// depth-tracked, because a right-associative chain (`a?b:c?d:e?f:g`) re-enters
-/// the evaluator once per `?` while never opening a paren — counting `?` is the
+/// because the recursion they bound happens *while consuming* the tokens, so
+/// the budget has to be known before tokenizing. Ternaries are counted rather
+/// than depth-tracked, because a right-associative chain (`a?b:c?d:e?f:g`)
+/// descends one level per `?` while never opening a paren — counting `?` is the
 /// only count that bounds it.
+///
+/// See [`MAX_EXPR_DEPTH`] for why this is pre-emptive on the current tree: the
+/// evaluator it guards is still iterative, and the recursion it describes
+/// arrives with the `eval_tokens` evaluator.
 fn check_expr_limits(script: &str) -> Result<(), String> {
     if script.len() > crate::painless::MAX_SCRIPT_LEN {
         return Err(format!(
@@ -1359,15 +1371,16 @@ fn evaluate_rpn(rpn: &[Tok]) -> Option<f64> {
 #[cfg(test)]
 mod bucket_script_expr_limit_tests {
     //! The `bucket_script` / `bucket_selector` expression evaluator takes an
-    //! arbitrary-length string straight off an unauthenticated request and
-    //! hands it to consumers that walk the token stream recursively (nested
-    //! parens; the ternary `cond ? a : b` split, which re-enters the evaluator
-    //! once per `?`). With `panic = "abort"` in the release profile, running
-    //! out of native stack there kills the process instead of returning an
-    //! error, so the limits are enforced on entry — before tokenizing.
+    //! arbitrary-length string straight off an unauthenticated request, so its
+    //! resource limits are enforced on entry, before tokenizing.
     //!
-    //! If the entry bound regresses, these tests do not silently pass: the
-    //! test process itself overflows and aborts.
+    //! These tests pin the BOUND, not a crash. The evaluator on this tree is
+    //! iterative and does not overflow: see [`MAX_EXPR_DEPTH`] for the
+    //! measurements. The bound exists ahead of the `eval_tokens` evaluator,
+    //! which walks the token stream recursively (nested parens; the ternary
+    //! `cond ? a : b` split, once per `?`) and, with `panic = "abort"` in the
+    //! release profile, would turn stack exhaustion into a process kill rather
+    //! than an error response.
     use super::*;
 
     fn no_params() -> HashMap<String, f64> {
