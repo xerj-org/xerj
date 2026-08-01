@@ -249,6 +249,25 @@ pub fn outer_query_field_terms() -> Vec<(String, String)> {
 /// Like `run_aggs` but also receives the full index doc set for background
 /// frequency calculations (used by `significant_terms`).
 pub fn run_aggs_with_all(aggs_def: &Value, docs: &[Value], all_docs: &[Value]) -> Value {
+    // Top-level entry point: there is no enclosing bucket, so a bare `_count`
+    // has no bucket doc_count to agree with. It reports the physical size of
+    // the result set — the number `hits.total.value` carries in the same
+    // response. Every *bucket* agg calls `run_aggs_in_bucket` instead and
+    // hands over the doc_count it is about to publish.
+    run_aggs_in_bucket(aggs_def, docs, all_docs, docs.len() as u64)
+}
+
+/// `run_aggs_with_all` for the sub-aggs of a single bucket.
+///
+/// `bucket_doc_count` is the value the CALLER puts in that bucket's
+/// `"doc_count"` field. It is passed in rather than recomputed because the
+/// two must not be allowed to differ: see the staging comment below.
+pub(crate) fn run_aggs_in_bucket(
+    aggs_def: &Value,
+    docs: &[Value],
+    all_docs: &[Value],
+    bucket_doc_count: u64,
+) -> Value {
     let obj = match aggs_def.as_object() {
         Some(o) => o,
         None => return Value::Object(Map::new()),
@@ -271,7 +290,64 @@ pub fn run_aggs_with_all(aggs_def: &Value, docs: &[Value], all_docs: &[Value]) -
         result.insert(agg_name.clone(), agg_result);
     }
 
+    // A bare `"_count"` buckets_path (no sibling prefix — Timelion's
+    // `.opensearch()` datasource emits exactly this for its per-bucket
+    // count metric) refers to the CONTAINING bucket's own doc_count, not
+    // a named sibling's. `docs` here already IS that bucket's doc slice at
+    // every nesting level (top-level query matches, or a terms/
+    // date_histogram bucket's filtered docs for a recursive call), so
+    // stage it under a transient `doc_count` key for `resolve_bucket_script`
+    // to read via `siblings`, then strip it back out — it isn't a real
+    // sibling agg and must not leak into the returned aggs tree. Guarded
+    // against the (unusual) case of a user-defined agg literally named
+    // `doc_count`, which must win over the synthetic value.
+    //
+    // The staged number is `bucket_doc_count` — the value the calling bucket
+    // agg is about to publish in its own `"doc_count"` field — and NOT any
+    // count recomputed from `docs` here. A bucket and a `bucket_script`
+    // sitting inside it must not disagree about how many documents the bucket
+    // holds, and the two families of bucket agg in this file count
+    // differently:
+    //
+    //   `sum_doc_count(docs)` — honours the `_doc_count` metadata field that
+    //     rollup / downsampled indices attach to advertise how many logical
+    //     events one physical document stands for:
+    //     terms, date_histogram, histogram, filter, filters, date_range,
+    //     composite.
+    //
+    //   `docs.len()`          — physical documents, `_doc_count` ignored:
+    //     range, multi_terms, ip_range, ip_prefix, rare_terms, geo_distance,
+    //     geotile_grid, geohash_grid, adjacency_matrix, time_series,
+    //     variable_width_histogram, sampler, diversified_sampler, nested,
+    //     reverse_nested, global.
+    //
+    // Recomputing here with EITHER function therefore disagrees with half the
+    // callers — measured: staging `sum_doc_count` gives a `range` bucket
+    // `"doc_count": 2` next to a bare `_count` of `8`, and staging
+    // `docs.len()` gives a `terms` bucket `"doc_count": 8` next to a `_count`
+    // of `2`. Taking the caller's number is the only staging that is right
+    // for both families, and it stays right for a bucket type added later.
+    //
+    // (That the second list ignores `_doc_count` at all is a real,
+    // pre-existing ES divergence, but it is a divergence in the *bucket's*
+    // doc_count, which `_count` must mirror rather than silently correct.)
+    //
+    // Staged only when this agg level actually carries a pipeline placeholder
+    // for `resolve_sibling_pipelines` to resolve, so an aggs tree with no
+    // pipeline in it does not touch `result` at all.
+    let staged_doc_count = !result.contains_key("doc_count")
+        && result.values().any(|v| {
+            v.get("__pipeline__")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+        });
+    if staged_doc_count {
+        result.insert("doc_count".to_string(), json!(bucket_doc_count));
+    }
     resolve_sibling_pipelines(&mut result);
+    if staged_doc_count {
+        result.remove("doc_count");
+    }
 
     Value::Object(result)
 }
@@ -1076,6 +1152,41 @@ fn resolve_bucket_script(
     extra_params: &HashMap<String, f64>,
     siblings: &Map<String, Value>,
 ) -> Value {
+    // Simple string form (`"buckets_path": "some_agg"`, or the bare
+    // `"buckets_path": "_count"` Timelion's `.opensearch()` datasource
+    // emits for its per-time-bucket count metric): unlike the object form,
+    // ES binds the resolved value to the single variable `_value` in the
+    // script, regardless of the path's own name. `_count` with no sibling
+    // prefix refers to the CURRENT (immediately containing) bucket's own
+    // `doc_count` — `siblings` here IS that bucket's full map (see
+    // `fast_aggs.rs`'s `resolve_sibling_pipelines(bucket)`), so it already
+    // carries `doc_count` as a plain key alongside the sibling agg results.
+    if let Some(s) = buckets_path.as_str() {
+        let v = if s == "_count" {
+            siblings.get("doc_count").and_then(Value::as_f64)
+        } else {
+            let (sib_name, metric) = split_buckets_path(s);
+            siblings.get(sib_name).and_then(|sib| match metric {
+                Some("_count") => sib.get("doc_count").and_then(Value::as_f64),
+                Some(m) => sib.get(m).and_then(|x| {
+                    x.get("value")
+                        .and_then(Value::as_f64)
+                        .or_else(|| x.as_f64())
+                }),
+                None => sib.get("value").and_then(Value::as_f64),
+            })
+        };
+        let v = match v {
+            Some(x) => x,
+            None => return json!({"value": Value::Null}),
+        };
+        let mut params = extra_params.clone();
+        params.insert("_value".to_string(), v);
+        return match eval_script_expr(script, &params) {
+            Some(v) => json!({"value": v}),
+            None => json!({"value": Value::Null}),
+        };
+    }
     let bp = match buckets_path.as_object() {
         Some(o) => o,
         None => return json!({"value": Value::Null}),
@@ -1093,9 +1204,15 @@ fn resolve_bucket_script(
             None => return json!({"value": Value::Null}),
         };
         let v = if let Some(m) = metric {
-            sib.get(m)
-                .and_then(|x| x.get("value"))
-                .and_then(Value::as_f64)
+            if m == "_count" {
+                sib.get("doc_count").and_then(Value::as_f64)
+            } else {
+                sib.get(m).and_then(|x| {
+                    x.get("value")
+                        .and_then(Value::as_f64)
+                        .or_else(|| x.as_f64())
+                })
+            }
         } else {
             sib.get("value").and_then(Value::as_f64)
         };
@@ -1186,29 +1303,151 @@ fn check_expr_limits(script: &str) -> Result<(), String> {
 
 /// Evaluate a simple arithmetic / comparison expression against a params map.
 ///
-/// Supports: numbers (incl. decimals), `params.<name>` identifiers,
+/// Supports: numbers (incl. decimals), `params.<name>` identifiers, the
+/// `null` literal (only meaningful in `==`/`!=` comparisons — matches ES
+/// bucket_script scripts like Kibana/OSD TSVB's `filter_ratio`, which
+/// guards against missing siblings with `params.x != null && ...`),
 /// operators `+ - * / %`, comparisons `< > <= >= == !=` (yield 0.0 or 1.0),
-/// logical `&&` / `||` (yield 0.0 or 1.0), and parentheses.  Honors
-/// standard precedence.  Returns `None` on parse failure.
+/// logical `&&` / `||` (yield 0.0 or 1.0), the ternary `cond ? a : b`, and
+/// parentheses. Honors standard precedence. Returns `None` on parse failure.
 ///
 /// Bounded on entry by [`check_expr_limits`]: an expression past the limits
 /// resolves to `None` — the same null bucket value every other unevaluable
-/// script already produces — instead of overflowing the stack.
+/// script already produces — instead of overflowing the stack. The bound is
+/// taken once, here, over the whole source: [`eval_tokens`] recurses into
+/// itself (not back through this function) in exactly two ways, and each
+/// consumes budget the entry check already counted —
+///
+///   * a ternary split consumes the one `?` it split on, and `?`s are capped
+///     at `MAX_EXPR_DEPTH`;
+///   * folding a parenthesised ternary ([`fold_paren_ternaries`]) descends
+///     through one paren pair, and paren depth is capped at `MAX_EXPR_DEPTH`.
+///
+/// So the deepest a source that passes the entry check can descend is
+/// `2 * MAX_EXPR_DEPTH + 1` frames.
 fn eval_script_expr(script: &str, params: &HashMap<String, f64>) -> Option<f64> {
     if check_expr_limits(script).is_err() {
         return None;
     }
     let tokens = tokenize_script(script, params)?;
-    let rpn = shunting_yard(&tokens)?;
+    eval_tokens(&tokens)
+}
+
+/// Evaluate a token slice, handling the ternary operator (which the
+/// operator-precedence shunting-yard below doesn't model) before falling back
+/// to ordinary shunting-yard + RPN evaluation.
+///
+/// Two shapes, because `find_ternary_split` only sees paren-depth 0:
+///
+///   * `cond ? a : b` at this level — split and recurse into the three parts;
+///   * a ternary nested inside parentheses, `(cond ? a : b) + 1`, or a ternary
+///     branch that is itself parenthesised, `x ? (y ? 1 : 2) : 3` — those
+///     never reach a top-level split, and any `?` that survives into
+///     `shunting_yard` makes it bail. [`fold_paren_ternaries`] collapses each
+///     such group to the number it evaluates to first.
+///
+/// Without the second case `(1 ? 1 : 0)` — legal Elasticsearch, and the
+/// natural way to write anything nested — resolved to a null bucket value.
+fn eval_tokens(toks: &[Tok]) -> Option<f64> {
+    if let Some((q_idx, c_idx)) = find_ternary_split(toks) {
+        let cond = eval_tokens(&toks[..q_idx])?;
+        return if cond != 0.0 {
+            eval_tokens(&toks[q_idx + 1..c_idx])
+        } else {
+            eval_tokens(&toks[c_idx + 1..])
+        };
+    }
+    if toks.iter().any(|t| matches!(t, Tok::Question)) {
+        let folded = fold_paren_ternaries(toks)?;
+        let rpn = shunting_yard(&folded)?;
+        return evaluate_rpn(&rpn);
+    }
+    let rpn = shunting_yard(toks)?;
     evaluate_rpn(&rpn)
+}
+
+/// Replace every parenthesised group that contains a `?` with the single
+/// number it evaluates to, leaving groups without one untouched for
+/// `shunting_yard` to handle as ordinary precedence overrides.
+///
+/// Outermost-first: the whole group goes back through [`eval_tokens`], so an
+/// inner ternary is handled by that call's own split, however deeply the two
+/// forms alternate. `None` when a group is unbalanced or its contents don't
+/// evaluate — the same null bucket value any other unevaluable script gets.
+fn fold_paren_ternaries(toks: &[Tok]) -> Option<Vec<Tok>> {
+    let mut out: Vec<Tok> = Vec::with_capacity(toks.len());
+    let mut i = 0;
+    while i < toks.len() {
+        if matches!(toks[i], Tok::LParen) {
+            let mut depth = 0i32;
+            let mut close = None;
+            for (j, t) in toks.iter().enumerate().skip(i) {
+                match t {
+                    Tok::LParen => depth += 1,
+                    Tok::RParen => {
+                        depth -= 1;
+                        if depth == 0 {
+                            close = Some(j);
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            let close = close?;
+            let inner = &toks[i + 1..close];
+            if inner.iter().any(|t| matches!(t, Tok::Question)) {
+                out.push(Tok::Num(eval_tokens(inner)?));
+            } else {
+                out.extend_from_slice(&toks[i..=close]);
+            }
+            i = close + 1;
+        } else {
+            out.push(toks[i].clone());
+            i += 1;
+        }
+    }
+    Some(out)
+}
+
+/// Find the first top-level (paren-depth 0) `?` and its matching top-level
+/// `:`. Returns `None` when there's no ternary at this nesting level.
+fn find_ternary_split(toks: &[Tok]) -> Option<(usize, usize)> {
+    let mut depth = 0i32;
+    let mut q_idx = None;
+    for (i, t) in toks.iter().enumerate() {
+        match t {
+            Tok::LParen => depth += 1,
+            Tok::RParen => depth -= 1,
+            Tok::Question if depth == 0 => {
+                q_idx = Some(i);
+                break;
+            }
+            _ => {}
+        }
+    }
+    let q = q_idx?;
+    let mut depth = 0i32;
+    for (i, t) in toks.iter().enumerate().skip(q + 1) {
+        match t {
+            Tok::LParen => depth += 1,
+            Tok::RParen => depth -= 1,
+            Tok::Colon if depth == 0 => return Some((q, i)),
+            _ => {}
+        }
+    }
+    None
 }
 
 #[derive(Debug, Clone)]
 enum Tok {
     Num(f64),
+    Null,
     Op(&'static str),
     LParen,
     RParen,
+    Question,
+    Colon,
 }
 
 fn tokenize_script(s: &str, params: &HashMap<String, f64>) -> Option<Vec<Tok>> {
@@ -1247,6 +1486,8 @@ fn tokenize_script(s: &str, params: &HashMap<String, f64>) -> Option<Vec<Tok>> {
             if let Some(rest) = ident.strip_prefix("params.") {
                 let v = *params.get(rest)?;
                 toks.push(Tok::Num(v));
+            } else if ident == "null" {
+                toks.push(Tok::Null);
             } else {
                 let v = *params.get(ident)?;
                 toks.push(Tok::Num(v));
@@ -1302,6 +1543,12 @@ fn tokenize_script(s: &str, params: &HashMap<String, f64>) -> Option<Vec<Tok>> {
             ')' => {
                 toks.push(Tok::RParen);
             }
+            '?' => {
+                toks.push(Tok::Question);
+            }
+            ':' => {
+                toks.push(Tok::Colon);
+            }
             ';' => {} // ignore trailing semicolons
             _ => return None,
         }
@@ -1327,7 +1574,7 @@ fn shunting_yard(toks: &[Tok]) -> Option<Vec<Tok>> {
     let mut ops: Vec<Tok> = Vec::new();
     for t in toks {
         match t {
-            Tok::Num(_) => out.push(t.clone()),
+            Tok::Num(_) | Tok::Null => out.push(t.clone()),
             Tok::Op(o) => {
                 while let Some(Tok::Op(top)) = ops.last() {
                     if precedence(top) >= precedence(o) {
@@ -1347,6 +1594,12 @@ fn shunting_yard(toks: &[Tok]) -> Option<Vec<Tok>> {
                     }
                 }
             }
+            // `eval_tokens` strips ternary tokens out before a slice reaches
+            // shunting_yard — via `find_ternary_split` at this level, and via
+            // `fold_paren_ternaries` for parenthesised ones. Reaching here
+            // means an unbalanced `?` with no matching `:` (or a stray `:`),
+            // which is a syntax error, not a shape this evaluator declines.
+            Tok::Question | Tok::Colon => return None,
         }
     }
     while let Some(op) = ops.pop() {
@@ -1358,89 +1611,112 @@ fn shunting_yard(toks: &[Tok]) -> Option<Vec<Tok>> {
     Some(out)
 }
 
+/// A resolved operand on the RPN evaluation stack — either a real number or
+/// the `null` literal, which only `==`/`!=` know how to compare against.
+#[derive(Debug, Clone, Copy)]
+enum EvalVal {
+    Num(f64),
+    Null,
+}
+
 fn evaluate_rpn(rpn: &[Tok]) -> Option<f64> {
-    let mut stack: Vec<f64> = Vec::new();
+    let mut stack: Vec<EvalVal> = Vec::new();
     for t in rpn {
         match t {
-            Tok::Num(n) => stack.push(*n),
+            Tok::Num(n) => stack.push(EvalVal::Num(*n)),
+            Tok::Null => stack.push(EvalVal::Null),
             Tok::Op(op) => {
                 let b = stack.pop()?;
                 let a = stack.pop()?;
-                let r = match *op {
-                    "+" => a + b,
-                    "-" => a - b,
-                    "*" => a * b,
-                    "/" => {
-                        if b == 0.0 {
-                            return None;
-                        } else {
-                            a / b
+                // `==` / `!=` are the only operators that accept the `null`
+                // literal, so they run off `EvalVal` rather than two f64s.
+                //
+                // This is NOT a refactor of the pre-#95 numeric-only arms —
+                // it changes what `!=` answers when an operand is NaN, and
+                // deliberately so. The old `!=` was
+                // `(a - b).abs() >= 1e-9`, and every comparison against NaN
+                // is false, so `NaN != 0` returned 0.0 — i.e. "they are
+                // equal". Deriving `!=` as the negation of `==` makes
+                // `NaN != x` report 1.0, which is what IEEE-754, Java and
+                // therefore Painless all say. Measured end to end on
+                // `params.a * params.a - params.a * params.a != 0` over a
+                // single doc with `n = 1e308` (the product overflows to
+                // +inf, inf - inf is NaN): 0.0 before, 1.0 after. `==` is
+                // unchanged — `NaN == x` was 0.0 and still is. Pinned by
+                // `ne_against_a_nan_operand_is_true_not_false`.
+                let r = if *op == "==" || *op == "!=" {
+                    let eq = match (a, b) {
+                        (EvalVal::Num(x), EvalVal::Num(y)) => (x - y).abs() < 1e-9,
+                        (EvalVal::Null, EvalVal::Null) => true,
+                        _ => false,
+                    };
+                    EvalVal::Num(if eq == (*op == "==") { 1.0 } else { 0.0 })
+                } else {
+                    let (EvalVal::Num(a), EvalVal::Num(b)) = (a, b) else {
+                        return None;
+                    };
+                    EvalVal::Num(match *op {
+                        "+" => a + b,
+                        "-" => a - b,
+                        "*" => a * b,
+                        "/" => {
+                            if b == 0.0 {
+                                return None;
+                            } else {
+                                a / b
+                            }
                         }
-                    }
-                    "%" => {
-                        if b == 0.0 {
-                            return None;
-                        } else {
-                            a % b
+                        "%" => {
+                            if b == 0.0 {
+                                return None;
+                            } else {
+                                a % b
+                            }
                         }
-                    }
-                    "<" => {
-                        if a < b {
-                            1.0
-                        } else {
-                            0.0
+                        "<" => {
+                            if a < b {
+                                1.0
+                            } else {
+                                0.0
+                            }
                         }
-                    }
-                    ">" => {
-                        if a > b {
-                            1.0
-                        } else {
-                            0.0
+                        ">" => {
+                            if a > b {
+                                1.0
+                            } else {
+                                0.0
+                            }
                         }
-                    }
-                    "<=" => {
-                        if a <= b {
-                            1.0
-                        } else {
-                            0.0
+                        "<=" => {
+                            if a <= b {
+                                1.0
+                            } else {
+                                0.0
+                            }
                         }
-                    }
-                    ">=" => {
-                        if a >= b {
-                            1.0
-                        } else {
-                            0.0
+                        ">=" => {
+                            if a >= b {
+                                1.0
+                            } else {
+                                0.0
+                            }
                         }
-                    }
-                    "==" => {
-                        if (a - b).abs() < 1e-9 {
-                            1.0
-                        } else {
-                            0.0
+                        "&&" => {
+                            if a != 0.0 && b != 0.0 {
+                                1.0
+                            } else {
+                                0.0
+                            }
                         }
-                    }
-                    "!=" => {
-                        if (a - b).abs() >= 1e-9 {
-                            1.0
-                        } else {
-                            0.0
+                        "||" => {
+                            if a != 0.0 || b != 0.0 {
+                                1.0
+                            } else {
+                                0.0
+                            }
                         }
-                    }
-                    "&&" => {
-                        if a != 0.0 && b != 0.0 {
-                            1.0
-                        } else {
-                            0.0
-                        }
-                    }
-                    "||" => {
-                        if a != 0.0 || b != 0.0 {
-                            1.0
-                        } else {
-                            0.0
-                        }
-                    }
-                    _ => return None,
+                        _ => return None,
+                    })
                 };
                 stack.push(r);
             }
@@ -1448,7 +1724,10 @@ fn evaluate_rpn(rpn: &[Tok]) -> Option<f64> {
         }
     }
     if stack.len() == 1 {
-        Some(stack[0])
+        match stack[0] {
+            EvalVal::Num(n) => Some(n),
+            EvalVal::Null => None,
+        }
     } else {
         None
     }
@@ -1562,6 +1841,100 @@ mod bucket_script_expr_limit_tests {
             resolve_bucket_script(&bp, &src, &HashMap::new(), &siblings),
             json!({"value": Value::Null})
         );
+    }
+
+    #[test]
+    fn a_ternary_inside_parentheses_evaluates() {
+        // `find_ternary_split` only looks at paren-depth 0, and `shunting_yard`
+        // bails on any `?` that reaches it. So before `fold_paren_ternaries`
+        // every one of these — all legal Elasticsearch bucket_script sources —
+        // resolved to a null bucket value. Measured, verbatim, on the branch
+        // this fixes: `(1?1:0)`, `(1?1:0) + 1`, `1 + (1?1:0)`,
+        // `0?1:(0?2:3)`, `(0?1:2) * 10`, `(1>0 ? 1 : 0) + 1` and
+        // `1?(1?5:6):0` ALL returned `None`.
+        let p = no_params();
+        for (src, want) in [
+            ("(1?1:0)", 1.0),
+            ("(0?1:0)", 0.0),
+            ("(1?1:0) + 1", 2.0),
+            ("1 + (1?1:0)", 2.0),
+            ("(0?1:2) * 10", 20.0),
+            ("(1>0 ? 1 : 0) + 1", 2.0),
+            // Nested both ways round: inside a branch, and inside a condition.
+            ("0?1:(0?2:3)", 3.0),
+            ("1?(1?5:6):0", 5.0),
+            ("(1?1:0) ? 7 : 8", 7.0),
+            ("(1?0:1) ? 7 : 8", 8.0),
+            // Parens that hold no ternary keep behaving as plain precedence
+            // overrides, and a top-level ternary still splits as before.
+            ("(1+2)*3", 9.0),
+            ("1?2:3", 2.0),
+            ("0?2:3", 3.0),
+            // Right-associative chain, unparenthesised and parenthesised.
+            ("0?1:0?2:3", 3.0),
+            ("0?1:(0?2:3)", 3.0),
+        ] {
+            assert_eq!(
+                eval_script_expr(src, &p),
+                Some(want),
+                "`{src}` must evaluate to {want}"
+            );
+        }
+
+        // A `?` with no matching `:` is still a syntax error, not a value.
+        assert_eq!(eval_script_expr("(1?1)", &p), None);
+        assert_eq!(eval_script_expr("(1:1)", &p), None);
+    }
+
+    #[test]
+    fn parenthesised_ternaries_stay_inside_the_entry_bound() {
+        // Folding recurses through one paren pair per frame, so the entry
+        // bound has to cover paren depth as well as `?` count. A chain that
+        // alternates the two forms is the worst case for the combined
+        // `2 * MAX_EXPR_DEPTH + 1` argument in `eval_script_expr`'s docs.
+        //
+        // Right at the bound: accepted and correct.
+        let n = MAX_EXPR_DEPTH / 2;
+        let src = format!("{}9{}", "(0?1:".repeat(n), ")".repeat(n));
+        assert!(check_expr_limits(&src).is_ok());
+        assert_eq!(eval_script_expr(&src, &no_params()), Some(9.0));
+
+        // Far past it: rejected on entry, before a token is produced. If the
+        // bound ever stops covering the fold recursion this overflows the
+        // test process's stack rather than failing an assertion.
+        let deep = format!("{}9{}", "(0?1:".repeat(10_000), ")".repeat(10_000));
+        assert!(check_expr_limits(&deep).is_err());
+        assert_eq!(eval_script_expr(&deep, &no_params()), None);
+    }
+
+    #[test]
+    fn ne_against_a_nan_operand_is_true_not_false() {
+        // `!=` is derived as the negation of `==` rather than as its own
+        // `(a - b).abs() >= 1e-9` test, and that CHANGED an answer: every
+        // comparison against NaN is false, so the old form reported
+        // `NaN != 0` as 0.0 — "they are equal". Measured by restoring the old
+        // arms on this tree: 0.0 before, 1.0 after, for the aggregation in
+        // `nan_operand_ne_reports_inequality_end_to_end` below.
+        //
+        // 1.0 is what IEEE-754 (and therefore Java, and therefore Painless)
+        // says, so the new answer is the correct one — this test exists so
+        // the change is deliberate and visible, not so it stays frozen.
+        let mut p = HashMap::new();
+        p.insert("nan".to_string(), f64::NAN);
+        p.insert("zero".to_string(), 0.0);
+        assert_eq!(eval_script_expr("params.nan != params.zero", &p), Some(1.0));
+        assert_eq!(eval_script_expr("params.nan != params.nan", &p), Some(1.0));
+        // `==` is untouched: NaN compares equal to nothing, including itself.
+        assert_eq!(eval_script_expr("params.nan == params.zero", &p), Some(0.0));
+        assert_eq!(eval_script_expr("params.nan == params.nan", &p), Some(0.0));
+        // Non-NaN operands are unaffected — same 1e-9 epsilon, both ways.
+        p.insert("a".to_string(), 1.0);
+        p.insert("b".to_string(), 1.0 + 1e-12);
+        p.insert("c".to_string(), 2.0);
+        assert_eq!(eval_script_expr("params.a == params.b", &p), Some(1.0));
+        assert_eq!(eval_script_expr("params.a != params.b", &p), Some(0.0));
+        assert_eq!(eval_script_expr("params.a == params.c", &p), Some(0.0));
+        assert_eq!(eval_script_expr("params.a != params.c", &p), Some(1.0));
     }
 }
 
@@ -3078,19 +3451,20 @@ fn run_terms(
 
     // Build (key, count, sub_aggs) so we can reuse sub-agg results for
     // both ordering and final bucket output.
-    let pre_computed: Vec<(String, u64, Option<Value>)> =
-        if orders_need_sub_agg || sub_aggs.is_some() {
-            candidates
-                .iter()
-                .map(|(k, c)| {
-                    let bucket_docs = compute_bucket_docs(k);
-                    let sub_res = sub_aggs.map(|sa| run_aggs_with_all(sa, &bucket_docs, all_docs));
-                    (k.clone(), *c, sub_res)
-                })
-                .collect()
-        } else {
-            candidates.drain(..).map(|(k, c)| (k, c, None)).collect()
-        };
+    let pre_computed: Vec<(String, u64, Option<Value>)> = if orders_need_sub_agg
+        || sub_aggs.is_some()
+    {
+        candidates
+            .iter()
+            .map(|(k, c)| {
+                let bucket_docs = compute_bucket_docs(k);
+                let sub_res = sub_aggs.map(|sa| run_aggs_in_bucket(sa, &bucket_docs, all_docs, *c));
+                (k.clone(), *c, sub_res)
+            })
+            .collect()
+    } else {
+        candidates.drain(..).map(|(k, c)| (k, c, None)).collect()
+    };
 
     // Reorder according to the requested sort keys.
     let mut sorted: Vec<(String, u64, Option<Value>)> = pre_computed;
@@ -3140,8 +3514,9 @@ fn run_terms(
 
             // Reuse the precomputed sub-agg result when we had to build it
             // for ordering; otherwise compute it now (no-op if no sub_aggs).
-            let sub_result = precomputed_sub
-                .or_else(|| sub_aggs.map(|sa| run_aggs_with_all(sa, &bucket_docs, all_docs)));
+            let sub_result = precomputed_sub.or_else(|| {
+                sub_aggs.map(|sa| run_aggs_in_bucket(sa, &bucket_docs, all_docs, count))
+            });
             if let Some(Value::Object(sub_obj)) = sub_result {
                 if let Some(bucket_obj) = bucket.as_object_mut() {
                     for (k, v) in sub_obj {
@@ -3428,7 +3803,8 @@ fn run_ip_prefix(
                 bucket["netmask"] = json!(format_netmask_v4(prefix_length));
             }
             if let Some(sub) = sub_aggs {
-                let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
+                let sub_result =
+                    run_aggs_in_bucket(sub, &bucket_docs, all_docs, indices.len() as u64);
                 if let (Some(bo), Value::Object(so)) = (bucket.as_object_mut(), sub_result) {
                     for (k, v) in so {
                         bo.insert(k, v);
@@ -3535,7 +3911,8 @@ fn run_rare_terms(
             let bucket_docs: Vec<Value> = indices.iter().map(|&i| docs[i].clone()).collect();
             let mut bucket = build_terms_bucket(key, indices.len() as u64);
             if let Some(sub) = sub_aggs {
-                let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
+                let sub_result =
+                    run_aggs_in_bucket(sub, &bucket_docs, all_docs, indices.len() as u64);
                 if let (Some(bo), Value::Object(so)) = (bucket.as_object_mut(), sub_result) {
                     for (k, v) in so {
                         bo.insert(k, v);
@@ -5660,7 +6037,7 @@ fn run_date_histogram(
             });
 
             if let Some(sub) = sub_aggs {
-                let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
+                let sub_result = run_aggs_in_bucket(sub, &bucket_docs, all_docs, doc_count);
                 if let (Some(bucket_obj), Value::Object(sub_obj)) =
                     (bucket.as_object_mut(), sub_result)
                 {
@@ -5937,7 +6314,7 @@ fn run_filter(
     result.insert("doc_count".to_string(), json!(doc_count));
 
     if let Some(sub) = sub_aggs {
-        let sub_result = run_aggs_with_all(sub, &filtered_docs, all_docs);
+        let sub_result = run_aggs_in_bucket(sub, &filtered_docs, all_docs, doc_count);
         if let Value::Object(sub_obj) = sub_result {
             for (k, v) in sub_obj {
                 result.insert(k, v);
@@ -5995,7 +6372,8 @@ fn run_filters(
                     let mut bucket = serde_json::Map::new();
                     bucket.insert("doc_count".to_string(), json!(sum_doc_count(&filtered)));
                     if let Some(sub) = sub_aggs {
-                        let sr = run_aggs_with_all(sub, &filtered, all_docs);
+                        let sr =
+                            run_aggs_in_bucket(sub, &filtered, all_docs, sum_doc_count(&filtered));
                         if let Value::Object(so) = sr {
                             for (k, v) in so {
                                 bucket.insert(k, v);
@@ -6017,7 +6395,8 @@ fn run_filters(
                     bucket.insert("key".to_string(), Value::String(name.clone()));
                     bucket.insert("doc_count".to_string(), json!(sum_doc_count(&filtered)));
                     if let Some(sub) = sub_aggs {
-                        let sr = run_aggs_with_all(sub, &filtered, all_docs);
+                        let sr =
+                            run_aggs_in_bucket(sub, &filtered, all_docs, sum_doc_count(&filtered));
                         if let Value::Object(so) = sr {
                             for (k, v) in so {
                                 bucket.insert(k, v);
@@ -6041,7 +6420,7 @@ fn run_filters(
                 let mut bucket = serde_json::Map::new();
                 bucket.insert("doc_count".to_string(), json!(sum_doc_count(&filtered)));
                 if let Some(sub) = sub_aggs {
-                    let sr = run_aggs_with_all(sub, &filtered, all_docs);
+                    let sr = run_aggs_in_bucket(sub, &filtered, all_docs, sum_doc_count(&filtered));
                     if let Value::Object(so) = sr {
                         for (k, v) in so {
                             bucket.insert(k, v);
@@ -6500,7 +6879,7 @@ fn run_range(
             }
 
             if let Some(sub) = sub_aggs {
-                let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
+                let sub_result = run_aggs_in_bucket(sub, &bucket_docs, all_docs, doc_count);
                 if let (Some(bucket_obj), Value::Object(sub_obj)) =
                     (bucket.as_object_mut(), sub_result)
                 {
@@ -6746,7 +7125,7 @@ fn run_histogram(
             }
 
             if let Some(sub) = sub_aggs {
-                let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
+                let sub_result = run_aggs_in_bucket(sub, &bucket_docs, all_docs, doc_count);
                 if let (Some(bucket_obj), Value::Object(sub_obj)) =
                     (bucket.as_object_mut(), sub_result)
                 {
@@ -6852,7 +7231,8 @@ fn run_variable_width_histogram(
                 "doc_count": chunk.len()
             });
             if let Some(sub) = sub_aggs {
-                let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
+                let sub_result =
+                    run_aggs_in_bucket(sub, &bucket_docs, all_docs, chunk.len() as u64);
                 if let (Some(bo), Value::Object(so)) = (bucket.as_object_mut(), sub_result) {
                     for (k, v) in so {
                         bo.insert(k, v);
@@ -7694,7 +8074,7 @@ fn run_composite(
             });
 
             if let Some(sub) = sub_aggs {
-                let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
+                let sub_result = run_aggs_in_bucket(sub, &bucket_docs, all_docs, doc_count);
                 if let (Some(bucket_obj), Value::Object(sub_obj)) =
                     (bucket.as_object_mut(), sub_result)
                 {
@@ -9099,7 +9479,7 @@ pub(crate) fn run_sampler(
     result.insert("doc_count".to_string(), json!(doc_count));
 
     if let Some(sub) = sub_aggs {
-        let sub_result = run_aggs_with_all(sub, &sample, all_docs);
+        let sub_result = run_aggs_in_bucket(sub, &sample, all_docs, doc_count);
         if let Value::Object(sub_obj) = sub_result {
             for (k, v) in sub_obj {
                 result.insert(k, v);
@@ -9173,7 +9553,7 @@ fn run_diversified_sampler(
     result.insert("doc_count".to_string(), json!(doc_count));
 
     if let Some(sub) = sub_aggs {
-        let sub_result = run_aggs_with_all(sub, &sample, all_docs);
+        let sub_result = run_aggs_in_bucket(sub, &sample, all_docs, doc_count);
         if let Value::Object(sub_obj) = sub_result {
             for (k, v) in sub_obj {
                 result.insert(k, v);
@@ -9373,7 +9753,8 @@ fn run_time_series(
         bucket.insert("key".to_string(), Value::Object(key_obj.clone()));
         bucket.insert("doc_count".to_string(), json!(bucket_docs.len() as u64));
         if let Some(sub) = sub_aggs {
-            let sub_result = run_aggs_with_all(sub, bucket_docs, all_docs);
+            let sub_result =
+                run_aggs_in_bucket(sub, bucket_docs, all_docs, bucket_docs.len() as u64);
             if let Value::Object(sub_obj) = sub_result {
                 for (k, v) in sub_obj {
                     bucket.insert(k, v);
@@ -9455,7 +9836,7 @@ fn run_adjacency_matrix(
         }
         let mut bucket = json!({ "key": name_i, "doc_count": doc_count });
         if let Some(sub) = sub_aggs {
-            let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
+            let sub_result = run_aggs_in_bucket(sub, &bucket_docs, all_docs, doc_count);
             if let (Some(obj), Value::Object(sub_obj)) = (bucket.as_object_mut(), sub_result) {
                 for (k, v) in sub_obj {
                     obj.insert(k, v);
@@ -9483,7 +9864,7 @@ fn run_adjacency_matrix(
             let pair_key = format!("{}&{}", name_i, name_j);
             let mut bucket = json!({ "key": pair_key, "doc_count": doc_count });
             if let Some(sub) = sub_aggs {
-                let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
+                let sub_result = run_aggs_in_bucket(sub, &bucket_docs, all_docs, doc_count);
                 if let (Some(obj), Value::Object(sub_obj)) = (bucket.as_object_mut(), sub_result) {
                     for (k, v) in sub_obj {
                         obj.insert(k, v);
@@ -9766,7 +10147,7 @@ fn run_geo_distance(
             }
             bucket.insert("doc_count".to_string(), json!(filtered.len() as u64));
             if let Some(sub) = sub_aggs {
-                let sr = run_aggs_with_all(sub, &filtered, all_docs);
+                let sr = run_aggs_in_bucket(sub, &filtered, all_docs, filtered.len() as u64);
                 if let Value::Object(so) = sr {
                     for (k, v) in so {
                         bucket.insert(k, v);
@@ -9856,7 +10237,7 @@ fn run_geotile_grid(
             let doc_count = bucket_docs.len() as u64;
             let mut bucket = json!({ "key": key, "doc_count": doc_count });
             if let Some(sub) = sub_aggs {
-                let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
+                let sub_result = run_aggs_in_bucket(sub, &bucket_docs, all_docs, doc_count);
                 if let (Some(obj), Value::Object(sub_obj)) = (bucket.as_object_mut(), sub_result) {
                     for (k, v) in sub_obj {
                         obj.insert(k, v);
@@ -9987,7 +10368,7 @@ fn run_geohash_grid(
             let doc_count = bucket_docs.len() as u64;
             let mut bucket = json!({ "key": key, "doc_count": doc_count });
             if let Some(sub) = sub_aggs {
-                let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
+                let sub_result = run_aggs_in_bucket(sub, &bucket_docs, all_docs, doc_count);
                 if let (Some(obj), Value::Object(sub_obj)) = (bucket.as_object_mut(), sub_result) {
                     for (k, v) in sub_obj {
                         obj.insert(k, v);
@@ -10118,7 +10499,7 @@ fn run_multi_terms(
                 "doc_count": doc_count
             });
             if let Some(sub) = sub_aggs {
-                let sub_result = run_aggs_with_all(sub, &bucket_docs, all_docs);
+                let sub_result = run_aggs_in_bucket(sub, &bucket_docs, all_docs, doc_count);
                 if let (Some(obj), Value::Object(sub_obj)) = (bucket.as_object_mut(), sub_result) {
                     for (k, v) in sub_obj {
                         obj.insert(k, v);
@@ -11076,7 +11457,7 @@ fn run_nested(path: &str, sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[
     let mut result = serde_json::Map::new();
     result.insert("doc_count".to_string(), json!(doc_count));
     if let Some(sub) = sub_aggs {
-        let sub_result = run_aggs_with_all(sub, &expanded, all_docs);
+        let sub_result = run_aggs_in_bucket(sub, &expanded, all_docs, doc_count);
         if let Value::Object(sub_obj) = sub_result {
             for (k, v) in sub_obj {
                 result.insert(k, v);
@@ -11132,7 +11513,7 @@ fn run_reverse_nested(sub_aggs: Option<&Value>, docs: &[Value], all_docs: &[Valu
     let mut result = serde_json::Map::new();
     result.insert("doc_count".to_string(), json!(doc_count));
     if let Some(sub) = sub_aggs {
-        let sub_result = run_aggs_with_all(sub, &unique, all_docs);
+        let sub_result = run_aggs_in_bucket(sub, &unique, all_docs, doc_count);
         if let Value::Object(sub_obj) = sub_result {
             for (k, v) in sub_obj {
                 result.insert(k, v);
@@ -11150,7 +11531,7 @@ fn run_global(sub_aggs: Option<&Value>, all_docs: &[Value]) -> Value {
     result.insert("doc_count".to_string(), json!(doc_count));
 
     if let Some(sub) = sub_aggs {
-        let sub_result = run_aggs_with_all(sub, all_docs, all_docs);
+        let sub_result = run_aggs_in_bucket(sub, all_docs, all_docs, doc_count);
         if let Value::Object(sub_obj) = sub_result {
             for (k, v) in sub_obj {
                 result.insert(k, v);
@@ -11367,7 +11748,7 @@ fn run_date_range(
             bucket.insert("to_as_string".to_string(), json!(to_key));
         }
         if let Some(sub) = sub_aggs {
-            let sr = run_aggs_with_all(sub, &filtered, all_docs);
+            let sr = run_aggs_in_bucket(sub, &filtered, all_docs, sum_doc_count(&filtered));
             if let Value::Object(so) = sr {
                 for (k, v) in so {
                     bucket.insert(k, v);
@@ -13038,7 +13419,7 @@ fn run_ip_range(
         }
         bucket.insert("doc_count".to_string(), json!(filtered.len() as u64));
         if let Some(sub) = sub_aggs {
-            let sr = run_aggs_with_all(sub, &filtered, all_docs);
+            let sr = run_aggs_in_bucket(sub, &filtered, all_docs, filtered.len() as u64);
             if let Value::Object(so) = sr {
                 for (k, v) in so {
                     bucket.insert(k, v);
@@ -13163,6 +13544,694 @@ mod tests {
         let agg = json!({ "uniq": { "cardinality": { "field": "tag" } } });
         let result = run_aggs(&agg, &docs());
         assert_eq!(result["uniq"]["value"], 2);
+    }
+
+    // Regression: `bucket_script` referencing a sibling `filter` agg's doc
+    // count via the special `_count` buckets_path segment (e.g.
+    // `"numerator": "numerator>_count"`) always resolved to null, because
+    // the lookup only checked for a field literally named `_count` with a
+    // nested `.value` — which doesn't exist on a `filter` agg's bucket
+    // (`{"doc_count": N}`). This is exactly the shape Kibana/OSD's TSVB
+    // `filter_ratio` metric compiles to, so every `filter_ratio` panel
+    // (e.g. the sample Flights dashboard's "Delays & Cancellations")
+    // silently rendered as all-null.
+    #[test]
+    fn bucket_script_resolves_sibling_filter_doc_count_via_underscore_count() {
+        let docs = vec![
+            json!({"status": "delayed"}),
+            json!({"status": "delayed"}),
+            json!({"status": "ok"}),
+            json!({"status": "ok"}),
+        ];
+        let agg = json!({
+            "numerator": { "filter": { "term": { "status": "delayed" } } },
+            "denominator": { "filter": { "match_all": {} } },
+            "ratio": {
+                "bucket_script": {
+                    "buckets_path": { "numerator": "numerator>_count", "denominator": "denominator>_count" },
+                    "script": "params.numerator / params.denominator"
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        let ratio = result["ratio"]["value"]
+            .as_f64()
+            .expect("bucket_script must resolve _count buckets_path, not stay null");
+        assert!((ratio - 0.5).abs() < 1e-9);
+    }
+
+    // Regression: `buckets_path` as a bare STRING (not an object) is ES's
+    // "simple form" — the resolved value binds to the single variable
+    // `_value` in the script, and the bare string `"_count"` (no sibling
+    // prefix at all) refers to the CURRENT bucket's own `doc_count`. This
+    // is exactly what Kibana/OSD's Timelion `.opensearch()` datasource
+    // emits for its per-time-bucket count metric
+    // (`"buckets_path": "_count", "script": {"source": "_value"}`).
+    // `resolve_bucket_script` used to require `buckets_path.as_object()`
+    // unconditionally, so this shape always fell through to `None` and
+    // returned null — every Timelion panel using a bare split (e.g. the
+    // sample Logs dashboard's "Stacked extensions over time") showed a
+    // real doc_count per bucket but an all-null/all-zero series.
+    #[test]
+    fn bucket_script_resolves_bare_string_underscore_count_buckets_path() {
+        // Nested inside a `terms` bucket, matching the real shape: bare
+        // `_count` refers to the CONTAINING bucket's own doc_count, which
+        // only exists as a concept inside a bucket (top-level results have
+        // no `doc_count`).
+        let docs = vec![
+            json!({"status": "delayed"}),
+            json!({"status": "delayed"}),
+            json!({"status": "ok"}),
+        ];
+        let agg = json!({
+            "by_status": {
+                "terms": { "field": "status" },
+                "aggs": {
+                    "count": {
+                        "bucket_script": {
+                            "buckets_path": "_count",
+                            "script": { "source": "_value", "lang": "expression" }
+                        }
+                    }
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        let buckets = result["by_status"]["buckets"]
+            .as_array()
+            .expect("terms agg must produce buckets");
+        let delayed = buckets
+            .iter()
+            .find(|b| b["key"] == "delayed")
+            .expect("delayed bucket must exist");
+        assert_eq!(delayed["doc_count"], 2);
+        let value = delayed["count"]["value"]
+            .as_f64()
+            .expect("bucket_script must resolve a bare string _count buckets_path, not stay null");
+        assert!((value - 2.0).abs() < 1e-9);
+    }
+
+    // Regression: the exact `bucket_script` shape Kibana/OSD's TSVB
+    // `filter_ratio` metric generates guards its division with a ternary
+    // and explicit `null` checks — e.g.
+    // `params.numerator != null && params.denominator != null &&
+    //  params.denominator > 0 ? params.numerator / params.denominator : 0`.
+    // The script evaluator's tokenizer treated the bare word `null` as an
+    // unresolvable `params.*` identifier lookup (returning `None` and
+    // aborting the whole script), and had no support for `?:` at all — so
+    // this exact real-world script always failed to parse, independent of
+    // the `_count` buckets_path bug fixed above. Covers both null-literal
+    // comparisons and the ternary in one shot, matching the live TSVB
+    // request captured while debugging the sample Flights dashboard.
+    #[test]
+    fn bucket_script_supports_null_literal_and_ternary_like_tsvb_filter_ratio() {
+        let docs = vec![
+            json!({"status": "delayed"}),
+            json!({"status": "delayed"}),
+            json!({"status": "ok"}),
+            json!({"status": "ok"}),
+        ];
+        let agg = json!({
+            "numerator": { "filter": { "term": { "status": "delayed" } } },
+            "denominator": { "filter": { "match_all": {} } },
+            "ratio": {
+                "bucket_script": {
+                    "buckets_path": { "numerator": "numerator>_count", "denominator": "denominator>_count" },
+                    "script": "params.numerator != null && params.denominator != null && params.denominator > 0 ? params.numerator / params.denominator : 0"
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        let ratio = result["ratio"]["value"]
+            .as_f64()
+            .expect("bucket_script must evaluate the ternary/null-guarded script, not stay null");
+        assert!((ratio - 0.5).abs() < 1e-9);
+    }
+
+    // Same script, but the denominator is 0 (no docs at all): the ternary's
+    // `params.denominator > 0` guard must select the `: 0` branch instead
+    // of dividing by zero.
+    #[test]
+    fn bucket_script_ternary_false_branch_avoids_division_by_zero() {
+        let docs: Vec<Value> = vec![];
+        let agg = json!({
+            "numerator": { "filter": { "term": { "status": "delayed" } } },
+            "denominator": { "filter": { "match_all": {} } },
+            "ratio": {
+                "bucket_script": {
+                    "buckets_path": { "numerator": "numerator>_count", "denominator": "denominator>_count" },
+                    "script": "params.numerator != null && params.denominator != null && params.denominator > 0 ? params.numerator / params.denominator : 0"
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        let ratio = result["ratio"]["value"]
+            .as_f64()
+            .expect("ternary false branch must still resolve to a number");
+        assert!((ratio - 0.0).abs() < 1e-9);
+    }
+
+    // ── `_count` resolution: agreement with the bucket's own doc_count ──────
+    //
+    // The invariant, in one line: whatever number a bucket publishes as its
+    // `doc_count`, a bare `_count` buckets_path inside that bucket resolves to
+    // the SAME number. Not "the weighted count" and not "the physical count" —
+    // the two families of bucket agg in this file disagree about which of
+    // those they report (see the staging comment in `run_aggs_in_bucket`), and
+    // `_count` has to follow each of them rather than pick a side.
+    //
+    // `bare_count_..._weighted_bucket` covers a weighted (`sum_doc_count`)
+    // bucket; `bare_count_agrees_with_every_bucket_types_doc_count` sweeps
+    // every bucket type that runs sub-aggs, including the `docs.len()` family
+    // where staging a weighted count would be the same defect inverted.
+
+    #[test]
+    fn bare_count_buckets_path_matches_a_doc_count_weighted_bucket() {
+        let docs = vec![
+            json!({"status": "delayed", "_doc_count": 5}),
+            json!({"status": "delayed", "_doc_count": 3}),
+            json!({"status": "ok"}),
+        ];
+        let agg = json!({
+            "by_status": {
+                "terms": { "field": "status" },
+                "aggs": {
+                    "count": {
+                        "bucket_script": {
+                            "buckets_path": "_count",
+                            "script": { "source": "_value", "lang": "expression" }
+                        }
+                    }
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        let buckets = result["by_status"]["buckets"]
+            .as_array()
+            .expect("terms agg must produce buckets");
+        assert_eq!(buckets.len(), 2);
+
+        let delayed = buckets
+            .iter()
+            .find(|b| b["key"] == "delayed")
+            .expect("delayed bucket must exist");
+        // Two PHYSICAL docs, weight 5 + 3 = 8 logical ones.
+        assert_eq!(delayed["doc_count"], 8);
+        assert_eq!(
+            delayed["count"]["value"].as_f64(),
+            Some(8.0),
+            "`_count` must report the bucket's weighted doc_count (8), \
+             not the physical doc count (2)"
+        );
+
+        // Unweighted bucket: weight defaults to 1, so both readings agree.
+        let ok = buckets
+            .iter()
+            .find(|b| b["key"] == "ok")
+            .expect("ok bucket must exist");
+        assert_eq!(ok["doc_count"], 1);
+        assert_eq!(ok["count"]["value"].as_f64(), Some(1.0));
+    }
+
+    #[test]
+    fn sibling_underscore_count_matches_a_doc_count_weighted_filter_bucket() {
+        // What this pins, precisely: the object form
+        // (`"alias": "sibling>_count"`) resolving at all. Before
+        // `resolve_bucket_script` grew its `Some("_count")` arm, a
+        // `sibling>_count` path looked for a sub-agg literally named `_count`,
+        // found nothing, and nulled the bucket — so `.expect(...)` below is
+        // the assertion that matters.
+        //
+        // It does NOT pin the bare-`_count` staging in `run_aggs_in_bucket`,
+        // and an earlier version of this file claimed it did. Measured: with
+        // the staging reverted to `docs.len()`, this test still passes and
+        // only `bare_count_buckets_path_matches_a_doc_count_weighted_bucket`
+        // fails. `filter` has always built its `doc_count` with
+        // `sum_doc_count`, so the 0.5 below is the pre-existing weighting
+        // showing through the newly-resolvable path.
+        let docs = vec![
+            json!({"status": "delayed", "_doc_count": 5}),
+            json!({"status": "delayed", "_doc_count": 3}),
+            json!({"status": "ok", "_doc_count": 8}),
+        ];
+        let agg = json!({
+            "numerator": { "filter": { "term": { "status": "delayed" } } },
+            "denominator": { "filter": { "match_all": {} } },
+            "ratio": {
+                "bucket_script": {
+                    "buckets_path": { "numerator": "numerator>_count", "denominator": "denominator>_count" },
+                    "script": "params.numerator / params.denominator"
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        assert_eq!(result["numerator"]["doc_count"], 8);
+        assert_eq!(result["denominator"]["doc_count"], 16);
+        let ratio = result["ratio"]["value"]
+            .as_f64()
+            .expect("bucket_script over weighted filters must resolve");
+        assert!(
+            (ratio - 0.5).abs() < 1e-9,
+            "8/16 over weighted counts, not 2/3 over physical docs; got {ratio}"
+        );
+    }
+
+    /// Walk a finished aggs tree and yield every `(path, doc_count, _count)`
+    /// triple: any object carrying BOTH a `doc_count` and a sub-object whose
+    /// `bucket_script` result landed under the key the sweep below uses.
+    fn collect_count_pairs(v: &Value, path: &str, out: &mut Vec<(String, u64, Option<f64>)>) {
+        match v {
+            Value::Object(o) => {
+                if let Some(dc) = o.get("doc_count").and_then(Value::as_u64) {
+                    if let Some(c) = o.get("bs_count") {
+                        out.push((path.to_string(), dc, c.get("value").and_then(Value::as_f64)));
+                    }
+                }
+                for (k, child) in o {
+                    if k == "bs_count" {
+                        continue;
+                    }
+                    collect_count_pairs(child, &format!("{path}.{k}"), out);
+                }
+            }
+            Value::Array(a) => {
+                for (i, child) in a.iter().enumerate() {
+                    collect_count_pairs(child, &format!("{path}[{i}]"), out);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn bare_count_agrees_with_every_bucket_types_doc_count() {
+        // Regression net for the inverse of the weighted-bucket defect.
+        //
+        // Half the bucket aggs in this file build `doc_count` with
+        // `sum_doc_count` (weights honoured) and half with `docs.len()`
+        // (weights ignored). Staging a recomputed count in
+        // `run_aggs_in_bucket` — with EITHER function — makes `_count`
+        // disagree with the other half. Measured on the tree this test
+        // replaced: staging `sum_doc_count` gave `range` `doc_count: 2` with
+        // `_count: 8`, `multi_terms` `1` with `5`, and the same split for
+        // adjacency_matrix, sampler, diversified_sampler, global,
+        // reverse_nested, time_series, rare_terms and
+        // variable_width_histogram.
+        //
+        // Every doc here carries a `_doc_count` weight, so any bucket type
+        // that recomputed rather than echoed would land on a different number.
+        let sub = json!({
+            "bs_count": {
+                "bucket_script": { "buckets_path": "_count", "script": "_value" }
+            }
+        });
+        let plain = vec![
+            json!({"s": "a", "n": 1, "_doc_count": 5}),
+            json!({"s": "a", "n": 2, "_doc_count": 3}),
+        ];
+        let ip = vec![
+            json!({"ip": "10.0.0.1", "_doc_count": 5}),
+            json!({"ip": "10.0.0.2", "_doc_count": 3}),
+        ];
+        let geo = vec![
+            json!({"g": {"lat": 10.0, "lon": 10.0}, "_doc_count": 5}),
+            json!({"g": {"lat": 10.1, "lon": 10.1}, "_doc_count": 3}),
+        ];
+        let nested = vec![
+            json!({"items": [{"v": 1}, {"v": 2}], "_doc_count": 5}),
+            json!({"items": [{"v": 3}], "_doc_count": 3}),
+        ];
+
+        let cases: Vec<(&str, &Vec<Value>, Value)> = vec![
+            ("terms", &plain, json!({"terms": {"field": "s"}})),
+            (
+                "range",
+                &plain,
+                json!({"range": {"field": "n", "ranges": [{"from": 0, "to": 100}]}}),
+            ),
+            (
+                "multi_terms",
+                &plain,
+                json!({"multi_terms": {"terms": [{"field": "s"}, {"field": "n"}]}}),
+            ),
+            (
+                "histogram",
+                &plain,
+                json!({"histogram": {"field": "n", "interval": 100}}),
+            ),
+            (
+                "date_histogram",
+                &plain,
+                json!({"date_histogram": {"field": "n", "fixed_interval": "1000ms"}}),
+            ),
+            ("filter", &plain, json!({"filter": {"match_all": {}}})),
+            (
+                "filters_keyed",
+                &plain,
+                json!({"filters": {"filters": {"all": {"match_all": {}}}}}),
+            ),
+            (
+                "filters_unkeyed",
+                &plain,
+                json!({"filters": {"filters": {"all": {"match_all": {}}}, "keyed": false}}),
+            ),
+            (
+                "filters_anon",
+                &plain,
+                json!({"filters": {"filters": [{"match_all": {}}]}}),
+            ),
+            (
+                "date_range",
+                &plain,
+                json!({"date_range": {"field": "n", "ranges": [{"from": 0, "to": 100}]}}),
+            ),
+            (
+                "composite",
+                &plain,
+                json!({"composite": {"sources": [{"s": {"terms": {"field": "s"}}}]}}),
+            ),
+            (
+                "variable_width_histogram",
+                &plain,
+                json!({"variable_width_histogram": {"field": "n", "buckets": 1}}),
+            ),
+            (
+                "adjacency_matrix",
+                &plain,
+                json!({"adjacency_matrix": {"filters": {"all": {"match_all": {}}}}}),
+            ),
+            ("sampler", &plain, json!({"sampler": {"shard_size": 100}})),
+            (
+                "diversified_sampler",
+                &plain,
+                json!({"diversified_sampler": {"field": "s", "shard_size": 100}}),
+            ),
+            (
+                "rare_terms",
+                &plain,
+                json!({"rare_terms": {"field": "s", "max_doc_count": 100}}),
+            ),
+            ("global", &plain, json!({"global": {}})),
+            ("time_series", &plain, json!({"time_series": {}})),
+            (
+                "ip_prefix",
+                &ip,
+                json!({"ip_prefix": {"field": "ip", "prefix_length": 8}}),
+            ),
+            (
+                "ip_range",
+                &ip,
+                json!({"ip_range": {"field": "ip", "ranges": [{"to": "255.255.255.255"}]}}),
+            ),
+            (
+                "geotile_grid",
+                &geo,
+                json!({"geotile_grid": {"field": "g", "precision": 2}}),
+            ),
+            (
+                "geohash_grid",
+                &geo,
+                json!({"geohash_grid": {"field": "g", "precision": 2}}),
+            ),
+            (
+                "geo_distance",
+                &geo,
+                json!({"geo_distance": {"field": "g", "origin": "10,10", "ranges": [{"to": 1e9}]}}),
+            ),
+            ("nested", &nested, json!({"nested": {"path": "items"}})),
+        ];
+
+        for (name, docs, mut body) in cases {
+            body.as_object_mut()
+                .expect("agg body is an object")
+                .insert("aggs".to_string(), sub.clone());
+            let result = run_aggs(&json!({ "x": body }), docs);
+            let mut pairs = Vec::new();
+            collect_count_pairs(&result, name, &mut pairs);
+            assert!(
+                !pairs.is_empty(),
+                "{name}: fixture produced no bucket carrying both a doc_count \
+                 and a bucket_script — the case proves nothing: {result}"
+            );
+            for (path, doc_count, bs) in pairs {
+                assert_eq!(
+                    bs,
+                    Some(doc_count as f64),
+                    "{path}: bucket reports doc_count {doc_count} but a bare \
+                     `_count` inside it resolves to {bs:?} — a bucket and the \
+                     bucket_script inside it must not disagree: {result}"
+                );
+            }
+        }
+
+        // `reverse_nested` publishes its own doc_count one level down.
+        let result = run_aggs(
+            &json!({"x": {"nested": {"path": "items"},
+                          "aggs": {"r": {"reverse_nested": {}, "aggs": sub.clone()}}}}),
+            &nested,
+        );
+        let mut pairs = Vec::new();
+        collect_count_pairs(&result, "reverse_nested", &mut pairs);
+        assert_eq!(pairs.len(), 1, "expected exactly one pair: {result}");
+        assert_eq!(pairs[0].2, Some(pairs[0].1 as f64), "{result}");
+
+        // Top level: no enclosing bucket, so `_count` is the physical size of
+        // the result set — the number `hits.total.value` reports beside it.
+        let top = run_aggs(&sub, &plain);
+        assert_eq!(
+            top["bs_count"]["value"].as_f64(),
+            Some(2.0),
+            "top-level `_count` is the physical result-set size: {top}"
+        );
+    }
+
+    #[test]
+    fn nan_operand_ne_reports_inequality_end_to_end() {
+        // The reachable-from-a-request spelling of
+        // `ne_against_a_nan_operand_is_true_not_false`: no NaN literal in the
+        // script, just arithmetic that produces one. `1e308 * 1e308`
+        // overflows to +inf and `inf - inf` is NaN, so the `!=` sees a NaN
+        // operand without the request ever naming it.
+        //
+        // Measured on this tree: 0.0 with the old
+        // `"!=" => (a - b).abs() >= 1e-9` arm restored, 1.0 with the current
+        // negation-of-`==` form. The `==` spelling below answers 0.0 under
+        // both.
+        let docs = vec![json!({"n": 1e308})];
+        let ne = json!({
+            "m": { "max": { "field": "n" } },
+            "x": { "bucket_script": {
+                "buckets_path": { "a": "m" },
+                "script": "params.a * params.a - params.a * params.a != 0"
+            }}
+        });
+        assert_eq!(
+            run_aggs(&ne, &docs)["x"]["value"].as_f64(),
+            Some(1.0),
+            "a NaN operand is not equal to 0"
+        );
+
+        let eq = json!({
+            "m": { "max": { "field": "n" } },
+            "x": { "bucket_script": {
+                "buckets_path": { "a": "m" },
+                "script": "params.a * params.a - params.a * params.a == 0"
+            }}
+        });
+        assert_eq!(
+            run_aggs(&eq, &docs)["x"]["value"].as_f64(),
+            Some(0.0),
+            "`==` against NaN was 0.0 before and must stay 0.0"
+        );
+    }
+
+    #[test]
+    fn parenthesised_ternary_bucket_script_resolves_end_to_end() {
+        // The same defect as `a_ternary_inside_parentheses_evaluates`, seen
+        // from a request: the bucket kept its shape but reported
+        // `{"value": null}`.
+        let docs = vec![json!({"n": 4}), json!({"n": 6})];
+        let agg = json!({
+            "total": { "sum": { "field": "n" } },
+            "flagged": { "bucket_script": {
+                "buckets_path": { "t": "total" },
+                "script": "(params.t > 5 ? 1 : 0) + 100"
+            }}
+        });
+        let result = run_aggs(&agg, &docs);
+        assert_eq!(
+            result["flagged"]["value"].as_f64(),
+            Some(101.0),
+            "a parenthesised ternary must not null the bucket: {result}"
+        );
+    }
+
+    // ── behaviour pinned around a MISSING buckets_path ──────────────────────
+    //
+    // `bucket_script` resolution has never consulted `gap_policy` (see
+    // `resolve_pipeline_agg_full`, where `bucket_script` is dispatched before
+    // the `gap_policy`-aware arm) and still doesn't: an unresolvable path
+    // produces an explicit `{"value": null}` under every policy. ES instead
+    // OMITS the sub-agg from the bucket under the default `skip`, and
+    // substitutes 0 under `insert_zeros`. These tests pin the current
+    // behaviour so the divergence is deliberate and any future change to it
+    // has to be a visible one.
+
+    #[test]
+    fn bucket_script_missing_buckets_path_target_stays_an_explicit_null() {
+        let docs = vec![json!({"n": 1}), json!({"n": 2})];
+        let agg = json!({
+            "present": { "sum": { "field": "n" } },
+            "ratio": {
+                "bucket_script": {
+                    "buckets_path": { "a": "present", "b": "no_such_agg" },
+                    "script": "params.a / params.b"
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        assert!(
+            result.get("ratio").is_some(),
+            "the key is emitted (ES would omit it under gap_policy=skip)"
+        );
+        assert!(
+            result["ratio"]["value"].is_null(),
+            "one unresolvable alias nulls the whole script, it is not skipped \
+             or defaulted: {}",
+            result["ratio"]
+        );
+    }
+
+    #[test]
+    fn bucket_script_null_sibling_metric_stays_null() {
+        // The sibling and the metric both exist; the metric's `value` is
+        // null (avg over an empty bucket). The `.as_f64()` fallback added
+        // for plain-numeric sub-metrics must not turn that into a number.
+        let docs = vec![json!({"status": "ok", "n": 1})];
+        let agg = json!({
+            "empty": {
+                "filter": { "term": { "status": "nope" } },
+                "aggs": { "avg_n": { "avg": { "field": "n" } } }
+            },
+            "derived": {
+                "bucket_script": {
+                    "buckets_path": { "a": "empty>avg_n" },
+                    "script": "params.a * 2"
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        assert_eq!(result["empty"]["doc_count"], 0);
+        assert!(result["empty"]["avg_n"]["value"].is_null());
+        assert!(
+            result["derived"]["value"].is_null(),
+            "a null metric value must not resolve: {}",
+            result["derived"]
+        );
+    }
+
+    #[test]
+    fn bucket_script_ignores_gap_policy_insert_zeros() {
+        // Pinned divergence: ES substitutes 0 for the missing path and
+        // evaluates the script (yielding 3.0 here). xerj nulls the bucket.
+        let docs = vec![json!({"n": 3})];
+        let agg = json!({
+            "present": { "sum": { "field": "n" } },
+            "combined": {
+                "bucket_script": {
+                    "buckets_path": { "a": "present", "b": "no_such_agg" },
+                    "script": "params.a + params.b",
+                    "gap_policy": "insert_zeros"
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        assert!(
+            result["combined"]["value"].is_null(),
+            "gap_policy is not honoured by bucket_script (unchanged by the \
+             _count work): {}",
+            result["combined"]
+        );
+    }
+
+    // ── behaviour DELTA pins for the widened resolver ───────────────────────
+
+    #[test]
+    fn bucket_script_resolves_a_plain_numeric_multi_value_submetric() {
+        // Previously null: the lookup required `sibling[metric].value`, and a
+        // `stats` agg emits its sub-metrics as PLAIN numbers. The `.as_f64()`
+        // fallback makes `"grades.avg"` (and `"grades>avg"`) resolve, which is
+        // ES's documented multi-value-metric buckets_path syntax.
+        let docs = vec![json!({"grade": 2}), json!({"grade": 4})];
+        let agg = json!({
+            "grades": { "stats": { "field": "grade" } },
+            "doubled": {
+                "bucket_script": {
+                    "buckets_path": { "a": "grades.avg" },
+                    "script": "params.a * 2"
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        assert_eq!(result["grades"]["avg"], 3.0);
+        assert_eq!(
+            result["doubled"]["value"].as_f64(),
+            Some(6.0),
+            "a plain-numeric sub-metric must resolve, not null out"
+        );
+    }
+
+    #[test]
+    fn underscore_count_outranks_a_sub_agg_literally_named_underscore_count() {
+        // The one case where a previously NON-null bucket_script changes
+        // value rather than going from null to a number: a sub-agg named
+        // `_count`. ES reserves `_count` in a buckets_path for the bucket's
+        // doc count, so the doc count wins — pinned here because it is the
+        // full extent of the silent-change surface.
+        let docs = vec![json!({"n": 10}), json!({"n": 20}), json!({"n": 30})];
+        let agg = json!({
+            "f": {
+                "filter": { "match_all": {} },
+                "aggs": { "_count": { "sum": { "field": "n" } } }
+            },
+            "x": {
+                "bucket_script": {
+                    "buckets_path": { "a": "f>_count" },
+                    "script": "params.a"
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        assert_eq!(result["f"]["_count"]["value"], 60.0);
+        assert_eq!(
+            result["x"]["value"].as_f64(),
+            Some(3.0),
+            "`_count` resolves to the bucket's doc_count (3), not to the \
+             sibling sum agg that happens to be named `_count` (60)"
+        );
+    }
+
+    #[test]
+    fn ternary_chain_is_evaluated_at_the_depth_bound_and_rejected_past_it() {
+        // The depth bound this branch is based on (`check_expr_limits`, run
+        // on entry to `eval_script_expr`) exists to keep the ternary split
+        // from recursing without limit. Now that the ternary is actually
+        // implemented, check both sides of the bound: the last accepted
+        // chain must still EVALUATE, and one ternary past it must resolve to
+        // a null bucket value rather than descend.
+        let params: HashMap<String, f64> = HashMap::new();
+        let at_bound = format!("{}1", "0?1:".repeat(MAX_EXPR_DEPTH));
+        assert_eq!(at_bound.matches('?').count(), MAX_EXPR_DEPTH);
+        assert!(check_expr_limits(&at_bound).is_ok());
+        assert_eq!(
+            eval_script_expr(&at_bound, &params),
+            Some(1.0),
+            "a chain right at the bound must still evaluate"
+        );
+
+        let past_bound = format!("{}1", "0?1:".repeat(MAX_EXPR_DEPTH + 1));
+        assert!(check_expr_limits(&past_bound).is_err());
+        assert_eq!(eval_script_expr(&past_bound, &params), None);
     }
 
     #[test]
