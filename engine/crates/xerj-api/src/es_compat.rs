@@ -5245,6 +5245,37 @@ fn find_script_limit_violation(v: &Value) -> Option<String> {
     }
 }
 
+/// ES-shaped `script_exception` 400 for a script that hit one of the
+/// interpreter's resource limits at *run* time.
+///
+/// `find_script_limit_violation` catches the statically-detectable limits up
+/// front. The rest — closure call depth, total invocation count — depend on
+/// the data and can only trip mid-evaluation, where the caller is a scoring or
+/// aggregation path with no error channel. Those paths substituted a neutral
+/// value (`0.0`, `[]`) and served it as if the script had succeeded; this is
+/// what they surface instead.
+pub(crate) fn script_limit_response(reason: &str) -> Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(script_limit_error_value(reason)),
+    )
+        .into_response()
+}
+
+/// The same body as a bare value, for the multi-search surfaces that embed a
+/// per-sub-request error object inside a 200 envelope rather than failing the
+/// whole HTTP call.
+pub(crate) fn script_limit_error_value(reason: &str) -> Value {
+    json!({
+        "error": {
+            "root_cause": [{ "type": "script_exception", "reason": reason }],
+            "type": "script_exception",
+            "reason": reason,
+        },
+        "status": 400,
+    })
+}
+
 /// Parse an ES time-units string to milliseconds: `"500ms"`, `"30s"`,
 /// `"2m"`, `"1h"`, `"1d"`, `"5micros"`, `"100nanos"`, bare number =
 /// millis. Sub-millisecond values round up to 1 ms so `timeout=100nanos`
@@ -6264,12 +6295,44 @@ fn profile_shard_count(n: i64) -> u64 {
     n.clamp(1, 1024) as u64
 }
 
+/// `POST /{index}/_search`.
+///
+/// Thin wrapper over [`search_impl`] that installs the Painless fault sink for
+/// every script this handler evaluates *itself* — `script_fields` and
+/// `runtime_mappings` emit-scripts run during response assembly, outside the
+/// spawned search task, so they are not covered by the engine-side capture in
+/// `Index::search`. Both used to drop a failed script's value on the floor
+/// (`if let Ok(pv) = …`), which is right for a script outside our Painless
+/// subset but wrong for a resource-limit trip: the field silently vanished
+/// from the response with no error anywhere. A limit fault now fails the
+/// request.
 pub async fn search(
     State(state): State<AppState>,
     Path(index): Path<String>,
     Query(params): Query<EsSearchQueryParams>,
     body: EsSearchJson,
-) -> impl IntoResponse {
+) -> Response {
+    // `Box::pin` is load-bearing, not style. `search_impl`'s future is
+    // enormous (thousands of lines of inlined async state), and without the
+    // box this wrapper's future embeds a second copy of it by value —
+    // `memory_api`'s recall test, which calls this handler directly, overflows
+    // its stack on the extra copy. Boxing keeps the wrapper pointer-sized.
+    let (response, fault) = xerj_engine::painless::with_script_fault_capture(Box::pin(
+        search_impl(state, index, params, body),
+    ))
+    .await;
+    match fault {
+        Some(reason) => script_limit_response(&reason),
+        None => response,
+    }
+}
+
+async fn search_impl(
+    state: AppState,
+    index: String,
+    params: EsSearchQueryParams,
+    body: EsSearchJson,
+) -> Response {
     let started = Instant::now();
     // Closed-index handling is deferred to after index resolution below so
     // `ignore_unavailable` / `expand_wildcards` are honored per ES semantics.
@@ -8417,6 +8480,13 @@ pub async fn search(
             }
             Ok(Err(e)) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
             Ok(Ok(result)) => {
+                // A Painless resource limit tripped somewhere in scoring or
+                // aggregation. Those paths have no error channel, so they
+                // fell back to neutral values — the hits below carry wrong
+                // scores. Fail the request instead of serving them.
+                if let Some(reason) = &result.script_failure {
+                    return script_limit_response(reason);
+                }
                 if result.timed_out {
                     any_timed_out = true;
                 }
@@ -15089,6 +15159,13 @@ pub async fn count_docs(
                 let search_body = json!({ "query": query_val, "size": 0, "from": 0 });
                 if let Ok(req) = xerj_query::parse_request(&search_body) {
                     if let Ok(result) = idx.search(&req).await {
+                        // A script resource limit in the filter (terms_set's
+                        // `minimum_should_match` script, say) makes matching
+                        // fail-closed, so the count under-reports with nothing
+                        // to distinguish it from a genuine zero.
+                        if let Some(reason) = &result.script_failure {
+                            return script_limit_response(reason);
+                        }
                         total += result.total.value;
                     }
                 }
@@ -15134,7 +15211,12 @@ pub async fn count_docs(
         let search_body = json!({ "query": query_val, "size": 0, "from": 0 });
         match xerj_query::parse_request(&search_body) {
             Ok(req) => match idx.search(&req).await {
-                Ok(result) => result.total.value,
+                Ok(result) => {
+                    if let Some(reason) = &result.script_failure {
+                        return script_limit_response(reason);
+                    }
+                    result.total.value
+                }
                 Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
             },
             Err(e) => {
@@ -16556,6 +16638,9 @@ pub async fn search_with_scroll(
 
         match idx.search(&full_req).await {
             Ok(result) => {
+                if let Some(reason) = &result.script_failure {
+                    return script_limit_response(reason);
+                }
                 total_count += result.total.value;
                 for hit in result.hits {
                     all_hits.push((idx_name.clone(), hit));
@@ -17354,6 +17439,13 @@ pub async fn reindex(
             Ok(r) => r,
             Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
         };
+        // A script resource limit in `source.query` makes matching fail-closed,
+        // so this batch is a subset of the documents the caller asked to copy.
+        // Reporting a completed reindex over a silently truncated source is the
+        // same class of defect as a silently wrong score.
+        if let Some(reason) = &results.script_failure {
+            return script_limit_response(reason);
+        }
 
         let batch_size = results.hits.len();
         if batch_size == 0 {
@@ -17936,6 +18028,7 @@ async fn msearch_impl(
         let mut total_relation = "eq";
         let mut merged_aggs: Option<Value> = None;
         let mut search_error: Option<String> = None;
+        let mut script_failure: Option<String> = None;
 
         for idx_name in &index_names {
             let idx = match state.engine.get_index(idx_name) {
@@ -17947,6 +18040,16 @@ async fn msearch_impl(
             };
             match idx.search(&search_req).await {
                 Ok(result) => {
+                    // A Painless resource limit tripped during scoring/aggs:
+                    // the hits carry degraded scores. Report this sub-request
+                    // as failed rather than merging wrong numbers in. Tracked
+                    // separately from `search_error` so it keeps the ES
+                    // `script_exception` / 400 shape the other script surfaces
+                    // use, instead of a bare 500.
+                    if let Some(reason) = result.script_failure {
+                        script_failure = Some(reason);
+                        break;
+                    }
                     total_count += result.total.value;
                     if result.total.relation == xerj_query::executor::TotalHitsRelation::Gte {
                         total_relation = "gte";
@@ -17963,6 +18066,11 @@ async fn msearch_impl(
                     break;
                 }
             }
+        }
+
+        if let Some(reason) = script_failure {
+            responses.push(script_limit_error_value(&reason));
+            continue;
         }
 
         if let Some(err) = search_error {
@@ -19806,6 +19914,12 @@ async fn run_delete_by_query(
         Ok(r) => r,
         Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_value(),
     };
+    // A script resource limit makes matching fail-closed, so the selection is
+    // a subset of what the caller asked to delete. Deleting that subset and
+    // reporting success is both destructive and wrong; refuse instead.
+    if let Some(reason) = &results.script_failure {
+        return script_limit_error_value(reason);
+    }
 
     let total = results.hits.len() as u64;
     let mut deleted = 0u64;
@@ -19911,6 +20025,11 @@ async fn run_update_by_query(
         Ok(r) => r,
         Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_value(),
     };
+    // Same reasoning as `run_delete_by_query`: a fail-closed script selection
+    // would update an arbitrary subset and call it a complete run.
+    if let Some(reason) = &results.script_failure {
+        return script_limit_error_value(reason);
+    }
 
     let total = results.hits.len() as u64;
     let mut updated = 0u64;
@@ -23954,6 +24073,9 @@ pub async fn search_template(
     for (name, idx) in &handles {
         match idx.search(&search_req).await {
             Ok(result) => {
+                if let Some(reason) = &result.script_failure {
+                    return script_limit_response(reason);
+                }
                 total += result.total.value;
                 merged_hits.extend(result.hits.into_iter().map(|h| (name.clone(), h)));
             }
@@ -24136,10 +24258,15 @@ async fn msearch_template_impl(
 
         let mut merged_hits: Vec<Value> = Vec::new();
         let mut total_count: u64 = 0;
+        let mut script_failure: Option<String> = None;
 
         for idx_name in &index_names {
             if let Ok(idx) = state.engine.get_index(idx_name) {
                 if let Ok(result) = idx.search(&search_req).await {
+                    if let Some(reason) = result.script_failure {
+                        script_failure = Some(reason);
+                        break;
+                    }
                     total_count += result.total.value;
                     for h in result.hits {
                         let source = if h.source.is_null() {
@@ -24156,6 +24283,13 @@ async fn msearch_template_impl(
                     }
                 }
             }
+        }
+
+        if let Some(reason) = script_failure {
+            // Degraded scores — report this sub-request as failed instead of
+            // publishing them as if the script had run.
+            responses.push(script_limit_error_value(&reason));
+            continue;
         }
 
         let took_ms = started.elapsed().as_millis() as u64;
@@ -27757,6 +27891,9 @@ pub async fn async_search_submit(
     for (name, idx) in &handles {
         match idx.search(&req).await {
             Ok(result) => {
+                if let Some(reason) = &result.script_failure {
+                    return script_limit_response(reason);
+                }
                 total_value += result.total.value;
                 any_gte = any_gte
                     || result.total.relation == xerj_query::executor::TotalHitsRelation::Gte;

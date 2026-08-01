@@ -157,6 +157,17 @@ pub struct SearchResult {
     /// Used for ES `max_score` with collapse + track_scores (search/111).
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub max_score: Option<f32>,
+    /// A Painless **resource-limit** trip (call depth, eval depth, invocation
+    /// count, source size) hit while scoring or aggregating this request.
+    ///
+    /// The scoring paths have no error channel — `apply_function_score` and
+    /// friends return a bare `f32` — so before this field a script that blew
+    /// the closure call-depth limit silently scored the document `0.0` and
+    /// the caller got a wrong number with no indication anything failed.
+    /// Populated from the interpreter's fault sink; the API layer turns it
+    /// into an error response rather than serving the degraded scores.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub script_failure: Option<String>,
 }
 
 impl SearchResult {
@@ -173,6 +184,7 @@ impl SearchResult {
             timed_out: false,
             profile: None,
             max_score: None,
+            script_failure: None,
         }
     }
 }

@@ -52,6 +52,7 @@ default = []
 # candle/tokenizer toolchain; enable via xerj-server's `neural` feature.
 neural = ["xerj-ai/neural"]
 onnx-experimental = ["xerj-ai/onnx-experimental"]
+stackprobe = []
 
 [dev-dependencies]
 tempfile  = { workspace = true }

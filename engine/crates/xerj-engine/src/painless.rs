@@ -58,11 +58,11 @@ pub enum PainlessValue {
     /// scripts. `.toString()` renders it in ES's HashMap-like format
     /// (`{key=value, key=value}`, keys alphabetically sorted).
     Object(serde_json::Map<String, Value>),
-    /// A local function or lambda value: parameter names + `Rc`-shared body
+    /// A local function or lambda value: parameter names + `Arc`-shared body
     /// statements (cheap to clone — see [`Expr::Lambda`]). Invoked either
     /// as a bare call (`name(args)`) or via any `.method(args)` call on the
     /// value — see the module doc comment.
-    Closure(Vec<String>, std::rc::Rc<Vec<Stmt>>),
+    Closure(Vec<String>, std::sync::Arc<Vec<Stmt>>),
 }
 
 impl PainlessValue {
@@ -370,12 +370,33 @@ pub enum Expr {
     /// `var x = expr` (declare); `x = expr` (assign).
     Assign(String, Box<Expr>, bool /* is_decl */),
     /// `(params) -> expr` / `(params) -> { stmts }` — a closure literal.
-    /// The body is `Rc`-shared (not owned `Vec<Stmt>`) so producing the
+    /// The body is `Arc`-shared (not owned `Vec<Stmt>`) so producing the
     /// `PainlessValue::Closure` this evaluates to — which happens on every
     /// evaluation of the literal, e.g. once per call when a closure is
     /// itself an argument passed to a recursive call — is a cheap refcount
     /// bump rather than a deep AST clone.
-    Lambda(Vec<String>, std::rc::Rc<Vec<Stmt>>),
+    ///
+    /// `Arc` rather than `Rc` so `PainlessValue` is `Send`/`Sync` — a shared
+    /// closure body was the only thing keeping it off a thread boundary.
+    ///
+    /// The atomic refcount does not show up above the noise floor. A/B'd with
+    /// `measure_closure_clone_cost` (`stackprobe` feature, release build):
+    /// a 240-closure-invocation script timed against a closure-free script of
+    /// the same statement shape, reported as their **ratio** because wall-clock
+    /// on a shared host swings ±40 % between runs while the ratio does not.
+    /// Three runs each, same binary, alternating source:
+    ///
+    /// | build | closure/arith ratio      |
+    /// |-------|--------------------------|
+    /// | `Arc` | 3.328, 3.334, 3.224      |
+    /// | `Rc`  | 3.367, 3.344, 2.360      |
+    ///
+    /// The `Arc`–`Rc` gap (~1 %) is an order of magnitude smaller than `Rc`'s
+    /// own run-to-run spread, i.e. not resolvable here: a closure call
+    /// allocates a fresh `HashMap` scope, which dominates a refcount either
+    /// way. `MAX_CALL_COUNT` caps closure calls at 10 000 per evaluation, so
+    /// the worst case is bounded regardless.
+    Lambda(Vec<String>, std::sync::Arc<Vec<Stmt>>),
 }
 
 /// Parser-only expression wrapper carrying the exact AST depth in O(1).
@@ -411,8 +432,8 @@ pub enum Stmt {
     /// `<type> name(<type> param, ...) { body }` — a local function
     /// declaration. Parameter/return types are parsed and discarded (the
     /// interpreter is dynamically typed); only names and the body matter.
-    /// `Rc`-shared body for the same reason as [`Expr::Lambda`].
-    FnDecl(String, Vec<String>, std::rc::Rc<Vec<Stmt>>),
+    /// `Arc`-shared body for the same reason as [`Expr::Lambda`].
+    FnDecl(String, Vec<String>, std::sync::Arc<Vec<Stmt>>),
 }
 
 // ── Resource limits ──────────────────────────────────────────────────────────
@@ -459,6 +480,32 @@ pub(crate) const EVAL_TOO_DEEP_MSG: &str =
 /// (~50,000) before `eval_depth` ever objects, which is enough native
 /// stack frames to abort the process even in a release build. Kept small
 /// and independent of the expression budget.
+///
+/// **32 is not a guess and must not be raised.** Measured in a release build
+/// by probing the stack address at each call level (`stackprobe` feature,
+/// `measure_stack_per_call_level`), with the recursive call placed *inside*
+/// the closure body's nested blocks so every call level also pays that
+/// body's `exec_stmt` frames:
+///
+/// | nested blocks in body | bytes / call level | total at depth 32 |
+/// |----------------------:|-------------------:|------------------:|
+/// | 1                     |              2,272 |            69 KiB |
+/// | 10                    |              6,160 |           186 KiB |
+/// | 50                    |             23,440 |           710 KiB |
+/// | 90 (parser max)       |             40,720 |          1.20 MiB |
+///
+/// The adversarial worst case already consumes 1.20 MiB (1,262,320 bytes) of
+/// the 2 MiB tokio worker stack, leaving ~0.8 MiB for the axum/search/
+/// segment-scan frames underneath it. Doubling the ceiling would overflow, so
+/// #97's "just raise it" option is not available. The cost per level is
+/// `O(MAX_PARSE_DEPTH)` because a closure body's statement nesting is not
+/// charged against any shared budget — lifting this ceiling safely requires
+/// charging body nesting against a single stack budget, not a bigger number
+/// here.
+///
+/// Reproduce with:
+/// `cargo test --release -p xerj-engine --lib --features stackprobe -- \
+/// --nocapture measure_stack_per_call_level`
 pub(crate) const MAX_CALL_DEPTH: usize = 32;
 
 /// Maximum total closure invocations across one script evaluation.
@@ -471,10 +518,91 @@ pub(crate) const MAX_CALL_DEPTH: usize = 32;
 /// that bounds the call tree's total size rather than its depth.
 pub(crate) const MAX_CALL_COUNT: usize = 10_000;
 
-/// Sentinel returned when [`MAX_CALL_DEPTH`] or [`MAX_CALL_COUNT`] is
-/// exceeded.
+/// Sentinel returned when [`MAX_CALL_DEPTH`] is exceeded. Split from
+/// [`TOO_MANY_CALLS_MSG`] so the two very different remedies (recurse less
+/// vs. call less) are distinguishable in an error a user actually sees.
+pub(crate) const CALL_TOO_DEEP_MSG: &str =
+    "script evaluation exceeded maximum closure call depth; reduce the recursion depth";
+
+/// Sentinel returned when [`MAX_CALL_COUNT`] is exceeded.
 pub(crate) const TOO_MANY_CALLS_MSG: &str =
-    "script exceeded the maximum closure call depth or invocation count";
+    "script evaluation exceeded the maximum closure invocation count";
+
+/// Prefix of the (length-carrying) oversize-source error, so
+/// [`is_resource_limit_error`] can recognise it without formatting.
+const SOURCE_TOO_LONG_PREFIX: &str = "script source is ";
+
+/// True when `msg` is one of the interpreter's **resource-limit** sentinels
+/// rather than an ordinary script error.
+///
+/// This distinction is load-bearing. Most script call sites deliberately
+/// swallow errors and fall back to a neutral value, because a script outside
+/// our Painless subset must keep degrading gracefully rather than turn into a
+/// spurious 400 (see `check_script_limits`). A resource-limit trip is the
+/// opposite case: the script was *understood*, we simply refused to finish
+/// running it, so falling back to `0.0` / `[]` publishes a value that looks
+/// like a real answer and is not. Callers use this to fail loudly on limits
+/// while keeping the graceful path for everything else.
+pub fn is_resource_limit_error(msg: &str) -> bool {
+    msg == TOO_DEEP_MSG
+        || msg == EVAL_TOO_DEEP_MSG
+        || msg == CALL_TOO_DEEP_MSG
+        || msg == TOO_MANY_CALLS_MSG
+        || msg.starts_with(SOURCE_TOO_LONG_PREFIX)
+}
+
+tokio::task_local! {
+    /// First resource-limit fault raised by any script evaluated inside the
+    /// current [`with_script_fault_capture`] scope.
+    ///
+    /// A task-local (not a thread-local): the scoring and aggregation paths
+    /// that evaluate scripts sit behind `f32`/`Value`-returning signatures
+    /// with no error channel of their own — `apply_function_score`,
+    /// `score_query_against_doc`, `doc_matches_query`, `run_terms` — and are
+    /// reached from ~90 call sites, so threading a sink through them is not
+    /// viable. A *thread*-local would mis-attribute a fault to whichever
+    /// request happened to be running on the worker after an `.await`; a
+    /// task-local follows the task across await points and across worker
+    /// threads, so a fault can only ever be read by the request that caused
+    /// it. Faults raised outside any scope are dropped (`try_with` fails),
+    /// which is the correct behavior for unit tests and sync helpers that
+    /// already read the `Result` directly.
+    static SCRIPT_FAULT: std::cell::RefCell<Option<String>> ;
+}
+
+/// Record a resource-limit fault against the enclosing capture scope, if any.
+/// First fault wins — later ones are almost always the same limit tripping on
+/// the next document.
+///
+/// Also used to *re-raise* a fault that an inner scope already consumed (see
+/// `Index::search`): scopes nest, so a sub-search's own capture would otherwise
+/// hide the fault from the request-level capture that wraps it.
+pub(crate) fn record_script_fault(msg: &str) {
+    let _ = SCRIPT_FAULT.try_with(|slot| {
+        let mut slot = slot.borrow_mut();
+        if slot.is_none() {
+            *slot = Some(msg.to_string());
+        }
+    });
+}
+
+/// Run `fut` with a fault sink installed, returning its output alongside the
+/// first script resource-limit fault raised anywhere inside it.
+///
+/// This is how a limit trip deep in the scoring path becomes visible to the
+/// caller instead of silently degrading to a wrong score.
+pub async fn with_script_fault_capture<F>(fut: F) -> (F::Output, Option<String>)
+where
+    F: std::future::Future,
+{
+    SCRIPT_FAULT
+        .scope(std::cell::RefCell::new(None), async move {
+            let out = fut.await;
+            let fault = SCRIPT_FAULT.with(|slot| slot.borrow_mut().take());
+            (out, fault)
+        })
+        .await
+}
 
 // ── Parser ───────────────────────────────────────────────────────────────────
 
@@ -600,7 +728,7 @@ impl<'a> Parser<'a> {
                 if self.match_punct('(') {
                     let params = self.parse_fn_params()?;
                     let body = self.parse_block_or_stmt()?;
-                    return Ok(Stmt::FnDecl(name, params, std::rc::Rc::new(body)));
+                    return Ok(Stmt::FnDecl(name, params, std::sync::Arc::new(body)));
                 }
                 if !self.match_punct('=') {
                     return Err(format!("expected '=' after var name '{}'", name));
@@ -950,7 +1078,7 @@ impl<'a> Parser<'a> {
         let body = self.parse_block_or_stmt()?;
         Ok(Some(ParsedExpr::leaf(Expr::Lambda(
             params,
-            std::rc::Rc::new(body),
+            std::sync::Arc::new(body),
         ))))
     }
     fn parse_primary(&mut self) -> Result<ParsedExpr, String> {
@@ -1022,7 +1150,7 @@ impl<'a> CallGuard<'a> {
     fn enter(ctx: &'a PainlessCtx) -> Result<Self, String> {
         let depth = ctx.call_depth.get();
         if depth >= MAX_CALL_DEPTH {
-            return Err(TOO_MANY_CALLS_MSG.to_string());
+            return Err(CALL_TOO_DEEP_MSG.to_string());
         }
         let count = ctx.call_count.get();
         if count >= MAX_CALL_COUNT {
@@ -1068,10 +1196,27 @@ pub fn check_script_limits(src: &str) -> Result<(), String> {
     }
 }
 
+/// Evaluate a Painless script.
+///
+/// Every resource-limit failure is *also* recorded against the enclosing
+/// [`with_script_fault_capture`] scope on the way out, so the many call sites
+/// that legitimately swallow the `Err` (to keep out-of-subset scripts
+/// degrading gracefully) cannot turn a refused evaluation into a plausible
+/// wrong value that nobody ever notices.
 pub fn eval_painless(src: &str, ctx: &PainlessCtx) -> Result<PainlessValue, String> {
+    let out = eval_painless_inner(src, ctx);
+    if let Err(msg) = &out {
+        if is_resource_limit_error(msg) {
+            record_script_fault(msg);
+        }
+    }
+    out
+}
+
+fn eval_painless_inner(src: &str, ctx: &PainlessCtx) -> Result<PainlessValue, String> {
     if src.len() > MAX_SCRIPT_LEN {
         return Err(format!(
-            "script source is {} bytes, exceeds the {}-byte limit",
+            "{SOURCE_TOO_LONG_PREFIX}{} bytes, exceeds the {}-byte limit",
             src.len(),
             MAX_SCRIPT_LEN
         ));
@@ -1102,6 +1247,13 @@ fn exec_body(
     Ok(last)
 }
 
+#[cfg(feature = "stackprobe")]
+thread_local! {
+    /// (max_depth_seen, stack addr at call depth 1, min stack addr seen)
+    pub static STACK_PROBE: std::cell::Cell<(usize, usize, usize)> =
+        const { std::cell::Cell::new((0, 0, usize::MAX)) };
+}
+
 /// Invoke a closure (local function or lambda) with the given positional
 /// arguments, in a fresh scope seeded only with the bound parameters — no
 /// access to the caller's locals, matching the target scripts' needs
@@ -1114,6 +1266,17 @@ fn call_closure(
     ctx: &PainlessCtx,
 ) -> Result<PainlessValue, String> {
     let _guard = CallGuard::enter(ctx)?;
+    #[cfg(feature = "stackprobe")]
+    {
+        let probe = 0u8;
+        let addr = &probe as *const u8 as usize;
+        STACK_PROBE.with(|p| {
+            let (d, top, min) = p.get();
+            let depth = ctx.call_depth.get();
+            let top = if depth == 1 { addr } else { top };
+            p.set((d.max(depth), top, min.min(addr)));
+        });
+    }
     if args.len() != params.len() {
         return Err(format!(
             "wrong number of arguments: expected {}, got {}",
@@ -2127,6 +2290,180 @@ mod tests {
     // size of an exponential call tree. Both of these MUST return an `Err`
     // — if the guard regresses, the test process itself stack-overflows (or
     // takes minutes) and aborts/hangs, a hard failure either way.
+
+    #[cfg(feature = "stackprobe")]
+    #[test]
+    fn measure_closure_clone_cost() {
+        // Rc-vs-Arc A/B on a loaded machine: wall-clock alone swings ±70%, so
+        // report the closure-heavy time NORMALISED by a closure-free script of
+        // similar shape measured in the same process. Only the closure script
+        // pays the shared-body refcount, so the ratio isolates atomic-vs-
+        // non-atomic while machine load cancels out.
+        let doc = json!({});
+        let params = json!({});
+        // Many closure invocations at depth 1 — recursion can't be used for
+        // this, `MAX_CALL_DEPTH` caps it at 32 calls. A flat `f(1)+f(1)+…`
+        // chain gets ~240 calls per evaluation (bounded by MAX_EVAL_DEPTH),
+        // each paying an `env.get(..).clone()` of the closure value plus its
+        // drop, which is exactly the refcount traffic in question.
+        let calls = 240;
+        let closure_src = format!(
+            "def f = (x) -> x + 1; return f(1){};",
+            "+f(1)".repeat(calls)
+        );
+        // Same statement/expression shape, no closures at all.
+        let arith_src = format!("return 1{};", "+1".repeat(calls));
+
+        let run = |src: &str, iters: u32| {
+            for _ in 0..40 {
+                let _ = eval_painless(src, &ctx(&doc, &params, 0.0));
+            }
+            let mut best = std::time::Duration::MAX;
+            for _ in 0..5 {
+                let t = std::time::Instant::now();
+                for _ in 0..iters {
+                    let _ = eval_painless(src, &ctx(&doc, &params, 0.0));
+                }
+                best = best.min(t.elapsed() / iters);
+            }
+            best
+        };
+
+        let closure = run(&closure_src, 2000);
+        let arith = run(&arith_src, 2000);
+        let per_call = (closure.as_secs_f64() - arith.as_secs_f64()) / calls as f64;
+        println!(
+            "closure {:?}/eval | arith {:?}/eval | ratio {:.3} | delta {:.2}ns/call",
+            closure,
+            arith,
+            closure.as_secs_f64() / arith.as_secs_f64(),
+            per_call * 1e9,
+        );
+        assert!(
+            eval_painless(&closure_src, &ctx(&doc, &params, 0.0)).is_ok(),
+            "the closure benchmark must actually run all its calls"
+        );
+    }
+
+    #[cfg(feature = "stackprobe")]
+    #[test]
+    fn measure_stack_per_call_level() {
+        for nest in [1usize, 10, 50, 90, 95] {
+            let h = std::thread::Builder::new()
+                .stack_size(2 * 1024 * 1024)
+                .spawn(move || {
+                    let doc = json!({});
+                    let params = json!({});
+                    // The recursive call sits INSIDE the nested blocks, so
+                    // every call level pays `nest` extra exec_stmt frames.
+                    let src = format!(
+                        "def f = (g, n) -> {{ {} return g(g, n); {} return 0; }}; return f(f, 1);",
+                        "if(true){".repeat(nest),
+                        "}".repeat(nest),
+                    );
+                    let r = eval_painless(&src, &ctx(&doc, &params, 0.0));
+                    let (depth, top, min) = STACK_PROBE.with(|p| p.get());
+                    println!(
+                        "nest={nest:3} max_depth={depth} total_stack={} bytes_per_level={} err={:?}",
+                        top - min,
+                        (top - min) / (depth.max(2) - 1),
+                        r.as_ref().err()
+                    );
+                })
+                .unwrap();
+            h.join().unwrap();
+        }
+    }
+
+    // ── #97: resource limits must be loud, not absorbed ──────────────────────
+
+    #[test]
+    fn resource_limits_are_distinguishable_from_ordinary_script_errors() {
+        let doc = json!({});
+        let params = json!({});
+        // Every limit the interpreter can trip must classify as one.
+        for src in [
+            format!("{}1.0{}", "(".repeat(5000), ")".repeat(5000)), // parse depth
+            format!("1{}", "+1".repeat(MAX_EVAL_DEPTH)),            // eval depth
+            "def f = (g, n) -> g(g, n); return f(f, 1);".to_string(), // call depth
+            "def f = (g,n) -> n <= 0 ? 1 : g(g,n-1) + g(g,n-1) + g(g,n-1) + g(g,n-1); \
+             return f(f, 9);"
+                .to_string(), // call count
+            format!("\"{}\"", "x".repeat(MAX_SCRIPT_LEN)),          // source size
+        ] {
+            let err = eval_painless(&src, &ctx(&doc, &params, 0.0)).unwrap_err();
+            assert!(
+                is_resource_limit_error(&err),
+                "limit trip not classified as a resource limit: {err:?}"
+            );
+        }
+        // Ordinary script errors must NOT classify — the call sites that
+        // swallow them keep degrading gracefully, which is the behavior the
+        // ES-compat surface depends on.
+        for src in [
+            "someUnsupportedThing(1,2,3)",
+            "unknown_identifier_here",
+            "1 +",
+            "((",
+        ] {
+            if let Err(err) = eval_painless(src, &ctx(&doc, &params, 0.0)) {
+                assert!(
+                    !is_resource_limit_error(&err),
+                    "ordinary script error misclassified as a resource limit: {err:?}"
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn fault_capture_sees_a_limit_a_caller_swallowed() {
+        let doc = json!({});
+        let params = json!({});
+        let src = "def f = (g, n) -> g(g, n); return f(f, 1);";
+        // Exactly what `apply_function_score` does: map any error to a
+        // plausible score and move on. The fault must still surface.
+        let (score, fault) = with_script_fault_capture(async {
+            let c = ctx(&doc, &params, 0.0);
+            eval_painless(src, &c)
+                .ok()
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0)
+        })
+        .await;
+        assert_eq!(score, 0.0, "the swallowing caller still degrades");
+        assert_eq!(fault.as_deref(), Some(CALL_TOO_DEEP_MSG));
+    }
+
+    #[tokio::test]
+    async fn fault_capture_stays_quiet_for_ordinary_errors_and_successes() {
+        let doc = json!({"x": 3});
+        let params = json!({});
+        let (_, fault) = with_script_fault_capture(async {
+            let c = ctx(&doc, &params, 0.0);
+            let _ = eval_painless("doc['x'].value * 2", &c);
+            let _ = eval_painless("someUnsupportedThing(1)", &c);
+        })
+        .await;
+        assert_eq!(fault, None);
+    }
+
+    #[tokio::test]
+    async fn fault_capture_scopes_do_not_leak_into_each_other() {
+        let doc = json!({});
+        let params = json!({});
+        let (_, first) = with_script_fault_capture(async {
+            let c = ctx(&doc, &params, 0.0);
+            let _ = eval_painless("def f = (g, n) -> g(g, n); return f(f, 1);", &c);
+        })
+        .await;
+        assert!(first.is_some());
+        let (_, second) = with_script_fault_capture(async {
+            let c = ctx(&doc, &params, 0.0);
+            let _ = eval_painless("1 + 1", &c);
+        })
+        .await;
+        assert_eq!(second, None, "a fault leaked out of its own scope");
+    }
 
     #[test]
     fn self_application_with_nested_statement_body_does_not_abort() {

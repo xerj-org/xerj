@@ -8924,6 +8924,7 @@ impl Index {
             timed_out: any_timed_out,
             profile: None,
             max_score: None,
+            script_failure: None,
         })
     }
 
@@ -9170,6 +9171,7 @@ impl Index {
             timed_out,
             profile: None,
             max_score: None,
+            script_failure: None,
         })
     }
 
@@ -9947,6 +9949,7 @@ impl Index {
                 timed_out: true,
                 profile: None,
                 max_score: None,
+                script_failure: None,
             }
         };
         // M3 framework: response cache.  Hash the request shape and the
@@ -10203,7 +10206,37 @@ impl Index {
             || peel_nested_knn_query(&request.query).is_some();
         let is_multi_thread = tokio::runtime::Handle::current().runtime_flavor()
             == tokio::runtime::RuntimeFlavor::MultiThread;
-        let search_fut = self.search_inner(request, request_deadline);
+        // Capture Painless resource-limit faults for the whole search, nested
+        // sub-searches and aggregations included. The scoring paths
+        // (`apply_function_score`, `apply_rescore`, terms_set
+        // `min_should_match`, script-bucketed aggs) return bare values with no
+        // error channel, so without this a script that trips the closure
+        // call-depth limit degrades to a score of 0.0 and the caller is served
+        // a wrong number with nothing to notice. Surfacing it on the result
+        // makes the API layer fail the request instead.
+        let search_fut = async {
+            let (result, fault) = crate::painless::with_script_fault_capture(
+                self.search_inner(request, request_deadline),
+            )
+            .await;
+            match (result, fault) {
+                (Ok(mut r), Some(f)) => {
+                    // Capture scopes nest, and this one just consumed the
+                    // fault. A search running *inside* another request's
+                    // capture (a sub-search issued from the `_search` handler,
+                    // for instance) would therefore hide the fault from that
+                    // outer scope, and its caller may well be one of the many
+                    // `if let Ok(result) = idx.search(..)` sites that never
+                    // look at `script_failure`. Re-raise so the fault is
+                    // surfaced by default and only stops here when this is the
+                    // outermost scope.
+                    crate::painless::record_script_fault(&f);
+                    r.script_failure = Some(f);
+                    Ok(r)
+                }
+                (other, _) => other,
+            }
+        };
         let search_result = if is_multi_thread && !cooperative_vector_query {
             let fut = async move {
                 tokio::task::block_in_place(|| {
@@ -10238,8 +10271,11 @@ impl Index {
                     // any coalesced followers (identical query ⇒ identical
                     // timed-out response) so they return now instead of
                     // waiting for the closed channel and then recomputing an
-                    // equally-slow query.
-                    if r.timed_out {
+                    // equally-slow query. The same holds for a script
+                    // resource-limit fault: its degraded scores must not be
+                    // replayed to later callers, and the fault itself must not
+                    // be re-reported against an unrelated request.
+                    if r.timed_out || r.script_failure.is_some() {
                         if let Some(tx) = &sf_leader {
                             let _ = tx.send(Some(Arc::new(r.clone())));
                         }
@@ -10290,6 +10326,7 @@ impl Index {
                     timed_out: true,
                     profile: None,
                     max_score: None,
+                    script_failure: None,
                 };
                 // Hand the timed-out response to any coalesced followers so
                 // they return immediately rather than waiting for the closed
@@ -13840,6 +13877,7 @@ impl Index {
             timed_out: deadline_exceeded,
             profile,
             max_score: population_max_score,
+            script_failure: None,
         })
     }
 
@@ -21984,6 +22022,7 @@ fn knn_result_from_scored(
         timed_out: false,
         profile: None,
         max_score: None,
+        script_failure: None,
     }
 }
 
