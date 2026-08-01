@@ -104,8 +104,11 @@ pub fn run_aggs(aggs_def: &Value, docs: &[Value]) -> Value {
 // Without this guard, a `terms` agg over a high-cardinality field (e.g. 50M
 // unique user IDs) allocates one HashMap entry per unique value before any
 // `size`/`shard_size` cap can drop them — easy OOM. Per-bucket-allocator
-// loops in this module poll `max_buckets()` on each insert; when exceeded
-// the accumulator stops adding new keys (existing keys still increment).
+// loops in this module read `max_buckets()` ONCE, hoisted above the loop,
+// and compare against it on each insert; when exceeded the accumulator stops
+// adding new keys (existing keys still increment). The read used to sit
+// inside the loop; hoisting it is what lets the cap be a per-call value
+// without paying for the lookup per document.
 //
 // The node-wide default is set once at Engine construction via
 // `set_max_buckets`; it defaults to the same 65 536 ES uses if never set.

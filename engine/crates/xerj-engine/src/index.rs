@@ -2149,6 +2149,14 @@ mod semantic_deadline_regression_tests {
         engine.create_index("multi-stop", Schema::empty()).unwrap();
         let idx = engine.get_index("multi-stop").unwrap();
         seed_vectors(&idx).await;
+        // `seed_vectors` leaves a 20 ms per-checkpoint sleep behind. Left in
+        // place it makes the 5 ms budget expire against the REAL clock inside
+        // clause 1, so the test passes even if the cooperative checkpoint it
+        // is meant to pin is gone — the parent's own clause-entry check stops
+        // clause 2 either way. Zeroing it puts the scripted clock back in
+        // charge of when the budget is crossed.
+        idx.test_scan_checkpoint_delay_ms
+            .store(0, Ordering::Relaxed);
         let clause = PeeledKnn {
             field: "embedding".into(),
             vector: vec![1.0, 0.0],
@@ -2329,7 +2337,16 @@ mod semantic_deadline_regression_tests {
                 }),
                 score_mode: None,
             },
-            timeout_ms: Some(100),
+            // Large on purpose. The gate parks the SCAN, but it does not stop
+            // the request's own budget, which keeps burning real time while
+            // the test holds the scan there. A 100 ms budget therefore raced:
+            // on a loaded box the budget could expire against the real clock
+            // before the test observed the park, and the request then timed
+            // out through a different path than the nested-array checkpoint
+            // this test exists to pin. The budget has to outlast any
+            // plausible parking time while still sitting well under the
+            // scripted clock's ten-minute jump, which is what must trip it.
+            timeout_ms: Some(60_000),
             ..SearchRequest::default()
         };
 
@@ -2450,7 +2467,14 @@ mod semantic_deadline_regression_tests {
                         filter: None,
                         boost: None,
                     },
-                    timeout_ms: Some(100),
+                    // Same reason as `nested_knn_uses_the_shared_request_deadline`:
+                    // the gate parks the scan but the request's budget keeps
+                    // running against the real clock. This test only needs the
+                    // eight requests to be in flight together, so the budget
+                    // must simply outlast the parking rather than expire during
+                    // it. At 100 ms a loaded box could retire a request before
+                    // all eight reached the gate, which is what made this flaky.
+                    timeout_ms: Some(60_000),
                     ..SearchRequest::default()
                 };
                 idx.search(&request).await
