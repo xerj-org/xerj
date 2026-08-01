@@ -440,6 +440,12 @@ fn classify(path: &str) -> Target {
             (Some("indices"), Some(expr)) | (Some("schema"), Some(expr)) => {
                 Target::Indices(split_expressions(expr), 3)
             }
+            // `POST /v1/indices` takes the index name from the body, which this
+            // middleware deliberately does not parse — so it is the native
+            // router's `_bulk`: no target to authorize, therefore refused for
+            // non-superusers. ES-compat `PUT /{index}` names it in the path and
+            // still works.
+            (Some("indices"), None) => Target::GlobalFanout,
             _ => Target::GlobalMetadata,
         },
         s if s.starts_with('_') || s == "*" => {
@@ -833,6 +839,8 @@ mod tests {
             Target::Indices(vec![".xerj-memory-bob-edges".into()], 3)
         );
         assert_eq!(classify("/v1/dashboard/summary"), Target::GlobalMetadata);
+        // Body-named index: no target, so it is fan-out, not metadata.
+        assert_eq!(classify("/v1/indices"), Target::GlobalFanout);
     }
 
     #[test]
@@ -965,6 +973,10 @@ mod tests {
         ));
         assert!(!check(&legacy, Method::GET, "/*/_search"));
         assert!(!check(&legacy, Method::POST, "/_search"));
+        // A body-named create could squat `.xerj-memory-victim-edges`, so it is
+        // refused too; `PUT /logs-2026` names its target and still works.
+        assert!(!check(&legacy, Method::POST, "/v1/indices"));
+        assert!(check(&legacy, Method::PUT, "/logs-2026"));
 
         // No credential resolves to nothing at all.
         let denied = Principal::Denied;
