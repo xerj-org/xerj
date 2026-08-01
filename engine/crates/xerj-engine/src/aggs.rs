@@ -157,6 +157,44 @@ pub fn max_buckets() -> usize {
     }
 }
 
+/// [`max_buckets`] as an `i64`, for the gap-filling histogram loops whose
+/// bucket keys and spans are `i64`.
+///
+/// Exists so the columnar fast path (`fast_aggs.rs`) and this brute
+/// evaluator read the *same* cap through the *same* accessor: both used to
+/// carry their own `const MAX_BUCKETS: i64 = 65_536`, which silently ignored
+/// `config.limits.max_buckets` and the per-call [`AggLimits`] override.
+/// Callers hoist this above their loop, exactly like `max_buckets()`.
+///
+/// The `min` is a saturating cast, not a policy: the cap is a `usize`, and on
+/// a 64-bit target a configured cap above `i64::MAX` would otherwise wrap
+/// negative and reject every aggregation.
+#[inline]
+pub(crate) fn max_buckets_i64() -> i64 {
+    max_buckets().min(i64::MAX as usize) as i64
+}
+
+/// Diagnostic counter: aggregation requests answered by the columnar fast
+/// path in `fast_aggs.rs` instead of this brute evaluator.
+///
+/// Monotonic and process-wide, incremented with `Relaxed` once per served
+/// request. Nothing in the engine reads it to make a decision — the two
+/// executors are designed to return byte-identical results, so a test that
+/// needs to know *which* one answered has no other signal.
+static FAST_PATH_AGGS_SERVED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Number of aggregation requests served by the columnar fast path since
+/// process start. Read two of these around a search to learn whether that
+/// search took the fast path.
+pub fn fast_path_aggs_served() -> u64 {
+    FAST_PATH_AGGS_SERVED.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// Record that the columnar fast path answered one aggregation request.
+pub(crate) fn note_fast_path_agg() {
+    FAST_PATH_AGGS_SERVED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
 /// Per-call aggregation limits. Passed to [`run_aggs_with_limits`] by callers
 /// that need a limit other than the node-wide default (a per-request
 /// `search.max_buckets` override, or a test pinning the cap for one call).
@@ -4678,7 +4716,9 @@ fn run_date_histogram(
         .and_then(Value::as_bool)
         .unwrap_or(false);
 
-    const MAX_BUCKETS: i64 = 65_536;
+    // `search.max_buckets`, read ONCE for this aggregation (node-wide default
+    // or the per-call `AggLimits` override) — not per probed bucket below.
+    let bucket_cap = max_buckets_i64();
 
     // Compute base range: from data, or from hard_bounds / extended_bounds.
     let mut range_min = buckets.keys().min().cloned();
@@ -4758,16 +4798,16 @@ fn run_date_histogram(
     let mut bucket_keys: Vec<i64> = if min_doc_count > 0 {
         buckets.keys().cloned().collect()
     } else if let (Some(min_key), Some(max_key)) = (range_min, range_max) {
-        // Fill gaps between min and max. Enforce MAX_BUCKETS cap.
+        // Fill gaps between min and max. Enforce the bucket cap.
         let mut span: i64 = 0;
         let mut probe = min_key;
         while probe <= max_key {
             span += 1;
-            if span > MAX_BUCKETS {
+            if span > bucket_cap {
                 return json!({
                     "error": format!(
                         "Trying to create too many buckets. Must be less than or equal to: [{}] but this number of buckets was exceeded. This limit can be set by changing the [search.max_buckets] cluster level setting.",
-                        MAX_BUCKETS
+                        bucket_cap
                     ),
                     "__error_status__": 400u32,
                 });
@@ -5870,7 +5910,9 @@ fn run_histogram(
         }
     }
 
-    const MAX_BUCKETS: i64 = 65_536;
+    // `search.max_buckets`, read ONCE for this aggregation — same accessor,
+    // same value the columnar `fast_aggs::exec_histogram` mirror reads.
+    let bucket_cap = max_buckets_i64();
     let mut bucket_keys: Vec<i64> = if buckets.is_empty() && extended_min.is_none() {
         Vec::new()
     } else if min_doc_count > 0 && extended_min.is_none() {
@@ -5890,16 +5932,16 @@ fn run_histogram(
         // numeric span — a few billion buckets would DoS the process).
         // ES rejects aggs that exceed `search.max_buckets` (default 65536).
         let span = max_key.saturating_sub(min_key);
-        if span > MAX_BUCKETS {
+        if span > bucket_cap {
             return json!({
                 "error": format!(
                     "Trying to create too many buckets. Must be less than or equal to: [{}] but this number of buckets was exceeded. This limit can be set by changing the [search.max_buckets] cluster level setting.",
-                    MAX_BUCKETS
+                    bucket_cap
                 ),
                 "__error_status__": 400u32,
             });
         }
-        let mut keys = Vec::with_capacity((span as usize).min(MAX_BUCKETS as usize) + 1);
+        let mut keys = Vec::with_capacity((span as usize).min(bucket_cap as usize) + 1);
         let mut k = min_key;
         while k <= max_key {
             keys.push(k);
@@ -12629,6 +12671,51 @@ mod tests {
             after["t"]["buckets"].as_array().map(Vec::len),
             Some(5),
             "cap outlived its call, got {after}"
+        );
+    }
+
+    /// Issue #121: the histogram gap-fill loops on BOTH executors read the
+    /// cap through `max_buckets_i64`, so it has to carry the per-call
+    /// override, not just the node-wide default. (`fast_aggs` calls the same
+    /// function; that it does is covered end-to-end by the
+    /// `agg_bucket_cap` integration suite.)
+    #[test]
+    fn max_buckets_i64_carries_the_per_call_override() {
+        let node_wide = max_buckets_i64();
+        assert_eq!(node_wide, max_buckets() as i64);
+        {
+            let _scope = BucketCapScope::new(7);
+            assert_eq!(max_buckets_i64(), 7, "override not visible to the i64 read");
+        }
+        assert_eq!(max_buckets_i64(), node_wide, "override outlived its scope");
+    }
+
+    /// A date_histogram whose gap fill exceeds a *per-call* cap must raise
+    /// too_many_buckets naming that cap — the brute half of the pair the
+    /// integration suite checks on the fast path.
+    #[test]
+    fn date_histogram_gap_fill_honours_the_per_call_cap() {
+        // 1970-01-01, one doc per hour, 5 hours apart → a 1h gap fill wants
+        // 5 buckets.
+        let docs: Vec<Value> = (0..2)
+            .map(|i| json!({ "ts": i * 4 * 3_600_000i64 }))
+            .collect();
+        let agg = json!({
+            "h": { "date_histogram": { "field": "ts", "fixed_interval": "1h" } }
+        });
+
+        let capped = run_aggs_with_limits(&agg, &docs, &docs, AggLimits { max_buckets: 4 });
+        let err = capped["h"]["error"].as_str().unwrap_or_default();
+        assert!(
+            err.contains("Trying to create too many buckets") && err.contains("[4]"),
+            "expected a too_many_buckets naming the per-call cap, got {capped}"
+        );
+
+        let ok = run_aggs_with_limits(&agg, &docs, &docs, AggLimits { max_buckets: 5 });
+        assert_eq!(
+            ok["h"]["buckets"].as_array().map(Vec::len),
+            Some(5),
+            "a span exactly at the cap must still be served, got {ok}"
         );
     }
 }

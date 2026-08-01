@@ -640,6 +640,10 @@ impl Index {
         };
 
         let result = ctx.eval_aggs_object(aggs_obj)?;
+        // Served columnarly — record it. The brute path returns the same
+        // bytes, so this counter is the only way a test can tell which
+        // executor answered (see `aggs::fast_path_aggs_served`).
+        crate::aggs::note_fast_path_agg();
         Some((Value::Object(result), filtered_total))
     }
 }
@@ -4213,7 +4217,14 @@ impl<'a> FastCtx<'a> {
             .unwrap_or(false);
 
         // Bucket-key set: gap-fill when min_doc_count == 0 (brute default).
-        const MAX_BUCKETS: i64 = 65_536;
+        //
+        // `search.max_buckets` read ONCE here, above the probe loop — the same
+        // `aggs::max_buckets_i64()` accessor `aggs::run_date_histogram` reads,
+        // so `config.limits.max_buckets` and a per-call `AggLimits` override
+        // bind this path too. It used to be a hardcoded 65 536, which meant an
+        // operator's lowered cap applied only when a query happened to miss
+        // the columnar path.
+        let bucket_cap = crate::aggs::max_buckets_i64();
         let mut final_keys: Vec<i64> = if min_doc_count > 0 {
             bucket_keys.clone()
         } else if let (Some(&min_key), Some(&max_key)) =
@@ -4223,11 +4234,11 @@ impl<'a> FastCtx<'a> {
             let mut probe = min_key;
             while probe <= max_key {
                 span += 1;
-                if span > MAX_BUCKETS {
+                if span > bucket_cap {
                     return Some(json!({
                         "error": format!(
                             "Trying to create too many buckets. Must be less than or equal to: [{}] but this number of buckets was exceeded. This limit can be set by changing the [search.max_buckets] cluster level setting.",
-                            MAX_BUCKETS
+                            bucket_cap
                         ),
                         "__error_status__": 400u32,
                     }));
@@ -4466,7 +4477,9 @@ impl<'a> FastCtx<'a> {
         }
 
         // ── Bucket-key set (mirrors run_histogram exactly) ────────────────
-        const MAX_BUCKETS: i64 = 65_536;
+        // Including the cap: same `aggs::max_buckets_i64()` accessor, read
+        // once above the fill, so the two paths reject the same spans.
+        let bucket_cap = crate::aggs::max_buckets_i64();
         let mut final_keys: Vec<i64> = if bucket_ids.is_empty() && extended_min.is_none() {
             Vec::new()
         } else if min_doc_count > 0 && extended_min.is_none() {
@@ -4477,16 +4490,16 @@ impl<'a> FastCtx<'a> {
             let min_key = extended_min.map(key_of).or(data_min).unwrap_or(0);
             let max_key = extended_max.map(key_of).or(data_max).unwrap_or(0);
             let span = max_key.saturating_sub(min_key);
-            if span > MAX_BUCKETS {
+            if span > bucket_cap {
                 return Some(json!({
                     "error": format!(
                         "Trying to create too many buckets. Must be less than or equal to: [{}] but this number of buckets was exceeded. This limit can be set by changing the [search.max_buckets] cluster level setting.",
-                        MAX_BUCKETS
+                        bucket_cap
                     ),
                     "__error_status__": 400u32,
                 }));
             }
-            let mut keys = Vec::with_capacity((span as usize).min(MAX_BUCKETS as usize) + 1);
+            let mut keys = Vec::with_capacity((span as usize).min(bucket_cap as usize) + 1);
             let mut k = min_key;
             while k <= max_key {
                 keys.push(k);
