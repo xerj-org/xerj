@@ -17837,6 +17837,20 @@ async fn msearch_impl(
             }
         };
 
+        // Same request-time script guard `_search` applies in
+        // `build_search_request`. Without it `_msearch` was a general bypass:
+        // any script `_search` rejects up front with a 400 reached the
+        // per-document paths unchecked here. Sub-searches are independent, so
+        // the violation fails this item only (400, ES's per-item error shape)
+        // and the rest of the batch still runs.
+        if let Some(msg) = find_script_limit_violation(&search_body_val) {
+            responses.push(json!({
+                "error": { "type": "illegal_argument_exception", "reason": msg },
+                "status": 400
+            }));
+            continue;
+        }
+
         // Determine index name: header wins, then the path index (for
         // /{index}/_msearch), then "*" (all indices).
         let index_name = header
@@ -23927,6 +23941,13 @@ pub async fn search_template(
         .into_response();
     };
 
+    // A rendered template is user input like any other search body — apply
+    // the same request-time script guard `_search` applies in
+    // `build_search_request`, which this path also skips.
+    if let Some(msg) = find_script_limit_violation(&search_body_val) {
+        return ApiError::new(xerj_common::XerjError::invalid_query(msg)).into_response();
+    }
+
     // Parse and execute as a normal search.
     let search_req = match xerj_query::parse_request(&search_body_val)
         .map_err(|e| xerj_common::XerjError::invalid_query(e.to_string()))
@@ -24108,6 +24129,17 @@ async fn msearch_template_impl(
             );
             continue;
         };
+
+        // Same request-time script guard as `_search`/`_msearch`; the
+        // rendered template is user input and this path skips
+        // `build_search_request` too.
+        if let Some(msg) = find_script_limit_violation(&search_body_val) {
+            responses.push(json!({
+                "error": { "type": "illegal_argument_exception", "reason": msg },
+                "status": 400
+            }));
+            continue;
+        }
 
         let search_req = match xerj_query::parse_request(&search_body_val)
             .map_err(|e| xerj_common::XerjError::invalid_query(e.to_string()))
@@ -31958,5 +31990,128 @@ mod request_validation_tests {
         // xerj issues v4 UUIDs; those must reach the context lookup, not 400.
         assert!(uuid::Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").is_ok());
         assert!(uuid::Uuid::parse_str("not-a-real-scroll-id").is_err());
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The request-time script guard must cover every search entry point, not just
+// `_search`. `_msearch` used to build its sub-requests straight off
+// `parse_request`, skipping `build_search_request` — so every script `_search`
+// rejects with a 400 reached the per-document paths unchecked through the
+// multi-search API.
+// ─────────────────────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod msearch_script_guard_tests {
+    use super::*;
+    use xerj_common::{config::Config, metrics::Metrics};
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir");
+        // Leak the tempdir so the data directory outlives the Engine.
+        let path = dir.keep();
+        let mut config = Config::default();
+        config.server.data_dir = path.to_str().unwrap().to_string();
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn drain_json(resp: Response) -> Value {
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap_or_default();
+        serde_json::from_slice::<Value>(&bytes).unwrap_or(Value::Null)
+    }
+
+    /// The reported repro: a `bucket_script` whose source is an ~80 KB
+    /// right-associative ternary chain. Every `?` is one more level of
+    /// expression recursion at evaluation time.
+    fn nested_ternary_bucket_script() -> Value {
+        let script = format!("{}1", "0?1:".repeat(20_000));
+        assert_eq!(script.len(), 80_001, "fixture must be the ~80 KB repro");
+        json!({
+            "size": 0,
+            "aggs": {
+                "by_tag": {
+                    "terms": { "field": "tag" },
+                    "aggs": {
+                        "total": { "sum": { "field": "n" } },
+                        "ratio": {
+                            "bucket_script": {
+                                "buckets_path": { "t": "total" },
+                                "script": script
+                            }
+                        }
+                    }
+                }
+            }
+        })
+    }
+
+    /// Three ~80 KB items = the reported ~240 KB `_msearch` body. Each one is
+    /// rejected on its own; the trailing ordinary item still runs, because ES
+    /// sub-searches are independent.
+    #[tokio::test]
+    async fn msearch_rejects_over_limit_scripts_per_item() {
+        let state = test_state();
+        let hostile = serde_json::to_string(&nested_ternary_bucket_script()).unwrap();
+        let mut body = String::new();
+        for _ in 0..3 {
+            body.push_str("{}\n");
+            body.push_str(&hostile);
+            body.push('\n');
+        }
+        body.push_str("{}\n");
+        body.push_str(&json!({ "query": { "match_all": {} } }).to_string());
+        body.push('\n');
+        assert!(body.len() > 240_000, "fixture must be the ~240 KB repro");
+
+        let resp = msearch(State(state), bytes::Bytes::from(body))
+            .await
+            .into_response();
+        let v = drain_json(resp).await;
+        let items = v["responses"].as_array().expect("responses array");
+        assert_eq!(items.len(), 4);
+        for (i, item) in items.iter().take(3).enumerate() {
+            assert_eq!(
+                item["status"],
+                json!(400),
+                "item {i} must be rejected: {item}"
+            );
+            let reason = item["error"]["reason"].as_str().unwrap_or_default();
+            assert!(
+                reason.contains("nesting depth") || reason.contains("byte limit"),
+                "item {i} must report the limit it broke, got {reason:?}"
+            );
+        }
+        assert_eq!(
+            items[3]["status"],
+            json!(200),
+            "an ordinary sub-search must still run: {}",
+            items[3]
+        );
+    }
+
+    /// The same guard `_search` applies: an ordinary sub-search body is
+    /// untouched by it (no spurious 400s on scripts that are merely outside
+    /// the supported subset).
+    #[tokio::test]
+    async fn msearch_leaves_ordinary_scripts_alone() {
+        let state = test_state();
+        let body = format!(
+            "{{}}\n{}\n",
+            json!({
+                "query": { "match_all": {} },
+                "script_fields": {
+                    "doubled": { "script": { "source": "doc['n'].value * 2" } }
+                }
+            })
+        );
+        let resp = msearch(State(state), bytes::Bytes::from(body))
+            .await
+            .into_response();
+        let v = drain_json(resp).await;
+        assert_eq!(v["responses"][0]["status"], json!(200), "{v}");
     }
 }

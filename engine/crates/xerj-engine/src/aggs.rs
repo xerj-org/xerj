@@ -1025,13 +1025,81 @@ fn resolve_bucket_script(
     }
 }
 
+/// Maximum nesting the `bucket_script` / `bucket_selector` expression
+/// evaluator accepts, checked on ENTRY before a single token is produced.
+///
+/// Mirrors `sql::MAX_SQL_DEPTH` and `xerj-query`'s `MAX_QUERY_DEPTH` (both
+/// 64). The token stream this evaluator produces is consumed *recursively* —
+/// parenthesised sub-expressions, and above all the ternary `cond ? a : b`
+/// split, which re-enters the evaluator once per `?` — so an expression from
+/// an unauthenticated request is otherwise unbounded native-stack recursion.
+/// The release profile sets `panic = "abort"`, which turns that overflow into
+/// a process kill rather than an error response, so the bound has to be
+/// enforced before the recursion starts, not inside it.
+const MAX_EXPR_DEPTH: usize = 64;
+
+/// Sentinel returned by [`check_expr_limits`] for an expression the evaluator
+/// cannot safely walk.
+const EXPR_TOO_DEEP_MSG: &str = "bucket script expression exceeds the maximum nesting depth";
+
+/// Validate a `bucket_script` / `bucket_selector` expression against the
+/// evaluator's resource limits WITHOUT evaluating it.
+///
+/// `Err` is returned only for genuine limit violations — oversized source, or
+/// nesting beyond [`MAX_EXPR_DEPTH`]. Ordinary syntax errors stay the
+/// evaluator's business and keep degrading to a null bucket value.
+///
+/// Both counts are taken over the raw source rather than the token stream,
+/// because the recursion they bound happens *while consuming* the tokens: the
+/// budget has to be known before tokenizing. Ternaries are counted rather than
+/// depth-tracked, because a right-associative chain (`a?b:c?d:e?f:g`) re-enters
+/// the evaluator once per `?` while never opening a paren — counting `?` is the
+/// only count that bounds it.
+fn check_expr_limits(script: &str) -> Result<(), String> {
+    if script.len() > crate::painless::MAX_SCRIPT_LEN {
+        return Err(format!(
+            "bucket script expression is {} bytes, exceeds the {}-byte limit",
+            script.len(),
+            crate::painless::MAX_SCRIPT_LEN
+        ));
+    }
+    let mut paren_depth: usize = 0;
+    let mut ternaries: usize = 0;
+    for b in script.bytes() {
+        match b {
+            b'(' => {
+                paren_depth += 1;
+                if paren_depth > MAX_EXPR_DEPTH {
+                    return Err(EXPR_TOO_DEEP_MSG.to_string());
+                }
+            }
+            b')' => paren_depth = paren_depth.saturating_sub(1),
+            b'?' => {
+                ternaries += 1;
+                if ternaries > MAX_EXPR_DEPTH {
+                    return Err(EXPR_TOO_DEEP_MSG.to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 /// Evaluate a simple arithmetic / comparison expression against a params map.
 ///
 /// Supports: numbers (incl. decimals), `params.<name>` identifiers,
 /// operators `+ - * / %`, comparisons `< > <= >= == !=` (yield 0.0 or 1.0),
 /// logical `&&` / `||` (yield 0.0 or 1.0), and parentheses.  Honors
 /// standard precedence.  Returns `None` on parse failure.
+///
+/// Bounded on entry by [`check_expr_limits`]: an expression past the limits
+/// resolves to `None` — the same null bucket value every other unevaluable
+/// script already produces — instead of overflowing the stack.
 fn eval_script_expr(script: &str, params: &HashMap<String, f64>) -> Option<f64> {
+    if check_expr_limits(script).is_err() {
+        return None;
+    }
     let tokens = tokenize_script(script, params)?;
     let rpn = shunting_yard(&tokens)?;
     evaluate_rpn(&rpn)
@@ -1285,6 +1353,116 @@ fn evaluate_rpn(rpn: &[Tok]) -> Option<f64> {
         Some(stack[0])
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod bucket_script_expr_limit_tests {
+    //! The `bucket_script` / `bucket_selector` expression evaluator takes an
+    //! arbitrary-length string straight off an unauthenticated request and
+    //! hands it to consumers that walk the token stream recursively (nested
+    //! parens; the ternary `cond ? a : b` split, which re-enters the evaluator
+    //! once per `?`). With `panic = "abort"` in the release profile, running
+    //! out of native stack there kills the process instead of returning an
+    //! error, so the limits are enforced on entry — before tokenizing.
+    //!
+    //! If the entry bound regresses, these tests do not silently pass: the
+    //! test process itself overflows and aborts.
+    use super::*;
+
+    fn no_params() -> HashMap<String, f64> {
+        HashMap::new()
+    }
+
+    #[test]
+    fn deeply_nested_parens_are_rejected_instead_of_evaluated() {
+        let src = format!("{}1{}", "(".repeat(5000), ")".repeat(5000));
+        assert!(
+            check_expr_limits(&src).is_err(),
+            "5000-deep parens must trip the entry bound"
+        );
+        assert_eq!(
+            eval_script_expr(&src, &no_params()),
+            None,
+            "an over-deep expression must resolve to a null bucket value"
+        );
+    }
+
+    #[test]
+    fn chained_ternaries_are_bounded_by_their_count_not_their_paren_depth() {
+        // The reported repro, verbatim: a right-associative ternary chain
+        // whose conditions are all false, so every step descends into the
+        // tail. It never opens a paren, yet a ternary-splitting evaluator
+        // re-enters itself once per `?` — counting `?` is the only thing that
+        // bounds it. Measured against that evaluator in an optimized build:
+        // 80,001 bytes (20k ternaries) overflows a 2 MiB worker stack and
+        // SIGABRTs the process; the entry bound below rejects it in ~5 µs.
+        let src = format!("{}1", "0?1:".repeat(20_000));
+        assert_eq!(src.len(), 80_001, "the fixture must be the ~80 KB repro");
+        assert_eq!(
+            src.matches('?').count(),
+            20_000,
+            "the fixture must actually be a 20k-deep ternary chain"
+        );
+        assert!(
+            check_expr_limits(&src).is_err(),
+            "a 20k ternary chain must trip the entry bound"
+        );
+        assert_eq!(eval_script_expr(&src, &no_params()), None);
+    }
+
+    #[test]
+    fn nested_ternaries_are_rejected_instead_of_evaluated() {
+        // The other spelling of the same attack: each ternary nested inside
+        // the previous one's false branch.
+        let src = format!("0?1:{}1{}", "(0?1:".repeat(10_000), ")".repeat(10_000));
+        assert!(check_expr_limits(&src).is_err());
+        assert_eq!(eval_script_expr(&src, &no_params()), None);
+    }
+
+    #[test]
+    fn oversized_expression_is_rejected_instead_of_evaluated() {
+        // Valid arithmetic — the pre-bound evaluator happily tokenizes and
+        // folds all of it — but far past the 64 KiB source limit.
+        let src = format!("{}1", "1+".repeat(crate::painless::MAX_SCRIPT_LEN));
+        assert!(src.len() > crate::painless::MAX_SCRIPT_LEN);
+        assert!(check_expr_limits(&src).is_err());
+        assert_eq!(eval_script_expr(&src, &no_params()), None);
+    }
+
+    #[test]
+    fn ordinary_expressions_still_evaluate() {
+        let mut params = HashMap::new();
+        params.insert("numerator".to_string(), 8.0);
+        params.insert("denominator".to_string(), 2.0);
+        assert_eq!(
+            eval_script_expr("params.numerator / params.denominator", &params),
+            Some(4.0)
+        );
+        // Nesting right up to the bound is still accepted — the limit only
+        // rejects what no generated script produces.
+        let deep_ok = format!(
+            "{}params.numerator{}",
+            "(".repeat(MAX_EXPR_DEPTH),
+            ")".repeat(MAX_EXPR_DEPTH)
+        );
+        assert!(check_expr_limits(&deep_ok).is_ok());
+        assert_eq!(eval_script_expr(&deep_ok, &params), Some(8.0));
+    }
+
+    #[test]
+    fn an_over_deep_bucket_script_resolves_to_null_not_a_crash() {
+        // End to end through the pipeline resolver: the bucket keeps its
+        // shape and reports a null value, exactly like any other script the
+        // evaluator can't handle.
+        let mut siblings = Map::new();
+        siblings.insert("total".to_string(), json!({"value": 10.0}));
+        let bp = json!({"t": "total"});
+        let src = format!("{}params.t{}", "(".repeat(5000), ")".repeat(5000));
+        assert_eq!(
+            resolve_bucket_script(&bp, &src, &HashMap::new(), &siblings),
+            json!({"value": Value::Null})
+        );
     }
 }
 
