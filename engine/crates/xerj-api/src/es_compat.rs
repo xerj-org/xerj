@@ -4132,8 +4132,93 @@ fn merge_metric_agg(old: &Value, new: &Value) -> Option<Value> {
 fn merge_bucket_agg(old: &Value, new: &Value) -> Option<Value> {
     let old_obj = old.as_object()?;
     let new_obj = new.as_object()?;
-    let old_buckets = old_obj.get("buckets")?.as_array()?;
-    let new_buckets = new_obj.get("buckets")?.as_array()?;
+    let old_buckets_val = old_obj.get("buckets")?;
+    let new_buckets_val = new_obj.get("buckets")?;
+
+    // Keyed multi-bucket aggs — `filters` in its default named-filter form,
+    // or `terms`/`range`/`date_range` with `keyed: true` — represent
+    // `buckets` as a JSON OBJECT (bucket name -> bucket body), not an
+    // array; the object's own key IS the bucket identity, no `key`/
+    // `key_as_string` field to extract. Falling through to the array-only
+    // path below made this whole function return `None` for a keyed agg
+    // (`.as_array()` on an object is `None`), and the caller's fallback
+    // "replace only if old was empty" check made the SAME mistake
+    // (`.as_array()` on the keyed buckets object), so across N indices
+    // only the first index's contribution to a keyed bucket ever survived
+    // — every other index's matching documents were silently dropped from
+    // a multi-index search's aggregation, even though `hits.total` summed
+    // correctly across the same indices. Found live via a Kibana/OSD
+    // Timelion panel's `filters` + `query_string` aggregation returning
+    // doc_count 0 across `_all` despite the target index alone holding
+    // thousands of matches.
+    if let (Some(old_map), Some(new_map)) =
+        (old_buckets_val.as_object(), new_buckets_val.as_object())
+    {
+        let mut merged_map = old_map.clone();
+        for (key, b) in new_map {
+            let Some(b_obj) = b.as_object() else { continue };
+            match merged_map.get_mut(key) {
+                Some(existing) => {
+                    let Some(existing_obj) = existing.as_object_mut() else {
+                        continue;
+                    };
+                    let a_count = existing_obj
+                        .get("doc_count")
+                        .and_then(Value::as_u64)
+                        .unwrap_or(0);
+                    let b_count = b_obj.get("doc_count").and_then(Value::as_u64).unwrap_or(0);
+                    existing_obj.insert("doc_count".to_string(), json!(a_count + b_count));
+                    for (k, v) in b_obj {
+                        if k == "doc_count" {
+                            continue;
+                        }
+                        if let Some(old_v) = existing_obj.get(k).cloned() {
+                            if let Some(m) = merge_metric_agg(&old_v, v) {
+                                existing_obj.insert(k.clone(), m);
+                            } else if let Some(m) = merge_bucket_agg(&old_v, v) {
+                                existing_obj.insert(k.clone(), m);
+                            } else if let Some(m) = merge_single_bucket_agg(&old_v, v) {
+                                existing_obj.insert(k.clone(), m);
+                            }
+                            // else keep existing
+                        } else {
+                            existing_obj.insert(k.clone(), v.clone());
+                        }
+                    }
+                }
+                None => {
+                    merged_map.insert(key.clone(), b.clone());
+                }
+            }
+        }
+        let summable = |k: &str| -> bool {
+            matches!(
+                k,
+                "sum_other_doc_count" | "doc_count_error_upper_bound" | "bg_count" | "doc_count"
+            )
+        };
+        let mut out = serde_json::Map::new();
+        for (k, v) in old_obj.iter().chain(new_obj.iter()) {
+            if k == "buckets" {
+                continue;
+            }
+            match v {
+                Value::Number(n) if summable(k) => {
+                    let acc =
+                        out.get(k).and_then(Value::as_u64).unwrap_or(0) + n.as_u64().unwrap_or(0);
+                    out.insert(k.clone(), json!(acc));
+                }
+                _ => {
+                    out.entry(k.clone()).or_insert_with(|| v.clone());
+                }
+            }
+        }
+        out.insert("buckets".to_string(), Value::Object(merged_map));
+        return Some(Value::Object(out));
+    }
+
+    let old_buckets = old_buckets_val.as_array()?;
+    let new_buckets = new_buckets_val.as_array()?;
 
     fn bucket_key(b: &Value) -> String {
         if let Some(k) = b.get("key_as_string").and_then(Value::as_str) {
@@ -4280,6 +4365,89 @@ fn merge_bucket_agg(old: &Value, new: &Value) -> Option<Value> {
     }
     out.insert("buckets".to_string(), Value::Array(merged_buckets));
     Some(Value::Object(out))
+}
+
+#[cfg(test)]
+mod merge_bucket_agg_keyed_tests {
+    use super::*;
+
+    // Regression: a keyed multi-bucket agg (`filters` in its default
+    // named-filter form; also `terms`/`range`/`date_range` with
+    // `keyed: true`) represents `buckets` as a JSON OBJECT, not an array.
+    // `merge_bucket_agg` used to require `.as_array()`, so it silently
+    // returned `None` for this shape — and the caller's array-only
+    // fallback replace-check made the identical mistake — so across a
+    // multi-index search only the FIRST index's contribution to a keyed
+    // bucket ever survived; every other index's matching documents were
+    // dropped from the merged aggregation despite `hits.total` correctly
+    // summing across the same indices. Found live via a Kibana/OSD
+    // Timelion panel's `filters` + `query_string` aggregation reporting
+    // doc_count 0 on a multi-index (`_all`) search.
+    #[test]
+    fn keyed_filters_agg_sums_doc_count_across_indices() {
+        let from_index_a = json!({
+            "buckets": {
+                "mykey": {"doc_count": 0}
+            }
+        });
+        let from_index_b = json!({
+            "buckets": {
+                "mykey": {"doc_count": 3769}
+            }
+        });
+        let merged =
+            merge_bucket_agg(&from_index_a, &from_index_b).expect("keyed buckets must merge");
+        assert_eq!(
+            merged["buckets"]["mykey"]["doc_count"], 3769,
+            "doc_count from every index must be summed, not just the first"
+        );
+    }
+
+    /// The keyed merge must also recurse into nested sub-aggregations
+    /// (e.g. a `date_histogram` inside a `filters` bucket, the exact shape
+    /// Timelion sends) rather than dropping them or keeping only one
+    /// index's contribution.
+    #[test]
+    fn keyed_filters_agg_merges_nested_sub_aggregation() {
+        let from_index_a = json!({
+            "buckets": {
+                "mykey": {
+                    "doc_count": 5,
+                    "inner": {"value": 10.0}
+                }
+            }
+        });
+        let from_index_b = json!({
+            "buckets": {
+                "mykey": {
+                    "doc_count": 7,
+                    "inner": {"value": 20.0}
+                }
+            }
+        });
+        let merged = merge_bucket_agg(&from_index_a, &from_index_b)
+            .expect("keyed buckets with nested sub-aggs must merge");
+        assert_eq!(merged["buckets"]["mykey"]["doc_count"], 12);
+        // `merge_metric_agg` doesn't recombine plain untracked `value`
+        // pairs (no internal tracking to average correctly), so it keeps
+        // the existing value rather than guessing — the important
+        // regression coverage here is that doc_count summed and the
+        // sub-agg key survived the merge at all (previously the whole
+        // bucket from index B was dropped).
+        assert!(merged["buckets"]["mykey"]["inner"].is_object());
+    }
+
+    /// A bucket key present only in the SECOND index (a filter with no
+    /// matches from the first index at all) must still appear in the
+    /// merged result, not be silently dropped.
+    #[test]
+    fn keyed_filters_agg_adds_new_key_from_second_index() {
+        let from_index_a = json!({"buckets": {"a": {"doc_count": 3}}});
+        let from_index_b = json!({"buckets": {"b": {"doc_count": 4}}});
+        let merged = merge_bucket_agg(&from_index_a, &from_index_b).expect("must merge");
+        assert_eq!(merged["buckets"]["a"]["doc_count"], 3);
+        assert_eq!(merged["buckets"]["b"]["doc_count"], 4);
+    }
 }
 
 fn synthetic_transform_object_ext2(
