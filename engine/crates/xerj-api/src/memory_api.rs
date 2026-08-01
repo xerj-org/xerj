@@ -559,6 +559,17 @@ pub async fn recall(
     };
     let index = backing_index(&namespace);
     let edges_index_name = format!("{MEMORY_PREFIX}{namespace}-edges");
+    // Graph coupling reads the brain's EDGES, a different resource from the
+    // namespace itself — a credential granted only the notes must not read the
+    // link graph through `graph:` (issue #79). Authorized only when coupling is
+    // actually requested, so ungrouped recall is unaffected.
+    if graph_ctx.is_some() {
+        if let Err(denied) =
+            authz::authorize_index(&principal, &edges_index_name, Privilege::ReadIndex)
+        {
+            return denied;
+        }
+    }
     let caller_filter = body.filter.take();
 
     // Graph restrict: expand the seeds FIRST and fold the reachable set into
