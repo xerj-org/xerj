@@ -91,7 +91,10 @@ const FALLBACK_OPENSEARCH_VERSION: &str = "2.11.0";
 ///    recognized Elasticsearch client, or no recognizable client at all,
 ///    is unchanged pre-existing behavior — plain Elasticsearch,
 ///    `EsVersion::default()`.
-fn resolve_compat_version(state: &AppState, headers: &axum::http::HeaderMap) -> EsVersion {
+pub(crate) fn resolve_compat_version(
+    state: &AppState,
+    headers: &axum::http::HeaderMap,
+) -> EsVersion {
     let mut version = EsVersion::default();
     let cfg = &state.config.compat;
     let is_opensearch = is_opensearch_caller(state, headers);

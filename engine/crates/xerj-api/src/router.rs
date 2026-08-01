@@ -810,17 +810,35 @@ pub fn build_es_compat_router(state: AppState) -> Router {
 /// Elastic-specific identity marker to a client we've already decided isn't
 /// Elastic. A `Warning` header is included for Elastic callers only, for the
 /// same reason.
+///
+/// A real OpenSearch server also sends `X-OpenSearch-Version: OpenSearch/<n>
+/// (opensearch)` on every response, verified against a real OpenSearch 3.7.0
+/// container — an OpenSearch-detected caller gets the equivalent header
+/// here, built from the same version xerj already reports in `GET /`'s
+/// `version` block (`es_compat::resolve_compat_version`), so the two stay in
+/// sync by construction. Found missing while chasing an OpenSearch
+/// Dashboards Timeline (Timelion) panel that rendered empty against xerj but
+/// correctly against real OpenSearch for the byte-identical aggregation
+/// response body — this header was the one structural difference between
+/// the two.
 async fn es_headers_middleware(
     State(state): State<AppState>,
     req: Request,
     next: Next,
 ) -> Response {
     let is_opensearch = es_compat::is_opensearch_caller(&state, req.headers());
+    let opensearch_version =
+        is_opensearch.then(|| es_compat::resolve_compat_version(&state, req.headers()).number);
     let mut resp = next.run(req).await;
     let headers = resp.headers_mut();
     if is_opensearch {
         headers.remove("x-elastic-product");
         headers.remove("warning");
+        if let Some(number) = opensearch_version {
+            if let Ok(v) = HeaderValue::from_str(&format!("OpenSearch/{number} (opensearch)")) {
+                headers.insert("x-opensearch-version", v);
+            }
+        }
     } else {
         headers.insert(
             "x-elastic-product",
@@ -1000,6 +1018,69 @@ mod tests {
             acao(cfg, "https://anything.example").await.as_deref(),
             Some("*"),
             "allow_any_origin must restore Access-Control-Allow-Origin: *"
+        );
+    }
+
+    fn test_state(distribution: &str) -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = xerj_common::config::Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = xerj_common::config::WalSync::Async;
+        config.compat.distribution = distribution.to_string();
+        let metrics = xerj_common::metrics::Metrics::new().expect("metrics");
+        let engine = xerj_engine::Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn headers_for(distribution: &str) -> axum::http::HeaderMap {
+        let app =
+            Router::new()
+                .route("/", get(|| async { "ok" }))
+                .layer(middleware::from_fn_with_state(
+                    test_state(distribution),
+                    es_headers_middleware,
+                ));
+        let req = Request::builder().uri("/").body(Body::empty()).unwrap();
+        app.oneshot(req).await.unwrap().headers().clone()
+    }
+
+    /// Regression: a real OpenSearch server sends `X-OpenSearch-Version` on
+    /// every response — verified against a real OpenSearch 3.7.0 container
+    /// while chasing an OpenSearch Dashboards Timeline panel that rendered
+    /// empty against xerj but correctly against real OpenSearch for a
+    /// byte-identical aggregation response body. This header was the one
+    /// structural difference between the two.
+    #[tokio::test]
+    async fn opensearch_caller_gets_x_opensearch_version_header() {
+        let headers = headers_for("opensearch").await;
+        assert_eq!(
+            headers
+                .get("x-opensearch-version")
+                .and_then(|v| v.to_str().ok()),
+            Some("OpenSearch/2.11.0 (opensearch)"),
+            "an OpenSearch-detected caller must get the real-OpenSearch-shaped version header"
+        );
+        assert!(
+            !headers.contains_key("x-elastic-product"),
+            "must not also send the Elastic-specific product header"
+        );
+    }
+
+    /// An Elastic-shaped caller gets neither the OpenSearch header (never
+    /// sent by real OpenSearch) nor is affected by this change — it keeps
+    /// the pre-existing `x-elastic-product` marker.
+    #[tokio::test]
+    async fn elastic_caller_does_not_get_opensearch_version_header() {
+        let headers = headers_for("elasticsearch").await;
+        assert!(
+            !headers.contains_key("x-opensearch-version"),
+            "an Elastic-shaped caller must never see the OpenSearch identity header"
+        );
+        assert_eq!(
+            headers
+                .get("x-elastic-product")
+                .and_then(|v| v.to_str().ok()),
+            Some("Elasticsearch")
         );
     }
 }
