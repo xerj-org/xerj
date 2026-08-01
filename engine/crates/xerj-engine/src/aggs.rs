@@ -1007,9 +1007,15 @@ fn resolve_bucket_script(
             None => return json!({"value": Value::Null}),
         };
         let v = if let Some(m) = metric {
-            sib.get(m)
-                .and_then(|x| x.get("value"))
-                .and_then(Value::as_f64)
+            if m == "_count" {
+                sib.get("doc_count").and_then(Value::as_f64)
+            } else {
+                sib.get(m).and_then(|x| {
+                    x.get("value")
+                        .and_then(Value::as_f64)
+                        .or_else(|| x.as_f64())
+                })
+            }
         } else {
             sib.get("value").and_then(Value::as_f64)
         };
@@ -12465,6 +12471,40 @@ mod tests {
         let agg = json!({ "uniq": { "cardinality": { "field": "tag" } } });
         let result = run_aggs(&agg, &docs());
         assert_eq!(result["uniq"]["value"], 2);
+    }
+
+    // Regression: `bucket_script` referencing a sibling `filter` agg's doc
+    // count via the special `_count` buckets_path segment (e.g.
+    // `"numerator": "numerator>_count"`) always resolved to null, because
+    // the lookup only checked for a field literally named `_count` with a
+    // nested `.value` — which doesn't exist on a `filter` agg's bucket
+    // (`{"doc_count": N}`). This is exactly the shape Kibana/OSD's TSVB
+    // `filter_ratio` metric compiles to, so every `filter_ratio` panel
+    // (e.g. the sample Flights dashboard's "Delays & Cancellations")
+    // silently rendered as all-null.
+    #[test]
+    fn bucket_script_resolves_sibling_filter_doc_count_via_underscore_count() {
+        let docs = vec![
+            json!({"status": "delayed"}),
+            json!({"status": "delayed"}),
+            json!({"status": "ok"}),
+            json!({"status": "ok"}),
+        ];
+        let agg = json!({
+            "numerator": { "filter": { "term": { "status": "delayed" } } },
+            "denominator": { "filter": { "match_all": {} } },
+            "ratio": {
+                "bucket_script": {
+                    "buckets_path": { "numerator": "numerator>_count", "denominator": "denominator>_count" },
+                    "script": "params.numerator / params.denominator"
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        let ratio = result["ratio"]["value"]
+            .as_f64()
+            .expect("bucket_script must resolve _count buckets_path, not stay null");
+        assert!((ratio - 0.5).abs() < 1e-9);
     }
 
     #[test]
