@@ -1,4 +1,4 @@
-//! API key authentication middleware.
+//! API key authentication middleware — *who* the caller is.
 //!
 //! Checks the `Authorization` header for any of:
 //! - `Authorization: ApiKey <key>`
@@ -7,14 +7,21 @@
 //!
 //! When `config.auth.enabled` is `false` (or `--insecure` mode was set by
 //! clearing the key), the check is skipped entirely.
+//!
+//! Authentication answers *who*; [`crate::authz`] answers *what they may
+//! touch*. The bridge between them is [`Principal`], produced here by
+//! [`authenticate`] and consulted there. `is_authorized` — the boolean the
+//! gRPC interceptor and the HTTP middleware share — is now a thin wrapper over
+//! `authenticate`, so the two surfaces cannot drift.
 
 use axum::{
-    extract::{Request, State},
-    http::StatusCode,
+    extract::{FromRequestParts, Request, State},
+    http::{request::Parts, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
     Json,
 };
+use xerj_engine::rbac::{Privilege, Role};
 
 use crate::error::{EsErrorBody, EsErrorResponse, EsRootCause};
 use crate::state::AppState;
@@ -32,6 +39,111 @@ use crate::state::AppState;
 /// are dependency-free and expose no index data (they answer a bare
 /// `"live"`/`"ready"` string), so leaving them open is safe.
 pub const AUTH_EXEMPT_PATHS: [&str; 2] = ["/health/live", "/health/ready"];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Principal
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The authenticated identity behind a request.
+///
+/// Authentication used to collapse to a bool, which is exactly why a brain was
+/// not a security boundary: with no principal on the request there was nothing
+/// for an authorization check to consult (issue #79). Every variant below is a
+/// *capability statement*, and the ordering is deliberate — the further down
+/// the list, the less a caller may reach.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Principal {
+    /// Full access. Two ways to be one, and only two:
+    /// - **open mode** — `auth.enabled = false` or no admin key configured.
+    ///   This is `xerj --insecure` and the point-at-a-folder first run, where
+    ///   there is exactly one user and no configuration; it must keep working
+    ///   with zero setup, so it is deliberately unrestricted.
+    /// - the configured **admin/superuser key** (`auth.admin_api_key`).
+    Superuser,
+    /// A key minted by `POST /_security/api_key` **with** usable
+    /// `role_descriptors`. Confined: it may touch only the indices its roles
+    /// name, and nothing that is not index-scoped.
+    Scoped {
+        /// The minted key's id (for audit/log lines, never compared).
+        key_id: String,
+        /// Index grants parsed from `role_descriptors`. Never empty — an
+        /// empty grant list is [`Principal::Unscoped`].
+        roles: Vec<Role>,
+    },
+    /// A key minted **without** `role_descriptors` — the shape every key had
+    /// before per-brain authorization existed.
+    ///
+    /// It keeps its historical reach over the general ES-compat surface (so
+    /// hardened Kibana/Beats deployments do not break), but it holds **no**
+    /// privilege on the reserved `.xerj-memory-*` namespace. That is the
+    /// fail-closed half: an unconfigured principal is denied the brain, not
+    /// granted it.
+    Unscoped {
+        /// The minted key's id.
+        key_id: String,
+    },
+    /// No valid credential. Normally unreachable inside a handler — the auth
+    /// middleware answers 401 first — but it is what the [`Principal`]
+    /// extractor yields if a handler is ever mounted without that middleware,
+    /// so the default is "deny", never "allow".
+    Denied,
+}
+
+impl Principal {
+    /// Does this principal hold `privilege` on `index`?
+    ///
+    /// This is the single authorization predicate; [`crate::authz`] routes
+    /// every enforcement point through it. `Unscoped` answers `true` for
+    /// ordinary indices (its historical reach) and `false` for the reserved
+    /// namespace, which [`crate::authz::is_reserved_index`] defines.
+    pub fn allows_index(&self, index: &str, privilege: Privilege) -> bool {
+        match self {
+            Principal::Superuser => true,
+            Principal::Scoped { roles, .. } => roles.iter().any(|r| r.allows(index, privilege)),
+            Principal::Unscoped { .. } => !crate::authz::is_reserved_index(index),
+            Principal::Denied => false,
+        }
+    }
+
+    /// True for the one principal that is allowed to see and do everything —
+    /// used to skip the authorization work entirely on the local-dev path.
+    pub fn is_superuser(&self) -> bool {
+        matches!(self, Principal::Superuser)
+    }
+
+    /// Short identity string for error/log lines. Never contains key material.
+    pub fn label(&self) -> &str {
+        match self {
+            Principal::Superuser => "superuser",
+            Principal::Scoped { key_id, .. } | Principal::Unscoped { key_id } => key_id.as_str(),
+            Principal::Denied => "unauthenticated",
+        }
+    }
+}
+
+/// Extract the principal straight from the request's `Authorization` header.
+///
+/// Deliberately *re-derives* rather than reading a request extension planted
+/// by the middleware: a handler that authorizes must be safe by construction
+/// even if it is mounted on a router where the middleware was forgotten. The
+/// cost is one map lookup plus a constant-time compare. When no credential
+/// resolves, the result is [`Principal::Denied`] — never an error that a
+/// caller could turn into a bypass.
+#[axum::async_trait]
+impl FromRequestParts<AppState> for Principal {
+    type Rejection = std::convert::Infallible;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let header = parts
+            .headers
+            .get(axum::http::header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok());
+        Ok(authenticate(state, header))
+    }
+}
 
 /// Axum middleware that enforces API key authentication.
 ///
@@ -90,15 +202,27 @@ pub async fn auth_middleware(State(state): State<AppState>, req: Request, next: 
 /// value (e.g. `"ApiKey abc"`, `"Bearer abc"`, or `"Basic base64(...)"`), or
 /// `None` when absent.
 pub fn is_authorized(state: &AppState, auth_header: Option<&str>) -> bool {
+    !matches!(authenticate(state, auth_header), Principal::Denied)
+}
+
+/// Resolve the request's credential to a [`Principal`].
+///
+/// Same acceptance rules as [`is_authorized`] (which is now defined in terms of
+/// this), but it reports *which* identity authenticated so authorization has
+/// something to decide against. Returns [`Principal::Denied`] when nothing
+/// authenticates.
+pub fn authenticate(state: &AppState, auth_header: Option<&str>) -> Principal {
     let cfg = &state.config.auth;
 
-    // Skip auth when disabled or no admin key is configured.
+    // Open mode: auth disabled or no admin key configured. This is the
+    // `--insecure` / point-at-a-folder posture — one user, no configuration —
+    // and it stays fully unrestricted on purpose.
     if !cfg.enabled || cfg.admin_api_key.is_empty() {
-        return true;
+        return Principal::Superuser;
     }
 
     let Some(header) = auth_header else {
-        return false;
+        return Principal::Denied;
     };
 
     if let Some(key) = extract_key(header) {
@@ -109,12 +233,14 @@ pub fn is_authorized(state: &AppState, auth_header: Option<&str>) -> bool {
         // the single most valuable credential in the system — must not be
         // weaker. `constant_time_eq` still returns early on a length mismatch,
         // which only reveals the key *length*, matching the created-key path.
-        return constant_time_eq(key.as_bytes(), cfg.admin_api_key.as_bytes())
-            // A key minted by `POST /_security/api_key`.
-            || authenticate_api_key(state, key);
+        if constant_time_eq(key.as_bytes(), cfg.admin_api_key.as_bytes()) {
+            return Principal::Superuser;
+        }
+        // A key minted by `POST /_security/api_key`.
+        return authenticate_api_key(state, key);
     }
 
-    basic_authorized(state, header)
+    basic_principal(state, header)
 }
 
 /// Validate `Authorization: Basic <base64(user:pass)>`.
@@ -128,29 +254,29 @@ pub fn is_authorized(state: &AppState, auth_header: Option<&str>) -> bool {
 /// - or, treating the whole decoded `user:pass` as `id:secret`, a key minted
 ///   by `POST /_security/api_key` (its `id:secret` shape already matches
 ///   `user:pass` exactly, so no separate encoding is needed here).
-fn basic_authorized(state: &AppState, header: &str) -> bool {
+fn basic_principal(state: &AppState, header: &str) -> Principal {
     let Some(prefix) = header.get(..6) else {
-        return false;
+        return Principal::Denied;
     };
     if !prefix.eq_ignore_ascii_case("basic ") {
-        return false;
+        return Principal::Denied;
     }
     let encoded = header[6..].trim();
     let decoded = match crate::es_compat::base64_decode(encoded) {
         Some(d) => d,
-        None => return false,
+        None => return Principal::Denied,
     };
     let decoded = match std::str::from_utf8(&decoded) {
         Ok(s) => s,
-        Err(_) => return false,
+        Err(_) => return Principal::Denied,
     };
     let Some((user, pass)) = decoded.split_once(':') else {
-        return false;
+        return Principal::Denied;
     };
 
     let cfg = &state.config.auth;
     if constant_time_eq(pass.as_bytes(), cfg.admin_api_key.as_bytes()) {
-        return true;
+        return Principal::Superuser;
     }
     check_minted_key(state, user, pass)
 }
@@ -178,20 +304,21 @@ fn metrics_token_authorized(state: &AppState, req: &Request) -> bool {
 ///
 /// The presented value is `base64("id:api_key")`. Decode it, split on the
 /// first `':'`, look the id up in the engine's key store, and constant-time
-/// compare the secret. All keys authenticate as the single superuser
-/// (role_descriptors are accepted at creation but not enforced).
-fn authenticate_api_key(state: &AppState, presented: &str) -> bool {
+/// compare the secret. The resulting principal carries the key's stored
+/// grants: [`Principal::Scoped`] when it was minted with usable
+/// `role_descriptors`, [`Principal::Unscoped`] otherwise.
+fn authenticate_api_key(state: &AppState, presented: &str) -> Principal {
     let decoded = match crate::es_compat::base64_decode(presented) {
         Some(d) => d,
-        None => return false,
+        None => return Principal::Denied,
     };
     let decoded = match std::str::from_utf8(&decoded) {
         Ok(s) => s,
-        Err(_) => return false,
+        Err(_) => return Principal::Denied,
     };
     let (id, secret) = match decoded.split_once(':') {
         Some(parts) => parts,
-        None => return false,
+        None => return Principal::Denied,
     };
     check_minted_key(state, id, secret)
 }
@@ -199,21 +326,37 @@ fn authenticate_api_key(state: &AppState, presented: &str) -> bool {
 /// Look up a minted `POST /_security/api_key` credential by `(id, secret)`.
 /// Shared by the `ApiKey <base64(id:secret)>` and `Basic <base64(id:secret)>`
 /// paths — both decode to the same `id:secret` shape.
-fn check_minted_key(state: &AppState, id: &str, secret: &str) -> bool {
+///
+/// A minted key is **never** a superuser: the strongest thing it can be is
+/// `Unscoped`, which has no reach into the reserved `.xerj-memory-*`
+/// namespace. That is what stops "any authenticated caller reads any brain".
+fn check_minted_key(state: &AppState, id: &str, secret: &str) -> Principal {
     let record = match state.engine.api_keys.get(id) {
         Some(r) => r,
-        None => return false,
+        None => return Principal::Denied,
     };
     if record.invalidated {
-        return false;
+        return Principal::Denied;
     }
     if let Some(exp) = record.expiration_ms {
         let now_ms = chrono::Utc::now().timestamp_millis().max(0) as u64;
         if now_ms >= exp {
-            return false;
+            return Principal::Denied;
         }
     }
-    constant_time_eq(record.secret.as_bytes(), secret.as_bytes())
+    if !constant_time_eq(record.secret.as_bytes(), secret.as_bytes()) {
+        return Principal::Denied;
+    }
+    if record.roles.is_empty() {
+        Principal::Unscoped {
+            key_id: id.to_string(),
+        }
+    } else {
+        Principal::Scoped {
+            key_id: id.to_string(),
+            roles: record.roles.clone(),
+        }
+    }
 }
 
 /// Length-independent-only constant-time byte comparison. Avoids leaking the

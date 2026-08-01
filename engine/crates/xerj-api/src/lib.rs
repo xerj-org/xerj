@@ -57,6 +57,7 @@
 //! xerj-api itself does not depend on xerj-console-api.
 
 pub mod auth;
+pub mod authz;
 pub mod binary_protocol;
 pub mod error;
 pub mod es_compat;
