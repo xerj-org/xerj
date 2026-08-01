@@ -203,16 +203,35 @@ async fn a_scoped_caller_cannot_reach_another_brain_through_any_door() {
         ("DELETE", "/.xerj-memory-bob-edges", ""),
         // Percent-encoded, in case the check compared raw path text.
         ("POST", "/%2Exerj-memory-bob-edges/_search", "{}"),
-        // Wildcards are refused rather than expanded-and-filtered.
-        ("POST", "/.xerj-memory-*/_search", "{}"),
-        ("POST", "/*/_search", "{}"),
-        ("POST", "/_all/_search", "{}"),
     ] {
         let (status, resp) = send(&app, method, uri, &alice, body).await;
         assert_eq!(
             status,
             StatusCode::FORBIDDEN,
             "{method} {uri} must be forbidden, got {status}: {resp}"
+        );
+    }
+
+    // ── 2b. Patterns are answered, not refused — over the caller's visible
+    // set only. Refusing them outright was the first cut of this fix and it
+    // cost every legitimate `logs-*` grant; expanding them over what the
+    // principal may see is both usable and closed. What must never appear is
+    // one byte of bob's.
+    for uri in [
+        "/.xerj-memory-*/_search",
+        "/*/_search",
+        "/_all/_search",
+        "/.xerj-memory-bob*/_search",
+    ] {
+        let (status, resp) = send(&app, "POST", uri, &alice, "{}").await;
+        assert_eq!(
+            status,
+            StatusCode::OK,
+            "POST {uri} should be answered over the visible set, got {status}: {resp}"
+        );
+        assert!(
+            !resp.to_string().contains("bob"),
+            "POST {uri} leaked bob: {resp}"
         );
     }
 
@@ -233,40 +252,102 @@ async fn a_scoped_caller_cannot_reach_another_brain_through_any_door() {
         );
     }
 
-    // ── 4. Enumeration: a scoped caller cannot list the node's indices at
-    // all, so brain names stay unguessable.
+    // ── 4. Enumeration: a scoped caller gets metadata for the indices it
+    // holds and no trace of anything else, so brain names stay unguessable
+    // WITHOUT the blanket 403 that stopped Kibana from working at all.
     for uri in [
         "/_mapping",
         "/_cat/indices",
         "/_alias",
         "/_settings",
-        "/_stats",
+        "/_cluster/stats",
         "/_resolve/index/*",
+        "/_cluster/health",
+        "/_nodes",
     ] {
         let (status, resp) = send(&app, "GET", uri, &alice, "").await;
         assert_eq!(
             status,
-            StatusCode::FORBIDDEN,
-            "GET {uri} must be forbidden, got {status}: {resp}"
+            StatusCode::OK,
+            "GET {uri} must be answered for a scoped key, got {status}: {resp}"
+        );
+        assert!(
+            !resp.to_string().contains("bob"),
+            "GET {uri} enumerated bob's brain: {resp}"
         );
     }
+    let (status, table) = send_text(&app, "GET", "/_cat/indices", &alice).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        !table.contains("bob"),
+        "_cat/indices enumerated bob's brain: {table}"
+    );
 
     // ── 5. Unnamed fan-out. `POST /_search` with no index reads every index
-    // on the node; there is no target to authorize, so it is refused.
-    for (method, uri) in [
-        ("POST", "/_search"),
-        ("POST", "/_bulk"),
-        ("POST", "/_msearch"),
-        ("POST", "/_mget"),
-        ("POST", "/_count"),
+    // the caller can see — which is alice's, and only alice's. The global
+    // verbs are the default paths of every ES client, so they answer; what
+    // they must not do is answer with someone else's data.
+    for (method, uri, body) in [
+        ("POST", "/_search", "{}"),
+        ("POST", "/_msearch", "{}\n{\"query\":{\"match_all\":{}}}\n"),
+        ("POST", "/_count", "{}"),
     ] {
-        let (status, resp) = send(&app, method, uri, &alice, "{}").await;
+        let (status, resp) = send(&app, method, uri, &alice, body).await;
+        assert_eq!(
+            status,
+            StatusCode::OK,
+            "{method} {uri} must be answered over the visible set, got {status}: {resp}"
+        );
+        assert!(
+            !resp.to_string().contains("bob"),
+            "{method} {uri} leaked bob: {resp}"
+        );
+    }
+    // The global write path works for the caller's own index …
+    let (status, resp) = send(
+        &app,
+        "POST",
+        "/_bulk",
+        &alice,
+        "{\"index\":{\"_index\":\".xerj-memory-alice-edges\",\"_id\":\"own\"}}\n{\"src\":\"a\"}\n",
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "global _bulk into its own index must work: {resp}"
+    );
+    // … and refuses the moment the body names someone else's.
+    for body in [
+        "{\"index\":{\"_index\":\".xerj-memory-bob-edges\",\"_id\":\"forged\"}}\n{\"src\":\"a\"}\n",
+        "{\"delete\":{\"_index\":\".xerj-memory-bob-edges\",\"_id\":\"e1\"}}\n",
+    ] {
+        let (status, resp) = send(&app, "POST", "/_bulk", &alice, body).await;
         assert_eq!(
             status,
             StatusCode::FORBIDDEN,
-            "{method} {uri} must be forbidden, got {status}: {resp}"
+            "a body-named _bulk into bob must be forbidden, got {status}: {resp}"
         );
     }
+    // Same for the body-named forms of _msearch and _mget.
+    let (status, resp) = send(
+        &app,
+        "POST",
+        "/_msearch",
+        &alice,
+        "{\"index\":\".xerj-memory-bob-edges\"}\n{\"query\":{\"match_all\":{}}}\n",
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "body-named _msearch: {resp}");
+    let (status, resp) = send(
+        &app,
+        "POST",
+        "/_mget",
+        &alice,
+        "{\"docs\":[{\"_index\":\".xerj-memory-bob-edges\",\"_id\":\"x\"}]}",
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "body-named _mget: {resp}");
 
     // ── 6. The native router is the same engine under a different spelling.
     for (method, uri) in [
