@@ -137,7 +137,7 @@ the Raft-auth Phase-2 item. Source-verified, not exploited on a live cluster.
 
 ---
 
-## S5-4 — `x-forwarded-for` trusted as identity for rate-limiting and audit  ·  Medium  ·  open
+## S5-4 — `x-forwarded-for` trusted as identity for rate-limiting and audit  ·  Medium  ·  fixed
 
 `crates/xerj-console-api/src/auth/magic.rs:360`, `rate_limit.rs:58`.
 
@@ -154,6 +154,18 @@ the audit log. Confirmed unauthenticated (the endpoint is registered
 **Fix.** Derive the caller address from `ConnectInfo<SocketAddr>` (the transport),
 and consult `x-forwarded-for` only when the socket peer is a trusted proxy in an
 operator-configured CIDR.
+
+**Status.** Fixed. `ConnectInfo<SocketAddr>` is installed on both the plain and
+the TLS listener (`into_make_service_with_connect_info`), and handlers read the
+caller address through a `ClientIp` extractor
+(`crates/xerj-console-api/src/client_ip.rs`). Forwarding headers are consulted
+only when the socket peer matches `server.trusted_proxies` — a new setting that
+takes addresses/CIDRs and is **empty by default**, so an unconfigured node
+believes nobody. The chain is read right-to-left past our own proxies; the
+caller-authored left end is never used, and a malformed element stops the walk.
+Covered by `tests/trusted_proxy_client_identity.rs` (spoof from an untrusted
+peer changes nothing; a declared proxy's forwarded address is honoured) plus
+listener-level tests that the real peer reaches handlers over HTTP and HTTPS.
 
 ---
 

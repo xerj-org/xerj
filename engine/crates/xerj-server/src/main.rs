@@ -770,6 +770,15 @@ fn spawn_periodic_flusher(
 // Server runners
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Serve `router` on `addr`, plain or TLS.
+///
+/// Both paths install `ConnectInfo<SocketAddr>` via
+/// `into_make_service_with_connect_info`, so handlers can reach the real TCP
+/// peer. That is what the console's per-IP auth rate limiter keys on — it used
+/// to key on `x-forwarded-for`, which the caller writes, so a rotating header
+/// bought an unlimited quota (#76 S5-4). Forwarding headers are believed only
+/// when the peer is listed in `server.trusted_proxies`; without connect-info on
+/// *both* listeners the limiter would fall back to a single shared bucket.
 async fn serve(
     router: Router,
     addr: SocketAddr,
@@ -800,7 +809,7 @@ async fn serve(
 
         axum_server::bind_rustls(addr, tls)
             .handle(handle)
-            .serve(router.into_make_service())
+            .serve(router.into_make_service_with_connect_info::<SocketAddr>())
             .await
             .with_context(|| format!("{name} serve error (TLS)"))?;
 
@@ -819,11 +828,14 @@ async fn serve(
     // (Netty) sets this by default; without it small request/response
     // round-trips can stall on the delayed-ACK/Nagle interaction, which
     // shows up as a fixed per-request latency tax on trivial reads.
-    axum::serve(listener, router)
-        .tcp_nodelay(true)
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-        .with_context(|| format!("{name} serve error"))?;
+    axum::serve(
+        listener,
+        router.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .tcp_nodelay(true)
+    .with_graceful_shutdown(shutdown_signal())
+    .await
+    .with_context(|| format!("{name} serve error"))?;
 
     info!("{name} shut down cleanly");
     Ok(())
@@ -1594,12 +1606,31 @@ async fn async_main() -> Result<()> {
     } else {
         ClusterMode::Standalone
     };
+    // #76 S5-4: which reverse proxies (if any) may tell us who the client is.
+    // Empty by default — an unconfigured node ignores `x-forwarded-for`
+    // entirely and keys the auth rate limiter on the TCP peer. `validate()`
+    // already rejected malformed entries, so this parse cannot fail; treat a
+    // surprise as fatal rather than silently widening or narrowing trust.
+    let trusted_proxies = xerj_common::net::TrustedProxies::parse(&cfg.server.trusted_proxies)
+        .map_err(|why| anyhow::anyhow!("server.trusted_proxies: {why}"))?;
+    if !trusted_proxies.is_empty() {
+        info!(
+            "trusting x-forwarded-for from {} configured proxy entr{}",
+            cfg.server.trusted_proxies.len(),
+            if cfg.server.trusted_proxies.len() == 1 {
+                "y"
+            } else {
+                "ies"
+            }
+        );
+    }
     let xerj_console_state = ConsoleState::new(
         engine.clone(),
         xerj_console_node_id,
         xerj_console_outcome.master_key,
         xerj_console_cluster_mode,
-    );
+    )
+    .with_trusted_proxies(trusted_proxies);
 
     // 9b. Application state
     let state = AppState::new(cfg.clone(), engine, metrics);
@@ -1743,7 +1774,20 @@ mod tls_tests {
     }
 
     fn test_router() -> Router {
-        Router::new().route("/", get(|| async { "ok" }))
+        Router::new()
+            .route("/", get(|| async { "ok" }))
+            // Echoes the transport peer so a test can prove `serve` installed
+            // `ConnectInfo` — the identity the auth rate limiter keys on
+            // (#76 S5-4). Without connect-info wiring this handler would 500
+            // (missing extension), which is exactly the regression to catch.
+            .route(
+                "/peer",
+                get(
+                    |axum::extract::ConnectInfo(peer): axum::extract::ConnectInfo<SocketAddr>| async move {
+                        peer.ip().to_string()
+                    },
+                ),
+            )
     }
 
     /// Poll until the just-spawned listener answers (spawn races the client).
@@ -1809,6 +1853,84 @@ mod tls_tests {
         let client = reqwest::Client::new();
         let status = poll_status(&client, &format!("http://127.0.0.1:{port}/")).await;
         assert_eq!(status, 200, "HTTP GET / should return 200");
+
+        server.abort();
+    }
+
+    /// #76 S5-4: the plain listener must hand handlers the real TCP peer.
+    /// The console rate limiter keys on it; if `ConnectInfo` is missing the
+    /// limiter degrades to one shared bucket and, worse, the only remaining
+    /// signal would be the caller-supplied header we are refusing to trust.
+    /// A spoofed `x-forwarded-for` must not perturb what the transport says.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn plain_listener_exposes_the_real_peer_not_the_header() {
+        let port = free_port();
+        let addr: SocketAddr = ([127, 0, 0, 1], port).into();
+        let server = tokio::spawn(serve(test_router(), addr, "test-peer-plain", None));
+
+        let client = reqwest::Client::new();
+        assert_eq!(
+            poll_status(&client, &format!("http://127.0.0.1:{port}/")).await,
+            200
+        );
+
+        let body = client
+            .get(format!("http://127.0.0.1:{port}/peer"))
+            .header("x-forwarded-for", "1.2.3.4")
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap();
+        assert_eq!(
+            body, "127.0.0.1",
+            "handler must see the socket peer, not the spoofed header"
+        );
+
+        server.abort();
+    }
+
+    /// Same guarantee on the TLS path — it uses a different accept loop
+    /// (`axum_server`), so connect-info has to be wired there independently.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn tls_listener_exposes_the_real_peer_not_the_header() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut cfg = Config::default();
+        cfg.server.data_dir = dir.path().to_string_lossy().into_owned();
+        cfg.tls.enabled = true;
+        ensure_tls_cert(&mut cfg).expect("generate self-signed cert");
+        let tls = build_tls_config(&cfg)
+            .await
+            .expect("build tls config")
+            .expect("tls enabled must yield Some");
+
+        let port = free_port();
+        let addr: SocketAddr = ([127, 0, 0, 1], port).into();
+        let server = tokio::spawn(serve(test_router(), addr, "test-peer-tls", Some(tls)));
+
+        let client = reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
+            .build()
+            .unwrap();
+        assert_eq!(
+            poll_status(&client, &format!("https://127.0.0.1:{port}/")).await,
+            200
+        );
+
+        let body = client
+            .get(format!("https://127.0.0.1:{port}/peer"))
+            .header("x-forwarded-for", "1.2.3.4")
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap();
+        assert_eq!(
+            body, "127.0.0.1",
+            "TLS handler must see the socket peer, not the spoofed header"
+        );
 
         server.abort();
     }

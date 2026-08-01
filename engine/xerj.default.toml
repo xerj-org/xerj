@@ -11,7 +11,7 @@
 # every default below.
 # ============================================================
 
-# ── Network & Data Directory (5 settings) ─────────────────────────────────────
+# ── Network & Data Directory (6 settings) ─────────────────────────────────────
 
 [server]
 
@@ -34,6 +34,21 @@ data_dir = "./data"
 # IP address to bind all listeners to.
 # "0.0.0.0" listens on all interfaces; use "127.0.0.1" for localhost only.
 bind_address = "0.0.0.0"
+
+# Reverse proxies whose X-Forwarded-For / X-Real-IP headers may be believed.
+#
+# Client identity — the per-IP auth rate-limit bucket and the audit-log source
+# address — is taken from the TCP peer, which a caller cannot forge.
+# X-Forwarded-For is attacker-controlled and is IGNORED unless the socket peer
+# matches an entry here. Default is empty: believe nobody.
+#
+# If you terminate TLS or load-balance in front of xerj, list that proxy here
+# or every user behind it shares one rate-limit bucket. List ONLY proxies you
+# operate: anything named here can claim to be any client.
+#
+# Entries are addresses or CIDR blocks; a bad entry fails startup.
+#   trusted_proxies = ["10.0.0.7", "10.1.0.0/16", "::1"]
+trusted_proxies = []
 
 # ── Authentication (2 settings) ───────────────────────────────────────────────
 

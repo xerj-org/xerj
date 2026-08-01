@@ -46,7 +46,7 @@ use crate::error::XerjError;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
-    /// Network and data directory settings — 5 settings.
+    /// Network and data directory settings — 6 settings.
     pub server: ServerConfig,
     /// Authentication — 2 settings.
     pub auth: AuthConfig,
@@ -135,6 +135,13 @@ impl Config {
                 "rest_port, grpc_port, and es_compat_port must all be distinct",
             ));
         }
+
+        // Trusted proxies: a typo in a trust boundary must fail startup, not
+        // silently degrade. (A rejected entry that we merely skipped would
+        // leave the operator believing forwarding headers are honoured when
+        // they are not — or, worse, the reverse.)
+        crate::net::TrustedProxies::parse(&self.server.trusted_proxies)
+            .map_err(|why| XerjError::config(format!("server.trusted_proxies: {why}")))?;
 
         // TLS: if enabled, paths must be supplied
         if self.tls.enabled {
@@ -266,7 +273,7 @@ impl Config {
 
 /// Network and data-directory settings.
 ///
-/// **5 settings.**
+/// **6 settings.**
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ServerConfig {
@@ -280,6 +287,24 @@ pub struct ServerConfig {
     pub data_dir: String,
     /// Address to bind all listeners (default: `"0.0.0.0"`).
     pub bind_address: String,
+    /// Reverse proxies whose `X-Forwarded-For` / `X-Real-IP` headers may be
+    /// believed (default: `[]` — **believe nobody**).
+    ///
+    /// Client identity (the per-IP auth rate-limit bucket and the audit-log
+    /// source address) is normally taken from the TCP peer address, which a
+    /// caller cannot forge. `X-Forwarded-For` is attacker-controlled and is
+    /// therefore ignored unless the *socket peer* matches an entry here.
+    ///
+    /// Entries are single addresses (`"10.0.0.7"`, `"::1"`) or CIDR blocks
+    /// (`"10.0.0.0/8"`, `"fd00::/8"`); invalid entries are rejected at
+    /// startup rather than silently ignored. Set this **only** to the
+    /// addresses of proxies you operate: anything listed here can claim to
+    /// be any client and so bypass per-IP throttling.
+    ///
+    /// With this set, the forwarded chain is read right-to-left and the
+    /// right-most address that is *not* itself a listed proxy is used — the
+    /// left end of the chain is written by the caller and cannot be trusted.
+    pub trusted_proxies: Vec<String>,
 }
 
 impl Default for ServerConfig {
@@ -290,6 +315,7 @@ impl Default for ServerConfig {
             es_compat_port: 9200,
             data_dir: "./data".into(),
             bind_address: "0.0.0.0".into(),
+            trusted_proxies: Vec::new(),
         }
     }
 }
@@ -1428,10 +1454,48 @@ mod tests {
         }
     }
 
+    /// The safe default: no proxy is trusted, so `X-Forwarded-For` carries no
+    /// authority anywhere until an operator says otherwise (#76 S5-4).
+    #[test]
+    fn trusted_proxies_default_to_empty() {
+        assert!(Config::default().server.trusted_proxies.is_empty());
+        let cfg = Config::from_toml_str("[server]\nrest_port = 9000\n").unwrap();
+        assert!(cfg.server.trusted_proxies.is_empty());
+        assert!(
+            crate::net::TrustedProxies::parse(&cfg.server.trusted_proxies)
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn trusted_proxies_parse_from_toml() {
+        let cfg = Config::from_toml_str("[server]\ntrusted_proxies = [\"10.0.0.0/8\", \"::1\"]\n")
+            .unwrap();
+        cfg.validate().unwrap();
+        let t = crate::net::TrustedProxies::parse(&cfg.server.trusted_proxies).unwrap();
+        assert!(t.contains(&"10.4.5.6".parse().unwrap()));
+        assert!(!t.contains(&"11.4.5.6".parse().unwrap()));
+    }
+
+    /// A typo in a trust boundary fails startup rather than silently
+    /// producing a set that trusts nothing (or everything).
+    #[test]
+    fn malformed_trusted_proxy_fails_validation() {
+        let err = Config::from_toml_str("[server]\ntrusted_proxies = [\"10.0.0.0/99\"]\n")
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("trusted_proxies"),
+            "error should name the setting, got: {err}"
+        );
+    }
+
     #[test]
     fn count_user_facing_settings() {
         // 50 user-facing settings:
-        //   server: 5      (rest_port, grpc_port, es_compat_port, data_dir, bind_address)
+        //   server: 6      (rest_port, grpc_port, es_compat_port, data_dir,
+        //                   bind_address, trusted_proxies)
         //   auth:   3      (enabled, admin_api_key, metrics_token)   ← RC4-W4 item 4
         //   tls:    3      (enabled, cert_path, key_path)
         //   storage: 10    (wal_sync, wal_batch_ms, wal_max_size_mb, flush_size_mb,
@@ -1450,8 +1514,8 @@ mod tests {
         //   indexing: 3    (turbo_batch_size, turbo_parallel, turbo_fast_analyzer)
         //   logging: 2     (format, access_log)                      ← RC4-W4 item 6
         //   ─────────
-        //   total: 59 fields, minus 1 auto-generated (admin_api_key) = 58 meaningful user settings
-        let total: usize = 5 + 3 + 3 + 10 + 5 + 3 + 1 + 6 + 2 + 4 + 12 + 3 + 2;
-        assert_eq!(total, 59);
+        //   total: 60 fields, minus 1 auto-generated (admin_api_key) = 59 meaningful user settings
+        let total: usize = 6 + 3 + 3 + 10 + 5 + 3 + 1 + 6 + 2 + 4 + 12 + 3 + 2;
+        assert_eq!(total, 60);
     }
 }

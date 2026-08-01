@@ -25,6 +25,7 @@ use serde_json::json;
 use webauthn_rs::prelude::*;
 
 use crate::auth::{audit, sessions, store, webauthn_setup};
+use crate::client_ip::ClientIp;
 use crate::error::{ConsoleApiError, ConsoleResult};
 use crate::indices;
 use crate::response::ok;
@@ -164,6 +165,7 @@ pub struct FinishBody {
 
 pub async fn finish(
     State(state): State<ConsoleState>,
+    ClientIp(ip): ClientIp,
     headers: HeaderMap,
     Json(body): Json<FinishBody>,
 ) -> ConsoleResult<Response> {
@@ -245,7 +247,6 @@ pub async fn finish(
     store::upsert_user(&state.engine, &user).await?;
 
     // Audit + session cookie.
-    let ip = sessions_request_ip(&headers);
     let ua = headers
         .get("user-agent")
         .and_then(|h| h.to_str().ok())
@@ -313,21 +314,6 @@ fn prune_pending(state: &ConsoleState) {
     state
         .pending_challenges
         .retain(|_k, v| v.created_at_ms > cutoff);
-}
-
-fn sessions_request_ip(headers: &HeaderMap) -> String {
-    if let Some(v) = headers.get("x-forwarded-for").and_then(|h| h.to_str().ok()) {
-        if let Some(first) = v.split(',').next() {
-            let t = first.trim();
-            if !t.is_empty() {
-                return t.to_string();
-            }
-        }
-    }
-    if let Some(v) = headers.get("x-real-ip").and_then(|h| h.to_str().ok()) {
-        return v.trim().to_string();
-    }
-    "unknown".to_string()
 }
 
 use base64::Engine as _;

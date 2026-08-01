@@ -190,6 +190,41 @@ Because the gRPC port carries cleartext frames, **terminate TLS in front of
 clients reach it over an untrusted link. If you don't use gRPC, don't expose
 the port.
 
+### Behind a reverse proxy: `server.trusted_proxies`
+
+XERJ derives client identity — the per-IP auth rate-limit bucket on the
+console's login / magic-link endpoints, and the audit-log source address —
+from the **TCP peer address**, which a caller cannot forge. `X-Forwarded-For`
+is written by the caller and is **ignored by default**.
+
+That default is safe but it is not what you want behind a proxy: the peer is
+then always the proxy, so every user collapses into one bucket (ten login
+attempts a minute for the whole company). Declare the proxy:
+
+```toml
+[server]
+# Addresses or CIDR blocks. Empty by default — believe nobody.
+trusted_proxies = ["10.0.0.7"]          # or ["10.0.0.0/8", "::1"]
+```
+
+Rules worth knowing before you set it:
+
+- **List only proxies you operate.** Anything named here can claim to be any
+  client, and so can side-step per-IP throttling. `0.0.0.0/0` re-opens the
+  exact hole this setting exists to close.
+- **The chain is read right-to-left.** `X-Forwarded-For` is appended
+  left-to-right, so the left end is whatever the original caller sent. XERJ
+  takes the right-most entry that is not itself a listed proxy — the one your
+  own outermost proxy just wrote. A caller who pre-seeds the header cannot
+  pick their own bucket.
+- **`X-Real-IP` is honoured only when there is no `X-Forwarded-For`**, and
+  only from a listed peer.
+- **A bad entry fails startup.** `trusted_proxies = ["10.0.0.0/99"]` refuses
+  to boot rather than quietly trusting nothing (or everything).
+- Make sure the proxy actually **overwrites** rather than appends blindly —
+  nginx `proxy_set_header X-Forwarded-For $proxy_add_forwarded_for` is
+  correct; passing the client's header through verbatim is not.
+
 ---
 
 ## 2. What XERJ does and does not secure itself
@@ -208,6 +243,7 @@ transport encryption; your platform provides the rest.
 | Memtable + RSS + disk-flood circuit breakers (429 before OOM/ENOSPC) | ✅ (`[limits]`) |
 | Restrictive CORS by default (no cross-origin reads unless allow-listed) | ✅ (`[cors]`) |
 | Secrets written `0600` (admin key, auto-generated TLS key) | ✅ |
+| Client identity from the TCP peer, not `X-Forwarded-For` | ✅ (`server.trusted_proxies`, empty by default) |
 
 ### Bound retained segment hydration
 
