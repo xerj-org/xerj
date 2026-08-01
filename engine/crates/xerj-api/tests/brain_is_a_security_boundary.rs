@@ -404,6 +404,41 @@ async fn a_scoped_caller_retains_full_use_of_its_own_brain() {
         StatusCode::FORBIDDEN,
         "read grant must not destroy the brain"
     );
+
+    // Resource granularity within one brain: the notes and the link graph are
+    // two indices, and `POST /_memory/{ns}/_recall` with `graph:` reads the
+    // second. A credential given only the notes must not get the graph through
+    // the side door — while plain recall over the notes it *was* granted keeps
+    // working.
+    let notes_only = mint(
+        &app,
+        &admin,
+        r#"{"name":"notes-only","role_descriptors":{"n":{"indices":[
+             {"names":[".xerj-memory-alice"],"privileges":["read"]}]}}}"#,
+    )
+    .await;
+    let (status, _) = send(
+        &app,
+        "POST",
+        "/_memory/alice/_recall",
+        &notes_only,
+        r#"{"query":"anything"}"#,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "plain recall on the granted notes");
+    let (status, resp) = send(
+        &app,
+        "POST",
+        "/_memory/alice/_recall",
+        &notes_only,
+        r#"{"query":"anything","graph":{"mode":"restrict","seeds":["doc:1"]}}"#,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "graph coupling reads the edges index and needs its own grant: {resp}"
+    );
 }
 
 /// The fail-closed half. A key minted with no `role_descriptors` — the shape
