@@ -7,10 +7,13 @@
 //!
 //! On limit exceeded we return 429 with no body — leaking whether the
 //! email/token was valid would defeat the purpose of rate limiting.
+//!
+//! The `ip` this keys on must come from [`crate::ClientIp`] — the TCP peer,
+//! consulting `x-forwarded-for` only from a declared trusted proxy. Deriving
+//! it from headers is what made the limiter bypassable (#76 S5-4); there is
+//! deliberately no header-reading helper in this module to reach for.
 
 use std::sync::atomic::{AtomicU64, Ordering};
-
-use axum::http::request::Parts;
 
 use crate::error::{ConsoleApiError, ConsoleResult};
 use crate::state::{ConsoleState, RateWindow};
@@ -20,29 +23,6 @@ const PER_MINUTE: u32 = 10;
 const PER_HOUR: u32 = 100;
 const WINDOW_MIN_MS: i64 = 60_000;
 const WINDOW_HOUR_MS: i64 = 3_600_000;
-
-/// Pull the caller's IP out of the request — `x-forwarded-for` (first
-/// element) when present, else falling through to `x-real-ip`, else
-/// "unknown" (so a misconfigured deployment still rate-limits, though
-/// per-host instead of per-IP).
-pub fn caller_ip(parts: &Parts) -> String {
-    if let Some(v) = parts
-        .headers
-        .get("x-forwarded-for")
-        .and_then(|h| h.to_str().ok())
-    {
-        if let Some(first) = v.split(',').next() {
-            let trimmed = first.trim();
-            if !trimmed.is_empty() {
-                return trimmed.to_string();
-            }
-        }
-    }
-    if let Some(v) = parts.headers.get("x-real-ip").and_then(|h| h.to_str().ok()) {
-        return v.trim().to_string();
-    }
-    "unknown".to_string()
-}
 
 /// Counter of insertions, used to drive periodic pruning so we never
 /// pay for a full sweep. (DashMap iter is per-shard locking, so a

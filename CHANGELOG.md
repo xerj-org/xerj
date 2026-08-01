@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **`x-forwarded-for` is no longer trusted for client identity** (#76 S5-4).
+  The per-IP auth rate limiter and the audit-log source address used to be
+  read straight out of `x-forwarded-for` — a header the caller writes. A
+  rotating `x-forwarded-for: 1.2.3.$RANDOM` therefore reset the quota on
+  every request, so the unauthenticated magic-link redeem and bootstrap-claim
+  endpoints could be brute-forced without limit, while honest clients (who
+  send no such header) stayed throttled. Client identity now comes from the
+  TCP peer: `ConnectInfo<SocketAddr>` is threaded through both the plain and
+  the TLS listener, and a handler reads it via the new `ClientIp` extractor.
+
+  Forwarding headers are still honoured behind a real reverse proxy, but only
+  from a proxy the operator has declared: the new **`server.trusted_proxies`**
+  setting takes IP addresses or CIDR blocks (`["10.0.0.0/8", "::1"]`) and is
+  **empty by default — an unconfigured node believes nobody**. When the peer
+  is a declared proxy the forwarded chain is read right-to-left (the left end
+  is caller-authored) and the right-most address that is not itself a listed
+  proxy wins; a malformed element stops the walk rather than being stepped
+  over. Malformed entries in the setting fail startup instead of silently
+  widening or narrowing trust.
+
+  Operators terminating TLS or load-balancing in front of XERJ must set
+  `server.trusted_proxies` to their proxy's address, otherwise every user
+  behind it shares one rate-limit bucket.
+
 ## [1.0.0-rc.9] - 2026-08-01
 
 Ninth release candidate: the **cross-platform correctness release**.
@@ -314,7 +340,7 @@ limitations rather than quietly omitted.
   which means a caller can spoof the address the per-IP rate limiter
   keys on. The fix needs `ConnectInfo` threaded through the shared
   serve and TLS path and is deliberately not bundled with the smaller
-  items above.
+  items above. *(Fixed after this release — see Unreleased.)*
 - **Windows durability is weaker than Unix durability**, as described
   under Fixed. The platform provides no way to make it otherwise.
 

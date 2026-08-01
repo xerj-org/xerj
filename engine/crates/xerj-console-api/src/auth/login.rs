@@ -22,6 +22,7 @@ use serde_json::json;
 use webauthn_rs::prelude::*;
 
 use crate::auth::{audit, rate_limit, sessions, store, webauthn_setup};
+use crate::client_ip::ClientIp;
 use crate::error::{ConsoleApiError, ConsoleResult};
 use crate::indices;
 use crate::response::ok;
@@ -47,10 +48,9 @@ pub struct BeginResponse {
 
 pub async fn begin(
     State(state): State<ConsoleState>,
-    headers: HeaderMap,
+    ClientIp(ip): ClientIp,
     Json(body): Json<BeginBody>,
 ) -> ConsoleResult<Response> {
-    let ip = ip_from_headers(&headers);
     rate_limit::charge(&state, &ip, "login-begin")?;
 
     if body.email.is_empty() {
@@ -119,10 +119,10 @@ pub struct FinishBody {
 
 pub async fn finish(
     State(state): State<ConsoleState>,
+    ClientIp(ip): ClientIp,
     headers: HeaderMap,
     Json(body): Json<FinishBody>,
 ) -> ConsoleResult<Response> {
-    let ip = ip_from_headers(&headers);
     rate_limit::charge(&state, &ip, "login-finish")?;
 
     let pending = state
@@ -270,21 +270,6 @@ fn prune_pending(state: &ConsoleState) {
     state
         .pending_challenges
         .retain(|_k, v| v.created_at_ms > cutoff);
-}
-
-fn ip_from_headers(headers: &HeaderMap) -> String {
-    if let Some(v) = headers.get("x-forwarded-for").and_then(|h| h.to_str().ok()) {
-        if let Some(first) = v.split(',').next() {
-            let t = first.trim();
-            if !t.is_empty() {
-                return t.to_string();
-            }
-        }
-    }
-    if let Some(v) = headers.get("x-real-ip").and_then(|h| h.to_str().ok()) {
-        return v.trim().to_string();
-    }
-    "unknown".to_string()
 }
 
 use base64::Engine as _;

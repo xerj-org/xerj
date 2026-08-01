@@ -16,13 +16,14 @@
 //! Enrollment session lives only in RAM (not persisted) for 30 minutes
 //! and is consumed exactly once by `passkey/finish`.
 
-use axum::{extract::State, http::HeaderMap, response::Response, Json};
+use axum::{extract::State, response::Response, Json};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::auth::{audit, rate_limit, store, AuthSession};
 use crate::bootstrap::sha256_hex;
+use crate::client_ip::ClientIp;
 use crate::error::{ConsoleApiError, ConsoleResult};
 use crate::indices;
 use crate::response::ok;
@@ -72,7 +73,7 @@ pub struct IssueResponse {
 pub async fn issue(
     State(state): State<ConsoleState>,
     session: AuthSession,
-    headers: HeaderMap,
+    ClientIp(ip): ClientIp,
     Json(body): Json<IssueBody>,
 ) -> ConsoleResult<Response> {
     // Only owners and admins may invite.
@@ -147,7 +148,6 @@ pub async fn issue(
     };
     store::put_magic_link(&state.engine, &link).await?;
 
-    let ip = ip_from_headers(&headers);
     audit::record(
         &state.engine,
         &session.user.id,
@@ -193,13 +193,13 @@ pub struct RedeemResponse {
 
 pub async fn redeem(
     State(state): State<ConsoleState>,
-    headers: HeaderMap,
+    ClientIp(ip): ClientIp,
     Json(body): Json<RedeemBody>,
 ) -> ConsoleResult<Response> {
-    // Rate-limit by source IP. We pull headers manually here because
-    // FromRequestParts wiring would force every endpoint into the same
-    // typed extractor.
-    let ip = ip_from_headers(&headers);
+    // Rate-limit by source IP. `ClientIp` resolves that from the TCP peer,
+    // consulting `x-forwarded-for` only when the peer is a configured
+    // trusted proxy (#76 S5-4) — this endpoint is unauthenticated, so a
+    // header-derived key would let anyone mint a fresh quota per request.
     rate_limit::charge(&state, &ip, "magic-redeem")?;
 
     if body.token.is_empty() {
@@ -365,26 +365,10 @@ fn audit_redeem_failed(state: &ConsoleState, why: &str, ip: &str) {
 
 use base64::Engine as _;
 
-fn ip_from_headers(headers: &HeaderMap) -> String {
-    if let Some(v) = headers.get("x-forwarded-for").and_then(|h| h.to_str().ok()) {
-        if let Some(first) = v.split(',').next() {
-            let t = first.trim();
-            if !t.is_empty() {
-                return t.to_string();
-            }
-        }
-    }
-    if let Some(v) = headers.get("x-real-ip").and_then(|h| h.to_str().ok()) {
-        return v.trim().to_string();
-    }
-    "unknown".to_string()
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
 
-    use axum::http::HeaderValue;
     use tempfile::TempDir;
     use tokio::sync::Barrier;
 
@@ -436,15 +420,14 @@ mod tests {
     }
 
     /// Drive the handler exactly as axum would. Every call declares its own
-    /// source IP so the per-IP limiter (10/min) never fires — a 429 would
-    /// silently stand in for a rejected redemption and hide the invariant
-    /// under test.
+    /// resolved source IP so the per-IP limiter (10/min) never fires — a 429
+    /// would silently stand in for a rejected redemption and hide the
+    /// invariant under test. Note this is the *resolved* address (post trust
+    /// check), not a header a caller could set: see `client_ip`.
     async fn redeem_as(state: &ConsoleState, token: &str, ip: &str) -> ConsoleResult<Response> {
-        let mut headers = HeaderMap::new();
-        headers.insert("x-forwarded-for", HeaderValue::from_str(ip).unwrap());
         redeem(
             State(state.clone()),
-            headers,
+            ClientIp(ip.to_string()),
             Json(RedeemBody {
                 token: token.to_string(),
             }),

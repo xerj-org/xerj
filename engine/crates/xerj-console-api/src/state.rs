@@ -8,8 +8,10 @@
 use std::sync::Arc;
 
 use dashmap::DashMap;
+use xerj_common::net::TrustedProxies;
 use xerj_engine::Engine;
 
+use crate::client_ip::TrustedProxySource;
 use crate::time::now_epoch_ms;
 
 /// Server start time, in epoch ms. Used by `/cluster/info` so the SPA can
@@ -127,6 +129,13 @@ pub struct ConsoleState {
     /// transition atomic. Redemptions are rare (enrollment/recovery), so a
     /// single gate is cheaper than a per-token map and needs no cleanup.
     pub redeem_gate: Arc<tokio::sync::Mutex<()>>,
+
+    /// Reverse proxies whose `X-Forwarded-For` / `X-Real-IP` we believe
+    /// (#76 S5-4). Empty by default — an unconfigured node derives client
+    /// identity from the socket peer only, so the auth rate limiter cannot be
+    /// side-stepped with a forged header. Populated from
+    /// `server.trusted_proxies` by `xerj-server` at startup.
+    pub trusted_proxies: Arc<TrustedProxies>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -169,7 +178,23 @@ impl ConsoleState {
             auth_rate_counters: Arc::new(DashMap::new()),
             master_key: Arc::new(master_key),
             redeem_gate: Arc::new(tokio::sync::Mutex::new(())),
+            trusted_proxies: Arc::new(TrustedProxies::none()),
         }
+    }
+
+    /// Declare the reverse proxies whose forwarding headers may be believed.
+    ///
+    /// Builder-style so the safe default (trust nothing) is what you get
+    /// unless a caller opts in explicitly.
+    pub fn with_trusted_proxies(mut self, trusted: TrustedProxies) -> Self {
+        self.trusted_proxies = Arc::new(trusted);
+        self
+    }
+}
+
+impl TrustedProxySource for ConsoleState {
+    fn trusted_proxies(&self) -> &TrustedProxies {
+        &self.trusted_proxies
     }
 }
 

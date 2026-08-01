@@ -43,6 +43,7 @@
 
 pub mod auth;
 pub mod bootstrap;
+pub mod client_ip;
 pub mod cluster;
 pub mod dashboards;
 pub mod data_sources;
@@ -57,6 +58,7 @@ pub mod state;
 pub mod time;
 pub mod views;
 
+pub use client_ip::ClientIp;
 pub use error::{ConsoleApiError, ConsoleResult};
 pub use router::xerj_console_router;
 pub use state::ConsoleState;
