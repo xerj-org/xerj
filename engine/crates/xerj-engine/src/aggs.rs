@@ -196,9 +196,19 @@ pub fn run_aggs_with_all(aggs_def: &Value, docs: &[Value], all_docs: &[Value]) -
     // sibling agg and must not leak into the returned aggs tree. Guarded
     // against the (unusual) case of a user-defined agg literally named
     // `doc_count`, which must win over the synthetic value.
+    //
+    // The staged count is `sum_doc_count`, NOT `docs.len()`: every bucket
+    // type that reports a `doc_count` for the slice it hands to this
+    // function builds that number with `sum_doc_count` too (terms,
+    // date_histogram, histogram, filter, filters, range, date_range), so a
+    // rollup / downsampled index whose docs carry `_doc_count` weights would
+    // otherwise make a bucket and its own `bucket_script` disagree about how
+    // many documents the bucket holds — `"doc_count": 30` next to a bare
+    // `_count` of `3`. ES resolves `_count` to the bucket's reported
+    // doc_count, weights included, so this has to as well.
     let had_doc_count = result.contains_key("doc_count");
     if !had_doc_count {
-        result.insert("doc_count".to_string(), json!(docs.len() as u64));
+        result.insert("doc_count".to_string(), json!(sum_doc_count(docs)));
     }
     resolve_sibling_pipelines(&mut result);
     if !had_doc_count {
@@ -12747,6 +12757,97 @@ mod tests {
             .as_f64()
             .expect("ternary false branch must still resolve to a number");
         assert!((ratio - 0.0).abs() < 1e-9);
+    }
+
+    // ── `_count` resolution: agreement with the bucket's own doc_count ──────
+    //
+    // A bucket built over docs carrying the `_doc_count` metadata field
+    // (rollup / downsampled indices advertise "this physical doc stands for
+    // N logical events") reports the WEIGHTED sum as its `doc_count` — see
+    // `sum_doc_count`, which every weighted bucket type funnels through. The
+    // `_count` buckets_path must resolve to that same number, exactly as ES
+    // does: a bucket and a `bucket_script` sitting inside it are not allowed
+    // to disagree about how many documents the bucket holds.
+
+    #[test]
+    fn bare_count_buckets_path_matches_a_doc_count_weighted_bucket() {
+        let docs = vec![
+            json!({"status": "delayed", "_doc_count": 5}),
+            json!({"status": "delayed", "_doc_count": 3}),
+            json!({"status": "ok"}),
+        ];
+        let agg = json!({
+            "by_status": {
+                "terms": { "field": "status" },
+                "aggs": {
+                    "count": {
+                        "bucket_script": {
+                            "buckets_path": "_count",
+                            "script": { "source": "_value", "lang": "expression" }
+                        }
+                    }
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        let buckets = result["by_status"]["buckets"]
+            .as_array()
+            .expect("terms agg must produce buckets");
+        assert_eq!(buckets.len(), 2);
+
+        let delayed = buckets
+            .iter()
+            .find(|b| b["key"] == "delayed")
+            .expect("delayed bucket must exist");
+        // Two PHYSICAL docs, weight 5 + 3 = 8 logical ones.
+        assert_eq!(delayed["doc_count"], 8);
+        assert_eq!(
+            delayed["count"]["value"].as_f64(),
+            Some(8.0),
+            "`_count` must report the bucket's weighted doc_count (8), \
+             not the physical doc count (2)"
+        );
+
+        // Unweighted bucket: weight defaults to 1, so both readings agree.
+        let ok = buckets
+            .iter()
+            .find(|b| b["key"] == "ok")
+            .expect("ok bucket must exist");
+        assert_eq!(ok["doc_count"], 1);
+        assert_eq!(ok["count"]["value"].as_f64(), Some(1.0));
+    }
+
+    #[test]
+    fn sibling_underscore_count_matches_a_doc_count_weighted_filter_bucket() {
+        // The object form (`"alias": "sibling>_count"`) reads the sibling's
+        // own reported `doc_count`, which `filter` also builds with
+        // `sum_doc_count` — so the ratio is over LOGICAL events, matching
+        // what the two filter buckets in the same response advertise.
+        let docs = vec![
+            json!({"status": "delayed", "_doc_count": 5}),
+            json!({"status": "delayed", "_doc_count": 3}),
+            json!({"status": "ok", "_doc_count": 8}),
+        ];
+        let agg = json!({
+            "numerator": { "filter": { "term": { "status": "delayed" } } },
+            "denominator": { "filter": { "match_all": {} } },
+            "ratio": {
+                "bucket_script": {
+                    "buckets_path": { "numerator": "numerator>_count", "denominator": "denominator>_count" },
+                    "script": "params.numerator / params.denominator"
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        assert_eq!(result["numerator"]["doc_count"], 8);
+        assert_eq!(result["denominator"]["doc_count"], 16);
+        let ratio = result["ratio"]["value"]
+            .as_f64()
+            .expect("bucket_script over weighted filters must resolve");
+        assert!(
+            (ratio - 0.5).abs() < 1e-9,
+            "8/16 over weighted counts, not 2/3 over physical docs; got {ratio}"
+        );
     }
 
     #[test]
