@@ -5315,6 +5315,14 @@ impl GuardedField {
     /// Every guarded field. Adding a variant forces both resolvers below to
     /// be updated (their `match`es are exhaustive); add it here too so the
     /// walk actually reaches it.
+    ///
+    /// REMOVING an entry is the dangerous direction and the type system does
+    /// not catch it. Every test over the guarded set iterates `ALL`, so they
+    /// prove the guard covers whatever `ALL` currently holds, not that it
+    /// holds six specific fields. Measured: deleting `Self::Rescore` leaves
+    /// the whole suite green while an 80,001-byte `rescore` script goes from
+    /// 400 to 200 on every entry point, which is exactly the bypass #111
+    /// closed. The width assertion below is what catches that.
     const ALL: [GuardedField; 6] = [
         Self::Query,
         Self::Rescore,
@@ -5328,8 +5336,11 @@ impl GuardedField {
     ///
     /// `aggs`/`aggregations` resolve exactly the way the executor resolves
     /// them — `parse_request` does `obj.get("aggs").or_else(|| obj.get(
-    /// "aggregations"))` (xerj-query `parser.rs`), first spelling present
-    /// wins — and `build_search_request`'s caller does the same on the typed
+    /// "aggregations"))` (xerj-query `parser.rs`), so **`aggs` wins whenever
+    /// both keys are present**, regardless of which appears first in the
+    /// document (`serde_json` preserves order workspace-wide, so document
+    /// order is observable and is NOT the rule) — and
+    /// `build_search_request`'s caller does the same on the typed
     /// body. Checking the two keys independently instead would 400 a body
     /// whose over-limit script sits in the spelling the executor DISCARDS: a
     /// pure false positive, and an `_msearch`-vs-`_search` split of its own.
@@ -5362,6 +5373,13 @@ impl GuardedField {
         }
     }
 }
+
+/// The guard covers six fields. Adding a variant is already a compile error in
+/// both exhaustive `match`es; this catches the other direction — silently
+/// dropping an entry from [`GuardedField::ALL`], which every test iterates and
+/// therefore none of them can detect. Change the number only alongside a
+/// deliberate change to what `_search` validates.
+const _: () = assert!(GuardedField::ALL.len() == 6);
 
 /// Request-time script guard for a RAW search body — the shape `_msearch`,
 /// `_search/template` and `_msearch/template` hand straight to
