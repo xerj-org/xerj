@@ -25,14 +25,16 @@
 //!
 //! Everything here works on UTC epoch milliseconds (ES date resolution).
 
-use chrono::{Datelike, Duration, Months, NaiveDate, NaiveDateTime, Timelike};
+use chrono::{Datelike, Duration, Months, NaiveDate, NaiveDateTime, Timelike, Weekday};
+use std::collections::HashMap;
+use std::sync::{Arc, OnceLock, RwLock};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Errors
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Why a bound could not be resolved as a date.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DateResolveError {
     /// The `format` parameter itself is invalid (unknown pattern letter).
     /// Carries the offending letter; the caller formats the full ES message
@@ -60,12 +62,37 @@ struct DateParts {
     year: Option<i32>,
     month: Option<u32>,
     day: Option<u32>,
+    /// Day-of-year (`D`/`DDD`), the ordinal-date formats' day component.
+    /// Takes precedence over `month`/`day` when present.
+    day_of_year: Option<u32>,
+    /// ISO week-based year (`x` in the built-in week-date formats).  When
+    /// present the calendar date comes from (week_year, week, weekday) and
+    /// `year`/`month`/`day` are ignored.
+    week_year: Option<i32>,
+    /// ISO week-of-week-based-year, 1-53 (`w`).
+    week: Option<u32>,
+    /// ISO day-of-week, 1 = Monday … 7 = Sunday (`e`).
+    weekday: Option<u32>,
     hour: Option<u32>,
     minute: Option<u32>,
     second: Option<u32>,
     milli: Option<u32>,
     /// UTC offset in seconds (parsed from `Z` / `±hh[:mm]`).  `None` → UTC.
     tz_secs: Option<i32>,
+}
+
+/// Map ISO day-of-week 1-7 (Mon-Sun) to a chrono `Weekday`.
+fn iso_weekday(n: u32) -> Option<Weekday> {
+    Some(match n {
+        1 => Weekday::Mon,
+        2 => Weekday::Tue,
+        3 => Weekday::Wed,
+        4 => Weekday::Thu,
+        5 => Weekday::Fri,
+        6 => Weekday::Sat,
+        7 => Weekday::Sun,
+        _ => return None,
+    })
 }
 
 impl DateParts {
@@ -90,8 +117,31 @@ impl DateParts {
                 self.milli.unwrap_or(0),
             )
         };
-        let dt = NaiveDate::from_ymd_opt(year, month, day)?
-            .and_hms_milli_opt(hour, minute, second, milli)?;
+        // Three mutually exclusive ways to name a calendar day, in the
+        // precedence java.time resolves them: ISO week date (week-based
+        // year + week + day-of-week), ordinal date (year + day-of-year),
+        // then the ordinary year/month/day.
+        let date = if let Some(wy) = self.week_year {
+            let weekday = match self.weekday {
+                Some(d) => iso_weekday(d)?,
+                None if round_up => Weekday::Sun,
+                None => Weekday::Mon,
+            };
+            match self.week {
+                Some(w) => NaiveDate::from_isoywd_opt(wy, w, weekday)?,
+                // A bare `weekyear` (`xxxx`) covers the whole ISO year:
+                // round down to week 1, round up to its last week (53 when
+                // the year has one, else 52).
+                None if round_up => NaiveDate::from_isoywd_opt(wy, 53, weekday)
+                    .or_else(|| NaiveDate::from_isoywd_opt(wy, 52, weekday))?,
+                None => NaiveDate::from_isoywd_opt(wy, 1, weekday)?,
+            }
+        } else if let Some(doy) = self.day_of_year {
+            NaiveDate::from_yo_opt(year, doy)?
+        } else {
+            NaiveDate::from_ymd_opt(year, month, day)?
+        };
+        let dt = date.and_hms_milli_opt(hour, minute, second, milli)?;
         let ms = dt.and_utc().timestamp_millis();
         Some(ms - i64::from(self.tz_secs.unwrap_or(0)) * 1000)
     }
@@ -127,6 +177,19 @@ pub enum PatTok {
     Day {
         two_digit: bool,
     },
+    /// Day-of-year (`D`/`DDD`); payload = minimum digit count.  Drives the
+    /// ordinal-date formats (`ordinal_date` = `yyyy-DDD`).
+    DayOfYear(usize),
+    /// ISO week-based year (`x` inside the built-in week-date formats);
+    /// payload = exact digit count.
+    WeekYear(usize),
+    /// ISO week-of-week-based-year (`w`); payload = exact-width flag.
+    Week {
+        two_digit: bool,
+    },
+    /// Numeric ISO day-of-week, 1 = Monday … 7 = Sunday (`e`/`ee` inside the
+    /// built-in week-date formats).
+    DayOfWeekNum,
     Hour {
         two_digit: bool,
     },
@@ -146,6 +209,9 @@ pub enum PatTok {
     AmPm,
     /// Verbatim text that must match exactly.
     Literal(String),
+    /// A `[...]` optional section (java.time's `optionalStart`/`optionalEnd`).
+    /// Matches if the whole section matches; otherwise it is skipped.
+    Optional(Vec<PatTok>),
     /// A *valid* Java pattern letter this engine does not implement (e.g.
     /// week-of-year `w`).  Compiling succeeds (ES accepts the format); any
     /// value parsed against it fails, producing ES's `failed to parse date
@@ -161,6 +227,69 @@ const VALID_JAVA_PATTERN_LETTERS: &str = "GuyDMLdgQqYwWEecFahKkHmsSAnNVvzOXxZpB"
 /// Compile an ES `format` string (possibly `||`-joined) into a format list.
 pub fn compile_formats(format: &str) -> Result<Vec<DateFmt>, DateResolveError> {
     format.split("||").map(compile_one_format).collect()
+}
+
+/// How many distinct format strings the compile cache will hold.  Format
+/// strings come from mappings and from range-query `format` parameters, so
+/// the key space is attacker-influenced; past this many entries the cache
+/// stops growing and later formats simply compile every time (correct, just
+/// not cached).
+const FORMAT_CACHE_CAP: usize = 1024;
+
+type FormatCacheEntry = Result<Arc<Vec<DateFmt>>, DateResolveError>;
+
+fn format_cache() -> &'static RwLock<HashMap<String, FormatCacheEntry>> {
+    static CACHE: OnceLock<RwLock<HashMap<String, FormatCacheEntry>>> = OnceLock::new();
+    CACHE.get_or_init(|| RwLock::new(HashMap::new()))
+}
+
+/// [`compile_formats`], memoised on the format string.
+///
+/// Ingest recompiles a field's declared `format` once per *value*: a bulk of
+/// 10k docs with one date field re-tokenises the same pattern 10k times.  The
+/// format is a property of the mapping, not of the value, so the compiled
+/// result is cached and handed out behind an `Arc`.  Compilation *failures*
+/// are cached too — a bad format is equally hot and equally deterministic.
+pub fn compile_formats_cached(format: &str) -> FormatCacheEntry {
+    if let Ok(cache) = format_cache().read() {
+        if let Some(hit) = cache.get(format) {
+            return hit.clone();
+        }
+    }
+    let compiled = compile_formats(format).map(Arc::new);
+    if let Ok(mut cache) = format_cache().write() {
+        if cache.len() < FORMAT_CACHE_CAP {
+            cache.insert(format.to_string(), compiled.clone());
+        }
+    }
+    compiled
+}
+
+/// Is `value` acceptable for a date field declaring `format`?
+///
+/// THE single ingest-time date-validation predicate.  Both ingest paths must
+/// call it and nothing else:
+///
+/// * `ignore_malformed: true` — a value that fails is dropped from the doc
+///   and listed in `_ignored`.
+/// * `ignore_malformed: false` — a value that fails rejects the whole
+///   document with `document_parsing_exception`.
+///
+/// They used to be two independent implementations, and the strict one was
+/// the *laxer* of the two: it accepted any string under any named format, so
+/// turning `ignore_malformed` off — asking for stricter handling — made the
+/// engine accept more. Sharing one predicate is what keeps that from
+/// happening again; if you are about to write a second one, don't.
+///
+/// A format string that does not compile returns `false` (fail closed): an
+/// unresolvable format is not evidence the value is fine, only that we
+/// cannot tell.  Real ES rejects such a format when the mapping is created,
+/// so no document should ever reach this with one.
+pub fn date_value_valid_with_format(value: &serde_json::Value, format: &str) -> bool {
+    match compile_formats_cached(format) {
+        Ok(formats) => date_value_matches_formats(value, &formats),
+        Err(_) => false,
+    }
 }
 
 /// Does `value` parse as a valid date under any of the compiled `formats`?
@@ -197,53 +326,270 @@ pub fn date_value_matches_formats(value: &serde_json::Value, formats: &[DateFmt]
         // dropped exactly that shape.
         serde_json::Value::Number(n) => {
             let s = n.to_string();
-            formats
-                .iter()
-                .any(|f| parse_with_format(f, &s, false).is_some())
+            formats.iter().any(|f| value_matches_format(f, &s))
         }
         // No trim: ES does not strip leading/trailing whitespace before
         // handing the value to the declared formatter, so a padded value
         // that would fail there must fail here too.
-        serde_json::Value::String(s) => formats
-            .iter()
-            .any(|f| parse_with_format(f, s, false).is_some()),
+        serde_json::Value::String(s) => formats.iter().any(|f| value_matches_format(f, s)),
         _ => false,
     }
 }
 
+/// Validation-only match of one value against one compiled format.
+///
+/// Strict parse first — the same one range bounds use.  If that fails and the
+/// pattern contains a *locale-dependent* text field (`MMM` month name, `E`
+/// weekday name), retry with those fields matched as opaque text.
+///
+/// This engine only knows English month names, but ES honours the mapping's
+/// `locale`, so under `format: "E, d MMM yyyy HH:mm:ss Z"` + `locale: "fr"`
+/// the value `"mer., 6 déc. 2000 02:55:00 -0800"` is perfectly valid data.
+/// Failing it would drop (or reject) documents real ES indexes — the exact
+/// class of bug this whole predicate exists to prevent.  So a month name we
+/// can't identify is treated as "unverified", NOT as "malformed": everything
+/// else in the pattern — the separators, the day, the year, the time, the
+/// offset — is still checked, so genuine garbage is still rejected.
+///
+/// Note this is deliberately different from an *unresolvable format*, which
+/// fails closed.  There we know nothing about the value; here we have checked
+/// every part of it except which language a word is in.
+fn value_matches_format(fmt: &DateFmt, value: &str) -> bool {
+    if parse_with_format(fmt, value, false).is_some() {
+        return true;
+    }
+    match fmt {
+        DateFmt::Pattern(toks) if has_locale_text(toks) => {
+            parse_pattern_with(toks, value, TextMatch::LocaleTolerant)
+                .and_then(|p| p.to_epoch_ms(false))
+                .is_some()
+        }
+        _ => false,
+    }
+}
+
+/// Does this pattern contain a field whose text depends on the locale?
+fn has_locale_text(toks: &[PatTok]) -> bool {
+    toks.iter()
+        .any(|t| matches!(t, PatTok::MonthName | PatTok::WeekdayName))
+}
+
+/// Every date format name Elasticsearch ships, lenient and `strict_` alike.
+///
+/// Exported so tests in other crates can assert the whole set resolves: a
+/// name that silently stops resolving becomes a silent data-loss bug on the
+/// `ignore_malformed: true` path, and this list is what makes that loud.
+pub const ES_NAMED_FORMATS: &[&str] = &[
+    "epoch_millis",
+    "epoch_second",
+    "date_optional_time",
+    "strict_date_optional_time",
+    "date_optional_time_nanos",
+    "strict_date_optional_time_nanos",
+    "iso8601",
+    "rfc3339",
+    "basic_date",
+    "strict_basic_date",
+    "basic_date_time",
+    "strict_basic_date_time",
+    "basic_date_time_no_millis",
+    "strict_basic_date_time_no_millis",
+    "basic_ordinal_date",
+    "strict_basic_ordinal_date",
+    "basic_ordinal_date_time",
+    "strict_basic_ordinal_date_time",
+    "basic_ordinal_date_time_no_millis",
+    "strict_basic_ordinal_date_time_no_millis",
+    "basic_time",
+    "strict_basic_time",
+    "basic_time_no_millis",
+    "strict_basic_time_no_millis",
+    "basic_t_time",
+    "strict_basic_t_time",
+    "basic_t_time_no_millis",
+    "strict_basic_t_time_no_millis",
+    "basic_week_date",
+    "strict_basic_week_date",
+    "basic_week_date_time",
+    "strict_basic_week_date_time",
+    "basic_week_date_time_no_millis",
+    "strict_basic_week_date_time_no_millis",
+    "date",
+    "strict_date",
+    "date_hour",
+    "strict_date_hour",
+    "date_hour_minute",
+    "strict_date_hour_minute",
+    "date_hour_minute_second",
+    "strict_date_hour_minute_second",
+    "date_hour_minute_second_fraction",
+    "strict_date_hour_minute_second_fraction",
+    "date_hour_minute_second_millis",
+    "strict_date_hour_minute_second_millis",
+    "date_time",
+    "strict_date_time",
+    "date_time_no_millis",
+    "strict_date_time_no_millis",
+    "hour",
+    "strict_hour",
+    "hour_minute",
+    "strict_hour_minute",
+    "hour_minute_second",
+    "strict_hour_minute_second",
+    "hour_minute_second_fraction",
+    "strict_hour_minute_second_fraction",
+    "hour_minute_second_millis",
+    "strict_hour_minute_second_millis",
+    "ordinal_date",
+    "strict_ordinal_date",
+    "ordinal_date_time",
+    "strict_ordinal_date_time",
+    "ordinal_date_time_no_millis",
+    "strict_ordinal_date_time_no_millis",
+    "time",
+    "strict_time",
+    "time_no_millis",
+    "strict_time_no_millis",
+    "t_time",
+    "strict_t_time",
+    "t_time_no_millis",
+    "strict_t_time_no_millis",
+    "week_date",
+    "strict_week_date",
+    "week_date_time",
+    "strict_week_date_time",
+    "week_date_time_no_millis",
+    "strict_week_date_time_no_millis",
+    "weekyear",
+    "strict_weekyear",
+    "weekyear_week",
+    "strict_weekyear_week",
+    "weekyear_week_day",
+    "strict_weekyear_week_day",
+    "year",
+    "strict_year",
+    "year_month",
+    "strict_year_month",
+    "year_month_day",
+    "strict_year_month_day",
+];
+
+/// Resolve one ES built-in named date format to its pattern.
+///
+/// This is the complete list of names Elasticsearch ships (`DateFormatters`),
+/// in the Joda spellings ES's own documentation uses.  Every name here MUST
+/// resolve: a name that falls through to being compiled as a literal pattern
+/// hits an invalid pattern letter (`b` in `basic_time`, `o` in `ordinal_date`,
+/// `t` in `time`, …) and the whole format errors out.  Because callers treat
+/// an unresolvable format as "this engine cannot validate anything for this
+/// field", a missing entry here is not a cosmetic gap — under
+/// `ignore_malformed: true` it silently drops every value of the field.
+///
+/// `strict_` and lenient names map to the same pattern.  Real ES only differs
+/// between them in how tolerant it is of missing zero-padding; this engine's
+/// pattern parser is strict for both, which is the pre-existing convention
+/// (`date` / `strict_date` already shared `yyyy-MM-dd`).
+fn builtin_format_pattern(name: &str) -> Option<&'static str> {
+    // Strip the `strict_` prefix — every strict variant maps to the same
+    // pattern as its lenient twin.
+    let base = name.strip_prefix("strict_").unwrap_or(name);
+    Some(match base {
+        // ── basic (no separators) ────────────────────────────────────────
+        // The `.SSS` fraction is bracketed wherever ES's own formatter
+        // builds it with `optionalStart()` — `strict_date_time` accepts
+        // `2021-05-01T07:10:00Z` with no millis at all.  Requiring it here
+        // would reject values real ES indexes.
+        "basic_date" => "yyyyMMdd",
+        "basic_date_time" => "yyyyMMdd'T'HHmmss[.SSS]XX",
+        "basic_date_time_no_millis" => "yyyyMMdd'T'HHmmssXX",
+        "basic_ordinal_date" => "yyyyDDD",
+        "basic_ordinal_date_time" => "yyyyDDD'T'HHmmss[.SSS]XX",
+        "basic_ordinal_date_time_no_millis" => "yyyyDDD'T'HHmmssXX",
+        "basic_time" => "HHmmss[.SSS]XX",
+        "basic_time_no_millis" => "HHmmssXX",
+        "basic_t_time" => "'T'HHmmss[.SSS]XX",
+        "basic_t_time_no_millis" => "'T'HHmmssXX",
+        "basic_week_date" => "xxxx'W'wwe",
+        "basic_week_date_time" => "xxxx'W'wwe'T'HHmmss[.SSS]XX",
+        "basic_week_date_time_no_millis" => "xxxx'W'wwe'T'HHmmssXX",
+        // ── calendar date / date-time ────────────────────────────────────
+        "date" | "year_month_day" => "yyyy-MM-dd",
+        "date_hour" => "yyyy-MM-dd'T'HH",
+        "date_hour_minute" => "yyyy-MM-dd'T'HH:mm",
+        "date_hour_minute_second" => "yyyy-MM-dd'T'HH:mm:ss",
+        "date_hour_minute_second_millis" | "date_hour_minute_second_fraction" => {
+            "yyyy-MM-dd'T'HH:mm:ss.SSS"
+        }
+        "date_time" => "yyyy-MM-dd'T'HH:mm:ss[.SSS]XX",
+        "date_time_no_millis" => "yyyy-MM-dd'T'HH:mm:ssXX",
+        "year" => "yyyy",
+        "year_month" => "yyyy-MM",
+        // ── time of day ──────────────────────────────────────────────────
+        "hour" => "HH",
+        "hour_minute" => "HH:mm",
+        "hour_minute_second" => "HH:mm:ss",
+        "hour_minute_second_millis" | "hour_minute_second_fraction" => "HH:mm:ss.SSS",
+        "time" => "HH:mm:ss[.SSS]XX",
+        "time_no_millis" => "HH:mm:ssXX",
+        "t_time" => "'T'HH:mm:ss[.SSS]XX",
+        "t_time_no_millis" => "'T'HH:mm:ssXX",
+        // ── ordinal date (day-of-year) ───────────────────────────────────
+        "ordinal_date" => "yyyy-DDD",
+        "ordinal_date_time" => "yyyy-DDD'T'HH:mm:ss[.SSS]XX",
+        "ordinal_date_time_no_millis" => "yyyy-DDD'T'HH:mm:ssXX",
+        // ── ISO week date ────────────────────────────────────────────────
+        "week_date" | "weekyear_week_day" => "xxxx-'W'ww-e",
+        "week_date_time" => "xxxx-'W'ww-e'T'HH:mm:ss[.SSS]XX",
+        "week_date_time_no_millis" => "xxxx-'W'ww-e'T'HH:mm:ssXX",
+        "weekyear" => "xxxx",
+        "weekyear_week" => "xxxx-'W'ww",
+        _ => return None,
+    })
+}
+
 fn compile_one_format(name: &str) -> Result<DateFmt, DateResolveError> {
     // Named builtins first (both strict_ and lenient joda names).
-    let pattern: &str = match name {
+    match name {
         "epoch_millis" => return Ok(DateFmt::EpochMillis),
         "epoch_second" => return Ok(DateFmt::EpochSecond),
         "strict_date_optional_time"
         | "date_optional_time"
         | "strict_date_optional_time_nanos"
         | "date_optional_time_nanos"
-        | "iso8601" => return Ok(DateFmt::IsoOptionalTime),
-        "basic_date" => "yyyyMMdd",
-        "basic_date_time" => "yyyyMMdd'T'HHmmss.SSSXX",
-        "basic_date_time_no_millis" => "yyyyMMdd'T'HHmmssXX",
-        "date" | "strict_date" | "year_month_day" | "strict_year_month_day" => "yyyy-MM-dd",
-        "year" | "strict_year" => "yyyy",
-        "year_month" | "strict_year_month" => "yyyy-MM",
-        "date_time" | "strict_date_time" => "yyyy-MM-dd'T'HH:mm:ss.SSSXX",
-        "date_time_no_millis" | "strict_date_time_no_millis" => "yyyy-MM-dd'T'HH:mm:ssXX",
-        "date_hour_minute_second" | "strict_date_hour_minute_second" => "yyyy-MM-dd'T'HH:mm:ss",
-        "date_hour_minute_second_millis"
-        | "strict_date_hour_minute_second_millis"
-        | "date_hour_minute_second_fraction"
-        | "strict_date_hour_minute_second_fraction" => "yyyy-MM-dd'T'HH:mm:ss.SSS",
-        "date_hour_minute" | "strict_date_hour_minute" => "yyyy-MM-dd'T'HH:mm",
-        "hour_minute_second" | "strict_hour_minute_second" => "HH:mm:ss",
-        "rfc3339" | "rfc3339_lenient" => return Ok(DateFmt::IsoOptionalTime),
-        other => other,
-    };
-    compile_pattern(pattern).map(DateFmt::Pattern)
+        | "iso8601"
+        | "rfc3339"
+        | "rfc3339_lenient" => return Ok(DateFmt::IsoOptionalTime),
+        _ => {}
+    }
+    if let Some(pattern) = builtin_format_pattern(name) {
+        return compile_pattern_in(pattern, PatternDialect::Builtin).map(DateFmt::Pattern);
+    }
+    // Not a built-in name — treat the string as a user-supplied java.time
+    // pattern, exactly as ES does.  An invalid pattern letter errors here
+    // (ES: `Invalid format: [banana]: Unknown pattern letter: b`).
+    compile_pattern_in(name, PatternDialect::User).map(DateFmt::Pattern)
+}
+
+/// Which pattern-letter dialect a pattern string is written in.
+#[derive(Clone, Copy, PartialEq)]
+enum PatternDialect {
+    /// A user-supplied `java.time` pattern from a mapping or a range
+    /// query's `format`.  Letters keep their `java.time` meanings (`x` is a
+    /// zone offset, `e` is a day-of-week *name*).
+    User,
+    /// One of the built-in names expanded by [`builtin_format_pattern`].
+    /// Those are written in the Joda spellings ES's docs use, where `x` is
+    /// the week-based year, `w` the week-of-week-based-year and `e` the
+    /// numeric day-of-week.  Confining these meanings to the built-in
+    /// dialect keeps user patterns behaving exactly as they did.
+    Builtin,
 }
 
 /// Compile a Java-style date pattern into tokens.
-fn compile_pattern(pattern: &str) -> Result<Vec<PatTok>, DateResolveError> {
+fn compile_pattern_in(
+    pattern: &str,
+    dialect: PatternDialect,
+) -> Result<Vec<PatTok>, DateResolveError> {
     let chars: Vec<char> = pattern.chars().collect();
     let mut toks: Vec<PatTok> = Vec::new();
     let mut i = 0usize;
@@ -275,6 +621,26 @@ fn compile_pattern(pattern: &str) -> Result<Vec<PatTok>, DateResolveError> {
             push_literal(&mut toks, &lit);
             continue;
         }
+        // `[...]` optional section, java.time's optionalStart/optionalEnd.
+        // Only the built-in patterns use it; user patterns keep `[` as a
+        // literal, exactly as before.
+        if c == '[' && dialect == PatternDialect::Builtin {
+            let mut depth = 1usize;
+            let start = i + 1;
+            let mut j = start;
+            while j < chars.len() && depth > 0 {
+                match chars[j] {
+                    '[' => depth += 1,
+                    ']' => depth -= 1,
+                    _ => {}
+                }
+                j += 1;
+            }
+            let inner: String = chars[start..j.saturating_sub(1)].iter().collect();
+            toks.push(PatTok::Optional(compile_pattern_in(&inner, dialect)?));
+            i = j;
+            continue;
+        }
         if c.is_ascii_alphabetic() {
             if !VALID_JAVA_PATTERN_LETTERS.contains(c) {
                 return Err(DateResolveError::UnknownPatternLetter(c));
@@ -298,6 +664,17 @@ fn compile_pattern(pattern: &str) -> Result<Vec<PatTok>, DateResolveError> {
                 'd' => PatTok::Day {
                     two_digit: run >= 2,
                 },
+                // Day-of-year: `DDD` (ordinal dates) is exactly 3 digits,
+                // `D` accepts 1-3.  Previously unimplemented, so every
+                // ordinal-date value failed to parse.
+                'D' => PatTok::DayOfYear(run.min(3)),
+                // Joda `x` = week-based year in the built-in week-date
+                // formats; `java.time` `x` = zone offset everywhere else.
+                'x' if dialect == PatternDialect::Builtin => PatTok::WeekYear(run.min(4)),
+                'w' if dialect == PatternDialect::Builtin => PatTok::Week {
+                    two_digit: run >= 2,
+                },
+                'e' if dialect == PatternDialect::Builtin => PatTok::DayOfWeekNum,
                 'H' | 'k' => PatTok::Hour {
                     two_digit: run >= 2,
                 },
@@ -436,13 +813,62 @@ fn parse_iso_partial(s: &str) -> Option<DateParts> {
     Some(parts)
 }
 
+/// How `MMM`/`E` text fields are matched.
+#[derive(Clone, Copy, PartialEq)]
+enum TextMatch {
+    /// Month names must be English (the only locale this engine knows).
+    /// Used for range-bound resolution, which needs a real month number.
+    English,
+    /// Any alphabetic run (plus an optional trailing `.`) matches, and an
+    /// unrecognised month resolves to January.  Validation only — see
+    /// [`value_matches_format`].
+    LocaleTolerant,
+}
+
 /// Parse a value against compiled pattern tokens.
 fn parse_pattern(toks: &[PatTok], value: &str) -> Option<DateParts> {
+    parse_pattern_with(toks, value, TextMatch::English)
+}
+
+fn parse_pattern_with(toks: &[PatTok], value: &str, text: TextMatch) -> Option<DateParts> {
+    let mut st = PatState {
+        i: 0,
+        parts: DateParts::default(),
+        pm: false,
+        has_ampm: false,
+    };
+    consume_tokens(toks, value, text, &mut st)?;
+    if st.i != value.len() {
+        return None; // ES: "unparsed text found at index N"
+    }
+    if st.has_ampm && st.pm {
+        if let Some(h) = st.parts.hour {
+            if h < 12 {
+                st.parts.hour = Some(h + 12);
+            }
+        }
+    }
+    Some(st.parts)
+}
+
+/// Parser position plus the fields decoded so far.  Cloned to trial-parse an
+/// optional section and rolled back if it doesn't match.
+#[derive(Clone)]
+struct PatState {
+    i: usize,
+    parts: DateParts,
+    pm: bool,
+    has_ampm: bool,
+}
+
+/// Consume `toks` from `st.i`.  Returns `None` (leaving `st` unusable) if any
+/// token fails to match; callers that need to recover clone `st` first.
+fn consume_tokens(toks: &[PatTok], value: &str, text: TextMatch, st: &mut PatState) -> Option<()> {
     let b = value.as_bytes();
-    let mut i = 0usize;
-    let mut parts = DateParts::default();
-    let mut pm = false;
-    let mut has_ampm = false;
+    let mut i = st.i;
+    let mut parts = st.parts.clone();
+    let mut pm = st.pm;
+    let mut has_ampm = st.has_ampm;
 
     for (t_idx, tok) in toks.iter().enumerate() {
         match tok {
@@ -461,6 +887,9 @@ fn parse_pattern(toks: &[PatTok], value: &str) -> Option<DateParts> {
                     Some(
                         PatTok::Month { .. }
                             | PatTok::Day { .. }
+                            | PatTok::DayOfYear(_)
+                            | PatTok::Week { .. }
+                            | PatTok::DayOfWeekNum
                             | PatTok::Hour { .. }
                             | PatTok::Minute { .. }
                             | PatTok::Second { .. }
@@ -480,12 +909,59 @@ fn parse_pattern(toks: &[PatTok], value: &str) -> Option<DateParts> {
                 parts.month = Some(d.parse().ok()?);
             }
             PatTok::MonthName => {
-                let name = take_alpha(b, &mut i)?;
-                parts.month = Some(month_from_name(&name)?);
+                if text == TextMatch::LocaleTolerant {
+                    // Consume the word; if it isn't an English month we
+                    // can't say which month it is, only that a word is
+                    // where a month name belongs. January stands in so the
+                    // value still has to be a resolvable date overall.
+                    let name = take_locale_text(value, &mut i)?;
+                    parts.month = Some(month_from_name(&name).unwrap_or(1));
+                } else {
+                    let name = take_alpha(b, &mut i)?;
+                    parts.month = Some(month_from_name(&name)?);
+                }
             }
             PatTok::Day { two_digit } => {
                 let d = take_digits(b, &mut i, if *two_digit { 2 } else { 1 }, 2)?;
                 parts.day = Some(d.parse().ok()?);
+            }
+            PatTok::DayOfYear(min_digits) => {
+                let d = take_digits(b, &mut i, *min_digits, 3)?;
+                let doy: u32 = d.parse().ok()?;
+                if !(1..=366).contains(&doy) {
+                    return None;
+                }
+                parts.day_of_year = Some(doy);
+            }
+            PatTok::WeekYear(digits) => {
+                let neg = if b.get(i) == Some(&b'-') {
+                    i += 1;
+                    true
+                } else {
+                    false
+                };
+                let d = take_digits(b, &mut i, *digits, *digits)?;
+                let mut wy: i32 = d.parse().ok()?;
+                if neg {
+                    wy = -wy;
+                }
+                parts.week_year = Some(wy);
+            }
+            PatTok::Week { two_digit } => {
+                let d = take_digits(b, &mut i, if *two_digit { 2 } else { 1 }, 2)?;
+                let w: u32 = d.parse().ok()?;
+                if !(1..=53).contains(&w) {
+                    return None;
+                }
+                parts.week = Some(w);
+            }
+            PatTok::DayOfWeekNum => {
+                let d = take_digits(b, &mut i, 1, 1)?;
+                let dow: u32 = d.parse().ok()?;
+                if !(1..=7).contains(&dow) {
+                    return None;
+                }
+                parts.weekday = Some(dow);
             }
             PatTok::Hour { two_digit } => {
                 let d = take_digits(b, &mut i, if *two_digit { 2 } else { 1 }, 2)?;
@@ -509,7 +985,11 @@ fn parse_pattern(toks: &[PatTok], value: &str) -> Option<DateParts> {
                 i += used;
             }
             PatTok::WeekdayName => {
-                take_alpha(b, &mut i)?;
+                if text == TextMatch::LocaleTolerant {
+                    take_locale_text(value, &mut i)?;
+                } else {
+                    take_alpha(b, &mut i)?;
+                }
             }
             PatTok::AmPm => {
                 let a = take_alpha(b, &mut i)?;
@@ -527,20 +1007,32 @@ fn parse_pattern(toks: &[PatTok], value: &str) -> Option<DateParts> {
                 }
                 i += lb.len();
             }
+            // `[...]` — try the section, and simply skip it if it does not
+            // match. This is what makes a trailing `.SSS` optional in the
+            // `*_date_time` formats, where ES's own formatter builds the
+            // fraction with `optionalStart()`.
+            PatTok::Optional(inner) => {
+                let mut trial = PatState {
+                    i,
+                    parts: parts.clone(),
+                    pm,
+                    has_ampm,
+                };
+                if consume_tokens(inner, value, text, &mut trial).is_some() {
+                    i = trial.i;
+                    parts = trial.parts;
+                    pm = trial.pm;
+                    has_ampm = trial.has_ampm;
+                }
+            }
             PatTok::Unsupported => return None,
         }
     }
-    if i != b.len() {
-        return None; // ES: "unparsed text found at index N"
-    }
-    if has_ampm && pm {
-        if let Some(h) = parts.hour {
-            if h < 12 {
-                parts.hour = Some(h + 12);
-            }
-        }
-    }
-    Some(parts)
+    st.i = i;
+    st.parts = parts;
+    st.pm = pm;
+    st.has_ampm = has_ampm;
+    Some(())
 }
 
 fn take_digits(b: &[u8], i: &mut usize, min: usize, max: usize) -> Option<String> {
@@ -552,6 +1044,29 @@ fn take_digits(b: &[u8], i: &mut usize, min: usize, max: usize) -> Option<String
         return None;
     }
     Some(String::from_utf8_lossy(&b[start..*i]).into_owned())
+}
+
+/// Consume a locale-agnostic text field: a run of alphabetic characters in
+/// any script, plus an optional trailing `.`.  Both are needed for real
+/// non-English month/weekday abbreviations — French December is `déc.`, dot
+/// included, and `é` is not ASCII.
+fn take_locale_text(value: &str, i: &mut usize) -> Option<String> {
+    let start = *i;
+    for ch in value[*i..].chars() {
+        if ch.is_alphabetic() {
+            *i += ch.len_utf8();
+        } else {
+            break;
+        }
+    }
+    if *i == start {
+        return None;
+    }
+    let word = value[start..*i].to_string();
+    if value[*i..].starts_with('.') {
+        *i += 1;
+    }
+    Some(word)
 }
 
 fn take_alpha(b: &[u8], i: &mut usize) -> Option<String> {
@@ -933,14 +1448,24 @@ mod tests {
     }
 
     #[test]
-    fn unresolvable_named_format_fails_closed() {
-        // `ordinal_date` isn't in compile_one_format's named-format table,
-        // so it falls through to being compiled as a literal Java pattern
-        // — and 'o' isn't a valid pattern letter, so compilation fails.
-        // Compilation failure must fail closed (the caller,
-        // is_date_value_valid_with_format, must never treat this as "any
-        // value is valid" — see its own test for the caller-level check).
-        assert!(compile_formats("ordinal_date").is_err());
+    fn only_genuinely_invalid_formats_fail_closed() {
+        // Fail-closed is right, but it must apply to formats ES itself
+        // rejects — NOT to real ES named formats. `ordinal_date` used to
+        // land in the unresolvable bucket (it isn't a java.time pattern:
+        // 'o' is not a pattern letter), which silently dropped every value
+        // of any field declaring it. It must resolve now.
+        for name in ES_NAMED_FORMATS {
+            assert!(
+                compile_formats(name).is_ok(),
+                "real ES named format `{name}` does not resolve — every value \
+                 of a field declaring it would be dropped under \
+                 ignore_malformed"
+            );
+        }
+        // A format ES also rejects (`Unknown pattern letter: b`) still fails
+        // closed.
+        assert!(compile_formats("banana").is_err());
+        assert!(compile_formats("strict_date_time||banana").is_err());
     }
 
     #[test]
@@ -1169,5 +1694,700 @@ mod tests {
     fn iso_rejects_trailing_garbage() {
         assert_eq!(resolve_date_bound_str("2026-02-15X", false, None), Ok(None));
         assert_eq!(resolve_date_bound_str("2026-2-15", false, None), Ok(None));
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Named-format truth table
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod named_format_truth_table {
+    //! One row per Elasticsearch named date format: a string ES accepts, a
+    //! JSON number, and whether ES accepts that number.
+    //!
+    //! This table exists because of a specific data-loss regression. An
+    //! earlier fix made unresolvable formats fail closed — right instinct —
+    //! but 28 REAL ES formats were unresolvable, because they are not
+    //! java.time patterns (`basic_time` trips on `b`, `ordinal_date` on `o`,
+    //! `time` on `t`) and nothing mapped them to their real pattern. Under
+    //! `ignore_malformed: true` that silently dropped every value of any
+    //! field declaring one of them. The formats below are now implemented,
+    //! so they validate instead of vanishing.
+    //!
+    //! The `number_ok` column is the load-bearing one. ES's `DateFieldMapper`
+    //! stringifies a JSON number and feeds it to the declared formatter, so a
+    //! number is accepted exactly when its digits match the format's textual
+    //! shape — true for the all-digit formats (`yyyyDDD`, `HH`, `xxxx`, …),
+    //! false as soon as the format requires a separator, a `T`, or a zone
+    //! offset.
+
+    use super::*;
+
+    struct Row {
+        format: &'static str,
+        /// A value real Elasticsearch accepts under `format`.
+        good: &'static str,
+        /// A JSON number offered under `format`.
+        number: i64,
+        /// Does ES accept that number? (i.e. do its digits match the
+        /// format's textual shape)
+        number_ok: bool,
+    }
+
+    const fn row(format: &'static str, good: &'static str, number: i64, number_ok: bool) -> Row {
+        Row {
+            format,
+            good,
+            number,
+            number_ok,
+        }
+    }
+
+    /// Every named format, with a real value for each.
+    const TRUTH_TABLE: &[Row] = &[
+        // ── epoch ────────────────────────────────────────────────────────
+        row("epoch_millis", "1717527762025", 1717527762025, true),
+        row("epoch_second", "1717527762", 1717527762, true),
+        // ── the default, and its aliases ─────────────────────────────────
+        row(
+            "strict_date_optional_time",
+            "2024-01-01T00:00:00.000Z",
+            1717527762025,
+            false,
+        ),
+        row("date_optional_time", "2024-01-01", 1717527762025, false),
+        row("iso8601", "2024-01-01T12:10:30Z", 1717527762025, false),
+        // ── basic (separator-free) ───────────────────────────────────────
+        row("basic_date", "20240101", 20240101, true),
+        row("basic_date_time", "20240101T121030.123Z", 20240101, false),
+        row(
+            "basic_date_time_no_millis",
+            "20240101T121030Z",
+            20240101,
+            false,
+        ),
+        // NEWLY SUPPORTED from here down — each of these used to fail to
+        // compile, which under ignore_malformed dropped every value.
+        row("basic_ordinal_date", "2024001", 2024001, true),
+        row(
+            "basic_ordinal_date_time",
+            "2024001T121030.123Z",
+            2024001,
+            false,
+        ),
+        row(
+            "basic_ordinal_date_time_no_millis",
+            "2024001T121030Z",
+            2024001,
+            false,
+        ),
+        row("basic_time", "121030.123Z", 121030, false),
+        row("basic_time_no_millis", "121030Z", 121030, false),
+        row("basic_t_time", "T121030.123Z", 121030, false),
+        row("basic_t_time_no_millis", "T121030Z", 121030, false),
+        row("basic_week_date", "2024W011", 2024011, false),
+        row(
+            "basic_week_date_time",
+            "2024W011T121030.123Z",
+            2024011,
+            false,
+        ),
+        row(
+            "basic_week_date_time_no_millis",
+            "2024W011T121030Z",
+            2024011,
+            false,
+        ),
+        // ── calendar date / date-time ────────────────────────────────────
+        row("date", "2024-01-01", 20240101, false),
+        row("year_month_day", "2024-01-01", 20240101, false),
+        row("date_hour", "2024-01-01T12", 20240101, false),
+        row("date_hour_minute", "2024-01-01T12:10", 20240101, false),
+        row(
+            "date_hour_minute_second",
+            "2024-01-01T12:10:30",
+            20240101,
+            false,
+        ),
+        row(
+            "date_hour_minute_second_millis",
+            "2024-01-01T12:10:30.123",
+            20240101,
+            false,
+        ),
+        row(
+            "date_hour_minute_second_fraction",
+            "2024-01-01T12:10:30.123",
+            20240101,
+            false,
+        ),
+        row(
+            "date_time",
+            "2024-01-01T12:10:30.123Z",
+            1717527762025,
+            false,
+        ),
+        row(
+            "date_time_no_millis",
+            "2024-01-01T12:10:30Z",
+            1717527762025,
+            false,
+        ),
+        row("year", "2024", 2024, true),
+        row("year_month", "2024-01", 202401, false),
+        // ── time of day ──────────────────────────────────────────────────
+        row("hour", "12", 12, true),
+        row("hour_minute", "12:10", 1210, false),
+        row("hour_minute_second", "12:10:30", 121030, false),
+        row("hour_minute_second_millis", "12:10:30.123", 121030, false),
+        row("hour_minute_second_fraction", "12:10:30.123", 121030, false),
+        row("time", "12:10:30.123Z", 121030, false),
+        row("time_no_millis", "12:10:30Z", 121030, false),
+        row("t_time", "T12:10:30.123Z", 121030, false),
+        row("t_time_no_millis", "T12:10:30Z", 121030, false),
+        // ── ordinal date ─────────────────────────────────────────────────
+        row("ordinal_date", "2024-001", 2024001, false),
+        row(
+            "ordinal_date_time",
+            "2024-001T12:10:30.123Z",
+            2024001,
+            false,
+        ),
+        row(
+            "ordinal_date_time_no_millis",
+            "2024-001T12:10:30Z",
+            2024001,
+            false,
+        ),
+        // ── ISO week date ────────────────────────────────────────────────
+        row("week_date", "2024-W01-1", 2024011, false),
+        row("week_date_time", "2024-W01-1T12:10:30.123Z", 2024011, false),
+        row(
+            "week_date_time_no_millis",
+            "2024-W01-1T12:10:30Z",
+            2024011,
+            false,
+        ),
+        row("weekyear", "2024", 2024, true),
+        row("weekyear_week", "2024-W01", 202401, false),
+        row("weekyear_week_day", "2024-W01-1", 2024011, false),
+    ];
+
+    /// Values no format in the table may accept.
+    const GARBAGE: &[&str] = &[
+        "not-a-date",
+        "",
+        "banana",
+        "2024-99-99T99:99:99.999Z",
+        "   ",
+        "null",
+        "2024-01-01T00:00:00.000Z extra",
+    ];
+
+    fn accepts(format: &str, value: &serde_json::Value) -> bool {
+        date_value_valid_with_format(value, format)
+    }
+
+    #[test]
+    fn every_named_format_resolves() {
+        // THE regression check. A format that does not compile is treated
+        // as "cannot validate", which under ignore_malformed: true drops
+        // every value of the field. Any name here that stops resolving is
+        // silent data loss, so this asserts the whole shipped ES set — not
+        // just the ones the table happens to exercise.
+        for name in ES_NAMED_FORMATS {
+            assert!(
+                compile_formats(name).is_ok(),
+                "ES named format `{name}` does not resolve: every value of a \
+                 field declaring it would be silently dropped"
+            );
+        }
+    }
+
+    #[test]
+    fn strings_elasticsearch_accepts_are_accepted() {
+        for r in TRUTH_TABLE {
+            assert!(
+                accepts(r.format, &serde_json::json!(r.good)),
+                "format `{}` rejected `{}`, which real ES accepts",
+                r.format,
+                r.good
+            );
+        }
+    }
+
+    #[test]
+    fn numbers_match_elasticsearch_stringify_then_parse() {
+        for r in TRUTH_TABLE {
+            let got = accepts(r.format, &serde_json::json!(r.number));
+            assert_eq!(
+                got, r.number_ok,
+                "format `{}` with the number {}: expected accept={}, got {}",
+                r.format, r.number, r.number_ok, got
+            );
+        }
+    }
+
+    #[test]
+    fn genuine_garbage_is_rejected_under_every_format() {
+        for r in TRUTH_TABLE {
+            for g in GARBAGE {
+                assert!(
+                    !accepts(r.format, &serde_json::json!(g)),
+                    "format `{}` accepted garbage `{}`",
+                    r.format,
+                    g
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_format_elasticsearch_itself_rejects_still_fails_closed() {
+        // Fail-closed is preserved for what it was meant for: a format
+        // string that is not a named format AND not a valid java.time
+        // pattern. ES rejects these at mapping-creation time
+        // (`Unknown pattern letter: b`), so no document can legitimately
+        // arrive under one.
+        assert!(compile_formats("banana").is_err());
+        for g in GARBAGE {
+            assert!(!accepts("banana", &serde_json::json!(g)));
+        }
+        assert!(!accepts("banana", &serde_json::json!(1717527762025i64)));
+        assert!(!accepts("banana", &serde_json::json!("2024-01-01")));
+    }
+
+    #[test]
+    fn every_newly_supported_format_would_have_failed_closed_before() {
+        // Pins the exact scope of the regression that was fixed: these are
+        // the names that are NOT java.time patterns, so before they were
+        // added to the builtin table they compiled as literal patterns and
+        // errored on their first invalid pattern letter. Each must now both
+        // resolve AND validate its canonical value.
+        for r in TRUTH_TABLE {
+            let is_builtin_only = builtin_format_pattern(r.format).is_some()
+                && compile_pattern_in(r.format, PatternDialect::User).is_err();
+            if !is_builtin_only {
+                continue;
+            }
+            assert!(
+                accepts(r.format, &serde_json::json!(r.good)),
+                "`{}` resolves only via the builtin table and must validate \
+                 its canonical value `{}`",
+                r.format,
+                r.good
+            );
+        }
+    }
+
+    #[test]
+    fn combined_formats_accept_either_side() {
+        // The shape real mappings use: a named format OR epoch millis.
+        for r in TRUTH_TABLE {
+            let combined = format!("{}||epoch_millis", r.format);
+            assert!(
+                accepts(&combined, &serde_json::json!(r.good)),
+                "`{combined}` rejected `{}`",
+                r.good
+            );
+            assert!(
+                accepts(&combined, &serde_json::json!(1717527762025i64)),
+                "`{combined}` rejected an epoch-millis number"
+            );
+        }
+    }
+
+    #[test]
+    fn null_is_never_malformed() {
+        for r in TRUTH_TABLE {
+            assert!(accepts(r.format, &serde_json::Value::Null));
+        }
+    }
+
+    #[test]
+    fn week_and_ordinal_dates_resolve_to_the_right_instant() {
+        // Resolving is not the same as resolving CORRECTLY: check the two
+        // new calendar systems land on the day they name.
+        // 2024-001 is 1 Jan 2024; ISO week 2024-W01-1 is Mon 1 Jan 2024.
+        let jan1 = resolve_date_bound_str("2024-01-01", false, None)
+            .unwrap()
+            .unwrap();
+        let ordinal_fmt = compile_formats("ordinal_date").unwrap();
+        let week_fmt = compile_formats("week_date").unwrap();
+        let ordinal = resolve_date_bound_str("2024-001", false, Some(&ordinal_fmt))
+            .unwrap()
+            .unwrap();
+        let week = resolve_date_bound_str("2024-W01-1", false, Some(&week_fmt))
+            .unwrap()
+            .unwrap();
+        assert_eq!(ordinal, jan1, "ordinal_date 2024-001 should be 2024-01-01");
+        assert_eq!(week, jan1, "week_date 2024-W01-1 should be 2024-01-01");
+
+        // 2024 is a leap year: day 366 exists and is 31 Dec.
+        let dec31 = resolve_date_bound_str("2024-12-31", false, None)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            resolve_date_bound_str("2024-366", false, Some(&ordinal_fmt)),
+            Ok(Some(dec31))
+        );
+        // 2023 is not: day 366 must not resolve.
+        assert!(!accepts("ordinal_date", &serde_json::json!("2023-366")));
+        // Week 53 does not exist in 2024 (a 52-week ISO year).
+        assert!(!accepts("week_date", &serde_json::json!("2024-W53-1")));
+        // ...but it does in 2020.
+        assert!(accepts("week_date", &serde_json::json!("2020-W53-1")));
+    }
+
+    #[test]
+    fn compiled_formats_are_cached_and_the_cache_is_transparent() {
+        // The cache must not change any answer, only avoid the recompile.
+        for r in TRUTH_TABLE {
+            let uncached = compile_formats(r.format)
+                .map(|f| date_value_matches_formats(&serde_json::json!(r.good), &f))
+                .unwrap_or(false);
+            assert_eq!(
+                uncached,
+                accepts(r.format, &serde_json::json!(r.good)),
+                "cached and uncached disagree for `{}`",
+                r.format
+            );
+        }
+        // Same string twice hands back the same compiled Arc.
+        let a = compile_formats_cached("strict_date_time||epoch_millis").unwrap();
+        let b = compile_formats_cached("strict_date_time||epoch_millis").unwrap();
+        assert!(
+            Arc::ptr_eq(&a, &b),
+            "second compile of an identical format string should be a cache hit"
+        );
+    }
+}
+
+#[cfg(test)]
+mod locale_dependent_text_fields {
+    //! A pattern with a textual month/weekday is locale-dependent, and this
+    //! engine only knows English month names.  ES honours the mapping's
+    //! `locale`, so rejecting a French month name would drop documents real
+    //! ES indexes — and it would do so on BOTH ingest paths at once (dropped
+    //! under `ignore_malformed: true`, whole document rejected under
+    //! `false`).  The structure around the word is still validated.
+
+    use super::*;
+
+    /// The mapping from the `180_locale_dependent_mapping` conformance test.
+    const FR_FORMAT: &str = "E, d MMM yyyy HH:mm:ss Z";
+
+    fn accepts(format: &str, value: &str) -> bool {
+        date_value_valid_with_format(&serde_json::json!(value), format)
+    }
+
+    #[test]
+    fn french_month_names_are_accepted_not_dropped() {
+        assert!(accepts(FR_FORMAT, "mer., 6 déc. 2000 02:55:00 -0800"));
+        assert!(accepts(FR_FORMAT, "jeu., 7 déc. 2000 02:55:00 -0800"));
+    }
+
+    #[test]
+    fn english_month_names_still_take_the_strict_path() {
+        assert!(accepts(FR_FORMAT, "Wed, 6 Dec 2000 02:55:00 -0800"));
+    }
+
+    #[test]
+    fn locale_tolerance_only_covers_the_word_not_the_structure() {
+        // Everything except which language the month is in is still checked.
+        for bad in [
+            "not a date at all",
+            "mer., 6 déc. 2000 02:55:00",        // missing the offset
+            "mer., 6 déc. 2000 99:99:99 -0800",  // impossible time
+            "mer., 6 déc. 20 02:55:00 -0800",    // 2-digit year
+            "mer., déc. 2000 02:55:00 -0800",    // missing the day
+            ", 6 déc. 2000 02:55:00 -0800",      // missing the weekday
+            "mer., 6 déc. 2000 02:55:00 -0800!", // trailing garbage
+        ] {
+            assert!(
+                !accepts(FR_FORMAT, bad),
+                "locale tolerance wrongly accepted `{bad}`"
+            );
+        }
+    }
+
+    #[test]
+    fn locale_tolerance_does_not_leak_into_range_bound_resolution() {
+        // Bound resolution needs a real month number, so it stays English-
+        // only: a French month resolves to nothing rather than silently
+        // becoming January.
+        let fmt = compile_formats(FR_FORMAT).unwrap();
+        assert_eq!(
+            resolve_date_bound_str("mer., 6 déc. 2000 02:55:00 -0800", false, Some(&fmt)),
+            Err(DateResolveError::UnparseableValue(
+                "mer., 6 déc. 2000 02:55:00 -0800".to_string()
+            ))
+        );
+        // The English spelling of the same instant does resolve.
+        assert!(matches!(
+            resolve_date_bound_str("Wed, 6 Dec 2000 02:55:00 -0800", false, Some(&fmt)),
+            Ok(Some(_))
+        ));
+    }
+
+    #[test]
+    fn a_format_without_text_fields_gets_no_tolerance() {
+        // The carve-out is scoped to patterns that actually have a textual
+        // month/weekday — nothing else becomes laxer.
+        assert!(!accepts("yyyy-MM-dd", "banana"));
+        assert!(!accepts("strict_date_time", "mer., 6 déc. 2000"));
+    }
+}
+
+#[cfg(test)]
+mod strict_and_lenient_agree {
+    //! `ignore_malformed: false` (reject the document) and
+    //! `ignore_malformed: true` (drop the field) must make the SAME
+    //! malformed/not-malformed call.  They didn't: the strict path had its
+    //! own implementation that ended in a blanket `true` for named and
+    //! custom patterns, so asking for stricter handling made the engine
+    //! accept strictly MORE.  Both now call
+    //! [`date_value_valid_with_format`]; this pins the values that used to
+    //! show the contradiction.
+
+    use super::*;
+
+    /// Values the old strict path waved through under a declared format.
+    const WAS_WRONGLY_ACCEPTED_WHEN_STRICT: &[(&str, &str)] = &[
+        ("dd/MM/yyyy", "literally anything"),
+        ("dd/MM/yyyy", "2024-01-01"),
+        ("strict_date_time", "not-a-date"),
+        ("basic_date", "nonsense"),
+        ("yyyy-MM-dd HH:mm:ss", "whenever"),
+        ("ordinal_date", "banana"),
+    ];
+
+    #[test]
+    fn strict_no_longer_accepts_what_lenient_rejects() {
+        for (fmt, value) in WAS_WRONGLY_ACCEPTED_WHEN_STRICT {
+            assert!(
+                !date_value_valid_with_format(&serde_json::json!(value), fmt),
+                "`{value}` under `{fmt}` is malformed and must be rejected by \
+                 both ingest paths"
+            );
+        }
+    }
+
+    #[test]
+    fn the_two_paths_share_one_predicate() {
+        // Whatever the answer is, it is the same answer — the property that
+        // was violated. Exercised across the whole named-format set with a
+        // spread of value shapes.
+        for name in ES_NAMED_FORMATS {
+            for v in [
+                serde_json::json!("2024-01-01T00:00:00.000Z"),
+                serde_json::json!("garbage"),
+                serde_json::json!(1717527762025i64),
+                serde_json::json!(2024),
+                serde_json::Value::Null,
+            ] {
+                let a = date_value_valid_with_format(&v, name);
+                let b = compile_formats(name)
+                    .map(|f| date_value_matches_formats(&v, &f))
+                    .unwrap_or(false);
+                assert_eq!(a, b, "format `{name}` disagreed on {v:?}");
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod conformance_corpus_values {
+    //! Every `(declared format, indexed value)` pair that appears in the
+    //! ES-compat YAML corpus under `engine/tests/es-compat-yaml/yaml`.
+    //!
+    //! These matter more than they look. The `ignore_malformed: false` path
+    //! used to accept every string under a named or custom pattern, so it
+    //! never rejected any of these. Now that both ingest paths share one real
+    //! parser, a value here that fails to parse stops being indexed and
+    //! starts being a `document_parsing_exception` — a conformance failure
+    //! and, in production, a rejected document. Two were found this way:
+    //! `strict_date_time` was requiring the `.SSS` that ES makes optional,
+    //! and the French `MMM` month names had no locale tolerance.
+
+    use super::*;
+
+    const CORPUS: &[(&str, &str)] = &[
+        // aggregations/range.yml — the pair that exposed the mandatory-.SSS
+        // bug: real ES accepts these under strict_date_time with no millis.
+        ("strict_date_time||strict_date", "2021-05-01T07:10:00Z"),
+        ("strict_date_time||strict_date", "2021-05-02T08:34:00Z"),
+        ("strict_date_time||strict_date", "2021-05-03T08:36:00Z"),
+        ("strict_date_time||strict_date", "2021-05-04T09:05:00Z"),
+        ("strict_date_time||strict_date", "2021-05-06T09:22:00Z"),
+        ("strict_date_time||strict_date", "2015-01-01"),
+        // aggregations/composite.yml, date_histogram.yml,
+        // ignored_metadata_field.yml
+        ("yyyy-MM-dd HH:mm:ss", "2021-05-01 20:00:00"),
+        ("yyyy-MM-dd HH:mm:ss", "2021-05-01 21:20:00"),
+        ("yyyy-MM-dd HH:mm:ss", "2021-05-01 23:54:00"),
+        // aggregations/date_range.yml — epoch_second, given as strings.
+        ("epoch_second", "28800000000"),
+        ("epoch_second", "315561600000"),
+        ("epoch_second", "631180800000"),
+        // aggregations/range_timezone_bug.yml — 9-digit fraction + offset.
+        (
+            "uuuu-MM-dd'T'HH:mm:ss.SSSSSSSSSZZZZZ",
+            "2021-08-12T01:00:00.000000000+02:00",
+        ),
+        // search/500_date_range.yml — bare `uuuu` years, including 5 digits.
+        ("uuuu", "1900"),
+        ("uuuu", "2022"),
+        ("uuuu", "1500"),
+        ("uuuu", "10000"),
+        // search/390_doc_values_search.yml
+        ("yyyy/MM/dd", "2017/01/01"),
+        ("yyyy/MM/dd", "2017/01/02"),
+        // search/530_ignore_above_stored_source.yml
+        ("yyyy-MM-dd'T'HH:mm:ss", "2017-10-20T03:08:45"),
+        ("yyyy-MM-dd'T'HH:mm:ss", "2017-10-21T07:00:00"),
+        ("yyyy-MM-dd'T'HH:mm:ss", "2017-10-22T01:00:00"),
+        // search/90_search_after.yml, search/630_format_sort_missing_dates.yml
+        ("yyyy-MM-dd HH:mm:ss.SSS", "2019-10-21 00:30:04.828"),
+        ("yyyy-MM-dd HH:mm:ss.SSS", "2021-02-11 08:30:04.828"),
+        ("yyyy-MM-dd HH:mm:ss.SSS", "2021-10-13 00:30:04.828"),
+        ("yyyy-MM-dd HH:mm:ss.SSSSSS", "2019-10-21 00:30:04.828740"),
+        ("yyyy-MM-dd HH:mm:ss.SSSSSS", "2021-06-11 04:30:04.828456"),
+        ("yyyy-MM-dd HH:mm:ss.SSSSSS", "2021-10-13 00:30:04.828123"),
+        ("dd/MM/yyyy HH:mm:ss.SSS", "15/04/2021 06:30:04.821"),
+        ("dd/MM/yyyy HH:mm:ss.SSS", "20/05/2021 05:30:04.832"),
+        ("dd/MM/yyyy HH:mm:ss.SSS", "21/08/2021 03:30:04.732"),
+        // search/180_locale_dependent_mapping.yml — locale: fr
+        (
+            "E, d MMM yyyy HH:mm:ss Z",
+            "mer., 6 déc. 2000 02:55:00 -0800",
+        ),
+        (
+            "E, d MMM yyyy HH:mm:ss Z",
+            "jeu., 7 déc. 2000 02:55:00 -0800",
+        ),
+        // search/140_pre_filter_search_shards.yml
+        ("yyyy-MM-dd", "2015-01-01"),
+        ("yyyy-MM-dd", "2016-02-01"),
+    ];
+
+    #[test]
+    fn no_corpus_value_is_rejected() {
+        for (fmt, value) in CORPUS {
+            assert!(
+                date_value_valid_with_format(&serde_json::json!(value), fmt),
+                "`{value}` under declared format `{fmt}` would now be dropped \
+                 (ignore_malformed: true) or rejected outright \
+                 (ignore_malformed: false) — real ES indexes it"
+            );
+        }
+    }
+
+    #[test]
+    fn strict_date_time_millis_are_optional_both_ways() {
+        // ES builds strict_date_time's fraction with optionalStart(), so
+        // both spellings are valid; requiring `.SSS` rejected real data.
+        for v in [
+            "2021-05-01T07:10:00Z",
+            "2021-05-01T07:10:00.123Z",
+            "2021-05-01T07:10:00+02:00",
+            "2021-05-01T07:10:00.123+02:00",
+        ] {
+            assert!(
+                date_value_valid_with_format(&serde_json::json!(v), "strict_date_time"),
+                "strict_date_time rejected `{v}`"
+            );
+        }
+        // The offset is still required, and the seconds still are too.
+        assert!(!date_value_valid_with_format(
+            &serde_json::json!("2021-05-01T07:10:00"),
+            "strict_date_time"
+        ));
+        assert!(!date_value_valid_with_format(
+            &serde_json::json!("2021-05-01T07:10Z"),
+            "strict_date_time"
+        ));
+    }
+
+    #[test]
+    fn optional_sections_are_builtin_only() {
+        // `[` keeps its old literal meaning in a user-supplied pattern.
+        let toks = compile_pattern_in("yyyy[MM", PatternDialect::User).unwrap();
+        assert!(toks
+            .iter()
+            .any(|t| matches!(t, PatTok::Literal(l) if l == "[")));
+        assert!(date_value_valid_with_format(
+            &serde_json::json!("2024[01"),
+            "yyyy[MM"
+        ));
+    }
+}
+
+#[cfg(test)]
+mod ignored_metadata_field_oracle {
+    //! `aggregations/ignored_metadata_field.yml` is an ES fixture that
+    //! asserts an exact `_ignored` count, so it states, per value, whether
+    //! real Elasticsearch considers it malformed. That makes it a ready-made
+    //! truth table for the `ignore_malformed: true` path — the one the
+    //! regression under repair silently emptied.
+
+    use super::*;
+
+    fn valid(fmt: &str, v: &str) -> bool {
+        date_value_valid_with_format(&serde_json::json!(v), fmt)
+    }
+
+    /// `date_of_birth`, declared `format: "dd-MM-yyyy"`.
+    #[test]
+    fn date_of_birth_dd_mm_yyyy() {
+        for good in [
+            "12-03-1990",
+            "15-05-1991",
+            "01-09-1994",
+            "05-06-1989",
+            "16-11-1990",
+            "18-12-1992",
+        ] {
+            assert!(valid("dd-MM-yyyy", good), "`{good}` should be indexed");
+        }
+        for bad in [
+            "12-03-1990 12:30:45", // trailing time
+            "19-12-90",            // 2-digit year
+            "20/03/1992",          // wrong separator
+            "02311988",            // no separators
+            "17.15.1990",          // wrong separator + month 15
+        ] {
+            assert!(!valid("dd-MM-yyyy", bad), "`{bad}` should be _ignored");
+        }
+    }
+
+    /// `order_datetime`, declared `format: "yyyy-MM-dd HH:mm:ss"`.
+    #[test]
+    fn order_datetime_yyyy_mm_dd_hh_mm_ss() {
+        for good in [
+            "2021-05-01 20:01:37",
+            "2021-05-03 19:38:22",
+            "2021-05-01 20:05:37",
+        ] {
+            assert!(
+                valid("yyyy-MM-dd HH:mm:ss", good),
+                "`{good}` should be indexed"
+            );
+        }
+        for bad in [
+            "2021-05-02",              // date only
+            "2021-05-01-20:01:37",     // '-' where ' ' belongs
+            "20210501 20:01:37",       // no date separators
+            "2021-05-01 20:01:37.123", // trailing millis
+            "2021-05-03 20:01",        // no seconds
+            "2021-05-03 20-01-55",     // '-' time separators
+            "2021-05-01T20:02:00",     // 'T' where ' ' belongs
+        ] {
+            assert!(
+                !valid("yyyy-MM-dd HH:mm:ss", bad),
+                "`{bad}` should be _ignored"
+            );
+        }
     }
 }

@@ -2391,50 +2391,21 @@ fn find_bad_date_field(
     None
 }
 
-/// Does `val` parse against the ES date `fmt`? Handles the formats
-/// the YAML test suite exercises: `epoch_second`, `epoch_millis`,
-/// `strict_date_optional_time*`, plus any chrono-compatible pattern
-/// (via es_format_to_epoch_ms from index.rs). For the purposes of
-/// rejecting obvious garbage, a value is accepted if *any* of the
-/// declared formats (ES accepts `||`-separated patterns) matches.
+/// Does `val` parse against the ES date `fmt`?
+///
+/// This is the `ignore_malformed: false` path — a `false` here rejects the
+/// whole document with `document_parsing_exception`. It delegates to
+/// [`xerj_query::dates::date_value_valid_with_format`], which is also what
+/// the `ignore_malformed: true` path calls, so the two cannot disagree.
+///
+/// They used to, and in the wrong direction: this function hand-rolled its
+/// own rules and ended with a blanket `true` for "named or custom patterns",
+/// so under a declared format like `dd/MM/yyyy` the value `"literally
+/// anything"` was accepted here while the *lenient* path dropped it. Setting
+/// `ignore_malformed: false` — asking for stricter handling — made the engine
+/// accept strictly more. Keep this a delegation.
 fn date_value_parses(val: &Value, fmt: &str) -> bool {
-    // Multi-format: `a||b||c` — accept if any individual pattern parses.
-    if fmt.contains("||") {
-        return fmt.split("||").any(|f| date_value_parses(val, f.trim()));
-    }
-    match val {
-        Value::Null => true, // null is always fine
-        Value::Number(n) => {
-            // epoch_* formats accept any number. Textual formats need
-            // a string, so numeric values only parse for epoch formats.
-            fmt.contains("epoch") || n.as_i64().is_some()
-        }
-        Value::String(s) => {
-            let s = s.trim();
-            if fmt == "epoch_second" || fmt == "epoch_millis" {
-                return s.parse::<i64>().is_ok();
-            }
-            // strict_date_optional_time / date_optional_time accept
-            // any ISO-8601-ish string (year, year-month, full
-            // timestamp). We accept anything that chrono's flexible
-            // ISO parsers understand or that starts with a plausible
-            // year prefix.
-            if fmt.contains("date_optional_time") || fmt == "date" || fmt == "year" {
-                return chrono::DateTime::parse_from_rfc3339(s).is_ok()
-                    || s.parse::<i64>().is_ok()
-                    || chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").is_ok()
-                    || chrono::NaiveDate::parse_from_str(s, "%Y").is_ok()
-                    || chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S").is_ok();
-            }
-            // For named or custom patterns, be conservative — only
-            // reject obviously-broken values (non-numeric under an
-            // epoch format). Unknown format patterns pass through so
-            // we don't over-reject locale-specific tests that our
-            // translator doesn't yet handle.
-            true
-        }
-        _ => false,
-    }
+    xerj_query::dates::date_value_valid_with_format(val, fmt)
 }
 
 /// `*`-glob match (single wildcard segment, no `**`, no character

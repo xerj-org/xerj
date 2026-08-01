@@ -27338,22 +27338,19 @@ fn filter_keyword_length(val: &Value, max: usize) -> (Value, bool) {
     }
 }
 
-/// Check whether `v` parses under the declared ES date `fmt`, delegating to
-/// the same format compiler/parser `xerj-query` uses for range-query date
-/// bounds (`compile_formats` resolves named formats like `strict_date_time`
-/// to their real pattern; a JSON number stringifies and matches like any
-/// other value would against the resolved pattern).
+/// Check whether `v` parses under the declared ES date `fmt`.
+///
+/// Thin alias for [`xerj_query::dates::date_value_valid_with_format`] — the
+/// SINGLE ingest-time date predicate, shared with the `ignore_malformed:
+/// false` rejection path in `xerj_engine::bulk`. It must stay a delegation:
+/// when these two paths had separate implementations, the strict one was the
+/// laxer of the pair, so turning `ignore_malformed` off made the engine
+/// accept *more*.
+///
+/// The compiled format is memoised on the format string, so a bulk of N docs
+/// compiles a field's declared format once rather than N times.
 fn is_date_value_valid_with_format(v: &Value, fmt: &str) -> bool {
-    match xerj_query::dates::compile_formats(fmt) {
-        Ok(compiled) => xerj_query::dates::date_value_matches_formats(v, &compiled),
-        // A format name/pattern this engine can't resolve at all (e.g. a
-        // named ES format not yet in `compile_one_format`'s table) fails
-        // closed: every value for that field is treated as unvalidated and
-        // dropped under `ignore_malformed`, visible via `_ignored`, rather
-        // than silently accepting anything — an unresolvable format is not
-        // evidence the value is fine, only that this engine can't tell.
-        Err(_) => false,
-    }
+    xerj_query::dates::date_value_valid_with_format(v, fmt)
 }
 
 #[cfg(test)]
@@ -27406,12 +27403,13 @@ mod ignore_malformed_date_format_tests {
     }
 
     #[test]
-    fn unresolvable_format_name_fails_closed_not_open() {
-        // `ordinal_date` isn't a format this engine can resolve (see the
-        // dates.rs-level test for why). A format we can't validate must
-        // never be treated as "anything goes" — that's the fail-open bug
-        // this replaces.
-        assert!(!is_date_value_valid_with_format(
+    fn real_named_formats_are_not_in_the_fail_closed_bucket() {
+        // The regression this replaces: `ordinal_date` and 27 other REAL ES
+        // formats were unresolvable, so fail-closed dropped every one of
+        // their values under `ignore_malformed: true` — including JSON
+        // numbers, which the previous release accepted. They resolve now,
+        // and validate for real.
+        assert!(is_date_value_valid_with_format(
             &json!("2024-001"),
             "ordinal_date"
         ));
@@ -27419,6 +27417,52 @@ mod ignore_malformed_date_format_tests {
             &json!("literally anything"),
             "ordinal_date"
         ));
+        // The number shape that main accepted and the fix dropped.
+        assert!(is_date_value_valid_with_format(
+            &json!(2024001),
+            "basic_ordinal_date"
+        ));
+        assert!(is_date_value_valid_with_format(&json!(12), "hour"));
+        assert!(is_date_value_valid_with_format(&json!(2024), "weekyear"));
+        assert!(is_date_value_valid_with_format(
+            &json!("121030.123Z"),
+            "basic_time"
+        ));
+    }
+
+    #[test]
+    fn a_format_elasticsearch_rejects_still_fails_closed() {
+        // Fail-closed survives for what it was actually for: a format that
+        // is neither a named ES format nor a valid java.time pattern (ES
+        // rejects `banana` with `Unknown pattern letter: b` at mapping
+        // creation, so no document can legitimately arrive under one).
+        assert!(!is_date_value_valid_with_format(
+            &json!("2024-01-01"),
+            "banana"
+        ));
+        assert!(!is_date_value_valid_with_format(
+            &json!(1717527762025i64),
+            "banana"
+        ));
+    }
+
+    #[test]
+    fn no_es_named_format_drops_data_under_ignore_malformed() {
+        // Field-level guard on the whole shipped ES format set: a name that
+        // stops resolving silently empties the field, so assert none of them
+        // reject a value they should accept by construction — every format
+        // accepts JSON null, and no format may reject everything.
+        for name in xerj_query::dates::ES_NAMED_FORMATS {
+            assert!(
+                is_date_value_valid_with_format(&Value::Null, name),
+                "`{name}` treats null as malformed"
+            );
+            assert!(
+                xerj_query::dates::compile_formats(name).is_ok(),
+                "`{name}` is unresolvable — every value of a field declaring \
+                 it would be dropped from _source under ignore_malformed"
+            );
+        }
     }
 
     #[tokio::test]
