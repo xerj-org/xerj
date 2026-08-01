@@ -1559,6 +1559,9 @@ impl Engine {
         name: &str,
         indices: Option<Vec<String>>,
     ) -> Result<Value> {
+        // Reject path-traversal snapshot names before joining to repo_path.
+        // `..%2f..` in the URL would otherwise resolve above the repo root.
+        validate_snapshot_name(name)?;
         let snap_dir = std::path::Path::new(repo_path).join(name);
         std::fs::create_dir_all(&snap_dir).map_err(EngineError::Io)?;
 
@@ -1650,6 +1653,8 @@ impl Engine {
         name: &str,
         indices: Option<Vec<String>>,
     ) -> Result<Vec<String>> {
+        // Reject path-traversal snapshot names before joining to repo_path.
+        validate_snapshot_name(name)?;
         let snap_dir = std::path::Path::new(repo_path).join(name);
         let manifest_path = snap_dir.join("manifest.json");
 
@@ -1717,6 +1722,20 @@ impl Engine {
         };
 
         for idx_name in &index_names {
+            // Validate the index name BEFORE touching the filesystem — a
+            // `..` entry in a tampered manifest would otherwise let
+            // `remove_dir_all` (below) recurse on `data_dir/..` and delete
+            // the parent of data_dir. IndexName::new rejects `..` (C1 fix);
+            // this is the gate the original code ran too late (after delete).
+            let index_name = match IndexName::new(idx_name) {
+                Ok(n) => n,
+                Err(e) => {
+                    warn!(index = idx_name, error = %e, "snapshot manifest has invalid index name, skipping");
+                    self.failed_indices.insert(idx_name.clone(), e.to_string());
+                    continue;
+                }
+            };
+
             let src_dir = snap_dir.join(idx_name.as_str());
             if !src_dir.exists() {
                 warn!(index = idx_name, "snapshot directory missing, skipping");
@@ -1724,6 +1743,28 @@ impl Engine {
             }
 
             let dst_dir = self.data_dir.join(idx_name);
+            // Defense-in-depth: assert dst_dir resolves inside data_dir
+            // BEFORE the recursive remove_dir_all. IndexName::new already
+            // rejected `..`; this canonicalize check catches a symlinked
+            // data_dir or any future bypass of the name validation.
+            let base_canon = self.data_dir.canonicalize().map_err(EngineError::Io)?;
+            let dst_canon = match dst_dir.canonicalize() {
+                Ok(c) => c,
+                Err(_) => {
+                    // dst_dir doesn't exist yet — join the validated
+                    // single-component name onto the canonicalized base.
+                    base_canon.join(idx_name.as_str())
+                }
+            };
+            if !dst_canon.starts_with(&base_canon) {
+                return Err(EngineError::Common(xerj_common::XerjError::invalid_mapping(
+                    format!(
+                        "restore target '{}' resolves outside data_dir '{}'",
+                        dst_dir.display(),
+                        self.data_dir.display()
+                    )
+                )));
+            }
 
             // Remove existing index data (if any) and close it.
             if self.indices.contains_key(idx_name.as_str()) {
@@ -1739,7 +1780,6 @@ impl Engine {
             copy_dir_recursive(&src_dir, &dst_dir, &mut _files).map_err(EngineError::Io)?;
 
             // Reopen the index.
-            let index_name = IndexName::new(idx_name).map_err(EngineError::Common)?;
             match Index::open(index_name, &self.config, &self.data_dir) {
                 Ok(idx) => {
                     // Snapshot dirs carry es_mapping.json — reload it so the
@@ -1783,6 +1823,45 @@ fn now_millis() -> i64 {
 /// we do the same for ours so `_snapshot`/`_restore` operate on user data.
 pub(crate) fn is_system_index(name: &str) -> bool {
     name.starts_with(".xerj_")
+}
+
+/// Validate a snapshot name before it is joined to a repository path.
+///
+/// Snapshot names arrive as a URL path segment (`PUT /_snapshot/{repo}/{name}`)
+/// and are joined to the repo's filesystem location as
+/// `Path::new(repo_path).join(name)`. Axum's `Path` extractor percent-decodes
+/// each segment **after** splitting on raw `/`, so a request like
+/// `PUT /_snapshot/repo/..%2f..%2f..%2fetc` arrives with `name = "../../etc"`
+/// — which `Path::join` resolves multiple levels above the repo. Without
+/// this guard, `create_snapshot` would write `manifest.json` and per-index
+/// directories into an attacker-chosen filesystem location, and
+/// `restore_snapshot` would read a `manifest.json` from there (CWE-22).
+///
+/// This rejects any name that contains a path separator (`/` or `\`), is
+/// `.` or `..`, or contains a `..` run — the same posture `IndexName::validate`
+/// takes for index names. A valid snapshot name is a single path component.
+pub(crate) fn validate_snapshot_name(name: &str) -> Result<()> {
+    if name.is_empty() {
+        return Err(EngineError::Common(xerj_common::XerjError::invalid_mapping(
+            "snapshot name cannot be empty",
+        )));
+    }
+    if name == "." || name == ".." || name.contains("..") {
+        return Err(EngineError::Common(xerj_common::XerjError::invalid_mapping(
+            format!(
+                "snapshot name must not be '.', '..', or contain '..' \
+                 (path-traversal guard): {name:?}"
+            ),
+        )));
+    }
+    if name.contains('/') || name.contains('\\') {
+        return Err(EngineError::Common(xerj_common::XerjError::invalid_mapping(
+            format!(
+                "snapshot name must not contain path separators (got {name:?})"
+            ),
+        )));
+    }
+    Ok(())
 }
 
 /// Recursively copy all files from `src` to `dst`, recording relative paths in `files`.

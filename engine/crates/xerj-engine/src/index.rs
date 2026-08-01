@@ -2071,6 +2071,10 @@ impl Index {
     ) -> Result<Arc<Self>> {
         let index_dir = data_dir.join(name.as_str());
         std::fs::create_dir_all(&index_dir)?;
+        // Defense-in-depth: the validated name rejects `..`, but assert the
+        // resolved on-disk path is still inside data_dir in case a future
+        // caller bypasses IndexName (e.g. a symlink it doesn't control).
+        assert_within_data_dir(data_dir, &index_dir)?;
 
         let store_config = store_config_from(config);
         let store = IndexStore::open(&index_dir, store_config)?;
@@ -2253,6 +2257,10 @@ impl Index {
                 xerj_common::XerjError::index_not_found(name.as_str()),
             ));
         }
+        // Defense-in-depth: assert the existing index dir is inside data_dir
+        // (a tampered data_dir with a `..`-named directory would otherwise
+        // let `open` operate outside the engine's data root).
+        assert_within_data_dir(data_dir, &index_dir)?;
 
         let store_config = store_config_from(config);
         let store = IndexStore::open(&index_dir, store_config)?;
@@ -19615,6 +19623,29 @@ fn load_hnsw_artifacts_sync(
         seq_no,
         stale,
     })
+}
+
+/// Defense-in-depth (CWE-22): assert that `child` resolves on-disk inside
+/// `base`. `IndexName::validate` already rejects `..` (and `.` as a whole
+/// name), so a validated index name joined to `data_dir` cannot escape it.
+/// This is the belt-and-braces backstop that catches any future code path
+/// that joins an unvalidated string to `data_dir` — it canonicalizes both
+/// paths (so a symlinked `data_dir` root is handled correctly) and refuses
+/// any child whose real location is not a descendant of the base. Both
+/// paths must already exist on disk when this is called.
+fn assert_within_data_dir(base: &Path, child: &Path) -> Result<()> {
+    let base_canon = base.canonicalize().map_err(EngineError::Io)?;
+    let child_canon = child.canonicalize().map_err(EngineError::Io)?;
+    if !child_canon.starts_with(&base_canon) {
+        return Err(EngineError::Common(xerj_common::XerjError::invalid_mapping(
+            format!(
+                "index path '{}' resolves outside data_dir '{}'",
+                child.display(),
+                base.display()
+            )
+        )));
+    }
+    Ok(())
 }
 
 fn store_config_from(config: &Config) -> IndexStoreConfig {

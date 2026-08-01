@@ -84,6 +84,8 @@ pub struct Config {
     pub logging: LoggingConfig,
     /// Elasticsearch/OpenSearch wire-compatibility identity — 2 settings.
     pub compat: CompatConfig,
+    /// Snapshot repository confinement — 1 setting.
+    pub snapshot: SnapshotConfig,
 }
 
 // Total: 5+3+2+3+10+5+3+1+6+2+4+3+4+3+2 = 56 fields (incl. cors: 2, auth: 3,
@@ -318,6 +320,25 @@ pub struct CompatConfig {
     /// that first, a real OpenSearch Dashboards container rejected it, see
     /// `es_compat::FALLBACK_OPENSEARCH_VERSION`'s doc comment for why).
     pub version: String,
+}
+
+/// Snapshot repository settings — 1 setting.
+///
+/// `root_dir` constrains where filesystem snapshot repositories may live.
+/// When non-empty, a `PUT /_snapshot/{repo}` request whose
+/// `settings.location` resolves outside `root_dir` is rejected (CWE-22:
+/// without this, an admin — or anyone in the default no-auth posture —
+/// could point a repository at an arbitrary filesystem path and have
+/// `create_snapshot`/`restore_snapshot` read and write there). Empty
+/// (default) preserves the pre-existing unrestricted behaviour; set it
+/// in production to lock snapshot repos under a dedicated directory.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct SnapshotConfig {
+    /// Absolute directory that all filesystem snapshot repository
+    /// `location` values must resolve inside. Empty (default) = no
+    /// restriction (backwards-compatible). Example: `"/var/lib/xerj/snapshots"`.
+    pub root_dir: String,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1378,9 +1399,10 @@ mod tests {
         //                   total memtable, segment hydration cache, RSS, disk)
         //   indexing: 3    (turbo_batch_size, turbo_parallel, turbo_fast_analyzer)
         //   logging: 2     (format, access_log)                      ← RC4-W4 item 6
+        //   snapshot: 1    (root_dir)                             ← snapshot repo confinement
         //   ─────────
-        //   total: 58 fields, minus 1 auto-generated (admin_api_key) = 57 meaningful user settings
-        let total: usize = 5 + 3 + 3 + 10 + 5 + 3 + 1 + 6 + 2 + 4 + 11 + 3 + 2;
-        assert_eq!(total, 58);
+        //   total: 59 fields, minus 1 auto-generated (admin_api_key) = 58 meaningful user settings
+        let total: usize = 5 + 3 + 3 + 10 + 5 + 3 + 1 + 6 + 2 + 4 + 11 + 3 + 2 + 1;
+        assert_eq!(total, 59);
     }
 }

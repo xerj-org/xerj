@@ -5765,6 +5765,150 @@ async fn test_restore_snapshot_honors_indices_filter() {
     );
 }
 
+/// C1 regression: an index name of `..` must be rejected at the API/engine
+/// boundary, not silently joined to `data_dir` (which would resolve to the
+/// parent of data_dir and let `delete_index` recurse on it — CWE-22). The
+/// existing `IndexName::new` is the gate; `Engine::create_index` must surface
+/// that error rather than create the directory.
+#[tokio::test]
+async fn test_index_name_rejects_path_traversal() {
+    let dir = TempDir::new().unwrap();
+    // Nested data_dir: data_dir/.. resolves to dir.path() (this test's own
+    // TempDir), so the "no pollution above data_dir" assertions stay within
+    // the test's private directory.
+    let mut config = Config::default();
+    config.server.data_dir = dir.path().join("data").to_str().unwrap().to_string();
+    let engine = Engine::new(config).expect("engine::new");
+    let data_dir = dir.path().join("data");
+    let data_parent = data_dir.parent().unwrap().to_path_buf(); // == dir.path()
+
+    for bad in ["..", ".", "foo..bar", "...x", "a.."] {
+        let result = engine.create_index(bad, Schema::empty());
+        assert!(
+            result.is_err(),
+            "index name {bad:?} must be rejected (path-traversal guard)"
+        );
+    }
+    // No directory should have been created at/above data_dir for `..`:
+    // `data_dir/..` is `data_parent`; a polluted create would have stamped
+    // `wal/`, `segments/`, `xerj_meta.json` there.
+    assert!(!data_parent.join("wal").exists());
+    assert!(!data_parent.join("segments").exists());
+    assert!(!data_parent.join("xerj_meta.json").exists());
+
+    // Sanity: a valid name still creates an index INSIDE data_dir (not above).
+    engine.create_index("good", Schema::empty()).unwrap();
+    assert!(data_dir.join("good").exists(), "valid index must be created inside data_dir");
+    assert!(!data_parent.join("good").exists(), "valid index must not leak above data_dir");
+}
+
+/// C2 regression: a snapshot name containing `..` or path separators must be
+/// rejected before it is joined to the repo path — `PUT /_snapshot/repo/..%2f..`
+/// would otherwise resolve above the repo root and write `manifest.json`
+/// (and per-index dirs) into an attacker-chosen location (CWE-22).
+#[tokio::test]
+async fn test_snapshot_name_rejects_path_traversal() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    let repo = dir.path().join("snaprepo");
+    let repo_path = repo.to_str().unwrap();
+    // Create a valid index so the snapshot would have something to copy if
+    // the name check were missing.
+    engine.create_index("s1", Schema::empty()).unwrap();
+
+    for bad in ["..", "..%2f..", "../../etc", "a/b", "a\\b", "foo..bar"] {
+        let result = engine
+            .create_snapshot(repo_path, bad, Some(vec!["s1".to_string()]))
+            .await;
+        assert!(
+            result.is_err(),
+            "snapshot name {bad:?} must be rejected (path-traversal guard)"
+        );
+    }
+    // Restore must reject the same names.
+    for bad in ["..", "../../etc", "a/b"] {
+        let result = engine.restore_snapshot(repo_path, bad, None).await;
+        assert!(
+            result.is_err(),
+            "snapshot name {bad:?} must be rejected on restore"
+        );
+    }
+    // No manifest should have escaped above the repo root.
+    assert!(!dir.path().join("manifest.json").exists());
+}
+
+/// C2 regression: a tampered snapshot manifest listing `..` as an index must
+/// NOT cause `restore_snapshot` to `remove_dir_all` on `data_dir/..`. The
+/// `IndexName::new` check now runs BEFORE the recursive delete, so a hostile
+/// manifest entry is rejected (skipped) instead of destroying the parent of
+/// data_dir. This test plants such a manifest and asserts the parent survives.
+///
+/// `data_dir` is nested inside the TempDir (`dir/data`) so that `data_dir/..`
+/// resolves to the TempDir root — a pre-fix run would `remove_dir_all` the
+/// TempDir itself, which is contained to this test (never the system temp).
+#[tokio::test]
+async fn test_restore_rejects_manifest_traversal_without_deleting_parent() {
+    let dir = TempDir::new().unwrap();
+    // Nested data_dir: data_dir/.. resolves to dir.path() (this test's own
+    // TempDir), NOT the system temp dir — keeps a hypothetical pre-fix run
+    // contained to this test's own directory.
+    let mut config = Config::default();
+    config.server.data_dir = dir.path().join("data").to_str().unwrap().to_string();
+    let engine = Engine::new(config).expect("engine::new");
+    let data_dir = dir.path().join("data");
+    let data_parent = data_dir.parent().unwrap().to_path_buf(); // == dir.path()
+
+    let repo = data_parent.join("snaprepo");
+    let repo_path = repo.to_str().unwrap();
+    // Create a legitimate snapshot of `s1`.
+    engine.create_index("s1", Schema::empty()).unwrap();
+    engine
+        .get_index("s1")
+        .unwrap()
+        .index_document(Some("d1".into()), json!({"v": 1}))
+        .await
+        .unwrap();
+    engine
+        .create_snapshot(repo_path, "snap1", Some(vec!["s1".to_string()]))
+        .await
+        .unwrap();
+
+    // Tamper with the manifest: claim the snapshot contains `..` as an
+    // index. Pre-fix this called `remove_dir_all(data_dir/..)` BEFORE the
+    // `IndexName::new` check ran, deleting the parent of data_dir.
+    let manifest_path = repo.join("snap1").join("manifest.json");
+    let mut manifest: Value = serde_json::from_slice(&std::fs::read(&manifest_path).unwrap())
+        .unwrap();
+    manifest["indices"] = json!(["s1", ".."]);
+    std::fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest).unwrap()).unwrap();
+
+    // Sentinel file in data_dir's parent (the TempDir root) — must survive.
+    let sentinel = data_parent.join("xerj_c2_sentinel.tmp");
+    std::fs::write(&sentinel, b"sentinel").unwrap();
+
+    let restored = engine.restore_snapshot(repo_path, "snap1", None).await;
+    // `s1` restores fine; `..` is rejected by IndexName::new and skipped
+    // (the loop continues on invalid names rather than hard-failing). The
+    // returned list is the candidate list from the manifest; the security
+    // guarantee is that the hostile entry does NOT trigger a delete.
+    assert!(restored.is_ok(), "restore should succeed, skipping the hostile '..' entry");
+    let restored_names = restored.unwrap();
+    assert!(
+        restored_names.contains(&"s1".to_string()),
+        "s1 must be in the restored candidate list"
+    );
+    // The sentinel in data_dir's parent must still exist — the hostile `..`
+    // entry must not have triggered remove_dir_all on the parent.
+    assert!(
+        sentinel.exists(),
+        "sentinel in data_dir's parent must survive restore (CWE-22 traversal guard)"
+    );
+    // And data_dir itself must still exist (pre-fix removed_dir_all would
+    // have deleted it along with its parent).
+    assert!(data_dir.exists(), "data_dir must still exist after restore");
+    std::fs::remove_file(&sentinel).ok();
+}
+
 /// Blocker 7: top-level kNN semantics, verified against live ES 8.13.4 on
 /// 2026-07-12 with this exact corpus:
 ///   * `knn.filter` pre-filters candidates (ES returned ids 1,3);

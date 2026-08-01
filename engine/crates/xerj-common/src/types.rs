@@ -100,6 +100,21 @@ impl IndexName {
                 name.len()
             )));
         }
+        // Path-traversal guard (CWE-22): index names are joined to
+        // `data_dir` to form on-disk paths (`data_dir.join(name)`), so a
+        // `..` component would escape `data_dir` and let a caller create,
+        // pollute, or recursively delete directories outside it. The bare
+        // names `.` and `..` and any name containing `..` are rejected.
+        // `.` is only permitted as a leading-character system-index prefix
+        // (`.kibana`, `.security-7`) or as a single interior dot between
+        // non-dot characters — never as a traversal component. ES itself
+        // rejects these, so this also matches wire-protocol expectations.
+        if name == "." || name == ".." || name.contains("..") {
+            return Err(XerjError::invalid_mapping(format!(
+                "index name must not be '.', '..', or contain '..' \
+                 (path-traversal guard): {name:?}"
+            )));
+        }
         // chars().next() returns None iff `name` is empty — fold the
         // empty-name check into the extraction so the two facts can't
         // drift apart in a future refactor.
@@ -525,6 +540,29 @@ mod tests {
         assert!(IndexName::new("_private").is_err()); // starts with _
         assert!(IndexName::new("bad name").is_err()); // space
         assert!(IndexName::new("1bad").is_err()); // starts with digit
+    }
+
+    #[test]
+    fn index_name_rejects_path_traversal() {
+        // `.` / `..` as the whole name would let `data_dir.join(name)`
+        // resolve to `data_dir`'s parent — a recursive-delete / arbitrary-
+        // write primitive (CWE-22). These must be rejected even though the
+        // per-character loop below permits `.` as a valid character.
+        assert!(IndexName::new(".").is_err());
+        assert!(IndexName::new("..").is_err());
+        // Any name containing a `..` run is a traversal component (the
+        // char loop allows `.` so without this guard `foo..bar` and
+        // `...x` would slip through). ES also rejects these.
+        assert!(IndexName::new("foo..bar").is_err());
+        assert!(IndexName::new("...x").is_err());
+        assert!(IndexName::new(".a..b").is_err());
+        assert!(IndexName::new("a..").is_err());
+        // Single dots between non-dot characters remain valid — these
+        // are legitimate (ES allows `.` in index names) and must NOT be
+        // rejected by the traversal guard.
+        assert!(IndexName::new("a.b").is_ok());
+        assert!(IndexName::new(".kibana").is_ok());
+        assert!(IndexName::new("logs.2026").is_ok());
     }
 
     #[test]

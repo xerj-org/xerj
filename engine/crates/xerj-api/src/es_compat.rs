@@ -20871,11 +20871,99 @@ pub async fn get_index_alias(
 // GET    /_snapshot/{repo}/{snapshot}
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Build a 400 `illegal_argument_exception` response for a bad snapshot
+/// repository location, matching the ES-shaped error envelope the restore
+/// path already uses.
+fn snapshot_location_error(reason: &str) -> Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(json!({
+            "error": {
+                "root_cause": [{
+                    "type": "illegal_argument_exception",
+                    "reason": reason
+                }],
+                "type": "illegal_argument_exception",
+                "reason": reason,
+            },
+            "status": 400,
+        })),
+    )
+        .into_response()
+}
+
+/// Resolve `location` against `root_dir` and confirm it stays inside it.
+///
+/// Returns `Ok(())` when the location is acceptable, or `Err(reason)` with a
+/// human-readable reason string (surfaced as a 400 by the caller). The
+/// repository directory may not exist yet (it is typically created on the
+/// first `create_snapshot`), so when `canonicalize` fails on the location
+/// itself the parent is canonicalized and the final component re-appended.
+fn resolve_snapshot_location(location: &str, root_dir: &str) -> Result<(), String> {
+    let root = std::path::Path::new(root_dir);
+    let root_canon = root.canonicalize().map_err(|e| {
+        format!("snapshot.root_dir {root_dir:?} is not accessible: {e}")
+    })?;
+    let loc_path = std::path::Path::new(location);
+    let resolved = if loc_path.is_absolute() {
+        loc_path.to_path_buf()
+    } else {
+        // Relative locations are resolved against the configured root, not
+        // the process working directory, so a relative name cannot escape by
+        // relying on an unrelated CWD.
+        root_canon.join(location)
+    };
+    let resolved_canon = match resolved.canonicalize() {
+        Ok(c) => c,
+        Err(_) => {
+            let parent = resolved.parent().unwrap_or(std::path::Path::new(""));
+            let parent_canon = parent.canonicalize().map_err(|e| {
+                format!("snapshot repository location {location:?} parent is not accessible: {e}")
+            })?;
+            parent_canon.join(resolved.file_name().unwrap_or_default())
+        }
+    };
+    if !resolved_canon.starts_with(&root_canon) {
+        return Err(format!(
+            "snapshot repository location {location:?} resolves outside snapshot.root_dir {root_dir:?}"
+        ));
+    }
+    Ok(())
+}
+
 pub async fn put_snapshot_repo(
     State(state): State<AppState>,
     Path(repo): Path<String>,
     Json(body): Json<Value>,
 ) -> impl IntoResponse {
+    // Validate the filesystem `location` before storing the repo config
+    // (CWE-22): without this, a repository could be pointed at an arbitrary
+    // path and `create_snapshot`/`restore_snapshot` would read and write
+    // there — letting a caller plant a `manifest.json` for restore or
+    // write snapshot files into sensitive directories. Two layers:
+    //   1. always reject `..`/`.` path components (relative traversal);
+    //   2. when `snapshot.root_dir` is configured, require the resolved
+    //      location to live inside it (blocks absolute-path escapes).
+    let location = body
+        .pointer("/settings/location")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if !location.is_empty() {
+        if location
+            .split(['/', '\\'])
+            .any(|seg| seg == ".." || seg == ".")
+        {
+            return snapshot_location_error(
+                "snapshot repository location must not contain '..' or '.' path components",
+            );
+        }
+        let root_dir = state.config.snapshot.root_dir.as_str();
+        if !root_dir.is_empty() {
+            if let Err(reason) = resolve_snapshot_location(location, root_dir) {
+                return snapshot_location_error(&reason);
+            }
+        }
+    }
     state.engine.snapshot_repos.insert(repo, body);
     Json(json!({ "acknowledged": true })).into_response()
 }
