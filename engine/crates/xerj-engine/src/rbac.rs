@@ -322,7 +322,9 @@ mod tests {
             .iter()
             .any(|r| r.allows(".xerj-memory-bob-edges", Privilege::ReadIndex)));
         // `cluster` privileges are ignored, so "all" there granted no index.
-        assert!(!roles.iter().any(|r| r.allows("anything", Privilege::ReadIndex)));
+        assert!(!roles
+            .iter()
+            .any(|r| r.allows("anything", Privilege::ReadIndex)));
     }
 
     #[test]

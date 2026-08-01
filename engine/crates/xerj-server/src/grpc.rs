@@ -16,7 +16,9 @@ use anyhow::Context;
 use tonic::{Request, Response, Status, Streaming};
 use tracing::info;
 
+use xerj_api::auth::Principal;
 use xerj_api::AppState;
+use xerj_engine::rbac::Privilege;
 use xerj_query::parse_request;
 
 /// Generated prost messages + tonic client/server stubs for `xerj.v1`.
@@ -43,13 +45,59 @@ impl GrpcService {
     }
 }
 
+/// Authorize an RPC that names an index.
+///
+/// The listener speaks the same engine as the HTTP surfaces, so the reserved
+/// `.xerj-memory-*` namespace has to be gated here too (issue #79) — otherwise
+/// per-brain authorization would hold on :9200 and :8080 and fall open on
+/// :8081, which is worse than not having it. [`GrpcAuth`] plants the
+/// [`Principal`] in the request extensions; a missing one means the
+/// interceptor did not run, and is treated as no credential at all.
+///
+/// `clippy::result_large_err` fires because `tonic::Status` is a fat value, but
+/// `Err` here IS the RPC's denial status — the shape every other handler in
+/// this file already returns — so boxing it would add an allocation on the deny
+/// path and force an unwrap at every `?`.
+#[allow(clippy::result_large_err)]
+fn authorize(
+    extensions: &tonic::Extensions,
+    index: &str,
+    privilege: Privilege,
+) -> Result<(), Status> {
+    let principal = extensions.get::<Principal>().unwrap_or(&Principal::Denied);
+    if principal.allows_index(index, privilege) {
+        Ok(())
+    } else {
+        Err(Status::permission_denied(format!(
+            "this credential is not authorized for [{index}]"
+        )))
+    }
+}
+
+/// Same rule as the HTTP middleware: a pattern that could reach the reserved
+/// namespace is refused rather than expanded, and a scoped credential must
+/// name the index it was granted.
+#[allow(clippy::result_large_err)] // same rationale as `authorize`
+fn reject_wildcards(principal: &Principal, index: &str) -> Result<(), Status> {
+    if (index.contains('*') || index == "_all") && !principal.is_superuser() {
+        return Err(Status::permission_denied(format!(
+            "index patterns are not available to this credential: [{index}]"
+        )));
+    }
+    Ok(())
+}
+
 #[tonic::async_trait]
 impl XerjSearch for GrpcService {
     async fn search(
         &self,
         request: Request<pb::SearchRequest>,
     ) -> Result<Response<pb::SearchResponse>, Status> {
-        let req = request.into_inner();
+        let (_meta, extensions, req) = request.into_parts();
+        let principal = extensions.get::<Principal>().unwrap_or(&Principal::Denied);
+        reject_wildcards(principal, &req.index)?;
+        // Before `get_index`, so 403-vs-not-found cannot map the node's brains.
+        authorize(&extensions, &req.index, Privilege::ReadIndex)?;
 
         let idx = self
             .state
@@ -111,7 +159,8 @@ impl XerjSearch for GrpcService {
         &self,
         request: Request<pb::IndexRequest>,
     ) -> Result<Response<pb::IndexResponse>, Status> {
-        let req = request.into_inner();
+        let (_meta, extensions, req) = request.into_parts();
+        authorize(&extensions, &req.index, Privilege::WriteIndex)?;
 
         // Index-on-write: ES auto-creates the index on first document.
         let idx = self
@@ -146,12 +195,20 @@ impl XerjSearch for GrpcService {
         &self,
         request: Request<Streaming<pb::IndexRequest>>,
     ) -> Result<Response<pb::BulkResponse>, Status> {
-        let mut stream = request.into_inner();
+        let (_meta, extensions, mut stream) = request.into_parts();
         let started = std::time::Instant::now();
         let mut indexed = 0i32;
         let mut errors = false;
 
         while let Some(item) = stream.message().await? {
+            // Per message: one stream may name many indices, and an
+            // unauthorized one must not ride in on an authorized one. A refused
+            // item is counted as an error, matching how this loop already
+            // reports a bad index or an unparsable source.
+            if authorize(&extensions, &item.index, Privilege::WriteIndex).is_err() {
+                errors = true;
+                continue;
+            }
             let idx = match self.state.engine.get_or_create_index(&item.index) {
                 Ok(i) => i,
                 Err(_) => {
@@ -190,7 +247,11 @@ impl XerjSearch for GrpcService {
         &self,
         request: Request<pb::GetRequest>,
     ) -> Result<Response<pb::GetResponse>, Status> {
-        let req = request.into_inner();
+        let (_meta, extensions, req) = request.into_parts();
+        // Deliberately a hard denial rather than this RPC's soft "not found":
+        // answering `found: false` for an unauthorized index would still let a
+        // caller probe which indices exist by timing or by error shape.
+        authorize(&extensions, &req.index, Privilege::ReadIndex)?;
 
         // Unknown index → "not found" (ES GET semantics), not an error.
         let idx = match self.state.engine.get_index(&req.index) {
@@ -229,7 +290,8 @@ impl XerjSearch for GrpcService {
         &self,
         request: Request<pb::DeleteRequest>,
     ) -> Result<Response<pb::DeleteResponse>, Status> {
-        let req = request.into_inner();
+        let (_meta, extensions, req) = request.into_parts();
+        authorize(&extensions, &req.index, Privilege::WriteIndex)?;
 
         let idx = self
             .state
@@ -285,19 +347,23 @@ struct GrpcAuth {
 }
 
 impl tonic::service::Interceptor for GrpcAuth {
-    fn call(&mut self, request: Request<()>) -> Result<Request<()>, Status> {
+    fn call(&mut self, mut request: Request<()>) -> Result<Request<()>, Status> {
         let auth_header = request
             .metadata()
             .get("authorization")
             .and_then(|v| v.to_str().ok());
 
-        if xerj_api::auth::is_authorized(&self.state, auth_header) {
-            Ok(request)
-        } else {
-            Err(Status::unauthenticated(
+        // Resolve the identity, not just a yes/no, and carry it into the RPC:
+        // the index an RPC touches lives in its message body, so the per-index
+        // decision cannot be made here — only the principal can be.
+        let principal = xerj_api::auth::authenticate(&self.state, auth_header);
+        if matches!(principal, Principal::Denied) {
+            return Err(Status::unauthenticated(
                 "missing or invalid API key in authorization metadata",
-            ))
+            ));
         }
+        request.extensions_mut().insert(principal);
+        Ok(request)
     }
 }
 
@@ -581,6 +647,238 @@ mod tests {
         assert!(!h.status.is_empty(), "authed health status must be set");
 
         // Shut the server down cleanly.
+        let _ = tx.send(());
+        let _ = server.await;
+    }
+
+    /// Standard-alphabet base64, so the test can build the `id:secret`
+    /// credential a minted key presents. `xerj_api`'s encoder is crate-private.
+    fn b64(input: &str) -> String {
+        const A: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let bytes = input.as_bytes();
+        let mut out = String::new();
+        for chunk in bytes.chunks(3) {
+            let b = [
+                chunk[0],
+                *chunk.get(1).unwrap_or(&0),
+                *chunk.get(2).unwrap_or(&0),
+            ];
+            let n = ((b[0] as u32) << 16) | ((b[1] as u32) << 8) | b[2] as u32;
+            out.push(A[(n >> 18) as usize & 63] as char);
+            out.push(A[(n >> 12) as usize & 63] as char);
+            out.push(if chunk.len() > 1 {
+                A[(n >> 6) as usize & 63] as char
+            } else {
+                '='
+            });
+            out.push(if chunk.len() > 2 {
+                A[n as usize & 63] as char
+            } else {
+                '='
+            });
+        }
+        out
+    }
+
+    /// Mint a key straight into the engine's store and return the
+    /// `authorization` metadata value a client would present.
+    fn mint_key(state: &AppState, id: &str, roles: Vec<xerj_engine::rbac::Role>) -> String {
+        state.engine.persist_api_key(
+            id.to_string(),
+            xerj_engine::engine::ApiKeyRecord {
+                name: id.to_string(),
+                secret: "s3cret".into(),
+                creation_ms: 0,
+                expiration_ms: None,
+                invalidated: false,
+                roles,
+            },
+        );
+        format!("ApiKey {}", b64(&format!("{id}:s3cret")))
+    }
+
+    /// Issue #79 on the gRPC listener. Per-brain authorization has to hold on
+    /// :8081 exactly as it does on :9200 and :8080 — these RPCs take an index
+    /// name straight out of the message body, so before this the boolean auth
+    /// check let any authenticated client read, forge and delete any brain's
+    /// edges here even while the HTTP surfaces refused.
+    #[tokio::test]
+    async fn grpc_enforces_per_index_authorization() {
+        use std::collections::HashSet;
+        use tonic::Code;
+        use xerj_engine::rbac::{Privilege, Role};
+
+        let dir = TempDir::new().unwrap();
+        let admin = "grpc-admin-secret";
+        let state = app_state_with_auth(&dir, admin);
+
+        // A key scoped to alice's brain, and a legacy key with no grants.
+        let alice = mint_key(
+            &state,
+            "alice-key",
+            vec![Role::new(
+                "alice",
+                [Privilege::ReadIndex, Privilege::WriteIndex]
+                    .into_iter()
+                    .collect::<HashSet<_>>(),
+                vec![".xerj-memory-alice-edges".into()],
+            )],
+        );
+        let legacy = mint_key(&state, "legacy-key", Vec::new());
+
+        let port = free_port();
+        let addr: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
+        let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+        let server = tokio::spawn(serve_grpc(addr, state, async move {
+            let _ = rx.await;
+        }));
+        let url = format!("http://127.0.0.1:{port}");
+        let mut client = connect(&url).await;
+
+        let with = |cred: &str| {
+            let v: tonic::metadata::MetadataValue<tonic::metadata::Ascii> = cred.parse().unwrap();
+            v
+        };
+
+        // Seed bob's brain as the admin, so there is something to keep apart.
+        let mut req = tonic::Request::new(pb::IndexRequest {
+            index: ".xerj-memory-bob-edges".into(),
+            id: "e1".into(),
+            source_json: r#"{"src":"doc:1","dst":"secret:2","type":"mentions"}"#.into(),
+        });
+        req.metadata_mut()
+            .insert("authorization", with(&format!("ApiKey {admin}")));
+        assert_eq!(
+            client
+                .index(req)
+                .await
+                .expect("admin seed")
+                .into_inner()
+                .result,
+            "created"
+        );
+
+        // ── alice cannot touch bob, by any RPC ──────────────────────────────
+        let mut req = tonic::Request::new(pb::SearchRequest {
+            index: ".xerj-memory-bob-edges".into(),
+            query_json: String::new(),
+            size: 10,
+            from: 0,
+        });
+        req.metadata_mut().insert("authorization", with(&alice));
+        let e = client
+            .search(req)
+            .await
+            .expect_err("search bob must be denied");
+        assert_eq!(e.code(), Code::PermissionDenied, "search: {e:?}");
+
+        let mut req = tonic::Request::new(pb::GetRequest {
+            index: ".xerj-memory-bob-edges".into(),
+            id: "e1".into(),
+        });
+        req.metadata_mut().insert("authorization", with(&alice));
+        let e = client
+            .get_document(req)
+            .await
+            .expect_err("get bob must be denied");
+        assert_eq!(e.code(), Code::PermissionDenied, "get: {e:?}");
+
+        let mut req = tonic::Request::new(pb::IndexRequest {
+            index: ".xerj-memory-bob-edges".into(),
+            id: "forged".into(),
+            source_json: r#"{"src":"doc:1","dst":"attacker:payload"}"#.into(),
+        });
+        req.metadata_mut().insert("authorization", with(&alice));
+        let e = client
+            .index(req)
+            .await
+            .expect_err("forge into bob must be denied");
+        assert_eq!(e.code(), Code::PermissionDenied, "index: {e:?}");
+
+        let mut req = tonic::Request::new(pb::DeleteRequest {
+            index: ".xerj-memory-bob-edges".into(),
+            id: "e1".into(),
+        });
+        req.metadata_mut().insert("authorization", with(&alice));
+        let e = client
+            .delete_document(req)
+            .await
+            .expect_err("delete from bob must be denied");
+        assert_eq!(e.code(), Code::PermissionDenied, "delete: {e:?}");
+
+        // A wildcard is refused rather than expanded.
+        let mut req = tonic::Request::new(pb::SearchRequest {
+            index: "*".into(),
+            query_json: String::new(),
+            size: 10,
+            from: 0,
+        });
+        req.metadata_mut().insert("authorization", with(&alice));
+        let e = client
+            .search(req)
+            .await
+            .expect_err("wildcard must be denied");
+        assert_eq!(e.code(), Code::PermissionDenied, "wildcard: {e:?}");
+
+        // ── alice keeps full use of her own brain ───────────────────────────
+        let mut req = tonic::Request::new(pb::IndexRequest {
+            index: ".xerj-memory-alice-edges".into(),
+            id: "e1".into(),
+            source_json: r#"{"src":"doc:1","dst":"doc:2","type":"mentions"}"#.into(),
+        });
+        req.metadata_mut().insert("authorization", with(&alice));
+        assert_eq!(
+            client
+                .index(req)
+                .await
+                .expect("own write")
+                .into_inner()
+                .result,
+            "created"
+        );
+        let mut req = tonic::Request::new(pb::GetRequest {
+            index: ".xerj-memory-alice-edges".into(),
+            id: "e1".into(),
+        });
+        req.metadata_mut().insert("authorization", with(&alice));
+        assert!(
+            client
+                .get_document(req)
+                .await
+                .expect("own read")
+                .into_inner()
+                .found
+        );
+
+        // ── the legacy key holds nothing in the reserved namespace, but keeps
+        // ── ordinary indices.
+        let mut req = tonic::Request::new(pb::GetRequest {
+            index: ".xerj-memory-alice-edges".into(),
+            id: "e1".into(),
+        });
+        req.metadata_mut().insert("authorization", with(&legacy));
+        let e = client
+            .get_document(req)
+            .await
+            .expect_err("legacy key must not read a brain");
+        assert_eq!(e.code(), Code::PermissionDenied, "legacy reserved: {e:?}");
+
+        let mut req = tonic::Request::new(pb::IndexRequest {
+            index: "logs-2026".into(),
+            id: "d1".into(),
+            source_json: r#"{"msg":"hello"}"#.into(),
+        });
+        req.metadata_mut().insert("authorization", with(&legacy));
+        assert_eq!(
+            client
+                .index(req)
+                .await
+                .expect("legacy key keeps ordinary indices")
+                .into_inner()
+                .result,
+            "created"
+        );
+
         let _ = tx.send(());
         let _ = server.await;
     }

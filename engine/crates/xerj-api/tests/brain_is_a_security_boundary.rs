@@ -52,7 +52,11 @@ fn state_over(data_dir: &str, auth: bool) -> AppState {
     let mut config = Config::default();
     config.server.data_dir = data_dir.to_string();
     config.auth.enabled = auth;
-    config.auth.admin_api_key = if auth { ADMIN_KEY.to_string() } else { String::new() };
+    config.auth.admin_api_key = if auth {
+        ADMIN_KEY.to_string()
+    } else {
+        String::new()
+    };
     let metrics = Metrics::new().expect("metrics");
     let engine = Engine::new(config.clone()).expect("engine");
     AppState::new(config, engine, metrics)
@@ -103,7 +107,11 @@ async fn send(
 /// header value.
 async fn mint(app: &axum::Router, minter: &str, body: &str) -> String {
     let (status, resp) = send(app, "POST", "/_security/api_key", minter, body).await;
-    assert_eq!(status, StatusCode::OK, "minting a key should succeed: {resp}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "minting a key should succeed: {resp}"
+    );
     let encoded = resp["encoded"].as_str().expect("encoded key").to_string();
     format!("ApiKey {encoded}")
 }
@@ -327,7 +335,14 @@ async fn a_scoped_caller_retains_full_use_of_its_own_brain() {
     assert_eq!(status, StatusCode::CREATED, "own-brain link failed: {body}");
     let edge_id = body["edge_id"].as_str().expect("edge_id").to_string();
 
-    let (status, _) = send(&app, "POST", "/.xerj-memory-alice-edges/_refresh", &alice, "").await;
+    let (status, _) = send(
+        &app,
+        "POST",
+        "/.xerj-memory-alice-edges/_refresh",
+        &alice,
+        "",
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "own backing index is usable");
 
     // Read, both entry points.
@@ -352,7 +367,11 @@ async fn a_scoped_caller_retains_full_use_of_its_own_brain() {
         "",
     )
     .await;
-    assert_eq!(status, StatusCode::OK, "own-brain overview failed: {overview}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "own-brain overview failed: {overview}"
+    );
 
     // Invalidate.
     let (status, body) = send(
@@ -508,7 +527,14 @@ async fn insecure_single_user_mode_is_unchanged() {
         cat.contains(".xerj-memory-"),
         "the single local user still sees their own brains: {cat}"
     );
-    let (status, _) = send(&app, "POST", "/_search", "", r#"{"query":{"match_all":{}}}"#).await;
+    let (status, _) = send(
+        &app,
+        "POST",
+        "/_search",
+        "",
+        r#"{"query":{"match_all":{}}}"#,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "insecure fan-out must work");
 }
 

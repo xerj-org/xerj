@@ -42,6 +42,8 @@
 //! | any index pattern that could *match* a reserved index | middleware (patterns are rejected, not expanded) |
 //! | unnamed fan-out (`POST /_search`, `/_bulk`, `/_all/*`, …) | middleware (refused for non-superusers) |
 //! | enumeration (`GET /_mapping`, `/_cat/indices`, `/_resolve/index/*`, …) | middleware (reserved entries pruned from the response) |
+//! | the native router's `/v1/indices/{name}/…` spelling of the same index | middleware ([`Target::Indices`] classifies both routers) |
+//! | the gRPC listener (`:8081` — `Search`/`Index`/`BulkIndex`/`Get`/`Delete` take the index from the message body) | `xerj-server::grpc`, using [`Principal::allows_index`] |
 //! | privilege escalation via `POST /_security/api_key` | `es_compat::security_create_api_key` (a non-superuser cannot mint grants it does not hold) |
 //!
 //! ## Fail-closed
@@ -65,6 +67,13 @@
 //! *ordinary* indices. This module makes the reserved namespace a real
 //! boundary; it does not turn xerj into a general multi-tenant authorization
 //! system. `xerj_engine::rbac`'s named `RoleStore` remains unenforced data.
+
+// The decision functions return `Result<(), Response>` where `Err` IS the
+// ready-to-send 403. That trips `clippy::result_large_err` (an `axum::Response`
+// is a fat value), but boxing it would add an allocation on the deny path to
+// satisfy a lint aimed at hot `Ok` paths, and would obscure that the error
+// *is* the response.
+#![allow(clippy::result_large_err)]
 
 use axum::{
     body::Body,
@@ -561,6 +570,12 @@ fn decide(
     segs: &[String],
     target: &Target,
 ) -> Result<(), Response> {
+    // Restated here and not only in the middleware, so this function is a
+    // complete decision on its own and cannot deny the local-dev superuser if
+    // it is ever called from somewhere else.
+    if principal.is_superuser() {
+        return Ok(());
+    }
     match target {
         Target::Exempt => Ok(()),
         Target::Brain(brain) => {
@@ -596,11 +611,9 @@ fn decide(
             // A scoped credential names its index or gets nothing: metadata
             // endpoints answer across the cluster, and "answer then filter" is
             // one missed shape away from a leak.
-            Principal::Scoped { .. } | Principal::Denied => Err(forbidden(
-                principal,
-                "<cluster>",
-                Privilege::ReadIndex,
-            )),
+            Principal::Scoped { .. } | Principal::Denied => {
+                Err(forbidden(principal, "<cluster>", Privilege::ReadIndex))
+            }
             _ => Ok(()),
         },
         Target::GlobalFanout => Err(forbidden(
@@ -725,9 +738,12 @@ fn prune_text(bytes: &[u8], principal: &Principal) -> Vec<u8> {
     }
     let mut out = String::with_capacity(text.len());
     for line in text.split_inclusive('\n') {
-        let hides = line
-            .split_whitespace()
-            .any(|token| hidden(token.trim_matches(|c: char| c == '"' || c == ','), principal));
+        let hides = line.split_whitespace().any(|token| {
+            hidden(
+                token.trim_matches(|c: char| c == '"' || c == ','),
+                principal,
+            )
+        });
         if !hides {
             out.push_str(line);
         }
@@ -757,7 +773,9 @@ mod tests {
     }
 
     fn unscoped() -> Principal {
-        Principal::Unscoped { key_id: "k2".into() }
+        Principal::Unscoped {
+            key_id: "k2".into(),
+        }
     }
 
     #[test]
@@ -781,7 +799,10 @@ mod tests {
     #[test]
     fn percent_encoded_reserved_names_are_decoded() {
         // `%2E` is `.` — without decoding, the leading-dot check would miss it.
-        assert_eq!(percent_decode("%2Exerj-memory-alice-edges"), ".xerj-memory-alice-edges");
+        assert_eq!(
+            percent_decode("%2Exerj-memory-alice-edges"),
+            ".xerj-memory-alice-edges"
+        );
         assert_eq!(
             classify("/%2Exerj-memory-alice-edges/_search"),
             Target::Indices(vec![".xerj-memory-alice-edges".into()], 1)
@@ -791,7 +812,10 @@ mod tests {
     #[test]
     fn classification() {
         assert_eq!(classify("/_graph/alice/ego"), Target::Brain("alice".into()));
-        assert_eq!(classify("/_memory/alice/_recall"), Target::Memory("alice".into()));
+        assert_eq!(
+            classify("/_memory/alice/_recall"),
+            Target::Memory("alice".into())
+        );
         assert_eq!(classify("/_search"), Target::GlobalFanout);
         assert_eq!(classify("/_bulk"), Target::GlobalFanout);
         assert_eq!(classify("/_all/_search"), Target::GlobalFanout);
@@ -884,8 +908,16 @@ mod tests {
         assert!(!check(&alice, Method::GET, "/_graph/bob/overview"));
         assert!(!check(&alice, Method::POST, "/_graph/bob/link"));
         assert!(!check(&alice, Method::DELETE, "/_graph/bob/link/e1"));
-        assert!(!check(&alice, Method::POST, "/.xerj-memory-bob-edges/_search"));
-        assert!(!check(&alice, Method::POST, "/.xerj-memory-bob-edges/_doc/x"));
+        assert!(!check(
+            &alice,
+            Method::POST,
+            "/.xerj-memory-bob-edges/_search"
+        ));
+        assert!(!check(
+            &alice,
+            Method::POST,
+            "/.xerj-memory-bob-edges/_doc/x"
+        ));
         assert!(!check(&alice, Method::DELETE, "/.xerj-memory-bob-edges"));
         assert!(!check(&alice, Method::POST, "/_memory/bob/_recall"));
         assert!(!check(&alice, Method::GET, "/_mapping"));
@@ -905,7 +937,11 @@ mod tests {
             "/v1/indices/.xerj-memory-bob-edges"
         ));
         // A grant is a grant: alice may use her own backing index directly.
-        assert!(check(&alice, Method::POST, "/.xerj-memory-alice-edges/_search"));
+        assert!(check(
+            &alice,
+            Method::POST,
+            "/.xerj-memory-alice-edges/_search"
+        ));
 
         // A read-only grant does not write.
         let ro = scoped(&[".xerj-memory-alice-edges"], &[Privilege::ReadIndex]);
@@ -922,7 +958,11 @@ mod tests {
         assert!(check(&legacy, Method::GET, "/_mapping"));
         assert!(!check(&legacy, Method::GET, "/_graph/alice/ego"));
         assert!(!check(&legacy, Method::POST, "/_memory/alice/_recall"));
-        assert!(!check(&legacy, Method::POST, "/.xerj-memory-alice-edges/_search"));
+        assert!(!check(
+            &legacy,
+            Method::POST,
+            "/.xerj-memory-alice-edges/_search"
+        ));
         assert!(!check(&legacy, Method::GET, "/*/_search"));
         assert!(!check(&legacy, Method::POST, "/_search"));
 
@@ -941,7 +981,10 @@ mod tests {
             "/.xerj-memory-bob-edges/_search",
             "/*/_search",
         ] {
-            assert!(check(&root, Method::GET, path), "superuser blocked on {path}");
+            assert!(
+                check(&root, Method::GET, path),
+                "superuser blocked on {path}"
+            );
         }
     }
 
