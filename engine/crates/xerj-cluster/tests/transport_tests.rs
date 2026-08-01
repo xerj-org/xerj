@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use tokio::sync::watch;
 
+use xerj_cluster::auth::ClusterSecret;
 use xerj_cluster::node::{
     in_memory::{InMemoryBus, InMemoryTransport},
     ClusterNode,
@@ -38,11 +39,13 @@ async fn test_tcp_transport_send_recv() {
     let mut peers_b = HashMap::new();
     peers_b.insert("node-a".to_string(), addr_a);
 
-    // Create both transports.
-    let transport_a = TcpTransport::new("node-a".to_string(), addr_a, peers_a)
+    // Create both transports. Both sides must hold the same cluster secret —
+    // there is no unauthenticated constructor.
+    let secret = || ClusterSecret::new("shared-cluster-secret-for-tests").unwrap();
+    let transport_a = TcpTransport::new("node-a".to_string(), addr_a, peers_a, secret())
         .await
         .expect("create transport A");
-    let transport_b = TcpTransport::new("node-b".to_string(), addr_b, peers_b)
+    let transport_b = TcpTransport::new("node-b".to_string(), addr_b, peers_b, secret())
         .await
         .expect("create transport B");
 

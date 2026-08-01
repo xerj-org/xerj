@@ -353,6 +353,30 @@ turbo_parallel = true
 # (e.g. "running" will not match "run").
 turbo_fast_analyzer = false
 
+# ── Cluster (5 settings) ──────────────────────────────────────────────────────
+#
+# Multi-node cluster mode is OFF by default and is experimental. The whole
+# block is commented out; uncomment it only if you are evaluating clustering.
+#
+# The cluster port carries Raft control messages. Every frame on it is
+# authenticated with a cluster-wide shared secret (HMAC-SHA256 over a
+# per-connection challenge), so `auth_secret` is mandatory whenever
+# `enabled = true` — a node with cluster mode on and no secret refuses to
+# start rather than expose an unauthenticated control port. Supply it here or
+# via the XERJ_CLUSTER_AUTH_SECRET environment variable (this file wins if
+# both are set), use the SAME value on every node, and generate it with
+# `openssl rand -hex 32`. Minimum 16 characters.
+#
+# Note: the HMAC authenticates frames, it does not encrypt them. Cluster
+# traffic is still plaintext — keep the cluster port on a trusted network.
+#
+# [cluster]
+# enabled     = true
+# port        = 9300
+# peers       = ["n2=10.0.0.2:9300", "n3=10.0.0.3:9300"]
+# tick_ms     = 50
+# auth_secret = ""
+
 # ── Logging (2 settings) ──────────────────────────────────────────────────────
 
 [logging]

@@ -1510,6 +1510,22 @@ async fn async_main() -> Result<()> {
 
     // 8b. Cluster runner (if cluster mode is enabled)
     let _cluster_shutdown = if cfg.cluster.enabled {
+        // Fail closed (issue #75). The cluster port carries Raft control
+        // messages; without a shared secret every frame on it is
+        // unauthenticated, so refuse to start rather than open it. This must
+        // abort startup — it is deliberately NOT folded into the degraded
+        // single-node fallback below, which only covers bind failures.
+        let secret_material = cfg.cluster.effective_auth_secret().ok_or_else(|| {
+            anyhow::anyhow!(
+                "cluster.enabled = true but no cluster auth secret is configured: set \
+                 cluster.auth_secret or {}. Refusing to start an unauthenticated cluster \
+                 transport.",
+                xerj_common::config::ClusterConfig::AUTH_SECRET_ENV
+            )
+        })?;
+        let cluster_secret = xerj_cluster::ClusterSecret::new(&secret_material)
+            .context("cluster auth secret rejected")?;
+
         let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
 
         // Parse peer list: "node_id=host:port" entries.
@@ -1536,7 +1552,7 @@ async fn async_main() -> Result<()> {
 
         let tick = std::time::Duration::from_millis(cfg.cluster.tick_ms);
 
-        match TcpTransport::new(node_id.clone(), listen_addr, peers).await {
+        match TcpTransport::new(node_id.clone(), listen_addr, peers, cluster_secret).await {
             Ok(transport) => {
                 let peer_ids: Vec<String> = cfg
                     .cluster

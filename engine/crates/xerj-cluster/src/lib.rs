@@ -46,6 +46,7 @@
 //! }
 //! ```
 
+pub mod auth;
 pub mod coordinator;
 pub mod metadata;
 pub mod node;
@@ -60,6 +61,7 @@ pub mod transport;
 
 // ── Convenience re-exports ────────────────────────────────────────────────────
 
+pub use auth::{ClusterSecret, SecretError};
 pub use coordinator::{
     IndexResponse, LocalSearcher, MergedSearchResult, SearchCoordinator, SearchTransport,
 };
