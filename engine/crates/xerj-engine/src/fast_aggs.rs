@@ -174,6 +174,25 @@ struct SegEntry {
     docs: u32,
 }
 
+impl SegEntry {
+    /// Look up this segment's doc-value column for `field`, falling back to
+    /// the `.keyword` multi-field's parent name when the exact field has no
+    /// column of its own. A text field's auto-created `.keyword` multi-field
+    /// shares the *same* physical column, stored under the parent's name —
+    /// mirrors the identical `.keyword` fallback the brute-force path
+    /// applies when walking `_source` directly (`flatten_to_strings` in
+    /// `aggs.rs`). Without this, every fast-path aggregation on a
+    /// `<field>.keyword` reference silently sees no column at all and
+    /// returns empty, even though the data is right there under `<field>`.
+    fn col(&self, field: &str) -> Option<&Column> {
+        self.cols.get(field).or_else(|| {
+            field
+                .strip_suffix(".keyword")
+                .and_then(|p| self.cols.get(p))
+        })
+    }
+}
+
 /// Memtable docs for the fast path.
 ///
 /// `Owned` is the original brute-parity representation: every buffered doc
@@ -633,7 +652,7 @@ impl<'a> FastCtx<'a> {
     fn seg_field_kind(&self, field: &str) -> std::result::Result<Option<ColKind>, ()> {
         let mut kind: Option<ColKind> = None;
         for s in &self.segs {
-            let k = match s.cols.get(field) {
+            let k = match s.col(field) {
                 Some(Column::Numeric(_)) => ColKind::Numeric,
                 Some(Column::Keyword(_)) => ColKind::Keyword,
                 None => continue,
@@ -1156,7 +1175,7 @@ impl<'a> FastCtx<'a> {
             if s.docs == 0 {
                 continue;
             }
-            match s.cols.get(&field) {
+            match s.col(&field) {
                 Some(Column::Numeric(n)) => {
                     if !n.null_bitmap.is_empty() || n.live_count != s.docs as u64 {
                         return None; // some doc lacks the field
@@ -1260,7 +1279,7 @@ impl<'a> FastCtx<'a> {
 
         let mut acc = MetricAcc::default();
         for s in &self.segs {
-            match s.cols.get(field) {
+            match s.col(field) {
                 Some(Column::Numeric(n)) => {
                     if n.live_count > 0 {
                         if kind == MetricKind::ValueCount {
@@ -1340,7 +1359,7 @@ impl<'a> FastCtx<'a> {
         }
         let mut capacity = self.mem().len();
         for s in &self.segs {
-            if let Some(Column::Numeric(n)) = s.cols.get(field) {
+            if let Some(Column::Numeric(n)) = s.col(field) {
                 capacity += n.live_count as usize;
             }
         }
@@ -1358,7 +1377,7 @@ impl<'a> FastCtx<'a> {
                 Some(p) => Some(resolve_pred(&s.cols, p)?),
                 None => None,
             };
-            match s.cols.get(field) {
+            match s.col(field) {
                 Some(Column::Numeric(n)) => match &seg_pred {
                     None => {
                         for (bits, _) in &n.sorted {
@@ -1445,7 +1464,7 @@ impl<'a> FastCtx<'a> {
                 Some(p) => Some(resolve_pred(&s.cols, p)?),
                 None => None,
             };
-            match s.cols.get(field) {
+            match s.col(field) {
                 Some(Column::Numeric(n)) => {
                     let no_nulls = n.null_bitmap.is_empty();
                     match &seg_pred {
@@ -1685,7 +1704,7 @@ impl<'a> FastCtx<'a> {
         }
         let mut missing: u64 = 0;
         for seg in &self.segs {
-            match seg.cols.get(field) {
+            match seg.col(field) {
                 Some(Column::Numeric(n)) => missing += n.null_bitmap.len(),
                 Some(Column::Keyword(k)) => missing += k.null_bitmap.len(),
                 // Field absent from this segment's columns → every row missing.
@@ -1811,7 +1830,7 @@ impl<'a> FastCtx<'a> {
             let mut cols: Vec<&NumericColumn> = Vec::with_capacity(k);
             let mut all_present = true;
             for f in &fields {
-                match seg.cols.get(f) {
+                match seg.col(f) {
                     Some(Column::Numeric(n)) => cols.push(n),
                     _ => {
                         all_present = false;
@@ -1874,7 +1893,7 @@ impl<'a> FastCtx<'a> {
         let mut max_ts = i64::MIN;
         let mut any = false;
         for seg in &self.segs {
-            match seg.cols.get(field) {
+            match seg.col(field) {
                 Some(Column::Numeric(n)) => {
                     if n.live_count > 0 {
                         // f64::from_bits epoch-ms; exact as i64 (< 2^53).
@@ -1974,7 +1993,7 @@ impl<'a> FastCtx<'a> {
         let mut num_cols: Vec<Option<&NumericColumn>> = Vec::with_capacity(plan.metrics.len());
         let mut kw_cols: Vec<Option<&KeywordColumn>> = Vec::with_capacity(plan.metrics.len());
         for m in &plan.metrics {
-            match seg.cols.get(&m.field) {
+            match seg.col(&m.field) {
                 Some(Column::Numeric(n)) => {
                     num_cols.push(Some(n));
                     kw_cols.push(None);
@@ -1993,7 +2012,7 @@ impl<'a> FastCtx<'a> {
             }
         }
         let th_col: Option<&NumericColumn> = match &plan.top_hits {
-            Some(spec) => match seg.cols.get(&spec.sort_field) {
+            Some(spec) => match seg.col(&spec.sort_field) {
                 Some(Column::Numeric(n)) => Some(n),
                 Some(_) => return None,
                 None => None,
@@ -2155,7 +2174,7 @@ impl<'a> FastCtx<'a> {
             let seg = &self.segs[si];
             if !filtered {
                 // ── Unfiltered: whole-segment term-dictionary scan (fast) ──
-                match seg.cols.get(field) {
+                match seg.col(field) {
                     Some(Column::Keyword(k)) => {
                         for (ord, &cnt) in k.per_ord_count.iter().enumerate() {
                             if cnt > 0 {
@@ -2204,7 +2223,7 @@ impl<'a> FastCtx<'a> {
             // ── Filtered: per-row pass, distinct over matching rows only ──
             let plan = empty_plan.as_ref().unwrap();
             let mut mss = false;
-            match seg.cols.get(field) {
+            match seg.col(field) {
                 Some(Column::Keyword(k)) => {
                     let mut seen = vec![false; k.terms.len()];
                     let mut saw_missing = false;
@@ -2494,7 +2513,7 @@ impl<'a> FastCtx<'a> {
 
         for si in 0..self.segs.len() {
             let seg = &self.segs[si];
-            let Some(col) = seg.cols.get(field) else {
+            let Some(col) = seg.col(field) else {
                 continue;
             };
             let tcol = match col {
@@ -2813,7 +2832,7 @@ impl<'a> FastCtx<'a> {
         // shortcut): segments' `per_ord_count` + the memtable columnar folder.
         let mut counts: HashMap<String, u64> = HashMap::new();
         for seg in &self.segs {
-            match seg.cols.get(field) {
+            match seg.col(field) {
                 Some(Column::Keyword(k)) => {
                     for (ord, &cnt) in k.per_ord_count.iter().enumerate() {
                         // Skip empty-string values — `run_rare_terms` drops them
@@ -2964,7 +2983,7 @@ impl<'a> FastCtx<'a> {
             let mut accs: Vec<MetricAcc> = vec![MetricAcc::default(); plan.metrics.len()];
             for si in 0..self.segs.len() {
                 let seg = &self.segs[si];
-                let Some(Column::Numeric(n)) = seg.cols.get(field) else {
+                let Some(Column::Numeric(n)) = seg.col(field) else {
                     continue;
                 };
                 if plan.metrics.is_empty() {
@@ -3111,7 +3130,7 @@ impl<'a> FastCtx<'a> {
         {
             use rayon::prelude::*;
             self.segs.par_iter().for_each(|seg| {
-                if matches!(seg.cols.get(field), Some(Column::Keyword(_))) {
+                if matches!(seg.col(field), Some(Column::Keyword(_))) {
                     let _ = self.date_sorted_prefix(seg, field);
                 }
             });
@@ -3122,7 +3141,7 @@ impl<'a> FastCtx<'a> {
         // range pre-fix, which dominated on ms-resolution @timestamp data).
         let mut sorted_per_seg: Vec<Option<std::sync::Arc<(Vec<i64>, Vec<u64>)>>> = Vec::new();
         for s in &self.segs {
-            match s.cols.get(field) {
+            match s.col(field) {
                 Some(Column::Keyword(_)) => {
                     sorted_per_seg.push(Some(self.date_sorted_prefix(s, field)?));
                 }
@@ -3156,7 +3175,7 @@ impl<'a> FastCtx<'a> {
 
             let mut count: u64 = 0;
             for (si, s) in self.segs.iter().enumerate() {
-                let Some(Column::Keyword(_)) = s.cols.get(field) else {
+                let Some(Column::Keyword(_)) = s.col(field) else {
                     continue;
                 };
                 let sp = sorted_per_seg[si].as_ref()?;
@@ -3238,7 +3257,7 @@ impl<'a> FastCtx<'a> {
         if let Some(v) = self.idx.fast_date_cache.get(&key) {
             return Some(std::sync::Arc::clone(v.value()));
         }
-        let Some(Column::Keyword(k)) = seg.cols.get(field) else {
+        let Some(Column::Keyword(k)) = seg.col(field) else {
             return None;
         };
         let mut ord_ms: Vec<i64> = Vec::with_capacity(k.terms.len());
@@ -3266,7 +3285,7 @@ impl<'a> FastCtx<'a> {
         if let Some(v) = self.idx.fast_date_sorted_cache.get(&key) {
             return Some(std::sync::Arc::clone(v.value()));
         }
-        let Some(Column::Keyword(k)) = seg.cols.get(field) else {
+        let Some(Column::Keyword(k)) = seg.col(field) else {
             return None;
         };
         let ord_ms = self.date_ord_index(seg, field)?;
@@ -3614,7 +3633,7 @@ impl<'a> FastCtx<'a> {
         for seg in &self.segs {
             let cols: Vec<&KeywordColumn> = match src_fields
                 .iter()
-                .map(|f| match seg.cols.get(f) {
+                .map(|f| match seg.col(f) {
                     Some(Column::Keyword(k)) => Some(k),
                     _ => None,
                 })
@@ -3851,7 +3870,7 @@ impl<'a> FastCtx<'a> {
         // corpus paid ~300 ms of SipHash there), no global re-sort.
         let mut runs: Vec<Vec<(f64, u64)>> = Vec::with_capacity(self.segs.len() + 1);
         for seg in &self.segs {
-            let Some(Column::Numeric(n)) = seg.cols.get(field) else {
+            let Some(Column::Numeric(n)) = seg.col(field) else {
                 continue;
             };
             let mut run: Vec<(f64, u64)> = Vec::new();
@@ -3993,7 +4012,7 @@ impl<'a> FastCtx<'a> {
         {
             use rayon::prelude::*;
             self.segs.par_iter().for_each(|seg| {
-                if matches!(seg.cols.get(field), Some(Column::Keyword(_))) {
+                if matches!(seg.col(field), Some(Column::Keyword(_))) {
                     let _ = self.date_ord_index(seg, field);
                 }
             });
@@ -4025,7 +4044,7 @@ impl<'a> FastCtx<'a> {
         let mut missing_sort_seen = false;
         for si in 0..self.segs.len() {
             let seg = &self.segs[si];
-            let Some(Column::Keyword(k)) = seg.cols.get(field) else {
+            let Some(Column::Keyword(k)) = seg.col(field) else {
                 continue;
             };
             let ord_ms = self.date_ord_index(seg, field)?;
@@ -4107,7 +4126,7 @@ impl<'a> FastCtx<'a> {
         // fold via `fused_seg_pass`, mirroring the keyword arm above.
         for si in 0..self.segs.len() {
             let seg = &self.segs[si];
-            let Some(Column::Numeric(n)) = seg.cols.get(field) else {
+            let Some(Column::Numeric(n)) = seg.col(field) else {
                 continue;
             };
             let mut row_slot: Vec<i32> = Vec::with_capacity(seg.docs as usize);
@@ -4365,7 +4384,7 @@ impl<'a> FastCtx<'a> {
         // Numeric column: bucket the doc-values integers/doubles directly.
         for si in 0..self.segs.len() {
             let seg = &self.segs[si];
-            let Some(Column::Numeric(n)) = seg.cols.get(field) else {
+            let Some(Column::Numeric(n)) = seg.col(field) else {
                 continue;
             };
             let mut row_slot: Vec<i32> = Vec::with_capacity(seg.docs as usize);
@@ -5386,6 +5405,45 @@ mod range_kw_tests {
         let mut m = std::collections::BTreeMap::new();
         m.insert("ts".to_string(), Column::Keyword(k));
         m
+    }
+
+    // Regression: a text field's auto-created `.keyword` multi-field shares
+    // the *same* on-disk column, stored under the parent's (unsuffixed)
+    // name — confirmed on a real flushed segment, where only `extension.*`
+    // files exist on disk, never `extension.keyword.*`. Before `SegEntry::col`
+    // existed, every fast-path aggregation (terms, cardinality, ...) did a
+    // raw `cols.get("extension.keyword")`, found nothing, and silently
+    // treated the segment as having zero rows for that field — every
+    // `<field>.keyword` aggregation over a flushed segment returned empty
+    // buckets despite the data being right there under `<field>`. Found
+    // live: the Kibana/OSD sample "Logs" dashboard's `extension.keyword`,
+    // `geo.dest`-adjacent, and `response.keyword` terms panels all went
+    // empty once their segment was flushed (memtable-only queries were
+    // fine, since the brute-force path already had this `.keyword`
+    // fallback for `_source`-walking).
+    #[test]
+    fn col_falls_back_to_keyword_multi_field_parent() {
+        let k = KeywordColumn::from_iter(vec![Some("css".to_string()), Some("gz".to_string())])
+            .expect("build column");
+        let mut m = std::collections::BTreeMap::new();
+        m.insert("extension".to_string(), Column::Keyword(k));
+        let seg = SegEntry {
+            id: "seg1".to_string(),
+            cols: crate::segment_cache_budget::CacheResident::uncached(m),
+            docs: 2,
+        };
+        assert!(
+            seg.col("extension").is_some(),
+            "direct field lookup must still work"
+        );
+        assert!(
+            seg.col("extension.keyword").is_some(),
+            "must fall back to the parent column when the exact `.keyword` name has none"
+        );
+        assert!(
+            seg.col("extension.nonsense").is_none(),
+            "must not fall back for suffixes other than `.keyword`"
+        );
     }
 
     fn count(pred: &Pred, cols: &std::collections::BTreeMap<String, Column>, docs: u32) -> u64 {
