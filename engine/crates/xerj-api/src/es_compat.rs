@@ -20002,7 +20002,32 @@ pub async fn delete_by_query(
 
     let response = run_delete_by_query(&idx, &search_req).await;
     drop(handle);
-    Json(response).into_response()
+    by_query_response(response)
+}
+
+/// Give a `_delete_by_query` / `_update_by_query` result the HTTP status its
+/// own body claims.
+///
+/// Both runners return a plain `Value` because the detached
+/// (`wait_for_completion=false`) path stores it as the `response` of a
+/// `_tasks/{id}` entry, which has no HTTP status of its own. The synchronous
+/// path then handed that value straight to `Json(..)` — always 200. So a
+/// refusal went out as `200 OK` carrying `{"error": {…}, "status": 400}`, and a
+/// client branching on the HTTP status read a completed run and then found no
+/// `deleted` / `updated` key (#123).
+///
+/// Every error body these runners produce — `script_limit_error_value` and
+/// `ApiError::into_value` — already carries the right code in `status`, so this
+/// reads it rather than re-deriving one. A successful run has no `status` key
+/// and stays 200.
+fn by_query_response(body: Value) -> Response {
+    let status = body
+        .get("status")
+        .and_then(Value::as_u64)
+        .and_then(|s| u16::try_from(s).ok())
+        .and_then(|s| StatusCode::from_u16(s).ok())
+        .unwrap_or(StatusCode::OK);
+    (status, Json(body)).into_response()
 }
 
 async fn run_delete_by_query(
@@ -20112,7 +20137,7 @@ pub async fn update_by_query(
 
     let response = run_update_by_query(&idx, &search_req, script).await;
     drop(handle);
-    Json(response).into_response()
+    by_query_response(response)
 }
 
 async fn run_update_by_query(
@@ -26508,7 +26533,17 @@ pub async fn explain_doc(
     ids_req.from = 0;
 
     let matched = match idx.search(&ids_req).await {
-        Ok(result) => !result.hits.is_empty(),
+        Ok(result) => {
+            // `matched` is a yes/no verdict derived from whether the document
+            // survived the query. A script that hit a resource limit fails
+            // matching closed, which lands here as `matched: false` — a
+            // confident negative that is indistinguishable from a document
+            // that genuinely does not match. Refuse instead of answering.
+            if let Some(reason) = &result.script_failure {
+                return script_limit_response(reason);
+            }
+            !result.hits.is_empty()
+        }
         Err(_) => false,
     };
 
@@ -28641,6 +28676,16 @@ pub async fn rank_eval(
             Ok(r) => r,
             Err(_) => continue,
         };
+        // A Painless resource limit tripped while scoring or matching this
+        // request. The other surfaces refuse here because the answer is wrong;
+        // `_rank_eval` has a sharper reason. It exists to *measure relevance
+        // quality*, so publishing a `metric_score` computed over degraded
+        // scores (or over a ranking a fail-closed script truncated) does not
+        // just return a bad answer — it corrupts the number a caller would use
+        // to notice bad answers.
+        if let Some(reason) = &result.script_failure {
+            return script_limit_response(reason);
+        }
 
         let retrieved_ids: Vec<String> = result.hits.iter().take(k).map(|h| h.id.clone()).collect();
 
@@ -30029,7 +30074,10 @@ pub async fn start_transform(
             }
             Json(json!({ "acknowledged": true })).into_response()
         }
-        Err(msg) => {
+        // Same ES-shaped `script_exception` 400 the other script surfaces
+        // return, rather than rewording a refusal into a config error.
+        Err(TransformRunError::ScriptLimit(reason)) => script_limit_response(&reason),
+        Err(TransformRunError::Failed(msg)) => {
             let e = xerj_common::XerjError::invalid_query(format!(
                 "transform [{id}] execution failed: {msg}"
             ));
@@ -30351,8 +30399,29 @@ fn flatten_bucket_metrics(
     }
 }
 
+/// Why a pivot transform run stopped early.
+///
+/// The runner used to fail with a bare `String`, which `start_transform`
+/// rendered as an `illegal_argument_exception`. A Painless resource-limit trip
+/// needs its own arm so it can reach the caller in the same ES-shaped
+/// `script_exception` 400 every other script surface uses (see #116) instead of
+/// being reworded into a generic config error.
+enum TransformRunError {
+    /// Configuration or engine failure.
+    Failed(String),
+    /// A script resource limit tripped while selecting or aggregating the
+    /// source documents.
+    ScriptLimit(String),
+}
+
+impl From<String> for TransformRunError {
+    fn from(msg: String) -> Self {
+        Self::Failed(msg)
+    }
+}
+
 /// Run a pivot transform end to end. Returns the number of docs written to dest.
-async fn run_pivot_transform(state: &AppState, config: &Value) -> Result<usize, String> {
+async fn run_pivot_transform(state: &AppState, config: &Value) -> Result<usize, TransformRunError> {
     let source_index = config
         .pointer("/source/index")
         .and_then(|v| {
@@ -30413,6 +30482,19 @@ async fn run_pivot_transform(state: &AppState, config: &Value) -> Result<usize, 
         }
         let req = xerj_query::parse_request(&body).map_err(|e| e.to_string())?;
         let res = src_idx.search(&req).await.map_err(|e| e.to_string())?;
+        // Both halves of a pivot can carry a user script: `source.query` (a
+        // `terms_set` `minimum_should_match_script`, say) and
+        // `pivot.aggregations` (a script-bucketed `terms`). Either one that
+        // trips a resource limit fails closed, so this page of buckets
+        // summarises fewer documents than the caller asked about. Writing that
+        // summary and acknowledging the run persists wrong numbers into `dest`,
+        // where every later query reads them as fact. Checked before the writes
+        // below — note the runner is not transactional, so buckets from earlier
+        // pages that completed cleanly stay written, as with any mid-run
+        // failure.
+        if let Some(reason) = &res.script_failure {
+            return Err(TransformRunError::ScriptLimit(reason.clone()));
+        }
         let aggs = match res.aggs {
             Some(a) => a,
             None => break,
@@ -30465,6 +30547,16 @@ async fn run_pivot_transform(state: &AppState, config: &Value) -> Result<usize, 
 
 /// Run a rollup job end to end across every index matching `index_pattern`.
 /// Returns the total number of rolled-up docs written to rollup_index.
+///
+/// Unlike `run_pivot_transform`, this one does **not** check
+/// `SearchResult::script_failure` (#123), and the reason is structural rather
+/// than a judgement call: no user script can reach it. The request body below
+/// is built entirely from the job config's `groups` and `metrics` — composite
+/// sources over `date_histogram` / `terms` / `histogram` with a `field`, and
+/// named metric aggs over a `field`. There is no `query` key and no place to
+/// put a `script`, so the search it issues carries none. Should a rollup job
+/// ever gain a query or a scripted metric, it needs the same check the pivot
+/// runner has.
 async fn run_rollup_job(state: &AppState, job_id: &str, config: &Value) -> Result<usize, String> {
     let index_pattern = config
         .get("index_pattern")
