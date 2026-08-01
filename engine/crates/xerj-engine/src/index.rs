@@ -23484,6 +23484,7 @@ fn is_doc_scan_query(q: &QueryNode) -> bool {
             | QueryNode::Boosted { .. }
             | QueryNode::Intervals { .. }
             | QueryNode::Percolate { .. }
+            | QueryNode::Script { .. }
     )
 }
 

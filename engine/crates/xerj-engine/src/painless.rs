@@ -437,6 +437,16 @@ pub(crate) const MAX_EVAL_DEPTH: usize = 500;
 /// we build (and later drop) from a single request.
 pub(crate) const MAX_SCRIPT_LEN: usize = 64 * 1024;
 
+/// Safety ceiling on any single string value produced during evaluation.
+/// String concatenation (`+`) is the only operation that can grow a value
+/// beyond the size of its parts, so a handful of flat (non-nested, non-deep)
+/// `s = s + s;` statements — none of which trip [`MAX_EVAL_DEPTH`] or
+/// [`MAX_PARSE_DEPTH`], since they're neither deeply nested nor deeply
+/// recursive — doubles a string exponentially per statement. Without this
+/// cap a script well under [`MAX_SCRIPT_LEN`] can exhaust available memory
+/// before any other limit fires.
+const MAX_PAINLESS_STRING_LEN: usize = 1024 * 1024;
+
 /// Sentinel error returned when [`MAX_PARSE_DEPTH`] is exceeded. Callers
 /// (`check_script_limits`) match on it to distinguish "too complex" (a 400)
 /// from ordinary syntax errors (which degrade gracefully at runtime).
@@ -1208,7 +1218,10 @@ fn eval_expr(
         Expr::Unary(op, x) => {
             let v = eval_expr(x, ctx, env)?;
             match op.as_str() {
-                "-" => Ok(PainlessValue::Number(-v.as_f64().unwrap_or(0.0))),
+                "-" => v
+                    .as_f64()
+                    .map(|n| PainlessValue::Number(-n))
+                    .ok_or_else(|| "cannot apply unary '-' to a non-numeric value".to_string()),
                 "!" => Ok(PainlessValue::Bool(!v.as_bool())),
                 _ => Err(format!("bad unary {op}")),
             }
@@ -1487,11 +1500,14 @@ fn apply_binary(
             PainlessValue::Bool(b) => b.to_string(),
             _ => "null".to_string(),
         };
-        return Ok(PainlessValue::String(format!(
-            "{}{}",
-            render(&left),
-            render(&right)
-        )));
+        let left_r = render(&left);
+        let right_r = render(&right);
+        if left_r.len().saturating_add(right_r.len()) > MAX_PAINLESS_STRING_LEN {
+            return Err(format!(
+                "string concatenation result exceeds the {MAX_PAINLESS_STRING_LEN}-byte limit"
+            ));
+        }
+        return Ok(PainlessValue::String(format!("{left_r}{right_r}")));
     }
 
     // ES Painless compares Strings as strings. Equality is false across
@@ -1524,8 +1540,17 @@ fn apply_binary(
         }
     }
 
-    let left = left.as_f64().unwrap_or(0.0);
-    let right = right.as_f64().unwrap_or(0.0);
+    // A value that can't coerce to a number (most commonly `Null` — a
+    // missing `doc`/`params` field) errors rather than silently acting as
+    // 0: real Painless throws unboxing a null into a primitive, and a
+    // script that quietly matched-as-zero on every doc with a typo'd field
+    // name would be far worse than one that errors and excludes the doc.
+    let left = left
+        .as_f64()
+        .ok_or_else(|| format!("cannot apply '{op}' to a non-numeric value"))?;
+    let right = right
+        .as_f64()
+        .ok_or_else(|| format!("cannot apply '{op}' to a non-numeric value"))?;
     let value = match op {
         "+" => left + right,
         "-" => left - right,
@@ -1598,16 +1623,22 @@ fn resolve_doc_member(
     let raw = get_doc_value(ctx.doc, field);
     match member {
         "value" => {
-            // Return first scalar.
+            // Return first scalar. A field that's genuinely missing (or a
+            // multi-valued field with zero actual values) errors, matching
+            // real Painless's "no field found for [x]" exception — callers
+            // (script query filter, script_score, ...) already treat an
+            // error as "doesn't match" / "no-op score", so this fails
+            // closed instead of silently scoring/matching as if the field
+            // were present with value 0.
             match raw {
-                Value::Array(arr) => Ok(arr
+                Value::Array(arr) => arr
                     .first()
                     .map(PainlessValue::from_json)
-                    .unwrap_or(PainlessValue::Number(0.0))),
+                    .ok_or_else(|| format!("no field found for [{field}]")),
                 Value::Number(n) => Ok(PainlessValue::Number(n.as_f64().unwrap_or(0.0))),
                 Value::String(s) => Ok(PainlessValue::String(s)),
                 Value::Bool(b) => Ok(PainlessValue::Bool(b)),
-                _ => Ok(PainlessValue::Number(0.0)),
+                _ => Err(format!("no field found for [{field}]")),
             }
         }
         "size" | "length" => {
@@ -2491,5 +2522,67 @@ mod tests {
         // Numbers still compare numerically.
         assert!(eval_bool("1 + 1 == 2", &doc));
         assert!(eval_bool("doc['color'].value.length() == 5", &doc));
+    }
+
+    #[test]
+    fn missing_doc_field_value_errors() {
+        let doc = json!({});
+        let params = json!({});
+        let r = eval_painless("doc['missing'].value", &ctx(&doc, &params, 0.0));
+        assert!(r.is_err(), "expected an error, got {:?}", r);
+    }
+
+    #[test]
+    fn comparison_against_missing_field_errors_not_matches_everything() {
+        let doc = json!({});
+        let params = json!({});
+        let r = eval_painless("doc['missing'].value > -1", &ctx(&doc, &params, 0.0));
+        assert!(
+            r.is_err(),
+            "a comparison against a missing field must error, not silently match: got {:?}",
+            r
+        );
+    }
+
+    #[test]
+    fn empty_multi_value_field_errors() {
+        let doc = json!({"tags": []});
+        let params = json!({});
+        let r = eval_painless("doc['tags'].value", &ctx(&doc, &params, 0.0));
+        assert!(r.is_err(), "expected an error, got {:?}", r);
+    }
+
+    #[test]
+    fn present_field_still_works_after_fail_closed_change() {
+        let doc = json!({"x": 10});
+        let params = json!({});
+        let v = eval_painless("doc['x'].value > 5", &ctx(&doc, &params, 0.0)).unwrap();
+        assert!(v.as_bool());
+    }
+
+    #[test]
+    fn exponential_string_doubling_is_bounded_not_a_crash() {
+        let doc = json!({});
+        let params = json!({});
+        // 30 doublings from a 1-byte string would reach ~1 GiB unbounded;
+        // the cap must trip well before that.
+        let src = format!("def s = \"a\";{}return s;", "s = s + s;".repeat(30));
+        let r = eval_painless(&src, &ctx(&doc, &params, 0.0));
+        assert!(
+            r.is_err(),
+            "expected the string-length cap to trip, got {:?}",
+            r
+        );
+    }
+
+    #[test]
+    fn ordinary_string_concatenation_still_works() {
+        let doc = json!({});
+        let params = json!({});
+        let v = eval_painless("'a' + 'b' + 'c'", &ctx(&doc, &params, 0.0)).unwrap();
+        match v {
+            PainlessValue::String(s) => assert_eq!(s, "abc"),
+            other => panic!("expected a string, got {:?}", other),
+        }
     }
 }

@@ -13197,6 +13197,93 @@ mod malformed_bulk_route_tests {
     }
 }
 
+#[cfg(test)]
+mod script_query_end_to_end_tests {
+    //! Regression coverage for a real bug: the `script` query's unit tests
+    //! (in xerj-engine's index.rs) all exercised `doc_matches_query`
+    //! directly, never a real `POST /{index}/_search` — so they passed
+    //! while the query silently returned zero hits for every real search,
+    //! because `is_doc_scan_query` never routed `QueryNode::Script` into
+    //! doc-scan. This test goes through the actual HTTP route so a
+    //! regression here fails loudly.
+    use super::*;
+    use axum::{
+        body::{to_bytes, Body},
+        http::Request,
+    };
+    use tower::ServiceExt;
+    use xerj_common::{
+        config::{Config, WalSync},
+        metrics::Metrics,
+    };
+    use xerj_engine::Engine;
+
+    fn test_state() -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = WalSync::Async;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    #[tokio::test]
+    async fn script_query_matches_an_indexed_document_via_real_search() {
+        let router = crate::router::build_es_compat_router(test_state());
+
+        let index_response = router
+            .clone()
+            .oneshot(
+                Request::post("/script-query-e2e/_doc/1")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"x": 10}"#))
+                    .expect("request"),
+            )
+            .await
+            .expect("index response");
+        assert!(
+            index_response.status().is_success(),
+            "indexing failed: {:?}",
+            index_response.status()
+        );
+
+        let search_body = serde_json::to_vec(&json!({
+            "query": {
+                "script": {
+                    "script": {"source": "doc['x'].value > 5"}
+                }
+            }
+        }))
+        .expect("serialize query");
+
+        let search_response = router
+            .oneshot(
+                Request::post("/script-query-e2e/_search")
+                    .header("content-type", "application/json")
+                    .body(Body::from(search_body))
+                    .expect("request"),
+            )
+            .await
+            .expect("search response");
+        assert!(
+            search_response.status().is_success(),
+            "search failed: {:?}",
+            search_response.status()
+        );
+
+        let bytes = to_bytes(search_response.into_body(), usize::MAX)
+            .await
+            .expect("response bytes");
+        let response: Value = serde_json::from_slice(&bytes).expect("JSON response");
+        let total = response["hits"]["total"]["value"].as_u64().unwrap_or(0);
+        assert_eq!(
+            total, 1,
+            "script query should match the freshly indexed document via a real search, got: {response}"
+        );
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Schema conversion helpers
 // ─────────────────────────────────────────────────────────────────────────────
