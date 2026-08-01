@@ -1166,11 +1166,17 @@ fn eval_member_value(
             "toLowerCase" => return Ok(PainlessValue::String(text.to_lowercase())),
             "toUpperCase" => return Ok(PainlessValue::String(text.to_uppercase())),
             "getHour" | "getMinute" | "getSecond" | "getDayOfMonth" | "getMonthValue"
-            | "getYear" | "getDayOfWeek" => {
+            | "getYear" | "getDayOfWeek" | "getDayOfWeekEnum" => {
                 if let Some(milliseconds) = date_value_millis(text) {
                     return date_component(milliseconds, member);
                 }
             }
+            // `DayOfWeek.getDisplayName(TextStyle.FULL, Locale.ROOT)` —
+            // this interpreter has no enum/locale value types, so
+            // `getDayOfWeekEnum()` already returns the display-ready name
+            // (see date_component); the style/locale args are accepted and
+            // ignored, returning that name unchanged.
+            "getDisplayName" => return Ok(PainlessValue::String(text.clone())),
             _ => {}
         }
     }
@@ -1379,6 +1385,30 @@ fn date_component(ms: i64, member: &str) -> Result<PainlessValue, String> {
     use chrono::{Datelike, Timelike};
     let dt = chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms)
         .ok_or_else(|| format!("invalid date value for .{}", member))?;
+    // `getDayOfWeekEnum()` returns Java's `DayOfWeek` enum, not a number —
+    // handled separately since this interpreter has no enum value type.
+    // Callers pair it with `.getDisplayName(TextStyle.FULL, Locale.ROOT)`
+    // (e.g. OpenSearch Dashboards' own UBI sample index-pattern scripted
+    // fields); rather than modeling `TextStyle`/`Locale` as real values,
+    // this returns the full English name directly and `getDisplayName`
+    // (a passthrough on any string, see eval_member_value) returns it
+    // unchanged, matching that one real call shape without pretending to
+    // support arbitrary locales/styles.
+    if member == "getDayOfWeekEnum" {
+        // Title-cased to match `getDisplayName(TextStyle.FULL, Locale.ROOT)`
+        // directly, the one real call shape this exists for — not Java's
+        // own `DayOfWeek.toString()`, which is upper-cased.
+        let name = match dt.weekday() {
+            chrono::Weekday::Mon => "Monday",
+            chrono::Weekday::Tue => "Tuesday",
+            chrono::Weekday::Wed => "Wednesday",
+            chrono::Weekday::Thu => "Thursday",
+            chrono::Weekday::Fri => "Friday",
+            chrono::Weekday::Sat => "Saturday",
+            chrono::Weekday::Sun => "Sunday",
+        };
+        return Ok(PainlessValue::String(name.to_string()));
+    }
     let n = match member {
         "getHour" => dt.hour(),
         "getMinute" => dt.minute(),
@@ -1618,6 +1648,56 @@ mod tests {
         )
         .unwrap();
         assert!((v.as_f64().unwrap() - 1500.0).abs() < 1e-9);
+    }
+
+    // ── Day-of-week display name ────────────────────────────────────────────
+    // Regression coverage for a real gap found live: OpenSearch Dashboards'
+    // own UBI sample index pattern defines a scripted field using
+    // `doc['timestamp'].value.getDayOfWeekEnum().getDisplayName(TextStyle.FULL,
+    // Locale.ROOT)` — only the numeric `getDayOfWeek()` accessor was
+    // supported, so this whole scripted field silently failed to evaluate
+    // (dropped from `fields`, not even a visible error) and its dashboard
+    // panel rendered empty.
+
+    #[test]
+    fn day_of_week_enum_display_name_returns_full_english_name() {
+        let doc = json!({"timestamp": "2024-12-09T00:00:00.000Z"}); // a Monday
+        let params = json!({});
+        let v = eval_painless(
+            "doc['timestamp'].value.getDayOfWeekEnum().getDisplayName(TextStyle.FULL, Locale.ROOT)",
+            &ctx(&doc, &params, 0.0),
+        )
+        .unwrap();
+        match v {
+            PainlessValue::String(s) => assert_eq!(s, "Monday"),
+            other => panic!("expected a string, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn day_of_week_enum_display_name_covers_the_week() {
+        let params = json!({});
+        let expected = [
+            ("2024-12-09T00:00:00.000Z", "Monday"),
+            ("2024-12-10T00:00:00.000Z", "Tuesday"),
+            ("2024-12-11T00:00:00.000Z", "Wednesday"),
+            ("2024-12-12T00:00:00.000Z", "Thursday"),
+            ("2024-12-13T00:00:00.000Z", "Friday"),
+            ("2024-12-14T00:00:00.000Z", "Saturday"),
+            ("2024-12-15T00:00:00.000Z", "Sunday"),
+        ];
+        for (ts, day_name) in expected {
+            let doc = json!({"timestamp": ts});
+            let v = eval_painless(
+                "doc['timestamp'].value.getDayOfWeekEnum().getDisplayName(TextStyle.FULL, Locale.ROOT)",
+                &ctx(&doc, &params, 0.0),
+            )
+            .unwrap();
+            match v {
+                PainlessValue::String(s) => assert_eq!(s, day_name, "for {ts}"),
+                other => panic!("expected a string for {ts}, got {:?}", other),
+            }
+        }
     }
 
     #[test]
