@@ -174,22 +174,31 @@ struct SegEntry {
     docs: u32,
 }
 
+/// Look up a doc-value column for `field`, falling back to the `.keyword`
+/// multi-field's parent name when the exact field has no column of its own.
+/// A text field's auto-created `.keyword` multi-field shares the *same*
+/// physical column, stored under the parent's name — this mirrors the
+/// identical `.keyword` fallback the brute-force path applies when walking
+/// `_source` directly (`flatten_to_strings` in `aggs.rs`). Without it, every
+/// fast-path reference to `<field>.keyword` silently sees no column at all,
+/// even though the data is right there under `<field>`.
+///
+/// EVERY column lookup on the fast path goes through here — both agg
+/// *targets* (`SegEntry::col`) and query/filter *predicates*
+/// (`resolve_pred`). Keeping one implementation is the point: the two used
+/// to resolve names differently, and the predicate side failed CLOSED
+/// (missing column ⇒ "this segment matches nothing"), so a filtered panel
+/// on `<field>.keyword` returned a small plausible number instead of an
+/// error while the unfiltered one next to it was correct.
+fn dv_col<'a>(cols: &'a super::DocValueMap, field: &str) -> Option<&'a Column> {
+    cols.get(field)
+        .or_else(|| field.strip_suffix(".keyword").and_then(|p| cols.get(p)))
+}
+
 impl SegEntry {
-    /// Look up this segment's doc-value column for `field`, falling back to
-    /// the `.keyword` multi-field's parent name when the exact field has no
-    /// column of its own. A text field's auto-created `.keyword` multi-field
-    /// shares the *same* physical column, stored under the parent's name —
-    /// mirrors the identical `.keyword` fallback the brute-force path
-    /// applies when walking `_source` directly (`flatten_to_strings` in
-    /// `aggs.rs`). Without this, every fast-path aggregation on a
-    /// `<field>.keyword` reference silently sees no column at all and
-    /// returns empty, even though the data is right there under `<field>`.
+    /// This segment's doc-value column for `field` — see [`dv_col`].
     fn col(&self, field: &str) -> Option<&Column> {
-        self.cols.get(field).or_else(|| {
-            field
-                .strip_suffix(".keyword")
-                .and_then(|p| self.cols.get(p))
-        })
+        dv_col(&self.cols, field)
     }
 }
 
@@ -5039,13 +5048,18 @@ enum SegPred<'a> {
     And(Vec<SegPred<'a>>),
 }
 
-fn resolve_pred<'a>(
-    cols: &'a std::collections::BTreeMap<String, Column>,
-    pred: &Pred,
-) -> Option<SegPred<'a>> {
+/// Columnarise `pred` against one segment's doc-values.
+///
+/// `None` means "this shape is not reproducible columnarly" and bails the
+/// whole request to the exact brute path. A resolved `SegPred::Never`, by
+/// contrast, is an assertion that the segment genuinely holds no matching
+/// row — so every column lookup here MUST use [`dv_col`]'s `.keyword`
+/// fallback. Resolving the name differently from the agg targets is what
+/// turned a `<field>.keyword` filter into a silent segment-wide `Never`.
+fn resolve_pred<'a>(cols: &'a super::DocValueMap, pred: &Pred) -> Option<SegPred<'a>> {
     Some(match pred {
         Pred::MatchAll => SegPred::Always,
-        Pred::TermKw { field, value } => match cols.get(field) {
+        Pred::TermKw { field, value } => match dv_col(cols, field) {
             Some(Column::Keyword(k)) => match k.ord_for_term(value) {
                 Some(ord) => SegPred::KwEq(k, ord, k.null_bitmap.is_empty()),
                 None => SegPred::Never,
@@ -5053,7 +5067,7 @@ fn resolve_pred<'a>(
             Some(Column::Numeric(_)) => return None,
             None => SegPred::Never,
         },
-        Pred::TermsKw { field, values } => match cols.get(field) {
+        Pred::TermsKw { field, values } => match dv_col(cols, field) {
             Some(Column::Keyword(k)) => {
                 let ords: Vec<u32> = values.iter().filter_map(|v| k.ord_for_term(v)).collect();
                 if ords.is_empty() {
@@ -5071,7 +5085,7 @@ fn resolve_pred<'a>(
             lo_incl,
             hi,
             hi_incl,
-        } => match cols.get(field) {
+        } => match dv_col(cols, field) {
             Some(Column::Keyword(k)) => {
                 let terms = &k.terms;
                 if terms.is_empty() {
@@ -5131,7 +5145,7 @@ fn resolve_pred<'a>(
             lo_incl,
             hi,
             hi_incl,
-        } => match cols.get(field) {
+        } => match dv_col(cols, field) {
             Some(Column::Numeric(n)) => {
                 SegPred::Num(n, *lo, *lo_incl, *hi, *hi_incl, n.null_bitmap.is_empty())
             }
@@ -5733,5 +5747,136 @@ mod range_kw_tests {
         m.insert("ts".to_string(), Column::Numeric(n));
         let p = rng(Some(&ts(2, 0)), true, None, true);
         assert!(resolve_pred(&m, &p).is_none());
+    }
+
+    /// Regression: the *predicate* resolver must apply the same `.keyword`
+    /// fallback as the agg targets do.
+    ///
+    /// `SegEntry::col` gained the fallback while the four lookups inside
+    /// `resolve_pred` kept a raw map probe, and a miss there resolves to
+    /// `SegPred::Never` — an assertion that the segment holds no matching
+    /// row. So a filter on `<field>.keyword` matched nothing in any flushed
+    /// segment while the memtable arm matched correctly: not an error, just
+    /// a small wrong number (measured: `filters` on `extension.keyword`
+    /// reported the 200 memtable docs out of 3 200, and a top-level
+    /// `term group.keyword=b` query reported 0 hits out of 6 000).
+    ///
+    /// Every predicate variant that carries a field name is covered, since
+    /// each one owned its own copy of the lookup.
+    #[test]
+    fn resolve_pred_falls_back_to_keyword_multi_field_parent() {
+        use xerj_storage::doc_values::NumericColumn;
+        let mut m = std::collections::BTreeMap::new();
+        // Two docs under the parent name `extension` — exactly how a
+        // flushed segment stores a text field's `.keyword` multi-field.
+        m.insert(
+            "extension".to_string(),
+            Column::Keyword(
+                // Equal-width terms: `Pred::RangeKw` refuses a ragged
+                // dictionary outright (see `ragged_dictionary_bails_to_brute`),
+                // and this fixture must reach the lookup, not that gate.
+                KeywordColumn::from_iter(vec![Some("css".to_string()), Some("zip".to_string())])
+                    .expect("build column"),
+            ),
+        );
+        m.insert(
+            "v".to_string(),
+            Column::Numeric(NumericColumn::from_iter(
+                [1.0f64, 2.0].iter().map(|f| Some(f.to_bits() as i64)),
+            )),
+        );
+
+        let cases: Vec<(&str, Pred, Pred, u64)> = vec![
+            (
+                "term",
+                Pred::TermKw {
+                    field: "extension".into(),
+                    value: "css".into(),
+                },
+                Pred::TermKw {
+                    field: "extension.keyword".into(),
+                    value: "css".into(),
+                },
+                1,
+            ),
+            (
+                "terms",
+                Pred::TermsKw {
+                    field: "extension".into(),
+                    values: vec!["css".into(), "zip".into()],
+                },
+                Pred::TermsKw {
+                    field: "extension.keyword".into(),
+                    values: vec!["css".into(), "zip".into()],
+                },
+                2,
+            ),
+            (
+                "keyword range",
+                Pred::RangeKw {
+                    field: "extension".into(),
+                    lo: Some("css".into()),
+                    lo_incl: true,
+                    hi: None,
+                    hi_incl: true,
+                },
+                Pred::RangeKw {
+                    field: "extension.keyword".into(),
+                    lo: Some("css".into()),
+                    lo_incl: true,
+                    hi: None,
+                    hi_incl: true,
+                },
+                2,
+            ),
+            (
+                "numeric range",
+                Pred::RangeNum {
+                    field: "v".into(),
+                    lo: 2.0,
+                    lo_incl: true,
+                    hi: f64::INFINITY,
+                    hi_incl: true,
+                },
+                Pred::RangeNum {
+                    field: "v.keyword".into(),
+                    lo: 2.0,
+                    lo_incl: true,
+                    hi: f64::INFINITY,
+                    hi_incl: true,
+                },
+                1,
+            ),
+        ];
+
+        for (what, parent, suffixed, expect) in cases {
+            assert_eq!(
+                count(&parent, &m, 2),
+                expect,
+                "{what}: parent-name baseline"
+            );
+            assert_eq!(
+                count(&suffixed, &m, 2),
+                expect,
+                "{what} on `<field>.keyword` must resolve against the parent's \
+                 column, not fail closed to `Never`"
+            );
+        }
+    }
+
+    /// The fallback must not paper over a genuinely absent field: a
+    /// predicate on a column this segment simply does not have still
+    /// resolves to `Never` (correct — no row can match).
+    #[test]
+    fn resolve_pred_still_never_matches_an_absent_field() {
+        let c = cols();
+        let p = Pred::TermKw {
+            field: "nope.keyword".into(),
+            value: "x".into(),
+        };
+        assert!(matches!(
+            resolve_pred(&c, &p).expect("resolvable"),
+            SegPred::Never
+        ));
     }
 }
