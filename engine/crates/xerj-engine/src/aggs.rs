@@ -206,12 +206,25 @@ pub fn run_aggs_with_all(aggs_def: &Value, docs: &[Value], all_docs: &[Value]) -
     // many documents the bucket holds — `"doc_count": 30` next to a bare
     // `_count` of `3`. ES resolves `_count` to the bucket's reported
     // doc_count, weights included, so this has to as well.
-    let had_doc_count = result.contains_key("doc_count");
-    if !had_doc_count {
+    //
+    // That count is O(docs) rather than the O(1) `docs.len()` it replaced,
+    // and this function runs once per bucket per nesting level, so it is
+    // computed ONLY when this agg level actually carries a pipeline
+    // placeholder for `resolve_sibling_pipelines` to resolve — an
+    // O(sibling aggs) scan of a map that is a handful of entries wide. An
+    // aggs tree with no pipeline in it does not pay for the walk, and does
+    // not touch `result` at all.
+    let staged_doc_count = !result.contains_key("doc_count")
+        && result.values().any(|v| {
+            v.get("__pipeline__")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+        });
+    if staged_doc_count {
         result.insert("doc_count".to_string(), json!(sum_doc_count(docs)));
     }
     resolve_sibling_pipelines(&mut result);
-    if !had_doc_count {
+    if staged_doc_count {
         result.remove("doc_count");
     }
 
