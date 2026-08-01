@@ -679,7 +679,13 @@ impl Index {
             }
         };
 
-        let result = ctx.eval_aggs_object(aggs_obj)?;
+        // What the top level of an aggs tree publishes as its document count:
+        // the filtered total when a top-level query narrowed the corpus, else
+        // the whole live corpus. Physical rows either way — the same number
+        // `docs.len()` gives `aggs::run_aggs_with_all` on the brute path (the
+        // fast path is gated on there being no deletes, so live == physical).
+        let top_doc_count = filtered_total.unwrap_or(total_physical);
+        let result = ctx.eval_aggs_object(aggs_obj, top_doc_count)?;
         Some((Value::Object(result), filtered_total))
     }
 }
@@ -1007,7 +1013,24 @@ impl<'a> FastCtx<'a> {
     /// then sibling-pipeline references are resolved.  Shared so the `global`
     /// bucket can re-evaluate its sub-aggs over the whole corpus (via a child
     /// context with no top filter) with byte-identical shaping.
-    fn eval_aggs_object(&self, aggs_obj: &Map<String, Value>) -> Option<Map<String, Value>> {
+    ///
+    /// `bucket_doc_count` is the `doc_count` the enclosing level publishes —
+    /// the whole-corpus/filtered total at the top level, the `global` bucket's
+    /// own count under `global`. It is staged for a bare `_count` buckets_path
+    /// exactly as `aggs::run_aggs_in_bucket` stages it on the brute path;
+    /// without it a bare `_count` resolved to `null` here while brute returned
+    /// the count (measured: a 12,000-doc index, `{"buckets_path": "_count"}`
+    /// at the top level, `null` on this path vs `12000.0` with
+    /// `XERJ_DISABLE_FAST_AGGS=1`).
+    ///
+    /// Per-bucket executors do NOT go through this — they call
+    /// `resolve_sibling_pipelines` on the finished bucket map, which already
+    /// carries the real `doc_count` key.
+    fn eval_aggs_object(
+        &self,
+        aggs_obj: &Map<String, Value>,
+        bucket_doc_count: u64,
+    ) -> Option<Map<String, Value>> {
         let mut result = Map::new();
         for (agg_name, agg_body) in aggs_obj {
             let (agg_type, params, sub, meta) = split_agg_body(agg_body)?;
@@ -1025,7 +1048,19 @@ impl<'a> FastCtx<'a> {
             }
             result.insert(agg_name.clone(), agg_result);
         }
+        let staged_doc_count = !result.contains_key("doc_count")
+            && result.values().any(|v| {
+                v.get("__pipeline__")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
+            });
+        if staged_doc_count {
+            result.insert("doc_count".to_string(), json!(bucket_doc_count));
+        }
         resolve_sibling_pipelines(&mut result);
+        if staged_doc_count {
+            result.remove("doc_count");
+        }
         Some(result)
     }
 
@@ -1065,7 +1100,7 @@ impl<'a> FastCtx<'a> {
         }
         bucket.insert("doc_count".to_string(), json!(doc_count));
         if let Some(sub_aggs) = sub.and_then(Value::as_object) {
-            let subs = child.eval_aggs_object(sub_aggs)?;
+            let subs = child.eval_aggs_object(sub_aggs, doc_count)?;
             for (k, v) in subs {
                 bucket.insert(k, v);
             }

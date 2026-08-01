@@ -6235,3 +6235,114 @@ async fn test_knn_plus_aggregations_single_request() {
     );
     assert!(res.hits.is_empty(), "size:0 returns aggs only, no hits");
 }
+
+// ── bare `_count` buckets_path: same answer on both agg paths ────────────────
+//
+// A bare `"buckets_path": "_count"` resolves against a `doc_count` staged into
+// the sibling map. The brute interpreter (`aggs::run_aggs_in_bucket`) stages
+// it; the doc-values fast path (`fast_aggs`) is a separate implementation and
+// did not, at the TOP level of an aggs tree — so the answer flipped to `null`
+// once an index grew past `FAST_AGG_MIN_DOCS` (10,000) and the fast path
+// started serving the request.
+//
+// Measured before the fix, same query, same corpus shape:
+//     100 docs    -> {"value": 100.0}     (brute)
+//     12,000 docs -> {"value": null}      (fast)
+//     12,000 docs -> {"value": 12000.0}   (fast path off via
+//                                          XERJ_DISABLE_FAST_AGGS=1)
+//
+// The 12,000-doc case below is the one that regressed. It runs on whichever
+// path the build defaults to, and the expected value is the same either way —
+// which is the whole point.
+
+async fn bare_count_top_level_value(n: usize) -> Value {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine(&dir);
+    engine.create_index("counts", Schema::empty()).unwrap();
+    let idx = engine.get_index("counts").unwrap();
+    for i in 0..n {
+        idx.index_document(
+            Some(format!("d{i}")),
+            json!({"grp": if i % 2 == 0 { "a" } else { "b" }}),
+        )
+        .await
+        .unwrap();
+    }
+    let req = parse_request(&json!({
+        "size": 0,
+        "aggs": {
+            "c": { "bucket_script": { "buckets_path": "_count", "script": "_value" } }
+        }
+    }))
+    .expect("parse_request");
+    let res = idx.search(&req).await.unwrap();
+    res.aggs.expect("aggs present")["c"]["value"].clone()
+}
+
+#[tokio::test]
+async fn test_bare_count_bucket_script_agrees_below_and_above_the_fast_agg_threshold() {
+    // Below FAST_AGG_MIN_DOCS: always the brute interpreter.
+    assert_eq!(
+        bare_count_top_level_value(100).await,
+        json!(100.0),
+        "brute path: a bare `_count` at the top level is the result-set size"
+    );
+    // Above it: the doc-values fast path serves this by default.
+    assert_eq!(
+        bare_count_top_level_value(12_000).await,
+        json!(12000.0),
+        "the answer must not depend on which agg path served the request"
+    );
+}
+
+#[tokio::test]
+async fn test_bare_count_bucket_script_inside_a_terms_bucket_agrees_on_both_paths() {
+    // The per-bucket case, which the fast path already got right (it resolves
+    // pipelines against the finished bucket map). Pinned alongside the
+    // top-level one so a future refactor can't fix one and break the other.
+    for (n, per_bucket) in [(100usize, 50.0f64), (12_000usize, 6000.0f64)] {
+        let dir = TempDir::new().unwrap();
+        let engine = make_engine(&dir);
+        engine.create_index("counts", Schema::empty()).unwrap();
+        let idx = engine.get_index("counts").unwrap();
+        for i in 0..n {
+            idx.index_document(
+                Some(format!("d{i}")),
+                json!({"grp": if i % 2 == 0 { "a" } else { "b" }}),
+            )
+            .await
+            .unwrap();
+        }
+        let req = parse_request(&json!({
+            "size": 0,
+            "aggs": {
+                "by_grp": {
+                    "terms": { "field": "grp" },
+                    "aggs": {
+                        "c": { "bucket_script": { "buckets_path": "_count", "script": "_value" } }
+                    }
+                }
+            }
+        }))
+        .expect("parse_request");
+        let res = idx.search(&req).await.unwrap();
+        let aggs = res.aggs.expect("aggs present");
+        let buckets = aggs["by_grp"]["buckets"]
+            .as_array()
+            .expect("terms buckets")
+            .clone();
+        assert_eq!(buckets.len(), 2, "n={n}: {aggs}");
+        for b in buckets {
+            assert_eq!(
+                b["doc_count"].as_f64(),
+                Some(per_bucket),
+                "n={n}: bucket doc_count"
+            );
+            assert_eq!(
+                b["c"]["value"].as_f64(),
+                Some(per_bucket),
+                "n={n}: `_count` must equal the bucket's own doc_count: {b}"
+            );
+        }
+    }
+}
