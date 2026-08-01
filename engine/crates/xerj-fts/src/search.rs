@@ -1028,24 +1028,51 @@ impl FtsSearcher {
             0
         });
 
-        // Execute all sub-queries
-        let must_hits: Vec<Vec<ScoredHit>> = bq
-            .must
-            .iter()
-            .map(|q| self.execute(q, explain))
-            .collect::<Result<_>>()?;
-
-        let should_hits: Vec<Vec<ScoredHit>> = bq
-            .should
-            .iter()
-            .map(|q| self.execute(q, explain))
-            .collect::<Result<_>>()?;
-
-        let must_not_hits: Vec<Vec<ScoredHit>> = bq
-            .must_not
-            .iter()
-            .map(|q| self.execute(q, explain))
-            .collect::<Result<_>>()?;
+        // Execute all sub-queries.
+        //
+        // Cooperative deadline (RC4 blocker 12, extended to clause fan-out):
+        // clause COUNT is a second unbounded axis alongside the term-dictionary
+        // walks the expansion loops already poll. A projected disjunction is
+        // one clause per (token × field) — a field-less `query_string` over a
+        // wide mapping reaches tens of thousands — and each clause here
+        // materialises a full `Vec<ScoredHit>` before anything is combined. The
+        // engine runs the search to completion inside `block_in_place`, so the
+        // outer `tokio::time::timeout` cannot interrupt it: without this poll
+        // one request holds a worker for as long as the clause list takes,
+        // whatever the request's own timeout said. Stopping early yields
+        // partial hits, which `deadline_tripped` reports so the response says
+        // `timed_out: true` (ES shard-timeout semantics).
+        //
+        // Partial must ALWAYS mean narrower, never broader. Abandoning a
+        // `should` clause only removes disjuncts, so the surviving hits are a
+        // subset of the true answer — safe. Abandoning a `must` or `must_not`
+        // clause would RELAX the query and admit documents it excludes, so
+        // those bail the whole bool to an empty result instead.
+        let mut clauses_run: usize = 0;
+        let mut run_clauses =
+            |slice: &[Query], partial_ok: bool| -> Result<Option<Vec<Vec<ScoredHit>>>> {
+                let mut out = Vec::with_capacity(slice.len());
+                for q in slice {
+                    // Poll every 64 clauses: one clause is a postings decode,
+                    // orders of magnitude coarser than the per-term probes the
+                    // expansion loops poll every 1 024 of.
+                    if clauses_run & 63 == 0 && self.deadline_hit() {
+                        return Ok(if partial_ok { Some(out) } else { None });
+                    }
+                    clauses_run += 1;
+                    out.push(self.execute(q, explain)?);
+                }
+                Ok(Some(out))
+            };
+        let Some(must_hits) = run_clauses(&bq.must, false)? else {
+            return Ok(Vec::new());
+        };
+        let Some(should_hits) = run_clauses(&bq.should, true)? else {
+            return Ok(Vec::new());
+        };
+        let Some(must_not_hits) = run_clauses(&bq.must_not, false)? else {
+            return Ok(Vec::new());
+        };
 
         // Build must_not doc_id set
         let must_not_docs: std::collections::HashSet<u32> = must_not_hits
@@ -1877,6 +1904,98 @@ mod tests {
         assert!(
             expired.deadline_tripped(),
             "expired deadline must latch deadline_tripped"
+        );
+    }
+
+    /// Clause COUNT is the second unbounded axis. A projected disjunction is
+    /// one clause per (token × field), so a field-less `query_string` over a
+    /// wide mapping arrives here with tens of thousands of `should` clauses,
+    /// each materialising a full hit vector. Pre-fix nothing in this loop
+    /// polled the request deadline, so the whole list ran to completion
+    /// inside `block_in_place` — one request holding a worker for as long as
+    /// the clause list took, whatever its timeout said.
+    #[test]
+    fn bool_clause_fan_out_respects_cooperative_deadline() {
+        let dir = TempDir::new().unwrap();
+        let registry = Arc::new(AnalyzerRegistry::default());
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg0", Arc::clone(&registry));
+        let cfg = FieldIndexConfig {
+            analyzer: "whitespace".to_owned(),
+            ..Default::default()
+        };
+        writer.configure_field("body", cfg);
+        let text: String = (0..2000)
+            .map(|i| format!("term{i:05}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        writer.add_document(0, &[("body".to_owned(), text)].into_iter().collect());
+        writer.finish().unwrap();
+        let reader = Arc::new(FtsIndexReader::open(dir.path(), "seg0", &["body"]).unwrap());
+
+        // 2 000 `should` clauses — well past the every-64 poll interval.
+        let mut bq = BoolQuery::new();
+        for i in 0..2000 {
+            bq = bq.should(Query::Term(TermQuery::new("body", format!("term{i:05}"))));
+        }
+        let q = Query::Bool(Box::new(bq));
+
+        // Unarmed searcher: every clause runs, the doc matches, flag clear.
+        let searcher = FtsSearcher::new(Arc::clone(&reader), Arc::clone(&registry));
+        let hits = searcher.search(&q, 10, false).unwrap();
+        assert_eq!(
+            hits.len(),
+            1,
+            "the one doc matches via the full disjunction"
+        );
+        assert!(!searcher.deadline_tripped(), "no deadline → never tripped");
+
+        // Deadline already past: the clause loop stops at its first poll,
+        // returns Ok (graceful partial, not an error), and latches the trip
+        // so the caller reports `timed_out: true`.
+        let expired = FtsSearcher::new(Arc::clone(&reader), Arc::clone(&registry)).with_deadline(
+            Some(std::time::Instant::now() - std::time::Duration::from_millis(1)),
+        );
+        let partial = expired.search(&q, 10, false).unwrap();
+        assert!(
+            expired.deadline_tripped(),
+            "expired deadline must latch deadline_tripped on clause fan-out"
+        );
+        assert!(
+            partial.len() <= 1,
+            "partial results are a SUBSET, never more than the true answer"
+        );
+    }
+
+    /// A truncated `must`/`must_not` would RELAX the query and admit
+    /// documents it excludes. Those clause lists must bail the whole bool to
+    /// empty rather than return a broader-than-asked-for set.
+    #[test]
+    fn bool_deadline_never_broadens_a_must_not() {
+        let dir = TempDir::new().unwrap();
+        let registry = Arc::new(AnalyzerRegistry::default());
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg0", Arc::clone(&registry));
+        let cfg = FieldIndexConfig {
+            analyzer: "whitespace".to_owned(),
+            ..Default::default()
+        };
+        writer.configure_field("body", cfg);
+        writer.add_document(0, &[("body".to_owned(), "alpha beta".to_owned())].into());
+        writer.finish().unwrap();
+        let reader = Arc::new(FtsIndexReader::open(dir.path(), "seg0", &["body"]).unwrap());
+
+        let bq = BoolQuery::new()
+            .should(Query::Term(TermQuery::new("body", "alpha")))
+            .must_not(Query::Term(TermQuery::new("body", "beta")));
+        let q = Query::Bool(Box::new(bq));
+
+        let expired = FtsSearcher::new(reader, registry).with_deadline(Some(
+            std::time::Instant::now() - std::time::Duration::from_millis(1),
+        ));
+        let hits = expired.search(&q, 10, false).unwrap();
+        assert!(
+            hits.is_empty(),
+            "a must_not that could not be fully evaluated must not admit the \
+             document it excludes"
         );
     }
 
