@@ -740,6 +740,19 @@ pub(crate) fn apply_bucket_pipeline_ops(
             .get("gap_policy")
             .and_then(Value::as_str)
             .unwrap_or("skip");
+        // A limit violation is a property of the script, not of any one
+        // bucket, and a `bucket_selector` has nowhere to render one (it keeps
+        // or drops buckets — there is no value field to attach a reason to).
+        // Report it once here rather than silently dropping every bucket
+        // inside the retain below, where the reason is discarded.
+        if let Err(reason) = check_expr_limits(&script_str) {
+            tracing::warn!(
+                target: "xerj::aggs",
+                script_len = script_str.len(),
+                reason = %reason,
+                "bucket_selector expression rejected by the evaluator limits; every bucket is dropped"
+            );
+        }
         buckets.retain(|bucket| {
             let mut params = extra_params.clone();
             for (alias, target) in &bp_obj {
@@ -1019,9 +1032,27 @@ fn resolve_bucket_script(
         };
         params.insert(alias.clone(), v);
     }
-    match eval_script_expr(script, &params) {
-        Some(v) => json!({"value": v}),
-        None => json!({"value": Value::Null}),
+    match eval_script_expr_checked(script, &params) {
+        Ok(Some(v)) => json!({"value": v}),
+        // Unevaluable but within the limits: unchanged null-bucket behaviour.
+        Ok(None) => json!({"value": Value::Null}),
+        // Issue #111 asked for a bounded *error*, not a bounded silence. The
+        // bucket keeps its shape (a null value, so nothing that reads
+        // `.value` changes) and carries the reason alongside it, so an
+        // operator can tell "past the expression limits" from "outside the
+        // supported subset" — both of which used to render as a bare null.
+        Err(reason) => {
+            tracing::warn!(
+                target: "xerj::aggs",
+                script_len = script.len(),
+                reason = %reason,
+                "bucket_script expression rejected by the evaluator limits"
+            );
+            json!({
+                "value": Value::Null,
+                "error": { "type": "illegal_argument_exception", "reason": reason }
+            })
+        }
     }
 }
 
@@ -1093,16 +1124,45 @@ fn check_expr_limits(script: &str) -> Result<(), String> {
 /// logical `&&` / `||` (yield 0.0 or 1.0), and parentheses.  Honors
 /// standard precedence.  Returns `None` on parse failure.
 ///
-/// Bounded on entry by [`check_expr_limits`]: an expression past the limits
-/// resolves to `None` — the same null bucket value every other unevaluable
-/// script already produces — instead of overflowing the stack.
+/// Bounded on entry by [`check_expr_limits`] (see
+/// [`eval_script_expr_checked`]): an expression past the limits resolves to
+/// `None` instead of overflowing the stack.
+///
+/// This spelling **discards the reason**. Prefer [`eval_script_expr_checked`]
+/// anywhere the reason can be shown to the caller; this one exists for the
+/// boolean `bucket_selector` predicate, where a bucket is kept or dropped and
+/// there is nowhere to put a message.
 fn eval_script_expr(script: &str, params: &HashMap<String, f64>) -> Option<f64> {
-    if check_expr_limits(script).is_err() {
-        return None;
-    }
-    let tokens = tokenize_script(script, params)?;
-    let rpn = shunting_yard(&tokens)?;
-    evaluate_rpn(&rpn)
+    eval_script_expr_checked(script, params).ok().flatten()
+}
+
+/// Evaluate an expression, keeping a resource-limit violation distinguishable
+/// from an ordinary unevaluable expression.
+///
+/// * `Err(reason)` — the source tripped [`check_expr_limits`]. Issue #111
+///   asked for a *bounded error*, so the reason is returned rather than
+///   collapsed: callers surface it instead of rendering a bare null that says
+///   nothing about why.
+/// * `Ok(None)` — ordinary unevaluable expression: syntax outside the subset
+///   this evaluator supports (a ternary, a function call, a stray token).
+///   Unchanged behaviour — the bucket renders a null value.
+/// * `Ok(Some(v))` — the value.
+///
+/// The distinction is not cosmetic: below the bound, a ternary is `Ok(None)`
+/// because `?` is not a token here; above it, the same ternary is `Err`. Only
+/// the reason tells those two apart, which is why the limit tests assert on it.
+fn eval_script_expr_checked(
+    script: &str,
+    params: &HashMap<String, f64>,
+) -> Result<Option<f64>, String> {
+    check_expr_limits(script)?;
+    let Some(tokens) = tokenize_script(script, params) else {
+        return Ok(None);
+    };
+    let Some(rpn) = shunting_yard(&tokens) else {
+        return Ok(None);
+    };
+    Ok(evaluate_rpn(&rpn))
 }
 
 #[derive(Debug, Clone)]
@@ -1366,49 +1426,93 @@ mod bucket_script_expr_limit_tests {
     //! out of native stack there kills the process instead of returning an
     //! error, so the limits are enforced on entry — before tokenizing.
     //!
-    //! If the entry bound regresses, these tests do not silently pass: the
-    //! test process itself overflows and aborts.
+    //! **These tests assert on the REASON, not on `None`.** An earlier
+    //! revision asserted `eval_script_expr(..) == None` for the ternary
+    //! fixtures, and those two tests still passed with the entry bound
+    //! deleted: `?` is not a token in this evaluator, so a ternary is
+    //! unevaluable — `None` — bound or no bound. They read as coverage while
+    //! pinning nothing. `eval_script_expr_checked` separates the two cases
+    //! (`Err(reason)` = limit violation, `Ok(None)` = merely unevaluable), so
+    //! every test below except the explicitly labelled control fails if the
+    //! `check_expr_limits` call is removed from the evaluator's entry.
     use super::*;
 
     fn no_params() -> HashMap<String, f64> {
         HashMap::new()
     }
 
+    /// Assert a fixture is reported as a LIMIT violation, not merely as
+    /// unevaluable. Asserting the reason is what makes these tests fail when
+    /// the entry bound is removed.
+    fn assert_rejected_by_the_bound(src: &str, expected_reason: &str) {
+        match eval_script_expr_checked(src, &no_params()) {
+            Err(reason) => assert_eq!(
+                reason, expected_reason,
+                "must be rejected by the entry bound, reporting that limit"
+            ),
+            other => {
+                panic!("expected a limit violation, got {other:?} — the entry bound did not run")
+            }
+        }
+        // The reason-discarding spelling still degrades to a null value.
+        assert_eq!(eval_script_expr(src, &no_params()), None);
+    }
+
     #[test]
     fn deeply_nested_parens_are_rejected_instead_of_evaluated() {
+        // Without the bound this is perfectly evaluable — `Some(1.0)` — so
+        // this fixture pins the bound on its own.
         let src = format!("{}1{}", "(".repeat(5000), ")".repeat(5000));
-        assert!(
-            check_expr_limits(&src).is_err(),
-            "5000-deep parens must trip the entry bound"
-        );
-        assert_eq!(
-            eval_script_expr(&src, &no_params()),
-            None,
-            "an over-deep expression must resolve to a null bucket value"
-        );
+        assert_rejected_by_the_bound(&src, EXPR_TOO_DEEP_MSG);
     }
 
     #[test]
     fn chained_ternaries_are_bounded_by_their_count_not_their_paren_depth() {
-        // The reported repro, verbatim: a right-associative ternary chain
-        // whose conditions are all false, so every step descends into the
-        // tail. It never opens a paren, yet a ternary-splitting evaluator
-        // re-enters itself once per `?` — counting `?` is the only thing that
-        // bounds it. Measured against that evaluator in an optimized build:
-        // 80,001 bytes (20k ternaries) overflows a 2 MiB worker stack and
-        // SIGABRTs the process; the entry bound below rejects it in ~5 µs.
+        // A right-associative ternary chain whose conditions are all false,
+        // so every step descends into the tail. It never opens a paren, yet a
+        // ternary-splitting evaluator re-enters itself once per `?` — the `?`
+        // count is the only count that bounds it.
+        //
+        // This fixture is deliberately SHORT (4 KB): the reported 80 KB repro
+        // is caught by the byte limit before the `?` count is ever consulted
+        // (see `the_reported_80_kb_repro_is_caught_by_the_size_limit_first`),
+        // so it cannot pin the ternary counting. 1000 ternaries in 4 KB can.
+        let src = format!("{}1", "0?1:".repeat(1_000));
+        assert_eq!(src.len(), 4_001);
+        assert!(
+            src.len() < crate::painless::MAX_SCRIPT_LEN,
+            "must be under the size limit, or it pins the size check instead"
+        );
+        assert_eq!(src.matches('?').count(), 1_000);
+        assert!(!src.contains('('), "must not open a single paren");
+        // The discriminator this test exists for: a ternary SHORT of the
+        // bound is unevaluable here (there is no `?` token) but is NOT a
+        // limit violation. So `None` alone proves nothing about the bound —
+        // only the `Err` / `Ok(None)` split does.
+        assert_eq!(
+            eval_script_expr_checked("0?1:2", &no_params()),
+            Ok(None),
+            "control: a short ternary is unevaluable, not a limit violation"
+        );
+        assert_rejected_by_the_bound(&src, EXPR_TOO_DEEP_MSG);
+    }
+
+    #[test]
+    fn the_reported_80_kb_repro_is_caught_by_the_size_limit_first() {
+        // The repro from the report, verbatim: 80,001 bytes, 20k ternaries.
+        // Against a ternary-splitting evaluator in an optimized build it
+        // overflows a 2 MiB worker stack and SIGABRTs the process. Both
+        // entry limits would reject it, and the size check runs first — so
+        // the reason it reports is the byte limit, NOT the nesting message.
+        // Pinned so nobody reads the ternary count as the thing that stops
+        // this particular repro.
         let src = format!("{}1", "0?1:".repeat(20_000));
         assert_eq!(src.len(), 80_001, "the fixture must be the ~80 KB repro");
-        assert_eq!(
-            src.matches('?').count(),
-            20_000,
-            "the fixture must actually be a 20k-deep ternary chain"
+        assert_eq!(src.matches('?').count(), 20_000);
+        assert_rejected_by_the_bound(
+            &src,
+            "bucket script expression is 80001 bytes, exceeds the 65536-byte limit",
         );
-        assert!(
-            check_expr_limits(&src).is_err(),
-            "a 20k ternary chain must trip the entry bound"
-        );
-        assert_eq!(eval_script_expr(&src, &no_params()), None);
     }
 
     #[test]
@@ -1416,22 +1520,35 @@ mod bucket_script_expr_limit_tests {
         // The other spelling of the same attack: each ternary nested inside
         // the previous one's false branch.
         let src = format!("0?1:{}1{}", "(0?1:".repeat(10_000), ")".repeat(10_000));
-        assert!(check_expr_limits(&src).is_err());
-        assert_eq!(eval_script_expr(&src, &no_params()), None);
+        assert_eq!(
+            eval_script_expr_checked("0?1:(0?1:2)", &no_params()),
+            Ok(None),
+            "control: the same shape below the bound is unevaluable, not a violation"
+        );
+        assert_rejected_by_the_bound(&src, EXPR_TOO_DEEP_MSG);
     }
 
     #[test]
     fn oversized_expression_is_rejected_instead_of_evaluated() {
         // Valid arithmetic — the pre-bound evaluator happily tokenizes and
-        // folds all of it — but far past the 64 KiB source limit.
+        // folds all of it into 65537.0 — but far past the 64 KiB source limit.
         let src = format!("{}1", "1+".repeat(crate::painless::MAX_SCRIPT_LEN));
         assert!(src.len() > crate::painless::MAX_SCRIPT_LEN);
-        assert!(check_expr_limits(&src).is_err());
+        let reason = eval_script_expr_checked(&src, &no_params())
+            .expect_err("an oversized source must be reported as a limit violation");
+        assert!(
+            reason.contains("byte limit") && reason.contains(&src.len().to_string()),
+            "the reason must name the limit and the actual size, got {reason:?}"
+        );
         assert_eq!(eval_script_expr(&src, &no_params()), None);
     }
 
     #[test]
     fn ordinary_expressions_still_evaluate() {
+        // CONTROL — a false-positive guard, not a regression pin. It passes
+        // with or without the entry bound by design: its job is to fail if
+        // the bound ever starts rejecting ordinary scripts, which is the risk
+        // a bound on a hot path actually carries.
         let mut params = HashMap::new();
         params.insert("numerator".to_string(), 8.0);
         params.insert("denominator".to_string(), 2.0);
@@ -1447,20 +1564,55 @@ mod bucket_script_expr_limit_tests {
             ")".repeat(MAX_EXPR_DEPTH)
         );
         assert!(check_expr_limits(&deep_ok).is_ok());
-        assert_eq!(eval_script_expr(&deep_ok, &params), Some(8.0));
+        assert_eq!(eval_script_expr_checked(&deep_ok, &params), Ok(Some(8.0)));
     }
 
     #[test]
-    fn an_over_deep_bucket_script_resolves_to_null_not_a_crash() {
-        // End to end through the pipeline resolver: the bucket keeps its
-        // shape and reports a null value, exactly like any other script the
-        // evaluator can't handle.
+    fn an_over_deep_bucket_script_reports_a_bounded_error_not_a_crash() {
+        // End to end through the pipeline resolver. Issue #111 asked for a
+        // bounded ERROR: the bucket keeps its ES shape (`value` is null, as
+        // for any script this evaluator cannot handle) and carries why,
+        // instead of the reason being discarded.
         let mut siblings = Map::new();
         siblings.insert("total".to_string(), json!({"value": 10.0}));
         let bp = json!({"t": "total"});
         let src = format!("{}params.t{}", "(".repeat(5000), ")".repeat(5000));
         assert_eq!(
             resolve_bucket_script(&bp, &src, &HashMap::new(), &siblings),
+            json!({
+                "value": Value::Null,
+                "error": {
+                    "type": "illegal_argument_exception",
+                    "reason": EXPR_TOO_DEEP_MSG
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn an_over_long_ternary_bucket_script_reports_the_reason_not_a_bare_null() {
+        // The headline shape, end to end. Unbounded, this rendered a bare
+        // `{"value": null}` — indistinguishable from any unsupported script,
+        // because the tokenizer rejects `?` anyway. That indistinguishability
+        // is exactly what let the two ternary unit tests above pass without
+        // the fix, so it is pinned here as well. Kept under the size limit so
+        // it is the ternary count doing the rejecting.
+        let mut siblings = Map::new();
+        siblings.insert("total".to_string(), json!({"value": 10.0}));
+        let bp = json!({"t": "total"});
+        let src = format!("{}params.t", "0?1:".repeat(1_000));
+        assert!(src.len() < crate::painless::MAX_SCRIPT_LEN);
+        let out = resolve_bucket_script(&bp, &src, &HashMap::new(), &siblings);
+        assert_eq!(out["value"], Value::Null);
+        assert_eq!(
+            out["error"]["reason"],
+            json!(EXPR_TOO_DEEP_MSG),
+            "an over-limit ternary must report the bound, not a bare null: {out}"
+        );
+        // A ternary INSIDE the limits keeps the old bare-null rendering: the
+        // error object appears only for a genuine limit violation.
+        assert_eq!(
+            resolve_bucket_script(&bp, "0?1:params.t", &HashMap::new(), &siblings),
             json!({"value": Value::Null})
         );
     }

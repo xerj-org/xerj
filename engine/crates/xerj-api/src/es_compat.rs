@@ -5245,6 +5245,58 @@ fn find_script_limit_violation(v: &Value) -> Option<String> {
     }
 }
 
+/// The search-body fields the request-time script guard inspects — the one
+/// list every entry point uses.
+///
+/// `_search` reaches these off the typed [`EsSearchBody`] in
+/// [`build_search_request`]; `_msearch`, `_search/template` and
+/// `_msearch/template` reach them off the raw sub-request body via
+/// [`find_search_body_script_violation`]. Both go through
+/// [`find_guarded_script_violation`] over THIS list, so the entry points
+/// cannot drift into guarding different fields.
+///
+/// Drift is not hypothetical: the `_msearch` guard first landed as a walk of
+/// the whole sub-request body, which made `_msearch` stricter than `_search` —
+/// a body whose script sat in an unguarded field (ES puts scripts under
+/// `collapse.inner_hits.script_fields`, for one) 400'd on `_msearch` while the
+/// identical search 200'd on `_search`. Same body, same cluster, different
+/// answer per endpoint is an ES-compatibility defect and a false-positive risk
+/// on a hot path.
+///
+/// `aggs` and `aggregations` are both listed because the typed path collapses
+/// that pair into a single `aggs_value` before the guard runs, so the raw path
+/// has to accept either spelling to stay equivalent.
+const SCRIPT_GUARDED_FIELDS: [&str; 7] = [
+    "query",
+    "rescore",
+    "sort",
+    "script_fields",
+    "runtime_mappings",
+    "aggs",
+    "aggregations",
+];
+
+/// Run [`find_script_limit_violation`] over exactly the
+/// [`SCRIPT_GUARDED_FIELDS`] subtrees of a search body.
+///
+/// `field` resolves a field name against whatever representation the caller
+/// holds: the typed [`EsSearchBody`] on `_search`, a raw `Value` on `_msearch`
+/// and the template paths.
+fn find_guarded_script_violation<'a>(field: impl Fn(&str) -> Option<&'a Value>) -> Option<String> {
+    SCRIPT_GUARDED_FIELDS
+        .iter()
+        .filter_map(|name| field(name))
+        .find_map(find_script_limit_violation)
+}
+
+/// The request-time script guard for the entry points that hold the search
+/// body as raw JSON: `_msearch` sub-requests, and the rendered bodies of
+/// `_search/template` / `_msearch/template`. Checks the same fields, in the
+/// same way, as the typed `_search` path.
+fn find_search_body_script_violation(body: &Value) -> Option<String> {
+    find_guarded_script_violation(|name| body.get(name))
+}
+
 /// Parse an ES time-units string to milliseconds: `"500ms"`, `"30s"`,
 /// `"2m"`, `"1h"`, `"1d"`, `"5micros"`, `"100nanos"`, bare number =
 /// millis. Sub-millisecond values round up to 1 ms so `timeout=100nanos`
@@ -5287,20 +5339,21 @@ fn build_search_request(
     // Reject scripts that exceed the engine's resource limits up front with a
     // 400, before they reach the per-document scoring path (where a deeply
     // nested script would otherwise overflow the stack and abort the server).
-    for v in [
-        body.query.as_ref(),
-        body.rescore.as_ref(),
-        body.sort.as_ref(),
-        body.script_fields.as_ref(),
-        body.runtime_mappings.as_ref(),
-        aggs_value.as_ref(),
-    ]
-    .into_iter()
-    .flatten()
-    {
-        if let Some(msg) = find_script_limit_violation(v) {
-            return Err(xerj_common::XerjError::invalid_query(msg));
-        }
+    //
+    // The field selection lives in `SCRIPT_GUARDED_FIELDS`, shared with the
+    // raw-body entry points, so `_search` and `_msearch` cannot answer
+    // differently for the same body.
+    if let Some(msg) = find_guarded_script_violation(|name| match name {
+        "query" => body.query.as_ref(),
+        "rescore" => body.rescore.as_ref(),
+        "sort" => body.sort.as_ref(),
+        "script_fields" => body.script_fields.as_ref(),
+        "runtime_mappings" => body.runtime_mappings.as_ref(),
+        // The caller resolved `aggs` / `aggregations` into this one value.
+        "aggs" | "aggregations" => aggs_value.as_ref(),
+        _ => None,
+    }) {
+        return Err(xerj_common::XerjError::invalid_query(msg));
     }
 
     let query_val = body.query.clone().unwrap_or(json!({ "match_all": {} }));
@@ -17838,12 +17891,13 @@ async fn msearch_impl(
         };
 
         // Same request-time script guard `_search` applies in
-        // `build_search_request`. Without it `_msearch` was a general bypass:
+        // `build_search_request`, over the same fields — see
+        // `SCRIPT_GUARDED_FIELDS`. Without it `_msearch` was a general bypass:
         // any script `_search` rejects up front with a 400 reached the
         // per-document paths unchecked here. Sub-searches are independent, so
         // the violation fails this item only (400, ES's per-item error shape)
         // and the rest of the batch still runs.
-        if let Some(msg) = find_script_limit_violation(&search_body_val) {
+        if let Some(msg) = find_search_body_script_violation(&search_body_val) {
             responses.push(json!({
                 "error": { "type": "illegal_argument_exception", "reason": msg },
                 "status": 400
@@ -23942,9 +23996,9 @@ pub async fn search_template(
     };
 
     // A rendered template is user input like any other search body — apply
-    // the same request-time script guard `_search` applies in
-    // `build_search_request`, which this path also skips.
-    if let Some(msg) = find_script_limit_violation(&search_body_val) {
+    // the same request-time script guard, over the same fields, that `_search`
+    // applies in `build_search_request`, which this path also skips.
+    if let Some(msg) = find_search_body_script_violation(&search_body_val) {
         return ApiError::new(xerj_common::XerjError::invalid_query(msg)).into_response();
     }
 
@@ -24130,10 +24184,10 @@ async fn msearch_template_impl(
             continue;
         };
 
-        // Same request-time script guard as `_search`/`_msearch`; the
-        // rendered template is user input and this path skips
-        // `build_search_request` too.
-        if let Some(msg) = find_script_limit_violation(&search_body_val) {
+        // Same request-time script guard, over the same fields, as
+        // `_search`/`_msearch`; the rendered template is user input and this
+        // path skips `build_search_request` too.
+        if let Some(msg) = find_search_body_script_violation(&search_body_val) {
             responses.push(json!({
                 "error": { "type": "illegal_argument_exception", "reason": msg },
                 "status": 400
@@ -32113,5 +32167,116 @@ mod msearch_script_guard_tests {
             .into_response();
         let v = drain_json(resp).await;
         assert_eq!(v["responses"][0]["status"], json!(200), "{v}");
+    }
+
+    /// Run one body through BOTH entry points against the same index, and
+    /// return `(_search HTTP status, _msearch per-item status)`.
+    async fn statuses_for(index: &str, body: &Value) -> (u16, u64) {
+        let state = test_state();
+        let idx = state.engine.get_or_create_index(index).expect("index");
+        idx.index_document(Some("1".into()), json!({ "tag": "a", "n": 1 }))
+            .await
+            .expect("index a document");
+
+        let typed: EsSearchBody =
+            serde_json::from_value(body.clone()).expect("body must be a valid search body");
+        let search_status = search(
+            State(state.clone()),
+            Path(index.to_string()),
+            Query(EsSearchQueryParams::default()),
+            EsSearchJson(Some(typed)),
+        )
+        .await
+        .into_response()
+        .status()
+        .as_u16();
+
+        let ms_body = format!("{}\n{}\n", json!({ "index": index }), body);
+        let resp = msearch(State(state), bytes::Bytes::from(ms_body))
+            .await
+            .into_response();
+        let v = drain_json(resp).await;
+        let item_status = v["responses"][0]["status"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("no per-item status in {v}"));
+        (search_status, item_status)
+    }
+
+    /// The asymmetry this guard originally introduced. The `_msearch` guard
+    /// first landed as a walk of the WHOLE sub-request body, so a script
+    /// living outside the six fields `_search` checks — ES puts `script_fields`
+    /// under `collapse.inner_hits`, for one — 400'd on `_msearch` while the
+    /// identical search 200'd on `_search`. The body also carries an oversized
+    /// plain string in an unrelated field, the false-positive shape a
+    /// whole-body walk invites.
+    #[tokio::test]
+    async fn search_and_msearch_agree_on_an_oversized_script_outside_the_guarded_fields() {
+        let huge_script = format!("{}1", "0?1:".repeat(20_000));
+        let body = json!({
+            "query": { "match_all": {} },
+            "collapse": {
+                "field": "tag",
+                "inner_hits": {
+                    "name": "top",
+                    "script_fields": { "d": { "script": { "source": huge_script } } }
+                }
+            },
+            "highlight": { "pre_tags": ["x".repeat(80_000)] }
+        });
+        let (search_status, msearch_status) = statuses_for("guard-agreement-outside", &body).await;
+        assert_eq!(
+            u64::from(search_status),
+            msearch_status,
+            "the same body must get the same answer from both endpoints"
+        );
+        assert_eq!(
+            search_status, 200,
+            "a script outside the guarded fields is not the guard's business"
+        );
+    }
+
+    /// The mirror. Inside a guarded field the same script must be rejected by
+    /// both — the guard is shared, not merely absent.
+    #[tokio::test]
+    async fn search_and_msearch_agree_on_an_oversized_script_inside_a_guarded_field() {
+        let huge_script = format!("{}1", "0?1:".repeat(20_000));
+        let body = json!({
+            "query": { "match_all": {} },
+            "script_fields": { "d": { "script": { "source": huge_script } } }
+        });
+        let (search_status, msearch_status) = statuses_for("guard-agreement-inside", &body).await;
+        assert_eq!(u64::from(search_status), msearch_status);
+        assert_eq!(search_status, 400, "an over-limit script must be rejected");
+    }
+
+    /// The drift pin that makes the shared list load-bearing: every name in
+    /// `SCRIPT_GUARDED_FIELDS` must be reached by BOTH resolvers. Add a name
+    /// without giving the typed path an arm for it — or drop an arm — and the
+    /// two entry points silently start answering differently again.
+    #[test]
+    fn every_guarded_field_is_checked_by_both_resolvers() {
+        let huge_script = format!("{}1", "0?1:".repeat(20_000));
+        let subtree = json!({ "x": { "script": { "source": huge_script } } });
+        for name in SCRIPT_GUARDED_FIELDS {
+            let mut raw = serde_json::Map::new();
+            raw.insert(name.to_string(), subtree.clone());
+            let raw = Value::Object(raw);
+
+            assert!(
+                find_search_body_script_violation(&raw).is_some(),
+                "the raw-body guard does not reach `{name}`"
+            );
+
+            let typed: EsSearchBody =
+                serde_json::from_value(raw.clone()).expect("typed search body");
+            // Mirrors every handler: `aggs` / `aggregations` collapse into one.
+            let aggs_value = typed.aggs.clone().or_else(|| typed.aggregations.clone());
+            let err = build_search_request(&typed, aggs_value)
+                .expect_err(&format!("the typed guard does not reach `{name}`"));
+            assert!(
+                err.to_string().contains("byte limit"),
+                "`{name}` was rejected for the wrong reason: {err}"
+            );
+        }
     }
 }
