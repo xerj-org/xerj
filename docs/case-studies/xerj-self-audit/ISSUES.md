@@ -9,7 +9,7 @@ live-reproduction transcripts: [FINDINGS-V2.md](FINDINGS-V2.md).
 | [#72](https://github.com/xerj-org/xerj/issues/72) | INJ-01 search-template injection | High | fixed, tracking merge |
 | [#73](https://github.com/xerj-org/xerj/issues/73) | F-PATH-02 snapshot location traversal | High | fixed, tracking merge |
 | [#74](https://github.com/xerj-org/xerj/issues/74) | S5-1 session-revocation lost update | High | fixed, tracking merge |
-| [#75](https://github.com/xerj-org/xerj/issues/75) | DESER-EGRESS-01 unauth Raft transport | High (gated) | open — Raft-auth Phase 2 |
+| [#75](https://github.com/xerj-org/xerj/issues/75) | DESER-EGRESS-01 unauth Raft transport | High (gated) | fixed, tracking merge — HMAC frame auth + fail-closed config |
 | [#76](https://github.com/xerj-org/xerj/issues/76) | Console hardening: S5-4, S5-3, S5-5, AUTHZ-2 | Med/Low/Info | open |
 
 The three Highs were filed publicly only *after* the fix was committed. The

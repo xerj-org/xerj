@@ -22,6 +22,11 @@ rand.workspace = true
 async-trait = "0.1"
 xxhash-rust.workspace = true
 futures = "0.3"
+# Cluster control-frame authentication (issue #75): HMAC-SHA256 over every
+# frame, compared in constant time.
+hmac = "0.12"
+sha2 = "0.10"
+subtle = "2"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full", "test-util"] }

@@ -237,6 +237,10 @@ impl Config {
 
         self.engine.validate()?;
 
+        // Cluster: fail closed rather than expose an unauthenticated Raft
+        // control port (issue #75).
+        self.cluster.validate()?;
+
         // Logging: format must be one of the two supported line formats.
         let fmt = self.logging.format.as_str();
         if !fmt.eq_ignore_ascii_case("text") && !fmt.eq_ignore_ascii_case("json") {
@@ -1144,7 +1148,7 @@ impl EngineConfig {
 /// When `enabled = false` (the default), the node runs in single-node mode and
 /// no Raft or TCP transport is initialised.
 ///
-/// **4 settings.**
+/// **5 settings.**
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ClusterConfig {
@@ -1167,6 +1171,25 @@ pub struct ClusterConfig {
     /// Controls how often the Raft state machine is driven forward. Lower values
     /// improve leader election latency at the cost of CPU.
     pub tick_ms: u64,
+    /// Cluster-wide shared secret authenticating every control frame on
+    /// `port` (default: empty — which is only legal while `enabled = false`).
+    ///
+    /// Every node in the cluster must be configured with the **same** secret.
+    /// Frames are signed with HMAC-SHA256 over a per-connection challenge, so
+    /// a peer that does not hold this secret cannot inject Raft messages, and a
+    /// captured frame cannot be replayed.
+    ///
+    /// May be left empty here and supplied via the `XERJ_CLUSTER_AUTH_SECRET`
+    /// environment variable instead — preferable when the config file is baked
+    /// into an image. An explicit non-empty value here wins over the
+    /// environment.
+    ///
+    /// **Fail-closed:** with `enabled = true` and no secret from either source,
+    /// the node refuses to start. There is no unauthenticated cluster mode.
+    ///
+    /// Minimum length [`ClusterConfig::MIN_AUTH_SECRET_LEN`]; generate one with
+    /// `openssl rand -hex 32`.
+    pub auth_secret: String,
 }
 
 impl Default for ClusterConfig {
@@ -1176,6 +1199,63 @@ impl Default for ClusterConfig {
             port: 9300,
             peers: Vec::new(),
             tick_ms: 50,
+            auth_secret: String::new(),
+        }
+    }
+}
+
+impl ClusterConfig {
+    /// Environment variable consulted when `auth_secret` is empty.
+    pub const AUTH_SECRET_ENV: &'static str = "XERJ_CLUSTER_AUTH_SECRET";
+
+    /// Minimum accepted secret length, in characters.
+    ///
+    /// Kept in step with `xerj_cluster::auth::MIN_SECRET_LEN`; the transport
+    /// enforces the same floor independently, so a mismatch fails closed.
+    pub const MIN_AUTH_SECRET_LEN: usize = 16;
+
+    /// The secret actually in force, or `None` if neither source supplied one.
+    ///
+    /// Precedence: an explicit non-empty `auth_secret` wins; otherwise
+    /// [`Self::AUTH_SECRET_ENV`]. Explicit configuration beats the ambient
+    /// environment so that a stray env var cannot silently re-key a cluster.
+    pub fn effective_auth_secret(&self) -> Option<String> {
+        Self::resolve_auth_secret(&self.auth_secret, std::env::var(Self::AUTH_SECRET_ENV).ok())
+    }
+
+    /// Pure resolution rule behind [`Self::effective_auth_secret`], split out so
+    /// it can be tested without mutating process-wide environment state.
+    pub fn resolve_auth_secret(field: &str, env: Option<String>) -> Option<String> {
+        let field = field.trim();
+        if !field.is_empty() {
+            return Some(field.to_string());
+        }
+        env.filter(|v| !v.trim().is_empty())
+            .map(|v| v.trim().to_string())
+    }
+
+    /// Fail-closed validation: cluster mode requires a usable shared secret.
+    pub fn validate(&self) -> Result<(), crate::XerjError> {
+        if !self.enabled {
+            return Ok(());
+        }
+        match self.effective_auth_secret() {
+            None => Err(crate::XerjError::config(format!(
+                "cluster.enabled = true requires a shared secret: set cluster.auth_secret \
+                 or the {} environment variable. Refusing to start an unauthenticated \
+                 cluster transport — anyone able to reach cluster.port could otherwise \
+                 inject Raft control messages.",
+                Self::AUTH_SECRET_ENV
+            ))),
+            Some(s) if s.chars().count() < Self::MIN_AUTH_SECRET_LEN => {
+                Err(crate::XerjError::config(format!(
+                    "cluster auth secret is too short ({} chars, minimum {}); \
+                     generate one with `openssl rand -hex 32`",
+                    s.chars().count(),
+                    Self::MIN_AUTH_SECRET_LEN
+                )))
+            }
+            Some(_) => Ok(()),
         }
     }
 }
@@ -1517,5 +1597,80 @@ mod tests {
         //   total: 60 fields, minus 1 auto-generated (admin_api_key) = 59 meaningful user settings
         let total: usize = 6 + 3 + 3 + 10 + 5 + 3 + 1 + 6 + 2 + 4 + 12 + 3 + 2;
         assert_eq!(total, 60);
+    }
+
+    // ── Cluster auth: fail closed (issue #75) ────────────────────────────────
+
+    #[test]
+    fn cluster_enabled_without_secret_is_rejected() {
+        let err = Config::from_toml_str(
+            "[cluster]\nenabled = true\nport = 9300\npeers = [\"n2=10.0.0.2:9300\"]\n",
+        )
+        .expect_err("cluster mode without a shared secret must not load");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("auth_secret") && msg.contains("XERJ_CLUSTER_AUTH_SECRET"),
+            "error must name both secret sources, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn cluster_enabled_with_secret_is_accepted() {
+        let cfg = Config::from_toml_str(
+            "[cluster]\nenabled = true\nauth_secret = \"0123456789abcdef0123\"\n",
+        )
+        .expect("cluster mode with a secret must load");
+        assert!(cfg.cluster.enabled);
+        assert_eq!(
+            cfg.cluster.effective_auth_secret().as_deref(),
+            Some("0123456789abcdef0123")
+        );
+    }
+
+    #[test]
+    fn cluster_short_secret_is_rejected() {
+        let err = Config::from_toml_str("[cluster]\nenabled = true\nauth_secret = \"hunter2\"\n")
+            .expect_err("a 7-char cluster secret must be rejected");
+        assert!(err.to_string().contains("too short"), "{err}");
+    }
+
+    #[test]
+    fn cluster_disabled_needs_no_secret() {
+        // The overwhelmingly common case: cluster mode off, nothing to check.
+        Config::from_toml_str("[cluster]\nenabled = false\n").expect("single-node must still load");
+        Config::default()
+            .validate()
+            .expect("defaults must validate");
+    }
+
+    #[test]
+    fn auth_secret_resolution_prefers_explicit_config() {
+        let env = Some("from-environment".to_string());
+        // Explicit config wins; a stray env var cannot silently re-key a cluster.
+        assert_eq!(
+            ClusterConfig::resolve_auth_secret("from-config", env.clone()),
+            Some("from-config".to_string())
+        );
+        // Empty / whitespace-only config falls back to the environment.
+        assert_eq!(
+            ClusterConfig::resolve_auth_secret("", env.clone()),
+            Some("from-environment".to_string())
+        );
+        assert_eq!(
+            ClusterConfig::resolve_auth_secret("   ", env),
+            Some("from-environment".to_string())
+        );
+        // Neither source → None, which is what makes validation fail closed.
+        assert_eq!(ClusterConfig::resolve_auth_secret("", None), None);
+        assert_eq!(
+            ClusterConfig::resolve_auth_secret("  ", Some("  ".to_string())),
+            None
+        );
+        // Surrounding whitespace (e.g. a trailing newline from `$(cat file)`)
+        // is configuration noise, not key material.
+        assert_eq!(
+            ClusterConfig::resolve_auth_secret("", Some("  padded-secret\n".to_string())),
+            Some("padded-secret".to_string())
+        );
     }
 }

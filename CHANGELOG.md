@@ -73,6 +73,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Operators terminating TLS or load-balancing in front of XERJ must set
   `server.trusted_proxies` to their proxy's address, otherwise every user
   behind it shares one rate-limit bucket.
+- **Cluster control frames are now authenticated (issue #75).** The inter-node
+  transport on `cluster.port` accepted any TCP connection that spoke its wire
+  format: anyone who could reach the port could send Raft `RequestVote` /
+  `AppendEntries` frames and steer consensus. Every frame now carries an
+  HMAC-SHA256 tag over a per-connection random challenge issued by the
+  receiver, the sender's node id, the frame's position in the connection, and
+  the payload; tags are compared in constant time, and the tag is verified
+  before the payload reaches the JSON deserialiser. The challenge makes a
+  captured frame non-replayable, including against a different node.
+- **Cluster mode fails closed.** `[cluster] enabled = true` now requires
+  `cluster.auth_secret` (or `XERJ_CLUSTER_AUTH_SECRET`), minimum 16
+  characters. With cluster mode on and no secret from either source the node
+  **refuses to start** instead of running an unauthenticated control port.
+  Single-node mode — the default — is unaffected and needs no secret.
+
+### Breaking
+
+- **The cluster wire format changed and is not backward compatible.** A node
+  running this version cannot talk to a node running rc.9 or earlier in either
+  direction: the receiver now speaks first (magic, version, challenge) where
+  the old protocol expected the sender to open with a length-prefixed JSON
+  frame. Upgrading a cluster requires stopping every node and restarting them
+  on the new version with a shared secret configured — a rolling restart will
+  not interoperate. Only cluster mode is affected; it is off by default, so
+  single-node deployments need no action.
+- Scope note: the HMAC authenticates frames, it does not encrypt them. Cluster
+  traffic is still plaintext and the secret is cluster-wide, so it proves
+  cluster membership, not per-node identity. `cluster.port` still belongs on a
+  trusted network segment; mTLS remains unimplemented.
 
 ## [1.0.0-rc.9] - 2026-08-01
 

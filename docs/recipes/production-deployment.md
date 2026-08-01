@@ -499,22 +499,34 @@ inter-node consensus and search:
 
 ```toml
 [cluster]
-enabled = true
-port    = 9300
-peers   = ["n2=10.0.0.2:9300", "n3=10.0.0.3:9300"]
-tick_ms = 50
+enabled     = true
+port        = 9300
+peers       = ["n2=10.0.0.2:9300", "n3=10.0.0.3:9300"]
+tick_ms     = 50
+auth_secret = "…"   # or XERJ_CLUSTER_AUTH_SECRET; same value on every node
 ```
 
-That inter-node transport is **plaintext and unauthenticated** — it is a plain
-TCP listener with no TLS and no API-key check on the Raft/search messages. The
-API-key auth and in-process TLS described above protect the *client-facing*
-listeners (REST/ES/gRPC); they do **not** extend to `cluster.port`. Anyone who
-can reach `:9300` can participate in the cluster protocol. So if you evaluate
-cluster mode, keep every `cluster.port` on a fully trusted, isolated network
-segment, and treat the feature as experimental — cross-cluster replication and
-disaster recovery are out of scope. For production HA today, mirror via
-snapshot/restore on a schedule, or dual-write to two independent single nodes
-at the application layer.
+`auth_secret` is **mandatory** when `enabled = true`. Every control frame on
+`cluster.port` carries an HMAC-SHA256 tag over a per-connection random
+challenge, so a peer that does not hold the secret cannot inject Raft messages
+and a captured frame cannot be replayed. A node started with cluster mode on
+and no secret — from either the config file or `XERJ_CLUSTER_AUTH_SECRET` —
+**refuses to start** rather than open an unauthenticated control port. Generate
+one with `openssl rand -hex 32` (minimum 16 characters) and use the identical
+value on every node; a node with the wrong secret is simply not admitted.
+
+Two limits to be clear about. First, the HMAC **authenticates, it does not
+encrypt**: cluster traffic is still plaintext JSON, so `cluster.port` still
+belongs on a trusted, isolated network segment, and the API-key auth and TLS
+described above still cover only the client-facing listeners (REST/ES/gRPC).
+Second, the secret is cluster-*wide*, so it proves "this peer is a cluster
+member", not "this peer is node n2" — a compromised member can impersonate any
+other member. Per-node identity needs mTLS, which is not implemented.
+
+Cluster mode remains experimental — cross-cluster replication and disaster
+recovery are out of scope. For production HA today, mirror via snapshot/restore
+on a schedule, or dual-write to two independent single nodes at the application
+layer.
 
 ---
 
