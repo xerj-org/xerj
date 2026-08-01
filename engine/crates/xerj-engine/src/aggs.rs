@@ -107,21 +107,104 @@ pub fn run_aggs(aggs_def: &Value, docs: &[Value]) -> Value {
 // loops in this module poll `max_buckets()` on each insert; when exceeded
 // the accumulator stops adding new keys (existing keys still increment).
 //
-// Set once at Index construction via `set_max_buckets`; defaults to the same
-// 65 536 ES uses if never set. Atomic + Relaxed: read in hot agg loops, write
-// once at startup, no ordering needed.
+// The node-wide default is set once at Engine construction via
+// `set_max_buckets`; it defaults to the same 65 536 ES uses if never set.
+// Atomic + Relaxed: read at the head of agg loops, written once at startup,
+// no ordering needed.
+//
+// A single aggregation run can *override* that default for the duration of
+// one call via `run_aggs_with_limits`. The override lives in a thread-local
+// (see `BUCKET_CAP_OVERRIDE`) rather than in the static, so one caller's
+// tighter cap is never observable by an aggregation running concurrently on
+// another thread. Mutating the static to express a per-call limit would be a
+// data race in the semantic sense: every other in-flight aggregation in the
+// process would silently adopt the foreign cap.
 static MAX_BUCKETS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(65_536);
 
-/// Override the per-aggregation bucket cap. Call once at Index startup with
-/// `config.limits.max_buckets`. Subsequent calls overwrite the previous value.
+thread_local! {
+    /// Per-call bucket-cap override installed by `BucketCapScope`, i.e. by
+    /// `run_aggs_with_limits`. `None` (the common case) means "use the
+    /// node-wide default". Scoped to the calling thread: the whole agg
+    /// evaluator is synchronous and runs on the caller's thread, so the
+    /// override covers exactly the call it was installed for.
+    static BUCKET_CAP_OVERRIDE: std::cell::Cell<Option<usize>> =
+        const { std::cell::Cell::new(None) };
+}
+
+/// Set the node-wide default per-aggregation bucket cap. Called once at
+/// Engine startup with `config.limits.max_buckets`. Subsequent calls
+/// overwrite the previous value.
+///
+/// This is deliberately *not* the way to express a limit for a single
+/// aggregation — use [`run_aggs_with_limits`] for that.
 pub fn set_max_buckets(n: usize) {
     MAX_BUCKETS.store(n.max(1), std::sync::atomic::Ordering::Relaxed);
 }
 
-/// Current per-aggregation bucket cap.
+/// The bucket cap in force for the aggregation running on this thread: the
+/// per-call override if one is installed, otherwise the node-wide default.
+///
+/// Callers hoist this out of their per-document loops; it is a cap for the
+/// whole aggregation, not something that may change mid-run.
 #[inline]
 pub fn max_buckets() -> usize {
-    MAX_BUCKETS.load(std::sync::atomic::Ordering::Relaxed)
+    match BUCKET_CAP_OVERRIDE.with(std::cell::Cell::get) {
+        Some(n) => n,
+        None => MAX_BUCKETS.load(std::sync::atomic::Ordering::Relaxed),
+    }
+}
+
+/// Per-call aggregation limits. Passed to [`run_aggs_with_limits`] by callers
+/// that need a limit other than the node-wide default (a per-request
+/// `search.max_buckets` override, or a test pinning the cap for one call).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AggLimits {
+    /// Maximum number of buckets a single aggregation may materialise.
+    pub max_buckets: usize,
+}
+
+impl Default for AggLimits {
+    fn default() -> Self {
+        Self {
+            max_buckets: max_buckets(),
+        }
+    }
+}
+
+/// RAII installer for a per-call bucket cap. Restores the previous value on
+/// drop — including on unwind — so a panicking aggregation cannot leave a
+/// foreign cap behind for the next aggregation on this thread. Nesting is
+/// supported (the inner scope wins, the outer value is restored).
+struct BucketCapScope {
+    previous: Option<usize>,
+}
+
+impl BucketCapScope {
+    fn new(max_buckets: usize) -> Self {
+        let previous = BUCKET_CAP_OVERRIDE.with(|cell| cell.replace(Some(max_buckets.max(1))));
+        Self { previous }
+    }
+}
+
+impl Drop for BucketCapScope {
+    fn drop(&mut self) {
+        BUCKET_CAP_OVERRIDE.with(|cell| cell.set(self.previous));
+    }
+}
+
+/// Run an aggregation under explicit limits instead of the node-wide
+/// defaults. Identical to [`run_aggs_with_all`] in every other respect.
+///
+/// The limits apply to this call only and are invisible to aggregations
+/// running concurrently on other threads.
+pub fn run_aggs_with_limits(
+    aggs_def: &Value,
+    docs: &[Value],
+    all_docs: &[Value],
+    limits: AggLimits,
+) -> Value {
+    let _scope = BucketCapScope::new(limits.max_buckets);
+    run_aggs_with_all(aggs_def, docs, all_docs)
 }
 
 thread_local! {
@@ -8939,6 +9022,7 @@ fn run_geotile_grid(
     };
 
     let mut bucket_map: HashMap<String, Vec<usize>> = HashMap::new();
+    let bucket_cap = max_buckets();
     for (i, doc) in docs.iter().enumerate() {
         let pts: Vec<(f64, f64)> = collect_geo_points(doc, field);
         for (lat, lon) in pts {
@@ -8952,7 +9036,7 @@ fn run_geotile_grid(
             let max = n - 1;
             let key = format!("{}/{}/{}", precision, x.clamp(0, max), y.clamp(0, max));
             // Bucket cap: skip new keys past the limit; existing keys still grow.
-            if bucket_map.contains_key(&key) || bucket_map.len() < max_buckets() {
+            if bucket_map.contains_key(&key) || bucket_map.len() < bucket_cap {
                 bucket_map.entry(key).or_default().push(i);
             }
         }
@@ -12330,12 +12414,6 @@ mod tests {
 
     // ── RC4-W2 item 5: sum_other_doc_count / ES size pipeline ───────────
 
-    /// Serializes the RC4-W2 agg tests: `multi_terms_past_bucket_cap_...`
-    /// temporarily shrinks the process-global `max_buckets()` to 3, and the
-    /// skewed-corpus tests build 5 distinct buckets — running them
-    /// concurrently would flake. Every test in this block takes the lock.
-    static AGG_CAP_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
     /// Skewed corpus: a=5 b=4 c=3 d=2 e=1 (15 docs). All expectations in
     /// the pipeline tests below were verified against live ES 8.13.4.
     fn skewed_docs() -> Vec<Value> {
@@ -12350,7 +12428,6 @@ mod tests {
 
     #[test]
     fn terms_sum_other_doc_count_on_truncation() {
-        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         let agg = json!({ "t": { "terms": { "field": "tag", "size": 2 } } });
         let result = run_aggs(&agg, &skewed_docs());
         let buckets = result["t"]["buckets"].as_array().unwrap();
@@ -12363,7 +12440,6 @@ mod tests {
 
     #[test]
     fn terms_min_doc_count_drops_silently_within_shard_size() {
-        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         // size=3 → default shard_size 14 covers all 5 buckets; b/c/d/e fail
         // min_doc_count=5 at final reduce and are dropped WITHOUT counting
         // toward other (live-ES-verified).
@@ -12377,7 +12453,6 @@ mod tests {
 
     #[test]
     fn terms_shard_size_cut_feeds_sum_other() {
-        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         // size=2, shard_size=3, min_doc_count=3: shard set [a,b,c]; d,e cut
         // at the shard boundary (+3); c passes min but overflows size (+3).
         let agg = json!({ "t": { "terms": {
@@ -12390,7 +12465,6 @@ mod tests {
 
     #[test]
     fn multi_terms_sum_other_doc_count_on_truncation() {
-        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         let mut docs = skewed_docs();
         for d in &mut docs {
             d["s"] = json!("x");
@@ -12407,7 +12481,6 @@ mod tests {
 
     #[test]
     fn composite_keyword_keys_stay_strings_and_sort_lexicographically() {
-        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         let docs = vec![
             json!({"agent": "007"}),
             json!({"agent": "9"}),
@@ -12437,7 +12510,6 @@ mod tests {
 
     #[test]
     fn composite_boolean_keys_are_json_bools() {
-        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         let docs = vec![
             json!({"active": true}),
             json!({"active": false}),
@@ -12459,7 +12531,6 @@ mod tests {
 
     #[test]
     fn composite_unmapped_field_keeps_legacy_heuristic() {
-        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
         // No sentinel → numeric-looking strings keep the historical
         // number-typed behavior (unmapped/dynamic fields).
         let docs = vec![json!({"n": 7}), json!({"n": 10})];
@@ -12477,19 +12548,85 @@ mod tests {
 
     #[test]
     fn multi_terms_past_bucket_cap_errors_instead_of_silent_drop() {
-        let _g = AGG_CAP_TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-        let old_cap = max_buckets();
-        set_max_buckets(3);
+        // The cap is an argument of the call under test — nothing
+        // process-wide is mutated, so this test is safe to run beside any
+        // other aggregation test.
         let docs: Vec<Value> = (0..5).map(|i| json!({ "k": format!("k{i}") })).collect();
         let agg = json!({ "t": { "multi_terms": { "terms": [ {"field": "k"} ], "size": 2 } } });
-        let result = run_aggs(&agg, &docs);
-        set_max_buckets(old_cap);
+        let result = run_aggs_with_limits(&agg, &docs, &docs, AggLimits { max_buckets: 3 });
         let err = result["t"]["error"].as_str().unwrap_or_default();
         assert!(
             err.contains("Trying to create too many buckets"),
             "expected too_many_buckets error, got {result}"
         );
         assert_eq!(result["t"]["__error_status__"], json!(400));
+    }
+
+    /// Issue #100: the per-call cap must not be visible to aggregations on
+    /// other threads. Deterministic — the two threads rendezvous on a
+    /// barrier, so the reader observes the writer *while* its scope is
+    /// open, not "usually" or "if it wins the race".
+    #[test]
+    fn per_call_bucket_cap_is_invisible_to_other_threads() {
+        use std::sync::{Arc, Barrier};
+
+        let default_cap = max_buckets();
+        assert!(
+            default_cap > 3,
+            "test assumes the node default is looser than the scoped cap"
+        );
+        let entered = Arc::new(Barrier::new(2));
+        let observed = Arc::new(Barrier::new(2));
+
+        let writer = {
+            let (entered, observed) = (Arc::clone(&entered), Arc::clone(&observed));
+            std::thread::spawn(move || {
+                let scope = BucketCapScope::new(3);
+                assert_eq!(max_buckets(), 3, "the scope owner sees its own cap");
+                entered.wait();
+                // Held open across the reader's assertion below.
+                observed.wait();
+                drop(scope);
+                assert_eq!(max_buckets(), default_cap, "scope must restore on drop");
+            })
+        };
+
+        entered.wait();
+        assert_eq!(
+            max_buckets(),
+            default_cap,
+            "another thread's scoped bucket cap leaked into this thread"
+        );
+        // And a real aggregation on this thread must still be able to build
+        // more buckets than the foreign scope allows.
+        let docs: Vec<Value> = (0..5).map(|i| json!({ "k": format!("k{i}") })).collect();
+        let agg = json!({ "t": { "multi_terms": { "terms": [ {"field": "k"} ], "size": 5 } } });
+        let result = run_aggs(&agg, &docs);
+        assert_eq!(
+            result["t"]["buckets"].as_array().map(Vec::len),
+            Some(5),
+            "expected 5 buckets, got {result}"
+        );
+        observed.wait();
+        writer.join().unwrap();
+    }
+
+    /// A per-call cap is confined to that call: the next aggregation on the
+    /// same thread is back on the node-wide default, even though the capped
+    /// call bailed out early with an error.
+    #[test]
+    fn per_call_bucket_cap_does_not_outlive_the_call() {
+        let docs: Vec<Value> = (0..5).map(|i| json!({ "k": format!("k{i}") })).collect();
+        let agg = json!({ "t": { "multi_terms": { "terms": [ {"field": "k"} ], "size": 5 } } });
+        let capped = run_aggs_with_limits(&agg, &docs, &docs, AggLimits { max_buckets: 3 });
+        assert_eq!(capped["t"]["__error_status__"], json!(400));
+
+        let after = run_aggs(&agg, &docs);
+        assert_eq!(
+            after["t"]["buckets"].as_array().map(Vec::len),
+            Some(5),
+            "cap outlived its call, got {after}"
+        );
     }
 }
 

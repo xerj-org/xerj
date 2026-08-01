@@ -2116,10 +2116,19 @@ mod semantic_deadline_regression_tests {
             boost: None,
             similarity: None,
         };
+        // Issue #100: the 5 ms budget below used to be measured against the
+        // real clock, so on a loaded box it was already gone when the scan
+        // took its *first* checkpoint — the request timed out having done no
+        // partial work and the count assertion saw 1 instead of 2. The budget
+        // is unchanged; what changed is that this index's scan clock is
+        // scripted, so checkpoint zero reads `base` (inside the budget) and
+        // the next checkpoint reads `base + 6 ms` (past it) no matter how
+        // long the machine takes to get between them.
+        let base = idx.script_scan_clock(1, std::time::Duration::from_millis(6));
         let result = idx
             .run_multi_knn_brute_force(
                 &match_all(250),
-                std::time::Instant::now() + std::time::Duration::from_millis(5),
+                base + std::time::Duration::from_millis(5),
                 vec![clause],
             )
             .await
@@ -2149,10 +2158,14 @@ mod semantic_deadline_regression_tests {
             boost: None,
             similarity: None,
         };
+        // See `expired_multi_knn_preserves_partial_timeout_state`: same 5 ms
+        // budget, now crossed at the first clause's second checkpoint by
+        // arithmetic rather than by whatever the machine was doing.
+        let base = idx.script_scan_clock(1, std::time::Duration::from_millis(6));
         let result = idx
             .run_multi_knn_brute_force(
                 &match_all(250),
-                std::time::Instant::now() + std::time::Duration::from_millis(5),
+                base + std::time::Duration::from_millis(5),
                 vec![clause.clone(), clause],
             )
             .await
@@ -2194,15 +2207,28 @@ mod semantic_deadline_regression_tests {
         .await
         .unwrap();
 
-        for timeout_ms in [1, 10, 250] {
-            idx.test_scan_checkpoint_delay_ms
-                .store(timeout_ms + 10, Ordering::Relaxed);
+        // Issue #100: this used to sleep `budget + 10 ms` inside the
+        // checkpoint and bet that the machine would still reach checkpoint
+        // zero within the budget. On a loaded box it does not — the scan
+        // stops at position 0 and the count below is 1 instead of 2.
+        //
+        // The deadlines stay genuinely in the future when the scan starts,
+        // which is the property this test is named for (as opposed to the
+        // pre-expired deadlines the `expired_*` tests cover), and the small
+        // budgets stay small. What changed is that the clock the scan reads
+        // is scripted: `base` at checkpoint zero, `base + budget + 1 ms`
+        // from position 1 on. The sleep is gone — it existed only to make
+        // real time pass, and the scripted clock does not care about real
+        // time.
+        idx.test_scan_checkpoint_delay_ms
+            .store(0, Ordering::Relaxed);
+        for budget_ms in [1u64, 10, 250] {
             idx.test_scan_checkpoint_count.store(0, Ordering::Relaxed);
-            let started = std::time::Instant::now();
+            let base = idx.script_scan_clock(1, std::time::Duration::from_millis(budget_ms + 1));
             let result = idx
                 .run_knn_brute_force_with_deadline(
                     &request,
-                    started + std::time::Duration::from_millis(timeout_ms),
+                    base + std::time::Duration::from_millis(budget_ms),
                     "embedding",
                     &[1.0, 0.0],
                     10,
@@ -2220,7 +2246,6 @@ mod semantic_deadline_regression_tests {
                 2,
                 "scan must pass checkpoint zero and stop at the later checkpoint"
             );
-            assert!(started.elapsed() >= std::time::Duration::from_millis(timeout_ms));
         }
     }
 
@@ -2242,10 +2267,14 @@ mod semantic_deadline_regression_tests {
             boost: None,
             similarity: None,
         };
+        // See `expired_multi_knn_preserves_partial_timeout_state` — same 5 ms
+        // race, same fix: the budget is crossed at the child scan's second
+        // checkpoint because the scripted clock says so.
+        let base = idx.script_scan_clock(1, std::time::Duration::from_millis(6));
         let result = idx
             .run_hybrid_with_deadline(
                 &match_all(250),
-                std::time::Instant::now() + std::time::Duration::from_millis(5),
+                base + std::time::Duration::from_millis(5),
                 vec![xerj_query::ast::WeightedQuery {
                     query: knn,
                     weight: 1.0,
@@ -2271,18 +2300,21 @@ mod semantic_deadline_regression_tests {
             .create_index("nested-timeout", Schema::empty())
             .unwrap();
         let idx = engine.get_index("nested-timeout").unwrap();
-        for n in 0..256 {
-            idx.index_document(
-                Some(format!("n{n}")),
-                serde_json::json!({"items": [{"vector": [1.0, 0.0]}]}),
-            )
-            .await
-            .unwrap();
+        // 8 parents × 32 nested elements. The shape matters: the parent loop
+        // checkpoints every 128 *parents* and so never fires past position 0
+        // here, which leaves the nested-array checkpoint (every 128
+        // *elements*, first hit inside parent 3) as the only cooperative
+        // stop in the scan. Deleting it is therefore visible to this test —
+        // with one element per parent the two checkpoints alias at 128 and
+        // the parent loop silently covers for the missing one.
+        for n in 0..8 {
+            let items: Vec<serde_json::Value> = (0..32)
+                .map(|_| serde_json::json!({"vector": [1.0, 0.0]}))
+                .collect();
+            idx.index_document(Some(format!("n{n}")), serde_json::json!({ "items": items }))
+                .await
+                .unwrap();
         }
-        idx.test_scan_checkpoint_delay_ms
-            .store(20, Ordering::Relaxed);
-        idx.test_scan_checkpoint_count.store(0, Ordering::Relaxed);
-
         let request = SearchRequest {
             query: QueryNode::Nested {
                 path: "items".into(),
@@ -2297,16 +2329,64 @@ mod semantic_deadline_regression_tests {
                 }),
                 score_mode: None,
             },
-            timeout_ms: Some(5),
+            timeout_ms: Some(100),
             ..SearchRequest::default()
         };
-        let result = idx.search(&request).await.unwrap();
+
+        // Issue #100: this used to assert that a 20 ms sleep inside the scan
+        // overran a 5 ms request budget — true on an idle box, false the
+        // moment the machine is loaded enough that the scan needs more than
+        // 5 ms just to reach its first checkpoint.
+        //
+        // Two facts replace that bet, and neither depends on how busy the
+        // machine is.
+        //
+        // The gate replaces the sleep. While the test holds it, the scan is
+        // parked *inside* its nested-array loop, before it has looked at the
+        // clock, and it stays there for as long as we like — so "the scan is
+        // still mid-flight" is established rather than hoped for. Failing to
+        // park at all is the regression this test exists to catch: it means
+        // the nested-array loop has no cooperative checkpoint and ran to
+        // completion, and it is asserted on explicitly below.
+        //
+        // The scripted clock replaces the budget race. Checkpoint zero reads
+        // an instant taken before the request was even built, so it is
+        // always inside the request budget; the nested-array checkpoint
+        // reads ten minutes later, so it is always past it.
+        idx.test_scan_checkpoint_count.store(0, Ordering::Relaxed);
+        idx.test_scan_checkpoint_parked.store(0, Ordering::SeqCst);
+        idx.script_scan_clock(1, std::time::Duration::from_secs(600));
+        let gate = Arc::clone(&idx.test_scan_checkpoint_gate)
+            .lock_owned()
+            .await;
+
+        let scan = {
+            let idx = Arc::clone(&idx);
+            tokio::spawn(async move { idx.search(&request).await })
+        };
+        tokio::time::timeout(std::time::Duration::from_secs(60), async {
+            while idx.test_scan_checkpoint_parked.load(Ordering::SeqCst) == 0 && !scan.is_finished()
+            {
+                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .expect("nested kNN scan neither parked nor finished within 60 s");
+        assert!(
+            idx.test_scan_checkpoint_parked.load(Ordering::SeqCst) > 0,
+            "nested kNN ran to completion without a cooperative checkpoint inside \
+             its nested-array loop (checkpoints reached: {})",
+            idx.test_scan_checkpoint_count.load(Ordering::Relaxed)
+        );
+        drop(gate);
+
+        let result = scan.await.unwrap().unwrap();
         assert!(result.timed_out);
         assert_eq!(result.total.relation, TotalHitsRelation::Gte);
         assert_eq!(
             idx.test_scan_checkpoint_count.load(Ordering::Relaxed),
             2,
-            "nested scan must stop at its first non-zero checkpoint"
+            "nested scan must stop at its first nested-array checkpoint"
         );
     }
 
@@ -2334,11 +2414,30 @@ mod semantic_deadline_regression_tests {
             .await
             .unwrap();
         }
+        // Issue #100: two wall-clock bets used to live here. The checkpoint
+        // count could come back below 16 because a loaded machine burnt the
+        // 100 ms budget before a request reached its *first* checkpoint, and
+        // "these ran concurrently" was inferred from total elapsed time
+        // being under 500 ms — a threshold that says as much about the box
+        // as about the engine.
+        //
+        // Both are now facts rather than bets. The scripted clock puts every
+        // request's checkpoint zero inside its budget and every later
+        // checkpoint past it, so each request reaches exactly two. And
+        // concurrency is established by the gate: all eight scans are parked
+        // on it at the same time, with none of the eight tasks finished,
+        // before any of them is allowed to observe its deadline. Eight scans
+        // simultaneously mid-flight is what "share bounded deadlines" means,
+        // and it is now observed instead of timed.
         idx.test_scan_checkpoint_delay_ms
-            .store(200, Ordering::Relaxed);
+            .store(0, Ordering::Relaxed);
         idx.test_scan_checkpoint_count.store(0, Ordering::Relaxed);
+        idx.test_scan_checkpoint_parked.store(0, Ordering::SeqCst);
+        idx.script_scan_clock(1, std::time::Duration::from_secs(600));
+        let gate = Arc::clone(&idx.test_scan_checkpoint_gate)
+            .lock_owned()
+            .await;
 
-        let started = std::time::Instant::now();
         let mut tasks = Vec::new();
         for n in 0..8 {
             let idx = Arc::clone(&idx);
@@ -2357,6 +2456,24 @@ mod semantic_deadline_regression_tests {
                 idx.search(&request).await
             }));
         }
+
+        tokio::time::timeout(std::time::Duration::from_secs(60), async {
+            while idx.test_scan_checkpoint_parked.load(Ordering::SeqCst) < 8 {
+                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .expect("the eight semantic scans never all reached a cooperative checkpoint");
+        // Every scan that reached the gate is still holding there, so none of
+        // the eight requests can have completed: they are in flight together.
+        for (n, task) in tasks.iter().enumerate() {
+            assert!(
+                !task.is_finished(),
+                "request {n} finished while the other scans were still parked"
+            );
+        }
+        drop(gate);
+
         for task in tasks {
             let result = task.await.unwrap().unwrap();
             assert!(result.timed_out);
@@ -2365,10 +2482,6 @@ mod semantic_deadline_regression_tests {
         assert!(
             idx.test_scan_checkpoint_count.load(Ordering::Relaxed) >= 16,
             "all semantic requests must reach multiple cooperative scan checkpoints"
-        );
-        assert!(
-            started.elapsed() < std::time::Duration::from_millis(500),
-            "concurrent semantic scans exceeded their own deadlines"
         );
     }
 }
@@ -2756,6 +2869,33 @@ enum PublicationTestPoint {
 #[cfg(test)]
 type PublicationTestHook = Arc<dyn Fn(&str, PublicationTestPoint) + Send + Sync + 'static>;
 
+/// A scripted reading of the clock that cooperative scan checkpoints compare
+/// against their deadline, installed per index by
+/// [`Index::script_scan_clock`].
+///
+/// Checkpoints at scan positions below `advance_from` read exactly `base`;
+/// `advance_from` and later read `base + skew`. Both readings are fixed at
+/// install time, so a deadline derived from `base` is crossed at a position
+/// the test chose, on an idle box and a thrashing one alike.
+#[cfg(test)]
+#[derive(Debug, Clone, Copy)]
+struct ScanClockScript {
+    base: std::time::Instant,
+    advance_from: usize,
+    skew: std::time::Duration,
+}
+
+#[cfg(test)]
+impl ScanClockScript {
+    fn reading_at(&self, position: usize) -> std::time::Instant {
+        if position < self.advance_from {
+            self.base
+        } else {
+            self.base.checked_add(self.skew).unwrap_or(self.base)
+        }
+    }
+}
+
 /// Per-index coordinator.
 ///
 /// Owns the storage layer (`IndexStore`), the FTS memtable, and the schema.
@@ -2925,6 +3065,32 @@ pub struct Index {
     test_scan_checkpoint_delay_ms: Arc<AtomicU64>,
     #[cfg(test)]
     test_scan_checkpoint_count: Arc<AtomicU64>,
+    /// Deterministic stand-in for the wall-clock delay above: while a test
+    /// holds this mutex, the first cooperative checkpoint of a scan that is
+    /// past position 0 parks on it and cannot observe the deadline until the
+    /// test lets go. That turns "the scan is still inside its loop when the
+    /// request budget runs out" into a fact established by the test instead
+    /// of a race against the machine's load.
+    #[cfg(test)]
+    test_scan_checkpoint_gate: Arc<tokio::sync::Mutex<()>>,
+    /// Number of checkpoints that have reached the gate. Lets a test wait
+    /// for the scan to be provably parked before it does anything else.
+    #[cfg(test)]
+    test_scan_checkpoint_parked: Arc<AtomicU64>,
+    /// Injected clock for the cooperative scan deadline check, owned by this
+    /// index — i.e. by the object under test, never process-wide. `None`
+    /// (the default) means every checkpoint reads the real clock.
+    ///
+    /// This is how a test states "the request's budget is spent by the time
+    /// the scan reaches position p" as a fact. The alternative — hand the
+    /// scan a budget of a few milliseconds and hope the machine reaches the
+    /// first checkpoint inside it — is a race the test loses whenever the
+    /// box is busy (issue #100). The deadline comparison itself is
+    /// untouched: the scan still compares a clock reading against the real
+    /// deadline it was handed, so a scan that ignores its deadline still
+    /// fails these tests.
+    #[cfg(test)]
+    test_scan_clock: Arc<std::sync::Mutex<Option<ScanClockScript>>>,
     #[cfg(test)]
     test_ann_passage_guard_pause: Arc<AtomicBool>,
     #[cfg(test)]
@@ -3419,6 +3585,12 @@ impl Index {
             #[cfg(test)]
             test_scan_checkpoint_count: Arc::new(AtomicU64::new(0)),
             #[cfg(test)]
+            test_scan_checkpoint_gate: Arc::new(tokio::sync::Mutex::new(())),
+            #[cfg(test)]
+            test_scan_checkpoint_parked: Arc::new(AtomicU64::new(0)),
+            #[cfg(test)]
+            test_scan_clock: Arc::new(std::sync::Mutex::new(None)),
+            #[cfg(test)]
             test_ann_passage_guard_pause: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
             test_ann_passage_guard_ready: Arc::new(AtomicBool::new(false)),
@@ -3729,6 +3901,12 @@ impl Index {
             test_scan_checkpoint_delay_ms: Arc::new(AtomicU64::new(0)),
             #[cfg(test)]
             test_scan_checkpoint_count: Arc::new(AtomicU64::new(0)),
+            #[cfg(test)]
+            test_scan_checkpoint_gate: Arc::new(tokio::sync::Mutex::new(())),
+            #[cfg(test)]
+            test_scan_checkpoint_parked: Arc::new(AtomicU64::new(0)),
+            #[cfg(test)]
+            test_scan_clock: Arc::new(std::sync::Mutex::new(None)),
             #[cfg(test)]
             test_ann_passage_guard_pause: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
@@ -7741,8 +7919,75 @@ impl Index {
             if _position > 0 && delay_ms > 0 {
                 tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
             }
+            // Deterministic gate (see `test_scan_checkpoint_gate`). Free when
+            // no test holds the mutex, so this is a no-op for every other
+            // test; when one does hold it, the scan waits here — inside its
+            // loop, before it looks at the clock — until released.
+            if _position > 0 {
+                self.test_scan_checkpoint_parked
+                    .fetch_add(1, Ordering::SeqCst);
+                let _gate = self.test_scan_checkpoint_gate.lock().await;
+            }
         }
-        std::time::Instant::now() >= deadline
+        self.scan_clock_now(_position) >= deadline
+    }
+
+    /// The clock a cooperative scan checkpoint compares against its deadline.
+    /// Always the real clock in a non-test build.
+    #[cfg(not(test))]
+    #[inline]
+    fn scan_clock_now(&self, _position: usize) -> std::time::Instant {
+        std::time::Instant::now()
+    }
+
+    /// The clock a cooperative scan checkpoint compares against its deadline.
+    ///
+    /// Real, unless a test has scripted this index's clock (see
+    /// [`Index::script_scan_clock`]), in which case it returns whatever that
+    /// script says the given scan position sees. Scripted readings do not
+    /// move with the machine, which is the whole point: it turns "the budget
+    /// runs out between checkpoint zero and the next one" from a race the
+    /// test can lose into an arithmetic fact.
+    #[cfg(test)]
+    #[inline]
+    fn scan_clock_now(&self, position: usize) -> std::time::Instant {
+        let script = *self
+            .test_scan_clock
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        match script {
+            Some(script) => script.reading_at(position),
+            None => std::time::Instant::now(),
+        }
+    }
+
+    /// Replace this index's scan clock with a scripted one and return the
+    /// instant every checkpoint before `advance_from` will read. Checkpoints
+    /// at `advance_from` and later read `base + skew` instead.
+    ///
+    /// A test derives its deadline from the returned `base`, so the position
+    /// at which the deadline is crossed is fixed by arithmetic rather than
+    /// by how quickly the machine gets from one checkpoint to the next.
+    ///
+    /// Scoped to this `Index` — the object under test — so a test that
+    /// scripts a clock is invisible to every other test in the process,
+    /// however they are scheduled.
+    #[cfg(test)]
+    fn script_scan_clock(
+        &self,
+        advance_from: usize,
+        skew: std::time::Duration,
+    ) -> std::time::Instant {
+        let base = std::time::Instant::now();
+        *self
+            .test_scan_clock
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()) = Some(ScanClockScript {
+            base,
+            advance_from,
+            skew,
+        });
+        base
     }
 
     #[allow(clippy::too_many_arguments)]
