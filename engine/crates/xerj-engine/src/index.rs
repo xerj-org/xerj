@@ -28191,14 +28191,40 @@ fn query_node_to_fts(
         } => {
             // Honor top-level `query_string.boost` like the Match arm above.
             let b = boost.unwrap_or(1.0);
-            let field = default_field
-                .as_deref()
-                .or_else(|| text_fields.first().map(|s| s.as_str()))
-                .unwrap_or("_all");
-            // Keyword default field: whole-value term (keyword analyzer).
-            if exact_fields.contains(field) {
-                return Some(FtsQuery::Term(FtsTerm::boosted(field, query.as_str(), b)));
+            // An explicit `default_field` searches exactly that one field —
+            // unchanged single-field behavior, including the keyword
+            // whole-value-term shortcut.
+            if let Some(field) = default_field.as_deref() {
+                if exact_fields.contains(field) {
+                    return Some(FtsQuery::Term(FtsTerm::boosted(field, query.as_str(), b)));
+                }
+                let registry = AnalyzerRegistry::default();
+                let analyzer = registry.get_analyzer("standard")?;
+                let tokens = analyzer.analyze(query);
+                if tokens.is_empty() {
+                    return None;
+                }
+                let mut bool_q = FtsBool::new().boost(b);
+                for token in &tokens {
+                    bool_q = bool_q.should(FtsQuery::Term(FtsTerm::new(field, &token.text)));
+                }
+                return Some(FtsQuery::Bool(Box::new(bool_q)));
             }
+            // No `default_field`: real ES/OpenSearch searches every mapped
+            // text field (`index.query.default_field` defaults to `"*"`).
+            // This used to fall back to `text_fields.first()` — an
+            // arbitrary single field picked by schema order — silently
+            // missing every match in every OTHER text field. Found live: a
+            // `query_string` with no field, run across a multi-index search
+            // spanning indices with different schemas, undercounted matches
+            // by two orders of magnitude (18 of ~14,074) because only one
+            // unrelated field was ever checked.
+            let fallback = ["_all".to_string()];
+            let fields: &[String] = if text_fields.is_empty() {
+                &fallback
+            } else {
+                text_fields
+            };
             let registry = AnalyzerRegistry::default();
             let analyzer = registry.get_analyzer("standard")?;
             let tokens = analyzer.analyze(query);
@@ -28207,7 +28233,10 @@ fn query_node_to_fts(
             }
             let mut bool_q = FtsBool::new().boost(b);
             for token in &tokens {
-                bool_q = bool_q.should(FtsQuery::Term(FtsTerm::new(field, &token.text)));
+                for field in fields {
+                    bool_q =
+                        bool_q.should(FtsQuery::Term(FtsTerm::new(field.as_str(), &token.text)));
+                }
             }
             Some(FtsQuery::Bool(Box::new(bool_q)))
         }
@@ -30830,6 +30859,45 @@ mod fts_projection_tests {
                     }
                     other => panic!("expected two terms, got {:?}", other),
                 }
+            }
+            other => panic!("expected bool, got {:?}", other),
+        }
+    }
+
+    /// Regression: `query_string` with no `default_field` set (ES/OpenSearch
+    /// semantics — `index.query.default_field` defaults to `"*"`, i.e.
+    /// search every mapped text field) used to pick only `text_fields[0]`,
+    /// an arbitrary single field chosen by schema order. Any match in every
+    /// OTHER text field was silently missed. Found live: a Kibana/OSD
+    /// Timelion panel's `query_string` (used to select which index's docs
+    /// to count inside a `filters` aggregation) undercounted matches by two
+    /// orders of magnitude because the schema's first text field happened
+    /// not to be the one holding the searched value.
+    #[test]
+    fn query_string_with_no_default_field_searches_every_text_field() {
+        let q = QueryNode::QueryString {
+            query: "needle".into(),
+            default_field: None,
+            default_operator: None,
+            boost: None,
+        };
+        let text_fields = vec!["agent".to_string(), "message".to_string()];
+        let fq = query_node_to_fts(&q, &text_fields, &kw(&[])).expect("projects");
+        match fq {
+            FtsQuery::Bool(b) => {
+                let fields: Vec<&str> = b
+                    .should
+                    .iter()
+                    .map(|s| match s {
+                        FtsQuery::Term(t) => t.field.as_str(),
+                        other => panic!("expected term, got {:?}", other),
+                    })
+                    .collect();
+                assert!(
+                    fields.contains(&"message"),
+                    "must search every text field, not just the first — got {fields:?}"
+                );
+                assert!(fields.contains(&"agent"), "got {fields:?}");
             }
             other => panic!("expected bool, got {:?}", other),
         }
