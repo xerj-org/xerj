@@ -45,7 +45,9 @@
 //! should fall back to a no-op score on script error.
 
 use serde_json::Value;
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub enum PainlessValue {
@@ -1049,6 +1051,110 @@ impl Drop for CallGuard<'_> {
     }
 }
 
+// ── Compiled-script cache ────────────────────────────────────────────────────
+//
+// A script is evaluated once per *document*. Tokenizing and parsing it per
+// document made the per-doc cost scale with the script's SIZE rather than
+// with its complexity: a legal 64 KiB script (see [`MAX_SCRIPT_LEN`]) cost
+// ~2 ms/doc, essentially all of it re-parsing an AST identical to the one
+// built for the previous document. That is also what made the doc-scan's
+// cooperative timeout ineffective — `scan_stored_section_into` polls its
+// deadline every N docs on the assumption that per-doc work is a few
+// microseconds, so a 2 ms/doc script stretched the uninterruptible quantum
+// from milliseconds to seconds and a `timeout` could not cut the scan short.
+//
+// Scripts are pure source text, so the AST is a pure function of the source
+// and can simply be memoised. The cache MUST be bounded: the key is
+// attacker-supplied source, so an unbounded map is itself a memory-exhaustion
+// vector — a caller need only issue queries with unique scripts.
+
+/// Maximum number of distinct compiled scripts retained at once.
+const MAX_SCRIPT_CACHE_ENTRIES: usize = 128;
+
+/// Maximum total *source* bytes retained across cached entries. Bounds the
+/// cache independently of the entry count, since [`MAX_SCRIPT_LEN`] allows a
+/// single 64 KiB script and 128 of those would be 8 MiB of source (and a
+/// considerably larger multiple of that in AST nodes).
+const MAX_SCRIPT_CACHE_SRC_BYTES: usize = 512 * 1024;
+
+/// A parse result shared between evaluations. Parse *failures* are cached
+/// too — a syntactically invalid script is also evaluated once per document,
+/// so leaving errors uncached would leave the same per-doc parse cost (and
+/// the same unbounded quantum) reachable through a malformed script.
+///
+/// `Rc`, not `Arc`, because [`Stmt::FnDecl`]/[`Expr::Lambda`] bodies are
+/// themselves `Rc`-shared — deliberately non-atomic, since a closure literal
+/// is cloned on every invocation. The cache is therefore per-thread (see
+/// [`SCRIPT_CACHE`]) rather than a shared static.
+type CompiledScript = Rc<Result<Vec<Stmt>, String>>;
+
+#[derive(Default)]
+struct ScriptCache {
+    entries: HashMap<String, CompiledScript>,
+    /// Sum of `entries`' key lengths; maintained incrementally.
+    src_bytes: usize,
+}
+
+impl ScriptCache {
+    fn insert(&mut self, src: &str, compiled: CompiledScript) {
+        // Never cacheable on its own — would evict everything and still not fit.
+        if src.len() > MAX_SCRIPT_CACHE_SRC_BYTES || self.entries.contains_key(src) {
+            return;
+        }
+        // Evict (in arbitrary hash order — the workload is "one script for a
+        // whole query", so recency bookkeeping buys nothing worth its cost)
+        // until the newcomer fits under BOTH bounds.
+        while self.entries.len() >= MAX_SCRIPT_CACHE_ENTRIES
+            || self.src_bytes.saturating_add(src.len()) > MAX_SCRIPT_CACHE_SRC_BYTES
+        {
+            let Some(victim) = self.entries.keys().next().cloned() else {
+                // Empty and still over budget is impossible given the guard
+                // above, but never spin.
+                return;
+            };
+            self.entries.remove(&victim);
+            self.src_bytes = self.src_bytes.saturating_sub(victim.len());
+        }
+        self.src_bytes = self.src_bytes.saturating_add(src.len());
+        self.entries.insert(src.to_string(), compiled);
+    }
+}
+
+thread_local! {
+    /// One cache per thread. A compiled AST contains `Rc`s and so cannot
+    /// cross threads; a `Mutex<Arc<...>>` would not help, since the `Rc`s
+    /// *inside* the AST are the non-`Sync` part.
+    ///
+    /// The bound is therefore per-thread, and the total is bounded by
+    /// (search worker threads) × [`MAX_SCRIPT_CACHE_SRC_BYTES`] — still a
+    /// fixed ceiling, because the worker pool is sized from the core count,
+    /// not from the request rate. Per-thread caching also removes the lock
+    /// from a path taken once per document, and each worker scanning the
+    /// same segment converges on the same one entry.
+    static SCRIPT_CACHE: RefCell<ScriptCache> = RefCell::new(ScriptCache::default());
+}
+
+fn compile_script(src: &str) -> Result<Vec<Stmt>, String> {
+    let toks = tokenize(src)?;
+    let mut p = Parser::new(&toks);
+    p.parse_program()
+}
+
+/// Tokenize + parse `src`, reusing a previously compiled AST when possible.
+fn compile_script_cached(src: &str) -> CompiledScript {
+    SCRIPT_CACHE.with(|cache| {
+        // Borrow, look up, release — the insert below needs a fresh mutable
+        // borrow, and `compile_script` must not run while either is held.
+        let hit = cache.borrow().entries.get(src).map(Rc::clone);
+        if let Some(hit) = hit {
+            return hit;
+        }
+        let compiled: CompiledScript = Rc::new(compile_script(src));
+        cache.borrow_mut().insert(src, Rc::clone(&compiled));
+        compiled
+    })
+}
+
 /// Validate a script against the parser/length resource limits WITHOUT running
 /// it, so the request layer can reject an abusive script with a 400 up front.
 ///
@@ -1065,15 +1171,13 @@ pub fn check_script_limits(src: &str) -> Result<(), String> {
             MAX_SCRIPT_LEN
         ));
     }
-    // The tokenizer is non-recursive; a tokenizer error is a plain syntax
-    // problem, so let the runtime path handle it (don't 400).
-    let toks = match tokenize(src) {
-        Ok(t) => t,
-        Err(_) => return Ok(()),
-    };
-    let mut p = Parser::new(&toks);
-    match p.parse_program() {
-        Err(e) if e == TOO_DEEP_MSG || e == EVAL_TOO_DEEP_MSG => Err(e),
+    // Anything other than a depth violation — including tokenizer errors and
+    // constructs outside our subset — is a plain syntax problem, so let the
+    // runtime path handle it (don't 400). Compiled through the cache so that
+    // repeated admission checks of the same script are free; whether the
+    // evaluating thread reuses this entry depends on which one it is.
+    match &*compile_script_cached(src) {
+        Err(e) if e == TOO_DEEP_MSG || e == EVAL_TOO_DEEP_MSG => Err(e.clone()),
         _ => Ok(()),
     }
 }
@@ -1086,11 +1190,16 @@ pub fn eval_painless(src: &str, ctx: &PainlessCtx) -> Result<PainlessValue, Stri
             MAX_SCRIPT_LEN
         ));
     }
-    let toks = tokenize(src)?;
-    let mut p = Parser::new(&toks);
-    let stmts = p.parse_program()?;
+    // Compiled once per distinct source, not once per document. The AST is
+    // shared (and immutable), so execution still gets its own `env` and its
+    // own `ctx` counters — the closure guards below are per-evaluation.
+    let compiled = compile_script_cached(src);
+    let stmts = match &*compiled {
+        Ok(stmts) => stmts,
+        Err(e) => return Err(e.clone()),
+    };
     let mut env: HashMap<String, PainlessValue> = HashMap::new();
-    exec_body(&stmts, ctx, &mut env)
+    exec_body(stmts, ctx, &mut env)
 }
 
 /// Run a statement list with implicit-last-value return semantics: an
@@ -1540,8 +1649,25 @@ fn apply_binary(
         }
     }
 
+    // Null-aware equality. `params` is a `Map<String, Object>` in real
+    // Painless, so a key that wasn't supplied reads as `null` and
+    // `params.y == null` is an ordinary reference comparison that yields a
+    // boolean — the numeric coercion below would otherwise reject the null
+    // operand and turn every params-guarded script into an error.
+    //
+    // Only `==`/`!=` are null-aware. Real Painless's *relational* operators
+    // and arithmetic unbox their operands and throw on a null, and so do
+    // ours (below) — which is what keeps a typo'd field name from matching
+    // every document.
+    if matches!(op, "==" | "!=")
+        && (matches!(left, PainlessValue::Null) || matches!(right, PainlessValue::Null))
+    {
+        let equal = matches!((&left, &right), (PainlessValue::Null, PainlessValue::Null));
+        return Ok(PainlessValue::Bool(if op == "==" { equal } else { !equal }));
+    }
+
     // A value that can't coerce to a number (most commonly `Null` — a
-    // missing `doc`/`params` field) errors rather than silently acting as
+    // missing `params` field) errors rather than silently acting as
     // 0: real Painless throws unboxing a null into a primitive, and a
     // script that quietly matched-as-zero on every doc with a typo'd field
     // name would be far worse than one that errors and excludes the doc.
@@ -1624,23 +1750,46 @@ fn resolve_doc_member(
     match member {
         "value" => {
             // Return first scalar. A field that's genuinely missing (or a
-            // multi-valued field with zero actual values) errors, matching
-            // real Painless's "no field found for [x]" exception — callers
-            // (script query filter, script_score, ...) already treat an
-            // error as "doesn't match" / "no-op score", so this fails
-            // closed instead of silently scoring/matching as if the field
-            // were present with value 0.
+            // multi-valued field with zero actual values) ERRORS — this is
+            // literally what Elasticsearch does: since 7.0, an empty
+            // `ScriptDocValues` throws
+            //   "A document doesn't have a value for a field! Use
+            //    doc[<field>].size()==0 to check if a document is missing a
+            //    field!"
+            // (6.x returned a type default with a deprecation warning; 7.0
+            // removed that). Returning `null` here instead would be neither
+            // ES's behaviour nor safe: callers (script query filter,
+            // script_score, ...) treat an error as "doesn't match" /
+            // "no-op score", so erroring is what keeps `doc['typo'].value > -1`
+            // from matching every document.
+            //
+            // Guarding a field that isn't on every document therefore uses
+            // ES's own documented idiom — `doc['x'].size() == 0 ? <default>
+            // : doc['x'].value` — which works because `.size()` (below) is
+            // defined on a missing field and the ternary only evaluates the
+            // branch it takes. `params.<key> == null` still works too, since
+            // `params` really is a nullable map (see `apply_binary`).
+            let missing = || {
+                format!(
+                    "A document doesn't have a value for a field! \
+                     Use doc[{field}].size()==0 to check if a document is missing a field!"
+                )
+            };
             match raw {
                 Value::Array(arr) => arr
                     .first()
                     .map(PainlessValue::from_json)
-                    .ok_or_else(|| format!("no field found for [{field}]")),
+                    .ok_or_else(missing),
                 Value::Number(n) => Ok(PainlessValue::Number(n.as_f64().unwrap_or(0.0))),
                 Value::String(s) => Ok(PainlessValue::String(s)),
                 Value::Bool(b) => Ok(PainlessValue::Bool(b)),
-                _ => Err(format!("no field found for [{field}]")),
+                _ => Err(missing()),
             }
         }
+        // `.size()` / `.length` / `.empty` are defined on a MISSING field —
+        // they are how a script asks whether the field is there at all, so
+        // they must never error. This is the other half of the fail-closed
+        // contract on `.value` above.
         "size" | "length" => {
             if args.is_some() {
                 // doc[...].size() with explicit call
@@ -2526,10 +2675,20 @@ mod tests {
 
     #[test]
     fn missing_doc_field_value_errors() {
+        // This is ES's own behaviour, not a local hardening choice: since
+        // 7.0 an empty `ScriptDocValues` throws rather than yielding a
+        // default (6.x returned 0/"" with a deprecation warning). Returning
+        // `null` here instead would reopen the hole this closes — see
+        // `comparison_against_missing_field_errors_not_matches_everything`.
         let doc = json!({});
         let params = json!({});
         let r = eval_painless("doc['missing'].value", &ctx(&doc, &params, 0.0));
-        assert!(r.is_err(), "expected an error, got {:?}", r);
+        let e = r.expect_err("a missing field must error, matching ES 7+");
+        // The message points at the supported guard, exactly as ES's does.
+        assert!(
+            e.contains("size()==0"),
+            "the error must name the .size()==0 guard: {e}"
+        );
     }
 
     #[test]
@@ -2583,6 +2742,243 @@ mod tests {
         match v {
             PainlessValue::String(s) => assert_eq!(s, "abc"),
             other => panic!("expected a string, got {:?}", other),
+        }
+    }
+
+    // ── The null-guard idiom ──────────────────────────────────────────────────
+    // Making a missing field error (above) is only safe if a script can still
+    // ASK whether the field is there. Elasticsearch's answer is
+    // `doc['x'].size() == 0`, which is also the remedy its own exception
+    // message names, so that is the idiom that has to work here. It relies on
+    // two properties, both asserted below: `.size()` is defined on a missing
+    // field, and the ternary evaluates only the branch it takes.
+
+    #[test]
+    fn size_guard_is_defined_on_a_missing_field() {
+        let params = json!({});
+        for (doc, expected_size, expected_empty) in [
+            (json!({}), 0.0, true),
+            (json!({"x": null}), 0.0, true),
+            (json!({"x": []}), 0.0, true),
+            (json!({"x": 7}), 1.0, false),
+            (json!({"x": [1, 2, 3]}), 3.0, false),
+        ] {
+            let c = ctx(&doc, &params, 0.0);
+            let size = eval_painless("doc['x'].size()", &c)
+                .unwrap_or_else(|e| panic!(".size() must never error on {doc}: {e}"));
+            assert_eq!(size.as_f64().unwrap(), expected_size, "doc {doc}");
+            let empty = eval_painless("doc['x'].empty", &c)
+                .unwrap_or_else(|e| panic!(".empty must never error on {doc}: {e}"));
+            assert_eq!(empty.as_bool(), expected_empty, "doc {doc}");
+        }
+    }
+
+    #[test]
+    fn null_guard_idiom_evaluates_on_both_shapes() {
+        // The canonical ES form, verbatim.
+        let src = "doc['x'].size() == 0 ? 0 : doc['x'].value";
+        let params = json!({});
+
+        for (doc, expected) in [
+            (json!({}), 0.0),
+            (json!({"x": []}), 0.0),
+            (json!({"x": 42}), 42.0),
+            (json!({"x": [7, 8]}), 7.0),
+        ] {
+            let v = eval_painless(src, &ctx(&doc, &params, 0.0))
+                .unwrap_or_else(|e| panic!("the null-guard idiom must not error on {doc}: {e}"));
+            assert_eq!(v.as_f64().unwrap(), expected, "doc {doc}");
+        }
+    }
+
+    #[test]
+    fn guarded_script_filters_rather_than_erroring_everywhere() {
+        // The whole point of the idiom: one script, run over documents that
+        // do and don't have the field, returning a boolean for each.
+        let params = json!({"min": 5});
+        let src = "doc['x'].size() == 0 ? false : doc['x'].value > params.min";
+
+        for (doc, expected) in [
+            (json!({"x": 10}), true),
+            (json!({"x": 1}), false),
+            (json!({}), false),
+        ] {
+            let v = eval_painless(src, &ctx(&doc, &params, 0.0))
+                .unwrap_or_else(|e| panic!("guarded script errored on {doc}: {e}"));
+            assert_eq!(v.as_bool(), expected, "doc {doc}");
+        }
+    }
+
+    #[test]
+    fn null_guard_on_a_missing_param_is_a_boolean() {
+        // `params` is a real `Map<String, Object>` in Painless, so a key
+        // that wasn't supplied reads as null and comparing it to null is an
+        // ordinary reference comparison — unlike `doc[...]`, which throws.
+        let doc = json!({});
+
+        let empty = json!({});
+        let v = eval_painless("params.y == null", &ctx(&doc, &empty, 0.0))
+            .expect("a params null guard must evaluate, not error");
+        assert!(v.as_bool(), "missing param: `== null` must be true");
+
+        let supplied = json!({"y": 3});
+        let v = eval_painless("params.y == null", &ctx(&doc, &supplied, 0.0))
+            .expect("a params null guard must evaluate, not error");
+        assert!(!v.as_bool(), "supplied param: `== null` must be false");
+
+        // `!=` is the same comparison inverted, and a present-but-null value
+        // is indistinguishable from an absent one, as in ES.
+        let explicit_null = json!({"y": null});
+        let v = eval_painless("params.y != null", &ctx(&doc, &explicit_null, 0.0)).unwrap();
+        assert!(!v.as_bool());
+    }
+
+    #[test]
+    fn genuinely_invalid_arithmetic_still_errors() {
+        let doc = json!({});
+        let params = json!({"obj": {"a": 1}});
+        // Null-awareness is scoped to `==`/`!=`; nothing else got looser, so
+        // the fail-closed property the script query depends on is intact.
+        for src in [
+            "'abc' - params.obj",
+            "params.missing + 1",
+            "params.missing > 0",
+            "doc['nope'].value * 2",
+            "doc['nope'].value >= 0",
+            "-params.missing",
+        ] {
+            let r = eval_painless(src, &ctx(&doc, &params, 0.0));
+            assert!(r.is_err(), "`{src}` must still error, got {:?}", r);
+        }
+    }
+
+    // ── Compiled-script cache ─────────────────────────────────────────────────
+    // The cache is thread-local, and each `#[test]` gets its own thread, so
+    // every assertion below observes only what its own test evaluated.
+
+    /// `(entries, src_bytes, actual bytes held)` for the calling thread.
+    fn cache_stats() -> (usize, usize, usize) {
+        SCRIPT_CACHE.with(|c| {
+            let c = c.borrow();
+            (
+                c.entries.len(),
+                c.src_bytes,
+                c.entries.keys().map(|k| k.len()).sum(),
+            )
+        })
+    }
+
+    #[test]
+    fn compiled_script_cache_is_bounded_by_entry_count() {
+        let doc = json!({});
+        let params = json!({});
+        // Far more distinct sources than the cache may retain. Each is tiny,
+        // so the entry-count bound is the one under test.
+        for i in 0..(MAX_SCRIPT_CACHE_ENTRIES * 8) {
+            let src = format!("{i} + 1");
+            eval_painless(&src, &ctx(&doc, &params, 0.0)).unwrap();
+        }
+        let (entries, src_bytes, actual) = cache_stats();
+        assert!(
+            entries <= MAX_SCRIPT_CACHE_ENTRIES,
+            "cache grew to {entries} entries, bound is {MAX_SCRIPT_CACHE_ENTRIES}"
+        );
+        assert!(
+            src_bytes <= MAX_SCRIPT_CACHE_SRC_BYTES,
+            "cache holds {src_bytes} source bytes, bound is {MAX_SCRIPT_CACHE_SRC_BYTES}"
+        );
+        // The accounting the bound rests on must match reality.
+        assert_eq!(actual, src_bytes, "src_bytes accounting drifted");
+    }
+
+    #[test]
+    fn compiled_script_cache_is_bounded_by_source_bytes() {
+        let doc = json!({});
+        let params = json!({});
+        // Distinct ~33 KiB scripts (each legal under MAX_SCRIPT_LEN, and
+        // flat rather than deep so they compile and run cleanly). Well under
+        // MAX_SCRIPT_CACHE_ENTRIES of them already exceed the byte budget,
+        // so the byte bound has to be what stops the growth.
+        for i in 0..24 {
+            let src = format!("{}return {i};", "def a = 1;".repeat(3300));
+            assert!(src.len() > 32 * 1024);
+            eval_painless(&src, &ctx(&doc, &params, 0.0)).unwrap();
+        }
+        let (entries, src_bytes, actual) = cache_stats();
+        assert!(
+            src_bytes <= MAX_SCRIPT_CACHE_SRC_BYTES,
+            "cache holds {src_bytes} source bytes, bound is {MAX_SCRIPT_CACHE_SRC_BYTES}"
+        );
+        assert!(entries <= MAX_SCRIPT_CACHE_ENTRIES);
+        assert!(
+            entries < 24,
+            "the byte bound must have evicted something: {entries} entries retained"
+        );
+        assert_eq!(actual, src_bytes, "src_bytes accounting drifted");
+    }
+
+    #[test]
+    fn cached_script_is_parsed_once_and_still_correct() {
+        let params = json!({"multiplier": 3});
+        let src = "doc['n'].value * params.multiplier /* cache-once probe */";
+        for n in 1..=5 {
+            let doc = json!({ "n": n });
+            let v = eval_painless(src, &ctx(&doc, &params, 0.0)).unwrap();
+            assert!((v.as_f64().unwrap() - (n * 3) as f64).abs() < 1e-9);
+        }
+        assert!(
+            SCRIPT_CACHE.with(|c| c.borrow().entries.contains_key(src)),
+            "repeated evaluation of one source must leave a cached AST"
+        );
+        assert_eq!(
+            cache_stats().0,
+            1,
+            "five evaluations of one source must leave exactly one entry"
+        );
+    }
+
+    #[test]
+    fn cached_parse_failure_still_reports_the_same_error() {
+        let doc = json!({});
+        let params = json!({});
+        let src = "return ( ( ( /* unbalanced, cache-error probe */";
+        let first = eval_painless(src, &ctx(&doc, &params, 0.0)).unwrap_err();
+        let second = eval_painless(src, &ctx(&doc, &params, 0.0)).unwrap_err();
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn caching_does_not_share_state_between_evaluations() {
+        // The AST is shared but mutable evaluation state is not: a script
+        // that mutates a local must start from scratch on every document.
+        let params = json!({});
+        let src = "def acc = 0; acc = acc + doc['n'].value; \
+                   acc = acc + doc['n'].value; acc = acc + doc['n'].value; \
+                   return acc; /* shared-state probe */";
+        for n in 1..=4 {
+            let doc = json!({ "n": n });
+            let v = eval_painless(src, &ctx(&doc, &params, 0.0)).unwrap();
+            assert_eq!(v.as_f64().unwrap(), (n * 3) as f64, "n = {n}");
+        }
+    }
+
+    #[test]
+    fn cached_ast_does_not_leak_the_call_budget_across_evaluations() {
+        // MAX_CALL_COUNT lives on the per-evaluation `PainlessCtx`, not on
+        // the AST, so memoising the AST must not let one document's closure
+        // invocations count against the next document's budget. A script
+        // that spends a large slice of the budget has to keep succeeding
+        // when it is re-run against document after document.
+        let doc = json!({});
+        let params = json!({});
+        // 2^11 = 2048 invocations per evaluation, comfortably under
+        // MAX_CALL_COUNT (10_000) but far more than a per-process budget
+        // would survive being run 8 times.
+        let src = "def f = (g, n) -> { if (n <= 0) { return 1; } return g(g, n - 1) + g(g, n - 1); }; return f(f, 11); /* budget-reset probe */";
+        for round in 0..8 {
+            let v = eval_painless(src, &ctx(&doc, &params, 0.0))
+                .unwrap_or_else(|e| panic!("round {round} must stay within budget: {e}"));
+            assert!((v.as_f64().unwrap() - 2048.0).abs() < 1e-9, "round {round}");
         }
     }
 }

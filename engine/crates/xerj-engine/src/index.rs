@@ -19186,7 +19186,7 @@ impl Index {
         // a malformed section bails early and leaves the vec incomplete.
         mut offsets_out: Option<&mut Vec<(u32, u32)>>,
         // Cooperative timeout: when `Some`, the walk polls the wall clock
-        // every 4 096 docs and aborts (setting `*timed_out`) once past the
+        // every 256 docs and aborts (setting `*timed_out`) once past the
         // deadline.  One giant merged segment is otherwise a multi-second
         // uninterruptible unit — the between-segment deadline check in
         // `search_inner` can't bound it.
@@ -19307,9 +19307,18 @@ impl Index {
             doc_pos += 1;
             *dbg_walked += 1;
 
-            // Cooperative timeout poll — every 4 096 docs (~1 µs of clock
-            // reads per million docs; the parse below costs ~3 µs/doc).
-            if doc_pos & 0xFFF == 0 {
+            // Cooperative timeout poll — every 256 docs (~16 µs of clock
+            // reads per million docs, against a per-doc cost that is at
+            // minimum the ~3 µs JSON parse below; the read is noise).
+            //
+            // The interval used to be 4 096, sized for that ~3 µs/doc floor.
+            // A `script` query breaks that assumption: even with the Painless
+            // AST cached (see `painless::compile_script_cached`), *executing*
+            // a max-size script is ~0.2 ms/doc, which at 4 096 docs is an
+            // ~0.8 s stretch in which a `timeout` cannot take effect. 256
+            // keeps that worst case in the tens of milliseconds and costs
+            // nothing measurable on the ordinary path.
+            if doc_pos & 0xFF == 0 {
                 if let Some(dl) = deadline {
                     if std::time::Instant::now() >= dl {
                         *timed_out = true;
@@ -31004,6 +31013,60 @@ mod script_query_tests {
             params: None,
         };
         assert!(!doc_matches_query(&q, &doc));
+    }
+
+    #[test]
+    fn script_query_null_guard_filters_rather_than_dropping_everything() {
+        // The standard shape for a script filter over a field that isn't on
+        // every document, written the way Elasticsearch documents it. If the
+        // guard errors instead of yielding a boolean, the script is
+        // unrunnable and EVERY document is dropped — including the ones that
+        // should match. This is what a `script` query looks like in
+        // practice, so it is checked at the query surface and not only in
+        // the Painless unit tests.
+        let q = QueryNode::Script {
+            source: "doc['x'].size() == 0 ? false : doc['x'].value > params.min".to_string(),
+            params: Some(json!({"min": 5})),
+        };
+        assert!(
+            doc_matches_query(&q, &json!({"x": 10})),
+            "guarded script must still match the document it selects for"
+        );
+        assert!(!doc_matches_query(&q, &json!({"x": 1})));
+        assert!(
+            !doc_matches_query(&q, &json!({"other": 1})),
+            "a document without the field must be filtered out, not matched"
+        );
+    }
+
+    #[test]
+    fn script_query_with_a_typoed_field_matches_nothing() {
+        // The bug the fail-closed `.value` exists for: reading a missing
+        // field as 0 made `doc['typo'].value > -1` true for every document,
+        // turning a filter into a no-op. It must match NOTHING instead —
+        // including documents that do have the correctly-spelled field.
+        let q = QueryNode::Script {
+            source: "doc['coutn'].value > -1".to_string(),
+            params: None,
+        };
+        for doc in [
+            json!({"count": 5}),
+            json!({"count": 0}),
+            json!({}),
+            json!({"coutn": null}),
+        ] {
+            assert!(
+                !doc_matches_query(&q, &doc),
+                "a typo'd field name must not match {doc}"
+            );
+        }
+        // And the correctly-spelled query still works, so this is a spelling
+        // check and not a blanket refusal.
+        let ok = QueryNode::Script {
+            source: "doc['count'].value > -1".to_string(),
+            params: None,
+        };
+        assert!(doc_matches_query(&ok, &json!({"count": 5})));
     }
 }
 
