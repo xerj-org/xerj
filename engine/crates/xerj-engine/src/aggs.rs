@@ -12850,6 +12850,174 @@ mod tests {
         );
     }
 
+    // ── behaviour pinned around a MISSING buckets_path ──────────────────────
+    //
+    // `bucket_script` resolution has never consulted `gap_policy` (see
+    // `resolve_pipeline_agg_full`, where `bucket_script` is dispatched before
+    // the `gap_policy`-aware arm) and still doesn't: an unresolvable path
+    // produces an explicit `{"value": null}` under every policy. ES instead
+    // OMITS the sub-agg from the bucket under the default `skip`, and
+    // substitutes 0 under `insert_zeros`. These tests pin the current
+    // behaviour so the divergence is deliberate and any future change to it
+    // has to be a visible one.
+
+    #[test]
+    fn bucket_script_missing_buckets_path_target_stays_an_explicit_null() {
+        let docs = vec![json!({"n": 1}), json!({"n": 2})];
+        let agg = json!({
+            "present": { "sum": { "field": "n" } },
+            "ratio": {
+                "bucket_script": {
+                    "buckets_path": { "a": "present", "b": "no_such_agg" },
+                    "script": "params.a / params.b"
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        assert!(
+            result.get("ratio").is_some(),
+            "the key is emitted (ES would omit it under gap_policy=skip)"
+        );
+        assert!(
+            result["ratio"]["value"].is_null(),
+            "one unresolvable alias nulls the whole script, it is not skipped \
+             or defaulted: {}",
+            result["ratio"]
+        );
+    }
+
+    #[test]
+    fn bucket_script_null_sibling_metric_stays_null() {
+        // The sibling and the metric both exist; the metric's `value` is
+        // null (avg over an empty bucket). The `.as_f64()` fallback added
+        // for plain-numeric sub-metrics must not turn that into a number.
+        let docs = vec![json!({"status": "ok", "n": 1})];
+        let agg = json!({
+            "empty": {
+                "filter": { "term": { "status": "nope" } },
+                "aggs": { "avg_n": { "avg": { "field": "n" } } }
+            },
+            "derived": {
+                "bucket_script": {
+                    "buckets_path": { "a": "empty>avg_n" },
+                    "script": "params.a * 2"
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        assert_eq!(result["empty"]["doc_count"], 0);
+        assert!(result["empty"]["avg_n"]["value"].is_null());
+        assert!(
+            result["derived"]["value"].is_null(),
+            "a null metric value must not resolve: {}",
+            result["derived"]
+        );
+    }
+
+    #[test]
+    fn bucket_script_ignores_gap_policy_insert_zeros() {
+        // Pinned divergence: ES substitutes 0 for the missing path and
+        // evaluates the script (yielding 3.0 here). xerj nulls the bucket.
+        let docs = vec![json!({"n": 3})];
+        let agg = json!({
+            "present": { "sum": { "field": "n" } },
+            "combined": {
+                "bucket_script": {
+                    "buckets_path": { "a": "present", "b": "no_such_agg" },
+                    "script": "params.a + params.b",
+                    "gap_policy": "insert_zeros"
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        assert!(
+            result["combined"]["value"].is_null(),
+            "gap_policy is not honoured by bucket_script (unchanged by the \
+             _count work): {}",
+            result["combined"]
+        );
+    }
+
+    // ── behaviour DELTA pins for the widened resolver ───────────────────────
+
+    #[test]
+    fn bucket_script_resolves_a_plain_numeric_multi_value_submetric() {
+        // Previously null: the lookup required `sibling[metric].value`, and a
+        // `stats` agg emits its sub-metrics as PLAIN numbers. The `.as_f64()`
+        // fallback makes `"grades.avg"` (and `"grades>avg"`) resolve, which is
+        // ES's documented multi-value-metric buckets_path syntax.
+        let docs = vec![json!({"grade": 2}), json!({"grade": 4})];
+        let agg = json!({
+            "grades": { "stats": { "field": "grade" } },
+            "doubled": {
+                "bucket_script": {
+                    "buckets_path": { "a": "grades.avg" },
+                    "script": "params.a * 2"
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        assert_eq!(result["grades"]["avg"], 3.0);
+        assert_eq!(
+            result["doubled"]["value"].as_f64(),
+            Some(6.0),
+            "a plain-numeric sub-metric must resolve, not null out"
+        );
+    }
+
+    #[test]
+    fn underscore_count_outranks_a_sub_agg_literally_named_underscore_count() {
+        // The one case where a previously NON-null bucket_script changes
+        // value rather than going from null to a number: a sub-agg named
+        // `_count`. ES reserves `_count` in a buckets_path for the bucket's
+        // doc count, so the doc count wins — pinned here because it is the
+        // full extent of the silent-change surface.
+        let docs = vec![json!({"n": 10}), json!({"n": 20}), json!({"n": 30})];
+        let agg = json!({
+            "f": {
+                "filter": { "match_all": {} },
+                "aggs": { "_count": { "sum": { "field": "n" } } }
+            },
+            "x": {
+                "bucket_script": {
+                    "buckets_path": { "a": "f>_count" },
+                    "script": "params.a"
+                }
+            }
+        });
+        let result = run_aggs(&agg, &docs);
+        assert_eq!(result["f"]["_count"]["value"], 60.0);
+        assert_eq!(
+            result["x"]["value"].as_f64(),
+            Some(3.0),
+            "`_count` resolves to the bucket's doc_count (3), not to the \
+             sibling sum agg that happens to be named `_count` (60)"
+        );
+    }
+
+    #[test]
+    fn ternary_chain_is_evaluated_at_the_depth_bound_and_rejected_past_it() {
+        // The depth bound this branch is based on (`check_expr_limits`, run
+        // on entry to `eval_script_expr`) exists to keep the ternary split
+        // from recursing without limit. Now that the ternary is actually
+        // implemented, check both sides of the bound: the last accepted
+        // chain must still EVALUATE, and one ternary past it must resolve to
+        // a null bucket value rather than descend.
+        let params: HashMap<String, f64> = HashMap::new();
+        let at_bound = format!("{}1", "0?1:".repeat(MAX_EXPR_DEPTH));
+        assert_eq!(at_bound.matches('?').count(), MAX_EXPR_DEPTH);
+        assert!(check_expr_limits(&at_bound).is_ok());
+        assert_eq!(
+            eval_script_expr(&at_bound, &params),
+            Some(1.0),
+            "a chain right at the bound must still evaluate"
+        );
+
+        let past_bound = format!("{}1", "0?1:".repeat(MAX_EXPR_DEPTH + 1));
+        assert!(check_expr_limits(&past_bound).is_err());
+        assert_eq!(eval_script_expr(&past_bound, &params), None);
+    }
+
     #[test]
     fn test_date_histogram() {
         let agg = json!({
