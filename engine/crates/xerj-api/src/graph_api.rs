@@ -903,7 +903,8 @@ pub async fn ego(
         // authorized against the RESOLVED index, not just the brain. Without
         // this, write on one brain would be a read primitive for every index
         // on the node.
-        if let Err(denied) = authz::authorize_index(&principal, &nodes_index, Privilege::ReadIndex) {
+        if let Err(denied) = authz::authorize_index(&principal, &nodes_index, Privilege::ReadIndex)
+        {
             return denied;
         }
         let mut found: HashSet<String> = HashSet::new();
