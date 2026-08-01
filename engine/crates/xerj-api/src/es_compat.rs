@@ -27341,14 +27341,18 @@ fn filter_keyword_length(val: &Value, max: usize) -> (Value, bool) {
 /// Check whether `v` parses under the declared ES date `fmt`, delegating to
 /// the same format compiler/parser `xerj-query` uses for range-query date
 /// bounds (`compile_formats` resolves named formats like `strict_date_time`
-/// to their real pattern; `date_value_matches_formats` only accepts a bare
-/// number for an epoch format). An unparseable `fmt` string should already
-/// have been rejected when the mapping was created, so don't newly reject
-/// ingest over it here — treat it as permissive instead.
+/// to their real pattern; a JSON number stringifies and matches like any
+/// other value would against the resolved pattern).
 fn is_date_value_valid_with_format(v: &Value, fmt: &str) -> bool {
     match xerj_query::dates::compile_formats(fmt) {
         Ok(compiled) => xerj_query::dates::date_value_matches_formats(v, &compiled),
-        Err(_) => true,
+        // A format name/pattern this engine can't resolve at all (e.g. a
+        // named ES format not yet in `compile_one_format`'s table) fails
+        // closed: every value for that field is treated as unvalidated and
+        // dropped under `ignore_malformed`, visible via `_ignored`, rather
+        // than silently accepting anything — an unresolvable format is not
+        // evidence the value is fine, only that this engine can't tell.
+        Err(_) => false,
     }
 }
 
@@ -27387,6 +27391,33 @@ mod ignore_malformed_date_format_tests {
         assert!(is_date_value_valid_with_format(
             &json!(1717527762025i64),
             "strict_date_time||epoch_millis"
+        ));
+    }
+
+    #[test]
+    fn number_under_numeric_shaped_non_epoch_format_is_valid() {
+        // basic_date is `yyyyMMdd`; ES stringifies a JSON number before
+        // formatting, so 20240101 must be accepted here too — this used to
+        // be silently dropped by gating numeric input on epoch formats.
+        assert!(is_date_value_valid_with_format(
+            &json!(20240101),
+            "basic_date"
+        ));
+    }
+
+    #[test]
+    fn unresolvable_format_name_fails_closed_not_open() {
+        // `ordinal_date` isn't a format this engine can resolve (see the
+        // dates.rs-level test for why). A format we can't validate must
+        // never be treated as "anything goes" — that's the fail-open bug
+        // this replaces.
+        assert!(!is_date_value_valid_with_format(
+            &json!("2024-001"),
+            "ordinal_date"
+        ));
+        assert!(!is_date_value_valid_with_format(
+            &json!("literally anything"),
+            "ordinal_date"
         ));
     }
 

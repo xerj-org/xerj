@@ -168,30 +168,45 @@ pub fn compile_formats(format: &str) -> Result<Vec<DateFmt>, DateResolveError> {
 /// whether a field that fails this gets dropped or the whole doc rejected),
 /// so it must match ES's actual acceptance rules precisely:
 ///
-/// * A JSON number is valid input ONLY for an epoch format (`epoch_millis`/
-///   `epoch_second`) — a non-epoch format (including a *named* strict
-///   format like `strict_date_time`) never accepts a bare number, no matter
-///   how integer-shaped it looks.
-/// * A string is valid whenever ANY member of a `||`-joined format list
-///   parses it — reusing [`parse_with_format`], the same parser
+/// * `null` is always valid — ES treats it as "no value", not malformed
+///   input, uniformly across field types.
+/// * A JSON number is stringified and matched the same way a string would
+///   be, against every member of a `||`-joined format list — mirroring
+///   `DateFieldMapper`, which reads the value via the parser's `text()`
+///   (stringifying a numeric token) before handing it to the declared
+///   formatter. A number is valid input for ANY format whose textual form
+///   it matches, not just `epoch_millis`/`epoch_second`.
+/// * A string is valid whenever ANY member of the format list parses it —
+///   reusing [`parse_with_format`], the same parser
 ///   [`resolve_date_bound_str`] uses for range-query bounds, so named
 ///   formats (`strict_date_time`, `date_optional_time`, ...) resolve to
-///   their real pattern instead of being matched as literal text.
+///   their real pattern instead of being matched as literal text. No
+///   whitespace trimming: ES hands the value to the formatter as-is.
 pub fn date_value_matches_formats(value: &serde_json::Value, formats: &[DateFmt]) -> bool {
     match value {
+        // ES treats JSON `null` as "no value" uniformly across field types
+        // (not malformed input), so it's never recorded in `_ignored`.
         serde_json::Value::Null => true,
+        // ES's DateFieldMapper reads the value via the JSON parser's
+        // `text()`, which stringifies a numeric token before handing it to
+        // the declared formatter — a number is valid input for ANY format
+        // whose textual form it can match, not just epoch_millis/
+        // epoch_second. `basic_date` (`yyyyMMdd`) + the number `20240101`
+        // stringifies to "20240101" and parses cleanly; gating numeric
+        // input on epoch formats specifically (as this used to) silently
+        // dropped exactly that shape.
         serde_json::Value::Number(n) => {
+            let s = n.to_string();
             formats
                 .iter()
-                .any(|f| matches!(f, DateFmt::EpochMillis | DateFmt::EpochSecond))
-                && n.as_i64().is_some()
+                .any(|f| parse_with_format(f, &s, false).is_some())
         }
-        serde_json::Value::String(s) => {
-            let s = s.trim();
-            formats
-                .iter()
-                .any(|f| parse_with_format(f, s, false).is_some())
-        }
+        // No trim: ES does not strip leading/trailing whitespace before
+        // handing the value to the declared formatter, so a padded value
+        // that would fail there must fail here too.
+        serde_json::Value::String(s) => formats
+            .iter()
+            .any(|f| parse_with_format(f, s, false).is_some()),
         _ => false,
     }
 }
@@ -889,6 +904,51 @@ mod tests {
         // ignores this exact value under this exact mapping.
         let formats = compile_formats("strict_date_time").unwrap();
         let v = serde_json::json!(1717527762025i64);
+        assert!(!date_value_matches_formats(&v, &formats));
+    }
+
+    #[test]
+    fn numeric_shaped_format_accepts_a_matching_number_not_just_epoch() {
+        // Real ES's DateFieldMapper stringifies a JSON number before
+        // handing it to the declared formatter, so a number is valid input
+        // for ANY format whose textual form it matches — not just
+        // epoch_millis/epoch_second. `basic_date` is `yyyyMMdd`, so the
+        // number 20240101 must be accepted (previously silently dropped:
+        // gating numeric input on epoch formats specifically rejected it).
+        let formats = compile_formats("basic_date").unwrap();
+        assert!(date_value_matches_formats(
+            &serde_json::json!(20240101),
+            &formats
+        ));
+    }
+
+    #[test]
+    fn non_matching_number_under_numeric_shaped_format_is_still_rejected() {
+        let formats = compile_formats("basic_date").unwrap();
+        // Not 8 digits — doesn't fit yyyyMMdd.
+        assert!(!date_value_matches_formats(
+            &serde_json::json!(123),
+            &formats
+        ));
+    }
+
+    #[test]
+    fn unresolvable_named_format_fails_closed() {
+        // `ordinal_date` isn't in compile_one_format's named-format table,
+        // so it falls through to being compiled as a literal Java pattern
+        // — and 'o' isn't a valid pattern letter, so compilation fails.
+        // Compilation failure must fail closed (the caller,
+        // is_date_value_valid_with_format, must never treat this as "any
+        // value is valid" — see its own test for the caller-level check).
+        assert!(compile_formats("ordinal_date").is_err());
+    }
+
+    #[test]
+    fn whitespace_padded_value_is_not_trimmed() {
+        // ES hands the value to the formatter as-is; a value that would
+        // only match after trimming must be rejected, matching ES.
+        let formats = compile_formats("strict_date_time").unwrap();
+        let v = serde_json::json!(" 2024-01-01T00:00:00.000Z ");
         assert!(!date_value_matches_formats(&v, &formats));
     }
 
