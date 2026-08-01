@@ -25328,8 +25328,22 @@ pub async fn security_get_user_profile(
 
 pub async fn security_create_api_key(
     State(state): State<AppState>,
+    principal: crate::auth::Principal,
     body: Option<Json<Value>>,
 ) -> impl IntoResponse {
+    // Minting is how privilege is handed out, so it is also the obvious way to
+    // escalate: without this gate a caller with no brain access could simply
+    // mint itself a key that grants one (issue #79). Only the superuser may
+    // create a *scoped* key; a scoped caller may not mint at all (an unscoped
+    // key it minted would out-reach it on the general surface); an unscoped
+    // caller may mint, but only more unscoped keys.
+    if matches!(principal, crate::auth::Principal::Scoped { .. }) {
+        return crate::authz::forbidden(
+            &principal,
+            "<api keys>",
+            xerj_engine::rbac::Privilege::SecurityAdmin,
+        );
+    }
     let payload = body.map(|Json(v)| v);
     let name = payload
         .as_ref()
@@ -25349,21 +25363,43 @@ pub async fn security_create_api_key(
     // ES returns base64("id:api_key") as the `encoded` credential.
     let encoded = base64_encode(&format!("{key_id}:{api_key}"));
 
-    // Honest surface (item 6): `role_descriptors` are accepted for ES/Kibana
-    // wire-compatibility but NOT enforced — every key authenticates as the
-    // single superuser. Warn loudly so an operator relying on scoped keys is
-    // not silently over-privileged. (Full per-key RBAC is deferred.)
-    if payload
+    // `role_descriptors` are now parsed into the key's index grants and ARE
+    // enforced for the reserved `.xerj-memory-*` namespace (issue #79) — see
+    // `authz`. Two honest caveats remain, both warned about below:
+    //   * cluster privileges and FLS/DLS inside a descriptor are still
+    //     ignored, and
+    //   * a key minted with NO usable descriptor keeps its historical reach
+    //     over ordinary indices (it just holds nothing in the reserved
+    //     namespace), because broad RBAC over the general ES surface is still
+    //     deferred.
+    let requested_descriptors = payload
         .as_ref()
         .and_then(|b| b.get("role_descriptors"))
-        .is_some_and(|v| !v.is_null() && v != &json!({}))
-    {
-        tracing::warn!(
-            key = %name,
-            "POST /_security/api_key: role_descriptors are NOT enforced; the \
-             minted key has full superuser access. See rbac docs."
-        );
-    }
+        .filter(|v| !v.is_null() && *v != &json!({}));
+    let roles = match (&principal, requested_descriptors) {
+        (crate::auth::Principal::Superuser, Some(descriptors)) => {
+            let parsed = xerj_engine::rbac::roles_from_role_descriptors(descriptors);
+            if parsed.is_empty() {
+                tracing::warn!(
+                    key = %name,
+                    "POST /_security/api_key: role_descriptors granted nothing usable \
+                     (only index names + index privileges are enforced); the key is \
+                     unscoped and holds NO access to the reserved .xerj-memory-* namespace"
+                );
+            }
+            parsed
+        }
+        (_, Some(_)) => {
+            // A non-superuser cannot hand out grants it does not itself hold.
+            tracing::warn!(
+                key = %name,
+                "POST /_security/api_key: role_descriptors ignored — only the admin key \
+                 may mint a scoped key; the minted key is unscoped"
+            );
+            Vec::new()
+        }
+        (_, None) => Vec::new(),
+    };
 
     // Persist the key so the auth middleware can re-authenticate an inbound
     // `Authorization: ApiKey <encoded>` header. `encoded` decodes to
@@ -25379,6 +25415,7 @@ pub async fn security_create_api_key(
             creation_ms: now_ms,
             expiration_ms,
             invalidated: false,
+            roles,
         },
     );
 

@@ -27,7 +27,9 @@ use tracing::Level;
 use uuid::Uuid;
 use xerj_common::config::CorsConfig;
 
-use crate::{auth::auth_middleware, es_compat, graph_api, memory_api, native, state::AppState};
+use crate::{
+    auth::auth_middleware, authz, es_compat, graph_api, memory_api, native, state::AppState,
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Native xerj router (:8080)
@@ -150,6 +152,15 @@ pub fn build_native_router(state: AppState) -> Router {
         // Shared state
         .with_state(state.clone())
         // Middleware stack (applied outermost-last)
+        //
+        // The native router reaches the same indices under a different
+        // spelling (`/v1/indices/{name}/…`), so it carries the same
+        // authorization layer — otherwise the reserved `.xerj-memory-*`
+        // namespace would be closed on :9200 and open on :8080.
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            authz::authz_middleware,
+        ))
         .layer(middleware::from_fn_with_state(state, auth_middleware))
         .layer(middleware::from_fn(request_id_middleware))
         .layer(trace_layer(access_log))
@@ -773,6 +784,18 @@ pub fn build_es_compat_router(state: AppState) -> Router {
         // Shared state
         .with_state(state.clone())
         // Middleware stack (applied outermost-last)
+        //
+        // Authorization sits INSIDE authentication — added first here, so it
+        // runs second: `auth_middleware` decides whether the caller is anyone
+        // at all, then `authz_middleware` decides what that caller may reach.
+        // It is the enforcement point that makes a brain a real boundary
+        // rather than a naming convention (issue #79); see `authz.rs` for the
+        // full table of doors it closes. A superuser — `--insecure`, or the
+        // configured admin key — short-circuits it on the first line.
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            authz::authz_middleware,
+        ))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth_middleware,

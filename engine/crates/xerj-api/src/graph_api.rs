@@ -32,16 +32,52 @@
 //! what was withheld (clipped edges/frontiers, bi-temporally excluded edges,
 //! segments skipped, dangling node refs, agg tails).
 //!
-//! ## Authorization model
+//! ## Authorization model — a brain IS a boundary (issue #79)
 //!
-//! ⚠️ The `/_graph/*` endpoints are guarded ONLY by the process-wide API-key
-//! auth middleware (the admin key or any key minted via
-//! `POST /_security/api_key`). There is **no per-brain authorization**: any
-//! credential that can reach the node can read, write, and invalidate edges
-//! in **every** brain. Brains isolate data *by name*, NOT by credential — do
-//! not treat a brain as a security boundary between mutually-distrusting
-//! tenants. Per-brain access control depends on the deferred RBAC enforcement
-//! (see `xerj_engine::rbac`).
+//! Every endpoint below authorizes the caller for **this brain** before it
+//! does anything else, including before it checks whether the brain exists —
+//! so a 403 is returned identically for a brain that is not yours and a brain
+//! that does not exist, and the response code cannot be used to enumerate.
+//!
+//! The resource a brain authorizes against is its edges index,
+//! `.xerj-memory-{brain}-edges`. Who holds what:
+//!
+//! | Principal | Reach |
+//! |---|---|
+//! | open mode (`--insecure`, point-at-a-folder) | every brain — one user, no config, unchanged |
+//! | the configured admin key | every brain |
+//! | a key minted **with** `role_descriptors` naming the edges index | that brain, at the granted privilege |
+//! | a key minted **without** `role_descriptors` | **no** brain |
+//! | no/invalid credential | nothing |
+//!
+//! To grant brain `alice` to a key, name its indices at mint time:
+//!
+//! ```json
+//! POST /_security/api_key
+//! { "name": "alice-agent", "role_descriptors": { "alice": { "indices": [
+//!     { "names": [".xerj-memory-alice-edges", ".xerj-memory-alice"],
+//!       "privileges": ["read", "write"] } ] } } }
+//! ```
+//!
+//! `ego`/`overview` need `read`; `link`/`unlink` need `write` (creating the
+//! edges index lazily is part of writing a brain, not a separate `manage`
+//! step). The second name is the brain's *nodes* index — needed for `ego`'s
+//! node hydration and `overview`'s note count, and it is also the
+//! agent-memory namespace of the same name.
+//!
+//! ⚠️ An access check *here alone* would not have created a boundary. A
+//! brain's edges live in an ordinary index and `IndexName::validate` admits a
+//! leading `.`, so `.xerj-memory-{brain}-edges` is reachable through the
+//! generic ES-compat and native index routes: `_search` reads it around this
+//! module's `as_of`/`not_shown` semantics, `_doc/{id}` **forges** edges around
+//! the derived-`edge_id` invariant (§2.3) that only [`link`] enforces, `DELETE`
+//! destroys the brain, and `GET /_mapping` lists every brain name. All of
+//! those doors are closed in [`crate::authz`], which owns the rule and
+//! enumerates the enforcement points; the checks in this module are the
+//! in-handler half of the same decision, so these handlers stay safe even if
+//! mounted without that middleware.
+//!
+//! `tests/brain_is_a_security_boundary.rs` executes every door.
 
 use axum::{
     extract::{Path, Query, State},
@@ -53,6 +89,8 @@ use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use std::collections::{HashMap, HashSet};
 
+use crate::auth::Principal;
+use crate::authz;
 use crate::es_compat::{
     self, EsSearchBody, EsSearchJson, EsSearchQueryParams, GetDocParams, IndexDocParams,
 };
@@ -61,6 +99,7 @@ use crate::state::AppState;
 use xerj_engine::graph::{
     GraphDirection, GraphEdgeLite, GraphExpandRequest, GRAPH_HOPS_CAP_REASON,
 };
+use xerj_engine::rbac::Privilege;
 
 /// Contract version string, returned by every read endpoint.
 pub const GRAPH_CONTRACT: &str = "xerj-second-brain/1";
@@ -83,16 +122,24 @@ const EGO_SEEDS_CAP: usize = 64;
 /// Max dangling node ids listed verbatim in `not_shown.dangling_ids`.
 const MAX_DANGLING_LISTED: usize = 50;
 
-/// Edges index name for a brain (SECOND_BRAIN_SPEC §1). The leading dot passes
-/// `IndexName::validate` and is unreachable through user index APIs.
+/// Edges index name for a brain (SECOND_BRAIN_SPEC §1).
+///
+/// The leading dot passes `IndexName::validate` and keeps the index out of the
+/// *conventional* listing surfaces, the same way `.kibana` is conventionally
+/// hidden. It does **not** by itself make the index unreachable — an earlier
+/// version of this comment claimed that, and it was wrong; `.`-prefixed names
+/// are accepted by the generic index routes. What makes it unreachable is that
+/// it sits in the reserved [`authz::RESERVED_INDEX_PREFIX`] namespace, which
+/// [`authz`] gates on every surface. This name is also the resource a
+/// `role_descriptors` grant must name to unlock the brain.
 fn edges_index(brain: &str) -> String {
-    format!(".xerj-memory-{brain}-edges")
+    authz::brain_edges_index(brain)
 }
 
 /// Default nodes index for a brain: the agent-memory namespace of the same
 /// name. Autoindex brains override this via the §2.5 meta doc.
 fn default_nodes_index(brain: &str) -> String {
-    format!(".xerj-memory-{brain}")
+    authz::memory_namespace_index(brain)
 }
 
 /// Brain-name validation (SECOND_BRAIN_SPEC §1): identical rules to
@@ -359,10 +406,15 @@ pub struct LinkBody {
 pub async fn link(
     State(state): State<AppState>,
     Path(brain): Path<String>,
+    principal: Principal,
     body: OptionalJson<LinkBody>,
 ) -> Response {
     if let Err(reason) = validate_brain(&brain) {
         return error_response(StatusCode::BAD_REQUEST, reason);
+    }
+    // Before anything that could touch or create the brain (issue #79).
+    if let Err(denied) = authz::authorize_brain(&principal, &brain, Privilege::WriteIndex) {
+        return denied;
     }
     let Some(body) = body.0 else {
         return error_response(
@@ -515,10 +567,16 @@ pub struct UnlinkParams {
 pub async fn unlink(
     State(state): State<AppState>,
     Path((brain, edge_id)): Path<(String, String)>,
+    principal: Principal,
     Query(params): Query<UnlinkParams>,
 ) -> Response {
     if let Err(reason) = validate_brain(&brain) {
         return error_response(StatusCode::BAD_REQUEST, reason);
+    }
+    // Ordered before the existence probe below so an unauthorized caller
+    // cannot tell "not yours" from "not there" (issue #79).
+    if let Err(denied) = authz::authorize_brain(&principal, &brain, Privilege::WriteIndex) {
+        return denied;
     }
     let not_found = || {
         error_response(
@@ -655,10 +713,22 @@ pub struct EgoParams {
 pub async fn ego(
     State(state): State<AppState>,
     Path(brain): Path<String>,
+    principal: Principal,
     Query(params): Query<EgoParams>,
 ) -> Response {
     if let Err(reason) = validate_brain(&brain) {
         return error_response(StatusCode::BAD_REQUEST, reason);
+    }
+    if let Err(denied) = authz::authorize_brain(&principal, &brain, Privilege::ReadIndex) {
+        return denied;
+    }
+    // `nodes_index` lets the caller redirect hydration at an arbitrary index,
+    // so it is authorized separately — otherwise a grant on one brain would be
+    // a read primitive for any index on the node.
+    if let Some(nodes_index) = params.nodes_index.as_deref() {
+        if let Err(denied) = authz::authorize_index(&principal, nodes_index, Privilege::ReadIndex) {
+            return denied;
+        }
     }
     if params.node.is_some() && params.nodes.is_some() {
         return error_response(
@@ -828,6 +898,14 @@ pub async fn ego(
             Some(ni) if !ni.is_empty() => ni.to_string(),
             _ => resolve_nodes_index(&state, &brain, &index).await,
         };
+        // The meta doc's `nodes_index` is caller-controlled data (anyone with
+        // write on the brain can point it anywhere), so hydration is
+        // authorized against the RESOLVED index, not just the brain. Without
+        // this, write on one brain would be a read primitive for every index
+        // on the node.
+        if let Err(denied) = authz::authorize_index(&principal, &nodes_index, Privilege::ReadIndex) {
+            return denied;
+        }
         let mut found: HashSet<String> = HashSet::new();
         let search_body = EsSearchBody {
             query: Some(json!({ "ids": { "values": result.reachable } })),
@@ -1088,10 +1166,16 @@ fn embedder_id(state: &AppState) -> String {
 pub async fn overview(
     State(state): State<AppState>,
     Path(brain): Path<String>,
+    principal: Principal,
     Query(params): Query<OverviewParams>,
 ) -> Response {
     if let Err(reason) = validate_brain(&brain) {
         return error_response(StatusCode::BAD_REQUEST, reason);
+    }
+    // Before the `exists: false` probe below, so a caller cannot map the
+    // node's brains by watching 404 vs 403 (issue #79).
+    if let Err(denied) = authz::authorize_brain(&principal, &brain, Privilege::ReadIndex) {
+        return denied;
     }
     let as_of = match params.as_of.as_deref() {
         None => now_ms(),
@@ -1216,6 +1300,13 @@ pub async fn overview(
     // nodes index was never created (edges asserted through the API alone)
     // truthfully has 0 stored notes — reported as such, not a 404 and never
     // fabricated from edge endpoints.
+    //
+    // The nodes index comes from the brain's meta doc, which is writable by
+    // anyone with write on the brain — so it is authorized in its own right
+    // (see the matching check in `ego`).
+    if let Err(denied) = authz::authorize_index(&principal, &nodes_index, Privilege::ReadIndex) {
+        return denied;
+    }
     let nodes_total = if index_exists(&state, &nodes_index) {
         let count_body = EsSearchBody {
             query: Some(json!({ "match_all": {} })),
@@ -1293,6 +1384,7 @@ mod tests {
         let resp = link(
             State(state.clone()),
             Path(brain.to_string()),
+            Principal::Superuser,
             OptionalJson(Some(b)),
         )
         .await;
@@ -1308,6 +1400,7 @@ mod tests {
         let resp = unlink(
             State(state.clone()),
             Path((brain.to_string(), edge_id.to_string())),
+            Principal::Superuser,
             Query(UnlinkParams {
                 invalid_at: invalid_at.map(String::from),
             }),
@@ -1317,7 +1410,13 @@ mod tests {
     }
 
     async fn do_ego(state: &AppState, brain: &str, params: EgoParams) -> (StatusCode, Value) {
-        let resp = ego(State(state.clone()), Path(brain.to_string()), Query(params)).await;
+        let resp = ego(
+            State(state.clone()),
+            Path(brain.to_string()),
+            Principal::Superuser,
+            Query(params),
+        )
+        .await;
         drain_json(resp).await
     }
 
@@ -1690,6 +1789,7 @@ mod tests {
                 let resp = overview(
                     State(state.clone()),
                     Path("notes".to_string()),
+                    Principal::Superuser,
                     Query(OverviewParams {
                         as_of: Some(as_of.to_string()),
                         ..Default::default()
@@ -1778,6 +1878,7 @@ mod tests {
         let resp = overview(
             State(state.clone()),
             Path("nope".to_string()),
+            Principal::Superuser,
             Query(OverviewParams::default()),
         )
         .await;
@@ -1954,6 +2055,7 @@ mod tests {
             let resp = overview(
                 State(state.clone()),
                 Path("notes".to_string()),
+                Principal::Superuser,
                 Query(OverviewParams {
                     as_of: Some(AS_OF.to_string()),
                     ..Default::default()

@@ -173,6 +173,22 @@ pub struct ApiKeyRecord {
     pub expiration_ms: Option<u64>,
     /// Set once the key has been invalidated (revoked).
     pub invalidated: bool,
+    /// Index-scoped grants parsed from the `role_descriptors` supplied at
+    /// creation (`crate::rbac::roles_from_role_descriptors`).
+    ///
+    /// **Empty means "no grant", not "all grants."** A key with no roles is an
+    /// *unscoped* legacy credential: it keeps the historical superuser reach
+    /// over the general ES-compat surface, but it holds no privilege at all on
+    /// the reserved `.xerj-memory-*` namespace (agent-memory namespaces and
+    /// second brains), which is the fail-closed half of the per-brain
+    /// authorization model. A key with a non-empty list is *scoped* and may
+    /// touch only what these roles allow.
+    ///
+    /// `#[serde(default)]` so an `api_keys.json` written before this field
+    /// existed still loads — those keys deserialize as unscoped, which is the
+    /// safe reading of "was minted when nothing was enforced".
+    #[serde(default)]
+    pub roles: Vec<crate::rbac::Role>,
 }
 
 /// Atomically write a **secret** file (API-key store) with owner-only (0600)
