@@ -997,6 +997,97 @@ impl<'a> Drop for MergeFlagClear<'a> {
 }
 
 #[cfg(test)]
+mod merge_publication_transaction_tests {
+    use super::*;
+    use crate::Engine;
+    use tempfile::TempDir;
+
+    fn config(dir: &TempDir) -> xerj_common::config::Config {
+        let mut config = xerj_common::config::Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        config.merge.min_segments = 2;
+        config.merge.min_merge_count = 2;
+        config.merge.max_merge_count = 2;
+        config
+    }
+
+    async fn fixture(dir: &TempDir) -> (Engine, Arc<Index>) {
+        let engine = Engine::new(config(dir)).unwrap();
+        engine
+            .create_index("post-save-panic", Schema::empty())
+            .unwrap();
+        let index = engine.get_index("post-save-panic").unwrap();
+        index
+            .index_document(Some("a".into()), serde_json::json!({"value": "old-a"}))
+            .await
+            .unwrap();
+        index.flush().await.unwrap();
+        index
+            .index_document(Some("b".into()), serde_json::json!({"value": "old-b"}))
+            .await
+            .unwrap();
+        index.flush().await.unwrap();
+        assert_eq!(index.store.snapshot().segments.len(), 2);
+        (engine, index)
+    }
+
+    #[tokio::test]
+    async fn panic_after_durable_snapshot_keeps_output_repoints_and_survives_restart() {
+        let dir = TempDir::new().unwrap();
+        let (engine, index) = fixture(&dir).await;
+        index
+            .test_panic_after_merge_publish
+            .store(true, Ordering::Release);
+        let merge_index = Arc::clone(&index);
+        let join = tokio::spawn(async move { merge_index.run_merge_once().await }).await;
+        assert!(join.unwrap_err().is_panic());
+
+        let snapshot = index.store.snapshot();
+        assert_eq!(snapshot.segments.len(), 1);
+        let output_id = snapshot.segments[0].id.clone();
+        drop(snapshot);
+        for (id, expected) in [("a", "old-a"), ("b", "old-b")] {
+            let entry = index.store.version_map.get(id).unwrap();
+            assert_eq!(entry.segment_id.as_ref(), output_id);
+            assert_eq!(
+                index.get_document(id).await.unwrap().unwrap()["value"],
+                expected
+            );
+        }
+        assert_eq!(
+            index
+                .search(&SearchRequest::default())
+                .await
+                .unwrap()
+                .total
+                .value,
+            2
+        );
+        drop(index);
+        drop(engine);
+
+        let reopened = Engine::new(config(&dir)).unwrap();
+        let reopened_index = reopened.get_index("post-save-panic").unwrap();
+        assert_eq!(reopened_index.store.snapshot().segments.len(), 1);
+        for (id, expected) in [("a", "old-a"), ("b", "old-b")] {
+            assert_eq!(
+                reopened_index.get_document(id).await.unwrap().unwrap()["value"],
+                expected
+            );
+        }
+        assert_eq!(
+            reopened_index
+                .search(&SearchRequest::default())
+                .await
+                .unwrap()
+                .total
+                .value,
+            2
+        );
+    }
+}
+
+#[cfg(test)]
 mod semantic_deadline_regression_tests {
     use super::*;
     use crate::Engine;
@@ -3466,6 +3557,8 @@ pub struct Index {
     write_publication: Arc<crate::write_publication::WritePublicationCoordinator>,
     #[cfg(test)]
     publication_test_hook: Arc<parking_lot::RwLock<Option<PublicationTestHook>>>,
+    #[cfg(test)]
+    test_panic_after_merge_publish: Arc<AtomicBool>,
     doc_count: Arc<AtomicU64>,
     /// Counter for `update` operations that detected no change to the
     /// existing source — surfaced via `indices.stats` as
@@ -4096,6 +4189,8 @@ impl Index {
             write_publication: crate::write_publication::WritePublicationCoordinator::new(),
             #[cfg(test)]
             publication_test_hook: Arc::new(parking_lot::RwLock::new(None)),
+            #[cfg(test)]
+            test_panic_after_merge_publish: Arc::new(AtomicBool::new(false)),
             doc_count: Arc::new(AtomicU64::new(0)),
             noop_update_count: Arc::new(AtomicU64::new(0)),
             request_cache_seen: Arc::new(RwLock::new(RequestCacheSeen::with_capacity(65_536))),
@@ -4469,6 +4564,8 @@ impl Index {
             write_publication: crate::write_publication::WritePublicationCoordinator::new(),
             #[cfg(test)]
             publication_test_hook: Arc::new(parking_lot::RwLock::new(None)),
+            #[cfg(test)]
+            test_panic_after_merge_publish: Arc::new(AtomicBool::new(false)),
             doc_count: Arc::new(AtomicU64::new(total_doc_count)),
             noop_update_count: Arc::new(AtomicU64::new(0)),
             request_cache_seen: Arc::new(RwLock::new(RequestCacheSeen::with_capacity(65_536))),
@@ -6592,6 +6689,9 @@ impl Index {
             // never got one, forcing the slow decode-stored fallback in
             // `rebuild_version_map_from_segments` on every reopen).
             Vec<(u64, String)>,
+            // Rolls pre-publication VersionMap repoints back unless the
+            // async driver commits them immediately after apply_merge.
+            xerj_storage::version_map::VersionRepointTransaction,
         );
 
         // Build the list of (batch, metas) pairs we'll launch.
@@ -7080,10 +7180,15 @@ impl Index {
                     // `set`: a doc updated while the merge ran already has a
                     // newer entry that must not be clobbered by the merged
                     // (older) copy.
+                    let mut version_repoints =
+                        xerj_storage::version_map::VersionRepointTransaction::with_capacity(
+                            Arc::clone(&store_for_task.version_map),
+                            ids_pairs.len().saturating_add(tomb_carry.len()),
+                        );
                     {
                         let merged_arc: Arc<str> = Arc::from(merged_meta.id.as_str());
                         for (seq_no, id) in &ids_pairs {
-                            store_for_task.version_map.set_if_latest(
+                            version_repoints.repoint_if_latest(
                                 id.as_str(),
                                 *seq_no,
                                 Arc::clone(&merged_arc),
@@ -7098,7 +7203,7 @@ impl Index {
                         // (`set_if_latest`): a doc re-indexed while the
                         // merge ran keeps its newer live entry.
                         for (seq, id) in &tomb_carry {
-                            store_for_task.version_map.set_if_latest(
+                            version_repoints.repoint_if_latest(
                                 id.as_str(),
                                 *seq,
                                 Arc::clone(&merged_arc),
@@ -7128,6 +7233,7 @@ impl Index {
                         merged_meta,
                         live_doc_count as usize,
                         ids_pairs,
+                        version_repoints,
                     ))
                 })
             })
@@ -7152,7 +7258,13 @@ impl Index {
             // order.
             let handle = in_flight.remove(0);
             match handle.await {
-                Ok(Some((batch_slice, merged_meta, live_doc_count, ids_pairs))) => {
+                Ok(Some((
+                    batch_slice,
+                    merged_meta,
+                    live_doc_count,
+                    ids_pairs,
+                    version_repoints,
+                ))) => {
                     // Warm the merged segment's stored slices BEFORE the
                     // swap makes it visible: the first sorted-candidates
                     // queries after a merge otherwise each pay the fresh
@@ -7241,8 +7353,33 @@ impl Index {
                             }
                         }
                     }
-                    if let Err(e) = self.store.apply_merge(&batch_slice, merged_meta.clone()) {
-                        tracing::warn!("merge: apply_merge failed: {e}");
+                    #[cfg(test)]
+                    let apply_result = if self
+                        .test_panic_after_merge_publish
+                        .swap(false, Ordering::AcqRel)
+                    {
+                        self.store.apply_merge_with_repoints_and_post_publish(
+                            &batch_slice,
+                            merged_meta.clone(),
+                            version_repoints,
+                            || panic!("injected panic after durable merge publication"),
+                        )
+                    } else {
+                        self.store.apply_merge_with_repoints(
+                            &batch_slice,
+                            merged_meta.clone(),
+                            version_repoints,
+                        )
+                    };
+                    #[cfg(not(test))]
+                    let apply_result = self.store.apply_merge_with_repoints(
+                        &batch_slice,
+                        merged_meta.clone(),
+                        version_repoints,
+                    );
+                    if let Err(e) = apply_result {
+                        tracing::warn!("merge: apply_merge failed: {e:?}");
+                        failed_batches.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         // Seeded shortcut counts for a segment that never
                         // became visible — drop them. The armed lease removes
                         // all seven hydration owners when this scope exits.

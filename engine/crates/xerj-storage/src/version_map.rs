@@ -119,6 +119,127 @@ pub struct VersionMap {
     ghost_events: std::sync::atomic::AtomicU64,
 }
 
+#[derive(Debug)]
+struct VersionRepointChange {
+    doc_id: String,
+    previous: Option<VersionEntry>,
+    installed: VersionEntry,
+}
+
+/// Panic- and cancellation-safe group of physical version-map repoints.
+///
+/// Merge output identities are repointed before snapshot publication. Unless
+/// publication commits this transaction, drop restores only entries that
+/// still exactly match values installed by the transaction. A concurrent
+/// newer write or delete therefore always wins over rollback.
+pub struct VersionRepointTransaction {
+    map: Arc<VersionMap>,
+    changes: Vec<VersionRepointChange>,
+    committed: bool,
+}
+
+impl VersionRepointTransaction {
+    /// Reserve the complete rollback log before mutating the map.
+    pub fn with_capacity(map: Arc<VersionMap>, capacity: usize) -> Self {
+        Self {
+            map,
+            changes: Vec::with_capacity(capacity),
+            committed: false,
+        }
+    }
+
+    /// Conditionally repoint an entry and remember the exact displaced value.
+    pub fn repoint_if_latest(
+        &mut self,
+        doc_id: &str,
+        seq_no: SeqNo,
+        segment_id: Arc<str>,
+        deleted: bool,
+    ) {
+        debug_assert!(
+            self.changes.len() < self.changes.capacity(),
+            "merge rollback log must be reserved before repoint"
+        );
+        use dashmap::mapref::entry::Entry;
+        let (previous, installed) = match self.map.inner.entry(doc_id.to_owned()) {
+            Entry::Occupied(mut occupied) => {
+                if seq_no < occupied.get().seq_no {
+                    return;
+                }
+                let previous = occupied.get().clone();
+                let installed = VersionEntry {
+                    seq_no,
+                    segment_id,
+                    deleted,
+                    version: previous.version,
+                };
+                occupied.insert(installed.clone());
+                if previous.seq_no != seq_no || (deleted && !previous.deleted) {
+                    self.map.ghost_events.fetch_add(1, Ordering::Relaxed);
+                }
+                self.map.live_delta(!previous.deleted, !deleted);
+                (Some(previous), installed)
+            }
+            Entry::Vacant(vacant) => {
+                let installed = VersionEntry {
+                    seq_no,
+                    segment_id,
+                    deleted,
+                    version: 1,
+                };
+                vacant.insert(installed.clone());
+                if deleted {
+                    self.map.ghost_events.fetch_add(1, Ordering::Relaxed);
+                }
+                self.map.live_delta(false, !deleted);
+                (None, installed)
+            }
+        };
+        self.changes.push(VersionRepointChange {
+            doc_id: doc_id.to_owned(),
+            previous,
+            installed,
+        });
+    }
+
+    /// Keep all repoints after the snapshot publication succeeds.
+    pub fn commit(mut self) {
+        self.committed = true;
+    }
+
+    fn rollback(&mut self) {
+        use dashmap::mapref::entry::Entry;
+        for change in self.changes.drain(..).rev() {
+            let Entry::Occupied(mut occupied) = self.map.inner.entry(change.doc_id) else {
+                continue;
+            };
+            if occupied.get() != &change.installed {
+                continue;
+            }
+            let current_live = !occupied.get().deleted;
+            match change.previous {
+                Some(previous) => {
+                    let previous_live = !previous.deleted;
+                    occupied.insert(previous);
+                    self.map.live_delta(current_live, previous_live);
+                }
+                None => {
+                    occupied.remove();
+                    self.map.live_delta(current_live, false);
+                }
+            }
+        }
+    }
+}
+
+impl Drop for VersionRepointTransaction {
+    fn drop(&mut self) {
+        if !self.committed {
+            self.rollback();
+        }
+    }
+}
+
 impl VersionMap {
     /// Create an empty version map.
     pub fn new() -> Self {
@@ -653,6 +774,71 @@ mod tests {
         let e = vm.get("x").unwrap();
         assert_eq!((e.seq_no, e.version, e.deleted), (7, 1, false));
         assert_eq!(vm.live_count(), 1); // "x" live, "d" tombstoned
+    }
+
+    #[test]
+    fn merge_repoint_transaction_rolls_back_exact_previous_entries() {
+        let vm = Arc::new(VersionMap::new());
+        vm.set("live", 7, "input-a", false);
+        vm.set("tomb", 8, "input-b", true);
+        let live_before = vm.live_count();
+        {
+            let mut transaction = VersionRepointTransaction::with_capacity(Arc::clone(&vm), 3);
+            transaction.repoint_if_latest("live", 7, Arc::from("output"), false);
+            transaction.repoint_if_latest("tomb", 8, Arc::from("output"), true);
+            transaction.repoint_if_latest("new-tomb", 9, Arc::from("output"), true);
+            assert_eq!(&*vm.get("live").unwrap().segment_id, "output");
+            assert_eq!(&*vm.get("tomb").unwrap().segment_id, "output");
+        }
+        assert_eq!(&*vm.get("live").unwrap().segment_id, "input-a");
+        assert_eq!(&*vm.get("tomb").unwrap().segment_id, "input-b");
+        assert!(vm.get("new-tomb").is_none());
+        assert_eq!(vm.live_count(), live_before);
+    }
+
+    #[test]
+    fn merge_repoint_rollback_preserves_concurrent_update_and_delete() {
+        let vm = Arc::new(VersionMap::new());
+        vm.set("updated", 1, "input", false);
+        vm.set("deleted", 2, "input", false);
+        {
+            let mut transaction = VersionRepointTransaction::with_capacity(Arc::clone(&vm), 2);
+            transaction.repoint_if_latest("updated", 1, Arc::from("output"), false);
+            transaction.repoint_if_latest("deleted", 2, Arc::from("output"), false);
+            vm.set("updated", 10, IN_MEMORY_SEGMENT_ID, false);
+            vm.delete("deleted", 11, IN_MEMORY_SEGMENT_ID).unwrap();
+        }
+        let updated = vm.get("updated").unwrap();
+        assert_eq!(
+            (updated.seq_no, &*updated.segment_id, updated.deleted),
+            (10, IN_MEMORY_SEGMENT_ID, false)
+        );
+        let deleted = vm.get("deleted").unwrap();
+        assert_eq!(
+            (deleted.seq_no, &*deleted.segment_id, deleted.deleted),
+            (11, IN_MEMORY_SEGMENT_ID, true)
+        );
+    }
+
+    #[test]
+    fn merge_repoint_transaction_is_panic_safe_and_commit_is_final() {
+        let vm = Arc::new(VersionMap::new());
+        vm.set("doc", 1, "input", false);
+        let panic_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe({
+            let vm = Arc::clone(&vm);
+            move || {
+                let mut transaction = VersionRepointTransaction::with_capacity(Arc::clone(&vm), 1);
+                transaction.repoint_if_latest("doc", 1, Arc::from("failed-output"), false);
+                panic!("injected merge worker panic after repoint");
+            }
+        }));
+        assert!(panic_result.is_err());
+        assert_eq!(&*vm.get("doc").unwrap().segment_id, "input");
+
+        let mut transaction = VersionRepointTransaction::with_capacity(Arc::clone(&vm), 1);
+        transaction.repoint_if_latest("doc", 1, Arc::from("committed-output"), false);
+        transaction.commit();
+        assert_eq!(&*vm.get("doc").unwrap().segment_id, "committed-output");
     }
 
     #[test]

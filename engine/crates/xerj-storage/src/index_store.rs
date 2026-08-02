@@ -31,7 +31,7 @@ use uuid::Uuid;
 
 use crate::backend::StorageBackend;
 use crate::segment::{SectionType, SegmentId, SegmentMeta, SegmentReader, SegmentWriter};
-use crate::version_map::{VersionMap, IN_MEMORY_SEGMENT_ID};
+use crate::version_map::{VersionMap, VersionRepointTransaction, IN_MEMORY_SEGMENT_ID};
 use crate::wal::{SyncMode, WalEntry, WalWriter};
 use crate::{Result, SeqNo, StorageError};
 
@@ -546,11 +546,29 @@ pub struct IndexStore {
     #[cfg(test)]
     fail_next_snapshot_save: std::sync::atomic::AtomicBool,
     #[cfg(test)]
+    fail_snapshot_save_after: std::sync::atomic::AtomicUsize,
+    #[cfg(test)]
     fail_next_wal_maintenance: std::sync::atomic::AtomicBool,
     #[cfg(test)]
     publication_failpoint: std::sync::atomic::AtomicU8,
     #[cfg(test)]
     orphan_disarm_fail_after: std::sync::atomic::AtomicUsize,
+}
+
+/// Authoritative publication state returned by transactional merge apply.
+#[derive(Debug)]
+pub enum MergePublicationOutcome {
+    Published { maintenance_deferred: bool },
+}
+
+/// Failure classification for transactional merge publication.
+#[derive(Debug)]
+pub enum MergePublicationError {
+    NotPublished(StorageError),
+    Indeterminate {
+        publication: StorageError,
+        rollback: StorageError,
+    },
 }
 
 /// Cached verification state of one rotated WAL generation.
@@ -636,6 +654,8 @@ impl IndexStore {
             wal_prune_cache: Mutex::new(std::collections::HashMap::new()),
             #[cfg(test)]
             fail_next_snapshot_save: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(test)]
+            fail_snapshot_save_after: std::sync::atomic::AtomicUsize::new(usize::MAX),
             #[cfg(test)]
             fail_next_wal_maintenance: std::sync::atomic::AtomicBool::new(false),
             #[cfg(test)]
@@ -2881,6 +2901,21 @@ impl IndexStore {
                 "injected post-publication snapshot save failure",
             )));
         }
+        #[cfg(test)]
+        {
+            let remaining = self.fail_snapshot_save_after.load(Ordering::Acquire);
+            if remaining != usize::MAX {
+                if remaining == 0 {
+                    self.fail_snapshot_save_after
+                        .store(usize::MAX, Ordering::Release);
+                    return Err(StorageError::Io(std::io::Error::other(
+                        "injected delayed snapshot save failure",
+                    )));
+                }
+                self.fail_snapshot_save_after
+                    .store(remaining - 1, Ordering::Release);
+            }
+        }
         let snap = self.snapshot.load();
         // P2.3 — `to_vec` (compact) not `to_vec_pretty`: the snapshot is a
         // machine-read manifest (loaded via `from_slice`), never
@@ -3332,21 +3367,69 @@ impl IndexStore {
     /// atomically replace merged segments with the merged result and update
     /// the version map.
     pub fn apply_merge(&self, merged_ids: &[SegmentId], new_meta: SegmentMeta) -> Result<()> {
+        self.apply_merge_inner(merged_ids, new_meta, None, || {})
+            .map(|_| ())
+            .map_err(|error| match error {
+                MergePublicationError::NotPublished(error) => error,
+                MergePublicationError::Indeterminate {
+                    publication,
+                    rollback,
+                } => StorageError::MergeAborted(format!(
+                    "merge publication is indeterminate: publication failed ({publication}); rollback persistence failed ({rollback})"
+                )),
+            })
+    }
+
+    /// Publish a merge and take ownership of its provisional version-map
+    /// repoints. The transaction commits at the exact durable manifest
+    /// boundary, before any fallible or panic-capable post-publication work.
+    pub fn apply_merge_with_repoints(
+        &self,
+        merged_ids: &[SegmentId],
+        new_meta: SegmentMeta,
+        version_repoints: VersionRepointTransaction,
+    ) -> std::result::Result<MergePublicationOutcome, MergePublicationError> {
+        self.apply_merge_inner(merged_ids, new_meta, Some(version_repoints), || {})
+    }
+
+    /// Test seam for exercising cancellation/panic immediately after durable
+    /// publication. Production callers use [`Self::apply_merge_with_repoints`].
+    #[doc(hidden)]
+    pub fn apply_merge_with_repoints_and_post_publish<F: FnOnce()>(
+        &self,
+        merged_ids: &[SegmentId],
+        new_meta: SegmentMeta,
+        version_repoints: VersionRepointTransaction,
+        post_publish: F,
+    ) -> std::result::Result<MergePublicationOutcome, MergePublicationError> {
+        self.apply_merge_inner(merged_ids, new_meta, Some(version_repoints), post_publish)
+    }
+
+    fn apply_merge_inner<F: FnOnce()>(
+        &self,
+        merged_ids: &[SegmentId],
+        new_meta: SegmentMeta,
+        version_repoints: Option<VersionRepointTransaction>,
+        post_publish: F,
+    ) -> std::result::Result<MergePublicationOutcome, MergePublicationError> {
         // Inputs still belong to the authoritative snapshot at this point.
         // Durably remove their ZID3 completion markers before committing the
         // replacement, so no crash after snapshot publication can resurrect
         // a partially retired input. The ids sidecars stay readable if this
         // step fails and the merge is aborted.
-        self.disarm_orphan_recovery_for_segments(merged_ids)?;
+        self.disarm_orphan_recovery_for_segments(merged_ids)
+            .map_err(MergePublicationError::NotPublished)?;
         // Sum the doc counts of the segments we're about to replace, so we can
         // tell whether this merge actually dropped any documents.
-        let merged_total: u64 = {
+        let (merged_total, previous_metas): (u64, Vec<SegmentMeta>) = {
             let snap = self.snapshot.load();
-            snap.segments
+            let previous: Vec<_> = snap
+                .segments
                 .iter()
                 .filter(|s| merged_ids.contains(&s.id))
-                .map(|s| s.doc_count)
-                .sum()
+                .cloned()
+                .collect();
+            (previous.iter().map(|meta| meta.doc_count).sum(), previous)
         };
         // Atomic replace via rcu — same race as `with_new_segment` in
         // `finalize_flush_with_publisher`: a concurrent flush appending
@@ -3354,6 +3437,54 @@ impl IndexStore {
         // segment swap. rcu retries on contention.
         self.snapshot
             .rcu(|old| Arc::new(old.replace_segments(merged_ids, new_meta.clone())));
+        if let Err(error) = self.save_snapshot() {
+            // Publication changed memory before manifest persistence. Restore
+            // the exact inputs only while this output remains authoritative;
+            // the RCU closure preserves any concurrent flush append.
+            let output_id = new_meta.id.clone();
+            self.snapshot.rcu(|current| {
+                let output_is_current = current.segments.iter().any(|meta| meta.id == output_id)
+                    && previous_metas.iter().all(|previous| {
+                        !current.segments.iter().any(|meta| meta.id == previous.id)
+                    });
+                if !output_is_current {
+                    return Arc::clone(current);
+                }
+                let mut segments: Vec<_> = current
+                    .segments
+                    .iter()
+                    .filter(|meta| meta.id != output_id)
+                    .cloned()
+                    .collect();
+                segments.extend(previous_metas.iter().cloned());
+                let max_seq_no = segments
+                    .iter()
+                    .map(|meta| meta.max_seq_no)
+                    .max()
+                    .unwrap_or(0);
+                Arc::new(IndexSnapshot {
+                    segments,
+                    generation: current.generation + 1,
+                    max_seq_no,
+                })
+            });
+            // The initial error can occur after rename. Best-effort persist
+            // the restored snapshot so memory and restart state converge.
+            return match self.save_snapshot() {
+                Ok(()) => Err(MergePublicationError::NotPublished(error)),
+                Err(rollback) => Err(MergePublicationError::Indeterminate {
+                    publication: error,
+                    rollback,
+                }),
+            };
+        }
+        // The replacement is now durable. Commit provisional repoints here,
+        // in the same synchronous ownership scope, so cancellation or panic
+        // after publication cannot roll them back to retired inputs.
+        if let Some(version_repoints) = version_repoints {
+            version_repoints.commit();
+        }
+        post_publish();
         // `remove_segment` does a full O(N) `DashMap::retain` over the ENTIRE
         // version map, holding each shard's write lock — a >1s read-collapse
         // under merge pressure once the map holds millions of entries (reads
@@ -3371,9 +3502,10 @@ impl IndexStore {
         if new_meta.doc_count < merged_total {
             self.version_map.remove_segment(merged_ids);
         }
-        self.save_snapshot()?;
         info!(merged = merged_ids.len(), "merge applied");
-        Ok(())
+        Ok(MergePublicationOutcome::Published {
+            maintenance_deferred: false,
+        })
     }
 
     /// Returns stats useful for triggering merges.
@@ -5564,5 +5696,49 @@ mod tests {
         // And ingest still works on the fresh store.
         store.index("x", serde_json::json!({"a": 1})).unwrap();
         assert!(store.version_map.get("x").is_some());
+    }
+
+    #[test]
+    fn apply_merge_manifest_failure_restores_exact_input_snapshot() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = open_test_store(dir.path());
+        store.index("a", serde_json::json!({"value": "a"})).unwrap();
+        store.flush().unwrap().unwrap();
+        store.index("b", serde_json::json!({"value": "b"})).unwrap();
+        store.flush().unwrap().unwrap();
+        let before = store.snapshot();
+        assert_eq!(before.segments.len(), 2);
+        let before_ids: std::collections::HashSet<_> =
+            before.segments.iter().map(|meta| meta.id.clone()).collect();
+
+        let mut output = before.segments[0].clone();
+        output.id = "injected-unpublished-output".into();
+        output.seg_path = "segments/injected-unpublished-output.seg".into();
+        output.sidx_path = "segments/injected-unpublished-output.sidx".into();
+        let input_ids: Vec<_> = before.segments.iter().map(|meta| meta.id.clone()).collect();
+        // apply_merge first persists the authoritative inputs before it
+        // disarms recovery markers; fail the following publication save.
+        store.fail_snapshot_save_after.store(1, Ordering::Release);
+        assert!(store.apply_merge(&input_ids, output).is_err());
+
+        let after_ids: std::collections::HashSet<_> = store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|meta| meta.id.clone())
+            .collect();
+        assert_eq!(after_ids, before_ids);
+        drop(before);
+        drop(store);
+
+        let reopened = open_test_store(dir.path());
+        let reopened_ids: std::collections::HashSet<_> = reopened
+            .snapshot()
+            .segments
+            .iter()
+            .map(|meta| meta.id.clone())
+            .collect();
+        assert_eq!(reopened_ids, before_ids);
+        assert_eq!(reopened.version_map.live_count(), 2);
     }
 }
