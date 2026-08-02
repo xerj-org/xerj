@@ -64,6 +64,8 @@
 //! | any ES-compat route naming a reserved index in the path | middleware |
 //! | any route naming an index in its **body** (`_bulk`, `_msearch`, `_mget`, `_aliases`, `_reindex`, snapshot `indices`, `terms` lookups, `lookup` runtime fields, `POST /v1/indices`) | middleware ([`body_targets`]) |
 //! | an index template whose `index_patterns` would own a brain's mapping | middleware ([`authorize_template_patterns`]) |
+//! | an ML job/datafeed config naming the index the server will go and read | middleware ([`BodyShape::MlConfig`]) |
+//! | the detached datafeed scorer `_start` spawns | `es_compat::spawn_datafeed_task`, carrying the starter's rule across the `tokio::spawn` |
 //! | an **alias** pointing into the reserved namespace | middleware (resolved before the decision) + `Engine::get_index` (resolved before the guard) |
 //! | index patterns (`logs-*`, `_all`, `*`) | expanded only over the principal's visible set ([`xerj_engine::index_guard`]) |
 //! | unnamed fan-out (`POST /_search`, `/_bulk`, `/_all/*`) | authorized per named index; anything unnamed is filtered by the guard |
@@ -97,6 +99,14 @@
 //! boundary and confines a `Scoped` key to its grants; it does not turn xerj
 //! into a general multi-tenant authorization system. `xerj_engine::rbac`'s
 //! named `RoleStore` remains unenforced data.
+//!
+//! Nor does it second-guess an explicit grant. A scoped key minted with
+//! `names: ["*"]` **can** read the reserved namespace, because `*` matches
+//! every index and that is what the operator asked for; only a superuser can
+//! mint one. See [`xerj_engine::rbac::Role::applies_to`] for the reasoning and
+//! `a_star_grant_reaches_the_reserved_namespace` below for the pinned
+//! behaviour. Operators who want brain isolation must grant concrete names or
+//! a prefix that excludes `.xerj-memory-`.
 
 // The decision functions return `Result<(), Response>` where `Err` IS the
 // ready-to-send 403. That trips `clippy::result_large_err` (an `axum::Response`
@@ -398,27 +408,6 @@ const ADMIN_OPS: &[&str] = &[
     "_migration",
 ];
 
-/// Endpoints whose responses enumerate index names. Their bodies are pruned of
-/// anything the principal may not read — a second pass over the filtering
-/// `Engine::list_indices` already does, for the handful of handlers that read
-/// the `index_settings` / `index_mappings` side maps directly.
-const ENUMERATING_ROOTS: &[&str] = &[
-    "_mapping",
-    "_mappings",
-    "_settings",
-    "_alias",
-    "_aliases",
-    "_stats",
-    "_cat",
-    "_resolve",
-    "_cluster",
-    "_field_caps",
-    "_segments",
-    "_recovery",
-    "_shard_stores",
-    "_data_stream",
-];
-
 /// Split a URI path into percent-decoded, non-empty segments.
 fn segments(path: &str) -> Vec<String> {
     path.split('/')
@@ -618,6 +607,20 @@ enum BodyShape {
     /// name later — including a brain — so the patterns are checked in their
     /// own right by [`authorize_template_patterns`].
     IndexTemplate,
+    /// An ML job or datafeed config: `PUT /_ml/anomaly_detectors/{id}`
+    /// (`source_index`, `index`, and the combined-form `datafeed_config`) and
+    /// `PUT /_ml/datafeeds/{id}` (`indices` / `indexes`).
+    ///
+    /// These name an index the *server* will go and read, on a schedule, on
+    /// the caller's behalf. Registering one against an index the caller cannot
+    /// read is wrong on its own terms — it was accepted with a 200 before this
+    /// arm existed — and it was also the front half of a live cross-brain
+    /// read: the detached scorer `POST /_ml/datafeeds/{id}/_start` spawns had
+    /// no visibility rule, so it fetched what the caller could not. The
+    /// detached half is fixed at the spawn site (`es_compat`'s
+    /// `spawn_datafeed_task` carries the rule across); this is the half that
+    /// refuses the configuration in the first place.
+    MlConfig,
 }
 
 /// Search-shaped ops whose body can carry a `terms` lookup.
@@ -679,6 +682,17 @@ fn body_shape(method: &Method, segs: &[String]) -> BodyShape {
     }
     if (first == "_index_template" || first == "_template") && method != Method::GET {
         return BodyShape::IndexTemplate;
+    }
+    // `PUT|POST /_ml/anomaly_detectors/{id}` and `PUT|POST /_ml/datafeeds/{id}`
+    // — exactly three segments, so the sub-verbs (`…/{id}/_start`, `_stop`,
+    // `_score`, `results/records`) are not swept in: they carry no index name
+    // of their own, and their reach is decided by the config that was already
+    // authorized here plus the guard the spawned scorer carries.
+    if first == "_ml" && segs.len() == 3 && (method == Method::PUT || method == Method::POST) {
+        return match segs[1].as_str() {
+            "anomaly_detectors" | "datafeeds" => BodyShape::MlConfig,
+            _ => BodyShape::None,
+        };
     }
     if segs.len() == 1 && method == Method::PUT && !first.starts_with('_') {
         return BodyShape::CreateIndex;
@@ -915,6 +929,36 @@ fn body_targets(
             if let Ok(parsed) = serde_json::from_slice::<Value>(body) {
                 collect_query_body_indices(&parsed, &mut out);
             }
+        }
+        BodyShape::MlConfig => {
+            let Ok(parsed) = serde_json::from_slice::<Value>(body) else {
+                // Not JSON: it names no index, and the handler will reject it
+                // for the missing `source_index` / `job_id` anyway.
+                return Ok(out);
+            };
+            // Every spelling the two ML handlers actually read. `put_ml_datafeed`
+            // takes `indices` OR `indexes`; `put_ml_anomaly_detector` takes
+            // `source_index` (string or array) OR `index`; the ES combined form
+            // nests a whole datafeed under `datafeed_config`.
+            let push_ml = |v: Option<&Value>, out: &mut Vec<Demand>| {
+                push_names(v, Privilege::ReadIndex, out);
+            };
+            push_ml(parsed.get("source_index"), &mut out);
+            push_ml(parsed.get("index"), &mut out);
+            push_ml(parsed.get("indices"), &mut out);
+            push_ml(parsed.get("indexes"), &mut out);
+            if let Some(dfc) = parsed.get("datafeed_config") {
+                push_ml(dfc.get("indices"), &mut out);
+                push_ml(dfc.get("indexes"), &mut out);
+                push_ml(dfc.get("index"), &mut out);
+            }
+            // A body that names nothing is NOT refused: `PUT /_ml/datafeeds/{id}`
+            // may carry only a `job_id`, in which case the handler inherits the
+            // detector's `source_index` — a name this middleware cannot see, but
+            // one that was authorized when the detector itself was created, and
+            // that the scorer re-checks under the starter's own visibility rule.
+            // `decide` reads the empty list on this shape as "nothing named",
+            // not as "unrestricted".
         }
         // Patterns, not names — `authorize_template_patterns` handles them.
         BodyShape::IndexTemplate => {}
@@ -1174,11 +1218,7 @@ pub async fn authz_middleware(State(state): State<AppState>, req: Request, next:
     // engine's index funnel.
     let response =
         xerj_engine::index_guard::scoped(visibility_for(&principal), next.run(req)).await;
-    if enumerates(&segs) {
-        prune_response(response, &principal, &state).await
-    } else {
-        response
-    }
+    prune_response(response, &segs, &principal, &state).await
 }
 
 /// The whole decision, split out so it can be unit-tested without a router.
@@ -1275,6 +1315,15 @@ fn decide(
                 // essentially every ES client.
                 return Ok(());
             }
+            if shape == BodyShape::MlConfig {
+                // An ML config that named no index inherits one that was
+                // authorized when the detector was created (see the `MlConfig`
+                // arm of `body_targets`). Falling through to the
+                // names-nothing branch below would 403 a scoped key for the
+                // ordinary `PUT /_ml/datafeeds/{id} {"job_id": …}`, which
+                // reaches nothing this principal was not already granted.
+                return Ok(());
+            }
             match principal {
                 // A cluster-level mutation that names nothing: an unscoped key
                 // keeps its historical reach over the general surface, a scoped
@@ -1304,23 +1353,14 @@ fn authorize_body(
     Ok(())
 }
 
-/// Does this path's response enumerate index names?
-///
-/// Kept narrow on purpose: pruning buffers and re-serializes the body, so it
-/// runs only where a listing can actually appear — never on a search response.
-fn enumerates(segs: &[String]) -> bool {
-    match segs.first().map(String::as_str) {
-        Some("v1") => matches!(
-            segs.get(1).map(String::as_str),
-            Some("dashboard") | Some("cluster")
-        ),
-        Some(s) => ENUMERATING_ROOTS.contains(&s),
-        None => false,
-    }
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Enumeration pruning
+//
+// Which endpoints get pruned is decided by `prune_sites` / `cat_index_columns`
+// below rather than by a list of path roots: an endpoint is prunable exactly
+// when a position is known for it, so "we prune here" and "here is where the
+// names are" cannot drift apart. Everything else — every search response
+// included — is passed through without being buffered.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Remove index names the principal cannot read from a metadata response.
@@ -1329,7 +1369,20 @@ fn enumerates(segs: &[String]) -> bool {
 /// is the second pass for the handful of handlers that read the
 /// `index_settings` / `index_mappings` side maps directly, and it is what keeps
 /// `GET /_mapping` from handing over the list of brains on the node.
-async fn prune_response(response: Response, principal: &Principal, state: &AppState) -> Response {
+async fn prune_response(
+    response: Response,
+    segs: &[String],
+    principal: &Principal,
+    state: &AppState,
+) -> Response {
+    let sites = prune_sites(segs);
+    let columns = cat_index_columns(segs).unwrap_or(&[]);
+    if sites.is_empty() && columns.is_empty() {
+        // Nothing in this response names an index. Skip the buffer entirely —
+        // it is also the only correct thing to do: pruning a body with no
+        // index-name position in it can subtract, never protect.
+        return response;
+    }
     let (parts, body) = response.into_parts();
     let content_type = parts
         .headers
@@ -1364,15 +1417,15 @@ async fn prune_response(response: Response, principal: &Principal, state: &AppSt
     let pruned: Vec<u8> = if is_json {
         match serde_json::from_slice::<Value>(&bytes) {
             Ok(mut v) => {
-                prune_json(&mut v, principal, &known);
+                prune_json(&mut v, sites, principal, &known);
                 serde_json::to_vec(&v).unwrap_or_else(|_| bytes.to_vec())
             }
             // Not JSON after all (some `_cat` handlers answer text under a
             // JSON content type); fall through to the line filter.
-            Err(_) => prune_text(&bytes, principal, &known),
+            Err(_) => prune_text(&bytes, columns, principal, &known),
         }
     } else {
-        prune_text(&bytes, principal, &known)
+        prune_text(&bytes, columns, principal, &known)
     };
 
     let mut parts = parts;
@@ -1386,53 +1439,217 @@ fn hidden(name: &str, principal: &Principal, known: &HashSet<String>) -> bool {
         && !principal.allows_index(name, Privilege::ReadIndex)
 }
 
-/// Recursively drop unreadable index keys, string entries and `{index|name: …}`
-/// records. One walk covers every metadata shape: `_mapping`/`_settings`/
-/// `_alias` (object keyed by index), `_stats`/`_cluster/state` (the same under
-/// `"indices"`), `_cat/indices?format=json` (array of `{index: …}`),
-/// `_resolve/index` (array of `{name: …}`) and `_field_caps` (array of names).
-fn prune_json(v: &mut Value, principal: &Principal, known: &HashSet<String>) {
+/// One place in an endpoint's response where index **names** appear.
+///
+/// This exists because the first cut pruned by *key name at every depth*: any
+/// key equal to a real index name was deleted, wherever it appeared. An index
+/// name is an arbitrary string, so ordinary names collide with the structural
+/// keys of the very responses being pruned, and the collision only bites a
+/// scoped key — i.e. exactly the multi-tenant and Kibana case this whole
+/// branch exists to enable. Measured, on a node with one ordinary index of
+/// each name: `status` cost `GET /_cluster/health` its `status` field, the
+/// single most-polled field in the API; `indices` cost `GET /_cluster/stats`
+/// its entire `indices` section; `type` cost global `GET /_mapping` the `type`
+/// of every field definition, which is the endpoint Kibana reads to build
+/// index patterns.
+///
+/// So the positions are enumerated per endpoint instead, from the handlers'
+/// actual response shapes. `path` walks object keys from the document root,
+/// `/`-separated, where `*` matches any one key or array element and `""` is
+/// the root itself.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Site {
+    /// The object at `path` is **keyed** by index name.
+    KeyedByIndex(&'static str),
+    /// The array at `path` **holds** index names: bare strings, or objects
+    /// whose `field` names one (`""` = bare strings only).
+    NamedIn(&'static str, &'static str),
+}
+
+/// Where index names appear in this endpoint's JSON response.
+///
+/// Anything not listed prunes nothing, which is the right default: a response
+/// that never names an index cannot leak one, and pruning it can only damage
+/// it. `_cluster/stats` is the worked example — its `indices` object holds
+/// aggregate counts, not a map keyed by index — and so are `_cluster/settings`,
+/// `_cluster/pending_tasks`, `_nodes` and `/v1/cluster/health`.
+fn prune_sites(segs: &[String]) -> &'static [Site] {
+    // `_mapping`, `_settings`, `_alias`, `_aliases`, `_recovery` and
+    // `_shard_stores` all answer one object keyed by index name at the root.
+    const ROOT_KEYED: &[Site] = &[Site::KeyedByIndex("")];
+    // `_stats` and `_segments` put the same map one level down.
+    const INDICES_KEYED: &[Site] = &[Site::KeyedByIndex("indices")];
+    match segs.first().map(String::as_str) {
+        Some("_mapping")
+        | Some("_mappings")
+        | Some("_settings")
+        | Some("_alias")
+        | Some("_aliases")
+        | Some("_recovery")
+        | Some("_shard_stores") => ROOT_KEYED,
+        Some("_stats") | Some("_segments") => INDICES_KEYED,
+        Some("_cluster") => match segs.get(1).map(String::as_str) {
+            // `level=indices` / `level=shards` add the per-index breakdown;
+            // the root is cluster-wide scalars (`status`, `timed_out`, …).
+            Some("health") => INDICES_KEYED,
+            Some("state") => &[
+                Site::KeyedByIndex("metadata/indices"),
+                Site::KeyedByIndex("routing_table/indices"),
+            ],
+            _ => &[],
+        },
+        // `{"indices": [name], "fields": {f: {type: {…, "indices": [name]}}}}`
+        Some("_field_caps") => &[
+            Site::NamedIn("indices", ""),
+            Site::NamedIn("fields/*/*/indices", ""),
+        ],
+        // `{"indices": [{name}], "aliases": [{name, indices}], "data_streams": []}`
+        Some("_resolve") => &[
+            Site::NamedIn("indices", "name"),
+            Site::NamedIn("aliases", "name"),
+            Site::NamedIn("aliases/*/indices", ""),
+            Site::NamedIn("data_streams", "name"),
+            Site::NamedIn("data_streams/*/backing_indices", ""),
+        ],
+        // `{"data_streams": [{name, indices: [{index_name}]}]}`
+        Some("_data_stream") => &[
+            Site::NamedIn("data_streams", "name"),
+            Site::NamedIn("data_streams/*/indices", "index_name"),
+        ],
+        // A `_cat` table in its `format=json` form is an array of row objects.
+        // Only the per-index tables have an `index` column — `_cat/templates`
+        // keys its rows by TEMPLATE name, which is not an index name and must
+        // not be matched against one.
+        Some("_cat") if cat_index_columns(segs).is_some() => &[Site::NamedIn("", "index")],
+        Some("v1") => match segs.get(1).map(String::as_str) {
+            // `{"data": {"indices": [{name, …}], …}}`
+            Some("dashboard") => &[Site::NamedIn("data/indices", "name")],
+            _ => &[],
+        },
+        _ => &[],
+    }
+}
+
+/// The whitespace-separated column(s) holding an index name in a `_cat`
+/// table's plain-text form, by sub-verb; `None` means this table has no index
+/// column, so no row of it may be dropped for containing an index name.
+///
+/// Column numbers are read off the handlers in `es_compat`, not guessed. The
+/// alternative — "drop a row if ANY token is a hidden index name" — has the
+/// same collision as key-matching did: an ordinary index named `open`, `green`
+/// or `p` that a scoped key cannot read would empty `_cat/indices` and
+/// `_cat/shards` completely.
+fn cat_index_columns(segs: &[String]) -> Option<&'static [usize]> {
+    match segs.get(1).map(String::as_str)? {
+        // health status INDEX uuid pri rep docs.count docs.deleted store …
+        "indices" => Some(&[2]),
+        // ALIAS INDEX filter routing.index routing.search is_write_index.
+        // Column 0 is an alias, not an index — but an alias name IS a name in
+        // this namespace elsewhere in this module (it is authorized as a
+        // resource, and it resolves to indices), so a reserved-namespace alias
+        // is hidden here too.
+        "aliases" => Some(&[0, 1]),
+        // INDEX shard prirep state docs store ip node
+        "shards" => Some(&[0]),
+        // INDEX shard time type stage …
+        "recovery" => Some(&[0]),
+        // INDEX shard prirep ip segment …
+        "segments" => Some(&[0]),
+        // INDEX present field nodes tombstones …
+        "ann" => Some(&[0]),
+        // id host ip node INDEX size
+        "fielddata" => Some(&[4]),
+        // Everything else under `_cat` — nodes, health, master, plugins,
+        // templates, thread_pool, nodeattrs, pending_tasks, allocation, count,
+        // ml/* — reports no index name at all.
+        _ => None,
+    }
+}
+
+/// Apply `f` to every node the site `path` selects. `*` matches any one object
+/// key or array element; an empty path selects the node itself.
+fn for_each_at(v: &mut Value, path: &str, f: &mut dyn FnMut(&mut Value)) {
+    if path.is_empty() {
+        f(v);
+        return;
+    }
+    let (head, rest) = path.split_once('/').unwrap_or((path, ""));
     match v {
         Value::Object(map) => {
-            map.retain(|k, _| !hidden(k, principal, known));
-            for (_, child) in map.iter_mut() {
-                prune_json(child, principal, known);
+            if head == "*" {
+                for (_, child) in map.iter_mut() {
+                    for_each_at(child, rest, f);
+                }
+            } else if let Some(child) = map.get_mut(head) {
+                for_each_at(child, rest, f);
             }
         }
-        Value::Array(items) => {
-            items.retain(|item| match item {
-                Value::String(s) => !hidden(s, principal, known),
-                Value::Object(o) => !o
-                    .get("index")
-                    .or_else(|| o.get("name"))
-                    .and_then(|n| n.as_str())
-                    .map(|n| hidden(n, principal, known))
-                    .unwrap_or(false),
-                _ => true,
-            });
+        Value::Array(items) if head == "*" => {
             for item in items.iter_mut() {
-                prune_json(item, principal, known);
+                for_each_at(item, rest, f);
             }
         }
         _ => {}
     }
 }
 
-/// Line filter for `_cat` in its default text form: a row naming a hidden
-/// index is dropped whole.
-fn prune_text(bytes: &[u8], principal: &Principal, known: &HashSet<String>) -> Vec<u8> {
+/// Drop the index names this principal may not read, at the positions this
+/// endpoint actually carries them — and nowhere else.
+fn prune_json(v: &mut Value, sites: &[Site], principal: &Principal, known: &HashSet<String>) {
+    for site in sites {
+        match *site {
+            Site::KeyedByIndex(path) => for_each_at(v, path, &mut |node| {
+                if let Value::Object(map) = node {
+                    map.retain(|k, _| !hidden(k, principal, known));
+                }
+            }),
+            Site::NamedIn(path, field) => for_each_at(v, path, &mut |node| {
+                if let Value::Array(items) = node {
+                    items.retain(|item| match item {
+                        Value::String(s) => !hidden(s, principal, known),
+                        Value::Object(o) if !field.is_empty() => !o
+                            .get(field)
+                            .and_then(Value::as_str)
+                            .map(|n| hidden(n, principal, known))
+                            .unwrap_or(false),
+                        _ => true,
+                    });
+                }
+            }),
+        }
+    }
+}
+
+/// Line filter for `_cat` in its default text form: a row whose index column
+/// names a hidden index is dropped whole. A table with no index column
+/// (`columns` is empty) is returned untouched.
+fn prune_text(
+    bytes: &[u8],
+    columns: &[usize],
+    principal: &Principal,
+    known: &HashSet<String>,
+) -> Vec<u8> {
+    if columns.is_empty() {
+        return bytes.to_vec();
+    }
     let Ok(text) = std::str::from_utf8(bytes) else {
         return bytes.to_vec();
     };
     let mut out = String::with_capacity(text.len());
     let mut dropped_any = false;
     for line in text.split_inclusive('\n') {
-        let hides = line.split_whitespace().any(|token| {
-            hidden(
-                token.trim_matches(|c: char| c == '"' || c == ','),
-                principal,
-                known,
-            )
+        let fields: Vec<&str> = line.split_whitespace().collect();
+        let hides = columns.iter().any(|&c| {
+            fields
+                .get(c)
+                .map(|token| {
+                    hidden(
+                        token.trim_matches(|ch: char| ch == '"' || ch == ','),
+                        principal,
+                        known,
+                    )
+                })
+                .unwrap_or(false)
         });
         if hides {
             dropped_any = true;
@@ -1593,6 +1810,13 @@ mod tests {
                 "/_index_template/_simulate",
                 BodyShape::IndexTemplate,
             ),
+            ("PUT", "/_ml/anomaly_detectors/j", BodyShape::MlConfig),
+            ("PUT", "/_ml/datafeeds/f", BodyShape::MlConfig),
+            ("POST", "/_ml/datafeeds/f", BodyShape::MlConfig),
+            // Sub-verbs and reads carry no index name of their own.
+            ("POST", "/_ml/datafeeds/f/_start", BodyShape::None),
+            ("POST", "/_ml/anomaly_detectors/j/_score", BodyShape::None),
+            ("GET", "/_ml/anomaly_detectors/j", BodyShape::None),
             ("POST", "/_search", BodyShape::Query),
             ("POST", "/logs/_search", BodyShape::Query),
             ("POST", "/_count", BodyShape::Query),
@@ -2043,6 +2267,17 @@ mod tests {
         assert!(check(&legacy, Method::PUT, "/_cluster/settings", "{}"));
     }
 
+    /// Prune the way the middleware does: pick the endpoint's sites from its
+    /// path, then apply them.
+    fn prune_at(path: &str, v: &mut Value, p: &Principal, known: &HashSet<String>) {
+        prune_json(v, prune_sites(&segments(path)), p, known);
+    }
+
+    fn prune_rows(path: &str, table: &str, p: &Principal, known: &HashSet<String>) -> String {
+        let cols = cat_index_columns(&segments(path)).unwrap_or(&[]);
+        String::from_utf8(prune_text(table.as_bytes(), cols, p, known)).expect("utf8")
+    }
+
     #[test]
     fn json_pruning_hides_unreadable_indices() {
         let p = scoped(&[".xerj-memory-alice-edges"], &[Privilege::ReadIndex]);
@@ -2059,7 +2294,7 @@ mod tests {
             ".xerj-memory-bob-edges": {"mappings": {}},
             "logs-2026": {"mappings": {}}
         });
-        prune_json(&mut mapping, &p, &known);
+        prune_at("/_mapping", &mut mapping, &p, &known);
         assert!(mapping.get(".xerj-memory-alice-edges").is_some());
         assert!(mapping.get(".xerj-memory-bob-edges").is_none());
         // A scoped key does not see another tenant's ordinary index either …
@@ -2074,30 +2309,275 @@ mod tests {
             {"index": ".xerj-memory-bob-edges", "docs.count": "1"},
             {"index": ".xerj-memory-alice-edges", "docs.count": "9"}
         ]);
-        prune_json(&mut cat, &p, &known);
+        prune_at("/_cat/indices", &mut cat, &p, &known);
         assert_eq!(cat.as_array().unwrap().len(), 1);
 
         let mut caps =
             serde_json::json!({"indices": [".xerj-memory-bob-edges", ".xerj-memory-alice-edges"]});
-        prune_json(&mut caps, &p, &known);
+        prune_at("/_field_caps", &mut caps, &p, &known);
         assert_eq!(
             caps["indices"],
             serde_json::json!([".xerj-memory-alice-edges"])
         );
+        // …including the per-field `indices` lists buried under `fields`.
+        let mut caps = serde_json::json!({
+            "indices": [".xerj-memory-alice-edges", ".xerj-memory-bob-edges"],
+            "fields": {"host": {"keyword": {
+                "type": "keyword",
+                "indices": [".xerj-memory-alice-edges", ".xerj-memory-bob-edges"]
+            }}}
+        });
+        prune_at("/_field_caps", &mut caps, &p, &known);
+        assert_eq!(
+            caps["fields"]["host"]["keyword"]["indices"],
+            serde_json::json!([".xerj-memory-alice-edges"])
+        );
+        assert_eq!(caps["fields"]["host"]["keyword"]["type"], "keyword");
     }
 
+    /// FINDING B. An index name is an arbitrary string, so the previous
+    /// "delete any key equal to a known index name, at every depth" collided
+    /// with the structural keys of the responses it was protecting — and only
+    /// ever for a scoped key, i.e. exactly the multi-tenant case this branch
+    /// exists to enable. Each case below is one measured breakage.
     #[test]
-    fn text_pruning_drops_cat_rows() {
-        let p = unscoped();
-        let known: HashSet<String> = ["logs-2026", ".xerj-memory-bob-edges"]
+    fn structural_keys_survive_ordinary_indices_that_share_their_name() {
+        // Ordinary indices with unfortunate names, none of them readable by
+        // this principal.
+        let p = scoped(&["logs-2026"], &[Privilege::ReadIndex]);
+        let known: HashSet<String> = ["status", "indices", "type", "nodes", "count", "logs-2026"]
             .iter()
             .map(|s| s.to_string())
             .collect();
+
+        // `GET /_cluster/health` kept its `status` — the most-polled field in
+        // the API — while still pruning the per-index breakdown.
+        let mut health = serde_json::json!({
+            "cluster_name": "xerj", "status": "green", "timed_out": false,
+            "indices": {"logs-2026": {"status": "green"}, "status": {"status": "green"}}
+        });
+        prune_at("/_cluster/health", &mut health, &p, &known);
+        assert_eq!(health["status"], "green");
+        assert!(health["indices"].get("logs-2026").is_some());
+        assert!(health["indices"].get("status").is_none());
+
+        // `GET /_cluster/stats` kept its whole `indices` section: those are
+        // aggregate counters, not a map keyed by index name.
+        let mut stats = serde_json::json!({
+            "status": "green",
+            "indices": {"count": 5, "docs": {"count": 42}},
+            "nodes": {"count": {"total": 1}}
+        });
+        let before = stats.clone();
+        prune_at("/_cluster/stats", &mut stats, &p, &known);
+        assert_eq!(stats, before, "_cluster/stats names no index anywhere");
+
+        // Global `GET /_mapping` kept every field's `type`, which is what
+        // Kibana reads to build an index pattern.
+        let mut mapping = serde_json::json!({
+            "logs-2026": {"mappings": {"properties": {
+                "host": {"type": "keyword"},
+                "count": {"type": "long"}
+            }}},
+            "type": {"mappings": {"properties": {}}}
+        });
+        prune_at("/_mapping", &mut mapping, &p, &known);
+        assert_eq!(
+            mapping["logs-2026"]["mappings"]["properties"]["host"]["type"],
+            "keyword"
+        );
+        assert_eq!(
+            mapping["logs-2026"]["mappings"]["properties"]["count"]["type"],
+            "long"
+        );
+        assert!(
+            mapping.get("type").is_none(),
+            "the index actually named `type` is still hidden"
+        );
+
+        // `GET /_cluster/state` prunes its two index maps and leaves the node
+        // map alone, even when an index shares a node's name.
+        let mut state = serde_json::json!({
+            "nodes": {"nodes": {"name": "nodes"}},
+            "metadata": {"templates": {}, "indices": {"logs-2026": {}, "count": {}}},
+            "routing_table": {"indices": {"logs-2026": {}, "count": {}}}
+        });
+        prune_at("/_cluster/state", &mut state, &p, &known);
+        assert!(state["nodes"].get("nodes").is_some(), "node map untouched");
+        assert!(state["metadata"].get("templates").is_some());
+        assert!(state["metadata"]["indices"].get("logs-2026").is_some());
+        assert!(state["metadata"]["indices"].get("count").is_none());
+        assert!(state["routing_table"]["indices"].get("count").is_none());
+    }
+
+    /// The same collision in the `_cat` text tables: matching *any* token
+    /// meant one unreadable index called `open` or `green` emptied the table.
+    #[test]
+    fn cat_rows_are_matched_on_the_index_column_only() {
+        let p = scoped(&["logs-2026"], &[Privilege::ReadIndex]);
+        let known: HashSet<String> = ["logs-2026", "open", "green", ".xerj-memory-bob-edges"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
         let table = "green open logs-2026 uuid 1 0 9 0 1kb 1kb\n\
-                     green open .xerj-memory-bob-edges uuid 1 0 1 0 1kb 1kb\n";
-        let out = String::from_utf8(prune_text(table.as_bytes(), &p, &known)).unwrap();
+                     green open .xerj-memory-bob-edges uuid 1 0 1 0 1kb 1kb\n\
+                     green open open uuid 1 0 3 0 1kb 1kb\n";
+        let out = prune_rows("/_cat/indices", table, &p, &known);
+        assert!(out.contains("logs-2026"), "own index survives: {out}");
+        assert!(
+            !out.contains(".xerj-memory-bob-edges"),
+            "brain hidden: {out}"
+        );
+        assert_eq!(
+            out.lines().count(),
+            1,
+            "only the row whose INDEX column is hidden goes: {out}"
+        );
+
+        // `_cat/health` has no index column at all, so nothing may be dropped
+        // from it however its values happen to read.
+        let health = "1785000000 12:00:00 xerj green 1 1 4 4 0 0 0 0 - 100.0%\n";
+        assert_eq!(prune_rows("/_cat/health", health, &p, &known), health);
+
+        // `_cat/fielddata` carries the index in column 4.
+        let fd = "n1 127.0.0.1 127.0.0.1 n1 logs-2026 0b\n\
+                  n1 127.0.0.1 127.0.0.1 n1 .xerj-memory-bob-edges 0b\n";
+        let out = prune_rows("/_cat/fielddata", fd, &p, &known);
         assert!(out.contains("logs-2026"));
         assert!(!out.contains(".xerj-memory-bob-edges"));
+    }
+
+    /// A `_cat/templates` row is keyed by TEMPLATE name. It must not be
+    /// matched against index names — a template and an index may share one.
+    #[test]
+    fn cat_templates_rows_are_never_index_matched() {
+        let p = scoped(&["logs-2026"], &[Privilege::ReadIndex]);
+        let known: HashSet<String> = ["count"].iter().map(|s| s.to_string()).collect();
+        assert!(cat_index_columns(&segments("/_cat/templates")).is_none());
+        assert!(prune_sites(&segments("/_cat/templates")).is_empty());
+        let rows = "count logs-* 100 -\n";
+        assert_eq!(prune_rows("/_cat/templates", rows, &p, &known), rows);
+    }
+
+    /// FINDING C. Pinned, not fixed: `names: ["*"]` matches everything,
+    /// including `.xerj-memory-*`. Only a superuser can mint a scoped key, so
+    /// this is an operator's explicit "the whole node" rather than an
+    /// escalation — but it must not change without someone meaning it.
+    /// See `xerj_engine::rbac::Role::applies_to`.
+    #[test]
+    fn a_star_grant_reaches_the_reserved_namespace() {
+        let star = scoped(&["*"], &[Privilege::ReadIndex, Privilege::WriteIndex]);
+        assert!(star.allows_index(".xerj-memory-bob-edges", Privilege::ReadIndex));
+        assert!(check(
+            &star,
+            Method::GET,
+            "/.xerj-memory-bob-edges/_search",
+            ""
+        ));
+        assert!(check(&star, Method::GET, "/_memory/bob", ""));
+        // A prefix grant that stops short of the reserved namespace does not.
+        let logs = scoped(&["logs-*"], &[Privilege::ReadIndex]);
+        assert!(!logs.allows_index(".xerj-memory-bob-edges", Privilege::ReadIndex));
+        assert!(!check(
+            &logs,
+            Method::GET,
+            "/.xerj-memory-bob-edges/_search",
+            ""
+        ));
+        // …and `*` is still not a licence to squat the namespace with a
+        // template, which decides the mapping of brains created later.
+        assert!(!check(
+            &star,
+            Method::PUT,
+            "/_index_template/t",
+            r#"{"index_patterns":[".xerj-memory-*"]}"#
+        ));
+    }
+
+    /// FINDING A, config half. The ML config endpoints name an index the
+    /// server will then go and read on a schedule; before this they were
+    /// accepted with a 200 for a principal holding nothing on it.
+    #[test]
+    fn ml_config_authorizes_the_index_it_will_read() {
+        let legacy = unscoped();
+        let alice = scoped(&[".xerj-memory-alice-edges"], &[Privilege::ReadIndex]);
+
+        for (path, body) in [
+            (
+                "/_ml/anomaly_detectors/leak2",
+                r#"{"source_index":".xerj-memory-bob-edges","time_field":"created_at"}"#,
+            ),
+            (
+                "/_ml/anomaly_detectors/leak2",
+                r#"{"index":".xerj-memory-bob-edges"}"#,
+            ),
+            (
+                "/_ml/anomaly_detectors/leak2",
+                r#"{"source_index":"logs-2026","datafeed_config":{"indices":[".xerj-memory-bob-edges"]}}"#,
+            ),
+            (
+                "/_ml/datafeeds/leak2-feed",
+                r#"{"job_id":"leak2","indices":[".xerj-memory-bob-edges"]}"#,
+            ),
+            (
+                "/_ml/datafeeds/leak2-feed",
+                r#"{"job_id":"leak2","indexes":".xerj-memory-bob-edges"}"#,
+            ),
+        ] {
+            assert!(
+                !check(&legacy, Method::PUT, path, body),
+                "unscoped key configured ML over a brain: PUT {path} {body}"
+            );
+            assert!(
+                !check(&alice, Method::PUT, path, body),
+                "alice configured ML over bob's brain: PUT {path} {body}"
+            );
+        }
+
+        // Its own brain is fine, and so is an ordinary index for a key that
+        // holds the general surface.
+        assert!(check(
+            &alice,
+            Method::PUT,
+            "/_ml/anomaly_detectors/mine",
+            r#"{"source_index":".xerj-memory-alice-edges","time_field":"t"}"#
+        ));
+        assert!(check(
+            &legacy,
+            Method::PUT,
+            "/_ml/anomaly_detectors/ok",
+            r#"{"source_index":"logs-2026","time_field":"t"}"#
+        ));
+        // A datafeed that names no index inherits the (already authorized)
+        // detector's source, so a scoped key is not refused for it.
+        assert!(check(
+            &alice,
+            Method::PUT,
+            "/_ml/datafeeds/mine-feed",
+            r#"{"job_id":"mine"}"#
+        ));
+        // The sub-verbs carry no index of their own, so they are decided by
+        // the pre-existing cluster rule and this change does not move them: a
+        // key that holds the general surface may start a datafeed, a scoped
+        // one may not (a cluster-level mutation naming nothing). Pinned so the
+        // MlConfig arm cannot be read as having widened either one.
+        assert_eq!(
+            body_shape(&Method::POST, &segments("/_ml/datafeeds/f/_start")),
+            BodyShape::None
+        );
+        assert!(check(
+            &legacy,
+            Method::POST,
+            "/_ml/datafeeds/f/_start",
+            "{}"
+        ));
+        assert!(!check(
+            &alice,
+            Method::POST,
+            "/_ml/datafeeds/f/_start",
+            "{}"
+        ));
     }
 
     /// A template's patterns decide the mapping of indices that do not exist
