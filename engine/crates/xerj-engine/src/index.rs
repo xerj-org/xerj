@@ -1031,6 +1031,233 @@ mod merge_publication_transaction_tests {
         (engine, index)
     }
 
+    async fn wait_for_repoint(index: &Index) {
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            while !index.test_merge_repoint_ready.load(Ordering::Acquire) {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("merge did not reach the pre-apply gate");
+    }
+
+    #[tokio::test]
+    async fn apply_failure_restores_sources_survives_restart_and_retry() {
+        let dir = TempDir::new().unwrap();
+        let (engine, index) = fixture(&dir).await;
+        let before_ids: std::collections::HashSet<_> = index
+            .store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|meta| meta.id.clone())
+            .collect();
+        index
+            .test_fail_merge_before_apply
+            .store(true, Ordering::Release);
+        assert!(index.run_merge_once().await.is_err());
+        let after_ids: std::collections::HashSet<_> = index
+            .store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|meta| meta.id.clone())
+            .collect();
+        assert_eq!(after_ids, before_ids);
+        for (id, expected) in [("a", "old-a"), ("b", "old-b")] {
+            assert_eq!(
+                index.get_document(id).await.unwrap().unwrap()["value"],
+                expected
+            );
+        }
+        assert_eq!(
+            index
+                .search(&SearchRequest::default())
+                .await
+                .unwrap()
+                .total
+                .value,
+            2
+        );
+        drop(index);
+        drop(engine);
+
+        let reopened = Engine::new(config(&dir)).unwrap();
+        let reopened_index = reopened.get_index("post-save-panic").unwrap();
+        for (id, expected) in [("a", "old-a"), ("b", "old-b")] {
+            assert_eq!(
+                reopened_index.get_document(id).await.unwrap().unwrap()["value"],
+                expected
+            );
+        }
+        assert_eq!(reopened_index.run_merge_once().await.unwrap(), 1);
+        assert_eq!(reopened_index.store.snapshot().segments.len(), 1);
+        assert_eq!(
+            reopened_index
+                .search(&SearchRequest::default())
+                .await
+                .unwrap()
+                .total
+                .value,
+            2
+        );
+    }
+
+    #[tokio::test]
+    async fn rollback_preserves_concurrent_put_and_delete() {
+        let dir = TempDir::new().unwrap();
+        let (engine, index) = fixture(&dir).await;
+        index
+            .test_pause_merge_before_apply
+            .store(true, Ordering::Release);
+        index
+            .test_fail_merge_before_apply
+            .store(true, Ordering::Release);
+        let merge_index = Arc::clone(&index);
+        let merge = tokio::spawn(async move { merge_index.run_merge_once().await });
+        wait_for_repoint(&index).await;
+        index
+            .index_document(Some("a".into()), serde_json::json!({"value": "new-a"}))
+            .await
+            .unwrap();
+        assert!(index.delete_document("b").await.unwrap());
+        index
+            .test_pause_merge_before_apply
+            .store(false, Ordering::Release);
+        assert!(merge.await.unwrap().is_err());
+        assert_eq!(
+            index.get_document("a").await.unwrap().unwrap()["value"],
+            "new-a"
+        );
+        assert!(index.get_document("b").await.unwrap().is_none());
+        assert!(index.store.version_map.get("b").unwrap().deleted);
+        assert_eq!(
+            index
+                .search(&SearchRequest::default())
+                .await
+                .unwrap()
+                .total
+                .value,
+            1
+        );
+        drop(index);
+        drop(engine);
+        let reopened = Engine::new(config(&dir)).unwrap();
+        let reopened_index = reopened.get_index("post-save-panic").unwrap();
+        assert_eq!(
+            reopened_index.get_document("a").await.unwrap().unwrap()["value"],
+            "new-a"
+        );
+        assert!(reopened_index.get_document("b").await.unwrap().is_none());
+        assert!(reopened_index.store.version_map.get("b").unwrap().deleted);
+        assert_eq!(
+            reopened_index
+                .search(&SearchRequest::default())
+                .await
+                .unwrap()
+                .total
+                .value,
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn cancellation_after_repoint_restores_inputs() {
+        let dir = TempDir::new().unwrap();
+        let (_engine, index) = fixture(&dir).await;
+        let before_ids: std::collections::HashSet<_> = index
+            .store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|meta| meta.id.clone())
+            .collect();
+        index
+            .test_pause_merge_before_apply
+            .store(true, Ordering::Release);
+        let merge_index = Arc::clone(&index);
+        let merge = tokio::spawn(async move { merge_index.run_merge_once().await });
+        wait_for_repoint(&index).await;
+        merge.abort();
+        assert!(merge.await.unwrap_err().is_cancelled());
+        index
+            .test_pause_merge_before_apply
+            .store(false, Ordering::Release);
+        let after_ids: std::collections::HashSet<_> = index
+            .store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|meta| meta.id.clone())
+            .collect();
+        assert_eq!(after_ids, before_ids);
+        for id in ["a", "b"] {
+            assert!(index.get_document(id).await.unwrap().is_some());
+            assert!(
+                before_ids.contains(index.store.version_map.get(id).unwrap().segment_id.as_ref())
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn partial_multi_batch_failure_is_reported_without_losing_either_batch() {
+        let dir = TempDir::new().unwrap();
+        let engine = Engine::new(config(&dir)).unwrap();
+        engine.create_index("multi-batch", Schema::empty()).unwrap();
+        let index = engine.get_index("multi-batch").unwrap();
+        for id in ["a", "b", "c", "d"] {
+            index
+                .index_document(
+                    Some(id.into()),
+                    serde_json::json!({"value": format!("source-{id}")}),
+                )
+                .await
+                .unwrap();
+            index.flush().await.unwrap();
+        }
+        assert_eq!(index.store.snapshot().segments.len(), 4);
+        index
+            .test_fail_merge_before_apply
+            .store(true, Ordering::Release);
+        assert!(index.run_merge_once().await.is_err());
+        assert_eq!(index.store.snapshot().segments.len(), 3);
+        for id in ["a", "b", "c", "d"] {
+            assert_eq!(
+                index.get_document(id).await.unwrap().unwrap()["value"],
+                format!("source-{id}")
+            );
+        }
+        assert_eq!(
+            index
+                .search(&SearchRequest::default())
+                .await
+                .unwrap()
+                .total
+                .value,
+            4
+        );
+        drop(index);
+        drop(engine);
+
+        let reopened = Engine::new(config(&dir)).unwrap();
+        let reopened_index = reopened.get_index("multi-batch").unwrap();
+        for id in ["a", "b", "c", "d"] {
+            assert_eq!(
+                reopened_index.get_document(id).await.unwrap().unwrap()["value"],
+                format!("source-{id}")
+            );
+        }
+        assert_eq!(
+            reopened_index
+                .search(&SearchRequest::default())
+                .await
+                .unwrap()
+                .total
+                .value,
+            4
+        );
+    }
+
     #[tokio::test]
     async fn panic_after_durable_snapshot_keeps_output_repoints_and_survives_restart() {
         let dir = TempDir::new().unwrap();
@@ -3559,6 +3786,12 @@ pub struct Index {
     publication_test_hook: Arc<parking_lot::RwLock<Option<PublicationTestHook>>>,
     #[cfg(test)]
     test_panic_after_merge_publish: Arc<AtomicBool>,
+    #[cfg(test)]
+    test_fail_merge_before_apply: Arc<AtomicBool>,
+    #[cfg(test)]
+    test_pause_merge_before_apply: Arc<AtomicBool>,
+    #[cfg(test)]
+    test_merge_repoint_ready: Arc<AtomicBool>,
     doc_count: Arc<AtomicU64>,
     /// Counter for `update` operations that detected no change to the
     /// existing source — surfaced via `indices.stats` as
@@ -4191,6 +4424,12 @@ impl Index {
             publication_test_hook: Arc::new(parking_lot::RwLock::new(None)),
             #[cfg(test)]
             test_panic_after_merge_publish: Arc::new(AtomicBool::new(false)),
+            #[cfg(test)]
+            test_fail_merge_before_apply: Arc::new(AtomicBool::new(false)),
+            #[cfg(test)]
+            test_pause_merge_before_apply: Arc::new(AtomicBool::new(false)),
+            #[cfg(test)]
+            test_merge_repoint_ready: Arc::new(AtomicBool::new(false)),
             doc_count: Arc::new(AtomicU64::new(0)),
             noop_update_count: Arc::new(AtomicU64::new(0)),
             request_cache_seen: Arc::new(RwLock::new(RequestCacheSeen::with_capacity(65_536))),
@@ -4566,6 +4805,12 @@ impl Index {
             publication_test_hook: Arc::new(parking_lot::RwLock::new(None)),
             #[cfg(test)]
             test_panic_after_merge_publish: Arc::new(AtomicBool::new(false)),
+            #[cfg(test)]
+            test_fail_merge_before_apply: Arc::new(AtomicBool::new(false)),
+            #[cfg(test)]
+            test_pause_merge_before_apply: Arc::new(AtomicBool::new(false)),
+            #[cfg(test)]
+            test_merge_repoint_ready: Arc::new(AtomicBool::new(false)),
             doc_count: Arc::new(AtomicU64::new(total_doc_count)),
             noop_update_count: Arc::new(AtomicU64::new(0)),
             request_cache_seen: Arc::new(RwLock::new(RequestCacheSeen::with_capacity(65_536))),
@@ -7354,7 +7599,28 @@ impl Index {
                         }
                     }
                     #[cfg(test)]
+                    {
+                        self.test_merge_repoint_ready.store(true, Ordering::Release);
+                        while self.test_pause_merge_before_apply.load(Ordering::Acquire) {
+                            tokio::task::yield_now().await;
+                        }
+                        self.test_merge_repoint_ready
+                            .store(false, Ordering::Release);
+                    }
+                    #[cfg(test)]
                     let apply_result = if self
+                        .test_fail_merge_before_apply
+                        .swap(false, Ordering::AcqRel)
+                    {
+                        Err(
+                            xerj_storage::index_store::MergePublicationError::NotPublished(
+                                xerj_storage::StorageError::MergeAborted(
+                                    "injected merge apply failure before snapshot publication"
+                                        .into(),
+                                ),
+                            ),
+                        )
+                    } else if self
                         .test_panic_after_merge_publish
                         .swap(false, Ordering::AcqRel)
                     {
@@ -7385,6 +7651,13 @@ impl Index {
                         // all seven hydration owners when this scope exits.
                         self.shortcut_count_cache
                             .retain(|(seg, _), _| seg != merged_meta.id.as_str());
+                        // `continue` bypasses the common top-up below. Launch
+                        // the next disjoint batch first so one failed apply
+                        // does not silently suppress the rest of this pass.
+                        if let Some((batch, metas)) = pending.take() {
+                            in_flight.push(spawn_one(batch, metas));
+                            pending = queue_iter.next();
+                        }
                         continue;
                     }
                     // `apply_merge` has made the output authoritative. No
