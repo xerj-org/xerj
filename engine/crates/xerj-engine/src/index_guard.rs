@@ -31,10 +31,58 @@
 //! [`visible`]'s `unwrap_or(true)` means: absent guard = engine-internal work,
 //! not "permission granted to a caller".
 //!
-//! A request that spawns a detached `tokio::task` loses the task-local; such a
-//! task is unrestricted here and must authorize for itself. No request path in
-//! the tree does that today (bulk ingest parallelises with `rayon` inside the
-//! same task, which does inherit).
+//! ## Detached work loses the guard, and that was a real hole
+//!
+//! A `tokio` task-local lives on the task, so anything a request *detaches*
+//! from itself — `tokio::spawn`, `spawn_blocking`, a `rayon` closure that
+//! lands on a pool worker — runs with no guard installed and is therefore
+//! unrestricted.
+//!
+//! The first cut of this module recorded that shape as a residual risk and
+//! claimed "no request path in the tree does that today". That was wrong. The
+//! ML datafeed does: `POST /_ml/datafeeds/{id}/_start` spawned a detached
+//! scorer that re-read its source index every `frequency` seconds, so a
+//! principal with no access to `.xerj-memory-bob-edges` got an empty result
+//! set from the synchronous start pass (correctly denied, inside the request's
+//! scope) and the brain's field values a few seconds later, from the tick.
+//!
+//! So detaching now has an explicit contract instead of a footnote:
+//!
+//! - [`current`] captures the guard the request is running under.
+//! - [`scoped`] re-installs it inside the spawned future.
+//!
+//! Any future `tokio::spawn` that can reach [`crate::Engine::get_index`] must
+//! carry the rule across with those two, and any that cannot must say why in a
+//! comment at the spawn site. `spawn_datafeed_task` in `xerj-api` is the
+//! worked example.
+//!
+//! ### The audit
+//!
+//! Every non-test `tokio::spawn` / `spawn_blocking` in the workspace, and why
+//! it is or is not a door. Only the first row was a hole.
+//!
+//! | Site | Verdict |
+//! |---|---|
+//! | `xerj-api::es_compat::spawn_datafeed_task` | **carries the rule** — the one detached path that resolves an index name |
+//! | `es_compat::search_impl`'s search task | owns one already-authorized `Index`; `terms`/`lookup` targets are resolved earlier, on the request's task |
+//! | `es_compat::delete_by_query` / `update_by_query` (`wait_for_completion=false`) | same: one already-authorized `Index` handle, no `Engine` |
+//! | `Engine::spawn_pit_sweeper`, `spawn_search_context_sweeper` | started by `Engine::new`, capture only the PIT/scroll maps, touch no index |
+//! | `Index`'s flush/merge/warm tasks (`index.rs`, `write_publication.rs`) | methods **on** an already-resolved `Index`; the name has already been through the funnel |
+//! | `xerj-server::main`'s listeners, metrics loop, autoindex/brain CLIs | startup, outside any request; unrestricted by design (see `visible`) |
+//! | `xerj-cluster` transport/replication/coordinator | peer-to-peer, authorized by `xerj_cluster::auth`, not by a caller's principal |
+//! | `xerj-ai::embedder`, `xerj-storage` cache/backend/merge | no `Engine`, no index names |
+//! | `xerj-api::binary_protocol::serve` | not wired to any listener in `xerj-server`; module is unreachable at runtime |
+//! | `xerj-server::grpc` | its spawns are `#[cfg(test)]`; the live listener authorizes per call with `Principal::allows_index` |
+//!
+//! `rayon` does **not** inherit the task-local — the first cut claimed it did.
+//! `visible` reads a thread-local that `tokio` maintains only while it polls
+//! the owning task, and a rayon worker is an ordinary OS thread that `tokio`
+//! never touches, so a closure that lands on one sees an absent guard.
+//! `absent_guard_on_a_rayon_worker` below pins that. It is not a live hole
+//! because no `rayon` closure in the tree resolves an index name: the bulk
+//! ingest fan-out (`bulk::process_bulk_with_opts`) parallelises NDJSON
+//! *parsing* only, and every `get_or_create_index` in that function runs
+//! sequentially on the request's own task, after the parse collects.
 //!
 //! ## Denial shape: "not found", not "forbidden"
 //!
@@ -86,6 +134,40 @@ where
     VISIBILITY.scope(guard, fut).await
 }
 
+/// The guard the caller is currently running under, if any.
+///
+/// The half of the detached-work contract that runs *before* the spawn: call
+/// it on the request's own task, move the result into the spawned future, and
+/// hand it back to [`scoped`] there. `None` means the caller is already
+/// unrestricted (engine-internal work, or a superuser request, for which the
+/// API layer installs no guard at all), and the spawned task inherits exactly
+/// that — an unrestricted caller does not become restricted by detaching, and
+/// a restricted one does not become unrestricted.
+pub fn current() -> Option<Arc<dyn IndexVisibility>> {
+    VISIBILITY.try_with(Arc::clone).ok()
+}
+
+/// Run `fut` under `guard` when there is one, unrestricted when there is not.
+///
+/// The spawn-site half of the contract, so a caller does not have to spell the
+/// `match` out (and cannot get it backwards):
+///
+/// ```ignore
+/// let rule = index_guard::current();          // on the request's task
+/// tokio::spawn(async move {
+///     index_guard::scoped_opt(rule, async move { /* … */ }).await
+/// });
+/// ```
+pub async fn scoped_opt<F>(guard: Option<Arc<dyn IndexVisibility>>, fut: F) -> F::Output
+where
+    F: std::future::Future,
+{
+    match guard {
+        Some(g) => scoped(g, fut).await,
+        None => fut.await,
+    }
+}
+
 /// Is a guard installed at all — i.e. is this a request rather than
 /// engine-internal work? Distinguishes the two cases that [`visible`]
 /// deliberately collapses to `true`; nothing in the decision path needs it,
@@ -109,6 +191,77 @@ mod tests {
     async fn absent_guard_is_unrestricted() {
         assert!(visible("anything"));
         assert!(!guarded());
+    }
+
+    /// The contract detached work runs under: capture on the request's task,
+    /// re-install inside the spawned one. Without the capture the spawned task
+    /// is unrestricted, which is the ML-datafeed hole.
+    #[tokio::test]
+    async fn a_captured_guard_survives_tokio_spawn() {
+        let (uncarried, carried) = scoped(Arc::new(Only("mine")), async {
+            // Detaching without carrying the rule loses it — this is the shape
+            // the bug had.
+            let uncarried = tokio::spawn(async { (guarded(), visible("yours")) })
+                .await
+                .expect("join");
+            // Carrying it across keeps the denial.
+            let rule = current();
+            let carried = tokio::spawn(async move {
+                scoped_opt(rule, async {
+                    (guarded(), visible("yours"), visible("mine"))
+                })
+                .await
+            })
+            .await
+            .expect("join");
+            (uncarried, carried)
+        })
+        .await;
+        assert_eq!(uncarried, (false, true), "a bare spawn loses the guard");
+        assert_eq!(
+            carried,
+            (true, false, true),
+            "a carried guard denies in the spawned task exactly as it did in the request"
+        );
+    }
+
+    /// Outside a request there is nothing to carry, and carrying `None` must
+    /// not invent a restriction.
+    #[tokio::test]
+    async fn carrying_an_absent_guard_stays_unrestricted() {
+        assert!(current().is_none());
+        let seen = tokio::spawn(scoped_opt(None, async { (guarded(), visible("anything")) }))
+            .await
+            .expect("join");
+        assert_eq!(seen, (false, true));
+    }
+
+    /// The first cut of this module claimed `rayon` inherits the task-local.
+    /// It does not: a rayon worker is an OS thread `tokio` never polls a task
+    /// on, so the thread-local backing `VISIBILITY` is simply unset there.
+    ///
+    /// `ThreadPool::spawn` (rather than `install`/`join`/`par_iter`) is used
+    /// deliberately — it *always* runs the closure on a pool worker, never on
+    /// the calling thread, so this cannot pass by accidentally staying home.
+    #[tokio::test]
+    async fn absent_guard_on_a_rayon_worker() {
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(1)
+            .build()
+            .expect("rayon pool");
+        let (tx, rx) = std::sync::mpsc::channel();
+        scoped(Arc::new(Only("mine")), async {
+            assert!(!visible("yours"), "denied on the request's own thread");
+            pool.spawn(move || {
+                let _ = tx.send((guarded(), visible("yours")));
+            });
+        })
+        .await;
+        assert_eq!(
+            rx.recv().expect("rayon result"),
+            (false, true),
+            "a rayon worker sees no guard — so no rayon closure may resolve an index name"
+        );
     }
 
     #[tokio::test]

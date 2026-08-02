@@ -72,6 +72,30 @@ impl Role {
     /// Does this role apply to the named index?  Glob: "*" matches
     /// everything; literal names must match exactly; suffix-`*` (e.g.
     /// `logs-*`) matches by prefix.
+    ///
+    /// # `names: ["*"]` includes the reserved namespace, deliberately
+    ///
+    /// "Everything" means everything: a role granted `*` matches
+    /// `.xerj-memory-alice-edges` like any other index, so a key minted with
+    /// it can read and write every second brain and every agent-memory
+    /// namespace on the node. `xerj_api::authz::may_reach_reserved` is *not*
+    /// consulted on this path — it decides whether a name a caller is about to
+    /// **create** (an alias, a fresh index, a template pattern) is squatting
+    /// the reserved prefix, not whether an existing grant covers a read.
+    ///
+    /// This is an administrator's explicit choice rather than an escalation:
+    /// the only principal that can mint a scoped key at all is the superuser
+    /// (`POST /_security/api_key`), and `*` is the plainest possible way to
+    /// write "this key gets the whole node". Narrowing it silently would break
+    /// the operator who wrote `*` and meant it — a Kibana service account, a
+    /// backup runner — with no error to explain the missing data.
+    ///
+    /// **Operators wanting brain isolation must not hand out `names: ["*"]`.**
+    /// Grant the concrete indices, or a prefix that excludes the reserved
+    /// namespace (`logs-*`, `app-*`); `.xerj-memory-*` is reachable only by a
+    /// grant that reaches it. `a_star_grant_reaches_the_reserved_namespace` in
+    /// `xerj_api::authz`'s tests pins this behaviour so it cannot be changed
+    /// by accident.
     pub fn applies_to(&self, idx: &str) -> bool {
         for pat in &self.indices {
             if pat == "*" || pat == idx {
