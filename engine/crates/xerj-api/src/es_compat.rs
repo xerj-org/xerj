@@ -26652,16 +26652,23 @@ pub async fn explain_doc(
     ids_req.size = 1;
     ids_req.from = 0;
 
+    // A Painless resource limit that tripped while answering this. It is
+    // REPORTED rather than refused, which is the opposite of what every other
+    // surface does, and deliberately so: `_explain` is a diagnostic endpoint.
+    //
+    // Most script faults here come from SCORING (`function_score`'s
+    // `script_score`, `rescore`), and scoring does not decide `matched` —
+    // that comes from the ids-filtered hit list. Refusing turned a correct
+    // 200 into a 400 for exactly the person trying to debug the script.
+    // Where the script IS load-bearing for matching, `matched: false` would be
+    // a confident negative, so it cannot simply be published silently either.
+    // Reporting the fault alongside the verdict satisfies both: the caller
+    // still gets the answer, and never gets it without being told a limit
+    // tripped.
+    let mut script_failure: Option<String> = None;
     let matched = match idx.search(&ids_req).await {
         Ok(result) => {
-            // `matched` is a yes/no verdict derived from whether the document
-            // survived the query. A script that hit a resource limit fails
-            // matching closed, which lands here as `matched: false` — a
-            // confident negative that is indistinguishable from a document
-            // that genuinely does not match. Refuse instead of answering.
-            if let Some(reason) = &result.script_failure {
-                return script_limit_response(reason);
-            }
+            script_failure = result.script_failure.clone();
             !result.hits.is_empty()
         }
         Err(_) => false,
@@ -26677,6 +26684,24 @@ pub async fn explain_doc(
     // Build a simple explanation tree.
     let explanation = build_explanation(score as f32, &search_req.query);
 
+    // A tripped resource limit becomes an extra detail node rather than
+    // vanishing. `matched` above is still the verdict; this says what the
+    // engine refused to finish while reaching it, so a scoring-script fault
+    // is visible without costing the caller the answer.
+    let details = match &script_failure {
+        Some(reason) => json!([
+            explanation,
+            {
+                "value": 0.0,
+                "description": format!(
+                    "a script hit a resource limit while answering this explain: {reason}"
+                ),
+                "details": []
+            }
+        ]),
+        None => json!([explanation]),
+    };
+
     Json(json!({
         "_index": index,
         "_id": id,
@@ -26685,7 +26710,7 @@ pub async fn explain_doc(
         "explanation": {
             "value": score,
             "description": description,
-            "details": [explanation]
+            "details": details
         }
     }))
     .into_response()
@@ -28769,6 +28794,8 @@ pub async fn rank_eval(
         .and_then(Value::as_bool)
         .unwrap_or(false);
 
+    let mut failures = serde_json::Map::new();
+
     for req_spec in &body.requests {
         let query_val = req_spec
             .request
@@ -28797,14 +28824,26 @@ pub async fn rank_eval(
             Err(_) => continue,
         };
         // A Painless resource limit tripped while scoring or matching this
-        // request. The other surfaces refuse here because the answer is wrong;
-        // `_rank_eval` has a sharper reason. It exists to *measure relevance
-        // quality*, so publishing a `metric_score` computed over degraded
-        // scores (or over a ranking a fail-closed script truncated) does not
-        // just return a bad answer — it corrupts the number a caller would use
-        // to notice bad answers.
+        // request. `_rank_eval` exists to *measure relevance quality*, so a
+        // `metric_score` computed over degraded scores (or over a ranking a
+        // fail-closed script truncated) does not just return a bad answer — it
+        // corrupts the number a caller would use to notice bad answers.
+        //
+        // The failure is recorded PER REQUEST rather than failing the batch.
+        // `failures` is the channel ES provides for exactly this, keyed by the
+        // request id, and a body of ten requests where one carries a bad script
+        // should not lose the other nine. The faulted request contributes
+        // nothing to `metric_score`, so the published number is computed only
+        // over requests that actually produced trustworthy scores.
         if let Some(reason) = &result.script_failure {
-            return script_limit_response(reason);
+            failures.insert(
+                req_spec.id.clone(),
+                script_limit_error_value(reason)
+                    .get("error")
+                    .cloned()
+                    .unwrap_or_else(|| json!({ "type": "script_exception", "reason": reason })),
+            );
+            continue;
         }
 
         let retrieved_ids: Vec<String> = result.hits.iter().take(k).map(|h| h.id.clone()).collect();
@@ -28858,7 +28897,7 @@ pub async fn rank_eval(
     Json(json!({
         "metric_score": mean_score,
         "details": details,
-        "failures": {}
+        "failures": Value::Object(failures)
     }))
     .into_response()
 }

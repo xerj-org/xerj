@@ -138,23 +138,73 @@ async fn rank_eval_past_the_call_depth_limit_is_an_error_not_a_metric_score() {
     )
     .await;
 
+    // Reported per request, not by failing the batch: `failures` is the channel
+    // ES provides for exactly this, and a body of many requests must not lose
+    // the good ones because of one bad script.
+    assert_eq!(status, StatusCode::OK, "body: {body}");
     assert_eq!(
-        status,
-        StatusCode::BAD_REQUEST,
+        body["failures"]["q1"]["type"], "script_exception",
         "_rank_eval published a relevance measurement taken from scores a \
-         resource-limited script never produced: {body}"
+         resource-limited script never produced, with no failure recorded: {body}"
     );
-    assert_eq!(body["error"]["type"], "script_exception", "body: {body}");
     assert!(
-        body["error"]["reason"]
+        body["failures"]["q1"]["reason"]
             .as_str()
             .unwrap_or_default()
             .contains("closure call depth"),
         "the reason must name the limit that tripped: {body}"
     );
+    // The faulted request contributes nothing, so the published number is
+    // computed only over requests that produced trustworthy scores.
+    assert_eq!(
+        body["metric_score"].as_f64(),
+        Some(0.0),
+        "a faulted request must not contribute to metric_score: {body}"
+    );
     assert!(
-        body.get("metric_score").is_none(),
-        "a refused rank_eval must not also report a metric score: {body}"
+        body["details"].get("q1").is_none(),
+        "a faulted request must not appear in details as if it had been measured: {body}"
+    );
+}
+
+/// A body where only ONE of several requests carries a limit-tripping script
+/// must still measure the others. Failing all of them was the first attempt.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn rank_eval_failure_is_scoped_to_the_offending_request() {
+    let (app, _dir) = seeded_app().await;
+    let (status, body) = post(
+        &app,
+        "/scripts/_rank_eval",
+        json!({
+            "requests": [
+                {
+                    "id": "good",
+                    "request": { "query": { "match_all": {} } },
+                    "ratings": [{ "_index": "scripts", "_id": "1", "rating": 3 }]
+                },
+                {
+                    "id": "bad",
+                    "request": { "query": over_deep_matching_query() },
+                    "ratings": [{ "_index": "scripts", "_id": "1", "rating": 3 }]
+                }
+            ],
+            "metric": { "precision": { "k": 2 } }
+        }),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK, "body: {body}");
+    assert_eq!(
+        body["failures"]["bad"]["type"], "script_exception",
+        "the offending request must be recorded: {body}"
+    );
+    assert!(
+        body["failures"].get("good").is_none(),
+        "a healthy request must not be marked failed: {body}"
+    );
+    assert!(
+        body["details"].get("good").is_some(),
+        "a healthy request must still be measured when a sibling fails: {body}"
     );
 }
 
@@ -177,12 +227,16 @@ async fn rank_eval_refuses_a_ranking_a_script_limit_truncated() {
     )
     .await;
 
+    assert_eq!(status, StatusCode::OK, "body: {body}");
     assert_eq!(
-        status,
-        StatusCode::BAD_REQUEST,
-        "_rank_eval measured a ranking that a fail-closed script truncated: {body}"
+        body["failures"]["q1"]["type"], "script_exception",
+        "_rank_eval measured a ranking that a fail-closed script truncated, with \
+         no failure recorded: {body}"
     );
-    assert_eq!(body["error"]["type"], "script_exception", "body: {body}");
+    assert!(
+        body["details"].get("q1").is_none(),
+        "a truncated ranking must not be published as a measurement: {body}"
+    );
 }
 
 /// `_explain` answers a yes/no question — did this document match? — by
@@ -199,16 +253,34 @@ async fn explain_past_the_call_depth_limit_is_an_error_not_an_unmatched_doc() {
     )
     .await;
 
-    assert_eq!(
-        status,
-        StatusCode::BAD_REQUEST,
-        "_explain reported a match verdict decided by a script that was refused \
-         mid-evaluation: {body}"
-    );
-    assert_eq!(body["error"]["type"], "script_exception", "body: {body}");
+    // `_explain` is a diagnostic endpoint, so the fault is REPORTED rather than
+    // refused: most script faults here come from scoring, which does not decide
+    // `matched`, and refusing turned a correct 200 into a 400 for exactly the
+    // person debugging the script. The caller still gets the verdict and never
+    // gets it without being told a limit tripped.
+    assert_eq!(status, StatusCode::OK, "body: {body}");
     assert!(
-        body.get("matched").is_none(),
-        "a refused explain must not also report a match verdict: {body}"
+        body.get("matched").is_some(),
+        "_explain must still answer the question it was asked: {body}"
+    );
+    let details = body["explanation"]["details"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        details.iter().any(|d| d["description"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("resource limit")),
+        "_explain reported a match verdict decided by a script that was refused \
+         mid-evaluation, without disclosing it: {body}"
+    );
+    assert!(
+        details.iter().any(|d| d["description"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("closure call depth")),
+        "the disclosed fault must name the limit that tripped: {body}"
     );
 }
 
