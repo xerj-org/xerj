@@ -253,19 +253,17 @@ impl SegEntry {
 /// only the top-level keys of `_source`, so a scalar leaf nested under an
 /// object has no column of its own either.
 ///
-/// The consequence, stated honestly because an earlier draft of this comment
-/// got it wrong: this predicate closes the MULTI-FIELD-SUFFIX divergence,
-/// where the parent that owns a column is a real top-level field
-/// (`extension.raw.raw` -> `extension`). It does NOT close the general
-/// nested-OBJECT divergence: `geo.city`, a genuine nested value that brute's
-/// `get_field_value` resolves by recursing into the object, has no ancestor
-/// column at any depth, so this returns `false` and the fast path answers it
-/// as empty when brute would not. That is a separate, pre-existing divergence
-/// (it is identical before and after this change — measured `geo.city`
-/// predicate: fast 300 vs brute 11 300 on both), and it is tracked apart from
-/// the suffix problem this function is scoped to. A genuinely absent sub-path
-/// (`geo.missing`) is indistinguishable from a present one here for the same
-/// reason.
+/// The scope, stated honestly because an earlier draft got it wrong: this
+/// predicate closes only the MULTI-FIELD-SUFFIX divergence, where the parent
+/// that owns a column is a real top-level field (`extension.raw.raw` ->
+/// `extension`). It CANNOT see the nested-OBJECT divergence (`geo.city`, which
+/// brute resolves by recursing into the object) or the suppressed-array one
+/// (`tags`, whose column is dropped for being multi-valued): neither has an
+/// ancestor column at any depth, so this returns `false` for both, and a
+/// genuinely absent sub-path (`geo.missing`) is indistinguishable from a
+/// present one here. Those two are closed instead by the schema-keyed root
+/// check in [`field_needs_brute_fallback`] (#128), which is why the predicate
+/// path routes its column misses through that function rather than this one.
 fn dotted_suffix_diverges_from_brute(cols: &super::DocValueMap, field: &str) -> bool {
     if dv_col(cols, field).is_some() {
         return false;
@@ -280,34 +278,38 @@ fn dotted_suffix_diverges_from_brute(cols: &super::DocValueMap, field: &str) -> 
     false
 }
 
-/// True when `field` is a dotted JSON path (`geo.dest`, `machine.ram`,
-/// `machine.os.keyword`) that fast_aggs cannot resolve to any column —
-/// neither the exact name nor its `.keyword`-stripped form (see
-/// `SegEntry::col`) — AND its top-level root is mapped `object`/`nested` in
-/// the schema. That combination means the field is a genuine nested
-/// sub-path fast_aggs' flat columnar storage structurally cannot reach, not
-/// a field that's simply absent from the index — an absent field's root
-/// isn't schema-mapped at all, and IS a valid empty/null result worth
-/// returning. A free function (not a `FastCtx` method) so it's testable
+/// True when `field` is a name fast_aggs cannot resolve to any column at any
+/// depth — neither the exact name nor its `.keyword`-stripped form (see
+/// `SegEntry::col`) in any segment — yet brute's `get_field_value` still
+/// resolves it, so answering it columnarly would report empty where brute
+/// reports data. A free function (not a `FastCtx` method) so it's testable
 /// without constructing a full `FastCtx`, which needs a real `&Index`.
 ///
-/// `object_fields` holds the names of every schema field mapped `object` or
-/// `nested` — see `FastCtx::object_fields` for why a schema-based check is
-/// required here instead of a physical-column one (segments never carry a
-/// column for an object/nested field itself, only for its scalar leaves, so
-/// "does the dotted path's root resolve as a column" is always false and
-/// can't distinguish a genuinely nested path from a genuinely absent one).
+/// Three ways brute out-resolves the columnar path, all bailed here:
 ///
-/// It also covers the second, schema-independent case: a multi-field suffix
-/// (of any depth) other than `.keyword` that a brute resolver resolves by
-/// stripping and the columnar path does not — see
-/// [`dotted_suffix_diverges_from_brute`].  That check is per-segment and
-/// runs FIRST, because a name that resolves exactly in one segment but only
-/// via an ancestor in another still diverges on the second segment's rows.
+/// * a multi-field suffix (of any depth) other than `.keyword` that a brute
+///   resolver strips and the columnar path does not — see
+///   [`dotted_suffix_diverges_from_brute`].  That check is per-segment and
+///   runs FIRST, because a name that resolves exactly in one segment but only
+///   via an ancestor in another still diverges on the second segment's rows;
+/// * a scalar leaf nested under an object (`geo.city`, `machine.os.keyword`):
+///   its root (`geo` / `machine`) is a mapped field, but no segment ever
+///   carries a column for an object field itself, so brute recurses into the
+///   `_source` object while the columnar path has nothing;
+/// * a TOP-LEVEL field whose column was SUPPRESSED because it is multi-valued
+///   (`tags` / `tags.raw`): `build_doc_value_columns` ships NO column for an
+///   array-poisoned field, so brute reads the `_source` array while the
+///   columnar path sees no column — indistinguishable at the column level
+///   from a genuine absence, hence the schema check below.
+///
+/// `mapped_fields` — see `FastCtx::mapped_fields` — is the schema signal that
+/// separates those last two (present-but-uncolumned) from a genuine absence:
+/// a field whose name AND top-level root are both unmapped was never indexed,
+/// and IS a valid empty/null result worth returning on the fast path.
 fn field_needs_brute_fallback(
     field: &str,
     segs: &[SegEntry],
-    object_fields: &std::collections::HashSet<String>,
+    mapped_fields: &std::collections::HashSet<String>,
 ) -> bool {
     if segs
         .iter()
@@ -318,10 +320,14 @@ fn field_needs_brute_fallback(
     if segs.iter().any(|s| s.col(field).is_some()) {
         return false;
     }
-    let Some(dot) = field.find('.') else {
-        return false;
-    };
-    object_fields.contains(&field[..dot])
+    // No column at any depth in any segment. Bail iff brute would still
+    // resolve it — i.e. the exact name (a suppressed top-level array such as
+    // `tags`, or a flat dotted field name) or, for a dotted path, its
+    // top-level root (`geo` for `geo.city`, `tags` for `tags.raw`) is a
+    // field the schema maps. A name whose root is unmapped is genuinely
+    // absent and stays on the fast path as a real empty result.
+    let root = field.split_once('.').map_or(field, |(r, _)| r);
+    mapped_fields.contains(field) || mapped_fields.contains(root)
 }
 
 /// Memtable docs for the fast path.
@@ -398,13 +404,19 @@ pub(super) struct FastCtx<'a> {
     /// the brute path renders them as "false"/"true" term keys — so the
     /// terms executor needs the mapping to reproduce that.
     bool_fields: &'a std::collections::HashSet<String>,
-    /// Schema fields mapped `object`/`nested`.  No segment ever carries a
-    /// column for an object field itself (only for its scalar leaves, and
-    /// only when those leaves happen to be top-level columns — which nested
-    /// JSON leaves never are), so a dotted field whose root is in this set
-    /// is a genuinely mapped path the columnar path structurally can't
-    /// serve, not a genuinely absent field. See `field_needs_brute_fallback`.
-    object_fields: &'a std::collections::HashSet<String>,
+    /// Every field name the schema maps.  Dynamic mapping only ever maps
+    /// TOP-LEVEL keys, so a nested leaf (`geo.city`) is reached through its
+    /// root (`geo`), which IS in this set.  A field with no doc-value column
+    /// at any depth in any segment, whose name OR top-level root is in this
+    /// set, is one brute's `get_field_value` still resolves — an object's
+    /// nested leaf (`geo.city`, root `geo` mapped object), or a top-level
+    /// field whose column was SUPPRESSED because it is multi-valued (`tags`
+    /// / `tags.raw`, mapped keyword, array-poisoned in
+    /// `build_doc_value_columns`) — so the columnar path must bail rather
+    /// than answer it empty.  A name whose root is absent from this set is
+    /// genuinely absent and stays on the fast path.  See
+    /// `field_needs_brute_fallback`.
+    mapped_fields: &'a std::collections::HashSet<String>,
     /// Top-level query filter (from `{size:0, query:Q, aggs:…}`), compiled to
     /// a columnar predicate.  `None` == match_all (the whole corpus). When
     /// present, EVERY executor restricts its columnar reduction to matching
@@ -642,7 +654,7 @@ impl Index {
         snap: &xerj_storage::index_store::IndexSnapshot,
         segments_dir: &std::path::Path,
         bool_fields: &std::collections::HashSet<String>,
-        object_fields: &std::collections::HashSet<String>,
+        mapped_fields: &std::collections::HashSet<String>,
     ) -> Option<(Value, Option<u64>)> {
         if fast_aggs_disabled() {
             return None;
@@ -735,7 +747,7 @@ impl Index {
             mem_docs: std::sync::OnceLock::new(),
             needs_owned_mem,
             bool_fields,
-            object_fields,
+            mapped_fields,
             top_filter,
             top_filter_query,
             top_filter_mem_preds,
@@ -754,7 +766,7 @@ impl Index {
             Some(pred) => {
                 let mut total: u64 = 0;
                 for seg in &ctx.segs {
-                    let sp = resolve_pred(&seg.cols, pred)?;
+                    let sp = resolve_pred(&seg.cols, pred, &ctx.segs, ctx.mapped_fields)?;
                     total += seg_pred_count(&sp, seg.docs);
                 }
                 if let Some(q) = &ctx.top_filter_query {
@@ -1199,7 +1211,7 @@ impl<'a> FastCtx<'a> {
             mem_docs: std::sync::OnceLock::new(),
             needs_owned_mem: self.needs_owned_mem,
             bool_fields: self.bool_fields,
-            object_fields: self.object_fields,
+            mapped_fields: self.mapped_fields,
             top_filter: None,
             top_filter_query: None,
             top_filter_mem_preds: None,
@@ -1227,7 +1239,7 @@ impl<'a> FastCtx<'a> {
     }
 
     fn field_is_structurally_unsupported(&self, field: &str) -> bool {
-        field_needs_brute_fallback(field, &self.segs, self.object_fields)
+        field_needs_brute_fallback(field, &self.segs, self.mapped_fields)
     }
 
     fn exec_agg(&self, agg_type: &str, params: &Value, sub: Option<&Value>) -> Option<Value> {
@@ -1589,7 +1601,7 @@ impl<'a> FastCtx<'a> {
             // `percentile_ranks` / `median_absolute_deviation` onto the O(N)
             // `_source` scan.
             let seg_pred = match &self.top_filter {
-                Some(p) => Some(resolve_pred(&s.cols, p)?),
+                Some(p) => Some(resolve_pred(&s.cols, p, &self.segs, self.mapped_fields)?),
                 None => None,
             };
             match s.col(field) {
@@ -1676,7 +1688,7 @@ impl<'a> FastCtx<'a> {
             // under a filter would have reported whole-index moments for a
             // filtered query (silently wrong, not merely slow).
             let seg_pred = match &self.top_filter {
-                Some(p) => Some(resolve_pred(&s.cols, p)?),
+                Some(p) => Some(resolve_pred(&s.cols, p, &self.segs, self.mapped_fields)?),
                 None => None,
             };
             match s.col(field) {
@@ -2201,7 +2213,12 @@ impl<'a> FastCtx<'a> {
         // every fused-pass consumer (terms, filtered metric) reduces over
         // exactly the matching doc set.
         let top_sp: Option<SegPred> = match &self.top_filter {
-            Some(pred) => Some(resolve_pred(&seg.cols, pred)?),
+            Some(pred) => Some(resolve_pred(
+                &seg.cols,
+                pred,
+                &self.segs,
+                self.mapped_fields,
+            )?),
             None => None,
         };
         // Resolve metric columns once.
@@ -3554,7 +3571,7 @@ impl<'a> FastCtx<'a> {
         let mut accs: Vec<MetricAcc> = vec![MetricAcc::default(); plan.metrics.len()];
         for si in 0..self.segs.len() {
             let seg = &self.segs[si];
-            let sp = resolve_pred(&seg.cols, &pred)?;
+            let sp = resolve_pred(&seg.cols, &pred, &self.segs, self.mapped_fields)?;
             if plan.metrics.is_empty() {
                 count += seg_pred_count(&sp, seg.docs);
             } else {
@@ -3646,7 +3663,7 @@ impl<'a> FastCtx<'a> {
         let mut accs: Vec<MetricAcc> = vec![MetricAcc::default(); plan.metrics.len()];
         for si in 0..self.segs.len() {
             let seg = &self.segs[si];
-            let sp = resolve_pred(&seg.cols, &pred)?;
+            let sp = resolve_pred(&seg.cols, &pred, &self.segs, self.mapped_fields)?;
             if plan.metrics.is_empty() {
                 count += seg_pred_count(&sp, seg.docs);
             } else {
@@ -3710,7 +3727,7 @@ impl<'a> FastCtx<'a> {
         for seg in &self.segs {
             let sps: Vec<SegPred<'_>> = preds
                 .iter()
-                .map(|p| resolve_pred(&seg.cols, p))
+                .map(|p| resolve_pred(&seg.cols, p, &self.segs, self.mapped_fields))
                 .collect::<Option<Vec<_>>>()?;
             for row in 0..seg.docs {
                 let mut mask: u32 = 0;
@@ -5205,15 +5222,24 @@ fn compile_pred(filter: &Value) -> Option<Pred> {
 ///
 /// `Some(SegPred::Never)` is an ASSERTION that the segment genuinely holds
 /// no matching row.  That assertion only holds when EVERY brute resolver
-/// would also find nothing under this name.  For a multi-field suffix one
-/// of them resolves by stripping it is false — and the widest of them,
+/// would also find nothing under this name.  It is false for a multi-field
+/// suffix one of them resolves by stripping (the widest,
 /// `index.rs::get_field_value` behind a top-level query filter, strips
-/// trailing segments recursively, so `<field>.raw.raw` counts too.
-/// Returning `Never` there is how a `filters`/`filter`/top-level-query
+/// trailing segments recursively, so `<field>.raw.raw` counts too); for a
+/// scalar leaf nested under an object (`geo.city`, resolved by recursing
+/// into the `_source` object); and for a top-level field whose column was
+/// suppressed because it is multi-valued (`tags`, read straight from the
+/// `_source` array).  All three are exactly what
+/// [`field_needs_brute_fallback`] detects, so this defers to it: returning
+/// `Never` for any of them is how a `filters`/`filter`/top-level-query
 /// predicate reported a small plausible count instead of the real one.
 /// `None` bails the whole request to the exact brute path.
-fn miss_is_genuinely_empty<'a>(cols: &super::DocValueMap, field: &str) -> Option<SegPred<'a>> {
-    if dotted_suffix_diverges_from_brute(cols, field) {
+fn miss_is_genuinely_empty<'a>(
+    field: &str,
+    segs: &[SegEntry],
+    mapped_fields: &std::collections::HashSet<String>,
+) -> Option<SegPred<'a>> {
+    if field_needs_brute_fallback(field, segs, mapped_fields) {
         None
     } else {
         Some(SegPred::Never)
@@ -5244,8 +5270,15 @@ enum SegPred<'a> {
 /// turned a `<field>.keyword` filter into a silent segment-wide `Never`.
 ///
 /// A miss on a name the brute reference WOULD resolve is therefore not a
-/// `Never` at all — see [`miss_is_genuinely_empty`].
-fn resolve_pred<'a>(cols: &'a super::DocValueMap, pred: &Pred) -> Option<SegPred<'a>> {
+/// `Never` at all — see [`miss_is_genuinely_empty`], which needs the whole
+/// segment set and the schema's mapped-field names to tell a genuine absence
+/// from a nested/suppressed field the columns simply cannot represent.
+fn resolve_pred<'a>(
+    cols: &'a super::DocValueMap,
+    pred: &Pred,
+    segs: &[SegEntry],
+    mapped_fields: &std::collections::HashSet<String>,
+) -> Option<SegPred<'a>> {
     Some(match pred {
         Pred::MatchAll => SegPred::Always,
         Pred::TermKw { field, value } => match dv_col(cols, field) {
@@ -5254,7 +5287,7 @@ fn resolve_pred<'a>(cols: &'a super::DocValueMap, pred: &Pred) -> Option<SegPred
                 None => SegPred::Never,
             },
             Some(Column::Numeric(_)) => return None,
-            None => miss_is_genuinely_empty(cols, field)?,
+            None => miss_is_genuinely_empty(field, segs, mapped_fields)?,
         },
         Pred::TermsKw { field, values } => match dv_col(cols, field) {
             Some(Column::Keyword(k)) => {
@@ -5266,7 +5299,7 @@ fn resolve_pred<'a>(cols: &'a super::DocValueMap, pred: &Pred) -> Option<SegPred
                 }
             }
             Some(Column::Numeric(_)) => return None,
-            None => miss_is_genuinely_empty(cols, field)?,
+            None => miss_is_genuinely_empty(field, segs, mapped_fields)?,
         },
         Pred::RangeKw {
             field,
@@ -5326,7 +5359,7 @@ fn resolve_pred<'a>(cols: &'a super::DocValueMap, pred: &Pred) -> Option<SegPred
                 }
             }
             Some(Column::Numeric(_)) => return None,
-            None => miss_is_genuinely_empty(cols, field)?,
+            None => miss_is_genuinely_empty(field, segs, mapped_fields)?,
         },
         Pred::RangeNum {
             field,
@@ -5339,12 +5372,12 @@ fn resolve_pred<'a>(cols: &'a super::DocValueMap, pred: &Pred) -> Option<SegPred
                 SegPred::Num(n, *lo, *lo_incl, *hi, *hi_incl, n.null_bitmap.is_empty())
             }
             Some(Column::Keyword(_)) => return None,
-            None => miss_is_genuinely_empty(cols, field)?,
+            None => miss_is_genuinely_empty(field, segs, mapped_fields)?,
         },
         Pred::And(subs) => {
             let mut resolved: Vec<SegPred<'a>> = Vec::with_capacity(subs.len());
             for s in subs {
-                let sp = resolve_pred(cols, s)?;
+                let sp = resolve_pred(cols, s, segs, mapped_fields)?;
                 if matches!(sp, SegPred::Never) {
                     return Some(SegPred::Never); // short-circuit: whole AND is empty
                 }
@@ -5797,8 +5830,13 @@ mod range_kw_tests {
     fn suffixed_predicate_bails_instead_of_matching_nothing() {
         let k = KeywordColumn::from_iter(vec![Some("css".to_string()), Some("gz".to_string())])
             .expect("build column");
-        let mut m = std::collections::BTreeMap::new();
-        m.insert("extension".to_string(), Column::Keyword(k));
+        let mut cols = std::collections::BTreeMap::new();
+        cols.insert("extension".to_string(), Column::Keyword(k));
+        // `resolve_pred` now routes a column miss through
+        // `field_needs_brute_fallback`, which scans the whole segment set for
+        // the ancestor column, so the fixture must be a real segment.
+        let segs = vec![seg_with_cols(cols)];
+        let mapped = mapped_fields(&["extension"]);
         for field in [
             "extension.raw",
             "extension.raw.raw",
@@ -5811,7 +5849,7 @@ mod range_kw_tests {
                 value: "css".into(),
             };
             assert!(
-                resolve_pred(&m, &pred).is_none(),
+                resolve_pred(&segs[0].cols, &pred, &segs, &mapped).is_none(),
                 "`{field}` must bail the request to brute, not resolve to Never"
             );
         }
@@ -5821,7 +5859,10 @@ mod range_kw_tests {
             value: "css".into(),
         };
         assert!(
-            matches!(resolve_pred(&m, &absent), Some(SegPred::Never)),
+            matches!(
+                resolve_pred(&segs[0].cols, &absent, &segs, &mapped),
+                Some(SegPred::Never)
+            ),
             "a genuinely absent dotted field must stay on the fast path as Never"
         );
     }
@@ -5847,14 +5888,14 @@ mod range_kw_tests {
             "extension.raw.raw.raw",
         ] {
             assert!(
-                field_needs_brute_fallback(field, &[build()], &object_fields(&[])),
+                field_needs_brute_fallback(field, &[build()], &mapped_fields(&[])),
                 "a `terms`/metric target on `{field}` must bail to brute — the \
                  executors `continue` past a column-less segment, so it would \
                  otherwise be built from the memtable alone"
             );
         }
         assert!(
-            !field_needs_brute_fallback("nosuchfield.raw", &[build()], &object_fields(&[])),
+            !field_needs_brute_fallback("nosuchfield.raw", &[build()], &mapped_fields(&[])),
             "a dotted field with no ancestor column anywhere is a genuine \
              absence and must stay on the fast path"
         );
@@ -5868,7 +5909,7 @@ mod range_kw_tests {
         }
     }
 
-    fn object_fields(names: &[&str]) -> std::collections::HashSet<String> {
+    fn mapped_fields(names: &[&str]) -> std::collections::HashSet<String> {
         names.iter().map(|s| s.to_string()).collect()
     }
 
@@ -5891,7 +5932,7 @@ mod range_kw_tests {
         let cols = std::collections::BTreeMap::new();
         let seg = seg_with_cols(cols);
         assert!(
-            field_needs_brute_fallback("geo.dest", &[seg], &object_fields(&["geo"])),
+            field_needs_brute_fallback("geo.dest", &[seg], &mapped_fields(&["geo"])),
             "geo.dest has no column of its own and geo is mapped object — must bail to brute force"
         );
     }
@@ -5905,7 +5946,7 @@ mod range_kw_tests {
         let cols = std::collections::BTreeMap::new();
         let seg = seg_with_cols(cols);
         assert!(
-            field_needs_brute_fallback("machine.os.keyword", &[seg], &object_fields(&["machine"])),
+            field_needs_brute_fallback("machine.os.keyword", &[seg], &mapped_fields(&["machine"])),
             "machine.os.keyword's root (machine) is mapped object — must bail to brute force"
         );
     }
@@ -5920,30 +5961,59 @@ mod range_kw_tests {
         let cols = std::collections::BTreeMap::new();
         let seg = seg_with_cols(cols);
         assert!(
-            !field_needs_brute_fallback("nonexistent.field", &[seg], &object_fields(&["geo"])),
+            !field_needs_brute_fallback("nonexistent.field", &[seg], &mapped_fields(&["geo"])),
             "the field's root isn't mapped object at all — a real absence, not a nested-path gap"
         );
     }
 
-    /// A field with no dot at all is never flagged, regardless of whether
-    /// it resolves — this guard only concerns dotted nested paths.
+    /// A flat field that the schema does NOT map is a genuine absence — no
+    /// column, no `_source` value for brute to find either — so it is never
+    /// flagged and stays on the fast path as a real empty result.
     #[test]
-    fn flat_field_never_needs_fallback() {
+    fn unmapped_flat_field_does_not_need_fallback() {
         let cols = std::collections::BTreeMap::new();
         let seg = seg_with_cols(cols);
         assert!(!field_needs_brute_fallback(
             "extension",
             &[seg],
-            &object_fields(&[])
+            &mapped_fields(&[])
+        ));
+    }
+
+    /// #128: a TOP-LEVEL field the schema maps but whose column was SUPPRESSED
+    /// in every segment (an array-poisoned multi-valued field like `tags`, for
+    /// which `build_doc_value_columns` ships no column) must bail — brute's
+    /// `get_field_value` reads the `_source` array, so a columnar `Never`
+    /// would report empty where brute reports data. Both the flat name and its
+    /// `.raw` multi-field are covered, because the schema check keys off the
+    /// top-level root.
+    #[test]
+    fn suppressed_top_level_array_field_needs_fallback() {
+        let seg = seg_with_cols(std::collections::BTreeMap::new());
+        for field in ["tags", "tags.raw"] {
+            assert!(
+                field_needs_brute_fallback(
+                    field,
+                    &[seg_with_cols(std::collections::BTreeMap::new())],
+                    &mapped_fields(&["tags"])
+                ),
+                "`{field}` is a suppressed multi-valued field — brute resolves \
+                 it, so the columnar path must bail"
+            );
+        }
+        // Control: a genuinely unmapped sibling stays fast.
+        assert!(!field_needs_brute_fallback(
+            "nosuch.raw",
+            &[seg],
+            &mapped_fields(&["tags"])
         ));
     }
 
     /// The already-fixed `.keyword` multi-field case (`extension.keyword`)
     /// must NOT be flagged — `SegEntry::col` already resolves it via the
-    /// `.keyword`-stripped fallback, so the fast path stays fast for this
-    /// shape exactly as before this guard was added. `extension` is a
-    /// scalar keyword field, not an object, so it wouldn't appear in
-    /// `object_fields` in real use either.
+    /// `.keyword`-stripped fallback (the physical-column check short-circuits
+    /// before the schema probe), so the fast path stays fast for this shape
+    /// exactly as before this guard was added.
     #[test]
     fn keyword_multi_field_does_not_need_fallback() {
         let mut cols = std::collections::BTreeMap::new();
@@ -5955,7 +6025,7 @@ mod range_kw_tests {
         assert!(!field_needs_brute_fallback(
             "extension.keyword",
             &[seg],
-            &object_fields(&[])
+            &mapped_fields(&[])
         ));
     }
 
@@ -5975,12 +6045,16 @@ mod range_kw_tests {
         assert!(!field_needs_brute_fallback(
             "geo.keyword",
             &[seg],
-            &object_fields(&["geo"])
+            &mapped_fields(&["geo"])
         ));
     }
 
     fn count(pred: &Pred, cols: &std::collections::BTreeMap<String, Column>, docs: u32) -> u64 {
-        let sp = resolve_pred(cols, pred).expect("resolvable");
+        // These fixtures all resolve (or bail inside `resolve_pred` on a
+        // type/width gate), never through the column-miss path, so the
+        // segment set and schema map are unused here.
+        let sp =
+            resolve_pred(cols, pred, &[], &std::collections::HashSet::new()).expect("resolvable");
         let by_count = seg_pred_count(&sp, docs);
         let by_scan = (0..docs).filter(|r| seg_pred_matches(&sp, *r)).count() as u64;
         assert_eq!(by_count, by_scan, "seg_pred_count disagrees with row scan");
@@ -6062,7 +6136,7 @@ mod range_kw_tests {
         m.insert("ts".to_string(), Column::Keyword(k));
         let p = rng(Some(&ts(2, 0)), true, Some(&ts(3, 0)), false);
         assert!(
-            resolve_pred(&m, &p).is_none(),
+            resolve_pred(&m, &p, &[], &std::collections::HashSet::new()).is_none(),
             "ragged dictionary must bail"
         );
     }
@@ -6072,7 +6146,10 @@ mod range_kw_tests {
     fn unnormalised_bound_bails_to_brute() {
         let c = cols();
         let p = rng(Some("2026-06-02"), true, Some("2026-06-03"), false);
-        assert!(resolve_pred(&c, &p).is_none(), "short bound must bail");
+        assert!(
+            resolve_pred(&c, &p, &[], &std::collections::HashSet::new()).is_none(),
+            "short bound must bail"
+        );
     }
 
     /// A numeric column under a lexicographic range must bail (the date/keyword
@@ -6084,7 +6161,7 @@ mod range_kw_tests {
         let n = NumericColumn::from_iter((0..10).map(|i| Some((i as f64).to_bits() as i64)));
         m.insert("ts".to_string(), Column::Numeric(n));
         let p = rng(Some(&ts(2, 0)), true, None, true);
-        assert!(resolve_pred(&m, &p).is_none());
+        assert!(resolve_pred(&m, &p, &[], &std::collections::HashSet::new()).is_none());
     }
 
     /// Regression: the *predicate* resolver must apply the same `.keyword`
@@ -6213,7 +6290,7 @@ mod range_kw_tests {
             value: "x".into(),
         };
         assert!(matches!(
-            resolve_pred(&c, &p).expect("resolvable"),
+            resolve_pred(&c, &p, &[], &std::collections::HashSet::new()).expect("resolvable"),
             SegPred::Never
         ));
     }
