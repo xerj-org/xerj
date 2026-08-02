@@ -21,7 +21,8 @@
 
 use axum::{
     extract::{Path, State},
-    response::Response,
+    response::{IntoResponse, Response},
+    Json,
 };
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -187,6 +188,94 @@ pub async fn list_fields(
         })
         .collect();
     Ok(ok(json!({ "fields": fields, "total": fields.len() }), None))
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SEARCH
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Run an ES-compat `_search` against a single index, authenticated by the
+/// caller's Console session instead of a data-plane API key.
+///
+/// **Why this exists.** The SPA's declarative dashboard panels
+/// (`xerj-ux/src/data/panel-query.js`) and the built-in dashboard adapters
+/// (`xerj-ux/src/data/backends/xerj.js`) used to `fetch()` `/{index}/_search`
+/// directly, same-origin, with no `Authorization` header at all. That is
+/// silently correct only when the engine is started with `--insecure`; on
+/// any auth-enabled deployment — the default, recommended posture — every
+/// such call gets a 401 the caller doesn't even look at (`backends/xerj.js`
+/// treats any failure as "no live adapter, fall back to mock"), so the
+/// entire "real dashboards" feature quietly regresses to demo data with no
+/// visible error. This endpoint reuses the session-cookie gate every other
+/// `data-sources` route already has (see `list_indices` / `list_fields`
+/// above) and talks to the engine in-process — no data-plane credential is
+/// needed at all, the same way `list_indices`/`list_fields` already read
+/// the schema/stats in-process.
+///
+/// **Scope.** Single, exact index names only, matching `list_fields`'s
+/// existing scope — no wildcard/`_all` resolution or multi-index merge
+/// here (that logic is non-trivial and already lives, correctly, in
+/// `xerj-api::es_compat`; duplicating a second copy risks exactly the kind
+/// of subtle merge bug that logic has already been hardened against).
+/// Callers that need a pattern get a clear `501`, not a silent wrong
+/// answer — consistent with how this file already treats non-`built-in`
+/// connections.
+pub async fn search(
+    State(state): State<ConsoleState>,
+    _sess: AuthSession,
+    Path((conn_id, index)): Path<(String, String)>,
+    Json(body): Json<Value>,
+) -> ConsoleResult<Response> {
+    if conn_id != BUILTIN_ID {
+        return Err(ConsoleApiError::NotImplemented(format!(
+            "connection '{conn_id}' adapter not yet implemented"
+        )));
+    }
+    if index.contains('*') || index == "_all" || index.split(',').count() > 1 {
+        return Err(ConsoleApiError::NotImplemented(
+            "panel search proxy supports a single exact index name only; \
+             wildcard/_all/multi-index queries are not yet implemented"
+                .into(),
+        ));
+    }
+    if indices::is_system_index(&index) {
+        return Err(ConsoleApiError::NotFound(format!("index {index}")));
+    }
+    let idx = state
+        .engine
+        .get_index(&index)
+        .map_err(|_| ConsoleApiError::NotFound(format!("index {index}")))?;
+
+    let req = xerj_query::parser::parse_request(&body)
+        .map_err(|e| ConsoleApiError::BadRequest(e.to_string()))?;
+    let result = idx
+        .search(&req)
+        .await
+        .map_err(|e| ConsoleApiError::Internal(e.to_string()))?;
+
+    let hits: Vec<Value> = result
+        .hits
+        .iter()
+        .map(|h| {
+            json!({
+                "_index": index,
+                "_id": h.id,
+                "_score": h.score,
+                "_source": h.source,
+            })
+        })
+        .collect();
+    let wire = json!({
+        "took": result.took_ms,
+        "timed_out": result.timed_out,
+        "hits": {
+            "total": { "value": result.total.value, "relation": result.total.relation },
+            "max_score": result.max_score,
+            "hits": hits,
+        },
+        "aggregations": result.aggs,
+    });
+    Ok(Json(wire).into_response())
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

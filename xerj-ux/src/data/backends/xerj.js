@@ -64,11 +64,31 @@ export async function listIndices(baseUrl, signal) {
   return r.json().catch(() => []);
 }
 
-/** Generic ES-compat search against a single index (or wildcard). */
+/**
+ * Search a single index through the Console backend's session-authenticated
+ * proxy instead of an unauthenticated same-origin fetch straight to the
+ * ES-compat data plane. The old direct call carried no `Authorization`
+ * header, so it silently 401'd on any engine started WITHOUT `--insecure`
+ * — the default, recommended posture — and every caller here treats a
+ * failed search as "no live adapter, fall back to mock" (see `search()`
+ * below), so the built-in dashboards quietly showed demo data on a
+ * correctly-secured deployment with no visible error at all.
+ *
+ * `baseUrl` is intentionally unused for the request target: the proxy is
+ * always served by the SAME Console instance the SPA is loaded from (this
+ * backend only ever talks to the local/built-in engine — see `meta`
+ * above), so the path is resolved relative to the current origin, same as
+ * every other Console-backend call in this codebase. Kept as a parameter
+ * for call-site compatibility.
+ *
+ * Scope: single exact index name only — no wildcard/`_all` resolution.
+ * See `xerj-console-api::data_sources::search`'s doc comment for why.
+ */
 async function rawSearch(baseUrl, index, body, signal) {
-  const path = `/${encodeURIComponent(index)}/_search`;
-  const r = await fetch(baseUrl + path, {
+  const path = `/_xerj-console/api/v1/data-sources/connections/built-in/indices/${encodeURIComponent(index)}/search`;
+  const r = await fetch(path, {
     method: 'POST',
+    credentials: 'same-origin',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
     signal,

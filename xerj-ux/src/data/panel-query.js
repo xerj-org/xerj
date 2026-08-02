@@ -154,8 +154,18 @@ function normalise(resp, built) {
   return out;
 }
 
+// Routed through the Console backend's own session-cookie auth instead of
+// a same-origin fetch straight to the ES-compat data plane. That direct
+// path carried no `Authorization` header at all, so it silently 401'd on
+// any engine started WITHOUT `--insecure` — the default, recommended
+// posture — leaving every custom panel stuck on "unconfigured"/error with
+// no indication why. The proxy runs the search in-process against the
+// engine, authenticated the same way `data-sources/connections/.../fields`
+// already is. See `xerj-console-api::data_sources::search` for the
+// server side and its scope note (single exact index name only, no
+// wildcard/`_all` yet).
 async function runQuery(built, signal) {
-  const path = `/${encodeURIComponent(built.index)}/_search`;
+  const path = `/_xerj-console/api/v1/data-sources/connections/built-in/indices/${encodeURIComponent(built.index)}/search`;
   const r = await fetch(path, {
     method: 'POST',
     credentials: 'same-origin',

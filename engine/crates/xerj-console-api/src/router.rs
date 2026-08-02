@@ -140,6 +140,10 @@ pub fn xerj_console_router(state: ConsoleState) -> Router {
             "/_xerj-console/api/v1/data-sources/connections/:id/indices/:name/fields",
             get(data_sources::list_fields),
         )
+        .route(
+            "/_xerj-console/api/v1/data-sources/connections/:id/indices/:name/search",
+            post(data_sources::search),
+        )
         .with_state(state)
 }
 
@@ -173,5 +177,6 @@ pub fn known_routes() -> &'static [&'static str] {
         "/_xerj-console/api/v1/data-sources/connections",
         "/_xerj-console/api/v1/data-sources/connections/:id/indices",
         "/_xerj-console/api/v1/data-sources/connections/:id/indices/:name/fields",
+        "/_xerj-console/api/v1/data-sources/connections/:id/indices/:name/search",
     ]
 }
