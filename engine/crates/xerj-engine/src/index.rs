@@ -12156,6 +12156,17 @@ impl Index {
             // wasted work when the query is a stored-doc scan.
             let fts_query_probe = query_node_to_fts(query, &text_fields, &exact_fields);
             let needs_fts = fts_query_probe.is_some();
+            // A `query_string` whose projection DECLINED still has to be
+            // answered by the stored-doc scan — an over-cap `tokens × fields`
+            // cross-product returns `None`, and without the scan the segment
+            // would be skipped outright, dropping every match it holds.
+            //
+            // UNLESS it declined because the query analyses to zero tokens, in
+            // which case nothing can match and the scan is pure cost. See
+            // `query_string_has_no_tokens` for the measurement; hoisted out of
+            // the per-segment loop below because it re-tokenises the query.
+            let query_string_needs_doc_scan = matches!(query, QueryNode::QueryString { .. })
+                && !query_string_has_no_tokens(query, &exact_fields);
             // Open the FTS reader with every field the projected query
             // actually touches, ON TOP of the text fields.  Keyword-typed
             // fields have FTS side-cars too (whole-value keyword-analyzer
@@ -12243,16 +12254,14 @@ impl Index {
                 let fts_dir = segments_dir.clone();
 
                 let field_refs: Vec<&str> = fts_open_fields.iter().map(|s| s.as_str()).collect();
-                // `QueryString` is listed explicitly rather than added to
-                // `is_doc_scan_query` (which also steers the MEMTABLE branch,
-                // where `query_string` must keep its BM25 route). It matters
-                // here because the field-less projection can decline — an
-                // over-cap `tokens × fields` cross-product returns `None` —
-                // and without this the segment would be skipped outright
-                // instead of scanned, dropping every match it holds.
-                let scan_stored =
-                    matches!(query, QueryNode::MatchAll | QueryNode::QueryString { .. })
-                        || is_doc_scan_query(query);
+                // `QueryString` is steered by its own flag rather than added
+                // to `is_doc_scan_query` (which also steers the MEMTABLE
+                // branch, where `query_string` must keep its BM25 route), and
+                // that flag is false for the zero-token shape so a
+                // `query_string` that can match nothing costs nothing.
+                let scan_stored = matches!(query, QueryNode::MatchAll)
+                    || query_string_needs_doc_scan
+                    || is_doc_scan_query(query);
 
                 // Try FTS path first if we have an FTS query.
                 let mut fts_handled = false;
@@ -28429,6 +28438,69 @@ fn collect_fts_query_fields(q: &FtsQuery, out: &mut Vec<String>) {
     }
 }
 
+/// Does this `query_string` analyse to ZERO searchable tokens?
+///
+/// `query_node_to_fts` declines a `QueryString` (returns `None`) for two
+/// reasons that are indistinguishable to the caller and demand OPPOSITE
+/// handling:
+///
+///   * The analyzed query has no tokens at all — `"+++"`, `"---"`, anything
+///     the standard analyzer reduces to nothing. The projection would be a
+///     disjunction with zero clauses, which matches nothing, and the
+///     stored-doc scan agrees: `doc_matches_query`'s `QueryString` arm returns
+///     `false` the moment its token set is empty. The correct answer is the
+///     empty result, reached WITHOUT reading a single document.
+///   * The `tokens × fields` cross-product blew `MAX_QS_CROSS_PRODUCT`. The
+///     query is perfectly matchable there and the stored-doc scan is the only
+///     route left, so skipping the segment would drop every match it holds.
+///
+/// (The heterogeneous-segment case is NOT one of these: a segment missing a
+/// queried field still gets a `Some` projection, and it is the per-segment
+/// `fts_has_field` gate below that routes it to the scan via
+/// `needs_fts && !fts_handled`. That path is untouched here.)
+///
+/// Collapsing both into "scan the stored section" cost a full O(corpus) walk
+/// to produce an empty result. Measured by
+/// `tests/query_string_default_field.rs::zero_token_query_string_does_not_scan_the_corpus`
+/// — release, 20 000 documents in ONE segment, best of 5, query cache cleared
+/// before every run — a zero-token `query_string` cost:
+///
+///   * 0.399 ms before the field-less `query_string` work,
+///   * 26.412 ms with both declines collapsed into one `scan_stored`,
+///   * 0.457 ms with them separated here.
+///
+/// The middle number is a 66× regression on a shape that returns nothing, and
+/// it grows with the index: the comparator in that test — a query that really
+/// does walk all 20 000 documents — cost 10.7-16.9 ms on the same runs.
+///
+/// Mirrors the projection's own order of operations: an `exact_fields`
+/// `default_field` short-circuits to a whole-value term BEFORE any
+/// tokenisation, so an un-analyzable string is still a legitimate term there
+/// and this must report `false`.
+fn query_string_has_no_tokens(
+    q: &QueryNode,
+    exact_fields: &std::collections::HashSet<String>,
+) -> bool {
+    let QueryNode::QueryString {
+        query,
+        default_field,
+        ..
+    } = q
+    else {
+        return false;
+    };
+    if let Some(field) = default_field.as_deref() {
+        if exact_fields.contains(field) {
+            return false;
+        }
+    }
+    // No analyzer (never in practice — `standard` is always registered) is
+    // treated as "cannot prove it matches nothing", keeping the scan.
+    AnalyzerRegistry::default()
+        .get_analyzer("standard")
+        .is_some_and(|a| a.analyze(query).is_empty())
+}
+
 /// Convert a QueryNode to an FTS Query for segment search.
 ///
 /// `exact_fields` are the non-Text schema fields (keyword / numeric / date /
@@ -31435,6 +31507,64 @@ mod fts_projection_tests {
             }
             other => panic!("expected bool, got {:?}", other),
         }
+    }
+
+    /// The two `None`s `query_node_to_fts` returns for a `QueryString` mean
+    /// opposite things, and `scan_stored` has to tell them apart: zero tokens
+    /// means nothing can match (skip the segment), an over-cap cross-product
+    /// means the query is matchable and the stored scan is the only route.
+    #[test]
+    fn zero_token_query_string_is_distinguished_from_an_over_cap_one() {
+        let punctuation = QueryNode::QueryString {
+            query: "+++".into(),
+            default_field: None,
+            default_operator: None,
+            boost: None,
+        };
+        let one_field = vec!["body".to_string()];
+        assert!(
+            query_node_to_fts(&punctuation, &one_field, &kw(&[])).is_none(),
+            "pure punctuation projects to nothing"
+        );
+        assert!(
+            query_string_has_no_tokens(&punctuation, &kw(&[])),
+            "…and that `None` must be reported as UNMATCHABLE, not as a \
+             decline that needs the stored-doc scan"
+        );
+
+        // The other `None`: a matchable query that blew the cross-product cap.
+        let many_fields: Vec<String> = (0..2_000).map(|i| format!("f{i}")).collect();
+        let over_cap = qs_tokens(3);
+        assert!(
+            query_node_to_fts(&over_cap, &many_fields, &kw(&[])).is_none(),
+            "3 × 2 000 is over the cap"
+        );
+        assert!(
+            !query_string_has_no_tokens(&over_cap, &kw(&[])),
+            "an over-cap query still matches documents and MUST keep the scan"
+        );
+
+        // An ordinary query is never mistaken for unmatchable.
+        assert!(!query_string_has_no_tokens(&qs_tokens(2), &kw(&[])));
+        // Non-`QueryString` nodes are not this function's business.
+        assert!(!query_string_has_no_tokens(&QueryNode::MatchAll, &kw(&[])));
+
+        // Keyword `default_field`: the projection short-circuits to a
+        // whole-value term BEFORE tokenising, so an un-analyzable string is a
+        // legitimate term there and must NOT be called unmatchable.
+        let on_keyword = QueryNode::QueryString {
+            query: "+++".into(),
+            default_field: Some("code".into()),
+            default_operator: None,
+            boost: None,
+        };
+        assert!(
+            query_node_to_fts(&on_keyword, &one_field, &kw(&["code"])).is_some(),
+            "a keyword default_field projects to a whole-value term"
+        );
+        assert!(!query_string_has_no_tokens(&on_keyword, &kw(&["code"])));
+        // Same string on a TEXT default_field does tokenise to nothing.
+        assert!(query_string_has_no_tokens(&on_keyword, &kw(&[])));
     }
 
     /// Regression: `query_string` with no `default_field` set (ES/OpenSearch

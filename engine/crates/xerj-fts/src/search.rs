@@ -1966,12 +1966,42 @@ mod tests {
         );
     }
 
-    /// A truncated `must`/`must_not` would RELAX the query and admit
-    /// documents it excludes. Those clause lists must bail the whole bool to
-    /// empty rather than return a broader-than-asked-for set.
-    #[test]
-    fn bool_deadline_never_broadens_a_must_not() {
-        let dir = TempDir::new().unwrap();
+    /// The poll interval of `execute_bool`'s clause loop. The two tests below
+    /// depend on it: a clause list of EXACTLY this length is polled once, at
+    /// its first clause, and the NEXT list is then polled at its first clause
+    /// too — which is how the deadline is made to land between two lists.
+    const CLAUSE_POLL_INTERVAL: usize = 64;
+
+    /// Dictionary size for [`midlist_deadline_fixture`]. Measured on this
+    /// machine, one full `term*` wildcard walk: ~38 ms release / ~341 ms
+    /// debug, funding a ~19 ms / ~170 ms budget.
+    const DICTIONARY_TERMS: usize = 100_000;
+
+    /// Fixture for the "partial must never broaden" pair.
+    ///
+    /// Returns the segment reader, a wildcard clause expensive enough to spend
+    /// a whole request budget on its own, and a budget MEASURED from that
+    /// clause rather than hard-coded. Deriving it is what keeps the pair
+    /// honest on a machine of any speed — a slower machine measures a slower
+    /// walk and gets a proportionally larger budget, so the only absolute
+    /// risk (the budget expiring before the bool's first clause poll, which
+    /// would make both tests vacuous) shrinks rather than grows under load.
+    /// A hard-coded 2 ms budget did expire that way once, in release, with
+    /// the rest of this suite running in parallel; the precondition
+    /// assertions caught it as a failure rather than a false pass.
+    ///
+    /// The document holds `alpha` (a hit), `beta` (an exclusion), and a
+    /// 100 000-term dictionary for the wildcard to walk. That size is set by
+    /// the RELEASE profile: at 20 000 terms an optimised walk is ~7 ms, which
+    /// cannot fund a budget big enough to survive scheduling.
+    fn midlist_deadline_fixture(
+        dir: &TempDir,
+    ) -> (
+        Arc<FtsIndexReader>,
+        Arc<AnalyzerRegistry>,
+        Query,
+        std::time::Duration,
+    ) {
         let registry = Arc::new(AnalyzerRegistry::default());
         let mut writer = FtsIndexWriter::new(dir.path(), "seg0", Arc::clone(&registry));
         let cfg = FieldIndexConfig {
@@ -1979,23 +2009,172 @@ mod tests {
             ..Default::default()
         };
         writer.configure_field("body", cfg);
-        writer.add_document(0, &[("body".to_owned(), "alpha beta".to_owned())].into());
+        let mut text = String::from("alpha beta");
+        for i in 0..DICTIONARY_TERMS {
+            text.push_str(&format!(" term{i:06}"));
+        }
+        writer.add_document(0, &[("body".to_owned(), text)].into_iter().collect());
         writer.finish().unwrap();
         let reader = Arc::new(FtsIndexReader::open(dir.path(), "seg0", &["body"]).unwrap());
 
-        let bq = BoolQuery::new()
-            .should(Query::Term(TermQuery::new("body", "alpha")))
-            .must_not(Query::Term(TermQuery::new("body", "beta")));
-        let q = Query::Bool(Box::new(bq));
+        let mut wq = WildcardQuery::new("body", "term*");
+        wq.case_insensitive = false;
+        let expensive = Query::Wildcard(wq);
 
-        let expired = FtsSearcher::new(reader, registry).with_deadline(Some(
-            std::time::Instant::now() - std::time::Duration::from_millis(1),
+        // Calibrate with no deadline armed, twice — the second run is warm,
+        // and warm is what the timed runs will be.
+        let cal = FtsSearcher::new(Arc::clone(&reader), Arc::clone(&registry));
+        let _ = cal.search(&expensive, 10, false).unwrap();
+        let t0 = std::time::Instant::now();
+        let _ = cal.search(&expensive, 10, false).unwrap();
+        let full_walk = t0.elapsed();
+        assert!(!cal.deadline_tripped(), "no deadline → never tripped");
+
+        // HALF the full walk. Below it, so the wildcard provably overruns and
+        // the deadline is past when it returns; large in absolute terms, so
+        // the microseconds between arming the deadline and the bool's first
+        // clause poll cannot consume it.
+        let budget = full_walk / 2;
+        assert!(
+            budget >= std::time::Duration::from_millis(10),
+            "the calibration clause is too cheap to fund a budget that \
+             survives scheduling (full walk {full_walk:?}); raise \
+             DICTIONARY_TERMS"
+        );
+        (reader, registry, expensive, budget)
+    }
+
+    /// A truncated `must_not` would RELAX the query and admit documents it
+    /// excludes. That clause list must bail the whole bool to empty rather
+    /// than return a broader-than-asked-for set.
+    ///
+    /// The deadline has to expire strictly BETWEEN the `should` clauses and
+    /// the `must_not` clauses, and that is the whole difficulty. An
+    /// already-expired deadline cannot exercise this at all: the poll fires on
+    /// the FIRST clause of the bool, so `should` truncates to nothing, the
+    /// bool is empty whatever `must_not` does, and the assertion holds
+    /// vacuously. An earlier version of this test did exactly that — it passed
+    /// with the source change reverted AND with the hazard it is named after
+    /// (`must_not` truncation made partial-ok) deliberately introduced.
+    ///
+    /// So the deadline is armed in the FUTURE and spent inside the `should`
+    /// list by one deliberately expensive clause:
+    ///
+    ///   * `should` holds exactly one poll interval of clauses, so the only
+    ///     poll inside it is at index 0, before any budget is spent. Clause 0
+    ///     matches the document; clause 1 burns the budget; the rest are cheap
+    ///     misses.
+    ///   * `must_not` is therefore entered with the shared clause counter at
+    ///     64, its first poll fires, and the excluding clause never runs.
+    ///
+    /// Verified to fail on the hazard: with `run_clauses(&bq.must_not, true)`
+    /// the document comes back and the final assertion trips.
+    ///
+    /// Both preconditions are asserted rather than assumed, so an unlucky
+    /// machine makes this test FAIL LOUDLY instead of passing vacuously.
+    #[test]
+    fn bool_deadline_never_broadens_a_must_not() {
+        let dir = TempDir::new().unwrap();
+        let (reader, registry, expensive, budget) = midlist_deadline_fixture(&dir);
+
+        let mut base = BoolQuery::new().should(Query::Term(TermQuery::new("body", "alpha")));
+        base = base.should(expensive);
+        for i in 2..CLAUSE_POLL_INTERVAL {
+            base = base.should(Query::Term(TermQuery::new("body", format!("absent{i}"))));
+        }
+        assert_eq!(base.should.len(), CLAUSE_POLL_INTERVAL);
+
+        // Precondition: the same should list, same budget, no must_not. If
+        // this comes back empty the deadline fired before the should clauses
+        // ran and the real assertion below would prove nothing.
+        let control = FtsSearcher::new(Arc::clone(&reader), Arc::clone(&registry))
+            .with_deadline(Some(std::time::Instant::now() + budget));
+        let control_hits = control
+            .search(&Query::Bool(Box::new(base.clone())), 10, false)
+            .unwrap();
+        assert_eq!(
+            control_hits.len(),
+            1,
+            "precondition: the should clauses must have produced the document \
+             before the budget ({budget:?}) ran out"
+        );
+
+        let with_must_not = Query::Bool(Box::new(
+            base.must_not(Query::Term(TermQuery::new("body", "beta"))),
         ));
-        let hits = expired.search(&q, 10, false).unwrap();
+        let expired = FtsSearcher::new(reader, registry)
+            .with_deadline(Some(std::time::Instant::now() + budget));
+        let hits = expired.search(&with_must_not, 10, false).unwrap();
+        assert!(
+            expired.deadline_tripped(),
+            "precondition: the budget ({budget:?}) must have been spent \
+             inside the clause list"
+        );
         assert!(
             hits.is_empty(),
             "a must_not that could not be fully evaluated must not admit the \
-             document it excludes"
+             document it excludes — got {} hit(s)",
+            hits.len()
+        );
+    }
+
+    /// The other half of the same invariant: a truncated `must` drops
+    /// conjuncts, and dropping a conjunct only ever ADMITS documents the full
+    /// query rejects.
+    ///
+    /// Same construction, one list earlier: `must` holds one poll interval of
+    /// clauses the document satisfies (clause 1 burns the budget), and the
+    /// conjunct that would EXCLUDE it sits at index 64 — the first clause not
+    /// reached before the poll fires. Truncating there and keeping the partial
+    /// intersection returns the document; bailing returns nothing.
+    ///
+    /// Verified to fail on the hazard: with `run_clauses(&bq.must, true)` the
+    /// document comes back and the final assertion trips.
+    #[test]
+    fn bool_deadline_never_broadens_a_must() {
+        let dir = TempDir::new().unwrap();
+        let (reader, registry, expensive, budget) = midlist_deadline_fixture(&dir);
+
+        // Every clause here matches the one document, so the intersection is
+        // non-empty right up to the clause that is never reached.
+        let mut base = BoolQuery::new().must(Query::Term(TermQuery::new("body", "alpha")));
+        base = base.must(expensive);
+        for i in 2..CLAUSE_POLL_INTERVAL {
+            base = base.must(Query::Term(TermQuery::new("body", format!("term{i:06}"))));
+        }
+        assert_eq!(base.must.len(), CLAUSE_POLL_INTERVAL);
+
+        // Precondition: without the excluding conjunct the document survives,
+        // so a later empty result can only come from the guard.
+        let control = FtsSearcher::new(Arc::clone(&reader), Arc::clone(&registry))
+            .with_deadline(Some(std::time::Instant::now() + budget));
+        let control_hits = control
+            .search(&Query::Bool(Box::new(base.clone())), 10, false)
+            .unwrap();
+        assert_eq!(
+            control_hits.len(),
+            1,
+            "precondition: the must clauses must have intersected to the \
+             document before the budget ({budget:?}) ran out"
+        );
+
+        // `zebrafish` is in no document, so a FULL evaluation excludes doc 0.
+        let with_excluding_conjunct = Query::Bool(Box::new(
+            base.must(Query::Term(TermQuery::new("body", "zebrafish"))),
+        ));
+        let expired = FtsSearcher::new(reader, registry)
+            .with_deadline(Some(std::time::Instant::now() + budget));
+        let hits = expired.search(&with_excluding_conjunct, 10, false).unwrap();
+        assert!(
+            expired.deadline_tripped(),
+            "precondition: the budget ({budget:?}) must have been spent \
+             inside the clause list"
+        );
+        assert!(
+            hits.is_empty(),
+            "a must clause that could not be evaluated must not be silently \
+             dropped from the conjunction — got {} hit(s)",
+            hits.len()
         );
     }
 
