@@ -10483,11 +10483,23 @@ impl Index {
         // call-depth limit degrades to a score of 0.0 and the caller is served
         // a wrong number with nothing to notice. Surfacing it on the result
         // makes the API layer fail the request instead.
+        // The same scope also publishes this request's deadline to the script
+        // interpreter (issue #122). Every limit the interpreter had bounded a
+        // structural property of a script, never its cost, so a flat 38 KiB
+        // script of `params.blob;` statements could burn a measured 37.35 s of
+        // CPU on ONE document — and the doc-scan timeout poll cannot interrupt
+        // that, because it only decides how often a document *boundary* is
+        // checked. With the deadline visible
+        // inside `eval_painless`, a single evaluation can be abandoned
+        // part-way through, and no one document can overshoot the deadline
+        // this request was given.
         let search_fut = async {
-            let (result, fault) = crate::painless::with_script_fault_capture(
-                self.search_inner(request, request_deadline),
-            )
-            .await;
+            let (result, fault) =
+                crate::painless::with_script_fault_capture(crate::painless::with_script_deadline(
+                    request_deadline,
+                    self.search_inner(request, request_deadline),
+                ))
+                .await;
             match (result, fault) {
                 (Ok(mut r), Some(f)) => {
                     // Capture scopes nest, and this one just consumed the
