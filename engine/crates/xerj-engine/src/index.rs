@@ -61,6 +61,592 @@ fn index_segment_hydration_budget(_config: &Config) -> Arc<SegmentHydrationBudge
 }
 
 #[cfg(test)]
+mod collection_publication_fail_closed_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn text_schema() -> Schema {
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        schema
+    }
+
+    async fn assert_active_reader_waits_for_commit<F, Fut>(
+        idx: &Arc<Index>,
+        id: &'static str,
+        point: PublicationTestPoint,
+        operation: F,
+        exists_after: bool,
+    ) where
+        F: FnOnce(Arc<Index>) -> Fut,
+        Fut: std::future::Future<Output = std::result::Result<(), String>> + Send + 'static,
+    {
+        let (entered_tx, entered_rx) = std::sync::mpsc::sync_channel(1);
+        let (resume_tx, resume_rx) = std::sync::mpsc::sync_channel(1);
+        let entered_tx = parking_lot::Mutex::new(Some(entered_tx));
+        let resume_rx = parking_lot::Mutex::new(Some(resume_rx));
+        idx.set_publication_test_hook(Some(Arc::new(move |hook_id, hook_point| {
+            if hook_id == id && hook_point == point {
+                entered_tx.lock().take().unwrap().send(()).unwrap();
+                resume_rx.lock().take().unwrap().recv().unwrap();
+            }
+        })));
+        let writer = tokio::spawn(operation(Arc::clone(idx)));
+        tokio::task::spawn_blocking(move || entered_rx.recv().unwrap())
+            .await
+            .unwrap();
+        let attempts_before = idx.collection_publication.reader_admission_attempts();
+        let read_idx = Arc::clone(idx);
+        let read = tokio::spawn(async move { read_idx.get_document(id).await });
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            while idx.collection_publication.reader_admission_attempts() == attempts_before {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("GET did not reach collection publication admission");
+        assert!(!read.is_finished(), "GET crossed {point:?} for {id}");
+        resume_tx.send(()).unwrap();
+        writer.await.unwrap().unwrap();
+        let observed = read.await.unwrap().unwrap();
+        assert_eq!(
+            observed.is_some(),
+            exists_after,
+            "unexpected committed visibility for {id} at {point:?}"
+        );
+        assert!(!idx.collection_publication.state().2);
+        idx.set_publication_test_hook(None);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn active_reader_waits_across_supported_document_publication_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("epoch-paths", text_schema()).unwrap();
+        let idx = engine.get_index("epoch-paths").unwrap();
+        idx.abort_background_tasks();
+
+        assert_active_reader_waits_for_commit(
+            &idx,
+            "put",
+            PublicationTestPoint::AfterWalVersionMap,
+            |idx| async move {
+                idx.index_document(Some("put".into()), json!({"body": "put"}))
+                    .await
+                    .map(|_| ())
+                    .map_err(|error| error.to_string())
+            },
+            true,
+        )
+        .await;
+        assert_active_reader_waits_for_commit(
+            &idx,
+            "turbo",
+            PublicationTestPoint::TurboAfterWalVersionMap,
+            |idx| async move {
+                idx.index_batch_turbo(
+                    vec![("turbo".into(), json!({"body": "turbo"}))],
+                    false,
+                    false,
+                )
+                .await
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+            },
+            true,
+        )
+        .await;
+        assert_active_reader_waits_for_commit(
+            &idx,
+            "realtime",
+            PublicationTestPoint::RealtimeAfterFts,
+            |idx| async move {
+                idx.index_batch_turbo_realtime(
+                    vec![(
+                        "realtime".into(),
+                        json!({"body": "realtime"}),
+                        Arc::<[u8]>::from(br#"{"body":"realtime"}"#.as_slice()),
+                    )],
+                    false,
+                )
+                .await
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+            },
+            false,
+        )
+        .await;
+        let request = xerj_query::parse_request(&json!({
+            "query": {"term": {"body": "realtime"}}
+        }))
+        .unwrap();
+        assert_eq!(idx.search(&request).await.unwrap().total.value, 1);
+        idx.index_document(Some("delete".into()), json!({"body": "delete"}))
+            .await
+            .unwrap();
+        assert_active_reader_waits_for_commit(
+            &idx,
+            "delete",
+            PublicationTestPoint::AfterWalVersionMap,
+            |idx| async move {
+                idx.delete_document("delete")
+                    .await
+                    .map(|_| ())
+                    .map_err(|error| error.to_string())
+            },
+            false,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn create_and_occ_rejections_delegate_before_collection_admission() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("epoch-rejections", text_schema())
+            .unwrap();
+        let idx = engine.get_index("epoch-rejections").unwrap();
+        idx.create_document("one".into(), json!({"body": "original"}))
+            .await
+            .unwrap();
+        let before = idx.collection_publication.state();
+        assert!(idx
+            .create_document("one".into(), json!({"body": "duplicate"}))
+            .await
+            .is_err());
+        assert!(idx
+            .index_document_with_version(
+                Some("one".into()),
+                json!({"body": "stale"}),
+                Some(u64::MAX),
+                Some(1),
+            )
+            .await
+            .is_err());
+        assert_eq!(idx.collection_publication.state(), before);
+        assert_eq!(
+            idx.get_document("one").await.unwrap().unwrap()["body"],
+            "original"
+        );
+    }
+
+    async fn assert_flush_publication_blocks_reader_then_finishes(inject_error: bool) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let name = if inject_error {
+            "epoch-flush-rollback"
+        } else {
+            "epoch-flush-commit"
+        };
+        engine.create_index(name, text_schema()).unwrap();
+        let idx = engine.get_index(name).unwrap();
+        idx.abort_background_tasks();
+        idx.index_document(Some("one".into()), json!({"body": "alpha"}))
+            .await
+            .unwrap();
+
+        let ledger: &'static crate::ingest_memory::Ledger =
+            Box::leak(Box::new(crate::ingest_memory::Ledger::new()));
+        let (entered_tx, entered_rx) = std::sync::mpsc::sync_channel(1);
+        let (resume_tx, resume_rx) = std::sync::mpsc::sync_channel(1);
+        let entered_tx = parking_lot::Mutex::new(Some(entered_tx));
+        let resume_rx = parking_lot::Mutex::new(Some(resume_rx));
+        let hook = FlushPublisherTestHook {
+            callback: Arc::new(move || {
+                entered_tx.lock().take().unwrap().send(()).unwrap();
+                resume_rx.lock().take().unwrap().recv().unwrap();
+                inject_error
+            }),
+            after_warm: None,
+            ledger,
+            target_memtable: Arc::as_ptr(&idx.memtable) as usize,
+            bypass_finalize_gate: false,
+            before_blocking_spawn: None,
+        };
+        let flush_idx = Arc::clone(&idx);
+        let flush = tokio::spawn(
+            FLUSH_PUBLISHER_TEST_HOOK.scope(hook, async move { flush_idx.flush().await }),
+        );
+        tokio::task::spawn_blocking(move || entered_rx.recv().unwrap())
+            .await
+            .unwrap();
+        assert_eq!(idx.memtable.doc_count(), 0, "flush did not drain first");
+
+        let attempts_before = idx.collection_publication.reader_admission_attempts();
+        let read_idx = Arc::clone(&idx);
+        let read = tokio::spawn(async move { read_idx.get_document("one").await });
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            while idx.collection_publication.reader_admission_attempts() == attempts_before {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("GET did not reach collection publication admission");
+        assert!(!read.is_finished(), "GET crossed active flush publication");
+        resume_tx.send(()).unwrap();
+
+        let result = flush.await.unwrap();
+        assert_eq!(result.is_err(), inject_error);
+        assert_eq!(
+            read.await.unwrap().unwrap().unwrap()["body"],
+            "alpha",
+            "reader did not observe the completed commit or restored rollback"
+        );
+        assert!(!idx.collection_publication.state().2);
+        if inject_error {
+            assert_eq!(
+                idx.memtable.doc_count(),
+                1,
+                "rollback did not restore drain"
+            );
+        } else {
+            assert_eq!(idx.memtable.doc_count(), 0);
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn flush_drain_to_detached_publication_blocks_readers_until_commit() {
+        assert_flush_publication_blocks_reader_then_finishes(false).await;
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn flush_prepublication_failure_rolls_back_without_poison() {
+        assert_flush_publication_blocks_reader_then_finishes(true).await;
+    }
+
+    #[tokio::test]
+    async fn search_waits_for_active_publication_then_revalidates() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("epoch-wait", text_schema()).unwrap();
+        let idx = engine.get_index("epoch-wait").unwrap();
+        idx.index_document(Some("one".into()), json!({"body": "alpha"}))
+            .await
+            .unwrap();
+
+        let mut publication = idx.collection_publication.begin().unwrap();
+        let request = xerj_query::parse_request(&json!({
+            "query": {"match": {"body": "alpha"}},
+            "size": 10,
+            "timeout": "5s"
+        }))
+        .unwrap();
+        let attempts_before = idx.collection_publication.reader_admission_attempts();
+        let search_index = Arc::clone(&idx);
+        let search = tokio::spawn(async move { search_index.search(&request).await });
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            while idx.collection_publication.reader_admission_attempts() == attempts_before {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("search did not reach collection publication admission");
+        assert!(
+            !search.is_finished(),
+            "reader crossed an active publication"
+        );
+        publication.cancel();
+        drop(publication);
+        let result = search.await.unwrap().unwrap();
+        assert_eq!(result.hits.first().map(|hit| hit.id.as_str()), Some("one"));
+    }
+
+    #[tokio::test]
+    async fn cache_and_singleflight_namespace_include_publication_generation() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("epoch-cache", text_schema()).unwrap();
+        let idx = engine.get_index("epoch-cache").unwrap();
+        idx.index_document(Some("one".into()), json!({"body": "alpha"}))
+            .await
+            .unwrap();
+        let request = xerj_query::parse_request(&json!({
+            "query": {"match": {"body": "alpha"}}, "size": 10
+        }))
+        .unwrap();
+        idx.search(&request).await.unwrap();
+        assert_eq!(idx.query_cache.len(), 1);
+
+        // A clean no-op publication changes only the epoch. The same request
+        // must not consume the prior epoch's cached/single-flight result.
+        let mut publication = idx.collection_publication.begin().unwrap();
+        publication.cancel();
+        drop(publication);
+        idx.search(&request).await.unwrap();
+        assert_eq!(idx.query_cache.len(), 2);
+    }
+
+    #[test]
+    fn cache_key_keeps_dataset_and_publication_generations_independent() {
+        let publication_generation = 1_u64.rotate_right(17);
+        // These pairs collided under the previous
+        // `dataset_version ^ publication_generation.rotate_left(17)` key.
+        let legacy_key = |dataset_version: u64, publication_generation: u64| {
+            dataset_version ^ publication_generation.rotate_left(17)
+        };
+        assert_eq!(legacy_key(1, 0), legacy_key(0, publication_generation));
+        let first = QueryCacheKey {
+            body_hash: 7,
+            dataset_version: 1,
+            publication_generation: 0,
+        };
+        let second = QueryCacheKey {
+            body_hash: 7,
+            dataset_version: 0,
+            publication_generation,
+        };
+        assert_ne!(first, second);
+        let map = dashmap::DashMap::new();
+        map.insert(first, 1_u8);
+        map.insert(second, 2_u8);
+        assert_eq!(map.len(), 2);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn synchronous_prepublication_error_does_not_poison_or_write() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("sync-pre-error", text_schema())
+            .unwrap();
+        let idx = engine.get_index("sync-pre-error").unwrap();
+        let sync_idx = Arc::clone(&idx);
+        let result = tokio::task::spawn_blocking(move || {
+            sync_idx.index_batch_sync_raw(vec![(
+                "__fail_sync_before_publication".into(),
+                Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+            )])
+        })
+        .await
+        .unwrap();
+        assert!(result.is_err());
+        assert!(!idx.collection_publication.state().2);
+        assert!(idx
+            .store
+            .version_map
+            .get("__fail_sync_before_publication")
+            .is_none());
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn raw_cancellation_before_publication_does_not_poison_or_write() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("raw-cancel-before", text_schema())
+            .unwrap();
+        let idx = engine.get_index("raw-cancel-before").unwrap();
+        let (entered_tx, entered_rx) = std::sync::mpsc::sync_channel(1);
+        let (resume_tx, resume_rx) = std::sync::mpsc::sync_channel(1);
+        let entered_tx = parking_lot::Mutex::new(Some(entered_tx));
+        let resume_rx = parking_lot::Mutex::new(Some(resume_rx));
+        idx.set_publication_test_hook(Some(Arc::new(move |_, point| {
+            if point == PublicationTestPoint::RawBeforeCollectionBegin {
+                entered_tx.lock().take().unwrap().send(()).unwrap();
+                resume_rx.lock().take().unwrap().recv().unwrap();
+            }
+        })));
+        let writer_idx = Arc::clone(&idx);
+        let writer = tokio::spawn(async move {
+            writer_idx
+                .index_batch_turbo_raw(vec![(
+                    "one".into(),
+                    Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+                )])
+                .await
+        });
+        tokio::task::spawn_blocking(move || entered_rx.recv().unwrap())
+            .await
+            .unwrap();
+        writer.abort();
+        resume_tx.send(()).unwrap();
+        assert!(writer.await.unwrap_err().is_cancelled());
+        idx.set_publication_test_hook(None);
+        assert!(!idx.collection_publication.state().2);
+        assert!(idx.get_document("one").await.unwrap().is_none());
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn raw_cancellation_after_wal_poison_fails_closed_until_recovery() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config.clone()).unwrap();
+        engine
+            .create_index("raw-cancel-after", text_schema())
+            .unwrap();
+        let idx = engine.get_index("raw-cancel-after").unwrap();
+        idx.abort_background_tasks();
+        let (entered_tx, entered_rx) = std::sync::mpsc::sync_channel(1);
+        let (resume_tx, resume_rx) = std::sync::mpsc::sync_channel(1);
+        let entered_tx = parking_lot::Mutex::new(Some(entered_tx));
+        let resume_rx = parking_lot::Mutex::new(Some(resume_rx));
+        idx.set_publication_test_hook(Some(Arc::new(move |_, point| {
+            if point == PublicationTestPoint::RawAfterWalVersionMap {
+                entered_tx.lock().take().unwrap().send(()).unwrap();
+                resume_rx.lock().take().unwrap().recv().unwrap();
+            }
+        })));
+        let writer_idx = Arc::clone(&idx);
+        let writer = tokio::spawn(async move {
+            writer_idx
+                .index_batch_turbo_raw(vec![(
+                    "one".into(),
+                    Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+                )])
+                .await
+        });
+        tokio::task::spawn_blocking(move || entered_rx.recv().unwrap())
+            .await
+            .unwrap();
+        writer.abort();
+        resume_tx.send(()).unwrap();
+        assert!(writer.await.unwrap_err().is_cancelled());
+        idx.set_publication_test_hook(None);
+        assert!(idx.collection_publication.state().2);
+        assert!(idx.get_document("one").await.is_err());
+        drop(idx);
+        drop(engine);
+
+        let reopened = crate::Engine::new(config).unwrap();
+        let recovered = reopened.get_index("raw-cancel-after").unwrap();
+        assert!(recovered.get_document("one").await.unwrap().is_some());
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn already_admitted_peer_finishes_after_poison_and_restart_recovers_both_wals() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config.clone()).unwrap();
+        engine.create_index("epoch-overlap", text_schema()).unwrap();
+        let idx = engine.get_index("epoch-overlap").unwrap();
+        idx.abort_background_tasks();
+
+        let (bad_entered_tx, bad_entered_rx) = std::sync::mpsc::sync_channel(1);
+        let (bad_resume_tx, bad_resume_rx) = std::sync::mpsc::sync_channel(1);
+        let (peer_entered_tx, peer_entered_rx) = std::sync::mpsc::sync_channel(1);
+        let (peer_resume_tx, peer_resume_rx) = std::sync::mpsc::sync_channel(1);
+        let bad_entered_tx = parking_lot::Mutex::new(Some(bad_entered_tx));
+        let bad_resume_rx = parking_lot::Mutex::new(Some(bad_resume_rx));
+        let peer_entered_tx = parking_lot::Mutex::new(Some(peer_entered_tx));
+        let peer_resume_rx = parking_lot::Mutex::new(Some(peer_resume_rx));
+        idx.set_publication_test_hook(Some(Arc::new(move |id, point| {
+            if point != PublicationTestPoint::RawAfterWalVersionMap {
+                return;
+            }
+            match id {
+                "failed" => {
+                    bad_entered_tx.lock().take().unwrap().send(()).unwrap();
+                    bad_resume_rx.lock().take().unwrap().recv().unwrap();
+                }
+                "peer" => {
+                    peer_entered_tx.lock().take().unwrap().send(()).unwrap();
+                    peer_resume_rx.lock().take().unwrap().recv().unwrap();
+                }
+                _ => {}
+            }
+        })));
+        let failed_idx = Arc::clone(&idx);
+        let failed = tokio::spawn(async move {
+            failed_idx
+                .index_batch_turbo_raw(vec![(
+                    "failed".into(),
+                    Arc::<[u8]>::from(br#"{"body":"failed"}"#.as_slice()),
+                )])
+                .await
+        });
+        tokio::task::spawn_blocking(move || bad_entered_rx.recv().unwrap())
+            .await
+            .unwrap();
+        let peer_idx = Arc::clone(&idx);
+        let peer = tokio::spawn(async move {
+            peer_idx
+                .index_batch_turbo_raw(vec![(
+                    "peer".into(),
+                    Arc::<[u8]>::from(br#"{"body":"peer"}"#.as_slice()),
+                )])
+                .await
+        });
+        tokio::task::spawn_blocking(move || peer_entered_rx.recv().unwrap())
+            .await
+            .unwrap();
+
+        failed.abort();
+        bad_resume_tx.send(()).unwrap();
+        assert!(failed.await.unwrap_err().is_cancelled());
+        assert!(idx.collection_publication.state().2);
+        peer_resume_tx.send(()).unwrap();
+        assert!(peer.await.unwrap().is_ok());
+        assert!(idx.collection_publication.state().2);
+        assert!(idx.get_document("peer").await.is_err());
+        idx.set_publication_test_hook(None);
+        drop(idx);
+        drop(engine);
+
+        let reopened = crate::Engine::new(config).unwrap();
+        let recovered = reopened.get_index("epoch-overlap").unwrap();
+        assert!(recovered.get_document("failed").await.unwrap().is_some());
+        assert!(recovered.get_document("peer").await.unwrap().is_some());
+    }
+
+    #[tokio::test]
+    async fn interrupted_publication_rejects_get_search_write_and_cache_until_reopen() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config.clone()).unwrap();
+        engine
+            .create_index("epoch-poison", Schema::empty())
+            .unwrap();
+        let idx = engine.get_index("epoch-poison").unwrap();
+        idx.index_document(Some("one".into()), json!({"body": "alpha"}))
+            .await
+            .unwrap();
+
+        // Model an invariant breach after writer admission. Pending Drop is
+        // deliberately fail-closed; only reopening/recovery creates a fresh
+        // publication authority.
+        drop(idx.collection_publication.begin().unwrap());
+        assert!(idx.get_document("one").await.is_err());
+        assert!(idx.search(&SearchRequest::default()).await.is_err());
+        assert!(idx
+            .index_document(Some("two".into()), json!({"body": "beta"}))
+            .await
+            .is_err());
+        assert!(idx.query_cache.is_empty());
+
+        idx.abort_background_tasks();
+        drop(idx);
+        drop(engine);
+        let reopened = crate::Engine::new(config).unwrap();
+        let recovered = reopened.get_index("epoch-poison").unwrap();
+        assert!(recovered.get_document("one").await.unwrap().is_some());
+        assert!(recovered
+            .index_document(Some("two".into()), json!({"body": "beta"}))
+            .await
+            .is_ok());
+    }
+}
+
+#[cfg(test)]
 mod flush_publication_recovery_tests {
     use super::*;
     use serde_json::json;
@@ -130,9 +716,20 @@ mod flush_publication_recovery_tests {
             "query": {"match": {"body": "alpha"}}, "size": 10
         }))
         .unwrap();
+        let attempts_before = idx.collection_publication.reader_admission_attempts();
+        let read_idx = Arc::clone(&idx);
+        let read_request = request.clone();
+        let read = tokio::spawn(async move { read_idx.search(&read_request).await });
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            while idx.collection_publication.reader_admission_attempts() == attempts_before {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("search did not reach collection publication admission");
         assert!(
-            idx.search(&request).await.unwrap().hits.is_empty(),
-            "blocked finalizer fixture must prime the transient empty response"
+            !read.is_finished(),
+            "search crossed a detached but still-active flush publication"
         );
         release_tx.send(()).unwrap();
         tokio::time::timeout(std::time::Duration::from_secs(5), async {
@@ -144,7 +741,7 @@ mod flush_publication_recovery_tests {
         })
         .await
         .expect("detached finalizer must publish after caller cancellation");
-        let result = idx.search(&request).await.unwrap();
+        let result = read.await.unwrap().unwrap();
         assert_eq!(result.hits[0].id, "winner");
     }
 
@@ -889,23 +1486,47 @@ mod raw_vector_publication_tests {
 
         assert_eq!(index.hnsw_publications_in_flight.load(Ordering::Acquire), 1);
         let request = knn_request(1, 64);
-        assert!(
-            index
-                .run_knn_hnsw(
-                    &request,
-                    std::time::Instant::now() + std::time::Duration::from_secs(30),
-                    "embedding",
-                    &[1.0, 0.0, 0.0],
-                    1,
-                    Some(64),
-                    "cosine",
-                )
-                .await
-                .is_none(),
-            "ANN must yield to exact scan while source and HNSW differ"
-        );
-        let exact = index.search(&request).await.unwrap();
-        assert_eq!(exact.hits[0].id, target);
+        let blocked_search = if reused {
+            // Ordinary PUT is paused inside the collection publication
+            // interval. Public search must wait for that publication rather
+            // than observing its transient source/FTS state. Prove the query
+            // actually reached admission before asserting it is blocked.
+            let attempts_before = index.collection_publication.reader_admission_attempts();
+            let query_index = Arc::clone(&index);
+            let query_request = request.clone();
+            let query = tokio::spawn(async move { query_index.search(&query_request).await });
+            tokio::time::timeout(std::time::Duration::from_secs(1), async {
+                while index.collection_publication.reader_admission_attempts() == attempts_before {
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .expect("search did not reach collection publication admission");
+            assert!(!query.is_finished(), "search crossed active ordinary PUT");
+            Some(query)
+        } else {
+            // Raw publication has completed its collection interval at this
+            // hook, while HNSW publication is still active. The public query
+            // therefore remains available through the exact fallback.
+            assert!(
+                index
+                    .run_knn_hnsw(
+                        &request,
+                        std::time::Instant::now() + std::time::Duration::from_secs(30),
+                        "embedding",
+                        &[1.0, 0.0, 0.0],
+                        1,
+                        Some(64),
+                        "cosine",
+                    )
+                    .await
+                    .is_none(),
+                "ANN must yield to exact scan while source and HNSW differ"
+            );
+            let exact = index.search(&request).await.unwrap();
+            assert_eq!(exact.hits[0].id, target);
+            None
+        };
 
         // Saving after WAL/FTS visibility but before HNSW completion must
         // explicitly persist a stale snapshot, never old graph + fresh stamp.
@@ -916,6 +1537,9 @@ mod raw_vector_publication_tests {
 
         resume_tx.send(()).unwrap();
         writer.await.unwrap().unwrap();
+        if let Some(query) = blocked_search {
+            assert_eq!(query.await.unwrap().unwrap().hits[0].id, target);
+        }
         index.set_publication_test_hook(None);
         assert_eq!(index.hnsw_publications_in_flight.load(Ordering::Acquire), 0);
         index.save_hnsw_to_disk().await.unwrap();
@@ -961,8 +1585,12 @@ mod raw_vector_publication_tests {
         let resume_rx = parking_lot::Mutex::new(Some(resume_rx));
         index.set_publication_test_hook(Some(Arc::new(move |_, point| {
             if point == PublicationTestPoint::AnnAfterGraphSearch {
-                ready_tx.lock().take().unwrap().send(()).unwrap();
-                resume_rx.lock().take().unwrap().recv().unwrap();
+                if let Some(sender) = ready_tx.lock().take() {
+                    sender.send(()).unwrap();
+                    if let Some(receiver) = resume_rx.lock().take() {
+                        receiver.recv().unwrap();
+                    }
+                }
             }
         })));
 
@@ -1107,6 +1735,13 @@ mod merge_publication_transaction_tests {
     async fn rollback_preserves_concurrent_put_and_delete() {
         let dir = TempDir::new().unwrap();
         let (engine, index) = fixture(&dir).await;
+        let input_ids: std::collections::HashSet<_> = index
+            .store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|meta| meta.id.clone())
+            .collect();
         index
             .test_pause_merge_before_apply
             .store(true, Ordering::Release);
@@ -1116,6 +1751,21 @@ mod merge_publication_transaction_tests {
         let merge_index = Arc::clone(&index);
         let merge = tokio::spawn(async move { merge_index.run_merge_once().await });
         wait_for_repoint(&index).await;
+        for id in ["a", "b"] {
+            assert!(
+                input_ids.contains(index.store.version_map.get(id).unwrap().segment_id.as_ref())
+            );
+            assert!(index.get_document(id).await.unwrap().is_some());
+        }
+        assert_eq!(
+            index
+                .search(&SearchRequest::default())
+                .await
+                .unwrap()
+                .total
+                .value,
+            2
+        );
         index
             .index_document(Some("a".into()), serde_json::json!({"value": "new-a"}))
             .await
@@ -1199,6 +1849,74 @@ mod merge_publication_transaction_tests {
         }
     }
 
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn cancellation_inside_guarded_repoint_fails_closed_and_recovery_restores_inputs() {
+        let dir = TempDir::new().unwrap();
+        let (engine, index) = fixture(&dir).await;
+        let before_ids: std::collections::HashSet<_> = index
+            .store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|meta| meta.id.clone())
+            .collect();
+        let (entered_tx, entered_rx) = std::sync::mpsc::sync_channel(1);
+        let (resume_tx, resume_rx) = std::sync::mpsc::sync_channel(1);
+        let entered_tx = parking_lot::Mutex::new(Some(entered_tx));
+        let resume_rx = parking_lot::Mutex::new(Some(resume_rx));
+        index.set_publication_test_hook(Some(Arc::new(move |_, point| {
+            if point == PublicationTestPoint::MergeAfterRepoint {
+                entered_tx.lock().take().unwrap().send(()).unwrap();
+                resume_rx.lock().take().unwrap().recv().unwrap();
+            }
+        })));
+        let merge_index = Arc::clone(&index);
+        let merge = tokio::spawn(async move { merge_index.run_merge_once().await });
+        tokio::task::spawn_blocking(move || entered_rx.recv().unwrap())
+            .await
+            .unwrap();
+        let read_index = Arc::clone(&index);
+        let read = tokio::spawn(async move { read_index.get_document("a").await });
+        tokio::task::yield_now().await;
+        assert!(!read.is_finished(), "GET crossed guarded merge repoints");
+        merge.abort();
+        resume_tx.send(()).unwrap();
+        assert!(merge.await.unwrap_err().is_cancelled());
+        assert!(read.await.unwrap().is_err());
+        assert!(index.collection_publication.state().2);
+        let after_ids: std::collections::HashSet<_> = index
+            .store
+            .snapshot()
+            .segments
+            .iter()
+            .map(|meta| meta.id.clone())
+            .collect();
+        assert_eq!(after_ids, before_ids);
+        for id in ["a", "b"] {
+            assert!(
+                before_ids.contains(index.store.version_map.get(id).unwrap().segment_id.as_ref())
+            );
+            assert!(index.get_document(id).await.is_err());
+        }
+        index.set_publication_test_hook(None);
+        drop(index);
+        drop(engine);
+        let reopened = Engine::new(config(&dir)).unwrap();
+        let recovered = reopened.get_index("post-save-panic").unwrap();
+        for id in ["a", "b"] {
+            assert!(recovered.get_document(id).await.unwrap().is_some());
+        }
+        assert_eq!(
+            recovered
+                .search(&SearchRequest::default())
+                .await
+                .unwrap()
+                .total
+                .value,
+            2
+        );
+    }
+
     #[tokio::test]
     async fn partial_multi_batch_failure_is_reported_without_losing_either_batch() {
         let dir = TempDir::new().unwrap();
@@ -1276,20 +1994,10 @@ mod merge_publication_transaction_tests {
         for (id, expected) in [("a", "old-a"), ("b", "old-b")] {
             let entry = index.store.version_map.get(id).unwrap();
             assert_eq!(entry.segment_id.as_ref(), output_id);
-            assert_eq!(
-                index.get_document(id).await.unwrap().unwrap()["value"],
-                expected
-            );
+            let _ = expected;
+            assert!(index.get_document(id).await.is_err());
         }
-        assert_eq!(
-            index
-                .search(&SearchRequest::default())
-                .await
-                .unwrap()
-                .total
-                .value,
-            2
-        );
+        assert!(index.search(&SearchRequest::default()).await.is_err());
         drop(index);
         drop(engine);
 
@@ -2864,10 +3572,11 @@ mod semantic_deadline_regression_tests {
         let bytes = serde_json::to_vec(&request).unwrap();
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         std::hash::Hasher::write(&mut hasher, &bytes);
-        let key = (
-            std::hash::Hasher::finish(&hasher),
-            idx.dataset_version.load(Ordering::Acquire),
-        );
+        let key = QueryCacheKey {
+            body_hash: std::hash::Hasher::finish(&hasher),
+            dataset_version: idx.dataset_version.load(Ordering::Acquire),
+            publication_generation: idx.collection_publication.state().0,
+        };
         let (leader, _receiver) = tokio::sync::watch::channel(None);
         idx.query_inflight.insert(key, leader);
 
@@ -3711,9 +4420,22 @@ enum PublicationTestPoint {
     AfterWalVersionMap,
     AfterFts,
     AfterHnsw,
+    RawBeforeCollectionBegin,
+    RawAfterWalVersionMap,
+    SyncBeforeCollectionBegin,
+    MergeAfterRepoint,
+    TurboAfterWalVersionMap,
+    RealtimeAfterFts,
     RawBeforeHnsw,
     AnnAfterGraphSearch,
     BeforeRelease,
+}
+
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub struct QueryCacheKey {
+    body_hash: u64,
+    dataset_version: u64,
+    publication_generation: u64,
 }
 
 #[cfg(test)]
@@ -3782,6 +4504,7 @@ pub struct Index {
     /// Exact per-document ordering shared by all publication stages wired to
     /// this coordinator. Idle keys are removed immediately.
     write_publication: Arc<crate::write_publication::WritePublicationCoordinator>,
+    collection_publication: Arc<crate::collection_publication::CollectionPublication>,
     #[cfg(test)]
     publication_test_hook: Arc<parking_lot::RwLock<Option<PublicationTestHook>>>,
     #[cfg(test)]
@@ -4199,7 +4922,7 @@ pub struct Index {
     /// parsing, lock acquisition, segment iteration, and result
     /// construction entirely.  Invalidates on every doc write via
     /// `dataset_version.fetch_add(1)` in `index_doc`.
-    pub query_cache: Arc<dashmap::DashMap<(u64, u64), Arc<SearchResult>>>,
+    pub query_cache: Arc<dashmap::DashMap<QueryCacheKey, Arc<SearchResult>>>,
     pub dataset_version: Arc<AtomicU64>,
 
     /// Single-flight coalescing map for identical in-flight reads, keyed by
@@ -4218,7 +4941,7 @@ pub struct Index {
     /// publishes nothing (drops the sender), so followers fall through and
     /// recompute independently — no poisoning.
     query_inflight:
-        Arc<dashmap::DashMap<(u64, u64), tokio::sync::watch::Sender<Option<Arc<SearchResult>>>>>,
+        Arc<dashmap::DashMap<QueryCacheKey, tokio::sync::watch::Sender<Option<Arc<SearchResult>>>>>,
     /// Count of follower reads served by single-flight coalescing (i.e. the
     /// number of full search recomputes eliminated). Structural evidence for
     /// the read-under-write CPU-contention fix.
@@ -4290,6 +5013,19 @@ impl Index {
     #[cfg(test)]
     fn set_publication_test_hook(&self, hook: Option<PublicationTestHook>) {
         *self.publication_test_hook.write() = hook;
+    }
+
+    #[cfg(test)]
+    fn sync_prepublication_test_point(&self, id: &str) -> Result<()> {
+        self.publication_test_point(id, PublicationTestPoint::SyncBeforeCollectionBegin);
+        if id == "__fail_sync_before_publication" {
+            return Err(EngineError::Common(
+                xerj_common::XerjError::invalid_document_json(
+                    "injected synchronous preparation failure",
+                ),
+            ));
+        }
+        Ok(())
     }
 
     /// Create a new index at `data_dir/<name>`.
@@ -4420,6 +5156,7 @@ impl Index {
                 ),
             ),
             write_publication: crate::write_publication::WritePublicationCoordinator::new(),
+            collection_publication: crate::collection_publication::CollectionPublication::new(),
             #[cfg(test)]
             publication_test_hook: Arc::new(parking_lot::RwLock::new(None)),
             #[cfg(test)]
@@ -4801,6 +5538,7 @@ impl Index {
             store,
             memtable: Arc::new(memtable),
             write_publication: crate::write_publication::WritePublicationCoordinator::new(),
+            collection_publication: crate::collection_publication::CollectionPublication::new(),
             #[cfg(test)]
             publication_test_hook: Arc::new(parking_lot::RwLock::new(None)),
             #[cfg(test)]
@@ -5128,6 +5866,12 @@ impl Index {
             .map(|e| !e.deleted)
             .unwrap_or(false);
 
+        // Enter only after validation/preparation, immediately before the
+        // first authoritative visibility mutation.
+        let mut collection_publication = self
+            .collection_publication
+            .begin()
+            .map_err(|_| collection_publication_interrupted())?;
         // Write to storage WAL.
         let seq_no = self.store.index(&doc_id, source.clone())?;
         // External-version admission becomes durable only after the WAL write
@@ -5166,7 +5910,8 @@ impl Index {
             .get(&doc_id)
             .map(|e| e.version)
             .unwrap_or(1);
-
+        collection_publication.commit();
+        drop(collection_publication);
         // Auto-evolve schema for new fields.
         // Fast path: skip the schema read lock every doc when schema is stable.
         // We cache a hash of the document field keys and only re-check schema
@@ -5426,9 +6171,22 @@ impl Index {
             .iter()
             .map(|r| (r.id.clone(), Arc::clone(&r.source)))
             .collect();
+        let copy_schema = if has_copy_to {
+            Some(self.schema.read().await)
+        } else {
+            None
+        };
 
+        let mut collection_publication = self
+            .collection_publication
+            .begin()
+            .map_err(|_| collection_publication_interrupted())?;
         let wal_t = std::time::Instant::now();
         let seq_nos = self.store.wal_append_batch(&wal_refs)?;
+        #[cfg(test)]
+        if let Some(first) = processed.first() {
+            self.publication_test_point(&first.id, PublicationTestPoint::TurboAfterWalVersionMap);
+        }
         // RC4 W4 item 2: WAL durability-write latency.
         if let Some(m) = crate::engine_metrics() {
             m.observe_wal_write(wal_t.elapsed().as_secs_f64());
@@ -5466,11 +6224,6 @@ impl Index {
         // most one chunk, not the whole batch.  `remove()` still precedes
         // each `insert_pretokenized_with_seq`, so overwrite semantics are
         // preserved regardless of the chunk boundary.
-        let copy_schema = if has_copy_to {
-            Some(self.schema.read().await)
-        } else {
-            None
-        };
         {
             let mut base = 0usize;
             while base < batch_len {
@@ -5513,6 +6266,8 @@ impl Index {
             }
         }
         drop(copy_schema);
+        collection_publication.commit();
+        drop(collection_publication);
         let t4_dur = t4.elapsed();
 
         if batch_len >= 1000 {
@@ -5712,18 +6467,57 @@ impl Index {
             )
         };
         let _hnsw_publication = has_vector_mapping.then(|| self.begin_hnsw_publication());
+        let prepared_copy_sources: Option<Vec<Arc<Value>>> = if has_copy_to {
+            let schema = self.schema.read().await;
+            Some(
+                validated
+                    .parsed()
+                    .expect("parse_validated_raw_batch retains parsed values")
+                    .iter()
+                    .map(|source| Arc::new(apply_copy_to(source, &schema.schema)))
+                    .collect(),
+            )
+        } else {
+            None
+        };
+        let sources_for_prepare: &[Arc<Value>] =
+            prepared_copy_sources.as_deref().unwrap_or_else(|| {
+                validated
+                    .parsed()
+                    .expect("parse_validated_raw_batch retains parsed values")
+            });
+        self.observe_passage_chunks(sources_for_prepare.iter().map(|source| source.as_ref()))
+            .await;
+        // Dynamic schema mutation and persistence are additive preparation:
+        // they expose no document and do not alter postings for existing
+        // documents, so search results remain extensionally unchanged during
+        // the schema-only interval. The following document publication bumps
+        // the collection generation, isolating every cache/single-flight entry
+        // created before these sources become visible. Complete preparation
+        // before WAL/VersionMap mutation so cancellation cannot strand a
+        // half-published document batch.
+        let evolve_t = std::time::Instant::now();
+        self.evolve_schema_from_docs(sources_for_prepare).await;
+        if prof {
+            p_evolve_us = evolve_t.elapsed().as_micros();
+        }
+        let publication_schema = self.schema.read().await;
+
+        #[cfg(test)]
+        if let Some((doc, _)) = validated.docs().first() {
+            self.publication_test_point(doc, PublicationTestPoint::RawBeforeCollectionBegin);
+            tokio::task::yield_now().await;
+        }
+
+        let mut collection_publication = self
+            .collection_publication
+            .begin()
+            .map_err(|_| collection_publication_interrupted())?;
         let wal_t = std::time::Instant::now();
         let (docs, sources, seq_nos) = if has_copy_to {
-            let (docs, parsed) = validated.into_parts();
-            let parsed = parsed.expect("parse_validated_raw_batch retains parsed values");
-            let schema = self.schema.read().await;
-            let sources: Vec<Arc<Value>> = parsed
-                .iter()
-                .map(|source| Arc::new(apply_copy_to(source, &schema.schema)))
-                .collect();
-            drop(schema);
-            self.observe_passage_chunks(sources.iter().map(|source| source.as_ref()))
-                .await;
+            let (docs, _) = validated.into_parts();
+            let sources =
+                prepared_copy_sources.expect("copy_to sources were prepared before publication");
             let wal_docs: Vec<(String, Arc<Value>)> = docs
                 .iter()
                 .zip(&sources)
@@ -5732,14 +6526,6 @@ impl Index {
             let seq_nos = self.store.wal_append_batch(&wal_docs)?;
             (docs, sources, seq_nos)
         } else {
-            self.observe_passage_chunks(
-                validated
-                    .parsed()
-                    .into_iter()
-                    .flatten()
-                    .map(|source| source.as_ref()),
-            )
-            .await;
             let seq_nos = self.store.wal_append_batch_raw(&validated)?;
             let (docs, parsed) = validated.into_parts();
             (
@@ -5748,6 +6534,11 @@ impl Index {
                 seq_nos,
             )
         };
+        #[cfg(test)]
+        if let Some((doc, _)) = docs.first() {
+            self.publication_test_point(doc, PublicationTestPoint::RawAfterWalVersionMap);
+            tokio::task::yield_now().await;
+        }
         // RC4 W4 item 2: WAL durability-write latency.
         if let Some(m) = crate::engine_metrics() {
             m.observe_wal_write(wal_t.elapsed().as_secs_f64());
@@ -5798,21 +6589,12 @@ impl Index {
         // with its own `seq_nos[i]`; (b) `version` = prior doc_count +
         // position + 1, assigned in doc order via one batch-level
         // `fetch_add`; (c) response order matches request order.
-        // 2. Dynamic mapping: evolve schema in doc order — batched (one
-        // schema read-lock for the whole batch, not one per doc).
-        let p_t = std::time::Instant::now();
-        self.evolve_schema_from_docs(&sources).await;
-        if prof {
-            p_evolve_us = p_t.elapsed().as_micros();
-        }
-
         // 3. Parallel shard-partitioned insert. Partition the batch by
         // each doc's own shard, then insert each shard's sub-batch on a
         // rayon worker holding that shard's lock exactly once — the
         // DocumentsWriterPerThread analogue.
         {
-            let schema_guard = self.schema.read().await;
-            let schema = &schema_guard.schema;
+            let schema = &publication_schema.schema;
             let mem = &*self.memtable;
 
             // 3a. Pre-analyze every doc OUTSIDE the shard locks.  The
@@ -5886,6 +6668,7 @@ impl Index {
                 p_insert_us = p_t.elapsed().as_micros();
             }
         }
+        drop(publication_schema);
 
         if prof {
             eprintln!(
@@ -5909,7 +6692,8 @@ impl Index {
                 result: "created".to_string(),
             })
             .collect();
-
+        collection_publication.commit();
+        drop(collection_publication);
         // The raw path already parsed every source for schema evolution and
         // FTS analysis. Publish those same authoritative values to HNSW before
         // the batch becomes observable to its caller.
@@ -6072,7 +6856,7 @@ impl Index {
                 parsed.iter().map(|source| source.as_ref()),
             );
         }
-        let (docs, seq_nos, copy_schema) = if has_copy_to {
+        let (docs, seq_nos, copy_schema, mut collection_publication) = if has_copy_to {
             let (raw_docs, parsed) = validated.into_parts();
             let parsed = parsed.expect("parse_validated_raw_batch retains parsed values");
             let schema = self.schema.try_read().map_err(|_| {
@@ -6095,6 +6879,14 @@ impl Index {
                 .zip(&transformed)
                 .map(|((id, _), source)| (id.clone(), Arc::clone(source)))
                 .collect();
+            #[cfg(test)]
+            if let Some((id, _)) = raw_docs.first() {
+                self.sync_prepublication_test_point(id)?;
+            }
+            let collection_publication = self
+                .collection_publication
+                .begin()
+                .map_err(|_| collection_publication_interrupted())?;
             let seq_nos = self.store.wal_append_batch(&wal_docs)?;
             let docs = raw_docs
                 .into_iter()
@@ -6105,7 +6897,7 @@ impl Index {
                         .map_err(xerj_storage::StorageError::from)
                 })
                 .collect::<std::result::Result<Vec<_>, _>>()?;
-            (docs, seq_nos, Some(copy_schema))
+            (docs, seq_nos, Some(copy_schema), collection_publication)
         } else if has_vector_mapping {
             // Ordinary sync ingest keeps its sealed raw-byte path. A mapped
             // vector index additionally needs parsed sources so the same
@@ -6117,6 +6909,14 @@ impl Index {
                     .install(|| xerj_storage::IndexStore::parse_validated_raw_batch(validated))
                     .map_err(EngineError::Storage)?
             };
+            #[cfg(test)]
+            if let Some((id, _)) = validated.docs().first() {
+                self.sync_prepublication_test_point(id)?;
+            }
+            let collection_publication = self
+                .collection_publication
+                .begin()
+                .map_err(|_| collection_publication_interrupted())?;
             let seq_nos = self.store.wal_append_batch_raw(&validated)?;
             let (raw_docs, parsed) = validated.into_parts();
             let parsed = parsed.expect("parse_validated_raw_batch retains parsed values");
@@ -6125,8 +6925,16 @@ impl Index {
                 .zip(parsed)
                 .map(|((id, bytes), source)| (id, bytes, Some(source)))
                 .collect();
-            (docs, seq_nos, None)
+            (docs, seq_nos, None, collection_publication)
         } else {
+            #[cfg(test)]
+            if let Some((id, _)) = validated.docs().first() {
+                self.sync_prepublication_test_point(id)?;
+            }
+            let collection_publication = self
+                .collection_publication
+                .begin()
+                .map_err(|_| collection_publication_interrupted())?;
             let seq_nos = self.store.wal_append_batch_raw(&validated)?;
             let (docs, parsed) = validated.into_parts();
             let docs = match parsed {
@@ -6140,7 +6948,7 @@ impl Index {
                     .map(|(id, bytes)| (id, bytes, None))
                     .collect(),
             };
-            (docs, seq_nos, None)
+            (docs, seq_nos, None, collection_publication)
         };
         // RC4 W4 item 2: WAL durability-write latency.
         if let Some(m) = crate::engine_metrics() {
@@ -6211,6 +7019,8 @@ impl Index {
         // cache-line bouncing on `doc_count`.
         self.doc_count
             .fetch_add(batch_len as u64, Ordering::Relaxed);
+        collection_publication.commit();
+        drop(collection_publication);
 
         if !vector_sources.is_empty() {
             // This API runs on the CLI's Rayon workers. Cross into the cached
@@ -6267,6 +7077,7 @@ impl Index {
         };
         let store = Arc::clone(&self.store);
         let memtable = Arc::clone(&self.memtable);
+        let collection_publication = Arc::clone(&self.collection_publication);
         let registry = Arc::clone(&self.registry);
         let data_dir = self.data_dir.clone();
         let field_configs = self.flush_signal.field_configs(&self.schema);
@@ -6297,6 +7108,7 @@ impl Index {
                 shard_idx,
                 store,
                 memtable,
+                collection_publication,
                 registry,
                 data_dir,
                 field_configs,
@@ -6424,6 +7236,10 @@ impl Index {
         let schema_guard2 = self.schema.read().await;
         let mem = &*self.memtable;
         let mut responses = Vec::with_capacity(batch_len);
+        let mut collection_publication = self
+            .collection_publication
+            .begin()
+            .map_err(|_| collection_publication_interrupted())?;
 
         for (i, ingest) in processed.iter().enumerate() {
             mem.remove(&ingest.id);
@@ -6443,13 +7259,17 @@ impl Index {
             });
         }
         drop(schema_guard2);
-
+        #[cfg(test)]
+        if let Some(first) = processed.first() {
+            self.publication_test_point(&first.id, PublicationTestPoint::RealtimeAfterFts);
+        }
+        collection_publication.commit();
+        drop(collection_publication);
         // Step 5: schema evolution + vector indexing (post-lock).
         for ingest in &processed {
             self.evolve_schema_from_doc(&ingest.source).await;
             self.index_vectors(&ingest.id, &ingest.source).await;
         }
-
         // Step 6: flush threshold check.
         self.maybe_spawn_flush().await;
 
@@ -6531,6 +7351,7 @@ impl Index {
                 shard_idx,
                 Arc::clone(&self.store),
                 Arc::clone(&self.memtable),
+                Arc::clone(&self.collection_publication),
                 Arc::clone(&self.registry),
                 self.data_dir.clone(),
                 field_configs.clone(),
@@ -6648,6 +7469,7 @@ impl Index {
             };
 
             let flush_signal_cb = Arc::clone(&self.flush_signal);
+            let collection_publication = Arc::clone(&self.collection_publication);
             tokio::spawn(async move {
                 // Release permit after drain (Phase 1), not after Phase 2
                 // I/O — lets new flushes dispatch while segment writes
@@ -6665,6 +7487,7 @@ impl Index {
                     shard_idx,
                     store,
                     memtable,
+                    collection_publication,
                     registry,
                     data_dir,
                     field_configs,
@@ -6934,9 +7757,10 @@ impl Index {
             // never got one, forcing the slow decode-stored fallback in
             // `rebuild_version_map_from_segments` on every reopen).
             Vec<(u64, String)>,
-            // Rolls pre-publication VersionMap repoints back unless the
-            // async driver commits them immediately after apply_merge.
-            xerj_storage::version_map::VersionRepointTransaction,
+            // Immutable `(seq_no, id, deleted)` repoint intents. Building an
+            // output must not mutate the live VersionMap before the driver
+            // enters the collection publication interval.
+            Vec<(u64, String, bool)>,
         );
 
         // Build the list of (batch, metas) pairs we'll launch.
@@ -7425,37 +8249,12 @@ impl Index {
                     // `set`: a doc updated while the merge ran already has a
                     // newer entry that must not be clobbered by the merged
                     // (older) copy.
-                    let mut version_repoints =
-                        xerj_storage::version_map::VersionRepointTransaction::with_capacity(
-                            Arc::clone(&store_for_task.version_map),
-                            ids_pairs.len().saturating_add(tomb_carry.len()),
-                        );
-                    {
-                        let merged_arc: Arc<str> = Arc::from(merged_meta.id.as_str());
-                        for (seq_no, id) in &ids_pairs {
-                            version_repoints.repoint_if_latest(
-                                id.as_str(),
-                                *seq_no,
-                                Arc::clone(&merged_arc),
-                                false,
-                            );
-                        }
-                        // RC4 W2 #14 — repoint carried tombstones onto the
-                        // merged segment BEFORE `apply_merge` runs: its
-                        // `remove_segment` purges every entry still pointing
-                        // at a merged-away input, and a purged tombstone
-                        // would resurrect the doc in live search.  Guarded
-                        // (`set_if_latest`): a doc re-indexed while the
-                        // merge ran keeps its newer live entry.
-                        for (seq, id) in &tomb_carry {
-                            version_repoints.repoint_if_latest(
-                                id.as_str(),
-                                *seq,
-                                Arc::clone(&merged_arc),
-                                true,
-                            );
-                        }
-                    }
+                    let mut version_repoint_intents =
+                        Vec::with_capacity(ids_pairs.len().saturating_add(tomb_carry.len()));
+                    version_repoint_intents
+                        .extend(ids_pairs.iter().map(|(seq, id)| (*seq, id.clone(), false)));
+                    version_repoint_intents
+                        .extend(tomb_carry.iter().map(|(seq, id)| (*seq, id.clone(), true)));
 
                     // Doc-values side-car — reuse the same `Value`s we
                     // stashed in fts_input above (M5.22).
@@ -7478,7 +8277,7 @@ impl Index {
                         merged_meta,
                         live_doc_count as usize,
                         ids_pairs,
-                        version_repoints,
+                        version_repoint_intents,
                     ))
                 })
             })
@@ -7508,7 +8307,7 @@ impl Index {
                     merged_meta,
                     live_doc_count,
                     ids_pairs,
-                    version_repoints,
+                    version_repoint_intents,
                 ))) => {
                     // Warm the merged segment's stored slices BEFORE the
                     // swap makes it visible: the first sorted-candidates
@@ -7607,6 +8406,35 @@ impl Index {
                         self.test_merge_repoint_ready
                             .store(false, Ordering::Release);
                     }
+                    // Segment construction is private scratch work. Enter the
+                    // collection epoch only for the short authoritative
+                    // VersionMap + durable snapshot publication performed by
+                    // storage's transactional apply.
+                    let mut collection_publication = self
+                        .collection_publication
+                        .begin()
+                        .map_err(|_| collection_publication_interrupted())?;
+                    let mut version_repoints =
+                        xerj_storage::version_map::VersionRepointTransaction::with_capacity(
+                            Arc::clone(&self.store.version_map),
+                            version_repoint_intents.len(),
+                        );
+                    let merged_arc: Arc<str> = Arc::from(merged_meta.id.as_str());
+                    for (seq_no, id, deleted) in &version_repoint_intents {
+                        version_repoints.repoint_if_latest(
+                            id,
+                            *seq_no,
+                            Arc::clone(&merged_arc),
+                            *deleted,
+                        );
+                    }
+                    #[cfg(test)]
+                    self.publication_test_point(
+                        merged_meta.id.as_str(),
+                        PublicationTestPoint::MergeAfterRepoint,
+                    );
+                    #[cfg(test)]
+                    tokio::task::yield_now().await;
                     #[cfg(test)]
                     let apply_result = if self
                         .test_fail_merge_before_apply
@@ -7643,6 +8471,21 @@ impl Index {
                         merged_meta.clone(),
                         version_repoints,
                     );
+                    match &apply_result {
+                        Ok(xerj_storage::index_store::MergePublicationOutcome::Published {
+                            ..
+                        }) => collection_publication.commit(),
+                        Err(xerj_storage::index_store::MergePublicationError::NotPublished(_)) => {
+                            collection_publication.cancel();
+                        }
+                        Err(xerj_storage::index_store::MergePublicationError::Indeterminate {
+                            ..
+                        }) => {
+                            // Pending Drop poisons the index. Recovery/reopen is
+                            // the only authority that can classify this state.
+                        }
+                    }
+                    drop(collection_publication);
                     if let Err(e) = apply_result {
                         tracing::warn!("merge: apply_merge failed: {e:?}");
                         failed_batches.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -10677,9 +11520,30 @@ impl Index {
     /// reflects the true ES `get.total` counter (which includes
     /// missing + exists).
     pub async fn get_document(&self, id: &str) -> Result<Option<Value>> {
+        use crate::collection_publication::ReadAdmission;
+
         let get_started = std::time::Instant::now();
         self.metric_get_count.fetch_add(1, Ordering::Relaxed);
-        let mut res = self.get_document_uncounted(id).await;
+        let mut res = loop {
+            let token = loop {
+                let notified = self.collection_publication.notified();
+                tokio::pin!(notified);
+                notified.as_mut().enable();
+                match self.collection_publication.try_admit_reader() {
+                    ReadAdmission::Admitted(token) => break token,
+                    ReadAdmission::Poisoned => {
+                        return Err(collection_publication_interrupted());
+                    }
+                    ReadAdmission::WriterActive => notified.await,
+                }
+            };
+            let result = self.get_document_uncounted(id).await;
+            match self.collection_publication.validate_reader(token) {
+                ReadAdmission::Admitted(_) => break result,
+                ReadAdmission::Poisoned => return Err(collection_publication_interrupted()),
+                ReadAdmission::WriterActive => continue,
+            }
+        };
         if let Ok(Some(source)) = &mut res {
             strip_internal_passage_metadata(source);
         }
@@ -10962,6 +11826,10 @@ impl Index {
             .await
             .then(|| self.begin_hnsw_publication());
 
+        let mut collection_publication = self
+            .collection_publication
+            .begin()
+            .map_err(|_| collection_publication_interrupted())?;
         // Invalidate response caches only once the OCC check has succeeded and
         // the delete will mutate publication state. A rejected conditional
         // delete must not make unrelated cached responses look stale.
@@ -10979,6 +11847,38 @@ impl Index {
         #[cfg(test)]
         self.publication_test_point(id, PublicationTestPoint::AfterFts);
 
+        if existed {
+            self.doc_count.fetch_sub(1, Ordering::Relaxed);
+        }
+        let found = existed || in_memtable;
+        if !found {
+            // Raced away between the liveness check and store.delete. Finish
+            // tombstone bookkeeping inside the lexical publication interval.
+            let version = self
+                .store
+                .version_map
+                .bump_tombstone_version(id)
+                .unwrap_or(1);
+            let seq_no = self.store.current_seq_no().saturating_sub(1);
+            collection_publication.commit();
+            drop(collection_publication);
+            #[cfg(test)]
+            self.publication_test_point(id, PublicationTestPoint::BeforeRelease);
+            return Ok(DeleteDocOutcome {
+                found: false,
+                seq_no,
+                version,
+            });
+        }
+        let version = self
+            .store
+            .version_map
+            .get(id)
+            .map(|e| e.version)
+            .unwrap_or(1);
+        let seq_no = deleted_seq.unwrap_or_else(|| self.store.current_seq_no().saturating_sub(1));
+        collection_publication.commit();
+        drop(collection_publication);
         // v0.6.2 — propagate the delete into the HNSW graph. Pre-fix
         // a deleted doc was unfindable via _get / _search but the
         // vector still showed up in kNN results forever (the node
@@ -11009,36 +11909,6 @@ impl Index {
         #[cfg(test)]
         self.publication_test_point(id, PublicationTestPoint::AfterHnsw);
 
-        if existed {
-            self.doc_count.fetch_sub(1, Ordering::Relaxed);
-        }
-
-        let found = existed || in_memtable;
-        if !found {
-            // Raced away between the liveness check and store.delete —
-            // report as not_found (same bookkeeping as the early return).
-            let version = self
-                .store
-                .version_map
-                .bump_tombstone_version(id)
-                .unwrap_or(1);
-            #[cfg(test)]
-            self.publication_test_point(id, PublicationTestPoint::BeforeRelease);
-            return Ok(DeleteDocOutcome {
-                found: false,
-                seq_no: self.store.current_seq_no().saturating_sub(1),
-                version,
-            });
-        }
-
-        // The tombstone entry now carries the bumped per-doc version.
-        let version = self
-            .store
-            .version_map
-            .get(id)
-            .map(|e| e.version)
-            .unwrap_or(1);
-        let seq_no = deleted_seq.unwrap_or_else(|| self.store.current_seq_no().saturating_sub(1));
         #[cfg(test)]
         self.publication_test_point(id, PublicationTestPoint::BeforeRelease);
         Ok(DeleteDocOutcome {
@@ -11127,9 +11997,54 @@ impl Index {
 
     /// Execute a search request against this index.
     pub async fn search(&self, request: &SearchRequest) -> Result<SearchResult> {
-        let request_started = std::time::Instant::now();
-        let request_deadline = request_started
+        use crate::collection_publication::ReadAdmission;
+
+        let deadline = std::time::Instant::now()
             + std::time::Duration::from_millis(request.timeout_ms.unwrap_or(30_000));
+        loop {
+            let token = loop {
+                let notified = self.collection_publication.notified();
+                tokio::pin!(notified);
+                notified.as_mut().enable();
+                match self.collection_publication.try_admit_reader() {
+                    ReadAdmission::Admitted(token) => break token,
+                    ReadAdmission::Poisoned => {
+                        return Err(collection_publication_interrupted());
+                    }
+                    ReadAdmission::WriterActive => {
+                        tokio::time::timeout_at(tokio::time::Instant::from_std(deadline), notified)
+                            .await
+                            .map_err(|_| {
+                                EngineError::Fts(anyhow::anyhow!(
+                                    "search waited for a stable collection publication until its deadline"
+                                ))
+                            })?;
+                    }
+                }
+            };
+            let result = self
+                .search_at_generation(request, token.generation(), deadline)
+                .await;
+            match self.collection_publication.validate_reader(token) {
+                ReadAdmission::Admitted(_) => return result,
+                ReadAdmission::Poisoned => return Err(collection_publication_interrupted()),
+                ReadAdmission::WriterActive if std::time::Instant::now() < deadline => continue,
+                ReadAdmission::WriterActive => {
+                    return Err(EngineError::Fts(anyhow::anyhow!(
+                        "search could not complete within one stable collection generation before its deadline"
+                    )));
+                }
+            }
+        }
+    }
+
+    async fn search_at_generation(
+        &self,
+        request: &SearchRequest,
+        publication_generation: u64,
+        request_deadline: std::time::Instant,
+    ) -> Result<SearchResult> {
+        let request_started = std::time::Instant::now();
         let timed_out_result = || {
             let took_ms = request_started.elapsed().as_millis() as u64;
             // Admission and single-flight waits can consume the complete
@@ -11177,7 +12092,7 @@ impl Index {
                 )
             })
         };
-        let cache_key: Option<(u64, u64)> = if cache_eligible {
+        let cache_key: Option<QueryCacheKey> = if cache_eligible {
             // Hash the request via its serde_json representation,
             // streaming the serializer output STRAIGHT INTO the hasher.
             // The previous implementation built a full `String` with
@@ -11203,8 +12118,15 @@ impl Index {
             let body_hash: Option<u64> = serde_json::to_writer(HasherWriter(&mut h), request)
                 .ok()
                 .map(|_| h.finish());
-            let v = self.dataset_version.load(Ordering::Acquire);
-            body_hash.map(|h| (h, v))
+            // Publication generation isolates cache and single-flight entries
+            // produced on opposite sides of any writer interval. The outer
+            // reader-token wrapper still validates before returning.
+            let dataset_version = self.dataset_version.load(Ordering::Acquire);
+            body_hash.map(|body_hash| QueryCacheKey {
+                body_hash,
+                dataset_version,
+                publication_generation,
+            })
         } else {
             None
         };
@@ -11242,10 +12164,10 @@ impl Index {
         // the `query_cache`, and otherwise recompute independently.
         struct InflightGuard<'a> {
             map: &'a dashmap::DashMap<
-                (u64, u64),
+                QueryCacheKey,
                 tokio::sync::watch::Sender<Option<Arc<SearchResult>>>,
             >,
-            key: (u64, u64),
+            key: QueryCacheKey,
         }
         impl Drop for InflightGuard<'_> {
             fn drop(&mut self) {
@@ -11499,6 +12421,12 @@ impl Index {
                         // than implement LRU.  It rebuilds on the next
                         // few queries.
                         self.query_cache.clear();
+                    }
+                    // A publisher can fail after the initial admission check
+                    // while this query is executing. Never make a result from
+                    // that interval reusable after the index becomes poisoned.
+                    if self.collection_publication.state().2 {
+                        return Err(collection_publication_interrupted());
                     }
                     let arc = Arc::new(r.clone());
                     self.query_cache.insert(key, Arc::clone(&arc));
@@ -15172,6 +16100,7 @@ impl Index {
                 let sema = Arc::clone(&flush_sema);
                 let store = Arc::clone(&store);
                 let memtable = Arc::clone(&memtable);
+                let collection_publication = Arc::clone(&index.collection_publication);
                 let registry = Arc::clone(&registry);
                 let data_dir = data_dir.clone();
                 let field_configs = field_configs.clone();
@@ -15192,6 +16121,7 @@ impl Index {
                         shard_idx,
                         store,
                         memtable,
+                        collection_publication,
                         registry,
                         data_dir,
                         field_configs,
@@ -20877,11 +21807,18 @@ tokio::task_local! {
 // This deliberately remains a free function so background tasks can own every
 // flush dependency without retaining `Index`; grouping the values would only
 // hide the same pipeline dependency set behind an uninformative bag of fields.
+fn collection_publication_interrupted() -> EngineError {
+    EngineError::Fts(anyhow::anyhow!(
+        "collection publication was interrupted; reopen the index so WAL recovery can rebuild a consistent searchable state"
+    ))
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn do_flush_shard(
     shard_idx: usize,
     store: Arc<IndexStore>,
     memtable: Arc<crate::memtable::ShardedFtsMemtable>,
+    collection_publication: Arc<crate::collection_publication::CollectionPublication>,
     registry: Arc<AnalyzerRegistry>,
     data_dir: PathBuf,
     field_configs: HashMap<String, xerj_fts::index::FieldIndexConfig>,
@@ -20907,6 +21844,9 @@ async fn do_flush_shard(
     } else {
         crate::flush_finalize_gate().acquire().await.ok()
     };
+    let mut collection_publication_guard = collection_publication
+        .begin()
+        .map_err(|_| collection_publication_interrupted())?;
     // V4 M4.5: no outer flush_lock — concurrent flushes are allowed.  The
     // memtable write lock below is the only atomicity point we need for
     // correctness (each concurrent flush drains a disjoint set of docs
@@ -21070,7 +22010,14 @@ async fn do_flush_shard(
 
     let (drained_fts, storage_drained, _drained_memory) = match drained_opt {
         Some(pair) => pair,
-        None => return Ok(()),
+        None => {
+            // Another concurrent flush may have drained this shard after the
+            // caller observed it as non-empty. No collection state changed in
+            // this attempt, so this is a clean cancellation rather than a
+            // failed publication.
+            collection_publication_guard.cancel();
+            return Ok(());
+        }
     };
     let drained_fts = Arc::new(drained_fts);
     let storage_drained = Arc::new(storage_drained);
@@ -21240,6 +22187,7 @@ async fn do_flush_shard(
             callback();
         }
         tokio::task::spawn_blocking(move || {
+            let mut collection_publication_guard = collection_publication_guard;
             let _fin_permit = fin_permit;
             // This lease lives in the blocking worker, not either async waiter.
             let lease =
@@ -21270,6 +22218,16 @@ async fn do_flush_shard(
                     })
                     .collect();
                 memtable_for_finalize.restore_failed_flush(restore, &version_map_for_restore);
+            }
+            if matches!(
+                result,
+                Ok(Ok(
+                    xerj_storage::index_store::FlushFinalizeOutcome::Published { .. }
+                ))
+            ) {
+                collection_publication_guard.commit();
+            } else {
+                collection_publication_guard.cancel();
             }
             let result = match result {
                 Ok(result) => result,
@@ -34542,6 +35500,7 @@ mod flush_memory_integration_tests {
             shard,
             Arc::clone(&idx.store),
             Arc::clone(&idx.memtable),
+            Arc::clone(&idx.collection_publication),
             Arc::clone(&idx.registry),
             idx.data_dir.clone(),
             field_configs,

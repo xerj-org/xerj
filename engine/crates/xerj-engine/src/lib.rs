@@ -19,6 +19,7 @@
 pub mod aggs;
 pub mod audit;
 pub mod bulk;
+mod collection_publication;
 pub mod engine;
 pub mod governor;
 pub mod index;
