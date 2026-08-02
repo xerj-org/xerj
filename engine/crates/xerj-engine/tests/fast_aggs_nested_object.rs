@@ -15,8 +15,11 @@
 //!   array-poisoned field, so the columnar path sees no column and again
 //!   answered `Never`, while brute reads the `_source` array.
 //!
-//! Both were identical before and after #120 (measured `geo.city` predicate:
-//! fast ~300 vs brute ~11 300 on the 12 000-flushed + 200-memtable corpus).
+//! Both were identical before and after #120. The 300-vs-11,300 figures in
+//! issue #128 came from a 12,000-flushed + 200-memtable corpus; the tests
+//! below use a smaller fixture and assert fast/brute AGREEMENT rather than
+//! those exact counts, so the numbers are the motivating measurement, not this
+//! file's.
 //!
 //! The fix keeps columnar resolution narrow — there is no single brute
 //! behaviour to widen TO — and instead BAILS to the brute path whenever a
@@ -27,9 +30,13 @@
 //!
 //! The invariant under test is fast-path/brute-path agreement; the absolute
 //! assertions exist only so a change that makes BOTH paths return the same
-//! wrong (empty) answer cannot pass. Every one of these tests FAILS on the
-//! pre-fix source, because there the fast leg keeps the request and answers it
-//! from the memtable alone while the brute leg reads the full corpus.
+//! wrong (empty) answer cannot pass. The divergence tests (nested-object and
+//! suppressed-array) FAIL on the pre-fix source, where the fast leg keeps the
+//! request and answers it from the memtable alone while the brute leg reads
+//! the full corpus. `genuinely_absent_field_is_empty_on_both_paths` is a
+//! control, not a divergence test: it passes on the pre-fix source too, and
+//! exists to prove the bail does not fire for a field that is genuinely
+//! absent everywhere.
 
 use serde_json::{json, Value};
 use tempfile::TempDir;
