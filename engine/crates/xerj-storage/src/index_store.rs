@@ -548,6 +548,8 @@ pub struct IndexStore {
     #[cfg(test)]
     fail_snapshot_save_after: std::sync::atomic::AtomicUsize,
     #[cfg(test)]
+    snapshot_save_failures_remaining: std::sync::atomic::AtomicUsize,
+    #[cfg(test)]
     fail_next_wal_maintenance: std::sync::atomic::AtomicBool,
     #[cfg(test)]
     publication_failpoint: std::sync::atomic::AtomicU8,
@@ -656,6 +658,8 @@ impl IndexStore {
             fail_next_snapshot_save: std::sync::atomic::AtomicBool::new(false),
             #[cfg(test)]
             fail_snapshot_save_after: std::sync::atomic::AtomicUsize::new(usize::MAX),
+            #[cfg(test)]
+            snapshot_save_failures_remaining: std::sync::atomic::AtomicUsize::new(1),
             #[cfg(test)]
             fail_next_wal_maintenance: std::sync::atomic::AtomicBool::new(false),
             #[cfg(test)]
@@ -2906,11 +2910,20 @@ impl IndexStore {
             let remaining = self.fail_snapshot_save_after.load(Ordering::Acquire);
             if remaining != usize::MAX {
                 if remaining == 0 {
-                    self.fail_snapshot_save_after
-                        .store(usize::MAX, Ordering::Release);
-                    return Err(StorageError::Io(std::io::Error::other(
-                        "injected delayed snapshot save failure",
-                    )));
+                    let failures = self
+                        .snapshot_save_failures_remaining
+                        .fetch_sub(1, Ordering::AcqRel);
+                    if failures > 0 {
+                        if failures == 1 {
+                            self.fail_snapshot_save_after
+                                .store(usize::MAX, Ordering::Release);
+                            self.snapshot_save_failures_remaining
+                                .store(1, Ordering::Release);
+                        }
+                        return Err(StorageError::Io(std::io::Error::other(
+                            "injected delayed snapshot save failure",
+                        )));
+                    }
                 }
                 self.fail_snapshot_save_after
                     .store(remaining - 1, Ordering::Release);
@@ -5740,5 +5753,31 @@ mod tests {
             .collect();
         assert_eq!(reopened_ids, before_ids);
         assert_eq!(reopened.version_map.live_count(), 2);
+    }
+
+    #[test]
+    fn apply_merge_reports_indeterminate_when_publication_and_rollback_saves_fail() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = open_test_store(dir.path());
+        store.index("a", serde_json::json!({"value": "a"})).unwrap();
+        store.flush().unwrap().unwrap();
+        store.index("b", serde_json::json!({"value": "b"})).unwrap();
+        store.flush().unwrap().unwrap();
+        let before = store.snapshot();
+        let mut output = before.segments[0].clone();
+        output.id = "indeterminate-output".into();
+        let input_ids: Vec<_> = before.segments.iter().map(|meta| meta.id.clone()).collect();
+        let transaction =
+            VersionRepointTransaction::with_capacity(Arc::clone(&store.version_map), 0);
+        // The pre-disarm input save succeeds; publication and rollback saves
+        // then both fail. The API must not claim exact rollback durability.
+        store.fail_snapshot_save_after.store(1, Ordering::Release);
+        store
+            .snapshot_save_failures_remaining
+            .store(2, Ordering::Release);
+        let error = store
+            .apply_merge_with_repoints(&input_ids, output, transaction)
+            .unwrap_err();
+        assert!(matches!(error, MergePublicationError::Indeterminate { .. }));
     }
 }
