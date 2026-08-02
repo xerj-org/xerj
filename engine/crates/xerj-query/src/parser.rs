@@ -43,8 +43,43 @@ const MAX_QUERY_DEPTH: usize = 64;
 /// Deep pagination beyond this should use `search_after`/PIT instead.
 pub const MAX_RESULT_WINDOW: usize = 10_000;
 
+// ── Boolean clause limit ──────────────────────────────────────────────────────
+//
+// Issue #122, second half. `MAX_QUERY_DEPTH` bounds how deeply a query nests;
+// nothing bounded how WIDE it is, so a single `bool` could carry an unbounded
+// number of clauses. That is not merely a big query: there is no compiled-script
+// cache in this engine, so every `script` clause is re-tokenised and re-parsed
+// for every document it is evaluated against, and the cost of a `bool` with N
+// script clauses over D documents is N x D full script parses. The clause count
+// is the only place that product can be bounded before any work starts.
+//
+// 1,024 is Elasticsearch's documented `indices.query.bool.max_clause_count`
+// default, and ES answers `too_many_clauses` above it — so a query this
+// rejects is a query that was already rejected by the system being emulated.
+const MAX_CLAUSE_COUNT: usize = 1_024;
+
 thread_local! {
     static QUERY_DEPTH: Cell<usize> = const { Cell::new(0) };
+    /// Boolean clauses parsed so far in the current top-level query. Reset by
+    /// the outermost [`parse_query`] rather than by an RAII guard: the limit
+    /// is on the whole query's total width, so it must accumulate across
+    /// sibling `bool`s instead of unwinding with each one.
+    static CLAUSE_COUNT: Cell<usize> = const { Cell::new(0) };
+}
+
+/// Charge one boolean clause against [`MAX_CLAUSE_COUNT`].
+fn charge_clause() -> Result<()> {
+    let exceeded = CLAUSE_COUNT.with(|c| {
+        let next = c.get() + 1;
+        c.set(next);
+        next > MAX_CLAUSE_COUNT
+    });
+    if exceeded {
+        return Err(QueryError::Parse(ParseError::Invalid(format!(
+            "too_many_clauses: maxClauseCount is set to {MAX_CLAUSE_COUNT}"
+        ))));
+    }
+    Ok(())
 }
 
 /// RAII guard that increments the thread-local query-depth counter on
@@ -258,6 +293,13 @@ pub fn parse_query(json: &Value) -> Result<QueryNode> {
     // Bail out early on excessive nesting. The guard decrements on drop so
     // an error return here does not leak the increment to a sibling call.
     let _depth = DepthGuard::enter()?;
+    // Outermost call for this request: start a fresh clause budget. The
+    // counter cannot unwind with an RAII guard the way depth does — the limit
+    // is on the query's total width, which is a sum over siblings, not a
+    // property of the current path.
+    if QUERY_DEPTH.with(Cell::get) == 1 {
+        CLAUSE_COUNT.with(|c| c.set(0));
+    }
 
     let obj = json.as_object().ok_or_else(|| {
         QueryError::Parse(ParseError::Invalid("query must be a JSON object".into()))
@@ -2917,11 +2959,24 @@ fn parse_bool_operator(v: Option<&Value>) -> Result<BoolOperator> {
 }
 
 /// Parse a bool clause list.  ES allows a single object or an array.
+///
+/// Every clause is charged against [`MAX_CLAUSE_COUNT`] *before* it is parsed,
+/// so an oversized list is refused after 1,024 clauses rather than after all
+/// of them.
 fn parse_clause_list(obj: &serde_json::Map<String, Value>, key: &str) -> Result<Vec<QueryNode>> {
     match obj.get(key) {
         None => Ok(vec![]),
-        Some(Value::Array(arr)) => arr.iter().map(parse_query).collect(),
-        Some(single) => Ok(vec![parse_query(single)?]),
+        Some(Value::Array(arr)) => arr
+            .iter()
+            .map(|clause| {
+                charge_clause()?;
+                parse_query(clause)
+            })
+            .collect(),
+        Some(single) => {
+            charge_clause()?;
+            Ok(vec![parse_query(single)?])
+        }
     }
 }
 
@@ -5225,5 +5280,59 @@ mod tests {
             "more_like_this": { "fields": fields, "like": like }
         }));
         assert!(res.is_ok(), "2×2 cross-product should parse fine");
+    }
+
+    // ── bool clause count (issue #122) ────────────────────────────────────
+
+    fn bool_with_clauses(n: usize) -> serde_json::Value {
+        let clauses: Vec<serde_json::Value> = (0..n)
+            .map(|i| json!({ "term": { format!("f{i}"): format!("v{i}") } }))
+            .collect();
+        json!({ "bool": { "should": clauses } })
+    }
+
+    /// `MAX_QUERY_DEPTH` bounds how deep a query nests; nothing bounded how
+    /// wide it is. Width is what multiplies per-document work: with no
+    /// compiled-script cache in the engine, N script clauses over D documents
+    /// is N x D full script parses, and the clause count is the only place
+    /// that product can be bounded before any of it happens.
+    #[test]
+    fn a_bool_query_may_not_carry_unbounded_clauses() {
+        let err = parse_query(&bool_with_clauses(MAX_CLAUSE_COUNT + 1))
+            .expect_err("an over-wide bool must be refused");
+        assert!(
+            err.to_string().contains("too_many_clauses"),
+            "the error must be ES's own, got {err}"
+        );
+    }
+
+    /// Exactly at the cap still parses — the limit is a cap, not an off-by-one
+    /// haircut on legitimate queries.
+    #[test]
+    fn a_bool_query_at_the_clause_cap_still_parses() {
+        parse_query(&bool_with_clauses(MAX_CLAUSE_COUNT))
+            .expect("a query at exactly the cap must parse");
+    }
+
+    /// The width is the whole query's, not one `bool`'s: two sibling bools of
+    /// 600 clauses each are 1,200 clauses of work however they are spelled.
+    #[test]
+    fn the_clause_cap_is_summed_across_sibling_bools() {
+        let query = json!({
+            "bool": {
+                "must": [ bool_with_clauses(600), bool_with_clauses(600) ]
+            }
+        });
+        let err = parse_query(&query).expect_err("1,200 clauses must be refused");
+        assert!(err.to_string().contains("too_many_clauses"), "got {err}");
+    }
+
+    /// The counter is a thread-local, so a rejected query must not poison the
+    /// next request that happens to land on the same worker.
+    #[test]
+    fn a_rejected_query_does_not_poison_the_next_one() {
+        let _ = parse_query(&bool_with_clauses(MAX_CLAUSE_COUNT + 1));
+        parse_query(&bool_with_clauses(8))
+            .expect("an ordinary query after a rejected one must still parse");
     }
 }

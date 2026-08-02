@@ -127,6 +127,25 @@ pub struct PainlessCtx<'a> {
     /// depth of ~n, but its invocation count is 4^n. This is the step
     /// budget that catches that shape.
     call_count: std::cell::Cell<usize>,
+    /// Work units consumed by this evaluation — see [`MAX_SCRIPT_OPS`]. Unlike
+    /// every other counter here this one bounds WORK rather than shape, which
+    /// is why a flat 62 KiB script could previously burn 6.12 s on one
+    /// document while tripping nothing.
+    ops: std::cell::Cell<u64>,
+    /// Work-unit count at which the next wall-clock read is due. Sampling the
+    /// clock rather than reading it per op is what keeps the budget off the
+    /// hot path — see [`OPS_PER_CLOCK_CHECK`].
+    next_clock_check: std::cell::Cell<u64>,
+    /// This evaluation's absolute deadline, resolved lazily at the first clock
+    /// check from the enclosing request deadline (see [`MIN_EVAL_SLICE`]).
+    /// Resolving it lazily means a script that never reaches
+    /// [`OPS_PER_CLOCK_CHECK`] units — every ordinary script — never reads the
+    /// clock at all, not even once per document.
+    eval_deadline: std::cell::Cell<Option<std::time::Instant>>,
+    /// Cached work-unit weight of `doc`, computed on the first whole-document
+    /// read (see [`charge_document_read`]). The document is immutable for the
+    /// life of the context, so this is measured at most once per evaluation.
+    doc_work_units: std::cell::Cell<Option<u64>>,
 }
 
 impl<'a> PainlessCtx<'a> {
@@ -139,11 +158,155 @@ impl<'a> PainlessCtx<'a> {
             eval_depth: std::cell::Cell::new(0),
             call_depth: std::cell::Cell::new(0),
             call_count: std::cell::Cell::new(0),
+            ops: std::cell::Cell::new(0),
+            next_clock_check: std::cell::Cell::new(OPS_PER_CLOCK_CHECK),
+            eval_deadline: std::cell::Cell::new(None),
+            doc_work_units: std::cell::Cell::new(None),
         }
     }
     pub fn take_emits(&self) -> Vec<PainlessValue> {
         std::mem::take(&mut *self.emits.borrow_mut())
     }
+
+    /// Work units this evaluation has consumed so far. Exposed so the budget
+    /// can be calibrated against real scripts rather than guessed at — the
+    /// 145x margin quoted on [`MAX_SCRIPT_OPS`] is measured with this.
+    pub fn work_units(&self) -> u64 {
+        self.ops.get()
+    }
+
+    /// Charge `units` of work against the budget.
+    ///
+    /// The whole hot path is: one add, one compare against a constant, one
+    /// compare against a cell. The clock is only read once every
+    /// [`OPS_PER_CLOCK_CHECK`] units, in an out-of-line `#[cold]` helper.
+    #[inline(always)]
+    fn charge(&self, units: u64) -> Result<(), String> {
+        let used = self.ops.get().saturating_add(units);
+        self.ops.set(used);
+        if used >= MAX_SCRIPT_OPS {
+            return Err(SCRIPT_OVER_BUDGET_MSG.to_string());
+        }
+        if used >= self.next_clock_check.get() {
+            return self.clock_check(used);
+        }
+        Ok(())
+    }
+
+    /// The sampled wall-clock half of the budget. Out of line and `#[cold]`:
+    /// it runs once per [`OPS_PER_CLOCK_CHECK`] units, so keeping it out of
+    /// the inlined `charge` body is what makes the fast path two compares.
+    #[cold]
+    fn clock_check(&self, used: u64) -> Result<(), String> {
+        self.next_clock_check
+            .set(used.saturating_add(OPS_PER_CLOCK_CHECK));
+        let now = std::time::Instant::now();
+        let deadline = match self.eval_deadline.get() {
+            Some(deadline) => deadline,
+            None => {
+                // First check of this evaluation: derive its slice from the
+                // enclosing request deadline, clamped into
+                // [MIN_EVAL_SLICE, MAX_EVAL_SLICE]. The upper clamp bounds an
+                // evaluation even when the request has 30 s left; the lower
+                // one keeps an ordinary script from being cut off just
+                // because the request deadline has already passed (which is
+                // the normal state of a legitimately slow search — the scan
+                // only notices at its next document-boundary poll).
+                let remaining = SCRIPT_REQUEST_DEADLINE
+                    .try_with(|deadline| deadline.saturating_duration_since(now))
+                    .unwrap_or(MAX_EVAL_SLICE);
+                let deadline = now + remaining.clamp(MIN_EVAL_SLICE, MAX_EVAL_SLICE);
+                self.eval_deadline.set(Some(deadline));
+                deadline
+            }
+        };
+        if now >= deadline {
+            return Err(SCRIPT_OVER_TIME_MSG.to_string());
+        }
+        Ok(())
+    }
+}
+
+/// Work units a produced value is worth.
+///
+/// Charging per interpreter *step* alone does not bound work: `s = s + c` is
+/// three steps whether `s` is 1 KiB or 4 MiB. Pricing the value a step
+/// produces is what closes that — the adversarial script's cost is entirely in
+/// the bytes it copies, not in the number of statements it runs.
+///
+/// Scalars answer in a single match with no allocation, which is the case
+/// every ordinary script is in.
+#[inline(always)]
+fn value_work_units(value: &PainlessValue) -> u64 {
+    match value {
+        PainlessValue::Null
+        | PainlessValue::Bool(_)
+        | PainlessValue::Number(_)
+        | PainlessValue::Closure(..) => 1,
+        PainlessValue::String(text) => 1 + text.len() as u64 / BYTES_PER_OP,
+        PainlessValue::Array(_) | PainlessValue::Object(_) => composite_work_units(value),
+    }
+}
+
+/// Work units for an array/object value: one per node it contains plus its
+/// string bytes, which is the cost of having cloned it.
+///
+/// Iterative rather than recursive on purpose — this walks caller-supplied
+/// JSON of unbounded nesting, and the native stack is the one resource the
+/// interpreter's other limits exist to protect.
+fn composite_work_units(value: &PainlessValue) -> u64 {
+    let mut total = 0u64;
+    let mut painless = vec![value];
+    let mut json: Vec<&Value> = Vec::new();
+    while let Some(value) = painless.pop() {
+        total += 1;
+        match value {
+            PainlessValue::String(text) => total += text.len() as u64 / BYTES_PER_OP,
+            PainlessValue::Array(items) => painless.extend(items.iter()),
+            PainlessValue::Object(map) => json.extend(map.values()),
+            _ => {}
+        }
+    }
+    total + json_work_units_each(json)
+}
+
+/// The same measure over raw JSON, so a document can be weighed without first
+/// being converted into `PainlessValue`s.
+fn json_work_units(value: &Value) -> u64 {
+    json_work_units_each(vec![value])
+}
+
+fn json_work_units_each(mut stack: Vec<&Value>) -> u64 {
+    let mut total = 0u64;
+    while let Some(value) = stack.pop() {
+        total += 1;
+        match value {
+            Value::String(text) => total += text.len() as u64 / BYTES_PER_OP,
+            Value::Array(items) => stack.extend(items.iter()),
+            Value::Object(map) => stack.extend(map.values()),
+            _ => {}
+        }
+    }
+    total
+}
+
+/// Charge for a whole-document read.
+///
+/// [`get_doc_value`] clones the entire source document on every call, so
+/// `doc['x'].value` is O(document), not O(1) — a flat script of 2,000 such
+/// accesses against a 20,000-element document does 40 M nodes of copying while
+/// tripping no structural limit. The weight is computed once and cached: the
+/// document does not change during an evaluation.
+fn charge_document_read(ctx: &PainlessCtx) -> Result<(), String> {
+    let weight = match ctx.doc_work_units.get() {
+        Some(weight) => weight,
+        None => {
+            let weight = json_work_units(ctx.doc);
+            ctx.doc_work_units.set(Some(weight));
+            weight
+        }
+    };
+    ctx.charge(weight)
 }
 
 // ── Tokenisation ─────────────────────────────────────────────────────────────
@@ -532,6 +695,96 @@ pub(crate) const TOO_MANY_CALLS_MSG: &str =
 /// [`is_resource_limit_error`] can recognise it without formatting.
 const SOURCE_TOO_LONG_PREFIX: &str = "script source is ";
 
+// ── Per-evaluation work budget (issue #122) ──────────────────────────────────
+//
+// Every limit above bounds a STRUCTURAL property of a script: how deep it
+// nests, how many closure calls it makes, how many bytes of source it is.
+// None of them bounds WORK, and the three are not the same thing. Measured on
+// this tree in a release build (`painless_cpu_budget::measure_adversarial…`),
+// a flat, closure-free script of `s = s + c;` statements — no recursion, no
+// nesting, 62.3 KiB of source, so under every limit named above — cost
+// **6.12 s of CPU on a single document**, because each statement copies an
+// accumulator that the previous statement just grew:
+//
+// | source   | statements | cost per document (pre-fix) |
+// |---------:|-----------:|----------------------------:|
+// | 11.8 KiB |      1,000 |                      134 ms |
+// | 22.5 KiB |      2,000 |                      497 ms |
+// | 44.0 KiB |      4,000 |                      2.80 s |
+// | 62.3 KiB |      5,700 |                      6.12 s |
+//
+// The doc-scan cooperative timeout poll cannot bound that: it only decides how
+// often a document *boundary* is checked, so a request `timeout` cannot
+// interrupt a single expensive document at all. The budget below is checked
+// *inside* the evaluator, so one document's evaluation can be abandoned
+// part-way through.
+
+/// Bytes of produced value that count as one unit of work.
+///
+/// The counter has to price two different kinds of work in one currency:
+/// interpreter steps (an `eval_expr`/`exec_stmt` entry) and bulk copying
+/// (string concatenation, whole-document clones). A work unit measured
+/// ~70 ns on the 59.8 KiB benign arithmetic script (2.45 ms for 34,407
+/// units). 64 bytes of memcpy is a few ns, so this deliberately prices bytes
+/// *above* their raw memcpy cost: the copies that matter also allocate and
+/// free, and under-pricing them is what left the hole in the first place.
+const BYTES_PER_OP: u64 = 64;
+
+/// Maximum work units one evaluation of one script against one document may
+/// consume.
+///
+/// Calibrated against the largest *benign* script the 64 KiB source limit
+/// admits: 4,300 statements of `t = t + N.5;` (59,773 bytes) costs 34,407 work
+/// units, so this ceiling leaves a **145x** margin over the worst legitimate
+/// script that can be submitted. In the other direction it is a real bound —
+/// the 44 KiB adversarial script above is abandoned after a measured 14.6 ms
+/// (parse included) instead of running for 2.80 s.
+///
+/// It is deliberately deterministic (no clock), so the limit is reproducible
+/// in tests and identical on every machine; the wall-clock check below is the
+/// backstop for work this counter prices too cheaply, not the primary bound.
+pub(crate) const MAX_SCRIPT_OPS: u64 = 5_000_000;
+
+/// Work units between wall-clock reads.
+///
+/// A clock read is ~20 ns and a work unit averages ~70 ns, so sampling every
+/// 1,024 units costs ~0.03 % — while bounding how far past the deadline an
+/// evaluation can run to 1,024 units (~70 µs).
+const OPS_PER_CLOCK_CHECK: u64 = 1_024;
+
+/// Longest an evaluation of one script against one document may run.
+///
+/// 500 ms is far outside any legitimate per-document script cost (the largest
+/// benign script that fits the source limit costs 2.45 ms) and exists to bound
+/// shapes whose cost the work counter prices too cheaply.
+const MAX_EVAL_SLICE: std::time::Duration = std::time::Duration::from_millis(500);
+
+/// Floor on the slice an evaluation is granted when the enclosing request
+/// deadline is near or already past.
+///
+/// The budget composes with the request deadline by clamping each evaluation's
+/// slice to the request's remaining time — so a single document can no longer
+/// overshoot the request's own deadline by 6 s. But the request deadline is
+/// routinely *already past* when a script runs: the doc scan only checks it
+/// every 4,096 documents, so a legitimate slow search evaluates its scoring
+/// script well beyond the deadline before the scan notices. Cutting those
+/// evaluations off instantly would turn every ordinary `timeout` into a
+/// `script_exception` 400. This floor is what keeps the trip meaningful: an
+/// evaluation always gets at least 100 ms, which is 40x the cost of the
+/// largest benign script that can be submitted, so only a genuinely abusive
+/// script can hit it.
+const MIN_EVAL_SLICE: std::time::Duration = std::time::Duration::from_millis(100);
+
+/// Sentinel returned when [`MAX_SCRIPT_OPS`] is exceeded.
+pub(crate) const SCRIPT_OVER_BUDGET_MSG: &str =
+    "script evaluation exceeded its per-document work budget; simplify the script";
+
+/// Sentinel returned when a single evaluation outlives its wall-clock slice.
+/// Split from [`SCRIPT_OVER_BUDGET_MSG`] so the two are distinguishable in an
+/// error a user actually sees, like `CALL_TOO_DEEP_MSG` vs `TOO_MANY_CALLS_MSG`.
+pub(crate) const SCRIPT_OVER_TIME_MSG: &str =
+    "script evaluation exceeded its per-document time budget; simplify the script";
+
 /// True when `msg` is one of the interpreter's **resource-limit** sentinels
 /// rather than an ordinary script error.
 ///
@@ -548,6 +801,8 @@ pub fn is_resource_limit_error(msg: &str) -> bool {
         || msg == EVAL_TOO_DEEP_MSG
         || msg == CALL_TOO_DEEP_MSG
         || msg == TOO_MANY_CALLS_MSG
+        || msg == SCRIPT_OVER_BUDGET_MSG
+        || msg == SCRIPT_OVER_TIME_MSG
         || msg.starts_with(SOURCE_TOO_LONG_PREFIX)
 }
 
@@ -584,6 +839,37 @@ pub(crate) fn record_script_fault(msg: &str) {
             *slot = Some(msg.to_string());
         }
     });
+}
+
+tokio::task_local! {
+    /// Absolute deadline of the request that is currently evaluating scripts.
+    ///
+    /// A task-local for the same reason as [`SCRIPT_FAULT`]: the scoring and
+    /// aggregation paths that evaluate scripts have no parameter to thread a
+    /// deadline through, and a *thread*-local would leak one request's
+    /// deadline onto whatever ran on the worker next.
+    ///
+    /// This is what makes the work budget an extension of the existing
+    /// request deadline rather than a second, independent limit — see
+    /// [`MIN_EVAL_SLICE`] for how the two combine.
+    static SCRIPT_REQUEST_DEADLINE: std::time::Instant;
+}
+
+/// The resource-limit fault already recorded against the enclosing capture
+/// scope, if any. `None` outside a scope, and `None` when nothing has tripped.
+pub(crate) fn pending_script_fault() -> Option<String> {
+    SCRIPT_FAULT
+        .try_with(|slot| slot.borrow().clone())
+        .unwrap_or(None)
+}
+
+/// Run `fut` with the enclosing request's deadline visible to every script it
+/// evaluates, so no single document's evaluation can overshoot it.
+pub async fn with_script_deadline<F>(deadline: std::time::Instant, fut: F) -> F::Output
+where
+    F: std::future::Future,
+{
+    SCRIPT_REQUEST_DEADLINE.scope(deadline, fut).await
 }
 
 /// Run `fut` with a fault sink installed, returning its output alongside the
@@ -1204,6 +1490,18 @@ pub fn check_script_limits(src: &str) -> Result<(), String> {
 /// degrading gracefully) cannot turn a refused evaluation into a plausible
 /// wrong value that nobody ever notices.
 pub fn eval_painless(src: &str, ctx: &PainlessCtx) -> Result<PainlessValue, String> {
+    // A resource limit is a per-*evaluation* budget, and a request evaluates
+    // scripts once per document (per clause, per aggregation bucket, ...). So
+    // without this, "bounded" would mean bounded × the number of documents:
+    // the issue's repro is refused after ~14 ms on each of them, and a
+    // `bool` query may carry any number of distinct `script` clauses. Once one
+    // evaluation in this request has tripped a limit the response is already a
+    // 400 — every later evaluation is work with nowhere to go, so it is
+    // refused immediately with the same error. That makes ONE budget the bound
+    // for the whole request.
+    if let Some(fault) = pending_script_fault() {
+        return Err(fault);
+    }
     let out = eval_painless_inner(src, ctx);
     if let Err(msg) = &out {
         if is_resource_limit_error(msg) {
@@ -1301,6 +1599,7 @@ fn exec_stmt(
     ctx: &PainlessCtx,
     env: &mut HashMap<String, PainlessValue>,
 ) -> Result<ExecOutcome, String> {
+    ctx.charge(1)?;
     match s {
         Stmt::Return(opt) => {
             let v = match opt {
@@ -1346,6 +1645,10 @@ fn eval_expr(
     env: &mut HashMap<String, PainlessValue>,
 ) -> Result<PainlessValue, String> {
     let _guard = EvalDepthGuard::enter(&ctx.eval_depth)?;
+    // One work unit per interpreter step. Steps alone do not bound work (see
+    // `MAX_SCRIPT_OPS`), so the value-producing arms below additionally charge
+    // for what they produce.
+    ctx.charge(1)?;
     match e {
         Expr::Number(n) => Ok(PainlessValue::Number(*n)),
         Expr::String(s) => Ok(PainlessValue::String(s.clone())),
@@ -1353,7 +1656,11 @@ fn eval_expr(
         Expr::Null => Ok(PainlessValue::Null),
         Expr::Ident(name) => {
             if let Some(v) = env.get(name) {
-                return Ok(v.clone());
+                // Reading a local *copies* it. `def s = <4 MiB>; s; s; s;` is
+                // three cheap-looking steps and 12 MiB of copying.
+                let v = v.clone();
+                ctx.charge(value_work_units(&v))?;
+                return Ok(v);
             }
             match name.as_str() {
                 "_score" => Ok(PainlessValue::Number(ctx.score as f64)),
@@ -1364,6 +1671,8 @@ fn eval_expr(
         }
         Expr::Assign(name, val, _is_decl) => {
             let v = eval_expr(val, ctx, env)?;
+            // The binding keeps one copy and the expression yields another.
+            ctx.charge(value_work_units(&v))?;
             env.insert(name.clone(), v.clone());
             Ok(v)
         }
@@ -1434,6 +1743,12 @@ fn eval_binary_chain(
         }
         let right = eval_expr(right, ctx, env)?;
         value = apply_binary(op, value, right)?;
+        // `+` on strings builds a whole new string from both operands. This is
+        // the single charge that turns the issue's repro from "6.12 s per
+        // document" into a bounded evaluation: its cost is entirely in the
+        // bytes each concatenation copies, and none of it is visible in the
+        // statement count.
+        ctx.charge(value_work_units(&value))?;
     }
     Ok(value)
 }
@@ -1535,6 +1850,12 @@ fn eval_access_chain(
             }
             Step::Member(member, args) => eval_member_value(current, member, args, ctx, env)?,
         });
+        // Every step here can materialise an arbitrarily large value:
+        // `params['_source']` clones the whole document, `.toString()` renders
+        // it, a member read clones a subtree. Charge for what came out.
+        if let Some(produced) = value.as_ref() {
+            ctx.charge(value_work_units(produced))?;
+        }
     }
     value.ok_or_else(|| "internal error: empty access chain".to_string())
 }
@@ -1758,7 +2079,7 @@ fn resolve_doc_member(
     args: &Option<Vec<Expr>>,
     _env: &mut HashMap<String, PainlessValue>,
 ) -> Result<PainlessValue, String> {
-    let raw = get_doc_value(ctx.doc, field);
+    let raw = charged_doc_value(ctx, field)?;
     match member {
         "value" => {
             // Return first scalar.
@@ -1849,6 +2170,18 @@ fn date_component(ms: i64, member: &str) -> Result<PainlessValue, String> {
     Ok(PainlessValue::Number(n as f64))
 }
 
+/// [`get_doc_value`] behind the work budget.
+///
+/// Every caller of `get_doc_value` pays a full `doc.clone()` — the function
+/// starts by cloning the whole document and then walks *into* the clone — so
+/// the cost of `doc['rank'].value` is the size of the document, not of the
+/// field. That is O(document) work behind an O(1)-looking expression, and
+/// nothing else in the interpreter charges for it.
+fn charged_doc_value(ctx: &PainlessCtx, field: &str) -> Result<Value, String> {
+    charge_document_read(ctx)?;
+    Ok(get_doc_value(ctx.doc, field))
+}
+
 fn get_doc_value(doc: &Value, field: &str) -> Value {
     if field.starts_with(xerj_query::executor::PASSAGE_METADATA_PREFIX) {
         return Value::Null;
@@ -1935,7 +2268,7 @@ fn global_call(
             let doc_vec: Vec<f64> = match &args[1] {
                 PainlessValue::String(s) => {
                     // Field reference (literal name).
-                    let raw = get_doc_value(ctx.doc, s);
+                    let raw = charged_doc_value(ctx, s)?;
                     match raw {
                         Value::Array(arr) => arr.iter().filter_map(|v| v.as_f64()).collect(),
                         _ => Vec::new(),
@@ -1968,7 +2301,7 @@ fn global_call(
             };
             let d: Vec<f64> = match &args[1] {
                 PainlessValue::String(s) => {
-                    let raw = get_doc_value(ctx.doc, s);
+                    let raw = charged_doc_value(ctx, s)?;
                     match raw {
                         Value::Array(arr) => arr.iter().filter_map(|v| v.as_f64()).collect(),
                         _ => Vec::new(),
@@ -2004,7 +2337,7 @@ fn global_call(
             };
             let d: Vec<f64> = match &args[1] {
                 PainlessValue::String(s) => {
-                    let raw = get_doc_value(ctx.doc, s);
+                    let raw = charged_doc_value(ctx, s)?;
                     match raw {
                         Value::Array(arr) => arr.iter().filter_map(|v| v.as_f64()).collect(),
                         _ => Vec::new(),
@@ -2027,7 +2360,7 @@ fn global_call(
             };
             let d: Vec<f64> = match &args[1] {
                 PainlessValue::String(s) => {
-                    let raw = get_doc_value(ctx.doc, s);
+                    let raw = charged_doc_value(ctx, s)?;
                     match raw {
                         Value::Array(arr) => arr.iter().filter_map(|v| v.as_f64()).collect(),
                         _ => Vec::new(),
@@ -2828,5 +3161,111 @@ mod tests {
         // Numbers still compare numerically.
         assert!(eval_bool("1 + 1 == 2", &doc));
         assert!(eval_bool("doc['color'].value.length() == 5", &doc));
+    }
+
+    // ── Per-evaluation work budget (issue #122) ──────────────────────────
+
+    /// The largest *benign* script the 64 KiB source limit admits: 4,300
+    /// statements of flat arithmetic (59,773 bytes). This is the number
+    /// [`MAX_SCRIPT_OPS`] is calibrated against — if the charging scheme
+    /// changes, this test says by how much the margin moved rather than
+    /// leaving the ceiling a guess.
+    fn largest_benign_script() -> String {
+        let mut src = String::from("double t = 0;\n");
+        for i in 0..4300 {
+            src.push_str(&format!("t = t + {}.5;\n", i % 97));
+        }
+        src.push_str("return t;");
+        src
+    }
+
+    #[test]
+    fn the_budget_leaves_the_largest_benign_script_a_wide_margin() {
+        let src = largest_benign_script();
+        assert!(src.len() < MAX_SCRIPT_LEN, "must be a submittable script");
+        let doc = json!({ "rank": 7 });
+        let params = json!({});
+        let c = ctx(&doc, &params, 1.0);
+        eval_painless(&src, &c).expect("a benign script must not trip the budget");
+        let used = c.work_units();
+        assert_eq!(
+            used, 34_407,
+            "the calibration point moved; re-derive MAX_SCRIPT_OPS rather than \
+             editing this number"
+        );
+        assert!(
+            MAX_SCRIPT_OPS / used >= 100,
+            "the ceiling must keep a two-order-of-magnitude margin over the \
+             largest benign script, got {}x",
+            MAX_SCRIPT_OPS / used
+        );
+    }
+
+    /// Work is not the same thing as shape. This script is *smaller* than the
+    /// benign one above and runs a fraction of its statements, yet costs
+    /// hundreds of times more — which is the whole of issue #122.
+    #[test]
+    fn quadratic_string_growth_trips_the_work_budget() {
+        let mut src = String::from("def c = \"");
+        src.push_str(&"x".repeat(1024));
+        src.push_str("\";\ndef s = c;\n");
+        for _ in 0..4000 {
+            src.push_str("s = s + c;\n");
+        }
+        src.push_str("return s.length();");
+        assert!(src.len() < MAX_SCRIPT_LEN, "must be a submittable script");
+
+        let doc = json!({});
+        let params = json!({});
+        let err = eval_painless(&src, &ctx(&doc, &params, 0.0)).unwrap_err();
+        assert_eq!(err, SCRIPT_OVER_BUDGET_MSG);
+        assert!(
+            is_resource_limit_error(&err),
+            "a budget trip must reach the caller as a 400, not degrade to a \
+             wrong score"
+        );
+    }
+
+    /// Charging only per interpreter *step* would miss it: the trip happens
+    /// after a few hundred statements, so the step count at the trip is tiny
+    /// next to the benign script's 43,012 — the cost is all in the bytes.
+    #[test]
+    fn the_budget_is_charged_for_bytes_not_just_steps() {
+        let big = PainlessValue::String("x".repeat(64 * 1024));
+        assert_eq!(value_work_units(&big), 1 + 1024);
+        let small = PainlessValue::Number(1.0);
+        assert_eq!(value_work_units(&small), 1);
+        // A nested document is weighed by everything it contains, because
+        // cloning it copies everything it contains.
+        let nested = PainlessValue::from_json(&json!({ "a": [1, 2, 3], "b": { "c": 4 } }));
+        assert_eq!(value_work_units(&nested), 7);
+    }
+
+    /// A whole-document read is O(document) — `get_doc_value` clones the doc
+    /// before walking it — so the budget has to see the document's size, not
+    /// the field's.
+    #[test]
+    fn a_document_read_is_charged_for_the_whole_document() {
+        let doc = json!({ "rank": 1, "blob": (0..500).collect::<Vec<u32>>() });
+        let params = json!({});
+        let c = ctx(&doc, &params, 0.0);
+        eval_painless("doc['rank'].value", &c).expect("evaluate");
+        assert!(
+            c.work_units() > 500,
+            "a read of a 500-element document was charged {} units",
+            c.work_units()
+        );
+    }
+
+    /// The budget must not fire on scripts that are merely *long*: the
+    /// evaluation below runs the interpreter tens of thousands of times and
+    /// must still come out with a real value.
+    #[test]
+    fn a_long_but_cheap_script_still_returns_its_value() {
+        let doc = json!({});
+        let params = json!({});
+        let src = largest_benign_script();
+        let value = eval_painless(&src, &ctx(&doc, &params, 0.0)).expect("evaluate");
+        assert!(value.as_f64().is_some());
     }
 }
