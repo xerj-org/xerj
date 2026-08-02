@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc.10] - 2026-08-02
+
 ### Changed — runtime-field types (can break existing mappings)
 
 - **`mappings.runtime` is now validated against ES's runtime-field type
@@ -48,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Prior to this, the rule was half-enforced: `flat_object`/`flattened`
   were special-cased into a `400` while every other ES-forbidden type
   passed.
+
 ### Security
 
 - **`x-forwarded-for` is no longer trusted for client identity** (#76 S5-4).
@@ -102,6 +105,129 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   traffic is still plaintext and the secret is cluster-wide, so it proves
   cluster membership, not per-node identity. `cluster.port` still belongs on a
   trusted network segment; mTLS remains unimplemented.
+
+### Added
+
+- **`script` query support** (#87). A Painless predicate evaluated per document,
+  wired into the doc-scan path. Missing fields fail closed the way modern
+  Elasticsearch does: `doc['missing'].value` errors rather than coercing to a
+  default, because since ES 7.0 reading `.value` off an empty `ScriptDocValues`
+  throws (6.x returned a type default with a deprecation warning and 7.0 removed
+  that fallback). Coercing would mean a script filter with a typo'd field name
+  matched *every* document. The guard idiom ES documents still works, because
+  that idiom is `doc['x'].size() == 0 ? <default> : doc['x'].value` and
+  `.size()`, `.length` and `.empty` are total on a missing field.
+
+  Compiled scripts are now cached, bounded at 128 entries and 512 KiB of source
+  per thread. A script is evaluated once per document, so re-parsing per
+  document made the per-document cost scale with the script's *size*. The cache
+  key is attacker-supplied source, so the bound is a security property rather
+  than an optimisation detail.
+
+- **`getDayOfWeekEnum().getDisplayName()` in Painless** (#92).
+
+### Fixed
+
+- **Painless resource-limit trips surface instead of returning a wrong score**
+  (#97, #123). `MAX_CALL_DEPTH = 32` is a real ceiling on legitimate recursion,
+  and in the scoring paths it failed *silently*: a script recursing past it did
+  not error, it returned a wrong score.
+
+  Two failure classes had been collapsed into one and they need opposite
+  treatment. Unsupported or unparseable script syntax still degrades quietly,
+  which is what ES does and what seven of nine call sites rely on. A tripped
+  resource limit now propagates, because a silently wrong score is undetectable.
+  `_search`, `_msearch`, both template variants, scroll, async_search,
+  `_rank_eval`, `_explain` and pivot transforms report it; `_count`, `_reindex`,
+  `_delete_by_query` and `_update_by_query` refuse rather than act on a selection
+  a fail-closed script truncated. All nine `eval_painless` call sites were
+  audited and behaviour changed at none of them.
+
+  `_rank_eval` records the fault per request in `failures` rather than failing
+  the batch, and `_explain` — a diagnostic endpoint whose `matched` verdict does
+  not depend on scoring — answers and discloses the fault rather than refusing.
+  `_delete_by_query` and `_update_by_query` previously returned HTTP 200 with a
+  400-shaped body, so a client branching on the status saw success.
+
+  `MAX_CALL_DEPTH` stays 32: re-measured in release, the parser's worst case is
+  40,720 bytes per call level, so depth 32 already uses 1.20 MiB of a 2 MiB
+  worker stack.
+
+- **`/_msearch` no longer skips the request-time script guard** (#111, #124). It
+  built its sub-requests straight off `parse_request`, bypassing the validation
+  the single-search path applies. Measured: a 240,531-byte `_msearch` body whose
+  items carried scripts that `_search` rejects with a 400 came back 200 on every
+  item. `_search/template` and `_msearch/template` had the same hole.
+
+  Closing it initially made `_msearch` *stricter* than `_search`, because the
+  new guard walked the whole body while `_search` checks six specific fields. A
+  single `GuardedField` definition now drives every entry point, with the
+  `aggs`/`aggregations` pair resolved exactly as the executor resolves it
+  (`aggs` wins when both are present, regardless of document order). A
+  compile-time assertion pins the guarded set at six, because removing an entry
+  was not a type error and silently reopened the bypass.
+
+- **`<field>.keyword` predicates resolve against the parent column** (#110).
+  Four raw lookups inside `resolve_pred` failed closed, asserting that a flushed
+  segment held no matching row, while the in-memory arm resolved the same field
+  correctly. Measured: a `filters` aggregation on `extension.keyword` reported
+  200 documents out of 3,200, and a `term` query on `group.keyword` reported 0
+  hits out of 6,000.
+
+- **`fast_aggs` falls back to brute force for unresolvable nested fields**
+  (#104). Found live on real Kibana and OpenSearch Dashboards sample dashboards:
+  `geo.dest` terms, `machine.ram` avg and the doubly-nested `machine.os.keyword`
+  terms all returned empty or null through the fast path while the brute path
+  computed the right answer.
+
+- **The columnar histogram paths honour `config.limits.max_buckets`** (#121,
+  partial). `exec_date_histogram` and `exec_histogram` carried their own
+  hardcoded `65_536`. Measured at cap 37 on a 12,000-document index: 38 buckets
+  returned, no error. The brute paths ignored the setting too, so this was live
+  in both executors. **Still open:** `exec_terms` has no bucket cap at all, which
+  is the actual OOM vector; see #121.
+
+- **`bucket_script` resolves `_count` and evaluates parenthesised ternaries**
+  (#95, #105). A `_doc_count`-weighted bucket and the `bucket_script` inside it
+  disagreed about how many documents the bucket held. Verified per aggregation
+  type. Parenthesised ternaries silently resolved to a null bucket value,
+  because the split only looked at paren depth 0. Two equal infinities compared
+  *unequal*, because `inf - inf` is NaN and an epsilon-only `==` rejected
+  identical values.
+
+- **Named ES date formats are resolved for `ignore_malformed` validation**
+  (#89). Named shorthands were matched as literal text rather than expanded, so
+  a value genuinely valid under the declared format was silently dropped on
+  ingest. Confirmed against a real OpenSearch 2.11.1 node, which accepts the ISO
+  strings and rejects the bare numbers — the opposite of what XERJ did.
+
+- **Two `xerj-engine` tests no longer flake under parallel load** (#100). One
+  mutated a process-wide bucket cap under a lock that only protected
+  participants; the other depended on wall-clock timing. Measured on a 32-core
+  box under 14 CPU hogs: 12/12 and 10/10 green, where the prior tree was 18%
+  red.
+
+- **`_field_caps` reports `flat_object`/`flattened` rather than generic
+  `object`** (#86), and **`flat_object` is treated as an alias for `flattened`**
+  for OpenSearch callers.
+
+- **Keyed (object-shaped) bucket aggregations merge across multi-index search**
+  (#103), and **`X-OpenSearch-Version` is sent to OpenSearch callers** (#101).
+
+### Performance
+
+- **`parse_date_ms` no longer pays an unbounded scan per document** (#91, #96).
+  The no-colon zone-offset branch added in #91 sat before the naive fast paths
+  and cost roughly 2x on offsetless ISO values, a hot per-document ingest path.
+  The probe now reads a fixed six-byte window at the end of the value and
+  nothing else — a constant window is sufficient because `%z` closes the pattern
+  and chrono requires the whole value to be consumed.
+
+  Measured across three independently built, CPU-pinned harnesses: offsetless
+  ISO 217.0 → 110.2 ns/op, and the long-value classes that an interim scan-based
+  guard regressed (4 KB prose 1171.4 → 198.3, 64 KB 16278.0 → 1009.2) are back
+  at or below the pre-guard cost. Best-or-tied on every class, with zero
+  mismatches across 72,462 constructed values.
 
 ## [1.0.0-rc.9] - 2026-08-01
 
