@@ -182,10 +182,10 @@ pub(crate) fn max_buckets_i64() -> i64 {
 ///
 /// The two executors are *intended* to return byte-identical results, which is
 /// why a caller cannot tell them apart from the response and needs this signal.
-/// That intent is not yet fact: #99, #104 and #114 each closed a case where
-/// they diverged, and `exec_terms` still materialises terms without a bucket
-/// cap where the brute path applies one. Treat the invariant as the thing the
-/// tests are enforcing, not as something already true.
+/// That intent is not yet fact: #99, #104, #114 and #120 each closed a case
+/// where they diverged (and #128 tracks the nested-object case still open).
+/// Treat the invariant as the thing the tests are enforcing, not as something
+/// already true.
 static FAST_PATH_AGGS_SERVED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// Number of aggregation requests served by the columnar fast path since
