@@ -24996,13 +24996,25 @@ fn doc_matches_query(q: &QueryNode, source: &Value) -> bool {
         // flush makes every older segment fail the "reader has every queried
         // field" gate.
         //
-        // Semantics mirror `query_node_to_fts`'s projection: an OR over the
-        // analyzed query tokens, restricted to `default_field` when one is
-        // given and otherwise run against every text-bearing field
-        // (`index.query.default_field` defaults to `"*"`). Leading-underscore
-        // keys are skipped — `_id` is spliced into the scanned source and is
-        // not a mapped text field, so matching it would over-count relative
-        // to the FTS route.
+        // An OR over the analyzed query tokens, restricted to `default_field`
+        // when one is given and otherwise run against the fields present in
+        // the scanned source (`index.query.default_field` defaults to `"*"`).
+        // Leading-underscore keys are skipped — `_id` is spliced into the
+        // scanned source and would over-count.
+        //
+        // This is CLOSE TO, but not byte-identical to, `query_node_to_fts`'s
+        // projection, and the difference is deliberate: the projection ORs
+        // over schema `FieldType::Text` fields only, whereas this scan arm
+        // walks every non-`_` key of the source, so a token living only in a
+        // KEYWORD (or other exact string) field matches here but not on the
+        // FTS route. Measured: with schema {code: Keyword, alpha: Text} and a
+        // token only in `code`, a field-less `query_string` returns it via the
+        // scan path. The scan arm is the more ES-correct of the two (ES's
+        // `default_field: "*"` includes keyword fields), but because a
+        // within-cap query takes the FTS route and an over-cap one takes the
+        // scan route, the answer can differ across the `tokens × fields` cap.
+        // Reconciling the two onto one field set is tracked separately; do not
+        // read this as "the two routes agree".
         QueryNode::QueryString {
             query,
             default_field,
