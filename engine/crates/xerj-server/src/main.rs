@@ -1507,6 +1507,39 @@ mod runtime_tests {
         let rt = build_runtime(2).expect("prod runtime builds");
         assert_eq!(rt.block_on(async { 40 + 2 }), 42);
     }
+
+    #[test]
+    fn worker_stack_actually_exceeds_the_2mib_default() {
+        // The boot test above passes even if `.thread_stack_size` is reverted,
+        // because a default-stack runtime still boots. This one exercises the
+        // WIRING: a worker task uses a ~3 MiB stack frame, which fits under
+        // RT_THREAD_STACK_SIZE (4 MiB) but overflows tokio's 2 MiB default.
+        // Reverting the `.thread_stack_size` line makes this abort the process
+        // with a stack overflow rather than fail an assertion — a hard failure
+        // either way, which is the point: the setting is load-bearing.
+        //
+        // `spawn` (not `block_on`) so the frame lands on a WORKER thread, the
+        // one the setting sizes; `block_on` runs on the calling test thread.
+        const FRAME: usize = 3 * 1024 * 1024;
+        let rt = build_runtime(2).expect("prod runtime builds");
+        let sum = rt.block_on(async {
+            tokio::spawn(async {
+                // A big stack array forces the worker frame past 2 MiB. `black_box`
+                // + a real read keep the optimiser from eliding it.
+                let mut buf = [0u8; FRAME];
+                for (i, b) in buf.iter_mut().enumerate() {
+                    *b = (i & 0xff) as u8;
+                }
+                std::hint::black_box(&buf);
+                buf.iter().map(|&b| b as u64).sum::<u64>()
+            })
+            .await
+            .expect("worker task completed without overflowing its stack")
+        });
+        // 256 repetitions of 0..=255 across 3 MiB: each full 0..255 block sums
+        // to 32640; assert it ran rather than pinning the exact total.
+        assert!(sum > 0, "the stack-heavy worker task actually executed");
+    }
 }
 
 async fn async_main() -> Result<()> {
