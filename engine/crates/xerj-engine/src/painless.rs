@@ -493,7 +493,7 @@ pub(crate) const EVAL_TOO_DEEP_MSG: &str =
 /// stack frames to abort the process even in a release build. Kept small
 /// and independent of the expression budget.
 ///
-/// **32 is not a guess and must not be raised.** Measured in a release build
+/// **32 is measured, not a guess.** Measured in a release build
 /// by probing the stack address at each call level (`stackprobe` feature,
 /// `measure_stack_per_call_level`), with the recursive call placed *inside*
 /// the closure body's nested blocks so every call level also pays that
@@ -506,14 +506,35 @@ pub(crate) const EVAL_TOO_DEEP_MSG: &str =
 /// | 50                    |             23,440 |           710 KiB |
 /// | 90 (parser max)       |             40,720 |          1.20 MiB |
 ///
-/// The adversarial worst case already consumes 1.20 MiB (1,262,320 bytes) of
-/// the 2 MiB tokio worker stack, leaving ~0.8 MiB for the axum/search/
-/// segment-scan frames underneath it. Doubling the ceiling would overflow, so
-/// #97's "just raise it" option is not available. The cost per level is
-/// `O(MAX_PARSE_DEPTH)` because a closure body's statement nesting is not
-/// charged against any shared budget — lifting this ceiling safely requires
-/// charging body nesting against a single stack budget, not a bigger number
-/// here.
+/// The adversarial worst case consumes a measured 1.20 MiB (1,262,320 bytes).
+/// That figure is intrinsic to this depth ceiling and does not change with the
+/// worker-thread stack size — only what fits *underneath* the evaluator does.
+/// The frames underneath have grown: axum accept/route, the two-layer
+/// authorization middleware (#79), the `_*_by_query` handler, the search entry
+/// and the segment scan all sit below this evaluator on the same stack. The
+/// earlier "~0.8 MiB underneath" note was against the stock 2 MiB tokio worker
+/// stack (2,097,152 − 1,262,320 = 834,832 bytes ≈ 0.80 MiB) and did NOT account
+/// for the authz layer now living in that space. The server therefore pins the
+/// worker stack to 4 MiB explicitly (`RT_THREAD_STACK_SIZE` in `xerj-server`'s
+/// `main.rs`), which leaves ~2.80 MiB under this worst case
+/// (4,194,304 − 1,262,320 = 2,931,984 bytes) — comfortably enough for the
+/// middleware and handler frames.
+///
+/// HONEST NOTE ON THE 2.80 MiB: it is arithmetic against the new 4 MiB budget
+/// using the *unchanged* measured 1.20 MiB evaluator cost. The stackprobe
+/// instrumentation measures only this evaluator's per-level cost (unchanged
+/// here — `MAX_CALL_DEPTH` and the per-frame size are untouched); it does not
+/// measure the axum/authz/handler frames underneath, so their exact byte cost
+/// was NOT re-instrumented. The authz layer's contribution is a small fixed
+/// addition to the "underneath" side and is approximate, but it is well within
+/// the enlarged headroom.
+///
+/// Raising this ceiling is still not a free "just raise it" (see #97), even
+/// with the larger stack: the cost per level is `O(MAX_PARSE_DEPTH)` — up to
+/// ~40 KiB per level in the worst case — because a closure body's statement
+/// nesting is not charged against any shared budget, so the budget is consumed
+/// quickly. Lifting this ceiling safely requires charging body nesting against
+/// a single stack budget, not a bigger number here (and not a bigger stack).
 ///
 /// Reproduce with:
 /// `cargo test --release -p xerj-engine --lib --features stackprobe -- \

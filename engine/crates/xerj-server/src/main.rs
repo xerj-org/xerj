@@ -1436,13 +1436,77 @@ fn main() -> Result<()> {
         .and_then(|v| v.parse::<usize>().ok())
         .filter(|&n| n > 0)
         .unwrap_or_else(|| (cores * 8).clamp(64, 512));
-    let rt = tokio::runtime::Builder::new_multi_thread()
+    let rt = build_runtime(worker_threads)?;
+    rt.block_on(async_main())
+}
+
+/// Explicit worker-thread stack size for the production Tokio runtime.
+///
+/// Tokio's default is 2 MiB. We pin 4 MiB deliberately so the deepest
+/// legitimate-but-adversarial request rides on documented headroom rather than
+/// on the default staying ahead of demand. The budget on ONE worker stack,
+/// deepest frame first:
+///
+/// * The Painless script evaluator's own worst case — a self-application
+///   closure recursed to `MAX_CALL_DEPTH` (32) with every body at the parser's
+///   maximum block nesting — consumes a *measured* ~1.20 MiB (1,262,320 bytes);
+///   see `xerj_engine`'s `painless::MAX_CALL_DEPTH` stackprobe table. That
+///   figure is intrinsic to the depth ceiling and does NOT shrink with a
+///   bigger stack.
+/// * Underneath the evaluator sits everything that carried the request there:
+///   the axum accept/route frames, the two-layer authorization middleware
+///   (#79), the `_*_by_query` handler, the search entry, `block_in_place`, and
+///   the segment scan.
+///
+/// At the old 2 MiB default the worst case left only ~0.8 MiB
+/// (2,097,152 − 1,262,320 = 834,832 bytes) for that whole "underneath" stack,
+/// and the authz layer now competes for it. At 4 MiB the headroom is ~2.80 MiB
+/// (4,194,304 − 1,262,320 = 2,931,984 bytes), which absorbs the middleware and
+/// handler frames with a comfortable margin. Idle workers park in `epoll_wait`
+/// and only reserve *virtual* address space for the stack, so the larger size
+/// costs nothing at low concurrency.
+const RT_THREAD_STACK_SIZE: usize = 4 * 1024 * 1024;
+
+/// Compile-time guardrails on the stack budget above. Enforced in the real
+/// build (not only under `cfg(test)`), so a future edit that drops the stack
+/// back to the tokio default, or that lets the "underneath" headroom fall
+/// below the axum + authz + by-query + search frames, fails to compile.
+const _: () = {
+    // Measured Painless closure-recursion worst case at `MAX_CALL_DEPTH`, from
+    // painless.rs's stackprobe table (40,720 B/level × 31 increments). Kept in
+    // sync with `xerj_engine::painless::MAX_CALL_DEPTH`'s documented figure.
+    const PAINLESS_WORST_CASE: usize = 1_262_320;
+    // Must be explicitly raised off tokio's 2 MiB default.
+    assert!(RT_THREAD_STACK_SIZE >= 4 * 1024 * 1024);
+    // Must leave > 1 MiB under the evaluator worst case for the frames beneath
+    // it (axum + authz middleware + by-query handler + search + segment scan).
+    assert!(RT_THREAD_STACK_SIZE - PAINLESS_WORST_CASE > 1024 * 1024);
+};
+
+/// Build the production multi-threaded Tokio runtime with the deliberate worker
+/// count and [`RT_THREAD_STACK_SIZE`]. Factored out of `main` so the exact
+/// builder configuration the server boots with is exercised by a test.
+fn build_runtime(worker_threads: usize) -> Result<tokio::runtime::Runtime> {
+    tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .worker_threads(worker_threads)
+        .thread_stack_size(RT_THREAD_STACK_SIZE)
         .thread_name("xerj-rt")
         .build()
-        .context("build tokio runtime")?;
-    rt.block_on(async_main())
+        .context("build tokio runtime")
+}
+
+#[cfg(test)]
+mod runtime_tests {
+    use super::build_runtime;
+
+    #[test]
+    fn runtime_builds_and_boots() {
+        // The exact builder config `main` uses must construct and run a task on
+        // a 4 MiB-stack worker — this is the boot smoke test for the setting.
+        let rt = build_runtime(2).expect("prod runtime builds");
+        assert_eq!(rt.block_on(async { 40 + 2 }), 42);
+    }
 }
 
 async fn async_main() -> Result<()> {
