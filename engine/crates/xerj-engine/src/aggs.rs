@@ -1644,9 +1644,21 @@ fn evaluate_rpn(rpn: &[Tok]) -> Option<f64> {
                 // +inf, inf - inf is NaN): 0.0 before, 1.0 after. `==` is
                 // unchanged — `NaN == x` was 0.0 and still is. Pinned by
                 // `ne_against_a_nan_operand_is_true_not_false`.
+                //
+                // The `x == y` short-circuit is load-bearing, not an
+                // optimisation. Two EQUAL infinities are not NaN and must
+                // compare equal, but `inf - inf` IS NaN, so the epsilon test
+                // alone reports them unequal: measured, `params.a * params.a
+                // != params.a * params.a` over `n = 1e308` answered 1.0 with
+                // only the epsilon, where IEEE-754 and the JLS both say
+                // `inf == inf`. Exact equality first, epsilon second, keeps
+                // NaN reporting unequal (`NaN == NaN` is false and
+                // `(NaN).abs() < 1e-9` is false) while equal infinities and
+                // ordinary equal values report equal. Pinned by
+                // `eq_between_two_equal_infinities_is_true`.
                 let r = if *op == "==" || *op == "!=" {
                     let eq = match (a, b) {
-                        (EvalVal::Num(x), EvalVal::Num(y)) => (x - y).abs() < 1e-9,
+                        (EvalVal::Num(x), EvalVal::Num(y)) => x == y || (x - y).abs() < 1e-9,
                         (EvalVal::Null, EvalVal::Null) => true,
                         _ => false,
                     };
@@ -1935,6 +1947,54 @@ mod bucket_script_expr_limit_tests {
         assert_eq!(eval_script_expr("params.a != params.b", &p), Some(0.0));
         assert_eq!(eval_script_expr("params.a == params.c", &p), Some(0.0));
         assert_eq!(eval_script_expr("params.a != params.c", &p), Some(1.0));
+    }
+
+    #[test]
+    fn eq_between_two_equal_infinities_is_true() {
+        // Regression: deriving `==` from `(x - y).abs() < 1e-9` alone is wrong
+        // for infinities, because `inf - inf` is NaN and NaN fails the epsilon
+        // test — so two IDENTICAL values compared unequal. IEEE-754 and the
+        // JLS both say `inf == inf`, and this is reachable from an ordinary
+        // script: `params.a * params.a` overflows to +inf for a = 1e308, which
+        // is exactly the shape `nan_operand_ne_reports_inequality_end_to_end`
+        // builds on.
+        let mut p = HashMap::new();
+        p.insert("inf".to_string(), f64::INFINITY);
+        p.insert("ninf".to_string(), f64::NEG_INFINITY);
+        p.insert("big".to_string(), 1e308);
+
+        assert_eq!(eval_script_expr("params.inf == params.inf", &p), Some(1.0));
+        assert_eq!(eval_script_expr("params.inf != params.inf", &p), Some(0.0));
+        assert_eq!(
+            eval_script_expr("params.ninf == params.ninf", &p),
+            Some(1.0)
+        );
+        assert_eq!(
+            eval_script_expr("params.ninf != params.ninf", &p),
+            Some(0.0)
+        );
+
+        // Opposite infinities are genuinely unequal.
+        assert_eq!(eval_script_expr("params.inf == params.ninf", &p), Some(0.0));
+        assert_eq!(eval_script_expr("params.inf != params.ninf", &p), Some(1.0));
+
+        // The end-to-end shape from the report: the product overflows to +inf
+        // on both sides, so the two operands are equal and `!=` must be false.
+        assert_eq!(
+            eval_script_expr("params.big * params.big != params.big * params.big", &p),
+            Some(0.0)
+        );
+        assert_eq!(
+            eval_script_expr("params.big * params.big == params.big * params.big", &p),
+            Some(1.0)
+        );
+
+        // And NaN still reports unequal, which is the behaviour
+        // `ne_against_a_nan_operand_is_true_not_false` pins.
+        assert_eq!(
+            eval_script_expr("params.big * params.big - params.big * params.big != 0", &p),
+            Some(1.0)
+        );
     }
 }
 
@@ -14183,11 +14243,17 @@ mod tests {
 
     #[test]
     fn underscore_count_outranks_a_sub_agg_literally_named_underscore_count() {
-        // The one case where a previously NON-null bucket_script changes
+        // One of the cases where a previously NON-null bucket_script changes
         // value rather than going from null to a number: a sub-agg named
         // `_count`. ES reserves `_count` in a buckets_path for the bucket's
-        // doc count, so the doc count wins — pinned here because it is the
-        // full extent of the silent-change surface.
+        // doc count, so the doc count wins.
+        //
+        // It is NOT the full extent of that surface, and an earlier draft of
+        // this comment said it was. `nan_operand_ne_reports_inequality_end_to_end`
+        // pins a second one (`!=` against a NaN operand, 0.0 -> 1.0), and
+        // `eq_between_two_equal_infinities_is_true` guards a third shape in
+        // the same arm. Anything claiming to enumerate the silent-change
+        // surface has to be checked against those.
         let docs = vec![json!({"n": 10}), json!({"n": 20}), json!({"n": 30})];
         let agg = json!({
             "f": {
