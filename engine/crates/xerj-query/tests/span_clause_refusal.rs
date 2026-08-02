@@ -1,5 +1,7 @@
-//! Issue #122, round 2: a clause the parser refuses must fail the query, not
-//! disappear from it.
+//! Issue #122, round 2: a clause that trips the CLAUSE CAP must fail the query,
+//! not disappear from it. An unsupported or malformed clause, by contrast, is
+//! dropped — the pre-existing lenient behaviour ES-compat conformance depends
+//! on. Only the cap is fatal.
 //!
 //! `parse_span_or` and `parse_span_near` collected their clauses with
 //! `filter_map(|v| parse_query(v).ok())` — a clause the parser rejected was
@@ -81,10 +83,14 @@ fn a_refused_span_near_clause_does_not_become_match_none() {
     }
 }
 
-/// Not only the cap: any clause the parser cannot understand fails the query
-/// rather than vanishing from it.
+/// An unsupported or malformed clause (as opposed to a cap trip) is DROPPED,
+/// not fatal — the pre-#122 lenient behaviour that ES-compat conformance
+/// depends on. `search/190_index_prefix_search` sends a `span_near` holding a
+/// `span_multi` (a valid ES clause this engine does not implement) and expects
+/// the search to run with the remaining clauses, not to 400. The cap is the
+/// only fatal case; see the tests above.
 #[test]
-fn an_unparseable_span_clause_fails_the_query() {
+fn an_unsupported_span_clause_is_dropped_not_fatal() {
     let query = json!({
         "span_or": {
             "clauses": [
@@ -93,10 +99,14 @@ fn an_unparseable_span_clause_fails_the_query() {
             ]
         }
     });
-    assert!(
-        parse_query(&query).is_err(),
-        "an unparseable span clause was dropped and the query answered without it"
-    );
+    match parse_query(&query) {
+        Ok(QueryNode::SpanOr { clauses }) => assert_eq!(
+            clauses.len(),
+            1,
+            "the supported span_term must survive and the unsupported clause drop"
+        ),
+        other => panic!("expected a SpanOr with the one supported clause, got {other:?}"),
+    }
 }
 
 /// Width is charged wherever it appears. A span clause list multiplies

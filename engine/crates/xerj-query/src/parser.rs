@@ -3426,16 +3426,23 @@ fn parse_span_clauses(obj: &serde_json::Map<String, Value>, _what: &str) -> Resu
     };
     // The clause CAP is fatal — a `MAX_CLAUSE_COUNT` trip must refuse, not
     // silently drop (that was the #122 defect: `filter_map(..ok())` turned an
-    // over-cap span into a different query). But an ordinary parse error for a
-    // clause type this engine does not implement (e.g. `span_multi`) stays
-    // LENIENT: ES-compat conformance expects such a clause to be ignored, not
-    // to 400 the whole search (search/190_index_prefix_search). So the cap
-    // propagates via `?`; an unsupported clause is dropped as before.
+    // over-cap span into a different query). The cap can trip in TWO places:
+    // `charge_clause()` for the span's own clauses, and INSIDE `parse_query`
+    // when a clause is itself a wide `bool` — both must propagate.
+    //
+    // But an ordinary parse error for a clause type this engine does not
+    // implement (`span_multi`) or a malformed clause stays LENIENT and is
+    // dropped, because that is the pre-#122 behaviour ES-compat conformance
+    // depends on: `search/190_index_prefix_search` sends a `span_near` holding
+    // a `span_multi` and expects the search to run, not to 400. So: propagate
+    // ONLY the cap error; drop every other parse failure.
     let mut out = Vec::with_capacity(arr.len());
     for v in arr {
         charge_clause()?;
-        if let Ok(node) = parse_query(v) {
-            out.push(node);
+        match parse_query(v) {
+            Ok(node) => out.push(node),
+            Err(e) if e.to_string().contains("too_many_clauses") => return Err(e),
+            Err(_) => { /* unsupported/malformed clause: dropped, as before */ }
         }
     }
     Ok(out)
