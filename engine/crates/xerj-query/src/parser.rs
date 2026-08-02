@@ -3420,17 +3420,25 @@ fn parse_span_or(params: &Value) -> Result<QueryNode> {
 /// Clauses are charged against [`MAX_CLAUSE_COUNT`] here for the same reason
 /// they are in `bool`: width is what multiplies per-document work, and a span
 /// clause list is as wide as a `should` list.
-fn parse_span_clauses(obj: &serde_json::Map<String, Value>, what: &str) -> Result<Vec<QueryNode>> {
+fn parse_span_clauses(obj: &serde_json::Map<String, Value>, _what: &str) -> Result<Vec<QueryNode>> {
     let Some(arr) = obj.get("clauses").and_then(|v| v.as_array()) else {
         return Ok(Vec::new());
     };
-    arr.iter()
-        .enumerate()
-        .map(|(i, v)| {
-            charge_clause()?;
-            parse_query(v).map_err(|e| qerr(format!("`{what}.clauses[{i}]`: {e}")))
-        })
-        .collect()
+    // The clause CAP is fatal — a `MAX_CLAUSE_COUNT` trip must refuse, not
+    // silently drop (that was the #122 defect: `filter_map(..ok())` turned an
+    // over-cap span into a different query). But an ordinary parse error for a
+    // clause type this engine does not implement (e.g. `span_multi`) stays
+    // LENIENT: ES-compat conformance expects such a clause to be ignored, not
+    // to 400 the whole search (search/190_index_prefix_search). So the cap
+    // propagates via `?`; an unsupported clause is dropped as before.
+    let mut out = Vec::with_capacity(arr.len());
+    for v in arr {
+        charge_clause()?;
+        if let Ok(node) = parse_query(v) {
+            out.push(node);
+        }
+    }
+    Ok(out)
 }
 
 /// Parse a `span_not` query.
