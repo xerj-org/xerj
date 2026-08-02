@@ -203,6 +203,13 @@ async fn bobs_edge_id(node: &Node) -> String {
 
 /// Bob's brain, verbatim, as the admin sees it. The point of comparison for
 /// "the attack changed nothing".
+/// Bob's brain contents, as the admin sees them, for before/after comparison.
+///
+/// Only `hits` is returned, deliberately: the surrounding envelope carries
+/// `took`, a wall-clock millisecond count, so comparing whole response bodies
+/// makes the "nothing touched bob" assertion fail whenever the two reads
+/// happen to straddle a millisecond boundary. That is a flake, not a breach —
+/// it fired once here with byte-identical `hits` and `took` 0 vs 1.
 async fn bobs_edges(node: &Node) -> String {
     let (status, resp) = http(
         node,
@@ -213,7 +220,12 @@ async fn bobs_edges(node: &Node) -> String {
     )
     .await;
     assert_eq!(status, 200, "reading bob as admin: {resp}");
-    resp
+    let parsed: serde_json::Value = serde_json::from_str(&resp).unwrap_or(serde_json::Value::Null);
+    assert!(
+        parsed.get("hits").is_some(),
+        "reading bob as admin returned no hits envelope: {resp}"
+    );
+    parsed["hits"].to_string()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

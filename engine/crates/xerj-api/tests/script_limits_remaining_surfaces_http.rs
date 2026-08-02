@@ -25,6 +25,40 @@ use axum::http::{Request, StatusCode};
 use serde_json::{json, Value};
 use tower::ServiceExt;
 
+/// Stack size for every thread these tests evaluate a script on, replacing the
+/// 2 MiB `std`/`libtest` default. Same reasoning, and the same measurements, as
+/// `tests/script_limits_http.rs` — see the comment on its `WORKER_STACK_BYTES`.
+/// In short: `MAX_CALL_DEPTH` is a stack budget measured in a *release* build,
+/// a debug build's frames are several times larger, and the issue-#79
+/// authorization layer spends what little margin a debug build had left.
+/// `delete_by_query_script_refusal_carries_its_own_http_status` is the one that
+/// aborted here; the release binary answers `400 script_exception` and stays
+/// up, including at the adversarial worst case, so the budget itself is sound.
+const WORKER_STACK_BYTES: usize = 4 * 1024 * 1024;
+
+/// Drive `fut` with both the runtime workers and the calling thread sized to
+/// [`WORKER_STACK_BYTES`]: `_search`-shaped surfaces evaluate the script on a
+/// spawned task, `_delete_by_query` awaits it inline on the caller.
+fn block_on_sized<F>(fut: F)
+where
+    F: std::future::Future<Output = ()> + Send + 'static,
+{
+    std::thread::Builder::new()
+        .stack_size(WORKER_STACK_BYTES)
+        .spawn(move || {
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(4)
+                .thread_stack_size(WORKER_STACK_BYTES)
+                .enable_all()
+                .build()
+                .expect("test runtime")
+                .block_on(fut)
+        })
+        .expect("spawn test thread")
+        .join()
+        .expect("test thread panicked");
+}
+
 /// Self-application recursion that runs past `MAX_CALL_DEPTH` (32), with the
 /// recursive call wrapped in nested blocks. Short enough to clear the static
 /// source-size and parse-depth guards, so the limit can only trip
@@ -112,8 +146,12 @@ async fn send(
 /// call-depth limit degrades every hit to 0.0 — and then `_rank_eval`
 /// publishes a `metric_score` computed over that degraded ranking as a
 /// successful measurement.
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn rank_eval_past_the_call_depth_limit_is_an_error_not_a_metric_score() {
+#[test]
+fn rank_eval_past_the_call_depth_limit_is_an_error_not_a_metric_score() {
+    block_on_sized(rank_eval_past_the_call_depth_limit_is_an_error_not_a_metric_score_inner());
+}
+
+async fn rank_eval_past_the_call_depth_limit_is_an_error_not_a_metric_score_inner() {
     let (app, _dir) = seeded_app().await;
     let (status, body) = post(
         &app,
@@ -169,8 +207,12 @@ async fn rank_eval_past_the_call_depth_limit_is_an_error_not_a_metric_score() {
 
 /// A body where only ONE of several requests carries a limit-tripping script
 /// must still measure the others. Failing all of them was the first attempt.
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn rank_eval_failure_is_scoped_to_the_offending_request() {
+#[test]
+fn rank_eval_failure_is_scoped_to_the_offending_request() {
+    block_on_sized(rank_eval_failure_is_scoped_to_the_offending_request_inner());
+}
+
+async fn rank_eval_failure_is_scoped_to_the_offending_request_inner() {
     let (app, _dir) = seeded_app().await;
     let (status, body) = post(
         &app,
@@ -211,8 +253,12 @@ async fn rank_eval_failure_is_scoped_to_the_offending_request() {
 /// A limit trip in the *matching* path truncates the ranking instead of
 /// skewing it: fewer retrieved ids, so precision/recall are computed over a
 /// selection the script silently cut short.
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn rank_eval_refuses_a_ranking_a_script_limit_truncated() {
+#[test]
+fn rank_eval_refuses_a_ranking_a_script_limit_truncated() {
+    block_on_sized(rank_eval_refuses_a_ranking_a_script_limit_truncated_inner());
+}
+
+async fn rank_eval_refuses_a_ranking_a_script_limit_truncated_inner() {
     let (app, _dir) = seeded_app().await;
     let (status, body) = post(
         &app,
@@ -243,8 +289,12 @@ async fn rank_eval_refuses_a_ranking_a_script_limit_truncated() {
 /// running the query with an `ids` filter. A fail-closed script makes the
 /// answer `matched: false`, which is indistinguishable from a document that
 /// genuinely does not match.
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn explain_past_the_call_depth_limit_is_an_error_not_an_unmatched_doc() {
+#[test]
+fn explain_past_the_call_depth_limit_is_an_error_not_an_unmatched_doc() {
+    block_on_sized(explain_past_the_call_depth_limit_is_an_error_not_an_unmatched_doc_inner());
+}
+
+async fn explain_past_the_call_depth_limit_is_an_error_not_an_unmatched_doc_inner() {
     let (app, _dir) = seeded_app().await;
     let (status, body) = post(
         &app,
@@ -287,8 +337,12 @@ async fn explain_past_the_call_depth_limit_is_an_error_not_an_unmatched_doc() {
 /// The second defect in #123. `run_delete_by_query` refuses correctly, but the
 /// handler wrapped the refusal in `Json(..)` alone — HTTP 200 carrying
 /// `{"error": …, "status": 400}`.
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn delete_by_query_script_refusal_carries_its_own_http_status() {
+#[test]
+fn delete_by_query_script_refusal_carries_its_own_http_status() {
+    block_on_sized(delete_by_query_script_refusal_carries_its_own_http_status_inner());
+}
+
+async fn delete_by_query_script_refusal_carries_its_own_http_status_inner() {
     let (app, _dir) = seeded_app().await;
     let (status, body) = post(
         &app,
@@ -316,8 +370,12 @@ async fn delete_by_query_script_refusal_carries_its_own_http_status() {
 }
 
 /// Same defect on `_update_by_query`.
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn update_by_query_script_refusal_carries_its_own_http_status() {
+#[test]
+fn update_by_query_script_refusal_carries_its_own_http_status() {
+    block_on_sized(update_by_query_script_refusal_carries_its_own_http_status_inner());
+}
+
+async fn update_by_query_script_refusal_carries_its_own_http_status_inner() {
     let (app, _dir) = seeded_app().await;
     let (status, body) = post(
         &app,
@@ -340,8 +398,12 @@ async fn update_by_query_script_refusal_carries_its_own_http_status() {
 
 /// A successful `_delete_by_query` must stay a 200 — the status now comes from
 /// the body, so this pins the non-error half of that mapping.
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn delete_by_query_without_a_script_is_still_a_200() {
+#[test]
+fn delete_by_query_without_a_script_is_still_a_200() {
+    block_on_sized(delete_by_query_without_a_script_is_still_a_200_inner());
+}
+
+async fn delete_by_query_without_a_script_is_still_a_200_inner() {
     let (app, _dir) = seeded_app().await;
     let (status, body) = post(
         &app,
@@ -360,8 +422,12 @@ async fn delete_by_query_without_a_script_is_still_a_200() {
 /// wrong summary and reports `acknowledged: true` over it — the same defect as
 /// an under-delete, except the wrong numbers are now persisted in an index
 /// that later queries will read as fact.
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn pivot_transform_refuses_a_source_a_script_limit_truncated() {
+#[test]
+fn pivot_transform_refuses_a_source_a_script_limit_truncated() {
+    block_on_sized(pivot_transform_refuses_a_source_a_script_limit_truncated_inner());
+}
+
+async fn pivot_transform_refuses_a_source_a_script_limit_truncated_inner() {
     let (app, _dir) = seeded_app().await;
 
     let (put_status, put_body) = send(
@@ -399,8 +465,12 @@ async fn pivot_transform_refuses_a_source_a_script_limit_truncated() {
 
 /// The counterpart, restated for the new surfaces: a script our interpreter
 /// does not support is NOT a resource limit and must keep degrading quietly.
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn unsupported_script_syntax_still_degrades_quietly_on_the_new_surfaces() {
+#[test]
+fn unsupported_script_syntax_still_degrades_quietly_on_the_new_surfaces() {
+    block_on_sized(unsupported_script_syntax_still_degrades_quietly_on_the_new_surfaces_inner());
+}
+
+async fn unsupported_script_syntax_still_degrades_quietly_on_the_new_surfaces_inner() {
     let (app, _dir) = seeded_app().await;
     let unsupported = json!({
         "function_score": {

@@ -17,6 +17,69 @@ use axum::http::{Request, StatusCode};
 use serde_json::{json, Value};
 use tower::ServiceExt;
 
+/// Stack size for every thread these tests evaluate a script on, replacing the
+/// 2 MiB `std`/`libtest` default that `#[tokio::test]` would have given them.
+///
+/// `xerj_engine::painless::MAX_CALL_DEPTH` is a **stack** budget: 32 is
+/// documented as measured in a *release* build, where the adversarial worst
+/// case costs 1.20 MiB of a 2 MiB worker stack and the rest is left for the
+/// axum/search frames underneath. A debug build's frames are several times
+/// larger, so that same recursion lands much closer to the edge here than the
+/// constant's own arithmetic implies — and `_delete_by_query` is the deepest
+/// of these paths, since it runs a search inside the by-query wrapper.
+///
+/// Adding the issue-#79 authorization layer to the router pushed the debug
+/// profile of that one path over 2 MiB. The cost is the *layer*, not the
+/// authorization: these tests configure no admin key, so the caller is a
+/// superuser and `authz_middleware` returns on its second statement. Measured
+/// on this branch by bisecting `RUST_MIN_STACK`,
+/// `delete_by_query_refuses_a_selection_a_script_limit_truncated` aborts at
+/// 2,097,152 bytes and passes at 2,359,296 — roughly 200 KiB of debug frames
+/// for one more `tower` layer. The same test passes on `main` at the default,
+/// so the margin it had there was under 200 KiB.
+///
+/// The release binary was checked directly rather than inferred: the same
+/// recursion with 10, 50 and 90 nested blocks in the closure body (90 being
+/// the documented worst case) answers `400 script_exception` on a running
+/// release node, which stays up. So the production margin still holds and the
+/// budget in `painless.rs` is unchanged.
+///
+/// Sizing the stack here keeps these tests measuring what they are for — that
+/// the depth guard trips and the refusal reaches the caller — instead of
+/// measuring how large `rustc -C opt-level=0` makes an async frame.
+const WORKER_STACK_BYTES: usize = 4 * 1024 * 1024;
+
+/// Drive `fut` to completion with every stack involved sized to
+/// [`WORKER_STACK_BYTES`].
+///
+/// Both threads have to be sized, because the two shapes here evaluate the
+/// script in different places: `_search` hands the work to a task
+/// (`search_impl` spawns it) so it lands on a **runtime worker**, while
+/// `_delete_by_query` with the default `wait_for_completion=true` awaits
+/// `run_delete_by_query` inline, so it lands on the thread that called
+/// `block_on` — which under `libtest` is the per-test thread, and that one
+/// takes its size from `RUST_MIN_STACK` (2 MiB by default), not from the
+/// runtime builder.
+fn block_on_sized<F>(fut: F)
+where
+    F: std::future::Future<Output = ()> + Send + 'static,
+{
+    std::thread::Builder::new()
+        .stack_size(WORKER_STACK_BYTES)
+        .spawn(move || {
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(4)
+                .thread_stack_size(WORKER_STACK_BYTES)
+                .enable_all()
+                .build()
+                .expect("test runtime")
+                .block_on(fut)
+        })
+        .expect("spawn test thread")
+        .join()
+        .expect("test thread panicked");
+}
+
 /// Self-application recursion that runs past `MAX_CALL_DEPTH` (32), with the
 /// recursive call wrapped in nested blocks — the shape from the PR #88
 /// process-abort repro. Short enough to clear the static source-size and
@@ -75,8 +138,12 @@ async fn post(app: &axum::Router, path: &str, body: Value) -> (StatusCode, Value
 /// The headline of #97. `apply_function_score` returns a bare `f32`, so it
 /// mapped the call-depth error to `0.0` and the request succeeded with a score
 /// that no script produced.
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn script_score_past_the_call_depth_limit_is_an_error_not_a_zero_score() {
+#[test]
+fn script_score_past_the_call_depth_limit_is_an_error_not_a_zero_score() {
+    block_on_sized(script_score_past_the_call_depth_limit_is_an_error_not_a_zero_score_inner());
+}
+
+async fn script_score_past_the_call_depth_limit_is_an_error_not_a_zero_score_inner() {
     let (app, _dir) = seeded_app().await;
     let (status, body) = post(
         &app,
@@ -115,8 +182,12 @@ async fn script_score_past_the_call_depth_limit_is_an_error_not_a_zero_score() {
 /// `if let Ok(pv)` dropped a limit trip on the floor and the field just wasn't
 /// in the response — indistinguishable from a script that legitimately
 /// returned nothing.
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn script_field_past_the_call_depth_limit_is_an_error_not_a_missing_field() {
+#[test]
+fn script_field_past_the_call_depth_limit_is_an_error_not_a_missing_field() {
+    block_on_sized(script_field_past_the_call_depth_limit_is_an_error_not_a_missing_field_inner());
+}
+
+async fn script_field_past_the_call_depth_limit_is_an_error_not_a_missing_field_inner() {
     let (app, _dir) = seeded_app().await;
     let (status, body) = post(
         &app,
@@ -141,8 +212,14 @@ async fn script_field_past_the_call_depth_limit_is_an_error_not_a_missing_field(
 
 /// A script-bucketed terms agg mapped a limit trip to "no buckets" — an empty
 /// aggregation that reads as a legitimate answer.
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn script_bucketed_agg_past_the_call_depth_limit_is_an_error_not_empty_buckets() {
+#[test]
+fn script_bucketed_agg_past_the_call_depth_limit_is_an_error_not_empty_buckets() {
+    block_on_sized(
+        script_bucketed_agg_past_the_call_depth_limit_is_an_error_not_empty_buckets_inner(),
+    );
+}
+
+async fn script_bucketed_agg_past_the_call_depth_limit_is_an_error_not_empty_buckets_inner() {
     let (app, _dir) = seeded_app().await;
     let (status, body) = post(
         &app,
@@ -167,8 +244,12 @@ async fn script_bucketed_agg_past_the_call_depth_limit_is_an_error_not_empty_buc
 /// `_delete_by_query` selects with the same matching machinery. A fail-closed
 /// script trip there means deleting an arbitrary subset and reporting a
 /// completed run — destructive as well as wrong.
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn delete_by_query_refuses_a_selection_a_script_limit_truncated() {
+#[test]
+fn delete_by_query_refuses_a_selection_a_script_limit_truncated() {
+    block_on_sized(delete_by_query_refuses_a_selection_a_script_limit_truncated_inner());
+}
+
+async fn delete_by_query_refuses_a_selection_a_script_limit_truncated_inner() {
     let (app, _dir) = seeded_app().await;
     let (_, body) = post(
         &app,
@@ -201,8 +282,12 @@ async fn delete_by_query_refuses_a_selection_a_script_limit_truncated() {
 /// support is NOT a resource limit. It must keep degrading to a neutral score
 /// on a 200, exactly as before, or every out-of-subset script in the ES-compat
 /// surface becomes a spurious 400.
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn unsupported_script_syntax_still_degrades_quietly() {
+#[test]
+fn unsupported_script_syntax_still_degrades_quietly() {
+    block_on_sized(unsupported_script_syntax_still_degrades_quietly_inner());
+}
+
+async fn unsupported_script_syntax_still_degrades_quietly_inner() {
     let (app, _dir) = seeded_app().await;
     for source in [
         "someUnsupportedThing(1,2,3)",
@@ -234,8 +319,12 @@ async fn unsupported_script_syntax_still_degrades_quietly() {
 /// A search that trips a limit must not leave the response cache poisoned with
 /// its degraded scores, and the fault must not be re-reported against the next
 /// caller of a different query.
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn a_faulted_search_is_neither_cached_nor_replayed() {
+#[test]
+fn a_faulted_search_is_neither_cached_nor_replayed() {
+    block_on_sized(a_faulted_search_is_neither_cached_nor_replayed_inner());
+}
+
+async fn a_faulted_search_is_neither_cached_nor_replayed_inner() {
     let (app, _dir) = seeded_app().await;
     let bad = json!({
         "query": {
