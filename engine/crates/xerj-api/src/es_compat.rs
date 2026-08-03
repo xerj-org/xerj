@@ -23143,15 +23143,53 @@ pub async fn create_snapshot(
         .and_then(Value::as_str)
         .unwrap_or("/tmp/xerj-snapshots");
 
-    let indices: Option<Vec<String>> = body
-        .as_ref()
-        .and_then(|b| b.get("indices"))
-        .and_then(Value::as_array)
-        .map(|arr| {
+    // ES accepts `indices` as an array of names/patterns or a single
+    // (possibly comma-separated) string; absent means "every index".  Reading
+    // only the array spelling silently turned the string one into "absent",
+    // so `{"indices":"logs-*"}` captured the whole node -- every other
+    // tenant's data included -- while authorization had only ever seen the
+    // narrow pattern the caller asked for.  Parsed exactly as the restore
+    // side already parses it.
+    let requested: Option<Vec<String>> = match body.as_ref().and_then(|b| b.get("indices")) {
+        Some(Value::Array(arr)) => Some(
             arr.iter()
                 .filter_map(|v| v.as_str().map(String::from))
-                .collect()
-        });
+                .collect(),
+        ),
+        Some(Value::String(s)) => Some(vec![s.clone()]),
+        _ => None,
+    };
+    // `create_snapshot` takes concrete names, so patterns have to be resolved
+    // here. Resolving them against `index_name_list` — which the visibility
+    // guard filters — is what makes the set captured equal the set
+    // authorization decided on: previously a wildcard reached the engine
+    // verbatim, matched nothing, and produced an empty snapshot, while the
+    // string spelling was dropped entirely and captured the whole node.
+    let indices: Option<Vec<String>> = requested.map(|specs| {
+        let all = state.engine.index_name_list();
+        let mut out: Vec<String> = Vec::new();
+        let mut push = |name: String, out: &mut Vec<String>| {
+            if !out.contains(&name) {
+                out.push(name);
+            }
+        };
+        for spec in &specs {
+            for part in spec.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                if part == "_all" || part == "*" {
+                    for n in &all {
+                        push(n.clone(), &mut out);
+                    }
+                } else if part.contains('*') {
+                    for n in all.iter().filter(|n| glob_match_simple(part, n)) {
+                        push(n.clone(), &mut out);
+                    }
+                } else {
+                    push(part.to_string(), &mut out);
+                }
+            }
+        }
+        out
+    });
 
     match state
         .engine

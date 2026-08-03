@@ -1123,20 +1123,75 @@ impl AliasResolver for NoAliases {
     }
 }
 
+/// Does the engine expand this request's index expressions over the
+/// principal's visible set, or does it act on the pattern itself?
+///
+/// The distinction decides whether a wildcard may be waved through here. It is
+/// [`PatternExpansion::Guarded`] almost everywhere, because a name only becomes
+/// an index inside [`xerj_engine::index_guard`]'s funnel.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PatternExpansion {
+    /// The name is resolved through `Engine::get_index` / `list_indices` /
+    /// `index_name_list`, so a wildcard is expanded over what this principal
+    /// may see and needs no decision of its own.
+    Guarded,
+    /// The handler acts on the expression itself, outside that funnel — a
+    /// wildcard authorized here is a wildcard executed.
+    Unguarded,
+}
+
+/// How the route carrying `shape` resolves the names its body holds.
+///
+/// Only snapshot and restore are unguarded. `Engine::create_snapshot` walks
+/// the index map itself and `Engine::restore_snapshot` expands the pattern
+/// against the snapshot's own manifest, then `remove_dir_all`s and rewrites
+/// the index directory — neither goes through `get_index` or `delete_index`,
+/// which is where every other body-named target meets the visibility guard.
+fn expansion_for(shape: BodyShape) -> PatternExpansion {
+    match shape {
+        BodyShape::SnapshotIndices => PatternExpansion::Unguarded,
+        _ => PatternExpansion::Guarded,
+    }
+}
+
 /// Authorize one index expression, resolving aliases first.
 ///
-/// A pattern is *not* refused: it is expanded over the principal's visible set
-/// by the engine (see [`xerj_engine::index_guard`]), so a granted `logs-*`
-/// works and an ungranted `*` silently resolves to nothing instead of leaking
-/// what it would have matched.
+/// Under [`PatternExpansion::Guarded`] a pattern is *not* refused: it is
+/// expanded over the principal's visible set by the engine (see
+/// [`xerj_engine::index_guard`]), so a granted `logs-*` works and an ungranted
+/// `*` silently resolves to nothing instead of leaking what it would have
+/// matched.
+///
+/// Under [`PatternExpansion::Unguarded`] that reasoning does not hold, so a
+/// pattern that [`may_reach_reserved`] is decided here, on the same terms as an
+/// index template's `index_patterns`: only a principal explicitly *granted* the
+/// pattern may use it. Anything narrower (`logs-*`) still passes — it cannot
+/// name a brain, and refusing it would cost the ordinary per-tenant backup.
 fn authorize_expression(
     principal: &Principal,
     aliases: &dyn AliasResolver,
     expr: &str,
     privilege: Privilege,
+    expansion: PatternExpansion,
 ) -> Result<(), Response> {
     if is_pattern(expr) {
-        return Ok(());
+        if expansion == PatternExpansion::Guarded || !may_reach_reserved(expr) {
+            return Ok(());
+        }
+        // `Unscoped::allows_index` answers "not reserved" for the literal text
+        // `*` — true of the string, useless as an answer here — so it is
+        // excluded explicitly rather than consulted, exactly as in
+        // `authorize_template_patterns`.
+        let held = match principal {
+            Principal::Superuser => true,
+            Principal::Scoped { .. } => principal.allows_index(expr, privilege),
+            _ => false,
+        };
+        return if held {
+            Ok(())
+        } else {
+            Err(forbidden(principal, expr, privilege))
+        };
     }
     match aliases.targets(expr) {
         Some(backing) if !backing.is_empty() => {
@@ -1252,7 +1307,13 @@ fn decide(
         Target::Indices(expressions, op_start) => {
             let privilege = required_privilege(method, segs, *op_start);
             for expr in expressions {
-                authorize_expression(principal, aliases, expr, privilege)?;
+                authorize_expression(
+                    principal,
+                    aliases,
+                    expr,
+                    privilege,
+                    PatternExpansion::Guarded,
+                )?;
             }
             // `PUT|DELETE /{index}/_alias/{alias}` mints or drops an alias
             // name; the name itself is a resource, or the reserved namespace
@@ -1298,7 +1359,7 @@ fn decide(
                 ));
             }
             for (expr, privilege) in &demands {
-                authorize_expression(principal, aliases, expr, *privilege)?;
+                authorize_expression(principal, aliases, expr, *privilege, expansion_for(shape))?;
             }
             if cluster_is_read(method, segs) {
                 // Cluster reads (`_cat`, `_mapping`, `_nodes`, `_cluster/*`,
@@ -1348,7 +1409,7 @@ fn authorize_body(
     default_index: Option<&str>,
 ) -> Result<(), Response> {
     for (expr, privilege) in body_targets(principal, shape, body, default_index)? {
-        authorize_expression(principal, aliases, &expr, privilege)?;
+        authorize_expression(principal, aliases, &expr, privilege, expansion_for(shape))?;
     }
     Ok(())
 }
@@ -2196,6 +2257,119 @@ mod tests {
             Method::PUT,
             "/_snapshot/repo/s1",
             "{}"
+        ));
+    }
+
+    /// The pattern short-circuit in [`authorize_expression`] is safe because
+    /// the engine expands a wildcard over the principal's visible set. Snapshot
+    /// and restore are the two verbs that never reach that funnel:
+    /// `Engine::create_snapshot` walks the index map itself, and
+    /// `Engine::restore_snapshot` expands the pattern against the snapshot's
+    /// own manifest and then removes and rewrites the index directory directly
+    /// — no `get_index`, no `delete_index`. A wildcard waved through here is a
+    /// wildcard executed, which made
+    /// `POST /_snapshot/{repo}/{snap}/_restore {"indices":".xerj-memory-*"}`
+    /// roll every tenant's brain back to the backup instant for any
+    /// authenticated caller, and `{"indices":"*"}` on the create side back up
+    /// every brain on the node.
+    #[test]
+    fn snapshot_patterns_cannot_reach_the_reserved_namespace() {
+        let legacy = unscoped();
+        let alice = scoped(
+            &[".xerj-memory-alice-edges", ".xerj-memory-alice"],
+            &[Privilege::ReadIndex, Privilege::WriteIndex],
+        );
+        let logs = scoped(&["logs-*"], &[Privilege::ReadIndex, Privilege::WriteIndex]);
+
+        for body in [
+            r#"{"indices":".xerj-memory-*"}"#,
+            r#"{"indices":[".xerj-memory-*"]}"#,
+            r#"{"indices":"*"}"#,
+            r#"{"indices":["*"]}"#,
+            r#"{"indices":"_all"}"#,
+            r#"{"indices":"logs-*,.xerj-*"}"#,
+        ] {
+            for p in [&legacy, &alice, &logs] {
+                assert!(
+                    !check(p, Method::POST, "/_snapshot/repo/s1/_restore", body),
+                    "restore {body} destroys the reserved namespace and must be refused"
+                );
+                assert!(
+                    !check(p, Method::PUT, "/_snapshot/repo/s1", body),
+                    "snapshot {body} captures the reserved namespace and must be refused"
+                );
+            }
+        }
+
+        // A tenant still backs up and rolls back its OWN indices, by name …
+        assert!(check(
+            &alice,
+            Method::PUT,
+            "/_snapshot/repo/s1",
+            r#"{"indices":[".xerj-memory-alice"]}"#
+        ));
+        assert!(check(
+            &alice,
+            Method::POST,
+            "/_snapshot/repo/s1/_restore",
+            r#"{"indices":".xerj-memory-alice"}"#
+        ));
+        // … and through a pattern that cannot reach the namespace, in both the
+        // array and the string spelling ES accepts.
+        assert!(check(
+            &logs,
+            Method::PUT,
+            "/_snapshot/repo/s1",
+            r#"{"indices":"logs-*"}"#
+        ));
+        assert!(check(
+            &logs,
+            Method::POST,
+            "/_snapshot/repo/s1/_restore",
+            r#"{"indices":["logs-*"]}"#
+        ));
+        assert!(check(
+            &legacy,
+            Method::PUT,
+            "/_snapshot/repo/s1",
+            r#"{"indices":"logs-2026,logs-2027"}"#
+        ));
+
+        // The superuser is still the operator: a full backup and a full
+        // restore are exactly what it is for.
+        for body in [
+            "{}",
+            r#"{"indices":"*"}"#,
+            r#"{"indices":".xerj-memory-*"}"#,
+        ] {
+            assert!(check(
+                &Principal::Superuser,
+                Method::PUT,
+                "/_snapshot/repo/s1",
+                body
+            ));
+            assert!(check(
+                &Principal::Superuser,
+                Method::POST,
+                "/_snapshot/repo/s1/_restore",
+                body
+            ));
+        }
+
+        // FINDING C is unchanged here: `names:["*"]` is an operator explicitly
+        // granting the whole node, so it snapshots the whole node.
+        let star = scoped(&["*"], &[Privilege::ReadIndex, Privilege::WriteIndex]);
+        assert!(check(
+            &star,
+            Method::PUT,
+            "/_snapshot/repo/s1",
+            r#"{"indices":"*"}"#
+        ));
+        assert!(check(
+            &star,
+            Method::POST,
+            "/_snapshot/repo/s1/_restore",
+            r#"{"indices":"*"}"#
         ));
     }
 
