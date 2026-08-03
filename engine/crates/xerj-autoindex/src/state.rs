@@ -14,12 +14,21 @@ use std::path::{Path, PathBuf};
 #[cfg(test)]
 static FILE_DONE_IO_FAILPOINT: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
 #[cfg(test)]
+static SYNC_IO_FAILPOINT: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+#[cfg(test)]
 pub(crate) static FILE_DONE_IO_FAILPOINT_TEST_LOCK: std::sync::Mutex<()> =
     std::sync::Mutex::new(());
+#[cfg(test)]
+static SYNC_IO_FAILPOINT_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[cfg(test)]
 pub(crate) fn fail_next_file_done_io(boundary: u8) {
     FILE_DONE_IO_FAILPOINT.store(boundary, std::sync::atomic::Ordering::SeqCst);
+}
+
+#[cfg(test)]
+fn fail_next_sync_io(boundary: u8) {
+    SYNC_IO_FAILPOINT.store(boundary, std::sync::atomic::Ordering::SeqCst);
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -177,6 +186,19 @@ mod tests {
                 "{tail}"
             );
         }
+    #[test]
+    fn preflight_holds_the_same_exclusive_lock_through_authoritative_open() {
+        let dir = tempfile::tempdir().unwrap();
+        let preflight = Journal::preflight(dir.path(), "root", "url", "prefix").unwrap();
+        let error = Journal::open(dir.path(), "root", "url", "prefix", 300, false)
+            .err()
+            .expect("a second opener must not pass the held preflight lock");
+        assert!(format!("{error:#}").contains("already in use"));
+
+        let journal =
+            Journal::open_after_preflight(preflight, "root", "url", "prefix", 300, false).unwrap();
+        drop(journal);
+        assert!(Journal::open(dir.path(), "root", "url", "prefix", 300, false).is_ok());
     }
 }
 
@@ -261,6 +283,11 @@ pub struct Journal {
     pub plan: Option<Plan>,
     pub embedding_identity_sha256: Option<String>,
     pub embedding_identity_resumable: Option<bool>,
+    /// Newest corpus reconciliation transaction without a durable
+    /// `sync_commit`. Its desired plan is deliberately not authoritative yet.
+    pub committed_manifest: Option<crate::sync::CommittedManifest>,
+    pub pending_sync: Option<crate::sync::PendingSync>,
+    pub legacy_migration_reasons: Vec<String>,
 }
 
 pub fn default_state_dir(root: &str, url: &str, prefix: &str) -> PathBuf {
@@ -271,15 +298,179 @@ pub fn default_state_dir(root: &str, url: &str, prefix: &str) -> PathBuf {
         .join(crate::ids::state_key(root, url, prefix))
 }
 
+fn apply_legacy_plan(
+    plan: Plan,
+    committed: &mut Option<crate::sync::CommittedManifest>,
+    migration_reasons: &mut Vec<String>,
+) -> Result<()> {
+    anyhow::ensure!(
+        committed
+            .as_ref()
+            .is_none_or(|manifest| manifest.generation == 0),
+        "legacy plan record cannot follow a committed generated manifest"
+    );
+    match crate::sync::CommittedManifest::bootstrap_legacy(plan)? {
+        crate::sync::LegacyBootstrap::Ready(manifest) => {
+            *committed = Some(*manifest);
+            migration_reasons.clear();
+        }
+        crate::sync::LegacyBootstrap::MigrationRequired { reasons } => {
+            *committed = None;
+            *migration_reasons = reasons;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+fn consume_io_failpoint(what: &str, boundary: u8) -> bool {
+    let failpoint = if what == "file_done" {
+        &FILE_DONE_IO_FAILPOINT
+    } else if what.starts_with("sync_") {
+        &SYNC_IO_FAILPOINT
+    } else {
+        return false;
+    };
+    failpoint
+        .compare_exchange(
+            boundary,
+            0,
+            std::sync::atomic::Ordering::SeqCst,
+            std::sync::atomic::Ordering::SeqCst,
+        )
+        .is_ok()
+}
+
+type PreflightReplay = (
+    Option<Plan>,
+    Option<crate::sync::CommittedManifest>,
+    Option<crate::sync::PendingSync>,
+    Vec<String>,
+);
+
+/// Read the last durable plan without locking, repairing, truncating or
+/// appending to the journal. This is a preflight hint only: `Journal::open`
+/// remains the authority after the caller passes its fail-closed inventory
+/// gate and acquires the state lock.
+fn read_plan_for_preflight(
+    path: &Path,
+    root: &str,
+    url: &str,
+    prefix: &str,
+) -> Result<PreflightReplay> {
+    let file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok((None, None, None, Vec::new()));
+        }
+        Err(error) => return Err(error.into()),
+    };
+    let mut reader = std::io::BufReader::new(file);
+    let mut plan = None;
+    let mut committed_manifest: Option<crate::sync::CommittedManifest> = None;
+    let mut pending_sync: Option<crate::sync::PendingSync> = None;
+    let mut legacy_migration_reasons = Vec::new();
+    let mut offset = 0u64;
+    loop {
+        let record_start = offset;
+        let mut bytes = Vec::new();
+        let read = reader.read_until(b'\n', &mut bytes)?;
+        if read == 0 {
+            break;
+        }
+        offset += read as u64;
+        if bytes.last() != Some(&b'\n') {
+            // `Journal::open` will repair this torn final record after the
+            // preflight accepts. It cannot be treated as durable here.
+            break;
+        }
+        let value: Value =
+            serde_json::from_slice(bytes.strip_suffix(b"\n").unwrap_or(bytes.as_slice()))
+                .with_context(|| {
+                    format!(
+                        "journal corruption at byte {record_start} in {}: malformed \
+                         newline-terminated record. Refusing to discard later records. Restore \
+                         the journal from a backup, or truncate it to exactly {record_start} \
+                         bytes to keep every completion recorded before the corruption. For an \
+                         isolated rebuild use a new --state-dir, new --prefix, and new --brain \
+                         when graph detection is enabled (or --no-graph); explicitly validate \
+                         and clean the shared catalog and old target",
+                        path.display()
+                    )
+                })?;
+        match value.get("kind").and_then(Value::as_str) {
+            Some("run") => {
+                let recorded_root = value.get("root").and_then(Value::as_str).unwrap_or("");
+                let recorded_url = value.get("url").and_then(Value::as_str).unwrap_or("");
+                let recorded_prefix = value.get("prefix").and_then(Value::as_str).unwrap_or("");
+                anyhow::ensure!(
+                    recorded_root == root && recorded_url == url && recorded_prefix == prefix,
+                    "journal at {} was created for root={} url={} prefix={}; current run has \
+                     root={} url={} prefix={}",
+                    path.display(),
+                    recorded_root,
+                    recorded_url,
+                    recorded_prefix,
+                    root,
+                    url,
+                    prefix
+                );
+            }
+            Some("plan") => {
+                anyhow::ensure!(
+                    pending_sync.is_none(),
+                    "legacy plan record cannot appear while a sync is pending"
+                );
+                if let Some(encoded) = value.get("plan") {
+                    let decoded: Plan = serde_json::from_value(encoded.clone())
+                        .with_context(|| format!("decode durable plan in {}", path.display()))?;
+                    plan = Some(decoded.clone());
+                    apply_legacy_plan(
+                        decoded,
+                        &mut committed_manifest,
+                        &mut legacy_migration_reasons,
+                    )?;
+                }
+            }
+            Some(kind) if crate::sync::is_sync_record_kind(kind) => {
+                crate::sync::replay_record(&value, &mut committed_manifest, &mut pending_sync)?;
+                if kind == "sync_commit" {
+                    plan = committed_manifest
+                        .as_ref()
+                        .map(|manifest| manifest.plan.clone());
+                }
+            }
+            Some(kind) if kind.starts_with("sync_") => {
+                anyhow::bail!("unknown durable sync record kind {kind}");
+            }
+            _ => {}
+        }
+    }
+    Ok((
+        plan,
+        committed_manifest,
+        pending_sync,
+        legacy_migration_reasons,
+    ))
+}
+
+pub struct JournalPreflight {
+    state_dir: PathBuf,
+    state_lock: std::fs::File,
+    pub plan: Option<Plan>,
+    pub committed_manifest: Option<crate::sync::CommittedManifest>,
+    pub pending_sync: Option<crate::sync::PendingSync>,
+    pub legacy_migration_reasons: Vec<String>,
+    pub journal_exists: bool,
+}
+
 impl Journal {
-    pub fn open(
+    pub fn preflight(
         state_dir: &Path,
         root: &str,
         url: &str,
         prefix: &str,
-        bulk_timeout_secs: u64,
-        fresh: bool,
-    ) -> Result<Journal> {
+    ) -> Result<JournalPreflight> {
         std::fs::create_dir_all(state_dir)
             .with_context(|| format!("create state dir {}", state_dir.display()))?;
         let lock_path = state_dir.join(".autoindex.lock");
@@ -296,10 +487,50 @@ impl Journal {
                 state_dir.display()
             )
         })?;
+        let journal_path = state_dir.join("journal.ndjson");
+        let journal_exists = journal_path.exists();
+        let (plan, committed_manifest, pending_sync, legacy_migration_reasons) =
+            read_plan_for_preflight(&journal_path, root, url, prefix)?;
+        Ok(JournalPreflight {
+            state_dir: state_dir.to_owned(),
+            state_lock,
+            plan,
+            committed_manifest,
+            pending_sync,
+            legacy_migration_reasons,
+            journal_exists,
+        })
+    }
+
+    pub fn open(
+        state_dir: &Path,
+        root: &str,
+        url: &str,
+        prefix: &str,
+        bulk_timeout_secs: u64,
+        fresh: bool,
+    ) -> Result<Journal> {
+        let preflight = Self::preflight(state_dir, root, url, prefix)?;
+        Self::open_after_preflight(preflight, root, url, prefix, bulk_timeout_secs, fresh)
+    }
+
+    pub fn open_after_preflight(
+        preflight: JournalPreflight,
+        root: &str,
+        url: &str,
+        prefix: &str,
+        bulk_timeout_secs: u64,
+        fresh: bool,
+    ) -> Result<Journal> {
+        let JournalPreflight {
+            state_dir,
+            state_lock,
+            ..
+        } = preflight;
         // Hard kills cannot run NamedTempFile::drop. Stages are owned by this
         // journal directory and use a reserved prefix, so removing only
         // regular files with that prefix is deterministic and scope-safe.
-        for entry in std::fs::read_dir(state_dir)? {
+        for entry in std::fs::read_dir(&state_dir)? {
             let entry = entry?;
             if entry
                 .file_name()
@@ -321,6 +552,9 @@ impl Journal {
         let mut plan = None;
         let mut embedding_identity_sha256 = None;
         let mut embedding_identity_resumable = None;
+        let mut committed_manifest: Option<crate::sync::CommittedManifest> = None;
+        let mut pending_sync: Option<crate::sync::PendingSync> = None;
+        let mut legacy_migration_reasons = Vec::new();
         let mut run_id = None;
         let mut resumed = false;
         if jpath.exists() {
@@ -352,7 +586,10 @@ impl Journal {
                                     anyhow::bail!(
                                 "journal at {} was created for root={jr} url={ju} prefix={jp}; \
                                  current run has root={root} url={url} prefix={prefix}. \
-                                 Use --fresh to discard it or --state-dir for a separate state.",
+                                 Refusing to discard history under the same destination. For an \
+                                 isolated rebuild use a new --state-dir, new --prefix, and new \
+                                 --brain when graph detection is enabled (or --no-graph); \
+                                 explicitly validate and clean the shared catalog and old target.",
                                 jpath.display()
                             );
                                 }
@@ -365,10 +602,32 @@ impl Journal {
                                 resumed = true;
                             }
                             Some("plan") => {
+                                anyhow::ensure!(
+                                    pending_sync.is_none(),
+                                    "legacy plan record at byte {record_start} cannot appear while \
+                                     a sync is pending"
+                                );
                                 if let Some(p) = v.get("plan") {
-                                    if let Ok(p) = serde_json::from_value::<Plan>(p.clone()) {
-                                        plan = Some(p);
-                                    }
+                                    let decoded: Plan = serde_json::from_value(p.clone())
+                                        .with_context(|| {
+                                            format!(
+                                                "decode durable plan record at byte {record_start} \
+                                                 in {}",
+                                                jpath.display()
+                                            )
+                                        })?;
+                                    plan = Some(decoded.clone());
+                                    apply_legacy_plan(
+                                        decoded,
+                                        &mut committed_manifest,
+                                        &mut legacy_migration_reasons,
+                                    )?;
+                                } else {
+                                    anyhow::bail!(
+                                        "durable plan record at byte {record_start} in {} has no \
+                                         plan payload",
+                                        jpath.display()
+                                    );
                                 }
                             }
                             Some("embedding_identity") => {
@@ -413,6 +672,25 @@ impl Journal {
                                 }
                                 embedding_identity_sha256 = digest.map(str::to_owned);
                                 embedding_identity_resumable = resumable;
+                            }
+                            Some(kind) if crate::sync::is_sync_record_kind(kind) => {
+                                crate::sync::replay_record(
+                                    &v,
+                                    &mut committed_manifest,
+                                    &mut pending_sync,
+                                )?;
+                                if kind == "sync_commit" {
+                                    plan = committed_manifest
+                                        .as_ref()
+                                        .map(|manifest| manifest.plan.clone());
+                                }
+                            }
+                            Some(kind) if kind.starts_with("sync_") => {
+                                anyhow::bail!(
+                                    "unknown durable sync record kind {kind} at byte \
+                                     {record_start} in {}",
+                                    jpath.display()
+                                );
                             }
                             Some("file_done") => {
                                 if let Ok(fd) = serde_json::from_value::<FileDone>(v.clone()) {
@@ -461,9 +739,10 @@ impl Journal {
                              after corruption. Restore the journal from a backup, or truncate it \
                              to exactly {record_start} bytes to keep every completion recorded \
                              before the corruption (files journaled after that point are \
-                             re-verified, re-indexed and re-embedded on the next run). Deleting \
-                             the whole journal (or rerunning with --fresh) also recovers, but \
-                             re-extracts and re-embeds the entire corpus",
+                             re-verified, re-indexed and re-embedded on the next run). For an \
+                             isolated rebuild use a new --state-dir, new --prefix, and new --brain \
+                             when graph detection is enabled (or --no-graph); explicitly validate \
+                             and clean the shared catalog and old target",
                             jpath.display()
                         );
                     }
@@ -493,6 +772,9 @@ impl Journal {
             plan,
             embedding_identity_sha256,
             embedding_identity_resumable,
+            committed_manifest,
+            pending_sync,
+            legacy_migration_reasons,
         };
         if is_new {
             j.append_transaction(
@@ -575,28 +857,11 @@ impl Journal {
         line.push('\n');
         let start = self.file.metadata()?.len();
         #[cfg(test)]
-        if what == "file_done"
-            && FILE_DONE_IO_FAILPOINT
-                .compare_exchange(
-                    1,
-                    0,
-                    std::sync::atomic::Ordering::SeqCst,
-                    std::sync::atomic::Ordering::SeqCst,
-                )
-                .is_ok()
-        {
-            anyhow::bail!("injected file_done append failure before any bytes");
+        if consume_io_failpoint(what, 1) {
+            anyhow::bail!("injected {what} append failure before any bytes");
         }
         #[cfg(test)]
-        let partial_write = what == "file_done"
-            && FILE_DONE_IO_FAILPOINT
-                .compare_exchange(
-                    3,
-                    0,
-                    std::sync::atomic::Ordering::SeqCst,
-                    std::sync::atomic::Ordering::SeqCst,
-                )
-                .is_ok();
+        let partial_write = consume_io_failpoint(what, 3);
         #[cfg(not(test))]
         let partial_write = false;
         let write_result = if partial_write {
@@ -605,7 +870,7 @@ impl Journal {
                 .write_all(&line.as_bytes()[..written])
                 .and_then(|_| {
                     Err(std::io::Error::other(format!(
-                        "injected partial file_done write after {written} bytes"
+                        "injected partial {what} write after {written} bytes"
                     )))
                 })
         } else {
@@ -615,19 +880,13 @@ impl Journal {
             return self.rollback_transaction(start, what, "append", error);
         }
         #[cfg(test)]
-        let injected_sync_failure = what == "file_done"
-            && FILE_DONE_IO_FAILPOINT
-                .compare_exchange(
-                    2,
-                    0,
-                    std::sync::atomic::Ordering::SeqCst,
-                    std::sync::atomic::Ordering::SeqCst,
-                )
-                .is_ok();
+        let injected_sync_failure = consume_io_failpoint(what, 2);
         #[cfg(not(test))]
         let injected_sync_failure = false;
         let sync_result = if injected_sync_failure {
-            Err(std::io::Error::other("injected file_done fsync failure"))
+            Err(std::io::Error::other(format!(
+                "injected {what} fsync failure"
+            )))
         } else {
             self.file.sync_data()
         };
@@ -658,8 +917,134 @@ impl Journal {
     }
 
     pub fn write_plan(&mut self, plan: &Plan) -> Result<()> {
+        anyhow::ensure!(
+            self.pending_sync.is_none(),
+            "legacy plan write cannot occur while a sync is pending"
+        );
+        anyhow::ensure!(
+            self.committed_manifest
+                .as_ref()
+                .is_none_or(|manifest| manifest.generation == 0),
+            "legacy plan write cannot follow a committed generated manifest"
+        );
+        let mut committed = self.committed_manifest.clone();
+        let mut migration_reasons = self.legacy_migration_reasons.clone();
+        apply_legacy_plan(plan.clone(), &mut committed, &mut migration_reasons)?;
         self.append_transaction(&serde_json::json!({"kind": "plan", "plan": plan}), "plan")?;
         self.plan = Some(plan.clone());
+        self.committed_manifest = committed;
+        self.legacy_migration_reasons = migration_reasons;
+        Ok(())
+    }
+
+    pub fn sync_begin(&mut self, sync: &crate::sync::PendingSync) -> Result<()> {
+        anyhow::ensure!(
+            self.pending_sync.is_none(),
+            "cannot begin sync {} while {} is still pending",
+            sync.tx_id,
+            self.pending_sync
+                .as_ref()
+                .map(|pending| pending.tx_id.as_str())
+                .unwrap_or("another sync")
+        );
+        let committed = self
+            .committed_manifest
+            .as_ref()
+            .context("cannot begin sync before a committed plan exists")?;
+        let mut pending = None;
+        crate::sync::apply_begin(committed, &mut pending, sync.clone())?;
+        let mut value = serde_json::to_value(sync)?;
+        value["kind"] = Value::String("sync_begin".into());
+        self.append_transaction(&value, "sync_begin")?;
+        self.pending_sync = pending;
+        Ok(())
+    }
+
+    pub fn sync_operation_state(
+        &mut self,
+        operation_id: &str,
+        state: crate::sync::SyncOperationState,
+    ) -> Result<()> {
+        let pending = self
+            .pending_sync
+            .as_ref()
+            .context("cannot record operation state without sync_begin")?;
+        let tx_id = pending.tx_id.clone();
+        let mut candidate = pending.clone();
+        candidate.apply_operation_state(&tx_id, operation_id, state.clone())?;
+        self.append_transaction(
+            &serde_json::json!({
+                "kind": "sync_operation_state",
+                "tx_id": tx_id,
+                "operation_id": operation_id,
+                "state": state,
+            }),
+            "sync_operation_state",
+        )?;
+        self.pending_sync = Some(candidate);
+        Ok(())
+    }
+
+    pub fn sync_validated(&mut self) -> Result<()> {
+        let pending = self
+            .pending_sync
+            .as_ref()
+            .context("cannot validate sync without sync_begin")?;
+        let tx_id = pending.tx_id.clone();
+        let digest = pending.desired_manifest_digest.clone();
+        let mut candidate = pending.clone();
+        candidate.apply_validated(&tx_id, &digest)?;
+        self.append_transaction(
+            &serde_json::json!({
+                "kind": "sync_validated",
+                "tx_id": tx_id,
+                "desired_manifest_digest": digest,
+            }),
+            "sync_validated",
+        )?;
+        self.pending_sync = Some(candidate);
+        Ok(())
+    }
+
+    pub fn sync_commit(&mut self) -> Result<()> {
+        let pending = self
+            .pending_sync
+            .as_ref()
+            .context("cannot commit sync without sync_begin")?;
+        let tx_id = pending.tx_id.clone();
+        let digest = pending.desired_manifest_digest.clone();
+        let committed = pending.clone().apply_commit(&tx_id, &digest)?;
+        self.append_transaction(
+            &serde_json::json!({
+                "kind": "sync_commit",
+                "tx_id": tx_id,
+                "desired_manifest_digest": digest,
+            }),
+            "sync_commit",
+        )?;
+        self.pending_sync = None;
+        self.plan = Some(committed.plan.clone());
+        self.committed_manifest = Some(committed);
+        Ok(())
+    }
+
+    pub fn sync_abort(&mut self, reason: &str) -> Result<()> {
+        let pending = self
+            .pending_sync
+            .as_ref()
+            .context("cannot abort without pending sync")?;
+        let tx_id = pending.tx_id.clone();
+        let digest = pending.desired_manifest_digest.clone();
+        self.append_transaction(
+            &serde_json::json!({
+                "kind": "sync_abort",
+                "tx_id": tx_id,
+                "desired_manifest_digest": digest,
+                "reason": reason,
+            }),
+            "sync_abort",
+        )?;
+        self.pending_sync = None;
         Ok(())
     }
 
@@ -714,6 +1099,401 @@ impl Journal {
 
     pub fn path(&self) -> &Path {
         &self.path
+    }
+}
+
+#[cfg(test)]
+mod sync_journal_tests {
+    use super::*;
+    use crate::sync::{
+        ExecutionIdentity, GenerationManifest, ManifestGroup, ManifestPath, PendingSync,
+        SourceExecutionPolicy, SyncOperationState, EXECUTION_IDENTITY_VERSION,
+    };
+
+    fn journal_with_plan(dir: &Path) -> Journal {
+        let mut journal = Journal::open(dir, "root", "url", "prefix", 300, false).unwrap();
+        let mut plan = Plan::default();
+        plan.datasets.push(PlanDataset {
+            slug: "reports".into(),
+            index: "prefix-reports".into(),
+            family: "pdf".into(),
+            group: None,
+            specs: Vec::new(),
+            time_field: None,
+            semantic_field: None,
+            sampled_records: 1,
+            file_count: 0,
+        });
+        journal.write_plan(&plan).unwrap();
+        journal
+    }
+
+    fn pending(journal: &Journal) -> PendingSync {
+        let base = journal.committed_manifest.as_ref().unwrap();
+        let mut plan = base.plan.clone();
+        plan.datasets[0].file_count = 1;
+        plan.files.insert(
+            "content-a".into(),
+            FileAssignment {
+                rel: "a.pdf".into(),
+                path_id: "unix:61".into(),
+                family: "pdf".into(),
+                gzip: false,
+                content_digest: Some("digest-a".into()),
+                assignments: vec![(None, "reports".into())],
+            },
+        );
+        PendingSync::new(
+            "sync-1".into(),
+            base,
+            GenerationManifest {
+                generation: base.generation + 1,
+                execution: Some(ExecutionIdentity {
+                    version: EXECUTION_IDENTITY_VERSION,
+                    root_identity: "unix:root".into(),
+                    url: "url".into(),
+                    prefix: "prefix".into(),
+                    follow_symlinks: false,
+                    chunker_identity: "chunker-v1".into(),
+                    embedding_backend: "lexical".into(),
+                    embedding_model: "feature-hash".into(),
+                    embedding_tokenizer: "builtin".into(),
+                    embedding_dimension: 384,
+                    graph_enabled: false,
+                    brain: "none".into(),
+                    detector_identity: "detectors-v1".into(),
+                    schema_identity: "schema-v1".into(),
+                    index_identity: "index-v1".into(),
+                    source_policy: SourceExecutionPolicy::AbortOnSourceChange {
+                        inventory_digest: "inventory-v1".into(),
+                    },
+                }),
+                plan,
+                groups: vec![ManifestGroup {
+                    group_id: "group-a".into(),
+                    content_id: "content-a".into(),
+                    content_digest: "digest-a".into(),
+                    content_size: 10,
+                    canonical: ManifestPath {
+                        path_id: "unix:61".into(),
+                        rel: "a.pdf".into(),
+                        is_symlink: false,
+                    },
+                    aliases: Vec::new(),
+                    dataset_slugs: vec!["reports".into()],
+                    expected_records: 1,
+                    expected_passages: 1,
+                    expected_vectors: 1,
+                }],
+            },
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn sync_begin_is_pending_and_never_promotes_the_committed_manifest() {
+        let _guard = SYNC_IO_FAILPOINT_TEST_LOCK.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let mut journal = journal_with_plan(dir.path());
+        let desired = pending(&journal);
+        journal.sync_begin(&desired).unwrap();
+        let before = std::fs::read(dir.path().join("journal.ndjson")).unwrap();
+        assert!(journal.write_plan(&Plan::default()).is_err());
+        assert_eq!(
+            std::fs::read(dir.path().join("journal.ndjson")).unwrap(),
+            before
+        );
+        assert_eq!(journal.committed_manifest.as_ref().unwrap().generation, 0);
+        assert!(!journal.plan.as_ref().unwrap().alias_paths_indexed);
+        drop(journal);
+
+        let reopened = Journal::open(dir.path(), "root", "url", "prefix", 300, false).unwrap();
+        assert_eq!(reopened.committed_manifest.as_ref().unwrap().generation, 0);
+        assert!(!reopened.plan.as_ref().unwrap().alias_paths_indexed);
+        assert_eq!(reopened.pending_sync.as_ref().unwrap().tx_id, "sync-1");
+    }
+
+    #[test]
+    fn replay_rejects_sync_begin_followed_by_legacy_plan_without_changing_authority() {
+        let _guard = SYNC_IO_FAILPOINT_TEST_LOCK.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let mut journal = journal_with_plan(dir.path());
+        journal.sync_begin(&pending(&journal)).unwrap();
+        let committed_digest = journal
+            .committed_manifest
+            .as_ref()
+            .unwrap()
+            .manifest_digest
+            .clone();
+        drop(journal);
+        let path = dir.path().join("journal.ndjson");
+        let mut file = std::fs::OpenOptions::new().append(true).open(path).unwrap();
+        file.write_all(
+            format!(
+                "{}\n",
+                serde_json::json!({"kind": "plan", "plan": Plan::default()})
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+        file.sync_data().unwrap();
+        drop(file);
+        let error = Journal::open(dir.path(), "root", "url", "prefix", 300, false)
+            .err()
+            .unwrap();
+        assert!(format!("{error:#}").contains("while a sync is pending"));
+        let preflight = Journal::preflight(dir.path(), "root", "url", "prefix")
+            .err()
+            .unwrap();
+        assert!(format!("{preflight:#}").contains("while a sync is pending"));
+        // The rejected record cannot manufacture a sync_commit; the durable
+        // committed digest remains present only in the earlier sync_begin base.
+        let text = std::fs::read_to_string(dir.path().join("journal.ndjson")).unwrap();
+        assert!(text.contains(&committed_digest));
+        assert!(!text.contains("\"kind\":\"sync_commit\""));
+    }
+
+    #[test]
+    fn only_validated_all_committed_sync_advances_authority_after_restart() {
+        let _guard = SYNC_IO_FAILPOINT_TEST_LOCK.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let mut journal = journal_with_plan(dir.path());
+        journal.sync_begin(&pending(&journal)).unwrap();
+        assert!(journal.sync_validated().is_err());
+        assert!(journal
+            .sync_operation_state("upsert:group-a", SyncOperationState::Committed)
+            .is_err());
+        journal
+            .sync_operation_state("upsert:group-a", SyncOperationState::Started)
+            .unwrap();
+        journal
+            .sync_operation_state("upsert:group-a", SyncOperationState::Committed)
+            .unwrap();
+        journal.sync_validated().unwrap();
+        journal.sync_commit().unwrap();
+        assert_eq!(journal.committed_manifest.as_ref().unwrap().generation, 1);
+        assert!(journal
+            .plan
+            .as_ref()
+            .unwrap()
+            .files
+            .contains_key("content-a"));
+        assert!(journal.pending_sync.is_none());
+        let before = std::fs::read(dir.path().join("journal.ndjson")).unwrap();
+        assert!(journal.write_plan(&Plan::default()).is_err());
+        assert_eq!(
+            std::fs::read(dir.path().join("journal.ndjson")).unwrap(),
+            before
+        );
+        drop(journal);
+
+        let reopened = Journal::open(dir.path(), "root", "url", "prefix", 300, false).unwrap();
+        assert_eq!(reopened.committed_manifest.as_ref().unwrap().generation, 1);
+        assert!(reopened
+            .plan
+            .as_ref()
+            .unwrap()
+            .files
+            .contains_key("content-a"));
+        assert!(reopened.pending_sync.is_none());
+    }
+
+    #[test]
+    fn digest_bound_abort_discards_pending_without_advancing_authority() {
+        let _guard = SYNC_IO_FAILPOINT_TEST_LOCK.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let mut journal = journal_with_plan(dir.path());
+        journal.sync_begin(&pending(&journal)).unwrap();
+        journal.sync_abort("source changed").unwrap();
+        assert!(journal.pending_sync.is_none());
+        assert_eq!(journal.committed_manifest.as_ref().unwrap().generation, 0);
+        drop(journal);
+        let reopened = Journal::open(dir.path(), "root", "url", "prefix", 300, false).unwrap();
+        assert!(reopened.pending_sync.is_none());
+        assert_eq!(reopened.committed_manifest.as_ref().unwrap().generation, 0);
+    }
+
+    #[test]
+    fn unknown_sync_namespace_record_fails_closed_but_preflight_exposes_pending() {
+        let _guard = SYNC_IO_FAILPOINT_TEST_LOCK.lock().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let mut journal = journal_with_plan(dir.path());
+        journal.sync_begin(&pending(&journal)).unwrap();
+        drop(journal);
+        let preflight = Journal::preflight(dir.path(), "root", "url", "prefix").unwrap();
+        assert_eq!(preflight.committed_manifest.as_ref().unwrap().generation, 0);
+        assert_eq!(preflight.pending_sync.as_ref().unwrap().tx_id, "sync-1");
+        drop(preflight);
+
+        let path = dir.path().join("journal.ndjson");
+        let mut file = std::fs::OpenOptions::new().append(true).open(path).unwrap();
+        file.write_all(b"{\"kind\":\"sync_future_v99\"}\n").unwrap();
+        file.sync_data().unwrap();
+        drop(file);
+        assert!(Journal::open(dir.path(), "root", "url", "prefix", 300, false).is_err());
+    }
+
+    #[test]
+    fn out_of_order_or_malformed_known_sync_records_fail_closed() {
+        for record in [
+            "{\"kind\":\"sync_commit\",\"tx_id\":\"none\",\"desired_manifest_digest\":\"none\"}\n",
+            "{\"kind\":\"sync_begin\"}\n",
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            drop(journal_with_plan(dir.path()));
+            let path = dir.path().join("journal.ndjson");
+            let mut file = std::fs::OpenOptions::new()
+                .append(true)
+                .open(&path)
+                .unwrap();
+            file.write_all(record.as_bytes()).unwrap();
+            file.sync_data().unwrap();
+            let error = Journal::open(dir.path(), "root", "url", "prefix", 300, false)
+                .err()
+                .unwrap();
+            let message = format!("{error:#}");
+            assert!(
+                message.contains("pending sync") || message.contains("sync_begin"),
+                "{message}"
+            );
+        }
+    }
+
+    #[test]
+    fn torn_sync_tail_is_removed_without_creating_a_pending_generation() {
+        let dir = tempfile::tempdir().unwrap();
+        drop(journal_with_plan(dir.path()));
+        let path = dir.path().join("journal.ndjson");
+        let durable_len = std::fs::metadata(&path).unwrap().len();
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .unwrap();
+        file.write_all(br#"{"kind":"sync_begin","tx_id":"torn""#)
+            .unwrap();
+        file.sync_data().unwrap();
+        drop(file);
+
+        let reopened = Journal::open(dir.path(), "root", "url", "prefix", 300, false).unwrap();
+        assert!(reopened.pending_sync.is_none());
+        assert_eq!(reopened.committed_manifest.as_ref().unwrap().generation, 0);
+        // Reopen appends one resume record, but the torn bytes are absent.
+        let contents = std::fs::read_to_string(path).unwrap();
+        assert!(!contents.contains("\"tx_id\":\"torn\""));
+        assert!(contents.len() as u64 > durable_len);
+    }
+
+    #[test]
+    fn complete_middle_corruption_is_not_truncated_or_skipped() {
+        let dir = tempfile::tempdir().unwrap();
+        drop(journal_with_plan(dir.path()));
+        let path = dir.path().join("journal.ndjson");
+        let before = std::fs::metadata(&path).unwrap().len();
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .unwrap();
+        file.write_all(b"{malformed sync record}\n").unwrap();
+        file.write_all(b"{\"kind\":\"unknown-after-corruption\"}\n")
+            .unwrap();
+        file.sync_data().unwrap();
+        drop(file);
+        assert!(Journal::open(dir.path(), "root", "url", "prefix", 300, false).is_err());
+        assert!(std::fs::metadata(path).unwrap().len() > before);
+    }
+
+    #[test]
+    fn unknown_future_records_do_not_change_legacy_completion_replay() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut journal = journal_with_plan(dir.path());
+        journal
+            .file_done(&FileDone {
+                file_key: "legacy".into(),
+                path: "legacy.pdf".into(),
+                records: 1,
+                junk: 0,
+                bytes: 10,
+                generation: None,
+            })
+            .unwrap();
+        drop(journal);
+        let path = dir.path().join("journal.ndjson");
+        let mut file = std::fs::OpenOptions::new().append(true).open(path).unwrap();
+        file.write_all(b"{\"kind\":\"extension_future_v99\",\"payload\":{\"x\":1}}\n")
+            .unwrap();
+        file.sync_data().unwrap();
+        drop(file);
+
+        let reopened = Journal::open(dir.path(), "root", "url", "prefix", 300, false).unwrap();
+        assert!(reopened.done.contains_key("legacy"));
+        assert_eq!(reopened.committed_manifest.as_ref().unwrap().generation, 0);
+    }
+
+    #[test]
+    fn sync_append_and_fsync_failures_roll_back_without_phantom_pending_state() {
+        let _guard = SYNC_IO_FAILPOINT_TEST_LOCK.lock().unwrap();
+        for boundary in [1, 2, 3] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut journal = journal_with_plan(dir.path());
+            let desired = pending(&journal);
+            let before = std::fs::read(dir.path().join("journal.ndjson")).unwrap();
+            fail_next_sync_io(boundary);
+            assert!(journal.sync_begin(&desired).is_err());
+            assert!(journal.pending_sync.is_none());
+            drop(journal);
+            assert_eq!(
+                std::fs::read(dir.path().join("journal.ndjson")).unwrap(),
+                before
+            );
+            let reopened = Journal::open(dir.path(), "root", "url", "prefix", 300, false).unwrap();
+            assert!(reopened.pending_sync.is_none());
+            assert_eq!(reopened.committed_manifest.as_ref().unwrap().generation, 0);
+        }
+    }
+
+    #[test]
+    fn every_later_sync_record_rolls_back_append_partial_and_fsync_failures() {
+        let _guard = SYNC_IO_FAILPOINT_TEST_LOCK.lock().unwrap();
+        for stage in ["operation", "validated", "commit", "abort"] {
+            for boundary in [1, 2, 3] {
+                let dir = tempfile::tempdir().unwrap();
+                let mut journal = journal_with_plan(dir.path());
+                journal.sync_begin(&pending(&journal)).unwrap();
+                if stage != "operation" {
+                    journal
+                        .sync_operation_state("upsert:group-a", SyncOperationState::Started)
+                        .unwrap();
+                    journal
+                        .sync_operation_state("upsert:group-a", SyncOperationState::Committed)
+                        .unwrap();
+                }
+                if matches!(stage, "commit") {
+                    journal.sync_validated().unwrap();
+                }
+                let before = std::fs::read(dir.path().join("journal.ndjson")).unwrap();
+                fail_next_sync_io(boundary);
+                let result = match stage {
+                    "operation" => {
+                        journal.sync_operation_state("upsert:group-a", SyncOperationState::Started)
+                    }
+                    "validated" => journal.sync_validated(),
+                    "commit" => journal.sync_commit(),
+                    "abort" => journal.sync_abort("test abort"),
+                    _ => unreachable!(),
+                };
+                assert!(result.is_err(), "{stage} boundary {boundary}");
+                assert_eq!(
+                    std::fs::read(dir.path().join("journal.ndjson")).unwrap(),
+                    before,
+                    "{stage} boundary {boundary}"
+                );
+                drop(journal);
+                let reopened =
+                    Journal::open(dir.path(), "root", "url", "prefix", 300, false).unwrap();
+                assert_eq!(reopened.committed_manifest.as_ref().unwrap().generation, 0);
+                assert!(reopened.pending_sync.is_some());
+            }
+        }
     }
 }
 
@@ -891,9 +1671,10 @@ mod compatibility_tests {
         let message = format!("{error:#}");
         assert!(message.contains("journal corruption"));
         // Recovery guidance must stay scoped and honest: byte-exact truncation
-        // keeps prior completions; discarding the journal re-embeds everything.
+        // keeps prior completions; an exact rebuild needs isolated state and
+        // destination identities.
         assert!(message.contains("truncate it to exactly"));
-        assert!(message.contains("re-extracts and re-embeds the entire corpus"));
+        assert!(message.contains("new --state-dir, new --prefix, and new --brain"));
     }
 
     #[test]

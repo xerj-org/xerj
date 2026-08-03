@@ -16,9 +16,11 @@ pub mod ids;
 pub mod infer;
 pub mod sniff;
 pub mod state;
+mod sync;
 pub mod walk;
 
 use anyhow::{Context, Result};
+use serde::Serialize;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Seek, Write};
@@ -35,6 +37,30 @@ use esclient::Es;
 use sniff::{Family, Sniffed};
 use state::{FileAssignment, FileDone, JunkFile, Plan, PlanDataset};
 
+#[derive(Debug, PartialEq, Eq)]
+struct CliErrorRoute {
+    exit_code: i32,
+    stdout: Option<String>,
+    stderr: Option<String>,
+}
+
+fn route_cli_error(error: &anyhow::Error, json_output: bool) -> CliErrorRoute {
+    if json_output {
+        if let Some(delta) = error.downcast_ref::<UnsupportedInventoryDeltaError>() {
+            return CliErrorRoute {
+                exit_code: 1,
+                stdout: Some(delta.to_json().to_string()),
+                stderr: None,
+            };
+        }
+    }
+    CliErrorRoute {
+        exit_code: 1,
+        stdout: None,
+        stderr: Some(format!("error: {error:#}")),
+    }
+}
+
 /// Entry point for the `xerj autoindex` subcommand (blocking; the server
 /// binary calls this via spawn_blocking). Returns the process exit code.
 pub fn run_cli() -> i32 {
@@ -47,6 +73,7 @@ pub fn run_cli() -> i32 {
             return 2;
         }
     };
+    let json_output = matches!(&cmd, Cmd::Index(cfg) if cfg.json);
     let res = match cmd {
         Cmd::Help => {
             cli::print_help();
@@ -59,8 +86,14 @@ pub fn run_cli() -> i32 {
     match res {
         Ok(code) => code,
         Err(e) => {
-            eprintln!("error: {e:#}");
-            1
+            let route = route_cli_error(&e, json_output);
+            if let Some(stdout) = route.stdout {
+                println!("{stdout}");
+            }
+            if let Some(stderr) = route.stderr {
+                eprintln!("{stderr}");
+            }
+            route.exit_code
         }
     }
 }
@@ -310,8 +343,10 @@ fn select_resume_plan_keys(
     for (key, assignment) in &plan.files {
         if let Some(previous) = planned_by_rel.insert(&assignment.rel, key) {
             anyhow::bail!(
-                "resume plan assigns path {} to both {} and {}; use --fresh after verifying the \
-                 existing index",
+                "resume plan assigns path {} to both {} and {}; refusing to discard history under \
+                 the same destination. For an isolated rebuild use a new --state-dir, new \
+                 --prefix, and new --brain when graph detection is enabled (or --no-graph); \
+                 explicitly validate and clean the shared catalog and old target",
                 assignment.rel,
                 previous,
                 key
@@ -320,8 +355,11 @@ fn select_resume_plan_keys(
         if !assignment.path_id.is_empty() {
             if let Some(previous) = planned_by_path_id.insert(&assignment.path_id, key) {
                 anyhow::bail!(
-                    "resume plan assigns one native path identity to both {} and {}; use --fresh \
-                     after verifying the existing index",
+                    "resume plan assigns one native path identity to both {} and {}; refusing to \
+                     discard history under the same destination. For an isolated rebuild use a \
+                     new --state-dir, new --prefix, and new --brain when graph detection is \
+                     enabled (or --no-graph); explicitly validate and clean the shared catalog \
+                     and old target",
                     previous,
                     key
                 );
@@ -359,9 +397,11 @@ fn select_resume_plan_keys(
                     anyhow::bail!(
                         "{} collides with legacy resume key {} already owned by {}. No documents \
                          were changed; remove or move one of these two files out of the corpus \
-                         and rerun — every other file keeps its resume state. Deleting the \
-                         journal at {} (or rerunning with --fresh) also clears the collision, \
-                         but re-extracts and re-embeds the entire corpus",
+                         and rerun — every other file keeps its resume state. Refusing to discard \
+                         history under the same destination. For an isolated rebuild use a new \
+                         --state-dir, new --prefix, and new --brain when graph detection is \
+                         enabled (or --no-graph); explicitly validate and clean the shared \
+                         catalog and old target. Journal: {}",
                         file.rel,
                         legacy_key,
                         assignment.rel,
@@ -390,6 +430,157 @@ fn select_resume_plan_keys(
         selected.push(key);
     }
     Ok(selected)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct InventoryDeltaEntry {
+    file_key: String,
+    path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct UnsupportedInventoryDelta {
+    added_content_groups: Vec<InventoryDeltaEntry>,
+    vanished_content_groups: Vec<InventoryDeltaEntry>,
+}
+
+#[derive(Debug)]
+struct UnsupportedInventoryDeltaError {
+    delta: UnsupportedInventoryDelta,
+    fresh_existing_plan: bool,
+}
+
+impl UnsupportedInventoryDeltaError {
+    fn to_json(&self) -> Value {
+        json!({
+            "schema": "xerj.autoindex.unsupported_sync_delta.v1",
+            "status": "error",
+            "error": if self.fresh_existing_plan {
+                "unsafe_fresh_existing_plan"
+            } else {
+                "unsupported_inventory_delta"
+            },
+            "message": if self.fresh_existing_plan {
+                "this attempt made no remote mutations; --fresh cannot discard an existing plan under the same destination because alias, path, graph, and stale-record cleanup knowledge would be lost; the existing destination may already be partial or stale"
+            } else {
+                "this attempt made no remote mutations because this autoindex plan cannot safely reconcile corpus membership changes; the existing destination may already be partial or stale"
+            },
+            "added_content_groups": self.delta.added_content_groups,
+            "vanished_content_groups": self.delta.vanished_content_groups,
+            "recovery": {
+                "exact_rebuild": "index with a new --state-dir, new --prefix, and (when graph detection is enabled) new --brain; alternatively add --no-graph. Validate the isolated target before switching readers",
+                "warning": "--fresh is not recovery or destination reconciliation. The global autoindex-catalog and old target are not cleaned automatically; validate and clean them explicitly"
+            }
+        })
+    }
+}
+
+impl std::fmt::Display for UnsupportedInventoryDeltaError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let render = |entries: &[InventoryDeltaEntry]| {
+            entries
+                .iter()
+                .map(|entry| format!("{} ({})", entry.path, entry.file_key))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        let reason = if self.fresh_existing_plan {
+            "`--fresh` cannot discard an existing plan under the same destination because alias, \
+             path, graph, and stale-record cleanup knowledge would be lost"
+        } else {
+            "corpus membership synchronization is not yet supported"
+        };
+        write!(
+            formatter,
+            "this attempt made no remote mutations; the existing destination may already be \
+             partial or stale. {reason}. Added \
+             content groups [{}]; vanished content groups [{}]. For an exact rebuild, index the \
+             current folder with a new --state-dir, a new --prefix, and, when graph detection is \
+             enabled, a new --brain (or use --no-graph). Validate the isolated target before \
+             switching readers. `--fresh` is not recovery or destination reconciliation; the \
+             global autoindex-catalog and old target require explicit validated cleanup",
+            render(&self.delta.added_content_groups),
+            render(&self.delta.vanished_content_groups)
+        )
+    }
+}
+
+impl std::error::Error for UnsupportedInventoryDeltaError {}
+
+impl UnsupportedInventoryDelta {
+    fn between(files: &[walk::FileEntry], keys: &[String], plan: &Plan) -> Self {
+        let current_keys: std::collections::HashSet<&str> = keys
+            .iter()
+            .filter(|key| !key.is_empty())
+            .map(String::as_str)
+            .collect();
+        let durable_keys: std::collections::HashSet<&str> = plan
+            .files
+            .keys()
+            .map(String::as_str)
+            .chain(plan.junk_files.iter().map(|junk| junk.file_key.as_str()))
+            .collect();
+
+        let mut added_content_groups: Vec<InventoryDeltaEntry> = files
+            .iter()
+            .zip(keys)
+            .filter(|(_, key)| !key.is_empty() && !durable_keys.contains(key.as_str()))
+            .map(|(file, key)| InventoryDeltaEntry {
+                file_key: key.clone(),
+                path: file.rel.clone(),
+            })
+            .collect();
+        let mut vanished_content_groups: Vec<InventoryDeltaEntry> = plan
+            .files
+            .iter()
+            .filter(|(key, _)| !current_keys.contains(key.as_str()))
+            .map(|(key, assignment)| InventoryDeltaEntry {
+                file_key: key.clone(),
+                path: assignment.rel.clone(),
+            })
+            .collect();
+        vanished_content_groups.extend(
+            plan.junk_files
+                .iter()
+                .filter(|junk| !current_keys.contains(junk.file_key.as_str()))
+                .map(|junk| InventoryDeltaEntry {
+                    file_key: junk.file_key.clone(),
+                    path: junk.rel.clone(),
+                }),
+        );
+
+        let stable_order = |left: &InventoryDeltaEntry, right: &InventoryDeltaEntry| {
+            left.path
+                .cmp(&right.path)
+                .then_with(|| left.file_key.cmp(&right.file_key))
+        };
+        added_content_groups.sort_by(stable_order);
+        vanished_content_groups.sort_by(stable_order);
+        Self {
+            added_content_groups,
+            vanished_content_groups,
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.added_content_groups.is_empty() && self.vanished_content_groups.is_empty()
+    }
+
+    fn into_error(self) -> anyhow::Error {
+        UnsupportedInventoryDeltaError {
+            delta: self,
+            fresh_existing_plan: false,
+        }
+        .into()
+    }
+
+    fn into_fresh_error(self) -> anyhow::Error {
+        UnsupportedInventoryDeltaError {
+            delta: self,
+            fresh_existing_plan: true,
+        }
+        .into()
+    }
 }
 
 fn alias_keys_to_reindex(
@@ -465,17 +656,21 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     let es = Es::with_bulk_timeout(&cfg.url, cfg.api_key.clone(), cfg.bulk_timeout_secs)?;
     es.ping()?;
 
-    let discovered_files = walk::walk(&cfg.root, cfg.follow_symlinks)?;
-    if discovered_files.is_empty() {
-        println!("no files found under {}", cfg.root.display());
-        return Ok((0, None));
-    }
     let root_str = cfg
         .root
         .canonicalize()
         .unwrap_or_else(|_| cfg.root.clone())
         .to_string_lossy()
         .to_string();
+    let state_dir = cfg
+        .state_dir
+        .clone()
+        .unwrap_or_else(|| state::default_state_dir(&root_str, &cfg.url, &cfg.prefix));
+    // Acquire state authority before discovery as well as hashing. A waiter
+    // must never classify a path snapshot taken while another owner was
+    // publishing or replacing the durable plan.
+    let preflight = state::Journal::preflight(&state_dir, &root_str, &cfg.url, &cfg.prefix)?;
+    let discovered_files = walk::walk(&cfg.root, cfg.follow_symlinks)?;
     if !cfg.quiet {
         eprintln!(
             "autoindex: {} files ({} MB) under {}",
@@ -484,13 +679,42 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
             root_str
         );
     }
-
-    let state_dir = cfg
-        .state_dir
-        .clone()
-        .unwrap_or_else(|| state::default_state_dir(&root_str, &cfg.url, &cfg.prefix));
-    let mut journal = state::Journal::open(
-        &state_dir,
+    if discovered_files.is_empty() && !preflight.journal_exists {
+        println!("no files found under {}", cfg.root.display());
+        return Ok((0, None));
+    }
+    let mut inventory = content::resolve(discovered_files)?;
+    if let Some(prior_plan) = preflight.plan.as_ref() {
+        let comparison_keys = if cfg.fresh {
+            inventory.keys.clone()
+        } else {
+            // Ordinary resume preserves planned-key identity for supported
+            // same-path replacement and legacy plans.
+            select_resume_plan_keys(
+                &inventory.files,
+                &inventory.keys,
+                prior_plan,
+                &state_dir.join("journal.ndjson"),
+            )?
+            .into_iter()
+            .zip(inventory.keys.iter())
+            .map(|(planned, current)| planned.unwrap_or_else(|| current.clone()))
+            .collect()
+        };
+        let delta =
+            UnsupportedInventoryDelta::between(&inventory.files, &comparison_keys, prior_plan);
+        if cfg.fresh {
+            // Even an apparently unchanged content-key set can have alias,
+            // path, graph, catalog, or partial-publication history that only
+            // the old plan can reconcile. Route 1 cannot safely discard it.
+            return Err(delta.into_fresh_error());
+        }
+        if !delta.is_empty() {
+            return Err(delta.into_error());
+        }
+    }
+    let mut journal = state::Journal::open_after_preflight(
+        preflight,
         &root_str,
         &cfg.url,
         &cfg.prefix,
@@ -498,6 +722,10 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         cfg.fresh,
     )?;
     let resumed_with_plan = journal.plan.is_some();
+    if inventory.files.is_empty() && !resumed_with_plan {
+        println!("no files found under {}", cfg.root.display());
+        return Ok((0, None));
+    }
     let run_id = journal.run_id.clone();
     if journal.resumed && !cfg.quiet {
         eprintln!(
@@ -510,7 +738,6 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
     // cannot prove byte identity across all supported local and network
     // filesystems. A metadata-only shortcut could leave stale live documents
     // forever after a same-size rewrite with restored or stale timestamps.
-    let mut inventory = content::resolve(discovered_files)?;
     let journal_path = journal.path().to_path_buf();
     let mut content_changed = std::collections::HashSet::new();
     let mut stale_alias_ids = Vec::new();
@@ -759,6 +986,20 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
         plan
     };
 
+    // A durable plan is a crash-resume boundary, not a folder-sync
+    // generation. Fail before index creation/mapping, replacement intent,
+    // graph invalidation, delete-by-query, bulk publication, refresh, or
+    // catalog writes when the current inventory adds or removes an entire
+    // canonical content group. Continuing would either silently skip new
+    // data or leave vanished source records searchable. Existing planned-key
+    // content replacement and crash repair remain supported.
+    if resumed_with_plan {
+        let delta = UnsupportedInventoryDelta::between(&files, &keys, &plan);
+        if !delta.is_empty() {
+            return Err(delta.into_error());
+        }
+    }
+
     if cfg.dry_run {
         println!("{}", serde_json::to_string_pretty(&plan)?);
         eprintln!("(dry run — nothing indexed)");
@@ -887,7 +1128,9 @@ pub fn run_index_report(cfg: IndexCfg) -> Result<(i32, Option<Value>)> {
                 rel: files[i].rel.clone(),
                 format: "unknown".into(),
                 status: "skipped".into(),
-                reason: "not in the frozen resume plan (re-run with --fresh to include new files)"
+                reason: "not in the frozen resume plan; no destination change was made. For an \
+                         exact rebuild use a new --state-dir, a new --prefix, and, when graph \
+                         detection is enabled, a new --brain (or use --no-graph)"
                     .into(),
                 bytes: files[i].size,
             });
@@ -2171,6 +2414,114 @@ mod section_label_tests {
 }
 
 #[cfg(test)]
+mod inventory_delta_tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn file(path: &str) -> walk::FileEntry {
+        walk::FileEntry {
+            path: PathBuf::from(path),
+            rel: path.to_owned(),
+            rel_id: format!("id:{path}"),
+            is_symlink: false,
+            size: 1,
+        }
+    }
+
+    fn assignment(path: &str) -> FileAssignment {
+        FileAssignment {
+            rel: path.to_owned(),
+            path_id: format!("id:{path}"),
+            family: "csv".into(),
+            gzip: false,
+            content_digest: Some(format!("digest:{path}")),
+            assignments: vec![(None, "rows".into())],
+        }
+    }
+
+    #[test]
+    fn classifier_is_empty_for_noop_and_sorts_added_and_vanished_groups() {
+        let mut plan = Plan::default();
+        plan.files.insert("keep".into(), assignment("keep.csv"));
+        assert!(
+            UnsupportedInventoryDelta::between(&[file("keep.csv")], &["keep".into()], &plan)
+                .is_empty()
+        );
+        plan.junk_files.push(JunkFile {
+            file_key: "junk".into(),
+            rel: "broken.pdf".into(),
+            format: "pdf".into(),
+            status: "junk".into(),
+            reason: "fixture".into(),
+            bytes: 1,
+        });
+        assert!(
+            UnsupportedInventoryDelta::between(
+                &[file("keep.csv"), file("broken.pdf")],
+                &["keep".into(), "junk".into()],
+                &plan,
+            )
+            .is_empty(),
+            "unchanged durable junk is not newly added content"
+        );
+
+        plan.files.insert("old-z".into(), assignment("z-old.csv"));
+        plan.files.insert("old-a".into(), assignment("a-old.csv"));
+        let delta = UnsupportedInventoryDelta::between(
+            &[
+                file("keep.csv"),
+                file("broken.pdf"),
+                file("z-new.csv"),
+                file("m-new.csv"),
+            ],
+            &["keep".into(), "junk".into(), "new-z".into(), "new-m".into()],
+            &plan,
+        );
+        assert_eq!(
+            delta
+                .added_content_groups
+                .iter()
+                .map(|entry| entry.path.as_str())
+                .collect::<Vec<_>>(),
+            ["m-new.csv", "z-new.csv"]
+        );
+        assert_eq!(
+            delta
+                .vanished_content_groups
+                .iter()
+                .map(|entry| entry.path.as_str())
+                .collect::<Vec<_>>(),
+            ["a-old.csv", "z-old.csv"]
+        );
+    }
+
+    #[test]
+    fn cli_error_routing_separates_typed_json_from_unrelated_human_errors() {
+        let typed = UnsupportedInventoryDelta {
+            added_content_groups: vec![InventoryDeltaEntry {
+                file_key: "key".into(),
+                path: "new.csv".into(),
+            }],
+            vanished_content_groups: Vec::new(),
+        }
+        .into_error();
+        let route = route_cli_error(&typed, true);
+        assert_eq!(route.exit_code, 1);
+        assert!(route.stderr.is_none());
+        let stdout = route.stdout.unwrap();
+        let value: Value = serde_json::from_str(&stdout).unwrap();
+        assert_eq!(value["schema"], "xerj.autoindex.unsupported_sync_delta.v1");
+        assert_eq!(value["error"], "unsupported_inventory_delta");
+
+        let unrelated = anyhow::anyhow!("endpoint unavailable");
+        let route = route_cli_error(&unrelated, true);
+        assert_eq!(route.exit_code, 1);
+        assert!(route.stdout.is_none());
+        assert_eq!(route.stderr.as_deref(), Some("error: endpoint unavailable"));
+    }
+}
+
+#[cfg(test)]
 mod duplicate_integration_tests {
     use super::*;
     use std::collections::HashSet;
@@ -2219,11 +2570,11 @@ mod duplicate_integration_tests {
         .unwrap_err();
         let message = format!("{error:#}");
         assert!(message.contains("collides with legacy resume key"));
-        // Recovery advice must stay scoped to the two colliding files and be
-        // honest that discarding the journal re-embeds the whole corpus.
+        // Recovery advice must stay scoped to the two colliding files and
+        // keep an exact rebuild isolated from the old destination.
         assert!(message.contains("remove or move one of these two files"));
         assert!(message.contains("/state/journal.ndjson"));
-        assert!(message.contains("re-extracts and re-embeds the entire corpus"));
+        assert!(message.contains("new --state-dir, new --prefix, and new --brain"));
     }
 
     #[test]

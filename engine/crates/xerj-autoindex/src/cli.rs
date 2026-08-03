@@ -53,6 +53,10 @@ pub enum Cmd {
     Help,
 }
 
+const FRESH_HELP: &str =
+    "start without resume state only when the selected state directory has no \
+durable plan; an existing plan is refused and destination records are never reset";
+
 pub fn print_help() {
     println!(
         "xerj autoindex — point it at any folder and make the contents AI-searchable, zero config\n\
@@ -74,7 +78,7 @@ pub fn print_help() {
                                   valid range 1..=3600)\n\
              --prefix <P>         index prefix (default ax)\n\
              --state-dir <PATH>   resume journal location (default ~/.xerj/autoindex/<hash>/)\n\
-             --fresh              ignore existing journal, restart (ids stay idempotent)\n\
+             --fresh              {fresh_help}\n\
              --follow-symlinks    follow symlinks (loop-safe); off by default\n\
              --max-file-gb <N>    skip+record oversized non-streamable files (default 2)\n\
              --sample <N>         records sampled per file for inference (default 500)\n\
@@ -109,8 +113,17 @@ pub fn print_help() {
              short/structured datasets may infer none). Use --dry-run or `autoindex map` to\n\
              confirm a semantic field before attributing an indexing result to embeddings.\n\
          \n\
+         RESUME POLICY:\n\
+             A durable plan supports no-op resume and same-path content replacement.\n\
+             Added or removed content groups are refused before remote mutation.\n\
+             An independent rebuild needs a new --state-dir, new --prefix, and, when\n\
+             graph detection is enabled, new --brain (or --no-graph). Validate before\n\
+             switching readers; the shared autoindex-catalog and old target require\n\
+             explicit, validated cleanup.\n\
+         \n\
          EXIT CODES: 0 complete; 3 completed-with-junk (junk recorded, never fatal);\n\
-                     2 usage; 1 endpoint unreachable / journal-config mismatch\n"
+                     2 usage; 1 endpoint/journal failure or unsupported corpus delta\n",
+        fresh_help = FRESH_HELP
     );
 }
 
@@ -297,6 +310,13 @@ mod tests {
     #[test]
     fn bulk_timeout_defaults_to_300_seconds() {
         assert_eq!(index(&["data"]).bulk_timeout_secs, 300);
+    }
+
+    #[test]
+    fn fresh_help_warns_that_it_is_not_destination_reconciliation() {
+        assert!(super::FRESH_HELP.contains("no durable plan"));
+        assert!(super::FRESH_HELP.contains("existing plan is refused"));
+        assert!(super::FRESH_HELP.contains("destination records are never reset"));
     }
 
     #[test]

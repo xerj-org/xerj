@@ -78,7 +78,7 @@ In another terminal, index a corpus:
 target/release/xerj autoindex /path/to/corpus \
   --url http://localhost:9200 \
   --prefix finance-onnx \
-  --fresh
+  --state-dir /path/to/new-finance-onnx-state
 
 target/release/xerj autoindex map \
   --url http://localhost:9200 \
@@ -142,9 +142,11 @@ with the same assets. XERJ refuses:
 - enabling ONNX in place on a populated marker-less semantic index;
 - caller-supplied derived vectors whose identity cannot be verified.
 
-The error tells the operator to restore the original assets or re-run
-autoindex with `--fresh` and a new prefix. XERJ never silently mixes vector
-spaces.
+The error tells the operator to restore the original assets or perform an
+isolated autoindex rebuild with a new state directory, new prefix, and new
+brain when graph detection is enabled (or `--no-graph`). Validate the new
+target before switching readers; the shared catalog and old target require
+explicit, validated cleanup. XERJ never silently mixes vector spaces.
 
 ## Throughput controls
 
