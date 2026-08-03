@@ -7,7 +7,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.0-rc.10] - 2026-08-02
+## [1.0.0-rc.10] - 2026-08-03
+
+### Security
+
+- **The Console data-sources proxy is no longer a way around a brain** (#149).
+  The Console router is merged onto the engine routers after their layers are
+  applied, so `authz_middleware` never ran on it and no index-visibility scope
+  was installed; its only filter matched `.xerj_` (underscore) and therefore
+  missed the reserved `.xerj-memory-` namespace. Any authenticated Console
+  session of any role could read another tenant's second-brain documents, and
+  the indices/fields listings leaked brain names and mappings. All three
+  handlers now refuse the reserved namespace with the same `404` a system index
+  gets, and the prefix moved to `xerj-common` so there is one definition.
+
+- **Snapshot and restore can no longer reach another tenant** (#152).
+  `authorize_expression` waved every wildcard through before consulting the
+  principal's grants. That is sound where the engine expands a pattern over the
+  caller's visible set, but `create_snapshot` walks the index map itself and
+  `restore_snapshot` expands against the snapshot manifest and then removes and
+  rewrites the index directory, never passing the visibility funnel. A
+  non-superuser `POST /_snapshot/{repo}/{snap}/_restore {"indices":".xerj-memory-*"}`
+  therefore rolled every tenant's brain back to the backup instant. Patterns on
+  those two verbs are now decided up front: one that may reach the reserved
+  namespace requires an explicit grant, exactly as an index template's
+  `index_patterns` already did. Narrower patterns are untouched.
+  The create handler also read `indices` only in its array spelling, so the
+  string form ES equally accepts fell through to "absent" and captured the whole
+  node; both spellings now parse, and patterns resolve against the
+  visibility-filtered index list. (This also fixes `{"indices":["*"]}`
+  previously producing an empty snapshot.)
+
+- **Scripted updates are bounded by the same script budget as search** (#153).
+  `_update` and `_update_by_query` reach Painless through
+  `transform_document_serialized`, which established neither the request
+  deadline nor the fault sink, so every evaluation fell back to its own full
+  slice. With a fresh context per `;`-separated statement, a script's cost
+  multiplied by its statement count and again by the hit count, and
+  `wait_for_completion=false` detached the whole thing with no ceiling. One
+  deadline now governs the request, faults are captured once rather than per
+  document, and the hit loop stops at the deadline and reports `timed_out`
+  honestly instead of a hardcoded `false`.
+
+### Fixed
+
+- **A client disconnect can no longer brick an index** (#150).
+  `index_document` held the collection-publication guard across
+  `self.schema.read().await`, the only suspension point between `begin()` and
+  `commit()`. The PUT handler runs inline on the connection task, so a
+  disconnect dropped that future; parked behind schema evolution's write lock
+  the drop landed inside the interval and left the guard `Pending`, setting a
+  sticky poison flag. Every later read and write on that index then failed
+  permanently, and `_close`/`_open` do not reconstruct the index, so only a
+  process restart recovered. The schema guard is now taken before the interval,
+  which contains no `await` at all and cannot be cancelled part-way. Storage
+  failures that occur before any visibility mutation now cancel the publication
+  instead of poisoning it, so a transient disk error fails one request.
+
+- **Columnar aggregations no longer drop a segment's documents** (#151, #143).
+  `field_needs_brute_fallback` kept the fast path whenever any flushed segment
+  carried a field's doc-values column, but array suppression is decided per
+  segment, and the executors skip a column-less segment. Indexing scalar values,
+  refreshing, then indexing array values and refreshing produced a terms
+  aggregation that silently omitted the second segment's documents; term
+  predicates and numeric metrics undercounted the same way. Coverage must now be
+  total, and the check moved into `seg_field_kind` so it also covers sub-metric
+  fields, `top_hits` sort fields, `matrix_stats` fields and composite sources.
+
+### Thanks
+
+- @Nicolas0315 for four detailed, measured performance reports (#144, #145,
+  #146, #147) on fuzzy/wildcard term expansion, top-k scoring and the unused
+  skip table, the `bbq_*`/`int8_hnsw` mapping contract, and filtered kNN never
+  reaching the HNSW graph. Each arrived with a standalone harness and honest
+  caveats. They are tracked for the following release rather than rushed into
+  this one.
+
 
 ### Changed — runtime-field types (can break existing mappings)
 
