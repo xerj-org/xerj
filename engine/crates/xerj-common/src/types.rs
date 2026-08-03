@@ -173,6 +173,28 @@ impl AsRef<str> for IndexName {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// The reserved index namespace
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Index-name prefix reserved for agent-memory namespaces and second brains.
+///
+/// This lives here — not in `xerj-api::authz`, where the namespace is
+/// enforced on the data plane — because more than one HTTP surface has to
+/// know it: `xerj-console-api`'s data-sources proxy talks to the engine
+/// in-process, outside `xerj-api`'s middleware stack, and the two crates
+/// are deliberately decoupled peers (neither may depend on the other).
+/// `xerj-common` is the one crate both already share, so the prefix cannot
+/// drift between the surfaces that guard it. `xerj-api::authz` re-exports
+/// both names; the writers of the name (`memory_api::MEMORY_PREFIX`,
+/// `graph_api::edges_index`) still resolve to this single definition.
+pub const RESERVED_INDEX_PREFIX: &str = ".xerj-memory-";
+
+/// Is `index` inside the reserved namespace?
+pub fn is_reserved_index(index: &str) -> bool {
+    index.starts_with(RESERVED_INDEX_PREFIX)
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // Field types
 // ═════════════════════════════════════════════════════════════════════════════
 

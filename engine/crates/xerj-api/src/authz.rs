@@ -139,15 +139,13 @@ use xerj_engine::rbac::Privilege;
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Index-name prefix reserved for agent-memory namespaces (`memory_api`) and
-/// second brains (`graph_api`). Kept in one place so the three writers of the
-/// name — `memory_api::MEMORY_PREFIX`, `graph_api::edges_index` and this
-/// module — cannot drift.
-pub const RESERVED_INDEX_PREFIX: &str = ".xerj-memory-";
-
-/// Is `index` inside the reserved namespace?
-pub fn is_reserved_index(index: &str) -> bool {
-    index.starts_with(RESERVED_INDEX_PREFIX)
-}
+/// second brains (`graph_api`), and the predicate over it. The definition
+/// lives in `xerj-common` because `xerj-console-api`'s data-sources proxy —
+/// a decoupled peer of this crate that reaches the engine outside this
+/// module's middleware — must refuse the same namespace; re-exported here so
+/// the writers of the name (`memory_api::MEMORY_PREFIX`,
+/// `graph_api::edges_index`) and this module keep one definition.
+pub use xerj_common::types::{is_reserved_index, RESERVED_INDEX_PREFIX};
 
 /// The edges index backing brain `brain` (SECOND_BRAIN_SPEC §1). This is the
 /// resource name a `role_descriptors` grant must name to unlock

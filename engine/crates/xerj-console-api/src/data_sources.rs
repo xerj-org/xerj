@@ -34,6 +34,19 @@ use crate::response::ok;
 use crate::state::ConsoleState;
 use crate::time::now_iso;
 
+/// Indices the data-sources surface must pretend do not exist: the Console's
+/// own `.xerj_*` system indices, and the reserved `.xerj-memory-*` namespace
+/// holding per-tenant brains / agent memories. The latter is enforced on the
+/// data plane by `xerj-api`'s authz middleware, but the Console router is
+/// merged onto the engine routers *after* their layers, so that middleware
+/// never runs here and the in-process engine calls below carry no visibility
+/// scope (absent guard = engine-internal work, allow). This proxy is
+/// therefore its own boundary and must refuse the namespace itself — with
+/// the same NotFound as a system index, so existence doesn't leak.
+fn is_hidden_index(name: &str) -> bool {
+    indices::is_system_index(name) || xerj_common::types::is_reserved_index(name)
+}
+
 /// Connection record — one row in `.xerj_connections`. Phase-3 only
 /// surfaces the built-in adapter; adding new connections lands once the
 /// AEAD-at-rest path for `auth.secret` is implemented.
@@ -123,11 +136,11 @@ pub async fn list_indices(
     }
 
     // Walk the engine's indices via its public listing surface.  Skip
-    // `.xerj_*` system indices — they are an implementation detail,
-    // not user data sources.
+    // `.xerj_*` system indices and reserved `.xerj-memory-*` brains (see
+    // `is_hidden_index`) — neither is a user data source.
     let mut items: Vec<Value> = Vec::new();
     for name in state.engine.index_name_list() {
-        if indices::is_system_index(&name) {
+        if is_hidden_index(&name) {
             continue;
         }
         let idx = match state.engine.get_index(&name) {
@@ -167,7 +180,7 @@ pub async fn list_fields(
             "connection '{conn_id}' adapter not yet implemented"
         )));
     }
-    if indices::is_system_index(&index) {
+    if is_hidden_index(&index) {
         return Err(ConsoleApiError::NotFound(format!("index {index}")));
     }
     let idx = state
@@ -238,7 +251,7 @@ pub async fn search(
                 .into(),
         ));
     }
-    if indices::is_system_index(&index) {
+    if is_hidden_index(&index) {
         return Err(ConsoleApiError::NotFound(format!("index {index}")));
     }
     let idx = state
