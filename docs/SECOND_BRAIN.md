@@ -495,14 +495,25 @@ To grant brain `alice` to a key, name both of its indices at mint time. The
 second name is the nodes index, needed for `ego`'s node hydration and
 `overview`'s note count:
 
+Unlike the examples above, this one needs a secured server. Only a superuser can
+mint a scoped key (`es_compat.rs:25507-25522`), so present the admin key XERJ
+wrote to `<data_dir>/admin.key`:
+
 ```bash
 curl -s -X POST 'http://localhost:9200/_security/api_key' \
+  -H "Authorization: ApiKey $(cat ./data/admin.key)" \
   -H 'Content-Type: application/json' \
   -d '{"name": "alice-agent",
        "role_descriptors": {"alice": {"indices": [
          {"names": [".xerj-memory-alice-edges", ".xerj-memory-alice"],
           "privileges": ["read", "write"]}]}}}'
 ```
+
+Minting against an `--insecure` server does return a key, but the key grants
+nothing narrower than everything: open mode resolves every caller to a superuser
+before any credential is examined (`auth.rs:220-222`), so the grant above is
+never consulted. Brain isolation only exists on a server with `auth.enabled` and
+an admin key configured.
 
 A denial is an ES-shaped 403 with `error.type` `security_exception`
 (`authz.rs:242`), naming the resource, the action and the grant that would fix

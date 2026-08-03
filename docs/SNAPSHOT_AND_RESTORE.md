@@ -134,7 +134,7 @@ is superuser-only; see [Authorization](#authorization).
 
 For each selected index the engine flushes the memtable and then copies the
 index directory recursively: WAL files, segment files, and the schema, settings
-and `es_mapping.json` files (`engine.rs:1626-1688`). The flush happens
+and `es_mapping.json` files (`engine.rs:1669-1690`). The flush happens
 immediately before that index's own copy, inside the per-index loop, so indices
 are captured at different instants. There is no cross-index point-in-time
 consistency, and no lock stops writes arriving during the copy.
@@ -160,14 +160,19 @@ the same JSON written to `manifest.json` (`es_compat.rs:23256-23260`,
     "version": "8.13.0",
     "indices": ["logs-2026-08"],
     "state": "SUCCESS",
-    "start_time_in_millis": 0,
-    "end_time_in_millis": 0,
-    "duration_in_millis": 0,
+    "start_time_in_millis": 1754265600123,
+    "end_time_in_millis": 1754265601047,
+    "duration_in_millis": 924,
     "failures": [],
     "shards": {"total": 1, "failed": 0, "successful": 1}
   }
 }
 ```
+
+The timestamps are real. `start_time_in_millis` is sampled before the flush and
+copy work begins and `end_time_in_millis` after it finishes, so
+`duration_in_millis` is the elapsed wall-clock time of the copy
+(`engine.rs:1655`, `engine.rs:1692`, `engine.rs:1702`).
 
 The `shards` counts are index counts, not shard counts: all three are derived
 from the length of the index list (`engine.rs:1704-1707`). `version` is the

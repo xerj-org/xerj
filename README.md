@@ -154,6 +154,19 @@ cargo run --release -p es-yaml-runner -- --dir tests/es-compat-yaml/yaml
 - [Roadmap and project layout](./ROADMAP.md)
 - [Changelog](./CHANGELOG.md)
 
+Reference pages for individual subsystems, written against the source and
+including the limits each one does not lift:
+
+- [Second brain](./docs/SECOND_BRAIN.md) for the relationship layer over
+  indexed documents: the `/_graph` routes, evidence on links, the seven
+  detectors and the two-hop cap.
+- [Scripting](./docs/SCRIPTING.md) for the Painless subset, where scripts run,
+  and the resource limits that bound them.
+- [Snapshot and restore](./docs/SNAPSHOT_AND_RESTORE.md) for the supported
+  subset of the snapshot API, and what restore replaces.
+- [Security model](./docs/SECURITY_MODEL.md) for authentication, the reserved
+  `.xerj-memory-*` namespace, API keys and what is not enforced.
+
 ## Contributing
 
 Pull requests are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the
