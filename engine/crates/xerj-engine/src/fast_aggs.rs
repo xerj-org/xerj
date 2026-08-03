@@ -278,12 +278,16 @@ fn dotted_suffix_diverges_from_brute(cols: &super::DocValueMap, field: &str) -> 
     false
 }
 
-/// True when `field` is a name fast_aggs cannot resolve to any column at any
-/// depth — neither the exact name nor its `.keyword`-stripped form (see
-/// `SegEntry::col`) in any segment — yet brute's `get_field_value` still
-/// resolves it, so answering it columnarly would report empty where brute
-/// reports data. A free function (not a `FastCtx` method) so it's testable
-/// without constructing a full `FastCtx`, which needs a real `&Index`.
+/// True when `field` is a name fast_aggs cannot resolve to a column —
+/// neither the exact name nor its `.keyword`-stripped form (see
+/// `SegEntry::col`) — in EVERY flushed segment, yet brute's
+/// `get_field_value` still resolves it, so answering it columnarly would
+/// drop data brute reports. Coverage is judged per segment (#143): the
+/// executors `continue` past a column-less segment, so a single segment
+/// missing the column already loses that segment's docs even when every
+/// other segment carries it. A free function (not a `FastCtx` method) so
+/// it's testable without constructing a full `FastCtx`, which needs a real
+/// `&Index`.
 ///
 /// Three ways brute out-resolves the columnar path, all bailed here:
 ///
@@ -300,7 +304,11 @@ fn dotted_suffix_diverges_from_brute(cols: &super::DocValueMap, field: &str) -> 
 ///   (`tags` / `tags.raw`): `build_doc_value_columns` ships NO column for an
 ///   array-poisoned field, so brute reads the `_source` array while the
 ///   columnar path sees no column — indistinguishable at the column level
-///   from a genuine absence, hence the schema check below.
+///   from a genuine absence, hence the schema check below.  Suppression is
+///   decided per segment, so the same field can be covered in one segment
+///   and suppressed in the next (scalar docs flushed first, array docs
+///   later); partial coverage must bail exactly like total absence, which
+///   is why the coverage check demands ALL segments, not ANY.
 ///
 /// `mapped_fields` — see `FastCtx::mapped_fields` — is the schema signal that
 /// separates those last two (present-but-uncolumned) from a genuine absence:
@@ -317,15 +325,25 @@ fn field_needs_brute_fallback(
     {
         return true;
     }
-    if segs.iter().any(|s| s.col(field).is_some()) {
+    // Column coverage must be judged PER SEGMENT (#143): array-suppression
+    // in `build_doc_value_columns` drops a column for exactly the segments
+    // whose docs hold arrays under the field, so one scalar-only segment
+    // carrying the column proves nothing about the others — the executors
+    // `continue` past a column-less segment, silently dropping its docs.
+    // Only full coverage keeps the fast path; the earlier "ANY segment has
+    // it" check was the undercount.
+    if !segs.is_empty() && segs.iter().all(|s| s.col(field).is_some()) {
         return false;
     }
-    // No column at any depth in any segment. Bail iff brute would still
-    // resolve it — i.e. the exact name (a suppressed top-level array such as
-    // `tags`, or a flat dotted field name) or, for a dotted path, its
-    // top-level root (`geo` for `geo.city`, `tags` for `tags.raw`) is a
-    // field the schema maps. A name whose root is unmapped is genuinely
-    // absent and stays on the fast path as a real empty result.
+    // The column is missing from at least one segment. Bail iff brute would
+    // still resolve the name — i.e. the exact name (a suppressed top-level
+    // array such as `tags`, or a flat dotted field name) or, for a dotted
+    // path, its top-level root (`geo` for `geo.city`, `tags` for `tags.raw`)
+    // is a field the schema maps: at the column level a per-segment
+    // suppression is indistinguishable from the field being absent from that
+    // segment's docs, and only the suppressed case has data for brute to
+    // find. A name whose root is unmapped is genuinely absent everywhere and
+    // stays on the fast path as a real empty result.
     let root = field.split_once('.').map_or(field, |(r, _)| r);
     mapped_fields.contains(field) || mapped_fields.contains(root)
 }
@@ -814,20 +832,25 @@ impl<'a> FastCtx<'a> {
     /// The column kind of `field` across all segments.  `Ok(None)` = the
     /// field appears in no segment.  Mixed numeric/keyword → `Err` (bail).
     ///
-    /// `Err` is also returned for a multi-field suffix, at any depth, that a
-    /// brute resolver resolves by stripping and the columnar path does not
-    /// ([`dotted_suffix_diverges_from_brute`]).  Every caller already treats
-    /// `Err` as "bail to brute", and every executor that reads a column for
-    /// an agg TARGET gates on this first, so one check here closes the whole
-    /// target surface — including the sites that `continue` past a
-    /// column-less segment (`exec_terms`, `exec_date_histogram`) rather than
-    /// bailing, which is how an aggregation target silently under-returned.
+    /// `Err` is also returned for any name [`field_needs_brute_fallback`]
+    /// flags — a multi-field suffix a brute resolver strips, a nested-object
+    /// leaf, or a mapped field whose column is missing from one or more
+    /// segments (per-segment array suppression, #143).  Every caller already
+    /// treats `Err` as "bail to brute", and every executor that reads a
+    /// column for an agg TARGET gates on this first, so one check here
+    /// closes the whole target surface — including the sites that `continue`
+    /// past a column-less segment (`exec_terms`, `exec_date_histogram`, the
+    /// sub-metric fold) rather than bailing, which is how an aggregation
+    /// target silently under-returned.  That matters for the field names
+    /// `exec_agg`'s own `params["field"]` gate never sees: sub-metric fields
+    /// (`plan_subs`), `top_hits` sort fields, `matrix_stats` `fields` and
+    /// composite `sources` all reach columns only through here.
     fn seg_field_kind(&self, field: &str) -> std::result::Result<Option<ColKind>, ()> {
+        if field_needs_brute_fallback(field, &self.segs, self.mapped_fields) {
+            return Err(());
+        }
         let mut kind: Option<ColKind> = None;
         for s in &self.segs {
-            if dotted_suffix_diverges_from_brute(&s.cols, field) {
-                return Err(());
-            }
             let k = match s.col(field) {
                 Some(Column::Numeric(_)) => ColKind::Numeric,
                 Some(Column::Keyword(_)) => ColKind::Keyword,
@@ -6046,6 +6069,86 @@ mod range_kw_tests {
             &[seg],
             &mapped_fields(&["tags"])
         ));
+    }
+
+    /// #143: array suppression is PER-SEGMENT — `build_doc_value_columns`
+    /// drops the column for exactly the segments whose docs hold arrays under
+    /// the field — so a scalar-only segment carrying the column proves
+    /// nothing about the others.  The executors `continue` past a column-less
+    /// segment, so anything short of FULL coverage must bail: the old
+    /// "ANY segment has it" check silently dropped the suppressed segment's
+    /// docs from terms buckets, predicates and metric folds.
+    #[test]
+    fn mixed_segment_suppressed_field_needs_fallback() {
+        let covered = || {
+            let mut cols = std::collections::BTreeMap::new();
+            cols.insert(
+                "tags".to_string(),
+                Column::Keyword(KeywordColumn::from_iter(vec![Some("a".to_string())]).unwrap()),
+            );
+            cols.insert(
+                "score".to_string(),
+                Column::Numeric(NumericColumn::from_iter(vec![Some(
+                    5.0_f64.to_bits() as i64
+                )])),
+            );
+            seg_with_cols(cols)
+        };
+        let suppressed = || seg_with_cols(std::collections::BTreeMap::new());
+        let mapped = mapped_fields(&["tags", "score"]);
+        // `tags.keyword` resolves through `dv_col`'s parent fallback in the
+        // covered segment but not in the suppressed one, so it must bail the
+        // same way the flat name does; `score` is the numeric-metric analogue.
+        for field in ["tags", "tags.keyword", "score"] {
+            assert!(
+                field_needs_brute_fallback(field, &[covered(), suppressed()], &mapped),
+                "`{field}` has no column in ONE segment while that segment's \
+                 docs still exist — a single covered segment must not veto \
+                 the bail"
+            );
+        }
+        // Controls, both sides of the line:
+        // full coverage stays fast — this is the common all-scalar corpus and
+        // the perf-preserving half of the fix;
+        assert!(
+            !field_needs_brute_fallback("tags", &[covered(), covered()], &mapped),
+            "a column present in EVERY segment needs no fallback"
+        );
+        // and an UNMAPPED name missing from a segment is a genuine absence
+        // (never indexed — dynamic mapping would have mapped it), so it stays
+        // on the fast path as a real empty result rather than paying brute.
+        assert!(
+            !field_needs_brute_fallback("unmapped", &[covered(), suppressed()], &mapped),
+            "an unmapped name is genuinely absent — partial coverage of OTHER \
+             fields must not send it to brute"
+        );
+    }
+
+    /// The predicate half of #143: resolving a term predicate against the
+    /// SUPPRESSED segment's columns must bail the request (`None`), not
+    /// assert `SegPred::Never` — that segment's `_source` arrays hold rows
+    /// brute matches.
+    #[test]
+    fn mixed_segment_suppressed_predicate_bails_instead_of_matching_nothing() {
+        let mut cols = std::collections::BTreeMap::new();
+        cols.insert(
+            "tags".to_string(),
+            Column::Keyword(KeywordColumn::from_iter(vec![Some("a".to_string())]).unwrap()),
+        );
+        let segs = vec![
+            seg_with_cols(cols),
+            seg_with_cols(std::collections::BTreeMap::new()),
+        ];
+        let mapped = mapped_fields(&["tags"]);
+        let pred = Pred::TermKw {
+            field: "tags".into(),
+            value: "b".into(),
+        };
+        assert!(
+            resolve_pred(&segs[1].cols, &pred, &segs, &mapped).is_none(),
+            "the suppressed segment's rows can match `tags:b` — the miss must \
+             bail to brute, not resolve to Never"
+        );
     }
 
     /// The already-fixed `.keyword` multi-field case (`extension.keyword`)
