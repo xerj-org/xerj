@@ -644,6 +644,136 @@ mod collection_publication_fail_closed_tests {
             .await
             .is_ok());
     }
+
+    /// RC10 B0 — a client disconnect drops the in-flight PUT future. If the
+    /// begin()..commit() interval contains an await (the FTS schema read,
+    /// parked whenever schema evolution holds the write lock), the drop lands
+    /// inside the interval and the Pending guard poisons the index
+    /// permanently. The interval must stay free of suspension points so a
+    /// dropped PUT either never entered it or already committed.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn dropped_put_parked_on_region_schema_read_does_not_poison() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("put-drop", text_schema()).unwrap();
+        let idx = engine.get_index("put-drop").unwrap();
+        idx.abort_background_tasks();
+        idx.index_document(Some("one".into()), json!({"body": "alpha"}))
+            .await
+            .unwrap();
+
+        // Hold the PUT inside the publication interval, after the WAL/version
+        // map write and before the FTS memtable write.
+        let (entered_tx, entered_rx) = std::sync::mpsc::sync_channel(1);
+        let (resume_tx, resume_rx) = std::sync::mpsc::sync_channel(1);
+        let entered_tx = parking_lot::Mutex::new(Some(entered_tx));
+        let resume_rx = parking_lot::Mutex::new(Some(resume_rx));
+        idx.set_publication_test_hook(Some(Arc::new(move |id, point| {
+            if id == "two" && point == PublicationTestPoint::AfterWalVersionMap {
+                entered_tx.lock().take().unwrap().send(()).unwrap();
+                resume_rx.lock().take().unwrap().recv().unwrap();
+            }
+        })));
+        let writer_idx = Arc::clone(&idx);
+        let writer = tokio::spawn(async move {
+            writer_idx
+                .index_document(Some("two".into()), json!({"body": "beta"}))
+                .await
+        });
+        tokio::task::spawn_blocking(move || entered_rx.recv().unwrap())
+            .await
+            .unwrap();
+
+        // Queue a schema writer while the PUT sits inside the interval. On
+        // the defective shape the interval's schema read comes AFTER this
+        // point, so the resumed PUT parks behind the writer at an await
+        // inside begin()..commit() — exactly where a disconnect-triggered
+        // drop lands. On the fixed shape the PUT already holds the schema
+        // read, so the writer stays queued (the timeout below fires) and the
+        // interval runs without suspension points.
+        let (writer_release_tx, writer_release_rx) = tokio::sync::oneshot::channel::<()>();
+        let (acquired_tx, acquired_rx) = tokio::sync::oneshot::channel::<()>();
+        let schema_idx = Arc::clone(&idx);
+        let schema_writer = tokio::spawn(async move {
+            let guard = schema_idx.schema.write().await;
+            let _ = acquired_tx.send(());
+            let _ = writer_release_rx.await;
+            drop(guard);
+        });
+        let _ = tokio::time::timeout(std::time::Duration::from_millis(500), acquired_rx).await;
+
+        resume_tx.send(()).unwrap();
+        // Let the resumed PUT run to its next suspension point (defective
+        // shape: the parked schema read inside the interval) before dropping
+        // its future.
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        writer.abort();
+        let _ = writer.await;
+        let _ = writer_release_tx.send(());
+        let _ = schema_writer.await;
+        idx.set_publication_test_hook(None);
+
+        assert!(
+            !idx.collection_publication.state().2,
+            "dropped in-flight PUT poisoned the publication authority"
+        );
+        assert_eq!(
+            idx.get_document("one").await.unwrap().unwrap()["body"],
+            "alpha"
+        );
+        idx.index_document(Some("three".into()), json!({"body": "gamma"}))
+            .await
+            .unwrap();
+        let request = xerj_query::parse_request(&json!({
+            "query": {"match": {"body": "gamma"}}, "size": 10
+        }))
+        .unwrap();
+        assert_eq!(idx.search(&request).await.unwrap().total.value, 1);
+    }
+
+    /// RC10 B0b — a transient storage failure between begin() and the first
+    /// visibility mutation must fail that request alone. Propagating it with
+    /// `?` dropped the guard Pending and poisoned the index permanently even
+    /// though nothing was published.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn wal_admission_error_inside_publication_fails_only_that_request() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("put-wal-error", text_schema()).unwrap();
+        let idx = engine.get_index("put-wal-error").unwrap();
+        idx.index_document(Some("one".into()), json!({"body": "alpha"}))
+            .await
+            .unwrap();
+
+        let result = idx
+            .index_document(
+                Some("__fail_wal_inside_publication".into()),
+                json!({"body": "beta"}),
+            )
+            .await;
+        assert!(result.is_err());
+        assert!(
+            !idx.collection_publication.state().2,
+            "pre-mutation storage error poisoned the publication authority"
+        );
+        assert!(idx
+            .store
+            .version_map
+            .get("__fail_wal_inside_publication")
+            .is_none());
+        assert_eq!(
+            idx.get_document("one").await.unwrap().unwrap()["body"],
+            "alpha"
+        );
+        idx.index_document(Some("two".into()), json!({"body": "gamma"}))
+            .await
+            .unwrap();
+        assert!(idx.get_document("two").await.unwrap().is_some());
+    }
 }
 
 #[cfg(test)]
@@ -5028,6 +5158,22 @@ impl Index {
         Ok(())
     }
 
+    /// (Test-only) model the WAL rejecting an append inside the publication
+    /// interval, before any visibility mutation — see
+    /// `wal_admission_error_inside_publication_fails_only_that_request`.
+    #[cfg(test)]
+    fn wal_admission_test_fault(
+        &self,
+        id: &str,
+    ) -> std::result::Result<(), xerj_storage::StorageError> {
+        if id == "__fail_wal_inside_publication" {
+            return Err(xerj_storage::StorageError::Backend(
+                "injected WAL admission failure inside publication".into(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Create a new index at `data_dir/<name>`.
     pub fn create(
         name: IndexName,
@@ -5866,14 +6012,39 @@ impl Index {
             .map(|e| !e.deleted)
             .unwrap_or(false);
 
+        // Take the FTS schema read guard BEFORE entering the publication
+        // interval. Parked here — behind schema evolution's write lock, which
+        // `evolve_schema_from_doc` takes every ~100 docs or on any new field —
+        // this was the interval's ONLY suspension point, so a dropped PUT
+        // future (a client disconnect) landed *inside* begin()..commit() and
+        // left the guard Pending, which poisons the index for good. Acquired
+        // out here the interval below contains no `.await` at all and cannot
+        // be cancelled part-way. The guard is released immediately after the
+        // memtable write, before `evolve_schema_from_doc` wants it for writing.
+        let schema_guard = self.schema.read().await;
+
         // Enter only after validation/preparation, immediately before the
         // first authoritative visibility mutation.
         let mut collection_publication = self
             .collection_publication
             .begin()
             .map_err(|_| collection_publication_interrupted())?;
-        // Write to storage WAL.
-        let seq_no = self.store.index(&doc_id, source.clone())?;
+        // Write to storage WAL. A failure here happens before any visibility
+        // mutation, so cancel the publication rather than dropping the guard
+        // Pending: a transient storage error must fail this request alone, not
+        // brick the index until the process restarts.
+        #[cfg(test)]
+        if let Err(e) = self.wal_admission_test_fault(&doc_id) {
+            collection_publication.cancel();
+            return Err(e.into());
+        }
+        let seq_no = match self.store.index(&doc_id, source.clone()) {
+            Ok(seq_no) => seq_no,
+            Err(e) => {
+                collection_publication.cancel();
+                return Err(e.into());
+            }
+        };
         // External-version admission becomes durable only after the WAL write
         // succeeds. Publishing it before `store.index` would poison an exact
         // retry when WAL append fails.
@@ -5884,13 +6055,14 @@ impl Index {
         #[cfg(test)]
         self.publication_test_point(&doc_id, PublicationTestPoint::AfterWalVersionMap);
 
-        // Write to FTS memtable.
+        // Write to FTS memtable, then release the schema read guard so schema
+        // evolution below can take it for writing.
         {
-            let schema_guard = self.schema.read().await;
             let mem = &*self.memtable;
             mem.remove(&doc_id);
             mem.insert(doc_id.clone(), &source, &schema_guard.schema, seq_no);
         }
+        drop(schema_guard);
         #[cfg(test)]
         self.publication_test_point(&doc_id, PublicationTestPoint::AfterFts);
 
@@ -11834,7 +12006,17 @@ impl Index {
         // the delete will mutate publication state. A rejected conditional
         // delete must not make unrelated cached responses look stale.
         self.dataset_version.fetch_add(1, Ordering::Release);
-        let deleted_seq = self.store.delete(id)?;
+        // As on the index path: a storage failure here precedes every
+        // visibility mutation (the bump above only invalidates caches, which
+        // is conservative), so cancel instead of leaving the guard Pending and
+        // poisoning the index for every later request.
+        let deleted_seq = match self.store.delete(id) {
+            Ok(deleted_seq) => deleted_seq,
+            Err(e) => {
+                collection_publication.cancel();
+                return Err(e.into());
+            }
+        };
         #[cfg(test)]
         self.publication_test_point(id, PublicationTestPoint::AfterWalVersionMap);
         let existed = deleted_seq.is_some();
