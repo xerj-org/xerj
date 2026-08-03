@@ -1760,6 +1760,21 @@ mod merge_publication_transaction_tests {
     use crate::Engine;
     use tempfile::TempDir;
 
+    /// Wait for a publication test barrier, bounded.
+    ///
+    /// These barriers block a tokio worker thread on purpose, and an unbounded
+    /// `recv()` turns "the code never reached this point" into a hang. On CI
+    /// that surfaced as a job cancelled at the six-hour ceiling with nothing in
+    /// the log but "has been running for over 60 seconds". Bounded, the same
+    /// bug is a ten-second failure naming the point it waited for.
+    #[track_caller]
+    fn await_barrier<T>(rx: &std::sync::mpsc::Receiver<T>, what: &str) -> T {
+        match rx.recv_timeout(std::time::Duration::from_secs(20)) {
+            Ok(v) => v,
+            Err(e) => panic!("publication barrier `{what}` never fired ({e:?})"),
+        }
+    }
+
     fn config(dir: &TempDir) -> xerj_common::config::Config {
         let mut config = xerj_common::config::Config::default();
         config.server.data_dir = dir.path().to_string_lossy().into_owned();
@@ -1997,12 +2012,12 @@ mod merge_publication_transaction_tests {
         index.set_publication_test_hook(Some(Arc::new(move |_, point| {
             if point == PublicationTestPoint::MergeAfterRepoint {
                 entered_tx.lock().take().unwrap().send(()).unwrap();
-                resume_rx.lock().take().unwrap().recv().unwrap();
+                await_barrier(&resume_rx.lock().take().unwrap(), "resume");
             }
         })));
         let merge_index = Arc::clone(&index);
         let merge = tokio::spawn(async move { merge_index.run_merge_once().await });
-        tokio::task::spawn_blocking(move || entered_rx.recv().unwrap())
+        tokio::task::spawn_blocking(move || await_barrier(&entered_rx, "entered"))
             .await
             .unwrap();
         let read_index = Arc::clone(&index);
