@@ -173,6 +173,100 @@ impl<'a> EsSyncBackend<'a> {
         }
         Ok(total)
     }
+
+    fn exact_semantic_count(&self, group: &ManifestGroup, plan: &Plan) -> Result<u64> {
+        let by_slug: HashMap<&str, &crate::state::PlanDataset> = plan
+            .datasets
+            .iter()
+            .map(|dataset| (dataset.slug.as_str(), dataset))
+            .collect();
+        let mut total = 0u64;
+        for slug in &group.dataset_slugs {
+            let dataset = by_slug
+                .get(slug.as_str())
+                .copied()
+                .with_context(|| format!("group references absent dataset {slug}"))?;
+            let Some(field) = &dataset.semantic_field else {
+                continue;
+            };
+            let response = self.es.search(
+                &dataset.index,
+                &serde_json::json!({
+                    "size": 0,
+                    "track_total_hits": true,
+                    "query": {"bool": {"must": [
+                        {"term": {"ax_file": &group.content_id}},
+                        {"exists": {"field": field}}
+                    ]}}
+                }),
+            )?;
+            total = total
+                .checked_add(
+                    response
+                        .pointer("/hits/total/value")
+                        .and_then(Value::as_u64)
+                        .context("semantic validation response has no total hit count")?,
+                )
+                .context("semantic validation count overflow")?;
+        }
+        Ok(total)
+    }
+
+    fn reconcile_file_catalog(
+        &self,
+        old: Option<&ManifestGroup>,
+        new: Option<&ManifestGroup>,
+        desired: &GenerationManifest,
+    ) -> Result<()> {
+        for content_id in old
+            .into_iter()
+            .map(|group| group.content_id.as_str())
+            .chain(new.into_iter().map(|group| group.content_id.as_str()))
+        {
+            self.es.delete_by_query(
+                crate::catalog::CATALOG_INDEX,
+                &serde_json::json!({"term": {"file_key": content_id}}),
+            )?;
+        }
+        let Some(group) = new else {
+            return Ok(());
+        };
+        let assignment = desired
+            .plan
+            .files
+            .get(&group.content_id)
+            .context("catalog group has no desired file assignment")?;
+        let format = if assignment.gzip {
+            format!("{}(gzip)", assignment.family)
+        } else {
+            assignment.family.clone()
+        };
+        let (id, doc) = crate::catalog::file_doc(
+            &group.content_id,
+            &group.canonical.rel,
+            &format,
+            "indexed",
+            None,
+            group.expected_records,
+            0,
+            group.content_size,
+            &format!("generation-{}", desired.generation),
+        );
+        let mut body = Vec::new();
+        append_index_action(crate::catalog::CATALOG_INDEX, &id, &doc, &mut body)?;
+        for alias in &group.aliases {
+            let (id, doc) = crate::catalog::duplicate_file_doc(
+                &group.content_id,
+                &alias.rel,
+                &alias.path_id,
+                &group.canonical.rel,
+                group.content_size,
+                &format!("generation-{}", desired.generation),
+            );
+            append_index_action(crate::catalog::CATALOG_INDEX, &id, &doc, &mut body)?;
+        }
+        checked_bulk(self.es, body)
+    }
 }
 
 impl SyncOperationBackend for EsSyncBackend<'_> {
@@ -202,7 +296,7 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
             crate::sync::SyncOperationKind::Delete => self.delete_group(
                 old.context("delete operation has no committed group")?,
                 &base.plan,
-            ),
+            )?,
             crate::sync::SyncOperationKind::Upsert => {
                 if let Some(old) = old {
                     self.delete_group(old, &base.plan)?;
@@ -210,13 +304,16 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
                 let new = new.context("upsert operation has no desired group")?;
                 // Remove a partial prior retry of the desired identity too.
                 self.delete_group(new, &desired.plan)?;
-                self.replay_prepared(snapshot, &new.content_id)
+                self.replay_prepared(snapshot, &new.content_id)?;
             }
-            crate::sync::SyncOperationKind::Metadata => self.replay_metadata(
-                base,
-                new.context("metadata operation has no desired group")?,
-            ),
+            crate::sync::SyncOperationKind::Metadata => {
+                self.replay_metadata(
+                    base,
+                    new.context("metadata operation has no desired group")?,
+                )?;
+            }
         }
+        self.reconcile_file_catalog(old, new, desired)
     }
 
     fn validate(
@@ -228,10 +325,31 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
         for dataset in &desired.plan.datasets {
             self.es.refresh(&dataset.index)?;
         }
+        self.es.refresh(crate::catalog::CATALOG_INDEX)?;
         for group in &desired.groups {
             anyhow::ensure!(
                 self.exact_group_count(group, &desired.plan)? == group.expected_records,
                 "live record count disagrees with desired group {}",
+                group.group_id
+            );
+            let semantic = self.exact_semantic_count(group, &desired.plan)?;
+            anyhow::ensure!(
+                semantic == group.expected_passages && semantic == group.expected_vectors,
+                "live semantic count disagrees with desired group {}",
+                group.group_id
+            );
+            let catalog = self.es.search(
+                crate::catalog::CATALOG_INDEX,
+                &serde_json::json!({
+                    "size": 0,
+                    "track_total_hits": true,
+                    "query": {"term": {"file_key": &group.content_id}}
+                }),
+            )?;
+            anyhow::ensure!(
+                catalog.pointer("/hits/total/value").and_then(Value::as_u64)
+                    == Some(1 + group.aliases.len() as u64),
+                "catalog canonical/alias count disagrees with desired group {}",
                 group.group_id
             );
         }
@@ -418,6 +536,17 @@ fn checked_bulk(es: &crate::esclient::Es, body: Vec<u8>) -> Result<()> {
             .first_error
             .unwrap_or_else(|| "unknown error".into())
     );
+    Ok(())
+}
+
+fn append_index_action(index: &str, id: &str, doc: &Value, body: &mut Vec<u8>) -> Result<()> {
+    serde_json::to_writer(
+        &mut *body,
+        &serde_json::json!({"index": {"_index": index, "_id": id}}),
+    )?;
+    body.push(b'\n');
+    serde_json::to_writer(&mut *body, doc)?;
+    body.push(b'\n');
     Ok(())
 }
 
