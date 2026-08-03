@@ -982,8 +982,10 @@ pub struct LimitsConfig {
     /// past the cap.
     pub max_buckets: usize,
     /// Process-wide ceiling on the total bytes buffered across ALL indices'
-    /// memtables (default: `0` = auto-derive to 25% of system RAM, floored
-    /// at 2048 MiB). This is the parent circuit breaker for the ingest path:
+    /// memtables (default: `0` = auto-derive to 25% of the effective
+    /// cgroup/system memory limit, floored at 2048 MiB, capped at 50% of
+    /// that same limit). This is the parent circuit breaker for the ingest
+    /// path:
     /// per-index back-pressure only bounds one index at `~3×flush_size_mb`,
     /// so `N` indices could buffer `N × 1.5 GiB` with no global ceiling —
     /// the structural cause of the 112 GiB OOM. When the summed memtable
@@ -1029,7 +1031,7 @@ impl Default for LimitsConfig {
             max_result_window: 10_000,
             max_mget_docs: 10_000,
             max_buckets: 65_536,
-            max_total_memtable_mb: 0, // 0 = auto-derive (25% RAM, floor 2 GiB)
+            max_total_memtable_mb: 0, // 0 = auto-derive (25% effective limit, floor 2 GiB, cap 50%)
             max_segment_hydration_cache_mb: 0, // 0 = 20% effective memory, no floor
             memory_watermark_percent: 95,
             disk_flood_stage_percent: 95,

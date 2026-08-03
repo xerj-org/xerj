@@ -379,6 +379,21 @@ pub struct GovernorSnapshot {
     pub max_concurrent_bulks: usize,
 }
 
+/// Auto-derive the memtable byte ceiling from the effective (cgroup-aware)
+/// memory limit: 25% of the limit, floored at 2 GiB, but never past 50% of
+/// the same limit. The 50% cap keeps the floor itself from exceeding the
+/// container under a small enough effective limit.
+///
+/// `effective_limit` must already be the cgroup-aware value (see
+/// `effective_memory_limit_bytes`) — this function has no way to detect a
+/// host-RAM value passed in by mistake, so getting that argument right is
+/// the caller's responsibility.
+fn auto_memtable_budget(effective_limit: u64) -> u64 {
+    (effective_limit / 4)
+        .max(2 * 1024 * 1024 * 1024)
+        .min(effective_limit / 2)
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum SegmentHydrationBudgetSource {
     Auto,
@@ -480,16 +495,22 @@ pub fn global() -> Option<Arc<ResourceGovernor>> {
 fn build(config: &Config) -> ResourceGovernor {
     let limits = &config.limits;
 
-    // ── memtable budget: 0 = auto-derive to 25% RAM, floored at 2 GiB ──
+    // ── RSS watermark against the effective memory limit ──
+    let memory_limit_bytes = effective_memory_limit_bytes();
+
+    // ── memtable budget: 0 = auto-derive from the effective (cgroup-aware)
+    // memory limit — see `auto_memtable_budget`. Must be derived from the
+    // same effective limit as every sibling budget in this function, not
+    // raw host RAM: `/proc/meminfo` is not namespace-virtualized, so a
+    // host-RAM-based ceiling silently ignores any cgroup / `systemd-run -p
+    // MemoryMax=` cap smaller than the host's physical RAM. The 2 GiB floor
+    // needs its own ceiling for the same reason — it can exceed the whole
+    // effective limit under a small enough cap on its own.
     let memtable_budget_bytes = if limits.max_total_memtable_mb != 0 {
         limits.max_total_memtable_mb.saturating_mul(1024 * 1024)
     } else {
-        let sys = system_total_bytes();
-        (sys / 4).max(2 * 1024 * 1024 * 1024)
+        auto_memtable_budget(memory_limit_bytes)
     };
-
-    // ── RSS watermark against the effective memory limit ──
-    let memory_limit_bytes = effective_memory_limit_bytes();
     let resolved_segment_hydration = resolve_segment_hydration_budget(
         memory_limit_bytes,
         limits.max_segment_hydration_cache_mb,
@@ -801,6 +822,35 @@ mod tests {
         assert_eq!(zero.bytes, 8 * GIB / 5);
         assert_eq!(zero.source, SegmentHydrationBudgetSource::Auto);
         assert!(zero.warning.is_some());
+    }
+
+    /// Regression test for the bug fixed in this PR: `auto_memtable_budget`
+    /// must be derived from the effective (cgroup-aware) limit passed in,
+    /// not from raw host RAM read separately inside the function. Before
+    /// the fix this formula lived inline in `build()` and called
+    /// `system_total_bytes()` directly, so it had no coverage at all —
+    /// this table pins the exact values a reviewer reproduced live on a
+    /// real cgroup-v2 host (1 GiB cap → 512 MiB, not the pre-fix ~30 GiB).
+    #[test]
+    fn auto_memtable_budget_is_cgroup_proportional_and_bounded() {
+        const GIB: u64 = 1024 * 1024 * 1024;
+        let cases = [
+            (1 * GIB, 512 * 1024 * 1024),
+            (4 * GIB, 2 * GIB),
+            (8 * GIB, 2 * GIB),
+            (64 * GIB, 16 * GIB),
+        ];
+        for (effective_limit, expected) in cases {
+            let budget = auto_memtable_budget(effective_limit);
+            assert_eq!(
+                budget, expected,
+                "auto_memtable_budget({effective_limit}) = {budget}, expected {expected}"
+            );
+            assert!(
+                budget <= effective_limit / 2,
+                "auto_memtable_budget({effective_limit}) = {budget} exceeds 50% of the limit"
+            );
+        }
     }
 
     #[test]
